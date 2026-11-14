@@ -16,7 +16,7 @@ end
 fn label(id: Identifier) -> String
     case id
         Identifier.UserId(name) -> "user:${name}"
-        Identifier.Anonymous -> "anonymous"
+        Identifier.Anonymous    -> "anonymous"
     end
 end
 

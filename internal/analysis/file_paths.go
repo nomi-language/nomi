@@ -273,17 +273,26 @@ func (b *builder) listDirectory(root string, path []string) *DirectoryError {
 }
 
 // stdDirectory is the standard library's root as a directory: the modules
-// a program may import.
+// a program may import (publicStdModules), a nested one spelled from the
+// root (`storage::testing`).
 func (b *builder) stdDirectory() *DirectoryError {
-	out := &DirectoryError{}
+	return &DirectoryError{Files: b.publicStdModules()}
+}
+
+// publicStdModules is the std modules a program may import, sorted, each
+// spelled from std's root with `::` (`io`, `storage::testing`): every
+// module but the prelude, an internal one (`fs::host`) and one under a
+// directory or file whose name starts with `_`.
+func (b *builder) publicStdModules() []string {
+	var out []string
 	for _, name := range b.stdlibModuleNames() {
-		if strings.Contains(name, "/") || name == "prelude" || strings.HasPrefix(name, "_") {
+		if name == "prelude" || strings.HasPrefix(name, "_") || strings.Contains(name, "/_") {
 			continue
 		}
 		if _, internal := internalStdModules[name]; internal {
 			continue
 		}
-		out.Files = append(out.Files, name)
+		out = append(out, strings.ReplaceAll(name, "/", ast.PathSeparator))
 	}
 	return out
 }

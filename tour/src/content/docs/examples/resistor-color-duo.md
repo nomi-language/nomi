@@ -32,22 +32,22 @@ end
 pub fn value(bands: List<Color>) -> Maybe<Int>
     case bands
         [first, second, ..] -> Some(digit(first) * 10 + digit(second))
-        _ -> None
+        _                   -> None
     end
 end
 
 fn digit(color: Color) -> Int
     case color
-        .Black -> 0
-        .Brown -> 1
-        .Red -> 2
+        .Black  -> 0
+        .Brown  -> 1
+        .Red    -> 2
         .Orange -> 3
         .Yellow -> 4
-        .Green -> 5
-        .Blue -> 6
+        .Green  -> 5
+        .Blue   -> 6
         .Violet -> 7
-        .Grey -> 8
-        .White -> 9
+        .Grey   -> 8
+        .White  -> 9
     end
 end
 
@@ -59,13 +59,13 @@ end
 
 test "value"
     [
-        ("Brown and black", [Color.Brown, .Black], 10),
-        ("Blue and grey", [.Blue, .Grey], 68),
-        ("Yellow and violet", [.Yellow, .Violet], 47),
-        ("White and red", [.White, .Red], 92),
-        ("Orange and orange", [.Orange, .Orange], 33),
-        ("Ignore additional colors", [.Green, .Brown, .Orange], 51),
-        ("Black and brown, one-digit", [.Black, .Brown], 1),
+        ("Brown and black",            [Color.Brown, .Black],     10),
+        ("Blue and grey",              [.Blue, .Grey],            68),
+        ("Yellow and violet",          [.Yellow, .Violet],        47),
+        ("White and red",              [.White, .Red],            92),
+        ("Orange and orange",          [.Orange, .Orange],        33),
+        ("Ignore additional colors",   [.Green, .Brown, .Orange], 51),
+        ("Black and brown, one-digit", [.Black, .Brown],          1),
     ]
     |> subtests (description, bands, expected), description
         assert resistor_color_duo.value(bands) == Some(expected)

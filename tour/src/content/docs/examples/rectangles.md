@@ -78,8 +78,8 @@ import rectangles
 
 test "rectangles"
     [
-        ("no rows", [], 0),
-        ("no columns", [""], 0),
+        ("no rows",       [],    0),
+        ("no columns",    [""],  0),
         ("no rectangles", [" "], 0),
         (
             "one rectangle",

@@ -29,7 +29,7 @@ end
 // Result-returning function and main discharges it with a `case`. That is a
 // property of `main`, not of these types.
 fn run() -> Result<Unit, Error>
-    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"?
+    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
 
     // Two zones, one instant. The renderings differ and the values do not.
@@ -71,9 +71,9 @@ fn run() -> Result<Unit, Error>
     // stronger claim anyway — it pins WHICH error, where a rendered string could
     // come from any of the five.
     case DateTime.with_zone(ny, "Not/A_Zone")
-        Ok(_d) -> io.print("bad_zone = unexpectedly ok")
+        Ok(_d)                    -> io.print("bad_zone = unexpectedly ok")
         Err(Error.UnknownZone(z)) -> io.print("bad_zone = unknown zone: " + z)
-        Err(_other) -> io.print("bad_zone = wrong variant")
+        Err(_other)               -> io.print("bad_zone = wrong variant")
     end
 
     // The bracket suffix is required: a bare-offset string is an OffsetDateTime
@@ -102,7 +102,7 @@ fn run() -> Result<Unit, Error>
     // not lower yet. rt/calendar_test.go pins the instant-only ORDER at the
     // representation level instead, and putting it here would refuse the whole
     // fixture rather than one line.
-    earlier = DateTime"2026-06-15T11:00:00-04:00[America/New_York]"?
+    earlier = DateTime"2026-06-15T11:00:00-04:00[America/New_York]"
     io.print("earlier_ne = " + Bool.to_string(earlier != ny))
     io.print("tokyo_ne = " + Bool.to_string(tokyo != ny))
     Ok(Unit)
@@ -110,7 +110,7 @@ end
 
 fn main()
     case run()
-        Ok(_u) -> Unit
+        Ok(_u)  -> Unit
         Err(_e) -> io.print("FAILED")
     end
 end

@@ -75,7 +75,7 @@ end
 fn divide_by_positive(x: Int, divisor: Int) -> Int
     case Int.to_positive(divisor)
         .Some(p) -> Int.divide(x, PositiveInt.to_non_zero(p))
-        .None -> 0
+        .None    -> 0
     end
 end
 

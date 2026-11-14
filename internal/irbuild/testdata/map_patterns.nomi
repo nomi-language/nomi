@@ -75,7 +75,7 @@ fn main()
 
     computed = case {2 => "computed"}
         {base + 1 => v} -> v
-        _ -> "?"
+        _               -> "?"
     end
 
     io.print("computed key = ${computed}")
@@ -117,7 +117,7 @@ end
 fn single(m: Map<String, String>) -> String
     case m
         {"mode" => "debug"} -> "debug"
-        _ -> "not debug"
+        _                   -> "not debug"
     end
 end
 
@@ -134,7 +134,7 @@ fn first_of(m: Map<String, Int>) -> String
     case m
         {"a" => n} -> "a=${n}"
         {"b" => n} -> "b=${n}"
-        _ -> "neither"
+        _          -> "neither"
     end
 end
 
@@ -153,14 +153,14 @@ end
 fn by_pair(m: Map<(Int, Int), String>) -> String
     case m
         {(3, 4) => v} -> v
-        _ -> "?"
+        _             -> "?"
     end
 end
 
 fn by_colour(m: Map<Colour, String>) -> String
     case m
         {Colour.Green => v} -> v
-        _ -> "?"
+        _                   -> "?"
     end
 end
 
@@ -169,7 +169,7 @@ type Id Int
 fn by_id(m: Map<Id, String>) -> String
     case m
         {Id(5) => v} -> v
-        _ -> "?"
+        _            -> "?"
     end
 end
 
@@ -192,14 +192,14 @@ end
 fn distinct_flat(kv: Kvs) -> String
     case kv
         Kvs{"a" => v} -> "a=${v}"
-        _ -> "?"
+        _             -> "?"
     end
 end
 
 fn distinct_call(kv: Kvs) -> String
     case kv
         Kvs({"b" => v}) -> "b=${v}"
-        _ -> "?"
+        _               -> "?"
     end
 end
 
@@ -209,6 +209,6 @@ end
 fn distinct_bare(kv: Kvs) -> String
     case kv
         {"a" => v} -> "bare a=${v}"
-        _ -> "bare miss"
+        _          -> "bare miss"
     end
 end

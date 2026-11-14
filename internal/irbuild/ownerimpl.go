@@ -27,10 +27,11 @@ import (
 // (`Box.seven()`) cannot select, and builds no inherent block on an interface
 // at all, since an interface is no receiver kind. So the owner functions of
 // such a block are held apart, in a def with no receiver that is built once
-// and reached by the owner's name (qualImplPlan, sameImplPlan), and the
-// per-instance registration leaves them out. A function with its own type
-// parameters is withheld from that def as any impl function's is, and each
-// call instantiates it (genericMethodItem).
+// and reached by the owner's name (qualImplPlan), and the per-instance
+// registration leaves them out. A function with its own type parameters is
+// withheld from that def as any impl function's is, and each call
+// instantiates it (genericMethodItem). A bare call from the same block is
+// the type-qualified call (bareImplCall).
 
 // namesBlockParam reports whether fd's signature or one of its `where`
 // clauses names one of block, the type parameters an impl block's receiver

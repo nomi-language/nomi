@@ -32,7 +32,7 @@ func partnerDeriveProject(t *testing.T) incrementalProject {
 // written again, and a derive the partner already makes.
 func partnerDeriveSteps() []editStep {
 	return []editStep{
-		replace("partner field added", "todos", "    note: Maybe<String>\n", "    note: Maybe<String>\n    extra: Tag\n"),
+		replace("partner field added", "todos", "    note:  Maybe<String>\n", "    note:  Maybe<String>\n    extra: Tag\n"),
 		replace("partner field of an imported type", "todos", "    extra: Tag\n", "    extra: Maybe<Uuid>\n"),
 		restore("partner restored", "todos"),
 		replace("test derive dropped", "todos_test", "derive Equatable for TodoJson\n", ""),

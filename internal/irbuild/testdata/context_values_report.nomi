@@ -41,14 +41,14 @@ type Marker
 fn trace_of(c: Context) -> String
     case Context.value(c, TraceId)
         Some(TraceId(id)) -> id
-        None -> "none"
+        None              -> "none"
     end
 end
 
 fn subject_of(c: Context) -> String
     case Context.value(c, Subject)
         Some(Subject(s)) -> s
-        None -> "none"
+        None             -> "none"
     end
 end
 
@@ -89,7 +89,7 @@ test "an Int is keyed by Int"
 
     assert case Context.value(c, Int)
         Some(n) -> n == 7
-        None -> False
+        None    -> False
     end
 
     assert Context.value(c, TraceId) == None

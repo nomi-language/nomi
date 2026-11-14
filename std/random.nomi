@@ -83,7 +83,7 @@ impl Seed
     /// reach for `from_int` in tests.
     pub fn from_os() -> Result<Seed, Error>
         case os_state()
-            Ok(state) -> Ok(Seed(state))
+            Ok(state)   -> Ok(Seed(state))
             Err(reason) -> Err(Error.OsEntropy{reason:})
         end
     end
@@ -345,7 +345,7 @@ fn pick_weighted<T>(first: (Float, T), rest: List<(Float, T)>, target: Float) ->
         x
     else
         case rest
-            [] -> x
+            []             -> x
             [next, ..tail] -> pick_weighted(next, tail, target - w)
         end
     end

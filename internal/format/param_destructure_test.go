@@ -63,14 +63,21 @@ func TestFmt_Distinct_KeepsMismatchedAnnotation(t *testing.T) {
 	fmtContains(t, "fn f(Dur(x): other) -> Int\n    x\nend\n", "Dur(x): other")
 }
 
-// A parameter written as its type alone, `fn stats(Request)`, stays the type
-// alone, in every kind of parameter list, with a default too.
+// A parameter written as its type alone, `fn stats(Request)` or
+// `fn f(Vector<Int>)`, stays the type alone, in every kind of parameter
+// list and whatever form the type is written in, with a default too.
 func TestFmt_TypeOnlyParam(t *testing.T) {
 	cases := []struct{ src, want string }{
 		{"fn stats(Request, n: Int) -> Int\n    n\nend\n", "fn stats(Request, n: Int) -> Int\n    n\nend\n"},
 		{"f = fn Request -> 1\n", "f = fn Request -> 1\n"},
 		{"interface I\n    fn g(v: self, Request) -> Int\nend\n", "interface I\n    fn g(v: self, Request) -> Int\nend\n"},
 		{"fn f(Label = Label{}) -> Int\n    1\nend\n", "fn f(Label = Label{}) -> Int\n    1\nend\n"},
+		{"fn f(Vector<Int>, n: Int) -> Int\n    n\nend\n", "fn f(Vector<Int>, n: Int) -> Int\n    n\nend\n"},
+		{"fn f(n: Int, Map< Int,Int >) -> Int\n    n\nend\n", "fn f(n: Int, Map<Int, Int>) -> Int\n    n\nend\n"},
+		{"fn f(http.Request, mod.Box<Int>) -> Int\n    1\nend\n", "fn f(http.Request, mod.Box<Int>) -> Int\n    1\nend\n"},
+		{"fn f((Int,String), (Int) -> Int, {x: Int}) -> Int\n    1\nend\n", "fn f((Int, String), (Int) -> Int, {x: Int}) -> Int\n    1\nend\n"},
+		{"f = fn Vector<Int>, (Int, String) -> 1\n", "f = fn Vector<Int>, (Int, String) -> 1\n"},
+		{"interface I\n    fn g(v: self, List<Int>) -> Int\nend\n", "interface I\n    fn g(v: self, List<Int>) -> Int\nend\n"},
 	}
 	for _, c := range cases {
 		fmtEq(t, c.src, c.want)

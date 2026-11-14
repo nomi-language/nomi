@@ -212,3 +212,88 @@ end
         (else_clause
           (block
             (integer)))))))
+
+================================================================================
+A construction compared after if is an expression, not a pattern
+================================================================================
+
+fn f(c: Int, w: Maybe<Int>) -> Bool
+    if Some(c) != w and Shape.Circle(c) == s then True else False
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier))
+      (parameter
+        name: (identifier)
+        (generic_type
+          (type_identifier)
+          (type_identifier))))
+    return_type: (type_identifier)
+    (body
+      (if_expression
+        condition: (binary_expression
+          (binary_expression
+            (call_expression
+              function: (type_identifier)
+              (identifier))
+            (identifier))
+          (binary_expression
+            (call_expression
+              function: (type_field_access
+                (type_identifier)
+                (type_identifier))
+              (identifier))
+            (identifier)))
+        consequence: (type_identifier)
+        alternative: (type_identifier)))))
+
+================================================================================
+An else on the line below an inline if belongs to the block if around it
+================================================================================
+
+fn run(i: Int)
+    if i == 0 then
+        if i != 1 then print("x")
+    else
+        (a, b) = pair(i)
+    end
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier)))
+    (body
+      (if_expression
+        condition: (binary_expression
+          (identifier)
+          (integer))
+        consequence: (block
+          (if_expression
+            condition: (binary_expression
+              (identifier)
+              (integer))
+            consequence: (call_expression
+              function: (identifier)
+              (string
+                (string_content)))))
+        alternative: (else_clause
+          body: (block
+            (destructuring_binding
+              binding: (identifier)
+              binding: (identifier)
+              value: (call_expression
+                function: (identifier)
+                (identifier)))))))))

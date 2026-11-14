@@ -1,9 +1,9 @@
 //# Currencies: what an amount of money is counted in. A `Currency` is an
 //# ISO 4217 currency, current or historical, named by its code
-//# (``Currency`EUR` ``, ``Currency`JPY` ``), whose minor digits come from
+//# (`Currency"EUR"`, `Currency"JPY"`), whose minor digits come from
 //# CLDR: two for the euro, none for the yen. A currency ISO does not list,
 //# such as a cryptocurrency or a shop's loyalty points, is a custom
-//# currency, named by its code and minor digits: ``Currency`BTC:8` ``, or
+//# currency, named by its code and minor digits: `Currency"BTC:8"`, or
 //# `Currency.custom("BTC", 8)` while the program runs. Both literal forms
 //# are checked when the program is checked, and in a module a literal's
 //# custom currency must be one its `nomi.toml` lists:
@@ -14,26 +14,26 @@
 //# ```
 //#
 //# Two currencies are equal when their codes and minor digits are, so two
-//# libraries that each define ``Currency`PTS:0` `` share it, and `PTS:0`
+//# libraries that each define `Currency"PTS:0"` share it, and `PTS:0`
 //# and `PTS:2` are two currencies. `Money` (std::money) pairs an amount with
 //# its currency.
 //#
 //# ## Listed custom currencies
 //#
 //# A custom currency needs no setup, so a typo makes another one. In a file
-//# of a module (one with a `nomi.toml` above it), a ``Currency`…` `` or
-//# ``Money`…` `` literal naming a custom currency must name one its module's
+//# of a module (one with a `nomi.toml` above it), a `Currency"…"` or
+//# `Money"…"` literal naming a custom currency must name one its module's
 //# [`[money].custom_currencies`](/tooling/projects/#money) lists, code and
 //# digits; otherwise it is a compile error at the literal that suggests a
 //# listed entry with the same code or one edit away:
-//# ``typed literal Currency`PST:0`: `PST:0` is a custom currency this module
+//# ``typed literal Currency"PST:0": `PST:0` is a custom currency this module
 //# does not list: add it to [money].custom_currencies in nomi.toml``, with
 //# ``help: did you mean `PTS:0`? nomi.toml lists it``.
 //#
 //# A `Currency.custom("PTS", 0)` call whose code and digits are both literals
 //# is checked the same way, at the call, and its error's help names the
 //# literal form. The editor shows a warning at every such call that is no
-//# error, naming the literal (``write Currency`PTS:0`, which the compiler
+//# error, naming the literal (``write Currency"PTS:0", which the compiler
 //# checks``); `nomi check` prints none. A currency made from values while
 //# the program runs (`Currency.custom(code, digits)`, `Currency.parse`,
 //# `Money.parse_in`) is not checked, and a file in no module (a script, the
@@ -55,10 +55,10 @@ end
 
 /// A currency: an ISO 4217 code, or a custom code with its minor digits.
 /// `Display` gives the code; `Debug` gives the literal that builds it.
-//! assert Display.to_string(Currency`EUR`) == "EUR"
-//! assert Debug.inspect(Currency`BTC:8`) == "Currency`BTC:8`"
-//! assert Currency`PTS:0` == Currency`PTS:0`
-//! refute Currency`PTS:0` == Currency`PTS:2`
+//! assert Display.to_string(Currency"EUR") == "EUR"
+//! assert Debug.inspect(Currency"BTC:8") == "Currency\"BTC:8\""
+//! assert Currency"PTS:0" == Currency"PTS:0"
+//! refute Currency"PTS:0" == Currency"PTS:2"
 //
 pub opaque type Currency String
 
@@ -83,14 +83,14 @@ end
 derive Equatable for Error
 
 impl Display for Error
-    /// What is wrong, as a compile error at a ``Currency`…` `` literal shows
+    /// What is wrong, as a compile error at a `Currency"…"` literal shows
     /// it.
     //! assert Display.to_string(Error.IsoCode{code: "EUR"})
-    //!     == "`EUR` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`EUR`"
+    //!     == "`EUR` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency\"EUR\""
     //!
     //! assert Display.to_string(
     //!     Error.NotIso{code: "BTC"}
-    //! ) == "`BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2`"
+    //! ) == "`BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency\"BTC:2\""
     //
     fn to_string(e: Error) -> String
         case e
@@ -98,10 +98,10 @@ impl Display for Error
                 "`${text}` is not a currency code: a code is 1 to 12 of A-Z and 0-9, starting with a letter"
 
             Error.IsoCode{code:} ->
-                "`${code}` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency`${code}`"
+                "`${code}` is an ISO 4217 currency, whose minor digits CLDR gives: write Currency\"${code}\""
 
             Error.NotIso{code:} ->
-                "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`${code}:2`"
+                "`${code}` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency\"${code}:2\""
 
             Error.Digits{digits:} ->
                 "a currency has 0 to 18 minor digits, not ${digits}"
@@ -112,7 +112,7 @@ end
 impl Currency
     /// Read a currency as its literal writes it: an ISO 4217 code (`EUR`),
     /// or a custom code and its minor digits (`BTC:8`).
-    //! assert Currency.parse("EUR") == Ok(Currency`EUR`)
+    //! assert Currency.parse("EUR") == Ok(Currency"EUR")
     //! assert Currency.parse("JPY") |> Result.map(&Currency.minor_digits(&1)) == Ok(0)
     //! assert Currency.parse("PTS:0") == Currency.custom("PTS", 0)
     //! assert Currency.parse("eur") == Err(Error.Malformed{text: "eur"})
@@ -167,7 +167,7 @@ impl Currency
     end
 
     /// The currency's code: `EUR`, or a custom currency's own (`BTC`).
-    //! assert Currency.code(Currency`BTC:8`) == "BTC"
+    //! assert Currency.code(Currency"BTC:8") == "BTC"
     //
     pub fn code(currency: Currency) -> String
         Currency(text) = currency
@@ -177,9 +177,9 @@ impl Currency
     /// How many digits the currency has after the decimal point: an ISO
     /// currency's as CLDR gives them (EUR 2, JPY 0, BHD 3), a custom one's
     /// as it was made with.
-    //! assert Currency.minor_digits(Currency`EUR`) == 2
-    //! assert Currency.minor_digits(Currency`JPY`) == 0
-    //! assert Currency.minor_digits(Currency`BTC:8`) == 8
+    //! assert Currency.minor_digits(Currency"EUR") == 2
+    //! assert Currency.minor_digits(Currency"JPY") == 0
+    //! assert Currency.minor_digits(Currency"BTC:8") == 8
     //
     pub fn minor_digits(currency: Currency) -> Int
         Currency(text) = currency
@@ -187,8 +187,8 @@ impl Currency
     end
 
     /// Whether the currency is an ISO 4217 one, not a custom one.
-    //! assert Currency.is_iso(Currency`EUR`)
-    //! refute Currency.is_iso(Currency`BTC:8`)
+    //! assert Currency.is_iso(Currency"EUR")
+    //! refute Currency.is_iso(Currency"BTC:8")
     //
     pub fn is_iso(currency: Currency) -> Bool
         Currency(text) = currency
@@ -197,18 +197,18 @@ impl Currency
 end
 
 impl Literal for Currency
-    /// ``Currency`EUR` `` is the ISO currency of the code, current or
-    /// historical, as the pinned CLDR lists it, and ``Currency`BTC:8` `` the
+    /// `Currency"EUR"` is the ISO currency of the code, current or
+    /// historical, as the pinned CLDR lists it, and `Currency"BTC:8"` the
     /// custom currency of a code and its minor digits, as `Currency.parse`
-    /// reads them. A raw literal is checked when the program is checked, so
+    /// reads them. A literal without slots is checked when the program is checked, so
     /// a code CLDR does not list is a compile error at the literal:
-    /// ``typed literal Currency`BTC` is invalid: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2` ``.
+    /// ``typed literal Currency"BTC" is invalid: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency"BTC:2" ``.
     /// The literal checks a custom currency by `Currency.custom`'s rules, and
     /// in a module, against the custom currencies its `nomi.toml` lists.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Currency, Error>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -225,10 +225,10 @@ impl Display for Currency
 end
 
 impl Debug for Currency
-    /// The raw literal that builds the currency.
+    /// The typed literal that builds the currency.
     fn inspect(currency: Currency) -> String
         Currency(text) = currency
-        "Currency`${text}`"
+        String.to_typed_literal(text, "Currency")
     end
 end
 

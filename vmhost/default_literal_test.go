@@ -29,12 +29,12 @@ pub struct Box
 end
 
 impl Box
-    pub fn new(base: Url = Url` + "`https://a.test/`" + `) -> Box
+    pub fn new(base: Url = Url"https://a.test/") -> Box
         Box{base:}
     end
 end
 
-pub fn link(name: String, base: Url = Url` + "`https://b.test/`" + `) -> String
+pub fn link(name: String, base: Url = Url"https://b.test/") -> String
     "${Url.join_path(base, [name])}"
 end
 `,

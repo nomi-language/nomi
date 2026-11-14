@@ -249,8 +249,8 @@ var stdHostOriginRows = sync.OnceValue(func() map[[2]string]int {
 //
 // # Why `value` returns an UNTYPED literal where it can
 //
-// `None` and `[]` are returned as kindBareNone and kindEmptyList — the same
-// sentinels a user writing `None` or `[]` produces — so the field's real kind is
+// `[]` is returned as kindEmptyList — the same sentinel a user writing `[]`
+// produces — so the field's real kind is
 // reached through the ordinary `coerce` that discharges them. Nothing here
 // renders a Go type argument, so a Maybe or a List default cannot disagree with
 // the field it fills.

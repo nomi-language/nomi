@@ -1,6 +1,7 @@
 package format
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -315,7 +316,8 @@ func TestFormat_ListFillNeedsNumberLiteralsAndNoComments(t *testing.T) {
 	var entries, broken []string
 	for i := 0; i < 30; i++ {
 		entries = append(entries, strconv.Itoa(i)+" => "+strconv.Itoa(i))
-		broken = append(broken, "        "+strconv.Itoa(i)+" => "+strconv.Itoa(i)+",\n")
+		// The keys are aligned at `=>` (one-digit keys padded to two).
+		broken = append(broken, "        "+fmt.Sprintf("%-2d", i)+" => "+strconv.Itoa(i)+",\n")
 	}
 	formatsKeepingMeaning(t,
 		"fn main()\n"+

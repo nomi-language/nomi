@@ -38,8 +38,8 @@ end
 /// A file that cannot be read is the error reading it gave.
 pub fn grep(
     pattern: String,
-    flags: Set<Flag>,
-    files: List<String>,
+    flags:   Set<Flag>,
+    files:   List<String>,
 ) -> Result<List<String>, io.Error>
     named = Iter.count(files) > 1
 
@@ -47,15 +47,16 @@ pub fn grep(
     |> Iter.map(&search(&1, pattern, flags, named))
     |> Result.collect()?
     |> Iter.flatten()
+    |> Iter.to_list()
     |> Ok()
 end
 
 /// What `grep` answers for one file.
 fn search(
-    file: String,
+    file:    String,
     pattern: String,
-    flags: Set<Flag>,
-    named: Bool,
+    flags:   Set<Flag>,
+    named:   Bool,
 ) -> Result<List<String>, io.Error>
     text = fs.read_text(file)?
 
@@ -145,8 +146,8 @@ once sandbox = Sandbox{
 /// in-memory file system.
 fn grep_in_sandbox(
     pattern: String,
-    flags: Set<Flag>,
-    files: List<String>,
+    flags:   Set<Flag>,
+    files:   List<String>,
 ) -> Result<List<String>, io.Error>
     testing.run(sandbox, fn -> grep.grep(pattern, flags, files)).value
 end

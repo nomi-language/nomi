@@ -5,21 +5,21 @@ end
 
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 struct Response
     status: Int = 200
-    body: String = ""
+    body:   String = ""
 end
 
 struct Address
     city: String
-    zip: String
+    zip:  String
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 
@@ -50,7 +50,7 @@ end
 
 test "nested struct update merges a `..` field update"
     person = Person{
-        name: "Alice",
+        name:    "Alice",
         address: Address{city: "Boston", zip: "02101"},
     }
 
@@ -68,7 +68,7 @@ test "struct patterns match and bind fields"
 
     greeting = case user
         User{name: "Alice"} -> "Hi Alice!"
-        User{name:} -> "Hello " + name
+        User{name:}         -> "Hello " + name
     end
 
     assert greeting == "Hi Alice!"

@@ -8,7 +8,7 @@ fn main()
 
     case handler.serve_concurrently(paths, handle)
         Ok(lines) -> Iter.each(lines, &io.print(&1))
-        Err(e) -> io.print("error: ${e}")
+        Err(e)    -> io.print("error: ${e}")
     end
 end
 
@@ -24,9 +24,9 @@ fn handle(req: Request) -> Result<Response, String>
 
         "/echo" ->
             Ok(Response{
-                status: 200,
+                status:  200,
                 headers: {"content-type" => "application/octet-stream"},
-                body: req.body,
+                body:    req.body,
             })
 
         "/fail" ->
@@ -46,6 +46,6 @@ fn text(status: Int, body: String) -> Response
     Response{
         status:,
         headers: {"content-type" => "text/plain"},
-        body: String.to_bytes(body),
+        body:    String.to_bytes(body),
     }
 end

@@ -40,8 +40,8 @@ fn main()
     io.print(String.replace("a-b", "-", "+"))
     io.print(Json.encode_as({"k" => [1]}))
     io.print(words.encoded([4, 5]))
-    io.print(PluralCategory.cardinal(1, Locale` + "`en`" + `) == PluralCategory.One)
-    io.print(PluralCategory.cardinal(1.5d, Locale` + "`fr`" + `) == PluralCategory.One)
+    io.print(PluralCategory.cardinal(1, Locale"en") == PluralCategory.One)
+    io.print(PluralCategory.cardinal(1.5d, Locale"fr") == PluralCategory.One)
     encode = Json.encode_as
     io.print(encode([6]))
 end

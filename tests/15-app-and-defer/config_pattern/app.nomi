@@ -11,9 +11,9 @@ import
 end
 
 pub struct ConfigApp
-    deployment: String = "dev"
-    port: Int = 3000
-    database_url: String = "postgres://localhost/myapp_dev"
+    deployment:      String = "dev"
+    port:            Int = 3000
+    database_url:    String = "postgres://localhost/myapp_dev"
     max_connections: Int = 5
 end
 
@@ -23,6 +23,6 @@ pub fn load(deployment: String) -> ConfigApp
     case deployment
         "prod" -> prod.configure(base)
         "test" -> test_env.configure(base)
-        _ -> base
+        _      -> base
     end
 end

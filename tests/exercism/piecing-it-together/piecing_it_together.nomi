@@ -10,24 +10,24 @@ end
 
 /// Everything about a jigsaw puzzle.
 pub struct Jigsaw
-    pieces: Int
-    border: Int
-    inside: Int
-    rows: Int
-    columns: Int
+    pieces:       Int
+    border:       Int
+    inside:       Int
+    rows:         Int
+    columns:      Int
     aspect_ratio: Float
-    format: Format
+    format:       Format
 end
 
 /// What is known about a puzzle: any of its parts, each `None` when unknown.
 pub struct Clues
-    pieces: Maybe<Int> = None
-    border: Maybe<Int> = None
-    inside: Maybe<Int> = None
-    rows: Maybe<Int> = None
-    columns: Maybe<Int> = None
+    pieces:       Maybe<Int> = None
+    border:       Maybe<Int> = None
+    inside:       Maybe<Int> = None
+    rows:         Maybe<Int> = None
+    columns:      Maybe<Int> = None
     aspect_ratio: Maybe<Float> = None
-    format: Maybe<Format> = None
+    format:       Maybe<Format> = None
 end
 
 /// Why the clues do not describe exactly one puzzle.
@@ -57,9 +57,9 @@ pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error>
         |> Iter.to_list()
 
     case fitting
-        [] -> Err(.ContradictoryData)
+        []       -> Err(.ContradictoryData)
         [jigsaw] -> Ok(jigsaw)
-        _ -> Err(.InsufficientData)
+        _        -> Err(.InsufficientData)
     end
 end
 
@@ -70,8 +70,8 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw
     aspect_ratio = Int.to_float(columns) / Int.to_float(rows)
 
     format = case Int.compare(columns, rows)
-        .Less -> Format.Portrait
-        .Equal -> .Square
+        .Less    -> Format.Portrait
+        .Equal   -> .Square
         .Greater -> .Landscape
     end
 
@@ -82,10 +82,10 @@ end
 fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool
     counts_agree =
         [
-            (clues.pieces, jigsaw.pieces),
-            (clues.border, jigsaw.border),
-            (clues.inside, jigsaw.inside),
-            (clues.rows, jigsaw.rows),
+            (clues.pieces,  jigsaw.pieces),
+            (clues.border,  jigsaw.border),
+            (clues.inside,  jigsaw.inside),
+            (clues.rows,    jigsaw.rows),
             (clues.columns, jigsaw.columns),
         ]
         |> Iter.all_match(fn (known, actual) -> agrees(known, actual))

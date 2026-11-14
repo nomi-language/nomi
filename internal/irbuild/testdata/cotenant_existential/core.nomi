@@ -55,9 +55,9 @@ end
 //	                  carries the same arm for a type; without it in
 //	                  importIfaceKind a mutation is invisible from output.
 pub struct App
-    name: String
+    name:   String
     logger: Logger
-    tag: Tagger
+    tag:    Tagger
 end
 
 // Dispatch on TWO erased receivers, one per interface. `Logger`'s table is this

@@ -322,7 +322,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 				sig = irFuncSig{result: want}
 			}
 		}
-		if want.tag == tagSeq || irExistentialKind(want) || bl.g.declaredFnLambda == t {
+		if want.tag == tagSeq || irHeldKind(want) || bl.g.declaredFnLambda == t {
 			// `fn _ -> [20]` where an `(Int) -> Iter<Int>` is expected: the
 			// body's list enters the declared sequence, as a named
 			// function's result does. `fn n -> n + 1` where an
@@ -449,12 +449,10 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 			k = bl.g.lambdaCheckedResult(t)
 		}
 	}
-	if !ok || (!irCallableValueKind(k) && k != kindUnit) {
-		if ok {
-			bl.g.dc.note("a lambda result outside the domain: " + k.nomi())
-		}
+	if !ok {
 		return no()
 	}
+	irHeldOperand(k, "a lambda's result")
 	if child.inferReturn != nil {
 		if _, agree := child.inferReturn.settle(k); !agree {
 			bl.g.dc.note("a lambda whose returns disagree")
@@ -744,7 +742,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 // concrete value, so it crosses a call, a lambda and a result as that value
 // does.
 func irCallableValueKind(k kind) bool {
-	if irRetainedValueKind(k) || irRetainedSeqKind(k) || irExistentialKind(k) {
+	if irRetainedValueKind(k) || irRetainedSeqKind(k) || irExistentialKind(k) || irConjKind(k) {
 		return true
 	}
 	if k.tag != tagFunc || k.comp == nil || len(k.comp.parts) == 0 {

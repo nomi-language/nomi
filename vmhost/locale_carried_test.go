@@ -27,7 +27,7 @@ const carriedToml = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[i18
 // as a literal.
 func localeLiteral(tag string) string {
 	return "import\n    std::io\nend\n\nfn main()\n" +
-		"    io.print(String.join_list([\"a\", \"b\"], Locale`" + tag + "`))\nend\n"
+		"    io.print(String.join_list([\"a\", \"b\"], Locale\"" + tag + "\"))\nend\n"
 }
 
 // A Locale literal naming a locale whose chain reaches none of the listed
@@ -35,14 +35,14 @@ func localeLiteral(tag string) string {
 func TestLocaleLiteral_NotCarriedIsACompileError(t *testing.T) {
 	_, err := loadManifest(t, localeLiteral("fr"), carriedToml)
 	if err == nil {
-		t.Fatal("the program loads; want Locale`fr` to be a compile error, since it lists en and de")
+		t.Fatal("the program loads; want Locale\"fr\" to be a compile error, since it lists en and de")
 	}
 	var ds Diagnostics
 	if !errors.As(err, &ds) || len(ds) != 1 {
 		t.Fatalf("the load failed with %T %v; want one diagnostic", err, err)
 	}
 	d := ds[0]
-	want := "typed literal Locale`fr`: `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them"
+	want := "typed literal Locale\"fr\": `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them"
 	if d.Message != want || d.Line != 6 || d.Code != InvalidLiteralCode {
 		t.Errorf("diagnostic at %d:%d (%s): %q\nwant at line 6: %q", d.Line, d.Col, d.Code, d.Message, want)
 	}
@@ -71,12 +71,12 @@ func TestLocaleLiteral_CarriedOrUnlistedIsNoError(t *testing.T) {
 	} {
 		p, err := loadManifest(t, localeLiteral(c.tag), c.toml)
 		if err != nil {
-			t.Errorf("Locale`%s`: %v", c.tag, err)
+			t.Errorf("Locale\"%s\": %v", c.tag, err)
 			continue
 		}
 		var out bytes.Buffer
 		if err := p.Run(context.Background(), &out, nil, false); err != nil || out.String() != c.want {
-			t.Errorf("Locale`%s` prints %q (%v), want %q", c.tag, out.String(), err, c.want)
+			t.Errorf("Locale\"%s\" prints %q (%v), want %q", c.tag, out.String(), err, c.want)
 		}
 	}
 }
@@ -102,13 +102,13 @@ func TestNotCarriedLocale_FormatsAsTheSource(t *testing.T) {
 end
 
 fn main()
-    fr = Result.with_default(Locale.parse("fr"), Locale` + "`en`" + `)
-    io.print(Date.format(Date` + "`2026-10-20`" + `, fr, style: .Long))
-    io.print(Money.format(Money{amount: 12.5d, currency: Currency` + "`EUR`" + `}, fr))
+    fr = Result.with_default(Locale.parse("fr"), Locale"en")
+    io.print(Date.format(Date"2026-10-20", fr, style: .Long))
+    io.print(Money.format(Money{amount: 12.5d, currency: Currency"EUR"}, fr))
     io.print(String.join_list(["a", "b", "c"], fr))
-    io.print(Date.format(Date` + "`2026-10-20`" + `, Locale` + "`de-CH`" + `, style: .Long))
-    io.print(Locale.negotiate([fr], Locale.available(), Locale` + "`de`" + `))
-    io.print(Locale.negotiate([Locale` + "`de-AT`" + `], Locale.available(), Locale` + "`en`" + `))
+    io.print(Date.format(Date"2026-10-20", Locale"de-CH", style: .Long))
+    io.print(Locale.negotiate([fr], Locale.available(), Locale"de"))
+    io.print(Locale.negotiate([Locale"de-AT"], Locale.available(), Locale"en"))
     io.print(Locale.fallbacks(fr))
 end
 `

@@ -101,7 +101,7 @@ const irHashValueHost = "vm.hash_value"
 // existentialHashCall lowers `Hashable.hash(x)` over an interface value to
 // the irHashValueHost call. owned is false for any other call.
 func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
-	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || !irExistentialKind(args.kinds[0]) {
+	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || !irHeldKind(args.kinds[0]) {
 		return ir.NoTemp, false
 	}
 	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
@@ -136,7 +136,7 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 		return ir.NoTemp, false, false
 	}
 	k := args.kinds[0]
-	if irExistentialKind(k) && irExistentialKind(args.kinds[1]) {
+	if irHeldKind(k) && irHeldKind(args.kinds[1]) {
 		// Two interface values: `Equatable.equal(a, b)` is `a == b`, which
 		// compares them by their run-time types (ir.ValIface).
 		c := ir.NewCompare(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OpEq, ir.ValIface, args.temps[0], args.temps[1])

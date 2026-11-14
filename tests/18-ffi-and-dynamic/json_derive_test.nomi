@@ -5,7 +5,7 @@ end
 
 struct User
     first_name: String
-    age: Int
+    age:        Int
 end
 
 derive Equatable for User
@@ -22,7 +22,7 @@ derive FromJson for Address with FromJson.Options{rename_all: Json.Case.Camel}
 
 struct Account
     owner_name: String
-    address: Address
+    address:    Address
 end
 
 derive Equatable for Account
@@ -55,7 +55,7 @@ end
 test "JSON derives round-trip nested structs through interface functions"
     account = Account{
         owner_name: "Ada",
-        address: Address{city_name: "London"},
+        address:    Address{city_name: "London"},
     }
 
     encoded = ToJson.to_json(account)

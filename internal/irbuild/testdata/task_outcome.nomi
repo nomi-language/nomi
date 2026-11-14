@@ -47,8 +47,8 @@ end
 fn value_of(o: Outcome<Int>) -> Int
     case o
         Outcome.Completed(v) -> v
-        Outcome.Cancelled -> -1
-        Outcome.Failed(_) -> -2
+        Outcome.Cancelled    -> -1
+        Outcome.Failed(_)    -> -2
     end
 end
 
@@ -57,8 +57,8 @@ end
 fn tag_of(o: Outcome<Int>) -> String
     case o
         .Completed(_) -> "completed"
-        .Cancelled -> "cancelled"
-        .Failed(_) -> "failed"
+        .Cancelled    -> "cancelled"
+        .Failed(_)    -> "failed"
     end
 end
 
@@ -68,9 +68,9 @@ end
 fn why(o: Outcome<Int>) -> String
     case o
         Outcome.Failed(.Panicked(m)) -> "panicked:${m}"
-        Outcome.Failed(.Errored(m)) -> "errored:${m}"
-        Outcome.Completed(_) -> "none"
-        Outcome.Cancelled -> "none"
+        Outcome.Failed(.Errored(m))  -> "errored:${m}"
+        Outcome.Completed(_)         -> "none"
+        Outcome.Cancelled            -> "none"
     end
 end
 
@@ -80,8 +80,8 @@ end
 fn label(o: Outcome<String>) -> String
     case o
         Outcome.Completed(s) -> s
-        Outcome.Cancelled -> "(cancelled)"
-        Outcome.Failed(_) -> "(failed)"
+        Outcome.Cancelled    -> "(cancelled)"
+        Outcome.Failed(_)    -> "(failed)"
     end
 end
 

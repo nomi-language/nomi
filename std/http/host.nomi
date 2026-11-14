@@ -32,32 +32,32 @@ pub host type Handle
 /// follow; `proxy` is 0 for the environment's, 1 for none and 2 for
 /// `proxy_url`.
 pub host fn new_client(
-    timeout: Int,
-    redirects: Int,
-    proxy: Int,
-    proxy_url: String,
-    tls_handshake_timeout: Int,
-    keep_alives: Bool,
-    compression: Bool,
-    max_idle: Int,
-    max_idle_per_host: Int,
-    max_per_host: Int,
-    idle_timeout: Int,
-    response_header_timeout: Int,
-    expect_continue_timeout: Int,
+    timeout:                   Int,
+    redirects:                 Int,
+    proxy:                     Int,
+    proxy_url:                 String,
+    tls_handshake_timeout:     Int,
+    keep_alives:               Bool,
+    compression:               Bool,
+    max_idle:                  Int,
+    max_idle_per_host:         Int,
+    max_per_host:              Int,
+    idle_timeout:              Int,
+    response_header_timeout:   Int,
+    expect_continue_timeout:   Int,
     max_response_header_bytes: Int,
-    write_buffer_size: Int,
-    read_buffer_size: Int,
-    force_http2: Bool,
-    protocols: List<Bool>,
-    has_protocols: Bool,
-    http2: List<Int>,
-    http2_flags: List<Bool>,
-    proxy_connect_headers: List<String>,
-    on_proxy_connect: (String, Int, List<String>) -> String,
-    has_on_proxy_connect: Bool,
-    on_count_error: (String) -> Unit,
-    has_on_count_error: Bool,
+    write_buffer_size:         Int,
+    read_buffer_size:          Int,
+    force_http2:               Bool,
+    protocols:                 List<Bool>,
+    has_protocols:             Bool,
+    http2:                     List<Int>,
+    http2_flags:               List<Bool>,
+    proxy_connect_headers:     List<String>,
+    on_proxy_connect:          (String, Int, List<String>) -> String,
+    has_on_proxy_connect:      Bool,
+    on_count_error:            (String) -> Unit,
+    has_on_count_error:        Bool,
 ) -> Client
 
 /// The client every program in the process shares, made with the default
@@ -73,21 +73,21 @@ pub host fn close_idle(client: Client) -> Unit
 /// it the body is read whole, refused past `max_body` bytes unless that is
 /// negative. An `Err` is an `http.Error` variant's name and its fields.
 pub host fn send(
-    client: Client,
-    method: String,
-    url: String,
-    headers: List<String>,
-    body_kind: Int,
-    data: Bytes,
-    input: Reader,
+    client:         Client,
+    method:         String,
+    url:            String,
+    headers:        List<String>,
+    body_kind:      Int,
+    data:           Bytes,
+    input:          Reader,
     content_length: Int,
-    host: String,
-    close: Bool,
-    trailers: List<String>,
-    stream: Bool,
-    max_body: Int,
-    tracer: Handle,
-    traced: Bool,
+    host:           String,
+    close:          Bool,
+    trailers:       List<String>,
+    stream:         Bool,
+    max_body:       Int,
+    tracer:         Handle,
+    traced:         Bool,
 ) -> Result<Exchange, List<String>>
 
 pub host fn status(exchange: Exchange) -> Int
@@ -128,8 +128,8 @@ pub host fn add_cookie(existing: String, cookie: List<String>) -> String
 /// Go's `CrossOriginProtection.Check` of a request, trusting `trusted` and
 /// with no bypass pattern: "" when it passes, else Go's reason.
 pub host fn cross_origin_check(
-    method: String,
-    host: String,
+    method:  String,
+    host:    String,
     headers: List<String>,
     trusted: List<String>,
 ) -> String
@@ -150,21 +150,21 @@ pub host type Incoming
 /// draining its supervisors, the server shuts down as `shutdown` does. An
 /// `Err` is an `http.Error` variant's name and its fields.
 pub host fn listen(
-    address: String,
-    durations: List<Int>,
-    limits: List<Int>,
-    flags: List<Bool>,
-    protocols: List<Bool>,
-    has_protocols: Bool,
-    http2: List<Int>,
-    http2_flags: List<Bool>,
-    on_state: (String, Int) -> Unit,
-    has_on_state: Bool,
-    on_error: (String) -> Unit,
-    has_on_error: Bool,
-    on_shutdown: () -> Unit,
-    has_on_shutdown: Bool,
-    on_count_error: (String) -> Unit,
+    address:            String,
+    durations:          List<Int>,
+    limits:             List<Int>,
+    flags:              List<Bool>,
+    protocols:          List<Bool>,
+    has_protocols:      Bool,
+    http2:              List<Int>,
+    http2_flags:        List<Bool>,
+    on_state:           (String, Int) -> Unit,
+    has_on_state:       Bool,
+    on_error:           (String) -> Unit,
+    has_on_error:       Bool,
+    on_shutdown:        () -> Unit,
+    has_on_shutdown:    Bool,
+    on_count_error:     (String) -> Unit,
     has_on_count_error: Bool,
 ) -> Result<Listener, List<String>>
 
@@ -205,35 +205,35 @@ pub host fn extend_read_deadline(incoming: Incoming, by: Int) -> Result<Unit, St
 /// server (Go's `Hijack`).
 pub host fn upgrade(
     incoming: Incoming,
-    status: Int,
-    headers: List<String>,
+    status:   Int,
+    headers:  List<String>,
 ) -> Result<Conn, List<String>>
 
 /// Writes the whole response. `headers` and `trailers` alternate name and
 /// value; `body_kind` is 0 for none, 1 for `data`, 2 for `input`; a
 /// negative `content_length` is unknown.
 pub host fn respond(
-    incoming: Incoming,
-    status: Int,
-    headers: List<String>,
-    trailers: List<String>,
-    body_kind: Int,
-    data: Bytes,
-    input: Reader,
+    incoming:       Incoming,
+    status:         Int,
+    headers:        List<String>,
+    trailers:       List<String>,
+    body_kind:      Int,
+    data:           Bytes,
+    input:          Reader,
     content_length: Int,
-    write_timeout: Int,
-    full_duplex: Bool,
+    write_timeout:  Int,
+    full_duplex:    Bool,
 ) -> Result<Unit, List<String>>
 
 /// Writes the status and headers, announcing the trailers named, and
 /// returns a writer over the body that sends what it passes on at once.
 pub host fn produce(
-    incoming: Incoming,
-    status: Int,
-    headers: List<String>,
+    incoming:      Incoming,
+    status:        Int,
+    headers:       List<String>,
     trailer_names: List<String>,
     write_timeout: Int,
-    full_duplex: Bool,
+    full_duplex:   Bool,
 ) -> Writer
 
 /// The program has responded: sets the trailers, and sends a 500 when
@@ -265,22 +265,22 @@ pub host fn route(mux: Mux, method: String, host: String, target: String) -> Lis
 /// (name and value alternating) in place first: `["answer", status, body,
 /// name, value, ...]`.
 pub host fn answer_content(
-    method: String,
-    target: String,
-    headers: List<String>,
-    name: String,
+    method:   String,
+    target:   String,
+    headers:  List<String>,
+    name:     String,
     modified: Int,
-    set: List<String>,
-    data: Bytes,
+    set:      List<String>,
+    data:     Bytes,
 ) -> List<String>
 
 /// Go's `Redirect` to `to`, as `answer_content` returns.
 pub host fn answer_redirect(
-    method: String,
-    target: String,
+    method:  String,
+    target:  String,
     headers: List<String>,
-    to: String,
-    status: Int,
+    to:      String,
+    status:  Int,
 ) -> List<String>
 
 /// Go's `TimeFormat` of an instant in nanoseconds.
@@ -323,9 +323,9 @@ end
 
 host fn request_on<T, R>(
     incoming: Incoming,
-    timeout: Int,
-    body: (Context) -> T,
-    finish: (T) -> R,
+    timeout:  Int,
+    body:     (Context) -> T,
+    finish:   (T) -> R,
 ) -> R
 
 /// Runs `body` with `answer` responding to every request std::http sends in it,
@@ -381,7 +381,7 @@ pub host fn certificate_from_pem(cert: String, key: String) -> Result<Certificat
 /// Go's `LoadX509KeyPair`.
 pub host fn certificate_load(
     cert_path: String,
-    key_path: String,
+    key_path:  String,
 ) -> Result<Certificate, List<String>>
 
 /// The leaf's subject, issuer, serial, validity (Unix nanoseconds) and DNS
@@ -392,29 +392,29 @@ pub host fn certificate_info(certificate: Certificate) -> List<String>
 /// default; `roots_kind` is 0 for the system's, 1 for `roots_pem`, 2 for
 /// `roots_files`; renegotiation is 0, 1 or 2, client_auth Go's in order.
 pub host fn tls_config(
-    server: Bool,
-    roots_kind: Int,
-    roots_pem: String,
-    roots_files: List<String>,
-    server_name: String,
-    insecure: Bool,
-    next_protocols: List<String>,
-    min_version: Int,
-    max_version: Int,
-    cipher_suites: List<Int>,
-    has_cipher_suites: Bool,
-    curves: List<String>,
-    has_curves: Bool,
-    session_tickets: Bool,
-    session_cache: Int,
-    renegotiation: Int,
-    client_auth: Int,
-    certificate_for: (Handle) -> Maybe<Certificate>,
+    server:              Bool,
+    roots_kind:          Int,
+    roots_pem:           String,
+    roots_files:         List<String>,
+    server_name:         String,
+    insecure:            Bool,
+    next_protocols:      List<String>,
+    min_version:         Int,
+    max_version:         Int,
+    cipher_suites:       List<Int>,
+    has_cipher_suites:   Bool,
+    curves:              List<String>,
+    has_curves:          Bool,
+    session_tickets:     Bool,
+    session_cache:       Int,
+    renegotiation:       Int,
+    client_auth:         Int,
+    certificate_for:     (Handle) -> Maybe<Certificate>,
     has_certificate_for: Bool,
-    verify: (List<List<String>>) -> String,
-    has_verify: Bool,
-    key_log: Writer,
-    has_key_log: Bool,
+    verify:              (List<List<String>>) -> String,
+    has_verify:          Bool,
+    key_log:             Writer,
+    has_key_log:         Bool,
 ) -> Result<TlsConfig, List<String>>
 
 /// Adds a certificate the configuration presents.
@@ -431,24 +431,24 @@ pub host fn cipher_suite_name(id: Int) -> String
 /// is in nanoseconds, 0 Go's default; `local` is "" for any. An `Err` is a
 /// `net.Error` variant's name and fields.
 pub host fn dial_with(
-    address: String,
-    timeout: Int,
-    local: String,
-    fallback_delay: Int,
-    keep_alive: Bool,
-    keep_alive_idle: Int,
+    address:             String,
+    timeout:             Int,
+    local:               String,
+    fallback_delay:      Int,
+    keep_alive:          Bool,
+    keep_alive_idle:     Int,
     keep_alive_interval: Int,
-    keep_alive_count: Int,
-    multipath: Bool,
+    keep_alive_count:    Int,
+    multipath:           Bool,
 ) -> Result<Conn, List<String>>
 
 /// `dial`, then a TLS client handshake.
 pub host fn tls_dial(
-    address: String,
-    timeout: Int,
+    address:    String,
+    timeout:    Int,
     keep_alive: Int,
-    local: String,
-    config: TlsConfig,
+    local:      String,
+    config:     TlsConfig,
 ) -> Result<Conn, List<String>>
 
 /// A TLS client over an open connection, its handshake done.
@@ -499,12 +499,12 @@ pub host fn tls_verify_hostname(conn: Conn, host: String) -> String
 
 /// A TCP listener on `address`, with std::net's ListenOptions.
 pub host fn net_listen_with(
-    address: String,
-    keep_alive: Bool,
-    keep_alive_idle: Int,
+    address:             String,
+    keep_alive:          Bool,
+    keep_alive_idle:     Int,
     keep_alive_interval: Int,
-    keep_alive_count: Int,
-    multipath: Bool,
+    keep_alive_count:    Int,
+    multipath:           Bool,
 ) -> Result<TcpListener, List<String>>
 
 /// An accept waiting past `at` (Unix nanoseconds, 0 for none) times out.
@@ -546,23 +546,23 @@ pub host fn net_listener_close(listener: TcpListener) -> Unit
 
 /// `listen`, serving HTTPS with `config`.
 pub host fn listen_tls(
-    address: String,
-    durations: List<Int>,
-    limits: List<Int>,
-    flags: List<Bool>,
-    protocols: List<Bool>,
-    has_protocols: Bool,
-    http2: List<Int>,
-    http2_flags: List<Bool>,
-    on_state: (String, Int) -> Unit,
-    has_on_state: Bool,
-    on_error: (String) -> Unit,
-    has_on_error: Bool,
-    on_shutdown: () -> Unit,
-    has_on_shutdown: Bool,
-    on_count_error: (String) -> Unit,
+    address:            String,
+    durations:          List<Int>,
+    limits:             List<Int>,
+    flags:              List<Bool>,
+    protocols:          List<Bool>,
+    has_protocols:      Bool,
+    http2:              List<Int>,
+    http2_flags:        List<Bool>,
+    on_state:           (String, Int) -> Unit,
+    has_on_state:       Bool,
+    on_error:           (String) -> Unit,
+    has_on_error:       Bool,
+    on_shutdown:        () -> Unit,
+    has_on_shutdown:    Bool,
+    on_count_error:     (String) -> Unit,
     has_on_count_error: Bool,
-    config: TlsConfig,
+    config:             TlsConfig,
 ) -> Result<Listener, List<String>>
 
 /// A client sharing `client`'s options that uses `config` for TLS.
@@ -591,34 +591,34 @@ pub host fn wire_body(message: Handle) -> Bytes
 /// a server received it with its body (2) or without (3), or as a client
 /// sends it with (4) or without (5). A dump returns its text.
 pub host fn wire_request(
-    op: Int,
-    w: Writer,
-    method: String,
-    url: String,
-    headers: List<String>,
-    host: String,
-    content_length: Int,
+    op:                Int,
+    w:                 Writer,
+    method:            String,
+    url:               String,
+    headers:           List<String>,
+    host:              String,
+    content_length:    Int,
     transfer_encoding: List<String>,
-    close: Bool,
-    trailers: List<String>,
-    body: Bytes,
+    close:             Bool,
+    trailers:          List<String>,
+    body:              Bytes,
 ) -> Result<String, String>
 
 /// A response to a request of `method` written to `w` (op 0) or dumped
 /// with its body (1) or without (2).
 pub host fn wire_response(
-    op: Int,
-    w: Writer,
-    status: Int,
-    major: Int,
-    minor: Int,
-    headers: List<String>,
-    content_length: Int,
+    op:                Int,
+    w:                 Writer,
+    status:            Int,
+    major:             Int,
+    minor:             Int,
+    headers:           List<String>,
+    content_length:    Int,
     transfer_encoding: List<String>,
-    close: Bool,
-    trailers: List<String>,
-    body: Bytes,
-    method: String,
+    close:             Bool,
+    trailers:          List<String>,
+    body:              Bytes,
+    method:            String,
 ) -> Result<String, String>
 
 /// httputil's `NewChunkedReader` and `NewChunkedWriter`.
@@ -683,14 +683,14 @@ pub host fn ws_open(conn: Conn, client: Bool, max: Int, ping: Int, idle: Int) ->
 /// A client's opening handshake over `conn`; `headers` alternate name and
 /// value. An Err is a websocket.Error variant's name and fields.
 pub host fn ws_connect(
-    conn: Conn,
-    host: String,
-    target: String,
-    headers: List<String>,
+    conn:      Conn,
+    host:      String,
+    target:    String,
+    headers:   List<String>,
     protocols: List<String>,
-    max: Int,
-    ping: Int,
-    idle: Int,
+    max:       Int,
+    ping:      Int,
+    idle:      Int,
 ) -> Result<Handle, List<String>>
 
 /// The subprotocol the server chose in `ws_connect`, "" for none.

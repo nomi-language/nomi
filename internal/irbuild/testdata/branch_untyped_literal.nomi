@@ -186,7 +186,7 @@ end
 fn show_maybe(m: Maybe<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
-        None -> "None"
+        None    -> "None"
     end
 end
 

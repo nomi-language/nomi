@@ -8,7 +8,7 @@
 //# a `Result`, in every quote style:
 //#
 //# ```nomi
-//# api = Url`https://api.example.com/v1/`
+//# api = Url"https://api.example.com/v1/"
 //#
 //# users = Url.join_path(api, ["users", id])
 //#
@@ -141,7 +141,7 @@ derive Hashable for Url
 
 /// A URL's user name and optional password.
 pub struct Userinfo
-    name: String
+    name:     String
     password: Maybe<String> = None
 end
 
@@ -150,7 +150,7 @@ derive Hashable for Userinfo
 
 /// Why a URL or query could not be read: the text and the reason.
 pub struct UrlError
-    url: String
+    url:    String
     reason: String
 end
 
@@ -198,8 +198,8 @@ impl Url
     /// Whether the URL has a scheme.
     //! import std::url.Url
     //!
-    //! assert Url.is_absolute(Url`https://example.com`)
-    //! assert not Url.is_absolute(Url`/a/b`)
+    //! assert Url.is_absolute(Url"https://example.com")
+    //! assert not Url.is_absolute(Url"/a/b")
     //
     pub fn is_absolute(url: Url) -> Bool
         url.scheme != ""
@@ -209,7 +209,7 @@ impl Url
     /// address.
     //! import std::url.Url
     //!
-    //! assert Url.hostname(Url`http://[::1]:8080/`) == "::1"
+    //! assert Url.hostname(Url"http://[::1]:8080/") == "::1"
     //
     pub fn hostname(url: Url) -> String
         host.hostname_parts(to_parts(url))
@@ -218,12 +218,12 @@ impl Url
     /// The host's port, if it names one.
     //! import std::url.Url
     //!
-    //! assert Url.port(Url`http://example.com:8080`) == Some("8080")
-    //! assert Url.port(Url`http://example.com`) == None
+    //! assert Url.port(Url"http://example.com:8080") == Some("8080")
+    //! assert Url.port(Url"http://example.com") == None
     //
     pub fn port(url: Url) -> Maybe<String>
         case host.port_parts(to_parts(url))
-            "" -> None
+            ""   -> None
             port -> Some(port)
         end
     end
@@ -232,7 +232,7 @@ impl Url
     /// else `path` escaped.
     //! import std::url.Url
     //!
-    //! assert Url.escaped_path(Url`https://example.com/a b`) == "/a%20b"
+    //! assert Url.escaped_path(Url"https://example.com/a b") == "/a%20b"
     //
     pub fn escaped_path(url: Url) -> String
         host.escaped_path_parts(to_parts(url))
@@ -241,7 +241,7 @@ impl Url
     /// The fragment as it is written in the URL.
     //! import std::url.Url
     //!
-    //! assert Url.escaped_fragment(Url`https://example.com/#a b`) == "a%20b"
+    //! assert Url.escaped_fragment(Url"https://example.com/#a b") == "a%20b"
     //
     pub fn escaped_fragment(url: Url) -> String
         host.escaped_fragment_parts(to_parts(url))
@@ -251,7 +251,7 @@ impl Url
     /// query, or the opaque part.
     //! import std::url.Url
     //!
-    //! assert Url.request_uri(Url`https://example.com/a b?q=1#top`) == "/a%20b?q=1"
+    //! assert Url.request_uri(Url"https://example.com/a b?q=1#top") == "/a%20b?q=1"
     //
     pub fn request_uri(url: Url) -> String
         host.request_uri_parts(to_parts(url))
@@ -260,7 +260,7 @@ impl Url
     /// The URL written with its password, if any, replaced by `xxxxx`.
     //! import std::url.Url
     //!
-    //! assert Url.redacted(Url`https://ann:secret@example.com/`) == "https://ann:xxxxx@example.com/"
+    //! assert Url.redacted(Url"https://ann:secret@example.com/") == "https://ann:xxxxx@example.com/"
     //
     pub fn redacted(url: Url) -> String
         host.redacted_parts(to_parts(url))
@@ -270,7 +270,7 @@ impl Url
     /// out; `Query.parse` reports it instead.
     //! import std::url.{Query, Url}
     //!
-    //! assert Url.query_values(Url`https://example.com/?a=1&b=2&a=3`) == Query[
+    //! assert Url.query_values(Url"https://example.com/?a=1&b=2&a=3") == Query[
     //!     ("a", "1"),
     //!     ("b", "2"),
     //!     ("a", "3"),
@@ -284,7 +284,7 @@ impl Url
     /// `Query.encode` writes it, the pairs in their order.
     //! import std::url.{Query, Url}
     //!
-    //! u = Url.with_query(Url`https://example.com/s`, Query[("q", "tea & cake"), ("n", "2")])
+    //! u = Url.with_query(Url"https://example.com/s", Query[("q", "tea & cake"), ("n", "2")])
     //! assert "${u}" == "https://example.com/s?q=tea+%26+cake&n=2"
     //
     pub fn with_query(url: Url, query: Query) -> Url
@@ -295,9 +295,9 @@ impl Url
     /// how a browser follows a link.
     //! import std::url.Url
     //!
-    //! base = Url`https://example.com/a/b/c`
-    //! assert "${Url.resolve(base, Url`../d?x=1`)}" == "https://example.com/a/d?x=1"
-    //! assert "${Url.resolve(base, Url`//other.org/`)}" == "https://other.org/"
+    //! base = Url"https://example.com/a/b/c"
+    //! assert "${Url.resolve(base, Url"../d?x=1")}" == "https://example.com/a/d?x=1"
+    //! assert "${Url.resolve(base, Url"//other.org/")}" == "https://other.org/"
     //
     pub fn resolve(base: Url, reference: Url) -> Url
         host.resolve_parts(to_parts(base), to_parts(reference)) |> from_parts()
@@ -306,7 +306,7 @@ impl Url
     /// `reference` parsed and resolved against `base`.
     //! import std::url.Url
     //!
-    //! assert "${Url.resolve_text(Url`https://example.com/a/`, "b")!}" == "https://example.com/a/b"
+    //! assert "${Url.resolve_text(Url"https://example.com/a/", "b")!}" == "https://example.com/a/b"
     //
     pub fn resolve_text(base: Url, reference: String) -> Result<Url, UrlError>
         Url.parse(reference) |> Result.map(fn r -> Url.resolve(base, r))
@@ -318,7 +318,7 @@ impl Url
     /// `url.escape_path_segment` to keep it whole.
     //! import std::url.Url
     //!
-    //! u = Url.join_path(Url`https://example.com/api/`, ["users", "7", "../8"])
+    //! u = Url.join_path(Url"https://example.com/api/", ["users", "7", "../8"])
     //! assert "${u}" == "https://example.com/api/users/8"
     //
     pub fn join_path(url: Url, segments: List<String>) -> Url
@@ -363,7 +363,7 @@ impl Query
     //
     pub fn parse(text: String) -> Result<Query, UrlError>
         case host.query_error(text)
-            "" -> Ok(query_from_text(text))
+            ""     -> Ok(query_from_text(text))
             reason -> Err(UrlError{url: text, reason:})
         end
     end
@@ -454,7 +454,7 @@ end
 impl CheckedLiteral<Display, Url> for Url
     /// A `Url` literal is a `Url` in every quote style, never a `Result`,
     /// and is checked when the program is checked: text that `Url.parse`
-    /// would refuse is a compile error. ``Url`https://example.com/a` `` is
+    /// would refuse is a compile error. `Url"https://example.com/a"` is
     /// the URL `Url.parse` reads from its text. In `Url"..."`, a `${...}`
     /// slot takes any `Display` value, and its text is escaped for where it
     /// stands: as one path segment in the path, as a key or value in the
@@ -539,8 +539,8 @@ impl CheckedLiteral<Display, Url> for Url
                         Some(
                             LiteralError{
                                 fragment: i,
-                                offset: Iter.count(String.to_codepoints(s)),
-                                message: "a slot in the scheme, user or host cannot be escaped",
+                                offset:   Iter.count(String.to_codepoints(s)),
+                                message:  "a slot in the scheme, user or host cannot be escaped",
                             }
                         )
                     else
@@ -559,7 +559,7 @@ impl CheckedLiteral<Display, Url> for Url
 
             None ->
                 case Url.parse(String.join(statics, "x"))
-                    Ok(_) -> Ok(Unit)
+                    Ok(_)  -> Ok(Unit)
                     Err(e) -> Err(LiteralError{fragment: 0, offset: 0, message: e.reason})
                 end
         end
@@ -570,7 +570,7 @@ impl CheckedLiteral<Display, Url> for Url
             (place, text) = acc
 
             case frag
-                .Static(s) -> (place_after(place, s), text + s)
+                .Static(s)  -> (place_after(place, s), text + s)
                 .Dynamic(v) -> (place, text + slot_text(place, Display.to_string(v)))
             end
         end)
@@ -594,10 +594,10 @@ end
 // else, so the last arm is never reached.
 fn slot_text(place: Place, value: String) -> String
     case place
-        .InPath -> path_slot(value)
-        .InQuery -> host.escape_query(value)
+        .InPath     -> path_slot(value)
+        .InQuery    -> host.escape_query(value)
         .InFragment -> host.escape_fragment(value)
-        _ -> ""
+        _           -> ""
     end
 end
 
@@ -622,7 +622,7 @@ end
 fn keep_path(fragments: List<Fragment<Display>>, text: String) -> String
     first = case fragments
         [.Static(s), ..] -> s
-        _ -> ""
+        _                -> ""
     end
 
     if String.starts_with(text, "//") and not String.starts_with(first, "//") then
@@ -705,7 +705,7 @@ end
 fn pairs_of(flat: List<String>) -> List<(String, String)>
     case flat
         [k, v, ..rest] -> [(k, v), ..pairs_of(rest)]
-        _ -> []
+        _              -> []
     end
 end
 

@@ -69,7 +69,7 @@ end
 fn shown(m: Maybe<String>) -> String
     case m
         Some(s) -> "Some(" + s + ")"
-        None -> "None"
+        None    -> "None"
     end
 end
 
@@ -78,8 +78,8 @@ end
 // that failed to match would fall through to the next arm.
 fn labels(ds: List<AssertionDetail>) -> String
     case ds
-        [] -> "[]"
-        [one] -> one.label
+        []          -> "[]"
+        [one]       -> one.label
         [first, ..] -> first.label + "+more"
     end
 end
@@ -116,8 +116,8 @@ fn main()
     //     this row. It is here to separate "defaults are wrong" from "the type
     //     is wrong".
     explicit = AssertionDetails{
-        reason: "explicit",
-        actual: Some("41"),
+        reason:  "explicit",
+        actual:  Some("41"),
         details: [],
     }
 

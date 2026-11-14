@@ -59,7 +59,7 @@ fn dump_from(data: Bytes, i: Int) -> String
 
         case Bytes.get(data, i)
             Some(b) -> "${sep}${Byte.to_int(b)}${dump_from(data, i + 1)}"
-            None -> "${sep}?"
+            None    -> "${sep}?"
         end
     end
 end
@@ -74,14 +74,14 @@ end
 fn byte_of(n: Int) -> String
     case Int.to_byte(n)
         Some(b) -> "${Byte.to_int(b)}"
-        None -> "out of range"
+        None    -> "out of range"
     end
 end
 
 fn at_or(data: Bytes, i: Int) -> String
     case Bytes.get(data, i)
         Some(b) -> "${Byte.to_int(b)}"
-        None -> "none"
+        None    -> "none"
     end
 end
 

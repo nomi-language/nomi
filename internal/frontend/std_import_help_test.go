@@ -34,7 +34,7 @@ func TestAStdNameWithoutItsImportNamesTheImport(t *testing.T) {
 		{
 			"Message in a file with a phrase",
 			"import std::io\n\n" +
-				"fn show(m: Message) -> String\n    Phrase.format(m, Locale`en`)\nend\n\nfn main()\n    io.print(\"\")\nend\n",
+				"fn show(m: Message) -> String\n    Phrase.format(m, Locale\"en\")\nend\n\nfn main()\n    io.print(\"\")\nend\n",
 			[]string{
 				"main.nomi:3:12: unknown type \"Message\"\n  help: import `std::mail.Message` or `std::websocket.Message`",
 			},

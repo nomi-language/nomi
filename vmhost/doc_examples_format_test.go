@@ -35,7 +35,9 @@ import (
 // formatted with each `...` replaced by an identifier of the same width and
 // then put back. A block that does not parse even so (a signature table, a
 // list of variants, an `error` block whose error is a parse error) is
-// skipped; the log counts each file's examples and skips.
+// skipped; the log counts each file's examples and skips. A file a tool
+// generated is checked like any other, since generators write through
+// `compiler.format`.
 //
 // NOMI_FORMAT_DOC_EXAMPLES=1 writes the formatted text of every unformatted
 // fenced example back into its source.

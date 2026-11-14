@@ -39,8 +39,6 @@ func TestIRParamShape_TheDeclinesAndTheirControls(t *testing.T) {
 			"the concrete type is erased, which is the one thing ir.TypeForm records"},
 		{"a bound-free type parameter", typeParamKind(tp), ir.ValUnknown,
 			"one body, many instantiations, so the declaration cannot name one shape"},
-		{"a bare None", kind{tag: tagBareNone}, ir.ValUnknown,
-			"an untyped literal the checker solves from context"},
 		{"an rt-opaque stdlib leaf", named(leaf), ir.ValUnknown,
 			"a leaf this builder may not look inside, so it builds no ProjInner for one"},
 		{"a malformed named kind", kind{tag: tagNamed}, ir.ValUnknown,

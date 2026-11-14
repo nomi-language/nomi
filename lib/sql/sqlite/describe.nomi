@@ -17,20 +17,20 @@ end
 /// A column of a table as the schema declares it, and the migration that
 /// last created or changed it.
 pub struct TableColumn
-    name: String
-    declared: String
-    not_null: Bool
+    name:        String
+    declared:    String
+    not_null:    Bool
     primary_key: Bool
     has_default: Bool
-    migration: String
+    migration:   String
 end
 
 /// A table: its name, the `CREATE TABLE` statement SQLite keeps for it,
 /// its columns, and the migration that created it.
 pub struct Table
-    name: String
-    sql: String
-    columns: List<TableColumn>
+    name:      String
+    sql:       String
+    columns:   List<TableColumn>
     migration: String
 end
 
@@ -38,10 +38,10 @@ end
 /// reads (`""` for an expression), that table and column, and whether that
 /// column is `NOT NULL` (or an `INTEGER PRIMARY KEY`).
 pub struct Column
-    name: String
+    name:     String
     declared: String
-    table: String
-    origin: String
+    table:    String
+    origin:   String
     not_null: Bool
 end
 
@@ -49,21 +49,21 @@ end
 /// plan lines, or its error and the byte the error is at (-1 for none).
 pub struct Statement
     columns: List<Column>
-    params: Int
-    plan: List<String>
-    error: String
-    offset: Int
+    params:  Int
+    plan:    List<String>
+    error:   String
+    offset:  Int
 end
 
 /// The tables the migrations build and each statement's description; or,
 /// when a migration fails, its error (with `migration` naming it and
 /// `offset` the byte of its text) and nothing else.
 pub struct Description
-    tables: List<Table>
+    tables:     List<Table>
     statements: List<Statement>
-    error: String
-    migration: String
-    offset: Int
+    error:      String
+    migration:  String
+    offset:     Int
 end
 
 /// Apply `migrations` in order to a fresh in-memory database and describe

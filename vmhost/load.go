@@ -58,6 +58,8 @@ type config struct {
 	// warnings takes the program's warnings once a load has checked it
 	// (WithWarnings, WithWarningsTo), or is nil to drop them.
 	warnings func(Diagnostics)
+	// hints adds the advice marked Hint to what warnings takes (WithHints).
+	hints bool
 }
 
 func newConfig(opts []Option) config {
@@ -164,6 +166,13 @@ func WithEnv(env map[string]string) Option {
 // a build refuses the warnings and ignores the advice.
 func WithWarnings(w io.Writer) Option {
 	return WithWarningsTo(func(ds Diagnostics) { ds.Render(w) })
+}
+
+// WithHints adds to the advice Check writes where WithWarnings says the
+// hints the language server shows (analysis.FileHints), each marked Hint:
+// `nomi check --hints`.
+func WithHints() Option {
+	return func(c *config) { c.hints = true }
 }
 
 // WithWarningsTo is WithWarnings for a host that reports them itself, as
@@ -391,7 +400,7 @@ func lowerLocked(cfg config, analyze func() (*irbuild.Program, error)) (*Program
 	return p, nil
 }
 
-// checked is p once its backtick typed literals pass their compile-time
+// checked is p once its typed literals pass their compile-time
 // check (checkLiterals), which every load makes once the program's sources
 // are known, so a diagnostic quotes the text that was loaded.
 func checked(p *Program, err error) (*Program, error) {
@@ -451,11 +460,7 @@ func Check(path string, opts ...Option) error {
 	if err := p.Unsupported(); err != nil {
 		return err
 	}
-	if f := cfg.warnings; f != nil {
-		if ds := p.Advice(); len(ds) > 0 {
-			f(ds)
-		}
-	}
+	writeAdvice(cfg, p.Advice())
 	p.keep(true)
 	return nil
 }

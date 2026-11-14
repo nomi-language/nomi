@@ -4,18 +4,18 @@ import
 end
 
 test "the listed locales, canonical and in order"
-    assert Locale.available() == [Locale`de`, Locale`pl`]
+    assert Locale.available() == [Locale"de", Locale"pl"]
 end
 
 test "a listed locale formats as itself"
-    assert main.total(1234567, Locale`de`) == "1.234.567"
-    assert String.join_list(["a", "b", "c"], Locale`pl`) == "a, b i c"
+    assert main.total(1234567, Locale"de") == "1.234.567"
+    assert String.join_list(["a", "b", "c"], Locale"pl") == "a, b i c"
 end
 
 test "an unlisted locale formats as its nearest listed parent"
     // de-CH groups with an apostrophe; the program carries only de.
-    assert main.total(1234567, Locale`de-CH`) == "1.234.567"
-    assert main.total(1234567, Locale`de-AT`) == "1.234.567"
+    assert main.total(1234567, Locale"de-CH") == "1.234.567"
+    assert main.total(1234567, Locale"de-AT") == "1.234.567"
 end
 
 test "an unlisted locale with no listed parent formats as the source locale"
@@ -23,9 +23,9 @@ test "an unlisted locale with no listed parent formats as the source locale"
     assert main.total(1234567, main.chosen("fr")) == "1.234.567"
     assert String.join_list(["a", "b", "c"], main.chosen("en")) == "a, b und c"
     assert PluralCategory.cardinal(1, main.chosen("en")) == PluralCategory.One
-    assert PluralCategory.cardinal(3, Locale`pl`) == PluralCategory.Few
+    assert PluralCategory.cardinal(3, Locale"pl") == PluralCategory.Few
     // Negotiation and fallbacks answer as CLDR does, whatever is carried.
-    offered = [Locale`de`, main.chosen("fr")]
-    assert Locale.negotiate([main.chosen("fr-CA")], offered, Locale`de`) == main.chosen("fr")
+    offered = [Locale"de", main.chosen("fr")]
+    assert Locale.negotiate([main.chosen("fr-CA")], offered, Locale"de") == main.chosen("fr")
     assert Locale.fallbacks(main.chosen("fr-CA")) == [main.chosen("fr-CA"), main.chosen("fr")]
 end

@@ -9,7 +9,7 @@
 /// out takes the other list's values, reversed.
 pub opaque struct LinkedList<T>
     front: List<T>
-    back: List<T>
+    back:  List<T>
 end
 
 impl LinkedList<T>
@@ -38,7 +38,7 @@ impl LinkedList<T>
             [] ->
                 case Iter.reverse(list.front)
                     [last, ..back] -> Some((last, {front: [], back:}))
-                    [] -> None
+                    []             -> None
                 end
         end
     end
@@ -53,7 +53,7 @@ impl LinkedList<T>
             [] ->
                 case Iter.reverse(list.back)
                     [first, ..front] -> Some((first, {front:, back: []}))
-                    [] -> None
+                    []               -> None
                 end
         end
     end

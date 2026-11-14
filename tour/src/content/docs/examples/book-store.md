@@ -72,13 +72,13 @@ import book_store
 
 test "total"
     [
-        ("Only a single book", [1], 800),
-        ("Two of the same book", [2, 2], 1600),
-        ("Empty basket", [], 0),
-        ("Two different books", [1, 2], 1520),
-        ("Three different books", [1, 2, 3], 2160),
-        ("Four different books", [1, 2, 3, 4], 2560),
-        ("Five different books", [1, 2, 3, 4, 5], 3000),
+        ("Only a single book",    [1],             800),
+        ("Two of the same book",  [2, 2],          1600),
+        ("Empty basket",          [],              0),
+        ("Two different books",   [1, 2],          1520),
+        ("Three different books", [1, 2, 3],       2160),
+        ("Four different books",  [1, 2, 3, 4],    2560),
+        ("Five different books",  [1, 2, 3, 4, 5], 3000),
         (
             "Two groups of four is cheaper than group of five plus group of three",
             [1, 1, 2, 2, 3, 3, 4, 5],

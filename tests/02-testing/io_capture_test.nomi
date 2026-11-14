@@ -10,7 +10,7 @@ end
 fn read_words(acc: List<String>) -> List<String>
     case io.read_line()
         Ok(Some(line)) -> read_words(acc + String.split(line, " "))
-        _ -> acc
+        _              -> acc
     end
 end
 
@@ -105,7 +105,7 @@ test "stderr is captured apart from stdout and the transcript"
 
         case io.read_line()
             Ok(Some(name)) -> io.print("hi ${name}")
-            _ -> io.ewrite("no name")
+            _              -> io.ewrite("no name")
         end
     end)
 

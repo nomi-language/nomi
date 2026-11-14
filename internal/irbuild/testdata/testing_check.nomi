@@ -61,7 +61,7 @@ test "an absent actual is None rather than an empty string"
     assert Err(failure) = testing.check(2 > 3)
 
     absent = case failure.actual
-        None -> True
+        None    -> True
         Some(_) -> False
     end
 

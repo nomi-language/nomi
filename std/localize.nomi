@@ -31,8 +31,8 @@ end
 /// `NaiveDateTime` and `DateTime` (`format` with its default styles),
 /// `Duration` (`Duration.format` in long words), `Phrase` (`Phrase.format`)
 /// and `Noun` (its nominative for one thing).
-//! assert Localize.localize(1234567, Locale`de`) == "1.234.567"
-//! assert Localize.localize("Tak", Locale`pl`) == "Tak"
+//! assert Localize.localize(1234567, Locale"de") == "1.234.567"
+//! assert Localize.localize("Tak", Locale"pl") == "Tak"
 //
 pub interface Localize
     fn localize(value: self, locale: Locale) -> String
@@ -65,9 +65,9 @@ end
 
 /// Why text is not a number in a locale. `at` counts grapheme clusters
 /// from the start of the text, as `String.length` does.
-//! assert Int.parse_in("12,34,567", Locale`en`) == Err(NumberParseError.Grouping{at: 2})
+//! assert Int.parse_in("12,34,567", Locale"en") == Err(NumberParseError.Grouping{at: 2})
 //!
-//! assert Display.to_string(NumberParseError.WrongCurrency{expected: Currency`EUR`, found: "zł"})
+//! assert Display.to_string(NumberParseError.WrongCurrency{expected: Currency"EUR", found: "zł"})
 //!     == "expected an amount in EUR, found `zł`"
 //
 pub enum NumberParseError

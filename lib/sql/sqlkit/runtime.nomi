@@ -61,7 +61,7 @@ fn read<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> where
 
             case widened
                 Some(Ok(v)) -> Ok(v)
-                _ -> Err(named(query, e))
+                _           -> Err(named(query, e))
             end
     end
 end
@@ -224,48 +224,48 @@ pub fn value<T>(query: String, row: Row, position: Int) -> Result<T, sql.Error> 
 end
 
 pub fn value_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: FromSql
     read(query, row, position)
 end
 
 pub fn int<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlInt and FromSql
     read(query, row, position)
 end
 
 pub fn int_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlInt and FromSql
     read(query, row, position)
 end
 
 pub fn float<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlFloat and FromSql
     read(query, row, position)
 end
 
 pub fn float_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlFloat and FromSql
     read(query, row, position)
 end
 
 pub fn numeric<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlNumeric and FromSql
     read(query, row, position)
@@ -274,170 +274,170 @@ end
 /// A `DECIMAL(p, s)` column, or an expression `CAST` to one, read at its
 /// scale `s` (see `at_scale`).
 pub fn numeric_scaled<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
-    scale: Int,
+    scale:    Int,
 ) -> Result<T, sql.Error> where T: SqlNumeric and FromSql
     read(query, at_scale(query, row, position, scale)?, position)
 end
 
 pub fn numeric_scaled_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
-    scale: Int,
+    scale:    Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql
     read(query, at_scale(query, row, position, scale)?, position)
 end
 
 pub fn numeric_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlNumeric and FromSql
     read(query, row, position)
 end
 
 pub fn text<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlText and FromSql
     read(query, row, position)
 end
 
 pub fn text_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlText and FromSql
     read(query, row, position)
 end
 
 pub fn bool<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlBool and FromSql
     read(query, row, position)
 end
 
 pub fn bool_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlBool and FromSql
     read(query, row, position)
 end
 
 pub fn bytes<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlBytes and FromSql
     read(query, row, position)
 end
 
 pub fn bytes_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlBytes and FromSql
     read(query, row, position)
 end
 
 pub fn date<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlDate and FromSql
     read(query, row, position)
 end
 
 pub fn date_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlDate and FromSql
     read(query, row, position)
 end
 
 pub fn time<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlTime and FromSql
     read(query, row, position)
 end
 
 pub fn time_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlTime and FromSql
     read(query, row, position)
 end
 
 pub fn timestamp<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlTimestamp and FromSql
     read(query, row, position)
 end
 
 pub fn timestamp_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlTimestamp and FromSql
     read(query, row, position)
 end
 
 pub fn timestamptz<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlTimestamptz and FromSql
     read(query, row, position)
 end
 
 pub fn timestamptz_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlTimestamptz and FromSql
     read(query, row, position)
 end
 
 pub fn uuid<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlUuid and FromSql
     read(query, row, position)
 end
 
 pub fn uuid_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlUuid and FromSql
     read(query, row, position)
 end
 
 pub fn json<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<T, sql.Error> where T: SqlJson and FromSql
     read(query, row, position)
 end
 
 pub fn json_null<T>(
-    query: String,
-    row: Row,
+    query:    String,
+    row:      Row,
     position: Int,
 ) -> Result<Maybe<T>, sql.Error> where T: SqlJson and FromSql
     read(query, row, position)
@@ -445,9 +445,9 @@ end
 
 /// The rows of statement, each read by decode.
 fn rows_of<T>(
-    conn: Conn,
+    conn:      Conn,
     statement: Statement,
-    decode: (Row) -> Result<T, sql.Error>,
+    decode:    (Row) -> Result<T, sql.Error>,
 ) -> Result<List<T>, sql.Error>
     rows = Conn.query(conn, statement)?
     rows |> Iter.map(decode) |> Result.collect()
@@ -455,41 +455,41 @@ end
 
 /// `-> T`: exactly one row.
 pub fn one<T>(
-    conn: Conn,
-    query: String,
+    conn:      Conn,
+    query:     String,
     statement: Statement,
-    decode: (Row) -> Result<T, sql.Error>,
+    decode:    (Row) -> Result<T, sql.Error>,
 ) -> Result<T, sql.Error>
     rows = rows_of(conn, statement, decode)?
 
     case rows
         [row] -> Ok(row)
-        _ -> Err(sql.Error.RowCount{query:, expected: "exactly one", found: Iter.count(rows)})
+        _     -> Err(sql.Error.RowCount{query:, expected: "exactly one", found: Iter.count(rows)})
     end
 end
 
 /// `-> Maybe<T>`: at most one row.
 pub fn optional<T>(
-    conn: Conn,
-    query: String,
+    conn:      Conn,
+    query:     String,
     statement: Statement,
-    decode: (Row) -> Result<T, sql.Error>,
+    decode:    (Row) -> Result<T, sql.Error>,
 ) -> Result<Maybe<T>, sql.Error>
     rows = rows_of(conn, statement, decode)?
 
     case rows
-        [] -> Ok(None)
+        []    -> Ok(None)
         [row] -> Ok(Some(row))
-        _ -> Err(sql.Error.RowCount{query:, expected: "at most one", found: Iter.count(rows)})
+        _     -> Err(sql.Error.RowCount{query:, expected: "at most one", found: Iter.count(rows)})
     end
 end
 
 /// `-> List<T>`: every row.
 pub fn list<T>(
-    conn: Conn,
-    query: String,
+    conn:      Conn,
+    query:     String,
     statement: Statement,
-    decode: (Row) -> Result<T, sql.Error>,
+    decode:    (Row) -> Result<T, sql.Error>,
 ) -> Result<List<T>, sql.Error>
     _ = query
     rows_of(conn, statement, decode)
@@ -497,10 +497,10 @@ end
 
 /// `-> Rows<T>`: the rows, streamed when folded.
 pub fn rows<T>(
-    conn: Conn,
-    query: String,
+    conn:      Conn,
+    query:     String,
     statement: Statement,
-    decode: (Row) -> Result<T, sql.Error>,
+    decode:    (Row) -> Result<T, sql.Error>,
 ) -> Rows<T>
     Rows.new(conn, query, statement, decode)
 end
@@ -522,6 +522,6 @@ end
 pub fn text_of(value: Value) -> Maybe<String>
     case value
         .Text(s) -> Some(s)
-        _ -> None
+        _        -> None
     end
 end

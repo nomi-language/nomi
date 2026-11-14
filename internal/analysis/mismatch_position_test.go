@@ -52,7 +52,7 @@ func TestMismatchErrorsSpanTheOffendingPart(t *testing.T) {
 			"P expects an anonymous struct literal {...} matching its fields, got Int", "6:11-6:12"},
 		{"bound alias entry that is not an interface",
 			"typealias Both Display and Int\n\nfn f<T>(x: T) -> T where T: Both\n    x\nend\n\nfn main()\n    _ = f(1)\nend\n",
-			"interface-bound alias entry must be an interface, got Int", "1:28-1:31"},
+			"`and` joins interfaces, and Int is not an interface", "1:28-1:31"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSourceWithStdlib(tc.src)

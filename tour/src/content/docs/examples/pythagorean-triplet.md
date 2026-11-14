@@ -19,6 +19,7 @@ pub fn triplets_with_sum(n: Int) -> List<(Int, Int, Int)>
     1..n / 3
     |> Iter.map(&triplet(n, &1))
     |> Maybe.values()
+    |> Iter.to_list()
 end
 
 /// The triplet summing to `n` whose shortest side is `a`, if there is one.
@@ -37,17 +38,17 @@ import pythagorean_triplet
 
 test "triplets with sum"
     [
-        ("triplets whose sum is 12", 12, [(3, 4, 5)]),
-        ("triplets whose sum is 108", 108, [(27, 36, 45)]),
-        ("triplets whose sum is 1000", 1000, [(200, 375, 425)]),
+        ("triplets whose sum is 12",      12,   [(3, 4, 5)]),
+        ("triplets whose sum is 108",     108,  [(27, 36, 45)]),
+        ("triplets whose sum is 1000",    1000, [(200, 375, 425)]),
         ("no matching triplets for 1001", 1001, []),
-        ("returns all matching triplets", 90, [(9, 40, 41), (15, 36, 39)]),
+        ("returns all matching triplets", 90,   [(9, 40, 41), (15, 36, 39)]),
         (
             "several matching triplets",
             840,
             [
-                (40, 399, 401),
-                (56, 390, 394),
+                (40,  399, 401),
+                (56,  390, 394),
                 (105, 360, 375),
                 (120, 350, 370),
                 (140, 336, 364),

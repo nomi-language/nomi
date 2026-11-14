@@ -33,10 +33,10 @@ derive Equatable for Kind
 /// One token: its kind, its text as written, and where it is in the SQL,
 /// by grapheme from the start.
 pub struct Token
-    kind: Kind
-    text: String
+    kind:  Kind
+    text:  String
     start: Int
-    stop: Int
+    stop:  Int
 end
 
 derive Equatable for Token
@@ -122,7 +122,7 @@ end
 fn skip(chars: Vector<String>, i: Int, keep: (String) -> Bool) -> Int
     case Vector.get(chars, i)
         Some(c) when keep(c) -> skip(chars, i + 1, keep)
-        _ -> i
+        _                    -> i
     end
 end
 
@@ -156,10 +156,10 @@ end
 /// them: `"name!"` asserts the column is never NULL, `"name?"` that it may
 /// be, and `"name: Type"` (or `"name!: Type"`) gives its Nomi type.
 pub struct Override
-    column: String
-    nullable: Maybe<Bool>
+    column:    String
+    nullable:  Maybe<Bool>
     type_text: Maybe<String>
-    token: Token
+    token:     Token
 end
 
 /// The override a quoted name holds, if it holds one.
@@ -178,7 +178,7 @@ pub fn override(token: Token) -> Maybe<Override>
 
     (head, type_text) = case String.split(inner, ":")
         [name, ty] -> (String.trim(name), Some(String.trim(ty)))
-        _ -> (inner, None)
+        _          -> (inner, None)
     end
 
     (column, nullable) = if String.ends_with(head, "!") then
@@ -205,7 +205,7 @@ end
 fn sent(token: Token) -> String
     case override(token)
         Some(o) -> "\"${o.column}\""
-        None -> token.text
+        None    -> token.text
     end
 end
 
@@ -307,7 +307,7 @@ pub fn token_at_offset(tokens: List<Token>, offset: Int) -> Maybe<Token>
 
     case found
         Some(t) -> Some(t)
-        None -> tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.last()
+        None    -> tokens |> Iter.filter(fn t -> t.kind != Kind.Space) |> Iter.last()
     end
 end
 
@@ -589,7 +589,7 @@ end
 //
 pub fn outer_joined(
     tokens: List<Token>,
-    plan: List<String>,
+    plan:   List<String>,
     tables: List<String>,
 ) -> Maybe<List<String>>
     left =
@@ -626,7 +626,7 @@ end
 fn plan_alias(line: String) -> String
     case String.words(line) |> Iter.to_list()
         [_, name, ..] -> name
-        _ -> ""
+        _             -> ""
     end
 end
 
@@ -660,7 +660,7 @@ end
 pub fn listed<T>(m: Maybe<T>) -> List<T>
     case m
         Some(v) -> [v]
-        None -> []
+        None    -> []
     end
 end
 

@@ -73,7 +73,7 @@ opaque type Meters Int
 
 // zeta before alpha, in every struct here, deliberately. See above.
 struct Worker
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 
@@ -87,7 +87,7 @@ end
 // A hand-written `impl Debug` on an EMBEDDED type: precedence has to survive
 // the delegation, not just a top-level call.
 struct Custom
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 

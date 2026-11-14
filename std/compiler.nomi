@@ -1,4 +1,4 @@
-//# Compiler and analyzer operations for test tooling.
+//# Compiler and analyzer operations for test tooling and code generators.
 
 import
     int.Int
@@ -11,8 +11,8 @@ end
 
 /// A compiler diagnostic with 1-based source coordinates.
 pub struct Diagnostic
-    line: Int
-    col: Int
+    line:    Int
+    col:     Int
     message: String
 end
 
@@ -35,8 +35,8 @@ end
 /// depend on package metadata, such as `entry_points`, use it.
 pub struct Project
     entry_point: String
-    files: Map<String, String>
-    manifest: Maybe<String> = None
+    files:       Map<String, String>
+    manifest:    Maybe<String> = None
 end
 
 /// Options for running a `.nomi` file under the current test project root.
@@ -73,6 +73,27 @@ end
 //
 pub host fn check(source: String) -> List<Diagnostic>
 
+/// Formats `source` as `nomi fmt` formats a file.
+///
+/// A tool that generates Nomi source passes its text through `format`
+/// before writing it, so the file it writes is the one `nomi fmt` would
+/// leave unchanged. `Err(message)` is the parse error when `source` does
+/// not parse.
+//! import std::compiler
+//!
+//! formatted = compiler.format(
+//!     """
+//!     fn  double(n:Int)->Int
+//!     n*2
+//!     end
+//!     """
+//! )?
+//!
+//! assert formatted == "fn double(n: Int) -> Int\n    n * 2\nend\n"
+//! assert Err(_) = compiler.format("fn (")
+//
+pub host fn format(source: String) -> Result<String, String>
+
 /// Runs `source` as a standalone Nomi entry file and captures stdout.
 ///
 /// The source is placed in the current test project as `compiler.check`
@@ -96,7 +117,7 @@ pub host fn check(source: String) -> List<Diagnostic>
 //!     """
 //! )
 //!     Ok(out) -> assert String.contains(out, "41 + 1 = 42")
-//!     Err(e) -> assert String.contains(e, "unreachable: the program above runs")
+//!     Err(e)  -> assert String.contains(e, "unreachable: the program above runs")
 //! end
 //
 pub host fn run(source: String) -> Result<String, String>

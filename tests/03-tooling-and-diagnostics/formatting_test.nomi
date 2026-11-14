@@ -8,7 +8,7 @@
 // Once bindings (file-level)
 // ---------------------------------------------------------------------------
 once max_retries: Int = 3
-once default_host = "localhost"
+once default_host     = "localhost"
 
 // ---------------------------------------------------------------------------
 // Struct declarations — always multi-line, trailing commas
@@ -27,8 +27,8 @@ impl Drawable2 for Point
 end
 
 pub struct User
-    name: String
-    age: Int = 0
+    name:  String
+    age:   Int = 0
     email: String = ""
 end
 
@@ -37,7 +37,7 @@ pub opaque struct UserId
 end
 
 pub struct Pair<A, B>
-    first: A
+    first:  A
     second: B
 end
 
@@ -152,9 +152,9 @@ end
 
 // Long signature — params break one per line; body always breaks.
 pub fn process_all_the_users(
-    users: List<User>,
-    _config: Pair<String, Int>,
-    _retry_count: Int,
+    users:         List<User>,
+    _config:       Pair<String, Int>,
+    _retry_count:  Int,
     _more_options: List<String>,
 ) -> Result<List<User>, String>
     Ok(users)
@@ -189,8 +189,8 @@ fn binding_forms()
 
     // Named struct literal — user-written multi-line preserved
     _long_lit = User{
-        name: "Bob",
-        age: 42,
+        name:  "Bob",
+        age:   42,
         email: "b@x.com",
     }
 end

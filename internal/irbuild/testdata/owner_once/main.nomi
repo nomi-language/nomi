@@ -27,7 +27,7 @@ end
 
 impl Mode
     pub once preferred: Mode = Mode.Slow
-    once label = "mode"
+    once label               = "mode"
 end
 
 struct Box<T>

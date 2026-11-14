@@ -31,7 +31,7 @@ end
 fn show(m: Maybe<Int>) -> String
     case m
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 

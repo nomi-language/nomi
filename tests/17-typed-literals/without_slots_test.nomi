@@ -1,0 +1,62 @@
+import
+    std::calendar.Date
+    std::literals.{Fragment, Literal}
+    std::regex.Regex
+end
+
+struct Word
+    text: String
+end
+
+impl Literal for Word
+    fn from_fragments(fragments: List<Fragment<String>>) -> Word
+        text =
+            fragments
+            |> Iter.map(fn frag ->
+                case frag
+                    .Static(s)  -> s
+                    .Dynamic(v) -> v
+                end
+            end)
+            |> String.join()
+
+        Word{text:}
+    end
+end
+
+test "a quoted literal without slots is its handler's Ok value"
+    day: Date = Date"2026-05-04"
+    assert Date.month(day) == 5
+    assert Date"2026-05-04" == Date`2026-05-04`
+end
+
+test "a triple-quoted literal without slots is its handler's Ok value"
+    day = Date"""
+        2026-05-04
+        """
+
+    assert Date.day(day) == 4
+end
+
+test "a quoted Regex reads escapes, a backtick one keeps backslashes"
+    assert String.find_all("order 66, aisle 7", Regex"\\d+") == ["66", "7"]
+    assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
+end
+
+test "a literal with a slot is built when it runs, as a Result"
+    month = "13"
+    assert Err(_) = Date"2026-${month}-04"
+    good = "07"
+    assert Ok(day) = Date"2026-${good}-04"
+    assert Date.month(day) == 7
+end
+
+test "text known only at run time goes through the type's parse"
+    assert Err(_) = Date.parse("2026-13-04")
+end
+
+test "an infallible handler's literal keeps its type"
+    assert Word"hi".text == "hi"
+    who = "there"
+    assert Word"hi ${who}".text == "hi there"
+end

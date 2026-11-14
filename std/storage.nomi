@@ -22,7 +22,7 @@
 //# store = if production then
 //#     s3.store(config)?
 //# else
-//#     storage.local("tmp/files", public_base: Some(Url`/files/`))
+//#     storage.local("tmp/files", public_base: Some(Url"/files/"))
 //# end
 //# ```
 //#
@@ -157,8 +157,8 @@ derive Debug for Object
 /// An object as a listing shows it: its key, its size in bytes, and when
 /// it was last stored.
 pub struct Entry
-    key: String
-    size: Int
+    key:      String
+    size:     Int
     modified: Instant
 end
 
@@ -188,9 +188,9 @@ derive Debug for ListOptions
 /// in key order, and the continuation for the page after it, or `None` on
 /// the last page.
 pub struct Listing
-    objects: List<Entry> = []
+    objects:  List<Entry> = []
     prefixes: List<String> = []
-    next: Maybe<String> = None
+    next:     Maybe<String> = None
 end
 
 derive Equatable for Listing
@@ -256,7 +256,7 @@ end
 //! assert check_key("100% café/a b#1?.txt") == Ok(Unit)
 //!
 //! assert check_key("../etc/passwd") == Err(Error.InvalidKey{
-//!         key: "../etc/passwd",
+//!         key:    "../etc/passwd",
 //!         reason: "segment .. starts with a dot",
 //!     })
 //!
@@ -328,9 +328,9 @@ end
 //! |> Iter.to_list() == ["p/a", "p/b/1", "p/b/2", "p/c"]
 //!
 //! assert page(entries, ListOptions{prefix: "p/", delimiter: "/", limit: 2}) == Listing{
-//!     objects: [entry("p/a")],
+//!     objects:  [entry("p/a")],
 //!     prefixes: ["p/b/"],
-//!     next: Some("p/b/"),
+//!     next:     Some("p/b/"),
 //! }
 //!
 //! assert page(
@@ -354,7 +354,7 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing
         |> Iter.map(fn e ->
             case folded(e.key, options)
                 Some(p) -> (p, None)
-                None -> (e.key, Some(e))
+                None    -> (e.key, Some(e))
             end
         end)
         |> Iter.chunk_by(fn (text, _) -> text)
@@ -362,7 +362,7 @@ pub fn page(entries: Iter<Entry>, options: ListOptions) -> Listing
         |> Iter.filter(fn (text, _) ->
             case options.continuation
                 Some(after) -> text > after
-                None -> True
+                None        -> True
             end
         end)
         |> Iter.take(limit + 1)
@@ -394,7 +394,7 @@ fn folded(key: String, options: ListOptions) -> Maybe<String>
 
     case String.split(rest, options.delimiter)
         [head, _, ..] -> Some("${options.prefix}${head}${options.delimiter}")
-        _ -> None
+        _             -> None
     end
 end
 
@@ -411,8 +411,8 @@ end
 //! assert all.next == None
 //
 pub fn list_all(
-    store: Store,
-    prefix: String = "",
+    store:     Store,
+    prefix:    String = "",
     delimiter: String = "",
     page_size: Int = 1000,
 ) -> Result<Listing, Error>
@@ -423,7 +423,7 @@ fn follow(store: Store, options: ListOptions, done: Listing) -> Result<Listing, 
     listed = Store.list(store, options)?
 
     all = Listing{
-        objects: done.objects + listed.objects,
+        objects:  done.objects + listed.objects,
         prefixes: done.prefixes + listed.prefixes,
     }
 
@@ -449,7 +449,7 @@ end
 /// `base` with the segments of `key` joined to its path, each escaped, so
 /// that a `%`, `?` or `#` in a key stays part of the path. A backend's
 /// `url` returns it for its public base. `key` is not checked.
-//! u = join_key(Url`https://cdn.example.com/files/`, "a b/50%(1)#2.jpg")
+//! u = join_key(Url"https://cdn.example.com/files/", "a b/50%(1)#2.jpg")
 //! assert u.path == "/files/a b/50%(1)#2.jpg"
 //! assert "${u}" == "https://cdn.example.com/files/a%20b/50%25%281%29%232.jpg"
 //
@@ -496,7 +496,7 @@ end
 /// these.
 ///
 /// `public_base` is where the app serves the directory, as
-/// `Some(Url`/files/`)` with a route to `storage.handler`; `url` joins the
+/// `Some(Url"/files/")` with a route to `storage.handler`; `url` joins the
 /// key to it. With `None`, `url` returns `Err(.NoPublicUrl)`.
 ///
 /// A `put` writes the type file, then the object, each to a temporary file
@@ -523,7 +523,7 @@ end
 //! import std::fs::testing
 //!
 //! ran = testing.run(testing.Sandbox{}, fn ->
-//!     store = local("files", public_base: Some(Url`/files/`))
+//!     store = local("files", public_base: Some(Url"/files/"))
 //!     Store.put(store, "a/b.txt", String.to_bytes("hi"), "text/plain")?
 //!     Ok((Store.get(store, "a/b.txt")?.info.content_type, "${Store.url(store, "a/b.txt")?}"))
 //! end)
@@ -537,7 +537,7 @@ pub fn local(root: String, public_base: Maybe<Url> = None) -> Store
 end
 
 struct Local
-    root: String
+    root:        String
     public_base: Maybe<Url>
 end
 
@@ -553,15 +553,15 @@ impl Local
     // The stored type of the object at `key`, else what its bytes look like.
     fn content_type(
         local: Local,
-        key: String,
-        data: () -> Result<Bytes, Error>,
+        key:   String,
+        data:  () -> Result<Bytes, Error>,
     ) -> Result<String, Error>
         case fs.read_text(Local.type_path(local, key))
-            Ok(text) -> Ok(text)
-            Err(.NotFound{}) -> data() |> Result.map(http.detect_content_type)
+            Ok(text)              -> Ok(text)
+            Err(.NotFound{})      -> data() |> Result.map(http.detect_content_type)
             Err(.NotADirectory{}) -> data() |> Result.map(http.detect_content_type)
-            Err(.IsADirectory{}) -> data() |> Result.map(http.detect_content_type)
-            Err(e) -> Err(from_io(key, e))
+            Err(.IsADirectory{})  -> data() |> Result.map(http.detect_content_type)
+            Err(e)                -> Err(from_io(key, e))
         end
     end
 end
@@ -616,7 +616,7 @@ impl Store for Local
             Err(e) ->
                 case missing(key, e)
                     .NotFound{} -> Ok(None)
-                    other -> Err(other)
+                    other       -> Err(other)
                 end
         end
     end
@@ -632,7 +632,7 @@ impl Store for Local
             Err(e) ->
                 case missing(key, e)
                     .NotFound{} -> False
-                    other -> return Err(other)
+                    other       -> return Err(other)
                 end
         end
 
@@ -645,7 +645,7 @@ impl Store for Local
             Err(e) ->
                 case missing(key, e)
                     .NotFound{} -> Ok(Unit)
-                    other -> Err(other)
+                    other       -> Err(other)
                 end
         end
     end
@@ -655,7 +655,7 @@ impl Store for Local
 
         case local.public_base
             Some(base) -> Ok(join_key(base, key))
-            None -> Err(Error.NoPublicUrl)
+            None       -> Err(Error.NoPublicUrl)
         end
     end
 
@@ -717,7 +717,7 @@ fn key_segment(name: String) -> String
                     end)
 
                 case code
-                    Ok(c) -> c + String.drop(part, 2)
+                    Ok(c)  -> c + String.drop(part, 2)
                     Err(_) -> "%" + part
                 end
             end)
@@ -768,7 +768,7 @@ end
 fn make_parent(key: String, file: String) -> Result<Unit, Error>
     case path.parent(file)
         Some(dir) -> fs.create_dir(dir, parents: True) |> Result.map_err(fn e -> from_io(key, e))
-        None -> Ok(Unit)
+        None      -> Ok(Unit)
     end
 end
 
@@ -777,37 +777,37 @@ end
 fn missing(key: String, error: io.Error) -> Error
     case error
         .NotADirectory{} -> Error.NotFound{key:}
-        .IsADirectory{} -> Error.NotFound{key:}
-        _ -> from_io(key, error)
+        .IsADirectory{}  -> Error.NotFound{key:}
+        _                -> from_io(key, error)
     end
 end
 
 fn from_io(key: String, error: io.Error) -> Error
     case error
-        .NotFound{} -> Error.NotFound{key:}
+        .NotFound{}         -> Error.NotFound{key:}
         .PermissionDenied{} -> Error.Denied{message: "${error}"}
-        _ -> Error.Backend{code: io_code(error), message: "${error}"}
+        _                   -> Error.Backend{code: io_code(error), message: "${error}"}
     end
 end
 
 fn io_code(error: io.Error) -> String
     case error
-        .NotFound{} -> "NotFound"
-        .AlreadyExists{} -> "AlreadyExists"
-        .PermissionDenied{} -> "PermissionDenied"
-        .NotADirectory{} -> "NotADirectory"
-        .IsADirectory{} -> "IsADirectory"
+        .NotFound{}          -> "NotFound"
+        .AlreadyExists{}     -> "AlreadyExists"
+        .PermissionDenied{}  -> "PermissionDenied"
+        .NotADirectory{}     -> "NotADirectory"
+        .IsADirectory{}      -> "IsADirectory"
         .DirectoryNotEmpty{} -> "DirectoryNotEmpty"
-        .InvalidPath{} -> "InvalidPath"
-        .InvalidText{} -> "InvalidText"
-        .NoSpace{} -> "NoSpace"
-        .ReadOnly{} -> "ReadOnly"
-        .TooManyOpen -> "TooManyOpen"
-        .Closed -> "Closed"
-        .BrokenPipe -> "BrokenPipe"
-        .TimedOut -> "TimedOut"
-        .Unsupported{} -> "Unsupported"
-        .Other{} -> "Other"
+        .InvalidPath{}       -> "InvalidPath"
+        .InvalidText{}       -> "InvalidText"
+        .NoSpace{}           -> "NoSpace"
+        .ReadOnly{}          -> "ReadOnly"
+        .TooManyOpen         -> "TooManyOpen"
+        .Closed              -> "Closed"
+        .BrokenPipe          -> "BrokenPipe"
+        .TimedOut            -> "TimedOut"
+        .Unsupported{}       -> "Unsupported"
+        .Other{}             -> "Other"
     end
 end
 

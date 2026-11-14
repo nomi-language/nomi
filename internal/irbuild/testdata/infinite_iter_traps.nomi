@@ -1,7 +1,7 @@
 // Every terminal that has to reach the end of its source traps at once on
 // an infinite one, before taking anything from it, naming the terminal the
 // test called and the source that never ends, at the test's own line. A
-// terminal std writes over `Iter.reduce` (`Iter.max`, `Maybe.values`) is
+// terminal std writes over `Iter.reduce` (`Iter.max`, `Iter.frequencies`) is
 // named as called, and so is one a program function reaches. A user source
 // that writes `is_infinite` lives here rather than in the corpus, whose
 // retained-function probe would drive its endless `each_while`. The checker
@@ -143,20 +143,12 @@ test "reverse"
     assert hide(Iter.from(0)) |> Iter.reverse() == []
 end
 
-test "flatten"
-    assert hide(Iter.repeat([1])) |> Iter.flatten() == []
-end
-
 test "map_reduce"
     assert hide(Iter.from(0)) |> Iter.map_reduce(0, fn s, x -> (s + x, x)) == (0, [])
 end
 
 test "String.join"
     assert hide(Iter.repeat("a")) |> String.join(", ") == ""
-end
-
-test "Maybe.values"
-    assert hide(Iter.repeat(Maybe.Some(1))) |> Maybe.values() == []
 end
 
 test "Result.partition"

@@ -66,9 +66,9 @@ end
 
 fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error>
     case operation
-        .Plus -> Ok(a + b)
-        .Minus -> Ok(a - b)
-        .Times -> Ok(a * b)
+        .Plus      -> Ok(a + b)
+        .Minus     -> Ok(a - b)
+        .Times     -> Ok(a * b)
         .DividedBy -> divide(a, b)
     end
 end

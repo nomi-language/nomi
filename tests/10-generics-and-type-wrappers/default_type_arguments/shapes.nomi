@@ -1,7 +1,7 @@
 // Declarations with default type arguments, used from another file.
 pub struct Tagged<T, Tag = String>
     value: T
-    tag: Tag
+    tag:   Tag
 end
 
 pub enum Outcome<E = String>

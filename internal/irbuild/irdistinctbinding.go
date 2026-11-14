@@ -21,11 +21,13 @@ func (bl *irScalarBuilder) distinctBinding(t *ast.DistinctDestructure) bool {
 	if ok && irSingleVariantPayload(k) {
 		return bl.singleVariantBinding(t, src, k.def)
 	}
-	if !ok || k.tag != tagNamed || !irDistinctOverValue(k.def) {
-		if ok {
-			bl.g.dc.note("a distinct destructure outside the retained wrapping domain")
-		}
+	if !ok {
 		return false
+	}
+	if k.tag != tagNamed || !irDistinctOverValue(k.def) {
+		// The checker admits `Id(x) = value` only over a distinct type that
+		// wraps a value or a single-variant enum, held, so retained.
+		panic("irbuild: a distinct destructure over " + k.nomi())
 	}
 	inner := bl.distinctProjection(t, src, k, true, "irdistinctbinding.go distinctBinding")
 	return bl.destructureBind(t, t.Binding.Name, t.Line, t.Col, k.def.inner, func() ir.Temp { return inner })

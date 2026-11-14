@@ -5,17 +5,17 @@
 /// compute cells hold a function of other cells that is kept up to date. It
 /// is a value: setting an input answers a new reactor.
 pub opaque struct Reactor
-    values: Map<String, Int>
-    inputs: Set<String>
-    computed: List<Computed>
+    values:    Map<String, Int>
+    inputs:    Set<String>
+    computed:  List<Computed>
     callbacks: Map<String, String>
 end
 
 /// A compute cell: its name, the cells it reads, in order, and how it
 /// computes its value from theirs.
 struct Computed
-    name: String
-    inputs: List<String>
+    name:    String
+    inputs:  List<String>
     compute: (Vector<Int>) -> Int
 end
 
@@ -50,8 +50,8 @@ impl Reactor
     /// values of `inputs`, in their order.
     pub fn compute(
         reactor: Reactor,
-        name: String,
-        inputs: List<String>,
+        name:    String,
+        inputs:  List<String>,
         compute: (Vector<Int>) -> Int,
     ) -> Result<Reactor, Error>
         if name in reactor.values then return Err(.Duplicate(name))
@@ -64,7 +64,7 @@ impl Reactor
 
         Ok({
             ..reactor,
-            values: Map.put(.., name, value_of(cell, ..)),
+            values:   Map.put(.., name, value_of(cell, ..)),
             computed: [.., cell],
         })
     end
@@ -79,8 +79,8 @@ impl Reactor
     /// watching a cell whose value changed, with the cell's new value.
     pub fn set_value(
         reactor: Reactor,
-        name: String,
-        value: Int,
+        name:    String,
+        value:   Int,
     ) -> Result<(Reactor, Map<String, Int>), Error>
         if not name in reactor.values then return Err(.UnknownCell(name))
 

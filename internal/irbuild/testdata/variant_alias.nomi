@@ -39,34 +39,34 @@ end
 //                  (prelude.go) reached from the same call-ladder rung.
 fn describe(j: Json) -> String
     case j
-        .Obj(_) -> "obj"
-        .Arr(_) -> "arr"
+        .Obj(_)    -> "obj"
+        .Arr(_)    -> "arr"
         .String(s) -> "str:" + s
-        .Int(n) -> "int:${n}"
-        .Float(_) -> "float"
-        .Bool(_) -> "bool"
-        .Null -> "null"
+        .Int(n)    -> "int:${n}"
+        .Float(_)  -> "float"
+        .Bool(_)   -> "bool"
+        .Null      -> "null"
     end
 end
 
 fn maybe_label(m: Maybe<Int>) -> String
     case m
         .Some(v) -> "some:${v}"
-        .None -> "none"
+        .None    -> "none"
     end
 end
 
 fn result_label(r: Result<Int, String>) -> String
     case r
-        .Ok(v) -> "ok:${v}"
+        .Ok(v)  -> "ok:${v}"
         .Err(e) -> "err:" + e
     end
 end
 
 fn order_label(o: Ordering) -> String
     case o
-        .Less -> "lt"
-        .Equal -> "eq"
+        .Less    -> "lt"
+        .Equal   -> "eq"
         .Greater -> "gt"
     end
 end
@@ -74,7 +74,7 @@ end
 fn nested_label(m: Maybe<Json>) -> String
     case m
         .Some(j) -> describe(j)
-        .None -> "none"
+        .None    -> "none"
     end
 end
 

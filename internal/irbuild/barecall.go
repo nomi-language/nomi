@@ -14,10 +14,13 @@ import (
 //	interface F { fn shout(v: self) { label(v) } }           an interface's own
 //	                                                          sibling requirement
 //
-// The first two are resolution paths, as ctrlflow.go's iterOwnerCall is for
-// `import std::iter.Iter.loop`. The first is irqualcall.go's siblingCall; the
-// second is here. The third is refused by its own name, so the refusal names
-// what the call is rather than blaming an unlowered callee.
+// Each is the call its resolution means, as ctrlflow.go's iterOwnerCall is
+// for `import std::iter.Iter.loop`. The first is irqualcall.go's
+// siblingCall; the second is ownerdecl.go's bareStdMethodCall. The third,
+// like a bare call to any function of the enclosing impl block, is the
+// qualified call `F.label(v)` (barecallimpl.go's bareImplCall, and
+// stdIfaceOwnCall for a default lowered for std's or another file's
+// implementor).
 //
 // # Resolution is the analyzer's, and the OWNER is checked against std
 //
@@ -43,29 +46,6 @@ func resolveSymbol(sym *analysis.Symbol) *analysis.Symbol {
 		sym = sym.Resolved
 	}
 	return sym
-}
-
-// rivalRequirementOwner names another interface implemented for the same
-// receiver that declares the same requirement name, or "".
-//
-// The RECEIVER is what makes two interfaces rivals, not the module: two
-// interfaces may share a requirement name freely as long as no single type
-// implements both, and a bare name is ambiguous only where one dispatch slot
-// has two candidates.
-//
-// Deterministic in the name it reports, because `g.implOrder` is source order
-// and a refusal's detail that varied per run would make the sweep's own output
-// nondeterministic.
-func (g *gen) rivalRequirementOwner(d *implDef, name string) string {
-	for _, other := range g.implOrder {
-		if other == d || other.recv != d.recv || other.iface == nil || other.iface == d.iface {
-			continue
-		}
-		if other.iface.methods[name] != nil {
-			return other.iface.nomi
-		}
-	}
-	return ""
 }
 
 // resolvedBareSymbol follows a bare name in a file's module scope to the symbol

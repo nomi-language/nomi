@@ -17,7 +17,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 import std::random.{Generator, Seed}
 
-once alphabet = Iter.to_vector('a'..='z')
+once alphabet     = Iter.to_vector('a'..='z')
 once letter_count = Vector.length(alphabet)
 
 /// How long a random key is.
@@ -141,9 +141,9 @@ end
 
 test "substitution cipher decodes"
     [
-        ("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
-        ("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
-        ("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
+        ("Can decode",                              "abcdefghij", "abcdefghij",    "aaaaaaaaaa"),
+        ("Can wrap on decode",                      "abcdefghij", "zabcdefghi",    "zzzzzzzzzz"),
+        ("Can decode messages longer than the key", "abc",        "iboaqcnecbfcr", "iamapandabear"),
     ]
     |> subtests (description, key, ciphertext, expected), description
         assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected

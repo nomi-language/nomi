@@ -43,7 +43,7 @@ end
 
 fn outcome(store: FakeStore) -> Result<Unit, String>
     case store.error
-        None -> Ok(Unit)
+        None        -> Ok(Unit)
         Some(error) -> Err(error)
     end
 end

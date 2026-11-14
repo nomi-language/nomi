@@ -1116,7 +1116,7 @@ var genLeafInners = []struct {
 	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.get(String.to_bytes(\"b%d\"), 0)", n) }},
 	{typ: "Codepoint", val: func(n int) string { return fmt.Sprintf("'%c'", 'a'+rune(n%26)) }},
 	{typ: "Unit", val: func(int) string { return "Unit" }},
-	{typ: "Regex", val: func(n int) string { return fmt.Sprintf("Regex`a{%d}`", n+1) }},
+	{typ: "Regex", val: func(n int) string { return fmt.Sprintf("Regex\"a{%d}\"", n+1) }},
 	{typ: "Duration", val: func(n int) string { return fmt.Sprintf("Duration.seconds(%d)", n) }},
 	{typ: "List<Decimal>", val: func(n int) string { return fmt.Sprintf("[%d.5d, 0.25d]", n) }},
 	{typ: "Maybe<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
@@ -1617,7 +1617,7 @@ func (g *gen) iterBlock() string {
 		}[r.Intn(4)]
 		fmt.Fprintf(&out, "io.inspect([\"ab\", \"c\"] |> Iter.flat_map(%s) |> Iter.to_list())\n", inner)
 		flat := []string{`["ab", "c"]`, fmt.Sprintf("[1..%d, %d..=%d]", a, b, b+k), fmt.Sprintf("[Set[%d], Set[%d]]", a, b), fmt.Sprintf("Vector[Vector[%d], Vector[%d, %d]]", a, b, k)}[r.Intn(4)]
-		fmt.Fprintf(&out, "io.inspect(Iter.flatten(%s))\n", flat)
+		fmt.Fprintf(&out, "io.inspect(Iter.flatten(%s) |> Iter.to_list())\n", flat)
 	case 3:
 		fmt.Fprintf(&out, "%s = ItPair{a: %d, b: %d}\n", name("ip"), a, b)
 		fmt.Fprintf(&out, "fn %s(xs: Iter<Int>) -> Int\nIter.count(xs)\nend\n", name("tot"))

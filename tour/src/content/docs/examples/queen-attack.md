@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A queen on an 8 by 8 board, at a zero-based row and column.
 pub opaque struct Queen
-    row: Int
+    row:    Int
     column: Int
 end
 
@@ -23,11 +23,11 @@ impl Queen
     /// Places a queen, or says which coordinate is off the board.
     pub fn new(row: Int, column: Int) -> Result<Queen, Error>
         case
-            row < 0 -> Err(.RowNotPositive)
-            row > 7 -> Err(.RowNotOnBoard)
+            row < 0    -> Err(.RowNotPositive)
+            row > 7    -> Err(.RowNotOnBoard)
             column < 0 -> Err(.ColumnNotPositive)
             column > 7 -> Err(.ColumnNotOnBoard)
-            _ -> Ok({row:, column:})
+            _          -> Ok({row:, column:})
         end
     end
 
@@ -57,10 +57,10 @@ group "Test creation of Queens with valid and invalid positions"
 
     test "invalid positions"
         [
-            ("queen must have positive row", -2, 2, Error.RowNotPositive),
-            ("queen must have row on board", 8, 4, .RowNotOnBoard),
-            ("queen must have positive column", 2, -2, .ColumnNotPositive),
-            ("queen must have column on board", 4, 8, .ColumnNotOnBoard),
+            ("queen must have positive row",    -2, 2,  Error.RowNotPositive),
+            ("queen must have row on board",    8,  4,  .RowNotOnBoard),
+            ("queen must have positive column", 2,  -2, .ColumnNotPositive),
+            ("queen must have column on board", 4,  8,  .ColumnNotOnBoard),
         ]
         |> subtests (description, row, column, error), description
             assert Queen.new(row, column) == Err(error)
@@ -70,12 +70,12 @@ end
 
 test "Test the ability of one queen to attack another"
     [
-        ("cannot attack", (2, 4), (6, 6), False),
-        ("can attack on same row", (2, 4), (2, 6), True),
-        ("can attack on same column", (4, 5), (2, 5), True),
-        ("can attack on first diagonal", (2, 2), (0, 4), True),
+        ("cannot attack",                 (2, 4), (6, 6), False),
+        ("can attack on same row",        (2, 4), (2, 6), True),
+        ("can attack on same column",     (4, 5), (2, 5), True),
+        ("can attack on first diagonal",  (2, 2), (0, 4), True),
         ("can attack on second diagonal", (2, 2), (3, 1), True),
-        ("can attack on third diagonal", (2, 2), (1, 1), True),
+        ("can attack on third diagonal",  (2, 2), (1, 1), True),
         ("can attack on fourth diagonal", (1, 7), (0, 6), True),
         (
             "cannot attack if falling diagonals are only the same when reflected across the longest falling diagonal",

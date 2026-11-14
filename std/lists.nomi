@@ -24,8 +24,9 @@ end
 //# ## List and Iter
 //#
 //# `List`'s own functions are the ones that read or rebuild its cons
-//# structure (`head`, `tail`, `concat`, `next_item`, `remove_at`, `remove`,
-//# `starts_with`, `ends_with`), its `Contains` impl (`contains`), and the
+//# structure (`length`, `head`, `tail`, `concat`, `next_item`, `remove_at`,
+//# `remove`, `starts_with`, `ends_with`, `split_while`), its `Contains`
+//# impl (`contains`), and the
 //# `Iter` protocol: `each_while`, and `known_count`, O(1), read from the
 //# cached length. Every generic operation (transform, filter, reduce, sort,
 //# count, index access) is an `Iter` owner function over any `Iter<T>`, and
@@ -100,7 +101,7 @@ pub host type List<T>
 fn list_next<T>(list: List<T>) -> Maybe<(T, List<T>)>
     case list
         [h, ..t] -> Some((h, t))
-        [] -> None
+        []       -> None
     end
 end
 
@@ -112,6 +113,15 @@ impl List<T>
     //
     pub fn next_item<T>(list: List<T>) -> Maybe<(T, List<T>)>
         list_next(list)
+    end
+
+    /// Returns the number of elements. O(1): a List keeps its length.
+    /// `Iter.count` gives the same for any iterable.
+    //! assert List.length(["a", "b"]) == 2
+    //! assert List.length([]) == 0
+    //
+    pub fn length<T>(list: List<T>) -> Int
+        Iter.count(list)
     end
 
     /// Concatenates two lists, yielding all elements of `a` followed by all of `b`.
@@ -128,7 +138,7 @@ impl List<T>
     pub fn head<T>(list: List<T>) -> Maybe<T>
         case list
             [head, ..] -> Some(head)
-            [] -> None
+            []         -> None
         end
     end
 
@@ -139,7 +149,7 @@ impl List<T>
     pub fn tail<T>(list: List<T>) -> Maybe<List<T>>
         case list
             [_, ..tail] -> Some(tail)
-            [] -> None
+            []          -> None
         end
     end
 
@@ -160,7 +170,7 @@ impl List<T>
     pub fn remove<T>(list: List<T>, value: T) -> List<T> where T: Equatable
         case Iter.find_index(list, fn item -> item == value)
             Some(index) -> List.remove_at(list, index)
-            None -> list
+            None        -> list
         end
     end
 
@@ -180,7 +190,7 @@ impl List<T>
             [p, ..ps] ->
                 case list
                     [x, ..xs] -> if x == p then starts_with(xs, ps) else False
-                    [] -> False
+                    []        -> False
                 end
         end
     end
@@ -202,13 +212,42 @@ impl List<T>
             starts_with(drop_front(list, extra), suffix)
         end
     end
+
+    /// Splits `list` after its leading run of elements where `pred` is
+    /// true: that run, and the rest from the first element where it is
+    /// false. The rest is the list's own tail, shared, not copied; the run
+    /// is a new list. `Iter.take_while` and `Iter.drop_while` give the two
+    /// halves lazily, for any iterable.
+    //! assert List.split_while([1, 2, 3, 1], &(&1 < 3)) == ([1, 2], [3, 1])
+    //! assert List.split_while([5, 6], &(&1 < 3)) == ([], [5, 6])
+    //! assert List.split_while([1, 2], &(&1 < 3)) == ([1, 2], [])
+    //
+    pub fn split_while<T>(list: List<T>, pred: (T) -> Bool) -> (List<T>, List<T>)
+        split_run(list, pred, [])
+    end
+end
+
+// The run of `list` where `pred` holds, after `taken` reversed, and the
+// rest of `list`.
+fn split_run<T>(list: List<T>, pred: (T) -> Bool, taken: List<T>) -> (List<T>, List<T>)
+    case list
+        [x, ..rest] ->
+            if pred(x) then
+                split_run(rest, pred, [x, ..taken])
+            else
+                (Iter.reverse(taken), list)
+            end
+
+        [] ->
+            (Iter.reverse(taken), list)
+    end
 end
 
 // `list` after its first `n` elements.
 fn drop_front<T>(list: List<T>, n: Int) -> List<T>
     case list
         [_, ..rest] -> if n > 0 then drop_front(rest, n - 1) else list
-        [] -> list
+        []          -> list
     end
 end
 
@@ -300,7 +339,7 @@ impl Comparable for List<T> where T: Comparable
             .None ->
                 case list_next(b)
                     .None -> Equal
-                    _ -> Less
+                    _     -> Less
                 end
 
             .Some((ha, ta)) ->
@@ -311,7 +350,7 @@ impl Comparable for List<T> where T: Comparable
                     .Some((hb, tb)) ->
                         case Comparable.compare(ha, hb)
                             .Equal -> compare(ta, tb)
-                            other -> other
+                            other  -> other
                         end
                 end
         end

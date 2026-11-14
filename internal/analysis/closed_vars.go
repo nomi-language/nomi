@@ -144,6 +144,10 @@ func walkTypeParts(t Type, f func(Type)) {
 			for _, a := range tt.TypeArgs {
 				walk(a, depth+1)
 			}
+		case *ConjunctionType:
+			for _, m := range tt.Members {
+				walk(m, depth+1)
+			}
 		case *PartialType:
 			walk(tt.Inner, depth+1)
 		}
@@ -281,6 +285,19 @@ func mapOpenVars(t Type, answer func(*TypeVar) Type, solved bool, depth int) Typ
 			c := *tt
 			c.TypeArgs = as
 			return &c
+		}
+	case *ConjunctionType:
+		members := make([]*InterfaceType, len(tt.Members))
+		changed := false
+		for i, m := range tt.Members {
+			members[i], _ = sub(m).(*InterfaceType)
+			if members[i] == nil {
+				return t
+			}
+			changed = changed || members[i] != m
+		}
+		if changed {
+			return NewConjunction(members)
 		}
 	case *PartialType:
 		if in := sub(tt.Inner); in != tt.Inner {

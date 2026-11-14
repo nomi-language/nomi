@@ -51,7 +51,13 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	// A static typed literal shows its value (literal_eval.go); on its tag,
 	// below the handler's own hover.
 	literal, literalRange, onTag, isLiteral := s.literalHover(doc, posToOffset(lineOffsets(doc.Content), pos.Line, pos.Col))
+	// What a typed literal is and what its slots take, or what the slot
+	// under pos takes (hoverdoc.TypedLiteralNote).
+	typed, typedSpan, inSlot := hoverdoc.TypedLiteralNote(doc.Analysis, doc.Nodes, pos)
 	if isLiteral && !onTag {
+		if typed != "" && !inSlot {
+			literal += "\n\n" + typed
+		}
 		return &protocol.Hover{
 			Contents: protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: literal},
 			Range:    ptrRange(utf16RangeFromContent(doc.Content, literalRange)),
@@ -65,6 +71,12 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	}
 	sym, tokPos, tokLen, ok := doc.Analysis.TokenAt(pos)
 	if !ok {
+		if typed != "" && !inSlot {
+			return &protocol.Hover{
+				Contents: protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: typed},
+				Range:    ptrRange(utf16RangeFromContent(doc.Content, spanRange(typedSpan))),
+			}, nil
+		}
 		return nil, nil
 	}
 
@@ -74,6 +86,13 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	}
 	if where := fieldSource(sym, tokPos, uriToPath(uri)); where != "" {
 		content += "\n\n" + where
+	}
+	// What converting the value costs at run time (hoverdoc.ConversionNote).
+	if note := hoverdoc.ConversionNote(doc.Analysis, pos); note != "" {
+		content += "\n\n" + note
+	}
+	if typed != "" {
+		content += "\n\n" + typed
 	}
 	if isLiteral {
 		content += "\n\n---\n\n" + literal

@@ -16,8 +16,8 @@ end
 fn mode(config: Map<String, String>) -> String
     case config
         {"mode" => "debug"} -> "debugging"
-        {"mode" => other} -> other
-        _ -> "no mode"
+        {"mode" => other}   -> other
+        _                   -> "no mode"
     end
 end
 

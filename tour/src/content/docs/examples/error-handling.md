@@ -63,7 +63,7 @@ fn total(reader: Reader, read: (String) -> Result<Int, Error>) -> Result<Int, Er
     next = Reader.read_line(reader) |> Result.map_err(Error.Io)
 
     case next?
-        None -> Ok(0)
+        None       -> Ok(0)
         Some(line) -> Ok(read(line)? + total(reader, read)?)
     end
 end

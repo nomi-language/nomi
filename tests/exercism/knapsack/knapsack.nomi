@@ -4,7 +4,7 @@
 /// Something that could go in the knapsack.
 pub struct Item
     weight: Int
-    value: Int
+    value:  Int
 end
 
 /// The greatest total value of `items`, each taken at most once, whose

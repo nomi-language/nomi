@@ -1,0 +1,156 @@
+interface Priced
+    fn price(item: self) -> Int
+end
+
+interface Costed
+    fn cost(item: self) -> Int
+end
+
+struct Coffee
+    beans: Int
+end
+
+struct Tea
+    leaves: Int
+end
+
+impl Priced for Coffee
+    fn price(c: Coffee) -> Int
+        c.beans * 3
+    end
+end
+
+impl Costed for Coffee
+    fn cost(c: Coffee) -> Int
+        c.beans
+    end
+end
+
+impl Display for Coffee
+    fn to_string(c: Coffee) -> String
+        "coffee(${c.beans})"
+    end
+end
+
+impl Priced for Tea
+    fn price(t: Tea) -> Int
+        t.leaves * 2
+    end
+end
+
+impl Costed for Tea
+    fn cost(t: Tea) -> Int
+        t.leaves
+    end
+end
+
+impl Display for Tea
+    fn to_string(t: Tea) -> String
+        "tea(${t.leaves})"
+    end
+end
+
+impl Priced for List<Int>
+    fn price(xs: List<Int>) -> Int
+        Iter.sum(xs)
+    end
+end
+
+impl Costed for List<Int>
+    fn cost(xs: List<Int>) -> Int
+        Iter.count(xs)
+    end
+end
+
+derive Equatable for Coffee
+derive Hashable for Coffee
+
+derive Equatable for Tea
+derive Hashable for Tea
+
+typealias Item Priced and Costed
+
+struct Shelf
+    top: Priced and Costed
+end
+
+fn margin(item: Priced and Costed) -> Int
+    Priced.price(item) - Costed.cost(item)
+end
+
+fn price_of(item: Priced) -> Int
+    Priced.price(item)
+end
+
+fn label(item: Display and Priced) -> String
+    "${item} at ${Priced.price(item)}"
+end
+
+fn pick(n: Int) -> Item
+    if n > 0 then
+        Coffee{beans: n}
+    else
+        Tea{leaves: 0 - n}
+    end
+end
+
+fn without_display(item: Display and Priced and Costed) -> Priced and Costed
+    item
+end
+
+test "a list holds values of two types through both interfaces"
+    items: List<Priced and Costed> = [Coffee{beans: 2}, Tea{leaves: 5}]
+    assert items |> Iter.map(margin) |> Iter.to_list() == [4, 5]
+    assert items |> Iter.map(fn i -> Costed.cost(i)) |> Iter.to_list() == [2, 5]
+end
+
+test "a struct field and an alias hold a conjunction"
+    shelf = Shelf{top: Tea{leaves: 1}}
+    assert margin(shelf.top) == 1
+    assert margin(pick(4)) == 8
+    assert margin(pick(-4)) == 4
+end
+
+test "a conjunction widens to one interface and to fewer members"
+    items: List<Priced and Costed> = [Coffee{beans: 2}, Tea{leaves: 5}]
+    wide: List<Priced> = items
+    assert wide |> Iter.map(price_of) |> Iter.to_list() == [6, 10]
+    rich: Display and Priced and Costed = Coffee{beans: 3}
+    assert margin(without_display(rich)) == 6
+    assert price_of(rich) == 9
+end
+
+test "a conjunction including Display renders the held value"
+    assert label(Coffee{beans: 2}) == "coffee(2) at 6"
+    assert label(Tea{leaves: 3}) == "tea(3) at 6"
+    shown: Display and Costed = Tea{leaves: 4}
+    assert "${shown}" == "tea(4)"
+end
+
+test "a list of concrete values converts to a list of a conjunction"
+    coffees = [Coffee{beans: 1}, Coffee{beans: 2}]
+    items: List<Priced and Costed> = coffees
+    assert items |> Iter.map(margin) |> Iter.to_list() == [2, 4]
+end
+
+test "a std container enters a conjunction its impls give it"
+    held: Priced and Costed = [4, 5]
+    assert Priced.price(held) == 9
+    assert Costed.cost(held) == 2
+end
+
+test "equality and hashing compare the held values"
+    a: Equatable and Hashable = Coffee{beans: 1}
+    b: Equatable and Hashable = Tea{leaves: 1}
+    c: Equatable and Hashable = Coffee{beans: 1}
+    assert a != b
+    assert a == c
+    s: Set<Equatable and Hashable> = Set[a, b, c]
+    assert Set.size(s) == 2
+end
+
+test "a container boxed for one member renders through Display"
+    held: Priced and Display = [1, 2]
+    assert Priced.price(held) == 3
+    assert "${held}" == "[1, 2]"
+end

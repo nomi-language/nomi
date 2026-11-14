@@ -2,7 +2,7 @@
 // `Money` has no `impl Equatable`.
 pub struct Money
     cents: Int
-    note: String
+    note:  String
 end
 
 pub fn at(cents: Int, note: String) -> Money

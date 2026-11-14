@@ -28,14 +28,14 @@ end
 /// An area of connected empty points and who owns it: the player whose
 /// stones alone border it, or neither.
 pub struct Territory
-    owner: Owner
+    owner:  Owner
     points: Set<Point>
 end
 
 /// Every empty point of a board, by who owns the territory it lies in.
 pub struct Territories
-    black: Set<Point>
-    white: Set<Point>
+    black:   Set<Point>
+    white:   Set<Point>
     neither: Set<Point>
 end
 
@@ -47,9 +47,9 @@ pub fn territory(board: List<String>, x: Int, y: Int) -> Result<Territory, Strin
     points = read(board)
 
     case Map.get(points, (x, y))
-        None -> Err("Invalid coordinate")
+        None      -> Err("Invalid coordinate")
         Some(" ") -> Ok(fill(points, (x, y)))
-        Some(_) -> Ok({owner: .Neither, points: []})
+        Some(_)   -> Ok({owner: .Neither, points: []})
     end
 end
 
@@ -87,7 +87,7 @@ fn fill(points: Map<Point, String>, start: Point) -> Territory
     owner = case Iter.to_list(borders)
         ["B"] -> Owner.Black
         ["W"] -> .White
-        _ -> .Neither
+        _     -> .Neither
     end
 
     {owner:, points: area}
@@ -96,10 +96,10 @@ end
 /// Grows `area` from the points of `frontier` through empty neighbours,
 /// collecting the stones it touches in `borders`.
 fn spread(
-    points: Map<Point, String>,
+    points:   Map<Point, String>,
     frontier: List<Point>,
-    area: Set<Point>,
-    borders: Set<String>,
+    area:     Set<Point>,
+    borders:  Set<String>,
 ) -> (Set<Point>, Set<String>)
     case frontier
         [] ->
@@ -134,8 +134,8 @@ end
 
 fn add(found: Territories, territory: Territory) -> Territories
     case territory.owner
-        .Black -> {..found, black: Set.union(.., territory.points)}
-        .White -> {..found, white: Set.union(.., territory.points)}
+        .Black   -> {..found, black: Set.union(.., territory.points)}
+        .White   -> {..found, white: Set.union(.., territory.points)}
         .Neither -> {..found, neither: Set.union(.., territory.points)}
     end
 end
@@ -169,11 +169,11 @@ test "territory"
             4,
             Ok({owner: .Neither, points: [(0, 3), (0, 4), (1, 4)]}),
         ),
-        ("A stone and not a territory on 5x5 board", 1, 1, Ok({owner: .Neither, points: []})),
-        ("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
-        ("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
-        ("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
-        ("Invalid because Y is too high for 5x5 board", 1, 5, Err("Invalid coordinate")),
+        ("A stone and not a territory on 5x5 board",    1,  1,  Ok({owner: .Neither, points: []})),
+        ("Invalid because X is too low for 5x5 board",  -1, 1,  Err("Invalid coordinate")),
+        ("Invalid because X is too high for 5x5 board", 5,  1,  Err("Invalid coordinate")),
+        ("Invalid because Y is too low for 5x5 board",  1,  -1, Err("Invalid coordinate")),
+        ("Invalid because Y is too high for 5x5 board", 1,  5,  Err("Invalid coordinate")),
     ]
 
     subtests cases, (description, x, y, expected), description

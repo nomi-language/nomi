@@ -18,7 +18,8 @@ var topLevelFn = regexp.MustCompile(`(?m)^(?:pub )?fn ([a-z_][A-Za-z0-9_]*)\(`)
 // function of the corpus's programs twice, on a plain machine and on a debug
 // machine. The plain listing holds no `stmt` or `pc` hook, and the debug
 // listing with its hooks taken out is the plain one, opcode for opcode and
-// operand for operand, except for branch targets, which the hooks move, and
+// operand for operand, except for branch targets (a `br`'s, a `brcmpi`'s),
+// which the hooks move, and
 // a jump to a `ret`, which a plain machine folds into the `ret` and a debug
 // machine keeps when a hook sits at its target.
 func TestDebug_AMachineWithoutADebuggerCompilesNoHooks(t *testing.T) {
@@ -109,7 +110,24 @@ func sameBytecode(plain, debug string) string {
 			if a[0] != "jmp" && (a[1] != b[1] || (a[0] == "brx" && a[len(a)-1] != b[len(b)-1])) {
 				return "instruction " + strings.Join(b, " ") + " is " + strings.Join(a, " ")
 			}
+		case a[0] == b[0] && (a[0] == "brcmpi" || a[0] == "brcmpf"):
+			// Targets move; the condition and the operands do not.
+			if strings.Join(a[:4], " ") != strings.Join(b[:4], " ") {
+				return "instruction " + strings.Join(b, " ") + " is " + strings.Join(a, " ")
+			}
 		case (a[0] == "ret" || a[0] == "retu") && b[0] == "jmp":
+		case a[0] == "update!" || a[0] == "call!" || a[0] == "tail!":
+			// A debug machine copies on both sides of a call (inplace.go):
+			// its update is the plain one's, and its call the plain one's
+			// without the moves index.
+			plainOp := strings.TrimSuffix(a[0], "!")
+			ops := a[1:]
+			if plainOp != "update" {
+				ops = ops[:len(ops)-1]
+			}
+			if b[0] != plainOp || strings.Join(ops, " ") != strings.Join(b[1:], " ") {
+				return "instruction " + strings.Join(b, " ") + " is " + strings.Join(a, " ")
+			}
 		default:
 			if strings.Join(a, " ") != strings.Join(b, " ") {
 				return "instruction " + strings.Join(b, " ") + " is " + strings.Join(a, " ")

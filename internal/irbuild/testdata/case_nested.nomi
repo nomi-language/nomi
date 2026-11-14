@@ -6,7 +6,7 @@ end
 
 struct Outer
     inner: Inner
-    tag: Int
+    tag:   Int
 end
 
 enum Wrapped

@@ -35,15 +35,15 @@ impl Status
     pub fn is_active(s: Status) -> Bool
         case s
             .Active -> True
-            _ -> False
+            _       -> False
         end
     end
 
     pub fn reason(s: Status) -> Maybe<String>
         case s
-            .Inactive(r) -> Some(r)
+            .Inactive(r)        -> Some(r)
             .Suspended{reason:} -> Some(reason)
-            _ -> None
+            _                   -> None
         end
     end
 

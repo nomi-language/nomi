@@ -45,6 +45,12 @@ func componentOwners(p *Program) []int {
 // dependencies. A helper can use a field without naming its schema; its
 // Go-spelled read still names the unit package that declares the field's
 // value type.
+//
+// An import's edge is read two ways: from its path as written, matched
+// against the program's file keys (importTargets), and from what the checker
+// bound it to (resolvedImportEdges). The second is the one that holds for
+// every spelling: a file of module `r3` importing `r3::value.Value` names the
+// file keyed `value` through its module's own name, which no key matches.
 func nomiImportGraph(p *Program) [][]bool {
 	n := len(p.Modules)
 	byKey := make(map[string]int, n)
@@ -55,8 +61,14 @@ func nomiImportGraph(p *Program) [][]bool {
 	for i := range g {
 		g[i] = make([]bool, n)
 	}
+	declUnit := declarationUnits(p)
 	for i := range p.Modules {
 		scopedTypeEdges(p, i, func(j int) { g[i][j] = true })
+		resolvedImportEdges(p, i, declUnit, func(j int) {
+			if j != i {
+				g[i][j] = true
+			}
+		})
 		// A std module lowered with the program (programstd.go) names a
 		// sibling bare (`import sql.Conn`), and the program knows it as
 		// `std/sql`.
@@ -95,6 +107,62 @@ func nomiImportGraph(p *Program) [][]bool {
 		}
 	}
 	return g
+}
+
+// declarationUnits maps each top-level declaration of the program to the
+// unit that declares it.
+func declarationUnits(p *Program) map[ast.Node]int {
+	out := map[ast.Node]int{}
+	for i := range p.Modules {
+		for _, n := range p.Modules[i].Nodes {
+			if _, dup := out[n]; !dup {
+				out[n] = i
+			}
+		}
+	}
+	return out
+}
+
+// resolvedImportEdges calls edge with every unit that declares a name one of
+// unit from's imports binds, at its top or at the top of a block: the
+// declaration a selective import binds, and the members of a file a
+// path-only import binds. It reads the checker's bindings, so it answers
+// for every spelling of the path.
+func resolvedImportEdges(p *Program, from int, declUnit map[ast.Node]int, edge func(int)) {
+	fa := p.Modules[from].FA
+	if fa == nil {
+		return
+	}
+	reach := func(sym *analysis.Symbol) {
+		if sym = resolveSymbol(sym); sym != nil && sym.Node != nil {
+			if j, ok := declUnit[sym.Node]; ok {
+				edge(j)
+			}
+		}
+	}
+	scope := func(s *analysis.Scope) {
+		if s == nil {
+			return
+		}
+		for _, sym := range s.Symbols {
+			if sym == nil {
+				continue
+			}
+			if _, imported := sym.Node.(*ast.ImportStmt); !imported {
+				continue
+			}
+			reach(sym)
+			if sym.Kind == analysis.SymbolModule && sym.ModuleScope != nil {
+				for _, member := range sym.ModuleScope.Symbols {
+					reach(member)
+				}
+			}
+		}
+	}
+	scope(fa.ModuleScope)
+	for _, s := range fa.BlockImportScopes {
+		scope(s)
+	}
 }
 
 // importTargets is every user-file key an import node could name.

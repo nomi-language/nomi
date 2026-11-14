@@ -49,9 +49,9 @@ func TestInternalStd_AProgramCannotNameIt(t *testing.T) {
 		// genders and cases are the compiler's and the language server's.
 		rejected{"Currency.iso", "import std::currency.Currency\n\nfn main()\n    _ = Currency.iso(\"EUR\")\nend\n",
 			"type 'Currency' has no member 'iso'"},
-		rejected{"Locale.genders", "fn main()\n    _ = Locale.genders(Locale`pl`)\nend\n",
+		rejected{"Locale.genders", "fn main()\n    _ = Locale.genders(Locale\"pl\")\nend\n",
 			"type 'Locale' has no member 'genders'"},
-		rejected{"Locale.cases", "fn main()\n    _ = Locale.cases(Locale`pl`)\nend\n",
+		rejected{"Locale.cases", "fn main()\n    _ = Locale.cases(Locale\"pl\")\nend\n",
 			"type 'Locale' has no member 'cases'"},
 	)
 	for _, c := range cases {

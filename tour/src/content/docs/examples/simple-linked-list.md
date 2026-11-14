@@ -42,7 +42,7 @@ impl LinkedList<T>
     /// `EmptyList`.
     pub fn pop(list: LinkedList<T>) -> Result<(T, LinkedList<T>), Error>
         case list
-            .Empty -> Err(.EmptyList)
+            .Empty               -> Err(.EmptyList)
             .Node{value:, next:} -> Ok((value, next))
         end
     end
@@ -50,7 +50,7 @@ impl LinkedList<T>
     /// The value at the head of `list`, or `EmptyList`.
     pub fn peek(list: LinkedList<T>) -> Result<T, Error>
         case list
-            .Empty -> Err(.EmptyList)
+            .Empty        -> Err(.EmptyList)
             .Node{value:} -> Ok(value)
         end
     end
@@ -66,7 +66,7 @@ impl Iter<T> for LinkedList<T>
     /// the order `pop` would.
     fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool
         case list
-            .Empty -> True
+            .Empty               -> True
             .Node{value:, next:} -> yield(value) and each_while(next, yield)
         end
     end
@@ -103,7 +103,7 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step>
                 .Pop(_) or .PopFails ->
                     case LinkedList.pop(list)
                         Ok((value, rest)) -> (rest, .Pop(value))
-                        Err(_) -> (list, .PopFails)
+                        Err(_)            -> (list, .PopFails)
                     end
 
                 .Push(value) ->
@@ -112,7 +112,7 @@ fn replay(values: List<Int>, steps: List<Step>) -> List<Step>
                 .Peek(_) or .PeekFails ->
                     case LinkedList.peek(list)
                         Ok(value) -> (list, .Peek(value))
-                        Err(_) -> (list, .PeekFails)
+                        Err(_)    -> (list, .PeekFails)
                     end
 
                 .ToList(_) ->
@@ -128,8 +128,8 @@ end
 
 test "count"
     [
-        ("Empty list has length of zero", [], [Step.Count(0)]),
-        ("Singleton list has length of one", [1], [.Count(1)]),
+        ("Empty list has length of zero",     [],        [Step.Count(0)]),
+        ("Singleton list has length of one",  [1],       [.Count(1)]),
         ("Non-empty list has correct length", [1, 2, 3], [.Count(3)]),
     ]
     |> subtests (description, values, steps), description
@@ -152,9 +152,9 @@ end
 
 test "push"
     [
-        ("Can push to an empty list", [], [Step.Push(1)]),
+        ("Can push to an empty list",    [],     [Step.Push(1)]),
         ("Can push to a non-empty list", [1, 2], [.Push(3)]),
-        ("Push updates count", [1, 2], [.Push(3), .Count(3)]),
+        ("Push updates count",           [1, 2], [.Push(3), .Count(3)]),
         (
             "Push and pop",
             [],
@@ -168,9 +168,9 @@ end
 
 test "peek"
     [
-        ("Peek on empty list is an error", [], [Step.PeekFails]),
-        ("Can peek on singleton list", [1], [.Peek(1)]),
-        ("Can peek on non-empty list", [1, 2], [.Peek(2)]),
+        ("Peek on empty list is an error", [],     [Step.PeekFails]),
+        ("Can peek on singleton list",     [1],    [.Peek(1)]),
+        ("Can peek on non-empty list",     [1, 2], [.Peek(2)]),
         ("Peek does not change the count", [1, 2], [.Peek(2), .Count(2)]),
         (
             "Can peek after a pop and push",
@@ -185,8 +185,8 @@ end
 
 test "toList LIFO"
     [
-        ("Empty linked list to list is empty", [], [Step.ToList([])]),
-        ("To list with multiple values", [1, 2, 3], [.ToList([3, 2, 1])]),
+        ("Empty linked list to list is empty", [],        [Step.ToList([])]),
+        ("To list with multiple values",       [1, 2, 3], [.ToList([3, 2, 1])]),
         (
             "To list after a pop",
             [],
@@ -200,7 +200,7 @@ end
 
 test "reverse"
     [
-        ("Reversed empty list has same values", [], [Step.Reverse, .ToList([])]),
+        ("Reversed empty list has same values",  [],  [Step.Reverse, .ToList([])]),
         ("Reversed singleton list is same list", [1], [.Reverse, .ToList([1])]),
         (
             "Reversed non-empty list is reversed",

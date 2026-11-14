@@ -3,10 +3,10 @@
 import std::instant.Instant
 
 pub struct Task
-    id: Int
-    title: String
+    id:      Int
+    title:   String
     created: Instant
-    status: Status = Status.Open
+    status:  Status = Status.Open
 end
 
 impl Task
@@ -17,9 +17,9 @@ impl Task
     //
     pub fn render(task: Task) -> String
         box = case task.status
-            Status.Open -> "[ ]"
+            Status.Open    -> "[ ]"
             Status.Started -> "[~]"
-            Status.Done -> "[x]"
+            Status.Done    -> "[x]"
         end
 
         "${box} ${task.id} ${task.title}"
@@ -38,10 +38,10 @@ impl Status
     //
     pub fn parse(text: String) -> Maybe<Status>
         case text
-            "open" -> Some(Status.Open)
+            "open"    -> Some(Status.Open)
             "started" -> Some(Status.Started)
-            "done" -> Some(Status.Done)
-            _ -> None
+            "done"    -> Some(Status.Done)
+            _         -> None
         end
     end
 end
@@ -49,9 +49,9 @@ end
 impl Display for Status
     fn to_string(status: Status) -> String
         case status
-            Status.Open -> "open"
+            Status.Open    -> "open"
             Status.Started -> "started"
-            Status.Done -> "done"
+            Status.Done    -> "done"
         end
     end
 end

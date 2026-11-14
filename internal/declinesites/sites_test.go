@@ -179,7 +179,7 @@ func TestDeclineSitesAreListed(t *testing.T) {
 // every impossible state an assertion.
 const (
 	maxUnclassifiedSites = 0
-	maxUndecidedSites    = 264
+	maxUndecidedSites    = 219
 )
 
 // promote runs only the suites named and marks the sites they execute a,

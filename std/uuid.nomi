@@ -5,7 +5,7 @@
 //# functions of `Uuid` (`Uuid.parse(text)`). A `Uuid` is written as 32 hexadecimal digits in five
 //# groups, `0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`. Read text with
 //# `Uuid.parse`, write a fixed one as the raw typed literal
-//# ``Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a` ``, which is checked when the
+//# `Uuid"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a"`, which is checked when the
 //# program is checked, and make new ones with `Uuid.v4` (random) or
 //# `Uuid.v7` (time-ordered, the better database key). `Display` gives the
 //# lowercase hyphenated form. Two UUIDs compare by their 128 bits, as their
@@ -36,13 +36,13 @@ end
 ///
 /// Equal UUIDs are `==`, hash alike, and compare by their bits as
 /// unsigned numbers, so a list of v7 UUIDs sorts by creation time.
-//! id = Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`
+//! id = Uuid"0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A"
 //! assert Display.to_string(id) == "0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a"
 //! assert Uuid.version(id) == 7
 //
 pub opaque struct Uuid
     high: Int
-    low: Int
+    low:  Int
 end
 
 derive Equatable for Uuid
@@ -87,7 +87,7 @@ impl Uuid
 
     /// The UUID whose 16 bytes, most significant first, are `data`, as
     /// `bytea` and `BLOB` columns hold it.
-    //! id = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
+    //! id = Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     //! assert Uuid.from_bytes(Uuid.to_bytes(id)) == Ok(id)
     //! assert Uuid.from_bytes(Bytes.from_list([])) == Err(Error.Length{length: 0})
     //
@@ -106,7 +106,7 @@ impl Uuid
 
     /// The version field: 4 for a random UUID, 7 for a time-ordered one, 1
     /// to 8 for the others RFC 9562 defines, 0 for the nil UUID.
-    //! assert Uuid.version(Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`) == 1
+    //! assert Uuid.version(Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8") == 1
     //
     pub fn version(id: Uuid) -> Int
         id.high >>> 12 &&& 15
@@ -170,13 +170,13 @@ impl Parse<Error> for Uuid
 
             case failure
                 Some(_) -> acc
-                None -> read_char(high, low, index, cp)
+                None    -> read_char(high, low, index, cp)
             end
         end)
 
         case failure
             Some(e) -> Err(e)
-            None -> Ok(Uuid{high:, low:})
+            None    -> Ok(Uuid{high:, low:})
         end
     end
 end
@@ -184,25 +184,25 @@ end
 impl Comparable for Uuid
     /// By the 128 bits as an unsigned number, which is the order of the
     /// text and of the bytes.
-    //! assert Uuid`00000000-0000-0000-0000-000000000001` < Uuid`ffffffff-0000-0000-0000-000000000000`
+    //! assert Uuid"00000000-0000-0000-0000-000000000001" < Uuid"ffffffff-0000-0000-0000-000000000000"
     //
     fn compare(a: Uuid, b: Uuid) -> Ordering
         case Int.compare(unsigned_key(a.high), unsigned_key(b.high))
             Ordering.Equal -> Int.compare(unsigned_key(a.low), unsigned_key(b.low))
-            order -> order
+            order          -> order
         end
     end
 end
 
 impl Literal for Uuid
-    /// ``Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8` `` is the UUID
-    /// `Uuid.parse` reads from its text. A raw literal is checked when the
-    /// program is checked, so a malformed one is a compile error at the
-    /// literal.
+    /// `Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8"` is the UUID
+    /// `Uuid.parse` reads from its text. A literal without slots is checked
+    /// when the program is checked, so a malformed one is a compile error at
+    /// the literal.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Uuid, Error>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -216,7 +216,7 @@ end
 // the process, may not import it.
 impl ToJson for Uuid
     /// Writes the canonical lowercase text, 8-4-4-4-12 hex digits.
-    //! id = Uuid`6BA7B810-9DAD-11D1-80B4-00C04FD430C8`
+    //! id = Uuid"6BA7B810-9DAD-11D1-80B4-00C04FD430C8"
     //! assert ToJson.to_json(id) == Json.String("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
     //
     fn to_json(value: Uuid) -> Json
@@ -226,7 +226,7 @@ end
 
 impl FromJson for Uuid
     /// Reads UUID text in either case.
-    //! id = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
+    //! id = Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     //! assert Uuid.from_json(ToJson.to_json(id)) == Ok(id)
     //! assert Uuid.from_json(Json.String("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")) == Ok(id)
     //!
@@ -267,9 +267,9 @@ impl Display for Uuid
 end
 
 impl Debug for Uuid
-    /// The raw literal that builds the UUID.
+    /// The typed literal that builds the UUID.
     fn inspect(id: Uuid) -> String
-        "Uuid`${id}`"
+        String.to_typed_literal("${id}", "Uuid")
     end
 end
 
@@ -338,7 +338,7 @@ fn read_half(data: Bytes, start: Int) -> Int
     Iter.reduce(start..start + 8, 0, fn acc, i ->
         byte = case Bytes.get(data, i)
             Some(b) -> Byte.to_int(b)
-            None -> 0
+            None    -> 0
         end
 
         Int.wrapping_mul(acc, 256) ||| byte

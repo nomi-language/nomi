@@ -66,7 +66,7 @@ end`, "this lambda takes no parameters, but a (Int) -> Int takes 1 parameter", o
 		{"route handler", `import std::http.{Body, Response, Route}
 
 fn main()
-  dbg Route.to(Route` + "`GET /c`" + `, fn -> Response{body: Body.Text("c")})
+  dbg Route.to(Route"GET /c", fn -> Response{body: Body.Text("c")})
 end`, "this lambda takes no parameters, but a (Request) -> ToResponse takes 1 parameter", one, 4, 31},
 	}
 	for _, c := range cases {

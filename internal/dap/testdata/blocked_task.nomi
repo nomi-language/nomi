@@ -13,6 +13,6 @@ fn main()
 
     case line
         Ok(Some(text)) -> io.print("read ${text}")
-        _ -> io.print("no input")
+        _              -> io.print("no input")
     end
 end

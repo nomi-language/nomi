@@ -17,7 +17,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// A palindrome and every pair of factors in the range that makes it, the
 /// smaller factor first in each pair.
 pub struct Product
-    value: Int
+    value:   Int
     factors: List<(Int, Int)>
 end
 
@@ -71,7 +71,7 @@ end
 /// are different Iters, which the declared result joins.
 fn in_order(first: Int, last: Int, direction: Direction) -> Iter<Int>
     case direction
-        .Ascending -> first..=last
+        .Ascending  -> first..=last
         .Descending -> Range.step_by(last..=first, -1)
     end
 end
@@ -189,7 +189,7 @@ test "largest"
             Ok(Some(Product{value: 99000099, factors: [(9901, 9999)]})),
         ),
         ("empty result for largest if no palindrome in the range", 15, 15, Ok(None)),
-        ("error result for largest if min is more than max", 2, 1, Err(Error.MinAboveMax)),
+        ("error result for largest if min is more than max",       2,  1,  Err(Error.MinAboveMax)),
     ]
     |> subtests (description, min, max, expected), description
         assert palindrome_products.largest(min, max) == expected

@@ -48,7 +48,7 @@ test "variant literal-attach patterns destructure payloads"
 
     flat_obj = case obj_flat
         .Obj{"a" => .Num(n)} -> "flat-obj: a=${n}"
-        _ -> "no match"
+        _                    -> "no match"
     end
 
     call_obj = case obj_call
@@ -68,12 +68,12 @@ test "variant literal-attach patterns destructure payloads"
 
     flat_pos = case pos_flat
         .Pos(x, y) -> "flat-pos: ${x}, ${y}"
-        _ -> "no match"
+        _          -> "no match"
     end
 
     call_pos = case pos_call
         .Pos((x, y)) -> "call-pos: ${x}, ${y}"
-        _ -> "no match"
+        _            -> "no match"
     end
 
     spread = case arr_flat
@@ -97,7 +97,7 @@ test "nested literal-attach patterns work inside wrapped variants"
 
     map_size = case qual_obj
         .Obj(m) -> Map.size(m)
-        _ -> 0
+        _       -> 0
     end
 
     nested_flat = case wrapped

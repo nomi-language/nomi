@@ -92,6 +92,7 @@ func (d *Debugger) tap(fr *frame, t ir.Temp) {
 	}
 	tp := &stageTap{}
 	run := seq.Run
+	seq.Reusing = nil
 	seq.Run = func(rf *rt.Frame, yield func(*rt.Frame, any) bool) bool {
 		tp.start()
 		return run(rf, func(rf *rt.Frame, item any) bool {

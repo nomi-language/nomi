@@ -84,7 +84,10 @@ if "(attached_test_prompt" in text:
     fail(f"{src}: an attached_test_prompt capture survived outside the dim block; update the generator")
 
 # Anonymous keyword tokens -> Neovim's keyword subgroups. Tokens not listed
-# stay plain @keyword. The lookbehind is the literal token, so the same token
+# stay plain @keyword. The word operators (`and`, `or`, `not`, `is`, `in`)
+# stay @keyword on purpose: colorschemes commonly link @keyword.operator to
+# Operator, which colors them like `|>` and `==` instead of as the keywords
+# Zed, Helix and the tour show. The lookbehind is the literal token, so the same token
 # is renamed wherever it appears (e.g. `"fn"` in every function declaration).
 keyword_groups = {
     "keyword.function": ["fn"],
@@ -93,7 +96,6 @@ keyword_groups = {
     "keyword.conditional": ["if", "else", "case", "when"],
     "keyword.repeat": ["break"],
     "keyword.return": ["return"],
-    "keyword.operator": ["and", "or", "not", "is", "in"],
     "keyword.modifier": ["opaque", "once", "extern"],
     "keyword.coroutine": ["concurrent"],
     "keyword.debug": ["dbg"],

@@ -148,9 +148,9 @@ import
 end
 
 pub struct Todo
-    id: Int
+    id:    Int
     title: String
-    done: Bool
+    done:  Bool
 end
 
 derive ToJson for Todo
@@ -264,7 +264,7 @@ fn main() -> Result<Unit, http.Error>
     frontend = http.file_server_embedded(
         Files.sub(web, "web/dist")!,
         single_page: True,
-        immutable: ["assets/**"],
+        immutable:   ["assets/**"],
     )
 
     routes = [Route.to("GET /api/todos", api.list_todos), Route.to("/", frontend)]
@@ -280,9 +280,9 @@ import
 end
 
 pub struct Todo
-    id: Int
+    id:    Int
     title: String
-    done: Bool
+    done:  Bool
 end
 
 derive ToJson for Todo

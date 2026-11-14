@@ -8,12 +8,12 @@ end
 
 struct Address
     street: String
-    city: String
-    zip: String = "00000"
+    city:   String
+    zip:    String = "00000"
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 

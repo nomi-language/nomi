@@ -6,7 +6,7 @@ import std::literals.{Fragment, Literal}
 /// and pass them to a prepared statement; this example stops at the
 /// shaping step.
 pub struct Query
-    sql: String
+    sql:    String
     params: List<Display>
 end
 
@@ -21,13 +21,13 @@ impl Literal for SQL
         Query{
             sql: Iter.reduce(fragments, "", fn acc, frag ->
                 case frag
-                    .Static(s) -> acc + s
+                    .Static(s)  -> acc + s
                     .Dynamic(_) -> acc + "?"
                 end
             end),
             params: Iter.flat_map(fragments, fn frag ->
                 case frag
-                    .Static(_) -> []
+                    .Static(_)  -> []
                     .Dynamic(v) -> [v]
                 end
             end)

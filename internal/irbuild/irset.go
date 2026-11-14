@@ -73,9 +73,11 @@ func (bl *irScalarBuilder) setMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kind, 
 	if !ok {
 		return no()
 	}
+	// Every element lowerSameKindItems admits is a set element
+	// (irSetElemKind), and std's Set instantiates at each.
 	k := bl.g.setKindOf(elem)
 	if !irRetainedSetKind(k) {
-		return no()
+		panic("irbuild: no retained Set over the element " + elem.nomi())
 	}
 	ok = bl.g.mapKeyOK(elem, t)
 	if !ok {

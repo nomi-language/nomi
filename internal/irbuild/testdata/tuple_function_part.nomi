@@ -27,7 +27,7 @@ fn main()
     io.print("returned and passed = ${apply(scaler(7))}")
 
     case p
-        (0, _) -> io.print("zero")
+        (0, _)  -> io.print("zero")
         (a, fa) -> io.print("matched = ${fa(a)}")
     end
 

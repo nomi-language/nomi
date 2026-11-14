@@ -85,6 +85,8 @@ type descField struct {
 
 type entry struct {
 	key, method string
+	// parts is the binding's parts form (partsAdapter), or "".
+	parts string
 }
 
 // New starts a generated file in package pkg. handles maps every registered
@@ -118,12 +120,12 @@ func New(pkg string, res *Resolver, handles map[string]string) *Generator {
 // reused by a later binding.
 func (g *Generator) Add(b Binding) error {
 	restore := g.snapshot()
-	method, err := g.adapter(b)
+	method, parts, err := g.adapter(b)
 	if err != nil {
 		restore()
 		return fmt.Errorf("%s: %w", b.Key, err)
 	}
-	g.entries = append(g.entries, entry{key: b.Key, method: method})
+	g.entries = append(g.entries, entry{key: b.Key, method: method, parts: parts})
 	return nil
 }
 
@@ -266,6 +268,15 @@ func (g *Generator) decls() []byte {
 	if len(g.entries) == 0 {
 		out.WriteString("\t_ = b\n")
 	}
+	if slices.ContainsFunc(g.entries, func(e entry) bool { return e.parts != "" }) {
+		out.WriteString("\tif env.AddParts != nil {\n")
+		for _, e := range g.entries {
+			if e.parts != "" {
+				fmt.Fprintf(&out, "\t\tenv.AddParts(%q, b.%s)\n", e.key, e.parts)
+			}
+		}
+		out.WriteString("\t}\n")
+	}
 	out.WriteString("\treturn map[string]hostadapt.Func{\n")
 	for _, e := range g.entries {
 		fmt.Fprintf(&out, "\t\t%q: b.%s,\n", e.key, e.method)
@@ -281,13 +292,13 @@ func (g *Generator) decls() []byte {
 
 // --- the adapter -------------------------------------------------------------
 
-func (g *Generator) adapter(b Binding) (string, error) {
+func (g *Generator) adapter(b Binding) (string, string, error) {
 	var ft Type
 	var call string
 	if b.Go != nil {
 		ft = b.Go.Type
 		if ft == nil || ft.Kind() != reflect.Func {
-			return "", fmt.Errorf("the binding's Go type is not a function")
+			return "", "", fmt.Errorf("the binding's Go type is not a function")
 		}
 		call = b.Go.Name
 		if b.Go.Pkg != "" && b.Go.Pkg != g.ownPkg {
@@ -296,16 +307,16 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	} else {
 		fv := reflect.ValueOf(b.Fn)
 		if !fv.IsValid() || fv.Kind() != reflect.Func {
-			return "", fmt.Errorf("the binding is not a function value")
+			return "", "", fmt.Errorf("the binding is not a function value")
 		}
 		ft = ReflectType(fv.Type())
 		var err error
 		if call, err = g.funcName(fv); err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
 	if ft.IsVariadic() {
-		return "", fmt.Errorf("a variadic Go function has no Nomi projection")
+		return "", "", fmt.Errorf("a variadic Go function has no Nomi projection")
 	}
 	decl := b.Decl.Decl
 	// A Go function whose first parameter is *rt.Frame is handed the
@@ -324,11 +335,11 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	}
 	for i := first; i < ft.NumIn(); i++ {
 		if isGoContext(ft.In(i)) {
-			return "", fmt.Errorf("%s takes a context.Context as parameter %d; only a first parameter may be a context.Context", call, i+1)
+			return "", "", fmt.Errorf("%s takes a context.Context as parameter %d; only a first parameter may be a context.Context", call, i+1)
 		}
 	}
 	if len(decl.Params) != ft.NumIn()-first {
-		return "", fmt.Errorf("the declaration takes %d parameter(s) and %s takes %d", len(decl.Params), call, ft.NumIn()-first)
+		return "", "", fmt.Errorf("the declaration takes %d parameter(s) and %s takes %d", len(decl.Params), call, ft.NumIn()-first)
 	}
 	res := g.res
 	if b.Res != nil {
@@ -336,7 +347,7 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	}
 	want, err := res.Shape(b.Decl.Module, decl.ReturnTypeExpr)
 	if err != nil {
-		return "", fmt.Errorf("result: %w", err)
+		return "", "", fmt.Errorf("result: %w", err)
 	}
 	numOut := ft.NumOut()
 	hasErr := numOut > 0 && isErrorType(ft.Out(numOut-1))
@@ -346,7 +357,7 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	}
 	for i := range numVals {
 		if isErrorType(ft.Out(i)) {
-			return "", fmt.Errorf("Go result %d is error; error is only supported as the final result", i)
+			return "", "", fmt.Errorf("Go result %d is error; error is only supported as the final result", i)
 		}
 	}
 
@@ -364,15 +375,17 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	}
 
 	name := g.fresh("fn")
-	var w bytes.Buffer
+	var w, pre bytes.Buffer
 	key := strconv.Quote(b.Key)
 	fmt.Fprintf(&w, "// %s adapts %s: %s(%s) -> %s\n", name, b.Key, decl.Name, paramList(decl), want)
 	fmt.Fprintf(&w, "func (b *bound) %s(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {\n", name)
+	// pre is the body up to the Go call, shared with the parts form, its
+	// failure values spelled failValues.
 	if !b.PanicsPropagate {
-		fmt.Fprintf(&w, "\tdefer hostadapt.Recover(%s, &err)\n", key)
+		fmt.Fprintf(&pre, "\tdefer hostadapt.Recover(%s, &err)\n", key)
 	}
 	n := len(decl.Params)
-	fmt.Fprintf(&w, "\tif len(args) != %d {\n\t\treturn nil, hostadapt.Arity(%s, %d, len(args))\n\t}\n", n, key, n)
+	fmt.Fprintf(&pre, "\tif len(args) != %d {\n\t\treturn %s, hostadapt.Arity(%s, %d, len(args))\n\t}\n", n, failValues, key, n)
 	var argNames []string
 	switch {
 	case takesFrame:
@@ -383,14 +396,14 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	for i := range n {
 		ps, err := res.Shape(b.Decl.Module, decl.Params[i].TypeAnnotation)
 		if err != nil {
-			return "", fmt.Errorf("parameter %s: %w", decl.Params[i].Name, err)
+			return "", "", fmt.Errorf("parameter %s: %w", decl.Params[i].Name, err)
 		}
 		conv, err := g.in(ps, ft.In(first+i))
 		if err != nil {
-			return "", fmt.Errorf("parameter %s (%s) to Go %s: %w", decl.Params[i].Name, ps, ft.In(first+i), err)
+			return "", "", fmt.Errorf("parameter %s (%s) to Go %s: %w", decl.Params[i].Name, ps, ft.In(first+i), err)
 		}
 		argNames = append(argNames, fmt.Sprintf("a%d", i))
-		fmt.Fprintf(&w, "\ta%d, err := b.%s(fr, args[%d])\n\tif err != nil {\n\t\treturn nil, hostadapt.Param(%s, %d, %q, %q, err)\n\t}\n", i, conv, i, key, i, shown, paramName(i))
+		fmt.Fprintf(&pre, "\ta%d, err := b.%s(fr, args[%d])\n\tif err != nil {\n\t\treturn %s, hostadapt.Param(%s, %d, %q, %q, err)\n\t}\n", i, conv, i, failValues, key, i, shown, paramName(i))
 	}
 	results := make([]string, numOut)
 	for i := range numVals {
@@ -400,15 +413,16 @@ func (g *Generator) adapter(b Binding) (string, error) {
 		results[numOut-1] = "e"
 	}
 	if numOut == 0 {
-		fmt.Fprintf(&w, "\t%s(%s)\n", call, strings.Join(argNames, ", "))
+		fmt.Fprintf(&pre, "\t%s(%s)\n", call, strings.Join(argNames, ", "))
 	} else {
-		fmt.Fprintf(&w, "\t%s := %s(%s)\n", strings.Join(results, ", "), call, strings.Join(argNames, ", "))
+		fmt.Fprintf(&pre, "\t%s := %s(%s)\n", strings.Join(results, ", "), call, strings.Join(argNames, ", "))
 	}
+	w.WriteString(strings.ReplaceAll(pre.String(), failValues, "nil"))
 
 	payload := want
 	if hasErr {
 		if want.Kind != SResult || want.Elems[1].Kind != SString {
-			return "", fmt.Errorf("%s returns a trailing error, so the declaration must return Result<_, String>, not %s", call, want)
+			return "", "", fmt.Errorf("%s returns a trailing error, so the declaration must return Result<_, String>, not %s", call, want)
 		}
 		payload = want.Elems[0]
 		res := g.enumDesc(want)
@@ -420,17 +434,98 @@ func (g *Generator) adapter(b Binding) (string, error) {
 	}
 	value, err := g.results(&w, key, shown, payload, vals)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if hasErr {
 		res := g.enumDesc(want)
 		fmt.Fprintf(&w, "\tok := b.%s.NewVariant(0)\n", res)
 		if err := g.store(&w, "ok", 0, payload, nil, value, true, ""); err != nil {
-			return "", err
+			return "", "", err
 		}
 		value = "ok"
 	}
 	fmt.Fprintf(&w, "\treturn %s, nil\n}\n\n", value)
+	g.methods.Write(w.Bytes())
+	parts, err := g.partsAdapter(b, name+"Parts", pre.String(), want, hasErr, vals, shown)
+	if err != nil {
+		return "", "", err
+	}
+	return name, parts, nil
+}
+
+// failValues stands for an adapter body's failure values in the text the
+// adapter and its parts form share: `nil` in the one and `nil, false` in
+// the other.
+const failValues = "\x00fail\x00"
+
+// partsAdapter writes the parts form of a binding that answers a Maybe or
+// a Result (hostadapt.PartsFunc), and answers its name, or "" for a binding
+// whose result has no payload to hand over by itself: a Some's or an Ok's
+// payload as the value the record would hold, true; a None's or an Err's
+// record, false. An engine that takes the result apart where it lands (the
+// VM's fused Maybe, maybefuse.go) then builds no Some or Ok. pre is the
+// adapter's body up to the Go call, want the declared result, hasErr
+// whether a trailing Go error is the Err, vals the Go results that carry a
+// value.
+func (g *Generator) partsAdapter(b Binding, name, pre string, want *Shape, hasErr bool, vals []Type, shown string) (string, error) {
+	if want.Kind != SMaybe && want.Kind != SResult {
+		return "", nil
+	}
+	var w bytes.Buffer
+	fmt.Fprintf(&w, "// %s is %s taken apart: the payload and true, or the record and false.\n", name, b.Key)
+	fmt.Fprintf(&w, "func (b *bound) %s(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {\n", name)
+	w.WriteString(strings.ReplaceAll(pre, failValues, "nil, false"))
+	payload := func(s *Shape, t Type, expr string) error {
+		conv, err := g.out(s, t)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&w, "\tv, err := b.%s(%s)\n\tif err != nil {\n\t\treturn nil, false, hostadapt.Returned(%q, err)\n\t}\n\treturn v, true, nil\n}\n\n", conv, expr, shown)
+		return nil
+	}
+	switch {
+	case hasErr:
+		res := g.enumDesc(want)
+		fmt.Fprintf(&w, "\tif e != nil {\n\t\trec := b.%s.NewVariant(1)\n\t\trec.S[0] = e.Error()\n\t\treturn rec, false, nil\n\t}\n", res)
+		switch len(vals) {
+		case 0:
+			w.WriteString("\treturn rt.Unit{}, true, nil\n}\n\n")
+		case 1:
+			if err := payload(want.Elems[0], vals[0], "r0"); err != nil {
+				return "", err
+			}
+		default:
+			// A tuple payload is built where the adapter builds it.
+			return "", nil
+		}
+	case len(vals) != 1:
+		return "", nil
+	case want.Kind == SMaybe && vals[0].Kind() == reflect.Pointer && !isRtGeneric(vals[0], "Maybe", "Result"):
+		d := g.enumDesc(want)
+		fmt.Fprintf(&w, "\tif r0 == nil {\n\t\treturn b.%s.NewVariant(1), false, nil\n\t}\n", d)
+		if err := payload(want.Elems[0], vals[0].Elem(), "*r0"); err != nil {
+			return "", err
+		}
+	case isRtGeneric(vals[0], "Maybe", "Result"):
+		base, args, _ := rtGenericArgs(vals[0])
+		if (base == "Maybe") != (want.Kind == SMaybe) {
+			return "", nil
+		}
+		whole, err := g.out(want, vals[0])
+		if err != nil {
+			return "", err
+		}
+		tag, field := "rt.TagSome", "Some"
+		if base == "Result" {
+			tag, field = "rt.TagOk", "Ok"
+		}
+		fmt.Fprintf(&w, "\tif r0.Tag != %s {\n\t\trec, err := b.%s(r0)\n\t\tif err != nil {\n\t\t\treturn nil, false, hostadapt.Returned(%q, err)\n\t\t}\n\t\treturn rec, false, nil\n\t}\n", tag, whole, shown)
+		if err := payload(want.Elems[0], args[0], "r0."+field); err != nil {
+			return "", err
+		}
+	default:
+		return "", nil
+	}
 	g.methods.Write(w.Bytes())
 	return name, nil
 }

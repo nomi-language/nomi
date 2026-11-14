@@ -73,6 +73,10 @@ func openTypeVars(t Type, out []*TypeVar) []*TypeVar {
 		for _, a := range tt.TypeArgs {
 			out = openTypeVars(a, out)
 		}
+	case *ConjunctionType:
+		for _, m := range tt.Members {
+			out = openTypeVars(m, out)
+		}
 	case *DistinctType:
 		for _, a := range tt.TypeArgs {
 			out = openTypeVars(a, out)

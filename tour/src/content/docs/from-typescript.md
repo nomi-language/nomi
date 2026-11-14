@@ -16,7 +16,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | TypeScript | Nomi |
 |---|---|
 | `const x = 1`, `let x = 1` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
-| `xs.length`, `s.trim()`, `xs.map(f)` | `Iter.count(xs)`, `String.trim(s)`, `Iter.map(xs, f)`: there are no method calls. |
+| `xs.length`, `s.trim()`, `xs.map(f)` | `List.length(xs)`, `String.trim(s)`, `Iter.map(xs, f)`: there are no method calls. |
 | `x?: T`, `T \| undefined`, `null` | `Maybe<T>`: `Some(v)` or `None` |
 | `throw new Error(..)`, `try { .. }` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `switch (s.kind) { case "circle": .. }` | `case s` with arms such as `.Circle{radius:} -> ..`, then `end`; it must cover every variant |
@@ -70,7 +70,7 @@ function parseQty(text: string): number {
 ```nomi-run
 // FILE: cart.nomi
 struct Item
-    name: String
+    name:  String
     price: Int
     qty = 1
 end

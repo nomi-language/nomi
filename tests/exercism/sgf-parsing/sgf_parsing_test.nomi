@@ -2,24 +2,24 @@ import sgf_parsing.{self, Error, Tree}
 
 test "parse"
     cases: List<(String, String, Result<Tree, Error>)> = [
-        ("empty input", "", Err(.TreeMissing)),
-        ("tree with no nodes", "()", Err(.TreeWithNoNodes)),
-        ("node without tree", ";", Err(.TreeMissing)),
+        ("empty input",             "",    Err(.TreeMissing)),
+        ("tree with no nodes",      "()",  Err(.TreeWithNoNodes)),
+        ("node without tree",       ";",   Err(.TreeMissing)),
         ("node without properties", "(;)", Ok({properties: {}, children: []})),
         ("single node tree", "(;A[B])", Ok({
                 properties: {"A" => ["B"]},
-                children: [],
+                children:   [],
             })),
         (
             "multiple properties",
             "(;A[b]C[d])",
             Ok({
                 properties: {"A" => ["b"], "C" => ["d"]},
-                children: [],
+                children:   [],
             }),
         ),
-        ("properties without delimiter", "(;A)", Err(.PropertiesWithoutDelimiter)),
-        ("all lowercase property", "(;a[b])", Err(.PropertyMustBeUppercase)),
+        ("properties without delimiter", "(;A)",     Err(.PropertiesWithoutDelimiter)),
+        ("all lowercase property",       "(;a[b])",  Err(.PropertyMustBeUppercase)),
         ("upper and lowercase property", "(;Aa[b])", Err(.PropertyMustBeUppercase)),
         (
             "two nodes",
@@ -29,7 +29,7 @@ test "parse"
                 children: [
                     {
                         properties: {"B" => ["C"]},
-                        children: [],
+                        children:   [],
                     },
                 ],
             }),
@@ -42,11 +42,11 @@ test "parse"
                 children: [
                     {
                         properties: {"B" => ["C"]},
-                        children: [],
+                        children:   [],
                     },
                     {
                         properties: {"C" => ["D"]},
-                        children: [],
+                        children:   [],
                     },
                 ],
             }),
@@ -56,7 +56,7 @@ test "parse"
             "(;A[b][c][d])",
             Ok({
                 properties: {"A" => ["b", "c", "d"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -64,7 +64,7 @@ test "parse"
             "(;A[hello\t\tworld])",
             Ok({
                 properties: {"A" => ["hello  world"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -72,7 +72,7 @@ test "parse"
             "(;A[hello\n\nworld])",
             Ok({
                 properties: {"A" => ["hello\n\nworld"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -80,7 +80,7 @@ test "parse"
             "(;A[\\]])",
             Ok({
                 properties: {"A" => ["]"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -88,7 +88,7 @@ test "parse"
             "(;A[\\\\])",
             Ok({
                 properties: {"A" => ["\\"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -99,7 +99,7 @@ test "parse"
                 children: [
                     {
                         properties: {"C" => ["baz"]},
-                        children: [],
+                        children:   [],
                     },
                 ],
             }),
@@ -112,7 +112,7 @@ test "parse"
                 children: [
                     {
                         properties: {"C" => ["baz"]},
-                        children: [],
+                        children:   [],
                     },
                 ],
             }),
@@ -125,7 +125,7 @@ test "parse"
                 children: [
                     {
                         properties: {"C" => ["baz"]},
-                        children: [],
+                        children:   [],
                     },
                 ],
             }),
@@ -135,7 +135,7 @@ test "parse"
             "(;A[hello\\\tworld])",
             Ok({
                 properties: {"A" => ["hello world"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -143,7 +143,7 @@ test "parse"
             "(;A[hello\\\nworld])",
             Ok({
                 properties: {"A" => ["helloworld"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -151,7 +151,7 @@ test "parse"
             "(;A[\\t = t and \\n = n])",
             Ok({
                 properties: {"A" => ["t = t and n = n"]},
-                children: [],
+                children:   [],
             }),
         ),
         (
@@ -159,7 +159,7 @@ test "parse"
             "(;A[\\]b\nc\\\nd\t\te\\\\ \\\n\\]])",
             Ok({
                 properties: {"A" => ["]b\ncd  e\\ ]"]},
-                children: [],
+                children:   [],
             }),
         ),
     ]
@@ -173,10 +173,10 @@ end
 // leaves unfinished or follows with more.
 test "malformed trees"
     [
-        ("a tree with no closing parenthesis", "(;A[B]"),
-        ("a value with no closing bracket", "(;A[B)"),
-        ("a value ending in a backslash", "(;A[B\\"),
-        ("text after the tree", "(;A[B])x"),
+        ("a tree with no closing parenthesis",       "(;A[B]"),
+        ("a value with no closing bracket",          "(;A[B)"),
+        ("a value ending in a backslash",            "(;A[B\\"),
+        ("text after the tree",                      "(;A[B])x"),
         ("a child tree with no closing parenthesis", "(;A[B](;B[C])"),
     ]
     |> subtests (description, encoded), description

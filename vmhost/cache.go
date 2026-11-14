@@ -104,7 +104,9 @@ func (c *Cache) Checked(opts ...Option) bool {
 }
 
 // writeAdvice writes ds where cfg's WithWarnings says, when there are any.
+// Hints go only under WithHints.
 func writeAdvice(cfg config, ds Diagnostics) {
+	ds = withoutHints(ds, cfg.hints)
 	if f := cfg.warnings; f != nil && len(ds) > 0 {
 		f(ds)
 	}

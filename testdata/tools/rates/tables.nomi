@@ -6,7 +6,7 @@ pub fn names(code: String) -> Maybe<String>
         "usd" -> Some("US dollar")
         "gbp" -> Some("Pound \"sterling\"")
         "jpy" -> Some("Yen \${not interpolated}")
-        _ -> None
+        _     -> None
     end
 end
 
@@ -16,6 +16,6 @@ pub fn rates(code: String) -> Maybe<Int>
         "usd" -> Some(9200)
         "gbp" -> Some(11700)
         "jpy" -> Some(61)
-        _ -> None
+        _     -> None
     end
 end

@@ -21,8 +21,8 @@ ship, and who else is looking at them. The next chapter,
 ## Numbers
 
 A [`Locale`](/reference/locale/) is written as a short code called a
-language tag, in backticks: `` Locale`en-US` `` is English as written in the
-United States, `` Locale`de` `` is German, and `` Locale`pt-BR` `` is
+language tag, in a typed literal: `Locale"en-US"` is English as written in the
+United States, `Locale"de"` is German, and `Locale"pt-BR"` is
 Portuguese as written in Brazil. The language comes first, then the region.
 `Locale` is in the prelude, so it needs no import.
 
@@ -40,12 +40,12 @@ fn main()
     discount = 0.15d
 
     [
-        Locale`en-US`,
-        Locale`de`,
-        Locale`fr`,
-        Locale`hi`,
-        Locale`ar-EG`,
-        Locale`ar-EG-u-nu-latn`,
+        Locale"en-US",
+        Locale"de",
+        Locale"fr",
+        Locale"hi",
+        Locale"ar-EG",
+        Locale"ar-EG-u-nu-latn",
     ]
     |> Iter.each(fn locale ->
         count = Int.format(sold, locale)
@@ -103,10 +103,10 @@ import
 end
 
 fn main()
-    ships = Date`2026-10-20`
-    order = DateTime`2026-10-20T17:30:00-04:00[America/New_York]`
+    ships = Date"2026-10-20"
+    order = DateTime"2026-10-20T17:30:00-04:00[America/New_York]"
 
-    [Locale`en-US`, Locale`de`]
+    [Locale"en-US", Locale"de"]
     |> Iter.each(fn locale ->
         io.print(Date.format(ships, locale, style: .Full))
         io.print(Date.format(ships, locale, style: .Short))
@@ -148,12 +148,12 @@ import
 end
 
 fn main()
-    ships = Date`2026-10-20`
+    ships = Date"2026-10-20"
 
-    [Locale`en-US`, Locale`de`]
+    [Locale"en-US", Locale"de"]
     |> Iter.each(fn locale ->
-        day = Date.format_fields(ships, locale, DateFields`MMMMEEEEd`)
-        month = Date.format_fields(ships, locale, DateFields`yMMM`)
+        day = Date.format_fields(ships, locale, DateFields"MMMMEEEEd")
+        month = Date.format_fields(ships, locale, DateFields"yMMM")
         io.print("${locale}: ${day} | ${month}")
     end)
 end
@@ -172,13 +172,13 @@ field in a `DateFields` is an error.
 A file name, a log line or another program's input needs a date that is the
 same for every reader. A `DatePattern` spells out the exact layout, with
 `yyyy` for the year, `MM` for the month and `dd` for the day:
-`` Date.to_string_with(ships, DatePattern`yyyyMMdd`) `` is `20261020`, and
+`Date.to_string_with(ships, DatePattern"yyyyMMdd")` is `20261020`, and
 `Date.parse_with` reads such text back. A fixed pattern holds numbers only.
 A month's name belongs to a language, so the compiler refuses one in a
 pattern and points you to a skeleton:
 
 ```console
-error: typed literal DatePattern`dd MMM yyyy` is invalid: invalid format: `MMM` writes the month's name, which is a word of a language: a fixed pattern writes numbers, the same in every locale; write it for a reader with a skeleton and a locale, as Date.format_fields(date, locale, DateFields`yMMMd`)
+error: typed literal DatePattern"dd MMM yyyy" is invalid: invalid format: `MMM` writes the month's name, which is a word of a language: a fixed pattern writes numbers, the same in every locale; write it for a reader with a skeleton and a locale, as Date.format_fields(date, locale, DateFields"yMMMd")
 ```
 
 ## Durations and relative time
@@ -198,15 +198,15 @@ end
 fn main()
     [-1, 3, -3]
     |> Iter.each(fn n ->
-        en = TimeUnit.format_relative(n, Locale`en-US`, .Day)
-        pl = TimeUnit.format_relative(n, Locale`pl`, .Day)
+        en = TimeUnit.format_relative(n, Locale"en-US", .Day)
+        pl = TimeUnit.format_relative(n, Locale"pl", .Day)
         io.print("${n}: ${en} | ${pl}")
     end)
 
     delivery = Duration.minutes(90)
-    io.print(Duration.format(delivery, Locale`en-US`))
-    io.print(Duration.format(delivery, Locale`pl`))
-    io.print(Duration.format(delivery, Locale`en-US`, width: .Narrow))
+    io.print(Duration.format(delivery, Locale"en-US"))
+    io.print(Duration.format(delivery, Locale"pl"))
+    io.print(Duration.format(delivery, Locale"en-US", width: .Narrow))
 end
 ```
 <!-- expect
@@ -232,15 +232,15 @@ import std::io
 fn main()
     watching = ["Anna", "Ben", "Chloé"]
 
-    [Locale`en-US`, Locale`en-GB`, Locale`pl`]
+    [Locale"en-US", Locale"en-GB", Locale"pl"]
     |> Iter.each(fn locale ->
         io.print("${locale}: ${String.join_list(watching, locale)}")
     end)
 
-    dbg String.join_list(["Anna", "Ben"], Locale`en-US`)
-    dbg String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or)
-    dbg String.join_list(["S", "M", "L"], Locale`pl`, style: .Or)
-    dbg String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit)
+    dbg String.join_list(["Anna", "Ben"], Locale"en-US")
+    dbg String.join_list(["S", "M", "L"], Locale"en-US", style: .Or)
+    dbg String.join_list(["S", "M", "L"], Locale"pl", style: .Or)
+    dbg String.join_list(["2 lb", "3 oz"], Locale"en-US", style: .Unit)
     Unit
 end
 ```
@@ -248,10 +248,10 @@ end
 en-US: Anna, Ben, and Chloé
 en-GB: Anna, Ben and Chloé
 pl: Anna, Ben i Chloé
-dbg line 11: String.join_list(["Anna", "Ben"], Locale`en-US`) = "Anna and Ben"
-dbg line 12: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S, M, or L"
-dbg line 13: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
-dbg line 14: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
+dbg line 11: String.join_list(["Anna", "Ben"], Locale"en-US") = "Anna and Ben"
+dbg line 12: String.join_list(["S", "M", "L"], Locale"en-US", style: .Or) = "S, M, or L"
+dbg line 13: String.join_list(["S", "M", "L"], Locale"pl", style: .Or) = "S, M lub L"
+dbg line 14: String.join_list(["2 lb", "3 oz"], Locale"en-US", style: .Unit) = "2 lb, 3 oz"
 -->
 
 American English puts a comma before "and", and British English doesn't.
@@ -272,28 +272,28 @@ and the same locale you used to show it to them. The locale matters:
 import std::io
 
 fn main()
-    dbg Int.parse_in("1,200", Locale`en-US`)
-    dbg Int.parse_in("1.200", Locale`de`)
-    dbg Int.parse_in("1200", Locale`de`)
-    dbg Int.parse_in("1.200", Locale`en-US`)
-    dbg Decimal.parse_in("49,90", Locale`de`)
-    dbg Int.parse_in(" 3 ", Locale`en-US`)
-    dbg Int.parse_in(" 3 ", Locale`en-US`, lenient: True)
+    dbg Int.parse_in("1,200", Locale"en-US")
+    dbg Int.parse_in("1.200", Locale"de")
+    dbg Int.parse_in("1200", Locale"de")
+    dbg Int.parse_in("1.200", Locale"en-US")
+    dbg Decimal.parse_in("49,90", Locale"de")
+    dbg Int.parse_in(" 3 ", Locale"en-US")
+    dbg Int.parse_in(" 3 ", Locale"en-US", lenient: True)
 
-    case Int.parse_in("2.5", Locale`en-US`)
-        Ok(n) -> io.print("quantity ${n}")
+    case Int.parse_in("2.5", Locale"en-US")
+        Ok(n)  -> io.print("quantity ${n}")
         Err(e) -> io.print("not a quantity: ${e}")
     end
 end
 ```
 <!-- expect
-dbg line 4: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
-dbg line 5: Int.parse_in("1.200", Locale`de`) = Ok(1200)
-dbg line 6: Int.parse_in("1200", Locale`de`) = Ok(1200)
-dbg line 7: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
-dbg line 8: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
-dbg line 9: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
-dbg line 10: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
+dbg line 4: Int.parse_in("1,200", Locale"en-US") = Ok(1200)
+dbg line 5: Int.parse_in("1.200", Locale"de") = Ok(1200)
+dbg line 6: Int.parse_in("1200", Locale"de") = Ok(1200)
+dbg line 7: Int.parse_in("1.200", Locale"en-US") = Err(Unexpected{at: 1, text: "."})
+dbg line 8: Decimal.parse_in("49,90", Locale"de") = Ok(49.90d)
+dbg line 9: Int.parse_in(" 3 ", Locale"en-US") = Err(Unexpected{at: 0, text: " "})
+dbg line 10: Int.parse_in(" 3 ", Locale"en-US", lenient: True) = Ok(3)
 not a quantity: unexpected `.` at 1
 -->
 
@@ -316,7 +316,7 @@ reads a date written in a locale's style, `.Short` unless you pass another:
 import std::calendar.Date
 
 fn main()
-    us = Locale`en-US`
+    us = Locale"en-US"
 
     dbg Date.parse_in("10/20/26", us)
     dbg Date.parse_in("10/20/2026", us)
@@ -355,15 +355,15 @@ fn main()
     dbg Locale.parse("EN-us")
     dbg Locale.parse("pt_BR")
     dbg Locale.from_posix("pl_PL.UTF-8")
-    dbg Locale.fallbacks(Locale`es-MX`)
+    dbg Locale.fallbacks(Locale"es-MX")
     Unit
 end
 ```
 <!-- expect
-dbg line 2: Locale.parse("EN-us") = Ok(Locale`en-US`)
+dbg line 2: Locale.parse("EN-us") = Ok(Locale"en-US")
 dbg line 3: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
-dbg line 4: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
-dbg line 5: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
+dbg line 4: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale"pl-PL")
+dbg line 5: Locale.fallbacks(Locale"es-MX") = [Locale"es-MX", Locale"es-419", Locale"es"]
 -->
 
 `Locale.parse` fixes the capital letters, so `EN-us` becomes `en-US`.
@@ -375,12 +375,12 @@ When Nomi has no rules for a locale, it uses the nearest one that it has.
 `Locale.fallbacks` shows the order it tries. Mexican Spanish (`es-MX`) falls
 back to Latin American Spanish (`es-419`), then to Spanish (`es`).
 
-The compiler checks a backtick literal, as
-[Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time)
-explains. ``Locale`pt_BR` `` gives this error:
+The compiler checks a literal without slots, as
+[Typed Literals](/typed-literals/#a-literal-without-slots-is-checked-at-compile-time)
+explains. `Locale"pt_BR"` gives this error:
 
 ```console
-error: typed literal Locale`pt_BR` is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)
+error: typed literal Locale"pt_BR" is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)
 ```
 
 ### Picking the reader's locale
@@ -390,25 +390,25 @@ The shop has pages in only a few languages. `Locale.negotiate` picks the one
 that suits the reader best, or a default when none comes close:
 
 ```nomi-run
-once shop = [Locale`en`, Locale`de`, Locale`pl`, Locale`pt`]
+once shop = [Locale"en", Locale"de", Locale"pl", Locale"pt"]
 
 fn page_locale(wanted: List<Locale>) -> Locale
-    Locale.negotiate(wanted, shop, Locale`en`)
+    Locale.negotiate(wanted, shop, Locale"en")
 end
 
 fn main()
-    dbg page_locale([Locale`pt-BR`, Locale`en-US`])
-    dbg page_locale([Locale`de-AT`])
-    dbg page_locale([Locale`ja`, Locale`pl`])
-    dbg page_locale([Locale`ja`])
+    dbg page_locale([Locale"pt-BR", Locale"en-US"])
+    dbg page_locale([Locale"de-AT"])
+    dbg page_locale([Locale"ja", Locale"pl"])
+    dbg page_locale([Locale"ja"])
     Unit
 end
 ```
 <!-- expect
-dbg line 8: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
-dbg line 9: page_locale([Locale`de-AT`]) = Locale`de`
-dbg line 10: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
-dbg line 11: page_locale([Locale`ja`]) = Locale`en`
+dbg line 8: page_locale([Locale"pt-BR", Locale"en-US"]) = Locale"pt"
+dbg line 9: page_locale([Locale"de-AT"]) = Locale"de"
+dbg line 10: page_locale([Locale"ja", Locale"pl"]) = Locale"pl"
+dbg line 11: page_locale([Locale"ja"]) = Locale"en"
 -->
 
 A reader from Brazil gets Portuguese, and a reader from Austria gets German.
@@ -433,20 +433,20 @@ struct App
 end
 
 struct Request
-    path: String
+    path:   String
     accept: List<Locale>
 end
 
-once shop = [Locale`en`, Locale`de`, Locale`pl`]
+once shop = [Locale"en", Locale"de", Locale"pl"]
 
 fn boot() -> Result<App, String>
-    Ok(App{locale: Locale`en`})
+    Ok(App{locale: Locale"en"})
 end
 
 fn main()
     [
-        Request{path: "/cart", accept: [Locale`de-AT`, Locale`en`]},
-        Request{path: "/cart", accept: [Locale`ja`]},
+        Request{path: "/cart", accept: [Locale"de-AT", Locale"en"]},
+        Request{path: "/cart", accept: [Locale"ja"]},
     ]
     |> Iter.each(handle)
 end
@@ -498,7 +498,7 @@ end
 fn main()
     customers = ["Zorn", "Żak", "Śliwa", "Sowa", "Öberg", "Abel", "Åberg", "Ärlig"]
 
-    [Locale`de`, Locale`sv`, Locale`pl`]
+    [Locale"de", Locale"sv", Locale"pl"]
     |> Iter.each(fn locale ->
         by_name = Collator.new(locale)
         sorted = Iter.sort_with(customers, &Collator.compare(by_name, &1, &2))
@@ -532,16 +532,16 @@ results of `String.fold_case`:
 ```nomi-run
 fn main()
     dbg String.uppercase("istanbul")
-    dbg String.uppercase_in("istanbul", Locale`tr`)
-    dbg String.lowercase_in("KIRMIZI", Locale`tr`)
+    dbg String.uppercase_in("istanbul", Locale"tr")
+    dbg String.lowercase_in("KIRMIZI", Locale"tr")
     dbg String.fold_case("Straße") == String.fold_case("STRASSE")
     Unit
 end
 ```
 <!-- expect
 dbg line 2: String.uppercase("istanbul") = "ISTANBUL"
-dbg line 3: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
-dbg line 4: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
+dbg line 3: String.uppercase_in("istanbul", Locale"tr") = "İSTANBUL"
+dbg line 4: String.lowercase_in("KIRMIZI", Locale"tr") = "kırmızı"
 dbg line 5: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 -->
 
@@ -582,8 +582,8 @@ fn main()
     parcel = Weight{grams: 1250}
 
     io.print("order-1042,${parcel}")
-    io.print("en-US: ships at ${Localize.localize(parcel, Locale`en-US`)}")
-    io.print("de: ships at ${Localize.localize(parcel, Locale`de`)}")
+    io.print("en-US: ships at ${Localize.localize(parcel, Locale"en-US")}")
+    io.print("de: ships at ${Localize.localize(parcel, Locale"de")}")
 end
 ```
 <!-- expect

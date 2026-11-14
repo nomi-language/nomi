@@ -4,7 +4,7 @@ import
 end
 
 struct Note
-    id: Int
+    id:   Int
     text: String
 end
 

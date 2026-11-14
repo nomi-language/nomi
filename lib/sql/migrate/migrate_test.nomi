@@ -18,7 +18,7 @@ end
 // and `postgres` on PATH). Returns each engine's name and result.
 fn on_each<T>(body: (Conn) -> Result<T, Error>) -> List<(String, Result<T, Error>)>
     opens: List<(String, () -> Result<Conn, sql.Error>)> = [
-        ("sqlite", fn -> sqlite.memory()),
+        ("sqlite",   fn -> sqlite.memory()),
         ("postgres", fn -> postgres.connect(postgres.scratch()?)),
     ]
 
@@ -65,7 +65,7 @@ fn count(db: Conn, table: String) -> Result<Int, Error>
 
     case rows
         [row, ..] -> Row.get<Int>(row, "n") |> Result.map_err(db_error)
-        [] -> Ok(0)
+        []        -> Ok(0)
     end
 end
 
@@ -292,8 +292,8 @@ end
 fn adopt_refusal(db: Conn, migrations: List<Migration>) -> Result<String, Error>
     case migrate.adopt_golang_migrate(db, migrations)
         Err(Error.Adopt{message:}) -> Ok(message)
-        Err(e) -> Err(e)
-        Ok(versions) -> Ok("adopted ${versions}")
+        Err(e)                     -> Err(e)
+        Ok(versions)               -> Ok("adopted ${versions}")
     end
 end
 
@@ -337,7 +337,7 @@ test "two processes that migrate one Postgres database at once run each migratio
 
     slow = [
         m("1_slow.sql", "SELECT pg_sleep(0.3); CREATE TABLE t (n INTEGER)"),
-        m("2_row.sql", "INSERT INTO t VALUES (1)"),
+        m("2_row.sql",  "INSERT INTO t VALUES (1)"),
     ]
 
     runs = concurrent

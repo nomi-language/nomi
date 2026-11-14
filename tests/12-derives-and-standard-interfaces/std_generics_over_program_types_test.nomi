@@ -4,7 +4,7 @@
 import std::channels.ChannelClosed
 
 struct Loose
-    id: Int
+    id:   Int
     note: String
 end
 

@@ -41,7 +41,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `func Map[T any](..)` | `fn map<T>(..)` |
 | `_test.go` files | `test "name"` ... `end` blocks beside the code |
 | `import "app/db/posts"`, then `posts.Find(1)` | `import db::posts`, then `posts.find(1)`; where `posts` is taken, `import db` imports the directory and `db::posts.find(1)` reaches the file, instead of an import alias |
-| `mux.HandleFunc("GET /users/{id}", show)`, then `r.PathValue("id")` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. ``Route`GET /users/{id}` `` on its own has a `String` field, as `PathValue` returns. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
+| `mux.HandleFunc("GET /users/{id}", show)`, then `r.PathValue("id")` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. `Route"GET /users/{id}"` on its own has a `String` field, as `PathValue` returns. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 ## The same program
 

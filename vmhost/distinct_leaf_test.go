@@ -89,10 +89,10 @@ Bytes(1)
 `,
 		},
 		{
-			name: "Regex", inner: "Regex<Unit>", imports: "import std::regex.Regex\n", v1: "Regex`a+`", v2: "Regex`b`",
+			name: "Regex", inner: "Regex<Unit>", imports: "import std::regex.Regex\n", v1: "Regex\"a+\"", v2: "Regex\"b\"",
 			derives: []string{"Display"},
-			want: "Regex`a+`\nRegex`b`\nRegex`a+`\nW(Regex`a+`)\n[W(Regex`a+`), W(Regex`b`)]\n[Regex`a+`, Regex`b`]\n" +
-				"W(Regex`a+`)\nRegex`b`\nS{w: W(Regex`a+`)}\na+\n",
+			want: "Regex\"a+\"\nRegex\"b\"\nRegex\"a+\"\nW(Regex\"a+\")\n[W(Regex\"a+\"), W(Regex\"b\")]\n[Regex\"a+\", Regex\"b\"]\n" +
+				"W(Regex\"a+\")\nRegex\"b\"\nS{w: W(Regex\"a+\")}\na+\n",
 		},
 		{
 			name: "Unit", inner: "Unit", v1: "Unit", v2: "Unit",

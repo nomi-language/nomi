@@ -56,9 +56,9 @@ const studentDecls = `struct Address
 end
 
 struct Student
-    score: Int
+    score:   Int
     address: Address
-    marks: List<Int>
+    marks:   List<Int>
 end
 
 fn grade(score: Int) -> Int

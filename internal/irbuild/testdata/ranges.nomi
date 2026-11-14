@@ -58,7 +58,7 @@ fn show_ints(xs: List<Int>) -> String
         Some(x) ->
             rest = case List.tail(xs)
                 Some(more) -> show_ints(more)
-                None -> "."
+                None       -> "."
             end
 
             "${x}-${rest}"
@@ -68,7 +68,7 @@ end
 fn show_count(m: Maybe<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
@@ -108,7 +108,7 @@ end
 fn show_maybe_str(m: Maybe<String>) -> String
     case m
         Some(s) -> s
-        None -> "None"
+        None    -> "None"
     end
 end
 

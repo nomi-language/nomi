@@ -1,0 +1,81 @@
+//# Are We Fast Yet: Queens.
+//#
+//# Places eight queens by backtracking, ten times per benchmark run.
+//#
+//# Departure from the guidelines: the suite marks rows and diagonals in
+//# arrays it sets and clears in place, undoing a placement when the search
+//# backs out. Here the boards are `Vector<Bool>`s in a `Board` value; a
+//# placement returns a new board, so backing out keeps the old one and
+//# needs no undo. `place_queen` returns the finished board or `None`.
+
+import harness
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+struct Board
+    free_rows:  Vector<Bool>
+    free_maxs:  Vector<Bool>
+    free_mins:  Vector<Bool>
+    queen_rows: Vector<Int>
+end
+
+fn filled<T>(n: Int, value: T) -> Vector<T>
+    Iter.to_vector(Iter.map(1..=n, fn _ -> value))
+end
+
+fn queens() -> Bool
+    board = Board{
+        free_rows:  filled(8, True),
+        free_maxs:  filled(16, True),
+        free_mins:  filled(16, True),
+        queen_rows: filled(8, -1),
+    }
+
+    place_queen(board, 0) is Some(_)
+end
+
+fn place_queen(board: Board, c: Int) -> Maybe<Board>
+    0..8
+    |> Iter.find_map(fn r ->
+        if get_row_column(board, r, c) then
+            placed = set_row_column({..board, queen_rows: Vector.set(.., r, c)}, r, c, False)
+
+            if c == 7 then
+                Some(placed)
+            else
+                place_queen(placed, c + 1)
+            end
+        else
+            None
+        end
+    end)
+end
+
+fn get_row_column(board: Board, r: Int, c: Int) -> Bool
+    Vector.get(board.free_rows, r)!
+        and Vector.get(board.free_maxs, c + r)!
+        and Vector.get(board.free_mins, c - r + 7)!
+end
+
+fn set_row_column(board: Board, r: Int, c: Int, v: Bool) -> Board
+    {
+        ..board,
+        free_rows: Vector.set(.., r, v),
+        free_maxs: Vector.set(.., c + r, v),
+        free_mins: Vector.set(.., c - r + 7, v),
+    }
+end
+
+fn benchmark() -> Bool
+    Iter.reduce(1..=10, True, fn result, _ -> result and queens())
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Queens", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1)))
+end

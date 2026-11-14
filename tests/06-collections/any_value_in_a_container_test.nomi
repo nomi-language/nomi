@@ -55,7 +55,7 @@ test "channel halves in containers"
 
     out = case slot
         .Has(r) -> r
-        .Empty -> ch.receiver
+        .Empty  -> ch.receiver
     end
 
     assert Receiver.receive(out) == Some(4)

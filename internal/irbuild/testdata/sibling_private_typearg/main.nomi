@@ -19,7 +19,7 @@ end
 fn describe(slot: span.Slot<Point>) -> String
     case slot
         span.Slot.Full(q) -> "full ${q.x}"
-        span.Slot.Empty -> "empty"
+        span.Slot.Empty   -> "empty"
     end
 end
 

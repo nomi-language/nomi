@@ -3,6 +3,7 @@ package irbuild
 import (
 	"slices"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -17,7 +18,8 @@ import (
 // record whose parts do), the value is the wider value already, so the
 // builder relabels it: one copy of the reference, whatever the collection
 // holds, and no element is read (TestRelabel_ConvertsNoElement counts it).
-// Any other conversion is a rebuild (irembedsrebuild.go).
+// Any other conversion is a rebuild (irembedsrebuild.go). Where the checker
+// recorded the conversion, its record's cost decides (relabelsAt).
 //
 // A record (a tuple, an anonymous record, a Maybe's or Result's variant)
 // may then hold a scalar in a scalar slot where its new type says a
@@ -32,6 +34,15 @@ import (
 func (bl *irScalarBuilder) relabels(have, want kind) bool {
 	if have == want {
 		return true
+	}
+	if irConjKind(have) {
+		// A conjunction widening to a member or to fewer members
+		// (conjunction.go).
+		return conjHolds(have, want)
+	}
+	if irConjKind(want) {
+		// A value entering a conjunction unboxed.
+		return bl.g.irErases(want, have) && bl.g.irBoxPlanFor(want, have, nil) == nil
 	}
 	if irExistentialKind(want) {
 		return bl.erasesUnboxed(want, have)
@@ -90,6 +101,37 @@ func (bl *irScalarBuilder) relabels(have, want kind) bool {
 		}
 	}
 	return true
+}
+
+// relabelsAt is relabels for the value of the expression at, as the
+// checker's record of its conversion decides (analysis.Conversion.Cost):
+// relabelled where the record says it converts with no work, rebuilt where
+// it says it is rebuilt, and by its kinds where the record leaves it to
+// each instance of a generic body, or there is none. The record is what
+// the hover reads (internal/hoverdoc, conversions.go), so what the builder
+// does is what the hover says. agrees is false where the record says no
+// work and the kinds cannot relabel: the builder declines rather than
+// rebuild a value the hover says costs nothing.
+func (bl *irScalarBuilder) relabelsAt(at ast.Node, have, want kind) (relabel, agrees bool) {
+	rec := bl.g.conversionAt(at)
+	if rec == nil || rec.Cost == analysis.ConversionPerInstance || bl.g.project(rec.From) != have || bl.g.project(rec.To) != want {
+		return bl.relabels(have, want), true
+	}
+	switch {
+	case rec.Cost == analysis.ConversionRebuilds:
+		return false, true
+	case !bl.relabels(have, want):
+		bl.g.dc.note("a " + have.nomi() + " the checker says converts to " + want.nomi() + " with no work, which its kinds cannot relabel")
+		return false, false
+	}
+	return true, true
+}
+
+// passesRelabelled reports whether the argument at, of kind have, passes
+// to a parameter of kind want as it is (relabelsAt).
+func (bl *irScalarBuilder) passesRelabelled(at ast.Node, have, want kind) bool {
+	relabel, agrees := bl.relabelsAt(at, have, want)
+	return relabel && agrees
 }
 
 // irRelabelPrelude reports whether d is an instance of the prelude enums

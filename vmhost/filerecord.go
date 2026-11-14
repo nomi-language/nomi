@@ -41,6 +41,11 @@ package vmhost
 //     them, which declines whatever it cannot answer as a whole lowering
 //     would; an instance of another file's generic declaration no kept
 //     object holds is made from that file read with its bodies;
+//   - every typed literal the program checks at load is checked again
+//     (checkLiterals): the relowered files' from their new lowering, the
+//     others' from the kept lowering's record of them
+//     (irbuild.KeptLowering.Literals), since an edit to a handler can
+//     change the answer of a literal whose text it did not touch;
 //   - an instance a file's lowering drops because its generic body
 //     changed, which kept objects of other files name, is asked for again
 //     by one of those files, added to the files lowered again
@@ -632,6 +637,14 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	p.advice = &advice
 	if p.entry == nil && (p.HasMain() || rec.HasTests) || !p.runsClean() || p.Unsupported() != nil {
 		why = "the program reaches something a machine cannot run"
+		return nil, false
+	}
+	// Every typed literal the program checks at load, kept or lowered
+	// again, is checked again: an edit elsewhere (its handler, a module's
+	// listed currencies) can change its answer. One that fails is reported
+	// by the whole load.
+	if p.checkLiterals() != nil {
+		why = "a typed literal does not check"
 		return nil, false
 	}
 	relinks.Add(1)

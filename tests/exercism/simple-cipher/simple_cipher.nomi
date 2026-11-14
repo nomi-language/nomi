@@ -4,7 +4,7 @@
 
 import std::random.{Generator, Seed}
 
-once alphabet = Iter.to_vector('a'..='z')
+once alphabet     = Iter.to_vector('a'..='z')
 once letter_count = Vector.length(alphabet)
 
 /// How long a random key is.

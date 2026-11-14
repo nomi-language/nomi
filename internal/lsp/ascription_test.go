@@ -29,7 +29,7 @@ func TestRedundantAscriptionHint(t *testing.T) {
 	lib := loadStd()
 	fa := analysis.BuildProject(nodes, lib.Primitives, lib.Modules, lib.Files, "/tmp", nil)
 	analysis.CheckTypes(fa, nodes)
-	diags := redundantAscriptionDiagnostics(fa, nodes)
+	diags := fileHintDiagnostics(fa, nodes)
 	if len(diags) != 1 {
 		t.Fatalf("want one hint, got %+v", diags)
 	}

@@ -275,6 +275,11 @@ type FileBodies struct {
 	// impl's `build`, which the position chose. Nil until the first record.
 	TargetLiterals      map[ast.Node]*ast.TaggedString
 	TargetLiteralBuilds map[*ast.TaggedString]*ast.FuncDef
+	// TypedLiterals maps each typed literal the checker resolved a
+	// handler for to what builds it and what its slots take
+	// (typed_literal_record.go). The editor's hover reads it. Nil until
+	// the first record.
+	TypedLiterals map[*ast.TaggedString]*TypedLiteral
 	// PatternTypes maps each list, vector, set, map, struct and tuple
 	// pattern, and each `_` pattern, the checker checked to the type of the
 	// value it matches. The editor's hover reads it to say what a pattern

@@ -105,7 +105,7 @@ func (fr *frame) tailInto(fn *ir.Func, pc int) {
 		return
 	}
 	if st := fr.c.siteAt(pc); st != nil && !st.pos.Stdlib() {
-		fr.stdEntry = st
+		fr.stdEntry, fr.stdCaller = st, fr.fn
 	}
 }
 

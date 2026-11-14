@@ -14,7 +14,7 @@ fn all(values: List<ToV>) -> List<V>
 end
 
 fn main()
-    day = Date`2026-10-19`
+    day = Date"2026-10-19"
     at = Instant.from_seconds(5)
     io.print(Date.to_v(day) == V.D(day))
     io.print(ToV.to_v(1.5d) == V.Dec(1.5d))

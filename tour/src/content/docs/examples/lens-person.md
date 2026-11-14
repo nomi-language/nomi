@@ -17,15 +17,15 @@ import std::calendar.{self, Date}
 
 /// A person: their name, where and when they were born, and where they live.
 pub struct Person
-    name: Name
-    born: Born
+    name:    Name
+    born:    Born
     address: Address
 end
 
 /// The fore names and surname of a person.
 pub struct Name
     fore_name: String
-    sur_name: String
+    sur_name:  String
 end
 
 /// Where and on what day someone was born.
@@ -37,9 +37,9 @@ end
 /// A postal address.
 pub struct Address
     house_number: Int
-    street: String
-    place: String
-    country: String
+    street:       String
+    place:        String
+    country:      String
 end
 
 /// The street of the address where someone was born.
@@ -66,7 +66,7 @@ end
 pub fn rename_streets(person: Person, rename: (String) -> String) -> Person
     {
         ..person,
-        born: {.., at: {.., street: rename(..)}},
+        born:    {.., at: {.., street: rename(..)}},
         address: {.., street: rename(..)},
     }
 end
@@ -82,17 +82,17 @@ once jane = Person{
     born: {
         at: {
             house_number: 22,
-            street: "Implicit Street",
-            place: "Lazy Town",
-            country: "Haskell Republic",
+            street:       "Implicit Street",
+            place:        "Lazy Town",
+            country:      "Haskell Republic",
         },
-        on: Date`1970-03-02`,
+        on: Date"1970-03-02",
     },
     address: {
         house_number: 1337,
-        street: "Coder Street",
-        place: "Hacker City",
-        country: "Functionland",
+        street:       "Coder Street",
+        place:        "Hacker City",
+        country:      "Functionland",
     },
 }
 
@@ -110,7 +110,7 @@ end
 test "setBirthMonth"
     assert Ok(person) = lens_person.set_birth_month(jane, 9)
 
-    assert person.born.on == Date`1970-09-02`
+    assert person.born.on == Date"1970-09-02"
     assert person.born.at == jane.born.at
 end
 
@@ -129,7 +129,7 @@ end
 // Not canonical: the Haskell track's calendar clips a day past the month's
 // end; std/calendar refuses it.
 test "a birth month without the birth day is an error"
-    born_on_the_31st = {..jane, born: {.., on: Date`1970-03-31`}}
+    born_on_the_31st = {..jane, born: {.., on: Date"1970-03-31"}}
 
     assert Err(_) = lens_person.set_birth_month(born_on_the_31st, 2)
 end
@@ -150,4 +150,4 @@ test result: ok. 6 passed, 0 failed
 - The records are four structs, `Person`, `Name`, `Born` and `Address`, with the Haskell track's fields in snake case, and the birth day a std/calendar `Date`.
 - `set_birth_month` answers a `Result`: `Date.new` refuses a day the new month does not have, where the Haskell track's `fromGregorian` clips it to the month's last day. The test file adds one case, marked not canonical, that sets February for a person born on the 31st.
 - `rename_streets` takes the renaming as a function and applies it to both streets in one update, where `..` in each `street:` is the street already there.
-- The exercise has no canonical data. The tests follow the Haskell track's: one person, Jane Joanna Doe, as a `once`, with her birth day written as the checked literal ``Date`1970-03-02` ``, and one test per function. The setters also check that nothing else changed by comparing with a spread update of the original.
+- The exercise has no canonical data. The tests follow the Haskell track's: one person, Jane Joanna Doe, as a `once`, with her birth day written as the checked literal `Date"1970-03-02"`, and one test per function. The setters also check that nothing else changed by comparing with a spread update of the original.

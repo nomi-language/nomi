@@ -8,9 +8,9 @@ pub fn response(remark: String) -> String
     if remark == "" then return "Fine. Be that way!"
 
     case (String.ends_with(remark, "?"), String.is_upper(remark))
-        (True, True) -> "Calm down, I know what I'm doing!"
-        (True, False) -> "Sure."
-        (False, True) -> "Whoa, chill out!"
+        (True, True)   -> "Calm down, I know what I'm doing!"
+        (True, False)  -> "Sure."
+        (False, True)  -> "Whoa, chill out!"
         (False, False) -> "Whatever."
     end
 end

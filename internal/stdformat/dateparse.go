@@ -446,8 +446,8 @@ func CheckFixedPattern(kind int, text string) string {
 	if err != nil {
 		return strings.TrimPrefix(err.Error(), fmt.Sprintf("pattern %q: ", text))
 	}
-	skel := map[int]string{patternDate: "Date.format_fields(date, locale, DateFields`yMMMd`)",
-		patternTime: "Time.format_fields(time, locale, TimeFields`jm`)", patternDateTime: "DateTime.format_fields(moment, locale, DateTimeFields`yMMMdjm`)"}[kind]
+	skel := map[int]string{patternDate: "Date.format_fields(date, locale, DateFields\"yMMMd\")",
+		patternTime: "Time.format_fields(time, locale, TimeFields\"jm\")", patternDateTime: "DateTime.format_fields(moment, locale, DateTimeFields\"yMMMdjm\")"}[kind]
 	words := func(f cldrdata.DateField, what string) string {
 		return fmt.Sprintf("`%s` writes %s, which is a word of a language: a fixed pattern writes numbers, the same in every locale; write it for a reader with a skeleton and a locale, as %s",
 			strings.Repeat(string(f.Letter), f.Count), what, skel)

@@ -64,7 +64,7 @@ end
 
 fn sum(xs: List<Int>) -> Int
     case xs
-        [] -> 0
+        []       -> 0
         [h, ..t] -> h + sum(t)
     end
 end
@@ -73,9 +73,9 @@ end
 // observable, and `[a, b]` must NOT match a three-element list.
 fn describe(xs: List<Int>) -> String
     case xs
-        [] -> "empty"
-        [a] -> "one: ${a}"
-        [a, b] -> "two: ${a} and ${b}"
+        []          -> "empty"
+        [a]         -> "one: ${a}"
+        [a, b]      -> "two: ${a} and ${b}"
         [a, ..rest] -> "first ${a}, rest ${rest}"
     end
 end
@@ -83,6 +83,6 @@ end
 fn flagged(args: List<String>) -> String
     case args
         ["--verbose", ..rest] -> "verbose with ${rest}"
-        _ -> "plain ${args}"
+        _                     -> "plain ${args}"
     end
 end

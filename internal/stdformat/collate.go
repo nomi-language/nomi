@@ -44,7 +44,7 @@ func FFICollatorNew(locale string, strength int64, numeric bool, caseFirst int64
 func FFICollatorInspect(spec string) string {
 	tag, strength, numeric, caseFirst, shifted := parseSpec(spec)
 	var b strings.Builder
-	fmt.Fprintf(&b, "Collator.new(Locale`%s`", tag)
+	fmt.Fprintf(&b, "Collator.new(Locale\"%s\"", tag)
 	if name, ok := map[int64]string{strengthPrimary: "Primary", strengthSecondary: "Secondary",
 		strengthQuaternary: "Quaternary", strengthIdentical: "Identical"}[strength]; ok {
 		b.WriteString(", strength: Strength." + name)

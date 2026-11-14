@@ -26,11 +26,11 @@ test "territory"
             4,
             Ok({owner: .Neither, points: [(0, 3), (0, 4), (1, 4)]}),
         ),
-        ("A stone and not a territory on 5x5 board", 1, 1, Ok({owner: .Neither, points: []})),
-        ("Invalid because X is too low for 5x5 board", -1, 1, Err("Invalid coordinate")),
-        ("Invalid because X is too high for 5x5 board", 5, 1, Err("Invalid coordinate")),
-        ("Invalid because Y is too low for 5x5 board", 1, -1, Err("Invalid coordinate")),
-        ("Invalid because Y is too high for 5x5 board", 1, 5, Err("Invalid coordinate")),
+        ("A stone and not a territory on 5x5 board",    1,  1,  Ok({owner: .Neither, points: []})),
+        ("Invalid because X is too low for 5x5 board",  -1, 1,  Err("Invalid coordinate")),
+        ("Invalid because X is too high for 5x5 board", 5,  1,  Err("Invalid coordinate")),
+        ("Invalid because Y is too low for 5x5 board",  1,  -1, Err("Invalid coordinate")),
+        ("Invalid because Y is too high for 5x5 board", 1,  5,  Err("Invalid coordinate")),
     ]
 
     subtests cases, (description, x, y, expected), description

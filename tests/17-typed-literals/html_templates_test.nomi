@@ -8,7 +8,7 @@ fn render(page: Html) -> String
 end
 
 struct Campaign
-    title: String
+    title:  String
     raised: Int
 end
 
@@ -44,8 +44,8 @@ test "a quoted attribute escapes both quotes, in either quote"
 end
 
 test "the start of a URL takes a Url or a SafeUrl, and refuses a javascript scheme"
-    safe = Url.parse("https://example.com/a?b=c") |> Result.with_default(Url`https://x`)
-    bad = Url.parse("javascript:alert(1)") |> Result.with_default(Url`https://x`)
+    safe = Url.parse("https://example.com/a?b=c") |> Result.with_default(Url"https://x")
+    bad = Url.parse("javascript:alert(1)") |> Result.with_default(Url"https://x")
     assert render(Html"<a href='${safe}'>x</a>") == "<a href='https://example.com/a?b=c'>x</a>"
     assert render(Html"<a href='${bad}'>x</a>") == "<a href='about:invalid#unsafe-url'>x</a>"
 

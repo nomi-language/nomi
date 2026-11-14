@@ -108,6 +108,6 @@ fn main()
 
     case first
         Some(d) -> io.print("first diagnostic line is ${d.line}, col ${d.col}")
-        None -> io.print("no first diagnostic")
+        None    -> io.print("no first diagnostic")
     end
 end

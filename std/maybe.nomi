@@ -29,7 +29,7 @@ end
 //! assert Maybe.Some(42)
 //!     |> case
 //!         .Some(v) -> v
-//!         .None -> 0
+//!         .None    -> 0
 //!     end
 //!     |> Int.equal(42)
 //
@@ -46,7 +46,7 @@ impl Maybe<T>
     pub fn is_some<T>(maybe: Maybe<T>) -> Bool
         case maybe
             Some(_) -> True
-            None -> False
+            None    -> False
         end
     end
 
@@ -57,7 +57,7 @@ impl Maybe<T>
     pub fn is_none<T>(maybe: Maybe<T>) -> Bool
         case maybe
             Some(_) -> False
-            None -> True
+            None    -> True
         end
     end
 
@@ -68,7 +68,7 @@ impl Maybe<T>
     pub fn map<T, U>(maybe: Maybe<T>, f: (T) -> U) -> Maybe<U>
         case maybe
             Some(v) -> Maybe.Some(f(v))
-            None -> Maybe.None
+            None    -> Maybe.None
         end
     end
 
@@ -79,7 +79,7 @@ impl Maybe<T>
     pub fn with_default<T>(maybe: Maybe<T>, default: T) -> T
         case maybe
             Some(v) -> v
-            None -> default
+            None    -> default
         end
     end
 
@@ -100,7 +100,7 @@ impl Maybe<T>
     pub fn otherwise<T>(maybe: Maybe<T>, fallback: Maybe<T>) -> Maybe<T>
         case maybe
             Some(_) -> maybe
-            None -> fallback
+            None    -> fallback
         end
     end
 
@@ -113,7 +113,7 @@ impl Maybe<T>
     pub fn or_else<T>(maybe: Maybe<T>, fallback: () -> Maybe<T>) -> Maybe<T>
         case maybe
             Some(_) -> maybe
-            None -> fallback()
+            None    -> fallback()
         end
     end
 
@@ -124,7 +124,7 @@ impl Maybe<T>
     pub fn to_result<T, E>(maybe: Maybe<T>, error: E) -> Result<T, E>
         case maybe
             Some(v) -> Result.Ok(v)
-            None -> Result.Err(error)
+            None    -> Result.Err(error)
         end
     end
 
@@ -139,7 +139,7 @@ impl Maybe<T>
     pub fn flat_map<T, U>(maybe: Maybe<T>, f: (T) -> Maybe<U>) -> Maybe<U>
         case maybe
             Some(v) -> f(v)
-            None -> Maybe.None
+            None    -> Maybe.None
         end
     end
 
@@ -157,7 +157,7 @@ impl Maybe<T>
     pub fn filter<T>(maybe: Maybe<T>, keep: (T) -> Bool) -> Maybe<T>
         case maybe
             Some(v) when keep(v) -> maybe
-            _ -> Maybe.None
+            _                    -> Maybe.None
         end
     end
 
@@ -173,7 +173,7 @@ impl Maybe<T>
     pub fn flatten<T>(maybe: Maybe<Maybe<T>>) -> Maybe<T>
         case maybe
             Some(inner) -> inner
-            None -> Maybe.None
+            None        -> Maybe.None
         end
     end
 
@@ -207,20 +207,18 @@ impl Maybe<T>
         reversed = Iter.reduce(maybes, Maybe.Some([]), fn acc: Maybe<List<T>>, item ->
             case item
                 Some(v) -> Maybe.map(acc, fn vs -> [v, ..vs])
-                None -> break Maybe.None
+                None    -> break Maybe.None
             end
         end)
 
         Maybe.map(reversed, fn vs -> Iter.reverse(vs))
     end
 
-    /// Returns the Some values in order and drops every None.
-    //! assert Maybe.values([Maybe.Some(1), Maybe.None, Maybe.Some(3)]) == [1, 3]
+    /// Lazy: yields the Some values in order and drops every None, as it
+    /// reads them, so it works on an endless source.
+    //! assert Maybe.values([Maybe.Some(1), Maybe.None, Maybe.Some(3)]) |> Iter.to_list() == [1, 3]
     //! nones: List<Maybe<Int>> = [Maybe.None, Maybe.None]
-    //! assert Maybe.values(nones) == []
-    //!
-    //! empty: List<Maybe<Int>> = []
-    //! assert Maybe.values(empty) == []
+    //! assert Maybe.values(nones) |> Iter.is_empty()
     //!
     //! halves =
     //!     [4, 3, 8]
@@ -228,18 +226,21 @@ impl Maybe<T>
     //!         if n % 2 == 0 then Maybe.Some(n / 2) else Maybe.None
     //!     end)
     //!     |> Maybe.values()
+    //!     |> Iter.to_list()
     //!
     //! assert halves == [2, 4]
+    //!
+    //! evens =
+    //!     Iter.from(0)
+    //!     |> Iter.map(fn n -> if n % 2 == 0 then Maybe.Some(n) else Maybe.None)
+    //!     |> Maybe.values()
+    //!     |> Iter.take(3)
+    //!     |> Iter.to_list()
+    //!
+    //! assert evens == [0, 2, 4]
     //
-    pub fn values<T>(maybes: Iter<Maybe<T>>) -> List<T>
-        reversed = Iter.reduce(maybes, [], fn acc: List<T>, item ->
-            case item
-                Some(v) -> [v, ..acc]
-                None -> acc
-            end
-        end)
-
-        Iter.reverse(reversed)
+    pub fn values<T>(maybes: Iter<Maybe<T>>) -> Iter<T>
+        Iter.flat_map(maybes, fn m -> m)
     end
 end
 
@@ -262,7 +263,7 @@ impl Iter for Maybe<T>
     fn each_while(maybe: Maybe<T>, yield: (T) -> Bool) -> Bool
         case maybe
             Some(v) -> yield(v)
-            None -> True
+            None    -> True
         end
     end
 
@@ -270,7 +271,7 @@ impl Iter for Maybe<T>
     fn known_count(maybe: Maybe<T>) -> Maybe<Int>
         case maybe
             Some(_) -> Maybe.Some(1)
-            None -> Maybe.Some(0)
+            None    -> Maybe.Some(0)
         end
     end
 end

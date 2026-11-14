@@ -8,12 +8,12 @@ end
 /// A payment's receipt line: the amount by its code, the day at length.
 phrase paid(
     total: Money,
-    day: Date,
+    day:   Date,
 ) `Paid {$total :currency currencyDisplay=code} on {$day :date style=long}`
 
 /// When a parcel arrives: a time of day, then the date and time together.
 phrase arrives(
-    at: Time,
+    at:     Time,
     moment: DateTime,
 ) `Arrives at {$at :time}; {$moment :datetime dateStyle=medium timeStyle=short}`
 
@@ -28,29 +28,29 @@ fn phrases(source: String) -> List<String>
 end
 
 test "the money and date functions write in the reader's locale"
-    total = Money{amount: 49.9d, currency: Currency`EUR`}
-    day = Date`2026-10-20`
+    total = Money{amount: 49.9d, currency: Currency"EUR"}
+    day = Date"2026-10-20"
 
     assert paid(total, day)
-    |> Phrase.format(Locale`en`) == "Paid EUR\u{a0}49.90 on October 20, 2026"
+    |> Phrase.format(Locale"en") == "Paid EUR\u{a0}49.90 on October 20, 2026"
 
     // A locale with no catalog of the phrase writes the source text, with
     // the values as the reader's locale writes them.
     assert paid(total, day)
-    |> Phrase.format(Locale`de`) == "Paid 49,90\u{a0}EUR on 20. Oktober 2026"
+    |> Phrase.format(Locale"de") == "Paid 49,90\u{a0}EUR on 20. Oktober 2026"
 
-    at = Time`14:05:00`
-    moment = DateTime`2026-10-20T14:05:00+02:00[Europe/Warsaw]`
-
-    assert arrives(at, moment)
-    |> Phrase.format(Locale`en`) == "Arrives at 2:05\u{202f}PM; Oct 20, 2026, 2:05\u{202f}PM"
+    at = Time"14:05:00"
+    moment = DateTime"2026-10-20T14:05:00+02:00[Europe/Warsaw]"
 
     assert arrives(at, moment)
-    |> Phrase.format(Locale`pl`) == "Arrives at 14:05; 20 paź 2026, 14:05"
+    |> Phrase.format(Locale"en") == "Arrives at 2:05\u{202f}PM; Oct 20, 2026, 2:05\u{202f}PM"
 
-    assert plain(total, day) |> Phrase.format(Locale`en`) == "€49.90, Oct 20, 2026"
-    assert weekday_and_day(day) |> Phrase.format(Locale`en`) == "20 Tue"
-    assert weekday_and_day(day) |> Phrase.format(Locale`de`) == "Di., 20."
+    assert arrives(at, moment)
+    |> Phrase.format(Locale"pl") == "Arrives at 14:05; 20 paź 2026, 14:05"
+
+    assert plain(total, day) |> Phrase.format(Locale"en") == "€49.90, Oct 20, 2026"
+    assert weekday_and_day(day) |> Phrase.format(Locale"en") == "20 Tue"
+    assert weekday_and_day(day) |> Phrase.format(Locale"de") == "Di., 20."
 end
 
 test "each function takes the type it writes"

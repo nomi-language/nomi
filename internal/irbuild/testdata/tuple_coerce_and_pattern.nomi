@@ -79,7 +79,7 @@ fn main()
         |> Iter.reduce({}, fn acc, (k, v) ->
             case Map.get(acc, k)
                 Some(prev) -> Map.put(acc, k, prev + v)
-                None -> Map.put(acc, k, v)
+                None       -> Map.put(acc, k, v)
             end
         end)
 

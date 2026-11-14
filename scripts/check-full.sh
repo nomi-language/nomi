@@ -91,10 +91,13 @@ step() {
   [[ $rc -eq 0 ]] || failed+=("$name")
 }
 
-# gofmt: fail listing every tracked Go file gofmt would change.
+# gofmt: fail listing every tracked Go file gofmt would change. The
+# Benchmarks Game Go programs under benchmarks/game/go are third-party
+# baselines kept verbatim from upstream under their BSD licence, so they
+# are left as published.
 gofmtcheck() {
   local out
-  out="$(git -C "$ROOT" ls-files '*.go' | sed "s|^|$ROOT/|" | xargs gofmt -l)" || return
+  out="$(git -C "$ROOT" ls-files '*.go' ':!:benchmarks/game/go/' | sed "s|^|$ROOT/|" | xargs gofmt -l)" || return
   [[ -z "$out" ]] && return 0
   echo "$out"
   echo "   gofmt -w those files"

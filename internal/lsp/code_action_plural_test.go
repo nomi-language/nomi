@@ -108,7 +108,7 @@ func TestCodeAction_AddPluralForms(t *testing.T) {
 func TestCodeAction_AddPluralFormsInACatalog(t *testing.T) {
 	files := map[string]string{
 		"nomi.toml":            "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.items(3), Locale`pl`))\nend\n",
+		"main.nomi":            "import\n    std::io\n    cart\nend\n\nfn main()\n    io.print(Phrase.format(cart.items(3), Locale\"pl\"))\nend\n",
 		"cart.nomi":            "pub phrase items(count: Int) `{$count} items`\n",
 		"locales/pl/cart.toml": "[items]\nsource = '''{$count} items'''\ntext = '''{$count} rzeczy'''\n",
 	}

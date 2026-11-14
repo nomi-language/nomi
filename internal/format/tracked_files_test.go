@@ -17,7 +17,9 @@ var unformattedAllowed = map[string]string{
 }
 
 // TestTrackedNomiFilesAreFormatted formats every tracked .nomi file and fails
-// for each one whose formatted text differs from what is committed.
+// for each one whose formatted text differs from what is committed. A file a
+// tool generated is held here too: generators write through
+// `compiler.format`.
 func TestTrackedNomiFilesAreFormatted(t *testing.T) {
 	root, files := trackedNomiFiles(t)
 	if len(files) < 100 {

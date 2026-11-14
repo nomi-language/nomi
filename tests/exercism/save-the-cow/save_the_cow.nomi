@@ -16,7 +16,7 @@ end
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .AlreadyWon -> "cannot guess after the game is won"
+            .AlreadyWon  -> "cannot guess after the game is won"
             .AlreadyLost -> "cannot guess after the game is lost"
         end
     end
@@ -28,20 +28,20 @@ once allowed_failures = 9
 /// A word-guessing game. It is a value: each guess answers the game after
 /// it.
 pub opaque struct Game
-    word: List<Codepoint>
-    revealed: Set<Codepoint>
+    word:               List<Codepoint>
+    revealed:           Set<Codepoint>
     remaining_failures: Int
-    state: State
+    state:              State
 end
 
 impl Game
     /// A new game whose secret is `word`, with no letters revealed.
     pub fn new(word: String) -> Game
         {
-            word: String.to_codepoints(word),
-            revealed: [],
+            word:               String.to_codepoints(word),
+            revealed:           [],
             remaining_failures: allowed_failures,
-            state: .Ongoing,
+            state:              .Ongoing,
         }
     end
 

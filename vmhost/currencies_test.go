@@ -43,7 +43,7 @@ func oneDiagnostic(t *testing.T, err error) Diagnostic {
 
 // A listed custom currency, and any ISO one, may be written in a literal.
 func TestCurrencyLiteral_ListedIsAccepted(t *testing.T) {
-	src := currencyProgram("Currency`PTS:0`", "Money`1200 PTS:0`.currency", "Money`0.5 BTC:8`.currency", "Currency`EUR`")
+	src := currencyProgram("Currency\"PTS:0\"", "Money\"1200 PTS:0\".currency", "Money\"0.5 BTC:8\".currency", "Currency\"EUR\"")
 	p, err := loadManifest(t, src, pointsToml)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestCurrencyLiteral_ListedIsAccepted(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	if want := "Currency`PTS:0`\nCurrency`PTS:0`\nCurrency`BTC:8`\nCurrency`EUR`\n"; out.String() != want {
+	if want := "Currency\"PTS:0\"\nCurrency\"PTS:0\"\nCurrency\"BTC:8\"\nCurrency\"EUR\"\n"; out.String() != want {
 		t.Errorf("prints %q, want %q", out.String(), want)
 	}
 }
@@ -61,14 +61,14 @@ func TestCurrencyLiteral_ListedIsAccepted(t *testing.T) {
 // list's table and file, with a close listed one as a hint.
 func TestCurrencyLiteral_UnlistedIsACompileError(t *testing.T) {
 	for _, c := range []struct{ lit, want, hint string }{
-		{"Currency`PST:0`",
-			"typed literal Currency`PST:0`: `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
+		{"Currency\"PST:0\"",
+			"typed literal Currency\"PST:0\": `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
 			"did you mean `PTS:0`? nomi.toml lists it"},
-		{"Money`5 PTS:2`.currency",
-			"typed literal Money`5 PTS:2`: `PTS:2` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
+		{"Money\"5 PTS:2\".currency",
+			"typed literal Money\"5 PTS:2\": `PTS:2` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
 			"did you mean `PTS:0`? nomi.toml lists it"},
-		{"Currency`GEMS:0`",
-			"typed literal Currency`GEMS:0`: `GEMS:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
+		{"Currency\"GEMS:0\"",
+			"typed literal Currency\"GEMS:0\": `GEMS:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml",
 			""},
 	} {
 		_, err := loadManifest(t, currencyProgram(c.lit), pointsToml)
@@ -93,7 +93,7 @@ func TestCurrencyLiteral_UnlistedIsACompileError(t *testing.T) {
 // A module with no [money] table, or an empty list, allows no custom
 // currency literal; a program with no module allows any.
 func TestCurrencyLiteral_NoListAndNoModule(t *testing.T) {
-	src := currencyProgram("Currency`PTS:0`")
+	src := currencyProgram("Currency\"PTS:0\"")
 	for _, toml := range []string{
 		"[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
 		"[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[money]\ncustom_currencies = []\n",
@@ -107,7 +107,7 @@ func TestCurrencyLiteral_NoListAndNoModule(t *testing.T) {
 		t.Fatalf("with no module: %v", err)
 	}
 	var out bytes.Buffer
-	if err := p.Run(context.Background(), &out, nil, false); err != nil || out.String() != "Currency`PTS:0`\n" {
+	if err := p.Run(context.Background(), &out, nil, false); err != nil || out.String() != "Currency\"PTS:0\"\n" {
 		t.Errorf("with no module prints %q (%v)", out.String(), err)
 	}
 }
@@ -127,7 +127,7 @@ func TestCurrency_RuntimeIsUnrestricted(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	if want := "Ok(Currency`GEMS:3`)\nOk(Currency`PST:0`)\n"; out.String() != want {
+	if want := "Ok(Currency\"GEMS:3\")\nOk(Currency\"PST:0\")\n"; out.String() != want {
 		t.Errorf("prints %q, want %q", out.String(), want)
 	}
 	problems, err := CheckLowering(context.Background(), "main.nomi", src, WithVirtualManifest(mustManifest(t, pointsToml)))
@@ -150,7 +150,7 @@ func TestCurrencyCustomCall_LiteralArgumentsUnlistedIsACompileError(t *testing.T
 	if d.Message != want || d.Line != 7 || d.Col != 28 || d.Code != UnlistedCurrencyCode {
 		t.Errorf("diagnostic at %d:%d (%s): %q\nwant at 7:28: %q", d.Line, d.Col, d.Code, d.Message, want)
 	}
-	wantHints := []string{"did you mean `PTS:0`? nomi.toml lists it", "write Currency`PST:0`, which the compiler checks"}
+	wantHints := []string{"did you mean `PTS:0`? nomi.toml lists it", "write Currency\"PST:0\", which the compiler checks"}
 	if !slices.Equal(d.Hints, wantHints) {
 		t.Errorf("hints %q, want %q", d.Hints, wantHints)
 	}
@@ -187,7 +187,7 @@ func TestCurrencyCustomCall_LiteralArgumentsListedIsAHint(t *testing.T) {
 		if !errors.As(problems, &ds) || len(ds) != 1 {
 			t.Fatalf("%s: CheckLowering answers %v; want one hint", c.name, problems)
 		}
-		want := "Currency.custom(\"PTS\", 0) makes a fixed currency: write Currency`PTS:0`, which the compiler checks"
+		want := "Currency.custom(\"PTS\", 0) makes a fixed currency: write Currency\"PTS:0\", which the compiler checks"
 		if ds[0].Message != want || ds[0].Code != CustomCurrencyCallCode || ds[0].Line != 7 {
 			t.Errorf("%s: %d (%s) %q, want at line 7 %q", c.name, ds[0].Line, ds[0].Code, ds[0].Message, want)
 		}
@@ -213,7 +213,7 @@ import
 end
 
 fn main()
-    io.print(Debug.inspect(Currency` + "`PTS:0`" + `))
+    io.print(Debug.inspect(Currency"PTS:0"))
     io.print(Debug.inspect(shop.gems))
 end
 // FILE: app/nomi.toml
@@ -234,7 +234,7 @@ replace gems => ../gems
 // FILE: gems/shop.nomi
 import std::currency.Currency
 
-pub once gems = Currency` + "`GEMS:2`" + `
+pub once gems = Currency"GEMS:2"
 // FILE: gems/nomi.toml
 [module]
 name = "gems"
@@ -263,13 +263,13 @@ func TestCurrencyLiteral_TheListIsPerModule(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	if want := "Currency`PTS:0`\nCurrency`GEMS:2`\n"; out.String() != want {
+	if want := "Currency\"PTS:0\"\nCurrency\"GEMS:2\"\n"; out.String() != want {
 		t.Errorf("prints %q, want %q", out.String(), want)
 	}
 
 	// The library writing the application's currency is an error in the
 	// library, naming the library's nomi.toml.
-	swapped := strings.Replace(currencyModules, "pub once gems = Currency`GEMS:2`", "pub once gems = Currency`PTS:0`", 1)
+	swapped := strings.Replace(currencyModules, "pub once gems = Currency\"GEMS:2\"", "pub once gems = Currency\"PTS:0\"", 1)
 	entry, err = writeInput(t.TempDir(), swapped)
 	if err != nil {
 		t.Fatal(err)

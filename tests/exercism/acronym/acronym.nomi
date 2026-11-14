@@ -6,7 +6,7 @@ import std::regex.Regex
 /// Hyphens and other punctuation separate words; an apostrophe does not.
 pub fn abbreviate(phrase: String) -> String
     phrase
-    |> String.find_all(Regex`[A-Za-z][A-Za-z']*`)
+    |> String.find_all(Regex"[A-Za-z][A-Za-z']*")
     |> Iter.map(&String.take(&1, 1))
     |> String.join()
     |> String.uppercase()

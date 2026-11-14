@@ -71,6 +71,9 @@ func (g *gen) irValTypeOf(k kind) *ir.ValType {
 		return ir.AnyType
 	case tagIface:
 		if k.iface == nil {
+			if irConjKind(k) {
+				return g.conjValType(k)
+			}
 			return nil
 		}
 		return ir.NewIfaceType(g.irTypes().Symbol(irIfaceTypeToken{k.iface}, k.iface.nomi))

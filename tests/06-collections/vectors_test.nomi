@@ -137,3 +137,14 @@ test "a vector spread at either end concatenates"
     assert Vector[..Vector[], 1] == [1]
     assert names == ["Ada", "Bo"]
 end
+
+test "a vector filled by push and updated by set stays fast at 200k elements"
+    empty: Vector<Int> = []
+    filled = 1..=200000 |> Iter.reduce(empty, fn v, i -> Vector.push(v, i))
+    doubled = 0..=199999 |> Iter.reduce(filled, fn v, i -> Vector.set(v, i, i * 2))
+
+    assert Vector.length(filled) == 200000
+    assert Vector.get(filled, 199999) == Some(200000)
+    assert Vector.get(doubled, 199999) == Some(399998)
+    assert Vector.get(filled, 0) == Some(1)
+end

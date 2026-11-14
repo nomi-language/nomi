@@ -86,7 +86,7 @@ func TestFormat_BindingElse_MultiStatementBlockBreaks(t *testing.T) {
 // each broken with a blank line between them otherwise.
 func TestFormat_BindingElse_Arms(t *testing.T) {
 	src := "fn f(r: Result<Int, E>) -> Result<Int, String>\n    Ok(port) = r else\n        Err(.Empty) -> 8080\n Err(e) -> return Err(\"bad port\")\n    end\n    Ok(port)\nend\n"
-	want := "fn f(r: Result<Int, E>) -> Result<Int, String>\n    Ok(port) = r else\n        Err(.Empty) -> 8080\n        Err(e) -> return Err(\"bad port\")\n    end\n\n    Ok(port)\nend\n"
+	want := "fn f(r: Result<Int, E>) -> Result<Int, String>\n    Ok(port) = r else\n        Err(.Empty) -> 8080\n        Err(e)      -> return Err(\"bad port\")\n    end\n\n    Ok(port)\nend\n"
 	if got := formatTwice(t, src); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -99,7 +99,7 @@ func TestFormat_BindingElse_Arms(t *testing.T) {
 }
 
 func TestFormat_BindingElse_ArmComments(t *testing.T) {
-	src := "fn f(r: Result<Int, E>) -> Int\n    Ok(n) = r else\n        // nothing there\n        Err(.Empty) -> 0 // default\n        Err(_) -> return -1\n        // done\n    end\n\n    n\nend\n"
+	src := "fn f(r: Result<Int, E>) -> Int\n    Ok(n) = r else\n        // nothing there\n        Err(.Empty) -> 0 // default\n        Err(_)      -> return -1\n        // done\n    end\n\n    n\nend\n"
 	if got := formatTwice(t, src); got != src {
 		t.Errorf("got:\n%s\nwant:\n%s", got, src)
 	}

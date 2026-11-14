@@ -1,7 +1,7 @@
 import std::compiler
 
 struct Header
-    tag: Byte
+    tag:    Byte
     length: Int
 end
 
@@ -11,10 +11,10 @@ end
 
 fn name(b: Byte) -> String
     case b
-        0x00 -> "nul"
+        0x00        -> "nul"
         0b0111_1111 -> "del"
-        0o377 -> "max"
-        _ -> "other"
+        0o377       -> "max"
+        _           -> "other"
     end
 end
 

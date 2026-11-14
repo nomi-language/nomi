@@ -2420,7 +2420,7 @@ fn main()
   Tag(x) = id
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "expected Tag, got Id")
+	expectError(t, errs, "pattern names Tag, but the value is an Id")
 }
 
 func TestCheckDistinctDestructureNotDistinct(t *testing.T) {
@@ -4187,36 +4187,6 @@ end`
 	expectError(t, errs, "Tagged")
 }
 
-// A bound alias is for `where` bounds only. Using one as a value
-// type (parameter annotation, struct field, binding annotation, etc.)
-// must error with a clear message pointing at the `where T: Name` form.
-func TestInterfaceBound_Alias_RejectedAsParamType(t *testing.T) {
-	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-fn announce(_x: ShowAndTag) -> String
-    "ok"
-end`
-	_, errs := checkSource(src)
-	expectError(t, errs, "interface-bound alias")
-}
-
-func TestInterfaceBound_Alias_RejectedAsReturnType(t *testing.T) {
-	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-fn make(x: User) -> ShowAndTag
-    x
-end`
-	_, errs := checkSource(src)
-	expectError(t, errs, "interface-bound alias")
-}
-
-func TestInterfaceBound_Alias_RejectedAsStructField(t *testing.T) {
-	src := interfaceBoundSetup + `typealias ShowAndTag Showable and Tagged
-struct Box
-    field: ShowAndTag
-end`
-	_, errs := checkSource(src)
-	expectError(t, errs, "interface-bound alias")
-}
-
 // ---------------------------------------------------------------------------
 // Variant pattern data-shape consistency
 //
@@ -5959,7 +5929,9 @@ func TestCheckDeclaredParamNeedsType(t *testing.T) {
 // every declared function, a `go`-bound or interface one included, and in a
 // lambda with or without an expected type. The type may be a struct, an
 // enum of any number of variants, a distinct type, an alias, a builtin or a
-// type parameter.
+// type parameter, and it may be written in any form a named parameter's
+// type is: a generic, a tuple, a function or an anonymous struct type
+// (a module-qualified one runs in the corpus, which has the stdlib).
 func TestCheckTypeOnlyParam(t *testing.T) {
 	const types = "struct Request\n  path: String\nend\n\nenum Method\n  Get\n  Post\nend\n\ntype Cents Int\n\ntypealias Id Int\n\n"
 	for _, tc := range []struct{ name, src string }{
@@ -5981,6 +5953,11 @@ func TestCheckTypeOnlyParam(t *testing.T) {
 			"interface Show\n  fn show(v: self, prefix: String) -> String\nend\n\nstruct A end\n\nimpl Show for A\n  fn show(_v: A, String) -> String\n    \"a\"\n  end\nend\n"},
 		{"lambda", "fn main()\n  f = fn String -> 1\n  _ = f(\"a\")\nend\n"},
 		{"lambda with an expected type", "fn apply(f: (String) -> Int) -> Int\n  f(\"a\")\nend\n\nfn main()\n  _ = apply(fn String -> 1)\nend\n"},
+		{"generic", "fn count(List<Int>, n: Int) -> Int\n  n\nend\n\nfn main()\n  _ = count([1], 2)\nend\n"},
+		{"generic after a named one", "fn last(n: Int, Map<String, Int>) -> Int\n  n\nend\n\nfn main()\n  _ = last(1, {\"a\" => 1})\nend\n"},
+		{"tuple, function and struct", "fn f((Int, String), (Int) -> Int, {x: Int}) -> Int\n  1\nend\n\nfn main()\n  _ = f((1, \"a\"), fn n -> n, {x: 1})\nend\n"},
+		{"lambda generic", "fn main()\n  f = fn List<Int>, n: Int -> n\n  _ = f([1], 2)\nend\n"},
+		{"interface fn generic", "interface Sink\n  fn take(s: self, List<Int>) -> Int\nend\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, errs := checkSource(tc.src)
@@ -5990,6 +5967,8 @@ func TestCheckTypeOnlyParam(t *testing.T) {
 	// The argument must have the parameter's type.
 	_, errs := checkSource("struct Request\n  path: String\nend\n\nfn stats(Request) -> Int\n  1\nend\n\nfn main()\n  _ = stats(1)\nend\n")
 	expectError(t, errs, "Request")
+	_, errs = checkSource("fn count(List<Int>) -> Int\n  1\nend\n\nfn main()\n  _ = count([\"a\"])\nend\n")
+	expectError(t, errs, "expected Int, got String")
 	_, errs = checkSource("fn apply(f: (Int) -> Int) -> Int\n  f(1)\nend\n\nfn main()\n  _ = apply(fn String -> 1)\nend\n")
 	if len(errs) == 0 {
 		t.Fatal("a lambda written `fn String -> 1` is accepted where an `(Int) -> Int` is expected")

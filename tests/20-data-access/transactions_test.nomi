@@ -38,9 +38,9 @@ test "a fake answers each statement with the function it was given"
             else
                 Err(
                     sql.Error.Constraint{
-                        kind: .Unique,
-                        name: "users_name_key",
-                        table: Some("users"),
+                        kind:   .Unique,
+                        name:   "users_name_key",
+                        table:  Some("users"),
                         column: None,
                     }
                 )
@@ -226,7 +226,7 @@ test "the suite closes every connection it opens"
     fakes = Iter.loop([], fn fakes ->
         case Receiver.receive(opened.receiver)
             Some(fake) -> fakes + [fake]
-            None -> break fakes
+            None       -> break fakes
         end
     end)
 
@@ -246,9 +246,9 @@ impl Conn for ForgetsRollback
     end
 
     fn each_row(
-        conn: ForgetsRollback,
+        conn:      ForgetsRollback,
         statement: Statement,
-        f: (Row) -> Bool,
+        f:         (Row) -> Bool,
     ) -> Result<Unit, sql.Error>
         Conn.each_row(conn.inner, statement, f)
     end
@@ -321,9 +321,9 @@ impl Conn for NeverCloses
     end
 
     fn each_row(
-        conn: NeverCloses,
+        conn:      NeverCloses,
         statement: Statement,
-        f: (Row) -> Bool,
+        f:         (Row) -> Bool,
     ) -> Result<Unit, sql.Error>
         Conn.each_row(conn.inner, statement, f)
     end

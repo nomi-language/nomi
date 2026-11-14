@@ -80,6 +80,12 @@ type Seq[T any] struct {
 	// each adapter sets it once, when the pipeline is built, from its
 	// upstream's, so nothing is asked per element.
 	Endless func(fr *Frame) string
+	// Reusing is the same sequence for a consumer that is done with each
+	// item by the time its yield returns, or nil when there is no cheaper
+	// form. A pairing stage (with_index, zip, a Map's entries) answers one
+	// that rewrites one tuple per run instead of building one per element.
+	// Adapters do not carry it: their items are not their source's.
+	Reusing func() Seq[T]
 }
 
 // --- sources ----------------------------------------------------------------

@@ -55,7 +55,7 @@ test "extern singleton Debug routes through embedded Bool values"
 
     singleton = case b
         Bool.False(x) -> Debug.inspect(x)
-        _ -> "nope"
+        _             -> "nope"
     end
 
     assert Debug.inspect(True) == "True"

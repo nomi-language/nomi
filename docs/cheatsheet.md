@@ -102,14 +102,13 @@ test result: ok. 1 passed, 0 failed
 - Types are written without a symbol, except anonymous structs:
   `List<Int>`, `Vector<T>`, `Map<K, V>`, `Set<T>`, `(Int, String)`,
   `{x: Int}`.
-- Strings interpolate with `${...}`. A backtick string is raw: no escapes and
-  no interpolation. A type name before a backtick string is a typed literal,
-  checked at compile time: ``Regex`\d+` ``, ``Url`https://nomi-lang.org` ``.
-  A type that implements `CheckedLiteral`, such as `Url`, is checked in
-  every quote style, slots included: `Url"https://x.org/${id}"` is a `Url`,
-  never a `Result`. A `Url` slot takes any `Display` value and escapes its
-  text for where it stands. Where a `Url` is expected, the tag can be left
-  out: `u: Url = "https://x.org/"`. A `String` value there is still an error.
+- Strings interpolate with `${...}`; a backtick string is raw. A type name
+  before a string is a typed literal. Without a slot it is checked at compile
+  time and is the value: `Date"2026-05-04"` is a `Date`, ``Regex`\d+` `` a
+  `Regex` (backticks only for backslashes). With a slot it is built at run
+  time: `Date"2026-${m}-04"` is a `Result`. A `Url` (a `CheckedLiteral`) is
+  checked with slots too, each escaped: `Url"https://x.org/${id}"` is a `Url`.
+  Where one is expected the tag can be left out: `u: Url = "https://x.org/"`.
 - std::html's `Html"..."` is an HTML template the compiler checks. Each
   `${...}` is escaped for where it stands. A one-line fragment quotes its
   attributes with `'`, since `"` ends the literal:
@@ -225,7 +224,7 @@ impl Shape
     fn area(shape: Shape) -> Float
         case shape
             .Circle{radius:} -> 3.0 * radius * radius
-            .Square{side:} -> side * side
+            .Square{side:}   -> side * side
         end
     end
 end
@@ -377,8 +376,8 @@ end
 fn describe(age: Maybe<Int>) -> String
     case age
         Some(n) when n >= 18 -> "adult"
-        Some(_) -> "minor"
-        None -> "unknown"
+        Some(_)              -> "minor"
+        None                 -> "unknown"
     end
 end
 
@@ -408,7 +407,7 @@ test result: ok. 1 passed, 0 failed
 - Every collection is an `Iter`, and the algorithms are `Iter`'s functions:
   `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.count`, `Iter.sort`. There is
   no `List.map`. Operations particular to one container stay on its type:
-  `List.head`, `Map.get`, `Set.union`.
+  `List.head`, `List.length`, `Map.get`, `Set.insert`, `Set.union`.
 - Adapters are lazy. `Iter.to_list`, `to_vector`, `to_set` and `to_map`
   collect, and `String.join` joins strings.
 - A fold's starting value comes before its callback:
@@ -581,7 +580,7 @@ test result: ok. 2 passed, 0 failed
 
 - There is no `strftime`-style pattern for text a person reads. Write it with
   a skeleton and a locale: `DateTime.format_fields(at, locale,
-  DateTimeFields`yMMMd`)` names the fields and their widths, and the locale
+  DateTimeFields"yMMMd")` names the fields and their widths, and the locale
   gives the order, punctuation and words. `DateTime.format(at, locale, date:
   .Long, time: .Short)` takes a style instead. `Date`, `Time` and
   `NaiveDateTime` have the same two functions.
@@ -596,13 +595,13 @@ test result: ok. 2 passed, 0 failed
 import std::calendar.{DateTime, DateTimeFields, DateTimePattern}
 
 test "dates"
-    at = DateTime`2026-01-05T15:04:00-05:00[America/New_York]`
-    en = Locale`en-US`
+    at = DateTime"2026-01-05T15:04:00-05:00[America/New_York]"
+    en = Locale"en-US"
 
-    assert DateTime.format_fields(at, en, DateTimeFields`yMMMd`) == "Jan 5, 2026"
-    assert DateTime.format_fields(at, en, DateTimeFields`yMMMdjmm`) == "Jan 5, 2026, 3:04\u{202f}PM"
+    assert DateTime.format_fields(at, en, DateTimeFields"yMMMd") == "Jan 5, 2026"
+    assert DateTime.format_fields(at, en, DateTimeFields"yMMMdjmm") == "Jan 5, 2026, 3:04\u{202f}PM"
     assert DateTime.format(at, en, date: .Long, time: .Short) == "January 5, 2026, 3:04\u{202f}PM"
-    assert DateTime.to_string_with(at, DateTimePattern`yyyy-MM-dd HH:mm`) == "2026-01-05 15:04"
+    assert DateTime.to_string_with(at, DateTimePattern"yyyy-MM-dd HH:mm") == "2026-01-05 15:04"
 end
 ```
 <!-- expect

@@ -5,16 +5,16 @@ end
 
 test "date only specification of time"
     [
-        ("date only specification of time", Date`2011-04-25`, NaiveDateTime`2043-01-01T01:46:40`),
+        ("date only specification of time", Date"2011-04-25", NaiveDateTime"2043-01-01T01:46:40"),
         (
             "second test for date only specification of time",
-            Date`1977-06-13`,
-            NaiveDateTime`2009-02-19T01:46:40`,
+            Date"1977-06-13",
+            NaiveDateTime"2009-02-19T01:46:40",
         ),
         (
             "third test for date only specification of time",
-            Date`1959-07-19`,
-            NaiveDateTime`1991-03-27T01:46:40`,
+            Date"1959-07-19",
+            NaiveDateTime"1991-03-27T01:46:40",
         ),
     ]
     |> subtests (description, day, expected), description
@@ -26,13 +26,13 @@ test "full time specified"
     [
         (
             "full time specified",
-            NaiveDateTime`2015-01-24T22:00:00`,
-            NaiveDateTime`2046-10-02T23:46:40`,
+            NaiveDateTime"2015-01-24T22:00:00",
+            NaiveDateTime"2046-10-02T23:46:40",
         ),
         (
             "full time with day roll-over",
-            NaiveDateTime`2015-01-24T23:59:59`,
-            NaiveDateTime`2046-10-03T01:46:39`,
+            NaiveDateTime"2015-01-24T23:59:59",
+            NaiveDateTime"2046-10-03T01:46:39",
         ),
     ]
     |> subtests (description, moment, expected), description
@@ -41,8 +41,8 @@ test "full time specified"
 end
 
 test "does not mutate the input"
-    moment = NaiveDateTime`2015-01-24T23:59:59`
+    moment = NaiveDateTime"2015-01-24T23:59:59"
     _later = gigasecond.add(moment)
 
-    assert moment == NaiveDateTime`2015-01-24T23:59:59`
+    assert moment == NaiveDateTime"2015-01-24T23:59:59"
 end

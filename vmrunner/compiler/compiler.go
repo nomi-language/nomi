@@ -1,5 +1,5 @@
-// Package compiler binds std/compiler's five hosts for a runner whose program
-// crosses into them. They check, hover and run Nomi source, so this package
+// Package compiler binds std/compiler's six hosts for a runner whose program
+// crosses into them. They check, format, hover and run Nomi source, so this package
 // links the whole front end and the IR builder (and nomi/vmhost, whose VM is
 // compiler.run's engine); a runner imports it only when `nomi build` found a
 // crossing into std/compiler.

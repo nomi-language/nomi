@@ -21,9 +21,9 @@ func TestUsesNetwork_PicksTheRunnerByWhatTheProgramReaches(t *testing.T) {
 	}{
 		{"hello world", "import std::io\n\nfn main()\n    io.print(\"hi\")\nend\n", false, false},
 		{"std/url alone", "import std::io\nimport std::url.Url\n\nfn main()\n    io.inspect(Url.parse(\"http://a/b\"))\nend\n", false, false},
-		{"a client request", "import std::io\nimport std::http\nimport std::url.Url\n\nfn main()\n    io.inspect(http.get(Url`http://a/b`))\nend\n", false, true},
-		{"std/http imported, never reached", "import std::io\nimport std::http\nimport std::url.Url\n\nfn unused()\n    io.inspect(http.get(Url`http://a/b`))\nend\n\nfn main()\n    io.print(\"hi\")\nend\n", false, false},
-		{"a request only an export makes", "import std::http\nimport std::url.Url\n\nexport fn fetch() -> Bool\n    Result.is_ok(http.get(Url`http://a/b`))\nend\n\nfn main() end\n", true, true},
+		{"a client request", "import std::io\nimport std::http\nimport std::url.Url\n\nfn main()\n    io.inspect(http.get(Url\"http://a/b\"))\nend\n", false, true},
+		{"std/http imported, never reached", "import std::io\nimport std::http\nimport std::url.Url\n\nfn unused()\n    io.inspect(http.get(Url\"http://a/b\"))\nend\n\nfn main()\n    io.print(\"hi\")\nend\n", false, false},
+		{"a request only an export makes", "import std::http\nimport std::url.Url\n\nexport fn fetch() -> Bool\n    Result.is_ok(http.get(Url\"http://a/b\"))\nend\n\nfn main() end\n", true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")

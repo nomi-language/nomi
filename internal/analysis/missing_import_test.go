@@ -95,6 +95,16 @@ func TestMissingImport_IsAnErrorAtThePath(t *testing.T) {
 			entry: "import std::lsits\n\nfn main()\n    lsits.x()\nend\n",
 			want:  "1:8-18: no module `std::lsits`: the standard library has no lsits.nomi; did you mean 'std::lists'?",
 		},
+		{
+			name:  "misspelled nested standard library module",
+			entry: "import std::storage_testing\n\nfn main()\n    storage_testing.x()\nend\n",
+			want:  "1:8-28: no module `std::storage_testing`: the standard library has no storage_testing.nomi; did you mean 'std::storage::testing'?",
+		},
+		{
+			name:  "an internal standard library module is never suggested",
+			entry: "import std::fs_host\n\nfn main()\n    fs_host.x()\nend\n",
+			want:  "1:8-20: no module `std::fs_host`: the standard library has no fs_host.nomi",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

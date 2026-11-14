@@ -96,7 +96,7 @@ end
 
 fn unwrap(r: Result<Int, Infallible>) -> Int
     case r
-        Ok(v) -> v
+        Ok(v)  -> v
         Err(e) -> case e end
     end
 end

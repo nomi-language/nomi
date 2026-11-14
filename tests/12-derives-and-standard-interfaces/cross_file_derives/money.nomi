@@ -80,7 +80,7 @@ impl FromJson for Tally
     fn from_json(json: Json) -> Result<Tally, Json.ShapeError>
         case json
             Json.Int(n) -> Ok(Tally{n:})
-            _ -> Err(Json.ShapeError{path: [], expected: "int", got: "other"})
+            _           -> Err(Json.ShapeError{path: [], expected: "int", got: "other"})
         end
     end
 end

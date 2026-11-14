@@ -402,6 +402,11 @@ func TestStructLiteralsInConditions(t *testing.T) {
 	wantKinds(t, "x = if c == {1 => 2} then 1 else 2", "map block block")
 	wantKinds(t, "x = if c then 1 else 2", "block block")
 	wantKinds(t, "x = if True then 1 else 2", "block block")
+	// A literal first in the condition, with literals inside it, is the
+	// comparison's operand, not a pattern.
+	wantKinds(t, "x = if Point{x: 1} == p then 1 else 2", "struct Point block block")
+	wantKinds(t, "x = if Kvs{\"a\" => 1} != m then 1 else 2", "map Kvs block block")
+	wantKinds(t, "x = if (1, 2) == t then 1 else 2", "tuple block block")
 }
 
 func TestShapePatternsAndTypes(t *testing.T) {

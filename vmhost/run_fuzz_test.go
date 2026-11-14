@@ -47,14 +47,18 @@ import (
 //     mid-run (an instruction or callee the VM cannot run, which Unretained
 //     did not find before the run); a deterministic program that used its
 //     budget with no loop, or outlived runWallLimit; two runs of a
-//     deterministic program that differ; or a deterministic program's
+//     deterministic program that differ, the second with every update and
+//     collection operation copying (vm.Machine.WithCopiedUpdates), so a
+//     value written in place that something still read shows as a
+//     difference; or a deterministic program's
 //     `main` running differently from the image `nomi build` writes.
 //
 // An input is skipped, not run, when the front end rejects it, it does not
 // lower (the lowering harness's rule), it has nothing to run, or it reaches
 // an effect outside the machine (runEffects). A program that reaches the
-// clock, randomness or concurrency runs once; any other runs twice, and the
-// two runs' output and outcome must match.
+// clock, randomness or concurrency runs once; any other runs twice, the
+// second time copying every update, and the two runs' output and outcome
+// must match.
 
 // runSteps is each run's step budget. The generated programs take a few
 // thousand steps; the corpus's programs that take more are skipped as too
@@ -319,14 +323,14 @@ func runInput(dir, src string) (out runOutcome) {
 		first.once = true
 		return first
 	}
-	second := runOnce(p, plan, dir, nil)
+	second := runOnceWith(p, plan, dir, nil, true)
 	if second.class == runCrash {
 		return second
 	}
 	if second.transcript != first.transcript || second.class != first.class {
 		first.class = runCrash
 		first.crash = crashDiffers + ": two runs of a program with no clock, randomness or concurrency differ\n" +
-			"first run (" + first.class.String() + "):\n" + first.transcript + "\nsecond run (" + second.class.String() + "):\n" + second.transcript
+			"first run (" + first.class.String() + "):\n" + first.transcript + "\nsecond run, copying every update (" + second.class.String() + "):\n" + second.transcript
 		return first
 	}
 	// The same program from the image `nomi build` writes, which holds only
@@ -432,8 +436,14 @@ func runPlanFor(p *Program) runPlan {
 // rather than hanging the test. A non-nil img runs main from that image
 // instead of from p's lowering.
 func runOnce(p *Program, plan runPlan, dir string, img *ir.Image) runOutcome {
+	return runOnceWith(p, plan, dir, img, false)
+}
+
+// runOnceWith is runOnce, on a machine that copies every update when
+// copying is set.
+func runOnceWith(p *Program, plan runPlan, dir string, img *ir.Image, copying bool) runOutcome {
 	done := make(chan runOutcome, 1)
-	go func() { done <- runBounded(p, plan, dir, img) }()
+	go func() { done <- runBounded(p, plan, dir, img, copying) }()
 	select {
 	case o := <-done:
 		return o
@@ -445,7 +455,7 @@ func runOnce(p *Program, plan runPlan, dir string, img *ir.Image) runOutcome {
 	}
 }
 
-func runBounded(p *Program, plan runPlan, dir string, img *ir.Image) (out runOutcome) {
+func runBounded(p *Program, plan runPlan, dir string, img *ir.Image, copying bool) (out runOutcome) {
 	var buf bytes.Buffer
 	defer func() {
 		if r := recover(); r != nil {
@@ -475,6 +485,9 @@ func runBounded(p *Program, plan runPlan, dir string, img *ir.Image) (out runOut
 		base = vm.NewProgram(entry, img.Modules, &buf).WithHosts(p.hosts...).WithLocaleData(locales)
 	}
 	base = base.WithErrorOutput(&buf).WithInput(rt.NewInput(strings.NewReader("")))
+	if copying {
+		base = base.WithCopiedUpdates()
+	}
 	m := base.WithLimits(vm.Limits{Steps: runSteps, Deadline: time.Now().Add(runDeadline)})
 	clean := func(s string) string { return strings.ReplaceAll(s, dir+string(filepath.Separator), "") }
 	if plan.main != nil {
@@ -749,8 +762,9 @@ func TestLoweredProgramsRunRotating(t *testing.T) {
 //   - a machine limit reached mid-run;
 //   - a loop-free program that uses its budget;
 //   - two runs of a program with no clock, randomness or concurrency that
-//     differ, or such a program's `main` running differently from the image
-//     `nomi build` writes.
+//     differ (the second copies every update and collection operation the
+//     first may write in place), or such a program's `main` running
+//     differently from the image `nomi build` writes.
 //
 // A program that may loop and uses its budget is skipped, and so is one
 // whose effects reach outside the machine (files, std/compiler, Go

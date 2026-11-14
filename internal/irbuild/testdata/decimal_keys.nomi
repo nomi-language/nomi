@@ -109,21 +109,21 @@ end
 fn found(m: Map<Decimal, String>, k: Decimal) -> String
     case Map.get(m, k)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
 fn found_int(m: Map<(Decimal, String), Int>, k: (Decimal, String)) -> String
     case Map.get(m, k)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
 fn found_list(m: Map<List<Decimal>, Int>, k: List<Decimal>) -> String
     case Map.get(m, k)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 

@@ -152,6 +152,7 @@ func (m *Machine) evalView(views *sync.Map, entry *ir.Module, rest []*ir.Module)
 	}
 	v := *m
 	v.dbg, v.dvia, v.depth, v.hostFrame, v.fuel = nil, "", 0, nil, nil
+	v.prof, v.hooked = nil, false
 	v.codes = &codeTable{}
 	v.tasks = &taskLimit{}
 	v.link = cloneMap(m.link)

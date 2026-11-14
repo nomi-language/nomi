@@ -135,9 +135,17 @@ type Machine struct {
 	// dbg is the debugger this machine reports to, or nil. A machine with
 	// one compiles its functions with statement hooks (debug.go).
 	dbg *Debugger
+	// prof samples the program's logical call stack, on a profiling
+	// machine (WithProfiler, profile.go).
+	prof *Profiler
+	// hooked says dbg or prof is set, so exec tests one field for both.
+	hooked bool
 	// countEntries says each function this machine compiles counts its
 	// entries (entries.go).
 	countEntries bool
+	// copyUpdates says every struct update copies its base, as on a debug
+	// machine (inplace.go).
+	copyUpdates bool
 	// dvia names, on a debug machine's view, the Go-driven operation whose
 	// callbacks the view starts (`Iter.map`, a host call), which the logical
 	// call stack shows between the callback and its caller.
@@ -663,6 +671,12 @@ func paramTemp(f *ir.Func, sym *ir.Symbol) (ir.Temp, bool) {
 func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 	switch n := in.(type) {
 	case *ir.FuncValue:
+		if n.NumCaptures() == 0 {
+			// A function value that captures nothing is the same value at
+			// every evaluation: the slot's own, built once.
+			fr.write(n.Dst(), m.slotFor(n.Body()).named())
+			return nil
+		}
 		captures := make([]any, n.NumCaptures())
 		fv := &functionValue{body: n.Body(), slot: m.slotFor(n.Body()), captures: captures, arity: n.Arity()}
 		for i := range captures {
@@ -933,7 +947,9 @@ func (m *Machine) irInstr(fr *frame, in ir.Instr) error {
 			view.dvia = "Iter." + n.Op().String()
 			return view.iterInstr(fr, n)
 		}
-		return m.at(fr).iterInstr(fr, n)
+		// iterInstr counts its callbacks from fr's depth itself
+		// (iterCaller), so it needs no view of m.
+		return m.iterInstr(fr, n)
 	}
 	return fmt.Errorf("vm: %s: this machine runs no %s", fr.fn.Name(), in)
 }
@@ -1037,6 +1053,14 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 
 // crossInto performs a crossing into Go: an intrinsic, or a bound adapter.
 func (m *Machine) crossInto(fr *frame, n *ir.Call, name string, args []any) (any, error) {
+	if m.prof != nil {
+		return m.profCross(fr, n, name, func() (any, error) { return m.crossOver(fr, n, name, args) })
+	}
+	return m.crossOver(fr, n, name, args)
+}
+
+// crossOver is crossInto's crossing itself.
+func (m *Machine) crossOver(fr *frame, n *ir.Call, name string, args []any) (any, error) {
 	if host := m.hosts[name]; host != nil {
 		return host(m.boundAt(fr, name), n.Pos(), args)
 	}
@@ -1109,9 +1133,9 @@ func (m *Machine) match(fr *frame, n *ir.Match) error {
 		if !ok {
 			return fmt.Errorf("vm: %s: vector test reads %T, not a vector", fr.fn.Name(), subj)
 		}
-		matched := vec.Len == n.Arity()
+		matched := vec.Len() == n.Arity()
 		if n.Kind() == ir.MatchVectorMin {
-			matched = vec.Len >= n.Arity()
+			matched = vec.Len() >= n.Arity()
 		}
 		fr.write(n.Dst(), boolValue(matched))
 		return nil

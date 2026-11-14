@@ -30,7 +30,7 @@ func TestFormat_KeywordStageIsNoCaseSubject(t *testing.T) {
 		"    end\n" +
 		"    |> case\n" +
 		"        Some(word) -> word\n" +
-		"        None -> \"no\"\n" +
+		"        None       -> \"no\"\n" +
 		"    end\n" +
 		"end\n"
 	formatsKeepingMeaning(t, src, want)

@@ -30,7 +30,7 @@ test "a pattern names a marker payload"
 
     n = case r
         Err(ChannelClosed) -> 1
-        Ok(_) -> 0
+        Ok(_)              -> 0
     end
 
     assert n == 1

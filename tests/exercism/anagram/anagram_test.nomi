@@ -37,9 +37,9 @@ test "finds anagrams"
             ["cashregister", "Carthorse", "radishes"],
             ["Carthorse"],
         ),
-        ("does not detect an anagram if the original word is repeated", "go", ["goGoGO"], []),
-        ("anagrams must use all letters exactly once", "tapper", ["patter"], []),
-        ("words are not anagrams of themselves", "BANANA", ["BANANA"], []),
+        ("does not detect an anagram if the original word is repeated", "go",     ["goGoGO"], []),
+        ("anagrams must use all letters exactly once",                  "tapper", ["patter"], []),
+        ("words are not anagrams of themselves",                        "BANANA", ["BANANA"], []),
         (
             "words are not anagrams of themselves even if letter case is partially different",
             "BANANA",

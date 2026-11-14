@@ -253,6 +253,11 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 			return typeParamConforms(m, iface, tp, subs, impls, implTypeArgs, rigid)
 		}
 	}
+	if conj, ok := a.(*ConjunctionType); ok && subs != nil {
+		if tp, ok := b.(*TypeParam_); ok && rigid[tp.Name_] == tp {
+			return unifyIntoConjunction(m, conj, tp, subs, impls, implTypeArgs, rigid)
+		}
+	}
 	if tpa, ok := a.(*TypeParam_); ok && subs != nil && rigid[tpa.Name_] == tpa {
 		if tpb, ok := b.(*TypeParam_); ok && rigid[tpb.Name_] != tpb {
 			return bindParam(m, tpb, a, subs, impls, implTypeArgs, rigid)
@@ -356,6 +361,27 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 	}
 	if b == TypeInfallible {
 		return nil
+	}
+
+	// An interface conjunction on either side (spec §12 *Interface
+	// conjunctions*).
+	if conjA, ok := a.(*ConjunctionType); ok {
+		return unifyIntoConjunction(m, conjA, b, subs, impls, implTypeArgs, rigid)
+	}
+	if conjB, ok := b.(*ConjunctionType); ok {
+		if ifaceA, ok := a.(*InterfaceType); ok && m != unifyStrict && m != unifyAssignExact {
+			// Widening: a conjunction is a value of each of its members.
+			for _, member := range conjB.Members {
+				if sameNominalIdentity(ifaceA.Origin, ifaceA.Name, member.Origin, member.Name) && len(ifaceA.TypeArgs) == len(member.TypeArgs) {
+					return unifyIn(m, ifaceA, member, subs, impls, implTypeArgs, rigid)
+				}
+			}
+			return typeErrorf("cannot unify %s with %s", a, b)
+		}
+		if m == unifySym {
+			return unifyIntoConjunction(m, conjB, a, subs, impls, implTypeArgs, rigid)
+		}
+		return typeErrorf("cannot unify %s with %s", a, b)
 	}
 
 	// Interface vs concrete: if the concrete type implements the interface,
@@ -684,6 +710,54 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 	}
 	// Several impls admit the interface's arguments as they stand: nothing
 	// here chooses, so nothing is bound.
+	return nil
+}
+
+// unifyIntoConjunction admits a value of type have where the conjunction
+// want is expected. Another conjunction converts when it holds every member
+// of want, dropping the rest; under an invariant type argument it must be
+// want. A single interface never converts: an `A` need not implement B. Any
+// other type converts when it implements every member, and the error names
+// the first it does not.
+func unifyIntoConjunction(m unifyMode, want *ConjunctionType, have Type, subs map[*TypeParam_]Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) error {
+	switch h := have.(type) {
+	case *ConjunctionType:
+		if (m == unifyStrict || m == unifyAssignExact || m == unifySym) && len(h.Members) != len(want.Members) {
+			return typeErrorf("cannot unify %s with %s", want, have)
+		}
+		for _, w := range want.Members {
+			found := false
+			for _, hm := range h.Members {
+				if sameNominalIdentity(w.Origin, w.Name, hm.Origin, hm.Name) && len(w.TypeArgs) == len(hm.TypeArgs) {
+					if err := unifyIn(m, w, hm, subs, impls, implTypeArgs, rigid); err != nil {
+						return err
+					}
+					found = true
+					break
+				}
+			}
+			if !found {
+				return typeErrorf("cannot unify %s with %s", want, have)
+			}
+		}
+		return nil
+	case *InterfaceType:
+		return typeErrorf("cannot unify %s with %s", want, have)
+	}
+	if m == unifyStrict || m == unifyAssignExact {
+		return typeErrorf("cannot unify %s with %s", want, have)
+	}
+	for _, w := range want.Members {
+		if tp, ok := have.(*TypeParam_); ok {
+			if err := typeParamConforms(m, w, tp, subs, impls, implTypeArgs, rigid); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := unifyInterfaceAgainstConcrete(m, w, have, subs, impls, implTypeArgs, rigid); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1250,6 +1324,23 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 		}
 		out.unbuilt = t.unbuilt.recordInstance(out)
 		return out
+	case *ConjunctionType:
+		members := make([]*InterfaceType, len(t.Members))
+		changed := false
+		for i, mem := range t.Members {
+			s, ok := substituteWithNominals(mem, subs, visiting, nominals).(*InterfaceType)
+			if !ok {
+				return t
+			}
+			members[i] = s
+			if s != mem {
+				changed = true
+			}
+		}
+		if !changed {
+			return t
+		}
+		return NewConjunction(members)
 	case *DistinctType:
 		// Generic opaque externs (`host type Task<T>`,
 		// `host type Channel<T>`) carry TypeArgs at use sites. Recurse

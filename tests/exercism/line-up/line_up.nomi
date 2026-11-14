@@ -12,9 +12,9 @@ end
 fn suffix(number: Int) -> String
     case (number % 100, number % 10)
         (11 or 12 or 13, _) -> "th"
-        (_, 1) -> "st"
-        (_, 2) -> "nd"
-        (_, 3) -> "rd"
-        _ -> "th"
+        (_, 1)              -> "st"
+        (_, 2)              -> "nd"
+        (_, 3)              -> "rd"
+        _                   -> "th"
     end
 end

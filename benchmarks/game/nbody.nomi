@@ -1,0 +1,173 @@
+//# The Computer Language Benchmarks Game: n-body.
+//#
+//# Models the orbits of the Jovian planets with a simple symplectic
+//# integrator, as the benchmark's rules require: offset the Sun's momentum,
+//# print the energy, advance `n` steps of 0.01, print the energy again.
+//# Each step rebuilds the five bodies; nothing is updated in place.
+
+import std::io
+
+once pi            = 3.141592653589793
+once solar_mass    = 4.0 * pi * pi
+once days_per_year = 365.24
+
+struct Body
+    x:    Float
+    y:    Float
+    z:    Float
+    vx:   Float
+    vy:   Float
+    vz:   Float
+    mass: Float
+end
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 1000})
+    end
+end
+
+fn planet(x: Float, y: Float, z: Float, vx: Float, vy: Float, vz: Float, mass: Float) -> Body
+    Body{
+        x:,
+        y:,
+        z:,
+        vx:   vx * days_per_year,
+        vy:   vy * days_per_year,
+        vz:   vz * days_per_year,
+        mass: mass * solar_mass,
+    }
+end
+
+fn initial() -> List<Body>
+    [
+        Body{x: 0.0, y: 0.0, z: 0.0, vx: 0.0, vy: 0.0, vz: 0.0, mass: solar_mass},
+        planet(
+            4.84143144246472090e+00,
+            -1.16032004402742839e+00,
+            -1.03622044471123109e-01,
+            1.66007664274403694e-03,
+            7.69901118419740425e-03,
+            -6.90460016972063023e-05,
+            9.54791938424326609e-04,
+        ),
+        planet(
+            8.34336671824457987e+00,
+            4.12479856412430479e+00,
+            -4.03523417114321381e-01,
+            -2.76742510726862411e-03,
+            4.99852801234917238e-03,
+            2.30417297573763929e-05,
+            2.85885980666130812e-04,
+        ),
+        planet(
+            1.28943695621391310e+01,
+            -1.51111514016986312e+01,
+            -2.23307578892655734e-01,
+            2.96460137564761618e-03,
+            2.37847173959480950e-03,
+            -2.96589568540237556e-05,
+            4.36624404335156298e-05,
+        ),
+        planet(
+            1.53796971148509165e+01,
+            -2.59193146099879641e+01,
+            1.79258772950371181e-01,
+            2.68067772490389322e-03,
+            1.62824170038242295e-03,
+            -9.51592254519715870e-05,
+            5.15138902046611451e-05,
+        ),
+    ]
+end
+
+fn offset_momentum(bodies: List<Body>) -> List<Body>
+    (px, py, pz) = Iter.reduce(bodies, (0.0, 0.0, 0.0), fn (px, py, pz), b ->
+        (px + b.vx * b.mass, py + b.vy * b.mass, pz + b.vz * b.mass)
+    end)
+
+    case bodies
+        [sun, ..planets] ->
+            [{..sun, vx: -px / solar_mass, vy: -py / solar_mass, vz: -pz / solar_mass}, ..planets]
+
+        [] ->
+            []
+    end
+end
+
+fn energy(bodies: List<Body>) -> Float
+    case bodies
+        [] ->
+            0.0
+
+        [b, ..rest] ->
+            kinetic = 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz)
+
+            potential = Iter.reduce(rest, 0.0, fn e, o ->
+                dx = b.x - o.x
+                dy = b.y - o.y
+                dz = b.z - o.z
+                e + b.mass * o.mass / Float.sqrt(dx * dx + dy * dy + dz * dz)
+            end)
+
+            kinetic - potential + energy(rest)
+    end
+end
+
+/// Applies the pull between `b` and every body after it, once per pair, then
+/// moves `b`.
+fn interact(bodies: List<Body>, dt: Float) -> List<Body>
+    case bodies
+        [] ->
+            []
+
+        [b, ..rest] ->
+            (b, rest) = Iter.map_reduce(rest, b, fn b, o ->
+                dx = b.x - o.x
+                dy = b.y - o.y
+                dz = b.z - o.z
+                d2 = dx * dx + dy * dy + dz * dz
+                mag = dt / (d2 * Float.sqrt(d2))
+                bm = b.mass * mag
+                om = o.mass * mag
+
+                b = {..b, vx: .. - dx * om, vy: .. - dy * om, vz: .. - dz * om}
+                o = {..o, vx: .. + dx * bm, vy: .. + dy * bm, vz: .. + dz * bm}
+                (b, o)
+            end)
+
+            [move(b, dt), ..interact(rest, dt)]
+    end
+end
+
+fn move(b: Body, dt: Float) -> Body
+    {..b, x: .. + dt * b.vx, y: .. + dt * b.vy, z: .. + dt * b.vz}
+end
+
+fn advance(bodies: List<Body>, steps: Int) -> List<Body>
+    if steps == 0 then
+        bodies
+    else
+        advance(interact(bodies, 0.01), steps - 1)
+    end
+end
+
+fn show(e: Float) -> String
+    Float.format(e, Locale`en`, 9, 9, False)
+end
+
+fn main()
+    bodies = offset_momentum(initial())
+    io.print(show(energy(bodies)))
+    io.print(show(energy(advance(bodies, App.n))))
+end

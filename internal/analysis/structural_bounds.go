@@ -224,6 +224,9 @@ func (c *checker) structuralBoundHelp(concrete Type, bound *InterfaceType) (help
 // `fn f(h: Hashable)` and `fn f<T>(h: T) where T: Hashable` explain a
 // rejected `(1, q)` alike.
 func (c *checker) mismatchHint(want, have Type) string {
+	if conj, ok := resolveTV(want).(*ConjunctionType); ok {
+		return c.conjunctionMismatchHint(conj, have)
+	}
 	if iface, ok := resolveTV(want).(*InterfaceType); ok {
 		switch resolveTypeVar(have).(type) {
 		case *TupleType, *AnonStructType, *FuncType:
@@ -268,4 +271,33 @@ func isStructuralIface(bound *InterfaceType) bool {
 		}
 	}
 	return false
+}
+
+// conjunctionMismatchHint names the member of conj a value of type have
+// does not enter (spec §12 *Interface conjunctions*): one an interface value
+// does not hold, or one the type does not implement, with the help a bound
+// gives that type.
+func (c *checker) conjunctionMismatchHint(conj *ConjunctionType, have Type) string {
+	held := InterfaceMembers(resolveTypeVar(have))
+	for _, m := range conj.Members {
+		if held != nil {
+			found := false
+			for _, h := range held {
+				found = found || sameNominalIdentity(h.Origin, h.Name, m.Origin, m.Name)
+			}
+			if !found {
+				return fmt.Sprintf("a %s value need not implement %s, so it does not convert to %s", have, m, conj)
+			}
+			continue
+		}
+		if c.unify(m, have, nil) == nil {
+			continue
+		}
+		msg := fmt.Sprintf("%s does not implement %s", have, m)
+		if h := c.mismatchHint(m, have); h != "" {
+			msg += "; " + h
+		}
+		return msg
+	}
+	return ""
 }

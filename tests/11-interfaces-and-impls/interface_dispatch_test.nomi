@@ -55,9 +55,9 @@ end
 impl Display for Color
     fn to_string(c: Color) -> String
         case c
-            .Red -> "red"
+            .Red   -> "red"
             .Green -> "green"
-            .Blue -> "blue"
+            .Blue  -> "blue"
         end
     end
 end
@@ -74,7 +74,7 @@ end
 impl Measure for Shape
     fn area(s: Shape) -> Float
         case s
-            .Circle(r) -> 3.14159 * r * r
+            .Circle(r)                  -> 3.14159 * r * r
             .Rectangle{width:, height:} -> width * height
         end
     end

@@ -16,6 +16,6 @@ fn complement(nucleotide: String) -> Result<String, String>
         "C" -> Ok("G")
         "T" -> Ok("A")
         "A" -> Ok("U")
-        _ -> Err("invalid nucleotide '${nucleotide}'")
+        _   -> Err("invalid nucleotide '${nucleotide}'")
     end
 end

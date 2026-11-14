@@ -9,7 +9,7 @@ derive Comparable for Version
 
 // Ordered by key alone, so two entries with one key tie.
 struct Entry
-    key: Int
+    key:   Int
     label: String
 end
 

@@ -9,7 +9,7 @@
 //#
 //# listener = http.listen(Server{
 //#     address: ":8443",
-//#     tls: Some(ServerConfig{certificates: [certificate]}),
+//#     tls:     Some(ServerConfig{certificates: [certificate]}),
 //# })?
 //# ```
 //#
@@ -59,7 +59,7 @@ impl Version
             11 -> Some(Version.Tls11)
             12 -> Some(Version.Tls12)
             13 -> Some(Version.Tls13)
-            _ -> None
+            _  -> None
         end
     end
 end
@@ -95,14 +95,14 @@ derive Equatable for Curve
 impl Curve
     fn name(curve: Curve) -> String
         case curve
-            .X25519 -> "X25519"
-            .P256 -> "P256"
-            .P384 -> "P384"
-            .P521 -> "P521"
+            .X25519         -> "X25519"
+            .P256           -> "P256"
+            .P384           -> "P384"
+            .P521           -> "P521"
             .X25519MlKem768 -> "X25519MlKem768"
-            .P256MlKem768 -> "P256MlKem768"
-            .P384MlKem1024 -> "P384MlKem1024"
-            .MlKem1024 -> "MlKem1024"
+            .P256MlKem768   -> "P256MlKem768"
+            .P384MlKem1024  -> "P384MlKem1024"
+            .MlKem1024      -> "MlKem1024"
         end
     end
 
@@ -149,10 +149,10 @@ impl ClientAuth
     fn number(auth: ClientAuth) -> Int
         case auth
             .NoCertificate -> 0
-            .Request -> 1
-            .RequireAny -> 2
+            .Request       -> 1
+            .RequireAny    -> 2
             .VerifyIfGiven -> 3
-            .Require -> 4
+            .Require       -> 4
         end
     end
 end
@@ -161,10 +161,10 @@ impl Display for ClientAuth
     fn to_string(auth: ClientAuth) -> String
         case auth
             .NoCertificate -> "NoClientCert"
-            .Request -> "RequestClientCert"
-            .RequireAny -> "RequireAnyClientCert"
+            .Request       -> "RequestClientCert"
+            .RequireAny    -> "RequireAnyClientCert"
             .VerifyIfGiven -> "VerifyClientCertIfGiven"
-            .Require -> "RequireAndVerifyClientCert"
+            .Require       -> "RequireAndVerifyClientCert"
         end
     end
 end
@@ -191,12 +191,12 @@ end
 /// What a certificate says: who it names and who signed it, when it is
 /// valid, and the DNS names it covers.
 pub struct CertificateInfo
-    subject: String
-    issuer: String
-    serial: String
+    subject:    String
+    issuer:     String
+    serial:     String
     not_before: Instant
-    not_after: Instant
-    dns_names: List<String>
+    not_after:  Instant
+    dns_names:  List<String>
 end
 
 derive Equatable for CertificateInfo
@@ -222,12 +222,12 @@ impl CertificateInfo
 
             _ ->
                 CertificateInfo{
-                    subject: "",
-                    issuer: "",
-                    serial: "",
+                    subject:    "",
+                    issuer:     "",
+                    serial:     "",
                     not_before: Instant.from_nanos(0),
-                    not_after: Instant.from_nanos(0),
-                    dns_names: [],
+                    not_after:  Instant.from_nanos(0),
+                    dns_names:  [],
                 }
         end
     end
@@ -263,8 +263,8 @@ end
 
 /// A cipher suite Go's TLS implements.
 pub struct CipherSuite
-    id: Int
-    name: String
+    id:       Int
+    name:     String
     versions: List<Version>
     insecure: Bool
 end
@@ -328,11 +328,11 @@ pub struct ClientConfig
     insecure_skip_verify: Bool = False
     /// The application protocols it offers, most wanted first (ALPN).
     next_protocols: List<String> = []
-    min_version: Version = Version.Tls12
-    max_version: Maybe<Version> = None
+    min_version:    Version = Version.Tls12
+    max_version:    Maybe<Version> = None
     /// The cipher suite IDs it offers, for TLS 1.2 and below; `None` is Go's.
-    cipher_suites: Maybe<List<Int>> = None
-    curves: Maybe<List<Curve>> = None
+    cipher_suites:   Maybe<List<Int>> = None
+    curves:          Maybe<List<Curve>> = None
     session_tickets: Bool = True
     /// How many sessions it keeps to resume; 0 keeps none.
     session_cache: Int = 0
@@ -351,15 +351,15 @@ end
 pub struct ServerConfig
     /// Certificates it presents, chosen by the name the client asks for.
     certificates: List<Certificate>
-    client_auth: ClientAuth = ClientAuth.NoCertificate
+    client_auth:  ClientAuth = ClientAuth.NoCertificate
     /// The authorities whose client certificates it trusts.
     client_roots: Roots = Roots.System
     /// The application protocols it accepts, most wanted first (ALPN).
-    next_protocols: List<String> = []
-    min_version: Version = Version.Tls12
-    max_version: Maybe<Version> = None
-    cipher_suites: Maybe<List<Int>> = None
-    curves: Maybe<List<Curve>> = None
+    next_protocols:  List<String> = []
+    min_version:     Version = Version.Tls12
+    max_version:     Maybe<Version> = None
+    cipher_suites:   Maybe<List<Int>> = None
+    curves:          Maybe<List<Curve>> = None
     session_tickets: Bool = True
     /// Chooses the certificate for each handshake from what the client
     /// asked for; `None` from it falls back to `certificates`. Go's
@@ -378,17 +378,17 @@ pub struct ClientHello
     /// The host the client named (SNI); "" when it named none.
     server_name: String
     /// The application protocols it offers (ALPN).
-    protocols: List<String>
-    versions: List<Version>
+    protocols:     List<String>
+    versions:      List<Version>
     cipher_suites: List<Int>
-    handle: http_host.Handle
+    handle:        http_host.Handle
 end
 
 impl ClientHello
     fn of_handle(handle: http_host.Handle) -> ClientHello
         (name, protocols, versions, suites) = case http_host.hello_parts(handle)
             [n, p, v, c] -> (List.head(n) |> Maybe.with_default(""), p, v, c)
-            _ -> ("", [], [], [])
+            _            -> ("", [], [], [])
         end
 
         ClientHello{
@@ -416,7 +416,7 @@ fn verify_hook(verify: Maybe<(ConnectionState) -> Result<Unit, String>>) -> (
         Some(check) ->
             fn parts ->
                 case check(ConnectionState.of_parts(parts))
-                    Ok(_) -> ""
+                    Ok(_)       -> ""
                     Err(reason) -> if reason == "" then "the connection was refused" else reason
                 end
             end
@@ -450,8 +450,8 @@ impl ClientConfig
                 config.session_tickets,
                 config.session_cache,
                 case config.renegotiation
-                    .Never -> 0
-                    .OnceAsClient -> 1
+                    .Never          -> 0
+                    .OnceAsClient   -> 1
                     .FreelyAsClient -> 2
                 end,
                 0,
@@ -515,7 +515,7 @@ impl ServerConfig
 end
 
 fn with_certificates(
-    config: http_host.TlsConfig,
+    config:       http_host.TlsConfig,
     certificates: List<Certificate>,
 ) -> http_host.TlsConfig
     case certificates
@@ -529,8 +529,8 @@ end
 
 fn roots_kind(roots: Roots) -> Int
     case roots
-        .System -> 0
-        .Pem(_) -> 1
+        .System   -> 0
+        .Pem(_)   -> 1
         .Files(_) -> 2
     end
 end
@@ -538,14 +538,14 @@ end
 fn roots_pem(roots: Roots) -> String
     case roots
         .Pem(text) -> text
-        _ -> ""
+        _          -> ""
     end
 end
 
 fn roots_files(roots: Roots) -> List<String>
     case roots
         .Files(files) -> files
-        _ -> []
+        _             -> []
     end
 end
 
@@ -555,18 +555,18 @@ end
 
 /// What a finished handshake agreed on.
 pub struct ConnectionState
-    version: Version
+    version:            Version
     handshake_complete: Bool
-    resumed: Bool
-    cipher_suite: CipherSuite
-    curve: Maybe<Curve>
+    resumed:            Bool
+    cipher_suite:       CipherSuite
+    curve:              Maybe<Curve>
     /// The application protocol both sides chose (ALPN).
-    protocol: Maybe<String>
+    protocol:    Maybe<String>
     server_name: String
     /// The certificate this side presented, if any.
     local_certificate: Maybe<CertificateInfo>
     peer_certificates: List<CertificateInfo>
-    verified_chains: List<List<CertificateInfo>>
+    verified_chains:   List<List<CertificateInfo>>
 end
 
 impl ConnectionState
@@ -576,12 +576,12 @@ impl ConnectionState
     pub fn of_parts(parts: List<List<String>>) -> ConnectionState
         (head, local, peers, chains) = case parts
             [h, l, p, ..c] -> (h, l, p, c)
-            _ -> ([], [], [], [])
+            _              -> ([], [], [], [])
         end
 
         (version, complete, resumed, suite, curve, protocol, server_name) = case head
             [v, h, r, s, c, p, n] -> (v, h, r, s, c, p, n)
-            _ -> ("12", "false", "false", "0", "", "", "")
+            _                     -> ("12", "false", "false", "0", "", "", "")
         end
 
         id = String.to_int(suite) |> Maybe.with_default(0)
@@ -592,13 +592,13 @@ impl ConnectionState
             |> Maybe.flat_map(Version.of_number)
             |> Maybe.with_default(Version.Tls12),
             handshake_complete: complete == "true",
-            resumed: resumed == "true",
+            resumed:            resumed == "true",
             cipher_suite: [..CipherSuite.secure(), ..CipherSuite.insecure()]
             |> Iter.find(fn s -> s.id == id)
             |> Maybe.with_default(
                 CipherSuite{id:, name: CipherSuite.name_of(id), versions: [], insecure: False}
             ),
-            curve: Curve.of_name(curve),
+            curve:    Curve.of_name(curve),
             protocol: if protocol == "" then None else Some(protocol),
             server_name:,
             local_certificate: if local == [] then
@@ -682,7 +682,7 @@ end
 /// the address's host unless `config` names one.
 pub fn dial(
     address: String,
-    config: ClientConfig = ClientConfig{},
+    config:  ClientConfig = ClientConfig{},
     options: net.DialOptions = net.DialOptions{},
 ) -> Result<Connection, net.Error>
     host = ClientConfig.host(config) |> Result.map_err(net.Error.of_tls)?
@@ -741,7 +741,7 @@ end
 /// closes both. Go's `NewListener`.
 pub fn wrap_listener(
     listener: net.Listener,
-    config: ServerConfig,
+    config:   ServerConfig,
 ) -> Result<net.Listener, net.Error>
     host = ServerConfig.host(config) |> Result.map_err(net.Error.of_tls)?
     Ok(net.Listener.of_handle(http_host.tls_wrap_listener(net.Listener.handle_of(listener), host)))
@@ -750,7 +750,7 @@ end
 /// Whether the peer's certificate covers `host`: Go's `VerifyHostname`.
 pub fn verify_hostname(conn: Connection, host: String) -> Result<Unit, Error>
     case http_host.tls_verify_hostname(Connection.handle_of(conn), host)
-        "" -> Ok(Unit)
+        ""     -> Ok(Unit)
         reason -> Err(Error.Verification{reason:, certificates: []})
     end
 end

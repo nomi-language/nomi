@@ -76,11 +76,11 @@ end
 // tag proves the variant TAG, which a payload comparison alone would not see.
 fn tag(v: JV) -> String
     case v
-        .Str(_) -> "Str"
-        .Num(_) -> "Num"
-        .Obj(_) -> "Obj"
+        .Str(_)  -> "Str"
+        .Num(_)  -> "Num"
+        .Obj(_)  -> "Obj"
         .Meta(_) -> "Meta"
-        .Arr(_) -> "Arr"
+        .Arr(_)  -> "Arr"
         .Tail(_) -> "Tail"
     end
 end
@@ -91,7 +91,7 @@ fn obj_sig(v: JV, k: String) -> String
     case v
         .Obj{k => .Num(n)} -> "${k}=${n}"
         .Obj{k => .Obj(_)} -> "${k}=obj"
-        _ -> "no ${k}"
+        _                  -> "no ${k}"
     end
 end
 
@@ -114,14 +114,14 @@ end
 fn kvs_sig(m: Kvs) -> Int
     case m
         Kvs{"x" => v} -> v
-        _ -> -1
+        _             -> -1
     end
 end
 
 fn items_sig(xs: Items) -> String
     case xs
         Items[a, b, c] -> "${a},${b},${c}"
-        _ -> "no match"
+        _              -> "no match"
     end
 end
 
@@ -184,7 +184,7 @@ fn main()
     // one it does, because those are two different emitted length tests.
     from_arr_spread = case arr_flat
         .Arr[.Num(a), ..rest] -> "head=${a} rest=${Iter.count(rest)}"
-        _ -> "miss"
+        _                     -> "miss"
     end
 
     io.print("from_arr_spread = ${from_arr_spread}")
@@ -207,9 +207,9 @@ fn main()
     meta = JV.Meta{"a" => JV.Num(5)}
 
     map_tag_matters = case meta
-        .Obj{"a" => .Num(n)} -> "wrongly matched Obj ${n}"
+        .Obj{"a" => .Num(n)}  -> "wrongly matched Obj ${n}"
         .Meta{"a" => .Num(n)} -> "meta ${n}"
-        _ -> "fell through"
+        _                     -> "fell through"
     end
 
     io.print("map_tag_matters = ${map_tag_matters}")
@@ -229,7 +229,7 @@ fn main()
     // the two payload TYPES differ as well.
     wrong_tag = case arr_flat
         .Obj{"a" => .Num(n)} -> "wrongly matched ${n}"
-        _ -> "fell through"
+        _                    -> "fell through"
     end
 
     io.print("wrong_tag = ${wrong_tag}")
@@ -248,7 +248,7 @@ fn main()
     // conversion rather than by tag and so tests a different code path.
     wrong_items = case items
         Items[a, b] -> "wrongly matched ${a},${b}"
-        _ -> "fell through"
+        _           -> "fell through"
     end
 
     io.print("wrong_items = ${wrong_items}")

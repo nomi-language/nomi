@@ -54,14 +54,14 @@ func TestReplVM_ATypeDefinedEarlierIsUsedLater(t *testing.T) {
 // later, a key a later input finds, and ordered and rendered by std's impls.
 func TestReplVM_AStdUuidCarriesBetweenInputs(t *testing.T) {
 	replExpect(t, "import std::uuid.Uuid\n"+
-		"id = Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`\n"+
+		"id = Uuid\"0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A\"\n"+
 		"m = {id => 1}\n"+
-		"id == Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`\n"+
-		"Map.get(m, Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`)\n"+
+		"id == Uuid\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\"\n"+
+		"Map.get(m, Uuid\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\")\n"+
 		"Comparable.compare(id, Uuid.nil())\n"+
 		"[id, Uuid.nil()] |> Iter.sort() |> Iter.to_list()\n"+
 		"\"${id}\"\n",
-		"True\nSome(1)\nGreater\n[Uuid`00000000-0000-0000-0000-000000000000`, Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`]\n"+
+		"True\nSome(1)\nGreater\n[Uuid\"00000000-0000-0000-0000-000000000000\", Uuid\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\"]\n"+
 			"\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\"\n")
 }
 

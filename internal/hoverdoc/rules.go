@@ -71,6 +71,17 @@ func leaveSpan(n ast.Node) ast.Span {
 
 // aType is a type as code with its article: "a `List<Int>`", "an `Int`".
 func aType(t string) string {
+	// An initialism is read by its letters: an `Html`, a `Url`.
+	for _, w := range []string{"Html", "Http"} {
+		if strings.HasPrefix(t, w) {
+			return "an `" + t + "`"
+		}
+	}
+	for _, w := range []string{"Url", "Uuid", "Utf"} {
+		if strings.HasPrefix(t, w) {
+			return "a `" + t + "`"
+		}
+	}
 	if t != "" && strings.ContainsRune("AEIOU", rune(t[0])) {
 		return "an `" + t + "`"
 	}

@@ -1,7 +1,7 @@
 //# Locales: which language, script and region text is for.
 //# A `Locale` holds a canonical BCP 47 tag such as `pt-BR` or
 //# `zh-Hant-HK`, Unicode extensions included (`en-US-u-nu-latn`). Write a
-//# fixed one as a raw typed literal, ``Locale`pt-BR` ``, which is checked when
+//# fixed one as a typed literal, `Locale"pt-BR"`, which is checked when
 //# the program is checked; parse text with `Locale.parse`, and read a POSIX
 //# value such as `LANG` with `Locale.from_posix`. Nothing reads a locale
 //# implicitly ([How code gets a locale](#how-code-gets-a-locale)).
@@ -52,7 +52,7 @@
 //#     locale =
 //#         Map.get(startup.env, "LANG")
 //#         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
-//#         |> Maybe.with_default(Locale`en`)
+//#         |> Maybe.with_default(Locale"en")
 //#
 //#     Ok(App{locale:})
 //# end
@@ -84,10 +84,10 @@ end
 /// `en-US`, and the deprecated `iw` is `he`. `Locale` is `Equatable` and
 /// `Hashable`, so it is a map key, and it is not `Comparable`. `Display`
 /// gives the tag; `Debug` gives the literal that builds it.
-//! assert Display.to_string(Locale`pt-BR`) == "pt-BR"
-//! assert Locale.parse("EN-us") == Ok(Locale`en-US`)
-//! assert Locale`iw` == Locale`he`
-//! assert Debug.inspect(Locale`zh-Hant-HK`) == "Locale`zh-Hant-HK`"
+//! assert Display.to_string(Locale"pt-BR") == "pt-BR"
+//! assert Locale.parse("EN-us") == Ok(Locale"en-US")
+//! assert Locale"iw" == Locale"he"
+//! assert Debug.inspect(Locale"zh-Hant-HK") == "Locale\"zh-Hant-HK\""
 //
 pub opaque type Locale String
 
@@ -126,7 +126,7 @@ derive Equatable for LoadError
 
 impl Display for LoadError
     /// What failed, naming the locale.
-    //! assert Display.to_string(LoadError.Unreachable{locale: Locale`pl`, reason: "HTTP 404"})
+    //! assert Display.to_string(LoadError.Unreachable{locale: Locale"pl", reason: "HTTP 404"})
     //!     == "the locale file of pl could not be fetched: HTTP 404"
     //
     fn to_string(e: LoadError) -> String
@@ -141,7 +141,7 @@ impl Display for LoadError
 end
 
 impl Display for Error
-    /// What is wrong, as a compile error at a ``Locale`…` `` literal shows it.
+    /// What is wrong, as a compile error at a `Locale"…"` literal shows it.
     //! assert Display.to_string(
     //!     Error.Underscore{suggestion: "pt-BR"}
     //! ) == "a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)"
@@ -176,9 +176,9 @@ impl Locale
     /// those); `Malformed {text:}` for text that is not a well-formed tag;
     /// `UnknownSubtag {subtag:}` for a well-formed tag with an unregistered
     /// subtag (`xx`).
-    //! assert Locale.parse("zh-hant-hk") == Ok(Locale`zh-Hant-HK`)
-    //! assert Locale.parse("in") == Ok(Locale`id`)
-    //! assert Locale.parse("sh") == Ok(Locale`sr-Latn`)
+    //! assert Locale.parse("zh-hant-hk") == Ok(Locale"zh-Hant-HK")
+    //! assert Locale.parse("in") == Ok(Locale"id")
+    //! assert Locale.parse("sh") == Ok(Locale"sr-Latn")
     //! assert Locale.parse("pt_BR") == Err(Error.Underscore{suggestion: "pt-BR"})
     //! assert Locale.parse("") == Err(Error.Empty)
     //! assert Locale.parse("en--US") == Err(Error.Malformed{text: "en--US"})
@@ -194,19 +194,19 @@ impl Locale
     /// `@valencia` the variant, and any other modifier (`@euro`) is dropped.
     /// `C` and `POSIX`, with or without a codeset, name no language, so they
     /// are `und`.
-    //! assert Locale.from_posix("pl_PL.UTF-8") == Ok(Locale`pl-PL`)
-    //! assert Locale.from_posix("en_US@euro") == Ok(Locale`en-US`)
-    //! assert Locale.from_posix("sr_RS@latin") == Ok(Locale`sr-Latn-RS`)
-    //! assert Locale.from_posix("C") == Ok(Locale`und`)
-    //! assert Locale.from_posix("POSIX") == Ok(Locale`und`)
-    //! assert Locale.from_posix("C.UTF-8") == Ok(Locale`und`)
+    //! assert Locale.from_posix("pl_PL.UTF-8") == Ok(Locale"pl-PL")
+    //! assert Locale.from_posix("en_US@euro") == Ok(Locale"en-US")
+    //! assert Locale.from_posix("sr_RS@latin") == Ok(Locale"sr-Latn-RS")
+    //! assert Locale.from_posix("C") == Ok(Locale"und")
+    //! assert Locale.from_posix("POSIX") == Ok(Locale"und")
+    //! assert Locale.from_posix("C.UTF-8") == Ok(Locale"und")
     //
     pub fn from_posix(value: String) -> Result<Locale, Error>
         Locale.lift(locale_from_posix_raw(value))
     end
 
     /// The language subtag, `und` when the tag names none.
-    //! assert Locale.language(Locale`zh-Hant-HK`) == "zh"
+    //! assert Locale.language(Locale"zh-Hant-HK") == "zh"
     //
     pub fn language(locale: Locale) -> String
         Locale(tag) = locale
@@ -215,8 +215,8 @@ impl Locale
 
     /// The script subtag the tag spells, if any. It never guesses a likely
     /// one.
-    //! assert Locale.script(Locale`zh-Hant-HK`) == Maybe.Some("Hant")
-    //! assert Locale.script(Locale`pt-BR`) == Maybe.None
+    //! assert Locale.script(Locale"zh-Hant-HK") == Maybe.Some("Hant")
+    //! assert Locale.script(Locale"pt-BR") == Maybe.None
     //
     pub fn script(locale: Locale) -> Maybe<String>
         Locale(tag) = locale
@@ -225,8 +225,8 @@ impl Locale
 
     /// The region subtag the tag spells, if any. It never guesses a likely
     /// one.
-    //! assert Locale.region(Locale`es-419`) == Maybe.Some("419")
-    //! assert Locale.region(Locale`pl`) == Maybe.None
+    //! assert Locale.region(Locale"es-419") == Maybe.Some("419")
+    //! assert Locale.region(Locale"pl") == Maybe.None
     //
     pub fn region(locale: Locale) -> Maybe<String>
         Locale(tag) = locale
@@ -246,18 +246,18 @@ impl Locale
     /// script (`zh-TW` goes to `zh-Hant`). A language-and-script tag whose
     /// script is not the language's likely one has root as its parent
     /// (`ru-Latn` has no ancestor). So `zh-Hant-HK` never reaches `zh`.
-    //! assert Locale.fallbacks(Locale`es-MX`) == [Locale`es-MX`, Locale`es-419`, Locale`es`]
-    //! assert Locale.fallbacks(Locale`en-150`) == [Locale`en-150`, Locale`en-001`, Locale`en`]
-    //! assert Locale.fallbacks(Locale`pt-AO`) == [Locale`pt-AO`, Locale`pt-PT`, Locale`pt`]
-    //! assert Locale.fallbacks(Locale`pt-BR`) == [Locale`pt-BR`, Locale`pt`]
-    //! assert Locale.fallbacks(Locale`zh-Hant-HK`) == [Locale`zh-Hant-HK`, Locale`zh-Hant`]
-    //! assert Locale.fallbacks(Locale`zh-TW`) == [Locale`zh-TW`, Locale`zh-Hant`]
-    //! assert Locale.fallbacks(Locale`ru-Latn`) == [Locale`ru-Latn`]
+    //! assert Locale.fallbacks(Locale"es-MX") == [Locale"es-MX", Locale"es-419", Locale"es"]
+    //! assert Locale.fallbacks(Locale"en-150") == [Locale"en-150", Locale"en-001", Locale"en"]
+    //! assert Locale.fallbacks(Locale"pt-AO") == [Locale"pt-AO", Locale"pt-PT", Locale"pt"]
+    //! assert Locale.fallbacks(Locale"pt-BR") == [Locale"pt-BR", Locale"pt"]
+    //! assert Locale.fallbacks(Locale"zh-Hant-HK") == [Locale"zh-Hant-HK", Locale"zh-Hant"]
+    //! assert Locale.fallbacks(Locale"zh-TW") == [Locale"zh-TW", Locale"zh-Hant"]
+    //! assert Locale.fallbacks(Locale"ru-Latn") == [Locale"ru-Latn"]
     //!
-    //! assert Locale.fallbacks(Locale`de-CH-u-nu-latn`) == [
-    //!     Locale`de-CH-u-nu-latn`,
-    //!     Locale`de-CH`,
-    //!     Locale`de`,
+    //! assert Locale.fallbacks(Locale"de-CH-u-nu-latn") == [
+    //!     Locale"de-CH-u-nu-latn",
+    //!     Locale"de-CH",
+    //!     Locale"de",
     //! ]
     //
     pub fn fallbacks(locale: Locale) -> List<Locale>
@@ -269,10 +269,10 @@ impl Locale
     /// `requested`, in order of preference, by CLDR language matching; or
     /// `default` when none is close enough. A web framework parses
     /// `Accept-Language` into `requested`.
-    //! available = [Locale`en`, Locale`pl`, Locale`es`]
-    //! assert Locale.negotiate([Locale`pl-PL`], available, Locale`en`) == Locale`pl`
-    //! assert Locale.negotiate([Locale`de`, Locale`es-MX`], available, Locale`en`) == Locale`es`
-    //! assert Locale.negotiate([Locale`ja`], available, Locale`en`) == Locale`en`
+    //! available = [Locale"en", Locale"pl", Locale"es"]
+    //! assert Locale.negotiate([Locale"pl-PL"], available, Locale"en") == Locale"pl"
+    //! assert Locale.negotiate([Locale"de", Locale"es-MX"], available, Locale"en") == Locale"es"
+    //! assert Locale.negotiate([Locale"ja"], available, Locale"en") == Locale"en"
     //
     pub fn negotiate(requested: List<Locale>, available: List<Locale>, default: Locale) -> Locale
         Locale(fallback) = default
@@ -287,7 +287,7 @@ impl Locale
     /// its nearest listed parent, else as the source locale
     /// (`[i18n].source_locale`) when the program lists it, else as CLDR's
     /// root.
-    //! assert Iter.contains(Locale.available(), Locale`pl`)
+    //! assert Iter.contains(Locale.available(), Locale"pl")
     //
     pub fn available() -> List<Locale>
         locale_available() |> Iter.map(fn t -> Locale(t)) |> Iter.to_list()
@@ -339,7 +339,7 @@ impl Locale
     ///     Ok(Unit)
     /// end
     /// ```
-    //! assert Locale.load(Locale`pl`) == Ok(Unit)
+    //! assert Locale.load(Locale"pl") == Ok(Unit)
     //
     pub fn load(locale: Locale) -> Result<Unit, LoadError>
         Locale(tag) = locale
@@ -368,23 +368,23 @@ impl Locale
 end
 
 impl Literal for Locale
-    /// ``Locale`pt-BR` `` is the locale `Locale.parse` gives for its text. A
-    /// raw literal is checked when the program is checked, so a malformed tag
+    /// `Locale"pt-BR"` is the locale `Locale.parse` gives for its text. A
+    /// literal without slots is checked when the program is checked, so a malformed tag
     /// is a compile error at the literal, worded by `Error`'s `Display`:
-    /// ``typed literal Locale`pt_BR` is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)``.
+    /// ``typed literal Locale"pt_BR" is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)``.
     ///
     /// In a program that lists its locales (`[i18n].locales` and
     /// `partial_locales`), a literal whose locale's fallback chain reaches
     /// none of them is a compile error too, since the program would never
     /// format in it: with `en` and `de` listed,
-    /// ``typed literal Locale`fr`: `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them``.
-    /// ``Locale`de-CH` `` is valid there, as is any literal in a program that
+    /// ``typed literal Locale"fr": `fr` is not one of this program's locales (`en`, `de` in nomi.toml's [i18n]): add it there, or format in one of them``.
+    /// `Locale"de-CH"` is valid there, as is any literal in a program that
     /// lists no locales. A locale the program only compares or negotiates is
     /// parsed while it runs (`Locale.parse("fr")`), which no check refuses.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Locale, Error>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -402,10 +402,10 @@ impl Display for Locale
 end
 
 impl Debug for Locale
-    /// The raw literal that builds the locale.
+    /// The typed literal that builds the locale.
     fn inspect(locale: Locale) -> String
         Locale(tag) = locale
-        "Locale`${tag}`"
+        String.to_typed_literal(tag, "Locale")
     end
 end
 
@@ -413,8 +413,8 @@ end
 /// `kind` 0 with the canonical tag in `value`, or the `Error` variant's
 /// position (1 is `Empty`) with its one field in `detail`.
 struct LocaleAttempt
-    value: String
-    kind: Int
+    value:  String
+    kind:   Int
     detail: String
 end
 
@@ -439,5 +439,5 @@ host fn locale_load_raw(tag: String) -> String
 host fn locale_negotiate(
     requested: List<String>,
     available: List<String>,
-    fallback: String,
+    fallback:  String,
 ) -> String

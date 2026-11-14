@@ -12,7 +12,7 @@ end
 pub fn write(path: String, mode = Mode.Replace) -> String
     case mode
         .Replace -> "replace ${path}"
-        .Append -> "append ${path}"
+        .Append  -> "append ${path}"
     end
 end
 

@@ -71,8 +71,6 @@ func (s *Server) scheduleAnalysis(uri string, delay time.Duration, notify glsp.N
 		old.timer.Stop()
 		old.cancel()
 	}
-	// The older text's typed literals no longer matter.
-	s.literals.cancel(uri)
 	ctx, cancel := context.WithCancel(context.Background())
 	p := &pendingAnalysis{ctx: ctx, cancel: cancel, notify: notify}
 	p.timer = time.AfterFunc(delay, func() { s.runAnalysis(uri, p) })
@@ -170,26 +168,6 @@ func (s *Server) publishCurrent(uri string, notify glsp.NotifyFunc) bool {
 	sch.published[uri] = snap.AnalyzedVersion
 	s.publishViewed(notify, snap)
 	return true
-}
-
-// republishLiterals publishes uri's diagnostics again once a background
-// typed-literal evaluation of content has finished (literal_eval.go). It
-// publishes only while content is still the analyzed latest text and is not
-// older than the last version publishCurrent published, so it never puts
-// back diagnostics an edit has superseded.
-func (s *Server) republishLiterals(uri, content string, notify glsp.NotifyFunc) {
-	sch := &s.sched
-	sch.publishMu.Lock()
-	defer sch.publishMu.Unlock()
-	defer s.docs.View()()
-	snap := s.docs.Snapshot(uri)
-	if snap == nil || snap.Analysis == nil || !snap.Current() || snap.Content != content {
-		return
-	}
-	if snap.AnalyzedVersion < sch.published[uri] {
-		return
-	}
-	s.publishViewed(notify, snap)
 }
 
 // awaitAnalysis waits until uri's installed analysis is of its latest

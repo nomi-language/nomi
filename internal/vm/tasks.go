@@ -106,6 +106,11 @@ func (m *Machine) runTask(f *functionValue, fr *rt.Frame, spawn ir.Pos, args ...
 	if m.dbg != nil {
 		m.dbg.nameTask(fr, spawn)
 	}
+	if m.prof != nil {
+		// A task runs on another goroutine: a thread of its own, so the
+		// profiler never walks into the spawner's stacks.
+		fr.SetDebugThread(&profThread{})
+	}
 	// A task body runs on a goroutine of its own, whose stack starts empty,
 	// so its call depth starts at zero rather than at the spawner's.
 	root := *m

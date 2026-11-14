@@ -25,7 +25,7 @@ end
 fn main()
     post: Route<{id: Uuid}> = "GET /posts/{id}"
     page: Route<{name: String, n: Int}> = "GET /pages/{name}/{n}"
-    any = Route` + "`GET /any/{x}`" + `
+    any = Route"GET /any/{x}"
 
     router = Router.new([
         Route.to("GET /", fn _ -> Response{body: Body.Text("home")}),
@@ -42,8 +42,8 @@ fn main()
     io.print(get("/pages/a/x").status)
     io.print(Response.text(get("/any/7")))
     io.print(Route.path_with(page, {name: "ann b/c?", n: 2}))
-    io.print(Route.path_with(Route` + "`GET /files/{rest...}`" + `, {rest: "a b/c"}))
-    io.print(Route.path(Route` + "`GET example.com/about/{$}`" + `))
+    io.print(Route.path_with(Route"GET /files/{rest...}", {rest: "a b/c"}))
+    io.print(Route.path(Route"GET example.com/about/{$}"))
 end
 `
 	var out strings.Builder
@@ -231,9 +231,9 @@ func TestRouteLiteral_WrongPickNamesTheOtherFunction(t *testing.T) {
 	for _, c := range []struct{ line, help string }{
 		{`    _ = Route.path(r)`, "this route has parameters, `{id: String}`; use `Route.path_with(route, params)` to fill them into the link"},
 		{`    _ = Route.to(r, fn _ -> Response{})`, "this route has parameters, `{id: String}`; use `Route.to_with(route, fn request, params -> ...)` to hand them to the handler"},
-		{`    _ = Route.to_with(Route` + "`GET /a`" + `, fn _ -> Response{})` + "\n    _ = Route.path_with(r, {id: \"7\"})", "this route has no parameters; use `Route.to(route, fn request -> ...)`, whose handler takes only the request"},
+		{`    _ = Route.to_with(Route"GET /a", fn _ -> Response{})` + "\n    _ = Route.path_with(r, {id: \"7\"})", "this route has no parameters; use `Route.to(route, fn request -> ...)`, whose handler takes only the request"},
 	} {
-		src := "import std::http.{Response, Route}\n\nfn main()\n    r = Route`GET /users/{id}`\n    _ = Response{}\n" + c.line + "\nend\n"
+		src := "import std::http.{Response, Route}\n\nfn main()\n    r = Route\"GET /users/{id}\"\n    _ = Response{}\n" + c.line + "\nend\n"
 		ds := literalDiagnostics(t, src)
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", c.line, len(ds), ds)
@@ -316,7 +316,7 @@ end
 fn main()
     router = Router.new([
         Route.to_with("PATCH /todos/{id}", update),
-        Route.to_with(Route` + "`GET /todos/{id}`" + `, update),
+        Route.to_with(Route"GET /todos/{id}", update),
         "PUT /todos/{id}" |> Route.to_with(update),
         Route.to_with("GET /names/{id}", fn _, p -> Response{body: Body.Text(p.id + "!")}),
         Route.to_with("GET /n/{id}", fn _: Request, p: {id: Int} -> Response{body: Body.Text("${p.id * 2}")}),
@@ -354,7 +354,7 @@ func TestRouteLiteral_ArgumentRefusesAHandlerOfOtherFields(t *testing.T) {
 		col       int
 	}{
 		{`"PATCH /todos/{name}"`, "`Route` literal \"PATCH /todos/{name}\" is invalid: the pattern has `{name}`, but `{id: Int}` has no field `name`", 37},
-		{"Route`PATCH /todos/{name}`", "typed literal Route`PATCH /todos/{name}` is invalid: the pattern has `{name}`, but `{id: Int}` has no field `name`", 42},
+		{"Route\"PATCH /todos/{name}\"", "typed literal Route\"PATCH /todos/{name}\" is invalid: the pattern has `{name}`, but `{id: Int}` has no field `name`", 42},
 	} {
 		src := "import std::http.{Body, Request, Response, Route}\n\n" +
 			"fn update(_: Request, item: {id: Int}) -> Response\n    Response{body: Body.Text(\"${item.id}\")}\nend\n\n" +

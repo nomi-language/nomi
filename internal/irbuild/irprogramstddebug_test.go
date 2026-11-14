@@ -24,14 +24,14 @@ fn show(d: Debug) -> String
 end
 
 fn main()
-    u = Url` + "`https://e.com/a`" + `
+    u = Url"https://e.com/a"
     d: Debug = u
     io.print(Debug.inspect(d))
-    io.print(show(Money` + "`12.50 EUR`" + `))
+    io.print(show(Money"12.50 EUR"))
     up = False
     m: Debug = if up then Method.Get else Status.ok
     io.print(Debug.inspect(m))
-    xs: List<Debug> = [Method.Get, Dialect.Sqlite, tls.Version.Tls12, Toml` + "`a = 1`" + `]
+    xs: List<Debug> = [Method.Get, Dialect.Sqlite, tls.Version.Tls12, Toml"a = 1"]
     io.print(Debug.inspect(xs))
     s: Display = u
     io.print(Display.to_string(s))
@@ -41,7 +41,7 @@ fn main()
 end
 `
 	irRunSource(t, src, `Url{scheme: "https", user: None, host: "e.com", path: "/a", raw_path: None, query: None, fragment: None, raw_fragment: None, opaque_part: None, omit_host: False}
-Money{amount: 12.50d, currency: Currency`+"`EUR`"+`}
+Money{amount: 12.50d, currency: Currency"EUR"}
 Status(200)
 `+"[Get, Sqlite, Tls12, Toml(\"a = 1\")]"+`
 https://e.com/a

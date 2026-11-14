@@ -347,7 +347,7 @@ import std::regex.Regex
 fn main()
     io.print(Bool.to_string(holds([1, 2, 3], 2)))
     io.print(Bool.to_string(holds(1..3, 7)))
-    m: Matcher = Regex` + "`o+`" + `
+    m: Matcher = Regex"o+"
     io.print(first_match(m, "foo"))
 end
 `,

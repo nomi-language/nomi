@@ -121,11 +121,31 @@ func irStructIdentities(fn *ir.Func) (checked, built, fields int, bad []string) 
 			bad = append(bad, fmt.Sprintf("%s: the returned struct's type name %q "+
 				"carries no module qualifier", fn.Name(), sv.Desc.Name))
 		}
-		// The LAST MakeStruct is the one whose value was returned for every
-		// body this shape admits (the final expression is the construction),
-		// and asserting against the node is what makes this a check on the
-		// machine rather than on the declaration.
+		// When every return is typed as a struct, the LAST MakeStruct is the
+		// one whose value was returned for every body this shape admits (the
+		// final expression is the construction), and asserting against the
+		// node is what makes this a check on the machine rather than on the
+		// declaration. A function whose result is held as an interface or a
+		// conjunction (`fn pick(n: Int) -> Priced and Costed` building a
+		// Coffee or a Tea) returns whichever struct its branch built, the
+		// concrete value itself (conjunction.go), so its value is checked
+		// against the last node that builds the type it carries, and a name
+		// no node builds is the wrong identity.
 		n := want[len(want)-1]
+		if !irReturnsStructTyped(fn) {
+			var match *ir.Make
+			for _, w := range want {
+				if w.Typ().Name() == sv.Desc.Name {
+					match = w
+				}
+			}
+			if match == nil {
+				bad = append(bad, fmt.Sprintf("%s: returned %q, which no make struct "+
+					"in the function builds", fn.Name(), sv.Desc.Name))
+				break
+			}
+			n = match
+		}
 		if sv.Desc.Name != n.Typ().Name() {
 			bad = append(bad, fmt.Sprintf("%s: returned %q, the node says %q",
 				fn.Name(), sv.Desc.Name, n.Typ().Name()))
@@ -144,6 +164,24 @@ func irStructIdentities(fn *ir.Func) (checked, built, fields int, bad []string) 
 		break
 	}
 	return checked, built, fields, bad
+}
+
+// irReturnsStructTyped reports whether every value fn returns is typed as a
+// declared struct, so the struct it returns is the one its body builds last.
+func irReturnsStructTyped(fn *ir.Func) bool {
+	any := false
+	for _, b := range fn.Blocks() {
+		r, isRet := b.Term().(*ir.Return)
+		if !isRet || !r.HasVal() {
+			continue
+		}
+		ty := fn.TempType(r.Val())
+		if ty == nil || ty.Kind() != ir.KindStruct {
+			return false
+		}
+		any = true
+	}
+	return any
 }
 
 // TestIRStruct_ABareIdentityOnAGraphIsReported is the failing side of the

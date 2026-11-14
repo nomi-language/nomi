@@ -73,3 +73,37 @@ func TestSignatureHelp_TypeOnlyParamLabel(t *testing.T) {
 		t.Errorf("first parameter label = %v, want Request", got)
 	}
 }
+
+// A parameter written as a generic or tuple type alone is labelled by that
+// type in signature help, and shown so in the function's hover.
+func TestSignatureHelp_TypeOnlyGenericParamLabel(t *testing.T) {
+	s := NewServer()
+	uri := "file:///sig_type_only_generic.nomi"
+	src := "fn count(List<Int>, (Int, String), n: Int) -> Int\n    n\nend\n\nfn main()\n    count(" + cursorMark + ")\nend\n"
+	text, pos := splitCursor(t, src)
+	s.docs.Open(uri, text)
+	help, err := s.textDocumentSignatureHelp(nil, &protocol.SignatureHelpParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)},
+			Position:     pos,
+		},
+	})
+	if err != nil || help == nil {
+		t.Fatalf("signature help = %v, %v", help, err)
+	}
+	sig := help.Signatures[0]
+	const want = "fn count(List<Int>, (Int, String), n: Int) -> Int"
+	if sig.Label != want {
+		t.Errorf("signature label = %q, want %s", sig.Label, want)
+	}
+	if got := sig.Parameters[0].Label; got != "List<Int>" {
+		t.Errorf("first parameter label = %v, want List<Int>", got)
+	}
+	if got := sig.Parameters[1].Label; got != "(Int, String)" {
+		t.Errorf("second parameter label = %v, want (Int, String)", got)
+	}
+	hover := hoverAtMark(t, "fn ▮count(List<Int>, (Int, String), n: Int) -> Int\n    n\nend\n")
+	if !strings.Contains(hover, want) {
+		t.Errorf("hover = %q, want it to show %s", hover, want)
+	}
+}

@@ -12,11 +12,11 @@ func TestLocaleLiteral_IsItsCanonicalLocale(t *testing.T) {
 	const src = "import\n" +
 		"    std::io\n" +
 		"end\n\n" +
-		"once polish = Locale`pl-PL`\n\n" +
+		"once polish = Locale\"pl-PL\"\n\n" +
 		"fn main()\n" +
-		"    io.print(Locale`EN-us`)\n" +
-		"    io.print(Debug.inspect(Locale`iw`))\n" +
-		"    io.print(polish == Locale`pl-pl`)\n" +
+		"    io.print(Locale\"EN-us\")\n" +
+		"    io.print(Debug.inspect(Locale\"iw\"))\n" +
+		"    io.print(polish == Locale\"pl-pl\")\n" +
 		"end\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
@@ -26,7 +26,7 @@ func TestLocaleLiteral_IsItsCanonicalLocale(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	if want := "en-US\nLocale`he`\nTrue\n"; out.String() != want {
+	if want := "en-US\nLocale\"he\"\nTrue\n"; out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
 	}
 }
@@ -35,9 +35,9 @@ func TestLocaleLiteral_IsItsCanonicalLocale(t *testing.T) {
 // locale.Error's Display.
 func TestLocaleLiteral_InvalidTagIsACompileError(t *testing.T) {
 	for _, c := range []struct{ literal, message string }{
-		{"Locale`pt_BR`", "typed literal Locale`pt_BR` is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)"},
-		{"Locale`en--US`", "typed literal Locale`en--US` is invalid: `en--US` is not a well-formed BCP 47 tag"},
-		{"Locale`xx`", "typed literal Locale`xx` is invalid: `xx` is not a known language, script or region subtag"},
+		{"Locale\"pt_BR\"", "typed literal Locale\"pt_BR\" is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)"},
+		{"Locale\"en--US\"", "typed literal Locale\"en--US\" is invalid: `en--US` is not a well-formed BCP 47 tag"},
+		{"Locale\"xx\"", "typed literal Locale\"xx\" is invalid: `xx` is not a known language, script or region subtag"},
 		{"Locale``", "typed literal Locale`` is invalid: a locale tag cannot be empty"},
 	} {
 		src := "fn main()\n    _ = " + c.literal + "\nend\n"

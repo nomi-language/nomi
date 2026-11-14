@@ -324,6 +324,7 @@ func (c *checker) checkHtmlLiteral(n *ast.TaggedString, expansion ast.Node) Type
 		c.chooseHtmlTextSlots(expansion)
 		t := c.checkNode(expansion)
 		c.htmlSlotHelp(expansion, before)
+		c.recordHtmlLiteral(n, expansion)
 		return t
 	}
 	for _, part := range n.Parts {
@@ -425,34 +426,40 @@ func (c *checker) htmlTextTakesDisplay(t Type, at Pos) bool {
 // builder resolved the callee to the function its context chose, by the
 // callee's position, so the reference there moves with the name.
 func (c *checker) retargetHtmlSlot(slot *ast.Call, name string) {
+	sym, at := c.htmlSlotFunc(slot, name)
+	if sym == nil {
+		return
+	}
+	*htmlSlotCallee(slot) = name
+	c.fa.References[at] = sym
+}
+
+// htmlSlotFunc is std/html's function named name, as seen from the slot
+// call slot, and the position of the slot's callee name.
+func (c *checker) htmlSlotFunc(slot *ast.Call, name string) (*Symbol, Pos) {
 	var scope *Scope
 	var at Pos
 	switch f := slot.Func.(type) {
 	case *ast.FieldAccess:
 		obj, ok := ast.QualifierIdent(f.Object)
 		if !ok {
-			return
+			return nil, Pos{}
 		}
 		mod := c.fa.References[Pos{Line: obj.Line, Col: obj.Col}]
 		for mod != nil && mod.ModuleScope == nil && mod.Resolved != nil {
 			mod = mod.Resolved
 		}
 		if mod == nil {
-			return
+			return nil, Pos{}
 		}
 		scope, at = mod.ModuleScope, Pos{Line: f.Field.Line, Col: f.Field.Col}
 	case *ast.Ident:
 		scope, at = c.fa.ModuleScope, Pos{Line: f.Line, Col: f.Col}
 	}
 	if scope == nil {
-		return
+		return nil, Pos{}
 	}
-	sym := scope.Lookup(name)
-	if sym == nil {
-		return
-	}
-	*htmlSlotCallee(slot) = name
-	c.fa.References[at] = sym
+	return scope.Lookup(name), at
 }
 
 // takeCheckedSlot is the type chooseHtmlTextSlots gave node, which it

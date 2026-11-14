@@ -243,6 +243,15 @@ func (k kind) packageNeutral() bool {
 		// The flag is set in exactly one place, that table's own builder, so
 		// this is the same pointer-identity answer with the dependency removed.
 		// See ifaceDef.stdShared.
+		if irConjKind(k) {
+			// A conjunction is neutral when every member is.
+			for _, m := range k.comp.parts {
+				if !m.packageNeutral() {
+					return false
+				}
+			}
+			return true
+		}
 		return k.iface != nil && k.iface.stdShared
 	case tagList, tagMap, tagTuple, tagSeq, tagFunc, tagAnonStruct:
 		// A STRUCTURAL kind. Neutral exactly when every component is, which is
@@ -266,7 +275,7 @@ func (k kind) packageNeutral() bool {
 		}
 		return true
 	}
-	// tagEmptyList, tagBareNone and tagEmptyMap answer FALSE here even though
+	// tagEmptyList and tagEmptyMap answer FALSE here even though
 	// each renders to a fixed rt type. They are UNTYPED literals whose type the
 	// checker solves from context and coerce discharges; a signature position is
 	// exactly where a type is declared rather than solved, so admitting one

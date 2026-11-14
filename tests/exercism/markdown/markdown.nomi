@@ -26,9 +26,9 @@ end
 fn block(line: String) -> Block
     if Some(text) = String.strip_prefix(line, "* ") then return .Item(text)
 
-    case String.captures(line, Regex`^(#{1,6}) (.*)$`)
+    case String.captures(line, Regex"^(#{1,6}) (.*)$")
         Some((marks, text)) -> .Heading{level: String.length(marks), text:}
-        _ -> .Paragraph(line)
+        _                   -> .Paragraph(line)
     end
 end
 
@@ -39,15 +39,15 @@ fn render_run(run: List<Block>) -> String
 
     case run
         [.Item(_), ..] -> "<ul>${html}</ul>"
-        _ -> html
+        _              -> html
     end
 end
 
 fn render(block: Block) -> String
     case block
         .Heading{level:, text:} -> "<h${level}>${emphasize(text)}</h${level}>"
-        .Item(text) -> "<li>${emphasize(text)}</li>"
-        .Paragraph(text) -> "<p>${emphasize(text)}</p>"
+        .Item(text)             -> "<li>${emphasize(text)}</li>"
+        .Paragraph(text)        -> "<p>${emphasize(text)}</p>"
     end
 end
 
@@ -55,6 +55,6 @@ end
 /// so its double underscores are not read as two italic marks.
 fn emphasize(text: String) -> String
     text
-    |> String.replace(Regex`__(.+?)__`, "<strong>$1</strong>")
-    |> String.replace(Regex`_(.+?)_`, "<em>$1</em>")
+    |> String.replace(Regex"__(.+?)__", "<strong>$1</strong>")
+    |> String.replace(Regex"_(.+?)_", "<em>$1</em>")
 end

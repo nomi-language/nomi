@@ -58,9 +58,9 @@ end
 /// `schema_upgrade.sql` run as a new migration, adds it. A table name that
 /// is not lowercase letters, digits and `_` is an error too.
 pub fn queue(
-    db: Conn,
-    url: String,
-    table: String = "nomi_jobs",
+    db:        Conn,
+    url:       String,
+    table:     String = "nomi_jobs",
     retention: Duration = Duration.hours(24 * 7),
 ) -> Result<Queue, sql.Error>
     name =
@@ -228,9 +228,9 @@ end
 /// A job no worker has claimed for a while: its kind is one no running
 /// worker handles, or no worker runs its queue.
 pub struct StuckJob
-    id: JobId
-    queue: String
-    kind: String
+    id:     JobId
+    queue:  String
+    kind:   String
     run_at: Instant
 end
 
@@ -239,9 +239,9 @@ derive Equatable for StuckJob
 /// The available jobs that have been due for longer than `older_than`, oldest
 /// first, up to 100.
 pub fn stuck(
-    conn: Conn,
+    conn:       Conn,
     older_than: Duration,
-    table: String = "nomi_jobs",
+    table:      String = "nomi_jobs",
 ) -> Result<List<StuckJob>, sql.Error>
     name =
         valid_table(table)
@@ -262,9 +262,9 @@ pub fn stuck(
         id = Row.get<Int>(row, "id")?
 
         job = StuckJob{
-            id: JobId(id),
-            queue: Row.get<String>(row, "queue")?,
-            kind: Row.get<String>(row, "kind")?,
+            id:     JobId(id),
+            queue:  Row.get<String>(row, "queue")?,
+            kind:   Row.get<String>(row, "kind")?,
             run_at: Row.get<Instant>(row, "run_at")?,
         }
 
@@ -273,9 +273,9 @@ pub fn stuck(
 end
 
 struct Table
-    db: Conn
-    url: String
-    table: String
+    db:        Conn
+    url:       String
+    table:     String
     retention: Duration
 end
 
@@ -285,12 +285,12 @@ impl Queue for Table
     end
 
     fn claim(
-        t: Table,
+        t:      Table,
         worker: String,
         queues: List<String>,
-        kinds: List<String>,
-        limit: Int,
-        lease: Duration,
+        kinds:  List<String>,
+        limit:  Int,
+        lease:  Duration,
     ) -> Result<List<Claimed>, sql.Error>
         statement = Sql"""
             WITH picked AS (
@@ -422,15 +422,15 @@ impl Queue for Table
 
         case rows
             [row, ..] -> Row.get<Instant>(row, "last_tick") |> Result.map(&Some(&1))
-            [] -> Ok(None)
+            []        -> Ok(None)
         end
     end
 
     fn record_tick(
-        t: Table,
+        t:        Table,
         schedule: String,
-        tick: Instant,
-        job: Maybe<NewJob>,
+        tick:     Instant,
+        job:      Maybe<NewJob>,
     ) -> Result<Maybe<Enqueued>, sql.Error>
         statement = Sql"""
             INSERT INTO nomi_jobs_schedules (name, last_tick) VALUES (${schedule}, ${tick})
@@ -443,7 +443,7 @@ impl Queue for Table
 
             case job
                 Some(new_job) -> insert_job(t, tx, new_job, 3) |> Result.map(&Some(&1))
-                None -> Ok(None)
+                None          -> Ok(None)
             end
         end)
     end
@@ -495,7 +495,7 @@ fn insert_job(t: Table, conn: Conn, job: NewJob, tries: Int) -> Result<Enqueued,
                 [] ->
                     Err(
                         sql.Error.Database{
-                            code: "40001",
+                            code:    "40001",
                             message: "the job holding the unique key kept changing",
                         }
                     )
@@ -510,7 +510,7 @@ end
 fn listen(t: Table, wake: Sender<Unit>, stop: Receiver<Unit>)
     stopped = case postgres.listen(t.url, t.table)
         Ok(listener) -> relay(listener, wake, stop)
-        Err(_) -> False
+        Err(_)       -> False
     end
 
     if stopped then return
@@ -540,14 +540,14 @@ end
 
 fn relay_until(
     heard: Receiver<Result<Notification, sql.Error>>,
-    wake: Sender<Unit>,
-    stop: Receiver<Unit>,
+    wake:  Sender<Unit>,
+    stop:  Receiver<Unit>,
 ) -> Bool
     next = Channel.select([
         Arm.receive(heard, fn got ->
             case got
                 Some(Ok(_)) -> Relay.Heard
-                _ -> Relay.Failed
+                _           -> Relay.Failed
             end
         end),
         Arm.receive(stop, fn got ->
@@ -580,11 +580,11 @@ end
 
 fn claimed_of(row: Row) -> Result<Claimed, sql.Error>
     Ok(Claimed{
-        id: JobId(Row.get<Int>(row, "id")?),
-        queue: Row.get<String>(row, "queue")?,
-        kind: Row.get<String>(row, "kind")?,
-        args: Row.get<Json>(row, "args")?,
-        attempt: Row.get<Int>(row, "attempt")?,
+        id:           JobId(Row.get<Int>(row, "id")?),
+        queue:        Row.get<String>(row, "queue")?,
+        kind:         Row.get<String>(row, "kind")?,
+        args:         Row.get<Json>(row, "args")?,
+        attempt:      Row.get<Int>(row, "attempt")?,
         max_attempts: Row.get<Int>(row, "max_attempts")?,
     })
 end
@@ -611,7 +611,7 @@ fn in_table(table: String, statement: Statement) -> Statement
 end
 
 fn valid_table(table: String) -> Result<String, String>
-    if Matcher.is_contained_in(Regex`^[a-z_][a-z0-9_]*$`, table) then
+    if Matcher.is_contained_in(Regex"^[a-z_][a-z0-9_]*$", table) then
         Ok(table)
     else
         Err("table name ${table} is not lowercase letters, digits and _")

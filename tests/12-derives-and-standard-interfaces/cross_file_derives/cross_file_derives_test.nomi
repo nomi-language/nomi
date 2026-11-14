@@ -8,7 +8,7 @@ end
 
 struct Wallet
     money: Money
-    coin: Coin
+    coin:  Coin
     cents: Cents
     tally: Tally
     bills: List<Money>
@@ -50,7 +50,7 @@ derive FromJson for Purse
 fn wallet(cents: Int) -> Wallet
     Wallet{
         money: Money{cents:},
-        coin: Coin.Dime,
+        coin:  Coin.Dime,
         cents: Cents(3),
         tally: Tally{n: 4},
         bills: [Money{cents: 5}],

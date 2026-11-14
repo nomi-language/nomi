@@ -34,7 +34,7 @@ impl FromV for Date
     fn from_v(value: V) -> Result<Date, String>
         case value
             .D(d) -> Ok(d)
-            _ -> Err("Date")
+            _     -> Err("Date")
         end
     end
 end
@@ -55,7 +55,7 @@ impl FromV for Int
     fn from_v(value: V) -> Result<Int, String>
         case value
             .I(n) -> Ok(n)
-            _ -> Err("Int")
+            _     -> Err("Int")
         end
     end
 end
@@ -64,7 +64,7 @@ impl ToV for Maybe<T> where T: ToV
     fn to_v(value: Maybe<T>) -> V
         case value
             Some(v) -> T.to_v(v)
-            None -> V.N
+            None    -> V.N
         end
     end
 end
@@ -73,7 +73,7 @@ impl FromV for Maybe<T> where T: FromV
     fn from_v(value: V) -> Result<Maybe<T>, String>
         case value
             .N -> Ok(None)
-            _ -> T.from_v(value) |> Result.map(Some)
+            _  -> T.from_v(value) |> Result.map(Some)
         end
     end
 end

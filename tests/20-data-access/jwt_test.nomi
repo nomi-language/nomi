@@ -146,8 +146,8 @@ test "each algorithm round trips with a fresh key"
 end
 
 struct Login
-    sub: String
-    exp: Int
+    sub:   String
+    exp:   Int
     admin: Bool = False
 end
 

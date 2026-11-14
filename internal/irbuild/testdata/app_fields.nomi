@@ -7,7 +7,7 @@ pub struct Settings
     context: Context
 
     label: String
-    size: Int
+    size:  Int
 end
 
 pub fn boot() -> Result<Settings, String>

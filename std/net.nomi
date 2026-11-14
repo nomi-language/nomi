@@ -155,7 +155,7 @@ end
 /// How `dial` connects.
 pub struct DialOptions
     /// The longest connecting may take; the context's deadline applies too.
-    timeout: Maybe<Duration> = None
+    timeout:    Maybe<Duration> = None
     keep_alive: KeepAlive = KeepAlive{}
     /// The local address to connect from, `host:port`.
     local_address: Maybe<String> = None
@@ -170,7 +170,7 @@ end
 pub struct ListenOptions
     /// Keep-alive for the connections it accepts.
     keep_alive: KeepAlive = KeepAlive{}
-    multipath: Bool = False
+    multipath:  Bool = False
 end
 
 /// Why a connection could not be made or used.
@@ -230,7 +230,7 @@ impl Error
                     Error.Dns{
                         host:,
                         reason:,
-                        server: if server == "" then None else Some(server),
+                        server:    if server == "" then None else Some(server),
                         not_found: not_found == "true",
                     }
                 end
@@ -252,7 +252,7 @@ impl Error
     pub fn is_timeout(error: Error) -> Bool
         case error
             .Timeout{address: _} -> True
-            _ -> False
+            _                    -> False
         end
     end
 end
@@ -312,7 +312,7 @@ end
 pub fn pipe() -> (Connection, Connection)
     case http_host.pipe()
         [a, b] -> (Connection{handle: a}, Connection{handle: b})
-        _ -> todo
+        _      -> todo
     end
 end
 
@@ -323,7 +323,7 @@ end
 pub fn split_host_port(address: String) -> Result<(String, String), Error>
     case (http_host.split_host_port(address) |> Result.map_err(Error.from_parts)?)
         [host, port] -> Ok((host, port))
-        _ -> Err(Error.InvalidAddress{address:, reason: "no host and port"})
+        _            -> Err(Error.InvalidAddress{address:, reason: "no host and port"})
     end
 end
 
@@ -337,16 +337,16 @@ end
 
 /// A mail exchanger a domain names.
 pub struct Mx
-    host: String
+    host:       String
     preference: Int
 end
 
 /// A service location a domain names.
 pub struct Srv
-    target: String
-    port: Int
+    target:   String
+    port:     Int
     priority: Int
-    weight: Int
+    weight:   Int
 end
 
 fn lookup(kind: String, name: String) -> Result<List<String>, Error>
@@ -379,7 +379,7 @@ end
 pub fn lookup_cname(host: String) -> Result<String, Error>
     case lookup("cname", host)?
         [name] -> Ok(name)
-        _ -> Ok("")
+        _      -> Ok("")
     end
 end
 
@@ -411,20 +411,20 @@ end
 pub fn lookup_port(service: String) -> Result<Int, Error>
     case lookup("port", service)?
         [port] -> Ok(int(port))
-        _ -> Ok(0)
+        _      -> Ok(0)
     end
 end
 
 /// The SRV records for `_service._protocol.domain`, with the canonical
 /// name they were found under.
 pub fn lookup_srv(
-    service: String,
+    service:  String,
     protocol: String,
-    domain: String,
+    domain:   String,
 ) -> Result<(String, List<Srv>), Error>
     case lookup("srv", "${service} ${protocol} ${domain}")?
         [cname, ..rest] -> Ok((cname, srv_records(rest)))
-        [] -> Ok(("", []))
+        []              -> Ok(("", []))
     end
 end
 
@@ -433,9 +433,9 @@ fn srv_records(parts: List<String>) -> List<Srv>
         [target, port, priority, weight, ..rest] ->
             [Srv{
                 target:,
-                port: int(port),
+                port:     int(port),
                 priority: int(priority),
-                weight: int(weight),
+                weight:   int(weight),
             }, ..srv_records(rest)]
 
         _ ->

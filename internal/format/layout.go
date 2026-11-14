@@ -34,7 +34,7 @@ func textWidth(s string) int {
 func Render(d Doc, width int) string {
 	var out renderOut
 	render(&out, d, 0, 0, noFlatGroup, nil, width, false)
-	return out.String()
+	return alignLines(out.String(), width)
 }
 
 // noFlatGroup is the sentinel for "no enclosing flat Group has set a
@@ -63,6 +63,18 @@ type renderOut struct {
 	ownLineOpener bool
 	// inString counts the InString documents being rendered.
 	inString int
+	// marks holds the alignment marks (align.go) waiting for the next
+	// content written, so a mark sits with the text after it: never in a
+	// line's indentation or among the spaces trim drops.
+	marks []string
+}
+
+// flushMarks writes the waiting alignment marks.
+func (o *renderOut) flushMarks() {
+	for _, m := range o.marks {
+		o.buf.WriteString(m)
+	}
+	o.marks = nil
 }
 
 func (o *renderOut) WriteString(s string) { o.buf.WriteString(s) }
@@ -70,6 +82,7 @@ func (o *renderOut) WriteString(s string) { o.buf.WriteString(s) }
 func (o *renderOut) WriteByte(c byte) error {
 	if c == '\n' {
 		o.trim()
+		o.flushMarks()
 		o.lineComment = false
 	}
 	return o.buf.WriteByte(c)
@@ -79,11 +92,15 @@ func (o *renderOut) WriteByte(c byte) error {
 func (o *renderOut) text(s string) {
 	if strings.TrimLeft(s, " ") != "" {
 		o.placeOwnLine(s)
+		o.flushMarks()
 	}
 	if strings.HasPrefix(strings.TrimLeft(s, " "), "//") {
+		if o.inString == 0 && !o.atLineStart() {
+			o.buf.WriteString(commentMark)
+		}
 		o.lineComment = true
 	}
-	o.buf.WriteString(s)
+	o.buf.WriteString(escapeMarks(s))
 }
 
 // lineBreak writes a line break and indent spaces, first writing the
@@ -135,8 +152,10 @@ func (o *renderOut) flushSuffix() {
 			o.ownLine = append(o.ownLine, c.text)
 			continue
 		}
+		o.flushMarks()
+		o.buf.WriteString(commentMark)
 		o.buf.WriteByte(' ')
-		o.buf.WriteString(c.text)
+		o.buf.WriteString(escapeMarks(c.text))
 		o.lineComment = true
 	}
 	o.suffix = nil
@@ -164,7 +183,7 @@ func (o *renderOut) endsInEquals() bool {
 func (o *renderOut) insertAboveLine(comment string) {
 	b := o.buf.Bytes()
 	start := bytes.LastIndexByte(b, '\n') + 1
-	line := strings.Repeat(" ", o.lineIndent()) + comment + "\n"
+	line := strings.Repeat(" ", o.lineIndent()) + escapeMarks(comment) + "\n"
 	rest := string(b[start:])
 	o.buf.Truncate(start)
 	o.buf.WriteString(line)
@@ -192,7 +211,7 @@ func (o *renderOut) placeOwnLine(s string) {
 	o.trim()
 	for _, c := range o.ownLine {
 		o.buf.WriteString(strings.Repeat(" ", at))
-		o.buf.WriteString(c)
+		o.buf.WriteString(escapeMarks(c))
 		o.buf.WriteByte('\n')
 	}
 	o.buf.WriteString(strings.Repeat(" ", indent))
@@ -244,7 +263,8 @@ func (o *renderOut) endsInOpener() bool {
 
 // verbatim writes s and keeps its trailing spaces.
 func (o *renderOut) verbatim(s string) {
-	o.buf.WriteString(s)
+	o.flushMarks()
+	o.buf.WriteString(escapeMarks(s))
 	o.kept = o.buf.Len()
 }
 
@@ -269,7 +289,7 @@ func (o *renderOut) String() string {
 				o.buf.WriteByte('\n')
 			}
 			o.buf.WriteString(strings.Repeat(" ", o.ownLineIndent))
-			o.buf.WriteString(c)
+			o.buf.WriteString(escapeMarks(c))
 			if afterBreak {
 				o.buf.WriteByte('\n')
 			}
@@ -277,6 +297,7 @@ func (o *renderOut) String() string {
 		o.ownLine = nil
 	}
 	o.trim()
+	o.flushMarks()
 	return o.buf.String()
 }
 
@@ -330,6 +351,9 @@ func render(sb *renderOut, d Doc, col, indent, localBase int, tail Doc, width in
 			return col
 		}
 		sb.suffix = append(sb.suffix, pendingComment{text: v.s, indent: indent})
+		return col
+	case docMark:
+		sb.marks = append(sb.marks, v.s)
 		return col
 	case docInString:
 		sb.inString++
@@ -529,8 +553,9 @@ func fitsWalk(d Doc, rem *int, inTail bool) bool {
 	case docHidden:
 		// Hide from ancestor fits: claim to fit, contribute 0 width.
 		return true
-	case docLineSuffix:
-		// A comment, like a Hidden trailing one, does not count.
+	case docLineSuffix, docMark:
+		// A comment, like a Hidden trailing one, does not count, and a
+		// mark takes no column.
 		return true
 	case docInString:
 		return fitsWalk(v.d, rem, inTail)

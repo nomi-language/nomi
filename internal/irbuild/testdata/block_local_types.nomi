@@ -53,9 +53,9 @@ fn colored() -> String
     end
 
     case pick()
-        Color.Red -> "red"
+        Color.Red   -> "red"
         Color.Green -> "green"
-        Color.Blue -> "blue"
+        Color.Blue  -> "blue"
     end
 end
 

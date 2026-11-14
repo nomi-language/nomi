@@ -74,7 +74,7 @@ test "comments are accepted around declarations and expressions"
 
     // Map literal trailing comments attach to the map literal.
     m = {
-        "first" => 1,
+        "first"  => 1,
         "second" => 2,
         // Trailing comment inside map literal body.
     }

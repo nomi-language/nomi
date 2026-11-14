@@ -47,11 +47,11 @@ end
 test "every Value reads back as the Value it was written as"
     db = values_db()?
     defer sql.close_quietly(db)
-    day = Date`2026-10-19`
-    at = Time`12:30:05`
-    ts = NaiveDateTime`2026-10-19T12:30:05`
+    day = Date"2026-10-19"
+    at = Time"12:30:05"
+    ts = NaiveDateTime"2026-10-19T12:30:05"
     tz = Instant.from_seconds(1_760_000_000)
-    id = Uuid`0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10`
+    id = Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
     j = Json.decode("{\"a\":[1,2]}")?
     bytes = String.to_bytes("hi")
 
@@ -243,7 +243,7 @@ end
 fn constraint(result: Result<Int, sql.Error>) -> Maybe<sql.Error>
     case result
         Err(e) -> Some(e)
-        Ok(_) -> None
+        Ok(_)  -> None
     end
 end
 
@@ -254,9 +254,9 @@ test "a UNIQUE column's violation has Postgres's name for it, and names the tabl
 
     assert e == Some(
         sql.Error.Constraint{
-            kind: ConstraintKind.Unique,
-            name: "users_email_key",
-            table: Some("users"),
+            kind:   ConstraintKind.Unique,
+            name:   "users_email_key",
+            table:  Some("users"),
             column: Some("email"),
         }
     )
@@ -272,9 +272,9 @@ test "a unique index's violation names the index"
 
     assert e == Some(
         sql.Error.Constraint{
-            kind: ConstraintKind.Unique,
-            name: "users_handle_key",
-            table: Some("users"),
+            kind:   ConstraintKind.Unique,
+            name:   "users_handle_key",
+            table:  Some("users"),
             column: Some("handle"),
         }
     )
@@ -287,9 +287,9 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors"
 
     assert constraint(Conn.exec(db, Sql"INSERT INTO users (email) VALUES (${nothing})")) == Some(
         sql.Error.Constraint{
-            kind: ConstraintKind.NotNull,
-            name: "users_email_not_null",
-            table: Some("users"),
+            kind:   ConstraintKind.NotNull,
+            name:   "users_email_not_null",
+            table:  Some("users"),
             column: Some("email"),
         }
     )
@@ -298,18 +298,18 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors"
         Conn.exec(db, Sql"INSERT INTO users (email, age) VALUES ('c@example.com', 0)")
     ) == Some(
         sql.Error.Constraint{
-            kind: ConstraintKind.Check,
-            name: "age_positive",
-            table: Some("users"),
+            kind:   ConstraintKind.Check,
+            name:   "age_positive",
+            table:  Some("users"),
             column: Some("age"),
         }
     )
 
     assert constraint(Conn.exec(db, Sql"INSERT INTO orders (user_id) VALUES (99)")) == Some(
         sql.Error.Constraint{
-            kind: ConstraintKind.ForeignKey,
-            name: "orders_user_id_fkey",
-            table: Some("orders"),
+            kind:   ConstraintKind.ForeignKey,
+            name:   "orders_user_id_fkey",
+            table:  Some("orders"),
             column: Some("user_id"),
         }
     )
@@ -318,9 +318,9 @@ test "NOT NULL, CHECK and foreign key violations are constraint errors"
         Conn.exec(db, Sql"INSERT INTO users (id, email) VALUES (1, 'd@example.com')")
     ) == Some(
         sql.Error.Constraint{
-            kind: ConstraintKind.Unique,
-            name: "users_pkey",
-            table: Some("users"),
+            kind:   ConstraintKind.Unique,
+            name:   "users_pkey",
+            table:  Some("users"),
             column: Some("id"),
         }
     )
@@ -415,7 +415,7 @@ test "an Array parameter is refused, since SQLite has no arrays"
 
     assert Conn.query(db, Sql"SELECT 1 WHERE 1 IN (${[1, 2]})") == Err(
         sql.Error.Database{
-            code: "SQLITE_MISMATCH",
+            code:    "SQLITE_MISMATCH",
             message: "parameter ?1 is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
         }
     )

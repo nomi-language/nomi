@@ -15,8 +15,9 @@ import
     summable.Summable
 end
 
-/// Immutable collection of unique `T` values. `a + b` is the union and `a - b`
-/// the difference; a single element is `s + [x]`.
+/// Immutable collection of unique `T` values. `Set.insert(s, x)` adds one
+/// element. `a + b` (`Set.union`, which `Set.add` names as `Add`'s function)
+/// is the union of two sets, and `a - b` the difference.
 pub opaque struct Set<T>
     items: Map<T, Bool>
 end

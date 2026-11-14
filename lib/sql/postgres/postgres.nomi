@@ -36,10 +36,10 @@ opaque type Handle go goside.Session
 
 // An array element as it crosses to Go: a Cell with no items.
 struct Item
-    kind: Int
-    int: Int
+    kind:  Int
+    int:   Int
     float: Float
-    text: String
+    text:  String
     bytes: Bytes
 end
 
@@ -48,10 +48,10 @@ end
 // 8 a time's and 9 a timestamp's ISO text, 10 an instant's Unix
 // nanoseconds, 11 a uuid's and 12 JSON's text, 13 an array of items.
 struct Cell
-    kind: Int
-    int: Int
+    kind:  Int
+    int:   Int
     float: Float
-    text: String
+    text:  String
     bytes: Bytes
     items: List<Item>
 end
@@ -60,25 +60,25 @@ end
 // 3 database, 4 finished, 5 closed, 6 the task's context ended,
 // 7 serialization.
 struct Failure
-    kind: Int
-    code: String
-    message: String
+    kind:       Int
+    code:       String
+    message:    String
     constraint: Int
-    name: String
-    table: String
-    column: String
+    name:       String
+    table:      String
+    column:     String
 end
 
 struct Answer
     columns: List<String>
-    rows: List<List<Cell>>
+    rows:    List<List<Cell>>
     changed: Int
     failure: Failure
 end
 
 struct RawRow
     columns: List<String>
-    cells: List<Cell>
+    cells:   List<Cell>
 end
 
 fn connect_raw(url: String) -> Result<Handle, String> go goside.Connect
@@ -92,10 +92,10 @@ fn run_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer go gosi
 fn exec_raw(h: Handle, parts: List<String>, params: List<Cell>) -> Answer go goside.Exec
 
 fn each_row_raw(
-    h: Handle,
-    parts: List<String>,
+    h:      Handle,
+    parts:  List<String>,
     params: List<Cell>,
-    f: (RawRow) -> Bool,
+    f:      (RawRow) -> Bool,
 ) -> Failure go goside.EachRow
 
 fn begin_raw(h: Handle) -> (Handle, Failure) go goside.Begin
@@ -156,7 +156,7 @@ end
 /// one connection.
 pub fn connect(url: String) -> Result<Conn, sql.Error>
     case connect_raw(url)
-        Ok(handle) -> Ok(PgConn{handle:})
+        Ok(handle)   -> Ok(PgConn{handle:})
         Err(message) -> Err(sql.Error.Connection{message:})
     end
 end
@@ -192,7 +192,7 @@ derive Equatable for Notification
 /// the listener's next `wait`, in the order they were sent.
 pub fn listen(url: String, channel: String) -> Result<Listener, sql.Error>
     case listen_raw(url, channel)
-        Ok(handle) -> Ok(Listener{handle:})
+        Ok(handle)   -> Ok(Listener{handle:})
         Err(message) -> Err(sql.Error.Connection{message:})
     end
 end
@@ -219,9 +219,9 @@ impl Listener
     /// channel holds up to `capacity` notifications the reader has not
     /// taken yet. Call it once per listener.
     pub fn receiver(
-        listener: Listener,
+        listener:   Listener,
         supervisor: Supervisor,
-        capacity: Int = 16,
+        capacity:   Int = 16,
     ) -> Receiver<Result<Notification, sql.Error>>
         channel = Channel.buffered<Result<Notification, sql.Error>>(capacity)
         _ = Supervisor.spawn(supervisor, fn -> Listener.forward(listener, channel.sender))
@@ -271,8 +271,8 @@ once forward_recheck = Duration.milliseconds(200)
 // listener was closed while the channel stays full. False when it was.
 fn deliver(
     listener: Listener,
-    sender: Sender<Result<Notification, sql.Error>>,
-    value: Result<Notification, sql.Error>,
+    sender:   Sender<Result<Notification, sql.Error>>,
+    value:    Result<Notification, sql.Error>,
 ) -> Bool
     sent = Channel.select([
         Arm.send(sender, value, fn _ -> Some(True)),
@@ -377,8 +377,8 @@ fn constraint_error(failure: Failure) -> sql.Error
 
     sql.Error.Constraint{
         kind:,
-        name: failure.name,
-        table: present(failure.table),
+        name:   failure.name,
+        table:  present(failure.table),
         column: present(failure.column),
     }
 end
@@ -459,7 +459,7 @@ end
 /// as items, and an array of arrays is refused.
 fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
     nested = sql.Error.Database{
-        code: "22000",
+        code:    "22000",
         message: "parameter $${position} is an Array of Arrays, and only one-dimensional arrays cross",
     }
 
@@ -479,10 +479,10 @@ fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
 
             Ok(
                 Cell{
-                    kind: it.kind,
-                    int: it.int,
+                    kind:  it.kind,
+                    int:   it.int,
                     float: it.float,
-                    text: it.text,
+                    text:  it.text,
                     bytes: it.bytes,
                     items: [],
                 }
@@ -522,19 +522,19 @@ end
 /// to, the value would read as that text.
 fn scalar(kind: Int, int: Int, float: Float, text: String, bytes: Bytes) -> Value
     parsed = case kind
-        1 -> Some(Value.Int(int))
-        2 -> Some(Value.Float(float))
-        3 -> Some(Value.Text(text))
-        4 -> Some(Value.Bytes(bytes))
-        5 -> String.to_decimal(text) |> Maybe.map(Value.Decimal)
-        6 -> Some(Value.Bool(int != 0))
-        7 -> Date.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Date)
-        8 -> Time.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Time)
-        9 -> NaiveDateTime.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
+        1  -> Some(Value.Int(int))
+        2  -> Some(Value.Float(float))
+        3  -> Some(Value.Text(text))
+        4  -> Some(Value.Bytes(bytes))
+        5  -> String.to_decimal(text) |> Maybe.map(Value.Decimal)
+        6  -> Some(Value.Bool(int != 0))
+        7  -> Date.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Date)
+        8  -> Time.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Time)
+        9  -> NaiveDateTime.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
         10 -> Some(Value.Timestamptz(Instant.from_nanos(int)))
         11 -> Uuid.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
         12 -> Json.decode(text) |> Result.to_maybe() |> Maybe.map(Value.Json)
-        _ -> Some(Value.Null)
+        _  -> Some(Value.Null)
     end
 
     Maybe.with_default(parsed, Value.Text(text))

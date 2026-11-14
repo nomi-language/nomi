@@ -12,7 +12,7 @@ pub struct Half<T>
 end
 
 pub struct Chan<T>
-    sender: Half<T>
+    sender:   Half<T>
     receiver: Half<T>
 end
 
@@ -44,7 +44,7 @@ test "a nested instantiation keeps its own type argument through an inferred scr
 
             case recv(out)
                 Some(v) -> v
-                None -> 0
+                None    -> 0
             end
 
         Some(Request.Stop) ->

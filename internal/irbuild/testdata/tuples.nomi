@@ -64,7 +64,7 @@ fn classify(point: (Int, Int)) -> String
         (0, 0) -> "origin"
         (0, _) -> "y-axis"
         (_, 0) -> "x-axis"
-        _ -> "other"
+        _      -> "other"
     end
 end
 
@@ -72,6 +72,6 @@ end
 fn first_of(pairs: List<(Int, String)>) -> String
     case pairs
         [(n, name), ..rest] -> "${name}=${n} then ${rest}"
-        [] -> "none"
+        []                  -> "none"
     end
 end

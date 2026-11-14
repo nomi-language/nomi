@@ -19,7 +19,7 @@ end
 
 fn describe(kind: db::schema.Kind) -> String
     case kind
-        db::schema.Kind.Draft -> "draft"
+        db::schema.Kind.Draft        -> "draft"
         db::schema.Kind.Published(n) -> "published ${n}"
     end
 end

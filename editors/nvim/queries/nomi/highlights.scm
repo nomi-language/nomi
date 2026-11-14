@@ -68,11 +68,11 @@
 "break" @keyword.repeat
 (continue_statement) @keyword.repeat
 "return" @keyword.return
-"and" @keyword.operator
-"or" @keyword.operator
-"not" @keyword.operator
-"is" @keyword.operator
-"in" @keyword.operator
+"and" @keyword
+"or" @keyword
+"not" @keyword
+"is" @keyword
+"in" @keyword
 (pub) @keyword.modifier
 (export) @keyword
 "opaque" @keyword.modifier

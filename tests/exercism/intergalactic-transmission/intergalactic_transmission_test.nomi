@@ -2,7 +2,7 @@ import intergalactic_transmission.{receive, transmit}
 
 test "calculate transmit sequences"
     [
-        ("empty message", [], []),
+        ("empty message",                 [],     []),
         ("0x00 is transmitted as 0x0000", [0x00], [0x00, 0x00]),
         ("0x02 is transmitted as 0x0300", [0x02], [0x03, 0x00]),
         ("0x06 is transmitted as 0x0600", [0x06], [0x06, 0x00]),
@@ -47,14 +47,14 @@ end
 
 test "decode received messages"
     [
-        ("empty message", [], Ok([])),
-        ("zero message", [0x00, 0x00], Ok([0x00])),
-        ("0x0300 is decoded to 0x02", [0x03, 0x00], Ok([0x02])),
-        ("0x0581 is decoded to 0x05", [0x05, 0x81], Ok([0x05])),
-        ("0x2881 is decoded to 0x29", [0x28, 0x81], Ok([0x29])),
-        ("first byte has wrong parity", [0x07, 0x00], Err("wrong parity")),
-        ("second byte has wrong parity", [0x03, 0x68], Err("wrong parity")),
-        ("0xcf4b00 is decoded to 0xce94", [0xCF, 0x4B, 0x00], Ok([0xCE, 0x94])),
+        ("empty message",                     [],                       Ok([])),
+        ("zero message",                      [0x00, 0x00],             Ok([0x00])),
+        ("0x0300 is decoded to 0x02",         [0x03, 0x00],             Ok([0x02])),
+        ("0x0581 is decoded to 0x05",         [0x05, 0x81],             Ok([0x05])),
+        ("0x2881 is decoded to 0x29",         [0x28, 0x81],             Ok([0x29])),
+        ("first byte has wrong parity",       [0x07, 0x00],             Err("wrong parity")),
+        ("second byte has wrong parity",      [0x03, 0x68],             Err("wrong parity")),
+        ("0xcf4b00 is decoded to 0xce94",     [0xCF, 0x4B, 0x00],       Ok([0xCE, 0x94])),
         ("0xe2566500 is decoded to 0xe2ad90", [0xE2, 0x56, 0x65, 0x00], Ok([0xE2, 0xAD, 0x90])),
         (
             "six byte message",

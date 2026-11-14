@@ -1,0 +1,734 @@
+//# Are We Fast Yet: Havlak.
+//#
+//# Havlak's loop recognition algorithm over a generated control-flow graph
+//# of 5,213 basic blocks: build the graph, find its loops once per inner
+//# iteration (the dummy loops) and 51 times more, then compute the loop
+//# nesting levels. The result is the number of loops found and the number of
+//# blocks.
+//#
+//# Departures from the guidelines, all from Nomi having no mutable objects:
+//#
+//# - The suite's objects point at each other and are changed in place. Here
+//#   a basic block is its name, an index into the graph's
+//#   `Vector<BasicBlock>`; a loop is its counter, an index into the loop
+//#   structure graph's `Vector<SimpleLoop>`; and a union-find node is its
+//#   DFS number, an index into the finder's `Vector<UnionFindNode>`. Each
+//#   method that changes an object returns the value holding it (the graph,
+//#   the loop structure graph or the finder), and the caller threads it on.
+//# - `BasicBlockEdge` is a struct of two block names, and the constructor
+//#   that links them is `ControlFlowGraph.add_edge`.
+//# - The finder's fixed-size arrays (`header`, `type`, `last`, `nodes`) are
+//#   vectors sized once per `find_loops` and updated with `Vector.set`, which
+//#   returns a new vector.
+//# - The suite's `Set` of non-back predecessors and the identity sets of a
+//#   loop's blocks and children are `Set<Int>`, which iterates in hash order
+//#   rather than insertion order. The results do not depend on the order.
+//# - The work list drops its first element by moving a cursor along the
+//#   vector rather than by `removeFirst`, and `findSet`'s list of nodes to
+//#   compress is a `List` built newest first; the nodes all get the same new
+//#   parent, so the order does not matter.
+//# - A loop's `setCounter` is its construction, since the counter is its
+//#   index.
+
+import harness
+
+once unvisited = 2147483647
+
+once max_non_back_preds = 32 * 1024
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+enum BlockType
+    NonHeader
+    Reducible
+    SelfLoop
+    Irreducible
+    Dead
+end
+
+derive Equatable for BlockType
+
+struct BasicBlock
+    name:      Int
+    in_edges:  Vector<Int> = []
+    out_edges: Vector<Int> = []
+end
+
+impl BasicBlock
+    fn num_pred(bb: BasicBlock) -> Int
+        Vector.length(bb.in_edges)
+    end
+
+    fn add_out_edge(bb: BasicBlock, to: Int) -> BasicBlock
+        {..bb, out_edges: Vector.push(.., to)}
+    end
+
+    fn add_in_edge(bb: BasicBlock, from: Int) -> BasicBlock
+        {..bb, in_edges: Vector.push(.., from)}
+    end
+end
+
+struct BasicBlockEdge
+    from: Int
+    to:   Int
+end
+
+struct ControlFlowGraph
+    start_node:      Maybe<Int> = None
+    basic_block_map: Vector<BasicBlock> = []
+    edge_list:       Vector<BasicBlockEdge> = []
+end
+
+impl ControlFlowGraph
+    /// Adds the block named `name` unless it is there. Blocks are created in
+    /// name order, so a new block's name is its index.
+    fn create_node(cfg: ControlFlowGraph, name: Int) -> ControlFlowGraph
+        cfg = if name < ControlFlowGraph.num_nodes(cfg) then
+            cfg
+        else
+            {..cfg, basic_block_map: Vector.push(.., BasicBlock{name:})}
+        end
+
+        if ControlFlowGraph.num_nodes(cfg) == 1 then {..cfg, start_node: Some(name)} else cfg
+    end
+
+    /// The suite's `BasicBlockEdge` constructor: creates both blocks, links
+    /// them and records the edge.
+    fn add_edge(cfg: ControlFlowGraph, from: Int, to: Int) -> ControlFlowGraph
+        cfg = cfg |> ControlFlowGraph.create_node(from) |> ControlFlowGraph.create_node(to)
+        blocks = cfg.basic_block_map
+        blocks = Vector.set(blocks, from, BasicBlock.add_out_edge(Vector.get(blocks, from)!, to))
+        blocks = Vector.set(blocks, to, BasicBlock.add_in_edge(Vector.get(blocks, to)!, from))
+        {..cfg, basic_block_map: blocks, edge_list: Vector.push(.., BasicBlockEdge{from:, to:})}
+    end
+
+    fn num_nodes(cfg: ControlFlowGraph) -> Int
+        Vector.length(cfg.basic_block_map)
+    end
+
+    fn block(cfg: ControlFlowGraph, name: Int) -> BasicBlock
+        Vector.get(cfg.basic_block_map, name)!
+    end
+end
+
+struct SimpleLoop
+    counter:       Int
+    is_reducible:  Bool
+    parent:        Maybe<Int> = None
+    is_root:       Bool = False
+    nesting_level: Int = 0
+    depth_level:   Int = 0
+    basic_blocks:  Set<Int> = []
+    children:      Set<Int> = []
+    header:        Maybe<Int>
+end
+
+impl SimpleLoop
+    fn new(bb: Maybe<Int>, is_reducible: Bool, counter: Int) -> SimpleLoop
+        basic_blocks: Set<Int> = case bb
+            Some(b) -> [b]
+            None    -> []
+        end
+
+        SimpleLoop{counter:, is_reducible:, basic_blocks:, header: bb}
+    end
+
+    fn add_node(loop: SimpleLoop, bb: Int) -> SimpleLoop
+        {..loop, basic_blocks: Set.insert(.., bb)}
+    end
+
+    fn add_child_loop(loop: SimpleLoop, child: Int) -> SimpleLoop
+        {..loop, children: Set.insert(.., child)}
+    end
+
+    fn set_nesting_level(loop: SimpleLoop, level: Int) -> SimpleLoop
+        {..loop, nesting_level: level, is_root: .. or level == 0}
+    end
+end
+
+struct LoopStructureGraph
+    loop_counter: Int
+    loops:        Vector<SimpleLoop>
+    root:         Int
+end
+
+impl LoopStructureGraph
+    fn new() -> LoopStructureGraph
+        root = SimpleLoop.new(None, True, 0) |> SimpleLoop.set_nesting_level(0)
+        LoopStructureGraph{loop_counter: 1, loops: [root], root: 0}
+    end
+
+    fn create_new_loop(
+        lsg:          LoopStructureGraph,
+        bb:           Int,
+        is_reducible: Bool,
+    ) -> (LoopStructureGraph, Int)
+        loop = SimpleLoop.new(Some(bb), is_reducible, lsg.loop_counter)
+        ({..lsg, loop_counter: .. + 1, loops: Vector.push(.., loop)}, loop.counter)
+    end
+
+    fn get(lsg: LoopStructureGraph, loop: Int) -> SimpleLoop
+        Vector.get(lsg.loops, loop)!
+    end
+
+    fn update(
+        lsg:  LoopStructureGraph,
+        loop: Int,
+        f:    (SimpleLoop) -> SimpleLoop,
+    ) -> LoopStructureGraph
+        {..lsg, loops: Vector.set(.., loop, f(LoopStructureGraph.get(lsg, loop)))}
+    end
+
+    /// The suite's `SimpleLoop.setParent`: sets `loop`'s parent and adds it
+    /// to the parent's children.
+    fn set_parent(lsg: LoopStructureGraph, loop: Int, parent: Int) -> LoopStructureGraph
+        lsg
+        |> LoopStructureGraph.update(loop, fn l -> {..l, parent: Some(parent)})
+        |> LoopStructureGraph.update(parent, &SimpleLoop.add_child_loop(&1, loop))
+    end
+
+    fn calculate_nesting_level(lsg: LoopStructureGraph) -> LoopStructureGraph
+        // link up all 1st level loops to artificial root node.
+        lsg =
+            0..LoopStructureGraph.num_loops(lsg)
+            |> Iter.reduce(lsg, fn lsg, id ->
+                loop = LoopStructureGraph.get(lsg, id)
+
+                if not loop.is_root and loop.parent == None then
+                    LoopStructureGraph.set_parent(lsg, id, lsg.root)
+                else
+                    lsg
+                end
+            end)
+
+        // recursively traverse the tree and assign levels.
+        LoopStructureGraph.calculate_nesting_level_rec(lsg, lsg.root, 0)
+    end
+
+    fn calculate_nesting_level_rec(
+        lsg:   LoopStructureGraph,
+        loop:  Int,
+        depth: Int,
+    ) -> LoopStructureGraph
+        lsg = LoopStructureGraph.update(lsg, loop, fn l -> {..l, depth_level: depth})
+
+        LoopStructureGraph.get(lsg, loop).children
+        |> Iter.reduce(lsg, fn lsg, child ->
+            lsg = LoopStructureGraph.calculate_nesting_level_rec(lsg, child, depth + 1)
+            child_level = LoopStructureGraph.get(lsg, child).nesting_level
+
+            LoopStructureGraph.update(lsg, loop, fn l ->
+                SimpleLoop.set_nesting_level(l, Int.max(l.nesting_level, 1 + child_level))
+            end)
+        end)
+    end
+
+    fn num_loops(lsg: LoopStructureGraph) -> Int
+        Vector.length(lsg.loops)
+    end
+end
+
+/// A union-find node, held at its index in the finder's `nodes`. `parent` is
+/// another node's index; a node not yet initialized is its own parent, with
+/// no block.
+struct UnionFindNode
+    parent:     Int
+    bb:         Maybe<Int> = None
+    dfs_number: Int = 0
+    loop:       Maybe<Int> = None
+end
+
+impl UnionFindNode
+    fn init_node(bb: Int, dfs_number: Int) -> UnionFindNode
+        UnionFindNode{parent: dfs_number, bb: Some(bb), dfs_number:}
+    end
+
+    /// Union/Find Algorithm - The find routine, with path compression: every
+    /// node passed on the way whose parent is not the root is pointed at the
+    /// starting node's parent, as the suite does.
+    fn find_set(nodes: Vector<UnionFindNode>, start: Int) -> (Vector<UnionFindNode>, Int)
+        target = Vector.get(nodes, start)!.parent
+        (root, node_list) = UnionFindNode.walk(nodes, start, [])
+        (Iter.reduce(node_list, nodes, &UnionFindNode.union(&1, &2, target)), root)
+    end
+
+    /// The root above `node`, and the nodes to compress, newest first.
+    fn walk(nodes: Vector<UnionFindNode>, node: Int, node_list: List<Int>) -> (Int, List<Int>)
+        parent = Vector.get(nodes, node)!.parent
+
+        if node == parent then
+            (node, node_list)
+        else
+            grandparent = Vector.get(nodes, parent)!.parent
+            node_list = if parent != grandparent then [node, ..node_list] else node_list
+            UnionFindNode.walk(nodes, parent, node_list)
+        end
+    end
+
+    /// Union/Find Algorithm - The union routine: points `node` at `parent`.
+    fn union(nodes: Vector<UnionFindNode>, node: Int, parent: Int) -> Vector<UnionFindNode>
+        Vector.set(nodes, node, {..Vector.get(nodes, node)!, parent:})
+    end
+end
+
+struct HavlakLoopFinder
+    cfg:            ControlFlowGraph
+    lsg:            LoopStructureGraph
+    non_back_preds: Vector<Set<Int>> = []
+    back_preds:     Vector<Vector<Int>> = []
+    number:         Map<Int, Int> = {}
+    header:         Vector<Int> = []
+    block_type:     Vector<BlockType> = []
+    last:           Vector<Int> = []
+    nodes:          Vector<UnionFindNode> = []
+end
+
+impl HavlakLoopFinder
+    /// Whether `w` is a true ancestor of `v` in the depth-first spanning tree.
+    fn is_ancestor(f: HavlakLoopFinder, w: Int, v: Int) -> Bool
+        w <= v and v <= Vector.get(f.last, w)!
+    end
+
+    fn node(f: HavlakLoopFinder, i: Int) -> UnionFindNode
+        Vector.get(f.nodes, i)!
+    end
+
+    fn set_type(f: HavlakLoopFinder, w: Int, t: BlockType) -> HavlakLoopFinder
+        {..f, block_type: Vector.set(.., w, t)}
+    end
+
+    /// Depth-first search along out edges, numbering the nodes.
+    fn do_dfs(f: HavlakLoopFinder, current_node: Int, current: Int) -> (HavlakLoopFinder, Int)
+        f = {
+            ..f,
+            nodes:  Vector.set(.., current, UnionFindNode.init_node(current_node, current)),
+            number: Map.put(.., current_node, current),
+        }
+
+        (f, last_id) =
+            ControlFlowGraph.block(f.cfg, current_node).out_edges
+            |> Iter.reduce((f, current), fn (f, last_id), target ->
+                if Map.get(f.number, target)! == unvisited then
+                    HavlakLoopFinder.do_dfs(f, target, last_id + 1)
+                else
+                    (f, last_id)
+                end
+            end)
+
+        ({..f, last: Vector.set(.., current, last_id)}, last_id)
+    end
+
+    fn init_all_nodes(f: HavlakLoopFinder, start: Int) -> HavlakLoopFinder
+        number = Iter.reduce(f.cfg.basic_block_map, f.number, fn number, bb ->
+            Map.put(number, bb.name, unvisited)
+        end)
+
+        (f, _) = HavlakLoopFinder.do_dfs({..f, number:}, start, 0)
+        f
+    end
+
+    fn identify_edges(f: HavlakLoopFinder, size: Int) -> HavlakLoopFinder
+        Iter.reduce(0..size, f, fn f, w ->
+            f = {..f, header: Vector.set(.., w, 0)} |> HavlakLoopFinder.set_type(w, .NonHeader)
+
+            case HavlakLoopFinder.node(f, w).bb
+                None         -> HavlakLoopFinder.set_type(f, w, .Dead)
+                Some(node_w) -> HavlakLoopFinder.process_edges(f, node_w, w)
+            end
+        end)
+    end
+
+    fn process_edges(f: HavlakLoopFinder, node_w: Int, w: Int) -> HavlakLoopFinder
+        bb = ControlFlowGraph.block(f.cfg, node_w)
+
+        if BasicBlock.num_pred(bb) > 0 then
+            Iter.reduce(bb.in_edges, f, fn f, node_v ->
+                v = Map.get(f.number, node_v)!
+
+                if v == unvisited then
+                    f
+                else if HavlakLoopFinder.is_ancestor(f, w, v) then
+                    {
+                        ..f,
+                        back_preds: Vector.set(.., w, Vector.push(Vector.get(f.back_preds, w)!, v)),
+                    }
+                else
+                    {
+                        ..f,
+                        non_back_preds: Vector.set(
+                            ..,
+                            w,
+                            Set.insert(Vector.get(f.non_back_preds, w)!, v),
+                        ),
+                    }
+                end
+            end)
+        else
+            f
+        end
+    end
+
+    /// Finds the loops and builds the loop forest in the finder's loop
+    /// structure graph, which it returns.
+    fn find_loops(f: HavlakLoopFinder) -> LoopStructureGraph
+        case f.cfg.start_node
+            None ->
+                f.lsg
+
+            Some(start) ->
+                size = ControlFlowGraph.num_nodes(f.cfg)
+
+                f = {
+                    ..f,
+                    non_back_preds: Iter.to_vector(Iter.map(0..size, fn _ -> [] as Set<Int>)),
+                    back_preds: Iter.to_vector(Iter.map(0..size, fn _ -> [] as Vector<Int>)),
+                    number: {},
+                    header: Iter.to_vector(Iter.map(0..size, fn _ -> 0)),
+                    block_type: Iter.to_vector(Iter.map(0..size, fn _ -> BlockType.NonHeader)),
+                    last: Iter.to_vector(Iter.map(0..size, fn _ -> 0)),
+                    nodes: Iter.to_vector(Iter.map(0..size, fn i -> UnionFindNode{parent: i})),
+                }
+
+                f = HavlakLoopFinder.init_all_nodes(f, start)
+                f = HavlakLoopFinder.identify_edges(f, size)
+
+                // Start node is root of all other loops.
+                f = {..f, header: Vector.set(.., 0, 0)}
+
+                HavlakLoopFinder.step_c(f, size - 1)
+        end
+    end
+
+    /// Step c: the nodes in reverse DFS preorder, so inner loop headers come
+    /// before the headers of the loops around them.
+    fn step_c(f: HavlakLoopFinder, w: Int) -> LoopStructureGraph
+        if w < 0 then
+            f.lsg
+        else
+            (f, finished) = HavlakLoopFinder.find_loop_at(f, w)
+            if finished then HavlakLoopFinder.step_c(f, w - 1) else f.lsg
+        end
+    end
+
+    /// One header's turn in step c; `False` when the algorithm has
+    /// degenerated and `find_loops` stops.
+    fn find_loop_at(f: HavlakLoopFinder, w: Int) -> (HavlakLoopFinder, Bool)
+        case HavlakLoopFinder.node(f, w).bb
+            None ->
+                (f, True)
+
+            Some(node_w) ->
+                // this is 'P' in Havlak's paper
+                (f, node_pool) = HavlakLoopFinder.step_d(f, w, [])
+
+                // Copy nodePool to workList.
+                work_list = node_pool
+
+                f = if Vector.length(node_pool) != 0 then
+                    HavlakLoopFinder.set_type(f, w, .Reducible)
+                else
+                    f
+                end
+
+                (f, node_pool, finished) = HavlakLoopFinder.work(f, w, node_pool, work_list, 0)
+
+                if not finished then
+                    (f, False)
+                else
+                    t = Vector.get(f.block_type, w)!
+
+                    if Vector.length(node_pool) > 0 or t == .SelfLoop then
+                        (lsg, loop) = LoopStructureGraph.create_new_loop(
+                            f.lsg,
+                            node_w,
+                            t != .Irreducible,
+                        )
+
+                        (
+                            HavlakLoopFinder.set_loop_attributes({..f, lsg:}, w, node_pool, loop),
+                            True,
+                        )
+                    else
+                        (f, True)
+                    end
+                end
+        end
+    end
+
+    /// Works the list from `head` on; `False` when a node has more non-back
+    /// predecessors than `max_non_back_preds`.
+    fn work(
+        f:         HavlakLoopFinder,
+        w:         Int,
+        node_pool: Vector<Int>,
+        work_list: Vector<Int>,
+        head:      Int,
+    ) -> (HavlakLoopFinder, Vector<Int>, Bool)
+        if head == Vector.length(work_list) then
+            (f, node_pool, True)
+        else
+            x = Vector.get(work_list, head)!
+
+            non_back_size =
+                Vector.get(f.non_back_preds, HavlakLoopFinder.node(f, x).dfs_number)! |> Set.size()
+
+            if non_back_size > max_non_back_preds then
+                (f, node_pool, False)
+            else
+                (f, node_pool, work_list) = HavlakLoopFinder.step_e_process_non_back_preds(
+                    f,
+                    w,
+                    node_pool,
+                    work_list,
+                    x,
+                )
+
+                HavlakLoopFinder.work(f, w, node_pool, work_list, head + 1)
+            end
+        end
+    end
+
+    /// Step e: chases up from the sources of `w`'s backedges. A node that is
+    /// not a descendant of `w` makes `w` the header of an irreducible loop.
+    fn step_e_process_non_back_preds(
+        f:         HavlakLoopFinder,
+        w:         Int,
+        node_pool: Vector<Int>,
+        work_list: Vector<Int>,
+        x:         Int,
+    ) -> (HavlakLoopFinder, Vector<Int>, Vector<Int>)
+        Vector.get(f.non_back_preds, HavlakLoopFinder.node(f, x).dfs_number)!
+        |> Iter.reduce((f, node_pool, work_list), fn (f, node_pool, work_list), iter ->
+            (nodes, ydash) = UnionFindNode.find_set(f.nodes, iter)
+            f = {..f, nodes:}
+            ydash_dfs = HavlakLoopFinder.node(f, ydash).dfs_number
+
+            if not HavlakLoopFinder.is_ancestor(f, w, ydash_dfs) then
+                f = HavlakLoopFinder.set_type(f, w, .Irreducible)
+
+                f = {
+                    ..f,
+                    non_back_preds: Vector.set(
+                        ..,
+                        w,
+                        Set.insert(Vector.get(f.non_back_preds, w)!, ydash_dfs),
+                    ),
+                }
+
+                (f, node_pool, work_list)
+            else if ydash_dfs != w and not ydash in node_pool then
+                (f, Vector.push(node_pool, ydash), Vector.push(work_list, ydash))
+            else
+                (f, node_pool, work_list)
+            end
+        end)
+    end
+
+    fn set_loop_attributes(
+        f:         HavlakLoopFinder,
+        w:         Int,
+        node_pool: Vector<Int>,
+        loop:      Int,
+    ) -> HavlakLoopFinder
+        f = {..f, nodes: Vector.set(.., w, {..HavlakLoopFinder.node(f, w), loop: Some(loop)})}
+
+        Iter.reduce(node_pool, f, fn f, node ->
+            n = HavlakLoopFinder.node(f, node)
+
+            // Add nodes to loop descriptor.
+            f = {
+                ..f,
+                header: Vector.set(.., n.dfs_number, w),
+                nodes:  UnionFindNode.union(f.nodes, node, w),
+            }
+
+            // Nested loops are not added, but linked together.
+            case n.loop
+                Some(inner) ->
+                    {..f, lsg: LoopStructureGraph.set_parent(f.lsg, inner, loop)}
+
+                None ->
+                    {
+                        ..f,
+                        lsg: LoopStructureGraph.update(
+                            f.lsg,
+                            loop,
+                            &SimpleLoop.add_node(&1, n.bb!),
+                        ),
+                    }
+            end
+        end)
+    end
+
+    fn step_d(
+        f:         HavlakLoopFinder,
+        w:         Int,
+        node_pool: Vector<Int>,
+    ) -> (HavlakLoopFinder, Vector<Int>)
+        Vector.get(f.back_preds, w)!
+        |> Iter.reduce((f, node_pool), fn (f, node_pool), v ->
+            if v != w then
+                (nodes, root) = UnionFindNode.find_set(f.nodes, v)
+                ({..f, nodes:}, Vector.push(node_pool, root))
+            else
+                (HavlakLoopFinder.set_type(f, w, .SelfLoop), node_pool)
+            end
+        end)
+    end
+end
+
+struct LoopTesterApp
+    cfg: ControlFlowGraph
+    lsg: LoopStructureGraph
+end
+
+impl LoopTesterApp
+    fn new() -> LoopTesterApp
+        LoopTesterApp{
+            cfg: ControlFlowGraph.create_node(ControlFlowGraph{}, 0),
+            lsg: LoopStructureGraph.new(),
+        }
+    end
+
+    /// Four blocks in an if/then/else diamond; returns the bottom block.
+    fn build_diamond(app: LoopTesterApp, start: Int) -> (LoopTesterApp, Int)
+        bb0 = start
+
+        app =
+            app
+            |> LoopTesterApp.build_connect(bb0, bb0 + 1)
+            |> LoopTesterApp.build_connect(bb0, bb0 + 2)
+            |> LoopTesterApp.build_connect(bb0 + 1, bb0 + 3)
+            |> LoopTesterApp.build_connect(bb0 + 2, bb0 + 3)
+
+        (app, bb0 + 3)
+    end
+
+    fn build_connect(app: LoopTesterApp, start: Int, end_: Int) -> LoopTesterApp
+        {..app, cfg: ControlFlowGraph.add_edge(.., start, end_)}
+    end
+
+    /// A straight sequence of `n` blocks after `start`; returns the last.
+    fn build_straight(app: LoopTesterApp, start: Int, n: Int) -> (LoopTesterApp, Int)
+        app = Iter.reduce(0..n, app, fn app, i ->
+            LoopTesterApp.build_connect(app, start + i, start + i + 1)
+        end)
+
+        (app, start + n)
+    end
+
+    /// A simple loop with two diamonds in it.
+    fn build_base_loop(app: LoopTesterApp, from: Int) -> (LoopTesterApp, Int)
+        (app, header) = LoopTesterApp.build_straight(app, from, 1)
+        (app, diamond1) = LoopTesterApp.build_diamond(app, header)
+        (app, d11) = LoopTesterApp.build_straight(app, diamond1, 1)
+        (app, diamond2) = LoopTesterApp.build_diamond(app, d11)
+        (app, footer) = LoopTesterApp.build_straight(app, diamond2, 1)
+
+        app =
+            app
+            |> LoopTesterApp.build_connect(diamond2, d11)
+            |> LoopTesterApp.build_connect(diamond1, header)
+            |> LoopTesterApp.build_connect(footer, from)
+
+        LoopTesterApp.build_straight(app, footer, 1)
+    end
+
+    fn main(
+        app:                  LoopTesterApp,
+        num_dummy_loops:      Int,
+        find_loop_iterations: Int,
+        par_loops:            Int,
+        ppar_loops:           Int,
+        pppar_loops:          Int,
+    ) -> (Int, Int)
+        app = LoopTesterApp.construct_simple_cfg(app)
+        app = LoopTesterApp.add_dummy_loops(app, num_dummy_loops)
+        app = LoopTesterApp.construct_cfg(app, par_loops, ppar_loops, pppar_loops)
+
+        // Performing Loop Recognition, 1 Iteration, then findLoopIteration
+        app = {..app, lsg: LoopTesterApp.find_loops(app, app.lsg)}
+
+        Iter.each(1..=find_loop_iterations, fn _ ->
+            _ = LoopTesterApp.find_loops(app, LoopStructureGraph.new())
+        end)
+
+        lsg = LoopStructureGraph.calculate_nesting_level(app.lsg)
+        (LoopStructureGraph.num_loops(lsg), ControlFlowGraph.num_nodes(app.cfg))
+    end
+
+    fn construct_cfg(
+        app:         LoopTesterApp,
+        par_loops:   Int,
+        ppar_loops:  Int,
+        pppar_loops: Int,
+    ) -> LoopTesterApp
+        (app, _) = Iter.reduce(1..=par_loops, (app, 2), fn (app, n), _ ->
+            app = {..app, cfg: ControlFlowGraph.create_node(.., n + 1)}
+            app = LoopTesterApp.build_connect(app, 2, n + 1)
+
+            (app, n) = Iter.reduce(1..=ppar_loops, (app, n + 1), fn (app, n), _ ->
+                top = n
+                (app, n) = LoopTesterApp.build_straight(app, n, 1)
+
+                (app, n) = Iter.reduce(1..=pppar_loops, (app, n), fn (app, n), _ ->
+                    LoopTesterApp.build_base_loop(app, n)
+                end)
+
+                (app, bottom) = LoopTesterApp.build_straight(app, n, 1)
+                (LoopTesterApp.build_connect(app, n, top), bottom)
+            end)
+
+            (LoopTesterApp.build_connect(app, n, 1), n)
+        end)
+
+        app
+    end
+
+    fn add_dummy_loops(app: LoopTesterApp, num_dummy_loops: Int) -> LoopTesterApp
+        Iter.reduce(1..=num_dummy_loops, app, fn app, _ -> {
+            ..app,
+            lsg: LoopTesterApp.find_loops(app, app.lsg),
+        })
+    end
+
+    fn find_loops(app: LoopTesterApp, loop_structure: LoopStructureGraph) -> LoopStructureGraph
+        HavlakLoopFinder.find_loops(HavlakLoopFinder{cfg: app.cfg, lsg: loop_structure})
+    end
+
+    fn construct_simple_cfg(app: LoopTesterApp) -> LoopTesterApp
+        app = {..app, cfg: ControlFlowGraph.create_node(.., 0)}
+        (app, _) = LoopTesterApp.build_base_loop(app, 0)
+        app = {..app, cfg: ControlFlowGraph.create_node(.., 1)}
+        {..app, cfg: ControlFlowGraph.add_edge(.., 0, 2)}
+    end
+end
+
+fn verify_result(result: (Int, Int), inner_iterations: Int) -> Bool
+    (num_loops, num_nodes) = result
+
+    case inner_iterations
+        15000 -> num_loops == 46602 and num_nodes == 5213
+        1500  -> num_loops == 6102 and num_nodes == 5213
+        150   -> num_loops == 2052 and num_nodes == 5213
+        15    -> num_loops == 1647 and num_nodes == 5213
+        1     -> num_loops == 1605 and num_nodes == 5213
+        _     -> False
+    end
+end
+
+fn inner_benchmark_loop(inner_iterations: Int) -> Bool
+    LoopTesterApp.new()
+    |> LoopTesterApp.main(inner_iterations, 50, 10, 10, 5)
+    |> verify_result(inner_iterations)
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Havlak", App.config, inner_benchmark_loop)
+end

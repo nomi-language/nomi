@@ -96,28 +96,28 @@ end
 fn show_cp(m: Maybe<Codepoint>) -> String
     case m
         Some(cp) -> "Some(${Codepoint.to_int(cp)})"
-        None -> "None"
+        None     -> "None"
     end
 end
 
 fn show_int(m: Maybe<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
 fn show_str(m: Maybe<String>) -> String
     case m
         Some(s) -> s
-        None -> "None"
+        None    -> "None"
     end
 end
 
 fn show_bool(m: Maybe<Bool>) -> String
     case m
         Some(b) -> "${b}"
-        None -> "None"
+        None    -> "None"
     end
 end
 
@@ -136,7 +136,7 @@ fn join_points(cps: List<Codepoint>) -> String
         Some(cp) ->
             rest = case List.tail(cps)
                 Some(more) -> join_points(more)
-                None -> "."
+                None       -> "."
             end
 
             "${Codepoint.to_int(cp)}-${rest}"

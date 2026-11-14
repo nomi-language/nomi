@@ -1,0 +1,52 @@
+//# The Computer Language Benchmarks Game: regex-redux.
+//#
+//# Reads a FASTA file from standard input, strips its headers and line
+//# breaks with one regex, counts the matches of nine variant patterns, and
+//# applies five IUB-code substitutions in turn, as the benchmark's rules
+//# require. Prints the counts and then the three lengths: the input, the
+//# stripped sequence and the substituted one.
+
+import
+    std::io.{self, Reader}
+    std::regex.Regex
+end
+
+once variants = [
+    "agggtaaa|tttaccct",
+    "[cgt]gggtaaa|tttaccc[acg]",
+    "a[act]ggtaaa|tttacc[agt]t",
+    "ag[act]gtaaa|tttac[agt]ct",
+    "agg[act]taaa|ttta[agt]cct",
+    "aggg[acg]aaa|ttt[cgt]ccct",
+    "agggt[cgt]aa|tt[acg]accct",
+    "agggta[cgt]a|t[acg]taccct",
+    "agggtaa[cgt]|[acg]ttaccct",
+]
+
+once substitutions = [
+    ("tHa[Nt]",            "<4>"),
+    ("aND|caN|Ha[DS]|WaS", "<3>"),
+    ("a[NSt]|BY",          "<2>"),
+    ("<[^>]*>",            "|"),
+    ("\\|[^|][^|]*\\|",    "-"),
+]
+
+fn main()
+    input = Reader.read_all_text(io.stdin)!
+    sequence = String.replace(input, Regex`>.*\n|\n`, "")
+
+    variants
+    |> Iter.each(fn pattern ->
+        count = String.find_all(sequence, Regex.compile(pattern)!) |> Iter.count()
+        io.print("${pattern} ${count}")
+    end)
+
+    substituted = Iter.reduce(substitutions, sequence, fn text, (pattern, replacement) ->
+        String.replace(text, Regex.compile(pattern)!, replacement)
+    end)
+
+    io.print("")
+    io.print(String.length(input))
+    io.print(String.length(sequence))
+    io.print(String.length(substituted))
+end

@@ -38,14 +38,16 @@ import (
 //
 //  2. **The `shutdown_timeout:` budget is a grace period, not an unwind
 //     window.** In-flight work runs to completion; only at expiry is the
-//     remainder cancelled, and then abandoned rather than waited for.
+//     remainder cancelled. Cancelled work then gets unwindBudget to reach a
+//     safe point and run its deferred calls, and is abandoned after that.
 //     Cancelling first would be wrong: a sleeping task sees a cancelled ctx at
 //     its first safe point and unwinds without doing its work, so
 //     `shutdown_timeout: 30s` would behave like `0` for exactly the work it
 //     was meant to protect, and shutdown would be racy on whether a
-//     just-spawned goroutine had reached a safe point. Abandoning at expiry is
-//     what keeps the budget a ceiling: a CPU-bound task never reaches a safe
-//     point, so waiting after expiry could hang shutdown forever.
+//     just-spawned goroutine had reached a safe point. Bounding the wait
+//     after the cancel is what keeps the budget a ceiling: a CPU-bound task
+//     never reaches a safe point, so waiting for it could hang shutdown
+//     forever.
 //
 //  3. **Restart is a disposition and the schedule is a separate `Backoff`.**
 //     Whether to restart and how patiently are different questions; folding
@@ -91,6 +93,13 @@ import (
 // all its work has parked. Only ever runs on the shutdown path, and only until
 // the group settles or its budget expires.
 const settleCheckInterval = 2 * time.Millisecond
+
+// unwindBudget is how long a drain waits, after cancelling a supervisor's
+// remaining work, for that work to unwind: to reach a safe point and run its
+// deferred calls. A task asleep or waiting on a channel unwinds at once; the
+// budget bounds only a task that never reaches a safe point, which is
+// abandoned when it runs out.
+const unwindBudget = time.Second
 
 // DefaultShutdownTimeout mirrors the declared default on `Supervisor.new` in
 // std/supervisors.nomi, which is where a caller meets it. Long enough for an
@@ -798,15 +807,17 @@ func SupervisorFlushBounded(fr *Frame, sup Supervisor, bound Wait) FlushOutcome 
 }
 
 // DrainSupervisors shuts every supervisor down: give each one up to its own
-// budget to finish what it is doing, then cancel and abandon the rest.
+// budget to finish what it is doing, then cancel the rest and give it
+// unwindBudget to unwind (drainOnce).
 //
 // They drain concurrently, so a 30-second budget and a 200-millisecond one do
 // not queue behind each other — the whole shutdown takes as long as the longest
-// single budget, not their sum. That is what the flat set buys.
+// single budget, plus the unwind, not their sum. That is what the flat set
+// buys.
 //
-// An abandoned task may still write after this returns. That is the direct
-// consequence of not waiting for it, and it is the cost of item 2 in the file
-// header rather than a bug.
+// A task that did not unwind within unwindBudget is abandoned, and may still
+// write after this returns. That is the direct consequence of not waiting for
+// it, and it is the cost of item 2 in the file header rather than a bug.
 //
 // Idempotent.
 func DrainSupervisors() {
@@ -876,33 +887,48 @@ func OnDrain(f func()) (unregister func()) {
 	}
 }
 
-// drainOnce gives one supervisor its grace period, then stops it.
+// drainOnce gives one supervisor its grace period, then stops it: it cancels
+// what is left and waits, up to unwindBudget, for the cancelled work to
+// unwind.
+//
+// The wait after the cancel is what orders shutdown. A cancelled task leaves
+// at its next safe point and runs its deferred calls on its own goroutine, so
+// without it a boot's deferred cleanup, which runs once the drain returns,
+// would race the tasks' own cleanup: a store closed while a worker that uses
+// it is still unwinding. The spec puts boot's deferred calls after the tasks
+// it owns have stopped (§15 *Cleanup and boot failure*). The wait is bounded
+// for item 2's reason in the file header: a task that never reaches a safe
+// point is still abandoned.
 func (g *supervisor) drainOnce() {
-	// Cancel on every path out, including the one where it went idle on its
-	// own: the context is a child of the registry root and would otherwise stay
-	// registered on it.
-	defer g.cancel()
-
-	if g.shutdownTimeout <= 0 {
-		// A zero budget is a legitimate choice — stop now, wait for nobody. The
-		// deferred cancel is the whole shutdown.
-		return
-	}
-
 	done := make(chan struct{})
 	go func() {
 		g.wg.Wait()
 		close(done)
 	}()
+	g.grace(done)
+	// Cancel on every path out, including the one where it went idle on its
+	// own: the context is a child of the registry root and would otherwise stay
+	// registered on it.
+	g.cancel()
+	timer := time.NewTimer(unwindBudget)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+	}
+}
+
+// grace waits for g's work to finish (done closes), for at most its
+// shutdown budget.
+func (g *supervisor) grace(done <-chan struct{}) {
+	if g.shutdownTimeout <= 0 {
+		// A zero budget is a legitimate choice: cancel now, with no grace
+		// period.
+		return
+	}
+
 	timer := time.NewTimer(time.Duration(g.shutdownTimeout))
-	defer func() {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-	}()
+	defer timer.Stop()
 
 	// A permanent supervisor's work is declared never to finish, so `done` may
 	// never close and the budget would be spent in full on every clean
@@ -935,8 +961,7 @@ func (g *supervisor) drainOnce() {
 			// grace period.
 			return
 		case <-timer.C:
-			// Budget spent. The deferred cancel asks the stragglers to stop and
-			// we do not wait to see whether they do.
+			// Budget spent: drainOnce cancels the stragglers.
 			return
 		case <-settle:
 			// Nil channel for every non-permanent supervisor, so this arm never

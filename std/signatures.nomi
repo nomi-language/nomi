@@ -50,9 +50,9 @@ derive Equatable for KeyKind
 impl Display for KeyKind
     fn to_string(kind: KeyKind) -> String
         case kind
-            .Ed25519 -> "Ed25519"
+            .Ed25519   -> "Ed25519"
             .EcdsaP256 -> "ECDSA P-256"
-            .Rsa -> "RSA"
+            .Rsa       -> "RSA"
         end
     end
 end
@@ -196,7 +196,7 @@ impl PrivateKey
     pub fn ed25519_seed(key: PrivateKey) -> Maybe<Bytes>
         case key.kind
             .Ed25519 -> Some(host.ed25519_seed(key.der))
-            _ -> None
+            _        -> None
         end
     end
 
@@ -266,7 +266,7 @@ impl PublicKey
     pub fn ed25519_bytes(key: PublicKey) -> Maybe<Bytes>
         case key.kind
             .Ed25519 -> Some(host.ed25519_public_bytes(key.der))
-            _ -> None
+            _        -> None
         end
     end
 
@@ -368,41 +368,41 @@ end
 /// The scheme `sign` and `is_valid` use for a kind.
 fn usual_scheme(kind: KeyKind) -> Scheme
     case kind
-        .Ed25519 -> .Ed25519
+        .Ed25519   -> .Ed25519
         .EcdsaP256 -> .EcdsaSha256
-        .Rsa -> .RsaPkcs1Sha256
+        .Rsa       -> .RsaPkcs1Sha256
     end
 end
 
 /// The key kind a scheme signs with.
 fn scheme_kind(scheme: Scheme) -> KeyKind
     case scheme
-        .Ed25519 -> .Ed25519
-        .EcdsaSha256 -> .EcdsaP256
+        .Ed25519        -> .Ed25519
+        .EcdsaSha256    -> .EcdsaP256
         .EcdsaSha256Der -> .EcdsaP256
         .RsaPkcs1Sha256 -> .Rsa
-        .RsaPssSha256 -> .Rsa
+        .RsaPssSha256   -> .Rsa
     end
 end
 
 /// A scheme as std/signatures/host numbers it.
 fn scheme_number(scheme: Scheme) -> Int
     case scheme
-        .Ed25519 -> 0
-        .EcdsaSha256 -> 1
+        .Ed25519        -> 0
+        .EcdsaSha256    -> 1
         .RsaPkcs1Sha256 -> 2
-        .RsaPssSha256 -> 3
+        .RsaPssSha256   -> 3
         .EcdsaSha256Der -> 4
     end
 end
 
 fn scheme_name(scheme: Scheme) -> String
     case scheme
-        .Ed25519 -> "Ed25519"
-        .EcdsaSha256 -> "EcdsaSha256"
+        .Ed25519        -> "Ed25519"
+        .EcdsaSha256    -> "EcdsaSha256"
         .EcdsaSha256Der -> "EcdsaSha256Der"
         .RsaPkcs1Sha256 -> "RsaPkcs1Sha256"
-        .RsaPssSha256 -> "RsaPssSha256"
+        .RsaPssSha256   -> "RsaPssSha256"
     end
 end
 

@@ -12,7 +12,7 @@ import (
 // boxed value, so reading it is a RefOnce and calling it is a closure call on
 // that temporary.
 func irOnceKind(k kind) bool {
-	return irRetainedValueKind(k) || k.tag == tagFunc && irCallableValueKind(k) || irExistentialKind(k) || k == kindUnit
+	return irRetainedValueKind(k) || k.tag == tagFunc && irCallableValueKind(k) || irHeldKind(k) || k == kindUnit
 }
 
 func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
@@ -156,10 +156,10 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 			g.dc.close()
 		}
 	}()
-	if !irOnceKind(k) {
-		g.dc.note("a once of a kind outside the domain: " + k.nomi())
-		return kindInvalid, false
-	}
+	// The binding's declared or checked type, projected: its callers ask
+	// the declaration's lowerability first, and irOnceKind is the call
+	// operands.
+	irHeldOperand(k, "a `once` binding")
 	body := decl.Value
 	var lead []ast.Node
 	if block, ok := body.(*ast.Block); ok {

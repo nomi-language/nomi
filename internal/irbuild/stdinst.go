@@ -403,8 +403,10 @@ func stdModuleGenericTemplate(v *stdModuleView, recv, name string) *stdFunc {
 // another std module (Regex's Debug calls `String.contains`), which a
 // program builds for itself, or calls a monomorphic std function that is
 // not retained for that reason (io's `Replayed` failure reaches
-// `guttered?`, which calls `String.starts_with`). A body the cache
-// declined for any other reason keeps that reason.
+// `guttered?`, which calls `String.starts_with`), or calls a function of a
+// std module lowered after its own (otherModuleCallee: Regex's Debug calls
+// `String.to_typed_literal`). A body the cache declined for any other
+// reason keeps that reason.
 func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 	return s.unretainedMono(f, map[*stdFunc]bool{})
 }
@@ -509,14 +511,27 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 					found = true
 					return
 				}
+				if module, name, isStd := stdBareFileFunc(v.fa, callee); isStd &&
+					s.otherModuleCallee(f.module, s.std.byFile[module+"."+name], visiting) {
+					found = true
+					return
+				}
 			case *ast.FieldAccess:
 				if ti, isType := callee.Object.(*ast.TypeIdent); isType && callee.Field != nil &&
 					(stdModuleGenericTemplate(v, ti.Name, callee.Field.Name) != nil ||
 						s.unretainedMono(stdModuleMonoFunc(v, ti.Name, callee.Field.Name), visiting) ||
 						s.otherModuleTemplate(f.module, ti.Name, callee.Field.Name, visiting) ||
+						s.otherModuleOverload(f.module, s.std.byType[ti.Name+"."+callee.Field.Name], visiting) ||
 						s.namesStdIfaceDefault(v.fa, callee)) {
 					found = true
 					return
+				}
+				if id, isIdent := callee.Object.(*ast.Ident); isIdent && callee.Field != nil {
+					if module, isStd := stdFileQualifier(v.fa, id); isStd &&
+						s.otherModuleCallee(f.module, s.std.byFile[module+"."+callee.Field.Name], visiting) {
+						found = true
+						return
+					}
 				}
 			}
 		}
@@ -526,6 +541,44 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 	}
 	walk(f.decl.Body)
 	return found
+}
+
+// otherModuleCallee reports whether callee, a function a body of std
+// module module calls, is declared in another std module and is one a
+// program builds the body for: a monomorphic function a program builds for
+// itself (unretainedMono), or any function a program can call that is
+// declared in a module lowered after module. The shared lowering lowers
+// modules in dependency order, and a module's bodies resolve only against
+// the modules before it (buildStdlibIndexBy), so a body that calls into a
+// later module of its import cycle (std/regex's Debug calling
+// `String.to_typed_literal`, where std/strings imports std/regex) is not
+// retained there. A program builds it, against every module.
+func (s *stdInstances) otherModuleCallee(module string, callee *stdFunc, visiting map[*stdFunc]bool) bool {
+	if callee == nil || callee.module == module {
+		return false
+	}
+	if s.unretainedMono(callee, visiting) {
+		return true
+	}
+	if s.std.earlierMods[module][callee.module] || callee.why != "" {
+		return false
+	}
+	c := callee
+	if callee.canon != nil {
+		c = callee.canon
+	}
+	return callee.rtCall != "" || c.irBody != nil
+}
+
+// otherModuleOverload is otherModuleCallee for a type-qualified spelling,
+// which may name an overload set: whether any member is such a callee.
+func (s *stdInstances) otherModuleOverload(module string, fs []*stdFunc, visiting map[*stdFunc]bool) bool {
+	for _, f := range fs {
+		if s.otherModuleCallee(module, f, visiting) {
+			return true
+		}
+	}
+	return false
 }
 
 // stdModuleMonoFunc is the one monomorphic Nomi-bodied function the module

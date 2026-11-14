@@ -27,6 +27,9 @@ import (
 // hover on a literal's or pattern's punctuation and on a pipe's `|>`
 // reads (SyntaxAt), and content is the file's text, which the hover on a
 // keyword lexes (KeywordAt). A keyword answers first, as in the editor.
+// A symbol's hover ends with what converting its value costs, where it
+// does work (ConversionNote), and a typed literal's hover what it is and
+// what its slots take (TypedLiteralNote).
 func At(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysis.Pos) string {
 	if fa == nil {
 		return ""
@@ -37,11 +40,22 @@ func At(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysi
 	if content, _, _, ok := SyntaxAt(fa, nodes, pos); ok {
 		return content
 	}
+	literal, _, inSlot := TypedLiteralNote(fa, nodes, pos)
 	sym := fa.SymbolAt(pos)
 	if sym == nil {
-		return ""
+		if inSlot {
+			return ""
+		}
+		return literal
 	}
-	return RenderForEditor(sym, fa)
+	content = RenderForEditor(sym, fa)
+	if note := ConversionNote(fa, pos); note != "" && content != "" {
+		content += "\n\n" + note
+	}
+	if literal != "" && content != "" {
+		content += "\n\n" + literal
+	}
+	return content
 }
 
 // Render returns markdown hover content for a symbol.

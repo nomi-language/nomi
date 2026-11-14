@@ -180,9 +180,9 @@ impl String
     /// language. Turkish and Azeri upper-case `i` to `İ`; Lithuanian drops
     /// the dot it keeps above an accented `i`. Every language upper-cases
     /// `ß` to `SS`. `String.uppercase` stays independent of any language.
-    //! assert String.uppercase_in("istanbul", Locale`tr`) == "İSTANBUL"
-    //! assert String.uppercase_in("istanbul", Locale`en`) == "ISTANBUL"
-    //! assert String.uppercase_in("Straße", Locale`de`) == "STRASSE"
+    //! assert String.uppercase_in("istanbul", Locale"tr") == "İSTANBUL"
+    //! assert String.uppercase_in("istanbul", Locale"en") == "ISTANBUL"
+    //! assert String.uppercase_in("Straße", Locale"de") == "STRASSE"
     //
     pub host fn uppercase_in(s: String, locale: Locale) -> String
 
@@ -192,9 +192,9 @@ impl String
     /// `i`; Lithuanian keeps the dot of an `i` under an accent (`Í` is
     /// `i̇́`). In every language a capital sigma that ends a word becomes
     /// `ς`. `String.lowercase` stays independent of any language.
-    //! assert String.lowercase_in("DİYARBAKIR", Locale`tr`) == "diyarbakır"
-    //! assert String.lowercase_in("DIYARBAKIR", Locale`en`) == "diyarbakir"
-    //! assert String.lowercase_in("ΟΔΟΣ", Locale`el`) == "οδος"
+    //! assert String.lowercase_in("DİYARBAKIR", Locale"tr") == "diyarbakır"
+    //! assert String.lowercase_in("DIYARBAKIR", Locale"en") == "diyarbakir"
+    //! assert String.lowercase_in("ΟΔΟΣ", Locale"el") == "οδος"
     //
     pub host fn lowercase_in(s: String, locale: Locale) -> String
 
@@ -204,10 +204,10 @@ impl String
     /// and Azeri `i` becomes `İ` and `I` stays `I`. Title case differs from
     /// upper case for the letters that stand for two, as in
     /// `String.capitalize`: `ǆ` becomes `ǅ`, and `ß` becomes `Ss`.
-    //! assert String.capitalize_in("istanbul", Locale`tr`) == "İstanbul"
-    //! assert String.capitalize_in("IRMAK", Locale`tr`) == "Irmak"
-    //! assert String.capitalize_in("istanbul", Locale`en`) == "Istanbul"
-    //! assert String.capitalize_in("ßa", Locale`de`) == "Ssa"
+    //! assert String.capitalize_in("istanbul", Locale"tr") == "İstanbul"
+    //! assert String.capitalize_in("IRMAK", Locale"tr") == "Irmak"
+    //! assert String.capitalize_in("istanbul", Locale"en") == "Istanbul"
+    //! assert String.capitalize_in("ßa", Locale"de") == "Ssa"
     //
     pub host fn capitalize_in(s: String, locale: Locale) -> String
 
@@ -407,41 +407,41 @@ impl String
     /// by its middle form and the first by its start form, so `en` writes
     /// `a, b, and c` and `a and b`. Materialize an `Iter` with
     /// `Iter.to_list()` first.
-    //! assert String.join_list(["a", "b", "c"], Locale`en`) == "a, b, and c"
-    //! assert String.join_list(["a", "b"], Locale`en`) == "a and b"
+    //! assert String.join_list(["a", "b", "c"], Locale"en") == "a, b, and c"
+    //! assert String.join_list(["a", "b"], Locale"en") == "a and b"
     //!
     //! assert [1000, 2000]
-    //! |> Iter.map(&Int.format(&1, Locale`de`))
+    //! |> Iter.map(&Int.format(&1, Locale"de"))
     //! |> Iter.to_list()
-    //! |> String.join_list(Locale`de`) == "1.000 und 2.000"
+    //! |> String.join_list(Locale"de") == "1.000 und 2.000"
     //!
-    //! assert String.join_list(["a", "b", "c"], Locale`en-GB`) == "a, b and c"
-    //! assert String.join_list(["a", "b"], Locale`en`, ListStyle.Or) == "a or b"
-    //! assert String.join_list(["a", "b", "c"], Locale`en`, ListStyle.And, ListWidth.Short) == "a, b, & c"
-    //! assert String.join_list(["a", "b", "c"], Locale`pl`) == "a, b i c"
-    //! assert String.join_list(["a", "b", "c"], Locale`ja`) == "a、b、c"
+    //! assert String.join_list(["a", "b", "c"], Locale"en-GB") == "a, b and c"
+    //! assert String.join_list(["a", "b"], Locale"en", ListStyle.Or) == "a or b"
+    //! assert String.join_list(["a", "b", "c"], Locale"en", ListStyle.And, ListWidth.Short) == "a, b, & c"
+    //! assert String.join_list(["a", "b", "c"], Locale"pl") == "a, b i c"
+    //! assert String.join_list(["a", "b", "c"], Locale"ja") == "a、b、c"
     //!
-    //! assert String.join_list(["3 quarters", "1 dime"], Locale`en`, ListStyle.Unit)
+    //! assert String.join_list(["3 quarters", "1 dime"], Locale"en", ListStyle.Unit)
     //!     == "3 quarters, 1 dime"
     //!
     //! items: List<String> = []
-    //! assert String.join_list(items, Locale`en`) == ""
+    //! assert String.join_list(items, Locale"en") == ""
     //
     pub fn join_list(
-        items: List<String>,
+        items:  List<String>,
         locale: Locale,
-        style: ListStyle = ListStyle.And,
-        width: ListWidth = ListWidth.Wide,
+        style:  ListStyle = ListStyle.And,
+        width:  ListWidth = ListWidth.Wide,
     ) -> String
         style_tag = case style
-            ListStyle.And -> 1
-            ListStyle.Or -> 2
+            ListStyle.And  -> 1
+            ListStyle.Or   -> 2
             ListStyle.Unit -> 3
         end
 
         width_tag = case width
-            ListWidth.Wide -> 1
-            ListWidth.Short -> 2
+            ListWidth.Wide   -> 1
+            ListWidth.Short  -> 2
             ListWidth.Narrow -> 3
         end
 
@@ -512,7 +512,7 @@ impl String
     //! import std::regex.Regex
     //!
     //! assert String.captures("ann@home", Regex`(\w+)@(\w+)`) == Some(("ann", "home"))
-    //! assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
+    //! assert String.captures("b", Regex"(a)|(b)") == Some((None, Some("b")))
     //! assert String.captures("v12", Regex`v(\d+)`) == Some("12")
     //! date = Regex`(?P<year>\d{4})-(?P<month>\d\d)?`
     //! assert String.captures("2024-", date) == Some({year: "2024", month: None})
@@ -522,7 +522,7 @@ impl String
     pub fn captures<C>(s: String, re: Regex<C>) -> Maybe<C>
         case capture_groups(s, re)
             Some(groups) -> Some(capture_shape(re, groups))
-            None -> None
+            None         -> None
         end
     end
 
@@ -641,6 +641,7 @@ impl String
     //!     |> String.to_codepoints()
     //!     |> Iter.map(&Int.to_codepoint(Codepoint.to_int(&1) + 1))
     //!     |> Maybe.values()
+    //!     |> Iter.to_list()
     //!     |> String.from_codepoints()
     //!
     //! assert shifted == "bcd"
@@ -695,6 +696,26 @@ impl String
     //! assert String.to_literal("$5 {x}") == "\"$5 {x}\""
     //
     pub host fn to_literal(s: String) -> String
+
+    /// A typed literal with prefix `tag` and fixed text `s`, as a program
+    /// writes it: in double quotes when `s` needs no escape there, in
+    /// backticks when it does and holds no backtick or line break, and
+    /// otherwise as `String.to_literal` quotes it (style rule 21). A type's
+    /// `Debug` shows its value this way.
+    //! assert String.to_typed_literal("EUR", "Currency") == "Currency\"EUR\""
+    //! assert String.to_typed_literal("\\d+", "Regex") == "Regex`\\d+`"
+    //! assert String.to_typed_literal("say \"hi\"", "Regex") == "Regex`say \"hi\"`"
+    //! assert String.to_typed_literal("a`b\\d", "Regex") == "Regex\"a`b\\\\d\""
+    //
+    pub fn to_typed_literal(s: String, tag: String) -> String
+        quoted = to_literal(s)
+
+        if quoted == "\"${s}\"" or String.contains(s, "`") or String.contains(s, "\n") then
+            tag + quoted
+        else
+            "${tag}`${s}`"
+        end
+    end
 
     /// Strips a prefix from the string. Returns Some(rest) if the prefix matches,
     /// or None otherwise.
@@ -930,7 +951,7 @@ impl Comparable for String
         case
             n < 0 -> Less
             n > 0 -> Greater
-            _ -> Equal
+            _     -> Equal
         end
     end
 end

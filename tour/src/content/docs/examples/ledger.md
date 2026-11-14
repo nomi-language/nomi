@@ -22,9 +22,9 @@ end
 /// One line of the ledger: when, what for, and the change in cents, negative
 /// for money spent.
 pub struct Entry
-    date: Date
+    date:        Date
     description: String
-    cents: Int
+    cents:       Int
 end
 
 /// The two styles the ledger is printed in: their headings, dates and amounts.
@@ -36,8 +36,8 @@ end
 impl Style
     fn locale(style: Style) -> Locale
         case style
-            .American -> Locale`en-US`
-            .Dutch -> Locale`nl-NL`
+            .American -> Locale"en-US"
+            .Dutch    -> Locale"nl-NL"
         end
     end
 
@@ -46,14 +46,14 @@ impl Style
     fn sign(style: Style) -> CurrencySign
         case style
             .American -> .Accounting
-            .Dutch -> .Standard
+            .Dutch    -> .Standard
         end
     end
 
     fn headings(style: Style) -> (String, String, String)
         case style
             .American -> ("Date", "Description", "Change")
-            .Dutch -> ("Datum", "Omschrijving", "Verandering")
+            .Dutch    -> ("Datum", "Omschrijving", "Verandering")
         end
     end
 end
@@ -74,7 +74,7 @@ end
 
 fn format_entry(currency: Currency, style: Style, entry: Entry) -> String
     locale = Style.locale(style)
-    date = Date.format_fields(entry.date, locale, DateFields`yMMdd`)
+    date = Date.format_fields(entry.date, locale, DateFields"yMMdd")
     change = Money{amount: Int.to_decimal(entry.cents) / 100d, currency:}
     row(date, truncate(entry.description), format_change(change, style))
 end
@@ -122,7 +122,7 @@ test "ledger"
     cases: List<(String, Currency, Style, List<Entry>, List<String>)> = [
         (
             "empty ledger",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [],
             [
@@ -131,10 +131,10 @@ test "ledger"
         ),
         (
             "one entry",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
-                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date"2015-01-01", description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -143,11 +143,11 @@ test "ledger"
         ),
         (
             "credit and debit",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
-                {date: Date`2015-01-02`, description: "Get present", cents: 1000},
-                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date"2015-01-02", description: "Get present", cents: 1000},
+                {date: Date"2015-01-01", description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -157,11 +157,11 @@ test "ledger"
         ),
         (
             "multiple entries on same date ordered by description, as first written",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
-                {date: Date`2015-01-02`, description: "Get present", cents: 1000},
-                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date"2015-01-02", description: "Get present", cents: 1000},
+                {date: Date"2015-01-01", description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -171,12 +171,12 @@ test "ledger"
         ),
         (
             "final order tie breaker is change",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
-                {date: Date`2015-01-01`, description: "Something", cents: 0},
-                {date: Date`2015-01-01`, description: "Something", cents: -1},
-                {date: Date`2015-01-01`, description: "Something", cents: 1},
+                {date: Date"2015-01-01", description: "Something", cents: 0},
+                {date: Date"2015-01-01", description: "Something", cents: -1},
+                {date: Date"2015-01-01", description: "Something", cents: 1},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -187,13 +187,13 @@ test "ledger"
         ),
         (
             "overlong description is truncated",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
                 {
-                    date: Date`2015-01-01`,
+                    date:        Date"2015-01-01",
                     description: "Freude schoner Gotterfunken",
-                    cents: -123456,
+                    cents:       -123456,
                 },
             ],
             [
@@ -203,10 +203,10 @@ test "ledger"
         ),
         (
             "euros",
-            Currency`EUR`,
+            Currency"EUR",
             .American,
             [
-                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date"2015-01-01", description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -215,10 +215,10 @@ test "ledger"
         ),
         (
             "Dutch locale",
-            Currency`USD`,
+            Currency"USD",
             .Dutch,
             [
-                {date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+                {date: Date"2015-03-12", description: "Buy present", cents: 123456},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -227,10 +227,10 @@ test "ledger"
         ),
         (
             "Dutch locale and euros",
-            Currency`EUR`,
+            Currency"EUR",
             .Dutch,
             [
-                {date: Date`2015-03-12`, description: "Buy present", cents: 123456},
+                {date: Date"2015-03-12", description: "Buy present", cents: 123456},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -239,10 +239,10 @@ test "ledger"
         ),
         (
             "Dutch negative number with 3 digits before decimal point",
-            Currency`USD`,
+            Currency"USD",
             .Dutch,
             [
-                {date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+                {date: Date"2015-03-12", description: "Buy present", cents: -12345},
             ],
             [
                 "Datum      | Omschrijving              | Verandering  ",
@@ -251,10 +251,10 @@ test "ledger"
         ),
         (
             "American negative number with 3 digits before decimal point",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
-                {date: Date`2015-03-12`, description: "Buy present", cents: -12345},
+                {date: Date"2015-03-12", description: "Buy present", cents: -12345},
             ],
             [
                 "Date       | Description               | Change       ",
@@ -263,11 +263,11 @@ test "ledger"
         ),
         (
             "multiple entries on same date ordered by description",
-            Currency`USD`,
+            Currency"USD",
             .American,
             [
-                {date: Date`2015-01-01`, description: "Get present", cents: 1000},
-                {date: Date`2015-01-01`, description: "Buy present", cents: -1000},
+                {date: Date"2015-01-01", description: "Get present", cents: 1000},
+                {date: Date"2015-01-01", description: "Buy present", cents: -1000},
             ],
             [
                 "Date       | Description               | Change       ",

@@ -185,15 +185,15 @@ end
 /// ```nomi
 /// struct Config
 ///     context: Context
-///     audit: Supervisor
-///     notify: Supervisor
+///     audit:   Supervisor
+///     notify:  Supervisor
 /// end
 ///
 /// fn boot() -> Result<Config, String>
 ///     Ok(Config{
 ///         context: Context.root(),
-///         audit: Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
-///         notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
+///         audit:   Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
+///         notify:  Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
 ///     })
 /// end
 /// ```
@@ -211,10 +211,12 @@ impl Supervisor
     /// Work that finishes inside it is never cancelled. Supervisors drain
     /// concurrently and their budgets are unrelated, so a 30-second budget
     /// and a 200-millisecond one do not queue behind each other. When the
-    /// budget expires the runtime cancels whatever is left and does not
-    /// wait for it to stop — otherwise a task that never observes
-    /// cancellation could hang shutdown forever, and every budget would be
-    /// decorative.
+    /// budget expires the runtime cancels whatever is left and waits up to
+    /// one second for it to unwind and run its deferred calls, then
+    /// abandons it — otherwise a task that never observes cancellation
+    /// could hang shutdown forever, and every budget would be decorative.
+    /// Boot's deferred calls run after the drain, so they close what the
+    /// work used only once the work has stopped.
     ///
     /// `max_running:` is how many of its tasks run at once, and it
     /// is not optional. Other languages default this to the CPU count,
@@ -245,11 +247,11 @@ impl Supervisor
     /// not reach is a compile error, so the set of supervisors is still
     /// fixed by the time the program runs.
     pub fn new(
-        max_running: Int,
+        max_running:      Int,
         shutdown_timeout: Duration = Duration.seconds(5),
-        restart: Restart = .Temporary,
-        backoff: Backoff = .Exponential{},
-        on_give_up: GiveUp = .Report,
+        restart:          Restart = .Temporary,
+        backoff:          Backoff = .Exponential{},
+        on_give_up:       GiveUp = .Report,
     ) -> Supervisor
         Supervisor.new_exact(max_running, shutdown_timeout, restart, backoff, on_give_up)
     end
@@ -272,11 +274,11 @@ impl Supervisor
     // with a short argument list, and a builder filling from it would agree with
     // a second encoding by luck.
     host fn new_exact(
-        max_running: Int,
+        max_running:      Int,
         shutdown_timeout: Duration,
-        restart: Restart,
-        backoff: Backoff,
-        on_give_up: GiveUp,
+        restart:          Restart,
+        backoff:          Backoff,
+        on_give_up:       GiveUp,
     ) -> Supervisor
 
     /// Put `body` under `supervisor`, and return immediately.
@@ -312,8 +314,8 @@ impl Supervisor
     /// source that is `Iter.is_infinite` traps before any task is spawned.
     pub host fn spawn_all<T>(
         supervisor: Supervisor,
-        source: Iter<T>,
-        f: (T) -> Unit,
+        source:     Iter<T>,
+        f:          (T) -> Unit,
     ) -> List<Task<Unit>>
 
     /// Block until every task outstanding under `supervisor` has finished.
@@ -336,7 +338,7 @@ impl Supervisor
     ///
     /// ```nomi
     /// case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5)))
-    ///     FlushOutcome.Flushed -> report_sent()
+    ///     FlushOutcome.Flushed  -> report_sent()
     ///     FlushOutcome.TimedOut -> carry_on()
     /// end
     /// ```

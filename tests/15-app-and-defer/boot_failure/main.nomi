@@ -4,7 +4,7 @@
 import std::io
 
 struct App
-    port: Int
+    port:    Int
     context: Context
 end
 
@@ -21,7 +21,7 @@ end
 fn setting(startup: Startup, key: String) -> Result<String, ConfigError>
     case Map.get(startup.env, key)
         Some(value) -> Ok(value)
-        None -> Err(ConfigError{key:})
+        None        -> Err(ConfigError{key:})
     end
 end
 

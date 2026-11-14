@@ -16,10 +16,9 @@ import (
 // parameter bounded by Iter (analysis.IterViewBound), whose instances each
 // have their own walk; a value in the body of an adapter the builder
 // makes (a widened function's parameter or result, an element rebuilt at
-// a wider type, a function value forwarding its parameters, each element
-// `flatten` views and each result of a `flat_map` callback); a spread's
-// part; and the receiver of a call its own type names
-// (`Range.each_while`, `String.each_while`).
+// a wider type, a function value forwarding its parameters, each result of
+// a `flat_map` callback); a spread's part; and the receiver of a call its
+// own type names (`Range.each_while`, `String.each_while`).
 
 // viewSeq is the domain of a source that is a sequence already: a value
 // of type `Iter<T>`, which has no view of its own.
@@ -279,6 +278,16 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		if own != elem && !bl.erasesUnboxed(elem, own) {
 			return converted()
 		}
+		if own == kindInt {
+			// std's Int `compare`, `next` and `steps_between` are the
+			// consumer's own (rt.IntRangeSeq).
+			return view(ir.IterOverIntRange, src), true
+		}
+		if own == codepointKind() {
+			// std's Codepoint impls are the consumer's own
+			// (rt.CodepointRangeSeq).
+			return view(ir.IterOverCodepointRange, src), true
+		}
 		ops, ok := bl.rangeView(at, src, own)
 		if !ok {
 			return ir.NoTemp, false
@@ -304,7 +313,7 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		}
 		// sk is a lowered value, so its element is in the domain and a
 		// Vector holds it.
-		erased := irExistentialKind(elem) && bl.g.irErases(elem, vs.elem)
+		erased := irHeldKind(elem) && bl.g.irErases(elem, vs.elem)
 		if vs.elem != elem && !erased {
 			return ir.NoTemp, false
 		}
@@ -332,7 +341,7 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		if v, ok := converted(); ok {
 			return v, true
 		}
-		if vs.elem != elem && !(irExistentialKind(elem) && bl.g.irErases(elem, vs.elem)) {
+		if vs.elem != elem && !(irHeldKind(elem) && bl.g.irErases(elem, vs.elem)) {
 			return ir.NoTemp, false
 		}
 		return view(ir.IterOverMaybe, src), true

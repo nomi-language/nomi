@@ -50,8 +50,8 @@ end
 
 fn severity(r: Probe.Reading) -> Int
     case r
-        .Steady -> 0
-        .Spike(n) -> n
+        .Steady    -> 0
+        .Spike(n)  -> n
         .Blip{at:} -> at
     end
 end
@@ -60,15 +60,15 @@ end
 // the dot shorthand — the form the corpus file writes.
 fn severity_qualified(r: Probe.Reading) -> Int
     case r
-        Probe.Reading.Steady -> 0
-        Probe.Reading.Spike(n) -> n
+        Probe.Reading.Steady    -> 0
+        Probe.Reading.Spike(n)  -> n
         Probe.Reading.Blip{at:} -> at
     end
 end
 
 fn level_name(l: Signal.Level) -> String
     case l
-        Signal.Level.Low -> "low"
+        Signal.Level.Low  -> "low"
         Signal.Level.High -> "high"
     end
 end

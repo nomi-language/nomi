@@ -19,7 +19,7 @@ end
 
 fn reason(o: Outcome) -> String
     case o
-        .Done -> "done"
+        .Done      -> "done"
         .Failed(e) -> e
     end
 end

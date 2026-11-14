@@ -36,6 +36,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `protocol Priced { func price() -> Int }` | `interface Priced` with `fn price(value: self) -> Int` below it, then `end` |
 | `extension Coffee: Priced { .. }` | `impl Priced for Coffee` with `fn price(coffee: Coffee) -> Int` and its body below, then `end` |
 | `func total(_ items: [any Priced])` | `fn total(items: List<Priced>)`: a `List<Coffee>` passes as it is |
+| `any Priced & Costed` | `Priced and Costed`, as a parameter, a field or an element: `List<Priced and Costed>` |
 | `func larger<T: Comparable>(_ a: T, _ b: T) -> T` | `fn larger<T>(a: T, b: T) -> T where T: Comparable`: a type parameter when the type comes back |
 | `[1, 2]`, `["a": 1]`, `Set([1])` | `[1, 2]`, `{"a" => 1}`, `Set[1]`; as in Swift, `[1]` is the array, vector or set its type says, so `s: Set<Int> = [1]` |
 | `defer { file.close() }` | `defer Reader.close_quietly(r)`: one call, run when the block ends. The checker requires it for a resource, and `defer on error` runs only when the function fails. |
@@ -82,7 +83,7 @@ enum Size
 end
 
 struct Coffee
-    size: Size
+    size:  Size
     shots: Int = 1
 end
 
@@ -105,7 +106,7 @@ fn parse_size(text: String) -> Result<Size, String>
     case text
         "small" -> Ok(.Small)
         "large" -> Ok(.Large)
-        _ -> Err("unknown size: ${text}")
+        _       -> Err("unknown size: ${text}")
     end
 end
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -303,7 +304,11 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 	if found := m.Unretained(vm.MainRoots(p.entry, mainFn), boots); len(found) > 0 {
 		return p.blocked(found)
 	}
+	// NOMI_PROFILE (`nomi run --profile`) samples the run (internal/vm's
+	// profile.go) and reports when it ends.
+	m, finishProfile := vm.StartProfile(m, os.Getenv("NOMI_PROFILE"), p.errOut)
 	failure, limit := programFailure(m.Main(ctx, args, handleSignals))
+	finishProfile()
 	if err := ctx.Err(); err != nil && failure != nil {
 		// Stopped: whatever the run answered is the stop's doing.
 		return err

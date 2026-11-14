@@ -50,9 +50,9 @@ end
 /// only comparable. A `case` over every variant plus a qualified head.
 fn name(o: Ordering) -> String
     case o
-        .Less -> "less"
+        .Less          -> "less"
         Ordering.Equal -> "equal"
-        .Greater -> "greater"
+        .Greater       -> "greater"
     end
 end
 

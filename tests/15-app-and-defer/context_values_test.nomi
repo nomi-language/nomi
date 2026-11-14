@@ -14,7 +14,7 @@ test "context values are keyed by their Nomi type"
 
     assert case Context.value(traced, TraceId)
         Some(TraceId(id)) -> id == "trace-123"
-        None -> False
+        None              -> False
     end
 
     // Storing another TraceId shadows the parent value for the child only.
@@ -22,7 +22,7 @@ test "context values are keyed by their Nomi type"
 
     assert case Context.value(shadowed, TraceId)
         Some(TraceId(id)) -> id == "trace-456"
-        None -> False
+        None              -> False
     end
 
     // Parent contexts are immutable; adding values to children does not mutate

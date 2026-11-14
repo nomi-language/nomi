@@ -137,9 +137,9 @@
 //# of the phrase's text: its entry there, or the nearest listed ancestor's,
 //# else its source form.
 //#
-//# Two pseudo-locales need no catalog: ``Locale`en-XA` `` writes the source
+//# Two pseudo-locales need no catalog: `Locale"en-XA"` writes the source
 //# text accented, bracketed and about a third longer (`[3 îţéɱš îñ ýöûŕ çåŕţ
-//# one two]`), and ``Locale`ar-XB` `` writes it mirrored right to left, so
+//# one two]`), and `Locale"ar-XB"` writes it mirrored right to left, so
 //# text that was not declared as a phrase stands out and layouts are tried
 //# at another length and direction.
 
@@ -167,8 +167,8 @@ end
 /// reader's locale, which formats it with `Phrase.format`. Two phrases are
 /// equal when they are the same declaration with equal arguments.
 pub opaque struct Phrase
-    name: String
-    table: String
+    name:      String
+    table:     String
     arguments: List<Argument>
 end
 
@@ -246,7 +246,7 @@ end
 /// The editor shows a noun's gender and forms on hover, completes genders
 /// and cases in a catalog, and adds a form a noun lacks as a quick fix.
 pub opaque struct Noun
-    name: String
+    name:  String
     table: String
 end
 
@@ -363,7 +363,7 @@ end
 /// translates the phrases and nouns the program has, into a locale it
 /// lists.
 pub opaque struct Catalog
-    locale: Locale
+    locale:  Locale
     entries: String
 end
 
@@ -372,7 +372,7 @@ end
 /// catalog's locale, and why, in the words the compiler uses for the same
 /// problem in a catalog it reads.
 pub struct Rejected
-    key: String
+    key:    String
     locale: Locale
     reason: String
 end
@@ -417,19 +417,19 @@ impl Catalog
     ///
     /// ```nomi
     /// fn refresh(text: String) -> Catalog
-    ///     (catalog, rejected) = Catalog.load(text, Locale`pl`)
+    ///     (catalog, rejected) = Catalog.load(text, Locale"pl")
     ///     Iter.each(rejected, fn r -> io.print("${r.locale} ${r.key}: ${r.reason}"))
     ///     catalog
     /// end
     ///
     /// fn badge(catalog: Catalog) -> String
-    ///     cart.cart_items(3) |> Phrase.format(Locale`pl`, catalogs: [catalog])
+    ///     cart.cart_items(3) |> Phrase.format(Locale"pl", catalogs: [catalog])
     /// end
     /// ```
     pub fn load(text: String, locale: Locale) -> (Catalog, List<Rejected>)
         case format.load(text, locale)
             [entries, ..rest] -> (Catalog{locale:, entries:}, rejections(rest, locale))
-            [] -> (Catalog{locale:, entries: ""}, [])
+            []                -> (Catalog{locale:, entries: ""}, [])
         end
     end
 
@@ -446,7 +446,7 @@ end
 fn rejections(answer: List<String>, locale: Locale) -> List<Rejected>
     case answer
         [key, reason, ..rest] -> [Rejected{key:, locale:, reason:}, ..rejections(rest, locale)]
-        _ -> []
+        _                     -> []
     end
 end
 
@@ -470,12 +470,12 @@ end
 
 fn argument_number(argument: Argument) -> String
     case argument
-        Argument.Integer(n) -> Display.to_string(n)
-        Argument.Floating(f) -> Display.to_string(f)
-        Argument.Exact(d) -> Display.to_string(d)
+        Argument.Integer(n)   -> Display.to_string(n)
+        Argument.Floating(f)  -> Display.to_string(f)
+        Argument.Exact(d)     -> Display.to_string(d)
         Argument.Items(items) -> Display.to_string(Iter.count(items))
-        Argument.Amount(m) -> Display.to_string(m.amount)
-        _ -> ""
+        Argument.Amount(m)    -> Display.to_string(m.amount)
+        _                     -> ""
     end
 end
 
@@ -641,8 +641,8 @@ end
 /// function writes with its `Localize`.
 fn moment<T>(value: T) -> Argument where T: Display and Localize
     Argument.Moment{
-        key: Display.to_string(value),
-        shown: Debug.inspect(value),
+        key:      Display.to_string(value),
+        shown:    Debug.inspect(value),
         localize: fn locale -> T.localize(value, locale),
     }
 end
@@ -663,8 +663,8 @@ end
 /// `Localize`.
 fn localized(value: Localize) -> Argument
     Argument.Localized{
-        shown: Debug.inspect(value),
-        name: "",
+        shown:    Debug.inspect(value),
+        name:     "",
         localize: fn locale -> Localize.localize(value, locale),
     }
 end

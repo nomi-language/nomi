@@ -28,14 +28,20 @@ import (
 // position records what each of its `..`s stands for (atUpdatePosition)
 // before it checks the value, and checking a `..` reads that record; an
 // update nested in the value records its own positions later, so the
-// innermost wins. Anywhere else the record is missing and the `..` is an
-// error. At a map key the base may lack, an operand `..` is the empty
+// innermost wins. Before checking anything, an update also records each
+// `..` in its field and key values as standing for a value of unknown type
+// (atUpdateSyntax), so a `..` keeps its update when the update cannot be
+// checked: a base of an unknown type, or a field the type lacks. Such a
+// `..` has no type and reports nothing, since the error that stopped the
+// update is reported already. Anywhere else the record is missing and the
+// `..` is an error. At a map key the base may lack, an operand `..` is the empty
 // collection when the value is one, and an error otherwise: there is no
 // value to read and a missing key never traps.
 
 // currentAt is what one bare `..` stands for.
 type currentAt struct {
-	// ty is the type of the value at the position.
+	// ty is the type of the value at the position, nil when the update
+	// could not be checked.
 	ty Type
 	// missing is set when the position may hold no value: a map key the
 	// base may lack, or any position under one. The update then builds the
@@ -70,6 +76,21 @@ func (c *checker) atUpdatePosition(value ast.Node, ty Type, missing bool) {
 	}
 }
 
+// atUpdateSyntax records that value is written at a field or key of an
+// update, before the update's types are known: each `..` belonging to the
+// position stands for a value of unknown type until atUpdatePosition gives
+// it the position's type. A record already there is kept.
+func (c *checker) atUpdateSyntax(value ast.Node) {
+	for _, cv := range ast.CurrentValuesOf(value) {
+		if c.currentValues == nil {
+			c.currentValues = map[*ast.CurrentValue]currentAt{}
+		}
+		if _, ok := c.currentValues[cv]; !ok {
+			c.currentValues[cv] = currentAt{}
+		}
+	}
+}
+
 // checkCurrentValue types a bare `..`: the type of the value at its
 // position, or an error when the position has none.
 func (c *checker) checkCurrentValue(n *ast.CurrentValue) Type {
@@ -82,6 +103,10 @@ func (c *checker) checkCurrentValue(n *ast.CurrentValue) Type {
 	if !ok {
 		c.report(errAt(n, "a bare `..` has no value to update here").
 			WithHint("a bare `..` stands for the value already at a field or key of an update, as in `{..user, address: {.., city: \"NYC\"}}`; anywhere else, name the base: `{..base, field: value}`"))
+		return nil
+	}
+	if at.ty == nil {
+		// The update could not be checked, and said why.
 		return nil
 	}
 	if n.Operand && at.missing && !emptyCollectionType(at.ty) {
@@ -216,6 +241,9 @@ func (c *checker) markStructUpdatePatch(call *ast.Call) {
 				c.structUpdatePatches = map[*ast.StructLit]bool{}
 			}
 			c.structUpdatePatches[lit] = true
+			for _, f := range lit.Fields {
+				c.atUpdateSyntax(f.Value)
+			}
 			patch = lit
 		} else {
 			original = arg

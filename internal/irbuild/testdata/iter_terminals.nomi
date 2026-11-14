@@ -26,7 +26,7 @@ end
 fn show(label: String, m: Maybe<Int>)
     case m
         Some(n) -> io.print("${label} some ${n}")
-        None -> io.print("${label} none")
+        None    -> io.print("${label} none")
     end
 end
 

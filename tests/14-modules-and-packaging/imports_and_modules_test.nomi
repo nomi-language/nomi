@@ -6,7 +6,7 @@ end
 once default_greeting: String = "Hello"
 
 struct Account
-    owner: String
+    owner:   String
     balance: Int
 end
 

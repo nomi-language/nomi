@@ -1,13 +1,13 @@
 struct Holder
     items: List<Int>
-    tags: Map<String, Int>
+    tags:  Map<String, Int>
 end
 
 derive Equatable for Holder
 
 struct Bag
     items: List<Int>
-    tags: Map<String, Int>
+    tags:  Map<String, Int>
 end
 
 derive Equatable for Bag

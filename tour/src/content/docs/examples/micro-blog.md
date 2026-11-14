@@ -24,18 +24,18 @@ import micro_blog
 
 test "truncate"
     [
-        ("English language short", "Hi", "Hi"),
-        ("English language long", "Hello there", "Hello"),
-        ("German language short (broth)", "brühe", "brühe"),
-        ("German language long (bear carpet → beards)", "Bärteppich", "Bärte"),
-        ("Bulgarian language short (good)", "Добър", "Добър"),
-        ("Greek language short (health)", "υγειά", "υγειά"),
-        ("Maths short", "a=πr²", "a=πr²"),
-        ("Maths long", "∅⊊ℕ⊊ℤ⊊ℚ⊊ℝ⊊ℂ", "∅⊊ℕ⊊ℤ"),
-        ("English and emoji short", "Fly 🛫", "Fly 🛫"),
-        ("Emoji short", "💇", "💇"),
-        ("Emoji long", "❄🌡🤧🤒🏥🕰😀", "❄🌡🤧🤒🏥"),
-        ("Royal Flush?", "🃎🂸🃅🃋🃍🃁🃊", "🃎🂸🃅🃋🃍"),
+        ("English language short",                      "Hi",          "Hi"),
+        ("English language long",                       "Hello there", "Hello"),
+        ("German language short (broth)",               "brühe",       "brühe"),
+        ("German language long (bear carpet → beards)", "Bärteppich",  "Bärte"),
+        ("Bulgarian language short (good)",             "Добър",       "Добър"),
+        ("Greek language short (health)",               "υγειά",       "υγειά"),
+        ("Maths short",                                 "a=πr²",       "a=πr²"),
+        ("Maths long",                                  "∅⊊ℕ⊊ℤ⊊ℚ⊊ℝ⊊ℂ", "∅⊊ℕ⊊ℤ"),
+        ("English and emoji short",                     "Fly 🛫",      "Fly 🛫"),
+        ("Emoji short",                                 "💇",          "💇"),
+        ("Emoji long",                                  "❄🌡🤧🤒🏥🕰😀", "❄🌡🤧🤒🏥"),
+        ("Royal Flush?",                                "🃎🂸🃅🃋🃍🃁🃊",     "🃎🂸🃅🃋🃍"),
     ]
     |> subtests (description, post, expected), description
         assert micro_blog.truncate(post) == expected

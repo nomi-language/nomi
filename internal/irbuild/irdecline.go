@@ -72,6 +72,11 @@ type Decline struct {
 	// Pattern reports that Line and Col are a pattern's: the innermost
 	// pattern the builder could not test, which is no expression.
 	Pattern bool
+	// Signature is set when the decline is a call to a function whose
+	// signature the builder refused: where that refusal is. The callee's
+	// body is never attempted, so no decline of its own names it, and a
+	// host reports this decline at the signature (signaturedecline.go).
+	Signature *SignatureDecline
 }
 
 // declineCensus is one lowering's decline bookkeeping: the open attempt's
@@ -377,6 +382,11 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 			reason = bl.declineReason(n)
 		}
 		bl.g.dc.note(reason)
+		if cur := bl.g.dc.cur; cur != nil && planted == "" {
+			// A call to a function whose signature was refused: where
+			// the refusal is (signaturedecline.go).
+			cur.Signature = bl.calleeSignatureDecline(n, reason)
+		}
 	}
 	if cur := bl.g.dc.cur; !ok && cur != nil && cur.Line == 0 {
 		// The innermost failing expression: where the decline was noted, or
@@ -571,7 +581,7 @@ func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
 	case sig == nil:
 		return "a direct callee outside this module's fn table: " + callee.Name
 	case !sig.lowerable || sig.decl == nil:
-		return "a direct callee that is not lowerable: " + callee.Name
+		return calleeNotLowerable + callee.Name
 	case sig.dict != nil || sig.tps != nil:
 		return "a generic direct callee: " + callee.Name
 	case len(sig.params) != len(t.Args):

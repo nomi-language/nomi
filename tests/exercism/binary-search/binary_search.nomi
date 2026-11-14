@@ -10,8 +10,8 @@ end
 fn search<T>(
     items: Vector<T>,
     value: T,
-    low: Int,
-    high: Int,
+    low:   Int,
+    high:  Int,
 ) -> Result<Int, String> where T: Comparable
     if low >= high then return Err("value not in array")
 
@@ -19,8 +19,8 @@ fn search<T>(
     item = Vector.get(items, middle)!
 
     case Comparable.compare(value, item)
-        .Less -> search(items, value, low, middle)
-        .Equal -> Ok(middle)
+        .Less    -> search(items, value, low, middle)
+        .Equal   -> Ok(middle)
         .Greater -> search(items, value, middle + 1, high)
     end
 end

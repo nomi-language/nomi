@@ -32,17 +32,17 @@ end
 impl Outcome
     fn parse(word: String) -> Maybe<Outcome>
         case word
-            "win" -> Some(.Win)
+            "win"  -> Some(.Win)
             "draw" -> Some(.Draw)
             "loss" -> Some(.Loss)
-            _ -> None
+            _      -> None
         end
     end
 
     /// How the match ended for the other team.
     fn reverse(outcome: Outcome) -> Outcome
         case outcome
-            .Win -> .Loss
+            .Win  -> .Loss
             .Draw -> .Draw
             .Loss -> .Win
         end
@@ -51,10 +51,10 @@ end
 
 /// One team's line of the table.
 struct Standing
-    team: String
-    won: Int
+    team:  String
+    won:   Int
     drawn: Int
-    lost: Int
+    lost:  Int
 end
 
 impl Standing
@@ -105,9 +105,9 @@ end
 fn standing(team: String, outcomes: Iter<Outcome>) -> Standing
     {
         team:,
-        won: count(outcomes, .Win),
+        won:   count(outcomes, .Win),
         drawn: count(outcomes, .Draw),
-        lost: count(outcomes, .Loss),
+        lost:  count(outcomes, .Loss),
     }
 end
 

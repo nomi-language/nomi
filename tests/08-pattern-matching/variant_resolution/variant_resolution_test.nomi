@@ -12,9 +12,9 @@ end
 
 fn area(s: VariantShape) -> Float
     case s
-        .Circle(r) -> 3.14 * r * r
+        .Circle(r)    -> 3.14 * r * r
         .Square(side) -> side * side
-        .Origin -> 0.0
+        .Origin       -> 0.0
     end
 end
 
@@ -25,24 +25,24 @@ end
 fn try_describe(s: Maybe<VariantShape>) -> String
     case s
         Some(.Circle(r)) -> "circle radius=${r}"
-        Some(_) -> "other shape"
-        None -> "no shape"
+        Some(_)          -> "other shape"
+        None             -> "no shape"
     end
 end
 
 fn classify(n: Int) -> Result<String, String>
     case n
-        0 -> Ok("zero")
+        0            -> Ok("zero")
         x when x > 0 -> Ok("positive")
-        _ -> Err("negative")
+        _            -> Err("negative")
     end
 end
 
 fn json_encode_kind(jv: Json) -> String
     case jv
         .Obj(_) -> "obj-with-2"
-        .Null -> "null"
-        _ -> "other"
+        .Null   -> "null"
+        _       -> "other"
     end
 end
 
@@ -52,11 +52,11 @@ test "bare variants resolve in pattern position and owner selector imports"
 
     json_pattern = case hand_built
         .Obj(_) -> "got-obj"
-        _ -> "no"
+        _       -> "no"
     end
 
     classified = case classify(7)
-        Ok(s) -> "good: ${s}"
+        Ok(s)  -> "good: ${s}"
         Err(e) -> "bad: ${e}"
     end
 
@@ -96,9 +96,9 @@ end
 
 fn paint(c: DotColor) -> Int
     case c
-        DotColor.Red -> 1
+        DotColor.Red   -> 1
         DotColor.Green -> 2
-        DotColor.Blue -> 3
+        DotColor.Blue  -> 3
     end
 end
 
@@ -134,16 +134,16 @@ test "dot-leading variants resolve from contextual enum types"
     c4: DotColor = id_color(.Green)
 
     hit3: Int = case c1
-        .Red -> 10
+        .Red   -> 10
         .Green -> 20
-        .Blue -> 30
+        .Blue  -> 30
     end
 
     hit4: Float = case s1
-        .Circle(r) -> r
-        .Square(_) -> 0.0
+        .Circle(r)      -> r
+        .Square(_)      -> 0.0
         .Rect{w:, h: _} -> w
-        .Origin -> -1.0
+        .Origin         -> -1.0
     end
 
     theme =
@@ -207,9 +207,9 @@ end
 
 fn show_input(r: Result<Input, String>) -> String
     case r
-        Ok(.Quit) -> "quit"
+        Ok(.Quit)     -> "quit"
         Ok(.Guess(n)) -> "guess ${n}"
-        Err(e) -> "error ${e}"
+        Err(e)        -> "error ${e}"
     end
 end
 

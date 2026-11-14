@@ -64,13 +64,13 @@ end
 fn found(got: Maybe<String>, want: String) -> Bool
     case got
         .Some(v) -> v == want
-        .None -> False
+        .None    -> False
     end
 end
 
 fn found_int(got: Maybe<Int>, want: Int) -> Bool
     case got
         .Some(v) -> v == want
-        .None -> False
+        .None    -> False
     end
 end

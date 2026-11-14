@@ -14,8 +14,8 @@ fn main()
     type Items List<Int>
 
     struct Pt
-        y: Int
-        x: Int
+        y:   Int
+        x:   Int
         tok: Token
     end
 

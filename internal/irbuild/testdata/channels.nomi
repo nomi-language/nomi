@@ -63,7 +63,7 @@ end
 
 fn feed(s: Sender<Int>, n: Int) -> String
     case Sender.send(s, n)
-        Ok(_) -> "ok"
+        Ok(_)  -> "ok"
         Err(c) -> describe(c)
     end
 end
@@ -71,7 +71,7 @@ end
 fn take_one(r: Receiver<Int>) -> Int
     case Receiver.receive(r)
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 end
 
@@ -112,7 +112,7 @@ fn err_is_channel_closed()
     Sender.close(ch.sender)
 
     shape = case Sender.send(ch.sender, 1)
-        Ok(_) -> "ok"
+        Ok(_)  -> "ok"
         Err(_) -> "err"
     end
 
@@ -126,12 +126,12 @@ fn strings_too()
 
     first = case Receiver.receive(ch.receiver)
         Some(v) -> v
-        None -> "none"
+        None    -> "none"
     end
 
     second = case Receiver.receive(ch.receiver)
         Some(v) -> v
-        None -> "none"
+        None    -> "none"
     end
 
     io.print("strings = ${first}${second}")

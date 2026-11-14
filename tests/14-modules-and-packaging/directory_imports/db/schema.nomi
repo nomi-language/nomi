@@ -1,5 +1,5 @@
 pub struct Post
-    id: Int
+    id:    Int
     title: String
 end
 

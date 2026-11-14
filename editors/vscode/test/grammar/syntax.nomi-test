@@ -195,17 +195,17 @@ group "group"
         assert true and is_undone or false
 // <~~~~~~~~------ keyword.control.nomi
 // <~~~~~~~~~~~~~~~---- constant.language.boolean.nomi
-// <~~~~~~~~~~~~~~~~~~~~--- keyword.operator.word.nomi
+// <~~~~~~~~~~~~~~~~~~~~--- keyword.other.word.nomi
 // <~~~~~~~~~~~~~~~~~~~~~~~~--------- variable.other.nomi
         assert not is_undone
 // <~~~~~~~~------ keyword.control.nomi
-// <~~~~~~~~~~~~~~~--- keyword.operator.word.nomi
+// <~~~~~~~~~~~~~~~--- keyword.other.word.nomi
         assert db is Some(_)
 // <~~~~~~~~------ keyword.control.nomi
-// <~~~~~~~~~~~~~~~~~~-- keyword.operator.word.nomi
+// <~~~~~~~~~~~~~~~~~~-- keyword.other.word.nomi
         assert 1 in seen
 // <~~~~~~~~------ keyword.control.nomi
-// <~~~~~~~~~~~~~~~~~-- keyword.operator.word.nomi
+// <~~~~~~~~~~~~~~~~~-- keyword.other.word.nomi
         subtests cases, (a, b)
 // <~~~~~~~~-------- keyword.control.nomi
             assert a == b

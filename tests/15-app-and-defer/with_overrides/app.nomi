@@ -9,9 +9,9 @@ end
 
 pub struct App
     context: Context
-    level: Level
-    label: String
-    n: Int
+    level:   Level
+    label:   String
+    n:       Int
 end
 
 pub fn boot() -> Result<App, String>

@@ -23,10 +23,10 @@ fn handshake(method: Method, headers: List<(String, String)>) -> Request
 end
 
 once good = [
-    ("Upgrade", "websocket"),
-    ("Connection", "keep-alive, Upgrade"),
+    ("Upgrade",               "websocket"),
+    ("Connection",            "keep-alive, Upgrade"),
     ("Sec-WebSocket-Version", "13"),
-    ("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="),
+    ("Sec-WebSocket-Key",     "dGhlIHNhbXBsZSBub25jZQ=="),
 ]
 
 test "a handshake is accepted with the key's accept value"
@@ -57,7 +57,7 @@ end
 
 test "an allowed origin passes and another is refused"
     trusting = fn request: Request ->
-        options = AcceptOptions{allowed_origins: [Origin`https://app.example.com`]}
+        options = AcceptOptions{allowed_origins: [Origin"https://app.example.com"]}
         websocket.accept(request, options, fn _ -> Unit)
     end
 

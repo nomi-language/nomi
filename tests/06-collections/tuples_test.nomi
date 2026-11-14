@@ -39,6 +39,6 @@ fn classify(point: (Int, Int)) -> String
         (0, 0) -> "origin"
         (0, _) -> "y-axis"
         (_, 0) -> "x-axis"
-        _ -> "other"
+        _      -> "other"
     end
 end

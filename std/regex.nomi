@@ -1,9 +1,9 @@
 //# Regular expressions in RE2 syntax, matched in time linear in the input.
-//# Use raw typed literals for readable patterns, such as ``Regex`\d+``. A raw
-//# literal's pattern is compiled when the program is checked, so an invalid
-//# one is a compile error and the literal is a `Regex`; a double-quoted
-//# literal (``Regex"room ${word}"``) is compiled when it runs and is a
-//# `Result` of one.
+//# Use raw typed literals for readable patterns, such as ``Regex`\d+``. A
+//# literal without slots has its pattern compiled when the program is
+//# checked, so an invalid one is a compile error and the literal is a
+//# `Regex`; a literal with a slot (``Regex"room ${word}"``) is compiled when
+//# it runs and is a `Result` of one.
 //# A `Regex<C>` names its capture groups: `C` is what `String.captures`
 //# gives for a match. A literal's `C` comes from its pattern, a tuple of
 //# `String` and `Maybe<String>` groups (``Regex`(\d+)-(\w+)?` `` is a
@@ -25,8 +25,8 @@
 //# `String.captures` returns for a match, inside a `Maybe`, and what
 //# `String.captures_all` lists. The groups are the pattern's from group 1,
 //# in the order the pattern opens them; the whole match is `String.find`'s
-//# result, not a group. A `Regex` literal whose pattern is fixed text (a
-//# backtick literal, or a double-quoted one with no `${...}`) has `C`
+//# result, not a group. A `Regex` literal whose pattern is fixed text (one
+//# with no `${...}`, in any quotes) has `C`
 //# computed from the pattern by the compiler, as Swift types
 //# `/(\d+)-(\w+)?/`:
 //#
@@ -41,7 +41,7 @@
 //#   ``Regex`(?P<year>\d{4})-(?P<month>\d\d)?` `` is a
 //#   `Regex<{year: String, month: Maybe<String>}>`.
 //# - Otherwise several groups are a tuple in order (``Regex`(\d+)-(\w+)?` ``
-//#   is a `Regex<(String, Maybe<String>)>`, and ``Regex`(a)|(b)` `` a
+//#   is a `Regex<(String, Maybe<String>)>`, and `Regex"(a)|(b)"` a
 //#   `Regex<(Maybe<String>, Maybe<String>)>`), one group is its type alone,
 //#   since Nomi has no one-element tuple (``Regex`v(\d+)` `` is a
 //#   `Regex<String>`), and a pattern with no group is a `Regex<Unit>`, whose
@@ -105,8 +105,8 @@ end
 //! assert year + month == "202405"
 //!
 //! assert String.captures_all("a=1 b=2", Regex`(\w)=(\d)`) == [("a", "1"), ("b", "2")]
-//! assert String.captures("aa", Regex`(a*)`) == Maybe.Some("aa")
-//! assert String.captures("x", Regex`x`) == Maybe.Some(Unit)
+//! assert String.captures("aa", Regex"(a*)") == Maybe.Some("aa")
+//! assert String.captures("x", Regex"x") == Maybe.Some(Unit)
 //! digits: Regex<Unit> = Regex`\d+`
 //! assert String.contains("a1", digits)
 //
@@ -158,7 +158,7 @@ impl Literal for Regex<C>
     ) -> Result<Regex<List<Maybe<String>>>, String>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -174,25 +174,14 @@ impl Display for Regex<C>
     end
 end
 
-// Whether m occurs in text. Generic, so a program builds it after every std
-// module is lowered: std/strings and this file import each other, and this
-// file's bodies are lowered before String's own functions exist to call.
-fn occurs<M>(m: M, text: String) -> Bool where M: Matcher
-    M.is_contained_in(m, text)
-end
-
 impl Debug for Regex<C>
-    /// The typed literal that builds this regex: raw, unless the pattern holds
-    /// a backtick, which a raw literal cannot.
+    /// The typed literal that builds this regex, as `String.to_typed_literal`
+    /// writes it: in double quotes when the pattern needs no escape there,
+    /// and in backticks when it does, unless it holds a backtick.
+    //! assert Debug.inspect(Regex"a+") == "Regex\"a+\""
     //! assert Debug.inspect(Regex`\d+`) == "Regex`\\d+`"
     //! assert Debug.inspect(Regex.compile("a`b")?) == "Regex\"a`b\""
     fn inspect(re: Regex<C>) -> String
-        pattern = Regex.pattern(re)
-
-        if occurs("`", pattern) then
-            "Regex${Debug.inspect(pattern)}"
-        else
-            "Regex`${pattern}`"
-        end
+        String.to_typed_literal(Regex.pattern(re), "Regex")
     end
 end

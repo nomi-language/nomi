@@ -2,6 +2,7 @@ package frontend_test
 
 import (
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -175,11 +176,16 @@ func TestSharedStd_ChecksLeaveItUnchanged(t *testing.T) {
 	}
 }
 
-// sharedStdState is every value reachable from lib, keyed by the address of
-// the pointer or map that holds it and the field path inside that object.
-// Addresses are stable within a process, so two states compare key by key.
+// sharedStdState is every value reachable from lib, keyed by the object that
+// holds it and the field path inside that object. An object is an address and
+// the type it is reached as: a struct and its first field share an address,
+// as a FileAnalysis and its FileDecls do when the stdlib's state is read back
+// from the artifact cache (whose kept declarations hold each file's
+// FileDecls), and keyed by address alone the two would name one object as
+// whichever type the walk reached first. Addresses are stable within a
+// process, so two states compare key by key.
 func sharedStdState(lib *std.StdLib) map[string]string {
-	w := stateWalker{seen: map[uintptr]bool{}, out: map[string]string{}}
+	w := stateWalker{seen: map[string]bool{}, out: map[string]string{}}
 	w.walk("lib", reflect.ValueOf(lib))
 	return w.out
 }
@@ -195,8 +201,16 @@ func reachedBefore(before map[string]string, key string) bool {
 }
 
 type stateWalker struct {
-	seen map[uintptr]bool
+	seen map[string]bool
 	out  map[string]string
+}
+
+// objectID names the object v points at: its address and a hash of its type,
+// with none of the characters reachedBefore splits a key at.
+func objectID(v reflect.Value) string {
+	h := fnv.New32a()
+	h.Write([]byte(v.Type().String()))
+	return fmt.Sprintf("%x_%08x", v.Pointer(), h.Sum32())
 }
 
 func (w *stateWalker) walk(path string, v reflect.Value) {
@@ -206,12 +220,12 @@ func (w *stateWalker) walk(path string, v reflect.Value) {
 			w.out[path] = "nil"
 			return
 		}
-		obj := fmt.Sprintf("%x", v.Pointer())
+		obj := objectID(v)
 		w.out[path] = "->" + obj
-		if w.seen[v.Pointer()] {
+		if w.seen[obj] {
 			return
 		}
-		w.seen[v.Pointer()] = true
+		w.seen[obj] = true
 		w.out[obj+"#obj"] = v.Type().String()
 		if v.Kind() == reflect.Pointer {
 			w.walk(obj, v.Elem())

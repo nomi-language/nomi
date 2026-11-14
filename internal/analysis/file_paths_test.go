@@ -170,6 +170,48 @@ end
 		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::base64`, `std::bits`, `std::bitwise` and more")
 }
 
+// What `std` holds, for its listing and for did-you-mean, includes the
+// modules nested under another (`std::storage::testing`), and leaves out
+// the prelude and the internal modules (`std::fs::host`).
+func TestDirectoryImport_StdHoldsNestedModules(t *testing.T) {
+	rejects(t, `import std
+
+fn main()
+    std::storage_testing.f()
+    std::fs_host.f()
+end
+`,
+		"4:5: `std::storage_testing` names no file: std has no storage_testing.nomi; did you mean `std::storage::testing`?",
+		"5:5: `std::fs_host` names no file: std has no fs_host.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::base64`, `std::bits`, `std::bitwise` and more")
+
+	main := "import std\n\nfn main()\n    std::io.print(1)\nend\n"
+	root := filepath.Join(t.TempDir(), "app")
+	writeTestFile(t, filepath.Join(root, "nomi.toml"), directoryImportFiles["nomi.toml"])
+	entry := filepath.Join(root, "main.nomi")
+	writeTestFile(t, entry, main)
+	nodes, _ := parser.ParseWithRecovery(lexer.Lex(main))
+	lib := std.Load()
+	fa, _, _ := analysis.BuildProjectFromEntry(entry, nodes, lib.Primitives, lib.Modules, lib.Files, root, std.MakeLoader())
+	sym := fa.References[analysis.Pos{Line: 1, Col: 8}]
+	if sym == nil || sym.Directory == nil || sym.Directory.Listing == nil {
+		t.Fatalf("`import std` binds no directory: %+v", sym)
+	}
+	held := map[string]bool{}
+	for _, f := range sym.Directory.Listing.Files {
+		held[f] = true
+	}
+	for _, want := range []string{"storage", "storage::testing", "http::testing", "fs::testing"} {
+		if !held[want] {
+			t.Errorf("std's listing lacks %s: %v", want, sym.Directory.Listing.Files)
+		}
+	}
+	for _, not := range []string{"prelude", "fs::host", "phrase::format", "fs/testing", "_fixtures::conn"} {
+		if held[not] {
+			t.Errorf("std's listing holds %s", not)
+		}
+	}
+}
+
 // Where a file and a directory share a name, the import names the file; the
 // directory is reached from its parent.
 func TestDirectoryImport_AFileWinsOverADirectoryOfItsName(t *testing.T) {

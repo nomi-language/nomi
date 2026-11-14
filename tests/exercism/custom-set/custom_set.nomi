@@ -66,8 +66,8 @@ fn insert<T>(items: List<T>, element: T) -> List<T> where T: Comparable
 
         [first, ..rest] ->
             case Comparable.compare(element, first)
-                .Less -> [element, ..items]
-                .Equal -> items
+                .Less    -> [element, ..items]
+                .Equal   -> items
                 .Greater -> [first, ..insert(rest, element)]
             end
     end

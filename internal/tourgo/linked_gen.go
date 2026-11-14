@@ -70,6 +70,11 @@ func tourBlock0Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d2, err = env.Desc(tourBlock0Spec_d2); err != nil {
 		return nil, err
 	}
+	if env.AddParts != nil {
+		env.AddParts("urls.parse", b.fn4Parts)
+		env.AddParts("urls.parse_query", b.fn9Parts)
+		env.AddParts("urls.unescape_query", b.fn10Parts)
+	}
 	return map[string]hostadapt.Func{
 		"urls.escape_query":   b.fn1,
 		"urls.parse":          b.fn4,
@@ -181,6 +186,29 @@ func (b *tourBlock0Bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	return ok, nil
 }
 
+// fn4Parts is urls.parse taken apart: the payload and true, or the record and false.
+func (b *tourBlock0Bound) fn4Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("urls.parse", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("urls.parse", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("urls.parse", 0, "urltools.Parse", "raw", err)
+	}
+	r0, e := tourBlock0_urltools.Parse(a0)
+	if e != nil {
+		rec := b.d0.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out5(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("urltools.Parse", err)
+	}
+	return v, true, nil
+}
+
 // fn9 adapts urls.parse_query: parse_query(raw: String) -> Result<Map<String, List<String>>, String>
 func (b *tourBlock0Bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("urls.parse_query", &err)
@@ -206,6 +234,29 @@ func (b *tourBlock0Bound) fn9(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	return ok, nil
 }
 
+// fn9Parts is urls.parse_query taken apart: the payload and true, or the record and false.
+func (b *tourBlock0Bound) fn9Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("urls.parse_query", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("urls.parse_query", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("urls.parse_query", 0, "urltools.ParseQuery", "raw", err)
+	}
+	r0, e := tourBlock0_urltools.ParseQuery(a0)
+	if e != nil {
+		rec := b.d0.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out6(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("urltools.ParseQuery", err)
+	}
+	return v, true, nil
+}
+
 // fn10 adapts urls.unescape_query: unescape_query(value: String) -> Result<String, String>
 func (b *tourBlock0Bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("urls.unescape_query", &err)
@@ -229,6 +280,29 @@ func (b *tourBlock0Bound) fn10(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	ok := b.d2.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
+}
+
+// fn10Parts is urls.unescape_query taken apart: the payload and true, or the record and false.
+func (b *tourBlock0Bound) fn10Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("urls.unescape_query", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("urls.unescape_query", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("urls.unescape_query", 0, "urltools.UnescapeQuery", "value", err)
+	}
+	r0, e := tourBlock0_urltools.UnescapeQuery(a0)
+	if e != nil {
+		rec := b.d2.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out3(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("urltools.UnescapeQuery", err)
+	}
+	return v, true, nil
 }
 
 // calling-go.md, block 2
@@ -269,6 +343,9 @@ func tourBlock1Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	var err error
 	if b.d0, err = env.Desc(tourBlock1Spec_d0); err != nil {
 		return nil, err
+	}
+	if env.AddParts != nil {
+		env.AddParts("parse_int", b.fn1Parts)
 	}
 	return map[string]hostadapt.Func{
 		"parse_int": b.fn1,
@@ -313,6 +390,29 @@ func (b *tourBlock1Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	ok := b.d0.NewVariant(0)
 	ok.SetIntSlot(0, v0)
 	return ok, nil
+}
+
+// fn1Parts is parse_int taken apart: the payload and true, or the record and false.
+func (b *tourBlock1Bound) fn1Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("parse_int", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("parse_int", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("parse_int", 0, "strconv.Atoi", "s", err)
+	}
+	r0, e := tourBlock1_strconv.Atoi(a0)
+	if e != nil {
+		rec := b.d0.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out3(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("strconv.Atoi", err)
+	}
+	return v, true, nil
 }
 
 // out5 builds a String from Go string.

@@ -62,9 +62,9 @@ once tens = Vector[
 /// Each scale word with the number it counts, largest first.
 once scales = [
     (1_000_000_000, "billion"),
-    (1_000_000, "million"),
-    (1000, "thousand"),
-    (100, "hundred"),
+    (1_000_000,     "million"),
+    (1000,          "thousand"),
+    (100,           "hundred"),
 ]
 
 /// `number` in English words, from "zero" to the largest number below a
@@ -98,9 +98,9 @@ end
 
 fn below_hundred(n: Int) -> String
     case
-        n < 20 -> Vector.get(small, n)!
+        n < 20      -> Vector.get(small, n)!
         n % 10 == 0 -> Vector.get(tens, n / 10)!
-        _ -> "${Vector.get(tens, n / 10)!}-${Vector.get(small, n % 10)!}"
+        _           -> "${Vector.get(tens, n / 10)!}-${Vector.get(small, n % 10)!}"
     end
 end
 

@@ -5,7 +5,7 @@
 /// each operation returns the buffer after it.
 pub opaque struct Buffer<T>
     capacity: Int
-    items: List<T>
+    items:    List<T>
 end
 
 /// Why an operation cannot be done.
@@ -46,7 +46,7 @@ impl Buffer<T>
     pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error>
         case buffer.items
             [oldest, ..rest] -> Ok((oldest, {..buffer, items: rest}))
-            [] -> Err(.Empty)
+            []               -> Err(.Empty)
         end
     end
 

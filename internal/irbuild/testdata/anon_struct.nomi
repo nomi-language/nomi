@@ -50,7 +50,7 @@ test "records are structural, ordered by nothing the programmer wrote"
     // is unlowered for a nominal struct too) and is deliberately not here.
     label = case point
         {x: 10, y:} -> "x is ten, y is ${y}"
-        _ -> "other"
+        _           -> "other"
     end
 
     io.print(label)

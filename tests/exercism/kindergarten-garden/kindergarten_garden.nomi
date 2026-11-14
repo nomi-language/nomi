@@ -18,7 +18,7 @@ impl Plant
             "C" -> Some(.Clover)
             "R" -> Some(.Radishes)
             "V" -> Some(.Violets)
-            _ -> None
+            _   -> None
         end
     end
 end

@@ -16,7 +16,7 @@ fn main()
     total = Iter.reduce(0..=49999, 0, fn acc, i ->
         v = case Map.get(m, i)
             Some(x) -> x
-            None -> 0
+            None    -> 0
         end
 
         acc + v

@@ -39,7 +39,7 @@ end
 // same `case` over `Result<Hover, String>` that thirty-five files do.
 fn signature_of(source: String) -> String
     case compiler.hover(source)
-        Ok(hover) -> hover.signature
+        Ok(hover)    -> hover.signature
         Err(message) -> message
     end
 end

@@ -8,7 +8,7 @@ end
 test "a marker payload pattern"
     n = case quiet(True)
         Err(Quiet) -> 0
-        Ok(v) -> v
+        Ok(v)      -> v
     end
 
     assert n == 0

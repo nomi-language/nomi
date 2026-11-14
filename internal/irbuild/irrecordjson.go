@@ -77,9 +77,11 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 		jsonK = bl.g.project(ft.Return)
 	}
 	subj, sk, _, sok := bl.lower(t.Args[0])
-	if !sok || !irRetainedRecordKind(sk) {
+	if !sok {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
+	// The operand has the record type recordJsonCallArg found.
+	irLoweredRecordRetained(sk, "ToJson."+method)
 	bl.noteQualRecordRow(t, subj, sk)
 	if method == "to_json_field" {
 		// The call's `Maybe<Json>` kind, which only the checker's

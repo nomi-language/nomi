@@ -141,13 +141,13 @@ func preludeSpecNamed(nomi string) *preludeSpec {
 // argument expression.
 //
 // The four UNTYPED literal kinds are excluded for bindableTypeArg's reason,
-// stated there: `[]`, a bare `None`, `{}` and `[]` have no type of their own,
+// stated there: `[]`, `{}` and `[]` have no type of their own,
 // so binding one would fix the artifact's element type from a literal whose real
 // type the program decides elsewhere. Here that would make
 // `Maybe.to_result(m, [])` produce a `Result<T, List<Unit>>`.
 func preludeArgUsable(k kind) bool {
 	switch k.tag {
-	case tagEmptyList, tagEmptyMap, tagBareNone, tagEmptySet, tagEmptyVector:
+	case tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
 		return false
 	}
 	// kindInvalid: lookup — a refused operand; the caller reports it by name.

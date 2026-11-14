@@ -105,7 +105,7 @@ impl Json
             Ok(json) ->
                 case T.from_json(json)
                     Ok(value) -> Ok(value)
-                    Err(e) -> Err(Json.Error.Shape(e))
+                    Err(e)    -> Err(Json.Error.Shape(e))
                 end
 
             Err(e) ->
@@ -134,12 +134,12 @@ impl Json
     pub fn kind(jv: Json) -> String
         case jv
             Json.String(_) -> "string"
-            Json.Int(_) -> "int"
-            Json.Float(_) -> "float"
-            Json.Bool(_) -> "bool"
-            Json.Arr(_) -> "array"
-            Json.Obj(_) -> "object"
-            Json.Null -> "null"
+            Json.Int(_)    -> "int"
+            Json.Float(_)  -> "float"
+            Json.Bool(_)   -> "bool"
+            Json.Arr(_)    -> "array"
+            Json.Obj(_)    -> "object"
+            Json.Null      -> "null"
         end
     end
 end
@@ -149,9 +149,9 @@ end
 // that supplied the type argument, so a capture written in the impl body
 // sees it (`&T.from_json(&1)`) but a separate generic helper does not.
 fn decode_list<T>(
-    items: List<Json>,
-    index: Int,
-    acc: List<T>,
+    items:       List<Json>,
+    index:       Int,
+    acc:         List<T>,
     decode_item: (Json) -> Result<T, Json.ShapeError>,
 ) -> Result<List<T>, Json.ShapeError>
     case items
@@ -161,7 +161,7 @@ fn decode_list<T>(
         [head, ..tail] ->
             case decode_item(head)
                 Ok(value) -> decode_list(tail, index + 1, List.concat(acc, [value]), decode_item)
-                Err(e) -> Err(shape_error_prepend(e, "[${index}]"))
+                Err(e)    -> Err(shape_error_prepend(e, "[${index}]"))
             end
     end
 end
@@ -205,9 +205,9 @@ end
 /// by other modules.
 pub struct Json.DecodeError
     message: String
-    line: Int
-    col: Int
-    offset: Int
+    line:    Int
+    col:     Int
+    offset:  Int
 end
 
 impl Display for Json.DecodeError
@@ -229,7 +229,7 @@ impl Display for Json.Error
     fn to_string(e: Json.Error) -> String
         case e
             Json.Error.Decode(d) -> Display.to_string(d)
-            Json.Error.Shape(s) -> Display.to_string(s)
+            Json.Error.Shape(s)  -> Display.to_string(s)
         end
     end
 end
@@ -267,9 +267,9 @@ derive Equatable for FromJson.Options
 /// and `got` the JSON value's kind (`Json.kind`), or `missing` for an
 /// absent key: `title: expected String, got null`.
 pub struct Json.ShapeError
-    path: List<String>
+    path:     List<String>
     expected: String
-    got: String
+    got:      String
 end
 
 pub fn shape_error_root(expected: String, got: Json) -> Json.ShapeError
@@ -282,9 +282,9 @@ end
 
 pub fn shape_error_prepend(e: Json.ShapeError, segment: String) -> Json.ShapeError
     Json.ShapeError{
-        path: [segment] + e.path,
+        path:     [segment] + e.path,
         expected: e.expected,
-        got: e.got,
+        got:      e.got,
     }
 end
 
@@ -296,21 +296,21 @@ end
 // T reads for a missing key (`from_missing`), else the error naming key.
 // expected is the field's type as its declaration writes it.
 pub fn decode_field<T>(
-    fields: Map<String, Json>,
-    key: String,
+    fields:   Map<String, Json>,
+    key:      String,
     expected: String,
 ) -> Result<T, Json.ShapeError> where T: FromJson
     case Map.get(fields, key)
         Some(json) ->
             case T.from_json(json)
                 Ok(value) -> Ok(value)
-                Err(e) -> Err(shape_error_prepend(e, key))
+                Err(e)    -> Err(shape_error_prepend(e, key))
             end
 
         None ->
             case T.from_missing()
                 Some(value) -> Ok(value)
-                None -> Err(Json.ShapeError{path: [key], expected:, got: "missing"})
+                None        -> Err(Json.ShapeError{path: [key], expected:, got: "missing"})
             end
     end
 end
@@ -320,13 +320,13 @@ end
 // default fills the field.
 pub fn decode_defaulted_field<T>(
     fields: Map<String, Json>,
-    key: String,
+    key:    String,
 ) -> Result<Maybe<T>, Json.ShapeError> where T: FromJson
     case Map.get(fields, key)
         Some(json) ->
             case T.from_json(json)
                 Ok(value) -> Ok(Some(value))
-                Err(e) -> Err(shape_error_prepend(e, key))
+                Err(e)    -> Err(shape_error_prepend(e, key))
             end
 
         None ->
@@ -405,7 +405,7 @@ pub fn object_of_fields(fields: Map<String, Maybe<Json>>) -> Json
         Iter.reduce(fields, {}, fn acc, (key, field) ->
             case field
                 Some(json) -> Map.put(acc, key, json)
-                None -> acc
+                None       -> acc
             end
         end)
     )
@@ -435,7 +435,7 @@ impl FromJson for Int
     fn from_json(json: Json) -> Result<Int, Json.ShapeError>
         case json
             Json.Int(value) -> Ok(value)
-            _ -> Err(shape_error_root("Int", json))
+            _               -> Err(shape_error_root("Int", json))
         end
     end
 end
@@ -455,8 +455,8 @@ impl FromJson for Float
     fn from_json(json: Json) -> Result<Float, Json.ShapeError>
         case json
             Json.Float(value) -> Ok(value)
-            Json.Int(value) -> Ok(Int.to_float(value))
-            _ -> Err(shape_error_root("Float", json))
+            Json.Int(value)   -> Ok(Int.to_float(value))
+            _                 -> Err(shape_error_root("Float", json))
         end
     end
 end
@@ -471,7 +471,7 @@ impl FromJson for String
     fn from_json(json: Json) -> Result<String, Json.ShapeError>
         case json
             Json.String(value) -> Ok(value)
-            _ -> Err(shape_error_root("String", json))
+            _                  -> Err(shape_error_root("String", json))
         end
     end
 end
@@ -486,7 +486,7 @@ impl FromJson for Bool
     fn from_json(json: Json) -> Result<Bool, Json.ShapeError>
         case json
             Json.Bool(value) -> Ok(value)
-            _ -> Err(shape_error_root("Bool", json))
+            _                -> Err(shape_error_root("Bool", json))
         end
     end
 end
@@ -504,7 +504,7 @@ impl FromJson for List<T> where T: FromJson
     fn from_json(json: Json) -> Result<List<T>, Json.ShapeError>
         case json
             Json.Arr(items) -> decode_list(items, 0, [], &T.from_json(&1))
-            _ -> Err(shape_error_root("List", json))
+            _               -> Err(shape_error_root("List", json))
         end
     end
 end
@@ -525,7 +525,7 @@ impl FromJson for Vector<T> where T: FromJson
             Json.Arr(items) ->
                 case decode_list(items, 0, [], &T.from_json(&1))
                     Ok(list) -> Ok(Iter.to_vector(list))
-                    Err(e) -> Err(e)
+                    Err(e)   -> Err(e)
                 end
 
             _ ->
@@ -550,7 +550,7 @@ impl FromJson for Set<T> where T: FromJson
             Json.Arr(items) ->
                 case decode_list(items, 0, [], &T.from_json(&1))
                     Ok(list) -> Ok(Iter.to_set(list))
-                    Err(e) -> Err(e)
+                    Err(e)   -> Err(e)
                 end
 
             _ ->
@@ -563,7 +563,7 @@ impl ToJson for Maybe<T> where T: ToJson
     fn to_json(value: Maybe<T>) -> Json
         case value
             Some(inner) -> ToJson.to_json(inner)
-            None -> Json.Null
+            None        -> Json.Null
         end
     end
 end
@@ -577,7 +577,7 @@ impl FromJson for Maybe<T> where T: FromJson
             _ ->
                 case T.from_json(json)
                     Ok(value) -> Ok(Some(value))
-                    Err(e) -> Err(e)
+                    Err(e)    -> Err(e)
                 end
         end
     end
@@ -606,7 +606,7 @@ impl FromJson for Map<String, V> where V: FromJson
                         Ok(acc) ->
                             case V.from_json(value)
                                 Ok(decoded) -> Ok(Map.put(acc, key, decoded))
-                                Err(e) -> break Err(shape_error_prepend(e, key))
+                                Err(e)      -> break Err(shape_error_prepend(e, key))
                             end
                     end
                 end)
@@ -679,7 +679,7 @@ end
 
 impl ToJson for Date
     /// Writes `YYYY-MM-DD`.
-    //! assert ToJson.to_json(Date`2026-05-04`) == Json.String("2026-05-04")
+    //! assert ToJson.to_json(Date"2026-05-04") == Json.String("2026-05-04")
     //
     fn to_json(value: Date) -> Json
         Json.String(Display.to_string(value))
@@ -688,7 +688,7 @@ end
 
 impl FromJson for Date
     /// Reads `YYYY-MM-DD`.
-    //! d = Date`2026-05-04`
+    //! d = Date"2026-05-04"
     //! assert Date.from_json(ToJson.to_json(d)) == Ok(d)
     //!
     //! assert Date.from_json(Json.String("2026-13-01")) |> Result.map_err(&Display.to_string(&1)) == Err(
@@ -711,7 +711,7 @@ end
 impl ToJson for NaiveDateTime
     /// Writes `YYYY-MM-DDTHH:MM:SS`, with a fraction of a second only when
     /// there is one.
-    //! dt = NaiveDateTime`2026-05-04T12:30:05.123`
+    //! dt = NaiveDateTime"2026-05-04T12:30:05.123"
     //! assert ToJson.to_json(dt) == Json.String("2026-05-04T12:30:05.123")
     //
     fn to_json(value: NaiveDateTime) -> Json
@@ -721,7 +721,7 @@ end
 
 impl FromJson for NaiveDateTime
     /// Reads `YYYY-MM-DDTHH:MM:SS[.fff]`.
-    //! dt = NaiveDateTime`2026-05-04T12:30:05`
+    //! dt = NaiveDateTime"2026-05-04T12:30:05"
     //! assert NaiveDateTime.from_json(ToJson.to_json(dt)) == Ok(dt)
     //!
     //! assert NaiveDateTime.from_json(Json.Int(0)) |> Result.map_err(&Display.to_string(&1)) == Err(
@@ -744,7 +744,7 @@ end
 
 impl ToJson for Time
     /// Writes `HH:MM:SS`, with a fraction of a second only when there is one.
-    //! assert ToJson.to_json(Time`12:30:05.5`) == Json.String("12:30:05.5")
+    //! assert ToJson.to_json(Time"12:30:05.5") == Json.String("12:30:05.5")
     //
     fn to_json(value: Time) -> Json
         Json.String(Display.to_string(value))
@@ -753,7 +753,7 @@ end
 
 impl FromJson for Time
     /// Reads `HH:MM:SS[.fff]`.
-    //! t = Time`12:30:05`
+    //! t = Time"12:30:05"
     //! assert Time.from_json(ToJson.to_json(t)) == Ok(t)
     //!
     //! assert Time.from_json(Json.String("12:30")) |> Result.map_err(&Display.to_string(&1)) == Err(
@@ -806,14 +806,14 @@ impl FromJson for Decimal
 
         read = case json
             Json.String(text) -> String.to_decimal(text)
-            Json.Int(n) -> String.to_decimal(Int.to_string(n))
-            Json.Float(f) -> String.to_decimal(Float.to_string(f))
-            _ -> None
+            Json.Int(n)       -> String.to_decimal(Int.to_string(n))
+            Json.Float(f)     -> String.to_decimal(Float.to_string(f))
+            _                 -> None
         end
 
         case read
             Some(d) -> Ok(d)
-            None -> Err(shape_error_text(expected, json))
+            None    -> Err(shape_error_text(expected, json))
         end
     end
 end

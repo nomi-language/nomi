@@ -5,8 +5,8 @@ import std::json.{FromJson, Json, ToJson}
 /// A roommate: who they owe and how much, who owes them, and the
 /// difference, what they are owed less what they owe.
 pub struct User
-    name: String
-    owes: Map<String, Float> = {}
+    name:    String
+    owes:    Map<String, Float> = {}
     owed_by: Map<String, Float> = {}
     balance: Float = 0.0
 end
@@ -38,9 +38,9 @@ derive FromJson for NewUser
 
 /// The payload of `POST /iou`: `borrower` owes `lender` `amount` more.
 struct Iou
-    lender: String
+    lender:   String
     borrower: String
-    amount: Float
+    amount:   Float
 end
 
 derive FromJson for Iou

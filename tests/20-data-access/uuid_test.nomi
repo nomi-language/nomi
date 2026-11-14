@@ -10,10 +10,10 @@ end
 test "parsing reads either case and displays lowercase"
     assert Ok(id) = Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")
     assert "${id}" == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-    assert id == Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
-    assert Debug.inspect(id) == "Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`"
+    assert id == Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+    assert Debug.inspect(id) == "Uuid\"6ba7b810-9dad-11d1-80b4-00c04fd430c8\""
     assert "${Uuid.nil()}" == "00000000-0000-0000-0000-000000000000"
-    assert "${Uuid`ffffffff-ffff-ffff-ffff-ffffffffffff`}" == "ffffffff-ffff-ffff-ffff-ffffffffffff"
+    assert "${Uuid"ffffffff-ffff-ffff-ffff-ffffffffffff"}" == "ffffffff-ffff-ffff-ffff-ffffffffffff"
 end
 
 test "invalid text is a typed error"
@@ -40,7 +40,7 @@ test "invalid text is a typed error"
 end
 
 test "bytes round trip, most significant first"
-    id = Uuid`00112233-4455-6677-8899-aabbccddeeff`
+    id = Uuid"00112233-4455-6677-8899-aabbccddeeff"
     bytes = Uuid.to_bytes(id)
     assert Bytes.length(bytes) == 16
 
@@ -121,16 +121,16 @@ fn hex48(n: Int) -> String
 end
 
 test "order is the unsigned order of the bits"
-    low = Uuid`7fffffff-ffff-ffff-ffff-ffffffffffff`
-    high = Uuid`80000000-0000-0000-0000-000000000000`
+    low = Uuid"7fffffff-ffff-ffff-ffff-ffffffffffff"
+    high = Uuid"80000000-0000-0000-0000-000000000000"
     assert low < high
-    assert Uuid`00000000-0000-0000-7fff-ffffffffffff` < Uuid`00000000-0000-0000-8000-000000000000`
+    assert Uuid"00000000-0000-0000-7fff-ffffffffffff" < Uuid"00000000-0000-0000-8000-000000000000"
     assert Uuid.nil() < low
     assert Comparable.compare(high, high) == Ordering.Equal
 end
 
 test "equal UUIDs are one key"
-    a = Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`
+    a = Uuid"6ba7b810-9dad-11d1-80b4-00c04fd430c8"
     b = Uuid.parse("6BA7B810-9DAD-11D1-80B4-00C04FD430C8")?
     assert a == b
     assert Hashable.hash(a) == Hashable.hash(b)

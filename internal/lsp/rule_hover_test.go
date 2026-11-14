@@ -29,23 +29,23 @@ func TestHover_IfWithoutElseStatesItsRule(t *testing.T) {
 		{"a pattern statement", "fn half(m: Maybe<Int>)\n  ▮if Some(n) = m then dbg n / 2\nend\n",
 			"```nomi\nif … then dbg n / 2\n```\n\n" +
 				"An `if` without `else` whose branch ends in `dbg` is a statement: it runs the branch when `m` matches `Some(n)` and has no value.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
+				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)"},
 		{"a chain", "fn sign(n: Int)\n  if n > 0 then\n    dbg n\n  else ▮if n < 0 then\n    dbg -n\n  end\nend\n",
 			"```nomi\nif … then dbg -n\n```\n\n" +
 				"An `if` without `else` whose branch ends in `dbg` is a statement: it runs the branch when `n < 0` holds and has no value.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
+				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)"},
 		{"a Unit statement", "import std::io\n\nfn note(debug: Bool)\n  ▮if debug then io.print(\"x\")\nend\n",
 			"```nomi\nif … then io.print(\"x\")\n```\n\n" +
 				"An `if` without `else` whose branch is `Unit` is a statement: it runs the branch when `debug` holds and has no value.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
+				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)"},
 		{"a branch that ends in assert", "test \"t\"\n  n = 1\n  ▮if n > 0 then assert n == 1\nend\n",
 			"```nomi\nif … then assert n == 1\n```\n\n" +
 				"An `if` without `else` whose branch ends in `assert` is a statement: it runs the branch when `n > 0` holds and has no value.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
+				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)"},
 		{"a statement that leaves", "fn check(n: Int) -> Result<Int, String>\n  ▮if n < 0 then return Err(\"negative\")\n  Ok(n)\nend\n",
 			"```nomi\nif … then return Err(\"negative\")\n```\n\n" +
 				"An `if` without `else` whose branch leaves (`return`) is a statement with no value: the code after it runs only when `n < 0` doesn't hold.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)."},
+				"More in the [spec](https://nomi-lang.org/spec/expressions/#ifelse)"},
 	})
 }
 
@@ -55,19 +55,19 @@ func TestHover_BindingElseStatesItsRule(t *testing.T) {
 		{"one that leaves", "fn first(letters: List<String>) -> String\n  [letter, ..rest] = letters ▮else return \"\"\n  letter\nend\n",
 			"```nomi\n[letter, ..rest] = letters else …\n```\n\n" +
 				"Runs when `letters` doesn't match `[letter, ..rest]`. It must leave the function (`return`, `break`, `continue`, or a call that never returns), so the pattern's names are bound after it.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)."},
+				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)"},
 		{"one that leaves where a fallback could stand", "fn f(m: Maybe<Int>) -> Int\n  Some(n) = m ▮else return 0\n  n\nend\n",
 			"```nomi\nSome(n) = m else …\n```\n\n" +
 				"Runs when `m` doesn't match `Some(n)`. Here it leaves the function (`return`), so the pattern's names are bound after it.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)."},
+				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)"},
 		{"one with arms", "fn f(r: Result<Int, String>) -> Int\n  Ok(n) = r ▮else\n    Err(_) -> return 0\n  end\n  n\nend\n",
 			"```nomi\nOk(n) = r else …\n```\n\n" +
 				"Runs when `r` doesn't match `Ok(n)`; its arms match the value that didn't. Here it leaves the function (`return`); an `Int` in its place would stand in for the pattern's payload instead.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)."},
+				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)"},
 		{"one with a fallback", "fn size(r: Result<(Int, Int), String>) -> Int\n  Ok((width, height)) = r ▮else (80, 24)\n  width * height\nend\n",
 			"```nomi\nOk((width, height)) = r else …\n```\n\n" +
 				"Runs when `r` doesn't match `Ok((width, height))`. Where it doesn't leave the function, its value, a `(Int, Int)`, stands in for the pattern's payload, and the pattern's names bind from it.\n\n" +
-				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)."},
+				"More in the [spec](https://nomi-lang.org/spec/patterns/#bindings-with-else)"},
 	})
 }
 

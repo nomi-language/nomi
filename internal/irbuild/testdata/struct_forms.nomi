@@ -24,7 +24,7 @@ import std::io
 
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 struct Rev

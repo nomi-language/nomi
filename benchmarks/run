@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs the benchmark suite and writes benchmarks/RESULTS.md.
+# Flags go to benchmarks/runner (-runs, -warmup, -only, -out, -check).
+set -e
+cd "$(dirname "$0")/.."
+exec go run ./benchmarks/runner "$@"

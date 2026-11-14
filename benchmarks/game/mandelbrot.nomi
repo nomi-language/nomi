@@ -1,0 +1,62 @@
+//# The Computer Language Benchmarks Game: mandelbrot.
+//#
+//# The Mandelbrot set on [-1.5-i, 0.5+i] as an `n`-by-`n` portable bitmap
+//# (P4) on standard output, as the benchmark's rules require: 50
+//# iterations, escape radius 2, eight pixels a byte, each row padded to a
+//# whole byte.
+
+import std::io.{self, Writer}
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 200})
+    end
+end
+
+/// Whether c stays within radius 2 for `left` more iterations.
+fn bounded(zr: Float, zi: Float, cr: Float, ci: Float, left: Int) -> Bool
+    tr = zr * zr
+    ti = zi * zi
+
+    if tr + ti > 4.0 then
+        False
+    else if left == 0 then
+        True
+    else
+        bounded(tr - ti + cr, 2.0 * zr * zi + ci, cr, ci, left - 1)
+    end
+end
+
+fn row(y: Int, n: Int) -> List<Byte>
+    ci = 2.0 * Int.to_float(y) / Int.to_float(n) - 1.0
+
+    0..(n + 7) / 8
+    |> Iter.map(fn b ->
+        bits = Iter.reduce(0..8, 0, fn bits, k ->
+            x = b * 8 + k
+            cr = 2.0 * Int.to_float(x) / Int.to_float(n) - 1.5
+            bit = if x < n and bounded(0.0, 0.0, cr, ci, 50) then 1 else 0
+            (bits <<< 1) ||| bit
+        end)
+
+        Int.to_byte(bits)!
+    end)
+    |> Iter.to_list()
+end
+
+fn main()
+    n = App.n
+    header = String.to_bytes("P4\n${n} ${n}\n")
+    pixels = 0..n |> Iter.flat_map(&row(&1, n)) |> Iter.to_list() |> Bytes.from_list()
+    Writer.write(io.stdout, header + pixels)!
+end

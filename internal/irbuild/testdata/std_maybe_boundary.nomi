@@ -23,28 +23,28 @@ import std::io
 fn describe_int(text: String) -> String
     case String.to_int(text)
         Some(n) -> "int ${n}"
-        None -> "int none"
+        None    -> "int none"
     end
 end
 
 fn describe_trunc(x: Float) -> String
     case Float.to_int(x)
         Some(n) -> "trunc ${n}"
-        None -> "trunc none"
+        None    -> "trunc none"
     end
 end
 
 fn describe_non_zero(n: Int) -> String
     case Int.to_non_zero(n)
         Some(nz) -> "non-zero ${nz}"
-        None -> "zero"
+        None     -> "zero"
     end
 end
 
 fn describe_positive(n: Int) -> String
     case Int.to_positive(n)
         Some(p) -> "positive ${p}"
-        None -> "not positive"
+        None    -> "not positive"
     end
 end
 

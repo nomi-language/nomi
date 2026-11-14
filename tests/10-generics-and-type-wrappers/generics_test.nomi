@@ -1,5 +1,5 @@
 struct Pair<A, B>
-    first: A
+    first:  A
     second: B
 end
 
@@ -32,7 +32,7 @@ test "generic structs enums interfaces and functions preserve types"
 
     wrapped = case w
         .Wrapped(v) -> v
-        .Empty -> 0
+        .Empty      -> 0
     end
 
     assert p.first == 1

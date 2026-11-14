@@ -4,8 +4,8 @@ import
 end
 
 test "a count selects English's and Polish's plural forms"
-    en = Locale`en`
-    pl = Locale`pl`
+    en = Locale"en"
+    pl = Locale"pl"
     assert cart.cart_items(1) |> Phrase.format(en) == "1 item in your cart"
     assert cart.cart_items(2) |> Phrase.format(en) == "2 items in your cart"
     assert cart.cart_items(1) |> Phrase.format(pl) == "1 produkt w koszyku"
@@ -16,28 +16,28 @@ test "a count selects English's and Polish's plural forms"
 end
 
 test "a number is written as the locale writes it"
-    assert cart.cart_items(1234) |> Phrase.format(Locale`en`) == "1,234 items in your cart"
-    assert cart.cart_items(1234) |> Phrase.format(Locale`pl`) == "1234 produkty w koszyku"
-    assert cart.cart_items(12345) |> Phrase.format(Locale`pl`) == "12\u{a0}345 produktów w koszyku"
+    assert cart.cart_items(1234) |> Phrase.format(Locale"en") == "1,234 items in your cart"
+    assert cart.cart_items(1234) |> Phrase.format(Locale"pl") == "1234 produkty w koszyku"
+    assert cart.cart_items(12345) |> Phrase.format(Locale"pl") == "12\u{a0}345 produktów w koszyku"
 end
 
 test "an enum selects its variant's arm"
     assert cart.order_status(Status.Pending)
-    |> Phrase.format(Locale`en`) == "Your order is waiting to ship"
+    |> Phrase.format(Locale"en") == "Your order is waiting to ship"
 
     assert cart.order_status(Status.Shipped)
-    |> Phrase.format(Locale`pl`) == "Zamówienie zostało wysłane"
+    |> Phrase.format(Locale"pl") == "Zamówienie zostało wysłane"
 
     assert cart.order_status(Status.Delivered)
-    |> Phrase.format(Locale`pt`) == "O pedido foi entregue"
+    |> Phrase.format(Locale"pt") == "O pedido foi entregue"
 end
 
 test "pt-PT falls back to pt"
-    assert cart.cart_items(3) |> Phrase.format(Locale`pt-PT`) == "3 itens no carrinho"
+    assert cart.cart_items(3) |> Phrase.format(Locale"pt-PT") == "3 itens no carrinho"
 end
 
 test "a partial locale falls back to the source for what it lacks"
-    de = Locale`de`
+    de = Locale"de"
 
     assert cart.order_status(Status.Shipped)
     |> Phrase.format(de) == "Ihre Bestellung ist unterwegs"
@@ -47,11 +47,11 @@ test "a partial locale falls back to the source for what it lacks"
 end
 
 test "an unlisted locale shows the source"
-    assert cart.cart_items(3) |> Phrase.format(Locale`fr`) == "3 items in your cart"
+    assert cart.cart_items(3) |> Phrase.format(Locale"fr") == "3 items in your cart"
 end
 
 test "a placeholder is isolated in a right-to-left locale"
-    ar = Locale`ar`
+    ar = Locale"ar"
     names = String.join_list(["Anna", "Ben", "Chloé"], ar)
 
     assert cart.watching(names)
@@ -62,14 +62,14 @@ test "a phrase's argument is another phrase, formatted in the same locale"
     items = cart.cart_items(3)
 
     assert cart.cart_summary("Anna", items)
-    |> Phrase.format(Locale`en`) == "Anna, you have 3 items in your cart"
+    |> Phrase.format(Locale"en") == "Anna, you have 3 items in your cart"
 
     assert cart.cart_summary("Anna", items)
-    |> Phrase.format(Locale`pl`) == "Anna, masz 3 produkty w koszyku"
+    |> Phrase.format(Locale"pl") == "Anna, masz 3 produkty w koszyku"
 end
 
 test "a list of names fills a placeholder"
-    en = Locale`en`
+    en = Locale"en"
     names = String.join_list(["Anna", "Ben", "Chloé"], en)
 
     assert cart.watching(names)
@@ -77,10 +77,10 @@ test "a list of names fills a placeholder"
 end
 
 test "the pseudo-locales need no catalog"
-    assert cart.cart_items(3) |> Phrase.format(Locale`en-XA`) == "[3 îţéɱš îñ ýöûŕ çåŕţ one two]"
+    assert cart.cart_items(3) |> Phrase.format(Locale"en-XA") == "[3 îţéɱš îñ ýöûŕ çåŕţ one two]"
 
     assert cart.cart_items(3)
-    |> Phrase.format(Locale`ar-XB`) == "\u{2068}3\u{2069}\u{202e} items in your cart\u{202c}"
+    |> Phrase.format(Locale"ar-XB") == "\u{2068}3\u{2069}\u{202e} items in your cart\u{202c}"
 end
 
 test "a phrase is a value: equal when its declaration and arguments are"

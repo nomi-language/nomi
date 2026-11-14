@@ -17,7 +17,7 @@ end
 /// traversal is `inorder`. The two must hold the same items, each once.
 pub fn tree_from_traversals<T>(
     preorder: List<T>,
-    inorder: List<T>,
+    inorder:  List<T>,
 ) -> Result<Tree<T>, Error> where T: Hashable and Equatable
     items = Iter.to_set(preorder)
 
@@ -50,7 +50,7 @@ fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable
             right_inorder = Iter.drop(inorder, size + 1) |> Iter.to_list()
 
             .Node{
-                left: build(left_preorder, left_inorder),
+                left:  build(left_preorder, left_inorder),
                 value: root,
                 right: build(right_preorder, right_inorder),
             }

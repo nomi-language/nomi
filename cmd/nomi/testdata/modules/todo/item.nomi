@@ -2,9 +2,9 @@
 //# builds its fields, and every other file goes through the functions below.
 
 pub opaque struct Item
-    id: Int
+    id:    Int
     title: String
-    done: Bool
+    done:  Bool
 end
 
 impl Item

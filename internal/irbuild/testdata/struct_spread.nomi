@@ -47,13 +47,13 @@ impl Speaker for Quiet
 end
 
 struct Stage
-    who: Speaker
+    who:   Speaker
     seats: Int
 end
 
 struct Box<T>
     item: T
-    tag: String
+    tag:  String
 end
 
 fn build() -> Point

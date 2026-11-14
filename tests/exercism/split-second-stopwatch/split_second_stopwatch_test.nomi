@@ -45,33 +45,33 @@ end
 fn command(watch: Stopwatch, step: Step) -> (Stopwatch, Step)
     result = case step
         .Start -> Stopwatch.start(watch)
-        .Stop -> Stopwatch.stop(watch)
-        .Lap -> Stopwatch.lap(watch)
+        .Stop  -> Stopwatch.stop(watch)
+        .Lap   -> Stopwatch.lap(watch)
         .Reset -> Stopwatch.reset(watch)
-        _ -> unreachable "replay passes only the four commands"
+        _      -> unreachable "replay passes only the four commands"
     end
 
     case result
-        Ok(next) -> (next, step)
+        Ok(next)   -> (next, step)
         Err(error) -> (watch, .Refused(step, "${error}"))
     end
 end
 
 test "split second stopwatch"
     [
-        ("new stopwatch starts in ready state", [Step.IsIn(.Ready)]),
-        ("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration`0s`)]),
-        ("new stopwatch's total has no elapsed time", [.Total(Duration`0s`)]),
-        ("new stopwatch does not have previous laps", [.PreviousLaps([])]),
+        ("new stopwatch starts in ready state",             [Step.IsIn(.Ready)]),
+        ("new stopwatch's current lap has no elapsed time", [.CurrentLap(Duration"0s")]),
+        ("new stopwatch's total has no elapsed time",       [.Total(Duration"0s")]),
+        ("new stopwatch does not have previous laps",       [.PreviousLaps([])]),
         ("start from ready state changes state to running", [.Start, .IsIn(.Running)]),
-        ("start does not change previous laps", [.Start, .PreviousLaps([])]),
+        ("start does not change previous laps",             [.Start, .PreviousLaps([])]),
         (
             "start initiates time tracking for current lap",
-            [.Start, .Advance(Duration`5s`), .CurrentLap(Duration`5s`)],
+            [.Start, .Advance(Duration"5s"), .CurrentLap(Duration"5s")],
         ),
         (
             "start initiates time tracking for total",
-            [.Start, .Advance(Duration`23s`), .Total(Duration`23s`)],
+            [.Start, .Advance(Duration"23s"), .Total(Duration"23s")],
         ),
         (
             "start cannot be called from running state",
@@ -82,20 +82,20 @@ test "split second stopwatch"
             "stop pauses time tracking for current lap",
             [
                 .Start,
-                .Advance(Duration`5s`),
+                .Advance(Duration"5s"),
                 .Stop,
-                .Advance(Duration`8s`),
-                .CurrentLap(Duration`5s`),
+                .Advance(Duration"8s"),
+                .CurrentLap(Duration"5s"),
             ],
         ),
         (
             "stop pauses time tracking for total",
             [
                 .Start,
-                .Advance(Duration`13s`),
+                .Advance(Duration"13s"),
                 .Stop,
-                .Advance(Duration`44s`),
-                .Total(Duration`13s`),
+                .Advance(Duration"44s"),
+                .Total(Duration"13s"),
             ],
         ),
         (
@@ -114,52 +114,52 @@ test "split second stopwatch"
             "start from stopped state resumes time tracking for current lap",
             [
                 .Start,
-                .Advance(Duration`1m20s`),
+                .Advance(Duration"1m20s"),
                 .Stop,
-                .Advance(Duration`20s`),
+                .Advance(Duration"20s"),
                 .Start,
-                .Advance(Duration`8s`),
-                .CurrentLap(Duration`1m28s`),
+                .Advance(Duration"8s"),
+                .CurrentLap(Duration"1m28s"),
             ],
         ),
         (
             "start from stopped state resumes time tracking for total",
             [
                 .Start,
-                .Advance(Duration`23s`),
+                .Advance(Duration"23s"),
                 .Stop,
-                .Advance(Duration`44s`),
+                .Advance(Duration"44s"),
                 .Start,
-                .Advance(Duration`9s`),
-                .Total(Duration`32s`),
+                .Advance(Duration"9s"),
+                .Total(Duration"32s"),
             ],
         ),
         (
             "lap adds current lap to previous laps",
             [
                 .Start,
-                .Advance(Duration`1m38s`),
+                .Advance(Duration"1m38s"),
                 .Lap,
-                .PreviousLaps([Duration`1m38s`]),
-                .Advance(Duration`44s`),
+                .PreviousLaps([Duration"1m38s"]),
+                .Advance(Duration"44s"),
                 .Lap,
-                .PreviousLaps([Duration`1m38s`, Duration`44s`]),
+                .PreviousLaps([Duration"1m38s", Duration"44s"]),
             ],
         ),
         (
             "lap resets current lap and resumes time tracking",
             [
                 .Start,
-                .Advance(Duration`8m22s`),
+                .Advance(Duration"8m22s"),
                 .Lap,
-                .CurrentLap(Duration`0s`),
-                .Advance(Duration`15s`),
-                .CurrentLap(Duration`15s`),
+                .CurrentLap(Duration"0s"),
+                .Advance(Duration"15s"),
+                .CurrentLap(Duration"15s"),
             ],
         ),
         (
             "lap continues time tracking for total",
-            [.Start, .Advance(Duration`22s`), .Lap, .Advance(Duration`33s`), .Total(Duration`55s`)],
+            [.Start, .Advance(Duration"22s"), .Lap, .Advance(Duration"33s"), .Total(Duration"55s")],
         ),
         (
             "lap cannot be called from ready state",
@@ -173,11 +173,11 @@ test "split second stopwatch"
             "stop does not change previous laps",
             [
                 .Start,
-                .Advance(Duration`11m22s`),
+                .Advance(Duration"11m22s"),
                 .Lap,
-                .PreviousLaps([Duration`11m22s`]),
+                .PreviousLaps([Duration"11m22s"]),
                 .Stop,
-                .PreviousLaps([Duration`11m22s`]),
+                .PreviousLaps([Duration"11m22s"]),
             ],
         ),
         (
@@ -186,17 +186,17 @@ test "split second stopwatch"
         ),
         (
             "reset resets current lap",
-            [.Start, .Advance(Duration`10s`), .Stop, .Reset, .CurrentLap(Duration`0s`)],
+            [.Start, .Advance(Duration"10s"), .Stop, .Reset, .CurrentLap(Duration"0s")],
         ),
         (
             "reset clears previous laps",
             [
                 .Start,
-                .Advance(Duration`10s`),
+                .Advance(Duration"10s"),
                 .Lap,
-                .Advance(Duration`20s`),
+                .Advance(Duration"20s"),
                 .Lap,
-                .PreviousLaps([Duration`10s`, Duration`20s`]),
+                .PreviousLaps([Duration"10s", Duration"20s"]),
                 .Stop,
                 .Reset,
                 .PreviousLaps([]),
@@ -214,20 +214,20 @@ test "split second stopwatch"
             "supports very long laps",
             [
                 .Start,
-                .Advance(Duration`1h23m45s`),
-                .CurrentLap(Duration`1h23m45s`),
+                .Advance(Duration"1h23m45s"),
+                .CurrentLap(Duration"1h23m45s"),
                 .Lap,
-                .PreviousLaps([Duration`1h23m45s`]),
-                .Advance(Duration`4h1m40s`),
-                .CurrentLap(Duration`4h1m40s`),
-                .Total(Duration`5h25m25s`),
+                .PreviousLaps([Duration"1h23m45s"]),
+                .Advance(Duration"4h1m40s"),
+                .CurrentLap(Duration"4h1m40s"),
+                .Total(Duration"5h25m25s"),
                 .Lap,
-                .PreviousLaps([Duration`1h23m45s`, Duration`4h1m40s`]),
-                .Advance(Duration`8h43m5s`),
-                .CurrentLap(Duration`8h43m5s`),
-                .Total(Duration`14h8m30s`),
+                .PreviousLaps([Duration"1h23m45s", Duration"4h1m40s"]),
+                .Advance(Duration"8h43m5s"),
+                .CurrentLap(Duration"8h43m5s"),
+                .Total(Duration"14h8m30s"),
                 .Lap,
-                .PreviousLaps([Duration`1h23m45s`, Duration`4h1m40s`, Duration`8h43m5s`]),
+                .PreviousLaps([Duration"1h23m45s", Duration"4h1m40s", Duration"8h43m5s"]),
             ],
         ),
     ]

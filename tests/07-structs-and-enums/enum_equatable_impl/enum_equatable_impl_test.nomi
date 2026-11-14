@@ -9,8 +9,8 @@
 // accident: `Sign.Raw(3) == Sign.Raw(9)` is False structurally and True here.
 fn is_positive(s: Sign) -> Bool
     case s
-        Sign.Plus -> True
-        Sign.Minus -> False
+        Sign.Plus   -> True
+        Sign.Minus  -> False
         Sign.Raw(n) -> n >= 0
     end
 end

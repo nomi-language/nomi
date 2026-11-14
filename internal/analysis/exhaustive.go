@@ -530,8 +530,7 @@ func (c *checker) specializePattern(t Type, ctor patCtor, p ast.Node) ([]ast.Nod
 		var inner ast.Node
 		switch v := p.(type) {
 		case *ast.EnumPattern:
-			if !distinctTypeNameMatches(c.variantNameOfPattern(v), tt.Name) &&
-				!distinctTypeNameMatches(v.Variant.TypeString(), tt.Name) {
+			if !c.patternMayNameDistinct(v.Variant, tt) {
 				return nil, false
 			}
 			inner = payloadOfVariantPattern(v)

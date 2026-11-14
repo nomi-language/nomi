@@ -18,7 +18,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// may be missing.
 pub struct Tree<T>
     value: T
-    left: Maybe<Tree<T>>
+    left:  Maybe<Tree<T>>
     right: Maybe<Tree<T>>
 end
 
@@ -27,7 +27,7 @@ end
 /// the focus or changing it rebuilds only the nodes on that path.
 pub opaque struct Zipper<T>
     focus: Tree<T>
-    path: List<Crumb<T>>
+    path:  List<Crumb<T>>
 end
 
 /// One step up from a focus: the parent's value and the parent's other
@@ -47,7 +47,7 @@ impl Zipper<T>
     pub fn to_tree(zipper: Zipper<T>) -> Tree<T>
         case Zipper.up(zipper)
             Some(parent) -> Zipper.to_tree(parent)
-            None -> zipper.focus
+            None         -> zipper.focus
         end
     end
 
@@ -133,25 +133,25 @@ end
 
 fn apply(zipper: Zipper<Int>, operation: Operation) -> Maybe<Zipper<Int>>
     case operation
-        .Left -> Zipper.left(zipper)
-        .Right -> Zipper.right(zipper)
-        .Up -> Zipper.up(zipper)
+        .Left            -> Zipper.left(zipper)
+        .Right           -> Zipper.right(zipper)
+        .Up              -> Zipper.up(zipper)
         .SetValue(value) -> Some(Zipper.set_value(zipper, value))
-        .SetLeft(left) -> Some(Zipper.set_left(zipper, left))
+        .SetLeft(left)   -> Some(Zipper.set_left(zipper, left))
         .SetRight(right) -> Some(Zipper.set_right(zipper, right))
     end
 end
 
 test "the tree after the operations"
     cases: List<(String, List<Operation>, Tree<Int>)> = [
-        ("data is retained", [], initial_tree()),
+        ("data is retained",     [],              initial_tree()),
         ("tree from deep focus", [.Left, .Right], initial_tree()),
         (
             "set_value",
             [.Left, .SetValue(5)],
             {
                 value: 1,
-                left: Some({value: 5, left: None, right: Some(leaf(3))}),
+                left:  Some({value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
@@ -160,7 +160,7 @@ test "the tree after the operations"
             [.Left, .Right, .Up, .SetValue(5)],
             {
                 value: 1,
-                left: Some({value: 5, left: None, right: Some(leaf(3))}),
+                left:  Some({value: 5, left: None, right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
@@ -169,7 +169,7 @@ test "the tree after the operations"
             [.Left, .SetLeft(Some(leaf(5)))],
             {
                 value: 1,
-                left: Some({value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
+                left:  Some({value: 2, left: Some(leaf(5)), right: Some(leaf(3))}),
                 right: Some(leaf(4)),
             },
         ),
@@ -183,7 +183,7 @@ test "the tree after the operations"
             [.SetRight(Some({value: 6, left: Some(leaf(7)), right: Some(leaf(8))}))],
             {
                 value: 1,
-                left: Some({value: 2, left: None, right: Some(leaf(3))}),
+                left:  Some({value: 2, left: None, right: Some(leaf(3))}),
                 right: Some({value: 6, left: Some(leaf(7)), right: Some(leaf(8))}),
             },
         ),
@@ -192,7 +192,7 @@ test "the tree after the operations"
             [.Left, .Right, .SetValue(5)],
             {
                 value: 1,
-                left: Some({value: 2, left: None, right: Some(leaf(5))}),
+                left:  Some({value: 2, left: None, right: Some(leaf(5))}),
                 right: Some(leaf(4)),
             },
         ),
@@ -216,7 +216,7 @@ end
 
 test "no node to move to"
     [
-        ("dead end", [Operation.Left, .Left]),
+        ("dead end",               [Operation.Left, .Left]),
         ("traversing up from top", [.Up]),
     ]
     |> subtests (description, operations), description

@@ -905,7 +905,7 @@ struct DateParts
 end
 
 fn main()
-    d = Date` + "`2024-03-05`" + `
+    d = Date"2024-03-05"
     io.print(Int.to_string(calendar.DateParts.year(d)))
     io.print(Int.to_string(DateParts{x: 1}.x))
 end
@@ -1525,6 +1525,88 @@ test "block alias type"
 
     o = fmt.WriteOptions{}
     assert o == o
+end
+`,
+	},
+	{
+		name: "gapBareCallToOwnFunctionWithItsOwnTypeParams",
+		src: `enum Tree<K>
+    Leaf
+    Node (Tree<K>, K, Tree<K>)
+end
+
+impl Tree<K>
+    fn has<K>(tree: Tree<K>, key: K) -> Bool where K: Comparable
+        case tree
+            .Leaf -> False
+            .Node(left, k, right) ->
+                case Comparable.compare(key, k)
+                    .Less -> has(left, key)
+                    .Greater -> has(right, key)
+                    .Equal -> True
+                end
+        end
+    end
+end
+
+test "a bare self-call in a function that redeclares the block's parameter"
+    assert Tree.has(Tree.Node(.Leaf, 2, .Leaf), 2)
+end
+`,
+	},
+	{
+		name: "gapRecordFieldListIntoIter",
+		src: `import
+    std::io
+end
+
+fn main()
+    r: {b: Iter<String>} = {b: ["x"]}
+    nested: {a: {b: Iter<Int>}} = {a: {b: [1, 2]}}
+    io.print("${r.b |> Iter.count()} ${nested.a.b |> Iter.count()}")
+end
+`,
+	},
+	{
+		name: "gapAsPatternOverAStructVariant",
+		src: `enum Shape
+    Dot
+    Box{w: Int, h: Int}
+end
+
+fn describe(s: Shape) -> Int
+    case s
+        .Box({w: 1, h:} as r) -> h + r.w
+        .Box(({w: 2, h: _} or {w: 3, h: _}) as r) -> r.h
+        .Box(r) -> r.w
+        .Dot -> 0
+    end
+end
+
+test "an as pattern over a struct-shaped variant"
+    assert describe(.Box{w: 1, h: 5}) == 6
+    assert describe(.Box{w: 3, h: 7}) == 7
+    assert describe(.Box{w: 9, h: 7}) == 9
+end
+`,
+	},
+	{
+		name: "gapListPatternOverAPayloadListOfIters",
+		src: `enum E
+    Its(List<Iter<Int>>)
+    Other
+end
+
+fn f(e: E) -> Int
+    case e
+        .Its([it, ..]) -> Iter.count(it)
+        _ -> 0
+    end
+end
+
+test "a list pattern over a payload List<Iter<Int>>"
+    assert f(.Its([[1, 2]])) == 2
+    assert f(.Other) == 0
 end
 `,
 	},

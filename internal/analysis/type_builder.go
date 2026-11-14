@@ -1131,34 +1131,6 @@ func receiverTypeParamDefs(recv Type) []*TypeParam_ {
 	return defs
 }
 
-// rejectBoundAliasInValuePosition returns a TypeError when t is a
-// *BoundAliasType. Bound aliases (`typealias Name A and B`) are usable
-// only in `where` bounds (and in other bound-alias definitions); using one as
-// a value type is a checker error with a clear pointer at the right form.
-func rejectBoundAliasInValuePosition(t Type, te ast.TypeExpr) (TypeError, bool) {
-	ba, ok := t.(*BoundAliasType)
-	if !ok {
-		return TypeError{}, false
-	}
-	col := 1
-	if te != nil {
-		switch n := te.(type) {
-		case *ast.SimpleType:
-			col = n.Col
-		case *ast.GenericType:
-			col = n.Col
-		}
-	}
-	line := 0
-	if te != nil {
-		line = te.LineNum()
-	}
-	return TypeError{
-		Line: line, Col: col,
-		Message: fmt.Sprintf("%q is an interface-bound alias and cannot be used as a value type; use it via a `where T: %s` bound instead", ba.Name_, ba.Name_),
-	}, true
-}
-
 // buildTypeParamsWithFA creates a map of type parameter names to TypeParam_
 // values. Internal TypeParam bounds are resolved against the supplied
 // registry when present; if reg is nil, bounds are skipped (caller can
@@ -1206,9 +1178,9 @@ func buildTypeParamsWithFA(tps []ast.TypeParam, reg *TypeRegistry, fa *FileAnaly
 				switch t := resolved.(type) {
 				case *InterfaceType:
 					entry.Bounds = append(entry.Bounds, t)
-				case *BoundAliasType:
-					// Bound alias: splice in its expanded interfaces.
-					entry.Bounds = append(entry.Bounds, t.Bounds...)
+				case *ConjunctionType:
+					// A conjunction (a bound alias): splice in its interfaces.
+					entry.Bounds = append(entry.Bounds, t.Members...)
 				}
 			}
 		}
@@ -1284,10 +1256,6 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
 			}
-			continue
-		}
-		if te, bad := rejectBoundAliasInValuePosition(resolved, f.TypeAnnotation); bad {
-			errs = append(errs, te)
 			continue
 		}
 		fields = append(fields, FieldDef{Name: f.Name, Type: resolved, HasDefault: f.Default != nil})
@@ -1817,7 +1785,7 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 	}
 
 	// Bound-alias form: `typealias Name A and B` — RHS is a conjunction
-	// of interface bounds. Build a BoundAliasType and register it.
+	// of interfaces. It names their ConjunctionType, a value type and a bound.
 	if len(n.Bounds) > 0 {
 		var errs []TypeError
 		ifaces := make([]*InterfaceType, 0, len(n.Bounds))
@@ -1831,21 +1799,20 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 				}
 				continue
 			}
-			switch t := resolved.(type) {
-			case *InterfaceType:
-				ifaces = append(ifaces, t)
-			case *BoundAliasType:
-				// Aliasing an alias: splice the inner bounds in.
-				ifaces = append(ifaces, t.Bounds...)
-			default:
-				errs = append(errs, errAt(b, fmt.Sprintf("interface-bound alias entry must be an interface, got %s", resolved)))
+			if members := InterfaceMembers(resolved); members != nil {
+				ifaces = append(ifaces, members...)
+			} else {
+				errs = append(errs, errAt(b, conjunctionMemberError(resolved)))
 			}
 		}
-		ba := &BoundAliasType{Name_: n.Name, Bounds: ifaces}
-		if sym != nil {
-			sym.Type = ba
+		if len(ifaces) == 0 {
+			return errs
 		}
-		reg.Register(n.Name, ba)
+		conj := NewConjunction(ifaces)
+		if sym != nil {
+			sym.Type = conj
+		}
+		reg.Register(n.Name, conj)
 		return errs
 	}
 
@@ -1927,11 +1894,6 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 			params = append(params, nil)
 			continue
 		}
-		if te, bad := rejectBoundAliasInValuePosition(resolved, p.TypeAnnotation); bad {
-			errs = append(errs, te)
-			params = append(params, nil)
-			continue
-		}
 		params = append(params, resolved)
 
 		// Attach type to param symbols in Definitions.
@@ -1948,9 +1910,6 @@ func buildFuncTypeWithBase(fa *FileAnalysis, reg *TypeRegistry, n *ast.FuncDef, 
 			if te, ok := err.(TypeError); ok {
 				errs = append(errs, te)
 			}
-		} else if te, bad := rejectBoundAliasInValuePosition(resolved, n.ReturnTypeExpr); bad {
-			errs = append(errs, te)
-			retType = nil
 		} else {
 			retType = resolved
 		}
@@ -2581,8 +2540,8 @@ func resolveWhereBounds(fa *FileAnalysis, reg *TypeRegistry, typeParams map[stri
 			switch t := resolved.(type) {
 			case *InterfaceType:
 				bounds = append(bounds, t)
-			case *BoundAliasType:
-				bounds = append(bounds, t.Bounds...)
+			case *ConjunctionType:
+				bounds = append(bounds, t.Members...)
 			default:
 				errs = append(errs, TypeError{
 					Line: wc.Line, Col: wc.Col,

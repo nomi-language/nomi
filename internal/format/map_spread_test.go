@@ -45,8 +45,8 @@ end
 `, `fn main()
     c = {
         ..m,
-        "a long key number one" => 1000000,
-        "a long key number two" => 2000000,
+        "a long key number one"   => 1000000,
+        "a long key number two"   => 2000000,
         "a long key number three" => 3,
     }
 end

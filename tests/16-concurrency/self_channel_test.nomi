@@ -16,8 +16,8 @@ end
 
 struct Req
     reply: Channel<Req>
-    pair: (Channel<Req>, Int)
-    n: Int
+    pair:  (Channel<Req>, Int)
+    n:     Int
 end
 
 test "a variant carries a channel of its own enum"
@@ -58,7 +58,7 @@ test "a message brings its reply channel to a task"
         t = Task.spawn(fn ->
             case Receiver.receive(inbox.receiver)
                 Some(.Ask(back)) -> Sender.send(back.sender, Msg.Stop)
-                _ -> Ok(Unit)
+                _                -> Ok(Unit)
             end
         end)
 

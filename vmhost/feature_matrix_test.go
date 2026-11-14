@@ -46,7 +46,9 @@ import (
 //     (the derived Debug, equality, hash and JSON bodies run at the
 //     feature's type), a generic owner function's argument or body
 //     (`impl Own<A> { fn get<A>(...) }`, instantiated per call under the
-//     block's frame), a generic function of std/presence, which is lowered
+//     block's frame), the functions of an impl block calling one another
+//     bare or type-qualified (mxImplCallWraps), a generic function of
+//     std/presence, which is lowered
 //     with each program, and an interface default or a parameter default
 //     declared in another file than the one that uses it.
 //   - A shell (mxShells) is where the program observes the final value:
@@ -287,7 +289,7 @@ var mxFeatures = []mxFeature{
 	{name: "bitwise operator impl", decls: mxFlags, typ: "Flags", expr: "~~~(Flags(1) ||| Flags(4))", want: "Flags(-6)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
 	{name: "phrase", decls: "phrase greet(name: String) `Hello, {$name}!`", typ: "Phrase", expr: `greet("Ann")`,
-		obs: "Phrase.format($v, Locale`pl`)", want: "Hello, Ann!"},
+		obs: "Phrase.format($v, Locale\"pl\")", want: "Hello, Ann!"},
 	{name: "generic struct", decls: mxBox, typ: "Box<Int>", expr: "Box{v: 1}", want: "Box{v: 1}"},
 	{name: "generic enum", decls: mxTree, typ: "Tree<String>", expr: `Tree.Leaf("a")`, want: `Leaf("a")`},
 	{name: "generic bare variant", decls: mxTree, typ: "Tree<Int>", expr: "Tree.Nil", want: "Nil", tags: tagUntyped | tagBareOK, reject: mxUnsolved},
@@ -640,7 +642,7 @@ func wrapCtx(name string, fragile bool, typing mxTyping, wrap func(b *mxBuild, n
 	return &mxContext{name: name, wrap: wrap, fragile: fragile, typing: typing}
 }
 
-var mxWraps = []*mxContext{
+var mxWraps = append([]*mxContext{
 	wrapCtx("binding", false, mxBinds, func(b *mxBuild, n int) {
 		v := fmt.Sprintf("b%d", n)
 		b.expr = mxBlock(v+" = "+b.expr, v)
@@ -834,6 +836,77 @@ var mxWraps = []*mxContext{
 		b.lib = append(b.lib, fmt.Sprintf("fn far%d(k: Int, a: %s = %s) -> %s\n    _ = k\n    a\nend", n, b.typ, mxIndentTail(b.expr), b.typ))
 		b.expr = fmt.Sprintf("far%d(0)", n)
 	}),
+}, mxImplCallWraps()...)
+
+// mxImplCallWraps are the contexts that pass the value through functions
+// of an impl block calling one another: an entry the program calls
+// type-qualified calls a sibling (`walk`) with no `where` bound, which
+// calls itself and then another sibling (`peel`), which calls itself and
+// has a `where` bound when its shape declares a type parameter. Each call
+// between the block's functions is written bare (`walk(b, 1)`) in one
+// context and type-qualified (`Bx3.walk(b, 1)`) in its twin, which the
+// builder lowers by one route from the checker's record at the callee
+// (internal/irbuild, barecallimpl.go). The block is on a generic type, its
+// functions using the block's type parameter, redeclaring it (`fn walk<A>`
+// in `impl Bx<A>`) or declaring one of their own (`fn walk<U>`), or on a
+// plain type, its functions declaring no type parameter or one of their
+// own.
+func mxImplCallWraps() []*mxContext {
+	type shape struct {
+		name    string
+		generic bool
+		// params is what walk and peel declare, own a parameter of
+		// their own they take a value of (the entry passes 0), and
+		// bound peel's `where` clause.
+		params, own, bound string
+	}
+	shapes := []shape{
+		{name: "generic block parameter", generic: true, bound: " where A: Debug"},
+		{name: "generic redeclared parameter", generic: true, params: "<A>", bound: " where A: Debug"},
+		{name: "generic own parameter", generic: true, params: "<U>", own: "U", bound: " where U: Debug"},
+		{name: "plain no parameter"},
+		{name: "plain own parameter", params: "<U>", own: "U", bound: " where U: Debug"},
+	}
+	var out []*mxContext
+	for _, sh := range shapes {
+		for _, bare := range []bool{true, false} {
+			spelling, typing := "qualified", mxGives
+			if bare {
+				spelling = "bare"
+			}
+			if sh.generic {
+				typing = mxFlows
+			}
+			out = append(out, wrapCtx("impl function "+spelling+" call, "+sh.name, false, typing, func(b *mxBuild, n int) {
+				owner := fmt.Sprintf("Pl%d", n)
+				self, res, decl := owner, b.typ, fmt.Sprintf("struct %s\n    v: %s\nend", owner, b.typ)
+				if sh.generic {
+					owner = fmt.Sprintf("Bx%d", n)
+					self, res, decl = owner+"<A>", "A", fmt.Sprintf("struct %s<A>\n    v: A\nend", owner)
+				}
+				call := func(fn string) string {
+					if bare {
+						return fn
+					}
+					return owner + "." + fn
+				}
+				ownParam, ownArg, entryArg := "", "", ""
+				if sh.own != "" {
+					ownParam, ownArg, entryArg = ", u: "+sh.own, ", u", ", 0"
+				}
+				fns := []string{
+					fmt.Sprintf("pub fn open(b: %s) -> %s\n    %s(b%s, 1)\nend", self, res, call("walk"), entryArg),
+					fmt.Sprintf("fn walk%s(b: %s%s, k: Int) -> %s\n    if k == 0 then\n        %s(b%s, 1)\n    else\n        %s(b%s, k - 1)\n    end\nend",
+						sh.params, self, ownParam, res, call("peel"), ownArg, call("walk"), ownArg),
+					fmt.Sprintf("fn peel%s(b: %s%s, k: Int) -> %s%s\n    if k == 0 then\n        b.v\n    else\n        %s(b%s, k - 1)\n    end\nend",
+						sh.params, self, ownParam, res, sh.bound, call("peel"), ownArg),
+				}
+				b.decls = append(b.decls, decl, "impl "+self+"\n"+mxIndent(strings.Join(fns, "\n\n"))+"\nend")
+				b.expr = fmt.Sprintf("%s.open(%s{v: %s})", owner, owner, mxIndentTail(b.expr))
+			}))
+		}
+	}
+	return out
 }
 
 // mxPayload is typ as a variant's payload type: an anonymous struct type is

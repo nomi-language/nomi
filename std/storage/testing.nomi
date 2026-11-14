@@ -45,7 +45,7 @@ end
 //! assert "${Store.url(store, "a.txt")!}" == "https://storage.test/a.txt"
 //
 pub opaque struct Memory
-    state: Channel<State>
+    state:       Channel<State>
     public_base: Url
 end
 
@@ -55,7 +55,7 @@ end
 
 impl Memory
     /// An empty store whose URLs start with `public_base`.
-    pub fn new(public_base: Url = Url`https://storage.test/`) -> Memory
+    pub fn new(public_base: Url = Url"https://storage.test/") -> Memory
         state: Channel<State> = Channel.buffered(1)
         _ = Sender.send(state.sender, State{objects: {}})
         Memory{state:, public_base:}
@@ -115,7 +115,7 @@ impl Store for Memory
             peek(memory).objects
             |> Iter.map(fn (key, object) -> Entry{
                 key:,
-                size: object.info.size,
+                size:     object.info.size,
                 modified: object.info.modified,
             })
 
@@ -127,7 +127,7 @@ end
 fn take(memory: Memory) -> State
     case Receiver.receive(memory.state.receiver)
         Some(state) -> state
-        None -> State{objects: {}}
+        None        -> State{objects: {}}
     end
 end
 
@@ -188,7 +188,7 @@ end
 /// A conformance rule a backend broke, and how. Its `Display` is `rule:
 /// message`.
 pub struct Broken
-    rule: String
+    rule:    String
     message: String
 end
 
@@ -222,11 +222,11 @@ pub fn conformance(open: () -> Result<Store, Error>) -> List<Broken>
     |> Iter.flat_map(fn (rule, check) ->
         outcome = case open()
             Ok(store) -> check(store)
-            Err(e) -> Err("cannot open a store: ${e}")
+            Err(e)    -> Err("cannot open a store: ${e}")
         end
 
         case outcome
-            Ok(_) -> []
+            Ok(_)        -> []
             Err(message) -> [Broken{rule:, message:}]
         end
     end)
@@ -345,8 +345,8 @@ end
 fn refuses(key: String, function: String, answer: Result<Unit, Error>) -> Result<Unit, String>
     case answer
         Err(.InvalidKey{}) -> Ok(Unit)
-        Err(e) -> Err("${function} of the key \"${key}\" answered ${e}, not InvalidKey")
-        Ok(_) -> Err("${function} of the key \"${key}\" answered Ok, not InvalidKey")
+        Err(e)             -> Err("${function} of the key \"${key}\" answered ${e}, not InvalidKey")
+        Ok(_)              -> Err("${function} of the key \"${key}\" answered Ok, not InvalidKey")
     end
 end
 
@@ -499,9 +499,9 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)>
                 ["a", "a/b", "hidden"]
                 |> Iter.map(fn key ->
                     case Store.info(store, key)
-                        Ok(None) -> Ok(Unit)
+                        Ok(None)    -> Ok(Unit)
                         Ok(Some(_)) -> Err("a refused put of an invalid key stored ${key}")
-                        Err(e) -> Err("info ${key}: ${e}")
+                        Err(e)      -> Err("info ${key}: ${e}")
                     end
                 end)
                 |> Result.collect()

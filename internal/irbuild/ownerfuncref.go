@@ -120,10 +120,14 @@ func (g *gen) defaultFilledRef(ref ast.Node) bool {
 // typed the value with the interface's `self`.
 func (bl *irScalarBuilder) selfCtorFuncRef(t *ast.SelfExpr) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	// The checker admits `self` as a value only in a default bounded by
+	// `where self: Distinct<T>`, which is emitted per distinct implementor
+	// (defaultSelf), and the implementor's inner is held as its field is.
 	d := bl.g.selfDistinct()
-	if d == nil || !irCallOperandKind(d.inner) {
-		return no()
+	if d == nil {
+		panic("irbuild: `self` as a value outside a distinct implementor's copy of a default")
 	}
+	irHeldOperand(d.inner, "a `self` constructor's inner value")
 	g := bl.g
 	if g.funcValueRefs[t] {
 		return no()

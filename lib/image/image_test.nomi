@@ -39,7 +39,7 @@ end
 test "a truncated file is Corrupt, with the decoder's message"
     case image.decode(fixture("truncated.jpg"))
         Err(.Corrupt{message:}) -> assert message != ""
-        other -> assert other == Err(.Corrupt{message: "a Corrupt error"})
+        other                   -> assert other == Err(.Corrupt{message: "a Corrupt error"})
     end
 end
 
@@ -58,9 +58,9 @@ test "fit scales down into the box keeping the shape"
     picture = image.decode(fixture("gradient.png"))!
 
     [
-        ("wider than the box", 60, 60, 60, 40),
+        ("wider than the box",  60,  60, 60, 40),
         ("taller than the box", 100, 20, 30, 20),
-        ("a one-pixel box", 1, 1, 1, 1),
+        ("a one-pixel box",     1,   1,  1,  1),
     ]
     |> subtests (description, box_width, box_height, width, height), description
         fitted = Image.fit(picture, box_width, box_height)
@@ -116,13 +116,13 @@ fn variants(upload: Bytes) -> Result<List<(String, Bytes)>, image.Error>
     encode = fn variant: Image ->
         case Image.format(picture)
             Some(.Png) -> Image.encode_png(variant)
-            _ -> Image.encode_jpeg(variant)
+            _          -> Image.encode_jpeg(variant)
         end
     end
 
     Ok([
-        ("original", encode(picture)),
-        ("medium", encode(Image.fit(picture, 800, 600))),
+        ("original",  encode(picture)),
+        ("medium",    encode(Image.fit(picture, 800, 600))),
         ("thumbnail", encode(Image.fit(picture, 300, 200))),
     ])
 end

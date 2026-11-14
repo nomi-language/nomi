@@ -32,7 +32,7 @@ import std::io
 // together.
 struct Pt
     zz: Int
-    a: Int
+    a:  Int
 end
 
 derive Debug for Pt

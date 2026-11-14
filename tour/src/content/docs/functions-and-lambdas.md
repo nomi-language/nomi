@@ -132,7 +132,7 @@ end
 fn main()
     c = &connect(&1, port: &2)
     dbg c(port: 80, host: "x") // "x:80/30"
-    dbg c("y") // "y:8080/30"
+    dbg c("y")                 // "y:8080/30"
 end
 ```
 
@@ -412,7 +412,7 @@ a bare `todo` reads the parameter. Write the placeholder with a reason there.
 fn first_field(line: String) -> String
     case String.split(line, ",") |> Iter.first()
         Some(field) -> field
-        None -> unreachable "split always returns at least one part"
+        None        -> unreachable "split always returns at least one part"
     end
 end
 

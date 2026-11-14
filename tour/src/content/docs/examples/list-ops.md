@@ -18,7 +18,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// Folds `list` from the left: `f(f(f(initial, a), b), c)`.
 pub fn foldl<T, U>(list: List<T>, initial: U, f: (U, T) -> U) -> U
     case list
-        [] -> initial
+        []             -> initial
         [head, ..tail] -> foldl(tail, f(initial, head), f)
     end
 end

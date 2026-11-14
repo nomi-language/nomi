@@ -24,7 +24,7 @@ end
 
 fn describe(label: String, r: Result<String, dynamic.Error>) -> String
     case r
-        Ok(s) -> label + " = " + s
+        Ok(s)  -> label + " = " + s
         Err(e) -> label + " ! " + Display.to_string(e)
     end
 end
@@ -70,24 +70,24 @@ fn main() -> Unit
 
     // --- navigators, both arms ----------------------------------------------
     case Dynamic.field(root, "name")
-        Ok(d) -> io.print("field ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("field ok: " + Debug.inspect(d))
         Err(e) -> io.print("field err: " + Display.to_string(e))
     end
 
     case Dynamic.field(root, "missing")
-        Ok(d) -> io.print("field ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("field ok: " + Debug.inspect(d))
         Err(e) -> io.print("field err: " + Display.to_string(e))
     end
 
     case Dynamic.field(Json.to_dynamic(Json.Int(1)), "name")
-        Ok(d) -> io.print("field on non-object ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("field on non-object ok: " + Debug.inspect(d))
         Err(e) -> io.print("field on non-object err: " + Display.to_string(e))
     end
 
     case Dynamic.field(root, "tags")
         Ok(tags) ->
             case Dynamic.index(tags, 1)
-                Ok(d) -> io.print("index ok: " + Debug.inspect(d))
+                Ok(d)  -> io.print("index ok: " + Debug.inspect(d))
                 Err(e) -> io.print("index err: " + Display.to_string(e))
             end
 
@@ -98,7 +98,7 @@ fn main() -> Unit
     case Dynamic.field(root, "tags")
         Ok(tags) ->
             case Dynamic.index(tags, 9)
-                Ok(d) -> io.print("index oob ok: " + Debug.inspect(d))
+                Ok(d)  -> io.print("index oob ok: " + Debug.inspect(d))
                 Err(e) -> io.print("index oob err: " + Display.to_string(e))
             end
 
@@ -108,41 +108,41 @@ fn main() -> Unit
 
     // A negative index takes the out-of-bounds arm, not a third one.
     case Dynamic.index(Json.to_dynamic(Json.Arr([Json.Int(1)])), -1)
-        Ok(d) -> io.print("index neg ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("index neg ok: " + Debug.inspect(d))
         Err(e) -> io.print("index neg err: " + Display.to_string(e))
     end
 
     // `path` walks dotted FIELD segments only. Three arms: a deep hit, a
     // malformed empty segment, and a miss part-way down.
     case Dynamic.path(root, "nested.deep.leaf")
-        Ok(d) -> io.print("path ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("path ok: " + Debug.inspect(d))
         Err(e) -> io.print("path err: " + Display.to_string(e))
     end
 
     case Dynamic.path(root, "nested..leaf")
-        Ok(d) -> io.print("path empty-seg ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("path empty-seg ok: " + Debug.inspect(d))
         Err(e) -> io.print("path empty-seg err: " + Display.to_string(e))
     end
 
     case Dynamic.path(root, "nested.absent.leaf")
-        Ok(d) -> io.print("path miss ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("path miss ok: " + Debug.inspect(d))
         Err(e) -> io.print("path miss err: " + Display.to_string(e))
     end
 
     case Dynamic.path(root, "")
-        Ok(d) -> io.print("path empty ok: " + Debug.inspect(d))
+        Ok(d)  -> io.print("path empty ok: " + Debug.inspect(d))
         Err(e) -> io.print("path empty err: " + Display.to_string(e))
     end
 
     // --- extractors, both arms ----------------------------------------------
     // as_string, which is the operation 18-ffi-and-dynamic/json_test.nomi reaches.
     case Dynamic.field(root, "name")
-        Ok(d) -> io.print(describe("as_string", Dynamic.as_string(d)))
+        Ok(d)  -> io.print(describe("as_string", Dynamic.as_string(d)))
         Err(_) -> io.print("as_string: no field")
     end
 
     case Dynamic.field(root, "age")
-        Ok(d) -> io.print(describe("as_string on Int", Dynamic.as_string(d)))
+        Ok(d)  -> io.print(describe("as_string on Int", Dynamic.as_string(d)))
         Err(_) -> io.print("as_string on Int: no field")
     end
 
@@ -151,7 +151,7 @@ fn main() -> Unit
     case Dynamic.field(root, "age")
         Ok(d) ->
             case Dynamic.as_int(d)
-                Ok(n) -> io.print("as_int ok: ${n}")
+                Ok(n)  -> io.print("as_int ok: ${n}")
                 Err(e) -> io.print("as_int err: " + Display.to_string(e))
             end
 
@@ -162,7 +162,7 @@ fn main() -> Unit
     case Dynamic.field(root, "score")
         Ok(d) ->
             case Dynamic.as_int(d)
-                Ok(n) -> io.print("as_int fractional ok: ${n}")
+                Ok(n)  -> io.print("as_int fractional ok: ${n}")
                 Err(e) -> io.print("as_int fractional err: " + Display.to_string(e))
             end
 
@@ -174,7 +174,7 @@ fn main() -> Unit
     case Dynamic.field(root, "score")
         Ok(d) ->
             case Dynamic.as_float(d)
-                Ok(f) -> io.print("as_float ok: ${f}")
+                Ok(f)  -> io.print("as_float ok: ${f}")
                 Err(e) -> io.print("as_float err: " + Display.to_string(e))
             end
 
@@ -185,7 +185,7 @@ fn main() -> Unit
     case Dynamic.field(root, "age")
         Ok(d) ->
             case Dynamic.as_float(d)
-                Ok(f) -> io.print("as_float widened ok: ${f}")
+                Ok(f)  -> io.print("as_float widened ok: ${f}")
                 Err(e) -> io.print("as_float widened err: " + Display.to_string(e))
             end
 
@@ -196,7 +196,7 @@ fn main() -> Unit
     case Dynamic.field(root, "name")
         Ok(d) ->
             case Dynamic.as_float(d)
-                Ok(f) -> io.print("as_float on String ok: ${f}")
+                Ok(f)  -> io.print("as_float on String ok: ${f}")
                 Err(e) -> io.print("as_float on String err: " + Display.to_string(e))
             end
 
@@ -208,7 +208,7 @@ fn main() -> Unit
     case Dynamic.field(root, "active")
         Ok(d) ->
             case Dynamic.as_bool(d)
-                Ok(b) -> io.print("as_bool ok: ${b}")
+                Ok(b)  -> io.print("as_bool ok: ${b}")
                 Err(e) -> io.print("as_bool err: " + Display.to_string(e))
             end
 
@@ -219,7 +219,7 @@ fn main() -> Unit
     case Dynamic.field(root, "age")
         Ok(d) ->
             case Dynamic.as_bool(d)
-                Ok(b) -> io.print("as_bool on Int ok: ${b}")
+                Ok(b)  -> io.print("as_bool on Int ok: ${b}")
                 Err(e) -> io.print("as_bool on Int err: " + Display.to_string(e))
             end
 
@@ -265,7 +265,7 @@ fn main() -> Unit
         Ok(d) ->
             case Dynamic.as_list(d)
                 Ok(items) -> io.print("as_list on String ok: ${Iter.count(items)}")
-                Err(e) -> io.print("as_list on String err: " + Display.to_string(e))
+                Err(e)    -> io.print("as_list on String err: " + Display.to_string(e))
             end
 
         Err(_) ->
@@ -275,7 +275,7 @@ fn main() -> Unit
     case Dynamic.field(root, "nested")
         Ok(d) ->
             case Dynamic.as_dict(d)
-                Ok(m) -> io.print("as_dict ok: ${Map.size(m)} " + Debug.inspect(m))
+                Ok(m)  -> io.print("as_dict ok: ${Map.size(m)} " + Debug.inspect(m))
                 Err(e) -> io.print("as_dict err: " + Display.to_string(e))
             end
 
@@ -284,13 +284,13 @@ fn main() -> Unit
     end
 
     case Dynamic.as_dict(Json.to_dynamic(Json.Int(3)))
-        Ok(m) -> io.print("as_dict on Int ok: ${Map.size(m)}")
+        Ok(m)  -> io.print("as_dict on Int ok: ${Map.size(m)}")
         Err(e) -> io.print("as_dict on Int err: " + Display.to_string(e))
     end
 
     // --- predicates, which never fail ---------------------------------------
     case Dynamic.field(root, "nothing")
-        Ok(d) -> io.print("is_null on null: ${Dynamic.is_null(d)}")
+        Ok(d)  -> io.print("is_null on null: ${Dynamic.is_null(d)}")
         Err(_) -> io.print("is_null: no field")
     end
 

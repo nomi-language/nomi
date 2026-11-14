@@ -9,15 +9,15 @@ end
 /// and `App.store`. Swapping one here changes it for the whole program.
 struct App
     console: Console
-    clock: Clock
-    store: Store
+    clock:   Clock
+    store:   Store
 end
 
 fn boot() -> Result<App, String>
     Ok(App{
         console: Terminal,
-        clock: SystemClock,
-        store: SqliteStore{path: "tasks.db"},
+        clock:   SystemClock,
+        store:   SqliteStore{path: "tasks.db"},
     })
 end
 

@@ -29,7 +29,7 @@ end
 // `Debug.inspect` uses) would read `Point{zed: 2, alpha: 1}`. Two renderings of
 // one value, pinned apart, and this is the one an assertion shows.
 struct Point
-    zed: Int
+    zed:   Int
     alpha: Int
 end
 

@@ -180,7 +180,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 			for i, tmp := range temps {
 				switch {
 				case tmp == ir.NoTemp || kinds[i] == params[i]:
-				case irExistentialKind(params[i]):
+				case irHeldKind(params[i]):
 					v, got, erased := bl.coerceEmpty(t, tmp, kinds[i], params[i])
 					if !erased {
 						return no()

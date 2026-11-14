@@ -183,8 +183,10 @@ contexts:
     # return from the function as `return` does.
     - match: '(?<=[A-Za-z0-9_?!)\]}"])\?'
       scope: keyword.control.nomi
+    # Word operators are keywords, as the tree-sitter editors color them;
+    # a keyword.operator scope would color them like `|>` and `==`.
     - match: '\b(and|or|not|is|in)\b'
-      scope: keyword.operator.word.nomi
+      scope: keyword.other.word.nomi
     - match: '\b(true|false)\b'
       scope: constant.language.nomi
 

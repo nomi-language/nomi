@@ -72,7 +72,7 @@ fun findOwner(accounts: List<Account>, owner: String): Account? =
 ```nomi-run
 // FILE: accounts.nomi
 struct Account
-    owner: String
+    owner:   String
     balance: Int = 0
 end
 
@@ -83,7 +83,7 @@ end
 
 fn apply(account: Account, event: Event) -> Result<Account, String>
     balance = case event
-        .Deposit(amount) -> account.balance + amount
+        .Deposit(amount)  -> account.balance + amount
         .Withdraw(amount) -> account.balance - amount
     end
 

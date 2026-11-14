@@ -32,7 +32,7 @@ import
 end
 
 struct Equals
-    actual: Int
+    actual:   Int
     expected: Int
 end
 

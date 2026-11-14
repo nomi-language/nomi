@@ -170,7 +170,7 @@ func (bl *irScalarBuilder) structuralEqual(t *ast.Binary, lhs, rhs ir.Temp, k ki
 		return c.Dst(), true
 	case isDecimalKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValDecimal, lhs, rhs), true
-	case irExistentialKind(k):
+	case irHeldKind(k):
 		return bl.equalityCompare(t, ir.OpEq, ir.ValIface, lhs, rhs), true
 	case irByteValueKind(k):
 		// rt.Equal compares a Byte or Bytes by content, which is the body
@@ -643,6 +643,12 @@ func irEqualityContainerKind(k kind) bool {
 // `List<Display>` boxed into Display) names k's implementers once: the
 // walk that reaches k again inside them adds nothing.
 func (bl *irScalarBuilder) existentialDebugImpls(k kind) ([]ir.DebugImpl, bool) {
+	if irConjKind(k) {
+		// A conjunction holds a value of a type implementing every member,
+		// so the implementers of one name its Debug.
+		return bl.existentialDebugImpls(k.comp.parts[0])
+	}
+	bl.g.noteDebugRendered(k)
 	if bl.g.debugImplsVisiting[k] {
 		return nil, true
 	}

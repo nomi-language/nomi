@@ -8,6 +8,6 @@ import std::regex.Regex
 pub fn count_words(sentence: String) -> Map<String, Int>
     sentence
     |> String.lowercase()
-    |> String.find_all(Regex`[a-z0-9]+('[a-z0-9]+)*`)
+    |> String.find_all(Regex"[a-z0-9]+('[a-z0-9]+)*")
     |> Iter.frequencies()
 end

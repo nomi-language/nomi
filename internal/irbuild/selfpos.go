@@ -156,10 +156,10 @@ func (m *ifaceMethod) mentionsSelfAt(i int) bool {
 
 // typeExprHasSelf reports whether te mentions `self` anywhere inside it.
 //
-// EXHAUSTIVE over ast.TypeExpr's seven implementors, with no default arm, and
+// EXHAUSTIVE over ast.TypeExpr's eight implementors, with no default arm, and
 // that is deliberate: a walk that skips a node kind looks finished from every
 // angle except the one it skips. `typeExprKindsAreCovered` fails if ast grows
-// an eighth.
+// a ninth.
 func typeExprHasSelf(te ast.TypeExpr) bool {
 	switch t := te.(type) {
 	case nil:
@@ -196,9 +196,16 @@ func typeExprHasSelf(te ast.TypeExpr) bool {
 			}
 		}
 		return false
+	case *ast.ConjunctionType:
+		for _, m := range t.Members {
+			if typeExprHasSelf(m) {
+				return true
+			}
+		}
+		return false
 	}
-	// Unreachable while ast.TypeExpr has exactly the seven implementors
-	// typeExprKindsAreCovered enumerates. Reached means ast has an eighth that
+	// Unreachable while ast.TypeExpr has exactly the eight implementors
+	// typeExprKindsAreCovered enumerates. Reached means ast has a ninth that
 	// the guard missed: answer TRUE, because "might contain self" routes
 	// the signature into a refusal and the alternative is a silent wrong
 	// answer.

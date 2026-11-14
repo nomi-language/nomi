@@ -3,8 +3,8 @@ test "case expressions can match conditions values and guards"
 
     ad_hoc = case
         x > 10 -> "big"
-        x > 0 -> "positive"
-        _ -> "other"
+        x > 0  -> "positive"
+        _      -> "other"
     end
 
     by_value = case x
@@ -15,7 +15,7 @@ test "case expressions can match conditions values and guards"
 
     with_guard = case x
         n when n > 10 -> "big: ${n}"
-        n -> "small: ${n}"
+        n             -> "small: ${n}"
     end
 
     assert ad_hoc == "positive"
@@ -31,8 +31,8 @@ end
 
 fn shape_label(s: Shape) -> String
     case s
-        .Circle -> "circle"
-        .Square -> "square"
+        .Circle   -> "circle"
+        .Square   -> "square"
         .Triangle -> "triangle"
     end
 end
@@ -40,35 +40,35 @@ end
 fn maybe_value(m: Maybe<Int>) -> Int
     case m
         Some(n) -> n
-        None -> 0
+        None    -> 0
     end
 end
 
 fn maybe_or_default(m: Maybe<Int>) -> Int
     case m
         Some(n) -> n
-        _ -> -1
+        _       -> -1
     end
 end
 
 fn unwrap_or(m: Maybe<Result<Int, String>>) -> Int
     case m
-        Some(Ok(n)) -> n
+        Some(Ok(n))  -> n
         Some(Err(_)) -> -1
-        None -> 0
+        None         -> 0
     end
 end
 
 fn first_of_pair(m: Maybe<(Int, String)>) -> Int
     case m
         Some((n, _)) -> n
-        None -> 0
+        None         -> 0
     end
 end
 
 fn label_bool(b: Bool) -> String
     case b
-        True -> "yes"
+        True  -> "yes"
         False -> "no"
     end
 end
@@ -95,34 +95,34 @@ test "nested variant patterns destructure recursive payloads"
 
     pair_text = case pair_opt
         Some((_, s)) -> s
-        None -> "none"
+        None         -> "none"
     end
 
     nested = Some(Ok(42))
 
     variant_in_variant = case nested
-        Some(Ok(n)) -> n
+        Some(Ok(n))  -> n
         Some(Err(_)) -> -1
-        None -> 0
+        None         -> 0
     end
 
     literal_in_variant = case Some(42)
         Some(42) -> "match"
-        Some(_) -> "other"
-        None -> "none"
+        Some(_)  -> "other"
+        None     -> "none"
     end
 
     deep = Some(Some((7, "deep")))
 
     deep_match = case deep
         Some(Some((_, s))) -> s
-        _ -> "miss"
+        _                  -> "miss"
     end
 
     err_branch = case Some(Err("boom"))
-        Some(Ok(n)) -> n
+        Some(Ok(n))  -> n
         Some(Err(_)) -> -1
-        None -> 0
+        None         -> 0
     end
 
     assert pair_text == "a"
@@ -145,7 +145,7 @@ end
 fn sum(w: Wrapped) -> Int
     case w
         Wrapped.Pair(Point{x:, y:}) -> x + y
-        Wrapped.Empty -> 0
+        Wrapped.Empty               -> 0
     end
 end
 
@@ -155,7 +155,7 @@ end
 
 struct Outer
     inner: Inner
-    tag: Int
+    tag:   Int
 end
 
 fn unwrap(o: Outer) -> Int
@@ -180,50 +180,50 @@ end
 fn classify_int(n: Int) -> String
     case n
         -2 -> "neg two"
-        0 -> "zero"
-        _ -> "other"
+        0  -> "zero"
+        _  -> "other"
     end
 end
 
 fn classify_float(f: Float) -> String
     case f
         -2.5 -> "neg float"
-        _ -> "other"
+        _    -> "other"
     end
 end
 
 fn classify_decimal(d: Decimal) -> String
     case d
         -2.50d -> "neg decimal"
-        _ -> "other"
+        _      -> "other"
     end
 end
 
 fn classify_pair(t: (Int, Int)) -> String
     case t
         (-1, -2) -> "both neg"
-        _ -> "other"
+        _        -> "other"
     end
 end
 
 fn classify_list(xs: List<Int>) -> String
     case xs
         [-1, 2] -> "neg head"
-        _ -> "other"
+        _       -> "other"
     end
 end
 
 fn classify_maybe(m: Maybe<Int>) -> String
     case m
         Some(-2) -> "some neg two"
-        _ -> "other"
+        _        -> "other"
     end
 end
 
 fn classify_map(m: Map<String, Int>) -> String
     case m
         {"k" => -2} -> "neg val"
-        _ -> "other"
+        _           -> "other"
     end
 end
 

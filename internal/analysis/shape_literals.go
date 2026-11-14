@@ -205,9 +205,8 @@ func (c *checker) shapePatternTarget(typeName ast.TypeExpr, line, col int, expec
 		return payload
 	}
 	if dt, ok := expectedTy.(*DistinctType); ok && !fits(dt) && fits(dt.Inner) {
-		if typeName != nil && !distinctTypeNameMatches(typeName.TypeString(), dt.Name) {
-			c.addError(line, col, fmt.Sprintf(
-				"%s pattern prefix %s does not match scrutinee type %s", shape, typeName.TypeString(), dt.Name))
+		if typeName != nil {
+			c.patternNamesDistinct(typeName, dt, line, col)
 		}
 		if dt.Opaque && (c.fa == nil || !c.fa.inside(dt.OwningSourceFile)) {
 			c.addError(line, col, fmt.Sprintf(

@@ -6,15 +6,15 @@ end
 
 /// A customer with an account.
 pub struct User
-    id: UserId
+    id:           UserId
     display_name: String
-    email: Maybe<String>
-    tags: Set<String>
-    joined: Instant
-    balance: Decimal
-    role: Role
-    prefs: Map<String, Bool>
-    notes: List<Note>
+    email:        Maybe<String>
+    tags:         Set<String>
+    joined:       Instant
+    balance:      Decimal
+    role:         Role
+    prefs:        Map<String, Bool>
+    notes:        List<Note>
 end
 
 derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
@@ -37,7 +37,7 @@ derive ToJson for Role
 pub struct Page<T>
     items: List<T>
     total: Int
-    next: Maybe<Int>
+    next:  Maybe<Int>
 end
 
 derive ToJson for Page<T> where T: ToJson

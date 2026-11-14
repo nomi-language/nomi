@@ -10,8 +10,8 @@
 import std::io
 
 struct Particle
-    x: Int
-    y: Int
+    x:  Int
+    y:  Int
     dx: Int
     dy: Int
 end

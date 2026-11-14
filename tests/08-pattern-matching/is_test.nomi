@@ -12,7 +12,7 @@ enum Block
 end
 
 struct Order
-    id: Int
+    id:    Int
     state: State
 end
 

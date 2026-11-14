@@ -179,6 +179,51 @@ func (c *checker) methodCallOwner(t Type, name string) (owner, fn string, ok boo
 	return "", "", false
 }
 
+// setAddHint is the hint for `Set.add(s, x)` with an element where the
+// second Set goes: `Set.add` is Add's function, the union `+`, and
+// `Set.insert` adds one element. "" for any other call or argument.
+func setAddHint(callee ast.Node, want, have Type) string {
+	fa, ok := callee.(*ast.FieldAccess)
+	if !ok || fa.Field == nil || fa.Field.Name != "add" {
+		return ""
+	}
+	if ti, ok := fa.Object.(*ast.TypeIdent); !ok || ti.Name != "Set" {
+		return ""
+	}
+	if typeHeadName(want) != "Set" || typeHeadName(have) == "Set" {
+		return ""
+	}
+	return "`Set.add` is `+`, the union of two sets (`Set.union`); `Set.insert(s, x)` adds one element"
+}
+
+// aliasMemberHint is the hint for `Owner.name`, a member owner lacks under
+// the name another language gives it (methodAliases): `List.size` is
+// `List.length`. "" when owner has none of the aliases.
+func (c *checker) aliasMemberHint(owner, name string) string {
+	for _, cand := range methodAliases[strings.ToLower(snakeCase(name))] {
+		if sym, _ := c.resolveTypeMethodSymbol(owner, cand, ""); cand != name && sym != nil {
+			return fmt.Sprintf("did you mean `%s.%s`?", owner, cand)
+		}
+	}
+	return ""
+}
+
+// functionNotFieldHint is the hint for `value.name` read as a field of a
+// value whose type has no fields, when name, or the name methodAliases
+// gives it, is a function of the type's owner: `xs.length` is
+// `List.length(xs)`. "" when it is none.
+func (c *checker) functionNotFieldHint(t Type, fa *ast.FieldAccess) string {
+	owner, fn, ok := c.methodCallOwner(t, fa.Field.Name)
+	if !ok {
+		return ""
+	}
+	text := calleeText(unparen(fa.Object))
+	if text == "?" || strings.Contains(text, "?") {
+		text = "value"
+	}
+	return fmt.Sprintf("a %s has no fields: write `%s.%s(%s)`", ownerOfValueType(t), owner, fn, text)
+}
+
 // methodCallConfusion is the hint and fix for `recv.name(args)`, a method
 // call, which Nomi writes `Owner.name(recv, args)`. call is the call whose
 // callee fa is; t is the receiver's type. ok is false when the owner is

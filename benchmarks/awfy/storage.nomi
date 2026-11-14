@@ -1,0 +1,54 @@
+//# Are We Fast Yet: Storage.
+//#
+//# Builds a tree of depth 7 with four children a node and leaves of random
+//# length, counting the nodes built, to exercise allocation.
+//#
+//# Departure from the guidelines: the suite counts in a field and draws
+//# from a mutable generator. Here the count and the generator are threaded
+//# through `build_tree_depth` and returned with the tree. A leaf is a
+//# `Vector<Unit>` of the drawn length, standing for the suite's empty array.
+
+import harness.{self, Random}
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+enum Tree
+    Leaf Vector<Unit>
+    Node Vector<Tree>
+end
+
+struct Storage
+    count:  Int
+    random: Random
+end
+
+fn build_tree_depth(state: Storage, depth: Int) -> (Tree, Storage)
+    state = {..state, count: .. + 1}
+
+    if depth == 1 then
+        (n, random) = Random.next(state.random)
+        (Tree.Leaf(Iter.to_vector(Iter.map(1..=n % 10 + 1, fn _ -> Unit))), {..state, random:})
+    else
+        (state, children) = Iter.map_reduce(1..=4, state, fn state, _ ->
+            (child, state) = build_tree_depth(state, depth - 1)
+            (state, child)
+        end)
+
+        (Tree.Node(Iter.to_vector(children)), state)
+    end
+end
+
+fn benchmark() -> Int
+    (_, state) = build_tree_depth(Storage{count: 0, random: Random{}}, 7)
+    state.count
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Storage", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1 == 5461)))
+end

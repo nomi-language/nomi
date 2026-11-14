@@ -9,7 +9,7 @@ struct Circle
 end
 
 struct Rect
-    width: Float
+    width:  Float
     height: Float
 end
 
@@ -67,7 +67,7 @@ test "variant payloads support every payload shape"
 
     computed = case fn_token
         Token.Computation(f) -> f(5)
-        _ -> 0
+        _                    -> 0
     end
 
     r: Token = Rect{width: 4.0, height: 5.0}
@@ -175,25 +175,25 @@ end
 
 fn describe(t: Token) -> String
     case t
-        Token.Eof -> "end"
-        Token.Number(n) -> "n=${n}"
-        Token.Word(w) -> "word=${w}"
-        Token.Flag(b) -> "flag=${b}"
-        Token.User(UserId(id)) -> "user=${id}"
-        Token.Position((x, y)) -> "pos=(${x}, ${y})"
-        Token.Coord(Pair((a, b))) -> "coord=(${a}, ${b})"
-        Token.Bag(m) -> "bag-size=${Map.size(m)}"
-        Token.Counts(Kvs(c)) -> "counts-size=${Map.size(c)}"
-        Token.Sequence(xs) -> "seq-len=${Iter.count(xs)}"
-        Token.Many(Items(xs)) -> "many-len=${Iter.count(xs)}"
-        Token.Tagged(c) -> "tagged-r=${c.radius}"
-        Token.Card{rank:, suit:} -> "card=${rank}-of-${suit}"
-        Token.Computation(f) -> "computed=${f(7)}"
-        Token.Inner(Some(v)) -> "inner-some=${v}"
-        Token.Inner(None) -> "inner-none"
-        Token.Render(r) -> "render=${Renderable.render(r)}"
+        Token.Eof                   -> "end"
+        Token.Number(n)             -> "n=${n}"
+        Token.Word(w)               -> "word=${w}"
+        Token.Flag(b)               -> "flag=${b}"
+        Token.User(UserId(id))      -> "user=${id}"
+        Token.Position((x, y))      -> "pos=(${x}, ${y})"
+        Token.Coord(Pair((a, b)))   -> "coord=(${a}, ${b})"
+        Token.Bag(m)                -> "bag-size=${Map.size(m)}"
+        Token.Counts(Kvs(c))        -> "counts-size=${Map.size(c)}"
+        Token.Sequence(xs)          -> "seq-len=${Iter.count(xs)}"
+        Token.Many(Items(xs))       -> "many-len=${Iter.count(xs)}"
+        Token.Tagged(c)             -> "tagged-r=${c.radius}"
+        Token.Card{rank:, suit:}    -> "card=${rank}-of-${suit}"
+        Token.Computation(f)        -> "computed=${f(7)}"
+        Token.Inner(Some(v))        -> "inner-some=${v}"
+        Token.Inner(None)           -> "inner-none"
+        Token.Render(r)             -> "render=${Renderable.render(r)}"
         Token.Rect{width:, height:} -> "rect=${width}x${height}"
-        Token.Expired -> "expired"
+        Token.Expired               -> "expired"
     end
 end
 
@@ -233,8 +233,8 @@ end
 fn box_area(b: Box) -> Int
     case b
         .Sized({w: 1, h:}) -> h
-        .Sized({w:, h:}) -> w * h
-        .Empty -> 0
+        .Sized({w:, h:})   -> w * h
+        .Empty             -> 0
     end
 end
 
@@ -249,7 +249,7 @@ test "a struct-shaped variant's payload matches a record pattern"
 
     whole = case (Box.Sized{w: 2, h: 7})
         .Sized(r) -> r.w + r.h
-        .Empty -> 0
+        .Empty    -> 0
     end
 
     assert whole == 9

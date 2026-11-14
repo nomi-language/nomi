@@ -3,7 +3,7 @@
 // through impls written here.
 pub struct Span<T>
     start: T
-    stop: T
+    stop:  T
 end
 
 pub enum Tree<T>

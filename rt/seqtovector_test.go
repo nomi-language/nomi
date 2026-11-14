@@ -6,11 +6,12 @@ import (
 )
 
 func vectorItems[T any](v Vector[T]) []T {
-	return v.Items[v.Start : v.Start+v.Len]
+	return VectorToSlice(v)
 }
 
-// A source that counts itself is built into one slice of exactly that size:
-// the capacity is the count, so no append regrew it.
+// A source that counts itself is built into one slice of exactly that size,
+// which becomes the vector's tail: the capacity is the count, so no append
+// regrew it.
 func TestSeqToVector_PreallocatesFromKnownCount(t *testing.T) {
 	src := ListSeq(Cons[int64](1, Cons[int64](2, Cons[int64](3, Cons[int64](4, Cons[int64](5, nil))))))
 	src.Count = func(*Frame) Maybe[int64] { return Some[int64](5) }
@@ -18,13 +19,14 @@ func TestSeqToVector_PreallocatesFromKnownCount(t *testing.T) {
 	if got := vectorItems(v); !slices.Equal(got, []int64{1, 2, 3, 4, 5}) {
 		t.Fatalf("SeqToVector = %v, want [1 2 3 4 5]", got)
 	}
-	if cap(v.Items) != 5 {
-		t.Fatalf("capacity %d, want 5: the known count was not used to size the slice", cap(v.Items))
+	if cap(v.t.tail) != 5 {
+		t.Fatalf("capacity %d, want 5: the known count was not used to size the slice", cap(v.t.tail))
 	}
-	if allocs := testing.AllocsPerRun(20, func() { SeqToVector(nil, src) }); allocs > 3 {
-		// The slice, the yield closure and the slice header it captures. Growing
-		// from empty to five elements would add three more.
-		t.Fatalf("SeqToVector over a counted source allocated %v times, want at most 3", allocs)
+	if allocs := testing.AllocsPerRun(20, func() { SeqToVector(nil, src) }); allocs > 4 {
+		// The slice, the yield closure, the slice header it captures and the
+		// trie the slice becomes the tail of. Growing from empty to five
+		// elements would add three more.
+		t.Fatalf("SeqToVector over a counted source allocated %v times, want at most 4", allocs)
 	}
 }
 
@@ -57,7 +59,7 @@ func TestSeqToVector_EmptyIsTheZeroVector(t *testing.T) {
 	src := ListSeq[int64](nil)
 	src.Count = func(*Frame) Maybe[int64] { return Some[int64](0) }
 	v := SeqToVector(nil, src)
-	if v.Len != 0 || v.Items != nil {
+	if v.Len() != 0 || v.t != nil {
 		t.Fatalf("SeqToVector over an empty source = %+v, want the zero Vector", v)
 	}
 }
@@ -71,8 +73,8 @@ func TestSeqToVector_DistrustsAWrongCount(t *testing.T) {
 	if got := vectorItems(v); !slices.Equal(got, []int64{1, 2, 3}) {
 		t.Fatalf("SeqToVector = %v, want [1 2 3]", got)
 	}
-	if cap(v.Items) > vectorPreallocCap {
-		t.Fatalf("capacity %d exceeds the preallocation bound %d", cap(v.Items), vectorPreallocCap)
+	if cap(v.t.tail) > vectorPreallocCap {
+		t.Fatalf("capacity %d exceeds the preallocation bound %d", cap(v.t.tail), vectorPreallocCap)
 	}
 	negative := finiteSeq(2)
 	negative.Count = func(*Frame) Maybe[int64] { return Some[int64](-4) }

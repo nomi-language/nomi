@@ -19,9 +19,9 @@ func TestFormat_CodepointLiteralsKeepTheirSpelling(t *testing.T) {
 		"    q = ['\\'', '\\\\', '\\n', '\\t', '\\u{7F}', '\\u{d}', '\"', ' ']\n" +
 		"\n" +
 		"    case cp\n" +
-		"        'a' -> 1\n" +
+		"        'a'  -> 1\n" +
 		"        '\\'' -> 2\n" +
-		"        _ -> 3\n" +
+		"        _    -> 3\n" +
 		"    end\n" +
 		"end\n"
 	got, err := Format(src)

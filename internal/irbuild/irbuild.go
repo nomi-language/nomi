@@ -289,7 +289,7 @@ type Result struct {
 	// cross under: bindings only a host that linked the project's Go
 	// packages can supply. See irhostfn.go.
 	irHostKeys map[string]bool
-	// Literals are the backtick typed literals checked at compile time
+	// Literals are the typed literals checked at compile time
 	// that the user units lowered, in unit order (irliteralcell.go).
 	Literals []LiteralSite
 	// Exports are the program's `export fn` declarations, in unit order
@@ -310,9 +310,14 @@ type Result struct {
 	// kept is what Keep writes of the lowering (perfile.go).
 	kept *keptState
 	// perFileTables are, for a lowering of one file, the registry's
-	// program-wide sets once it is done, and file what it lowered.
-	perFileTables struct{ erased, boxed, synthRefused []string }
-	file          *relowered
+	// program-wide sets once it is done, the interfaces it rendered through
+	// every implementer's Debug and those the file implements
+	// (KeptDebugRendering), and file what it lowered.
+	perFileTables struct {
+		erased, boxed, synthRefused     []string
+		debugRendered, debugImplemented []string
+	}
+	file *relowered
 	// declines and refusals are each attempt's decline and each refused
 	// construct, by the file it is in (perfile.go).
 	declines, refusals map[string][]string
@@ -594,6 +599,13 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	res.declines, res.refusals = declines.byFile(), refusalsByFile(unsupported)
 	if p.perFile != nil {
 		res.perFileTables.erased, res.perFileTables.boxed = sortedSet(reg.erasedInsts), sortedSet(reg.boxedEnums)
+		for key := range reg.debugRendered {
+			res.perFileTables.debugRendered = append(res.perFileTables.debugRendered, key)
+		}
+		sort.Strings(res.perFileTables.debugRendered)
+		if len(gens) > 0 && gens[0] != nil {
+			res.perFileTables.debugImplemented = sortedSet(gens[0].debugImplemented())
+		}
 		for decl := range synthRefused(gens[:1]) {
 			if name, ok := reg.linkNames[decl]; ok {
 				res.perFileTables.synthRefused = append(res.perFileTables.synthRefused, name.String())

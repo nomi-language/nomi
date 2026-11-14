@@ -29,7 +29,7 @@ impl LinkedList<T>
     /// `EmptyList`.
     pub fn pop(list: LinkedList<T>) -> Result<(T, LinkedList<T>), Error>
         case list
-            .Empty -> Err(.EmptyList)
+            .Empty               -> Err(.EmptyList)
             .Node{value:, next:} -> Ok((value, next))
         end
     end
@@ -37,7 +37,7 @@ impl LinkedList<T>
     /// The value at the head of `list`, or `EmptyList`.
     pub fn peek(list: LinkedList<T>) -> Result<T, Error>
         case list
-            .Empty -> Err(.EmptyList)
+            .Empty        -> Err(.EmptyList)
             .Node{value:} -> Ok(value)
         end
     end
@@ -53,7 +53,7 @@ impl Iter<T> for LinkedList<T>
     /// the order `pop` would.
     fn each_while(list: LinkedList<T>, yield: (T) -> Bool) -> Bool
         case list
-            .Empty -> True
+            .Empty               -> True
             .Node{value:, next:} -> yield(value) and each_while(next, yield)
         end
     end

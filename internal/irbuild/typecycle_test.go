@@ -2,6 +2,8 @@ package irbuild
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"testing"
 
@@ -218,5 +220,136 @@ func TestTypeCycle_ARefusalReachesTheWholeCycle(t *testing.T) {
 	if _, gap := expectation.VMGap(got.stderr); !gap || !strings.Contains(got.stderr, "main.nomi:8:") {
 		t.Fatalf("want the run refused at A's literal (main.nomi:8), got exit %d:\n%s%s",
 			got.exit, got.stdout, got.stderr)
+	}
+}
+
+// typeCycleFile is one file of a cross-file cycle: the names it imports from
+// each other file, and its declarations.
+type typeCycleFile struct {
+	imports map[string]string // file -> "A" or "{A, B}"
+	decls   string
+}
+
+// typeCycleShapes are cycles of enums, structs and a generic enum across
+// files, each with a main that builds, prints and matches over them.
+var typeCycleShapes = []struct {
+	name  string
+	files map[string]typeCycleFile
+	main  typeCycleFile
+	want  string
+}{
+	{
+		// The shape a Lox interpreter has: a value enum whose payload is a
+		// declaration struct holding a list of expressions whose payload is
+		// a value.
+		name: "enum through struct through enum",
+		files: map[string]typeCycleFile{
+			"ast": {imports: map[string]string{"value": "Value"},
+				decls: "pub enum Expr\n    Literal Value\nend\n\npub struct Decl\n    body: List<Expr>\nend\n"},
+			"value": {imports: map[string]string{"ast": "Decl"},
+				decls: "pub enum Value\n    Nil\n    Function Decl\nend\n"},
+		},
+		main: typeCycleFile{imports: map[string]string{"ast": "{Decl, Expr}", "value": "Value"},
+			decls: "fn describe(v: Value) -> String\n    case v\n        Value.Nil -> \"nil\"\n        Value.Function(d) -> \"fn of ${Iter.count(d.body)}\"\n    end\nend\n\n" +
+				"fn main()\n    io.inspect(Value.Nil)\n    f = Value.Function(Decl{body: [Expr.Literal(Value.Nil)]})\n    io.inspect(f)\n    io.print(describe(Value.Nil))\n    io.print(describe(f))\nend\n"},
+		want: "Nil\nFunction(Decl{body: [Literal(Nil)]})\nnil\nfn of 1\n",
+	},
+	{
+		name: "enum and enum",
+		files: map[string]typeCycleFile{
+			"tree": {imports: map[string]string{"forest": "Forest"},
+				decls: "pub enum Tree\n    Leaf\n    Node Forest\nend\n"},
+			"forest": {imports: map[string]string{"tree": "Tree"},
+				decls: "pub enum Forest\n    Bare\n    Grove Tree\nend\n"},
+		},
+		main: typeCycleFile{imports: map[string]string{"tree": "Tree", "forest": "Forest"},
+			decls: "fn depth(t: Tree) -> Int\n    case t\n        Tree.Leaf -> 0\n        Tree.Node(Forest.Bare) -> 1\n        Tree.Node(Forest.Grove(inner)) -> 1 + depth(inner)\n    end\nend\n\n" +
+				"fn main()\n    t = Tree.Node(Forest.Grove(Tree.Node(Forest.Bare)))\n    io.inspect(t)\n    io.print(depth(t))\n    io.print(depth(Tree.Leaf))\nend\n"},
+		want: "Node(Grove(Node(Bare)))\n2\n0\n",
+	},
+	{
+		name: "enum to struct to enum over three files",
+		files: map[string]typeCycleFile{
+			"a": {imports: map[string]string{"b": "Holder"},
+				decls: "pub enum Item\n    Empty\n    Held Holder\nend\n"},
+			"b": {imports: map[string]string{"c": "Tag"},
+				decls: "pub struct Holder\n    tags: List<Tag>\nend\n"},
+			"c": {imports: map[string]string{"a": "Item"},
+				decls: "pub enum Tag\n    Plain\n    Wraps Item\nend\n"},
+		},
+		main: typeCycleFile{imports: map[string]string{"a": "Item", "b": "Holder", "c": "Tag"},
+			decls: "fn count(i: Item) -> Int\n    case i\n        Item.Empty -> 0\n        Item.Held(h) -> Iter.count(h.tags)\n    end\nend\n\n" +
+				"fn main()\n    i = Item.Held(Holder{tags: [Tag.Plain, Tag.Wraps(Item.Empty)]})\n    io.inspect(i)\n    io.print(count(i))\n    io.print(count(Item.Empty))\nend\n"},
+		want: "Held(Holder{tags: [Plain, Wraps(Empty)]})\n2\n0\n",
+	},
+	{
+		name: "generic enum through struct",
+		files: map[string]typeCycleFile{
+			"tagged": {imports: map[string]string{"wrap": "Wrap"},
+				decls: "pub enum Tagged<T>\n    Plain T\n    Nested Wrap\nend\n"},
+			"wrap": {imports: map[string]string{"tagged": "Tagged"},
+				decls: "pub struct Wrap\n    inner: List<Tagged<Int>>\nend\n"},
+		},
+		main: typeCycleFile{imports: map[string]string{"tagged": "Tagged", "wrap": "Wrap"},
+			decls: "fn total(t: Tagged<Int>) -> Int\n    case t\n        Tagged.Plain(n) -> n\n        Tagged.Nested(w) -> w.inner |> Iter.map(total) |> Iter.sum()\n    end\nend\n\n" +
+				"fn main()\n    t: Tagged<Int> = Tagged.Nested(Wrap{inner: [Tagged.Plain(2), Tagged.Nested(Wrap{inner: [Tagged.Plain(3)]})]})\n    io.inspect(t)\n    io.print(total(t))\n    s: Tagged<String> = Tagged.Plain(\"x\")\n    io.inspect(s)\nend\n"},
+		want: "Nested(Wrap{inner: [Plain(2), Nested(Wrap{inner: [Plain(3)]})]})\n5\nPlain(\"x\")\n",
+	},
+}
+
+// typeCycleSource is f's text with its imports spelled through prefix
+// (`cyc::` for the module's own name, "" for the bare file name), and std/io
+// imported when io is set.
+func typeCycleSource(f typeCycleFile, prefix string, io bool) string {
+	var lines []string
+	if io {
+		lines = append(lines, "std::io")
+	}
+	for file, names := range f.imports {
+		lines = append(lines, prefix+file+"."+names)
+	}
+	slices.Sort(lines)
+	if len(lines) == 0 {
+		return f.decls
+	}
+	return "import\n    " + strings.Join(lines, "\n    ") + "\nend\n\n" + f.decls
+}
+
+// Every cycle shape runs as one file, as files importing each other by file
+// name, and as files importing each other through their module's own name
+// (`import cyc::value.Value` in module `cyc`), and prints the same.
+func TestTypeCycle_ShapesRunAsOneFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	for _, shape := range typeCycleShapes {
+		t.Run(shape.name, func(t *testing.T) {
+			names := slices.Sorted(maps.Keys(shape.files))
+			var one strings.Builder
+			for _, name := range names {
+				one.WriteString(shape.files[name].decls + "\n")
+			}
+			one.WriteString(shape.main.decls)
+			t.Run("one file", func(t *testing.T) {
+				typeCycleRun(t, map[string]string{
+					"main.nomi": typeCycleSource(typeCycleFile{decls: one.String()}, "", true),
+				}, shape.want)
+			})
+			for _, spelling := range []struct{ name, prefix, toml string }{
+				{"file names", "", ""},
+				{"the module's own name", "cyc::", "[module]\nname = \"cyc\"\nentry_points = [\"main\"]\n"},
+			} {
+				t.Run(spelling.name, func(t *testing.T) {
+					files := map[string]string{"main.nomi": typeCycleSource(shape.main, spelling.prefix, true)}
+					for _, name := range names {
+						files[name+".nomi"] = typeCycleSource(shape.files[name], spelling.prefix, false)
+					}
+					if spelling.toml != "" {
+						files["nomi.toml"] = spelling.toml
+					}
+					typeCycleRun(t, files, shape.want)
+				})
+			}
+		})
 	}
 }

@@ -72,8 +72,8 @@ io.print(label)`)
 
 label = case
     x > 10 -> "big"
-    x > 0 -> "positive"
-    _ -> "other"
+    x > 0  -> "positive"
+    _      -> "other"
 end
 
 io.print(label)`))
@@ -84,8 +84,8 @@ func TestIfCase_SubjectlessCaseToChain(t *testing.T) {
 
 label = ‸case
     x > 10 -> "big"
-    x > 0 -> "positive"
-    _ -> "other"
+    x > 0  -> "positive"
+    _      -> "other"
 end
 
 io.print(label)`)
@@ -117,8 +117,8 @@ end`), toCase, toIfElse},
 
 ‸case
     x > 10 -> io.print("big")
-    x > 0 -> io.print("positive")
-    _ -> io.print("other")
+    x > 0  -> io.print("positive")
+    _      -> io.print("other")
 end`), toIfElse, toCase},
 		"block arms": {fnMain(`x = 3
 
@@ -144,7 +144,7 @@ io.print(n)`), toCase, toIfElse},
 
 n = ‸case m
     Some(v) -> v
-    _ -> 0
+    _       -> 0
 end
 
 io.print(n)`), toIfElse, toCase},
@@ -166,9 +166,9 @@ io.print(n)`), toCase, toIfElse},
 		"literal case": {fnMain(`n = 2
 
 label = ‸case n
-    1 -> "one"
+    1  -> "one"
     -2 -> "minus two"
-    _ -> "many"
+    _  -> "many"
 end
 
 io.print(label)`), toIfElse, "Convert to case on 'n'"},
@@ -214,9 +214,9 @@ io.print(label)`)
 	convertIfCase(t, src, "Convert to case on 'n'", fnMain(`n = 2
 
 label = case n
-    1 -> "one"
+    1  -> "one"
     -2 -> "minus two"
-    _ -> "many"
+    _  -> "many"
 end
 
 io.print(label)`))
@@ -224,9 +224,9 @@ io.print(label)`))
 	convertIfCase(t, src, toCase, fnMain(`n = 2
 
 label = case
-    n == 1 -> "one"
+    n == 1  -> "one"
     n == -2 -> "minus two"
-    _ -> "many"
+    _       -> "many"
 end
 
 io.print(label)`))
@@ -237,7 +237,7 @@ func TestIfCase_PatternCaseToIf(t *testing.T) {
 
 n = ‸case m
     Some(v) -> v
-    _ -> 0
+    _       -> 0
 end
 
 io.print(n)`)
@@ -254,7 +254,7 @@ m = Some(1)
 
 label = case m
     Some(v) -> ‸if v > x then "more" else "less"
-    None -> "none"
+    None    -> "none"
 end
 
 io.print(label)`)
@@ -265,7 +265,7 @@ label = case m
     Some(v) ->
         case
             v > x -> "more"
-            _ -> "less"
+            _     -> "less"
         end
 
     None ->
@@ -291,8 +291,8 @@ io.print(label)`)
 
 label = case
     x > 10 -> "big"
-    x > 0 -> "positive"
-    _ -> "other"
+    x > 0  -> "positive"
+    _      -> "other"
 end
 
 io.print(label)`))
@@ -329,7 +329,7 @@ io.print(label)`))
 label = ‸case
     // large
     x > 10 -> "big"
-    _ -> "other" // fallback
+    _      -> "other" // fallback
 end
 
 io.print(label)`), toIfElse, fnMain(`x = 3
@@ -355,14 +355,14 @@ io.print(label)`),
 
 label = ‸case m
     Some(v) when v > 1 -> "big"
-    _ -> "other"
+    _                  -> "other"
 end
 
 io.print(label)`),
 		"binding arm": fnMain(`n = 3
 
 label = ‸case n
-    1 -> "one"
+    1     -> "one"
     other -> "${other}"
 end
 
@@ -370,8 +370,8 @@ io.print(label)`),
 		"three pattern arms": fnMain(`r: Result<Int, String> = Ok(1)
 
 label = ‸case r
-    Ok(1) -> "one"
-    Ok(_) -> "other"
+    Ok(1)  -> "one"
+    Ok(_)  -> "other"
     Err(_) -> "err"
 end
 
@@ -386,7 +386,7 @@ io.print(label)`),
 
 label = ‸case f
     1.5 -> "x"
-    _ -> "y"
+    _   -> "y"
 end
 
 io.print(label)`),
@@ -406,7 +406,7 @@ io.print(label)`),
 
 n = m |> ‸case
     Some(v) -> v
-    _ -> 0
+    _       -> 0
 end
 
 io.print(n)`),
@@ -448,7 +448,7 @@ func TestIfCase_RefusedWhenACommentWouldBeLost(t *testing.T) {
 
 label = ‸case
     x > 10 -> "big"
-    _ -> "other"
+    _      -> "other"
     // end
 end
 
@@ -464,7 +464,7 @@ func TestIfCase_StructLiteralConditionConverts(t *testing.T) {
 
 label = ‸case
     p == P{x: 1} -> "one"
-    _ -> "other"
+    _            -> "other"
 end
 
 io.print(label)`)

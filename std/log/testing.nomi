@@ -22,17 +22,17 @@ end
 
 /// One record a logger wrote.
 pub struct Record
-    at: Instant
-    level: Level
+    at:      Instant
+    level:   Level
     message: String
-    fields: List<Field>
+    fields:  List<Field>
 end
 
 derive Equatable for Record
 
 /// What `run` returns: the body's value and the records it logged.
 pub struct Logged<T>
-    value: T
+    value:   T
     records: List<Record>
 end
 
@@ -70,7 +70,7 @@ fn record(line: String) -> Maybe<Record>
     case Json.decode(line)
         Ok(.Arr([.Int(nanos), .String(level), .String(message), .Arr(fields)])) ->
             Some(Record{
-                at: Instant.from_nanos(nanos),
+                at:    Instant.from_nanos(nanos),
                 level: level_named(level),
                 message:,
                 fields: fields |> Iter.flat_map(fn f -> field(f)) |> Iter.to_list(),
@@ -84,9 +84,9 @@ end
 fn level_named(name: String) -> Level
     case name
         "DEBUG" -> Level.Debug
-        "WARN" -> Level.Warn
+        "WARN"  -> Level.Warn
         "ERROR" -> Level.Error
-        _ -> Level.Info
+        _       -> Level.Info
     end
 end
 

@@ -10,7 +10,7 @@ end
 
 struct Todo
     title: String
-    done: Bool
+    done:  Bool
 end
 
 impl Todo

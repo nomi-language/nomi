@@ -3,7 +3,7 @@
 /// A fraction kept in lowest terms with a positive denominator, so two
 /// equal rationals have the same fields and `==` compares them.
 pub opaque struct Rational
-    numerator: Int
+    numerator:   Int
     denominator: Int
 end
 

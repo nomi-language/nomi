@@ -345,7 +345,7 @@ func TestRPC_HoverWaitsForTheEditsAnalysis(t *testing.T) {
 	c.open(uri, text)
 	c.waitDiagnostics(uri)
 
-	edited := strings.Replace(text, "d = Date`2026-05-04`", "renamed = Date`2026-05-04`", 1)
+	edited := strings.Replace(text, "d = Date\"2026-05-04\"", "renamed = Date\"2026-05-04\"", 1)
 	c.change(uri, 2, edited)
 	start := time.Now()
 	var hover protocol.Hover
@@ -363,10 +363,10 @@ func TestRPC_HoverWaitsForTheEditsAnalysis(t *testing.T) {
 	}
 }
 
-// TestRPC_LiteralDiagnosticsFollowTheLatestEdit: an invalid static typed
-// literal is reported by the background evaluation that follows a
-// published analysis; after an edit fixes it, no evaluation of the older
-// text publishes its diagnostic again.
+// TestRPC_LiteralDiagnosticsFollowTheLatestEdit: an invalid typed literal
+// without slots is reported by the background lowering check that follows a
+// published analysis; after an edit fixes it, no check of the older text
+// publishes its diagnostic again.
 func TestRPC_LiteralDiagnosticsFollowTheLatestEdit(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "main.nomi")

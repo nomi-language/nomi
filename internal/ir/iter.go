@@ -158,6 +158,15 @@ const (
 	IterOverUserImpl
 	// IterOverMaybe is a `Maybe<T>`, zero or one elements.
 	IterOverMaybe
+	// IterOverIntRange is a `Range<Int>`, which the consumer walks with
+	// std's Int `compare` and `next` built in, so its view takes the range
+	// alone.
+	IterOverIntRange
+	// IterOverCodepointRange is a `Range<Codepoint>`, std's Codepoint, which
+	// the consumer walks with std's Codepoint `compare`, `next` and
+	// `steps_between` built in, so its view, as an Int range's, takes the
+	// range alone.
+	IterOverCodepointRange
 )
 
 func (d IterDomain) String() string {
@@ -186,6 +195,10 @@ func (d IterDomain) String() string {
 		return "impl"
 	case IterOverMaybe:
 		return "maybe"
+	case IterOverIntRange:
+		return "int range"
+	case IterOverCodepointRange:
+		return "codepoint range"
 	}
 	return "IterDomain(" + strconv.Itoa(int(d)) + ")"
 }
@@ -260,6 +273,9 @@ const (
 	// being the element's `Comparable.compare`. It is its own operation so
 	// a trap names the function the program called.
 	IterSort
+	// IterWindows is `Iter.windows`: the source and the window size,
+	// yielding each run of that many neighbouring elements as a List.
+	IterWindows
 )
 
 // iterOpSpec is one operation's Nomi-level facts: how it is spelled, what it
@@ -294,7 +310,8 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	// newIter holds every other domain to its one operand.
 	IterView: {name: "(source view)", form: IterFormSource, min: 1, max: 4, over: []IterDomain{
 		IterOverList, IterOverEmptyList, IterOverString, IterOverMap, IterOverSet,
-		IterOverVector, IterOverRange, IterOverBytes, IterOverUserImpl, IterOverMaybe,
+		IterOverVector, IterOverRange, IterOverBytes, IterOverUserImpl, IterOverMaybe, IterOverIntRange,
+		IterOverCodepointRange,
 	}},
 
 	IterFrom:    {name: "from", form: IterFormSource, min: 1, max: 1, over: []IterDomain{IterOverNothing}},
@@ -311,6 +328,7 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterCycle:       {name: "cycle", form: IterFormStage, min: 1, max: 1, over: overSeq},
 	IterConcat:      {name: "concat", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterChunks:      {name: "chunks", form: IterFormStage, min: 2, max: 2, over: overSeq},
+	IterWindows:     {name: "windows", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterChunkBy:     {name: "chunk_by", form: IterFormStage, min: 2, max: 2, over: overSeq},
 	IterFlatMap:     {name: "flat_map", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
 	IterFlatMapList: {name: "flat_map", form: IterFormStage, min: 2, max: 2, over: overSeq, signal: true},
@@ -412,7 +430,8 @@ type Iter struct {
 }
 
 // IterViewOperands is the operand count of a source view over domain d: the
-// source, plus a Range's comparator and successor functions, or a user
+// source, plus a Range's comparator and successor functions (an Int
+// Range, IterOverIntRange or IterOverCodepointRange, has neither), or a user
 // source's own `each_while`. A Range view may carry one more operand, the
 // element's `Discrete.steps_between`, when the view enters a declared
 // `Iter<T>` position and must answer the Range's `known_count`, and a user

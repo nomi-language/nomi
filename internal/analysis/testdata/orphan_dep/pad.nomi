@@ -3,5 +3,5 @@
 
 pub struct Pad
     width: Int
-    fill: String
+    fill:  String
 end

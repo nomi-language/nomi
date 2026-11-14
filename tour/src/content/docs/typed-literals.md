@@ -1,10 +1,10 @@
 ---
 title: "Typed Literals"
-description: "Put a type name in front of a string, and that type's code turns the string into a value. A backtick literal is checked when the program compiles."
+description: "Put a type name in front of a string, and that type's code turns the string into a value. A literal without slots is checked when the program compiles."
 ---
 
 A typed literal is a type name followed by a string, such as
-``Date`2026-06-15` `` from [Dates & Times](/dates-and-times/). The type's own
+`Date"2026-06-15"` from [Dates & Times](/dates-and-times/). The type's own
 code turns the string into a value. This is ordinary Nomi code, and you can
 write it for your own types.
 
@@ -43,7 +43,7 @@ impl Literal for Html
         fragments
         |> Iter.map(fn frag ->
             case frag
-                .Static(s) -> s
+                .Static(s)  -> s
                 .Dynamic(v) -> escape(v)
             end
         end)
@@ -117,7 +117,7 @@ impl Literal for Box
             fragments
             |> Iter.map(fn frag ->
                 case frag
-                    .Static(s) -> s
+                    .Static(s)  -> s
                     .Dynamic(v) -> v
                 end
             end)
@@ -139,24 +139,24 @@ dbg line 25: Box{contents: "world"} = Box{contents: "world"}
 
 Both lines build a `Box`.
 
-## Backtick literals are checked at compile time
+## A literal without slots is checked at compile time
 
-A backtick string has no `${...}` interpolation, so its text is the same
-every time. If the type's `from_fragments` can fail (it returns a
-`Result`), Nomi runs it while it checks your program. `Regex` from
-`std::regex` is one such type:
+A literal with no `${...}` slot has the same text every time, whichever
+quotes it uses. So Nomi runs the type's `from_fragments` while it checks
+your program. If `from_fragments` can fail (it returns a `Result`), as it can
+for `Regex` from `std::regex`:
 
 - If it returns `Ok(v)`, the literal is the value itself. `` Regex`\d+` `` is
   a `Regex`, not a `Result`. It needs no `?`, and you can use it anywhere,
   including in a top-level `once`.
 - If it returns `Err(e)`, the literal is a compile error with that error's
   message. `nomi check`, `nomi run` and your editor all report
-  ``Regex`[` `` as `` typed literal Regex`[` is invalid: error parsing regexp:
+  `Regex"["` as `` typed literal Regex"[" is invalid: error parsing regexp:
   missing closing ]: `[` ``.
 
-A double-quoted literal is built when the program runs, so it stays a
-`Result`, with or without `${...}`. Use it when the pattern comes from a
-value, and unwrap it with `?` or `case`:
+A literal with a slot is built when the program runs, so it stays a
+`Result`. Use one when the pattern comes from a value, and unwrap it with
+`?` or `case`:
 
 ```nomi-run
 import std::regex.Regex
@@ -180,41 +180,43 @@ dbg line 11: String.find(text, floor) = Some("floor 7")
 -->
 
 This works for every type whose `from_fragments` can fail, including the
-calendar types. ``Date`2026-06-15` `` is a `Date`, and
-``Date`2026-13-01` `` does not compile.
+calendar types. `Date"2026-06-15"` is a `Date`, and `Date"2026-13-01"`
+does not compile. The quotes only change how the text is read: a backtick
+body keeps every backslash, which suits a regex, and double quotes suit the
+rest.
 
-The compiler runs only a `from_fragments` that returns a `Result`, and that
-run must work out its result from the text alone. If it prints, reads a file
-or the clock, or never finishes, a backtick literal of that type is a compile
-error that tells you to use double quotes instead. When the program runs,
-such a literal is built once, the first time it is reached, so a literal
-in a function that runs many times is built only once.
+The run must work out its result from the text alone. If `from_fragments`
+prints, reads a file or the clock, or never finishes, a literal of that type
+without slots is a compile error. To build such a value from text, call one
+of the type's functions instead, such as `Date.parse(text)`. When the
+program runs, a literal without slots is built once, the first time it is
+reached, so a literal in a function that runs many times is built only once.
 
 If `from_fragments` cannot fail, as with `Html` and `Box` above, the compiler
-doesn't run it. The literal is built each time it is reached, and both kinds
-of quote give the same type.
+still runs it, to make sure it can, and the literal is the value
+`from_fragments` returns.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A `?` after a checked backtick literal is an error, since the literal is
+- A `?` after a literal without slots is an error, since the literal is
   the value, not a `Result`. The hint says to remove the `?`.
 - The compile error shows the `Err` through its `Display`, or its `Debug`
   when it has none.
-- A handler that doesn't finish within the compiler's step limit is
-  refused the same way as one with effects.
-- A `Regex` literal's type depends on its text. A double-quoted one with
-  `${...}` can't know its groups, so its captures come back as a list.
+- A handler that doesn't finish within the compiler's step limit, or traps,
+  is refused the same way as one with effects.
+- A `Regex` literal's type depends on its text. One with `${...}` can't
+  know its groups, so its captures come back as a list.
 
-Spec: [Raw literals are checked at compile time](/spec/typed-literals-and-keyword-declarations/#raw-literals-are-checked-at-compile-time).
+Spec: [A literal without slots is checked at compile time](/spec/typed-literals-and-keyword-declarations/#a-literal-without-slots-is-checked-at-compile-time).
 
 </div>
 
 [Scalars & Strings](/scalars-and-strings/#regular-expressions) shows what
 you can do with a `Regex`: find, split, replace and read capture groups.
 [`Bits`](/reference/bits/) from `std::bits` is checked the same way:
-``Bits`10aa_aaaa` `` is a bit pattern whose `x`s match any bit and whose
-letters name a field, and ``Bits`10z2` `` does not compile.
+`Bits"10aa_aaaa"` is a bit pattern whose `x`s match any bit and whose
+letters name a field, and `Bits"10z2"` does not compile.
 
 ## Checked literals
 

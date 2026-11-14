@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // Parser holds the token slice and current position.
@@ -2181,7 +2182,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			if p.atEnd() || p.peek().Line != tok.Line && p.peek().Type == token.NEWLINE {
 				return nil, errorAt(tok.Line, tok.Col, "expected a type after `as`: `value as Type`")
 			}
-			te, err := p.parseTypeAnnotation()
+			te, err := p.parseSingleTypeAnnotation()
 			if err != nil {
 				return nil, err
 			}
@@ -6159,7 +6160,7 @@ func functionImplQualifierType(parts []token.Token) (ast.TypeExpr, error) {
 // Grammar:
 //
 //	params := param (',' param)* ','?
-//	param  := IDENT (':' type-annotation)? ('=' expr)?
+//	param  := pattern (':' type-annotation)? ('=' expr)? | type-annotation
 //
 // App fields are read explicitly in the body as `AppEnv.field`.
 func (p *Parser) parseFuncParamList(tok token.Token) ([]ast.Param, []ast.Trivia, error) {
@@ -6175,8 +6176,9 @@ func (p *Parser) parseFuncParamList(tok token.Token) ([]ast.Param, []ast.Trivia,
 // handles every pattern form (wildcard, tuple, distinct/enum, typed/anon
 // struct, map, list, literals). Trivial patterns collapse to the plain
 // `Param{Name}` representation so plain params (`x`, `_`) keep today's AST
-// shape, and a type name alone (`Request`) is a TypeOnly parameter of that
-// type; everything else is carried in Destructure. The parser deliberately
+// shape, and a type alone (`Request`, or a type no pattern is spelled as,
+// `Vector<Int>`, typeOnlyParam) is a TypeOnly parameter of that type;
+// everything else is carried in Destructure. The parser deliberately
 // accepts refutable shapes too (map/list/literal/multi-variant) — the checker
 // is the refutability gatekeeper, not the parser.
 //
@@ -6190,6 +6192,10 @@ func (p *Parser) parseParamPattern(lambda bool) (ast.Param, error) {
 		if err := keywordAsName(tok, "a parameter"); err != nil {
 			return ast.Param{}, err
 		}
+	}
+	if te, ok := p.typeOnlyParam(lambda); ok {
+		line, col := typeExprStart(te)
+		return ast.Param{Name: "_", TypeAnnotation: te, TypeOnly: true, Line: line, Col: col}, nil
 	}
 	pat, err := p.parseSinglePattern()
 	if err != nil {
@@ -6272,6 +6278,96 @@ func (p *Parser) parseParamPattern(lambda bool) (ast.Param, error) {
 	}
 
 	return param, nil
+}
+
+// typeOnlyParam reads a parameter written as its type alone in a form no
+// pattern is spelled as: a generic type (`Vector<Int>`, `http.Box<Int>`), a
+// module-qualified type (`http.Request`), a function type (`(Int) -> Int`),
+// a tuple type (`(Int, String)`), an anonymous struct type (`{x: Int}`) or
+// a conjunction. It reads the type and keeps it when the parameter ends
+// right after it, at `,` or `)`, or a lambda's `->`; otherwise it reads
+// nothing and the parameter is a pattern.
+//
+// A type name alone (`Request`) and a dotted name (`Shape.Circle`,
+// `geo.Shape.Circle`) are left to the pattern reading, which makes the
+// first a TypeOnly parameter itself and the others a variant's pattern. In a
+// lambda a `(` type stops before an `->`, so `fn (A) -> B` stays a lambda
+// taking an `A` whose body is `B`, and a function type alone is no lambda
+// parameter.
+func (p *Parser) typeOnlyParam(lambda bool) (ast.TypeExpr, bool) {
+	if p.atEnd() {
+		return nil, false
+	}
+	first := p.peek()
+	switch first.Type {
+	case token.TYPE_IDENT, token.LPAREN, token.LBRACE:
+	case token.IDENT, token.PATH:
+		if p.peekAt(1).Type != token.DOT {
+			return nil, false
+		}
+	default:
+		return nil, false
+	}
+	start := p.pos
+	if lambda && first.Type == token.LPAREN {
+		p.parenTypeNoArrow = true
+	}
+	te, err := p.parseTypeAnnotation()
+	p.parenTypeNoArrow = false
+	if err == nil && typeOnlyForm(te, first) {
+		switch p.nextPastBreaks() {
+		case token.COMMA:
+			return te, true
+		case token.RPAREN:
+			if !lambda {
+				return te, true
+			}
+		case token.ARROW:
+			if lambda {
+				return te, true
+			}
+		}
+	}
+	p.pos = start
+	return nil, false
+}
+
+// typeOnlyForm reports whether te, read from a parameter starting at first,
+// is a type no parameter pattern is spelled as (typeOnlyParam). A name
+// that starts lowercase is a binding, not a type, so `(a, b)` is a tuple
+// pattern.
+func typeOnlyForm(te ast.TypeExpr, first token.Token) bool {
+	named := true
+	ast.Inspect(te, func(n ast.Node) bool {
+		var name string
+		switch t := n.(type) {
+		case *ast.SimpleType:
+			name = t.Name
+		case *ast.GenericType:
+			name = t.Name
+		default:
+			return named
+		}
+		if r, _ := utf8.DecodeRuneInString(name); !unicode.IsUpper(r) {
+			named = false
+		}
+		return named
+	})
+	if !named {
+		return false
+	}
+	switch t := te.(type) {
+	case *ast.SimpleType, *ast.SelfType:
+		return false
+	case *ast.QualifiedType:
+		if _, generic := t.Member.(*ast.GenericType); generic {
+			return true
+		}
+		// `Shape.Circle` and `geo.Shape.Circle` read as a variant's pattern.
+		member, _ := t.Member.(*ast.SimpleType)
+		return first.Type != token.TYPE_IDENT && member != nil && !strings.Contains(member.Name, ".")
+	}
+	return true
 }
 
 // endsLambdaParam reports whether a lambda parameter's annotation, just
@@ -6666,7 +6762,52 @@ func canStartTypeAnnotation(t token.TokenType) bool {
 	}
 }
 
-func (p *Parser) parseTypeAnnotation() (te ast.TypeExpr, err error) {
+// parseTypeAnnotation parses a type in a value type's position, an
+// interface conjunction `A and B` among them. A position where `and` after a
+// type means something else (a `where` bound's list, a bound alias's list,
+// `value as T and ...`) parses parseSingleTypeAnnotation.
+func (p *Parser) parseTypeAnnotation() (ast.TypeExpr, error) {
+	start := p.pos
+	first, err := p.parseSingleTypeAnnotation()
+	if err != nil || p.atEnd() || p.peek().Type != token.AND {
+		return first, err
+	}
+	conj := &ast.ConjunctionType{Members: []ast.TypeExpr{first}}
+	conj.Line, conj.Col = typeExprStart(first)
+	for !p.atEnd() && p.peek().Type == token.AND {
+		p.advance() // consume `and`
+		next, err := p.parseSingleTypeAnnotation()
+		if err != nil {
+			return nil, err
+		}
+		conj.Members = append(conj.Members, next)
+	}
+	p.recordSpan(conj, start)
+	return conj, nil
+}
+
+// typeExprStart is the line and column a type expression starts at.
+func typeExprStart(te ast.TypeExpr) (int, int) {
+	switch n := te.(type) {
+	case *ast.SimpleType:
+		return n.Line, n.Col
+	case *ast.GenericType:
+		return n.Line, n.Col
+	case *ast.QualifiedType:
+		return n.ModuleLine, n.ModuleCol
+	case *ast.FuncType:
+		return n.Line, n.Col
+	case *ast.AnonStructType:
+		return n.Line, n.Col
+	case *ast.SelfType:
+		return n.Line, n.Col
+	case *ast.ConjunctionType:
+		return n.Line, n.Col
+	}
+	return te.LineNum(), 0
+}
+
+func (p *Parser) parseSingleTypeAnnotation() (te ast.TypeExpr, err error) {
 	if err := p.enterNested(); err != nil {
 		return nil, err
 	}
@@ -7863,6 +8004,13 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, err
 	}
 
+	// `type X = T`, as other languages write an alias or a newtype: say so
+	// at the `=` rather than report it as unexpected.
+	if !p.atEnd() && p.peek().Type == token.EQ && p.peek().Line == p.tokens[p.pos-1].Line {
+		eq := p.peek()
+		return nil, errorAt(eq.Line, eq.Col, "a type has no `=`: write `type X T`")
+	}
+
 	// Check for optional inner type, on the line the name ends on. The
 	// name may be on a line after `type` (`type` then `Meters Int`), and
 	// the formatter joins them.
@@ -8162,12 +8310,18 @@ func (p *Parser) parseTypeAlias(public bool) (ast.Node, error) {
 		lt := p.peek()
 		return nil, errorAt(lt.Line, lt.Col, "a typealias takes no type parameters; declare a struct or a `type` when the shape deserves a name of its own")
 	}
+	// `typealias X = T`, as other languages write it: say so at the `=`
+	// rather than report it as a missing type name.
+	if !p.atEnd() && p.peek().Type == token.EQ {
+		eq := p.peek()
+		return nil, errorAt(eq.Line, eq.Col, "a typealias has no `=`: write `typealias X T`")
+	}
 
 	// Expect target type directly after the name (no `=` separator —
 	// typealias declarations mirror `type Name Inner`). Two shapes:
 	//   - single type: `typealias Foo Bar`        → TargetTypeExpr
 	//   - bound list:  `typealias Foo A and B`    → Bounds
-	first, err := p.parseTypeAnnotation()
+	first, err := p.parseSingleTypeAnnotation()
 	if err != nil {
 		return nil, err
 	}
@@ -8178,7 +8332,7 @@ func (p *Parser) parseTypeAlias(public bool) (ast.Node, error) {
 		bounds := []ast.TypeExpr{first}
 		for !p.atEnd() && p.peek().Type == token.AND {
 			p.advance() // consume AND
-			next, err := p.parseTypeAnnotation()
+			next, err := p.parseSingleTypeAnnotation()
 			if err != nil {
 				return nil, err
 			}
@@ -9542,14 +9696,14 @@ func (p *Parser) parseImplBlock() (ast.Node, error) {
 		return nil, err
 	}
 
-	head, err := p.parseTypeAnnotation()
+	head, err := p.parseSingleTypeAnnotation()
 	if err != nil {
 		return nil, err
 	}
 
 	if !p.atEnd() && p.peek().Type == token.FOR {
 		p.advance() // consume FOR
-		receiver, err := p.parseTypeAnnotation()
+		receiver, err := p.parseSingleTypeAnnotation()
 		if err != nil {
 			return nil, err
 		}
@@ -9786,7 +9940,7 @@ func (p *Parser) parseDeriveDecl() (ast.Node, error) {
 	if p.atEnd() || !canStartTypeAnnotation(p.peek().Type) {
 		return nil, errorAt(kwTok.Line, kwTok.Col, "expected receiver type after `for` in derive declaration")
 	}
-	receiver, err := p.parseTypeAnnotation()
+	receiver, err := p.parseSingleTypeAnnotation()
 	if err != nil {
 		return nil, err
 	}
@@ -9826,7 +9980,7 @@ func (p *Parser) parseDeriveInterfaceList(kwTok token.Token) ([]ast.TypeExpr, er
 		return nil, errorAt(kwTok.Line, kwTok.Col, "expected interface name after `derive`")
 	}
 	ifaceTok := p.peek()
-	iface, err := p.parseTypeAnnotation()
+	iface, err := p.parseSingleTypeAnnotation()
 	if err != nil {
 		return nil, err
 	}
@@ -10121,11 +10275,18 @@ func (p *Parser) parseWhereClause() ([]ast.WhereConstraint, error) {
 		p.advance() // consume COLON
 		var bounds []ast.TypeExpr
 		for {
-			b, err := p.parseTypeAnnotation()
+			b, err := p.parseSingleTypeAnnotation()
 			if err != nil {
 				return nil, err
 			}
 			bounds = append(bounds, b)
+			if !p.atEnd() && p.peek().Type == token.OR {
+				// A bound of one interface or another lets the body call
+				// neither's functions, so there is no such bound.
+				orTok := p.peek()
+				return nil, errorAt(orTok.Line, orTok.Col,
+					"`where` bounds combine with `and`: a type parameter bounded by one interface or another could call neither's functions; declare an interface both implement, or bound on one")
+			}
 			if p.atEnd() || p.peek().Type != token.AND {
 				break
 			}

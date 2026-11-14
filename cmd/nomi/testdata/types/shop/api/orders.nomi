@@ -6,21 +6,21 @@ import
 end
 
 pub struct Order
-    id: Uuid
-    buyer: models.User
-    lines: Vector<Line>
-    total: models.Money
+    id:     Uuid
+    buyer:  models.User
+    lines:  Vector<Line>
+    total:  models.Money
     placed: NaiveDateTime
-    page: models.Page<Line>
+    page:   models.Page<Line>
     seller: User
 end
 
 derive ToJson for Order
 
 pub struct Line
-    sku: String
-    qty: Int
-    price: Float
+    sku:     String
+    qty:     Int
+    price:   Float
     ratings: List<Maybe<Float>>
 end
 

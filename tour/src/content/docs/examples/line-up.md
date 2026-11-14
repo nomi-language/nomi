@@ -25,10 +25,10 @@ end
 fn suffix(number: Int) -> String
     case (number % 100, number % 10)
         (11 or 12 or 13, _) -> "th"
-        (_, 1) -> "st"
-        (_, 2) -> "nd"
-        (_, 3) -> "rd"
-        _ -> "th"
+        (_, 1)              -> "st"
+        (_, 2)              -> "nd"
+        (_, 3)              -> "rd"
+        _                   -> "th"
     end
 end
 
@@ -82,10 +82,10 @@ test "format"
             91,
             "91st",
         ),
-        ("format exceptional ordinal numeral 100", "John", 100, "100th"),
-        ("format exceptional ordinal numeral 101", "Zeinab", 101, "101st"),
-        ("format non-exceptional ordinal numeral 112", "Knud", 112, "112th"),
-        ("format exceptional ordinal numeral 123", "Yma", 123, "123rd"),
+        ("format exceptional ordinal numeral 100",     "John",   100, "100th"),
+        ("format exceptional ordinal numeral 101",     "Zeinab", 101, "101st"),
+        ("format non-exceptional ordinal numeral 112", "Knud",   112, "112th"),
+        ("format exceptional ordinal numeral 123",     "Yma",    123, "123rd"),
         (
             "format large number 972 ending in nd even though it is a multiple of 12",
             "Elias",
@@ -107,5 +107,5 @@ test result: ok. 25 passed, 0 failed
 ## How it's written
 
 - `format` is one interpolated string, and `suffix` one `case` on the pair `(number % 100, number % 10)`. The first arm catches 11, 12 and 13 in every hundred, which take "th" whatever their last digit; the next three read the last digit, and everything else is "th". The tuple keeps the exception and the rule in one match instead of an `if` in front of a `case`.
-- std/plural's ``PluralCategory.ordinal(number, Locale`en`)`` answers the same four classes from CLDR's rules (`One`, `Two`, `Few`, `Other`), and a `case` on it could pick the suffix. The arithmetic is kept: it is the rule the exercise asks for, and it is as short.
+- std/plural's `PluralCategory.ordinal(number, Locale"en")` answers the same four classes from CLDR's rules (`One`, `Two`, `Few`, `Other`), and a `case` on it could pick the suffix. The arithmetic is kept: it is the rule the exercise asks for, and it is as short.
 - The 25 canonical cases are one `subtests` table. Each row holds the name, the number and the ordinal the message should carry, and the body builds the expected sentence from them, so the table shows only what differs from row to row.

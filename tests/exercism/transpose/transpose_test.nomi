@@ -2,10 +2,10 @@ import transpose.transpose
 
 test "transpose"
     [
-        ("empty string", [], []),
-        ("two characters in a row", ["A1"], ["A", "1"]),
-        ("two characters in a column", ["A", "1"], ["A1"]),
-        ("simple", ["ABC", "123"], ["A1", "B2", "C3"]),
+        ("empty string",               [],             []),
+        ("two characters in a row",    ["A1"],         ["A", "1"]),
+        ("two characters in a column", ["A", "1"],     ["A1"]),
+        ("simple",                     ["ABC", "123"], ["A1", "B2", "C3"]),
         (
             "single line",
             ["Single line."],

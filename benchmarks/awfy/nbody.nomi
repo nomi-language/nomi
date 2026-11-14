@@ -1,0 +1,206 @@
+//# Are We Fast Yet: NBody.
+//#
+//# The suite's n-body simulation of the Jovian planets: advance the system
+//# by 0.01 once per inner iteration, then check its energy exactly. The
+//# arithmetic is the suite's, operation for operation, so the energy matches
+//# its expected values to the last bit.
+//#
+//# Departure from the guidelines: the suite's bodies are objects updated in
+//# place. Here a `Body` is a value and `advance` returns a new list of
+//# bodies: each body takes its pulls from the bodies after it, as the
+//# suite's `i < j` loops do, threading the later bodies through a
+//# `map_reduce`, and every body then moves.
+
+import harness
+
+once pi            = 3.141592653589793
+once solar_mass    = 4.0 * pi * pi
+once days_per_year = 365.24
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+struct Body
+    x:    Float
+    y:    Float
+    z:    Float
+    vx:   Float
+    vy:   Float
+    vz:   Float
+    mass: Float
+end
+
+impl Body
+    fn new(x: Float, y: Float, z: Float, vx: Float, vy: Float, vz: Float, mass: Float) -> Body
+        Body{
+            x:,
+            y:,
+            z:,
+            vx:   vx * days_per_year,
+            vy:   vy * days_per_year,
+            vz:   vz * days_per_year,
+            mass: mass * solar_mass,
+        }
+    end
+
+    fn offset_momentum(body: Body, px: Float, py: Float, pz: Float) -> Body
+        {..body, vx: 0.0 - px / solar_mass, vy: 0.0 - py / solar_mass, vz: 0.0 - pz / solar_mass}
+    end
+
+    fn jupiter() -> Body
+        Body.new(
+            4.84143144246472090e+00,
+            -1.16032004402742839e+00,
+            -1.03622044471123109e-01,
+            1.66007664274403694e-03,
+            7.69901118419740425e-03,
+            -6.90460016972063023e-05,
+            9.54791938424326609e-04,
+        )
+    end
+
+    fn saturn() -> Body
+        Body.new(
+            8.34336671824457987e+00,
+            4.12479856412430479e+00,
+            -4.03523417114321381e-01,
+            -2.76742510726862411e-03,
+            4.99852801234917238e-03,
+            2.30417297573763929e-05,
+            2.85885980666130812e-04,
+        )
+    end
+
+    fn uranus() -> Body
+        Body.new(
+            1.28943695621391310e+01,
+            -1.51111514016986312e+01,
+            -2.23307578892655734e-01,
+            2.96460137564761618e-03,
+            2.37847173959480950e-03,
+            -2.96589568540237556e-05,
+            4.36624404335156298e-05,
+        )
+    end
+
+    fn neptune() -> Body
+        Body.new(
+            1.53796971148509165e+01,
+            -2.59193146099879641e+01,
+            1.79258772950371181e-01,
+            2.68067772490389322e-03,
+            1.62824170038242295e-03,
+            -9.51592254519715870e-05,
+            5.15138902046611451e-05,
+        )
+    end
+
+    fn sun() -> Body
+        Body.new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+    end
+end
+
+fn create_bodies() -> List<Body>
+    bodies = [Body.sun(), Body.jupiter(), Body.saturn(), Body.uranus(), Body.neptune()]
+
+    (px, py, pz) = Iter.reduce(bodies, (0.0, 0.0, 0.0), fn (px, py, pz), b ->
+        (px + b.vx * b.mass, py + b.vy * b.mass, pz + b.vz * b.mass)
+    end)
+
+    case bodies
+        [sun, ..planets] -> [Body.offset_momentum(sun, px, py, pz), ..planets]
+        []               -> []
+    end
+end
+
+/// Applies each pull between a body and the bodies after it.
+fn pull(bodies: List<Body>, dt: Float) -> List<Body>
+    case bodies
+        [] ->
+            []
+
+        [i_body, ..rest] ->
+            (i_body, rest) = Iter.map_reduce(rest, i_body, fn i_body, j_body ->
+                dx = i_body.x - j_body.x
+                dy = i_body.y - j_body.y
+                dz = i_body.z - j_body.z
+
+                d_squared = dx * dx + dy * dy + dz * dz
+                distance = Float.sqrt(d_squared)
+                mag = dt / (d_squared * distance)
+
+                i_body = {
+                    ..i_body,
+                    vx: .. - dx * j_body.mass * mag,
+                    vy: .. - dy * j_body.mass * mag,
+                    vz: .. - dz * j_body.mass * mag,
+                }
+
+                j_body = {
+                    ..j_body,
+                    vx: .. + dx * i_body.mass * mag,
+                    vy: .. + dy * i_body.mass * mag,
+                    vz: .. + dz * i_body.mass * mag,
+                }
+
+                (i_body, j_body)
+            end)
+
+            [i_body, ..pull(rest, dt)]
+    end
+end
+
+fn advance(bodies: List<Body>, dt: Float) -> List<Body>
+    pull(bodies, dt)
+    |> Iter.map(fn body -> {
+        ..body,
+        x: .. + dt * body.vx,
+        y: .. + dt * body.vy,
+        z: .. + dt * body.vz,
+    })
+    |> Iter.to_list()
+end
+
+/// The energy, summed in the suite's order: each body's kinetic energy,
+/// then its potential with each body after it.
+fn energy(bodies: List<Body>, e: Float) -> Float
+    case bodies
+        [] ->
+            e
+
+        [i_body, ..rest] ->
+            e = e + 0.5 * i_body.mass * (i_body.vx * i_body.vx + i_body.vy * i_body.vy + i_body.vz * i_body.vz)
+
+            e = Iter.reduce(rest, e, fn e, j_body ->
+                dx = i_body.x - j_body.x
+                dy = i_body.y - j_body.y
+                dz = i_body.z - j_body.z
+                distance = Float.sqrt(dx * dx + dy * dy + dz * dz)
+                e - i_body.mass * j_body.mass / distance
+            end)
+
+            energy(rest, e)
+    end
+end
+
+fn verify(result: Float, inner: Int) -> Bool
+    case inner
+        250000 -> result == -0.1690859889909308
+        1      -> result == -0.16907495402506745
+        _      -> False
+    end
+end
+
+fn inner_loop(inner: Int) -> Bool
+    bodies = Iter.reduce(1..=inner, create_bodies(), fn bodies, _ -> advance(bodies, 0.01))
+    verify(energy(bodies, 0.0), inner)
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("NBody", App.config, inner_loop)
+end

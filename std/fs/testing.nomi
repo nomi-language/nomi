@@ -82,9 +82,9 @@ end
 //
 pub struct Failure
     /// The path the operation is on, resolved as the sandbox resolves it.
-    path: String
+    path:      String
     operation: Operation
-    error: Error
+    error:     Error
     /// Fail only the nth matching operation, from 1; `None` fails every
     /// one.
     nth: Maybe<Int> = None
@@ -176,21 +176,21 @@ pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
     Ran{
         value:,
         files: host.sandbox_files(fake),
-        log: host.sandbox_log(fake),
-        open: host.sandbox_open(fake),
+        log:   host.sandbox_log(fake),
+        open:  host.sandbox_open(fake),
     }
 end
 
 fn operation_code(operation: Operation) -> Int
     case operation
-        Operation.Read -> 1
-        Operation.Write -> 2
-        Operation.Create -> 3
-        Operation.Remove -> 4
-        Operation.Rename -> 5
-        Operation.List -> 6
+        Operation.Read     -> 1
+        Operation.Write    -> 2
+        Operation.Create   -> 3
+        Operation.Remove   -> 4
+        Operation.Rename   -> 5
+        Operation.List     -> 6
         Operation.Metadata -> 7
-        Operation.Close -> 8
+        Operation.Close    -> 8
     end
 end
 
@@ -203,7 +203,7 @@ end
 pub fn text<T>(ran: Ran<T>, at: String) -> Maybe<String>
     case Map.get(ran.files, at)
         Some(data) -> Bytes.to_string(data) |> Result.to_maybe()
-        None -> None
+        None       -> None
     end
 end
 
@@ -250,7 +250,7 @@ pub fn conformance(root: String) -> List<ConformanceFailure>
             Ok(_) ->
                 case check(dir)
                     Some(reason) -> [ConformanceFailure{rule:, reason:}]
-                    None -> []
+                    None         -> []
                 end
         end
     end)
@@ -282,45 +282,45 @@ end
 
 fn rules() -> List<(String, (String) -> Maybe<String>)>
     [
-        ("replace creates and truncates", rule_replace),
-        ("append creates and appends", rule_append),
-        ("new refuses an existing file", rule_new),
-        ("replace atomically replaces and leaves nothing beside it", rule_atomic),
-        ("an atomic write that fails leaves the old file", rule_atomic_failure),
-        ("a missing parent is NotFound naming it", rule_missing_parent),
-        ("a listing is sorted by name", rule_sorted),
-        ("listing a file is NotADirectory", rule_list_file),
-        ("reading a directory is IsADirectory", rule_read_dir),
-        ("remove refuses a directory with entries", rule_remove_full),
-        ("remove of a missing path is NotFound", rule_remove_missing),
-        ("remove_all of a missing path is Ok", rule_remove_all_missing),
-        ("remove_all removes a tree", rule_remove_all),
-        ("rename replaces a file", rule_rename),
-        ("rename of a missing path is NotFound", rule_rename_missing),
-        ("copy copies and replaces", rule_copy),
-        ("create_dir makes parents only when asked", rule_create_dir),
-        ("lines splits LF and CRLF and keeps a last line", rule_lines),
-        ("lines runs again from the start", rule_lines_twice),
-        ("text that is not UTF-8 is InvalidText", rule_invalid_text),
-        ("a closed handle answers Closed", rule_closed),
-        ("exists answers absence and presence", rule_exists),
-        ("metadata answers kind and size", rule_metadata),
-        ("walk is depth first in name order and follows no symlink", rule_walk),
-        ("walk of a missing root is one NotFound", rule_walk_missing),
-        ("glob matches with ** and skips dot names", rule_glob),
-        ("a symlink is followed by reads and metadata only", rule_symlink),
-        ("a dangling symlink exists only as itself", rule_dangling),
-        ("remove and remove_all of a symlink keep its target", rule_remove_link),
-        ("copy follows a symlink and rename moves it", rule_copy_rename_link),
-        ("read_link of a file is EINVAL", rule_read_link_file),
-        ("a symlink loop is ELOOP", rule_link_loop),
-        ("set_mode sets the permission bits", rule_set_mode),
-        ("a file reads and writes at a position", rule_file),
-        ("a file opened to read refuses writes", rule_file_read_only),
+        ("replace creates and truncates",                             rule_replace),
+        ("append creates and appends",                                rule_append),
+        ("new refuses an existing file",                              rule_new),
+        ("replace atomically replaces and leaves nothing beside it",  rule_atomic),
+        ("an atomic write that fails leaves the old file",            rule_atomic_failure),
+        ("a missing parent is NotFound naming it",                    rule_missing_parent),
+        ("a listing is sorted by name",                               rule_sorted),
+        ("listing a file is NotADirectory",                           rule_list_file),
+        ("reading a directory is IsADirectory",                       rule_read_dir),
+        ("remove refuses a directory with entries",                   rule_remove_full),
+        ("remove of a missing path is NotFound",                      rule_remove_missing),
+        ("remove_all of a missing path is Ok",                        rule_remove_all_missing),
+        ("remove_all removes a tree",                                 rule_remove_all),
+        ("rename replaces a file",                                    rule_rename),
+        ("rename of a missing path is NotFound",                      rule_rename_missing),
+        ("copy copies and replaces",                                  rule_copy),
+        ("create_dir makes parents only when asked",                  rule_create_dir),
+        ("lines splits LF and CRLF and keeps a last line",            rule_lines),
+        ("lines runs again from the start",                           rule_lines_twice),
+        ("text that is not UTF-8 is InvalidText",                     rule_invalid_text),
+        ("a closed handle answers Closed",                            rule_closed),
+        ("exists answers absence and presence",                       rule_exists),
+        ("metadata answers kind and size",                            rule_metadata),
+        ("walk is depth first in name order and follows no symlink",  rule_walk),
+        ("walk of a missing root is one NotFound",                    rule_walk_missing),
+        ("glob matches with ** and skips dot names",                  rule_glob),
+        ("a symlink is followed by reads and metadata only",          rule_symlink),
+        ("a dangling symlink exists only as itself",                  rule_dangling),
+        ("remove and remove_all of a symlink keep its target",        rule_remove_link),
+        ("copy follows a symlink and rename moves it",                rule_copy_rename_link),
+        ("read_link of a file is EINVAL",                             rule_read_link_file),
+        ("a symlink loop is ELOOP",                                   rule_link_loop),
+        ("set_mode sets the permission bits",                         rule_set_mode),
+        ("a file reads and writes at a position",                     rule_file),
+        ("a file opened to read refuses writes",                      rule_file_read_only),
         ("open_file of a missing file is NotFound unless it creates", rule_file_missing),
-        ("within resolves paths under its directory", rule_within),
-        ("within refuses paths that lead outside it", rule_within_escape),
-        ("within of a missing directory is NotFound", rule_within_missing),
+        ("within resolves paths under its directory",                 rule_within),
+        ("within refuses paths that lead outside it",                 rule_within_escape),
+        ("within of a missing directory is NotFound",                 rule_within_missing),
     ]
 end
 
@@ -328,9 +328,9 @@ fn rule_replace(dir: String) -> Maybe<String>
     p = path.join(dir, "a.txt")
 
     first([
-        check("first write", fs.write_text(p, "abcdef"), Ok(Unit)),
-        check("second write", fs.write_text(p, "xy"), Ok(Unit)),
-        check("read", fs.read_text(p), Ok("xy")),
+        check("first write",  fs.write_text(p, "abcdef"), Ok(Unit)),
+        check("second write", fs.write_text(p, "xy"),     Ok(Unit)),
+        check("read",         fs.read_text(p),            Ok("xy")),
     ])
 end
 
@@ -339,8 +339,8 @@ fn rule_append(dir: String) -> Maybe<String>
 
     first([
         check("append to a missing file", fs.write_text(p, "a", mode: WriteMode.Append), Ok(Unit)),
-        check("append again", fs.write_text(p, "b", mode: WriteMode.Append), Ok(Unit)),
-        check("read", fs.read_text(p), Ok("ab")),
+        check("append again",             fs.write_text(p, "b", mode: WriteMode.Append), Ok(Unit)),
+        check("read",                     fs.read_text(p),                               Ok("ab")),
     ])
 end
 
@@ -376,10 +376,10 @@ fn rule_atomic_failure(dir: String) -> Maybe<String>
     failed = abandoned_write(p)
 
     first([
-        check("write", written, Ok(Unit)),
-        check("a failed atomic write", failed, Err(Error.TimedOut)),
-        check("read", fs.read_text(p), Ok("old")),
-        check("listing", names(dir), Ok(["a.txt"])),
+        check("write",                 written,         Ok(Unit)),
+        check("a failed atomic write", failed,          Err(Error.TimedOut)),
+        check("read",                  fs.read_text(p), Ok("old")),
+        check("listing",               names(dir),      Ok(["a.txt"])),
     ])
 end
 
@@ -417,7 +417,7 @@ fn rule_sorted(dir: String) -> Maybe<String>
     first([
         check("write c", fs.write_text(path.join(dir, "c.txt"), ""), Ok(Unit)),
         check("write a", fs.write_text(path.join(dir, "a.txt"), ""), Ok(Unit)),
-        check("make b", fs.create_dir(path.join(dir, "b")), Ok(Unit)),
+        check("make b",  fs.create_dir(path.join(dir, "b")),         Ok(Unit)),
         check("listing", fs.list(dir), Ok([
                 Entry{path: path.join(dir, "a.txt"), name: "a.txt", kind: Kind.File},
                 Entry{path: path.join(dir, "b"), name: "b", kind: Kind.Directory},
@@ -430,8 +430,8 @@ fn rule_list_file(dir: String) -> Maybe<String>
     p = path.join(dir, "f.txt")
 
     first([
-        check("write", fs.write_text(p, ""), Ok(Unit)),
-        check("list a file", fs.list(p), Err(Error.NotADirectory{path: p})),
+        check("write",       fs.write_text(p, ""), Ok(Unit)),
+        check("list a file", fs.list(p),           Err(Error.NotADirectory{path: p})),
         check(
             "list a missing directory",
             fs.list(path.join(dir, "none")),
@@ -477,9 +477,9 @@ fn rule_remove_all(dir: String) -> Maybe<String>
 
     first([
         check("make the tree", fs.create_dir(path.join(tree, "a/b"), parents: True), Ok(Unit)),
-        check("write in it", fs.write_text(path.join(tree, "a/b/c.txt"), "c"), Ok(Unit)),
-        check("remove_all", fs.remove_all(tree), Ok(Unit)),
-        check("exists", fs.exists(tree), Ok(False)),
+        check("write in it",   fs.write_text(path.join(tree, "a/b/c.txt"), "c"),     Ok(Unit)),
+        check("remove_all",    fs.remove_all(tree),                                  Ok(Unit)),
+        check("exists",        fs.exists(tree),                                      Ok(False)),
     ])
 end
 
@@ -488,11 +488,11 @@ fn rule_rename(dir: String) -> Maybe<String>
     b = path.join(dir, "b.txt")
 
     first([
-        check("write a", fs.write_text(a, "a"), Ok(Unit)),
-        check("write b", fs.write_text(b, "b"), Ok(Unit)),
-        check("rename a over b", fs.rename(a, b), Ok(Unit)),
-        check("read b", fs.read_text(b), Ok("a")),
-        check("listing", names(dir), Ok(["b.txt"])),
+        check("write a",         fs.write_text(a, "a"), Ok(Unit)),
+        check("write b",         fs.write_text(b, "b"), Ok(Unit)),
+        check("rename a over b", fs.rename(a, b),       Ok(Unit)),
+        check("read b",          fs.read_text(b),       Ok("a")),
+        check("listing",         names(dir),            Ok(["b.txt"])),
     ])
 end
 
@@ -506,11 +506,11 @@ fn rule_copy(dir: String) -> Maybe<String>
     b = path.join(dir, "b.txt")
 
     first([
-        check("write a", fs.write_text(a, "a"), Ok(Unit)),
-        check("write b", fs.write_text(b, "longer"), Ok(Unit)),
-        check("copy a over b", fs.copy(a, b), Ok(Unit)),
-        check("read b", fs.read_text(b), Ok("a")),
-        check("read a", fs.read_text(a), Ok("a")),
+        check("write a",       fs.write_text(a, "a"),      Ok(Unit)),
+        check("write b",       fs.write_text(b, "longer"), Ok(Unit)),
+        check("copy a over b", fs.copy(a, b),              Ok(Unit)),
+        check("read b",        fs.read_text(b),            Ok("a")),
+        check("read a",        fs.read_text(a),            Ok("a")),
     ])
 end
 
@@ -554,8 +554,8 @@ fn rule_lines_twice(dir: String) -> Maybe<String>
     each = fs.lines(p)
 
     first([
-        check("write", fs.write_text(p, "a\nb\n"), Ok(Unit)),
-        check("the first line", Iter.first(each), Some(Ok("a"))),
+        check("write",          fs.write_text(p, "a\nb\n"), Ok(Unit)),
+        check("the first line", Iter.first(each),           Some(Ok("a"))),
         check(
             "every line",
             each
@@ -595,10 +595,10 @@ fn rule_closed(dir: String) -> Maybe<String>
     case (fs.write_text(p, "x"), fs.open(p), fs.create(path.join(dir, "w.txt")))
         (Ok(_), Ok(r), Ok(w)) ->
             first([
-                check("close the reader", Reader.close(r), Ok(Unit)),
-                check("read after close", Reader.read_line(r), Err(Error.Closed)),
-                check("close it again", Reader.close(r), Err(Error.Closed)),
-                check("close the writer", Writer.close(w), Ok(Unit)),
+                check("close the reader",  Reader.close(r),           Ok(Unit)),
+                check("read after close",  Reader.read_line(r),       Err(Error.Closed)),
+                check("close it again",    Reader.close(r),           Err(Error.Closed)),
+                check("close the writer",  Writer.close(w),           Ok(Unit)),
                 check("write after close", Writer.write_text(w, "x"), Err(Error.Closed)),
             ])
 
@@ -611,10 +611,10 @@ fn rule_exists(dir: String) -> Maybe<String>
     p = path.join(dir, "e.txt")
 
     first([
-        check("a missing file", fs.exists(p), Ok(False)),
-        check("write", fs.write_text(p, ""), Ok(Unit)),
-        check("a file", fs.exists(p), Ok(True)),
-        check("a directory", fs.exists(dir), Ok(True)),
+        check("a missing file", fs.exists(p),         Ok(False)),
+        check("write",          fs.write_text(p, ""), Ok(Unit)),
+        check("a file",         fs.exists(p),         Ok(True)),
+        check("a directory",    fs.exists(dir),       Ok(True)),
     ])
 end
 
@@ -623,8 +623,8 @@ fn rule_metadata(dir: String) -> Maybe<String>
     shape = fn p: String -> Result.map(fs.metadata(p), fn m -> "${Debug.inspect(m.kind)} ${m.size}")
 
     first([
-        check("write", fs.write_text(p, "four"), Ok(Unit)),
-        check("a file", shape(p), Ok("File 4")),
+        check("write",  fs.write_text(p, "four"), Ok(Unit)),
+        check("a file", shape(p),                 Ok("File 4")),
         check(
             "a directory's kind",
             Result.map(fs.metadata(dir), fn m -> m.kind),
@@ -653,15 +653,15 @@ fn rule_walk(dir: String) -> Maybe<String>
     end
 
     first([
-        check("make a", fs.create_dir(path.join(tree, "a"), parents: True), Ok(Unit)),
-        check("write a/x.txt", fs.write_text(path.join(tree, "a/x.txt"), ""), Ok(Unit)),
-        check("write b.txt", fs.write_text(path.join(tree, "b.txt"), ""), Ok(Unit)),
-        check("link c to a", fs.create_symlink(path.join(tree, "c"), target: "a"), Ok(Unit)),
+        check("make a",        fs.create_dir(path.join(tree, "a"), parents: True),   Ok(Unit)),
+        check("write a/x.txt", fs.write_text(path.join(tree, "a/x.txt"), ""),        Ok(Unit)),
+        check("write b.txt",   fs.write_text(path.join(tree, "b.txt"), ""),          Ok(Unit)),
+        check("link c to a",   fs.create_symlink(path.join(tree, "c"), target: "a"), Ok(Unit)),
         check("the walk", walked(), Ok([
-                ("a", Kind.Directory),
+                ("a",       Kind.Directory),
                 ("a/x.txt", Kind.File),
-                ("b.txt", Kind.File),
-                ("c", Kind.Symlink),
+                ("b.txt",   Kind.File),
+                ("c",       Kind.Symlink),
             ])),
         check(
             "the first entry",
@@ -694,7 +694,7 @@ fn rule_glob(dir: String) -> Maybe<String>
             Ok(Unit),
         ),
         check("write sub/c.txt", fs.write_text(path.join(dir, "sub/c.txt"), ""), Ok(Unit)),
-        check("write .h.nomi", fs.write_text(path.join(dir, ".h.nomi"), ""), Ok(Unit)),
+        check("write .h.nomi",   fs.write_text(path.join(dir, ".h.nomi"), ""),   Ok(Unit)),
         check("**/*.nomi", fs.glob(path.join(dir, "**/*.nomi")), Ok([
                 path.join(dir, "a.nomi"),
                 path.join(dir, "sub/b.nomi"),
@@ -713,17 +713,17 @@ fn rule_symlink(dir: String) -> Maybe<String>
     kind = fn m: Result<fs.Metadata, Error> -> Result.map(m, fn m -> m.kind)
 
     first([
-        check("write the target", fs.write_text(target, "four"), Ok(Unit)),
-        check("link it", fs.create_symlink(link, target: "t.txt"), Ok(Unit)),
+        check("write the target", fs.write_text(target, "four"),            Ok(Unit)),
+        check("link it",          fs.create_symlink(link, target: "t.txt"), Ok(Unit)),
         check(
             "link it again",
             fs.create_symlink(link, target: "t.txt"),
             Err(Error.AlreadyExists{path: link}),
         ),
-        check("read through it", fs.read_text(link), Ok("four")),
-        check("metadata follows it", kind(fs.metadata(link)), Ok(Kind.File)),
+        check("read through it",        fs.read_text(link),           Ok("four")),
+        check("metadata follows it",    kind(fs.metadata(link)),      Ok(Kind.File)),
         check("link_metadata does not", kind(fs.link_metadata(link)), Ok(Kind.Symlink)),
-        check("read_link", fs.read_link(link), Ok("t.txt")),
+        check("read_link",              fs.read_link(link),           Ok("t.txt")),
         check(
             "listing",
             fs.list(dir)
@@ -734,7 +734,7 @@ fn rule_symlink(dir: String) -> Maybe<String>
             ]),
         ),
         check("write through it", fs.write_text(link, "five!"), Ok(Unit)),
-        check("the target", fs.read_text(target), Ok("five!")),
+        check("the target",       fs.read_text(target),         Ok("five!")),
     ])
 end
 
@@ -743,7 +743,7 @@ fn rule_dangling(dir: String) -> Maybe<String>
 
     first([
         check("link to nothing", fs.create_symlink(link, target: "none"), Ok(Unit)),
-        check("exists", fs.exists(link), Ok(False)),
+        check("exists",          fs.exists(link),                         Ok(False)),
         check(
             "link_metadata",
             Result.map(fs.link_metadata(link), fn m -> m.kind),
@@ -781,17 +781,17 @@ fn rule_copy_rename_link(dir: String) -> Maybe<String>
 
     first([
         check("write the target", fs.write_text(path.join(dir, "t.txt"), "t"), Ok(Unit)),
-        check("link it", fs.create_symlink(link, target: "t.txt"), Ok(Unit)),
-        check("copy the link", fs.copy(link, copied), Ok(Unit)),
+        check("link it",          fs.create_symlink(link, target: "t.txt"),    Ok(Unit)),
+        check("copy the link",    fs.copy(link, copied),                       Ok(Unit)),
         check(
             "the copy's kind",
             Result.map(fs.link_metadata(copied), fn m -> m.kind),
             Ok(Kind.File),
         ),
-        check("the copy", fs.read_text(copied), Ok("t")),
+        check("the copy",        fs.read_text(copied),   Ok("t")),
         check("rename the link", fs.rename(link, moved), Ok(Unit)),
-        check("the moved link", fs.read_link(moved), Ok("t.txt")),
-        check("listing", names(dir), Ok(["c.txt", "m", "t.txt"])),
+        check("the moved link",  fs.read_link(moved),    Ok("t.txt")),
+        check("listing",         names(dir),             Ok(["c.txt", "m", "t.txt"])),
     ])
 end
 
@@ -824,9 +824,9 @@ fn rule_link_loop(dir: String) -> Maybe<String>
     end
 
     first([
-        check("link a to b", fs.create_symlink(a, target: "b"), Ok(Unit)),
-        check("link b to a", fs.create_symlink(path.join(dir, "b"), target: "a"), Ok(Unit)),
-        check("the code of a read", code(), "ELOOP"),
+        check("link a to b",        fs.create_symlink(a, target: "b"),                   Ok(Unit)),
+        check("link b to a",        fs.create_symlink(path.join(dir, "b"), target: "a"), Ok(Unit)),
+        check("the code of a read", code(),                                              "ELOOP"),
     ])
 end
 
@@ -835,11 +835,11 @@ fn rule_set_mode(dir: String) -> Maybe<String>
     mode = fn -> Result.map(fs.metadata(p), fn m -> m.mode)
 
     first([
-        check("write", fs.write_text(p, ""), Ok(Unit)),
-        check("set 0o444", fs.set_mode(p, 0o444), Ok(Unit)),
-        check("read it", mode(), Ok(0o444)),
-        check("set 0o666", fs.set_mode(p, 0o666), Ok(Unit)),
-        check("read it again", mode(), Ok(0o666)),
+        check("write",         fs.write_text(p, ""),  Ok(Unit)),
+        check("set 0o444",     fs.set_mode(p, 0o444), Ok(Unit)),
+        check("read it",       mode(),                Ok(0o444)),
+        check("set 0o666",     fs.set_mode(p, 0o666), Ok(Unit)),
+        check("read it again", mode(),                Ok(0o666)),
         check(
             "a mode out of range",
             fs.set_mode(p, 0o1000),
@@ -907,8 +907,8 @@ fn rule_file_read_only(dir: String) -> Maybe<String>
                     Err(Error.PermissionDenied{path: p}),
                 ),
                 check("truncate", File.truncate(f, 0), Err(Error.PermissionDenied{path: p})),
-                check("close", File.close(f), Ok(Unit)),
-                check("the file", fs.read_text(p), Ok("abc")),
+                check("close",    File.close(f),       Ok(Unit)),
+                check("the file", fs.read_text(p),     Ok("abc")),
             ])
     end
 end
@@ -957,7 +957,7 @@ fn rule_within(dir: String) -> Maybe<String>
     end
 
     first([
-        check("make site", fs.create_dir(site), Ok(Unit)),
+        check("make site",       fs.create_dir(site),                              Ok(Unit)),
         check("write index.txt", fs.write_text(path.join(site, "index.txt"), "i"), Ok(Unit)),
         check(
             "inside",
@@ -975,14 +975,14 @@ fn rule_within_escape(dir: String) -> Maybe<String>
     escaped = fn p: String ->
         Err(
             Error.InvalidPath{
-                path: p,
+                path:   p,
                 reason: "the path leads outside the directory fs.within confines calls to",
             }
         )
     end
 
     setup = [
-        check("make site", fs.create_dir(site), Ok(Unit)),
+        check("make site",        fs.create_dir(site),        Ok(Unit)),
         check("write the secret", fs.write_text(secret, "s"), Ok(Unit)),
         check(
             "link out",

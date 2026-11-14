@@ -47,6 +47,15 @@ type regStack struct {
 	rr   any
 	rcls bank
 	rty  *ir.ValType
+	// A return in parts (rcls retParts): the components of a tuple the
+	// returning function kept split (tuplesplit.go), copied out of its
+	// window by bank and position, rpb holding the shadow beside each word,
+	// and rpack how they box. See setRetParts, ret and deliver.
+	rpw   []uint64
+	rpb   []any
+	rps   []string
+	rpr   []any
+	rpack *packedTemp
 	// Scratch for a tail transfer's arguments, which move from the caller's
 	// window into the callee's at the same base. tb holds the shadow of
 	// each word in tw.
@@ -65,6 +74,11 @@ type regStack struct {
 	// thread is the debugger's record of the goroutine using this stack, on
 	// a debug machine. See debug.go.
 	thread *thread
+	// profParent is the frame that started this stack's first activation
+	// from Go, and profVia the host function it crossed through, on a
+	// profiling machine. See profile.go.
+	profParent *frame
+	profVia    string
 }
 
 // newFrame is the activation record for the next activation on s, with its
@@ -84,7 +98,7 @@ func (s *regStack) newFrame() *frame {
 	if fr.trace != nil || fr.stages != nil || fr.deferred != nil || fr.releases != nil || fr.next != nil || fr.bad != nil {
 		fr.trace, fr.stages, fr.deferred, fr.releases, fr.next, fr.bad = nil, nil, nil, nil, nil, nil
 	}
-	fr.guarded, fr.stdEntry = false, nil
+	fr.guarded, fr.stdEntry, fr.owned = false, nil, 0
 	s.nf++
 	if s.nf > s.hw {
 		s.hw = s.nf
@@ -162,6 +176,10 @@ func putStack(s *regStack) {
 		fr.c, fr.fn, fr.runtime, fr.hostView, fr.hostViewOf = nil, nil, nil, nil, nil
 	}
 	s.rr, s.rty, s.nf, s.hw = nil, nil, 0, 0
+	clear(s.rpb)
+	clear(s.rpr)
+	s.rpack = nil
+	s.profParent, s.profVia = nil, ""
 	if s.bigs {
 		clear(s.b)
 		clear(s.tb)
@@ -199,6 +217,11 @@ func (s *fnSlot) named() *functionValue {
 // machine, so a function is compiled once per machine.
 type codeTable struct {
 	slots sync.Map // *ir.Func -> *fnSlot
+	// borrows is borrowsParam's memo: per function, a mask of the
+	// parameters it reads only through tuple projections (lend.go).
+	borrows sync.Map // *ir.Func -> uint64
+	// own is what each function's returns hand a caller (inplace.go).
+	own ownTable
 }
 
 func (m *Machine) slotFor(f *ir.Func) *fnSlot {
@@ -247,11 +270,19 @@ type frame struct {
 	releases []func()
 	// testBody marks a test case's own activation. See activate.
 	testBody bool
+	// owned are the parameters the caller handed this activation as its
+	// own: bit i for parameter i. Only opCallO and opTailO set any; every
+	// other entry leaves none (inplace.go).
+	owned uint64
 	// hostView is the machine an intrinsic called from this record was
 	// last handed, made from hostViewOf (boundAt). It outlives the
 	// activation, so the next one at this level reuses it when it would
 	// be the same.
 	hostView, hostViewOf *Machine
+	// hargs is the scratch slice opHost passes a host its operands in,
+	// grown to the most any crossing from this record has taken and
+	// cleared after each call. It outlives the activation, as hostView does.
+	hargs []any
 	// level is this record's index in its stack's frames.
 	level int
 	// depth is how many activations this goroutine has in progress,
@@ -288,8 +319,11 @@ type frame struct {
 	// the standard library replaced this activation's function, or nil: a
 	// trap leaving the activation from the stdlib is reported at its line
 	// (stdlibfault.go), since the caller's line is gone with it, and a
-	// stopped case's stack shows it (caselimit.go).
-	stdEntry *site
+	// stopped case's stack shows it (caselimit.go). stdCaller is the
+	// program function that call was in, read only beside a stdEntry, which
+	// a profile shows under the stdlib function (profile.go).
+	stdEntry  *site
+	stdCaller *ir.Func
 }
 
 // read is temporary t's value, boxed out of its bank.
@@ -298,6 +332,9 @@ func (fr *frame) read(t ir.Temp) (any, error) {
 	if t == ir.NoTemp || int(t) >= len(c.locs) {
 		return nil, fmt.Errorf("vm: %s: %s is outside the frame's %d registers",
 			fr.fn.Name(), t, len(c.locs)-1)
+	}
+	if c.packed != nil && c.packed[t].kind != packNone {
+		return fr.readPacked(t)
 	}
 	l := c.locs[t]
 	switch l.bank() {
@@ -327,6 +364,10 @@ func (fr *frame) read(t ir.Temp) (any, error) {
 func (fr *frame) write(t ir.Temp, v any) {
 	c := fr.c
 	if t == ir.NoTemp || int(t) >= len(c.locs) {
+		return
+	}
+	if c.packed != nil && c.packed[t].kind == packTuple {
+		fr.unpack(t, v)
 		return
 	}
 	l := c.locs[t]
@@ -501,6 +542,24 @@ func (fr *frame) fill(rec *rt.Record, f *rt.FieldDesc, t ir.Temp) error {
 	return nil
 }
 
+// hostArgs is fr's scratch slice of n operands for one opHost crossing. Its
+// capacity is n, so a host that appends to it copies.
+func (fr *frame) hostArgs(n int) []any {
+	if cap(fr.hargs) < n {
+		fr.hargs = make([]any, n)
+	}
+	return fr.hargs[:n:n]
+}
+
+// fillOver is fill into a field of a cloned record: an Int written over a
+// big Int drops the big value the clone copied beside the word first.
+func (fr *frame) fillOver(rec *rt.Record, f *rt.FieldDesc, t ir.Temp) error {
+	if f.Type == rt.SlotInt {
+		rec.SetBigSlot(f.Slot, nil)
+	}
+	return fr.fill(rec, f, t)
+}
+
 // projHit is an opProjF instruction's cached field: the descriptor it last
 // read and the field it found there.
 type projHit struct {
@@ -513,9 +572,59 @@ func (s *regStack) setRet(v any) {
 	s.rr, s.rcls, s.rty = v, bankR, nil
 }
 
+// retParts is the last return's class when it is in parts: a tuple its
+// function kept split, its components in the stack's rp scratch. It is no
+// bank a register lives in.
+const retParts bank = 4
+
+// setRetParts records the split tuple p of fr's window as the last return,
+// its components copied into the stack's scratch, so a caller that keeps
+// the tuple split itself takes them with no record between (deliver), and
+// any other reader gets the record built (ret).
+func (s *regStack) setRetParts(fr *frame, p *packedTemp) {
+	n := len(p.parts)
+	if cap(s.rpw) < n {
+		s.rpw, s.rpb, s.rps, s.rpr = make([]uint64, n), make([]any, n), make([]string, n), make([]any, n)
+	}
+	s.rpw, s.rpb, s.rps, s.rpr = s.rpw[:n], s.rpb[:n], s.rps[:n], s.rpr[:n]
+	for i, l := range p.parts {
+		switch l.bank() {
+		case bankW:
+			x := s.w[fr.wb+l.reg()]
+			s.rpw[i], s.rpb[i] = x, nil
+			if x == rt.BigWord {
+				s.rpb[i] = s.b[fr.wb+l.reg()]
+			}
+		case bankS:
+			s.rps[i] = s.s[fr.sb+l.reg()]
+		case bankR:
+			s.rpr[i] = s.r[fr.rb+l.reg()]
+		}
+	}
+	s.rcls, s.rpack, s.rty = retParts, p, nil
+}
+
 // ret is the last return, boxed.
 func (s *regStack) ret() any {
 	switch s.rcls {
+	case retParts:
+		// A split tuple read boxed: its record, built here rather than in
+		// the function that returned it.
+		p := s.rpack
+		vals := make([]any, len(p.parts))
+		for i, l := range p.parts {
+			switch l.bank() {
+			case bankW:
+				vals[i] = boxWord(s.rpw[i], s.rpb[i], p.types[i])
+			case bankS:
+				vals[i] = boxStr(s.rps[i], p.types[i])
+			case bankR:
+				vals[i] = s.rpr[i]
+			default:
+				vals[i] = boxNone(p.types[i])
+			}
+		}
+		return p.desc.Make(vals...)
 	case bankW:
 		var big any
 		if s.rw == rt.BigWord {
@@ -534,6 +643,10 @@ func (s *regStack) ret() any {
 func (fr *frame) deliver(t ir.Temp) {
 	c, s := fr.c, fr.stk
 	if t == ir.NoTemp || int(t) >= len(c.locs) {
+		return
+	}
+	if c.packed != nil && c.packed[t].kind == packTuple {
+		fr.deliverParts(t)
 		return
 	}
 	l := c.locs[t]
@@ -567,6 +680,12 @@ func (m *Machine) activate(f *ir.Func, args, caps []any, runtime *rt.Frame, test
 
 // activateSlot is activate for a function whose table entry the caller holds.
 func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame, testBody bool, caller int, stk *regStack) (any, error) {
+	return m.activateOwned(slot, args, caps, runtime, testBody, caller, stk, 0)
+}
+
+// activateOwned is activateSlot handing the activation the parameters in
+// owned as its own (frame.owned): a fold's accumulator (inplace.go).
+func (m *Machine) activateOwned(slot *fnSlot, args, caps []any, runtime *rt.Frame, testBody bool, caller int, stk *regStack, owned uint64) (any, error) {
 	f := slot.f
 	params := f.Params()
 	if len(args)+len(caps) != len(params) {
@@ -577,7 +696,7 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 		return nil, callDepthExceeded{}
 	}
 	if m.fuel != nil {
-		if err := m.fuel.burn(); err != nil {
+		if err := m.fuel.burn(nil, -1); err != nil {
 			return nil, err
 		}
 	}
@@ -595,7 +714,7 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 		runtime = rt.EnterBoot(runtime)
 	}
 	fr := stk.newFrame()
-	fr.c, fr.fn, fr.runtime, fr.testBody, fr.depth = c, f, runtime, testBody, caller+1
+	fr.c, fr.fn, fr.runtime, fr.testBody, fr.depth, fr.owned = c, f, runtime, testBody, caller+1, owned
 	fr.wb, fr.sb, fr.rb = stk.push(c)
 	for i, a := range args {
 		fr.writeParam(c.params[i], params[i].Temp, a)
@@ -613,6 +732,8 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 		stk.pop(fr)
 	case m.dbg != nil:
 		err = m.debugActivation(fr, pooled)
+	case m.prof != nil:
+		err = m.profActivation(fr, pooled)
 	default:
 		err = m.exec(fr)
 	}
@@ -630,8 +751,11 @@ func (m *Machine) activateSlot(slot *fnSlot, args, caps []any, runtime *rt.Frame
 // written, leaving its result as the stack's last return, and closes the
 // window.
 func (m *Machine) exec(fr *frame) error {
-	if m.dbg != nil {
-		return m.execDebug(fr, "")
+	if m.hooked {
+		if m.dbg != nil {
+			return m.execDebug(fr, "")
+		}
+		return m.execProfiled(fr)
 	}
 	var err error
 	if fr.c.guard {
@@ -642,6 +766,23 @@ func (m *Machine) exec(fr *frame) error {
 			err = m.execGuarded(fr)
 		}
 	}
+	fr.stk.pop(fr)
+	return err
+}
+
+// execProfiled is exec on a profiling machine: the ticks due as the
+// activation returns are its own (profile.go).
+func (m *Machine) execProfiled(fr *frame) error {
+	var err error
+	if fr.c.guard {
+		err = m.execGuarded(fr)
+	} else {
+		err = m.loop(fr, 0)
+		if err == errNeedsGuard {
+			err = m.execGuarded(fr)
+		}
+	}
+	m.profReturn(fr)
 	fr.stk.pop(fr)
 	return err
 }
@@ -696,6 +837,12 @@ func (m *Machine) finish(fr *frame, err error) error {
 		// An abandoned pass runs nothing more (debugtravel.go).
 		return err
 	}
+	if fr.stk.rcls == retParts {
+		// The deferred calls return values of their own on this stack,
+		// over the scratch the parts sit in: the result is boxed after
+		// all.
+		fr.stk.setRet(fr.stk.ret())
+	}
 	if err == nil {
 		dropErrorDefers(fr, fr.stk.ret)
 		if len(fr.deferred) == 0 {
@@ -717,7 +864,7 @@ func (m *Machine) finish(fr *frame, err error) error {
 // frame, after the caller's deferred calls run. See tail.go.
 func (m *Machine) transfer(fr *frame, next *tailTransfer) error {
 	if m.fuel != nil {
-		if err := m.fuel.burn(); err != nil {
+		if err := m.fuel.burn(fr, -1); err != nil {
 			return err
 		}
 	}
@@ -763,6 +910,7 @@ func (fr *frame) enterCode(c *code) {
 	s.wt, s.st, s.rt = fr.wb+c.nW, fr.sb+c.nS, fr.rb+c.nR
 	fr.c, fr.fn = c, c.fn
 	fr.trace, fr.stages = nil, nil
+	fr.owned = 0
 }
 
 // fault decides where an error out of the instruction at pc goes: to its
@@ -1182,6 +1330,21 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				goto failed
 			}
 			pc += 3
+		case opProjS:
+			// A tuple's component by index, straight from its slot.
+			if rec, ok := r[code[pc+1]].(*rt.Record); ok && rec.Desc.Kind == rt.KindTuple &&
+				int(code[pc+2]) < len(rec.Desc.Fields) {
+				fr.writeField(ir.Temp(d), rec, &rec.Desc.Fields[code[pc+2]])
+			} else {
+				err = m.irInstr(fr, c.irs[code[pc+3]])
+			}
+			if err == nil && fr.bad != nil {
+				err = fr.bad
+			}
+			if err != nil {
+				goto failed
+			}
+			pc += 4
 		case opProjF:
 			// A struct's or record's field by name, through the instruction's
 			// cache of the last descriptor it read: one pointer compare and an
@@ -1233,10 +1396,50 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			r[d] = rec
 			pc += 4 + 2*n
+		case opUpdate, opUpdateIn:
+			// A struct update over the fields the instruction's cache
+			// resolved for the base's descriptor: one clone, each new value
+			// written into its slot, a scalar straight from its register.
+			// opUpdateIn writes into the base itself, which nothing reads
+			// again (inplace.go).
+			n := int(code[pc+4])
+			ops := code[pc+5 : pc+5+3*n]
+			done := false
+			if rec, ok := r[code[pc+1]].(*rt.Record); ok && rec != nil && (rec.Desc.Kind == rt.KindStruct || rec.Desc.Kind == rt.KindAnon) {
+				cache := &c.ucache[code[pc+3]]
+				hit := cache.Load()
+				if hit == nil || hit.desc != rec.Desc {
+					hit = resolveUpdate(rec.Desc, ops, c.ks)
+					cache.Store(hit)
+				}
+				if hit.fields != nil {
+					out := rec
+					if opcode(ins&0xff) != opUpdateIn || !ownsStorage(rec) || fr.owned&c.uneed[code[pc+3]] != c.uneed[code[pc+3]] {
+						out = rec.Clone()
+					}
+					for i, f := range hit.fields {
+						if err = fr.fillOver(out, f, ir.Temp(ops[3*i+1])); err != nil {
+							goto failed
+						}
+					}
+					r[d] = out
+					done = true
+				}
+			}
+			if !done {
+				err = m.irInstr(fr, c.irs[code[pc+2]])
+				if err == nil && fr.bad != nil {
+					err = fr.bad
+				}
+				if err != nil {
+					goto failed
+				}
+			}
+			pc += 5 + 3*n
 
-		case opCall, opTail:
+		case opCall, opTail, opCallO, opTailO:
 			if m.fuel != nil {
-				if err = m.fuel.burn(); err != nil {
+				if err = m.fuel.burn(fr, pc); err != nil {
 					goto failed
 				}
 			}
@@ -1248,11 +1451,38 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			callee := m.codeOf(c.callees[code[pc+1]])
 			n := int(code[pc+2])
 			args := code[pc+3 : pc+3+n]
-			if opcode(ins&0xff) == opTail && !fr.testBody {
+			op := opcode(ins & 0xff)
+			// owned are the arguments handed to the callee as its own.
+			var owned uint64
+			width := 3 + n
+			if op >= opCallO {
+				for _, mv := range c.moves[code[pc+3+n]] {
+					if fr.owned&mv.need == mv.need {
+						owned |= 1 << mv.arg
+						if fr.owned&mv.deep == mv.deep {
+							owned |= 1 << (ir.DeepBit + mv.arg)
+						}
+					}
+				}
+				op -= opCallO - opCall
+				width++
+			}
+			if op == opTail && !fr.testBody {
 				// A tail call: the callee replaces this activation. With
 				// deferred calls pending, the operands are boxed first,
 				// because the deferred calls run on this stack before the
 				// callee's window replaces this one.
+				if callee == c && len(fr.deferred) == 0 && !c.boot && m.dbg == nil {
+					// A function's tail call to itself: the window stays,
+					// so the operands move into the parameters and the
+					// body starts over. A function running there now has
+					// no stdlib entry to keep (tailInto) and its exit
+					// hooks are installed already if it needs them.
+					fr.selfTail(args)
+					fr.owned = owned
+					pc = c.selfEntry
+					continue
+				}
 				if len(fr.deferred) != 0 {
 					next := &tailTransfer{fn: callee.fn, args: make([]any, n)}
 					for i, a := range args {
@@ -1264,7 +1494,8 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 					}
 				} else {
 					fr.tailInto(callee.fn, at)
-					m.moveTailArgs(fr, callee, args)
+					fr.moveTailArgs(callee, args)
+					fr.owned = owned
 					if callee.boot {
 						// A tail call into boot runs it on a boot frame.
 						fr.runtime = rt.EnterBoot(fr.runtime)
@@ -1287,7 +1518,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				goto failed
 			}
 			cf := stk.newFrame()
-			cf.c, cf.fn, cf.runtime, cf.depth, cf.testBody = callee, callee.fn, fr.runtime, fr.depth+1, false
+			cf.c, cf.fn, cf.runtime, cf.depth, cf.testBody, cf.owned = callee, callee.fn, fr.runtime, fr.depth+1, false, owned
 			if callee.boot {
 				// A test's call of an entry boot builds the app on a boot
 				// frame, as a group's `boot` line does.
@@ -1323,13 +1554,13 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				err = fr.bad
 				goto failed
 			}
-			pc += 3 + n
+			pc += width
 
 		case opJmp:
 			pc = int(code[pc+1])
 			if pc <= at {
 				if m.fuel != nil {
-					if err = m.fuel.burn(); err != nil {
+					if err = m.fuel.burn(fr, at); err != nil {
 						goto failed
 					}
 				}
@@ -1347,7 +1578,64 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			if pc <= at {
 				if m.fuel != nil {
-					if err = m.fuel.burn(); err != nil {
+					if err = m.fuel.burn(fr, at); err != nil {
+						goto failed
+					}
+				}
+				if fr.runtime.Stopping() {
+					if err = safePoint(fr.runtime); err != nil {
+						goto failed
+					}
+				}
+			}
+		case opBrCmpI, opBrCmpF:
+			// A comparison and the branch that reads it: opCmpI or opCmpF's
+			// test, then opBr's jump.
+			var held bool
+			if opcode(ins&0xff) == opBrCmpI {
+				a, b := int64(w[code[pc+1]]), int64(w[code[pc+2]])
+				if a == math.MinInt64 || b == math.MinInt64 {
+					a, b = fr.slowCompare(code[pc+1], code[pc+2]), 0
+				}
+				switch d {
+				case condEq:
+					held = a == b
+				case condNe:
+					held = a != b
+				case condLt:
+					held = a < b
+				case condLe:
+					held = a <= b
+				case condGt:
+					held = a > b
+				default:
+					held = a >= b
+				}
+			} else {
+				a, b := math.Float64frombits(w[code[pc+1]]), math.Float64frombits(w[code[pc+2]])
+				switch d {
+				case condEq:
+					held = rt.EqFloat(a, b)
+				case condNe:
+					held = !rt.EqFloat(a, b)
+				case condLt:
+					held = a < b
+				case condLe:
+					held = a <= b
+				case condGt:
+					held = a > b
+				default:
+					held = a >= b
+				}
+			}
+			if held {
+				pc = int(code[pc+3])
+			} else {
+				pc = int(code[pc+4])
+			}
+			if pc <= at {
+				if m.fuel != nil {
+					if err = m.fuel.burn(fr, at); err != nil {
 						goto failed
 					}
 				}
@@ -1374,7 +1662,7 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			if pc <= at {
 				if m.fuel != nil {
-					if err = m.fuel.burn(); err != nil {
+					if err = m.fuel.burn(fr, at); err != nil {
 						goto failed
 					}
 				}
@@ -1407,6 +1695,10 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			return m.finish(fr, nil)
 		case opRetU:
 			stk.rcls, stk.rty = bankNone, nil
+			return m.finish(fr, nil)
+		case opRetP:
+			// A tuple the function kept split, returned in parts.
+			stk.setRetParts(fr, &c.packed[d])
 			return m.finish(fr, nil)
 		case opRetCtl:
 			t := c.ctls[d]
@@ -1448,7 +1740,16 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 
 		case opHost:
 			h := &c.hostCalls[d]
-			args := make([]any, len(h.args))
+			// The operands go in the activation record's scratch slice: a
+			// host reads its operands during the call and keeps none of the
+			// slice. A debug machine records them (debugtravel.go), so it
+			// takes a fresh slice.
+			var args []any
+			if m.dbg != nil {
+				args = make([]any, len(h.args))
+			} else {
+				args = fr.hostArgs(len(h.args))
+			}
 			for i, t := range h.args {
 				if args[i], err = fr.read(t); err != nil {
 					goto failed
@@ -1456,11 +1757,19 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 			}
 			var v any
 			var herr error
-			if m.dbg != nil {
-				v, herr = m.debugCallAdapter(fr, h, args)
-			} else {
+			switch {
+			case m.hooked:
+				v, herr = m.hookedCallHost(fr, h, args)
+			case h.inPlace != nil && fr.owned&h.need == h.need:
+				// A collection operation whose receiver this activation
+				// owns and never reads again writes it in place.
+				v, herr = h.inPlace(m.boundAt(fr, h.name), h.call.Pos(), args)
+			case h.intr != nil:
+				v, herr = h.intr(m.boundAt(fr, h.name), h.call.Pos(), args)
+			default:
 				v, herr = callAdapter(h.fn, fr.runtime, args)
 			}
+			clear(args)
 			w, s, r = stk.w[fr.wb:fr.wb+c.nW], stk.s[fr.sb:fr.sb+c.nS], stk.r[fr.rb:fr.rb+c.nR]
 			if herr != nil {
 				err = herr
@@ -1472,6 +1781,51 @@ func (m *Machine) loop(fr *frame, pc int) (err error) {
 				goto failed
 			}
 			pc++
+
+		case opHostM:
+			// A crossing answering a Maybe its uses only take apart: the
+			// payload (or None) and the tag in registers (maybefuse.go).
+			h := &c.hostCalls[d]
+			err = m.hostMaybe(fr, h, c.locs[h.dst].reg(), int(code[pc+1]))
+			w, s, r = stk.w[fr.wb:fr.wb+c.nW], stk.s[fr.sb:fr.sb+c.nS], stk.r[fr.rb:fr.rb+c.nR]
+			if err != nil {
+				goto failed
+			}
+			pc += 2
+		case opTagIs:
+			w[d] = b2w(w[code[pc+1]] == uint64(code[pc+2]))
+			pc += 3
+		case opProjM:
+			if w[code[pc+2]] != 0 {
+				x := r[code[pc+1]]
+				l := c.locs[d]
+				if l.bank() == bankR {
+					r[l.reg()] = x
+				} else if n, isInt := x.(int64); isInt && l.bank() == bankW && uint64(n) != rt.BigWord {
+					w[l.reg()] = uint64(n)
+				} else {
+					fr.write(ir.Temp(d), x)
+				}
+			} else {
+				// A None: the handler reads the None value the register
+				// holds and reports it.
+				err = m.irInstr(fr, c.irs[code[pc+3]])
+			}
+			if err == nil && fr.bad != nil {
+				err = fr.bad
+			}
+			if err != nil {
+				goto failed
+			}
+			pc += 4
+		case opTryM:
+			if w[d] == 0 {
+				// A None leaves: the handler propagates the None value.
+				if err = m.irInstr(fr, c.irs[code[pc+1]]); err != nil {
+					goto failed
+				}
+			}
+			pc += 2
 
 		case opFail:
 			return m.finish(fr, c.fails[d])
@@ -1630,7 +1984,7 @@ func b2w(b bool) uint64 {
 // moveTailArgs is a direct tail call: the caller's deferred calls run after
 // the operands are read, then the callee replaces the caller in this frame
 // and its parameters receive the operands.
-func (m *Machine) moveTailArgs(fr *frame, callee *code, args []uint32) {
+func (fr *frame) moveTailArgs(callee *code, args []uint32) {
 	stk := fr.stk
 	stk.tw, stk.ts, stk.tr = stk.tw[:0], stk.ts[:0], stk.tr[:0]
 	big := false
@@ -1667,6 +2021,87 @@ func (m *Machine) moveTailArgs(fr *frame, callee *code, args []uint32) {
 	copy(stk.r[fr.rb:], stk.tr)
 	clear(stk.ts)
 	clear(stk.tr)
+}
+
+// selfTail is a function's direct tail call to itself: the operands, read
+// first since a parameter may be one, move into the parameters, which are
+// the first registers of their banks. The window keeps its size, so nothing
+// is cleared or reserved; a register the next run writes before it reads is
+// left as it is.
+func (fr *frame) selfTail(args []uint32) {
+	if fr.c.wordParams {
+		fr.selfTailWords(args)
+		return
+	}
+	stk := fr.stk
+	var ws [8]uint64
+	var ss [4]string
+	var rs [4]any
+	nw, ns, nr, big := 0, 0, 0, false
+	for _, a := range args {
+		switch l := loc(a); l.bank() {
+		case bankW:
+			if nw == len(ws) {
+				fr.selfTailSlow(args)
+				return
+			}
+			ws[nw] = stk.w[fr.wb+l.reg()]
+			big = big || ws[nw] == rt.BigWord
+			nw++
+		case bankS:
+			if ns == len(ss) {
+				fr.selfTailSlow(args)
+				return
+			}
+			ss[ns] = stk.s[fr.sb+l.reg()]
+			ns++
+		case bankR:
+			if nr == len(rs) {
+				fr.selfTailSlow(args)
+				return
+			}
+			rs[nr] = stk.r[fr.rb+l.reg()]
+			nr++
+		}
+	}
+	if big {
+		fr.selfTailSlow(args)
+		return
+	}
+	copy(stk.w[fr.wb:], ws[:nw])
+	copy(stk.s[fr.sb:], ss[:ns])
+	copy(stk.r[fr.rb:], rs[:nr])
+	if fr.trace != nil || fr.stages != nil {
+		fr.trace, fr.stages = nil, nil
+	}
+}
+
+// selfTailWords is selfTail for a function whose parameters are all words, at
+// most eight: an Int, Float or Bool loop. Only the word array is set up.
+func (fr *frame) selfTailWords(args []uint32) {
+	w := fr.stk.w[fr.wb : fr.wb+fr.c.nW]
+	var ws [8]uint64
+	big := false
+	for i, a := range args {
+		ws[i] = w[loc(a).reg()]
+		big = big || ws[i] == rt.BigWord
+	}
+	if big {
+		fr.selfTailSlow(args)
+		return
+	}
+	copy(w, ws[:len(args)])
+	if fr.trace != nil || fr.stages != nil {
+		fr.trace, fr.stages = nil, nil
+	}
+}
+
+// selfTailSlow is selfTail for operands that do not fit its arrays or that
+// carry a big Int: moveTailArgs' path, which re-enters the same code.
+//
+//go:noinline
+func (fr *frame) selfTailSlow(args []uint32) {
+	fr.moveTailArgs(fr.c, args)
 }
 
 // call runs one function to its Return, from Go.

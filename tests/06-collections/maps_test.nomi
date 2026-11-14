@@ -29,12 +29,12 @@ test "map patterns match keys literals and wildcard values"
 
     int_key = case grid
         {0 => val} -> val
-        _ -> "missing"
+        _          -> "missing"
     end
 
     has_key = case config
         {"mode" => _} -> "mode key present"
-        _ -> "no mode key"
+        _             -> "no mode key"
     end
 
     assert by_key == "debug on port 8080"

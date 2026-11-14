@@ -1,0 +1,86 @@
+//# The Computer Language Benchmarks Game: pidigits.
+//#
+//# The first `n` digits of pi by the step-by-step unbounded spigot the
+//# benchmark's rules fix (Gibbons' algorithm as the reference C program
+//# runs it), ten digits a line, each line ending in a tab, a colon and the
+//# count so far. Nomi's `Int` is exact at any size, so no bignum library
+//# is needed.
+
+import std::io
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 30})
+    end
+end
+
+struct Spigot
+    acc: Int
+    den: Int
+    num: Int
+    k:   Int
+end
+
+fn next_term(s: Spigot) -> Spigot
+    k = s.k + 1
+    k2 = k * 2 + 1
+    Spigot{acc: (s.acc + s.num * 2) * k2, den: s.den * k2, num: s.num * k, k:}
+end
+
+fn extract(s: Spigot, nth: Int) -> Int
+    (s.num * nth + s.acc) / s.den
+end
+
+fn eliminate(s: Spigot, d: Int) -> Spigot
+    {..s, acc: (s.acc - s.den * d) * 10, num: s.num * 10}
+end
+
+/// The next digit and the state after it.
+fn digit(s: Spigot) -> (Int, Spigot)
+    s = next_term(s)
+
+    if s.num > s.acc then
+        digit(s)
+    else
+        d = extract(s, 3)
+
+        if d != extract(s, 4) then
+            digit(s)
+        else
+            (d, eliminate(s, d))
+        end
+    end
+end
+
+/// Prints the digits from `i + 1` to `n`, `line` holding the current line's
+/// digits.
+fn run(s: Spigot, i: Int, n: Int, line: String)
+    if i == n then
+        if line != "" then io.print("${String.pad_end(line, 10)}\t:${n}")
+    else
+        (d, s) = digit(s)
+        i = i + 1
+        line = line + Int.to_string(d)
+
+        if i % 10 == 0 then
+            io.print("${line}\t:${i}")
+            run(s, i, n, "")
+        else
+            run(s, i, n, line)
+        end
+    end
+end
+
+fn main()
+    run(Spigot{acc: 0, den: 1, num: 1, k: 0}, 0, App.n, "")
+end

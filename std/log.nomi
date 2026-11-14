@@ -65,8 +65,8 @@ impl Level
     pub fn rank(level: Level) -> Int
         case level
             .Debug -> 0
-            .Info -> 1
-            .Warn -> 2
+            .Info  -> 1
+            .Warn  -> 2
             .Error -> 3
         end
     end
@@ -86,8 +86,8 @@ impl Display for Level
     fn to_string(level: Level) -> String
         case level
             .Debug -> "DEBUG"
-            .Info -> "INFO"
-            .Warn -> "WARN"
+            .Info  -> "INFO"
+            .Warn  -> "WARN"
             .Error -> "ERROR"
         end
     end
@@ -105,7 +105,7 @@ derive Equatable for Value
 
 /// One key and its value on a record.
 pub struct Field
-    key: String
+    key:   String
     value: Value
 end
 
@@ -153,8 +153,8 @@ end
 /// Where records go and which of them are written: build one with
 /// `Logger.text`, `Logger.json` or `Logger.discard`.
 pub opaque struct Logger
-    sink: Sink
-    min: Level
+    sink:   Sink
+    min:    Level
     fields: List<Field>
 end
 
@@ -221,7 +221,7 @@ impl Logger
     pub fn is_enabled(logger: Logger, level: Level) -> Bool
         case logger.sink
             .Discard -> False
-            _ -> Level.is_at_least(level, logger.min)
+            _        -> Level.is_at_least(level, logger.min)
         end
     end
 end
@@ -255,10 +255,10 @@ end
 
 fn write(logger: Logger, at: Instant, level: Level, message: String, fields: List<Field>) -> Unit
     case logger.sink
-        .Text(w) -> emit(w, text_line(at, level, message, fields))
-        .Json(w) -> emit(w, json_line(at, level, message, fields))
+        .Text(w)    -> emit(w, text_line(at, level, message, fields))
+        .Json(w)    -> emit(w, json_line(at, level, message, fields))
         .Records(w) -> emit(w, record_line(at, level, message, fields))
-        .Discard -> Unit
+        .Discard    -> Unit
     end
 end
 
@@ -283,10 +283,10 @@ end
 
 fn text_value(value: Value) -> String
     case value
-        .Text(s) -> quoted(s)
-        .Int(n) -> "${n}"
+        .Text(s)  -> quoted(s)
+        .Int(n)   -> "${n}"
         .Float(x) -> "${x}"
-        .Bool(b) -> if b then "true" else "false"
+        .Bool(b)  -> if b then "true" else "false"
     end
 end
 
@@ -307,18 +307,18 @@ end
 
 fn json_value(value: Value) -> Json
     case value
-        .Text(s) -> Json.String(s)
-        .Int(n) -> Json.Int(n)
+        .Text(s)  -> Json.String(s)
+        .Int(n)   -> Json.Int(n)
         .Float(x) -> Json.Float(x)
-        .Bool(b) -> Json.Bool(b)
+        .Bool(b)  -> Json.Bool(b)
     end
 end
 
 fn json_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String
     head = {
-        "time" => Json.String(timestamp(at)),
+        "time"  => Json.String(timestamp(at)),
         "level" => Json.String("${level}"),
-        "msg" => Json.String(message),
+        "msg"   => Json.String(message),
     }
 
     entries = Iter.reduce(fields, head, fn m: Map<String, Json>, f ->
@@ -330,10 +330,10 @@ end
 
 fn value_kind(value: Value) -> String
     case value
-        .Text(_) -> "text"
-        .Int(_) -> "int"
+        .Text(_)  -> "text"
+        .Int(_)   -> "int"
         .Float(_) -> "float"
-        .Bool(_) -> "bool"
+        .Bool(_)  -> "bool"
     end
 end
 

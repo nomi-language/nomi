@@ -25,6 +25,49 @@ type Coercion struct {
 	// interface (Debug, Struct), a tuple or record whose parts implement
 	// it, and a type parameter's bound.
 	Impl *ast.ImplBlock
+	// Conj is the interface conjunction the value enters instead of one
+	// interface (spec §12 *Interface conjunctions*), with Iface and Impl
+	// nil, and Impls the impl block by which Value implements each of
+	// Conj.Members, in their order, each chosen as Impl is.
+	Conj  *ConjunctionType
+	Impls []*ast.ImplBlock
+}
+
+// Into is the type the value enters: Conj when the record has one, else
+// Iface.
+func (r *Coercion) Into() Type {
+	if r.Conj != nil {
+		return r.Conj
+	}
+	return r.Iface
+}
+
+// ImplFor is the impl block by which Value implements member, one of
+// Conj's members, or Impl for a record of one interface.
+func (r *Coercion) ImplFor(member *InterfaceType) *ast.ImplBlock {
+	if r.Conj == nil {
+		return r.Impl
+	}
+	for i, m := range r.Conj.Members {
+		if m == member && i < len(r.Impls) {
+			return r.Impls[i]
+		}
+	}
+	return nil
+}
+
+// coercionInto is the record of a value of type v entering into, an
+// interface or a conjunction.
+func (c *checker) coercionInto(into, v Type) *Coercion {
+	if conj, ok := into.(*ConjunctionType); ok {
+		impls := make([]*ast.ImplBlock, len(conj.Members))
+		for i, m := range conj.Members {
+			impls[i] = c.coercionImpl(m, v)
+		}
+		return &Coercion{Conj: conj, Value: v, Impls: impls}
+	}
+	it := into.(*InterfaceType)
+	return &Coercion{Iface: it, Value: v, Impl: c.coercionImpl(it, v)}
 }
 
 // recordCoercions records, once every body of the file is checked and its
@@ -50,6 +93,21 @@ func (c *checker) recordCoercions(nodes []ast.Node) {
 	}
 	receivers := coercionReceivers(c.fa, nodes)
 	for n, exp := range c.fa.ExpectedTypes {
+		if conj, ok := resolveTypeVar(exp).(*ConjunctionType); ok {
+			if receivers[n] {
+				continue
+			}
+			t := c.fa.ExprTypes[n]
+			switch resolveTypeVar(t).(type) {
+			case *InterfaceType, *ConjunctionType, *TypeVar, nil:
+				continue
+			}
+			if c.fa.Coercions == nil {
+				c.fa.Coercions = map[ast.Node]*Coercion{}
+			}
+			c.fa.Coercions[n] = c.coercionInto(conj, t)
+			continue
+		}
 		it, ok := resolveTypeVar(exp).(*InterfaceType)
 		if !ok {
 			if t := c.fa.ExprTypes[n]; t != nil && exp != nil {
@@ -66,7 +124,7 @@ func (c *checker) recordCoercions(nodes []ast.Node) {
 		}
 		t := c.fa.ExprTypes[n]
 		switch resolveTypeVar(t).(type) {
-		case *InterfaceType, *TypeVar, nil:
+		case *InterfaceType, *ConjunctionType, *TypeVar, nil:
 			// An interface value is one already, and an unsolved
 			// variable's value is never made.
 			continue

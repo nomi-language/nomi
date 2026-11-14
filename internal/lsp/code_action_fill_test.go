@@ -176,7 +176,7 @@ func TestFillFunctions_NotOfferedWhenComplete(t *testing.T) {
 	}
 }
 
-const fillPointDecls = "struct Point\n    x: Int\n    y: Int\n    z: Int\n    label: String = \"\"\nend\n\n"
+const fillPointDecls = "struct Point\n    x:     Int\n    y:     Int\n    z:     Int\n    label: String = \"\"\nend\n\n"
 
 func TestFillFields_OneLine(t *testing.T) {
 	body := func(lit string) string {
@@ -200,17 +200,17 @@ func TestFillFields_MultiLine(t *testing.T) {
 	body := func(lit string) string {
 		return fillPointDecls + "fn main()\n    p = " + lit + "\n\n    _sum = p.x + p.y + p.z\nend\n"
 	}
-	got := checkFill(t, NewServer(), fillURI, body("Point{\n        x: 1,\n        label: \"a\",\n    }"), "Add missing fields")
-	if want := body("Point{\n        x: 1,\n        label: \"a\",\n        y: todo,\n        z: todo,\n    }"); got != want {
+	got := checkFill(t, NewServer(), fillURI, body("Point{\n        x:     1,\n        label: \"a\",\n    }"), "Add missing fields")
+	if want := body("Point{\n        x:     1,\n        label: \"a\",\n        y:     todo,\n        z:     todo,\n    }"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 func TestFillFields_WideLiteralBreaksAsFmtDoes(t *testing.T) {
-	decls := "struct Request\n    method_name: String\n    destination_address: String\n    request_body_text: String\nend\n\n"
+	decls := "struct Request\n    method_name:         String\n    destination_address: String\n    request_body_text:   String\nend\n\n"
 	src := decls + "fn main()\n    r = Request{method_name: \"GET\", destination_address: \"https://example.com/a/b/c\"}\n    _m = r.method_name\nend\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing field 'request_body_text'")
-	if !strings.Contains(got, "        request_body_text: todo,\n    }") {
+	if !strings.Contains(got, "        request_body_text:   todo,\n    }") {
 		t.Fatalf("the literal did not break:\n%s", got)
 	}
 }
@@ -237,20 +237,20 @@ func TestFillArms_Missing(t *testing.T) {
 	body := func(arms string) string {
 		return fillColorDecls + "fn f(c: Color) -> Int\n    case c\n" + arms + "    end\nend\n"
 	}
-	got := checkFill(t, NewServer(), fillURI, body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n"), "Add missing arm .Named{name:,")
-	if want := body("        .Red -> 1\n        .Green -> 2\n        .Rgb(n) -> n\n        .Named{name:, code:} -> todo\n"); got != want {
+	got := checkFill(t, NewServer(), fillURI, body("        .Red    -> 1\n        .Green  -> 2\n        .Rgb(n) -> n\n"), "Add missing arm .Named{name:,")
+	if want := body("        .Red                 -> 1\n        .Green               -> 2\n        .Rgb(n)              -> n\n        .Named{name:, code:} -> todo\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 	got = checkFill(t, NewServer(), fillURI, body("        .Green -> 2\n"), "Add missing arms")
-	if want := body("        .Green -> 2\n        .Red -> todo\n        .Rgb(value) -> todo\n        .Named{name:, code:} -> todo\n"); got != want {
+	if want := body("        .Green               -> 2\n        .Red                 -> todo\n        .Rgb(value)          -> todo\n        .Named{name:, code:} -> todo\n"); got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}
 }
 
 func TestFillArms_Nested(t *testing.T) {
-	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red) -> 1\n                None -> 0\n            end\n\n        _ ->\n            2\n    end\nend\n"
+	src := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red) -> 1\n                None       -> 0\n            end\n\n        _ ->\n            2\n    end\nend\n"
 	got := checkFill(t, NewServer(), fillURI, src, "Add missing arm .Some(value)")
-	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red) -> 1\n                None -> 0\n                .Some(value) -> todo\n            end\n\n        _ ->\n            2\n    end\nend\n"
+	want := fillColorDecls + "fn f(a: Color, b: Maybe<Color>) -> Int\n    case a\n        .Red ->\n            case b\n                Some(.Red)   -> 1\n                None         -> 0\n                .Some(value) -> todo\n            end\n\n        _ ->\n            2\n    end\nend\n"
 	if got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)
 	}

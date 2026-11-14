@@ -29,7 +29,7 @@ func irRetainedListKind(k kind) bool {
 // Debug, equality and patterns keep their narrower scalar-list checks.
 func irListTransportKind(k kind) bool {
 	return k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 &&
-		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteValueKind(k.comp.parts[0]) || irStreamKind(k.comp.parts[0]) || irExistentialKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit || (k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0])))
+		(irRetainedLeafKind(k.comp.parts[0]) || irListTransportKind(k.comp.parts[0]) || irRetainedVectorKind(k.comp.parts[0]) || irRetainedSetKind(k.comp.parts[0]) || irRetainedRecordKind(k.comp.parts[0]) || isDecimalKind(k.comp.parts[0]) || irNominalElemKind(k.comp.parts[0]) || irPreludeElemKind(k.comp.parts[0]) || irLeafTupleKind(k.comp.parts[0]) || irRetainedTupleKind(k.comp.parts[0]) || irListMapElemKind(k.comp.parts[0]) || irDynamicKind(k.comp.parts[0]) || irByteValueKind(k.comp.parts[0]) || irStreamKind(k.comp.parts[0]) || irHeldKind(k.comp.parts[0]) || irConcHandleKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit || (k.comp.parts[0].tag == tagFunc && irCallableValueKind(k.comp.parts[0])))
 }
 
 // irHeldListKind is a List the VM holds, whatever its element: a retained
@@ -97,7 +97,7 @@ func (bl *irScalarBuilder) listMake(at ast.Node, items []ast.Node, tail ast.Node
 // embedded values widen into it.
 func irAnnotatedNominalList(t *ast.ListLit, want kind) bool {
 	return t.TypeName == nil && len(t.Items) != 0 && want.tag == tagList && want.comp != nil &&
-		len(want.comp.parts) == 1 && (irNominalElemKind(want.comp.parts[0]) || irPreludeElemKind(want.comp.parts[0]) || irStdStructExistential(want.comp.parts[0]) || irExistentialKind(want.comp.parts[0]) || want.comp.parts[0].tag == tagSeq)
+		len(want.comp.parts) == 1 && (irNominalElemKind(want.comp.parts[0]) || irPreludeElemKind(want.comp.parts[0]) || irStdStructExistential(want.comp.parts[0]) || irHeldKind(want.comp.parts[0]) || want.comp.parts[0].tag == tagSeq)
 }
 
 func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.Node, want kind) (ir.Temp, kind, bool, bool) {
@@ -142,8 +142,10 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		v, k = p.v, p.k
 		// The tail's elements are any values with a stored type, as the
 		// heads' are (a list of Iters, of functions, of structs).
-		if !(irRetainedListKind(k) || irListTransportKind(k) || bl.g.irSpreadTailKind(k)) {
-			return no()
+		// A List made of a lowered tail's elements, each held, so each has
+		// a stored type.
+		if !bl.g.irSpreadTailKind(k) {
+			panic("irbuild: a list spread tail of " + k.nomi() + ", whose elements have no stored type")
 		}
 		rest, restKind = v, k
 		if k.tag == tagList {
@@ -172,7 +174,7 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 			v, k, _, ok = bl.lower(item)
 		}
 		if !ok || (!irRetainedLeafKind(k) && !irRetainedListKind(k) && !irNominalElemKind(k) && !irLeafTupleKind(k) && !irRetainedTupleKind(k) && !irEmbeddedIn(want, k) &&
-			!isDecimalKind(k) && !irPreludeElemKind(k) && !irListMapElemKind(k) && !irByteElemKind(k) && !(irExistentialKind(k)) &&
+			!isDecimalKind(k) && !irPreludeElemKind(k) && !irListMapElemKind(k) && !irByteElemKind(k) && !(irHeldKind(k)) &&
 			// kindInvalid: sentinel — no annotation supplies an element to erase into.
 			!(want != kindInvalid && bl.g.irErases(want, k)) &&
 			// Any other value with a stored type: the VM's list holds values
@@ -509,6 +511,12 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		d, variant, _ := embedsVariant(want, have)
 		return bl.embedWiden(at, v, d, variant)
 	}
+	if irConjKind(want) {
+		// A value entering an interface conjunction (conjunction.go).
+		if out, how := bl.intoConjunction(at, v, want, have, bl.g.recordedConj(at, want, have)); how != irNotCoerced {
+			return out, want, true
+		}
+	}
 	if irExistentialKind(want) {
 		// A concrete value passed where its interface is expected: the
 		// expression's recorded coercion, or one inside a conversion the
@@ -526,10 +534,17 @@ func (bl *irScalarBuilder) coerceEmpty(at ast.Node, v ir.Temp, have, want kind) 
 		// represent, so the record is passed unchanged.
 		return v, want, true
 	}
-	if !irExistentialKind(want) && bl.relabels(have, want) {
+	if !irExistentialKind(want) {
 		// A collection or function at wider type arguments its value
-		// already has (irrelabel.go).
-		return bl.relabel(at, v, want), want, true
+		// already has (irrelabel.go), as the checker's record of the
+		// conversion decides.
+		relabel, agrees := bl.relabelsAt(at, have, want)
+		if !agrees {
+			return v, have, false
+		}
+		if relabel {
+			return bl.relabel(at, v, want), want, true
+		}
 	}
 	if want.tag == tagFunc && have.tag == tagFunc {
 		// A function whose parameters are wider than the expected
@@ -734,7 +749,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		return bl.recordMakeOf(sl, want)
 	}
 	if ll, isList := at.(*ast.ListLit); isList && ll.Kind == ast.SeqList && len(ll.Spreads) == 0 && want.tag == tagList && want.comp != nil && len(want.comp.parts) == 1 &&
-		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irExistentialKind(want.comp.parts[0]) || irTypedWithin(want.comp.parts[0])) && (ll.TypeName == nil || ll.ShapeHead) && len(ll.Items) != 0 {
+		(want.comp.parts[0].tag == tagSeq || want.comp.parts[0].tag == tagFunc || irHeldKind(want.comp.parts[0]) || irTypedWithin(want.comp.parts[0])) && (ll.TypeName == nil || ll.ShapeHead) && len(ll.Items) != 0 {
 		// `[xs, [1, 2]]` where a `List<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`. `[cnt]` where a
 		// `List<(List<Int>) -> Int>` is: each function value enters the
@@ -757,7 +772,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 	if vl, isVector := at.(*ast.ListLit); isVector && vl.Kind == ast.SeqVector && (vl.TypeName == nil || vl.ShapeHead) && len(vl.Items) != 0 {
 		// `[[1]]` where a `Vector<Iter<Int>>` is expected: each element
 		// enters the declared `Iter<T>`, as a list literal's does.
-		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && (irTypedWithin(elem) || elem.tag == tagSeq || irExistentialKind(elem)) {
+		if elem, vector := vectorElem(want); vector && want != kindEmptyVector && (irTypedWithin(elem) || elem.tag == tagSeq || irHeldKind(elem)) {
 			return bl.vectorMakeOf(vl, elem)
 		}
 	}
@@ -773,7 +788,7 @@ func (bl *irScalarBuilder) lowerTypedOperand(at ast.Node, want kind) (ir.Temp, k
 		}
 	}
 	if lam, isLambda := at.(*ast.Lambda); isLambda && want.tag == tagFunc && want.comp != nil &&
-		(funcResult(want).tag == tagSeq || irExistentialKind(funcResult(want))) {
+		(funcResult(want).tag == tagSeq || irHeldKind(funcResult(want))) {
 		// `Maybe.map(m, fn _ -> [20])` where the checker solved the callback's
 		// result as `Iter<Int>`: the lambda answers that sequence
 		// (lambdaFunction), so its function value is the wanted one. A

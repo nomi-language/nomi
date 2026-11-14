@@ -146,3 +146,56 @@ end
           (lambda_parameter
             name: (type_identifier))
           body: (integer))))))
+
+================================================================================
+Parameter written as a generic, qualified, tuple, function or struct type alone
+================================================================================
+
+fn f(Vector<Int>, http.Request, (Int, String), (Int) -> Int, {x: Int}) -> Int
+  g = fn Map<Int, Int>, (Int, String) -> 1
+  1
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        type: (generic_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        type: (qualified_type
+          (identifier)
+          (type_identifier)))
+      (parameter
+        type: (tuple_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        type: (function_type
+          (type_identifier)
+          (type_identifier)))
+      (parameter
+        type: (anon_struct_type
+          (anon_struct_type_field
+            name: (identifier)
+            type: (type_identifier)))))
+    return_type: (type_identifier)
+    (body
+      (binding
+        (identifier)
+        (lambda
+          (lambda_parameter
+            type: (generic_type
+              (type_identifier)
+              (type_identifier)
+              (type_identifier)))
+          (lambda_parameter
+            type: (tuple_type
+              (type_identifier)
+              (type_identifier)))
+          body: (integer)))
+      (integer))))

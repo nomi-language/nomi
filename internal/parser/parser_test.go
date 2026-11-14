@@ -2669,6 +2669,27 @@ func TestParseTypeAlias_TakesNoTypeParameters(t *testing.T) {
 	}
 }
 
+// `typealias X = T` and `type X = T`, as other languages write them, are
+// reported at the `=` with the form Nomi takes, not as a missing type name
+// (`typealias`) or an unexpected token (`type`).
+func TestParseTypeAlias_EqualsSignIsReportedAtIt(t *testing.T) {
+	for _, c := range []struct{ src, want string }{
+		{"typealias X = Int", "line 1, col 13: a typealias has no `=`: write `typealias X T`"},
+		{"pub typealias Handler = (String) -> String", "line 1, col 23: a typealias has no `=`: write `typealias X T`"},
+		{"type X = Int", "line 1, col 8: a type has no `=`: write `type X T`"},
+		{"type Tagged<T> = (String, T)", "line 1, col 16: a type has no `=`: write `type X T`"},
+	} {
+		_, err := Parse(lexer.Lex(c.src))
+		if err == nil {
+			t.Errorf("%s: parsed, want an error", c.src)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: error %q, want it to contain %q", c.src, err.Error(), c.want)
+		}
+	}
+}
+
 // New form (no `=`) — explicit coverage for the hard cut.
 func TestParser_TypeAlias_NoEqualsSign(t *testing.T) {
 	tokens := lexer.Lex("pub typealias Handler (String, String) -> Result<String, String>")
@@ -7340,5 +7361,20 @@ func TestParseBareControlFollowedByComment(t *testing.T) {
 				t.Fatalf("body = %#v, want one bare %s", fd.Body.Stmts, tc.kw)
 			}
 		})
+	}
+}
+
+// A `where` bound joined with `or` is refused at the `or` with the reason,
+// rather than read as the start of the function's body.
+func TestWhereClause_OrBoundIsRefused(t *testing.T) {
+	err := parseError(t, `fn total<T>(items: List<T>) -> Int where T: Priced or Costed
+	0
+end`)
+	if err == nil {
+		t.Fatal("the parser accepts `where T: Priced or Costed`")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "line 1, col 52") || !strings.Contains(msg, "`where` bounds combine with `and`") || !strings.Contains(msg, "declare an interface both implement") {
+		t.Errorf("error = %q, want the `or` bound error at line 1, col 52", msg)
 	}
 }

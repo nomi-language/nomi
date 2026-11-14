@@ -3,13 +3,13 @@
 /// One post as it is stored: its id and its parent's id. The root's parent
 /// is itself.
 pub struct Record
-    id: Int
+    id:     Int
     parent: Int
 end
 
 /// A post and its replies, ordered by id.
 pub struct Node
-    id: Int
+    id:       Int
     children: List<Node> = []
 end
 

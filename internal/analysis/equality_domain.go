@@ -88,6 +88,13 @@ func noEqualityPartWith(t Type, hasImpl func(Type) bool, seen map[Type]bool) (Ty
 			return ty, true
 		}
 		return nil, false
+	case *ConjunctionType:
+		for _, m := range ty.Members {
+			if isStdIterType(m) {
+				return ty, true
+			}
+		}
+		return nil, false
 	case *TupleType:
 		return among(ty.Elems)
 	case *ListType:

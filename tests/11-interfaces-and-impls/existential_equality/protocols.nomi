@@ -111,7 +111,7 @@ impl Show for Shape
     fn show(s: Shape) -> String
         case s
             .Circle{r:} -> "shape circle ${r}"
-            .Dot -> "shape dot"
+            .Dot        -> "shape dot"
         end
     end
 end
@@ -126,7 +126,7 @@ impl Show for Glyph
     fn show(g: Glyph) -> String
         case g
             .Circle{r:} -> "glyph circle ${r}"
-            .Blank -> "glyph blank"
+            .Blank      -> "glyph blank"
         end
     end
 end
@@ -137,13 +137,13 @@ impl Equatable for Glyph
             .Circle{r: _} ->
                 case b
                     .Circle{r: _} -> True
-                    .Blank -> False
+                    .Blank        -> False
                 end
 
             .Blank ->
                 case b
                     .Circle{r: _} -> False
-                    .Blank -> True
+                    .Blank        -> True
                 end
         end
     end

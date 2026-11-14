@@ -332,28 +332,157 @@ type (
 		Record
 		w [4]uint64
 	}
+	recordW8 struct {
+		Record
+		w [8]uint64
+	}
+)
+
+// Records with strings or references and few slots take every bank in the
+// header's allocation (allocMixed).
+type (
+	recordR1 struct {
+		Record
+		r [1]any
+	}
+	recordR2 struct {
+		Record
+		r [2]any
+	}
+	recordW1R1 struct {
+		Record
+		w [1]uint64
+		r [1]any
+	}
+	recordW2R1 struct {
+		Record
+		w [2]uint64
+		r [1]any
+	}
+	recordW2R2 struct {
+		Record
+		w [2]uint64
+		r [2]any
+	}
+	recordS1 struct {
+		Record
+		s [1]string
+	}
+	recordW2S1 struct {
+		Record
+		w [2]uint64
+		s [1]string
+	}
+	recordS1R1 struct {
+		Record
+		s [1]string
+		r [1]any
+	}
+	recordW2S1R2 struct {
+		Record
+		w [2]uint64
+		s [1]string
+		r [2]any
+	}
 )
 
 func allocRecord(d *TypeDesc, tag int32, l *Layout) *Record {
-	var r *Record
+	if l.NS != 0 || l.NR != 0 {
+		if l.NW <= 2 && l.NS <= 1 && l.NR <= 2 {
+			return allocMixed(d, tag, l)
+		}
+		return allocSplit(d, tag, l)
+	}
+	return allocWords(d, tag, l.NW)
+}
+
+// allocWords allocates a record of nw words and no other slots, its words in
+// the header's allocation when there are eight or fewer.
+func allocWords(d *TypeDesc, tag int32, nw int) *Record {
 	switch {
-	case l.NW == 0:
-		r = &Record{Desc: d, Tag: tag}
-	case l.NW == 1:
+	case nw == 0:
+		return &Record{Desc: d, Tag: tag}
+	case nw == 1:
 		x := &recordW1{Record: Record{Desc: d, Tag: tag}}
 		x.W = x.w[:]
-		r = &x.Record
-	case l.NW == 2:
+		return &x.Record
+	case nw == 2:
 		x := &recordW2{Record: Record{Desc: d, Tag: tag}}
 		x.W = x.w[:]
-		r = &x.Record
-	case l.NW <= 4:
+		return &x.Record
+	case nw <= 4:
 		x := &recordW4{Record: Record{Desc: d, Tag: tag}}
-		x.W = x.w[:l.NW:l.NW]
+		x.W = x.w[:nw:nw]
+		return &x.Record
+	case nw <= 8:
+		// Up to eight words in one allocation: a struct of seven Floats
+		// (n-body's Body) is 160 bytes either way, and one allocation is
+		// half the work of an update's clone.
+		x := &recordW8{Record: Record{Desc: d, Tag: tag}}
+		x.W = x.w[:nw:nw]
+		return &x.Record
+	}
+	return &Record{Desc: d, Tag: tag, W: make([]uint64, nw)}
+}
+
+// allocMixed allocates a record of at most two words, one string and two
+// references with its banks in the same allocation as its header: `Some(x)`
+// over a reference payload, an `Err(message)`, a `(String, Int)` tuple, a
+// struct of a name and a list. Each bank's slice has its layout's length as
+// its capacity, so an append copies, and a record that later holds a big Int
+// grows R into a slice of its own (SetBigSlot).
+func allocMixed(d *TypeDesc, tag int32, l *Layout) *Record {
+	h := Record{Desc: d, Tag: tag}
+	var r *Record
+	switch {
+	case l.NS == 0 && l.NR == 1 && l.NW == 0:
+		x := &recordR1{Record: h}
+		x.R = x.r[:]
+		r = &x.Record
+	case l.NS == 0 && l.NR == 1 && l.NW == 1:
+		x := &recordW1R1{Record: h}
+		x.W, x.R = x.w[:], x.r[:]
+		r = &x.Record
+	case l.NS == 0 && l.NR == 1:
+		x := &recordW2R1{Record: h}
+		x.W, x.R = x.w[:], x.r[:]
+		r = &x.Record
+	case l.NS == 0 && l.NW == 0:
+		x := &recordR2{Record: h}
+		x.R = x.r[:]
+		r = &x.Record
+	case l.NS == 0:
+		x := &recordW2R2{Record: h}
+		x.W, x.R = x.w[:l.NW:l.NW], x.r[:]
+		r = &x.Record
+	case l.NR == 0 && l.NW == 0:
+		x := &recordS1{Record: h}
+		x.S = x.s[:]
+		r = &x.Record
+	case l.NR == 0:
+		x := &recordW2S1{Record: h}
+		x.W, x.S = x.w[:l.NW:l.NW], x.s[:]
+		r = &x.Record
+	case l.NR == 1 && l.NW == 0:
+		x := &recordS1R1{Record: h}
+		x.S, x.R = x.s[:], x.r[:]
 		r = &x.Record
 	default:
-		r = &Record{Desc: d, Tag: tag, W: make([]uint64, l.NW)}
+		x := &recordW2S1R2{Record: h}
+		x.W, x.S, x.R = x.w[:l.NW:l.NW], x.s[:], x.r[:l.NR:l.NR]
+		r = &x.Record
 	}
+	if l.NW == 0 {
+		r.W = nil
+	}
+	return r
+}
+
+// allocSplit allocates a record whose banks do not fit allocMixed: its word
+// bank with the header when it fits eight words, its strings and references
+// in slices of their own.
+func allocSplit(d *TypeDesc, tag int32, l *Layout) *Record {
+	r := allocWords(d, tag, l.NW)
 	if l.NS > 0 {
 		r.S = make([]string, l.NS)
 	}

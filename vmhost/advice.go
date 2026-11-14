@@ -15,11 +15,13 @@ import (
 
 // Advice is what Check suggests about the program's own files, as
 // warnings: each function type parameter the style guide writes as an
-// interface value (analysis.InterfaceValueHints), with the fix that does.
-// The program means the same either way. A file outside the program's
+// interface value (analysis.InterfaceValueHints), with the fix that does,
+// and, marked Hint, the hints the language server shows
+// (analysis.FileHints), which Check writes only under WithHints. The
+// program means the same either way. A file outside the program's
 // root (a dependency's) and a std file get none. The warnings are in the
-// order of their files' paths, and in each file in its declarations'
-// order. Check writes them where WithWarnings says; Load and a run do not.
+// order of their files' paths, and in each file in the order of their
+// positions. Check writes them where WithWarnings says; Load and a run do not.
 //
 // A file's advice depends on its own signatures and bodies alone, so a
 // kept program holds it: the program's record holds the whole program's
@@ -46,20 +48,41 @@ func (p *Program) Advice() Diagnostics {
 }
 
 // fileAdvice is the advice of the file at path, analyzed as fa from nodes,
-// whose text source answers when a hint needs it. A std file gets none.
+// whose text source answers when a diagnostic needs it. A std file gets
+// none.
 func fileAdvice(path string, fa *analysis.FileAnalysis, nodes []ast.Node, source func() string) Diagnostics {
 	if fa == nil || std.IsSourcePath(path) {
 		return nil
 	}
-	var src string
-	hints := analysis.InterfaceValueHints(fa, nodes, func() []token.Token {
-		src = source()
-		return lexer.Lex(src)
-	})
-	if len(hints) == 0 {
+	src, read := "", false
+	text := func() string {
+		if !read {
+			src, read = source(), true
+		}
+		return src
+	}
+	warns := analysis.InterfaceValueHints(fa, nodes, func() []token.Token { return lexer.Lex(text()) })
+	hints := analysis.FileHints(fa, nodes)
+	if len(warns) == 0 && len(hints) == 0 {
 		return nil
 	}
-	return frontend.WarningDiagnostics(path, src, hints)
+	out := frontend.WarningDiagnostics(path, text(), warns)
+	out = append(out, frontend.HintDiagnostics(path, text(), hints)...)
+	slices.SortStableFunc(out, func(a, b Diagnostic) int {
+		if a.Line != b.Line {
+			return a.Line - b.Line
+		}
+		return a.Col - b.Col
+	})
+	return out
+}
+
+// withoutHints is ds without the diagnostics marked Hint, unless hints.
+func withoutHints(ds Diagnostics, hints bool) Diagnostics {
+	if hints {
+		return ds
+	}
+	return slices.DeleteFunc(slices.Clone(ds), func(d Diagnostic) bool { return d.Hint })
 }
 
 // joinAdvice is the program's advice from each file's: in the order of

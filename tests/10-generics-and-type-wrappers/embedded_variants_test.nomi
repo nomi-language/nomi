@@ -3,7 +3,7 @@ struct Circle
 end
 
 struct Rectangle
-    width: Float
+    width:  Float
     height: Float
 end
 
@@ -60,13 +60,13 @@ end
 fn label(id: Identifier) -> String
     case id
         Identifier.UserId(name) -> name
-        Identifier.Anonymous -> "anonymous"
+        Identifier.Anonymous    -> "anonymous"
     end
 end
 
 fn describe(state: SessionState) -> String
     case state
-        .Expired -> "session has expired"
+        .Expired            -> "session has expired"
         SessionState.Active -> "session is active"
     end
 end

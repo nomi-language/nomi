@@ -29,7 +29,7 @@ impl Literal for Safe
     fn from_fragments(fragments: List<Fragment<String>>) -> String
         Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + escape(v)
             end
         end)
@@ -45,7 +45,7 @@ impl Literal for Raw
     fn from_fragments(fragments: List<Fragment<String>>) -> String
         Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)

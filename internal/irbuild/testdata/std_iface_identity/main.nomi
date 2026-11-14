@@ -25,7 +25,7 @@ import
 end
 
 struct Point
-    tag: String
+    tag:    String
     weight: Int
 end
 
@@ -65,8 +65,8 @@ end
 // away — measured by a peer as a real regression, and invisible to the corpus.
 fn order_here() -> String
     case Comparable.compare(Point{tag: "a", weight: 1}, Point{tag: "b", weight: 2})
-        Ordering.Less -> "less"
-        Ordering.Equal -> "equal"
+        Ordering.Less    -> "less"
+        Ordering.Equal   -> "equal"
         Ordering.Greater -> "greater"
     end
 end

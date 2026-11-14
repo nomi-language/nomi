@@ -10,7 +10,7 @@ end
 fn boot(startup: Startup) -> Result<Probe, String>
     found = case Map.get(startup.env, "NOMI_RUN_FILE_FIXTURE_PROBE")
         Some(v) -> v
-        None -> "absent"
+        None    -> "absent"
     end
 
     Ok(Probe{context: Context.root(), value: found})

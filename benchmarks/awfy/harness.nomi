@@ -1,0 +1,67 @@
+//# The Are We Fast Yet harness, shared by every benchmark in this directory.
+//#
+//# A benchmark program's arguments are the suite's: the number of outer
+//# iterations and the number of inner iterations, each defaulting to 1.
+//# Each outer iteration runs the benchmark's inner loop and stops the
+//# program with an error if the result does not verify, as the suite's
+//# harness does. Timing is left to the runner (`benchmarks/run`), which times
+//# the whole process, so the output holds no clock reading and is the same
+//# on every run.
+
+import std::io
+
+pub struct Config
+    iterations: Int
+    inner:      Int
+end
+
+/// The iteration counts from a program's arguments: `[iterations [inner]]`.
+pub fn config(startup: Startup) -> Result<Config, String>
+    case startup.args
+        []                 -> Ok(Config{iterations: 1, inner: 1})
+        [outer]            -> Ok(Config{iterations: count(outer)?, inner: 1})
+        [outer, inner, ..] -> Ok(Config{iterations: count(outer)?, inner: count(inner)?})
+    end
+end
+
+fn count(arg: String) -> Result<Int, String>
+    String.to_int(arg) |> Maybe.to_result("not a number: ${arg}")
+end
+
+/// Runs `inner_loop` once per outer iteration, as the suite's `Run.doRuns`
+/// does. `inner_loop` takes the inner iteration count and says whether its
+/// result verified.
+pub fn run(name: String, config: Config, inner_loop: (Int) -> Bool) -> Result<Unit, String>
+    io.print("Starting ${name} benchmark ...")
+
+    1..=config.iterations
+    |> Iter.try_reduce(Unit, fn _, _ ->
+        if inner_loop(config.inner) then
+            Ok(Unit)
+        else
+            Err("${name}: benchmark failed with incorrect result")
+        end
+    end)?
+
+    io.print("${name}: iterations=${config.iterations} inner=${config.inner} verified")
+    Ok(Unit)
+end
+
+/// The suite's default inner loop (`Benchmark.innerBenchmarkLoop`): runs
+/// `benchmark` `inner` times and checks each result.
+pub fn repeat<T>(inner: Int, benchmark: () -> T, verify: (T) -> Bool) -> Bool
+    1..=inner |> Iter.all_match(fn _ -> verify(benchmark()))
+end
+
+/// The suite's pseudo-random generator (`som.Random`), as a value: `next`
+/// returns the number and the generator to draw the following one from.
+pub struct Random
+    seed: Int = 74755
+end
+
+impl Random
+    pub fn next(random: Random) -> (Int, Random)
+        seed = (random.seed * 1309 + 13849) &&& 65535
+        (seed, Random{seed:})
+    end
+end

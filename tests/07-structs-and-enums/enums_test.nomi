@@ -35,7 +35,7 @@ test "enum tuple payloads match and bind their contents"
     shape = Shape.Circle(3.0)
 
     area = case shape
-        Shape.Point -> 0.0
+        Shape.Point     -> 0.0
         Shape.Circle(r) -> r * r * 3.14
     end
 
@@ -47,9 +47,9 @@ test "enum struct variants expose fields and defaults"
 
     result = case err
         Error.HttpError{retryable: True} -> "retry"
-        Error.HttpError{message:} -> message
-        Error.Timeout -> "timeout"
-        Error.ConnectionRefused -> "refused"
+        Error.HttpError{message:}        -> message
+        Error.Timeout                    -> "timeout"
+        Error.ConnectionRefused          -> "refused"
     end
 
     assert err.status == 404

@@ -55,8 +55,9 @@ Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
 used and tested parts. Concurrency, calling Go, and module management are
-newer. The editor already rechecks only what an edit touches. Next is doing
-the same for `nomi run`, `nomi check` and `nomi test`.
+newer. The editor rechecks only what an edit touches, and `nomi run`,
+`nomi check` and `nomi test` relink a program from what they kept when an
+edit changes only function bodies.
 :::
 
 ## Running Nomi
@@ -81,8 +82,8 @@ ways to ship a program.
 
 ### The Nomi VM
 
-Nomi compiles your program to bytecode and runs it on its own virtual
-machine (VM), the way Lua, Python and Erlang do:
+Nomi compiles your program and runs it on its own virtual machine (VM), as
+Lua and Python do. Each function becomes bytecode the first time it runs:
 
 - `nomi run`, `nomi test` and the REPL run your program on it.
 - `nomi build` puts it in the executable beside your program.
@@ -102,33 +103,39 @@ tooling, and dependencies. The language itself is different from Go.
   module, you import a file, and `pub` controls what other files can see.
   There are no packages.
 - Nomi can [call Go code](/calling-go/) when you need a library the
-  standard library doesn't have. A program that calls Go needs the Go
-  toolchain to build. Other programs don't.
+  standard library doesn't have. You don't need Go installed: Nomi's own
+  libraries that wrap Go come prebuilt, and for your own Go code `nomi`
+  uses the `go` on your `PATH` or downloads the release it was built with.
 
 ## Coming from another language
 
-**Elixir.** Pipes, pattern matching, immutable data and functions that
-transform data will feel familiar. What is different: types are static,
-variants are declared types rather than atoms or tagged tuples, `Iter`
-pipelines replace `Enum` and `Stream`, and concurrency uses
-`concurrent` blocks and supervisors rather than mailboxes.
+**[Elixir](/from-elixir/).** Pipes, pattern matching, immutable data and
+functions that transform data will feel familiar. What is different: types
+are static, variants are declared types rather than atoms or tagged tuples,
+`Iter` pipelines replace `Enum` and `Stream`, and concurrency starts from
+`concurrent` blocks and supervisors, with `std::actors` for mailbox-style
+servers.
 
 **Gleam.** Sum types, `Result` and `Maybe`, no null, local type inference and
 expression-oriented code will feel familiar. Nomi adds bindings without
 `let`, `impl Interface for Type` blocks, `derive`, app fields, `defer`, typed
 literals, and early `return`, `break` and `continue`.
 
-**Rust.** Traits become interfaces, and an implementation is
+**[Rust](/from-rust/).** Traits become interfaces, and an implementation is
 `impl Interface for Type`. `where` bounds are checked at each call.
 `Result` and `Maybe` propagate with `?`, as Rust's do. Distinct types do the job of
 newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
 macros: a library [generates code](/generating-code/) into ordinary files
 instead. Type inference stays inside a function body.
 
-**Go.** You will recognize modules that work like Go modules, a standard
+**[Go](/from-go/).** You will recognize modules that work like Go modules, a standard
 formatter, explicit imports, channels and context-style cancellation. Values
 are immutable, errors are `Result` values, a type says which interfaces it
 implements, and concurrency is structured.
+
+There are also guides for [TypeScript](/from-typescript/),
+[Python](/from-python/), [Kotlin](/from-kotlin/), [Swift](/from-swift/) and
+[Ruby](/from-ruby/).
 
 Start with [Bindings & Expressions](/bindings-and-expressions/). Each chapter
 builds on the one before.

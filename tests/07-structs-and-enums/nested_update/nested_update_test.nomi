@@ -22,37 +22,37 @@ end
 
 struct Address
     street: String
-    city: String
-    zip: String = "00000"
+    city:   String
+    zip:    String = "00000"
 end
 
 derive Display for Address
 
 struct Person
-    name: String
+    name:    String
     address: Address
-    tags: List<String>
-    seen: Set<Int>
-    recent: Vector<Int>
-    notes: Map<String, String>
+    tags:    List<String>
+    seen:    Set<Int>
+    recent:  Vector<Int>
+    notes:   Map<String, String>
 end
 
 struct Geo
-    lat: Int = 0
+    lat:  Int = 0
     city: String = "?"
 end
 
 derive Display for Geo
 
 struct Floor
-    geo: Geo = Geo{}
+    geo:   Geo = Geo{}
     rooms: Int = 1
 end
 
 derive Display for Floor
 
 struct Building
-    name: String
+    name:  String
     floor: Floor
 end
 
@@ -69,12 +69,12 @@ end
 
 fn ada() -> Person
     Person{
-        name: "Ada",
+        name:    "Ada",
         address: Address{street: "1 Main", city: "Bath", zip: "BA1"},
-        tags: ["math"],
-        seen: [1, 2],
-        recent: [7, 8],
-        notes: {"lang" => "en"},
+        tags:    ["math"],
+        seen:    [1, 2],
+        recent:  [7, 8],
+        notes:   {"lang" => "en"},
     }
 end
 
@@ -104,7 +104,7 @@ end
 
 test "updates nest three deep"
     b = Building{
-        name: "HQ",
+        name:  "HQ",
         floor: Floor{geo: Geo{lat: 5, city: "Oslo"}, rooms: 9},
     }
 

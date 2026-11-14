@@ -1,0 +1,57 @@
+//# The Computer Language Benchmarks Game: k-nucleotide.
+//#
+//# Reads the third sequence (">THREE") of a FASTA file from standard input
+//# and counts its k-nucleotides in a `Map<String, Int>`, as the benchmark's
+//# rules require: every reading frame of length 1 and 2, printed as
+//# percentages, most frequent first, then the counts of five given
+//# sequences, each counted by a table of every substring its length.
+
+import
+    std::io
+    std::reverse.Reverse
+end
+
+fn frequencies(sequence: List<String>, k: Int) -> Map<String, Int>
+    sequence
+    |> Iter.windows(k)
+    |> Iter.map(&String.join(&1))
+    |> Iter.frequencies()
+end
+
+fn percentages(sequence: List<String>, k: Int)
+    counts = frequencies(sequence, k)
+    total = Int.to_float(Iter.count(sequence) - k + 1)
+
+    counts
+    |> Iter.sort_by(fn (key, count) -> (Reverse.of(count), key))
+    |> Iter.each(fn (key, count) ->
+        percent = 100.0 * Int.to_float(count) / total
+        io.print("${key} ${Float.format(percent, Locale`en`, 3, 3, False)}")
+    end)
+
+    io.print("")
+end
+
+fn occurrences(sequence: List<String>, fragment: String)
+    count =
+        frequencies(sequence, String.length(fragment)) |> Map.get(fragment) |> Maybe.with_default(0)
+
+    io.print("${count}\t${fragment}")
+end
+
+fn main()
+    sequence =
+        io.lines()
+        |> Iter.map(fn line -> line!)
+        |> Iter.drop_while(fn line -> not String.starts_with(line, ">THREE"))
+        |> Iter.drop(1)
+        |> Iter.map(String.uppercase)
+        |> String.join()
+        |> Iter.to_list()
+
+    percentages(sequence, 1)
+    percentages(sequence, 2)
+
+    ["GGT", "GGTA", "GGTATT", "GGTATTTTAATT", "GGTATTTTAATTTATAGT"]
+    |> Iter.each(&occurrences(sequence, &1))
+end

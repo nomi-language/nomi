@@ -82,7 +82,7 @@ impl Display for CallError
     fn to_string(error: CallError) -> String
         case error
             .TimedOut -> "the actor did not answer in time"
-            .Stopped -> "the actor has stopped"
+            .Stopped  -> "the actor has stopped"
         end
     end
 end
@@ -95,9 +95,9 @@ impl Actor<M>
     /// program builds its supervisors.
     pub fn start<S>(
         supervisor: Supervisor,
-        state: S,
-        inbox: Int = 64,
-        handle: (S, M) -> S,
+        state:      S,
+        inbox:      Int = 64,
+        handle:     (S, M) -> S,
     ) -> Actor<M>
         inbox = Channel.buffered<M>(inbox)
         // The actor ends when the program starts shutting down, so the
@@ -118,7 +118,7 @@ impl Actor<M>
     /// handler's `Reply.send`: `Err(TimedOut)` when no reply comes in time,
     /// `Err(Stopped)` when the actor has stopped.
     pub fn call<R>(
-        actor: Actor<M>,
+        actor:   Actor<M>,
         timeout: Duration = Duration.seconds(5),
         message: (Reply<R>) -> M,
     ) -> Result<R, CallError>
@@ -132,8 +132,8 @@ impl Actor<M>
             Ok(_) ->
                 case Receiver.receive_within(answer.receiver, timeout)
                     Ok(Some(value)) -> Ok(value)
-                    Ok(None) -> Err(CallError.Stopped)
-                    Err(_) -> Err(CallError.TimedOut)
+                    Ok(None)        -> Err(CallError.Stopped)
+                    Err(_)          -> Err(CallError.TimedOut)
                 end
         end
     end
@@ -157,7 +157,7 @@ fn serve<S, M>(inbox: Receiver<M>, state: S, handle: (S, M) -> S) -> Unit
     _final = Iter.loop(state, fn current ->
         case Receiver.receive(inbox)
             Some(message) -> handle(current, message)
-            None -> break current
+            None          -> break current
         end
     end)
 end

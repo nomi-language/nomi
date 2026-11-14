@@ -207,7 +207,8 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
 
 - A program the front end accepts lowers: `FuzzFrontEndAcceptsSoItLowers`,
   `knownLoweringGaps` (`vmhost/lowering_fuzz_test.go`).
-- A program that lowers runs, the same twice and as its built image:
+- A program that lowers runs, the same twice (the second with every update
+  copying) and as its built image:
   `FuzzLoweredProgramsRun`, `knownRunGaps` (`vmhost/run_fuzz_test.go`).
 - Every feature in every context, a std module's own tests among them, is
   rejected as expected or runs: `TestFeatureContextMatrix`,

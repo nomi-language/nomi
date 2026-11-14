@@ -31,6 +31,7 @@ func (p *Program) Unsupported() error {
 	}
 	var found []string
 	seen := map[string]bool{}
+	chains := map[string][]string{}
 	add := func(name string) {
 		if !seen[name] {
 			seen[name] = true
@@ -42,7 +43,11 @@ func (p *Program) Unsupported() error {
 			// A host function the run binds from its host tables, which a
 			// check does not have, is not a lowering's to report.
 			if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
-				add(blockerName(u))
+				name := blockerName(u)
+				if _, known := chains[name]; !known {
+					chains[name] = u.Chain
+				}
+				add(name)
 			}
 		}
 	}
@@ -92,12 +97,18 @@ func (p *Program) Unsupported() error {
 	if len(found) == 0 {
 		return nil
 	}
-	return p.declineDiagnostics(found)
+	return p.declineDiagnosticsVia(found, chains)
 }
 
 // declineDiagnostics are the diagnostics for the declarations names, which
 // the lowering declined, in source order.
 func (p *Program) declineDiagnostics(names []string) frontend.Diagnostics {
+	return p.declineDiagnosticsVia(names, nil)
+}
+
+// declineDiagnosticsVia is declineDiagnostics with, for each name, the
+// functions from a root that reach it (vm.Unretained.Chain).
+func (p *Program) declineDiagnosticsVia(names []string, chains map[string][]string) frontend.Diagnostics {
 	var ds frontend.Diagnostics
 	type site struct {
 		path      string
@@ -106,7 +117,7 @@ func (p *Program) declineDiagnostics(names []string) frontend.Diagnostics {
 	}
 	seen := map[site]bool{}
 	for _, name := range names {
-		d := p.unsupportedDiagnostic(name)
+		d := p.unsupportedDiagnostic(name, chains[name])
 		// Two blockers that lead to one std body (stdBlocker) are one
 		// diagnostic.
 		if k := (site{d.Path, d.Line, d.Col, d.Message}); !seen[k] {
@@ -145,8 +156,13 @@ func blockerName(u vm.Unretained) string {
 // A body that declined only because it reads a `once` whose initializer did
 // not lower (irbuild.Decline.Once) is reported at the `once`: at the
 // expression its initializer stopped at, or at its declaration, and named as
-// the construct, so the author looks where the gap is.
-func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
+// the construct, so the author looks where the gap is. One that declined at a
+// call to a function whose signature the lowering refused
+// (irbuild.Decline.Signature) is reported at that signature
+// (signatureDiagnostic). chain is how the program reaches name
+// (vm.Unretained.Chain), named in a hint when it passes through more than
+// the root.
+func (p *Program) unsupportedDiagnostic(name string, chain []string) frontend.Diagnostic {
 	what := blockerSubject(name)
 	d := p.declineOf(name)
 	debugReason := "[" + name + "] " + p.decline(name)
@@ -169,6 +185,9 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 		// did not lower: the construct is that function's own.
 		d, what = inner, "`fn "+fn+"`"
 		debugReason += "; [" + inner.Fn + "] " + inner.Reason
+	}
+	if d != nil && d.Signature != nil && d.Signature.Line > 0 {
+		return p.signatureDiagnostic(what, d.Signature, chain, debugReason)
 	}
 	path, line, col := "", 0, 0
 	// derived is a body Nomi wrote for a `derive` or the universal Debug,
@@ -233,11 +252,81 @@ func (p *Program) unsupportedDiagnostic(name string) frontend.Diagnostic {
 			diag.Hints = append(diag.Hints, hint)
 		}
 	}
+	if hint := reachedHint(chain, name); hint != "" {
+		diag.Hints = append(diag.Hints, hint)
+	}
 	diag.Hints = append(diag.Hints, gapHint)
 	if DebugLowering() {
 		diag.Hints = append(diag.Hints, "the lowering's reason: "+debugReason)
 	}
 	return diag
+}
+
+// signatureDiagnostic is the diagnostic for what, a body that declined at a
+// call to a function whose signature the lowering refused (sd): at the
+// parameter or result type it refused, since the call says only which
+// call it was, with hints naming the call and the type the refusal
+// cascades from.
+func (p *Program) signatureDiagnostic(what string, sd *irbuild.SignatureDecline, chain []string, debugReason string) frontend.Diagnostic {
+	path := sd.Path
+	if path == "" {
+		path = p.moduleWithNodeAt(sd.Line, sd.Col)
+	}
+	construct := "the signature of `fn " + sd.Fn + "`"
+	calls := what + " calls `fn " + sd.Fn + "`"
+	switch {
+	case sd.Type != "" && sd.Param != "":
+		construct = "the type `" + sd.Type + "`"
+		calls += ", whose parameter `" + sd.Param + "` has this type"
+	case sd.Type != "":
+		construct = "the type `" + sd.Type + "`"
+		calls += ", which returns this type"
+	}
+	diag := frontend.NewDiagnostic(path, p.sources[path], sd.Line, sd.Col,
+		fmt.Sprintf("%s is not supported yet, so %s cannot run", construct, what))
+	diag.Hints = append(diag.Hints, calls)
+	if sd.Root != "" {
+		at := sd.RootPath
+		if sd.RootLine > 0 {
+			at += ":" + strconv.Itoa(sd.RootLine) + ":" + strconv.Itoa(sd.RootCol)
+		}
+		diag.Hints = append(diag.Hints, "`"+sd.Type+"` is not supported because of the type `"+sd.Root+"` it holds, declared at "+at)
+	}
+	if hint := reachedHint(chain, ""); hint != "" {
+		diag.Hints = append(diag.Hints, hint)
+	}
+	diag.Hints = append(diag.Hints, gapHint)
+	if DebugLowering() {
+		diag.Hints = append(diag.Hints, "the lowering's reason: "+debugReason+"; ["+sd.Fn+"] "+sd.Reason)
+	}
+	return diag
+}
+
+// reachedHint names how the program reaches a blocked declaration, name,
+// through chain (vm.Unretained.Chain): `main` → `run_prompt` → `run` →
+// `evaluate`. Empty when a root reaches it directly, since the message names
+// the root's own call then, or when nothing records how it is reached.
+func reachedHint(chain []string, name string) string {
+	if len(chain) < 2 {
+		return ""
+	}
+	steps := make([]string, 0, len(chain)+1)
+	for _, fn := range chain {
+		steps = append(steps, chainStep(fn))
+	}
+	if name != "" {
+		steps = append(steps, chainStep(name))
+	}
+	return "the program reaches it through " + strings.Join(steps, " → ")
+}
+
+// chainStep spells one function of a reaching chain: `run`, or a test as
+// `test "name"`.
+func chainStep(fn string) string {
+	if test, ok := strings.CutPrefix(fn, "test body: "); ok {
+		return "test " + strconv.Quote(test)
+	}
+	return "`" + fn + "`"
 }
 
 // gapHint closes every unsupported diagnostic, so a newcomer does not read
@@ -260,14 +349,19 @@ func DebugLowering() bool {
 func (p *Program) blocked(found []vm.Unretained) *Blocked {
 	b := &Blocked{Reasons: p.reasons(found), rest: []string{}}
 	var names []string
+	chains := map[string][]string{}
 	for _, u := range found {
 		if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
-			names = append(names, blockerName(u))
+			name := blockerName(u)
+			if _, known := chains[name]; !known {
+				chains[name] = u.Chain
+			}
+			names = append(names, name)
 			continue
 		}
 		b.rest = append(b.rest, p.reasons([]vm.Unretained{u})...)
 	}
-	b.diags = p.declineDiagnostics(names)
+	b.diags = p.declineDiagnosticsVia(names, chains)
 	return b
 }
 

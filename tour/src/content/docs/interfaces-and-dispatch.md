@@ -176,10 +176,17 @@ with nothing copied, since each `Dog` already is a `Speech`. So does a
 `Result`, a `Map`, a function's result and a struct or enum of your own
 whose fields only hold the type. A value whose elements must be wrapped
 first, such as a `List<Maybe<Dog>>` as a `List<Display>`, is built again
-with each one wrapped
+with each one wrapped. A function's parameter converts the other way: a
+function that takes any `Speech` passes where one that takes a `Dog` is
+expected, since every `Dog` it is given is a `Speech`
 ([Covariant conversion](/spec/type-relations/#covariant-conversion)).
 
-Spec: [Interface values](/spec/interfaces-implementations-and-derive/#interface-values).
+A value used through two interfaces takes both, joined with `and`:
+`fn show(pet: Speech and Display) -> String` calls `Speech.speak(pet)` and
+renders `"${pet}"`, and any type implementing both passes.
+
+Spec: [Interface values](/spec/interfaces-implementations-and-derive/#interface-values),
+[Interface conjunctions](/spec/interfaces-implementations-and-derive/#interface-conjunctions).
 
 ## Default functions
 
@@ -398,7 +405,7 @@ import std::io
 
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 impl Display for User
@@ -471,7 +478,7 @@ interface Ranked<T>
     fn prefer<K>(_value: self, lhs: K, rhs: K) -> Bool where K: Comparable
         case Comparable.compare(lhs, rhs)
             .Less -> False
-            _ -> True
+            _     -> True
         end
     end
 end
@@ -663,7 +670,7 @@ with [`Iter.sort_by`](/reference/iter/#itersort_by) and the field to sort on:
 ```nomi-run
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 fn main()

@@ -16,7 +16,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 
 | Command | What it does |
 |---|---|
-| `nomi run <file>` | Run a program ([Running a program](#running-a-program)); `nomi <file>` runs a script ([Scripts](#scripts-nomi-file)), and `--watch` runs it again on every change ([`--watch`](#running-again-on-every-change---watch)). |
+| `nomi run <file>` | Run a program ([Running a program](#running-a-program)); `nomi <file>` runs a script ([Scripts](#scripts-nomi-file)), `--watch` runs it again on every change ([`--watch`](#running-again-on-every-change---watch)), and `--profile` reports where its time went ([`--profile`](#where-the-time-goes---profile)). |
 | `nomi run <module>/<entry>` | Run a project's entry point ([Project mode](#project-mode-nomi-run-moduleentry)). |
 | `nomi run --web <file>` | Serve a browser build on localhost and rebuild it on a change ([A program in the browser](#a-program-in-the-browser)). |
 | `nomi test [path]` | Run tests ([Running tests](#running-tests)). |
@@ -55,6 +55,13 @@ run: the first of each declaration, and the first of each statement inside
 a body. A statement after a damaged one is read on its own, so one mistake
 gives one error. Type errors are reported once the file parses.
 
+`--hints` also reports the hints the editor shows: a `value as Type` whose
+value has the type without it (code `redundant-ascription`), and an operand
+in a field's new value that reads the field's current value by its path,
+which `..` writes (code `restated-current-value`). Each prints as `hint:`
+and fails no file; without the flag `nomi check` says nothing of them. A
+program with Go bindings, checked through its wrapper, reports none.
+
 `--format short` prints each error as one `path:line:col: message` line
 instead of with its source lines (`--format full`, the default), as
 `NOMI_DIAGNOSTICS=short` does for every command.
@@ -64,7 +71,7 @@ as `nomi test --format json` does: a record per error, a record per file
 checked, and a summary last.
 
 ```json
-{"type":"diagnostic","file":"/abs/main.nomi","line":5,"col":12,"end_line":5,"end_col":15,"start_byte":54,"end_byte":57,"severity":"error","message":"List<Int> has no field 'len'","hints":["Nomi has no method calls: write `Iter.count(xs)`"],"fix":{"title":"Call `Iter.count`","edits":[{"line":5,"col":9,"end_line":5,"end_col":9,"start_byte":51,"end_byte":51,"text":"Iter.count("},{"line":5,"col":11,"end_line":5,"end_col":16,"start_byte":53,"end_byte":58,"text":""}]}}
+{"type":"diagnostic","file":"/abs/main.nomi","line":5,"col":12,"end_line":5,"end_col":15,"start_byte":54,"end_byte":57,"severity":"error","message":"List<Int> has no field 'len'","hints":["Nomi has no method calls: write `List.length(xs)`"],"fix":{"title":"Call `List.length`","edits":[{"line":5,"col":9,"end_line":5,"end_col":9,"start_byte":51,"end_byte":51,"text":"List.length("},{"line":5,"col":11,"end_line":5,"end_col":16,"start_byte":53,"end_byte":58,"text":""}]}}
 {"type":"file","file":"/abs/main.nomi","status":"failed"}
 {"type":"summary","files":1,"failed":1,"diagnostics":1}
 ```
@@ -78,7 +85,8 @@ checked, and a summary last.
   fails no file and is not counted in the summary: an `embed` pattern
   whose folder does not exist yet (code `embed-missing`), or a type
   parameter the style guide writes as an interface value, with the fix
-  that does (code `interface-value-parameter`, from `nomi check` only).
+  that does (code `interface-value-parameter`, from `nomi check` only), or
+  `hint`, under `--hints` only, which fails no file either.
   `code` names a diagnostic's class when it has one (`unused-import`).
 - `hints` are the `help:` lines, and `related` the other places the error
   names, each with its own `file`, span and `message`.
@@ -105,7 +113,9 @@ versions its `go.mod` lists, as `go run` of a dependency's command does;
 the dependency's own `go.mod` only says which modules it needs. It
 is how a module ships a code generator, such as sqlkit's `nomi tool
 sqlkit generate` ([Databases](/databases/)), which writes ordinary `.nomi` files a program
-commits.
+commits. A generator passes its text through `compiler.format`
+([std::compiler](/reference/compiler/)) before writing it, so `nomi fmt
+-check` finds the files it writes formatted.
 
 ### TypeScript types: `nomi types`
 
@@ -204,6 +214,45 @@ The program reads standard input as under `nomi run`. A read still waiting
 when a file changes ends with the run, and a line typed while the program
 restarts goes to the new run. Ctrl-C stops the run and exits with status 130.
 A compiled program (`.nomic`) has no source to watch and is refused.
+
+#### Where the time goes: `--profile`
+
+`nomi run --profile <file> [args]` runs the program and, when it ends, prints
+on standard error where its time went, by Nomi function:
+
+```text
+nomi profile: 2.68s sampled over 2.68s, one sample every 1ms
+garbage collector: 0.70s of CPU over 51 cycles, on threads beside the program
+
+    self            total          function
+   1.43s   53.1%    1.63s   60.6%  prefix_reversed  fannkuchredux.nomi:39
+   0.37s   13.7%    2.00s   74.3%  flips  fannkuchredux.nomi:50
+   0.20s    7.5%    0.20s    7.5%  List.concat  (host)
+   0.18s    6.9%    0.18s    6.9%  insert_at  fannkuchredux.nomi:59
+   0.14s    5.0%    0.45s   16.9%  next  fannkuchredux.nomi:89
+   0.13s    4.8%    2.68s  100.0%  walk  fannkuchredux.nomi:105
+   ...
+```
+
+A function's self time is spent in its own code, and its total time adds
+what the functions it calls spent. A second table, after the functions,
+names the lines the time was spent at. A lambda is `<lambda>` at its line and
+column. A std function written in Nomi is marked `std`, and a function
+implemented in Go, such as `Map.get` or `String.join`, is marked `(host)`.
+`--profile=<file>` also writes the profile to `<file>` in pprof's format,
+which `go tool pprof -http=: <file>` shows as a call graph and a flame graph.
+
+The VM samples the program every millisecond, at its next call or loop
+iteration, and when a call into Go returns, so a profile measures wall time:
+a call that waits for input, a timer or a task is charged with its wait. A
+function that ends in a tail call is replaced by the function it calls, as a
+tail call does, and drops out of the stack, except that a call into a std
+function (an `Iter` pipeline at the end of a function) keeps the caller under
+the std function. A caller is shown by its function, not the line it called
+from. The garbage collector runs on other threads beside the program, so its
+time is a total rather than a share. A profiled run is a few percent slower;
+one that is not profiled pays nothing. An executable `nomi build` wrote is
+profiled with `NOMI_PROFILE` ([Environment variables](#environment-variables)).
 
 ### Scripts: `nomi <file>`
 
@@ -943,6 +992,47 @@ line between arms, so the arms of one `case` always share one layout.
 Blank lines the source put between arms are ignored, and a comment stays
 above its arm.
 
+**Alignment.** Consecutive one-line items of one construct line up:
+
+- a `case`'s arms, with or without a subject, at their `->`;
+- a struct declaration's fields, their types after `name:` (`at:       Place`);
+  a default's `= value` is not a column of its own;
+- a multi-line struct or record literal's fields, a multi-line call's named
+  arguments and a multi-line parameter list's parameters, the value or type
+  after `name:` (`name:   "goblin",`);
+- a multi-line map literal's entries, at `=>`;
+- rows: a multi-line list or argument list whose items are all tuples of one
+  length, or all calls of one callee with one argument count, pads each
+  column after its comma to the column's widest entry (`("Mei",    100),`),
+  as a `subtests` table is written;
+- comments that end consecutive lines of code at one indent;
+- consecutive `once` declarations, at their `=`.
+
+```nomi
+struct Monster
+    name:       String
+    hit_points: Int = 10
+end
+
+fn label(n: Int) -> String
+    case n
+        0   -> "none"
+        100 -> "a hundred"
+        _   -> "some"
+    end
+end
+```
+
+A block is a run of such items on consecutive lines at one indent. A blank
+line, a comment line or an item over several lines ends it, and each run
+aligns on its own, so a `case` whose arms put their bodies below `->`
+aligns nothing. A block whose narrowest and widest left parts are more than
+20 columns apart stays unaligned, as gofmt leaves one; rows have no such
+limit. Widths are display columns, as line width is measured. Alignment
+comes after the line breaks and never changes one: a block that padding
+would take past 100 columns stays unaligned. Local bindings' `=`, enum
+variants' payloads, one-line literals and pipelines are not aligned.
+
 **Trailing commas.** A multi-line call has a trailing comma after its last
 argument when it has more than one argument, and none when it has one.
 
@@ -1399,7 +1489,7 @@ A program carries the CLDR data of the locales its `nomi.toml` lists under
 `[i18n]` table, a script outside any project among them, carries every locale
 CLDR has data for. A locale the program does not list still formats, as its
 nearest listed parent or else as the source locale, so it is not an error at
-run time; a ``Locale`…` `` literal of one is a compile error.
+run time; a `Locale"…"` literal of one is a compile error.
 [`Locale.available`](/reference/locale/#localeavailable) has the lookup
 rules. The grammatical genders and cases of each carried locale's nouns,
 which a `noun`'s catalog entries may give (spec §18 *Nouns and agreement*),
@@ -1496,12 +1586,14 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 | `NOMI_DEBUG_ARTIFACT_CACHE` | `1` reports on stderr whether each command read a kept program, and why not, and whether it kept one. |
 | `NOMI_DEBUG_STD_BUNDLE` | For work on the compiler. `1` reports on stderr why a cached standard library lowering or its cached interfaces were not used. |
 | `NOMI_STD_WHOLE` | For work on the compiler. `1` builds every standard library module when a command starts, as the language server does, rather than only the modules the program imports. |
+| `NOMI_PROFILE` | `1` profiles a run as `nomi run --profile` does and prints the table on standard error when it ends; a file name also writes the profile there in pprof's format, as `--profile=<file>` does ([`--profile`](#where-the-time-goes---profile)). It works for `nomi run` and for an executable `nomi build` wrote. |
+| `NOMI_CPUPROFILE` | For work on the VM. A file that `nomi run`, and a `nomi build` executable, write a Go CPU profile of the run to, for `go tool pprof <nomi or the executable> <file>`. The frames are the VM's Go functions, not the program's Nomi functions. |
 
 ## Editors and debugger
 
 - Opinionated formatter: `nomi fmt [-w|-l|-d|-check] <paths>`
 - Check without running: `nomi check`, which also reports, at its source, any code the program reaches that type-checks but cannot be compiled to run yet
-- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Hover also states rules the text leaves implicit: an `if` without `else` says it is a statement and when its branch runs, a binding's `else` says when it runs and whether it must leave, the `[` or `{` of a collection literal says which collection it builds and what expected it, and a punned `name:` shows both the field or parameter it labels and the binding it reads; go to definition on a pun offers both. Its quick fixes include:
+- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Hover also states rules the text leaves implicit: an `if` without `else` says it is a statement and when its branch runs, a binding's `else` says when it runs and whether it must leave, the `[` or `{` of a collection literal says which collection it builds and what expected it, a punned `name:` shows both the field or parameter it labels and the binding it reads, and a value that converts to a wider type (a `List<Maybe<Int>>` where a `List<Display>` is expected) ends with what the conversion does at run time: one pass over a collection's elements, one match of a Maybe, Result or enum, a rebuild field by field, or a wrapper around a function. A conversion that leaves the value as it is says nothing. A typed literal (`Html"<p>${name}</p>"`) says what type it is, that it is not a `String`, what builds it and what each `${}` takes, and a hover on a slot's expression ends with what that slot takes. Go to definition on a pun offers both of its targets. Its quick fixes include:
   - append `()` to a pipe stage that names a function without calling it;
   - insert `then` before a lambda written as a pipe stage;
   - insert `|> Display.to_string()` before a stage that takes a `String` when the piped value implements `Display`;

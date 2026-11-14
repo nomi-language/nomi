@@ -68,7 +68,7 @@ end
 /// and `-u-kn-true` orders digits by value, `-u-kf-upper` puts upper case
 /// first and `-u-ks-level1` compares base letters only, as the arguments
 /// to `Collator.new` do.
-//! sv = Collator.new(Locale`sv`)
+//! sv = Collator.new(Locale"sv")
 //! assert Iter.sort_with(["ö", "z", "a", "å"], &Collator.compare(sv, &1, &2)) == ["a", "z", "å", "ö"]
 //
 pub opaque type Collator String
@@ -121,44 +121,44 @@ impl Collator
     /// strings are otherwise equal (`de luge` with `deluge`). An argument
     /// left at its default keeps what the locale's tag and its collation
     /// say.
-    //! de = Collator.new(Locale`de`)
+    //! de = Collator.new(Locale"de")
     //! assert Collator.compare(de, "Ärger", "Arzt") == Less
     //!
-    //! loose = Collator.new(Locale`en`, strength: Strength.Primary)
+    //! loose = Collator.new(Locale"en", strength: Strength.Primary)
     //! assert Collator.compare(loose, "résumé", "RESUME") == Equal
     //!
-    //! files = Collator.new(Locale`en`, numeric: True)
+    //! files = Collator.new(Locale"en", numeric: True)
     //! assert Collator.compare(files, "file9", "file10") == Less
     //
     pub fn new(
-        locale: Locale,
-        strength: Strength = Strength.Tertiary,
-        numeric: Bool = False,
-        case_first: CaseFirst = CaseFirst.Default,
+        locale:             Locale,
+        strength:           Strength = Strength.Tertiary,
+        numeric:            Bool = False,
+        case_first:         CaseFirst = CaseFirst.Default,
         ignore_punctuation: Bool = False,
     ) -> Collator
         strength_tag = case strength
-            Strength.Primary -> 1
-            Strength.Secondary -> 2
-            Strength.Tertiary -> 3
+            Strength.Primary    -> 1
+            Strength.Secondary  -> 2
+            Strength.Tertiary   -> 3
             Strength.Quaternary -> 4
-            Strength.Identical -> 5
+            Strength.Identical  -> 5
         end
 
         case_tag = case case_first
             CaseFirst.Default -> 1
-            CaseFirst.Upper -> 2
-            CaseFirst.Lower -> 3
-            CaseFirst.Off -> 4
+            CaseFirst.Upper   -> 2
+            CaseFirst.Lower   -> 3
+            CaseFirst.Off     -> 4
         end
 
         Collator(collator_new_raw(locale, strength_tag, numeric, case_tag, ignore_punctuation))
     end
 
     /// Orders `a` and `b` as the collator's locale does.
-    //! sv = Collator.new(Locale`sv`)
+    //! sv = Collator.new(Locale"sv")
     //! assert Collator.compare(sv, "Zorn", "Åberg") == Less
-    //! assert Collator.compare(Collator.new(Locale`de`), "Zorn", "Åberg") == Greater
+    //! assert Collator.compare(Collator.new(Locale"de"), "Zorn", "Åberg") == Greater
     //
     pub fn compare(collator: Collator, a: String, b: String) -> Ordering
         Collator(spec) = collator
@@ -179,7 +179,7 @@ impl Collator
     /// string's key once to sort or index many strings, or to store the
     /// order. A key is only meaningful beside keys from the same collator
     /// and the same version of Nomi.
-    //! pl = Collator.new(Locale`pl`)
+    //! pl = Collator.new(Locale"pl")
     //! assert Collator.sort_key(pl, "łoś") > Collator.sort_key(pl, "lis")
     //! assert Collator.sort_key(pl, "łoś") < Collator.sort_key(pl, "mysz")
     //
@@ -192,10 +192,10 @@ end
 impl Debug for Collator
     /// The call that makes the collator, its arguments that are not
     /// defaults included.
-    //! assert Debug.inspect(Collator.new(Locale`sv`)) == "Collator.new(Locale`sv`)"
+    //! assert Debug.inspect(Collator.new(Locale"sv")) == "Collator.new(Locale\"sv\")"
     //!
-    //! assert Debug.inspect(Collator.new(Locale`en`, strength: Strength.Primary, numeric: True))
-    //!     == "Collator.new(Locale`en`, strength: Strength.Primary, numeric: True)"
+    //! assert Debug.inspect(Collator.new(Locale"en", strength: Strength.Primary, numeric: True))
+    //!     == "Collator.new(Locale\"en\", strength: Strength.Primary, numeric: True)"
     //
     fn inspect(collator: Collator) -> String
         Collator(spec) = collator
@@ -205,10 +205,10 @@ end
 
 /// A collator's text: the locale's tag and the arguments' positions.
 host fn collator_new_raw(
-    locale: Locale,
-    strength: Int,
-    numeric: Bool,
-    case_first: Int,
+    locale:             Locale,
+    strength:           Int,
+    numeric:            Bool,
+    case_first:         Int,
     ignore_punctuation: Bool,
 ) -> String
 

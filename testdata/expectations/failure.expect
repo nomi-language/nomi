@@ -12,7 +12,7 @@
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
 records 55
-declared-cases 302
+declared-cases 300
 failing 55
 C anon_struct.nomi
 E 1
@@ -648,8 +648,8 @@ T test result: FAILED. 0 passed, 7 failed
 T
 C infinite_iter_traps.nomi
 E 1
-N 35
-H 48b6964904c16c4e7fd9758eec63563d7fa72c0a48feaea1749a60ea7e118aa8
+N 33
+H f526272fd92392ccc762c1610d2ed214cd276b6a91bf24d892d142e12b824708
 T ok <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: a user source that says it is infinite
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of repeat
 T   line 46: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
@@ -697,29 +697,25 @@ T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: group_by
 T   line 139: `Iter.group_by` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: reverse
 T   line 143: `Iter.reverse` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
-T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: flatten
-T   line 147: `Iter.flatten` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: map_reduce
-T   line 151: `Iter.map_reduce` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 147: `Iter.map_reduce` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: String.join
-T   line 155: `String.join` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
-T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Maybe.values
-T   line 159: `Maybe.values` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 151: `String.join` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Result.partition
-T   line 164: `Result.partition` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 156: `Result.partition` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: Task.spawn_all
-T   line 169: `Task.spawn_all` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 161: `Task.spawn_all` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: through adapters that keep it infinite
-T   line 187: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 179: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: zip of two infinite sources
-T   line 191: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 183: `Iter.to_list` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: concat with an infinite source
-T   line 195: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 187: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: sort_with
-T   line 199: `Iter.sort_with` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T   line 191: `Iter.sort_with` of an infinite iterator (`Iter.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
 T FAIL <root>/internal/irbuild/testdata/infinite_iter_traps.nomi :: to_list of an unbounded range from a negative start
-T   line 203: `Iter.to_list` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
-T test result: FAILED. 1 passed, 34 failed
+T   line 195: `Iter.to_list` of an infinite iterator (`Range.from`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+T test result: FAILED. 1 passed, 32 failed
 T
 C inspect_through_list.nomi
 E 1
@@ -857,7 +853,7 @@ T
 C pipe_stage_keyword_report.nomi
 E 1
 N 5
-H bc0beebc97af7b9e7489bb1d38b9302b07bcafbd89eddfd3bcd909a11717c958
+H f05f3b91b622e256b980274291033e759eb8f2b5e4b74c8facd1b69567282cfc
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
 T   line 48: assertion failed
 T     assert flag
@@ -880,7 +876,7 @@ T     defined as:
 T       Some(3)
 T       |> case
 T           Some(_) -> False
-T           None -> True
+T           None    -> True
 T       end
 T     pipeline values:
 T       Some(3)
@@ -888,7 +884,7 @@ T         = Some(3)
 T       Some(3)
 T       |> case
 T           Some(_) -> False
-T           None -> True
+T           None    -> True
 T       end
 T         = False
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a call stage before a keyword stage reports cumulative prefixes
@@ -916,26 +912,26 @@ T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a pipe
 T   line 72: assertion failed
 T     assert (wrap(3) |> case
 T         Some(n) -> n
-T         None -> 0
+T         None    -> 0
 T     end) == 99
 T     values:
 T       (wrap(3) |> case
 T           Some(n) -> n
-T           None -> 0
+T           None    -> 0
 T       end)
 T         = 3
 T FAIL <root>/internal/irbuild/testdata/pipe_stage_keyword_report.nomi :: a directly written case scrutinee does contribute one
 T   line 79: assertion failed
 T     assert (case wrap(3)
 T         Some(n) -> n
-T         None -> 0
+T         None    -> 0
 T     end) == 99
 T     values:
 T       wrap(3)
 T         = Some(3)
 T       (case wrap(3)
 T           Some(n) -> n
-T           None -> 0
+T           None    -> 0
 T       end)
 T         = 3
 T test result: FAILED. 0 passed, 5 failed

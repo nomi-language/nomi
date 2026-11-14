@@ -17,6 +17,7 @@ import (
 type iterationFailure struct{ err error }
 
 func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
+	ic := iterCaller{m, fr.depth}
 	defer func() {
 		if p := recover(); p != nil {
 			if failure, ok := p.(iterationFailure); ok {
@@ -59,7 +60,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		if n.Signalling() {
 			fr.write(n.Dst(), rt.SeqIterateCtl(src, func(runtime *rt.Frame, state any) (any, rt.Ctl) {
-				next, ctl := adapterOutcome(m.iterInvoke(f, runtime, state))
+				next, ctl := adapterOutcome(ic.invoke(f, runtime, state))
 				if ctl == rt.CtlSkip {
 					panic(iterationFailure{fmt.Errorf("Iter.iterate: `continue` is not supported in the step callback (the step *is* the state-advancement; use Iter.filter to skip states)")})
 				}
@@ -68,7 +69,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return nil
 		}
 		fr.write(n.Dst(), rt.SeqIterate(src, func(runtime *rt.Frame, state any) any {
-			return m.iterInvoke(f, runtime, state)
+			return ic.invoke(f, runtime, state)
 		}))
 		return nil
 	}
@@ -93,17 +94,37 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 	}
 	if n.Op() == ir.IterView {
 		if n.Over() == ir.IterOverRange {
-			return m.rangeView(fr, n, src)
+			return ic.rangeView(fr, n, src)
+		}
+		if n.Over() == ir.IterOverIntRange {
+			r, err := rangeBacking(src)
+			if err != nil {
+				return err
+			}
+			seq := rt.IntRangeSeq(r)
+			seq.Src = src
+			fr.write(n.Dst(), seq)
+			return nil
+		}
+		if n.Over() == ir.IterOverCodepointRange {
+			r, err := rangeBacking(src)
+			if err != nil {
+				return err
+			}
+			seq := rt.CodepointRangeSeq(r)
+			seq.Src = src
+			fr.write(n.Dst(), seq)
+			return nil
 		}
 		if n.Over() == ir.IterOverUserImpl {
-			return m.userView(fr, n, src)
+			return ic.userView(fr, n, src)
 		}
 		if n.Over() == ir.IterOverMap {
 			m, ok := src.(vmap)
 			if !ok {
 				return fmt.Errorf("vm: map iteration reads %T, not a Map", src)
 			}
-			fr.write(n.Dst(), sourceView(rt.MapSeq(m, pair), src, func(*rt.Frame) rt.Maybe[int64] { return rt.MapKnownCount(m) }))
+			fr.write(n.Dst(), sourceView(mapEntriesSeq(m), src, func(*rt.Frame) rt.Maybe[int64] { return rt.MapKnownCount(m) }))
 			return nil
 		}
 		if n.Over() == ir.IterOverSet {
@@ -160,16 +181,20 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 	if !ok {
 		return fmt.Errorf("vm: iteration reads %T, not a sequence", src)
 	}
+	if seq.Reusing != nil && m.lendsItems(fr, n) {
+		seq = seq.Reusing()
+	}
 	if m.fuel != nil {
 		seq = m.metered(seq)
 	}
 	if fr.runtime.Stoppable() {
 		seq = stoppable(seq)
 	}
-	if mustReachEnd(n) {
+	if seq.Endless != nil && mustReachEnd(n) {
 		// Before anything is asked of the source: a terminal that has to
 		// reach the end of an endless one traps at once instead of
-		// running until memory runs out.
+		// running until memory runs out. A source with no Endless can
+		// end, so the terminal's name is built only for one that may not.
 		rt.SeqMustEnd(fr.runtime, seq, terminalName(fr, n))
 	}
 	switch n.Op() {
@@ -184,17 +209,17 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		if n.Signalling() && n.Op() == ir.IterMap {
 			fr.write(n.Dst(), rt.SeqMapCtl(seq, func(runtime *rt.Frame, item any) (any, rt.Ctl) {
-				return adapterOutcome(m.iterInvoke(f, runtime, item))
+				return adapterOutcome(ic.invoke(f, runtime, item))
 			}))
 		} else if n.Signalling() {
-			fr.write(n.Dst(), rt.SeqFilterCtl(seq, m.ctlPredicate(f, n.Op())))
+			fr.write(n.Dst(), rt.SeqFilterCtl(seq, ic.ctlPredicate(f, n.Op())))
 		} else if n.Op() == ir.IterMap {
 			fr.write(n.Dst(), rt.SeqMap(seq, func(runtime *rt.Frame, item any) any {
-				return m.iterInvoke(f, runtime, item)
+				return ic.invoke(f, runtime, item)
 			}))
 		} else {
 			fr.write(n.Dst(), rt.SeqFilter(seq, func(runtime *rt.Frame, item any) bool {
-				result := m.iterInvoke(f, runtime, item)
+				result := ic.invoke(f, runtime, item)
 				accepted, ok := asBool(result)
 				if !ok {
 					panic(iterationFailure{fmt.Errorf("vm: filter callback returned %T, not Bool", result)})
@@ -219,12 +244,15 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		if n.Signalling() {
 			fold := func(runtime *rt.Frame, acc, item any) (any, bool) {
-				return reduceOutcome(m.iterInvoke(f, runtime, acc, item), acc)
+				return reduceOutcome(ic.invoke(f, runtime, acc, item), acc)
 			}
 			fr.write(n.Dst(), rt.SeqReduceCtl(fr.runtime, seq, seed, fold))
 			return nil
 		}
-		fold := func(runtime *rt.Frame, acc, item any) any { return m.iterInvoke(f, runtime, acc, item) }
+		fold := func(runtime *rt.Frame, acc, item any) any { return ic.invoke(f, runtime, acc, item) }
+		if mask, fd, ok := ownedFold(fr, n, f); ok {
+			fold = ic.ownedReduce(f, mask, fd)
+		}
 		fr.write(n.Dst(), rt.SeqReduce(fr.runtime, seq, seed, fold))
 	case ir.IterScan, ir.IterMapReduce:
 		// The operands are reduce's: the source, the seed and the callback.
@@ -239,12 +267,12 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if n.Op() == ir.IterScan {
 			if n.Signalling() {
 				fr.write(n.Dst(), rt.SeqScanCtl(seq, seed, func(runtime *rt.Frame, acc, item any) (any, rt.Ctl) {
-					return adapterOutcome(m.iterInvoke(f, runtime, acc, item))
+					return adapterOutcome(ic.invoke(f, runtime, acc, item))
 				}))
 				return nil
 			}
 			fr.write(n.Dst(), rt.SeqScan(seq, seed, func(runtime *rt.Frame, acc, item any) any {
-				return m.iterInvoke(f, runtime, acc, item)
+				return ic.invoke(f, runtime, acc, item)
 			}))
 			return nil
 		}
@@ -256,7 +284,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		var out any
 		if n.Signalling() {
 			out = rt.SeqMapReduceCtlCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any, rt.Ctl) {
-				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, acc, item))
+				result, ctl := adapterOutcome(ic.invoke(f, runtime, acc, item))
 				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
 					return nil, nil, ctl
 				}
@@ -264,9 +292,13 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 				return next, o, ctl
 			}, joined)
 		} else {
-			out = rt.SeqMapReduceCells[any, any, any, list](fr.runtime, seq, seed, func(runtime *rt.Frame, acc, item any) (any, any) {
-				return split(m.iterInvoke(f, runtime, acc, item))
-			}, joined)
+			step := func(runtime *rt.Frame, acc, item any) (any, any) {
+				return split(ic.invoke(f, runtime, acc, item))
+			}
+			if mask, fd, ok := ownedFold(fr, n, f); ok {
+				step = ic.ownedMapReduce(f, mask, fd, split)
+			}
+			out = rt.SeqMapReduceCells[any, any, any, list](fr.runtime, seq, seed, step, joined)
 		}
 		if failed != nil {
 			return failed
@@ -312,7 +344,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			if desc {
 				a, b = b, a
 			}
-			return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "sort comparator")
+			return iterOrdering(ic.invoke(cmp, runtime, a, b), "sort comparator")
 		})
 		fr.write(n.Dst(), out)
 	case ir.IterSortBy:
@@ -338,9 +370,9 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 				// std's Descending arm is `compare(key(b), key(a))`.
 				a, b = b, a
 			}
-			ka := m.iterInvoke(key, runtime, a)
-			kb := m.iterInvoke(key, runtime, b)
-			return iterOrdering(m.iterInvoke(cmp, runtime, ka, kb), "sort_by ordering")
+			ka := ic.invoke(key, runtime, a)
+			kb := ic.invoke(key, runtime, b)
+			return iterOrdering(ic.invoke(cmp, runtime, ka, kb), "sort_by ordering")
 		})
 		fr.write(n.Dst(), out)
 	case ir.IterAny, ir.IterAll, ir.IterEachWhile:
@@ -353,7 +385,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return fmt.Errorf("vm: %s requires a unary predicate", n.Op())
 		}
 		pred := func(runtime *rt.Frame, item any) bool {
-			result := m.iterInvoke(f, runtime, item)
+			result := ic.invoke(f, runtime, item)
 			b, ok := asBool(result)
 			if !ok {
 				panic(iterationFailure{fmt.Errorf("vm: %s predicate returned %T, not Bool", n.Op(), result)})
@@ -361,7 +393,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return b
 		}
 		if n.Signalling() {
-			ctlPred := m.ctlPredicate(f, n.Op())
+			ctlPred := ic.ctlPredicate(f, n.Op())
 			if n.Op() == ir.IterAny {
 				fr.write(n.Dst(), boolValue(rt.SeqAnyCtl(fr.runtime, seq, ctlPred)))
 			} else {
@@ -387,11 +419,11 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return fmt.Errorf("vm: find requires a unary predicate")
 		}
 		if n.Signalling() {
-			fr.write(n.Dst(), maybeOf(rt.SeqFindCtl(fr.runtime, seq, m.ctlPredicate(f, n.Op()))))
+			fr.write(n.Dst(), maybeOf(rt.SeqFindCtl(fr.runtime, seq, ic.ctlPredicate(f, n.Op()))))
 			return nil
 		}
 		fr.write(n.Dst(), maybeOf(rt.SeqFind(fr.runtime, seq, func(runtime *rt.Frame, item any) bool {
-			result := m.iterInvoke(f, runtime, item)
+			result := ic.invoke(f, runtime, item)
 			b, ok := asBool(result)
 			if !ok {
 				panic(iterationFailure{fmt.Errorf("vm: find predicate returned %T, not Bool", result)})
@@ -417,7 +449,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return fmt.Errorf("vm: partition requires a unary predicate")
 		}
 		fr.write(n.Dst(), rt.SeqPartitionCells[any, list](fr.runtime, seq, func(runtime *rt.Frame, item any) bool {
-			result := m.iterInvoke(f, runtime, item)
+			result := ic.invoke(f, runtime, item)
 			b, ok := asBool(result)
 			if !ok {
 				panic(iterationFailure{fmt.Errorf("vm: partition predicate returned %T, not Bool", result)})
@@ -438,7 +470,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		k := m.keysFor(fr)
 		groups := rt.SeqGroupByCells[any, any, list](fr.runtime, seq, k.HashFunc(), k.EqualFunc(),
 			func(runtime *rt.Frame, item any) any {
-				return m.iterInvoke(f, runtime, item)
+				return ic.invoke(f, runtime, item)
 			}, func(xs *list) any { return xs })
 		fr.write(n.Dst(), groups)
 	case ir.IterFirst:
@@ -452,9 +484,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 	case ir.IterReverse:
 		fr.write(n.Dst(), rt.SeqReverseCells[any, list](fr.runtime, seq))
 	case ir.IterWithIndex:
-		fr.write(n.Dst(), rt.SeqWithIndex(seq, func(i int64, x any) any {
-			return pair(i, x)
-		}))
+		fr.write(n.Dst(), withIndexSeq(seq))
 	case ir.IterZip:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -464,9 +494,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		if !ok {
 			return fmt.Errorf("vm: zip reads %T, not a sequence", arg)
 		}
-		fr.write(n.Dst(), rt.SeqZip(seq, right, func(a, b any) any {
-			return pair(a, b)
-		}))
+		fr.write(n.Dst(), zipSeq(seq, right))
 	case ir.IterConcat:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
@@ -483,7 +511,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		fr.write(n.Dst(), boolValue(rt.SeqEmpty(fr.runtime, seq)))
 	case ir.IterToList:
 		fr.write(n.Dst(), rt.SeqToListCells[any, list](fr.runtime, seq))
-	case ir.IterDrop, ir.IterChunks:
+	case ir.IterDrop, ir.IterChunks, ir.IterWindows:
 		arg, err := fr.read(n.Arg(1))
 		if err != nil {
 			return err
@@ -494,6 +522,8 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		count := rt.IntSaturated(arg)
 		if n.Op() == ir.IterDrop {
 			fr.write(n.Dst(), rt.SeqDrop(seq, count))
+		} else if n.Op() == ir.IterWindows {
+			fr.write(n.Dst(), rt.SeqMap(rt.SeqWindows(seq, count), func(_ *rt.Frame, xs *list) any { return xs }))
 		} else {
 			fr.write(n.Dst(), rt.SeqMap(rt.SeqChunks(seq, count), func(_ *rt.Frame, xs *list) any { return xs }))
 		}
@@ -503,7 +533,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return err
 		}
 		pred := func(runtime *rt.Frame, item any) bool {
-			result := m.iterInvoke(f, runtime, item)
+			result := ic.invoke(f, runtime, item)
 			b, ok := asBool(result)
 			if !ok {
 				panic(iterationFailure{fmt.Errorf("vm: %s predicate returned %T, not Bool", n.Op(), result)})
@@ -511,11 +541,11 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return b
 		}
 		if n.Signalling() && n.Op() == ir.IterTakeWhile {
-			fr.write(n.Dst(), rt.SeqTakeWhileCtl(seq, m.ctlPredicate(f, n.Op())))
+			fr.write(n.Dst(), rt.SeqTakeWhileCtl(seq, ic.ctlPredicate(f, n.Op())))
 			return nil
 		}
 		if n.Signalling() {
-			fr.write(n.Dst(), rt.SeqDropWhileCtl(seq, m.ctlPredicate(f, n.Op())))
+			fr.write(n.Dst(), rt.SeqDropWhileCtl(seq, ic.ctlPredicate(f, n.Op())))
 			return nil
 		}
 		if n.Op() == ir.IterTakeWhile {
@@ -534,13 +564,13 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			// std's `each` folds and discards: `break` stops the walk and
 			// every other signal carries on.
 			fr.write(n.Dst(), rt.SeqEachCtl(fr.runtime, seq, func(runtime *rt.Frame, item any) bool {
-				_, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+				_, ctl := adapterOutcome(ic.invoke(f, runtime, item))
 				return ctl != rt.CtlStop && ctl != rt.CtlEmitStop
 			}))
 			return nil
 		}
 		fr.write(n.Dst(), rt.SeqEach(fr.runtime, seq, func(runtime *rt.Frame, item any) any {
-			return m.iterInvoke(f, runtime, item)
+			return ic.invoke(f, runtime, item)
 		}))
 	case ir.IterToSet:
 		// `Iter.to_set`: members in first-occurrence
@@ -571,7 +601,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 		}
 		if n.Signalling() && n.Op() == ir.IterFlatMapList {
 			fr.write(n.Dst(), rt.SeqFlatMapListCtl(seq, func(runtime *rt.Frame, item any) (*list, rt.Ctl) {
-				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+				result, ctl := adapterOutcome(ic.invoke(f, runtime, item))
 				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
 					return nil, ctl
 				}
@@ -579,7 +609,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}))
 		} else if n.Signalling() {
 			fr.write(n.Dst(), rt.SeqFlatMapCtl(seq, func(runtime *rt.Frame, item any) (rt.Seq[any], rt.Ctl) {
-				result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+				result, ctl := adapterOutcome(ic.invoke(f, runtime, item))
 				if ctl == rt.CtlSkip || ctl == rt.CtlStop {
 					return rt.Seq[any]{}, ctl
 				}
@@ -591,11 +621,11 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			}))
 		} else if n.Op() == ir.IterFlatMapList {
 			fr.write(n.Dst(), rt.SeqFlatMapList(seq, func(runtime *rt.Frame, item any) *list {
-				return iterListResult(m.iterInvoke(f, runtime, item))
+				return iterListResult(ic.invoke(f, runtime, item))
 			}))
 		} else {
 			fr.write(n.Dst(), rt.SeqFlatMap(seq, func(runtime *rt.Frame, item any) rt.Seq[any] {
-				inner, ok := m.iterInvoke(f, runtime, item).(rt.Seq[any])
+				inner, ok := ic.invoke(f, runtime, item).(rt.Seq[any])
 				if !ok {
 					panic(iterationFailure{fmt.Errorf("vm: flat_map callback returned no sequence")})
 				}
@@ -622,7 +652,7 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			return err
 		}
 		chunks := rt.SeqChunkBy(seq, func(runtime *rt.Frame, item any) any {
-			return m.iterInvoke(f, runtime, item)
+			return ic.invoke(f, runtime, item)
 		}, m.keysFor(fr).EqualFunc())
 		fr.write(n.Dst(), rt.SeqMap(chunks, func(_ *rt.Frame, xs *list) any { return xs }))
 	default:
@@ -631,7 +661,49 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 	return nil
 }
 
+// iterCaller runs a callback that a driver in Go calls on behalf of an
+// activation at depth, so the call counts from that activation's depth (the
+// call-depth limit, depth.go). It is a value: an iteration instruction
+// builds its stages over it instead of copying the Machine into a view, as
+// `at` would, once per instruction.
+type iterCaller struct {
+	m     *Machine
+	depth int
+}
+
 func (m *Machine) iterInvoke(f *functionValue, runtime *rt.Frame, args ...any) any {
+	return iterCaller{m, m.depth}.invoke(f, runtime, args...)
+}
+
+func (ic iterCaller) invoke(f *functionValue, runtime *rt.Frame, args ...any) any {
+	return ic.invokeOwned(f, runtime, 0, args...)
+}
+
+// ownedReduce is a reduce's step handing f its accumulator as owned under
+// mask, which advances per element. The mask the step updates lives in
+// this call's frame, so it is moved to the heap only for a fold that hands
+// its accumulator on, never for the plain fold of iterInstr's reduce.
+func (ic iterCaller) ownedReduce(f *functionValue, mask uint64, fd ir.Fold) func(*rt.Frame, any, any) any {
+	return func(runtime *rt.Frame, acc, item any) any {
+		v := ic.invokeOwned(f, runtime, mask, acc, item)
+		mask = fd.NextReduce(mask)
+		return v
+	}
+}
+
+// ownedMapReduce is ownedReduce for a map_reduce's step, whose result split
+// takes apart.
+func (ic iterCaller) ownedMapReduce(f *functionValue, mask uint64, fd ir.Fold, split func(any) (any, any)) func(*rt.Frame, any, any) (any, any) {
+	return func(runtime *rt.Frame, acc, item any) (any, any) {
+		v := ic.invokeOwned(f, runtime, mask, acc, item)
+		mask = fd.NextMapReduce(mask)
+		return split(v)
+	}
+}
+
+// invokeOwned is invoke handing the callback the parameters in owned as
+// its own: a fold's accumulator (inplace.go).
+func (ic iterCaller) invokeOwned(f *functionValue, runtime *rt.Frame, owned uint64, args ...any) any {
 	// The operands do not outlive the call, so a driver's variadic slice
 	// stays on its stack; only a host callable, which may keep them, gets a
 	// copy.
@@ -640,7 +712,7 @@ func (m *Machine) iterInvoke(f *functionValue, runtime *rt.Frame, args ...any) a
 	if f.host != nil {
 		v, err = f.host(runtime, append([]any(nil), args...))
 	} else {
-		v, err = m.activateSlot(f.fnSlot(m), args, f.captures, runtime, false, m.depth, nil)
+		v, err = ic.m.activateOwned(f.fnSlot(ic.m), args, f.captures, runtime, false, ic.depth, nil, owned)
 	}
 	if err != nil {
 		panic(iterationFailure{err})
@@ -650,7 +722,7 @@ func (m *Machine) iterInvoke(f *functionValue, runtime *rt.Frame, args ...any) a
 
 // rangeView walks a boxed Range with the element's linked `Comparable.compare`
 // and `Discrete.next` bodies, through the runtime's own Range driver.
-func (m *Machine) rangeView(fr *frame, n *ir.Iter, src any) error {
+func (ic iterCaller) rangeView(fr *frame, n *ir.Iter, src any) error {
 	r, err := rangeBacking(src)
 	if err != nil {
 		return err
@@ -683,16 +755,16 @@ func (m *Machine) rangeView(fr *frame, n *ir.Iter, src any) error {
 		}
 		count = func(runtime *rt.Frame) rt.Maybe[int64] {
 			return rt.RangeCount64(rt.RangeKnownCount(runtime, r, func(runtime *rt.Frame, a, b any) rt.Ordering {
-				return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "range comparator")
+				return iterOrdering(ic.invoke(cmp, runtime, a, b), "range comparator")
 			}, func(runtime *rt.Frame, a, b any) rt.Maybe[any] {
-				return rangeSteps(m.iterInvoke(steps, runtime, a, b))
+				return rangeSteps(ic.invoke(steps, runtime, a, b))
 			}))
 		}
 	}
 	fr.write(n.Dst(), sourceView(rt.RangeSeq(r, func(runtime *rt.Frame, a, b any) rt.Ordering {
-		return iterOrdering(m.iterInvoke(cmp, runtime, a, b), "range comparator")
+		return iterOrdering(ic.invoke(cmp, runtime, a, b), "range comparator")
 	}, func(runtime *rt.Frame, v any) rt.Maybe[any] {
-		res := m.iterInvoke(next, runtime, v)
+		res := ic.invoke(next, runtime, v)
 		payload, isSome, ok := maybeParts(res)
 		if !ok {
 			panic(iterationFailure{fmt.Errorf("vm: range successor returned %T, want Maybe", res)})
@@ -716,7 +788,7 @@ func sourceView(seq rt.Seq[any], src any, count func(*rt.Frame) rt.Maybe[int64])
 // through rt.UserSeq. Each run hands the linked body the
 // receiver and the driver's `yield` as a host-backed function value, so a
 // consumer's stop crosses back out through the program's own recursion.
-func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
+func (ic iterCaller) userView(fr *frame, n *ir.Iter, src any) error {
 	v, err := fr.read(n.Arg(1))
 	if err != nil {
 		return err
@@ -732,7 +804,7 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 			}
 			return boolValue(yield(runtime, args[0])), nil
 		}}
-		result := m.iterInvoke(each, runtime, recv, y)
+		result := ic.invoke(each, runtime, recv, y)
 		more, ok := asBool(result)
 		if !ok {
 			panic(iterationFailure{fmt.Errorf("vm: each_while returned %T, not Bool", result)})
@@ -757,7 +829,7 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 			return fmt.Errorf("vm: user source view operand 2 is %T, not its known_count", v)
 		default:
 			count = func(runtime *rt.Frame) rt.Maybe[int64] {
-				return rt.RangeCount64(rangeSteps(m.iterInvoke(kc, runtime, src)))
+				return rt.RangeCount64(rangeSteps(ic.invoke(kc, runtime, src)))
 			}
 		}
 	}
@@ -776,7 +848,7 @@ func (m *Machine) userView(fr *frame, n *ir.Iter, src any) error {
 			name = "Iter.is_infinite"
 		}
 		view = rt.WithEndless(view, func(runtime *rt.Frame) string {
-			result := m.iterInvoke(inf, runtime, src)
+			result := ic.invoke(inf, runtime, src)
 			endless, ok := asBool(result)
 			if !ok {
 				panic(iterationFailure{fmt.Errorf("vm: is_infinite returned %T, not Bool", result)})
@@ -878,9 +950,9 @@ func adapterOutcome(v any) (any, rt.Ctl) {
 // ctlPredicate is a signalling Bool callback read as the (decision, Ctl) pair
 // rt's filter, take_while, drop_while, find, any_match and all_match drivers take. A
 // `continue` or bare `break` carries no decision.
-func (m *Machine) ctlPredicate(f *functionValue, op ir.IterOp) func(*rt.Frame, any) (bool, rt.Ctl) {
+func (ic iterCaller) ctlPredicate(f *functionValue, op ir.IterOp) func(*rt.Frame, any) (bool, rt.Ctl) {
 	return func(runtime *rt.Frame, item any) (bool, rt.Ctl) {
-		result, ctl := adapterOutcome(m.iterInvoke(f, runtime, item))
+		result, ctl := adapterOutcome(ic.invoke(f, runtime, item))
 		if ctl == rt.CtlSkip || ctl == rt.CtlStop {
 			return false, ctl
 		}

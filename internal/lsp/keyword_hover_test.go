@@ -106,9 +106,11 @@ func TestHover_KeywordsFollowTheirContext(t *testing.T) {
 func TestHover_KeywordsNameWhatTheyAct(t *testing.T) {
 	runShapeHoverCases(t, keywordHoverDecls, []shapeHoverCase{
 		{"return names its function's result", "fn parse(text: String) -> Result<Int, String>\n  if text == \"\" { ▮return Err(\"empty\") }\n  Ok(1)\nend\n",
-			[]string{"Here it leaves `fn parse`, which returns `Result<Int, String>`."}, nil},
+			[]string{"return value: Result<Int, String>", "Leaves `fn parse` with `value`, its result."}, nil},
 		{"return in a lambda names the lambda's result", "fn main()\n  _ = Iter.map([1], fn n ->\n    if n > 0 { ▮return \"big\" }\n    \"small\"\n  end)\nend\n",
-			[]string{"Here it leaves the lambda, which returns `String`."}, []string{"fn main"}},
+			[]string{"return value: String", "Leaves the lambda with `value`, its result."}, []string{"fn main"}},
+		{"return in a Unit function shows the bare form", "fn main()\n  if True { ▮return }\nend\n",
+			[]string{"```nomi\nreturn\n```", "Leaves `fn main`, which returns `Unit`."}, []string{"return value"}},
 		{"break names the iteration", "fn main()\n  _ = Iter.loop(0, fn n ->\n    if n == 3 { ▮break n }\n    n + 1\n  end)\nend\n",
 			[]string{"Here it leaves the callback passed to `Iter.loop`."}, nil},
 		{"continue names the iteration", "fn main()\n  _ = Iter.map([1, 2], fn n ->\n    if n == 1 { ▮continue }\n    n\n  end) |> Iter.to_list()\nend\n",

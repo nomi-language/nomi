@@ -3,17 +3,17 @@
 /// Where a laser beam is and the direction it travels in, in degrees
 /// counterclockwise from the positive x axis.
 pub struct Laser
-    x: Float
-    y: Float
+    x:     Float
+    y:     Float
     angle: Float
 end
 
 /// A crystal at a point, which turns a beam that reaches it by `angle`
 /// degrees.
 pub struct Prism
-    id: Int
-    x: Float
-    y: Float
+    id:    Int
+    x:     Float
+    y:     Float
     angle: Float
 end
 

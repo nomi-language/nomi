@@ -1,6 +1,6 @@
 package vmhost
 
-// compiler.run's engine: the VM. The five std/compiler hosts themselves are
+// compiler.run's engine: the VM. The six std/compiler hosts themselves are
 // internal/compilerhosts'; every machine a Program opens binds them.
 
 import (

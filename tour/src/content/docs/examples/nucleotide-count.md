@@ -29,7 +29,7 @@ impl Nucleotide
             "C" -> Ok(.C)
             "G" -> Ok(.G)
             "T" -> Ok(.T)
-            _ -> Err("Invalid nucleotide in strand")
+            _   -> Err("Invalid nucleotide in strand")
         end
     end
 end

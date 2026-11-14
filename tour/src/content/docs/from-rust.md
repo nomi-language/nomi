@@ -17,7 +17,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | Rust | Nomi |
 |---|---|
 | `let x = 1;`, `let mut x` | `x = 1`. Nothing is mutable; a later `x = ...` binds the name again. |
-| `xs.len()`, `s.trim()` | `Iter.count(xs)`, `String.trim(s)`: there are no method calls. |
+| `xs.len()`, `s.trim()` | `List.length(xs)`, `String.trim(s)`: there are no method calls. |
 | `(1, "a")`, `t.0` | A tuple is `(1, "a")` as in Rust, but its items are read as `t.first`, `t.second`, ... |
 | `if c { x }` needs `x: ()`; `c.then_some(x)`, `c.then(\|\| x)` | The same rule as Rust: an `if` without `else` is a statement, and its branch is `Unit` or leaves. `then_some` has no counterpart; write `if c then Some(x) else None`. |
 | `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
@@ -25,6 +25,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
 | `#[derive(PartialEq, Eq, Hash, Debug)]` | Nothing: `==`, hashing and `dbg` work on every struct and enum, field by field. `derive Comparable for T` orders field by field, as `#[derive(PartialOrd, Ord)]` does. |
 | `fn f(x: &dyn Speak)`, `fn f(x: impl Speak)` | `fn f(x: Speak)`: a parameter used only through one interface takes it as its type. Write a type parameter when the type comes back, as in `fn larger<T>(a: T, b: T) -> T` |
+| `Box<dyn Speak + Send>`; `dyn Speak + Display` is refused, since only auto traits join a trait object | `Speak and Display`: a value of any type implementing both, through either interface, as a parameter, a field or a list element (`List<Speak and Display>`) |
 | A state struct built in `main`, passed with `.with_state(state)` and read through `State<AppState>` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`, with no extractor or parameter. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
 ## Spelled differently
@@ -40,7 +41,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `.unwrap_or(x)`, `.or(other)`, `.or_else(f)` | `Maybe.with_default(m, x)`, `Maybe.otherwise(m, other)`, `Maybe.or_else(m, f)` |
 | serde's `Option<Option<T>>` for a key missing or `null` | `Presence<Maybe<T>>`: `Absent`, `Present(None)` or `Present(Some(v))` |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
-| `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied |
+| `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map`; an `fn(&dyn Speak)` never stands in for an `fn(&Dog)` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied, and a `(Speak) -> String` where a `(Dog) -> String` is: type parameters are covariant or contravariant by where they appear, inferred from the type |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
 | `todo!("parse")` | `todo "parse"` |
@@ -90,7 +91,7 @@ impl Shape
     fn area(shape: Shape) -> Int
         case shape
             .Circle{radius:} -> 3 * radius * radius
-            .Square{side:} -> side * side
+            .Square{side:}   -> side * side
         end
     end
 end

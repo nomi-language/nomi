@@ -37,7 +37,7 @@ func stdModuleDoc(name string) string {
 		}
 		para = append(para, text)
 	}
-	link := "More in the [reference](https://nomi-lang.org/reference/" + name + "/)."
+	link := "More in the [reference](https://nomi-lang.org/reference/" + name + "/)"
 	if len(para) == 0 {
 		return link
 	}

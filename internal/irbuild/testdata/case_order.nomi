@@ -17,12 +17,12 @@ end
 // unguarded tests above guarded ones would answer the later arm.
 fn classify(n: Int) -> String
     case n
-        0 -> "zero"
-        1 -> "one"
-        m when m < 0 -> "negative: ${m}"
+        0              -> "zero"
+        1              -> "one"
+        m when m < 0   -> "negative: ${m}"
         m when m > 100 -> "huge"
-        m -> "other: ${m}"
-        2 -> "unreachable"
+        m              -> "other: ${m}"
+        2              -> "unreachable"
     end
 end
 
@@ -41,8 +41,8 @@ end
 // case above the default would answer "unreachable" here instead of "not low".
 fn level(l: Level) -> String
     case l
-        .Low -> "low"
-        _ -> "not low"
+        .Low  -> "low"
+        _     -> "not low"
         .High -> "unreachable"
     end
 end

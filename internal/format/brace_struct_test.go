@@ -12,7 +12,7 @@ func TestFormat_BraceStructsAndPuns(t *testing.T) {
 		{"fn main()\n    r = f(body, status: status)\nend\n", "fn main()\n    r = f(body, status:)\nend\n"},
 		{"fn main()\n    {x: x, y: b} = p\nend\n", "fn main()\n    {x:, y: b} = p\nend\n"},
 		{"fn f(p: {a: Int}) -> {b: Int}\n    {b: p.a}\nend\n", "fn f(p: {a: Int}) -> {b: Int}\n    {b: p.a}\nend\n"},
-		{"fn main()\n    x = case p\n        P{x: x} -> x\n        _ -> 0\n    end\nend\n", "fn main()\n    x = case p\n        P{x:} -> x\n        _ -> 0\n    end\nend\n"},
+		{"fn main()\n    x = case p\n        P{x: x} -> x\n        _ -> 0\n    end\nend\n", "fn main()\n    x = case p\n        P{x:} -> x\n        _     -> 0\n    end\nend\n"},
 	} {
 		got := formatTwice(t, tc.src)
 		if got != tc.want {

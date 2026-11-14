@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -433,20 +434,70 @@ type TypeParam_ struct {
 func (t *TypeParam_) String() string { return t.Name_ }
 func (t *TypeParam_) typeTag()       {}
 
-// BoundAliasType represents a `typealias Name A and B` declaration —
-// a named conjunction of interfaces usable only in interface-bound
-// positions (e.g. `where T: Name`). The expansion happens during type-param
-// build: each BoundAliasType in a bound list is replaced by its
-// underlying interfaces. Outside bound positions (struct fields,
-// function parameters, etc.) BoundAliasType is rejected with a clear
-// error pointing the user at `where T: Name`.
-type BoundAliasType struct {
-	Name_  string
-	Bounds []*InterfaceType
+// ConjunctionType is an interface conjunction, `Priced and Costed` (spec §5
+// *Interface conjunctions*). As a value type it holds a value of any type
+// that implements every member, and a call through any member dispatches
+// to the held value's impl. In a `where` bound, and as what `typealias
+// Name A and B` names there, its members are spliced into the parameter's
+// bounds.
+//
+// It is built only by NewConjunction, which normalizes it: the members
+// sorted by name and then origin, an interface written twice kept once, a
+// conjunction inside one spliced in. So `A and B`, `B and A` and `A and B
+// and A` are one value, and TypesEqual, the stdlib's state and the
+// checker's records compare members pairwise.
+type ConjunctionType struct {
+	Members []*InterfaceType
 }
 
-func (t *BoundAliasType) String() string { return t.Name_ }
-func (t *BoundAliasType) typeTag()       {}
+func (t *ConjunctionType) String() string {
+	parts := make([]string, len(t.Members))
+	for i, m := range t.Members {
+		parts[i] = m.String()
+	}
+	return strings.Join(parts, " and ")
+}
+func (t *ConjunctionType) typeTag() {}
+
+// NewConjunction is the conjunction of members, normalized (ConjunctionType).
+// One member left after normalizing is that interface itself.
+func NewConjunction(members []*InterfaceType) Type {
+	out := make([]*InterfaceType, 0, len(members))
+	for _, m := range members {
+		dup := false
+		for _, o := range out {
+			if TypesEqual(o, m) {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			out = append(out, m)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Origin < out[j].Origin
+	})
+	if len(out) == 1 {
+		return out[0]
+	}
+	return &ConjunctionType{Members: out}
+}
+
+// InterfaceMembers is the interfaces a value of type t is held as: t's
+// members for a conjunction, t itself for an interface, and nil otherwise.
+func InterfaceMembers(t Type) []*InterfaceType {
+	switch t := t.(type) {
+	case *ConjunctionType:
+		return t.Members
+	case *InterfaceType:
+		return []*InterfaceType{t}
+	}
+	return nil
+}
 
 // TypeVar represents a type variable used during type inference.
 type TypeVar struct {
@@ -605,6 +656,13 @@ func ContainsTypeParam(t Type) bool {
 	case *InterfaceType:
 		for _, a := range t.TypeArgs {
 			if ContainsTypeParam(a) {
+				return true
+			}
+		}
+		return false
+	case *ConjunctionType:
+		for _, m := range t.Members {
+			if ContainsTypeParam(m) {
 				return true
 			}
 		}
@@ -829,6 +887,19 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		}
 		for i := range at.TypeArgs {
 			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
+				return false
+			}
+		}
+		return true
+
+	case *ConjunctionType:
+		// Normalized by NewConjunction, so the members pair up.
+		bt, ok := b.(*ConjunctionType)
+		if !ok || len(at.Members) != len(bt.Members) {
+			return false
+		}
+		for i := range at.Members {
+			if !typesEqualIn(at.Members[i], bt.Members[i], m) {
 				return false
 			}
 		}

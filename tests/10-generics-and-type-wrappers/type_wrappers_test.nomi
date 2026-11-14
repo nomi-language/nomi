@@ -44,12 +44,12 @@ test "map distinct wrappers support literal attach and destructuring"
 
     flat = case kv
         Kvs{"a" => v} -> "got a=${v}"
-        _ -> "no a"
+        _             -> "no a"
     end
 
     nested = case kv
         Kvs({"b" => v}) -> "got b=${v}"
-        _ -> "no b"
+        _               -> "no b"
     end
 
     assert Debug.inspect(kv) == "Kvs({\"a\" => 1, \"b\" => 2})"
@@ -95,9 +95,9 @@ typealias Count Maybe<Int>
 
 fn shape_size(s: Shape) -> Int
     case s
-        S.Num(n) -> n
+        S.Num(n)       -> n
         S.Rect{w:, h:} -> w * h
-        S.Dot -> 0
+        S.Dot          -> 0
     end
 end
 
@@ -109,7 +109,7 @@ test "an enum alias qualifies variants in patterns and constructors"
 
     n = case c
         Count.Some(k) -> k
-        Count.None -> 0
+        Count.None    -> 0
     end
 
     assert n == 4

@@ -1,6 +1,6 @@
 struct Span<T>
     start: T
-    stop: T
+    stop:  T
 end
 
 impl Span<T>
@@ -38,7 +38,7 @@ impl Tree<T>
     fn value_or<T>(tree: Tree<T>, fallback: T) -> T
         case tree
             Tree.Node(value) -> value
-            Tree.Leaf -> fallback
+            Tree.Leaf        -> fallback
         end
     end
 end

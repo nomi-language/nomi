@@ -1,10 +1,10 @@
 fn token_kind(cp: Codepoint) -> String
     case cp
-        '(' -> "open"
-        ')' -> "close"
-        ' ' -> "space"
+        '('  -> "open"
+        ')'  -> "close"
+        ' '  -> "space"
         '\n' -> "newline"
-        _ -> "other"
+        _    -> "other"
     end
 end
 
@@ -71,13 +71,13 @@ end
 test "codepoint literals match inside variant and tuple patterns"
     found = case List.head(['x', 'y'])
         Some('x') -> "x first"
-        Some(_) -> "other first"
-        None -> "empty"
+        Some(_)   -> "other first"
+        None      -> "empty"
     end
 
     signed = case ('-', 3)
         ('-', n) -> -n
-        (_, n) -> n
+        (_, n)   -> n
     end
 
     assert found == "x first"

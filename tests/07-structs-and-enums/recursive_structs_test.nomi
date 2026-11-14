@@ -1,5 +1,5 @@
 struct Node
-    name: String
+    name:     String
     children: List<Node>
 end
 
@@ -7,11 +7,11 @@ derive Equatable for Node
 
 struct Link
     value: Int
-    next: Maybe<Link>
+    next:  Maybe<Link>
 end
 
 struct Dir
-    name: String
+    name:    String
     entries: Map<String, Dir>
 end
 
@@ -21,12 +21,12 @@ struct Stream
 end
 
 struct Team
-    name: String
+    name:    String
     members: List<Member>
 end
 
 struct Member
-    name: String
+    name:  String
     teams: List<Team>
 end
 
@@ -39,7 +39,7 @@ end
 fn length(link: Link) -> Int
     case link.next
         Some(rest) -> 1 + length(rest)
-        None -> 1
+        None       -> 1
     end
 end
 

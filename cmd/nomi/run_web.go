@@ -56,7 +56,7 @@ import (
 //go:embed web/nomi-dev.js
 var webDevJS []byte
 
-const runUsage = "usage: nomi run <file> [args]\n       nomi run --watch <file> [args]\n       nomi run --web [--port N] [--open] [--static <dir>] <file>"
+const runUsage = "usage: nomi run [--profile[=<file>]] <file> [args]\n       nomi run --watch <file> [args]\n       nomi run --web [--port N] [--open] [--static <dir>] <file>"
 
 const (
 	// webFirstPort is where `nomi run --web` starts looking for a free port.

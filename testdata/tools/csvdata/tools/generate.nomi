@@ -5,6 +5,7 @@
 // a comma and a value. With `--check` it writes nothing and fails when a
 // file is not what it would write.
 import
+    std::compiler
     std::fs
     std::io
     csvdata
@@ -20,9 +21,9 @@ end
 
 fn main() -> Result<Unit, String>
     check = case App.args
-        [] -> False
+        []          -> False
         ["--check"] -> True
-        _ -> return Err("usage: nomi tool csvdata generate [--check]")
+        _           -> return Err("usage: nomi tool csvdata generate [--check]")
     end
 
     paths = fs.glob("data/*.csv") |> Result.map_err(fn e -> "data: ${e}")?
@@ -50,7 +51,12 @@ fn main() -> Result<Unit, String>
         end
         """
 
-    changed = stale([("tables.nomi", tables_file), ("tables_test.nomi", test_file)])
+    files =
+        [("tables.nomi", tables_file), ("tables_test.nomi", test_file)]
+        |> Iter.map(formatted)
+        |> Result.collect()?
+
+    changed = stale(files)
     names = changed |> Iter.map(fn (path, _) -> path) |> String.join(", ")
 
     if Iter.is_empty(changed) then
@@ -65,11 +71,16 @@ fn main() -> Result<Unit, String>
     Ok(Unit)
 end
 
-// The files whose text on disk differs, each with the final newline a
-// triple-quoted string leaves out.
+// A generated file as `nomi fmt` writes it.
+fn formatted(file: (String, String)) -> Result<(String, String), String>
+    (path, text) = file
+    text = compiler.format(text) |> Result.map_err(fn e -> "${path} does not parse: ${e}")?
+    Ok((path, text))
+end
+
+// The files whose text on disk differs.
 fn stale(files: List<(String, String)>) -> List<(String, String)>
     files
-    |> Iter.map(fn (path, text) -> (path, text + "\n"))
     |> Iter.filter(fn (path, text) -> fs.read_text(path) != Ok(text))
     |> Iter.to_list()
 end
@@ -92,7 +103,7 @@ fn table(path: String) -> Result<String, String>
         [first, ..rows] ->
             case String.split(first, ",") |> Iter.map(field) |> Iter.to_list()
                 [Some(k), Some(v)] -> (k, v, rows)
-                _ -> return Err("${path}:1: the header is `key: Type,value: Type`")
+                _                  -> return Err("${path}:1: the header is `key: Type,value: Type`")
             end
 
         [] ->
@@ -114,7 +125,7 @@ fn table(path: String) -> Result<String, String>
         |> Iter.map(fn (i, row) ->
             case String.split(row, ",") |> Iter.to_list()
                 [k, v] -> Ok("        ${cell(k, key_type)} -> Some(${cell(v, value_type)})")
-                _ -> Err("${path}:${i + 2}: a row is a key, a comma and a value")
+                _      -> Err("${path}:${i + 2}: a row is a key, a comma and a value")
             end
         end)
         |> Result.collect()

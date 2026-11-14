@@ -1,6 +1,7 @@
 //# TOML text built from a literal. A `Toml` holds TOML source text, and
 //# `Toml.text` returns it. This module writes TOML; it does not read TOML
-//# into values.
+//# into values. `Toml.parse` checks TOML text the program reads while it
+//# runs, by the rules a literal's text is checked by.
 //#
 //# A `Toml` literal is a `Toml` in every quote style, never a `Result`. Its
 //# text is read as TOML when the program is checked, so text that is not
@@ -39,6 +40,7 @@
 import
     bool.Bool
     calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
+    display.Display
     equatable.Equatable
     float.Float
     int.Int
@@ -56,7 +58,39 @@ end
 /// apart from an arbitrary `String`, so a function that takes TOML says so.
 pub type Toml String
 
+/// Why text is not TOML, for `Toml.parse`: the code point `offset` into the
+/// text where reading stopped, and `message`, as a compile error at a
+/// `Toml"..."` literal of the text words it.
+pub struct TomlError
+    offset:  Int
+    message: String
+end
+
+derive Equatable for TomlError
+
+impl Display for TomlError
+    fn to_string(error: TomlError) -> String
+        error.message
+    end
+end
+
 impl Toml
+    /// Reads `text` as TOML, by the rules a `Toml"..."` literal without
+    /// slots is checked by when the program is checked, or returns what is
+    /// wrong and where. Use it for TOML text the program reads while it
+    /// runs.
+    //! import std::toml.{Toml, TomlError}
+    //!
+    //! assert Ok(t) = Toml.parse("title = 'demo'")
+    //! assert Toml.text(t) == "title = 'demo'"
+    //! assert Err(TomlError{offset: 7, message: "unexpected EOF; expected value"}) = Toml.parse("title = ")
+    //
+    pub fn parse(text: String) -> Result<Toml, TomlError>
+        Toml.check([text])
+        |> Result.map(fn _ -> Toml.build([Fragment.Static(text)]))
+        |> Result.map_err(fn e -> TomlError{offset: e.offset, message: e.message})
+    end
+
     /// Returns the literal TOML text.
     //! assert Toml.text(
     //!     Toml"""
@@ -313,7 +347,7 @@ impl CheckedLiteral<ToToml, Toml> for Toml
             fragments
             |> Iter.flat_map(fn frag ->
                 case frag
-                    .Static(s) -> [s]
+                    .Static(s)  -> [s]
                     .Dynamic(_) -> []
                 end
             end)
@@ -323,7 +357,7 @@ impl CheckedLiteral<ToToml, Toml> for Toml
             fragments
             |> Iter.flat_map(fn frag ->
                 case frag
-                    .Static(_) -> []
+                    .Static(_)  -> []
                     .Dynamic(v) -> [Toml.Value.text(ToToml.to_toml(v))]
                 end
             end)

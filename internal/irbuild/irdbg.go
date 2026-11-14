@@ -418,7 +418,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		impls = impls[:n]
 	}
 	walk = func(k kind) bool {
-		if irExistentialKind(k) {
+		if irExistentialKind(k) || irConjKind(k) {
 			// An interface value inside a tuple, record or list renders as
 			// the value it holds, through every implementer's Debug, as a
 			// top-level one does (existentialDebugImpls).

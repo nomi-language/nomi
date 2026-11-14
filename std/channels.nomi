@@ -22,9 +22,9 @@
 //#
 //#     case Receiver.receive(events.receiver)
 //#         Some(.UserMsg(msg)) -> handle_msg(msg)
-//#         Some(.Tick(n)) -> handle_tick(n)
-//#         Some(.Shutdown) -> io.print("shutting down")
-//#         None -> io.print("channel closed")
+//#         Some(.Tick(n))      -> handle_tick(n)
+//#         Some(.Shutdown)     -> io.print("shutting down")
+//#         None                -> io.print("channel closed")
 //#     end
 //#
 //#     _ = Task.await(p1)
@@ -235,7 +235,7 @@ impl Receiver<T>
     //
     pub host fn receive_within<T>(
         receiver: Receiver<T>,
-        wait: Duration,
+        wait:     Duration,
     ) -> Result<Maybe<T>, TimedOut>
 end
 
@@ -263,7 +263,7 @@ impl Arm<R>
     //
     pub host fn send<T, R>(
         sender: Sender<T>,
-        value: T,
+        value:  T,
         handle: (Result<Unit, ChannelClosed>) -> R,
     ) -> Arm<R>
 

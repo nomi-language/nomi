@@ -49,8 +49,8 @@ derive Comparable for Expired
 
 fn show_order(o: Ordering) -> String
     case o
-        .Less -> "L"
-        .Equal -> "E"
+        .Less    -> "L"
+        .Equal   -> "E"
         .Greater -> "G"
     end
 end
@@ -188,12 +188,12 @@ test "standard derives handle enums with embedded variants"
 
     from_variant = case s
         Switch.Off(x) -> use_off(x)
-        _ -> "nope"
+        _             -> "nope"
     end
 
     from_coerced = case c
         Switch.Off(x) -> use_off(x)
-        _ -> "nope"
+        _             -> "nope"
     end
 
     assert show_order(Comparable.compare(Switch.Off, Switch.On)) == "L"

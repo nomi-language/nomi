@@ -9,7 +9,7 @@ interface Speech
 end
 
 struct Dog
-    name: String
+    name:  String
     breed: String
 end
 
@@ -56,7 +56,7 @@ end
 impl Display for Status
     fn to_string(s: Status) -> String
         case s
-            .Active -> "active"
+            .Active     -> "active"
             .Pending(n) -> "pending (" + Int.to_string(n) + " ahead)"
         end
     end
@@ -96,7 +96,7 @@ impl Literal for Sql
     fn from_fragments(fragments: List<Fragment<String>>) -> String
         Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
             end
         end)

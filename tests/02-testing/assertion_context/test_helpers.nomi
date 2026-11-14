@@ -6,7 +6,7 @@ end
 
 pub fn hover_signature(source: String) -> String
     case compiler.hover(source)
-        Ok(hover) -> hover.signature
+        Ok(hover)    -> hover.signature
         Err(message) -> message
     end
 end

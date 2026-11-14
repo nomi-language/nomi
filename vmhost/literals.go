@@ -18,20 +18,22 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// BACKTICK TYPED LITERALS ARE CHECKED AT COMPILE TIME.
+// TYPED LITERALS WITHOUT SLOTS ARE CHECKED AT COMPILE TIME.
 //
-// A backtick typed literal whose handler can fail (`Regex`\d+``, whose
-// `from_fragments` returns `Result<Regex, String>`) has the handler's
-// success type, so it needs no `?`. Its body never interpolates, so the
-// handler's input is fixed text, and every load runs each such literal's
-// handler before anything else runs: `nomi check`, `nomi run`, `nomi test`,
-// the REPL, the tour and the language server's lowering all go through
-// lower or loadStdlib. An Err is a compile error at the literal carrying the
-// handler's message; a handler that reaches an effect, or does not finish
-// within literalSteps, is a compile error saying so, with the double-quoted
-// spelling as the way out. The evaluation is vm.Machine.Evaluate, the one the
-// language server's hovers use, refused as it refuses an editor's
-// evaluation (vm.Machine.Effects).
+// A typed literal with no `${...}` slot, in any quote style, has fixed text
+// as its handler's input. When the handler can fail (`Regex`\d+`` or
+// `Date"2026-05-04"`, whose `from_fragments` returns a Result) the literal
+// has the handler's success type, so it needs no `?`. Every load runs each
+// such literal's handler before anything else runs: `nomi check`, `nomi
+// run`, `nomi test`, the REPL, the tour and the language server's lowering
+// all go through lower or loadStdlib. An Err is a compile error at the
+// literal carrying the handler's message. A handler that cannot fail is run
+// too, and only its failure to run is reported. A handler that reaches an
+// effect, traps, or does not finish within literalSteps is a compile error
+// saying so, pointing at a call of the type's own functions as the way out.
+// The evaluation is vm.Machine.Evaluate, the one the language server's
+// hovers use, refused as it refuses an editor's evaluation
+// (vm.Machine.Effects).
 //
 // The run calls the handler again, once per literal site (irbuild's
 // irliteralcell.go): the cell's first read runs it, and the run finds the Ok
@@ -45,13 +47,21 @@ const (
 	literalTime = 10 * time.Second
 )
 
-// InvalidLiteralCode is the Code of a backtick typed literal's diagnostic.
+// InvalidLiteralCode is the Code of a typed literal's diagnostic.
 const InvalidLiteralCode = "invalid-literal"
 
-// literalHint closes a literal diagnostic the handler could not be run for.
-const literalHint = "a backtick typed literal is checked at compile time; to check it when the program runs instead, write it with double quotes and handle its Result with `?` or `case`"
+// literalHint closes the diagnostic of a literal, written as text, whose
+// handler could not be run: it names the call that builds the value when the
+// program runs.
+func literalHint(text string) string {
+	tag := text
+	if i := strings.IndexAny(text, "\"`"); i >= 0 {
+		tag = text[:i]
+	}
+	return fmt.Sprintf("a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `%s`'s functions instead, such as its `parse`, and handle its result", tag)
+}
 
-// checkLiterals runs the handler of every backtick typed literal the lowering
+// checkLiterals runs the handler of every typed literal the lowering
 // checks at compile time, and answers the diagnostics of the ones that fail,
 // in source order, or nil.
 func (p *Program) checkLiterals() error {
@@ -124,12 +134,12 @@ func (p *Program) checkLiteral(m *vm.Machine, site irbuild.LiteralSite) (d front
 	}
 	label := literalLabel(site.Text)
 	if effects := m.Effects(f); len(effects) > 0 {
-		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler has effects (%s)", label, strings.Join(effects, "; ")), literalHint)
+		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler has effects (%s)", label, strings.Join(effects, "; ")), literalHint(site.Text))
 	}
 	lim := vm.Limits{Steps: literalSteps, Deadline: time.Now().Add(literalTime)}
 	v, err := m.Evaluate(context.Background(), f, nil, lim)
 	if errors.Is(err, vm.ErrLimit) {
-		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler did not finish within %d steps", label, literalSteps), literalHint)
+		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler did not finish within %d steps", label, literalSteps), literalHint(site.Text))
 	}
 	if err != nil {
 		failure, _ := programFailure(err)
@@ -137,7 +147,11 @@ func (p *Program) checkLiteral(m *vm.Machine, site irbuild.LiteralSite) (d front
 		if errors.As(failure, &internal) {
 			return d, false, internal
 		}
-		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler failed: %s", label, failure.Error()), literalHint)
+		return fail(fmt.Sprintf("%s cannot be checked at compile time: its handler failed: %s", label, failure.Error()), literalHint(site.Text))
+	}
+	if site.Plain {
+		// A handler that cannot fail ran to its value.
+		return d, false, nil
 	}
 	rec, ok := v.(*rt.Record)
 	if !ok || rec == nil || rec.Desc.Kind != rt.KindEnum || rec.NumFields() != 1 {
@@ -217,6 +231,16 @@ func literalLabel(text string) string {
 	if !strings.Contains(text, "\n") && len(text) <= 60 {
 		return "typed literal " + text
 	}
-	tag, _, _ := strings.Cut(text, "`")
-	return "typed literal " + tag + "`…`"
+	i := strings.IndexAny(text, "\"`")
+	if i < 0 {
+		return "typed literal " + text
+	}
+	switch tag, body := text[:i], text[i:]; {
+	case strings.HasPrefix(body, `"""`):
+		return "typed literal " + tag + `"""…"""`
+	case strings.HasPrefix(body, `"`):
+		return "typed literal " + tag + `"…"`
+	default:
+		return "typed literal " + tag + "`…`"
+	}
 }

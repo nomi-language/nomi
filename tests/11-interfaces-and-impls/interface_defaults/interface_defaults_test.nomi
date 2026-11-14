@@ -102,7 +102,7 @@ interface Ranked<T>
     fn prefer<K>(_r: self, lhs: K, rhs: K) -> Bool where K: Comparable
         case Comparable.compare(lhs, rhs)
             .Less -> False
-            _ -> True
+            _     -> True
         end
     end
 end
@@ -124,7 +124,7 @@ impl Chooser for ChoiceBox<T>
     fn choose<K>(_c: ChoiceBox<T>, lhs: K, rhs: K) -> K where K: Comparable
         case Comparable.compare(lhs, rhs)
             .Greater -> lhs
-            _ -> rhs
+            _        -> rhs
         end
     end
 end

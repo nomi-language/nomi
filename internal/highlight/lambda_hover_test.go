@@ -41,7 +41,7 @@ end
 		pos  analysis.Pos
 		want string
 	}{
-		{"a declaration's fn", analysis.Pos{Line: 4, Col: 1}, "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles n.\n\n---\n\nDeclares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#defining-a-function)."},
+		{"a declaration's fn", analysis.Pos{Line: 4, Col: 1}, "```nomi\nfn double(n: Int) -> Int\n```\n\nDoubles n.\n\n---\n\nDeclares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#defining-a-function)"},
 		{"a lambda argument's fn", analysis.Pos{Line: 9, Col: 26}, mapped + lambdaLink},
 		{"its ->", analysis.Pos{Line: 9, Col: 31}, mapped},
 		{"a fold's callback", analysis.Pos{Line: 10, Col: 34}, "```nomi\nfn total: Int, x: Int -> Int\n```\n\nFills `Iter.reduce`'s `f: (U, T) -> U`, which gives its parameter types." + lambdaLink},
@@ -65,7 +65,7 @@ end
 
 // lambdaLink ends the hover of a lambda's `fn`, which the keyword adds
 // below the lambda's type.
-const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#lambdas)."
+const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#lambdas)"
 
 // The tour's editors answer a keyword as the editor does
 // (hoverdoc.KeywordAt): its construct and link in the place it stands, and

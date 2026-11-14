@@ -354,6 +354,7 @@ func NewDebugger() *Debugger {
 // runs anything.
 func (m *Machine) WithDebugger(d *Debugger) *Machine {
 	m.dbg = d
+	m.hooked = d != nil || m.prof != nil
 	mods := make([]*ir.Module, 0, len(m.modules))
 	for mod := range m.modules {
 		mods = append(mods, mod)
@@ -1088,10 +1089,15 @@ func (th *thread) blockedInGo() bool {
 	return th.at == nil && th.calling != nil && n > 0 && th.crossings[n-1] == th.live
 }
 
-// debugCallAdapter is opHost's adapter call on a debug machine, recorded as
-// a crossing.
-func (m *Machine) debugCallAdapter(fr *frame, h *hostCall, args []any) (any, error) {
-	return m.dbg.cross(fr, h.call.Callee().Name(), args, func() (any, error) { return callAdapter(h.fn, fr.runtime, args) })
+// debugCallHost is opHost's crossing on a debug machine, recorded as a
+// crossing.
+func (m *Machine) debugCallHost(fr *frame, h *hostCall, args []any) (any, error) {
+	return m.dbg.cross(fr, h.name, args, func() (any, error) {
+		if h.intr != nil {
+			return h.intr(m.boundAt(fr, h.name), h.call.Pos(), args)
+		}
+		return callAdapter(h.fn, fr.runtime, args)
+	})
 }
 
 // stmt is the statement hook: fr is at statement mark i. It answers an

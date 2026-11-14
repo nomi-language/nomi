@@ -63,7 +63,7 @@ end
 fn run(t: Token) -> Int
     case t
         Token.Computation(f) -> f(5)
-        _ -> 0
+        _                    -> 0
     end
 end
 

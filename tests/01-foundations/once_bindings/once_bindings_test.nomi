@@ -4,12 +4,12 @@ import
 end
 
 pub once max_retries = 3
-once default_port = 8080
-pub once timeout = 30 * 1000
+once default_port    = 8080
+pub once timeout     = 30 * 1000
 pub once later_value = 99
-once doubled = 21 * 2
-once greeting = "Hello, " + "World"
-once seq = [1, 2, 3]
+once doubled         = 21 * 2
+once greeting        = "Hello, " + "World"
+once seq             = [1, 2, 3]
 
 pub struct Box
     value: Int
@@ -21,9 +21,9 @@ end
 
 pub type UserId Int
 
-once default_box: Box = Box{value: 7}
+once default_box: Box        = Box{value: 7}
 once fallback_status: Status = Status.Ready
-once root_user_id: UserId = UserId(1)
+once root_user_id: UserId    = UserId(1)
 
 test "once bindings are available across the file"
     assert max_retries == 3

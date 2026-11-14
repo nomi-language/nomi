@@ -2,11 +2,11 @@ import crypto_square
 
 test "crypto square"
     [
-        ("empty plaintext results in an empty ciphertext", "", ""),
-        ("normalization results in empty plaintext", "... --- ...", ""),
-        ("Lowercase", "A", "a"),
-        ("Remove spaces", "  b ", "b"),
-        ("Remove punctuation", "@1,%!", "1"),
+        ("empty plaintext results in an empty ciphertext", "",            ""),
+        ("normalization results in empty plaintext",       "... --- ...", ""),
+        ("Lowercase",                                      "A",           "a"),
+        ("Remove spaces",                                  "  b ",        "b"),
+        ("Remove punctuation",                             "@1,%!",       "1"),
         (
             "9 character plaintext results in 3 chunks of 3 characters",
             "This is fun!",

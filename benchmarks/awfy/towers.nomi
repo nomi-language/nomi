@@ -1,0 +1,77 @@
+//# Are We Fast Yet: Towers.
+//#
+//# Moves a tower of 13 disks between three piles, the Towers of Hanoi,
+//# counting the moves.
+//#
+//# Departure from the guidelines: the suite links its own disk objects into
+//# piles it updates in place. Here a pile is a `List<Int>` of disk sizes, top
+//# first, and the three piles and the move count are a `Towers` value each
+//# move returns anew. A big disk on a smaller one traps, as the suite's
+//# error does.
+
+import harness
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+struct Towers
+    piles:      Vector<List<Int>>
+    moves_done: Int
+end
+
+fn push_disk(towers: Towers, disk: Int, pile: Int) -> Towers
+    top = Vector.get(towers.piles, pile)!
+
+    if [size, ..] = top then
+        if disk >= size then unreachable "Cannot put a big disk on a smaller one"
+    end
+
+    {..towers, piles: Vector.set(.., pile, [disk, ..top])}
+end
+
+fn pop_disk_from(towers: Towers, pile: Int) -> (Int, Towers)
+    case Vector.get(towers.piles, pile)!
+        [top, ..rest] -> (top, {..towers, piles: Vector.set(.., pile, rest)})
+        []            -> unreachable "Attempting to remove a disk from an empty pile"
+    end
+end
+
+fn move_top_disk(towers: Towers, from_pile: Int, to_pile: Int) -> Towers
+    (disk, towers) = pop_disk_from(towers, from_pile)
+    {..push_disk(towers, disk, to_pile), moves_done: .. + 1}
+end
+
+fn build_tower_at(towers: Towers, pile: Int, disks: Int) -> Towers
+    Iter.reduce(Iter.reverse(0..=disks), towers, fn towers, i -> push_disk(towers, i, pile))
+end
+
+fn move_disks(towers: Towers, disks: Int, from_pile: Int, to_pile: Int) -> Towers
+    if disks == 1 then
+        move_top_disk(towers, from_pile, to_pile)
+    else
+        other_pile = 3 - from_pile - to_pile
+
+        towers
+        |> move_disks(disks - 1, from_pile, other_pile)
+        |> move_top_disk(from_pile, to_pile)
+        |> move_disks(disks - 1, other_pile, to_pile)
+    end
+end
+
+fn benchmark() -> Int
+    towers = build_tower_at(Towers{
+        piles:      [[], [], []],
+        moves_done: 0,
+    }, 0, 13)
+
+    move_disks(towers, 13, 0, 1).moves_done
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Towers", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1 == 8191)))
+end

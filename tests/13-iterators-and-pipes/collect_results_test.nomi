@@ -14,7 +14,7 @@ fn parse(text: String) -> Result<Int, ParseError>
     else
         case String.to_int(text)
             .Some(n) -> Ok(n)
-            .None -> Err(.NotANumber(text))
+            .None    -> Err(.NotANumber(text))
         end
     end
 end
@@ -102,7 +102,11 @@ test "Maybe.collect stops pulling at the first None"
 end
 
 test "Maybe.values drops every None"
-    xs = Vector[0, -1, 2, -3] |> Iter.map(&point_at(&1)) |> Maybe.values()
+    xs =
+        Vector[0, -1, 2, -3]
+        |> Iter.map(&point_at(&1))
+        |> Maybe.values()
+        |> Iter.to_list()
 
     assert xs == [Point{x: 0, y: 0}, Point{x: 2, y: 4}]
 end

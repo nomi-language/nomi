@@ -71,7 +71,7 @@ end
 // each spelling: a payload, a list payload and a brace payload.
 struct Slot
     shape: shapes.Shape
-    bag: shapes.Bag
+    bag:   shapes.Bag
 end
 
 fn describe(slot: Slot) -> Int

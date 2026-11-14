@@ -21,7 +21,7 @@ impl Sized for Maybe<String>
     fn size(m: Maybe<String>) -> Int
         case m
             Some(s) -> String.length(s)
-            None -> 0
+            None    -> 0
         end
     end
 end

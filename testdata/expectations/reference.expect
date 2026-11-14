@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 83
-declared-cases 967
+declared-cases 973
 failing 0
 C actors
 E 0
@@ -190,9 +190,10 @@ T ok Ordering.chain
 T ok interface Comparable
 C compiler
 E 0
-N 4
-H 5347b7f1b96bcfa9aaa471b4be6da30c41cd608633f2f604b1640836af774f5a
+N 5
+H d0ff2862f508940772026901f4c19a38fd404be26967139d4460215c9504ed49
 T ok compiler.check
+T ok compiler.format
 T ok compiler.run
 T ok compiler.hover
 T ok compiler.check_project
@@ -729,10 +730,11 @@ T ok jwt.verify
 T ok jwt.verify_as
 C lists
 E 0
-N 11
-H aae88a5d28f696e7961a49ca25c26feba0287a832e1e6008b61ed778a7d86c82
+N 13
+H ec24a2acfa158e3ae3cff246fadcf4ff5de804eefa6487db034761797a94c8fe
 T ok type List
 T ok List.next_item
+T ok List.length
 T ok List.concat
 T ok List.head
 T ok List.tail
@@ -740,6 +742,7 @@ T ok List.remove_at
 T ok List.remove
 T ok List.starts_with
 T ok List.ends_with
+T ok List.split_while
 T ok List.contains (impl Contains for List<T>)
 T ok List.empty_sum (impl Summable for List<T>)
 C literals
@@ -861,8 +864,8 @@ T ok Maybe.values
 T ok Maybe.each_while (impl Iter for Maybe<T>)
 C money
 E 0
-N 20
-H 15275d976c04292c2548615d4eb2e14457ad9bba64c4fd023310da9b98390d2d
+N 21
+H 0e740a04ddde50c3e0073fb091b8229f6f379b41caa37eada7ef57930479c256
 T ok struct Money
 T ok Money.format
 T ok Money.round
@@ -873,6 +876,7 @@ T ok Money.sign
 T ok Money.is_zero
 T ok Money.min
 T ok Money.max
+T ok Money.parse
 T ok Money.parse_in
 T ok Money.split
 T ok Money.allocate
@@ -1123,8 +1127,8 @@ T ok testing.invalid_keys
 T ok testing.odd_keys
 C strings
 E 0
-N 50
-H 1486ebf1c804c4c4a462874125094bb762fdfe9fa6016ac11adde1fe7ea0a473
+N 51
+H 17bcfd2916600ae4d13326defb8ed993da71187e79ec8a923a33a8f5e16df1a5
 T ok String.contains Contains<String> (impl Contains<String> for String)
 T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -1169,6 +1173,7 @@ T ok String.to_bytes
 T ok String.to_codepoints
 T ok String.from_codepoints
 T ok String.to_literal
+T ok String.to_typed_literal
 T ok String.strip_prefix
 T ok String.strip_suffix
 T ok String.length
@@ -1210,8 +1215,9 @@ T ok CipherSuite.name_of
 T ok Error.to_string (impl Display for Error)
 C toml
 E 0
-N 4
-H b784546b5361dbb3dfbff0e13d409342a14effcd49af4d6a71c282baa1347ae3
+N 5
+H 66b804a71cf64f3a190e259915a545cac6e47641e6e428581ef8282227643b0b
+T ok Toml.parse
 T ok Toml.text
 T ok Toml.check (impl CheckedLiteral<ToToml, Toml> for Toml)
 T ok enum Toml.Value

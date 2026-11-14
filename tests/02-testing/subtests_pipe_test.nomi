@@ -20,8 +20,8 @@ end
 
 test "a literal table piped into subtests"
     [
-        ("basic", "Portable Network Graphics", "PNG"),
-        ("lowercase words", "Ruby on Rails", "ROR"),
+        ("basic",           "Portable Network Graphics", "PNG"),
+        ("lowercase words", "Ruby on Rails",             "ROR"),
     ]
     |> subtests (description, phrase, expected), description
         assert abbreviate(phrase) == expected

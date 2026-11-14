@@ -29,7 +29,7 @@ impl Show for Maybe<T> where T: Show
     fn show(m: Maybe<T>) -> String
         case m
             Some(x) -> "some ${T.show(x)}"
-            None -> "none"
+            None    -> "none"
         end
     end
 end
@@ -37,7 +37,7 @@ end
 impl Show for Result<T, E> where T: Show, E: Show
     fn show(r: Result<T, E>) -> String
         case r
-            Ok(x) -> "ok ${T.show(x)}"
+            Ok(x)  -> "ok ${T.show(x)}"
             Err(e) -> "err ${E.show(e)}"
         end
     end
@@ -77,7 +77,7 @@ impl Holds<String> for Maybe<Int>
     fn holds(m: Maybe<Int>, x: String) -> Bool
         case m
             Some(n) -> Int.to_string(n) == x
-            None -> False
+            None    -> False
         end
     end
 end

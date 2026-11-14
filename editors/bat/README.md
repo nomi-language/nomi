@@ -50,7 +50,7 @@ The syntax emits standard TextMate scopes:
 |---------|-------|
 | Declaration keywords (`pub`, `fn`, `struct`, `impl`, …) | `keyword.declaration.nomi` |
 | Control keywords (`if`, `else`, `case`, `return`, …) | `keyword.control.nomi` |
-| Word operators (`and`, `or`) | `keyword.operator.word.nomi` |
+| Word operators (`and`, `or`) | `keyword.other.word.nomi` |
 | `true` / `false` | `constant.language.nomi` |
 | `it` | `variable.language.nomi` |
 | PascalCase identifiers | `storage.type.nomi` |

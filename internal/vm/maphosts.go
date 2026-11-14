@@ -10,7 +10,11 @@ import (
 
 // mapHost is `Map.get`, `Map.put`, `Map.size` and the rest over rt's
 // persistent map, hashed and compared by the machine's key kernels (keys.go).
-func mapHost(key string) hostFn {
+func mapHost(key string) hostFn { return mapHostWith(key, false) }
+
+// mapHostWith is mapHost, writing an owned receiver's nodes in place
+// (rt.MapPutOwned, MapRemoveOwned) when owned (inplace.go).
+func mapHostWith(key string, owned bool) hostFn {
 	return func(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
 		defer recoverKey(&err)
 		arity := 1
@@ -41,8 +45,20 @@ func mapHost(key string) hostFn {
 			}
 			return noneValue, nil
 		case "Map.put":
+			if owned {
+				// A put written in place over a key the map has leaves the
+				// root and the counts as they were, so the operand's box is
+				// the answer's.
+				if out := rt.MapPutOwned(m, k.HashFunc(), k.EqualFunc(), args[1], args[2]); out != m {
+					return out, nil
+				}
+				return args[0], nil
+			}
 			return mapPut(k, m, args[1], args[2]), nil
 		case "Map.remove":
+			if owned {
+				return rt.MapRemoveOwned(m, k.HashFunc(), k.EqualFunc(), args[1]), nil
+			}
 			return mapRemove(k, m, args[1]), nil
 		case "Map.contains":
 			_, found := mapLookup(k, m, args[1])

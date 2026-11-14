@@ -19,7 +19,7 @@ import std::json.{FromJson, Json, ToJson}
 
 struct User
     first_name: String
-    age: Int
+    age:        Int
 end
 
 derive ToJson for User with ToJson.Options{rename_all: Json.Case.Camel}
@@ -102,11 +102,11 @@ end
 
 fn describe(jv: Json) -> String
     case jv
-        .String(s) -> "the text ${s}"
-        .Int(n) -> "the whole number ${n}"
-        .Arr(items) -> "a list of ${Iter.count(items)}"
+        .String(s)   -> "the text ${s}"
+        .Int(n)      -> "the whole number ${n}"
+        .Arr(items)  -> "a list of ${Iter.count(items)}"
         .Obj(fields) -> "an object with the keys ${Map.keys(fields) |> String.join(", ")}"
-        _ -> Json.kind(jv)
+        _            -> Json.kind(jv)
     end
 end
 
@@ -159,7 +159,7 @@ end
 
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 // One user, from a value read as Dynamic.
@@ -174,7 +174,7 @@ fn print_users(users: Dynamic, count: Int)
     0..count
     |> Iter.each(fn i ->
         case Dynamic.at_index(users, i, user)
-            Ok(u) -> io.print("${u.name} is ${u.age}")
+            Ok(u)  -> io.print("${u.name} is ${u.age}")
             Err(e) -> io.print("user ${i}: ${e}")
         end
     end)

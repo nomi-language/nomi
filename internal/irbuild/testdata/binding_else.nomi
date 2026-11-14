@@ -20,7 +20,7 @@ end
 
 fn why(e: LoadError) -> String
     case e
-        .NotFound -> "not found"
+        .NotFound  -> "not found"
         .Broken(s) -> s
     end
 end
@@ -34,7 +34,7 @@ end
 fn name_of(id: Int) -> Result<String, String>
     Ok(user) = load(id) else
         Err(.NotFound) -> return Err("no user ${id}")
-        Err(e) -> return Err("loading user ${id}: ${why(e)}")
+        Err(e)         -> return Err("loading user ${id}: ${why(e)}")
     end
 
     Ok(user)
@@ -48,7 +48,7 @@ end
 fn parse_size(text: String) -> Result<(Int, Int), String>
     case text
         "big" -> Ok((200, 100))
-        _ -> Err("unknown size ${text}")
+        _     -> Err("unknown size ${text}")
     end
 end
 
@@ -60,16 +60,16 @@ end
 
 fn parse_port(text: String) -> Result<Int, LoadError>
     case text
-        "" -> Err(.NotFound)
+        ""  -> Err(.NotFound)
         "x" -> Err(.Broken("x"))
-        _ -> Ok(9000)
+        _   -> Ok(9000)
     end
 end
 
 fn port(text: String) -> Result<Int, String>
     Ok(p) = parse_port(text) else
         Err(.NotFound) -> 8080
-        Err(e) -> return Err("bad port: ${why(e)}")
+        Err(e)         -> return Err("bad port: ${why(e)}")
     end
 
     Ok(p)
@@ -114,7 +114,7 @@ end
 fn guarded(r: Result<Int, String>) -> Int
     Ok(n) = r else
         Err(e) when e == "zero" -> 0
-        Err(_) -> return -9
+        Err(_)                  -> return -9
     end
 
     n + 1

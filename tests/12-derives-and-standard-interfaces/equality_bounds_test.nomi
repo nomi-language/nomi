@@ -19,7 +19,7 @@ end
 
 struct Labeled
     tag: Tag
-    n: Int
+    n:   Int
 end
 
 enum Shape

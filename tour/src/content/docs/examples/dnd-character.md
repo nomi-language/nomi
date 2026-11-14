@@ -18,13 +18,13 @@ import std::random.Generator
 
 /// A character's six abilities and its hitpoints.
 pub struct Character
-    strength: Int
-    dexterity: Int
+    strength:     Int
+    dexterity:    Int
     constitution: Int
     intelligence: Int
-    wisdom: Int
-    charisma: Int
-    hitpoints: Int
+    wisdom:       Int
+    charisma:     Int
+    hitpoints:    Int
 end
 
 /// The modifier an ability `score` gives: half its distance from 10,
@@ -98,15 +98,15 @@ end
 
 test "ability modifier"
     [
-        ("ability modifier for score 3 is -4", 3, -4),
-        ("ability modifier for score 4 is -3", 4, -3),
-        ("ability modifier for score 5 is -3", 5, -3),
-        ("ability modifier for score 6 is -2", 6, -2),
-        ("ability modifier for score 7 is -2", 7, -2),
-        ("ability modifier for score 8 is -1", 8, -1),
-        ("ability modifier for score 9 is -1", 9, -1),
-        ("ability modifier for score 10 is 0", 10, 0),
-        ("ability modifier for score 11 is 0", 11, 0),
+        ("ability modifier for score 3 is -4",  3,  -4),
+        ("ability modifier for score 4 is -3",  4,  -3),
+        ("ability modifier for score 5 is -3",  5,  -3),
+        ("ability modifier for score 6 is -2",  6,  -2),
+        ("ability modifier for score 7 is -2",  7,  -2),
+        ("ability modifier for score 8 is -1",  8,  -1),
+        ("ability modifier for score 9 is -1",  9,  -1),
+        ("ability modifier for score 10 is 0",  10, 0),
+        ("ability modifier for score 11 is 0",  11, 0),
         ("ability modifier for score 12 is +1", 12, 1),
         ("ability modifier for score 13 is +1", 13, 1),
         ("ability modifier for score 14 is +2", 14, 2),

@@ -35,7 +35,7 @@ end
 struct Config
     context: Context
 
-    audit: Supervisor
+    audit:  Supervisor
     notify: Supervisor
     // Where background work reports failures nobody is awaiting.
     alerts: Channel<String>
@@ -44,9 +44,9 @@ end
 fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
-        audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
-        notify: Supervisor.new(max_running: 50, shutdown_timeout: Duration.milliseconds(200)),
-        alerts: Channel.buffered<String>(16),
+        audit:   Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
+        notify:  Supervisor.new(max_running: 50, shutdown_timeout: Duration.milliseconds(200)),
+        alerts:  Channel.buffered<String>(16),
     })
 end
 ```
@@ -144,7 +144,7 @@ end
 fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
-        audit: Supervisor.new(max_running: 4),
+        audit:   Supervisor.new(max_running: 4),
         written: Channel.buffered<Int>(8),
     })
 end
@@ -217,7 +217,7 @@ fn handle_order(id: Int) -> Response
 
     resp = case priced
         Ok((v, p)) -> build_response(id, v, p)
-        Err(e) -> error_response(id, e)
+        Err(e)     -> error_response(id, e)
     end
 
     // Outlives the call: the response goes back without waiting.
@@ -238,9 +238,10 @@ and a 200 ms timeout don't add up. Shutdown takes as long as the
 slowest supervisor that still has work.
 
 Work that finishes within the timeout finishes normally. When the timeout
-runs out, the remaining work is cancelled and the program stops waiting for
-it. Anything a cancelled task already did stays done, so a write with
-several steps can be left half finished.
+runs out, the remaining work is cancelled, and the program waits up to a
+second for it to run its deferred calls before it stops waiting. Boot's
+deferred calls run after that. Anything a cancelled task already did stays
+done, so a write with several steps can be left half finished.
 
 A second Ctrl-C skips the wait and exits immediately.
 
@@ -270,7 +271,7 @@ fn send_welcome(user: User) -> Unit
 
     // The decision. Both branches end in Unit, so nothing is left unhandled.
     case sent
-        Ok(_) -> Unit
+        Ok(_)  -> Unit
         Err(e) -> report(Config.alerts, "welcome to ${user.email} failed: ${e}")
     end
 end
@@ -320,9 +321,9 @@ notify = Supervisor.new(max_running: 50, restart: Restart.Transient)
 // still can't run, take the process down so it gets restarted clean.
 workers = Supervisor.new(
     max_running: 8,
-    restart: Restart.Permanent,
-    backoff: Backoff.Exponential{max_restarts: 60, max_elapsed: Duration.hours(1)},
-    on_give_up: GiveUp.Exit,
+    restart:     Restart.Permanent,
+    backoff:     Backoff.Exponential{max_restarts: 60, max_elapsed: Duration.hours(1)},
+    on_give_up:  GiveUp.Exit,
 )
 ```
 
@@ -397,7 +398,7 @@ To limit how long it waits, pass a `Wait`:
 
 ```nomi
 case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5)))
-    .Flushed -> report_sent()
+    .Flushed  -> report_sent()
     .TimedOut -> carry_on()
 end
 ```
@@ -564,7 +565,7 @@ test result: ok. 1 passed, 0 failed
 
 An enqueue can carry a `Unique` key, so a second enqueue while the first
 job is waiting stores nothing, and a `priority`. Work that recurs is a
-`Schedule`, such as ``Schedule.cron("nightly", Cron`0 3 * * *`, report_job,
+`Schedule`, such as ``Schedule.cron("nightly", Cron"0 3 * * *", report_job,
 args, zone: "America/New_York")``, passed to `Worker.start` with
 `schedules:`.
 Every process can run the same schedules, and each tick is enqueued once.
@@ -583,10 +584,10 @@ end
 
 fn send_receipt(mailer: Mailer, email: String, order: Int) -> Result<Unit, mail.Error>
     Mailer.send(mailer, Message{
-        from: Address.parse("Shop <orders@example.com>")?,
-        to: [Address.new(email)?],
+        from:    Address.parse("Shop <orders@example.com>")?,
+        to:      [Address.new(email)?],
         subject: "Receipt for order ${order}",
-        text: Some("Thanks for order ${order}."),
+        text:    Some("Thanks for order ${order}."),
     })
 end
 

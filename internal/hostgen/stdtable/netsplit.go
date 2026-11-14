@@ -72,7 +72,9 @@ func splitNetwork(src []byte) (Files, error) {
 			return nil, fmt.Errorf("stdtable: a declaration other than an adapter method calls %s at %s", netAlias, fset.Position(d.Pos()))
 		}
 		moved = append(moved, d)
-		movedFns[fd.Name.Name] = true
+		if !isPartsForm(fd) {
+			movedFns[fd.Name.Name] = true
+		}
 	}
 	names := networkNames(f, movedFns)
 	if len(names) != len(movedFns) {
@@ -257,11 +259,23 @@ func stubFile(fset *token.FileSet, header, pkg string, moved []ast.Decl) ([]byte
 		if err := printer.Fprint(&sig, fset, &ast.FuncDecl{Recv: fd.Recv, Name: fd.Name, Type: fd.Type}); err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(&out, "\n%s {\n\treturn nil, errNoNetwork\n}\n", sig.String())
+		fail := "nil"
+		if isPartsForm(fd) {
+			fail = "nil, false"
+		}
+		fmt.Fprintf(&out, "\n%s {\n\treturn %s, errNoNetwork\n}\n", sig.String(), fail)
 	}
 	formatted, err := format.Source(out.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("stdtable: formatting adapters_nonet_gen.go: %w", err)
 	}
 	return formatted, nil
+}
+
+// isPartsForm reports whether fd is an adapter's parts form
+// (hostadapt.PartsFunc), which answers three results where the adapter
+// answers two. Bind hands it to Env.AddParts rather than naming it in its
+// table.
+func isPartsForm(fd *ast.FuncDecl) bool {
+	return fd.Type.Results != nil && fd.Type.Results.NumFields() == 3
 }

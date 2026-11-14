@@ -87,14 +87,14 @@ end
 fn show_alpha(m: Maybe<Alpha>) -> String
     case m
         Some(v) -> Alpha.a(v)
-        None -> "A/none"
+        None    -> "A/none"
     end
 end
 
 fn show_beta(m: Maybe<Beta>) -> String
     case m
         Some(v) -> Beta.b(v)
-        None -> "B/none"
+        None    -> "B/none"
     end
 end
 

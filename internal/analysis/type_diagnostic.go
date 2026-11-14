@@ -186,6 +186,10 @@ func walkNominals(t Type, visit func(name, origin string), depth int) {
 	case *InterfaceType:
 		visit(v.Name, v.Origin)
 		each(v.TypeArgs)
+	case *ConjunctionType:
+		for _, m := range v.Members {
+			walkNominals(m, visit, depth)
+		}
 	case *FuncType:
 		each(v.Params)
 		walkNominals(v.Return, visit, depth)
@@ -260,6 +264,13 @@ func writeQualifiedType(sb *strings.Builder, t Type, qualify func(name, origin s
 		nominal(v.Name, v.Origin, v.TypeArgs)
 	case *DistinctType:
 		nominal(v.Name, v.Origin, v.TypeArgs)
+	case *ConjunctionType:
+		for i, m := range v.Members {
+			if i > 0 {
+				sb.WriteString(" and ")
+			}
+			writeQualifiedType(sb, m, qualify, entry)
+		}
 	case *InterfaceType:
 		nominal(v.Name, v.Origin, v.TypeArgs)
 	case *FuncType:

@@ -46,18 +46,18 @@ test "describe answers the schema and each statement's types and nullability"
 
     assert joined.columns == [
         describe.Column{
-            name: "title",
+            name:      "title",
             type_name: "text",
-            table: "posts",
-            column: "title",
-            nullable: False,
+            table:     "posts",
+            column:    "title",
+            nullable:  False,
         },
         describe.Column{
-            name: "email",
+            name:      "email",
             type_name: "text",
-            table: "users",
-            column: "email",
-            nullable: True,
+            table:     "users",
+            column:    "email",
+            nullable:  True,
         },
     ]
 
@@ -85,11 +85,11 @@ test "every Value reads back as the Value it was written as"
         """,
     )?
 
-    day = Date`2026-10-19`
-    at = Time`12:30:05`
-    ts = NaiveDateTime`2026-10-19T12:30:05`
+    day = Date"2026-10-19"
+    at = Time"12:30:05"
+    ts = NaiveDateTime"2026-10-19T12:30:05"
     tz = Instant.from_seconds(1_760_000_000)
-    id = Uuid`0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10`
+    id = Uuid"0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"
     j = Json.decode("{\"a\":[1,2]}")?
     bytes = String.to_bytes("hi")
 
@@ -161,18 +161,18 @@ test "a constraint error names the constraint, its table and its columns"
 
     assert Conn.exec(db, Sql"INSERT INTO users VALUES (2, 'a@example.com')") == Err(
         sql.Error.Constraint{
-            kind: ConstraintKind.Unique,
-            name: "users_email_key",
-            table: Some("users"),
+            kind:   ConstraintKind.Unique,
+            name:   "users_email_key",
+            table:  Some("users"),
             column: Some("email"),
         }
     )
 
     assert Conn.exec(db, Sql"INSERT INTO users VALUES (3, NULL)") == Err(
         sql.Error.Constraint{
-            kind: ConstraintKind.NotNull,
-            name: "users_email_not_null",
-            table: Some("users"),
+            kind:   ConstraintKind.NotNull,
+            name:   "users_email_not_null",
+            table:  Some("users"),
             column: Some("email"),
         }
     )

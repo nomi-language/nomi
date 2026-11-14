@@ -943,7 +943,7 @@ end
 func TestFormat_Case_Guard(t *testing.T) {
 	src := `x = case y
     n when n > 10 -> "big"
-    _ -> "small"
+    _             -> "small"
 end
 `
 	got, _ := Format(src)
@@ -958,8 +958,8 @@ func TestFormat_Case_NestedPattern(t *testing.T) {
 	// the formatter emits is `Some(Err)`.
 	src := `x = case result
     Some(Ok(n)) -> n
-    Some(Err) -> -1
-    None -> 0
+    Some(Err)   -> -1
+    None        -> 0
 end
 `
 	got, _ := Format(src)
@@ -975,7 +975,7 @@ func TestFormat_Case_VariantWithTuplePattern(t *testing.T) {
 	// has been removed — the explicit form is the only one accepted.
 	src := `x = case pair_opt
     Some((n, s)) -> s
-    None -> ""
+    None         -> ""
 end
 `
 	got, _ := Format(src)
@@ -988,7 +988,7 @@ func TestFormat_Case_StructPattern(t *testing.T) {
 	// Struct patterns with field punning
 	src := `x = case user
     User{name:, age:} -> name
-    _ -> "unknown"
+    _                 -> "unknown"
 end
 `
 	got, _ := Format(src)
@@ -1000,7 +1000,7 @@ end
 func TestFormat_Case_ListConsPattern(t *testing.T) {
 	src := `x = case xs
     [head, ..tail] -> head
-    [] -> 0
+    []             -> 0
 end
 `
 	got, _ := Format(src)
@@ -1054,7 +1054,7 @@ func TestFormat_Case_NoScrutinee(t *testing.T) {
 	// Ad-hoc conditional case: no value between `case` and `{`.
 	src := `x = case
     y > 0 -> "pos"
-    _ -> "neg"
+    _     -> "neg"
 end
 `
 	got, _ := Format(src)
@@ -1106,7 +1106,7 @@ func TestFormat_AnonStructLit(t *testing.T) {
 func TestFormat_StructLit_PreservesUserMultiLine(t *testing.T) {
 	src := `x = User{
     name: "Alice",
-    age: 30,
+    age:  30,
 }
 `
 	got, _ := Format(src)
@@ -1120,7 +1120,7 @@ func TestFormat_StructLit_PreservesUserMultiLine(t *testing.T) {
 func TestFormat_AnonStructLit_PreservesUserMultiLine(t *testing.T) {
 	src := `x = {
     name: "Alice",
-    age: 30,
+    age:  30,
 }
 `
 	got, _ := Format(src)
@@ -1305,7 +1305,7 @@ func TestFormat_FnDef_LongSig_BreaksParams(t *testing.T) {
 	// Signature too long to fit in 100 cols — params break to one-per-line.
 	src := "pub fn process_all_the_users(users: List<User>, _config: SomeConfig, _logger: Logger, _retry_count: Int, _more_options: ExtraOpts) -> Result<List<Report>, Error>\n    users\nend\n"
 	got, _ := Format(src)
-	if !strings.Contains(got, "fn process_all_the_users(\n    users: List<User>,") {
+	if !strings.Contains(got, "fn process_all_the_users(\n    users:         List<User>,") {
 		t.Errorf("expected params broken, got:\n%s", got)
 	}
 	if !strings.Contains(got, ",\n) -> ") {
@@ -2551,7 +2551,7 @@ func TestFormat_If_ElseIfChain_NonAtomic_AllBreak(t *testing.T) {
 func TestFormat_StructDef(t *testing.T) {
 	src := `struct User
     name: String
-    age: Int
+    age:  Int
 end
 `
 	got, _ := Format(src)
@@ -2563,7 +2563,7 @@ end
 func TestFormat_StructDef_Pub(t *testing.T) {
 	src := `pub struct User
     name: String
-    age: Int
+    age:  Int
 end
 `
 	got, _ := Format(src)
@@ -2575,7 +2575,7 @@ end
 func TestFormat_StructDef_FieldDefault(t *testing.T) {
 	src := `struct Response
     status: Int = 200
-    body: String
+    body:   String
 end
 `
 	got, _ := Format(src)
@@ -2594,7 +2594,7 @@ func TestFormat_StructDef_Empty(t *testing.T) {
 
 func TestFormat_StructDef_Generic(t *testing.T) {
 	src := `struct Pair<T, U>
-    first: T
+    first:  T
     second: U
 end
 `
@@ -2987,7 +2987,7 @@ func TestFormat_Once_Expression(t *testing.T) {
 }
 
 func TestFormat_ConsecutiveOnceDeclarationsStayTight(t *testing.T) {
-	src := "once doubled = 21 * 2\nonce greeting = \"Hello\"\nonce seq = [1, 2, 3]\n"
+	src := "once doubled  = 21 * 2\nonce greeting = \"Hello\"\nonce seq      = [1, 2, 3]\n"
 	got, _ := Format(src)
 	if got != src {
 		t.Errorf("got %q", got)
@@ -5365,7 +5365,7 @@ func TestFormat_CompoundDepth_Wrapped_DoesntBumpDepth(t *testing.T) {
 	src := `fn main()
     case x
         Some(Obj{"k" => v}) -> v
-        _ -> 0
+        _                   -> 0
     end
 end
 `
@@ -5566,7 +5566,7 @@ func TestFormat_TrailingCommentAfterLastCaseArm_Preserved(t *testing.T) {
 	src := `fn main()
     x = case [1, 2]
         [] -> "empty"
-        _ -> "full"
+        _  -> "full"
         // trailing comment after last arm
     end
 end
@@ -5713,7 +5713,7 @@ func TestFormat_StructLit_TrailingComment_Preserved(t *testing.T) {
 // struct literals. Pre-fix: parser rejected with "expected field name in
 // struct literal".
 func TestFormat_AnonStructLit_TrailingComment_Preserved(t *testing.T) {
-	src := "fn main()\n    p = {\n        name: \"alice\",\n        age: 30,\n        // trailing comment\n    }\n\n    p\nend\n"
+	src := "fn main()\n    p = {\n        name: \"alice\",\n        age:  30,\n        // trailing comment\n    }\n\n    p\nend\n"
 	got, err := Format(src)
 	if err != nil {
 		t.Fatalf("format failed: %v", err)

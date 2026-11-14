@@ -53,14 +53,14 @@ derive FromJson for Local
 
 fn render(r: Result<Local, Json.ShapeError>) -> String
     case r
-        Ok(v) -> "ok:" + v.label
+        Ok(v)  -> "ok:" + v.label
         Err(_) -> "err"
     end
 end
 
 fn render_away(r: Result<Away, Json.ShapeError>) -> String
     case r
-        Ok(v) -> "ok:" + models.name_of(v)
+        Ok(v)  -> "ok:" + models.name_of(v)
         Err(_) -> "err"
     end
 end

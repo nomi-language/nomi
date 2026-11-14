@@ -21,6 +21,21 @@ func ListCellSeq[T any, N ListCellShape[T, N]](xs *N) Seq[T] {
 	}}
 }
 
+// ListCellCursor steps a List one element per call, false once it is spent:
+// what SeqZipCursor pulls a List on zip's right side through.
+func ListCellCursor[T any, N ListCellShape[T, N]](xs *N) func() (T, bool) {
+	node := xs
+	return func() (T, bool) {
+		if node == nil {
+			var zero T
+			return zero, false
+		}
+		cell := ListCell[T, N](*node)
+		node = cell.Tail
+		return cell.Head, true
+	}
+}
+
 // SeqToListCells materializes in source order using the consumer's cell type.
 func SeqToListCells[T any, N ListCellShape[T, N]](fr *Frame, src Seq[T]) *N {
 	var items []T

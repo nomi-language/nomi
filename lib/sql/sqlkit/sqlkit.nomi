@@ -26,10 +26,10 @@ end
 /// The rows of a `-> Rows<T>` query, read one at a time with `Rows.fold`.
 /// The query runs each time the rows are folded.
 pub opaque struct Rows<T>
-    conn: Conn
-    query: String
+    conn:      Conn
+    query:     String
     statement: Statement
-    decode: (Row) -> Result<T, sql.Error>
+    decode:    (Row) -> Result<T, sql.Error>
 end
 
 impl Rows<T>
@@ -37,10 +37,10 @@ impl Rows<T>
     /// generated `-> Rows<T>` function returns. `query` is the query's
     /// name, which its errors carry.
     pub fn new(
-        conn: Conn,
-        query: String,
+        conn:      Conn,
+        query:     String,
         statement: Statement,
-        decode: (Row) -> Result<T, sql.Error>,
+        decode:    (Row) -> Result<T, sql.Error>,
     ) -> Rows<T>
         Rows{conn:, query:, statement:, decode:}
     end
@@ -81,7 +81,7 @@ impl Rows<T>
 
         case Receiver.receive(state.receiver)
             Some(result) -> result
-            None -> Err(sql.Error.Database{code: "", message: "Rows.fold lost its state"})
+            None         -> Err(sql.Error.Database{code: "", message: "Rows.fold lost its state"})
         end
     end
 

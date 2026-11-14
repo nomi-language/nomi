@@ -28,17 +28,17 @@ import std::io
 
 struct Address
     city: String
-    zip: String
+    zip:  String
 end
 
 struct Person
-    name: String
-    age: Int
+    name:    String
+    age:     Int
     address: Address
 end
 
 struct Wrapper
-    label: String
+    label:  String
     person: Person
 end
 
@@ -51,8 +51,8 @@ fn bump() -> Person
     io.print("  (built)")
 
     Person{
-        name: "Alice",
-        age: 30,
+        name:    "Alice",
+        age:     30,
         address: Address{city: "Boston", zip: "02101"},
     }
 end
@@ -91,7 +91,7 @@ fn main()
     w = Wrapper{label: "one", person: original}
 
     deep = Struct.update(w, {
-        label: "two",
+        label:  "two",
         person: {.., address: {.., zip: "99999"}},
     })
 

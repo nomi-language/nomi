@@ -16,11 +16,11 @@ end
 
 fn describe(n: Int) -> String
     case build(n)
-        Box.Num(0) -> "zero"
-        Box.Num(1) -> "one"
+        Box.Num(0)              -> "zero"
+        Box.Num(1)              -> "one"
         Box.Num(m) when m > 100 -> "huge"
-        Box.Num(m) -> "n=${m}"
-        Box.Text(s) -> s
+        Box.Num(m)              -> "n=${m}"
+        Box.Text(s)             -> s
     end
 end
 

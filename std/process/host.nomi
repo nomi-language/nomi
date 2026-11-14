@@ -28,15 +28,15 @@ pub host type Fake
 /// program's 1, `input` 2, piped 3), and `stdout` and `stderr` the modes
 /// of its output and error (null 0, the program's 1, captured 2, piped 3).
 pub host fn start(
-    program: String,
-    args: List<String>,
-    env: Map<String, String>,
+    program:   String,
+    args:      List<String>,
+    env:       Map<String, String>,
     clear_env: Bool,
-    dir: String,
-    stdin: Int,
-    input: Reader,
-    stdout: Int,
-    stderr: Int,
+    dir:       String,
+    stdin:     Int,
+    input:     Reader,
+    stdout:    Int,
+    stderr:    Int,
 ) -> Result<Child, Error>
 
 /// The writer to a piped standard input.
@@ -65,23 +65,23 @@ pub host fn new_fake() -> Fake
 /// A start of `program` with `args` (with any arguments when `any_args`)
 /// exits with `code` after writing `stdout` and `stderr`.
 pub host fn fake_answer(
-    fake: Fake,
-    program: String,
-    args: List<String>,
+    fake:     Fake,
+    program:  String,
+    args:     List<String>,
     any_args: Bool,
-    code: Int,
-    stdout: Bytes,
-    stderr: Bytes,
+    code:     Int,
+    stdout:   Bytes,
+    stderr:   Bytes,
 ) -> Unit
 
 /// A start of `program` with `args` (any when `any_args`) fails with
 /// `error`.
 pub host fn fake_refuse(
-    fake: Fake,
-    program: String,
-    args: List<String>,
+    fake:     Fake,
+    program:  String,
+    args:     List<String>,
     any_args: Bool,
-    error: Error,
+    error:    Error,
 ) -> Unit
 
 /// How many starts the fake responded to.

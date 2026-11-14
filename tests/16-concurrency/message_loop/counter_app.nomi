@@ -66,11 +66,11 @@ fn start() -> Counter
     _ =
         Supervisor.new(
             shutdown_timeout: Duration.seconds(5),
-            max_running: 1,
-            restart: Restart.Permanent,
+            max_running:      1,
+            restart:          Restart.Permanent,
             backoff: Backoff.Exponential{
                 max_restarts: 3,
-                max_elapsed: Duration.minutes(5),
+                max_elapsed:  Duration.minutes(5),
             },
         )
         |> Supervisor.spawn(fn -> serve(inbox))
@@ -114,7 +114,7 @@ end
 /// Fire-and-forget: returns as soon as the message is queued.
 pub fn increment(counter: Counter, n: Int) -> Unit
     case Sender.send(counter.inbox.sender, Request.Increment(n))
-        Ok(_) -> Unit
+        Ok(_)  -> Unit
         Err(_) -> Unit
     end
 end
@@ -130,13 +130,13 @@ pub fn get(counter: Counter) -> Int
 
     case Receiver.receive(reply.receiver)
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 end
 
 pub fn explode(counter: Counter) -> Unit
     case Sender.send(counter.inbox.sender, Request.Explode)
-        Ok(_) -> Unit
+        Ok(_)  -> Unit
         Err(_) -> Unit
     end
 end

@@ -31,7 +31,7 @@ impl Plant
             "C" -> Some(.Clover)
             "R" -> Some(.Radishes)
             "V" -> Some(.Violets)
-            _ -> None
+            _   -> None
         end
     end
 end
@@ -135,7 +135,7 @@ group "partial garden"
 
         [
             ("second student's garden", Student.Bob, [Plant.Clover, .Clover, .Clover, .Clover]),
-            ("third student's garden", .Charlie, [.Grass, .Grass, .Grass, .Grass]),
+            ("third student's garden",  .Charlie,    [.Grass, .Grass, .Grass, .Grass]),
         ]
         |> subtests (description, student, expected), description
             assert Garden.plants(garden, student) == expected
@@ -152,15 +152,15 @@ test "full garden"
             Student.Alice,
             [Plant.Violets, .Radishes, .Violets, .Radishes],
         ),
-        ("for Bob, second student's garden", .Bob, [.Clover, .Grass, .Clover, .Clover]),
-        ("for Charlie", .Charlie, [.Violets, .Violets, .Clover, .Grass]),
-        ("for David", .David, [.Radishes, .Violets, .Clover, .Radishes]),
-        ("for Eve", .Eve, [.Clover, .Grass, .Radishes, .Grass]),
-        ("for Fred", .Fred, [.Grass, .Clover, .Violets, .Clover]),
-        ("for Ginny", .Ginny, [.Clover, .Grass, .Grass, .Clover]),
-        ("for Harriet", .Harriet, [.Violets, .Radishes, .Radishes, .Violets]),
-        ("for Ileana", .Ileana, [.Grass, .Clover, .Violets, .Clover]),
-        ("for Joseph", .Joseph, [.Violets, .Clover, .Violets, .Grass]),
+        ("for Bob, second student's garden", .Bob,     [.Clover, .Grass, .Clover, .Clover]),
+        ("for Charlie",                      .Charlie, [.Violets, .Violets, .Clover, .Grass]),
+        ("for David",                        .David,   [.Radishes, .Violets, .Clover, .Radishes]),
+        ("for Eve",                          .Eve,     [.Clover, .Grass, .Radishes, .Grass]),
+        ("for Fred",                         .Fred,    [.Grass, .Clover, .Violets, .Clover]),
+        ("for Ginny",                        .Ginny,   [.Clover, .Grass, .Grass, .Clover]),
+        ("for Harriet",                      .Harriet, [.Violets, .Radishes, .Radishes, .Violets]),
+        ("for Ileana",                       .Ileana,  [.Grass, .Clover, .Violets, .Clover]),
+        ("for Joseph",                       .Joseph,  [.Violets, .Clover, .Violets, .Grass]),
         (
             "for Kincaid, second to last student's garden",
             .Kincaid,

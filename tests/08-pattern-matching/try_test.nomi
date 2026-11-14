@@ -35,7 +35,7 @@ fn find(list: List<Int>, target: Int) -> Maybe<Int>
         Iter.reduce(list, None, fn acc, x ->
             case acc
                 Some(v) -> Some(v)
-                None -> if x == target then Some(x) else None
+                None    -> if x == target then Some(x) else None
             end
         end)
     end

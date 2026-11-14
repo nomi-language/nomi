@@ -5,12 +5,12 @@
 //#
 //# - `Literal`: the literal is a call of the type's `from_fragments`, which
 //#   gets the text as a list of `Fragment`s and returns whatever type the
-//#   impl chooses, usually a `Result`. A double-quoted literal calls it when
-//#   the program runs. A backtick literal has no slots, so when
-//#   `from_fragments` returns a `Result` the compiler calls it while it
-//#   checks the program: an `Err` is a compile error, and the literal is the
-//#   `Ok` value. std::calendar's `Date`, std::regex's `Regex` and std::sql's
-//#   `Sql` work this way.
+//#   impl chooses, usually a `Result`. A literal with a `${...}` slot calls
+//#   it when the program runs. A literal without slots, in any quotes, has
+//#   fixed text, so the compiler calls `from_fragments` while it checks the
+//#   program: when it returns a `Result`, an `Err` is a compile error and the
+//#   literal is the `Ok` value. std::calendar's `Date`, std::regex's `Regex`
+//#   and std::sql's `Sql` work this way.
 //# - `CheckedLiteral`: `check` reads the literal's text around its slots
 //#   while the program is checked, and `build` makes the value when it runs.
 //#   The literal is the value in every quote style, slots included, never a
@@ -36,7 +36,7 @@
 //#     fn from_fragments(fragments: List<Fragment<String>>) -> Box
 //#         body = Iter.reduce(fragments, "", fn acc, frag ->
 //#             case frag
-//#                 .Static(s) -> acc + s
+//#                 .Static(s)  -> acc + s
 //#                 .Dynamic(v) -> acc + v
 //#             end
 //#         end)
@@ -79,10 +79,10 @@ end
 /// for a handler that cannot fail. `from_fragments` takes no `self`: the
 /// prefix type picks the handler.
 ///
-/// A backtick literal whose handler returns `Result<T, E>` is checked when
-/// the program is checked and is a `T`, so that handler may not have
-/// effects. The double-quoted form is the `Result`, built when the program
-/// runs.
+/// A literal without slots is checked when the program is checked, so its
+/// handler may not have effects, and when the handler returns `Result<T, E>`
+/// the literal is a `T`. A literal with a slot is the `Result`, built when
+/// the program runs.
 ///
 /// ```nomi
 /// impl Literal for Date
@@ -150,8 +150,8 @@ end
 //
 pub struct LiteralError
     fragment: Int
-    offset: Int
-    message: String
+    offset:   Int
+    message:  String
 end
 
 derive Equatable for LiteralError

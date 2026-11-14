@@ -14,7 +14,7 @@ end
 fn show(m: Maybe<Int>) -> String
     case m
         Some(n) -> "Some(${n})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
@@ -159,7 +159,7 @@ fn main()
     // --- materializers ---------------------------------------------------------
     io.print("${[1, 2, 3] |> Iter.reverse()}")
     io.print("${["he", "llo"] |> String.join()}")
-    io.print("${Iter.flatten([[1, 2], [3], [4, 5]])}")
+    io.print("${Iter.to_list(Iter.flatten([[1, 2], [3], [4, 5]]))}")
     io.print("${[1, 2, 3, 4] |> Iter.partition(&(&1 > 2))}")
     io.print("${[3, 1, 2] |> Iter.sort_with(&Int.compare(&1, &2))}")
     descending = Iter.map([3, 1, 2], &(&1 * 2))

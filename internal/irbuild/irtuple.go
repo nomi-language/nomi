@@ -37,7 +37,7 @@ func irLoweredTupleRetained(k kind, where string) {
 // composite holding one never reaches the builder: the checker rejects it
 // (functions have no equality), so structuralEqual never meets a function.
 func irCompositePartKind(k kind) bool {
-	return irRetainedValueKind(k) || (k.tag == tagFunc && irCallableValueKind(k)) || irExistentialKind(k) || k == kindUnit
+	return irRetainedValueKind(k) || (k.tag == tagFunc && irCallableValueKind(k)) || irHeldKind(k) || k == kindUnit
 }
 
 func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool) {

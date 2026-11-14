@@ -1,4 +1,4 @@
-//# Bit patterns: ``Bits`10xx_xxxx` `` matches the Ints whose bits are
+//# Bit patterns: `Bits"10xx_xxxx"` matches the Ints whose bits are
 //# 1, 0 and then anything, and reads a field out of them. A pattern is
 //# written most significant bit first in `0`, `1`, `x` (any bit) and one
 //# lowercase field letter, with `_` between bits to group them. It is a
@@ -9,7 +9,7 @@
 //# ```nomi
 //# import std::bits.Bits
 //#
-//# once continuation = Bits`10aa_aaaa`
+//# once continuation = Bits"10aa_aaaa"
 //#
 //# fn payload(byte: Int) -> Maybe<Int>
 //#     Bits.field(continuation, byte)
@@ -17,10 +17,10 @@
 //# ```
 //#
 //# A pattern has any width, since an Int has any size. `Bits` takes an
-//# `Int`; a `Byte` is `Byte.to_int(b)` first. The backtick literal is
+//# `Int`; a `Byte` is `Byte.to_int(b)` first. The literal is
 //# checked when the program is checked, so a malformed one is a compile
 //# error at the literal, whose text is the `Error`'s: ``typed literal
-//# Bits`10x2` is invalid: `2` at index 3 is not a bit: ...``.
+//# Bits"10x2" is invalid: `2` at index 3 is not a bit: ...``.
 
 import
     bool.Bool.{self, False}
@@ -37,20 +37,20 @@ import
     strings.String
 end
 
-/// A bit pattern, built by the raw typed literal ``Bits`110x_aaaa` ``:
+/// A bit pattern, built by the typed literal `Bits"110x_aaaa"`:
 /// its width in bits, the mask of its `0` and `1` bits, their value, and
 /// the bits its field letter covers. Two patterns are equal when they are
 /// written alike.
-//! utf8_lead = Bits`110a_aaaa`
+//! utf8_lead = Bits"110a_aaaa"
 //! assert Bits.matches(utf8_lead, 0b1100_0011)
 //! assert Bits.field(utf8_lead, 0b1100_0011) == Some(3)
-//! assert Debug.inspect(utf8_lead) == "Bits`110a_aaaa`"
+//! assert Debug.inspect(utf8_lead) == "Bits\"110a_aaaa\""
 //
 pub opaque struct Bits
-    text: String
-    width: Int
-    mask: Int
-    value: Int
+    text:       String
+    width:      Int
+    mask:       Int
+    value:      Int
     field_mask: Int
 end
 
@@ -94,7 +94,7 @@ impl Display for Error
 end
 
 impl Bits
-    /// Read a bit pattern from its text, as the literal does: ``Bits`10xx` ``
+    /// Read a bit pattern from its text, as the literal does: `Bits"10xx"`
     /// is `Bits.parse("10xx")`. Each `0` and `1` is a bit the Int must
     /// have, each `x` a bit it may have either way, and each lowercase
     /// letter but `x` a bit of the pattern's field, all of whose bits are
@@ -109,14 +109,14 @@ impl Bits
     //
     pub fn parse(text: String) -> Result<Bits, Error>
         start = Scan{
-            index: 0,
-            width: 0,
-            mask: 0,
-            value: 0,
-            field: None,
+            index:      0,
+            width:      0,
+            mask:       0,
+            value:      0,
+            field:      None,
             field_mask: 0,
-            closed: False,
-            failure: None,
+            closed:     False,
+            failure:    None,
         }
 
         scan = Iter.reduce(String.to_codepoints(text), start, fn acc, cp -> read_bit(acc, cp))
@@ -132,9 +132,9 @@ impl Bits
                 Ok(
                     Bits{
                         text:,
-                        width: scan.width,
-                        mask: scan.mask,
-                        value: scan.value,
+                        width:      scan.width,
+                        mask:       scan.mask,
+                        value:      scan.value,
                         field_mask: scan.field_mask,
                     }
                 )
@@ -144,7 +144,7 @@ impl Bits
     /// Whether `n`'s bits fit the pattern: every `0` and `1` bit of the
     /// pattern is `n`'s, and `n` has no bit above the pattern's width. A
     /// negative `n`, whose bits go on forever, matches no pattern.
-    //! lead = Bits`1xxx_xxxx`
+    //! lead = Bits"1xxx_xxxx"
     //! assert Bits.matches(lead, 128)
     //! refute Bits.matches(lead, 384)
     //! assert Bits.matches(lead, 0b1000_0001)
@@ -160,10 +160,10 @@ impl Bits
     /// when `n` matches the pattern, and `None` when it does not. A pattern
     /// with no field letter has no field, and asking it for one stops the
     /// program.
-    //! continuation = Bits`10aa_aaaa`
+    //! continuation = Bits"10aa_aaaa"
     //! assert Bits.field(continuation, 0b1010_0011) == Some(0b10_0011)
     //! assert Bits.field(continuation, 0b0010_0011) == None
-    //! assert Bits.field(Bits`1aaa_0000`, 0b1101_0000) == Some(5)
+    //! assert Bits.field(Bits"1aaa_0000", 0b1101_0000) == Some(5)
     //
     pub fn field(pattern: Bits, n: Int) -> Maybe<Int>
         if pattern.field_mask == 0 then unreachable "Bits.field: the pattern has no field letter"
@@ -178,21 +178,21 @@ impl Bits
     end
 
     /// The number of bits the pattern spells, not counting `_`.
-    //! assert Bits.width(Bits`10_xx`) == 4
+    //! assert Bits.width(Bits"10_xx") == 4
     //
     pub fn width(pattern: Bits) -> Int
         pattern.width
     end
 
     /// The mask of the pattern's `0` and `1` bits.
-    //! assert Bits.mask(Bits`10xx_aa01`) == 0b1100_0011
+    //! assert Bits.mask(Bits"10xx_aa01") == 0b1100_0011
     //
     pub fn mask(pattern: Bits) -> Int
         pattern.mask
     end
 
     /// The value the masked bits must have: the pattern's `1` bits.
-    //! assert Bits.value(Bits`10xx_aa01`) == 0b1000_0001
+    //! assert Bits.value(Bits"10xx_aa01") == 0b1000_0001
     //
     pub fn value(pattern: Bits) -> Int
         pattern.value
@@ -200,13 +200,13 @@ impl Bits
 end
 
 impl Literal for Bits
-    /// ``Bits`10xx_xxxx` `` is the pattern `Bits.parse` reads from its
-    /// text. A raw literal is checked when the program is checked, so a
+    /// `Bits"10xx_xxxx"` is the pattern `Bits.parse` reads from its
+    /// text. A literal without slots is checked when the program is checked, so a
     /// malformed one is a compile error at the literal.
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Bits, Error>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -216,9 +216,9 @@ impl Literal for Bits
 end
 
 impl Debug for Bits
-    /// The raw literal that builds the pattern, as written.
+    /// The typed literal that builds the pattern, as written.
     fn inspect(pattern: Bits) -> String
-        "Bits`${pattern.text}`"
+        String.to_typed_literal(pattern.text, "Bits")
     end
 end
 
@@ -226,14 +226,14 @@ end
 // masks left by one. closed is whether a bit outside the field followed
 // the field's first bit.
 struct Scan
-    index: Int
-    width: Int
-    mask: Int
-    value: Int
-    field: Maybe<String>
+    index:      Int
+    width:      Int
+    mask:       Int
+    value:      Int
+    field:      Maybe<String>
     field_mask: Int
-    closed: Bool
-    failure: Maybe<Error>
+    closed:     Bool
+    failure:    Maybe<Error>
 end
 
 fn read_bit(s: Scan, cp: Codepoint) -> Scan
@@ -247,11 +247,11 @@ fn read_bit(s: Scan, cp: Codepoint) -> Scan
     shifted = {
         ..s,
         index:,
-        width: .. + 1,
-        mask: .. <<< 1,
-        value: .. <<< 1,
+        width:      .. + 1,
+        mask:       .. <<< 1,
+        value:      .. <<< 1,
         field_mask: .. <<< 1,
-        closed: Maybe.is_some(s.field),
+        closed:     Maybe.is_some(s.field),
     }
 
     case found

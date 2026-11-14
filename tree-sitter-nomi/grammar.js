@@ -79,11 +79,24 @@ module.exports = grammar({
     // it is an identifier, so `(concurrent)`, which `nomi fmt` writes for
     // the name, reads the name.
     $._concurrent_keyword,
+    // Zero-width, before an inline `if`'s `else` when it stands on the line
+    // its branch ends on. The Go parser takes an `else` on a later line as
+    // the `else` of the block `if` around it, so in
+    // `if a then\n    if b then f()\nelse` the `else` is the outer `if`'s.
+    $._same_line_else,
   ],
 
   word: $ => $.identifier,
 
   conflicts: $ => [
+    // `if Some(c) == w then` and `if Some(c) = w then`: a capitalized name
+    // before `(` is a call's function or an enum pattern's head until the
+    // `==` or the `=` decides; where both read, the pattern wins
+    // (enum_pattern's dynamic precedence). After `fn` the same name may
+    // also be a declaration's or a lambda parameter's.
+    [$._enum_pattern_head, $._callable_expression],
+    [$.function_definition, $._enum_pattern_head],
+    [$.function_definition, $._simple_type, $._enum_pattern_head, $._struct_name],
     // `{..m, ...}`: a brace whose first item is a spread is a struct update
     // or a map literal until its first entry, `name:` or `key =>`, decides.
     [$.struct_update_spread, $.map_update_spread],
@@ -201,6 +214,10 @@ module.exports = grammar({
     // `((a, b) as inner, c) = pair`: a destructure's nested pattern reads as
     // the expression it is spelled as until the `=` decides.
     [$._destructuring_subpattern, $._expression],
+    // `Kv{"a" => 1} else` after a binding's value: a literal in a pattern
+    // reads as an expression too (_case_pattern's literals), so it is a
+    // destructure's, a pattern's or an expression until what follows decides.
+    [$._destructuring_subpattern, $._expression, $._case_pattern],
     // `fn` starts a declaration or a lambda. A declaration's name is
     // followed by its `(` or `<`, a lambda's parameter by `,`, `:`, `=` or
     // `->`; until then a capitalized or dotted name reads both ways
@@ -211,6 +228,15 @@ module.exports = grammar({
     // function type read the same until what follows the `->` decides, as
     // the Go parser decides it (parseParamPattern).
     [$.tuple_type, $.function_type],
+    // A parameter written as its type alone, `fn f((Int, String))` or
+    // `fn f({x: Int})`, reads as a tuple or struct pattern too until what
+    // follows decides; where both stand the type wins (_type_only_parameter).
+    // `fn mod.Type` starts a function named through an interface or a
+    // lambda taking a `mod.Type`, until the `(` or the `->` decides.
+    [$._type_only_element, $.anon_struct_type_field],
+    [$._type_only_element, $._simple_type, $._case_pattern],
+    [$.qualified_type],
+    [$.function_definition, $.qualified_type],
     // A line below an arm's `->` is a statement of the arm's body or the
     // next arm, until its `->` decides, as the Go parser's startsCaseArm
     // decides it; and a line below a binding's `else` an arm or a body
@@ -559,11 +585,66 @@ module.exports = grammar({
     // grammar only needs to parse the shapes — refutability is the
     // checker's job. The pattern rules are reused from the `case`-arm
     // grammar (`tuple_pattern`/`struct_pattern`/`enum_pattern`).
-    parameter: $ => seq(
-      field('name', $._param_pattern),
-      optional(seq(':', $._type)),
-      optional(seq('=', $._expression)),
+    parameter: $ => choice(
+      seq(
+        field('name', $._param_pattern),
+        optional(seq(':', $._type)),
+        optional(seq('=', $._expression)),
+      ),
+      field('type', choice(
+        $._type_only_parameter,
+        alias($._type_only_function_type, $.function_type),
+      )),
     ),
+
+    // A parameter written as its type alone in a form no pattern is spelled
+    // as, `fn f(Vector<Int>)`, `fn f(http.Request)`, which binds nothing. A
+    // bare `type_identifier` is `_param_pattern`'s. A lambda's parameter
+    // takes no function type alone: `fn (A) -> B` is a lambda taking an `A`.
+    //
+    // Inside the parentheses of a tuple or function type, a bare name reads
+    // as a tuple pattern's element too, `(Int, String)`, so its elements are
+    // `_type_only_element`, whose bare name has the pattern's precedence;
+    // the two readings stay alive until what follows decides, and where both
+    // stand the type wins, as in the Go parser (parseParamPattern).
+    _type_only_parameter: $ => choice(
+      $.generic_type,
+      $.qualified_type,
+      alias($._type_only_tuple_type, $.tuple_type),
+      alias($._type_only_anon_struct_type, $.anon_struct_type),
+      $.conjunction_type,
+    ),
+
+    _type_only_tuple_type: $ => prec.dynamic(5, prec(3, seq(
+      '(',
+      $._type_only_element,
+      repeat1(seq(',', $._type_only_element)),
+      ')',
+    ))),
+
+    _type_only_anon_struct_type: $ => prec.dynamic(5, prec(2, seq(
+      '{',
+      alias($._type_only_anon_struct_type_field, $.anon_struct_type_field),
+      repeat(seq(',', alias($._type_only_anon_struct_type_field, $.anon_struct_type_field))),
+      optional(','),
+      '}',
+    ))),
+
+    _type_only_anon_struct_type_field: $ => seq(
+      field('name', $._field_identifier),
+      ':',
+      field('type', $._type_only_element),
+    ),
+
+    _type_only_function_type: $ => prec.right(3, seq(
+      '(',
+      commaSep($._type_only_element),
+      ')',
+      '->',
+      $._type,
+    )),
+
+    _type_only_element: $ => choice(prec(2, $.type_identifier), $._type),
 
     // The destructuring shapes admitted in parameter position (fn + lambda).
     // A bare `_` wildcard and bare `identifier` are the plain-name forms. A
@@ -738,7 +819,6 @@ module.exports = grammar({
       'typealias',
       field('name', $.qualified_type_identifier),
       field('type', $._type),
-      repeat(seq('and', field('type', $._type))),
     ),
 
     // Interface
@@ -822,7 +902,6 @@ module.exports = grammar({
       field('name', choice($.type_parameter_identifier, $.self_type)),
       ':',
       $._type,
-      repeat(seq('and', $._type)),
     ),
 
     // Top-level `impl` block. `impl Iface for Type` implements one interface
@@ -947,6 +1026,7 @@ module.exports = grammar({
     // Types
     _type: $ => choice(
       $.self_type,
+      $.conjunction_type,
       $._simple_type,
       $.qualified_type,
       $.generic_type,
@@ -1023,6 +1103,11 @@ module.exports = grammar({
     // syntax highlighting can mark it as a keyword rather than a type
     // name.
     self_type: $ => 'self',
+
+    // `Priced and Costed`: an interface conjunction, a value type and a
+    // `where` bound (and what `typealias Name A and B` names). Left
+    // associative, so `A and B and C` nests to the left.
+    conjunction_type: $ => prec.left(seq($._type, 'and', $._type)),
 
     type_parameter_identifier: $ => seq(
       $.type_identifier,
@@ -1209,10 +1294,13 @@ module.exports = grammar({
     // name or an irrefutable destructuring pattern, with optional type
     // annotation and default. Reuses `_param_pattern` so distinct/struct/
     // tuple destructuring is available in lambdas exactly as in `fn`.
-    lambda_parameter: $ => seq(
-      field('name', $._param_pattern),
-      optional(seq(':', $._type)),
-      optional(seq('=', $._expression)),
+    lambda_parameter: $ => choice(
+      seq(
+        field('name', $._param_pattern),
+        optional(seq(':', $._type)),
+        optional(seq('=', $._expression)),
+      ),
+      field('type', $._type_only_parameter),
     ),
 
     // A field of an anonymous struct, `x: 1`, or punned, `x:`, which is
@@ -1905,9 +1993,10 @@ module.exports = grammar({
     ),
 
     _case_pattern: $ => prec(2, choice(
-      // A bare name has no precedence over the expression it also reads
-      // as, so `if a or b then` stays the boolean `or` until the `then` decides
-      // (the conflict with _expression below).
+      // A bare name or a literal has no precedence over the expression it
+      // also reads as, so `if a or b then` stays the boolean `or`, and
+      // `if Pt{x: 1} == w then` and `if (1, y) == w then` a comparison,
+      // until the `=` or the `then` decides (the conflict with _expression).
       prec(0, $.identifier),
       $.type_identifier,
       // Qualified bare variant pattern: `Status.Open`, `Color.Red` (no
@@ -1918,12 +2007,12 @@ module.exports = grammar({
       seq($.type_identifier, repeat1(seq(token.immediate('.'), $.type_identifier))),
       $.qualified_variant,
       $.dot_variant,
-      $.string,
-      $.integer,
-      $.float,
-      $.decimal,
-      $.codepoint,
-      $.boolean,
+      prec(0, $.string),
+      prec(0, $.integer),
+      prec(0, $.float),
+      prec(0, $.decimal),
+      prec(0, $.codepoint),
+      prec(0, $.boolean),
       '_',
       $.tuple_pattern,
       $.struct_pattern,
@@ -1998,25 +2087,20 @@ module.exports = grammar({
       ')',
     ),
 
-    // The `prec(11)` is applied PER ALTERNATIVE rather than as an outer
-    // `prec(11, choice(...))` wrapper. That distinction is load-bearing: the
-    // bare/qualified head is a `_simple_type` (a dotted type name,
-    // `type_identifier ('.' type_identifier)*`), and an outer `prec` wrapper
-    // makes tree-sitter build a precedence-fragmented copy of the
-    // `_simple_type` states that drops the `.` continuation in parameter
-    // position (no `case`-arm `_expression` escape hatch there), so
-    // `Enum.Variant(x)` parameters fail to parse. Per-alternative `prec` lets
-    // the head reuse `_simple_type`'s native dotted-name states (the same ones
-    // type annotations use), keeping `.` available.
+    // The `prec(11)` is applied per alternative rather than as an outer
+    // `prec(11, choice(...))` wrapper: an outer wrapper makes tree-sitter
+    // build a precedence-fragmented copy of the head's dotted-name states
+    // that drops the `.` continuation in parameter position (no `case`-arm
+    // `_expression` escape hatch there), so `Enum.Variant(x)` parameters
+    // fail to parse.
     enum_pattern: $ => choice(
       // Bare `Type(args)` / `Variant(args)` and module-qualified
-      // `Enum.Variant(args)` share one head — `_simple_type`, which already
-      // models a dotted type name. Reusing it brings the qualified
-      // `Enum.Variant(...)` form for free. In a `case` arm the qualified
-      // spelling also matches the `_expression` escape hatch
-      // (`type_field_access` + call); parameter position has no such fallback,
-      // so the pattern grammar must accept the head directly.
-      prec(11, seq($._simple_type, '(', commaSep($._case_pattern), ')')),
+      // `Enum.Variant(args)` share one head, `_enum_pattern_head`. In a
+      // `case` arm the spelling also matches the `_expression` escape hatch
+      // (a call); the dynamic precedence, above the call's, keeps the
+      // pattern reading there. Parameter position has no such fallback, so
+      // the pattern grammar must accept the head directly.
+      prec.dynamic(6, prec(11, seq($._enum_pattern_head, '(', commaSep($._case_pattern), ')'))),
       // `self(p)`: the implementor taken apart in an interface default
       // bounded by `where self: Distinct<T>`.
       prec(11, seq($.self_type, '(', commaSep($._case_pattern), ')')),
@@ -2024,6 +2108,16 @@ module.exports = grammar({
       prec(11, seq($.dot_variant, '(', commaSep($._case_pattern), ')')),
       // Named through a file: sql.Error.Constraint(args)
       prec(11, seq($.qualified_variant, '(', commaSep($._case_pattern), ')')),
+    ),
+
+    // The head of `Type(args)` and `Enum.Variant(args)`: `_simple_type`'s
+    // dotted name without its static precedence, which would otherwise
+    // reduce `Some` to a pattern head before the `(` in
+    // `if Some(c) == w then`. Without it the name stays a call's function
+    // too, until the `==` or an `=` decides (the conflicts above).
+    _enum_pattern_head: $ => seq(
+      $.type_identifier,
+      repeat(seq(token.immediate('.'), $.type_identifier)),
     ),
 
     // A variant named through the file that declares its type:
@@ -2412,7 +2506,7 @@ function ifForms($, head) {
       head,
       'then',
       field('consequence', $._expression),
-      optional(seq('else', field('alternative', $._expression))),
+      optional(seq($._same_line_else, 'else', field('alternative', $._expression))),
     )),
     seq(
       head,

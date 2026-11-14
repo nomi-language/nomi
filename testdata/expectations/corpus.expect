@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 737
-declared-cases 4116
+records 745
+declared-cases 4142
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1121,8 +1121,8 @@ T test result: ok. 1 passed, 0 failed
 T
 C 06-collections/spreads_test.nomi
 E 0
-N 9
-H 1186dfd2331a9228a0e695a999d50a73a21432e022ae5a19606e717f0b6067aa
+N 10
+H 79475672533848dc2744b30f72e31dbad3c7d9ba7378fcd0437f0f6666bcc273
 T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread goes first, between elements, last, or several times
 T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread goes first, between elements, last, or several times
@@ -1132,7 +1132,8 @@ T ok <root>/tests/06-collections/spreads_test.nomi :: a bare spread stands anywh
 T ok <root>/tests/06-collections/spreads_test.nomi :: a list spread takes any Iter of its elements: a Maybe, an Iter chain, a Set
 T ok <root>/tests/06-collections/spreads_test.nomi :: a vector spread takes any Iter of its elements
 T ok <root>/tests/06-collections/spreads_test.nomi :: a set spread takes any Iter of its elements
-T test result: ok. 9 passed, 0 failed
+T ok <root>/tests/06-collections/spreads_test.nomi :: a map entry after a spread enters its value type as a plain entry does
+T test result: ok. 10 passed, 0 failed
 T
 C 06-collections/tuples_test.nomi
 E 0
@@ -1147,8 +1148,8 @@ T test result: ok. 5 passed, 0 failed
 T
 C 06-collections/vectors_test.nomi
 E 0
-N 11
-H c1cecb5da9ec7bf86ddba508fb4a7cfb8fea60e5160a18a3cc3a53849cedcdb7
+N 12
+H 219ca051bc0afb7edc0fbcc0a0feea5b9ae780312f53c08737145c10e603cbc6
 T ok <root>/tests/06-collections/vectors_test.nomi :: vector literals construct vectors
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors convert to lists
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors convert from lists
@@ -1160,7 +1161,8 @@ T ok <root>/tests/06-collections/vectors_test.nomi :: vectors compare display de
 T ok <root>/tests/06-collections/vectors_test.nomi :: vectors concatenate with +
 T ok <root>/tests/06-collections/vectors_test.nomi :: Iter.to_vector materializes any iterator into a vector
 T ok <root>/tests/06-collections/vectors_test.nomi :: a vector spread at either end concatenates
-T test result: ok. 11 passed, 0 failed
+T ok <root>/tests/06-collections/vectors_test.nomi :: a vector filled by push and updated by set stays fast at 200k elements
+T test result: ok. 12 passed, 0 failed
 T
 C 07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi
 E 0
@@ -1539,6 +1541,23 @@ T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: alternatives in e
 T ok <root>/tests/08-pattern-matching/or_patterns_test.nomi :: a binding's fallback stands in for a payload whose alternatives always match
 T test result: ok. 6 passed, 0 failed
 T
+C 08-pattern-matching/qualified_distinct_patterns/kinds.nomi
+E 1
+N 0
+H 3314d71755fcac14766ccd9c1b510d76e24b2009b573e114f3d6e13b6c5ee0b4
+T --- stderr ---
+T nomi run: <root>/tests/08-pattern-matching/qualified_distinct_patterns/kinds.nomi declares no `fn main`, so there is no program to run
+T
+C 08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi
+E 0
+N 4
+H c06631a967e71a3fe431e810456421d0dcf36dd1a2b2a4ebf4269bca847dd92d
+T ok <root>/tests/08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi :: a list pattern names its distinct through the module
+T ok <root>/tests/08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi :: a map pattern names its distinct through the module
+T ok <root>/tests/08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi :: a vector and a set pattern name their distinct through the module
+T ok <root>/tests/08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi :: a constructor pattern names its distinct through the module
+T test result: ok. 4 passed, 0 failed
+T
 C 08-pattern-matching/try_error_conversion_test.nomi
 E 0
 N 2
@@ -1809,6 +1828,16 @@ T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: a todo on a pa
 T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: a todo checks wherever a value is expected
 T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: reaching a todo stops the program with its place and reason
 T ok <root>/tests/09-functions-and-control-flow/todo_test.nomi :: an unannotated binding of a todo asks for a type
+T test result: ok. 4 passed, 0 failed
+T
+C 09-functions-and-control-flow/type_only_parameters_test.nomi
+E 0
+N 4
+H 877d140a3eccd596b736fae3553a0b3307916a3d946f3a86dc7ddd45bd90cb65
+T ok <root>/tests/09-functions-and-control-flow/type_only_parameters_test.nomi :: a generic type alone
+T ok <root>/tests/09-functions-and-control-flow/type_only_parameters_test.nomi :: a module-qualified type alone
+T ok <root>/tests/09-functions-and-control-flow/type_only_parameters_test.nomi :: a tuple, function and struct type alone
+T ok <root>/tests/09-functions-and-control-flow/type_only_parameters_test.nomi :: a lambda's parameter written as a generic or tuple type alone
 T test result: ok. 4 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/args_first_inference_test.nomi
@@ -2183,6 +2212,20 @@ T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: Literal impl 
 T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: functions in type bodies are rejected
 T ok <root>/tests/11-interfaces-and-impls/impl_blocks_test.nomi :: old inherent impl block syntax is rejected
 T test result: ok. 7 passed, 0 failed
+T
+C 11-interfaces-and-impls/interface_conjunctions_test.nomi
+E 0
+N 8
+H 0de706cd2f723c7766dc09d383e30115849a31d7561410d3663bf341ebf6cad6
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a list holds values of two types through both interfaces
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a struct field and an alias hold a conjunction
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a conjunction widens to one interface and to fewer members
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a conjunction including Display renders the held value
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a list of concrete values converts to a list of a conjunction
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a std container enters a conjunction its impls give it
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: equality and hashing compare the held values
+T ok <root>/tests/11-interfaces-and-impls/interface_conjunctions_test.nomi :: a container boxed for one member renders through Display
+T test result: ok. 8 passed, 0 failed
 T
 C 11-interfaces-and-impls/interface_defaults/engine.nomi
 E 1
@@ -2773,7 +2816,7 @@ T
 C 13-iterators-and-pipes/iter_test.nomi
 E 0
 N 18
-H 4f0873ddbc3679d18ac670b47f468f1fe779264c004e0ec61dc0284c8150f998
+H 2d90c03a4d7923904709106b444504200c5860fb4464b738b5593a3ac3d120df
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter constructors produce lazy values that can be bounded
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter terminals inspect positions and size
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: lazy adapters fuse over bounded infinite sources
@@ -2782,7 +2825,7 @@ T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: cycle concat and with
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: zip pairs values and stops at the shorter input
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter mapping filtering flat mapping and reducing work over lists
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter search predicates short circuit
-T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter flattening materializes nested lists
+T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter flattening yields each inner element in order
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter chunking groups adjacent values
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter materializers collect to maps strings and sorted lists
 T ok <root>/tests/13-iterators-and-pipes/iter_test.nomi :: iter partition and group_by collect list values
@@ -3033,6 +3076,28 @@ T   b
 T ok <root>/tests/14-modules-and-packaging/block_imports_test.nomi :: a function body's import shadows it there alone
 T   announce: ready
 T test result: ok. 2 passed, 0 failed
+T
+C 14-modules-and-packaging/cross_file_enum_cycle/ast.nomi
+E 1
+N 0
+H 5e49c40d90b80759835b057ce9928c9fe0acb3697781e0173079f8ec4cb7ed8e
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/cross_file_enum_cycle/ast.nomi declares no `fn main`, so there is no program to run
+T
+C 14-modules-and-packaging/cross_file_enum_cycle/cross_file_enum_cycle_test.nomi
+E 0
+N 2
+H 44c20edb7ede5285a38e7c17a30d34fdee4f9fa4df2354979bb51baa41f210e9
+T ok <root>/tests/14-modules-and-packaging/cross_file_enum_cycle/cross_file_enum_cycle_test.nomi :: a payload-free variant
+T ok <root>/tests/14-modules-and-packaging/cross_file_enum_cycle/cross_file_enum_cycle_test.nomi :: a variant holding a struct that holds the enum back
+T test result: ok. 2 passed, 0 failed
+T
+C 14-modules-and-packaging/cross_file_enum_cycle/value.nomi
+E 1
+N 0
+H 7a6d8cd8360585eb99f346133edaa7ab78953e1d4410b8c81571d6e852a2496f
+T --- stderr ---
+T nomi run: <root>/tests/14-modules-and-packaging/cross_file_enum_cycle/value.nomi declares no `fn main`, so there is no program to run
 T
 C 14-modules-and-packaging/cross_file_modules/api.nomi
 E 1
@@ -3484,7 +3549,7 @@ T
 C 15-app-and-defer/boot_called_in_test/server_test.nomi
 E 0
 N 5
-H e36171a4bfa7d9a55a0da4df2646e41fd49440faceb6350c16861994458cbe0c
+H 5e4dd4d00120f6e25b64967367c504e306d7474c0c98ecc28bd1a12bf072deb0
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that fails returns its Err
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / returns the app
 T   test body ends
@@ -3492,8 +3557,8 @@ T   closed the files store
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / starts work that ends with the test
 T   test body ends
 T   heartbeat started
-T   closed the files store
 T   heartbeat stopped
+T   closed the files store
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: a boot that succeeds / the next test starts with none of it
 T   the next test runs
 T ok <root>/tests/15-app-and-defer/boot_called_in_test/server_test.nomi :: outside a test, a call of boot is refused
@@ -4123,6 +4188,18 @@ T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a slot in a query kee
 T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: a Display slot is escaped as its text is
 T ok <root>/tests/17-typed-literals/url_slots_test.nomi :: an Int slot is its digits in each place
 T test result: ok. 5 passed, 0 failed
+T
+C 17-typed-literals/without_slots_test.nomi
+E 0
+N 6
+H aebdbf1acc1985f3eb9fdddc2bac13817c0a6967b08bc0d9f7346edb55850837
+T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: a quoted literal without slots is its handler's Ok value
+T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: a triple-quoted literal without slots is its handler's Ok value
+T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: a quoted Regex reads escapes, a backtick one keeps backslashes
+T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: a literal with a slot is built when it runs, as a Result
+T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: text known only at run time goes through the type's parse
+T ok <root>/tests/17-typed-literals/without_slots_test.nomi :: an infallible handler's literal keeps its type
+T test result: ok. 6 passed, 0 failed
 T
 C 18-ffi-and-dynamic/callback_ffi_app/ffi.nomi
 E 1

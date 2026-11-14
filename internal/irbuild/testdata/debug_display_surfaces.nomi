@@ -69,7 +69,7 @@ opaque type Meters Int
 
 // zeta before alpha, in all three structs, deliberately. See above.
 struct Rev
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 
@@ -83,7 +83,7 @@ end
 // Both impls, so `Debug.inspect` and Display can be observed disagreeing on one
 // value, and so the `values:` row can be observed ignoring both.
 struct Custom
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 
@@ -103,7 +103,7 @@ end
 
 // Neither impl: only the universal synthesized Debug.
 struct Plain
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 
@@ -157,7 +157,7 @@ test "the four renderings of one value"
 
     singleton = case b
         Bool.False(x) -> Debug.inspect(x)
-        _ -> "UNREACHED"
+        _             -> "UNREACHED"
     end
 
     io.print("9 Debug.inspect(True)  = " + Debug.inspect(True))

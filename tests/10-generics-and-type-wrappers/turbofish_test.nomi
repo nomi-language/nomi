@@ -6,7 +6,7 @@ test "explicit type arguments pin otherwise undetermined type parameters"
 
     received = case Receiver.receive(ch.receiver)
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 
     assert received == 7

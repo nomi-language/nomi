@@ -77,7 +77,7 @@ test "lambda defaults drive parameter inference"
         |> Iter.reduce(None, fn acc, x ->
             case acc
                 Some(v) -> Some(v)
-                None -> if x == 3 then Some(x) else None
+                None    -> if x == 3 then Some(x) else None
             end
         end)
 
@@ -98,7 +98,7 @@ test "lambda defaults drive parameter inference"
         |> Iter.reduce({}, fn acc, (k, v) ->
             case Map.get(acc, k)
                 Some(prev) -> Map.put(acc, k, prev + v)
-                None -> Map.put(acc, k, v)
+                None       -> Map.put(acc, k, v)
             end
         end)
 
@@ -117,8 +117,8 @@ test "one element's annotation types the lambdas beside it in a literal"
         ("double", fn n -> n * 2),
         ("negate", fn n: Int -> 0 - n),
         ("square", fn n -> n * n),
-        ("twice", double),
-        ("next", fn n -> n + 1),
+        ("twice",  double),
+        ("next",   fn n -> n + 1),
     ]
 
     applied = Iter.map(tokens, fn (name, f) -> (name, f(5))) |> Iter.to_list()
@@ -130,8 +130,8 @@ test "one element's annotation types the lambdas beside it in a literal"
         ("double", 10),
         ("negate", -5),
         ("square", 25),
-        ("twice", 10),
-        ("next", 6),
+        ("twice",  10),
+        ("next",   6),
     ]
 
     assert Maybe.map(square, fn (_, f) -> f(7)) == Some(49)

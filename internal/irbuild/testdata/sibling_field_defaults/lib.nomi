@@ -21,14 +21,14 @@ fn base() -> Int
 end
 
 pub struct Loot
-    name: String
-    drops: Maybe<Int> = None
-    held: Maybe<Item> = Some(Item.Key)
-    tags: List<String> = []
-    item: Item = Item.Coin
-    hello: String = greeting
+    name:   String
+    drops:  Maybe<Int> = None
+    held:   Maybe<Item> = Some(Item.Key)
+    tags:   List<String> = []
+    item:   Item = Item.Coin
+    hello:  String = greeting
     weight: Int = base() + 1
-    rare: Bool = rarity() == Rarity.Rare
+    rare:   Bool = rarity() == Rarity.Rare
 end
 
 fn rarity() -> Rarity

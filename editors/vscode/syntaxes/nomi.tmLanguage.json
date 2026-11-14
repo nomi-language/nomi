@@ -387,7 +387,7 @@
           "match": "(?<=[A-Za-z0-9_?!)\\]}\"])\\?"
         },
         {
-          "name": "keyword.operator.word.nomi",
+          "name": "keyword.other.word.nomi",
           "match": "\\b(?:and|or|not|is|in)\\b"
         },
         {

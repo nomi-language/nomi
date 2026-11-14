@@ -46,6 +46,6 @@ end
 fn found(m: Map<Id, String>, key: Id) -> String
     case Map.get(m, key)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end

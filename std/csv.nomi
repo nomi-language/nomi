@@ -129,7 +129,7 @@ end
 pub struct Row
     header: List<String>
     fields: List<String>
-    line: Int
+    line:   Int
 end
 
 derive Equatable for Row
@@ -158,7 +158,7 @@ impl Row
         |> Iter.reduce({}, fn fields, (name, value) ->
             case Map.get(fields, name)
                 Some(_) -> fields
-                None -> Map.put(fields, name, value)
+                None    -> Map.put(fields, name, value)
             end
         end)
     end
@@ -172,14 +172,14 @@ end
 //!
 //! assert decode("a,b\nc") == Err(Error.Syntax{
 //!         message: "the record has 1 fields, not 2",
-//!         line: 2,
-//!         column: 1,
+//!         line:    2,
+//!         column:  1,
 //!     })
 //!
 //! assert decode("é,\"x\"y") == Err(Error.Syntax{
 //!         message: "a quoted field is not closed, or has a quote in it that is not doubled",
-//!         line: 1,
-//!         column: 5,
+//!         line:    1,
+//!         column:  5,
 //!     })
 //
 pub fn decode(text: String, options: Options = Options{}) -> Result<List<List<String>>, Error>
@@ -191,8 +191,8 @@ end
 //!
 //! assert decode_bytes(Bytes.from_list([97, 44, 255])) == Err(Error.Syntax{
 //!         message: "the text is not UTF-8",
-//!         line: 1,
-//!         column: 3,
+//!         line:    1,
+//!         column:  3,
 //!     })
 //
 pub fn decode_bytes(data: Bytes, options: Options = Options{}) -> Result<List<List<String>>, Error>
@@ -220,8 +220,8 @@ end
 //!
 //! assert Iter.to_list(bad) == [Ok(["a"]), Err(Error.Syntax{
 //!         message: "a quoted field is not closed, or has a quote in it that is not doubled",
-//!         line: 2,
-//!         column: 3,
+//!         line:    2,
+//!         column:  3,
 //!     })]
 //
 pub fn records(reader: Reader, options: Options = Options{}) -> Iter<Result<List<String>, Error>>
@@ -247,13 +247,13 @@ end
 fn open(reader: Reader, options: Options) -> host.Records
     comment = case options.comment
         Some(c) -> Codepoint.to_int(c)
-        None -> 0
+        None    -> 0
     end
 
     fields = case options.fields
         .SameAsFirst -> 0
-        .Any -> -1
-        .Exactly(n) -> if n < 0 then -2 else n
+        .Any         -> -1
+        .Exactly(n)  -> if n < 0 then -2 else n
     end
 
     host.open(
@@ -270,9 +270,9 @@ end
 fn stopped(records: host.Records) -> Maybe<Error>
     case host.stopped(records)
         [1, line, column] -> Some(Error.Syntax{message: host.message(records), line:, column:})
-        [2, ..] -> Some(Error.Io{error: host.failure(records)})
-        [3, ..] -> Some(Error.InvalidOptions{message: host.message(records)})
-        _ -> None
+        [2, ..]           -> Some(Error.Io{error: host.failure(records)})
+        [3, ..]           -> Some(Error.InvalidOptions{message: host.message(records)})
+        _                 -> None
     end
 end
 
@@ -291,7 +291,7 @@ fn each_record(records: host.Records, yield: (Result<List<String>, Error>) -> Bo
         [] ->
             case stopped(records)
                 Some(e) -> yield(Err(e))
-                None -> True
+                None    -> True
             end
 
         fields ->
@@ -309,7 +309,7 @@ impl Iter<Result<Row, Error>> for RowIter
             [] ->
                 case stopped(rows.records)
                     Some(e) -> yield(Err(e))
-                    None -> True
+                    None    -> True
                 end
 
             header ->
@@ -320,14 +320,14 @@ end
 
 fn each_row(
     records: host.Records,
-    header: List<String>,
-    yield: (Result<Row, Error>) -> Bool,
+    header:  List<String>,
+    yield:   (Result<Row, Error>) -> Bool,
 ) -> Bool
     case host.next(records)
         [] ->
             case stopped(records)
                 Some(e) -> yield(Err(e))
-                None -> True
+                None    -> True
             end
 
         fields ->
@@ -377,13 +377,13 @@ end
 //! assert Bytes.to_string(data) == Ok("a,\"b,c\"\n")
 //
 pub fn write(
-    w: Writer,
+    w:       Writer,
     records: Iter<List<String>>,
     options: WriteOptions = WriteOptions{},
 ) -> Result<Unit, io.Error>
     Iter.reduce(records, Ok(Unit), fn _, record ->
         case Writer.write_text(w, line(record, options))
-            Ok(_) -> Ok(Unit)
+            Ok(_)  -> Ok(Unit)
             Err(e) -> break Err(e)
         end
     end)

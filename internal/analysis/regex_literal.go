@@ -67,11 +67,11 @@ func regexLiteralType(n *ast.TaggedString, ret Type) Type {
 // StaticLiteralType is the type of a typed literal with no interpolation,
 // whose body is text and whose handler returns ret: the checker's answer
 // for it, which the language server's literal hover shows.
-func StaticLiteralType(raw bool, text string, ret Type) Type {
+func StaticLiteralType(text string, ret Type) Type {
 	if typed := regexPatternType(text, ret); typed != nil {
 		ret = typed
 	}
-	if ok, _ := RawLiteralType(raw, ret); ok != nil {
+	if ok, _ := FixedLiteralType(true, ret); ok != nil {
 		return ok
 	}
 	return ret
@@ -79,9 +79,8 @@ func StaticLiteralType(raw bool, text string, ret Type) Type {
 
 // regexPatternType is ret, a `Regex` handler's result, with the capture
 // type of pattern. Nil when ret is not std's `Regex` handler's, and for a
-// pattern that does not compile, whose literal is a compile error (a
-// backtick one) or an Err when it runs (a double-quoted one) and keeps the
-// handler's type.
+// pattern that does not compile, whose literal is a compile error and keeps
+// the handler's type.
 func regexPatternType(pattern string, ret Type) Type {
 	result, isEnum := resolveTypeVar(ret).(*EnumType)
 	if !isEnum || result.Name != "Result" || len(result.TypeArgs) != 2 {

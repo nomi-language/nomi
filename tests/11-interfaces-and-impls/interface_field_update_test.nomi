@@ -24,7 +24,7 @@ impl Clock for FakeClock
 end
 
 struct RealClock
-    base: Int
+    base:   Int
     offset: Int
 end
 
@@ -36,17 +36,17 @@ end
 
 struct Cfg
     clock: Clock
-    port: Int
+    port:  Int
 end
 
 struct Inner
     clock: Clock
-    tag: String
+    tag:   String
 end
 
 struct Outer
     inner: Inner
-    port: Int
+    port:  Int
 end
 
 fn base_cfg() -> Cfg
@@ -81,7 +81,7 @@ end
 test "the widening applies at depth in a nested patch"
     base = Outer{
         inner: Inner{clock: FakeClock{t: 1}, tag: "a"},
-        port: 80,
+        port:  80,
     }
 
     patched = Struct.update(base, {
@@ -94,7 +94,7 @@ end
 test "a nested patch preserves the sibling field it does not name"
     base = Outer{
         inner: Inner{clock: FakeClock{t: 1}, tag: "keep"},
-        port: 80,
+        port:  80,
     }
 
     patched = Struct.update(base, {

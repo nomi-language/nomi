@@ -18,7 +18,6 @@ import { render, renderJson, renderToml } from "./highlight.mjs";
 
 const ASSET = (f) => new URL(f, import.meta.url).href;
 const DEBOUNCE_MS = 300;
-const FORMAT_DEBOUNCE_MS = 1500;
 // wasm cold-load allowance, from a run's request to its start. It covers the
 // fetch and compile, and before the worker's first run its VM warm-up
 // (nomiWarm, vmhost.Warm), which lowers the whole standard library once:
@@ -714,8 +713,8 @@ function modalDialog() {
     if (ev.target === dialog && downOnBackdrop) dialog.close();
     downOnBackdrop = false;
   });
-  // Esc closes an open file menu first, then the view.
-  // An editor's first Esc readies Tab to leave it instead (tabKeys).
+  // Esc closes an open file menu first, then the view. From inside an
+  // editor, the first Esc leaves the editor instead (tabKeys).
   dialog.addEventListener("cancel", (ev) => {
     if (escapeClaimed || modal.current?.widget.closeFileMenu?.()) ev.preventDefault();
   });
@@ -1459,10 +1458,10 @@ const RUN_LABEL = "Run this example. Edits run when you press Run or Ctrl+Enter.
 
 // attachControls adds the widget's controls to host: the live dot (a
 // ```nomi-run manual block, onRun, has the Run button in its output
-// header instead), the formatting chip, for a ```nomi-run error block
-// (expectError) the "Expected error" badge, and the button that opens the
-// widget in the large view.
-function attachControls(widget, host, output, expectError = false, onRun = null) {
+// header instead), the Format button (onFormat; it spins while a format
+// runs), for a ```nomi-run error block (expectError) the "Expected error"
+// badge, and the button that opens the widget in the large view.
+function attachControls(widget, host, output, expectError = false, onRun = null, onFormat = null) {
   const controls = document.createElement("div");
   controls.className = "nomi-live-controls";
   let dot;
@@ -1490,12 +1489,16 @@ function attachControls(widget, host, output, expectError = false, onRun = null)
   dot.addEventListener("mouseleave", scheduleHideTooltip);
   dot.addEventListener("focus", show);
   dot.addEventListener("blur", hideTooltip);
-  const formatter = document.createElement("span");
-  formatter.className = "nomi-formatting";
-  formatter.setAttribute("role", "status");
-  formatter.setAttribute("aria-live", "polite");
-  formatter.textContent = "format";
-  controls.append(formatter);
+  if (onFormat) {
+    const formatter = document.createElement("button");
+    formatter.type = "button";
+    formatter.className = "nomi-formatting";
+    formatter.textContent = "format";
+    formatter.setAttribute("aria-label", "Format the code (Shift+Alt+F)");
+    formatter.title = "Format (Shift+Alt+F)";
+    formatter.addEventListener("click", onFormat);
+    controls.append(formatter);
+  }
   let expectedBadge = null;
   if (expectError) {
     expectedBadge = document.createElement("span");
@@ -1610,17 +1613,12 @@ function applyFormattedSource(ta, source, formatted) {
   return true;
 }
 
-function cursorFollowsWhitespace(ta) {
-  if (ta.selectionStart !== ta.selectionEnd || ta.selectionStart <= 0) return false;
-  const prev = ta.value[ta.selectionStart - 1];
-  return prev === " " || prev === "\t";
-}
-
-function autoFormatSkipReason(ta, composing) {
-  if (composing) return "composing";
-  if (ta.selectionStart !== ta.selectionEnd) return "selection";
-  if (cursorFollowsWhitespace(ta)) return "cursor";
-  return "";
+// An editor formats its text when the reader leaves it, after a run has
+// found the text good, and on Shift+Alt+F (VS Code's Format Document) at
+// any time; never while the reader is typing, where a pause would format
+// half-written code (`fn main()` closed into `fn main() end`).
+function isFormatShortcut(ev) {
+  return ev.shiftKey && ev.altKey && !ev.ctrlKey && !ev.metaKey && ev.code === "KeyF";
 }
 
 // showAnchoredTooltip pins the shared `.nomi-hover` tooltip to a specific
@@ -1645,18 +1643,46 @@ function showAnchoredTooltip(html, anchor) {
 }
 
 // --- Tab in an editor ---
-// Tab indents in an editor, so it cannot also move focus. As in CodeMirror,
-// Esc and then Tab (or Shift+Tab) leaves the editor; any other key indents
-// again. In the large view a second Esc closes it, as Esc does from any
+// Tab indents in an editor, so it cannot also move focus. Esc leaves the
+// editor: focus moves to the editor's frame, from where Tab and Shift+Tab
+// carry on as anywhere else (a keyboard user is never trapped). In the
+// large view a second Esc, from the frame, closes it, as Esc does from any
 // other control there. Each widget has one hint, which describes its
 // editors to a screen reader and shows while one of them has focus.
-const TAB_HINT = "Tab indents. Esc then Tab leaves the editor.";
-const TAB_HINT_LEAVING = "Tab now moves focus out of the editor.";
-const TAB_HINT_LEAVING_MODAL = "Tab now moves focus out of the editor. Esc closes the large view.";
+const TAB_HINT = "Tab indents. Esc leaves the editor. Shift+Alt+F formats.";
 let tabHintCount = 0;
 // escapeClaimed is set while an editor's Esc keydown is dispatched, so the
-// large view's cancel, which that Esc would fire, leaves the view open.
+// large view's cancel, which that Esc would fire, leaves the view open: the
+// first Esc leaves the editor, the next closes the view.
 let escapeClaimed = false;
+
+// leaveEditor moves focus from ta to its editor's frame, which takes focus
+// only this way (tabindex -1) and names the example for a screen reader.
+// Until focus leaves the example, its editors drop out of the Tab order, so
+// Tab from the frame passes the example's buttons and goes on to the page
+// rather than back into the code; a click still puts the cursor in one.
+function leaveEditor(ta) {
+  const frame = ta.closest(".nomi-main");
+  if (!frame) {
+    ta.blur();
+    return;
+  }
+  if (!frame.hasAttribute("tabindex")) {
+    frame.tabIndex = -1;
+    frame.setAttribute("role", "group");
+    frame.setAttribute("aria-label", "Code example");
+  }
+  const example = ta.closest(".nomi-interactive") || frame;
+  const editors = [...example.querySelectorAll("textarea.nomi-src")];
+  for (const e of editors) e.tabIndex = -1;
+  const restore = (ev) => {
+    if (example.contains(ev.relatedTarget)) return;
+    for (const e of editors) e.removeAttribute("tabindex");
+    example.removeEventListener("focusout", restore);
+  };
+  example.addEventListener("focusout", restore);
+  frame.focus();
+}
 
 function tabHint(main) {
   // A span: the page's rule that spaces apart adjacent blocks in the
@@ -1670,36 +1696,23 @@ function tabHint(main) {
   return hint;
 }
 
-// tabKeys makes Tab indent ta, unless Esc came just before it, or ta is
-// read-only, when Tab moves focus as it does anywhere else.
+// tabKeys makes Tab indent ta, unless ta is read-only, when Tab moves focus
+// as it does anywhere else; Esc moves focus out of ta to its frame.
 function tabKeys(ta, hint) {
   ta.setAttribute("aria-describedby", hint.id);
-  let leaving = false;
-  const setLeaving = (on) => {
-    if (leaving === on) return;
-    leaving = on;
-    hint.classList.toggle("is-leaving", on);
-    hint.textContent = !on ? TAB_HINT : ta.closest(".is-modal") ? TAB_HINT_LEAVING_MODAL : TAB_HINT_LEAVING;
-  };
-  ta.addEventListener("blur", () => setLeaving(false));
   ta.addEventListener("keydown", (ev) => {
     if (ev.ctrlKey || ev.altKey || ev.metaKey || ev.isComposing) return;
     if (ev.key === "Shift") return;
     if (ta.readOnly) return;
-    if (ev.key === "Escape" && !leaving) {
+    if (ev.key === "Escape") {
       ev.preventDefault();
-      setLeaving(true);
+      leaveEditor(ta);
       escapeClaimed = true;
       setTimeout(() => {
         escapeClaimed = false;
       });
       return;
     }
-    if (ev.key === "Tab" && leaving) {
-      setLeaving(false);
-      return;
-    }
-    setLeaving(false);
     if (ev.key !== "Tab") return;
     ev.preventDefault();
     const s = ta.selectionStart, e = ta.selectionEnd;
@@ -1758,7 +1771,11 @@ async function enhance(pre) {
   widget.append(out.panel);
   pre.replaceWith(widget);
   widget.querySelector(".nomi-path-single").textContent = isStdlibTest ? "Interactive Tests" : "main.nomi";
-  const live = attachControls(widget, widget.querySelector(".nomi-bar"), out, expectError, manual ? () => run() : null);
+  const live = attachControls(widget, widget.querySelector(".nomi-bar"), out, expectError, manual ? () => run() : null,
+    () => {
+      edited = true;
+      formatNow(ta.value);
+    });
   const headingFor = expectError ? expectedErrorTracker(source, live) : () => false;
 
   const hl = widget.querySelector(".nomi-hl");
@@ -1772,45 +1789,27 @@ async function enhance(pre) {
     block.captures = query.captures(parser.parse(block.code).rootNode);
     hl.innerHTML = render(block.captures, [], block.code, EDITOR_RENDER); // syntactic now; semantic arrives async
   };
-  let formatDebounce;
   let formatToken = 0;
   let cleanFormatSource = null;
-  let blockedFormatSource = null;
   let composing = false;
   // The page's text stays as the page wrote it until the reader edits the
   // block: a run on load never reformats it.
   let edited = false;
-  const scheduleAutoFormat = (source) => {
-    clearTimeout(formatDebounce);
-    if (!edited) return;
-    const reason = autoFormatSkipReason(ta, composing);
-    if (reason || ta.value !== source) {
-      if (reason === "cursor" && ta.value === source) blockedFormatSource = source;
-      return;
-    }
-    blockedFormatSource = null;
-    formatDebounce = setTimeout(() => {
-      const latestReason = autoFormatSkipReason(ta, composing);
-      if (latestReason || ta.value !== source) {
-        if (latestReason === "cursor" && ta.value === source) blockedFormatSource = source;
-        return;
-      }
-      blockedFormatSource = null;
-      const token = ++formatToken;
-      requestFormat(source, (formatted, error) => {
-        if (token !== formatToken) return;
-        if (error || ta.value !== source) return;
-        if (!applyFormattedSource(ta, source, formatted)) return;
-        live.flashFormatting();
-        paint();
-        run();
-      }, isStdlibTest ? "formatTestBody" : "format");
-    }, FORMAT_DEBOUNCE_MS);
+  const formatNow = (source) => {
+    if (composing || ta.value !== source) return;
+    const token = ++formatToken;
+    requestFormat(source, (formatted, error) => {
+      if (token !== formatToken) return;
+      if (error || ta.value !== source) return;
+      if (!applyFormattedSource(ta, source, formatted)) return;
+      live.flashFormatting();
+      paint();
+      run();
+    }, isStdlibTest ? "formatTestBody" : "format");
   };
-  const maybeScheduleAutoFormat = () => {
-    if (blockedFormatSource === ta.value && cleanFormatSource === ta.value) {
-      scheduleAutoFormat(blockedFormatSource);
-    }
+  // Leaving the editor formats text a run found good, as saving does.
+  const formatIfLeft = () => {
+    if (edited && document.activeElement !== ta && cleanFormatSource === ta.value) formatNow(ta.value);
   };
   const run = () => {
     const id = ++reqSeq;
@@ -1837,7 +1836,7 @@ async function enhance(pre) {
         showOutput(out, output, error, parser, query, headingFor(code, error));
         cleanFormatSource = error ? null : code;
         if (error) live.setFormatting(false);
-        else scheduleAutoFormat(code);
+        else formatIfLeft();
       },
       onFail: (reason) => {
         if (block.req !== id) return;
@@ -1854,9 +1853,7 @@ async function enhance(pre) {
   ta.addEventListener("input", () => {
     edited = true;
     hideTooltip();
-    clearTimeout(formatDebounce);
     cleanFormatSource = null;
-    blockedFormatSource = null;
     formatToken++;
     live.setFormatting(false);
     paint();
@@ -1866,22 +1863,19 @@ async function enhance(pre) {
   });
   ta.addEventListener("compositionstart", () => {
     composing = true;
-    clearTimeout(formatDebounce);
-    blockedFormatSource = null;
     live.setFormatting(false);
   });
   ta.addEventListener("compositionend", () => {
     composing = false;
-    maybeScheduleAutoFormat();
   });
-  ta.addEventListener("keyup", maybeScheduleAutoFormat);
-  ta.addEventListener("mouseup", maybeScheduleAutoFormat);
-  ta.addEventListener("select", maybeScheduleAutoFormat);
-  ta.addEventListener("focus", maybeScheduleAutoFormat);
-  document.addEventListener("selectionchange", () => {
-    if (document.activeElement === ta) maybeScheduleAutoFormat();
-  });
+  ta.addEventListener("blur", formatIfLeft);
   ta.addEventListener("keydown", (ev) => {
+    if (isFormatShortcut(ev)) {
+      ev.preventDefault();
+      edited = true;
+      formatNow(ta.value);
+      return;
+    }
     if (manual && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
       ev.preventDefault();
       run();
@@ -2034,17 +2028,18 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
   split.render();
 
   pre.replaceWith(widget);
-  const live = attachControls(widget, bar, out, expectError, manual ? () => run() : null);
+  const live = attachControls(widget, bar, out, expectError, manual ? () => run() : null, () => {
+    edited = true;
+    formatNow(nomiPanes.map((q) => ({ p: q, body: q.ta.value })));
+  });
   const headingFor = expectError ? expectedErrorTracker(stitchFiles(files), live) : () => false;
   // Only the Nomi files go through the formatter: `nomi fmt` would read a
   // nomi.toml or a data file as Nomi statements and space them apart.
   const nomiPanes = panes.filter((p) => p.lang === "nomi");
 
   const block = { req: 0 };
-  let formatDebounce;
   let formatToken = 0;
   let cleanFormatSnapshots = null;
-  let blockedFormatSnapshots = null;
   // As in a single-file editor, the files keep the page's text until the
   // reader edits one of them.
   let edited = false;
@@ -2071,64 +2066,39 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     p.hl.innerHTML = render(p.captures, [], p.code, EDITOR_RENDER);
   };
 
-  const scheduleAutoFormat = (snapshots) => {
-    clearTimeout(formatDebounce);
-    if (!edited) return;
-    const blockedByCursor = snapshots.some((s) => (
-      s.p.ta.value === s.body && autoFormatSkipReason(s.p.ta, s.p.composing) === "cursor"
-    ));
-    if (snapshots.some((s) => s.p.ta.value !== s.body || autoFormatSkipReason(s.p.ta, s.p.composing))) {
-      if (blockedByCursor && snapshots.every((s) => s.p.ta.value === s.body)) {
-        blockedFormatSnapshots = snapshots;
-      }
-      return;
-    }
-    blockedFormatSnapshots = null;
-    formatDebounce = setTimeout(() => {
-      const latestBlockedByCursor = snapshots.some((s) => (
-        s.p.ta.value === s.body && autoFormatSkipReason(s.p.ta, s.p.composing) === "cursor"
-      ));
-      if (snapshots.some((s) => s.p.ta.value !== s.body || autoFormatSkipReason(s.p.ta, s.p.composing))) {
-        if (latestBlockedByCursor && snapshots.every((s) => s.p.ta.value === s.body)) {
-          blockedFormatSnapshots = snapshots;
+  // Formats each tab whose text is still what was read, then runs once if
+  // any changed.
+  const formatNow = (snapshots) => {
+    if (snapshots.some((s) => s.p.ta.value !== s.body || s.p.composing)) return;
+    let remaining = snapshots.length;
+    let changed = false;
+    const token = ++formatToken;
+    for (const s of snapshots) {
+      requestFormat(s.body, (formatted, error) => {
+        if (token === formatToken && !error && s.p.ta.value === s.body && !s.p.composing) {
+          if (applyFormattedSource(s.p.ta, s.body, formatted)) {
+            paint(s.p);
+            changed = true;
+          }
         }
-        return;
-      }
-      blockedFormatSnapshots = null;
-      let remaining = snapshots.length;
-      let changed = false;
-      const token = ++formatToken;
-      for (const s of snapshots) {
-        requestFormat(s.body, (formatted, error) => {
-          if (token === formatToken && !error && s.p.ta.value === s.body && !s.p.composing) {
-            if (applyFormattedSource(s.p.ta, s.body, formatted)) {
-              paint(s.p);
-              changed = true;
-            }
-          }
-          remaining--;
-          if (remaining === 0) {
-            if (token === formatToken && changed) {
-              live.flashFormatting();
-              run();
-            }
-          }
-        });
-      }
-    }, FORMAT_DEBOUNCE_MS);
+        remaining--;
+        if (remaining === 0 && token === formatToken && changed) {
+          live.flashFormatting();
+          run();
+        }
+      });
+    }
+  };
+  // Leaving the editor (focus outside every tab) formats tabs a run found
+  // good, as saving does.
+  const focusInPanes = () => panes.some((p) => document.activeElement === p.ta);
+  const formatIfLeft = () => {
+    if (!edited || focusInPanes() || !cleanFormatSnapshots) return;
+    if (cleanFormatSnapshots.every((s) => s.p.ta.value === s.body)) formatNow(cleanFormatSnapshots);
   };
   // The tabs as the run reads them; hover sends the same text, so a hover
   // after a run reuses the worker's analysis of it.
   const stitchSource = () => stitchFiles(panes.map((p) => ({ name: p.file.name, body: p.ta.value })));
-  const maybeScheduleAutoFormat = () => {
-    if (!blockedFormatSnapshots || !cleanFormatSnapshots) return;
-    if (
-      blockedFormatSnapshots.every((s) => s.p.ta.value === s.body) &&
-      cleanFormatSnapshots.every((s) => s.p.ta.value === s.body)
-    ) {
-      scheduleAutoFormat(blockedFormatSnapshots);
-    }
-  };
 
   const run = () => {
     const id = ++reqSeq;
@@ -2166,7 +2136,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
         showOutput(out, output, error, parser, query, headingFor(stitched, error));
         cleanFormatSnapshots = error ? null : snapshots;
         if (error) live.setFormatting(false);
-        else scheduleAutoFormat(snapshots);
+        else formatIfLeft();
       },
       onFail: (reason) => {
         if (block.req !== id) return;
@@ -2191,9 +2161,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     p.ta.addEventListener("input", () => {
       edited = true;
       hideTooltip();
-      clearTimeout(formatDebounce);
       cleanFormatSnapshots = null;
-      blockedFormatSnapshots = null;
       formatToken++;
       live.setFormatting(false);
       paint(p);
@@ -2203,22 +2171,21 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     });
     p.ta.addEventListener("compositionstart", () => {
       p.composing = true;
-      clearTimeout(formatDebounce);
-      blockedFormatSnapshots = null;
       live.setFormatting(false);
     });
     p.ta.addEventListener("compositionend", () => {
       p.composing = false;
-      maybeScheduleAutoFormat();
     });
-    p.ta.addEventListener("keyup", maybeScheduleAutoFormat);
-    p.ta.addEventListener("mouseup", maybeScheduleAutoFormat);
-    p.ta.addEventListener("select", maybeScheduleAutoFormat);
-    p.ta.addEventListener("focus", maybeScheduleAutoFormat);
-    document.addEventListener("selectionchange", () => {
-      if (document.activeElement === p.ta) maybeScheduleAutoFormat();
-    });
+    // Moving between tabs is not leaving: the check waits a turn so the
+    // next tab has focus before it looks.
+    p.ta.addEventListener("blur", () => setTimeout(formatIfLeft, 0));
     p.ta.addEventListener("keydown", (ev) => {
+      if (isFormatShortcut(ev) && p.lang === "nomi") {
+        ev.preventDefault();
+        edited = true;
+        formatNow(nomiPanes.map((q) => ({ p: q, body: q.ta.value })));
+        return;
+      }
       if (manual && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) {
         ev.preventDefault();
         run();

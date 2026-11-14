@@ -49,9 +49,9 @@ test "numbers, booleans and dates are TOML values"
     ratio = 0.5
     whole = 2.0
     on = True
-    day = Date`2026-05-04`
-    noon = Time`12:00:00`
-    at = OffsetDateTime`2026-05-04T09:30:00+02:00`
+    day = Date"2026-05-04"
+    noon = Time"12:00:00"
+    at = OffsetDateTime"2026-05-04T09:30:00+02:00"
 
     t = Toml"""
         port = ${port}

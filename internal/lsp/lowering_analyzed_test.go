@@ -44,7 +44,7 @@ test "lowering capture probe"
   import std::regex.Regex
   run = io.capture("", fn -> io.print("x"))
   assert run.output == "x\n"
-  _ = Regex` + "`[`" + `
+  _ = Regex"["
 end
 `
 

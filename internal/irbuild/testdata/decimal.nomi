@@ -215,10 +215,10 @@ end
 // four calls.
 fn classify(d: Decimal) -> Int
     case d
-        1.5d -> 1
-        2d -> 2
+        1.5d    -> 1
+        2d      -> 2
         -0.001d -> 3
-        _ -> 0
+        _       -> 0
     end
 end
 

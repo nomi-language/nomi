@@ -45,7 +45,7 @@ impl Ordering
     pub fn chain(first: Ordering, next: Ordering) -> Ordering
         case first
             .Equal -> next
-            _ -> first
+            _      -> first
         end
     end
 end
@@ -123,8 +123,8 @@ derive Display for Direction
 //! assert Duration.clamp(Duration.seconds(5), Duration.seconds(30), Duration.minutes(5))
 //!     == Duration.seconds(30)
 //!
-//! assert Date.min(Date`2026-03-01`, Date`2025-12-31`) == Date`2025-12-31`
-//! assert Date.clamp(Date`2027-01-01`, Date`2026-01-01`, Date`2026-12-31`) == Date`2026-12-31`
+//! assert Date.min(Date"2026-03-01", Date"2025-12-31") == Date"2025-12-31"
+//! assert Date.clamp(Date"2027-01-01", Date"2026-01-01", Date"2026-12-31") == Date"2026-12-31"
 //! assert Comparable.max((1, "b"), (1, "a")) == (1, "b")
 //
 pub interface Comparable
@@ -135,7 +135,7 @@ pub interface Comparable
     open fn min(a: self, b: self) -> self
         case compare(b, a)
             .Less -> b
-            _ -> a
+            _     -> a
         end
     end
 
@@ -144,7 +144,7 @@ pub interface Comparable
     open fn max(a: self, b: self) -> self
         case compare(b, a)
             .Greater -> b
-            _ -> a
+            _        -> a
         end
     end
 

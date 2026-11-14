@@ -92,7 +92,7 @@ func TestHover_PipeCallStages(t *testing.T) {
   |> Iter.sum()
   io.inspect(total)
 end
-`, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `List<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> List<Int>\n```\n\nThe piped value fills `maybes`."},
+`, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `Iter<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> Iter<Int>\n```\n\nThe piped value fills `maybes`."},
 		{"a call with a lambda, on one line", `fn main()
   io.inspect([1, 2, 3] ▮|> Iter.filter(fn x -> x > 2) |> Iter.to_list())
 end

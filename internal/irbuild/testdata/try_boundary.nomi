@@ -80,7 +80,7 @@ fn through_lambda(n: Int) -> Result<Int, String>
     io.print("after the lambda")
 
     case inner
-        Ok(v) -> Ok(v)
+        Ok(v)  -> Ok(v)
         Err(e) -> Err("outer saw ${e}")
     end
 end
@@ -107,14 +107,14 @@ end
 
 fn show(r: Result<Int, String>) -> String
     case r
-        Ok(v) -> "ok ${v}"
+        Ok(v)  -> "ok ${v}"
         Err(e) -> "err ${e}"
     end
 end
 
 fn show_bool(r: Result<Bool, String>) -> String
     case r
-        Ok(v) -> "ok ${v}"
+        Ok(v)  -> "ok ${v}"
         Err(e) -> "err ${e}"
     end
 end
@@ -122,7 +122,7 @@ end
 fn show_maybe(m: Maybe<Int>) -> String
     case m
         Some(v) -> "some ${v}"
-        None -> "none"
+        None    -> "none"
     end
 end
 

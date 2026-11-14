@@ -147,7 +147,7 @@ func TestDocExamples_ReadCodeNotProse(t *testing.T) {
 		"",
 		"impl Date",
 		"    /// Number of whole days between two `Date`s — positive if `later` is",
-		"    //! assert Date.days_between(Date\"2026-05-04\"?, Date\"2026-05-07\"?) == 3",
+		"    //! assert Date.days_between(Date\"2026-05-04\", Date\"2026-05-07\") == 3",
 		"    //! assert Date\"2026-${m}-04\"? == x",
 		"    pub fn days_between(a: Date, b: Date) -> Int",
 		"        0",

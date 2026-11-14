@@ -84,6 +84,7 @@ func (fb FileBodies) clone() FileBodies {
 	out.CheckedLiterals = maps.Clone(fb.CheckedLiterals)
 	out.TargetLiterals = maps.Clone(fb.TargetLiterals)
 	out.TargetLiteralBuilds = maps.Clone(fb.TargetLiteralBuilds)
+	out.TypedLiterals = maps.Clone(fb.TypedLiterals)
 	out.PatternTypes = maps.Clone(fb.PatternTypes)
 	out.OperatorImpls = maps.Clone(fb.OperatorImpls)
 	out.TargetStructs = maps.Clone(fb.TargetStructs)

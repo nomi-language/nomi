@@ -5,7 +5,7 @@
 //#
 //# ```nomi
 //# store = s3.store(s3.Config{
-//#     endpoint: Url`https://nyc3.digitaloceanspaces.com`,
+//#     endpoint: Url"https://nyc3.digitaloceanspaces.com",
 //#     bucket: "photos",
 //#     credentials: s3.Credentials{access_key: key, secret_key: secret},
 //#     acl: Some("public-read"),
@@ -88,14 +88,14 @@ pub struct Config
     /// The server: `https://nyc3.digitaloceanspaces.com`,
     /// `http://localhost:9000`, `https://<account>.r2.cloudflarestorage.com`.
     /// A scheme and a host, an optional port, no path.
-    endpoint: Url
-    bucket: String
+    endpoint:    Url
+    bucket:      String
     credentials: Credentials
     /// The region requests are signed for. `us-east-1` suits MinIO and
     /// Spaces; R2 wants `auto`; AWS and B2 want the bucket's own region.
-    region: String = "us-east-1"
+    region:     String = "us-east-1"
     addressing: Addressing = Addressing.Path
-    payload: Payload = Payload.Signed
+    payload:    Payload = Payload.Signed
     /// Sent as `x-amz-acl` on every put: `Some("public-read")` makes each
     /// object public on servers that use ACLs, as Spaces does.
     acl: Maybe<String> = None
@@ -117,8 +117,8 @@ end
 /// positive, negative `retries`, or a bucket name with a dot addressed as a
 /// virtual host over https, whose certificate cannot match.
 //! config = Config{
-//!     endpoint: Url`http://localhost:9000`,
-//!     bucket: "photos",
+//!     endpoint:    Url"http://localhost:9000",
+//!     bucket:      "photos",
 //!     credentials: Credentials{access_key: "minio", secret_key: "minio123"},
 //! }
 //!
@@ -156,10 +156,10 @@ end
 /// <content_type>`, since the type is signed. `acl` and `cache_control`
 /// are not applied to it.
 pub fn presign_put(
-    config: Config,
-    key: String,
+    config:       Config,
+    key:          String,
     content_type: String,
-    expires: Duration,
+    expires:      Duration,
 ) -> Result<Url, storage.Error>
     check_config(config)?
     storage.check_key(key)?
@@ -185,11 +185,11 @@ end
 /// `Bytes` is sent as `UNSIGNED-PAYLOAD` whatever `payload` says, since it
 /// cannot be hashed ahead. For a call this module does not make itself.
 pub fn sign(
-    request: Request,
+    request:     Request,
     credentials: Credentials,
-    region: String,
-    at: Instant,
-    payload: Payload = Payload.Signed,
+    region:      String,
+    at:          Instant,
+    payload:     Payload = Payload.Signed,
 ) -> Request
     stamp = timestamp(at)
     hashed = payload_hash(request.body, payload)
@@ -217,13 +217,13 @@ end
 /// `at`, sending `signed_headers` as given. The payload is
 /// `UNSIGNED-PAYLOAD`.
 pub fn presign(
-    method: Method,
-    url: Url,
+    method:         Method,
+    url:            Url,
     signed_headers: Headers,
-    credentials: Credentials,
-    region: String,
-    at: Instant,
-    expires: Duration,
+    credentials:    Credentials,
+    region:         String,
+    at:             Instant,
+    expires:        Duration,
 ) -> Url
     stamp = timestamp(at)
     request = Request{method:, url:, headers: signed_headers}
@@ -231,10 +231,10 @@ pub fn presign(
     Query(given) = Url.query_values(url)
 
     query = given + [
-        ("X-Amz-Algorithm", "AWS4-HMAC-SHA256"),
-        ("X-Amz-Credential", "${credentials.access_key}/${scope(stamp, region)}"),
-        ("X-Amz-Date", stamp),
-        ("X-Amz-Expires", "${Duration.as_seconds(expires)}"),
+        ("X-Amz-Algorithm",     "AWS4-HMAC-SHA256"),
+        ("X-Amz-Credential",    "${credentials.access_key}/${scope(stamp, region)}"),
+        ("X-Amz-Date",          stamp),
+        ("X-Amz-Expires",       "${Duration.as_seconds(expires)}"),
         ("X-Amz-SignedHeaders", names),
     ]
 
@@ -251,9 +251,9 @@ end
 
 impl Store for Bucket
     fn put(
-        bucket: Bucket,
-        key: String,
-        data: Bytes,
+        bucket:       Bucket,
+        key:          String,
+        data:         Bytes,
         content_type: String,
     ) -> Result<Unit, storage.Error>
         storage.check_key(key)?
@@ -267,6 +267,7 @@ impl Store for Bucket
                 config.cache_control |> Maybe.map(fn value -> ("Cache-Control", value)),
             ]
             |> Maybe.values()
+            |> Iter.to_list()
 
         _ = send(bucket, Method.Put, key, Headers(headers), Body.Bytes(data))?
         Ok(Unit)
@@ -312,9 +313,9 @@ impl Store for Bucket
         storage.check_key(key)?
 
         case send(bucket, Method.Delete, key)
-            Ok(_) -> Ok(Unit)
+            Ok(_)            -> Ok(Unit)
             Err(.NotFound{}) -> Ok(Unit)
-            Err(e) -> Err(e)
+            Err(e)           -> Err(e)
         end
     end
 
@@ -323,7 +324,7 @@ impl Store for Bucket
 
         case bucket.config.public_base
             Some(base) -> Ok(storage.join_key(base, key))
-            None -> Ok(object_url(bucket.config, key))
+            None       -> Ok(object_url(bucket.config, key))
         end
     end
 
@@ -349,6 +350,7 @@ impl Store for Bucket
                 options.continuation |> Maybe.map(fn token -> ("continuation-token", token)),
             ]
             |> Maybe.values()
+            |> Iter.to_list()
 
         url = {..bucket_url(config), query: Some(canonical_query(Query(pairs)))}
         response = attempt(bucket, Request{method: Method.Get, url:}, options.prefix, 0)?
@@ -388,6 +390,7 @@ fn listing_of(body: String) -> Result<Listing, storage.Error>
         Element.children_named(doc, "CommonPrefixes")
         |> Iter.map(fn common -> Element.child_text(common, "Prefix"))
         |> Maybe.values()
+        |> Iter.to_list()
 
     next = if Element.child_text(doc, "IsTruncated") == Some("true") then
         Some(
@@ -404,11 +407,11 @@ end
 // Send one call's request, signed afresh for each attempt, and return the
 // response of the first attempt that succeeds, or the last failure.
 fn send(
-    bucket: Bucket,
-    method: Method,
-    key: String,
+    bucket:  Bucket,
+    method:  Method,
+    key:     String,
     headers: Headers = Headers[],
-    body: Body = Body.Empty,
+    body:    Body = Body.Empty,
 ) -> Result<Response, storage.Error>
     config = bucket.config
     request = Request{method:, url: object_url(config, key), headers:, body:}
@@ -416,10 +419,10 @@ fn send(
 end
 
 fn attempt(
-    bucket: Bucket,
+    bucket:  Bucket,
     request: Request,
-    key: String,
-    tried: Int,
+    key:     String,
+    tried:   Int,
 ) -> Result<Response, storage.Error>
     config = bucket.config
 
@@ -479,7 +482,7 @@ fn failure(key: String, response: Response) -> storage.Error
 
     message = case parsed
         Some(e) -> e.message
-        None -> String.take(String.trim(body), 200)
+        None    -> String.take(String.trim(body), 200)
     end
 
     case status
@@ -492,7 +495,7 @@ fn failure(key: String, response: Response) -> storage.Error
         400 when code == "AuthorizationHeaderMalformed" ->
             wanted = case parsed |> Maybe.flat_map(fn e -> e.region)
                 Some(region) -> " (the server wants the region ${region})"
-                None -> ""
+                None         -> ""
             end
 
             storage.Error.Backend{code:, message: "${message}${wanted}"}
@@ -515,9 +518,9 @@ end
 
 // The fields of S3's XML error document that this module reads.
 struct ErrorDocument
-    code: String
+    code:    String
     message: String
-    region: Maybe<String>
+    region:  Maybe<String>
 end
 
 // S3's error document: `<Error><Code>..</Code><Message>..</Message>
@@ -531,25 +534,25 @@ end
 
 fn from_http(error: http.Error) -> storage.Error
     case error
-        .Dns{} -> storage.Error.Unavailable{message: "${error}"}
-        .Connect{} -> storage.Error.Unavailable{message: "${error}"}
-        .Timeout{} -> storage.Error.Unavailable{message: "${error}"}
-        .Canceled -> storage.Error.Unavailable{message: "${error}"}
-        .Tls{} -> storage.Error.Backend{code: "Tls", message: "${error}"}
+        .Dns{}          -> storage.Error.Unavailable{message: "${error}"}
+        .Connect{}      -> storage.Error.Unavailable{message: "${error}"}
+        .Timeout{}      -> storage.Error.Unavailable{message: "${error}"}
+        .Canceled       -> storage.Error.Unavailable{message: "${error}"}
+        .Tls{}          -> storage.Error.Backend{code: "Tls", message: "${error}"}
         .BodyTooLarge{} -> storage.Error.Backend{code: "TooLarge", message: "${error}"}
-        _ -> storage.Error.Backend{code: http_code(error), message: "${error}"}
+        _               -> storage.Error.Backend{code: http_code(error), message: "${error}"}
     end
 end
 
 fn http_code(error: http.Error) -> String
     case error
-        .InvalidUrl{} -> "InvalidUrl"
-        .InvalidRequest{} -> "InvalidRequest"
+        .InvalidUrl{}       -> "InvalidUrl"
+        .InvalidRequest{}   -> "InvalidRequest"
         .TooManyRedirects{} -> "TooManyRedirects"
-        .Protocol{} -> "Protocol"
-        .Body{} -> "Body"
-        .Unsupported{} -> "Unsupported"
-        _ -> "Http"
+        .Protocol{}         -> "Protocol"
+        .Body{}             -> "Body"
+        .Unsupported{}      -> "Unsupported"
+        _                   -> "Http"
     end
 end
 
@@ -599,7 +602,7 @@ end
 // S3's rules for a bucket name: 3 to 63 lowercase letters, digits, `.` and
 // `-`, starting and ending with a letter or a digit.
 fn check_bucket(name: String) -> Result<Unit, storage.Error>
-    if String.contains(name, Regex`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`) then
+    if String.contains(name, Regex"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$") then
         Ok(Unit)
     else
         invalid("the bucket name \"${name}\" is not 3 to 63 lowercase letters, digits, . and -")
@@ -634,7 +637,7 @@ fn object_url(config: Config, key: String) -> Url
     endpoint = config.endpoint
 
     (host, path) = case config.addressing
-        .Path -> (endpoint.host, "/${config.bucket}/${key}")
+        .Path        -> (endpoint.host, "/${config.bucket}/${key}")
         .VirtualHost -> ("${config.bucket}.${endpoint.host}", "/${key}")
     end
 
@@ -646,7 +649,7 @@ end
 // SigV4's `x-amz-date`: the instant in UTC as `yyyyMMdd'T'HHmmss'Z'`.
 fn timestamp(at: Instant) -> String
     DateTime.from_instant_in(at, "UTC")!
-    |> DateTime.to_string_with(DateTimePattern`yyyyMMdd'T'HHmmss'Z'`)
+    |> DateTime.to_string_with(DateTimePattern"yyyyMMdd'T'HHmmss'Z'")
 end
 
 fn scope(stamp: String, region: String) -> String

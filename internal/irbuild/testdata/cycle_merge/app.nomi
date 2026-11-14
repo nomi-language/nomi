@@ -35,7 +35,7 @@ pub interface Show
 end
 
 pub struct Config
-    name: String
+    name:  String
     level: Int
 end
 

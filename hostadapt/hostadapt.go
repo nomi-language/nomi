@@ -10,6 +10,11 @@
 // `Result<_, String>`, `*T` is `Maybe<T>`, a Go struct is the Nomi struct the
 // declaration names, and a registered host type is an opaque handle.
 //
+// A binding that answers a Maybe or a Result whose payload is one value has
+// a second adapter, its parts form (PartsFunc): the same call, answering the
+// payload and a flag instead of the Some or Ok record. Bind hands each to
+// Env.AddParts, so an engine that only takes the answer apart builds none.
+//
 // This package is public because a generated FFI wrapper is a separate Go
 // module and can import only public packages. It imports rt and nothing else
 // from this repository, so an adapter links no front end.
@@ -45,6 +50,14 @@ import (
 // callback the Go function invokes runs on it through the Invoker. An adapter
 // for a function that needs neither ignores it, so nil is a legal frame there.
 type Func func(fr *rt.Frame, args []rt.Value) (rt.Value, error)
+
+// PartsFunc is a bound adapter's parts form, for a binding that answers a
+// Maybe or a Result: the result taken apart instead of built. For a Some or
+// an Ok it answers the payload, as the record would hold it, and true; for a
+// None or an Err, the record and false. It fails as the adapter does. An
+// engine that only tests the result and reads the payload calls it to build
+// no Some and no Ok.
+type PartsFunc func(fr *rt.Frame, args []rt.Value) (v rt.Value, ok bool, err error)
 
 // Invoker calls a Nomi function value with rt operands, on the frame of the
 // host call that is calling back. An adapter whose Go function takes a
@@ -156,6 +169,10 @@ type Env struct {
 	Resolve func(*DescSpec) (*rt.TypeDesc, error)
 	// Invoke calls a Nomi function value. Nil fails every callback.
 	Invoke Invoker
+	// AddParts, when set, receives the parts form of each binding that
+	// answers a Maybe or a Result with a payload of its own, by binding
+	// name, as Bind runs.
+	AddParts func(name string, fn PartsFunc)
 
 	mu    sync.Mutex
 	descs map[string]*rt.TypeDesc

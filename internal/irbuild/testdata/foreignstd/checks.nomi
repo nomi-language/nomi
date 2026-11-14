@@ -12,6 +12,6 @@ end
 pub fn first_message(diagnostics: List<Diagnostic>) -> String
     case List.head(diagnostics)
         Some(diagnostic) -> diagnostic.message
-        None -> "none"
+        None             -> "none"
     end
 end

@@ -6,27 +6,27 @@ import std::io
 
 fn kind(cp: Codepoint) -> String
     case cp
-        'a' -> "a"
-        '\n' -> "newline"
-        '\'' -> "quote"
-        '\\' -> "backslash"
+        'a'     -> "a"
+        '\n'    -> "newline"
+        '\''    -> "quote"
+        '\\'    -> "backslash"
         '\u{0}' -> "nul"
-        _ -> "other"
+        _       -> "other"
     end
 end
 
 fn first(m: Maybe<Codepoint>) -> String
     case m
         Some('x') -> "some x"
-        Some(_) -> "some other"
-        None -> "none"
+        Some(_)   -> "some other"
+        None      -> "none"
     end
 end
 
 fn pair(p: (Codepoint, Int)) -> String
     case p
         ('-', n) -> "minus ${n}"
-        (_, n) -> "other ${n}"
+        (_, n)   -> "other ${n}"
     end
 end
 

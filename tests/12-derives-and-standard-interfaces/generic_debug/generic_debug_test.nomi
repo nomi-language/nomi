@@ -1,7 +1,7 @@
 import std::compiler.{self, RunFile}
 
 struct Pair<A, B>
-    first: A
+    first:  A
     second: B
 end
 
@@ -23,7 +23,7 @@ end
 
 struct Labeled<T>
     label: String
-    item: T
+    item:  T
 end
 
 impl Debug for Labeled<T>

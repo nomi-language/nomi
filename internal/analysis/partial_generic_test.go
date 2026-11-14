@@ -69,14 +69,14 @@ func TestPartialGeneric_RejectsAMismatchedPartial(t *testing.T) {
 
 // A partial capture whose position expects a function of known parameter
 // types takes them, as the lambda it stands for would: `Iter.flatten`'s slot
-// is an `Iter<Iter<U>>`, and a `List<List<String>>` enters it as it enters
+// is an `Iter<Iter<T>>`, and a `List<List<String>>` enters it as it enters
 // a direct call. `Iter.count` over a list of lists too.
 func TestPartialGeneric_TakesTheExpectedParameterTypes(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn main()
   found: Result<List<List<String>>, String> = Ok([["a"], ["b"]])
   _ = Result.map(found, &Iter.flatten(&1))
-  f: (List<List<Int>>) -> List<Int> = &Iter.flatten(&1)
+  f: (List<List<Int>>) -> Iter<Int> = &Iter.flatten(&1)
   g: (List<List<Int>>) -> Int = &Iter.count(&1)
   _ = (f([[1]]), g([[1]]))
 end
@@ -86,8 +86,8 @@ end
 
 // The mirror: a result the callee does not give is still the mismatch.
 func TestPartialGeneric_TakesTheExpectedParameterTypesButNotAnyResult(t *testing.T) {
-	_, errs := checkSourceWithStdlib("\nfn main()\n  f: (List<List<Int>>) -> List<String> = &Iter.flatten(&1)\n  _ = f\nend\n")
-	expectStdlibError(t, errs, "expected (List<List<Int>>) -> List<String>, got (List<List<Int>>) -> List<Int>")
+	_, errs := checkSourceWithStdlib("\nfn main()\n  f: (List<List<Int>>) -> Iter<String> = &Iter.flatten(&1)\n  _ = f\nend\n")
+	expectStdlibError(t, errs, "expected (List<List<Int>>) -> Iter<String>, got (List<List<Int>>) -> Iter<Int>")
 }
 
 // A generic function named as a value whose parameter takes the expected
@@ -107,15 +107,15 @@ func TestPartialGeneric_AFunctionValueConvertsInsideAContainer(t *testing.T) {
 }
 
 // An Iter's element takes a List as the top does: `Iter.flatten` is an
-// `(Iter<Iter<U>>) -> List<U>`, which stands where a function of a List of
+// `(Iter<Iter<T>>) -> Iter<T>`, which stands where a function of a List of
 // Lists is expected, as `Iter.flatten(lists)` takes the lists.
 func TestPartialGeneric_AnIterElementTakesAList(t *testing.T) {
 	_, errs := checkSourceWithStdlib(`
 fn main()
   found: Result<List<List<String>>, String> = Ok([["a"], ["b"]])
   _ = Result.map(found, Iter.flatten)
-  f: (List<List<Int>>) -> List<Int> = Iter.flatten
-  g: (List<Vector<Int>>) -> List<Int> = Iter.flatten
+  f: (List<List<Int>>) -> Iter<Int> = Iter.flatten
+  g: (List<Vector<Int>>) -> Iter<Int> = Iter.flatten
   _ = (f([[1]]), g([Vector[1]]))
 end
 `)

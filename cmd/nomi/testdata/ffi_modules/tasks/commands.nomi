@@ -80,9 +80,9 @@ end
 /// so a failed save changes nothing. New tasks are stamped by `clock`.
 pub fn run(
     command: Command,
-    tasks: Map<Int, Task>,
-    store: Store,
-    clock: Clock,
+    tasks:   Map<Int, Task>,
+    store:   Store,
+    clock:   Clock,
 ) -> Result<(Map<Int, Task>, List<String>), String>
     case command
         Command.Help ->
@@ -128,7 +128,7 @@ end
 
 fn is_shown(task: Task, status: Maybe<Status>) -> Bool
     case status
-        None -> True
+        None         -> True
         Some(status) -> task.status == status
     end
 end

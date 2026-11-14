@@ -22,10 +22,10 @@ end
 /// its code, 3 its name; in the locale's accounting pattern when
 /// `accounting`. What `Money.format` calls.
 pub fn format(
-    amount: Decimal,
-    currency: Currency,
-    locale: Locale,
-    display: Int,
+    amount:     Decimal,
+    currency:   Currency,
+    locale:     Locale,
+    display:    Int,
     accounting: Bool,
 ) -> String
     money_format_raw(
@@ -42,10 +42,10 @@ end
 /// The amount in `currency` a reader of `locale` wrote in `text`, strictly
 /// unless `lenient`. What `Money.parse_in` calls.
 pub fn parse(
-    text: String,
-    locale: Locale,
+    text:     String,
+    locale:   Locale,
     currency: Currency,
-    lenient: Bool,
+    lenient:  Bool,
 ) -> Result<Decimal, NumberParseError>
     read = money_parse_raw(
         text,
@@ -63,7 +63,7 @@ pub fn parse(
         Ok(digits) ->
             case String.to_decimal(digits)
                 Some(d) -> Ok(d)
-                None -> Err(NumberParseError.OutOfRange)
+                None    -> Err(NumberParseError.OutOfRange)
             end
     end
 end
@@ -94,21 +94,21 @@ fn label(c: Currency) -> String
 end
 
 host fn money_format_raw(
-    locale: Locale,
-    amount: String,
-    code: String,
-    digits: Int,
-    iso: Bool,
-    display: Int,
+    locale:     Locale,
+    amount:     String,
+    code:       String,
+    digits:     Int,
+    iso:        Bool,
+    display:    Int,
     accounting: Bool,
 ) -> String
 
 host fn money_parse_raw(
-    text: String,
-    locale: Locale,
-    code: String,
-    digits: Int,
-    iso: Bool,
+    text:    String,
+    locale:  Locale,
+    code:    String,
+    digits:  Int,
+    iso:     Bool,
     lenient: Bool,
 ) -> Result<String, NumberParseError>
 

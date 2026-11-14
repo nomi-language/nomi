@@ -80,7 +80,7 @@ test "io.lines hands over each line before it reads the next"
         |> Iter.each(fn line ->
             case line
                 Ok(text) -> io.print(String.uppercase(text))
-                Err(e) -> io.eprint(e)
+                Err(e)   -> io.eprint(e)
             end
         end)
     end

@@ -1,16 +1,18 @@
 // Package compilerhosts is std/compiler's host functions for the VM.
 //
 // internal/irbuild retains a call to `compiler.check`, `check_project`,
-// `hover`, `run` or `run_file` as a crossing named by its stdlib key
+// `format`, `hover`, `run` or `run_file` as a crossing named by its stdlib key
 // (irCompilerHost). nomi/vmhost adds this package's table to every machine it
 // opens (vm.Machine.WithHosts). They are not internal/stdlibbindings rows
 // because their answer depends on the program being run: the project root and
 // the virtual sibling files a checked or run source resolves imports against.
 // So they are hand-written adapters over rt values, closed over those two,
-// rather than generated ones.
+// rather than generated ones. `compiler.format` depends on neither, but it
+// links the parser, which internal/stdlibbindings' rows would put into every
+// nomi-vm; here it is linked only by a runner that crosses into std/compiler.
 //
-// The analysis is nomi/stdcompiler's and the run is nomi/stdcompilerrun's,
-// whose engine nomi/vmhost installs. What is here is the conversion between
+// The analysis is nomi/stdcompiler's, the layout is nomi/format's, and the
+// run is nomi/stdcompilerrun's, whose engine nomi/vmhost installs. What is here is the conversion between
 // those and the VM's rt values. A separate package from vmhost so that a test
 // of internal/irbuild, which vmhost imports, can bind them too.
 package compilerhosts
@@ -21,6 +23,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 
 	"github.com/nomi-language/nomi/hostadapt"
+	"github.com/nomi-language/nomi/internal/format"
 	"github.com/nomi-language/nomi/internal/stdcompiler"
 	"github.com/nomi-language/nomi/internal/stdcompilerrun"
 )
@@ -38,7 +41,7 @@ var (
 // Names are the keys Table answers, which internal/irbuild's IR builder admits
 // as std/compiler crossings.
 func Names() []string {
-	return []string{"compiler.check", "compiler.check_project", "compiler.hover", "compiler.run", "compiler.run_file"}
+	return []string{"compiler.check", "compiler.check_project", "compiler.format", "compiler.hover", "compiler.run", "compiler.run_file"}
 }
 
 // descs are the descriptors one binding builds with.
@@ -46,7 +49,7 @@ type descs struct {
 	diagnostic, hover, result *rt.TypeDesc
 }
 
-// Table binds the five std/compiler hosts for a program whose imports resolve
+// Table binds the six std/compiler hosts for a program whose imports resolve
 // against root and virtualFiles. Its type is vm.HostTable's.
 func Table(root string, virtualFiles map[string]string) func(*hostadapt.Env) (map[string]hostadapt.Func, error) {
 	return func(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
@@ -84,6 +87,17 @@ func Table(root string, virtualFiles map[string]string) func(*hostadapt.Env) (ma
 					rt.Trap(err.Error())
 				}
 				return d.diagnostics(diags), nil
+			},
+			"compiler.format": func(_ *rt.Frame, args []rt.Value) (rt.Value, error) {
+				source, err := stringArg("compiler.format", args)
+				if err != nil {
+					return nil, err
+				}
+				out, err := format.Format(source)
+				if err != nil {
+					return d.result.MakeVariant(1, err.Error()), nil
+				}
+				return d.result.MakeVariant(0, out), nil
 			},
 			"compiler.hover": func(_ *rt.Frame, args []rt.Value) (rt.Value, error) {
 				source, err := stringArg("compiler.hover", args)

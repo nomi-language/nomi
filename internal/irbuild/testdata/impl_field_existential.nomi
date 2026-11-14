@@ -49,7 +49,7 @@ impl Numberish for Int
 end
 
 struct Pen
-    label: String
+    label:    String
     occupant: Speech
 end
 

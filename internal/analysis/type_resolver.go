@@ -286,9 +286,32 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		}
 		return &AnonStructType{Fields: fields}, nil
 
+	case *ast.ConjunctionType:
+		// `Priced and Costed` in a value type's position: each member is
+		// an interface, or a conjunction whose members are spliced in.
+		var ifaces []*InterfaceType
+		for _, m := range n.Members {
+			resolved, err := resolveTypeExpr(m, reg, typeParams, fa, declared)
+			if err != nil {
+				return nil, err
+			}
+			members := InterfaceMembers(resolved)
+			if members == nil {
+				return nil, errAt(m, conjunctionMemberError(resolved))
+			}
+			ifaces = append(ifaces, members...)
+		}
+		return NewConjunction(ifaces), nil
+
 	default:
 		return nil, fmt.Errorf("unsupported TypeExpr node: %T", te)
 	}
+}
+
+// conjunctionMemberError is the error for a member of `A and B` that is no
+// interface.
+func conjunctionMemberError(t Type) string {
+	return fmt.Sprintf("`and` joins interfaces, and %s is not an interface", t)
 }
 
 // typeFieldFile is the file a field an anonymous struct type names at line

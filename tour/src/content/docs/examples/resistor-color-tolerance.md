@@ -42,7 +42,7 @@ end
 impl Display for Magnitude
     fn to_string(unit: Magnitude) -> String
         case unit
-            .Ohms -> "ohms"
+            .Ohms     -> "ohms"
             .Kiloohms -> "kiloohms"
             .Megaohms -> "megaohms"
             .Gigaohms -> "gigaohms"
@@ -52,8 +52,8 @@ end
 
 /// A resistor's label: `33 ohms ±2%`. A one-band resistor has no tolerance.
 pub struct Label
-    value: Decimal
-    unit: Magnitude
+    value:     Decimal
+    unit:      Magnitude
     tolerance: Maybe<Decimal>
 end
 
@@ -61,7 +61,7 @@ impl Display for Label
     fn to_string(label: Label) -> String
         case label.tolerance
             Some(percent) -> "${label.value} ${label.unit} ±${percent}%"
-            None -> "${label.value} ${label.unit}"
+            None          -> "${label.value} ${label.unit}"
         end
     end
 end
@@ -116,16 +116,16 @@ end
 
 fn digit(color: Color) -> Maybe<Int>
     case color
-        .Black -> Some(0)
-        .Brown -> Some(1)
-        .Red -> Some(2)
-        .Orange -> Some(3)
-        .Yellow -> Some(4)
-        .Green -> Some(5)
-        .Blue -> Some(6)
-        .Violet -> Some(7)
-        .Grey -> Some(8)
-        .White -> Some(9)
+        .Black           -> Some(0)
+        .Brown           -> Some(1)
+        .Red             -> Some(2)
+        .Orange          -> Some(3)
+        .Yellow          -> Some(4)
+        .Green           -> Some(5)
+        .Blue            -> Some(6)
+        .Violet          -> Some(7)
+        .Grey            -> Some(8)
+        .White           -> Some(9)
         .Gold or .Silver -> None
     end
 end
@@ -215,11 +215,11 @@ end
 
 test "labels read as the description writes them"
     [
-        ([Color.Orange, .Orange, .Black, .Green], "33 ohms ±0.5%"),
-        ([.Orange, .Orange, .Orange, .Grey], "33 kiloohms ±0.05%"),
-        ([.Orange, .Orange, .Blue, .Red], "33 megaohms ±2%"),
+        ([Color.Orange, .Orange, .Black, .Green],  "33 ohms ±0.5%"),
+        ([.Orange, .Orange, .Orange, .Grey],       "33 kiloohms ±0.05%"),
+        ([.Orange, .Orange, .Blue, .Red],          "33 megaohms ±2%"),
         ([.Red, .Green, .Yellow, .Yellow, .Brown], "2.54 megaohms ±1%"),
-        ([.Black], "0 ohms"),
+        ([.Black],                                 "0 ohms"),
     ]
     |> subtests (bands, expected)
         assert Some(label) = resistor_color_tolerance.label(bands)
@@ -229,9 +229,9 @@ end
 
 test "bands that make no label"
     [
-        ("no bands", []),
-        ("one band that is not black", [Color.Brown]),
-        ("three bands", [.Brown, .Black, .Red]),
+        ("no bands",                     []),
+        ("one band that is not black",   [Color.Brown]),
+        ("three bands",                  [.Brown, .Black, .Red]),
         ("a tolerance color as a digit", [.Gold, .Black, .Red, .Red]),
         ("a digit color as a tolerance", [.Brown, .Black, .Red, .Orange]),
     ]

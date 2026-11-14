@@ -51,7 +51,7 @@ const coinsPolish = "" +
 func coinsProject() map[string]string {
 	return map[string]string{
 		"nomi.toml":             "[module]\nname = \"shop\"\nentry_points = [\"main\"]\n\n[i18n]\nlocales = [\"en\", \"pl\"]\n",
-		"main.nomi":             "import\n    std::io\n    coins\nend\n\nfn main()\n    io.print(Phrase.format(coins.coin_count(coins.quarter, 3), Locale`pl`))\nend\n",
+		"main.nomi":             "import\n    std::io\n    coins\nend\n\nfn main()\n    io.print(Phrase.format(coins.coin_count(coins.quarter, 3), Locale\"pl\"))\nend\n",
 		"coins.nomi":            coinsNomi,
 		"locales/pl/coins.toml": coinsPolish,
 	}

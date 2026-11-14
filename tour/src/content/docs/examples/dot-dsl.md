@@ -43,9 +43,9 @@ end
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .InvalidGraph -> "invalid graph"
-            .InvalidEdge -> "invalid edge"
-            .InvalidAttribute -> "invalid attribute"
+            .InvalidGraph            -> "invalid graph"
+            .InvalidEdge             -> "invalid edge"
+            .InvalidAttribute        -> "invalid attribute"
             .NodeNameNotAlphanumeric -> "node name must be alphanumeric"
         end
     end
@@ -138,11 +138,11 @@ fn value_of(text: String) -> Value
     quoted = String.strip_prefix(text, "\"") |> Maybe.flat_map(&String.strip_suffix(&1, "\""))
 
     case (quoted, String.to_int(text), text)
-        (Some(inner), _, _) -> .Text(inner)
+        (Some(inner), _, _)  -> .Text(inner)
         (_, Some(number), _) -> .Number(number)
-        (_, _, "true") -> .Flag(True)
-        (_, _, "false") -> .Flag(False)
-        _ -> .Text(text)
+        (_, _, "true")       -> .Flag(True)
+        (_, _, "false")      -> .Flag(False)
+        _                    -> .Text(text)
     end
 end
 
@@ -197,8 +197,8 @@ end
 /// `entries` with `attributes` merged into those of `key`, which it gains
 /// if it lacks it.
 fn with_attributes<K>(
-    entries: Map<K, Map<String, Value>>,
-    key: K,
+    entries:    Map<K, Map<String, Value>>,
+    key:        K,
     attributes: Map<String, Value>,
 ) -> Map<K, Map<String, Value>>
     Map.update(entries, key, {}, &Map.merge(&1, attributes))
@@ -300,9 +300,9 @@ test "parse"
                 },
                 edges: {("a", "b") => {"color" => .Text("blue")}, ("b", "c") => {}},
                 attrs: {
-                    "foo" => .Number(1),
+                    "foo"   => .Number(1),
                     "title" => .Text("Testing Attrs"),
-                    "bar" => .Flag(True),
+                    "bar"   => .Flag(True),
                 },
             },
         ),

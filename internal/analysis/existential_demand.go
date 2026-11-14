@@ -47,17 +47,28 @@ func (c *checker) existentialSatisfiesNamed(it *InterfaceType, ifaceName string)
 }
 
 // checkExistentialDemand reports a conformance to ifaceName demanded of a
-// value of interface type it by rec.
-func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, rec Recording) {
-	if it == nil || it.Name == "" || it.Name == ifaceName || c.existentialSatisfiesNamed(it, ifaceName) || rec.Kind == RecordingKindEqualityOperator {
+// value of interface type it by rec: an interface, or a conjunction, which
+// guarantees each of its members and what every one of them guarantees.
+func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recording) {
+	members := InterfaceMembers(it)
+	if len(members) == 0 || members[0].Name == "" || rec.Kind == RecordingKindEqualityOperator {
+		return
+	}
+	universal := true
+	for _, m := range members {
+		if m.Name == ifaceName {
+			return
+		}
+		universal = universal && c.existentialSatisfiesNamed(m, ifaceName)
+	}
+	if universal {
 		return
 	}
 	if _, isIface := c.reg.Lookup(ifaceName).(*InterfaceType); !isIface {
 		return
 	}
 	matches := func(t Type) bool {
-		at, ok := resolveTypeVar(t).(*InterfaceType)
-		return ok && !at.DefaultSelf && at.Name == it.Name
+		return sameExistential(t, it)
 	}
 	pos := rec.Pos
 	subject, verb := "this value", "is"
@@ -70,7 +81,7 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 				param = id.Name
 			}
 		}
-	} else if arg, ok := c.demandSubject(func(t Type) bool { return t != nil && mentionsInterface(t, it.Name) }); ok {
+	} else if arg, ok := c.demandSubject(func(t Type) bool { return t != nil && mentionsExistential(t, it) }); ok {
 		// `"${xs}"` with xs a List<Scale>: the demand reaches Scale through xs.
 		pos.Line, pos.Col = exprStartLineCol(arg)
 		verb = "holds"
@@ -81,7 +92,7 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 		subject = "`" + sym.Name + "`"
 		param = sym.Name
 	}
-	article := articleFor(it.Name)
+	article := articleFor(it.String())
 	if verb == "holds" {
 		article = "values of"
 	}
@@ -100,7 +111,7 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 	if rec.Kind == RecordingKindTypedLiteralSlot {
 		// A slot cannot introduce a type parameter.
 		help = fmt.Sprintf("a slot's value must have a type that implements %s", ifaceName)
-		if isStdIterType(it) {
+		if isStdIterType(members[0]) {
 			help = "an `Iter` is a lazy sequence; collect it with `Iter.to_list()` first"
 		}
 	}
@@ -111,7 +122,7 @@ func (c *checker) checkExistentialDemand(it *InterfaceType, ifaceName string, re
 // interfaces in place of the interface type. An operator's operands must be
 // one type, as are the values an order compares, so for either every
 // parameter of that type becomes T.
-func (c *checker) existentialDemandHelp(it *InterfaceType, ifaceName, param string, operator bool) string {
+func (c *checker) existentialDemandHelp(it Type, ifaceName, param string, operator bool) string {
 	bound := fmt.Sprintf("T: %s and %s", it.String(), ifaceName)
 	if sig, ok := c.sigWithTypeParamFor(it, param, operator); ok {
 		return fmt.Sprintf("take a type parameter bounded by both: `%s where %s`", sig, bound)
@@ -123,7 +134,7 @@ func (c *checker) existentialDemandHelp(it *InterfaceType, ifaceName, param stri
 // parameter param, declared with interface type it, given a new type
 // parameter T in its place (every parameter of that type when all is set).
 // It reports false when param is not such a parameter of a plain function.
-func (c *checker) sigWithTypeParamFor(it *InterfaceType, param string, all bool) (string, bool) {
+func (c *checker) sigWithTypeParamFor(it Type, param string, all bool) (string, bool) {
 	fn := c.currentFnDecl
 	if fn == nil || param == "" || c.currentInterface != "" {
 		return "", false
@@ -144,7 +155,10 @@ func (c *checker) sigWithTypeParamFor(it *InterfaceType, param string, all bool)
 	}
 	isIt := func(t Type) bool {
 		pt, ok := resolveTypeVar(t).(*InterfaceType)
-		return ok && !pt.DefaultSelf && pt.Name == it.Name && len(pt.TypeArgs) == 0
+		if ok && len(pt.TypeArgs) > 0 {
+			return false
+		}
+		return sameExistential(t, it)
 	}
 	if !isIt(ft.Params[at]) {
 		return "", false
@@ -301,6 +315,32 @@ func mentionsInterface(t Type, name string) bool {
 	}
 	for _, a := range typeChildren(t) {
 		if mentionsInterface(a, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameExistential reports whether t is the interface value type it, an
+// interface or a conjunction, and not a default's `self`.
+func sameExistential(t, it Type) bool {
+	t = resolveTypeVar(t)
+	if at, ok := t.(*InterfaceType); ok {
+		bt, ok := it.(*InterfaceType)
+		return ok && !at.DefaultSelf && at.Name == bt.Name
+	}
+	_, conj := t.(*ConjunctionType)
+	return conj && TypesEqual(t, it)
+}
+
+// mentionsExistential reports whether t is or holds the interface value
+// type it.
+func mentionsExistential(t, it Type) bool {
+	if sameExistential(t, it) {
+		return true
+	}
+	for _, a := range typeChildren(resolveTypeVar(t)) {
+		if mentionsExistential(a, it) {
 			return true
 		}
 	}

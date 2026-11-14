@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A tree of labelled nodes. The labels are unique within a tree.
 pub struct Tree
-    label: String
+    label:    String
     children: List<Tree> = []
 end
 
@@ -73,7 +73,7 @@ end
 once singleton = Tree{label: "x"}
 
 once parent_and_siblings = Tree{
-    label: "parent",
+    label:    "parent",
     children: [{label: "a"}, {label: "x"}, {label: "b"}, {label: "c"}],
 }
 
@@ -81,7 +81,7 @@ once parent_with_kids = Tree{
     label: "parent",
     children: [
         {
-            label: "x",
+            label:    "x",
             children: [{label: "kid-0"}, {label: "kid-1"}],
         },
         {label: "sibling-0"},
@@ -96,7 +96,7 @@ once cousins = Tree{
             label: "parent",
             children: [
                 {
-                    label: "x",
+                    label:    "x",
                     children: [{label: "kid-0"}, {label: "kid-1"}],
                 },
                 {label: "sibling-0"},
@@ -104,7 +104,7 @@ once cousins = Tree{
             ],
         },
         {
-            label: "uncle",
+            label:    "uncle",
             children: [{label: "cousin-0"}, {label: "cousin-1"}],
         },
     ],
@@ -121,7 +121,7 @@ test "Reroot a tree so that its root is the specified node."
         (
             "Can reroot a tree with a parent and one sibling",
             {
-                label: "parent",
+                label:    "parent",
                 children: [{label: "x"}, {label: "sibling"}],
             },
             "x",
@@ -129,7 +129,7 @@ test "Reroot a tree so that its root is the specified node."
                 label: "x",
                 children: [
                     {
-                        label: "parent",
+                        label:    "parent",
                         children: [{label: "sibling"}],
                     },
                 ],
@@ -143,7 +143,7 @@ test "Reroot a tree so that its root is the specified node."
                 label: "x",
                 children: [
                     {
-                        label: "parent",
+                        label:    "parent",
                         children: [{label: "a"}, {label: "b"}, {label: "c"}],
                     },
                 ],
@@ -161,7 +161,7 @@ test "Reroot a tree so that its root is the specified node."
                                 label: "level-2",
                                 children: [
                                     {
-                                        label: "level-3",
+                                        label:    "level-3",
                                         children: [{label: "x"}],
                                     },
                                 ],
@@ -181,7 +181,7 @@ test "Reroot a tree so that its root is the specified node."
                                 label: "level-2",
                                 children: [
                                     {
-                                        label: "level-1",
+                                        label:    "level-1",
                                         children: [{label: "level-0"}],
                                     },
                                 ],
@@ -197,14 +197,14 @@ test "Reroot a tree so that its root is the specified node."
                 label: "parent",
                 children: [
                     {
-                        label: "x",
+                        label:    "x",
                         children: [{label: "kid-0"}, {label: "kid-1"}],
                     },
                 ],
             },
             "x",
             Some({
-                label: "x",
+                label:    "x",
                 children: [{label: "kid-0"}, {label: "kid-1"}, {label: "parent"}],
             }),
         ),
@@ -226,7 +226,7 @@ test "Reroot a tree so that its root is the specified node."
                                 label: "grandparent",
                                 children: [
                                     {
-                                        label: "uncle",
+                                        label:    "uncle",
                                         children: [{label: "cousin-0"}, {label: "cousin-1"}],
                                     },
                                 ],
@@ -250,7 +250,7 @@ test "Given two nodes, find the path between them"
         (
             "Can find path to parent",
             Tree{
-                label: "parent",
+                label:    "parent",
                 children: [{label: "x"}, {label: "sibling"}],
             },
             "x",
@@ -271,7 +271,7 @@ test "Given two nodes, find the path between them"
                 label: "grandparent",
                 children: [
                     {
-                        label: "parent",
+                        label:    "parent",
                         children: [{label: "x"}, {label: "sibling-0"}, {label: "sibling-1"}],
                     },
                 ],

@@ -29,14 +29,14 @@ end
 fn unwrap_int(w: Wrapper<Int>) -> Int
     case w
         .Wrapped(v) -> v
-        .Empty -> 0
+        .Empty      -> 0
     end
 end
 
 fn unwrap_text(w: Wrapper<String>) -> String
     case w
         .Wrapped(v) -> v
-        .Empty -> "none"
+        .Empty      -> "none"
     end
 end
 
@@ -48,7 +48,7 @@ end
 fn depth(w: Wrapper<Wrapper<Int>>) -> Int
     case w
         .Wrapped(inner) -> unwrap_int(inner)
-        .Empty -> -1
+        .Empty          -> -1
     end
 end
 

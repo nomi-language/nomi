@@ -37,7 +37,7 @@ func TestFormat_DepthBreakLeavesElementsToThemselves(t *testing.T) {
 		{
 			"struct three deep",
 			"fn main()\n    deep = Struct.update(w, {label: \"two\", person: {address: {zip: \"99999\"}}})\nend\n",
-			"fn main()\n    deep = Struct.update(w, {\n        label: \"two\",\n        person: {address: {zip: \"99999\"}},\n    })\nend\n",
+			"fn main()\n    deep = Struct.update(w, {\n        label:  \"two\",\n        person: {address: {zip: \"99999\"}},\n    })\nend\n",
 		},
 		{
 			"struct holding a list of structs",

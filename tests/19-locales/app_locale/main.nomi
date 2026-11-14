@@ -10,7 +10,7 @@ pub fn boot(startup: Startup) -> Result<App, String>
     locale =
         Map.get(startup.env, "LANG")
         |> Maybe.flat_map(fn value -> Locale.from_posix(value) |> Result.to_maybe())
-        |> Maybe.with_default(Locale`en`)
+        |> Maybe.with_default(Locale"en")
 
     Ok(App{locale:})
 end
@@ -18,13 +18,13 @@ end
 pub fn greeting(locale: Locale) -> String
     case Locale.language(locale)
         "pl" -> "Cześć"
-        _ -> "Hello"
+        _    -> "Hello"
     end
 end
 
 // main pins the locale with a `with` line, so what it prints does not
 // depend on the LANG of the machine running the corpus.
 fn main()
-    with App.locale = Locale`pl-PL`
+    with App.locale = Locale"pl-PL"
     io.print("${App.locale}: ${greeting(App.locale)}")
 end

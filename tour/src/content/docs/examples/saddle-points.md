@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A tree's place in the grid, counting rows and columns from 1.
 pub struct Position
-    row: Int
+    row:    Int
     column: Int
 end
 

@@ -90,6 +90,35 @@
 // it remains the right shape wherever a name plus an identity is all an
 // operand has, which includes a pattern's own bindings (destructure.go).
 //
+// # Updates written in place
+//
+// A Nomi update makes a new value, so a consumer may write an update into
+// its base, or a collection operation into its operand, only when nothing
+// can read the old value again. [Owns] answers that from the graph and
+// what the function's direct callees return, as [TailTransfers] answers
+// which tail calls transfer. Per alias class (the temporaries Copy, Bind
+// and a parameter's RefLocal join) it answers never, or a need: a mask of
+// the parameters whose arguments the caller must have handed over, and
+// of those it must have handed over deep (bit [DeepBit]+j), for the class
+// to be owned. A class is owned when every write is a literal, an update,
+// a fresh collection, a parameter, an owned callee result, an owned
+// collection operation, a granted field read or a fold that hands its
+// accumulator on, and every read is a move within the class, a field
+// read, a borrowing lookup, a Return, or a read after which no member is
+// live (a move: whoever receives it is its one holder). It is owned DEEP
+// when the values its fields hold are its own too; a field read of a
+// class owned deep owns the value it reads when nothing reads that field
+// through the class again (fields.go). From that it answers the updates
+// and collection operations that may write in place, the arguments each
+// direct call hands on, the folds (`Iter.reduce`, `Iter.map_reduce`) that
+// may hand their callback the accumulator ([Fold]), and the function's
+// own [ResultOwnership], which its callers' analyses and its folds read
+// through [Callees]. [InPlaceUpdates] is the part that needs no caller and
+// no callee. unique.go's and fields.go's file comments have the rules. The
+// VM is the consumer
+// (internal/vm package doc, "Updates written in place"). The fact is not
+// stored, so it cannot go stale and no image carries it.
+//
 // # Objects
 //
 // A symbol another module can name carries a linkage name (Symbol.Link),

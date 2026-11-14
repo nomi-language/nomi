@@ -35,11 +35,11 @@ import nth_prime
 
 test "prime"
     [
-        ("first prime", 1, Some(2)),
-        ("second prime", 2, Some(3)),
-        ("sixth prime", 6, Some(13)),
-        ("big prime", 10001, Some(104743)),
-        ("there is no zeroth prime", 0, None),
+        ("first prime",              1,     Some(2)),
+        ("second prime",             2,     Some(3)),
+        ("sixth prime",              6,     Some(13)),
+        ("big prime",                10001, Some(104743)),
+        ("there is no zeroth prime", 0,     None),
     ]
     |> subtests (description, n, expected), description
         assert nth_prime.prime(n) == expected

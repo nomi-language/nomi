@@ -30,14 +30,14 @@ end
 fn positional(s: Shape) -> Int
     case s
         Shape.Circle(c) -> c.r
-        Shape.Line -> 0
+        Shape.Line      -> 0
     end
 end
 
 fn struct_form(s: Shape) -> Int
     case s
         Shape.Circle{r:} -> r
-        Shape.Line -> 0
+        Shape.Line       -> 0
     end
 end
 

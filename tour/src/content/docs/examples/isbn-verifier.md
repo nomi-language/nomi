@@ -35,7 +35,7 @@ end
 fn value(character: String, is_check: Bool) -> Maybe<Int>
     case character
         "X" when is_check -> Some(10)
-        _ -> String.to_int(character)
+        _                 -> String.to_int(character)
     end
 end
 
@@ -51,27 +51,27 @@ import isbn_verifier
 
 test "verifies ISBN-10 numbers"
     [
-        ("valid isbn", "3-598-21508-8", True),
-        ("invalid isbn check digit", "3-598-21508-9", False),
-        ("valid isbn with a check digit of 10", "3-598-21507-X", True),
-        ("check digit is a character other than X", "3-598-21507-A", False),
-        ("invalid check digit in isbn is not treated as zero", "4-598-21507-B", False),
-        ("invalid character in isbn is not treated as zero", "3-598-P1581-X", False),
-        ("X is only valid as a check digit", "3-598-2X507-9", False),
-        ("only one check digit is allowed", "3-598-21508-96", False),
-        ("X is not substituted by the value 10", "3-598-2X507-5", False),
-        ("valid isbn without separating dashes", "3598215088", True),
-        ("isbn without separating dashes and X as check digit", "359821507X", True),
-        ("isbn without check digit and dashes", "359821507", False),
-        ("too long isbn and no dashes", "3598215078X", False),
-        ("too short isbn", "00", False),
-        ("isbn without check digit", "3-598-21507", False),
-        ("check digit of X should not be used for 0", "3-598-21515-X", False),
-        ("empty isbn", "", False),
-        ("input is 9 characters", "134456729", False),
-        ("invalid characters are not ignored after checking length", "3132P34035", False),
-        ("invalid characters are not ignored before checking length", "3598P215088", False),
-        ("input is too long but contains a valid isbn", "98245726788", False),
+        ("valid isbn",                                                "3-598-21508-8",  True),
+        ("invalid isbn check digit",                                  "3-598-21508-9",  False),
+        ("valid isbn with a check digit of 10",                       "3-598-21507-X",  True),
+        ("check digit is a character other than X",                   "3-598-21507-A",  False),
+        ("invalid check digit in isbn is not treated as zero",        "4-598-21507-B",  False),
+        ("invalid character in isbn is not treated as zero",          "3-598-P1581-X",  False),
+        ("X is only valid as a check digit",                          "3-598-2X507-9",  False),
+        ("only one check digit is allowed",                           "3-598-21508-96", False),
+        ("X is not substituted by the value 10",                      "3-598-2X507-5",  False),
+        ("valid isbn without separating dashes",                      "3598215088",     True),
+        ("isbn without separating dashes and X as check digit",       "359821507X",     True),
+        ("isbn without check digit and dashes",                       "359821507",      False),
+        ("too long isbn and no dashes",                               "3598215078X",    False),
+        ("too short isbn",                                            "00",             False),
+        ("isbn without check digit",                                  "3-598-21507",    False),
+        ("check digit of X should not be used for 0",                 "3-598-21515-X",  False),
+        ("empty isbn",                                                "",               False),
+        ("input is 9 characters",                                     "134456729",      False),
+        ("invalid characters are not ignored after checking length",  "3132P34035",     False),
+        ("invalid characters are not ignored before checking length", "3598P215088",    False),
+        ("input is too long but contains a valid isbn",               "98245726788",    False),
     ]
     |> subtests (description, isbn, expected), description
         assert isbn_verifier.is_valid(isbn) == expected

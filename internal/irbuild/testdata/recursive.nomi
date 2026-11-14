@@ -13,7 +13,7 @@ end
 /// `Chain`'s variants holds a `Cell`. Neither edge is direct, so a rule that
 /// only looked one level deep would produce two types of infinite size.
 struct Cell
-    next: Loop
+    next:   Loop
     weight: Int
 end
 

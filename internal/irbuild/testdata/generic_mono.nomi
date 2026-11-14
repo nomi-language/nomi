@@ -20,7 +20,7 @@ pub struct Half<T>
 end
 
 pub struct Pair<A, B>
-    left: A
+    left:  A
     right: B
 end
 
@@ -69,12 +69,12 @@ end
 test "one declaration, two concrete type arguments"
     as_int = case recv(Half{slot: 7})
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 
     as_string = case recv(Half{slot: "seven"})
         Some(v) -> v
-        None -> ""
+        None    -> ""
     end
 
     assert as_int == 7
@@ -110,12 +110,12 @@ end
 test "a generic function calls a generic function at its own type parameter"
     n = case recv_twice(Half{slot: 11})
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 
     s = case recv_twice(Half{slot: "eleven"})
         Some(v) -> v
-        None -> ""
+        None    -> ""
     end
 
     assert n == 11
@@ -134,12 +134,12 @@ test "the same instantiation reached twice is one function"
     // so a collision there shows up as a wrong or missing row.
     one = case recv(Half{slot: 1})
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 
     two = case recv(Half{slot: 2})
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 
     assert one == 1

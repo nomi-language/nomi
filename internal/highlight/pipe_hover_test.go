@@ -51,7 +51,7 @@ end
 		nth  int
 		want string
 	}{
-		{"a call stage", "  |> Maybe.values()", 1, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `List<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> List<Int>\n```\n\nThe piped value fills `maybes`."},
+		{"a call stage", "  |> Maybe.values()", 1, "`Iter<Maybe<Int>>` → `Maybe.values(maybes)` → `Iter<Int>`\n\n```nomi\nfn values(maybes: Iter<Maybe<Int>>) -> Iter<Int>\n```\n\nThe piped value fills `maybes`."},
 		{"tap", "  |> tap fn v", 1, "`Int` → `tap fn v -> …` → `Int`\n\n`v` is the `Int`; the lambda runs for its effect and the value passes on unchanged."},
 		{"then", "  |> then fn v", 1, "`Int` → `then fn v -> …` → `Int`\n\n`v` is the `Int`; the stage returns the lambda's result."},
 		{"dbg", "  |> dbg", 1, "`Int` → `dbg` → `Int`\n\nPrints the value with its source line and passes it on unchanged."},

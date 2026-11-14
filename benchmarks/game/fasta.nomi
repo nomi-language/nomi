@@ -1,0 +1,120 @@
+//# The Computer Language Benchmarks Game: fasta.
+//#
+//# Writes three DNA sequences in FASTA format, 60 bases a line, as the
+//# benchmark's rules require: `2n` bases repeating the ALU sequence, then
+//# `3n` and `5n` bases drawn from two weighted alphabets with the rules'
+//# linear congruential generator (seed 42). The generator's seed is threaded
+//# through each line as state.
+
+import std::io
+
+once alu = String.join([
+    "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG",
+    "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA",
+    "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT",
+    "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA",
+    "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG",
+    "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC",
+    "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA",
+])
+
+once iub = cumulative([
+    ("a", 0.27),
+    ("c", 0.12),
+    ("g", 0.12),
+    ("t", 0.27),
+    ("B", 0.02),
+    ("D", 0.02),
+    ("H", 0.02),
+    ("K", 0.02),
+    ("M", 0.02),
+    ("N", 0.02),
+    ("R", 0.02),
+    ("S", 0.02),
+    ("V", 0.02),
+    ("W", 0.02),
+    ("Y", 0.02),
+])
+
+once homo_sapiens = cumulative([
+    ("a", 0.3029549426680),
+    ("c", 0.1979883004921),
+    ("g", 0.1975473066391),
+    ("t", 0.3015094502008),
+])
+
+once line_width = 60
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 1000})
+    end
+end
+
+/// Each base with the sum of its probability and those before it.
+fn cumulative(table: List<(String, Float)>) -> List<(String, Float)>
+    (_, bases) = Iter.map_reduce(table, 0.0, fn sum, (base, p) -> (sum + p, (base, sum + p)))
+    bases
+end
+
+/// The lengths of the lines a sequence of `n` bases is cut into.
+fn line_lengths(n: Int) -> Iter<Int>
+    0..(n + line_width - 1) / line_width
+    |> Iter.map(fn line -> Int.min(line_width, n - line * line_width))
+end
+
+fn repeat(id: String, description: String, source: String, n: Int)
+    io.print(">${id} ${description}")
+    width = String.length(source)
+    doubled = source + source
+
+    _ = Iter.reduce(line_lengths(n), 0, fn start, length ->
+        io.print(String.slice(doubled, start, start + length))
+        (start + length) % width
+    end)
+end
+
+fn pick(bases: List<(String, Float)>, r: Float) -> String
+    case bases
+        [(base, p), ..rest] ->
+            if r < p or rest == [] then
+                base
+            else
+                pick(rest, r)
+            end
+
+        [] ->
+            ""
+    end
+end
+
+fn random(id: String, description: String, bases: List<(String, Float)>, n: Int, seed: Int) -> Int
+    io.print(">${id} ${description}")
+
+    Iter.reduce(line_lengths(n), seed, fn seed, length ->
+        (seed, line) = Iter.map_reduce(1..=length, seed, fn seed, _ ->
+            seed = (seed * 3877 + 29573) % 139968
+            (seed, pick(bases, Int.to_float(seed) / 139968.0))
+        end)
+
+        io.print(String.join(line))
+        seed
+    end)
+end
+
+fn main()
+    n = App.n
+    repeat("ONE", "Homo sapiens alu", alu, n * 2)
+    seed = random("TWO", "IUB ambiguity codes", iub, n * 3, 42)
+    _ = random("THREE", "Homo sapiens frequency", homo_sapiens, n * 5, seed)
+end

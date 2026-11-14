@@ -1,6 +1,7 @@
 package rt
 
 import (
+	"math"
 	"runtime"
 	"testing"
 	"time"
@@ -112,6 +113,37 @@ func TestSeqZip_TheAnswerDistinguishesExhaustionFromAConsumerStop(t *testing.T) 
 // consecutive readings, and fails the test if the count never settles — so a
 // flake reads as a failure with a reason rather than as a passing test that
 // measured nothing.
+// A right side zip has a cursor for (a List, an Int range) is pulled through
+// it, never run, so zip starts no coroutine for it: the right side's Run
+// panics here if anything calls it. The pairs, the shorter side ending the
+// zip, and an Int range crossing int64's end are the push walk's.
+func TestSeqZip_ARightSideWithACursorIsNotRun(t *testing.T) {
+	noRun := Seq[Value]{Run: func(*Frame, func(*Frame, Value) bool) bool { panic("the right side was run") }}
+	pairs := func(left Seq[Value], cursor func() func() (Value, bool)) [][2]Value {
+		var out [][2]Value
+		SeqZipCursor(left, noRun, cursor, func(a, b Value) [2]Value { return [2]Value{a, b} }).
+			Run(nil, func(_ *Frame, p [2]Value) bool { out = append(out, p); return true })
+		return out
+	}
+	left := ListCellSeq[Value](listOf[Value]([]Value{int64(1), int64(2), int64(3)}))
+	ab := listOf[Value]([]Value{"a", "b"})
+	if got := pairs(left, func() func() (Value, bool) { return ListCellCursor[Value](ab) }); len(got) != 2 ||
+		got[0] != [2]Value{int64(1), "a"} || got[1] != [2]Value{int64(2), "b"} {
+		t.Errorf("list/list pairs %v", got)
+	}
+	big := IntAdd(int64(math.MaxInt64), int64(1))
+	r := Range[Value]{Start: int64(math.MaxInt64 - 1), End: Some[Value](big), Inclusive: true}
+	got := pairs(left, func() func() (Value, bool) { return IntRangeCursor(r) })
+	if len(got) != 3 || got[0][1] != int64(math.MaxInt64-1) || got[1][1] != int64(math.MaxInt64) ||
+		IntCompare(got[2][1], big) != 0 {
+		t.Errorf("list/range pairs %v", got)
+	}
+	empty := Range[Value]{Start: int64(5), End: Some[Value](int64(5))}
+	if got := pairs(left, func() func() (Value, bool) { return IntRangeCursor(empty) }); len(got) != 0 {
+		t.Errorf("list/empty range pairs %v", got)
+	}
+}
+
 func goroutinesSettled(t *testing.T) int {
 	t.Helper()
 	prev := -1

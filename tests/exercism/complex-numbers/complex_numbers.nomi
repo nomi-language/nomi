@@ -2,7 +2,7 @@
 
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex
-    real: Float
+    real:      Float
     imaginary: Float
 end
 
@@ -66,7 +66,7 @@ end
 impl Multiply<Complex, Complex> for Complex
     fn multiply(lhs: Complex, rhs: Complex) -> Complex
         {
-            real: lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
+            real:      lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
             imaginary: lhs.imaginary * rhs.real + lhs.real * rhs.imaginary,
         }
     end
@@ -78,7 +78,7 @@ impl Divide<Complex, Complex> for Complex
         denominator = rhs.real * rhs.real + rhs.imaginary * rhs.imaginary
 
         {
-            real: (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
+            real:      (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
             imaginary: (lhs.imaginary * rhs.real - lhs.real * rhs.imaginary) / denominator,
         }
     end

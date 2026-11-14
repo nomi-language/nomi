@@ -4470,14 +4470,14 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		inner := b.defineTypeParams(n.TypeParams, scope)
 		b.defineParams(n.Params, NewScope(inner), n)
 	case *ast.OnceBinding:
-		// `once` is module-level only. A nested `once` inside a function
-		// body is rejected — function bodies use ordinary `name = value`
-		// bindings instead. We still walk the type annotation and value
+		// `once` stands at file level or in an inherent impl block. One
+		// inside a function body is rejected, since a body binds with
+		// ordinary `name = value`. We still walk the type annotation and value
 		// so references inside them are recorded for hover / go-to-def.
 		b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 			Line:    n.Line,
 			Col:     n.Col,
-			Message: fmt.Sprintf("'once %s' must appear at module top-level — function bodies use ordinary 'name = value' bindings", n.Name),
+			Message: fmt.Sprintf("'once %s' must appear at file level or in an inherent impl block — function bodies use ordinary 'name = value' bindings", n.Name),
 		})
 		b.walkTypeExpr(n.TypeAnnotation, scope)
 		if n.Value != nil {

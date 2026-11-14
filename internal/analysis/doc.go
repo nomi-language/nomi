@@ -342,7 +342,11 @@
 // An expression of a concrete type checked against an interface type
 // becomes an interface value, and has a record of it (coercions.go,
 // Coercions): the interface with its type arguments, the value's type and
-// the impl block the checker selects for the pair (implCandidates). The
+// the impl block the checker selects for the pair (implCandidates). A value
+// entering an interface conjunction (`Priced and Costed`, a
+// ConjunctionType, its members normalized by NewConjunction) has one record
+// naming the conjunction and an impl block per member; a conjunction
+// widening to fewer members is no coercion and has none. The
 // records are made once the file's bodies are checked and its variables
 // closed, from the types the checker settled. Two such expressions are no
 // coercion and have none: the receiver of a call of an interface function
@@ -373,9 +377,11 @@
 // parameter's variance (variance.go, TypeParamVariances: read off the
 // declaration's fields, solved to a fixed point over the declarations
 // that name one another, and cached by the declaration's first type
-// parameter). The IR builder relabels the value where its representation
-// already is the wider one and otherwise rebuilds it, boxing each part by
-// the record's impl (internal/irbuild, irembedsrebuild.go, irboxed.go).
+// parameter), and what converting it costs (Cost, conversionCost). The IR
+// builder relabels the value where Cost says it costs nothing and
+// otherwise rebuilds it, boxing each part by the record's impl
+// (internal/irbuild, irrelabel.go, irembedsrebuild.go, irboxed.go); the
+// hover reports the same Cost.
 //
 // vmhost's TestElaborationGate runs the verifier over the corpus, the
 // stdlib, the tour, the spec and internal/irbuild's fixtures and fails on
@@ -615,8 +621,11 @@
 //
 // Advice is a diagnostic about a program that checks and means the same
 // either way, so it is never an error and the checker does not report it.
-// A redundant `value as Type` is recorded during the check
-// (FileAnalysis.RedundantAscriptions). A type parameter that style rule 52
+// A redundant `value as Type` (FileAnalysis.RedundantAscriptions) and an
+// operand that restates the current value of the field it writes
+// (FileAnalysis.RestatedPaths) are recorded during the check, and
+// FileHints reads them as hints, for the language server and `nomi check
+// --hints` alike. A type parameter that style rule 52
 // writes as an interface value is found after it by InterfaceValueHints
 // (interface_value_hint.go), from the file's nodes and analysis: a
 // function's (or an inherent impl function's) type parameter that its
@@ -632,9 +641,9 @@
 //
 // The language server publishes advice as hints (internal/lsp
 // diagnostics.go) and offers each fix as a quick fix. `nomi check` writes
-// the interface-value hints as warnings that fail no file
-// (vmhost.Program.Advice), from Check only, so `nomi run` and `nomi test`
-// say nothing of them; a kept program holds its advice, so a check that
+// the interface-value hints as warnings that fail no file, and FileHints'
+// hints only under `--hints` (vmhost.Program.Advice, vmhost.WithHints),
+// from Check only, so `nomi run` and `nomi test` say nothing of them; a kept program holds its advice, so a check that
 // reads it reports what a fresh one does. Neither reports advice about a
 // std file.
 //

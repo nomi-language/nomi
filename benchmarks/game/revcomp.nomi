@@ -1,0 +1,58 @@
+//# The Computer Language Benchmarks Game: reverse-complement.
+//#
+//# Reads a FASTA file from standard input line by line and writes each
+//# sequence's reverse complement, 60 bases a line, under its header, as the
+//# benchmark's rules require. A sequence's lines are gathered newest first
+//# and joined once it ends.
+
+import std::io
+
+fn complement(base: String) -> String
+    case base
+        "A" or "a"               -> "T"
+        "C" or "c"               -> "G"
+        "G" or "g"               -> "C"
+        "T" or "t" or "U" or "u" -> "A"
+        "M" or "m"               -> "K"
+        "R" or "r"               -> "Y"
+        "W" or "w"               -> "W"
+        "S" or "s"               -> "S"
+        "Y" or "y"               -> "R"
+        "K" or "k"               -> "M"
+        "V" or "v"               -> "B"
+        "H" or "h"               -> "D"
+        "D" or "d"               -> "H"
+        "B" or "b"               -> "V"
+        "N" or "n"               -> "N"
+        other                    -> other
+    end
+end
+
+/// Writes the reverse complement of the sequence whose lines are `lines`,
+/// last line first.
+fn flush(lines: List<String>)
+    lines
+    |> Iter.map(String.reverse)
+    |> String.join()
+    |> Iter.map(complement)
+    |> Iter.chunks(60)
+    |> Iter.each(&io.print(String.join(&1)))
+end
+
+fn main()
+    lines =
+        io.lines()
+        |> Iter.reduce([], fn lines, line ->
+            line = line!
+
+            if String.starts_with(line, ">") then
+                flush(lines)
+                io.print(line)
+                []
+            else
+                [line, ..lines]
+            end
+        end)
+
+    flush(lines)
+end

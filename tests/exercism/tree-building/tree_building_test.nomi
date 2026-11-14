@@ -7,7 +7,7 @@ end
 
 test "build tree"
     cases: List<(String, List<Record>, Maybe<Node>)> = [
-        ("empty list", [], None),
+        ("empty list",    [],                   None),
         ("single record", [{id: 0, parent: 0}], Some(leaf(0))),
         (
             "three records in order",

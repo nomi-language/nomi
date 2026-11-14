@@ -5,7 +5,7 @@ import "testing"
 // A vector pattern's `..rest` is a window over the vector it takes apart, so
 // a recursive `[x, ..rest]` walk over n elements reads each element once and
 // copies none: the n slices it takes allocate nothing and share the
-// vector's backing store. Counted, not timed.
+// vector's trie. Counted, not timed.
 func TestVectorSliceSharesItsStorage(t *testing.T) {
 	const n = 1000
 	items := make([]any, n)
@@ -18,7 +18,7 @@ func TestVectorSliceSharesItsStorage(t *testing.T) {
 	allocs := testing.AllocsPerRun(10, func() {
 		steps = 0
 		rest := v
-		for rest.Len > 0 {
+		for rest.Len() > 0 {
 			rest = VectorSlice(rest, 1, 0)
 			steps++
 		}
@@ -31,14 +31,14 @@ func TestVectorSliceSharesItsStorage(t *testing.T) {
 	}
 
 	mid := VectorSlice(v, 2, 3)
-	if mid.Len != n-5 || &mid.Items[mid.Start] != &v.Items[2] {
-		t.Errorf("VectorSlice(v, 2, 3) is %d elements from %p, want %d elements from %p",
-			mid.Len, &mid.Items[mid.Start], n-5, &v.Items[2])
+	if mid.Len() != n-5 || mid.t != v.t || mid.off != v.off+2 {
+		t.Errorf("VectorSlice(v, 2, 3) is %d elements at %d of %p, want %d elements at %d of %p",
+			mid.Len(), mid.off, mid.t, n-5, v.off+2, v.t)
 	}
-	if got := VectorAt(mid, int64(mid.Len-1)); got != int64(n-4) {
+	if got := VectorAt(mid, int64(mid.Len()-1)); got != int64(n-4) {
 		t.Errorf("the slice's last element is %v, want %d", got, n-4)
 	}
-	if empty := VectorSlice(v, n-1, 1); empty.Len != 0 {
-		t.Errorf("a slice that drops every element has %d", empty.Len)
+	if empty := VectorSlice(v, n-1, 1); empty.Len() != 0 {
+		t.Errorf("a slice that drops every element has %d", empty.Len())
 	}
 }

@@ -5,17 +5,17 @@ test "dynamic.Error display renders root field and index paths"
     assert dynamic.Error.to_string(empty) == "decode error at <root>: expected Object, got List"
 
     single = dynamic.Error{
-        path: [PathSegment.Field("age")],
+        path:     [PathSegment.Field("age")],
         expected: "Int",
-        got: "String",
+        got:      "String",
     }
 
     assert dynamic.Error.to_string(single) == "decode error at age: expected Int, got String"
 
     nested = dynamic.Error{
-        path: [PathSegment.Field("user"), PathSegment.Field("emails"), PathSegment.Index(0)],
+        path:     [PathSegment.Field("user"), PathSegment.Field("emails"), PathSegment.Index(0)],
         expected: "String",
-        got: "Null",
+        got:      "Null",
     }
 
     assert dynamic.Error.to_string(nested)

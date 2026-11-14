@@ -1,0 +1,700 @@
+//# Are We Fast Yet: CD.
+//#
+//# Collision detection for simulated aircraft (Kalibera et al.'s CD): for
+//# each of 200 frames, every aircraft's motion since the last frame is drawn
+//# onto a voxel map, and each pair of motions sharing a voxel is tested for
+//# an intersection. The inner iteration count is the number of aircraft, and
+//# the total number of collisions is checked against the suite's table.
+//#
+//# Departures from the guidelines, all from Nomi having no mutable objects:
+//#
+//# - The suite's `RedBlackTree` is a parent-linked tree rebalanced in place.
+//#   Here it is a persistent red-black tree (Okasaki's insertion, Kahrs'
+//#   deletion) with the same operations: `put` returns the old value and the
+//#   new tree, `remove` the new tree, `get` the value, and `for_each` is the
+//#   tree's `Iter` impl, an in-order walk, so a caller folds over it.
+//#   `put` looks the key up with `get` before inserting, a second walk the
+//#   suite's single `treeInsert` does not make.
+//# - The suite's `som.Vector` is Nomi's `Vector`: `append` is `Vector.push`,
+//#   which returns a new vector.
+//# - `CollisionDetector.handle_new_frame` returns the collisions and the
+//#   detector with its new state, and the voxel map and the seen set in
+//#   `recurse` are threaded through and returned rather than updated.
+//# - The suite's `forEach` closures that update a variable in their scope are
+//#   `Iter.reduce` folds over the same elements in the same order.
+//# - A missing value is `Maybe` rather than null.
+
+import harness
+
+once min_x            = 0.0
+once min_y            = 0.0
+once max_x            = 1000.0
+once max_y            = 1000.0
+once min_z            = 0.0
+once max_z            = 10.0
+once proximity_radius = 1.0
+once good_voxel_size  = proximity_radius * 2.0
+once horizontal       = Vector2D{x: good_voxel_size, y: 0.0}
+once vertical         = Vector2D{x: 0.0, y: good_voxel_size}
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+// Vectors
+struct Vector2D
+    x: Float
+    y: Float
+end
+
+impl Vector2D
+    fn plus(a: Vector2D, b: Vector2D) -> Vector2D
+        Vector2D{x: a.x + b.x, y: a.y + b.y}
+    end
+
+    fn minus(a: Vector2D, b: Vector2D) -> Vector2D
+        Vector2D{x: a.x - b.x, y: a.y - b.y}
+    end
+end
+
+/// Orders two floats, with NaN smaller than any other number.
+fn compare_numbers(a: Float, b: Float) -> Ordering
+    if a == b then
+        .Equal
+    else if a < b then
+        .Less
+    else if a > b then
+        .Greater
+    else if a == a then
+        .Greater
+    else
+        .Less
+    end
+end
+
+impl Comparable for Vector2D
+    fn compare(a: Vector2D, b: Vector2D) -> Ordering
+        case compare_numbers(a.x, b.x)
+            .Equal -> compare_numbers(a.y, b.y)
+            result -> result
+        end
+    end
+end
+
+struct Vector3D
+    x: Float
+    y: Float
+    z: Float
+end
+
+impl Vector3D
+    fn plus(a: Vector3D, b: Vector3D) -> Vector3D
+        Vector3D{x: a.x + b.x, y: a.y + b.y, z: a.z + b.z}
+    end
+
+    fn minus(a: Vector3D, b: Vector3D) -> Vector3D
+        Vector3D{x: a.x - b.x, y: a.y - b.y, z: a.z - b.z}
+    end
+
+    fn dot(a: Vector3D, b: Vector3D) -> Float
+        a.x * b.x + a.y * b.y + a.z * b.z
+    end
+
+    fn squared_magnitude(a: Vector3D) -> Float
+        dot(a, a)
+    end
+
+    fn magnitude(a: Vector3D) -> Float
+        Float.sqrt(squared_magnitude(a))
+    end
+
+    fn times(a: Vector3D, amount: Float) -> Vector3D
+        Vector3D{x: a.x * amount, y: a.y * amount, z: a.z * amount}
+    end
+end
+
+// The red-black tree
+enum Color
+    Red
+    Black
+end
+
+derive Equatable for Color
+
+enum RedBlackTree<K, V>
+    Leaf
+    Node (Color, RedBlackTree<K, V>, K, V, RedBlackTree<K, V>)
+end
+
+impl RedBlackTree<K, V>
+    fn get<K, V>(tree: RedBlackTree<K, V>, key: K) -> Maybe<V> where K: Comparable
+        case tree
+            .Leaf ->
+                None
+
+            .Node(_, left, k, v, right) ->
+                case Comparable.compare(key, k)
+                    .Less    -> get(left, key)
+                    .Greater -> get(right, key)
+                    .Equal   -> Some(v)
+                end
+        end
+    end
+
+    /// The value `key` held before, and the tree with `key` holding `value`.
+    fn put<K, V>(
+        tree:  RedBlackTree<K, V>,
+        key:   K,
+        value: V,
+    ) -> (Maybe<V>, RedBlackTree<K, V>) where K: Comparable
+        (get(tree, key), blacken(insert(tree, key, value)))
+    end
+
+    /// The tree without `key`; the tree itself when `key` is absent.
+    fn remove<K, V>(tree: RedBlackTree<K, V>, key: K) -> RedBlackTree<K, V> where K: Comparable
+        if get(tree, key) is Some(_) then blacken(delete(tree, key)) else tree
+    end
+end
+
+impl Iter for RedBlackTree<K, V>
+    /// The entries in key order.
+    fn each_while(tree: RedBlackTree<K, V>, yield: ((K, V)) -> Bool) -> Bool
+        case tree
+            .Leaf ->
+                True
+
+            .Node(_, left, key, value, right) ->
+                each_while(left, yield) and yield((key, value)) and each_while(right, yield)
+        end
+    end
+end
+
+fn blacken<K, V>(tree: RedBlackTree<K, V>) -> RedBlackTree<K, V>
+    case tree
+        .Node(_, left, key, value, right) -> .Node(.Black, left, key, value, right)
+        .Leaf -> .Leaf
+    end
+end
+
+fn insert<K, V>(
+    tree:  RedBlackTree<K, V>,
+    key:   K,
+    value: V,
+) -> RedBlackTree<K, V> where K: Comparable
+    case tree
+        .Leaf ->
+            .Node(.Red, .Leaf, key, value, .Leaf)
+
+        .Node(color, left, k, v, right) ->
+            case Comparable.compare(key, k)
+                .Less ->
+                    if color == .Black then
+                        balance(insert(left, key, value), k, v, right)
+                    else
+                        .Node(.Red, insert(left, key, value), k, v, right)
+                    end
+
+                .Greater ->
+                    if color == .Black then
+                        balance(left, k, v, insert(right, key, value))
+                    else
+                        .Node(.Red, left, k, v, insert(right, key, value))
+                    end
+
+                .Equal ->
+                    .Node(color, left, key, value, right)
+            end
+    end
+end
+
+/// A black node over `left` and `right`, rotated so no red node has a red
+/// child.
+fn balance<K, V>(
+    left:  RedBlackTree<K, V>,
+    key:   K,
+    value: V,
+    right: RedBlackTree<K, V>,
+) -> RedBlackTree<K, V>
+    case (left, right)
+        (.Node(.Red, a, xk, xv, b), .Node(.Red, c, zk, zv, d)) ->
+            .Node(.Red, .Node(.Black, a, xk, xv, b), key, value, .Node(.Black, c, zk, zv, d))
+
+        (.Node(.Red, .Node(.Red, a, xk, xv, b), yk, yv, c), d) ->
+            .Node(.Red, .Node(.Black, a, xk, xv, b), yk, yv, .Node(.Black, c, key, value, d))
+
+        (.Node(.Red, a, xk, xv, .Node(.Red, b, yk, yv, c)), d) ->
+            .Node(.Red, .Node(.Black, a, xk, xv, b), yk, yv, .Node(.Black, c, key, value, d))
+
+        (a, .Node(.Red, b, yk, yv, .Node(.Red, c, zk, zv, d))) ->
+            .Node(.Red, .Node(.Black, a, key, value, b), yk, yv, .Node(.Black, c, zk, zv, d))
+
+        (a, .Node(.Red, .Node(.Red, b, yk, yv, c), zk, zv, d)) ->
+            .Node(.Red, .Node(.Black, a, key, value, b), yk, yv, .Node(.Black, c, zk, zv, d))
+
+        (a, b) ->
+            .Node(.Black, a, key, value, b)
+    end
+end
+
+fn is_black_node<K, V>(tree: RedBlackTree<K, V>) -> Bool
+    tree is .Node(.Black, _, _, _, _)
+end
+
+fn delete<K, V>(tree: RedBlackTree<K, V>, key: K) -> RedBlackTree<K, V> where K: Comparable
+    case tree
+        .Leaf ->
+            .Leaf
+
+        .Node(_, left, k, v, right) ->
+            case Comparable.compare(key, k)
+                .Less ->
+                    if is_black_node(left) then
+                        balance_left(delete(left, key), k, v, right)
+                    else
+                        .Node(.Red, delete(left, key), k, v, right)
+                    end
+
+                .Greater ->
+                    if is_black_node(right) then
+                        balance_right(left, k, v, delete(right, key))
+                    else
+                        .Node(.Red, left, k, v, delete(right, key))
+                    end
+
+                .Equal ->
+                    fuse(left, right)
+            end
+    end
+end
+
+fn balance_left<K, V>(
+    left:  RedBlackTree<K, V>,
+    key:   K,
+    value: V,
+    right: RedBlackTree<K, V>,
+) -> RedBlackTree<K, V>
+    case (left, right)
+        (.Node(.Red, a, xk, xv, b), c) ->
+            .Node(.Red, .Node(.Black, a, xk, xv, b), key, value, c)
+
+        (bl, .Node(.Black, a, yk, yv, b)) ->
+            balance(bl, key, value, .Node(.Red, a, yk, yv, b))
+
+        (bl, .Node(.Red, .Node(.Black, a, yk, yv, b), zk, zv, c)) ->
+            .Node(.Red, .Node(.Black, bl, key, value, a), yk, yv, balance(b, zk, zv, redden(c)))
+
+        (a, b) ->
+            .Node(.Black, a, key, value, b)
+    end
+end
+
+fn balance_right<K, V>(
+    left:  RedBlackTree<K, V>,
+    key:   K,
+    value: V,
+    right: RedBlackTree<K, V>,
+) -> RedBlackTree<K, V>
+    case (left, right)
+        (a, .Node(.Red, b, yk, yv, c)) ->
+            .Node(.Red, a, key, value, .Node(.Black, b, yk, yv, c))
+
+        (.Node(.Black, a, xk, xv, b), bl) ->
+            balance(.Node(.Red, a, xk, xv, b), key, value, bl)
+
+        (.Node(.Red, a, xk, xv, .Node(.Black, b, yk, yv, c)), bl) ->
+            .Node(.Red, balance(redden(a), xk, xv, b), yk, yv, .Node(.Black, c, key, value, bl))
+
+        (a, b) ->
+            .Node(.Black, a, key, value, b)
+    end
+end
+
+fn redden<K, V>(tree: RedBlackTree<K, V>) -> RedBlackTree<K, V>
+    case tree
+        .Node(_, left, key, value, right) -> .Node(.Red, left, key, value, right)
+        .Leaf -> .Leaf
+    end
+end
+
+/// The two subtrees of a removed node, joined.
+fn fuse<K, V>(left: RedBlackTree<K, V>, right: RedBlackTree<K, V>) -> RedBlackTree<K, V>
+    case (left, right)
+        (.Leaf, t) ->
+            t
+
+        (t, .Leaf) ->
+            t
+
+        (.Node(.Black, _, _, _, _), .Node(.Red, c, yk, yv, d)) ->
+            .Node(.Red, fuse(left, c), yk, yv, d)
+
+        (.Node(.Red, a, xk, xv, b), .Node(.Black, _, _, _, _)) ->
+            .Node(.Red, a, xk, xv, fuse(b, right))
+
+        (.Node(.Red, a, xk, xv, b), .Node(.Red, c, yk, yv, d)) ->
+            case fuse(b, c)
+                .Node(.Red, b2, zk, zv, c2) ->
+                    .Node(.Red, .Node(.Red, a, xk, xv, b2), zk, zv, .Node(.Red, c2, yk, yv, d))
+
+                bc ->
+                    .Node(.Red, a, xk, xv, .Node(.Red, bc, yk, yv, d))
+            end
+
+        (.Node(_, a, xk, xv, b), .Node(_, c, yk, yv, d)) ->
+            case fuse(b, c)
+                .Node(.Red, b2, zk, zv, c2) ->
+                    .Node(.Red, .Node(.Black, a, xk, xv, b2), zk, zv, .Node(.Black, c2, yk, yv, d))
+
+                bc ->
+                    balance_left(a, xk, xv, .Node(.Black, bc, yk, yv, d))
+            end
+    end
+end
+
+// The simulation
+type CallSign Int
+
+impl Comparable for CallSign
+    fn compare(CallSign(a), CallSign(b)) -> Ordering
+        Comparable.compare(a, b)
+    end
+end
+
+struct Collision
+    aircraft_a: CallSign
+    aircraft_b: CallSign
+    position:   Vector3D
+end
+
+struct Motion
+    callsign: CallSign
+    pos_one:  Vector3D
+    pos_two:  Vector3D
+end
+
+impl Motion
+    fn delta(motion: Motion) -> Vector3D
+        Vector3D.minus(motion.pos_two, motion.pos_one)
+    end
+
+    /// Where `motion` and `other` come within the proximity radius during
+    /// the frame, assuming each moves at a constant speed along its segment.
+    fn find_intersection(motion: Motion, other: Motion) -> Maybe<Vector3D>
+        init1 = motion.pos_one
+        init2 = other.pos_one
+        vec1 = delta(motion)
+        vec2 = delta(other)
+        radius = proximity_radius
+        a = Vector3D.minus(vec2, vec1) |> Vector3D.squared_magnitude()
+
+        if a != 0.0 then
+            b = 2.0 * Vector3D.dot(Vector3D.minus(init1, init2), Vector3D.minus(vec1, vec2))
+            c = -radius * radius + Vector3D.squared_magnitude(Vector3D.minus(init2, init1))
+            discr = b * b - 4.0 * a * c
+
+            if discr < 0.0 then
+                None
+            else
+                v1 = (-b - Float.sqrt(discr)) / (2.0 * a)
+                v2 = (-b + Float.sqrt(discr)) / (2.0 * a)
+
+                if v1 <= v2
+                    and (v1 <= 1.0 and 1.0 <= v2
+                        or v1 <= 0.0 and 0.0 <= v2
+                        or 0.0 <= v1 and v2 <= 1.0) then
+                    v = if v1 <= 0.0 then 0.0 else v1
+                    result1 = Vector3D.plus(init1, Vector3D.times(vec1, v))
+                    result2 = Vector3D.plus(init2, Vector3D.times(vec2, v))
+                    result = Vector3D.times(Vector3D.plus(result1, result2), 0.5)
+
+                    in_bounds = result.x >= min_x
+                        and result.x <= max_x
+                        and result.y >= min_y
+                        and result.y <= max_y
+                        and result.z >= min_z
+                        and result.z <= max_z
+
+                    if in_bounds then Some(result) else None
+                else
+                    None
+                end
+            end
+        else
+            dist = Vector3D.minus(init2, init1) |> Vector3D.magnitude()
+            if dist <= radius then Some(Vector3D.times(Vector3D.plus(init1, init2), 0.5)) else None
+        end
+    end
+end
+
+fn is_in_voxel(voxel: Vector2D, motion: Motion) -> Bool
+    if voxel.x > max_x or voxel.x < min_x or voxel.y > max_y or voxel.y < min_y then
+        False
+    else
+        init = motion.pos_one
+        fin = motion.pos_two
+        v_s = good_voxel_size
+        r = proximity_radius / 2.0
+
+        v_x = voxel.x
+        x0 = init.x
+        xv = fin.x - init.x
+
+        v_y = voxel.y
+        y0 = init.y
+        yv = fin.y - init.y
+
+        low_x = (v_x - r - x0) / xv
+        high_x = (v_x + v_s + r - x0) / xv
+
+        (low_x, high_x) = if xv < 0.0 then
+            (high_x, low_x)
+        else
+            (low_x, high_x)
+        end
+
+        low_y = (v_y - r - y0) / yv
+        high_y = (v_y + v_s + r - y0) / yv
+
+        (low_y, high_y) = if yv < 0.0 then
+            (high_y, low_y)
+        else
+            (low_y, high_y)
+        end
+
+        in_x = xv == 0.0 and v_x <= x0 + r and x0 - r <= v_x + v_s
+            or low_x <= 1.0 and 1.0 <= high_x
+            or low_x <= 0.0 and 0.0 <= high_x
+            or 0.0 <= low_x and high_x <= 1.0
+
+        in_y = yv == 0.0 and v_y <= y0 + r and y0 - r <= v_y + v_s
+            or low_y <= 1.0 and 1.0 <= high_y
+            or low_y <= 0.0 and 0.0 <= high_y
+            or 0.0 <= low_y and high_y <= 1.0
+
+        overlap = xv == 0.0
+            or yv == 0.0
+            or low_y <= high_x and high_x <= high_y
+            or low_y <= low_x and low_x <= high_y
+            or low_x <= low_y and high_y <= high_x
+
+        in_x and in_y and overlap
+    end
+end
+
+typealias VoxelMap RedBlackTree<Vector2D, Vector<Motion>>
+
+fn put_into_map(voxel_map: VoxelMap, voxel: Vector2D, motion: Motion) -> VoxelMap
+    vec = RedBlackTree.get(voxel_map, voxel) |> Maybe.with_default(Vector[])
+    (_, voxel_map) = RedBlackTree.put(voxel_map, voxel, Vector.push(vec, motion))
+    voxel_map
+end
+
+fn recurse(
+    voxel_map:  VoxelMap,
+    seen:       RedBlackTree<Vector2D, Bool>,
+    next_voxel: Vector2D,
+    motion:     Motion,
+) -> (VoxelMap, RedBlackTree<Vector2D, Bool>)
+    if not is_in_voxel(next_voxel, motion) then
+        (voxel_map, seen)
+    else
+        case RedBlackTree.put(seen, next_voxel, True)
+            (Some(_), seen) ->
+                (voxel_map, seen)
+
+            (None, seen) ->
+                voxel_map = put_into_map(voxel_map, next_voxel, motion)
+                left = Vector2D.minus(next_voxel, horizontal)
+                right = Vector2D.plus(next_voxel, horizontal)
+
+                [
+                    left,
+                    right,
+                    Vector2D.minus(next_voxel, vertical),
+                    Vector2D.plus(next_voxel, vertical),
+                    Vector2D.minus(left, vertical),
+                    Vector2D.plus(left, vertical),
+                    Vector2D.minus(right, vertical),
+                    Vector2D.plus(right, vertical),
+                ]
+                |> Iter.reduce((voxel_map, seen), fn (voxel_map, seen), voxel ->
+                    recurse(voxel_map, seen, voxel, motion)
+                end)
+        end
+    end
+end
+
+fn voxel_hash(position: Vector3D) -> Vector2D
+    x_div = Float.trunc(position.x / good_voxel_size)
+    y_div = Float.trunc(position.y / good_voxel_size)
+    x = good_voxel_size * x_div
+    y = good_voxel_size * y_div
+
+    Vector2D{
+        x: if position.x < 0.0 then x - good_voxel_size else x,
+        y: if position.y < 0.0 then y - good_voxel_size else y,
+    }
+end
+
+fn draw_motion_on_voxel_map(voxel_map: VoxelMap, motion: Motion) -> VoxelMap
+    (voxel_map, _) = recurse(voxel_map, RedBlackTree.Leaf, voxel_hash(motion.pos_one), motion)
+    voxel_map
+end
+
+fn reduce_collision_set(motions: Vector<Motion>) -> Vector<Vector<Motion>>
+    voxel_map = Iter.reduce(motions, RedBlackTree.Leaf, draw_motion_on_voxel_map)
+
+    Iter.reduce(voxel_map, Vector[], fn result, (_, motions) ->
+        if Vector.length(motions) > 1 then Vector.push(result, motions) else result
+    end)
+end
+
+struct CollisionDetector
+    state: RedBlackTree<CallSign, Vector3D> = .Leaf
+end
+
+impl CollisionDetector
+    /// The collisions in `frame`, and the detector holding each aircraft's
+    /// position in it.
+    fn handle_new_frame(
+        detector: CollisionDetector,
+        frame:    Vector<Aircraft>,
+    ) -> (Vector<Collision>, CollisionDetector)
+        (state, motions, seen) = Iter.reduce(frame, (
+            detector.state,
+            Vector[],
+            RedBlackTree.Leaf,
+        ), fn (state, motions, seen), aircraft ->
+            (old_position, state) = RedBlackTree.put(state, aircraft.callsign, aircraft.position)
+            new_position = aircraft.position
+            (_, seen) = RedBlackTree.put(seen, aircraft.callsign, True)
+
+            // Treat newly introduced aircraft as if they were stationary.
+            old_position = Maybe.with_default(old_position, new_position)
+
+            motion = Motion{
+                callsign: aircraft.callsign,
+                pos_one:  old_position,
+                pos_two:  new_position,
+            }
+
+            (state, Vector.push(motions, motion), seen)
+        end)
+
+        // Remove aircraft that are no longer present.
+        to_remove = Iter.reduce(state, Vector[], fn to_remove, (callsign, _) ->
+            if RedBlackTree.get(seen, callsign) is Some(_) then
+                to_remove
+            else
+                Vector.push(to_remove, callsign)
+            end
+        end)
+
+        state = Iter.reduce(to_remove, state, RedBlackTree.remove)
+
+        collisions = Iter.reduce(reduce_collision_set(motions), Vector[], fn collisions, reduced ->
+            size = Vector.length(reduced)
+
+            Iter.reduce(0..size, collisions, fn collisions, i ->
+                motion1 = Vector.get(reduced, i)!
+
+                Iter.reduce(i + 1..size, collisions, fn collisions, j ->
+                    motion2 = Vector.get(reduced, j)!
+
+                    case Motion.find_intersection(motion1, motion2)
+                        Some(position) ->
+                            collision = Collision{
+                                aircraft_a: motion1.callsign,
+                                aircraft_b: motion2.callsign,
+                                position:,
+                            }
+
+                            Vector.push(collisions, collision)
+
+                        None ->
+                            collisions
+                    end
+                end)
+            end)
+        end)
+
+        (collisions, {..detector, state:})
+    end
+end
+
+struct Aircraft
+    callsign: CallSign
+    position: Vector3D
+end
+
+struct Simulator
+    aircraft: Vector<CallSign>
+end
+
+impl Simulator
+    fn new(num_aircraft: Int) -> Simulator
+        Simulator{aircraft: 0..num_aircraft |> Iter.map(CallSign) |> Iter.to_vector()}
+    end
+
+    fn simulate(simulator: Simulator, time: Float) -> Vector<Aircraft>
+        size = Vector.length(simulator.aircraft)
+
+        Iter.reduce(Range.step_by(0..size, 2), Vector[], fn frame, i ->
+            offset = Int.to_float(i) * 3.0
+
+            first = Aircraft{
+                callsign: Vector.get(simulator.aircraft, i)!,
+                position: Vector3D{x: time, y: Float.cos(time) * 2.0 + offset, z: 10.0},
+            }
+
+            second = Aircraft{
+                callsign: Vector.get(simulator.aircraft, i + 1)!,
+                position: Vector3D{x: time, y: Float.sin(time) * 2.0 + offset, z: 10.0},
+            }
+
+            frame |> Vector.push(first) |> Vector.push(second)
+        end)
+    end
+end
+
+fn cd(num_aircrafts: Int) -> Int
+    num_frames = 200
+    simulator = Simulator.new(num_aircrafts)
+
+    (actual_collisions, _) = Iter.reduce(0..num_frames, (
+        0,
+        CollisionDetector{},
+    ), fn (actual_collisions, detector), i ->
+        time = Int.to_float(i) / 10.0
+
+        (collisions, detector) = CollisionDetector.handle_new_frame(
+            detector,
+            Simulator.simulate(simulator, time),
+        )
+
+        (actual_collisions + Vector.length(collisions), detector)
+    end)
+
+    actual_collisions
+end
+
+fn verify_result(actual_collisions: Int, num_aircrafts: Int) -> Bool
+    case num_aircrafts
+        1000 -> actual_collisions == 14484
+        500  -> actual_collisions == 14484
+        250  -> actual_collisions == 10830
+        200  -> actual_collisions == 8655
+        100  -> actual_collisions == 4305
+        10   -> actual_collisions == 390
+        2    -> actual_collisions == 42
+        _    -> False
+    end
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("CD", App.config, fn inner -> verify_result(cd(inner), inner))
+end

@@ -8,7 +8,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/swift-scheduling.
 
 ## Choices
 
-- The meeting start and the answer are std/calendar `NaiveDateTime`s, the canonical data's dates with no zone, and the expected values are ``NaiveDateTime`...` `` literals, so the table compares datetimes, not strings.
+- The meeting start and the answer are std/calendar `NaiveDateTime`s, the canonical data's dates with no zone, and the expected values are `NaiveDateTime"..."` literals, so the table compares datetimes, not strings.
 - The description is parsed once into a private enum, `Description`, with the three fixed words and the two numbered forms, `Month(n)` and `Quarter(n)`; `delivery_date` is then one `case` over it, with a `when` guard for ASAP before 13:00. A number out of range or any other text is `Error.UnknownDescription`, which the canonical data never gives; the test file adds six such cases.
 - `numbered` reads both numbered forms at once, `strip_suffix` "M" and `strip_prefix` "Q" each then `String.to_int`, and one `case` over the pair with range guards picks the form.
 - Every date step is calendar arithmetic, `Days`, `Hours` and `Months` added to a `Date` or `NaiveDateTime`, so month lengths and leap days (the canonical "EOW translates to leap day") are the calendar's business. A quarter's last day is the first of its last month, plus a month, less a day.

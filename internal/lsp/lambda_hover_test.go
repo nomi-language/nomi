@@ -39,7 +39,7 @@ func runFnHoverCases(t *testing.T, cases []fnHoverCase) {
 
 // lambdaLink ends the hover of a lambda's `fn`, which the keyword adds
 // below the lambda's type; its `->` answers with the type alone.
-const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#lambdas)."
+const lambdaLink = "\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#lambdas)"
 
 const mapLambda = "```nomi\nfn n: Int -> List<Int>\n```\n\nFills `Maybe.map`'s `f: (T) -> U`, which gives its parameter types."
 
@@ -137,7 +137,7 @@ end
 // nested in a body, and adds what the keyword declares and its link.
 // declarationFnKeyword is what a declaration's `fn` adds below its name's
 // hover.
-const declarationFnKeyword = "\n\n---\n\nDeclares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#defining-a-function)."
+const declarationFnKeyword = "\n\n---\n\nDeclares a function. Every parameter has a type, the result type is written unless it is `Unit`, and the body's last expression is the result.\n\nMore in the [tour](https://nomi-lang.org/functions-and-lambdas/#defining-a-function)"
 
 func TestHover_DeclarationFnKeyword(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{

@@ -22,16 +22,16 @@ struct Cfg
     context: Context
 
     audit: Supervisor
-    done: Channel<String>
-    tag: String
+    done:  Channel<String>
+    tag:   String
 end
 
 fn boot() -> Result<Cfg, String>
     Ok(Cfg{
         context: Context.root(),
-        audit: Supervisor.new(max_running: 4),
-        done: Channel.buffered<String>(8),
-        tag: "root",
+        audit:   Supervisor.new(max_running: 4),
+        done:    Channel.buffered<String>(8),
+        tag:     "root",
     })
 end
 
@@ -103,7 +103,7 @@ fn task_all_outlives_scope() -> String
 
     case List.head(results)
         Some(seen) -> seen
-        None -> "<none>"
+        None       -> "<none>"
     end
 end
 
@@ -117,12 +117,12 @@ fn context_body() -> Unit
 
     carried = case Context.value(Cfg.context, TraceId)
         Some(_) -> "value-inherited"
-        None -> "value-lost"
+        None    -> "value-lost"
     end
 
     bound = case Context.deadline_remaining(Cfg.context)
         Some(_) -> "deadline-inherited"
-        None -> "deadline-detached"
+        None    -> "deadline-detached"
     end
 
     _ = Sender.send(Cfg.done.sender, "${carried} ${bound}")
@@ -161,7 +161,7 @@ end
 fn drain(label: String) -> Unit
     case Receiver.receive(Cfg.done.receiver)
         Some(seen) -> io.print("${label} = ${seen}")
-        None -> io.print("${label} = <nothing>")
+        None       -> io.print("${label} = <nothing>")
     end
 end
 

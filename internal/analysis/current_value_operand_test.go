@@ -21,6 +21,7 @@ func TestCurrentValueOperand_Diagnostics(t *testing.T) {
 	cases := []struct{ name, body, want string }{
 		{"a binding", "  _a = ‸.. + 1", outside},
 		{"a call argument", "  _a = String.trim(‸..)", outside},
+		{"a binding after an update", "  _a = {..ada(), name: .. + \"!\"}\n  _b = ‸.. + 1", outside},
 		{"a named struct literal's field", `  _a = Address{street: ‸.., city: "x"}`, outside},
 		{"a plain struct literal's field", `  _a = {street: ‸.., city: "x"}`, outside},
 		{"a patch passed to another function's Partial<T>", `  _a = take({name: ‸.. + "!"})`, outside},
@@ -103,5 +104,49 @@ func TestCurrentValueOperand_Types(t *testing.T) {
 	want := "String Address List<String> String"
 	if strings.Join(got, " ") != want {
 		t.Errorf("types = %q, want %q", strings.Join(got, " "), want)
+	}
+}
+
+// A `..` in a field's or key's value belongs to its update whatever the
+// types, so an update that cannot be checked reports only what stopped it,
+// never that its `..` is outside an update. Each case gives the one error
+// it reports.
+func TestCurrentValueOperand_InAnUpdateThatFails(t *testing.T) {
+	cases := []struct{ name, head, body, want string }{
+		{"a base of an unknown type", "",
+			"fn helper(r: Missing) -> Person\n  {..r, name: Some(..) |> Maybe.with_default(\"\")}\nend\n",
+			`unknown type "Missing"`},
+		{"a base from a module that is not there", "import std::no_such_module\n\n",
+			"fn helper(r: no_such_module.Req) -> Person\n  {..r, name: String.trim(..)}\nend\n",
+			`unknown type "no_such_module.Req"`},
+		{"an undefined base", "",
+			"fn helper() -> Person\n  {..nobody, name: String.trim(..), address: {.., city: .. + \"!\"}}\nend\n",
+			"undefined variable 'nobody'"},
+		{"a field the struct lacks", "",
+			"fn helper() -> Person\n  {..ada(), title: String.trim(..)}\nend\n",
+			"Person has no field 'title'"},
+		{"a map base of an unknown type", "",
+			"fn helper(m: Missing) -> Int\n  _a = {..m, \"a\" => .. + 1}\n  1\nend\n",
+			`unknown type "Missing"`},
+		{"Struct.update of an undefined value", "",
+			"fn helper() -> Person\n  Struct.update(nobody, {name: .. + \"!\"})\nend\n",
+			"undefined variable 'nobody'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := tc.head + currentValueDecls + tc.body + "fn main()\n  _a = 1\nend\n"
+			_, errs := checkSourceWithStdlib(src)
+			if len(errs) == 0 {
+				t.Fatalf("the front end admits this")
+			}
+			for _, e := range errs {
+				if strings.Contains(e.Message, "is not in one") {
+					t.Fatalf("a `..` in a failed update is reported outside one:\n%s", allText(errs))
+				}
+			}
+			if len(errs) != 1 || !strings.Contains(errs[0].Message, tc.want) {
+				t.Fatalf("want the one error %q, got\n%s", tc.want, allText(errs))
+			}
+		})
 	}
 }

@@ -1,0 +1,40 @@
+import std::http
+
+// A parameter written as its type alone takes a value of that type and binds
+// nothing, whatever form the type is written in.
+fn count(Vector<Int>, n: Int) -> Int
+    n
+end
+
+fn last(n: Int, Map<String, Int>) -> Int
+    n
+end
+
+fn status(http.Status) -> String
+    "status"
+end
+
+fn ignore_all((Int, String), (Int) -> Int, {x: Int}) -> Int
+    0
+end
+
+test "a generic type alone"
+    assert count(Vector[1, 2], 7) == 7
+    assert last(3, {"a" => 1}) == 3
+end
+
+test "a module-qualified type alone"
+    assert status(http.Status(200)) == "status"
+end
+
+test "a tuple, function and struct type alone"
+    assert ignore_all((1, "a"), fn n -> n, {x: 1}) == 0
+end
+
+test "a lambda's parameter written as a generic or tuple type alone"
+    f = fn Vector<Int>, n: Int -> n + 1
+    g = fn (Int, String) -> 2
+
+    assert f(Vector[], 1) == 2
+    assert g((1, "b")) == 2
+end

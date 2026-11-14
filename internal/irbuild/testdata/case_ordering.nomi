@@ -9,11 +9,11 @@ import std::io
 // layers of variant unwrapping.
 fn classify(n: Int) -> String
     case n
-        0 -> "zero"
-        1 -> "one"
-        x when x < 0 -> "negative ${x}"
+        0              -> "zero"
+        1              -> "one"
+        x when x < 0   -> "negative ${x}"
         x when x > 100 -> "huge ${x}"
-        x -> "plain ${x}"
+        x              -> "plain ${x}"
     end
 end
 
@@ -59,9 +59,9 @@ fn main()
 
     label = case
         n > 100 -> "big"
-        n > 3 -> "medium"
-        n > 0 -> "small"
-        _ -> "other"
+        n > 3   -> "medium"
+        n > 0   -> "small"
+        _       -> "other"
     end
 
     io.print(label)

@@ -9,7 +9,7 @@ func TestFormat_StringPrefixPattern(t *testing.T) {
 	src := "fn route(path: String) -> String\n" +
 		"    case path\n" +
 		"        \"/users/\" + id -> id\n" +
-		"        _ -> \"\"\n" +
+		"        _              -> \"\"\n" +
 		"    end\n" +
 		"end\n"
 	got, err := Format(src)

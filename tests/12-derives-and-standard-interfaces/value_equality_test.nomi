@@ -25,12 +25,12 @@ test "a tuple holding a Range compares the Range by its bounds"
 end
 
 test "two regexes are equal when their patterns are"
-    assert Regex`a+b` == Regex`a+b`
-    assert Regex`a+b` != Regex`a+c`
-    assert [Regex`a+b`] == [Regex`a+b`]
-    assert Some(Regex`a+b`) == Some(Regex`a+b`)
-    assert (Regex`a+b`, 1) == (Regex`a+b`, 1)
-    assert Hashable.hash(Regex`a+b`) == Hashable.hash(Regex`a+b`)
+    assert Regex"a+b" == Regex"a+b"
+    assert Regex"a+b" != Regex"a+c"
+    assert [Regex"a+b"] == [Regex"a+b"]
+    assert Some(Regex"a+b") == Some(Regex"a+b")
+    assert (Regex"a+b", 1) == (Regex"a+b", 1)
+    assert Hashable.hash(Regex"a+b") == Hashable.hash(Regex"a+b")
 end
 
 test "an interface value interpolates and defaults as the value it holds"

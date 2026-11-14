@@ -1,0 +1,6 @@
+import cross_file_enum_cycle::ast.Decl
+
+pub enum Value
+    Nil
+    Function Decl
+end

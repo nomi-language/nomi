@@ -18,9 +18,11 @@ import (
 // known when no other code calls `parse` or `iso`: then a built image
 // carries the symbols of those currencies alone
 // (cldrdata.Selection.Currencies). std/money's `Money` literal handler
-// calls `parse` with the text after the amount, so a ``Money`5 USD` ``
-// literal names its currency as ``Currency`USD` `` does. A custom currency
-// has no CLDR symbol or name, and every display writes its code.
+// calls `Money.parse`, which calls `parse` with the text after the amount,
+// so a ``Money`5 USD` `` literal names its currency as ``Currency`USD` ``
+// does, and any other call of `Money.parse` may make any currency. A
+// custom currency has no CLDR symbol or name, and every display writes its
+// code.
 //
 // `Money.format` writes a currency's name only for `CurrencyDisplay.Name`,
 // which, like any enum value, exists only where an instruction builds it.
@@ -58,7 +60,7 @@ const displayName = 3
 // CurrencyLiterals are the ISO codes of the currency literals funcs build,
 // each once, sorted, and dynamic when the program may make an ISO currency
 // some other way: a call of `Currency.parse` outside its literal handler
-// and `Money`'s,
+// and `Money.parse`, of `Money.parse` outside `Money`'s literal handler,
 // of the private `Currency.iso` outside `parse` (std/currency's own), or a
 // literal with an interpolated part.
 func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dynamic bool) {
@@ -88,11 +90,17 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 			handlers[f.Sym()] = true
 		}
 	}
-	// Money's handler, lowered with the program and so named by its
-	// type: its text is the amount, a space and the currency.
-	moneyHandlers := map[*ir.Symbol]bool{}
+	// Money's parse and its literal handler, lowered with the program and
+	// so named by their type: the handler's text is the amount, a space and
+	// the currency, which parse reads.
+	moneyParses, moneyHandlers := map[*ir.Symbol]bool{}, map[*ir.Symbol]bool{}
 	for _, f := range money {
-		if f.Name() == "Money.from_fragments" && f.Sym() != nil && calls(f, parses) {
+		if f.Name() == "Money.parse" && f.Sym() != nil && calls(f, parses) {
+			moneyParses[f.Sym()] = true
+		}
+	}
+	for _, f := range money {
+		if f.Name() == "Money.from_fragments" && f.Sym() != nil && calls(f, moneyParses) {
 			moneyHandlers[f.Sym()] = true
 		}
 	}
@@ -104,7 +112,7 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 		eachInstr(f, func(i ir.Instr) {
 			if v, ok := i.(*ir.FuncValue); ok && v.Body() != nil && v.Body().Sym() != nil {
 				// A function value of iso or parse calls it with any text.
-				if s := v.Body().Sym(); isos[s] || parses[s] {
+				if s := v.Body().Sym(); isos[s] || parses[s] || moneyParses[s] {
 					dynamic = true
 				}
 			}
@@ -115,7 +123,9 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 			switch {
 			case isos[c.Callee()] && !in(parses):
 				dynamic = true
-			case parses[c.Callee()] && !in(handlers) && !in(moneyHandlers):
+			case parses[c.Callee()] && !in(handlers) && !in(moneyParses):
+				dynamic = true
+			case moneyParses[c.Callee()] && !in(moneyHandlers):
 				dynamic = true
 			case handlers[c.Callee()] && c.NumArgs() == 1:
 				text, static := literalText(f, c.Arg(0))

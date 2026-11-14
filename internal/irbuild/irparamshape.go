@@ -52,12 +52,6 @@ import "github.com/nomi-language/nomi/internal/ir"
 //	                Retained sequences cross function-value signatures,
 //	                but ValShape declares no sequence shape, so this
 //	                declines rather than mislabelling it ValFunc.
-//	tagBareNone     the prelude `None` written with no type argument: an
-//	                UNTYPED literal whose type the checker solves from context.
-//	                `ir.ConstBareVariant` writes `ValVariant` for the
-//	                CONSTRUCTED form, and a bare `None` in a parameter position
-//	                has been discharged by `coerce` before it gets here, so
-//	                this arm is a fence rather than a population.
 //	an rtOpaque def a blessed stdlib primitive whose Go type rt declares
 //	                (`rt.Bytes`, `rt.Duration`, `rt.Instant`). types.go: a LEAF
 //	                "this builder may not look inside", so it builds no
@@ -111,7 +105,7 @@ func irParamShape(k kind) ir.ValShape {
 	case tagNamed:
 		return irNamedParamShape(k)
 	}
-	// tagInvalid, tagIface, tagTypeParam, tagSeq, tagBareNone. See the header:
+	// tagInvalid, tagIface, tagTypeParam, tagSeq. See the header:
 	// each is a decline with a stated reason, not a gap.
 	return ir.ValUnknown
 }

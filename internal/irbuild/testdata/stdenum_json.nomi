@@ -65,21 +65,21 @@ end
 fn describe_local(l: Local) -> String
     case l
         .Items(xs) -> "items:${Iter.count(xs)}"
-        .Named(m) -> "named:${Map.size(m)}"
-        .Empty -> "empty"
+        .Named(m)  -> "named:${Map.size(m)}"
+        .Empty     -> "empty"
     end
 end
 
 // Every variant, so all six payload fields plus the bare one are read back.
 fn describe(jv: Json) -> String
     case jv
-        Json.String(s) -> "string:" + s
-        Json.Int(n) -> "int:${n}"
-        Json.Float(f) -> "float:${f}"
-        Json.Bool(b) -> "bool:${b}"
-        Json.Arr(items) -> "arr:${Iter.count(items)}"
+        Json.String(s)   -> "string:" + s
+        Json.Int(n)      -> "int:${n}"
+        Json.Float(f)    -> "float:${f}"
+        Json.Bool(b)     -> "bool:${b}"
+        Json.Arr(items)  -> "arr:${Iter.count(items)}"
         Json.Obj(fields) -> "obj:${Map.size(fields)}"
-        Json.Null -> "null"
+        Json.Null        -> "null"
     end
 end
 
@@ -95,7 +95,7 @@ end
 
 fn decode_error(src: String) -> String
     case Json.decode(src)
-        Ok(_) -> "unexpectedly parsed"
+        Ok(_)  -> "unexpectedly parsed"
         Err(e) -> Json.DecodeError.to_string(e)
     end
 end

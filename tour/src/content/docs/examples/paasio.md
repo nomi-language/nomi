@@ -18,7 +18,7 @@ import std::io.{self, Reader, Writer}
 
 /// What a stream has carried: how many bytes, in how many operations.
 pub struct Stats
-    bytes: Int = 0
+    bytes:      Int = 0
     operations: Int = 0
 end
 
@@ -34,7 +34,7 @@ end
 /// answers the meter after it.
 pub struct MeteredReader
     reader: Reader
-    stats: Stats = Stats{}
+    stats:  Stats = Stats{}
 end
 
 impl MeteredReader
@@ -49,7 +49,7 @@ impl MeteredReader
     /// nothing.
     pub fn read(
         meter: MeteredReader,
-        max: Int = 65536,
+        max:   Int = 65536,
     ) -> Result<(Maybe<Bytes>, MeteredReader), io.Error>
         data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
@@ -62,7 +62,7 @@ end
 /// counts reads.
 pub struct MeteredWriter
     writer: Writer
-    stats: Stats = Stats{}
+    stats:  Stats = Stats{}
 end
 
 impl MeteredWriter

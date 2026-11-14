@@ -22,7 +22,7 @@ end
 fn value(character: String, is_check: Bool) -> Maybe<Int>
     case character
         "X" when is_check -> Some(10)
-        _ -> String.to_int(character)
+        _                 -> String.to_int(character)
     end
 end
 

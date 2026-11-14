@@ -103,13 +103,13 @@ func TestFromPipe_Stages(t *testing.T) {
 		},
 		{
 			"case stage",
-			"fn f() -> Int\n    \"4\"\n    |> case pa‸rse()\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
-			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
+			"fn f() -> Int\n    \"4\"\n    |> case pa‸rse()\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",
+			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",
 		},
 		{
 			"bare case stage",
-			"fn f() -> Int\n    parse(\"4\")\n    |> ca‸se\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
-			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n) -> n\n        Err(_) -> 0\n    end\nend\n",
+			"fn f() -> Int\n    parse(\"4\")\n    |> ca‸se\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",
+			"fn f() -> Int\n    case parse(\"4\")\n        Ok(n)  -> n\n        Err(_) -> 0\n    end\nend\n",
 		},
 		{
 			"if stage",

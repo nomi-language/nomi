@@ -27,7 +27,7 @@ pub struct BootApp
 
     audit: Supervisor
     label: String = "staged"
-    tier: Int = 7
+    tier:  Int = 7
 end
 
 // build is called BY boot and creates the supervisor, so the window this

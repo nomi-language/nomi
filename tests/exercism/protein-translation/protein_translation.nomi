@@ -29,6 +29,7 @@ pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error>
     |> Iter.take_while(&(&1 != Ok(None)))
     |> Result.collect()?
     |> Maybe.values()
+    |> Iter.to_list()
     |> Ok()
 end
 

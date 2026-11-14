@@ -42,7 +42,9 @@ with the current directory as its working directory, and with the same
 access to files, the network and output that `nomi run` gives a program.
 It reads `enums.choices` and writes `enums.nomi`, which `main.nomi` imports
 like any other file. The tool builds each enum from a triple-quoted string,
-so its template reads like the code it writes.
+so its template reads like the code it writes. It passes the result through
+`compiler.format` from [std::compiler](/reference/compiler/) before writing
+it, so the generated file is laid out as `nomi fmt` would lay it out.
 
 This example runs the tool before each run, as you would after an edit. Add
 a size, or a line of your own, and run it again: the generated file's tab
@@ -61,9 +63,9 @@ end
 
 fn ounces(size: Size) -> Int
     case size
-        Size.Small -> 8
+        Size.Small  -> 8
         Size.Medium -> 12
-        Size.Large -> 16
+        Size.Large  -> 16
     end
 end
 
@@ -93,6 +95,7 @@ end
 // enum per line. A line `Size: small medium large` declares
 // `pub enum Size` with the variants `Small`, `Medium` and `Large`.
 import
+    std::compiler
     std::fs
     std::io
 end
@@ -114,7 +117,8 @@ fn main() -> Result<Unit, String>
         ${body}
         """
 
-    fs.write_text("enums.nomi", source + "\n") |> Result.map_err(fn e -> "enums.nomi: ${e}")?
+    text = compiler.format(source) |> Result.map_err(fn e -> "enums.nomi does not parse: ${e}")?
+    fs.write_text("enums.nomi", text) |> Result.map_err(fn e -> "enums.nomi: ${e}")?
     io.print("wrote enums.nomi")
     Ok(Unit)
 end
@@ -123,7 +127,7 @@ end
 fn enum_of(number: Int, line: String) -> Result<String, String>
     (name, words) = case String.split(line, ":") |> Iter.to_list()
         [name, words] -> (String.trim(name), String.words(words))
-        _ -> return Err("enums.choices:${number}: write `Name: first second third`")
+        _             -> return Err("enums.choices:${number}: write `Name: first second third`")
     end
 
     if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) then

@@ -38,7 +38,7 @@ fn block_boundary() -> String
     io.print("after block")
 
     case outcome
-        Ok(n) -> "ok ${n}"
+        Ok(n)  -> "ok ${n}"
         Err(e) -> "err ${e}"
     end
 end
@@ -54,7 +54,7 @@ fn block_boundary_ok() -> String
     end
 
     case outcome
-        Ok(n) -> "ok ${n}"
+        Ok(n)  -> "ok ${n}"
         Err(e) -> "err ${e}"
     end
 end
@@ -79,7 +79,7 @@ fn lambda_boundary() -> String
     end
 
     case inner
-        Ok(n) -> "ok ${n}"
+        Ok(n)  -> "ok ${n}"
         Err(e) -> "err ${e}"
     end
 end

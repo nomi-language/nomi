@@ -76,14 +76,15 @@ func closestName(name string, candidates []string) string {
 	return best
 }
 
-// isSuggestable reports whether a name is one a program could have meant: a
-// name the toolchain synthesized (`__show`, `$get`) is not.
+// isSuggestable reports whether a name is one a program could have meant,
+// a path such as `storage::testing` included: a name the toolchain
+// synthesized (`__show`, `$get`) is not.
 func isSuggestable(name string) bool {
 	if strings.HasPrefix(name, "_") {
 		return false
 	}
 	for _, r := range name {
-		if r != '_' && r != '.' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+		if r != '_' && r != '.' && r != ':' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
 			return false
 		}
 	}

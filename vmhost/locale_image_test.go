@@ -24,10 +24,10 @@ const localeProgram = `import
 end
 
 fn main()
-    io.print(Int.format(1234567, Locale` + "`de`" + `))
-    io.print(Int.format(1234567, Locale` + "`de-CH`" + `))
-    io.print(Int.format(1234567, Result.with_default(Locale.parse("fr"), Locale` + "`de`" + `)))
-    io.print(String.join_list(["a", "b", "c"], Locale` + "`pl`" + `))
+    io.print(Int.format(1234567, Locale"de"))
+    io.print(Int.format(1234567, Locale"de-CH"))
+    io.print(Int.format(1234567, Result.with_default(Locale.parse("fr"), Locale"de")))
+    io.print(String.join_list(["a", "b", "c"], Locale"pl"))
     io.print("${Locale.available()}")
 end
 `
@@ -120,11 +120,11 @@ func TestLocaleImage_CarriesOnlyTheReachedParts(t *testing.T) {
 		name, body    string
 		want, notWant []string
 	}{
-		{"numbers", `io.print(Int.format(5, Locale` + "`de`" + `))`,
+		{"numbers", `io.print(Int.format(5, Locale"de"))`,
 			[]string{"symbols\tlatn", "nonlikely-script-parent"}, []string{"list\t", "cardinal\t", "available\t", "parent\tes-MX"}},
-		{"lists", `io.print(String.join_list(["a"], Locale` + "`de`" + `))`,
+		{"lists", `io.print(String.join_list(["a"], Locale"de"))`,
 			[]string{"list\tstandard", "nonlikely-script-parent"}, []string{"symbols\t", "digits\t", "cardinal\t", "parent\tes-MX"}},
-		{"plurals", `io.print("${PluralCategory.cardinal(3, Locale` + "`de`" + `)}")`,
+		{"plurals", `io.print("${PluralCategory.cardinal(3, Locale"de")}")`,
 			[]string{"cardinal\t", "nonlikely-script-parent"}, []string{"symbols\t", "list\t", "locale\t", "parent\tes-MX"}},
 		{"available", `io.print("${Locale.available()}")`,
 			[]string{"available\tde,pl"}, []string{"parent\t", "locale\t", "cardinal\t"}},
@@ -221,7 +221,7 @@ pub fn boot() -> Result<App, String>
     Ok(App{context: Context.root(), web: Supervisor.new(max_running: 2)})
 end
 
-once en = Locale` + "`en-US`" + `
+once en = Locale"en-US"
 
 fn written(at: NaiveDateTime, fields: DateTimeFields) -> String
     DateTime.format_fields(DateTime.in_zone(at, "UTC")!, en, fields)
@@ -229,8 +229,8 @@ end
 
 fn handle() -> Unit
     at = NaiveDateTime.new(2025, 9, 10, 13, 0)!
-    io.print(written(at, DateTimeFields` + "`yMMMMd`" + `))
-    io.print(written(at, DateTimeFields` + "`hmm`" + `))
+    io.print(written(at, DateTimeFields"yMMMMd"))
+    io.print(written(at, DateTimeFields"hmm"))
     io.print("${Locale.available()}")
 end
 

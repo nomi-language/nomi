@@ -64,7 +64,7 @@ fn main()
     end
 
     case fs.write_text("logs/today.txt", "started\n")
-        Ok(_) -> io.print("written")
+        Ok(_)  -> io.print("written")
         Err(e) -> io.print(e)
     end
 end

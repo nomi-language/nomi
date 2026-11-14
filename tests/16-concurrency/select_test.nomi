@@ -113,7 +113,7 @@ test "a select with no arms is a fault"
         end
         """
     )
-        Ok(_) -> assert False
+        Ok(_)        -> assert False
         Err(message) -> assert "needs at least one arm" in message
     end
 end

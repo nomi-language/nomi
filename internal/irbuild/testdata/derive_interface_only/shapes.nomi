@@ -26,7 +26,7 @@ end
 derive ToJson for Shape
 
 pub struct Tagged
-    name: String
+    name:  String
     count: Int = 3
 end
 

@@ -18,7 +18,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// each operation returns the buffer after it.
 pub opaque struct Buffer<T>
     capacity: Int
-    items: List<T>
+    items:    List<T>
 end
 
 /// Why an operation cannot be done.
@@ -59,7 +59,7 @@ impl Buffer<T>
     pub fn read(buffer: Buffer<T>) -> Result<(T, Buffer<T>), Error>
         case buffer.items
             [oldest, ..rest] -> Ok((oldest, {..buffer, items: rest}))
-            [] -> Err(.Empty)
+            []               -> Err(.Empty)
         end
     end
 
@@ -98,13 +98,13 @@ fn replay(capacity: Int, steps: List<Step>) -> List<Step>
                 .Write(item) or .WriteFails(item) ->
                     case Buffer.write(buffer, item)
                         Ok(written) -> (written, Step.Write(item))
-                        Err(_) -> (buffer, .WriteFails(item))
+                        Err(_)      -> (buffer, .WriteFails(item))
                     end
 
                 .Read(_) or .ReadFails ->
                     case Buffer.read(buffer)
                         Ok((item, rest)) -> (rest, .Read(item))
-                        Err(_) -> (buffer, .ReadFails)
+                        Err(_)           -> (buffer, .ReadFails)
                     end
 
                 .Clear ->
@@ -121,8 +121,8 @@ end
 test "circular buffer"
     [
         ("reading empty buffer should fail", 1, [Step.ReadFails]),
-        ("can read an item just written", 1, [.Write(1), .Read(1)]),
-        ("each item may only be read once", 1, [.Write(1), .Read(1), .ReadFails]),
+        ("can read an item just written",    1, [.Write(1), .Read(1)]),
+        ("each item may only be read once",  1, [.Write(1), .Read(1), .ReadFails]),
         (
             "items are read in the order they are written",
             2,
@@ -141,7 +141,7 @@ test "circular buffer"
         ),
         ("items cleared out of buffer can't be read", 1, [.Write(1), .Clear, .ReadFails]),
         ("clear frees up capacity for another write", 1, [.Write(1), .Clear, .Write(2), .Read(2)]),
-        ("clear does nothing on empty buffer", 1, [.Clear, .Write(1), .Read(1)]),
+        ("clear does nothing on empty buffer",        1, [.Clear, .Write(1), .Read(1)]),
         (
             "overwrite acts like write on non-full buffer",
             2,

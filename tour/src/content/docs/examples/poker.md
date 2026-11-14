@@ -38,7 +38,7 @@ derive Comparable for Category
 /// the fields in the order they are declared.
 struct Score
     category: Category
-    ranks: List<Int>
+    ranks:    List<Int>
 end
 
 derive Comparable for Score
@@ -87,15 +87,15 @@ fn score(hand: String) -> Result<Score, Error>
 
     Ok(
         case (counts, straight(ranks), flush)
-            ([4, 1], _, _) -> {category: .FourOfAKind, ranks:}
-            ([3, 2], _, _) -> {category: .FullHouse, ranks:}
-            ([3, 1, 1], _, _) -> {category: .ThreeOfAKind, ranks:}
-            ([2, 2, 1], _, _) -> {category: .TwoPair, ranks:}
-            ([2, 1, 1, 1], _, _) -> {category: .OnePair, ranks:}
-            (_, Some(high), True) -> {category: .StraightFlush, ranks: high}
+            ([4, 1], _, _)         -> {category: .FourOfAKind, ranks:}
+            ([3, 2], _, _)         -> {category: .FullHouse, ranks:}
+            ([3, 1, 1], _, _)      -> {category: .ThreeOfAKind, ranks:}
+            ([2, 2, 1], _, _)      -> {category: .TwoPair, ranks:}
+            ([2, 1, 1, 1], _, _)   -> {category: .OnePair, ranks:}
+            (_, Some(high), True)  -> {category: .StraightFlush, ranks: high}
             (_, Some(high), False) -> {category: .Straight, ranks: high}
-            (_, None, True) -> {category: .Flush, ranks:}
-            (_, None, False) -> {category: .HighCard, ranks:}
+            (_, None, True)        -> {category: .Flush, ranks:}
+            (_, None, False)       -> {category: .HighCard, ranks:}
         end
     )
 end
@@ -118,10 +118,10 @@ fn card(text: String) -> Maybe<Card>
     if not suit in ["S", "H", "D", "C"] then return None
 
     rank = case String.take(text, length - 1)
-        "J" -> Some(11)
-        "Q" -> Some(12)
-        "K" -> Some(13)
-        "A" -> Some(14)
+        "J"    -> Some(11)
+        "Q"    -> Some(12)
+        "K"    -> Some(13)
+        "A"    -> Some(14)
         digits -> pip_rank(digits)
     end
 
@@ -162,7 +162,7 @@ test "best hands"
             ["2S 5H 6S 8D 7H"],
         ),
         ("one pair beats high card", ["4S 5H 6C 8D KH", "2S 4H 6S 4D JH"], ["2S 4H 6S 4D JH"]),
-        ("highest pair wins", ["4S 2H 6S 2D JH", "2S 4H 6C 4D JD"], ["2S 4H 6C 4D JD"]),
+        ("highest pair wins",        ["4S 2H 6S 2D JH", "2S 4H 6C 4D JD"], ["2S 4H 6C 4D JD"]),
         (
             "both hands have the same pair, high card wins",
             ["4H 4S AH JC 3D", "4C 4D AS 5D 6C"],

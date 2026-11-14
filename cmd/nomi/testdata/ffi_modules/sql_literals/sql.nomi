@@ -9,7 +9,7 @@ import std::literals.{Fragment, Literal}
 
 /// A SQL statement and the values for its `?` placeholders, in order.
 pub struct Query
-    sql: String
+    sql:  String
     args: List<String>
 end
 
@@ -29,7 +29,7 @@ impl Literal for Sql
             |> Iter.map(fn fragment ->
                 case fragment
                     .Static(text) -> text
-                    .Dynamic(_) -> "?"
+                    .Dynamic(_)   -> "?"
                 end
             end)
             |> String.join()
@@ -38,7 +38,7 @@ impl Literal for Sql
             fragments
             |> Iter.flat_map(fn fragment ->
                 case fragment
-                    .Static(_) -> []
+                    .Static(_)      -> []
                     .Dynamic(value) -> [Display.to_string(value)]
                 end
             end)

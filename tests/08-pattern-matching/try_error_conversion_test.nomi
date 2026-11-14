@@ -20,9 +20,9 @@ end
 
 fn parse_small(s: String) -> Result<Int, ParseError>
     case s
-        "7" -> Ok(7)
+        "7"   -> Ok(7)
         "999" -> Err(ParseError.OutOfRange(999))
-        _ -> Err(ParseError.NotANumber(s))
+        _     -> Err(ParseError.NotANumber(s))
     end
 end
 

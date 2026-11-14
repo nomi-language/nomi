@@ -299,6 +299,48 @@ func NewIfaceType(sym *Symbol) *ValType {
 	return &ValType{kind: KindIface, sym: sym}
 }
 
+// NewConjunctionType is an existential over the interface conjunction sym
+// (spec §12 *Interface conjunctions*), whose members are each an existential
+// of one interface. Its value is held as each member's is.
+func NewConjunctionType(sym *Symbol, members []*ValType) *ValType {
+	requireTypeSym(sym, "NewConjunctionType")
+	for _, m := range members {
+		if m == nil || m.kind != KindIface || len(m.elems) > 0 {
+			panic("ir: NewConjunctionType: a member that is no interface")
+		}
+	}
+	return &ValType{kind: KindIface, sym: sym, elems: requireElems(members, "NewConjunctionType")}
+}
+
+// ifaceSyms is the interfaces a value of existential type t is held as:
+// a conjunction's members, or t's own interface.
+func (t *ValType) ifaceSyms() []*Symbol {
+	if len(t.elems) == 0 {
+		return []*Symbol{t.sym}
+	}
+	out := make([]*Symbol, len(t.elems))
+	for i, e := range t.elems {
+		out[i] = e.sym
+	}
+	return out
+}
+
+// holdsIfaces reports whether a value of existential type have is one of
+// existential type want unchanged: have is held as every interface want is.
+func holdsIfaces(want, have *ValType) bool {
+	haveSyms := have.ifaceSyms()
+	for _, w := range want.ifaceSyms() {
+		found := false
+		for _, h := range haveSyms {
+			found = found || h == w
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 // NewHandleType is an opaque host value of host type sym.
 func NewHandleType(sym *Symbol, args ...*ValType) *ValType {
 	requireTypeSym(sym, "NewHandleType")
@@ -487,6 +529,11 @@ func (want *ValType) Accepts(have *ValType) bool {
 	// (the VM's opXMov), so the existential still holds the concrete value.
 	if want.kind == KindIface && have.kind != KindIface {
 		return true
+	}
+	// Widening an interface conjunction to fewer members: the value is
+	// held as each already.
+	if want.kind == KindIface && have.kind == KindIface && want.sym != have.sym {
+		return holdsIfaces(want, have)
 	}
 	if want.kind != have.kind || (want.sym != have.sym && !sameCovariantEnum(want, have)) ||
 		len(want.elems) != len(have.elems) || len(want.names) != len(have.names) {

@@ -106,8 +106,8 @@ test "an XXE document is refused before it expands anything"
 
     assert xml.decode(xxe) == Err(Error.Syntax{
             message: "a DOCTYPE is refused: std/xml reads no DTD; allow_doctype skips it",
-            line: 2,
-            column: 1,
+            line:    2,
+            column:  1,
         })
 
     // With the DOCTYPE skipped, the entity it declares is still unknown.
@@ -137,14 +137,14 @@ end
 test "malformed documents name their line and column"
     assert xml.decode("<a>\n  <b></c>\n</a>") == Err(Error.Syntax{
             message: "<b> is closed by </c>",
-            line: 2,
-            column: 6,
+            line:    2,
+            column:  6,
         })
 
     assert xml.decode("<a><b>") == Err(Error.Syntax{
             message: "unexpected end of input: <b> is not closed",
-            line: 1,
-            column: 7,
+            line:    1,
+            column:  7,
         })
 
     assert xml.decode("") is Err(.Syntax{message: "the document has no root element"})

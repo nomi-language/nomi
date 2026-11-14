@@ -16,7 +16,11 @@ import (
 // `Vector.set` traps on an index outside the vector. rt raises
 // the trap with its text, and it becomes this machine's fault here, as an
 // adapter's does in callAdapter.
-func vectorHost(key string) hostFn {
+func vectorHost(key string) hostFn { return vectorHostWith(key, false) }
+
+// vectorHostWith is vectorHost, writing an owned receiver's storage in place
+// (rt.VectorSetOwned, VectorPushOwned) when owned (inplace.go).
+func vectorHostWith(key string, owned bool) hostFn {
 	return func(_ *Machine, _ ir.Pos, args []any) (v any, err error) {
 		arity := 2
 		switch key {
@@ -64,6 +68,9 @@ func vectorHost(key string) hostFn {
 		case "Vector.get":
 			return maybeOf(rt.VectorGet(vec, index)), nil
 		case "Vector.push":
+			if owned {
+				return rt.VectorPushOwned(vec, args[1]), nil
+			}
 			return rt.VectorPush(vec, args[1]), nil
 		case "Vector.next_item":
 			// `Some((head, tail))`, or None when empty: rt.VectorNextItem's
@@ -71,8 +78,16 @@ func vectorHost(key string) hostFn {
 			if rt.VectorLength(vec) == 0 {
 				return noneValue, nil
 			}
-			return some(pair(vec.Items[vec.Start], rt.VectorTail(vec))), nil
+			return some(pair(vec.At(0), rt.VectorTail(vec))), nil
 		case "Vector.set":
+			if owned {
+				// A set written in place leaves the window as it was, so
+				// the operand's box is the answer's and nothing is boxed.
+				if out := rt.VectorSetOwned(vec, index, args[2]); out != vec {
+					return out, nil
+				}
+				return args[0], nil
+			}
 			return rt.VectorSet(vec, index, args[2]), nil
 		default:
 			other, ok := args[1].(rt.Vector[any])

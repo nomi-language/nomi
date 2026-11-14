@@ -24,7 +24,7 @@ fn pick(n: Int) -> Display
     case n
         0 -> 'x'
         1 -> Duration.minutes(90)
-        2 -> Date` + "`2026-01-02`" + `
+        2 -> Date"2026-01-02"
         3 -> 7
         _ -> 2.5d
     end
@@ -45,15 +45,15 @@ fn main()
     io.print(show(Duration.seconds(5)))
     dg: Debug = Duration.seconds(2)
     io.print(Debug.inspect(dg))
-    io.print(show(Date` + "`2026-05-04`" + `))
+    io.print(show(Date"2026-05-04"))
     up = True
     d: Display = if up then 'c' else "s"
     io.print("${d}")
     io.print(show('q'))
-    xs: List<Display> = ['a', Duration.seconds(1), Date` + "`2026-05-04`" + `, 3, Time` + "`10:30:00`" + `, b]
+    xs: List<Display> = ['a', Duration.seconds(1), Date"2026-05-04", 3, Time"10:30:00", b]
     io.print("${xs}")
     io.print([pick(0), pick(1), pick(2), pick(3), pick(4)] |> Iter.map(fn x -> Display.to_string(x)) |> String.join(", "))
-    gs: List<Debug> = ['a', Duration.seconds(1), Date` + "`2026-05-04`" + `, 3, b, 1.5d]
+    gs: List<Debug> = ['a', Duration.seconds(1), Date"2026-05-04", 3, b, 1.5d]
     io.print(Debug.inspect(gs))
     dbg d
 end

@@ -85,7 +85,7 @@ T dbg line 43: handle_order(1) = "order 1 accepted"
 T dbg line 44: handle_order(2) = "order 2 accepted"
 T dbg line 48: audited_total() = 3
 T
-C background-work.md:L434
+C background-work.md:L435
 E 0
 N 1
 H ddd98c693bb3466050638c85c8d1865af29c49d1edffbeebafef20b6255218a3
@@ -93,14 +93,14 @@ T count: Ok(2)
 T ok a counter actor / messages accumulate into state a caller can read back
 T test result: ok. 1 passed, 0 failed
 T
-C background-work.md:L536
+C background-work.md:L537
 E 0
 N 1
 H 10d6b786d27bbc303bc4d0615d5d71c534fc08ed3b71cfbb4fee9f35ac88e5c9
 T ok a receipt job runs once it is enqueued
 T test result: ok. 1 passed, 0 failed
 T
-C background-work.md:L578
+C background-work.md:L579
 E 0
 N 1
 H 10e6aafdfa1dd5e1fecbb29908ea72d07f631b2e5642f8f83fc0c359ab079271
@@ -235,35 +235,35 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L139
+C cheat-sheet.md:L138
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
 T ok literals
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L219
+C cheat-sheet.md:L218
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L341
+C cheat-sheet.md:L340
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L428
+C cheat-sheet.md:L427
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L470
+C cheat-sheet.md:L469
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
@@ -277,7 +277,7 @@ H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L534
+C cheat-sheet.md:L533
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -286,7 +286,7 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L598
+C cheat-sheet.md:L597
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
@@ -479,9 +479,9 @@ T
 C dates-and-times.md:L195
 E 0
 N 0
-H 07bb37977e6a936d4d6e884bc57afd62283600c41cb8659990b2a3509f9c48d2
-T dbg line 5: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
-T dbg line 6: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
+H 559f22bc589acff68e8287339c3fe15d39eb8e197f9d7bea3e2bb55b3724f0a6
+T dbg line 5: Date.format(ships, Locale"en-US", style: .Long) = "October 20, 2026"
+T dbg line 6: Date.format(ships, Locale"de", style: .Long) = "20. Oktober 2026"
 T
 C dates-and-times.md:L218
 E 0
@@ -1865,14 +1865,14 @@ H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-rust.md:L82
+C from-rust.md:L83
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
 T ok the same program
 T test result: ok. 1 passed, 0 failed
 T
-C from-swift.md:L77
+C from-swift.md:L78
 E 0
 N 1
 H aada28850a6e283a0445642bf09590bf2e44429176ea1fe4ac3c83115e6867b4
@@ -1964,7 +1964,7 @@ T dbg line 10: xs |> Iter.map(&Point{x: &1, y: 0}) |> Iter.to_list() = [Point{x:
 T dbg line 11: xs |> Iter.map(&Int.max(&1, 2)) |> Iter.to_list() = [2, 2, 3]
 T dbg line 12: xs |> Iter.map(&"id ${&1}") |> Iter.to_list() = ["id 1", "id 2", "id 3"]
 T
-C generating-code.md:L51
+C generating-code.md:L53
 E 0
 N 0
 H 035d3950800ba92bb9ccb32e6bbeea1ac17d6b00d6ad9ba69e681ae7ca5dff35
@@ -2093,7 +2093,7 @@ N 0
 H aab5c9d0af7dacba01e83c352170d8a7b4ff14a83ba39f77e22029b3d29456d0
 T dbg line 14: run.value = Ok(3)
 T
-C interfaces-and-dispatch.md:L192
+C interfaces-and-dispatch.md:L199
 E 0
 N 0
 H fbe745be4a94067d17d210df0a08151b1ee502231cb53e3eea3faf94bbb88d57
@@ -2108,14 +2108,14 @@ H 7cbfa67d63c7401821e4ee56a63a56eadada1f9328fee95092f09413df9f51cc
 T Rex says woof
 T Whiskers says meow
 T
-C interfaces-and-dispatch.md:L274
+C interfaces-and-dispatch.md:L281
 E 0
 N 0
 H 0c00120598cdf765c7396f6d6ee279f7bb215f486dd212275ba09632629d1c7f
 T 250 g
 T hidden
 T
-C interfaces-and-dispatch.md:L342
+C interfaces-and-dispatch.md:L349
 E 0
 N 0
 H c55a9a0f58ad08e6e6f115951dd8920fbd89e5cd3af659c42a17daceaed75064
@@ -2123,19 +2123,19 @@ T dbg line 14: Point{x: 3, y: 4} = Point{x: 3, y: 4}
 T dbg line 15: Status.Pending(7) = Pending(7)
 T dbg line 16: Email("a@b.com") = Email("a@b.com")
 T
-C interfaces-and-dispatch.md:L396
+C interfaces-and-dispatch.md:L403
 E 0
 N 0
 H b7c07a37968384ab9150b8d18ca406fd3d66c61f67e7cbe9947b8e5c238d551c
 T Alice (30)
 T
-C interfaces-and-dispatch.md:L428
+C interfaces-and-dispatch.md:L435
 E 0
 N 0
 H ea8ef614947e9a99dcd42f98516b23bc2b1a41e1b7279e70be24143c0f9d1d78
 T dbg line 19: advance(Counter(10), 5) = Counter(15)
 T
-C interfaces-and-dispatch.md:L497
+C interfaces-and-dispatch.md:L504
 E 0
 N 0
 H 9afe3396c64f85408f29af4b133f1dc3b8d762a7d343ddc249b9059a2f5b6633
@@ -2143,7 +2143,7 @@ T dbg line 42: score_number(score) = 5
 T dbg line 43: day_number(day) = 14
 T dbg line 44: plus(Day(10), Days(4)) = Day(14)
 T
-C interfaces-and-dispatch.md:L600
+C interfaces-and-dispatch.md:L607
 E 0
 N 0
 H 21a4d30d1a44789ef5c7ae1f3a29aa4c38146ec8530dfcd9c9d9e1ca5f3ae4d0
@@ -2151,7 +2151,7 @@ T dbg line 7: Point{x: 1, y: 2} == Point{x: 1, y: 2} = True
 T dbg line 8: Point{x: 1, y: 2} == Point{x: 1, y: 3} = False
 T dbg line 9: {Point{x: 1, y: 2} => "home"} = {Point{x: 1, y: 2} => "home"}
 T
-C interfaces-and-dispatch.md:L631
+C interfaces-and-dispatch.md:L638
 E 0
 N 0
 H cb20291eb9f5b81aa24a01cdd8f87a1de81de4fb1729c21b0ec26f9cff69111b
@@ -2159,13 +2159,13 @@ T dbg line 9: Version{major: 1, minor: 9} < Version{major: 1, minor: 10} = True
 T dbg line 10: Version{major: 2, minor: 0} < Version{major: 1, minor: 10} = False
 T dbg line 11: Version.max(Version{major: 1, minor: 9}, Version{major: 1, minor: 10}) = Version{major: 1, minor: 10}
 T
-C interfaces-and-dispatch.md:L663
+C interfaces-and-dispatch.md:L670
 E 0
 N 0
 H f1feaa82465a86d0de7d8507de0eae8cb9fe185341895b9cf5254b4a277df66a
 T dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 T
-C interfaces-and-dispatch.md:L693
+C interfaces-and-dispatch.md:L700
 E 0
 N 0
 H ccace190313d0ce68b2112eacea99b972c41f5ce58501190cd6b036728688438
@@ -2287,26 +2287,26 @@ T
 C locales-and-formatting.md:L229
 E 0
 N 0
-H 0109e622ec28d160aeee232d5bfe5da0b9f41b4e50903bbbcd5aaf085462e35a
+H 62cc104952e97b0a886e8f46fe17df5791d08ff0f7b3885fe2f80c35a0f71580
 T en-US: Anna, Ben, and Chloé
 T en-GB: Anna, Ben and Chloé
 T pl: Anna, Ben i Chloé
-T dbg line 11: String.join_list(["Anna", "Ben"], Locale`en-US`) = "Anna and Ben"
-T dbg line 12: String.join_list(["S", "M", "L"], Locale`en-US`, style: .Or) = "S, M, or L"
-T dbg line 13: String.join_list(["S", "M", "L"], Locale`pl`, style: .Or) = "S, M lub L"
-T dbg line 14: String.join_list(["2 lb", "3 oz"], Locale`en-US`, style: .Unit) = "2 lb, 3 oz"
+T dbg line 11: String.join_list(["Anna", "Ben"], Locale"en-US") = "Anna and Ben"
+T dbg line 12: String.join_list(["S", "M", "L"], Locale"en-US", style: .Or) = "S, M, or L"
+T dbg line 13: String.join_list(["S", "M", "L"], Locale"pl", style: .Or) = "S, M lub L"
+T dbg line 14: String.join_list(["2 lb", "3 oz"], Locale"en-US", style: .Unit) = "2 lb, 3 oz"
 T
 C locales-and-formatting.md:L271
 E 0
 N 0
-H 066347e5c60b0a1cfcd76c08ab189106e33f249c8b2c145e90f60f611800285d
-T dbg line 4: Int.parse_in("1,200", Locale`en-US`) = Ok(1200)
-T dbg line 5: Int.parse_in("1.200", Locale`de`) = Ok(1200)
-T dbg line 6: Int.parse_in("1200", Locale`de`) = Ok(1200)
-T dbg line 7: Int.parse_in("1.200", Locale`en-US`) = Err(Unexpected{at: 1, text: "."})
-T dbg line 8: Decimal.parse_in("49,90", Locale`de`) = Ok(49.90d)
-T dbg line 9: Int.parse_in(" 3 ", Locale`en-US`) = Err(Unexpected{at: 0, text: " "})
-T dbg line 10: Int.parse_in(" 3 ", Locale`en-US`, lenient: True) = Ok(3)
+H 7de8d0cc94ae8ce3f3f84bf9e4cd5f47bb4f4611fe2bc6e894209a60c7c994b9
+T dbg line 4: Int.parse_in("1,200", Locale"en-US") = Ok(1200)
+T dbg line 5: Int.parse_in("1.200", Locale"de") = Ok(1200)
+T dbg line 6: Int.parse_in("1200", Locale"de") = Ok(1200)
+T dbg line 7: Int.parse_in("1.200", Locale"en-US") = Err(Unexpected{at: 1, text: "."})
+T dbg line 8: Decimal.parse_in("49,90", Locale"de") = Ok(49.90d)
+T dbg line 9: Int.parse_in(" 3 ", Locale"en-US") = Err(Unexpected{at: 0, text: " "})
+T dbg line 10: Int.parse_in(" 3 ", Locale"en-US", lenient: True) = Ok(3)
 T not a quantity: unexpected `.` at 1
 T
 C locales-and-formatting.md:L315
@@ -2333,20 +2333,20 @@ T
 C locales-and-formatting.md:L353
 E 0
 N 0
-H 54c81d4d7f7566752ba13ef00c1c95aaa8a4f353d08dc893a170c4daa6e31fb0
-T dbg line 2: Locale.parse("EN-us") = Ok(Locale`en-US`)
+H 713a5e6f6dbc1c64b570c93bc90dd55810ad72b0de2a715bf6b7e52492451358
+T dbg line 2: Locale.parse("EN-us") = Ok(Locale"en-US")
 T dbg line 3: Locale.parse("pt_BR") = Err(Underscore{suggestion: "pt-BR"})
-T dbg line 4: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale`pl-PL`)
-T dbg line 5: Locale.fallbacks(Locale`es-MX`) = [Locale`es-MX`, Locale`es-419`, Locale`es`]
+T dbg line 4: Locale.from_posix("pl_PL.UTF-8") = Ok(Locale"pl-PL")
+T dbg line 5: Locale.fallbacks(Locale"es-MX") = [Locale"es-MX", Locale"es-419", Locale"es"]
 T
 C locales-and-formatting.md:L392
 E 0
 N 0
-H a6cbe4e6018f1bca9328e26d9d17f28800e5e85372d53a77cc05cf9750962dbb
-T dbg line 8: page_locale([Locale`pt-BR`, Locale`en-US`]) = Locale`pt`
-T dbg line 9: page_locale([Locale`de-AT`]) = Locale`de`
-T dbg line 10: page_locale([Locale`ja`, Locale`pl`]) = Locale`pl`
-T dbg line 11: page_locale([Locale`ja`]) = Locale`en`
+H 81384e0b10ea4f40efed7e01f03e2002006d15b12cfbe2393767f851439d11ff
+T dbg line 8: page_locale([Locale"pt-BR", Locale"en-US"]) = Locale"pt"
+T dbg line 9: page_locale([Locale"de-AT"]) = Locale"de"
+T dbg line 10: page_locale([Locale"ja", Locale"pl"]) = Locale"pl"
+T dbg line 11: page_locale([Locale"ja"]) = Locale"en"
 T
 C locales-and-formatting.md:L428
 E 0
@@ -2367,10 +2367,10 @@ T
 C locales-and-formatting.md:L532
 E 0
 N 0
-H 56c2c79015ee992ebb8476c1ffa5120979bfc6bdc558406b3425cd9c51b574de
+H daf82ff8e13f61bbc508a2101ee77dc4cd429cb8b5e2ad86d3e31d30421861d5
 T dbg line 2: String.uppercase("istanbul") = "ISTANBUL"
-T dbg line 3: String.uppercase_in("istanbul", Locale`tr`) = "İSTANBUL"
-T dbg line 4: String.lowercase_in("KIRMIZI", Locale`tr`) = "kırmızı"
+T dbg line 3: String.uppercase_in("istanbul", Locale"tr") = "İSTANBUL"
+T dbg line 4: String.lowercase_in("KIRMIZI", Locale"tr") = "kırmızı"
 T dbg line 5: String.fold_case("Straße") == String.fold_case("STRASSE") = True
 T
 C locales-and-formatting.md:L558
@@ -2441,7 +2441,7 @@ N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da
 T 53.125
 T
-C money.md:L130
+C money.md:L133
 E 0
 N 0
 H 58e29abd72259ba9f7548f5749a0138c6bc9a14a4fcc0bc5a0ebd9e9d7ca9011
@@ -2452,23 +2452,23 @@ T 0.14 USD
 T 0.13 USD
 T 1234 JPY
 T
-C money.md:L168
+C money.md:L17
+E 0
+N 0
+H 3fb37958933ea5bfd3652d25bb97f00a0c70656574f69e29ce573b2b79d8c52b
+T 19.99 USD
+T dbg line 10: price.amount = 19.99d
+T dbg line 11: price.currency = Currency"USD"
+T dbg line 15: Money{amount:, currency: Currency"USD"} == price = True
+T
+C money.md:L171
 E 0
 N 0
 H c24b208de12ecc5f2b3777055a6456f1889036781616858b897415ca23a02d30
 T [3.34 USD, 3.33 USD, 3.33 USD]
 T [7.00 USD, 3.00 USD]
 T
-C money.md:L17
-E 0
-N 0
-H faab8761ee7c84d6a7c725077aa25377ef91d725ba367e03d36505c97f61a2e4
-T 19.99 USD
-T dbg line 10: price.amount = 19.99d
-T dbg line 11: price.currency = Currency`USD`
-T dbg line 15: Money{amount:, currency: Currency`USD`} == price = True
-T
-C money.md:L201
+C money.md:L204
 E 0
 N 0
 H a9e780568d71c1cace880e0198b6137418f8729350d15895cfdc9383e2777f9e
@@ -2476,32 +2476,32 @@ T 1500 PTS:0
 T PTS 1,500
 T dbg line 11: Currency.parse("PTS:0") == Ok(points.currency) = True
 T
-C money.md:L270
+C money.md:L273
 E 0
 N 0
-H 0dcdb19a617fb4d3fa21711111077b0c002988f93b777607a5e7fc63420c6684
+H 04e6e5291e5baefe1c2223ebc2374aaa47988a30e1ee0581c436d5ba7b8e8e2c
 T en-US: $1,299.50
 T de: 1.299,50 $
 T fr: 1 299,50 $US
 T dbg line 12: "${price}" = "1299.5 USD"
-T dbg line 13: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
+T dbg line 13: Money.format(Money"1500 JPY", Locale"ja") = "￥1,500"
 T
-C money.md:L310
+C money.md:L313
 E 0
 N 0
-H 650ef88f33a15987de577ce22b2fc04977127ffb04628ae8443a139334e55937
-T dbg line 5: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
-T dbg line 6: Money.format(usd, Locale`en-CA`) = "US$5.00"
+H 1014539db57d5749b31ffd1adda98f780f670a3c4d6d89b4d4ae2be0e0b78825
+T dbg line 5: Money.format(usd, Locale"en-US", display: .Code) = "USD\u{a0}5.00"
+T dbg line 6: Money.format(usd, Locale"en-CA") = "US$5.00"
 T
-C money.md:L339
+C money.md:L342
 E 0
 N 0
-H 5fffd830661484e4a14d4bac211cf470e828c87363f3ac3f5b690a8a9071dc38
-T dbg line 8: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-T dbg line 9: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-T dbg line 10: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
+H 4ad64c80d833f7601bc4bd9dadbeca11e57c2908537819f19952e7c1dc908e03
+T dbg line 8: Money.parse_in("$1,299.50", Locale"en-US", usd) = Ok(Money{amount: 1299.50d, currency: Currency"USD"})
+T dbg line 9: Money.parse_in("1299.50", Locale"en-US", usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency"USD"})
+T dbg line 10: Money.parse_in("€12.50", Locale"en-US", usd) = Err(WrongCurrency{expected: Currency"USD", found: "€"})
 T
-C money.md:L67
+C money.md:L70
 E 0
 N 0
 H b014943d64ee10a38444d903096fc0963b89378c9eb4a197f799ccc63c4c70f6
@@ -2643,7 +2643,7 @@ T
 C pipes.md:L275
 E 0
 N 0
-H b13827d838c02b6831366e525c6c58aaeeea74a5ab66ca9abd9d5c89b517232d
+H 7c33b4e970af7154df6283bc7e768bb51091715dcf58bee63290c6396244bd9c
 T dbg line 8:
 T   "Ada"
 T   |> if String.contains("A") then
@@ -2656,7 +2656,7 @@ T dbg line 15:
 T   Some("Ada")
 T   |> case
 T       Some(name) -> "named ${name}"
-T       None -> "missing"
+T       None       -> "missing"
 T   end
 T   = "named Ada"
 T
@@ -2746,7 +2746,7 @@ T
 C scalars-and-strings.md:L304
 E 0
 N 0
-H d6c27b61e54b0138b5e6cdbc6a1ae884d7cc20949e2a2de107d4af10dd5ad2f3
+H 44da9d4bebf6cf768c0c507a7cc4c6b6aeceeda26aa98d75c1ca848c57b39e18
 T dbg line 9:
 T   text
 T   |> String.to_codepoints()
@@ -2754,14 +2754,15 @@ T   |> Iter.filter(Codepoint.is_letter)
 T   |> Iter.map(Codepoint.to_string)
 T   |> String.join()
 T   = "Tél"
-T dbg line 15:
+T dbg line 16:
 T   text
 T   |> String.to_codepoints()
 T   |> Iter.map(Codepoint.to_digit)
 T   |> Maybe.values()
+T   |> Iter.to_list()
 T   = [5, 5, 5, 0, 1]
 T
-C scalars-and-strings.md:L361
+C scalars-and-strings.md:L363
 E 0
 N 0
 H 1b5bde9ad561d4b30bcdc16febfa87be031bcbe6ca8905f1190ea023321d1b13
@@ -2769,7 +2770,7 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L414
+C scalars-and-strings.md:L416
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -2777,7 +2778,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L440
+C scalars-and-strings.md:L442
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -2787,7 +2788,7 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L506
+C scalars-and-strings.md:L508
 E 0
 N 0
 H 7510b833eb70110fe08e86264bc1f36bc85ac431e9e3a2122c7184b117689ae8
@@ -2915,10 +2916,10 @@ T
 C structs-enums-distinct.md:L640
 E 0
 N 0
-H 67857149ce7a4ea92b2435d6539f600b18dc3f3780f5700d1f53dee3d192a301
-T dbg line 20: problems("al", rules) = ["too short"]
-T dbg line 21: problems("ada lovelace", rules) = ["has a space"]
-T dbg line 22: problems("ada", rules) = []
+H 6f4c2b3bfc7d3916e23f6afc85f015c1a9fda0dc7e071e9d95425d64dd0b85f8
+T dbg line 21: problems("al", rules) = ["too short"]
+T dbg line 22: problems("ada lovelace", rules) = ["has a space"]
+T dbg line 23: problems("ada", rules) = []
 T
 C structs-enums-distinct.md:L65
 E 0

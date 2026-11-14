@@ -151,7 +151,7 @@ func TestFindMissingImports_SelfMergeCandidate(t *testing.T) {
 // A typed literal's tag the file never imports is a type to import, at
 // the tag (the literal node itself sits at its quote).
 func TestFindMissingImports_TypedLiteralTag(t *testing.T) {
-	got := buildMissing(t, "fn main()\n  dbg Regex`a+`\nend\n")
+	got := buildMissing(t, "fn main()\n  dbg Regex\"a+\"\nend\n")
 	if len(got) != 1 {
 		t.Fatalf("want 1 missing import, got %d: %+v", len(got), got)
 	}

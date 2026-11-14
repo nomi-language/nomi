@@ -1,0 +1,66 @@
+//# The Computer Language Benchmarks Game: spectral-norm.
+//#
+//# The spectral norm of the infinite matrix A, a(i, j) = 1 / ((i + j)(i + j
+//# + 1) / 2 + i + 1), by ten rounds of the power method on its n-by-n corner,
+//# as the benchmark's rules require. Each product builds a new
+//# `Vector<Float>`.
+
+import std::io
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 100})
+    end
+end
+
+fn a(i: Int, j: Int) -> Float
+    1.0 / Int.to_float((i + j) * (i + j + 1) / 2 + i + 1)
+end
+
+/// A times `u`.
+fn times(u: Vector<Float>) -> Vector<Float>
+    n = Vector.length(u)
+
+    0..n
+    |> Iter.map(fn i -> Iter.reduce(Iter.with_index(u), 0.0, fn sum, (j, uj) -> sum + a(i, j) * uj))
+    |> Iter.to_vector()
+end
+
+/// A transposed times `u`.
+fn times_transposed(u: Vector<Float>) -> Vector<Float>
+    n = Vector.length(u)
+
+    0..n
+    |> Iter.map(fn i -> Iter.reduce(Iter.with_index(u), 0.0, fn sum, (j, uj) -> sum + a(j, i) * uj))
+    |> Iter.to_vector()
+end
+
+fn times_ata(u: Vector<Float>) -> Vector<Float>
+    times_transposed(times(u))
+end
+
+fn dot(a: Vector<Float>, b: Vector<Float>) -> Float
+    Iter.zip(a, b) |> Iter.reduce(0.0, fn sum, (x, y) -> sum + x * y)
+end
+
+fn main()
+    ones = Iter.to_vector(Iter.map(0..App.n, fn _ -> 1.0))
+
+    (u, v) = Iter.reduce(1..=10, (ones, ones), fn (u, _), _ ->
+        v = times_ata(u)
+        (times_ata(v), v)
+    end)
+
+    norm = Float.sqrt(dot(u, v) / dot(v, v))
+    io.print(Float.format(norm, Locale`en`, 9, 9, False))
+end

@@ -71,13 +71,13 @@ end
 fn head_text(xs: List<Int>) -> String
     case List.head(xs)
         .Some(h) -> "Some(${h})"
-        .None -> "None"
+        .None    -> "None"
     end
 end
 
 fn tail_text(xs: List<Int>) -> String
     case List.tail(xs)
         .Some(t) -> "Some(${t})"
-        .None -> "None"
+        .None    -> "None"
     end
 end

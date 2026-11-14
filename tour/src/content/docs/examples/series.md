@@ -40,10 +40,10 @@ import series.{self, Error}
 
 test "slices"
     [
-        ("slices of one from one", "1", 1, ["1"]),
-        ("slices of one from two", "12", 1, ["1", "2"]),
-        ("slices of two", "35", 2, ["35"]),
-        ("slices of two overlap", "9142", 2, ["91", "14", "42"]),
+        ("slices of one from one",        "1",      1, ["1"]),
+        ("slices of one from two",        "12",     1, ["1", "2"]),
+        ("slices of two",                 "35",     2, ["35"]),
+        ("slices of two overlap",         "9142",   2, ["91", "14", "42"]),
         ("slices can include duplicates", "777777", 3, ["777", "777", "777", "777"]),
         (
             "slices of a long series",
@@ -59,11 +59,11 @@ end
 
 test "errors"
     [
-        ("slice length is too large", "12345", 6, Error.LengthTooLarge),
-        ("slice length is way too large", "12345", 42, .LengthTooLarge),
-        ("slice length cannot be zero", "12345", 0, .ZeroLength),
-        ("slice length cannot be negative", "123", -1, .NegativeLength),
-        ("empty series is invalid", "", 1, .EmptySeries),
+        ("slice length is too large",       "12345", 6,  Error.LengthTooLarge),
+        ("slice length is way too large",   "12345", 42, .LengthTooLarge),
+        ("slice length cannot be zero",     "12345", 0,  .ZeroLength),
+        ("slice length cannot be negative", "123",   -1, .NegativeLength),
+        ("empty series is invalid",         "",      1,  .EmptySeries),
     ]
     |> subtests (description, digits, length, expected), description
         assert series.slices(digits, length) == Err(expected)

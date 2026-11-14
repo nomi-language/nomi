@@ -88,7 +88,7 @@ test "simulate game"
             ),
             {status: .Finished, cards: 361, tricks: 1},
         ),
-        ("two tricks", deck("J"), deck("3 J"), {status: .Finished, cards: 5, tricks: 2}),
+        ("two tricks",  deck("J"),     deck("3 J"),   {status: .Finished, cards: 5, tricks: 2}),
         ("more tricks", deck("J 2 4"), deck("3 J A"), {status: .Finished, cards: 12, tricks: 4}),
         (
             "simple loop with decks of 4 cards",

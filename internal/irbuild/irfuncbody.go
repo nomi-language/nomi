@@ -88,7 +88,7 @@ type irScalarBuilder struct {
 	// retained for the VM with synthesized positions and never read back
 	// into Go.
 	synthesized bool
-	// literalCell is the backtick typed literal whose lazy cell
+	// literalCell is the typed literal without slots whose lazy cell
 	// initializer this builder lowers: there the literal is its handler's
 	// call itself (irliteralcell.go).
 	literalCell *ast.TaggedString
@@ -511,7 +511,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.isTest(t)
 
 	case *ast.Ascription:
-		if want := bl.g.typeOf(t.Type); irExistentialKind(want) {
+		if want := bl.g.typeOf(t.Type); irHeldKind(want) {
 			// `Post{...} as Named`: the VM's existential is the concrete
 			// value, and the position that reads it erases it as it would
 			// the bare value (an argument, an annotated binding).
@@ -937,14 +937,30 @@ func irCallOperandKind(k kind) bool { return k == kindUnit || irCallableValueKin
 
 // irValueDomainKind is the kind a lowered value may have: a call operand
 // (irCallOperandKind, which admits the empty literals `[]` and `{}` and
-// Infallible), a bare `None` before coerce discharges it, or the diverged
-// marker of a region every arm of which leaves. The builder holds every
-// kind to it where the kind enters a body (irbuild package doc,
-// "Declines"). The one exception is a kind that mentions a bound-free type
-// parameter, which only that generic declaration's own signature and shell
-// hold (irMentionsTypeParam).
+// Infallible), or the diverged marker of a region every arm of which
+// leaves. A bare `None` is lowered at the type the checker gave it. The
+// builder holds every kind to it where the kind enters a body (irbuild
+// package doc, "Declines"). The one exception is a kind that mentions a
+// bound-free type parameter, which only that generic declaration's own
+// signature and shell hold (irMentionsTypeParam).
 func irValueDomainKind(k kind) bool {
-	return irCallOperandKind(k) || k.tag == tagBareNone || k == kindDiverged
+	return irCallOperandKind(k) || k == kindDiverged
+}
+
+// irHeldOperand panics unless k is a call operand. A caller asks it of a
+// kind the value domain's entry already held, so no checked program reaches
+// the panic (irbuild package doc, "Declines"): a lowered value's kind, which
+// lowerExact held, once the caller has replaced the diverged marker by the
+// kind the returns settled; a name a pattern bound from such a value, whose
+// kind is a part of the value's (a tuple's or record's part, a field, a
+// payload, a distinct's inner), each of which the callable domain holds as
+// an operand; or the checker's type of a value the program holds, projected
+// (project, typeOf), which every type a checked program declares projects
+// into (TestTypeOperationGrid holds each value type to each operation).
+func irHeldOperand(k kind, what string) {
+	if !irCallOperandKind(k) {
+		panic("irbuild: " + what + " of kind " + k.nomi() + ", outside the value domain, which no checked program reaches")
+	}
 }
 
 // inValueDomain is the value domain's entry for lowered values: every
@@ -1378,14 +1394,9 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return bl.siblingCall(t, site)
 		}
 	}
-	if sig == nil && !hasNamed && bl.recording == 0 && bl.sameImplName(callee) {
-		if p := bl.sameImplPlan(callee.Name); p != nil {
-			args := bl.irQualLowerArgs(t)
-			it := p.token.(*implItem)
-			if bl.qualSignature(t, args, it.params, it.result) {
-				return bl.qualEmit(t, args, p)
-			}
-			return no()
+	if sig == nil {
+		if v, k, mobile, ok, handled := bl.bareImplCall(t, callee); handled {
+			return v, k, mobile, ok
 		}
 	}
 	if tpl := bl.g.irMonoTemplate(sig); tpl != nil {
@@ -2257,14 +2268,10 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	// and `ir.Lint`'s RuleLocalDeclared for how a missed one is reported.
 	for _, b := range sh.irPrologueBinds() {
 		k := sh.frame.kindOf(b.Dst())
-		if !irCallOperandKind(k) {
-			// A destructured name outside the domain a parameter takes is
-			// outside the shape, exactly as a parameter of that kind is:
-			// `fn f(Callback(g))` binds a function and `fn f(Done(u))` a
-			// Unit, as a plain parameter of either kind does.
-			g.dc.note("a destructured name's kind outside the domain: " + k.nomi())
-			return nil, false
-		}
+		// A part of a parameter the signature held: `fn f(Callback(g))`
+		// binds a function and `fn f(Done(u))` a Unit, as a plain parameter
+		// of either kind does.
+		irHeldOperand(k, "a destructured parameter's name")
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
 		bl.declareBind(b, k)
 	}
@@ -3223,7 +3230,7 @@ func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.T
 	want := bl.g.typeOf(te)
 	// A local interface's existential (`widened: Clock = FakeClock{...}`)
 	// holds the concrete value, as an interface-typed field does.
-	existential := irExistentialKind(want)
+	existential := irExistentialKind(want) || irConjKind(want)
 	if !irCallableValueKind(want) && want != kindUnit && !existential {
 		bl.g.dc.note("a binding annotation outside the retained value domain: " + want.nomi())
 		return ir.NoTemp, kindInvalid, false

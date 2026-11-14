@@ -24,24 +24,24 @@ end
 /// One observed value while evaluating an assertion expression.
 pub struct AssertionValue
     expression: String
-    value: String
-    pipeline: List<AssertionPipelineStage>
+    value:      String
+    pipeline:   List<AssertionPipelineStage>
 end
 
 /// One observed value in a pipeline expression.
 pub struct AssertionPipelineStage
     expression: String
-    value: String
+    value:      String
 end
 
 /// Extra context for failures such as `assert valid`, where the asserted
 /// expression is a binding. `expression` is the source expression that produced
 /// the binding's value.
 pub struct AssertionBinding
-    name: String
+    name:       String
     expression: String
-    value: String
-    pipeline: List<AssertionPipelineStage>
+    value:      String
+    pipeline:   List<AssertionPipelineStage>
 end
 
 /// One assertion-authored detail row.
@@ -62,10 +62,10 @@ end
 /// one a failed `==` over multi-line Strings shows: `-` lines are only in
 /// `expected`, `+` lines only in `actual`.
 pub struct AssertionDetails
-    reason: String = "assertion failed"
-    actual: Maybe<String> = None
+    reason:   String = "assertion failed"
+    actual:   Maybe<String> = None
     expected: Maybe<String> = None
-    details: List<AssertionDetail> = []
+    details:  List<AssertionDetail> = []
 end
 
 /// Custom values that can be used with `assert`, `refute`, and
@@ -90,35 +90,35 @@ end
 /// failing rows of a `subtests` statement, whose `keyword` is `"subtests"`,
 /// and is empty for every other failure.
 pub struct AssertionFailure
-    line: Int
-    keyword: String
+    line:       Int
+    keyword:    String
     expression: String
-    reason: String
-    actual: Maybe<String>
-    binding: Maybe<AssertionBinding>
-    values: List<AssertionValue>
-    details: List<AssertionDetail>
-    subtests: List<SubtestFailure> = []
+    reason:     String
+    actual:     Maybe<String>
+    binding:    Maybe<AssertionBinding>
+    values:     List<AssertionValue>
+    details:    List<AssertionDetail>
+    subtests:   List<SubtestFailure> = []
 end
 
 /// One failing row of a `subtests` statement: the row, rendered as a
 /// `values:` row renders a value, and the failure that ended it.
 pub struct SubtestFailure
-    row: String
+    row:     String
     failure: AssertionFailure
 end
 
 impl AssertionFailure
     /// Render this failure the same way `nomi test` and `nomi run` report it.
     //! failure = AssertionFailure{
-    //!     line: 7,
-    //!     keyword: "assert",
+    //!     line:       7,
+    //!     keyword:    "assert",
     //!     expression: "False",
-    //!     reason: "expected truth",
-    //!     actual: None,
-    //!     binding: None,
-    //!     values: [],
-    //!     details: [],
+    //!     reason:     "expected truth",
+    //!     actual:     None,
+    //!     binding:    None,
+    //!     values:     [],
+    //!     details:    [],
     //! }
     //!
     //! assert String.contains(AssertionFailure.format(failure), "assert False")

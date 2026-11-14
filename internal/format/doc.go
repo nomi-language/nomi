@@ -131,6 +131,35 @@
 // laid out differently from its neighbours. Do not make arms break one at a
 // time.
 //
+// # Alignment
+//
+// The rules are in docs/tooling.md, "Formatting". Alignment is a pass after
+// the layout (align.go), so it cannot change a line break: the emitter
+// wraps each item that may align in marks (alignBlock, alignItem), a start,
+// an end and a mark where each column starts, and the renderer writes them
+// as bytes UTF-8 never holds (0xFF, 0xFE) without measuring them. A comment
+// may hold those bytes, so the renderer escapes them in any text it writes
+// (escapeMarks) and the pass writes them back. The renderer holds a
+// mark until the next text it writes, so a mark never sits in indentation
+// or among the spaces trimmed at a line's end. The renderer marks each
+// comment it writes after code on a line (commentMark). Render then
+// (alignLines) finds each block's items whose start, end and columns share
+// one line, splits them into runs of consecutive lines at one indent, and
+// pads each run's columns in display width (textWidth), unless its left
+// parts are more than alignCutoff apart (rows excepted) or a padded line
+// would pass the width, not counting a trailing comment, which fits do not
+// count either. Trailing comments align last, over lines already padded.
+// Then it removes the marks. A comment line, a blank line or an item over
+// several lines breaks the run because its lines are not consecutive items.
+// Since the layout never sees padding and the parser ignores spacing
+// within a line, a second format makes the same breaks and the same
+// padding.
+//
+// The block a mark names is the construct whose items align: one per case,
+// struct declaration, literal, argument list or parameter list, made as it
+// is emitted. Every `once` declaration shares onceBlock, so consecutive
+// ones align whatever holds them.
+//
 // # A line break after a literal's opening bracket
 //
 // A literal broken after its opening bracket stays broken. This is
@@ -255,6 +284,7 @@ type docLineSuffix struct { // see LineSuffix and CommentBefore
 	before bool
 }
 type docInString struct{ d Doc } // see InString
+type docMark struct{ s string }  // an alignment mark (align.go)
 
 // docBrokenTail is the part of a broken Group that follows a nested
 // document on its line, as render passes it to that document's fits checks:
@@ -278,6 +308,7 @@ func (docWithColumn) doc()   {}
 func (docAtLineIndent) doc() {}
 func (docLineSuffix) doc()   {}
 func (docInString) doc()     {}
+func (docMark) doc()         {}
 func (docBrokenTail) doc()   {}
 
 // Nil is the empty document.

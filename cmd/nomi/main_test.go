@@ -1047,8 +1047,8 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 		"  assert String.find_all(\"a12b34\", digits) == [\"12\", \"34\"]\n"+
 		"  assert String.replace(\"a12b34\", digits, \"#\") == \"a#b#\"\n"+
 		"end\n\n"+
-		"test \"invalid double-quoted regex literals return Err\"\n"+
-		"  assert Err(_msg) = Regex\"[\"\n"+
+		"test \"an invalid pattern compiles to Err\"\n"+
+		"  assert Err(_msg) = Regex.compile(\"[\")\n"+
 		"end\n")
 	out, err := runNomi(t, cacheRoot, "test", testPath)
 	if err != nil {
@@ -1057,7 +1057,7 @@ func TestTestCommand_StdlibRegex(t *testing.T) {
 	for _, want := range []string{
 		"regex literals compile and match",
 		"regex search helpers return Nomi shapes",
-		"invalid double-quoted regex literals return Err",
+		"an invalid pattern compiles to Err",
 		"3 passed, 0 failed",
 	} {
 		if !strings.Contains(out, want) {
@@ -2144,7 +2144,7 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 	cacheRoot := t.TempDir()
 	stdPath := copyStdTree(t, t.TempDir())
 	calendar := filepath.Join(stdPath, "calendar.nomi")
-	const prompt = "//! assert Time.new(8, 30)? == Time`08:30:00`"
+	const prompt = "//! assert Time.new(8, 30)? == Time\"08:30:00\""
 	line := strconv.Itoa(lineNumberContaining(t, calendar, prompt))
 
 	out, err := runNomiWithStd(t, cacheRoot, stdPath, "test", calendar, "--line", line)
@@ -2159,7 +2159,7 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 		if err == nil {
 			t.Fatalf("an edited prompt that no longer holds passed, so the embedded one ran:\n%s", out)
 		}
-		if !strings.Contains(out, "assert Time.new(8, 31)? == Time`08:30:00`") ||
+		if !strings.Contains(out, "assert Time.new(8, 31)? == Time\"08:30:00\"") ||
 			!strings.Contains(out, "0 passed, 1 failed") {
 			t.Fatalf("the edited prompt did not fail as itself:\n%s", out)
 		}

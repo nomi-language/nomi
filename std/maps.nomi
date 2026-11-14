@@ -90,7 +90,7 @@ impl Map<K, V>
         Iter.reduce(b, a, fn merged, (key, value) ->
             case Map.get(a, key)
                 Some(mine) -> Map.put(merged, key, combine(mine, value))
-                None -> Map.put(merged, key, value)
+                None       -> Map.put(merged, key, value)
             end
         end)
     end

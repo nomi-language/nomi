@@ -10,7 +10,7 @@ pub import shapes.origin_x
 /// the point of the fixture is that a mix-up is not REPRESENTABLE: the two
 /// are two types with two identities at run time.
 struct Point
-    label: String
+    label:  String
     weight: Int
 end
 

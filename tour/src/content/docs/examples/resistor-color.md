@@ -32,16 +32,16 @@ derive Variants for Color
 /// The digit `color` stands for on a band.
 pub fn color_code(color: Color) -> Int
     case color
-        .Black -> 0
-        .Brown -> 1
-        .Red -> 2
+        .Black  -> 0
+        .Brown  -> 1
+        .Red    -> 2
         .Orange -> 3
         .Yellow -> 4
-        .Green -> 5
-        .Blue -> 6
+        .Green  -> 5
+        .Blue   -> 6
         .Violet -> 7
-        .Grey -> 8
-        .White -> 9
+        .Grey   -> 8
+        .White  -> 9
     end
 end
 
@@ -58,9 +58,9 @@ end
 
 test "Color codes"
     [
-        ("Black", Color.Black, 0),
-        ("White", .White, 9),
-        ("Orange", .Orange, 3),
+        ("Black",  Color.Black, 0),
+        ("White",  .White,      9),
+        ("Orange", .Orange,     3),
     ]
     |> subtests (description, color, expected), description
         assert resistor_color.color_code(color) == expected

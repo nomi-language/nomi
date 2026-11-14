@@ -5,11 +5,11 @@
 //# ```nomi
 //# fn send_login_link(email: String, link: Url) -> Result<Unit, mail.Error>
 //#     message = Message{
-//#         from: Address.parse("Updates <no-reply@example.com>")?,
-//#         to: [Address.new(email)?],
+//#         from:    Address.parse("Updates <no-reply@example.com>")?,
+//#         to:      [Address.new(email)?],
 //#         subject: "Your login link",
-//#         text: Some("Open ${link} to log in."),
-//#         html: Some(Html"<p><a href='${link}'>Log in</a></p>"),
+//#         text:    Some("Open ${link} to log in."),
+//#         html:    Some(Html"<p><a href='${link}'>Log in</a></p>"),
 //#     }
 //#
 //#     Mailer.send(App.mailer, message)
@@ -22,7 +22,7 @@
 //#
 //# ```nomi
 //# mailer = mail.smtp(SmtpConfig{
-//#     host: "smtp.mailgun.org",
+//#     host:        "smtp.mailgun.org",
 //#     credentials: Some(Credentials{username: login, password: secret}),
 //# })
 //# ```
@@ -73,12 +73,12 @@ end
 /// One email.
 pub struct Message
     from: Address
-    to: List<Address> = []
-    cc: List<Address> = []
+    to:   List<Address> = []
+    cc:   List<Address> = []
     /// Recipients who get the message with no header naming them.
-    bcc: List<Address> = []
+    bcc:      List<Address> = []
     reply_to: List<Address> = []
-    subject: String = ""
+    subject:  String = ""
     /// The plain-text body.
     text: Maybe<String> = None
     /// The HTML body. With `text` too, the message is
@@ -89,7 +89,7 @@ pub struct Message
     /// `Cc`, `Bcc`, `Reply-To`, `Subject`, `Date`, `Message-ID`,
     /// `MIME-Version`, `Content-Type`, `Content-Transfer-Encoding`) is
     /// refused, and so is a value with a line break.
-    headers: List<(String, String)> = []
+    headers:     List<(String, String)> = []
     attachments: List<Attachment> = []
 end
 
@@ -101,7 +101,7 @@ pub struct Attachment
     filename: String
     /// `type/subtype`, such as `application/pdf`.
     content_type: String
-    data: Bytes
+    data:         Bytes
 end
 
 derive Equatable for Attachment
@@ -116,7 +116,7 @@ derive Equatable for Attachment
 //
 pub opaque struct Address
     email: String
-    name: String
+    name:  String
 end
 
 derive Equatable for Address
@@ -137,7 +137,7 @@ impl Address
     //
     pub fn new(email: String, name: String = "") -> Result<Address, Error>
         case email_problem(email)
-            Ok(_) -> Ok(Address{email:, name:})
+            Ok(_)       -> Ok(Address{email:, name:})
             Err(reason) -> Err(Error.InvalidAddress{address: email, reason:})
         end
     end
@@ -161,7 +161,7 @@ impl Address
                     [_] ->
                         Err(Error.InvalidAddress{
                             address: trimmed,
-                            reason: "it ends with > and has no <",
+                            reason:  "it ends with > and has no <",
                         })
 
                     parts ->
@@ -173,7 +173,7 @@ impl Address
                         |> Result.map_err(fn _ ->
                             Error.InvalidAddress{
                                 address: trimmed,
-                                reason: email_problem(email) |> error_text(),
+                                reason:  email_problem(email) |> error_text(),
                             }
                         end)
                 end
@@ -207,7 +207,7 @@ end
 
 fn error_text(result: Result<Unit, String>) -> String
     case result
-        Ok(_) -> "it is not an address"
+        Ok(_)       -> "it is not an address"
         Err(reason) -> reason
     end
 end
@@ -245,7 +245,7 @@ end
 fn code_of(g: String) -> Int
     case String.to_codepoints(g)
         [cp] -> Codepoint.to_int(cp)
-        _ -> -1
+        _    -> -1
     end
 end
 
@@ -285,7 +285,7 @@ fn local_problem(local: String) -> Result<Unit, String>
     else
         case Iter.find(local, fn g -> not (g == "." or is_atext(g)))
             Some(g) -> Err("the part before the @ holds ${String.to_literal(g)}")
-            None -> Ok(Unit)
+            None    -> Ok(Unit)
         end
     end
 end
@@ -314,7 +314,7 @@ end
 fn flip(result: Result<String, Unit>) -> Result<Unit, String>
     case result
         Ok(problem) -> Err(problem)
-        Err(_) -> Ok(Unit)
+        Err(_)      -> Ok(Unit)
     end
 end
 
@@ -406,8 +406,8 @@ end
 /// Where an SMTP server is and how to reach it.
 pub struct SmtpConfig
     /// The server's host name or IP address.
-    host: String
-    port: Int = 587
+    host:     String
+    port:     Int = 587
     security: Security = Security.StartTls
     /// Sent with AUTH PLAIN, or AUTH LOGIN when the server offers only
     /// that. Never sent without TLS, except to `localhost`, `::1` or a
@@ -434,7 +434,7 @@ end
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
-//!     to: [Address.new("b@example.com")?],
+//!     to:   [Address.new("b@example.com")?],
 //!     text: Some("hi"),
 //! }
 //!
@@ -445,11 +445,11 @@ end
 //!     config = SmtpServer.config(server)
 //!
 //!     [
-//!         Mailer.send(smtp(config), message),
-//!         Mailer.send(smtp(config), rejected),
-//!         Mailer.send(smtp({..config, security: Security.StartTls}), message),
+//!         Mailer.send(smtp(config),                                           message),
+//!         Mailer.send(smtp(config),                                           rejected),
+//!         Mailer.send(smtp({..config, security: Security.StartTls}),          message),
 //!         Mailer.send(smtp({..config, security: Security.StartTlsIfOffered}), message),
-//!         Mailer.send(smtp({..config, credentials: Some(credentials)}), message),
+//!         Mailer.send(smtp({..config, credentials: Some(credentials)}),       message),
 //!     ]
 //! end)
 //!
@@ -469,8 +469,8 @@ end
 //! assert Err(Error.Rejected{command: "AUTH PLAIN", code: 535, reply: _}) = wrong
 //!
 //! remote = SmtpConfig{
-//!     host: "mail.example.com",
-//!     security: Security.Off,
+//!     host:        "mail.example.com",
+//!     security:    Security.Off,
 //!     credentials: Some(credentials),
 //! }
 //!
@@ -491,10 +491,10 @@ end
 /// SMTP connection `config` describes. `Smtp.send` is `render` and then
 /// this.
 pub fn deliver(
-    config: SmtpConfig,
-    from: String,
+    config:     SmtpConfig,
+    from:       String,
     recipients: List<String>,
-    data: String,
+    data:       String,
 ) -> Result<Unit, Error>
     if config.security == Security.Off
         and config.credentials is Some(_)
@@ -507,7 +507,7 @@ pub fn deliver(
 
     dialed = case config.security
         .Tls -> tls.dial(address, tls_config(config), options)
-        _ -> net.dial(address, options)
+        _    -> net.dial(address, options)
     end
 
     conn = dialed |> Result.map_err(fn e -> Error.Network{reason: "${e}"})?
@@ -519,27 +519,27 @@ end
 fn tls_config(config: SmtpConfig) -> ClientConfig
     case config.tls.server_name
         Some(_) -> config.tls
-        None -> {..config.tls, server_name: Some(config.host)}
+        None    -> {..config.tls, server_name: Some(config.host)}
     end
 end
 
 struct Session
-    conn: Connection
-    timeout: Duration
+    conn:      Connection
+    timeout:   Duration
     encrypted: Bool
 end
 
 struct Reply
-    code: Int
+    code:  Int
     lines: List<String>
 end
 
 fn converse(
-    config: SmtpConfig,
-    plain: Session,
-    from: String,
+    config:     SmtpConfig,
+    plain:      Session,
+    from:       String,
     recipients: List<String>,
-    data: String,
+    data:       String,
 ) -> Result<Unit, Error>
     expect(plain, read_reply(plain)?, [220], "the greeting")?
     extensions = hello(plain, config)?
@@ -599,9 +599,9 @@ fn hello(session: Session, config: SmtpConfig) -> Result<List<String>, Error>
 end
 
 fn secure(
-    session: Session,
+    session:    Session,
     extensions: List<String>,
-    config: SmtpConfig,
+    config:     SmtpConfig,
 ) -> Result<(Session, List<String>), Error>
     wants = config.security == Security.StartTls or config.security == Security.StartTlsIfOffered
     offered = Iter.any_match(extensions, fn e -> e == "STARTTLS")
@@ -633,12 +633,12 @@ fn is_loopback(host: String) -> Bool
 end
 
 fn authenticate(
-    session: Session,
+    session:    Session,
     extensions: List<String>,
-    config: SmtpConfig,
+    config:     SmtpConfig,
 ) -> Result<Unit, Error>
     credentials = case config.credentials
-        None -> return Ok(Unit)
+        None    -> return Ok(Unit)
         Some(c) -> c
     end
 
@@ -712,8 +712,8 @@ end
 fn read_lines(session: Session, lines: List<String>) -> Result<Reply, Error>
     line = case Reader.read_line(Connection.reader(session.conn))
         Ok(Some(text)) -> text
-        Ok(None) -> return Err(Error.Network{reason: "the server closed the connection"})
-        Err(e) -> return Err(Error.Network{reason: "${e}"})
+        Ok(None)       -> return Err(Error.Network{reason: "the server closed the connection"})
+        Err(e)         -> return Err(Error.Network{reason: "${e}"})
     end
 
     code = case String.to_int(String.take(line, 3))
@@ -848,12 +848,12 @@ end
 //! import std::instant.Instant
 //!
 //! message = Message{
-//!     from: Address.new("a@example.com", name: "Ana")?,
-//!     to: [Address.new("b@example.com")?],
-//!     bcc: [Address.new("c@example.com")?],
+//!     from:    Address.new("a@example.com", name: "Ana")?,
+//!     to:      [Address.new("b@example.com")?],
+//!     bcc:     [Address.new("c@example.com")?],
 //!     subject: "Hello",
-//!     text: Some("Hi B.\n"),
-//!     html: Some(Html"<p>Hi B.</p>"),
+//!     text:    Some("Hi B.\n"),
+//!     html:    Some(Html"<p>Hi B.</p>"),
 //! }
 //!
 //! text = render(message, message_id: Some("<1@example.com>"), date: Some(Instant.from_seconds(0)))?
@@ -883,20 +883,20 @@ end
 //!     ], "\r\n")
 //
 pub fn render(
-    message: Message,
+    message:    Message,
     message_id: Maybe<String> = None,
-    date: Maybe<Instant> = None,
+    date:       Maybe<Instant> = None,
 ) -> Result<String, Error>
     check_message(message)?
 
     id = case message_id
         Some(given) -> given
-        None -> new_message_id(message.from)
+        None        -> new_message_id(message.from)
     end
 
     at = case date
         Some(given) -> given
-        None -> Instant.now()
+        None        -> Instant.now()
     end
 
     (content_headers, body) = content(message)
@@ -930,10 +930,11 @@ fn content(message: Message) -> (List<String>, String)
             message.html |> Maybe.map(fn html -> html_part(Html.to_string(html))),
         ]
         |> Maybe.values()
+        |> Iter.to_list()
 
     main = case bodies
-        [] -> None
-        [one] -> Some(one)
+        []      -> None
+        [one]   -> Some(one)
         several -> Some(multipart("alternative", several))
     end
 

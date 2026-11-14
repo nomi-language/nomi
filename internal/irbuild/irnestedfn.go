@@ -426,11 +426,13 @@ func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda,
 	if fd.ReturnTypeExpr != nil {
 		result = bl.g.typeOf(fd.ReturnTypeExpr)
 	}
-	fk := funcKindIn(bl.g, params, result)
-	if !irCallableValueKind(fk) {
-		bl.g.dc.note("a recursive nested fn whose signature is outside the domain: " + fd.Name)
-		return false
+	// Each kind is a declared type, projected (under an instance's frame
+	// for a generic one), so the function kind is callable.
+	for _, p := range params {
+		irHeldOperand(p, "a recursive nested fn's parameter")
 	}
+	irHeldOperand(result, "a recursive nested fn's result")
+	fk := funcKindIn(bl.g, params, result)
 	saved := bl.recursive
 	bl.recursive = &irRecursiveFn{lam: lam, name: name, k: fk}
 	val, got, _, ok := bl.lambda(lam)

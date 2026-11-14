@@ -16,13 +16,13 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// One post as it is stored: its id and its parent's id. The root's parent
 /// is itself.
 pub struct Record
-    id: Int
+    id:     Int
     parent: Int
 end
 
 /// A post and its replies, ordered by id.
 pub struct Node
-    id: Int
+    id:       Int
     children: List<Node> = []
 end
 
@@ -87,7 +87,7 @@ end
 
 test "build tree"
     cases: List<(String, List<Record>, Maybe<Node>)> = [
-        ("empty list", [], None),
+        ("empty list",    [],                   None),
         ("single record", [{id: 0, parent: 0}], Some(leaf(0))),
         (
             "three records in order",

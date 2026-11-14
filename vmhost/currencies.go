@@ -282,7 +282,7 @@ func resultOfCurrency(ty analysis.Type) bool {
 // literalFormHint is the hint at a `Currency.custom` call with literal
 // arguments: the literal that writes the same currency.
 func literalFormHint(currency string) string {
-	return fmt.Sprintf("write Currency`%s`, which the compiler checks", currency)
+	return fmt.Sprintf("write Currency\"%s\", which the compiler checks", currency)
 }
 
 // checkCurrencyCalls answers the diagnostic of each literal `Currency.custom`

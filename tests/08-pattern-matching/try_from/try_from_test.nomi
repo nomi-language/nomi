@@ -6,9 +6,9 @@ import errors.{ApiError, DiskError, NetError, Noted}
 
 fn read(name: String) -> Result<Int, DiskError>
     case name
-        "full" -> Err(.Full(name))
+        "full"    -> Err(.Full(name))
         "missing" -> Err(.Missing(name))
-        _ -> Ok(String.length(name))
+        _         -> Ok(String.length(name))
     end
 end
 

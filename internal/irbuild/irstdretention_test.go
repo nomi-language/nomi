@@ -158,10 +158,7 @@ end
 
 fn main()
   io.inspect(show(2.50d))
-  case Date"2024-01-02"
-    Ok(d) -> io.inspect(day(d))
-    Err(_) -> io.print("bad")
-  end
+  io.inspect(day(Date"2024-01-02"))
 end
 `, "2.50d\n2024-01-02\n",
 			[]string{"show", "day", "main"}},

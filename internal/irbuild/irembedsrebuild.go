@@ -249,10 +249,11 @@ func (bl *irScalarBuilder) rebuildMapped(at ast.Node, v ir.Temp, over ir.IterDom
 // converts its argument: a generic enum's variants matched and made again,
 // or any other part converted as rebuildPart does.
 func (bl *irScalarBuilder) rebuildAdapter(at ast.Node, have, want kind) (ir.Temp, bool) {
+	// have is a part of a lowered value (an element, a payload, a map
+	// value) and want the same part of the kind it enters.
+	irHeldOperand(have, "a rebuilt part")
+	irHeldOperand(want, "a rebuilt part's target")
 	fk := funcKindIn(bl.g, []kind{have}, want)
-	if !irCallableValueKind(fk) {
-		return ir.NoTemp, false
-	}
 	key := [2]kind{have, want}
 	if _, building := bl.g.rebuilding[key]; building {
 		// The enum's own instance inside its payload (`Chain<T>` in its

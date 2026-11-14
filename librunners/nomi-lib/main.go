@@ -185,7 +185,7 @@ var (
 	_ = testside.RemoveAll
 //line github.com/nomi-language/nomi/lib/sql/sqlkit/sqlkit_test.nomi:1035
 	_ = testside.TempDir
-//line github.com/nomi-language/nomi/lib/sql/sqlkit/tools/generate.nomi:37
+//line github.com/nomi-language/nomi/lib/sql/sqlkit/tools/generate.nomi:38
 	_ = toolside.Config
 )
 
@@ -603,6 +603,15 @@ func nomiHostBind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	}
 	if b.d27, err = env.Desc(nomiHostSpec_d27); err != nil {
 		return nil, err
+	}
+	if env.AddParts != nil {
+		env.AddParts("postgres/postgres.connect_raw", b.fn59Parts)
+		env.AddParts("postgres/postgres.listen_raw", b.fn81Parts)
+		env.AddParts("postgres/postgres.scratch_raw", b.fn91Parts)
+		env.AddParts("sqlite/sqlite.open_raw", b.fn136Parts)
+		env.AddParts("remove_all", b.fn141Parts)
+		env.AddParts("temp_dir", b.fn142Parts)
+		env.AddParts("sqlkit/tools/generate.config_text", b.fn143Parts)
 	}
 	return map[string]hostadapt.Func{
 		"image/image.crop_raw":                                b.fn1,
@@ -1459,6 +1468,29 @@ func (b *nomiHostBound) fn59(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	return ok, nil
 }
 
+// fn59Parts is postgres/postgres.connect_raw taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn59Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("postgres/postgres.connect_raw", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("postgres/postgres.connect_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("postgres/postgres.connect_raw", 0, "goside.Connect", "url", err)
+	}
+	r0, e := goside4.Connect(fr.Context(), a0)
+	if e != nil {
+		rec := b.d12.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out51(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Connect", err)
+	}
+	return v, true, nil
+}
+
 // in64 reads a Item as Go goside4.Item.
 func (b *nomiHostBound) in64(fr *rt.Frame, v rt.Value) (out goside4.Item, err error) {
 	r, err := hostadapt.Record(v, "postgres.Item")
@@ -1837,6 +1869,33 @@ func (b *nomiHostBound) fn81(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	return ok, nil
 }
 
+// fn81Parts is postgres/postgres.listen_raw taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn81Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("postgres/postgres.listen_raw", &err)
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("postgres/postgres.listen_raw", 2, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("postgres/postgres.listen_raw", 0, "goside.Listen", "url", err)
+	}
+	a1, err := b.in24(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("postgres/postgres.listen_raw", 1, "goside.Listen", "channel", err)
+	}
+	r0, e := goside4.Listen(fr.Context(), a0, a1)
+	if e != nil {
+		rec := b.d12.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out82(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Listen", err)
+	}
+	return v, true, nil
+}
+
 // out84 builds a Bool from Go bool.
 func (b *nomiHostBound) out84(v bool) (rt.Value, error) {
 	return bool(v), nil
@@ -1995,6 +2054,25 @@ func (b *nomiHostBound) fn91(fr *rt.Frame, args []rt.Value) (_ rt.Value, err err
 	ok := b.d17.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
+}
+
+// fn91Parts is postgres/postgres.scratch_raw taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn91Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("postgres/postgres.scratch_raw", &err)
+	if len(args) != 0 {
+		return nil, false, hostadapt.Arity("postgres/postgres.scratch_raw", 0, len(args))
+	}
+	r0, e := goside4.Scratch(fr.Context())
+	if e != nil {
+		rec := b.d17.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out16(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Scratch", err)
+	}
+	return v, true, nil
 }
 
 // out93 builds a Notice from Go goside4.Notice.
@@ -2608,6 +2686,29 @@ func (b *nomiHostBound) fn136(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	return ok, nil
 }
 
+// fn136Parts is sqlite/sqlite.open_raw taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn136Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.open_raw", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("sqlite/sqlite.open_raw", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("sqlite/sqlite.open_raw", 0, "goside.Open", "path", err)
+	}
+	r0, e := goside5.Open(a0)
+	if e != nil {
+		rec := b.d12.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out137(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Open", err)
+	}
+	return v, true, nil
+}
+
 // fn138 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
 func (b *nomiHostBound) fn138(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.ping_raw", &err)
@@ -2715,6 +2816,25 @@ func (b *nomiHostBound) fn141(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	return ok, nil
 }
 
+// fn141Parts is remove_all taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn141Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("remove_all", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("remove_all", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("remove_all", 0, "testside.RemoveAll", "path", err)
+	}
+	e := testside.RemoveAll(a0)
+	if e != nil {
+		rec := b.d12.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	return rt.Unit{}, true, nil
+}
+
 // fn142 adapts temp_dir: temp_dir() -> Result<String, String>
 func (b *nomiHostBound) fn142(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("temp_dir", &err)
@@ -2734,6 +2854,25 @@ func (b *nomiHostBound) fn142(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	ok := b.d17.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
+}
+
+// fn142Parts is temp_dir taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn142Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("temp_dir", &err)
+	if len(args) != 0 {
+		return nil, false, hostadapt.Arity("temp_dir", 0, len(args))
+	}
+	r0, e := testside.TempDir()
+	if e != nil {
+		rec := b.d17.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out16(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("testside.TempDir", err)
+	}
+	return v, true, nil
 }
 
 // fn143 adapts sqlkit/tools/generate.config_text: config_text(root: String) -> Result<String, String>
@@ -2759,6 +2898,29 @@ func (b *nomiHostBound) fn143(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 	ok := b.d17.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
+}
+
+// fn143Parts is sqlkit/tools/generate.config_text taken apart: the payload and true, or the record and false.
+func (b *nomiHostBound) fn143Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("sqlkit/tools/generate.config_text", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("sqlkit/tools/generate.config_text", 1, len(args))
+	}
+	a0, err := b.in24(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("sqlkit/tools/generate.config_text", 0, "toolside.Config", "root", err)
+	}
+	r0, e := toolside.Config(a0)
+	if e != nil {
+		rec := b.d17.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out16(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("toolside.Config", err)
+	}
+	return v, true, nil
 }
 
 // nomiHostTable is the VM host table of this wrapper's bindings: the

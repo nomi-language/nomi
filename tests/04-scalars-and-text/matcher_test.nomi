@@ -6,7 +6,7 @@ end
 
 test "split takes a string or a regex"
     assert String.split("a,b,,c", ",") == ["a", "b", "", "c"]
-    assert String.split("a,b,,c", Regex`,+`) == ["a", "b", "c"]
+    assert String.split("a,b,,c", Regex",+") == ["a", "b", "c"]
     assert "one  two\tthree" |> String.split(" ") == ["one", "", "two\tthree"]
     assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
 end
@@ -38,8 +38,8 @@ test "starts_with and ends_with anchor a regex to that end"
 end
 
 test "ends_with finds a match ending at the end, not only the leftmost one"
-    assert String.ends_with("ab", Regex`a|ab`)
-    assert String.ends_with("xab", Regex`b|xab`)
+    assert String.ends_with("ab", Regex"a|ab")
+    assert String.ends_with("xab", Regex"b|xab")
 end
 
 test "replace takes a string or a regex and replaces every match"
@@ -53,7 +53,7 @@ test "find_all lists every match"
     assert String.find_all("order 66, aisle 7", Regex`\d+`) == ["66", "7"]
     assert "banana" |> String.find_all("an") == ["an", "an"]
     assert String.find_all("banana", "x") == []
-    assert "banana" |> String.find_all(Regex`x`) == []
+    assert "banana" |> String.find_all(Regex"x") == []
 end
 
 test "find returns the first match, from a string or a regex"
@@ -67,15 +67,15 @@ end
 test "find with an empty needle or an empty regex match finds the empty string"
     assert String.find("abc", "") == Some("")
     assert String.find("", "") == Some("")
-    assert String.find("baaa", Regex`a*`) == Some("")
-    assert String.find("", Regex`x*`) == Some("")
-    assert String.find("abc", Regex`^`) == Some("")
+    assert String.find("baaa", Regex"a*") == Some("")
+    assert String.find("", Regex"x*") == Some("")
+    assert String.find("abc", Regex"^") == Some("")
 end
 
 test "find works over Unicode text"
     assert String.find("café crème", Regex`\p{L}*é`) == Some("café")
     assert String.find("na🙂ve 🙂", "🙂") == Some("🙂")
-    assert String.find("ééé", Regex`é+`) == Some("ééé")
+    assert String.find("ééé", Regex"é+") == Some("ééé")
     assert String.find("héllo", "e") == None
 end
 
@@ -86,8 +86,8 @@ test "find is the first element find_all returns"
     assert Iter.all_match(texts, &first_agrees(&1, ""))
     assert Iter.all_match(texts, &first_agrees(&1, "z"))
     assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`\d+`))
-    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`a*`))
-    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`a|an`))
+    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex"a*"))
+    assert Iter.all_match(texts, fn t -> first_agrees(t, Regex"a|an"))
     assert Iter.all_match(texts, fn t -> first_agrees(t, Regex`\p{L}+`))
 end
 

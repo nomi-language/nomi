@@ -21,7 +21,7 @@ end
 
 fn shape(text: String) -> Json
     case Json.decode(text)
-        Ok(j) -> j
+        Ok(j)  -> j
         Err(_) -> Json.Null
     end
 end

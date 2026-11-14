@@ -34,7 +34,7 @@ func TestFormat_CaseArmSpacingFollowsTheLayout(t *testing.T) {
 		},
 		"subject-less case with flat arms": {
 			src:  "fn f(x: Int) -> String\n    case\n        x > 0 -> \"positive\"\n\n        x < 0 -> \"negative\"\n        _ -> \"zero\"\n    end\nend\n",
-			want: "fn f(x: Int) -> String\n    case\n        x > 0 -> \"positive\"\n        x < 0 -> \"negative\"\n        _ -> \"zero\"\n    end\nend\n",
+			want: "fn f(x: Int) -> String\n    case\n        x > 0 -> \"positive\"\n        x < 0 -> \"negative\"\n        _     -> \"zero\"\n    end\nend\n",
 		},
 	}
 	for name, c := range cases {

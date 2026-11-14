@@ -119,24 +119,18 @@ const (
 	// disguise, so nothing can mistake it for a real list of anything; coerce
 	// widens it wherever a `List<T>` is wanted. See collections.go.
 	tagEmptyList
-	// tagBareNone is the prelude `None` written without a type argument. Its
-	// own tag, and not a `Maybe<Unit>` in disguise, for the reason
-	// tagEmptyList has one: it is an UNTYPED literal whose type the checker
-	// solves from context, and coerce discharges it at the one place that
-	// context is known. See prelude.go.
-	tagBareNone
 	// tagMap is `Map<K, V>`. Structural, like tagList: the identity is the
 	// interned *compKind. See maps.go — and note that its key operations are
 	// EMITTED function values rather than anything the tag carries, because a
 	// Nomi map key is compared structurally and not by any user impl.
 	tagMap
 	// tagEmptyMap is `{}` before its type arguments are known — the
-	// third untyped literal, alongside tagEmptyList and tagBareNone, and it
-	// exists for the same reason: the checker solves the type from context and
+	// second untyped literal, alongside tagEmptyList, and it exists for the
+	// same reason: the checker solves the type from context and
 	// coerce discharges it at the one place that context is known.
 	tagEmptyMap
 	// tagEmptySet is the untyped `[]` — the FOURTH untyped literal, alongside
-	// tagEmptyList, tagBareNone and tagEmptyMap, and it exists for exactly
+	// tagEmptyList and tagEmptyMap, and it exists for exactly
 	// their reason: a set literal with no elements has no element type, the
 	// checker solves it from context, and coerce discharges it at the one place
 	// that context is known.
@@ -147,7 +141,7 @@ const (
 	// stdgenstruct.go and sets.go.
 	tagEmptySet
 	// tagEmptyVector is the untyped `[]` — the FIFTH untyped literal, alongside
-	// tagEmptyList, tagBareNone, tagEmptyMap and tagEmptySet, and it exists for
+	// tagEmptyList, tagEmptyMap and tagEmptySet, and it exists for
 	// exactly their reason: a vector literal with no elements has no element
 	// type, the checker solves it from context, and coerce discharges it at the
 	// one place that context is known. `06-collections/vectors_test.nomi` writes
@@ -196,9 +190,6 @@ var (
 	// wherever any value goes: no execution ever reads one. irnever.go has
 	// the rules.
 	kindNever = kind{tag: tagNever}
-	// kindBareNone is the prelude `None` before its type argument is known.
-	// See prelude.go: it exists only to be discharged by coerce.
-	kindBareNone = kind{tag: tagBareNone}
 	// kindEmptyMap is `{}` before its type arguments are known. Its
 	// Go type is the only one an entry-less map can be given, and it is never
 	// wrong because there is no entry to observe. See maps.go.
@@ -301,8 +292,6 @@ func (k kind) nomi() string {
 		return k.tp.nomi
 	case tagEmptyList:
 		return "List<_>"
-	case tagBareNone:
-		return "Maybe<_>.None"
 	case tagEmptyMap:
 		return "Map<_, _>"
 	case tagEmptySet:
@@ -541,8 +530,8 @@ type gen struct {
 	// bareSiblingOnceRef.
 	onces       map[string]*onceDef
 	oncesByDecl map[ast.Node]*onceDef
-	// literalCells holds the lazy cell of each backtick typed literal this
-	// unit lowered whose handler can fail, by the literal's node, and
+	// literalCells holds the lazy cell of each typed literal without slots this
+	// unit lowered, by the literal's node, and
 	// literalSites lists them in the order they were declared. See
 	// irliteralcell.go.
 	literalCells map[*ast.TaggedString]*ir.Symbol

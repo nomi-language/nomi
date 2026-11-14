@@ -96,15 +96,16 @@ func HashUnit(Unit) uint64 { return 0x1 }
 // entry written through one and read through the other has to land in the same
 // place.
 //
-// It folds the visible window — `Items[Start+i]` for `i` in `[0, Len)` — which is
-// the property that makes it agree with VectorEqual. A view and a freshly built
-// vector holding the same elements are Equal, so they must hash alike; folding
-// the backing slice instead would bucket a tail by elements it cannot see, and
-// the entry would be written and then unreachable.
+// It folds the visible window in order, which is the property that makes it
+// agree with VectorEqual. A view and a freshly built vector holding the same
+// elements are Equal, so they must hash alike; folding the trie behind a view
+// instead would bucket a tail by elements it cannot see, and the entry would be
+// written and then unreachable.
 func HashVector[T any](v Vector[T], h func(T) uint64) uint64 {
 	acc := uint64(0x200)
-	for i := range v.Len {
-		acc = HashMix(acc, h(v.Items[v.Start+i]))
-	}
+	VectorEachWhile(nil, v, func(_ *Frame, x T) bool {
+		acc = HashMix(acc, h(x))
+		return true
+	})
 	return acc
 }

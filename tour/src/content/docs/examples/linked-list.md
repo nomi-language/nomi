@@ -22,7 +22,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// out takes the other list's values, reversed.
 pub opaque struct LinkedList<T>
     front: List<T>
-    back: List<T>
+    back:  List<T>
 end
 
 impl LinkedList<T>
@@ -51,7 +51,7 @@ impl LinkedList<T>
             [] ->
                 case Iter.reverse(list.front)
                     [last, ..back] -> Some((last, {front: [], back:}))
-                    [] -> None
+                    []             -> None
                 end
         end
     end
@@ -66,7 +66,7 @@ impl LinkedList<T>
             [] ->
                 case Iter.reverse(list.back)
                     [first, ..front] -> Some((first, {front:, back: []}))
-                    [] -> None
+                    []               -> None
                 end
         end
     end
@@ -120,13 +120,13 @@ fn replay(steps: List<Step>) -> List<Step>
                 .Pop(_) or .PopFails ->
                     case LinkedList.pop(list)
                         Some((value, rest)) -> (rest, .Pop(value))
-                        None -> (list, .PopFails)
+                        None                -> (list, .PopFails)
                     end
 
                 .Shift(_) or .ShiftFails ->
                     case LinkedList.shift(list)
                         Some((value, rest)) -> (rest, .Shift(value))
-                        None -> (list, .ShiftFails)
+                        None                -> (list, .ShiftFails)
                     end
 
                 .Count(_) ->
@@ -147,7 +147,7 @@ test "linked list"
             "push/pop respectively add/remove at the end of the list",
             [.Push(11), .Push(13), .Pop(13), .Pop(11)],
         ),
-        ("shift gets an element from the list", [.Push(17), .Shift(17)]),
+        ("shift gets an element from the list",    [.Push(17), .Shift(17)]),
         ("shift gets first element from the list", [.Push(23), .Push(5), .Shift(23), .Shift(5)]),
         (
             "unshift adds element at start of the list",
@@ -168,7 +168,7 @@ test "linked list"
                 .Shift(3),
             ],
         ),
-        ("count an empty list", [.Count(0)]),
+        ("count an empty list",     [.Count(0)]),
         ("count a list with items", [.Push(37), .Push(1), .Count(2)]),
         (
             "count is correct after mutation",

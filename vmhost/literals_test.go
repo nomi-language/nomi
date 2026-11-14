@@ -24,10 +24,10 @@ func literalDiagnostics(t *testing.T, src string) Diagnostics {
 	return ds
 }
 
-// A backtick Regex literal is a Regex: bound with an annotation, in a
-// `once`, passed to String.find_all. Double-quoted ones, with and without
-// interpolation, are still Results.
-func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
+// A Regex literal without slots is a Regex in every quote style: bound with
+// an annotation, in a `once`, passed to String.find_all. Ones with a slot
+// are still Results.
+func TestLiteralWithoutSlots_IsItsHandlersOkValue(t *testing.T) {
 	const src = "import\n" +
 		"    std::io\n" +
 		"    std::regex.Regex\n" +
@@ -38,11 +38,13 @@ func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
 		"    io.print(String.find_all(\"order 66, aisle 7\", digits))\n" +
 		"    io.print(String.find_all(\"order 66, aisle 7\", letters))\n" +
 		"    io.print(String.find_all(\"banana\", Regex`a.`))\n" +
-		"    plain: Result<Regex<Unit>, String> = Regex\"\\\\d\"\n" +
+		"    plain: Regex<Unit> = Regex\"\\\\d\"\n" +
+		"    triple: Regex<Unit> = Regex\"\"\"\n        \\w\n        \"\"\"\n" +
 		"    word = \"an\"\n" +
 		"    spliced: Result<Regex<List<Maybe<String>>>, String> = Regex\"${word}+\"\n" +
 		"    bad: Result<Regex<List<Maybe<String>>>, String> = Regex\"[${word}\"\n" +
 		"    io.print(Debug.inspect(plain))\n" +
+		"    io.print(Debug.inspect(triple))\n" +
 		"    io.print(Debug.inspect(spliced))\n" +
 		"    io.print(Result.with_default(Result.map(bad, Regex.pattern), \"invalid at run time\"))\n" +
 		"end\n"
@@ -54,7 +56,7 @@ func TestBacktickLiteral_IsItsHandlersOkValue(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	want := "[66, 7]\n[order, aisle]\n[an, an]\nOk(Regex`\\d`)\nOk(Regex`an+`)\ninvalid at run time\n"
+	want := "[66, 7]\n[order, aisle]\n[an, an]\nRegex`\\d`\nRegex`\\w`\nOk(Regex\"an+\")\ninvalid at run time\n"
 	if out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
 	}
@@ -89,18 +91,26 @@ func TestBacktickLiteral_InvalidPatternIsACompileError(t *testing.T) {
 }
 
 // An Err that is not a String is shown through its Display impl, as a
-// failed main's error is.
-func TestBacktickLiteral_ErrorIsShownThroughDisplay(t *testing.T) {
-	ds := literalDiagnostics(t, "import std::calendar.Date\n\nfn main()\n    _ = Date`2026-13-04`\nend\n")
-	if len(ds) != 1 || ds[0].Message != "typed literal Date`2026-13-04` is invalid: invalid value: month out of range: 13" {
-		t.Fatalf("diagnostics = %v", ds)
+// failed main's error is. A quoted literal without slots is checked as a
+// backtick one is, and a long one is named by its tag and quotes.
+func TestLiteralWithoutSlots_ErrorIsShownThroughDisplay(t *testing.T) {
+	for lit, want := range map[string]string{
+		"Date`2026-13-04`":   "typed literal Date`2026-13-04` is invalid: invalid value: month out of range: 13",
+		"Date\"2026-13-04\"": "typed literal Date\"2026-13-04\" is invalid: invalid value: month out of range: 13",
+		"Date\"\"\"\n        2026-13-04\n        \"\"\"": "typed literal Date\"\"\"…\"\"\" is invalid: invalid value: month out of range: 13",
+	} {
+		ds := literalDiagnostics(t, "import std::calendar.Date\n\nfn main()\n    _ = "+lit+"\nend\n")
+		if len(ds) != 1 || ds[0].Message != want {
+			t.Errorf("%s: diagnostics = %v, want %q", lit, ds, want)
+		}
 	}
 }
 
-// A handler that reaches an effect cannot run at compile time, so a
-// backtick literal of it is an error saying so, pointing at double quotes.
-// The double-quoted literal of the same handler loads.
-func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
+// A handler that reaches an effect cannot run at compile time, so a literal
+// of it without slots, in either quote style, is an error saying so, pointing
+// at the type's own functions. A literal of the same handler with a slot
+// loads.
+func TestLiteralWithoutSlots_EffectfulHandlerIsACompileError(t *testing.T) {
 	const decls = "import\n    std::io\n    std::literals.{Fragment, Literal}\nend\n\n" +
 		"struct Loud\n    n: Int\nend\n\n" +
 		"impl Literal for Loud\n" +
@@ -109,24 +119,26 @@ func TestBacktickLiteral_EffectfulHandlerIsACompileError(t *testing.T) {
 		"        Ok(Loud{n: Iter.count(fragments)})\n" +
 		"    end\n" +
 		"end\n\n"
-	ds := literalDiagnostics(t, decls+"fn main()\n    _ = Loud`x`\nend\n")
-	if len(ds) != 1 {
-		t.Fatalf("%d diagnostics, want 1: %v", len(ds), ds)
+	for _, lit := range []string{"Loud`x`", "Loud\"x\""} {
+		ds := literalDiagnostics(t, decls+"fn main()\n    _ = "+lit+"\nend\n")
+		if len(ds) != 1 {
+			t.Fatalf("%s: %d diagnostics, want 1: %v", lit, len(ds), ds)
+		}
+		if want := "typed literal " + lit + " cannot be checked at compile time: its handler has effects (Loud.from_fragments calls io.print)"; ds[0].Message != want {
+			t.Errorf("message = %q, want %q", ds[0].Message, want)
+		}
+		if want := "call one of `Loud`'s functions instead"; len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], want) {
+			t.Errorf("hints = %q, want one naming %q", ds[0].Hints, want)
+		}
 	}
-	if want := "typed literal Loud`x` cannot be checked at compile time: its handler has effects (Loud.from_fragments calls io.print)"; ds[0].Message != want {
-		t.Errorf("message = %q, want %q", ds[0].Message, want)
-	}
-	if len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], "write it with double quotes") {
-		t.Errorf("hints = %q", ds[0].Hints)
-	}
-	if _, err := LoadSource("main", decls+"fn main()\n    _ = Loud\"x\"\nend\n"); err != nil {
-		t.Fatalf("the double-quoted literal does not load: %v", err)
+	if _, err := LoadSource("main", decls+"fn main()\n    s = \"x\"\n    _ = Loud\"${s}\"\nend\n"); err != nil {
+		t.Fatalf("the literal with a slot does not load: %v", err)
 	}
 }
 
-// `?` on a backtick literal is the checker's "try requires a Result or
+// `?` on a literal without slots is the checker's "try requires a Result or
 // Maybe" error, with the hint.
-func TestBacktickLiteral_TryIsRejected(t *testing.T) {
+func TestLiteralWithoutSlots_TryIsRejected(t *testing.T) {
 	ds := literalDiagnostics(t, "import std::regex.Regex\n\nfn main() -> Result<Unit, String>\n    _ = Regex`\\d+`?\n    Ok(Unit)\nend\n")
 	if len(ds) != 1 || ds[0].Message != "`?` requires a Result or Maybe, got Regex<Unit>" {
 		t.Fatalf("diagnostics = %v", ds)
@@ -136,13 +148,13 @@ func TestBacktickLiteral_TryIsRejected(t *testing.T) {
 	}
 }
 
-// A backtick literal's handler runs once per literal site, not once per
-// evaluation: a literal in a loop reads its cell. Counted in VM steps (calls
-// and backward branches): the handler costs about 1,000, and the loop runs
-// 100 times, so rebuilding the literal each time would take over 100,000.
-// The double-quoted literal, which is not cached, shows the limit tells the
-// two apart.
-func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
+// A literal without slots runs its handler once per literal site, not once
+// per evaluation: a literal in a loop reads its cell, in either quote style.
+// Counted in VM steps (calls and backward branches): the handler costs about
+// 1,000, and the loop runs 100 times, so rebuilding the literal each time
+// would take over 100,000. The literal with a slot, which is not cached,
+// shows the limit tells the two apart.
+func TestLiteralWithoutSlots_InALoopIsBuiltOnce(t *testing.T) {
 	const src = "import std::literals.{Fragment, Literal}\n\n" +
 		"struct Slow\n    n: Int\nend\n\n" +
 		"impl Literal for Slow\n" +
@@ -155,9 +167,13 @@ func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
 		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Slow`x`.n)\n" +
 		"end\n\n" +
 		"fn quoted() -> Int\n" +
-		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Result.with_default(Result.map(Slow\"x\", fn s -> s.n), 0))\n" +
+		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Slow\"x\".n)\n" +
 		"end\n\n" +
-		"fn main()\n    _ = raw() + quoted()\nend\n"
+		"fn slotted() -> Int\n" +
+		"    s = \"x\"\n" +
+		"    Iter.reduce(1..=100, 0, fn acc, _i -> acc + Result.with_default(Result.map(Slow\"${s}\", fn v -> v.n), 0))\n" +
+		"end\n\n" +
+		"fn main()\n    _ = raw() + quoted() + slotted()\nend\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +183,46 @@ func TestBacktickLiteral_InALoopIsBuiltOnce(t *testing.T) {
 	if err != nil || v != int64(100*500501) {
 		t.Fatalf("raw() = %v, %v; want %d within %d steps", v, err, 100*500501, steps)
 	}
-	if _, err := p.Evaluate(context.Background(), "quoted", EvalLimits{Steps: steps}); !errors.Is(err, ErrEvalLimit) {
-		t.Fatalf("quoted() answered %v within %d steps; want ErrEvalLimit, or the limit cannot tell a rebuilt literal from a cached one", err, steps)
+	if v, err := p.Evaluate(context.Background(), "quoted", EvalLimits{Steps: steps}); err != nil || v != int64(100*500501) {
+		t.Fatalf("quoted() = %v, %v; want %d within %d steps", v, err, 100*500501, steps)
+	}
+	if _, err := p.Evaluate(context.Background(), "slotted", EvalLimits{Steps: steps}); !errors.Is(err, ErrEvalLimit) {
+		t.Fatalf("slotted() answered %v within %d steps; want ErrEvalLimit, or the limit cannot tell a rebuilt literal from a cached one", err, steps)
+	}
+}
+
+// A handler that cannot fail runs at compile time too: its literal keeps the
+// handler's type, and a handler that traps or reaches an effect makes a
+// literal without slots a compile error, while one with a slot loads.
+func TestLiteralWithoutSlots_InfallibleHandlerRunsAtCompileTime(t *testing.T) {
+	handler := func(body string) string {
+		return "import\n    std::io\n    std::literals.{Fragment, Literal}\nend\n\n" +
+			"struct Word\n    text: String\nend\n\n" +
+			"impl Literal for Word\n" +
+			"    fn from_fragments(fragments: List<Fragment<String>>) -> Word\n" +
+			body +
+			"    end\nend\n\n"
+	}
+	ok := handler("        Word{text: Iter.reduce(fragments, \"\", fn acc, f -> case f\n            .Static(s) -> acc + s\n            .Dynamic(s) -> acc + s\n        end)}\n")
+	p, err := LoadSource("main", ok+"fn main()\n    w: Word = Word\"hi\"\n    io.print(w.text)\nend\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := p.Run(context.Background(), &out, nil, false); err != nil || out.String() != "hi\n" {
+		t.Fatalf("run = %q, %v; want hi", out.String(), err)
+	}
+	traps := handler("        _ = fragments\n        Word{text: Int.to_string(1 / 0)}\n")
+	ds := literalDiagnostics(t, traps+"fn main()\n    io.print(Word\"x\".text)\nend\n")
+	if len(ds) != 1 || !strings.HasPrefix(ds[0].Message, "typed literal Word\"x\" cannot be checked at compile time: its handler failed: ") {
+		t.Errorf("a trapping handler: diagnostics = %v", ds)
+	}
+	loud := handler("        io.print(\"building\")\n        Word{text: Int.to_string(Iter.count(fragments))}\n")
+	ds = literalDiagnostics(t, loud+"fn main()\n    io.print(Word`x`.text)\nend\n")
+	if want := "typed literal Word`x` cannot be checked at compile time: its handler has effects (Word.from_fragments calls io.print)"; len(ds) != 1 || ds[0].Message != want {
+		t.Errorf("an effectful handler: diagnostics = %v, want %q", ds, want)
+	}
+	if _, err := LoadSource("main", traps+"fn main()\n    s = \"x\"\n    io.print(Word\"${s}\".text)\nend\n"); err != nil {
+		t.Fatalf("a literal with a slot does not load: %v", err)
 	}
 }

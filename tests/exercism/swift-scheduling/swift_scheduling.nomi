@@ -22,7 +22,7 @@ end
 /// 1 to 12 or `Q<N>` for a quarter from 1 to 4.
 pub fn delivery_date(
     meeting_start: NaiveDateTime,
-    description: String,
+    description:   String,
 ) -> Result<NaiveDateTime, Error>
     today = NaiveDateTime.to_date(meeting_start)
     year = Date.year(today)
@@ -63,10 +63,10 @@ end
 /// The description `text` names, or `UnknownDescription`.
 fn parse(text: String) -> Result<Description, Error>
     case text
-        "NOW" -> Ok(.Now)
+        "NOW"  -> Ok(.Now)
         "ASAP" -> Ok(.Asap)
-        "EOW" -> Ok(.EndOfWeek)
-        _ -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
+        "EOW"  -> Ok(.EndOfWeek)
+        _      -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
     end
 end
 
@@ -86,7 +86,7 @@ end
 /// 20:00 for one later in the week.
 fn end_of_week(today: Date) -> NaiveDateTime
     case Date.weekday(today)
-        .Monday or .Tuesday or .Wednesday -> at(next_on(today, .Friday), 17)
+        .Monday or .Tuesday or .Wednesday            -> at(next_on(today, .Friday), 17)
         .Thursday or .Friday or .Saturday or .Sunday -> at(next_on(today, .Sunday), 20)
     end
 end

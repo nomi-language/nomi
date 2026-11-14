@@ -117,7 +117,8 @@ func (cj *checkJSON) file(path string, err error) {
 }
 
 // warnings reports a program's warnings, each once across the run, as
-// diagnostics of severity "warning", which fail no file.
+// diagnostics of severity "warning", or "hint" for one marked Hint (`nomi
+// check --hints`), which fail no file.
 func (cj *checkJSON) warnings(ds vmhost.Diagnostics) {
 	for _, d := range ds {
 		key := d.String()
@@ -127,6 +128,9 @@ func (cj *checkJSON) warnings(ds vmhost.Diagnostics) {
 		cj.reported[key] = true
 		r := cj.diagnostic(d.Path, d)
 		r.Severity = "warning"
+		if d.Hint {
+			r.Severity = "hint"
+		}
 		cj.write(r)
 	}
 }

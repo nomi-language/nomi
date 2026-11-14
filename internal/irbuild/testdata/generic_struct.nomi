@@ -45,7 +45,7 @@ pub struct Crate<T>
 end
 
 pub struct Pair<A, B>
-    first: A
+    first:  A
     second: B
 end
 

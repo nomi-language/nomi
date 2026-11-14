@@ -154,6 +154,13 @@ type typeRegistry struct {
 	// keyed by pointer so that a lowering of one file (perfile.go) can be
 	// given what the program's other files hold erased and box.
 	boxedEnums map[string]bool
+	// debugRendered is, by its spelling (debugIfaceKey), each interface
+	// whose values some body renders through every implementer's Debug in
+	// the program (existentialDebugImpls), with the gens of those bodies:
+	// such a rendering reads every file's implementers, so a file lowered
+	// on its own cannot make it, nor change what another file's makes,
+	// without missing (perfile.go, KeptDebugRendering).
+	debugRendered map[string]map[*gen]bool
 	// perFile is what a lowering of one file is given of its program, or
 	// nil (perfile.go).
 	perFile *perFileState
@@ -771,7 +778,7 @@ func (g *gen) importKind(k kind) (kind, bool) {
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
 	case tagUnit, tagInt, tagFloat, tagString, tagBool, tagNever,
-		tagEmptyList, tagBareNone, tagEmptyMap, tagEmptySet, tagEmptyVector:
+		tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
 		return k, true
 	case tagSeq:
 		elem, ok := g.importKind(k.comp.parts[0])

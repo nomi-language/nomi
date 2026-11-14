@@ -19,7 +19,7 @@ fn fresh_local(root: String) -> Result<Store, storage.Error>
     id =
         Uuid.v4() |> Result.map_err(fn e -> storage.Error.Backend{code: "Random", message: "${e}"})?
 
-    Ok(storage.local("${root}/${id}", public_base: Some(Url`/files/`)))
+    Ok(storage.local("${root}/${id}", public_base: Some(Url"/files/")))
 end
 
 test "Memory passes the conformance suite"
@@ -89,7 +89,7 @@ test "a key cannot climb out of the root"
     end)
 
     assert ran.value == Err(storage.Error.InvalidKey{
-            key: "../outside.txt",
+            key:    "../outside.txt",
             reason: "segment .. starts with a dot",
         })
 
@@ -101,9 +101,9 @@ test "a store with no public base has no URLs"
 end
 
 fn serve(
-    store: Store,
-    method: Method,
-    key: String,
+    store:   Store,
+    method:  Method,
+    key:     String,
     headers: List<(String, String)> = [],
 ) -> Response
     request = http_testing.request(method, "/files/${key}")
@@ -183,7 +183,7 @@ test "the local store writes the characters a file name cannot hold as escapes"
 end
 
 test "a key's URL routes back to its object"
-    store = Memory.new(public_base: Url`http://app.test/files/`)
+    store = Memory.new(public_base: Url"http://app.test/files/")
     files = storage.handler(store)
     router = Router.new([Route.to_with("GET /files/{key...}", fn r, _ -> files(r))])!
     keys = ["a(1) b.jpg", "50%25/#x?y.txt", "café/日本.png"]

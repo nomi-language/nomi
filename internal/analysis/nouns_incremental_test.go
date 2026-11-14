@@ -24,7 +24,7 @@ func nounsProject(tb testing.TB) incrementalProject {
 		"locales/pl/stock.toml": "[laptop]\nsource = '''laptop'''\ngender = \"inanimate\"\nnominative = '''laptop'''\ngenitive = '''laptopa'''\n",
 	}
 	p := incrementalProject{name: "nouns", entry: "main", dir: dir, texts: map[string]string{
-		"main":  "import\n    std::io\n    shop\n    stock\nend\n\nfn main()\n    io.print(Phrase.format(shop.has_shipped(stock.laptop), Locale`pl`))\nend\n",
+		"main":  "import\n    std::io\n    shop\n    stock\nend\n\nfn main()\n    io.print(Phrase.format(shop.has_shipped(stock.laptop), Locale\"pl\"))\nend\n",
 		"shop":  "pub noun book `" + book + "`\n\npub phrase has_shipped(product: Noun) `Your {$product :nomi:noun} has shipped.`\n\npub phrase sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`\n",
 		"stock": "pub noun laptop `laptop`\n",
 	}}

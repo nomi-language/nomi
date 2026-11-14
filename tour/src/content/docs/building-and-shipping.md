@@ -135,7 +135,7 @@ each function the page may call with `export`:
 import std::json.{FromJson, ToJson}
 
 struct Game
-    word: String
+    word:    String
     guesses: List<String>
 end
 

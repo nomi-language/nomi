@@ -16,7 +16,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// A fraction kept in lowest terms with a positive denominator, so two
 /// equal rationals have the same fields and `==` compares them.
 pub opaque struct Rational
-    numerator: Int
+    numerator:   Int
     denominator: Int
 end
 
@@ -107,8 +107,8 @@ test "addition"
             (-2, 3),
             (-1, 6),
         ),
-        ("Add two negative rational numbers", (-1, 2), (-2, 3), (-7, 6)),
-        ("Add a rational number to its additive inverse", (1, 2), (-1, 2), (0, 1)),
+        ("Add two negative rational numbers",             (-1, 2), (-2, 3), (-7, 6)),
+        ("Add a rational number to its additive inverse", (1, 2),  (-1, 2), (0, 1)),
     ]
     |> subtests (description, a, b, expected), description
         assert rational(a) + rational(b) == rational(expected)
@@ -125,7 +125,7 @@ test "subtraction"
             (7, 6),
         ),
         ("Subtract two negative rational numbers", (-1, 2), (-2, 3), (1, 6)),
-        ("Subtract a rational number from itself", (1, 2), (1, 2), (0, 1)),
+        ("Subtract a rational number from itself", (1, 2),  (1, 2),  (0, 1)),
     ]
     |> subtests (description, a, b, expected), description
         assert rational(a) - rational(b) == rational(expected)
@@ -141,10 +141,10 @@ test "multiplication"
             (2, 3),
             (-1, 3),
         ),
-        ("Multiply two negative rational numbers", (-1, 2), (-2, 3), (1, 3)),
-        ("Multiply a rational number by its reciprocal", (1, 2), (2, 1), (1, 1)),
-        ("Multiply a rational number by 1", (1, 2), (1, 1), (1, 2)),
-        ("Multiply a rational number by 0", (1, 2), (0, 1), (0, 1)),
+        ("Multiply two negative rational numbers",       (-1, 2), (-2, 3), (1, 3)),
+        ("Multiply a rational number by its reciprocal", (1, 2),  (2, 1),  (1, 1)),
+        ("Multiply a rational number by 1",              (1, 2),  (1, 1),  (1, 2)),
+        ("Multiply a rational number by 0",              (1, 2),  (0, 1),  (0, 1)),
     ]
     |> subtests (description, a, b, expected), description
         assert rational(a) * rational(b) == rational(expected)
@@ -161,7 +161,7 @@ test "division"
             (-3, 4),
         ),
         ("Divide two negative rational numbers", (-1, 2), (-2, 3), (3, 4)),
-        ("Divide a rational number by 1", (1, 2), (1, 1), (1, 2)),
+        ("Divide a rational number by 1",        (1, 2),  (1, 1),  (1, 2)),
     ]
     |> subtests (description, a, b, expected), description
         assert rational(a) / rational(b) == rational(expected)
@@ -182,7 +182,7 @@ test "absolute value"
             (1, -2),
             (1, 2),
         ),
-        ("Absolute value of zero", (0, 1), (0, 1)),
+        ("Absolute value of zero",                                         (0, 1), (0, 1)),
         ("Absolute value of a rational number is reduced to lowest terms", (2, 4), (1, 2)),
     ]
     |> subtests (description, r, expected), description
@@ -192,9 +192,9 @@ end
 
 test "a rational to an integer power"
     [
-        ("Raise a positive rational number to a positive integer power", (1, 2), 3, (1, 8)),
-        ("Raise a negative rational number to a positive integer power", (-1, 2), 3, (-1, 8)),
-        ("Raise a positive rational number to a negative integer power", (3, 5), -2, (25, 9)),
+        ("Raise a positive rational number to a positive integer power", (1, 2),  3,  (1, 8)),
+        ("Raise a negative rational number to a positive integer power", (-1, 2), 3,  (-1, 8)),
+        ("Raise a positive rational number to a negative integer power", (3, 5),  -2, (25, 9)),
         (
             "Raise a negative rational number to an even negative integer power",
             (-3, 5),
@@ -207,9 +207,9 @@ test "a rational to an integer power"
             -3,
             (-125, 27),
         ),
-        ("Raise zero to an integer power", (0, 1), 5, (0, 1)),
-        ("Raise one to an integer power", (1, 1), 4, (1, 1)),
-        ("Raise a positive rational number to the power of zero", (1, 2), 0, (1, 1)),
+        ("Raise zero to an integer power",                        (0, 1),  5, (0, 1)),
+        ("Raise one to an integer power",                         (1, 1),  4, (1, 1)),
+        ("Raise a positive rational number to the power of zero", (1, 2),  0, (1, 1)),
         ("Raise a negative rational number to the power of zero", (-1, 2), 0, (1, 1)),
     ]
     |> subtests (description, r, n, expected), description
@@ -219,9 +219,9 @@ end
 
 test "a real number to a rational power"
     [
-        ("Raise a real number to a positive rational number", 8.0, (4, 3), 16.0),
+        ("Raise a real number to a positive rational number", 8.0, (4, 3),  16.0),
         ("Raise a real number to a negative rational number", 9.0, (-1, 2), 0.3333333333333333),
-        ("Raise a real number to a zero rational number", 2.0, (0, 1), 1.0),
+        ("Raise a real number to a zero rational number",     2.0, (0, 1),  1.0),
     ]
     |> subtests (description, x, r, expected), description
         assert x |> Rational.raise(rational(r)) |> Float.equal_within(expected, 1e-12)
@@ -230,17 +230,17 @@ end
 
 test "reduction to lowest terms"
     [
-        ("Reduce a positive rational number to lowest terms", (2, 4), (1, 2)),
-        ("Reduce places the minus sign on the numerator", (3, -4), (-3, 4)),
+        ("Reduce a positive rational number to lowest terms", (2, 4),  (1, 2)),
+        ("Reduce places the minus sign on the numerator",     (3, -4), (-3, 4)),
         ("Reduce a negative rational number to lowest terms", (-4, 6), (-2, 3)),
         (
             "Reduce a rational number with a negative denominator to lowest terms",
             (3, -9),
             (-1, 3),
         ),
-        ("Reduce zero to lowest terms", (0, 6), (0, 1)),
+        ("Reduce zero to lowest terms",       (0, 6),   (0, 1)),
         ("Reduce an integer to lowest terms", (-14, 7), (-2, 1)),
-        ("Reduce one to lowest terms", (13, 13), (1, 1)),
+        ("Reduce one to lowest terms",        (13, 13), (1, 1)),
     ]
     |> subtests (description, r, expected), description
         reduced = rational(r)

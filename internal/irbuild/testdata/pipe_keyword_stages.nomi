@@ -50,7 +50,7 @@ import std::io
 fn parse_id(s: String) -> Result<Int, String>
     case String.to_int(s)
         Some(id) -> Ok(id)
-        None -> Err("not a number: ${s}")
+        None     -> Err("not a number: ${s}")
     end
 end
 
@@ -110,7 +110,7 @@ fn ignored(m: Maybe<Int>) -> String
     m
     |> case
         Some(_) -> "something"
-        None -> "nothing"
+        None    -> "nothing"
     end
 end
 
@@ -144,7 +144,7 @@ fn mixed(n: Int) -> String
     end
     |> case
         Some(word) -> "yes:${word}"
-        None -> "no"
+        None       -> "no"
     end
 end
 
@@ -167,7 +167,7 @@ fn propagate(s: String) -> Result<Int, String>
         s
         |> case
             "" -> 0
-            _ -> parse_id(s)?
+            _  -> parse_id(s)?
         end
 
     Ok(doubled * 2)
@@ -179,7 +179,7 @@ end
 // reason it is not about.
 fn show(r: Result<Int, String>) -> String
     case r
-        Ok(n) -> "Ok(${n})"
+        Ok(n)  -> "Ok(${n})"
         Err(e) -> "Err(${e})"
     end
 end
@@ -202,7 +202,7 @@ fn main()
     // exactly one, however many arms the stage tests.
     io.print("once case = ${loud_maybe("case", 3) |> case
             Some(n) -> n
-            None -> 0
+            None    -> 0
         end}")
 
     io.print("once if = ${loud_bool("if", True) |> if then "t" else "f"}")

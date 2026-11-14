@@ -15,7 +15,7 @@ fn encode_run(run: List<String>) -> String
     letter = List.head(run)!
 
     case Iter.count(run)
-        1 -> letter
+        1     -> letter
         count -> "${count}${letter}"
     end
 end

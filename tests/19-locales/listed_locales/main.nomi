@@ -11,13 +11,13 @@ end
 
 /// The locale `tag` names, or de when it names none.
 pub fn chosen(tag: String) -> Locale
-    Result.with_default(Locale.parse(tag), Locale`de`)
+    Result.with_default(Locale.parse(tag), Locale"de")
 end
 
 fn main()
     io.print(Locale.available())
-    io.print(total(1234567, Locale`de`))
-    io.print(total(1234567, Locale`de-CH`))
+    io.print(total(1234567, Locale"de"))
+    io.print(total(1234567, Locale"de-CH"))
     io.print(total(1234567, chosen("fr")))
-    io.print(String.join_list(["a", "b", "c"], Locale`pl`))
+    io.print(String.join_list(["a", "b", "c"], Locale"pl"))
 end

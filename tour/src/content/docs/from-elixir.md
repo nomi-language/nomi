@@ -83,7 +83,7 @@ end
 fn parse_amount(text: String) -> Result<Int, String>
     case String.to_int(text)
         Some(n) when n >= 0 -> Ok(n)
-        _ -> Err("not an amount: ${text}")
+        _                   -> Err("not an amount: ${text}")
     end
 end
 

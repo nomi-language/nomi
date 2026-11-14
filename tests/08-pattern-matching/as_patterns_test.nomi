@@ -6,9 +6,9 @@ enum Kind
 end
 
 struct Tx
-    kind: Kind
+    kind:  Kind
     start: Int
-    stop: Int
+    stop:  Int
 end
 
 fn change(r: Result<Tx, String>) -> Int

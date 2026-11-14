@@ -50,7 +50,7 @@
 //#
 //# | Adapter | Infinite when |
 //# |---|---|
-//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map` | the source is, unless the callback can `break` |
+//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map`, `flatten`, `Maybe.values` | the source is, unless the callback can `break` |
 //# | `chunks(n)` | the source is and `n > 0` |
 //# | `cycle` | the source is, or knows a count above zero |
 //# | `concat(a, b)` | either is |
@@ -58,18 +58,18 @@
 //# | `take`, `take_while` | never |
 //#
 //# `filter` of an infinite source stays infinite even when nothing passes,
-//# and `flat_map` is infinite only through its outer source. `Iter.take(n)`
-//# knows its count: `n` over an infinite source, and the lesser of `n` and
-//# the source's count when it has one.
+//# and `flat_map` and `flatten` are infinite only through their outer
+//# source. `Iter.take(n)` knows its count: `n` over an infinite source, and
+//# the lesser of `n` and the source's count when it has one.
 //#
 //# The terminals that trap on an infinite source are `to_list`,
-//# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`, `flatten`,
+//# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`,
 //# `transpose`, `permutations`, `combinations`, `sort`, `sort_by`,
 //# `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`,
 //# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`, `count_by`,
-//# `String.join`, `Maybe.values`,
-//# `Result.partition`, `Task.spawn_all`, `Supervisor.spawn_all`, and
-//# `reduce`, `each` and `map_reduce` when their callback cannot `break`. The
+//# `String.join`, `Result.partition`, `Task.spawn_all`,
+//# `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their
+//# callback cannot `break`. The
 //# ones that may stop early do not: `first`, `find`, `any_match`, `all_match`,
 //# `contains`, `get`, `is_empty`, `each_while`, `Maybe.collect`,
 //# `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback
@@ -111,10 +111,11 @@
 //# owner function, reached `Iter.X(...)`, not a dispatch call:
 //#
 //# - **Adapters** are lazy and return an `Iter`: `map`, `filter`, `reject`,
-//#   `scan`, `take`, `drop`, `take_while`, `drop_while`, `flat_map`, `zip`,
-//#   `cycle`, `concat`, `intersperse`, `with_index`, `chunks`, `windows`,
-//#   `chunk_by`, `chunk_equal`, `permutations`, `combinations`. Each is
-//#   built once, when the chain is built, not per element, so a pipeline fuses.
+//#   `scan`, `take`, `drop`, `take_while`, `drop_while`, `flat_map`,
+//#   `flatten`, `zip`, `cycle`, `concat`, `intersperse`, `with_index`,
+//#   `chunks`, `windows`, `chunk_by`, `chunk_equal`, `permutations`,
+//#   `combinations`. Each is built once, when the chain is built, not per
+//#   element, so a pipeline fuses.
 //# - **Terminals** consume the source and return a value: `reduce`,
 //#   `try_reduce`, `map_reduce`, `find`, `find_index`, `find_map`, `each`,
 //#   `any_match`, `all_match`, `contains`, `is_empty`, `first`, `last`, `get`,
@@ -122,7 +123,7 @@
 //#   `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`.
 //# - **Materializers and constructors** consume a source into a collection,
 //#   or seed one: `to_list`, `to_vector`, `to_set`, `to_map`, `reverse`,
-//#   `flatten`, `transpose`, `from`, `repeat`, `iterate`.
+//#   `transpose`, `from`, `repeat`, `iterate`.
 //#
 //# They work on the built-in sources (`List`, `Vector`, `Set`, `Map`,
 //# `Maybe`, `String`, `Range`, `Bytes`) and on any type with an `Iter` impl.
@@ -403,7 +404,7 @@ impl Iter<T>
         reduce(source, None, fn _acc, item ->
             case f(item)
                 Some(found) -> break Some(found)
-                None -> None
+                None        -> None
             end
         end)
     end
@@ -418,7 +419,7 @@ impl Iter<T>
     //! fn add_digit(total: Int, text: String) -> Result<Int, String>
     //!     case String.to_int(text)
     //!         Some(n) -> Ok(total + n)
-    //!         None -> Err("not a number: ${text}")
+    //!         None    -> Err("not a number: ${text}")
     //!     end
     //! end
     //!
@@ -449,7 +450,7 @@ impl Iter<T>
                 Ok(value) ->
                     case f(value, item)
                         Err(e) -> break Err(e)
-                        next -> next
+                        next   -> next
                     end
 
                 Err(_) ->
@@ -496,11 +497,11 @@ impl Iter<T>
     //! assert Iter.sort([3, 1, 2], Direction.Descending) == [3, 2, 1]
     //
     pub fn sort<T>(
-        source: Iter<T>,
+        source:    Iter<T>,
         direction: Direction = Direction.Ascending,
     ) -> List<T> where T: Comparable
         case direction
-            .Ascending -> sort_with(source, &Comparable.compare(&1, &2))
+            .Ascending  -> sort_with(source, &Comparable.compare(&1, &2))
             .Descending -> sort_with(source, fn a, b -> Comparable.compare(b, a))
         end
     end
@@ -515,12 +516,12 @@ impl Iter<T>
     //! assert Iter.sort_by([1, 2, 3], Direction.Descending, fn n -> n) == [3, 2, 1]
     //
     pub fn sort_by<T, K>(
-        source: Iter<T>,
+        source:    Iter<T>,
         direction: Direction = Direction.Ascending,
-        key: (T) -> K,
+        key:       (T) -> K,
     ) -> List<T> where K: Comparable
         case direction
-            .Ascending -> sort_with(source, fn a, b -> Comparable.compare(key(a), key(b)))
+            .Ascending  -> sort_with(source, fn a, b -> Comparable.compare(key(a), key(b)))
             .Descending -> sort_with(source, fn a, b -> Comparable.compare(key(b), key(a)))
         end
     end
@@ -818,7 +819,8 @@ impl Iter<T>
     //! assert Iter.from(1) |> Iter.intersperse(0) |> Iter.take(4) |> Iter.to_list() == [1, 0, 2, 0]
     //!
     //! verses = [["one", "two"], ["three"]]
-    //! assert verses |> Iter.intersperse([""]) |> Iter.flatten() == ["one", "two", "", "three"]
+    //! lines = verses |> Iter.intersperse([""]) |> Iter.flatten() |> Iter.to_list()
+    //! assert lines == ["one", "two", "", "three"]
     //
     pub fn intersperse<T>(source: Iter<T>, separator: T) -> Iter<T>
         source
@@ -838,10 +840,10 @@ impl Iter<T>
     pub fn zip<T, U>(a: Iter<T>, b: Iter<U>) -> Iter<(T, U)>
         // The lone adapter a push protocol cannot express directly: two sources
         // must advance in lockstep, and only one of them can be the one driving.
-        // `zip_each` therefore runs `b` as a pull cursor — Nomi's `iter.Pull`,
-        // and like Go's it costs a coroutine plus a handoff per element. It is
-        // paid on this path only, and only because it is the only way to keep
-        // `zip` working when *either* side is infinite.
+        // `zip_each` therefore runs `b` as a pull cursor: a List, a Vector or an
+        // Int range steps directly, and any other `b` runs on a coroutine with
+        // a handoff per element, the only way to keep `zip` working when
+        // *either* side is infinite.
         Seq{run: fn yield: ((T, U)) -> Bool -> zip_each(a, b, yield)}
     end
 
@@ -1100,22 +1102,24 @@ impl Iter<T>
     //
     pub host fn to_map<K, V>(source: Iter<(K, V)>) -> Map<K, V>
 
-    /// Flattens an iterator of iterators into a single List, preserving order. Like
-    /// `to_map`, its source has a specific element shape — the elements
-    /// must themselves be iterable — so it's a type function rather than a
-    /// `self`-based `Iter` interface function.
+    /// Lazy: yields the elements of each inner iterator in turn, in order,
+    /// as it reads them, so it works on an endless source. Its source's
+    /// elements must themselves be iterable, so it is a type function
+    /// rather than a `self`-based `Iter` interface function.
     //
-    //! assert Iter.flatten([[1, 2], [3], [4, 5]]) == [1, 2, 3, 4, 5]
+    //! assert Iter.flatten([[1, 2], [3], [4, 5]]) |> Iter.to_list() == [1, 2, 3, 4, 5]
+    //! assert Iter.repeat([1, 2]) |> Iter.flatten() |> Iter.take(3) |> Iter.to_list() == [1, 2, 1]
     //
-    pub fn flatten<U>(source: Iter<Iter<U>>) -> List<U>
-        flat_map(source, fn inner -> inner) |> to_list()
+    pub fn flatten<T>(source: Iter<Iter<T>>) -> Iter<T>
+        flat_map(source, fn inner -> inner)
     end
 
     /// The columns of `rows`, as a List of Lists: column `i` holds the `i`th
     /// element of each row long enough to have one, in row order. A ragged
     /// row adds nothing past its end, so no element is invented and none is
-    /// dropped. A materializing terminal, like `flatten`, and a type function
-    /// for the same reason.
+    /// dropped. A materializing terminal, since the first column needs every
+    /// row. Its source's elements must themselves be iterable, so it is a
+    /// type function rather than a `self`-based `Iter` interface function.
     //
     //! assert Iter.transpose([[1, 2, 3], [4, 5, 6]]) == [[1, 4], [2, 5], [3, 6]]
     //! assert Iter.transpose([[1, 2, 3], [4], [5, 6]]) == [[1, 4, 5], [2, 6], [3]]
@@ -1161,7 +1165,7 @@ impl Iter<T>
     pub fn count<T>(source: Iter<T>) -> Int
         case Iter.known_count(source)
             Some(n) -> n
-            None -> reduce(source, 0, fn acc, _item -> acc + 1)
+            None    -> reduce(source, 0, fn acc, _item -> acc + 1)
         end
     end
 
@@ -1191,7 +1195,7 @@ impl Iter<T>
         reduce(source, None, fn least: Maybe<T>, item ->
             case least
                 Some(m) -> if item < m then Some(item) else least
-                None -> Some(item)
+                None    -> Some(item)
             end
         end)
     end
@@ -1207,7 +1211,7 @@ impl Iter<T>
         reduce(source, None, fn greatest: Maybe<T>, item ->
             case greatest
                 Some(m) -> if item > m then Some(item) else greatest
-                None -> Some(item)
+                None    -> Some(item)
             end
         end)
     end
@@ -1225,7 +1229,7 @@ impl Iter<T>
 
             case acc
                 Some((_, least)) -> if k < least then Some((item, k)) else acc
-                None -> Some((item, k))
+                None             -> Some((item, k))
             end
         end)
 
@@ -1245,7 +1249,7 @@ impl Iter<T>
 
             case acc
                 Some((_, greatest)) -> if k > greatest then Some((item, k)) else acc
-                None -> Some((item, k))
+                None                -> Some((item, k))
             end
         end)
 
@@ -1328,7 +1332,7 @@ impl Iter<T>
     //
     pub fn product_by<T, N>(
         source: Iter<T>,
-        key: (T) -> N,
+        key:    (T) -> N,
     ) -> N where N: Multiply<N, N> and Productable
         reduce(source, N.empty_product(), fn product, x -> product * key(x))
     end
@@ -1434,7 +1438,7 @@ host fn chunks_each<T>(source: Iter<T>, size: Int, yield: (List<T>) -> Bool) -> 
 host fn chunk_by_each<T, K>(
     source: Iter<T>,
     key_fn: (T) -> K,
-    yield: (List<T>) -> Bool,
+    yield:  (List<T>) -> Bool,
 ) -> Bool where K: Equatable
 
 // Each ordering of `left`, as `permutations` yields them: each element in

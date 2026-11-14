@@ -9,8 +9,8 @@
 // `tag` is deliberately a field name here: a struct field named `tag` must not
 // collide with an enum's variant tag, however the Nomi program is spelled.
 pub struct Point
-    x: Int
-    y: Int
+    x:   Int
+    y:   Int
     tag: String
 end
 
@@ -35,8 +35,8 @@ end
 
 pub fn describe(r: Reading) -> String
     case r
-        Reading.Empty -> "empty"
-        Reading.Whole(n) -> "whole ${n}"
+        Reading.Empty                -> "empty"
+        Reading.Whole(n)             -> "whole ${n}"
         Reading.Labelled{name:, at:} -> "labelled ${name} at ${at.x}"
     end
 end

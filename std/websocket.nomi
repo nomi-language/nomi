@@ -104,12 +104,12 @@ impl Display for Error
     fn to_string(error: Error) -> String
         case error
             .Handshake{status:, reason:} -> "websocket handshake refused (${status}): ${reason}"
-            .Protocol{code:, reason:} -> "websocket closed with ${code}: ${reason}"
-            .Closed{code:, reason:} -> "websocket closed with ${code}: ${reason}"
-            .Timeout -> "websocket idle timeout"
-            .Invalid{reason:} -> "websocket: ${reason}"
-            .Network{error:} -> "websocket: ${error}"
-            .InvalidUrl{url:, reason:} -> "websocket url ${url}: ${reason}"
+            .Protocol{code:, reason:}    -> "websocket closed with ${code}: ${reason}"
+            .Closed{code:, reason:}      -> "websocket closed with ${code}: ${reason}"
+            .Timeout                     -> "websocket idle timeout"
+            .Invalid{reason:}            -> "websocket: ${reason}"
+            .Network{error:}             -> "websocket: ${error}"
+            .InvalidUrl{url:, reason:}   -> "websocket url ${url}: ${reason}"
         end
     end
 end
@@ -136,18 +136,18 @@ pub struct ConnectOptions
     /// Headers sent with the handshake, such as `Authorization`.
     headers: Headers = Headers[]
     /// The subprotocols offered, most preferred first.
-    protocols: List<String> = []
+    protocols:        List<String> = []
     max_message_size: Int = 1_048_576
-    ping_interval: Maybe<Duration> = None
-    idle_timeout: Maybe<Duration> = None
+    ping_interval:    Maybe<Duration> = None
+    idle_timeout:     Maybe<Duration> = None
     /// TLS for `wss://`; its server name is the URL's host unless set.
-    tls: ClientConfig = ClientConfig{}
+    tls:  ClientConfig = ClientConfig{}
     dial: DialOptions = DialOptions{}
 end
 
 /// An open WebSocket connection, either end.
 pub opaque struct WebSocket
-    handle: http_host.Handle
+    handle:   http_host.Handle
     protocol: Maybe<String>
 end
 
@@ -219,7 +219,7 @@ impl WebSocket
     /// time.
     pub fn send(ws: WebSocket, message: Message) -> Result<Unit, Error>
         sent = case message
-            .Text(text) -> http_host.ws_send(ws.handle, True, String.to_bytes(text))
+            .Text(text)   -> http_host.ws_send(ws.handle, True, String.to_bytes(text))
             .Binary(data) -> http_host.ws_send(ws.handle, False, data)
         end
 
@@ -272,9 +272,9 @@ impl WebSocket
     /// A WebSocket over `conn`, whose handshake was done some other way;
     /// `client` says which end this is, since a client masks its frames.
     pub fn over(
-        conn: Connection,
-        client: Bool,
-        protocol: Maybe<String> = None,
+        conn:             Connection,
+        client:           Bool,
+        protocol:         Maybe<String> = None,
         max_message_size: Int = 1_048_576,
     ) -> WebSocket
         handle = http_host.ws_open(Connection.handle_of(conn), client, max_message_size, 0, 0)
@@ -328,14 +328,14 @@ pub fn accept(
         Ok((key, protocol)) ->
             chosen = case protocol
                 Some(p) -> [("Sec-WebSocket-Protocol", p)]
-                None -> []
+                None    -> []
             end
 
             Headers(extra) = options.headers
 
             required = [
-                ("Upgrade", "websocket"),
-                ("Connection", "Upgrade"),
+                ("Upgrade",              "websocket"),
+                ("Connection",           "Upgrade"),
                 ("Sec-WebSocket-Accept", http_host.ws_accept_key(key)),
             ]
 
@@ -404,7 +404,7 @@ end
 //!
 //! assert Err(Error.Handshake{status:, reason: _}) = refused
 //! assert status == Status.not_found
-//! assert websocket.connect(Url`https://example.com`) is Err(Error.InvalidUrl{url: _, reason: _})
+//! assert websocket.connect(Url"https://example.com") is Err(Error.InvalidUrl{url: _, reason: _})
 pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<WebSocket, Error>
     if url.scheme != "ws" and url.scheme != "wss" then
         return Err(Error.InvalidUrl{url: "${url}", reason: "a WebSocket URL is ws:// or wss://"})
@@ -447,7 +447,7 @@ pub fn connect(url: Url, options: ConnectOptions = ConnectOptions{}) -> Result<W
         |> Result.map_err(error_of)?
 
     protocol = case http_host.ws_protocol(handle)
-        "" -> None
+        ""     -> None
         chosen -> Some(chosen)
     end
 
@@ -513,7 +513,7 @@ fn origin_allowed(request: Request, allowed: List<Origin>) -> Bool
         Some(text) ->
             case Origin.parse(text)
                 Ok(origin) -> List.contains(allowed, origin) or same_host(origin, request)
-                Err(_) -> False
+                Err(_)     -> False
             end
     end
 end
@@ -522,7 +522,7 @@ fn same_host(origin: Origin, request: Request) -> Bool
     host = request.host |> Maybe.with_default("") |> String.lowercase()
 
     case Url.parse("${origin}")
-        Ok(u) -> host != "" and u.host == host
+        Ok(u)  -> host != "" and u.host == host
         Err(_) -> False
     end
 end

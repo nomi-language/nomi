@@ -23,24 +23,24 @@ end
 
 /// Everything about a jigsaw puzzle.
 pub struct Jigsaw
-    pieces: Int
-    border: Int
-    inside: Int
-    rows: Int
-    columns: Int
+    pieces:       Int
+    border:       Int
+    inside:       Int
+    rows:         Int
+    columns:      Int
     aspect_ratio: Float
-    format: Format
+    format:       Format
 end
 
 /// What is known about a puzzle: any of its parts, each `None` when unknown.
 pub struct Clues
-    pieces: Maybe<Int> = None
-    border: Maybe<Int> = None
-    inside: Maybe<Int> = None
-    rows: Maybe<Int> = None
-    columns: Maybe<Int> = None
+    pieces:       Maybe<Int> = None
+    border:       Maybe<Int> = None
+    inside:       Maybe<Int> = None
+    rows:         Maybe<Int> = None
+    columns:      Maybe<Int> = None
     aspect_ratio: Maybe<Float> = None
-    format: Maybe<Format> = None
+    format:       Maybe<Format> = None
 end
 
 /// Why the clues do not describe exactly one puzzle.
@@ -70,9 +70,9 @@ pub fn jigsaw_data(clues: Clues) -> Result<Jigsaw, Error>
         |> Iter.to_list()
 
     case fitting
-        [] -> Err(.ContradictoryData)
+        []       -> Err(.ContradictoryData)
         [jigsaw] -> Ok(jigsaw)
-        _ -> Err(.InsufficientData)
+        _        -> Err(.InsufficientData)
     end
 end
 
@@ -83,8 +83,8 @@ fn puzzle(rows: Int, columns: Int) -> Jigsaw
     aspect_ratio = Int.to_float(columns) / Int.to_float(rows)
 
     format = case Int.compare(columns, rows)
-        .Less -> Format.Portrait
-        .Equal -> .Square
+        .Less    -> Format.Portrait
+        .Equal   -> .Square
         .Greater -> .Landscape
     end
 
@@ -95,10 +95,10 @@ end
 fn fits(clues: Clues, jigsaw: Jigsaw) -> Bool
     counts_agree =
         [
-            (clues.pieces, jigsaw.pieces),
-            (clues.border, jigsaw.border),
-            (clues.inside, jigsaw.inside),
-            (clues.rows, jigsaw.rows),
+            (clues.pieces,  jigsaw.pieces),
+            (clues.border,  jigsaw.border),
+            (clues.inside,  jigsaw.inside),
+            (clues.rows,    jigsaw.rows),
             (clues.columns, jigsaw.columns),
         ]
         |> Iter.all_match(fn (known, actual) -> agrees(known, actual))
@@ -199,65 +199,65 @@ test "jigsaw data"
             "1000 pieces puzzle with 1.6 aspect ratio",
             {pieces: Some(1000), aspect_ratio: Some(1.6)},
             {
-                pieces: 1000,
-                border: 126,
-                inside: 874,
-                rows: 25,
-                columns: 40,
+                pieces:       1000,
+                border:       126,
+                inside:       874,
+                rows:         25,
+                columns:      40,
                 aspect_ratio: 1.6,
-                format: .Landscape,
+                format:       .Landscape,
             },
         ),
         (
             "square puzzle with 32 rows",
             {rows: Some(32), format: Some(.Square)},
             {
-                pieces: 1024,
-                border: 124,
-                inside: 900,
-                rows: 32,
-                columns: 32,
+                pieces:       1024,
+                border:       124,
+                inside:       900,
+                rows:         32,
+                columns:      32,
                 aspect_ratio: 1.0,
-                format: .Square,
+                format:       .Square,
             },
         ),
         (
             "400 pieces square puzzle with only inside pieces and aspect ratio",
             {inside: Some(324), aspect_ratio: Some(1.0)},
             {
-                pieces: 400,
-                border: 76,
-                inside: 324,
-                rows: 20,
-                columns: 20,
+                pieces:       400,
+                border:       76,
+                inside:       324,
+                rows:         20,
+                columns:      20,
                 aspect_ratio: 1.0,
-                format: .Square,
+                format:       .Square,
             },
         ),
         (
             "1500 pieces landscape puzzle with 30 rows and 1.6 aspect ratio",
             {rows: Some(30), aspect_ratio: Some(1.6666666666666667)},
             {
-                pieces: 1500,
-                border: 156,
-                inside: 1344,
-                rows: 30,
-                columns: 50,
+                pieces:       1500,
+                border:       156,
+                inside:       1344,
+                rows:         30,
+                columns:      50,
                 aspect_ratio: 1.6666666666666667,
-                format: .Landscape,
+                format:       .Landscape,
             },
         ),
         (
             "300 pieces portrait puzzle with 70 border pieces",
             {pieces: Some(300), border: Some(70), format: Some(.Portrait)},
             {
-                pieces: 300,
-                border: 70,
-                inside: 230,
-                rows: 25,
-                columns: 12,
+                pieces:       300,
+                border:       70,
+                inside:       230,
+                rows:         25,
+                columns:      12,
                 aspect_ratio: 0.48,
-                format: .Portrait,
+                format:       .Portrait,
             },
         ),
     ]

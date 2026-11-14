@@ -45,8 +45,8 @@ once sandbox = Sandbox{
 /// in-memory file system.
 fn grep_in_sandbox(
     pattern: String,
-    flags: Set<Flag>,
-    files: List<String>,
+    flags:   Set<Flag>,
+    files:   List<String>,
 ) -> Result<List<String>, io.Error>
     testing.run(sandbox, fn -> grep.grep(pattern, flags, files)).value
 end

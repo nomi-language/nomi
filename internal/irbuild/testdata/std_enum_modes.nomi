@@ -13,18 +13,18 @@ end
 // that named two would pass against a permuted table.
 fn round_name(m: RoundingMode) -> String
     case m
-        Up -> "up"
-        Down -> "down"
-        Ceiling -> "ceiling"
+        Up       -> "up"
+        Down     -> "down"
+        Ceiling  -> "ceiling"
         HalfEven -> "half-even"
-        _ -> "other"
+        _        -> "other"
     end
 end
 
 fn form_rank(f: NormalForm) -> Int
     case f
-        NFC -> 1
-        NFD -> 2
+        NFC  -> 1
+        NFD  -> 2
         NFKC -> 3
         NFKD -> 4
     end

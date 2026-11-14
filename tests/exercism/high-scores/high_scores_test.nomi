@@ -20,10 +20,10 @@ group "Top 3 scores"
                 [10, 30, 90, 30, 100, 20, 10, 0, 30, 40, 40, 70, 70],
                 [100, 90, 70],
             ),
-            ("Personal top highest to lowest", [20, 10, 30], [30, 20, 10]),
-            ("Personal top when there is a tie", [40, 20, 40, 30], [40, 40, 30]),
-            ("Personal top when there are less than 3", [30, 70], [70, 30]),
-            ("Personal top when there is only one", [40], [40]),
+            ("Personal top highest to lowest",          [20, 10, 30],     [30, 20, 10]),
+            ("Personal top when there is a tie",        [40, 20, 40, 30], [40, 40, 30]),
+            ("Personal top when there are less than 3", [30, 70],         [70, 30]),
+            ("Personal top when there is only one",     [40],             [40]),
         ]
         |> subtests (description, scores, expected), description
             assert high_scores.personal_top_three(scores) == expected

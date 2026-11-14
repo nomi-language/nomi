@@ -297,13 +297,13 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
 		} else if irEmbeddedIn(lk, rk) {
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
-		} else if irExistentialKind(lk) && !irExistentialKind(rk) {
+		} else if irHeldKind(lk) && !irHeldKind(rk) {
 			// `t == (1, "a")` with `t: Equatable`: the concrete value is
 			// boxed as the interface value it is compared with, and the two
 			// compare by their run-time types below (spec §12 *Interface
 			// values*).
 			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
-		} else if irExistentialKind(rk) && !irExistentialKind(lk) {
+		} else if irHeldKind(rk) && !irHeldKind(lk) {
 			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
 		}
 	}
@@ -328,7 +328,7 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	// by an impl call shows its operands too.
 	bl.record(t.Left, lhs, lk, true)
 	bl.record(t.Right, rhs, rk, true)
-	if irExistentialKind(lk) && !op.Ordering() {
+	if irHeldKind(lk) && !op.Ordering() {
 		// Two interface values: the machine compares them by their run-time
 		// types, through a hand-written impl when there is one (ir.ValIface).
 		return bl.equalityCompare(t, op, ir.ValIface, lhs, rhs), kindBool, false, true

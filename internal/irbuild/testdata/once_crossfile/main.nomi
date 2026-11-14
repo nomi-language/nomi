@@ -26,7 +26,7 @@ end
 
 fn arm(b: Bool) -> (Int, List<String>)
     case b
-        True -> (1, help)
+        True  -> (1, help)
         False -> (0, lib.help)
     end
 end

@@ -42,13 +42,10 @@ import (
 // # A BOUND alias is a different declaration wearing the same node
 //
 // `typealias Named Display and Debug` populates `Bounds` and leaves
-// `TargetTypeExpr` nil. The checker rejects using one as a value type, so it
-// cannot reach a signature position — and the two forms share `*ast.TypeAlias`,
-// so `moduleAliasKind` must still DECLINE for a nil target rather than hand back
-// kindInvalid under an arm claiming to have resolved something.
+// `TargetTypeExpr` nil. As a value type it names the interface conjunction
+// the checker resolved, which `moduleAliasKind` projects (conjunction.go).
 //
-// What it names is a CONJUNCTION OF BOUNDS, and that has exactly one legal
-// position: a `where` clause. dict.go already carries a conjunction there —
+// In a `where` clause it names a conjunction of bounds. dict.go already carries a conjunction there —
 // `dictTypeParam.bounds` is a LIST because `where T: Display and Greet` is one
 // type parameter with two contracts — so an alias over a conjunction needs no
 // representation of its own. It needs the names EXPANDED before
@@ -80,8 +77,12 @@ func (g *gen) moduleAliasKind(name string) (kind, bool) {
 		return kindInvalid, false
 	}
 	alias, isAlias := sym.Node.(*ast.TypeAlias)
+	if isAlias && alias.TargetTypeExpr == nil && len(alias.Bounds) > 0 {
+		// The BOUND form as a value type: the conjunction the checker
+		// resolved (conjunction.go).
+		return g.project(sym.Type), true
+	}
 	if !isAlias || alias.TargetTypeExpr == nil {
-		// Not an alias, or the BOUND form, which has no target to expand.
 		return kindInvalid, false
 	}
 	if local := g.fa.ModuleScope.Lookup(name); local == nil || local.Resolved != nil {
@@ -134,7 +135,7 @@ func (g *gen) qualifiedAliasKind(t *ast.QualifiedType) (kind, bool) {
 	if sym == nil {
 		return kindInvalid, false
 	}
-	if alias, isAlias := sym.Node.(*ast.TypeAlias); !isAlias || alias.TargetTypeExpr == nil {
+	if alias, isAlias := sym.Node.(*ast.TypeAlias); !isAlias || (alias.TargetTypeExpr == nil && len(alias.Bounds) == 0) {
 		return kindInvalid, false
 	}
 	return g.importedAliasKind(sym), true

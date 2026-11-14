@@ -23,8 +23,8 @@ end
 fn search<T>(
     items: Vector<T>,
     value: T,
-    low: Int,
-    high: Int,
+    low:   Int,
+    high:  Int,
 ) -> Result<Int, String> where T: Comparable
     if low >= high then return Err("value not in array")
 
@@ -32,8 +32,8 @@ fn search<T>(
     item = Vector.get(items, middle)!
 
     case Comparable.compare(value, item)
-        .Less -> search(items, value, low, middle)
-        .Equal -> Ok(middle)
+        .Less    -> search(items, value, low, middle)
+        .Equal   -> Ok(middle)
         .Greater -> search(items, value, middle + 1, high)
     end
 end
@@ -43,10 +43,10 @@ import binary_search
 
 test "finds a value"
     [
-        ("finds a value in an array with one element", Vector[6], 6, 0),
-        ("finds a value in the middle of an array", Vector[1, 3, 4, 6, 8, 9, 11], 6, 3),
-        ("finds a value at the beginning of an array", Vector[1, 3, 4, 6, 8, 9, 11], 1, 0),
-        ("finds a value at the end of an array", Vector[1, 3, 4, 6, 8, 9, 11], 11, 6),
+        ("finds a value in an array with one element", Vector[6],                    6,  0),
+        ("finds a value in the middle of an array",    Vector[1, 3, 4, 6, 8, 9, 11], 6,  3),
+        ("finds a value at the beginning of an array", Vector[1, 3, 4, 6, 8, 9, 11], 1,  0),
+        ("finds a value at the end of an array",       Vector[1, 3, 4, 6, 8, 9, 11], 11, 6),
         (
             "finds a value in an array of odd length",
             Vector[1, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 634],
@@ -78,7 +78,7 @@ test "reports a missing value"
             Vector[1, 3, 4, 6, 8, 9, 11],
             13,
         ),
-        ("nothing is found in an empty array", Vector[], 1),
+        ("nothing is found in an empty array",                    Vector[],     1),
         ("nothing is found when the left and right bounds cross", Vector[1, 2], 0),
     ]
     |> subtests (description, items, value), description

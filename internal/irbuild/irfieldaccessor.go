@@ -22,11 +22,10 @@ func (bl *irScalarBuilder) fieldAccessor(t *ast.FieldAccessor) (ir.Temp, kind, b
 	if !found {
 		return no()
 	}
+	// The type of the value the accessor reads, which has fields, so it is
+	// no Unit.
 	pk := bl.g.project(ty)
-	if !irCallableValueKind(pk) {
-		bl.g.dc.note("a field accessor over a type outside the domain: " + pk.nomi())
-		return no()
-	}
+	irHeldOperand(pk, "a field accessor's subject")
 	at := bl.g.irNodePos(t)
 	f := ir.NewFunc(at, t.Spelling())
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}

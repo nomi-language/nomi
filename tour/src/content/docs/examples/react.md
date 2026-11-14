@@ -18,17 +18,17 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// compute cells hold a function of other cells that is kept up to date. It
 /// is a value: setting an input answers a new reactor.
 pub opaque struct Reactor
-    values: Map<String, Int>
-    inputs: Set<String>
-    computed: List<Computed>
+    values:    Map<String, Int>
+    inputs:    Set<String>
+    computed:  List<Computed>
     callbacks: Map<String, String>
 end
 
 /// A compute cell: its name, the cells it reads, in order, and how it
 /// computes its value from theirs.
 struct Computed
-    name: String
-    inputs: List<String>
+    name:    String
+    inputs:  List<String>
     compute: (Vector<Int>) -> Int
 end
 
@@ -63,8 +63,8 @@ impl Reactor
     /// values of `inputs`, in their order.
     pub fn compute(
         reactor: Reactor,
-        name: String,
-        inputs: List<String>,
+        name:    String,
+        inputs:  List<String>,
         compute: (Vector<Int>) -> Int,
     ) -> Result<Reactor, Error>
         if name in reactor.values then return Err(.Duplicate(name))
@@ -77,7 +77,7 @@ impl Reactor
 
         Ok({
             ..reactor,
-            values: Map.put(.., name, value_of(cell, ..)),
+            values:   Map.put(.., name, value_of(cell, ..)),
             computed: [.., cell],
         })
     end
@@ -92,8 +92,8 @@ impl Reactor
     /// watching a cell whose value changed, with the cell's new value.
     pub fn set_value(
         reactor: Reactor,
-        name: String,
-        value: Int,
+        name:    String,
+        value:   Int,
     ) -> Result<(Reactor, Map<String, Int>), Error>
         if not name in reactor.values then return Err(.UnknownCell(name))
 
@@ -168,7 +168,7 @@ end
 fn build(cells: List<Cell>) -> Result<Reactor, Error>
     Iter.try_reduce(cells, Reactor.new(), fn reactor, cell ->
         case cell
-            .Input((name, value)) -> Reactor.input(reactor, name, value)
+            .Input((name, value))             -> Reactor.input(reactor, name, value)
             .Compute((name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)
         end
     end)
@@ -185,18 +185,18 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error>
                 .Value((cell, _)) ->
                     case Reactor.value(reactor, cell)
                         Some(value) -> (reactor, Ok(Step.Value(cell, value)))
-                        None -> (reactor, Err(Error.UnknownCell(cell)))
+                        None        -> (reactor, Err(Error.UnknownCell(cell)))
                     end
 
                 .Set((cell, value, _)) ->
                     case Reactor.set_value(reactor, cell, value)
                         Ok((next, fired)) -> (next, Ok(.Set(cell, value, fired)))
-                        Err(error) -> (reactor, Err(error))
+                        Err(error)        -> (reactor, Err(error))
                     end
 
                 .AddCallback((cell, callback)) ->
                     case Reactor.add_callback(reactor, cell, callback)
-                        Ok(next) -> (next, Ok(.AddCallback(cell, callback)))
+                        Ok(next)   -> (next, Ok(.AddCallback(cell, callback)))
                         Err(error) -> (reactor, Err(error))
                     end
 

@@ -1,0 +1,434 @@
+//# Are We Fast Yet: Richards.
+//#
+//# Martin Richards' operating-system simulation: an idle task, a worker,
+//# two packet handlers and two devices pass packets between them under a
+//# priority scheduler until the idle task has counted down from 10000.
+//#
+//# Departures from the guidelines, which assume mutable objects:
+//#
+//# - The scheduler is a value. Every function that changes it returns a new
+//#   `Scheduler`, and a task's function returns the scheduler with the task
+//#   to run next, where the suite's mutates the scheduler and returns the
+//#   task.
+//# - The suite links tasks and packets through mutable `link` fields. Here a
+//#   task's `link` is the identity of the next task in the task list, the
+//#   task table is a `Vector<Task>` indexed by identity, and a packet queue
+//#   is a `List<Packet>`; `append` copies the queue to add at its end, where
+//#   the suite walks it and sets the last link.
+//# - A task's function is chosen by its data record's variant (an enum),
+//#   not stored as a closure: a closure over the scheduler that returns a
+//#   new scheduler would make `Task` and `Scheduler` refer to each other
+//#   through a function type, for no change in the work done.
+//# - A worker writes a new packet `data` vector instead of filling the
+//#   packet's fixed-size array in place.
+//# - The tracing the suite compiles out (`TRACING = false`) is left out.
+//# - The current task is held as its identity, `current_task_identity`,
+//#   and the scheduling loop's current task is the recursion's parameter.
+
+import harness
+
+once idler     = 0
+once worker    = 1
+once handler_a = 2
+once handler_b = 3
+once device_a  = 4
+once device_b  = 5
+once data_size = 4
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+enum PacketKind
+    Device
+    Work
+end
+
+derive Equatable for PacketKind
+
+struct Packet
+    identity: Int
+    kind:     PacketKind
+    datum:    Int = 0
+    data:     Vector<Int>
+end
+
+/// `queue` with `packet` added at its end.
+fn append(packet: Packet, queue: List<Packet>) -> List<Packet>
+    [..queue, packet]
+end
+
+fn create_packet(link: List<Packet>, identity: Int, kind: PacketKind) -> List<Packet>
+    data = Iter.to_vector(Iter.map(0..data_size, fn _ -> 0))
+    [Packet{identity:, kind:, data:}, ..link]
+end
+
+struct TaskState
+    packet_pending: Bool
+    task_waiting:   Bool
+    task_holding:   Bool
+end
+
+impl TaskState
+    fn running() -> TaskState
+        TaskState{packet_pending: False, task_waiting: False, task_holding: False}
+    end
+
+    fn waiting() -> TaskState
+        TaskState{packet_pending: False, task_waiting: True, task_holding: False}
+    end
+
+    fn waiting_with_packet() -> TaskState
+        TaskState{packet_pending: True, task_waiting: True, task_holding: False}
+    end
+
+    fn packet_pending() -> TaskState
+        TaskState{packet_pending: True, task_waiting: False, task_holding: False}
+    end
+
+    fn is_task_holding_or_waiting(state: TaskState) -> Bool
+        state.task_holding or (not state.packet_pending and state.task_waiting)
+    end
+
+    fn is_waiting_with_packet(state: TaskState) -> Bool
+        state.packet_pending and state.task_waiting and not state.task_holding
+    end
+end
+
+/// A task's private data, whose variant also names the task's function.
+enum Record
+    Device {pending: Maybe<Packet>}
+    Handler {work_in: List<Packet>, device_in: List<Packet>}
+    Idle {control: Int, count: Int}
+    Worker {destination: Int, count: Int}
+end
+
+struct Task
+    link:     Maybe<Int>
+    identity: Int
+    priority: Int
+    input:    List<Packet>
+    state:    TaskState
+    handle:   Record
+end
+
+struct Scheduler
+    tasks:                 Vector<Task> = []
+    task_list:             Maybe<Int> = None
+    current_task_identity: Int = 0
+    queue_packet_count:    Int = 0
+    hold_count:            Int = 0
+end
+
+/// The scheduler after a task's step, and the task to run next.
+typealias Step (Scheduler, Maybe<Int>)
+
+impl Scheduler
+    fn find_task(s: Scheduler, identity: Int) -> Task
+        Vector.get(s.tasks, identity)!
+    end
+
+    fn with_task(s: Scheduler, t: Task) -> Scheduler
+        {..s, tasks: Vector.set(s.tasks, t.identity, t)}
+    end
+
+    fn current_task(s: Scheduler) -> Task
+        Scheduler.find_task(s, s.current_task_identity)
+    end
+
+    /// The scheduler with the current task's data record replaced.
+    fn with_record(s: Scheduler, handle: Record) -> Scheduler
+        Scheduler.with_task(s, {..Scheduler.current_task(s), handle:})
+    end
+
+    /// Tasks are created in order of identity, so each lands at its
+    /// identity's index in `tasks`.
+    fn create_task(
+        s:        Scheduler,
+        identity: Int,
+        priority: Int,
+        work:     List<Packet>,
+        state:    TaskState,
+        handle:   Record,
+    ) -> Scheduler
+        t = Task{link: s.task_list, identity:, priority:, input: work, state:, handle:}
+        {..s, task_list: Some(identity), tasks: Vector.push(s.tasks, t)}
+    end
+
+    fn create_device(
+        s:        Scheduler,
+        identity: Int,
+        priority: Int,
+        work:     List<Packet>,
+        state:    TaskState,
+    ) -> Scheduler
+        Scheduler.create_task(s, identity, priority, work, state, .Device{pending: None})
+    end
+
+    fn create_handler(
+        s:        Scheduler,
+        identity: Int,
+        priority: Int,
+        work:     List<Packet>,
+        state:    TaskState,
+    ) -> Scheduler
+        Scheduler.create_task(
+            s,
+            identity,
+            priority,
+            work,
+            state,
+            .Handler{work_in: [], device_in: []},
+        )
+    end
+
+    fn create_idler(
+        s:        Scheduler,
+        identity: Int,
+        priority: Int,
+        work:     List<Packet>,
+        state:    TaskState,
+    ) -> Scheduler
+        Scheduler.create_task(s, identity, priority, work, state, .Idle{control: 1, count: 10000})
+    end
+
+    fn create_worker(
+        s:        Scheduler,
+        identity: Int,
+        priority: Int,
+        work:     List<Packet>,
+        state:    TaskState,
+    ) -> Scheduler
+        Scheduler.create_task(
+            s,
+            identity,
+            priority,
+            work,
+            state,
+            .Worker{destination: handler_a, count: 0},
+        )
+    end
+
+    fn device_function(s: Scheduler, work: Maybe<Packet>, pending: Maybe<Packet>) -> Step
+        case (work, pending)
+            (None, None) ->
+                Scheduler.mark_waiting(s)
+
+            (None, Some(packet)) ->
+                Scheduler.queue_packet(Scheduler.with_record(s, .Device{pending: None}), packet)
+
+            (Some(packet), _) ->
+                Scheduler.hold_self(Scheduler.with_record(s, .Device{pending: Some(packet)}))
+        end
+    end
+
+    fn handler_function(
+        s:         Scheduler,
+        work:      Maybe<Packet>,
+        work_in:   List<Packet>,
+        device_in: List<Packet>,
+    ) -> Step
+        (work_in, device_in) = case work
+            Some(packet) when packet.kind == PacketKind.Work -> (append(packet, work_in), device_in)
+            Some(packet) -> (work_in, append(packet, device_in))
+            None -> (work_in, device_in)
+        end
+
+        case work_in
+            [] ->
+                Scheduler.mark_waiting(Scheduler.with_record(s, .Handler{work_in:, device_in:}))
+
+            [work_packet, ..rest] when work_packet.datum >= data_size ->
+                s = Scheduler.with_record(s, .Handler{work_in: rest, device_in:})
+                Scheduler.queue_packet(s, work_packet)
+
+            [work_packet, ..rest] ->
+                case device_in
+                    [] ->
+                        Scheduler.mark_waiting(
+                            Scheduler.with_record(s, .Handler{work_in:, device_in:})
+                        )
+
+                    [device_packet, ..devices] ->
+                        count = work_packet.datum
+
+                        device_packet = {
+                            ..device_packet,
+                            datum: Vector.get(work_packet.data, count)!,
+                        }
+
+                        work_in = [{..work_packet, datum: count + 1}, ..rest]
+                        s = Scheduler.with_record(s, .Handler{work_in:, device_in: devices})
+                        Scheduler.queue_packet(s, device_packet)
+                end
+        end
+    end
+
+    fn idler_function(s: Scheduler, control: Int, count: Int) -> Step
+        count = count - 1
+
+        if count == 0 then
+            Scheduler.hold_self(Scheduler.with_record(s, .Idle{control:, count:}))
+        else if control &&& 1 == 0 then
+            Scheduler.release(
+                Scheduler.with_record(s, .Idle{control: control / 2, count:}),
+                device_a,
+            )
+        else
+            control = (control / 2) ^^^ 53256
+            Scheduler.release(Scheduler.with_record(s, .Idle{control:, count:}), device_b)
+        end
+    end
+
+    fn worker_function(s: Scheduler, work: Maybe<Packet>, destination: Int, count: Int) -> Step
+        case work
+            None ->
+                Scheduler.mark_waiting(s)
+
+            Some(packet) ->
+                destination = if destination == handler_a then handler_b else handler_a
+
+                (count, data) = Iter.map_reduce(0..data_size, count, fn count, _ ->
+                    count = if count + 1 > 26 then 1 else count + 1
+                    (count, 65 + count - 1)
+                end)
+
+                packet = {..packet, identity: destination, datum: 0, data: Iter.to_vector(data)}
+                s = Scheduler.with_record(s, .Worker{destination:, count:})
+                Scheduler.queue_packet(s, packet)
+        end
+    end
+
+    fn add_input_and_check_priority(s: Scheduler, t: Task, packet: Packet, old_task: Task) -> Step
+        if t.input == [] then
+            s = Scheduler.with_task(s, {..t, input: [packet], state: {.., packet_pending: True}})
+
+            if t.priority > old_task.priority then
+                (s, Some(t.identity))
+            else
+                (s, Some(old_task.identity))
+            end
+        else
+            (Scheduler.with_task(s, {..t, input: append(packet, t.input)}), Some(old_task.identity))
+        end
+    end
+
+    fn run_task(s: Scheduler, t: Task) -> Step
+        (s, message) = if TaskState.is_waiting_with_packet(t.state) then
+            case t.input
+                [message, ..rest] ->
+                    state = if rest == [] then
+                        TaskState.running()
+                    else
+                        TaskState.packet_pending()
+                    end
+
+                    (Scheduler.with_task(s, {..t, input: rest, state:}), Some(message))
+
+                [] ->
+                    (s, None)
+            end
+        else
+            (s, None)
+        end
+
+        case t.handle
+            .Device{pending:} ->
+                Scheduler.device_function(s, message, pending)
+
+            .Handler{work_in:, device_in:} ->
+                Scheduler.handler_function(s, message, work_in, device_in)
+
+            .Idle{control:, count:} ->
+                Scheduler.idler_function(s, control, count)
+
+            .Worker{destination:, count:} ->
+                Scheduler.worker_function(s, message, destination, count)
+        end
+    end
+
+    fn hold_self(s: Scheduler) -> Step
+        t = Scheduler.current_task(s)
+
+        s = Scheduler.with_task({..s, hold_count: .. + 1}, {..t, state: {.., task_holding: True}})
+
+        (s, t.link)
+    end
+
+    fn queue_packet(s: Scheduler, packet: Packet) -> Step
+        t = Scheduler.find_task(s, packet.identity)
+        s = {..s, queue_packet_count: .. + 1}
+        packet = {..packet, identity: s.current_task_identity}
+        Scheduler.add_input_and_check_priority(s, t, packet, Scheduler.current_task(s))
+    end
+
+    fn release(s: Scheduler, identity: Int) -> Step
+        t = Scheduler.find_task(s, identity)
+        t = {..t, state: {.., task_holding: False}}
+        s = Scheduler.with_task(s, t)
+        current = Scheduler.current_task(s)
+
+        if t.priority > current.priority then
+            (s, Some(identity))
+        else
+            (s, Some(current.identity))
+        end
+    end
+
+    fn mark_waiting(s: Scheduler) -> Step
+        t = Scheduler.current_task(s)
+        (Scheduler.with_task(s, {..t, state: {.., task_waiting: True}}), Some(t.identity))
+    end
+
+    fn schedule(s: Scheduler, current: Maybe<Int>) -> Scheduler
+        case current
+            None ->
+                s
+
+            Some(identity) ->
+                t = Scheduler.find_task(s, identity)
+
+                if TaskState.is_task_holding_or_waiting(t.state) then
+                    Scheduler.schedule(s, t.link)
+                else
+                    (s, next) = Scheduler.run_task({..s, current_task_identity: identity}, t)
+                    Scheduler.schedule(s, next)
+                end
+        end
+    end
+
+    fn start() -> Bool
+        s = Scheduler.create_idler(Scheduler{}, idler, 0, [], TaskState.running())
+        work = create_packet([], worker, .Work)
+        work = create_packet(work, worker, .Work)
+        s = Scheduler.create_worker(s, worker, 1000, work, TaskState.waiting_with_packet())
+
+        work = create_packet([], device_a, .Device)
+        work = create_packet(work, device_a, .Device)
+        work = create_packet(work, device_a, .Device)
+        s = Scheduler.create_handler(s, handler_a, 2000, work, TaskState.waiting_with_packet())
+
+        work = create_packet([], device_b, .Device)
+        work = create_packet(work, device_b, .Device)
+        work = create_packet(work, device_b, .Device)
+        s = Scheduler.create_handler(s, handler_b, 3000, work, TaskState.waiting_with_packet())
+
+        s = Scheduler.create_device(s, device_a, 4000, [], TaskState.waiting())
+        s = Scheduler.create_device(s, device_b, 5000, [], TaskState.waiting())
+
+        s = Scheduler.schedule(s, s.task_list)
+        s.queue_packet_count == 23246 and s.hold_count == 9297
+    end
+end
+
+fn benchmark() -> Bool
+    Scheduler.start()
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Richards", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1)))
+end

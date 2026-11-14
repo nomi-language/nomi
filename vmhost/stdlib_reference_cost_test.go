@@ -20,9 +20,9 @@ import (
 // the test's scope is taken out of the module scope again.
 func TestStdlibReference_ChecksTheTestAlone(t *testing.T) {
 	for _, c := range []struct{ module, body, imports string }{
-		{"calendar", "dt = DateTime`2026-10-20T09:30:00+02:00[Europe/Warsaw]`\nassert DateTime.to_string_with(dt, DateTimePattern`yyyyMMdd'T'HHmmss`) == \"20261020T093000\"", ""},
+		{"calendar", "dt = DateTime\"2026-10-20T09:30:00+02:00[Europe/Warsaw]\"\nassert DateTime.to_string_with(dt, DateTimePattern\"yyyyMMdd'T'HHmmss\") == \"20261020T093000\"", ""},
 		{"http", "assert Method.to_string(Method.Get) == \"GET\"", ""},
-		{"strings", "import std::uuid.Uuid\nassert Uuid.version(Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`) == 7", "uuid"},
+		{"strings", "import std::uuid.Uuid\nassert Uuid.version(Uuid\"0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A\") == 7", "uuid"},
 	} {
 		lib := std.Shared().Ensure(c.module)
 		if err := lib.Bodies(c.module); err != nil {
@@ -81,7 +81,7 @@ func TestStdlibReference_ReportsTheTestsErrorAsAFreshCheckDoes(t *testing.T) {
 // another, is checked with the whole module, as `nomi test` checks an edited
 // stdlib file.
 func TestStdlibReference_AnEditBeyondTheTestChecksTheModule(t *testing.T) {
-	body := "assert Date.days_between(Date`2026-05-04`, Date`2026-05-07`) == 3\nend\n\ntest \"second\"\nassert 1 == 1"
+	body := "assert Date.days_between(Date\"2026-05-04\", Date\"2026-05-07\") == 3\nend\n\ntest \"second\"\nassert 1 == 1"
 	parsed := frontend.FilesParsed()
 	cases, err := vmhost.StdlibReference("calendar", body, "", io.Discard)
 	if err != nil {

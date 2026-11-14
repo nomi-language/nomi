@@ -89,7 +89,7 @@ fn main()
 
     b = case points
         {Q{x: 1} => v} -> "matched ${v}"
-        _ -> "fell through"
+        _              -> "fell through"
     end
 
     io.print("  answer = ${b}")

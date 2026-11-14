@@ -12,7 +12,13 @@
 //
 // A program that reaches a function the VM cannot run fails with a *Blocked
 // before the program's first effect: for each body the compiler could not
-// lower, the diagnostic `nomi check` reports at its source.
+// lower, the diagnostic `nomi check` reports at its source. The diagnostic
+// leads to the cause rather than to the call that reached it: a body
+// several calls below a root names the calls in a hint (`main` →
+// `run_prompt` → `run` → `evaluate`, from vm.Unretained.Chain), and a body
+// that stopped at a call to a function whose signature the compiler refused
+// is reported at that signature's type, with the type the refusal comes
+// from (irbuild.Decline.Signature, signatureDiagnostic).
 //
 // It is a public package because a generated FFI wrapper is a separate Go
 // module, and a separate module can import only the public packages of this
@@ -79,8 +85,8 @@
 // # Literals checked at compile time
 //
 // Every load, `nomi check`'s included, runs on the VM, before the program,
-// the handler of each backtick typed literal whose handler returns a
-// `Result` (literals.go) and the `check` of each checked literal, one whose
+// the handler of each typed literal without `${...}` slots, in any quotes
+// (literals.go), and the `check` of each checked literal, one whose
 // tag implements `CheckedLiteral` (checked_literals.go). An `Err` is a
 // compile error at the literal; a `LiteralError` names a static and an
 // offset, which this package maps back to the source. A handler or check
@@ -90,7 +96,7 @@
 // The checker types a checked literal as its `build`'s result and records
 // it in analysis.FileAnalysis.CheckedLiterals. irbuild lowers it as a
 // `build` call plus a check site, a lazy cell over `check` and the statics,
-// in the irbuild.LiteralSite list backtick literals use (irchecked.go).
+// in the irbuild.LiteralSite list literals without slots use (irchecked.go).
 //
 //   - An untagged string literal whose expected type has a `CheckedLiteral`
 //     impl is checked as a twin `TaggedString` (analysis/target_literal.go):
@@ -185,6 +191,14 @@
 //   - When impls changed or a file came or went, the supply is rebuilt from
 //     the entry built against every other file's interface, registering
 //     every impl and checking no body (analysis.ProgramInterfaces.Supply).
+//   - The kept lowering lists the typed literals the program checks at
+//     load (irbuild.KeptLiteral: each site, with its cell named by its
+//     index in its file's object), so a relink checks every one again over
+//     the linked program, the relowered files' and the others'. A literal
+//     whose text the edit did not touch can still fail when its handler's
+//     body changed; a failure is a miss, and the whole load reports it. A
+//     literal's value is not kept, since one need not encode (a compiled
+//     `Regex`).
 //   - An added file gets a new unit (KeptLowering.AddUnit), a removed one's
 //     unit goes (RemoveUnit). A file whose declarations moved is a miss when
 //     an object not lowered again holds a position in it.

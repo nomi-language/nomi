@@ -37,27 +37,27 @@ end
 test "list patterns match empty cons and exact-length shapes"
     empty_match = case []
         [] -> "empty"
-        _ -> "not empty"
+        _  -> "not empty"
     end
 
     head_tail = case [1, 2, 3]
         [h, ..t] -> "head: ${h}, tail: ${t}"
-        _ -> "nope"
+        _        -> "nope"
     end
 
     heads_rest = case [1, 2, 3, 4]
         [a, b, ..rest] -> "first: ${a}, second: ${b}, rest: ${rest}"
-        _ -> "nope"
+        _              -> "nope"
     end
 
     exact_len = case [1, 2]
         [a, b] -> "${a} and ${b}"
-        _ -> "nope"
+        _      -> "nope"
     end
 
     literal_head = case ["--verbose", "file.txt"]
         ["--verbose", ..rest] -> "verbose with ${rest}"
-        _ -> "other"
+        _                     -> "other"
     end
 
     assert empty_match == "empty"
@@ -73,7 +73,7 @@ end
 
 fn sum(xs: List<Int>) -> Int
     case xs
-        [] -> 0
+        []       -> 0
         [h, ..t] -> h + sum(t)
     end
 end

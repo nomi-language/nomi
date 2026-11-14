@@ -13,7 +13,7 @@ fn boot(startup: Startup = Startup{}) -> Result<App, String>
 
     case List.head(startup.args)
         Some(name) -> Ok(App{name:})
-        None -> Err("no name was passed")
+        None       -> Err("no name was passed")
     end
 end
 

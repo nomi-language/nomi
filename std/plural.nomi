@@ -62,11 +62,11 @@ derive Hashable for PluralCategory
 impl Display for PluralCategory
     fn to_string(category: PluralCategory) -> String
         case category
-            PluralCategory.Zero -> "zero"
-            PluralCategory.One -> "one"
-            PluralCategory.Two -> "two"
-            PluralCategory.Few -> "few"
-            PluralCategory.Many -> "many"
+            PluralCategory.Zero  -> "zero"
+            PluralCategory.One   -> "one"
+            PluralCategory.Two   -> "two"
+            PluralCategory.Few   -> "few"
+            PluralCategory.Many  -> "many"
             PluralCategory.Other -> "other"
         end
     end
@@ -98,23 +98,23 @@ impl PluralCategory
     /// The cardinal category `value` selects in `locale`: the form of a noun
     /// counted by it. CLDR's operands are read off the number's digits
     /// exactly, visible trailing zeros included.
-    //! assert PluralCategory.cardinal(1, Locale`en`) == PluralCategory.One
-    //! assert PluralCategory.cardinal(2, Locale`en`) == PluralCategory.Other
-    //! assert PluralCategory.cardinal(1.0d, Locale`en`) == PluralCategory.Other
-    //! assert PluralCategory.cardinal(3, Locale`pl`) == PluralCategory.Few
-    //! assert PluralCategory.cardinal(5, Locale`pl`) == PluralCategory.Many
-    //! assert PluralCategory.cardinal(0, Locale`fr`) == PluralCategory.One
-    //! assert PluralCategory.cardinal(1.5d, Locale`fr`) == PluralCategory.One
-    //! assert PluralCategory.cardinal(1000000, Locale`fr`) == PluralCategory.Many
-    //! assert PluralCategory.cardinal(22, Locale`pl`) == PluralCategory.Few
-    //! assert PluralCategory.cardinal(25, Locale`pl`) == PluralCategory.Many
-    //! assert PluralCategory.cardinal(1.5d, Locale`pl`) == PluralCategory.Other
-    //! assert PluralCategory.cardinal(0, Locale`ar`) == PluralCategory.Zero
-    //! assert PluralCategory.cardinal(2, Locale`ar`) == PluralCategory.Two
-    //! assert PluralCategory.cardinal(11, Locale`ar`) == PluralCategory.Many
-    //! assert PluralCategory.cardinal(100, Locale`ar`) == PluralCategory.Other
-    //! assert PluralCategory.cardinal(1, Locale`ja`) == PluralCategory.Other
-    //! assert PluralCategory.cardinal(Int.pow(10, 30), Locale`fr`) == PluralCategory.Many
+    //! assert PluralCategory.cardinal(1, Locale"en") == PluralCategory.One
+    //! assert PluralCategory.cardinal(2, Locale"en") == PluralCategory.Other
+    //! assert PluralCategory.cardinal(1.0d, Locale"en") == PluralCategory.Other
+    //! assert PluralCategory.cardinal(3, Locale"pl") == PluralCategory.Few
+    //! assert PluralCategory.cardinal(5, Locale"pl") == PluralCategory.Many
+    //! assert PluralCategory.cardinal(0, Locale"fr") == PluralCategory.One
+    //! assert PluralCategory.cardinal(1.5d, Locale"fr") == PluralCategory.One
+    //! assert PluralCategory.cardinal(1000000, Locale"fr") == PluralCategory.Many
+    //! assert PluralCategory.cardinal(22, Locale"pl") == PluralCategory.Few
+    //! assert PluralCategory.cardinal(25, Locale"pl") == PluralCategory.Many
+    //! assert PluralCategory.cardinal(1.5d, Locale"pl") == PluralCategory.Other
+    //! assert PluralCategory.cardinal(0, Locale"ar") == PluralCategory.Zero
+    //! assert PluralCategory.cardinal(2, Locale"ar") == PluralCategory.Two
+    //! assert PluralCategory.cardinal(11, Locale"ar") == PluralCategory.Many
+    //! assert PluralCategory.cardinal(100, Locale"ar") == PluralCategory.Other
+    //! assert PluralCategory.cardinal(1, Locale"ja") == PluralCategory.Other
+    //! assert PluralCategory.cardinal(Int.pow(10, 30), Locale"fr") == PluralCategory.Many
     //
     pub fn cardinal(value: PluralOperand, locale: Locale) -> PluralCategory
         PluralCategory.of(plural_cardinal_tag(locale, "${PluralOperand.plural_operand(value)}"))
@@ -122,15 +122,15 @@ impl PluralCategory
 
     /// The ordinal category `value` selects in `locale`: the form of "1st",
     /// "2nd", "3rd" and "4th".
-    //! assert PluralCategory.ordinal(1, Locale`en`) == PluralCategory.One
-    //! assert PluralCategory.ordinal(2, Locale`en`) == PluralCategory.Two
-    //! assert PluralCategory.ordinal(3, Locale`en`) == PluralCategory.Few
-    //! assert PluralCategory.ordinal(11, Locale`en`) == PluralCategory.Other
-    //! assert PluralCategory.ordinal(21, Locale`en`) == PluralCategory.One
-    //! assert PluralCategory.ordinal(101, Locale`en`) == PluralCategory.One
-    //! assert PluralCategory.ordinal(22, Locale`en`) == PluralCategory.Two
-    //! assert PluralCategory.ordinal(23, Locale`en`) == PluralCategory.Few
-    //! assert PluralCategory.ordinal(13, Locale`en`) == PluralCategory.Other
+    //! assert PluralCategory.ordinal(1, Locale"en") == PluralCategory.One
+    //! assert PluralCategory.ordinal(2, Locale"en") == PluralCategory.Two
+    //! assert PluralCategory.ordinal(3, Locale"en") == PluralCategory.Few
+    //! assert PluralCategory.ordinal(11, Locale"en") == PluralCategory.Other
+    //! assert PluralCategory.ordinal(21, Locale"en") == PluralCategory.One
+    //! assert PluralCategory.ordinal(101, Locale"en") == PluralCategory.One
+    //! assert PluralCategory.ordinal(22, Locale"en") == PluralCategory.Two
+    //! assert PluralCategory.ordinal(23, Locale"en") == PluralCategory.Few
+    //! assert PluralCategory.ordinal(13, Locale"en") == PluralCategory.Other
     //
     pub fn ordinal(value: Int, locale: Locale) -> PluralCategory
         PluralCategory.of(plural_ordinal_tag(locale, value))
@@ -138,8 +138,8 @@ impl PluralCategory
 
     /// The cardinal categories `locale`'s rules can select, `Other` always
     /// among them.
-    //! assert PluralCategory.cardinals(Locale`ja`) == [PluralCategory.Other]
-    //! assert PluralCategory.cardinals(Locale`en`) == [PluralCategory.One, PluralCategory.Other]
+    //! assert PluralCategory.cardinals(Locale"ja") == [PluralCategory.Other]
+    //! assert PluralCategory.cardinals(Locale"en") == [PluralCategory.One, PluralCategory.Other]
     //
     pub fn cardinals(locale: Locale) -> Set<PluralCategory>
         plural_cardinal_tags(locale)
@@ -148,7 +148,7 @@ impl PluralCategory
     end
 
     /// The ordinal categories `locale`'s rules can select.
-    //! assert PluralCategory.ordinals(Locale`en`) == [
+    //! assert PluralCategory.ordinals(Locale"en") == [
     //!     PluralCategory.One,
     //!     PluralCategory.Two,
     //!     PluralCategory.Few,

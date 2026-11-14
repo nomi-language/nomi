@@ -21,8 +21,8 @@ end
 pub struct Minio
     /// A config for the bucket `nomi-test`.
     config: Config
-    child: Child
-    data: String
+    child:  Child
+    data:   String
 end
 
 /// Starts a MinIO server on a free port over a temporary directory, waits
@@ -40,7 +40,7 @@ pub fn start() -> Result<Minio, String>
 
     config = Config{
         endpoint:,
-        bucket: "nomi-test",
+        bucket:      "nomi-test",
         credentials: Credentials{access_key: "nomi-test", secret_key: "nomi-test-secret"},
     }
 
@@ -49,8 +49,8 @@ pub fn start() -> Result<Minio, String>
 
     command = Command{
         program: "minio",
-        args: ["server", data, "--address", address, "--quiet"],
-        env: {"MINIO_ROOT_USER" => "nomi-test", "MINIO_ROOT_PASSWORD" => "nomi-test-secret"},
+        args:    ["server", data, "--address", address, "--quiet"],
+        env:     {"MINIO_ROOT_USER" => "nomi-test", "MINIO_ROOT_PASSWORD" => "nomi-test-secret"},
     }
 
     child = case process.spawn(command)
@@ -100,7 +100,7 @@ end
 fn wait_live(endpoint: Url, tries: Int) -> Result<Unit, String>
     live = case http.get(Url.join_path(endpoint, ["minio", "health", "live"]))
         Ok(response) -> Status.is_success(response.status)
-        Err(_) -> False
+        Err(_)       -> False
     end
 
     if live then
@@ -166,7 +166,7 @@ pub fn checks(config: Config, public: Bool = True) -> List<String>
 
     others =
         [
-            ("a presigned GET reads with no credentials", fn -> presigned_get(config)),
+            ("a presigned GET reads with no credentials",  fn -> presigned_get(config)),
             ("a presigned PUT writes with no credentials", fn -> presigned_put(config)),
             (
                 "a public object reads with no credentials",
@@ -177,7 +177,7 @@ pub fn checks(config: Config, public: Bool = True) -> List<String>
         ]
         |> Iter.flat_map(fn (name, check) ->
             case check()
-                Ok(_) -> []
+                Ok(_)        -> []
                 Err(message) -> ["${name}: ${message}"]
             end
         end)
@@ -225,7 +225,7 @@ fn presigned_put(config: Config) -> Result<Unit, String>
                 method: Method.Put,
                 url:,
                 headers: Headers[("Content-Type", "text/plain")],
-                body: Body.Text("uploaded"),
+                body:    Body.Text("uploaded"),
             }
         )
         |> Result.map_err(fn e -> "${e}")?

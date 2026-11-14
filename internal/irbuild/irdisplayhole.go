@@ -55,7 +55,7 @@ func kindDisplay(k kind) *analysis.DisplayRender {
 		r.Form = analysis.DisplayText
 	case irScalarLeafKind(k) || isDecimalKind(k):
 		r.Form = analysis.DisplayScalar
-	case irExistentialKind(k):
+	case irHeldKind(k):
 		r.Form = analysis.DisplayInterface
 	case irStructuralDisplayKind(k) || irEmptyDisplayKind(k):
 		r.Form = analysis.DisplayStructural
@@ -100,6 +100,16 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 		}
 		return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
 	case analysis.DisplayInterface:
+		if irConjKind(k) {
+			// A conjunction renders through its Display member, which
+			// holds the same value (conjunction.go).
+			for _, m := range k.comp.parts {
+				if irStdDisplayExistential(m) {
+					return bl.renderDisplay(at, bl.relabel(at, src, m), m, rec)
+				}
+			}
+			return ir.NoTemp, false
+		}
 		if !irExistentialKind(k) {
 			// `(7 as Display)`: a value std's Display holds unboxed lowers
 			// as itself (irErases), so the value it holds is the operand,
@@ -164,8 +174,17 @@ func (bl *irScalarBuilder) displayImpl(at ast.Node, src ir.Temp, k kind) (ir.Tem
 // rt's tuple and record layout is the one layout. A part with no rendering
 // declines the whole.
 func (bl *irScalarBuilder) displayParts(at ast.Node, src ir.Temp, k kind, parts []*analysis.DisplayRender) (ir.Temp, bool) {
-	if !irRetainedRecordKind(k) && !irRetainedTupleKind(k) || len(parts) != len(k.comp.parts) {
-		return ir.NoTemp, false
+	// The checker records parts only for a hole of a tuple or record type,
+	// one per component, and the hole's lowered value has that type's kind:
+	// a tuple or record the callable domain holds, which is retained
+	// (irLoweredTupleRetained, irLoweredRecordRetained).
+	if k.tag == tagAnonStruct {
+		irLoweredRecordRetained(k, "a hole's parts")
+	} else {
+		irLoweredTupleRetained(k, "a hole's parts")
+	}
+	if len(parts) != len(k.comp.parts) {
+		panic("irbuild: a hole of " + k.nomi() + " whose Display record has another number of parts")
 	}
 	pos := bl.g.irNodePos(at)
 	if !irHeldValue(bl.f, src, bl.sides) {

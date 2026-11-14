@@ -10,8 +10,8 @@ end
 
 pub struct App
     context: Context
-    store: String
-    work: Supervisor
+    store:   String
+    work:    Supervisor
 end
 
 fn heartbeat() -> Unit

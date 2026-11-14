@@ -516,11 +516,11 @@ func irUserStructFieldKind(k kind) bool {
 		// A Range field (`span: Range<Int>`), the rt range value a binding
 		// or a list element holds.
 		return true
-	case irExistentialKind(k):
+	case irHeldKind(k):
 		// A local interface's existential: the VM holds the concrete value
 		// and dispatch selects its impl through ir.Module.Implement.
 		return true
-	case k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irExistentialKind(k.comp.parts[0]):
+	case k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irHeldKind(k.comp.parts[0]):
 		// A list of existentials (`params: List<Display>`), the concrete
 		// values themselves.
 		return true
@@ -788,9 +788,11 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 		if !isStruct {
 			return no()
 		}
+		// A checked struct type projects to its declaration's kind.
 		k := bl.g.project(st)
+		irHeldOperand(k, "a struct literal")
 		if k.tag != tagNamed || k.def == nil {
-			return no()
+			panic("irbuild: a struct literal whose checked struct type projects to " + k.nomi())
 		}
 		d = k.def
 	}
@@ -833,7 +835,7 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 		}
 		// Typed by the field, so a bare `None` or `Ok(v)` takes its kind.
 		src, k, mobile, ok := bl.lowerTypedOperand(f.Value, fd.k)
-		if ok && k != fd.k && irExistentialKind(fd.k) {
+		if ok && k != fd.k && irHeldKind(fd.k) {
 			// A value whose runtime type does not name its impl enters
 			// boxed, as the checker recorded the field's value (irboxed.go).
 			if boxed, want, how := bl.coerceRecorded(f.Value, src, k, fd.k); how == irCoercedBoxed {
@@ -954,7 +956,7 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 		bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
 		v = cp.Dst()
 	}
-	if k != want && irExistentialKind(want) {
+	if k != want && irHeldKind(want) {
 		// A concrete implementer at an interface-typed field: the interface
 		// value the checker recorded the default as, as the literal's
 		// written fields are.

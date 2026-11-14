@@ -196,7 +196,7 @@ fn nested(r: Result<Maybe<(Int, Int)>, List<Int>>) -> Int
         //   ^ comment
         //         ^ comment
         Ok(None) -> return 0
-        Err(_) -> return 0
+        Err(_)   -> return 0
     end
 
     b

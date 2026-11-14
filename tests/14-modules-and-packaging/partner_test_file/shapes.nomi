@@ -15,7 +15,7 @@ opaque type Area Int
 
 fn area(shape: Shape) -> Area
     case shape.kind
-        .Round -> Area(shape.size * shape.size * 3)
+        .Round  -> Area(shape.size * shape.size * 3)
         .Square -> Area(shape.size * shape.size)
     end
 end

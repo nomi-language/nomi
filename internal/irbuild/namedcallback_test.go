@@ -335,12 +335,12 @@ func TestNamedCallback_StdShortCallWithAHoleInAnAssertion(t *testing.T) {
 end
 
 test "a named argument past an omitted default"
-  assert String.join_list(["a", "b"], Locale` + "`en`" + `, width: .Short) == "a & b"
+  assert String.join_list(["a", "b"], Locale"en", width: .Short) == "a & b"
 end
 
 test "a failing one still reports the call's value"
   w = ListWidth.Short
-  assert String.join_list(["a", "b"], Locale` + "`en`" + `, width: w) == "a and b"
+  assert String.join_list(["a", "b"], Locale"en", width: w) == "a and b"
 end
 `
 	out := irTestBodyVM(t, src, 2)

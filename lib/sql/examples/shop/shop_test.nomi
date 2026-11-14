@@ -37,9 +37,9 @@ group "the shop"
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
             sql.Error.Constraint{
-                kind: ConstraintKind.Unique,
-                name: "users_email_key",
-                table: Some("users"),
+                kind:   ConstraintKind.Unique,
+                name:   "users_email_key",
+                table:  Some("users"),
                 column: Some("email"),
             }
         )
@@ -103,8 +103,8 @@ group "the shop"
         counts = queries.order_counts(db)?
 
         assert counts |> Iter.map(fn c -> (c.email, c.last_order, c.orders)) |> Iter.to_list() == [
-            ("ada@example.com", Some(latest), 2),
-            ("grace@example.com", None, 0),
+            ("ada@example.com",   Some(latest), 2),
+            ("grace@example.com", None,         0),
         ]
     end
 
@@ -120,16 +120,16 @@ group "the shop"
 
         assert revenue == [
             shop.CustomerRevenue{
-                user_id: ada,
-                email: "ada@example.com",
+                user_id:     ada,
+                email:       "ada@example.com",
                 order_count: 2,
-                revenue: 12.50d,
+                revenue:     12.50d,
             },
             shop.CustomerRevenue{
-                user_id: grace,
-                email: "grace@example.com",
+                user_id:     grace,
+                email:       "grace@example.com",
                 order_count: 1,
-                revenue: 1d,
+                revenue:     1d,
             },
         ]
     end

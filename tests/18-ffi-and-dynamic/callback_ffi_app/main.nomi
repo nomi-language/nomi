@@ -6,6 +6,6 @@ end
 fn main()
     case apply_twice("ha", fn s -> Ok("${s}!"))
         Err(e) -> io.print("error: ${e}")
-        Ok(v) -> io.print(v)
+        Ok(v)  -> io.print(v)
     end
 end

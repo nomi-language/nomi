@@ -73,7 +73,7 @@ end
 	}
 	editor, editorNodes := editorDoc(t, lib, src)
 	// A word operator is a keyword, whose hover adds its link.
-	const logicalLink = "\n\nMore in the [spec](https://nomi-lang.org/spec/expressions/#logical-operators)."
+	const logicalLink = "\n\nMore in the [spec](https://nomi-lang.org/spec/expressions/#logical-operators)"
 	cases := []struct {
 		name string
 		// line starts the line that holds the operator, op is the

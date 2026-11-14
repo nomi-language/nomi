@@ -27,17 +27,17 @@ derive ToJson for NotificationType
 derive FromJson for NotificationType
 
 pub struct EmailArgs
-    notification_id: Uuid
+    notification_id:   Uuid
     notification_type: NotificationType
-    post_id: Maybe<Uuid> = None
-    user_id: Maybe<Uuid> = None
+    post_id:           Maybe<Uuid> = None
+    user_id:           Maybe<Uuid> = None
 end
 
 derive ToJson for EmailArgs
 derive FromJson for EmailArgs
 
 pub struct BatchArgs
-    post_id: Uuid
+    post_id:           Uuid
     notification_type: NotificationType
 end
 
@@ -46,10 +46,10 @@ derive FromJson for BatchArgs
 
 pub struct App
     context: Context
-    db: Conn
-    queue: Queue
-    worker: Worker
-    sent: Channel<String>
+    db:      Conn
+    queue:   Queue
+    worker:  Worker
+    sent:    Channel<String>
 end
 
 pub fn boot() -> Result<App, String>
@@ -66,8 +66,8 @@ pub fn boot() -> Result<App, String>
         worker: Worker.new(
             queue,
             max_running: 1,
-            poll: Duration.milliseconds(200),
-            rate: Some(Rate{count: 4, per: Duration.seconds(1), burst: 2}),
+            poll:        Duration.milliseconds(200),
+            rate:        Some(Rate{count: 4, per: Duration.seconds(1), burst: 2}),
         ),
         sent: Channel.buffered(64),
     })
@@ -105,7 +105,7 @@ end
 pub once email_job = Job.new(
     "email_notification",
     max_attempts: 25,
-    timeout: Duration.minutes(30),
+    timeout:      Duration.minutes(30),
     send_email,
 )
 
@@ -137,10 +137,10 @@ pub fn fan_out(args: BatchArgs) -> Result<Unit, Failure>
             id = create_notification(tx, user_id, args.post_id)?
 
             email = EmailArgs{
-                notification_id: id,
+                notification_id:   id,
                 notification_type: args.notification_type,
-                post_id: Some(args.post_id),
-                user_id: Some(user_id),
+                post_id:           Some(args.post_id),
+                user_id:           Some(user_id),
             }
 
             _ = jobs.enqueue(App.queue, tx, email_job, email)?
@@ -212,7 +212,7 @@ fn deliver(args: EmailArgs)
 
     email = case Iter.first(rows)
         Some(row) -> Row.get<String>(row, "email") |> Result.with_default("?")
-        None -> "?"
+        None      -> "?"
     end
 
     _ = Sender.send(App.sent.sender, email)
@@ -239,7 +239,7 @@ pub fn deliveries(count: Int) -> List<String>
     Iter.map(1..=count, fn _ ->
         case Receiver.receive_within(App.sent.receiver, Duration.seconds(10))
             Ok(Some(email)) -> email
-            _ -> "nothing"
+            _               -> "nothing"
         end
     end)
     |> Iter.sort()

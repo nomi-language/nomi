@@ -218,19 +218,19 @@ end
 /// What an operating system error code means, for `Other`'s sentence.
 fn code_text(code: String) -> String
     case code
-        "EIO" -> "input/output error"
-        "ELOOP" -> "too many levels of symbolic links"
+        "EIO"          -> "input/output error"
+        "ELOOP"        -> "too many levels of symbolic links"
         "ENAMETOOLONG" -> "file name too long"
-        "EBUSY" -> "resource busy"
-        "EXDEV" -> "cross-device link"
-        "EINVAL" -> "invalid argument"
-        "EAGAIN" -> "resource temporarily unavailable"
-        "EFBIG" -> "file too large"
-        "EMLINK" -> "too many links"
-        "ENXIO" -> "no such device or address"
-        "EINTR" -> "interrupted"
-        "ENOTSUP" -> "operation not supported"
-        _ -> "operating system error"
+        "EBUSY"        -> "resource busy"
+        "EXDEV"        -> "cross-device link"
+        "EINVAL"       -> "invalid argument"
+        "EAGAIN"       -> "resource temporarily unavailable"
+        "EFBIG"        -> "file too large"
+        "EMLINK"       -> "too many links"
+        "ENXIO"        -> "no such device or address"
+        "EINTR"        -> "interrupted"
+        "ENOTSUP"      -> "operation not supported"
+        _              -> "operating system error"
     end
 end
 
@@ -319,7 +319,7 @@ pub host fn ewrite<T>(value: T) -> Unit where T: Display
 /// ```nomi
 /// case io.read_line()
 ///     Ok(Some(name)) -> io.print("hello, ${name}")
-///     _ -> io.print("hello, stranger")
+///     _              -> io.print("hello, stranger")
 /// end
 /// ```
 //! lines = capture("one\ntwo\r\n", fn -> [read_line(), read_line(), read_line()])
@@ -338,7 +338,7 @@ pub host fn read_line() -> Result<Maybe<String>, Error>
 /// |> Iter.each(fn line ->
 ///     case line
 ///         Ok(text) -> io.print(String.uppercase(text))
-///         Err(e) -> io.eprint(e)
+///         Err(e)   -> io.eprint(e)
 ///     end
 /// end)
 /// ```
@@ -398,8 +398,8 @@ impl Reader
     /// ```nomi
     /// case Reader.read_line(io.stdin)
     ///     Ok(Some(line)) -> io.print("got ${line}")
-    ///     Ok(None) -> io.print("no input")
-    ///     Err(e) -> io.eprint(e)
+    ///     Ok(None)       -> io.print("no input")
+    ///     Err(e)         -> io.eprint(e)
     /// end
     /// ```
     //! import std::io
@@ -427,8 +427,8 @@ impl Reader
     /// ```nomi
     /// case Reader.read(r, max: 4096)
     ///     Ok(Some(chunk)) -> Bytes.length(chunk)
-    ///     Ok(None) -> 0
-    ///     Err(_) -> -1
+    ///     Ok(None)        -> 0
+    ///     Err(_)          -> -1
     /// end
     /// ```
     //! r = Reader.from_text("abcdef")
@@ -500,8 +500,8 @@ impl Reader
         |> Iter.scan(Ok(""), fn _: Result<String, Error>, reader ->
             case Reader.read_line(reader)
                 Ok(Some(line)) -> Ok(line)
-                Ok(None) -> break
-                Err(e) -> break Err(e)
+                Ok(None)       -> break
+                Err(e)         -> break Err(e)
             end
         end)
     end
@@ -529,8 +529,8 @@ impl Reader
         |> Iter.scan(Ok(String.to_bytes("")), fn _: Result<Bytes, Error>, reader ->
             case Reader.read(reader, max: size)
                 Ok(Some(chunk)) -> Ok(chunk)
-                Ok(None) -> break
-                Err(e) -> break Err(e)
+                Ok(None)        -> break
+                Err(e)          -> break Err(e)
             end
         end)
     end
@@ -817,7 +817,7 @@ impl Writer
     pub fn write_all(w: Writer, chunks: Iter<Bytes>) -> Result<Unit, Error>
         Iter.reduce(chunks, Ok(Unit), fn written: Result<Unit, Error>, chunk ->
             case Writer.write(w, chunk)
-                Ok(_) -> written
+                Ok(_)  -> written
                 failed -> break failed
             end
         end)
@@ -846,7 +846,7 @@ impl Writer
     pub fn write_lines<T>(w: Writer, lines: Iter<T>) -> Result<Unit, Error> where T: Display
         Iter.reduce(lines, Ok(Unit), fn written: Result<Unit, Error>, line ->
             case Writer.write_text(w, "${line}\n")
-                Ok(_) -> written
+                Ok(_)  -> written
                 failed -> break failed
             end
         end)
@@ -889,9 +889,9 @@ impl Writer
     //! assert Writer.write_text(failing, "x") == Result.Err(Error.NoSpace{path: "disk"})
     //
     pub fn from_fn(
-        close: () -> Result<Unit, Error> = fn -> Ok(Unit),
+        close:      () -> Result<Unit, Error> = fn -> Ok(Unit),
         unbuffered: Bool = False,
-        write: (Bytes) -> Result<Unit, Error>,
+        write:      (Bytes) -> Result<Unit, Error>,
     ) -> Writer
         writer_from_fn(write, close, unbuffered)
     end
@@ -939,8 +939,8 @@ end
 
 /// `Writer.from_fn`.
 host fn writer_from_fn(
-    write: (Bytes) -> Result<Unit, Error>,
-    close: () -> Result<Unit, Error>,
+    write:      (Bytes) -> Result<Unit, Error>,
+    close:      () -> Result<Unit, Error>,
     unbuffered: Bool,
 ) -> Writer
 
@@ -1117,7 +1117,7 @@ end
 //!
 //!     case read_line()
 //!         Ok(Some(name)) -> print("hello, ${name}")
-//!         _ -> print("hello, stranger")
+//!         _              -> print("hello, stranger")
 //!     end
 //! end)
 //!
@@ -1137,8 +1137,8 @@ end
 /// error output and transcript to `finish`, which builds the `Captured`.
 /// Implemented by the VM.
 host fn run_captured<T>(
-    input: String,
-    run: () -> T,
+    input:  String,
+    run:    () -> T,
     finish: (T, String, String, String) -> Captured<T>,
 ) -> Captured<T>
 
@@ -1163,8 +1163,8 @@ impl Assertable for Replayed
             None
         else
             Some(AssertionDetails{
-                reason: replay_reason(replayed),
-                actual: Some(replayed.transcript),
+                reason:   replay_reason(replayed),
+                actual:   Some(replayed.transcript),
                 expected: Some(replayed.expected),
             })
         end
@@ -1254,7 +1254,7 @@ end
 //!
 //!     case read_line()
 //!         Ok(Some(name)) -> print("hello, ${name}")
-//!         _ -> print("hello, stranger")
+//!         _              -> print("hello, stranger")
 //!     end
 //! end
 //!
@@ -1302,7 +1302,7 @@ end
 //!
 //!     case read_line()
 //!         Ok(Some(word)) -> print("you said ${word}")
-//!         _ -> print("bye")
+//!         _              -> print("bye")
 //!     end
 //! end
 //!
@@ -1370,6 +1370,6 @@ end
 /// by the VM.
 host fn run_replayed<T>(
     script: String,
-    run: () -> T,
+    run:    () -> T,
     finish: (T, String, String, String, Int) -> Replayed,
 ) -> Replayed

@@ -50,11 +50,12 @@ const usage = `usage:
                                         file the tests load, changes; a case that runs
                                         longer than --timeout (default 10s, 0 for none)
                                         is stopped and fails
-  nomi check [--format full|short|json] <path>
+  nomi check [--format full|short|json] [--hints] <path>
                                         analyze and lower without running, test
                                         files and their cases included; short prints
                                         path:line:col: lines, not source snippets
-                                        (NOMI_DIAGNOSTICS=short does so for every command)
+                                        (NOMI_DIAGNOSTICS=short does so for every command);
+                                        --hints also reports the editor's hints
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
                                         the pub types of the named files and directories
                                         cross as, for a frontend; stdout by default
@@ -136,7 +137,7 @@ func main() {
 	} else if len(os.Args) > 1 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
 		fmt.Print(usage)
 	} else if len(os.Args) > 1 && os.Args[1] == "run" {
-		args := os.Args[2:]
+		args := takeProfileFlag(os.Args[2:])
 		if len(args) < 1 {
 			fmt.Fprintln(os.Stderr, runUsage)
 			os.Exit(1)
@@ -306,12 +307,16 @@ func unknownFlag(cmd, arg, usage string) error {
 // JSON Lines records (check_json.go) instead of text.
 var checkJSONFormat bool
 
-// parseCheckArgs reads `nomi check [--format full|short|json] <path>`:
+// checkHints is set by `nomi check --hints`: the check also reports the
+// hints the language server shows (vmhost.WithHints).
+var checkHints bool
+
+// parseCheckArgs reads `nomi check [--format full|short|json] [--hints] <path>`:
 // exactly one path, and the diagnostics format, which it selects for the
 // process (and any FFI wrapper it starts) through NOMI_DIAGNOSTICS, or
 // json, which runCheck writes itself.
 func parseCheckArgs(args []string) (string, error) {
-	const checkUsage = "usage: nomi check [--format full|short|json] <path>"
+	const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
 	var paths []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -333,6 +338,10 @@ func parseCheckArgs(args []string) (string, error) {
 			default:
 				return "", fmt.Errorf("nomi check: unknown format %q; use full, short or json\n%s", value, checkUsage)
 			}
+			continue
+		}
+		if arg == "--hints" {
+			checkHints = true
 			continue
 		}
 		if isFlag(arg) {
@@ -505,8 +514,12 @@ func ownLines(err error) bool {
 //
 // warn takes the program's warnings (vmhost.WithWarnings).
 func checkFile(absPath string, warn vmhost.Option) error {
+	opts := []vmhost.Option{warn}
+	if checkHints {
+		opts = append(opts, vmhost.WithHints())
+	}
 	cache := vmhost.OpenCache(absPath)
-	if cache.Checked(warn) {
+	if cache.Checked(opts...) {
 		return nil
 	}
 	res, err := ffirun.Prepare(absPath)
@@ -516,7 +529,7 @@ func checkFile(absPath string, warn vmhost.Option) error {
 	if !res.FastPath {
 		return ffirun.Check(res, absPath)
 	}
-	return vmhost.Check(absPath, vmhost.WithCache(cache), warn)
+	return vmhost.Check(absPath, append(opts, vmhost.WithCache(cache))...)
 }
 
 // discoverCheckFiles answers the files `nomi check root` checks as programs,

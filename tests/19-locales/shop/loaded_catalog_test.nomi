@@ -29,7 +29,7 @@ fn reasons(text: String, locale: Locale) -> List<String>
 end
 
 test "a loaded translation comes before the compiled one"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     text = cart_items(
         "one {{{$count} rzecz}}\nfew {{{$count} rzeczy}}\nmany {{{$count} rzeczy}}\n* {{{$count} rzeczy}}"
@@ -43,10 +43,10 @@ test "a loaded translation comes before the compiled one"
     assert cart.cart_items(3) |> Phrase.format(pl) == "3 produkty w koszyku"
 
     assert cart.cart_items(3)
-    |> Phrase.format(Locale`pt`, catalogs: [catalog]) == "3 itens no carrinho"
+    |> Phrase.format(Locale"pt", catalogs: [catalog]) == "3 itens no carrinho"
 
     // A region of the catalog's locale reads it too.
-    assert cart.cart_items(1) |> Phrase.format(Locale`pl-PL`, catalogs: [catalog]) == "1 rzecz"
+    assert cart.cart_items(1) |> Phrase.format(Locale"pl-PL", catalogs: [catalog]) == "1 rzecz"
 
     // A phrase the catalog leaves out keeps its compiled text.
     assert cart.watching("Ana i Ben")
@@ -58,7 +58,7 @@ test "a loaded translation comes before the compiled one"
 end
 
 test "the first catalog that translates a phrase gives its text"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     (first, _) = Catalog.load(
         cart_items("one {{jedna}}\nfew {{kilka}}\nmany {{wiele}}\n* {{trochę}}"),
@@ -71,7 +71,7 @@ test "the first catalog that translates a phrase gives its text"
 end
 
 test "a rejected entry is never used: the phrase keeps its compiled text"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     // An English-shaped Polish translation.
     (catalog, rejected) = Catalog.load(
@@ -80,7 +80,7 @@ test "a rejected entry is never used: the phrase keeps its compiled text"
     )
 
     assert rejected == [Rejected{
-        key: "cart.cart_items",
+        key:    "cart.cart_items",
         locale: pl,
         reason: "`cart_items` has no `few` arm; 2, 3 and 4 select `few` in Polish",
     }]
@@ -89,7 +89,7 @@ test "a rejected entry is never used: the phrase keeps its compiled text"
 end
 
 test "an entry is rejected for what the compiler rejects it for"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     stale = """
         [cart.watching]
@@ -179,7 +179,7 @@ test "an entry is rejected for what the compiler rejects it for"
 end
 
 test "a noun's entry is checked as the compiler checks it"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     book = """
         [order.book]
@@ -227,7 +227,7 @@ test "a noun's entry is checked as the compiler checks it"
 end
 
 test "loaded nouns and phrases agree with the program's"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     // `sold_out` asks every Polish noun for its genitive.
     no_genitive = """
@@ -294,7 +294,7 @@ test "loaded nouns and phrases agree with the program's"
 end
 
 test "a catalog names what the program has, in a locale it lists"
-    pl = Locale`pl`
+    pl = Locale"pl"
 
     entry = """
         source = '''{$names} are watching this item'''
@@ -313,7 +313,7 @@ test "a catalog names what the program has, in a locale it lists"
         "cart.watching: es is not a locale `[i18n]` lists; a catalog loaded while the program runs translates only the locales it was built with",
     ]
 
-    assert reasons("[cart.watching]\n" + entry, Locale`en`) == [
+    assert reasons("[cart.watching]\n" + entry, Locale"en") == [
         "cart.watching: en is the source locale, whose text is in the `phrase` declarations",
     ]
 

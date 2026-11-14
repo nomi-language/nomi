@@ -24,7 +24,7 @@ end
 
 pub struct Rank
     level: Int
-    name: String
+    name:  String
 end
 
 derive Equatable for Rank

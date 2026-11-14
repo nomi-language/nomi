@@ -22,7 +22,7 @@ func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			var out strings.Builder
-			body := "id = Uuid`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`\n" +
+			body := "id = Uuid\"0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A\"\n" +
 				"assert Uuid.parse(\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\") == Ok(id)\n" +
 				"assert Uuid.version(id) == 7\n" +
 				"io.print(Debug.inspect(id))\n"
@@ -33,7 +33,7 @@ func TestProgramStd_AReferenceEditorRuns(t *testing.T) {
 			if len(cases) != 1 || cases[0].Err != nil || len(cases[0].Blocked) > 0 {
 				t.Fatalf("cases %+v\n%s", cases, out.String())
 			}
-			if want := "Uuid`0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`\n"; cases[0].Output != want {
+			if want := "Uuid\"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a\"\n"; cases[0].Output != want {
 				t.Errorf("output %q, want %q", cases[0].Output, want)
 			}
 		})

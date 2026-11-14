@@ -85,8 +85,8 @@ end
 fn describe(label: String, outcome: Outcome<Int>) -> Unit
     case outcome
         .Completed(v) -> io.print(label + ": completed " + Display.to_string(v))
-        .Cancelled -> io.print(label + ": cancelled")
-        .Failed(_) -> io.print(label + ": failed")
+        .Cancelled    -> io.print(label + ": cancelled")
+        .Failed(_)    -> io.print(label + ": failed")
     end
 end
 

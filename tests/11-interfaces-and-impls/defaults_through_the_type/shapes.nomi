@@ -40,7 +40,7 @@ impl Shape for Tile
     fn area(t: Tile) -> Int
         case t
             .Small -> 1
-            .Big -> 4
+            .Big   -> 4
         end
     end
 end

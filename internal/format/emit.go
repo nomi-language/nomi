@@ -776,7 +776,12 @@ func emitNode(n ast.Node) Doc {
 		}
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		elems := make([]Doc, 0, len(v.Items))
+		rows := rowsBlock(v.Items)
 		for _, it := range v.Items {
+			if rows.kind != 0 {
+				elems = append(elems, emitRow(it, rows.item()))
+				continue
+			}
 			elems = append(elems, emit(it))
 		}
 		// A comment forces the broken form: a `// comment` cannot share a
@@ -798,7 +803,7 @@ func emitNode(n ast.Node) Doc {
 	case *ast.MapLit:
 		open := shapeOpen("", v.TypeName, "{")
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
-		items, elems := mapLitParts(v, emit)
+		items, elems := mapLitParts(v, emit, newAlignBlock(alignMap))
 		lastComma := !endsInSpread(len(v.Entries), v.Spreads)
 		first := 0
 		if len(v.Spreads) > 0 && v.Spreads[0].At == 0 {
@@ -2634,8 +2639,9 @@ func emitStructLit(v *ast.StructLit) Doc {
 	if v.Spread != nil {
 		elems = append(elems, Concat(Text(".."), emit(v.Spread)))
 	}
+	values := newAlignBlock(alignValues)
 	for _, f := range v.Fields {
-		elems = append(elems, emitStructFieldValWithLeading(f))
+		elems = append(elems, emitStructFieldValWithLeading(f, values.item()))
 	}
 	// A value written with no field name is an error the checker reports;
 	// the formatter, which runs without it, keeps the value after the
@@ -2765,15 +2771,16 @@ func nodeHasDangling(n ast.Node) bool {
 
 // emitStructFieldValWithLeading renders one struct-literal field with
 // its leading-comment block above. A value that is the field's own name is
-// written punned, `name:`.
-func emitStructFieldValWithLeading(f ast.StructFieldVal) Doc {
+// written punned, `name:`. Any other value aligns with its neighbours' as
+// item it.
+func emitStructFieldValWithLeading(f ast.StructFieldVal, it alignItem) Doc {
 	parts := []Doc{}
 	parts = append(parts, emitLeadingComments(withoutBlankTrivia(f.LeadingComments))...)
 	if fieldValueIsPun(f) {
 		parts = append(parts, Text(f.Name+":"))
 		return Concat(parts...)
 	}
-	parts = append(parts, Text(f.Name), Text(": "), emit(f.Value))
+	parts = append(parts, it.wrap(Concat(Text(f.Name), Text(": "), it.col(0), emit(f.Value))))
 	return Concat(parts...)
 }
 
@@ -2839,19 +2846,24 @@ func emitCaseArms(branches []ast.CaseBranch, endTrivia []ast.Trivia) Doc {
 				break
 			}
 			rem := width - indent
-			line := caseArmLine(b, false)
+			line := caseArmLine(b, false, alignItem{})
 			if caseArmKeepsBroken(b, line) || !fitsWalk(line, &rem, false) {
 				flat = false
 				break
 			}
 		}
 		body := make([]Doc, 0, len(branches)*3)
+		// Arms on consecutive lines align their `->`.
+		var arms alignBlock
+		if flat {
+			arms = newAlignBlock(alignArms)
+		}
 		for i := range branches {
 			if i > 0 && !flat {
 				body = append(body, HardLine())
 			}
 			b := &branches[i]
-			body = append(body, HardLine(), emitCaseArmTrivia(b, caseArmLine(b, !flat)))
+			body = append(body, HardLine(), emitCaseArmTrivia(b, caseArmLine(b, !flat, arms.item())))
 		}
 		if len(endTrivia) > 0 {
 			if n := len(branches); n > 0 && !flat && !isTripleLiteral(branches[n-1].Body) {
@@ -2885,7 +2897,10 @@ func caseArmKeepsBroken(b *ast.CaseBranch, line Doc) bool {
 // raw literal follows `-> ` on the pattern's line too, its body one level in
 // (bodyFromOpenerLine). Any other body follows on the same line, or with
 // broken on the next line one indent in.
-func caseArmLine(b *ast.CaseBranch, broken bool) Doc {
+//
+// An arm on one line is the item it of its case's alignment block, aligned
+// at its `->`.
+func caseArmLine(b *ast.CaseBranch, broken bool, it alignItem) Doc {
 	prefix := emitGroupedPattern(b.Pattern)
 	if b.Guard != nil {
 		prefix = Concat(prefix, Text(" when "), emit(b.Guard))
@@ -2904,7 +2919,7 @@ func caseArmLine(b *ast.CaseBranch, broken bool) Doc {
 	if broken && !isTripleLiteral(b.Body) {
 		return Concat(prefix, Text(" ->"), Nest(defaultIndent, Concat(HardLine(), emitLambdaSingleExprBody(b.Body))))
 	}
-	return Concat(prefix, Text(" -> "), emit(b.Body))
+	return it.wrap(Concat(prefix, it.col(0), Text(" -> "), emit(b.Body)))
 }
 
 // armBodyHasComments reports whether an arm's body, other than a block,
@@ -2973,11 +2988,7 @@ func emitCall(v *ast.Call) Doc {
 		return Concat(callee, emitEmptyArgList(v))
 	}
 	if cs, ok := nodesComments(v.Args); ok {
-		elems := make([]Doc, len(v.Args))
-		for i, a := range v.Args {
-			elems[i] = emitCallArg(a)
-		}
-		return Concat(callee, emitCommentedArgs(elems, cs))
+		return Concat(callee, emitCommentedArgs(callArgDocs(v.Args), cs))
 	}
 	if lam, tailIsLambda := v.Args[n-1].(*ast.Lambda); tailIsLambda {
 		leading := v.Args[:n-1]
@@ -3033,16 +3044,35 @@ func emitCall(v *ast.Call) Doc {
 		parts = append(parts, emit(v.Args[n-1]), Text(")"))
 		return Concat(callee, Concat(parts...))
 	}
-	if elems := callArgDocs(v.Args); keepsBrokenList(nodeEndLine(v.Func), v.Args, elems) {
-		return Concat(callee, brokenList("(", ")", elems, n > 1))
-	}
-	return Concat(callee, emitArgList(v.Args))
+	return Concat(callee, emitArgDocs(v, callArgDocs(v.Args)))
 }
 
-// callArgDocs is each of args as emitArgList writes it.
+// emitArgDocs is v's argument list from elems, its arguments' documents,
+// when no argument is a lambda after the others and none holds a comment.
+func emitArgDocs(v *ast.Call, elems []Doc) Doc {
+	if keepsBrokenList(nodeEndLine(v.Func), v.Args, elems) {
+		return brokenList("(", ")", elems, len(elems) > 1)
+	}
+	return emitArgList(elems)
+}
+
+// callArgDocs is each of args as emitArgList writes it. Named arguments
+// align their values, and arguments that are rows (rowsBlock) their
+// columns.
 func callArgDocs(args []ast.Node) []Doc {
 	out := make([]Doc, len(args))
+	values := newAlignBlock(alignValues)
+	rows := rowsBlock(args)
 	for i, a := range args {
+		if na, ok := a.(*ast.NamedArg); ok && !argValueIsPun(na) {
+			it := values.item()
+			out[i] = withDangling(na, it.wrap(Concat(Text(na.Name), Text(": "), it.col(0), emit(na.Value))))
+			continue
+		}
+		if rows.kind != 0 {
+			out[i] = emitRow(a, rows.item())
+			continue
+		}
 		out[i] = emitCallArg(a)
 	}
 	return out
@@ -3128,7 +3158,7 @@ func emitTypeArgs(args []ast.TypeExpr) Doc {
 // For multiple args, the trailing comma on break is produced via IfBroken so
 // it only appears when the Group actually breaks. A single visible arg omits
 // that comma so wrappers around triple-quoted strings stay quiet.
-func emitArgList(args []ast.Node) Doc {
+func emitArgList(args []Doc) Doc {
 	if len(args) == 0 {
 		return Text("()")
 	}
@@ -3137,7 +3167,7 @@ func emitArgList(args []ast.Node) Doc {
 		if i > 0 {
 			parts = append(parts, Text(","), Line())
 		}
-		parts = append(parts, emitCallArg(a))
+		parts = append(parts, a)
 	}
 	inner := Concat(parts...)
 	trailingComma := Nil()
@@ -4332,11 +4362,7 @@ func emitFuncDefHeader(v *ast.FuncDef) Doc {
 		}
 	}
 
-	paramDocs := make([]Doc, 0, len(v.Params))
-	for _, p := range v.Params {
-		paramDocs = append(paramDocs, emitFuncDefParam(p))
-	}
-	parts = append(parts, emitParamList(v.Line, paramDocs, v.Params, v.ParamsEndTrivia))
+	parts = append(parts, emitParamList(v.Line, funcParamDocs(v.Params), v.Params, v.ParamsEndTrivia))
 
 	if v.ReturnTypeExpr != nil {
 		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))
@@ -4353,7 +4379,10 @@ func emitFuncDefHeader(v *ast.FuncDef) Doc {
 // Destructuring params (tuple/struct/map) render the pattern in place of the
 // name; this is rare in top-level function definitions but kept for parity
 // with the lambda emitter.
-func emitFuncDefParam(p ast.Param) Doc {
+//
+// A parameter with a name and a type is item it of its list's alignment
+// block, its type aligned after `name:`.
+func emitFuncDefParam(p ast.Param, it alignItem) Doc {
 	var head Doc
 	switch {
 	case p.TypeOnly:
@@ -4368,12 +4397,27 @@ func emitFuncDefParam(p ast.Param) Doc {
 	// A redundant self-typing annotation is already gone
 	// (stripSelfTypingAnnotations).
 	if p.TypeAnnotation != nil && !p.TypeOnly {
-		parts = append(parts, Text(": "), emitTypeExpr(p.TypeAnnotation))
+		col := Nil()
+		if p.Destructure == nil {
+			col = it.col(0)
+		}
+		parts = append(parts, Text(": "), col, emitTypeExpr(p.TypeAnnotation))
 	}
 	if p.Default != nil {
 		parts = append(parts, Text(" = "), emit(p.Default))
 	}
-	return Concat(parts...)
+	return it.wrap(Concat(parts...))
+}
+
+// funcParamDocs is each of a function signature's parameters, in one
+// alignment block.
+func funcParamDocs(params []ast.Param) []Doc {
+	b := newAlignBlock(alignValues)
+	docs := make([]Doc, len(params))
+	for i, p := range params {
+		docs[i] = emitFuncDefParam(p, b.item())
+	}
+	return docs
 }
 
 // emitTypeExpr renders a TypeExpr as a Doc. Each type-expression node has
@@ -4499,6 +4543,15 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		return Concat(paramListGroup, Text(" -> "), emitTypeExpr(n.Return))
 	case *ast.AnonStructType:
 		return emitAnonStructType(n)
+	case *ast.ConjunctionType:
+		parts := make([]Doc, 0, 2*len(n.Members))
+		for i, m := range n.Members {
+			if i > 0 {
+				parts = append(parts, Text(" and "))
+			}
+			parts = append(parts, emitTypeExpr(m))
+		}
+		return Concat(parts...)
 	}
 	// Fallback for any TypeExpr node not enumerated above: render via the
 	// AST's TypeString(). Keeps the formatter robust if a new type-expr
@@ -4956,14 +5009,21 @@ func withoutBlankTrivia(trivia []ast.Trivia) []ast.Trivia {
 // Leading `//` trivia and the `///` doc comment stack above the item (doc
 // closest to the field). The comma-separated form stays in emitStructField
 // for anon-struct types and struct-shaped enum variant payloads.
-func emitStructDeclField(f ast.StructField) Doc {
+//
+// A field with a type is item it of its struct's alignment block, its type
+// aligned after `name:`; a default is not a column of its own.
+func emitStructDeclField(f ast.StructField, it alignItem) Doc {
 	parts := []Doc{}
 	parts = append(parts, emitLeadingComments(f.LeadingComments)...)
 	parts = append(parts, emitDocComment(f.Doc)...)
-	parts = append(parts, emitFieldHead(f)...)
-	if f.Default != nil {
-		parts = append(parts, Text(" = "), emit(f.Default))
+	head := []Doc{Text(f.Name)}
+	if f.TypeAnnotation != nil {
+		head = append(head, Text(": "), it.col(0), emitTypeExpr(f.TypeAnnotation))
 	}
+	if f.Default != nil {
+		head = append(head, Text(" = "), emit(f.Default))
+	}
+	parts = append(parts, it.wrap(Concat(head...)))
 	parts = append(parts, emitSameLineComments(f.Trailing)...)
 	return Concat(parts...)
 }
@@ -5338,8 +5398,9 @@ func emitStructDef(v *ast.StructDef) Doc {
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 
 	members := make([]Doc, 0, len(v.Fields)+len(v.Items))
+	fields := newAlignBlock(alignFields)
 	for _, f := range v.Fields {
-		members = append(members, emitStructDeclField(f))
+		members = append(members, emitStructDeclField(f, fields.item()))
 	}
 	members = appendTypeBodyItems(members, v.Items)
 	parts = append(parts, emitDeclBody(members, v.EndTrivia))
@@ -5433,13 +5494,10 @@ func emitEnumDef(v *ast.EnumDef) Doc {
 // methods — so emitting `open` here without checking Body is safe in
 // practice; the AST flag is only ever set on default methods.
 func emitInterfaceMethodSig(m ast.InterfaceMethod) Doc {
-	paramDocs := make([]Doc, 0, len(m.Params))
-	for _, p := range m.Params {
-		// The parameter list is a function's, destructuring patterns
-		// included: writing the name the parser gave a pattern, with no
-		// type, does not parse.
-		paramDocs = append(paramDocs, emitFuncDefParam(p))
-	}
+	// The parameter list is a function's, destructuring patterns included:
+	// writing the name the parser gave a pattern, with no type, does not
+	// parse.
+	paramDocs := funcParamDocs(m.Params)
 	parts := []Doc{}
 	if m.Open {
 		parts = append(parts, Text("open "))
@@ -5692,6 +5750,8 @@ func emitOptionalTypeBody(parts []Doc, hasBody bool, items []ast.Node, endTrivia
 func emitOnceBinding(v *ast.OnceBinding) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
 	parts = append(parts, emitAttachedTests(v.AttachedTests)...)
+	// Consecutive `once` declarations align their `=`.
+	it := onceBlock.item()
 	target := []Doc{}
 	if v.Public {
 		target = append(target, Text("pub "))
@@ -5700,7 +5760,8 @@ func emitOnceBinding(v *ast.OnceBinding) Doc {
 	if v.TypeAnnotation != nil {
 		target = append(target, Text(": "), emitTypeExpr(v.TypeAnnotation))
 	}
-	parts = append(parts, emitBindingValue(Concat(target...), v.Value))
+	target = append(target, it.col(0))
+	parts = append(parts, it.wrap(emitBindingValue(Concat(target...), v.Value)))
 	return Concat(parts...)
 }
 
@@ -5745,11 +5806,7 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 		parts = append(parts, Text(v.Name), emitTypeParams(v.TypeParams))
 	}
 
-	paramDocs := make([]Doc, 0, len(v.Params))
-	for _, p := range v.Params {
-		paramDocs = append(paramDocs, emitFuncDefParam(p))
-	}
-	parts = append(parts, emitParamList(v.Line, paramDocs, v.Params, v.ParamsEndTrivia))
+	parts = append(parts, emitParamList(v.Line, funcParamDocs(v.Params), v.Params, v.ParamsEndTrivia))
 
 	if v.ReturnTypeExpr != nil {
 		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))
@@ -5771,11 +5828,7 @@ func emitKeywordDecl(v *ast.KeywordDecl) Doc {
 	}
 	parts = append(parts, Text(v.Keyword+" "+v.Name))
 	if v.HasParams {
-		paramDocs := make([]Doc, 0, len(v.Params))
-		for _, p := range v.Params {
-			paramDocs = append(paramDocs, emitFuncDefParam(p))
-		}
-		parts = append(parts, emitParamList(v.Line, paramDocs, v.Params, v.ParamsEndTrivia))
+		parts = append(parts, emitParamList(v.Line, funcParamDocs(v.Params), v.Params, v.ParamsEndTrivia))
 	}
 	if v.ReturnTypeExpr != nil {
 		parts = append(parts, Text(" -> "), emitTypeExpr(v.ReturnTypeExpr))

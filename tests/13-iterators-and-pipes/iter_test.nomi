@@ -136,9 +136,10 @@ test "iter search predicates short circuit"
         |> Iter.all_match(fn x -> x % 2 == 0)
 end
 
-test "iter flattening materializes nested lists"
+test "iter flattening yields each inner element in order"
     assert [[1, 2], [3, 4]]
         |> Iter.flatten()
+        |> Iter.to_list()
         |> List.equal([1, 2, 3, 4])
 end
 

@@ -68,6 +68,8 @@ var infiniteIterCases = []infiniteIterCase{
 	{"chunk_by", []string{"Iter.chunk_by"}, pipe("Iter.from(0)", " |> Iter.chunk_by(&(&1 / 4)) |> Iter.to_list()"), true},
 	{"chunk_equal", []string{"Iter.chunk_equal"}, pipe("Iter.repeat(1)", " |> Iter.chunk_equal() |> Iter.to_list()"), true},
 	{"flat_map", []string{"Iter.flat_map"}, pipe("Iter.from(0)", " |> Iter.flat_map(fn x -> [x, x]) |> Iter.to_list()"), true},
+	{"flatten", []string{"Iter.flatten"}, pipe("Iter.repeat([1])", " |> Iter.flatten() |> Iter.to_list()"), true},
+	{"Maybe.values", []string{"Maybe.values"}, pipe("Iter.repeat(Maybe.Some(1))", " |> Maybe.values() |> Iter.to_list()"), true},
 	{"chunks", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(3) |> Iter.to_list()"), true},
 	{"chunks of zero", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(0) |> Iter.to_list()"), false},
 	{"windows", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(2) |> Iter.to_list()"), true},
@@ -103,7 +105,6 @@ var infiniteIterCases = []infiniteIterCase{
 	{"count_by", []string{"Iter.count_by"}, pipe("Iter.from(0)", " |> Iter.count_by(&(&1 > 3))"), true},
 	{"last", []string{"Iter.last"}, pipe("Iter.from(0)", " |> Iter.last()"), true},
 	{"reverse", []string{"Iter.reverse"}, pipe("Iter.from(0)", " |> Iter.reverse()"), true},
-	{"flatten", []string{"Iter.flatten"}, pipe("Iter.repeat([1])", " |> Iter.flatten()"), true},
 	{"transpose", []string{"Iter.transpose"}, pipe("Iter.repeat([1])", " |> Iter.transpose()"), true},
 	{"permutations", []string{"Iter.permutations"}, pipe("Iter.from(0)", " |> Iter.permutations()"), true},
 	{"combinations", []string{"Iter.combinations"}, pipe("Iter.from(0)", " |> Iter.combinations(2)"), true},
@@ -128,7 +129,6 @@ var infiniteIterCases = []infiniteIterCase{
 	{"each that can break", []string{"Iter.each"}, pipe("Iter.from(0)", " |> Iter.each(fn x ->\n        if x > 4 then\n            break\n        else\n            Unit\n        end\n    end)"), false},
 	{"map_reduce", []string{"Iter.map_reduce"}, pipe("Iter.from(0)", " |> Iter.map_reduce(0, fn s, x -> (s + x, x))"), true},
 	{"String.join", []string{"String.join"}, pipe("Iter.repeat(\"a\")", " |> String.join(\", \")"), true},
-	{"Maybe.values", []string{"Maybe.values"}, pipe("Iter.repeat(Maybe.Some(1))", " |> Maybe.values()"), true},
 	{"Result.partition", []string{"Result.partition"}, pipe("Iter.repeat(ok)", " |> Result.partition()"), true},
 	{"Task.spawn_all", []string{"Task.spawn_all"}, func(src func(string) string) string {
 		return "concurrent\n        " + src("Iter.repeat(1)") + " |> Task.spawn_all(&(&1 * 2), max_running: 2) |> Task.await_all()\n    end"

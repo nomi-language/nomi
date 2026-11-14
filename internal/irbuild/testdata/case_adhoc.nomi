@@ -6,9 +6,9 @@ import std::io
 fn classify(n: Int) -> String
     case
         n > 100 -> "huge"
-        n > 10 -> "big"
-        n == 0 -> "zero"
-        _ -> "small"
+        n > 10  -> "big"
+        n == 0  -> "zero"
+        _       -> "small"
     end
 end
 

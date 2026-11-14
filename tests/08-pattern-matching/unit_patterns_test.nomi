@@ -12,7 +12,7 @@ end
 fn describe(r: Result<Unit, String>) -> String
     case r
         Ok(Unit) -> "saved"
-        Err(e) -> e
+        Err(e)   -> e
     end
 end
 

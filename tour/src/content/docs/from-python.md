@@ -17,7 +17,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | Python | Nomi |
 |---|---|
 | `x = 1`, then `x += 1` | `x = 1`, then `x = x + 1`. Values are immutable; the name is bound again. |
-| `s.strip()`, `len(xs)` | `String.trim(s)`, `Iter.count(xs)`: functions are called through their owner |
+| `s.strip()`, `len(xs)` | `String.trim(s)`, `List.length(xs)`: functions are called through their owner |
 | `class User:` with `self.name` | `struct User` with a `name: String` field, read as `user.name`; behavior goes in `impl User` |
 | `None` | `None`, but only in a `Maybe<T>`: a value that may be missing says so in its type |
 | `raise ValueError(..)`, `try:` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |

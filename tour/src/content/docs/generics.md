@@ -114,7 +114,7 @@ Types and derives can have a `where` clause too:
 ```nomi ignore
 struct Span<T> where T: Comparable
     start: T
-    stop: T
+    stop:  T
 end
 
 derive Display for Box<T> where T: Display

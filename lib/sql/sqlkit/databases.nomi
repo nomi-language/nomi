@@ -36,7 +36,7 @@ derive Equatable for Dialect
 impl Display for Dialect
     fn to_string(dialect: Dialect) -> String
         case dialect
-            .Sqlite -> "SQLite"
+            .Sqlite   -> "SQLite"
             .Postgres -> "Postgres"
         end
     end
@@ -44,12 +44,12 @@ end
 
 /// One database of the module.
 pub struct Database
-    name: String
-    dialect: Dialect = Dialect.Sqlite
+    name:       String
+    dialect:    Dialect = Dialect.Sqlite
     migrations: String
-    queries: String
-    out: String
-    schema: String
+    queries:    String
+    out:        String
+    schema:     String
 
     /// For Postgres, the environment variable that names the development
     /// server `generate` makes its scratch database on.
@@ -72,12 +72,12 @@ derive Equatable for Database
 //!
 //! assert databases.read(c) == [
 //!     Database{
-//!         name: "main",
+//!         name:       "main",
 //!         migrations: "db/migrations",
-//!         queries: "sql",
-//!         out: ".",
-//!         schema: "schema",
-//!         tables: {"people" => "Person"},
+//!         queries:    "sql",
+//!         out:        ".",
+//!         schema:     "schema",
+//!         tables:     {"people" => "Person"},
 //!     },
 //! ]
 //!
@@ -100,13 +100,13 @@ pub fn read(config: Json) -> List<Database>
 
         Database{
             name:,
-            dialect: dialect_of(text(table, "dialect")),
-            migrations: text(table, "migrations") |> Maybe.with_default(d.migrations),
-            queries: text(table, "queries") |> Maybe.with_default(d.queries),
-            out: text(table, "out") |> Maybe.with_default(d.out),
-            schema: text(table, "schema") |> Maybe.with_default(d.schema),
+            dialect:     dialect_of(text(table, "dialect")),
+            migrations:  text(table, "migrations") |> Maybe.with_default(d.migrations),
+            queries:     text(table, "queries") |> Maybe.with_default(d.queries),
+            out:         text(table, "out") |> Maybe.with_default(d.out),
+            schema:      text(table, "schema") |> Maybe.with_default(d.schema),
             dev_url_env: text(table, "dev_url_env") |> Maybe.with_default(d.dev_url_env),
-            tables: text_map(table, "tables"),
+            tables:      text_map(table, "tables"),
         }
     end)
     |> Iter.to_list()
@@ -170,10 +170,10 @@ pub fn defaults(name: String) -> Database
     Database{
         name:,
         migrations: "db/migrations",
-        queries: "db/queries",
-        out: ".",
-        schema: "schema",
-        tables: {},
+        queries:    "db/queries",
+        out:        ".",
+        schema:     "schema",
+        tables:     {},
     }
 end
 
@@ -203,14 +203,14 @@ end
 fn field(json: Json, key: String) -> Maybe<Json>
     case json
         Json.Obj(fields) -> Map.get(fields, key)
-        _ -> None
+        _                -> None
     end
 end
 
 fn text(json: Json, key: String) -> Maybe<String>
     case field(json, key)
         Some(Json.String(s)) -> Some(s)
-        _ -> None
+        _                    -> None
     end
 end
 
@@ -222,7 +222,7 @@ fn text_map(json: Json, key: String) -> Map<String, String>
             |> Iter.flat_map(fn k ->
                 case Map.get(entries, k)
                     Some(Json.String(s)) -> [(k, s)]
-                    _ -> []
+                    _                    -> []
                 end
             end)
             |> Iter.to_map()

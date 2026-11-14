@@ -97,6 +97,10 @@ type rtFuncsSuite struct {
 	covered map[string]int
 	golden  map[string]string
 	lines   []string
+	// parts is the adapters' parts forms, each held to its adapter's
+	// answer (sameParts); partsChecked counts the argument sets.
+	parts        map[string]hostadapt.PartsFunc
+	partsChecked int
 
 	calls, values, faults, panics, refusals, fastRecords int
 }
@@ -114,6 +118,7 @@ func newRtFuncsSuite(t *testing.T) *rtFuncsSuite {
 	if p.table, err = Bind(env); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
+	p.parts = partsTable(t)
 	for _, spec := range Specs() {
 		if spec.Kind == rt.KindStruct || spec.Kind == rt.KindDistinct {
 			d, err := env.Desc(spec)
@@ -198,6 +203,7 @@ func (p *rtFuncsSuite) check(key string, c hostCase) {
 		laid[k] = p.relayout(rtArgs[k])
 	}
 	var first string
+	var whole hostOutcome
 	for _, layout := range []string{"by name", "by offset"} {
 		args := rtArgs
 		if layout == "by offset" {
@@ -212,7 +218,7 @@ func (p *rtFuncsSuite) check(key string, c hostCase) {
 		p.calls++
 		text := goldenOutcome(got, c.shapeOnly)
 		if layout == "by name" {
-			first = text
+			first, whole = text, got
 		}
 		if recorded && text != want {
 			p.t.Errorf("%s [%s]:\n  recorded %s\n  adapter  %s", line, layout, want, text)
@@ -228,6 +234,11 @@ func (p *rtFuncsSuite) check(key string, c hostCase) {
 		default:
 			p.values++
 		}
+	}
+	if sameParts(p.t, line, p.parts[key], whole, func(fn hostadapt.PartsFunc) (rt.Value, bool, error) {
+		return fn(fr, rtArgs)
+	}, c.shapeOnly) {
+		p.partsChecked++
 	}
 	p.lines = append(p.lines, strconv.Quote(line)+"\t"+strconv.Quote(first))
 	p.covered[key]++
@@ -694,6 +705,9 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	}
 	if len(p.lines) != len(p.golden) {
 		t.Errorf("%d argument sets ran and %s records %d", len(p.lines), hostGoldenPath, len(p.golden))
+	}
+	if p.partsChecked == 0 {
+		t.Errorf("no argument set reached a parts form; the comparison has stopped reaching them")
 	}
 
 	// The rows that joined the table after the hand-written hosts were deleted

@@ -206,36 +206,41 @@ func TestLoweringDiagnostics_AStdModuleLoweredWithTheProgram(t *testing.T) {
 	}
 }
 
-// A backtick typed literal whose handler answers Err is a compile error,
-// reported once: among the lowering diagnostics, with the invalid-literal
-// code, and not by the editor's own literal evaluation.
-func TestLoweringDiagnostics_InvalidBacktickLiteral(t *testing.T) {
+// A typed literal without slots whose handler answers Err is a compile
+// error, in either quote style, reported among the lowering diagnostics with
+// the invalid-literal code.
+func TestLoweringDiagnostics_InvalidLiteralWithoutSlots(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	src := "import std::regex.Regex\n\nfn main()\n    _ = Regex`[`\nend\n"
-	dir := writeProject(t, map[string]string{
-		"main.nomi": src,
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
-	})
-	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), src, nil)
-	if len(diags) != 1 {
-		t.Fatalf("lowering diagnostics %+v; want one", diags)
-	}
-	d := diags[0]
-	if want := "typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[`"; d.Message != want {
-		t.Errorf("message = %q, want %q", d.Message, want)
-	}
-	if d.Code == nil || d.Code.Value != "invalid-literal" {
-		t.Errorf("code = %+v, want invalid-literal", d.Code)
-	}
-	want := protocol.Range{Start: protocol.Position{Line: 3, Character: 8}, End: protocol.Position{Line: 3, Character: 16}}
-	if d.Range != want {
-		t.Errorf("range = %+v, want %+v", d.Range, want)
-	}
-	s, snap := openLiteralDoc(t, src)
-	if own := s.literalDiagnostics(snap, true); len(own) != 0 {
-		t.Errorf("the editor's literal evaluation reports it too: %+v", own)
+	for _, tc := range []struct {
+		src, want string
+		end       uint32
+	}{
+		{"import std::regex.Regex\n\nfn main()\n    _ = Regex\"[\"\nend\n",
+			"typed literal Regex\"[\" is invalid: error parsing regexp: missing closing ]: `[`", 16},
+		{"import std::calendar.Date\n\nfn main()\n    _ = Date\"2026-13-04\"\nend\n",
+			`typed literal Date"2026-13-04" is invalid: invalid value: month out of range: 13`, 24},
+	} {
+		dir := writeProject(t, map[string]string{
+			"main.nomi": tc.src,
+			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		})
+		diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), tc.src, nil)
+		if len(diags) != 1 {
+			t.Fatalf("lowering diagnostics %+v; want one", diags)
+		}
+		d := diags[0]
+		if d.Message != tc.want {
+			t.Errorf("message = %q, want %q", d.Message, tc.want)
+		}
+		if d.Code == nil || d.Code.Value != "invalid-literal" {
+			t.Errorf("code = %+v, want invalid-literal", d.Code)
+		}
+		want := protocol.Range{Start: protocol.Position{Line: 3, Character: 8}, End: protocol.Position{Line: 3, Character: tc.end}}
+		if d.Range != want {
+			t.Errorf("range = %+v, want %+v", d.Range, want)
+		}
 	}
 }
 

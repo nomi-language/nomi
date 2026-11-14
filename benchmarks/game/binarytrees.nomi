@@ -1,0 +1,64 @@
+//# The Computer Language Benchmarks Game: binary-trees.
+//#
+//# Allocates and walks perfect binary trees, as the benchmark's rules
+//# require: a stretch tree one deeper than `n`, a long-lived tree of depth
+//# `n` kept alive through the rest, then many short-lived trees at each depth
+//# from 4 to `n` in steps of 2. A tree is built bottom up, and each node's
+//# check counts the nodes beneath it.
+
+import std::io
+
+enum Tree
+    Empty
+    Node (Tree, Tree)
+end
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 10})
+    end
+end
+
+fn make(depth: Int) -> Tree
+    if depth == 0 then
+        Tree.Node(.Empty, .Empty)
+    else
+        Tree.Node(make(depth - 1), make(depth - 1))
+    end
+end
+
+fn check(tree: Tree) -> Int
+    case tree
+        .Empty             -> 0
+        .Node(left, right) -> 1 + check(left) + check(right)
+    end
+end
+
+fn main()
+    min_depth = 4
+    max_depth = Int.max(min_depth + 2, App.n)
+    stretch = max_depth + 1
+    io.print("stretch tree of depth ${stretch}\t check: ${check(make(stretch))}")
+
+    long_lived = make(max_depth)
+
+    Iter.iterate(min_depth, &(&1 + 2))
+    |> Iter.take_while(&(&1 <= max_depth))
+    |> Iter.each(fn depth ->
+        iterations = 1 <<< (max_depth - depth + min_depth)
+        total = Iter.reduce(1..=iterations, 0, fn sum, _ -> sum + check(make(depth)))
+        io.print("${iterations}\t trees of depth ${depth}\t check: ${total}")
+    end)
+
+    io.print("long lived tree of depth ${max_depth}\t check: ${check(long_lived)}")
+end

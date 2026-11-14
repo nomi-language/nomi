@@ -57,7 +57,7 @@ fn main()
     [1, 2]
     |> Iter.each(fn n ->
         badge = cart.cart_count(n)
-        io.print(Phrase.format(badge, Locale` + "`en`" + `))
+        io.print(Phrase.format(badge, Locale"en"))
     end)
 end
 

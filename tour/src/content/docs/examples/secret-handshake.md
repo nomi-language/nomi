@@ -38,10 +38,10 @@ end
 
 fn bit(action: Action) -> Int
     case action
-        .Wink -> 1
-        .DoubleBlink -> 2
+        .Wink          -> 1
+        .DoubleBlink   -> 2
         .CloseYourEyes -> 4
-        .Jump -> 8
+        .Jump          -> 8
     end
 end
 

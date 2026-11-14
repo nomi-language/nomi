@@ -50,10 +50,10 @@ end
 //! assert Fake.committed(fake) == [Sql"INSERT INTO users (name) VALUES (${"Ada"})"]
 //
 pub opaque struct Fake
-    state: Channel<State>
-    id: Int
+    state:   Channel<State>
+    id:      Int
     dialect: Dialect
-    answer: (Statement, List<Statement>) -> Result<List<Row>, sql.Error>
+    answer:  (Statement, List<Statement>) -> Result<List<Row>, sql.Error>
 end
 
 // What every Conn of one fake shares. `levels` holds the connection's level
@@ -61,15 +61,15 @@ end
 // transaction and savepoint, innermost last. A Conn whose level is not open
 // has been committed or rolled back.
 struct State
-    log: List<String>
+    log:        List<String>
     statements: List<Statement>
-    levels: List<Level>
-    next_id: Int
-    closed: Bool
+    levels:     List<Level>
+    next_id:    Int
+    closed:     Bool
 end
 
 struct Level
-    id: Int
+    id:      Int
     effects: List<Statement>
 end
 
@@ -83,18 +83,18 @@ impl Fake
     //
     pub fn new(
         dialect: Dialect = Dialect.Other("fake"),
-        answer: (Statement, List<Statement>) -> Result<List<Row>, sql.Error> = answer_nothing,
+        answer:  (Statement, List<Statement>) -> Result<List<Row>, sql.Error> = answer_nothing,
     ) -> Fake
         state: Channel<State> = Channel.buffered(1)
 
         first = State{
-            log: [],
+            log:        [],
             statements: [],
             levels: [
                 Level{id: 0, effects: []},
             ],
             next_id: 1,
-            closed: False,
+            closed:  False,
         }
 
         _ = Sender.send(state.sender, first)
@@ -128,7 +128,7 @@ impl Fake
     pub fn committed(fake: Fake) -> List<Statement>
         case Iter.first(peek(fake).levels)
             Some(level) -> level.effects
-            None -> []
+            None        -> []
         end
     end
 
@@ -193,8 +193,8 @@ impl Conn for Fake
 
                 put(conn, {
                     ..state,
-                    log: .. + [line],
-                    levels: .. + [level],
+                    log:     .. + [line],
+                    levels:  .. + [level],
                     next_id: .. + 1,
                 })
 
@@ -223,7 +223,7 @@ impl Conn for Fake
                 parent = Iter.first(inner) |> Maybe.map(.id) |> Maybe.with_default(0)
 
                 merged = Level{
-                    id: parent,
+                    id:      parent,
                     effects: inner |> Iter.flat_map(.effects) |> Iter.to_list(),
                 }
 
@@ -284,7 +284,7 @@ impl Conn for Fake
         else
             put(conn, {
                 ..state,
-                log: .. + ["CLOSE"],
+                log:    .. + ["CLOSE"],
                 levels: Iter.take(.., 1) |> Iter.to_list(),
                 closed: True,
             })
@@ -304,7 +304,7 @@ end
 fn take(fake: Fake) -> State
     case Receiver.receive(fake.state.receiver)
         Some(state) -> state
-        None -> State{log: [], statements: [], levels: [], next_id: 0, closed: False}
+        None        -> State{log: [], statements: [], levels: [], next_id: 0, closed: False}
     end
 end
 
@@ -354,7 +354,7 @@ fn run(fake: Fake, statement: Statement) -> Result<List<Row>, sql.Error>
     result = answer(statement, visible)
 
     case result
-        Ok(_) -> put(fake, {..sent, levels: with_effect(state.levels, statement)})
+        Ok(_)  -> put(fake, {..sent, levels: with_effect(state.levels, statement)})
         Err(_) -> put(fake, sent)
     end
 
@@ -378,7 +378,7 @@ end
 //! assert "${failure}" == "ping: timed out"
 //
 pub struct Failure
-    rule: String
+    rule:    String
     message: String
 end
 
@@ -438,7 +438,7 @@ pub fn conformance<C>(open: () -> Result<C, sql.Error>) -> List<Failure> where C
     checks()
     |> Iter.flat_map(fn (rule, check) ->
         case check_with(open, check)
-            Ok(_) -> []
+            Ok(_)        -> []
             Err(message) -> [Failure{rule:, message:}]
         end
     end)
@@ -461,7 +461,7 @@ end
 /// returns no rows.
 pub fn conformance_answer(
     statement: Statement,
-    visible: List<Statement>,
+    visible:   List<Statement>,
 ) -> Result<List<Row>, sql.Error>
     if is_shaped(statement, insert_parent(0, 0, 0)) then
         parent_violation(statement, visible)?
@@ -528,7 +528,7 @@ end
 fn int_param(statement: Statement, index: Int) -> Maybe<Int>
     case Iter.get(statement.params, index)
         Some(.Int(n)) -> Some(n)
-        _ -> None
+        _             -> None
     end
 end
 
@@ -624,7 +624,7 @@ end
 // Opens a connection, creates the suite's table, runs check on it, and
 // closes it. A close that fails after the check passed breaks the rule.
 fn check_with<C>(
-    open: () -> Result<C, sql.Error>,
+    open:  () -> Result<C, sql.Error>,
     check: (Conn) -> Result<Unit, String>,
 ) -> Result<Unit, String> where C: Conn
     conn: Conn = step(open(), "open a connection")?
@@ -644,7 +644,7 @@ end
 fn step<T>(result: Result<T, sql.Error>, what: String) -> Result<T, String>
     case result
         Ok(value) -> Ok(value)
-        Err(e) -> Err("${what} failed: ${e}")
+        Err(e)    -> Err("${what} failed: ${e}")
     end
 end
 
@@ -672,16 +672,16 @@ end
 fn expect_finished<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, String>
     case result
         Err(sql.Error.Finished) -> Ok(Unit)
-        Err(e) -> Err("${what} answered `${e}`, not Finished")
-        Ok(_) -> Err("${what} answered Ok, not Finished")
+        Err(e)                  -> Err("${what} answered `${e}`, not Finished")
+        Ok(_)                   -> Err("${what} answered Ok, not Finished")
     end
 end
 
 fn expect_closed<T>(result: Result<T, sql.Error>, what: String) -> Result<Unit, String>
     case result
         Err(sql.Error.Closed) -> Ok(Unit)
-        Err(e) -> Err("${what} answered `${e}`, not Closed")
-        Ok(_) -> Err("${what} answered Ok, not Closed")
+        Err(e)                -> Err("${what} answered `${e}`, not Closed")
+        Ok(_)                 -> Err("${what} answered Ok, not Closed")
     end
 end
 
@@ -792,10 +792,10 @@ end
 
 // statement breaks the constraint `name` of kind.
 fn expect_constraint(
-    conn: Conn,
+    conn:      Conn,
     statement: Statement,
-    kind: ConstraintKind,
-    name: String,
+    kind:      ConstraintKind,
+    name:      String,
 ) -> Result<Unit, String>
     case Conn.exec(conn, statement)
         Err(sql.Error.Constraint{
@@ -900,7 +900,7 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                 count = Iter.loop(0, fn count ->
                     case Receiver.receive(calls.receiver)
                         Some(_) -> count + 1
-                        None -> break count
+                        None    -> break count
                     end
                 end)
 
@@ -1056,7 +1056,7 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
 
                 case outcome
                     .Failed(_) -> expect_ns(conn, [])
-                    _ -> Err("the trapping body's task did not fail")
+                    _          -> Err("the trapping body's task did not fail")
                 end
             end,
         ),
@@ -1156,7 +1156,7 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
 
                 case outcome
                     .Failed(_) -> expect_closed(Conn.ping(conn), "ping after the trap")
-                    _ -> Err("the trapping body's task did not fail")
+                    _          -> Err("the trapping body's task did not fail")
                 end
             end,
         ),

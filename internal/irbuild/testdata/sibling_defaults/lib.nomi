@@ -23,7 +23,7 @@ end
 /// imports by name.
 pub fn offset(x: Int, by: Int = base(), mode: Mode = Mode.Shift) -> Int
     case mode
-        .Keep -> x
+        .Keep  -> x
         .Shift -> x + by
     end
 end

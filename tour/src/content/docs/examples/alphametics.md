@@ -18,8 +18,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// total of its place values, positive in the addends and negative in the
 /// result, so a solution makes the weighted digits add up to zero.
 struct Letter
-    name: String
-    weight: Int
+    name:    String
+    weight:  Int
     leading: Bool
 end
 
@@ -57,7 +57,7 @@ end
 fn letter(name: String, uses: List<(String, Int, Bool)>) -> Letter
     {
         name:,
-        weight: uses |> Iter.map(fn (_name, value, _leading) -> value) |> Iter.sum(),
+        weight:  uses |> Iter.map(fn (_name, value, _leading) -> value) |> Iter.sum(),
         leading: Iter.any_match(uses, fn (_name, _value, leading) -> leading),
     }
 end
@@ -69,9 +69,9 @@ end
 /// and the bound cuts early.
 fn assign(
     letters: List<Letter>,
-    used: Set<Int>,
-    total: Int,
-    digits: Map<String, Int>,
+    used:    Set<Int>,
+    total:   Int,
+    digits:  Map<String, Int>,
 ) -> Maybe<Map<String, Int>>
     [letter, ..rest] = letters else
         return if total == 0 then Some(digits) else None

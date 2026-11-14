@@ -83,10 +83,10 @@ end
 /// cell where `is_goal` holds, without stepping on a cell of `seen` again.
 /// A depth-first search: the newest cells found are tried first.
 fn reaches(
-    stones: Set<Cell>,
+    stones:   Set<Cell>,
     frontier: List<Cell>,
-    seen: Set<Cell>,
-    is_goal: (Cell) -> Bool,
+    seen:     Set<Cell>,
+    is_goal:  (Cell) -> Bool,
 ) -> Bool
     case frontier
         [] ->

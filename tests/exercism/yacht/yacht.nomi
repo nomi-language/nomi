@@ -19,18 +19,18 @@ end
 /// The score of five `dice` in `category`: 0 when they do not make it.
 pub fn score(dice: List<Int>, category: Category) -> Int
     case category
-        .Ones -> face_total(dice, 1)
-        .Twos -> face_total(dice, 2)
-        .Threes -> face_total(dice, 3)
-        .Fours -> face_total(dice, 4)
-        .Fives -> face_total(dice, 5)
-        .Sixes -> face_total(dice, 6)
-        .FullHouse -> full_house(dice)
-        .FourOfAKind -> four_of_a_kind(dice)
+        .Ones           -> face_total(dice, 1)
+        .Twos           -> face_total(dice, 2)
+        .Threes         -> face_total(dice, 3)
+        .Fours          -> face_total(dice, 4)
+        .Fives          -> face_total(dice, 5)
+        .Sixes          -> face_total(dice, 6)
+        .FullHouse      -> full_house(dice)
+        .FourOfAKind    -> four_of_a_kind(dice)
         .LittleStraight -> straight(dice, from: 1)
-        .BigStraight -> straight(dice, from: 2)
-        .Choice -> Iter.sum(dice)
-        .Yacht -> yacht(dice)
+        .BigStraight    -> straight(dice, from: 2)
+        .Choice         -> Iter.sum(dice)
+        .Yacht          -> yacht(dice)
     end
 end
 

@@ -1,0 +1,781 @@
+//# Are We Fast Yet: DeltaBlue.
+//#
+//# The DeltaBlue incremental constraint solver (Freeman-Benson, Maloney and
+//# Borning), running the suite's chain test and projection test, each of
+//# size `inner`.
+//#
+//# Departures from the guidelines, all because Nomi has no mutable objects:
+//#
+//# - The constraint graph is cyclic and changed in place in the suite. Here a
+//#   `Planner` value holds every variable and constraint in maps keyed by an
+//#   id, and every operation that changes the graph takes the planner and
+//#   returns the new one. An object reference is its id. The stores are maps,
+//#   not vectors indexed by id, because `Vector.set` copies the whole vector
+//#   in the current runtime, which would make each update cost the size of
+//#   the graph.
+//# - The suite's class hierarchy (AbstractConstraint, UnaryConstraint,
+//#   BinaryConstraint and their subclasses) is the `Constraint` enum, whose
+//#   variants carry a `UnaryConstraint`, a `BinaryConstraint` or a
+//#   `ScaleConstraint`; each method dispatches with a `case` where the suite
+//#   dispatches virtually. The methods that change the graph are on
+//#   `Planner`, since they need it.
+//# - The suite's work queues (`todo`), which it drains with `removeFirst`,
+//#   are a `Vector<Int>` read through an index that moves forward, as the
+//#   suite's Vector moves its `firstIdx`. Loops are tail recursion.
+//# - A failed chain or projection test returns an `Err` that fails the
+//#   inner loop, where the suite throws. A cycle or an unsatisfiable
+//#   required constraint, which the suite also throws on, trap with
+//#   `unreachable`.
+//# - `Planner.propagateFrom` is left out: neither test calls it.
+//# - The suite's `sort` of the unsatisfied constraints throws if it would
+//#   swap two elements, so the tests never sort anything out of order; here
+//#   it is a stable `Iter.sort_by`, strongest first.
+
+import
+    std::io
+    harness
+end
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+enum Sym
+    AbsoluteStrongest
+    Required
+    StrongPreferred
+    Preferred
+    StrongDefault
+    Default
+    WeakDefault
+    AbsoluteWeakest
+end
+
+derive Equatable for Sym
+derive Hashable for Sym
+
+once strength_table: Map<Sym, Int> = {
+    Sym.AbsoluteStrongest => -10000,
+    Sym.Required          => -800,
+    Sym.StrongPreferred   => -600,
+    Sym.Preferred         => -400,
+    Sym.StrongDefault     => -200,
+    Sym.Default           => 0,
+    Sym.WeakDefault       => 500,
+    Sym.AbsoluteWeakest   => 10000,
+}
+
+struct Strength
+    arithmetic_value: Int
+end
+
+impl Strength
+    fn of(sym: Sym) -> Strength
+        Strength{arithmetic_value: Map.get(strength_table, sym)!}
+    end
+
+    fn same_as(strength: Strength, s: Strength) -> Bool
+        strength.arithmetic_value == s.arithmetic_value
+    end
+
+    fn stronger(strength: Strength, s: Strength) -> Bool
+        strength.arithmetic_value < s.arithmetic_value
+    end
+
+    fn weaker(strength: Strength, s: Strength) -> Bool
+        strength.arithmetic_value > s.arithmetic_value
+    end
+
+    fn strongest(strength: Strength, s: Strength) -> Strength
+        if stronger(s, strength) then s else strength
+    end
+
+    fn weakest(strength: Strength, s: Strength) -> Strength
+        if weaker(s, strength) then s else strength
+    end
+end
+
+enum Direction
+    Forward
+    Backward
+end
+
+derive Equatable for Direction
+
+struct UnaryConstraint
+    strength:  Strength
+    output:    Int
+    satisfied: Bool = False
+end
+
+struct BinaryConstraint
+    strength:  Strength
+    v1:        Int
+    v2:        Int
+    direction: Maybe<Direction> = None
+end
+
+impl BinaryConstraint
+    /// The variable the constraint reads, by its direction.
+    fn input(b: BinaryConstraint) -> Int
+        if b.direction == Some(.Forward) then b.v1 else b.v2
+    end
+
+    fn output(b: BinaryConstraint) -> Int
+        if b.direction == Some(.Forward) then b.v2 else b.v1
+    end
+end
+
+struct ScaleConstraint
+    binary: BinaryConstraint
+    scale:  Int
+    offset: Int
+end
+
+/// A constraint: the suite's EditConstraint, StayConstraint,
+/// EqualityConstraint and ScaleConstraint.
+enum Constraint
+    Edit UnaryConstraint
+    Stay UnaryConstraint
+    Equality BinaryConstraint
+    Scale ScaleConstraint
+end
+
+impl Constraint
+    fn strength(c: Constraint) -> Strength
+        case c
+            .Edit(u)     -> u.strength
+            .Stay(u)     -> u.strength
+            .Equality(b) -> b.strength
+            .Scale(s)    -> s.binary.strength
+        end
+    end
+
+    fn is_input(c: Constraint) -> Bool
+        c is .Edit(_)
+    end
+
+    fn is_satisfied(c: Constraint) -> Bool
+        case c
+            .Edit(u)     -> u.satisfied
+            .Stay(u)     -> u.satisfied
+            .Equality(b) -> b.direction != None
+            .Scale(s)    -> s.binary.direction != None
+        end
+    end
+
+    fn get_output(c: Constraint) -> Int
+        case c
+            .Edit(u)     -> u.output
+            .Stay(u)     -> u.output
+            .Equality(b) -> BinaryConstraint.output(b)
+            .Scale(s)    -> BinaryConstraint.output(s.binary)
+        end
+    end
+
+    /// Every variable the constraint is attached to, in the order the suite
+    /// attaches them.
+    fn variables(c: Constraint) -> List<Int>
+        case c
+            .Edit(u)     -> [u.output]
+            .Stay(u)     -> [u.output]
+            .Equality(b) -> [b.v1, b.v2]
+            .Scale(s)    -> [s.binary.v1, s.binary.v2, s.scale, s.offset]
+        end
+    end
+
+    /// Folds `f` over the constraint's input variables.
+    fn inputs_do<S>(c: Constraint, from: S, f: (S, Int) -> S) -> S
+        case c
+            .Edit(_)     -> from
+            .Stay(_)     -> from
+            .Equality(b) -> f(from, BinaryConstraint.input(b))
+            .Scale(s)    -> f(f(f(from, BinaryConstraint.input(s.binary)), s.scale), s.offset)
+        end
+    end
+
+    /// Whether `f` holds for an input. A scale constraint asks only of its
+    /// source or destination, as in the suite, which does not override
+    /// `inputsHasOne` for it.
+    fn inputs_has_one(c: Constraint, f: (Int) -> Bool) -> Bool
+        case c
+            .Edit(_)     -> False
+            .Stay(_)     -> False
+            .Equality(b) -> f(BinaryConstraint.input(b))
+            .Scale(s)    -> f(BinaryConstraint.input(s.binary))
+        end
+    end
+
+    fn with_direction(c: Constraint, direction: Maybe<Direction>) -> Constraint
+        case c
+            .Edit(u)     -> .Edit(u)
+            .Stay(u)     -> .Stay(u)
+            .Equality(b) -> .Equality({..b, direction:})
+            .Scale(s)    -> .Scale({..s, binary: {.., direction:}})
+        end
+    end
+
+    fn with_satisfied(c: Constraint, satisfied: Bool) -> Constraint
+        case c
+            .Edit(u) -> .Edit({..u, satisfied:})
+            .Stay(u) -> .Stay({..u, satisfied:})
+            other    -> other
+        end
+    end
+
+    fn mark_unsatisfied(c: Constraint) -> Constraint
+        case c
+            .Edit(_) or .Stay(_)      -> with_satisfied(c, False)
+            .Equality(_) or .Scale(_) -> with_direction(c, None)
+        end
+    end
+end
+
+struct Variable
+    value:         Int
+    constraints:   Vector<Int> = []
+    determined_by: Maybe<Int> = None
+    walk_strength: Strength
+    stay:          Bool = True
+    mark:          Int = 0
+end
+
+impl Variable
+    fn add_constraint(v: Variable, c: Int) -> Variable
+        {..v, constraints: Vector.push(v.constraints, c)}
+    end
+
+    fn remove_constraint(v: Variable, c: Int) -> Variable
+        {
+            ..v,
+            constraints:   v.constraints |> Iter.reject(&(&1 == c)) |> Iter.to_vector(),
+            determined_by: if v.determined_by == Some(c) then None else v.determined_by,
+        }
+    end
+end
+
+/// The constraints of a plan, in the order they run.
+struct Plan
+    constraints: Vector<Int> = []
+end
+
+impl Plan
+    fn append(plan: Plan, c: Int) -> Plan
+        {..plan, constraints: Vector.push(plan.constraints, c)}
+    end
+
+    fn execute(plan: Plan, p: Planner) -> Planner
+        Iter.reduce(plan.constraints, p, Planner.execute)
+    end
+end
+
+/// The planner and the whole constraint graph it plans over.
+struct Planner
+    current_mark: Int = 1
+    variables:    Map<Int, Variable> = {}
+    constraints:  Map<Int, Constraint> = {}
+end
+
+impl Planner
+    fn variable(p: Planner, v: Int) -> Variable
+        Map.get(p.variables, v)!
+    end
+
+    fn update_variable(p: Planner, v: Int, f: (Variable) -> Variable) -> Planner
+        {..p, variables: Map.put(p.variables, v, f(variable(p, v)))}
+    end
+
+    fn set_value(p: Planner, v: Int, value: Int) -> Planner
+        update_variable(p, v, fn var -> {..var, value:})
+    end
+
+    fn constraint(p: Planner, c: Int) -> Constraint
+        Map.get(p.constraints, c)!
+    end
+
+    fn update_constraint(p: Planner, c: Int, f: (Constraint) -> Constraint) -> Planner
+        {..p, constraints: Map.put(p.constraints, c, f(constraint(p, c)))}
+    end
+
+    /// A new variable holding `value`, as the suite's `Variable.value`.
+    fn new_variable(p: Planner, value: Int) -> (Planner, Int)
+        v = Map.size(p.variables)
+        variable = Variable{value:, walk_strength: Strength.of(.AbsoluteWeakest)}
+        ({..p, variables: Map.put(p.variables, v, variable)}, v)
+    end
+
+    /// Adds `constraint` to the graph and satisfies it, as each of the
+    /// suite's constraint constructors does.
+    fn new_constraint(p: Planner, constraint: Constraint) -> (Planner, Int)
+        c = Map.size(p.constraints)
+        p = {..p, constraints: Map.put(p.constraints, c, constraint)}
+        (add_constraint(p, c), c)
+    end
+
+    fn new_mark(p: Planner) -> (Planner, Int)
+        mark = p.current_mark + 1
+        ({..p, current_mark: mark}, mark)
+    end
+
+    fn add_constraint(p: Planner, c: Int) -> Planner
+        add_to_graph(p, c) |> incremental_add(c)
+    end
+
+    fn destroy_constraint(p: Planner, c: Int) -> Planner
+        p = if Constraint.is_satisfied(constraint(p, c)) then incremental_remove(p, c) else p
+        remove_from_graph(p, c)
+    end
+
+    fn inputs_known(p: Planner, c: Int, mark: Int) -> Bool
+        not Constraint.inputs_has_one(constraint(p, c), fn id ->
+            v = variable(p, id)
+            not (v.mark == mark or v.stay or v.determined_by == None)
+        end)
+    end
+
+    /// Tries to satisfy `c`, returning the constraint it overrode, if any.
+    fn satisfy(p: Planner, c: Int, mark: Int) -> (Planner, Maybe<Int>)
+        p = choose_method(p, c, mark)
+        con = constraint(p, c)
+
+        if Constraint.is_satisfied(con) then
+            p = Constraint.inputs_do(con, p, fn p, i -> update_variable(p, i, fn v -> {..v, mark:}))
+            out = Constraint.get_output(con)
+            overridden = variable(p, out).determined_by
+
+            p = case overridden
+                Some(o) -> update_constraint(p, o, Constraint.mark_unsatisfied)
+                None    -> p
+            end
+
+            p = update_variable(p, out, fn v -> {..v, determined_by: Some(c)})
+            (p, propagated) = add_propagate(p, c, mark)
+            if not propagated then unreachable "Cycle encountered"
+            (update_variable(p, out, fn v -> {..v, mark:}), overridden)
+        else
+            if Strength.same_as(Constraint.strength(con), Strength.of(.Required)) then
+                unreachable "Could not satisfy a required constraint"
+            end
+
+            (p, None)
+        end
+    end
+
+    fn add_to_graph(p: Planner, c: Int) -> Planner
+        con = constraint(p, c)
+
+        Constraint.variables(con)
+        |> Iter.reduce(p, fn p, v -> update_variable(p, v, &Variable.add_constraint(&1, c)))
+        |> update_constraint(c, Constraint.mark_unsatisfied)
+    end
+
+    fn remove_from_graph(p: Planner, c: Int) -> Planner
+        con = constraint(p, c)
+
+        Constraint.variables(con)
+        |> Iter.reduce(p, fn p, v -> update_variable(p, v, &Variable.remove_constraint(&1, c)))
+        |> update_constraint(c, Constraint.mark_unsatisfied)
+    end
+
+    fn choose_method(p: Planner, c: Int, mark: Int) -> Planner
+        case constraint(p, c)
+            .Edit(u) ->
+                update_constraint(p, c, &Constraint.with_satisfied(&1, unary_satisfied(p, u, mark)))
+
+            .Stay(u) ->
+                update_constraint(p, c, &Constraint.with_satisfied(&1, unary_satisfied(p, u, mark)))
+
+            .Equality(b) ->
+                update_constraint(
+                    p,
+                    c,
+                    &Constraint.with_direction(&1, binary_direction(p, b, mark)),
+                )
+
+            .Scale(s) ->
+                update_constraint(
+                    p,
+                    c,
+                    &Constraint.with_direction(&1, binary_direction(p, s.binary, mark)),
+                )
+        end
+    end
+
+    fn unary_satisfied(p: Planner, u: UnaryConstraint, mark: Int) -> Bool
+        output = variable(p, u.output)
+        output.mark != mark and Strength.stronger(u.strength, output.walk_strength)
+    end
+
+    fn binary_direction(p: Planner, b: BinaryConstraint, mark: Int) -> Maybe<Direction>
+        v1 = variable(p, b.v1)
+        v2 = variable(p, b.v2)
+
+        if v1.mark == mark then
+            if v2.mark != mark and Strength.stronger(b.strength, v2.walk_strength) then
+                Some(.Forward)
+            else
+                None
+            end
+        else if v2.mark == mark then
+            if v1.mark != mark and Strength.stronger(b.strength, v1.walk_strength) then
+                Some(.Backward)
+            else
+                None
+            end
+        else if Strength.weaker(v1.walk_strength, v2.walk_strength) then
+            if Strength.stronger(b.strength, v1.walk_strength) then Some(.Backward) else None
+        else if Strength.stronger(b.strength, v2.walk_strength) then
+            Some(.Forward)
+        else
+            None
+        end
+    end
+
+    fn recalculate(p: Planner, c: Int) -> Planner
+        con = constraint(p, c)
+
+        (out, walk_strength, stay) = case con
+            .Edit(u) ->
+                (u.output, u.strength, False)
+
+            .Stay(u) ->
+                (u.output, u.strength, True)
+
+            .Equality(b) ->
+                ihn = variable(p, BinaryConstraint.input(b))
+
+                (
+                    BinaryConstraint.output(b),
+                    Strength.weakest(b.strength, ihn.walk_strength),
+                    ihn.stay,
+                )
+
+            .Scale(s) ->
+                ihn = variable(p, BinaryConstraint.input(s.binary))
+                stay = ihn.stay and variable(p, s.scale).stay and variable(p, s.offset).stay
+
+                (
+                    BinaryConstraint.output(s.binary),
+                    Strength.weakest(s.binary.strength, ihn.walk_strength),
+                    stay,
+                )
+        end
+
+        p = update_variable(p, out, fn v -> {..v, walk_strength:, stay:})
+        if stay then execute(p, c) else p
+    end
+
+    fn execute(p: Planner, c: Int) -> Planner
+        case constraint(p, c)
+            .Edit(_) ->
+                p
+
+            .Stay(_) ->
+                p
+
+            .Equality(b) ->
+                if b.direction == Some(.Forward) then
+                    set_value(p, b.v2, variable(p, b.v1).value)
+                else
+                    set_value(p, b.v1, variable(p, b.v2).value)
+                end
+
+            .Scale(s) ->
+                b = s.binary
+                scale = variable(p, s.scale).value
+                offset = variable(p, s.offset).value
+
+                if b.direction == Some(.Forward) then
+                    set_value(p, b.v2, variable(p, b.v1).value * scale + offset)
+                else
+                    set_value(p, b.v1, (variable(p, b.v2).value - offset) / scale)
+                end
+        end
+    end
+
+    fn incremental_add(p: Planner, c: Int) -> Planner
+        (p, mark) = new_mark(p)
+        (p, overridden) = satisfy(p, c, mark)
+        satisfy_overridden(p, overridden, mark)
+    end
+
+    fn satisfy_overridden(p: Planner, overridden: Maybe<Int>, mark: Int) -> Planner
+        case overridden
+            Some(o) ->
+                (p, next) = satisfy(p, o, mark)
+                satisfy_overridden(p, next, mark)
+
+            None ->
+                p
+        end
+    end
+
+    fn incremental_remove(p: Planner, c: Int) -> Planner
+        out = Constraint.get_output(constraint(p, c))
+        p = update_constraint(p, c, Constraint.mark_unsatisfied)
+        p = remove_from_graph(p, c)
+        (p, unsatisfied) = remove_propagate_from(p, out)
+        Iter.reduce(unsatisfied, p, Planner.incremental_add)
+    end
+
+    fn extract_plan_from_constraints(p: Planner, constraints: Vector<Int>) -> (Planner, Plan)
+        sources =
+            constraints
+            |> Iter.filter(fn c ->
+                con = constraint(p, c)
+                Constraint.is_input(con) and Constraint.is_satisfied(con)
+            end)
+            |> Iter.to_vector()
+
+        make_plan(p, sources)
+    end
+
+    fn make_plan(p: Planner, sources: Vector<Int>) -> (Planner, Plan)
+        (p, mark) = new_mark(p)
+        make_plan_from(p, mark, Plan{}, sources, 0)
+    end
+
+    /// Works through `todo` from its element at `next`.
+    fn make_plan_from(
+        p:    Planner,
+        mark: Int,
+        plan: Plan,
+        todo: Vector<Int>,
+        next: Int,
+    ) -> (Planner, Plan)
+        case Vector.get(todo, next)
+            None ->
+                (p, plan)
+
+            Some(c) ->
+                out = Constraint.get_output(constraint(p, c))
+
+                if variable(p, out).mark != mark and inputs_known(p, c, mark) then
+                    p = update_variable(p, out, fn v -> {..v, mark:})
+                    todo = add_constraints_consuming_to(p, out, todo)
+                    make_plan_from(p, mark, Plan.append(plan, c), todo, next + 1)
+                else
+                    make_plan_from(p, mark, plan, todo, next + 1)
+                end
+        end
+    end
+
+    fn add_constraints_consuming_to(p: Planner, v: Int, coll: Vector<Int>) -> Vector<Int>
+        var = variable(p, v)
+
+        Iter.reduce(var.constraints, coll, fn coll, c ->
+            if Some(c) != var.determined_by and Constraint.is_satisfied(constraint(p, c)) then
+                Vector.push(coll, c)
+            else
+                coll
+            end
+        end)
+    end
+
+    fn add_propagate(p: Planner, c: Int, mark: Int) -> (Planner, Bool)
+        add_propagate_from(p, c, mark, Vector[c], 0)
+    end
+
+    fn add_propagate_from(
+        p:    Planner,
+        c:    Int,
+        mark: Int,
+        todo: Vector<Int>,
+        next: Int,
+    ) -> (Planner, Bool)
+        case Vector.get(todo, next)
+            None ->
+                (p, True)
+
+            Some(d) ->
+                if variable(p, Constraint.get_output(constraint(p, d))).mark == mark then
+                    (incremental_remove(p, c), False)
+                else
+                    p = recalculate(p, d)
+
+                    todo = add_constraints_consuming_to(
+                        p,
+                        Constraint.get_output(constraint(p, d)),
+                        todo,
+                    )
+
+                    add_propagate_from(p, c, mark, todo, next + 1)
+                end
+        end
+    end
+
+    fn change(p: Planner, v: Int, new_value: Int) -> Planner
+        edit = Constraint.Edit(UnaryConstraint{strength: Strength.of(.Preferred), output: v})
+        (p, edit_c) = new_constraint(p, edit)
+        (p, plan) = extract_plan_from_constraints(p, Vector[edit_c])
+        p = Iter.reduce(1..=10, p, fn p, _ -> Plan.execute(plan, set_value(p, v, new_value)))
+        destroy_constraint(p, edit_c)
+    end
+
+    /// Folds `f` over the satisfied constraints that read `v`, the planner
+    /// and the work queue threaded through.
+    fn constraints_consuming(
+        state: (Planner, Vector<Int>),
+        v:     Int,
+        f:     ((Planner, Vector<Int>), Int) -> (Planner, Vector<Int>),
+    ) -> (Planner, Vector<Int>)
+        var = variable(state.first, v)
+
+        Iter.reduce(var.constraints, state, fn (p, todo), c ->
+            if Some(c) != var.determined_by and Constraint.is_satisfied(constraint(p, c)) then
+                f((p, todo), c)
+            else
+                (p, todo)
+            end
+        end)
+    end
+
+    fn remove_propagate_from(p: Planner, out: Int) -> (Planner, List<Int>)
+        p = update_variable(p, out, fn v ->
+            {..v, determined_by: None, walk_strength: Strength.of(.AbsoluteWeakest), stay: True}
+        end)
+
+        (p, unsatisfied) = remove_propagate_through(p, Vector[out], 0, [])
+
+        sorted = Iter.sort_by(unsatisfied, fn c ->
+            Constraint.strength(constraint(p, c)).arithmetic_value
+        end)
+
+        (p, sorted)
+    end
+
+    fn remove_propagate_through(
+        p:           Planner,
+        todo:        Vector<Int>,
+        next:        Int,
+        unsatisfied: Vector<Int>,
+    ) -> (Planner, Vector<Int>)
+        case Vector.get(todo, next)
+            None ->
+                (p, unsatisfied)
+
+            Some(v) ->
+                unsatisfied = Iter.reduce(variable(p, v).constraints, unsatisfied, fn u, c ->
+                    if Constraint.is_satisfied(constraint(p, c)) then
+                        u
+                    else
+                        Vector.push(u, c)
+                    end
+                end)
+
+                (p, todo) = constraints_consuming((p, todo), v, fn (p, todo), c ->
+                    p = recalculate(p, c)
+                    (p, Vector.push(todo, Constraint.get_output(constraint(p, c))))
+                end)
+
+                remove_propagate_through(p, todo, next + 1, unsatisfied)
+        end
+    end
+end
+
+fn chain_test(n: Int) -> Result<Unit, String>
+    p = Iter.reduce(0..=n, Planner{}, fn p, _ -> Planner.new_variable(p, 0).first)
+
+    p = Iter.reduce(0..n, p, fn p, i ->
+        equality = Constraint.Equality(
+            BinaryConstraint{strength: Strength.of(.Required), v1: i, v2: i + 1}
+        )
+
+        Planner.new_constraint(p, equality).first
+    end)
+
+    (p, _) = Planner.new_constraint(
+        p,
+        .Stay(UnaryConstraint{strength: Strength.of(.StrongDefault), output: n}),
+    )
+
+    (p, edit_c) = Planner.new_constraint(
+        p,
+        .Edit(UnaryConstraint{strength: Strength.of(.Preferred), output: 0}),
+    )
+
+    (p, plan) = Planner.extract_plan_from_constraints(p, Vector[edit_c])
+
+    p = Iter.try_reduce(0..100, p, fn p, i ->
+        p = Plan.execute(plan, Planner.set_value(p, 0, i))
+
+        if Planner.variable(p, n).value == i then
+            Ok(p)
+        else
+            Err("Chain test failed!")
+        end
+    end)?
+
+    _ = Planner.destroy_constraint(p, edit_c)
+    Ok(Unit)
+end
+
+fn projection_test(n: Int) -> Result<Unit, String>
+    (p, scale) = Planner.new_variable(Planner{}, 10)
+    (p, offset) = Planner.new_variable(p, 1000)
+    no_dests: Vector<Int> = []
+
+    (p, dests, src, dst) = Iter.reduce(1..=n, (p, no_dests, -1, -1), fn (p, dests, _, _), i ->
+        (p, src) = Planner.new_variable(p, i)
+        (p, dst) = Planner.new_variable(p, i)
+
+        (p, _) = Planner.new_constraint(
+            p,
+            .Stay(UnaryConstraint{strength: Strength.of(.Default), output: src}),
+        )
+
+        binary = BinaryConstraint{strength: Strength.of(.Required), v1: src, v2: dst}
+        (p, _) = Planner.new_constraint(p, .Scale(ScaleConstraint{binary:, scale:, offset:}))
+        (p, Vector.push(dests, dst), src, dst)
+    end)
+
+    value = fn p: Planner, v: Int -> Planner.variable(p, v).value
+
+    p = Planner.change(p, src, 17)
+    if value(p, dst) != 1170 then return Err("Projection test 1 failed!")
+
+    p = Planner.change(p, dst, 1050)
+    if value(p, src) != 5 then return Err("Projection test 2 failed!")
+
+    p = Planner.change(p, scale, 5)
+
+    if not Iter.all_match(0..n - 1, fn i ->
+        value(p, Vector.get(dests, i)!) == (i + 1) * 5 + 1000
+    end) then
+        return Err("Projection test 3 failed!")
+    end
+
+    p = Planner.change(p, offset, 2000)
+
+    if not Iter.all_match(0..n - 1, fn i ->
+        value(p, Vector.get(dests, i)!) == (i + 1) * 5 + 2000
+    end) then
+        return Err("Projection test 4 failed!")
+    end
+
+    Ok(Unit)
+end
+
+fn inner_benchmark_loop(inner: Int) -> Bool
+    tests = case chain_test(inner)
+        Ok(Unit) -> projection_test(inner)
+        Err(e)   -> Err(e)
+    end
+
+    case tests
+        Ok(Unit) ->
+            True
+
+        Err(message) ->
+            io.eprint(message)
+            False
+    end
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("DeltaBlue", App.config, inner_benchmark_loop)
+end

@@ -23,9 +23,9 @@ end
 
 fn run(account: Account, step: Step) -> Result<Unit, Error>
     case step
-        .Open -> Account.open(account)
-        .Close -> Account.close(account)
-        .Deposit(amount) -> Account.deposit(account, amount)
+        .Open             -> Account.open(account)
+        .Close            -> Account.close(account)
+        .Deposit(amount)  -> Account.deposit(account, amount)
         .Withdraw(amount) -> Account.withdraw(account, amount)
     end
 end

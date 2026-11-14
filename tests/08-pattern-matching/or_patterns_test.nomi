@@ -20,7 +20,7 @@ end
 
 struct Reading
     kind: Tri
-    n: Int
+    n:    Int
 end
 
 fn size(s: Shape) -> String
@@ -35,44 +35,44 @@ end
 fn side(s: Side) -> String
     case s
         .L(n) or .R(n) when n > 0 -> "positive ${n}"
-        .L(n) -> "left ${n}"
-        .R(n) -> "right ${n}"
+        .L(n)                     -> "left ${n}"
+        .R(n)                     -> "right ${n}"
     end
 end
 
 fn is_small(n: Int) -> Bool
     case n
         1 or 2 or 3 -> True
-        _ -> False
+        _           -> False
     end
 end
 
 fn answer(s: String) -> Maybe<Bool>
     case s
         "yes" or "y" -> Some(True)
-        "no" or "n" -> Some(False)
-        _ -> None
+        "no" or "n"  -> Some(False)
+        _            -> None
     end
 end
 
 fn is_opener(c: Codepoint) -> Bool
     case c
         '(' or '[' or '{' -> True
-        _ -> False
+        _                 -> False
     end
 end
 
 fn has_two_equal(m: Maybe<Tri>) -> Bool
     case m
         Some(.Equilateral or .Isosceles) -> True
-        Some(.Scalene) or None -> False
+        Some(.Scalene) or None           -> False
     end
 end
 
 fn off_axis(p: (Int, Int)) -> Int
     case p
         (0, x) or (x, 0) -> x
-        (x, y) -> x * y
+        (x, y)           -> x * y
     end
 end
 

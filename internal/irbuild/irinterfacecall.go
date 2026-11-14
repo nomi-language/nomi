@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -94,6 +96,17 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		return nil
 	default:
 		recv = args.kinds[recvAt]
+	}
+	if irConjKind(recv) && recvAt >= 0 && recvAt < len(args.temps) {
+		// `Priced.price(item)` for an `item: Priced and Costed`: the
+		// receiver is a Priced value already (conjunction.go).
+		v, k, ok := bl.conjReceiver(t, args.temps[recvAt], recv, d)
+		if !ok {
+			return nil
+		}
+		args.temps = slices.Clone(args.temps)
+		args.kinds = slices.Clone(args.kinds)
+		args.temps[recvAt], args.kinds[recvAt], recv = v, k, k
 	}
 	if recv.tag == tagIface {
 		if inst := recv.iface; inst != nil && inst.instOf != nil && inst.instOf == d.decl {

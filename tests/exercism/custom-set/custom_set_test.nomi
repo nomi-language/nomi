@@ -2,7 +2,7 @@ import custom_set.CustomSet
 
 test "Returns true if the set contains no elements"
     [
-        ("sets with no elements are empty", [], True),
+        ("sets with no elements are empty",  [],  True),
         ("sets with elements are not empty", [1], False),
     ]
     |> subtests (description, set, expected), description
@@ -12,9 +12,9 @@ end
 
 test "Sets can report if they contain an element"
     [
-        ("nothing is contained in an empty set", [], 1, False),
-        ("when the element is in the set", [1, 2, 3], 1, True),
-        ("when the element is not in the set", [1, 2, 3], 4, False),
+        ("nothing is contained in an empty set", [],        1, False),
+        ("when the element is in the set",       [1, 2, 3], 1, True),
+        ("when the element is not in the set",   [1, 2, 3], 4, False),
     ]
     |> subtests (description, set, element, expected), description
         assert CustomSet.from(set) |> CustomSet.contains(element) == expected
@@ -23,10 +23,10 @@ end
 
 test "A set is a subset if all of its elements are contained in the other set"
     [
-        ("empty set is a subset of another empty set", [], [], True),
-        ("empty set is a subset of non-empty set", [], [1], True),
-        ("non-empty set is not a subset of empty set", [1], [], False),
-        ("set is a subset of set with exact same elements", [1, 2, 3], [1, 2, 3], True),
+        ("empty set is a subset of another empty set",       [],        [],           True),
+        ("empty set is a subset of non-empty set",           [],        [1],          True),
+        ("non-empty set is not a subset of empty set",       [1],       [],           False),
+        ("set is a subset of set with exact same elements",  [1, 2, 3], [1, 2, 3],    True),
         ("set is a subset of larger set with same elements", [1, 2, 3], [4, 1, 2, 3], True),
         (
             "set is not a subset of set that does not contain its elements",
@@ -42,11 +42,11 @@ end
 
 test "Sets are disjoint if they share no elements"
     [
-        ("the empty set is disjoint with itself", [], [], True),
-        ("empty set is disjoint with non-empty set", [], [1], True),
-        ("non-empty set is disjoint with empty set", [1], [], True),
+        ("the empty set is disjoint with itself",          [],     [],     True),
+        ("empty set is disjoint with non-empty set",       [],     [1],    True),
+        ("non-empty set is disjoint with empty set",       [1],    [],     True),
         ("sets are not disjoint if they share an element", [1, 2], [2, 3], False),
-        ("sets are disjoint if they share no elements", [1, 2], [3, 4], True),
+        ("sets are disjoint if they share no elements",    [1, 2], [3, 4], True),
     ]
     |> subtests (description, set1, set2, expected), description
         assert CustomSet.is_disjoint(CustomSet.from(set1), CustomSet.from(set2)) == expected
@@ -70,8 +70,8 @@ end
 
 test "Unique elements can be added to a set"
     [
-        ("add to empty set", [], 3, [3]),
-        ("add to non-empty set", [1, 2, 4], 3, [1, 2, 3, 4]),
+        ("add to empty set",                                   [],        3, [3]),
+        ("add to non-empty set",                               [1, 2, 4], 3, [1, 2, 3, 4]),
         ("adding an existing element does not change the set", [1, 2, 3], 3, [1, 2, 3]),
     ]
     |> subtests (description, set, element, expected), description
@@ -105,7 +105,7 @@ end
 
 test "Difference (or Complement) of a set is a set of all elements that are only in the first set"
     [
-        ("difference of two empty sets is an empty set", [], [], []),
+        ("difference of two empty sets is an empty set",              [], [],        []),
         ("difference of empty set and non-empty set is an empty set", [], [3, 2, 5], []),
         (
             "difference of a non-empty set and an empty set is the non-empty set",
@@ -129,10 +129,10 @@ end
 
 test "Union returns a set of all elements in either set"
     [
-        ("union of empty sets is an empty set", [], [], []),
-        ("union of an empty set and non-empty set is the non-empty set", [], [2], [2]),
-        ("union of a non-empty set and empty set is the non-empty set", [1, 3], [], [1, 3]),
-        ("union of non-empty sets contains all unique elements", [1, 3], [2, 3], [3, 2, 1]),
+        ("union of empty sets is an empty set",                          [],     [],     []),
+        ("union of an empty set and non-empty set is the non-empty set", [],     [2],    [2]),
+        ("union of a non-empty set and empty set is the non-empty set",  [1, 3], [],     [1, 3]),
+        ("union of non-empty sets contains all unique elements",         [1, 3], [2, 3], [3, 2, 1]),
     ]
     |> subtests (description, set1, set2, expected), description
         assert CustomSet.union(CustomSet.from(set1), CustomSet.from(set2))

@@ -133,8 +133,9 @@ func mapKindOfGoType(t reflect.Type) kind {
 // mapEntryStructOf walks a `*mapNode[K, V]`'s target to the `MapEntry[K, V]`
 // that carries the two type arguments as EXPORTED fields, or nil.
 //
-// Two hops with a shape check each. `mapNode` is the trie node — four fields,
-// two bitmaps and two slices — and `leaf` is `[]mapEntry[K, V]`, where
+// Two hops with a shape check each. `mapNode` is the trie node — five fields,
+// two bitmaps, two slices and the owner token an in-place write checks
+// (rt/transient.go) — and `leaf` is `[]mapEntry[K, V]`, where
 // `mapEntry` is the STORAGE type: it embeds the boundary `MapEntry[K, V]` and
 // adds a cached hash and an insertion sequence. rt's own comment says the
 // storage type is not the boundary type and keeps them one declaration apart
@@ -146,7 +147,7 @@ func mapEntryStructOf(node reflect.Type) reflect.Type {
 	if base, _, generic := strings.Cut(node.Name(), "["); !generic || base != "mapNode" {
 		return nil
 	}
-	if node.NumField() != 4 {
+	if node.NumField() != 5 {
 		return nil
 	}
 	leaf, hasLeaf := node.FieldByName("leaf")

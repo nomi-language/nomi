@@ -361,6 +361,12 @@ func (v *elabVerifier) checkExpr(n ast.Node) {
 		v.report(n, "expr", "expr: "+cat, exprLabel(n)+": "+why)
 	}
 	if exp, ok := v.fa.ExpectedTypes[n]; ok && exp != nil && !v.receivers[n] {
+		if conj, isConj := resolveTypeVar(exp).(*ConjunctionType); isConj {
+			if concreteType(t) && v.fa.Coercions[n] == nil {
+				v.report(n, "implicit", ElabBoxingUnrecorded, fmt.Sprintf("%s: %s as %s", exprLabel(n), resolveTypeVar(t), conj))
+			}
+			return
+		}
 		if it, iface := resolveTypeVar(exp).(*InterfaceType); iface && concreteType(t) {
 			what := fmt.Sprintf("%s: %s as %s", exprLabel(n), resolveTypeVar(t), it)
 			switch {
@@ -371,7 +377,7 @@ func (v *elabVerifier) checkExpr(n ast.Node) {
 			case v.fa.Coercions[n] == nil:
 				v.report(n, "implicit", ElabBoxingUnrecorded, what)
 			}
-		} else if !iface && concreteType(t) && conversionParts(exp, t, func(*InterfaceType, Type) {}) {
+		} else if !iface && concreteType(t) && conversionParts(exp, t, func(Type, Type) {}) {
 			what := fmt.Sprintf("%s: %s as %s", exprLabel(n), resolveTypeVar(t), resolveTypeVar(exp))
 			rec := v.fa.Conversions[n]
 			switch {
@@ -494,6 +500,10 @@ func (v *elabVerifier) openParts(n ast.Node, t Type) openParts {
 			for _, a := range tt.TypeArgs {
 				walk(a, depth+1)
 			}
+		case *ConjunctionType:
+			for _, m := range tt.Members {
+				walk(m, depth+1)
+			}
 		case *PartialType:
 			walk(tt.Inner, depth+1)
 		}
@@ -506,7 +516,7 @@ func (v *elabVerifier) openParts(n ast.Node, t Type) openParts {
 // than an interface, a type parameter or a variable.
 func concreteType(t Type) bool {
 	switch resolveTypeVar(t).(type) {
-	case *InterfaceType, *TypeParam_, *TypeVar, nil:
+	case *InterfaceType, *ConjunctionType, *TypeParam_, *TypeVar, nil:
 		return false
 	}
 	return true

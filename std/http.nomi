@@ -6,7 +6,7 @@
 //# `Status.is_success`.
 //#
 //# ```nomi
-//# response = http.get(Url`https://api.example.com/users`)?
+//# response = http.get(Url"https://api.example.com/users")?
 //#
 //# if Status.is_success(response.status) then dbg Response.text(response)?
 //# ```
@@ -103,15 +103,15 @@ impl Method
     //
     pub fn text(method: Method) -> String
         case method
-            .Get -> "GET"
-            .Head -> "HEAD"
-            .Post -> "POST"
-            .Put -> "PUT"
-            .Patch -> "PATCH"
-            .Delete -> "DELETE"
-            .Connect -> "CONNECT"
-            .Options -> "OPTIONS"
-            .Trace -> "TRACE"
+            .Get         -> "GET"
+            .Head        -> "HEAD"
+            .Post        -> "POST"
+            .Put         -> "PUT"
+            .Patch       -> "PATCH"
+            .Delete      -> "DELETE"
+            .Connect     -> "CONNECT"
+            .Options     -> "OPTIONS"
+            .Trace       -> "TRACE"
             .Other(text) -> text
         end
     end
@@ -124,16 +124,16 @@ impl Method
     //
     pub fn parse(text: String) -> Method
         case text
-            "GET" -> Method.Get
-            "HEAD" -> Method.Head
-            "POST" -> Method.Post
-            "PUT" -> Method.Put
-            "PATCH" -> Method.Patch
-            "DELETE" -> Method.Delete
+            "GET"     -> Method.Get
+            "HEAD"    -> Method.Head
+            "POST"    -> Method.Post
+            "PUT"     -> Method.Put
+            "PATCH"   -> Method.Patch
+            "DELETE"  -> Method.Delete
             "CONNECT" -> Method.Connect
             "OPTIONS" -> Method.Options
-            "TRACE" -> Method.Trace
-            other -> Method.Other(other)
+            "TRACE"   -> Method.Trace
+            other     -> Method.Other(other)
         end
     end
 end
@@ -253,7 +253,7 @@ impl Status
     //
     pub fn line(status: Status) -> String
         case Status.text(status)
-            "" -> "${Status.code(status)}"
+            ""   -> "${Status.code(status)}"
             text -> "${Status.code(status)} ${text}"
         end
     end
@@ -399,8 +399,8 @@ impl Headers
     //
     pub fn write_to(
         headers: Headers,
-        w: io.Writer,
-        except: List<String> = [],
+        w:       io.Writer,
+        except:  List<String> = [],
     ) -> Result<Unit, io.Error>
         io.Writer.write_text(w, http_host.headers_wire(flat(headers), except))
     end
@@ -439,7 +439,7 @@ impl Body
     pub fn reader(body: Body) -> Reader
         case body
             .Stream(r) -> r
-            other -> Reader.from_bytes(Body.bytes_of(other))
+            other      -> Reader.from_bytes(Body.bytes_of(other))
         end
     end
 
@@ -454,21 +454,21 @@ impl Body
     pub fn read_all(body: Body) -> Result<Bytes, Error>
         case body
             .Stream(r) -> Reader.read_all(r) |> Result.map_err(fn e -> Error.Body{error: e})
-            other -> Ok(Body.bytes_of(other))
+            other      -> Ok(Body.bytes_of(other))
         end
     end
 
     fn bytes_of(body: Body) -> Bytes
         case body
-            .Empty -> String.to_bytes("")
-            .Text(text) -> String.to_bytes(text)
-            .Bytes(data) -> data
-            .Json(value) -> String.to_bytes(Json.encode(value))
-            .Html(page) -> String.to_bytes(Html.to_string(page))
-            .Form(query) -> String.to_bytes(Query.encode(query))
+            .Empty            -> String.to_bytes("")
+            .Text(text)       -> String.to_bytes(text)
+            .Bytes(data)      -> data
+            .Json(value)      -> String.to_bytes(Json.encode(value))
+            .Html(page)       -> String.to_bytes(Html.to_string(page))
+            .Form(query)      -> String.to_bytes(Query.encode(query))
             .Multipart(parts) -> FormPart.encode(parts).body
-            .Stream(_) -> String.to_bytes("")
-            .Produce(_) -> String.to_bytes("")
+            .Stream(_)        -> String.to_bytes("")
+            .Produce(_)       -> String.to_bytes("")
         end
     end
 end
@@ -502,7 +502,7 @@ impl FormPart
 
         case http_host.encode_multipart(flat)
             [content_type, body] -> {content_type: Bytes.to_string(content_type)!, body:}
-            _ -> {content_type: "multipart/form-data", body: String.to_bytes("")}
+            _                    -> {content_type: "multipart/form-data", body: String.to_bytes("")}
         end
     end
 
@@ -535,9 +535,9 @@ end
 /// A file a multipart form holds: Go's `multipart.FileHeader`.
 pub struct FormFile
     filename: String
-    headers: Headers = Headers[]
-    size: Int = 0
-    content: Bytes
+    headers:  Headers = Headers[]
+    size:     Int = 0
+    content:  Bytes
 end
 
 impl FormFile
@@ -550,7 +550,7 @@ end
 /// A multipart form: Go's `multipart.Form`.
 pub struct MultipartForm
     values: Query = Query[]
-    files: Map<String, List<FormFile>> = {}
+    files:  Map<String, List<FormFile>> = {}
 end
 
 fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm
@@ -568,7 +568,7 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm
                 |> Iter.flat_map(fn kv ->
                     case kv
                         [k, v] -> [(k, v)]
-                        _ -> []
+                        _      -> []
                     end
                 end)
                 |> Iter.to_list()
@@ -688,7 +688,7 @@ impl Protocol
     pub fn parse(text: String) -> Maybe<Protocol>
         case http_host.parse_http_version(text)
             [major, minor] -> Some(Protocol{major:, minor:})
-            _ -> None
+            _              -> None
         end
     end
 end
@@ -706,14 +706,14 @@ pub struct Request
     /// The URL. On a request a server received it is absolute: its scheme
     /// is `https` over TLS and `http` otherwise, and its host is the `Host`
     /// the client sent, as `std::http::testing.request` builds one.
-    url: Url
+    url:     Url
     headers: Headers = Headers[]
-    body: Body = Body.Empty
+    body:    Body = Body.Empty
     /// The `Host` to send in place of the URL's host. On a request a server
     /// received, the `Host` the client sent.
     host: Maybe<String> = None
     /// The body's length when it is known ahead.
-    content_length: Maybe<Int> = None
+    content_length:    Maybe<Int> = None
     transfer_encoding: List<String> = []
     /// Close the connection after this request.
     close: Bool = False
@@ -723,12 +723,12 @@ pub struct Request
     /// the form defaults: set by `limit_body` and the server's `max_body`.
     body_limit: Maybe<Int> = None
     // Set by a server on a request it received.
-    protocol: Protocol = Protocol{}
+    protocol:       Protocol = Protocol{}
     remote_address: String = ""
-    request_uri: String = ""
-    pattern: Maybe<String> = None
-    path_values: Map<String, String> = {}
-    context: Context = Context.root()
+    request_uri:    String = ""
+    pattern:        Maybe<String> = None
+    path_values:    Map<String, String> = {}
+    context:        Context = Context.root()
     /// The server address the request came in on.
     local_address: String = ""
     /// What the TLS handshake of the connection agreed on; `None` over
@@ -771,7 +771,7 @@ impl Request
     //!     {
     //!         ..testing.request(Method.Post, "/"),
     //!         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
-    //!         body: Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
+    //!         body:    Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
     //!     }
     //! end
     //!
@@ -835,7 +835,7 @@ impl Request
     //!     {
     //!         ..testing.request(Method.Post, "/upload"),
     //!         headers: Headers[("Content-Type", encoded.content_type)],
-    //!         body: Body.Stream(Reader.from_bytes(encoded.body)),
+    //!         body:    Body.Stream(Reader.from_bytes(encoded.body)),
     //!     }
     //! end
     //!
@@ -870,7 +870,7 @@ impl Request
     //! request = {
     //!     ..testing.request(Method.Post, "/upload"),
     //!     headers: Headers[("Content-Type", FormPart.encode(parts).content_type)],
-    //!     body: Body.Multipart(parts),
+    //!     body:    Body.Multipart(parts),
     //! }
     //!
     //! file = Request.form_file(request, "doc")!
@@ -1007,12 +1007,12 @@ impl Request
     pub fn limit_body(request: Request, max: Int) -> Request
         body_limit = case request.body_limit
             Some(earlier) -> Int.min(earlier, max)
-            None -> max
+            None          -> max
         end
 
         {
             ..request,
-            body: Body.Stream(http_host.limit_body(Body.reader(..), max)),
+            body:       Body.Stream(http_host.limit_body(Body.reader(..), max)),
             body_limit: Some(body_limit),
         }
     end
@@ -1032,7 +1032,7 @@ impl Request
     //! import std::http.Request
     //! import std::url.Url
     //!
-    //! r = Request.with_basic_auth(Request{url: Url`https://example.com`}, "ann", "pw")
+    //! r = Request.with_basic_auth(Request{url: Url"https://example.com"}, "ann", "pw")
     //! assert Request.basic_auth(r) == Some(("ann", "pw"))
     //!
     //! lower = {..r, headers: Headers[("Authorization", "basic YW5uOnB3")]}
@@ -1043,7 +1043,7 @@ impl Request
 
         case http_host.basic_auth(authorization)
             [user, password] -> Some((user, password))
-            _ -> None
+            _                -> None
         end
     end
 
@@ -1100,13 +1100,13 @@ impl Request
         Ok(Request{
             method: Method.parse(method),
             url:,
-            headers: Headers(pairs(headers)),
-            body: Body.Bytes(http_host.wire_body(message)),
-            host: if host == "" then None else Some(host),
-            content_length: wire_length(length),
+            headers:           Headers(pairs(headers)),
+            body:              Body.Bytes(http_host.wire_body(message)),
+            host:              if host == "" then None else Some(host),
+            content_length:    wire_length(length),
             transfer_encoding: encoding,
-            close: close == "true",
-            trailers: Headers(pairs(trailers)),
+            close:             close == "true",
+            trailers:          Headers(pairs(trailers)),
             protocol: Protocol{
                 major: String.to_int(major) |> Maybe.with_default(1),
                 minor: String.to_int(minor) |> Maybe.with_default(1),
@@ -1175,17 +1175,17 @@ end
 
 /// A response a client received, or one a handler returns.
 pub struct Response
-    status: Status = Status.ok
-    headers: Headers = Headers[]
-    body: Body = Body.Empty
+    status:   Status = Status.ok
+    headers:  Headers = Headers[]
+    body:     Body = Body.Empty
     trailers: Headers = Headers[]
     // Set by a client on a response it received.
     protocol: Protocol = Protocol{}
     /// The URL the last request went to, after any redirects.
-    url: Maybe<Url> = None
-    content_length: Maybe<Int> = None
+    url:               Maybe<Url> = None
+    content_length:    Maybe<Int> = None
     transfer_encoding: List<String> = []
-    close: Bool = False
+    close:             Bool = False
     /// The client asked for gzip and decompressed the body itself.
     uncompressed: Bool = False
     /// What the TLS handshake of the connection agreed on; `None` over
@@ -1223,16 +1223,16 @@ impl Response
                 String.to_int(status)
                 |> Maybe.with_default(200)
             ),
-            headers: Headers(pairs(headers)),
-            body: Body.Bytes(http_host.wire_body(message)),
+            headers:  Headers(pairs(headers)),
+            body:     Body.Bytes(http_host.wire_body(message)),
             trailers: Headers(pairs(trailers)),
             protocol: Protocol{
                 major: String.to_int(major) |> Maybe.with_default(1),
                 minor: String.to_int(minor) |> Maybe.with_default(1),
             },
-            content_length: wire_length(length),
+            content_length:    wire_length(length),
             transfer_encoding: encoding,
-            close: close == "true",
+            close:             close == "true",
         })
     end
 
@@ -1260,8 +1260,8 @@ impl Response
     /// it, as a WebSocket server does after `101 Switching Protocols`. The
     /// connection is closed when `on_connection` returns. Go's `Hijack`.
     pub fn upgrade(
-        status: Status = Status.switching_protocols,
-        headers: Headers,
+        status:        Status = Status.switching_protocols,
+        headers:       Headers,
         on_connection: (net.Connection) -> Unit,
     ) -> Response
         Response{status:, headers:, upgrade: Some(on_connection)}
@@ -1331,7 +1331,7 @@ impl Response
         Response{
             status:,
             headers: Headers[("Content-Type", "application/json")],
-            body: Body.Json(ToJson.to_json(value)),
+            body:    Body.Json(ToJson.to_json(value)),
         }
     end
 
@@ -1404,11 +1404,11 @@ impl Response
     //!     == Status.not_modified
     //
     pub fn content(
-        request: Request,
-        name: String,
+        request:  Request,
+        name:     String,
         modified: Maybe<Instant>,
-        data: Bytes,
-        headers: Headers = Headers[],
+        data:     Bytes,
+        headers:  Headers = Headers[],
     ) -> Response
         from_go(
             http_host.answer_content(
@@ -1513,7 +1513,7 @@ impl Response
             Some(text) ->
                 parsed = case response.url
                     Some(base) -> Url.resolve_text(base, text)
-                    None -> Url.parse(text)
+                    None       -> Url.parse(text)
                 end
 
                 parsed
@@ -1544,7 +1544,7 @@ end
 //!     Route.to_with("GET /items/{id}", fn _, p ->
 //!         case String.to_int(p.id)
 //!             Some(n) -> Ok(Response{body: Body.Text("item ${n}")})
-//!             None -> Err(Response.error(Status.bad_request, "not a number"))
+//!             None    -> Err(Response.error(Status.bad_request, "not a number"))
 //!         end
 //!     end),
 //! ])!
@@ -1588,7 +1588,7 @@ end
 impl ToResponse for Result<T, E> where T: ToResponse, E: ToResponse
     fn to_response(value: Result<T, E>) -> Response
         case value
-            Ok(answer) -> ToResponse.to_response(answer)
+            Ok(answer)   -> ToResponse.to_response(answer)
             Err(failure) -> ToResponse.to_response(failure)
         end
     end
@@ -1689,7 +1689,7 @@ impl Error
     pub fn is_timeout(error: Error) -> Bool
         case error
             .Timeout{during: _} -> True
-            _ -> False
+            _                   -> False
         end
     end
 
@@ -1801,24 +1801,24 @@ end
 
 /// How a client's connections are made and kept: Go's `Transport` options.
 pub struct Transport
-    proxy: Proxy = Proxy.FromEnvironment
-    tls_handshake_timeout: Duration = Duration.seconds(10)
-    keep_alives: Bool = True
-    compression: Bool = True
-    max_idle: Int = 100
-    max_idle_per_host: Int = 2
-    max_per_host: Maybe<Int> = None
-    idle_timeout: Maybe<Duration> = Some(Duration.seconds(90))
-    response_header_timeout: Maybe<Duration> = None
-    expect_continue_timeout: Duration = Duration.seconds(1)
+    proxy:                     Proxy = Proxy.FromEnvironment
+    tls_handshake_timeout:     Duration = Duration.seconds(10)
+    keep_alives:               Bool = True
+    compression:               Bool = True
+    max_idle:                  Int = 100
+    max_idle_per_host:         Int = 2
+    max_per_host:              Maybe<Int> = None
+    idle_timeout:              Maybe<Duration> = Some(Duration.seconds(90))
+    response_header_timeout:   Maybe<Duration> = None
+    expect_continue_timeout:   Duration = Duration.seconds(1)
     max_response_header_bytes: Maybe<Int> = None
-    write_buffer_size: Maybe<Int> = None
-    read_buffer_size: Maybe<Int> = None
-    force_http2: Bool = True
+    write_buffer_size:         Maybe<Int> = None
+    read_buffer_size:          Maybe<Int> = None
+    force_http2:               Bool = True
     /// The protocols the transport speaks; `None` is Go's choice, HTTP/1,
     /// and HTTP/2 when `force_http2` is set.
     protocols: Maybe<Protocols> = None
-    http2: Http2Options = Http2Options{}
+    http2:     Http2Options = Http2Options{}
     /// Headers sent with each `CONNECT` to a proxy.
     proxy_connect_headers: Headers = Headers[]
     /// Sees each proxy's response to `CONNECT`; an `Err` fails the request.
@@ -1866,18 +1866,18 @@ pub struct Http2Options
     max_concurrent_streams: Maybe<Int> = None
     /// Keep to the server's stream limit across connections rather than
     /// opening another; transports only.
-    strict_max_concurrent_requests: Bool = False
-    max_decoder_header_table_size: Maybe<Int> = None
-    max_encoder_header_table_size: Maybe<Int> = None
-    max_read_frame_size: Maybe<Int> = None
+    strict_max_concurrent_requests:    Bool = False
+    max_decoder_header_table_size:     Maybe<Int> = None
+    max_encoder_header_table_size:     Maybe<Int> = None
+    max_read_frame_size:               Maybe<Int> = None
     max_receive_buffer_per_connection: Maybe<Int> = None
-    max_receive_buffer_per_stream: Maybe<Int> = None
+    max_receive_buffer_per_stream:     Maybe<Int> = None
     /// Pings a connection that has been quiet this long.
     send_ping_timeout: Maybe<Duration> = None
     /// Closes a connection whose ping gets no reply in this long.
     ping_timeout: Maybe<Duration> = None
     /// Closes a connection that accepts no bytes for this long.
-    write_byte_timeout: Maybe<Duration> = None
+    write_byte_timeout:              Maybe<Duration> = None
     permit_prohibited_cipher_suites: Bool = False
     /// Told the kind of each HTTP/2 error, as a metrics counter would be.
     /// Go's `CountError`.
@@ -1916,13 +1916,13 @@ end
 /// closed, so `defer StreamedResponse.close(response)` follows it (spec §9
 /// *Releasing resources*). `http.fetch`'s `Response` holds its body whole.
 pub struct StreamedResponse
-    status: Status
+    status:  Status
     headers: Headers
     /// The body, read as it arrives.
-    body: Reader
+    body:     Reader
     protocol: Protocol
     /// The URL the last request went to, after any redirects.
-    url: Maybe<Url>
+    url:            Maybe<Url>
     content_length: Maybe<Int>
     /// What the TLS handshake of the connection agreed on; `None` over
     /// plain HTTP.
@@ -1938,13 +1938,13 @@ impl StreamedResponse
     /// `response` with its body read as a stream.
     fn of(response: Response) -> StreamedResponse
         StreamedResponse{
-            status: response.status,
-            headers: response.headers,
-            body: Body.reader(response.body),
-            protocol: response.protocol,
-            url: response.url,
+            status:         response.status,
+            headers:        response.headers,
+            body:           Body.reader(response.body),
+            protocol:       response.protocol,
+            url:            response.url,
             content_length: response.content_length,
-            tls: response.tls,
+            tls:            response.tls,
         }
     end
 end
@@ -1958,7 +1958,7 @@ end
 /// A client's options.
 pub struct ClientOptions
     /// The longest a request may take, its body included.
-    timeout: Maybe<Duration> = None
+    timeout:   Maybe<Duration> = None
     redirects: Redirects = Redirects.Follow{}
     transport: Transport = Transport.default
     /// Replaces the transport: every request goes to this function.
@@ -1978,7 +1978,7 @@ end
 /// A client: its options and its connection pool. Make one with
 /// `Client.new` and keep it; the pool is Go's, which only std::http can name.
 pub struct Client
-    handle: http_host.Client
+    handle:  http_host.Client
     options: ClientOptions
 end
 
@@ -1989,16 +1989,16 @@ impl Client
 
         (proxy, proxy_url) = case t.proxy
             .FromEnvironment -> (0, "")
-            .Direct -> (1, "")
-            .Fixed(u) -> (2, "${u}")
+            .Direct          -> (1, "")
+            .Fixed(u)        -> (2, "${u}")
         end
 
         handle = http_host.new_client(
             nanos(options.timeout),
             case options.redirects
                 .Follow{max:} -> max
-                .Never -> -1
-                .Decide(_) -> -1
+                .Never        -> -1
+                .Decide(_)    -> -1
             end,
             proxy,
             proxy_url,
@@ -2028,7 +2028,7 @@ impl Client
                         case Url.parse(proxy_url)
                         |> Result.map_err(fn e -> Error.InvalidUrl{url: proxy_url, reason: "${e}"})
                         |> Result.flat_map(fn u -> check(u, answer))
-                            Ok(_) -> ""
+                            Ok(_)      -> ""
                             Err(error) -> "${error}"
                         end
                     end
@@ -2043,12 +2043,12 @@ impl Client
 
         handle = case options.cookies
             Some(jar) -> http_host.with_jar(handle, jar.handle)
-            None -> handle
+            None      -> handle
         end
 
         handle = case options.tls
             Some(config) -> http_host.with_tls(handle, tls.ClientConfig.host(config)!)
-            None -> handle
+            None         -> handle
         end
 
         Client{handle:, options:}
@@ -2082,13 +2082,13 @@ impl Client
         head = response_of(exchange, Body.Empty)
 
         Ok(StreamedResponse{
-            status: head.status,
-            headers: head.headers,
-            body: http_host.body_reader(exchange),
-            protocol: head.protocol,
-            url: head.url,
+            status:         head.status,
+            headers:        head.headers,
+            body:           http_host.body_reader(exchange),
+            protocol:       head.protocol,
+            url:            head.url,
             content_length: head.content_length,
-            tls: head.tls,
+            tls:            head.tls,
         })
     end
 
@@ -2150,7 +2150,7 @@ end
 //! end
 //!
 //! ran = testing.run(fn _ -> Ok(Response{body: Body.Text("one\ntwo\n")}), fn ->
-//!     first_line(Url`https://example.com/log`)
+//!     first_line(Url"https://example.com/log")
 //! end)
 //!
 //! assert ran.value == Ok(Some("one"))
@@ -2189,9 +2189,9 @@ fn flat(headers: Headers) -> List<String>
 end
 
 fn send(
-    handle: http_host.Client,
-    request: Request,
-    stream: Bool,
+    handle:   http_host.Client,
+    request:  Request,
+    stream:   Bool,
     max_body: Maybe<Int>,
 ) -> Result<http_host.Exchange, Error>
     headers = typed(request.headers, request.body)
@@ -2226,7 +2226,7 @@ fn send(
         Maybe.with_default(max_body, -1),
         case request.trace
             Some(t) -> t.handle
-            None -> http_host.new_tracer()
+            None    -> http_host.new_tracer()
         end,
         Maybe.is_some(request.trace),
     )
@@ -2236,12 +2236,12 @@ end
 // headers with the Content-Type body implies, unless they set one.
 fn typed(headers: Headers, body: Body) -> Headers
     content_type = case body
-        .Text(_) -> Some("text/plain; charset=utf-8")
-        .Json(_) -> Some("application/json")
-        .Html(_) -> Some("text/html; charset=utf-8")
-        .Form(_) -> Some("application/x-www-form-urlencoded")
+        .Text(_)          -> Some("text/plain; charset=utf-8")
+        .Json(_)          -> Some("application/json")
+        .Html(_)          -> Some("text/html; charset=utf-8")
+        .Form(_)          -> Some("application/x-www-form-urlencoded")
         .Multipart(parts) -> Some(FormPart.encode(parts).content_type)
-        _ -> None
+        _                 -> None
     end
 
     case content_type
@@ -2260,30 +2260,30 @@ end
 fn pairs(flat: List<String>) -> List<(String, String)>
     case flat
         [k, v, ..rest] -> [(k, v), ..pairs(rest)]
-        _ -> []
+        _              -> []
     end
 end
 
 /// Sends `request`, and with `Redirects.Decide` follows its redirects here,
 /// asking the function before each. Go follows the others itself.
 fn send_following(
-    handle: http_host.Client,
-    request: Request,
-    stream: Bool,
-    max_body: Maybe<Int>,
+    handle:    http_host.Client,
+    request:   Request,
+    stream:    Bool,
+    max_body:  Maybe<Int>,
     redirects: Redirects,
-    via: List<Request>,
+    via:       List<Request>,
 ) -> Result<http_host.Exchange, Error>
     exchange = send(handle, request, stream, max_body)?
 
     decide = case redirects
         .Decide(f) -> f
-        _ -> return Ok(exchange)
+        _          -> return Ok(exchange)
     end
 
     following = case redirected(request, response_of(exchange, Body.Empty))?
         Some(next) -> next
-        None -> return Ok(exchange)
+        None       -> return Ok(exchange)
     end
 
     sent = [..via, request]
@@ -2311,7 +2311,7 @@ end
 fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Error>
     target = case Response.location(response)?
         Some(url) -> url
-        None -> return Ok(None)
+        None      -> return Ok(None)
     end
 
     code = Status.code(response.status)
@@ -2353,24 +2353,24 @@ fn redirected(request: Request, response: Response) -> Result<Maybe<Request>, Er
     Ok(Some({
             ..request,
             method: next_method,
-            url: target,
+            url:    target,
             headers:,
-            body: if keeps_body then .. else Body.Empty,
+            body:           if keeps_body then .. else Body.Empty,
             content_length: if keeps_body then .. else None,
-            host: None,
+            host:           None,
         }))
 end
 
 fn response_of(exchange: http_host.Exchange, body: Body) -> Response
     (major, minor) = case http_host.protocol(exchange)
         [a, b] -> (a, b)
-        _ -> (1, 1)
+        _      -> (1, 1)
     end
 
     length = http_host.content_length(exchange)
 
     Response{
-        status: Status(http_host.status(exchange)),
+        status:  Status(http_host.status(exchange)),
         headers: Headers(pairs(http_host.headers(exchange))),
         body:,
         trailers: Headers(pairs(http_host.trailers(exchange))),
@@ -2424,7 +2424,7 @@ pub struct Server
     /// The protocols the server accepts; `None` is Go's choice, HTTP/1
     /// and, over TLS, HTTP/2.
     protocols: Maybe<Protocols> = None
-    http2: Http2Options = Http2Options{}
+    http2:     Http2Options = Http2Options{}
     /// Told each connection's address as its state changes. Go's
     /// `ConnState`. It runs on the task serving, in order.
     on_connection_state: Maybe<(String, ConnState) -> Unit> = None
@@ -2491,7 +2491,7 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
 
     on_state = case server.on_connection_state
         Some(told) -> fn address: String, code: Int -> told(address, conn_state(code))
-        None -> fn _: String, _: Int -> Unit
+        None       -> fn _: String, _: Int -> Unit
     end
 
     on_error = Maybe.with_default(server.on_error, ignore_text)
@@ -2594,7 +2594,7 @@ fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) ->
 
         limited = case listener.server.max_body
             Some(max) -> Request.limit_body(request, max)
-            None -> request
+            None      -> request
         end
 
         respond(incoming, ToResponse.to_response(handler(limited)))
@@ -2604,7 +2604,7 @@ end
 fn request_of(incoming: http_host.Incoming, context: Context) -> Request
     (major, minor) = case http_host.in_protocol(incoming)
         [a, b] -> (a, b)
-        _ -> (1, 1)
+        _      -> (1, 1)
     end
 
     length = http_host.in_content_length(incoming)
@@ -2620,18 +2620,18 @@ fn request_of(incoming: http_host.Incoming, context: Context) -> Request
             local_address,
             connection is Some(_),
         ),
-        headers: Headers(pairs(http_host.in_headers(incoming))),
-        body: Body.Stream(http_host.in_body(incoming)),
-        host: Some(host),
-        content_length: if length < 0 then None else Some(length),
+        headers:           Headers(pairs(http_host.in_headers(incoming))),
+        body:              Body.Stream(http_host.in_body(incoming)),
+        host:              Some(host),
+        content_length:    if length < 0 then None else Some(length),
         transfer_encoding: http_host.in_transfer_encoding(incoming),
-        close: http_host.in_close(incoming),
-        protocol: Protocol{major:, minor:},
-        remote_address: http_host.in_remote(incoming),
-        request_uri: http_host.in_target(incoming),
+        close:             http_host.in_close(incoming),
+        protocol:          Protocol{major:, minor:},
+        remote_address:    http_host.in_remote(incoming),
+        request_uri:       http_host.in_target(incoming),
         context:,
         local_address:,
-        tls: connection,
+        tls:      connection,
         incoming: Some(incoming),
     }
 end
@@ -2646,7 +2646,7 @@ fn served_url(target: Url, host: String, local_address: String, secure: Bool) ->
     {
         ..target,
         scheme: if secure then "https" else "http",
-        host: if host == "" then local_address else host,
+        host:   if host == "" then local_address else host,
     }
 end
 
@@ -2742,7 +2742,7 @@ end
 /// a route with none, which is the default: a `Route` is a `Route<Unit>`. A
 /// field's type implements `Parse` and `Display`, and a `{rest...}` field
 /// is a `String`. A literal with no expected type has
-/// a `String` field per wildcard, so ``Route`GET /users/{id}` `` is a
+/// a `String` field per wildcard, so `Route"GET /users/{id}"` is a
 /// `Route<{id: String}>`; a typed one names its fields' types:
 /// `post: Route<{id: Uuid}> = "GET /posts/{id}"`. `Route.to_with` hands a
 /// handler the parsed parameters and `Route.path_with` fills them into a
@@ -2761,7 +2761,7 @@ end
 /// that breaks these rules, that Go refuses, or whose wildcards are not
 /// `P`'s fields is a compile error at the literal. A pattern built at run
 /// time goes through `Route.parse`.
-//! assert "${Route`GET /users/{id}`}" == "GET /users/{id}"
+//! assert "${Route"GET /users/{id}"}" == "GET /users/{id}"
 //! assert Route.parse<Unit>("GET /a/{x}/{x}") |> Result.is_err()
 //! assert Route.parse<{rest: String}>("/files/{rest...}/more") |> Result.is_err()
 //! assert Route.parse<Unit>("GETX /complete-profile/token}") |> Result.is_err()
@@ -2778,13 +2778,13 @@ impl Route<P>
     /// wildcards are not `P`'s fields. The method, when there is one, is a
     /// standard one in capitals; a near miss names the method it is close
     /// to.
-    //! assert Route.parse("POST /orders") == Ok(Route`POST /orders`)
+    //! assert Route.parse("POST /orders") == Ok(Route"POST /orders")
     //! assert Err(Error.Pattern{reason:}) = Route.parse<Unit>("GET users")
     //! assert String.contains(reason, "/")
     //!
     //! assert Route.parse<Unit>("GETX /complete-profile") == Err(Error.Pattern{
     //!         pattern: "GETX /complete-profile",
-    //!         reason: "unknown method `GETX`; did you mean `GET`?",
+    //!         reason:  "unknown method `GETX`; did you mean `GET`?",
     //!     })
     //!
     //! assert Err(Error.Pattern{reason: lower}) = Route.parse<Unit>("get /orders")
@@ -2806,14 +2806,14 @@ impl Route<P>
     pub fn parse<P>(text: String) -> Result<Route<P>, Error> where P: ParseFields
         case pattern_reason(text)
             Some(reason) -> Err(Error.Pattern{pattern: text, reason:})
-            None -> fields_rule(text, P.field_names())
+            None         -> fields_rule(text, P.field_names())
         end
     end
 
     /// The route of `method` on `path` (`[HOST]/PATH`), for a method a
     /// `Route` literal does not take: one `Method.Other` holds, such as
     /// WebDAV's `PROPFIND`. A standard method is written in the literal,
-    /// ``Route`GET /files` ``. The path keeps the literal's rule for
+    /// `Route"GET /files"`. The path keeps the literal's rule for
     /// braces, the method is a token Go accepts, with no space, and the
     /// wildcards are `P`'s fields, as `Route.parse` holds them.
     //! import std::http.{Body, Method, Request, Response, Route, Router}
@@ -2827,14 +2827,14 @@ impl Route<P>
     //! answer = Router.serve(router, testing.request(Method.Other("PROPFIND"), "/files/a.txt"))
     //! assert Response.text(answer) == Ok("a.txt")
     //!
-    //! assert Route.with_method<Unit>(Method.Get, "/a") == Ok(Route`GET /a`)
+    //! assert Route.with_method<Unit>(Method.Get, "/a") == Ok(Route"GET /a")
     //! assert Route.with_method<Unit>(Method.Other(""), "/a") |> Result.is_err()
     //! assert Route.with_method<Unit>(Method.Other("PROP FIND"), "/a") |> Result.is_err()
     //! assert Route.with_method<Unit>(Method.Other("PROPFIND"), "/a}") |> Result.is_err()
     //
     pub fn with_method<P>(
         method: Method,
-        path: String,
+        path:   String,
     ) -> Result<Route<P>, Error> where P: ParseFields
         name = Method.text(method)
         text = "${name} ${path}"
@@ -2846,7 +2846,7 @@ impl Route<P>
         else
             case brace_or_mux_reason(text)
                 Some(reason) -> Err(Error.Pattern{pattern: text, reason:})
-                None -> fields_rule(text, P.field_names())
+                None         -> fields_rule(text, P.field_names())
             end
         end
     end
@@ -2854,8 +2854,8 @@ impl Route<P>
     /// The path a route with no parameters matches, for a link: the
     /// pattern without its method or host, and a `{$}` dropped. A route
     /// with parameters fills them with `Route.path_with`.
-    //! assert "${Route.path(Route`GET /about`)}" == "/about"
-    //! assert "${Route.path(Route`GET example.com/docs/{$}`)}" == "/docs/"
+    //! assert "${Route.path(Route"GET /about")}" == "/about"
+    //! assert "${Route.path(Route"GET example.com/docs/{$}")}" == "/docs/"
     //
     pub fn path(route: Route) -> Url
         Route.path_with(route, Unit)
@@ -2865,7 +2865,7 @@ impl Route<P>
     /// link: each field's `Display` text escaped as one path segment, a
     /// `{rest...}` field's text escaped segment by segment, and the
     /// pattern's method and host left out.
-    //! users = Route`GET /users/{name}/posts/{rest...}`
+    //! users = Route"GET /users/{name}/posts/{rest...}"
     //! link = Route.path_with(users, {name: "ann b", rest: "2024/a?b"})
     //! assert "${link}" == "/users/ann%20b/posts/2024/a%3Fb"
     //
@@ -2923,7 +2923,7 @@ impl Route<P>
     //! assert answer("/items/x").status == Status.not_found
     //
     pub fn to_with<P>(
-        route: Route<P>,
+        route:   Route<P>,
         handler: (Request, P) -> ToResponse,
     ) -> Entry where P: ParseFields
         Route(pattern) = route
@@ -2943,7 +2943,7 @@ end
 /// parameters type, so routes with different parameters fit one list.
 pub opaque struct Entry
     pattern: String
-    serve: (Request) -> Maybe<Response>
+    serve:   (Request) -> Maybe<Response>
 end
 
 impl Display for Entry
@@ -3015,7 +3015,7 @@ fn brace_rule(text: String) -> Maybe<String>
         [prefix, ..segments] ->
             case brace_in_segment(prefix, False)
                 Some(reason) -> Some(reason)
-                None -> Iter.find_map(segments, &brace_in_segment(&1, True))
+                None         -> Iter.find_map(segments, &brace_in_segment(&1, True))
             end
 
         [] ->
@@ -3050,7 +3050,7 @@ end
 fn pattern_reason(text: String) -> Maybe<String>
     case method_rule(text)
         Some(reason) -> Some(reason)
-        None -> brace_or_mux_reason(text)
+        None         -> brace_or_mux_reason(text)
     end
 end
 
@@ -3058,14 +3058,14 @@ end
 fn brace_or_mux_reason(text: String) -> Maybe<String>
     case brace_rule(text)
         Some(reason) -> Some(reason)
-        None -> mux_reason(text)
+        None         -> mux_reason(text)
     end
 end
 
 /// Go's reason its `ServeMux` refuses `text`, when it does.
 fn mux_reason(text: String) -> Maybe<String>
     case http_host.check_pattern(text)
-        "" -> None
+        ""     -> None
         reason -> Some(reason)
     end
 end
@@ -3109,7 +3109,7 @@ fn route_path(text: String) -> String
 
     case String.split(after_method, "/")
         [_, ..segments] -> "/" + String.join(segments, "/")
-        [] -> after_method
+        []              -> after_method
     end
 end
 
@@ -3125,7 +3125,7 @@ fn wildcard_of(segment: String) -> Maybe<(String, Bool)>
 
         case String.strip_suffix(inner, "...")
             Some(name) -> Some((name, True))
-            None -> Some((inner, False))
+            None       -> Some((inner, False))
         end
     end
 end
@@ -3141,7 +3141,7 @@ fn route_wildcards(text: String) -> List<(String, Bool, Int)>
 
         found = case wildcard_of(segment)
             Some((name, rest)) -> [..found, (name, rest, at)]
-            None -> found
+            None               -> found
         end
 
         (at + String.length(segment) + 1, found)
@@ -3166,10 +3166,10 @@ fn param_fields(spelling: String) -> Maybe<List<(String, String)>>
         c = Codepoint.to_string(cp)
 
         case c
-            "<" or "(" or "{" -> (parts, current + c, depth + 1)
-            ">" or ")" or "}" -> (parts, current + c, depth - 1)
+            "<" or "(" or "{"   -> (parts, current + c, depth + 1)
+            ">" or ")" or "}"   -> (parts, current + c, depth - 1)
             "," when depth == 0 -> ([..parts, current], "", depth)
-            _ -> (parts, current + c, depth)
+            _                   -> (parts, current + c, depth)
         end
     end)
 
@@ -3263,8 +3263,8 @@ impl CheckedLiteral<String, Route<P>> for Route<P>
                         Err(
                             LiteralError{
                                 fragment: 0,
-                                offset: 0,
-                                message: "pattern ${text}: ${reason}",
+                                offset:   0,
+                                message:  "pattern ${text}: ${reason}",
                             }
                         )
 
@@ -3293,7 +3293,7 @@ impl CheckedLiteral<String, Route<P>> for Route<P>
             ([text], [params]) ->
                 case params_error(text, params)
                     Some(e) -> Err(e)
-                    None -> Ok(Unit)
+                    None    -> Ok(Unit)
                 end
 
             _ ->
@@ -3304,7 +3304,7 @@ impl CheckedLiteral<String, Route<P>> for Route<P>
     fn build(fragments: List<Fragment<String>>) -> Route<P>
         text = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -3350,7 +3350,7 @@ end
 //! assert Router.serve(router, testing.request(Method.Get, "/nope")).status == Status.not_found
 //
 pub struct Router
-    mux: http_host.Mux
+    mux:      http_host.Mux
     handlers: List<(Request) -> Maybe<Response>>
 end
 
@@ -3395,13 +3395,13 @@ impl Router
 
                 found = {
                     ..request,
-                    pattern: Some(pattern),
+                    pattern:     Some(pattern),
                     path_values: pairs(values) |> Iter.to_map(),
                 }
 
                 case handler |> Maybe.flat_map(fn h -> h(found))
                     Some(response) -> response
-                    None -> Response.not_found()
+                    None           -> Response.not_found()
                 end
 
             ["answer", code, body, ..headers] ->
@@ -3411,7 +3411,7 @@ impl Router
                         |> Maybe.with_default(500)
                     ),
                     headers: Headers(pairs(headers)),
-                    body: Body.Text(body),
+                    body:    Body.Text(body),
                 }
 
             _ ->
@@ -3490,7 +3490,7 @@ pub fn strip_prefix(handler: Handler, prefix: String) -> (Request) -> Response
         // An escaped path must lose the prefix too, as Go's does.
         raw = case request.url.raw_path
             Some(r) -> String.strip_prefix(r, prefix) |> Maybe.map(Some)
-            None -> Some(None)
+            None    -> Some(None)
         end
 
         case (String.strip_prefix(request.url.path, prefix), raw)
@@ -3579,13 +3579,13 @@ pub fn timeout(handler: Handler, after: Duration, message: String) -> (Request) 
 end
 
 /// A web origin, `scheme://host[:port]`, as a browser sends it in an
-/// `Origin` header: no path, query, fragment or user. ``Origin`https://app.example.com` ``
+/// `Origin` header: no path, query, fragment or user. `Origin"https://app.example.com"`
 /// is checked when the program is checked; `Origin.parse` checks one
 /// read at run time. The scheme and host are kept in lowercase, as a
 /// browser writes them, so an origin compares equal to the header's text.
 //! import std::http.Origin
 //!
-//! assert "${Origin`HTTPS://App.Example.com:8443`}" == "https://app.example.com:8443"
+//! assert "${Origin"HTTPS://App.Example.com:8443"}" == "https://app.example.com:8443"
 //! assert Origin.parse("https://app.example.com/") |> Result.is_err()
 //! assert Origin.parse("app.example.com") |> Result.is_err()
 //
@@ -3599,7 +3599,7 @@ impl Origin
     /// `scheme://host[:port]`.
     //! import std::http.{Error, Origin}
     //!
-    //! assert Origin.parse("http://localhost:5173") == Ok(Origin`http://localhost:5173`)
+    //! assert Origin.parse("http://localhost:5173") == Ok(Origin"http://localhost:5173")
     //! assert Err(Error.InvalidUrl{url: _, reason:}) = Origin.parse("https://a.example?x=1")
     //! assert String.contains(reason, "scheme://host")
     //
@@ -3628,7 +3628,7 @@ impl Literal for Origin
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Origin, Error>
         text = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -3679,7 +3679,7 @@ impl CrossOrigin
     //! assert CrossOrigin.check(CrossOrigin{}, from("same-origin")) == Ok(Unit)
     //! assert CrossOrigin.check(CrossOrigin{}, from("cross-site")) |> Result.is_err()
     //!
-    //! trusting = CrossOrigin{trusted_origins: [Origin`https://evil.example`]}
+    //! trusting = CrossOrigin{trusted_origins: [Origin"https://evil.example"]}
     //! assert CrossOrigin.check(trusting, from("cross-site")) == Ok(Unit)
     //!
     //! no_origin = {..post, headers: Headers[("Sec-Fetch-Site", ""), ("Origin", "")]}
@@ -3691,7 +3691,7 @@ impl CrossOrigin
         method = Method.text(request.method)
 
         case http_host.cross_origin_check(method, host, flat(request.headers), trusted)
-            "" -> Ok(Unit)
+            ""     -> Ok(Unit)
             reason -> Err(Error.CrossOrigin{reason:})
         end
     end
@@ -3727,7 +3727,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
         bypassed = Iter.any_match(bypass, fn built ->
             case built
                 Ok(router) -> Router.find(router, request) |> Maybe.is_some()
-                Err(_) -> False
+                Err(_)     -> False
             end
         end)
 
@@ -3740,7 +3740,7 @@ pub fn cross_origin_protection(handler: Handler, options: CrossOrigin) -> (Reque
             Err(Error.CrossOrigin{reason:}) ->
                 case options.deny
                     Some(deny) -> ToResponse.to_response(deny(request))
-                    None -> Response.error(Status.forbidden, reason)
+                    None       -> Response.error(Status.forbidden, reason)
                 end
 
             Err(_) ->
@@ -3856,8 +3856,8 @@ end
 //! app =
 //!     api
 //!     |> http.cors(Cors{
-//!         origins: [Origin`https://app.example.com`],
-//!         methods: [Method.Get, Method.Post, Method.Delete],
+//!         origins:         [Origin"https://app.example.com"],
+//!         methods:         [Method.Get, Method.Post, Method.Delete],
 //!         allowed_headers: ["Content-Type", "Authorization"],
 //!     })
 //!
@@ -3892,7 +3892,7 @@ pub fn cors(handler: Handler, options: Cors) -> (Request) -> Response
 
         allowed = case origin
             Some(o) -> options.any_origin or Iter.any_match(options.origins, fn a -> "${a}" == o)
-            None -> False
+            None    -> False
         end
 
         preflight = request.method == Method.Options
@@ -4000,7 +4000,7 @@ pub fn log_requests(handler: Handler, logger: Logger) -> (Request) -> Response
 
         size = case response.content_length
             Some(n) -> Some(n)
-            None -> known_length(response.body)
+            None    -> known_length(response.body)
         end
 
         id = Headers.get(request.headers, "X-Request-Id")
@@ -4014,12 +4014,12 @@ pub fn log_requests(handler: Handler, logger: Logger) -> (Request) -> Response
 
         sized = case size
             Some(n) -> fields + [log.int("bytes", n)]
-            None -> fields
+            None    -> fields
         end
 
         tagged = case id
             Some(i) -> sized + [log.string("request_id", i)]
-            None -> sized
+            None    -> sized
         end
 
         log.info(logger, "request", tagged)
@@ -4029,10 +4029,10 @@ end
 
 fn known_length(body: Body) -> Maybe<Int>
     case body
-        .Empty -> Some(0)
-        .Text(text) -> Some(Bytes.length(String.to_bytes(text)))
+        .Empty       -> Some(0)
+        .Text(text)  -> Some(Bytes.length(String.to_bytes(text)))
         .Bytes(data) -> Some(Bytes.length(data))
-        _ -> None
+        _            -> None
     end
 end
 
@@ -4086,7 +4086,7 @@ end
 //!     page
 //!     |> http.security_headers(SecurityHeaders{
 //!         strict_transport_security: Some("max-age=63072000"),
-//!         content_security_policy: Some("default-src 'self'"),
+//!         content_security_policy:   Some("default-src 'self'"),
 //!     })
 //!
 //! sent = strict(testing.request(Method.Get, "/"))
@@ -4108,7 +4108,7 @@ pub fn security_headers(handler: Handler, options: SecurityHeaders = SecurityHea
         Iter.reduce(named, [], fn acc, header ->
             case header
                 Some(pair) -> acc + [pair]
-                None -> acc
+                None       -> acc
             end
         end)
     )
@@ -4145,8 +4145,8 @@ end
 //! assert Headers.get(untrusting(given("abc-123")).headers, "X-Request-Id") != Some("abc-123")
 //
 pub fn request_id(
-    handler: Handler,
-    header: String = "X-Request-Id",
+    handler:        Handler,
+    header:         String = "X-Request-Id",
     trust_incoming: Bool = True,
 ) -> (Request) -> Response
     fn request ->
@@ -4159,7 +4159,7 @@ pub fn request_id(
 
         id = case incoming
             Some(given) -> Some(given)
-            None -> Uuid.v4() |> Result.to_maybe() |> Maybe.map(fn u -> "${u}")
+            None        -> Uuid.v4() |> Result.to_maybe() |> Maybe.map(fn u -> "${u}")
         end
 
         case id
@@ -4272,7 +4272,7 @@ fn compressed(request: Request, response: Response, options: Compress) -> Respon
 
     short = case response.content_length
         Some(n) -> n < options.min_size
-        None -> False
+        None    -> False
     end
 
     if short then return varied
@@ -4515,10 +4515,10 @@ pub fn method_override(handler: Handler) -> (Request) -> Response
                     |> Maybe.map(String.uppercase)
 
                 method = case asked
-                    Some("PUT") -> Method.Put
-                    Some("PATCH") -> Method.Patch
+                    Some("PUT")    -> Method.Put
+                    Some("PATCH")  -> Method.Patch
                     Some("DELETE") -> Method.Delete
-                    _ -> Method.Post
+                    _              -> Method.Post
                 end
 
                 ToResponse.to_response(handler({..request, method:, body: Body.Bytes(data)}))
@@ -4595,7 +4595,7 @@ pub fn serve_file(request: Request, file: String) -> Response
         Err(e) ->
             case disk_page(asked, file)
                 Some((page, meta)) -> disk_file(request, page, meta)
-                None -> failed(e)
+                None               -> failed(e)
             end
     end
 end
@@ -4604,7 +4604,7 @@ end
 fn disk_file(request: Request, file: String, meta: fs.Metadata) -> Response
     case fs.read(file)
         Ok(data) -> Response.content(request, path.base(file), Some(meta.modified), data)
-        Err(e) -> failed(e)
+        Err(e)   -> failed(e)
     end
 end
 
@@ -4626,7 +4626,7 @@ fn disk_page(asked: String, file: String) -> Maybe<(String, fs.Metadata)>
             Ok(meta) ->
                 case meta.kind
                     fs.Kind.Directory -> None
-                    _ -> Some((page, meta))
+                    _                 -> Some((page, meta))
                 end
 
             Err(_) ->
@@ -4643,7 +4643,7 @@ fn embedded_page(asked: String, files: Files, file: String) -> Maybe<String>
             Ok(meta) ->
                 case meta.kind
                     fs.Kind.Directory -> None
-                    _ -> Some(page)
+                    _                 -> Some(page)
                 end
 
             Err(_) ->
@@ -4731,8 +4731,8 @@ end
 //! import std::http::testing
 //!
 //! files = Files.from_bytes([
-//!     ("index.html", String.to_bytes("<p>home</p>")),
-//!     ("assets/app-3f9a1b2c.js", String.to_bytes("go()")),
+//!     ("index.html",                String.to_bytes("<p>home</p>")),
+//!     ("assets/app-3f9a1b2c.js",    String.to_bytes("go()")),
 //!     ("assets/app-3f9a1b2c.js.gz", String.to_bytes("zipped")),
 //! ])
 //!
@@ -4758,7 +4758,7 @@ end
 //! assert serve_embedded(again, files, ".").status == Status.not_modified
 //!
 //! pages = Files.from_bytes([
-//!     ("about.html", String.to_bytes("<p>about</p>")),
+//!     ("about.html",    String.to_bytes("<p>about</p>")),
 //!     ("about.html.br", String.to_bytes("squeezed")),
 //! ])
 //!
@@ -4777,9 +4777,9 @@ end
 //! assert slashed.status == Status.not_found
 //
 pub fn serve_embedded(
-    request: Request,
-    files: Files,
-    file: String,
+    request:   Request,
+    files:     Files,
+    file:      String,
     immutable: List<String> = [],
 ) -> Response
     asked = request.url.path
@@ -4811,7 +4811,7 @@ pub fn serve_embedded(
         Err(e) ->
             case embedded_page(asked, files, file)
                 Some(page) -> embedded_file(request, files, page, immutable)
-                None -> failed(e)
+                None       -> failed(e)
             end
     end
 end
@@ -4844,7 +4844,7 @@ end
 ///     http.file_server_embedded(
 ///         Files.sub(web, "web/dist")!,
 ///         single_page: True,
-///         immutable: ["assets/**"],
+///         immutable:   ["assets/**"],
 ///     )
 /// end
 /// ```
@@ -4853,11 +4853,11 @@ end
 //!
 //! app = file_server_embedded(
 //!     Files.from_bytes([
-//!         ("index.html", String.to_bytes("<div id=root></div>")),
+//!         ("index.html",             String.to_bytes("<div id=root></div>")),
 //!         ("assets/app-3f9a1b2c.js", String.to_bytes("go()")),
 //!     ]),
 //!     single_page: True,
-//!     immutable: ["assets/**"],
+//!     immutable:   ["assets/**"],
 //! )
 //!
 //! visit = fn target: String ->
@@ -4884,9 +4884,9 @@ end
 //! assert app(missing).status == Status.not_found
 //
 pub fn file_server_embedded(
-    files: Files,
+    files:       Files,
     single_page: Bool = False,
-    immutable: List<String> = [],
+    immutable:   List<String> = [],
 ) -> (Request) -> Response
     fn request ->
         file = String.drop(path.clean(rooted(request.url.path)), 1)
@@ -4989,11 +4989,13 @@ fn embedded_file(request: Request, files: Files, file: String, immutable: List<S
 
             encoding = case coding
                 Some(c) -> [("Content-Encoding", c)]
-                None -> []
+                None    -> []
             end
 
             headers = Headers(
-                Iter.flatten([[("ETag", "\"${sum}\""), ("Cache-Control", cache)], vary, encoding])
+                [[("ETag", "\"${sum}\""), ("Cache-Control", cache)], vary, encoding]
+                |> Iter.flatten()
+                |> Iter.to_list()
             )
 
             Response.content(request, path.base(file), None, data, headers:)
@@ -5013,7 +5015,7 @@ fn accepted_codings(request: Request) -> List<String>
         |> Iter.any_match(fn p ->
             case String.strip_prefix(String.trim(p), "q=")
                 Some(q) -> String.replace(q, "0", "") == "" or String.replace(q, "0", "") == "."
-                None -> False
+                None    -> False
             end
         end)
     end)
@@ -5034,7 +5036,7 @@ fn directory(request: Request, dir: String) -> Response
         Ok(_) ->
             case fs.read(index)
                 Ok(data) -> Response.content(request, "index.html", None, data)
-                Err(e) -> failed(e)
+                Err(e)   -> failed(e)
             end
 
         Err(_) ->
@@ -5043,7 +5045,7 @@ fn directory(request: Request, dir: String) -> Response
                     links = Html.each(entries, fn e ->
                         case e.kind
                             fs.Kind.Directory -> Html"<a href='./${e.name}/'>${e.name}/</a>\n"
-                            _ -> Html"<a href='./${e.name}'>${e.name}</a>\n"
+                            _                 -> Html"<a href='./${e.name}'>${e.name}</a>\n"
                         end
                     end)
 
@@ -5126,21 +5128,21 @@ derive Equatable for MaxAge
 /// An HTTP cookie: what a `Set-Cookie` header sets or a `Cookie` header
 /// sends. `raw_expires`, `raw` and `unparsed` are set by parsing only.
 pub struct Cookie
-    name: String
+    name:  String
     value: String
     /// Whether the value was or is to be written in double quotes.
-    quoted: Bool = False
-    path: Maybe<String> = None
-    domain: Maybe<String> = None
-    expires: Maybe<Instant> = None
+    quoted:      Bool = False
+    path:        Maybe<String> = None
+    domain:      Maybe<String> = None
+    expires:     Maybe<Instant> = None
     raw_expires: Maybe<String> = None
-    max_age: MaxAge = MaxAge.Unset
-    secure: Bool = False
-    http_only: Bool = False
-    same_site: SameSite = SameSite.Unset
+    max_age:     MaxAge = MaxAge.Unset
+    secure:      Bool = False
+    http_only:   Bool = False
+    same_site:   SameSite = SameSite.Unset
     partitioned: Bool = False
-    raw: Maybe<String> = None
-    unparsed: List<String> = []
+    raw:         Maybe<String> = None
+    unparsed:    List<String> = []
 end
 
 derive Equatable for Cookie
@@ -5191,17 +5193,17 @@ impl Cookie
         text = fn m: Maybe<String> -> Maybe.with_default(m, "")
 
         max_age = case cookie.max_age
-            .Unset -> ""
-            .DeleteNow -> "-1"
+            .Unset      -> ""
+            .DeleteNow  -> "-1"
             .Seconds(n) -> "${n}"
         end
 
         same_site = case cookie.same_site
-            .Unset -> ""
+            .Unset   -> ""
             .Default -> "default"
-            .Lax -> "lax"
-            .Strict -> "strict"
-            .None -> "none"
+            .Lax     -> "lax"
+            .Strict  -> "strict"
+            .None    -> "none"
         end
 
         [
@@ -5232,10 +5234,10 @@ impl Cookie
                 Cookie{
                     name:,
                     value:,
-                    quoted: quoted == "true",
-                    path: some(path),
-                    domain: some(domain),
-                    expires: String.to_int(expires) |> Maybe.map(Instant.from_nanos),
+                    quoted:      quoted == "true",
+                    path:        some(path),
+                    domain:      some(domain),
+                    expires:     String.to_int(expires) |> Maybe.map(Instant.from_nanos),
                     raw_expires: some(raw_expires),
                     max_age: case max_age
                         "" ->
@@ -5250,17 +5252,17 @@ impl Cookie
                                 |> Maybe.with_default(0)
                             )
                     end,
-                    secure: secure == "true",
+                    secure:    secure == "true",
                     http_only: http_only == "true",
                     same_site: case same_site
                         "default" -> SameSite.Default
-                        "lax" -> SameSite.Lax
-                        "strict" -> SameSite.Strict
-                        "none" -> SameSite.None
-                        _ -> SameSite.Unset
+                        "lax"     -> SameSite.Lax
+                        "strict"  -> SameSite.Strict
+                        "none"    -> SameSite.None
+                        _         -> SameSite.Unset
                     end,
                     partitioned: partitioned == "true",
-                    raw: some(raw),
+                    raw:         some(raw),
                     unparsed:,
                 }
 
@@ -5295,10 +5297,10 @@ impl CookieJar
     //! import std::url.Url
     //!
     //! jar = CookieJar.new()
-    //! CookieJar.set_cookies(jar, Url`https://example.com/`, [Cookie{name: "a", value: "1"}])
+    //! CookieJar.set_cookies(jar, Url"https://example.com/", [Cookie{name: "a", value: "1"}])
     //!
     //! sent =
-    //!     CookieJar.cookies(jar, Url`https://example.com/x`) |> Iter.map(fn c -> c.name) |> Iter.to_list()
+    //!     CookieJar.cookies(jar, Url"https://example.com/x") |> Iter.map(fn c -> c.name) |> Iter.to_list()
     //!
     //! assert sent == ["a"]
     //
@@ -5336,11 +5338,11 @@ impl Display for ConnState
     //
     fn to_string(state: ConnState) -> String
         case state
-            .New -> "new"
-            .Active -> "active"
-            .Idle -> "idle"
+            .New      -> "new"
+            .Active   -> "active"
+            .Idle     -> "idle"
             .Hijacked -> "hijacked"
-            .Closed -> "closed"
+            .Closed   -> "closed"
         end
     end
 end
@@ -5390,9 +5392,9 @@ impl ProxyRequest
 
         url = {
             ..incoming_url,
-            scheme: target.scheme,
-            host: target.host,
-            path: join_paths(target.path, ..),
+            scheme:   target.scheme,
+            host:     target.host,
+            path:     join_paths(target.path, ..),
             raw_path: None,
             query:,
         }
@@ -5433,9 +5435,9 @@ end
 
 fn join_paths(a: String, b: String) -> String
     case (String.ends_with(a, "/"), String.starts_with(b, "/"))
-        (True, True) -> a + String.drop(b, 1)
+        (True, True)   -> a + String.drop(b, 1)
         (False, False) -> "${a}/${b}"
-        _ -> a + b
+        _              -> a + b
     end
 end
 
@@ -5503,7 +5505,7 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response
     fn request ->
         outgoing = {
             ..request,
-            headers: without_hop_headers(..),
+            headers:     without_hop_headers(..),
             request_uri: "",
         }
 
@@ -5515,7 +5517,7 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response
             |> Result.flat_map(fn r ->
                 case options.modify_response
                     Some(modify) -> modify(r)
-                    None -> Ok(r)
+                    None         -> Ok(r)
                 end
             end)
 
@@ -5528,7 +5530,7 @@ pub fn reverse_proxy(options: ReverseProxy) -> (Request) -> Response
 
                 case options.on_error
                     Some(on_error) -> on_error(request, error)
-                    None -> Response{status: Status.bad_gateway, body: Body.Empty}
+                    None           -> Response{status: Status.bad_gateway, body: Body.Empty}
                 end
         end
     end
@@ -5562,9 +5564,9 @@ fn forward(options: ReverseProxy, outgoing: Request) -> Result<Response, Error>
         or String.starts_with(content_type, "text/event-stream")
 
     every = case options.flush_interval
-        Some(d) -> Some(d)
+        Some(d)             -> Some(d)
         None when streaming -> Some(Duration.nanoseconds(0))
-        None -> None
+        None                -> None
     end
 
     Ok({
@@ -5592,7 +5594,7 @@ fn pump(r: Reader, w: Writer, every: Maybe<Duration>, flushed: Instant) -> Resul
 
             due = case every
                 Some(d) -> Duration.as_nanos(Instant.between(flushed, now)) >= Duration.as_nanos(d)
-                None -> False
+                None    -> False
             end
 
             if due then
@@ -5662,7 +5664,7 @@ impl TraceEvent
 
             [["GotConnection", reused, was_idle, idle]] ->
                 Some(TraceEvent.GotConnection{
-                    reused: reused == "true",
+                    reused:   reused == "true",
                     was_idle: was_idle == "true",
                     idle_time: Duration.nanoseconds(
                         String.to_int(idle)
@@ -5740,7 +5742,7 @@ end
 fn wire_length(text: String) -> Maybe<Int>
     case String.to_int(text)
         Some(n) when n >= 0 -> Some(n)
-        _ -> None
+        _                   -> None
     end
 end
 
@@ -5806,15 +5808,15 @@ end
 /// `multipart.Part`. Reading the next part ends this one.
 pub struct Part
     headers: Headers
-    body: Reader
-    handle: http_host.Handle
+    body:    Reader
+    handle:  http_host.Handle
 end
 
 impl Part
     /// The `name` of its `form-data` `Content-Disposition`, if any.
     pub fn form_name(part: Part) -> Maybe<String>
         case http_host.part_form_name(part.handle)
-            "" -> None
+            ""   -> None
             name -> Some(name)
         end
     end
@@ -5822,7 +5824,7 @@ impl Part
     /// The `filename` of its `Content-Disposition`, if any.
     pub fn file_name(part: Part) -> Maybe<String>
         case http_host.part_file_name(part.handle)
-            "" -> None
+            ""   -> None
             name -> Some(name)
         end
     end
@@ -5865,8 +5867,8 @@ fn parts_of(reader: http_host.Handle) -> Iter<Result<Part, Error>>
             Ok(Some(part)) ->
                 Ok(Part{
                     headers: Headers(pairs(http_host.part_headers(part))),
-                    body: http_host.part_reader(part),
-                    handle: part,
+                    body:    http_host.part_reader(part),
+                    handle:  part,
                 })
 
             Ok(None) ->
@@ -5882,9 +5884,9 @@ end
 /// form larger than `max` bytes is `Error.BodyTooLarge`; no more than one
 /// byte past `max` is read.
 pub fn read_multipart_form(
-    r: Reader,
+    r:        Reader,
     boundary: String,
-    max: Int = 33_554_432,
+    max:      Int = 33_554_432,
 ) -> Result<MultipartForm, Error>
     data = read_capped(Body.Stream(r), max, None)?
 

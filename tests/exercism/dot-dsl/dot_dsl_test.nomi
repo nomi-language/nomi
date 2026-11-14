@@ -93,9 +93,9 @@ test "parse"
                 },
                 edges: {("a", "b") => {"color" => .Text("blue")}, ("b", "c") => {}},
                 attrs: {
-                    "foo" => .Number(1),
+                    "foo"   => .Number(1),
                     "title" => .Text("Testing Attrs"),
-                    "bar" => .Flag(True),
+                    "bar"   => .Flag(True),
                 },
             },
         ),

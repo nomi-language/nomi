@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nomi-language/nomi/internal/cpuprofile"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 	"github.com/nomi-language/nomi/vmhost"
@@ -30,8 +31,11 @@ func runFileVM(path string, args ...string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	stopProfile := cpuprofile.Start()
 	// The CLI owns the process, so it installs the signal handler.
-	if code := vmcmd.Run(context.Background(), absPath, os.Stdout, os.Stderr, os.Stdin, args, true); code != 0 {
+	code := vmcmd.Run(context.Background(), absPath, os.Stdout, os.Stderr, os.Stdin, args, true)
+	stopProfile()
+	if code != 0 {
 		os.Exit(code)
 	}
 }

@@ -6,24 +6,24 @@
 /// A table: its name, the migration and line that created it, and its
 /// columns.
 pub struct Table
-    name: String
+    name:      String
     migration: String
-    line: Int
-    columns: List<TableColumn>
+    line:      Int
+    columns:   List<TableColumn>
 end
 
 /// A column of a table. A column's `values` are the values a
 /// `CHECK (column IN (...))` constraint allows, which the schema turns
 /// into an enum.
 pub struct TableColumn
-    name: String
-    type_name: String
-    nullable: Bool
+    name:        String
+    type_name:   String
+    nullable:    Bool
     primary_key: Bool
     has_default: Bool
-    values: List<String>
-    migration: String
-    line: Int
+    values:      List<String>
+    migration:   String
+    line:        Int
 end
 
 /// A result column of a query: its name, the declared type of the table
@@ -33,18 +33,18 @@ end
 /// column may be or an outer join may leave it out, and an expression
 /// always may be.
 pub struct Column
-    name: String
+    name:      String
     type_name: String
-    table: String
-    column: String
-    nullable: Bool
+    table:     String
+    column:    String
+    nullable:  Bool
 end
 
 /// The error SQLite gave for a query it could not prepare, and the byte of
 /// the SQL it sent that the error names (-1 for none).
 pub struct QueryError
     message: String
-    offset: Int
+    offset:  Int
 end
 
 derive Equatable for Table

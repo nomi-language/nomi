@@ -16,13 +16,13 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// A letter's place in the puzzle, counted from 1 at the top left.
 pub struct Position
     column: Int
-    row: Int
+    row:    Int
 end
 
 /// Where a word lies: its first letter and its last.
 pub struct Span
     start: Position
-    stop: Position
+    stop:  Position
 end
 
 /// The eight directions a word may run in, as a step in rows and a step in
@@ -57,7 +57,7 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span>
 
     Some(Span{
         start: {column: column + 1, row: row + 1},
-        stop: {column: column + 1 + across * last, row: row + 1 + down * last},
+        stop:  {column: column + 1 + across * last, row: row + 1 + down * last},
     })
 end
 
@@ -65,7 +65,7 @@ end
 /// `down` rows and `across` columns between letters, without leaving the
 /// grid.
 fn reads(
-    letters: Vector<Vector<String>>,
+    letters:  Vector<Vector<String>>,
     spelling: List<String>,
     (row, column): (Int, Int),
     (down, across): (Int, Int),
@@ -213,7 +213,7 @@ test "search"
             ["elixir", "clojure"],
             {
                 "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "elixir"  => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
             },
         ),
         (
@@ -221,8 +221,8 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
             },
         ),
@@ -231,10 +231,10 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
-                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "rust"       => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
             },
         ),
         (
@@ -242,11 +242,11 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
-                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
-                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "rust"       => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java"       => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
             },
         ),
         (
@@ -254,12 +254,12 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
-                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
-                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
-                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "rust"       => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java"       => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua"        => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
             },
         ),
         (
@@ -267,13 +267,13 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
-                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
-                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
-                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
-                "lisp" => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
+                "rust"       => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java"       => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua"        => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "lisp"       => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
             },
         ),
         (
@@ -281,14 +281,14 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp", "ruby"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
-                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
-                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
-                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
-                "lisp" => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
-                "ruby" => Some({start: {column: 8, row: 6}, stop: {column: 5, row: 9}}),
+                "rust"       => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java"       => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua"        => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "lisp"       => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
+                "ruby"       => Some({start: {column: 8, row: 6}, stop: {column: 5, row: 9}}),
             },
         ),
         (
@@ -296,15 +296,15 @@ test "search"
             puzzle,
             ["clojure", "elixir", "ecmascript", "rust", "java", "lua", "lisp", "ruby", "haskell"],
             {
-                "clojure" => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
-                "elixir" => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
+                "clojure"    => Some({start: {column: 1, row: 10}, stop: {column: 7, row: 10}}),
+                "elixir"     => Some({start: {column: 6, row: 5}, stop: {column: 1, row: 5}}),
                 "ecmascript" => Some({start: {column: 10, row: 1}, stop: {column: 10, row: 10}}),
-                "rust" => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
-                "java" => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
-                "lua" => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
-                "lisp" => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
-                "ruby" => Some({start: {column: 8, row: 6}, stop: {column: 5, row: 9}}),
-                "haskell" => None,
+                "rust"       => Some({start: {column: 9, row: 5}, stop: {column: 9, row: 2}}),
+                "java"       => Some({start: {column: 1, row: 1}, stop: {column: 4, row: 4}}),
+                "lua"        => Some({start: {column: 8, row: 9}, stop: {column: 6, row: 7}}),
+                "lisp"       => Some({start: {column: 3, row: 6}, stop: {column: 6, row: 3}}),
+                "ruby"       => Some({start: {column: 8, row: 6}, stop: {column: 5, row: 9}}),
+                "haskell"    => None,
             },
         ),
         (

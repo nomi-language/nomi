@@ -60,9 +60,9 @@ test "block-scoped declarations are visible inside their enclosing block"
     end
 
     result = case pick()
-        Color.Red -> "red"
+        Color.Red   -> "red"
         Color.Green -> "green"
-        Color.Blue -> "blue"
+        Color.Blue  -> "blue"
     end
 
     assert result == "green"

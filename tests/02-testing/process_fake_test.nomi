@@ -14,7 +14,7 @@ fn current_branch() -> Result<String, io.Error>
 
     case Bytes.to_string(out.stdout)
         Ok(text) -> Ok(String.trim(text))
-        Err(_) -> Ok("")
+        Err(_)   -> Ok("")
     end
 end
 
@@ -72,10 +72,10 @@ end
 test "the call records the directory, the environment and the input"
     command = Command{
         program: "wc",
-        args: ["-l"],
-        env: {"LC_ALL" => "C"},
-        dir: Some("logs"),
-        stdin: Stdin.Bytes(String.to_bytes("a\nb\n")),
+        args:    ["-l"],
+        env:     {"LC_ALL" => "C"},
+        dir:     Some("logs"),
+        stdin:   Stdin.Bytes(String.to_bytes("a\nb\n")),
     }
 
     ran = testing.run([Answer{program: "wc", stdout: "2\n"}], fn ->
@@ -87,10 +87,10 @@ test "the call records the directory, the environment and the input"
     assert ran.calls == [
         Call{
             program: "wc",
-            args: ["-l"],
-            dir: Some("logs"),
-            env: {"LC_ALL" => "C"},
-            input: String.to_bytes("a\nb\n"),
+            args:    ["-l"],
+            dir:     Some("logs"),
+            env:     {"LC_ALL" => "C"},
+            input:   String.to_bytes("a\nb\n"),
         },
     ]
 end

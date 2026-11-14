@@ -45,8 +45,41 @@ func PlantDeclineForTest(callee, reason string) (restore func()) {
 }
 
 // DeclinesPlanted reports whether a test has planted a decline
-// (PlantDeclineForTest), which no kept program holds.
-func DeclinesPlanted() bool { return plantedDecline.Load() != nil }
+// (PlantDeclineForTest, PlantTypeDeclineForTest), which no kept program
+// holds.
+func DeclinesPlanted() bool {
+	return plantedDecline.Load() != nil || plantedTypeDecline.Load() != nil
+}
+
+// plantedTypeDecline is the struct a test made the builder refuse, or nil:
+// callee is the struct's name.
+var plantedTypeDecline atomic.Pointer[declinePlant]
+
+// PlantTypeDeclineForTest makes the builder refuse the declaration of every
+// struct named typeName, with reason as the refusal's construct, until
+// restore is called: a function whose signature names it, and a type that
+// holds it, are refused as for a struct the builder cannot represent, so a
+// test about how a refused signature is reported needs no real gap. It
+// panics outside a test binary, and is process-wide as PlantDeclineForTest
+// is.
+func PlantTypeDeclineForTest(typeName, reason string) (restore func()) {
+	if !testing.Testing() {
+		panic("irbuild.PlantTypeDeclineForTest called outside a test")
+	}
+	if typeName == "" || reason == "" {
+		panic("irbuild.PlantTypeDeclineForTest needs a type name and a reason")
+	}
+	prev := plantedTypeDecline.Swap(&declinePlant{typeName, reason})
+	return func() { plantedTypeDecline.Store(prev) }
+}
+
+// plantedRefusal is the planted refusal of the struct named name, or "".
+func plantedRefusal(name string) string {
+	if p := plantedTypeDecline.Load(); p != nil && p.callee == name {
+		return p.reason
+	}
+	return ""
+}
 
 // plantedDeclineAt is the planted reason when n is a call to the planted
 // callee, else "".

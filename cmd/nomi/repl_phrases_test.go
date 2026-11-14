@@ -20,8 +20,8 @@ const (
 // file outside a project does.
 func TestReplVM_ANounAndAPhraseAreDeclaredAndFormatted(t *testing.T) {
 	replExpect(t, replShoe+replShoeCount+
-		"Phrase.format(shoe_count(shoe, 1), Locale`en`)\n"+
-		"Phrase.format(shoe_count(shoe, 3), Locale`en`)\n",
+		"Phrase.format(shoe_count(shoe, 1), Locale\"en\")\n"+
+		"Phrase.format(shoe_count(shoe, 3), Locale\"en\")\n",
 		"\"1 shoe\"\n\"3 shoes\"\n")
 }
 
@@ -31,12 +31,12 @@ func TestReplVM_ANounAndAPhraseAreDeclaredAndFormatted(t *testing.T) {
 // inputs the same way.
 func TestReplVM_ARedeclaredPhraseOrNounIsANewDefinition(t *testing.T) {
 	replExpect(t, replShoe+replShoeCount+
-		"fn old() -> String\n  Phrase.format(shoe_count(shoe, 1), Locale`en`)\nend\n"+
+		"fn old() -> String\n  Phrase.format(shoe_count(shoe, 1), Locale\"en\")\nend\n"+
 		"phrase shoe_count(item: Noun, count: Int) `now {$count} {$item :nomi:noun count=$count}`\n"+
-		"Phrase.format(shoe_count(shoe, 3), Locale`en`)\n"+
+		"Phrase.format(shoe_count(shoe, 3), Locale\"en\")\n"+
 		"old()\n"+
 		"noun shoe `.input {$count :integer} .match $count one {{boot}} * {{boots}}`\n"+
-		"Phrase.format(shoe_count(shoe, 3), Locale`en`)\n"+
+		"Phrase.format(shoe_count(shoe, 3), Locale\"en\")\n"+
 		"old()\n"+
 		"fn shoe_count() -> Int\n  5\nend\n"+
 		"shoe_count()\n"+
@@ -49,7 +49,7 @@ func TestReplVM_ARedeclaredPhraseOrNounIsANewDefinition(t *testing.T) {
 func TestReplVM_ARejectedPhraseChangesNothing(t *testing.T) {
 	replExpect(t, replShoe+replShoeCount+
 		"phrase shoe_count(item: Noun, count: Int) `{$count} {$item :nomi:noun count=$missing}`\n"+
-		"Phrase.format(shoe_count(shoe, 3), Locale`en`)\n",
+		"Phrase.format(shoe_count(shoe, 3), Locale\"en\")\n",
 		"\"3 shoes\"\n",
 		"line 1, col ")
 }
@@ -62,7 +62,7 @@ func TestReplVM_AnOpenBacktickContinuesTheInput(t *testing.T) {
 	lines := strings.Split(
 		"noun show `\n.input {$count :integer} .match $count one {{show}} * {{shows}}\n`\n"+
 			"phrase show_count(item: Noun, count: Int) `{$count} {$item :nomi:noun count=$count}`\n"+
-			"Phrase.format(show_count(show, 2), Locale`en`)\n", "\n")
+			"Phrase.format(show_count(show, 2), Locale\"en\")\n", "\n")
 	var out, errOut strings.Builder
 	s := newReplSession(&out, &errOut)
 	i := 0

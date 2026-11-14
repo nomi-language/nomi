@@ -12,7 +12,7 @@ struct Point
 end
 
 struct Outer
-    p: Point
+    p:   Point
     tag: Int
 end
 

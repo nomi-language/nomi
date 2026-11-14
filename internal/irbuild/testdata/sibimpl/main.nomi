@@ -34,7 +34,7 @@ end
 fn describe(s: Status) -> String
     case Status.reason(s)
         Some(r) -> "reason: " + r
-        None -> "no reason"
+        None    -> "no reason"
     end
 end
 

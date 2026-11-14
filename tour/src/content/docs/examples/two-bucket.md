@@ -22,8 +22,8 @@ end
 /// How the goal is reached: in how many actions, in which bucket, and how
 /// much is left in the other.
 pub struct Outcome
-    moves: Int
-    goal_bucket: Bucket
+    moves:        Int
+    goal_bucket:  Bucket
     other_bucket: Int
 end
 
@@ -50,10 +50,10 @@ end
 /// forbidden one, so no action leads back to them.
 fn search(
     frontier: List<(Int, Int)>,
-    seen: Set<(Int, Int)>,
-    moves: Int,
-    sizes: (Int, Int),
-    goal: Int,
+    seen:     Set<(Int, Int)>,
+    moves:    Int,
+    sizes:    (Int, Int),
+    goal:     Int,
 ) -> Result<Outcome, Error>
     case Iter.find(frontier, fn (one, two) -> one == goal or two == goal)
         Some((one, two)) when one == goal ->
@@ -84,10 +84,10 @@ fn actions((one, two): (Int, Int), (size_one, size_two): (Int, Int)) -> List<(In
     into_one = Int.min(two, size_one - one)
 
     [
-        (size_one, two),
-        (one, size_two),
-        (0, two),
-        (one, 0),
+        (size_one,       two),
+        (one,            size_two),
+        (0,              two),
+        (one,            0),
         (one - into_two, two + into_two),
         (one + into_one, two - into_one),
     ]

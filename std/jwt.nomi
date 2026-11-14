@@ -89,14 +89,14 @@ end
 /// `Display` and `Debug` show `SigningKey(<alg>)`.
 pub opaque struct SigningKey
     algorithm: Algorithm
-    signer: Signer
+    signer:    Signer
 end
 
 /// A key that checks tokens of one algorithm. `Display` and `Debug` show
 /// `VerifyingKey(<alg>)`.
 pub opaque struct VerifyingKey
     algorithm: Algorithm
-    checker: Checker
+    checker:   Checker
 end
 
 impl SigningKey
@@ -260,15 +260,15 @@ derive Equatable for JwtError
 impl Display for JwtError
     fn to_string(e: JwtError) -> String
         case e
-            .Malformed(why) -> "malformed token: ${why}"
+            .Malformed(why)      -> "malformed token: ${why}"
             .WrongAlgorithm(why) -> why
-            .BadSignature -> "the token's signature does not verify"
-            .Expired -> "the token has expired"
-            .NotYetValid -> "the token is not valid yet"
-            .WrongIssuer -> "the token's issuer is not the expected one"
-            .WrongAudience -> "the token is not for this audience"
-            .MissingClaim(name) -> "the token has no `${name}` claim"
-            .Claims(shape) -> "the token's claims: ${shape}"
+            .BadSignature        -> "the token's signature does not verify"
+            .Expired             -> "the token has expired"
+            .NotYetValid         -> "the token is not valid yet"
+            .WrongIssuer         -> "the token's issuer is not the expected one"
+            .WrongAudience       -> "the token is not for this audience"
+            .MissingClaim(name)  -> "the token has no `${name}` claim"
+            .Claims(shape)       -> "the token's claims: ${shape}"
         end
     end
 end
@@ -344,13 +344,13 @@ end
 //! assert jwt.verify(token, key, {..before, issuer: Some("ann")}) == Err(JwtError.WrongIssuer)
 //
 pub fn verify(
-    token: String,
-    key: VerifyingKey,
+    token:      String,
+    key:        VerifyingKey,
     validation: Validation = Validation{},
 ) -> Result<Map<String, Json>, JwtError>
     (header_part, claims_part, signature_part) = case String.split(token, ".")
         [h, c, s] -> (h, c, s)
-        _ -> return Err(JwtError.Malformed("a token is three parts joined by `.`"))
+        _         -> return Err(JwtError.Malformed("a token is three parts joined by `.`"))
     end
 
     header = object(header_part, "header")?
@@ -360,7 +360,7 @@ pub fn verify(
 
     valid = case key.checker
         .Hmac(secret) -> hash.equal_in_constant_time(hash.hmac_sha256(secret, input), signature)
-        .Key(public) -> signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
+        .Key(public)  -> signatures.is_valid_with(public, scheme(key.algorithm), input, signature)
     end
 
     if not valid then return Err(JwtError.BadSignature)
@@ -382,8 +382,8 @@ end
 //! assert Map.get(claims, "uid") == Some(7)
 //
 pub fn verify_as<T>(
-    token: String,
-    key: VerifyingKey,
+    token:      String,
+    key:        VerifyingKey,
     validation: Validation = Validation{},
 ) -> Result<T, JwtError> where T: FromJson
     claims = verify(token, key, validation)?
@@ -417,7 +417,7 @@ fn scheme(algorithm: Algorithm) -> Scheme
         .Rs256 -> .RsaPkcs1Sha256
         .Ps256 -> .RsaPssSha256
         .Es256 -> .EcdsaSha256
-        _ -> .Ed25519
+        _      -> .Ed25519
     end
 end
 
@@ -469,7 +469,7 @@ fn object(text: String, what: String) -> Result<Map<String, Json>, JwtError>
 
     case json
         .Obj(fields) -> Ok(fields)
-        _ -> Err(JwtError.Malformed("the ${what} is not a JSON object"))
+        _            -> Err(JwtError.Malformed("the ${what} is not a JSON object"))
     end
 end
 
@@ -564,7 +564,7 @@ fn seconds(claims: Map<String, Json>, name: String) -> Result<Maybe<Int>, JwtErr
         Some(.Float(f)) ->
             case Float.to_int(Float.floor(f))
                 Some(n) -> Ok(Some(n))
-                None -> Err(JwtError.Malformed("`${name}` is not a finite number"))
+                None    -> Err(JwtError.Malformed("`${name}` is not a finite number"))
             end
 
         Some(_) ->

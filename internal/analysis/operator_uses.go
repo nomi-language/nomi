@@ -93,7 +93,7 @@ func operatorUseOf(p *Program, fa *FileAnalysis, n *ast.Binary) *OperatorUse {
 		return nil
 	case *TypeParam_:
 		return &OperatorUse{Form: OperatorPerInstance, Bound: iface}
-	case *InterfaceType:
+	case *InterfaceType, *ConjunctionType:
 		return &OperatorUse{Form: OperatorDispatched}
 	case *TupleType, *AnonStructType, *ListType, *MapType, *FuncType:
 		return &OperatorUse{Form: OperatorStructural}

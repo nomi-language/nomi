@@ -102,7 +102,7 @@ end
 
 fn produce(out: Sender<Int>, n: Int) -> Unit
     case Sender.send(out, n)
-        Ok(_) -> Unit
+        Ok(_)  -> Unit
         Err(_) -> io.print("send failed")
     end
 end
@@ -111,7 +111,7 @@ fn consume(inbox: Receiver<Int>) -> Int
     Iter.loop(0, fn sum ->
         case Receiver.receive(inbox)
             Some(v) -> sum + v
-            None -> break sum
+            None    -> break sum
         end
     end)
 end
@@ -529,8 +529,8 @@ fn attempt() -> String
 
     case outcome
         .Completed(v) -> "got ${v}"
-        .Cancelled -> "timed out, falling back"
-        .Failed(_) -> "broke"
+        .Cancelled    -> "timed out, falling back"
+        .Failed(_)    -> "broke"
     end
 end
 ```
@@ -573,8 +573,8 @@ fn main()
     // Reached because `Task.outcome` sits outside the deadline.
     result = case outcome
         .Completed(v) -> "got ${v}"
-        .Cancelled -> "timed out, falling back"
-        .Failed(_) -> "broke"
+        .Cancelled    -> "timed out, falling back"
+        .Failed(_)    -> "broke"
     end
 
     dbg result
@@ -618,8 +618,8 @@ outcome:
 ```nomi
 case Task.outcome(worker)
     .Completed(v) -> io.print("done: ${v}")
-    .Cancelled -> io.print("we stopped it")
-    .Failed(e) -> io.print("broke: ${e}")
+    .Cancelled    -> io.print("we stopped it")
+    .Failed(e)    -> io.print("broke: ${e}")
 end
 ```
 

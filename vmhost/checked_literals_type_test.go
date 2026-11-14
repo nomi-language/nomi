@@ -58,7 +58,7 @@ end
 // check_type runs in check's place, and a type that does not write it is
 // checked by check alone.
 func TestCheckedLiteral_CheckTypeSeesTheTypeArguments(t *testing.T) {
-	src := patTag + "fn main()\n    a: Pat<String> = \"hello\"\n    b: Pat<String> = Pat`there`\n    io.print(text_of(a))\n    io.print(text_of(b))\nend\n"
+	src := patTag + "fn main()\n    a: Pat<String> = \"hello\"\n    b: Pat<String> = Pat\"there\"\n    io.print(text_of(a))\n    io.print(text_of(b))\nend\n"
 	var out strings.Builder
 	p, err := LoadSource("main", src)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestCheckedLiteral_CheckTypeSeesTheTypeArguments(t *testing.T) {
 		{"    a: Pat<Int> = \"nope\"", "`Pat` literal \"nope\" is invalid: got [Int]"},
 		{"    a: Pat<{id: Maybe<Int>, name: String}> = \"nope\"", "`Pat` literal \"nope\" is invalid: got [{id: Maybe<Int>, name: String}]"},
 		{"    a: Pat<String> = \"bad\"", "`Pat` literal \"bad\" is invalid: bad pattern"},
-		{"    a: Pat<Int> = Pat`nope`", "typed literal Pat`nope` is invalid: got [Int]"},
+		{"    a: Pat<Int> = Pat\"nope\"", "typed literal Pat\"nope\" is invalid: got [Int]"},
 	} {
 		src := patTag + "fn main()\n" + c.line + "\n    io.print(text_of(a))\nend\n"
 		ds := literalDiagnostics(t, src)

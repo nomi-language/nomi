@@ -5,7 +5,7 @@ end
 
 struct Holder
     name: String
-    re: Regex<List<Maybe<String>>>
+    re:   Regex<List<Maybe<String>>>
 end
 
 fn main()

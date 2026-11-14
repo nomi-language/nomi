@@ -1,7 +1,7 @@
 import std::compiler
 
 struct Account
-    id: Int
+    id:      Int
     balance: Int
 end
 

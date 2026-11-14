@@ -15,7 +15,7 @@ func TestConfusion_CheckerNamesNomisSpelling(t *testing.T) {
 		name, src, hint, fixed string
 	}{
 		{"method call", "fn f() -> Int\n  xs = [1, 2]\n  xs.len()\nend\n",
-			"write `Iter.count(xs)`", "fn f() -> Int\n  xs = [1, 2]\n  Iter.count(xs)\nend\n"},
+			"write `List.length(xs)`", "fn f() -> Int\n  xs = [1, 2]\n  List.length(xs)\nend\n"},
 		{"method call with arguments", "fn f() -> String\n  s = \"a,b\"\n  s.split(\",\") |> String.join(\"-\")\nend\n",
 			"write `String.split(s, ...)`", "fn f() -> String\n  s = \"a,b\"\n  String.split(s, \",\") |> String.join(\"-\")\nend\n"},
 		{"camelCase method", "fn f() -> String\n  s = \"a\"\n  s.toUpperCase()\nend\n",

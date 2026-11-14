@@ -134,11 +134,11 @@ func TestStdIfaceDefault_UnretainedBodyFillsADefaultThatIsNoLiteral(t *testing.T
 		t.Skip("integration; -short")
 	}
 	const src = "import std::io\n\nfn main()\n" +
-		"    io.print(Decimal.format(1234.50d, Locale`en`))\n" +
-		"    io.print(Decimal.format(0.125d, Locale`en`, max_fraction: 2))\n" +
-		"    io.print(Decimal.format(12d, Locale`fr`, 2))\n" +
-		"    io.print(Decimal.format(1234.5d, Locale`en`, grouping: False))\n" +
-		"    io.print(Decimal.format_percent(0.125d, Locale`en`))\nend\n"
+		"    io.print(Decimal.format(1234.50d, Locale\"en\"))\n" +
+		"    io.print(Decimal.format(0.125d, Locale\"en\", max_fraction: 2))\n" +
+		"    io.print(Decimal.format(12d, Locale\"fr\", 2))\n" +
+		"    io.print(Decimal.format(1234.5d, Locale\"en\", grouping: False))\n" +
+		"    io.print(Decimal.format_percent(0.125d, Locale\"en\"))\nend\n"
 	const want = "1,234.50\n0.12\n12,00\n1234.5\n12.5%\n"
 	verifyLambdaProgram(t, src, want)
 	t.Run("linked through objects", func(t *testing.T) {

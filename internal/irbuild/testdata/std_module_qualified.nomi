@@ -43,7 +43,7 @@ end
 fn boot() -> Result<App, String>
     Ok(App{
         context: Context.root(),
-        audit: supervisors.Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
+        audit:   supervisors.Supervisor.new(shutdown_timeout: Duration.seconds(1), max_running: 2),
     })
 end
 

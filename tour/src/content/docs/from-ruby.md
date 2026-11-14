@@ -18,7 +18,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
 | Ruby | Nomi |
 |---|---|
-| `s.upcase`, `xs.size` | `String.uppercase(s)`, `Iter.count(xs)`: there are no methods to call on a value |
+| `s.upcase`, `xs.size` | `String.uppercase(s)`, `List.length(xs)`: there are no methods to call on a value |
 | `class String; def shout ..` | No reopening: a new function goes in your own file or an `impl` of your own type |
 | `x = x + 1` with `x` reassigned | The same text, but it binds a new `x`; the old value is unchanged |
 | `xs.each { \|x\| total += x }` | `Iter.reduce(xs, 0, fn total, x -> total + x)`: nothing mutates, so a fold carries the state |
@@ -81,8 +81,8 @@ end
 
 struct Order
     customer: String
-    total: Int
-    status: Status
+    total:    Int
+    status:   Status
 end
 
 fn revenue_by_customer(orders: List<Order>) -> Map<String, Int>

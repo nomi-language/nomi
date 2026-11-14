@@ -12,8 +12,8 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// fn227 adapts signatures/host.generate_ed25519: generate_ed25519() -> Bytes
-func (b *bound) fn227(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn230 adapts signatures/host.generate_ed25519: generate_ed25519() -> Bytes
+func (b *bound) fn230(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("signatures/host.generate_ed25519", 0, len(args))
 	}
@@ -25,8 +25,8 @@ func (b *bound) fn227(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn228 adapts signatures/host.generate_p256: generate_p256() -> Bytes
-func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn231 adapts signatures/host.generate_p256: generate_p256() -> Bytes
+func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 0 {
 		return nil, hostadapt.Arity("signatures/host.generate_p256", 0, len(args))
 	}
@@ -38,8 +38,8 @@ func (b *bound) fn228(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn229 adapts signatures/host.generate_rsa: generate_rsa(bits: Int) -> Result<Bytes, String>
-func (b *bound) fn229(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn232 adapts signatures/host.generate_rsa: generate_rsa(bits: Int) -> Result<Bytes, String>
+func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.generate_rsa", 1, len(args))
 	}
@@ -48,32 +48,80 @@ func (b *bound) fn229(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("signatures/host.generate_rsa", 0, "signatures/host.generate_rsa", "bits", err)
 	}
 	r0 := stdhttp.SigGenerateRSA(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.generate_rsa", err)
 	}
 	return v0, nil
 }
 
-// fn231 adapts signatures/host.private_from_der: private_from_der(der: Bytes) -> Result<Bytes, String>
-func (b *bound) fn231(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn232Parts is signatures/host.generate_rsa taken apart: the payload and true, or the record and false.
+func (b *bound) fn232Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.generate_rsa", 1, len(args))
+	}
+	a0, err := b.in39(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.generate_rsa", 0, "signatures/host.generate_rsa", "bits", err)
+	}
+	r0 := stdhttp.SigGenerateRSA(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.generate_rsa", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.generate_rsa", err)
+	}
+	return v, true, nil
+}
+
+// fn234 adapts signatures/host.private_from_der: private_from_der(der: Bytes) -> Result<Bytes, String>
+func (b *bound) fn234(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.private_from_der", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.private_from_der", 0, "signatures/host.private_from_der", "der", err)
 	}
 	r0 := stdhttp.SigPrivateFromDER(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.private_from_der", err)
 	}
 	return v0, nil
 }
 
-// fn232 adapts signatures/host.private_from_pem: private_from_pem(text: String) -> Result<Bytes, String>
-func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn234Parts is signatures/host.private_from_der taken apart: the payload and true, or the record and false.
+func (b *bound) fn234Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.private_from_der", 1, len(args))
+	}
+	a0, err := b.in221(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.private_from_der", 0, "signatures/host.private_from_der", "der", err)
+	}
+	r0 := stdhttp.SigPrivateFromDER(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.private_from_der", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.private_from_der", err)
+	}
+	return v, true, nil
+}
+
+// fn235 adapts signatures/host.private_from_pem: private_from_pem(text: String) -> Result<Bytes, String>
+func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.private_from_pem", 1, len(args))
 	}
@@ -82,19 +130,43 @@ func (b *bound) fn232(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("signatures/host.private_from_pem", 0, "signatures/host.private_from_pem", "text", err)
 	}
 	r0 := stdhttp.SigPrivateFromPEM(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.private_from_pem", err)
 	}
 	return v0, nil
 }
 
-// fn233 adapts signatures/host.private_to_pem: private_to_pem(der: Bytes) -> String
-func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn235Parts is signatures/host.private_from_pem taken apart: the payload and true, or the record and false.
+func (b *bound) fn235Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.private_from_pem", 1, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.private_from_pem", 0, "signatures/host.private_from_pem", "text", err)
+	}
+	r0 := stdhttp.SigPrivateFromPEM(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.private_from_pem", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.private_from_pem", err)
+	}
+	return v, true, nil
+}
+
+// fn236 adapts signatures/host.private_to_pem: private_to_pem(der: Bytes) -> String
+func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.private_to_pem", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.private_to_pem", 0, "signatures/host.private_to_pem", "der", err)
 	}
@@ -106,12 +178,12 @@ func (b *bound) fn233(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn234 adapts signatures/host.private_kind: private_kind(der: Bytes) -> Int
-func (b *bound) fn234(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn237 adapts signatures/host.private_kind: private_kind(der: Bytes) -> Int
+func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.private_kind", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.private_kind", 0, "signatures/host.private_kind", "der", err)
 	}
@@ -123,12 +195,12 @@ func (b *bound) fn234(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn235 adapts signatures/host.public_of: public_of(der: Bytes) -> Bytes
-func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn238 adapts signatures/host.public_of: public_of(der: Bytes) -> Bytes
+func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.public_of", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.public_of", 0, "signatures/host.public_of", "der", err)
 	}
@@ -140,25 +212,49 @@ func (b *bound) fn235(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn236 adapts signatures/host.public_from_der: public_from_der(der: Bytes) -> Result<Bytes, String>
-func (b *bound) fn236(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn239 adapts signatures/host.public_from_der: public_from_der(der: Bytes) -> Result<Bytes, String>
+func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.public_from_der", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.public_from_der", 0, "signatures/host.public_from_der", "der", err)
 	}
 	r0 := stdhttp.SigPublicFromDER(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.public_from_der", err)
 	}
 	return v0, nil
 }
 
-// fn237 adapts signatures/host.public_from_pem: public_from_pem(text: String) -> Result<Bytes, String>
-func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn239Parts is signatures/host.public_from_der taken apart: the payload and true, or the record and false.
+func (b *bound) fn239Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.public_from_der", 1, len(args))
+	}
+	a0, err := b.in221(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.public_from_der", 0, "signatures/host.public_from_der", "der", err)
+	}
+	r0 := stdhttp.SigPublicFromDER(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.public_from_der", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.public_from_der", err)
+	}
+	return v, true, nil
+}
+
+// fn240 adapts signatures/host.public_from_pem: public_from_pem(text: String) -> Result<Bytes, String>
+func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.public_from_pem", 1, len(args))
 	}
@@ -167,19 +263,43 @@ func (b *bound) fn237(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("signatures/host.public_from_pem", 0, "signatures/host.public_from_pem", "text", err)
 	}
 	r0 := stdhttp.SigPublicFromPEM(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.public_from_pem", err)
 	}
 	return v0, nil
 }
 
-// fn238 adapts signatures/host.public_to_pem: public_to_pem(der: Bytes) -> String
-func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn240Parts is signatures/host.public_from_pem taken apart: the payload and true, or the record and false.
+func (b *bound) fn240Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.public_from_pem", 1, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.public_from_pem", 0, "signatures/host.public_from_pem", "text", err)
+	}
+	r0 := stdhttp.SigPublicFromPEM(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.public_from_pem", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.public_from_pem", err)
+	}
+	return v, true, nil
+}
+
+// fn241 adapts signatures/host.public_to_pem: public_to_pem(der: Bytes) -> String
+func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.public_to_pem", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.public_to_pem", 0, "signatures/host.public_to_pem", "der", err)
 	}
@@ -191,12 +311,12 @@ func (b *bound) fn238(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn239 adapts signatures/host.public_kind: public_kind(der: Bytes) -> Int
-func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn242 adapts signatures/host.public_kind: public_kind(der: Bytes) -> Int
+func (b *bound) fn242(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.public_kind", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.public_kind", 0, "signatures/host.public_kind", "der", err)
 	}
@@ -208,29 +328,53 @@ func (b *bound) fn239(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn240 adapts signatures/host.ed25519_from_seed: ed25519_from_seed(seed: Bytes) -> Result<Bytes, String>
-func (b *bound) fn240(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn243 adapts signatures/host.ed25519_from_seed: ed25519_from_seed(seed: Bytes) -> Result<Bytes, String>
+func (b *bound) fn243(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.ed25519_from_seed", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.ed25519_from_seed", 0, "signatures/host.ed25519_from_seed", "seed", err)
 	}
 	r0 := stdhttp.SigEd25519FromSeed(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.ed25519_from_seed", err)
 	}
 	return v0, nil
 }
 
-// fn241 adapts signatures/host.ed25519_seed: ed25519_seed(der: Bytes) -> Bytes
-func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn243Parts is signatures/host.ed25519_from_seed taken apart: the payload and true, or the record and false.
+func (b *bound) fn243Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.ed25519_from_seed", 1, len(args))
+	}
+	a0, err := b.in221(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.ed25519_from_seed", 0, "signatures/host.ed25519_from_seed", "seed", err)
+	}
+	r0 := stdhttp.SigEd25519FromSeed(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.ed25519_from_seed", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.ed25519_from_seed", err)
+	}
+	return v, true, nil
+}
+
+// fn244 adapts signatures/host.ed25519_seed: ed25519_seed(der: Bytes) -> Bytes
+func (b *bound) fn244(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.ed25519_seed", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.ed25519_seed", 0, "signatures/host.ed25519_seed", "der", err)
 	}
@@ -242,29 +386,53 @@ func (b *bound) fn241(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn242 adapts signatures/host.ed25519_public_from_bytes: ed25519_public_from_bytes(raw: Bytes) -> Result<Bytes, String>
-func (b *bound) fn242(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn245 adapts signatures/host.ed25519_public_from_bytes: ed25519_public_from_bytes(raw: Bytes) -> Result<Bytes, String>
+func (b *bound) fn245(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.ed25519_public_from_bytes", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.ed25519_public_from_bytes", 0, "signatures/host.ed25519_public_from_bytes", "raw", err)
 	}
 	r0 := stdhttp.SigEd25519PublicFromBytes(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.ed25519_public_from_bytes", err)
 	}
 	return v0, nil
 }
 
-// fn243 adapts signatures/host.ed25519_public_bytes: ed25519_public_bytes(der: Bytes) -> Bytes
-func (b *bound) fn243(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn245Parts is signatures/host.ed25519_public_from_bytes taken apart: the payload and true, or the record and false.
+func (b *bound) fn245Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("signatures/host.ed25519_public_from_bytes", 1, len(args))
+	}
+	a0, err := b.in221(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("signatures/host.ed25519_public_from_bytes", 0, "signatures/host.ed25519_public_from_bytes", "raw", err)
+	}
+	r0 := stdhttp.SigEd25519PublicFromBytes(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("signatures/host.ed25519_public_from_bytes", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("signatures/host.ed25519_public_from_bytes", err)
+	}
+	return v, true, nil
+}
+
+// fn246 adapts signatures/host.ed25519_public_bytes: ed25519_public_bytes(der: Bytes) -> Bytes
+func (b *bound) fn246(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("signatures/host.ed25519_public_bytes", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.ed25519_public_bytes", 0, "signatures/host.ed25519_public_bytes", "der", err)
 	}
@@ -276,12 +444,12 @@ func (b *bound) fn243(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn244 adapts signatures/host.sign: sign(der: Bytes, scheme: Int, message: Bytes) -> Bytes
-func (b *bound) fn244(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn247 adapts signatures/host.sign: sign(der: Bytes, scheme: Int, message: Bytes) -> Bytes
+func (b *bound) fn247(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
 		return nil, hostadapt.Arity("signatures/host.sign", 3, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.sign", 0, "signatures/host.sign", "der", err)
 	}
@@ -289,7 +457,7 @@ func (b *bound) fn244(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.sign", 1, "signatures/host.sign", "scheme", err)
 	}
-	a2, err := b.in218(fr, args[2])
+	a2, err := b.in221(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.sign", 2, "signatures/host.sign", "message", err)
 	}
@@ -301,12 +469,12 @@ func (b *bound) fn244(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn245 adapts signatures/host.is_valid: is_valid(der: Bytes, scheme: Int, message: Bytes, signature: Bytes) -> Bool
-func (b *bound) fn245(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+// fn248 adapts signatures/host.is_valid: is_valid(der: Bytes, scheme: Int, message: Bytes, signature: Bytes) -> Bool
+func (b *bound) fn248(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 4 {
 		return nil, hostadapt.Arity("signatures/host.is_valid", 4, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.is_valid", 0, "signatures/host.is_valid", "der", err)
 	}
@@ -314,16 +482,16 @@ func (b *bound) fn245(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.is_valid", 1, "signatures/host.is_valid", "scheme", err)
 	}
-	a2, err := b.in218(fr, args[2])
+	a2, err := b.in221(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.is_valid", 2, "signatures/host.is_valid", "message", err)
 	}
-	a3, err := b.in218(fr, args[3])
+	a3, err := b.in221(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("signatures/host.is_valid", 3, "signatures/host.is_valid", "signature", err)
 	}
 	r0 := stdhttp.SigIsValid(a0, a1, a2, a3)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("signatures/host.is_valid", err)
 	}
@@ -419,7 +587,7 @@ func (b *bound) fn589(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.new_client", 20, "http/host.new_client", "http2_flags", err)
 	}
-	a21, err := b.in267(fr, args[21])
+	a21, err := b.in270(fr, args[21])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.new_client", 21, "http/host.new_client", "proxy_connect_headers", err)
 	}
@@ -494,7 +662,7 @@ func (b *bound) fn598(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.send", 2, "http/host.send", "url", err)
 	}
-	a3, err := b.in267(fr, args[3])
+	a3, err := b.in270(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.send", 3, "http/host.send", "headers", err)
 	}
@@ -502,7 +670,7 @@ func (b *bound) fn598(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.send", 4, "http/host.send", "body_kind", err)
 	}
-	a5, err := b.in218(fr, args[5])
+	a5, err := b.in221(fr, args[5])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.send", 5, "http/host.send", "data", err)
 	}
@@ -522,7 +690,7 @@ func (b *bound) fn598(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.send", 9, "http/host.send", "close", err)
 	}
-	a10, err := b.in267(fr, args[10])
+	a10, err := b.in270(fr, args[10])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.send", 10, "http/host.send", "trailers", err)
 	}
@@ -548,6 +716,86 @@ func (b *bound) fn598(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.send", err)
 	}
 	return v0, nil
+}
+
+// fn598Parts is http/host.send taken apart: the payload and true, or the record and false.
+func (b *bound) fn598Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 15 {
+		return nil, false, hostadapt.Arity("http/host.send", 15, len(args))
+	}
+	a0, err := b.in597(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 0, "http/host.send", "client", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 1, "http/host.send", "method", err)
+	}
+	a2, err := b.in40(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 2, "http/host.send", "url", err)
+	}
+	a3, err := b.in270(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 3, "http/host.send", "headers", err)
+	}
+	a4, err := b.in39(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 4, "http/host.send", "body_kind", err)
+	}
+	a5, err := b.in221(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 5, "http/host.send", "data", err)
+	}
+	a6, err := b.in487(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 6, "http/host.send", "input", err)
+	}
+	a7, err := b.in39(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 7, "http/host.send", "content_length", err)
+	}
+	a8, err := b.in40(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 8, "http/host.send", "host", err)
+	}
+	a9, err := b.in52(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 9, "http/host.send", "close", err)
+	}
+	a10, err := b.in270(fr, args[10])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 10, "http/host.send", "trailers", err)
+	}
+	a11, err := b.in52(fr, args[11])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 11, "http/host.send", "stream", err)
+	}
+	a12, err := b.in39(fr, args[12])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 12, "http/host.send", "max_body", err)
+	}
+	a13, err := b.in599(fr, args[13])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 13, "http/host.send", "tracer", err)
+	}
+	a14, err := b.in52(fr, args[14])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.send", 14, "http/host.send", "traced", err)
+	}
+	r0 := stdhttp.Send(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out600(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.send", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out601(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.send", err)
+	}
+	return v, true, nil
 }
 
 // fn604 adapts http/host.status: status(exchange: Exchange) -> Int
@@ -594,7 +842,7 @@ func (b *bound) fn607(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.headers", 0, "http/host.headers", "exchange", err)
 	}
 	r0 := stdhttp.Headers(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.headers", err)
 	}
@@ -611,7 +859,7 @@ func (b *bound) fn608(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.trailers", 0, "http/host.trailers", "exchange", err)
 	}
 	r0 := stdhttp.Trailers(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.trailers", err)
 	}
@@ -696,7 +944,7 @@ func (b *bound) fn613(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.transfer_encoding", 0, "http/host.transfer_encoding", "exchange", err)
 	}
 	r0 := stdhttp.TransferEncoding(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.transfer_encoding", err)
 	}
@@ -713,7 +961,7 @@ func (b *bound) fn614(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.closes", 0, "http/host.closes", "exchange", err)
 	}
 	r0 := stdhttp.Closes(a0)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.closes", err)
 	}
@@ -730,7 +978,7 @@ func (b *bound) fn615(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.uncompressed", 0, "http/host.uncompressed", "exchange", err)
 	}
 	r0 := stdhttp.Uncompressed(a0)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.uncompressed", err)
 	}
@@ -793,11 +1041,11 @@ func (b *bound) fn619(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("http/host.headers_wire", 2, len(args))
 	}
-	a0, err := b.in267(fr, args[0])
+	a0, err := b.in270(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.headers_wire", 0, "http/host.headers_wire", "headers", err)
 	}
-	a1, err := b.in267(fr, args[1])
+	a1, err := b.in270(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.headers_wire", 1, "http/host.headers_wire", "except", err)
 	}
@@ -836,7 +1084,7 @@ func (b *bound) fn621(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.basic_auth", 0, "http/host.basic_auth", "authorization", err)
 	}
 	r0 := stdhttp.BasicAuth(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.basic_auth", err)
 	}
@@ -852,7 +1100,7 @@ func (b *bound) fn622(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.add_cookie", 0, "http/host.add_cookie", "existing", err)
 	}
-	a1, err := b.in267(fr, args[1])
+	a1, err := b.in270(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.add_cookie", 1, "http/host.add_cookie", "cookie", err)
 	}
@@ -877,11 +1125,11 @@ func (b *bound) fn623(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.cross_origin_check", 1, "http/host.cross_origin_check", "host", err)
 	}
-	a2, err := b.in267(fr, args[2])
+	a2, err := b.in270(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.cross_origin_check", 2, "http/host.cross_origin_check", "headers", err)
 	}
-	a3, err := b.in267(fr, args[3])
+	a3, err := b.in270(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.cross_origin_check", 3, "http/host.cross_origin_check", "trusted", err)
 	}
@@ -970,6 +1218,90 @@ func (b *bound) fn624(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn624Parts is http/host.listen taken apart: the payload and true, or the record and false.
+func (b *bound) fn624Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 16 {
+		return nil, false, hostadapt.Arity("http/host.listen", 16, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 0, "http/host.listen", "address", err)
+	}
+	a1, err := b.in591(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 1, "http/host.listen", "durations", err)
+	}
+	a2, err := b.in591(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 2, "http/host.listen", "limits", err)
+	}
+	a3, err := b.in590(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 3, "http/host.listen", "flags", err)
+	}
+	a4, err := b.in590(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 4, "http/host.listen", "protocols", err)
+	}
+	a5, err := b.in52(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 5, "http/host.listen", "has_protocols", err)
+	}
+	a6, err := b.in591(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 6, "http/host.listen", "http2", err)
+	}
+	a7, err := b.in590(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 7, "http/host.listen", "http2_flags", err)
+	}
+	a8, err := b.in625(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 8, "http/host.listen", "on_state", err)
+	}
+	a9, err := b.in52(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 9, "http/host.listen", "has_on_state", err)
+	}
+	a10, err := b.in593(fr, args[10])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 10, "http/host.listen", "on_error", err)
+	}
+	a11, err := b.in52(fr, args[11])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 11, "http/host.listen", "has_on_error", err)
+	}
+	a12, err := b.in626(fr, args[12])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 12, "http/host.listen", "on_shutdown", err)
+	}
+	a13, err := b.in52(fr, args[13])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 13, "http/host.listen", "has_on_shutdown", err)
+	}
+	a14, err := b.in593(fr, args[14])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 14, "http/host.listen", "on_count_error", err)
+	}
+	a15, err := b.in52(fr, args[15])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen", 15, "http/host.listen", "has_on_count_error", err)
+	}
+	r0 := stdhttp.Listen(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out627(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.listen", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out628(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.listen", err)
+	}
+	return v, true, nil
+}
+
 // fn631 adapts http/host.listen_tls: listen_tls(address: String, durations: List<Int>, limits: List<Int>, flags: List<Bool>, protocols: List<Bool>, has_protocols: Bool, http2: List<Int>, http2_flags: List<Bool>, on_state: (String, Int) -> Unit, has_on_state: Bool, on_error: (String) -> Unit, has_on_error: Bool, on_shutdown: () -> Unit, has_on_shutdown: Bool, on_count_error: (String) -> Unit, has_on_count_error: Bool, config: TlsConfig) -> Result<Listener, List<String>>
 func (b *bound) fn631(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 17 {
@@ -1051,6 +1383,94 @@ func (b *bound) fn631(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn631Parts is http/host.listen_tls taken apart: the payload and true, or the record and false.
+func (b *bound) fn631Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 17 {
+		return nil, false, hostadapt.Arity("http/host.listen_tls", 17, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 0, "http/host.listen_tls", "address", err)
+	}
+	a1, err := b.in591(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 1, "http/host.listen_tls", "durations", err)
+	}
+	a2, err := b.in591(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 2, "http/host.listen_tls", "limits", err)
+	}
+	a3, err := b.in590(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 3, "http/host.listen_tls", "flags", err)
+	}
+	a4, err := b.in590(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 4, "http/host.listen_tls", "protocols", err)
+	}
+	a5, err := b.in52(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 5, "http/host.listen_tls", "has_protocols", err)
+	}
+	a6, err := b.in591(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 6, "http/host.listen_tls", "http2", err)
+	}
+	a7, err := b.in590(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 7, "http/host.listen_tls", "http2_flags", err)
+	}
+	a8, err := b.in625(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 8, "http/host.listen_tls", "on_state", err)
+	}
+	a9, err := b.in52(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 9, "http/host.listen_tls", "has_on_state", err)
+	}
+	a10, err := b.in593(fr, args[10])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 10, "http/host.listen_tls", "on_error", err)
+	}
+	a11, err := b.in52(fr, args[11])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 11, "http/host.listen_tls", "has_on_error", err)
+	}
+	a12, err := b.in626(fr, args[12])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 12, "http/host.listen_tls", "on_shutdown", err)
+	}
+	a13, err := b.in52(fr, args[13])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 13, "http/host.listen_tls", "has_on_shutdown", err)
+	}
+	a14, err := b.in593(fr, args[14])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 14, "http/host.listen_tls", "on_count_error", err)
+	}
+	a15, err := b.in52(fr, args[15])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 15, "http/host.listen_tls", "has_on_count_error", err)
+	}
+	a16, err := b.in632(fr, args[16])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.listen_tls", 16, "http/host.listen_tls", "config", err)
+	}
+	r0 := stdhttp.ListenTLS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out627(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.listen_tls", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out628(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.listen_tls", err)
+	}
+	return v, true, nil
+}
+
 // fn633 adapts http/host.with_tls: with_tls(client: Client, config: TlsConfig) -> Client
 func (b *bound) fn633(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1078,7 +1498,7 @@ func (b *bound) fn634(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Arity("http/host.test_certificate", 0, len(args))
 	}
 	r0 := stdhttp.TestCertificate()
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.test_certificate", err)
 	}
@@ -1106,6 +1526,34 @@ func (b *bound) fn635(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn635Parts is http/host.certificate_from_pem taken apart: the payload and true, or the record and false.
+func (b *bound) fn635Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.certificate_from_pem", 2, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.certificate_from_pem", 0, "http/host.certificate_from_pem", "cert", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.certificate_from_pem", 1, "http/host.certificate_from_pem", "key", err)
+	}
+	r0 := stdhttp.CertificateFromPEM(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out636(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.certificate_from_pem", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out637(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.certificate_from_pem", err)
+	}
+	return v, true, nil
+}
+
 // fn640 adapts http/host.certificate_load: certificate_load(cert_path: String, key_path: String) -> Result<Certificate, List<String>>
 func (b *bound) fn640(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1127,6 +1575,34 @@ func (b *bound) fn640(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn640Parts is http/host.certificate_load taken apart: the payload and true, or the record and false.
+func (b *bound) fn640Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.certificate_load", 2, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.certificate_load", 0, "http/host.certificate_load", "cert_path", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.certificate_load", 1, "http/host.certificate_load", "key_path", err)
+	}
+	r0 := stdhttp.CertificateLoad(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out636(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.certificate_load", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out637(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.certificate_load", err)
+	}
+	return v, true, nil
+}
+
 // fn641 adapts http/host.certificate_info: certificate_info(certificate: Certificate) -> List<String>
 func (b *bound) fn641(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
@@ -1137,7 +1613,7 @@ func (b *bound) fn641(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.certificate_info", 0, "http/host.certificate_info", "certificate", err)
 	}
 	r0 := stdhttp.CertificateInfo(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.certificate_info", err)
 	}
@@ -1161,7 +1637,7 @@ func (b *bound) fn643(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.tls_config", 2, "http/host.tls_config", "roots_pem", err)
 	}
-	a3, err := b.in267(fr, args[3])
+	a3, err := b.in270(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.tls_config", 3, "http/host.tls_config", "roots_files", err)
 	}
@@ -1173,7 +1649,7 @@ func (b *bound) fn643(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.tls_config", 5, "http/host.tls_config", "insecure", err)
 	}
-	a6, err := b.in267(fr, args[6])
+	a6, err := b.in270(fr, args[6])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.tls_config", 6, "http/host.tls_config", "next_protocols", err)
 	}
@@ -1193,7 +1669,7 @@ func (b *bound) fn643(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.tls_config", 10, "http/host.tls_config", "has_cipher_suites", err)
 	}
-	a11, err := b.in267(fr, args[11])
+	a11, err := b.in270(fr, args[11])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.tls_config", 11, "http/host.tls_config", "curves", err)
 	}
@@ -1247,6 +1723,118 @@ func (b *bound) fn643(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.tls_config", err)
 	}
 	return v0, nil
+}
+
+// fn643Parts is http/host.tls_config taken apart: the payload and true, or the record and false.
+func (b *bound) fn643Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 23 {
+		return nil, false, hostadapt.Arity("http/host.tls_config", 23, len(args))
+	}
+	a0, err := b.in52(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 0, "http/host.tls_config", "server", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 1, "http/host.tls_config", "roots_kind", err)
+	}
+	a2, err := b.in40(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 2, "http/host.tls_config", "roots_pem", err)
+	}
+	a3, err := b.in270(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 3, "http/host.tls_config", "roots_files", err)
+	}
+	a4, err := b.in40(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 4, "http/host.tls_config", "server_name", err)
+	}
+	a5, err := b.in52(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 5, "http/host.tls_config", "insecure", err)
+	}
+	a6, err := b.in270(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 6, "http/host.tls_config", "next_protocols", err)
+	}
+	a7, err := b.in39(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 7, "http/host.tls_config", "min_version", err)
+	}
+	a8, err := b.in39(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 8, "http/host.tls_config", "max_version", err)
+	}
+	a9, err := b.in591(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 9, "http/host.tls_config", "cipher_suites", err)
+	}
+	a10, err := b.in52(fr, args[10])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 10, "http/host.tls_config", "has_cipher_suites", err)
+	}
+	a11, err := b.in270(fr, args[11])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 11, "http/host.tls_config", "curves", err)
+	}
+	a12, err := b.in52(fr, args[12])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 12, "http/host.tls_config", "has_curves", err)
+	}
+	a13, err := b.in52(fr, args[13])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 13, "http/host.tls_config", "session_tickets", err)
+	}
+	a14, err := b.in39(fr, args[14])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 14, "http/host.tls_config", "session_cache", err)
+	}
+	a15, err := b.in39(fr, args[15])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 15, "http/host.tls_config", "renegotiation", err)
+	}
+	a16, err := b.in39(fr, args[16])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 16, "http/host.tls_config", "client_auth", err)
+	}
+	a17, err := b.in644(fr, args[17])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 17, "http/host.tls_config", "certificate_for", err)
+	}
+	a18, err := b.in52(fr, args[18])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 18, "http/host.tls_config", "has_certificate_for", err)
+	}
+	a19, err := b.in647(fr, args[19])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 19, "http/host.tls_config", "verify", err)
+	}
+	a20, err := b.in52(fr, args[20])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 20, "http/host.tls_config", "has_verify", err)
+	}
+	a21, err := b.in499(fr, args[21])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 21, "http/host.tls_config", "key_log", err)
+	}
+	a22, err := b.in52(fr, args[22])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_config", 22, "http/host.tls_config", "has_key_log", err)
+	}
+	r0 := stdhttp.TLSConfig(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, a21, a22)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out649(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.tls_config", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out650(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.tls_config", err)
+	}
+	return v, true, nil
 }
 
 // fn653 adapts http/host.tls_with_certificate: tls_with_certificate(config: TlsConfig, certificate: Certificate) -> TlsConfig
@@ -1353,6 +1941,62 @@ func (b *bound) fn656(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn656Parts is http/host.dial_with taken apart: the payload and true, or the record and false.
+func (b *bound) fn656Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 9 {
+		return nil, false, hostadapt.Arity("http/host.dial_with", 9, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 0, "http/host.dial_with", "address", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 1, "http/host.dial_with", "timeout", err)
+	}
+	a2, err := b.in40(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 2, "http/host.dial_with", "local", err)
+	}
+	a3, err := b.in39(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 3, "http/host.dial_with", "fallback_delay", err)
+	}
+	a4, err := b.in52(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 4, "http/host.dial_with", "keep_alive", err)
+	}
+	a5, err := b.in39(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 5, "http/host.dial_with", "keep_alive_idle", err)
+	}
+	a6, err := b.in39(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 6, "http/host.dial_with", "keep_alive_interval", err)
+	}
+	a7, err := b.in39(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 7, "http/host.dial_with", "keep_alive_count", err)
+	}
+	a8, err := b.in52(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.dial_with", 8, "http/host.dial_with", "multipath", err)
+	}
+	r0 := stdhttp.DialWith(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out657(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.dial_with", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out658(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.dial_with", err)
+	}
+	return v, true, nil
+}
+
 // fn661 adapts http/host.lookup: lookup(kind: String, name: String) -> Result<List<String>, List<String>>
 func (b *bound) fn661(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1372,6 +2016,34 @@ func (b *bound) fn661(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.lookup", err)
 	}
 	return v0, nil
+}
+
+// fn661Parts is http/host.lookup taken apart: the payload and true, or the record and false.
+func (b *bound) fn661Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.lookup", 2, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.lookup", 0, "http/host.lookup", "kind", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.lookup", 1, "http/host.lookup", "name", err)
+	}
+	r0 := stdhttp.Lookup(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out662(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.lookup", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out198(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.lookup", err)
+	}
+	return v, true, nil
 }
 
 // fn665 adapts http/host.pipe: pipe() -> List<Conn>
@@ -1402,6 +2074,30 @@ func (b *bound) fn667(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.split_host_port", err)
 	}
 	return v0, nil
+}
+
+// fn667Parts is http/host.split_host_port taken apart: the payload and true, or the record and false.
+func (b *bound) fn667Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.split_host_port", 1, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.split_host_port", 0, "http/host.split_host_port", "address", err)
+	}
+	r0 := stdhttp.SplitHostPort(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out662(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.split_host_port", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out198(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.split_host_port", err)
+	}
+	return v, true, nil
 }
 
 // fn668 adapts http/host.join_host_port: join_host_port(host: String, port: String) -> String
@@ -1527,7 +2223,7 @@ func (b *bound) fn674(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.conn_multipath", 0, "http/host.conn_multipath", "conn", err)
 	}
 	r0 := stdhttp.ConnMultipath(a0)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.conn_multipath", err)
 	}
@@ -1567,6 +2263,46 @@ func (b *bound) fn675(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn675Parts is http/host.tls_dial taken apart: the payload and true, or the record and false.
+func (b *bound) fn675Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 5 {
+		return nil, false, hostadapt.Arity("http/host.tls_dial", 5, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_dial", 0, "http/host.tls_dial", "address", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_dial", 1, "http/host.tls_dial", "timeout", err)
+	}
+	a2, err := b.in39(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_dial", 2, "http/host.tls_dial", "keep_alive", err)
+	}
+	a3, err := b.in40(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_dial", 3, "http/host.tls_dial", "local", err)
+	}
+	a4, err := b.in632(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_dial", 4, "http/host.tls_dial", "config", err)
+	}
+	r0 := stdhttp.TLSDial(fr, a0, a1, a2, a3, a4)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out657(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.tls_dial", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out658(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.tls_dial", err)
+	}
+	return v, true, nil
+}
+
 // fn676 adapts http/host.tls_client: tls_client(conn: Conn, config: TlsConfig) -> Result<Conn, List<String>>
 func (b *bound) fn676(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1588,6 +2324,34 @@ func (b *bound) fn676(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn676Parts is http/host.tls_client taken apart: the payload and true, or the record and false.
+func (b *bound) fn676Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.tls_client", 2, len(args))
+	}
+	a0, err := b.in670(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_client", 0, "http/host.tls_client", "conn", err)
+	}
+	a1, err := b.in632(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_client", 1, "http/host.tls_client", "config", err)
+	}
+	r0 := stdhttp.TLSClient(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out657(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.tls_client", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out658(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.tls_client", err)
+	}
+	return v, true, nil
+}
+
 // fn677 adapts http/host.tls_server: tls_server(conn: Conn, config: TlsConfig) -> Result<Conn, List<String>>
 func (b *bound) fn677(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1607,6 +2371,34 @@ func (b *bound) fn677(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.tls_server", err)
 	}
 	return v0, nil
+}
+
+// fn677Parts is http/host.tls_server taken apart: the payload and true, or the record and false.
+func (b *bound) fn677Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.tls_server", 2, len(args))
+	}
+	a0, err := b.in670(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_server", 0, "http/host.tls_server", "conn", err)
+	}
+	a1, err := b.in632(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_server", 1, "http/host.tls_server", "config", err)
+	}
+	r0 := stdhttp.TLSServer(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out657(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.tls_server", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out658(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.tls_server", err)
+	}
+	return v, true, nil
 }
 
 // fn678 adapts http/host.conn_reader: conn_reader(conn: Conn) -> Reader
@@ -1753,6 +2545,30 @@ func (b *bound) fn685(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn685Parts is http/host.tls_state_parts taken apart: the payload and true, or the record and false.
+func (b *bound) fn685Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.tls_state_parts", 1, len(args))
+	}
+	a0, err := b.in670(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_state_parts", 0, "http/host.tls_state_parts", "conn", err)
+	}
+	r0 := stdhttp.TLSStateParts(a0)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out686(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.tls_state_parts", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out648(r0.Some)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.tls_state_parts", err)
+	}
+	return v, true, nil
+}
+
 // fn688 adapts http/host.hello_parts: hello_parts(hello: Handle) -> List<List<String>>
 func (b *bound) fn688(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
@@ -1846,6 +2662,30 @@ func (b *bound) fn695(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn695Parts is http/host.in_tls taken apart: the payload and true, or the record and false.
+func (b *bound) fn695Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.in_tls", 1, len(args))
+	}
+	a0, err := b.in694(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.in_tls", 0, "http/host.in_tls", "incoming", err)
+	}
+	r0 := stdhttp.InTLS(a0)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out686(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.in_tls", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out648(r0.Some)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.in_tls", err)
+	}
+	return v, true, nil
+}
+
 // fn696 adapts http/host.extend_read_deadline: extend_read_deadline(incoming: Incoming, by: Int) -> Result<Unit, String>
 func (b *bound) fn696(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1867,6 +2707,34 @@ func (b *bound) fn696(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn696Parts is http/host.extend_read_deadline taken apart: the payload and true, or the record and false.
+func (b *bound) fn696Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.extend_read_deadline", 2, len(args))
+	}
+	a0, err := b.in694(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.extend_read_deadline", 0, "http/host.extend_read_deadline", "incoming", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.extend_read_deadline", 1, "http/host.extend_read_deadline", "by", err)
+	}
+	r0 := stdhttp.ExtendReadDeadline(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out697(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.extend_read_deadline", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out115(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.extend_read_deadline", err)
+	}
+	return v, true, nil
+}
+
 // fn699 adapts http/host.upgrade: upgrade(incoming: Incoming, status: Int, headers: List<String>) -> Result<Conn, List<String>>
 func (b *bound) fn699(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
@@ -1880,7 +2748,7 @@ func (b *bound) fn699(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.upgrade", 1, "http/host.upgrade", "status", err)
 	}
-	a2, err := b.in267(fr, args[2])
+	a2, err := b.in270(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.upgrade", 2, "http/host.upgrade", "headers", err)
 	}
@@ -1890,6 +2758,38 @@ func (b *bound) fn699(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.upgrade", err)
 	}
 	return v0, nil
+}
+
+// fn699Parts is http/host.upgrade taken apart: the payload and true, or the record and false.
+func (b *bound) fn699Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 3 {
+		return nil, false, hostadapt.Arity("http/host.upgrade", 3, len(args))
+	}
+	a0, err := b.in694(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.upgrade", 0, "http/host.upgrade", "incoming", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.upgrade", 1, "http/host.upgrade", "status", err)
+	}
+	a2, err := b.in270(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.upgrade", 2, "http/host.upgrade", "headers", err)
+	}
+	r0 := stdhttp.Upgrade(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out657(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.upgrade", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out658(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.upgrade", err)
+	}
+	return v, true, nil
 }
 
 // fn700 adapts http/host.exchange_tls: exchange_tls(exchange: Exchange) -> Maybe<List<List<String>>>
@@ -1907,6 +2807,30 @@ func (b *bound) fn700(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.exchange_tls", err)
 	}
 	return v0, nil
+}
+
+// fn700Parts is http/host.exchange_tls taken apart: the payload and true, or the record and false.
+func (b *bound) fn700Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.exchange_tls", 1, len(args))
+	}
+	a0, err := b.in605(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.exchange_tls", 0, "http/host.exchange_tls", "exchange", err)
+	}
+	r0 := stdhttp.ExchangeTLS(a0)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out686(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.exchange_tls", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out648(r0.Some)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.exchange_tls", err)
+	}
+	return v, true, nil
 }
 
 // fn701 adapts http/host.new_tracer: new_tracer() -> Handle
@@ -1956,6 +2880,30 @@ func (b *bound) fn704(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn704Parts is http/host.wire_read_request taken apart: the payload and true, or the record and false.
+func (b *bound) fn704Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.wire_read_request", 1, len(args))
+	}
+	a0, err := b.in487(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_read_request", 0, "http/host.wire_read_request", "r", err)
+	}
+	r0 := stdhttp.WireReadRequest(fr, a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out705(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.wire_read_request", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out645(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.wire_read_request", err)
+	}
+	return v, true, nil
+}
+
 // fn707 adapts http/host.wire_read_response: wire_read_response(r: Reader, method: String) -> Result<Handle, String>
 func (b *bound) fn707(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -1975,6 +2923,34 @@ func (b *bound) fn707(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.wire_read_response", err)
 	}
 	return v0, nil
+}
+
+// fn707Parts is http/host.wire_read_response taken apart: the payload and true, or the record and false.
+func (b *bound) fn707Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.wire_read_response", 2, len(args))
+	}
+	a0, err := b.in487(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_read_response", 0, "http/host.wire_read_response", "r", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_read_response", 1, "http/host.wire_read_response", "method", err)
+	}
+	r0 := stdhttp.WireReadResponse(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out705(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.wire_read_response", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out645(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.wire_read_response", err)
+	}
+	return v, true, nil
 }
 
 // fn708 adapts http/host.wire_parts: wire_parts(message: Handle) -> List<List<String>>
@@ -2032,7 +3008,7 @@ func (b *bound) fn710(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 3, "http/host.wire_request", "url", err)
 	}
-	a4, err := b.in267(fr, args[4])
+	a4, err := b.in270(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 4, "http/host.wire_request", "headers", err)
 	}
@@ -2044,7 +3020,7 @@ func (b *bound) fn710(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 6, "http/host.wire_request", "content_length", err)
 	}
-	a7, err := b.in267(fr, args[7])
+	a7, err := b.in270(fr, args[7])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 7, "http/host.wire_request", "transfer_encoding", err)
 	}
@@ -2052,20 +3028,84 @@ func (b *bound) fn710(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 8, "http/host.wire_request", "close", err)
 	}
-	a9, err := b.in267(fr, args[9])
+	a9, err := b.in270(fr, args[9])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 9, "http/host.wire_request", "trailers", err)
 	}
-	a10, err := b.in218(fr, args[10])
+	a10, err := b.in221(fr, args[10])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_request", 10, "http/host.wire_request", "body", err)
 	}
 	r0 := stdhttp.WireRequest(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
-	v0, err := b.out260(r0)
+	v0, err := b.out263(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.wire_request", err)
 	}
 	return v0, nil
+}
+
+// fn710Parts is http/host.wire_request taken apart: the payload and true, or the record and false.
+func (b *bound) fn710Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 11 {
+		return nil, false, hostadapt.Arity("http/host.wire_request", 11, len(args))
+	}
+	a0, err := b.in39(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 0, "http/host.wire_request", "op", err)
+	}
+	a1, err := b.in499(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 1, "http/host.wire_request", "w", err)
+	}
+	a2, err := b.in40(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 2, "http/host.wire_request", "method", err)
+	}
+	a3, err := b.in40(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 3, "http/host.wire_request", "url", err)
+	}
+	a4, err := b.in270(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 4, "http/host.wire_request", "headers", err)
+	}
+	a5, err := b.in40(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 5, "http/host.wire_request", "host", err)
+	}
+	a6, err := b.in39(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 6, "http/host.wire_request", "content_length", err)
+	}
+	a7, err := b.in270(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 7, "http/host.wire_request", "transfer_encoding", err)
+	}
+	a8, err := b.in52(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 8, "http/host.wire_request", "close", err)
+	}
+	a9, err := b.in270(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 9, "http/host.wire_request", "trailers", err)
+	}
+	a10, err := b.in221(fr, args[10])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_request", 10, "http/host.wire_request", "body", err)
+	}
+	r0 := stdhttp.WireRequest(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out263(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.wire_request", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out5(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.wire_request", err)
+	}
+	return v, true, nil
 }
 
 // fn711 adapts http/host.wire_response: wire_response(op: Int, w: Writer, status: Int, major: Int, minor: Int, headers: List<String>, content_length: Int, transfer_encoding: List<String>, close: Bool, trailers: List<String>, body: Bytes, method: String) -> Result<String, String>
@@ -2093,7 +3133,7 @@ func (b *bound) fn711(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 4, "http/host.wire_response", "minor", err)
 	}
-	a5, err := b.in267(fr, args[5])
+	a5, err := b.in270(fr, args[5])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 5, "http/host.wire_response", "headers", err)
 	}
@@ -2101,7 +3141,7 @@ func (b *bound) fn711(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 6, "http/host.wire_response", "content_length", err)
 	}
-	a7, err := b.in267(fr, args[7])
+	a7, err := b.in270(fr, args[7])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 7, "http/host.wire_response", "transfer_encoding", err)
 	}
@@ -2109,11 +3149,11 @@ func (b *bound) fn711(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 8, "http/host.wire_response", "close", err)
 	}
-	a9, err := b.in267(fr, args[9])
+	a9, err := b.in270(fr, args[9])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 9, "http/host.wire_response", "trailers", err)
 	}
-	a10, err := b.in218(fr, args[10])
+	a10, err := b.in221(fr, args[10])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.wire_response", 10, "http/host.wire_response", "body", err)
 	}
@@ -2122,11 +3162,79 @@ func (b *bound) fn711(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.wire_response", 11, "http/host.wire_response", "method", err)
 	}
 	r0 := stdhttp.WireResponse(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
-	v0, err := b.out260(r0)
+	v0, err := b.out263(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.wire_response", err)
 	}
 	return v0, nil
+}
+
+// fn711Parts is http/host.wire_response taken apart: the payload and true, or the record and false.
+func (b *bound) fn711Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 12 {
+		return nil, false, hostadapt.Arity("http/host.wire_response", 12, len(args))
+	}
+	a0, err := b.in39(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 0, "http/host.wire_response", "op", err)
+	}
+	a1, err := b.in499(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 1, "http/host.wire_response", "w", err)
+	}
+	a2, err := b.in39(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 2, "http/host.wire_response", "status", err)
+	}
+	a3, err := b.in39(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 3, "http/host.wire_response", "major", err)
+	}
+	a4, err := b.in39(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 4, "http/host.wire_response", "minor", err)
+	}
+	a5, err := b.in270(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 5, "http/host.wire_response", "headers", err)
+	}
+	a6, err := b.in39(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 6, "http/host.wire_response", "content_length", err)
+	}
+	a7, err := b.in270(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 7, "http/host.wire_response", "transfer_encoding", err)
+	}
+	a8, err := b.in52(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 8, "http/host.wire_response", "close", err)
+	}
+	a9, err := b.in270(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 9, "http/host.wire_response", "trailers", err)
+	}
+	a10, err := b.in221(fr, args[10])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 10, "http/host.wire_response", "body", err)
+	}
+	a11, err := b.in40(fr, args[11])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.wire_response", 11, "http/host.wire_response", "method", err)
+	}
+	r0 := stdhttp.WireResponse(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out263(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.wire_response", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out5(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.wire_response", err)
+	}
+	return v, true, nil
 }
 
 // fn712 adapts http/host.chunked_reader: chunked_reader(r: Reader) -> Reader
@@ -2168,7 +3276,7 @@ func (b *bound) fn714(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
 		return nil, hostadapt.Arity("http/host.gzip_bytes", 2, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.gzip_bytes", 0, "http/host.gzip_bytes", "data", err)
 	}
@@ -2189,16 +3297,40 @@ func (b *bound) fn715(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("http/host.gunzip", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.gunzip", 0, "http/host.gunzip", "data", err)
 	}
 	r0 := stdhttp.Gunzip(a0)
-	v0, err := b.out230(r0)
+	v0, err := b.out233(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.gunzip", err)
 	}
 	return v0, nil
+}
+
+// fn715Parts is http/host.gunzip taken apart: the payload and true, or the record and false.
+func (b *bound) fn715Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.gunzip", 1, len(args))
+	}
+	a0, err := b.in221(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.gunzip", 0, "http/host.gunzip", "data", err)
+	}
+	r0 := stdhttp.Gunzip(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out233(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.gunzip", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out100(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.gunzip", err)
+	}
+	return v, true, nil
 }
 
 // fn716 adapts http/host.gzip_writer: gzip_writer(w: Writer, level: Int) -> Writer
@@ -2285,6 +3417,30 @@ func (b *bound) fn719(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn719Parts is http/host.next_part taken apart: the payload and true, or the record and false.
+func (b *bound) fn719Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.next_part", 1, len(args))
+	}
+	a0, err := b.in599(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.next_part", 0, "http/host.next_part", "reader", err)
+	}
+	r0 := stdhttp.NextPart(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out720(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.next_part", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out721(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.next_part", err)
+	}
+	return v, true, nil
+}
+
 // fn724 adapts http/host.part_headers: part_headers(part: Handle) -> List<String>
 func (b *bound) fn724(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
@@ -2295,7 +3451,7 @@ func (b *bound) fn724(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.part_headers", 0, "http/host.part_headers", "part", err)
 	}
 	r0 := stdhttp.PartHeaders(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.part_headers", err)
 	}
@@ -2378,6 +3534,38 @@ func (b *bound) fn728(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn728Parts is http/host.multipart_write taken apart: the payload and true, or the record and false.
+func (b *bound) fn728Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 3 {
+		return nil, false, hostadapt.Arity("http/host.multipart_write", 3, len(args))
+	}
+	a0, err := b.in499(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.multipart_write", 0, "http/host.multipart_write", "w", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.multipart_write", 1, "http/host.multipart_write", "boundary", err)
+	}
+	a2, err := b.in729(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.multipart_write", 2, "http/host.multipart_write", "parts", err)
+	}
+	r0 := stdhttp.MultipartWrite(fr, a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out697(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.multipart_write", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out115(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.multipart_write", err)
+	}
+	return v, true, nil
+}
+
 // fn730 adapts http/host.close_connections: close_connections(listener: Listener) -> Unit
 func (b *bound) fn730(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
@@ -2422,7 +3610,7 @@ func (b *bound) fn733(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.ws_valid_key", 0, "http/host.ws_valid_key", "key", err)
 	}
 	r0 := stdhttp.WsValidKey(a0)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.ws_valid_key", err)
 	}
@@ -2479,11 +3667,11 @@ func (b *bound) fn735(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_connect", 2, "http/host.ws_connect", "target", err)
 	}
-	a3, err := b.in267(fr, args[3])
+	a3, err := b.in270(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_connect", 3, "http/host.ws_connect", "headers", err)
 	}
-	a4, err := b.in267(fr, args[4])
+	a4, err := b.in270(fr, args[4])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_connect", 4, "http/host.ws_connect", "protocols", err)
 	}
@@ -2505,6 +3693,58 @@ func (b *bound) fn735(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.ws_connect", err)
 	}
 	return v0, nil
+}
+
+// fn735Parts is http/host.ws_connect taken apart: the payload and true, or the record and false.
+func (b *bound) fn735Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 8 {
+		return nil, false, hostadapt.Arity("http/host.ws_connect", 8, len(args))
+	}
+	a0, err := b.in670(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 0, "http/host.ws_connect", "conn", err)
+	}
+	a1, err := b.in40(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 1, "http/host.ws_connect", "host", err)
+	}
+	a2, err := b.in40(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 2, "http/host.ws_connect", "target", err)
+	}
+	a3, err := b.in270(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 3, "http/host.ws_connect", "headers", err)
+	}
+	a4, err := b.in270(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 4, "http/host.ws_connect", "protocols", err)
+	}
+	a5, err := b.in39(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 5, "http/host.ws_connect", "max", err)
+	}
+	a6, err := b.in39(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 6, "http/host.ws_connect", "ping", err)
+	}
+	a7, err := b.in39(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_connect", 7, "http/host.ws_connect", "idle", err)
+	}
+	r0 := stdhttp.WsConnect(fr, a0, a1, a2, a3, a4, a5, a6, a7)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out736(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.ws_connect", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out645(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.ws_connect", err)
+	}
+	return v, true, nil
 }
 
 // fn739 adapts http/host.ws_protocol: ws_protocol(ws: Handle) -> String
@@ -2558,6 +3798,30 @@ func (b *bound) fn741(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn741Parts is http/host.ws_receive taken apart: the payload and true, or the record and false.
+func (b *bound) fn741Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.ws_receive", 1, len(args))
+	}
+	a0, err := b.in599(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_receive", 0, "http/host.ws_receive", "ws", err)
+	}
+	r0 := stdhttp.WsReceive(fr, a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out742(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.ws_receive", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out251(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.ws_receive", err)
+	}
+	return v, true, nil
+}
+
 // fn745 adapts http/host.ws_send: ws_send(ws: Handle, text: Bool, data: Bytes) -> Result<Unit, List<String>>
 func (b *bound) fn745(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 3 {
@@ -2571,7 +3835,7 @@ func (b *bound) fn745(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_send", 1, "http/host.ws_send", "text", err)
 	}
-	a2, err := b.in218(fr, args[2])
+	a2, err := b.in221(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_send", 2, "http/host.ws_send", "data", err)
 	}
@@ -2583,6 +3847,38 @@ func (b *bound) fn745(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn745Parts is http/host.ws_send taken apart: the payload and true, or the record and false.
+func (b *bound) fn745Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 3 {
+		return nil, false, hostadapt.Arity("http/host.ws_send", 3, len(args))
+	}
+	a0, err := b.in599(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_send", 0, "http/host.ws_send", "ws", err)
+	}
+	a1, err := b.in52(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_send", 1, "http/host.ws_send", "text", err)
+	}
+	a2, err := b.in221(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_send", 2, "http/host.ws_send", "data", err)
+	}
+	r0 := stdhttp.WsSend(fr, a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out746(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.ws_send", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out115(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.ws_send", err)
+	}
+	return v, true, nil
+}
+
 // fn749 adapts http/host.ws_ping: ws_ping(ws: Handle, data: Bytes) -> Result<Unit, List<String>>
 func (b *bound) fn749(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -2592,7 +3888,7 @@ func (b *bound) fn749(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_ping", 0, "http/host.ws_ping", "ws", err)
 	}
-	a1, err := b.in218(fr, args[1])
+	a1, err := b.in221(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.ws_ping", 1, "http/host.ws_ping", "data", err)
 	}
@@ -2602,6 +3898,34 @@ func (b *bound) fn749(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.ws_ping", err)
 	}
 	return v0, nil
+}
+
+// fn749Parts is http/host.ws_ping taken apart: the payload and true, or the record and false.
+func (b *bound) fn749Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.ws_ping", 2, len(args))
+	}
+	a0, err := b.in599(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_ping", 0, "http/host.ws_ping", "ws", err)
+	}
+	a1, err := b.in221(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_ping", 1, "http/host.ws_ping", "data", err)
+	}
+	r0 := stdhttp.WsPing(fr, a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out746(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.ws_ping", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out115(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.ws_ping", err)
+	}
+	return v, true, nil
 }
 
 // fn750 adapts http/host.ws_close: ws_close(ws: Handle, code: Int, reason: String) -> Result<Unit, List<String>>
@@ -2627,6 +3951,38 @@ func (b *bound) fn750(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.ws_close", err)
 	}
 	return v0, nil
+}
+
+// fn750Parts is http/host.ws_close taken apart: the payload and true, or the record and false.
+func (b *bound) fn750Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 3 {
+		return nil, false, hostadapt.Arity("http/host.ws_close", 3, len(args))
+	}
+	a0, err := b.in599(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_close", 0, "http/host.ws_close", "ws", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_close", 1, "http/host.ws_close", "code", err)
+	}
+	a2, err := b.in40(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.ws_close", 2, "http/host.ws_close", "reason", err)
+	}
+	r0 := stdhttp.WsClose(a0, a1, a2)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out746(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.ws_close", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out115(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.ws_close", err)
+	}
+	return v, true, nil
 }
 
 // fn751 adapts http/host.ws_pipe: ws_pipe() -> List<Conn>
@@ -2700,6 +4056,50 @@ func (b *bound) fn753(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn753Parts is http/host.net_listen_with taken apart: the payload and true, or the record and false.
+func (b *bound) fn753Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 6 {
+		return nil, false, hostadapt.Arity("http/host.net_listen_with", 6, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_listen_with", 0, "http/host.net_listen_with", "address", err)
+	}
+	a1, err := b.in52(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_listen_with", 1, "http/host.net_listen_with", "keep_alive", err)
+	}
+	a2, err := b.in39(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_listen_with", 2, "http/host.net_listen_with", "keep_alive_idle", err)
+	}
+	a3, err := b.in39(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_listen_with", 3, "http/host.net_listen_with", "keep_alive_interval", err)
+	}
+	a4, err := b.in39(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_listen_with", 4, "http/host.net_listen_with", "keep_alive_count", err)
+	}
+	a5, err := b.in52(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_listen_with", 5, "http/host.net_listen_with", "multipath", err)
+	}
+	r0 := stdhttp.ListenWith(fr, a0, a1, a2, a3, a4, a5)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out754(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.net_listen_with", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out692(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.net_listen_with", err)
+	}
+	return v, true, nil
+}
+
 // fn757 adapts http/host.net_listener_deadline: net_listener_deadline(listener: TcpListener, at: Int) -> Unit
 func (b *bound) fn757(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -2742,6 +4142,34 @@ func (b *bound) fn758(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn758Parts is http/host.tls_listen taken apart: the payload and true, or the record and false.
+func (b *bound) fn758Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.tls_listen", 2, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_listen", 0, "http/host.tls_listen", "address", err)
+	}
+	a1, err := b.in632(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.tls_listen", 1, "http/host.tls_listen", "config", err)
+	}
+	r0 := stdhttp.TLSListen(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out754(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.tls_listen", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out692(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.tls_listen", err)
+	}
+	return v, true, nil
+}
+
 // fn759 adapts http/host.net_listener_address: net_listener_address(listener: TcpListener) -> String
 func (b *bound) fn759(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
@@ -2774,6 +4202,30 @@ func (b *bound) fn760(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.net_accept", err)
 	}
 	return v0, nil
+}
+
+// fn760Parts is http/host.net_accept taken apart: the payload and true, or the record and false.
+func (b *bound) fn760Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.net_accept", 1, len(args))
+	}
+	a0, err := b.in691(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.net_accept", 0, "http/host.net_accept", "listener", err)
+	}
+	r0 := stdhttp.NetAccept(fr, a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out657(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.net_accept", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out658(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.net_accept", err)
+	}
+	return v, true, nil
 }
 
 // fn761 adapts http/host.net_listener_close: net_listener_close(listener: TcpListener) -> Unit
@@ -2825,6 +4277,30 @@ func (b *bound) fn763(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.next", err)
 	}
 	return v0, nil
+}
+
+// fn763Parts is http/host.next taken apart: the payload and true, or the record and false.
+func (b *bound) fn763Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.next", 1, len(args))
+	}
+	a0, err := b.in731(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.next", 0, "http/host.next", "listener", err)
+	}
+	r0 := stdhttp.Next(fr, a0)
+	if r0.Tag != rt.TagSome {
+		rec, err := b.out764(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.next", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out765(r0.Some)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.next", err)
+	}
+	return v, true, nil
 }
 
 // fn767 adapts http/host.shutdown: shutdown(listener: Listener, timeout: Int) -> Unit
@@ -2960,7 +4436,7 @@ func (b *bound) fn774(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.in_headers", 0, "http/host.in_headers", "incoming", err)
 	}
 	r0 := stdhttp.InHeaders(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.in_headers", err)
 	}
@@ -2977,7 +4453,7 @@ func (b *bound) fn775(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.in_trailers", 0, "http/host.in_trailers", "incoming", err)
 	}
 	r0 := stdhttp.InTrailers(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.in_trailers", err)
 	}
@@ -3011,7 +4487,7 @@ func (b *bound) fn777(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.in_transfer_encoding", 0, "http/host.in_transfer_encoding", "incoming", err)
 	}
 	r0 := stdhttp.InTransferEncoding(a0)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.in_transfer_encoding", err)
 	}
@@ -3028,7 +4504,7 @@ func (b *bound) fn778(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.in_close", 0, "http/host.in_close", "incoming", err)
 	}
 	r0 := stdhttp.InClose(a0)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.in_close", err)
 	}
@@ -3061,7 +4537,7 @@ func (b *bound) fn780(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.parse_multipart", 0, "http/host.parse_multipart", "content_type", err)
 	}
-	a1, err := b.in218(fr, args[1])
+	a1, err := b.in221(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.parse_multipart", 1, "http/host.parse_multipart", "data", err)
 	}
@@ -3071,6 +4547,34 @@ func (b *bound) fn780(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.parse_multipart", err)
 	}
 	return v0, nil
+}
+
+// fn780Parts is http/host.parse_multipart taken apart: the payload and true, or the record and false.
+func (b *bound) fn780Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("http/host.parse_multipart", 2, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.parse_multipart", 0, "http/host.parse_multipart", "content_type", err)
+	}
+	a1, err := b.in221(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.parse_multipart", 1, "http/host.parse_multipart", "data", err)
+	}
+	r0 := stdhttp.ParseMultipart(a0, a1)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out781(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.parse_multipart", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out782(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.parse_multipart", err)
+	}
+	return v, true, nil
 }
 
 // fn784 adapts http/host.encode_multipart: encode_multipart(parts: List<Bytes>) -> List<Bytes>
@@ -3124,11 +4628,11 @@ func (b *bound) fn786(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.respond", 1, "http/host.respond", "status", err)
 	}
-	a2, err := b.in267(fr, args[2])
+	a2, err := b.in270(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.respond", 2, "http/host.respond", "headers", err)
 	}
-	a3, err := b.in267(fr, args[3])
+	a3, err := b.in270(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.respond", 3, "http/host.respond", "trailers", err)
 	}
@@ -3136,7 +4640,7 @@ func (b *bound) fn786(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.respond", 4, "http/host.respond", "body_kind", err)
 	}
-	a5, err := b.in218(fr, args[5])
+	a5, err := b.in221(fr, args[5])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.respond", 5, "http/host.respond", "data", err)
 	}
@@ -3164,6 +4668,66 @@ func (b *bound) fn786(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn786Parts is http/host.respond taken apart: the payload and true, or the record and false.
+func (b *bound) fn786Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 10 {
+		return nil, false, hostadapt.Arity("http/host.respond", 10, len(args))
+	}
+	a0, err := b.in694(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 0, "http/host.respond", "incoming", err)
+	}
+	a1, err := b.in39(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 1, "http/host.respond", "status", err)
+	}
+	a2, err := b.in270(fr, args[2])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 2, "http/host.respond", "headers", err)
+	}
+	a3, err := b.in270(fr, args[3])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 3, "http/host.respond", "trailers", err)
+	}
+	a4, err := b.in39(fr, args[4])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 4, "http/host.respond", "body_kind", err)
+	}
+	a5, err := b.in221(fr, args[5])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 5, "http/host.respond", "data", err)
+	}
+	a6, err := b.in487(fr, args[6])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 6, "http/host.respond", "input", err)
+	}
+	a7, err := b.in39(fr, args[7])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 7, "http/host.respond", "content_length", err)
+	}
+	a8, err := b.in39(fr, args[8])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 8, "http/host.respond", "write_timeout", err)
+	}
+	a9, err := b.in52(fr, args[9])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.respond", 9, "http/host.respond", "full_duplex", err)
+	}
+	r0 := stdhttp.Respond(fr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out746(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.respond", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out115(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.respond", err)
+	}
+	return v, true, nil
+}
+
 // fn787 adapts http/host.produce: produce(incoming: Incoming, status: Int, headers: List<String>, trailer_names: List<String>, write_timeout: Int, full_duplex: Bool) -> Writer
 func (b *bound) fn787(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 6 {
@@ -3177,11 +4741,11 @@ func (b *bound) fn787(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.produce", 1, "http/host.produce", "status", err)
 	}
-	a2, err := b.in267(fr, args[2])
+	a2, err := b.in270(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.produce", 2, "http/host.produce", "headers", err)
 	}
-	a3, err := b.in267(fr, args[3])
+	a3, err := b.in270(fr, args[3])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.produce", 3, "http/host.produce", "trailer_names", err)
 	}
@@ -3210,7 +4774,7 @@ func (b *bound) fn788(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.finish", 0, "http/host.finish", "incoming", err)
 	}
-	a1, err := b.in267(fr, args[1])
+	a1, err := b.in270(fr, args[1])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.finish", 1, "http/host.finish", "trailers", err)
 	}
@@ -3232,7 +4796,7 @@ func (b *bound) fn789(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.answered_already", 0, "http/host.answered_already", "incoming", err)
 	}
 	r0 := stdhttp.Answered(a0)
-	v0, err := b.out164(r0)
+	v0, err := b.out166(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.answered_already", err)
 	}
@@ -3244,7 +4808,7 @@ func (b *bound) fn790(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("http/host.detect_content_type", 1, len(args))
 	}
-	a0, err := b.in218(fr, args[0])
+	a0, err := b.in221(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.detect_content_type", 0, "http/host.detect_content_type", "data", err)
 	}
@@ -3261,7 +4825,7 @@ func (b *bound) fn791(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("http/host.new_mux", 1, len(args))
 	}
-	a0, err := b.in267(fr, args[0])
+	a0, err := b.in270(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.new_mux", 0, "http/host.new_mux", "patterns", err)
 	}
@@ -3271,6 +4835,30 @@ func (b *bound) fn791(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Returned("http/host.new_mux", err)
 	}
 	return v0, nil
+}
+
+// fn791Parts is http/host.new_mux taken apart: the payload and true, or the record and false.
+func (b *bound) fn791Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.new_mux", 1, len(args))
+	}
+	a0, err := b.in270(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.new_mux", 0, "http/host.new_mux", "patterns", err)
+	}
+	r0 := stdhttp.NewMux(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out792(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.new_mux", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out793(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.new_mux", err)
+	}
+	return v, true, nil
 }
 
 // fn796 adapts http/host.check_pattern: check_pattern(pattern: String) -> String
@@ -3312,7 +4900,7 @@ func (b *bound) fn797(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.route", 3, "http/host.route", "target", err)
 	}
 	r0 := stdhttp.Route(a0, a1, a2, a3)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.route", err)
 	}
@@ -3332,7 +4920,7 @@ func (b *bound) fn799(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_content", 1, "http/host.answer_content", "target", err)
 	}
-	a2, err := b.in267(fr, args[2])
+	a2, err := b.in270(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_content", 2, "http/host.answer_content", "headers", err)
 	}
@@ -3344,16 +4932,16 @@ func (b *bound) fn799(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_content", 4, "http/host.answer_content", "modified", err)
 	}
-	a5, err := b.in267(fr, args[5])
+	a5, err := b.in270(fr, args[5])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_content", 5, "http/host.answer_content", "set", err)
 	}
-	a6, err := b.in218(fr, args[6])
+	a6, err := b.in221(fr, args[6])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_content", 6, "http/host.answer_content", "data", err)
 	}
 	r0 := stdhttp.AnswerContent(a0, a1, a2, a3, a4, a5, a6)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.answer_content", err)
 	}
@@ -3373,7 +4961,7 @@ func (b *bound) fn800(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_redirect", 1, "http/host.answer_redirect", "target", err)
 	}
-	a2, err := b.in267(fr, args[2])
+	a2, err := b.in270(fr, args[2])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.answer_redirect", 2, "http/host.answer_redirect", "headers", err)
 	}
@@ -3386,7 +4974,7 @@ func (b *bound) fn800(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.answer_redirect", 4, "http/host.answer_redirect", "status", err)
 	}
 	r0 := stdhttp.AnswerRedirect(a0, a1, a2, a3, a4)
-	v0, err := b.out196(r0)
+	v0, err := b.out198(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.answer_redirect", err)
 	}
@@ -3427,6 +5015,30 @@ func (b *bound) fn802(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn802Parts is http/host.parse_time taken apart: the payload and true, or the record and false.
+func (b *bound) fn802Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.parse_time", 1, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.parse_time", 0, "http/host.parse_time", "text", err)
+	}
+	r0 := stdhttp.ParseTime(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out803(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.parse_time", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out3(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.parse_time", err)
+	}
+	return v, true, nil
+}
+
 // fn804 adapts http/host.limit_body: limit_body(r: Reader, max: Int) -> Reader
 func (b *bound) fn804(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 2 {
@@ -3453,7 +5065,7 @@ func (b *bound) fn805(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("http/host.cookie_text", 1, len(args))
 	}
-	a0, err := b.in267(fr, args[0])
+	a0, err := b.in270(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.cookie_text", 0, "http/host.cookie_text", "cookie", err)
 	}
@@ -3470,7 +5082,7 @@ func (b *bound) fn806(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("http/host.cookie_valid", 1, len(args))
 	}
-	a0, err := b.in267(fr, args[0])
+	a0, err := b.in270(fr, args[0])
 	if err != nil {
 		return nil, hostadapt.Param("http/host.cookie_valid", 0, "http/host.cookie_valid", "cookie", err)
 	}
@@ -3499,6 +5111,30 @@ func (b *bound) fn807(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn807Parts is http/host.parse_cookie taken apart: the payload and true, or the record and false.
+func (b *bound) fn807Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.parse_cookie", 1, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.parse_cookie", 0, "http/host.parse_cookie", "text", err)
+	}
+	r0 := stdhttp.ParseCookie(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out808(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.parse_cookie", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out648(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.parse_cookie", err)
+	}
+	return v, true, nil
+}
+
 // fn810 adapts http/host.parse_set_cookie: parse_set_cookie(text: String) -> Result<List<String>, String>
 func (b *bound) fn810(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	if len(args) != 1 {
@@ -3509,11 +5145,35 @@ func (b *bound) fn810(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 		return nil, hostadapt.Param("http/host.parse_set_cookie", 0, "http/host.parse_set_cookie", "text", err)
 	}
 	r0 := stdhttp.ParseSetCookie(a0)
-	v0, err := b.out264(r0)
+	v0, err := b.out267(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("http/host.parse_set_cookie", err)
 	}
 	return v0, nil
+}
+
+// fn810Parts is http/host.parse_set_cookie taken apart: the payload and true, or the record and false.
+func (b *bound) fn810Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("http/host.parse_set_cookie", 1, len(args))
+	}
+	a0, err := b.in40(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("http/host.parse_set_cookie", 0, "http/host.parse_set_cookie", "text", err)
+	}
+	r0 := stdhttp.ParseSetCookie(a0)
+	if r0.Tag != rt.TagOk {
+		rec, err := b.out267(r0)
+		if err != nil {
+			return nil, false, hostadapt.Returned("http/host.parse_set_cookie", err)
+		}
+		return rec, false, nil
+	}
+	v, err := b.out198(r0.Ok)
+	if err != nil {
+		return nil, false, hostadapt.Returned("http/host.parse_set_cookie", err)
+	}
+	return v, true, nil
 }
 
 // fn811 adapts http/host.new_jar: new_jar() -> Jar

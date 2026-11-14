@@ -19,19 +19,19 @@ end
 pub struct EffectsApp
     context: Context
 
-    deployment: String = "dev"
-    port: Int = 3000
-    database_url: String = "postgres://localhost/myapp_dev"
+    deployment:      String = "dev"
+    port:            Int = 3000
+    database_url:    String = "postgres://localhost/myapp_dev"
     max_connections: Int = 5
-    logger: Logger
-    clock: Clock
-    console: Console
+    logger:          Logger
+    clock:           Clock
+    console:         Console
 end
 
 pub fn load(deployment: String, context: Context) -> EffectsApp
     case deployment
         "prod" -> prod.build(context)
         "test" -> test_env.build(context)
-        _ -> dev.build(context)
+        _      -> dev.build(context)
     end
 end

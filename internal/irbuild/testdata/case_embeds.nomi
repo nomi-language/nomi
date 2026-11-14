@@ -5,7 +5,7 @@ struct Circle
 end
 
 struct Rect
-    width: Int
+    width:  Int
     height: Int
 end
 
@@ -17,9 +17,9 @@ end
 
 fn area(s: Shape) -> Int
     case s
-        Shape.Circle{radius:} -> radius * radius * 3
+        Shape.Circle{radius:}       -> radius * radius * 3
         Shape.Rect{width:, height:} -> width * height
-        Shape.Point -> 0
+        Shape.Point                 -> 0
     end
 end
 

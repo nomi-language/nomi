@@ -52,8 +52,9 @@ func TestInstalledBinaryRunsWithoutASourceTree(t *testing.T) {
 		t.Fatalf("building nomi: %v\n%s", err, out)
 	}
 
-	// A program whose stdlib use is real: std/calendar parses the literal and
-	// the accessors come back through the embedded stdlib's declarations.
+	// A program whose stdlib use is real: the Date literal is checked against
+	// std/calendar and its accessor comes back through the embedded stdlib's
+	// declarations.
 	proj := filepath.Join(dir, "prog")
 	if err := os.MkdirAll(proj, 0o755); err != nil {
 		t.Fatal(err)
@@ -70,10 +71,7 @@ func TestInstalledBinaryRunsWithoutASourceTree(t *testing.T) {
 end
 
 fn main()
-  case Date"2026-09-12"
-    Ok(d) -> io.print("day ${Date.day(d)}")
-    Err(_) -> io.print("parse failed")
-  end
+  io.print("day ${Date.day(Date"2026-09-12")}")
 end
 `)
 

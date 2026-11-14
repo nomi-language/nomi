@@ -53,8 +53,8 @@ end
 
 fn tell(r: Reading) -> String
     case r
-        Reading.Empty -> "e"
-        Reading.Whole(n) -> "w${n}"
+        Reading.Empty                -> "e"
+        Reading.Whole(n)             -> "w${n}"
         Reading.Labelled{name:, at:} -> "l${name}${at.tag}"
     end
 end

@@ -15,20 +15,22 @@ import (
 // A typed opcode that stops being chosen — an operand whose stored type moved
 // to another bank, a call whose arguments stopped matching the callee's
 // parameter banks — leaves every output right and costs speed, so this reads
-// the bytecode rather than a timing.
+// the bytecode rather than a timing. A typed compare fused with the branch
+// after it (`brcmpi`) is as typed as the `cmpi` it replaced.
 func TestBytecode_BenchmarkHotPathsAreTyped(t *testing.T) {
 	for _, tc := range []struct {
 		program string
 		funcs   []string
-		// want are opcodes each function's listing must contain.
+		// want are opcodes each function's listing must contain; "a|b"
+		// accepts either.
 		want map[string][]string
 	}{
-		{"fib", []string{"fib"}, map[string][]string{"fib": {"call", "cmpi", "addi", "subi"}}},
+		{"fib", []string{"fib"}, map[string][]string{"fib": {"call", "cmpi|brcmpi", "addi", "subi"}}},
 		{"variants", []string{"area", "pick"}, map[string][]string{
 			"area": {"matchv", "projp", "muli"},
 			"pick": {"remi", "eqw", "make"},
 		}},
-		{"structs", []string{"step"}, map[string][]string{"step": {"projf", "addi", "cmpi", "make"}}},
+		{"structs", []string{"step"}, map[string][]string{"step": {"projf", "addi", "cmpi|brcmpi", "make"}}},
 	} {
 		src, err := os.ReadFile(filepath.Join("..", "..", "benchmarks", "engines", tc.program+".nomi"))
 		if err != nil {
@@ -50,9 +52,13 @@ func TestBytecode_BenchmarkHotPathsAreTyped(t *testing.T) {
 						tc.program, name, line, listing)
 				}
 			}
-			for _, op := range tc.want[name] {
-				if !strings.Contains(listing, " "+op+" ") {
-					t.Errorf("%s.%s has no %s opcode:\n%s", tc.program, name, op, listing)
+			for _, want := range tc.want[name] {
+				found := false
+				for _, op := range strings.Split(want, "|") {
+					found = found || strings.Contains(listing, " "+op+" ")
+				}
+				if !found {
+					t.Errorf("%s.%s has no %s opcode:\n%s", tc.program, name, want, listing)
 				}
 			}
 		}

@@ -128,7 +128,7 @@ T
 C context_value_test.nomi@1c2213ffc405e0bc
 E 1
 N 0
-H 1d458e8702e1334afe5be057736a067df2885334eba00824a65d6a8ff9f86597
+H d520bf05e8041c0b1ac37dfe07a0e575c6f3083710aed3227066531cca897c78
 S -- context_value_test.nomi 1511 --
 S type UserId Int
 S
@@ -205,7 +205,7 @@ T FAIL <dir>/context_value_test.nomi :: a case subject records its scrutinee and
 T   line 53: assertion failed
 T     assert case Context.value(c, UserId)
 T         Some(UserId(id)) -> id == 4
-T         None -> False
+T         None             -> False
 T     end
 T     values:
 T       c
@@ -1150,6 +1150,34 @@ T         = 1000
 T ok <dir>/control_test.nomi :: the module-level name outside the block
 T test result: FAILED. 1 passed, 1 failed
 T
+C control_test.nomi@8f19f31e65a8ef5c
+E 1
+N 0
+H 740c9a93490da7fda97051de938c756fb0732928be7fb8b592dbd2ce3e37ee9e
+S -- control_test.nomi 319 --
+S import
+S     std::strings.ListWidth
+S end
+S
+S test "a named argument past an omitted default"
+S   assert String.join_list(["a", "b"], Locale"en", width: .Short) == "a & b"
+S end
+S
+S test "a failing one still reports the call's value"
+S   w = ListWidth.Short
+S   assert String.join_list(["a", "b"], Locale"en", width: w) == "a and b"
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a named argument past an omitted default
+T FAIL <dir>/control_test.nomi :: a failing one still reports the call's value
+T   line 11: assertion failed
+T     assert String.join_list(["a", "b"], Locale"en", width: w) == "a and b"
+T     values:
+T       String.join_list(["a", "b"], Locale"en", width: w)
+T         = "a & b"
+T test result: FAILED. 1 passed, 1 failed
+T
 C control_test.nomi@9784eeafa4dc3912
 E 1
 N 0
@@ -1282,7 +1310,7 @@ T
 C control_test.nomi@b421783c757bced1
 E 1
 N 0
-H 2f09d29ce19f835d5b6ce3bfbc36b6e629c866652635f95951cadeba8eef1add
+H 44e1c4320c2bf5cf435e403f2b9c20b209d2b40fc6bb6300610d14eeefcbdaa9
 S -- control_test.nomi 735 --
 S import std::io
 S
@@ -1339,14 +1367,14 @@ T   deferred
 T FAIL <dir>/control_test.nomi :: the other arm is the subject
 T   line 25: assertion failed
 T     assert case get(True)
-T         Ok(d) -> d
+T         Ok(d)  -> d
 T         Err(_) -> return
 T     end == "y"
 T     values:
 T       get(True)
 T         = Ok("x")
 T       case get(True)
-T           Ok(d) -> d
+T           Ok(d)  -> d
 T           Err(_) -> return
 T       end
 T         = "x"
@@ -1355,34 +1383,6 @@ T   left with no
 T ok <dir>/control_test.nomi :: a subject's operand that leaves
 T   operand left
 T test result: FAILED. 3 passed, 1 failed
-T
-C control_test.nomi@b5a74277ad89b671
-E 1
-N 0
-H 4c8f5b26a0c17cb299d908fa81108491b836cb8acf2daa941165daf4ed5a47c7
-S -- control_test.nomi 319 --
-S import
-S     std::strings.ListWidth
-S end
-S
-S test "a named argument past an omitted default"
-S   assert String.join_list(["a", "b"], Locale`en`, width: .Short) == "a & b"
-S end
-S
-S test "a failing one still reports the call's value"
-S   w = ListWidth.Short
-S   assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
-S end
-S
-S
-T ok <dir>/control_test.nomi :: a named argument past an omitted default
-T FAIL <dir>/control_test.nomi :: a failing one still reports the call's value
-T   line 11: assertion failed
-T     assert String.join_list(["a", "b"], Locale`en`, width: w) == "a and b"
-T     values:
-T       String.join_list(["a", "b"], Locale`en`, width: w)
-T         = "a & b"
-T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@c58310b9073b637c
 E 1
@@ -2282,7 +2282,7 @@ C group_test.nomi@beaac93f392d3dba
 E 0
 N 0
 H f17003f3a21fe56838ad989f2d794312ab026f6d5ff38a2c2ac7d20845cc98f1
-S -- counter_app.nomi 6132 --
+S -- counter_app.nomi 6152 --
 S //# A single long-lived worker owning mutable state, driven by messages.
 S //#
 S //# This is the shape you reach for when several callers need to share
@@ -2351,11 +2351,11 @@ S     // finishes.
 S     _ =
 S         Supervisor.new(
 S             shutdown_timeout: Duration.seconds(5),
-S             max_running: 1,
-S             restart: Restart.Permanent,
+S             max_running:      1,
+S             restart:          Restart.Permanent,
 S             backoff: Backoff.Exponential{
 S                 max_restarts: 3,
-S                 max_elapsed: Duration.minutes(5),
+S                 max_elapsed:  Duration.minutes(5),
 S             },
 S         )
 S         |> Supervisor.spawn(fn -> serve(inbox))
@@ -2399,7 +2399,7 @@ S
 S /// Fire-and-forget: returns as soon as the message is queued.
 S pub fn increment(counter: Counter, n: Int) -> Unit
 S     case Sender.send(counter.inbox.sender, Request.Increment(n))
-S         Ok(_) -> Unit
+S         Ok(_)  -> Unit
 S         Err(_) -> Unit
 S     end
 S end
@@ -2415,13 +2415,13 @@ S     _ = Sender.send(counter.inbox.sender, Request.Get{reply:})
 S
 S     case Receiver.receive(reply.receiver)
 S         Some(v) -> v
-S         None -> 0
+S         None    -> 0
 S     end
 S end
 S
 S pub fn explode(counter: Counter) -> Unit
 S     case Sender.send(counter.inbox.sender, Request.Explode)
-S         Ok(_) -> Unit
+S         Ok(_)  -> Unit
 S         Err(_) -> Unit
 S     end
 S end
@@ -3112,7 +3112,7 @@ T first_empty_set = Set[] Set[4]
 T describe = [99c] 0
 T bag = [] [8] b
 T
-C internal/irbuild/testdata/calendar_civil_rungs.nomi@c11b6ac2d461c493
+C internal/irbuild/testdata/calendar_civil_rungs.nomi@eeee755a29e6b83c
 E 0
 N 0
 H 95ac960200741c53a9d8b04703f4415c39478c26489fce33d7f25c9f19718a64
@@ -3150,7 +3150,7 @@ T zoned_micros = 2026-03-07T12:00:00.0015-05:00[America/New_York]
 T zoned_nanos = 2026-03-07T12:00:00.0000015-05:00[America/New_York]
 T zoned_sub = 2026-03-07T10:30:00-05:00[America/New_York]
 T
-C internal/irbuild/testdata/calendar_date_time.nomi@cc2e942f5c5a14a0
+C internal/irbuild/testdata/calendar_date_time.nomi@9917a7ea1051f412
 E 0
 N 0
 H 1bbbe2ef1977f614ef394ea76c581555fae4f6e80fd707f5dbc44865e2ad2b29
@@ -3210,7 +3210,7 @@ T built_full = 08:30:15.25
 T rejected = invalid value: hour out of range: 25
 T between = 3m
 T
-C internal/irbuild/testdata/calendar_datetime.nomi@07b9b255a2a51141
+C internal/irbuild/testdata/calendar_datetime.nomi@1e0d7dafe039c9ad
 E 0
 N 0
 H faeaf5486b8013c074aaf2c15d53a41f0a622a7e7298b2fa2faba0e2ce51d474
@@ -3236,13 +3236,13 @@ T inspect = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
 T earlier_ne = True
 T tokyo_ne = False
 T
-C internal/irbuild/testdata/calendar_default_arity.nomi@1ab94e720dc77f19
+C internal/irbuild/testdata/calendar_default_arity.nomi@8f582421035e6717
 E 0
 N 0
 H 8c3f3074bfc3288ce4aa7ab1f995b6306a8e4e58eb90e6a21b9f7eb5c219bcf8
 T defaulted = 2026-11-01T01:30:00-04:00[America/New_York]
 T
-C internal/irbuild/testdata/calendar_fold.nomi@8ab33fd1697244b3
+C internal/irbuild/testdata/calendar_fold.nomi@46f2ba53f3ac60fb
 E 0
 N 0
 H 45f368d1a5e73df2209dea908c13ab88745f0a1b842f251251f2139b4fb57e16
@@ -3264,7 +3264,7 @@ T tokyo = 2026-11-01T15:30:00+09:00[Asia/Tokyo]
 T tokyo_equals_later = True
 T tokyo_equals_earlier = False
 T
-C internal/irbuild/testdata/calendar_naive_new.nomi@5d4e49be5c2730fa
+C internal/irbuild/testdata/calendar_naive_new.nomi@c484bd92238fd0fe
 E 0
 N 0
 H 4a097e10102485ce9bc4626778a7bd92f9f8e9523662841ed221475bdc36d3e2
@@ -3278,7 +3278,7 @@ T arity6_rejects = second out of range: 99
 T nanos_reject = nanosecond out of range: 1000000000
 T arity5_rejects = day 30 not valid for 2026-02
 T
-C internal/irbuild/testdata/calendar_offset_datetime.nomi@3ae4dc3407186a09
+C internal/irbuild/testdata/calendar_offset_datetime.nomi@bf2e12e8b449f23d
 E 0
 N 0
 H db05fbe831c289085a35f8628bc311bbc1f19f0a2d809415505abd648c40de0a
@@ -3720,7 +3720,7 @@ T
 C internal/irbuild/testdata/dbg_shapes.nomi@337ccc71dcb1193c
 E 0
 N 0
-H 0ba918dc13538f69d62e1f61846f3e5cd2d47e996cadf9b5fbae5e8e9185e948
+H 3fd34d39bba249841538407c2c9456675035bbff75cc770c742ce1c9dff0f575
 T dbg line 47: 41 + 1 = 42
 T a=42
 T dbg line 51: r = Rev{zeta: 1, alpha: 2}
@@ -3736,7 +3736,7 @@ T   ]
 T   = [100000001, 100000002, 100000003, 100000004, 100000005, 100000006, 100000007, 100000008, 100000009, 100000010]
 T dbg line 73:
 T   Rev{
-T       zeta: 100000001,
+T       zeta:  100000001,
 T       alpha: 100000002,
 T   }
 T   = Rev{zeta: 100000001, alpha: 100000002}
@@ -5175,7 +5175,7 @@ T   src 2
 T   seed 100
 T 103
 T
-C internal/irbuild/testdata/iter_sources.nomi@0cfc6b0b88da7d6d
+C internal/irbuild/testdata/iter_sources.nomi@bfe320a0fa9adea5
 E 0
 N 0
 H 285081a4d3cc774ee97a0daddd0f23768896ace7c5f530874da19f3ea631c7a1
@@ -5558,7 +5558,7 @@ T static/c
 T dynamic/7
 T |static/a|dynamic/b|static/z
 T
-C internal/irbuild/testdata/literal_sibling_impl/main.nomi@3c3055275cf4e881
+C internal/irbuild/testdata/literal_sibling_impl/main.nomi@f41355c426710b51
 E 0
 N 0
 H 00614806df1427eb8d57357fea2abc13b892f808b61d01df1c56f0b13874e563
@@ -6033,7 +6033,7 @@ T
 C internal/irbuild/testdata/pipe_stage_keyword_report.nomi@cba0bad2e40cb300
 E 1
 N 0
-H 47aeb356a470f6869f400613be5c515d22f1e240eda25ddbf5b8c9c1b1b6d0fa
+H 1c0f99fe73af02c91e9177b1a3a2e2caed9be8d478696cfaf34438225f696c95
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a keyword-prefixed if stage reports three pipeline rows
 T   line 48: assertion failed
 T     assert flag
@@ -6056,7 +6056,7 @@ T     defined as:
 T       Some(3)
 T       |> case
 T           Some(_) -> False
-T           None -> True
+T           None    -> True
 T       end
 T     pipeline values:
 T       Some(3)
@@ -6064,7 +6064,7 @@ T         = Some(3)
 T       Some(3)
 T       |> case
 T           Some(_) -> False
-T           None -> True
+T           None    -> True
 T       end
 T         = False
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a call stage before a keyword stage reports cumulative prefixes
@@ -6092,26 +6092,26 @@ T FAIL <dir>/pipe_stage_keyword_report.nomi :: a piped case scrutinee contribute
 T   line 72: assertion failed
 T     assert (wrap(3) |> case
 T         Some(n) -> n
-T         None -> 0
+T         None    -> 0
 T     end) == 99
 T     values:
 T       (wrap(3) |> case
 T           Some(n) -> n
-T           None -> 0
+T           None    -> 0
 T       end)
 T         = 3
 T FAIL <dir>/pipe_stage_keyword_report.nomi :: a directly written case scrutinee does contribute one
 T   line 79: assertion failed
 T     assert (case wrap(3)
 T         Some(n) -> n
-T         None -> 0
+T         None    -> 0
 T     end) == 99
 T     values:
 T       wrap(3)
 T         = Some(3)
 T       (case wrap(3)
 T           Some(n) -> n
-T           None -> 0
+T           None    -> 0
 T       end)
 T         = 3
 T test result: FAILED. 0 passed, 5 failed
@@ -6954,7 +6954,7 @@ T items:2
 T named:1
 T empty
 T
-C internal/irbuild/testdata/stdkey_overloads.nomi@493e63d2f87642f5
+C internal/irbuild/testdata/stdkey_overloads.nomi@c00bc65bdcd8555e
 E 0
 N 0
 H 57b62b41730cc01c3a84ed271038223d23e7fae579b65f50741732aa6d7a4f09
@@ -9090,7 +9090,7 @@ H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563
 T ok <dir>/formatting_test.nomi :: formatter showcase declarations remain executable
 T test result: ok. 1 passed, 0 failed
 T
-C tests/05-calendar-and-time/dates_test.nomi@e1eaa64fe794d2ad
+C tests/05-calendar-and-time/dates_test.nomi@2490f3682c964448
 E 0
 N 0
 H 1c44d06032c61527381311bb18cf92dc7b829b60e47713d4d60274ecca99662b
@@ -9106,7 +9106,7 @@ T ok <dir>/dates_test.nomi :: date year shifts clamp leap days when needed
 T ok <dir>/dates_test.nomi :: date adds calendar units with plus
 T test result: ok. 10 passed, 0 failed
 T
-C tests/05-calendar-and-time/naive_datetime_test.nomi@a00658323b800877
+C tests/05-calendar-and-time/naive_datetime_test.nomi@1b5aa3e4afedf209
 E 0
 N 0
 H cb08e1d67f70b7fa59f6682f4b65eaaebd5ed5df7d51a316f99f53adf0015d30
@@ -9305,7 +9305,7 @@ T ok <dir>/supervisors_test.nomi :: named task groups / a cancelled task reports
 T ok <dir>/supervisors_test.nomi :: named task groups / a spawn in an assertion's subject
 T test result: ok. 7 passed, 0 failed
 T
-C tests/17-typed-literals/toml_literal_test.nomi@cbea2a860b6bc2d7
+C tests/17-typed-literals/toml_literal_test.nomi@42c0bcda299b5991
 E 0
 N 0
 H 6e23940da7bc16159934fc5937c470e9bd6ebe9827114ade3a25f415581d3327

@@ -352,9 +352,9 @@ number of digits, since an `Int` has no largest value (§4).
 ```nomi
 fn main()
     dbg 1_000_000 // 1000000
-    dbg 0xFF // 255
-    dbg 0b1010 // 10
-    dbg 0o77 // 63
+    dbg 0xFF      // 255
+    dbg 0b1010    // 10
+    dbg 0o77      // 63
 end
 ```
 
@@ -389,14 +389,14 @@ fn tag(b: Byte) -> String
     case b
         0x00 -> "nul"
         0x7F -> "del"
-        _ -> "other"
+        _    -> "other"
     end
 end
 
 fn main()
     bytes: List<Byte> = [0x81, 0x00, 0b0111_1111]
     dbg tag(0x7F) // "del"
-    dbg bytes // [129, 0, 127]
+    dbg bytes     // [129, 0, 127]
 end
 ```
 
@@ -419,9 +419,9 @@ are a float too. A `_` may stand between two digits. Its type is `Float`.
 
 ```nomi
 fn main()
-    dbg 3.14 // 3.14
-    dbg 2.5e-3 // 0.0025
-    dbg 1e10 // 10000000000.0
+    dbg 3.14          // 3.14
+    dbg 2.5e-3        // 0.0025
+    dbg 1e10          // 10000000000.0
     dbg 1_000.123_456 // 1000.123456
 end
 ```
@@ -472,9 +472,9 @@ interpolation. `#`, `#{` and braces are text.
 ```nomi
 fn main()
     name = "Ada"
-    dbg "Hello, ${name}!" // "Hello, Ada!"
+    dbg "Hello, ${name}!"            // "Hello, Ada!"
     dbg "\${HOME}" == "$" + "{HOME}" // True
-    dbg "costs $5" // "costs $5"
+    dbg "costs $5"                   // "costs $5"
 end
 ```
 
@@ -538,10 +538,10 @@ prelude.
 
 ```nomi
 fn main()
-    dbg Codepoint.to_int('a') // 97
+    dbg Codepoint.to_int('a')  // 97
     dbg Codepoint.to_int('\n') // 10
     dbg Codepoint.to_int('\'') // 39
-    dbg Iter.count('a'..='z') // 26
+    dbg Iter.count('a'..='z')  // 26
 end
 ```
 
@@ -814,12 +814,12 @@ a range of a `Steppable` type by a step the caller gives, as
 
 ```nomi
 fn main()
-    dbg Iter.to_list(1..5) // [1, 2, 3, 4]
-    dbg Iter.to_list(1..=5) // [1, 2, 3, 4, 5]
-    dbg 3 in 1..5 // True
-    dbg "h" in "a".."m" // True
+    dbg Iter.to_list(1..5)     // [1, 2, 3, 4]
+    dbg Iter.to_list(1..=5)    // [1, 2, 3, 4, 5]
+    dbg 3 in 1..5              // True
+    dbg "h" in "a".."m"        // True
     dbg 1.50d in 1.25d..=2.50d // True
-    dbg Iter.to_list(5..1) // []
+    dbg Iter.to_list(5..1)     // []
 end
 ```
 
@@ -838,9 +838,12 @@ A string literal with a type name written against its opening delimiter is a
 typed literal: `Date"2026-05-04"`, `Sql"""..."""`, `` Regex`\d+` ``. The
 name is PascalCase, with no space before the delimiter. A lowercase name
 against a string is a name followed by a string, which is an error. What a
-typed literal means, and when its handler runs, is §18. A backtick typed
-literal's body is fixed text, so a handler that can fail runs at compile
-time, and a failure is a compile error at the literal.
+typed literal means, and when its handler runs, is §18. The delimiters
+differ only in escapes and interpolation, as for an untyped string: a
+quoted body reads escapes and `${...}` slots, a triple-quoted one reads
+slots and no escapes, and a backtick body is raw text with no slots. A
+literal without slots is checked at compile time in any of the three, and a
+failure is a compile error at the literal.
 
 ```nomi
 Date"2026-05-04" // quoted, interpolated
@@ -961,9 +964,9 @@ iterates by grapheme. Its bytes and codepoints are reached through
 
 ```nomi
 fn main()
-    dbg String.length("café") // 4
-    dbg Iter.to_list("café") // ["c", "a", "f", "é"]
-    dbg String.length("👨‍👩‍👧") // 1
+    dbg String.length("café")               // 4
+    dbg Iter.to_list("café")                // ["c", "a", "f", "é"]
+    dbg String.length("👨‍👩‍👧")                 // 1
     dbg Iter.count(String.to_bytes("café")) // 5
 end
 ```
@@ -986,8 +989,8 @@ number and none can stand for the missing result.
 
 ```nomi
 fn main()
-    dbg 1.0 / 0.0 // +Inf
-    dbg -1.0 / 0.0 // -Inf
+    dbg 1.0 / 0.0               // +Inf
+    dbg -1.0 / 0.0              // -Inf
     dbg Float.is_nan(0.0 / 0.0) // True
 end
 ```
@@ -1040,7 +1043,7 @@ end
 
 fn main()
     (q, r) = divide(10, 3)
-    dbg (q, r) // (3, 1)
+    dbg (q, r)              // (3, 1)
     dbg divide(7, 2).second // 1
 end
 ```
@@ -1139,7 +1142,7 @@ by `;`), with an optional default. Field names are snake_case.
 ```nomi
 struct User
     name: String
-    age: Int
+    age:  Int
     role: String = "member"
 end
 
@@ -1170,7 +1173,7 @@ An exit inside a lambda the default builds belongs to the lambda.
 A field with a default may leave out its type: `misses = 0` is an `Int`
 field. Its type is the default's, checked with no expected type, so it is
 known when nothing in the default is left open: a literal, a typed literal
-with its tag (``Route`GET /admin/{$}` `` is a `Route<Unit>`), a struct
+with its tag (`Route"GET /admin/{$}"` is a `Route<Unit>`), a struct
 literal or a constructor call, a call (a function's declared result), a
 non-empty collection literal, an operator over such values, or a read of a
 `once` or of another field whose type is known. An untagged string literal
@@ -1240,14 +1243,14 @@ infers its type arguments from it.
 
 ```nomi
 struct Box<T>
-    v: T
+    v:     T
     label: String = "box"
 end
 
 fn main()
-    b = Box({v: 1}) // a Box<Int>
+    b = Box({v: 1})                  // a Box<Int>
     dbg b == Box{v: 1, label: "box"} // True
-    dbg {v: 2} |> Box() // Box{v: 2, label: "box"}
+    dbg {v: 2} |> Box()              // Box{v: 2, label: "box"}
 end
 ```
 
@@ -1273,12 +1276,12 @@ supply an enum to a `.Variant` (*Variant Resolution*):
 ```nomi
 struct Address
     street: String
-    city: String
-    zip: String = "00000"
+    city:   String
+    zip:    String = "00000"
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 
@@ -1288,7 +1291,7 @@ end
 
 fn main()
     ada = Person{name: "Ada", address: {street: "3 Main", city: "York"}}
-    dbg home().zip // "00000"
+    dbg home().zip       // "00000"
     dbg ada.address.city // "York"
 end
 ```
@@ -1322,7 +1325,7 @@ end
 
 fn main()
     p = Point{x: 1, y: 2}
-    dbg {..p, x: 9} // Point{x: 9, y: 2}
+    dbg {..p, x: 9}              // Point{x: 9, y: 2}
     dbg Struct.update(p, {y: 0}) // Point{x: 1, y: 0}
 end
 ```
@@ -1358,11 +1361,11 @@ value that replaces the field.
 ```nomi
 struct Address
     street: String
-    city: String
+    city:   String
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 
@@ -1390,12 +1393,12 @@ evaluated once, however many `..`s read it.
 ```nomi
 struct Address
     street: String
-    city: String
+    city:   String
 end
 
 struct Account
-    owner: String
-    visits: Int
+    owner:   String
+    visits:  Int
     address: Address
 end
 
@@ -1722,7 +1725,7 @@ end
 fn total(s: Shape) -> Float
     case s
         .Circle{} -> area(s) // s is a Circle in this arm
-        _ -> 0.0
+        _         -> 0.0
     end
 end
 
@@ -1824,7 +1827,8 @@ type, its representation included. What follows the name decides its kind:
 - nothing: a zero-sized type (`type Expired`).
 
 A `type` declaration has no body. `type Wrap (Int)` is `type Wrap Int`,
-since parentheses only group.
+since parentheses only group. No `=` comes between the name and the
+inner type: `type Id = Int` is ``a type has no `=`: write `type X T` ``.
 
 A distinct type may take type parameters after its name, which its inner
 type names: `type Tagged<T> (String, T)`, `type Ids<T> List<T>`. Its call
@@ -1986,7 +1990,8 @@ caller outside can reach it (§14).
 Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#type-aliases).
 
 `typealias Name Target` makes `Name` another spelling of `Target` in type
-positions. The two are one type.
+positions. The two are one type. No `=` comes between them:
+`typealias Name = Target` is ``a typealias has no `=`: write `typealias X T` ``.
 
 ```nomi
 typealias Point {x: Int, y: Int}
@@ -2034,7 +2039,7 @@ A use that leaves the argument out takes the default, so `Route` is
 ```nomi
 struct Tagged<T, Tag = String>
     value: T
-    tag: Tag
+    tag:   Tag
 end
 
 fn label(t: Tagged<Int>) -> String
@@ -2167,6 +2172,9 @@ A value of type `S` may stand where type `T` is expected when:
 - `S` and `T` are the same type;
 - `T` is an interface that `S` implements, and the value becomes an
   interface value (§12);
+- `T` is an interface conjunction `A and B` whose every member `S`
+  implements, or that `S`, itself a conjunction or an interface, holds every
+  member of (§12 *Interface conjunctions*);
 - `T` is an enum that embeds `S` (§4 *Embedded Types*), at the top or at
   any position that converts (*Covariant conversion*);
 - both are function types and `S` fits `T` by the rule below;
@@ -2205,10 +2213,10 @@ fn pair(n: Int) -> List<Int>
 end
 
 fn main()
-    f: (Int) -> String = shown // Int fits Display
+    f: (Int) -> String = shown   // Int fits Display
     h: (Int) -> Iter<Int> = pair // List<Int> fits Iter<Int>
-    dbg f(1) // "1"
-    dbg Iter.to_list(h(2)) // [2, 2]
+    dbg f(1)                     // "1"
+    dbg Iter.to_list(h(2))       // [2, 2]
 end
 ```
 
@@ -2295,7 +2303,7 @@ end
 
 fn opened(open: () -> Result<Store, String>) -> Int
     case open()
-        Ok(s) -> Store.size(s)
+        Ok(s)  -> Store.size(s)
         Err(_) -> 0
     end
 end
@@ -2306,10 +2314,10 @@ fn main()
     bx = Box{item: [1]}
     b: Box<Display> = bx // Box's T is covariant
     sink = Sink{take: shown}
-    ints: Sink<Int> = sink // Sink's T is contravariant
-    dbg Maybe.map(wide, shown) // Some("<[1, 2]>")
-    dbg shown(b.item) // "<[1]>"
-    dbg ints.take(5) // "<5>"
+    ints: Sink<Int> = sink             // Sink's T is contravariant
+    dbg Maybe.map(wide, shown)         // Some("<[1, 2]>")
+    dbg shown(b.item)                  // "<[1]>"
+    dbg ints.take(5)                   // "<5>"
     dbg opened(fn -> Ok(Memory{n: 3})) // 3
 end
 ```
@@ -2381,7 +2389,7 @@ fn main()
     m: Map<String, Int> = {}
     f: (Int) -> Int = fn x -> x + 1
     dbg Map.size(m) // 0
-    dbg f(1) // 2
+    dbg f(1)        // 2
 end
 ```
 
@@ -2473,7 +2481,7 @@ fn main()
     end)
 
     dbg Iter.to_list(x) // [2, 3]
-    dbg d // 3
+    dbg d               // 3
 end
 ```
 
@@ -2538,7 +2546,7 @@ the argument that carries it:
 ```nomi
 dbg Result.collect([]) // error: the element type of `[]` is not determined
 
-dbg Maybe.values([None]) // error: the type argument T of `Maybe.values` is not determined
+dbg Maybe.collect([None]) // error: the type argument T of `Maybe.collect` is not determined
 
 dbg Iter.sum([]) // error: the element type of `[]` is not determined
 
@@ -2607,14 +2615,14 @@ import
 end
 
 once admin = {
-    home: Route`GET /admin/{$}`,
+    home: Route"GET /admin/{$}",
     user: `GET /admin/users/{id}` as Route<{id: Uuid}>,
     tags: [] as List<String>,
 }
 
 fn main()
     dbg admin.tags + ["new"] // ["new"]
-    dbg None as Maybe<Int> // None
+    dbg None as Maybe<Int>   // None
 end
 ```
 
@@ -2661,7 +2669,7 @@ a map by entries).
 ```nomi
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 fn main()
@@ -2925,7 +2933,7 @@ impl Money
 end
 
 fn main()
-    dbg max_retries // 3
+    dbg max_retries      // 3
     dbg Money.zero.cents // 0
 end
 ```
@@ -2937,7 +2945,7 @@ end
   ``once 'a' has no type annotation and its value depends on its own type (a → b → a) — annotate it (`a: T = …`)``,
   at each.
 - **Where.** In a function body it is
-  `'once x' must appear at module top-level — function bodies use ordinary 'name = value' bindings`.
+  `'once x' must appear at file level or in an inherent impl block — function bodies use ordinary 'name = value' bindings`.
   In an `impl Iface for Type` block it is
   ``interface impl blocks hold only `fn` / `host fn` implementation items; write `once` as a file or inherent impl declaration``.
   It may not stand in a type body either.
@@ -3047,8 +3055,8 @@ fn connect(host: String, port: Int = 8080, timeout: Int = 30) -> String
 end
 
 fn main()
-    dbg connect("x") // "x:8080/30"
-    dbg connect("x", 80) // "x:80/30"
+    dbg connect("x")             // "x:8080/30"
+    dbg connect("x", 80)         // "x:80/30"
     dbg connect("x", timeout: 5) // "x:8080/5"
 end
 ```
@@ -3123,7 +3131,7 @@ fn search(query: String, limit = 10, offset = 0) -> String
 end
 
 fn main()
-    dbg search("nomi") // "nomi 10 0"
+    dbg search("nomi")             // "nomi 10 0"
     dbg search("nomi", offset: 20) // "nomi 10 20"
 end
 ```
@@ -3159,7 +3167,7 @@ end
 
 fn main()
     dbg sum(Point{x: 1, y: 2}) // 3
-    dbg add_pair((3, 4)) // 7
+    dbg add_pair((3, 4))       // 7
 end
 ```
 
@@ -3177,9 +3185,22 @@ and so does a lambda's `fn Request -> ...`. The head may name any type
 written as one name: a struct, an enum of any number of variants (the
 parameter matches every value, whatever its variant), a distinct type, an
 alias, a builtin such as `String`, or a type parameter. A generic type
-needs its arguments, which a head cannot write, so `fn f(Box)` is the
-error that `Box` expects 1 type argument, got 0; write `_: Box<Int>`. A
-name that is no type is `unknown type "Label"`. A name that is also a
+needs its arguments, so `fn f(Box)` is the error that `Box` expects 1 type
+argument, got 0.
+
+The type alone may be written in any other form a parameter's type takes,
+and binds nothing the same way: a generic type, `fn f(Vector<Int>, i: Int)`;
+one named through its file, `fn f(http.Request)`, `fn f(mod.Box<Int>)`; a
+tuple type, `fn f((Int, String))`; a function type, `fn f((Int) -> Int)`;
+an anonymous struct type, `fn f({x: Int})`. Where a pattern is spelled the
+same, the pattern is read: `Shape.Circle` and `geo.Shape.Circle` are a
+variant's pattern, `(a, b)` a tuple pattern, and an annotation after the
+parentheses or braces, `(a, b): (Int, Int)`, makes them a pattern. A
+lambda's parameter takes these forms too, but not a function type alone:
+in `fn (Int) -> n` the `->` is the lambda's, which takes an `Int` and
+returns `n`, so a lambda takes a function it ignores as `_: (Int) -> Int`.
+
+A name that is no type is `unknown type "Label"`. A name that is also a
 variant in scope is not read as a type: `fn f(None)` is
 `parameter 'None' needs a name`, and a variant that a pattern may not write
 bare, `fn f(One)`, is the bare-variant error; where a type has the name too,
@@ -3265,7 +3286,7 @@ fn apply(x: Int, scale: Int = 1, f: (Int) -> Int) -> Int
 end
 
 fn main()
-    dbg apply(5, fn x -> x + 1) // 6
+    dbg apply(5, fn x -> x + 1)           // 6
     dbg apply(5, scale: 2, fn x -> x + 1) // 11
 end
 ```
@@ -3398,7 +3419,7 @@ body, which is one of:
 
 ```nomi
 fn main()
-    dbg Iter.filter([1, 3], &(&1 > 2)) |> Iter.to_list() // [3]
+    dbg Iter.filter([1, 3], &(&1 > 2)) |> Iter.to_list()       // [3]
     dbg Iter.map(["ab"], &String.length(&1)) |> Iter.to_list() // [2]
     add: (Int, Int) -> Int = &(&1 + &2)
     dbg add(1, 2) // 3
@@ -3463,7 +3484,7 @@ end
 fn main()
     c = &connect(&1, port: &2)
     dbg c(port: 80, host: "x") // "x:80/30"
-    dbg c("y") // "y:8080/30"
+    dbg c("y")                 // "y:8080/30"
 end
 ```
 
@@ -3546,7 +3567,7 @@ enum Shape
 end
 
 fn main()
-    dbg Iter.map([1.0], Shape.Circle) |> Iter.to_list() // [Circle(1.0)]
+    dbg Iter.map([1.0], Shape.Circle) |> Iter.to_list()     // [Circle(1.0)]
     dbg Iter.map([(1, 2)], Shape.Segment) |> Iter.to_list() // [Segment(1, 2)]
     somes: List<Maybe<Int>> = Iter.map([1, 2], Some) |> Iter.to_list()
     dbg somes // [Some(1), Some(2)]
@@ -3586,7 +3607,7 @@ after the dot is a field; a capitalized one is a `.Variant`.
 ```nomi
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 fn main()
@@ -3763,7 +3784,7 @@ reference](/tooling/building/#calling-exported-functions).
 import std::json.{FromJson, ToJson}
 
 struct Game
-    word: String
+    word:    String
     guesses: List<String>
 end
 
@@ -3862,7 +3883,7 @@ end
 
 fn main()
     _ = add(b: dbg 1, a: dbg 2) // prints 1, then 2
-    _ = (dbg 3) |> add(dbg 4) // prints 3, then 4
+    _ = (dbg 3) |> add(dbg 4)   // prints 3, then 4
 end
 ```
 
@@ -3945,8 +3966,8 @@ a machine integer costs; a larger one grows as it needs to.
 
 ```nomi
 fn main()
-    dbg 9_223_372_036_854_775_807 + 1 // 9223372036854775808
-    dbg -(-9_223_372_036_854_775_808) // 9223372036854775808
+    dbg 9_223_372_036_854_775_807 + 1                  // 9223372036854775808
+    dbg -(-9_223_372_036_854_775_808)                  // 9223372036854775808
     dbg Int.wrapping_add(9_223_372_036_854_775_807, 1) // -9223372036854775808
 end
 ```
@@ -4215,7 +4236,7 @@ end
 
 fn main()
     dbg ready(False) // Err("not ready")
-    dbg ready(True) // Ok(True)
+    dbg ready(True)  // Ok(True)
 end
 ```
 
@@ -4306,11 +4327,11 @@ costs.
 
 ```nomi
 fn main()
-    dbg 2 in [1, 2, 3] // True
+    dbg 2 in [1, 2, 3]    // True
     dbg "a" in {"a" => 1} // True: a map holds its keys
-    dbg 10 in 1..10 // False: the end is excluded
-    dbg '-' in "a-b" // True
-    dbg not 7 in [1, 2] // True
+    dbg 10 in 1..10       // False: the end is excluded
+    dbg '-' in "a-b"      // True
+    dbg not 7 in [1, 2]   // True
 end
 ```
 
@@ -4350,7 +4371,7 @@ end
 
 fn main()
     dbg all_present("a word", ["a", "word"]) // True: String's impl at String
-    dbg all_present("a-b", ['-']) // True: its impl at Codepoint
+    dbg all_present("a-b", ['-'])            // True: its impl at Codepoint
 end
 ```
 
@@ -4466,7 +4487,7 @@ end
 
 fn main()
     dbg 10 |> then &divide(100, &1) // 10
-    dbg 3 |> then &add(&1, b: &1) // 6
+    dbg 3 |> then &add(&1, b: &1)   // 6
 
     dbg (1, 2)
     |> then fn (a, b) -> a + b // 3
@@ -4760,8 +4781,8 @@ the error is ``non-exhaustive case: add a `_` arm``.
 fn size(x: Int) -> String
     case
         x > 10 -> "big"
-        x > 0 -> "positive"
-        _ -> "not positive"
+        x > 0  -> "positive"
+        _      -> "not positive"
     end
 end
 
@@ -5320,9 +5341,9 @@ end
 
 fn area(shape: Shape) -> Float
     case shape
-        .Circle{r:} -> 3.14 * r * r
+        .Circle{r:}   -> 3.14 * r * r
         .Rect{w:, h:} -> w * h
-        .Point -> 0.0
+        .Point        -> 0.0
     end
 end
 
@@ -5356,14 +5377,14 @@ matches a struct or an anonymous struct.
 ```nomi
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 fn describe(user: User) -> String
     case user
-        User{name: "Alice"} -> "found Alice"
+        User{name: "Alice"}             -> "found Alice"
         User{name:, age:} when age > 18 -> "adult: ${name}"
-        {age: years} -> "minor of ${years}"
+        {age: years}                    -> "minor of ${years}"
     end
 end
 
@@ -5411,7 +5432,7 @@ fn first(p: Pair) -> Int
 end
 
 fn main()
-    dbg show(Pair(1, "hello")) // "1, hello"
+    dbg show(Pair(1, "hello"))  // "1, hello"
     dbg first(Pair(1, "hello")) // 1
 end
 ```
@@ -5419,6 +5440,14 @@ end
 The call form takes one value. For a tuple distinct, `Pair(a)` binds the whole
 tuple to `a`, and `Pair(a, b)`, one pattern per element, takes the tuple apart
 with it.
+
+A distinct declared in another module is named in a pattern as it is in a
+literal, bare when imported or through its module: `kinds.Items[a, b]`,
+`kinds.Kvs{"a" => v}` and `kinds.Pair(a, b)` each take apart that module's
+type. The prefix names a type as an annotation does, and must be the value's
+type itself: another module's type of the same name is a different type
+(`pattern names other.Items, but the value is a kinds.Items`), and so is any
+other type (`pattern names kinds.Other, but the value is an Items`).
 
 ### List Destructuring
 
@@ -5476,8 +5505,8 @@ Over a vector, `[...]` matches as it matches a list, from either end.
 ```nomi
 fn ends(v: Vector<Int>) -> Int
     case v
-        [] -> 0
-        [only] -> only
+        []                -> 0
+        [only]            -> only
         [first, .., last] -> first + last
     end
 end
@@ -5559,9 +5588,9 @@ after the `..` binds them.
 fn role(s: Set<String>) -> String
     case s
         ["admin", ..rest] -> "admin and ${Set.size(rest)} more"
-        ["user", ..] -> "user"
-        [] -> "nobody"
-        _ -> "other"
+        ["user", ..]      -> "user"
+        []                -> "nobody"
+        _                 -> "other"
     end
 end
 
@@ -5599,8 +5628,8 @@ binds `rest` to the remainder, so the string is `"prefix" + rest`.
 fn route(path: String) -> String
     case path
         "/users/" + id -> "user ${id}"
-        "/health" -> "ok"
-        _ -> "not found"
+        "/health"      -> "ok"
+        _              -> "not found"
     end
 end
 
@@ -5694,8 +5723,8 @@ Taught in [Pattern Matching](/pattern-matching/#naming-the-whole-match-with-as).
 fn describe(result: Result<Int, String>) -> String
     case result
         Ok(n) as r when n > 9 -> "big: ${r}"
-        Ok(_) -> "small"
-        Err(msg) -> msg
+        Ok(_)                 -> "small"
+        Err(msg)              -> msg
     end
 end
 
@@ -5787,7 +5816,7 @@ end
 fn describe(value: Shape) -> Float
     case value
         .Circle{radius: _} -> area(value) // value is a Circle here
-        .Point -> 0.0
+        .Point             -> 0.0
     end
 end
 
@@ -5849,8 +5878,8 @@ end
 
 fn main()
     dbg first_word([]) // "(none)"
-    dbg email(None) // "none"
-    dbg port("80") // Ok(80)
+    dbg email(None)    // "none"
+    dbg port("80")     // Ok(80)
 end
 ```
 
@@ -6022,7 +6051,7 @@ fn total(open: Bool) -> Result<Int, ApiError>
 end
 
 fn main()
-    dbg total(True) // Ok(4)
+    dbg total(True)  // Ok(4)
     dbg total(False) // Err(Database(Closed))
 end
 ```
@@ -6096,8 +6125,8 @@ end
 
 fn main()
     ages = {"Ada" => 36}
-    dbg Map.get(ages, "Ada")! // 36
-    dbg half(10)! // 5
+    dbg Map.get(ages, "Ada")!    // 36
+    dbg half(10)!                // 5
     dbg "42" |> String.to_int()! // 42
 end
 ```
@@ -6221,9 +6250,9 @@ Reaching it traps.
 ```nomi
 fn encode_run(run: List<String>) -> String
     case run
-        [letter] -> letter
+        [letter]     -> letter
         [letter, ..] -> "${Iter.count(run)}${letter}"
-        [] -> unreachable "chunk_by never yields an empty run"
+        []           -> unreachable "chunk_by never yields an empty run"
     end
 end
 
@@ -6260,7 +6289,7 @@ end
 impl Display for UserError
     fn to_string(e: UserError) -> String
         case e
-            .NotFound(id) -> "user not found: ${id}"
+            .NotFound(id)      -> "user not found: ${id}"
             .InvalidName(name) -> "invalid name: ${name}"
         end
     end
@@ -6442,7 +6471,7 @@ end
 
 fn main()
     dbg Temperature.label(Celsius(21.456d)) // "21.5 C"
-    dbg Celsius.scale(Celsius(10d), 2d) // Celsius(20d)
+    dbg Celsius.scale(Celsius(10d), 2d)     // Celsius(20d)
 end
 ```
 
@@ -6482,7 +6511,7 @@ interface Tagged
 end
 
 struct Event
-    tag: Int
+    tag:  Int
     name: String
 end
 
@@ -6533,7 +6562,7 @@ end
 
 fn main()
     user = User{name: "Alice"}
-    dbg User.format(user, "pretty") // "User: Alice (pretty)"
+    dbg User.format(user, "pretty")     // "User: Alice (pretty)"
     dbg Formatted.format(user, "brief") // "User: Alice (brief)"
 end
 ```
@@ -6639,7 +6668,7 @@ end
 
 fn main()
     rex = Dog{name: "Rex"}
-    dbg Speaker.speak(rex) // "Rex: woof"
+    dbg Speaker.speak(rex)   // "Rex: woof"
     dbg Performer.speak(rex) // "Rex takes a bow"
 end
 ```
@@ -6683,10 +6712,9 @@ fn sort<T>(list: List<T>) -> List<T> where T: SortableValue
 end
 ```
 
-An interface-bound alias (`typealias Name A and B`) stands only in a `where`
-bound and on the right of another bound alias. As a value type it is the
-error `"AB" is an interface-bound alias and cannot be used as a value type; use
-it via a `where T: AB` bound instead`.
+The alias names the interface conjunction `Sortable and Comparable`, which is
+a bound in a `where` clause and a value type anywhere else (*Interface
+conjunctions*).
 
 A collection of values of several types is an enum with `embeds` variants
 when the set is closed (§4), and an interface-typed collection when callers
@@ -6700,8 +6728,10 @@ Taught in [Interfaces and Dispatch](/interfaces-and-dispatch/#interface-bounded-
 For `Equatable` and `Hashable` that means having equality: a declared type
 with no impl of its own meets either bound when `==` accepts it (§5
 *Equality bounds*). Several
-bounds join with `and`: `where T: Showable and Tagged`. There is no `or`. A
-generic header introduces names only; constraints go in the `where` clause,
+bounds join with `and`: `where T: Showable and Tagged`. There is no `or`: a
+`T` bounded by one interface or another could call neither's functions, so
+`where T: Priced or Costed` is ``` `where` bounds combine with `and`: a type parameter bounded by one interface or another could call neither's functions; declare an interface both implement, or bound on one ```
+at the `or`. A generic header introduces names only; constraints go in the `where` clause,
 after a function's result or after a type declaration's parameter list. Every
 type parameter is in scope in the whole header and the `where` clause.
 
@@ -6712,7 +6742,7 @@ end
 
 opaque struct StepByRange<T, S> where T: Comparable
     range: Range<T>
-    by: S
+    by:    S
 end
 ```
 
@@ -6873,9 +6903,9 @@ end
 
 fn main()
     b = Box{n: 1, s: "a"}
-    dbg Box.holds(b, 1) // True: Holds<Int>
+    dbg Box.holds(b, 1)     // True: Holds<Int>
     dbg Holds.holds(b, "b") // False: Holds<String>
-    dbg held_by(b, "a") // True: the bound at String
+    dbg held_by(b, "a")     // True: the bound at String
 end
 ```
 
@@ -6966,7 +6996,7 @@ end
 fn main()
     rate = Rate{per_unit: 4.25d}
     dbg 12.5d * rate // 53.125d
-    dbg 2d * 3d // 6d: std's impl
+    dbg 2d * 3d      // 6d: std's impl
 end
 ```
 
@@ -7049,6 +7079,73 @@ a `Scale` value can be used at are `Scale`, `Debug`, `Equatable` and
 - A generic function that instantiates itself at an ever-growing type (`fn
   grow<T>(x: T)` calling `grow(Box{inner: x})`) is a compile error at that call
   (§4 *Generics*).
+
+### Interface conjunctions
+
+`A and B` is a type: a value of any type that implements both. It is written
+wherever a type is, and `typealias Name A and B` names it.
+
+```nomi
+interface Priced
+    fn price(item: self) -> Int
+end
+
+interface Costed
+    fn cost(item: self) -> Int
+end
+
+struct Coffee
+    beans: Int
+end
+
+impl Priced for Coffee
+    fn price(c: Coffee) -> Int
+        c.beans * 3
+    end
+end
+
+impl Costed for Coffee
+    fn cost(c: Coffee) -> Int
+        c.beans
+    end
+end
+
+fn margin(item: Priced and Costed) -> Int
+    Priced.price(item) - Costed.cost(item)
+end
+
+fn main()
+    items: List<Priced and Costed> = [Coffee{beans: 2}, Coffee{beans: 5}]
+    dbg items |> Iter.map(margin) |> Iter.to_list() // [4, 10]
+    both: Priced and Costed = Coffee{beans: 2}
+    one: Priced = both
+    dbg Priced.price(one) // 6
+end
+```
+
+- **Entering.** A value converts into `A and B` when its type implements
+  every member. Otherwise it is the position's mismatch, with help naming the
+  member it lacks: `type mismatch: expected Costed and Priced, got Mug`, help
+  `` Mug does not implement Costed; write an `impl Costed for Mug` block ``.
+- **Calls.** A call through any member (`Priced.price(item)`) dispatches to
+  the held value's impl. A use that needs an interface outside the members is
+  the error *Interface values* gives: `` `item` is a `Costed and Priced`, and
+  Costed and Priced does not require Display of its implementors ``.
+- **Widening.** `A and B` converts to `A`, and to any conjunction of some of
+  its members, at the top and at any position that converts (§5 *Covariant
+  conversion*). `A` does not convert to `A and B`: `a Priced value need not
+  implement Costed, so it does not convert to Costed and Priced`. Widening
+  moves nothing at run time.
+- **Identity.** Members are interfaces, in any order, and one written twice
+  counts once: `A and B`, `B and A` and `A and B and A` are one type, shown
+  with its members sorted by name. A member that is no interface is an error:
+  `` `and` joins interfaces, and Int is not an interface ``.
+- **Equality.** `==`, hashing and `Debug` work on a conjunction as on any
+  interface value, through the held value (*Interface values*), so
+  `Equatable and Hashable` values go in a `Set`. A conjunction with an
+  `Iter` member has no equality. `Display` renders only when it is a member.
+- **Bounds.** In a `where` clause `T: A and B` bounds `T` by each member
+  (*Bounds and dispatch in generic code*).
 
 ### Display and Debug
 
@@ -7157,7 +7254,7 @@ derive Hashable for Point
 
 fn main()
     dbg Point{x: 1, y: 2} == Point{x: 1, y: 2} // True
-    dbg Hashable.hash(Point{x: 1, y: 2}) // 33
+    dbg Hashable.hash(Point{x: 1, y: 2})       // 33
 end
 ```
 
@@ -7974,7 +8071,7 @@ An application type has at most one field of type `Context`, under any name. Boo
 
 ```nomi
 pub struct Startup
-    env: Map<String, String> = {}
+    env:  Map<String, String> = {}
     args: List<String> = []
 end
 ```
@@ -8150,7 +8247,7 @@ fn main()
 
     case Context.value(App.context, TraceId)
         Some(TraceId(id)) -> io.print("trace ${id}") // trace trace-123
-        None -> io.print("no trace")
+        None              -> io.print("no trace")
     end
 end
 ```
@@ -8219,7 +8316,7 @@ concurrent
 
     o = case Task.await(b)
         Ok(order) -> order
-        Err(_) -> default_order // handled here; nothing is cancelled
+        Err(_)    -> default_order // handled here; nothing is cancelled
     end
 
     Ok((u, o))
@@ -8271,7 +8368,7 @@ end
 
 fn produce(out: Sender<Int>, n: Int) -> Unit
     case Sender.send(out, n)
-        Ok(u) -> u
+        Ok(u)  -> u
         Err(_) -> io.print("send failed")
     end
 end
@@ -8280,7 +8377,7 @@ fn consume(inbox: Receiver<Int>) -> Int
     Iter.loop(0, fn sum: Int ->
         case Receiver.receive(inbox)
             Some(v) -> sum + v
-            None -> break sum
+            None    -> break sum
         end
     end)
 end
@@ -8352,13 +8449,13 @@ end
 
 struct App
     context: Context
-    audit: Supervisor
+    audit:   Supervisor
 end
 
 fn boot() -> Result<App, String>
     Ok(App{
         context: Context.root(),
-        audit: Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
+        audit:   Supervisor.new(max_running: 4, shutdown_timeout: Duration.seconds(30)),
     })
 end
 ```
@@ -8379,7 +8476,7 @@ A supervised task may open its own `concurrent` block; the block owns the tasks 
 
 #### Flushing and shutdown
 
-The program drains every supervisor when `main` returns or the process receives `SIGINT` or `SIGTERM`. Supervisors drain at the same time, each within its own `shutdown_timeout`; when a budget runs out, the remaining work is cancelled. A second interrupt exits at once.
+The program drains every supervisor when `main` returns or the process receives `SIGINT` or `SIGTERM`. Supervisors drain at the same time, each within its own `shutdown_timeout`; when a budget runs out, the remaining work is cancelled, and shutdown waits up to one second for it to unwind and run its deferred calls before abandoning it. Boot's deferred calls run after that (§15 *Cleanup and boot failure*). A second interrupt exits at once.
 
 #### Failures and restarts
 
@@ -8616,7 +8713,7 @@ The rules:
 ```nomi
 test "leap years"
     cases = [
-        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 400 is leap year",                         2000, True),
         ("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
 
@@ -8725,7 +8822,7 @@ impl Literal for Box
     fn from_fragments(fragments: List<Fragment<String>>) -> Box
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -8780,36 +8877,39 @@ Joiner.from_fragments(
 
 A triple-quoted typed literal strips its leading newline, common indentation and trailing newline as a triple-quoted string does, and the `${...}` and `\${` rules of strings apply inside a non-raw body (§3 *String Literals*). A raw (backtick) body has no slots: it is one `Static` holding the text as written.
 
-The type of a double-quoted typed literal is `R`, interpolated or not: `Date"2026-05-04"` is a `Result<Date, Error>`, built when the program runs. A checked literal is an exception: its type is its `build`'s result in every quote style (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is `Result<Regex<String>, String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std::regex](/reference/regex/#capture-types)).
+The type of a typed literal with a `${...}` slot is `R`: `Date"2026-${month}-04"` is a `Result<Date, Error>`, built when the program runs. A literal without slots is checked at compile time, and when its handler returns `Result<T, E>` its type is `T` (below): `Date"2026-05-04"` is a `Date`. A checked literal's type is its `build`'s result with or without slots (§18 *Checked literals*), and an `Html` literal is always an `Html`. A `Regex` literal is the one whose type depends on its text: with no `${...}`, `Regex"(\\d+)"` is a `Regex<String>`, while `Regex"room ${n}"` is `Result<Regex<List<Maybe<String>>>, String>` ([std::regex](/reference/regex/#capture-types)).
 
-#### Raw literals are checked at compile time
+#### A literal without slots is checked at compile time
 
-Taught in [Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time).
+Taught in [Typed Literals](/typed-literals/#a-literal-without-slots-is-checked-at-compile-time).
 
-A raw body never interpolates, so the handler's input is fixed. When the handler returns `Result<T, E>`, the compiler runs it while it checks the program, and the literal's type is `T`:
+A typed literal with no `${...}` slot, written with double quotes, triple quotes or backticks, gives its handler fixed text. The compiler runs the handler while it checks the program. When the handler returns `Result<T, E>`, the literal's type is `T`:
 
-- `Ok(v)`: the literal is that `T`. ``Regex`\d+` `` is a `Regex<Unit>` and needs no `?`, and ``once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
+- `Ok(v)`: the literal is that `T`. `Date"2026-05-04"` is a `Date` and ``Regex`\d+` `` is a `Regex<Unit>`; neither needs a `?`, and ``once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
 - `Err(e)`: the literal is a compile error carrying the handler's message (`e`'s `Display`, or its `Debug` when it has none): ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
-- A handler that reaches an effect (output, files, the clock, tasks, an application field), or does not finish within the compiler's step limit, cannot run at compile time, and the literal is an error that says so: ``typed literal Loud`x` cannot be checked at compile time: its handler has effects (Loud.from_fragments calls io.print)``. Write such a literal with double quotes and handle its `Result`.
 
-A `?` on such a literal is the ordinary error `` `?` requires a Result or Maybe, got Regex<Unit> ``, whose hint says to remove the `?`. A handler that returns `T` itself gives the type `T` in both quote styles.
+A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (output, files, the clock, tasks, an application field), traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Loud.from_fragments calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
+
+A `?` on a literal without slots is the ordinary error `` `?` requires a Result or Maybe, got Regex<Unit> ``, whose hint says to remove the `?`.
 
 ```nomi
 import
+    std::calendar.Date
     std::io
     std::regex.Regex
 end
 
-once letters = Regex`[A-Za-z]+`
+once letters = Regex"[A-Za-z]+"
 
 fn main()
     digits: Regex<Unit> = Regex`\d+`
     io.print(String.find_all("order 66, aisle 7", digits)) // [66, 7]
-    io.print(String.find_all("ab 12 cd", letters)) // [ab, cd]
+    io.print(String.find_all("ab 12 cd", letters))         // [ab, cd]
+    io.print(Date.year(Date"2026-05-04"))                  // 2026
 end
 ```
 
-When the program runs, a raw literal still calls its handler, once per literal site: the first evaluation builds the value and later ones reuse it. The handler is pure and its input fixed, so the run gets the value the compiler got.
+When the program runs, a literal without slots still calls its handler, once per literal site: the first evaluation builds the value and later ones reuse it. The handler is pure and its input fixed, so the run gets the value the compiler got.
 
 #### Checked literals
 
@@ -8829,10 +8929,10 @@ end
 
 Its literals are checked literals. A checked literal's type is `T` in every quote style, with or without slots; it is never a `Result`:
 
-- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a raw literal's handler: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
+- `check` runs while the program is checked, once per literal, on the literal's static text: the `n + 1` pieces around its `n` slots, in order, empty ones included. It follows the rules of a handler run at compile time: a `check` that reaches an effect is one error at the check, ``Url.check has effects (...); a checked literal's check runs when the program is checked``, and one that does not finish within the step limit is an error at the literal.
 - What the compiler runs is `check_type`, whose default is `check`. It gets the statics and a description of the literal's type: each of its type arguments as Nomi spells it, in order, after the expected type solved them (§18 *Literals typed by their position*). A `Route<{id: Uuid}>` literal gets `["{id: Uuid}"]`, a `Url` literal `[]`. The description is text, not the types; nothing in it is a value of the type. A type whose text must agree with its type arguments, as a route's wildcards agree with its parameters, writes `check_type`; it follows `check`'s rules, and an effect in it is reported as `Route.check_type has effects (...)`.
 - A generic type's impl, `impl CheckedLiteral<String, Route<P>> for Route<P>`, gives each literal fresh type arguments, which the expected type solves as it solves a generic call's.
-- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), ``Route`GET /users/{id}` `` is a `Route<{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
+- std::http's `Route<P>` is the one checked literal whose type follows from its text when nothing else gives it, as a `Regex` literal's captures do: with no expected type, or one that leaves `P` open once the arguments that solve it on their own are checked (§18 *Literals typed by their position*), `Route"GET /users/{id}"` is a `Route<{id: String}>`, a `String` field per wildcard (`{rest...}` included), and a route with none is a `Route<Unit>`. Its `check_type` holds the wildcards to `P`'s fields, ``the pattern has `{id}`, but `{post_id: Uuid}` has no field `id` `` at the wildcard, and the checker holds each field's type to `Parse` and `Display`: ``a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse` ``.
 - An `Err(LiteralError{fragment:, offset:, message:})` is a compile error carrying `message` at the character `offset` code points into static `fragment`, counted in the text as `check` received it. An offset at a static's end points at the `${` of the slot after it; fragment 0 and offset 0 point at the literal.
 - `build` runs when the program runs, gets the fragments `from_fragments` would get, and cannot fail: once `check` accepts the text, every slot value must build. A `build` that traps anyway traps where it runs.
 
@@ -8881,7 +8981,7 @@ end
 
 struct Link
     label: String
-    to: Url
+    to:    Url
 end
 
 fn home() -> Url

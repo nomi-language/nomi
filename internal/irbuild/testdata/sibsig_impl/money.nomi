@@ -7,7 +7,7 @@
 // agreed would pass under either rule and prove nothing.
 pub struct Money
     cents: Int
-    note: String
+    note:  String
 end
 
 pub fn at(cents: Int, note: String) -> Money

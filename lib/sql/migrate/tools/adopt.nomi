@@ -25,7 +25,7 @@ fn main() -> Result<Unit, String>
 
     case adopted
         [] -> io.print("nothing to adopt: every migration golang-migrate applied is recorded")
-        _ -> Iter.each(adopted, fn version -> io.print("recorded ${version}"))
+        _  -> Iter.each(adopted, fn version -> io.print("recorded ${version}"))
     end
 
     Ok(Unit)

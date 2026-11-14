@@ -17,7 +17,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// Something that could go in the knapsack.
 pub struct Item
     weight: Int
-    value: Int
+    value:  Int
 end
 
 /// The greatest total value of `items`, each taken at most once, whose
@@ -53,8 +53,8 @@ import knapsack.{self, Item}
 
 test "maximum value"
     cases: List<(String, Int, List<Item>, Int)> = [
-        ("no items", 100, [], 0),
-        ("one item, too heavy", 10, [{weight: 100, value: 1}], 0),
+        ("no items",            100, [],                        0),
+        ("one item, too heavy", 10,  [{weight: 100, value: 1}], 0),
         (
             "five items (cannot be greedy by weight)",
             10,

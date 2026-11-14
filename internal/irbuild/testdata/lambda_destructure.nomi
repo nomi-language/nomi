@@ -19,7 +19,7 @@ end
 
 struct Segment
     from: Point
-    to: Point
+    to:   Point
 end
 
 type Meters Int

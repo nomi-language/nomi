@@ -28,16 +28,16 @@ fn preflight(origin: String) -> Request
     }
 end
 
-once app_origin = Origin`https://app.example.com`
+once app_origin = Origin"https://app.example.com"
 
 test "a preflight from an allowed origin is answered without the handler"
     app =
         answer
         |> http.cors(Cors{
-            origins: [app_origin],
-            methods: [Method.Get, Method.Put],
+            origins:         [app_origin],
+            methods:         [Method.Get, Method.Put],
             allowed_headers: ["Content-Type"],
-            max_age: Some(Duration.minutes(10)),
+            max_age:         Some(Duration.minutes(10)),
         })
 
     r = app(preflight("https://app.example.com"))
@@ -160,8 +160,8 @@ once page = String.repeat("<li>an item</li>", 200)
 test "compress gzips a streamed body as it is read"
     app =
         (fn _: Request -> Response{
-            headers: Headers[("Content-Type", "text/html"), ("Content-Length", "3200")],
-            body: Body.Stream(Reader.from_text(page)),
+            headers:        Headers[("Content-Type", "text/html"), ("Content-Length", "3200")],
+            body:           Body.Stream(Reader.from_text(page)),
             content_length: Some(3200),
         })
         |> http.compress()
@@ -226,7 +226,7 @@ test "compress leaves compressed types alone and compresses SVG"
         app =
             (fn _: Request -> Response{
                 headers: Headers[("Content-Type", content_type)],
-                body: Body.Text(page),
+                body:    Body.Text(page),
             })
             |> http.compress()
 
@@ -264,7 +264,7 @@ end
 
 test "compress passes a precompressed file through"
     files = Files.from_bytes([
-        ("app.js", String.to_bytes(page)),
+        ("app.js",    String.to_bytes(page)),
         ("app.js.gz", String.to_bytes("zipped")),
     ])
 
@@ -333,7 +333,7 @@ test "method_override leaves a streamed body for the handler to read"
     streamed = {
         ..testing.request(Method.Post, "/posts/1"),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
-        body: Body.Stream(Reader.from_text("_method=put&title=Hi")),
+        body:    Body.Stream(Reader.from_text("_method=put&title=Hi")),
     }
 
     assert Response.text(app(streamed)) == Ok("PUT Some(Hi)")

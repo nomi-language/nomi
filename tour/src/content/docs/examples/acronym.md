@@ -19,7 +19,7 @@ import std::regex.Regex
 /// Hyphens and other punctuation separate words; an apostrophe does not.
 pub fn abbreviate(phrase: String) -> String
     phrase
-    |> String.find_all(Regex`[A-Za-z][A-Za-z']*`)
+    |> String.find_all(Regex"[A-Za-z][A-Za-z']*")
     |> Iter.map(&String.take(&1, 1))
     |> String.join()
     |> String.uppercase()
@@ -30,10 +30,10 @@ import acronym.abbreviate
 
 test "abbreviates phrases"
     [
-        ("basic", "Portable Network Graphics", "PNG"),
-        ("lowercase words", "Ruby on Rails", "ROR"),
-        ("punctuation", "First In, First Out", "FIFO"),
-        ("all caps word", "GNU Image Manipulation Program", "GIMP"),
+        ("basic",                          "Portable Network Graphics",               "PNG"),
+        ("lowercase words",                "Ruby on Rails",                           "ROR"),
+        ("punctuation",                    "First In, First Out",                     "FIFO"),
+        ("all caps word",                  "GNU Image Manipulation Program",          "GIMP"),
         ("punctuation without whitespace", "Complementary metal-oxide semiconductor", "CMOS"),
         (
             "very long abbreviation",
@@ -41,8 +41,8 @@ test "abbreviates phrases"
             "ROTFLSHTMDCOALM",
         ),
         ("consecutive delimiters", "Something - I made up from thin air", "SIMUFTA"),
-        ("apostrophes", "Halley's Comet", "HC"),
-        ("underscore emphasis", "The Road _Not_ Taken", "TRNT"),
+        ("apostrophes",            "Halley's Comet",                      "HC"),
+        ("underscore emphasis",    "The Road _Not_ Taken",                "TRNT"),
     ]
     |> subtests (description, phrase, expected), description
         assert abbreviate(phrase) == expected

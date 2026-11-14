@@ -59,7 +59,7 @@ end
 derive Equatable for Received
 
 struct State
-    sent: List<Message>
+    sent:     List<Message>
     received: List<Received>
 end
 
@@ -72,7 +72,7 @@ end
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
-//!     to: [Address.new("b@example.com")?],
+//!     to:   [Address.new("b@example.com")?],
 //!     text: Some("hi"),
 //! }
 //!
@@ -108,17 +108,17 @@ impl Mailer for Memory
         data = mail.render(message)?
 
         received = Received{
-            from: Address.email(message.from),
+            from:       Address.email(message.from),
             recipients: mail.recipients(message),
             data:,
-            tls: False,
+            tls:      False,
             username: None,
         }
 
         state = take(memory.state)
 
         put(memory.state, State{
-            sent: List.concat(state.sent, [message]),
+            sent:     List.concat(state.sent, [message]),
             received: List.concat(state.received, [received]),
         })
 
@@ -129,7 +129,7 @@ end
 fn take(state: Channel<State>) -> State
     case Receiver.receive(state.receiver)
         Some(s) -> s
-        None -> State{sent: [], received: []}
+        None    -> State{sent: [], received: []}
     end
 end
 
@@ -152,7 +152,7 @@ end
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
-//!     to: [Address.new("b@example.com")?],
+//!     to:   [Address.new("b@example.com")?],
 //!     text: Some("hi"),
 //! }
 //!
@@ -171,7 +171,7 @@ end
 /// An SMTP server `with_smtp_server` runs.
 pub opaque struct SmtpServer
     config: SmtpConfig
-    state: Channel<State>
+    state:  Channel<State>
 end
 
 impl SmtpServer
@@ -198,7 +198,7 @@ end
 //!
 //! message = Message{
 //!     from: Address.new("a@example.com")?,
-//!     to: [Address.new("b@example.com")?],
+//!     to:   [Address.new("b@example.com")?],
 //!     text: Some("hi"),
 //! }
 //!
@@ -221,9 +221,9 @@ end
 //! ] = received
 //
 pub fn with_smtp_server<T>(
-    starttls: Bool = False,
+    starttls:    Bool = False,
     credentials: Maybe<Credentials> = None,
-    body: (SmtpServer) -> T,
+    body:        (SmtpServer) -> T,
 ) -> T
     listener = net.listen("127.0.0.1:0")!
     (host, port) = net.split_host_port(Listener.address(listener))!
@@ -231,7 +231,7 @@ pub fn with_smtp_server<T>(
     (server_tls, client_tls) = if starttls then
         (cert, key) = case http_host.test_certificate()
             [c, k] -> (c, k)
-            _ -> ("", "")
+            _      -> ("", "")
         end
 
         certificate = Certificate.from_pem(cert, key)!
@@ -245,11 +245,11 @@ pub fn with_smtp_server<T>(
 
     config = SmtpConfig{
         host:,
-        port: String.to_int(port) |> Maybe.with_default(0),
+        port:     String.to_int(port) |> Maybe.with_default(0),
         security: if starttls then Security.StartTls else Security.Off,
         credentials:,
         timeout: Duration.seconds(10),
-        tls: client_tls,
+        tls:     client_tls,
     }
 
     server = SmtpServer{config:, state:}
@@ -265,17 +265,17 @@ pub fn with_smtp_server<T>(
 end
 
 struct Rules
-    tls: Maybe<ServerConfig>
+    tls:         Maybe<ServerConfig>
     credentials: Maybe<Credentials>
-    state: Channel<State>
+    state:       Channel<State>
 end
 
 // One connection's state.
 struct Peer
-    conn: Connection
-    tls: Bool
-    username: Maybe<String>
-    from: Maybe<String>
+    conn:       Connection
+    tls:        Bool
+    username:   Maybe<String>
+    from:       Maybe<String>
     recipients: List<String>
 end
 
@@ -305,14 +305,14 @@ end
 fn read(peer: Peer) -> Maybe<String>
     case Reader.read_line(Connection.reader(peer.conn))
         Ok(Some(line)) -> Some(line)
-        _ -> None
+        _              -> None
     end
 end
 
 fn converse(peer: Peer, rules: Rules)
     line = case read(peer)
         Some(l) -> l
-        None -> return
+        None    -> return
     end
 
     verb = String.uppercase(
@@ -405,7 +405,7 @@ fn converse(peer: Peer, rules: Rules)
                                 from:,
                                 recipients: peer.recipients,
                                 data:,
-                                tls: peer.tls,
+                                tls:      peer.tls,
                                 username: peer.username,
                             }
 
@@ -437,7 +437,7 @@ fn converse(peer: Peer, rules: Rules)
 
     case next
         Some(p) -> converse(p, rules)
-        None -> Unit
+        None    -> Unit
     end
 end
 
@@ -491,7 +491,7 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
             |> Maybe.flat_map(fn text ->
                 case String.split(text, "\u{0}")
                     [_, user, password] -> Some((user, password))
-                    _ -> None
+                    _                   -> None
                 end
             end)
 
@@ -503,7 +503,7 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
 
             case (user, password)
                 (Some(u), Some(p)) -> Some((u, p))
-                _ -> None
+                _                  -> None
             end
 
         _ ->
@@ -532,14 +532,14 @@ end
 /// What a backend under `conformance` is: a mailer, and what has reached
 /// its server since it was opened.
 pub struct Opened
-    mailer: Mailer
+    mailer:   Mailer
     received: () -> List<Received>
 end
 
 /// A conformance rule a mailer broke, and how. Its `Display` is `rule:
 /// message`.
 pub struct Broken
-    rule: String
+    rule:    String
     message: String
 end
 
@@ -578,7 +578,7 @@ end
 //!         before = Iter.count(SmtpServer.received(server))
 //!
 //!         Opened{
-//!             mailer: mail.smtp(SmtpServer.config(server)),
+//!             mailer:   mail.smtp(SmtpServer.config(server)),
 //!             received: fn -> SmtpServer.received(server) |> Iter.drop(before) |> Iter.to_list(),
 //!         }
 //!     end)
@@ -590,7 +590,7 @@ pub fn conformance(open: () -> Opened) -> List<Broken>
     checks()
     |> Iter.flat_map(fn (rule, check) ->
         case check(open())
-            Ok(_) -> []
+            Ok(_)        -> []
             Err(message) -> [Broken{rule:, message:}]
         end
     end)
@@ -613,9 +613,9 @@ fn base() -> Message
     Message{
         from: Address.new("sender@example.com", name: "Sender")
         |> Result.with_default(address("sender@example.com")),
-        to: [address("to@example.com")],
+        to:      [address("to@example.com")],
         subject: "Conformance",
-        text: Some("Hello."),
+        text:    Some("Hello."),
     }
 end
 
@@ -661,7 +661,7 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>
             fn o ->
                 send(o, {
                     ..base(),
-                    cc: [address("cc@example.com")],
+                    cc:  [address("cc@example.com")],
                     bcc: [address("bcc@example.com"), address("to@example.com")],
                 })?
 

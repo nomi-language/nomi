@@ -49,7 +49,7 @@ end
 
     total = case xs
         [] -> 0
-        _ -> 1
+        _  -> 1
     end
 
     total + first

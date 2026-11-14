@@ -154,7 +154,7 @@ fn orders_query(statuses: List<String>, min_total: Maybe<Decimal>, sort: Sort) -
     by_total = min_total |> Maybe.map(fn t -> Sql"total >= ${t}")
 
     order = case sort
-        .Newest -> Sql" ORDER BY placed_at DESC"
+        .Newest  -> Sql" ORDER BY placed_at DESC"
         .Largest -> Sql" ORDER BY total DESC"
     end
 
@@ -395,9 +395,9 @@ migrations as data:
 ```nomi
 /// A row of the table `users`.
 pub struct User
-    id: Int
-    email: String
-    name: Maybe<String>
+    id:         Int
+    email:      String
+    name:       Maybe<String>
     created_at: Instant
 end
 ```
@@ -506,9 +506,9 @@ group "the shop"
 
         assert queries.insert_user(db, "ada@example.com", None) == Err(
             sql.Error.Constraint{
-                kind: ConstraintKind.Unique,
-                name: "users_email_key",
-                table: Some("users"),
+                kind:   ConstraintKind.Unique,
+                name:   "users_email_key",
+                table:  Some("users"),
                 column: Some("email"),
             }
         )
@@ -585,9 +585,9 @@ pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.E
     )
 
     runtime.optional(conn, "user_by_email", statement, fn row -> Ok(User{
-            id: runtime.int("user_by_email", row, 0)?,
-            email: runtime.text("user_by_email", row, 1)?,
-            name: runtime.text_null("user_by_email", row, 2)?,
+            id:         runtime.int("user_by_email", row, 0)?,
+            email:      runtime.text("user_by_email", row, 1)?,
+            name:       runtime.text_null("user_by_email", row, 2)?,
             created_at: runtime.timestamptz("user_by_email", row, 3)?,
         }))
 end
@@ -637,9 +637,9 @@ pub fn order_counts(conn: sql.Conn) -> Result<List<{
     )
 
     runtime.list(conn, "order_counts", statement, fn row -> Ok({
-            email: runtime.text<String>("order_counts", row, 0)?,
+            email:      runtime.text<String>("order_counts", row, 0)?,
             last_order: runtime.value_null<Int>("order_counts", row, 1)?,
-            orders: runtime.value<Int>("order_counts", row, 2)?,
+            orders:     runtime.value<Int>("order_counts", row, 2)?,
         }))
 end
 
@@ -656,18 +656,18 @@ end
 
 /// A row of the table `orders`.
 pub struct Order
-    id: Int
-    user_id: Int
-    status: OrderStatus
-    total: Decimal
+    id:        Int
+    user_id:   Int
+    status:    OrderStatus
+    total:     Decimal
     placed_at: Instant
 end
 
 /// A row of the table `users`.
 pub struct User
-    id: Int
-    email: String
-    name: Maybe<String>
+    id:         Int
+    email:      String
+    name:       Maybe<String>
     created_at: Instant
 end
 
@@ -684,9 +684,9 @@ derive Equatable for OrderStatus
 impl Display for OrderStatus
     fn to_string(value: OrderStatus) -> String
         case value
-            .Pending -> "pending"
-            .Paid -> "paid"
-            .Shipped -> "shipped"
+            .Pending   -> "pending"
+            .Paid      -> "paid"
+            .Shipped   -> "shipped"
             .Cancelled -> "cancelled"
         end
     end
@@ -701,11 +701,11 @@ end
 impl sql.FromSql for OrderStatus
     fn from_sql(value: sql.Value) -> Result<OrderStatus, String>
         case runtime.text_of(value)
-            Some("pending") -> Ok(OrderStatus.Pending)
-            Some("paid") -> Ok(OrderStatus.Paid)
-            Some("shipped") -> Ok(OrderStatus.Shipped)
+            Some("pending")   -> Ok(OrderStatus.Pending)
+            Some("paid")      -> Ok(OrderStatus.Paid)
+            Some("shipped")   -> Ok(OrderStatus.Shipped)
             Some("cancelled") -> Ok(OrderStatus.Cancelled)
-            _ -> Err("OrderStatus")
+            _                 -> Err("OrderStatus")
         end
     end
 end

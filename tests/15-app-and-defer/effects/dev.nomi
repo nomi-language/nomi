@@ -12,8 +12,8 @@ end
 pub fn build(context: Context) -> EffectsApp
     EffectsApp{
         context:,
-        logger: ProdLogger,
-        clock: FakeClock{at: 0},
+        logger:  ProdLogger,
+        clock:   FakeClock{at: 0},
         console: StdConsole,
     }
 end

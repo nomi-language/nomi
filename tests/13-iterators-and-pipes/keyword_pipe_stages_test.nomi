@@ -6,7 +6,7 @@ end
 fn parse_id(s: String) -> Result<Int, String>
     case String.to_int(s)
         Some(id) -> Ok(id)
-        None -> Err("expected numeric id")
+        None     -> Err("expected numeric id")
     end
 end
 
@@ -80,7 +80,7 @@ test "bare case pipe stages match the previous value"
         Some(3)
         |> case
             Some(n) -> n
-            None -> 0
+            None    -> 0
         end
 
     assert value == 3

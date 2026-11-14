@@ -19,7 +19,7 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 			"fn main()\n" +
 				"    m = same(\n" +
 				"        Point{\n" +
-				"            zed_long_long_long_long_long_long_long_long: 0,\n" +
+				"            zed_long_long_long_long_long_long_long_long:        0,\n" +
 				"            alpha_long_long_long_long_long_long_long_long_long: 3,\n" +
 				"        },\n" +
 				"        Point{zed: 0, alpha: 4},\n" +
@@ -83,7 +83,7 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 				"end\n",
 			"fn main()\n" +
 				"    m = same(Point{\n" +
-				"        zed: 0,\n" +
+				"        zed:   0,\n" +
 				"        alpha: 3,\n" +
 				"    }, Point{zed: 0, alpha: 4})\n" +
 				"end\n",
@@ -127,7 +127,7 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"    if n > 0 then\n" +
 		"        Check.Valid{\n" +
 		"            addr_rather_long_rather_long_rather_long_rather_long: \"a\",\n" +
-		"            score_rather_long_rather_long_rather_long: 1,\n" +
+		"            score_rather_long_rather_long_rather_long:            1,\n" +
 		"        }\n" +
 		"    else\n" +
 		"        Check.Invalid(\"x\")\n" +
@@ -139,7 +139,7 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"        .Invalid(_) ->\n" +
 		"            {\n" +
 		"                addr_rather_long_rather_long_rather_long_rather_long: \"unknown\",\n" +
-		"                score_rather_long_rather_long_rather_long: 0,\n" +
+		"                score_rather_long_rather_long_rather_long:            0,\n" +
 		"            }\n" +
 		"    end\n" +
 		"\n" +

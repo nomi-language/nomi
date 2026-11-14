@@ -28,7 +28,7 @@ fn encode_run(run: List<String>) -> String
     letter = List.head(run)!
 
     case Iter.count(run)
-        1 -> letter
+        1     -> letter
         count -> "${count}${letter}"
     end
 end
@@ -50,16 +50,16 @@ import run_length_encoding
 
 test "run-length encode a string"
     [
-        ("empty string", "", ""),
-        ("single characters only are encoded without count", "XYZ", "XYZ"),
-        ("string with no single characters", "AABBBCCCC", "2A3B4C"),
+        ("empty string",                                     "",          ""),
+        ("single characters only are encoded without count", "XYZ",       "XYZ"),
+        ("string with no single characters",                 "AABBBCCCC", "2A3B4C"),
         (
             "single characters mixed with repeated characters",
             "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWB",
             "12WB12W3B24WB",
         ),
         ("multiple whitespace mixed in string", "  hsqq qww  ", "2 hs2q q2w2 "),
-        ("lowercase characters", "aabbbcccc", "2a3b4c"),
+        ("lowercase characters",                "aabbbcccc",    "2a3b4c"),
     ]
     |> subtests (description, text, expected), description
         assert run_length_encoding.encode(text) == expected
@@ -68,8 +68,8 @@ end
 
 test "run-length decode a string"
     [
-        ("empty string", "", ""),
-        ("single characters only", "XYZ", "XYZ"),
+        ("empty string",                     "",       ""),
+        ("single characters only",           "XYZ",    "XYZ"),
         ("string with no single characters", "2A3B4C", "AABBBCCCC"),
         (
             "single characters with repeated characters",
@@ -77,7 +77,7 @@ test "run-length decode a string"
             "WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWB",
         ),
         ("multiple whitespace mixed in string", "2 hs2q q2w2 ", "  hsqq qww  "),
-        ("lowercase string", "2a3b4c", "aabbbcccc"),
+        ("lowercase string",                    "2a3b4c",       "aabbbcccc"),
     ]
     |> subtests (description, encoded, expected), description
         assert run_length_encoding.decode(encoded) == expected

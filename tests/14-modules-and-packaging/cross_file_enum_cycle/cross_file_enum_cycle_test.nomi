@@ -1,0 +1,24 @@
+// Types that refer to each other across files, imported through the module's
+// own name, build and match as the same types in one file do.
+import
+    cross_file_enum_cycle::ast.{Decl, Expr}
+    cross_file_enum_cycle::value.Value
+end
+
+fn describe(value: Value) -> String
+    case value
+        Value.Nil            -> "nil"
+        Value.Function(decl) -> "fn of ${Iter.count(decl.body)}"
+    end
+end
+
+test "a payload-free variant"
+    assert describe(Value.Nil) == "nil"
+end
+
+test "a variant holding a struct that holds the enum back"
+    function = Value.Function(Decl{body: [Expr.Literal(Value.Nil)]})
+
+    assert describe(function) == "fn of 1"
+    assert function == Value.Function(Decl{body: [Expr.Literal(Value.Nil)]})
+end

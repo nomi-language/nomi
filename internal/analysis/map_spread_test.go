@@ -21,14 +21,15 @@ end
 
 func TestCheck_MapSpread_Accepts(t *testing.T) {
 	cases := map[string]string{
-		"a new key":            "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, \"b\" => 2}\n",
-		"a key the base holds": "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, \"a\" => 2}\n",
-		"maybe values":         "  m: Map<String, Maybe<Int>> = {\"a\" => Some(1)}\n  _a: Map<String, Maybe<Int>> = {..m, \"b\" => None}\n",
-		"list values":          "  m = {\"a\" => [1]}\n  _a: Map<String, List<Int>> = {..m, \"b\" => []}\n",
-		"an empty base":        "  _a: Map<String, Int> = {..{}, \"a\" => 1}\n",
-		"an unannotated empty": "  e = {..{}, \"a\" => 1}\n  _a: Map<String, Int> = e\n",
-		"nested in a struct":   "  c = Cfg{name: \"x\", prefs: {\"theme\" => \"light\"}}\n  _a: Cfg = {..c, prefs: {..c.prefs, \"theme\" => \"dark\"}}\n",
-		"nested in a value":    "  m = {\"o\" => {\"k\" => 1}}\n  i = {\"k\" => 2}\n  _a: Map<String, Map<String, Int>> = {..m, \"o\" => {..i, \"j\" => 3}}\n",
+		"a new key":               "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, \"b\" => 2}\n",
+		"a key the base holds":    "  m = {\"a\" => 1}\n  _a: Map<String, Int> = {..m, \"a\" => 2}\n",
+		"maybe values":            "  m: Map<String, Maybe<Int>> = {\"a\" => Some(1)}\n  _a: Map<String, Maybe<Int>> = {..m, \"b\" => None}\n",
+		"list values":             "  m = {\"a\" => [1]}\n  _a: Map<String, List<Int>> = {..m, \"b\" => []}\n",
+		"a list into iter values": "  m: Map<String, Iter<Int>> = {\"a\" => [1]}\n  _a: Map<String, Iter<Int>> = {..m, \"b\" => [2, 3]}\n",
+		"an empty base":           "  _a: Map<String, Int> = {..{}, \"a\" => 1}\n",
+		"an unannotated empty":    "  e = {..{}, \"a\" => 1}\n  _a: Map<String, Int> = e\n",
+		"nested in a struct":      "  c = Cfg{name: \"x\", prefs: {\"theme\" => \"light\"}}\n  _a: Cfg = {..c, prefs: {..c.prefs, \"theme\" => \"dark\"}}\n",
+		"nested in a value":       "  m = {\"o\" => {\"k\" => 1}}\n  i = {\"k\" => 2}\n  _a: Map<String, Map<String, Int>> = {..m, \"o\" => {..i, \"j\" => 3}}\n",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -71,6 +72,8 @@ func TestCheck_MapSpread_Refuses(t *testing.T) {
 			"map spread key type mismatch: expected String, got Int", "", 10, 14},
 		"a wrong value": {"  m = {\"a\" => 1}\n  _a = {..m, \"b\" => \"s\"}\n",
 			"map spread value type mismatch: expected Int, got String", "", 10, 21},
+		"a wrong value into iter values": {"  m: Map<String, Iter<Int>> = {\"a\" => [1]}\n  _a = {..m, \"b\" => 5}\n",
+			"map spread value type mismatch: expected Iter<Int>, got Int", "only std can implement `Iter` for `Int`; wrap it in a type of your own that implements `Iter`", 10, 21},
 		"a struct base": {"  p = P{x: 1}\n  _a = {..p, \"b\" => 2}\n",
 			"map spread `..` requires a map, got P", "", 10, 9},
 		"struct fields over a map": {"  m = {\"a\" => 1}\n  _a = {..m, b: 2}\n",

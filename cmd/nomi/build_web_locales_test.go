@@ -42,17 +42,17 @@ fn report(locale: Locale)
 end
 
 fn main()
-    pl = Locale` + "`pl`" + `
+    pl = Locale"pl"
     io.print("${Locale.loaded()}")
     io.print(text.items(3) |> Phrase.format(pl))
     io.print(Int.format(1234567, pl))
     io.print(String.join_list(["a", "b", "c"], pl))
     report(pl)
     io.print(text.items(3) |> Phrase.format(pl))
-    io.print(Int.format(1234567, Locale` + "`pl-PL`" + `))
+    io.print(Int.format(1234567, Locale"pl-PL"))
     io.print("${Locale.loaded()}")
-    report(Locale` + "`de`" + `)
-    report(Locale` + "`pt-BR`" + `)
+    report(Locale"de")
+    report(Locale"pt-BR")
 end
 `,
 }

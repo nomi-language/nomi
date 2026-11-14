@@ -18,7 +18,7 @@ impl Literal for Shape
         fragments
         |> Iter.map(fn f ->
             case f
-                .Static(s) -> "S(${s})"
+                .Static(s)  -> "S(${s})"
                 .Dynamic(n) -> "D(${n})"
             end
         end)

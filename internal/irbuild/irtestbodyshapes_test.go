@@ -161,9 +161,7 @@ func TestIRIterSort_StdElementTakesStdComparator(t *testing.T) {
 	const src = `import std::calendar.Time
 
 test "std elements sort by std's comparator"
-  assert Ok(a) = Time"09:30:00"
-  assert Ok(b) = Time"08:15:00"
-  sorted = Iter.sort([a, b])
+  sorted = Iter.sort([Time"09:30:00", Time"08:15:00"])
   assert Debug.inspect(sorted) == "[08:15:00, 09:30:00]"
 end
 `

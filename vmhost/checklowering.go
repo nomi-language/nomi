@@ -18,7 +18,7 @@ import (
 
 // CheckLowering is the half of Check past the front end for the file at path
 // whose text is src, as an editor holds it: the program is lowered as `nomi
-// run` lowers it, its backtick typed literals are checked (checkLiterals),
+// run` lowers it, its typed literals are checked (checkLiterals),
 // and nothing else runs. problems is what Check reports beyond the front
 // end: each literal that fails its check (Code InvalidLiteralCode) and each
 // `Currency.custom` call its module does not list (UnlistedCurrencyCode),

@@ -120,12 +120,10 @@ func (bl *irScalarBuilder) patternParams(params []irPatternParam) bool {
 			continue
 		}
 		k := sh.frame.kindOf(b.Dst())
-		if !irCallOperandKind(k) {
-			// Unit included, as for a function's destructured name
-			// (`fn Done(u) -> ...` for `type Done Unit`).
-			bl.g.dc.note("a destructured lambda name's kind outside the domain: " + k.nomi())
-			return false
-		}
+		// A part of the parameter's value, Unit included, as for a
+		// function's destructured name (`fn Done(u) -> ...` for `type Done
+		// Unit`).
+		irHeldOperand(k, "a destructured lambda parameter's name")
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), k
 		bl.declareBind(b, k)
 	}

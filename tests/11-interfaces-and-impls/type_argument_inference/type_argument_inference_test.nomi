@@ -14,7 +14,7 @@ interface Chooser<T>
 
         case Comparable.compare(a, b)
             Ordering.Less -> b
-            _ -> a
+            _             -> a
         end
     end
 end
@@ -50,7 +50,7 @@ end
 fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display
     case m
         Some(v) -> prefix + Display.to_string(v)
-        None -> prefix + "none"
+        None    -> prefix + "none"
     end
 end
 

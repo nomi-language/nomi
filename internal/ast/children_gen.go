@@ -66,6 +66,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfConcurrentBlock(n, fn)
 		}
+	case *ConjunctionType:
+		if n != nil {
+			childrenOfConjunctionType(n, fn)
+		}
 	case *Continue:
 		if n != nil {
 			childrenOfContinue(n, fn)
@@ -371,6 +375,8 @@ func absent(n Node) bool {
 	case *CodepointLit:
 		return n == nil
 	case *ConcurrentBlock:
+		return n == nil
+	case *ConjunctionType:
 		return n == nil
 	case *Continue:
 		return n == nil
@@ -784,6 +790,14 @@ func childrenOfCaseBranchValue(x CaseBranch, fn func(Node)) {
 func childrenOfConcurrentBlock(x *ConcurrentBlock, fn func(Node)) {
 	if x.Body != nil {
 		fn(x.Body)
+	}
+}
+
+func childrenOfConjunctionType(x *ConjunctionType, fn func(Node)) {
+	for _, e1 := range x.Members {
+		if !absent(e1) {
+			fn(e1)
+		}
 	}
 }
 
@@ -1709,6 +1723,7 @@ var generatedTypes = []any{
 	(*Case)(nil),
 	(*CodepointLit)(nil),
 	(*ConcurrentBlock)(nil),
+	(*ConjunctionType)(nil),
 	(*Continue)(nil),
 	(*CurrentValue)(nil),
 	(*Dbg)(nil),

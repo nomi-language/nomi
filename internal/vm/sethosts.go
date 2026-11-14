@@ -11,7 +11,11 @@ import (
 // setHost is one of std's Set operations over the membership map a Set
 // record carries. An update answers a new Set and leaves the receiver as it
 // was, because the map is persistent.
-func setHost(key string) hostFn {
+func setHost(key string) hostFn { return setHostWith(key, false) }
+
+// setHostWith is setHost, writing an owned receiver in place when owned
+// (inplace.go): its membership map's nodes, and the Set record itself.
+func setHostWith(key string, owned bool) hostFn {
 	return func(mach *Machine, _ ir.Pos, args []any) (_ any, err error) {
 		defer recoverKey(&err)
 		// One element's operation takes the machine's keys only when the
@@ -43,8 +47,14 @@ func setHost(key string) hostFn {
 			_, found := mapLookup(k, items, args[1])
 			return found, nil
 		case "Set.insert":
+			if owned {
+				return setOwned(args[0], rt.MapPutOwned(items, k.HashFunc(), k.EqualFunc(), args[1], any(true))), nil
+			}
 			return setFromMap(mapPut(k, items, args[1], true)), nil
 		case "Set.remove":
+			if owned {
+				return setOwned(args[0], rt.MapRemoveOwned(items, k.HashFunc(), k.EqualFunc(), args[1])), nil
+			}
 			return setFromMap(mapRemove(k, items, args[1])), nil
 		}
 		other, err := setItems(args[1])

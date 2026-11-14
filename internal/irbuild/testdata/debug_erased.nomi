@@ -22,12 +22,12 @@
 import std::io
 
 struct Rev
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 
 struct Custom
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 

@@ -117,10 +117,10 @@ derive Equatable for Metadata
 /// The write mode as its crossing carries it.
 fn mode_code(mode: WriteMode) -> Int
     case mode
-        WriteMode.Replace -> 0
+        WriteMode.Replace           -> 0
         WriteMode.ReplaceAtomically -> 1
-        WriteMode.Append -> 2
-        WriteMode.New -> 3
+        WriteMode.Append            -> 2
+        WriteMode.New               -> 3
     end
 end
 
@@ -463,9 +463,9 @@ derive Equatable for Access
 //
 pub fn open_file(path: String, access = Access.Read) -> Result<File, Error>
     code = case access
-        Access.Read -> 0
+        Access.Read      -> 0
         Access.ReadWrite -> 1
-        Access.Create -> 2
+        Access.Create    -> 2
     end
 
     host.open_file(path, code)
@@ -505,7 +505,7 @@ end
 //! end)
 //!
 //! escaped = Error.InvalidPath{
-//!     path: "../secret.txt",
+//!     path:   "../secret.txt",
 //!     reason: "the path leads outside the directory fs.within confines calls to",
 //! }
 //!
@@ -621,7 +621,7 @@ end
 /// A walk that goes `depth` directories down at most, or every one when
 /// `depth` is negative.
 struct Walk
-    root: String
+    root:  String
     depth: Int
 end
 
@@ -635,15 +635,15 @@ end
 /// stops.
 fn walk_dir(dir: String, depth: Int, yield: (Result<Entry, Error>) -> Bool) -> Bool
     case listed(dir)
-        Err(e) -> yield(Err(e))
+        Err(e)      -> yield(Err(e))
         Ok(entries) -> walk_entries(entries, depth, yield)
     end
 end
 
 fn walk_entries(
     entries: List<Result<Entry, Error>>,
-    depth: Int,
-    yield: (Result<Entry, Error>) -> Bool,
+    depth:   Int,
+    yield:   (Result<Entry, Error>) -> Bool,
 ) -> Bool
     case entries
         [] ->
@@ -683,9 +683,9 @@ end
 //! import std::fs::testing.{self, Sandbox}
 //!
 //! files = {
-//!     "src/main.nomi" => "",
-//!     "src/lib/a.nomi" => "",
-//!     "src/lib/a.txt" => "",
+//!     "src/main.nomi"    => "",
+//!     "src/lib/a.nomi"   => "",
+//!     "src/lib/a.txt"    => "",
 //!     "src/.hidden.nomi" => "",
 //! }
 //!
@@ -705,17 +705,17 @@ pub fn glob(pattern: String) -> Result<List<String>, Error>
     (fixed, rest) = glob_split(names, [])
 
     base = case (fixed, String.starts_with(pattern, "/"))
-        ([], _) -> ""
+        ([], _)      -> ""
         ([""], True) -> "/"
-        _ -> String.join(fixed, "/")
+        _            -> String.join(fixed, "/")
     end
 
     case rest
         [] ->
             case exists(base)
-                Ok(True) -> Ok([base])
+                Ok(True)  -> Ok([base])
                 Ok(False) -> Ok([])
-                Err(e) -> Err(e)
+                Err(e)    -> Err(e)
             end
 
         _ ->
@@ -772,7 +772,7 @@ fn walk_matches(w: Walk, base: String, pattern: String) -> Result<List<String>, 
     end)
     |> Iter.filter(fn item ->
         case item
-            Ok(p) -> path.matches(pattern, p)
+            Ok(p)  -> path.matches(pattern, p)
             Err(_) -> True
         end
     end)

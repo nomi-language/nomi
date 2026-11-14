@@ -19,10 +19,10 @@ import (
 func irIterOwnArity(method string) (int, bool) {
 	switch method {
 	case "map", "filter", "reduce", "scan", "map_reduce", "take", "sort_with", "sort_by", "any_match", "all_match", "each_while", "find", "zip", "concat", "get", "partition", "group_by",
-		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "chunk_by", "join":
+		"drop", "take_while", "drop_while", "each", "flat_map", "chunks", "windows", "chunk_by", "join":
 		return 2, true
 	case "to_list", "count", "is_empty", "sort", "first", "last", "reverse", "with_index", "known_count", "is_infinite",
-		"cycle", "to_set", "to_vector", "to_map", "flatten":
+		"cycle", "to_set", "to_vector", "to_map":
 		return 1, true
 	}
 	return 0, false
@@ -303,6 +303,14 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	}
 	switch vs.dom {
 	case analysis.IterViewRange:
+		if elem == kindInt {
+			src = appendOp(t.Args[0], ir.IterView, ir.IterOverIntRange, seqKindIn(bl.g, elem), src)
+			break
+		}
+		if elem == codepointKind() {
+			src = appendOp(t.Args[0], ir.IterView, ir.IterOverCodepointRange, seqKindIn(bl.g, elem), src)
+			break
+		}
 		view, ok := bl.rangeView(t, src, elem)
 		if !ok {
 			return no()
@@ -1016,8 +1024,10 @@ func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
 		// kindInvalid: propagates — preludeInstance answers kindInvalid for an element Maybe cannot be instantiated at, and the terminal declines.
 		shared = mk != kindInvalid
 	}
+	// elem is a lowered sequence's element, so callable or Unit, and Maybe
+	// carries any value of the domain (irRetainedPreludePayload).
 	if !shared || !irRetainedValueKind(mk) {
-		return kindInvalid, false
+		panic("irbuild: no retained Maybe over the element " + elem.nomi())
 	}
 	return mk, true
 }

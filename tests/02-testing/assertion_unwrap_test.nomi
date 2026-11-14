@@ -7,7 +7,7 @@ end
 fn parse_id(s: String) -> Result<Int, String>
     case String.to_int(s)
         Some(id) -> Ok(id)
-        None -> Err("expected a numeric id")
+        None     -> Err("expected a numeric id")
     end
 end
 

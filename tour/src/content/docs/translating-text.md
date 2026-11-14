@@ -87,8 +87,8 @@ fn main()
     [1, 2, 5, 22]
     |> Iter.each(fn n ->
         badge = cart.cart_count(n)
-        en = Phrase.format(badge, Locale`en`)
-        pl = Phrase.format(badge, Locale`pl`)
+        en = Phrase.format(badge, Locale"en")
+        pl = Phrase.format(badge, Locale"pl")
         io.print("${en} | ${pl}")
     end)
 end
@@ -254,7 +254,7 @@ fn main()
         cart.greeting("Anna", cart.cart_count(22)),
     ]
 
-    [Locale`en`, Locale`pl`]
+    [Locale"en", Locale"pl"]
     |> Iter.each(fn locale ->
         lines |> Iter.each(&io.print(Phrase.format(&1, locale)))
     end)
@@ -403,11 +403,11 @@ end
 
 fn main()
     lines = [
-        order.order_total(Money`27.35 USD`),
-        order.ships_on(Date`2026-10-20`),
+        order.order_total(Money"27.35 USD"),
+        order.ships_on(Date"2026-10-20"),
     ]
 
-    [Locale`en`, Locale`pl`]
+    [Locale"en", Locale"pl"]
     |> Iter.each(fn locale ->
         lines |> Iter.each(&io.print(Phrase.format(&1, locale)))
     end)
@@ -480,8 +480,8 @@ fn main()
     [shop.book, shop.laptop]
     |> Iter.each(fn product ->
         shipped = shop.has_shipped(product)
-        en = Phrase.format(shipped, Locale`en`)
-        pl = Phrase.format(shipped, Locale`pl`)
+        en = Phrase.format(shipped, Locale"en")
+        pl = Phrase.format(shipped, Locale"pl")
         io.print("${en} | ${pl}")
     end)
 end
@@ -587,7 +587,7 @@ has no catalog: its text is in the declarations.
 
 The same lists decide which CLDR data the program carries: only that of the
 locales it lists. A locale it didn't list formats as its nearest listed
-parent, or else in the source locale, and a ``Locale`…` `` literal of one is
+parent, or else in the source locale, and a `Locale"…"` literal of one is
 a compile error. A program with no `[i18n]` section, such as each example
 in the tour, carries every locale. [`[i18n]`](/tooling/projects/#i18n) lists
 every setting, and

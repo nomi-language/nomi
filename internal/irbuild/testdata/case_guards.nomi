@@ -30,8 +30,8 @@ end
 fn tier(n: Int) -> String
     case n
         x when x > 10 -> "high ${x}"
-        x when x > 5 -> "mid ${x}"
-        x -> "low ${x}"
+        x when x > 5  -> "mid ${x}"
+        x             -> "low ${x}"
     end
 end
 

@@ -31,13 +31,13 @@ pub host fn variant_name<T>(value: T) -> String
 /// while the program runs, as `load` encodes them, which come before the
 /// program's own texts.
 pub fn format(
-    table: String,
-    locale: Locale,
+    table:    String,
+    locale:   Locale,
     catalogs: List<String>,
-    kinds: List<Int>,
-    numbers: List<String>,
-    keys: List<String>,
-    texts: List<String>,
+    kinds:    List<Int>,
+    numbers:  List<String>,
+    keys:     List<String>,
+    texts:    List<String>,
 ) -> String
     format_raw(table, locale, catalogs, kinds, numbers, keys, texts)
 end
@@ -63,11 +63,11 @@ end
 host fn noun_raw(table: String, locale: Locale) -> String
 
 host fn format_raw(
-    table: String,
-    locale: Locale,
+    table:    String,
+    locale:   Locale,
     catalogs: List<String>,
-    kinds: List<Int>,
-    numbers: List<String>,
-    keys: List<String>,
-    texts: List<String>,
+    kinds:    List<Int>,
+    numbers:  List<String>,
+    keys:     List<String>,
+    texts:    List<String>,
 ) -> String

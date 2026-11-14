@@ -26,7 +26,7 @@ end
 /// times a player collected the pile.
 pub struct Game
     status: Status
-    cards: Int
+    cards:  Int
     tricks: Int
 end
 
@@ -53,10 +53,10 @@ end
 /// Plays tricks from `hands`, `leader` playing first, until a player holds
 /// every card or the hands take a shape already in `seen`.
 fn rounds(
-    hands: Hands,
+    hands:  Hands,
     leader: Side,
-    seen: Set<(List<String>, List<String>)>,
-    cards: Int,
+    seen:   Set<(List<String>, List<String>)>,
+    cards:  Int,
     tricks: Int,
 ) -> Game
     (collector, pile, hands) = play(hands, turn: leader, pile: [], owed: 0, collector: leader)
@@ -77,10 +77,10 @@ end
 /// how many cards `turn` still has to pay, and `collector` who played the
 /// payment card they are paying for.
 fn play(
-    hands: Hands,
-    turn: Side,
-    pile: List<String>,
-    owed: Int,
+    hands:     Hands,
+    turn:      Side,
+    pile:      List<String>,
+    owed:      Int,
     collector: Side,
 ) -> (Side, List<String>, Hands)
     case hand(hands, turn)
@@ -93,9 +93,9 @@ fn play(
 
             case
                 penalty(card) > 0 -> play(hands, other(turn), pile, penalty(card), turn)
-                owed == 1 -> (collector, pile, hands)
-                owed > 1 -> play(hands, turn, pile, owed - 1, collector)
-                _ -> play(hands, other(turn), pile, 0, collector)
+                owed == 1         -> (collector, pile, hands)
+                owed > 1          -> play(hands, turn, pile, owed - 1, collector)
+                _                 -> play(hands, other(turn), pile, 0, collector)
             end
     end
 end
@@ -108,7 +108,7 @@ fn penalty(card: String) -> Int
         "Q" -> 2
         "K" -> 3
         "A" -> 4
-        _ -> 0
+        _   -> 0
     end
 end
 
@@ -237,7 +237,7 @@ test "simulate game"
             ),
             {status: .Finished, cards: 361, tricks: 1},
         ),
-        ("two tricks", deck("J"), deck("3 J"), {status: .Finished, cards: 5, tricks: 2}),
+        ("two tricks",  deck("J"),     deck("3 J"),   {status: .Finished, cards: 5, tricks: 2}),
         ("more tricks", deck("J 2 4"), deck("3 J A"), {status: .Finished, cards: 12, tricks: 4}),
         (
             "simple loop with decks of 4 cards",

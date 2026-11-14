@@ -35,7 +35,7 @@ end
 /// 1 to 12 or `Q<N>` for a quarter from 1 to 4.
 pub fn delivery_date(
     meeting_start: NaiveDateTime,
-    description: String,
+    description:   String,
 ) -> Result<NaiveDateTime, Error>
     today = NaiveDateTime.to_date(meeting_start)
     year = Date.year(today)
@@ -76,10 +76,10 @@ end
 /// The description `text` names, or `UnknownDescription`.
 fn parse(text: String) -> Result<Description, Error>
     case text
-        "NOW" -> Ok(.Now)
+        "NOW"  -> Ok(.Now)
         "ASAP" -> Ok(.Asap)
-        "EOW" -> Ok(.EndOfWeek)
-        _ -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
+        "EOW"  -> Ok(.EndOfWeek)
+        _      -> numbered(text) |> Maybe.to_result(.UnknownDescription(text))
     end
 end
 
@@ -99,7 +99,7 @@ end
 /// 20:00 for one later in the week.
 fn end_of_week(today: Date) -> NaiveDateTime
     case Date.weekday(today)
-        .Monday or .Tuesday or .Wednesday -> at(next_on(today, .Friday), 17)
+        .Monday or .Tuesday or .Wednesday            -> at(next_on(today, .Friday), 17)
         .Thursday or .Friday or .Saturday or .Sunday -> at(next_on(today, .Sunday), 20)
     end
 end
@@ -172,105 +172,105 @@ test "delivery date"
     [
         (
             "NOW translates to two hours later",
-            NaiveDateTime`2012-02-13T09:00:00`,
+            NaiveDateTime"2012-02-13T09:00:00",
             "NOW",
-            NaiveDateTime`2012-02-13T11:00:00`,
+            NaiveDateTime"2012-02-13T11:00:00",
         ),
         (
             "ASAP before one in the afternoon translates to today at five in the afternoon",
-            NaiveDateTime`1999-06-03T09:45:00`,
+            NaiveDateTime"1999-06-03T09:45:00",
             "ASAP",
-            NaiveDateTime`1999-06-03T17:00:00`,
+            NaiveDateTime"1999-06-03T17:00:00",
         ),
         (
             "ASAP at one in the afternoon translates to tomorrow at one in the afternoon",
-            NaiveDateTime`2008-12-21T13:00:00`,
+            NaiveDateTime"2008-12-21T13:00:00",
             "ASAP",
-            NaiveDateTime`2008-12-22T13:00:00`,
+            NaiveDateTime"2008-12-22T13:00:00",
         ),
         (
             "ASAP after one in the afternoon translates to tomorrow at one in the afternoon",
-            NaiveDateTime`2008-12-21T14:50:00`,
+            NaiveDateTime"2008-12-21T14:50:00",
             "ASAP",
-            NaiveDateTime`2008-12-22T13:00:00`,
+            NaiveDateTime"2008-12-22T13:00:00",
         ),
         (
             "EOW on Monday translates to Friday at five in the afternoon",
-            NaiveDateTime`2025-02-03T16:00:00`,
+            NaiveDateTime"2025-02-03T16:00:00",
             "EOW",
-            NaiveDateTime`2025-02-07T17:00:00`,
+            NaiveDateTime"2025-02-07T17:00:00",
         ),
         (
             "EOW on Tuesday translates to Friday at five in the afternoon",
-            NaiveDateTime`1997-04-29T10:50:00`,
+            NaiveDateTime"1997-04-29T10:50:00",
             "EOW",
-            NaiveDateTime`1997-05-02T17:00:00`,
+            NaiveDateTime"1997-05-02T17:00:00",
         ),
         (
             "EOW on Wednesday translates to Friday at five in the afternoon",
-            NaiveDateTime`2005-09-14T11:00:00`,
+            NaiveDateTime"2005-09-14T11:00:00",
             "EOW",
-            NaiveDateTime`2005-09-16T17:00:00`,
+            NaiveDateTime"2005-09-16T17:00:00",
         ),
         (
             "EOW on Thursday translates to Sunday at eight in the evening",
-            NaiveDateTime`2011-05-19T08:30:00`,
+            NaiveDateTime"2011-05-19T08:30:00",
             "EOW",
-            NaiveDateTime`2011-05-22T20:00:00`,
+            NaiveDateTime"2011-05-22T20:00:00",
         ),
         (
             "EOW on Friday translates to Sunday at eight in the evening",
-            NaiveDateTime`2022-08-05T14:00:00`,
+            NaiveDateTime"2022-08-05T14:00:00",
             "EOW",
-            NaiveDateTime`2022-08-07T20:00:00`,
+            NaiveDateTime"2022-08-07T20:00:00",
         ),
         (
             "EOW translates to leap day",
-            NaiveDateTime`2008-02-25T10:30:00`,
+            NaiveDateTime"2008-02-25T10:30:00",
             "EOW",
-            NaiveDateTime`2008-02-29T17:00:00`,
+            NaiveDateTime"2008-02-29T17:00:00",
         ),
         (
             "2M before the second month of this year translates to the first workday of the second month of this year",
-            NaiveDateTime`2007-01-02T14:15:00`,
+            NaiveDateTime"2007-01-02T14:15:00",
             "2M",
-            NaiveDateTime`2007-02-01T08:00:00`,
+            NaiveDateTime"2007-02-01T08:00:00",
         ),
         (
             "11M in the eleventh month translates to the first workday of the eleventh month of next year",
-            NaiveDateTime`2013-11-21T15:30:00`,
+            NaiveDateTime"2013-11-21T15:30:00",
             "11M",
-            NaiveDateTime`2014-11-03T08:00:00`,
+            NaiveDateTime"2014-11-03T08:00:00",
         ),
         (
             "4M in the ninth month translates to the first workday of the fourth month of next year",
-            NaiveDateTime`2019-11-18T15:15:00`,
+            NaiveDateTime"2019-11-18T15:15:00",
             "4M",
-            NaiveDateTime`2020-04-01T08:00:00`,
+            NaiveDateTime"2020-04-01T08:00:00",
         ),
         (
             "Q1 in the first quarter translates to the last workday of the first quarter of this year",
-            NaiveDateTime`2003-01-01T10:45:00`,
+            NaiveDateTime"2003-01-01T10:45:00",
             "Q1",
-            NaiveDateTime`2003-03-31T08:00:00`,
+            NaiveDateTime"2003-03-31T08:00:00",
         ),
         (
             "Q4 in the second quarter translates to the last workday of the fourth quarter of this year",
-            NaiveDateTime`2001-04-09T09:00:00`,
+            NaiveDateTime"2001-04-09T09:00:00",
             "Q4",
-            NaiveDateTime`2001-12-31T08:00:00`,
+            NaiveDateTime"2001-12-31T08:00:00",
         ),
         (
             "Q3 in the fourth quarter translates to the last workday of the third quarter of next year",
-            NaiveDateTime`2022-10-06T11:00:00`,
+            NaiveDateTime"2022-10-06T11:00:00",
             "Q3",
-            NaiveDateTime`2023-09-29T08:00:00`,
+            NaiveDateTime"2023-09-29T08:00:00",
         ),
         (
             "Q2 starting in the last month of the second quarter translates to the last workday of the second quarter of this year",
-            NaiveDateTime`2019-06-15T09:50:00`,
+            NaiveDateTime"2019-06-15T09:50:00",
             "Q2",
-            NaiveDateTime`2019-06-28T08:00:00`,
+            NaiveDateTime"2019-06-28T08:00:00",
         ),
     ]
     |> subtests (description, meeting_start, text, expected), description
@@ -279,7 +279,7 @@ test "delivery date"
 end
 
 test "descriptions that name no delivery date"
-    meeting_start = NaiveDateTime`2012-02-13T09:00:00`
+    meeting_start = NaiveDateTime"2012-02-13T09:00:00"
 
     subtests ["LATER", "0M", "13M", "Q5", "Q", "M"], text
         assert swift_scheduling.delivery_date(meeting_start, text) == Err(.UnknownDescription(text))
@@ -294,7 +294,7 @@ test result: ok. 23 passed, 0 failed
 
 ## How it's written
 
-- The meeting start and the answer are std/calendar `NaiveDateTime`s, the canonical data's dates with no zone, and the expected values are ``NaiveDateTime`...` `` literals, so the table compares datetimes, not strings.
+- The meeting start and the answer are std/calendar `NaiveDateTime`s, the canonical data's dates with no zone, and the expected values are `NaiveDateTime"..."` literals, so the table compares datetimes, not strings.
 - The description is parsed once into a private enum, `Description`, with the three fixed words and the two numbered forms, `Month(n)` and `Quarter(n)`; `delivery_date` is then one `case` over it, with a `when` guard for ASAP before 13:00. A number out of range or any other text is `Error.UnknownDescription`, which the canonical data never gives; the test file adds six such cases.
 - `numbered` reads both numbered forms at once, `strip_suffix` "M" and `strip_prefix` "Q" each then `String.to_int`, and one `case` over the pair with range guards picks the form.
 - Every date step is calendar arithmetic, `Days`, `Hours` and `Months` added to a `Date` or `NaiveDateTime`, so month lengths and leap days (the canonical "EOW translates to leap day") are the calendar's business. A quarter's last day is the first of its last month, plus a month, less a day.

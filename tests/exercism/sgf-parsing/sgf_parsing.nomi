@@ -5,7 +5,7 @@
 /// values, and the trees that follow it.
 pub struct Tree
     properties: Map<String, List<String>>
-    children: List<Tree>
+    children:   List<Tree>
 end
 
 /// Why the text is not a game tree.
@@ -49,7 +49,7 @@ end
 /// The parenthesized trees after a node, up to and including the `)` that
 /// closes the tree the node is in.
 fn variations(
-    text: List<Codepoint>,
+    text:  List<Codepoint>,
     found: List<Tree>,
 ) -> Result<(List<Tree>, List<Codepoint>), Error>
     case text
@@ -67,7 +67,7 @@ end
 
 /// A node's properties: each an upper-case key and one or more values.
 fn read_properties(
-    text: List<Codepoint>,
+    text:  List<Codepoint>,
     found: Map<String, List<String>>,
 ) -> Result<(Map<String, List<String>>, List<Codepoint>), Error>
     key =
@@ -90,7 +90,7 @@ end
 
 /// The bracketed values after a key.
 fn read_values(
-    text: List<Codepoint>,
+    text:  List<Codepoint>,
     found: List<String>,
 ) -> Result<(List<String>, List<Codepoint>), Error>
     case text
@@ -108,10 +108,10 @@ end
 /// other than a newline becomes a space.
 fn read_text(text: List<Codepoint>, value: String) -> Result<(String, List<Codepoint>), Error>
     case text
-        [']', ..rest] -> Ok((value, rest))
-        ['\\', '\n', ..rest] -> read_text(rest, value)
+        [']', ..rest]                    -> Ok((value, rest))
+        ['\\', '\n', ..rest]             -> read_text(rest, value)
         ['\\', c, ..rest] or [c, ..rest] -> read_text(rest, value + plain(c))
-        [] or ['\\'] -> Err(.Malformed)
+        [] or ['\\']                     -> Err(.Malformed)
     end
 end
 

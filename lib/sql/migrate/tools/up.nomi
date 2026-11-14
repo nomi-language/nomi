@@ -23,7 +23,7 @@ fn main() -> Result<Unit, String>
 
     case ran
         [] -> io.print("up to date: nothing to apply")
-        _ -> Iter.each(ran, fn version -> io.print("applied ${version}"))
+        _  -> Iter.each(ran, fn version -> io.print("applied ${version}"))
     end
 
     Ok(Unit)

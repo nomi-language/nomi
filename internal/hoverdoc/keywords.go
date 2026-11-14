@@ -371,9 +371,11 @@ func KeywordAt(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos 
 // extra sentence, then its link, or the analysis's own hover with what
 // the keyword adds to it.
 func renderKeyword(d keywordDoc, extra, existing string) string {
-	link := "More in the [tour](" + site + d.link + ")."
+	// No period follows the link: Zed sets text after a hover's closing
+	// link on a line of its own.
+	link := "More in the [tour](" + site + d.link + ")"
 	if strings.HasPrefix(d.link, "/spec/") {
-		link = "More in the [spec](" + site + d.link + ")."
+		link = "More in the [spec](" + site + d.link + ")"
 	}
 	text := d.text
 	if extra != "" {
@@ -625,7 +627,7 @@ func (k *keywordSite) context() (context, extra string, isKeyword bool) {
 	case "pub":
 		return k.pubContext()
 	case "return":
-		return "", k.returnExtra(), true
+		return "", k.returnContext(), true
 	case "break", "continue":
 		return "", k.loopExtra(), true
 	case "self":
@@ -795,19 +797,35 @@ func (k *keywordSite) pubContext() (string, string, bool) {
 	return "", fmt.Sprintf("Here it publishes `%s%s %s`.", modifiers, kw.Lexeme, name.Lexeme), true
 }
 
-// returnExtra names what a `return` leaves and the type it returns.
-func (k *keywordSite) returnExtra() string {
+// returnContext fits a `return`'s hover to what it leaves. In a function
+// or lambda whose result is known, the form shows the one `return` that
+// fits there, `return` for a `Unit` result and `return value: T`
+// otherwise, and the text names what it leaves, so neither repeats the
+// other's general rule. It answers the sentence added after the text, for
+// a boundary whose form stays the general one.
+func (k *keywordSite) returnContext() string {
+	leave := func(what, result string) {
+		if result == "Unit" {
+			k.form = "return"
+			k.text = fmt.Sprintf("Leaves %s, which returns `Unit`.", what)
+			return
+		}
+		k.form = "return value: " + result
+		k.text = fmt.Sprintf("Leaves %s with `value`, its result.", what)
+	}
 	switch b := k.innermost(isBoundary).(type) {
 	case *ast.FuncDef:
 		result := "Unit"
 		if b.ReturnTypeExpr != nil {
 			result = b.ReturnTypeExpr.TypeString()
 		}
-		return fmt.Sprintf("Here it leaves `fn %s`, which returns `%s`.", b.Name, result)
+		leave(fmt.Sprintf("`fn %s`", b.Name), result)
+		return ""
 	case *ast.Lambda:
 		if ft, ok := k.fa.ExprTypes[b].(*analysis.FuncType); ok && ft.Return != nil {
 			if r := displayValueType(ft.Return); r != "" {
-				return fmt.Sprintf("Here it leaves the lambda, which returns `%s`.", r)
+				leave("the lambda", r)
+				return ""
 			}
 		}
 		return "Here it leaves the lambda."

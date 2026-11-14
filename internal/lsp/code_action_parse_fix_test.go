@@ -87,9 +87,9 @@ end
 			"pub fn f() -> Int\n    x = 1\n    x\nend\n",
 		},
 		{
-			"a method call", "Call `Iter.count`",
+			"a method call", "Call `List.length`",
 			"pub fn f(xs: List<Int>) -> Int\n    xs.len()\nend\n",
-			"pub fn f(xs: List<Int>) -> Int\n    Iter.count(xs)\nend\n",
+			"pub fn f(xs: List<Int>) -> Int\n    List.length(xs)\nend\n",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

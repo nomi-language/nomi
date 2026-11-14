@@ -52,7 +52,7 @@ impl Show for Maybe<T> where T: Show
     fn show(m: Maybe<T>) -> String
         case m
             Some(x) -> "some ${T.show(x)}"
-            None -> "none"
+            None    -> "none"
         end
     end
 end
@@ -60,7 +60,7 @@ end
 impl Show for Result<T, String> where T: Show
     fn show(r: Result<T, String>) -> String
         case r
-            Ok(x) -> "ok ${T.show(x)}"
+            Ok(x)  -> "ok ${T.show(x)}"
             Err(e) -> "err ${e}"
         end
     end
@@ -91,7 +91,7 @@ impl Show for Shape
     fn show(s: Shape) -> String
         case s
             .Circle{r:} -> "shape circle ${r}"
-            .Dot -> "shape dot"
+            .Dot        -> "shape dot"
         end
     end
 end
@@ -106,7 +106,7 @@ impl Display for Shape
     fn to_string(s: Shape) -> String
         case s
             .Circle{r:} -> "shape circle ${r}"
-            .Dot -> "shape dot"
+            .Dot        -> "shape dot"
         end
     end
 end

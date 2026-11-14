@@ -2642,7 +2642,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			}
 			if !matched {
 				c.report(returnMismatchError(fn, c.typef(
-					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.mismatchHint(c.returnTy, bodyTy)))
+					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.typedLiteralHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.mismatchHint(c.returnTy, bodyTy)))
 			}
 		}
 	}
@@ -3281,7 +3281,7 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if declared != nil {
 		if err := c.unifyInto(declared, valTy, map[*TypeParam_]Type{}); err != nil {
 			c.report(errAt(n.Value, c.typef(
-				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
+				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.typedLiteralHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
 		}
 		return
 	}
@@ -4647,6 +4647,7 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 		if lit := anonStructLitOf(n); lit != nil {
 			if anon, ok := resolveTypeVar(expected).(*AnonStructType); ok {
 				c.recordAnonLitFieldLabels(lit, anon)
+				c.recordAnonLitIterFields(lit, anon)
 			}
 		}
 		return ty
@@ -4848,6 +4849,11 @@ func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
 // `{}`, takes its K and V from the rest. expected, when non-nil, is the
 // type the position expects, pushed into each spread.
 func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
+	for i, entry := range n.Entries {
+		if n.Spreads[0].At <= i {
+			c.atUpdateSyntax(entry.Value)
+		}
+	}
 	head, _, ok := c.checkSpreadHeads(n.Spreads, expected, mapSpreads)
 	if !ok {
 		for _, entry := range n.Entries {
@@ -4869,9 +4875,13 @@ func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 		}
 		return containsTypeVar(want) && c.unify(want, got, nil) == nil
 	}
+	// An entry that does not fit as written may still enter an interface
+	// K or V, as a plain map literal's entry does (checkMapLitExpecting):
+	// a List entering an `Iter<Int>` value, viewed through the IterView
+	// recordCoercions records for it.
 	for i, entry := range n.Entries {
 		kt := c.checkNodeExpecting(entry.Key, mt.Key)
-		if kt != nil && !fits(mt.Key, kt) {
+		if kt != nil && !fits(mt.Key, kt) && !c.litElemFits(mt.Key, kt, entry.Key) {
 			line, col := nodeLineCol(entry.Key)
 			c.addMismatch(line, col, mt.Key, kt, c.typef("map spread key type mismatch: expected %s, got %s", resolveTypeVar(mt.Key), kt))
 		}
@@ -4883,7 +4893,7 @@ func (c *checker) checkMapUpdateLit(n *ast.MapLit, expected Type) Type {
 			c.atUpdatePosition(entry.Value, resolveTypeVar(mt.Val), true)
 		}
 		vt := c.checkNodeExpecting(entry.Value, mt.Val)
-		if vt != nil && !fits(mt.Val, vt) {
+		if vt != nil && !fits(mt.Val, vt) && !c.litElemFits(mt.Val, vt, entry.Value) {
 			line, col := nodeLineCol(entry.Value)
 			err := TypeError{Line: line, Col: col, Message: c.typef("map spread value type mismatch: expected %s, got %s", resolveTypeVar(mt.Val), vt)}.
 				WithHint(c.mismatchHint(mt.Val, vt))
@@ -8237,7 +8247,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 			continue
 		}
 		if !c.argMatchesParam(argTy, ft.Params[fill.slot], c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
-			c.report(c.pipeHeadMismatch(newPipeHead(n, pipeCall, fill), ft.Params[fill.slot], argTy).WithHint(c.defaultedFuncValueHint(ft.Params[fill.slot], argTy, n.Left)).WithHint(c.mismatchHint(ft.Params[fill.slot], argTy)))
+			c.report(c.pipeHeadMismatch(newPipeHead(n, pipeCall, fill), ft.Params[fill.slot], argTy).WithHint(c.defaultedFuncValueHint(ft.Params[fill.slot], argTy, n.Left)).WithHint(c.typedLiteralHint(ft.Params[fill.slot], argTy, n.Left)).WithHint(c.mismatchHint(ft.Params[fill.slot], argTy)))
 		}
 	}
 
@@ -8264,7 +8274,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if _, isPh := value.(*ast.Placeholder); !isPh && valTy != nil && expectedTy != nil {
 					argLine, argCol := nodeLineCol(value)
 					if !c.argMatchesParam(valTy, expectedTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
-						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(c.unwrappedOneShortHint(expectedTy, valTy, value)).WithHint(c.mismatchHint(expectedTy, valTy)))
+						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(c.unwrappedOneShortHint(expectedTy, valTy, value)).WithHint(c.typedLiteralHint(expectedTy, valTy, value)).WithHint(c.mismatchHint(expectedTy, valTy)))
 					}
 				}
 			} else {
@@ -9107,7 +9117,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(a.Value)
 				if !c.argMatchesParam(argTy, expectedParamTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(a.Value, c.typef(
-						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(c.mismatchHint(expectedParamTy, argTy)))
+						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(c.typedLiteralHint(expectedParamTy, argTy, a.Value)).WithHint(c.mismatchHint(expectedParamTy, argTy)))
 				}
 			}
 		case *ast.Placeholder:
@@ -9133,7 +9143,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(arg)
 				if !c.argMatchesParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(arg, c.typef(
-						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(routeCallHint(n, ft.Params[slot], argTy)).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
+						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(routeCallHint(n, ft.Params[slot], argTy)).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.typedLiteralHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
 				}
 			}
 		}
@@ -9475,7 +9485,8 @@ func (c *checker) finishOperatorInterfaceCall(n *ast.Call, opIface operatorInter
 		if rhsExpected != nil {
 			// One impl for this receiver: argument 2 is what is wrong.
 			at := operandPos(n.Args[1], n.Line, n.Col)
-			c.addMismatch(at.Line, at.Col, rhsExpected, right, c.typef("argument 2: expected %s, got %s", rhsExpected, right))
+			c.report(TypeError{Line: at.Line, Col: at.Col, Message: c.typef("argument 2: expected %s, got %s", rhsExpected, right)}.
+				WithHint(setAddHint(n.Func, rhsExpected, right)).WithHint(c.mismatchHint(rhsExpected, right)))
 			return result, true
 		}
 		at := operandPos(n, n.Line, n.Col)
@@ -9485,7 +9496,8 @@ func (c *checker) finishOperatorInterfaceCall(n *ast.Call, opIface operatorInter
 	}
 	if err := c.unify(rhsExpected, right, nil); err != nil && !TypesEqual(rhsExpected, right) {
 		at := operandPos(n.Args[1], n.Line, n.Col)
-		c.addMismatch(at.Line, at.Col, rhsExpected, right, c.typef("argument 2: expected %s, got %s", rhsExpected, right))
+		c.report(TypeError{Line: at.Line, Col: at.Col, Message: c.typef("argument 2: expected %s, got %s", rhsExpected, right)}.
+			WithHint(setAddHint(n.Func, rhsExpected, right)).WithHint(c.mismatchHint(rhsExpected, right)))
 	}
 	if name := interfaceImplName(resolveTypeVar(left)); name != "" {
 		c.fa.RecordManifest(name, opIface.Interface,
@@ -10074,7 +10086,22 @@ func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind Recor
 	if iface, ok := paramTy.(*InterfaceType); ok {
 		return c.ifaceParamAdmits(argTy, iface, recPos, recKind)
 	}
-	if _, ok := argTy.(*InterfaceType); ok {
+	if conj, ok := paramTy.(*ConjunctionType); ok {
+		// A conjunction admits what every member admits (spec §5
+		// *Interface conjunctions*): a type implementing each, or a
+		// conjunction holding each.
+		if _, isIface := resolveTypeVar(argTy).(*InterfaceType); isIface {
+			return false
+		}
+		for _, member := range conj.Members {
+			if !c.ifaceParamAdmits(argTy, member, recPos, recKind) {
+				return false
+			}
+		}
+		return true
+	}
+	switch argTy.(type) {
+	case *InterfaceType, *ConjunctionType:
 		return c.unifyInto(paramTy, argTy, nil) == nil
 	}
 	// Bare-variant constructors like `None` start as `Maybe<T>` and get
@@ -10221,6 +10248,13 @@ func containsTypeVar(t Type) bool {
 			}
 		}
 		return false
+	case *ConjunctionType:
+		for _, m := range tt.Members {
+			if containsTypeVar(m) {
+				return true
+			}
+		}
+		return false
 	case *DistinctType:
 		// Generic opaque externs (Channel<T>, Task<T>) and generic distinct
 		// types carry params in TypeArgs; primitive wrappers carry an Inner.
@@ -10343,7 +10377,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 			if hint == "" {
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
-			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
+			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.typedLiteralHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
 		}
 		return
 	}
@@ -10357,7 +10391,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// still holds a type parameter, and no solution of it makes the argument
 	// fit (`(Float, T)` given `(Int, String)`, `Set<T>` given Unit,
 	// `Maybe<T>` given a function), so the call could never be lowered.
-	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
+	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.typedLiteralHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
 }
 
 // functionJoinHint explains a rejected argument whose function type would be
@@ -12387,7 +12421,7 @@ func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType
 			}
 			if !c.argMatchesParam(valTy, declared, c.recPos(valLine, valCol), RecordingKindInterfaceTypedParam) {
 				err := TypeError{Line: valLine, Col: valCol, Message: c.typef("field '%s' of %s: expected %s, got %s", f.Name, st.Name, declared, valTy)}.
-					Spanning(f.Value).WithHint(c.mismatchHint(declared, valTy))
+					Spanning(f.Value).WithHint(c.typedLiteralHint(declared, valTy, f.Value)).WithHint(c.mismatchHint(declared, valTy))
 				if nested, ok := f.Value.(*ast.StructLit); ok {
 					err = err.WithHint(c.wholeValueHint(nested, declared))
 				}
@@ -12622,6 +12656,9 @@ func (c *checker) checkStructUpdateLit(n *ast.StructLit) Type {
 	// and have no identity, so there is nothing a copy could do that the
 	// value itself does not; the form only gives a reader something to work
 	// out.
+	for _, f := range n.Fields {
+		c.atUpdateSyntax(f.Value)
+	}
 	head := resolveTypeVar(c.checkNode(n.Spread))
 	c.recordUpdatePath(n, n.Spread)
 	_, mapBase := head.(*MapType)
@@ -13188,7 +13225,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unifyInto(declared, valTy, subs); err != nil {
 				c.report(errAt(n.Value, c.typef(
-					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
+					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.typedLiteralHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
 			} else if len(subs) > 0 {
 				valTy = Substitute(valTy, subs)
 			}
@@ -13786,8 +13823,11 @@ func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
 		return TypeUnit
 	}
 
-	if !distinctTypeNameMatches(n.TypeName, dt.Name) {
-		c.addError(n.Line, n.Col, fmt.Sprintf("distinct type destructure expected %s, got %s", n.TypeName, dt.Name))
+	prefix := n.TypeNameExpr
+	if prefix == nil {
+		prefix = &ast.SimpleType{Name: n.TypeName, Line: n.Line, Col: n.Col}
+	}
+	if !c.patternNamesDistinct(prefix, dt, n.Line, n.Col) {
 		return TypeUnit
 	}
 
@@ -13855,12 +13895,6 @@ func (c *checker) checkSingleVariantDestructure(n *ast.DistinctDestructure, et *
 		}
 		c.noteDestructureBindings([]patternSite{{n.Binding.Name, Pos{Line: n.Binding.Line, Col: n.Binding.Col}}}, n.Value)
 	}
-}
-
-func distinctTypeNameMatches(patternName, actualName string) bool {
-	return patternName == actualName ||
-		strings.HasSuffix(actualName, "."+patternName) ||
-		strings.HasSuffix(patternName, "."+actualName)
 }
 
 func (c *checker) checkIf(n *ast.If, expected Type) Type {
@@ -14038,7 +14072,7 @@ func (c *checker) interfaceBranchJoin(expected, have, next Type) Type {
 	// A std collection joins the same way where each branch converts to it
 	// (spec §5 *Covariant conversion*): `List<Display>` over a
 	// List<Int> and a List<String>.
-	if _, ok := resolveTypeVar(expected).(*InterfaceType); !ok && !convertibleArgs(resolveTypeVar(expected)) {
+	if InterfaceMembers(resolveTypeVar(expected)) == nil && !convertibleArgs(resolveTypeVar(expected)) {
 		return nil
 	}
 	subs := map[*TypeParam_]Type{}
@@ -14054,7 +14088,7 @@ func (c *checker) interfaceBranchJoin(expected, have, next Type) Type {
 // Otherwise it is empty.
 func (c *checker) branchJoinHint(have, next Type) string {
 	for _, t := range []Type{have, next} {
-		if _, ok := resolveTypeVar(t).(*InterfaceType); ok {
+		if InterfaceMembers(resolveTypeVar(t)) != nil {
 			return ""
 		}
 	}
@@ -14588,6 +14622,9 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 				hint = membershipHint(stdCollectionName(c.reg.Lookup(tqTypeName)), n.Field.Name)
 			}
 			if hint == "" {
+				hint = c.aliasMemberHint(tqTypeName, n.Field.Name)
+			}
+			if hint == "" {
 				hint = didYouMean(n.Field.Name, c.typeMemberNames(tqTypeName))
 			}
 			c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
@@ -14642,8 +14679,12 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 			c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
 				"type parameter `%s` has no field '%s'", rt.Name_, n.Field.Name)}.WithHint(c.typeParamFunctionNotFieldHint(rt, n.Field.Name, n.Object)))
 		case *AnonStructType, *TupleType, *PrimitiveType, *ListType, *MapType, *FuncType:
+			hint := membershipHint(stdCollectionName(rt), n.Field.Name)
+			if hint == "" && c.methodCalls[n] == nil {
+				hint = c.functionNotFieldHint(objTy, n)
+			}
 			c.report(c.methodCallError(n, objTy, fmt.Sprintf(
-				"%s has no field '%s'", rt, n.Field.Name)).WithHint(membershipHint(stdCollectionName(rt), n.Field.Name)))
+				"%s has no field '%s'", rt, n.Field.Name)).WithHint(hint))
 		}
 	}
 	return nil
@@ -15159,8 +15200,8 @@ func isTryOperandName(name string) bool {
 // (`x |> f(a)?`). Reports a diagnostic on `at` if ty is not
 // Result/Maybe.
 //
-// operand is the expression `?` applies to, for the hint on a backtick
-// typed literal, whose type is already the handler's success type.
+// operand is the expression `?` applies to, for the hint on a typed literal
+// without slots, whose type is already the handler's success type.
 func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 	if ty == nil {
 		return nil
@@ -15171,8 +15212,8 @@ func (c *checker) unwrapTryResult(ty Type, at, operand ast.Node) Type {
 		e := TypeError{Line: line, Col: col, Message: c.typef("`?` requires a Result or Maybe, got %s", ty)}
 		if lit, isLit := ungroupExpr(operand).(*ast.TaggedString); isLit && c.fa.CheckedLiterals[lit] {
 			e.Hints = []string{fmt.Sprintf("a `%s` literal is checked when the program is checked, so this one is already a %s: remove the `?`", lit.Tag, ty)}
-		} else if isLit && lit.Raw {
-			e.Hints = []string{fmt.Sprintf("a backtick typed literal is checked at compile time, so this one is already a %s: remove the `?`", ty)}
+		} else if isLit && lit.Fixed() {
+			e.Hints = []string{fmt.Sprintf("a typed literal without slots is checked at compile time, so this one is already a %s: remove the `?`", ty)}
 		}
 		c.report(e)
 		return nil
@@ -15400,7 +15441,7 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 		}
 		if !c.argMatchesParam(valTy, c.returnTy, c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
 			c.report(errAt(n.Value, c.typef(
-				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(c.mismatchHint(c.returnTy, valTy)))
+				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(c.typedLiteralHint(c.returnTy, valTy, n.Value)).WithHint(c.mismatchHint(c.returnTy, valTy)))
 		}
 	}
 	return TypeInfallible
@@ -15550,7 +15591,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 		itemTys = append(itemTys, ty)
 		joined, ok := c.joinLitElem(elemTy, ty)
 		if !ok {
-			e := errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty))
+			e := errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty))
 			if len(e.Hints) == 0 {
 				e = c.valueAnnotationHelp(e, n, elemTy, ty, listOf)
 			}
@@ -15620,7 +15661,7 @@ func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
 		}
 		itemTys = append(itemTys, ty)
 		if !c.litElemFits(elemTy, ty, item) {
-			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty)))
+			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty)))
 		}
 	}
 	markEmbedsWidening(n, elemTy, itemTys)
@@ -16178,7 +16219,7 @@ func (c *checker) checkListSpreadLitExpecting(n *ast.ListLit, elemTy Type) Type 
 			continue
 		}
 		if !c.litElemFits(elemTy, ty, h) {
-			c.report(errAt(h, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty)))
+			c.report(errAt(h, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, h)).WithHint(c.mismatchHint(elemTy, ty)))
 		}
 	}
 	want := &ListType{Elem: elemTy}
@@ -16615,6 +16656,12 @@ func (c *checker) patternQualifierSymbolIsType(qt *ast.QualifiedType, sym *Symbo
 	case SymbolFunction:
 		e.Message = fmt.Sprintf("`%s` is a function, not a type", qt.Module)
 	case SymbolModule:
+		// `kinds.Pt(p)` over a distinct type names that type through its
+		// module, as `kinds.Items[a, b]` does; the distinct arm checks the
+		// name.
+		if _, isDistinct := resolveTypeVar(expectedTy).(*DistinctType); isDistinct {
+			return true
+		}
 		// `shapes.Dot` names no type: a variant is reached through its
 		// enum, `shapes.Shape.Dot`.
 		e.Message = fmt.Sprintf("`%s` is a module, not a type", qt.Module)
@@ -16838,12 +16885,8 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 		// Handle distinct types matched with TypeName(binding) or bare TypeName.
 		if dt, ok := expectedTy.(*DistinctType); ok {
-			patternName := variantName
-			if _, ok := n.Variant.(*ast.QualifiedType); ok {
-				patternName = n.Variant.TypeString()
-			}
-			if !distinctTypeNameMatches(patternName, dt.Name) {
-				c.addError(n.Line, n.Col, fmt.Sprintf("distinct type pattern %s does not match type %s", patternName, dt.Name))
+			patternName := n.Variant.TypeString()
+			if !c.patternNamesDistinct(n.Variant, dt, n.Line, n.Col) {
 				return
 			}
 			// Opaque-types: destructuring an opaque distinct type from
@@ -17282,10 +17325,8 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		actualTy := expectedTy
 		if dt, ok := expectedTy.(*DistinctType); ok {
 			if _, isList := dt.Inner.(*ListType); isList {
-				if n.TypeName != nil && n.TypeName.TypeString() != dt.Name {
-					c.addError(n.Line, n.Col, fmt.Sprintf(
-						"list pattern prefix %s does not match scrutinee type %s",
-						n.TypeName.TypeString(), dt.Name))
+				if n.TypeName != nil {
+					c.patternNamesDistinct(n.TypeName, dt, n.Line, n.Col)
 				}
 				actualTy = distinctInnerOf(dt)
 			}
@@ -17361,10 +17402,8 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 		if dt, ok := expectedTy.(*DistinctType); ok {
 			if _, isMap := dt.Inner.(*MapType); isMap {
-				if n.TypeName != nil && n.TypeName.TypeString() != dt.Name {
-					c.addError(n.Line, n.Col, fmt.Sprintf(
-						"map pattern prefix %s does not match scrutinee type %s",
-						n.TypeName.TypeString(), dt.Name))
+				if n.TypeName != nil {
+					c.patternNamesDistinct(n.TypeName, dt, n.Line, n.Col)
 				}
 				actualTy = distinctInnerOf(dt)
 			}
@@ -17947,7 +17986,7 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 					_ = c.unify(expected, resultTy, nil)
 				}
 				e := errAt(valueExpr(branch.Body), c.typef(
-					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.mismatchHint(resultTy, bodyTy)).WithHint(c.branchJoinHint(resultTy, bodyTy))
+					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.typedLiteralHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.mismatchHint(resultTy, bodyTy)).WithHint(c.branchJoinHint(resultTy, bodyTy))
 				if expected == nil && len(e.Hints) == 0 {
 					e = c.valueAnnotationHelp(e, n, resultTy, bodyTy, sameSpelling)
 				}
@@ -19855,6 +19894,29 @@ func (c *checker) literalFieldDef(f ast.StructFieldVal, ty Type) FieldDef {
 
 // anonStructLitOf returns node as a plain anonymous struct literal (no type
 // name, no spread), looking through parentheses, or nil.
+// recordAnonLitIterFields records, for each field of the anonymous literal
+// n whose field in expected is an `Iter<T>`, that the field's value was
+// checked against it: the source enters the field as a view
+// (recordCoercions records its IterView), as a struct field's value does.
+// A nested anonymous literal is walked against its field's record type.
+func (c *checker) recordAnonLitIterFields(n *ast.StructLit, expected *AnonStructType) {
+	for _, f := range n.Fields {
+		for i := range expected.Fields {
+			if expected.Fields[i].Name != f.Name {
+				continue
+			}
+			ft := resolveTypeVar(expected.Fields[i].Type)
+			if it, ok := ft.(*InterfaceType); ok && isStdIterType(it) {
+				c.fa.recordExpectedType(f.Value, ft)
+			} else if inner, ok := ft.(*AnonStructType); ok {
+				if lit := anonStructLitOf(f.Value); lit != nil {
+					c.recordAnonLitIterFields(lit, inner)
+				}
+			}
+		}
+	}
+}
+
 func anonStructLitOf(node ast.Node) *ast.StructLit {
 	for {
 		g, ok := node.(*ast.GroupedExpr)
@@ -19986,6 +20048,9 @@ func (c *checker) recordConformanceRecording(t Type, ifaceName string, rec Recor
 		} else {
 			c.checkExistentialDemand(r, ifaceName, rec)
 		}
+		return
+	case *ConjunctionType:
+		c.checkExistentialDemand(r, ifaceName, rec)
 		return
 	case *TypeVar:
 		return
@@ -21353,6 +21418,7 @@ func (c *checker) checkTaggedStringHandler(n *ast.TaggedString, ft *FuncType, ch
 		return ft.Return
 	}
 	interfaceTy := fragmentTy.TypeArgs[0]
+	c.recordTypedLiteral(n, checked, interfaceTy)
 
 	// Step 4: type-check each Dynamic slot against I. The signature-
 	// shape check above already returned for malformed tags, so we
@@ -21380,21 +21446,21 @@ func (c *checker) checkTaggedStringHandler(n *ast.TaggedString, ft *FuncType, ch
 		// (regex_literal.go).
 		ret = typed
 	}
-	if ok, _ := RawLiteralType(n.Raw, ret); ok != nil {
+	if ok, _ := FixedLiteralType(n.Fixed(), ret); ok != nil {
 		return ok
 	}
 	return ret
 }
 
-// RawLiteralType is the type of a typed literal whose handler returns ret,
-// when the literal is checked at compile time: a backtick (raw) literal whose
-// handler can fail, returning `Result<T, E>`. Its body never interpolates, so
-// the handler's input is fixed text; the compiler runs the handler (vmhost's
-// checkLiterals), an Err is a compile error at the literal, and the literal's
-// type is T. ok is T and err is E; both are nil for every other literal,
-// whose type is ret itself.
-func RawLiteralType(raw bool, ret Type) (ok, err Type) {
-	if !raw {
+// FixedLiteralType is the type of a typed literal whose handler returns ret,
+// when the literal is checked at compile time: a literal without slots
+// (fixed, ast.TaggedString.Fixed), in any quote style, whose handler can
+// fail, returning `Result<T, E>`. The handler's input is fixed text; the
+// compiler runs the handler (vmhost's checkLiterals), an Err is a compile
+// error at the literal, and the literal's type is T. ok is T and err is E;
+// both are nil for every other literal, whose type is ret itself.
+func FixedLiteralType(fixed bool, ret Type) (ok, err Type) {
+	if !fixed {
 		return nil, nil
 	}
 	et, isEnum := resolveTypeVar(ret).(*EnumType)
@@ -21588,6 +21654,10 @@ func (c *checker) checkTaggedStringSlot(n *ast.TaggedString, se ast.StringExpr, 
 		// every interface-typed value.
 		if it, isIface := resolveTypeVar(slotTy).(*InterfaceType); isIface && !it.DefaultSelf {
 			c.checkExistentialDemand(it, iface.Name, Recording{Pos: c.recPos(slotLine, slotCol), Kind: RecordingKindTypedLiteralSlot})
+			return
+		}
+		if conj, isConj := resolveTypeVar(slotTy).(*ConjunctionType); isConj {
+			c.checkExistentialDemand(conj, iface.Name, Recording{Pos: c.recPos(slotLine, slotCol), Kind: RecordingKindTypedLiteralSlot})
 			return
 		}
 		if !c.typeImplementsInterface(slotTy, iface.Name, c.recPos(slotLine, slotCol), RecordingKindTypedLiteralSlot) {

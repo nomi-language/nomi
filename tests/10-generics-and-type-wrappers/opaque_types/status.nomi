@@ -59,7 +59,7 @@ impl Status
     pub fn inactive_reason(s: Status) -> Maybe<String>
         case s
             .Inactive(r) -> Some(r)
-            _ -> None
+            _            -> None
         end
     end
 
@@ -67,7 +67,7 @@ impl Status
     pub fn suspended_reason(s: Status) -> Maybe<String>
         case s
             .Suspended{reason:} -> Some(reason)
-            _ -> None
+            _                   -> None
         end
     end
 
@@ -75,7 +75,7 @@ impl Status
     pub fn suspended_until(s: Status) -> Maybe<Int>
         case s
             .Suspended{until:} -> Some(until)
-            _ -> None
+            _                  -> None
         end
     end
 end

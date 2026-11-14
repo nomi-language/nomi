@@ -8,7 +8,7 @@ end
 
 pub struct Span<T>
     start: T
-    stop: T
+    stop:  T
 end
 
 pub fn first<T>(s: Span<T>) -> T

@@ -46,8 +46,10 @@ func tupleCaseIrrefutable(pattern ast.Node, k kind) bool {
 func (bl *irScalarBuilder) tupleCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	tested, ok := tupleCaseComponents(pattern, k)
 	if !ok || len(tested) == 0 {
-		bl.g.dc.note("a `case` tuple pattern outside flat Int/String tests with bindings and wildcards")
-		return false
+		// The checker types the pattern against the tuple's type, each
+		// component a pattern irFieldSubPattern tests, and every caller
+		// binds an irrefutable tuple pattern instead of testing it.
+		panic("irbuild: a tuple pattern over " + k.nomi() + " with nothing to test, or a component tupleCaseComponents does not test")
 	}
 	pat := pattern.(*ast.TuplePattern)
 	j := 0

@@ -44,70 +44,70 @@ opaque type Handle go goside.Conn
 // A value as it crosses to Go: kind 0 null, 1 int, 2 float, 3 text,
 // 4 bytes, 5 a decimal's text.
 struct Cell
-    kind: Int
-    int: Int
+    kind:  Int
+    int:   Int
     float: Float
-    text: String
+    text:  String
     bytes: Bytes
 end
 
 // An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
 // 3 database, 4 finished, 5 closed, 6 the task's context ended.
 struct Failure
-    kind: Int
-    code: String
-    message: String
+    kind:       Int
+    code:       String
+    message:    String
     constraint: Int
-    name: String
-    table: String
-    column: String
+    name:       String
+    table:      String
+    column:     String
 end
 
 struct Answer
     columns: List<String>
-    types: List<String>
-    rows: List<List<Cell>>
+    types:   List<String>
+    rows:    List<List<Cell>>
     changed: Int
     failure: Failure
 end
 
 struct RawRow
     columns: List<String>
-    types: List<String>
-    cells: List<Cell>
+    types:   List<String>
+    cells:   List<Cell>
 end
 
 struct Level
-    depth: Int
-    token: Int
+    depth:   Int
+    token:   Int
     failure: Failure
 end
 
 fn open_raw(path: String) -> Result<Handle, String> go goside.Open
 
 fn run_raw(
-    h: Handle,
-    depth: Int,
-    token: Int,
-    parts: List<String>,
+    h:      Handle,
+    depth:  Int,
+    token:  Int,
+    parts:  List<String>,
     params: List<Cell>,
 ) -> Answer go goside.Run
 
 fn exec_raw(
-    h: Handle,
-    depth: Int,
-    token: Int,
-    parts: List<String>,
+    h:      Handle,
+    depth:  Int,
+    token:  Int,
+    parts:  List<String>,
     params: List<Cell>,
 ) -> Answer go goside.Exec
 
 fn each_row_raw(
-    h: Handle,
-    depth: Int,
-    token: Int,
-    parts: List<String>,
+    h:      Handle,
+    depth:  Int,
+    token:  Int,
+    parts:  List<String>,
     params: List<Cell>,
-    f: (RawRow) -> Bool,
+    f:      (RawRow) -> Bool,
 ) -> Failure go goside.EachRow
 
 fn begin_raw(h: Handle, depth: Int, token: Int) -> Level go goside.Begin
@@ -126,8 +126,8 @@ fn close_raw(h: Handle) -> Failure go goside.Close
 /// each savepoint inside it.
 pub opaque struct SqliteConn
     handle: Handle
-    depth: Int
-    token: Int
+    depth:  Int
+    token:  Int
 end
 
 /// Open the SQLite database at `path`, creating it when it does not
@@ -135,7 +135,7 @@ end
 /// A path that cannot be opened is `Err(.Connection)`.
 pub fn open(path: String) -> Result<Conn, sql.Error>
     case open_raw(path)
-        Ok(handle) -> Ok(SqliteConn{handle:, depth: 0, token: 0})
+        Ok(handle)   -> Ok(SqliteConn{handle:, depth: 0, token: 0})
         Err(message) -> Err(sql.Error.Connection{message:})
     end
 end
@@ -230,8 +230,8 @@ fn constraint_error(failure: Failure) -> sql.Error
 
     sql.Error.Constraint{
         kind:,
-        name: failure.name,
-        table: present(failure.table),
+        name:   failure.name,
+        table:  present(failure.table),
         column: present(failure.column),
     }
 end
@@ -265,13 +265,13 @@ fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
     case value
         .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
             Err(sql.Error.Database{
-                code: "SQLITE_MISMATCH",
+                code:    "SQLITE_MISMATCH",
                 message: "parameter ?${position} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
             })
 
         .Array(_) ->
             Err(sql.Error.Database{
-                code: "SQLITE_MISMATCH",
+                code:    "SQLITE_MISMATCH",
                 message: "parameter ?${position} is an Array, and SQLite has no array type; bind one parameter per element, as in `IN (?1, ?2)`, or the elements as JSON text",
             })
 
@@ -409,14 +409,14 @@ fn affinity(declared: String) -> String
 
     name = case String.split(upper, "(")
         [first, ..] -> String.trim(first)
-        _ -> upper
+        _           -> upper
     end
 
     case name
-        "BOOLEAN" -> "BOOL"
-        "NUMERIC" -> "DECIMAL"
+        "BOOLEAN"  -> "BOOL"
+        "NUMERIC"  -> "DECIMAL"
         "DATETIME" -> "TIMESTAMP"
-        _ -> name
+        _          -> name
     end
 end
 

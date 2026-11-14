@@ -44,7 +44,7 @@ end
 
 fn reading_text(r: Probe.Reading) -> String
     case r
-        Probe.Reading.Steady -> "steady"
+        Probe.Reading.Steady   -> "steady"
         Probe.Reading.Spike(n) -> "spike ${n}"
     end
 end

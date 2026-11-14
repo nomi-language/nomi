@@ -20,7 +20,7 @@ end
 // end freely.
 fn out(source: String) -> String
     case compiler.run(source)
-        Ok(text) -> "[" + text + "]"
+        Ok(text)     -> "[" + text + "]"
         Err(message) -> "ERR " + message
     end
 end

@@ -31,10 +31,10 @@ end
 
 /// A customer's revenue: a row of `queries.revenue_since`.
 pub struct CustomerRevenue
-    user_id: Int
-    email: String
+    user_id:     Int
+    email:       String
     order_count: Int
-    revenue: Decimal
+    revenue:     Decimal
 end
 
 derive Equatable for CustomerRevenue

@@ -62,6 +62,9 @@ type fuel struct {
 	// is the fuel of the machine the case runs on, StopOn's, still burned.
 	watch bool
 	outer *fuel
+	// prof is the profiler a profiling machine's watching fuel samples for
+	// (profile.go): burn takes its pending ticks at the frame it is given.
+	prof *Profiler
 	// overDeadline records that the run was stopped at its deadline.
 	overDeadline atomic.Bool
 }
@@ -74,14 +77,18 @@ func newFuel(lim Limits) *fuel {
 
 // burn spends one step. Once the steps are gone every later burn fails too,
 // so a program that catches the failure and loops fails again at its next
-// call or backward branch.
-func (f *fuel) burn() error {
+// call or backward branch. fr is the activation taking the step, at pc, for
+// a profiler's sample; nil when the step is taken from Go.
+func (f *fuel) burn(fr *frame, pc int) error {
 	if f.watch {
 		if f.stopped.Load() {
 			return ErrStopped
 		}
+		if f.prof != nil && fr != nil && f.prof.due() {
+			f.prof.take(fr, pc, "", ir.Pos{})
+		}
 		if f.outer != nil {
-			return f.outer.burn()
+			return f.outer.burn(fr, pc)
 		}
 		return nil
 	}
@@ -155,7 +162,7 @@ func (m *Machine) metered(seq rt.Seq[any]) rt.Seq[any] {
 	f, run := m.fuel, seq.Run
 	seq.Run = func(fr *rt.Frame, yield func(*rt.Frame, any) bool) bool {
 		return run(fr, func(fr *rt.Frame, item any) bool {
-			if err := f.burn(); err != nil {
+			if err := f.burn(nil, -1); err != nil {
 				panic(iterationFailure{err})
 			}
 			return yield(fr, item)

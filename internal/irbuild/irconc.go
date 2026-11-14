@@ -98,9 +98,10 @@ func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bo
 		// those returns settled.
 		k = child.returnKind
 	}
-	if !ok || (!irCallableValueKind(k) && k != kindUnit) {
+	if !ok {
 		return no()
 	}
+	irHeldOperand(k, "a `concurrent` body's result")
 	if _, agree := child.inferReturn.settle(k); !agree || !child.settleConcurrentTries(tries, k) {
 		return no()
 	}
@@ -227,7 +228,7 @@ func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool)
 	}
 	// `Task.spawn_all([1, 2], show)` for `fn show(x: Display)`: an
 	// element entering the parameter's existential is the value itself.
-	if p := funcParams(fn)[0]; p != elem && !(irExistentialKind(p) && bl.g.irErases(p, elem)) {
+	if p := funcParams(fn)[0]; p != elem && !(irHeldKind(p) && bl.g.irErases(p, elem)) {
 		return no()
 	}
 	payload := funcResult(fn)

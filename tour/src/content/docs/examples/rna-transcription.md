@@ -29,7 +29,7 @@ fn complement(nucleotide: String) -> Result<String, String>
         "C" -> Ok("G")
         "T" -> Ok("A")
         "A" -> Ok("U")
-        _ -> Err("invalid nucleotide '${nucleotide}'")
+        _   -> Err("invalid nucleotide '${nucleotide}'")
     end
 end
 
@@ -38,12 +38,12 @@ import rna_transcription.to_rna
 
 test "transcribes DNA to RNA"
     [
-        ("Empty RNA sequence", "", ""),
-        ("RNA complement of cytosine is guanine", "C", "G"),
-        ("RNA complement of guanine is cytosine", "G", "C"),
-        ("RNA complement of thymine is adenine", "T", "A"),
-        ("RNA complement of adenine is uracil", "A", "U"),
-        ("RNA complement", "ACGTGGTCTTAA", "UGCACCAGAAUU"),
+        ("Empty RNA sequence",                    "",             ""),
+        ("RNA complement of cytosine is guanine", "C",            "G"),
+        ("RNA complement of guanine is cytosine", "G",            "C"),
+        ("RNA complement of thymine is adenine",  "T",            "A"),
+        ("RNA complement of adenine is uracil",   "A",            "U"),
+        ("RNA complement",                        "ACGTGGTCTTAA", "UGCACCAGAAUU"),
     ]
     |> subtests (description, dna, expected), description
         assert to_rna(dna) == Ok(expected)

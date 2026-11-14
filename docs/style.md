@@ -48,18 +48,21 @@ The normal file shape is:
 
 A type's own operations and constants go in an `impl Type` block right
 after the type, and its derives and interface implementations follow that
-block. An impl for a type from another file sits with the code that needs it:
+block. A `once` that describes a type (`Float.pi`, `Status.ok`,
+`RetryPolicy.default`) belongs in that block, so a caller reaches it
+through the type; a file-level `once` is for a value that belongs to the
+file, such as its configuration or a lookup table its functions share. An impl for a type from another file sits with the code that needs it:
 
 ```nomi
 pub struct RetryPolicy
     attempts: Int
-    delay: Duration
+    delay:    Duration
 end
 
 impl RetryPolicy
     pub once default = RetryPolicy{
         attempts: 3,
-        delay: Duration.seconds(1),
+        delay:    Duration.seconds(1),
     }
 
     pub fn with_attempts(policy: RetryPolicy, attempts: Int) -> RetryPolicy
@@ -212,7 +215,7 @@ parameters, including an `Iter.reduce` seed (spec §5 *Annotations and local
 inference*; tour: [Bindings & Expressions](/bindings-and-expressions/#how-far-type-inference-reaches)):
 
 ```nomi
-once upto = 400
+once upto    = 400
 once offsets = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 total = Iter.reduce(1..=upto, 0, fn sum, n -> sum + n)
@@ -575,7 +578,7 @@ that apply only there:
 ```nomi
 struct Span<T> where T: Comparable
     start: T
-    stop: T
+    stop:  T
 end
 
 impl Span<T>
@@ -619,7 +622,7 @@ derive Display for Box<T> where T: Display
 
 struct Account
     first_name: String
-    age: Int
+    age:        Int
 end
 
 derive ToJson for Account with ToJson.Options{rename_all: Json.Case.Camel}
@@ -666,7 +669,7 @@ fn code(color: Color) -> Int
     case color
         .Black -> 0
         .Brown -> 1
-        .Red -> 2
+        .Red   -> 2
     end
 end
 ```
@@ -710,7 +713,7 @@ and drop the enum's import once nothing else names it:
 fn sign(style: Style) -> CurrencySign
     case style
         .American -> .Accounting
-        .Dutch -> .Standard
+        .Dutch    -> .Standard
     end
 end
 ```
@@ -743,7 +746,7 @@ on an unannotated binding:
 ```nomi
 struct Grid
     cells: Vector<Int>
-    seen: Set<Int>
+    seen:  Set<Int>
 end
 
 fn empty_grid() -> Grid
@@ -846,7 +849,7 @@ is infallible and says which character it is.
 fn is_delimiter(cp: Codepoint) -> Bool
     case cp
         ',' or ';' or '\t' -> True
-        _ -> False
+        _                  -> False
     end
 end
 ```
@@ -856,27 +859,26 @@ Keep text in strings, a one-character one included: `String.starts_with(s,
 literal at all. Converting back and forth (`Codepoint.to_string('a')`) is a
 sign the value wanted to be a string.
 
-### 21. Write a typed literal of fixed text with backticks
+### 21. Write a typed literal with backticks only when its text has backslashes
 
-A typed literal whose text is fixed uses backticks (spec §18 *Raw literals are
-checked at compile time*; tour:
-[Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time)).
-The compiler runs its handler when it checks the program, so a bad literal is a compile error at the
-literal, and a good one is the value itself, with no `?`.
+A typed literal without `${...}` slots is checked when the program compiles
+in any quote style (spec §18 *A literal without slots is checked at compile
+time*; tour:
+[Typed Literals](/typed-literals/#a-literal-without-slots-is-checked-at-compile-time)),
+so the quotes decide only how the text is read. Use backticks for text with
+backslashes, such as a regex, where a backtick body keeps each one as
+written. Use double quotes otherwise.
 
 ```nomi
-// yes: checked when the program compiles
-release = Date`2026-05-04`
+release = Date"2026-05-04"
 
-// no: built at run time, and the Result needs unwrapping
-release = Date"2026-05-04"?
+digits = Regex`\d+`
 ```
 
-Use double quotes for a literal that interpolates (`Date"2026-${month}-04"`),
-or whose handler has an effect and so cannot run at compile time; the compiler
-says when that is the case. A test that checks a bad literal's `Err` at run
-time keeps double quotes too, since a backtick literal with that text would
-not compile.
+Neither needs a `?`: a good literal is the value itself, and a bad one is a
+compile error at the literal. To build a value from text known only when the
+program runs, call the type's own function, such as `Date.parse(text)`, or
+put the text in a slot.
 
 ### 22. Reach for `DateTime`, not `NaiveDateTime`, for real timestamps
 
@@ -888,10 +890,10 @@ without a zone, not a moment in history.
 
 ```nomi
 // yes: a real moment, anchored
-appointment = DateTime`2026-06-15T14:30:00-04:00[America/New_York]`
+appointment = DateTime"2026-06-15T14:30:00-04:00[America/New_York]"
 
 // only for wall time without a zone, which is rare
-template_time = NaiveDateTime`2026-06-15T14:30:00`
+template_time = NaiveDateTime"2026-06-15T14:30:00"
 ```
 
 If you find yourself writing a `NaiveDateTime` literal, check whether you want a
@@ -997,8 +999,8 @@ compiler checks that it handles them all:
 ```nomi
 fn describe(v: Vector<Int>) -> String
     case v
-        [] -> "empty"
-        [only] -> "just ${only}"
+        []                -> "empty"
+        [only]            -> "just ${only}"
         [first, .., last] -> "${first} to ${last}"
     end
 end
@@ -1017,9 +1019,9 @@ subject (spec §8 *`case`*; tour:
 
 ```nomi
 case
-    count < 10 -> Err(.TooFewDigits)
+    count < 10  -> Err(.TooFewDigits)
     count == 10 -> Ok(digits)
-    _ -> Err(.TooManyDigits)
+    _           -> Err(.TooManyDigits)
 end
 ```
 
@@ -1033,9 +1035,9 @@ choice, so it is this `case` too:
 
 ```nomi
 size = case
-    bytes < 1_024 -> "${bytes} B"
+    bytes < 1_024     -> "${bytes} B"
     bytes < 1_048_576 -> "${bytes / 1_024} KB"
-    _ -> "${bytes / 1_048_576} MB"
+    _                 -> "${bytes / 1_048_576} MB"
 end
 ```
 
@@ -1115,7 +1117,7 @@ does, and let a caller that knows the call cannot fail write `!` after it:
 // the index comes from data: the miss is an outcome
 case Vector.get(row, column)
     Some(cell) -> cell
-    None -> blank
+    None       -> blank
 end
 
 // the index is within bounds by construction: a miss is a bug
@@ -1152,7 +1154,7 @@ user = load(id)?
 // else: the error is replaced with one that says which user
 Ok(user) = load(id) else
     Err(.NotFound) -> return Err("no user ${id}")
-    Err(e) -> return Err("loading user ${id}: ${e}")
+    Err(e)         -> return Err("loading user ${id}: ${e}")
 end
 
 // else: a fallback stands in for the missing value
@@ -1167,7 +1169,7 @@ end)
 // case: both outcomes do work
 case load(id)
     Ok(user) -> greet(user)
-    Err(e) -> log_failure(e)
+    Err(e)   -> log_failure(e)
 end
 
 // if: only a match does anything
@@ -1189,7 +1191,7 @@ a `case`: the success path is one arm, nothing is nested, and no arm needs
 fn find_post(id: Int) -> Result<Post, NotFound>
     Ok(Some(post)) = posts.by_id(id) else
         Ok(None) -> return Err(NotFound{id:})
-        Err(_) -> return Err(NotFound{id:})
+        Err(_)   -> return Err(NotFound{id:})
     end
 
     Ok(post)
@@ -1199,8 +1201,8 @@ end
 fn find_post(id: Int) -> Result<Post, NotFound>
     case posts.by_id(id)
         Ok(Some(post)) -> Ok(post)
-        Ok(None) -> Err(NotFound{id:})
-        Err(_) -> Err(NotFound{id:})
+        Ok(None)       -> Err(NotFound{id:})
+        Err(_)         -> Err(NotFound{id:})
     end
 end
 ```
@@ -1455,7 +1457,7 @@ reverses the list once when it is done:
 fn trail(at: Point, seen: List<Point>) -> List<Point>
     case next_step(at)
         Some(step) -> trail(step, [at, ..seen])
-        None -> Iter.reverse([at, ..seen])
+        None       -> Iter.reverse([at, ..seen])
     end
 end
 
@@ -1463,7 +1465,7 @@ end
 fn trail(at: Point, seen: List<Point>) -> List<Point>
     case next_step(at)
         Some(step) -> trail(step, [..seen, at])
-        None -> [..seen, at]
+        None       -> [..seen, at]
     end
 end
 ```
@@ -1505,7 +1507,7 @@ fields*; tour: [App Fields, Defer & Context](/app-fields/#the-basic-shape)):
 
 ```nomi
 pub struct Config
-    port: Int = 8080
+    port:    Int = 8080
     context: Context
 end
 
@@ -1688,7 +1690,7 @@ it is:
 ```nomi
 test "leap years"
     [
-        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 400 is leap year",                         2000, True),
         ("year divisible by 100, not divisible by 400 in common year", 1900, False),
     ]
     |> subtests (description, year, expected), description
@@ -1707,10 +1709,10 @@ than annotating the table:
 
 ```nomi
 cases = [
-    ("single bit one to decimal", 2, [1], 10, Ok([1])),
-    ("input base is one", 1, [0], 10, Err(Error.InvalidInputBase)),
-    ("input base is zero", 0, [], 10, Err(.InvalidInputBase)),
-    ("negative digit", 2, [1, -1, 1, 0, 1, 0], 10, Err(.InvalidDigit)),
+    ("single bit one to decimal", 2, [1],                 10, Ok([1])),
+    ("input base is one",         1, [0],                 10, Err(Error.InvalidInputBase)),
+    ("input base is zero",        0, [],                  10, Err(.InvalidInputBase)),
+    ("negative digit",            2, [1, -1, 1, 0, 1, 0], 10, Err(.InvalidDigit)),
 ]
 ```
 
@@ -1960,7 +1962,7 @@ end
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .TooShort -> "must not be fewer than 10 digits"
+            .TooShort               -> "must not be fewer than 10 digits"
             .AreaCodeStartsWithZero -> "area code cannot start with zero"
         end
     end

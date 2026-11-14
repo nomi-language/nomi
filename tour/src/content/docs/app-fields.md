@@ -18,7 +18,7 @@ any name you like. A context carries a deadline, explained
 import std::io
 
 struct App
-    port: Int
+    port:    Int
     context: Context
 end
 
@@ -66,7 +66,7 @@ like any other type. The context field can have any name too:
 import std::duration.Duration
 
 struct Server
-    port: Int
+    port:      Int
     execution: Context
 end
 
@@ -336,7 +336,7 @@ end
 fn setting(startup: Startup, key: String) -> Result<String, String>
     case Map.get(startup.env, key)
         Some(value) -> Ok(value)
-        None -> Err("${key} is not set")
+        None        -> Err("${key} is not set")
     end
 end
 
@@ -372,8 +372,8 @@ is already set, so a program can pick its test settings by it:
 import std::io
 
 struct Config
-    deployment: String = "dev"
-    database_url: String = "postgres://localhost/myapp_dev"
+    deployment:      String = "dev"
+    database_url:    String = "postgres://localhost/myapp_dev"
     max_connections: Int = 5
 end
 

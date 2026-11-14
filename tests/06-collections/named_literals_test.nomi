@@ -94,6 +94,6 @@ test "map and struct patterns"
 
     assert case Kvs{"a" => 4}
         Kvs{"a" => n} -> n
-        _ -> 0
+        _             -> 0
     end == 4
 end

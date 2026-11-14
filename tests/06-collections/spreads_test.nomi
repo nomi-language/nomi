@@ -58,13 +58,13 @@ end
 
 struct Team
     members: List<String>
-    scores: Map<String, Map<String, Int>>
+    scores:  Map<String, Map<String, Int>>
 end
 
 test "a bare spread stands anywhere, and a map entry after spreads updates what they hold"
     team = Team{
         members: ["Bo"],
-        scores: {"ada" => {"q1" => 5}},
+        scores:  {"ada" => {"q1" => 5}},
     }
 
     extra = {"ada" => {"q2" => 7}, "cy" => {"q1" => 1}}
@@ -72,15 +72,15 @@ test "a bare spread stands anywhere, and a map entry after spreads updates what 
     updated = {
         ..team,
         members: ["Ada", .., "Cy"],
-        scores: {"bo" => {"q1" => 2}, .., ..extra, "ada" => {.., "q3" => 9}},
+        scores:  {"bo" => {"q1" => 2}, .., ..extra, "ada" => {.., "q3" => 9}},
     }
 
     assert updated.members == ["Ada", "Bo", "Cy"]
 
     assert Iter.to_list(updated.scores) == [
-        ("bo", {"q1" => 2}),
+        ("bo",  {"q1" => 2}),
         ("ada", {"q2" => 7, "q3" => 9}),
-        ("cy", {"q1" => 1}),
+        ("cy",  {"q1" => 1}),
     ]
 end
 
@@ -118,4 +118,13 @@ test "a set spread takes any Iter of its elements"
     assert Iter.to_list(Set[..[1, 2, 2], 3]) == [1, 2, 3]
     assert Iter.to_list(Set[..some_n]) == [4]
     assert Iter.to_list(Set[..Set[1], ..[1, 5]]) == [1, 5]
+end
+
+test "a map entry after a spread enters its value type as a plain entry does"
+    its: Map<String, Iter<Int>> = {"a" => [1]}
+    more = {..its, "b" => [2, 3], "c" => Set[4]}
+
+    counts = more |> Iter.map(fn (k, xs) -> (k, Iter.count(xs))) |> Iter.to_list()
+
+    assert counts == [("a", 1), ("b", 2), ("c", 1)]
 end

@@ -32,7 +32,7 @@ end
 pub fn spread(ps: List<Point>) -> Int
     case ps
         [a, b] -> (b.x - a.x) + (b.y - a.y)
-        _ -> 0
+        _      -> 0
     end
 end
 

@@ -64,7 +64,7 @@ impl FromValue for Int
     fn from_value(value: Value, column: Int) -> Result<Int, Error>
         case value
             Value.Number(n) -> Ok(n)
-            other -> Err(Error.Decode{column:, found: found(other)})
+            other           -> Err(Error.Decode{column:, found: found(other)})
         end
     end
 end
@@ -73,23 +73,23 @@ impl FromValue for String
     fn from_value(value: Value, column: Int) -> Result<String, Error>
         case value
             Value.Text(s) -> Ok(s)
-            other -> Err(Error.Decode{column:, found: found(other)})
+            other         -> Err(Error.Decode{column:, found: found(other)})
         end
     end
 end
 
 fn found(value: Value) -> Found
     case value
-        Value.Null -> Found.Nothing
+        Value.Null      -> Found.Nothing
         Value.Number(_) -> Found.Number
-        Value.Text(_) -> Found.Text
+        Value.Text(_)   -> Found.Text
     end
 end
 
 /// A connection and what to tell about each query it runs.
 pub struct Pool
     conn: Conn
-    log: (String) -> String
+    log:  (String) -> String
 end
 
 impl Pool
@@ -116,7 +116,7 @@ fn decode<T>(rows: List<List<Value>>, done: List<T>) -> Result<List<T>, Error> w
         [row, ..rest] ->
             value = case row
                 [first, ..] -> first
-                [] -> Value.Null
+                []          -> Value.Null
             end
 
             decoded = T.from_value(value, 0)?

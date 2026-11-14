@@ -33,6 +33,6 @@ end
 fn next_state(cell: Int, live_neighbours: Int) -> Int
     case (cell, live_neighbours)
         (1, 2) or (_, 3) -> 1
-        _ -> 0
+        _                -> 0
     end
 end

@@ -21,7 +21,7 @@ end
 fn build(cells: List<Cell>) -> Result<Reactor, Error>
     Iter.try_reduce(cells, Reactor.new(), fn reactor, cell ->
         case cell
-            .Input((name, value)) -> Reactor.input(reactor, name, value)
+            .Input((name, value))             -> Reactor.input(reactor, name, value)
             .Compute((name, inputs, compute)) -> Reactor.compute(reactor, name, inputs, compute)
         end
     end)
@@ -38,18 +38,18 @@ fn replay(reactor: Reactor, steps: List<Step>) -> Result<List<Step>, Error>
                 .Value((cell, _)) ->
                     case Reactor.value(reactor, cell)
                         Some(value) -> (reactor, Ok(Step.Value(cell, value)))
-                        None -> (reactor, Err(Error.UnknownCell(cell)))
+                        None        -> (reactor, Err(Error.UnknownCell(cell)))
                     end
 
                 .Set((cell, value, _)) ->
                     case Reactor.set_value(reactor, cell, value)
                         Ok((next, fired)) -> (next, Ok(.Set(cell, value, fired)))
-                        Err(error) -> (reactor, Err(error))
+                        Err(error)        -> (reactor, Err(error))
                     end
 
                 .AddCallback((cell, callback)) ->
                     case Reactor.add_callback(reactor, cell, callback)
-                        Ok(next) -> (next, Ok(.AddCallback(cell, callback)))
+                        Ok(next)   -> (next, Ok(.AddCallback(cell, callback)))
                         Err(error) -> (reactor, Err(error))
                     end
 

@@ -62,8 +62,8 @@ end
 //!     == "xlink:href"
 //
 pub struct Name
-    local: String
-    space: String = ""
+    local:  String
+    space:  String = ""
     prefix: String = ""
 end
 
@@ -84,7 +84,7 @@ end
 /// An attribute: its name and its value, with entities and character
 /// references replaced.
 pub struct Attribute
-    name: Name
+    name:  Name
     value: String
 end
 
@@ -95,7 +95,7 @@ derive Debug for Attribute
 /// `xmlns="uri"` when `prefix` is `""`.
 pub struct Namespace
     prefix: String
-    uri: String
+    uri:    String
 end
 
 derive Equatable for Namespace
@@ -107,10 +107,10 @@ derive Debug for Namespace
 //! assert xml.encode(a) == Ok("<a>hi</a>")
 //
 pub struct Element
-    name: Name
+    name:       Name
     attributes: List<Attribute> = []
     namespaces: List<Namespace> = []
-    children: List<Node> = []
+    children:   List<Node> = []
 end
 
 derive Equatable for Element
@@ -131,7 +131,7 @@ derive Debug for Node
 impl Element
     /// An element named `local`, in no namespace, with `children`.
     //! assert Element.new("b", [Node.Text("x")]) == Element{
-    //!     name: Name{local: "b"},
+    //!     name:     Name{local: "b"},
     //!     children: [Node.Text("x")],
     //! }
     //
@@ -148,7 +148,7 @@ impl Element
         |> Iter.flat_map(fn node ->
             case node
                 .Element(e) -> [e]
-                _ -> []
+                _           -> []
             end
         end)
         |> Iter.to_list()
@@ -175,8 +175,8 @@ impl Element
     //
     pub fn children_named(
         element: Element,
-        local: String,
-        space: Maybe<String> = None,
+        local:   String,
+        space:   Maybe<String> = None,
     ) -> List<Element>
         Element.elements(element)
         |> Iter.filter(fn e -> named(e.name, local, space))
@@ -203,8 +203,8 @@ impl Element
         |> Iter.map(fn node ->
             case node
                 .Element(e) -> Element.text(e)
-                .Text(t) -> t
-                _ -> ""
+                .Text(t)    -> t
+                _           -> ""
             end
         end)
         |> String.join("")
@@ -228,7 +228,7 @@ fn named(name: Name, local: String, space: Maybe<String>) -> Bool
     name.local == local
         and case space
             Some(s) -> name.space == s
-            None -> True
+            None    -> True
         end
 end
 
@@ -309,8 +309,8 @@ end
 //!
 //! assert decode("<a>&ext;</a>") == Err(Error.Syntax{
 //!         message: "invalid character entity &ext;",
-//!         line: 1,
-//!         column: 9,
+//!         line:    1,
+//!         column:  9,
 //!     })
 //
 pub fn decode(text: String, allow_doctype = False) -> Result<Element, Error>
@@ -371,8 +371,8 @@ end
 fn each_token(tokens: host.Tokens, yield: (Result<Token, Error>) -> Bool) -> Bool
     case next_token(tokens)
         Ok(Some(token)) -> if yield(Ok(token)) then each_token(tokens, yield) else False
-        Ok(None) -> True
-        Err(e) -> yield(Err(e))
+        Ok(None)        -> True
+        Err(e)          -> yield(Err(e))
     end
 end
 
@@ -383,7 +383,7 @@ fn next_token(tokens: host.Tokens) -> Result<Maybe<Token>, Error>
             Ok(
                 Some(
                     Token.Start{
-                        name: name_of(host.name(tokens)),
+                        name:       name_of(host.name(tokens)),
                         attributes: attributes_of(host.attributes(tokens)),
                         namespaces: namespaces_of(host.namespaces(tokens)),
                     }
@@ -444,7 +444,7 @@ fn namespaces_of(flat: List<String>) -> List<Namespace>
     |> Iter.map(fn chunk ->
         case chunk
             [prefix, uri] -> Namespace{prefix:, uri:}
-            _ -> Namespace{prefix: "", uri: ""}
+            _             -> Namespace{prefix: "", uri: ""}
         end
     end)
     |> Iter.to_list()
@@ -468,8 +468,8 @@ end
 // The element whose start tag was read last, with its children read up to
 // its end tag. `reversed` is the children read so far, last first.
 fn read_children(
-    tokens: host.Tokens,
-    element: Element,
+    tokens:   host.Tokens,
+    element:  Element,
     reversed: List<Node>,
 ) -> Result<Element, Error>
     case next_token(tokens)?
@@ -508,7 +508,7 @@ end
 fn rest(tokens: host.Tokens) -> Result<Unit, Error>
     case next_token(tokens)?
         Some(_) -> rest(tokens)
-        None -> Ok(Unit)
+        None    -> Ok(Unit)
     end
 end
 
@@ -576,8 +576,8 @@ end
 //! assert Bytes.to_string(data) == Ok("<a/>")
 //
 pub fn write(
-    w: Writer,
-    root: Element,
+    w:       Writer,
+    root:    Element,
     options: WriteOptions = WriteOptions{},
 ) -> Result<Unit, Error>
     text = encode(root, options)?
@@ -653,7 +653,7 @@ fn attribute_prefix(scope: Scope, name: Name) -> String
 
         case found
             Some(p) -> p
-            None -> fresh_prefix(scope, 1)
+            None    -> fresh_prefix(scope, 1)
         end
     end
 end
@@ -669,11 +669,11 @@ fn fresh_prefix(scope: Scope, n: Int) -> String
 end
 
 fn element_text(
-    element: Element,
+    element:  Element,
     bindings: Map<String, String>,
-    options: WriteOptions,
-    depth: Int,
-    inline: Bool,
+    options:  WriteOptions,
+    depth:    Int,
+    inline:   Bool,
 ) -> Result<String, Error>
     check_name(element.name)?
 
@@ -715,7 +715,7 @@ fn element_text(
             Ok((scope, written)) ->
                 case attribute_text(scope, a)
                     Ok((scope, text)) -> Ok((scope, written + [text]))
-                    Err(e) -> break Err(e)
+                    Err(e)            -> break Err(e)
                 end
         end
     end)?
@@ -747,7 +747,7 @@ fn element_text(
     mixed = Iter.any_match(element.children, fn node ->
         case node
             .Text(t) -> String.trim(t) != ""
-            _ -> False
+            _        -> False
         end
     end)
 
@@ -768,7 +768,7 @@ fn element_text(
             Ok(done) ->
                 case node_text(node, scope.bindings, options, depth + 1, inline or mixed)
                     Ok(text) -> Ok(done + [text])
-                    Err(e) -> break Err(e)
+                    Err(e)   -> break Err(e)
                 end
         end
     end)?
@@ -817,11 +817,11 @@ fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String),
 end
 
 fn node_text(
-    node: Node,
+    node:     Node,
     bindings: Map<String, String>,
-    options: WriteOptions,
-    depth: Int,
-    inline: Bool,
+    options:  WriteOptions,
+    depth:    Int,
+    inline:   Bool,
 ) -> Result<String, Error>
     case node
         .Element(e) ->

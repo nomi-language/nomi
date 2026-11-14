@@ -75,11 +75,11 @@ end
 // destructure at arity 3 whose middle component is a String, container payload.
 fn describe(p: Point) -> String
     case p
-        .Origin -> "origin"
-        .One(n) -> "one ${n}"
-        .Pos(x, y) -> "pos ${x},${y}"
+        .Origin                -> "origin"
+        .One(n)                -> "one ${n}"
+        .Pos(x, y)             -> "pos ${x},${y}"
         .Span((lo, label, hi)) -> "span ${label} ${lo}..${hi}"
-        .Bag(xs) -> "bag ${Iter.count(xs)}"
+        .Bag(xs)               -> "bag ${Iter.count(xs)}"
     end
 end
 
@@ -88,9 +88,9 @@ end
 // one form of each.
 fn describe_explicit(p: Point) -> String
     case p
-        .Pos((x, y)) -> "pos ${x},${y}"
+        .Pos((x, y))         -> "pos ${x},${y}"
         .Span(lo, label, hi) -> "span ${label} ${lo}..${hi}"
-        _ -> "other"
+        _                    -> "other"
     end
 end
 
@@ -98,7 +98,7 @@ end
 // slot is dereferenced rather than merely declared.
 fn total(n: Node) -> Int
     case n
-        .Leaf(v) -> v
+        .Leaf(v)         -> v
         .Branch(l, v, r) -> total(l) + v + total(r)
     end
 end
@@ -135,7 +135,7 @@ fn main()
 
     inner = case wrapped
         Some(.Pos(a, b)) -> a * b
-        _ -> 0
+        _                -> 0
     end
 
     io.print("${inner}")

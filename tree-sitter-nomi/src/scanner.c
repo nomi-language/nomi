@@ -84,6 +84,9 @@ enum TokenType {
     // The contextual keyword `concurrent` that opens a concurrent block,
     // emitted only when it ends its line (scan_concurrent_keyword).
     CONCURRENT_KEYWORD,
+    // Zero-width, before an inline `if`'s `else` on the line its branch ends
+    // on (scan_same_line_else).
+    SAME_LINE_ELSE,
 };
 
 typedef struct {
@@ -691,6 +694,28 @@ static bool scan_layout(Scanner *scanner, TSLexer *lexer, const bool *valid_symb
 
     if (valid_symbols[CONCURRENT_KEYWORD] && !valid_symbols[SAME_LINE] && lexer->lookahead == 'c') {
         return scan_concurrent_keyword(lexer);
+    }
+
+    // An inline `if`'s `else` stands on the line its branch ends on, as in
+    // the Go parser; an `else` on a later line belongs to the block `if`
+    // around it. Both this and the operand check below may be valid after
+    // an inline branch that ends in `break` or `return`, so one pass reads
+    // the word for both.
+    if (valid_symbols[SAME_LINE_ELSE] && !line_break && lexer->lookahead == 'e') {
+        lexer->mark_end(lexer);
+        advance(lexer);
+        bool is_else = false, is_end = false;
+        if (lexer->lookahead == 'l') is_else = at_word(lexer, "lse");
+        else if (lexer->lookahead == 'n') is_end = at_word(lexer, "nd");
+        if (is_else) {
+            lexer->result_symbol = SAME_LINE_ELSE;
+            return true;
+        }
+        if (valid_symbols[SAME_LINE] && !is_end) {
+            lexer->result_symbol = SAME_LINE;
+            return true;
+        }
+        return false;
     }
 
     // The operand of `dbg`, `return`, `break` and `todo` must start on

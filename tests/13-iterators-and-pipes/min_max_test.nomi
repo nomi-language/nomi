@@ -9,7 +9,7 @@ derive Comparable for Level
 // Ranks compare by rank only, so two cards of one rank are equal but tell
 // apart by their label.
 struct Card
-    rank: Int
+    rank:  Int
     label: String
 end
 
@@ -68,9 +68,9 @@ end
 test "Iter.min_by and Iter.max_by compare a key, first on ties"
     tasks = [
         ("write", Level.Mid),
-        ("ship", Level.High),
-        ("rest", Level.Low),
-        ("plan", Level.High),
+        ("ship",  Level.High),
+        ("rest",  Level.Low),
+        ("plan",  Level.High),
     ]
 
     none: List<(String, Level)> = []

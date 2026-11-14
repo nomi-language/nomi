@@ -1,6 +1,6 @@
 pub struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 pub struct Point

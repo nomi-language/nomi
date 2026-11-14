@@ -8,9 +8,9 @@ end
 
 fn factors_from(n: Int, divisor: Int) -> List<Int>
     case
-        n == 1 -> []
+        n == 1                -> []
         divisor * divisor > n -> [n]
-        n % divisor == 0 -> [divisor, ..factors_from(n / divisor, divisor)]
-        _ -> factors_from(n, divisor + 1)
+        n % divisor == 0      -> [divisor, ..factors_from(n / divisor, divisor)]
+        _                     -> factors_from(n, divisor + 1)
     end
 end

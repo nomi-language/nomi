@@ -275,6 +275,32 @@ func (n *FuncType) TypeString() string {
 	return s
 }
 
+// ConjunctionType is an interface conjunction in a value type's position,
+// `Priced and Costed`: a value of any type that implements every member.
+// Members are as written, two or more. A `where` bound and a `typealias
+// Name A and B` keep their own lists and never hold one.
+type ConjunctionType struct {
+	TriviaCarrier
+	SpanCarrier
+	Members []TypeExpr
+	Line    int
+	Col     int
+}
+
+func (*ConjunctionType) NodeType() string { return "ConjunctionType" }
+func (n *ConjunctionType) LineNum() int   { return n.Line }
+func (*ConjunctionType) typeExpr()        {}
+func (n *ConjunctionType) TypeString() string {
+	s := ""
+	for i, m := range n.Members {
+		if i > 0 {
+			s += " and "
+		}
+		s += m.TypeString()
+	}
+	return s
+}
+
 // SelfType represents the self keyword used in type position inside interface signatures.
 type SelfType struct {
 	TriviaCarrier
@@ -560,6 +586,19 @@ type TaggedString struct {
 
 func (*TaggedString) NodeType() string { return "TaggedString" }
 func (n *TaggedString) LineNum() int   { return n.Line }
+
+// Fixed reports whether n has no `${...}` slot, so its handler's input is
+// the same text every time: a backtick body always, and a quoted one without
+// slots. Such a literal is checked at compile time (spec §18 *A literal
+// without slots is checked at compile time*).
+func (n *TaggedString) Fixed() bool {
+	for _, p := range n.Parts {
+		if _, ok := p.(StringExpr); ok {
+			return false
+		}
+	}
+	return true
+}
 
 // SetTemplate marks n as an `Html` template and gives it the expression it
 // expands into, nil when its template has errors.
@@ -2488,8 +2527,9 @@ type Param struct {
 	TypeAnnotation TypeExpr // structured type annotation, nil if absent
 	Default        Node     // default value expression, nil if absent
 	// TypeOnly marks a parameter written as its type alone,
-	// `fn stats(Request)`: a pattern whose head names the parameter's type,
-	// with nothing after it, which binds nothing. It takes a value of that
+	// `fn stats(Request)` or `fn f(Vector<Int>)`: a pattern head with
+	// nothing after it, or a type no pattern is spelled as, either naming
+	// the parameter's type, which binds nothing. It takes a value of that
 	// type as `_: Request` does, so Name is "_" and TypeAnnotation is the
 	// type; the formatter writes the type alone back.
 	TypeOnly bool

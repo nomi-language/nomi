@@ -2,7 +2,7 @@
 
 /// A queen on an 8 by 8 board, at a zero-based row and column.
 pub opaque struct Queen
-    row: Int
+    row:    Int
     column: Int
 end
 
@@ -10,11 +10,11 @@ impl Queen
     /// Places a queen, or says which coordinate is off the board.
     pub fn new(row: Int, column: Int) -> Result<Queen, Error>
         case
-            row < 0 -> Err(.RowNotPositive)
-            row > 7 -> Err(.RowNotOnBoard)
+            row < 0    -> Err(.RowNotPositive)
+            row > 7    -> Err(.RowNotOnBoard)
             column < 0 -> Err(.ColumnNotPositive)
             column > 7 -> Err(.ColumnNotOnBoard)
-            _ -> Ok({row:, column:})
+            _          -> Ok({row:, column:})
         end
     end
 

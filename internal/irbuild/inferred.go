@@ -371,6 +371,9 @@ func (g *gen) project(t analysis.Type) kind {
 		}
 		return g.funcKind(params, g.project(ty.Return))
 
+	case *analysis.ConjunctionType:
+		return g.projectConjunction(ty)
+
 	case *analysis.InterfaceType:
 		// An EXISTENTIAL the checker solved for an unannotated position, and
 		// the larger of the two doors onto a stdlib interface: most

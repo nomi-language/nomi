@@ -30,7 +30,7 @@ end
 /// traversal is `inorder`. The two must hold the same items, each once.
 pub fn tree_from_traversals<T>(
     preorder: List<T>,
-    inorder: List<T>,
+    inorder:  List<T>,
 ) -> Result<Tree<T>, Error> where T: Hashable and Equatable
     items = Iter.to_set(preorder)
 
@@ -63,7 +63,7 @@ fn build<T>(preorder: List<T>, inorder: List<T>) -> Tree<T> where T: Equatable
             right_inorder = Iter.drop(inorder, size + 1) |> Iter.to_list()
 
             .Node{
-                left: build(left_preorder, left_inorder),
+                left:  build(left_preorder, left_inorder),
                 value: root,
                 right: build(right_preorder, right_inorder),
             }
@@ -80,14 +80,14 @@ end
 
 test "rebuilds the tree"
     [
-        ("Empty tree", [], [], Tree.Leaf),
+        ("Empty tree",         [],    [],    Tree.Leaf),
         ("Tree with one item", ["a"], ["a"], leaf("a")),
         (
             "Tree with many items",
             ["a", "i", "x", "f", "r"],
             ["i", "a", "f", "x", "r"],
             .Node{
-                left: leaf("i"),
+                left:  leaf("i"),
                 value: "a",
                 right: .Node{left: leaf("f"), value: "x", right: leaf("r")},
             },
@@ -98,7 +98,7 @@ test "rebuilds the tree"
             ["d", "c", "b", "a"],
             .Node{
                 left: .Node{
-                    left: .Node{left: leaf("d"), value: "c", right: .Leaf},
+                    left:  .Node{left: leaf("d"), value: "c", right: .Leaf},
                     value: "b",
                     right: .Leaf,
                 },
@@ -111,10 +111,10 @@ test "rebuilds the tree"
             ["a", "b", "c", "d"],
             ["a", "b", "c", "d"],
             .Node{
-                left: .Leaf,
+                left:  .Leaf,
                 value: "a",
                 right: .Node{
-                    left: .Leaf,
+                    left:  .Leaf,
                     value: "b",
                     right: .Node{left: .Leaf, value: "c", right: leaf("d")},
                 },
@@ -126,13 +126,13 @@ test "rebuilds the tree"
             ["g", "d", "h", "b", "a", "e", "c", "i", "f"],
             .Node{
                 left: .Node{
-                    left: .Node{left: leaf("g"), value: "d", right: leaf("h")},
+                    left:  .Node{left: leaf("g"), value: "d", right: leaf("h")},
                     value: "b",
                     right: .Leaf,
                 },
                 value: "a",
                 right: .Node{
-                    left: leaf("e"),
+                    left:  leaf("e"),
                     value: "c",
                     right: .Node{left: leaf("i"), value: "f", right: .Leaf},
                 },

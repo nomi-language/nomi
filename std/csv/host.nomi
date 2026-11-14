@@ -17,12 +17,12 @@ pub host type Records
 /// points, `comment` 0 for none; `fields` is the field count of every
 /// record, 0 for the first record's and -1 for any.
 pub host fn open(
-    reader: Reader,
+    reader:    Reader,
     delimiter: Int,
-    comment: Int,
-    trim: Bool,
-    lazy: Bool,
-    fields: Int,
+    comment:   Int,
+    trim:      Bool,
+    lazy:      Bool,
+    fields:    Int,
 ) -> Records
 
 /// The next record's fields, or `[]` once reading stopped (`stopped`

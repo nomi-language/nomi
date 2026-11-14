@@ -167,6 +167,11 @@ func tourModule0Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d14, err = env.Desc(tourModule0Spec_d14); err != nil {
 		return nil, err
 	}
+	if env.AddParts != nil {
+		env.AddParts("postgres/postgres.connect_raw", b.fn33Parts)
+		env.AddParts("postgres/postgres.listen_raw", b.fn55Parts)
+		env.AddParts("postgres/postgres.scratch_raw", b.fn66Parts)
+	}
 	return map[string]hostadapt.Func{
 		"postgres/describe.describe":              b.fn1,
 		"postgres/postgres.begin_raw":             b.fn23,
@@ -581,6 +586,29 @@ func (b *tourModule0Bound) fn33(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return ok, nil
 }
 
+// fn33Parts is postgres/postgres.connect_raw taken apart: the payload and true, or the record and false.
+func (b *tourModule0Bound) fn33Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("postgres/postgres.connect_raw", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("postgres/postgres.connect_raw", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("postgres/postgres.connect_raw", 0, "goside.Connect", "url", err)
+	}
+	r0, e := tourModule0_goside.Connect(fr.Context(), a0)
+	if e != nil {
+		rec := b.d8.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out25(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Connect", err)
+	}
+	return v, true, nil
+}
+
 // in38 reads a Item as Go tourModule0_goside.Item.
 func (b *tourModule0Bound) in38(fr *rt.Frame, v rt.Value) (out tourModule0_goside.Item, err error) {
 	r, err := hostadapt.Record(v, "postgres.Item")
@@ -959,6 +987,33 @@ func (b *tourModule0Bound) fn55(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return ok, nil
 }
 
+// fn55Parts is postgres/postgres.listen_raw taken apart: the payload and true, or the record and false.
+func (b *tourModule0Bound) fn55Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("postgres/postgres.listen_raw", &err)
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("postgres/postgres.listen_raw", 2, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("postgres/postgres.listen_raw", 0, "goside.Listen", "url", err)
+	}
+	a1, err := b.in2(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("postgres/postgres.listen_raw", 1, "goside.Listen", "channel", err)
+	}
+	r0, e := tourModule0_goside.Listen(fr.Context(), a0, a1)
+	if e != nil {
+		rec := b.d8.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out56(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Listen", err)
+	}
+	return v, true, nil
+}
+
 // out58 builds a Bool from Go bool.
 func (b *tourModule0Bound) out58(v bool) (rt.Value, error) {
 	return bool(v), nil
@@ -1124,6 +1179,25 @@ func (b *tourModule0Bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return ok, nil
 }
 
+// fn66Parts is postgres/postgres.scratch_raw taken apart: the payload and true, or the record and false.
+func (b *tourModule0Bound) fn66Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("postgres/postgres.scratch_raw", &err)
+	if len(args) != 0 {
+		return nil, false, hostadapt.Arity("postgres/postgres.scratch_raw", 0, len(args))
+	}
+	r0, e := tourModule0_goside.Scratch(fr.Context())
+	if e != nil {
+		rec := b.d13.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out12(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Scratch", err)
+	}
+	return v, true, nil
+}
+
 // out68 builds a Notice from Go tourModule0_goside.Notice.
 func (b *tourModule0Bound) out68(v tourModule0_goside.Notice) (rt.Value, error) {
 	r := b.d14.New()
@@ -1278,6 +1352,9 @@ func tourModule1Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	}
 	if b.d11, err = env.Desc(tourModule1Spec_d11); err != nil {
 		return nil, err
+	}
+	if env.AddParts != nil {
+		env.AddParts("sqlite/sqlite.open_raw", b.fn48Parts)
 	}
 	return map[string]hostadapt.Func{
 		"sqlite/describe.describe":   b.fn1,
@@ -1937,6 +2014,29 @@ func (b *tourModule1Bound) fn48(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return ok, nil
 }
 
+// fn48Parts is sqlite/sqlite.open_raw taken apart: the payload and true, or the record and false.
+func (b *tourModule1Bound) fn48Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("sqlite/sqlite.open_raw", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("sqlite/sqlite.open_raw", 1, len(args))
+	}
+	a0, err := b.in5(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("sqlite/sqlite.open_raw", 0, "goside.Open", "path", err)
+	}
+	r0, e := tourModule1_goside.Open(a0)
+	if e != nil {
+		rec := b.d11.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out49(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("goside.Open", err)
+	}
+	return v, true, nil
+}
+
 // fn50 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
 func (b *tourModule1Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.ping_raw", &err)
@@ -2102,6 +2202,11 @@ func tourModule3Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	if b.d1, err = env.Desc(tourModule3Spec_d1); err != nil {
 		return nil, err
 	}
+	if env.AddParts != nil {
+		env.AddParts("remove_all", b.fn1Parts)
+		env.AddParts("temp_dir", b.fn3Parts)
+		env.AddParts("sqlkit/tools/generate.config_text", b.fn5Parts)
+	}
 	return map[string]hostadapt.Func{
 		"remove_all":                        b.fn1,
 		"temp_dir":                          b.fn3,
@@ -2139,6 +2244,25 @@ func (b *tourModule3Bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	return ok, nil
 }
 
+// fn1Parts is remove_all taken apart: the payload and true, or the record and false.
+func (b *tourModule3Bound) fn1Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("remove_all", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("remove_all", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("remove_all", 0, "testside.RemoveAll", "path", err)
+	}
+	e := tourModule3_testside.RemoveAll(a0)
+	if e != nil {
+		rec := b.d0.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	return rt.Unit{}, true, nil
+}
+
 // out4 builds a String from Go string.
 func (b *tourModule3Bound) out4(v string) (rt.Value, error) {
 	return string(v), nil
@@ -2165,6 +2289,25 @@ func (b *tourModule3Bound) fn3(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	return ok, nil
 }
 
+// fn3Parts is temp_dir taken apart: the payload and true, or the record and false.
+func (b *tourModule3Bound) fn3Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("temp_dir", &err)
+	if len(args) != 0 {
+		return nil, false, hostadapt.Arity("temp_dir", 0, len(args))
+	}
+	r0, e := tourModule3_testside.TempDir()
+	if e != nil {
+		rec := b.d1.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out4(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("testside.TempDir", err)
+	}
+	return v, true, nil
+}
+
 // fn5 adapts sqlkit/tools/generate.config_text: config_text(root: String) -> Result<String, String>
 func (b *tourModule3Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlkit/tools/generate.config_text", &err)
@@ -2188,6 +2331,29 @@ func (b *tourModule3Bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err e
 	ok := b.d1.NewVariant(0)
 	ok.S[0] = v0.(string)
 	return ok, nil
+}
+
+// fn5Parts is sqlkit/tools/generate.config_text taken apart: the payload and true, or the record and false.
+func (b *tourModule3Bound) fn5Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("sqlkit/tools/generate.config_text", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("sqlkit/tools/generate.config_text", 1, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("sqlkit/tools/generate.config_text", 0, "toolside.Config", "root", err)
+	}
+	r0, e := tourModule3_toolside.Config(a0)
+	if e != nil {
+		rec := b.d1.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out4(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("toolside.Config", err)
+	}
+	return v, true, nil
 }
 
 // linkedModules is the adapters of every tour module's bindings.

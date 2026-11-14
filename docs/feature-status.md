@@ -85,7 +85,7 @@ Parts of a shipped feature that are not built. Each line is open work.
 
 - Diagnostics with spans, hints and related locations, published 50 ms after the last edit; `dbg` and `todo` as warnings.
 - Code the compiler cannot lower yet, reported in the background as `nomi check` reports it.
-- Static typed literals evaluated on the VM: an invalid one is an error, and hover shows a valid one's value.
+- Hover on a typed literal without slots shows its value, evaluated on the VM.
 - `embed`: hover on the name and on each pattern says what it matched, go to definition on a pattern opens the file or folder, and a bad pattern is a diagnostic at it.
 - Hover: signature, doc and up to five `//!` examples; on literal and pattern punctuation, both characters of `|>`, `?`, `!` and a lambda's `fn` and `->`.
 - Completion by position: keyword snippets, members, import paths, typed parameter names, constructors and fields that fit the expected type, field accessors, missing struct fields and `case` arms, missing impl functions, named arguments, derivable interfaces, pipe stages, typed-literal bodies, and auto-import.
@@ -102,7 +102,7 @@ Parts of a shipped feature that are not built. Each line is open work.
 
 Not yet implemented:
 
-- [ ] A static typed literal whose `Ok` value's Debug rendering the VM refuses (a `Regex`, a host handle) shows no value on hover; its `Err` is still reported. A buffer that does not check, or whose project takes its `host fn`s from an embedder's table, gets no literal evaluation. `nomi check` evaluates no double-quoted literal.
+- [ ] A typed literal without slots whose value's Debug rendering the VM refuses (a host handle) shows no value on hover. A buffer that does not load, or whose project takes its `host fn`s from an embedder's table, gets no literal value on hover.
 - [ ] Completion inside a statement that does not parse yet solves a generic call's type parameters from its arguments' types alone. A lambda argument or explicit type arguments (`f<Int>(xs)`) leave the result unknown, so `.` after such a call offers nothing.
 - [ ] Sibling files read from disk parse with error recovery but not the editor's resilient parse, so a syntax error inside one of their functions drops that whole function from an open file's project analysis.
 - [ ] Call hierarchy does not trace an interface-qualified call (`Display.to_string(x)`) to the implementation it dispatches to, and a stdlib function has no outgoing calls.

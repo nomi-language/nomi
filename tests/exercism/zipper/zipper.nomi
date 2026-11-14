@@ -5,7 +5,7 @@
 /// may be missing.
 pub struct Tree<T>
     value: T
-    left: Maybe<Tree<T>>
+    left:  Maybe<Tree<T>>
     right: Maybe<Tree<T>>
 end
 
@@ -14,7 +14,7 @@ end
 /// the focus or changing it rebuilds only the nodes on that path.
 pub opaque struct Zipper<T>
     focus: Tree<T>
-    path: List<Crumb<T>>
+    path:  List<Crumb<T>>
 end
 
 /// One step up from a focus: the parent's value and the parent's other
@@ -34,7 +34,7 @@ impl Zipper<T>
     pub fn to_tree(zipper: Zipper<T>) -> Tree<T>
         case Zipper.up(zipper)
             Some(parent) -> Zipper.to_tree(parent)
-            None -> zipper.focus
+            None         -> zipper.focus
         end
     end
 

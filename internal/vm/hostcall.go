@@ -20,6 +20,11 @@ package vm
 //
 // An intrinsic wins a name both answer; none does today.
 //
+// The lookup happens when the calling function is compiled: the crossing
+// becomes `opHost` bound to what its name lands on, so a run does no lookup
+// (package doc, "Constructions and crossings off the boxed path"). Either
+// kind gets its operands in a slice it may read only during the call.
+//
 // The adapters are BOUND lazily, once per machine, on the first crossing a
 // compile or a call looks up. Binding resolves each descriptor an adapter
 // builds with through this machine's descriptor interning (so a `Date` an
@@ -55,6 +60,9 @@ type hostTables struct {
 
 	once  sync.Once
 	funcs map[string]hostadapt.Func
+	// parts is the parts form of each bound adapter that has one
+	// (hostadapt.PartsFunc), by crossing name.
+	parts map[string]hostadapt.PartsFunc
 	err   error
 
 	// lookup answers a name no bound table answers, at each lookup rather
@@ -108,9 +116,25 @@ func (m *Machine) adapter(name string) (hostadapt.Func, error) {
 	return h.lookup(name), nil
 }
 
+// adapterParts is the parts form of the bound adapter for a crossing name, or
+// nil when no table answers it with one. A name the lookup answers has none.
+func (m *Machine) adapterParts(name string) (hostadapt.PartsFunc, error) {
+	h := m.adapters
+	if h == nil {
+		return nil, nil
+	}
+	h.once.Do(h.bind)
+	if h.err != nil {
+		return nil, h.err
+	}
+	return h.parts[name], nil
+}
+
 func (h *hostTables) bind() {
-	env := &hostadapt.Env{Resolve: resolveSpec, Invoke: h.invoke}
-	h.funcs = map[string]hostadapt.Func{}
+	h.funcs, h.parts = map[string]hostadapt.Func{}, map[string]hostadapt.PartsFunc{}
+	env := &hostadapt.Env{Resolve: resolveSpec, Invoke: h.invoke, AddParts: func(name string, fn hostadapt.PartsFunc) {
+		h.parts[name] = fn
+	}}
 	for _, table := range h.tables {
 		funcs, err := table(env)
 		if err != nil {
@@ -168,36 +192,64 @@ func resolveSpec(spec *hostadapt.DescSpec) (*rt.TypeDesc, error) {
 // (hostadapt.Param, hostadapt.Returned) is the program's, not the machine's.
 func callAdapter(fn hostadapt.Func, runtime *rt.Frame, args []any) (v any, err error) {
 	defer func() {
-		if err == nil {
-			return
-		}
-		var fault *rt.Error
-		if errors.As(err, &fault) {
-			if _, already := asFault(err); !already {
-				v, err = nil, &Fault{err: fault}
-			}
+		if err != nil {
+			v, err = adapterFailure(v, err)
 		}
 	}()
 	defer func() {
 		if p := recover(); p != nil {
-			if fault, ok := p.(*rt.Error); ok {
-				v, err = nil, &Fault{err: fault}
-				return
-			}
-			// A runtime callback's Nomi failure (a Reader.from_fn function
-			// that trapped) is this call's failure, unchanged.
-			if u, ok := p.(hostadapt.Unwind); ok {
-				v, err = nil, u.Err
-				return
-			}
-			// A sequence a read pulls (a Reader.from_chunks reader's)
-			// failed in one of its callbacks.
-			if failure, ok := p.(iterationFailure); ok {
-				v, err = nil, failure.err
-				return
-			}
-			panic(p)
+			v, err = nil, adapterPanic(p)
 		}
 	}()
 	return fn(runtime, args)
+}
+
+// callParts calls a bound adapter's parts form on runtime, failing as
+// callAdapter does.
+func callParts(fn hostadapt.PartsFunc, runtime *rt.Frame, args []any) (v any, isSome bool, err error) {
+	defer func() {
+		if err != nil {
+			v, err = adapterFailure(v, err)
+			isSome = false
+		}
+	}()
+	defer func() {
+		if p := recover(); p != nil {
+			v, err = nil, adapterPanic(p)
+		}
+	}()
+	return fn(runtime, args)
+}
+
+// adapterFailure is the failure an adapter's err becomes: an rt trap is this
+// machine's fault, and anything else is itself.
+func adapterFailure(v any, err error) (any, error) {
+	var fault *rt.Error
+	if errors.As(err, &fault) {
+		if _, already := asFault(err); !already {
+			return nil, &Fault{err: fault}
+		}
+	}
+	return v, err
+}
+
+// adapterPanic is the failure a panic in an adapter becomes: an rt trap is
+// this machine's fault, a hostadapt.Unwind its failure, and a sequence's
+// failed callback that failure. Any other panic keeps unwinding, which is
+// what a cancelled task's unwind must do.
+func adapterPanic(p any) error {
+	if fault, ok := p.(*rt.Error); ok {
+		return &Fault{err: fault}
+	}
+	// A runtime callback's Nomi failure (a Reader.from_fn function that
+	// trapped) is this call's failure, unchanged.
+	if u, ok := p.(hostadapt.Unwind); ok {
+		return u.Err
+	}
+	// A sequence a read pulls (a Reader.from_chunks reader's) failed in one
+	// of its callbacks.
+	if failure, ok := p.(iterationFailure); ok {
+		return failure.err
+	}
+	panic(p)
 }

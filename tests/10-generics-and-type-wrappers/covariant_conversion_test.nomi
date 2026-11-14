@@ -44,7 +44,7 @@ end
 
 fn sizes(r: Result<Store, String>) -> Int
     case r
-        Ok(s) -> Store.size(s)
+        Ok(s)  -> Store.size(s)
         Err(_) -> -1
     end
 end
@@ -56,7 +56,7 @@ end
 fn heads(c: Chain<Display>) -> List<String>
     case c
         .Link{head:, tail:} -> [shown(head)] + heads(tail)
-        .End -> []
+        .End                -> []
     end
 end
 
@@ -100,7 +100,7 @@ test "user enums and structs"
 
     assert case hd
         .One(d) -> shown(d)
-        .No -> ""
+        .No     -> ""
     end == "<Some(2)>"
 
     assert heads(c) == ["<[1]>", "<[2, 3]>"]

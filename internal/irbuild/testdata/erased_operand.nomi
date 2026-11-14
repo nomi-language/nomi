@@ -31,7 +31,7 @@ end
 
 struct Dog
     name: String
-    age: Int
+    age:  Int
 end
 
 impl Speech for Dog
@@ -41,7 +41,7 @@ impl Speech for Dog
 end
 
 struct Cat
-    a: Int
+    a:  Int
     a0: Int
 end
 

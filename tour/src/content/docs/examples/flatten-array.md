@@ -30,9 +30,9 @@ end
 /// The values one element holds.
 fn values(element: Nested) -> List<Int>
     case element
-        .Value(n) -> [n]
+        .Value(n)        -> [n]
         .Array(elements) -> flatten(elements)
-        .Null -> []
+        .Null            -> []
     end
 end
 
@@ -41,7 +41,7 @@ import flatten_array.{self, Nested}
 
 test "flatten"
     [
-        ("empty", [], []),
+        ("empty",      [],                                      []),
         ("no nesting", [Nested.Value(0), .Value(1), .Value(2)], [0, 1, 2]),
         ("flattens a nested array", [
             .Array([.Array([])]),

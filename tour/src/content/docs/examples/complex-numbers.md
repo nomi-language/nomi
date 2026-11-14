@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex
-    real: Float
+    real:      Float
     imaginary: Float
 end
 
@@ -79,7 +79,7 @@ end
 impl Multiply<Complex, Complex> for Complex
     fn multiply(lhs: Complex, rhs: Complex) -> Complex
         {
-            real: lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
+            real:      lhs.real * rhs.real - lhs.imaginary * rhs.imaginary,
             imaginary: lhs.imaginary * rhs.real + lhs.real * rhs.imaginary,
         }
     end
@@ -91,7 +91,7 @@ impl Divide<Complex, Complex> for Complex
         denominator = rhs.real * rhs.real + rhs.imaginary * rhs.imaginary
 
         {
-            real: (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
+            real:      (lhs.real * rhs.real + lhs.imaginary * rhs.imaginary) / denominator,
             imaginary: (lhs.imaginary * rhs.real - lhs.real * rhs.imaginary) / denominator,
         }
     end
@@ -154,8 +154,8 @@ once tolerance = 1e-12
 
 test "Real part"
     [
-        ("Real part of a purely real number", Complex.new(1.0, 0.0), 1.0),
-        ("Real part of a purely imaginary number", Complex.new(0.0, 1.0), 0.0),
+        ("Real part of a purely real number",                  Complex.new(1.0, 0.0), 1.0),
+        ("Real part of a purely imaginary number",             Complex.new(0.0, 1.0), 0.0),
         ("Real part of a number with real and imaginary part", Complex.new(1.0, 2.0), 1.0),
     ]
     |> subtests (description, z, expected), description
@@ -165,8 +165,8 @@ end
 
 test "Imaginary part"
     [
-        ("Imaginary part of a purely real number", Complex.new(1.0, 0.0), 0.0),
-        ("Imaginary part of a purely imaginary number", Complex.new(0.0, 1.0), 1.0),
+        ("Imaginary part of a purely real number",                  Complex.new(1.0, 0.0), 0.0),
+        ("Imaginary part of a purely imaginary number",             Complex.new(0.0, 1.0), 1.0),
         ("Imaginary part of a number with real and imaginary part", Complex.new(1.0, 2.0), 2.0),
     ]
     |> subtests (description, z, expected), description
@@ -286,7 +286,7 @@ end
 
 test "Absolute value"
     [
-        ("Absolute value of a positive purely real number", Complex.new(5.0, 0.0), 5.0),
+        ("Absolute value of a positive purely real number", Complex.new(5.0, 0.0),  5.0),
         ("Absolute value of a negative purely real number", Complex.new(-5.0, 0.0), 5.0),
         (
             "Absolute value of a purely imaginary number with positive imaginary part",
@@ -307,7 +307,7 @@ end
 
 test "Complex conjugate"
     [
-        ("Conjugate a purely real number", Complex.new(5.0, 0.0), Complex.new(5.0, 0.0)),
+        ("Conjugate a purely real number",      Complex.new(5.0, 0.0), Complex.new(5.0, 0.0)),
         ("Conjugate a purely imaginary number", Complex.new(0.0, 5.0), Complex.new(0.0, -5.0)),
         (
             "Conjugate a number with real and imaginary part",

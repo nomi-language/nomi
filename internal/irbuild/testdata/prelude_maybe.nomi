@@ -25,7 +25,7 @@ end
 fn or_zero(m: Maybe<Int>) -> Int
     case m
         Some(v) -> v
-        None -> 0
+        None    -> 0
     end
 end
 
@@ -33,7 +33,7 @@ end
 fn describe(m: Maybe<String>) -> String
     case m
         Maybe.Some(s) -> "some ${s}"
-        .None -> "none"
+        .None         -> "none"
     end
 end
 
@@ -45,7 +45,7 @@ fn depth(m: Maybe<Maybe<Int>>) -> String
         Some(inner) ->
             case inner
                 Some(v) -> "some some ${v}"
-                None -> "some none"
+                None    -> "some none"
             end
 
         None ->
@@ -57,9 +57,9 @@ end
 // after the tag matched and fall through to a later arm.
 fn is_one(m: Maybe<Int>) -> String
     case m
-        Some(1) -> "one"
+        Some(1)     -> "one"
         Some(other) -> "other ${other}"
-        None -> "nothing"
+        None        -> "nothing"
     end
 end
 
@@ -95,7 +95,7 @@ fn main() -> Unit
 
     case f
         Some(x) -> io.print("${x}")
-        None -> io.print("no float")
+        None    -> io.print("no float")
     end
 
     // A NaN payload, carried and read back. `==` on a Maybe is REFUSED
@@ -109,7 +109,7 @@ fn main() -> Unit
 
     case n
         Some(x) -> io.print("${x}")
-        None -> io.print("no nan")
+        None    -> io.print("no nan")
     end
 
     // A Maybe of a List, the other kind a bare `==` gets wrong. Same reason.
@@ -117,6 +117,6 @@ fn main() -> Unit
 
     case xs
         Some(l) -> io.print("${l}")
-        None -> io.print("no list")
+        None    -> io.print("no list")
     end
 end

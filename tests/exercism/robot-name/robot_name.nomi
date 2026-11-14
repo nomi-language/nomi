@@ -28,7 +28,7 @@ end
 /// name. It is a value: each robot it builds or resets answers the factory
 /// after it, holding every name given so far and the seed to draw from next.
 pub opaque struct Factory
-    seed: Seed
+    seed:  Seed
     given: Set<String>
 end
 

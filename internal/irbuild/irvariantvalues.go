@@ -344,7 +344,7 @@ func irFlatPayload(k kind) bool {
 		return true
 	}
 	switch {
-	case irExistentialKind(k):
+	case irHeldKind(k):
 		return true
 	case k.tag == tagFunc && k.comp != nil:
 		return leaves(k.comp.parts)
@@ -599,7 +599,7 @@ func irRetainedPreludePayload(k kind) bool {
 	if irDynamicContainerKind(k) {
 		return true
 	}
-	if irExistentialKind(k) {
+	if irHeldKind(k) {
 		// A local interface's existential (`Fragment<Display>`): the VM
 		// holds the concrete value in the variant's reference slot.
 		return true
@@ -1027,8 +1027,10 @@ func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, enum, variant stri
 // variantStructLitOf builds the brace literal t of d's variant v.
 func (bl *irScalarBuilder) variantStructLitOf(t *ast.StructLit, d *typeDef, v *variantDef) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	// The enum the checker typed the literal as, which projects into the
+	// domain as every checked type does, and an enum there is retained.
 	if !irRetainedEnumKind(d) {
-		return no()
+		panic("irbuild: a variant literal of the enum " + d.nomi + ", which is not retained")
 	}
 	if v == nil || !irStructShapedVariant(v) {
 		return no()

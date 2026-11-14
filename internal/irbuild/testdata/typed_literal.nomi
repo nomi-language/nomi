@@ -9,7 +9,7 @@ impl Literal for Sql
     fn from_fragments(fragments: List<Fragment<String>>) -> String
         Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + "'" + v + "'"
             end
         end)
@@ -22,7 +22,7 @@ impl Literal for Sum
     fn from_fragments(fragments: List<Fragment<Int>>) -> String
         Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + "[" + s + "]"
+                .Static(s)  -> acc + "[" + s + "]"
                 .Dynamic(n) -> acc + "{" + Int.to_string(n) + "}"
             end
         end)
@@ -57,7 +57,7 @@ impl Literal for Doc
     fn from_fragments(fragments: List<Fragment<Display>>) -> Doc
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + "<" + Display.to_string(v) + ">"
             end
         end)

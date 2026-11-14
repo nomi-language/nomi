@@ -21,12 +21,12 @@ end
 
 struct Stmt
     label: String
-    body: Expr
+    body:  Expr
 end
 
 fn sum(tree: Tree) -> Int
     case tree
-        Tree.Leaf(n) -> n
+        Tree.Leaf(n)    -> n
         Tree.Node(kids) -> kids |> Iter.map(&sum(&1)) |> Iter.reduce(0, fn total, n -> total + n)
     end
 end
@@ -113,14 +113,14 @@ test "an enum and a struct hold each other through Vectors"
     program = Expr.Block([
         Stmt{
             label: "a",
-            body: Expr.Num(1),
+            body:  Expr.Num(1),
         },
         Stmt{
             label: "b",
             body: Expr.Block([
                 Stmt{
                     label: "c",
-                    body: Expr.Num(4),
+                    body:  Expr.Num(4),
                 },
             ]),
         },

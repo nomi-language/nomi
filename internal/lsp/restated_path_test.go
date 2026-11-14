@@ -27,7 +27,7 @@ func TestRestatedPathHint(t *testing.T) {
 	if len(fa.TypeErrors) > 0 {
 		t.Fatalf("the program does not check: %v", fa.TypeErrors)
 	}
-	diags := restatedPathDiagnostics(fa, nodes)
+	diags := fileHintDiagnostics(fa, nodes)
 	if len(diags) != 1 {
 		t.Fatalf("want one hint, got %+v", diags)
 	}

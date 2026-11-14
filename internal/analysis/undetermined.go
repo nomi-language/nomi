@@ -10,7 +10,7 @@ import (
 // Undetermined type arguments. A generic function is instantiated per
 // type-argument tuple (spec §12), so a call whose type argument nothing in
 // the program fixes has no instance to run: `Result.collect([])` leaves T and
-// E unknown, and `Maybe.values([None])` leaves T unknown.
+// E unknown, and `Maybe.collect([None])` leaves T unknown.
 //
 // The rule is narrower than "every inference variable must be solved".
 // An unsolved variable is harmless where no value of its type is made: the
@@ -25,9 +25,11 @@ import (
 //   - two levels inside a parameter type and inside a collection in its
 //     result: the callee takes the argument apart and gathers what it finds
 //     into a new collection (`Result.collect`'s T, from `Iter<Result<T, E>>`
-//     into `Result<List<T>, E>`; `Maybe.values`, `Iter.flatten`,
-//     `Iter.to_map`). `Result.collect`'s E is not made: an error is passed
-//     through, so `Result.collect([Ok(1)])` is determined enough.
+//     into `Result<List<T>, E>`; `Maybe.collect`, `Iter.to_map`).
+//     `Result.collect`'s E is not made: an error is passed through, so
+//     `Result.collect([Ok(1)])` is determined enough. A lazy adapter that
+//     passes its source's inner elements on (`Iter.flatten`,
+//     `Maybe.values`) returns an `Iter`, no collection, and makes none.
 //
 // A callee also makes values of a type argument whose bound declares a
 // function that takes no value of the type: `Iter.sum`'s T is `Summable`,
@@ -355,6 +357,12 @@ func typeChildren(t Type) []Type {
 		return tt.TypeArgs
 	case *InterfaceType:
 		return tt.TypeArgs
+	case *ConjunctionType:
+		out := make([]Type, len(tt.Members))
+		for i, m := range tt.Members {
+			out[i] = m
+		}
+		return out
 	case *DistinctType:
 		return tt.TypeArgs
 	case *PartialType:

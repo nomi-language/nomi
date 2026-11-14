@@ -18,9 +18,9 @@ end
 
 fn tuple_case(t: (Pair, Int)) -> Int
     case t
-        (Pair(1, _), 2) -> 1
+        (Pair(1, _), 2)   -> 1
         (Pair(n, "b"), _) -> n
-        _ -> 0
+        _                 -> 0
     end
 end
 
@@ -59,7 +59,7 @@ end
 fn top(s: Stack) -> Int
     case s
         [a, ..] -> a
-        _ -> -1
+        _       -> -1
     end
 end
 
@@ -73,7 +73,7 @@ end
 fn record_stack(c: {r: Int, q: Stack}) -> Int
     case c
         {q: Stack[a, ..]} -> a
-        _ -> 0
+        _                 -> 0
     end
 end
 

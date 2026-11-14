@@ -315,18 +315,10 @@ func (s *Server) publishViewed(notify glsp.NotifyFunc, snap *analysis.DocSnapsho
 		s.publishInputs(notify, snap.URI, typeErrs)
 		return
 	}
-	if lits := s.literalDiagnostics(snap, false); len(lits) > 0 {
-		lines := newLineIndex(snap.Content)
-		for _, d := range lits {
-			d.Range = lines.utf16Range(d.Range)
-			diags = append(diags, d)
-		}
-	}
 	if snap.Open {
 		diags = append(diags, s.lowering.diagnostics(snap.URI)...)
 	}
-	hints := redundantAscriptionDiagnostics(snap.Analysis, snap.Nodes)
-	hints = append(hints, restatedPathDiagnostics(snap.Analysis, snap.Nodes)...)
+	hints := fileHintDiagnostics(snap.Analysis, snap.Nodes)
 	hints = append(hints, interfaceValueDiagnostics(snap.URI, snapInterfaceValueHints(snap, tokens))...)
 	if len(hints) > 0 {
 		lines := newLineIndex(snap.Content)
@@ -596,86 +588,23 @@ func interfaceValueDiagnostics(uri string, hints []analysis.TypeError) []protoco
 	return diags
 }
 
-// restatedPathDiagnostics reports each operand in a field's new value that
-// reads the field's current value by its path
-// (analysis.FileAnalysis.RestatedPaths) as a hint that `..` writes it: the
-// program means the same either way. The range is the path.
-func restatedPathDiagnostics(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.Diagnostic {
-	if fa == nil || len(fa.RestatedPaths) == 0 {
+// fileHintDiagnostics are the file's hints (analysis.FileHints) as
+// diagnostics of severity hint: the program means the same either way. A
+// redundant ascription is also marked unnecessary.
+func fileHintDiagnostics(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.Diagnostic {
+	hints := analysis.FileHints(fa, nodes)
+	if len(hints) == 0 {
 		return nil
 	}
-	var diags []protocol.Diagnostic
+	diags := typeErrorsToDiagnosticsIn("", hints)
 	severity := protocol.DiagnosticSeverityHint
 	source := "nomi"
-	code := "restated-current-value"
-	for _, node := range nodes {
-		ast.Inspect(node, func(n ast.Node) bool {
-			p, ok := n.(*ast.FieldAccess)
-			if !ok {
-				return true
-			}
-			name, restated := fa.RestatedPaths[p]
-			if !restated || p.Field == nil {
-				return true
-			}
-			root := ast.Node(p)
-			for {
-				inner, ok := root.(*ast.FieldAccess)
-				if !ok {
-					break
-				}
-				root = inner.Object
-			}
-			id, ok := root.(*ast.Ident)
-			if !ok || id.Line <= 0 || p.Field.Line != id.Line {
-				return false
-			}
-			start := protocol.Position{Line: uint32(id.Line - 1), Character: uint32(id.Col - 1)}
-			end := protocol.Position{Line: start.Line, Character: uint32(p.Field.Col - 1 + len(p.Field.Name))}
-			diags = append(diags, protocol.Diagnostic{
-				Range:    protocol.Range{Start: start, End: end},
-				Severity: &severity,
-				Source:   &source,
-				Code:     &protocol.IntegerOrString{Value: code},
-				Message:  fmt.Sprintf("this reads the value `%s` already holds here, which `..` writes", name),
-			})
-			return false
-		})
-	}
-	return diags
-}
-
-// redundantAscriptionDiagnostics marks each `value as Type` of nodes whose
-// value has the type without it (analysis.FileAnalysis.RedundantAscriptions)
-// as unnecessary: a hint, not an error, since the program means the same.
-// The range is `as Type`.
-func redundantAscriptionDiagnostics(fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.Diagnostic {
-	if fa == nil || len(fa.RedundantAscriptions) == 0 {
-		return nil
-	}
-	var diags []protocol.Diagnostic
-	severity := protocol.DiagnosticSeverityHint
-	source := "nomi"
-	code := "redundant-ascription"
-	for _, node := range nodes {
-		ast.Inspect(node, func(n ast.Node) bool {
-			a, ok := n.(*ast.Ascription)
-			if !ok || !fa.RedundantAscriptions[a] || a.Line <= 0 {
-				return true
-			}
-			text := a.Type.TypeString()
-			start := protocol.Position{Line: uint32(a.Line - 1), Character: uint32(a.Col - 1)}
-			end := protocol.Position{Line: start.Line, Character: start.Character + uint32(len("as ")+len(text))}
-			diags = append(diags, protocol.Diagnostic{
-				Range:    protocol.Range{Start: start, End: end},
-				Severity: &severity,
-				Source:   &source,
-				Code:     &protocol.IntegerOrString{Value: code},
-				Tags:     []protocol.DiagnosticTag{protocol.DiagnosticTagUnnecessary},
-				Message:  fmt.Sprintf("`as %s` is redundant: the value already has type `%s`", text, text),
-			})
-			return true
-		})
+	for i := range diags {
+		diags[i].Severity = &severity
+		diags[i].Source = &source
+		if hints[i].Code == analysis.HintRedundantAscription {
+			diags[i].Tags = []protocol.DiagnosticTag{protocol.DiagnosticTagUnnecessary}
+		}
 	}
 	return diags
 }

@@ -1,0 +1,48 @@
+//# Are We Fast Yet: Sieve.
+//#
+//# The sieve of Eratosthenes over 1..5000, counting the primes.
+//#
+//# Departure from the guidelines: the suite fills a fixed-size array of
+//# flags and clears them in place. Nomi has no mutable array, so the flags
+//# are a `Vector<Bool>` and each cleared flag is a `Vector.set` that returns
+//# a new vector.
+
+import harness
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+/// Clears the flags of `i`'s multiples from `k` up to `size`.
+fn clear(flags: Vector<Bool>, k: Int, i: Int, size: Int) -> Vector<Bool>
+    if k > size then
+        flags
+    else
+        clear(Vector.set(flags, k - 1, False), k + i, i, size)
+    end
+end
+
+fn sieve(flags: Vector<Bool>, size: Int) -> Int
+    (_, primes) = Iter.reduce(2..=size, (flags, 0), fn (flags, primes), i ->
+        if Vector.get(flags, i - 1)! then
+            (clear(flags, i + i, i, size), primes + 1)
+        else
+            (flags, primes)
+        end
+    end)
+
+    primes
+end
+
+fn benchmark() -> Int
+    flags = Iter.to_vector(Iter.map(1..=5000, fn _ -> True))
+    sieve(flags, 5000)
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Sieve", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1 == 669)))
+end

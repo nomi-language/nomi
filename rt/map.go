@@ -151,6 +151,9 @@ type mapNode[K, V any] struct {
 	subs   uint32
 	leaf   []mapEntry[K, V]
 	sub    []*mapNode[K, V]
+	// edit is the owner token of the map that may write this node and its
+	// slices in place, or nil (transient.go).
+	edit *editToken
 }
 
 const (
@@ -206,15 +209,23 @@ func MapSize[K, V any](m Map[K, V]) int64 { return int64(m.n) }
 // only so TestMeasureMapCosts can count this loop's work under the
 // `rtmapcount` tag; see mapcount_off.go.
 func MapLookup[K, V any](m Map[K, V], hash func(K) uint64, eq func(K, K) bool, key K) (V, bool) {
+	return MapLookupHashed(m, hash(key), func(k K) bool { return eq(k, key) })
+}
+
+// MapLookupHashed is MapLookup for a caller that has the key's hash and an
+// equality against it without the key as a K: a VM whose key sits unboxed
+// in a register hashes it with the scalar's own kernel (HashInt,
+// HashString) and compares each stored key against the register's value,
+// so a lookup boxes nothing (MapLookupInt, MapLookupString).
+func MapLookupHashed[K, V any](m Map[K, V], h uint64, match func(K) bool) (V, bool) {
 	var zero V
-	h := hash(key)
 	n := m.root
 	for shift := uint(0); n != nil; shift += mapBits {
 		mapCountNode()
 		if n.leaves == 0 && n.subs == 0 {
 			for i := range n.leaf {
 				mapCountProbe()
-				if n.leaf[i].hash == h && eq(n.leaf[i].Key, key) {
+				if n.leaf[i].hash == h && match(n.leaf[i].Key) {
 					return n.leaf[i].Val, true
 				}
 			}
@@ -226,7 +237,7 @@ func MapLookup[K, V any](m Map[K, V], hash func(K) uint64, eq func(K, K) bool, k
 			// outright: there is nowhere deeper this hash could be.
 			mapCountProbe()
 			e := &n.leaf[mapAt(n.leaves, bit)]
-			if e.hash == h && eq(e.Key, key) {
+			if e.hash == h && match(e.Key) {
 				return e.Val, true
 			}
 			return zero, false
@@ -237,6 +248,33 @@ func MapLookup[K, V any](m Map[K, V], hash func(K) uint64, eq func(K, K) bool, k
 		n = n.sub[mapAt(n.subs, bit)]
 	}
 	return zero, false
+}
+
+// MapLookupInt is MapLookup(m, Hash, Equal, n) for an int64 Int, without
+// boxing n: Hash and Equal on an int64 are HashInt and ==, and a stored key
+// equal to it is an int64 too (a big Int is never one), or an `embeds`
+// variant around one.
+func MapLookupInt(m Map[any, any], n int64) (any, bool) {
+	return MapLookupHashed(m, HashInt(n), func(k any) bool {
+		x, ok := EmbeddedPayload(k).(int64)
+		return ok && x == n
+	})
+}
+
+// MapLookupFloat is MapLookup(m, Hash, Equal, f) without boxing f.
+func MapLookupFloat(m Map[any, any], f float64) (any, bool) {
+	return MapLookupHashed(m, HashFloat(f), func(k any) bool {
+		x, ok := EmbeddedPayload(k).(float64)
+		return ok && EqFloat(x, f)
+	})
+}
+
+// MapLookupString is MapLookup(m, Hash, Equal, s) without boxing s.
+func MapLookupString(m Map[any, any], s string) (any, bool) {
+	return MapLookupHashed(m, HashString(s), func(k any) bool {
+		x, ok := EmbeddedPayload(k).(string)
+		return ok && x == s
+	})
 }
 
 // MapEntries returns the entries in insertion order.

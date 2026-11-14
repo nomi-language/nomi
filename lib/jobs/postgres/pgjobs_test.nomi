@@ -163,7 +163,7 @@ end
 
 fn queue_error(result: Result<Queue, sql.Error>) -> String
     case result
-        Ok(_) -> "no error"
+        Ok(_)  -> "no error"
         Err(e) -> "${e}"
     end
 end
@@ -261,7 +261,7 @@ fn hourly() -> Schedule
 end
 
 fn nine() -> Instant
-    Anchored.to_instant(DateTime`2026-06-01T09:00:00Z[UTC]`)
+    Anchored.to_instant(DateTime"2026-06-01T09:00:00Z[UTC]")
 end
 
 test "two schedulers on their own connections enqueue each tick once"
@@ -303,8 +303,8 @@ end
 
 test "a repeated 01:30 in New York is enqueued once across the fall change"
     (db, queue, _) = fresh()?
-    nightly = Schedule.cron("nightly", Cron`30 1 * * *`, noop, 0, zone: "America/New_York")
-    from = Anchored.to_instant(DateTime`2026-11-01T00:00:00-04:00[America/New_York]`)
+    nightly = Schedule.cron("nightly", Cron"30 1 * * *", noop, 0, zone: "America/New_York")
+    from = Anchored.to_instant(DateTime"2026-11-01T00:00:00-04:00[America/New_York]")
 
     Iter.each(0..=30, fn step ->
         _ = jobs.enqueue_due(queue, nightly, from + Duration.minutes(10) * step)
@@ -313,7 +313,7 @@ test "a repeated 01:30 in New York is enqueued once across the fall change"
     rows = Conn.query(db, Sql"SELECT run_at FROM nomi_jobs")?
 
     assert Iter.map(rows, &Row.get<Instant>(&1, "run_at")) |> Iter.to_list() == [
-        Ok(Anchored.to_instant(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`)),
+        Ok(Anchored.to_instant(DateTime"2026-11-01T01:30:00-04:00[America/New_York]")),
     ]
 end
 

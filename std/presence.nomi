@@ -53,7 +53,7 @@ impl Presence<T>
     pub fn is_present<T>(presence: Presence<T>) -> Bool
         case presence
             .Present(_) -> True
-            .Absent -> False
+            .Absent     -> False
         end
     end
 
@@ -65,7 +65,7 @@ impl Presence<T>
     pub fn is_absent<T>(presence: Presence<T>) -> Bool
         case presence
             .Present(_) -> False
-            .Absent -> True
+            .Absent     -> True
         end
     end
 
@@ -76,7 +76,7 @@ impl Presence<T>
     pub fn map<T, U>(presence: Presence<T>, f: (T) -> U) -> Presence<U>
         case presence
             .Present(v) -> Presence.Present(f(v))
-            .Absent -> Presence.Absent
+            .Absent     -> Presence.Absent
         end
     end
 
@@ -94,7 +94,7 @@ impl Presence<T>
     pub fn with_default<T>(presence: Presence<T>, current: T) -> T
         case presence
             .Present(v) -> v
-            .Absent -> current
+            .Absent     -> current
         end
     end
 
@@ -111,7 +111,7 @@ impl Presence<T>
     pub fn otherwise<T>(presence: Presence<T>, fallback: Presence<T>) -> Presence<T>
         case presence
             .Present(_) -> presence
-            .Absent -> fallback
+            .Absent     -> fallback
         end
     end
 
@@ -125,7 +125,7 @@ impl Presence<T>
     pub fn to_maybe<T>(presence: Presence<T>) -> Maybe<T>
         case presence
             .Present(v) -> Maybe.Some(v)
-            .Absent -> Maybe.None
+            .Absent     -> Maybe.None
         end
     end
 
@@ -145,7 +145,7 @@ impl Presence<T>
     pub fn flatten<T>(presence: Presence<Maybe<T>>) -> Maybe<T>
         case presence
             .Present(inner) -> inner
-            .Absent -> Maybe.None
+            .Absent         -> Maybe.None
         end
     end
 end
@@ -166,14 +166,14 @@ impl ToJson for Presence<T> where T: ToJson
     fn to_json(value: Presence<T>) -> Json
         case value
             .Present(v) -> ToJson.to_json(v)
-            .Absent -> Json.Null
+            .Absent     -> Json.Null
         end
     end
 
     fn to_json_field(value: Presence<T>) -> Maybe<Json>
         case value
             .Present(v) -> Maybe.Some(ToJson.to_json(v))
-            .Absent -> Maybe.None
+            .Absent     -> Maybe.None
         end
     end
 end
@@ -190,7 +190,7 @@ impl FromJson for Presence<T> where T: FromJson
     //
     fn from_json(json: Json) -> Result<Presence<T>, Json.ShapeError>
         case T.from_json(json)
-            .Ok(v) -> Result.Ok(Presence.Present(v))
+            .Ok(v)  -> Result.Ok(Presence.Present(v))
             .Err(e) -> Result.Err(e)
         end
     end

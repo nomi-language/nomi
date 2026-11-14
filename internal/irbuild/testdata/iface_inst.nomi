@@ -54,7 +54,7 @@ interface Picker<T>
 
         case Comparable.compare(a, b)
             Ordering.Less -> b
-            _ -> a
+            _             -> a
         end
     end
 end

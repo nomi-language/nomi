@@ -17,6 +17,6 @@ pub fn serve(routes: List<(Route, (Request) -> Reply)>, path: String) -> String
 
     case found
         Some((_, handler)) -> Reply.text(handler(Request{path:}))
-        None -> "not found"
+        None               -> "not found"
     end
 end

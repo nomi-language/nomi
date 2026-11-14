@@ -60,8 +60,8 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 	case miss.std:
 		rel := strings.Join(miss.path, "/")
 		msg = fmt.Sprintf("no module `%s`: the standard library has no %s.nomi", name, rel)
-		if best := closestName(rel, b.stdlibModuleNames()); best != "" {
-			hint = "did you mean 'std::" + strings.ReplaceAll(best, "/", ast.PathSeparator) + "'?"
+		if best := closestName(strings.Join(miss.path, ast.PathSeparator), b.publicStdModules()); best != "" {
+			hint = "did you mean 'std::" + best + "'?"
 		}
 	default:
 		dir := filepath.Join(append([]string{miss.root}, miss.path[:len(miss.path)-1]...)...)

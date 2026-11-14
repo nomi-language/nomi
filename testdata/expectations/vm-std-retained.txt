@@ -727,6 +727,7 @@ strings.nomi:String.pad_end	ran
 strings.nomi:String.pad_start	ran
 strings.nomi:String.take	ran
 strings.nomi:String.to_string	ran
+strings.nomi:String.to_typed_literal	ran
 strings.nomi:padding	ran
 strings.nomi:strings.String.join_list arity 2	ran
 strings.nomi:strings.String.join_list arity 3	ran

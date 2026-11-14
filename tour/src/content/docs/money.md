@@ -9,7 +9,7 @@ amount is a `Decimal`, so it is exact. The currency is a
 
 ## Writing an amount
 
-`` Money`19.99 USD` `` is an amount of US dollars: the amount, one space and
+`Money"19.99 USD"` is an amount of US dollars: the amount, one space and
 the currency's ISO 4217 code. Interpolating a `Money` writes the same text.
 Both fields are public, so when the amount comes from a variable, build the
 value from its fields with `Money{...}`:
@@ -22,21 +22,21 @@ import
 end
 
 fn main()
-    price = Money`19.99 USD`
+    price = Money"19.99 USD"
     io.print(price)
     dbg price.amount
     dbg price.currency
 
     cents = 1999
     amount = Int.to_decimal(cents) / 100d
-    dbg Money{amount:, currency: Currency`USD`} == price
+    dbg Money{amount:, currency: Currency"USD"} == price
 end
 ```
 <!-- expect
 19.99 USD
 dbg line 10: price.amount = 19.99d
-dbg line 11: price.currency = Currency`USD`
-dbg line 15: Money{amount:, currency: Currency`USD`} == price = True
+dbg line 11: price.currency = Currency"USD"
+dbg line 15: Money{amount:, currency: Currency"USD"} == price = True
 -->
 
 The compiler checks a `Money` literal, so a missing currency, an unknown
@@ -46,16 +46,19 @@ code or a malformed amount is an error before the program runs:
 import std::money.Money
 
 fn main()
-    price = Money`19.99`
+    price = Money"19.99"
     dbg price
 end
 ```
 <!-- expect
-main.nomi:4:13: typed literal Money`19.99` is invalid: `19.99` has no currency: write the amount, one space and the currency, as Money`19.99 EUR`
+main.nomi:4:13: typed literal Money"19.99" is invalid: `19.99` has no currency: write the amount, one space and the currency, as Money"19.99 EUR"
 -->
 
+`Money.parse("19.99 EUR")` reads the same text while the program runs, and
+returns that error as a value.
+
 The amount keeps every digit you write, as a `Decimal` does.
-`` Money`12.5 USD` `` and `` Money`12.50 USD` `` are equal, but only the
+`Money"12.5 USD"` and `Money"12.50 USD"` are equal, but only the
 second has two digits after the point.
 
 ## Adding amounts
@@ -71,8 +74,8 @@ import
 end
 
 fn main()
-    book = Money`12.50 USD`
-    pen = Money`2.35 USD`
+    book = Money"12.50 USD"
+    pen = Money"2.35 USD"
 
     io.print(book + pen)
     io.print(book - pen)
@@ -107,8 +110,8 @@ import
 end
 
 fn main()
-    price = Money`12.50 USD`
-    fee = Money`2.00 EUR`
+    price = Money"12.50 USD"
+    fee = Money"2.00 EUR"
     total = price + fee
     io.print(total)
 end
@@ -134,15 +137,15 @@ import
 end
 
 fn main()
-    total = Money`10.00 USD`
+    total = Money"10.00 USD"
     third = {..total, amount: .. |> Decimal.divide(3d, 6, .HalfEven)}
     io.print(third)
     io.print(Money.round(third))
 
-    io.print(Money.round(Money`0.125 USD`))
-    io.print(Money.round(Money`0.135 USD`))
-    io.print(Money.round(Money`0.125 USD`, mode: .HalfUp))
-    io.print(Money.round(Money`1234.5 JPY`))
+    io.print(Money.round(Money"0.125 USD"))
+    io.print(Money.round(Money"0.135 USD"))
+    io.print(Money.round(Money"0.125 USD", mode: .HalfUp))
+    io.print(Money.round(Money"1234.5 JPY"))
 end
 ```
 <!-- expect
@@ -172,8 +175,8 @@ import
 end
 
 fn main()
-    io.print(Money.split(Money`10.00 USD`, 3))
-    io.print(Money.allocate(Money`10.00 USD`, [70, 30]))
+    io.print(Money.split(Money"10.00 USD", 3))
+    io.print(Money.allocate(Money"10.00 USD", [70, 30]))
 end
 ```
 <!-- expect
@@ -207,9 +210,9 @@ import
 end
 
 fn main()
-    points = Money`1200 PTS:0` + Money`300 PTS:0`
+    points = Money"1200 PTS:0" + Money"300 PTS:0"
     io.print(points)
-    io.print(Money.format(points, Locale`en-US`))
+    io.print(Money.format(points, Locale"en-US"))
     dbg Currency.parse("PTS:0") == Ok(points.currency)
 end
 
@@ -236,13 +239,13 @@ code.
 A custom currency needs no other setup, so the list is what catches a typo.
 A literal naming a custom currency the module doesn't list is an error when
 the program is checked, and it suggests a listed one that is close. With
-`PTS:0` listed, ``Money`5 PST:0` `` is:
+`PTS:0` listed, `Money"5 PST:0"` is:
 
 ```console
-error: typed literal Money`5 PST:0`: `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml
+error: typed literal Money"5 PST:0": `PST:0` is a custom currency this module does not list: add it to [money].custom_currencies in nomi.toml
  --> main.nomi:7:14
   |
-7 |     io.print(Money`5 PST:0`)
+7 |     io.print(Money"5 PST:0")
   |              ^^^^^^^^^^^^^^
   = help: did you mean `PTS:0`? nomi.toml lists it
 ```
@@ -274,13 +277,13 @@ import
 end
 
 fn main()
-    price = Money`1299.5 USD`
+    price = Money"1299.5 USD"
 
-    [Locale`en-US`, Locale`de`, Locale`fr`]
+    [Locale"en-US", Locale"de", Locale"fr"]
     |> Iter.each(fn locale -> io.print("${locale}: ${Money.format(price, locale)}"))
 
     dbg "${price}"
-    dbg Money.format(Money`1500 JPY`, Locale`ja`)
+    dbg Money.format(Money"1500 JPY", Locale"ja")
     Unit
 end
 ```
@@ -289,7 +292,7 @@ en-US: $1,299.50
 de: 1.299,50 $
 fr: 1 299,50 $US
 dbg line 12: "${price}" = "1299.5 USD"
-dbg line 13: Money.format(Money`1500 JPY`, Locale`ja`) = "￥1,500"
+dbg line 13: Money.format(Money"1500 JPY", Locale"ja") = "￥1,500"
 -->
 
 The dollar sign comes before the amount in American English and after it in
@@ -311,15 +314,15 @@ narrow symbol, its code, or its name.
 import std::money.Money
 
 fn main()
-    usd = Money`5 USD`
-    dbg Money.format(usd, Locale`en-US`, display: .Code)
-    dbg Money.format(usd, Locale`en-CA`)
+    usd = Money"5 USD"
+    dbg Money.format(usd, Locale"en-US", display: .Code)
+    dbg Money.format(usd, Locale"en-CA")
     Unit
 end
 ```
 <!-- expect
-dbg line 5: Money.format(usd, Locale`en-US`, display: .Code) = "USD\u{a0}5.00"
-dbg line 6: Money.format(usd, Locale`en-CA`) = "US$5.00"
+dbg line 5: Money.format(usd, Locale"en-US", display: .Code) = "USD\u{a0}5.00"
+dbg line 6: Money.format(usd, Locale"en-CA") = "US$5.00"
 -->
 
 After `USD` is a no-break space, which `dbg` writes `\u{a0}`. Canadian
@@ -343,17 +346,17 @@ import
 end
 
 fn main()
-    usd = Currency`USD`
-    dbg Money.parse_in("$1,299.50", Locale`en-US`, usd)
-    dbg Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True)
-    dbg Money.parse_in("€12.50", Locale`en-US`, usd)
+    usd = Currency"USD"
+    dbg Money.parse_in("$1,299.50", Locale"en-US", usd)
+    dbg Money.parse_in("1299.50", Locale"en-US", usd, lenient: True)
+    dbg Money.parse_in("€12.50", Locale"en-US", usd)
     Unit
 end
 ```
 <!-- expect
-dbg line 8: Money.parse_in("$1,299.50", Locale`en-US`, usd) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 9: Money.parse_in("1299.50", Locale`en-US`, usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency`USD`})
-dbg line 10: Money.parse_in("€12.50", Locale`en-US`, usd) = Err(WrongCurrency{expected: Currency`USD`, found: "€"})
+dbg line 8: Money.parse_in("$1,299.50", Locale"en-US", usd) = Ok(Money{amount: 1299.50d, currency: Currency"USD"})
+dbg line 9: Money.parse_in("1299.50", Locale"en-US", usd, lenient: True) = Ok(Money{amount: 1299.50d, currency: Currency"USD"})
+dbg line 10: Money.parse_in("€12.50", Locale"en-US", usd) = Err(WrongCurrency{expected: Currency"USD", found: "€"})
 -->
 
 A price in another currency is an error, and so is one with more digits

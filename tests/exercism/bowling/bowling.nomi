@@ -32,7 +32,7 @@ impl Game
     pub fn score(game: Game) -> Result<Int, Error>
         case pins_standing(game.rolls, frame: 1)
             Some(_) -> Err(.GameNotOver)
-            None -> Ok(total(game.rolls, frame: 1))
+            None    -> Ok(total(game.rolls, frame: 1))
         end
     end
 end
@@ -42,10 +42,10 @@ end
 fn pins_standing(rolls: List<Int>, frame: Int) -> Maybe<Int>
     case rolls
         _ when frame == 10 -> last_frame_standing(rolls)
-        [] -> Some(10)
-        [10, ..rest] -> pins_standing(rest, frame: frame + 1)
-        [first] -> Some(10 - first)
-        [_, _, ..rest] -> pins_standing(rest, frame: frame + 1)
+        []                 -> Some(10)
+        [10, ..rest]       -> pins_standing(rest, frame: frame + 1)
+        [first]            -> Some(10 - first)
+        [_, _, ..rest]     -> pins_standing(rest, frame: frame + 1)
     end
 end
 

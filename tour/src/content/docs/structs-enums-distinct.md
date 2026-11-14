@@ -23,7 +23,7 @@ how to give a type its own printed form with [`Display`](/reference/display/).
 ```nomi-run
 struct User
     name: String
-    age: Int = 0
+    age:  Int = 0
 end
 
 fn main()
@@ -65,11 +65,11 @@ return type, or an earlier element of the same list or map
 ```nomi-run
 struct Address
     street: String
-    city: String
+    city:   String
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 
@@ -135,7 +135,7 @@ after it:
 ```nomi-run
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 fn main()
@@ -166,11 +166,11 @@ To change a field inside a nested struct, write `..` with nothing after it:
 ```nomi-run
 struct Address
     street: String
-    city: String
+    city:   String
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 
@@ -236,7 +236,7 @@ more than `(String, Int)`.
 ```nomi-run
 struct User
     name: String
-    age: Int
+    age:  Int
 end
 
 fn main()
@@ -478,8 +478,8 @@ fn describe(d: Direction) -> String
     case d
         .North -> "up"
         .South -> "down"
-        .East -> "right"
-        .West -> "left"
+        .East  -> "right"
+        .West  -> "left"
     end
 end
 
@@ -533,7 +533,7 @@ Spec: [Variant Resolution](/spec/types/#variant-resolution),
 ```nomi-run
 struct User
     first: String
-    last: String
+    last:  String
 end
 
 impl User
@@ -644,6 +644,7 @@ fn problems(name: String, rules: List<Rule>) -> List<String>
     rules
     |> Iter.map(fn rule -> rule(name))
     |> Maybe.values()
+    |> Iter.to_list()
 end
 
 fn too_short(name: String) -> Maybe<String>
@@ -663,9 +664,9 @@ fn main()
 end
 ```
 <!-- expect
-dbg line 20: problems("al", rules) = ["too short"]
-dbg line 21: problems("ada lovelace", rules) = ["has a space"]
-dbg line 22: problems("ada", rules) = []
+dbg line 21: problems("al", rules) = ["too short"]
+dbg line 22: problems("ada lovelace", rules) = ["has a space"]
+dbg line 23: problems("ada", rules) = []
 -->
 
 A `typealias` is another name for an existing type. `Rule` and

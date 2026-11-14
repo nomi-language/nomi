@@ -4,7 +4,7 @@ import std::log.{self, Logger}
 
 pub struct App
     context: Context
-    logger: Logger
+    logger:  Logger
 end
 
 pub fn boot() -> Result<App, String>

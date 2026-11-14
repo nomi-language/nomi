@@ -76,6 +76,7 @@
 08-pattern-matching/marker_patterns_test.nomi
 08-pattern-matching/maybe_result_test.nomi
 08-pattern-matching/or_patterns_test.nomi
+08-pattern-matching/qualified_distinct_patterns/qualified_distinct_patterns_test.nomi
 08-pattern-matching/try_error_conversion_test.nomi
 08-pattern-matching/try_from/try_from_test.nomi
 08-pattern-matching/try_test.nomi
@@ -89,6 +90,7 @@
 09-functions-and-control-flow/nested_statements_test.nomi
 09-functions-and-control-flow/partial_defaults/partial_defaults_test.nomi
 09-functions-and-control-flow/tail_calls_test.nomi
+09-functions-and-control-flow/type_only_parameters_test.nomi
 10-generics-and-type-wrappers/args_first_inference_test.nomi
 10-generics-and-type-wrappers/bound_type_params_test.nomi
 10-generics-and-type-wrappers/bounds_test.nomi
@@ -109,6 +111,7 @@
 11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi
 11-interfaces-and-impls/existential_equality/existential_bounds_test.nomi
 11-interfaces-and-impls/existential_equality/existential_equality_test.nomi
+11-interfaces-and-impls/interface_conjunctions_test.nomi
 11-interfaces-and-impls/interface_field_update_test.nomi
 11-interfaces-and-impls/interface_results_in_tuples_test.nomi
 11-interfaces-and-impls/module_qualified_impl_dispatch/module_qualified_impl_dispatch_test.nomi
@@ -153,6 +156,7 @@
 14-modules-and-packaging/block_import_alias_test.nomi
 14-modules-and-packaging/block_import_alias_types/block_import_alias_types_test.nomi
 14-modules-and-packaging/block_imports_test.nomi
+14-modules-and-packaging/cross_file_enum_cycle/cross_file_enum_cycle_test.nomi
 14-modules-and-packaging/cross_file_modules/cross_file_modules_test.nomi
 14-modules-and-packaging/directory_imports/directory_imports_test.nomi
 14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi
@@ -186,6 +190,7 @@
 17-typed-literals/html_templates_test.nomi
 17-typed-literals/toml_literal_test.nomi
 17-typed-literals/url_slots_test.nomi
+17-typed-literals/without_slots_test.nomi
 18-ffi-and-dynamic/dynamic_decoder_test.nomi
 18-ffi-and-dynamic/json_anon_struct_test.nomi
 18-ffi-and-dynamic/json_container_decode_test.nomi

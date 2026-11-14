@@ -16,7 +16,7 @@ end
 fn label(t: Tree<String>) -> String
     case t
         Tree.Node(s) -> s
-        Tree.Leaf -> "-"
+        Tree.Leaf    -> "-"
     end
 end
 
@@ -37,7 +37,7 @@ fn main()
         |> Iter.map(fn t ->
             case t
                 Tree.Node(p) -> p.x
-                Tree.Leaf -> 0
+                Tree.Leaf    -> 0
             end
         end)
         |> Iter.to_list()

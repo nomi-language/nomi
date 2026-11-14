@@ -1,0 +1,80 @@
+//# Are We Fast Yet: Mandelbrot.
+//#
+//# The suite's Mandelbrot: a `size`-by-`size` image, 50 iterations, the
+//# escaped points packed eight a byte and the bytes folded together with
+//# exclusive or. The inner iteration count is the size.
+//#
+//# Departure from the guidelines: the suite's nested `while` loops become a
+//# fold over the rows and points carrying the sum, the byte being built and
+//# its bit count, and a tail-recursive escape test.
+
+import harness
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+struct Acc
+    sum:      Int
+    byte_acc: Int
+    bit_num:  Int
+end
+
+/// 1 if the point escapes within 50 iterations, else 0.
+fn escape(zrzr: Float, zi: Float, zizi: Float, cr: Float, ci: Float, z: Int) -> Int
+    if z == 50 then
+        0
+    else
+        zr = zrzr - zizi + cr
+        zi = 2.0 * zr * zi + ci
+        zrzr = zr * zr
+        zizi = zi * zi
+
+        if zrzr + zizi > 4.0 then
+            1
+        else
+            escape(zrzr, zi, zizi, cr, ci, z + 1)
+        end
+    end
+end
+
+fn mandelbrot(size: Int) -> Int
+    acc =
+        0..size
+        |> Iter.reduce(Acc{sum: 0, byte_acc: 0, bit_num: 0}, fn acc, y ->
+            ci = 2.0 * Int.to_float(y) / Int.to_float(size) - 1.0
+
+            Iter.reduce(0..size, acc, fn acc, x ->
+                cr = 2.0 * Int.to_float(x) / Int.to_float(size) - 1.5
+                byte_acc = (acc.byte_acc <<< 1) + escape(0.0, 0.0, 0.0, cr, ci, 0)
+                bit_num = acc.bit_num + 1
+
+                if bit_num == 8 then
+                    Acc{sum: acc.sum ^^^ byte_acc, byte_acc: 0, bit_num: 0}
+                else if x == size - 1 then
+                    Acc{sum: acc.sum ^^^ (byte_acc <<< (8 - bit_num)), byte_acc: 0, bit_num: 0}
+                else
+                    {..acc, byte_acc:, bit_num:}
+                end
+            end)
+        end)
+
+    acc.sum
+end
+
+fn verify(result: Int, inner: Int) -> Bool
+    case inner
+        500 -> result == 191
+        750 -> result == 50
+        1   -> result == 128
+        _   -> False
+    end
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Mandelbrot", App.config, fn inner -> verify(mandelbrot(inner), inner))
+end

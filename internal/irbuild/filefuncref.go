@@ -189,8 +189,10 @@ func (bl *irScalarBuilder) stdNamedFuncRef(ref ast.Node, f *stdFunc, params []ki
 	} else {
 		sym = g.irStdSiblingSym(view)
 	}
+	// params and result are the checker's type for the reference
+	// (funcTypeKinds), held, so the function kind is callable.
 	fk := funcKindIn(g, params, result)
-	if sym == nil || !irCallableValueKind(fk) {
+	if sym == nil {
 		return no()
 	}
 	n := ir.NewRefFunc(g.irNodePos(ref), bl.f.NewTemp(), sym)

@@ -9,7 +9,7 @@ impl Comparable for Weight
 end
 
 pub struct NamedWidget
-    name: String
+    name:   String
     weight: Weight
 end
 

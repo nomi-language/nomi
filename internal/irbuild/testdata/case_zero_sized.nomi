@@ -22,7 +22,7 @@ end
 fn describe(s: SessionState) -> String
     case s
         SessionState.Expired(e) -> marker_label(e)
-        .Active -> "active"
+        .Active                 -> "active"
     end
 end
 
@@ -31,7 +31,7 @@ end
 fn is_expired(s: SessionState) -> Bool
     case s
         .Expired -> True
-        _ -> False
+        _        -> False
     end
 end
 

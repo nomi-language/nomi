@@ -30,7 +30,7 @@ end
 /// An error with a note, generic in what it wraps.
 pub struct Noted<E>
     inner: E
-    note: String
+    note:  String
 end
 
 impl<E> From<E> for Noted<E>

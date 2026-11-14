@@ -43,7 +43,7 @@ end
 end
 
 fn main()
-  id = Uuid` + "`0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A`" + `
+  id = Uuid"0190A0B2-7F3C-7C3E-8A1B-1F2E3D4C5B6A"
   io.print("${id} ${Uuid.version(id)}")
   io.print(Debug.inspect([id, Uuid.nil()] |> Iter.sort() |> Iter.to_list()))
 end

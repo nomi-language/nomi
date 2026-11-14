@@ -71,14 +71,14 @@ import std::io
 fn at_or(v: Vector<Int>, i: Int) -> Int
     case Vector.get(v, i)
         Some(n) -> n
-        None -> -1
+        None    -> -1
     end
 end
 
 fn head_or(v: Vector<Int>) -> Int
     case Vector.next_item(v)
         Some((n, _)) -> n
-        None -> -1
+        None         -> -1
     end
 end
 
@@ -118,7 +118,7 @@ fn main()
 
     tail = case Vector.next_item(v)
         Some((_, rest)) -> rest
-        None -> Vector[]
+        None            -> Vector[]
     end
 
     io.print("after_tail len ${Vector.length(tail)}")

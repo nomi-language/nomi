@@ -254,6 +254,10 @@ func (s typeVarSnapshot) walk(t Type) {
 		for _, a := range tt.TypeArgs {
 			s.walk(a)
 		}
+	case *ConjunctionType:
+		for _, m := range tt.Members {
+			s.walk(m)
+		}
 	case *PartialType:
 		s.walk(tt.Inner)
 	}

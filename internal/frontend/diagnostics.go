@@ -22,6 +22,11 @@ type Diagnostic struct {
 	// `embed` pattern whose base does not exist yet), which is shown as a
 	// warning rather than an error.
 	Warning bool
+	// Hint marks, beside Warning, advice the program means the same
+	// without (analysis.FileHints): a redundant `as Type`, a restated
+	// current value. A host reports it only when asked (`nomi check
+	// --hints`), shown as a hint.
+	Hint bool
 	// Path is the file's absolute path, or an in-memory file's name
 	// ("main.nomi").
 	Path string
@@ -69,7 +74,9 @@ type Related struct {
 func (d Diagnostic) String() string {
 	var b strings.Builder
 	at := location(d.Path, d.Line, d.Col)
-	if d.Warning {
+	if d.Hint {
+		b.WriteString(at + ": hint: " + d.Message)
+	} else if d.Warning {
 		b.WriteString(at + ": warning: " + d.Message)
 	} else {
 		b.WriteString(at + ": " + d.Message)
@@ -192,6 +199,16 @@ func WarningDiagnostics(path, src string, warns []analysis.TypeError) Diagnostic
 	ds := typeDiagnostics(path, src, warns)
 	for i := range ds {
 		ds[i].Warning = true
+	}
+	return ds
+}
+
+// HintDiagnostics are hints, found in the file at path, as warnings marked
+// Hint, completed from src as WarningDiagnostics completes them.
+func HintDiagnostics(path, src string, hints []analysis.TypeError) Diagnostics {
+	ds := WarningDiagnostics(path, src, hints)
+	for i := range ds {
+		ds[i].Hint = true
 	}
 	return ds
 }

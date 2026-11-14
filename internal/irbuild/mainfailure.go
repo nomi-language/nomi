@@ -122,10 +122,8 @@ func (g *gen) irBuildBootFailure(fd *ast.FuncDef, errK kind) {
 // rendering this builder can lower.
 func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK kind) *ir.Symbol {
 	g.irDeclineOpen(name)
-	if !irCallOperandKind(errK) {
-		g.dc.note("an error type outside the call domain: " + errK.nomi())
-		return nil
-	}
+	// The error type decl declares, projected.
+	irHeldOperand(errK, "a failure's error type")
 	sym := g.irCalleeSym(key, name)
 	at := ast.Node(decl.ReturnTypeExpr)
 	fn, ok := g.irErrorRenderFunc(decl, name, sym, errK, at, false)

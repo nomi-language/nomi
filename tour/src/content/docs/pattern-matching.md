@@ -18,9 +18,9 @@ program runs.
 ```nomi-run
 fn label(text: String) -> String
     case String.length(text)
-        0 -> "empty"
+        0             -> "empty"
         n when n > 10 -> "long, ${n} characters"
-        n -> "${n} characters"
+        n             -> "${n} characters"
     end
 end
 
@@ -74,7 +74,7 @@ end
 
 fn area(s: Shape) -> Float
     case s
-        .Circle(r) -> r * r * 3.14159
+        .Circle(r)                  -> r * r * 3.14159
         .Rectangle{width:, height:} -> width * height
     end
 end
@@ -105,15 +105,15 @@ values the set holds:
 ```nomi-run
 fn first_two(words: List<String>) -> String
     case words
-        [] -> "no words"
-        [only] -> only
+        []         -> "no words"
+        [only]     -> only
         [a, b, ..] -> "${a} ${b}"
     end
 end
 
 fn last(v: Vector<Int>) -> Maybe<Int>
     case v
-        [] -> None
+        []      -> None
         [.., z] -> Some(z)
     end
 end
@@ -175,8 +175,8 @@ a string that starts with `/users/` and names the rest `id`.
 fn route(path: String) -> String
     case path
         "/users/" + id -> "user ${id}"
-        "/health" -> "ok"
-        _ -> "not found"
+        "/health"      -> "ok"
+        _              -> "not found"
     end
 end
 ```
@@ -201,7 +201,7 @@ end
 
 fn area(s: Shape) -> Float
     case s
-        .Circle(r) -> r * r * 3.0
+        .Circle(r)                  -> r * r * 3.0
         .Rectangle{width:, height:} -> width * height
     end
 end
@@ -266,8 +266,8 @@ end
 fn size(s: Shape) -> String
     case s
         .Circle(r) or .Square(r) when r > 10.0 -> "big, ${r} across"
-        .Circle(r) or .Square(r) -> "${r} across"
-        .Rectangle{width:, height:} -> "${width} by ${height}"
+        .Circle(r) or .Square(r)               -> "${r} across"
+        .Rectangle{width:, height:}            -> "${width} by ${height}"
     end
 end
 
@@ -349,7 +349,7 @@ end
 fn name_for(id: Int) -> String
     case lookup(id)
         Some(name) -> name
-        None -> "unknown"
+        None       -> "unknown"
     end
 end
 
@@ -589,7 +589,7 @@ end
 
 fn port(text: Maybe<String>) -> Result<Int, String>
     Ok(n) = parse_port(text) else
-        Err(.Missing) -> 8080
+        Err(.Missing)      -> 8080
         Err(.Invalid(raw)) -> return Err("bad port: ${raw}")
     end
 

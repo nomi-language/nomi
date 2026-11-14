@@ -1,0 +1,213 @@
+//# Cost probes: the time one operation takes on the VM, in nanoseconds.
+//#
+//# Each probe runs its body `n` times in a tail-recursive loop and reports
+//# the time per iteration with the loop's own cost (the `loop` probe, a body
+//# that only returns its argument) taken off. A probe's body returns an Int
+//# that the loop sums, so every result is used. The numbers back the
+//# measurements in benchmarks/FINDINGS.md:
+//#
+//#     nomi run benchmarks/probes/costs.nomi [n]
+
+import
+    std::duration.Duration
+    std::instant.Instant
+    std::io
+end
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 1000000})
+    end
+end
+
+fn repeat(i: Int, n: Int, sum: Int, body: (Int) -> Int) -> Int
+    if i == n then
+        sum
+    else
+        repeat(i + 1, n, sum + body(i), body)
+    end
+end
+
+/// Nanoseconds per run of `body`, the loop's own cost included.
+fn time(n: Int, body: (Int) -> Int) -> Float
+    start = Instant.now()
+    _ = repeat(0, n, 0, body)
+    nanos = Duration.as_nanos(Instant.between(start, Instant.now()))
+    Int.to_float(nanos) / Int.to_float(n)
+end
+
+fn inc(x: Int) -> Int
+    x + 1
+end
+
+fn nested(a: Int, b: Int) -> Int
+    case a
+        0 ->
+            case b
+                0 -> 1
+                _ -> 2
+            end
+
+        _ ->
+            case b
+                0 -> 3
+                _ -> 4
+            end
+    end
+end
+
+fn tupled(a: Int, b: Int) -> Int
+    case (a, b)
+        (0, 0) -> 1
+        (0, _) -> 2
+        (_, 0) -> 3
+        _      -> 4
+    end
+end
+
+fn main()
+    n = App.n
+    small: Map<Int, Int> = 0..10 |> Iter.map(fn k -> (k, k)) |> Iter.to_map()
+    hundred: Map<Int, Int> = 0..100 |> Iter.map(fn k -> (k, k)) |> Iter.to_map()
+    vector: Vector<Int> = Iter.to_vector(0..100)
+    list: List<Int> = Iter.to_list(0..100)
+    large: Map<Int, Int> = 0..3000000 |> Iter.map(fn k -> (k, k)) |> Iter.to_map()
+
+    // Warm the loop and the clock before the baseline.
+    _ = time(n, fn i -> i)
+    base = time(n, fn i -> i)
+    pair_base = time(n, fn i -> Iter.count([i, i]) * 0 + i)
+
+    probes = [
+        ("plain call inc(i)",        fn i: Int -> inc(i)),
+        ("arithmetic i % 2 + i % 3", fn i -> i % 2 + i % 3),
+        (
+            "list literal [i, i], matched",
+            fn i ->
+                case [i, i]
+                    [a, b] -> a + b
+                    _      -> 0
+                end
+            end,
+        ),
+        ("Iter.count([i, i])", fn i -> Iter.count([i, i])),
+        (
+            "Iter.map([], f) |> Iter.to_list",
+            fn i -> Iter.count(Iter.to_list(Iter.map([], fn x: Int -> x + i))),
+        ),
+        (
+            "Iter.map([i], f) |> Iter.to_list",
+            fn i -> Iter.count(Iter.to_list(Iter.map([i], fn x -> x + 1))),
+        ),
+        (
+            "Iter.map([i, i], f) |> Iter.to_list",
+            fn i -> Iter.count(Iter.to_list(Iter.map([i, i], fn x -> x + 1))),
+        ),
+        ("Iter.reduce([i, i], 0, +)", fn i -> Iter.reduce([i, i], 0, fn a, x -> a + x)),
+        (
+            "Iter.any_match([i, i], > 5)",
+            fn i -> if Iter.any_match([i, i], fn x -> x > 5) then 1 else 0,
+        ),
+        ("Iter.sum([i, i])",             fn i -> Iter.sum([i, i])),
+        ("nested case on i % 2, i % 3",  fn i -> nested(i % 2, i % 3)),
+        ("tuple case on (i % 2, i % 3)", fn i -> tupled(i % 2, i % 3)),
+        (
+            "Map.get, 10 entries",
+            fn i ->
+                case Map.get(small, i % 10)
+                    Some(v) -> v
+                    None    -> 0
+                end
+            end,
+        ),
+        (
+            "Map.get, 3M entries",
+            fn i ->
+                case Map.get(large, i * 7919 % 3000000)
+                    Some(v) -> v
+                    None    -> 0
+                end
+            end,
+        ),
+        (
+            "Map.get, 100 entries",
+            fn i ->
+                case Map.get(hundred, i % 100)
+                    Some(v) -> v
+                    None    -> 0
+                end
+            end,
+        ),
+        (
+            "Vector.get, 100 entries",
+            fn i ->
+                case Vector.get(vector, i % 100)
+                    Some(v) -> v
+                    None    -> 0
+                end
+            end,
+        ),
+        ("Vector.get(..)!, 100 entries", fn i -> Vector.get(vector, i % 100)!),
+        (
+            "Iter.zip of two 100-element lists, reduced",
+            fn i -> Iter.zip(list, list) |> Iter.reduce(i, fn acc, (x, y) -> acc + x * y),
+        ),
+        (
+            "Ok(i), matched",
+            fn i ->
+                case ok(i)
+                    Ok(v)  -> v
+                    Err(_) -> 0
+                end
+            end,
+        ),
+        (
+            "tuple (i, i), taken apart",
+            fn i ->
+                (a, b) = pair(i)
+                a + b
+            end,
+        ),
+        ("Map.put, 10 entries", fn i -> Map.size(Map.put(small, i % 10, i))),
+        (
+            "Vector.set, 6 entries",
+            fn i -> Vector.length(Vector.set(Vector[0, 0, 0, 0, 0, 0], i % 6, i)),
+        ),
+        ("struct update {..p, x: i}", fn i -> {..Probe{x: 0, y: 1}, x: i}.x),
+    ]
+
+    io.print("loop: ${Float.format(base, Locale`en`, 0, 0, False)} ns")
+
+    probes
+    |> Iter.each(fn (label, body) ->
+        ns = time(n, body) - base
+        io.print("${label}: ${Float.format(ns, Locale`en`, 0, 0, False)} ns")
+    end)
+
+    io.print(
+        "(a [i, i] literal and Iter.count on it: ${Float.format(pair_base - base, Locale`en`, 0, 0, False)} ns)"
+    )
+end
+
+fn ok(i: Int) -> Result<Int, String>
+    Ok(i)
+end
+
+fn pair(i: Int) -> (Int, Int)
+    (i, i)
+end
+
+struct Probe
+    x: Int
+    y: Int
+end

@@ -92,7 +92,7 @@
 //# ```nomi
 //# once nightly = Schedule.cron(
 //#     "nightly report",
-//#     Cron`0 3 * * *`,
+//#     Cron"0 3 * * *",
 //#     report_job,
 //#     ReportArgs{},
 //#     zone: "America/New_York",
@@ -169,12 +169,12 @@ end
 /// how often it may run and for how long, its priority, and its handler,
 /// typed by its arguments `A`.
 pub struct Job<A>
-    kind: String
-    queue: String
+    kind:         String
+    queue:        String
     max_attempts: Int
-    timeout: Duration
-    priority: Int
-    handler: (A) -> Result<Unit, Failure>
+    timeout:      Duration
+    priority:     Int
+    handler:      (A) -> Result<Unit, Failure>
 end
 
 impl Job<A>
@@ -194,12 +194,12 @@ impl Job<A>
     //! assert job.priority == 0
     //
     pub fn new(
-        kind: String,
-        queue: String = "default",
+        kind:         String,
+        queue:        String = "default",
         max_attempts: Int = 20,
-        timeout: Duration = Duration.minutes(5),
-        priority: Int = 0,
-        handler: (A) -> Result<Unit, Failure>,
+        timeout:      Duration = Duration.minutes(5),
+        priority:     Int = 0,
+        handler:      (A) -> Result<Unit, Failure>,
     ) -> Job<A>
         Job{kind:, queue:, max_attempts:, timeout:, priority:, handler:}
     end
@@ -213,12 +213,12 @@ impl Job<A>
     //
     pub fn renamed_from(job: Job<A>, old_kind: String) -> Job<A>
         Job{
-            kind: old_kind,
-            queue: job.queue,
+            kind:         old_kind,
+            queue:        job.queue,
             max_attempts: job.max_attempts,
-            timeout: job.timeout,
-            priority: job.priority,
-            handler: job.handler,
+            timeout:      job.timeout,
+            priority:     job.priority,
+            handler:      job.handler,
         }
     end
 end
@@ -244,9 +244,9 @@ derive Debug for Failure
 impl Display for Failure
     fn to_string(failure: Failure) -> String
         case failure
-            .Retry(message) -> "retry: ${message}"
+            .Retry(message)           -> "retry: ${message}"
             .Snooze{message:, after:} -> "snooze ${after}: ${message}"
-            .Discard(message) -> "discard: ${message}"
+            .Discard(message)         -> "discard: ${message}"
         end
     end
 end
@@ -280,22 +280,22 @@ end
 //! assert again == Enqueued{id: first.id, duplicate: True}
 //
 pub fn enqueue<A>(
-    queue: Queue,
-    conn: Conn,
-    job: Job<A>,
-    args: A,
-    run_at: Maybe<Instant> = None,
+    queue:    Queue,
+    conn:     Conn,
+    job:      Job<A>,
+    args:     A,
+    run_at:   Maybe<Instant> = None,
     priority: Maybe<Int> = None,
-    unique: Maybe<Unique> = None,
+    unique:   Maybe<Unique> = None,
 ) -> Result<Enqueued, sql.Error> where A: ToJson
     new_job = NewJob{
         queue: job.queue,
-        kind: job.kind,
-        args: ToJson.to_json(args),
+        kind:  job.kind,
+        args:  ToJson.to_json(args),
         run_at:,
-        max_attempts: job.max_attempts,
-        priority: Maybe.with_default(priority, job.priority),
-        unique_key: Maybe.map(unique, fn u -> Unique.key_for(u, job.kind, Instant.now())),
+        max_attempts:  job.max_attempts,
+        priority:      Maybe.with_default(priority, job.priority),
+        unique_key:    Maybe.map(unique, fn u -> Unique.key_for(u, job.kind, Instant.now())),
         unique_across: Maybe.map(unique, &(&1.across)) |> Maybe.with_default(UniqueStates.Live),
     }
 
@@ -305,7 +305,7 @@ end
 /// What an enqueue stored, or found: the job's id, and whether a stored
 /// job already held the enqueue's unique key, so nothing new was stored.
 pub struct Enqueued
-    id: JobId
+    id:        JobId
     duplicate: Bool
 end
 
@@ -316,7 +316,7 @@ derive Debug for Enqueued
 /// of its kind, the states in which a stored job holds it, and an optional
 /// `period`, which makes the key one per period.
 pub struct Unique
-    key: String
+    key:    String
     across: UniqueStates = UniqueStates.Live
     period: Maybe<Duration> = None
 end
@@ -365,9 +365,9 @@ derive Debug for UniqueStates
 /// process that runs a schedule gives it the same name, and two schedules
 /// never share one.
 pub opaque struct Schedule
-    name: String
+    name:   String
     timing: Timing
-    job: NewJob
+    job:    NewJob
     missed: Missed
 end
 
@@ -401,11 +401,11 @@ impl Schedule
     //! assert Schedule.next_after(sweep, at) == Instant.from_seconds(60 * 30)
     //
     pub fn every<A>(
-        name: String,
+        name:     String,
         interval: Duration,
-        job: Job<A>,
-        args: A,
-        missed: Missed = Missed.RunLatest,
+        job:      Job<A>,
+        args:     A,
+        missed:   Missed = Missed.RunLatest,
     ) -> Schedule where A: ToJson
         every = positive(interval)!
         Schedule{name:, timing: Timing.Every(every), job: template(job, args), missed:}
@@ -415,21 +415,21 @@ impl Schedule
     /// names on a wall clock in `zone`, an IANA zone name. A zone the
     /// time zone database does not know traps, naming it.
     //! job = Job.new("report", fn _: Int -> Ok(Unit))
-    //! nightly = Schedule.cron("nightly", Cron`30 2 * * *`, job, 0, zone: "America/New_York")
+    //! nightly = Schedule.cron("nightly", Cron"30 2 * * *", job, 0, zone: "America/New_York")
     //!
     //! // On 8 March 2026 New York's clocks jump from 02:00 to 03:00, so
     //! // that day's 02:30 runs at 03:00.
-    //! at = DateTime`2026-03-08T00:00:00-05:00[America/New_York]`
+    //! at = DateTime"2026-03-08T00:00:00-05:00[America/New_York]"
     //!
     //! assert Schedule.next_after(nightly, Anchored.to_instant(at))
-    //!     == Anchored.to_instant(DateTime`2026-03-08T03:00:00-04:00[America/New_York]`)
+    //!     == Anchored.to_instant(DateTime"2026-03-08T03:00:00-04:00[America/New_York]")
     //
     pub fn cron<A>(
-        name: String,
-        cron: Cron,
-        job: Job<A>,
-        args: A,
-        zone: String = "UTC",
+        name:   String,
+        cron:   Cron,
+        job:    Job<A>,
+        args:   A,
+        zone:   String = "UTC",
         missed: Missed = Missed.RunLatest,
     ) -> Schedule where A: ToJson
         _ = DateTime.from_instant_in(Instant.from_seconds(0), zone)!
@@ -465,12 +465,12 @@ end
 // The job a schedule enqueues, before its tick gives it a time and a key.
 fn template<A>(job: Job<A>, args: A) -> NewJob where A: ToJson
     NewJob{
-        queue: job.queue,
-        kind: job.kind,
-        args: ToJson.to_json(args),
-        run_at: None,
+        queue:        job.queue,
+        kind:         job.kind,
+        args:         ToJson.to_json(args),
+        run_at:       None,
         max_attempts: job.max_attempts,
-        priority: job.priority,
+        priority:     job.priority,
     }
 end
 
@@ -487,19 +487,19 @@ end
 /// Vixie cron: `0 0 1 * MON` runs on the first of the month and on each
 /// Monday. A field written `*/2` counts as given.
 ///
-/// ``Cron`0 3 * * *` `` is checked when the program is checked, and a
+/// `Cron"0 3 * * *"` is checked when the program is checked, and a
 /// bad expression is a compile error; `Cron.parse` reads one at run time.
-//! assert "${Cron`*/15 9-17 * * MON-FRI`}" == "*/15 9-17 * * MON-FRI"
-//! assert Cron.parse("0 3 * * *") == Ok(Cron`0 3 * * *`)
+//! assert "${Cron"*/15 9-17 * * MON-FRI"}" == "*/15 9-17 * * MON-FRI"
+//! assert Cron.parse("0 3 * * *") == Ok(Cron"0 3 * * *")
 //
 pub opaque struct Cron
-    text: String
-    minutes: Set<Int>
-    hours: Set<Int>
-    days: Set<Int>
-    months: Set<Int>
-    weekdays: Set<Int>
-    any_day: Bool
+    text:        String
+    minutes:     Set<Int>
+    hours:       Set<Int>
+    days:        Set<Int>
+    months:      Set<Int>
+    weekdays:    Set<Int>
+    any_day:     Bool
     any_weekday: Bool
 end
 
@@ -513,14 +513,14 @@ end
 
 impl Debug for Cron
     fn inspect(cron: Cron) -> String
-        "Cron`${cron.text}`"
+        String.to_typed_literal(cron.text, "Cron")
     end
 end
 
 /// Why `Cron.parse` refused an expression: `message`, about the text
 /// `offset` code points in.
 pub struct CronError
-    offset: Int
+    offset:  Int
     message: String
 end
 
@@ -539,7 +539,7 @@ impl Cron
     //! assert Result.is_ok(Cron.parse("@hourly"))
     //!
     //! assert Cron.parse("0 3 * *") == Err(CronError{
-    //!         offset: 0,
+    //!         offset:  0,
     //!         message: "a cron expression has five fields (minute, hour, day of month, month, day of week), not 4",
     //!     })
     //!
@@ -547,20 +547,20 @@ impl Cron
     //!     == Err(CronError{offset: 2, message: "hour 24 is out of range 0-23"})
     //!
     //! assert Cron.parse("0 0 30 FEB *") == Err(CronError{
-    //!         offset: 4,
+    //!         offset:  4,
     //!         message: "no month chosen has the days of the month chosen",
     //!     })
     //
     pub fn parse(text: String) -> Result<Cron, CronError>
         expanded = case String.trim(text)
-            "@yearly" -> "0 0 1 1 *"
+            "@yearly"   -> "0 0 1 1 *"
             "@annually" -> "0 0 1 1 *"
-            "@monthly" -> "0 0 1 * *"
-            "@weekly" -> "0 0 * * 0"
-            "@daily" -> "0 0 * * *"
+            "@monthly"  -> "0 0 1 * *"
+            "@weekly"   -> "0 0 * * 0"
+            "@daily"    -> "0 0 * * *"
             "@midnight" -> "0 0 * * *"
-            "@hourly" -> "0 * * * *"
-            _ -> text
+            "@hourly"   -> "0 * * * *"
+            _           -> text
         end
 
         if String.starts_with(expanded, "@") then
@@ -588,7 +588,7 @@ impl Cron
 
                 if any_weekday and not any_day and not falls_in(days, months) then
                     return Err(CronError{
-                        offset: day.offset,
+                        offset:  day.offset,
                         message: "no month chosen has the days of the month chosen",
                     })
                 end
@@ -608,7 +608,7 @@ impl Cron
                 count = Iter.count(fields)
 
                 Err(CronError{
-                    offset: 0,
+                    offset:  0,
                     message: "a cron expression has five fields (minute, hour, day of month, month, day of week), not ${count}",
                 })
         end
@@ -618,14 +618,14 @@ impl Cron
     /// `zone`, or the zone's error when the time zone database does not
     /// know it. See `Schedule.cron` for the days the clocks change.
     //! zone = "America/New_York"
-    //! at = Anchored.to_instant(DateTime`2026-11-01T00:30:00-04:00[America/New_York]`)
-    //! first = Anchored.to_instant(DateTime`2026-11-01T01:30:00-04:00[America/New_York]`)
-    //! assert Cron.next_after(Cron`30 1 * * *`, at, zone:) == Ok(first)
-    //! assert Result.is_err(Cron.next_after(Cron`30 1 * * *`, at, zone: "Mars/Base"))
+    //! at = Anchored.to_instant(DateTime"2026-11-01T00:30:00-04:00[America/New_York]")
+    //! first = Anchored.to_instant(DateTime"2026-11-01T01:30:00-04:00[America/New_York]")
+    //! assert Cron.next_after(Cron"30 1 * * *", at, zone:) == Ok(first)
+    //! assert Result.is_err(Cron.next_after(Cron"30 1 * * *", at, zone: "Mars/Base"))
     //
     pub fn next_after(
         cron: Cron,
-        at: Instant,
+        at:   Instant,
         zone: String = "UTC",
     ) -> Result<Instant, calendar.Error>
         _ = DateTime.from_instant_in(at, zone)?
@@ -651,8 +651,8 @@ impl CheckedLiteral<String, Cron> for Cron
             [first, ..] ->
                 Err(LiteralError{
                     fragment: 0,
-                    offset: String.length(first),
-                    message: "a cron expression takes no slots",
+                    offset:   String.length(first),
+                    message:  "a cron expression takes no slots",
                 })
 
             [] ->
@@ -665,7 +665,7 @@ impl CheckedLiteral<String, Cron> for Cron
             fragments
             |> Iter.map(fn fragment ->
                 case fragment
-                    .Static(s) -> s
+                    .Static(s)  -> s
                     .Dynamic(s) -> s
                 end
             end)
@@ -677,7 +677,7 @@ end
 
 // One piece of a cron expression's text and where it starts.
 struct Piece
-    text: String
+    text:   String
     offset: Int
 end
 
@@ -699,11 +699,11 @@ end
 
 // What one field of a cron expression may hold.
 struct Field
-    name: String
-    low: Int
-    high: Int
-    star_high: Int
-    names: List<String>
+    name:       String
+    low:        Int
+    high:       Int
+    star_high:  Int
+    names:      List<String>
     first_name: Int
 end
 
@@ -732,11 +732,11 @@ end
 
 fn weekday_field() -> Field
     Field{
-        name: "day of week",
-        low: 0,
-        high: 7,
-        star_high: 6,
-        names: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
+        name:       "day of week",
+        low:        0,
+        high:       7,
+        star_high:  6,
+        names:      ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
         first_name: 0,
     }
 end
@@ -766,7 +766,7 @@ fn item_values(item: Piece, f: Field) -> Result<Set<Int>, CronError>
                 _ ->
                     return Err(
                         CronError{
-                            offset: at,
+                            offset:  at,
                             message: "a step is a whole number from 1, not ${step_text}",
                         }
                     )
@@ -832,7 +832,7 @@ fn value(text: String, offset: Int, f: Field) -> Result<Int, CronError>
 
             case Iter.find_index(f.names, fn name -> name == upper)
                 Some(i) -> Ok(f.first_name + i)
-                None -> Err(CronError{offset:, message: "${text} is not a ${f.name}"})
+                None    -> Err(CronError{offset:, message: "${text} is not a ${f.name}"})
             end
     end
 end
@@ -857,10 +857,10 @@ end
 // A wall-clock reading to the minute, as plain numbers, for the cron
 // search.
 struct Wall
-    year: Int
-    month: Int
-    day: Int
-    hour: Int
+    year:   Int
+    month:  Int
+    day:    Int
+    hour:   Int
     minute: Int
 end
 
@@ -943,12 +943,12 @@ end
 
 fn days_in(year: Int, month: Int) -> Int
     case month
-        2 -> if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) then 29 else 28
-        4 -> 30
-        6 -> 30
-        9 -> 30
+        2  -> if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) then 29 else 28
+        4  -> 30
+        6  -> 30
+        9  -> 30
         11 -> 30
-        _ -> 31
+        _  -> 31
     end
 end
 
@@ -969,10 +969,10 @@ fn wall_of(at: Instant, zone: String) -> Wall
     reading = DateTime.from_instant_in(at, zone)!
 
     Wall{
-        year: DateParts.year(reading),
-        month: DateParts.month(reading),
-        day: DateParts.day(reading),
-        hour: TimeParts.hour(reading),
+        year:   DateParts.year(reading),
+        month:  DateParts.month(reading),
+        day:    DateParts.day(reading),
+        hour:   TimeParts.hour(reading),
         minute: TimeParts.minute(reading),
     }
 end
@@ -1024,7 +1024,7 @@ end
 /// process; several processes each get the whole rate.
 pub struct Rate
     count: Int
-    per: Duration
+    per:   Duration
     burst: Int = 1
 end
 
@@ -1035,18 +1035,18 @@ derive Debug for Rate
 /// once. Build one with `Worker.new` while boot builds the app value, and
 /// start it in `main` with `Worker.start`.
 pub opaque struct Worker
-    queue: Queue
-    id: String
+    queue:  Queue
+    id:     String
     queues: List<String>
-    rate: Maybe<Rate>
-    poll: Duration
-    lease: Duration
-    grace: Duration
+    rate:   Maybe<Rate>
+    poll:   Duration
+    lease:  Duration
+    grace:  Duration
     logger: Logger
-    loops: Supervisor
-    runs: Supervisor
-    wake: Channel<Unit>
-    slots: Channel<Unit>
+    loops:  Supervisor
+    runs:   Supervisor
+    wake:   Channel<Unit>
+    slots:  Channel<Unit>
 end
 
 // What the claim loop does next.
@@ -1073,14 +1073,14 @@ impl Worker
     /// - `logger` gets a line for each job claimed, completed, retried,
     ///   snoozed or discarded, and for each queue call that failed.
     pub fn new(
-        queue: Queue,
-        max_running: Int,
-        queues: List<String> = ["default"],
-        rate: Maybe<Rate> = None,
-        poll: Duration = Duration.seconds(5),
-        lease: Duration = Duration.seconds(30),
+        queue:            Queue,
+        max_running:      Int,
+        queues:           List<String> = ["default"],
+        rate:             Maybe<Rate> = None,
+        poll:             Duration = Duration.seconds(5),
+        lease:            Duration = Duration.seconds(30),
         shutdown_timeout: Duration = Duration.seconds(10),
-        logger: Logger = Logger.discard(),
+        logger:           Logger = Logger.discard(),
     ) -> Worker
         slots: Channel<Unit> = Channel.buffered(max_running)
 
@@ -1090,7 +1090,7 @@ impl Worker
 
         id = case Uuid.v4()
             Ok(uuid) -> "${uuid}"
-            Err(_) -> "worker-${Instant.as_nanos(Instant.now())}"
+            Err(_)   -> "worker-${Instant.as_nanos(Instant.now())}"
         end
 
         Worker{
@@ -1103,9 +1103,9 @@ impl Worker
             grace: shutdown_timeout,
             logger:,
             loops: Supervisor.new(
-                max_running: 4,
+                max_running:      4,
                 shutdown_timeout: shutdown_timeout + Duration.seconds(2),
-                restart: .Transient,
+                restart:          .Transient,
             ),
             runs: Supervisor.new(max_running:, shutdown_timeout:),
             wake: Channel.buffered(1),
@@ -1169,12 +1169,12 @@ pub interface Queue
     /// returns them highest priority first, then oldest. Two claims never
     /// return the same job.
     fn claim(
-        queue: self,
+        queue:  self,
         worker: String,
         queues: List<String>,
-        kinds: List<String>,
-        limit: Int,
-        lease: Duration,
+        kinds:  List<String>,
+        limit:  Int,
+        lease:  Duration,
     ) -> Result<List<Claimed>, sql.Error>
     /// Extends `job`'s lease. `False` when `worker` no longer holds it.
     fn renew(queue: self, worker: String, job: Claimed, lease: Duration) -> Result<Bool, sql.Error>
@@ -1201,23 +1201,23 @@ pub interface Queue
     /// own connection and in the same transaction. Returns the insert, or
     /// `None` without a job.
     fn record_tick(
-        queue: self,
+        queue:    self,
         schedule: String,
-        tick: Instant,
-        job: Maybe<NewJob>,
+        tick:     Instant,
+        job:      Maybe<NewJob>,
     ) -> Result<Maybe<Enqueued>, sql.Error>
 end
 
 /// A job as `enqueue` hands it to a queue to store. `unique_key` is the
 /// whole key, as `Unique.key_for` writes it.
 pub struct NewJob
-    queue: String
-    kind: String
-    args: Json
-    run_at: Maybe<Instant>
-    max_attempts: Int
-    priority: Int = 0
-    unique_key: Maybe<String> = None
+    queue:         String
+    kind:          String
+    args:          Json
+    run_at:        Maybe<Instant>
+    max_attempts:  Int
+    priority:      Int = 0
+    unique_key:    Maybe<String> = None
     unique_across: UniqueStates = UniqueStates.Live
 end
 
@@ -1226,11 +1226,11 @@ derive Debug for NewJob
 
 /// A job a worker claimed: `attempt` counts this run, from 1.
 pub struct Claimed
-    id: JobId
-    queue: String
-    kind: String
-    args: Json
-    attempt: Int
+    id:           JobId
+    queue:        String
+    kind:         String
+    args:         Json
+    attempt:      Int
     max_attempts: Int
 end
 
@@ -1343,11 +1343,11 @@ end
 /// `now`'s nanoseconds, so jobs that failed together do not all come back
 /// at once. A retry of the last attempt is a discard.
 //! claimed = Claimed{
-//!     id: JobId(1),
-//!     queue: "default",
-//!     kind: "k",
-//!     args: Json.Null,
-//!     attempt: 2,
+//!     id:           JobId(1),
+//!     queue:        "default",
+//!     kind:         "k",
+//!     args:         Json.Null,
+//!     attempt:      2,
 //!     max_attempts: 3,
 //! }
 //!
@@ -1359,7 +1359,7 @@ end
 //! snooze = Failure.Snooze{message: "busy", after: Duration.seconds(60)}
 //!
 //! assert settle_for(claimed, Err(snooze), now) == Settle.Snoozed{
-//!     at: now + Duration.seconds(60),
+//!     at:    now + Duration.seconds(60),
 //!     error: "busy",
 //! }
 //
@@ -1430,9 +1430,9 @@ end
 //! assert Iter.map(Inline.jobs(queue), &(&1.run_at)) |> Iter.to_list() == [nine + Duration.hours(3)]
 //
 pub fn enqueue_due(
-    queue: Queue,
+    queue:    Queue,
     schedule: Schedule,
-    now: Instant,
+    now:      Instant,
 ) -> Result<Maybe<Enqueued>, sql.Error>
     case Queue.last_tick(queue, schedule.name)?
         None ->
@@ -1497,9 +1497,9 @@ end
 // one or reaches back to `after`, then walk forward to the latest.
 fn latest_within(
     schedule: Schedule,
-    after: Instant,
-    now: Instant,
-    window: Duration,
+    after:    Instant,
+    now:      Instant,
+    window:   Duration,
 ) -> Maybe<Instant>
     from = now - window
 
@@ -1664,8 +1664,8 @@ fn hold_for_rate(worker: Worker, tat: Instant) -> Bool
 
             case keep_waiting
                 .Claim -> True
-                .Wait -> hold_for_rate(worker, tat)
-                .Stop -> False
+                .Wait  -> hold_for_rate(worker, tat)
+                .Stop  -> False
             end
     end
 end
@@ -1725,7 +1725,7 @@ fn run_claimed(worker: Worker, handlers: Map<String, Handler>, claimed: Claimed)
             Err(
                 Failure.Snooze{
                     message: "no handler for ${claimed.kind}",
-                    after: Duration.minutes(1),
+                    after:   Duration.minutes(1),
                 }
             )
     end
@@ -1753,9 +1753,9 @@ end
 // Run `body` while a second task renews the job's lease every third of
 // it, until the body returns.
 fn renewing(
-    worker: Worker,
+    worker:  Worker,
     claimed: Claimed,
-    body: () -> Result<Unit, Failure>,
+    body:    () -> Result<Unit, Failure>,
 ) -> Result<Unit, Failure>
     concurrent
         stop: Channel<Unit> = Channel.buffered(1)
@@ -1835,7 +1835,7 @@ end
 fn rfc3339(at: Instant) -> String
     case ToJson.to_json(at)
         .String(text) -> text
-        _ -> "${Instant.as_nanos(at)}"
+        _             -> "${Instant.as_nanos(at)}"
     end
 end
 

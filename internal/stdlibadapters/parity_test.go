@@ -451,6 +451,10 @@ type parity struct {
 	failures    int // a recorded failure reproduced
 	errResults  int // a recorded Result.Err reproduced
 	fastRecords int // record operands laid onto the adapters' own descriptors
+	// parts is the adapters' parts forms, each held to its adapter's
+	// answer (sameParts); partsChecked counts the argument sets.
+	parts        map[string]hostadapt.PartsFunc
+	partsChecked int
 }
 
 func newParity(t *testing.T) *parity {
@@ -466,6 +470,7 @@ func newParity(t *testing.T) *parity {
 	if p.table, err = Bind(p.env); err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
+	p.parts = partsTable(t)
 	for _, spec := range Specs() {
 		if spec.Kind == rt.KindStruct || spec.Kind == rt.KindDistinct {
 			d, err := p.env.Desc(spec)
@@ -553,6 +558,11 @@ func (p *parity) check(name string, set argSet) {
 		got := classify(func() (rt.Value, error) { return fn(nil, args) })
 		p.calls++
 		p.compare(key, got, set.shapeOnly, layout)
+		if layout == "by offset" && sameParts(p.t, key, p.parts[name], got, func(fn hostadapt.PartsFunc) (rt.Value, bool, error) {
+			return fn(nil, args)
+		}, set.shapeOnly) {
+			p.partsChecked++
+		}
 	}
 	p.covered[name]++
 }
@@ -639,6 +649,9 @@ func TestParity_EveryBindingReproducesItsRecordedOutcomes(t *testing.T) {
 	t.Logf("%d of %d bindings covered, %d argument sets, %d adapter calls; %d recorded failures, "+
 		"%d recorded Result.Err answers, %d record operands read by offset",
 		len(p.covered), len(stdlibbindings.Funcs()), sets, p.calls, p.failures/2, p.errResults/2, p.fastRecords)
+	if p.partsChecked == 0 {
+		t.Errorf("no argument set reached a parts form; the comparison has stopped reaching them")
+	}
 	if p.failures == 0 || p.errResults == 0 || p.fastRecords == 0 {
 		t.Errorf("a population is empty (failures %d, Err answers %d, by-offset records %d); "+
 			"the comparison has stopped reaching it", p.failures, p.errResults, p.fastRecords)

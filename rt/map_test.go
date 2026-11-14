@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -582,7 +581,7 @@ func TestMeasureMapCosts(t *testing.T) {
 		t.Skip("builds maps up to 2^20 entries; -short")
 	}
 	if !mapCounting {
-		runMapCountingBuild(t)
+		runCountingBuild(t, "rtmapcount", "TestMeasureMapCosts")
 		return
 	}
 
@@ -669,25 +668,6 @@ func log32ceil(n int) int {
 		d++
 	}
 	return d
-}
-
-// runMapCountingBuild runs TestMeasureMapCosts in a child `go test` built with
-// the rtmapcount tag, where MapLookup's counters are live. It requires the
-// child to report a PASS for this test by name, because `go test -run` that
-// matches nothing also exits 0.
-func runMapCountingBuild(t *testing.T) {
-	goBin, err := exec.LookPath("go")
-	if err != nil {
-		t.Fatalf("the counting build needs the go command: %v", err)
-	}
-	out, err := exec.Command(goBin, "test", "-tags=rtmapcount", "-run=^TestMeasureMapCosts$", "-count=1", "-v", ".").CombinedOutput()
-	t.Logf("go test -tags=rtmapcount -run=^TestMeasureMapCosts$ .\n%s", out)
-	if err != nil {
-		t.Fatalf("counting build failed: %v", err)
-	}
-	if !strings.Contains(string(out), "--- PASS: TestMeasureMapCosts") {
-		t.Fatal("counting build did not report TestMeasureMapCosts as passed")
-	}
 }
 
 func BenchmarkMapPut(b *testing.B) {

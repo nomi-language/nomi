@@ -40,9 +40,15 @@ func (bl *irScalarBuilder) tupleCompareCall(t *ast.Call) (v ir.Temp, k kind, mob
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	args := bl.irQualLowerArgs(t)
-	if !args.ok || args.kinds[0] != args.kinds[1] || !irRetainedTupleKind(args.kinds[0]) {
+	if !args.ok {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
+	// Both operands have the parameter's one tuple type, and a tuple's
+	// lowered kind is that type's (tupleMake types each part from it).
+	if args.kinds[0] != args.kinds[1] {
+		panic("irbuild: Comparable.compare over tuples of two kinds: " + args.kinds[0].nomi() + " and " + args.kinds[1].nomi())
+	}
+	irLoweredTupleRetained(args.kinds[0], "Comparable.compare")
 	if bl.qualRecord == t {
 		// In an assertion subject the two tuples are the call's rows.
 		bl.qualRecordArgs = args

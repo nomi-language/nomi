@@ -99,6 +99,9 @@ type irBoxTypeToken struct{ key string }
 // operand of `==` against an interface value), where the program's one
 // impl of the interface instance for have is the impl.
 func (g *gen) irBoxPlanFor(want, have kind, impl *ast.ImplBlock) *irBoxPlan {
+	if irConjKind(want) {
+		return g.conjBoxPlan(want, have, nil)
+	}
 	if !irExistentialKind(want) {
 		return nil
 	}
@@ -519,15 +522,21 @@ func (bl *irScalarBuilder) coerceRecorded(at ast.Node, v ir.Temp, have, want kin
 		return v, have, irNotCoerced
 	}
 	// kindInvalid: sentinel — the position's kind is not known yet, and the record's interface is it.
-	if recorded := bl.g.project(rec.Iface); want == kindInvalid {
+	if recorded := bl.g.project(rec.Into()); want == kindInvalid {
 		want = recorded
 	} else if recorded != want {
 		return v, have, irNotCoerced
 	}
-	if want == have || !irExistentialKind(want) {
+	if want == have || !irExistentialKind(want) && !irConjKind(want) {
 		return v, have, irNotCoerced
 	}
-	out, how := bl.intoExistential(at, v, want, have, rec.Impl)
+	var out ir.Temp
+	var how irCoercion
+	if irConjKind(want) {
+		out, how = bl.intoConjunction(at, v, want, have, rec)
+	} else {
+		out, how = bl.intoExistential(at, v, want, have, rec.Impl)
+	}
 	if how == irNotCoerced {
 		return v, have, irNotCoerced
 	}
@@ -554,12 +563,12 @@ func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have ki
 // a `List<Int>` entering Display inside a `Maybe<List<Int>>` converted to a
 // `Maybe<Display>`). Nil when it recorded none there.
 func (g *gen) recordedImpl(at ast.Node, want, have kind) *ast.ImplBlock {
-	if rec := g.coercionAt(at); rec != nil && g.project(rec.Iface) == want {
+	if rec := g.coercionAt(at); rec != nil && g.project(rec.Into()) == want {
 		return rec.Impl
 	}
 	if rec := g.conversionAt(at); rec != nil {
 		for _, b := range rec.Boxes {
-			if b.Impl != nil && g.project(b.Iface) == want && g.project(b.Value) == have {
+			if b.Impl != nil && g.project(b.Into()) == want && g.project(b.Value) == have {
 				return b.Impl
 			}
 		}
@@ -661,12 +670,12 @@ func (g *gen) checkedErasures() []checkedErasure {
 	}
 	entries := make([]entry, 0, len(fa.Coercions))
 	for n, rec := range fa.Coercions {
-		if analysis.ContainsTypeParam(rec.Value) || analysis.ContainsTypeParam(rec.Iface) {
+		if analysis.ContainsTypeParam(rec.Value) || analysis.ContainsTypeParam(rec.Into()) {
 			continue
 		}
 		line, col := nodePos(n)
 		entries = append(entries, entry{rec: rec, line: line, col: col,
-			node: n.NodeType(), haveT: rec.Value.String(), wantT: rec.Iface.String()})
+			node: n.NodeType(), haveT: rec.Value.String(), wantT: rec.Into().String()})
 	}
 	slices.SortFunc(entries, func(a, b entry) int {
 		return cmp.Or(cmp.Compare(a.line, b.line), cmp.Compare(a.col, b.col),
@@ -675,24 +684,26 @@ func (g *gen) checkedErasures() []checkedErasure {
 	at := map[*ifaceDef]int{}
 	seen := map[*ifaceDef]map[kind]bool{}
 	for _, e := range entries {
-		wk := g.project(e.rec.Iface)
-		if !irExistentialKind(wk) || wk.iface == nil {
-			continue
-		}
 		hk := g.project(e.rec.Value)
-		if hk.tag == tagInvalid || irExistentialKind(hk) {
+		if hk.tag == tagInvalid || irHeldKind(hk) {
 			continue
 		}
-		i, ok := at[wk.iface]
-		if !ok {
-			i = len(g.erasures)
-			at[wk.iface] = i
-			g.erasures = append(g.erasures, checkedErasure{iface: wk.iface})
-			seen[wk.iface] = map[kind]bool{}
-		}
-		if !seen[wk.iface][hk] {
-			seen[wk.iface][hk] = true
-			g.erasures[i].kinds = append(g.erasures[i].kinds, hk)
+		// A value entering a conjunction enters each of its members.
+		for _, wk := range conjMembers(g.project(e.rec.Into())) {
+			if wk.iface == nil {
+				continue
+			}
+			i, ok := at[wk.iface]
+			if !ok {
+				i = len(g.erasures)
+				at[wk.iface] = i
+				g.erasures = append(g.erasures, checkedErasure{iface: wk.iface})
+				seen[wk.iface] = map[kind]bool{}
+			}
+			if !seen[wk.iface][hk] {
+				seen[wk.iface][hk] = true
+				g.erasures[i].kinds = append(g.erasures[i].kinds, hk)
+			}
 		}
 	}
 	return g.erasures

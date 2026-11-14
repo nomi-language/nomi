@@ -5,8 +5,8 @@
 /// children of one parent. `None` when no steps join them.
 pub fn degree_of_separation(
     family: Map<String, List<String>>,
-    from: String,
-    to: String,
+    from:   String,
+    to:     String,
 ) -> Maybe<Int>
     search([from], [from], 0, relatives(family), to)
 end
@@ -14,11 +14,11 @@ end
 /// A breadth-first search: `frontier` is every person `distance` steps
 /// reach that no fewer steps do, and `seen` every person reached so far.
 fn search(
-    frontier: Set<String>,
-    seen: Set<String>,
-    distance: Int,
+    frontier:  Set<String>,
+    seen:      Set<String>,
+    distance:  Int,
     relatives: Map<String, Set<String>>,
-    to: String,
+    to:        String,
 ) -> Maybe<Int>
     if to in frontier then return Some(distance)
 

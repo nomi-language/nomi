@@ -52,26 +52,26 @@ end
 test "malformed input names its line and column in code points"
     assert csv.decode("ok,fine\nnaïve,\"open") == Err(Error.Syntax{
             message: "a quoted field is not closed, or has a quote in it that is not doubled",
-            line: 2,
-            column: 12,
+            line:    2,
+            column:  12,
         })
 
     assert csv.decode("a,b\nc\"d,e") == Err(Error.Syntax{
             message: "a quote in a field that is not quoted; double it inside a quoted field, or allow lazy quotes",
-            line: 2,
-            column: 2,
+            line:    2,
+            column:  2,
         })
 
     assert csv.decode("a,b\nc,d,e") == Err(Error.Syntax{
             message: "the record has 3 fields, not 2",
-            line: 2,
-            column: 1,
+            line:    2,
+            column:  1,
         })
 
     assert csv.decode("a,b\nc", Options{fields: FieldCount.Exactly(1)}) == Err(Error.Syntax{
             message: "the record has 2 fields, not 1",
-            line: 1,
-            column: 1,
+            line:    1,
+            column:  1,
         })
 end
 
@@ -91,8 +91,8 @@ test "a stream is read a record at a time and stops at its first failure"
         Ok(["e\nf"]),
         Err(Error.Syntax{
             message: "a quoted field is not closed, or has a quote in it that is not doubled",
-            line: 5,
-            column: 5,
+            line:    5,
+            column:  5,
         }),
     ]
 end

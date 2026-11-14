@@ -182,7 +182,7 @@ func (n Inspected) NumChildren() int {
 		}
 		return x.Len
 	case Vector[any]:
-		return x.Len
+		return x.Len()
 	case Map[any, any]:
 		return x.n
 	case Seq[any]:
@@ -240,7 +240,7 @@ func (n Inspected) Children(start, count int) []InspectChild {
 		}
 	case Vector[any]:
 		for i := start; i < end; i++ {
-			out = append(out, InspectChild{index(i), Inspect(x.Items[x.Start+i])})
+			out = append(out, InspectChild{index(i), Inspect(x.At(i))})
 		}
 	case Map[any, any]:
 		entries := MapEntries(x)

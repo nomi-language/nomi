@@ -24,11 +24,11 @@ pub fn meetup(year: Int, month: Int, week: Week, weekday: Weekday) -> Date
     last = Iter.last(days)!
 
     case week
-        .First -> first
+        .First  -> first
         .Second -> second
-        .Third -> third
+        .Third  -> third
         .Fourth -> fourth
-        .Last -> last
+        .Last   -> last
         .Teenth -> teenth(days)
     end
 end

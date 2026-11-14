@@ -1,0 +1,87 @@
+//# Are We Fast Yet: Bounce.
+//#
+//# A hundred balls from the suite's random generator bounce around a
+//# 500-by-500 box for 50 steps; the result is the number of bounces.
+//#
+//# Departures from the guidelines: a `Ball` is a value, so `bounce` returns
+//# the moved ball with whether it bounced, and each step builds a new list
+//# of balls. The generator is threaded through ball creation.
+
+import harness.{self, Random}
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+struct Ball
+    x:     Int
+    y:     Int
+    x_vel: Int
+    y_vel: Int
+end
+
+impl Ball
+    fn new(random: Random) -> (Ball, Random)
+        (x, random) = Random.next(random)
+        (y, random) = Random.next(random)
+        (x_vel, random) = Random.next(random)
+        (y_vel, random) = Random.next(random)
+        (Ball{x: x % 500, y: y % 500, x_vel: x_vel % 300 - 150, y_vel: y_vel % 300 - 150}, random)
+    end
+
+    fn bounce(ball: Ball) -> (Ball, Bool)
+        x_limit = 500
+        y_limit = 500
+        ball = {..ball, x: .. + ball.x_vel, y: .. + ball.y_vel}
+
+        (ball, bounced) = if ball.x > x_limit then
+            ({..ball, x: x_limit, x_vel: 0 - Int.abs(ball.x_vel)}, True)
+        else
+            (ball, False)
+        end
+
+        (ball, bounced) = if ball.x < 0 then
+            ({..ball, x: 0, x_vel: Int.abs(ball.x_vel)}, True)
+        else
+            (ball, bounced)
+        end
+
+        (ball, bounced) = if ball.y > y_limit then
+            ({..ball, y: y_limit, y_vel: 0 - Int.abs(ball.y_vel)}, True)
+        else
+            (ball, bounced)
+        end
+
+        if ball.y < 0 then
+            ({..ball, y: 0, y_vel: Int.abs(ball.y_vel)}, True)
+        else
+            (ball, bounced)
+        end
+    end
+end
+
+fn benchmark() -> Int
+    (_, balls) = Iter.map_reduce(1..=100, Random{}, fn random, _ ->
+        (ball, random) = Ball.new(random)
+        (random, ball)
+    end)
+
+    (_, bounces) = Iter.reduce(1..=50, (balls, 0), fn (balls, bounces), _ ->
+        (bounces, balls) = Iter.map_reduce(balls, bounces, fn bounces, ball ->
+            (ball, bounced) = Ball.bounce(ball)
+            (if bounced then bounces + 1 else bounces, ball)
+        end)
+
+        (balls, bounces)
+    end)
+
+    bounces
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Bounce", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1 == 1331)))
+end

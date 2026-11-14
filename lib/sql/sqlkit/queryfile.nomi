@@ -21,9 +21,9 @@ import sqltext.{self, Kind}
 /// A parameter of a query: its name, its Nomi type as written, and the
 /// column of its name in the annotation.
 pub struct Param
-    name: String
+    name:      String
     type_text: String
-    col: Int
+    col:       Int
 end
 
 derive Equatable for Param
@@ -36,11 +36,11 @@ pub struct Query
     /// The line of its `-- query:` annotation.
     line: Int
 
-    name: String
+    name:   String
     params: List<Param>
 
     /// The result type as written after `->`, and its column.
-    result: Maybe<String>
+    result:     Maybe<String>
     result_col: Int
 
     /// The doc lines after the annotation, without their `--`.
@@ -48,7 +48,7 @@ pub struct Query
 
     /// The SQL as written, from the line after the doc lines to before the
     /// `;`; `sql_line` is the line it starts on.
-    sql: String
+    sql:      String
     sql_line: Int
 end
 
@@ -56,18 +56,18 @@ derive Equatable for Query
 
 /// A file of queries: its path, its `-- import:` entries and its queries.
 pub struct File
-    path: String
+    path:    String
     imports: List<String>
     queries: List<Query>
 end
 
 /// What is wrong at a line and column of a file (0 for none).
 pub struct Problem
-    file: String
-    line: Int
-    col: Int
+    file:    String
+    line:    Int
+    col:     Int
     message: String
-    hints: List<String>
+    hints:   List<String>
 end
 
 derive Equatable for Problem
@@ -102,11 +102,11 @@ end
 // query being read (its annotation, then doc lines while `in_doc`, then its
 // SQL lines) and the problems.
 struct State
-    imports: List<String>
-    done: List<Query>
-    current: Maybe<Query>
-    in_doc: Bool
-    lines: List<String>
+    imports:  List<String>
+    done:     List<Query>
+    current:  Maybe<Query>
+    in_doc:   Bool
+    lines:    List<String>
     problems: List<Problem>
 
     // After an annotation that does not read, its lines up to the next
@@ -132,11 +132,11 @@ pub fn parse(path: String, text: String) -> Result<File, List<Problem>>
     lines = String.split(text, "\n") |> Iter.map(fn l -> sqltext.cut_suffix(l, "\r"))
 
     start = State{
-        imports: [],
-        done: [],
-        current: None,
-        in_doc: False,
-        lines: [],
+        imports:  [],
+        done:     [],
+        current:  None,
+        in_doc:   False,
+        lines:    [],
         problems: [],
         skipping: False,
     }
@@ -167,9 +167,9 @@ fn step(path: String, s: State, number: Int, line: String) -> State
                 Err(p) ->
                     {
                         ..done,
-                        current: None,
-                        in_doc: False,
-                        lines: [],
+                        current:  None,
+                        in_doc:   False,
+                        lines:    [],
                         problems: [p, ..],
                         skipping: True,
                     }
@@ -190,8 +190,8 @@ fn step(path: String, s: State, number: Int, line: String) -> State
                     {
                         ..s,
                         current: Some({..q, doc: Iter.reverse(s.lines), sql_line: number}),
-                        in_doc: False,
-                        lines: [line],
+                        in_doc:  False,
+                        lines:   [line],
                     }
 
                 Some(_) ->
@@ -262,7 +262,7 @@ fn finish(path: String, s: State) -> State
 
             case statement(path, q, text)
                 Ok(sql) -> {..base, done: [{..q, sql:}, ..s.done]}
-                Err(p) -> {..base, problems: [p, ..s.problems]}
+                Err(p)  -> {..base, problems: [p, ..s.problems]}
             end
     end
 end
@@ -332,7 +332,7 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
 
     close = case closing(chars, name_end + 1, 0)
         Some(c) -> c
-        None -> return bad(name_end, "the parameters of `${name}` have no closing `)`")
+        None    -> return bad(name_end, "the parameters of `${name}` have no closing `)`")
     end
 
     params = case parameters(path, number, chars, name_end + 1, close)
@@ -364,8 +364,8 @@ fn annotation(path: String, number: Int, line: String, rest: String) -> Result<Q
             params:,
             result:,
             result_col:,
-            doc: [],
-            sql: "",
+            doc:      [],
+            sql:      "",
             sql_line: number + 1,
         }
     )
@@ -374,11 +374,11 @@ end
 // The parameters between the parentheses at `open` (just after the `(`)
 // and `close`.
 fn parameters(
-    path: String,
+    path:   String,
     number: Int,
-    chars: Vector<String>,
-    open: Int,
-    close: Int,
+    chars:  Vector<String>,
+    open:   Int,
+    close:  Int,
 ) -> Result<List<Param>, Problem>
     pieces = split(chars, open, close)
 
@@ -490,7 +490,7 @@ end
 fn skip_while(chars: Vector<String>, i: Int, keep: (String) -> Bool) -> Int
     case Vector.get(chars, i)
         Some(c) when keep(c) -> skip_while(chars, i + 1, keep)
-        _ -> i
+        _                    -> i
     end
 end
 

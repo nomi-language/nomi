@@ -25,7 +25,7 @@ fn report(paths: List<String>) -> Result<Unit, String>
 
         [path, ..rest] ->
             text = case fs.read_text(path)
-                Ok(t) -> t
+                Ok(t)  -> t
                 Err(e) -> return Err("${path}: ${e}")
             end
 

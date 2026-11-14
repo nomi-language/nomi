@@ -155,7 +155,7 @@ impl Literal for Sql
             (parts, params) = acc
 
             case fragment
-                .Static(s) -> (parts + [s], params)
+                .Static(s)      -> (parts + [s], params)
                 .Dynamic(value) -> (parts, params + [ToSql.to_sql(value)])
             end
         end)
@@ -254,7 +254,7 @@ impl Statement
 
         case slots
             [] -> Sql"(NULL)"
-            _ -> Statement.list(slots)
+            _  -> Statement.list(slots)
         end
     end
 
@@ -323,9 +323,9 @@ fn combined(conditions: Iter<Statement>, separator: Statement) -> Statement
     kept = conditions |> Iter.filter(fn c -> c != Sql"") |> Iter.to_list()
 
     case kept
-        [] -> Sql""
+        []     -> Sql""
         [only] -> only
-        _ -> kept |> Iter.map(fn c -> Sql"(" + c + Sql")") |> Statement.join(separator)
+        _      -> kept |> Iter.map(fn c -> Sql"(" + c + Sql")") |> Statement.join(separator)
     end
 end
 
@@ -372,20 +372,20 @@ impl Value
     //
     pub fn kind(value: Value) -> String
         case value
-            .Null -> "Null"
-            .Int(_) -> "Int"
-            .Float(_) -> "Float"
-            .Decimal(_) -> "Decimal"
-            .Text(_) -> "Text"
-            .Bool(_) -> "Bool"
-            .Bytes(_) -> "Bytes"
-            .Date(_) -> "Date"
-            .Time(_) -> "Time"
-            .Timestamp(_) -> "Timestamp"
+            .Null           -> "Null"
+            .Int(_)         -> "Int"
+            .Float(_)       -> "Float"
+            .Decimal(_)     -> "Decimal"
+            .Text(_)        -> "Text"
+            .Bool(_)        -> "Bool"
+            .Bytes(_)       -> "Bytes"
+            .Date(_)        -> "Date"
+            .Time(_)        -> "Time"
+            .Timestamp(_)   -> "Timestamp"
             .Timestamptz(_) -> "Timestamptz"
-            .Uuid(_) -> "Uuid"
-            .Json(_) -> "Json"
-            .Array(_) -> "Array"
+            .Uuid(_)        -> "Uuid"
+            .Json(_)        -> "Json"
+            .Array(_)       -> "Array"
         end
     end
 end
@@ -440,7 +440,7 @@ impl FromSql for Int
     fn from_sql(value: Value) -> Result<Int, String>
         case value
             .Int(n) -> Ok(n)
-            _ -> Err("Int")
+            _       -> Err("Int")
         end
     end
 end
@@ -455,7 +455,7 @@ impl FromSql for Float
     fn from_sql(value: Value) -> Result<Float, String>
         case value
             .Float(x) -> Ok(x)
-            _ -> Err("Float")
+            _         -> Err("Float")
         end
     end
 end
@@ -470,7 +470,7 @@ impl FromSql for Decimal
     fn from_sql(value: Value) -> Result<Decimal, String>
         case value
             .Decimal(d) -> Ok(d)
-            _ -> Err("Decimal")
+            _           -> Err("Decimal")
         end
     end
 end
@@ -485,7 +485,7 @@ impl FromSql for String
     fn from_sql(value: Value) -> Result<String, String>
         case value
             .Text(s) -> Ok(s)
-            _ -> Err("String")
+            _        -> Err("String")
         end
     end
 end
@@ -500,7 +500,7 @@ impl FromSql for Bool
     fn from_sql(value: Value) -> Result<Bool, String>
         case value
             .Bool(b) -> Ok(b)
-            _ -> Err("Bool")
+            _        -> Err("Bool")
         end
     end
 end
@@ -515,7 +515,7 @@ impl FromSql for Bytes
     fn from_sql(value: Value) -> Result<Bytes, String>
         case value
             .Bytes(b) -> Ok(b)
-            _ -> Err("Bytes")
+            _         -> Err("Bytes")
         end
     end
 end
@@ -530,7 +530,7 @@ impl FromSql for Date
     fn from_sql(value: Value) -> Result<Date, String>
         case value
             .Date(d) -> Ok(d)
-            _ -> Err("Date")
+            _        -> Err("Date")
         end
     end
 end
@@ -545,7 +545,7 @@ impl FromSql for Time
     fn from_sql(value: Value) -> Result<Time, String>
         case value
             .Time(t) -> Ok(t)
-            _ -> Err("Time")
+            _        -> Err("Time")
         end
     end
 end
@@ -560,7 +560,7 @@ impl FromSql for NaiveDateTime
     fn from_sql(value: Value) -> Result<NaiveDateTime, String>
         case value
             .Timestamp(t) -> Ok(t)
-            _ -> Err("NaiveDateTime")
+            _             -> Err("NaiveDateTime")
         end
     end
 end
@@ -575,7 +575,7 @@ impl FromSql for Instant
     fn from_sql(value: Value) -> Result<Instant, String>
         case value
             .Timestamptz(t) -> Ok(t)
-            _ -> Err("Instant")
+            _               -> Err("Instant")
         end
     end
 end
@@ -590,7 +590,7 @@ impl FromSql for Uuid
     fn from_sql(value: Value) -> Result<Uuid, String>
         case value
             .Uuid(id) -> Ok(id)
-            _ -> Err("Uuid")
+            _         -> Err("Uuid")
         end
     end
 end
@@ -605,7 +605,7 @@ impl FromSql for Json
     fn from_sql(value: Value) -> Result<Json, String>
         case value
             .Json(j) -> Ok(j)
-            _ -> Err("Json")
+            _        -> Err("Json")
         end
     end
 end
@@ -614,7 +614,7 @@ impl ToSql for Maybe<T> where T: ToSql
     fn to_sql(value: Maybe<T>) -> Value
         case value
             Some(v) -> T.to_sql(v)
-            None -> Value.Null
+            None    -> Value.Null
         end
     end
 end
@@ -623,7 +623,7 @@ impl FromSql for Maybe<T> where T: FromSql
     fn from_sql(value: Value) -> Result<Maybe<T>, String>
         case value
             .Null -> Ok(None)
-            _ -> T.from_sql(value) |> Result.map(Some)
+            _     -> T.from_sql(value) |> Result.map(Some)
         end
     end
 end
@@ -670,9 +670,9 @@ end
 //! assert Row.get_position<Maybe<String>>(row, 1) == Ok(None)
 //
 pub opaque struct Row
-    query: String
+    query:   String
     columns: List<String>
-    values: List<Value>
+    values:  List<Value>
 end
 
 derive Equatable for Row
@@ -684,7 +684,7 @@ impl Row
         Row{
             query:,
             columns: cells |> Iter.map(fn (name, _) -> name) |> Iter.to_list(),
-            values: cells |> Iter.map(fn (_, value) -> value) |> Iter.to_list(),
+            values:  cells |> Iter.map(fn (_, value) -> value) |> Iter.to_list(),
         }
     end
 
@@ -714,7 +714,7 @@ impl Row
 
         case found
             Some((_, value)) -> Ok(value)
-            None -> Err(Error.MissingColumn{query: row.query, column:})
+            None             -> Err(Error.MissingColumn{query: row.query, column:})
         end
     end
 
@@ -770,7 +770,7 @@ impl Row
 
         column = case Iter.get(row.columns, position)
             Some(name) -> name
-            None -> ""
+            None       -> ""
         end
 
         T.from_sql(value) |> Result.map_err(&decode_error(row, column, value, &1))
@@ -782,7 +782,7 @@ end
 fn decode_error(row: Row, column: String, value: Value, expected: String) -> Error
     case value
         .Null -> Error.UnexpectedNull{query: row.query, column:}
-        _ -> Error.Decode{query: row.query, column:, expected:, found: Value.kind(value)}
+        _     -> Error.Decode{query: row.query, column:, expected:, found: Value.kind(value)}
     end
 end
 
@@ -806,8 +806,8 @@ impl Display for Dialect
     //
     fn to_string(dialect: Dialect) -> String
         case dialect
-            .Sqlite -> "SQLite"
-            .Postgres -> "Postgres"
+            .Sqlite      -> "SQLite"
+            .Postgres    -> "Postgres"
             .Other(name) -> name
         end
     end
@@ -884,9 +884,9 @@ impl Display for Error
     //! assert "${e}" == "unique constraint `users_email_key` on table `users` failed"
     //!
     //! both = Error.Constraint{
-    //!     kind: .Unique,
-    //!     name: "users_email_key",
-    //!     table: Some("users"),
+    //!     kind:   .Unique,
+    //!     name:   "users_email_key",
+    //!     table:  Some("users"),
     //!     column: Some("email"),
     //! }
     //!
@@ -936,9 +936,9 @@ end
 fn place(table: Maybe<String>, column: Maybe<String>) -> String
     case (table, column)
         (Some(t), Some(c)) -> " on `${t}.${c}`"
-        (Some(t), None) -> " on table `${t}`"
-        (None, Some(c)) -> " on column `${c}`"
-        (None, None) -> ""
+        (Some(t), None)    -> " on table `${t}`"
+        (None, Some(c))    -> " on column `${c}`"
+        (None, None)       -> ""
     end
 end
 
@@ -956,11 +956,11 @@ derive Equatable for ConstraintKind
 impl Display for ConstraintKind
     fn to_string(kind: ConstraintKind) -> String
         case kind
-            .Unique -> "unique"
+            .Unique     -> "unique"
             .ForeignKey -> "foreign key"
-            .NotNull -> "not-null"
-            .Check -> "check"
-            .Exclusion -> "exclusion"
+            .NotNull    -> "not-null"
+            .Check      -> "check"
+            .Exclusion  -> "exclusion"
         end
     end
 end

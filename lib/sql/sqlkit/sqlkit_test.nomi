@@ -33,7 +33,7 @@ test "a query file reads each query's annotation, doc lines and SQL"
     text = "-- The shop's queries.\n-- import: shop.Report\n\n-- query: user_by_email(email: String) -> Maybe<User>\n-- The user with this email,\n--\n-- if any.\nSELECT id\nFROM users\nWHERE email = @email;\n\n-- query: all_users()\nSELECT id FROM users;\n"
 
     file = case parsed(text)
-        Ok(f) -> f
+        Ok(f)   -> f
         Err(ps) -> return Err("${messages(ps)}")
     end
 
@@ -41,26 +41,26 @@ test "a query file reads each query's annotation, doc lines and SQL"
 
     assert file.queries == [
         Query{
-            file: "db/queries/q.sql",
-            line: 4,
-            name: "user_by_email",
-            params: [Param{name: "email", type_text: "String", col: 25}],
-            result: Some("Maybe<User>"),
+            file:       "db/queries/q.sql",
+            line:       4,
+            name:       "user_by_email",
+            params:     [Param{name: "email", type_text: "String", col: 25}],
+            result:     Some("Maybe<User>"),
             result_col: 43,
-            doc: ["The user with this email,", "", "if any."],
-            sql: "SELECT id\nFROM users\nWHERE email = @email",
-            sql_line: 8,
+            doc:        ["The user with this email,", "", "if any."],
+            sql:        "SELECT id\nFROM users\nWHERE email = @email",
+            sql_line:   8,
         },
         Query{
-            file: "db/queries/q.sql",
-            line: 12,
-            name: "all_users",
-            params: [],
-            result: None,
+            file:       "db/queries/q.sql",
+            line:       12,
+            name:       "all_users",
+            params:     [],
+            result:     None,
             result_col: 0,
-            doc: [],
-            sql: "SELECT id FROM users",
-            sql_line: 13,
+            doc:        [],
+            sql:        "SELECT id FROM users",
+            sql_line:   13,
         },
     ]
 end
@@ -86,7 +86,7 @@ test "a query file's mistakes are problems at their line and column"
     text = "SELECT 1;\n-- query: Bad()\nSELECT 1;\n-- query: no_parens -> Int\nSELECT 1;\n-- query: twice(a: Int, a: Int)\nSELECT @a;\n-- query: no_end() -> Int\nSELECT 1\n-- query: two() -> Int\nSELECT 1; SELECT 2;\n-- query: empty()\n"
 
     problems = case parsed(text)
-        Ok(_) -> return Err("no problems")
+        Ok(_)   -> return Err("no problems")
         Err(ps) -> ps
     end
 
@@ -105,11 +105,11 @@ end
 
 test "a problem prints as the compiler prints a diagnostic"
     p = Problem{
-        file: "db/queries/q.sql",
-        line: 3,
-        col: 7,
+        file:    "db/queries/q.sql",
+        line:    3,
+        col:     7,
         message: "no such column: x",
-        hints: ["a hint"],
+        hints:   ["a hint"],
     }
 
     assert "${p}" == "db/queries/q.sql:3:7: no such column: x\ndb/queries/q.sql:3:7: help: a hint"
@@ -155,19 +155,19 @@ fn column(name: String, type_name: String, nullable: Bool, values: List<String>)
         has_default: False,
         values:,
         migration: "db/migrations/1.sql",
-        line: 2,
+        line:      2,
     }
 end
 
 fn users_table() -> Table
     Table{
-        name: "users",
+        name:      "users",
         migration: "db/migrations/1.sql",
-        line: 1,
+        line:      1,
         columns: [
-            column("id", "INTEGER", False, []),
-            column("name", "TEXT", True, []),
-            column("status", "TEXT", False, ["active", "gone"]),
+            column("id",     "INTEGER", False, []),
+            column("name",   "TEXT",    True,  []),
+            column("status", "TEXT",    False, ["active", "gone"]),
         ],
     }
 end
@@ -178,7 +178,7 @@ end
 
 fn users_schema() -> Schema
     case schema_with(databases.defaults("main"), [users_table()])
-        Ok(s) -> s
+        Ok(s)  -> s
         Err(_) -> Schema{db: databases.defaults("main"), tables: [], rows: {}, module: "schema"}
     end
 end
@@ -193,7 +193,7 @@ end
 
 // The file q.sql of `text` generates, each query described by `described`.
 fn generate(
-    text: String,
+    text:      String,
     described: List<Result<List<Column>, QueryError>>,
 ) -> Result<String, List<Problem>>
     file = parsed(text)?
@@ -203,13 +203,13 @@ end
 fn source_of(text: String, columns: List<Column>) -> String
     case generate(text, [Ok(columns)])
         Ok(source) -> source
-        Err(ps) -> "${messages(ps)}"
+        Err(ps)    -> "${messages(ps)}"
     end
 end
 
 fn problems_of(text: String, described: List<Result<List<Column>, QueryError>>) -> List<Problem>
     case generate(text, described)
-        Ok(_) -> []
+        Ok(_)   -> []
         Err(ps) -> ps
     end
 end
@@ -277,11 +277,11 @@ end
 
 test "a query with no result type answers anonymous rows, its enums and std types imported"
     status = Column{
-        name: "status",
+        name:      "status",
         type_name: "TEXT",
-        table: "users",
-        column: "status",
-        nullable: False,
+        table:     "users",
+        column:    "status",
+        nullable:  False,
     }
 
     at = Column{name: "at", type_name: "TIMESTAMPTZ", table: "", column: "", nullable: True}
@@ -617,7 +617,7 @@ test "an imported type shadows the row of its name, and `schema.User` is the row
         text,
         [Ok([id_column(), name_column()]), Ok([id_column(), name_column()])],
     )
-        Ok(s) -> s
+        Ok(s)   -> s
         Err(ps) -> "${messages(ps)}"
     end
 
@@ -650,11 +650,11 @@ end
 
 test "an enum an import shadows is written qualified in an anonymous row"
     status = Column{
-        name: "status",
+        name:      "status",
         type_name: "TEXT",
-        table: "users",
-        column: "status",
-        nullable: False,
+        table:     "users",
+        column:    "status",
+        nullable:  False,
     }
 
     generated = generate(
@@ -664,7 +664,7 @@ test "an enum an import shadows is written qualified in an anonymous row"
 
     source = case generated
         Ok(text) -> text
-        Err(ps) -> "${messages(ps)}"
+        Err(ps)  -> "${messages(ps)}"
     end
 
     assert "pub fn q(conn: sql.Conn, s: UserStatus)" in source
@@ -702,21 +702,21 @@ end
 
 test "SQL is written raw where a raw string holds it exactly, and quoted where not"
     [
-        ("plain", "SELECT id FROM users WHERE a = ", "`"),
-        ("an empty part", "", "`"),
-        ("a quoted name", "SELECT \"order\" FROM t", "`"),
-        ("a backslash and a slot", "SELECT '\\d', '\${x}'", "`"),
-        ("lines", "CREATE TABLE t (\n    a INT\n);\n", "`"),
-        ("a blank line and no final line break", "SELECT 1;\n\nSELECT 2;", "`"),
-        ("a first line indented", "    SELECT 1\nFROM t", "`"),
-        ("a last line indented", "SELECT 1\n  ", "\""),
-        ("a tab leading a line", "CREATE TABLE t (\n\ta INT\n);\n", "`"),
-        ("a tab on one line", "SELECT 1\t", "\""),
-        ("a backtick", "SELECT `a`\nFROM t", "\""),
-        ("a carriage return", "SELECT 1;\r\nSELECT 2;", "\""),
-        ("a space at the end of a line", "SELECT 1 \nFROM t", "\""),
-        ("only line breaks", "\n\n", "`"),
-        ("a line of spaces", "a\n  \nb", "\""),
+        ("plain",                                "SELECT id FROM users WHERE a = ",   "`"),
+        ("an empty part",                        "",                                  "`"),
+        ("a quoted name",                        "SELECT \"order\" FROM t",           "`"),
+        ("a backslash and a slot",               "SELECT '\\d', '\${x}'",             "`"),
+        ("lines",                                "CREATE TABLE t (\n    a INT\n);\n", "`"),
+        ("a blank line and no final line break", "SELECT 1;\n\nSELECT 2;",            "`"),
+        ("a first line indented",                "    SELECT 1\nFROM t",              "`"),
+        ("a last line indented",                 "SELECT 1\n  ",                      "\""),
+        ("a tab leading a line",                 "CREATE TABLE t (\n\ta INT\n);\n",   "`"),
+        ("a tab on one line",                    "SELECT 1\t",                        "\""),
+        ("a backtick",                           "SELECT `a`\nFROM t",                "\""),
+        ("a carriage return",                    "SELECT 1;\r\nSELECT 2;",            "\""),
+        ("a space at the end of a line",         "SELECT 1 \nFROM t",                 "\""),
+        ("only line breaks",                     "\n\n",                              "`"),
+        ("a line of spaces",                     "a\n  \nb",                          "\""),
     ]
     |> subtests (description, sql, opens), description
         literal = codegen.sql_literal(sql, "            ")
@@ -787,9 +787,9 @@ fn many_tables() -> List<Table>
     end
 
     [
-        table("categories", [column("id", "INTEGER", False, [])]),
+        table("categories",  [column("id", "INTEGER", False, [])]),
         table("order_items", [column("kind", "TEXT", False, ["gift", "sale"])]),
-        table("people", [column("status", "TEXT", False, ["active", "gone"])]),
+        table("people",      [column("status", "TEXT", False, ["active", "gone"])]),
     ]
 end
 
@@ -832,7 +832,7 @@ end
 test "row names in nomi.toml that are not type names, name no table or clash are problems"
     problems = fn tables: Map<String, String> ->
         case schema_with(named(tables), many_tables())
-            Ok(_) -> []
+            Ok(_)   -> []
             Err(ps) -> messages(ps)
         end
     end
@@ -869,10 +869,10 @@ end
 
 test "the inputs are the `.sql` files of the two directories, in name order"
     files = {
-        "db/migrations/2_b.sql" => "B",
-        "db/migrations/1_a.sql" => "A",
+        "db/migrations/2_b.sql"   => "B",
+        "db/migrations/1_a.sql"   => "A",
         "db/migrations/notes.txt" => "not SQL",
-        "db/queries/users.sql" => "Q",
+        "db/queries/users.sql"    => "Q",
     }
 
     ran = testing.run(Sandbox{files:}, fn ->
@@ -1064,7 +1064,7 @@ test "migrate runs only the migrations a database file has not run, and refuses 
 
     users = Migration{
         path: "db/migrations/1_users.sql",
-        sql: "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)",
+        sql:  "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)",
     }
 
     assert migrate_file(path, [users]) == Ok(Unit)
@@ -1075,7 +1075,7 @@ test "migrate runs only the migrations a database file has not run, and refuses 
 
     orders = Migration{
         path: "db/migrations/2_orders.sql",
-        sql: "CREATE TABLE orders (id INTEGER PRIMARY KEY)",
+        sql:  "CREATE TABLE orders (id INTEGER PRIMARY KEY)",
     }
 
     assert migrate_file(path, [users, orders]) == Ok(Unit)
@@ -1086,7 +1086,7 @@ test "migrate runs only the migrations a database file has not run, and refuses 
 
     assert migrate_file(path, [renamed, orders, later]) == Err(
         sql.Error.Database{
-            code: "migrate",
+            code:    "migrate",
             message: "the migration `db/migrations/1_users.sql` changed after it was applied: its checksum is not the one `nomi_migrations` recorded; leave an applied migration as it is and write the change as a new one",
         }
     )

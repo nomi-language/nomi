@@ -110,9 +110,7 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 	if ft, _ := analysis.ResolveClosed(bl.g.srcFA().ExprTypes[capture]).(*analysis.FuncType); ft != nil && len(ft.Params) > len(open) {
 		for i := len(open); i < len(ft.Params); i++ {
 			k := bl.g.project(ft.Params[i])
-			if !irCallableValueKind(k) && k != kindUnit {
-				return no()
-			}
+			irHeldOperand(k, "a partial application's ignored parameter")
 			extra = append(extra, k)
 		}
 	}

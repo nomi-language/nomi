@@ -15,21 +15,21 @@ end
 
 fn value_or(t: Tree<String>, d: String) -> String
     case t
-        Tree.Leaf -> d
+        Tree.Leaf    -> d
         Tree.Node(v) -> v
     end
 end
 
 fn filled(b: Box<Int>) -> Int
     case b
-        Box.Empty -> 0
+        Box.Empty   -> 0
         Box.Full(n) -> n
     end
 end
 
 fn value_or_box(b: Box<String>) -> String
     case b
-        Box.Empty -> "empty"
+        Box.Empty   -> "empty"
         Box.Full(s) -> s
     end
 end

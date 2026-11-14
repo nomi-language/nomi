@@ -92,8 +92,8 @@ import std::io
 fn count_lines(count: Int) -> Result<Int, io.Error>
     case io.read_line()?
         Some("") -> count_lines(count)
-        Some(_) -> count_lines(count + 1)
-        None -> Ok(count)
+        Some(_)  -> count_lines(count + 1)
+        None     -> Ok(count)
     end
 end
 

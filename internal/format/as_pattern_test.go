@@ -28,7 +28,7 @@ func TestFormat_AsPatternRoundTrips(t *testing.T) {
 func TestFormat_AsPatternNormalizesSpacingAndParens(t *testing.T) {
 	formatsKeepingMeaning(t,
 		"fn f(r: Maybe<Int>) -> Int\n    case r\n        Some(n)   as   s -> n\n        (None) as   s -> 0\n    end\nend\n",
-		"fn f(r: Maybe<Int>) -> Int\n    case r\n        Some(n) as s -> n\n        None as s -> 0\n    end\nend\n")
+		"fn f(r: Maybe<Int>) -> Int\n    case r\n        Some(n) as s -> n\n        None as s    -> 0\n    end\nend\n")
 }
 
 // A pattern too wide for the line breaks inside its own brackets, and the

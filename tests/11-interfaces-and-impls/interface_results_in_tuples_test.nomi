@@ -20,7 +20,7 @@ end
 impl ToAnswer for Result<T, E> where T: ToAnswer, E: ToAnswer
     fn to_answer(value: Result<T, E>) -> Answer
         case value
-            Ok(v) -> ToAnswer.to_answer(v)
+            Ok(v)  -> ToAnswer.to_answer(v)
             Err(e) -> ToAnswer.to_answer(e)
         end
     end
@@ -46,7 +46,7 @@ impl ToAnswer for Code
 end
 
 struct Route
-    name: String
+    name:    String
     handler: (Int) -> ToAnswer
 end
 

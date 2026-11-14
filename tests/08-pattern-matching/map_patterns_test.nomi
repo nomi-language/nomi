@@ -68,27 +68,27 @@ test "map patterns match composite expression keys"
 
     by_bool = case flags
         {True => v} -> v
-        _ -> "?"
+        _           -> "?"
     end
 
     by_color = case colors
         {Color.Green => v} -> v
-        _ -> "?"
+        _                  -> "?"
     end
 
     by_payload = case options
         {Some(2) => v} -> v
-        _ -> "?"
+        _              -> "?"
     end
 
     by_tuple = case points
         {(3, 4) => v} -> v
-        _ -> "?"
+        _             -> "?"
     end
 
     by_list = case lists
         {[1, 2] => v} -> v
-        _ -> "?"
+        _             -> "?"
     end
 
     by_struct = case struct_keyed
@@ -98,17 +98,17 @@ test "map patterns match composite expression keys"
 
     by_id = case ids
         {Id(5) => v} -> v
-        _ -> "?"
+        _            -> "?"
     end
 
     by_computed = case numbers
         {base + 1 => v} -> v
-        _ -> "?"
+        _               -> "?"
     end
 
     fallthrough = case flags
         {Color.Blue => v} -> v
-        _ -> "fallthrough"
+        _                 -> "fallthrough"
     end
 
     assert by_bool == "yes"
@@ -143,21 +143,21 @@ end
 fn lookup_negative_int(m: Map<Int, String>) -> String
     case m
         {-2 => v} -> v
-        _ -> "no match"
+        _         -> "no match"
     end
 end
 
 fn lookup_mixed(m: Map<Int, String>) -> String
     case m
         {-1 => a, 2 => b} -> a + "/" + b
-        _ -> "no match"
+        _                 -> "no match"
     end
 end
 
 fn lookup_nested(x: Maybe<Map<Int, String>>) -> String
     case x
         Some({-2 => v}) -> v
-        _ -> "no match"
+        _               -> "no match"
     end
 end
 

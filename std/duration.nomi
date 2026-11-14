@@ -1,7 +1,7 @@
 //# Exact elapsed time. A `Duration` is a span of physical time in
 //# nanoseconds, the same length wherever a wall clock or a calendar puts
 //# it: build one with a unit function (`Duration.seconds(5)`) or the
-//# literal `Display` writes (``Duration`1h30m` ``). Hours, minutes and
+//# literal `Display` writes (`Duration"1h30m"`). Hours, minutes and
 //# seconds are units here; months and years are not, since they are no
 //# exact length. `Instant + Duration` is an `Instant`, and so is `Instant -
 //# Duration`; `a - b` on two instants is the `Duration` from `b` to `a`.
@@ -165,19 +165,19 @@ impl Duration
     /// units' long, short or narrow words (`DurationWidth`). Zero is zero seconds; a negative
     /// length has the locale's minus sign before its first number. Days are
     /// civil, so a length is counted in hours.
-    //! assert Duration.format(Duration.minutes(90), Locale`en`) == "1 hour, 30 minutes"
-    //! assert Duration.format(Duration.minutes(90), Locale`pl`) == "1 godzina i 30 minut"
-    //! assert Duration.format(Duration.minutes(90), Locale`de`) == "1 Stunde, 30 Minuten"
-    //! assert Duration.format(Duration.seconds(0), Locale`en`) == "0 seconds"
-    //! assert Duration.format(Duration.milliseconds(1500), Locale`en`, width: .Short) == "1 sec, 500 ms"
-    //! assert Duration.format(Duration.minutes(-5), Locale`en`, width: .Narrow) == "-5m"
+    //! assert Duration.format(Duration.minutes(90), Locale"en") == "1 hour, 30 minutes"
+    //! assert Duration.format(Duration.minutes(90), Locale"pl") == "1 godzina i 30 minut"
+    //! assert Duration.format(Duration.minutes(90), Locale"de") == "1 Stunde, 30 Minuten"
+    //! assert Duration.format(Duration.seconds(0), Locale"en") == "0 seconds"
+    //! assert Duration.format(Duration.milliseconds(1500), Locale"en", width: .Short) == "1 sec, 500 ms"
+    //! assert Duration.format(Duration.minutes(-5), Locale"en", width: .Narrow) == "-5m"
     //
     pub fn format(d: Duration, locale: Locale, width: DurationWidth = DurationWidth.Long) -> String
         Duration(ns) = d
 
         width_tag = case width
-            DurationWidth.Long -> 1
-            DurationWidth.Short -> 2
+            DurationWidth.Long   -> 1
+            DurationWidth.Short  -> 2
             DurationWidth.Narrow -> 3
         end
 
@@ -259,7 +259,7 @@ impl Duration
     /// so 90 minutes is `1h30m`, not `90m`. The error says where the text
     /// stops being that, at a position counted in grapheme clusters, or that
     /// the length does not fit a `Duration` (`.OutOfRange`). A
-    /// ``Duration`1m28s` `` literal reads its text the same way.
+    /// `Duration"1m28s"` literal reads its text the same way.
     //! assert Duration.parse("1m28s") == Ok(Duration.seconds(88))
     //! assert Duration.parse("-1h30m15s250ms") == Ok(Duration.milliseconds(-5_415_250))
     //! assert Duration.parse("0s") == Ok(Duration.seconds(0))
@@ -292,21 +292,21 @@ fn in_range(ns: Int) -> Result<Duration, NumberParseError>
 end
 
 impl Literal for Duration
-    /// ``Duration`1m28s` `` is `Duration.seconds(88)`: the text as `Display`
-    /// writes it, which `Duration.parse` reads. A raw literal is checked
+    /// `Duration"1m28s"` is `Duration.seconds(88)`: the text as `Display`
+    /// writes it, which `Duration.parse` reads. A literal without slots is checked
     /// when the program is checked, so a malformed one is a compile error
     /// at the literal.
-    //! assert Duration`1m28s` == Duration.seconds(88)
-    //! assert Duration`1h30m15s250ms` == Duration.milliseconds(5_415_250)
-    //! assert Duration`-5m` == Duration.minutes(-5)
-    //! assert Duration`500ms` == Duration.milliseconds(500)
-    //! assert Duration`0s` == Duration.seconds(0)
-    //! assert Duration"2h" == Ok(Duration.hours(2))
+    //! assert Duration"1m28s" == Duration.seconds(88)
+    //! assert Duration"1h30m15s250ms" == Duration.milliseconds(5_415_250)
+    //! assert Duration"-5m" == Duration.minutes(-5)
+    //! assert Duration"500ms" == Duration.milliseconds(500)
+    //! assert Duration"0s" == Duration.seconds(0)
+    //! assert Duration"2h" == Duration.hours(2)
     //
     fn from_fragments(fragments: List<Fragment<String>>) -> Result<Duration, NumberParseError>
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)
@@ -430,11 +430,11 @@ end
 // whose rank is `after`: the hours, and the nanoseconds of the smaller
 // units, added to `hours` and `rest`.
 fn parts(
-    text: String,
-    at: Int,
+    text:  String,
+    at:    Int,
     after: Int,
     hours: Int,
-    rest: Int,
+    rest:  Int,
 ) -> Result<(Int, Int), NumberParseError>
     if after >= 0 and at == String.length(text) then return Ok((hours, rest))
 
@@ -472,13 +472,13 @@ end
 // no bound).
 fn unit(name: String) -> Maybe<(Int, Int, Int)>
     case name
-        "h" -> Some((0, 3_600_000_000_000, 0))
-        "m" -> Some((1, 60_000_000_000, 60))
-        "s" -> Some((2, 1_000_000_000, 60))
+        "h"  -> Some((0, 3_600_000_000_000, 0))
+        "m"  -> Some((1, 60_000_000_000, 60))
+        "s"  -> Some((2, 1_000_000_000, 60))
         "ms" -> Some((3, 1_000_000, 1000))
         "µs" -> Some((4, 1_000, 1000))
         "ns" -> Some((5, 1, 1000))
-        _ -> None
+        _    -> None
     end
 end
 

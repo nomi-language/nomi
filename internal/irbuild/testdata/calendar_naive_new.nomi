@@ -66,7 +66,7 @@ fn run() -> Result<Unit, Error>
     // The defaulted call and the typed literal are two independently written
     // constructors for one value, so this row is a contradiction between them
     // rather than a restatement of the line above.
-    io.print("matches_literal = " + Bool.to_string(arity5 == NaiveDateTime"2026-05-04T14:30:00"?))
+    io.print("matches_literal = " + Bool.to_string(arity5 == NaiveDateTime"2026-05-04T14:30:00"))
 
     // And the six-argument call is NOT the five-argument one, which is what makes
     // `second` observable at all.
@@ -86,24 +86,24 @@ fn run() -> Result<Unit, Error>
     // default. An implementation that filled the default over the written
     // argument, or padded the list before reading it, returns Ok here.
     case NaiveDateTime.new(2026, 5, 4, 14, 30, 99)
-        Ok(_d) -> io.print("arity6_rejects = unexpectedly ok")
+        Ok(_d)                     -> io.print("arity6_rejects = unexpectedly ok")
         Err(Error.InvalidValue(m)) -> io.print("arity6_rejects = " + m)
-        Err(_other) -> io.print("arity6_rejects = wrong variant")
+        Err(_other)                -> io.print("arity6_rejects = wrong variant")
     end
 
     // The last slot, out of range: validation is shown to receive slot seven.
     case NaiveDateTime.new(2026, 5, 4, 14, 30, 45, 1_000_000_000)
-        Ok(_d) -> io.print("nanos_reject = unexpectedly ok")
+        Ok(_d)                     -> io.print("nanos_reject = unexpectedly ok")
         Err(Error.InvalidValue(m)) -> io.print("nanos_reject = " + m)
-        Err(_other) -> io.print("nanos_reject = wrong variant")
+        Err(_other)                -> io.print("nanos_reject = wrong variant")
     end
 
     // The DATE half, at the shortest arity: the corpus's own row. Feb 30 is a
     // combination no single component check rejects.
     case NaiveDateTime.new(2026, 2, 30, 12, 0)
-        Ok(_d) -> io.print("arity5_rejects = unexpectedly ok")
+        Ok(_d)                     -> io.print("arity5_rejects = unexpectedly ok")
         Err(Error.InvalidValue(m)) -> io.print("arity5_rejects = " + m)
-        Err(_other) -> io.print("arity5_rejects = wrong variant")
+        Err(_other)                -> io.print("arity5_rejects = wrong variant")
     end
 
     Ok(Unit)
@@ -111,7 +111,7 @@ end
 
 fn main()
     case run()
-        Ok(_u) -> Unit
+        Ok(_u)  -> Unit
         Err(_e) -> io.print("FAILED")
     end
 end

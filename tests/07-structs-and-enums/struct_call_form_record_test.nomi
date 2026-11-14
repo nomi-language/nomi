@@ -29,8 +29,8 @@
 //     `==` degrades to a structural comparison that answers False on the
 //     mismatched name, and `Display` renders the anonymous form.
 struct Config
-    host: String
-    port: Int = 8080
+    host:    String
+    port:    Int = 8080
     retries: Int
 end
 

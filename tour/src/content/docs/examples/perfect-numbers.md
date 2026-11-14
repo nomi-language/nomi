@@ -31,9 +31,9 @@ pub fn classify(number: Int) -> Result<Classification, Error>
     if number < 1 then return Err(.NotPositive)
 
     case Int.compare(aliquot_sum(number), number)
-        .Equal -> Ok(.Perfect)
+        .Equal   -> Ok(.Perfect)
         .Greater -> Ok(.Abundant)
-        .Less -> Ok(.Deficient)
+        .Less    -> Ok(.Deficient)
     end
 end
 
@@ -61,8 +61,8 @@ import perfect_numbers
 test "Perfect numbers"
     [
         ("Smallest perfect number is classified correctly", 6),
-        ("Medium perfect number is classified correctly", 28),
-        ("Large perfect number is classified correctly", 33550336),
+        ("Medium perfect number is classified correctly",   28),
+        ("Large perfect number is classified correctly",    33550336),
     ]
     |> subtests (description, number), description
         assert perfect_numbers.classify(number) == Ok(.Perfect)
@@ -71,9 +71,9 @@ end
 
 test "Abundant numbers"
     [
-        ("Smallest abundant number is classified correctly", 12),
-        ("Medium abundant number is classified correctly", 30),
-        ("Large abundant number is classified correctly", 33550335),
+        ("Smallest abundant number is classified correctly",       12),
+        ("Medium abundant number is classified correctly",         30),
+        ("Large abundant number is classified correctly",          33550335),
         ("Perfect square abundant number is classified correctly", 196),
     ]
     |> subtests (description, number), description
@@ -83,10 +83,10 @@ end
 
 test "Deficient numbers"
     [
-        ("Smallest prime deficient number is classified correctly", 2),
-        ("Smallest non-prime deficient number is classified correctly", 4),
-        ("Medium deficient number is classified correctly", 32),
-        ("Large deficient number is classified correctly", 33550337),
+        ("Smallest prime deficient number is classified correctly",          2),
+        ("Smallest non-prime deficient number is classified correctly",      4),
+        ("Medium deficient number is classified correctly",                  32),
+        ("Large deficient number is classified correctly",                   33550337),
         ("Edge case (no factors other than itself) is classified correctly", 1),
     ]
     |> subtests (description, number), description
@@ -96,7 +96,7 @@ end
 
 test "Invalid inputs"
     [
-        ("Zero is rejected (as it is not a positive integer)", 0),
+        ("Zero is rejected (as it is not a positive integer)",             0),
         ("Negative integer is rejected (as it is not a positive integer)", -1),
     ]
     |> subtests (description, number), description

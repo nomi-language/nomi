@@ -1,0 +1,60 @@
+//# Are We Fast Yet: List.
+//#
+//# The Takeuchi-style `tail` recursion over three linked lists of lengths
+//# 15, 10 and 6; the result is the length of the list it returns.
+//#
+//# Departure from the guidelines: the suite defines its own `Element` with
+//# a mutable `next`. Nomi's `List` is already a linked list of immutable
+//# cells, so the elements are a `List<Int>`, built by consing as the suite's
+//# `makeList` links them, and `length`, `is_shorter_than` and `tail` keep
+//# the suite's recursions.
+
+import harness
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+fn length(list: List<Int>) -> Int
+    case list
+        [_]         -> 1
+        [_, ..next] -> 1 + length(next)
+        []          -> 0
+    end
+end
+
+fn make_list(length: Int) -> List<Int>
+    if length == 0 then
+        []
+    else
+        [length, ..make_list(length - 1)]
+    end
+end
+
+fn is_shorter_than(x: List<Int>, y: List<Int>) -> Bool
+    case (x, y)
+        (_, []) -> False
+        ([], _) -> True
+        ([_, ..x_tail], [_, ..y_tail]) -> is_shorter_than(x_tail, y_tail)
+    end
+end
+
+fn tail(x: List<Int>, y: List<Int>, z: List<Int>) -> List<Int>
+    if is_shorter_than(y, x) then
+        tail(tail(List.tail(x)!, y, z), tail(List.tail(y)!, z, x), tail(List.tail(z)!, x, y))
+    else
+        z
+    end
+end
+
+fn benchmark() -> Int
+    length(tail(make_list(15), make_list(10), make_list(6)))
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("List", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1 == 10)))
+end

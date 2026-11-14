@@ -23,14 +23,14 @@ end
 
 pub fn show_string(f: Fragment<String>) -> String
     case f
-        .Static(s) -> "static/" + s
+        .Static(s)  -> "static/" + s
         .Dynamic(v) -> "dynamic/" + v
     end
 end
 
 pub fn show_int(f: Fragment<Int>) -> String
     case f
-        .Static(s) -> "static/" + s
+        .Static(s)  -> "static/" + s
         .Dynamic(n) -> "dynamic/" + Int.to_string(n)
     end
 end

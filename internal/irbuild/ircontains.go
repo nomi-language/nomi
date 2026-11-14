@@ -35,9 +35,10 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 	if !ok || have == kindInvalid {
 		return nil
 	}
-	if !(irRetainedValueKind(seq) || g.irValType(seq) != nil) {
-		bl.g.dc.note("a " + owner + ".contains sequence outside the retained domain: " + seq.nomi())
-		return nil
+	if g.irValType(seq) == nil {
+		// A lowered sequence, or one built of a lowered element, is held,
+		// and every held kind has a stored type.
+		panic("irbuild: a " + owner + ".contains sequence with no stored type: " + seq.nomi())
 	}
 	if !g.valueEquates(have) {
 		g.reject(owner+".contains over an element `==` does not compare", have.nomi(), t)

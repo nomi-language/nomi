@@ -1,5 +1,7 @@
 package rt
 
+import "math"
+
 // Nomi's `Range<T>` — and like set.go, the point is how little of it there is.
 //
 // # A Range is three fields and no algorithm
@@ -304,6 +306,105 @@ func StepByRangeSeq[T, S any](r Range[T], by S, cmp func(fr *Frame, a, b T) Orde
 			cur = nxt.Some
 		}
 	}, Endless: stepByEndless(r, by, cmp, step)}
+}
+
+// IntRangeSeq is RangeSeq over a `Range<Int>` with std's Int impls run in
+// Go: `Comparable.compare` is IntCompare and `Discrete.next` is `Some(n +
+// 1)`, which never saturates, so a walk calls no Nomi function and builds
+// no Maybe per element. Its Count is std's `known_count` for Int
+// (`steps_between`, plus one for an inclusive end).
+//
+// The walk counts in int64 while the next element fits and moves to IntAdd
+// and IntCompare past math.MaxInt64, where an unbounded range or a bound
+// past int64 takes it.
+func IntRangeSeq(r Range[Value]) Seq[Value] {
+	return Seq[Value]{Run: func(fr *Frame, yield func(fr *Frame, item Value) bool) bool {
+		return intRangeEachWhile(fr, r, yield)
+	}, Count: func(*Frame) Maybe[int64] { return RangeCount64(intRangeKnownCount(r)) }, Endless: rangeEndless(r)}
+}
+
+// IntRangeCursor steps a `Range<Int>` one element per call, as
+// intRangeEachWhile walks it: in int64 while the next element fits, then
+// through IntAdd and IntCompare. What SeqZipCursor pulls an Int range on
+// zip's right side through.
+func IntRangeCursor(r Range[Value]) func() (Value, bool) {
+	cur, done := r.Start, false
+	return func() (Value, bool) {
+		if done {
+			return nil, false
+		}
+		if r.End.Tag == TagSome {
+			if rank := IntCompare(cur, r.End.Some); rank > 0 || (rank == 0 && !r.Inclusive) {
+				done = true
+				return nil, false
+			}
+		}
+		v := cur
+		if n, small := cur.(int64); small && n < math.MaxInt64 {
+			cur = n + 1
+		} else {
+			cur = IntAdd(cur, int64(1))
+		}
+		return v, true
+	}
+}
+
+func intRangeKnownCount(r Range[Value]) Maybe[Value] {
+	if r.End.Tag != TagSome {
+		return None[Value]()
+	}
+	if IntCompare(r.Start, r.End.Some) > 0 {
+		return Some[Value](int64(0))
+	}
+	n := IntSub(r.End.Some, r.Start)
+	if r.Inclusive {
+		n = IntAdd(n, int64(1))
+	}
+	return Some(n)
+}
+
+func intRangeEachWhile(fr *Frame, r Range[Value], yield func(fr *Frame, item Value) bool) bool {
+	cur := r.Start
+	if start, ok := cur.(int64); ok {
+		// stop is the first element not yielded, when it is an int64.
+		stop, bounded := int64(math.MaxInt64), false
+		if r.End.Tag == TagSome {
+			end, ok := r.End.Some.(int64)
+			switch {
+			case !ok && IntSign(r.End.Some) < 0:
+				// An end below int64's range is below every int64 start.
+				return true
+			case !ok:
+			case !r.Inclusive:
+				stop, bounded = end, true
+			case end < math.MaxInt64:
+				stop, bounded = end+1, true
+			}
+		}
+		i := start
+		for ; i < stop; i++ {
+			if !yield(fr, i) {
+				return false
+			}
+		}
+		if bounded {
+			return true
+		}
+		// The walk reached math.MaxInt64, which is not yielded yet.
+		cur = i
+	}
+	for {
+		if r.End.Tag == TagSome {
+			rank := IntCompare(cur, r.End.Some)
+			if rank > 0 || (rank == 0 && !r.Inclusive) {
+				return true
+			}
+		}
+		if !yield(fr, cur) {
+			return false
+		}
+		cur = IntAdd(cur, int64(1))
+	}
 }
 
 // --- rendering --------------------------------------------------------------

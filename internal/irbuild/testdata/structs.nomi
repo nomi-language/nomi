@@ -7,7 +7,7 @@ end
 
 struct Segment
     from: Point
-    to: Point
+    to:   Point
 end
 
 /// `Marker` is zero-sized: every field it has is zero-sized, and it has none.
@@ -15,15 +15,15 @@ struct Marker end
 
 struct Tagged
     mark: Marker
-    n: Int
+    n:    Int
 end
 
 /// Defaults, including one that calls a module function. Field order here is
 /// what decides the order the defaults are evaluated in.
 struct Config
     retries: Int = fallback()
-    label: String = "default"
-    scale: Float
+    label:   String = "default"
+    scale:   Float
 end
 
 /// The evaluation-order pin: `noisy` prints, so the output shows WHEN each

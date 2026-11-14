@@ -17,7 +17,7 @@ func TestStdTypeWithoutDisplay_HintSaysWhatToDoInstead(t *testing.T) {
 			"a `Phrase` is formatted for a reader: `Phrase.format(m, locale)`"},
 		{"Noun", "import std::io\n\nnoun book `.input {$count :integer} .match $count one {{book}} * {{books}}`\n\nfn main()\n    io.print(\"${book}\")\nend\n",
 			"a `Noun` is formatted for a reader: `Localize.localize(noun, locale)`"},
-		{"Collator", "import\n    std::collation.Collator\n    std::io\nend\n\nfn main()\n    io.print(\"${Collator.new(Locale`sv`)}\")\nend\n",
+		{"Collator", "import\n    std::collation.Collator\n    std::io\nend\n\nfn main()\n    io.print(\"${Collator.new(Locale\"sv\")}\")\nend\n",
 			"only std can implement `Display` for `Collator`"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

@@ -263,8 +263,8 @@ end
 
 fn join_debug_parts(parts: List<String>) -> String
     case parts
-        [] -> ""
-        [head] -> head
+        []             -> ""
+        [head]         -> head
         [head, ..tail] -> head + ", " + join_debug_parts(tail)
     end
 end
@@ -289,7 +289,7 @@ impl Comparable for Bytes
         case
             n < 0 -> Less
             n > 0 -> Greater
-            _ -> Equal
+            _     -> Equal
         end
     end
 end

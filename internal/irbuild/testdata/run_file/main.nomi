@@ -51,7 +51,7 @@ end
 
 fn out(r: RunFile) -> String
     case compiler.run_file(r)
-        Ok(text) -> "[" + text + "]"
+        Ok(text)     -> "[" + text + "]"
         Err(message) -> "ERR " + message
     end
 end
@@ -67,7 +67,7 @@ end
 /// absolute pin, and only for this row.
 fn err_mentions(r: RunFile, needle: String) -> String
     case compiler.run_file(r)
-        Ok(_) -> "unexpectedly ok"
+        Ok(_)        -> "unexpectedly ok"
         Err(message) -> "${String.contains(message, needle)}"
     end
 end
@@ -91,7 +91,7 @@ fn main()
     // this one.
     io.print("with_env = " + out(RunFile{
             entry_point: "target",
-            env: {"NOMI_RUN_FILE_FIXTURE_PROBE" => "arrived"},
+            env:         {"NOMI_RUN_FILE_FIXTURE_PROBE" => "arrived"},
         }))
 
     // --- 4. A SECOND KEY, so the map is a MAP and not one slot -------------

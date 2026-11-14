@@ -2,6 +2,7 @@ package rt
 
 import (
 	"math"
+	"math/big"
 	"strings"
 	"testing"
 )
@@ -88,6 +89,63 @@ func TestRecord_PayloadFreeValuesAreSharedAndAllocateNothing(t *testing.T) {
 	c := shape.MakeVariant(0, int64(3))
 	if RowText(c) != "Circle(3)" || RowText(shape.NewVariant(1)) != "Dot" {
 		t.Errorf("rendered %s / %s", RowText(c), RowText(shape.NewVariant(1)))
+	}
+}
+
+// A record of at most two words, one string and two references is one
+// allocation, its banks with its header: `Some(x)` over a reference payload
+// was two (the record and its reference slice), and a `(String, Int)` tuple
+// two. A record past those sizes takes each of its string and reference banks
+// separately.
+func TestRecord_SmallMixedRecordsAreOneAllocation(t *testing.T) {
+	maybe := NewEnumDesc("maybe.Maybe", []VariantSpec{
+		{Name: "Some", Shape: VariantPositional, Fields: []FieldSpec{{Type: SlotRef}}},
+		{Name: "None"},
+	})
+	payload := any([]int{1})
+	for _, tc := range []struct {
+		name  string
+		slots []SlotType
+		want  float64
+	}{
+		{"R", []SlotType{SlotRef}, 1},
+		{"RR", []SlotType{SlotRef, SlotRef}, 1},
+		{"WR", []SlotType{SlotInt, SlotRef}, 1},
+		{"WWR", []SlotType{SlotInt, SlotFloat, SlotRef}, 1},
+		{"WWRR", []SlotType{SlotInt, SlotRef, SlotFloat, SlotRef}, 1},
+		{"S", []SlotType{SlotString}, 1},
+		{"SW", []SlotType{SlotString, SlotInt}, 1},
+		{"SWW", []SlotType{SlotString, SlotInt, SlotBool}, 1},
+		{"SR", []SlotType{SlotString, SlotRef}, 1},
+		{"SWRR", []SlotType{SlotString, SlotInt, SlotRef, SlotRef}, 1},
+		{"SS", []SlotType{SlotString, SlotString}, 2},
+		{"RRR", []SlotType{SlotRef, SlotRef, SlotRef}, 2},
+		{"WWWR", []SlotType{SlotInt, SlotInt, SlotInt, SlotRef}, 2},
+	} {
+		d := TupleDesc(tc.slots...)
+		if n := testing.AllocsPerRun(100, func() { _ = d.New() }); n != tc.want {
+			t.Errorf("a %s tuple allocates %v times, want %v", tc.name, n, tc.want)
+		}
+		r := d.New()
+		if len(r.W) != d.NW || len(r.S) != d.NS || len(r.R) != d.NR ||
+			cap(r.W) != d.NW || cap(r.S) != d.NS || cap(r.R) != d.NR {
+			t.Errorf("a %s tuple's banks are %d/%d/%d long and %d/%d/%d wide, want %d/%d/%d",
+				tc.name, len(r.W), len(r.S), len(r.R), cap(r.W), cap(r.S), cap(r.R), d.NW, d.NS, d.NR)
+		}
+	}
+	if n := testing.AllocsPerRun(100, func() { _ = maybe.MakeVariant(0, payload) }); n != 1 {
+		t.Errorf("Some over a reference allocates %v times, want 1", n)
+	}
+	// A big Int written into a mixed record grows its reference bank apart
+	// from the header's, and a clone carries it.
+	d := TupleDesc(SlotInt, SlotRef)
+	r := d.New()
+	huge := IntFromBig(new(big.Int).Lsh(big.NewInt(1), 80))
+	r.SetIntSlot(0, huge)
+	r.R[0] = payload
+	c := r.Clone()
+	if IntCompare(c.IntSlot(0), huge) != 0 || c.R[0] == nil || IntCompare(r.IntSlot(0), huge) != 0 {
+		t.Errorf("a big Int in a mixed record reads back as %v and %v", r.IntSlot(0), c.IntSlot(0))
 	}
 }
 

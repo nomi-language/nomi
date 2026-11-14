@@ -3,13 +3,13 @@
 /// A letter's place in the puzzle, counted from 1 at the top left.
 pub struct Position
     column: Int
-    row: Int
+    row:    Int
 end
 
 /// Where a word lies: its first letter and its last.
 pub struct Span
     start: Position
-    stop: Position
+    stop:  Position
 end
 
 /// The eight directions a word may run in, as a step in rows and a step in
@@ -44,7 +44,7 @@ fn find(letters: Vector<Vector<String>>, word: String) -> Maybe<Span>
 
     Some(Span{
         start: {column: column + 1, row: row + 1},
-        stop: {column: column + 1 + across * last, row: row + 1 + down * last},
+        stop:  {column: column + 1 + across * last, row: row + 1 + down * last},
     })
 end
 
@@ -52,7 +52,7 @@ end
 /// `down` rows and `across` columns between letters, without leaving the
 /// grid.
 fn reads(
-    letters: Vector<Vector<String>>,
+    letters:  Vector<Vector<String>>,
     spelling: List<String>,
     (row, column): (Int, Int),
     (down, across): (Int, Int),

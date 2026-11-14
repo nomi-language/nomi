@@ -16,12 +16,12 @@ end
 
 struct Geo
     city: String
-    zip: String
+    zip:  String
 end
 
 struct User
     name: String
-    geo: Geo
+    geo:  Geo
     tags: List<Int>
 end
 
@@ -249,7 +249,7 @@ fn blocks(xs: List<Int>, n: Int) -> Int
 
     case total
         100 -> n
-        _ -> total
+        _   -> total
     end
 end
 
@@ -557,7 +557,7 @@ fn as_pattern(found: Maybe<(Int, Int)>) -> Int
 
     case m
         Some(_) -> a + b
-        None -> 0
+        None    -> 0
     end
 end
 

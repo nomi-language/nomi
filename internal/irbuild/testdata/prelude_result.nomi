@@ -19,7 +19,7 @@ end
 
 fn render(r: Result<Int, String>) -> String
     case r
-        Ok(v) -> "ok ${v}"
+        Ok(v)  -> "ok ${v}"
         Err(e) -> "err ${e}"
     end
 end
@@ -30,7 +30,7 @@ fn classify(r: Result<Int, String>) -> String
     case r
         Result.Ok(0) -> "zero"
         Result.Ok(n) -> "nonzero ${n}"
-        .Err(m) -> "failed: ${m}"
+        .Err(m)      -> "failed: ${m}"
     end
 end
 
@@ -40,7 +40,7 @@ end
 // erasing.
 fn flip(r: Result<Int, String>) -> Result<String, Int>
     case r
-        Ok(v) -> Err(v)
+        Ok(v)  -> Err(v)
         Err(e) -> Ok(e)
     end
 end
@@ -50,7 +50,7 @@ end
 // this reads both back to prove the payloads do not alias.
 fn unflip(r: Result<String, Int>) -> Result<Int, String>
     case r
-        Ok(s) -> Err(s)
+        Ok(s)  -> Err(s)
         Err(n) -> Ok(n)
     end
 end
@@ -61,7 +61,7 @@ end
 
 fn show_same(r: Result<Int, Int>) -> String
     case r
-        Ok(a) -> "ok ${a}"
+        Ok(a)  -> "ok ${a}"
         Err(b) -> "err ${b}"
     end
 end
@@ -70,7 +70,7 @@ end
 fn maybe_result(m: Maybe<Result<Int, String>>) -> String
     case m
         Some(r) -> render(r)
-        None -> "absent"
+        None    -> "absent"
     end
 end
 

@@ -7,10 +7,14 @@ package vm
 // operands (see values.go). The bytecode compiler turns a plan into `opMake`,
 // which writes each operand into its field's slot; the handler below runs the
 // same plan over boxed operands for a construction the compiler left to it,
-// and builds the collections and ranges that are not records.
+// and builds the collections and ranges that are not records. A struct
+// update compiles to `opUpdate`, which clones the base and writes each new
+// value into the field its cache resolved, a scalar straight from its
+// register; an update its cache cannot resolve runs the handler.
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
@@ -188,6 +192,9 @@ func (cp *compiler) make(n *ir.Make) bool {
 	if !cp.inBank(bankR, n.Dst()) {
 		return false
 	}
+	if n.Kind() == ir.MakeUpdate {
+		return cp.update(n)
+	}
 	plan, ok := planMake(n, cp.c.types[n.Dst()], cp.typeOf)
 	if !ok {
 		return false
@@ -206,6 +213,69 @@ func (cp *compiler) make(n *ir.Make) bool {
 	return true
 }
 
+// update compiles a struct update `{..base, f: v, ...}` into opUpdate: the
+// base's register, the handler it falls back to, its cache, and per new
+// value the field's name, the operand and the slot type the operand's stored
+// type gives it. The cache starts resolved against the descriptor the base's
+// stored type names, when it names one, so a concrete struct's update finds
+// its fields with one pointer compare from its first run.
+func (cp *compiler) update(n *ir.Make) bool {
+	names := n.Names()
+	if !cp.inBank(bankR, n.Operand(0)) || n.Arity() != len(names)+1 || hasDuplicate(names) {
+		return false
+	}
+	ops := make([]uint32, 0, 3*len(names))
+	for i, name := range names {
+		t := n.Operand(i + 1)
+		ops = append(ops, cp.str(name), uint32(t), uint32(slotOf(cp.typeOf(t))))
+	}
+	cp.c.ucache = append(cp.c.ucache, atomic.Pointer[updateHit]{})
+	cache := &cp.c.ucache[len(cp.c.ucache)-1]
+	if d := descOfType(cp.typeOf(n.Operand(0))); d != nil && (d.Kind == rt.KindStruct || d.Kind == rt.KindAnon) {
+		cache.Store(resolveUpdate(d, ops, cp.c.ks))
+	}
+	o := opUpdate
+	need, inPlace := cp.inPlace[n]
+	if inPlace {
+		o = opUpdateIn
+	}
+	cp.c.uneed = append(cp.c.uneed, need)
+	cp.emit(cp.op(o, uint32(cp.loc(n.Dst()).reg())), uint32(cp.loc(n.Operand(0)).reg()),
+		cp.handlerIndex(n), uint32(len(cp.c.ucache)-1), uint32(len(names)))
+	cp.emit(ops...)
+	return true
+}
+
+// updateHit is an opUpdate instruction's resolution against one base
+// descriptor: the field each new value replaces, in operand order, or nil
+// fields when the update cannot be written over that layout directly (a
+// field the base lacks, or a scalar slot the operand's stored type does not
+// fill), which the handler then runs.
+type updateHit struct {
+	desc   *rt.TypeDesc
+	fields []*rt.FieldDesc
+}
+
+// resolveUpdate resolves an opUpdate's operand words ops (name, operand,
+// slot type per new value) against d.
+func resolveUpdate(d *rt.TypeDesc, ops []uint32, ks []string) *updateHit {
+	hit := &updateHit{desc: d}
+	fields := make([]*rt.FieldDesc, len(ops)/3)
+	for i := range fields {
+		j := d.FieldIndex(ks[ops[3*i]])
+		if j < 0 {
+			return hit
+		}
+		f := &d.Fields[j]
+		if f.Type != rt.SlotRef && f.Type != rt.SlotType(ops[3*i+2]) {
+			return hit
+		}
+		fields[i] = f
+	}
+	hit.fields = fields
+	return hit
+}
+
 // typeOf is temporary t's stored type, or nil.
 func (cp *compiler) typeOf(t ir.Temp) *ir.ValType {
 	if t == ir.NoTemp || int(t) >= len(cp.c.types) {
@@ -214,10 +284,62 @@ func (cp *compiler) typeOf(t ir.Temp) *ir.ValType {
 	return cp.c.types[t]
 }
 
-// makeValue builds one composite value out of the operands a construction
-// names, for a construction the compiler left to its handler.
-func (m *Machine) makeValue(fr *frame, n *ir.Make) (err error) {
+// makeKeyed builds a Map or Set literal, whose keys it hashes and compares
+// through the machine's key kernels: a key whose Hashable or Equatable impl
+// fails unwinds as a keyFailure, reported as the error it carries.
+func (m *Machine) makeKeyed(fr *frame, n *ir.Make) (err error) {
 	defer recoverKey(&err)
+	if n.Kind() == ir.MakeMap {
+		entries := make([]rt.MapEntry[any, any], n.Arity()/2)
+		for i := range entries {
+			key, err := fr.read(n.Operand(2 * i))
+			if err != nil {
+				return err
+			}
+			val, err := fr.read(n.Operand(2*i + 1))
+			if err != nil {
+				return err
+			}
+			entries[i] = rt.MapEntry[any, any]{Key: key, Val: val}
+		}
+		var k *rt.Keys
+		if len(entries) > 0 {
+			k = m.keysOver(fr, entries[0].Key)
+		}
+		fr.write(n.Dst(), mapOf(k, entries))
+		return nil
+	}
+	items, err := readOperands(fr, n)
+	if err != nil {
+		return err
+	}
+	var k *rt.Keys
+	if len(items) > 0 {
+		k = m.keysOver(fr, items[0])
+	}
+	fr.write(n.Dst(), newSetKeyed(k, items))
+	return nil
+}
+
+// readOperands reads every operand of a construction, boxed.
+func readOperands(fr *frame, n *ir.Make) ([]any, error) {
+	items := make([]any, n.Arity())
+	for i := range items {
+		v, err := fr.read(n.Operand(i))
+		if err != nil {
+			return nil, err
+		}
+		items[i] = v
+	}
+	return items, nil
+}
+
+// makeValue builds one composite value out of the operands a construction
+// names, for a construction the compiler left to its handler. Only a Map or
+// Set literal hashes, through key kernels that report a bad key by
+// panicking (keys.go), so only makeKeyed recovers: a cons, a list or vector
+// literal and a struct update run with no deferred call.
+func (m *Machine) makeValue(fr *frame, n *ir.Make) error {
 	switch n.Kind() {
 	case ir.MakeRange:
 		var start any = int64(0)
@@ -240,43 +362,14 @@ func (m *Machine) makeValue(fr *frame, n *ir.Make) (err error) {
 		r.R[0], r.R[1], r.W[0] = start, end, b2w(n.Inclusive())
 		fr.write(n.Dst(), r)
 		return nil
-	case ir.MakeMap:
-		entries := make([]rt.MapEntry[any, any], n.Arity()/2)
-		for i := range entries {
-			key, err := fr.read(n.Operand(2 * i))
-			if err != nil {
-				return err
-			}
-			val, err := fr.read(n.Operand(2*i + 1))
-			if err != nil {
-				return err
-			}
-			entries[i] = rt.MapEntry[any, any]{Key: key, Val: val}
+	case ir.MakeMap, ir.MakeSet:
+		return m.makeKeyed(fr, n)
+	case ir.MakeVector:
+		items, err := readOperands(fr, n)
+		if err != nil {
+			return err
 		}
-		var k *rt.Keys
-		if len(entries) > 0 {
-			k = m.keysOver(fr, entries[0].Key)
-		}
-		fr.write(n.Dst(), mapOf(k, entries))
-		return nil
-	case ir.MakeVector, ir.MakeSet:
-		items := make([]any, n.Arity())
-		for i := range items {
-			v, err := fr.read(n.Operand(i))
-			if err != nil {
-				return err
-			}
-			items[i] = v
-		}
-		if n.Kind() == ir.MakeSet {
-			var k *rt.Keys
-			if len(items) > 0 {
-				k = m.keysOver(fr, items[0])
-			}
-			fr.write(n.Dst(), newSetKeyed(k, items))
-		} else {
-			fr.write(n.Dst(), rt.VectorOf(items))
-		}
+		fr.write(n.Dst(), rt.VectorOf(items))
 		return nil
 	case ir.MakeList:
 		var tail *list
@@ -503,19 +596,19 @@ func projValue(fr *frame, n *ir.Proj, subj any) (any, error) {
 			return nil, fmt.Errorf("vm: %s: %s reads %T, not a vector", fr.fn.Name(), n, subj)
 		}
 		if n.Kind() == ir.ProjVectorSlice {
-			if n.Index()+n.Drop() > vec.Len {
+			if n.Index()+n.Drop() > vec.Len() {
 				return nil, fmt.Errorf("vm: %s: %s projects beyond the vector", fr.fn.Name(), n)
 			}
 			return rt.VectorSlice(vec, n.Index(), n.Drop()), nil
 		}
 		i := n.Index()
 		if i < 0 {
-			i += vec.Len
+			i += vec.Len()
 		}
-		if i < 0 || i >= vec.Len {
+		if i < 0 || i >= vec.Len() {
 			return nil, fmt.Errorf("vm: %s: %s projects beyond the vector", fr.fn.Name(), n)
 		}
-		return vec.Items[vec.Start+i], nil
+		return vec.At(i), nil
 
 	case ir.ProjStrSuffix:
 		s, ok := subj.(string)

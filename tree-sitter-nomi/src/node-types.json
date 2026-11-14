@@ -271,6 +271,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -1364,6 +1368,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -2432,6 +2440,10 @@
         },
         {
           "type": "concurrent_block",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
           "named": true
         },
         {
@@ -3762,6 +3774,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -4812,6 +4828,49 @@
     }
   },
   {
+    "type": "conjunction_type",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "anon_struct_type",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
+          "named": true
+        },
+        {
+          "type": "function_type",
+          "named": true
+        },
+        {
+          "type": "generic_type",
+          "named": true
+        },
+        {
+          "type": "qualified_type",
+          "named": true
+        },
+        {
+          "type": "self_type",
+          "named": true
+        },
+        {
+          "type": "tuple_type",
+          "named": true
+        },
+        {
+          "type": "type_identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "current_value",
     "named": true,
     "fields": {}
@@ -5357,6 +5416,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -5602,6 +5665,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -7355,6 +7422,10 @@
           "named": true
         },
         {
+          "type": "conjunction_type",
+          "named": true
+        },
+        {
           "type": "field_definition",
           "named": true
         },
@@ -7431,6 +7502,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -7782,6 +7857,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -7862,6 +7941,10 @@
         },
         {
           "type": "concurrent_block",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
           "named": true
         },
         {
@@ -8092,6 +8175,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -8166,6 +8253,10 @@
           "named": true
         },
         {
+          "type": "conjunction_type",
+          "named": true
+        },
+        {
           "type": "function_type",
           "named": true
         },
@@ -8202,6 +8293,10 @@
       "types": [
         {
           "type": "anon_struct_type",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
           "named": true
         },
         {
@@ -10048,6 +10143,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -10083,6 +10182,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -10364,6 +10467,10 @@
           "named": true
         },
         {
+          "type": "conjunction_type",
+          "named": true
+        },
+        {
           "type": "function_type",
           "named": true
         },
@@ -10444,6 +10551,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -10870,6 +10981,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -11735,7 +11850,7 @@
     "fields": {
       "name": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "_",
@@ -11775,6 +11890,32 @@
           },
           {
             "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
             "named": true
           }
         ]
@@ -11834,6 +11975,10 @@
         },
         {
           "type": "concurrent_block",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
           "named": true
         },
         {
@@ -13110,6 +13255,10 @@
             "named": true
           },
           {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
             "type": "function_type",
             "named": true
           },
@@ -13467,7 +13616,7 @@
     "fields": {
       "name": {
         "multiple": false,
-        "required": true,
+        "required": false,
         "types": [
           {
             "type": "_",
@@ -13507,6 +13656,36 @@
           },
           {
             "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
+            "named": true
+          },
+          {
+            "type": "function_type",
+            "named": true
+          },
+          {
+            "type": "generic_type",
+            "named": true
+          },
+          {
+            "type": "qualified_type",
+            "named": true
+          },
+          {
+            "type": "tuple_type",
             "named": true
           }
         ]
@@ -13566,6 +13745,10 @@
         },
         {
           "type": "concurrent_block",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
           "named": true
         },
         {
@@ -18848,6 +19031,10 @@
           "named": true
         },
         {
+          "type": "conjunction_type",
+          "named": true
+        },
+        {
           "type": "function_type",
           "named": true
         },
@@ -18898,6 +19085,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -19221,6 +19412,10 @@
           },
           {
             "type": "anon_struct_type",
+            "named": true
+          },
+          {
+            "type": "conjunction_type",
             "named": true
           },
           {
@@ -19835,6 +20030,10 @@
       "types": [
         {
           "type": "anon_struct_type",
+          "named": true
+        },
+        {
+          "type": "conjunction_type",
           "named": true
         },
         {

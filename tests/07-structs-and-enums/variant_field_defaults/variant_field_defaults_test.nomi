@@ -87,7 +87,7 @@ test "a field with no default is still required"
         end
         """
     )
-        Ok(out) -> assert out == "unreachable: constructing without 'limit' should have failed"
+        Ok(out)      -> assert out == "unreachable: constructing without 'limit' should have failed"
         Err(message) -> assert "missing field 'limit'" in message
     end
 end

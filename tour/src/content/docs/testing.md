@@ -41,7 +41,7 @@ pattern, as the second line of each test below does.
 fn parse_id(text: String) -> Result<Int, String>
     case String.to_int(text)
         Some(id) -> Ok(id)
-        None -> Err("expected a numeric id")
+        None     -> Err("expected a numeric id")
     end
 end
 
@@ -264,9 +264,9 @@ end
 
 test "leap years"
     [
-        ("year divisible by 400 is leap year", 2000, True),
+        ("year divisible by 400 is leap year",                         2000, True),
         ("year divisible by 100, not divisible by 400 in common year", 1900, False),
-        ("year divisible by 4, not divisible by 100 in leap year", 1996, True),
+        ("year divisible by 4, not divisible by 100 in leap year",     1996, True),
     ]
     |> subtests (description, year, expected), description
         assert is_leap_year(year) == expected
@@ -328,7 +328,7 @@ import std::io
 fn main()
     case io.read_line()
         Ok(Some(name)) -> io.print("hello, ${name}")
-        _ -> io.print("hello, stranger")
+        _              -> io.print("hello, stranger")
     end
 end
 
@@ -408,7 +408,7 @@ fn main()
 
             case io.read_line()
                 Ok(Some(age)) -> io.print("${name} is ${age}")
-                _ -> io.print("no age")
+                _             -> io.print("no age")
             end
 
         _ ->

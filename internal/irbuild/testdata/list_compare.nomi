@@ -30,8 +30,8 @@ fn main()
     // element walk the pointer short-circuit does not fire and this is not Equal.
     io.print(
         case List.compare(ints(1, 2, 3), ints(1, 2, 3))
-            .Less -> "less"
-            .Equal -> "equal"
+            .Less    -> "less"
+            .Equal   -> "equal"
             .Greater -> "greater"
         end
     )

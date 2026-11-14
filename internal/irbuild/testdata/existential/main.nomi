@@ -22,9 +22,9 @@ import
 end
 
 struct App
-    name: String
+    name:   String
     logger: Logger
-    clock: Clock
+    clock:  Clock
 end
 
 fn banner(a: App) -> String

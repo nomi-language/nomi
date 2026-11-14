@@ -91,7 +91,7 @@ impl Dynamic
             Ok(None)
         else
             case sub(d)
-                Ok(v) -> Ok(Some(v))
+                Ok(v)  -> Ok(Some(v))
                 Err(e) -> Err(e)
             end
         end
@@ -130,9 +130,9 @@ impl Dynamic
     /// they already carry `[Field(name)]` from `field`'s own error, so the path is
     /// not doubled.
     pub fn at_field<T>(
-        d: Dynamic,
+        d:    Dynamic,
         name: String,
-        sub: (Dynamic) -> Result<T, Error>,
+        sub:  (Dynamic) -> Result<T, Error>,
     ) -> Result<T, Error>
         case Dynamic.field(d, name)
             Err(e) ->
@@ -142,9 +142,9 @@ impl Dynamic
                 case sub(inner)
                     Ok(v) -> Ok(v)
                     Err(e) -> Err(Error{
-                        path: [PathSegment.Field(name), ..e.path],
+                        path:     [PathSegment.Field(name), ..e.path],
                         expected: e.expected,
-                        got: e.got,
+                        got:      e.got,
                     })
                 end
         end
@@ -162,9 +162,9 @@ impl Dynamic
                 case sub(inner)
                     Ok(v) -> Ok(v)
                     Err(e) -> Err(Error{
-                        path: [PathSegment.Index(i), ..e.path],
+                        path:     [PathSegment.Index(i), ..e.path],
                         expected: e.expected,
-                        got: e.got,
+                        got:      e.got,
                     })
                 end
         end
@@ -212,9 +212,9 @@ derive Display for PathSegment
 /// sub-extractor and prepend the path segment on any error the sub-extractor
 /// returns. `expected` and `got` name the type mismatch.
 pub struct Error
-    path: List<PathSegment>
+    path:     List<PathSegment>
     expected: String
-    got: String
+    got:      String
 end
 
 impl Display for Error
@@ -231,7 +231,7 @@ impl Display for Error
                 Iter.reduce(e.path, "", fn acc, seg ->
                     case seg
                         .Field(name) -> if acc == "" then name else acc + "." + name
-                        .Index(i) -> acc + "[" + Int.to_string(i) + "]"
+                        .Index(i)    -> acc + "[" + Int.to_string(i) + "]"
                     end
                 end)
         end

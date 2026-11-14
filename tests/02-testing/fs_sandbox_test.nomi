@@ -51,10 +51,10 @@ test "a failure can name only the nth operation"
     sandbox = Sandbox{
         failures: [
             Failure{
-                path: "log.txt",
+                path:      "log.txt",
                 operation: .Create,
-                error: io.Error.TooManyOpen,
-                nth: Some(2),
+                error:     io.Error.TooManyOpen,
+                nth:       Some(2),
             },
         ],
     }
@@ -146,7 +146,7 @@ end
 test "directories list sorted, and remove and rename act on them"
     ran = testing.run(Sandbox{
         files: {"d/b.txt" => "b", "d/a.txt" => "a"},
-        dirs: ["d/e"],
+        dirs:  ["d/e"],
     }, fn ->
         before = fs.list("d")
         _ = fs.rename("d/a.txt", "d/e/a.txt")

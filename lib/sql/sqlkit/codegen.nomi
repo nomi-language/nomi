@@ -41,24 +41,24 @@ derive Equatable for Shape
 
 /// One column as the generated code reads it.
 struct Field
-    name: String
+    name:     String
     position: Int
-    reader: String
+    reader:   String
 
     // What the reader takes after the row and position: the scale of a
     // DECIMAL(p, s) column, `, 2`.
-    args: String
+    args:      String
     type_text: Maybe<String>
-    nullable: Bool
+    nullable:  Bool
 end
 
 /// A database's schema as the generated code names it: the database, its
 /// tables, each table's row struct by table, and the file that declares
 /// them.
 pub struct Schema
-    db: Database
+    db:     Database
     tables: List<Table>
-    rows: Map<String, String>
+    rows:   Map<String, String>
     module: String
 end
 
@@ -154,15 +154,15 @@ pub fn import_block(imports: Map<String, Set<String>>) -> String
 
             case listed
                 ["self"] -> path
-                [one] -> "${path}.${one}"
-                many -> "${path}.{${String.join(many, ", ")}}"
+                [one]    -> "${path}.${one}"
+                many     -> "${path}.{${String.join(many, ", ")}}"
             end
         end)
         |> Iter.to_list()
 
     case entries
         [one] -> "import ${one}\n"
-        _ -> "import\n${entries |> Iter.map(fn e -> "    ${e}\n") |> String.join()}end\n"
+        _     -> "import\n${entries |> Iter.map(fn e -> "    ${e}\n") |> String.join()}end\n"
     end
 end
 
@@ -433,10 +433,10 @@ end
 /// The file of functions a query file generates, or what is wrong with its
 /// queries. `described` is each query's description, in order.
 pub fn queries_file(
-    s: Schema,
-    file: File,
+    s:         Schema,
+    file:      File,
     described: List<Result<List<Column>, QueryError>>,
-    digest: String,
+    digest:    String,
 ) -> Result<String, List<Problem>>
     explicit =
         file.imports
@@ -461,11 +461,11 @@ pub fn queries_file(
     resolver = Resolver{
         imported:,
         modules:,
-        schema: schema_types(s),
-        rows: s.rows,
+        schema:        schema_types(s),
+        rows:          s.rows,
         schema_module: s.module,
-        qualifier: last_segment(s.module),
-        file: file.path,
+        qualifier:     last_segment(s.module),
+        file:          file.path,
     }
 
     results =
@@ -478,7 +478,7 @@ pub fn queries_file(
         |> Iter.flat_map(fn r ->
             case r
                 Err(ps) -> ps
-                Ok(_) -> []
+                Ok(_)   -> []
             end
         end)
         |> Iter.to_list()
@@ -489,7 +489,7 @@ pub fn queries_file(
         results
         |> Iter.flat_map(fn r ->
             case r
-                Ok(m) -> [m]
+                Ok(m)  -> [m]
                 Err(_) -> []
             end
         end)
@@ -521,10 +521,10 @@ struct Resolver
 
     // Each module the file imports itself, by its last segment.
     modules: Map<String, String>
-    schema: List<String>
+    schema:  List<String>
 
     // Each table's row struct, by table.
-    rows: Map<String, String>
+    rows:          Map<String, String>
     schema_module: String
 
     // The name the schema module is used as: its path's last segment.
@@ -551,7 +551,7 @@ end
 
 /// A generated function and the imports it needs.
 struct Made
-    text: String
+    text:    String
     imports: List<(String, String)>
 end
 
@@ -577,13 +577,13 @@ once prelude: List<String> = [
 
 // std's types a query may name, and the module each is in.
 once std_types: Map<String, String> = {
-    "Date" => "std::calendar",
-    "Duration" => "std::duration",
-    "Instant" => "std::instant",
-    "Json" => "std::json",
+    "Date"          => "std::calendar",
+    "Duration"      => "std::duration",
+    "Instant"       => "std::instant",
+    "Json"          => "std::json",
     "NaiveDateTime" => "std::calendar",
-    "Time" => "std::calendar",
-    "Uuid" => "std::uuid",
+    "Time"          => "std::calendar",
+    "Uuid"          => "std::uuid",
 }
 
 /// The type names a type as written names, outside a qualified name:
@@ -617,7 +617,7 @@ end
 /// The qualified type names a type as written names, each as its module's
 /// name and the type's: `Maybe<schema.Post>` names `("schema", "Post")`.
 //! assert codegen.qualified_names("Map<sql.Value, List<schema.Post>>") == [
-//!     ("sql", "Value"),
+//!     ("sql",    "Value"),
 //!     ("schema", "Post"),
 //! ]
 //!
@@ -693,9 +693,9 @@ end
 // The import a qualified type name needs: `schema.Post` the schema's
 // module, `shop.Report` a module the file imports, `sql.Value` std/sql.
 fn qualified_import(
-    r: Resolver,
+    r:      Resolver,
     module: String,
-    name: String,
+    name:   String,
 ) -> Result<(String, String), (String, List<String>)>
     if module == r.qualifier then
         if Iter.contains(r.schema, name) then return Ok((r.schema_module, "self"))
@@ -782,7 +782,7 @@ fn function(
 
     (shape, row) = case shape_of(r, q)
         Ok(found) -> found
-        Err(p) -> return Err([p, ..marker_problems])
+        Err(p)    -> return Err([p, ..marker_problems])
     end
 
     signature_imports =
@@ -803,7 +803,7 @@ fn function(
         |> Iter.flat_map(fn x ->
             case x
                 Err(p) -> [p]
-                Ok(_) -> []
+                Ok(_)  -> []
             end
         end)
         |> Iter.to_list()
@@ -821,7 +821,7 @@ fn function(
 
             p = case sqltext.token_at_offset(tokens, e.offset)
                 Some(t) -> at_token(q, t, e.message, [reported])
-                None -> at_annotation(q, 1, e.message, [reported])
+                None    -> at_annotation(q, 1, e.message, [reported])
             end
 
             return Err([p])
@@ -832,12 +832,12 @@ fn function(
     // column.
     scalar = case row
         Some(t) -> is_scalar(t) or is_schema_enum(r, t)
-        None -> False
+        None    -> False
     end
 
     final_shape = case described_shape(q, shape, row, scalar, columns)
         Ok(found) -> found
-        Err(p) -> return Err([p])
+        Err(p)    -> return Err([p])
     end
 
     (fields, field_imports, problems) = fields_of(s, r, q, tokens, columns, row == None)
@@ -848,7 +848,7 @@ fn function(
         (Some(t), [only]) when scalar ->
             case nullability_problem(q, final_shape, t, only)
                 Some(p) -> return Err([p])
-                None -> Unit
+                None    -> Unit
             end
 
         _ ->
@@ -862,7 +862,7 @@ fn function(
         |> Iter.flat_map(fn x ->
             case x
                 Ok(imports) -> imports
-                Err(_) -> []
+                Err(_)      -> []
             end
         end)
         |> Iter.to_list()
@@ -1049,9 +1049,9 @@ fn nullability_problem(q: Query, shape: Shape, row: String, field: Field) -> May
 
     wrapped = fn inner: String ->
         case shape
-            .Many -> "List<${inner}>"
+            .Many   -> "List<${inner}>"
             .Stream -> "Rows<${inner}>"
-            _ -> "Maybe<${inner}>"
+            _       -> "Maybe<${inner}>"
         end
     end
 
@@ -1121,7 +1121,7 @@ end
 pub fn is_qualified_row_name(text: String) -> Bool
     case String.split(text, ".") |> Iter.to_list()
         [module, name] -> sqltext.is_name(module) and is_row_name(name)
-        _ -> False
+        _              -> False
     end
 end
 
@@ -1138,10 +1138,10 @@ end
 /// rows it changed (`-> Changed`) or nothing (`-> Unit`), and only SQL
 /// that returns rows can leave its result type out or name a row type.
 fn described_shape(
-    q: Query,
-    shape: Shape,
-    row: Maybe<String>,
-    scalar: Bool,
+    q:       Query,
+    shape:   Shape,
+    row:     Maybe<String>,
+    scalar:  Bool,
     columns: List<Column>,
 ) -> Result<Shape, Problem>
     count_hint = "write `-> Changed` for the count, or `-> Unit` to ignore it"
@@ -1221,11 +1221,11 @@ end
 /// How each column is read, the imports its type needs, or what is wrong
 /// with the columns.
 fn fields_of(
-    s: Schema,
-    r: Resolver,
-    q: Query,
-    tokens: List<Token>,
-    columns: List<Column>,
+    s:         Schema,
+    r:         Resolver,
+    q:         Query,
+    tokens:    List<Token>,
+    columns:   List<Column>,
     anonymous: Bool,
 ) -> (List<Field>, List<(String, String)>, List<Problem>)
     items = sqltext.select_items(tokens) |> Iter.to_vector()
@@ -1245,7 +1245,7 @@ fn fields_of(
 
             case item |> Maybe.flat_map(Iter.first)
                 Some(t) -> at_token(q, t, message, hints)
-                None -> at_annotation(q, 1, message, hints)
+                None    -> at_annotation(q, 1, message, hints)
             end
         end
 
@@ -1283,14 +1283,14 @@ fn fields_of(
 end
 
 fn field_of(
-    s: Schema,
-    r: Resolver,
-    q: Query,
-    column: Column,
-    position: Int,
-    override: Maybe<Override>,
+    s:         Schema,
+    r:         Resolver,
+    q:         Query,
+    column:    Column,
+    position:  Int,
+    override:  Maybe<Override>,
     anonymous: Bool,
-    at: (String, List<String>) -> Problem,
+    at:        (String, List<String>) -> Problem,
 ) -> (Field, List<(String, String)>, Maybe<Problem>)
     nullable = override |> Maybe.flat_map(fn o -> o.nullable) |> Maybe.with_default(column.nullable)
     type_override = override |> Maybe.flat_map(fn o -> o.type_text)
@@ -1313,9 +1313,9 @@ fn field_of(
 
     // A type sqlkit picks is qualified where an import shadows it.
     chosen = case (enum_name, family)
-        (Some(e), _) -> Some(e)
+        (Some(e), _)    -> Some(e)
         (None, Some(f)) -> Some(f.nomi)
-        (None, None) -> None
+        (None, None)    -> None
     end
 
     (written, written_imports) = case chosen
@@ -1329,7 +1329,7 @@ fn field_of(
 
     type_text = case type_override
         Some(t) -> Some(t)
-        None -> written
+        None    -> written
     end
 
     field = Field{name: column.name, position:, reader:, args:, type_text:, nullable:}
@@ -1350,7 +1350,7 @@ fn field_of(
 
         (Some(t), _) ->
             case resolve(r, t)
-                Ok(needs) -> (field, needs, None)
+                Ok(needs)  -> (field, needs, None)
                 Err(found) -> (field, [], Some(at(found.first, found.second)))
             end
 
@@ -1373,16 +1373,16 @@ end
 fn result_type(shape: Shape, row: Maybe<String>, fields: List<Field>) -> String
     row_text = case row
         Some(t) -> t
-        None -> anonymous_type(fields)
+        None    -> anonymous_type(fields)
     end
 
     case shape
-        .One -> "Result<${row_text}, sql.Error>"
+        .One      -> "Result<${row_text}, sql.Error>"
         .Optional -> "Result<Maybe<${row_text}>, sql.Error>"
-        .Many -> "Result<List<${row_text}>, sql.Error>"
-        .Stream -> "sqlkit.Rows<${row_text}>"
-        .Changed -> "Result<sqlkit.Changed, sql.Error>"
-        .Ignored -> "Result<Unit, sql.Error>"
+        .Many     -> "Result<List<${row_text}>, sql.Error>"
+        .Stream   -> "sqlkit.Rows<${row_text}>"
+        .Changed  -> "Result<sqlkit.Changed, sql.Error>"
+        .Ignored  -> "Result<Unit, sql.Error>"
     end
 end
 
@@ -1399,14 +1399,14 @@ end
 
 /// The generated function's text.
 fn function_source(
-    q: Query,
-    shape: Shape,
-    row: Maybe<String>,
-    note: String,
-    parts: List<String>,
+    q:       Query,
+    shape:   Shape,
+    row:     Maybe<String>,
+    note:    String,
+    parts:   List<String>,
     markers: List<Token>,
-    fields: List<Field>,
-    scalar: Bool,
+    fields:  List<Field>,
+    scalar:  Bool,
 ) -> String
     doc =
         q.doc
@@ -1436,15 +1436,15 @@ fn function_source(
 
         _ ->
             reader = case shape
-                .One -> "one"
+                .One      -> "one"
                 .Optional -> "optional"
-                .Stream -> "rows"
-                _ -> "list"
+                .Stream   -> "rows"
+                _         -> "list"
             end
 
             read_as_column = case fields
                 [only] when scalar -> Some(only)
-                _ -> None
+                _                  -> None
             end
 
             case read_as_column
@@ -1463,7 +1463,7 @@ fn function_source(
                 None ->
                     open = case row
                         Some(t) -> "${t}{"
-                        None -> "{"
+                        None    -> "{"
                     end
 
                     lines =
@@ -1527,10 +1527,10 @@ end
 // formatter does: on one line when it fits; else an anonymous row's fields
 // one a line when the rest fits, and else the parameters one a line.
 fn signature_source(
-    name: String,
+    name:   String,
     params: List<String>,
-    shape: Shape,
-    row: Maybe<String>,
+    shape:  Shape,
+    row:    Maybe<String>,
     fields: List<Field>,
 ) -> String
     result = result_type(shape, row, fields)
@@ -1563,19 +1563,19 @@ end
 // The result type before and after an anonymous row's `{...}`.
 fn result_open(shape: Shape) -> String
     case shape
-        .One -> "Result<"
+        .One      -> "Result<"
         .Optional -> "Result<Maybe<"
-        .Stream -> "sqlkit.Rows<"
-        _ -> "Result<List<"
+        .Stream   -> "sqlkit.Rows<"
+        _         -> "Result<List<"
     end
 end
 
 fn result_close(shape: Shape) -> String
     case shape
-        .One -> ", sql.Error>"
+        .One      -> ", sql.Error>"
         .Optional -> ">, sql.Error>"
-        .Stream -> ">"
-        _ -> ">, sql.Error>"
+        .Stream   -> ">"
+        _         -> ">, sql.Error>"
     end
 end
 

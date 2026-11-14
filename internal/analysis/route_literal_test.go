@@ -6,8 +6,8 @@ import "testing"
 // and one whose parameters cannot be read as text is an error at it.
 func TestTargetLiteral_RouteParameters(t *testing.T) {
 	for _, c := range []struct{ body, want string }{
-		{"    r = Route`GET /users/{id}/{rest...}`\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route<{id: String, rest: String}>"},
-		{"    r = Route`GET /`\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route"},
+		{"    r = Route\"GET /users/{id}/{rest...}\"\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route<{id: String, rest: String}>"},
+		{"    r = Route\"GET /\"\n    n: Int = r\n    n\n", "type mismatch: expected Int, got Route"},
 		{"    r: Route<{id: Bool}> = \"GET /flags/{id}\"\n    _ = r\n    1\n", "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`"},
 	} {
 		src := "import std::http.Route\n\nfn f() -> Int\n" + c.body + "end\n"
@@ -54,18 +54,18 @@ func TestTargetLiteral_RouteArgumentTypedByTheHandler(t *testing.T) {
 		col         int
 	}{
 		{`[Route.to_with("PATCH /todos/{id}", update)]`, "", 0},
-		{"[Route.to_with(Route`PATCH /todos/{id}`, update)]", "", 0},
+		{"[Route.to_with(Route\"PATCH /todos/{id}\", update)]", "", 0},
 		{`["PATCH /todos/{id}" |> Route.to_with(update)]`, "", 0},
-		{"[Route`PATCH /todos/{id}` |> Route.to_with(update)]", "", 0},
+		{"[Route\"PATCH /todos/{id}\" |> Route.to_with(update)]", "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _: Request, p: {id: Int} -> Response{body: Body.Text("${p.id + 1}")})]`, "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text(p.id + "!")})]`, "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text("${p.id + 1}")})]`, "binary + type mismatch: String vs Int", 0},
 		{`[Route.to_with("GET /flags/{id}", flag)]`, "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`", 20},
-		{"[Route.to_with(Route`GET /b/{id}`, wrap(show))]", "", 0},
+		{"[Route.to_with(Route\"GET /b/{id}\", wrap(show))]", "", 0},
 		{`[Route.to_with("GET /b/{id}", wrap(show))]`, "", 0},
 		{`["GET /b/{id}" |> Route.to_with(wrap(show))]`, "", 0},
-		{"[Route.to_with(Route`GET /b/{id}`, wrap(wrap2(show2)))]", "", 0},
-		{"[Route.to_with(Route`GET /b/{id}`, concrete(show))]", "", 0},
+		{"[Route.to_with(Route\"GET /b/{id}\", wrap(wrap2(show2)))]", "", 0},
+		{"[Route.to_with(Route\"GET /b/{id}\", concrete(show))]", "", 0},
 		{`[Route.to_with("GET /b/{id}", wrap(fn _, p, _ -> Response{body: Body.Text(p.id + "!")}))]`, "", 0},
 		{`[Route.to_with("GET /flags/{id}", wrap(flag3))]`, "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`", 20},
 	} {

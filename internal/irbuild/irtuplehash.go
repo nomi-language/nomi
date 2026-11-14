@@ -49,8 +49,14 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	subj, sk, _, sok := bl.lower(t.Args[0])
-	if !sok || !irRetainedTupleKind(sk) && !irRetainedRecordKind(sk) {
+	if !sok {
 		return ir.NoTemp, kindInvalid, false, false, true
+	}
+	// The operand has the tuple or record type the parameter projects to.
+	if sk.tag == tagAnonStruct {
+		irLoweredRecordRetained(sk, "Hashable.hash")
+	} else {
+		irLoweredTupleRetained(sk, "Hashable.hash")
 	}
 	v, k, mobile, ok = bl.tupleHashOf(t, subj, sk)
 	return v, k, mobile, ok, true

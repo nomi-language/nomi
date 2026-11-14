@@ -39,7 +39,7 @@ end
 fn unwrap_or(a: Answer, fallback: Int) -> Int
     case a
         Some(v) -> v
-        None -> fallback
+        None    -> fallback
     end
 end
 

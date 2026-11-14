@@ -56,7 +56,7 @@ struct Origin
 end
 
 struct Frame
-    at: Origin
+    at:    Origin
     scale: Int
 end
 

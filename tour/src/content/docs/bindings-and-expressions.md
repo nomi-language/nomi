@@ -296,7 +296,7 @@ fn main()
     read_name = fn -> name
     name = 3
     dbg read_name() // "a"
-    dbg name // 3
+    dbg name        // 3
 end
 ```
 
@@ -429,10 +429,10 @@ fn main()
     dbg label
 
     range = case
-        x < 0 -> "negative"
-        x < 10 -> "small"
+        x < 0   -> "negative"
+        x < 10  -> "small"
         x < 100 -> "medium"
-        _ -> "large"
+        _       -> "large"
     end
 
     dbg range
@@ -464,7 +464,7 @@ the `if Pattern = expr` form.
 
 ```nomi-run
 once max_retries = 3
-once timeout_ms = 30 * 1000
+once timeout_ms  = 30 * 1000
 
 fn main()
     dbg max_retries

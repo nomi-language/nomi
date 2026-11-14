@@ -1,5 +1,5 @@
 struct Feed
-    name: String
+    name:  String
     items: Iter<Int>
 end
 
@@ -84,7 +84,7 @@ test "an Iter is an enum payload"
 
     case source
         .Lazy(it) -> assert Iter.to_list(it) == [5]
-        .Empty -> assert False
+        .Empty    -> assert False
     end
 end
 

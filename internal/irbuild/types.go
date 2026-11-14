@@ -640,6 +640,10 @@ func (g *gen) typeSettleOrder() []*typeDef {
 
 func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
 	g.declModifiers(d, t.Decorators, t.TypeParams, t.WhereClauses, t.Items, "struct")
+	if planted := plantedRefusal(t.Name); planted != "" {
+		// PlantTypeDeclineForTest.
+		d.refusals = append(d.refusals, refusal{construct: planted, detail: d.nomi})
+	}
 	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.decl == t && tpl.why == "" {
 		// An admitted generic TEMPLATE. Its fields are resolved per
 		// INSTANTIATION, under a substitution, and this def is never emitted —
@@ -1164,6 +1168,9 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 			return kindInvalid
 		}
 	}
+	if ct, isConj := te.(*ast.ConjunctionType); isConj {
+		return g.conjTypeOf(ct)
+	}
 	if _, isSelf := te.(*ast.SelfType); isSelf {
 		// `self` names the implementor while an interface default is
 		// lowered for one (irImplLower, emitIfaceDefault); anywhere else
@@ -1556,11 +1563,12 @@ func (g *gen) replayTypeRefusals(d *typeDef, at ast.Node) {
 
 // --- the untyped literal at an equality -------------------------------------
 
-// untypedLiteral reports whether k is one of the five literals whose type the
-// CHECKER solves from context rather than the value carrying it: `[]`, a bare
-// `None`, `{}`, `[]` and `[]`.
+// untypedLiteral reports whether k is one of the four empty literals whose
+// type the CHECKER solves from context rather than the value carrying it:
+// `[]` as a List, Set or Vector, and `{}`. A bare `None` has no kind of its
+// own: the builder lowers it at the type the checker gave it.
 //
-// The five are one concept and are listed together everywhere they appear
+// The four are one concept and are listed together everywhere they appear
 // (native.go's tag comments, stdprelude.go's signature rule, generic.go's type
 // argument rule), so they are asked about through one predicate rather than
 // repeated switches that can drift apart. `{}` has no corpus site at
@@ -1568,7 +1576,7 @@ func (g *gen) replayTypeRefusals(d *typeDef, at ast.Node) {
 // leave.
 func untypedLiteral(k kind) bool {
 	switch k.tag {
-	case tagEmptyList, tagBareNone, tagEmptyMap, tagEmptySet, tagEmptyVector:
+	case tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
 		return true
 	}
 	return false

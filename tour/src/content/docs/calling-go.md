@@ -60,11 +60,11 @@ end
 gopkg "urltools"
 
 pub struct ParsedURL
-    scheme: String
-    host: String
-    path: String
+    scheme:    String
+    host:      String
+    path:      String
     raw_query: String
-    query: Map<String, List<String>>
+    query:     Map<String, List<String>>
 end
 
 pub fn escape_query(value: String) -> String go urltools.EscapeQuery

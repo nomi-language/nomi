@@ -2,8 +2,6 @@ package rt
 
 import (
 	"iter"
-
-	"github.com/rivo/uniseg"
 )
 
 // The `Iter` sources beyond List, the lazy adapters that carry per-run state,
@@ -51,7 +49,8 @@ func EachGraphemeCluster(s string, yield func(cluster string) bool) bool {
 	state := -1
 	for len(s) > 0 {
 		var c string
-		c, s, _, state = uniseg.FirstGraphemeClusterInString(s, state)
+		c, state = graphemeStep(s, state)
+		s = s[len(c):]
 		if !yield(c) {
 			return false
 		}
@@ -519,16 +518,54 @@ func SeqChunks[T any](src Seq[T], size int64) Seq[*List[T]] {
 	}, Endless: chunksEndless(src, size)}
 }
 
+// WindowsEach is `Iter.windows`: each run of `size` neighbouring elements,
+// one starting at each element, as a List. A non-positive size yields
+// nothing and answers True without touching the source, as ChunksEach
+// does, and a source shorter than `size` yields nothing.
+//
+// The last `size` elements live in a ring, so each window is built once
+// from it: `size` cells per window and nothing else per element. A List
+// window cannot share cells with the one before it, since the two differ at
+// both ends.
+func WindowsEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame, item *List[T]) bool) bool {
+	if size <= 0 {
+		return true
+	}
+	ring := make([]T, 0, size)
+	next := 0 // the oldest element once the ring is full
+	return src.Run(fr, func(fr *Frame, item T) bool {
+		if int64(len(ring)) < size {
+			ring = append(ring, item)
+			if int64(len(ring)) < size {
+				return true
+			}
+		} else {
+			ring[next] = item
+			next = (next + 1) % len(ring)
+		}
+		var window *List[T]
+		for i := len(ring) - 1; i >= 0; i-- {
+			window = Cons(ring[(next+i)%len(ring)], window)
+		}
+		return yield(fr, window)
+	})
+}
+
+// SeqWindows is `pub fn windows<T>(source: Iter<T>, size: Int) -> Iter<List<T>>`.
+func SeqWindows[T any](src Seq[T], size int64) Seq[*List[T]] {
+	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
+		return WindowsEach(fr, src, size, yield)
+	}, Endless: chunksEndless(src, size)}
+}
+
 // --- zip, the one adapter push cannot express directly -----------------------
 
 // seqPull turns a push sequence into a pull cursor: `next` yields the following
 // element, `stop` abandons the rest.
 //
 // `iter.Pull` from Go's standard library, which is a coroutine plus a handoff
-// per element. std/iter.nomi's `zip` comment calls this out by name — "`zip_each`
-// therefore runs `b` as a pull cursor — Nomi's `iter.Pull`, and like Go's it
-// costs a coroutine plus a handoff per element" — so this is std's own stated
-// cost rather than an implementation choice made here.
+// per element. SeqZipCursor takes it only for a right side its caller has no
+// cursor for: a List, a Vector or an Int range steps directly.
 //
 // Stop is not optional. A cursor abandoned without it leaks its coroutine, and
 // for an unbounded source that coroutine is parked forever. `SeqZip` defers it
@@ -572,9 +609,24 @@ func seqPull[U any](fr *Frame, src Seq[U]) (next func() (U, bool), stop func()) 
 // tuple-shaped entry point in this package takes one: a Nomi tuple lowers to a
 // per-package anonymous Go struct rt cannot name.
 func SeqZip[T, U, P any](left Seq[T], right Seq[U], pair func(T, U) P) Seq[P] {
+	return SeqZipCursor(left, right, nil, pair)
+}
+
+// SeqZipCursor is SeqZip whose right side, when cursor is not nil, is pulled
+// through the cursor it makes for each run instead of a coroutine: a List
+// (ListCellCursor), a Vector or an Int range (IntRangeCursor) steps
+// directly, with no handoff and nothing to stop. right still answers the
+// zip's Endless.
+func SeqZipCursor[T, U, P any](left Seq[T], right Seq[U], cursor func() func() (U, bool), pair func(T, U) P) Seq[P] {
 	return Seq[P]{Run: func(fr *Frame, yield func(fr *Frame, item P) bool) bool {
-		next, stop := seqPull(fr, right)
-		defer stop()
+		var next func() (U, bool)
+		if cursor != nil {
+			next = cursor()
+		} else {
+			var stop func()
+			next, stop = seqPull(fr, right)
+			defer stop()
+		}
 		exhausted := false
 		completed := left.Run(fr, func(fr *Frame, l T) bool {
 			r, more := next()

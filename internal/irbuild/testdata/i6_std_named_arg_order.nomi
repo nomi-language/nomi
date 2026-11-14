@@ -29,7 +29,7 @@ end
 
 fn render(label: String, r: Result<Time, Error>) -> Unit
     case r
-        Ok(t) -> io.print("${label}=${Time.hour(t)}:${Time.minute(t)}:${Time.second(t)}")
+        Ok(t)  -> io.print("${label}=${Time.hour(t)}:${Time.minute(t)}:${Time.second(t)}")
         Err(_) -> io.print("${label}=err")
     end
 

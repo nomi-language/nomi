@@ -25,7 +25,7 @@ func TestStdlibReference_TypedLiteralIsTheModulesOwnType(t *testing.T) {
 	for _, c := range []struct{ module, body string }{
 		{"regex", "assert String.find(\"order 66\", Regex`\\d+`) == Maybe.Some(\"66\")"},
 		{"regex", "assert Regex.pattern(Regex`\\d+`) == \"\\\\d+\""},
-		{"calendar", "assert Date.days_between(Date\"2026-05-04\"?, Date\"2026-05-07\"?) == 3"},
+		{"calendar", "assert Date.days_between(Date\"2026-05-04\", Date\"2026-05-07\") == 3"},
 		{"toml", "assert Toml.text(Toml\"a = 1\") == \"a = 1\""},
 	} {
 		cases, err := vmhost.StdlibReference(c.module, c.body, "", io.Discard)

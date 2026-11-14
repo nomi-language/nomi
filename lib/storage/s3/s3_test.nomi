@@ -39,7 +39,7 @@ end
 
 test "the GET object example signs as AWS's documentation does"
     request = Request{
-        url: Url`https://examplebucket.s3.amazonaws.com/test.txt`,
+        url:     Url"https://examplebucket.s3.amazonaws.com/test.txt",
         headers: Headers[("Range", "bytes=0-9")],
     }
 
@@ -92,9 +92,9 @@ test "the PUT object example signs a key with a dollar and a body"
 
     request = Request{
         method: Method.Put,
-        url: Url.join_path(Url`https://examplebucket.s3.amazonaws.com/`, ["test$file.text"]),
+        url:    Url.join_path(Url"https://examplebucket.s3.amazonaws.com/", ["test$file.text"]),
         headers: Headers[
-            ("Date", "Fri, 24 May 2013 00:00:00 GMT"),
+            ("Date",                "Fri, 24 May 2013 00:00:00 GMT"),
             ("x-amz-storage-class", "REDUCED_REDUNDANCY"),
         ],
         body: Body.Text("Welcome to Amazon S3."),
@@ -140,7 +140,7 @@ end
 test "the presigned GET example signs its query"
     url = s3.presign(
         Method.Get,
-        Url`https://examplebucket.s3.amazonaws.com/test.txt`,
+        Url"https://examplebucket.s3.amazonaws.com/test.txt",
         Headers[],
         example_credentials(),
         "us-east-1",
@@ -163,10 +163,10 @@ test "the canonical query sorts by name and then value"
         == "a=1&a=x%20y&a-b=&b=2"
 end
 
-fn config(endpoint: Url = Url`http://localhost:9000`) -> Config
+fn config(endpoint: Url = Url"http://localhost:9000") -> Config
     Config{
         endpoint:,
-        bucket: "photos",
+        bucket:      "photos",
         credentials: Credentials{access_key: "minio", secret_key: "minio123"},
     }
 end
@@ -222,7 +222,7 @@ test "the signed host keeps the endpoint's port"
 end
 
 test "virtual-host addressing puts the bucket in the host"
-    c = {..config(Url`https://nyc3.digitaloceanspaces.com`), addressing: Addressing.VirtualHost}
+    c = {..config(Url"https://nyc3.digitaloceanspaces.com"), addressing: Addressing.VirtualHost}
     ran = http_testing.run(ok_answer, fn -> Store.get(store_of(c), "a/b.txt"))
     assert [request] = ran.requests
     assert "${request.url}" == "https://photos.nyc3.digitaloceanspaces.com/a/b.txt"
@@ -262,7 +262,7 @@ test "get reads the type, size and date from the response"
         Ok(
             Response{
                 headers: Headers[
-                    ("Content-Type", "image/png"),
+                    ("Content-Type",  "image/png"),
                     ("Last-Modified", "Fri, 24 May 2013 00:00:00 GMT"),
                 ],
                 body: Body.Bytes(String.to_bytes("png!")),
@@ -278,7 +278,7 @@ test "get reads the type, size and date from the response"
 end
 
 test "a public base is where url points"
-    c = {..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    c = {..config(), public_base: Some(Url"https://cdn.example.com/")}
     assert "${Store.url(store_of(c), "a/b.jpg")!}" == "https://cdn.example.com/a/b.jpg"
     assert "${Store.url(store_of(config()), "a/b.jpg")!}" == "http://localhost:9000/photos/a/b.jpg"
 end
@@ -315,7 +315,7 @@ test "S3's errors map to storage errors"
             404,
             error_body("NoSuchBucket", "The specified bucket does not exist"),
             storage.Error.Backend{
-                code: "NoSuchBucket",
+                code:    "NoSuchBucket",
                 message: "The specified bucket does not exist",
             },
         ),
@@ -333,7 +333,7 @@ test "S3's errors map to storage errors"
                 "<Error><Code>AuthorizationHeaderMalformed</Code><Message>The region is wrong</Message><Region>eu-west-1</Region></Error>"
             ),
             storage.Error.Backend{
-                code: "AuthorizationHeaderMalformed",
+                code:    "AuthorizationHeaderMalformed",
                 message: "The region is wrong (the server wants the region eu-west-1)",
             },
         ),
@@ -398,7 +398,7 @@ fn flaky(failures: Int, first: Int) -> (Request) -> Result<Response, http.Error>
         Ok(
             Response{
                 status: Status(status),
-                body: error_body("SlowDown", "Please reduce your request rate."),
+                body:   error_body("SlowDown", "Please reduce your request rate."),
             }
         )
     end
@@ -440,9 +440,9 @@ test "a config that cannot work is refused"
     good = config()
 
     [
-        {..good, endpoint: Url`ftp://localhost:9000`},
-        {..good, endpoint: Url`https://example.com/base`},
-        {..good, endpoint: Url`https://example.com?x=1`},
+        {..good, endpoint: Url"ftp://localhost:9000"},
+        {..good, endpoint: Url"https://example.com/base"},
+        {..good, endpoint: Url"https://example.com?x=1"},
         {..good, bucket: "ab"},
         {..good, bucket: "Photos"},
         {..good, bucket: "-photos"},
@@ -452,8 +452,8 @@ test "a config that cannot work is refused"
         {..good, retries: -1},
         {
             ..good,
-            endpoint: Url`https://s3.example.com`,
-            bucket: "my.photos",
+            endpoint:   Url"https://s3.example.com",
+            bucket:     "my.photos",
             addressing: Addressing.VirtualHost,
         },
     ]
@@ -463,7 +463,7 @@ test "a config that cannot work is refused"
 end
 
 test "presigned URLs are on the endpoint and bounded to 7 days"
-    c = {..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    c = {..config(), public_base: Some(Url"https://cdn.example.com/")}
     assert Ok(get) = s3.presign_get(c, "a/b.jpg", Duration.minutes(5))
 
     assert String.starts_with(
@@ -497,7 +497,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
             return Ok(
                 Response{
                     status: Status.bad_request,
-                    body: error_body("SignatureDoesNotMatch", Url.escaped_path(request.url)),
+                    body:   error_body("SignatureDoesNotMatch", Url.escaped_path(request.url)),
                 }
             )
         end
@@ -506,7 +506,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
             return Ok(
                 Response{
                     status: Status.bad_request,
-                    body: error_body("XAmzContentSHA256Mismatch", "hash"),
+                    body:   error_body("XAmzContentSHA256Mismatch", "hash"),
                 }
             )
         end
@@ -536,7 +536,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
                 |> Result.map(fn object ->
                     Response{
                         headers: Headers[
-                            ("Content-Type", object.info.content_type),
+                            ("Content-Type",  object.info.content_type),
                             ("Last-Modified", http.format_time(object.info.modified)),
                         ],
                         body: Body.Bytes(object.data),
@@ -548,7 +548,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
                 |> Result.map(fn object ->
                     Response{
                         headers: Headers[
-                            ("Content-Type", object.info.content_type),
+                            ("Content-Type",   object.info.content_type),
                             ("Content-Length", "${object.info.size}"),
                         ],
                     }
@@ -572,7 +572,7 @@ fn fake_s3(memory: Memory) -> (Request) -> Result<Response, http.Error>
                 Ok(
                     Response{
                         status: Status.internal_server_error,
-                        body: error_body("InternalError", "${e}"),
+                        body:   error_body("InternalError", "${e}"),
                     }
                 )
         end
@@ -587,7 +587,7 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response
     prefix = Query.get(query, "prefix") |> Maybe.with_default("")
 
     options = ListOptions{
-        prefix: "${within}${prefix}",
+        prefix:    "${within}${prefix}",
         delimiter: Query.get(query, "delimiter") |> Maybe.with_default(""),
         continuation: Query.get(query, "continuation-token")
         |> Maybe.map(fn token -> "${within}${token}"),
@@ -628,17 +628,17 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response
 
     next = case listing.next
         Some(token) -> [field("IsTruncated", "true"), field("NextContinuationToken", inner(token))]
-        None -> [field("IsTruncated", "false")]
+        None        -> [field("IsTruncated", "false")]
     end
 
     root = Element{
-        name: Name{local: "ListBucketResult", space: "http://s3.amazonaws.com/doc/2006-03-01/"},
+        name:     Name{local: "ListBucketResult", space: "http://s3.amazonaws.com/doc/2006-03-01/"},
         children: [field("Name", bucket), field("Prefix", prefix)] + contents + prefixes + next,
     }
 
     Response{
         headers: Headers[("Content-Type", "application/xml")],
-        body: Body.Text(xml.encode(root, xml.WriteOptions{declaration: True})!),
+        body:    Body.Text(xml.encode(root, xml.WriteOptions{declaration: True})!),
     }
 end
 
@@ -672,13 +672,13 @@ test "a listing sends ListObjectsV2 with its options and reads the page"
         Listing{
             objects: [
                 Entry{
-                    key: "posts/a&b.jpg",
-                    size: 434234,
+                    key:      "posts/a&b.jpg",
+                    size:     434234,
                     modified: Instant.from_nanos(1_255_369_830_000_000_000),
                 },
             ],
             prefixes: ["posts/2024/"],
-            next: Some("1ueGcxLPRx1Tr/XYExHnhbYLgveDs2J/wm36Hy4vbOwM="),
+            next:     Some("1ueGcxLPRx1Tr/XYExHnhbYLgveDs2J/wm36Hy4vbOwM="),
         }
     )
 
@@ -688,10 +688,10 @@ test "a listing sends ListObjectsV2 with its options and reads the page"
 
     assert Url.query_values(request.url) == Query([
             ("continuation-token", "t+1/="),
-            ("delimiter", "/"),
-            ("list-type", "2"),
-            ("max-keys", "2"),
-            ("prefix", "posts/"),
+            ("delimiter",          "/"),
+            ("list-type",          "2"),
+            ("max-keys",           "2"),
+            ("prefix",             "posts/"),
         ])
 
     assert Headers.get(request.headers, "Authorization") is Some(_)
@@ -738,7 +738,7 @@ test "a key is sent and signed with each byte outside A-Z a-z 0-9 - _ . ~ escape
 end
 
 test "a public URL escapes each segment of the key"
-    c = {..config(), public_base: Some(Url`https://cdn.example.com/`)}
+    c = {..config(), public_base: Some(Url"https://cdn.example.com/")}
     u = Store.url(store_of(c), "a(1) b/50%.jpg")!
     assert u.path == "/a(1) b/50%.jpg"
     assert "${u}" == "https://cdn.example.com/a%281%29%20b/50%25.jpg"

@@ -31,16 +31,16 @@ end
 
 test "date only specification of time"
     [
-        ("date only specification of time", Date`2011-04-25`, NaiveDateTime`2043-01-01T01:46:40`),
+        ("date only specification of time", Date"2011-04-25", NaiveDateTime"2043-01-01T01:46:40"),
         (
             "second test for date only specification of time",
-            Date`1977-06-13`,
-            NaiveDateTime`2009-02-19T01:46:40`,
+            Date"1977-06-13",
+            NaiveDateTime"2009-02-19T01:46:40",
         ),
         (
             "third test for date only specification of time",
-            Date`1959-07-19`,
-            NaiveDateTime`1991-03-27T01:46:40`,
+            Date"1959-07-19",
+            NaiveDateTime"1991-03-27T01:46:40",
         ),
     ]
     |> subtests (description, day, expected), description
@@ -52,13 +52,13 @@ test "full time specified"
     [
         (
             "full time specified",
-            NaiveDateTime`2015-01-24T22:00:00`,
-            NaiveDateTime`2046-10-02T23:46:40`,
+            NaiveDateTime"2015-01-24T22:00:00",
+            NaiveDateTime"2046-10-02T23:46:40",
         ),
         (
             "full time with day roll-over",
-            NaiveDateTime`2015-01-24T23:59:59`,
-            NaiveDateTime`2046-10-03T01:46:39`,
+            NaiveDateTime"2015-01-24T23:59:59",
+            NaiveDateTime"2046-10-03T01:46:39",
         ),
     ]
     |> subtests (description, moment, expected), description
@@ -67,10 +67,10 @@ test "full time specified"
 end
 
 test "does not mutate the input"
-    moment = NaiveDateTime`2015-01-24T23:59:59`
+    moment = NaiveDateTime"2015-01-24T23:59:59"
     _later = gigasecond.add(moment)
 
-    assert moment == NaiveDateTime`2015-01-24T23:59:59`
+    assert moment == NaiveDateTime"2015-01-24T23:59:59"
 end
 ```
 <!-- expect
@@ -84,5 +84,5 @@ test result: ok. 6 passed, 0 failed
 
 - The moment is std/calendar's `NaiveDateTime`. The canonical moments carry no zone or offset, and the answer is the wall-clock reading a gigasecond later, so a zoned `DateTime` would add a zone the data does not have (style §22 keeps `NaiveDateTime` for such readings).
 - The gigasecond is `once gigasecond = Seconds(1_000_000_000)`, and `add` is `moment + gigasecond`: std/calendar's `Add<Seconds, NaiveDateTime>` does the carrying into minutes, hours, days, months and years.
-- Three canonical moments are dates alone. The test table holds them as ``Date`2011-04-25` `` literals and the test turns each into midnight with `NaiveDateTime.at_midnight`, so the data says what the canonical data says. The expected moments are ``NaiveDateTime`...` `` literals, compared as values.
+- Three canonical moments are dates alone. The test table holds them as `Date"2011-04-25"` literals and the test turns each into midnight with `NaiveDateTime.at_midnight`, so the data says what the canonical data says. The expected moments are `NaiveDateTime"..."` literals, compared as values.
 - The canonical "does not mutate the input" case is a test that adds a gigasecond and asserts the moment is still what it was. Nomi values cannot change, so it can only pass; it is kept so every canonical case has a test.

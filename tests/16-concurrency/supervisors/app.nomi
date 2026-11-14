@@ -25,7 +25,7 @@ end
 
 fn send_email(to: String) -> Result<Unit, String>
     case to == ""
-        True -> Err("no address")
+        True  -> Err("no address")
         False -> Ok(Unit)
     end
 end
@@ -35,7 +35,7 @@ end
 // the "what does failure mean?" decision belongs.
 pub fn send_welcome(to: String) -> Unit
     case send_email(to)
-        Ok(_) -> Unit
+        Ok(_)  -> Unit
         Err(e) -> report("welcome to '" + to + "' failed: " + e)
     end
 end
@@ -43,7 +43,7 @@ end
 // A full alerts queue at shutdown is not worth crashing over.
 fn report(message: String) -> Unit
     case Sender.send(Config.alerts.sender, message)
-        Ok(_) -> Unit
+        Ok(_)  -> Unit
         Err(_) -> Unit
     end
 end
@@ -70,7 +70,7 @@ pub fn drain_alerts() -> List<String>
     Iter.loop([], fn seen ->
         case Receiver.receive(Config.alerts.receiver)
             Some(message) -> [message, ..seen]
-            None -> break seen
+            None          -> break seen
         end
     end)
 end
@@ -78,9 +78,9 @@ end
 pub fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
-        notify: Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 4),
-        audit: Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 2),
-        alerts: Channel.buffered<String>(16),
+        notify:  Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 4),
+        audit:   Supervisor.new(shutdown_timeout: Duration.seconds(5), max_running: 2),
+        alerts:  Channel.buffered<String>(16),
     })
 end
 

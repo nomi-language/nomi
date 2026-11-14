@@ -26,7 +26,7 @@ fn main()
     dbg True and not False
     dbg Int.pow(2, 100)
     dbg 0b1011 >>> 1 &&& 1 // the second-lowest bit
-    dbg 0b0011 ||| 0b0100 // set a bit
+    dbg 0b0011 ||| 0b0100  // set a bit
 end
 ```
 <!-- expect
@@ -271,7 +271,7 @@ fn kind(cp: Codepoint) -> String
     case cp
         ',' -> "comma"
         ' ' -> "space"
-        _ -> Codepoint.to_string(cp)
+        _   -> Codepoint.to_string(cp)
     end
 end
 
@@ -316,6 +316,7 @@ fn main()
     |> String.to_codepoints()
     |> Iter.map(Codepoint.to_digit)
     |> Maybe.values()
+    |> Iter.to_list()
     |> dbg
 end
 ```
@@ -327,11 +328,12 @@ dbg line 9:
   |> Iter.map(Codepoint.to_string)
   |> String.join()
   = "Tél"
-dbg line 15:
+dbg line 16:
   text
   |> String.to_codepoints()
   |> Iter.map(Codepoint.to_digit)
   |> Maybe.values()
+  |> Iter.to_list()
   = [5, 5, 5, 0, 1]
 -->
 
@@ -369,7 +371,7 @@ fn main()
     prefix = Bytes.from_list([0x67, 0x6F, 0x3A])
 
     case Bytes.to_string(prefix + raw)
-        Ok(text) -> io.print(text)
+        Ok(text)    -> io.print(text)
         Err(reason) -> io.print(reason)
     end
 end
@@ -489,8 +491,8 @@ Spec: [Raw strings](/spec/literals/#raw-strings),
 
 [`std::regex`](/reference/regex/) has `Regex`. Write a pattern in backticks,
 as ``Regex`\d+` ``, so its backslashes stay as written. The compiler checks
-the pattern, so ``Regex`[` `` is an error before the program runs
-([Typed Literals](/typed-literals/#backtick-literals-are-checked-at-compile-time) explains how).
+the pattern, so `Regex"["` is an error before the program runs
+([Typed Literals](/typed-literals/#a-literal-without-slots-is-checked-at-compile-time) explains how).
 
 `String.split`, `String.contains`, `String.starts_with`,
 `String.ends_with`, `String.replace`, `String.find` and `String.find_all`
@@ -533,9 +535,10 @@ dbg line 15: String.find_all(text, Regex`(?i)order \d+`) = ["Order 1042", "order
 -->
 
 `(?i)` at the start of a pattern ignores case. A pattern in double quotes,
-as `Regex"\\d+"`, is compiled when the program runs, so it is a `Result`
-that you unwrap with `?` or `case`. Inside double quotes a backslash starts
-an escape, so the pattern's `\d` is written `\\d`.
+as `Regex"\\d+"`, is checked the same way, but inside double quotes a
+backslash starts an escape, so the pattern's `\d` is written `\\d`. A
+pattern with a `${...}` slot is compiled when the program runs, so it is a
+`Result` that you unwrap with `?` or `case`.
 
 ## See it in action
 

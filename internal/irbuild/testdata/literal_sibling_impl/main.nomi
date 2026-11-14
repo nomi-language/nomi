@@ -31,7 +31,7 @@ impl Literal for Local
     fn from_fragments(fragments: List<Fragment<String>>) -> String
         Iter.reduce(fragments, "<", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + "[" + v + "]"
             end
         end) + ">"
@@ -58,10 +58,7 @@ fn main()
     )
 
     // NEGATIVE CONTROL: a stdlib handler, reached through the anchor.
-    case Date"2026-01-01"
-        Ok(d) -> io.print(Date.to_string(d))
-        Err(_) -> io.print("unparsed")
-    end
+    io.print(Date.to_string(Date"2026-01-01"))
 
     // THE ROUTE: a sibling handler at `Fragment<Int>`, where a swapped payload
     // cannot pass for the right one, because the two payload types differ.

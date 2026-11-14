@@ -54,15 +54,15 @@ end
 fn seg(s: PathSegment) -> String
     case s
         PathSegment.Field(name) -> "field:" + name
-        PathSegment.Index(i) -> "index:" + Int.to_string(i)
+        PathSegment.Index(i)    -> "index:" + Int.to_string(i)
     end
 end
 
 fn main()
     e = dynamic.Error{
-        path: [PathSegment.Field("user"), PathSegment.Index(3)],
+        path:     [PathSegment.Field("user"), PathSegment.Index(3)],
         expected: "Int",
-        got: "String",
+        got:      "String",
     }
 
     // --- The plain scalar fields, so a wholly broken row fails here first ----

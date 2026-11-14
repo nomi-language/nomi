@@ -7,7 +7,7 @@ fn enroll(students: List<(String, Int)>) -> (School, List<Bool>)
     |> Iter.map_reduce(School.new(), fn school, (name, grade) ->
         case School.add(school, name, grade)
             Ok(added) -> (added, True)
-            Err(_) -> (school, False)
+            Err(_)    -> (school, False)
         end
     end)
 end
@@ -40,8 +40,8 @@ end
 
 test "the roster"
     [
-        ("Roster is empty when no student is added", [], []),
-        ("Student is added to the roster", [("Aimee", 2)], ["Aimee"]),
+        ("Roster is empty when no student is added", [],             []),
+        ("Student is added to the roster",           [("Aimee", 2)], ["Aimee"]),
         (
             "Multiple students in the same grade are added to the roster",
             [("Blair", 2), ("James", 2), ("Paul", 2)],
@@ -75,12 +75,12 @@ test "the roster"
         (
             "Students are sorted by grades and then by name in the roster",
             [
-                ("Peter", 2),
-                ("Anna", 1),
-                ("Barb", 1),
-                ("Zoe", 2),
-                ("Alex", 2),
-                ("Jim", 3),
+                ("Peter",   2),
+                ("Anna",    1),
+                ("Barb",    1),
+                ("Zoe",     2),
+                ("Alex",    2),
+                ("Jim",     3),
                 ("Charlie", 1),
             ],
             ["Anna", "Barb", "Charlie", "Alex", "Peter", "Zoe", "Jim"],

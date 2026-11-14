@@ -145,9 +145,9 @@ end
 /// What a `Session` carries besides its value: its store, when it began
 /// and was last written, and the flash messages to write.
 pub opaque struct SessionState
-    store: CookieStore
-    created: Int
-    seen: Int
+    store:    CookieStore
+    created:  Int
+    seen:     Int
     outgoing: List<String>
 end
 
@@ -170,7 +170,7 @@ impl Session<T>
     pub fn set<T>(session: Session<T>, value: T) -> Session<T>
         state = case session.value
             Some(_) -> session.state
-            None -> {..session.state, created: now()}
+            None    -> {..session.state, created: now()}
         end
 
         {..session, value: Some(value), state:}
@@ -268,7 +268,7 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
 
     lifetime = case store.idle_timeout
         Some(idle) -> Int.min(left, Duration.as_seconds(idle))
-        None -> left
+        None       -> left
     end
 
     if (session.value == None and Iter.is_empty(state.outgoing)) or lifetime <= 0 then
@@ -287,7 +287,7 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
 
     payload = case session.value
         Some(v) -> Map.put(fields, "v", ToJson.to_json(v))
-        None -> fields
+        None    -> fields
     end
 
     plain = String.to_bytes(Json.encode(Json.Obj(payload)))
@@ -296,7 +296,7 @@ pub fn write<T>(response: Response, session: Session<T>) -> Response where T: To
         Ok(sealed) ->
             cookie = {
                 ..base_cookie(store),
-                value: base64.encode_url(sealed, padded: False),
+                value:   base64.encode_url(sealed, padded: False),
                 max_age: MaxAge.Seconds(lifetime),
             }
 
@@ -326,7 +326,7 @@ fn read<T>(request: Request, store: CookieStore) -> (Session<T>, Bool) where T: 
         Some(cookie) ->
             case open(store, cookie.value, at)
                 Some(session) -> (session, False)
-                None -> (empty(store, at), True)
+                None          -> (empty(store, at), True)
             end
     end
 end
@@ -346,7 +346,7 @@ fn open<T>(store: CookieStore, text: String, at: Int) -> Maybe<Session<T>> where
 
     fields = case Json.decode(decoded)
         Ok(Json.Obj(m)) -> m
-        _ -> return None
+        _               -> return None
     end
 
     created = int_field(fields, "c")?
@@ -384,7 +384,7 @@ end
 fn int_field(fields: Map<String, Json>, name: String) -> Maybe<Int>
     case Map.get(fields, name)
         Some(Json.Int(n)) -> Some(n)
-        _ -> None
+        _                 -> None
     end
 end
 
@@ -432,11 +432,11 @@ end
 
 fn base_cookie(store: CookieStore) -> Cookie
     Cookie{
-        name: store.name,
-        value: "",
-        path: Some(store.path),
-        domain: store.domain,
-        secure: store.secure,
+        name:      store.name,
+        value:     "",
+        path:      Some(store.path),
+        domain:    store.domain,
+        secure:    store.secure,
         http_only: True,
         same_site: SameSite.Lax,
     }

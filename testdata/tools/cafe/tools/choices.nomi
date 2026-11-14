@@ -2,6 +2,7 @@
 // enum per line. A line `Size: small medium large` declares
 // `pub enum Size` with the variants `Small`, `Medium` and `Large`.
 import
+    std::compiler
     std::fs
     std::io
 end
@@ -23,7 +24,8 @@ fn main() -> Result<Unit, String>
         ${body}
         """
 
-    fs.write_text("enums.nomi", source + "\n") |> Result.map_err(fn e -> "enums.nomi: ${e}")?
+    text = compiler.format(source) |> Result.map_err(fn e -> "enums.nomi does not parse: ${e}")?
+    fs.write_text("enums.nomi", text) |> Result.map_err(fn e -> "enums.nomi: ${e}")?
     io.print("wrote enums.nomi")
     Ok(Unit)
 end
@@ -32,7 +34,7 @@ end
 fn enum_of(number: Int, line: String) -> Result<String, String>
     (name, words) = case String.split(line, ":") |> Iter.to_list()
         [name, words] -> (String.trim(name), String.words(words))
-        _ -> return Err("enums.choices:${number}: write `Name: first second third`")
+        _             -> return Err("enums.choices:${number}: write `Name: first second third`")
     end
 
     if Some(word) = Iter.find(words, fn w -> not is_snake_case(w)) then

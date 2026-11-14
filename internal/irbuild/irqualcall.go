@@ -1533,9 +1533,11 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 	} else if f.lowerable() {
 		params, result, ok = bl.g.siblingSignature(f)
 	}
-	if !ok || len(params) != len(f.decl.Params) || (!irCallableValueKind(result) && result != kindUnit) {
+	if !ok || len(params) != len(f.decl.Params) {
 		return no()
 	}
+	// The sibling's signature, held where it was declared.
+	irHeldOperand(result, "a sibling function's result")
 	if site.host && !irHostFnHasVMBody(params, result) {
 		// irHostFnRetain builds no VM body for a Go-bound declaration that
 		// takes or returns a function, so the call would name a declaration
@@ -1639,7 +1641,7 @@ func (bl *irScalarBuilder) qualSignature(t *ast.Call, args irQualArgs, params []
 		}
 		// A value at wider type arguments it already has passes as it is
 		// (irrelabel.go), as an erased one does.
-		if k != params[i] && !bl.g.irErases(params[i], k) && (irExistentialKind(params[i]) || !bl.relabels(k, params[i])) {
+		if k != params[i] && !bl.g.irErases(params[i], k) && (irHeldKind(params[i]) || !bl.passesRelabelled(t.Args[i], k, params[i])) {
 			return false
 		}
 	}
@@ -1773,7 +1775,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 		if !structural {
 			return no()
 		}
-	} else if irExistentialKind(k) {
+	} else if irExistentialKind(k) || irConjKind(k) {
 		// A local interface's existential holds its concrete value in the
 		// VM: the renderer is told every implementer's Debug body.
 		impls, ok := bl.existentialDebugImpls(k)
@@ -2112,7 +2114,7 @@ func (bl *irScalarBuilder) qualEraseSlotted(t *ast.Call, args irQualArgs, params
 	}
 	var out irQualArgs
 	for i, slot := range plan.slots {
-		if slot < 0 || args.kinds[i] == params[slot] || !irExistentialKind(params[slot]) {
+		if slot < 0 || args.kinds[i] == params[slot] || !irHeldKind(params[slot]) {
 			continue
 		}
 		v, got, ok := bl.coerceEmpty(argExpr(t.Args[i]), args.temps[i], args.kinds[i], params[slot])
@@ -2140,7 +2142,7 @@ func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params 
 		// A concrete value entering an interface-typed parameter
 		// (`Worker.new(Inline.new(), 2)` against `queue: Queue`) enters by
 		// erasure, as it does a module function's parameter.
-		erased := irExistentialKind(params[i])
+		erased := irHeldKind(params[i])
 		if k == params[i] || (!irEmbeddedIn(params[i], k) && !seq && !erased) {
 			continue
 		}

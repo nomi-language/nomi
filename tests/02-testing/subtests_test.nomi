@@ -126,7 +126,7 @@ end
 test "a row may be named by a column it carries"
     cases = [
         ("a word that reads the same both ways", "abba", True),
-        ("a word that does not", "abc", False),
+        ("a word that does not",                 "abc",  False),
     ]
 
     subtests cases, (description, line, known_palindrome), description

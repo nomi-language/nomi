@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/nomi-language/nomi/internal/ir"
@@ -50,13 +51,19 @@ type Unretained struct {
 	Name string
 	// From is the retained function that reaches it.
 	From string
+	// Chain is the functions from a root to From, outermost first
+	// (`main`, `run_prompt`, `run`): how the program reaches it. Empty
+	// when a boot or one of the machine's tables reaches it.
+	Chain []string
 }
 
 // Unretained walks everything reachable from roots and the boot symbols and
 // answers each declaration this machine could not run, sorted by name. A nil
 // root is skipped.
 func (m *Machine) Unretained(roots []*ir.Func, boots []*ir.Symbol) []Unretained {
-	_, found := m.Reached(roots, boots)
+	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{},
+		parent: map[*ir.Func]*ir.Func{}}
+	_, found := w.run(roots, boots)
 	return found
 }
 
@@ -161,8 +168,23 @@ func (w *reachWalk) push(f *ir.Func) {
 func (w *reachWalk) report(kind UnretainedKind, name, from string) {
 	key := name + "\x00" + string(rune('0'+kind))
 	if _, dup := w.found[key]; !dup {
-		w.found[key] = Unretained{Kind: kind, Name: name, From: from}
+		w.found[key] = Unretained{Kind: kind, Name: name, From: from, Chain: w.chain(from)}
 	}
+}
+
+// chain is the functions from a root to the one being visited, outermost
+// first, when the walk records parents and from names that function; nil
+// otherwise.
+func (w *reachWalk) chain(from string) []string {
+	if w.parent == nil || w.cur == nil || w.cur.Name() != from {
+		return nil
+	}
+	var names []string
+	for f := w.cur; f != nil && len(names) <= len(w.seen); f = w.parent[f] {
+		names = append(names, f.Name())
+	}
+	slices.Reverse(names)
+	return names
 }
 
 // symbol resolves a callee the way a call does and queues its body.

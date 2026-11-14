@@ -61,7 +61,7 @@ end
 fn trap_text(source: String) -> String
     case compiler.run(source)
         Err(message) -> message
-        Ok(_) -> "ran to the end"
+        Ok(_)        -> "ran to the end"
     end
 end
 

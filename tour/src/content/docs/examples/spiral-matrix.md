@@ -26,11 +26,11 @@ end
 /// clockwise when the next square is off the grid or already written, until
 /// `last` is written.
 fn fill(
-    grid: Vector<Vector<Int>>,
+    grid:     Vector<Vector<Int>>,
     position: (Int, Int),
-    heading: (Int, Int),
-    value: Int,
-    last: Int,
+    heading:  (Int, Int),
+    value:    Int,
+    last:     Int,
 ) -> Vector<Vector<Int>>
     if value > last then return grid
 
@@ -75,8 +75,8 @@ import spiral_matrix.spiral_matrix
 
 test "spiral_matrix"
     [
-        ("empty spiral", 0, Vector[]),
-        ("trivial spiral", 1, Vector[Vector[1]]),
+        ("empty spiral",     0, Vector[]),
+        ("trivial spiral",   1, Vector[Vector[1]]),
         ("spiral of size 2", 2, Vector[Vector[1, 2], Vector[4, 3]]),
         ("spiral of size 3", 3, Vector[Vector[1, 2, 3], Vector[8, 9, 4], Vector[7, 6, 5]]),
         (

@@ -173,7 +173,7 @@ func (g *gen) valueHashes(k kind) bool {
 		return true
 	case tagIface:
 		// An interface value hashes by its run-time type (vm/keys.go).
-		return k.iface != nil
+		return k.iface != nil || irConjKind(k)
 	case tagList:
 		return g.valueHashes(k.comp.parts[0])
 	case tagTuple, tagAnonStruct:
@@ -264,7 +264,7 @@ func (g *gen) valueEquates(k kind) bool {
 		return true
 	case tagIface:
 		// Two interface values compare by their run-time types (ir.ValIface).
-		return k.iface != nil
+		return k.iface != nil || irConjKind(k)
 	case tagList:
 		return g.valueEquates(k.comp.parts[0])
 	case tagTuple, tagAnonStruct:

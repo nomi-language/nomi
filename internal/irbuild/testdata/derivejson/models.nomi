@@ -24,7 +24,7 @@ end
 pub fn is_null(j: Json) -> Bool
     case j
         Json.Null -> True
-        _ -> False
+        _         -> False
     end
 end
 

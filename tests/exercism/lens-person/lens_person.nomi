@@ -4,15 +4,15 @@ import std::calendar.{self, Date}
 
 /// A person: their name, where and when they were born, and where they live.
 pub struct Person
-    name: Name
-    born: Born
+    name:    Name
+    born:    Born
     address: Address
 end
 
 /// The fore names and surname of a person.
 pub struct Name
     fore_name: String
-    sur_name: String
+    sur_name:  String
 end
 
 /// Where and on what day someone was born.
@@ -24,9 +24,9 @@ end
 /// A postal address.
 pub struct Address
     house_number: Int
-    street: String
-    place: String
-    country: String
+    street:       String
+    place:        String
+    country:      String
 end
 
 /// The street of the address where someone was born.
@@ -53,7 +53,7 @@ end
 pub fn rename_streets(person: Person, rename: (String) -> String) -> Person
     {
         ..person,
-        born: {.., at: {.., street: rename(..)}},
+        born:    {.., at: {.., street: rename(..)}},
         address: {.., street: rename(..)},
     }
 end

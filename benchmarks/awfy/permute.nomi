@@ -1,0 +1,53 @@
+//# Are We Fast Yet: Permute.
+//#
+//# Counts the calls of the suite's recursive permutation generator over
+//# six elements, swapping in and back out around each recursive call.
+//#
+//# Departure from the guidelines: the suite keeps the count and the array
+//# in fields and swaps in place. Here the count and a `Vector<Int>` are a
+//# `Permute` value threaded through each call and returned; a swap builds a
+//# new vector.
+
+import harness
+
+struct App
+    config: harness.Config
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    harness.config(startup) |> Result.map(fn config -> App{config:})
+end
+
+struct Permute
+    count: Int
+    v:     Vector<Int>
+end
+
+fn permute(state: Permute, n: Int) -> Permute
+    state = {..state, count: .. + 1}
+
+    if n == 0 then
+        state
+    else
+        n1 = n - 1
+        state = permute(state, n1)
+
+        Iter.reduce(Iter.reverse(0..=n1), state, fn state, i ->
+            state |> swap(n1, i) |> permute(n1) |> swap(n1, i)
+        end)
+    end
+end
+
+fn swap(state: Permute, i: Int, j: Int) -> Permute
+    tmp = Vector.get(state.v, i)!
+    v = Vector.set(state.v, i, Vector.get(state.v, j)!)
+    {..state, v: Vector.set(v, j, tmp)}
+end
+
+fn benchmark() -> Int
+    permute(Permute{count: 0, v: [0, 0, 0, 0, 0, 0]}, 6).count
+end
+
+fn main() -> Result<Unit, String>
+    harness.run("Permute", App.config, fn inner -> harness.repeat(inner, benchmark, &(&1 == 8660)))
+end

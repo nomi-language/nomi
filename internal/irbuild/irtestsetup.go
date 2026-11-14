@@ -181,11 +181,9 @@ func (bl *irScalarBuilder) testDestructure(pat ast.Node, ctx ir.Temp, k kind) bo
 			continue
 		}
 		bk := sh.frame.kindOf(b.Dst())
-		// A Unit setup binds as any Unit value does (`u = io.print("a")`).
-		if bk != kindUnit && !irCallableValueKind(bk) && !irRetainedValueKind(bk) {
-			bl.g.dc.note("a test pattern name's kind outside the domain: " + bk.nomi())
-			return false
-		}
+		// A part of the setup's value; a Unit setup binds as any Unit value
+		// does (`u = io.print("a")`).
+		irHeldOperand(bk, "a test pattern's name")
 		bl.side(b.Dst(), irScalarSide{k: bk})
 		bl.bound[b.Sym().Name()], bl.boundK[b.Sym().Name()] = b.Dst(), bk
 		bl.declareBind(b, bk)
@@ -234,10 +232,7 @@ func (bl *irScalarBuilder) testSetupReturning(s testSetup) (ir.Temp, kind, bool)
 	if ty := analysis.TestGroupSetupType(bl.g.fa, group); ty != nil {
 		k = bl.g.project(ty)
 	}
-	if k != kindUnit && !irCallableValueKind(k) && !irRetainedValueKind(k) {
-		bl.g.dc.note("a setup whose value's kind is outside the domain: " + k.nomi())
-		return ir.NoTemp, kindInvalid, false
-	}
+	irHeldOperand(k, "a setup's value")
 	pos := bl.g.irNodePos(s.body)
 	se := &irSetupExit{exit: bl.f.NewBlock(pos, "setup-exit"), slot: ir.NoTemp, k: k}
 	if k != kindUnit {

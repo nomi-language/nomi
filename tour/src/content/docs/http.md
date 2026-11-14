@@ -92,7 +92,7 @@ handler beside it: with the `show` above, `Route.to_with("GET
 /users/{id}", show)` is a `Route<{id: Int}>`, and so is `"GET
 /users/{id}" |> Route.to_with(show)`. With nothing to say what its
 parameters are, such as a lambda handler that states no types, a route
-literal has a `String` field per wildcard: ``Route`GET /users/{id}` `` is
+literal has a `String` field per wildcard: `Route"GET /users/{id}"` is
 a `Route<{id: String}>`.
 `Request.path_value` reads a wildcard's text from the request too. A
 query parameter is not part of the route:
@@ -341,7 +341,7 @@ end
 derive FromJson for NewTodo
 
 struct Todo
-    id: Int
+    id:    Int
     title: String
 end
 
@@ -398,7 +398,7 @@ import
 end
 
 struct User
-    name: String
+    name:  String
     admin: Bool
 end
 
@@ -406,7 +406,7 @@ fn signed_in(request: Request) -> Maybe<User>
     case Headers.get(request.headers, "Authorization")
         Some("Bearer ada") -> Some(User{name: "Ada", admin: True})
         Some("Bearer bob") -> Some(User{name: "Bob", admin: False})
-        _ -> None
+        _                  -> None
     end
 end
 
@@ -414,7 +414,7 @@ fn require_user(handler: (Request, User) -> ToResponse) -> (Request) -> Response
     fn request ->
         case signed_in(request)
             Some(user) -> ToResponse.to_response(handler(request, user))
-            None -> Response.error(Status.unauthorized, "sign in first")
+            None       -> Response.error(Status.unauthorized, "sign in first")
         end
     end
 end
@@ -444,7 +444,7 @@ fn main()
 
     app =
         Router.handler(router)
-        |> http.cors(Cors{origins: [Origin`https://app.example.com`]})
+        |> http.cors(Cors{origins: [Origin"https://app.example.com"]})
         |> http.security_headers()
         |> http.request_id()
 
@@ -519,7 +519,7 @@ fn require_user(handler: (Request, Visit) -> ToResponse) -> (Request) -> Respons
     check = fn request: Request, session: Session<Visit> ->
         case session.value
             Some(visit) -> ToResponse.to_response(handler(request, visit))
-            None -> Response.redirect(request, "/sign-in", Status.see_other)
+            None        -> Response.redirect(request, "/sign-in", Status.see_other)
         end
     end
 
@@ -615,7 +615,7 @@ fn save_avatar(store: Store, user: Int, image: Bytes) -> Result<Url, storage.Err
 end
 
 fn main()
-    store = Memory.new(public_base: Url`/files/`)
+    store = Memory.new(public_base: Url"/files/")
     dbg "${save_avatar(store, 7, String.to_bytes("png"))!}"
 
     files = storage.handler(store)
@@ -664,7 +664,7 @@ enum Room
 end
 
 struct App
-    web: Supervisor
+    web:  Supervisor
     room: Actor<Room>
 end
 

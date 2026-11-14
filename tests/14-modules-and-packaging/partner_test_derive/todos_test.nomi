@@ -26,7 +26,7 @@ end
 
 test "a missing field names its type as todos.nomi writes it"
     message = case Json.decode_as<TodoJson>("{\"title\": \"milk\"}")
-        Ok(_) -> ""
+        Ok(_)  -> ""
         Err(e) -> "${e}"
     end
 

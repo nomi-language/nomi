@@ -1,0 +1,11 @@
+/// A distinct type over each collection, and one over a tuple, for the
+/// importer to name through this module.
+pub type Items List<Int>
+
+pub type Kvs Map<String, Int>
+
+pub type Path Vector<Int>
+
+pub type Tags Set<Int>
+
+pub type Pt (Int, Int)

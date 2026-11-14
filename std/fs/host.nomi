@@ -87,20 +87,20 @@ pub host type FileSystem
 /// A sandbox whose working directory is `cwd`, holding `files`, `dirs`
 /// and the symlinks `links` maps to their targets.
 pub host fn new_sandbox(
-    cwd: String,
+    cwd:   String,
     files: Map<String, Bytes>,
-    dirs: List<String>,
+    dirs:  List<String>,
     links: Map<String, String>,
 ) -> FileSystem
 
 /// The `nth` operation at position `operation` of `std::fs::testing.Operation`,
 /// from 1, on `path` fails with `error`; every one when `nth` is 0.
 pub host fn sandbox_fail(
-    sandbox: FileSystem,
-    path: String,
+    sandbox:   FileSystem,
+    path:      String,
     operation: Int,
-    error: Error,
-    nth: Int,
+    error:     Error,
+    nth:       Int,
 ) -> Unit
 
 /// Every file in the sandbox, by absolute path.

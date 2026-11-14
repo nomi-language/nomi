@@ -52,7 +52,7 @@ end
 // scenario.
 struct Configured
     clock: Clock = FakeClock{t: 11}
-    port: Int = 8080
+    port:  Int = 8080
 end
 
 // A generic struct with a default that solves THROUGH the type parameter: the

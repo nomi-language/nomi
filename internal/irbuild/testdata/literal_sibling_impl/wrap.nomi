@@ -10,7 +10,7 @@
 import std::literals.{Fragment, Literal}
 
 pub struct Boxed
-    text: String
+    text:  String
     slots: Int
 end
 
@@ -23,13 +23,13 @@ impl Literal for Wrap
         Boxed{
             text: Iter.reduce(fragments, "", fn acc, frag ->
                 case frag
-                    .Static(s) -> acc + s
+                    .Static(s)  -> acc + s
                     .Dynamic(v) -> acc + v
                 end
             end),
             slots: Iter.reduce(fragments, 0, fn acc, frag ->
                 case frag
-                    .Static(_) -> acc
+                    .Static(_)  -> acc
                     .Dynamic(_) -> acc + 1
                 end
             end),
@@ -51,7 +51,7 @@ impl Literal for Slots
     fn from_fragments(fragments: List<Fragment<Slot>>) -> Int
         Iter.reduce(fragments, 0, fn acc, frag ->
             case frag
-                .Static(s) -> acc + String.length(s)
+                .Static(s)  -> acc + String.length(s)
                 .Dynamic(v) -> acc + v.n
             end
         end)

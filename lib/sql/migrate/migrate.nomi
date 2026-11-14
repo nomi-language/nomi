@@ -27,7 +27,7 @@ end
 /// apply in the order of their list, which `read` makes name order.
 pub struct Migration
     path: String
-    sql: String
+    sql:  String
 end
 
 derive Equatable for Migration
@@ -199,7 +199,7 @@ pub fn apply(conn: Conn, migrations: List<Migration>) -> Result<List<String>, Er
 
     case failure
         Some(e) -> Err(e)
-        None -> Ok(ran)
+        None    -> Ok(ran)
     end
 end
 
@@ -222,7 +222,7 @@ pub fn status(conn: Conn, migrations: List<Migration>) -> Result<Status, Error>
             changed: paths(fn m ->
                 case Map.get(recorded, version_of(m))
                     Some(sum) -> sum != checksum.of(m.sql)
-                    None -> False
+                    None      -> False
                 end
             end),
             missing: Map.keys(recorded)
@@ -329,7 +329,7 @@ end
 
 // A migration's leading number, as golang-migrate reads it.
 fn number_of(m: Migration) -> Result<Int, Error>
-    digits = Matcher.find_in(Regex`^[0-9]+`, version_of(m))
+    digits = Matcher.find_in(Regex"^[0-9]+", version_of(m))
 
     case digits |> Maybe.flat_map(fn d -> String.to_int(d))
         Some(n) ->
@@ -352,13 +352,13 @@ fn prepare(tx: Conn, migrations: List<Migration>) -> Result<List<Migration>, Err
     changed = Iter.find(migrations, fn m ->
         case Map.get(recorded, version_of(m))
             Some(sum) -> sum != checksum.of(m.sql)
-            None -> False
+            None      -> False
         end
     end)
 
     case changed
         Some(m) -> return Err(Error.Changed{path: m.path})
-        None -> Unit
+        None    -> Unit
     end
 
     Ok(
@@ -449,7 +449,7 @@ fn table_exists(conn: Conn, name: String) -> Result<Bool, Error>
 
     case rows
         [row, ..] -> Row.get<Int>(row, "n") |> Result.map(fn n -> n > 0) |> Result.map_err(database)
-        [] -> Ok(False)
+        []        -> Ok(False)
     end
 end
 
@@ -476,7 +476,7 @@ fn run(tx: Conn, pending: List<Migration>, ran: List<String>) -> (List<String>, 
             end)
 
             case done
-                Ok(_) -> run(tx, rest, List.concat(ran, [version]))
+                Ok(_)      -> run(tx, rest, List.concat(ran, [version]))
                 Err(error) -> (ran, Some(Error.Failed{path: first.path, error:}))
             end
     end

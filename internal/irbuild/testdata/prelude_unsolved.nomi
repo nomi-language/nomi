@@ -62,7 +62,7 @@ fn main()
 
     io.print(
         "ok arm = ${case first
-            Ok(n) -> n
+            Ok(n)  -> n
             Err(_) -> -1
         end}"
     )
@@ -76,7 +76,7 @@ fn main()
 
     io.print(
         "err arm = ${case bad
-            Ok(_) -> "unexpected"
+            Ok(_)  -> "unexpected"
             Err(e) -> e
         end}"
     )
@@ -97,9 +97,9 @@ fn main()
 
     io.print(
         "nested = ${case nested
-            Some(Ok(n)) -> n
+            Some(Ok(n))  -> n
             Some(Err(_)) -> -1
-            None -> 0
+            None         -> 0
         end}"
     )
 
@@ -109,9 +109,9 @@ fn main()
 
     io.print(
         "nested_err = ${case nested_err
-            Some(Ok(_)) -> "unexpected"
+            Some(Ok(_))  -> "unexpected"
             Some(Err(e)) -> e
-            None -> "none"
+            None         -> "none"
         end}"
     )
 
@@ -135,7 +135,7 @@ fn main()
 
     io.print(
         "annotated = ${case annotated
-            Ok(n) -> n
+            Ok(n)  -> n
             Err(_) -> -1
         end}"
     )
@@ -144,7 +144,7 @@ fn main()
 
     io.print(
         "annotated_err = ${case annotated_err
-            Ok(_) -> "unexpected"
+            Ok(_)  -> "unexpected"
             Err(e) -> e
         end}"
     )
@@ -156,7 +156,7 @@ fn main()
 
     io.print(
         "moved = ${case moved
-            Ok(n) -> n
+            Ok(n)  -> n
             Err(_) -> -1
         end}"
     )

@@ -70,7 +70,7 @@ end
 
 fn pick(flag: Bool) -> Display
     case flag
-        True -> a_tag("yes")
+        True  -> a_tag("yes")
         False -> a_count(0)
     end
 end
@@ -79,7 +79,7 @@ end
 fn render_maybe(m: Maybe<Display>) -> String
     case m
         Some(d) -> render(d)
-        None -> "none"
+        None    -> "none"
     end
 end
 
@@ -88,7 +88,7 @@ end
 // `non-scalar field type | Box.v: Display` row.
 struct Slot
     label: String
-    held: Display
+    held:  Display
 end
 
 fn describe(s: Slot) -> String
@@ -119,8 +119,8 @@ end
 // a lowering into a refusal, and no corpus file could see it.
 fn direct() -> String
     same = case Comparable.compare(Count{n: 1}, Count{n: 1})
-        Ordering.Less -> "less"
-        Ordering.Equal -> "equal"
+        Ordering.Less    -> "less"
+        Ordering.Equal   -> "equal"
         Ordering.Greater -> "greater"
     end
 

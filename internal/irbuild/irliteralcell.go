@@ -3,6 +3,7 @@ package irbuild
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -10,24 +11,31 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// A BACKTICK TYPED LITERAL WHOSE HANDLER CAN FAIL.
+// A TYPED LITERAL WITHOUT SLOTS.
 //
-// `Regex`\d+`` is checked at compile time: its body never interpolates, so
-// its handler's input is fixed text, and the checker types the literal as the
-// handler's success type (analysis.RawLiteralType). The handler still runs at
+// `Regex`\d+`` and `Date"2026-05-04"` are checked at compile time: neither
+// has a `${...}` slot (ast.TaggedString.Fixed), so the handler's input is
+// fixed text, and when the handler can fail the checker types the literal as
+// its success type (analysis.FixedLiteralType). The handler still runs at
 // run time, since its value (a compiled Go regexp) cannot be written into an
 // IR image, and it runs once per literal site.
 //
 // Each site is a lazy cell, as a `once` is, whose initializer is the
-// handler's call and holds its Result. The site reads the cell and takes the
-// Ok payload. vmhost evaluates every cell this lowering declared before the
-// program runs (vmhost's checkLiterals): an Err there is the compile error at
-// the literal, so the run's own read always finds Ok. The Err edge is a
-// NoMatch no execution reaches, since the handler is the same pure call on
-// the same text.
+// handler's call. A fallible handler's cell holds its Result, and the site
+// takes the Ok payload. vmhost evaluates every cell this lowering declared
+// before the program runs (vmhost's checkLiterals): an Err there is the
+// compile error at the literal, so the run's own read always finds Ok. The
+// Err edge is a NoMatch no execution reaches, since the handler is the same
+// pure call on the same text. An infallible handler's cell holds the value
+// itself (plainLiteral), and the check only runs it, so a handler with
+// effects, or one that traps or does not finish, is still a compile error.
+// A handler whose result has no IR type gets no cell and runs at each
+// evaluation, unchecked.
+//
+// A checked literal (irchecked.go) has a cell of its own, for its check.
 
-// LiteralSite is one backtick typed literal checked at compile time: where it
-// is, its source text, and the lazy cell whose initializer calls its handler.
+// LiteralSite is one typed literal checked at compile time: where it is, its
+// source text, and the lazy cell whose initializer calls its handler.
 type LiteralSite struct {
 	// Path is the declaring file's path, or an in-memory file's module
 	// path (`main.nomi`).
@@ -39,8 +47,11 @@ type LiteralSite struct {
 	// Text is the literal as `nomi fmt` renders it.
 	Text string
 	// Cell is the literal's lazy cell. Its initializer answers the handler's
-	// Result.
+	// Result, or its value when Plain is set.
 	Cell *ir.Cell
+	// Plain is set for a handler that cannot fail: the check runs it, and
+	// fails only when it cannot.
+	Plain bool
 	// Render takes the Err payload and answers its Display rendering (its
 	// Debug rendering when the error type has no Display), as a failed
 	// `fn main`'s error is rendered; nil for a String error, which is its
@@ -98,18 +109,31 @@ type literalRenderKey struct{ t *ast.TaggedString }
 type literalCellKey struct{ t *ast.TaggedString }
 
 // irCheckedLiteralKind reports whether k, a typed literal handler's result,
-// is a Result: the handler of a backtick literal checked at compile time.
+// is a Result: a handler that can fail.
 func irCheckedLiteralKind(k kind) bool {
 	d := k.def
 	return d != nil && d.preludeOf != nil && d.preludeOf.spec == preludeSpecFor("std/results", "Result") &&
 		len(d.preludeArgs) == 2 && irRetainedEnumKind(d)
 }
 
-// checkedLiteral lowers a backtick literal whose handler returns k, a Result:
-// the Ok payload of the site's cell.
+// plainLiteral lowers a literal without slots whose handler returns k, which
+// is no Result: the value of the site's cell.
+func (bl *irScalarBuilder) plainLiteral(t *ast.TaggedString, k kind) (ir.Temp, kind, bool, bool) {
+	sym, ok := bl.g.literalCell(t, k)
+	if !ok {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	ref := ir.NewRefOnce(bl.g.irNodePos(t), bl.f.NewTemp(), sym)
+	bl.b.Append(ref)
+	bl.side(ref.Dst(), irScalarSide{k: k})
+	return ref.Dst(), k, false, true
+}
+
+// checkedLiteral lowers a literal without slots whose handler returns k, a
+// Result: the Ok payload of the site's cell.
 func (bl *irScalarBuilder) checkedLiteral(t *ast.TaggedString, k kind) (ir.Temp, kind, bool, bool) {
 	no := func(why string) (ir.Temp, kind, bool, bool) {
-		bl.g.dc.note("a backtick typed literal: " + why)
+		bl.g.dc.note("a typed literal without slots: " + why)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	g := bl.g
@@ -160,12 +184,25 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 	}
 	ty := g.irTypeOf(k)
 	if ty == nil {
-		g.dc.note("a backtick typed literal whose Result has no IR type: " + k.nomi())
+		g.dc.note("a typed literal without slots whose value has no IR type: " + k.nomi())
 		return nil, false
 	}
 	text := renderNode(t)
 	tagCol := max(t.Col-len(t.Tag), 1)
-	name := fmt.Sprintf("literal %s at %d:%d", text, t.Line, tagCol)
+	// A function name is one line wherever it is printed, so a literal that
+	// spans lines is named by its tag and quotes.
+	shown := text
+	if strings.Contains(text, "\n") {
+		switch {
+		case t.Raw:
+			shown = t.Tag + "`…`"
+		case t.Triple:
+			shown = t.Tag + `"""…"""`
+		default:
+			shown = t.Tag + `"…"`
+		}
+	}
+	name := fmt.Sprintf("literal %s at %d:%d", shown, t.Line, tagCol)
 	at := g.irNodePos(t)
 	f := ir.NewFunc(at, name)
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
@@ -183,21 +220,25 @@ func (g *gen) literalCell(t *ast.TaggedString, k kind) (*ir.Symbol, bool) {
 		return nil, false
 	}
 	if got != k {
-		g.dc.note("a backtick typed literal whose handler call is not its Result: " + got.nomi())
+		g.dc.note("a typed literal without slots whose handler call is not its value: " + got.nomi())
 		return nil, false
 	}
 	cb.resultCopy(t, val)
 	cb.side(sh.result, irScalarSide{k: got})
 	cb.b.SetTerm(ir.NewReturn(at, sh.result))
-	g.irRequireLint(f, "a backtick typed literal cell")
+	g.irRequireLint(f, "a typed literal cell")
 	sym := g.irTypes().Symbol(literalCellKey{t}, name)
 	cell := g.irModule().DeclareLazyCell(sym, ty, f)
 	if g.literalCells == nil {
 		g.literalCells = map[*ast.TaggedString]*ir.Symbol{}
 	}
 	g.literalCells[t] = sym
-	site := LiteralSite{Line: t.Line, Col: tagCol, Text: text, Cell: cell, Render: g.literalRender(t, name, k.def.preludeArgs[1]),
-		Locale: k.def.preludeArgs[0] == opaqueKindOfGoType(reflect.TypeFor[rt.Locale]())}
+	site := LiteralSite{Line: t.Line, Col: tagCol, Text: text, Cell: cell, Plain: true}
+	if irCheckedLiteralKind(k) {
+		site.Plain = false
+		site.Render = g.literalRender(t, name, k.def.preludeArgs[1])
+		site.Locale = k.def.preludeArgs[0] == opaqueKindOfGoType(reflect.TypeFor[rt.Locale]())
+	}
 	if g.fa != nil {
 		site.Path = g.fa.FilePath
 	}

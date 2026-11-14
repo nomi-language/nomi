@@ -124,10 +124,11 @@ end
       (where_constraint
         name: (type_parameter_identifier
           (type_identifier))
-        (type_identifier)
-        (generic_type
+        (conjunction_type
           (type_identifier)
-          (type_identifier))))
+          (generic_type
+            (type_identifier)
+            (type_identifier)))))
     (body
       (identifier))))
 
@@ -330,8 +331,9 @@ end
         (where_constraint
           name: (type_parameter_identifier
             (type_identifier))
-          (type_identifier)
-          (type_identifier)))
+          (conjunction_type
+            (type_identifier)
+            (type_identifier))))
       body: (body
         (identifier)))))
 
@@ -364,8 +366,9 @@ end
       (where_clause
         (where_constraint
           name: (self_type)
-          (type_identifier)
-          (type_identifier))
+          (conjunction_type
+            (type_identifier)
+            (type_identifier)))
         (where_constraint
           name: (type_parameter_identifier
             (type_identifier))

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/frontend"
@@ -83,7 +84,8 @@ func TestKeptLoweringRefusesACorruptEncoding(t *testing.T) {
 	k := &KeptLowering{EntryPath: "/p/main.nomi", HasMain: true, Units: []KeptUnit{
 		{Key: "main", Path: "/p/main.nomi", Object: []byte("object"), Decls: map[string][32]byte{"main": {1}}},
 		{Key: "util", Path: "/p/util.nomi"},
-	}, Listed: []string{"http"}, Dangling: []string{"util.f"}, Declines: map[string][]string{"/p/util.nomi": {"f: why"}}}
+	}, Listed: []string{"http"}, Dangling: []string{"util.f"}, Declines: map[string][]string{"/p/util.nomi": {"f: why"}},
+		DebugRenderings: []KeptDebugRendering{{Iface: "8:std/display.Display", Renderers: []string{"", "/p/util.nomi"}, Implementers: []string{"/p/main.nomi"}}}}
 	data := k.Encode()
 	back, err := DecodeKeptLowering(data)
 	if err != nil {
@@ -124,6 +126,81 @@ func TestTemplateDeclNamesTheDeclarationAnInstanceIsMadeFrom(t *testing.T) {
 		got, _ := templateDecl(link, key, decls)
 		if got != want {
 			t.Errorf("templateDecl(%q) = %q, want %q", link, got, want)
+		}
+	}
+}
+
+// TestLowerFileMissesARenderingOfAnotherFilesImplementers lowers on its
+// own each file of a program whose named.nomi renders a struct holding
+// Display values through Debug, which main.nomi implements and boxes
+// into. The Render named.nomi's Debug body builds names main.nomi's impl,
+// which named.nomi's check never reads, and main.nomi's implementers are
+// what named.nomi's kept object names: each file must miss (debugMiss),
+// rather than lower a Render that names none or link a stale one.
+func TestLowerFileMissesARenderingOfAnotherFilesImplementers(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"named.nomi": `pub struct Holder
+    held: List<Display>
+end
+`,
+		"main.nomi": `import
+    std::io
+    named.{Holder}
+end
+
+struct Mark
+    k: Int
+end
+
+impl Display for Mark
+    fn to_string(m: Mark) -> String
+        "m${m.k}"
+    end
+end
+
+fn main()
+    h = Holder{held: [Mark{k: 1}]}
+    io.print(Debug.inspect(h))
+end
+`,
+	}
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entry := filepath.Join(dir, "main.nomi")
+	fe := frontend.New(frontend.Config{SourceBoundProvided: true})
+	proj, err := fe.CheckFile(entry, frontend.Mode{})
+	if err != nil {
+		t.Fatalf("the front end rejects the program: %v", err)
+	}
+	res, refusal, err := GenerateIR(fileProgram(entry, proj, false))
+	if err != nil || refusal != nil {
+		t.Fatalf("the program does not lower: %v %v", err, refusal)
+	}
+	kept, err := res.Keep()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept, err = DecodeKeptLowering(kept.Encode()); err != nil {
+		t.Fatal(err)
+	}
+	if len(kept.DebugRenderings) == 0 {
+		t.Fatal("the kept lowering records no rendering through every implementer's Debug")
+	}
+	pi := fe.Interfaces()
+	for _, key := range pi.Keys() {
+		path := filepath.Join(dir, filepath.FromSlash(key)+".nomi")
+		_, err := LowerFile(FileProgram(pi.Check(key), key, path, dir, false), kept, false)
+		var fm *FileMiss
+		if !errors.As(err, &fm) {
+			t.Errorf("%s lowers on its own (%v); want a miss", key, err)
+			continue
+		}
+		if !strings.Contains(fm.Why, "through every implementer's Debug") {
+			t.Errorf("%s misses for another reason: %s", key, fm.Why)
 		}
 	}
 }

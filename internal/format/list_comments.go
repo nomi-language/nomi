@@ -251,7 +251,7 @@ func firstOperandLine(items []ast.Node, spreads []ast.Spread) int {
 // mapLitParts is a map literal's list items in the order written, the
 // nodes holding their comments (a spread's head, an entry's key), and the
 // document of each: a spread's with its `..`, an entry's `key => value`.
-func mapLitParts(v *ast.MapLit, child func(ast.Node) Doc) ([]ast.Node, []Doc) {
+func mapLitParts(v *ast.MapLit, child func(ast.Node) Doc, b alignBlock) ([]ast.Node, []Doc) {
 	nodes := make([]ast.Node, 0, len(v.Entries)+len(v.Spreads))
 	docs := make([]Doc, 0, len(v.Entries)+len(v.Spreads))
 	spreads := v.Spreads
@@ -264,7 +264,8 @@ func mapLitParts(v *ast.MapLit, child func(ast.Node) Doc) ([]ast.Node, []Doc) {
 		if i < len(v.Entries) {
 			e := v.Entries[i]
 			nodes = append(nodes, e.Key)
-			docs = append(docs, Concat(child(e.Key), Text(" => "), child(e.Value)))
+			it := b.item()
+			docs = append(docs, it.wrap(Concat(child(e.Key), it.col(0), Text(" => "), child(e.Value))))
 		}
 	}
 	return nodes, docs

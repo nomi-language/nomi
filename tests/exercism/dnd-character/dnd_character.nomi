@@ -5,13 +5,13 @@ import std::random.Generator
 
 /// A character's six abilities and its hitpoints.
 pub struct Character
-    strength: Int
-    dexterity: Int
+    strength:     Int
+    dexterity:    Int
     constitution: Int
     intelligence: Int
-    wisdom: Int
-    charisma: Int
-    hitpoints: Int
+    wisdom:       Int
+    charisma:     Int
+    hitpoints:    Int
 end
 
 /// The modifier an ability `score` gives: half its distance from 10,

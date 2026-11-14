@@ -15,7 +15,7 @@ end
 
 struct Money
     cents: Int
-    note: String
+    note:  String
 end
 
 // Hand-written and deliberately NOT structural: `note` is ignored. A struct is
@@ -27,7 +27,7 @@ impl Equatable for Money
 end
 
 struct Wallet
-    owner: String
+    owner:   String
     balance: Money
 end
 

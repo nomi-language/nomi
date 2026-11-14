@@ -37,6 +37,7 @@ pub fn recite(start_bottles: Int, take_down: Int) -> List<String>
     |> Iter.map(verse)
     |> Iter.intersperse([""])
     |> Iter.flatten()
+    |> Iter.to_list()
 end
 
 /// The verse sung while `bottles` bottles hang on the wall.

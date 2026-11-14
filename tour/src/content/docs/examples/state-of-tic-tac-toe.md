@@ -30,8 +30,8 @@ end
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .XWentTwice -> "Wrong turn order: X went twice"
-            .OStarted -> "Wrong turn order: O started"
+            .XWentTwice     -> "Wrong turn order: X went twice"
+            .OStarted       -> "Wrong turn order: O started"
             .PlayedAfterWin -> "Impossible board: game should have ended after the game was won"
         end
     end
@@ -89,24 +89,24 @@ import state_of_tic_tac_toe
 
 test "won games"
     [
-        ("Finished game where X won via left column victory", ["XOO", "X  ", "X  "]),
-        ("Finished game where X won via middle column victory", ["OXO", " X ", " X "]),
-        ("Finished game where X won via right column victory", ["OOX", "  X", "  X"]),
-        ("Finished game where O won via left column victory", ["OXX", "OX ", "O  "]),
-        ("Finished game where O won via middle column victory", ["XOX", " OX", " O "]),
-        ("Finished game where O won via right column victory", ["XXO", " XO", "  O"]),
-        ("Finished game where X won via top row victory", ["XXX", "XOO", "O  "]),
-        ("Finished game where X won via middle row victory", ["O  ", "XXX", " O "]),
-        ("Finished game where X won via bottom row victory", [" OO", "O X", "XXX"]),
-        ("Finished game where O won via top row victory", ["OOO", "XXO", "XX "]),
-        ("Finished game where O won via middle row victory", ["XX ", "OOO", "X  "]),
-        ("Finished game where O won via bottom row victory", ["XOX", " XX", "OOO"]),
-        ("Finished game where X won via falling diagonal victory", ["XOO", " X ", "  X"]),
-        ("Finished game where X won via rising diagonal victory", ["O X", "OX ", "X  "]),
-        ("Finished game where O won via falling diagonal victory", ["OXX", "OOX", "X O"]),
-        ("Finished game where O won via rising diagonal victory", ["  O", " OX", "OXX"]),
+        ("Finished game where X won via left column victory",        ["XOO", "X  ", "X  "]),
+        ("Finished game where X won via middle column victory",      ["OXO", " X ", " X "]),
+        ("Finished game where X won via right column victory",       ["OOX", "  X", "  X"]),
+        ("Finished game where O won via left column victory",        ["OXX", "OX ", "O  "]),
+        ("Finished game where O won via middle column victory",      ["XOX", " OX", " O "]),
+        ("Finished game where O won via right column victory",       ["XXO", " XO", "  O"]),
+        ("Finished game where X won via top row victory",            ["XXX", "XOO", "O  "]),
+        ("Finished game where X won via middle row victory",         ["O  ", "XXX", " O "]),
+        ("Finished game where X won via bottom row victory",         [" OO", "O X", "XXX"]),
+        ("Finished game where O won via top row victory",            ["OOO", "XXO", "XX "]),
+        ("Finished game where O won via middle row victory",         ["XX ", "OOO", "X  "]),
+        ("Finished game where O won via bottom row victory",         ["XOX", " XX", "OOO"]),
+        ("Finished game where X won via falling diagonal victory",   ["XOO", " X ", "  X"]),
+        ("Finished game where X won via rising diagonal victory",    ["O X", "OX ", "X  "]),
+        ("Finished game where O won via falling diagonal victory",   ["OXX", "OOX", "X O"]),
+        ("Finished game where O won via rising diagonal victory",    ["  O", " OX", "OXX"]),
         ("Finished game where X won via a row and a column victory", ["XXX", "XOO", "XOO"]),
-        ("Finished game where X won via two diagonal victories", ["XOX", "OXO", "XOX"]),
+        ("Finished game where X won via two diagonal victories",     ["XOX", "OXO", "XOX"]),
     ]
     |> subtests (description, board), description
         assert state_of_tic_tac_toe.gamestate(board) == Ok(.Win)
@@ -115,7 +115,7 @@ end
 
 test "drawn games"
     [
-        ("Draw", ["XOX", "XXO", "OXO"]),
+        ("Draw",         ["XOX", "XXO", "OXO"]),
         ("Another draw", ["XXO", "OXX", "XOO"]),
     ]
     |> subtests (description, board), description
@@ -125,8 +125,8 @@ end
 
 test "ongoing games"
     [
-        ("Ongoing game: one move in", ["   ", "X  ", "   "]),
-        ("Ongoing game: two moves in", ["O  ", " X ", "   "]),
+        ("Ongoing game: one move in",   ["   ", "X  ", "   "]),
+        ("Ongoing game: two moves in",  ["O  ", " X ", "   "]),
         ("Ongoing game: five moves in", ["X  ", " XO", "OX "]),
     ]
     |> subtests (description, board), description

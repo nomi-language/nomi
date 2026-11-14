@@ -29,8 +29,8 @@
 /// imported from, if any (`Date` is `std::calendar`'s).
 pub struct Family
     reader: String
-    bound: String
-    nomi: String
+    bound:  String
+    nomi:   String
     module: Maybe<String>
 end
 
@@ -61,8 +61,8 @@ pub fn of(declared: String) -> Maybe<Family>
             return of(element)
             |> Maybe.map(fn f -> Family{
                 reader: "value",
-                bound: "",
-                nomi: "List<${f.nomi}>",
+                bound:  "",
+                nomi:   "List<${f.nomi}>",
                 module: f.module,
             })
 
@@ -72,7 +72,7 @@ pub fn of(declared: String) -> Maybe<Family>
 
     name = case String.split(upper, "(")
         [first, ..] -> String.trim(first)
-        _ -> upper
+        _           -> upper
     end
 
     calendar = Some("std::calendar")
@@ -155,9 +155,9 @@ pub fn precision_and_scale(declared: String) -> Maybe<(Int, Int)>
                 |> Iter.to_list()
 
             case numbers
-                [Some(p)] -> Some((p, 0))
+                [Some(p)]          -> Some((p, 0))
                 [Some(p), Some(s)] -> Some((p, s))
-                _ -> None
+                _                  -> None
             end
 
         _ ->
@@ -196,7 +196,7 @@ pub fn postgres(type_name: String) -> Maybe<String>
 
     case String.strip_suffix(name, "[]")
         Some(element) -> return postgres(element) |> Maybe.map(fn e -> "${e}[]")
-        None -> Unit
+        None          -> Unit
     end
 
     // A precision (`timestamp(3)`, `time(0)`) does not change the family;
@@ -205,7 +205,7 @@ pub fn postgres(type_name: String) -> Maybe<String>
         [head, ..rest] ->
             tail = case rest
                 [args] -> String.split(args, ")") |> Iter.drop(1) |> String.join(")")
-                _ -> ""
+                _      -> ""
             end
 
             String.trim(head + tail)

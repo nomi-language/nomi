@@ -46,7 +46,7 @@ fn main()
   io.print(describe(.Local{error: .Mine}))
   io.print(code(CurrencyError.NotIso{code: "XYZ"}))
 end
-`, "bad: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency`BTC:2`\n"+
+`, "bad: `BTC` is not an ISO 4217 currency: a custom currency names its minor digits, as Currency\"BTC:2\"\n"+
 		"not iso BTC\nlocal: Mine\nnot iso XYZ\n")
 }
 

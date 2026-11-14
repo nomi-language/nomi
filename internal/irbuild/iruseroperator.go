@@ -52,9 +52,11 @@ func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Tem
 		if f.canon != nil {
 			f = f.canon
 		}
-		if f.irBody == nil || f.rtCall != "" || !irCallableValueKind(f.result) {
+		if f.irBody == nil || f.rtCall != "" {
 			return no()
 		}
+		// A lowered body's signature is held.
+		irHeldOperand(f.result, "a BitwiseNot impl's result")
 		n := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), f.irBody.Sym(), src)
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: f.result, deferrable: true})

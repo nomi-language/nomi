@@ -57,7 +57,7 @@ end
 // same way in both.
 struct Pt
     zz: Int
-    a: Int
+    a:  Int
 end
 
 derive Debug for Pt

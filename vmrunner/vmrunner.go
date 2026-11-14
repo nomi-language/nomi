@@ -10,6 +10,7 @@ import (
 
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/cpuprofile"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/stdphraseformat"
 	"github.com/nomi-language/nomi/internal/vm"
@@ -166,7 +167,9 @@ func Main(opts ...Option) {
 	if serveCalls(image, opts) {
 		return
 	}
+	stopProfile := cpuprofile.Start()
 	code := RunImage(image, os.Stdout, os.Stderr, os.Stdin, args, true, opts...)
+	stopProfile()
 	returnPageFiles()
 	os.Exit(code)
 }
@@ -302,7 +305,11 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		WriteBlocked(stderr, label, reasons)
 		return 1
 	}
+	// NOMI_PROFILE samples the run (internal/vm's profile.go) and reports
+	// when it ends.
+	m, finishProfile := vm.StartProfile(m, os.Getenv("NOMI_PROFILE"), stderr)
 	failure, limit := vm.ProgramFailure(m.Main(context.Background(), args, handleSignals))
+	finishProfile()
 	if limit {
 		WriteBlocked(stderr, label, []string{"[vm] machine limit: " + failure.Error()})
 		return 1

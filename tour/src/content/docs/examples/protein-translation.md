@@ -42,6 +42,7 @@ pub fn proteins(strand: String) -> Result<List<AminoAcid>, Error>
     |> Iter.take_while(&(&1 != Ok(None)))
     |> Result.collect()?
     |> Maybe.values()
+    |> Iter.to_list()
     |> Ok()
 end
 
@@ -68,24 +69,24 @@ end
 
 test "proteins"
     [
-        ("Empty RNA sequence results in no proteins", "", []),
-        ("Methionine RNA sequence", "AUG", [AminoAcid.Methionine]),
-        ("Phenylalanine RNA sequence 1", "UUU", [.Phenylalanine]),
-        ("Phenylalanine RNA sequence 2", "UUC", [.Phenylalanine]),
-        ("Leucine RNA sequence 1", "UUA", [.Leucine]),
-        ("Leucine RNA sequence 2", "UUG", [.Leucine]),
-        ("Serine RNA sequence 1", "UCU", [.Serine]),
-        ("Serine RNA sequence 2", "UCC", [.Serine]),
-        ("Serine RNA sequence 3", "UCA", [.Serine]),
-        ("Serine RNA sequence 4", "UCG", [.Serine]),
-        ("Tyrosine RNA sequence 1", "UAU", [.Tyrosine]),
-        ("Tyrosine RNA sequence 2", "UAC", [.Tyrosine]),
-        ("Cysteine RNA sequence 1", "UGU", [.Cysteine]),
-        ("Cysteine RNA sequence 2", "UGC", [.Cysteine]),
-        ("Tryptophan RNA sequence", "UGG", [.Tryptophan]),
-        ("STOP codon RNA sequence 1", "UAA", []),
-        ("STOP codon RNA sequence 2", "UAG", []),
-        ("STOP codon RNA sequence 3", "UGA", []),
+        ("Empty RNA sequence results in no proteins", "",    []),
+        ("Methionine RNA sequence",                   "AUG", [AminoAcid.Methionine]),
+        ("Phenylalanine RNA sequence 1",              "UUU", [.Phenylalanine]),
+        ("Phenylalanine RNA sequence 2",              "UUC", [.Phenylalanine]),
+        ("Leucine RNA sequence 1",                    "UUA", [.Leucine]),
+        ("Leucine RNA sequence 2",                    "UUG", [.Leucine]),
+        ("Serine RNA sequence 1",                     "UCU", [.Serine]),
+        ("Serine RNA sequence 2",                     "UCC", [.Serine]),
+        ("Serine RNA sequence 3",                     "UCA", [.Serine]),
+        ("Serine RNA sequence 4",                     "UCG", [.Serine]),
+        ("Tyrosine RNA sequence 1",                   "UAU", [.Tyrosine]),
+        ("Tyrosine RNA sequence 2",                   "UAC", [.Tyrosine]),
+        ("Cysteine RNA sequence 1",                   "UGU", [.Cysteine]),
+        ("Cysteine RNA sequence 2",                   "UGC", [.Cysteine]),
+        ("Tryptophan RNA sequence",                   "UGG", [.Tryptophan]),
+        ("STOP codon RNA sequence 1",                 "UAA", []),
+        ("STOP codon RNA sequence 2",                 "UAG", []),
+        ("STOP codon RNA sequence 3",                 "UGA", []),
         (
             "Sequence of two protein codons translates into proteins",
             "UUUUUU",
@@ -101,7 +102,7 @@ test "proteins"
             "AUGUUUUGG",
             [.Methionine, .Phenylalanine, .Tryptophan],
         ),
-        ("Translation stops if STOP codon at beginning of sequence", "UAGUGG", []),
+        ("Translation stops if STOP codon at beginning of sequence",     "UAGUGG", []),
         ("Translation stops if STOP codon at end of two-codon sequence", "UGGUAG", [.Tryptophan]),
         (
             "Translation stops if STOP codon at end of three-codon sequence",

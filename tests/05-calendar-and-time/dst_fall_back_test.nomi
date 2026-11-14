@@ -7,21 +7,21 @@ import
 end
 
 test "DST fall-back can choose the earlier repeated wall reading"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
     earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
 
     assert DateTime.to_string(earlier) == "2026-11-01T01:30:00-04:00[America/New_York]"
 end
 
 test "DST fall-back can choose the later repeated wall reading"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
     later = DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)?
 
     assert DateTime.to_string(later) == "2026-11-01T01:30:00-05:00[America/New_York]"
 end
 
 test "DST fall-back repeated readings are distinct instants"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
     earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
     later = DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)?
 
@@ -40,7 +40,7 @@ test "DST fall-back repeated readings are distinct instants"
 end
 
 test "fold compatible disambiguation chooses the earlier instant"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
     compatible = DateTime.in_zone(naive, "America/New_York", Disambiguation.Compatible)?
     earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
     compatible_text = DateTime.to_string(compatible)
@@ -50,7 +50,7 @@ test "fold compatible disambiguation chooses the earlier instant"
 end
 
 test "fold earlier and later disambiguations choose distinct offsets"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
     earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
     later = DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)?
     earlier_text = DateTime.to_string(earlier)
@@ -61,7 +61,7 @@ test "fold earlier and later disambiguations choose distinct offsets"
 end
 
 test "fold earlier and later instants are one hour apart"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
     earlier = DateTime.in_zone(naive, "America/New_York", Disambiguation.Earlier)?
     later = DateTime.in_zone(naive, "America/New_York", Disambiguation.Later)?
 
@@ -79,7 +79,7 @@ test "fold earlier and later instants are one hour apart"
 end
 
 test "fold reject disambiguation reports ambiguity"
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
 
     assert Err(Error.Ambiguous(_)) = DateTime.in_zone(
         naive,

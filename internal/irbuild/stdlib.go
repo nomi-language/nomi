@@ -1003,8 +1003,10 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 	//
 	// A cycle needs no special case. Ignoring back edges leaves the members in
 	// their alphabetical relative order, which is exactly what the sorted order
-	// gave them, so `std/strings` may still call `std/iter` and not the
-	// reverse. Nothing is lost and nothing new is representable inside a cycle.
+	// gave them, so the shared lowering retains `std/strings`'s calls into
+	// `std/iter` and not the reverse. A body of the reverse direction is built
+	// by each program that reaches it, against every module
+	// (otherModuleCallee), so any std module may call any other.
 	// done is the modules lowered so far, which is exactly the resolution scope
 	// each next module gets. Recorded per module BEFORE that module is lowered,
 	// so `earlierMods[name]` is "strictly before" and never "including itself".
@@ -1167,8 +1169,9 @@ func (x *stdlibIndex) restoring(lib *std.StdLib, lower bool) (*stdlibIndex, erro
 // and each module's dependencies are visited in sorted name order.
 //
 // Back edges are skipped. A module resolves only against modules already
-// lowered, so generated packages form a DAG; an unavailable backward reference
-// inside a Nomi import cycle is refused. The Context seed fixes the initial
+// lowered, so generated packages form a DAG. A body that calls into a later
+// member of its Nomi import cycle is not retained here, and a program that
+// reaches it builds it (otherModuleCallee). The Context seed fixes the initial
 // cycle orientation independently of optional surface modules' names.
 // TestStdlibModuleOrderIsStable guards the deterministic traversal.
 func stdLoweringOrder(names []string, lib *std.StdLib) []string {

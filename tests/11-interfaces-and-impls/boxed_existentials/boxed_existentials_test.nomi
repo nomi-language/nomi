@@ -53,7 +53,7 @@ test "a parameter, a result, a list element, a field and a payload"
 
     shown = case m
         Some(s) -> Show.show(s)
-        None -> "none"
+        None    -> "none"
     end
 
     assert shown == "Vector['v']"

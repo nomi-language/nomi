@@ -3,16 +3,16 @@ import std::duration.Duration
 // A generic type whose constructor has a default the caller's file cannot
 // name (`Duration`), before a trailing function.
 pub struct Box<A>
-    size: Int
-    wait: Duration
+    size:    Int
+    wait:    Duration
     handler: (A) -> Int
 end
 
 impl Box<A>
     pub fn new(
-        kind: String,
-        size: Int = 1,
-        wait: Duration = Duration.minutes(5),
+        kind:    String,
+        size:    Int = 1,
+        wait:    Duration = Duration.minutes(5),
         handler: (A) -> Int,
     ) -> Box<A>
         _ = kind

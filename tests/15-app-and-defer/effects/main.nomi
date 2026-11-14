@@ -18,7 +18,7 @@ end
 pub fn boot(startup: Startup) -> Result<EffectsApp, String>
     deployment = case Map.get(startup.env, "NOMI_ENV")
         Some(value) -> value
-        None -> "dev"
+        None        -> "dev"
     end
 
     Ok(app.load(deployment, Context.root()))

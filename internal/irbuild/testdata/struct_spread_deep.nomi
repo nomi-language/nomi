@@ -32,7 +32,7 @@ end
 
 struct Outer
     inner: Inner
-    k: Int
+    k:     Int
 end
 
 derive Display for Inner
@@ -46,12 +46,12 @@ end
 
 struct L2
     l3: L3
-    m: Int
+    m:  Int
 end
 
 struct L1
     l2: L2
-    n: Int
+    n:  Int
 end
 
 derive Display for L3
@@ -62,12 +62,12 @@ derive Display for L1
 
 struct Rec
     rec: {a: Int, b: Int}
-    k: Int
+    k:   Int
 end
 
 struct Box<T>
     item: T
-    tag: String
+    tag:  String
 end
 
 fn main()
@@ -102,7 +102,7 @@ fn main()
     // THREE LEVELS, with the untouched siblings printed at every level.
     tall = L1{
         l2: L2{l3: L3{v: 1, w: 2}, m: 3},
-        n: 4,
+        n:  4,
     }
 
     sunk = {

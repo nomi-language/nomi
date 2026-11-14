@@ -5,11 +5,11 @@ gopkg "gobindings"
 
 /// A parsed URL. Go's `ParsedURL` struct fills it field by field.
 pub struct ParsedURL
-    scheme: String
-    host: String
-    path: String
+    scheme:    String
+    host:      String
+    path:      String
     raw_query: String
-    query: Map<String, List<String>>
+    query:     Map<String, List<String>>
 end
 
 /// Escapes `value` for use in a URL query.

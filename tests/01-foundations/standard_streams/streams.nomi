@@ -17,8 +17,8 @@ fn main() -> Result<Unit, io.Error>
     // The corpus runs with no input: the first read is the end.
     case Reader.read_line(io.stdin)
         Ok(Some(line)) -> io.print("read ${line}")
-        Ok(None) -> io.print("end of input")
-        Err(e) -> io.eprint(e)
+        Ok(None)       -> io.print("end of input")
+        Err(e)         -> io.eprint(e)
     end
 
     Ok(Unit)

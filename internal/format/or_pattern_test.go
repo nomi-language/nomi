@@ -7,9 +7,9 @@ import "testing"
 func TestFormat_OrPatternRoundTrips(t *testing.T) {
 	for _, src := range []string{
 		"fn f(s: Shape) -> Float\n    case s\n        .Circle{r:} or .Square{r:} when r > 1.0 -> r\n        .Point -> 0.0\n        _ -> 1.0\n    end\nend\n",
-		"fn f(m: Maybe<Tri>) -> Int\n    case m\n        Some(.Equilateral or .Isosceles) -> 1\n        Some(.Scalene) or None -> 0\n    end\nend\n",
+		"fn f(m: Maybe<Tri>) -> Int\n    case m\n        Some(.Equilateral or .Isosceles) -> 1\n        Some(.Scalene) or None           -> 0\n    end\nend\n",
 		"fn f(cs: List<Codepoint>) -> Int\n    case cs\n        [')' or ']' or '}' as closer, ..rest] -> 1\n        _ -> 0\n    end\nend\n",
-		"fn f(e: Ev) -> Int\n    case e\n        .A(n) or .B(n) as whole -> n\n        (.C(n) as c) or (.D(n) as c) -> n\n    end\nend\n",
+		"fn f(e: Ev) -> Int\n    case e\n        .A(n) or .B(n) as whole      -> n\n        (.C(n) as c) or (.D(n) as c) -> n\n    end\nend\n",
 		"fn f(.L(n) or .R(n): Two) -> Int\n    .L(m) or .R(m) = Two.L(n)\n    .A(k) or .B(k) = load() else return 0\n    if 1 or 2 = k then m else 0\nend\n",
 		"test \"t\"\n    assert 1 or 2 = one()\nend\n",
 	} {
@@ -27,7 +27,7 @@ func TestFormat_OrPatternRoundTrips(t *testing.T) {
 func TestFormat_OrPatternNormalizesSpacingAndParens(t *testing.T) {
 	formatsKeepingMeaning(t,
 		"fn f(c: Color) -> Int\n    case c\n        (.Red   or .Green) or .Blue -> 1\n        Some((1 or 2)) -> 0\n        (.A(n) as a)   or (.B(n) as a) -> 2\n    end\nend\n",
-		"fn f(c: Color) -> Int\n    case c\n        .Red or .Green or .Blue -> 1\n        Some(1 or 2) -> 0\n        (.A(n) as a) or (.B(n) as a) -> 2\n    end\nend\n")
+		"fn f(c: Color) -> Int\n    case c\n        .Red or .Green or .Blue      -> 1\n        Some(1 or 2)                 -> 0\n        (.A(n) as a) or (.B(n) as a) -> 2\n    end\nend\n")
 }
 
 // Alternatives too wide for the line go one per line, each `or` ending the

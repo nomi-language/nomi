@@ -18,7 +18,7 @@ end
 fn count(path: Maybe<String>) -> Result<Int, Exit>
     case path
         Some(p) -> Ok(String.length(p))
-        None -> Err(Exit{code: 3, message: "usage: ${App.name} <file>"})
+        None    -> Err(Exit{code: 3, message: "usage: ${App.name} <file>"})
     end
 end
 

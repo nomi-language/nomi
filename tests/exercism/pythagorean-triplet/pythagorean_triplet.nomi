@@ -6,6 +6,7 @@ pub fn triplets_with_sum(n: Int) -> List<(Int, Int, Int)>
     1..n / 3
     |> Iter.map(&triplet(n, &1))
     |> Maybe.values()
+    |> Iter.to_list()
 end
 
 /// The triplet summing to `n` whose shortest side is `a`, if there is one.

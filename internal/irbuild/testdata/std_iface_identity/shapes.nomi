@@ -13,7 +13,7 @@
 // rt's table is shared by every package, so it is possible here for the first
 // time — and the only thing keeping the two apart is that the key is an ADDRESS.
 pub struct Point
-    tag: String
+    tag:    String
     weight: Int
 end
 

@@ -10,15 +10,15 @@ end
 
 fn sum(v: Vector<Int>) -> Int
     case v
-        [] -> 0
+        []          -> 0
         [x, ..rest] -> x + sum(rest)
     end
 end
 
 fn ends(v: Vector<Int>) -> String
     case v
-        [] -> "empty"
-        [only] -> "one ${only}"
+        []                -> "empty"
+        [only]            -> "one ${only}"
         [first, .., last] -> "${first} to ${last}"
     end
 end
@@ -26,9 +26,9 @@ end
 fn role(s: Set<String>) -> String
     case s
         ["admin", ..rest] -> "admin and ${Set.size(rest)} more"
-        ["user", ..] -> "user"
-        [] -> "nobody"
-        _ -> "other"
+        ["user", ..]      -> "user"
+        []                -> "nobody"
+        _                 -> "other"
     end
 end
 
@@ -42,7 +42,7 @@ end
 test "a vector pattern's rest is the elements between its heads and tails"
     result = case Vector[1, 2, 3, 4, 5]
         [a, ..mid, z] -> (a, mid, z)
-        _ -> (0, Vector[], 0)
+        _             -> (0, Vector[], 0)
     end
 
     assert result == (1, [2, 3, 4], 5)
@@ -55,7 +55,7 @@ test "an exact vector pattern matches only its own length"
     pair = fn v: Vector<Int> ->
         case v
             [a, b] -> a + b
-            _ -> -1
+            _      -> -1
         end
     end
 
@@ -69,13 +69,13 @@ test "vector patterns nest and combine with or and as"
 
     assert case pairs
         [(n, s), ..] -> "${n}${s}"
-        _ -> ""
+        _            -> ""
     end == "1a"
 
     small = fn v: Vector<Int> ->
         case v
             [] or [_] -> True
-            _ -> False
+            _         -> False
         end
     end
 
@@ -84,7 +84,7 @@ test "vector patterns nest and combine with or and as"
 
     whole = case Vector[4, 5]
         [4, ..] as v -> Vector.length(v)
-        _ -> 0
+        _            -> 0
     end
 
     assert whole == 2
@@ -101,14 +101,14 @@ test "a vector pattern names a type over a vector"
 
     assert case p
         Path[a, .., z] -> a + z
-        _ -> 0
+        _              -> 0
     end == 12
 
     b: Bag = .Items[1, 2]
 
     assert case b
         .Items[x, ..] -> x
-        _ -> 0
+        _             -> 0
     end == 1
 end
 
@@ -123,8 +123,8 @@ test "a set pattern without a rest matches exactly its elements"
     exact = fn s: Set<Int> ->
         case s
             [2, 1] -> "both"
-            [1] -> "one"
-            _ -> "other"
+            [1]    -> "one"
+            _      -> "other"
         end
     end
 
@@ -155,13 +155,13 @@ test "a set pattern names a type over a set"
 
     assert case t
         Tags["a", ..others] -> others
-        _ -> []
+        _                   -> []
     end == ["b"]
 
     n: Bag = .Named(["x"])
 
     assert case n
         .Named(["x", ..]) -> True
-        _ -> False
+        _                 -> False
     end
 end

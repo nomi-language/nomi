@@ -1,0 +1,137 @@
+//# The Computer Language Benchmarks Game: fannkuch-redux.
+//#
+//# Walks every permutation of 1..n in the order the benchmark's rules fix
+//# (the counter-driven rotations of the reference C program), flips each
+//# one's prefix until 1 leads, and reports the alternating checksum of the
+//# flip counts and the largest count.
+//#
+//# A permutation is a `List<Int>` and the rotation counters a
+//# `Vector<Int>`; a flip builds a new list with its prefix reversed.
+
+import std::io
+
+struct App
+    n: Int
+end
+
+fn boot(startup: Startup) -> Result<App, String>
+    case startup.args
+        [arg, ..] ->
+            String.to_int(arg)
+            |> Maybe.to_result("not a number: ${arg}")
+            |> Result.map(fn n -> App{n:})
+
+        [] ->
+            Ok(App{n: 7})
+    end
+end
+
+struct Walk
+    perm:      List<Int>
+    count:     Vector<Int>
+    index:     Int
+    checksum:  Int
+    max_flips: Int
+end
+
+/// `front` reversed, then `rest` after its first `k` elements, reversed onto
+/// `front`'s head: `prefix_reversed([], list, k)` reverses the first `k`.
+fn prefix_reversed(front: List<Int>, rest: List<Int>, k: Int) -> List<Int>
+    if k == 0 then
+        List.concat(front, rest)
+    else
+        case rest
+            [x, ..xs] -> prefix_reversed([x, ..front], xs, k - 1)
+            []        -> front
+        end
+    end
+end
+
+fn flips(perm: List<Int>, count: Int) -> Int
+    case perm
+        [0, ..]     -> count
+        [first, ..] -> flips(prefix_reversed([], perm, first + 1), count + 1)
+        []          -> count
+    end
+end
+
+/// `list` with `x` inserted before the element at `index`.
+fn insert_at(list: List<Int>, index: Int, x: Int) -> List<Int>
+    if index == 0 then
+        [x, ..list]
+    else
+        case list
+            [head, ..tail] -> [head, ..insert_at(tail, index - 1, x)]
+            []             -> [x]
+        end
+    end
+end
+
+/// Rotates the first `r + 1` elements left by one.
+fn rotate(perm: List<Int>, r: Int) -> List<Int>
+    case perm
+        [first, ..rest] -> insert_at(rest, r, first)
+        []              -> []
+    end
+end
+
+/// Sets the counters below `r` back to their full counts, as the reference
+/// program does before each permutation it scores.
+fn reset(count: Vector<Int>, r: Int) -> Vector<Int>
+    if r == 1 then
+        count
+    else
+        reset(Vector.set(count, r - 1, r), r - 1)
+    end
+end
+
+/// Advances to the next permutation, or `None` when every one has been seen.
+fn next(perm: List<Int>, count: Vector<Int>, r: Int, n: Int) -> Maybe<(List<Int>, Vector<Int>, Int)>
+    if r == n then
+        None
+    else
+        perm = rotate(perm, r)
+        left = Vector.get(count, r)! - 1
+        count = Vector.set(count, r, left)
+
+        if left > 0 then
+            Some((perm, count, r))
+        else
+            next(perm, count, r + 1, n)
+        end
+    end
+end
+
+fn walk(state: Walk, r: Int, n: Int) -> Walk
+    count = reset(state.count, r)
+    f = flips(state.perm, 0)
+
+    checksum = if state.index % 2 == 0 then
+        state.checksum + f
+    else
+        state.checksum - f
+    end
+
+    state = {..state, count:, checksum:, max_flips: Int.max(state.max_flips, f)}
+
+    case next(state.perm, count, 1, n)
+        Some((perm, count, r)) -> walk({..state, perm:, count:, index: .. + 1}, r, n)
+        None                   -> state
+    end
+end
+
+fn main()
+    n = App.n
+
+    start = Walk{
+        perm:      Iter.to_list(0..n),
+        count:     Iter.to_vector(Iter.map(0..n, fn _ -> 0)),
+        index:     0,
+        checksum:  0,
+        max_flips: 0,
+    }
+
+    result = walk(start, n, n)
+    io.print(result.checksum)
+    io.print("Pfannkuchen(${n}) = ${result.max_flips}")
+end

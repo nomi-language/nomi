@@ -30,7 +30,7 @@ func TestFormat_StripsTailReturn(t *testing.T) {
 		{
 			"a case arm's comment stays on the arm",
 			"fn d(x: Maybe<Int>) -> Int\n    case x\n        Some(n) -> return n // note\n        None -> 0\n    end\nend\n",
-			"fn d(x: Maybe<Int>) -> Int\n    case x\n        Some(n) -> n // note\n        None -> 0\n    end\nend\n",
+			"fn d(x: Maybe<Int>) -> Int\n    case x\n        Some(n) -> n // note\n        None    -> 0\n    end\nend\n",
 		},
 		{
 			"early return before the tail stays",

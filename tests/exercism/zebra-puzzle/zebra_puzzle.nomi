@@ -15,7 +15,7 @@ end
 /// The puzzle's two answers.
 pub struct Solution
     drinks_water: Nationality
-    owns_zebra: Nationality
+    owns_zebra:   Nationality
 end
 
 /// The houses of the five values of one attribute, in the order the
@@ -127,12 +127,12 @@ fn resident(nations: Order, house: Int) -> Nationality
     (english, spaniard, ukrainian, norwegian, japanese) = nations
 
     case
-        house == english -> .Englishman
-        house == spaniard -> .Spaniard
+        house == english   -> .Englishman
+        house == spaniard  -> .Spaniard
         house == ukrainian -> .Ukrainian
         house == norwegian -> .Norwegian
-        house == japanese -> .Japanese
-        _ -> unreachable "the five nationalities live in the five houses"
+        house == japanese  -> .Japanese
+        _                  -> unreachable "the five nationalities live in the five houses"
     end
 end
 

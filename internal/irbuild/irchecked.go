@@ -17,7 +17,7 @@ import (
 // pointed the tag's reference at `build`, so nothing there differs.
 //
 // What differs is the check. Each checked literal a body reaches gets a site,
-// a lazy cell like a backtick literal's (irliteralcell.go), whose initializer
+// a lazy cell like a literal without slots has (irliteralcell.go), whose initializer
 // calls the impl's `check` over the literal's statics and holds its
 // Result<Unit, LiteralError>. vmhost's checkLiterals evaluates every site
 // before the program runs, so an Err is a compile error at the place the
@@ -101,9 +101,11 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	if typed {
 		arity = 2
 	}
-	if !irCheckedLiteralKind(k) || len(h.params) != arity || !irListTransportKind(h.params[0]) || typed && !irListTransportKind(h.params[1]) {
-		g.dc.note("a checked literal's check outside the retained domain: " + k.nomi())
-		return false
+	// CheckedLiteral.check's and check_type's signatures, `(List<String>)`
+	// and `(List<String>, List<String>)` to `Result<Unit, LiteralError>`,
+	// which the impl's conformance holds.
+	if !irCheckedLiteralKind(k) || len(h.params) != arity || !irRetainedListKind(h.params[0]) || typed && !irRetainedListKind(h.params[1]) {
+		panic("irbuild: a CheckedLiteral check whose signature is not the interface's: " + k.nomi())
 	}
 	ty := g.irTypeOf(k)
 	if ty == nil {

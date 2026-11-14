@@ -1,0 +1,11 @@
+// Expr names value.nomi's Value, whose Function variant names Decl back: an
+// enum through a struct through an enum, across two files.
+import cross_file_enum_cycle::value.Value
+
+pub enum Expr
+    Literal Value
+end
+
+pub struct Decl
+    body: List<Expr>
+end

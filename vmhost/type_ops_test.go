@@ -129,15 +129,16 @@ type toOp struct {
 }
 
 const (
-	toChain = "enum Chain\n    Link(Int, Chain)\n    End\nend"
-	toTree  = "struct Tree\n    v: Int\n    kids: List<Tree>\nend"
-	toShape = "enum Shape\n    Circle Float\n    Rect {w: Int, h: Int}\nend"
-	toColor = "enum Color\n    Red\n    Green\nend"
-	toPoint = "struct Point\n    x: Int\n    y: Int\nend"
-	toInc   = "fn inc(n: Int) -> Int\n    n + 1\nend"
-	toProbe = "fn probe(c: Channel<Int>) -> String\n    _ = Sender.send(c.sender, 5)\n    Debug.inspect(Receiver.receive(c.receiver))\nend"
-	toNamed = "interface Named\n    fn name(value: self) -> String\nend\n\nstruct Pt\n    x: Int\nend\n\nimpl Named for Pt\n    fn name(p: Pt) -> String\n        \"pt${p.x}\"\n    end\nend"
-	toChans = "std::channels.Channel std::channels.Sender std::channels.Receiver"
+	toChain       = "enum Chain\n    Link(Int, Chain)\n    End\nend"
+	toTree        = "struct Tree\n    v: Int\n    kids: List<Tree>\nend"
+	toShape       = "enum Shape\n    Circle Float\n    Rect {w: Int, h: Int}\nend"
+	toColor       = "enum Color\n    Red\n    Green\nend"
+	toPoint       = "struct Point\n    x: Int\n    y: Int\nend"
+	toInc         = "fn inc(n: Int) -> Int\n    n + 1\nend"
+	toProbe       = "fn probe(c: Channel<Int>) -> String\n    _ = Sender.send(c.sender, 5)\n    Debug.inspect(Receiver.receive(c.receiver))\nend"
+	toNamed       = "interface Named\n    fn name(value: self) -> String\nend\n\nstruct Pt\n    x: Int\nend\n\nimpl Named for Pt\n    fn name(p: Pt) -> String\n        \"pt${p.x}\"\n    end\nend"
+	toNamedTagged = toNamed + "\n\ninterface Tagged\n    fn tag(value: self) -> String\nend\n\nimpl Tagged for Pt\n    fn tag(p: Pt) -> String\n        \"t${p.x}\"\n    end\nend"
+	toChans       = "std::channels.Channel std::channels.Sender std::channels.Receiver"
 )
 
 var toTypes = []toType{
@@ -176,7 +177,7 @@ var toTypes = []toType{
 	{name: "list int", typ: "List<Int>", expr: "[1, 2]", want: "[1, 2]", shown: "[1, 2]", core: true},
 	{name: "list maybe", typ: "List<Maybe<Int>>", expr: "[Some(1), None]", want: "[Some(1), None]", shown: "[Some(1), None]"},
 	{name: "list fn", inspect: "[<function>, <function>]", decls: toInc, typ: "List<(Int) -> Int>", expr: "[inc, inc]", obs: "Debug.inspect(Iter.map($v, fn f -> f(1)) |> Iter.to_list())", want: "[2, 2]", noEq: true},
-	{name: "list iter", inspect: "[<iter>]", typ: "List<Iter<Int>>", expr: "[[1, 2] |> Iter.map(&(&1 + 1))]", obs: "Debug.inspect(Iter.flatten($v))", want: "[2, 3]", noEq: true},
+	{name: "list iter", inspect: "[<iter>]", typ: "List<Iter<Int>>", expr: "[[1, 2] |> Iter.map(&(&1 + 1))]", obs: "Debug.inspect(Iter.flatten($v) |> Iter.to_list())", want: "[2, 3]", noEq: true},
 	{name: "vector string", typ: "Vector<String>", expr: `Vector["a", "b"]`, want: `Vector["a", "b"]`, shown: "Vector[a, b]"},
 	{name: "set int", inspect: "Set[1, 2]", typ: "Set<Int>", expr: "Set[1, 2]", obs: "Debug.inspect(Iter.sort(Iter.to_list($v)))", want: "[1, 2]", shown: "Set[1, 2]"},
 	{name: "map string int", typ: "Map<String, Int>", expr: `{"a" => 1}`, want: `{"a" => 1}`, core: true, shown: "{a => 1}"},
@@ -192,19 +193,21 @@ var toTypes = []toType{
 	{name: "instant", inspect: "<opaque Instant>", imports: []string{"std::instant.Instant"}, typ: "Instant", expr: "Instant.from_seconds(5)",
 		obs: "Debug.inspect(Instant.to_seconds($v))", want: "5"},
 	{name: "date", imports: []string{"std::calendar.Date"}, typ: "Date", expr: "Date`2026-01-05`", want: "2026-01-05", shown: "2026-01-05"},
+	{name: "quoted date", imports: []string{"std::calendar.Date"}, typ: "Date", expr: "Date\"2026-01-05\"", want: "2026-01-05", shown: "2026-01-05"},
 	{name: "duration", imports: []string{"std::duration.Duration"}, typ: "Duration", expr: "Duration.seconds(2)", want: "2s", shown: "2s"},
 	{name: "struct with fn", inspect: "Op{f: <function>}", decls: toInc + "\n\nstruct Op\n    f: (Int) -> Int\nend", typ: "Op", expr: "Op{f: inc}",
 		obs: "Debug.inspect($v.f(1))", want: "2", noEq: true},
 	{name: "byte", typ: "Byte", expr: "(7 as Byte)", want: "7", shown: "7"},
 	{name: "dynamic", imports: []string{"std::json.Json", "std::dynamic.Dynamic"}, typ: "Dynamic", expr: "Json.to_dynamic(Json.decode(\"{\\\"a\\\": [1, 2.5]}\")!)", want: `{"a": [1, 2.5]}`},
 	{name: "json", imports: []string{"std::json.Json"}, typ: "Json", expr: "Json.decode(\"[1]\")!", want: "[1]", shown: "[1]"},
-	{name: "regex", imports: []string{"std::regex.Regex"}, typ: "Regex<Unit>", expr: "Regex`a+b`", want: "Regex`a+b`", shown: "a+b"},
+	{name: "regex", imports: []string{"std::regex.Regex"}, typ: "Regex<Unit>", expr: "Regex\"a+b\"", want: "Regex\"a+b\"", shown: "a+b"},
 	{name: "generic struct", decls: "struct Bx<A>\n    v: A\nend", typ: "Bx<Int>", expr: "Bx{v: 1}", want: "Bx{v: 1}"},
 	{name: "nested anonymous struct", typ: "{p: {q: Int}}", expr: "{p: {q: 1}}", want: "{p: {q: 1}}", shown: "{p: {q: 1}}"},
 	{name: "maybe maybe", typ: "Maybe<Maybe<Int>>", expr: "Some(Some(1))", want: "Some(Some(1))", shown: "Some(Some(1))"},
 	{name: "list unit", typ: "List<Unit>", expr: "[Unit, Unit]", want: "[Unit, Unit]"},
 	{name: "tuple with fn", inspect: "(1, <function>)", decls: toInc, typ: "(Int, (Int) -> Int)", expr: "(1, inc)", obs: "Debug.inspect($v.second(1))", want: "2", noEq: true},
 	{name: "user interface value", inspect: "Pt{x: 1}", decls: toNamed, typ: "Named", expr: "(Pt{x: 1} as Named)", obs: "Named.name($v)", want: "pt1"},
+	{name: "interface conjunction value", inspect: "Pt{x: 1}", decls: toNamedTagged, typ: "Named and Tagged", expr: "(Pt{x: 1} as (Named and Tagged))", obs: "Named.name($v) + Tagged.tag($v)", want: "pt1t1"},
 	{name: "receiver", inspect: "<channel>", imports: strings.Fields(toChans), pre: "ch0 = Channel.buffered<Int>(2)\n_ = Sender.send(ch0.sender, 4)", typ: "Receiver<Int>", expr: "ch0.receiver",
 		obs: "Debug.inspect(Receiver.receive($v))", want: "Some(4)", noEq: true},
 	{name: "reader", inspect: "Reader", imports: []string{"std::io.Reader"}, typ: "Reader", expr: `Reader.from_text("x")`,
@@ -221,8 +224,8 @@ var toTypes = []toType{
 	{name: "record with iter", inspect: "{a: <iter>}", typ: "{a: Iter<Int>}", expr: "{a: Iter.from(1)}", obs: "Debug.inspect($v.a |> Iter.take(2) |> Iter.to_list())", want: "[1, 2]", noEq: true},
 	{name: "map iter value", inspect: `{"a" => <iter>}`, typ: "Map<String, Iter<Int>>", expr: `{"a" => Iter.from(1)}`, obs: `Debug.inspect(Map.get($v, "a") |> Maybe.map(fn it -> it |> Iter.take(2) |> Iter.to_list()))`, want: "Some([1, 2])", noEq: true},
 	{name: "map fn value", inspect: "{1 => <function>}", decls: toInc, typ: "Map<Int, (Int) -> Int>", expr: "{1 => inc}", obs: "Debug.inspect(Map.get($v, 1) |> Maybe.map(fn f -> f(1)))", want: "Some(2)", noEq: true},
-	{name: "vector iter", inspect: "Vector[<iter>]", typ: "Vector<Iter<Int>>", expr: "Vector[[1] |> Iter.map(&(&1 + 1))]", obs: "Debug.inspect(Iter.flatten($v))", want: "[2]", noEq: true},
-	{name: "iter of iters", inspect: "<iter>", typ: "Iter<Iter<Int>>", expr: "[[1] |> Iter.map(&(&1 + 1))] |> Iter.map(fn it -> it)", obs: "Debug.inspect(Iter.flatten($v))", want: "[2]", noEq: true},
+	{name: "vector iter", inspect: "Vector[<iter>]", typ: "Vector<Iter<Int>>", expr: "Vector[[1] |> Iter.map(&(&1 + 1))]", obs: "Debug.inspect(Iter.flatten($v) |> Iter.to_list())", want: "[2]", noEq: true},
+	{name: "iter of iters", inspect: "<iter>", typ: "Iter<Iter<Int>>", expr: "[[1] |> Iter.map(&(&1 + 1))] |> Iter.map(fn it -> it)", obs: "Debug.inspect(Iter.flatten($v) |> Iter.to_list())", want: "[2]", noEq: true},
 	{name: "set marker", decls: "type Done", typ: "Set<Done>", expr: "Set[Done]", want: "Set[Done]"},
 	{name: "set tuple", typ: "Set<(Int, String)>", expr: `Set[(1, "a")]`, want: `Set[(1, "a")]`, shown: "Set[(1, a)]"},
 	{name: "generic enum iter", inspect: "Has(<iter>)", decls: "enum Opt<A>\n    Has(A)\n    Nothing\nend", typ: "Opt<Iter<Int>>", expr: "Opt.Has(Iter.from(1))",
@@ -311,7 +314,7 @@ var toOps = []toOp{
 	{name: "Iter.with_index", body: "ys = [$E, $E] |> Iter.with_index() |> Iter.to_list()\n(i, out) = List.head(ys)!\nassert i == 0", core: true},
 	{name: "Iter.zip", body: "ys = Iter.zip([$E], [1]) |> Iter.to_list()\n(out, n) = List.head(ys)!\nassert n == 1"},
 	{name: "Iter.chunks", body: "ys = [$E, $E, $E] |> Iter.chunks(2) |> Iter.to_list()\nassert Iter.count(ys) == 2\nout = List.head(List.head(ys)!)!"},
-	{name: "Iter.flatten", body: "ys = [[$E], [$E]] |> Iter.flatten()\nassert Iter.count(ys) == 2\nout = List.head(ys)!", core: true},
+	{name: "Iter.flatten", body: "ys = [[$E], [$E]] |> Iter.flatten() |> Iter.to_list()\nassert Iter.count(ys) == 2\nout = List.head(ys)!", core: true},
 	{name: "Iter.to_set", body: "s = [$E, $E] |> Iter.to_set()\nassert Set.size(s) == 1\nout = List.head(Iter.to_list(s))!", needs: needEq},
 	{name: "Iter.to_list of vector", body: "ys = Vector[$E] |> Iter.to_list()\nout = List.head(ys)!"},
 	{name: "Iter.reduce", body: "out = Iter.reduce([$E, $E], $E, fn _, x -> x)"},

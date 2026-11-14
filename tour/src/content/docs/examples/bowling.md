@@ -45,7 +45,7 @@ impl Game
     pub fn score(game: Game) -> Result<Int, Error>
         case pins_standing(game.rolls, frame: 1)
             Some(_) -> Err(.GameNotOver)
-            None -> Ok(total(game.rolls, frame: 1))
+            None    -> Ok(total(game.rolls, frame: 1))
         end
     end
 end
@@ -55,10 +55,10 @@ end
 fn pins_standing(rolls: List<Int>, frame: Int) -> Maybe<Int>
     case rolls
         _ when frame == 10 -> last_frame_standing(rolls)
-        [] -> Some(10)
-        [10, ..rest] -> pins_standing(rest, frame: frame + 1)
-        [first] -> Some(10 - first)
-        [_, _, ..rest] -> pins_standing(rest, frame: frame + 1)
+        []                 -> Some(10)
+        [10, ..rest]       -> pins_standing(rest, frame: frame + 1)
+        [first]            -> Some(10 - first)
+        [_, _, ..rest]     -> pins_standing(rest, frame: frame + 1)
     end
 end
 
@@ -192,7 +192,7 @@ test "score"
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 6],
             Ok(26),
         ),
-        ("an unstarted game cannot be scored", [], Err(Error.GameNotOver)),
+        ("an unstarted game cannot be scored",  [],     Err(Error.GameNotOver)),
         ("an incomplete game cannot be scored", [0, 0], Err(.GameNotOver)),
         (
             "bonus rolls for a strike in the last frame must be rolled before score can be calculated",
@@ -218,9 +218,9 @@ end
 
 test "roll"
     [
-        ("rolls cannot score negative points", [], -1, Error.NegativeRoll),
-        ("a roll cannot score more than 10 points", [], 11, .TooManyPins),
-        ("two rolls in a frame cannot score more than 10 points", [5], 6, .TooManyPins),
+        ("rolls cannot score negative points",                    [],  -1, Error.NegativeRoll),
+        ("a roll cannot score more than 10 points",               [],  11, .TooManyPins),
+        ("two rolls in a frame cannot score more than 10 points", [5], 6,  .TooManyPins),
         (
             "bonus roll after a strike in the last frame cannot score more than 10 points",
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10],

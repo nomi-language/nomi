@@ -120,7 +120,7 @@ end
 test "several verses"
     [
         ("multiple verses", 4, 8),
-        ("full rhyme", 1, 12),
+        ("full rhyme",      1, 12),
     ]
     |> subtests (description, start, stop), description
         expected =

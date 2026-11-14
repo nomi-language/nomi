@@ -15,9 +15,9 @@ end
 /// round, and backing out of any that leads nowhere.
 fn extend(
     start: Int,
-    stop: Int,
-    laid: List<(Int, Int)>,
-    left: List<(Int, Int)>,
+    stop:  Int,
+    laid:  List<(Int, Int)>,
+    left:  List<(Int, Int)>,
 ) -> Maybe<List<(Int, Int)>>
     if left == [] and start == stop then return Some(Iter.reverse(laid))
 

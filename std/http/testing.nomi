@@ -52,7 +52,7 @@ end
 /// What `run` returns: `body`'s value, and each request the fake served,
 /// in order.
 pub struct Ran<T>
-    value: T
+    value:    T
     requests: List<Request>
 end
 
@@ -63,7 +63,7 @@ end
 //! ran = testing.run(fn request ->
 //!     Ok(Response{status: Status.created, body: Body.Text("${request.url}")})
 //! end, fn ->
-//!     http.get(Url`https://example.com/a`)
+//!     http.get(Url"https://example.com/a")
 //! end)
 //!
 //! response = ran.value!
@@ -112,7 +112,7 @@ end
 //! assert secure == tested_secure
 //
 pub fn request(method: Method, target: String) -> Request
-    url = Url.resolve_text(Url`http://example.com/`, target)!
+    url = Url.resolve_text(Url"http://example.com/", target)!
     Request{method:, url:, host: Some(url.host), remote_address: "192.0.2.1:1234"}
 end
 
@@ -129,7 +129,7 @@ pub fn form_request(method: Method, target: String, fields: List<(String, String
     {
         ..request(method, target),
         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
-        body: Body.Form(Query(fields)),
+        body:    Body.Form(Query(fields)),
     }
 end
 
@@ -195,7 +195,7 @@ end
 pub fn decompressed(response: Response) -> Result<Bytes, Error>
     data = case response.body
         .Produce(_) -> Iter.reduce(chunks(response), String.to_bytes(""), Bytes.concat)
-        other -> Body.read_all(other)?
+        other       -> Body.read_all(other)?
     end
 
     if Headers.get(response.headers, "Content-Encoding") == Some("gzip") then
@@ -219,9 +219,9 @@ pub struct TestServer
     /// `http://127.0.0.1:<port>`, or `https://` when it serves TLS.
     url: Url
     /// A client that trusts the server's certificate.
-    client: Client
+    client:      Client
     certificate: Maybe<CertificateInfo>
-    listener: Listener
+    listener:    Listener
 end
 
 impl TestServer
@@ -249,17 +249,17 @@ end
 //
 pub fn with_server<T>(
     handler: Handler,
-    tls: Bool = False,
-    http2: Bool = False,
-    server: Server = Server{},
-    body: (TestServer) -> T,
+    tls:     Bool = False,
+    http2:   Bool = False,
+    server:  Server = Server{},
+    body:    (TestServer) -> T,
 ) -> T
     (config, client, info) = if tls then
         made = host.test_certificate()
 
         (cert, key) = case made
             [c, k] -> (c, k)
-            _ -> ("", "")
+            _      -> ("", "")
         end
 
         certificate = Certificate.from_pem(cert, key)!
@@ -267,7 +267,7 @@ pub fn with_server<T>(
         (
             Some(ServerConfig{certificates: [certificate]}),
             Client.new(ClientOptions{
-                tls: Some(ClientConfig{roots: Roots.Pem(cert)}),
+                tls:       Some(ClientConfig{roots: Roots.Pem(cert)}),
                 transport: {..Transport.default, force_http2: http2},
             }),
             Some(Certificate.info(certificate)),
@@ -288,9 +288,9 @@ pub fn with_server<T>(
     end
 
     protocols = case server.protocols
-        Some(chosen) -> Some(chosen)
+        Some(chosen)    -> Some(chosen)
         None when http2 -> Some(Protocols{http1: True, http2: True, unencrypted_http2: True})
-        None -> Some(Protocols{http1: True, http2: False})
+        None            -> Some(Protocols{http1: True, http2: False})
     end
 
     listener = http.listen({..server, address: "127.0.0.1:0", tls: config, protocols:})!
@@ -342,18 +342,18 @@ end
 //
 pub fn open_websocket<T>(
     handler: Handler,
-    target: String = "/",
+    target:  String = "/",
     headers: Headers = Headers[],
-    body: (WebSocket) -> T,
+    body:    (WebSocket) -> T,
 ) -> Result<T, Response>
     base = request(Method.Get, target)
     Headers(extra) = headers
 
     required = [
-        ("Upgrade", "websocket"),
-        ("Connection", "Upgrade"),
+        ("Upgrade",               "websocket"),
+        ("Connection",            "Upgrade"),
         ("Sec-WebSocket-Version", "13"),
-        ("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ=="),
+        ("Sec-WebSocket-Key",     "dGhlIHNhbXBsZSBub25jZQ=="),
     ]
 
     handshake = Headers(required + extra)
@@ -362,12 +362,12 @@ pub fn open_websocket<T>(
 
     on_connection = case response.upgrade
         Some(f) -> f
-        None -> return Err(response)
+        None    -> return Err(response)
     end
 
     (server, client) = case host.ws_pipe()
         [a, b] -> (Connection.of_handle(a), Connection.of_handle(b))
-        _ -> todo
+        _      -> todo
     end
 
     protocol = Headers.get(response.headers, "Sec-WebSocket-Protocol")

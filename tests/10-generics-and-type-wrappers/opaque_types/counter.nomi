@@ -24,7 +24,7 @@
 /// are constructed and read with the usual struct-literal and
 /// field-access syntax (`Counter{...}`, `c.value`).
 pub opaque struct Counter
-    value: Int
+    value:      Int
     increments: Int
 end
 

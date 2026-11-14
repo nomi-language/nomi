@@ -43,9 +43,9 @@ func TestCheckedLiteral_UrlRefusesUnescapableSlots(t *testing.T) {
 			t.Errorf("%s in the host: %v, want one error %q", c.name, ds, want)
 		}
 	}
-	src := "import std::url.Url\n\nfn main()\n    _ = Url`https://exa mple.com/`\nend\n"
+	src := "import std::url.Url\n\nfn main()\n    _ = Url\"https://exa mple.com/\"\nend\n"
 	ds := literalDiagnostics(t, src)
-	if len(ds) != 1 || !strings.HasPrefix(ds[0].Message, "typed literal Url`https://exa mple.com/` is invalid: ") || ds[0].Col != 9 {
+	if len(ds) != 1 || !strings.HasPrefix(ds[0].Message, "typed literal Url\"https://exa mple.com/\" is invalid: ") || ds[0].Col != 9 {
 		t.Errorf("a static host with a space: %v, want one error at 4:9 naming the literal", ds)
 	}
 }

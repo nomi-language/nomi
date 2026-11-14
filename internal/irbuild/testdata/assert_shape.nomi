@@ -54,7 +54,7 @@ test "refuting a None passes and carries the None through"
     // that the subject is carried through the assertion unchanged.
     tag = case empty
         Some(_) -> 1
-        None -> 0
+        None    -> 0
     end
 
     assert tag == 0

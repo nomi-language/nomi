@@ -115,18 +115,18 @@ test "captures gives the groups of the first match as a tuple, without the whole
 end
 
 test "a group a match can leave out is a Maybe, and an empty one is Some(\"\")"
-    assert String.captures("b", Regex`(a)|(b)`) == Some((None, Some("b")))
-    assert String.captures("y", Regex`(x*)(y)`) == Some(("", "y"))
-    assert String.captures("ac", Regex`a(b)?c`) == Some(None)
-    assert String.captures("abc", Regex`a(b)?c`) == Some(Some("b"))
-    assert String.captures("aaa", Regex`(a)+`) == Some("a")
-    assert String.captures("ab", Regex`((a)?)b`) == Some(("a", Some("a")))
+    assert String.captures("b", Regex"(a)|(b)") == Some((None, Some("b")))
+    assert String.captures("y", Regex"(x*)(y)") == Some(("", "y"))
+    assert String.captures("ac", Regex"a(b)?c") == Some(None)
+    assert String.captures("abc", Regex"a(b)?c") == Some(Some("b"))
+    assert String.captures("aaa", Regex"(a)+") == Some("a")
+    assert String.captures("ab", Regex"((a)?)b") == Some(("a", Some("a")))
 end
 
 test "one group is its text, and a pattern with none answers Unit"
     assert String.captures("v12", Regex`v(\d+)`) == Some("12")
-    assert String.captures("x", Regex`x`) == Some(Unit)
-    assert String.captures("y", Regex`x`) == None
+    assert String.captures("x", Regex"x") == Some(Unit)
+    assert String.captures("y", Regex"x") == None
 end
 
 test "a pattern whose every group is named gives a struct"
@@ -159,7 +159,7 @@ end
 
 struct Rule<C>
     name: String
-    re: Regex<C>
+    re:   Regex<C>
 end
 
 test "a typed regex passes through a generic function"
@@ -184,10 +184,10 @@ end
 test "captures_all gives the groups of every match, left to right"
     assert String.captures_all("a=1, b=22", Regex`(\w)=(\d+)`) == [("a", "1"), ("b", "22")]
 
-    assert "ab b" |> String.captures_all(Regex`(a)|(b)`) == [
+    assert "ab b" |> String.captures_all(Regex"(a)|(b)") == [
         (Some("a"), None),
-        (None, Some("b")),
-        (None, Some("b")),
+        (None,      Some("b")),
+        (None,      Some("b")),
     ]
 
     assert String.captures_all("none", Regex`(\d)`) == []

@@ -17,8 +17,8 @@ end
 /// The values one element holds.
 fn values(element: Nested) -> List<Int>
     case element
-        .Value(n) -> [n]
+        .Value(n)        -> [n]
         .Array(elements) -> flatten(elements)
-        .Null -> []
+        .Null            -> []
     end
 end

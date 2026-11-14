@@ -30,7 +30,7 @@ end
 fn arm(d: Direction) -> Map<Direction, Place>
     case d
         .North -> Iter.to_map([(.North, .Cave)])
-        .East -> Iter.to_map([])
+        .East  -> Iter.to_map([])
     end
 end
 

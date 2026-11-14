@@ -82,7 +82,7 @@ end
 /// One start the fake responded to, or refused.
 pub struct Call
     program: String
-    args: List<String> = []
+    args:    List<String> = []
     /// The directory the command asked for.
     dir: Maybe<String> = None
     /// The variables the command added to the environment.
@@ -149,7 +149,7 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
         |> Iter.map(fn i ->
             (program, args) = case host.fake_command(fake, i)
                 [first, ..rest] -> (first, rest)
-                [] -> ("", [])
+                []              -> ("", [])
             end
 
             dir = host.fake_dir(fake, i)
@@ -157,8 +157,8 @@ pub fn run<T>(answers: List<Answer>, body: () -> T) -> Ran<T>
             Call{
                 program:,
                 args:,
-                dir: if dir == "" then None else Some(dir),
-                env: host.fake_env(fake, i),
+                dir:   if dir == "" then None else Some(dir),
+                env:   host.fake_env(fake, i),
                 input: host.fake_input(fake, i),
             }
         end)

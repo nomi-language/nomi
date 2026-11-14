@@ -23,7 +23,7 @@ end
 
 pub fn ring_radius(s: Shape) -> Int
     case s
-        .Ring{r:} -> r
+        .Ring{r:}  -> r
         .Square(n) -> n
     end
 end

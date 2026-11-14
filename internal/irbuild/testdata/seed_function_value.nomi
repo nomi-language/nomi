@@ -14,7 +14,7 @@ fn main()
 
     case a
         Some(f) -> io.print(f(7))
-        None -> io.print("none")
+        None    -> io.print("none")
     end
 
     case b
@@ -31,6 +31,6 @@ fn main()
 
     case c
         Some(f) -> io.inspect(f(9))
-        None -> io.print("none")
+        None    -> io.print("none")
     end
 end

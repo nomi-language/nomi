@@ -344,7 +344,7 @@ func TestFormat_DeriveOptions(t *testing.T) {
 
 func TestFormat_DeriveOptionsBeforeWhereClause(t *testing.T) {
 	src := `derive ToJson for Box<T> with ToJson.Options{
-    rename_all: Json.Case.Camel,
+    rename_all:        Json.Case.Camel,
     omit_empty_fields: True,
 } where T: ToJson
 `

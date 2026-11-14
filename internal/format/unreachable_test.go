@@ -24,7 +24,7 @@ func TestFormat_Unreachable(t *testing.T) {
 		"fn first(xs: List<String>) -> String\n" +
 		"    case xs\n" +
 		"        [x, ..] -> x\n" +
-		"        [] -> unreachable `raw ${reason}`\n" +
+		"        []      -> unreachable `raw ${reason}`\n" +
 		"    end\n" +
 		"end\n"
 	formatsKeepingMeaning(t, src, want)

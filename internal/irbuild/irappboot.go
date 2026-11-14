@@ -80,7 +80,7 @@ func irBootStructKind(d *typeDef) bool {
 // and output the callable domain holds (`steps: (Int) -> Int`). A function
 // field is read, written and called as a struct's function field is.
 func irAppFieldKind(k kind) bool {
-	return k == kindUnit || irRetainedValueKind(k) || irExistentialKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
+	return k == kindUnit || irRetainedValueKind(k) || irHeldKind(k) || (k.tag == tagFunc && irCallableValueKind(k))
 }
 
 // irBootRecordKind is an anonymous record a boot may answer: every field a
@@ -108,6 +108,13 @@ func irExistentialKind(k kind) bool {
 // existential kind want by native erasure: a declared, non-enum type with a
 // lowered impl of the interface.
 func (g *gen) irErases(want, have kind) bool {
+	if irConjKind(have) {
+		// Widening a conjunction to a member or to fewer members.
+		return conjHolds(have, want)
+	}
+	if irConjKind(want) {
+		return !irExistentialKind(have) && g.conjErases(want, have)
+	}
 	if irStdDisplayExistential(want) && (irDisplayErasedScalar(have) || g.irDisplayErasedNamed(want, have)) {
 		// A value held as std Display's existential: the erased rendering
 		// answers a scalar's own Display text and calls a declared type's

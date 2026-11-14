@@ -7,7 +7,7 @@ end
 
 pub struct Box
     mode: Mode
-    f: (Int) -> Int
+    f:    (Int) -> Int
 end
 
 fn same(n: Int) -> Int

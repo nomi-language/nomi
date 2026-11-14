@@ -154,12 +154,8 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, f
 func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, name string, slot int) {
 	g.irDeclineOpen(name)
 	defer g.dc.atNode(fd.Params[slot].Default)
-	for _, k := range sig.params[:slot+1] {
-		if !irCallOperandKind(k) {
-			g.dc.note("a parameter kind outside the call domain: " + k.nomi())
-			return
-		}
-	}
+	// The accessor's shell holds its parameters and its result, the
+	// defaulted parameter's kind, to the value domain (irFuncShellAt).
 	g.pushScope()
 	defer g.popScope()
 	params := sig.params[:slot]

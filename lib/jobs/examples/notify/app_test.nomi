@@ -73,10 +73,10 @@ group "a blog's notifications on a Postgres queue"
         id = Row.get<Uuid>(Iter.first(rows)!, "id")?
 
         args = EmailArgs{
-            notification_id: id,
+            notification_id:   id,
             notification_type: .NewPost,
-            post_id: Some(post),
-            user_id: Some(user),
+            post_id:           Some(post),
+            user_id:           Some(user),
         }
 
         assert send_email(args) == Ok(Unit)

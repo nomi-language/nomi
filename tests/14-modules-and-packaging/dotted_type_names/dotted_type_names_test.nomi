@@ -23,7 +23,7 @@ end
 
 fn is_local_on(l: Probe.Local) -> Bool
     case l
-        .On -> True
+        .On  -> True
         .Off -> False
     end
 end
@@ -68,8 +68,8 @@ test "a dotted name is the qualifier in pattern position too"
     // All but the last segment names the owner, so the variant here belongs
     // to `Probe.Reading` — matching what construction spells.
     got = case Probe.Reading.Spike(4)
-        Probe.Reading.Steady -> 0
-        Probe.Reading.Spike(n) -> n
+        Probe.Reading.Steady    -> 0
+        Probe.Reading.Spike(n)  -> n
         Probe.Reading.Blip{at:} -> at
     end
 
@@ -81,8 +81,8 @@ test "a struct-shaped variant of a dotted enum, built and matched"
 
     got = case b
         Probe.Reading.Blip{at:} -> at
-        Probe.Reading.Steady -> 0
-        Probe.Reading.Spike(n) -> n
+        Probe.Reading.Steady    -> 0
+        Probe.Reading.Spike(n)  -> n
     end
 
     assert got == 9
@@ -100,8 +100,8 @@ test "nested inside another pattern, and a stdlib dotted enum"
 
     got = case outcome
         Outcome.Completed(v) -> v
-        Outcome.Cancelled -> 0
-        Outcome.Failed(_) -> 0
+        Outcome.Cancelled    -> 0
+        Outcome.Failed(_)    -> 0
     end
 
     assert inner == 1

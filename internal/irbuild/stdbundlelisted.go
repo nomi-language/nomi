@@ -190,6 +190,7 @@ func encodeListedSection(k *listedStd, instNeeds [][]string) ([]byte, error) {
 		w.bool1(s.Locale)
 		w.bool1(s.Currency)
 		w.bool1(s.Checked)
+		w.bool1(s.Plain)
 		w.str(s.Tag)
 		w.uv(uint64(len(s.Statics)))
 		for _, t := range s.Statics {
@@ -321,7 +322,7 @@ func decodeListedSection(framed []byte) (k *listedStd, err error) {
 				r.fail("function reference")
 			}
 		}
-		s.Locale, s.Currency, s.Checked, s.Tag = r.bool1(), r.bool1(), r.bool1(), r.str()
+		s.Locale, s.Currency, s.Checked, s.Plain, s.Tag = r.bool1(), r.bool1(), r.bool1(), r.bool1(), r.str()
 		for n := r.count(); n > 0 && r.err == nil; n-- {
 			s.Statics = append(s.Statics, r.str())
 		}

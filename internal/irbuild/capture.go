@@ -45,9 +45,7 @@ func (bl *irScalarBuilder) captureFunc(t *ast.Capture) (ir.Temp, kind, bool, boo
 	kinds := make([]kind, len(ft.Params))
 	for i, p := range ft.Params {
 		kinds[i] = bl.g.project(p)
-		if !irCallableValueKind(kinds[i]) && kinds[i] != kindUnit {
-			return no("a capture's parameter outside the domain: " + kinds[i].nomi())
-		}
+		irHeldOperand(kinds[i], "a capture's parameter")
 	}
 	lam := &ast.Lambda{Line: t.Line, Col: t.Col, EndLine: t.Line, EndCol: t.Col}
 	// The parameters are the checker's function type's, by number: `&N`

@@ -13,7 +13,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/token"
-	"github.com/nomi-language/nomi/rt"
 	"github.com/nomi-language/nomi/vmhost"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -21,43 +20,32 @@ import (
 
 // TYPED LITERALS THE EDITOR EVALUATES.
 //
-// A typed literal with no `${...}` is a constant: `Date"2026-13-04"` is the
-// same Err every time the program reaches it. The language server evaluates
-// each such literal's handler while the user edits, reports the double-quoted
-// ones whose handler answers Err, and shows the value of the others on hover.
-// Run time is unchanged: the literal still evaluates to its Err when the
-// program runs. A backtick literal whose handler can fail is checked at
-// compile time instead (vmhost's checkLiterals), and its failure is one of
-// the lowering diagnostics (lowering.go), so it is only shown here.
+// A typed literal with no `${...}` is a constant: `Date"2026-05-04"` is the
+// same value every time the program reaches it. Such a literal is checked at
+// compile time (vmhost's checkLiterals), and its failure is one of the
+// lowering diagnostics (lowering.go). The language server evaluates it again
+// for its hover, which shows the value.
 //
 // It runs on the engine, not beside it. The open buffer is loaded as its file
 // (vmhost.LoadFileSource) with one probe function per literal appended:
 //
-//	fn nomi_literal_probe_0() -> Result<String, String> {
-//	    case Date"2026-13-04" {
-//	        Ok(v) -> Ok(Debug.inspect(v))
-//	        Err(e) -> Err(Debug.inspect(e))
-//	    }
-//	}
+//	fn nomi_literal_probe_0() -> String
+//	    Debug.inspect(Date"2026-05-04")
+//	end
 //
 // so the front end resolves the prefix exactly as at the literal's own site,
-// irbuild lowers the handler and the Debug renderings, and the VM runs each
+// irbuild lowers the handler and the Debug rendering, and the VM runs each
 // probe through vmhost's Program.Evaluate. That refuses a probe that can
 // reach an effect before running it (vm.Machine.Effects, with its one list of
-// pure crossings) and runs the rest under a step and time limit. A handler
-// whose result is not a Result gets `Ok(Debug.inspect(<literal>))`, and is
-// never reported, only shown.
+// pure crossings) and runs the rest under a step and time limit.
 //
 // Anything that stops a literal being evaluated (the buffer does not check,
-// the handler has effects, it runs out of steps, its rendering blocks) skips
-// that literal silently.
+// an invalid literal keeps it from loading, the handler has effects, it runs
+// out of steps, its rendering blocks) skips that literal silently.
 //
-// The work happens off the diagnostics path: a publish reports what is
-// cached and starts one background evaluation of the rest, which publishes
-// again when it finishes if the buffer has not changed. Results are cached by
-// the handler's identity and the literal's text, for the buffer's text; a
-// stdlib handler's results are kept for the process, since its source cannot
-// change.
+// Results are cached by the handler's identity and the literal's text, for
+// the buffer's text; a stdlib handler's results are kept for the process,
+// since its source cannot change.
 
 const (
 	// literalSteps bounds one literal's evaluation: calls plus backward
@@ -82,9 +70,8 @@ type staticLiteral struct {
 	key string
 	// std reports a stdlib handler, whose results outlive the buffer.
 	std bool
-	// result reports a handler returning a Result; typ is its return type.
-	result bool
-	typ    string
+	// typ is the literal's type, as the checker gives it.
+	typ string
 }
 
 // literalResult is one literal's evaluation.
@@ -93,39 +80,17 @@ type literalResult struct {
 	// this text; why says what stopped it.
 	skipped bool
 	why     string
-	// invalid reports a handler that answered Err; text is the Debug
-	// rendering of the Err payload, or of the value (an Ok payload for a
-	// Result handler).
-	invalid bool
-	text    string
+	// text is the Debug rendering of the value.
+	text string
 }
 
-// literalEvals caches evaluations and tracks the one running per buffer.
+// literalEvals caches evaluations.
 type literalEvals struct {
 	mu sync.Mutex
 	// std holds stdlib handlers' results, by key.
 	std map[string]literalResult
 	// docs holds the other results of each buffer's latest evaluated text.
 	docs map[string]*docLiteralEvals
-	// running is the background evaluation running per buffer.
-	running map[string]*literalRun
-}
-
-// literalRun is one background evaluation of a buffer's text.
-type literalRun struct {
-	content string
-	cancel  context.CancelFunc
-}
-
-// cancel stops the buffer's background evaluation, if one is running. The
-// scheduler calls it for every edit (docsched.go).
-func (c *literalEvals) cancel(uri string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if r := c.running[uri]; r != nil {
-		r.cancel()
-		delete(c.running, uri)
-	}
 }
 
 type docLiteralEvals struct {
@@ -175,7 +140,6 @@ func (c *literalEvals) store(uri, content string, lits []staticLiteral, results 
 
 // forget drops a closed buffer's results.
 func (c *literalEvals) forget(uri string) {
-	c.cancel(uri)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.docs, uri)
@@ -272,21 +236,9 @@ func literalHandler(fa *analysis.FileAnalysis, tok token.Token, text string) (st
 		key:  home + "." + tok.Tag + "\x00" + text,
 		std:  strings.HasPrefix(home, "std/"),
 	}
-	raw := tok.Type == token.RAW_TAGGED_STRING_LITERAL || tok.Type == token.RAW_TAGGED_TRIPLE_STRING_LITERAL
-	// The checker's type for the literal: a `Regex` literal's names its
-	// capture groups.
-	typ := analysis.StaticLiteralType(raw, text, ft.Return)
-	lit.typ = typ.String()
-	if ok, _ := analysis.RawLiteralType(raw, ft.Return); ok != nil {
-		// A backtick literal checked at compile time is its handler's Ok
-		// payload: the lowering check reports one that fails
-		// (loweringDiagnostics), and a buffer holding an invalid one does not
-		// load, so its probes are skipped.
-		return lit, true
-	}
-	if et, ok := analysis.ResolveTypeVar(ft.Return).(*analysis.EnumType); ok && et.Name == "Result" && len(et.TypeArgs) == 2 {
-		lit.result = true
-	}
+	// The checker's type for the literal, a fallible handler's Ok payload:
+	// a `Regex` literal's names its capture groups.
+	lit.typ = analysis.StaticLiteralType(text, ft.Return).String()
 	return lit, true
 }
 
@@ -306,13 +258,7 @@ func literalProbes(content string, lits []staticLiteral) (string, []string) {
 		seen[lit.key] = true
 		name := fmt.Sprintf("nomi_literal_probe_%d", len(keys))
 		keys = append(keys, lit.key)
-		fmt.Fprintf(&b, "\nfn %s() -> Result<String, String>\n", name)
-		if lit.result {
-			fmt.Fprintf(&b, "    case %s\n        Ok(v) -> Ok(Debug.inspect(v))\n        Err(e) -> Err(Debug.inspect(e))\n    end\n", lit.text)
-		} else {
-			fmt.Fprintf(&b, "    Ok(Debug.inspect(%s))\n", lit.text)
-		}
-		b.WriteString("end\n")
+		fmt.Fprintf(&b, "\nfn %s() -> String\n    Debug.inspect(%s)\nend\n", name, lit.text)
 	}
 	return b.String(), keys
 }
@@ -368,49 +314,24 @@ func evaluateLiterals(ctx context.Context, path, content string, lits []staticLi
 	return results
 }
 
-// safeEvaluateLiterals is evaluateLiterals for a background run. A panic
-// records every literal as skipped, so publishing the buffer again does not
-// start the evaluation again (recover.go).
-func safeEvaluateLiterals(ctx context.Context, uri, path, content string, lits []staticLiteral) (results map[string]literalResult) {
-	defer recoverPanic("evaluating typed literals in "+uri, func(*serverPanic) {
-		results = map[string]literalResult{}
-		for _, lit := range lits {
-			results[lit.key] = literalResult{skipped: true, why: "internal error"}
-		}
-	})
-	fault("literals")
-	return evaluateLiterals(ctx, path, content, lits)
-}
-
-// probeResult reads a probe's Result<String, String>.
+// probeResult reads a probe's String.
 func probeResult(v vmhost.Value) (literalResult, bool) {
-	rec, ok := v.(*rt.Record)
-	if !ok || rec == nil || rec.Desc.Kind != rt.KindEnum || rec.NumFields() != 1 {
-		return literalResult{}, false
-	}
-	text, ok := rec.Field(0).(string)
+	text, ok := v.(string)
 	if !ok {
 		return literalResult{}, false
 	}
-	switch rec.Variant().Name {
-	case "Ok":
-		return literalResult{text: text}, true
-	case "Err":
-		return literalResult{invalid: true, text: text}, true
-	}
-	return literalResult{}, false
+	return literalResult{text: text}, true
 }
 
-// literalResults answers each literal's cached result. Literals with none are
-// evaluated now when wait is set, and otherwise by one background
-// evaluation of the buffer, which publishes again when it finishes.
 // literalEvaluation turns typed-literal evaluation on. It was off while
 // nomi-lsp grew by megabytes per edit; that was every build's scopes kept
 // alive under the shared stdlib scopes (Scope.MarkShared), and evaluation's
 // program loads leaked through the same path.
 var literalEvaluation = true
 
-func (s *Server) literalResults(snap *analysis.DocSnapshot, lits []staticLiteral, wait bool) map[int]literalResult {
+// literalResults answers each literal's result, evaluating the ones not
+// cached.
+func (s *Server) literalResults(snap *analysis.DocSnapshot, lits []staticLiteral) map[int]literalResult {
 	out := map[int]literalResult{}
 	if !literalEvaluation {
 		return out
@@ -427,85 +348,13 @@ func (s *Server) literalResults(snap *analysis.DocSnapshot, lits []staticLiteral
 		return out
 	}
 	path := uriToPath(snap.URI)
-	if wait {
-		s.literals.store(snap.URI, snap.Content, missing, evaluateLiterals(context.Background(), path, snap.Content, missing))
-		for i, lit := range lits {
-			if r, ok := s.literals.lookup(snap.URI, snap.Content, lit); ok {
-				out[i] = r
-			}
-		}
-		return out
-	}
-	if !snap.Open || s.notify == nil {
-		return out
-	}
-	// One background evaluation per buffer, of the text being published.
-	// The scheduler cancels it when a newer edit arrives; a run for an older
-	// text still going is cancelled here. A finished run publishes again
-	// through republishLiterals, which drops it unless its text is still the
-	// latest analyzed and published one.
-	uri, content, notify := snap.URI, snap.Content, s.notify
-	s.literals.mu.Lock()
-	if s.literals.running == nil {
-		s.literals.running = map[string]*literalRun{}
-	}
-	if r := s.literals.running[uri]; r != nil {
-		if r.content == content {
-			s.literals.mu.Unlock()
-			return out
-		}
-		r.cancel()
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	run := &literalRun{content: content, cancel: cancel}
-	s.literals.running[uri] = run
-	s.literals.mu.Unlock()
-	go func() {
-		defer cancel()
-		results := safeEvaluateLiterals(ctx, uri, path, content, missing)
-		s.literals.mu.Lock()
-		if s.literals.running[uri] == run {
-			delete(s.literals.running, uri)
-		}
-		s.literals.mu.Unlock()
-		if ctx.Err() != nil {
-			return
-		}
-		s.literals.store(uri, content, missing, results)
-		s.republishLiterals(uri, content, notify)
-	}()
-	return out
-}
-
-// literalDiagnostics reports the buffer's static typed literals whose
-// handler answers Err. Ranges are in byte columns.
-func (s *Server) literalDiagnostics(snap *analysis.DocSnapshot, wait bool) []protocol.Diagnostic {
-	if snap == nil || snap.Analysis == nil {
-		return nil
-	}
-	lits := staticLiterals(snap.Content, snap.Analysis)
-	if len(lits) == 0 {
-		return nil
-	}
-	results := s.literalResults(snap, lits, wait)
-	var diags []protocol.Diagnostic
-	severity := protocol.DiagnosticSeverityError
-	source := "nomi"
-	offs := lineOffsets(snap.Content)
+	s.literals.store(snap.URI, snap.Content, missing, evaluateLiterals(context.Background(), path, snap.Content, missing))
 	for i, lit := range lits {
-		r, ok := results[i]
-		if !ok || r.skipped || !r.invalid {
-			continue
+		if r, ok := s.literals.lookup(snap.URI, snap.Content, lit); ok {
+			out[i] = r
 		}
-		diags = append(diags, protocol.Diagnostic{
-			Range:    byteRange(offs, lit.start, lit.end),
-			Severity: &severity,
-			Source:   &source,
-			Code:     &protocol.IntegerOrString{Value: "invalid-literal"},
-			Message:  fmt.Sprintf("%s is invalid: %s", literalLabel(lit), r.text),
-		})
 	}
-	return diags
+	return out
 }
 
 // literalHover is the hover for a position inside a static typed literal's
@@ -520,20 +369,12 @@ func (s *Server) literalHover(snap *analysis.DocSnapshot, off int) (text string,
 		if off < lit.start || off >= lit.end {
 			continue
 		}
-		results := s.literalResults(snap, lits[i:i+1], true)
+		results := s.literalResults(snap, lits[i:i+1])
 		r, has := results[0]
 		if !has || r.skipped {
 			return "", protocol.Range{}, false, false
 		}
-		value := r.text
-		if lit.result {
-			if r.invalid {
-				value = "Err(" + value + ")"
-			} else {
-				value = "Ok(" + value + ")"
-			}
-		}
-		md := fmt.Sprintf("```nomi\n%s: %s\n```\n\n```text\n%s\n```", literalLabel(lit), lit.typ, value)
+		md := fmt.Sprintf("```nomi\n%s: %s\n```\n\n```text\n%s\n```", literalLabel(lit), lit.typ, r.text)
 		return md, byteRange(lineOffsets(snap.Content), lit.start, lit.end), off < lit.start+len(lit.tag), true
 	}
 	return "", protocol.Range{}, false, false

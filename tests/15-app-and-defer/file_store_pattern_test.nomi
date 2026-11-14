@@ -23,9 +23,9 @@ derive Equatable for Status
 impl Display for Status
     fn to_string(value: Status) -> String
         case value
-            Status.Open -> "open"
+            Status.Open       -> "open"
             Status.InProgress -> "in-progress"
-            Status.Done -> "done"
+            Status.Done       -> "done"
         end
     end
 end
@@ -41,36 +41,36 @@ derive Equatable for Priority
 impl Display for Priority
     fn to_string(value: Priority) -> String
         case value
-            Priority.Low -> "low"
+            Priority.Low    -> "low"
             Priority.Medium -> "medium"
-            Priority.High -> "high"
+            Priority.High   -> "high"
         end
     end
 end
 
 struct TodoTask
-    id: Int
-    title: String
-    created: Instant
-    status: Status = Status.Open
+    id:       Int
+    title:    String
+    created:  Instant
+    status:   Status = Status.Open
     priority: Priority = Priority.Medium
 end
 
 fn parse_status(s: String) -> Maybe<Status>
     case s
-        "open" -> Some(Status.Open)
+        "open"        -> Some(Status.Open)
         "in-progress" -> Some(Status.InProgress)
-        "done" -> Some(Status.Done)
-        _ -> None
+        "done"        -> Some(Status.Done)
+        _             -> None
     end
 end
 
 fn parse_priority(s: String) -> Maybe<Priority>
     case s
-        "high" -> Some(Priority.High)
+        "high"   -> Some(Priority.High)
         "medium" -> Some(Priority.Medium)
-        "low" -> Some(Priority.Low)
-        _ -> None
+        "low"    -> Some(Priority.Low)
+        _        -> None
     end
 end
 
@@ -98,14 +98,14 @@ impl Store for FileStore
             Ok(tasks) ->
                 case write_all(value.path, Map.put(tasks, task.id, task))
                     Err(e) -> Err(e)
-                    Ok(_) -> Ok(task)
+                    Ok(_)  -> Ok(task)
                 end
         end
     end
 
     fn delete(value: FileStore, id: Int) -> Result<Unit, String>
         case load_map(value.path)
-            Err(e) -> Err(e)
+            Err(e)    -> Err(e)
             Ok(tasks) -> write_all(value.path, Map.remove(tasks, id))
         end
     end
@@ -126,7 +126,7 @@ end
 
 fn write_all(path: String, tasks: Map<Int, TodoTask>) -> Result<Unit, String>
     case fs.write_text(path, serialize(tasks))
-        Ok(_) -> Ok(Unit)
+        Ok(_)  -> Ok(Unit)
         Err(e) -> Err(Display.to_string(e))
     end
 end
@@ -203,16 +203,16 @@ test "file store pattern saves reloads and deletes tasks"
 
     // Save two tasks.
     t1 = TodoTask{
-        id: 1,
-        title: "buy milk",
+        id:      1,
+        title:   "buy milk",
         created: Instant.from_seconds(1_700_000_000),
     }
 
     t2 = TodoTask{
-        id: 2,
-        title: "write tests",
-        created: Instant.from_seconds(1_700_000_100),
-        status: Status.InProgress,
+        id:       2,
+        title:    "write tests",
+        created:  Instant.from_seconds(1_700_000_100),
+        status:   Status.InProgress,
         priority: Priority.High,
     }
 

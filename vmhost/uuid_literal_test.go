@@ -13,11 +13,11 @@ func TestUuidLiteral_IsTheParsedUuid(t *testing.T) {
 		"    std::io\n" +
 		"    std::uuid.Uuid\n" +
 		"end\n\n" +
-		"once dns = Uuid`6BA7B810-9DAD-11D1-80B4-00C04FD430C8`\n\n" +
+		"once dns = Uuid\"6BA7B810-9DAD-11D1-80B4-00C04FD430C8\"\n\n" +
 		"fn main()\n" +
 		"    io.print(dns)\n" +
-		"    io.print(Debug.inspect(Uuid`00000000-0000-0000-0000-000000000000`))\n" +
-		"    io.print(dns == Uuid`6ba7b810-9dad-11d1-80b4-00c04fd430c8`)\n" +
+		"    io.print(Debug.inspect(Uuid\"00000000-0000-0000-0000-000000000000\"))\n" +
+		"    io.print(dns == Uuid\"6ba7b810-9dad-11d1-80b4-00c04fd430c8\")\n" +
 		"end\n"
 	p, err := LoadSource("main", src)
 	if err != nil {
@@ -27,7 +27,7 @@ func TestUuidLiteral_IsTheParsedUuid(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	if want := "6ba7b810-9dad-11d1-80b4-00c04fd430c8\nUuid`00000000-0000-0000-0000-000000000000`\nTrue\n"; out.String() != want {
+	if want := "6ba7b810-9dad-11d1-80b4-00c04fd430c8\nUuid\"00000000-0000-0000-0000-000000000000\"\nTrue\n"; out.String() != want {
 		t.Errorf("output:\n%s\nwant:\n%s", out.String(), want)
 	}
 }
@@ -36,9 +36,9 @@ func TestUuidLiteral_IsTheParsedUuid(t *testing.T) {
 // uuid.Error's Display.
 func TestUuidLiteral_InvalidTextIsACompileError(t *testing.T) {
 	for _, c := range []struct{ literal, message string }{
-		{"Uuid`6ba7b810`", "typed literal Uuid`6ba7b810` is invalid: a UUID is 36 characters or 16 bytes, not 8"},
-		{"Uuid`6ba7b810+9dad-11d1-80b4-00c04fd430c8`", "typed literal Uuid`6ba7b810+9dad-11d1-80b4-00c04fd430c8` is invalid: expected `-` at index 8 of a UUID, found `+`"},
-		{"Uuid`6ba7b81g-9dad-11d1-80b4-00c04fd430c8`", "typed literal Uuid`6ba7b81g-9dad-11d1-80b4-00c04fd430c8` is invalid: expected a hexadecimal digit at index 7 of a UUID, found `g`"},
+		{"Uuid\"6ba7b810\"", "typed literal Uuid\"6ba7b810\" is invalid: a UUID is 36 characters or 16 bytes, not 8"},
+		{"Uuid\"6ba7b810+9dad-11d1-80b4-00c04fd430c8\"", "typed literal Uuid\"6ba7b810+9dad-11d1-80b4-00c04fd430c8\" is invalid: expected `-` at index 8 of a UUID, found `+`"},
+		{"Uuid\"6ba7b81g-9dad-11d1-80b4-00c04fd430c8\"", "typed literal Uuid\"6ba7b81g-9dad-11d1-80b4-00c04fd430c8\" is invalid: expected a hexadecimal digit at index 7 of a UUID, found `g`"},
 	} {
 		src := "import std::uuid.Uuid\n\nfn main()\n    _ = " + c.literal + "\nend\n"
 		ds := literalDiagnostics(t, src)

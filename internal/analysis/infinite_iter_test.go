@@ -71,6 +71,8 @@ func TestInfiniteIter_Rejected(t *testing.T) {
 		{"scan", "_ = Iter.from(0) |> Iter.scan(0, fn total, x -> total + x) |> Iter.to_list()", "Iter.to_list", "Iter.from"},
 		{"chunk_by", "_ = Iter.from(0) |> Iter.chunk_by(&(&1 / 4)) |> Iter.to_list()", "Iter.to_list", "Iter.from"},
 		{"flat_map", "_ = Iter.from(0) |> Iter.flat_map(fn x -> [x, x]) |> Iter.to_list()", "Iter.to_list", "Iter.from"},
+		{"flatten", "_ = Iter.repeat([1]) |> Iter.flatten() |> Iter.to_list()", "Iter.to_list", "Iter.repeat"},
+		{"Maybe.values", "_ = Iter.repeat(Maybe.Some(1)) |> Maybe.values() |> Iter.to_list()", "Iter.to_list", "Iter.repeat"},
 		{"chunks", "_ = Iter.from(0) |> Iter.chunks(3) |> Iter.to_list()", "Iter.to_list", "Iter.from"},
 		{"concat right", "_ = Iter.concat([1, 2], Iter.repeat(3)) |> Iter.to_list()", "Iter.to_list", "Iter.repeat"},
 		{"concat left", "_ = Iter.from(0) |> Iter.concat([1]) |> Iter.to_list()", "Iter.to_list", "Iter.from"},
@@ -83,7 +85,6 @@ func TestInfiniteIter_Rejected(t *testing.T) {
 		{"count", "_ = Iter.repeat(1) |> Iter.count()", "Iter.count", "Iter.repeat"},
 		{"last", "_ = Iter.from(0) |> Iter.last()", "Iter.last", "Iter.from"},
 		{"reverse", "_ = Iter.from(0) |> Iter.reverse()", "Iter.reverse", "Iter.from"},
-		{"flatten", "_ = Iter.repeat([1]) |> Iter.flatten()", "Iter.flatten", "Iter.repeat"},
 		{"sort", "_ = Iter.from(0) |> Iter.sort()", "Iter.sort", "Iter.from"},
 		{"sort_by", "_ = Iter.from(0) |> Iter.sort_by(fn x -> 0 - x)", "Iter.sort_by", "Iter.from"},
 		{"sort_with", "_ = Iter.from(0) |> Iter.sort_with(&Int.compare(&1, &2))", "Iter.sort_with", "Iter.from"},
@@ -99,7 +100,6 @@ func TestInfiniteIter_Rejected(t *testing.T) {
 		{"each", "Iter.repeat(1) |> Iter.each(fn _x -> Unit)", "Iter.each", "Iter.repeat"},
 		{"map_reduce", "_ = Iter.from(0) |> Iter.map_reduce(0, fn s, x -> (s + x, x))", "Iter.map_reduce", "Iter.from"},
 		{"String.join", "_ = Iter.repeat(\"a\") |> String.join(\", \")", "String.join", "Iter.repeat"},
-		{"Maybe.values", "_ = Iter.repeat(Maybe.Some(1)) |> Maybe.values()", "Maybe.values", "Iter.repeat"},
 		{"Result.partition", "ok: Result<Int, String> = Result.Ok(1)\n    _ = Iter.repeat(ok) |> Result.partition()", "Result.partition", "Iter.repeat"},
 		// Nested calls and named arguments.
 		{"nested", "_ = Iter.to_list(Iter.map(Iter.from(0), &(&1 + 1)))", "Iter.to_list", "Iter.from"},
@@ -183,6 +183,8 @@ func TestInfiniteIter_Accepted(t *testing.T) {
 		"zip with a finite side":        "fn main()\n    _ = Iter.zip(Iter.from(0), [\"a\", \"b\"]) |> Iter.to_list()\nend\n",
 		"concat of two finite":          "fn main()\n    _ = Iter.concat([1], [2]) |> Iter.to_list()\nend\n",
 		"flat_map of an infinite inner": "fn main()\n    _ = [1, 2] |> Iter.flat_map(fn x -> Iter.repeat(x)) |> Iter.take(3) |> Iter.to_list()\nend\n",
+		"flatten then take":             "fn main()\n    _ = Iter.repeat([1]) |> Iter.flatten() |> Iter.take(2) |> Iter.to_list()\nend\n",
+		"Maybe.values then take":        "fn main()\n    _ = Iter.repeat(Some(1)) |> Maybe.values() |> Iter.take(2) |> Iter.to_list()\nend\n",
 		"a binding later rebound":       "fn main()\n    xs = Iter.repeat(1)\n    xs = xs |> Iter.take(2)\n    _ = xs |> Iter.to_list()\nend\n",
 		"a user Iter owner":             "struct Box\n    n: Int\nend\n\nimpl Box\n    fn repeat(n: Int) -> List<Int>\n        [n]\n    end\nend\n\nfn main()\n    _ = Box.repeat(1) |> Iter.to_list()\nend\n",
 	} {

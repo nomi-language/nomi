@@ -345,7 +345,7 @@ fn main()
     end
 
     case UserId.new(-1)
-        Ok(_) -> io.print("unexpected")
+        Ok(_)  -> io.print("unexpected")
         Err(e) -> io.print("error: ${e}")
     end
 

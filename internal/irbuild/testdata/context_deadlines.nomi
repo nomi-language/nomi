@@ -102,7 +102,7 @@ fn main()
     // directions, which is the shape every corpus file that unblocked has.
     app = App{
         context: Context.with_timeout(root, Duration.seconds(-1)),
-        name: "svc",
+        name:    "svc",
     }
 
     io.print("field remaining = ${span(Context.deadline_remaining(app.context))}")
@@ -113,7 +113,7 @@ end
 
 struct App
     context: Context
-    name: String
+    name:    String
 end
 
 fn remaining_of(a: App) -> String
@@ -130,7 +130,7 @@ end
 fn present(m: Maybe<Instant>) -> String
     case m
         Some(_) -> "Some"
-        None -> "None"
+        None    -> "None"
     end
 end
 
@@ -140,7 +140,7 @@ end
 fn span(m: Maybe<Duration>) -> String
     case m
         Some(d) -> "Some(${Duration.to_string(d)})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
@@ -152,7 +152,7 @@ fn further(a: Context, b: Context) -> Bool
         Some(da) ->
             case Context.deadline_remaining(b)
                 Some(db) -> Duration.as_nanos(da) > Duration.as_nanos(db)
-                None -> False
+                None     -> False
             end
 
         None ->

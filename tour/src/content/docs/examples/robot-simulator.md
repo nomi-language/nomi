@@ -26,9 +26,9 @@ impl Direction
     pub fn right(direction: Direction) -> Direction
         case direction
             .North -> .East
-            .East -> .South
+            .East  -> .South
             .South -> .West
-            .West -> .North
+            .West  -> .North
         end
     end
 
@@ -36,9 +36,9 @@ impl Direction
     pub fn left(direction: Direction) -> Direction
         case direction
             .North -> .West
-            .West -> .South
+            .West  -> .South
             .South -> .East
-            .East -> .North
+            .East  -> .North
         end
     end
 end
@@ -51,7 +51,7 @@ end
 
 /// A robot on the grid, facing one way.
 pub struct Robot
-    position: Position
+    position:  Position
     direction: Direction
 end
 
@@ -74,16 +74,16 @@ fn step(robot: Robot, letter: String) -> Result<Robot, Error>
         "R" -> Ok({..robot, direction: Direction.right(..)})
         "L" -> Ok({..robot, direction: Direction.left(..)})
         "A" -> Ok({..robot, position: advance(.., robot.direction)})
-        _ -> Err(.UnknownInstruction(letter))
+        _   -> Err(.UnknownInstruction(letter))
     end
 end
 
 fn advance(Position{x:, y:}, direction: Direction) -> Position
     case direction
         .North -> {x:, y: y + 1}
-        .East -> {x: x + 1, y:}
+        .East  -> {x: x + 1, y:}
         .South -> {x:, y: y - 1}
-        .West -> {x: x - 1, y:}
+        .West  -> {x: x - 1, y:}
     end
 end
 

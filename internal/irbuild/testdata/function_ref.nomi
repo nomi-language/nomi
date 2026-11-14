@@ -168,6 +168,6 @@ fn main()
 
     case first
         Some(h) -> io.print("fns[0](6)        = ${h(6)}")
-        None -> io.print("fns[0](6)        = none")
+        None    -> io.print("fns[0](6)        = none")
     end
 end

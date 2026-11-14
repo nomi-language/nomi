@@ -5,6 +5,17 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
+// irLoweredRecordRetained panics unless k, a record the caller holds, is
+// retained. A record in the callable domain always is: of
+// irRetainedValueKind's disjuncts only irRetainedRecordKind admits
+// tagAnonStruct, so a lowered record, a held element's record and a
+// retained composite's record part all are.
+func irLoweredRecordRetained(k kind, where string) {
+	if !irRetainedRecordKind(k) {
+		panic("irbuild: " + where + " over the record " + k.nomi() + ", which a lowered value, a held element or a retained composite's part cannot be")
+	}
+}
+
 func irRetainedRecordKind(k kind) bool {
 	if k.tag != tagAnonStruct || k.comp == nil || len(k.comp.names) == 0 || len(k.comp.names) != len(k.comp.parts) {
 		return false
@@ -125,6 +136,18 @@ func (bl *irScalarBuilder) structSpread(t *ast.StructLit) (ir.Temp, kind, bool, 
 	return v, k, false, true
 }
 
+// irHeldUpdateBase panics unless k, the lowered base of `Struct.update`, is
+// retained: the checker admits a base whose type implements Struct, a
+// record or a declared struct, and a lowered one is held, so retained
+// (irLoweredRecordRetained; a struct in the callable domain is a retained
+// struct, the only disjunct of irRetainedValueKind that admits a field-ful
+// declared struct an update may name).
+func irHeldUpdateBase(k kind) {
+	if !irRetainedUpdateKind(k) {
+		panic("irbuild: a Struct.update base of " + k.nomi() + ", which a checked update's lowered base cannot be")
+	}
+}
+
 // irRetainedUpdateKind is a base a functional update copies: a retained record
 // or declared struct.
 func irRetainedUpdateKind(k kind) bool {
@@ -185,7 +208,7 @@ func (bl *irScalarBuilder) structMergeVals(k kind, base ir.Temp, lit *ast.Struct
 		if !ok {
 			return nil, nil, false
 		}
-		if vk != fk && irExistentialKind(fk) {
+		if vk != fk && irHeldKind(fk) {
 			// A concrete implementer at an interface-typed field, the
 			// interface value the checker recorded, as the literal makes
 			// it; see structMakeOf.
@@ -263,9 +286,10 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 				return no()
 			}
 		}
-		if base, k, _, ok = bl.lower(argExpr(t.Args[ops.base])); !ok || !irRetainedUpdateKind(k) {
+		if base, k, _, ok = bl.lower(argExpr(t.Args[ops.base])); !ok {
 			return no()
 		}
+		irHeldUpdateBase(k)
 		if !ops.patchFirst {
 			if rec, rk, _, ok = bl.recordMake(lit); !ok {
 				return no()
@@ -289,9 +313,10 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 		return v, k, false, true
 	}
 	base, k, _, ok := bl.lower(argExpr(t.Args[ops.base]))
-	if !ok || !irRetainedUpdateKind(k) {
+	if !ok {
 		return no()
 	}
+	irHeldUpdateBase(k)
 	if len(lit.Fields) == 0 {
 		return base, k, false, true
 	}

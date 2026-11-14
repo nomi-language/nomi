@@ -103,7 +103,7 @@ func TestSelfShape_SelfIsAlwaysItsOwnNode(t *testing.T) {
 // A walk that skips a node kind looks finished from every angle except the one
 // it skips, and the result can be a crash. So the guard is structural rather than a comment: it reads the set of types
 // implementing `typeExpr()` out of internal/ast/ast.go and the set of case types out of
-// typeExprHasSelf's own switch, and requires them to be equal. Adding an eighth
+// typeExprHasSelf's own switch, and requires them to be equal. Adding a ninth
 // TypeExpr fails HERE, at the walk that would silently stop covering it.
 func TestSelfShape_TypeExprKindsAreCovered(t *testing.T) {
 	implementors := typeExprImplementors(t)

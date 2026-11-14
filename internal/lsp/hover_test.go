@@ -3287,7 +3287,7 @@ func variantLitBindingCursor(t *testing.T, src string) protocol.Position {
 
 func TestHover_ThenKeyword(t *testing.T) {
 	got := hoverText(t, "then", "fn label(n: Int) -> String\n  n\n  |> ▮then fn v -> Int.to_string(v + 1)\nend\n")
-	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it.\n\nMore in the [tour](https://nomi-lang.org/pipes/#the-then-stage)."
+	expected := "```nomi\nthen: Int -> String\n```\n\nApplies the lambda to the piped value. Its body ends at the next `|>`; braces keep a pipe inside it.\n\nMore in the [tour](https://nomi-lang.org/pipes/#the-then-stage)"
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}
@@ -3296,7 +3296,7 @@ func TestHover_ThenKeyword(t *testing.T) {
 // A `tap` stage's hover shows the piped type going in and coming out.
 func TestHover_TapKeyword(t *testing.T) {
 	got := hoverText(t, "tap", "import std::io\n\nfn label(n: Int) -> Int\n  n\n  |> ▮tap fn v -> io.print(Int.to_string(v))\nend\n")
-	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it.\n\nMore in the [tour](https://nomi-lang.org/pipes/#the-tap-stage)."
+	expected := "```nomi\ntap: Int -> Int\n```\n\nRuns the lambda on the piped value for its effect, then passes the value on unchanged. The lambda returns `Unit`. Its body ends at the next `|>`; braces keep a pipe inside it.\n\nMore in the [tour](https://nomi-lang.org/pipes/#the-tap-stage)"
 	if got != expected {
 		t.Errorf("got:\n%s\n\nexpected:\n%s", got, expected)
 	}

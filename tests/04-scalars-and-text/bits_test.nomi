@@ -4,7 +4,7 @@ import
 end
 
 test "a pattern matches the Ints whose fixed bits it names"
-    lead = Bits`110x_xxxx`
+    lead = Bits"110x_xxxx"
     assert Bits.matches(lead, 0b1100_0000)
     assert Bits.matches(lead, 0b1101_1111)
     refute Bits.matches(lead, 0b1110_0000)
@@ -12,41 +12,41 @@ test "a pattern matches the Ints whose fixed bits it names"
 end
 
 test "bits above the pattern's width must be zero"
-    assert Bits.matches(Bits`1xxx_xxxx`, 128)
-    refute Bits.matches(Bits`1xxx_xxxx`, 384)
-    refute Bits.matches(Bits`xxxx`, 16)
-    refute Bits.matches(Bits`xxxx`, -1)
+    assert Bits.matches(Bits"1xxx_xxxx", 128)
+    refute Bits.matches(Bits"1xxx_xxxx", 384)
+    refute Bits.matches(Bits"xxxx", 16)
+    refute Bits.matches(Bits"xxxx", -1)
 end
 
 test "the field reads the bits under its letter"
-    continuation = Bits`10aa_aaaa`
+    continuation = Bits"10aa_aaaa"
     assert Bits.field(continuation, 0b1011_1111) == Some(63)
     assert Bits.field(continuation, 0b1000_0001) == Some(1)
     assert Bits.field(continuation, 0b1100_0001) == None
-    assert Bits.field(Bits`1bbb_0000`, 0b1101_0000) == Some(5)
-    assert Bits.field(Bits`b`, 1) == Some(1)
+    assert Bits.field(Bits"1bbb_0000", 0b1101_0000) == Some(5)
+    assert Bits.field(Bits"b", 1) == Some(1)
 end
 
 test "mask, value and width"
-    p = Bits`10xx_aa01`
+    p = Bits"10xx_aa01"
     assert Bits.mask(p) == 0b1100_0011
     assert Bits.value(p) == 0b1000_0001
     assert Bits.width(p) == 8
 end
 
 test "a pattern wider than 64 bits"
-    p = Bits`1xxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx`
+    p = Bits"1xxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx"
     assert Bits.width(p) == 68
     assert Bits.matches(p, 1 <<< 67)
     refute Bits.matches(p, 1 <<< 68)
 end
 
 test "Debug writes the literal as written"
-    assert Debug.inspect(Bits`10xx_xxxx`) == "Bits`10xx_xxxx`"
+    assert Debug.inspect(Bits"10xx_xxxx") == "Bits\"10xx_xxxx\""
 end
 
 test "parse reads text at run time"
-    assert Bits.parse("10x") == Ok(Bits`10x`)
+    assert Bits.parse("10x") == Ok(Bits"10x")
     assert Bits.parse("_") == Err(bits.Error.Empty)
     assert Bits.parse("1 0") == Err(bits.Error.Character{index: 1, found: " "})
     assert Bits.parse("1X") == Err(bits.Error.Character{index: 1, found: "X"})

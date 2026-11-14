@@ -13,7 +13,9 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 	}
 	owner, member, ok := g.patternHead(pat.Variant)
 	if !ok || (owner != "" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.stdEnumOwns(owner, k.def)) {
-		return nil, nil, false
+		// The checker types a variant pattern against the subject's enum,
+		// so its head names that enum's variant.
+		panic("irbuild: a variant pattern whose head does not name the subject's enum " + k.def.nomi)
 	}
 	v := k.def.variant(member)
 	if v == nil {
@@ -40,8 +42,17 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 			if pat.Binding == "" && irRecordAlternatives(p) {
 				return pat, v, true
 			}
+		case *ast.AsPattern:
+			// `.One({w: 1, h:} as r)`: the record matched by the inner
+			// pattern, and r bound to it (patternValueTest).
+			if pat.Binding == "" {
+				return pat, v, true
+			}
 		}
-		return nil, nil, false
+		// The checker types a struct-shaped variant's payload pattern
+		// against the record of its fields: a name, `_`, an anonymous
+		// record pattern, or an `as` or `or` of those.
+		panic("irbuild: a struct-shaped variant's payload pattern no record pattern is")
 	}
 	if len(v.payloads) != 1 {
 		return nil, nil, false
@@ -101,32 +112,22 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 			return nil, nil, false
 		}
 	case *ast.ListPattern:
-		if lp := pat.Payload.(*ast.ListPattern); lp.Kind != ast.SeqList {
-			// `Some([x, ..])` over a vector or a set: tested as a field's
-			// sub-pattern is.
-			if pat.Binding != "" || !irFieldSubPattern(pat.Payload, pk) {
-				return nil, nil, false
-			}
-			break
-		}
-		// A list pattern over a list payload (`.Arr[a, ..rest]`), tested as
-		// a list case arm is.
-		if pat.Binding != "" || !(irRetainedListKind(pk) || irListTransportKind(pk)) {
-			return nil, nil, false
-		}
+		// `.Arr[a, ..rest]` over a list payload, tested as a list case arm
+		// is, and `Some([x, ..])` over a vector or a set, as a field's
+		// sub-pattern is: any List the payload holds (irCaseListKind), a
+		// `List<Iter<Int>>` among them.
+		irPayloadSubPattern(pat, pk)
 	case *ast.TuplePattern:
 		// A flat tuple pattern over a tuple payload (`Some((n, _))`), tested
 		// against the projected payload as a tuple case arm is.
-		if _, ok := tupleCaseComponents(pat.Payload, pk); pat.Binding != "" || !ok {
-			return nil, nil, false
+		if _, ok := tupleCaseComponents(pat.Payload, pk); !ok {
+			panic("irbuild: a tuple payload pattern the checker typed against " + pk.nomi() + " that tupleCaseComponents does not test")
 		}
 	case *ast.AsPattern, *ast.Binary, *ast.OrPattern:
 		// `Some(P as name)`: P tested against the projected payload as a
 		// field's sub-pattern is, and name bound to the payload.
 		// `Some("/users/" + id)` is a string prefix test of the payload.
-		if pat.Binding != "" || !irFieldSubPattern(pat.Payload, pk) {
-			return nil, nil, false
-		}
+		irPayloadSubPattern(pat, pk)
 	default:
 		return nil, nil, false
 	}
@@ -138,6 +139,18 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 // payload alone would: a name, `_` or an anonymous struct pattern, with or
 // without an `as`. A typed struct pattern does not match an anonymous
 // struct, which the checker reports.
+// irPayloadSubPattern panics unless pat's payload pattern is one a field's
+// sub-pattern test builds over the payload kind pk (irFieldSubPattern). The
+// checker types the payload pattern against the payload's type, and pk,
+// held, is that type's kind: every pattern shape the checker admits over
+// a held kind is one irFieldSubPattern answers. Binding is empty whenever
+// a payload pattern is written.
+func irPayloadSubPattern(pat *ast.EnumPattern, pk kind) {
+	if pat.Binding != "" || !irFieldSubPattern(pat.Payload, pk) {
+		panic("irbuild: a payload pattern irFieldSubPattern does not test over " + pk.nomi())
+	}
+}
+
 func irRecordAlternatives(p *ast.OrPattern) bool {
 	for _, alt := range p.Alternatives {
 		switch a := ast.WithoutAs(alt).(type) {
@@ -319,6 +332,15 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 			bl.b = fields
 			rec, rk, ok := bl.variantRecord(pat, subj, k.def, v)
 			return ok && bl.orPatternTest(op, rec, rk, arm, next)
+		}
+		if ap, isAs := pat.Payload.(*ast.AsPattern); isAs {
+			// `.Rec({w: 1, h:} as r)`: the record, matched by the inner
+			// pattern, with r bound to it.
+			fields := bl.f.NewBlock(bl.g.irNodePos(ap), "payload test")
+			bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), fields.ID(), next.ID()))
+			bl.b = fields
+			rec, rk, ok := bl.variantRecord(pat, subj, k.def, v)
+			return ok && bl.patternValueTest(ap, rec, rk, arm, next)
 		}
 		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), arm.ID(), next.ID()))
 		bl.b = arm
@@ -530,7 +552,7 @@ func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir
 	}
 	owner, member, ok := bl.g.patternHead(pat.TypeName)
 	if !ok || (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) && !bl.g.stdEnumOwns(owner, k.def)) {
-		return false
+		panic("irbuild: a struct variant pattern whose head does not name the subject's enum " + k.def.nomi)
 	}
 	d := k.def
 	v := d.variant(member)
@@ -549,7 +571,9 @@ func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir
 			}
 		}
 		if idx[i] < 0 || !irFieldSubPattern(f.Pattern, v.payloads[idx[i]].k) {
-			return false
+			// The checker resolves each field of the pattern on the variant
+			// and types its sub-pattern against the field's type.
+			panic("irbuild: a struct variant pattern's field " + f.Name + " that irFieldSubPattern does not test")
 		}
 	}
 	match := ir.NewMatchVariantInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, bl.g.irTypeSym(d), v.nomi)
@@ -704,7 +728,8 @@ func (bl *irScalarBuilder) embeddedStructCaseTest(pat *ast.StructPattern, subj i
 	for i, f := range pat.Fields {
 		fields[i] = v.embeds.field(f.Name)
 		if fields[i] == nil || !irFieldSubPattern(f.Pattern, fields[i].k) {
-			return false
+			// As for a struct-shaped variant's field (structVariantCaseTest).
+			panic("irbuild: an embedded struct pattern's field " + f.Name + " that irFieldSubPattern does not test")
 		}
 	}
 	match := bl.variantTest(pat, subj, d, v)

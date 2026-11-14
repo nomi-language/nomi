@@ -52,7 +52,7 @@ func TestFormat_StructFieldDocRoundTrips(t *testing.T) {
 	src := `struct User
     /// The user's name.
     name: String
-    age: Int
+    age:  Int
 end
 `
 	roundTrip(t, src)
@@ -123,7 +123,7 @@ func TestFormat_ReferenceExampleRoundTrips(t *testing.T) {
 end
 
 struct Dog
-    name: String
+    name:  String
     breed: String
 end
 
@@ -145,7 +145,7 @@ end
 pub fn is_active(s: Status) -> Bool
     case s
         .Active -> True
-        _ -> False
+        _       -> False
     end
 end
 
@@ -305,7 +305,7 @@ end
 func TestFormat_InterfaceMethodWhereClause(t *testing.T) {
 	src := `interface Sortable<T>
     fn sort_by_key<K>(
-        source: self,
+        source:               self,
         _key_of_each_element: (T) -> K,
     ) -> List<T> where T: Comparable, K: Hashable
         source
@@ -318,7 +318,7 @@ end
 func TestFormat_InterfaceRequiredMethodWhereClause(t *testing.T) {
 	src := `interface Sortable<T>
     fn sort_by_key<K>(
-        source: self,
+        source:              self,
         key_of_each_element: (T) -> K,
     ) -> List<T> where T: Comparable, K: Hashable
 end
@@ -329,7 +329,7 @@ end
 func TestFormat_FuncWhereClause(t *testing.T) {
 	src := `fn step_by<T, S>(
     range_to_step_through: Range<T>,
-    _by: S,
+    _by:                   S,
 ) -> Iter<T> where T: Comparable and Steppable<S>
     r
 end
@@ -366,9 +366,9 @@ end
 func TestFormat_ConformanceCommentsPreserveGroupingBoundaries(t *testing.T) {
 	cases := []string{
 		`pub opaque struct Date
-    year: Int
+    year:  Int
     month: Int
-    day: Int
+    day:   Int
 end
 
 derive Equatable for Date
@@ -389,9 +389,9 @@ impl Shift for Date end
 
 `,
 		`pub opaque struct Date
-    year: Int
+    year:  Int
     month: Int
-    day: Int
+    day:   Int
 end
 
 // a comment

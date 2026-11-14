@@ -211,9 +211,11 @@ func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Te
 // published for the call, and its capacity is std's declared Int.
 func (bl *irScalarBuilder) channelCtorFromTarget(t *ast.Call, fn channelFn, owner, method string) (ir.Temp, kind, bool, bool) {
 	want, wanted := bl.g.channelWantedInstance(t)
-	if fn.owner != "Channel" || !wanted || !irCallableValueKind(want) {
+	if fn.owner != "Channel" || !wanted {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	// The kind a typed position wants, which the position's type held.
+	irHeldOperand(want, "a channel constructor's target")
 	_, got, isChannel := channelElem(want)
 	if !isChannel || got != "Channel" {
 		return ir.NoTemp, kindInvalid, false, false

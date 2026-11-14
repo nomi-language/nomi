@@ -366,6 +366,10 @@ func walkTypes(t Type, f func(Type)) {
 		for _, a := range tt.TypeArgs {
 			walkTypes(a, f)
 		}
+	case *ConjunctionType:
+		for _, m := range tt.Members {
+			walkTypes(m, f)
+		}
 	case *StructType:
 		for _, a := range tt.TypeArgs {
 			walkTypes(a, f)

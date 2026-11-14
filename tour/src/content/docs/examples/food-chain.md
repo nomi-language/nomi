@@ -16,9 +16,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// An animal the old lady swallows: its name, the line sung about it when
 /// she swallows it, and what follows its name when it is the one caught.
 struct Animal
-    name: String
+    name:     String
     reaction: Maybe<String> = None
-    detail: String = ""
+    detail:   String = ""
 end
 
 /// The animals in the order she swallows them. Nothing is said about the fly:
@@ -26,9 +26,9 @@ end
 once animals = [
     Animal{name: "fly"},
     {
-        name: "spider",
+        name:     "spider",
         reaction: Some("It wriggled and jiggled and tickled inside her."),
-        detail: " that wriggled and jiggled and tickled inside her",
+        detail:   " that wriggled and jiggled and tickled inside her",
     },
     {name: "bird", reaction: Some("How absurd to swallow a bird!")},
     {name: "cat", reaction: Some("Imagine that, to swallow a cat!")},
@@ -50,6 +50,7 @@ pub fn recite(start: Int, stop: Int) -> List<String>
     |> Iter.map(verse)
     |> Iter.intersperse([""])
     |> Iter.flatten()
+    |> Iter.to_list()
 end
 
 /// Verse `number`: the new animal, what she said about it, and every animal

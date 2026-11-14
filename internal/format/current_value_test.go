@@ -58,7 +58,7 @@ end
         address: {
             ..,
             street: "a fairly long street name here",
-            city: "a fairly long city name too, longer",
+            city:   "a fairly long city name too, longer",
         },
     }
 end

@@ -94,7 +94,7 @@ func TestFormat_AuthorBreakAfterBracketKeepsALiteralBroken(t *testing.T) {
 		{
 			"list pattern without the break",
 			"fn f(xs: List<Int>) -> Int\n    case xs\n        [a,\n            b] -> a + b\n        _ -> 0\n    end\nend\n",
-			"fn f(xs: List<Int>) -> Int\n    case xs\n        [a, b] -> a + b\n        _ -> 0\n    end\nend\n",
+			"fn f(xs: List<Int>) -> Int\n    case xs\n        [a, b] -> a + b\n        _      -> 0\n    end\nend\n",
 		},
 		{
 			"map pattern",

@@ -18,9 +18,9 @@ pub fn classify(number: Int) -> Result<Classification, Error>
     if number < 1 then return Err(.NotPositive)
 
     case Int.compare(aliquot_sum(number), number)
-        .Equal -> Ok(.Perfect)
+        .Equal   -> Ok(.Perfect)
         .Greater -> Ok(.Abundant)
-        .Less -> Ok(.Deficient)
+        .Less    -> Ok(.Deficient)
     end
 end
 

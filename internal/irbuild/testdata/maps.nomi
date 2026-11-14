@@ -109,21 +109,21 @@ end
 fn found(m: Map<String, Int>, key: String) -> String
     case Map.get(m, key)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
 fn found_by_list(m: Map<List<Int>, String>, key: List<Int>) -> String
     case Map.get(m, key)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 
 fn found_by_pair(m: Map<(Int, Int), String>, key: (Int, Int)) -> String
     case Map.get(m, key)
         Some(v) -> "Some(${v})"
-        None -> "None"
+        None    -> "None"
     end
 end
 

@@ -84,7 +84,7 @@ test "`?` inside a lambda"
     io.print("after the lambda")
 
     case inner
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert e == "negative -4"
     end
 end

@@ -76,13 +76,13 @@ impl Speaker for Quiet
 end
 
 struct Stage
-    who: Speaker
+    who:   Speaker
     seats: Int
 end
 
 struct Box<T>
     item: T
-    tag: String
+    tag:  String
 end
 
 fn make_point(n: Int) -> Point
@@ -92,11 +92,11 @@ end
 // --- the deep-patch declarations -------------------------------------------
 struct Address
     street: String
-    city: String
+    city:   String
 end
 
 struct Person
-    name: String
+    name:    String
     address: Address
 end
 
@@ -106,12 +106,12 @@ derive Display for Person
 
 struct Rec
     rec: {a: Int, b: Int}
-    k: Int
+    k:   Int
 end
 
 struct Deep
     person: Person
-    n: Int
+    n:      Int
 end
 
 // --- the four accepted shapes ----------------------------------------------
@@ -304,7 +304,7 @@ end
 test "the patch reaches three levels down"
     d = Deep{
         person: Person{name: "Ada", address: Address{street: "1 Main", city: "Boston"}},
-        n: 7,
+        n:      7,
     }
 
     spread = {
@@ -354,7 +354,7 @@ end
 test "a field generic over a struct patches once the argument is solved"
     before: Box<Address> = Box{
         item: Address{street: "1 Main", city: "Boston"},
-        tag: "old",
+        tag:  "old",
     }
 
     after = {..before, item: {.., city: "NYC"}}

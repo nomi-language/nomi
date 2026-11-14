@@ -50,9 +50,9 @@ end
 
 test "substitution cipher decodes"
     [
-        ("Can decode", "abcdefghij", "abcdefghij", "aaaaaaaaaa"),
-        ("Can wrap on decode", "abcdefghij", "zabcdefghi", "zzzzzzzzzz"),
-        ("Can decode messages longer than the key", "abc", "iboaqcnecbfcr", "iamapandabear"),
+        ("Can decode",                              "abcdefghij", "abcdefghij",    "aaaaaaaaaa"),
+        ("Can wrap on decode",                      "abcdefghij", "zabcdefghi",    "zzzzzzzzzz"),
+        ("Can decode messages longer than the key", "abc",        "iboaqcnecbfcr", "iamapandabear"),
     ]
     |> subtests (description, key, ciphertext, expected), description
         assert Cipher.new(key) |> Cipher.decode(ciphertext) == expected

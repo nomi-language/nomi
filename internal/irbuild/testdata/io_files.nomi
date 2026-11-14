@@ -43,7 +43,7 @@ test "a missing file reads as NotFound carrying the path verbatim"
     missing = "${fs.temp_dir()}/nomi-io-files-fixture-absent.txt"
 
     case fs.read_text(missing)
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert describe(e) == "missing:${missing}"
     end
 end
@@ -52,7 +52,7 @@ test "io.Error renders through its Display impl"
     missing = "${fs.temp_dir()}/nomi-io-files-fixture-absent.txt"
 
     case fs.read_text(missing)
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert Display.to_string(e) == "${missing}: not found"
     end
 end
@@ -61,7 +61,7 @@ test "a write whose parent is not a directory reports NotADirectory"
     assert fs.write_text(path, "parent") == Ok(Unit)
 
     case fs.write_text(path + "/child", "x")
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert describe(e) == "not a directory"
     end
 end
@@ -73,7 +73,7 @@ test "io.Error values compare by variant and payload"
 
     assert io.Error.Other{operation: "read", path: "a", code: "EIO"} == io.Error.Other{
         operation: "read",
-        path: "a",
-        code: "EIO",
+        path:      "a",
+        code:      "EIO",
     }
 end

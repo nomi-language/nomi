@@ -35,7 +35,7 @@ pub phrase sold_out(product: Noun) `No {$product :nomi:noun count=2} left.`
 
 /// How many of a product the cart holds, the noun agreeing with the count.
 pub phrase in_cart(
-    count: Int,
+    count:   Int,
     product: Noun,
 ) `{$count} {$product :nomi:noun count=$count} in your cart`
 

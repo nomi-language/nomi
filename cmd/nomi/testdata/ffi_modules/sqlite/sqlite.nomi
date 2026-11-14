@@ -19,8 +19,8 @@ fn open_raw(path: String) -> Result<RawConn, String> go sqlite.Open
 fn exec_raw(c: RawConn, sql: String, args: List<String>) -> Result<Unit, String> go sqlite.Exec
 
 fn query_all_raw(
-    c: RawConn,
-    sql: String,
+    c:    RawConn,
+    sql:  String,
     args: List<String>,
 ) -> Result<List<List<String>>, String> go sqlite.QueryAll
 

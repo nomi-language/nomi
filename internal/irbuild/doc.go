@@ -39,8 +39,13 @@
 // edge is an import edge, since a qualified `owner.member`, a bare name
 // from a selective import and a type reference all need the name in scope,
 // and a user file's name reaches another file's scope only through an
-// `import`. TestReferenceEdgesAreImportEdges holds that containment over the
-// corpus. `pub` is enforced by the front end, so two files sharing a unit
+// `import`. An import's edge comes from what the checker bound it to
+// (`resolvedImportEdges`) as well as from its path as written, since a path
+// spelled through the module's own name (`import r3::value.Value` in module
+// `r3`) matches no file key. TestReferenceEdgesAreImportEdges holds that
+// containment over the corpus. The type groups of typecycle.go are found
+// within these components, so a cycle the import graph missed would build
+// its files one at a time and refuse the cycle. `pub` is enforced by the front end, so two files sharing a unit
 // change no visibility decision.
 //
 // # Tuples
@@ -65,6 +70,17 @@
 // built from its interfaces and checks a module's bodies only when
 // something reads them (std/shared.go's file comment).
 //
+// The shared lowering lowers std modules in dependency order
+// (`stdLoweringOrder`), and a module's bodies resolve only against the
+// modules lowered before it. Inside an import cycle one member comes
+// first, so a body there that calls a later member's function (std/regex's
+// Debug calling `String.to_typed_literal`, where std/strings imports
+// std/regex) is not retained. Each program that reaches such a body
+// builds it as an instance with no arguments, against every module
+// (`stdUnretainedMonoBody`, `otherModuleCallee`), so a std module may call
+// any other's functions, type-qualified, module-qualified or bare, in
+// either direction of a cycle.
+//
 // A std module in `programStdModules` is the exception. It is not lowered
 // with the shared stdlib: it is declared with each program that imports
 // it, as one more module (programstd.go), so its types and interfaces are
@@ -78,8 +94,7 @@
 // them anywhere, a parameter's type included (`importedStdModules`,
 // `preludeListedNames`), or through a `phrase` or `noun` expansion's hidden
 // import. Otherwise every program would lower std/phrase and std/money,
-// whose checked `Currency` literals keep a program from a kept lowering
-// (Result.Keep).
+// and check their `Currency` literals at every load.
 //
 // The listed modules' bodies are lowered once per process, all of them as
 // one program, and linked into each program by name (programstdlink.go's
@@ -189,23 +204,55 @@
 // does not lint (irRequireLint, irScalarLower's rule).
 //
 // The value domain (irValueDomainKind) is the kinds a lowered value may
-// have: a call operand (irCallOperandKind), a bare `None` before coerce
-// discharges it, or the diverged marker of a region every arm of which
-// leaves. The builder holds kinds to it where they enter a body: a
-// declared function's or an instance's signature (signature,
+// have: a call operand (irCallOperandKind), or the diverged marker of a
+// region every arm of which leaves; a bare `None` is lowered at the type
+// the checker gave it. The builder holds kinds to it where they enter a
+// body: a declared function's or an instance's signature (signature,
 // resolveMonoInstance) is unlowerable with a parameter or result outside
-// it, funcDecl refuses one by name, irFuncShellAt builds no shell for one,
-// and lowerExact declines a lowered value outside it (inValueDomain). The
-// one exception is a kind that mentions a bound-free type parameter, which
-// only that generic declaration's own signature and shell hold. A guard
-// downstream that asks only this of an operand, or of a parameter or result
-// of a held signature, is gone. The domain guards that remain ask more:
-// a kind the checker's types project to (project, typeOf), which no entry
-// holds; a kind built from operands (a pair, a chunk, a map); or a
-// predicate narrower than the domain (irRetainedTupleKind,
-// irListTransportKind, irRetainedSetKind). A marker, std's own
-// (`ChannelClosed`) among them, is a retained leaf (irRetainedMarker), so
-// it passes each of those as any leaf does. A container that only carries
+// it, funcDecl refuses one by name, irFuncShellAt builds no shell for one
+// (a default's accessor among them), and lowerExact declines a lowered
+// value outside it (inValueDomain). The one exception is a kind that
+// mentions a bound-free type parameter, which only that generic
+// declaration's own signature and shell hold.
+//
+// What the entry held is asserted, not asked again: irHeldOperand panics
+// on a kind outside the call operands, irLoweredTupleRetained,
+// irLoweredRecordRetained and irHeldUpdateBase on a tuple, record or update
+// base the callable domain holds that is not retained (none is), and a
+// construct's own panic on a kind built from held parts that its predicate
+// refuses (a Set or Maybe over a held element, a List of a spread's held
+// elements, a map update's entries). Held are a lowered value's kind; a
+// lowered body's result once the diverged marker is replaced by the kind
+// its returns settled (a lambda, a `concurrent` body, an `if` or `case`
+// used for its value); a name a pattern binds from a held value; a held
+// signature's parameters and result (a sibling's, a std body's, a callee's
+// defaulted parameter); and the checker's type of a value the program
+// holds, projected (project, typeOf): a capture's or a function
+// reference's parameters, a field accessor's subject, a `once`, a setup's
+// value, the error type a failure renders, a recursive nested fn's
+// signature, a typed position's target, a variant literal's enum. Every
+// type a checked program declares projects into the domain;
+// TestTypeOperationGrid holds each value type to each operation, and a type
+// the builder refuses is planted (PlantTypeDeclineForTest), whose
+// declarations' signatures are refused before a body reads them. The
+// projection is not asked this where a caller probes a reference's type for
+// another route: checkedValueKinds declines a generic owner's function
+// whose type parameters no frame binds.
+//
+// A pattern is held the same way: the checker types each pattern against
+// its subject's type, so a pattern test asserts that the pattern is one its
+// test builds over the subject's held kind (a variant's head names the
+// subject's enum, a payload or field sub-pattern is one irFieldSubPattern
+// tests, a tuple pattern's components are ones tupleCaseComponents tests, a
+// list pattern over a named type is over a distinct of a list).
+//
+// The domain guards that remain ask what the entry did not hold: a kind
+// joined from operands that differ (a map literal's entries), an instance
+// that may fail to form (genStructInstance, listResultKind), a probe that
+// takes another route, and the gen-level destructure's own refusals. A
+// marker, std's own (`ChannelClosed`) among them, is a retained leaf
+// (irRetainedMarker), so it passes each narrower predicate as any leaf
+// does. A container that only carries
 // its elements holds any value of the domain, Unit included: a List or
 // Vector element (irRetainedValueKind), a Map value (irMapValueKind), an
 // `Iter<Unit>` (irSeqKindOf), a channel or a task's payload
@@ -217,7 +264,14 @@
 //
 // A test about how a blocked program is reported blocks on a planted
 // decline, a call to `planted_decline` that [PlantDeclineForTest] makes the
-// builder decline, never on a real gap.
+// builder decline, never on a real gap. One about a refused signature
+// plants a refused type, a struct [PlantTypeDeclineForTest] names.
+//
+// A call to a function whose signature the builder refused declines in the
+// caller, since the callee's body is never attempted; its Decline carries
+// the refused signature ([SignatureDecline]: the parameter or result, the
+// builder's reason, and the declaration the refusal cascades from), and a
+// host reports it there (signaturedecline.go).
 //
 // A dispatched call reaches every retained implementation of its method.
 // One with none blocks the program only when some module implements the
@@ -377,6 +431,29 @@
 // by its declaration. The module of a file with no object is kept beside
 // the std instances.
 //
+// The typed literals a program checks at load are kept too
+// ([KeptLiteral]): each site with its cell and failure renderer named by
+// their index in its unit's object. A lowering of one file answers the
+// program's sites as a whole lowering does, the kept units' resolved in
+// their decoded objects, the file's from its new module and the listed
+// std modules' from their kept lowering, so the caller checks every one
+// again. A literal's cell is local to its module, so `carryKept` takes
+// one the new lowering lacks as gone with its body unless a carried
+// function reads it. A site the file's lowering puts in a std instance or
+// in a file read with its bodies is a miss.
+//
+// A body that renders values held as an interface through Debug
+// (existentialDebugImpls: a derived Debug over a `List<Display>` field)
+// builds a Render that names the Debug impl of every type any file of the
+// program implements or boxes into the interface, files the renderer's
+// check never reads among them. The kept lowering records each such
+// interface, by spelling, with the files that render it and the files
+// that implement it ([KeptDebugRendering]). A file that renders one
+// another file implements misses, since its own lowering cannot name that
+// file's impls; so does a file that implements one another unit renders,
+// since that unit's kept object names the file's implementers as they
+// were. TestLowerFileMissesARenderingOfAnotherFilesImplementers holds it.
+//
 // TestLowerFileMatchesTheWholeLowering lowers every file of three generated
 // projects this way and requires each module to equal the whole lowering's
 // part by part ([ir.Parts]: each function and cell encoded on its own, each
@@ -431,7 +508,12 @@
 // parameter, field or collection element erases its concrete type (spec
 // §4). Values carry their type identity, and the call selects the
 // implementation by the receiver's identity. What a program may do with a
-// value of interface type is spec §12 *Interface values*.
+// value of interface type is spec §12 *Interface values*. A value held as an
+// interface conjunction (`Priced and Costed`, spec §12 *Interface
+// conjunctions*) is the same concrete value or box: its kind is the members'
+// existentials interned as one (irConjKind), a call through a member
+// relabels the receiver to that member's existential and dispatches as
+// above, and widening to fewer members is a relabel (conjunction.go).
 //
 // # Std interfaces held as values
 //
@@ -651,7 +733,13 @@
 // builder returns it with one `ir.Copy` typed at the wider kind
 // (`relabels`, `irCopyRelabel`, irrelabel.go), in `coerceEmpty` before any
 // rebuild is tried and in `qualSignature`, so a std or sibling function's
-// argument passes as it is. [ir.ValType.Accepts] accepts the copy: two
+// argument passes as it is. Where the checker recorded the conversion, its
+// record decides (analysis.Conversion.Cost, `relabelsAt`): relabelled where
+// it says free, rebuilt where it says rebuilt, and by the kinds only where
+// a generic body's instances decide. The hover reads the same record
+// (internal/hoverdoc, conversions.go), so it says what the builder does; a
+// record that says free where the kinds cannot relabel is a decline, never
+// a silent rebuild. [ir.ValType.Accepts] accepts the copy: two
 // instances of Maybe or of Result (`sameCovariantEnum`), and a function
 // parameter either way round. A relabelled record may hold an `Int` in a
 // word slot where its new type says a reference, so the VM reads a field
@@ -693,6 +781,35 @@
 // (`annotationTrialPasses`, a trial check whose errors and recorded types
 // are put back). For `+` and spreads the values that change must read a
 // binding with no annotation, and that binding is the one annotated.
+//
+// # What an in-place update reads from the graph
+//
+// The VM writes a struct update into its base, and a collection operation
+// into its operand, when ir.Owns finds that nothing reads the old value
+// again (ir package doc, "Updates written in place"). The analysis sees
+// only the graph, so the builder owes it a graph in which every holder of
+// a value is a temporary an instruction reads: a binding is a Bind of the
+// value's temporary and a later read uses that temporary, a branch's
+// result and an inlined loop's state are Copies into a slot, a lambda's
+// captures are its closure's operands, and a deferred call's operands are
+// the Defer's. A parameter is read by a RefLocal of its symbol, which the
+// analysis takes as a copy and a use of the parameter's temporary, so
+// every read of a parameter must be one. A lowering that kept a value
+// where the graph does not name it, read later by a symbol or by the
+// consumer beside the graph, would let an update write over a value still
+// held. A RefLocal naming a Bind's symbol is refused for that reason,
+// since the analysis cannot place the read. `Iter.to_vector`, `to_map` and
+// `to_set` and the collection literals count as new values, so their
+// lowering must build one. A field read is a Proj of the value's
+// temporary, never a second read of the record by another route, and an
+// update names the fields it replaces, since the analysis lets a field
+// read own its value only when nothing reads that field again. A fold's
+// callback is the FuncValue its Iter reads, written once, and the fold's
+// accumulator is the lambda's first parameter: the VM hands the
+// accumulator to that body. TestInPlaceUpdates_Eligibility lowers a fixture
+// of each shape (a literal's chain of updates, a parameter, a value handed
+// to a call and returned, a capture, a call, a list, a channel, a branch, a
+// loop's state, a loop of calls) and checks each update's verdict.
 //
 // # Correctness
 //

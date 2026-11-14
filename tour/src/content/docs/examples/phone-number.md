@@ -41,14 +41,15 @@ pub fn clean(phrase: String) -> Result<String, Error>
         codepoints
         |> Iter.map(Codepoint.to_digit)
         |> Maybe.values()
+        |> Iter.to_list()
         |> national()?
 
     case digits
-        [0, ..] -> Err(.AreaCodeStartsWithZero)
-        [1, ..] -> Err(.AreaCodeStartsWithOne)
+        [0, ..]          -> Err(.AreaCodeStartsWithZero)
+        [1, ..]          -> Err(.AreaCodeStartsWithOne)
         [_, _, _, 0, ..] -> Err(.ExchangeCodeStartsWithZero)
         [_, _, _, 1, ..] -> Err(.ExchangeCodeStartsWithOne)
-        _ -> digits |> Iter.map(Int.to_string) |> String.join() |> Ok()
+        _                -> digits |> Iter.map(Int.to_string) |> String.join() |> Ok()
     end
 end
 
@@ -88,9 +89,9 @@ test "cleans phone numbers"
             "+1 (223) 456-7890",
             Ok("2234567890"),
         ),
-        ("invalid when more than 11 digits", "321234567890", Err(.TooManyDigits)),
-        ("invalid with letters", "523-abc-7890", Err(.Letters)),
-        ("invalid with punctuations", "523-@:!-7890", Err(.Punctuation)),
+        ("invalid when more than 11 digits",   "321234567890",   Err(.TooManyDigits)),
+        ("invalid with letters",               "523-abc-7890",   Err(.Letters)),
+        ("invalid with punctuations",          "523-@:!-7890",   Err(.Punctuation)),
         ("invalid if area code starts with 0", "(023) 456-7890", Err(.AreaCodeStartsWithZero)),
         ("invalid if area code starts with 1", "(123) 456-7890", Err(.AreaCodeStartsWithOne)),
         (

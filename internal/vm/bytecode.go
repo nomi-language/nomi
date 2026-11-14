@@ -35,14 +35,15 @@ package vm
 //
 // The scalar core — constants, moves, Int and Float arithmetic, comparisons,
 // negation, concatenation, literal and variant tests, payload and field
-// reads, variant construction, direct calls and tail calls, and every
+// reads, construction of structs, records, tuples and variants, struct
+// updates, direct calls and tail calls, crossings into Go, and every
 // terminator — has typed opcodes. Every other instruction compiles to
 // `opIR`, which runs the instruction's handler (`Machine.irInstr`) over
 // operands boxed from their banks into rt values and unboxed back into
 // the destination's bank. Those handlers are the machine's implementations of
-// iteration, assertions, construction of structs, records, tuples and
-// collections, projections off them, `?`, defers, once cells, app fields,
-// Context, Debug and Display rendering, dispatched, indirect and host calls.
+// iteration, assertions, construction of collections and ranges,
+// projections, `?`, defers, once cells, app fields, Context, Debug and
+// Display rendering, and dispatched and indirect calls.
 // The boxing seam is here so an instruction kind can move from `opIR` to a
 // typed opcode one kind at a time.
 
@@ -102,6 +103,7 @@ const (
 	opProjP         // dstT | subj(ref) | idx
 	opProjF         // dstT | subj(ref) | ks(field) | idx | cache
 	opMake          // dst(ref) | desc | tag | n | (field, srcT)...
+	opUpdate        // dst(ref) | base(ref) | idx | cache | n | (ks(field), srcT, slot)...
 	opCall          // dstT | callee | n | args...
 	opTail          // dstT | callee | n | args...
 	opJmp           // _ | pc
@@ -113,6 +115,25 @@ const (
 	opIR            // idx                an instruction run by its handler
 	opHost          // idx                a crossing into a bound host adapter
 	opFail          // idx                a compile-time refusal, raised on arrival
+	// A Maybe a crossing answers and its uses only take apart, held as a tag
+	// and a payload in registers instead of a record (maybefuse.go).
+	opHostM // idx | tag          the crossing: payload (or None) to its ref register, 1 or 0 to tag
+	opTagIs // dst | tag | want   the variant test: tag == want
+	opProjM // dstT | ref | tag | idx  the payload read; the handler for a None
+	opTryM  // tag | idx          `?`: nothing for a Some, the handler for a None
+	opProjS // dstT | subj(ref) | i | idx  a tuple's component i, straight from its slot
+	opRetP  // srcT               a split tuple's return, in parts (tuplesplit.go)
+	// A comparison only its block's branch reads, and the branch, in one
+	// dispatch (branchCompare).
+	opBrCmpI // cond | a | b | tpc | fpc
+	opBrCmpF // cond | a | b | tpc | fpc
+	// A struct update that writes into its base, which nothing reads again
+	// (inplace.go).
+	opUpdateIn // as opUpdate
+	// A direct call that hands its callee arguments the caller owns
+	// (inplace.go): opCall and opTail, then the index of its moves.
+	opCallO // dstT | callee | n | args... | moves
+	opTailO // dstT | callee | n | args... | moves
 	// The opcodes below are emitted only for a machine with a debugger
 	// (debug.go). A machine without one compiles none of them, and its
 	// bytecode is what it would be if they did not exist.
@@ -172,14 +193,28 @@ type code struct {
 	ks []string
 	kr []any
 	// descs are the descriptors opMake builds with; pcache is one field
-	// cache per opProjF instruction.
+	// cache per opProjF instruction, and ucache one resolution per opUpdate.
 	descs  []*rt.TypeDesc
 	pcache []atomic.Pointer[projHit]
+	ucache []atomic.Pointer[updateHit]
+	// uneed is, per ucache entry, the parameters an opUpdateIn needs the
+	// activation to own to write in place (inplace.go).
+	uneed []uint64
+	// moves are, per opCallO and opTailO, the arguments it may hand its
+	// callee as owned.
+	moves [][]move
+	// folds are the folds that may hand their accumulator to their
+	// callback as owned (inplace.go).
+	folds map[*ir.Iter]ir.Fold
 	// callees are the direct callees, resolved at compile time and compiled
 	// on first call.
 	callees []*fnSlot
 	// irs are the instructions opIR runs; fails the errors opFail raises.
 	irs []ir.Instr
+	// packed is, per temporary, how a value kept as registers instead of a
+	// record is held (a fused Maybe, a split tuple), or nil when the
+	// function keeps none. A boxed read rebuilds the value (readPacked).
+	packed []packedTemp
 	// hostCalls are the crossings opHost makes, each resolved to its bound
 	// adapter at compile time.
 	hostCalls []hostCall
@@ -205,6 +240,12 @@ type code struct {
 	// entries counts the entries into the body of a function compiled for a
 	// machine counting them (entries.go).
 	entries atomic.Uint64
+	// selfEntry is the pc a self tail call restarts at: past the constants
+	// loaded at entry (consthoist.go).
+	selfEntry int
+	// wordParams says every parameter is a word, at most eight of them, so
+	// a self tail call moves words only (selfTailWords).
+	wordParams bool
 }
 
 // site is one instruction's entry in the line and fault table.
@@ -282,6 +323,24 @@ type compiler struct {
 	// parameter's register, and the copies whose source was computed
 	// straight into the destination's register, so they compile to nothing.
 	aliased map[ir.Instr]bool
+	// fused are the temporaries holding a Maybe as a payload and a tag, and
+	// each one's tag register (maybefuse.go).
+	fused map[ir.Temp]uint32
+	// split are the temporaries holding a tuple as its components, and each
+	// component's register (tuplesplit.go).
+	split map[ir.Temp][]loc
+	// uses and writes count each temporary's reads and definitions.
+	uses, writes []int
+	// hoisted are the constants loaded at entry (consthoist.go).
+	hoisted map[ir.Instr]bool
+	// inPlace are the updates that may write into their base, with the
+	// parameters each needs owned, and moves the arguments each direct call
+	// may hand on (inplace.go).
+	inPlace map[*ir.Make]uint64
+	moves   map[*ir.Call][]ir.Move
+	// takes are the crossings that may write their receiver in place, with
+	// the parameters each needs owned.
+	takes map[*ir.Call]uint64
 }
 
 // compile turns f into bytecode. It cannot fail: an instruction the typed
@@ -299,6 +358,12 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 	cp := &compiler{m: m, c: c, blocks: map[ir.BlockID]int{},
 		ksIndex: map[string]uint32{}, kwIndex: map[uint64]uint32{}, calleeI: map[*ir.Func]uint32{}}
 	cp.assignRegisters()
+	cp.fuseMaybes()
+	cp.splitTuples()
+	if o := m.ownership(f); o != nil {
+		cp.inPlace, cp.moves, cp.takes = o.Updates, o.Moves, o.Takes
+		c.folds = o.Folds
+	}
 	c.tails = ir.TailTransfers(f)
 	blocks := f.Blocks()
 	if len(blocks) == 0 {
@@ -309,6 +374,7 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 		c.dbg = &codeDebug{stageTemps: stageTemps(f)}
 	}
 	cp.emitEnter(f)
+	cp.hoistConstants()
 	for _, b := range blocks {
 		cp.blocks[b.ID()] = len(c.code)
 		handler := -1
@@ -316,11 +382,14 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 			handler = -2 - int(h) // patched below
 		}
 		marks := b.Stmts()
+		fused := cp.branchCompare(b)
 		for i, in := range b.Instrs() {
 			if c.dbg != nil {
 				marks = cp.debugBefore(b, i, in, marks)
 			}
-			cp.instr(in, handler)
+			if in != ir.Instr(fused) {
+				cp.instr(in, handler)
+			}
 			if c.dbg != nil {
 				cp.debugAfter(in)
 			}
@@ -328,7 +397,7 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 		if c.dbg != nil {
 			cp.debugBefore(b, len(b.Instrs()), nil, marks)
 		}
-		cp.term(b)
+		cp.term(b, fused)
 	}
 	if c.dbg != nil {
 		c.dbg.markLineStarts()
@@ -346,14 +415,22 @@ func (m *Machine) compile(f *ir.Func) (c *code) {
 		c.code[at] = uint32(pc)
 	}
 	// A jump to a return is the return: the shared exit block every arm of a
-	// value-producing `if` or `case` jumps to is one instruction.
+	// value-producing `if` or `case` jumps to is one instruction. A jump to
+	// a jump is followed, so a chain ending in a return folds too.
 	for _, st := range c.sites {
 		if opcode(c.code[st.pc]&0xff) != opJmp {
 			continue
 		}
-		target := c.code[c.code[st.pc+1]]
+		to := c.code[st.pc+1]
+		for hops := 0; hops < 8 && int(to) < len(c.code) && opcode(c.code[to]&0xff) == opJmp; hops++ {
+			to = c.code[to+1]
+		}
+		if int(to) >= len(c.code) {
+			continue
+		}
+		target := c.code[to]
 		switch opcode(target & 0xff) {
-		case opRet, opRetU:
+		case opRet, opRetU, opRetP:
 			c.code[st.pc], c.code[st.pc+1] = target, uint32(opNop)
 		}
 	}
@@ -446,6 +523,7 @@ func (cp *compiler) assignRegisters() {
 		}
 	}
 	uses := make([]int, n)
+	cp.uses, cp.writes = uses, writes
 	var buf []ir.Temp
 	for _, b := range f.Blocks() {
 		for _, in := range b.Instrs() {
@@ -509,6 +587,12 @@ func (cp *compiler) assignRegisters() {
 		}
 	}
 	c.nW, c.nS, c.nR = counts[bankW], counts[bankS], counts[bankR]
+	c.wordParams = len(c.params) <= 8 && len(c.params) == len(f.Params())
+	for i, l := range c.params {
+		if l.bank() != bankW || l.reg() != i {
+			c.wordParams = false
+		}
+	}
 }
 
 func (cp *compiler) emit(words ...uint32) { cp.c.code = append(cp.c.code, words...) }
@@ -604,8 +688,9 @@ func (cp *compiler) move(dst, src ir.Temp) {
 
 // instr compiles one instruction.
 func (cp *compiler) instr(in ir.Instr, handler int) {
-	if _, isSlot := in.(*ir.Slot); isSlot {
-		// A declaration: the window already holds the storage.
+	if _, isSlot := in.(*ir.Slot); isSlot || cp.isHoisted(in) {
+		// A declaration: the window already holds the storage. Or a
+		// constant loaded at entry.
 		return
 	}
 	switch n := in.(type) {
@@ -617,7 +702,7 @@ func (cp *compiler) instr(in ir.Instr, handler int) {
 		}
 	}
 	cp.at(in.Pos(), ir.InstrFaults(in).Any(), handler)
-	if cp.typed(in) {
+	if cp.fusedUse(in) || cp.splitUse(in) || cp.typed(in) {
 		return
 	}
 	cp.viaHandler(in)
@@ -754,6 +839,10 @@ func (cp *compiler) typed(in ir.Instr) bool {
 		case n.Kind() == ir.ProjPayload && n.PayloadEmbeds() == nil && n.PayloadField() == "" && n.Index() == 0:
 			cp.emit(cp.op(opProjP, uint32(n.Dst())), uint32(cp.loc(n.Subject()).reg()), cp.handlerIndex(n))
 			return true
+		case n.Kind() == ir.ProjSlot:
+			cp.emit(cp.op(opProjS, uint32(n.Dst())), uint32(cp.loc(n.Subject()).reg()), uint32(n.Index()),
+				cp.handlerIndex(n))
+			return true
 		case n.Kind() == ir.ProjField || n.Kind() == ir.ProjRecordField:
 			cp.c.pcache = append(cp.c.pcache, atomic.Pointer[projHit]{})
 			cp.emit(cp.op(opProjF, uint32(n.Dst())), uint32(cp.loc(n.Subject()).reg()), cp.str(n.Name()),
@@ -860,8 +949,40 @@ func (cp *compiler) arith(n *ir.Arith) bool {
 }
 
 func (cp *compiler) compare(n *ir.Compare) bool {
-	if n.Ranked() || !cp.inBank(bankW, n.Dst()) || cp.kind(n.Dst()) != ir.KindBool {
+	o, cond, ok := cp.compareOp(n)
+	if !ok {
 		return false
+	}
+	cp.emit(cp.op(o, uint32(cp.loc(n.Dst()).reg())), uint32(cp.loc(n.Lhs()).reg()),
+		uint32(cp.loc(n.Rhs()).reg()), cond)
+	return true
+}
+
+// branchCompare is the Int or Float comparison b's branch tests, when the
+// comparison is b's last instruction and its answer is read by the branch
+// alone: the branch compiles to opBrCmpI or opBrCmpF, which compares and
+// jumps in one dispatch, and the comparison compiles to nothing.
+func (cp *compiler) branchCompare(b *ir.Block) *ir.Compare {
+	br, isBranch := b.Term().(*ir.Branch)
+	instrs := b.Instrs()
+	if !isBranch || len(instrs) == 0 {
+		return nil
+	}
+	n, isCompare := instrs[len(instrs)-1].(*ir.Compare)
+	t := br.Cond()
+	if !isCompare || n.Dst() != t || int(t) >= len(cp.uses) || cp.uses[t] != 1 || cp.writes[t] != 1 {
+		return nil
+	}
+	if o, _, ok := cp.compareOp(n); !ok || (o != opCmpI && o != opCmpF) {
+		return nil
+	}
+	return n
+}
+
+// compareOp is the typed opcode and condition n compiles to.
+func (cp *compiler) compareOp(n *ir.Compare) (opcode, uint32, bool) {
+	if n.Ranked() || !cp.inBank(bankW, n.Dst()) || cp.kind(n.Dst()) != ir.KindBool {
+		return 0, 0, false
 	}
 	var cond uint32
 	switch n.Op() {
@@ -878,7 +999,7 @@ func (cp *compiler) compare(n *ir.Compare) bool {
 	case ir.OpGe:
 		cond = condGe
 	default:
-		return false
+		return 0, 0, false
 	}
 	lk, rk := cp.kind(n.Lhs()), cp.kind(n.Rhs())
 	var o opcode
@@ -897,11 +1018,9 @@ func (cp *compiler) compare(n *ir.Compare) bool {
 		// A Bool's word is 0 or 1, so False orders before True as an Int.
 		o = opCmpI
 	default:
-		return false
+		return 0, 0, false
 	}
-	cp.emit(cp.op(o, uint32(cp.loc(n.Dst()).reg())), uint32(cp.loc(n.Lhs()).reg()),
-		uint32(cp.loc(n.Rhs()).reg()), cond)
-	return true
+	return o, cond, true
 }
 
 func (cp *compiler) match(n *ir.Match) bool {
@@ -973,37 +1092,62 @@ func (cp *compiler) call(n *ir.Call) bool {
 	if cp.c.tails[n] {
 		o = opTail
 	}
+	ms := cp.moves[n]
+	if len(ms) > 0 {
+		o += opCallO - opCall
+	}
 	cp.emit(cp.op(o, uint32(n.Dst())), idx, uint32(len(args)))
 	cp.emit(args...)
+	if len(ms) > 0 {
+		cp.c.moves = append(cp.c.moves, movesOf(ms))
+		cp.emit(uint32(len(cp.c.moves) - 1))
+	}
 	return true
 }
 
-// hostCall is one opHost site: the call, its bound adapter, the operands it
-// reads and the register its result goes to.
+// hostCall is one opHost site: the call, what it lands on (an intrinsic,
+// else a bound adapter), the crossing's name, the operands it reads and the
+// register its result goes to.
 type hostCall struct {
 	call *ir.Call
+	intr hostFn
 	fn   hostadapt.Func
+	name string
 	args []ir.Temp
 	dst  ir.Temp
+	// fast is an opHostM crossing's fast path (maybefuse.go), and parts the
+	// adapter's parts form it calls for fastParts.
+	fast  fastMaybe
+	parts hostadapt.PartsFunc
+	// inPlace is the in-place form of a crossing that may write its owned
+	// receiver (inplace.go), which runs when the activation owns the
+	// parameters in need; nil for any other crossing.
+	inPlace hostFn
+	need    uint64
 }
 
-// hostCall compiles a crossing whose name a bound adapter answers into
-// opHost, which calls the adapter with no lookup. An intrinsic, or a name no
-// adapter answers, runs through the handler, which looks it up by name.
+// hostCall compiles a crossing into opHost, which calls what the crossing
+// lands on with no lookup: the intrinsic of its name, else the bound adapter
+// that answers it. A name neither answers runs through the handler, which
+// reports it.
 func (cp *compiler) hostCall(n *ir.Call) bool {
 	name := n.Callee().Name()
-	if cp.m.hosts[name] != nil {
-		return false
+	h := hostCall{call: n, name: name, dst: n.Dst()}
+	if h.intr = cp.m.hosts[name]; h.intr == nil {
+		fn, err := cp.m.adapter(name)
+		if err != nil || fn == nil {
+			return false
+		}
+		h.fn = fn
 	}
-	fn, err := cp.m.adapter(name)
-	if err != nil || fn == nil {
-		return false
+	h.args = make([]ir.Temp, n.NumArgs())
+	for i := range h.args {
+		h.args[i] = n.Arg(i)
 	}
-	args := make([]ir.Temp, n.NumArgs())
-	for i := range args {
-		args[i] = n.Arg(i)
+	if need, takes := cp.takes[n]; takes && h.intr != nil {
+		h.inPlace, h.need = inPlaceHost(name), need
 	}
-	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: n, fn: fn, args: args, dst: n.Dst()})
+	cp.c.hostCalls = append(cp.c.hostCalls, h)
 	cp.emit(cp.op(opHost, uint32(len(cp.c.hostCalls)-1)))
 	return true
 }
@@ -1084,7 +1228,7 @@ func (cp *compiler) forwardedHostCall(n *ir.Call, callee *ir.Func) bool {
 		}
 		args[i] = arg
 	}
-	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: inner, fn: fn, args: args, dst: n.Dst()})
+	cp.c.hostCalls = append(cp.c.hostCalls, hostCall{call: inner, fn: fn, name: name, args: args, dst: n.Dst()})
 	cp.emit(cp.op(opHost, uint32(len(cp.c.hostCalls)-1)))
 	return true
 }
@@ -1101,8 +1245,9 @@ func funcDefers(f *ir.Func) bool {
 	return false
 }
 
-// term compiles a block's terminator.
-func (cp *compiler) term(b *ir.Block) {
+// term compiles a block's terminator. cmp is the comparison its branch
+// tests in the same dispatch (branchCompare), or nil.
+func (cp *compiler) term(b *ir.Block, cmp *ir.Compare) {
 	f := cp.c.fn
 	switch t := b.Term().(type) {
 	case nil:
@@ -1113,6 +1258,18 @@ func (cp *compiler) term(b *ir.Block) {
 		cp.patches = append(cp.patches, len(cp.c.code)-1)
 	case *ir.Branch:
 		cp.at(t.Pos(), false, -1)
+		if cmp != nil {
+			o, cond, _ := cp.compareOp(cmp)
+			if o == opCmpF {
+				o = opBrCmpF
+			} else {
+				o = opBrCmpI
+			}
+			cp.emit(cp.op(o, cond), uint32(cp.loc(cmp.Lhs()).reg()), uint32(cp.loc(cmp.Rhs()).reg()),
+				uint32(t.IfTrue()), uint32(t.IfFalse()))
+			cp.patches = append(cp.patches, len(cp.c.code)-2, len(cp.c.code)-1)
+			return
+		}
 		if cp.inBank(bankW, t.Cond()) && cp.kind(t.Cond()) == ir.KindBool {
 			cp.emit(cp.op(opBr, uint32(cp.loc(t.Cond()).reg())))
 		} else {
@@ -1133,6 +1290,8 @@ func (cp *compiler) term(b *ir.Block) {
 			cp.emit(cp.op(opRetCtl, uint32(len(cp.c.ctls)-1)))
 		case !t.HasVal():
 			cp.emit(cp.op(opRetU, 0))
+		case cp.split != nil && cp.split[t.Val()] != nil:
+			cp.emit(cp.op(opRetP, uint32(t.Val())))
 		default:
 			cp.emit(cp.op(opRet, uint32(t.Val())))
 		}
@@ -1172,9 +1331,11 @@ var opNames = [...]string{
 	opAndI: "andi", opOrI: "ori", opXorI: "xori", opNotI: "noti", opShlI: "shli", opShrI: "shri",
 	opAddF: "addf", opSubF: "subf", opMulF: "mulf", opDivF: "divf", opNegF: "negf", opRemF: "remf",
 	opCmpI: "cmpi", opCmpF: "cmpf", opEqS: "eqs", opEqW: "eqw", opNot: "not", opConcat: "concat",
-	opMatchV: "matchv", opProjP: "projp", opProjF: "projf", opMake: "make",
+	opMatchV: "matchv", opProjP: "projp", opProjF: "projf", opMake: "make", opUpdate: "update",
 	opCall: "call", opTail: "tail", opJmp: "jmp", opBr: "br", opBrX: "brx",
 	opRet: "ret", opRetU: "retu", opRetCtl: "retctl", opIR: "ir", opHost: "host", opFail: "fail",
+	opHostM: "hostm", opTagIs: "tagis", opProjM: "projm", opTryM: "trym", opProjS: "projs", opRetP: "retp",
+	opBrCmpI: "brcmpi", opBrCmpF: "brcmpf", opUpdateIn: "update!", opCallO: "call!", opTailO: "tail!",
 	opStmt: "stmt", opPC: "pc", opTap: "tap", opEnter: "enter",
 }
 
@@ -1201,7 +1362,7 @@ func (c *code) String() string {
 		switch opcode(ins & 0xff) {
 		case opIR:
 			fmt.Fprintf(&b, "  ; %s", c.irs[ins>>8])
-		case opHost:
+		case opHost, opHostM:
 			fmt.Fprintf(&b, "  ; %s", c.hostCalls[ins>>8].call)
 		}
 		b.WriteString("\n")

@@ -32,9 +32,9 @@ end
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .AccountNotOpen -> "account not open"
+            .AccountNotOpen     -> "account not open"
             .AccountAlreadyOpen -> "account already open"
-            .AmountNotPositive -> "amount must be greater than 0"
+            .AmountNotPositive  -> "amount must be greater than 0"
             .AmountAboveBalance -> "amount must be less than balance"
         end
     end
@@ -118,7 +118,7 @@ fn serve(inbox: Receiver<Request>)
     _ = Iter.loop(None, fn balance ->
         case Receiver.receive(inbox)
             Some(request) -> handle(balance, request)
-            None -> break balance
+            None          -> break balance
         end
     end)
 end
@@ -147,9 +147,9 @@ end
 /// Sends `reply` whether `next` succeeded, and returns the balance after
 /// it: the new one, or `balance` unchanged.
 fn answer(
-    reply: Channel<Result<Unit, Error>>,
+    reply:   Channel<Result<Unit, Error>>,
     balance: Maybe<Int>,
-    next: Result<Maybe<Int>, Error>,
+    next:    Result<Maybe<Int>, Error>,
 ) -> Maybe<Int>
     _ = Sender.send(reply.sender, Result.map(next, fn _ -> Unit))
     Result.with_default(next, balance)
@@ -158,14 +158,14 @@ end
 fn opened(balance: Maybe<Int>) -> Result<Maybe<Int>, Error>
     case balance
         Some(_) -> Err(.AccountAlreadyOpen)
-        None -> Ok(Some(0))
+        None    -> Ok(Some(0))
     end
 end
 
 fn closed(balance: Maybe<Int>) -> Result<Maybe<Int>, Error>
     case balance
         Some(_) -> Ok(None)
-        None -> Err(.AccountNotOpen)
+        None    -> Err(.AccountNotOpen)
     end
 end
 
@@ -211,9 +211,9 @@ end
 
 fn run(account: Account, step: Step) -> Result<Unit, Error>
     case step
-        .Open -> Account.open(account)
-        .Close -> Account.close(account)
-        .Deposit(amount) -> Account.deposit(account, amount)
+        .Open             -> Account.open(account)
+        .Close            -> Account.close(account)
+        .Deposit(amount)  -> Account.deposit(account, amount)
         .Withdraw(amount) -> Account.withdraw(account, amount)
     end
 end

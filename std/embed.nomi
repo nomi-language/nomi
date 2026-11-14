@@ -78,7 +78,7 @@ end
 /// The bytes `c` holds or names, of the file at `p`.
 fn contents(c: Contents, p: String) -> Bytes
     case c
-        Contents.Held(data) -> data
+        Contents.Held(data)      -> data
         Contents.Stored{handle:} -> host.read(handle, p)
     end
 end
@@ -86,7 +86,7 @@ end
 /// The size of the file whose contents are `c`, read from neither.
 fn size(c: Contents) -> Int
     case c
-        Contents.Held(data) -> Bytes.length(data)
+        Contents.Held(data)    -> Bytes.length(data)
         Contents.Stored{size:} -> size
     end
 end
@@ -123,9 +123,9 @@ end
 /// The tree of `entries`, each a file's path and contents, held in the
 /// value: the trees the examples here read.
 //! files = from_held([
-//!     ("static/b.css", String.to_bytes("b")),
+//!     ("static/b.css",     String.to_bytes("b")),
 //!     ("static/img/a.png", String.to_bytes("a")),
-//!     ("index.html", String.to_bytes("i")),
+//!     ("index.html",       String.to_bytes("i")),
 //! ])
 //!
 //! assert Files.paths(files) == ["index.html", "static/b.css", "static/img/a.png"]
@@ -180,8 +180,8 @@ end
 /// dirs with `p`, a directory when `is_dir`, recorded in its parent, and
 /// its parent in the parent above it, up to the root.
 fn add_parents(
-    dirs: Map<String, Map<String, Bool>>,
-    p: String,
+    dirs:   Map<String, Map<String, Bool>>,
+    p:      String,
     is_dir: Bool,
 ) -> Map<String, Map<String, Bool>>
     parent = path.parent(p) |> Maybe.with_default(".")
@@ -204,7 +204,7 @@ fn key(p: String) -> Result<String, Error>
     if String.starts_with(cleaned, "/") then
         Err(
             Error.InvalidPath{
-                path: p,
+                path:   p,
                 reason: "an embedded path is relative to the root of the embedded tree",
             }
         )
@@ -327,10 +327,10 @@ impl Files
             Some(c) ->
                 Ok(
                     Metadata{
-                        kind: Kind.File,
-                        size: size(c),
+                        kind:     Kind.File,
+                        size:     size(c),
                         modified: zero_time,
-                        mode: 0o444,
+                        mode:     0o444,
                     }
                 )
 
@@ -450,7 +450,7 @@ end
 /// A walk of an embedded tree from `root`.
 struct Walk
     files: Files
-    root: String
+    root:  String
 end
 
 impl Iter<Result<Entry, Error>> for Walk
@@ -462,7 +462,7 @@ end
 /// Hands each entry under dir to yield, in walk order, until it stops.
 fn walk_dir(files: Files, dir: String, yield: (Result<Entry, Error>) -> Bool) -> Bool
     case Files.list(files, dir)
-        Err(e) -> yield(Err(e))
+        Err(e)      -> yield(Err(e))
         Ok(entries) -> walk_entries(files, entries, yield)
     end
 end

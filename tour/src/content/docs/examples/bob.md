@@ -21,9 +21,9 @@ pub fn response(remark: String) -> String
     if remark == "" then return "Fine. Be that way!"
 
     case (String.ends_with(remark, "?"), String.is_upper(remark))
-        (True, True) -> "Calm down, I know what I'm doing!"
-        (True, False) -> "Sure."
-        (False, True) -> "Whoa, chill out!"
+        (True, True)   -> "Calm down, I know what I'm doing!"
+        (True, False)  -> "Sure."
+        (False, True)  -> "Whoa, chill out!"
         (False, False) -> "Whatever."
     end
 end
@@ -57,19 +57,19 @@ test "bob's responses"
             "ZOMG THE %^*@#$(*^ ZOMBIES ARE COMING!!11!!1!",
             "Whoa, chill out!",
         ),
-        ("shouting with no exclamation mark", "I HATE THE DENTIST", "Whoa, chill out!"),
-        ("prolonged silence", "          ", "Fine. Be that way!"),
-        ("alternate silence", "\t\t\t\t\t\t\t\t\t\t", "Fine. Be that way!"),
-        ("other whitespace", "\n\r \t", "Fine. Be that way!"),
-        ("talking forcefully", "Hi there!", "Whatever."),
+        ("shouting with no exclamation mark", "I HATE THE DENTIST",   "Whoa, chill out!"),
+        ("prolonged silence",                 "          ",           "Fine. Be that way!"),
+        ("alternate silence",                 "\t\t\t\t\t\t\t\t\t\t", "Fine. Be that way!"),
+        ("other whitespace",                  "\n\r \t",              "Fine. Be that way!"),
+        ("talking forcefully",                "Hi there!",            "Whatever."),
         (
             "using acronyms in regular speech",
             "It's OK if you don't want to go work for NASA.",
             "Whatever.",
         ),
-        ("no letters", "1, 2, 3", "Whatever."),
+        ("no letters",                         "1, 2, 3",                         "Whatever."),
         ("statement containing question mark", "Ending with ? means a question.", "Whatever."),
-        ("starting with whitespace", "         hmmmmmmm...", "Whatever."),
+        ("starting with whitespace",           "         hmmmmmmm...",            "Whatever."),
         (
             "non-question ending with whitespace",
             "This is a statement ending with whitespace      ",

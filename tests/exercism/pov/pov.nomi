@@ -3,7 +3,7 @@
 
 /// A tree of labelled nodes. The labels are unique within a tree.
 pub struct Tree
-    label: String
+    label:    String
     children: List<Tree> = []
 end
 

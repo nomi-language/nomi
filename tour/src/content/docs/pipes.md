@@ -285,7 +285,7 @@ fn main()
     Some("Ada")
     |> case
         Some(name) -> "named ${name}"
-        None -> "missing"
+        None       -> "missing"
     end
     |> dbg
 end
@@ -303,7 +303,7 @@ dbg line 15:
   Some("Ada")
   |> case
       Some(name) -> "named ${name}"
-      None -> "missing"
+      None       -> "missing"
   end
   = "named Ada"
 -->

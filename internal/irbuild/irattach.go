@@ -24,6 +24,12 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 	var fa *ast.FieldAccess
 	switch tn := prefix.(type) {
 	case *ast.QualifiedType:
+		if d := bl.g.literalDistinct(at); d != nil {
+			// `kinds.Kvs{"a" => 1}`: a distinct named through its module
+			// is its constructor over the literal, as the bare `Kvs{...}`
+			// below is. The checker typed the literal as the distinct.
+			return bl.compositeDistinctMake(call, d)
+		}
 		member, ok := tn.Member.(*ast.SimpleType)
 		if !ok {
 			return no()

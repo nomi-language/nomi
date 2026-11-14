@@ -145,9 +145,9 @@ end
 
 test "lyrics"
     [
-        ("recites first three verses of the song", 1, 3),
+        ("recites first three verses of the song",           1, 3),
         ("recites three verses from the middle of the song", 4, 6),
-        ("recites the whole song", 1, 12),
+        ("recites the whole song",                           1, 12),
     ]
     |> subtests (description, start, stop), description
         expected =

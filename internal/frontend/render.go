@@ -52,7 +52,9 @@ func (ds Diagnostics) Render(w io.Writer) {
 
 func (d Diagnostic) render(w io.Writer) {
 	label := rt.RedFor(w, "error:")
-	if d.Warning {
+	if d.Hint {
+		label = rt.CyanFor(w, "hint:")
+	} else if d.Warning {
 		label = rt.YellowFor(w, "warning:")
 	}
 	fmt.Fprintf(w, "%s %s\n", label, rt.BoldFor(w, d.Message))
@@ -118,7 +120,9 @@ func (d Diagnostic) underline(w io.Writer) string {
 		width = 1
 	}
 	marks := rt.RedFor(w, strings.Repeat("^", width))
-	if d.Warning {
+	if d.Hint {
+		marks = rt.CyanFor(w, strings.Repeat("^", width))
+	} else if d.Warning {
 		marks = rt.YellowFor(w, strings.Repeat("^", width))
 	}
 	if multiline {

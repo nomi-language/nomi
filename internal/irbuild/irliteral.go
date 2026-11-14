@@ -41,10 +41,14 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 		why = "a checked literal whose check does not lower"
 		return no()
 	}
-	if len(h.params) != 1 || !irListTransportKind(h.params[0]) || !irCallableValueKind(h.result) {
-		why = "a handler signature outside the retained domain"
-		return no()
+	// Literal.from_fragments's signature, `(List<Fragment<I>>) -> R`, which
+	// the impl's conformance holds; the impl's kinds are held as any
+	// signature's are.
+	if len(h.params) != 1 || h.params[0].tag != tagList || h.params[0].comp == nil {
+		panic("irbuild: a Literal handler whose signature is not from_fragments's")
 	}
+	irHeldOperand(h.params[0], "a Literal handler's fragments")
+	irHeldOperand(h.result, "a Literal handler's result")
 	elem := h.params[0].comp.parts[0]
 	d := elem.def
 	if d == nil || d.preludeOf == nil || fragmentSpec == nil || d.preludeOf.spec != fragmentSpec || !irRetainedEnumKind(d) {
@@ -56,10 +60,15 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 		why = "a Fragment without Static and Dynamic"
 		return no()
 	}
-	if t.Raw && bl.literalCell != t && irCheckedLiteralKind(h.result) {
-		// A backtick literal whose handler can fail was checked at compile
-		// time; its value is the Ok payload of its cell.
-		return bl.checkedLiteral(t, h.result)
+	if t.Fixed() && bl.literalCell != t && !bl.g.srcFA().CheckedLiterals[t] {
+		// A literal without slots was checked at compile time; its value is
+		// its cell's, the Ok payload when the handler can fail.
+		if irCheckedLiteralKind(h.result) {
+			return bl.checkedLiteral(t, h.result)
+		}
+		if bl.g.irTypeOf(h.result) != nil {
+			return bl.plainLiteral(t, h.result)
+		}
 	}
 	parts := fragmentParts(t.Parts)
 	last := lastDynamicPart(parts)

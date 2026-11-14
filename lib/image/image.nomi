@@ -23,16 +23,16 @@ opaque type Handle go goside.Image
 // Why a call failed, as Go reports it: kind 0 none, 1 an unsupported
 // format, 2 a corrupt image, 3 too many pixels.
 struct Failure
-    kind: Int
+    kind:    Int
     message: String
-    width: Int
-    height: Int
+    width:   Int
+    height:  Int
 end
 
 struct Info
-    format: String
-    width: Int
-    height: Int
+    format:  String
+    width:   Int
+    height:  Int
     failure: Failure
 end
 
@@ -106,7 +106,7 @@ end
 /// An image's format and size, read from its header.
 pub struct Dimensions
     format: Format
-    width: Int
+    width:  Int
     height: Int
 end
 
@@ -116,9 +116,9 @@ derive Debug for Dimensions
 fn format_of(name: String) -> Maybe<Format>
     case name
         "jpeg" -> Some(.Jpeg)
-        "png" -> Some(.Png)
+        "png"  -> Some(.Png)
         "webp" -> Some(.Webp)
-        _ -> None
+        _      -> None
     end
 end
 

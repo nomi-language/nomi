@@ -40,12 +40,12 @@ opaque type Meters Int
 
 // zeta before alpha, deliberately. See above.
 struct Rev
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 
 struct Custom
-    zeta: Int
+    zeta:  Int
     alpha: Int
 end
 

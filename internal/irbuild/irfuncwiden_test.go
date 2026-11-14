@@ -271,9 +271,9 @@ fn apply(f: (List<List<Int>>) -> String, xss: List<List<Int>>) -> String
 end
 fn main()
   found: Result<List<List<String>>, String> = Ok([["a", "b"], ["c"]])
-  io.inspect(Result.map(found, Iter.flatten))
-  g: (List<Vector<Int>>) -> List<Int> = Iter.flatten
-  io.inspect(g([Vector[1, 2], Vector[3]]))
+  io.inspect(Result.map(found, Iter.flatten) |> Result.map(&Iter.to_list(&1)))
+  g: (List<Vector<Int>>) -> Iter<Int> = Iter.flatten
+  io.inspect(g([Vector[1, 2], Vector[3]]) |> Iter.to_list())
   io.inspect(Iter.map([[[1, 2], [3, 4]]], Iter.transpose) |> Iter.to_list())
   io.print(apply(shown, [[1, 2], [3]]))
 end`, "Ok([\"a\", \"b\", \"c\"])\n[1, 2, 3]\n[[[1, 3], [2, 4]]]\n1,2;3\n")

@@ -76,7 +76,7 @@ const (
 	stdBundleMagic = "NOMISTDB"
 	// stdBundleVersion versions this file's own layout; ir.FormatVersion
 	// versions the images inside it.
-	stdBundleVersion = 2
+	stdBundleVersion = 3
 	// stdBundleUnused is how long a cached bundle no process has used is
 	// kept: each build of the compiler writes its own.
 	stdBundleUnused = 24 * time.Hour

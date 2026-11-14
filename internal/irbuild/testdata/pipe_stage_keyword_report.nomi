@@ -53,7 +53,7 @@ test "a bare case stage reports two pipeline rows"
         Some(3)
         |> case
             Some(_) -> False
-            None -> True
+            None    -> True
         end
 
     assert flag
@@ -71,13 +71,13 @@ end
 test "a piped case scrutinee contributes no values row"
     assert (wrap(3) |> case
         Some(n) -> n
-        None -> 0
+        None    -> 0
     end) == 99
 end
 
 test "a directly written case scrutinee does contribute one"
     assert (case wrap(3)
         Some(n) -> n
-        None -> 0
+        None    -> 0
     end) == 99
 end

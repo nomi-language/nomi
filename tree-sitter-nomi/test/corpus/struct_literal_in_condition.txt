@@ -47,3 +47,62 @@ once p = Point{x: 1, y: 2}
       (integer)
       field_name: (identifier)
       (integer))))
+
+================================================================================
+A literal with a literal inside, compared after if, is an expression
+================================================================================
+
+fn f(w: Pt, m: Kv, t: (Int, Int)) -> Bool
+    if Pt{x: 1} == w and Kv{"a" => 1} != m and (1, 2) == t then
+        True
+    else
+        False
+    end
+end
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (function_definition
+    name: (identifier)
+    (parameters
+      (parameter
+        name: (identifier)
+        (type_identifier))
+      (parameter
+        name: (identifier)
+        (type_identifier))
+      (parameter
+        name: (identifier)
+        (tuple_type
+          (type_identifier)
+          (type_identifier))))
+    return_type: (type_identifier)
+    (body
+      (if_expression
+        condition: (binary_expression
+          (binary_expression
+            (binary_expression
+              (struct_construction
+                type: (type_identifier)
+                field_name: (identifier)
+                (integer))
+              (identifier))
+            (binary_expression
+              (map_construction
+                type: (type_identifier)
+                (map_entry
+                  (string
+                    (string_content))
+                  (integer)))
+              (identifier)))
+          (binary_expression
+            (tuple_expression
+              (integer)
+              (integer))
+            (identifier)))
+        consequence: (block
+          (type_identifier))
+        alternative: (else_clause
+          body: (block
+            (type_identifier)))))))

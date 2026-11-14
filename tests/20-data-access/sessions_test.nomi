@@ -17,9 +17,9 @@ end
 derive ToJson for Visit
 derive FromJson for Visit
 
-once key = SessionKey.derive("the first test secret, 32 bytes or more")!
+once key      = SessionKey.derive("the first test secret, 32 bytes or more")!
 once next_key = SessionKey.derive("the second test secret, 32 bytes or more")!
-once store = CookieStore{key:}
+once store    = CookieStore{key:}
 
 fn sign_in(request: Request, session: Session<Visit>) -> Response
     user = Request.form_value(request, "user") |> Maybe.with_default("")

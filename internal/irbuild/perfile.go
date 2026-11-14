@@ -9,8 +9,11 @@ package irbuild
 // holds erased and the enums some file boxes (typeRegistry.erasedInsts and
 // boxedEnums, by spelling), the synthesized impls its speculation refused,
 // whether the entry starts an app, the linkage names some body names and
-// no module defines, and a fingerprint of every top-level declaration of
-// each file.
+// no module defines, a fingerprint of every top-level declaration of
+// each file, the typed literals it checks at load (KeptLiteral), so a
+// relinked program checks each one again over the linked modules, and the
+// interfaces some body renders through every implementer's Debug, with
+// the files that render and implement each (KeptDebugRendering).
 //
 // LowerFile lowers one file F of the program again, from F's check against
 // its imports' interfaces (analysis.ProgramInterfaces.Check), and links
@@ -31,7 +34,9 @@ package irbuild
 // lowering declined a body or refused a construct, names a function no
 // object defines and the whole program did not name, asks another file
 // to hold an instance erased or box an enum the whole program did not,
-// or lost something it held that cannot be carried. The object harness
+// renders values held as an interface another file implements, or
+// implements one another unit renders (KeptDebugRendering), or lost
+// something it held that cannot be carried. The object harness
 // (`NOMI_LINK_OBJECTS=perfile`, perfileharness.go) relowers every file of
 // every program it lowers this way and requires each file's module to
 // encode as the whole lowering's did.
@@ -85,6 +90,265 @@ type KeptLowering struct {
 	// constructs, by the path of the file each is in: a lowering of one
 	// file must make the same ones in it.
 	Declines, Refusals map[string][]string
+	// Literals are the typed literals the program checks at load whose
+	// cells are in its units' objects, in unit order. A program relinked
+	// from the kept lowering checks every one of them again, with the
+	// listed std modules' and the relowered file's own.
+	Literals []KeptLiteral
+	// DebugRenderings are the interfaces whose values some body renders
+	// through every implementer's Debug, by spelling.
+	DebugRenderings []KeptDebugRendering
+}
+
+// KeptDebugRendering is an interface whose values some body of the kept
+// program renders through the Debug of every type the program implements
+// or boxes into it (existentialDebugImpls): the Render it builds names the
+// impls of every file, the one it is in and those it never reads. So a
+// file lowered on its own misses when it renders one that another file
+// implements, since its check reads no such file, and when it implements
+// or boxes into one another unit renders, since that unit's kept object
+// names the file's implementers as they were.
+type KeptDebugRendering struct {
+	// Iface is the interface's spelling (debugIfaceKey).
+	Iface string
+	// Renderers are the paths of the files whose bodies render it, ""
+	// for a std instance's; Implementers the paths of the files that
+	// implement or box into it (gen.debugImplemented). Both are sorted.
+	Renderers, Implementers []string
+}
+
+// debugIfaceKey spells the interface of an existential kind as
+// KeptDebugRendering.Iface does.
+func debugIfaceKey(d *ifaceDef) string { return portableArgsKey([]kind{existential(d)}) }
+
+// noteDebugRendered records that a body of g renders values held as k
+// through every implementer's Debug (typeRegistry.debugRendered).
+func (g *gen) noteDebugRendered(k kind) {
+	reg := g.reg
+	if reg == nil && g.stdInsts != nil {
+		for _, og := range g.stdInsts.program {
+			if og != nil && og.reg != nil {
+				reg = og.reg
+				break
+			}
+		}
+	}
+	if reg == nil || k.iface == nil {
+		return
+	}
+	key := debugIfaceKey(k.iface)
+	if reg.debugRendered == nil {
+		reg.debugRendered = map[string]map[*gen]bool{}
+	}
+	if reg.debugRendered[key] == nil {
+		reg.debugRendered[key] = map[*gen]bool{}
+	}
+	reg.debugRendered[key][g] = true
+}
+
+// debugImplemented spells each interface g's unit implements or boxes
+// into, as unitExistentialDebugImpls reads them: its impl blocks, those it
+// registered at instances of its generic types, its boxes, the std types
+// it holds as std interfaces, and every value its checked source enters
+// an interface with.
+func (g *gen) debugImplemented() map[string]bool {
+	out := map[string]bool{}
+	add := func(d *ifaceDef) {
+		if d != nil {
+			out[debugIfaceKey(d)] = true
+		}
+	}
+	implementers := slices.Clone(g.implOrder)
+	for _, inst := range g.genericImplQueue {
+		implementers = append(implementers, inst.impl)
+	}
+	for _, d := range implementers {
+		if d.recv.tag == tagNamed && d.recv.def != nil {
+			add(implIface(d))
+		}
+	}
+	for _, key := range g.boxes.order {
+		if g.boxes.plans[key] != nil {
+			add(key.iface)
+		}
+	}
+	for d, kinds := range g.stdProgHeld {
+		if len(kinds) > 0 {
+			add(d)
+		}
+	}
+	for _, e := range g.checkedErasures() {
+		add(e.iface)
+	}
+	return out
+}
+
+// keptDebugRenderings are reg's debugRendered as KeptDebugRenderings, the
+// renderer and implementer of each named by the path of its unit among
+// gens, as units are; a gen of no project unit renders as "".
+func keptDebugRenderings(reg *typeRegistry, gens []*gen, units []keptUnitState) []KeptDebugRendering {
+	if len(reg.debugRendered) == 0 {
+		return nil
+	}
+	path := map[*gen]string{}
+	implemented := map[string][]string{}
+	for i, u := range units {
+		if i >= len(gens) || gens[i] == nil || !u.project {
+			continue
+		}
+		path[gens[i]] = u.path
+		for key := range gens[i].debugImplemented() {
+			implemented[key] = append(implemented[key], u.path)
+		}
+	}
+	out := make([]KeptDebugRendering, 0, len(reg.debugRendered))
+	for key, renderers := range reg.debugRendered {
+		by := map[string]bool{}
+		for g := range renderers {
+			by[path[g]] = true
+		}
+		impl := slices.Clone(implemented[key])
+		sort.Strings(impl)
+		out = append(out, KeptDebugRendering{Iface: key, Renderers: sortedSet(by), Implementers: impl})
+	}
+	slices.SortFunc(out, func(a, b KeptDebugRendering) int { return strings.Compare(a.Iface, b.Iface) })
+	return out
+}
+
+// debugMiss is why the file at path, whose lowering on its own rendered
+// the interfaces rendered through every implementer's Debug and implements
+// those in implemented, cannot be linked with kept's other objects, or "".
+func debugMiss(kept []KeptDebugRendering, path string, rendered, implemented []string) string {
+	by := map[string]KeptDebugRendering{}
+	for _, r := range kept {
+		by[r.Iface] = r
+	}
+	other := func(paths []string) (string, bool) {
+		for _, p := range paths {
+			if p != path {
+				return p, true
+			}
+		}
+		return "", false
+	}
+	for _, key := range rendered {
+		r, ok := by[key]
+		if !ok {
+			return fmt.Sprintf("the file renders values held as %s through every implementer's Debug, and the whole lowering rendered none", key)
+		}
+		if p, ok := other(r.Implementers); ok {
+			return fmt.Sprintf("the file renders values held as %s through every implementer's Debug, and %s implements it", key, p)
+		}
+	}
+	impl := setOf(implemented)
+	for _, r := range kept {
+		p, ok := other(r.Renderers)
+		if !ok {
+			continue
+		}
+		if impl[r.Iface] || slices.Contains(r.Implementers, path) {
+			if p == "" {
+				p = "a std instance"
+			}
+			return fmt.Sprintf("%s renders values held as %s through every implementer's Debug, and the file implements it", p, r.Iface)
+		}
+	}
+	return ""
+}
+
+// rekeptDebugRenderings are kept with the file at path rendering the
+// interfaces in rendered and implementing those in implemented: a file
+// lowered on its own renders only interfaces no other file implements,
+// and implements only those no other unit renders (debugMiss).
+func rekeptDebugRenderings(kept []KeptDebugRendering, path string, rendered, implemented []string) []KeptDebugRendering {
+	ren, impl := setOf(rendered), setOf(implemented)
+	var out []KeptDebugRendering
+	for _, r := range kept {
+		r.Renderers = slices.DeleteFunc(slices.Clone(r.Renderers), func(p string) bool { return p == path })
+		r.Implementers = slices.DeleteFunc(slices.Clone(r.Implementers), func(p string) bool { return p == path })
+		if ren[r.Iface] {
+			r.Renderers = append(r.Renderers, path)
+			sort.Strings(r.Renderers)
+		}
+		if impl[r.Iface] {
+			r.Implementers = append(r.Implementers, path)
+			sort.Strings(r.Implementers)
+		}
+		if len(r.Renderers) > 0 {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// KeptLiteral is a LiteralSite of a kept unit, its cell and failure
+// renderer named by their index in the unit's object (ir.EncodeObject
+// keeps a module's cells and functions in order). Its value is not kept: a
+// handler's value need not encode (a compiled Regex), and a literal is
+// checked again whenever the program is relinked, since an edit to the
+// handler, or to a module's listed currencies, can change its answer
+// without touching its text.
+type KeptLiteral struct {
+	// Unit is the path of the unit whose object holds the cell.
+	Unit string
+	// Cell is the cell's index among the object's cells, and CellName its
+	// symbol's name, which a decoded object must match.
+	Cell     int
+	CellName string
+	// Render is Site.Render's index among the object's functions, or -1.
+	Render int
+	// Site is the site with no Cell, Render or Check.
+	Site LiteralSite
+}
+
+// keptLiteral is site as a KeptLiteral of the unit at path, whose module
+// m holds its cell.
+func keptLiteral(site LiteralSite, path string, m *ir.Module) (KeptLiteral, error) {
+	kl := KeptLiteral{Unit: path, Cell: -1, Render: -1}
+	for i, c := range m.Cells() {
+		if c == site.Cell {
+			kl.Cell, kl.CellName = i, c.Sym().Name()
+		}
+	}
+	if kl.Cell < 0 {
+		return kl, fmt.Errorf("irbuild: the cell of %s is not in %s", site.Text, path)
+	}
+	if site.Render != nil {
+		for i, f := range m.Funcs() {
+			if f == site.Render {
+				kl.Render = i
+			}
+		}
+		if kl.Render < 0 {
+			return kl, fmt.Errorf("irbuild: the failure of %s is not in %s", site.Text, path)
+		}
+	}
+	kl.Site = site
+	kl.Site.Cell, kl.Site.Render, kl.Site.Check = nil, nil, nil
+	return kl, nil
+}
+
+// keptCheck identifies a kept checked literal's check (LiteralSite.Check):
+// its name in the unit the literal is in.
+type keptCheck struct{ unit, name string }
+
+// site is kl's LiteralSite over m, the decoded object of its unit.
+func (kl KeptLiteral) site(m *ir.Module) (LiteralSite, bool) {
+	if m == nil || kl.Cell < 0 || kl.Cell >= len(m.Cells()) || m.Cells()[kl.Cell].Sym().Name() != kl.CellName {
+		return LiteralSite{}, false
+	}
+	s := kl.Site
+	s.Cell = m.Cells()[kl.Cell]
+	if kl.Render >= 0 {
+		if kl.Render >= len(m.Funcs()) {
+			return LiteralSite{}, false
+		}
+		s.Render = m.Funcs()[kl.Render]
+	}
+	if s.Checked {
+		s.Check = keptCheck{kl.Unit, s.CheckName}
+	}
+	return s, true
 }
 
 // KeptUnit is one module of a kept lowering.
@@ -162,6 +426,7 @@ type keptState struct {
 	erased       []string
 	boxed        []string
 	synthRefused []string
+	debug        []KeptDebugRendering
 	// why says why the lowering cannot be kept, "" when it can.
 	why string
 	// dangling is danglingLinks of the lowering's modules once PrepareKeep
@@ -218,13 +483,15 @@ func keptStateOf(p *Program, own int, gens []*gen, reg *typeRegistry, linked *li
 	}
 	k.erased, k.boxed = sortedSet(reg.erasedInsts), sortedSet(reg.boxedEnums)
 	sort.Strings(k.synthRefused)
+	k.debug = keptDebugRenderings(reg, gens, k.units)
 	return k
 }
 
 // Keep is the lowering kept for lowering its files one at a time, or an
 // error saying why it cannot be: it was not a whole program's lowering, or
-// it holds what a file's lowering on its own does not reproduce (typed
-// literals checked at load, exported functions, Go bindings).
+// it holds what a file's lowering on its own does not reproduce (exported
+// functions, Go bindings, a typed literal checked at load in a std
+// instance).
 func (r *Result) Keep() (*KeptLowering, error) {
 	k := r.kept
 	switch {
@@ -232,8 +499,6 @@ func (r *Result) Keep() (*KeptLowering, error) {
 		return nil, errors.New("irbuild: not a whole program's lowering")
 	case k.why != "":
 		return nil, errors.New("irbuild: " + k.why)
-	case len(r.Literals) > 0:
-		return nil, errors.New("irbuild: the program checks typed literals at load")
 	case len(r.Exports) > 0:
 		return nil, errors.New("irbuild: the program exports functions")
 	case len(r.irHostKeys) > 0:
@@ -241,7 +506,12 @@ func (r *Result) Keep() (*KeptLowering, error) {
 	}
 	out := &KeptLowering{EntryPath: k.entryPath, HasMain: r.HasMain, EntryBoots: k.entryBoots,
 		Listed: k.listed, Erased: k.erased, Boxed: k.boxed, SynthRefused: k.synthRefused,
-		Declines: r.declines, Refusals: r.refusals}
+		Declines: r.declines, Refusals: r.refusals, DebugRenderings: k.debug}
+	lits, err := keptLiteralsOf(r.Literals, k.units, r.instMods)
+	if err != nil {
+		return nil, err
+	}
+	out.Literals = lits
 	for _, u := range k.units {
 		ku := KeptUnit{Key: u.key, Path: u.path}
 		if u.mod != nil {
@@ -273,6 +543,35 @@ func (r *Result) Keep() (*KeptLowering, error) {
 		k.dangling <- out.Dangling
 	} else {
 		out.Dangling = danglingLinks(r.IRModules())
+	}
+	return out, nil
+}
+
+// keptLiteralsOf is sites, a whole lowering's, as KeptLiterals of units,
+// in unit order. A site of a listed std module is left out: a lowering of
+// one file links the same modules, with their sites. One in a std instance
+// is an error, since a relink cannot place it.
+func keptLiteralsOf(sites []LiteralSite, units []keptUnitState, instMods []*ir.Module) ([]KeptLiteral, error) {
+	byMod := map[*ir.Module][]LiteralSite{}
+	for _, s := range sites {
+		m := s.Cell.Module()
+		if slices.Contains(instMods, m) {
+			return nil, errors.New("irbuild: a std instance checks a typed literal at load")
+		}
+		byMod[m] = append(byMod[m], s)
+	}
+	var out []KeptLiteral
+	for _, u := range units {
+		if u.mod == nil {
+			continue
+		}
+		for _, s := range byMod[u.mod] {
+			kl, err := keptLiteral(s, u.path, u.mod)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, kl)
+		}
 	}
 	return out, nil
 }
@@ -507,8 +806,8 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 	if got := whole.refusals[f.Path]; !slices.Equal(got, kept.Refusals[f.Path]) {
 		return nil, miss("the file refuses %v, the whole lowering %v", got, kept.Refusals[f.Path])
 	}
-	if len(whole.Literals) > 0 || len(whole.Exports) > 0 || len(whole.irHostKeys) > 0 {
-		return nil, miss("the file checks typed literals at load, exports a function or has Go bindings")
+	if len(whole.Exports) > 0 || len(whole.irHostKeys) > 0 {
+		return nil, miss("the file exports a function or has Go bindings")
 	}
 	st := whole.perFileTables
 	if extra := missing(st.erased, kept.Erased); extra != "" {
@@ -516,6 +815,9 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 	}
 	if extra := missing(st.boxed, kept.Boxed); extra != "" {
 		return nil, miss("the file boxes an enum no other file did: %s", extra)
+	}
+	if why := debugMiss(kept.DebugRenderings, f.Path, st.debugRendered, st.debugImplemented); why != "" {
+		return nil, miss("%s", why)
 	}
 
 	var mod *ir.Module
@@ -648,17 +950,22 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 		}
 	}
 	units = append(units, others...)
+	lits, keptLits, err := relinkedLiterals(kept, old, decoded, mod, whole, others, ls)
+	if err != nil {
+		return nil, err
+	}
 	libs := append([]*ir.Module(nil), std.sortedModules()...)
 	if ls != nil {
 		libs = append(libs, ls.mods...)
 	}
 	insts := append(instances, whole.instMods...)
 	libs = append(libs, insts...)
-	res = &Result{HasMain: kept.HasMain, IR: units, irLibraries: libs, instMods: insts}
+	res = &Result{HasMain: kept.HasMain, IR: units, irLibraries: libs, instMods: insts, Literals: lits}
 	if ls != nil {
 		res.linkedMods = ls.units
 	}
-	res.file = &relowered{unit: old, mod: mod, instMods: whole.instMods, decls: DeclFingerprints(f.Nodes)}
+	res.file = &relowered{unit: old, mod: mod, instMods: whole.instMods, decls: DeclFingerprints(f.Nodes), literals: keptLits,
+		debugRendered: st.debugRendered, debugImplemented: st.debugImplemented}
 	for _, m := range p.Modules[1:] {
 		if m.bodies {
 			res.file.linked = others
@@ -677,6 +984,58 @@ type relowered struct {
 	// linked are the modules of the files read with their bodies, which
 	// hold the instances the file asked them for.
 	linked []*ir.Module
+	// literals are the program's kept literals with the file's new ones.
+	literals []KeptLiteral
+	// debugRendered and debugImplemented are the file's
+	// (KeptDebugRendering).
+	debugRendered, debugImplemented []string
+}
+
+// relinkedLiterals are the typed literals the program LowerFileAmong links
+// checks at load, and the kept ones among them: each kept unit's from its
+// decoded object, the relowered file's (the unit at old) from its new
+// module mod, in unit order, then the listed std modules' (ls). A site the
+// file's lowering put in another module (a std instance, a file read with
+// its bodies) is a miss, as is a kept one its object does not hold.
+func relinkedLiterals(kept *KeptLowering, old int, decoded []*ir.Module, mod *ir.Module, whole *Result, others []*ir.Module, ls *linkedStd) ([]LiteralSite, []KeptLiteral, error) {
+	var fresh []LiteralSite
+	for _, s := range whole.Literals {
+		switch m := s.Cell.Module(); {
+		case m == mod && mod != nil:
+			fresh = append(fresh, s)
+		case slices.Contains(whole.instMods, m) || slices.Contains(others, m):
+			return nil, nil, miss("the file's lowering checks %s at load outside the file", s.Text)
+		}
+	}
+	byUnit := map[string][]KeptLiteral{}
+	for _, kl := range kept.Literals {
+		byUnit[kl.Unit] = append(byUnit[kl.Unit], kl)
+	}
+	var sites []LiteralSite
+	var out []KeptLiteral
+	for i, u := range kept.Units {
+		if i == old {
+			for _, s := range fresh {
+				kl, err := keptLiteral(s, u.Path, mod)
+				if err != nil {
+					return nil, nil, err
+				}
+				sites, out = append(sites, s), append(out, kl)
+			}
+			continue
+		}
+		for _, kl := range byUnit[u.Path] {
+			s, ok := kl.site(decoded[i])
+			if !ok {
+				return nil, nil, miss("%s's object does not hold the cell of %s", u.Key, kl.Site.Text)
+			}
+			sites, out = append(sites, s), append(out, kl)
+		}
+	}
+	if ls != nil {
+		sites = append(sites, ls.literals...)
+	}
+	return sites, out, nil
 }
 
 // Undefined is a linkage name among links that no module of the program
@@ -722,6 +1081,8 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 		u.Object, u.Files = data, files
 	}
 	out.Units[f.unit] = u
+	out.Literals = f.literals
+	out.DebugRenderings = rekeptDebugRenderings(kept.DebugRenderings, out.Units[f.unit].Path, f.debugRendered, f.debugImplemented)
 	out.Instances = append([][]byte(nil), kept.Instances...)
 	files := setOf(kept.InstanceFiles)
 	instances := append([]*ir.Module(nil), f.instMods...)
@@ -846,6 +1207,8 @@ func (kept *KeptLowering) AddUnit(key, path string) {
 // declines and refusals: the program no longer holds the file.
 func (kept *KeptLowering) RemoveUnit(path string) {
 	kept.Units = slices.DeleteFunc(kept.Units, func(u KeptUnit) bool { return u.Path == path })
+	kept.Literals = slices.DeleteFunc(slices.Clone(kept.Literals), func(l KeptLiteral) bool { return l.Unit == path })
+	kept.DebugRenderings = rekeptDebugRenderings(kept.DebugRenderings, path, nil, nil)
 	delete(kept.Declines, path)
 	delete(kept.Refusals, path)
 }
@@ -923,7 +1286,36 @@ func carryKept(mod, was *ir.Module, key string, oldDecls, newDecls map[string][3
 	for _, fn := range carry {
 		mod.AddFunc(fn)
 	}
+	cells := map[string]bool{}
+	for _, c := range mod.Cells() {
+		if c.Sym().Link() == "" {
+			cells[c.Sym().Name()] = true
+		}
+	}
+	var carriedNames map[*ir.Symbol]bool
 	for _, c := range was.Cells() {
+		if c.Sym().Link() == "" && !cells[c.Sym().Name()] && drop {
+			// Only its own module names it, as a typed literal's cell does:
+			// it went with the body that read it, unless a carried function
+			// reads it.
+			if carriedNames == nil {
+				one := ir.NewModule("carried")
+				for _, fn := range carry {
+					one.AddFunc(fn)
+				}
+				carriedNames = map[*ir.Symbol]bool{}
+				for _, s := range ir.ModuleSymbols(one) {
+					carriedNames[s] = true
+				}
+			}
+			if !carriedNames[c.Sym()] {
+				continue
+			}
+		}
+		if c.Sym().Link() == "" && cells[c.Sym().Name()] {
+			// The new lowering made it too.
+			continue
+		}
 		if c.Sym().Link() == "" || !have[c.Sym().Link()] {
 			if drop && c.Sym().Link() != "" {
 				dropped = append(dropped, c.Sym().Link())
@@ -1019,7 +1411,7 @@ func decodeObject(l *ir.Linker, data []byte) (*ir.Module, error) {
 // The kept lowering's encoding.
 const (
 	keptMagic   = "NOMIKEPT"
-	keptVersion = 1
+	keptVersion = 3
 )
 
 // Encode writes k as bytes, with a CRC over them.
@@ -1066,6 +1458,16 @@ func (k *KeptLowering) Encode() []byte {
 			w.str(p)
 			w.strs(m[p])
 		}
+	}
+	w.uv(uint64(len(k.Literals)))
+	for _, l := range k.Literals {
+		w.literal(l)
+	}
+	w.uv(uint64(len(k.DebugRenderings)))
+	for _, d := range k.DebugRenderings {
+		w.str(d.Iface)
+		w.strs(d.Renderers)
+		w.strs(d.Implementers)
 	}
 	body := b.Bytes()
 	var out bytes.Buffer
@@ -1132,6 +1534,14 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 			(*m)[p] = r.strs()
 		}
 	}
+	n = r.count()
+	for i := 0; i < n && r.err == nil; i++ {
+		k.Literals = append(k.Literals, r.literal())
+	}
+	n = r.count()
+	for i := 0; i < n && r.err == nil; i++ {
+		k.DebugRenderings = append(k.DebugRenderings, KeptDebugRendering{Iface: r.str(), Renderers: r.strs(), Implementers: r.strs()})
+	}
 	if r.err != nil || len(r.b) != 0 {
 		return nil, bad
 	}
@@ -1172,6 +1582,54 @@ func (w keptWriter) strs(list []string) {
 	for _, s := range list {
 		w.str(s)
 	}
+}
+
+// literal writes l: its unit, cell and renderer, then its site's fields.
+func (w keptWriter) literal(l KeptLiteral) {
+	s := l.Site
+	w.str(l.Unit)
+	w.uv(uint64(l.Cell))
+	w.str(l.CellName)
+	w.uv(uint64(l.Render + 1))
+	w.str(s.Path)
+	for _, n := range []int{s.Line, s.Col, s.EndLine, s.EndCol, s.CheckLine, s.CheckCol} {
+		w.uv(uint64(n))
+	}
+	w.str(s.Text)
+	for _, f := range []bool{s.Plain, s.Locale, s.Currency, s.Checked} {
+		w.flag(f)
+	}
+	w.str(s.Tag)
+	w.str(s.Type)
+	w.strs(s.Statics)
+	w.uv(uint64(len(s.Slots)))
+	for _, p := range s.Slots {
+		w.uv(uint64(p.Line))
+		w.uv(uint64(p.Col))
+	}
+	w.str(s.CheckName)
+}
+
+// literal reads what keptWriter.literal wrote.
+func (r *keptReader) literal() KeptLiteral {
+	l := KeptLiteral{Unit: r.str(), Cell: int(r.uv()), CellName: r.str(), Render: int(r.uv()) - 1}
+	s := &l.Site
+	s.Path = r.str()
+	for _, n := range []*int{&s.Line, &s.Col, &s.EndLine, &s.EndCol, &s.CheckLine, &s.CheckCol} {
+		*n = int(r.uv())
+	}
+	s.Text = r.str()
+	for _, f := range []*bool{&s.Plain, &s.Locale, &s.Currency, &s.Checked} {
+		*f = r.flag()
+	}
+	s.Tag, s.Type = r.str(), r.str()
+	s.Statics = r.strs()
+	n := r.count()
+	for i := 0; i < n && r.err == nil; i++ {
+		s.Slots = append(s.Slots, SlotPos{Line: int(r.uv()), Col: int(r.uv())})
+	}
+	s.CheckName = r.str()
+	return l
 }
 
 type keptReader struct {

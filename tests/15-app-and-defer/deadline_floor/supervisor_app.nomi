@@ -10,14 +10,14 @@ pub struct Config
     context: Context
 
     audit: Supervisor
-    done: Channel<Int>
+    done:  Channel<Int>
 end
 
 pub fn boot() -> Result<Config, String>
     Ok(Config{
         context: Context.root(),
-        audit: Supervisor.new(max_running: 4),
-        done: Channel.buffered<Int>(4),
+        audit:   Supervisor.new(max_running: 4),
+        done:    Channel.buffered<Int>(4),
     })
 end
 
@@ -41,6 +41,6 @@ fn main()
 
     case Receiver.receive(Config.done.receiver)
         Some(n) -> io.print("background work finished: ${n}")
-        None -> io.print("background work vanished")
+        None    -> io.print("background work vanished")
     end
 end

@@ -50,7 +50,7 @@ fn main()
 
     path = Shape.Path{
         points: [Point{x: 5, y: 6}],
-        name: "ab",
+        name:   "ab",
     }
 
     io.print("${width(poly)} ${width(path)} ${width(Shape.Empty)}")

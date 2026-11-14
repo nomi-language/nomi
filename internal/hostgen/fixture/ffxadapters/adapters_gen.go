@@ -125,6 +125,12 @@ func Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	}
 	b.d8 = rt.TupleDesc(rt.SlotInt, rt.SlotString, rt.SlotBool)
 	b.d9 = rt.TupleDesc(rt.SlotInt, rt.SlotString)
+	if env.AddParts != nil {
+		env.AddParts("ffx.attempt", b.fn5Parts)
+		env.AddParts("ffx.mirror", b.fn42Parts)
+		env.AddParts("ffx.nothing_or_fail", b.fn56Parts)
+		env.AddParts("ffx.run", b.fn66Parts)
+	}
 	return map[string]hostadapt.Func{
 		"ffx.apply":           b.fn1,
 		"ffx.attempt":         b.fn5,
@@ -282,6 +288,33 @@ func (b *bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	ok := b.d0.NewVariant(0)
 	ok.SetIntSlot(0, v0)
 	return ok, nil
+}
+
+// fn5Parts is ffx.attempt taken apart: the payload and true, or the record and false.
+func (b *bound) fn5Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("ffx.attempt", &err)
+	if len(args) != 2 {
+		return nil, false, hostadapt.Arity("ffx.attempt", 2, len(args))
+	}
+	a0, err := b.in6(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("ffx.attempt", 0, "ffx.attempt", "f", err)
+	}
+	a1, err := b.in7(fr, args[1])
+	if err != nil {
+		return nil, false, hostadapt.Param("ffx.attempt", 1, "ffx.attempt", "s", err)
+	}
+	r0, e := fixture.Attempt(a0, a1)
+	if e != nil {
+		rec := b.d0.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	v, err := b.out4(r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("ffx.attempt", err)
+	}
+	return v, true, nil
 }
 
 // out9 builds a Int from Go uint64.
@@ -822,6 +855,27 @@ func (b *bound) fn42(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
+// fn42Parts is ffx.mirror taken apart: the payload and true, or the record and false.
+func (b *bound) fn42Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("ffx.mirror", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("ffx.mirror", 1, len(args))
+	}
+	a0, err := b.in23(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("ffx.mirror", 0, "ffx.mirror", "p", err)
+	}
+	r0 := fixture.Mirror(a0)
+	if r0 == nil {
+		return b.d5.NewVariant(1), false, nil
+	}
+	v, err := b.out14(*r0)
+	if err != nil {
+		return nil, false, hostadapt.Returned("ffx.mirror", err)
+	}
+	return v, true, nil
+}
+
 // in44 reads a Int as Go int8.
 func (b *bound) in44(fr *rt.Frame, v rt.Value) (out int8, err error) {
 	if !rt.IsInt(v) {
@@ -1012,6 +1066,25 @@ func (b *bound) fn56(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return ok, nil
 }
 
+// fn56Parts is ffx.nothing_or_fail taken apart: the payload and true, or the record and false.
+func (b *bound) fn56Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("ffx.nothing_or_fail", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("ffx.nothing_or_fail", 1, len(args))
+	}
+	a0, err := b.in15(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("ffx.nothing_or_fail", 0, "ffx.nothing_or_fail", "fail", err)
+	}
+	e := fixture.NothingOrFail(a0)
+	if e != nil {
+		rec := b.d6.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	return rt.Unit{}, true, nil
+}
+
 // in58 reads a Bytes as Go []fixture.MyByte.
 func (b *bound) in58(fr *rt.Frame, v rt.Value) (out []fixture.MyByte, err error) {
 	x, ok := v.(rt.Bytes)
@@ -1186,6 +1259,25 @@ func (b *bound) fn66(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	ok := b.d6.NewVariant(0)
 	ok.R[0] = rt.Unit{}
 	return ok, nil
+}
+
+// fn66Parts is ffx.run taken apart: the payload and true, or the record and false.
+func (b *bound) fn66Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _ bool, err error) {
+	defer hostadapt.Recover("ffx.run", &err)
+	if len(args) != 1 {
+		return nil, false, hostadapt.Arity("ffx.run", 1, len(args))
+	}
+	a0, err := b.in67(fr, args[0])
+	if err != nil {
+		return nil, false, hostadapt.Param("ffx.run", 0, "ffx.run", "f", err)
+	}
+	e := fixture.Run(a0)
+	if e != nil {
+		rec := b.d6.NewVariant(1)
+		rec.S[0] = e.Error()
+		return rec, false, nil
+	}
+	return rt.Unit{}, true, nil
 }
 
 // in69 reads a String as Go fixture.Label.

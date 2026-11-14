@@ -32,7 +32,7 @@ impl Named for Post
 end
 
 once admin = {
-    home: Route` + "`GET /admin/{$}`" + `,
+    home: Route"GET /admin/{$}",
     user: ` + "`GET /admin/users/{id}`" + ` as Route<{id: Uuid}>,
     tags: [] as List<String>,
 }

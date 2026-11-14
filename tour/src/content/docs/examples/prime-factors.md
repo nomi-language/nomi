@@ -21,10 +21,10 @@ end
 
 fn factors_from(n: Int, divisor: Int) -> List<Int>
     case
-        n == 1 -> []
+        n == 1                -> []
         divisor * divisor > n -> [n]
-        n % divisor == 0 -> [divisor, ..factors_from(n / divisor, divisor)]
-        _ -> factors_from(n, divisor + 1)
+        n % divisor == 0      -> [divisor, ..factors_from(n / divisor, divisor)]
+        _                     -> factors_from(n, divisor + 1)
     end
 end
 
@@ -33,18 +33,18 @@ import prime_factors
 
 test "factors"
     [
-        ("no factors", 1, []),
-        ("prime number", 2, [2]),
-        ("another prime number", 3, [3]),
-        ("square of a prime", 9, [3, 3]),
-        ("product of first prime", 4, [2, 2]),
-        ("cube of a prime", 8, [2, 2, 2]),
-        ("product of second prime", 27, [3, 3, 3]),
-        ("product of third prime", 625, [5, 5, 5, 5]),
-        ("product of first and second prime", 6, [2, 3]),
-        ("product of primes and non-primes", 12, [2, 2, 3]),
-        ("product of primes", 901255, [5, 17, 23, 461]),
-        ("factors include a large prime", 93819012551, [11, 9539, 894119]),
+        ("no factors",                        1,           []),
+        ("prime number",                      2,           [2]),
+        ("another prime number",              3,           [3]),
+        ("square of a prime",                 9,           [3, 3]),
+        ("product of first prime",            4,           [2, 2]),
+        ("cube of a prime",                   8,           [2, 2, 2]),
+        ("product of second prime",           27,          [3, 3, 3]),
+        ("product of third prime",            625,         [5, 5, 5, 5]),
+        ("product of first and second prime", 6,           [2, 3]),
+        ("product of primes and non-primes",  12,          [2, 2, 3]),
+        ("product of primes",                 901255,      [5, 17, 23, 461]),
+        ("factors include a large prime",     93819012551, [11, 9539, 894119]),
     ]
     |> subtests (description, value, expected), description
         assert prime_factors.factors(value) == expected

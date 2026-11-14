@@ -21,7 +21,7 @@ func TestFormat_SameModuleImportEntries(t *testing.T) {
 		{"flat module twice", "import d\nimport d\n", "import\n    d\n    d\nend\n"},
 		{"flat self twice", "import d.{self, A}\nimport d.{self, B}\n", "import\n    d.{self, A}\n    d.{self, B}\nend\n"},
 		{"flat third merges into first", "import d.A\nimport d.A\nimport d.B\n", "import\n    d.{A, B}\n    d.A\nend\n"},
-		{"two same-line comments", "import d.{A, B} // x\nimport d.{C} // y\n", "import\n    d.{A, B} // x\n    d.C // y\nend\n"},
+		{"two same-line comments", "import d.{A, B} // x\nimport d.{C} // y\n", "import\n    d.{A, B} // x\n    d.C      // y\nend\n"},
 		{"one same-line comment", "import d.{A, B} // x\nimport d.{C}\n", "import d.{A, B, C} // x\n"},
 	} {
 		t.Run(c.name, func(t *testing.T) {

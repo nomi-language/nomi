@@ -10,7 +10,7 @@ end
 
 fn produce(ch: Channel<Int>, n: Int) -> Unit
     case Sender.send(ch.sender, n)
-        Ok(u) -> u
+        Ok(u)  -> u
         Err(_) -> Unit
     end
 end
@@ -19,7 +19,7 @@ fn consume(ch: Channel<Int>) -> Int
     Iter.loop(0, fn sum ->
         case Receiver.receive(ch.receiver)
             Some(v) -> sum + v
-            None -> break sum
+            None    -> break sum
         end
     end)
 end

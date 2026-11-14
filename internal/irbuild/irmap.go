@@ -25,7 +25,7 @@ func irRetainedMapKind(k kind) bool {
 // `Type<T>` witness (by the type it names: rt.TypeWitnessEqual and
 // rt.TypeWitnessHash).
 func irMapKeyKind(k kind) bool {
-	if irExistentialKind(k) {
+	if irHeldKind(k) {
 		// An interface value: hashed and compared by its run-time type,
 		// as `==` on two of them is (ir.ValIface).
 		return true
@@ -71,7 +71,7 @@ func irMapKeyKind(k kind) bool {
 // irHoldsExistential reports whether k is, or is composed of, an interface
 // value: a position a narrower value enters by erasure.
 func irHoldsExistential(k kind) bool {
-	if irExistentialKind(k) {
+	if irHeldKind(k) {
 		return true
 	}
 	if k.comp == nil {
@@ -141,7 +141,7 @@ func irMapValueKind(k kind) bool {
 	return irScalarLeafKind(k) || (k.tag == tagList && irRetainedListKind(k)) || irSelfContainerEnum(k) || irNominalElemKind(k) || irDynamicKind(k) || irHostHandleKind(k) ||
 		// An interface's existential, which the map holds as the
 		// concrete value (`Map<String, Display>`).
-		irExistentialKind(k) ||
+		irHeldKind(k) ||
 		// Any value a key may be, a nested map among them.
 		(k != kindEmptyMap && k != kindEmptyList && irMapKeyKind(k)) ||
 		irHeldValueKind(k) ||
@@ -286,8 +286,10 @@ func (bl *irScalarBuilder) mapUpdate(t *ast.MapLit, wants []kind) (ir.Temp, kind
 			return no()
 		}
 	}
+	// The entries are lowered at the base's key and value kinds, and a Map
+	// the callable domain holds is a retained one.
 	if bk != lk || !irRetainedMapKind(lk) {
-		return no()
+		panic("irbuild: a map update whose entries " + lk.nomi() + " are not its base's " + bk.nomi())
 	}
 	c := ir.NewHostCall(bl.g.irNodePos(t), bl.f.NewTemp(), ir.OrdinaryCall,
 		bl.g.irCalleeSym("Map.merge", "Map.merge"), base, lit)
@@ -438,7 +440,7 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		}
 		args.temps[1], args.kinds[1] = v, got
 	}
-	if method == "put" && args.kinds[2] != val && !(irExistentialKind(val) && bl.g.irErases(val, args.kinds[2])) {
+	if method == "put" && args.kinds[2] != val && !(irHeldKind(val) && bl.g.irErases(val, args.kinds[2])) {
 		// A value entering an interface's existential value is the value
 		// itself (`Map.put(m, "b", True)` for a `Map<String, Display>`);
 		// one holding it (`(Display, Int)`) enters as an argument does.
@@ -485,7 +487,7 @@ func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have k
 		return v, have, false
 	}
 	val := solved.comp.parts[1]
-	if !irExistentialKind(val) || !bl.g.irErases(val, have.comp.parts[1]) {
+	if !irHeldKind(val) || !bl.g.irErases(val, have.comp.parts[1]) {
 		return v, have, false
 	}
 	n := ir.NewCopy(bl.g.irNodePos(t), bl.f.NewTemp(), v)

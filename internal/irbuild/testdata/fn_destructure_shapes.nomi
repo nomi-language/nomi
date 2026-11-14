@@ -47,13 +47,13 @@ struct Point
 end
 
 struct Frame
-    at: Point
+    at:    Point
     scale: Int
 end
 
 struct Boxed
     pair: (Int, Int)
-    tag: String
+    tag:  String
 end
 
 type Dur Int

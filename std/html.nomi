@@ -201,7 +201,7 @@ impl ToHtml for Maybe<T> where T: ToHtml
     fn to_html(value: Maybe<T>) -> Html
         case value
             Some(inner) -> ToHtml.to_html(inner)
-            None -> Html.empty()
+            None        -> Html.empty()
         end
     end
 end
@@ -239,7 +239,7 @@ impl UrlValue for Maybe<T> where T: UrlValue
     fn to_url(value: Maybe<T>) -> String
         case value
             Some(inner) -> UrlValue.to_url(inner)
-            None -> ""
+            None        -> ""
         end
     end
 end
@@ -286,7 +286,7 @@ impl CssValue for Maybe<T> where T: CssValue
     fn to_css(value: Maybe<T>) -> String
         case value
             Some(inner) -> CssValue.to_css(inner)
-            None -> ""
+            None        -> ""
         end
     end
 end
@@ -357,8 +357,8 @@ end
 
 fn slot_optional_attribute(name: String, value: OptionalAttribute) -> String
     case OptionalAttribute.attribute(value)
-        None -> ""
-        Some("") -> " ${name}"
+        None       -> ""
+        Some("")   -> " ${name}"
         Some(text) -> " ${name}=\"${escape(text)}\""
     end
 end
@@ -369,34 +369,34 @@ end
 fn slot_rcdata_maybe<T>(value: Maybe<T>) -> String where T: Display
     case value
         Some(inner) -> slot_rcdata(inner)
-        None -> ""
+        None        -> ""
     end
 end
 
 fn slot_attribute_maybe<T>(value: Maybe<T>) -> String where T: Display
     case value
         Some(inner) -> slot_attribute(inner)
-        None -> ""
+        None        -> ""
     end
 end
 
 fn slot_url_path_maybe<T>(value: Maybe<T>) -> String where T: Display
     case value
         Some(inner) -> slot_url_path(inner)
-        None -> ""
+        None        -> ""
     end
 end
 
 fn slot_url_query_maybe<T>(value: Maybe<T>) -> String where T: Display
     case value
         Some(inner) -> slot_url_query(inner)
-        None -> ""
+        None        -> ""
     end
 end
 
 fn slot_url_fragment_maybe<T>(value: Maybe<T>) -> String where T: Display
     case value
         Some(inner) -> slot_url_fragment(inner)
-        None -> ""
+        None        -> ""
     end
 end

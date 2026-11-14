@@ -3,7 +3,7 @@ interface Named
 end
 
 struct User
-    id: Int
+    id:   Int
     name: String
 end
 

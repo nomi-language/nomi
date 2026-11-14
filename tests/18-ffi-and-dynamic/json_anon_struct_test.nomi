@@ -10,7 +10,7 @@ derive ToJson for User
 derive FromJson for User
 
 struct Pinned
-    at: {x: Int, y: Int}
+    at:   {x: Int, y: Int}
     note: String
 end
 
@@ -25,13 +25,13 @@ end
 fn decoded<T>(text: String) -> Result<T, String> where T: FromJson
     case Json.decode(text)
         Ok(json) -> T.from_json(json) |> Result.map_err(&Display.to_string(&1))
-        Err(e) -> Err(Display.to_string(e))
+        Err(e)   -> Err(Display.to_string(e))
     end
 end
 
 fn shape_error<T>(result: Result<T, Json.Error>) -> String
     case result
-        Ok(_) -> "decoded"
+        Ok(_)  -> "decoded"
         Err(e) -> Display.to_string(e)
     end
 end
@@ -106,7 +106,7 @@ end
 
 test "an anonymous struct reads back what it writes"
     value = {
-        name: "n",
+        name:  "n",
         items: [{id: 1, done: True}],
         extra: Some({k: "v"}),
     }

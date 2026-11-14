@@ -11,7 +11,7 @@ end
 
 fn render_fragment(f: Fragment<Int>) -> String
     case f
-        .Static(s) -> "static: ${s}"
+        .Static(s)  -> "static: ${s}"
         .Dynamic(n) -> "dynamic: ${n}"
     end
 end
@@ -30,7 +30,7 @@ impl Literal for Box
     fn from_fragments(fragments: List<Fragment<String>>) -> Box
         body = Iter.reduce(fragments, "", fn acc, frag ->
             case frag
-                .Static(s) -> acc + s
+                .Static(s)  -> acc + s
                 .Dynamic(v) -> acc + v
             end
         end)

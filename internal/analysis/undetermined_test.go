@@ -38,28 +38,24 @@ func TestUndeterminedTypeArgs_Rejected(t *testing.T) {
 	}{
 		{"collect over an empty list", "dbg Result.collect([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<Result<T, E>> = []` with T and E filled in, or pass a typed value", 22},
-		{"values over an empty list", "dbg Maybe.values([])",
-			"the element type of `[]` is not determined: annotate it, as in `xs: List<Maybe<T>> = []` with T filled in", 20},
+		{"collect over an empty list of maybes", "dbg Maybe.collect([])",
+			"the element type of `[]` is not determined: annotate it, as in `xs: List<Maybe<T>> = []` with T filled in", 21},
 		{"to_map over an empty list", "dbg Iter.to_map([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<(K, V)> = []` with K and V filled in", 19},
-		{"flatten over an empty list", "dbg Iter.flatten([])",
-			"the element type of `[]` is not determined", 20},
-		{"an empty vector literal", "dbg Maybe.values(Vector[])",
-			"the element type of `Vector[]` is not determined: annotate it, as in `xs: Vector<Maybe<T>> = Vector[]`", 20},
+		{"an empty vector literal", "dbg Maybe.collect(Vector[])",
+			"the element type of `Vector[]` is not determined: annotate it, as in `xs: Vector<Maybe<T>> = Vector[]`", 21},
 		{"a lambda over an empty list's element", "dbg Iter.map([], fn x -> x)",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
-		{"None where T is free", "dbg Maybe.values([None])",
-			"the type argument T of `Maybe.values` is not determined: annotate the value passed in, or give the call its type arguments, as in `Maybe.values<T>(…)`", 20},
+		{"None where T is free", "dbg Maybe.collect([None])",
+			"the type argument T of `Maybe.collect` is not determined: annotate the value passed in, or give the call its type arguments, as in `Maybe.collect<T>(…)`", 21},
 		{"Err whose Ok type is free", "dbg Result.collect([Err(1)])",
 			"the type argument T of `Result.collect` is not determined", 22},
 		{"Ok whose error type is collected", "dbg Result.partition([Ok(1)])",
 			"the type argument E of `Result.partition` is not determined", 24},
-		{"a nested empty list", "dbg Iter.flatten([[]])",
-			"the type argument U of `Iter.flatten` is not determined", 20},
-		{"a pipe", "dbg [] |> Maybe.values()",
+		{"a pipe", "dbg [] |> Maybe.collect()",
 			"the element type of `[]` is not determined", 7},
-		{"inside an assert", "assert Iter.count(Maybe.values([])) == 0",
-			"the element type of `[]` is not determined", 34},
+		{"inside an assert", "assert Iter.count(Iter.to_map([])) == 0",
+			"the element type of `[]` is not determined", 33},
 		// Summable's empty_sum() makes a T with no element in hand.
 		{"sum over an empty list", "dbg Iter.sum([]) == Iter.sum([])",
 			"the element type of `[]` is not determined: annotate it, as in `xs: List<T> = []` with T filled in", 16},
@@ -120,6 +116,11 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Iter.map([], fn x -> x + 1)",
 		"dbg Iter.flatten([[1], []])",
 		"dbg Maybe.values<Int>([])",
+		// A lazy adapter passes inner elements on and makes none.
+		"dbg Maybe.values([])",
+		"dbg Maybe.values([None])",
+		"dbg Iter.flatten([])",
+		"dbg Iter.flatten([[]])",
 		// Comparable's functions take the elements, so an empty input calls none.
 		"dbg Iter.max([])",
 		"dbg Iter.min([])",
@@ -146,8 +147,8 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 // once every body is checked.
 func TestUndeterminedTypeArgs_FixedByALaterUse(t *testing.T) {
 	src := `fn main()
-  r = (Maybe.values([None]), 1)
-  s: (List<Int>, Int) = r
+  r = (Maybe.collect([None]), 1)
+  s: (Maybe<List<Int>>, Int) = r
   dbg s
   Unit
 end

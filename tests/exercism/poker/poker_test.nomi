@@ -24,7 +24,7 @@ test "best hands"
             ["2S 5H 6S 8D 7H"],
         ),
         ("one pair beats high card", ["4S 5H 6C 8D KH", "2S 4H 6S 4D JH"], ["2S 4H 6S 4D JH"]),
-        ("highest pair wins", ["4S 2H 6S 2D JH", "2S 4H 6C 4D JD"], ["2S 4H 6C 4D JD"]),
+        ("highest pair wins",        ["4S 2H 6S 2D JH", "2S 4H 6C 4D JD"], ["2S 4H 6C 4D JD"]),
         (
             "both hands have the same pair, high card wins",
             ["4H 4S AH JC 3D", "4C 4D AS 5D 6C"],

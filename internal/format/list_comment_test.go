@@ -61,7 +61,7 @@ end
 `},
 	{"list spread", `fn main()
     x = [
-        1, // the first
+        1,     // the first
         ..rest // the rest
     ]
 end
@@ -105,7 +105,7 @@ end
 	{"anonymous struct", `fn main()
     x = {
         a: 1, // the first
-        b:, // the second
+        b:,   // the second
     }
 end
 `},
@@ -122,7 +122,7 @@ end
     f = fn
         // the first
         a, // the first's
-        b // the second
+        b  // the second
         // the end
     -> a + b
 end
@@ -198,7 +198,7 @@ end
         (
             // the first
             a, // the first's
-            b // the second
+            b  // the second
         ) -> a
     end
 end

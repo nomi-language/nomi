@@ -17,6 +17,6 @@ end
 pub fn event_of(form: Form) -> Event
     case form.kind
         Some(kind) -> .Reacted(kind)
-        None -> .Cleared
+        None       -> .Cleared
     end
 end

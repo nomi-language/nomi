@@ -10,7 +10,7 @@ impl Box<T>
     pub fn flat<T>(b: Box<Maybe<T>>) -> Maybe<T>
         case b
             .Full(inner) -> inner
-            .Empty -> Maybe.None
+            .Empty       -> Maybe.None
         end
     end
 end

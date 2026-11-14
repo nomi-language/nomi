@@ -19,7 +19,7 @@ end
 
 test "a struct-shaped stdlib error variant renders"
     case Generator.weighted((-1.0, "bad"), [])
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert Display.to_string(e) == "invalid random weight: -1.0"
     end
 end
@@ -39,14 +39,14 @@ end
 // trapped for exactly the same reason.
 test "interpolation renders a stdlib error"
     case Generator.weighted((-1.0, "bad"), [])
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert "${e}" == "invalid random weight: -1.0"
     end
 end
 
 test "Debug.inspect renders a stdlib error"
     case Generator.weighted((-1.0, "bad"), [])
-        Ok(_) -> assert False
+        Ok(_)  -> assert False
         Err(e) -> assert Debug.inspect(e) != ""
     end
 end

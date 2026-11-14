@@ -30,7 +30,7 @@ there as a warning.
 
 ## Writing dates and times
 
-Each calendar type has a typed literal. Written with backticks, it is
+Each calendar type has a typed literal. Without a `${...}` slot, it is
 checked when the program compiles, so it needs no `?`. `DateTime` puts the
 zone name in square brackets at the end, a format from RFC 9557:
 
@@ -38,10 +38,10 @@ zone name in square brackets at the end, a format from RFC 9557:
 import std::calendar.{Date, DateTime}
 
 fn main()
-    d = Date`2026-06-15`
+    d = Date"2026-06-15"
     dbg d
 
-    dt = DateTime`2026-06-15T14:30:00-04:00[America/New_York]`
+    dt = DateTime"2026-06-15T14:30:00-04:00[America/New_York]"
     dbg dt
 
     dbg DateTime.year(dt)
@@ -67,9 +67,9 @@ day, you get the month's last day. January 31 plus one month is February 28:
 import std::calendar.{Date, Days, Months, Weeks, Years}
 
 fn main()
-    start = Date`2026-05-04`
-    jan31 = Date`2026-01-31`
-    leap = Date`2024-02-29`
+    start = Date"2026-05-04"
+    jan31 = Date"2026-01-31"
+    leap = Date"2024-02-29"
 
     dbg start + Days(10)
     dbg start + Weeks(2)
@@ -140,8 +140,8 @@ New York and 6 PM in Paris on the same day are equal:
 import std::calendar.DateTime
 
 fn main()
-    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
-    paris = DateTime`2026-06-15T18:00:00+02:00[Europe/Paris]`
+    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    paris = DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
 
     dbg ny == paris
     dbg ny
@@ -167,7 +167,7 @@ import
 end
 
 fn main()
-    start = DateTime`2026-03-07T12:00:00-05:00[America/New_York]`
+    start = DateTime"2026-03-07T12:00:00-05:00[America/New_York]"
     civil = start + Days(1)
     physical = start + Duration.hours(24)
 
@@ -196,14 +196,14 @@ takes a locale:
 import std::calendar.Date
 
 fn main()
-    ships = Date`2026-10-20`
-    dbg Date.format(ships, Locale`en-US`, style: .Long)
-    dbg Date.format(ships, Locale`de`, style: .Long)
+    ships = Date"2026-10-20"
+    dbg Date.format(ships, Locale"en-US", style: .Long)
+    dbg Date.format(ships, Locale"de", style: .Long)
 end
 ```
 <!-- expect
-dbg line 5: Date.format(ships, Locale`en-US`, style: .Long) = "October 20, 2026"
-dbg line 6: Date.format(ships, Locale`de`, style: .Long) = "20. Oktober 2026"
+dbg line 5: Date.format(ships, Locale"en-US", style: .Long) = "October 20, 2026"
+dbg line 6: Date.format(ships, Locale"de", style: .Long) = "20. Oktober 2026"
 -->
 
 [Locales & Formatting](/locales-and-formatting/#dates-and-times) covers
@@ -219,7 +219,7 @@ keeps the same moment and shows it in another zone. Noon in New York is
 import std::calendar.{DateTime, Error}
 
 fn main() -> Result<Unit, Error>
-    ny = DateTime`2026-06-15T12:00:00-04:00[America/New_York]`
+    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
     dbg tokyo
     dbg ny == tokyo
@@ -246,7 +246,7 @@ import std::calendar.{DateTime, Error, NaiveDateTime}
 
 fn main() -> Result<Unit, Error>
     // 2026-11-01 01:30 NY happens twice (2am EDT rolls back to 1am EST).
-    naive = NaiveDateTime`2026-11-01T01:30:00`
+    naive = NaiveDateTime"2026-11-01T01:30:00"
 
     earlier = DateTime.in_zone(naive, "America/New_York", .Earlier)?
     later = DateTime.in_zone(naive, "America/New_York", .Later)?
@@ -306,8 +306,8 @@ and keep the clock reading.
 <div class="tour-details">
 <p class="tour-details-label">Where to look next</p>
 
-- [Typed Literals](/typed-literals/) shows how ``Date`…` `` and
-  ``DateTime`…` `` literals work.
+- [Typed Literals](/typed-literals/) shows how `Date"…"` and
+  `DateTime"…"` literals work.
 - [`std::calendar`](/reference/calendar/) has every calendar type and
   function: weekdays, the periods, parsing ISO 8601 text and each type's
   conversions.

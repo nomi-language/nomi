@@ -15,10 +15,10 @@ derive ToJson for Tag
 derive FromJson for Tag
 
 struct TodoJson
-    id: Uuid
+    id:    Uuid
     title: String
-    tags: List<Tag>
-    note: Maybe<String>
+    tags:  List<Tag>
+    note:  Maybe<String>
 end
 
 derive ToJson for TodoJson

@@ -111,6 +111,11 @@ func displayRenderOf(p *Program, t Type, depth int) *DisplayRender {
 		}
 		r.Form = DisplayInterface
 		return r
+	case *ConjunctionType:
+		// A conjunction renders as an interface value does: by the held
+		// value's impl, which a Display member guarantees.
+		r.Form = DisplayInterface
+		return r
 	case *TupleType:
 		if textDisplay(t, 0) {
 			r.Form = DisplayStructural

@@ -5,7 +5,7 @@ pub struct Limits
 end
 
 impl Limits
-    pub once cap: Int = cap_value()
+    pub once cap: Int   = cap_value()
     pub once twice: Int = Limits.cap * 2
 end
 

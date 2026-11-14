@@ -1,14 +1,14 @@
 fn parse(s: String) -> Result<Int, String>
     case s
         "" -> Err("empty")
-        _ -> Ok(String.length(s))
+        _  -> Ok(String.length(s))
     end
 end
 
 fn find(s: String) -> Maybe<Int>
     case s
         "" -> None
-        _ -> Some(String.length(s))
+        _  -> Some(String.length(s))
     end
 end
 

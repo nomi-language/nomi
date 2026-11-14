@@ -213,8 +213,10 @@ func (bl *irScalarBuilder) fillFromAccessors(at ast.Node, params []kind, temps [
 		if temps[slot] != ir.NoTemp {
 			continue
 		}
+		// params are the callee's held signature's.
+		irHeldOperand(params[slot], "a defaulted parameter")
 		sym := accessor(slot)
-		if sym == nil || !irCallOperandKind(params[slot]) {
+		if sym == nil {
 			return false
 		}
 		c := ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, temps[:slot]...)

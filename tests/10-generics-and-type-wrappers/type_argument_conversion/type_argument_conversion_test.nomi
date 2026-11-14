@@ -57,7 +57,7 @@ end
 
 fn ok_shown(r: Result<Display, String>) -> String
     case r
-        Ok(d) -> Display.to_string(d)
+        Ok(d)  -> Display.to_string(d)
         Err(e) -> e
     end
 end

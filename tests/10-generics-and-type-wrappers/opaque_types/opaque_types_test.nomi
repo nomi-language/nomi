@@ -7,7 +7,7 @@ end
 fn describe(maybe_email: Maybe<Email>) -> String
     case maybe_email
         Some(e) -> "valid: " + email.to_string(e)
-        None -> "invalid"
+        None    -> "invalid"
     end
 end
 
@@ -37,17 +37,17 @@ test "opaque enums expose predicates and maybe-returning accessors"
 
     off_reason = case Status.inactive_reason(s_off)
         Some(reason) -> "off: " + reason
-        None -> "not inactive"
+        None         -> "not inactive"
     end
 
     suspended_reason = case Status.suspended_reason(s_susp)
         Some(reason) -> "suspended: " + reason
-        None -> "not suspended"
+        None         -> "not suspended"
     end
 
     suspended_until = case Status.suspended_until(s_susp)
         Some(until) -> until
-        None -> -1
+        None        -> -1
     end
 
     assert Status.is_active(s_active)

@@ -138,7 +138,7 @@ impl Status
     pub fn code(status: Status) -> Maybe<Int>
         case status
             Status.Exited{code:} -> Some(code)
-            Status.Signaled{} -> None
+            Status.Signaled{}    -> None
         end
     end
 end
@@ -149,7 +149,7 @@ impl Display for Status
     //
     fn to_string(status: Status) -> String
         case status
-            Status.Exited{code:} -> "exited with code ${code}"
+            Status.Exited{code:}     -> "exited with code ${code}"
             Status.Signaled{signal:} -> "ended by signal ${signal}"
         end
     end
@@ -284,8 +284,8 @@ impl Child
 
         case parts
             [1, signal] -> Ok(Status.Signaled{signal:})
-            [_, code] -> Ok(Status.Exited{code:})
-            _ -> unreachable "host.wait answers a kind and a number"
+            [_, code]   -> Ok(Status.Exited{code:})
+            _           -> unreachable "host.wait answers a kind and a number"
         end
     end
 end
@@ -323,10 +323,10 @@ end
 
 fn stdin_of(stdin: Stdin) -> (Int, Reader)
     case stdin
-        Stdin.Null -> (0, Reader.from_text(""))
-        Stdin.Inherit -> (1, Reader.from_text(""))
-        Stdin.Text(text) -> (2, Reader.from_text(text))
-        Stdin.Bytes(data) -> (2, Reader.from_bytes(data))
+        Stdin.Null         -> (0, Reader.from_text(""))
+        Stdin.Inherit      -> (1, Reader.from_text(""))
+        Stdin.Text(text)   -> (2, Reader.from_text(text))
+        Stdin.Bytes(data)  -> (2, Reader.from_bytes(data))
         Stdin.From(reader) -> (2, reader)
     end
 end

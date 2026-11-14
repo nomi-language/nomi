@@ -40,16 +40,16 @@ import scrabble_score
 
 test "score"
     [
-        ("lowercase letter", "a", 1),
-        ("uppercase letter", "A", 1),
-        ("valuable letter", "f", 4),
-        ("short word", "at", 2),
-        ("short, valuable word", "zoo", 12),
-        ("medium word", "street", 6),
-        ("medium, valuable word", "quirky", 22),
-        ("long, mixed-case word", "OxyphenButazone", 41),
-        ("english-like word", "pinata", 8),
-        ("empty input", "", 0),
+        ("lowercase letter",          "a",                          1),
+        ("uppercase letter",          "A",                          1),
+        ("valuable letter",           "f",                          4),
+        ("short word",                "at",                         2),
+        ("short, valuable word",      "zoo",                        12),
+        ("medium word",               "street",                     6),
+        ("medium, valuable word",     "quirky",                     22),
+        ("long, mixed-case word",     "OxyphenButazone",            41),
+        ("english-like word",         "pinata",                     8),
+        ("empty input",               "",                           0),
         ("entire alphabet available", "abcdefghijklmnopqrstuvwxyz", 87),
     ]
     |> subtests (description, word, expected), description

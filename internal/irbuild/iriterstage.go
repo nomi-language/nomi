@@ -8,8 +8,8 @@ import (
 
 // THE REST OF std/iter's ADAPTERS AND MATERIALIZERS, each one ir.Iter the VM
 // drives through rt's Seq function of the same name: `drop`, `take_while`,
-// `drop_while`, `cycle`, `each`, `to_set`, `to_vector`, `to_map`, `flat_map`, `flatten`,
-// `chunks` and `chunk_by`, and the constructors `iterate` and `repeat`.
+// `drop_while`, `cycle`, `each`, `to_set`, `to_vector`, `to_map`, `flat_map`,
+// `chunks`, `windows` and `chunk_by`, and the constructors `iterate` and `repeat`.
 // rt's functions state std's bodies (seqsrc.go, seqterm.go).
 //
 // `take_while`, `drop_while`, `each` and `flat_map` take a callback lowered
@@ -173,41 +173,19 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 			return bl.iterAppendSignalling(t, ir.IterFlatMap, signalling, k, src, args.temps[1]), k, true, true
 		}
 		return no()
-	case "flatten":
-		if inner, viewed := bl.innerSourceElem(elem); viewed {
-			// A source of Strings, Ranges, Sets or Vectors: each element
-			// viewed as the Iter it is, then materialized.
-			view, ok := bl.sourceViewFunc(t, elem, inner)
-			if !ok {
-				return no()
-			}
-			k := listKindIn(bl.g, inner)
-			irMustHold(irHeldListKind(k), "flatten", k)
-			flat := bl.iterAppend(t, ir.IterFlatMap, ir.IterOverSeq, seqKindIn(bl.g, inner), src, view)
-			return bl.iterAppend(t, ir.IterToList, ir.IterOverSeq, k, flat), k, true, true
-		}
-		if elem.comp == nil || len(elem.comp.parts) != 1 {
-			return no()
-		}
-		inner := elem.comp.parts[0]
-		k := listKindIn(bl.g, inner)
-		irMustHold(irHeldListKind(k), "flatten", k)
-		switch {
-		case elem.tag == tagList:
-			return bl.iterAppend(t, ir.IterFlattenList, ir.IterOverSeq, k, src), k, true, true
-		case elem.tag == tagSeq:
-			return bl.iterAppend(t, ir.IterFlatten, ir.IterOverSeq, k, src), k, true, true
-		}
-		return no()
-	case "chunks", "chunk_by":
+	case "chunks", "windows", "chunk_by":
 		chunk := listKindIn(bl.g, elem)
 		irMustHold(irHeldListKind(chunk), method, chunk)
 		k := seqKindIn(bl.g, chunk)
-		if method == "chunks" {
+		if method != "chunk_by" {
 			if args.kinds[1] != kindInt {
 				return no()
 			}
-			return bl.iterAppend(t, ir.IterChunks, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
+			op := ir.IterChunks
+			if method == "windows" {
+				op = ir.IterWindows
+			}
+			return bl.iterAppend(t, op, ir.IterOverSeq, k, src, args.temps[1]), k, true, true
 		}
 		// The machine compares keys as `==` does, so an interface-valued key
 		// compares by its run-time type.
@@ -219,10 +197,9 @@ func (bl *irScalarBuilder) iterStage(t *ast.Call, args irQualArgs, method string
 	return ir.NoTemp, kindInvalid, false, false
 }
 
-// innerSourceElem is the element a flat_map result or a flatten element of
-// kind k pushes when k is a source the view reads rather than a List or an
-// Iter: a String, Bytes, a Range, a Set, a Vector, a Maybe, a Map or a user
-// source. Each such value is the machine's, with no expression the checker
+// innerSourceElem is the element a flat_map result of kind k pushes when k
+// is a source the view reads rather than a List or an Iter: a String,
+// Bytes, a Range, a Set, a Vector, a Maybe, a Map or a user source. Each such value is the machine's, with no expression the checker
 // typed against an Iter, so its kind names its source (viewSourceOfKind).
 func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
 	vs, ok := bl.viewSourceOfKind(k)
@@ -241,8 +218,8 @@ func (bl *irScalarBuilder) innerSourceElem(k kind) (kind, bool) {
 }
 
 // sourceViewFunc is a function value from a value of kind sk to the Iter of
-// elem it is (seqView's view, read from the kind), for flat_map and flatten
-// to view each inner source with.
+// elem it is (seqView's view, read from the kind), for flat_map to view each
+// inner source with.
 func (bl *irScalarBuilder) sourceViewFunc(at ast.Node, sk, elem kind) (ir.Temp, bool) {
 	pos := bl.g.irNodePos(at)
 	f := ir.NewFunc(pos, "view")
