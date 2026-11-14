@@ -632,20 +632,6 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 				return inner
 			}))
 		}
-	case ir.IterFlatten, ir.IterFlattenList:
-		var flat rt.Seq[any]
-		if n.Op() == ir.IterFlattenList {
-			flat = rt.SeqFlatMapList(seq, func(_ *rt.Frame, item any) *list { return iterListResult(item) })
-		} else {
-			flat = rt.SeqFlatMap(seq, func(_ *rt.Frame, item any) rt.Seq[any] {
-				inner, ok := item.(rt.Seq[any])
-				if !ok {
-					panic(iterationFailure{fmt.Errorf("vm: flatten reads %T, not a sequence", item)})
-				}
-				return inner
-			})
-		}
-		fr.write(n.Dst(), rt.SeqToListCells[any, list](fr.runtime, flat))
 	case ir.IterChunkBy:
 		f, err := iterCallback(fr, n, 1, 1)
 		if err != nil {
@@ -872,8 +858,7 @@ func (ic iterCaller) userView(fr *frame, n *ir.Iter, src any) error {
 func mustReachEnd(n *ir.Iter) bool {
 	switch n.Op() {
 	case ir.IterToList, ir.IterCount, ir.IterLast, ir.IterJoin, ir.IterSort, ir.IterSortWith, ir.IterSortBy,
-		ir.IterPartition, ir.IterGroupBy, ir.IterReverse, ir.IterToSet, ir.IterToVector, ir.IterToMap,
-		ir.IterFlatten, ir.IterFlattenList:
+		ir.IterPartition, ir.IterGroupBy, ir.IterReverse, ir.IterToSet, ir.IterToVector, ir.IterToMap:
 		return true
 	case ir.IterReduce, ir.IterEach, ir.IterMapReduce:
 		return !n.Signalling()

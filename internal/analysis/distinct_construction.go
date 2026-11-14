@@ -58,6 +58,10 @@ func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
 			articleFor(formatTypeForError(dt.Inner)), formatTypeForError(dt.Inner), len(n.Args)))
 		return dt
 	}
+	if dt.Rule != "" {
+		c.refinementCtorArg(n.Args[0], dt, label)
+		return dt
+	}
 	argTy := c.checkNodeExpecting(n.Args[0], distinctInnerOf(dt))
 	c.checkDistinctInner(n.Args[0], argTy, label, dt)
 	return dt
@@ -80,6 +84,7 @@ func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
 		Origin:           dt.Origin,
 		Name:             dt.Name,
 		Inner:            dt.Inner,
+		Rule:             dt.Rule,
 		Opaque:           dt.Opaque,
 		OwningSourceFile: dt.OwningSourceFile,
 		TypeParams:       dt.TypeParams,
@@ -109,6 +114,10 @@ func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy
 		c.checkArgs(call.Args)
 		c.addError(line, col, fmt.Sprintf(
 			"%s takes the piped value as its only argument, got %d more", label, len(call.Args)))
+		return dt
+	}
+	if dt.Rule != "" {
+		c.refinementPipedArg(piped, pipedTy, dt, label)
 		return dt
 	}
 	c.checkDistinctInner(piped, pipedTy, label, dt)

@@ -35,8 +35,8 @@ compiler checks. The full rules are in the
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
   annotation types the same parameter in the others:
   `[("a", fn n: Int -> n), ("b", fn n -> n * 2)]`.
-- `once name = expr` is the only file-level value computed by code. It is
-  computed on first use, once, even when several tasks read it at the same
+- `once name = expr` is the only file-level value computed by code,
+  on first use, once, even when several tasks read it at the same
   time.
 - ``embed site `static` `` is a file-level `embed.Files` holding the files
   under `static/`, found when the program is compiled, so a built executable
@@ -174,17 +174,18 @@ test result: ok. 1 passed, 0 failed
   `fn name(value: self) -> String`.
 - A field with a default may leave out its type when the default tells it: `misses = 0` is an `Int` field. An empty collection, `None` or a
   `.Variant` needs the type written: `guessed: Set<String> = []`.
-- `value as Type` checks the value with the type expected, as
-  `x: Type = value` does, where no annotation can stand: `[] as
-  List<String>` inside an anonymous struct literal. It converts nothing:
-  `x as Float` with `x: Int` is an error; write `Int.to_float(x)`.
-- A type parameter may have a default, `Route<P = Unit>`. In a type
-  position a left-out argument is the default, so `route: Route` takes only
-  a `Route<Unit>`; it is never a type to infer.
+- `value as Type` checks the value against the type where no annotation
+  can stand: `[] as List<String>` in a record literal. It converts
+  nothing: with `x: Int`, `x as Float` is an error; write `Int.to_float(x)`.
+- A type parameter may have a default, `Route<P = Unit>`: `route: Route`
+  takes only a `Route<Unit>`, never a type to infer.
 - Behavior goes in top-level `impl Type`, `impl Interface for Type` and
   `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
   `UserId(n)` opens it.
+- `type Port Int when fn p -> p >= 1` is an Int refinement. A literal
+  Port is checked when compiling; another Int needs
+  `Port.try_from(n)`: `Maybe<Port>`.
 - A value converts to wider type arguments through every position that
   only holds them: a `List<Maybe<Int>>` passes where a `List<Display>` is
   expected, a `Result<Memory, E>` where a `Result<Store, E>` is, and a

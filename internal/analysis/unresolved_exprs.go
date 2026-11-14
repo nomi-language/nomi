@@ -97,6 +97,14 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 			w.where[c] = "in " + exprLabel(n)
 		}
 	})
+	if pc, ok := n.(*ast.RefinementParentCheck); ok {
+		// Only the form the checker chose is checked (refinement_check.go).
+		for _, form := range []ast.Node{pc.Refined, pc.Plain} {
+			if form != nil && form != RefinementParentChoice(w.fa, pc) {
+				w.skip[form] = true
+			}
+		}
+	}
 	switch n := w.fa.AsTodo(n).(type) {
 	case ast.TypeExpr, *ast.ImportStmt, *ast.ImportBlock, *ast.Decorator, *ast.FieldAccessor,
 		*ast.Todo, *ast.Unreachable:

@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 745
-declared-cases 4142
+records 749
+declared-cases 4163
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1867,6 +1867,20 @@ T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface bo
 T ok <root>/tests/10-generics-and-type-wrappers/bounds_test.nomi :: interface-bound aliases name reusable bound conjunctions
 T test result: ok. 2 passed, 0 failed
 T
+C 10-generics-and-type-wrappers/collection_refinements_test.nomi
+E 0
+N 8
+H a0821efd09a53e62460f8db7a0079863c62fd3cea46407eae590f7b37c4da6ce
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a List refinement iterates, matches and passes as its List
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a Map refinement iterates, looks up and passes as its Map
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a String refinement iterates, calls String and passes as its String
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a Vector refinement iterates, calls Vector and passes as its Vector
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a Set refinement iterates and spreads as its Set
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a refinement passes where an Iter is expected
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a literal builds a refinement of a refined collection, and its call form takes one
+T ok <root>/tests/10-generics-and-type-wrappers/collection_refinements_test.nomi :: a value made by try_from iterates as its base
+T test result: ok. 8 passed, 0 failed
+T
 C 10-generics-and-type-wrappers/covariant_conversion_test.nomi
 E 0
 N 7
@@ -1973,6 +1987,38 @@ N 0
 H 0ef8acd590713201da9feae80bfd8f745db519b3b41c25693a378be935094c0b
 T --- stderr ---
 T nomi run: <root>/tests/10-generics-and-type-wrappers/opaque_types/status.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi
+E 0
+N 2
+H 83bd98e77cc6b42f3f4921c036053f369c3475e8ff7f0e133881a7a0d31a40a6
+T ok <root>/tests/10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi :: a refinement of another file's refinement checks the whole chain
+T ok <root>/tests/10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi :: values of another file's refinements convert up
+T test result: ok. 2 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/refinement_modules/units.nomi
+E 1
+N 0
+H f6cd99c17e637e2fa84262d23367e7c63ddc723229d6063d1ccf2e9ee10a4f6c
+T --- stderr ---
+T nomi run: <root>/tests/10-generics-and-type-wrappers/refinement_modules/units.nomi declares no `fn main`, so there is no program to run
+T
+C 10-generics-and-type-wrappers/refinements_test.nomi
+E 0
+N 11
+H b6a69a5fefbb4f800120a1c185c386fe268938884f09520d75dbe2d980a34c7e
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a literal where a refinement is expected is that refinement
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: try_from checks a value when the program runs
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: try_from checks every rule up the chain
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a refined value converts up to its ancestors and its base
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a container of a refinement passes as a container of its base
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a refinement's impl keeps its rule with unchecked
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: division by a NonZeroInt cannot trap
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a struct refinement checks its literals and try_from
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: destructuring a refinement reads its parent
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a literal pattern matches a refined value
+T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: the checker rejects a value no rule vouched for
+T test result: ok. 11 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/turbofish_test.nomi
 E 0

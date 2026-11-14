@@ -9,6 +9,9 @@ func mismatchHint(want, have Type) string {
 	if h := embedsDowncastHint(want, have); h != "" {
 		return h
 	}
+	if h, ok := refinementMismatchHint(want, have); ok {
+		return h
+	}
 	if h := runtimeNounHint(want, have); h != "" {
 		return h
 	}

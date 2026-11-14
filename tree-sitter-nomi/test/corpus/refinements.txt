@@ -1,0 +1,71 @@
+================================================================================
+Refinement over a scalar with a lambda rule
+================================================================================
+
+pub type Port Int when fn port -> port >= 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    (pub)
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (refinement_rule
+      rule: (lambda
+        (lambda_parameter
+          name: (identifier))
+        body: (binary_expression
+          (identifier)
+          (integer))))))
+
+================================================================================
+Refinement with a named function as its rule
+================================================================================
+
+type Username String when is_username
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (type_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (type_identifier)
+    (refinement_rule
+      rule: (identifier))))
+
+================================================================================
+Struct refinement after end
+================================================================================
+
+struct Span
+    low: Int
+    high: Int
+end when fn s -> s.low <= s.high
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (struct_definition
+    name: (qualified_type_identifier
+      (type_identifier))
+    (struct_body
+      (field_definition
+        name: (identifier)
+        type: (type_identifier))
+      (field_definition
+        name: (identifier)
+        type: (type_identifier)))
+    (refinement_rule
+      rule: (lambda
+        (lambda_parameter
+          name: (identifier))
+        body: (binary_expression
+          (field_access
+            (identifier)
+            (identifier))
+          (field_access
+            (identifier)
+            (identifier)))))))

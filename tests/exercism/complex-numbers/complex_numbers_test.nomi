@@ -1,8 +1,11 @@
-import complex_numbers.Complex
+import
+    std::float.NonNegativeFloat
+    complex_numbers.Complex
+end
 
 // The canonical data asks for a tolerance on results that are not whole
 // numbers.
-once tolerance = 1e-12
+once tolerance: NonNegativeFloat = 1e-12
 
 test "Real part"
     [

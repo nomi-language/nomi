@@ -8,7 +8,7 @@ import
     equatable.Equatable
     float.Float
     hashable.Hashable
-    int.Int
+    int.{Int, PositiveInt}
     iter.Iter
     lists.List
     locale.Locale
@@ -190,17 +190,16 @@ impl Decimal
     /// `scale` is the least number of digits after the point a part has:
     /// when `d` has more, it is split in units of its own last digit, so
     /// `0.125d` split two ways at scale 2 is `0.063d` and `0.062d`, which
-    /// still sum to it. A non-positive `n` or a negative `scale` traps:
-    /// `Decimal.split: n must be positive, got 0`.
+    /// still sum to it. `n` is a `PositiveInt`, so there is at least one
+    /// part. A negative `scale` traps: `Decimal.split: scale must not be
+    /// negative, got -1`.
     //! assert Decimal.split(100d, 3, 2) == [33.34d, 33.33d, 33.33d]
     //! assert Display.to_string(Decimal.split(100d, 3, 2)) == "[33.34, 33.33, 33.33]"
     //! assert Decimal.split(-0.05d, 2, 2) == [-0.03d, -0.02d]
     //! assert Decimal.split(10d, 4, 0) == [3d, 3d, 2d, 2d]
     //! assert Decimal.split(0.125d, 2, 2) == [0.063d, 0.062d]
     //
-    pub fn split(d: Decimal, n: Int, scale: Int) -> List<Decimal>
-        if n <= 0 then decimal_refused("Decimal.split", "n must be positive, got ${n}")
-
+    pub fn split(d: Decimal, n: PositiveInt, scale: Int) -> List<Decimal>
         if scale < 0 then
             decimal_refused("Decimal.split", "scale must not be negative, got ${scale}")
         end

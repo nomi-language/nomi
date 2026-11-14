@@ -372,9 +372,10 @@ func argParts(t Type, ws, hs []Type, flipped bool, box func(Type, Type)) bool {
 // anonymous record entering std's Struct; and, entering std's Display, a
 // Decimal or Byte, whose text the machine renders itself, or a tuple or
 // record whose every part the rendering reads off it (displayReadsOff). A
-// std struct enters std's Display and Debug boxed.
+// std struct enters std's Display and Debug boxed. A distinct refinement
+// enters as its base does, the value it is at run time.
 func entersAsItself(it *InterfaceType, have Type) bool {
-	have = resolveTV(have)
+	have = resolveTV(RefinementBase(resolveTV(have)))
 	if st, ok := have.(*StructType); ok && isStdOrigin(st.Origin) && (isStdInterfaceNamed(it, "Display") || isStdInterfaceNamed(it, "Debug")) {
 		// A std struct's own Display may be a host function or a body the
 		// program never lowers, so it enters std's Display and Debug boxed

@@ -20,7 +20,6 @@ Spec sections with a "Status: not yet implemented" callout.
 
 None.
 
-
 `grep -n "Status: not yet" docs/spec.md` should
 match each item above.
 
@@ -38,6 +37,12 @@ match each item above.
 ## Gaps in shipped features
 
 Parts of a shipped feature that are not built. Each line is open work.
+
+- **Refinement types.** A struct refinement's literal is checked when the
+  program is compiled only when it writes every field as a literal; one
+  that leaves a field to its default is an error naming `try_from`. A
+  refinement takes no type parameters (`type NonEmpty<T> List<T> when ...`
+  is an error).
 
 - **Checked literals.** `Url`, `Toml`, `Cron` and std::http's `Route` are the std types that implement `CheckedLiteral`; `Regex`, `Uuid` and the calendar types keep `Literal`, since their slots splice text or can fail. `LiteralError`'s fields have no defaults, so a `check` names all three. A checked literal with no slots is built each time it is reached, not once per site as a backtick literal is. A `Url` path slot of `.` or `..` is written `%2E` or `%2E%2E`, which a WHATWG URL parser, as browsers use, still reads as a dot segment. A `Toml` literal checks its static text with a stand-in for each slot, so two key slots that hold the same value at run time, or a key slot whose value matches a static key, write a key twice, which a TOML reader refuses; an `Int` slot outside 64 bits is written whole, which a reader may refuse too.
 

@@ -442,6 +442,16 @@
 // function reads it. A site the file's lowering puts in a std instance or
 // in a file read with its bodies is a miss.
 //
+// So are each file's refinement literals and declared rules
+// ([KeptRefinement], KeptUnit.Rules): a literal's value and the
+// `try_from` of each step of its chain by linkage name, and a struct
+// refinement literal's Build, the function that makes the record of its
+// fields, in an object of its own (KeptUnit.Builds). A lowering of one
+// file answers every unit's, the kept units' decoded and the file's from
+// its new lowering, so vmhost evaluates each rule again over the linked
+// modules: an edit of a rule, or of a function a rule calls, can break a
+// literal in a file that was not lowered again.
+//
 // A body that renders values held as an interface through Debug
 // (existentialDebugImpls: a derived Debug over a `List<Display>` field)
 // builds a Render that names the Debug impl of every type any file of the
@@ -821,4 +831,39 @@
 // (internal/declinesites), TestObjectsLinkToTheSameProgram and
 // TestFilesLowerOnTheirOwnAsInTheProgram (internal/expectation), and
 // TestStdBundle_DecodesToTheLowering (here).
+//
+// # Refinement types
+//
+// A distinct refinement (spec §4 *Refinement types*; refinement.go),
+// `type Port Int when ...`, introduces a type the checker keeps apart, and no
+// representation: a Port is an Int at run time. So the builder has no def
+// for it, as it has none for a `typealias`: an annotation naming it
+// (refinementKind) and a type the checker solved to it (project's
+// DistinctType arm) are its base's kind, every conversion up its chain of
+// parents costs nothing, and a literal checked as a Port is the Int
+// constant. Its call form `Port(8080)`, its `unchecked` and its
+// destructuring `Port(n) = port` are the value itself. A refinement
+// implements no interface (the checker refuses an impl), so no dispatch
+// table can confuse it with its base.
+//
+// Its generated functions, `try_from` and `unchecked`
+// (analysis/refinement_synthesis.go), are an inherent block with no
+// receiver kind of its own, an owner block reached by the refinement's name
+// as an interface's inherent block is (ownerimpl.go). `try_from` calls its
+// rule through the VM intrinsic `vm.refinement_rule` (ast.RefinementRule),
+// which answers False when the rule traps, so a value whose rule traps is
+// None; under vm.Machine.Evaluate the trap goes through, and vmhost reports
+// it at the literal.
+//
+// `struct Span ... end when ...` is an ordinary struct; only its
+// construction is checked. Its `unchecked` builds it from the record of its
+// fields, as the call form `Span({...})` does.
+//
+// Each literal the checker typed as a refinement
+// (analysis.FileAnalysis.RefinedLiterals) becomes a RefinementSite: the
+// literal, and the `try_from` of each refinement on its chain by linkage
+// name, which vmhost calls on the literal before the program runs. A
+// struct or collection literal's site has a Build, a function of no
+// arguments that makes the record of its fields or the collection
+// (refinementBuild).
 package irbuild

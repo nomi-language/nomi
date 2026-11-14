@@ -120,6 +120,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
+				Rule:             RuleText(n.Rule),
 				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
@@ -140,6 +141,7 @@ func buildTypeShellInScope(fa *FileAnalysis, scope *Scope, node ast.Node) {
 				Name:             n.Name,
 				Opaque:           sym.Opaque,
 				OwningSourceFile: sym.SourceFile,
+				Rule:             RuleText(n.Rule),
 				unbuilt:          newUnbuilt(n.TypeParams),
 			}
 		}
@@ -300,7 +302,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.StructDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				st := &StructType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
+				st := &StructType{Origin: declaredOrigin(fa), Name: n.Name, Rule: RuleText(n.Rule), unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					st.Opaque, st.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}
@@ -318,7 +320,7 @@ func startFileTyping(fa *FileAnalysis, nodes []ast.Node, aliases *projectAliases
 		case *ast.TypeDef:
 			name, line, col = n.Name, n.Line, n.Col
 			shell = func(sym *Symbol) Type {
-				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
+				dt := &DistinctType{Origin: declaredOrigin(fa), Name: n.Name, Rule: RuleText(n.Rule), unbuilt: newUnbuilt(n.TypeParams)}
 				if sym != nil {
 					dt.Opaque, dt.OwningSourceFile = sym.Opaque, sym.SourceFile
 				}

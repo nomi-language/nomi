@@ -777,6 +777,26 @@
 10-generics-and-type-wrappers/bounds_test.nomi:announce	ran
 10-generics-and-type-wrappers/bounds_test.nomi:describe	ran
 10-generics-and-type-wrappers/bounds_test.nomi:describe_alias	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:OneScore.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:OneScore.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Pair.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Pair.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Row.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Row.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Scores.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Scores.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:SmallPair.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:SmallPair.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Tags.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Tags.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Word.try_from	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:Word.unchecked	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:names	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:shout	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:sum_bound	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:sum_of	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:total	ran
+10-generics-and-type-wrappers/collection_refinements_test.nomi:width	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:Box.inspect	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:Box.inspect	ran
 10-generics-and-type-wrappers/covariant_conversion_test.nomi:Chain.inspect	ran
@@ -921,6 +941,32 @@
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspend	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_reason	ran
 10-generics-and-type-wrappers/opaque_types/status.nomi:Status.suspended_until	ran
+10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:Hill.try_from	ran
+10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:Hill.unchecked	ran
+10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi:total	ran
+10-generics-and-type-wrappers/refinement_modules/units.nomi:Height.try_from	ran
+10-generics-and-type-wrappers/refinement_modules/units.nomi:Height.unchecked	ran
+10-generics-and-type-wrappers/refinement_modules/units.nomi:Meters.try_from	ran
+10-generics-and-type-wrappers/refinement_modules/units.nomi:Meters.unchecked	ran
+10-generics-and-type-wrappers/refinement_modules/units.nomi:plus	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Celsius.try_from	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Celsius.unchecked	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Celsius.warmer	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Even.try_from	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Even.unchecked	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Port.try_from	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Port.unchecked	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Span.inspect	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Span.try_from	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Span.unchecked	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Tag.try_from	ran
+10-generics-and-type-wrappers/refinements_test.nomi:Tag.unchecked	ran
+10-generics-and-type-wrappers/refinements_test.nomi:first_error	ran
+10-generics-and-type-wrappers/refinements_test.nomi:is_tag	ran
+10-generics-and-type-wrappers/refinements_test.nomi:mean	ran
+10-generics-and-type-wrappers/refinements_test.nomi:scale	ran
+10-generics-and-type-wrappers/refinements_test.nomi:serve	ran
+10-generics-and-type-wrappers/refinements_test.nomi:width	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:Request.inspect	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:Route.inspect	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:serve	ran
@@ -5096,8 +5142,8 @@ std/money.nomi:Money.sign	ran
 std/money.nomi:Money.split	ran
 std/money.nomi:Money.subtract	ran
 std/money.nomi:Money.to_string	ran
-std/money.nomi:literal Currency"XXX" at 434:27 failure	ran
-std/money.nomi:literal Currency"XXX" at 494:52 failure	ran
+std/money.nomi:literal Currency"XXX" at 431:27 failure	ran
+std/money.nomi:literal Currency"XXX" at 491:52 failure	ran
 std/net.nomi:Connection.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_write	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments

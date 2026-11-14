@@ -180,7 +180,8 @@ impl Float
     /// `15.999999999999998`, not `16.0`). The tolerance is absolute and the
     /// caller picks it. Two equal infinities are equal; a NaN is equal within
     /// no tolerance to anything, itself included, though `Float.nan() ==
-    /// Float.nan()` holds. A negative or NaN tolerance traps.
+    /// Float.nan()` holds. The tolerance is a `NonNegativeFloat`, so it is
+    /// never negative or NaN.
     //! assert Float.equal_within(Float.pow(8.0, 4.0 / 3.0), 16.0, 1e-12)
     //! refute Float.pow(8.0, 4.0 / 3.0) == 16.0
     //! assert Float.equal_within(1.5, 1.5, 0.0)
@@ -189,8 +190,7 @@ impl Float
     //! refute Float.equal_within(Float.positive_infinity(), Float.negative_infinity(), 1e300)
     //! refute Float.equal_within(Float.nan(), Float.nan(), 1.0)
     //
-    pub fn equal_within(a: Float, b: Float, tolerance: Float) -> Bool
-        require_tolerance(tolerance)
+    pub fn equal_within(a: Float, b: Float, tolerance: NonNegativeFloat) -> Bool
         // `==` holds for two NaNs, so NaN is ruled out first.
         not Float.is_nan(a) and not Float.is_nan(b) and (a == b or Float.abs(a - b) <= tolerance)
     end
@@ -396,9 +396,24 @@ host fn float_parse_percent_in(
 /// multiple bit patterns; this returns the actual bits.
 host fn float_bits(x: Float) -> Int
 
-/// Traps unless `tolerance` is zero or more, naming it: the check
-/// `Float.equal_within` makes before it compares.
-host fn require_tolerance(tolerance: Float) -> Unit
+/// A Float that is zero or more: never negative, and never NaN, which
+/// compares as neither. A literal is checked when the program is compiled;
+/// `NonNegativeFloat.try_from(x)` checks a value at run time. A
+/// NonNegativeFloat is a Float, and passes wherever one is expected.
+//! t: NonNegativeFloat = 0.5
+//! assert t + 1.0 == 1.5
+//! assert NonNegativeFloat.try_from(0.0) == Maybe.Some(0.0)
+//! assert NonNegativeFloat.try_from(-0.5) == Maybe.None
+//! assert NonNegativeFloat.try_from(Float.nan()) == Maybe.None
+//
+pub type NonNegativeFloat Float when fn x -> x >= 0.0
+
+/// A Float greater than zero. It refines `NonNegativeFloat`, so a
+/// PositiveFloat passes wherever a NonNegativeFloat or a Float is expected.
+//! assert PositiveFloat.try_from(2.5) == Maybe.Some(2.5)
+//! assert PositiveFloat.try_from(0.0) == Maybe.None
+//
+pub type PositiveFloat NonNegativeFloat when fn x -> x > 0.0
 
 // Traps when `Float.clamp`'s bounds are NaN or backwards.
 host fn require_clamp_bounds(low: Float, high: Float) -> Unit

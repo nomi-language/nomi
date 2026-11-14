@@ -741,9 +741,15 @@ module.exports = grammar({
       optional($.type_parameters),
       optional(choice(
         $.go_selector_binding,
-        $._distinct_inner_type,
+        seq($._distinct_inner_type, optional($.refinement_rule)),
       )),
     )),
+
+    // A refinement's rule: `when` and the function from the type it refines
+    // to Bool that every value satisfies, a lambda or a function's name, on
+    // the line the declaration's header (a `type`) or `end` (a `struct`)
+    // ends on: `type Port Int when fn p -> p >= 1`.
+    refinement_rule: $ => seq('when', field('rule', $._expression)),
 
     // The type expressions admitted as a distinct type's RHS — everything
     // except `self` and an anonymous struct type (`struct` owns record
@@ -767,6 +773,7 @@ module.exports = grammar({
       optional($.type_parameters),
       optional($.where_clause),
       $.struct_body,
+      optional($.refinement_rule),
     ),
 
     // Struct bodies hold newline-separated fields plus the type's own

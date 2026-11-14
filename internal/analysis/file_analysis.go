@@ -291,6 +291,18 @@ type FileBodies struct {
 	// (operator_impls.go). The editor's hover names it and go-to-definition
 	// opens its function. Nil until the first record.
 	OperatorImpls map[*ast.Binary]*OperatorImpl
+	// RefinedLiterals maps each literal the checker typed as a refinement
+	// (`p: Port = 8080`, `Port(8080)`, a struct refinement's literal with
+	// literal fields) to that refinement. The compiler evaluates its rules on
+	// the literal when it builds the program (refinement.go). Nil until the
+	// first record.
+	RefinedLiterals map[ast.Node]*RefinedLiteral
+	// RefinementParents records, for each parent check of a generated
+	// `try_from` (ast.RefinementParentCheck), whether the parent is itself a
+	// refinement, so the check is the parent's `try_from`, or the base, so
+	// it is `Some(value)` (refinement_synthesis.go). Nil until the first
+	// record.
+	RefinementParents map[*ast.RefinementParentCheck]bool
 	// TargetStructs maps a brace literal with no type name and no spread
 	// (`{street: "1 Main", city: "Bath"}`) to the nominal struct it builds
 	// because the position expected that struct (checkTargetTypedStructLit).

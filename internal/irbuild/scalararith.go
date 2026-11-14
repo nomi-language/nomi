@@ -58,12 +58,6 @@ import (
 //
 // # WHAT IS DELIBERATELY NOT HERE
 //
-//   - `Int.divide(n, nz)` and `Int.remainder(n, nz)` over a `NonZeroInt`
-//     divisor. That is a SECOND
-//     declaration — `impl Divide<NonZeroInt, Int> for Int`, a Nomi body — and it
-//     lowers through the stdlib index. This arm requires both operands to be the
-//     SAME scalar kind, so a NonZeroInt right operand declines here and keeps
-//     that route.
 //   - A named LEFT operand. `Score(2) + Score(3)` dispatches to a user
 //     `impl Add<Score, Score> for Score`, which is a different mechanism
 //     entirely; see userarith.go.

@@ -82,7 +82,7 @@ fn present(v: Maybe<PositiveInt>) -> Bool
     end
 end
 fn main()
-  positive = Int.to_positive
+  positive = PositiveInt.try_from
   io.inspect(present(positive(5)))
   io.inspect(present(positive(0)))
 end`, "True\nFalse\n"},

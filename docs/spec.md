@@ -1826,6 +1826,10 @@ type, its representation included. What follows the name decides its kind:
 - a function type (`type Handler (Request) -> Response`);
 - nothing: a zero-sized type (`type Expired`).
 
+A `type` declaration that adds a `when` rule is a refinement, whose values
+are values of the type it names (*Refinement types* below); the rest of
+this section is about distinct types without one.
+
 A `type` declaration has no body. `type Wrap (Int)` is `type Wrap Int`,
 since parentheses only group. No `=` comes between the name and the
 inner type: `type Id = Int` is ``a type has no `=`: write `type X T` ``.
@@ -1984,6 +1988,145 @@ representation. On a function, a type alias, an interface, a `once`, a
 zero-sized type, a foreign type or a built-in type it is an error at the
 declaration. An opaque type's representation may be private, since no
 caller outside can reach it (§14).
+
+### Refinement types
+
+Taught in [Structs, Enums & Distinct Types](/structs-enums-distinct/#refinement-types).
+
+A `type` declaration over a type, or a struct, may declare a rule its
+values satisfy: `when` and a function from the type it refines to `Bool`,
+a lambda or a function's name, on the line the declaration ends on (after
+the inner type, or after a struct's `end`). Such a type is a
+*refinement*.
+
+```nomi
+type NonNegative Float when fn x -> x >= 0.0
+
+type Positive NonNegative when fn x -> x > 0.0
+
+type Port Int when fn port -> port >= 1 and port <= 65535
+
+fn is_tag(s: String) -> Bool
+    String.length(s) > 0 and not String.contains(s, " ")
+end
+
+type Tag String when is_tag
+
+struct Span
+    low:  Int
+    high: Int
+end when fn span -> span.low <= span.high
+
+fn half(x: Float) -> Float
+    x / 2.0
+end
+
+fn main()
+    p: Positive = 2.5
+    dbg half(p) // 1.25
+    dbg Positive.try_from(-1.0) // None
+    dbg Port(8080) + 1 // 8081
+    dbg Tag.try_from("two words") // None
+    dbg Span.try_from({low: 3, high: 1}) // None
+end
+```
+
+The rule is checked as a `(P) -> Bool`, where P is the type the
+refinement refines, its *parent*: `fn x -> x + 1` is
+``type mismatch: expected (Float) -> Bool, got (Float) -> Float``. A
+struct refinement's rule takes the struct. The rule is a pure function of
+its value: it may call pure functions and read a `once` with no effects,
+and a rule that reaches an effect is an error at the declaration,
+``the rule of the refinement Noisy has effects (loud calls io.print): a rule is a pure function of the value it checks``.
+A refinement takes no type parameters and is declared at the top of a
+file. It cannot be `opaque`, since its point is that its base is visible:
+``a refinement cannot be opaque: `Secret`'s values are values of the type it refines, which every file sees; drop `opaque`, or declare `opaque type Secret ...` without `when` and check values in its constructor``.
+
+#### Chains and conversion
+
+A refinement's parent may itself be a refinement, as `Positive` refines
+`NonNegative`. Following parents from a refinement reaches its *base*,
+the first type that is no refinement (`Float` for `Positive`). A value of
+a distinct refinement is a value of each type up its chain: it converts
+to its parent, each ancestor and its base wherever one is expected,
+implicitly, at the top and at every position a value converts at (§5
+*Covariant conversion*), so a `List<Positive>` is a `List<Float>`. Nothing
+converts down a chain or across it: a `NonNegative` is no `Positive`, and
+of two refinements of one parent, `type Even Int when ...` and `type Odd
+Int when ...`, neither converts to the other. Where nothing says which way
+a value flows (the branches of an `if` with no type written, two elements
+of an unannotated list) a refinement and its parent do not join; a type
+written there joins them as it.
+
+A distinct refinement's value is its base's at run time: converting up
+costs nothing, and `Debug` and `Display` show the base value (`dbg p`
+prints `2.5`). It has its base's impls, so a refinement of a List, Map,
+Vector, Set or String is iterated, spread, matched and tested with `in`
+as its base is (`Iter.sum(p)` with `p: Pair`), and implements no
+interface of its own: `impl Display for Port` is
+``a refinement implements no interface of its own: `Port` is an Int at run time and has Int's impls``,
+and so is a `derive`. Functions in an inherent block, `impl Port`, are
+allowed. An interface impl whose interface takes a refinement as an
+argument (`impl Divide<Port, Int> for Int`) is an error, since the impl at
+the base serves the refinement already. An operand of a refinement is its
+base's value: `p + 1.0` is a `Float`, `port == 80` compares Ints, and a
+literal pattern matches a refined value. An enum cannot embed a
+refinement. A struct refinement is a struct: it converts to nothing, and
+its rule only constrains how values are built.
+
+#### Literals, `try_from` and `unchecked`
+
+A value enters a refinement three ways:
+
+- A literal of the base (a number, a negated number, a string with no
+  `${...}`, `True` or `False`) where a refinement is expected (an
+  annotation, a parameter, a field, a result, a collection element, an
+  argument of a generic call such as `Some(22)` as a `Maybe<Port>`), or as
+  the argument of its call form, `Port(8080)`, is that refinement. A
+  struct literal of a struct refinement that writes every field as a
+  literal is one too, and so is a list, vector, set or map literal where a
+  refinement of a collection is expected whose every element, key and
+  value is a literal, through nested collection and tuple literals: with
+  `type Pair List<Int> when fn xs -> List.length(xs) == 2`,
+  `p: Pair = [1, 2]` and `Pair([1, 2])` are checked, and `[1, 2, 3]` there is
+  ``this Pair literal breaks its rule: `fn xs -> List.length(xs) == 2` is false``.
+  The compiler evaluates each rule up the chain on the
+  literal before the program runs, from the base's child up, and the first
+  that answers `False` is an error at the literal:
+  ``-1.0 is not a Positive: Positive refines NonNegative, and NonNegative's rule `fn x -> x >= 0.0` is false``,
+  or ``0 is not a Port: `fn port -> port >= 1 and port <= 65535` is false``.
+  A rule that traps there is the error ``0 is not a Trapping: Trapping's rule `fn n -> 10 / n > 1` failed: ...``
+  with the trap's message, and one that does not finish within the
+  compiler's step limit is an error naming the rule.
+- `T.try_from(x)`, which every refinement has, as public as the type, is
+  `Some(x)` as a `T` when `x` satisfies every rule of T's chain, and
+  `None` when it does not. A rule that traps on `x` counts as false:
+  with `type Ratio Int when fn n -> 10 / n > 1`, `Ratio.try_from(0)` is
+  `None`, and the program goes on. It takes a value of the base, or for a
+  struct refinement the record of its fields:
+  `Span.try_from({low: 1, high: 2})`.
+- `T.unchecked(x)` builds a `T` without evaluating any rule. Only the file
+  that declares `T` may call it, for functions that keep the rule
+  (adding two non-negative values gives a non-negative one); elsewhere it
+  is ``` `Port.unchecked` builds a Port without checking its rule, and only the file that declares Port may call it ```.
+
+Any other value of the base where a refinement is expected is an error
+that names `try_from`: with `n: Int`, `p: Port = n` is
+`type mismatch: expected Port, got Int` with the help
+``Port is a refinement of Int; check the value with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
+and `Port(n)` is
+`Port(...) takes a literal: Port is a refinement, and an Int computed when the program runs may not satisfy its rule`.
+A struct refinement's literal with a field that is no literal, its call
+form over a record value, a patch of one (`{..span, low: 0}`,
+`Struct.update`), and a collection refinement's literal with an element
+that is no literal or a spread (`[1, n]` as a `Pair`) are errors naming
+`try_from` the same way. A distinct
+refinement named as a function value, `Iter.map(xs, Port)`, is the error ``` `Port` is a refinement and has no constructor function: its call form `Port(...)` takes only a literal ```.
+The names `try_from` and `unchecked` are the refinement's: an inherent
+block that declares either is an error.
+
+Destructuring reads a refinement's parent, as it reads a distinct type's
+inner value: `Positive(x) = p` binds a `NonNegative`.
 
 ### Type Aliases
 
@@ -2177,6 +2320,10 @@ A value of type `S` may stand where type `T` is expected when:
   member of (§12 *Interface conjunctions*);
 - `T` is an enum that embeds `S` (§4 *Embedded Types*), at the top or at
   any position that converts (*Covariant conversion*);
+- `S` is a refinement and `T` is on its chain of parents, its base
+  included (§4 *Refinement types*), at the top or at any position that
+  converts; and where `T` is an interface, `S` converts to it as its base
+  does;
 - both are function types and `S` fits `T` by the rule below;
 - both are one generic type, tuple, record or function type, and `S`
   converts to `T` part by part (*Covariant conversion*).

@@ -103,10 +103,7 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		// call site has no operator line to name.
 		//
 		// The keys carry the instantiation because every one of these is an impl
-		// of a GENERIC interface; see stdKey. `int.Int.divide` has two
-		// declarations, `impl Divide<Int, Int>` (this `host fn`) and
-		// `impl Divide<NonZeroInt, Int>` (a Nomi body), and the instantiated key
-		// separates them.
+		// of a GENERIC interface; see stdKey.
 		"int.Int.Add<Int, Int>.add":                   "operator impl; `+` is lowered natively and the trap text carries the operator's line",
 		"int.Int.Subtract<Int, Int>.subtract":         "operator impl; see int.Int.Add<Int, Int>.add",
 		"int.Int.Multiply<Int, Int>.multiply":         "operator impl; see int.Int.Add<Int, Int>.add",

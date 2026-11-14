@@ -1944,6 +1944,29 @@ callers would read. An opaque type inspects as `<opaque Clock>`, and
 `derive Debug` shows its value; a type with secret fields writes an
 `impl Debug` that leaves them out instead.
 
+When the rule is a test of one value that callers should go on using as
+the type it refines (a port number, a divisor that is not zero, a
+tolerance that is not negative), declare a refinement instead (spec §4
+*Refinement types*; tour:
+[Structs, Enums & Distinct Types](/structs-enums-distinct/#refinement-types)).
+A parameter typed with the refinement replaces a check that traps or a
+`Result` the function returns only for that argument: a literal argument
+is checked when the program compiles, and a computed one goes through
+`try_from` where it is made, once:
+
+```nomi
+pub type Port Int when fn p -> p >= 1 and p <= 65535
+
+pub fn listen(port: Port) -> String
+    "listening on ${port}"
+end
+```
+
+Std's `equal_within` takes a `NonNegativeFloat` tolerance and
+`Money.split` a `PositiveInt` count this way. Keep `opaque` for a rule
+over a representation callers should not see, or one a single value
+cannot be tested for alone.
+
 ### 48. Give a module's errors an enum
 
 A module whose functions can fail in more than one way declares an error

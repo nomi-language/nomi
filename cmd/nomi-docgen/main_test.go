@@ -262,7 +262,7 @@ func TestRenderModuleIncludesPublicNamespaceAndTypeBodyAPIs(t *testing.T) {
 		`## <span class="nomi-ref-detail">type </span><span class="nomi-ref-name">Int</span>`,
 		`### <span class="nomi-ref-owner">Int.</span><span class="nomi-ref-name">to_string</span>`,
 		"*impl* [`Display.to_string`](/reference/display/#displayto_string)",
-		`### <span class="nomi-ref-owner">Int.</span><span class="nomi-ref-name">to_non_zero</span>`,
+		`### <span class="nomi-ref-owner">Int.</span><span class="nomi-ref-name">to_float</span>`,
 		`### <span class="nomi-ref-owner">Int.</span><span class="nomi-ref-name">divide</span>`,
 	} {
 		if !strings.Contains(intPage, want) {

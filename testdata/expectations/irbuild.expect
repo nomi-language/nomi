@@ -6846,7 +6846,7 @@ T       chosen()
 T         = HalfEven
 T test result: FAILED. 4 passed, 1 failed
 T
-C internal/irbuild/testdata/std_host_type_boundary.nomi@8e046a091d5067af
+C internal/irbuild/testdata/std_host_type_boundary.nomi@d587622778819795
 E 0
 N 0
 H 1443bb69a564d63f4641fa5649efc849a3536ee4271f71b1a306f63b8b410c97
@@ -6896,10 +6896,10 @@ H 0705ac138e952a20316e87e75e86af891f0a2b829d9db6e0f1f3aabcc5937341
 T mine(1)
 T mine(2)
 T
-C internal/irbuild/testdata/std_maybe_boundary.nomi@2985bf699a06bb96
+C internal/irbuild/testdata/std_maybe_boundary.nomi@234e26311d098e07
 E 0
 N 0
-H 09dca84804932da5b39d2028c4e70585c0435d30bd3d88b904e4aa2282015afd
+H 125f27e8deb6802e3ee7d3acbb94b34cd3885423634c516d0e83fdebb9bf6e92
 T int 42
 T int -7
 T int none
@@ -6907,9 +6907,9 @@ T int none
 T trunc 3
 T trunc -3
 T trunc none
-T non-zero NonZeroInt(5)
+T non-zero 5
 T zero
-T positive PositiveInt(3)
+T positive 3
 T not positive
 T
 C internal/irbuild/testdata/std_transitive.nomi@f7690b369a880dee
@@ -6954,7 +6954,7 @@ T items:2
 T named:1
 T empty
 T
-C internal/irbuild/testdata/stdkey_overloads.nomi@c00bc65bdcd8555e
+C internal/irbuild/testdata/stdkey_overloads.nomi@e7f8529ff4c8a2e7
 E 0
 N 0
 H 57b62b41730cc01c3a84ed271038223d23e7fae579b65f50741732aa6d7a4f09
@@ -9231,7 +9231,7 @@ T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments
 T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments project through bounds
 T test result: ok. 2 passed, 0 failed
 T
-C tests/12-derives-and-standard-interfaces/add_test.nomi@5ad29928b3553498
+C tests/12-derives-and-standard-interfaces/add_test.nomi@ac7fe93185d17767
 E 0
 N 0
 H 38c4a41ef62e680068ef18d3f599594fa603c6db4667e425f53afe007bb0f1c0

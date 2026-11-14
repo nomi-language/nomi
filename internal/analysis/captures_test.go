@@ -35,6 +35,20 @@ fn divide(x: Int, y: Int) -> Int
     x / y
 end
 
+type Ticks Int
+
+impl Divide<Int, Ticks> for Ticks
+    fn divide(Ticks(a), rhs: Int) -> Ticks
+        Ticks(a / rhs)
+    end
+end
+
+impl Divide<Ticks, Int> for Ticks
+    fn divide(Ticks(a), Ticks(b)) -> Int
+        a / b
+    end
+end
+
 fn apply2(f: (Int, Int) -> Int) -> Int
     f(3, 4)
 end
@@ -83,13 +97,13 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"a call", "fn f() -> (Int) -> Int\n    &Int.max(&1, 0)\nend\n", "(Int) -> Int"},
 		{"an operator function's call", "fn f() -> Maybe<Int>\n    Maybe.map(Some(2), &Int.add(7, &1))\nend\n", "(Int) -> Int"},
 		{"an operator function's call, the parameter on the left", "fn f() -> Maybe<Float>\n    Maybe.map(Some(2.5), &Float.divide(&1, 2.0))\nend\n", "(Float) -> Float"},
-		{"an operator function's call of several impls", "fn f() -> Maybe<Int>\n    Maybe.map(Some(2), &Int.divide(10, &1))\nend\n", "(Int) -> Int"},
-		{"an operator function's call selecting an impl by the piped type", "fn f() -> Maybe<Int>\n    Int.to_non_zero(4) |> Maybe.map(&Int.divide(12, &1))\nend\n", "(NonZeroInt) -> Int"},
-		{"an operator function's call selecting an impl by the argument's type", "fn f() -> Maybe<Int>\n    Maybe.map(Int.to_non_zero(4), &Int.divide(12, &1))\nend\n", "(NonZeroInt) -> Int"},
-		{"an operator function's call selecting an impl by a Result's type", "fn f() -> Result<Int, String>\n    Int.to_non_zero(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))\nend\n", "(NonZeroInt) -> Int"},
+		{"an operator function's call of several impls", "fn f() -> Maybe<Ticks>\n    Maybe.map(Some(2), &Ticks.divide(Ticks(10), &1))\nend\n", "(Int) -> Ticks"},
+		{"an operator function's call selecting an impl by the piped type", "fn f() -> Maybe<Int>\n    Some(Ticks(4)) |> Maybe.map(&Ticks.divide(Ticks(12), &1))\nend\n", "(Ticks) -> Int"},
+		{"an operator function's call selecting an impl by the argument's type", "fn f() -> Maybe<Int>\n    Maybe.map(Some(Ticks(4)), &Ticks.divide(Ticks(12), &1))\nend\n", "(Ticks) -> Int"},
+		{"an operator function's call selecting an impl by a Result's type", "fn f() -> Result<Int, String>\n    Some(Ticks(4)) |> Maybe.to_result(\"zero\") |> Result.map(&Ticks.divide(Ticks(12), &1))\nend\n", "(Ticks) -> Int"},
 		{"an operator function's call with no expected type", "fn f() -> Int\n    inc = &Int.add(7, &1)\n    inc(1)\nend\n", "(Int) -> Int"},
 		{"an operator function's call with no expected type, the parameter on the left", "fn f() -> Int\n    dec = &Int.subtract(&1, 1)\n    dec(9)\nend\n", "(Int) -> Int"},
-		{"an operator function's call of several impls, the parameter on the left", "fn f() -> Maybe<Int>\n    Some(d) = Int.to_non_zero(4) else\n        return None\n    end\n    half = &Int.divide(&1, d)\n    Some(half(9))\nend\n", "(Int) -> Int"},
+		{"an operator function's call of several impls, the parameter on the left", "fn f() -> Maybe<Int>\n    Some(d) = Some(Ticks(4)) else\n        return None\n    end\n    half = &Ticks.divide(&1, d)\n    Some(half(Ticks(9)))\nend\n", "(Ticks) -> Int"},
 		{"an operator function's call reordering its parameters", "fn f() -> (Int, Int) -> Int\n    &Int.subtract(&2, &1)\nend\n", "(Int, Int) -> Int"},
 		{"a call reordering its parameters", "fn f() -> (Int, Int) -> Int\n    &divide(&2, &1)\nend\n", "(Int, Int) -> Int"},
 		{"a call reusing its parameter", "fn f() -> (Int) -> Int\n    &add(&1, &1)\nend\n", "(Int) -> Int"},
@@ -199,10 +213,10 @@ func TestCapture_Rejections(t *testing.T) {
 			"field 'x' of Point: expected Int, got String"},
 		{"a reduction's callback", "fn f() -> Int\n    [1, 2] |> Iter.reduce(&(&1 + &2))\nend\n",
 			"missing argument for parameter 'from'"},
-		{"no expected type, an operator function of several impls", "fn f() -> Int\n    inv = &Int.divide(12, &1)\n    inv(4)\nend\n",
-			"cannot infer type for `&1` in `&Int.divide(12, &1)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int) -> Int = &Int.divide(12, &1)`, or write a lambda with an annotated parameter, as in `fn x: Int -> Int.divide(12, x)`"},
-		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int\n    div = &Int.divide(&1, &2)\n    div(12, 4)\nend\n",
-			"cannot infer type for `&2` in `&Int.divide(&1, &2)`\nhelp: `Int` has 2 `Divide` impls, whose right operands are `Int` and `NonZeroInt`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int, Int) -> Int = &Int.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Int, b: Int -> Int.divide(a, b)`"},
+		{"no expected type, an operator function of several impls", "fn f() -> Int\n    inv = &Ticks.divide(Ticks(12), &1)\n    inv(Ticks(4))\nend\n",
+			"cannot infer type for `&1` in `&Ticks.divide(Ticks(12), &1)`\nhelp: `Ticks` has 2 `Divide` impls, whose right operands are `Int` and `Ticks`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int) -> Ticks = &Ticks.divide(Ticks(12), &1)`, or write a lambda with an annotated parameter, as in `fn x: Int -> Ticks.divide(Ticks(12), x)`"},
+		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int\n    div = &Ticks.divide(&1, &2)\n    div(Ticks(12), Ticks(4))\nend\n",
+			"cannot infer type for `&2` in `&Ticks.divide(&1, &2)`\nhelp: `Ticks` has 2 `Divide` impls, whose right operands are `Int` and `Ticks`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Ticks, Int) -> Ticks = &Ticks.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Ticks, b: Int -> Ticks.divide(a, b)`"},
 		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool\n    &(&1 > 2) and ready\nend\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`"},
 		{"no expected type, a string", "fn f() -> String\n    say = &\"id ${&1}\"\n    say(1)\nend\n",

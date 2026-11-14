@@ -8039,7 +8039,18 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		return nil, errorAt(typeParams[0].Line, typeParams[0].Col, "zero-sized `type %s` takes no type parameters: it has no value for them to describe", name)
 	}
 
+	rule, ruleTok, err := p.parseRefinementRule()
+	if err != nil {
+		return nil, err
+	}
+	if rule != nil && innerTypeExpr == nil {
+		return nil, errorAt(ruleTok.Line, ruleTok.Col, "zero-sized `type %s` has no value for a `when` rule to check: a refinement names the type it refines, `type %s Int when ...`", name, name)
+	}
+
 	return &ast.TypeDef{
+		Rule:          rule,
+		RuleLine:      ruleTok.Line,
+		RuleCol:       ruleTok.Col,
 		Name:          name,
 		Public:        public,
 		Opaque:        opaque,
@@ -8290,8 +8301,33 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 	if _, err := p.expectEnd(open, "the struct"); err != nil {
 		return nil, err
 	}
+	rule, ruleTok, err := p.parseRefinementRule()
+	if err != nil {
+		return nil, err
+	}
 
-	return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
+	return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, Items: items, EndTrivia: endTrivia, Rule: rule, RuleLine: ruleTok.Line, RuleCol: ruleTok.Col, Line: line, Col: col}, nil
+}
+
+// parseRefinementRule parses a refinement's `when` rule, on the line the
+// declaration's header (a `type`) or `end` (a `struct`) ends on: `when`
+// and the function the rule is, a lambda or a function's name (spec §4
+// *Refinement types*). It answers nil and a zero token when no `when`
+// follows.
+func (p *Parser) parseRefinementRule() (ast.Node, token.Token, error) {
+	if p.atEnd() || p.peek().Type != token.WHEN || p.pos == 0 || p.peek().Line != p.tokens[p.pos-1].Line {
+		return nil, token.Token{}, nil
+	}
+	when := p.peek()
+	p.advance() // consume WHEN
+	if p.atEnd() || p.peek().Type == token.NEWLINE || p.peek().Type == token.SEMICOLON || p.peek().Type == token.EOF {
+		return nil, token.Token{}, errorAt(when.Line, when.Col, "`when` on a type declaration takes the rule its values satisfy, a function to Bool: `when fn x -> x > 0` or `when is_valid`")
+	}
+	rule, err := p.parseExpr(1)
+	if err != nil {
+		return nil, token.Token{}, err
+	}
+	return rule, when, nil
 }
 
 // parseTypeAlias parses a type alias: typealias Name Target

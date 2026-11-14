@@ -417,7 +417,6 @@ func RtFuncs() []Binding {
 		{Name: "float.Float.trunc", Fn: rt.FloatTrunc},
 		{Name: "float.Float.to_int", Fn: rt.FloatToInt},
 		{Name: "float.float_bits", Fn: rt.FloatBits},
-		{Name: "float.require_tolerance", Fn: rt.FloatRequireTolerance},
 		{Name: "float.require_clamp_bounds", Fn: rt.FloatRequireClampBounds},
 		{Name: "comparable.clamp_reversed", Fn: rt.ComparableClampReversed},
 		{Name: "float.Float.pow", Fn: rt.FloatPow},

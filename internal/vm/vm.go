@@ -430,8 +430,9 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Receiver.receive_within": channelHost("Receiver.receive_within"),
 
 		// The two traps of a failed postfix `!` (unwrap.go).
-		"vm.bang_failed": bangFailedHost,
-		"vm.bang_none":   bangNoneHost,
+		"vm.bang_failed":     bangFailedHost,
+		"vm.bang_none":       bangNoneHost,
+		"vm.refinement_rule": refinementRuleHost,
 		// `String.captures`' groups as the regex's capture type (captureshape.go).
 		captureShapeKey: captureShapeHost,
 		// `Hashable.hash` of an interface value (keys.go).

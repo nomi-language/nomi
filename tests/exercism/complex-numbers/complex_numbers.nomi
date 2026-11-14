@@ -1,5 +1,7 @@
 //# Complex numbers and their arithmetic.
 
+import std::float.NonNegativeFloat
+
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex
     real:      Float
@@ -40,7 +42,7 @@ impl Complex
 
     /// Whether each part of `a` is within `tolerance` of the same part of
     /// `b`.
-    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool
+    pub fn equal_within(a: Complex, b: Complex, tolerance: NonNegativeFloat) -> Bool
         Float.equal_within(a.real, b.real, tolerance)
             and Float.equal_within(a.imaginary, b.imaginary, tolerance)
     end

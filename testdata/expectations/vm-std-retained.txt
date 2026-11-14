@@ -490,6 +490,10 @@ float.nomi:Float.parse_in	ran
 float.nomi:Float.parse_percent_in	ran
 float.nomi:Float.round	ran
 float.nomi:Float.sign	ran
+float.nomi:NonNegativeFloat.try_from	ran
+float.nomi:NonNegativeFloat.unchecked	ran
+float.nomi:PositiveFloat.try_from	ran
+float.nomi:PositiveFloat.unchecked	ran
 float.nomi:float.Float.format arity 2	ran
 float.nomi:float.Float.format arity 3	ran
 float.nomi:float.Float.format arity 4	ran
@@ -533,8 +537,6 @@ instant.nomi:Instant.from_seconds	ran
 instant.nomi:Instant.inspect	ran
 instant.nomi:Instant.is_before	ran
 instant.nomi:Instant.to_seconds	ran
-int.nomi:Int.Divide<NonZeroInt, Int>.divide	ran
-int.nomi:Int.Remainder<NonZeroInt, Int>.remainder	ran
 int.nomi:Int.abs	ran
 int.nomi:Int.compare	ran
 int.nomi:Int.empty_product	ran
@@ -552,13 +554,10 @@ int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
 int.nomi:Int.to_digits	ran
-int.nomi:Int.to_non_zero	ran
-int.nomi:Int.to_positive	ran
-int.nomi:NonZeroInt.inspect	ran
-int.nomi:NonZeroInt.to_string	ran
-int.nomi:PositiveInt.inspect	ran
-int.nomi:PositiveInt.to_non_zero	ran
-int.nomi:PositiveInt.to_string	ran
+int.nomi:NonZeroInt.try_from	ran
+int.nomi:NonZeroInt.unchecked	ran
+int.nomi:PositiveInt.try_from	ran
+int.nomi:PositiveInt.unchecked	ran
 int.nomi:int.Int.format arity 2	ran
 int.nomi:int.Int.format arity 3	ran
 int.nomi:int.Int.format default 3	ran

@@ -76,8 +76,8 @@ fn present(v: Maybe<PositiveInt>) -> Bool
     end
 end
 fn main()
-  io.inspect(present(Int.to_positive(5)))
-  io.inspect(present(Int.to_positive(0)))
+  io.inspect(present(PositiveInt.try_from(5)))
+  io.inspect(present(PositiveInt.try_from(0)))
   io.print(Duration.as_hours(Duration.hours(3)))
   io.print(Instant.to_seconds(Instant.from_seconds(42)))
 end

@@ -68,12 +68,12 @@ import "strconv"
 // putting it in the opcode would encode an operand in the operation. The
 // builder reads it off the static kind.
 //
-// THAT MEANING IS EXACT, AND IT IS WHY `flat_map` AND `flatten` HAVE TWO OPS
-// EACH. Their emitted shape is selected by whether the INNER sequences are
-// already sequences or are Lists, and the inner element is reached through the
-// callback's RESULT — a different operand position. Writing that into `Over()`
-// would give one field two meanings. So `IterFlatMapList` and `IterFlattenList` are their own
-// operations and the field keeps one meaning.
+// THAT MEANING IS EXACT, AND IT IS WHY `flat_map` HAS TWO OPS. Its emitted
+// shape is selected by whether the INNER sequences are already sequences or
+// are Lists, and the inner element is reached through the callback's RESULT —
+// a different operand position. Writing that into `Over()` would give one
+// field two meanings. So `IterFlatMapList` is its own operation and the field
+// keeps one meaning.
 //
 // # THE PREDICATE: A SIGNALLING CALLBACK
 //
@@ -255,8 +255,6 @@ const (
 	// operand between each.
 	IterJoin
 	IterPartition
-	IterFlatten
-	IterFlattenList
 	IterSortWith
 	// IterSortBy stably sorts by a projected key.
 	IterSortBy
@@ -355,17 +353,15 @@ var iterOpSpecs = map[IterOp]iterOpSpec{
 	IterFind:  {name: "find", form: IterFormTerminal, min: 2, max: 2, over: overSeq, signal: true},
 	// `reduce` takes the source, the seed (the call's `from`) and the
 	// callback.
-	IterReduce:      {name: "reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
-	IterEachWhile:   {name: "each_while", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterToSet:       {name: "to_set", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterToVector:    {name: "to_vector", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterToMap:       {name: "to_map", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterGroupBy:     {name: "group_by", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterReverse:     {name: "reverse", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterJoin:        {name: "join", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterPartition:   {name: "partition", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
-	IterFlatten:     {name: "flatten", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
-	IterFlattenList: {name: "flatten", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterReduce:    {name: "reduce", form: IterFormTerminal, min: 3, max: 3, over: overSeq, signal: true},
+	IterEachWhile: {name: "each_while", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
+	IterToSet:     {name: "to_set", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterToVector:  {name: "to_vector", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterToMap:     {name: "to_map", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterGroupBy:   {name: "group_by", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
+	IterReverse:   {name: "reverse", form: IterFormTerminal, min: 1, max: 1, over: overSeq},
+	IterJoin:      {name: "join", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
+	IterPartition: {name: "partition", form: IterFormTerminal, min: 2, max: 2, over: overSeq},
 	// sort_with's operands are the source and the comparator, then an
 	// optional `Direction`: Descending compares (b, a) where Ascending
 	// compares (a, b), as std's `Iter.sort` does.

@@ -75,6 +75,11 @@ type SourceProgram struct {
 	PrepareEntry func(nodes []ast.Node) ([]ast.Node, []TypeError)
 	// Loader loads the stdlib and the files of other modules.
 	Loader FileLoader
+	// Keys are the module keys of every project file the check's texts
+	// held, read or not, nil when the check read its files from disk: an
+	// in-memory project's directories are the keys below them
+	// (VirtualDirectory), as the check from source found them.
+	Keys []string
 	// The shared stdlib the check was built against.
 	Primitives *Scope
 	Modules    map[string]*Scope
@@ -883,10 +888,10 @@ func (pi *ProgramInterfaces) buildAll(key string, closure map[string]bool, relev
 		}
 		if _, ok := pi.encoded[k]; !ok {
 			// A file the check from source did not read from Source, or a
-			// directory the program's files are under.
+			// directory the program's texts hold files under, read or not.
 			nodes, err := sp.Loader(projectRoot, modulePath)
 			if err != nil && DiskDirectory(projectRoot, modulePath) == nil {
-				keys := make([]string, 0, len(pi.encoded))
+				keys := slices.Clone(sp.Keys)
 				for key := range pi.encoded {
 					keys = append(keys, key)
 				}
@@ -1009,6 +1014,9 @@ func (dm *DocumentManager) sourceProgram(full *CheckedProgram) *SourceProgram {
 	}
 	sp := dm.textSourceProgram(full.Root, full.Entry, text, full.Inputs, nil)
 	sp.Files, sp.Nodes = full.Files, full.Nodes
+	for key := range full.Texts {
+		sp.Keys = append(sp.Keys, key)
+	}
 	sp.AppTypes = full.Files[full.Entry].Program().AppTypes
 	return sp
 }

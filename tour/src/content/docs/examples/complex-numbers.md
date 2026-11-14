@@ -13,6 +13,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: complex_numbers.nomi
 //# Complex numbers and their arithmetic.
 
+import std::float.NonNegativeFloat
+
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex
     real:      Float
@@ -53,7 +55,7 @@ impl Complex
 
     /// Whether each part of `a` is within `tolerance` of the same part of
     /// `b`.
-    pub fn equal_within(a: Complex, b: Complex, tolerance: Float) -> Bool
+    pub fn equal_within(a: Complex, b: Complex, tolerance: NonNegativeFloat) -> Bool
         Float.equal_within(a.real, b.real, tolerance)
             and Float.equal_within(a.imaginary, b.imaginary, tolerance)
     end
@@ -146,11 +148,14 @@ impl Divide<Complex, Complex> for Float
 end
 
 // FILE: complex_numbers_test.nomi
-import complex_numbers.Complex
+import
+    std::float.NonNegativeFloat
+    complex_numbers.Complex
+end
 
 // The canonical data asks for a tolerance on results that are not whole
 // numbers.
-once tolerance = 1e-12
+once tolerance: NonNegativeFloat = 1e-12
 
 test "Real part"
     [
@@ -402,6 +407,6 @@ test result: ok. 40 passed, 0 failed
 - The arithmetic is the operator interfaces, as rational-numbers does it: `impl Add<Complex, Complex> for Complex` and the same for `Subtract`, `Multiply` and `Divide`, so the tests write `z1 + z2`.
 - The canonical cases that mix a real number with a complex one are four more impls on `Complex` with a `Float` right-hand side and four on `Float` with a `Complex` right-hand side, so `Complex.new(1.0, 2.0) + 5.0` and `5.0 + Complex.new(1.0, 2.0)` both work. Each lifts the `Float` with `Complex.from_real` and uses the complex operator.
 - `exp` is `e^a * (cos(b) + i * sin(b))` from std::float's `exp`, `cos` and `sin`.
-- The canonical data asks for a tolerance on results that are not whole numbers. `Complex.equal_within` holds both parts to it through `Float.equal_within`, and the division, exponential and mixed cases use it with `1e-12`.
+- The canonical data asks for a tolerance on results that are not whole numbers. `Complex.equal_within` holds both parts to it through `Float.equal_within`, and the division, exponential and mixed cases use it with `1e-12`. The tolerance is a `NonNegativeFloat`, as `Float.equal_within` takes it, so the tests' `once` is annotated with it and its literal is checked when the program is compiled.
 - The canonical inputs write pi and e as the strings `"pi"` and `"e"`, and ln(2) as `"ln(2)"`. The tests write std::float's `Float.pi` and `Float.e`, and `Float.log(2.0)`.
 - Each canonical group is a test with one `subtests` table; the four arithmetic tests sit in a `group "Arithmetic"`, as the canonical data nests them. The mixed cases are one table whose actual column is the expression itself (`5.0 * Complex.new(2.0, 5.0)`), since the rows mix operand types.

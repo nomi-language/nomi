@@ -716,4 +716,47 @@
 // field by field and pointer by pointer ([CheckStdStateRoundTrip],
 // TestStdState_ReadsBackAsTheBuild), and a process's stdlib read from a
 // state to the one analyzed from source (TestShared_ModulesAreLoadsModules).
+//
+// # Refinement types
+//
+// A refinement (spec §4 *Refinement types*; refinement.go) is a distinct
+// type or a struct that declares a rule with `when`:
+// `type Port Int when fn p -> p >= 1 and p <= 65535`. Its
+// representation is DistinctType.Rule (StructType.Rule), the rule as
+// written, which marks the type as a refinement.
+//
+// A distinct refinement's value is a value of the type it refines, its
+// parent (DistinctType.Inner). It converts up its chain of parents to every
+// ancestor and to the base at the chain's end, implicitly and inside
+// containers, by the unifier's assign modes (unify.go). Two refinements of
+// one parent never convert to each other, and nothing converts down. A
+// refinement implements no interface of its own: it has its base's impls,
+// and at run time it is its base's value (irbuild erases it). So every
+// record the checker makes of a value's run-time shape reads a distinct
+// refinement as its base: the Iter view a source becomes (iterViewOf), a
+// spread's head (checkSpreadHeads), and whether a value enters an
+// interface as itself (carriesOwnType, entersAsItself).
+//
+// A struct refinement is a struct whose values satisfy the rule. It
+// converts to nothing; its rule only constrains construction.
+//
+// A value enters a refinement in four ways:
+//
+//   - a literal of the base where the refinement is expected, or as the
+//     argument of its call form (`Port(8080)`), a struct literal whose
+//     fields are literals, or a collection literal whose elements are,
+//     through nested collection and tuple literals, where a refinement of
+//     a collection, or of a refinement of one, is expected or as the
+//     argument of the call form (checkCollectionRefinementLit,
+//     literalInnerOf, refinementCtorArg): the rule is
+//     evaluated when the program is compiled (vmhost's checkRefinements
+//     over irbuild's RefinementSites);
+//   - `T.try_from(x)`, a `Maybe<T>`, generated for every refinement
+//     (SynthesizeRefinements), which checks each rule of the chain, each
+//     call of a rule an ast.RefinementRule, a Bool that is False when the
+//     rule traps;
+//   - `T.unchecked(x)`, which checks nothing, allowed only in the file
+//     that declares T;
+//   - an impl or function that returns T, whose body built it one of the
+//     ways above.
 package analysis

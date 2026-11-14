@@ -1,0 +1,158 @@
+import
+    std::compiler
+    std::float.{NonNegativeFloat, PositiveFloat}
+    std::int.{NonZeroInt, PositiveInt}
+end
+
+type Port Int when fn port -> port >= 1 and port <= 65535
+
+type Even Int when fn n -> n % 2 == 0
+
+fn is_tag(s: String) -> Bool
+    String.length(s) > 0 and not String.contains(s, " ")
+end
+
+type Tag String when is_tag
+
+type Celsius Float when fn c -> c >= -273.15
+
+impl Celsius
+    fn warmer(c: Celsius, by: NonNegativeFloat) -> Celsius
+        // The rule holds: a value at or above absolute zero, raised, stays there.
+        Celsius.unchecked(c + by)
+    end
+end
+
+struct Span
+    low:  Int
+    high: Int
+end when fn span -> span.low <= span.high
+
+fn serve(port: Port) -> String
+    "listening on ${port}"
+end
+
+fn width(s: Span) -> Int
+    s.high - s.low
+end
+
+fn scale(x: Float, by: Float) -> Float
+    x * by
+end
+
+fn mean(xs: List<Float>) -> Float
+    Iter.sum(xs) / Int.to_float(List.length(xs))
+end
+
+test "a literal where a refinement is expected is that refinement"
+    p: Port = 8080
+    assert serve(p) == "listening on 8080"
+    assert serve(443) == "listening on 443"
+    assert Port(22) == 22
+    tag: Tag = "release"
+    assert tag == "release"
+end
+
+test "try_from checks a value when the program runs"
+    assert Port.try_from(8080) == Some(8080)
+    assert Port.try_from(0) == None
+    assert Port.try_from(65536) == None
+    assert Tag.try_from("two words") == None
+    assert Even.try_from(4) == Some(4)
+    assert Even.try_from(3) == None
+end
+
+test "try_from checks every rule up the chain"
+    assert PositiveFloat.try_from(2.5) == Some(2.5)
+    assert PositiveFloat.try_from(0.0) == None
+    assert PositiveFloat.try_from(-1.0) == None
+    assert NonNegativeFloat.try_from(0.0) == Some(0.0)
+    assert NonNegativeFloat.try_from(Float.nan()) == None
+end
+
+test "a refined value converts up to its ancestors and its base"
+    p: PositiveFloat = 4.0
+    n: NonNegativeFloat = p
+    assert scale(p, 2.0) == 8.0
+    assert scale(n, 0.5) == 2.0
+    assert p + 1.0 == 5.0
+    assert p > 3.0
+    d: Display = p
+    assert "${d}" == "4.0"
+end
+
+test "a container of a refinement passes as a container of its base"
+    temps: List<PositiveFloat> = [1.0, 2.0, 3.0]
+    assert mean(temps) == 2.0
+    ports: Set<Port> = Set[80, 443, 80]
+    assert Set.size(ports) == 2
+    named: Map<String, Port> = {"http" => 80}
+    assert Map.get(named, "http") == Some(80)
+    assert Maybe.with_default(Port.try_from(22), 1) == 22
+end
+
+test "a refinement's impl keeps its rule with unchecked"
+    cold: Celsius = -40.0
+    by: NonNegativeFloat = 10.0
+    assert Celsius.warmer(cold, by) == -30.0
+end
+
+test "division by a NonZeroInt cannot trap"
+    d: NonZeroInt = 4
+    assert 12 / d == 3
+    assert 13 % d == 1
+    p: PositiveInt = 3
+    assert Int.divide(9, p) == 3
+
+    case NonZeroInt.try_from(0)
+        Some(nz) -> assert 1 / nz == 0
+        None     -> assert True
+    end
+end
+
+test "a struct refinement checks its literals and try_from"
+    s = Span{low: 1, high: 4}
+    assert width(s) == 3
+    assert Span.try_from({low: 5, high: 1}) == None
+    assert Span.try_from({low: 1, high: 5}) == Some(Span{low: 1, high: 5})
+end
+
+test "destructuring a refinement reads its parent"
+    p: PositiveFloat = 2.0
+    PositiveFloat(n) = p
+    assert n == 2.0
+end
+
+test "a literal pattern matches a refined value"
+    p: Port = 443
+
+    name = case p
+        80  -> "http"
+        443 -> "https"
+        _   -> "other"
+    end
+
+    assert name == "https"
+end
+
+fn first_error(source: String) -> String
+    case compiler.check(source)
+        [d, ..] -> d.message
+        []      -> "no error"
+    end
+end
+
+test "the checker rejects a value no rule vouched for"
+    decls = "type Even Int when fn n -> n % 2 == 0\ntype Odd Int when fn n -> n % 2 == 1\n"
+
+    assert first_error(decls + "fn f(e: Even) -> Odd\n    e\nend\n")
+        == "return type mismatch: expected Odd, got Even"
+
+    assert "check the value with `Even.try_from(...)`" in first_error(
+        decls + "fn f(n: Int) -> Even\n    n\nend\n"
+    )
+
+    assert "Even(...) takes a literal" in first_error(
+        decls + "fn f(n: Int) -> Even\n    Even(n)\nend\n"
+    )
+end

@@ -65,9 +65,11 @@ func (c *checker) recordIterView(n ast.Node, it *InterfaceType, t Type) {
 }
 
 // iterViewOf is the view a value of type t is at the `Iter<T>` position
-// it, nil when t is no source with a view of its own.
+// it, nil when t is no source with a view of its own. A distinct
+// refinement is viewed as its base, the value it is at run time: a
+// `type Pair List<Int> when ...` is walked as its List.
 func (c *checker) iterViewOf(it *InterfaceType, t Type) *IterView {
-	rt := resolveTypeVar(t)
+	rt := resolveTypeVar(RefinementBase(resolveTypeVar(t)))
 	view := &IterView{Source: t}
 	switch ty := rt.(type) {
 	case *InterfaceType, *TypeVar, nil:

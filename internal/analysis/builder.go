@@ -206,6 +206,11 @@ func collectInherentImplBlocks(nodes []ast.Node, modulePath string, out *[]Inher
 		if !ok || blk.Interface != nil {
 			continue
 		}
+		if blk.SynthOriginLine != 0 && IsSynthesizedLine(blk.Line) {
+			// A refinement's generated `try_from` and `unchecked` sit beside
+			// the block its file writes (refinement_synthesis.go).
+			continue
+		}
 		recv := TypeExprBaseName(blk.Receiver)
 		if recv == "" {
 			continue
@@ -1450,6 +1455,7 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// "opaque only applies to distinct types with a representation" gets
 	// enforced.
 	b.validateInlineOpaqueDecls(nodes)
+	b.validateRefinementDecls(nodes)
 	// Second pass: walk bodies for inner scopes and references.
 	b.buildModuleBodies(nodes, scope)
 	// Unused checks: every use kind is recorded in fa.References by the
@@ -4646,6 +4652,20 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 
 	case *ast.Capture:
 		b.walkNode(n.Body, scope)
+
+	case *ast.UncheckedRefinement:
+		b.walkNode(n.Value, scope)
+
+	case *ast.RefinementRule:
+		b.walkNode(n.Rule, scope)
+		b.walkNode(n.Value, scope)
+
+	case *ast.RefinementParentCheck:
+		// Both forms of a generated `try_from`'s parent check; the checker
+		// checks the one that applies (refinement_check.go).
+		b.walkTypeExpr(n.Parent, scope)
+		b.walkNode(n.Refined, scope)
+		b.walkNode(n.Plain, scope)
 
 	case *ast.ConcurrentBlock:
 		// `concurrent { body }` is the structured-concurrency scope —

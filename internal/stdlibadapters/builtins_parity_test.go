@@ -61,7 +61,7 @@ var builtinCheckedRows = map[string]bool{
 	"float.float_round": true, "float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true,
 	"float.Float.log": true, "float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true,
 	"float.Float.cos": true, "float.Float.tan": true, "float.Float.atan2": true,
-	"float.require_tolerance": true, "float.require_clamp_bounds": true, "comparable.clamp_reversed": true,
+	"float.require_clamp_bounds": true, "comparable.clamp_reversed": true,
 	"decimal.Decimal.pow": true, "decimal.Decimal.sqrt": true,
 }
 
@@ -413,9 +413,6 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		}
 	}
 	specials := []float64{0, math.Copysign(0, -1), 1, -1, 0.5, 2, -8, 1e308, math.Inf(1), math.Inf(-1), math.NaN()}
-	for _, x := range specials {
-		cases["float.require_tolerance"] = append(cases["float.require_tolerance"], []any{fv(x)})
-	}
 	for _, b := range [][2]float64{{0, 1}, {1, 1}, {2, 1}, {math.NaN(), 1}, {0, math.NaN()}, {math.Inf(-1), math.Inf(1)}, {math.Copysign(0, -1), 0}} {
 		cases["float.require_clamp_bounds"] = append(cases["float.require_clamp_bounds"], []any{fv(b[0]), fv(b[1])})
 	}

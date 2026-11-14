@@ -34,7 +34,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, PositiveInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -365,16 +365,13 @@ impl Money
     /// at most one minor unit: a bill shared by `n` people. The leftover
     /// units go one each to the first parts, so the larger parts come first,
     /// as `Money.allocate` gives them out. It is `Money.allocate` with `n`
-    /// equal ratios. A non-positive `n` traps: `Money.split: n must be
-    /// positive, got 0`.
+    /// equal ratios. `n` is a `PositiveInt`, so there is at least one part.
     //! assert Money.split(Money"100.00 EUR", 3) == [Money"33.34 EUR", Money"33.33 EUR", Money"33.33 EUR"]
     //! assert Money.split(Money"5 JPY", 2) == [Money"3 JPY", Money"2 JPY"]
     //! assert Money.split(Money"-0.05 USD", 2) == [Money"-0.03 USD", Money"-0.02 USD"]
     //! assert Money.split(Money"0.01 EUR", 3) == [Money"0.01 EUR", Money"0.00 EUR", Money"0.00 EUR"]
     //
-    pub fn split(money: Money, n: Int) -> List<Money>
-        if n <= 0 then format.refuse("Money.split", "n must be positive, got ${n}")
-
+    pub fn split(money: Money, n: PositiveInt) -> List<Money>
         Decimal.split(money.amount, n, Currency.minor_digits(money.currency))
         |> Money.all_in(money.currency)
     end

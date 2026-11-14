@@ -24,6 +24,11 @@ func (bl *irScalarBuilder) distinctBinding(t *ast.DistinctDestructure) bool {
 	if !ok {
 		return false
 	}
+	if bl.g.namesRefinement(t.TypeName, t.TypeNameExpr) {
+		// `Port(n) = port`: a refinement's value is its parent's
+		// (refinement.go).
+		return bl.destructureBind(t, t.Binding.Name, t.Line, t.Col, k, func() ir.Temp { return src })
+	}
 	if k.tag != tagNamed || !irDistinctOverValue(k.def) {
 		// The checker admits `Id(x) = value` only over a distinct type that
 		// wraps a value or a single-variant enum, held, so retained.

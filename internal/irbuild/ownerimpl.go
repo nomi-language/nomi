@@ -65,10 +65,19 @@ func namesBlockParam(fd *ast.FuncDef, block map[string]bool) bool {
 // inherent block whose owner is a generic type or an interface, the blocks
 // whose owner functions this file holds apart.
 func (g *gen) ownerBlockParams(ib *ast.ImplBlock) (map[string]bool, bool) {
-	if ib.Interface != nil || isSynthesized(ib) {
+	if ib.Interface != nil {
 		return nil, false
 	}
 	base := implReceiverBaseName(ib.Receiver)
+	if _, isRefinement := g.refinementDecl(base); isRefinement {
+		// A distinct refinement has no receiver kind of its own, so its
+		// functions, the generated ones included, are its owner's
+		// (refinement.go).
+		return map[string]bool{}, true
+	}
+	if isSynthesized(ib) {
+		return nil, false
+	}
 	_, isIface := g.ifaces[base]
 	if g.genericTemplates[base] == nil && !isIface {
 		return nil, false
@@ -210,6 +219,9 @@ func (g *gen) ownerDecl(owner string) ast.Node {
 	}
 	if d, isIface := g.ifaces[owner]; isIface && d != nil && d.decl != nil {
 		return d.decl
+	}
+	if sym, isRefinement := g.refinementDecl(owner); isRefinement && sym.Node != nil {
+		return sym.Node
 	}
 	return nil
 }

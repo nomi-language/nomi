@@ -1,4 +1,4 @@
-import std::int.PositiveInt
+import std::int.{NonZeroInt, PositiveInt}
 
 test "ints convert to floats"
     assert Int.to_float(5) == 5.0
@@ -7,14 +7,14 @@ test "ints convert to floats"
 end
 
 test "non-zero refinement validates divisors"
-    assert Int.to_non_zero(5)
-    assert Int.to_non_zero(-3)
-    assert Int.to_non_zero(0) == None
+    assert NonZeroInt.try_from(5)
+    assert NonZeroInt.try_from(-3)
+    assert NonZeroInt.try_from(0) == None
 end
 
 test "non-zero integers make division total"
-    assert Some(divisor) = Int.to_non_zero(3)
-    assert Some(negative_divisor) = Int.to_non_zero(2)
+    assert Some(divisor) = NonZeroInt.try_from(3)
+    assert Some(negative_divisor) = NonZeroInt.try_from(2)
 
     assert Int.divide(10, divisor) == 3
     assert Int.divide(-7, negative_divisor) == -3
@@ -67,14 +67,14 @@ test "modulo is the dividend less the divisor times the floored quotient"
 end
 
 test "positive refinement is stricter than non-zero"
-    assert Int.to_positive(5)
-    assert Int.to_positive(0) == None
-    assert Int.to_positive(-3) == None
+    assert PositiveInt.try_from(5)
+    assert PositiveInt.try_from(0) == None
+    assert PositiveInt.try_from(-3) == None
 end
 
 fn divide_by_positive(x: Int, divisor: Int) -> Int
-    case Int.to_positive(divisor)
-        .Some(p) -> Int.divide(x, PositiveInt.to_non_zero(p))
+    case PositiveInt.try_from(divisor)
+        .Some(p) -> Int.divide(x, p)
         .None    -> 0
     end
 end
@@ -113,8 +113,8 @@ test "int min and max"
 end
 
 test "the / operator divides by a non-zero integer"
-    three = Int.to_non_zero(3)!
-    minus_two = Int.to_non_zero(-2)!
+    three: NonZeroInt = 3
+    minus_two: NonZeroInt = -2
     assert 10 / three == 3
     assert -7 / minus_two == 3
     assert 7 / minus_two == Int.divide(7, minus_two)

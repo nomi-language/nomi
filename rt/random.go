@@ -21,6 +21,5 @@ package rt
 // What the row buys is what opaqueSpecs says a row is for: letting a signature
 // name the type. `Seed.from_int(n: Int) -> Seed` is `Seed(n)` — a Nomi body that
 // lowers the moment its result type is representable, needing no rt symbol at
-// all. Same reason `NonZeroInt` and `PositiveInt` are in that table with no
-// extern anywhere.
+// all.
 type Seed int64

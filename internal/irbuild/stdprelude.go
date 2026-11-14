@@ -19,9 +19,8 @@ import (
 // opaque def: "a stdFunc's parameter and result kinds are built once in
 // stdCandidateFor and compared by POINTER against a call site's argument kinds
 // in a different gen, so a per-gen def would make `Duration.as_nanos(d)`
-// mismatch against itself." `Int.to_non_zero` and `Int.to_positive` return
-// `Maybe<NonZeroInt>` and `Maybe<PositiveInt>`, which is how those types are
-// reached.
+// mismatch against itself." `Codepoint.next` returns
+// `Maybe<Codepoint>`, which is how that type is reached.
 //
 // This is that argument applied to a PARAMETERIZED type, and the applicability
 // is conditional rather than automatic, which is the whole content of this

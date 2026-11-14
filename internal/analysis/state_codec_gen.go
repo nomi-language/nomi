@@ -25,7 +25,7 @@ var (
 )
 
 // stateKinds is the number of types the pointer table keys on.
-const stateKinds = 197
+const stateKinds = 201
 
 // stateGlobalValues answers every package-level pointer, map and Type,
 // in name order.
@@ -268,6 +268,7 @@ func (e *stateEncoder) stDistinctType(x *DistinctType) {
 	e.stSstring(x.TypeParams)
 	e.stSPTypeParam_(x.TypeParamDefs)
 	e.stSType(x.TypeArgs)
+	e.str(string(x.Rule))
 	e.stPunbuiltDecl(x.unbuilt)
 }
 
@@ -280,6 +281,7 @@ func (d *stateDecoder) stDistinctType(x *DistinctType) {
 	x.TypeParams = d.stSstring()
 	x.TypeParamDefs = d.stSPTypeParam_()
 	x.TypeArgs = d.stSType()
+	x.Rule = string(d.str())
 	x.unbuilt = d.stPunbuiltDecl()
 }
 
@@ -360,6 +362,8 @@ func (e *stateEncoder) stFileBodies(x *FileBodies) {
 	e.stMAPast_TaggedString_PTypedLiteral(x.TypedLiterals)
 	e.stMAast_Node_Type(x.PatternTypes)
 	e.stMAPast_Binary_POperatorImpl(x.OperatorImpls)
+	e.stMAast_Node_PRefinedLiteral(x.RefinedLiterals)
+	e.stMAPast_RefinementParentCheck_bool(x.RefinementParents)
 	e.stMAPast_StructLit_PStructType(x.TargetStructs)
 	e.stMAPast_Binary_Past_Call(x.Memberships)
 	e.stMAPast_Call_PDefaultedCall(x.CallDefaults)
@@ -405,6 +409,8 @@ func (d *stateDecoder) stFileBodies(x *FileBodies) {
 	x.TypedLiterals = d.stMAPast_TaggedString_PTypedLiteral()
 	x.PatternTypes = d.stMAast_Node_Type()
 	x.OperatorImpls = d.stMAPast_Binary_POperatorImpl()
+	x.RefinedLiterals = d.stMAast_Node_PRefinedLiteral()
+	x.RefinementParents = d.stMAPast_RefinementParentCheck_bool()
 	x.TargetStructs = d.stMAPast_StructLit_PStructType()
 	x.Memberships = d.stMAPast_Binary_Past_Call()
 	x.CallDefaults = d.stMAPast_Call_PDefaultedCall()
@@ -921,7 +927,7 @@ func (e *stateEncoder) stMAPast_Binary_POperatorUse(x map[*ast.Binary]*OperatorU
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 164) {
+	if !e.ref(mapPointer(x), 168) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -957,7 +963,7 @@ func (e *stateEncoder) stMAPast_Binary_Past_Call(x map[*ast.Binary]*ast.Call) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 156) {
+	if !e.ref(mapPointer(x), 160) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -993,7 +999,7 @@ func (e *stateEncoder) stMAPast_Call_PDefaultedCall(x map[*ast.Call]*DefaultedCa
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 159) {
+	if !e.ref(mapPointer(x), 163) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -1065,7 +1071,7 @@ func (e *stateEncoder) stMAPast_FieldAccess_int(x map[*ast.FieldAccess]int) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 175) {
+	if !e.ref(mapPointer(x), 179) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -1137,7 +1143,7 @@ func (e *stateEncoder) stMAPast_FieldAccessor_Type(x map[*ast.FieldAccessor]Type
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 174) {
+	if !e.ref(mapPointer(x), 178) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -1173,7 +1179,7 @@ func (e *stateEncoder) stMAPast_FuncDef_MAstring_Sstring(x map[*ast.FuncDef]map[
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 177) {
+	if !e.ref(mapPointer(x), 181) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -1816,12 +1822,48 @@ func (d *stateDecoder) stMAPast_OrPattern_bool() map[*ast.OrPattern]bool {
 	return x
 }
 
+func (e *stateEncoder) stMAPast_RefinementParentCheck_bool(x map[*ast.RefinementParentCheck]bool) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if !e.ref(mapPointer(x), 158) {
+		return
+	}
+	e.w.Uint(uint64(len(x)))
+	for k, v := range x {
+		e.stPast_RefinementParentCheck(k)
+		e.w.Bool(v)
+	}
+}
+
+func (d *stateDecoder) stMAPast_RefinementParentCheck_bool() map[*ast.RefinementParentCheck]bool {
+	r, fresh := d.ref()
+	if !fresh {
+		if r == nil {
+			return nil
+		}
+		return r.(map[*ast.RefinementParentCheck]bool)
+	}
+	n := d.count()
+	x := make(map[*ast.RefinementParentCheck]bool, n)
+	d.add(x)
+	for range n {
+		var k *ast.RefinementParentCheck
+		var v bool
+		k = d.stPast_RefinementParentCheck()
+		v = bool(d.w.Bool())
+		x[k] = v
+	}
+	return x
+}
+
 func (e *stateEncoder) stMAPast_StructLit_PStructType(x map[*ast.StructLit]*StructType) {
 	if x == nil {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 155) {
+	if !e.ref(mapPointer(x), 159) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2037,7 +2079,7 @@ func (e *stateEncoder) stMAPos_AppRead(x map[Pos]AppRead) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 179) {
+	if !e.ref(mapPointer(x), 183) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2145,7 +2187,7 @@ func (e *stateEncoder) stMAPos_int(x map[Pos]int) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 176) {
+	if !e.ref(mapPointer(x), 180) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2253,7 +2295,7 @@ func (e *stateEncoder) stMAast_Node_AppRead(x map[ast.Node]AppRead) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 178) {
+	if !e.ref(mapPointer(x), 182) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2325,7 +2367,7 @@ func (e *stateEncoder) stMAast_Node_PCoercion(x map[ast.Node]*Coercion) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 167) {
+	if !e.ref(mapPointer(x), 171) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2361,7 +2403,7 @@ func (e *stateEncoder) stMAast_Node_PConversion(x map[ast.Node]*Conversion) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 172) {
+	if !e.ref(mapPointer(x), 176) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2397,7 +2439,7 @@ func (e *stateEncoder) stMAast_Node_PDefaultedCall(x map[ast.Node]*DefaultedCall
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 173) {
+	if !e.ref(mapPointer(x), 177) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2433,7 +2475,7 @@ func (e *stateEncoder) stMAast_Node_PDisplayRender(x map[ast.Node]*DisplayRender
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 162) {
+	if !e.ref(mapPointer(x), 166) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2469,7 +2511,7 @@ func (e *stateEncoder) stMAast_Node_PIterView(x map[ast.Node]*IterView) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 169) {
+	if !e.ref(mapPointer(x), 173) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -2495,6 +2537,42 @@ func (d *stateDecoder) stMAast_Node_PIterView() map[ast.Node]*IterView {
 		var v *IterView
 		k = d.stast_Node()
 		v = d.stPIterView()
+		x[k] = v
+	}
+	return x
+}
+
+func (e *stateEncoder) stMAast_Node_PRefinedLiteral(x map[ast.Node]*RefinedLiteral) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if !e.ref(mapPointer(x), 157) {
+		return
+	}
+	e.w.Uint(uint64(len(x)))
+	for k, v := range x {
+		e.stast_Node(k)
+		e.stPRefinedLiteral(v)
+	}
+}
+
+func (d *stateDecoder) stMAast_Node_PRefinedLiteral() map[ast.Node]*RefinedLiteral {
+	r, fresh := d.ref()
+	if !fresh {
+		if r == nil {
+			return nil
+		}
+		return r.(map[ast.Node]*RefinedLiteral)
+	}
+	n := d.count()
+	x := make(map[ast.Node]*RefinedLiteral, n)
+	d.add(x)
+	for range n {
+		var k ast.Node
+		var v *RefinedLiteral
+		k = d.stast_Node()
+		v = d.stPRefinedLiteral()
 		x[k] = v
 	}
 	return x
@@ -2793,7 +2871,7 @@ func (e *stateEncoder) stMAstring_MAstring_MAstring_bool(x map[string]map[string
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 189) {
+	if !e.ref(mapPointer(x), 193) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -3189,7 +3267,7 @@ func (e *stateEncoder) stMAstring_PFileAnalysis(x map[string]*FileAnalysis) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 184) {
+	if !e.ref(mapPointer(x), 188) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -3513,7 +3591,7 @@ func (e *stateEncoder) stMAstring_STypeError(x map[string][]TypeError) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 186) {
+	if !e.ref(mapPointer(x), 190) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -3549,7 +3627,7 @@ func (e *stateEncoder) stMAstring_Sast_Node(x map[string][]ast.Node) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 185) {
+	if !e.ref(mapPointer(x), 189) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -3837,7 +3915,7 @@ func (e *stateEncoder) stMAtypeMethodSlot_bool(x map[typeMethodSlot]bool) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 190) {
+	if !e.ref(mapPointer(x), 194) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -3913,7 +3991,7 @@ func (e *stateEncoder) stModuleIndex(x ModuleIndex) {
 		e.w.Uint(0)
 		return
 	}
-	if !e.ref(mapPointer(x), 188) {
+	if !e.ref(mapPointer(x), 192) {
 		return
 	}
 	e.w.Uint(uint64(len(x)))
@@ -4045,7 +4123,7 @@ func (e *stateEncoder) stPCoercion(x *Coercion) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 166) {
+	if e.ref(unsafe.Pointer(x), 170) {
 		e.stCoercion(x)
 	}
 }
@@ -4117,7 +4195,7 @@ func (e *stateEncoder) stPConversion(x *Conversion) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 171) {
+	if e.ref(unsafe.Pointer(x), 175) {
 		e.stConversion(x)
 	}
 }
@@ -4141,7 +4219,7 @@ func (e *stateEncoder) stPDefaultedCall(x *DefaultedCall) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 158) {
+	if e.ref(unsafe.Pointer(x), 162) {
 		e.stDefaultedCall(x)
 	}
 }
@@ -4237,7 +4315,7 @@ func (e *stateEncoder) stPDisplayRender(x *DisplayRender) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 161) {
+	if e.ref(unsafe.Pointer(x), 165) {
 		e.stDisplayRender(x)
 	}
 }
@@ -4309,7 +4387,7 @@ func (e *stateEncoder) stPFileAnalysis(x *FileAnalysis) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 183) {
+	if e.ref(unsafe.Pointer(x), 187) {
 		e.stFileAnalysis(x)
 	}
 }
@@ -4453,7 +4531,7 @@ func (e *stateEncoder) stPIterView(x *IterView) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 168) {
+	if e.ref(unsafe.Pointer(x), 172) {
 		e.stIterView(x)
 	}
 }
@@ -4573,7 +4651,7 @@ func (e *stateEncoder) stPOperatorUse(x *OperatorUse) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 163) {
+	if e.ref(unsafe.Pointer(x), 167) {
 		e.stOperatorUse(x)
 	}
 }
@@ -4686,6 +4764,30 @@ func (d *stateDecoder) stPProjectImplIndex() *ProjectImplIndex {
 		return nil
 	}
 	return v.(*ProjectImplIndex)
+}
+
+func (e *stateEncoder) stPRefinedLiteral(x *RefinedLiteral) {
+	if x == nil {
+		e.w.Uint(0)
+		return
+	}
+	if e.ref(unsafe.Pointer(x), 156) {
+		e.stRefinedLiteral(x)
+	}
+}
+
+func (d *stateDecoder) stPRefinedLiteral() *RefinedLiteral {
+	v, fresh := d.ref()
+	if fresh {
+		x := new(RefinedLiteral)
+		d.add(x)
+		d.stRefinedLiteral(x)
+		return x
+	}
+	if v == nil {
+		return nil
+	}
+	return v.(*RefinedLiteral)
 }
 
 func (e *stateEncoder) stPScope(x *Scope) {
@@ -4933,7 +5035,7 @@ func (e *stateEncoder) stPTypeRegistry(x *TypeRegistry) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 195) {
+	if e.ref(unsafe.Pointer(x), 199) {
 		e.stTypeRegistry(x)
 	}
 }
@@ -5216,6 +5318,22 @@ func (d *stateDecoder) stPast_OrPattern() *ast.OrPattern {
 	return v.(*ast.OrPattern)
 }
 
+func (e *stateEncoder) stPast_RefinementParentCheck(x *ast.RefinementParentCheck) {
+	if x == nil {
+		e.w.Value(nil)
+		return
+	}
+	e.w.Value(x)
+}
+
+func (d *stateDecoder) stPast_RefinementParentCheck() *ast.RefinementParentCheck {
+	v := d.w.Value()
+	if v == nil {
+		return nil
+	}
+	return v.(*ast.RefinementParentCheck)
+}
+
 func (e *stateEncoder) stPast_StructLit(x *ast.StructLit) {
 	if x == nil {
 		e.w.Value(nil)
@@ -5445,7 +5563,7 @@ func (e *stateEncoder) stPbuilder(x *builder) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 192) {
+	if e.ref(unsafe.Pointer(x), 196) {
 		e.stbuilder(x)
 	}
 }
@@ -5541,7 +5659,7 @@ func (e *stateEncoder) stPfileImports(x *fileImports) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 182) {
+	if e.ref(unsafe.Pointer(x), 186) {
 		e.stfileImports(x)
 	}
 }
@@ -5565,7 +5683,7 @@ func (e *stateEncoder) stPkeptDecls(x *keptDecls) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 196) {
+	if e.ref(unsafe.Pointer(x), 200) {
 		e.stkeptDecls(x)
 	}
 }
@@ -5697,7 +5815,7 @@ func (e *stateEncoder) stPrefutablePattern(x *refutablePattern) {
 		e.w.Uint(0)
 		return
 	}
-	if e.ref(unsafe.Pointer(x), 191) {
+	if e.ref(unsafe.Pointer(x), 195) {
 		e.strefutablePattern(x)
 	}
 }
@@ -5877,6 +5995,26 @@ func (d *stateDecoder) stRecording(x *Recording) {
 	x.TypeOrigin = string(d.str())
 }
 
+func (e *stateEncoder) stRefinedLiteral(x *RefinedLiteral) {
+	e.stType(x.Type)
+	e.stSRefinementStep(x.Steps)
+}
+
+func (d *stateDecoder) stRefinedLiteral(x *RefinedLiteral) {
+	x.Type = d.stType()
+	x.Steps = d.stSRefinementStep()
+}
+
+func (e *stateEncoder) stRefinementStep(x *RefinementStep) {
+	e.stType(x.Type)
+	e.stast_Node(x.TryFrom)
+}
+
+func (d *stateDecoder) stRefinementStep(x *RefinementStep) {
+	x.Type = d.stType()
+	x.TryFrom = d.stast_Node()
+}
+
 func (e *stateEncoder) stRelatedInfo(x *RelatedInfo) {
 	e.str(string(x.File))
 	e.w.Int(int64(x.Line))
@@ -5999,7 +6137,7 @@ func (d *stateDecoder) stSMethodSig() []MethodSig {
 
 func (e *stateEncoder) stSPCoercion(x []*Coercion) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 170) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 174) {
 		return
 	}
 	for i := range x {
@@ -6033,7 +6171,7 @@ func (d *stateDecoder) stSPCoercion() []*Coercion {
 
 func (e *stateEncoder) stSPDisplayRender(x []*DisplayRender) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 160) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 164) {
 		return
 	}
 	for i := range x {
@@ -6101,7 +6239,7 @@ func (d *stateDecoder) stSPFileAnalysis() []*FileAnalysis {
 
 func (e *stateEncoder) stSPImplImport(x []*ImplImport) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 180) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 184) {
 		return
 	}
 	for i := range x {
@@ -6407,7 +6545,7 @@ func (d *stateDecoder) stSPast_FuncDef() []*ast.FuncDef {
 
 func (e *stateEncoder) stSPast_ImplBlock(x []*ast.ImplBlock) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 165) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 169) {
 		return
 	}
 	for i := range x {
@@ -6575,6 +6713,40 @@ func (d *stateDecoder) stSRecording() []Recording {
 	return x
 }
 
+func (e *stateEncoder) stSRefinementStep(x []RefinementStep) {
+	e.w.Len(x == nil, len(x))
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 155) {
+		return
+	}
+	for i := range x {
+		e.stRefinementStep(&x[i])
+	}
+}
+
+func (d *stateDecoder) stSRefinementStep() []RefinementStep {
+	n := d.w.SliceLen()
+	if n < 0 {
+		return nil
+	}
+	if n == 0 {
+		return []RefinementStep{}
+	}
+	if r, fresh := d.ref(); !fresh {
+		x, _ := r.([]RefinementStep)
+		if len(x) != n {
+			d.fail("a shared slice of another length")
+		}
+		return x
+	}
+	d.w.Fits(n)
+	x := make([]RefinementStep, n)
+	d.add(x)
+	for i := range x {
+		d.stRefinementStep(&x[i])
+	}
+	return x
+}
+
 func (e *stateEncoder) stSRelatedInfo(x []RelatedInfo) {
 	e.w.Len(x == nil, len(x))
 	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 27) {
@@ -6611,7 +6783,7 @@ func (d *stateDecoder) stSRelatedInfo() []RelatedInfo {
 
 func (e *stateEncoder) stSSstring(x [][]string) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 181) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 185) {
 		return
 	}
 	for i := range x {
@@ -6849,7 +7021,7 @@ func (d *stateDecoder) stSast_Node() []ast.Node {
 
 func (e *stateEncoder) stSast_Param(x []ast.Param) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 157) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 161) {
 		return
 	}
 	for i := range x {
@@ -7209,7 +7381,7 @@ func (d *stateDecoder) stSkeptProgramFiles() []keptProgramFiles {
 
 func (e *stateEncoder) stSkeptRef(x []keptRef) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 193) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 197) {
 		return
 	}
 	for i := range x {
@@ -7243,7 +7415,7 @@ func (d *stateDecoder) stSkeptRef() []keptRef {
 
 func (e *stateEncoder) stSkeptType(x []keptType) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 194) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 198) {
 		return
 	}
 	for i := range x {
@@ -7413,7 +7585,7 @@ func (d *stateDecoder) stSslotImpl() []slotImpl {
 
 func (e *stateEncoder) stSstateBootWhy(x []stateBootWhy) {
 	e.w.Len(x == nil, len(x))
-	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 187) {
+	if len(x) == 0 || !e.refSlice(unsafe.Pointer(unsafe.SliceData(x)), len(x), 191) {
 		return
 	}
 	for i := range x {
@@ -7522,6 +7694,7 @@ func (e *stateEncoder) stStructType(x *StructType) {
 	e.stSType(x.TypeArgs)
 	e.w.Bool(x.Opaque)
 	e.str(string(x.OwningSourceFile))
+	e.str(string(x.Rule))
 	e.stPunbuiltDecl(x.unbuilt)
 }
 
@@ -7534,6 +7707,7 @@ func (d *stateDecoder) stStructType(x *StructType) {
 	x.TypeArgs = d.stSType()
 	x.Opaque = bool(d.w.Bool())
 	x.OwningSourceFile = string(d.str())
+	x.Rule = string(d.str())
 	x.unbuilt = d.stPunbuiltDecl()
 }
 
@@ -8568,4 +8742,4 @@ func (d *stateDecoder) stunbuiltDecl(x *unbuiltDecl) {
 }
 
 // stateCodecDigest is a digest of the code above it (StdStateFormat).
-const stateCodecDigest = "53a80b82b10bd136"
+const stateCodecDigest = "847e206a87e65546"

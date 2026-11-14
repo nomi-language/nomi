@@ -115,6 +115,16 @@
 // The language server also evaluates double-quoted typed literals with no
 // `${...}` this way, for hovers and diagnostics.
 //
+// A literal the checker typed as a refinement (spec §4 *Refinement types*)
+// is checked here too (refinements.go): irbuild lists each one as a
+// RefinementSite with the `try_from` of every refinement on its chain, and
+// checkRefinements calls each on the literal, a struct refinement's on the
+// record its literal fields build. A `None` is the error `-1.0 is not a
+// NonNegativeFloat: <rule> is false` at the literal, and a trap in a rule
+// is an error carrying its message. Each declared rule
+// (irbuild.Result.RefinementRules) is refused when it can reach an effect,
+// whether or not a literal is checked against it.
+//
 // std/toml's `Toml` is a checked literal over a program std module. Its
 // check and build cross into the internal std/toml/host, over
 // internal/stdtoml: it follows the text far enough to place each slot (a

@@ -380,19 +380,22 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 		{"Result.map_err(err(), &Int.subtract(&1, 1))", "Err(3)"},
 		{"Iter.reduce([1, 2, 3], 10, &Int.subtract(&2, &1))", "-8"},
 		{"(&Int.add(7, &1))(1)", "8"},
-		// Int has two Divide impls; the open operand's expected type picks
-		// `Divide<NonZeroInt, Int>`.
-		{"Int.to_non_zero(4) |> Maybe.map(&Int.divide(12, &1))", "Some(3)"},
-		{"Maybe.map(Int.to_non_zero(4), &Int.divide(12, &1))", "Some(3)"},
-		{"Int.to_non_zero(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Ok(3)"},
-		{"Int.to_non_zero(0) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Err(\"zero\")"},
-		{"Int.to_non_zero(4) |> Maybe.flat_map(fn d -> Maybe.map(Some(20), &Int.divide(&1, d)))", "Some(5)"},
+		// A refinement's value is its base's: a NonZeroInt divisor reaches
+		// `Divide<Int, Int>`.
+		{"nz(4) |> Maybe.map(&Int.divide(12, &1))", "Some(3)"},
+		{"Maybe.map(nz(4), &Int.divide(12, &1))", "Some(3)"},
+		{"nz(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Ok(3)"},
+		{"nz(0) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Err(\"zero\")"},
+		{"nz(4) |> Maybe.flat_map(fn d -> Maybe.map(Some(20), &Int.divide(&1, d)))", "Some(5)"},
 		// With nothing expected, the left operand of `Int.subtract` is Int.
 		{"(&Int.subtract(&1, 1))(9)", "8"},
 	}
 	for _, c := range cases {
 		t.Run(c.expr, func(t *testing.T) {
-			src := `import std::io
+			src := `import
+    std::int.NonZeroInt
+    std::io
+end
 
 fn ok() -> Result<Int, String>
     Ok(2)
@@ -402,8 +405,12 @@ fn err() -> Result<Int, Int>
     Err(4)
 end
 
+fn nz(n: Int) -> Maybe<NonZeroInt>
+    NonZeroInt.try_from(n)
+end
+
 fn main()
-    _ = (ok(), err())
+    _ = (ok(), err(), nz(1))
     io.inspect(` + c.expr + `)
 end
 `

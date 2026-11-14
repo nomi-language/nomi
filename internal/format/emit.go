@@ -5404,7 +5404,19 @@ func emitStructDef(v *ast.StructDef) Doc {
 	}
 	members = appendTypeBodyItems(members, v.Items)
 	parts = append(parts, emitDeclBody(members, v.EndTrivia))
+	parts = append(parts, emitRefinementRule(v.Rule)...)
 	return Concat(parts...)
+}
+
+// emitRefinementRule renders a refinement's ` when <rule>` on the line its
+// declaration's header (a `type`) or `end` (a `struct`) ends on. The rule
+// is an ordinary expression, so a long lambda body breaks as any boolean
+// does. Nothing for a declaration with no rule.
+func emitRefinementRule(rule ast.Node) []Doc {
+	if rule == nil {
+		return nil
+	}
+	return []Doc{Text(" when "), emit(rule)}
 }
 
 // emitEnumVariant renders one enum variant: bare (`North`), positional
@@ -5729,6 +5741,7 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 	if v.InnerTypeExpr != nil {
 		parts = append(parts, Text(" "), emitTypeExpr(v.InnerTypeExpr))
 	}
+	parts = append(parts, emitRefinementRule(v.Rule)...)
 	parts = emitOptionalTypeBody(parts, v.HasBody, v.Items, v.EndTrivia)
 	return Concat(parts...)
 }

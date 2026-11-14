@@ -240,6 +240,15 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfRangeLit(n, fn)
 		}
+	case *RefinementBaseType:
+	case *RefinementParentCheck:
+		if n != nil {
+			childrenOfRefinementParentCheck(n, fn)
+		}
+	case *RefinementRule:
+		if n != nil {
+			childrenOfRefinementRule(n, fn)
+		}
 	case *Return:
 		if n != nil {
 			childrenOfReturn(n, fn)
@@ -320,6 +329,10 @@ func generatedChildren(n Node, fn func(Node)) bool {
 	case *Unary:
 		if n != nil {
 			childrenOfUnary(n, fn)
+		}
+	case *UncheckedRefinement:
+		if n != nil {
+			childrenOfUncheckedRefinement(n, fn)
 		}
 	case *Unreachable:
 		if n != nil {
@@ -484,6 +497,12 @@ func absent(n Node) bool {
 		return n == nil
 	case *RangeLit:
 		return n == nil
+	case *RefinementBaseType:
+		return n == nil
+	case *RefinementParentCheck:
+		return n == nil
+	case *RefinementRule:
+		return n == nil
 	case *Return:
 		return n == nil
 	case *SelfExpr:
@@ -531,6 +550,8 @@ func absent(n Node) bool {
 	case *TypeIdent:
 		return n == nil
 	case *Unary:
+		return n == nil
+	case *UncheckedRefinement:
 		return n == nil
 	case *Unreachable:
 		return n == nil
@@ -1364,6 +1385,27 @@ func childrenOfRangeLit(x *RangeLit, fn func(Node)) {
 	}
 }
 
+func childrenOfRefinementParentCheck(x *RefinementParentCheck, fn func(Node)) {
+	if !absent(x.Parent) {
+		fn(x.Parent)
+	}
+	if !absent(x.Refined) {
+		fn(x.Refined)
+	}
+	if !absent(x.Plain) {
+		fn(x.Plain)
+	}
+}
+
+func childrenOfRefinementRule(x *RefinementRule, fn func(Node)) {
+	if !absent(x.Rule) {
+		fn(x.Rule)
+	}
+	if !absent(x.Value) {
+		fn(x.Value)
+	}
+}
+
 func childrenOfReturn(x *Return, fn func(Node)) {
 	if !absent(x.Value) {
 		fn(x.Value)
@@ -1420,6 +1462,9 @@ func childrenOfStructDef(x *StructDef, fn func(Node)) {
 		if !absent(e6) {
 			fn(e6)
 		}
+	}
+	if !absent(x.Rule) {
+		fn(x.Rule)
 	}
 }
 
@@ -1632,6 +1677,9 @@ func childrenOfTypeDef(x *TypeDef, fn func(Node)) {
 	if !absent(x.InnerTypeExpr) {
 		fn(x.InnerTypeExpr)
 	}
+	if !absent(x.Rule) {
+		fn(x.Rule)
+	}
 	for _, e4 := range x.Items {
 		if !absent(e4) {
 			fn(e4)
@@ -1664,6 +1712,12 @@ func childrenOfTypeParamValue(x TypeParam, fn func(Node)) {
 func childrenOfUnary(x *Unary, fn func(Node)) {
 	if !absent(x.Right) {
 		fn(x.Right)
+	}
+}
+
+func childrenOfUncheckedRefinement(x *UncheckedRefinement, fn func(Node)) {
+	if !absent(x.Value) {
+		fn(x.Value)
 	}
 }
 
@@ -1777,6 +1831,9 @@ var generatedTypes = []any{
 	(*PlaceholderParam)(nil),
 	(*QualifiedType)(nil),
 	(*RangeLit)(nil),
+	(*RefinementBaseType)(nil),
+	(*RefinementParentCheck)(nil),
+	(*RefinementRule)(nil),
 	(*Return)(nil),
 	(*SelfExpr)(nil),
 	(*SelfType)(nil),
@@ -1801,6 +1858,7 @@ var generatedTypes = []any{
 	(*TypeDef)(nil),
 	(*TypeIdent)(nil),
 	(*Unary)(nil),
+	(*UncheckedRefinement)(nil),
 	(*Unreachable)(nil),
 	(*Unwrap)(nil),
 	(*WildcardPattern)(nil),

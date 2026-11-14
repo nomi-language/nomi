@@ -292,6 +292,12 @@ type Result struct {
 	// Literals are the typed literals checked at compile time
 	// that the user units lowered, in unit order (irliteralcell.go).
 	Literals []LiteralSite
+	// Refinements are the literals the user units' files check as
+	// refinements, in unit order (refinement.go).
+	Refinements []RefinementSite
+	// RefinementRules are the refinements the user units' files declare,
+	// whose rules must be pure (refinement.go).
+	RefinementRules []RefinementRuleSite
 	// Exports are the program's `export fn` declarations, in unit order
 	// and then declaration order (exports.go).
 	Exports []Export
@@ -316,6 +322,9 @@ type Result struct {
 	perFileTables struct {
 		erased, boxed, synthRefused     []string
 		debugRendered, debugImplemented []string
+		// refinements and refinementRules are the file's own.
+		refinements     []RefinementSite
+		refinementRules []RefinementRuleSite
 	}
 	file *relowered
 	// declines and refusals are each attempt's decline and each refused
@@ -453,6 +462,10 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// type-qualified call in one file may name an impl function declared in
 	// another. See siblingimpl.go.
 	files.resolveImplMembers(gens)
+	// A refinement's generated `try_from` calls its parent's, which another
+	// file's owner block may hold, so owner functions are indexed before
+	// the synthesized impls are lowered too (refinement.go).
+	files.resolveOwnerMembers(gens)
 	// The synthesized impls are lowered once the index exists, since a
 	// derived body may call another file's impl, and indexed again after,
 	// so a call never plans one the speculation refused. See settleImpls.
@@ -539,6 +552,13 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	if cases != nil {
 		units = append([]*gen{cases}, gens...)
 	}
+	var refinements []RefinementSite
+	var refinementRules []RefinementRuleSite
+	for _, g := range gens {
+		g.refinements, g.refinementRuleSites = g.refinementSites(), g.refinementRules()
+		refinements = append(refinements, g.refinements...)
+		refinementRules = append(refinementRules, g.refinementRuleSites...)
+	}
 	for _, g := range units {
 		literals = append(literals, g.literalSites...)
 		for _, key := range g.irHostKeys {
@@ -586,7 +606,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	}
 
 	res = &Result{HasMain: hasMain,
-		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals,
+		IR: irMods, irLibraries: irLibraries, irHostKeys: hostKeys, Literals: literals, Refinements: refinements, RefinementRules: refinementRules,
 		Exports: exports, instMods: instMods}
 	if linked != nil {
 		res.linkedMods = linked.units
@@ -605,6 +625,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 		sort.Strings(res.perFileTables.debugRendered)
 		if len(gens) > 0 && gens[0] != nil {
 			res.perFileTables.debugImplemented = sortedSet(gens[0].debugImplemented())
+			res.perFileTables.refinements, res.perFileTables.refinementRules = gens[0].refinements, gens[0].refinementRuleSites
 		}
 		for decl := range synthRefused(gens[:1]) {
 			if name, ok := reg.linkNames[decl]; ok {

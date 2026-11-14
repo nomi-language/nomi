@@ -2444,6 +2444,9 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 		// are the two families that really do carry a dotted row.
 		return kindInvalid
 	}
+	if k, isRefinement := stdRefinementKind(te, anchors); isRefinement {
+		return k
+	}
 	name := simpleTypeName(te)
 	if i, anchored := anchors.opaques[name]; anchored {
 		return named(opaqueDefs()[i])
@@ -3235,8 +3238,8 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 //
 // A scalar left operand (`Int`, `Float`) at its own kind is native
 // arithmetic and answers nil here. At another right-hand kind it is std's
-// impl for that pair or nothing: `7 / d` with `d: NonZeroInt` is `impl
-// Divide<NonZeroInt, Int> for Int`, the body `Int.divide(7, d)` calls.
+// impl for that pair or nothing: `d / 2` with `d: Duration` is `impl
+// Divide<Int, Duration> for Duration`.
 func (g *gen) stdlibOperatorFor(op string, left, right kind) *stdFunc {
 	key, known := stdOperatorIfaces[op]
 	if !known || (isDecimalKind(left) && isDecimalKind(right)) {

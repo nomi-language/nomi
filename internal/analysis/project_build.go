@@ -699,6 +699,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		}
 		fb.builder.defineImplicitSelfModule(fb.fa.ModuleScope)
 		fb.builder.validateInlineOpaqueDecls(fb.nodes)
+		fb.builder.validateRefinementDecls(fb.nodes)
 	}
 
 	// Every file's re-exports, before any file's annotations read them.

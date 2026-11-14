@@ -115,6 +115,17 @@ func (m unifyMode) iterElem(iface *InterfaceType) unifyMode {
 	return m.declNested()
 }
 
+// widensRefinement reports whether m admits a refinement's value where one
+// of its ancestors is expected: where a value flows one known way and
+// converts (refinement.go).
+func (m unifyMode) widensRefinement() bool {
+	switch m {
+	case unifyAssign, unifyAssignIn, unifyAssignCo:
+		return true
+	}
+	return false
+}
+
 // nested is the mode for a covariant type argument: a List's, Vector's,
 // Set's, Maybe's or Result's, a Map's key and value, and a declared
 // generic type's covariant parameter (unifyArg).
@@ -324,6 +335,22 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 				return typeErrorf("cannot unify %s with %s", a, b)
 			}
 			return nil
+		}
+	}
+
+	// A refinement's value converts up its chain of parents (refinement.go):
+	// a PositiveFloat is a NonNegativeFloat and a Float, at the top and at
+	// every position a value converts at, and enters an interface as its
+	// base does. Nothing converts down, a join (unifySym) admits neither
+	// way, and an invariant type argument compares exactly.
+	if bt := refinementOf(b); bt != nil && bt.Inner != nil && m.widensRefinement() {
+		if _, isVar := a.(*TypeVar); !isVar {
+			if at, same := a.(*DistinctType); !same || !sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) {
+				if unifyIn(m, a, bt.Inner, subs, impls, implTypeArgs, rigid) == nil {
+					return nil
+				}
+				return typeErrorf("cannot unify %s with %s", a, b)
+			}
 		}
 	}
 
@@ -786,6 +813,10 @@ func implReceiverMatchesSeen(info *ImplTypeArgs, concrete Type, impls []ImplTabl
 func typeSatisfiesInterfaceForImplMatch(concrete Type, iface *InterfaceType, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, seen map[string]bool) bool {
 	if iface == nil {
 		return true
+	}
+	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
+		// A refinement has its parent's impls (refinement.go).
+		return typeSatisfiesInterfaceForImplMatch(dt.Inner, iface, impls, implTypeArgs, seen)
 	}
 	if tp, ok := concrete.(*TypeParam_); ok {
 		for _, bound := range tp.Bounds {
@@ -1366,6 +1397,7 @@ func substituteWithNominals(t Type, subs map[*TypeParam_]Type, visiting map[*Typ
 			Origin:           t.Origin,
 			Name:             t.Name,
 			Inner:            t.Inner,
+			Rule:             t.Rule,
 			Opaque:           t.Opaque,
 			OwningSourceFile: t.OwningSourceFile,
 			TypeParams:       t.TypeParams,

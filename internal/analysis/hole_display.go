@@ -78,6 +78,10 @@ func (c *checker) recordHoleDisplays() {
 // displayRenderOf is how a value of type t renders by Display.
 func displayRenderOf(p *Program, t Type, depth int) *DisplayRender {
 	t = ResolveClosed(t)
+	if refinementOf(t) != nil {
+		// A refinement renders as its base (refinement.go).
+		t = RefinementBase(t)
+	}
 	r := &DisplayRender{Type: Elaborate(t)}
 	if depth > 32 {
 		r.Form = DisplayImpl

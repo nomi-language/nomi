@@ -2806,8 +2806,25 @@
                     "name": "go_selector_binding"
                   },
                   {
-                    "type": "SYMBOL",
-                    "name": "_distinct_inner_type"
+                    "type": "SEQ",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "_distinct_inner_type"
+                      },
+                      {
+                        "type": "CHOICE",
+                        "members": [
+                          {
+                            "type": "SYMBOL",
+                            "name": "refinement_rule"
+                          },
+                          {
+                            "type": "BLANK"
+                          }
+                        ]
+                      }
+                    ]
                   }
                 ]
               },
@@ -2818,6 +2835,23 @@
           }
         ]
       }
+    },
+    "refinement_rule": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "when"
+        },
+        {
+          "type": "FIELD",
+          "name": "rule",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_expression"
+          }
+        }
+      ]
     },
     "_distinct_inner_type": {
       "type": "CHOICE",
@@ -2910,6 +2944,18 @@
         {
           "type": "SYMBOL",
           "name": "struct_body"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "refinement_rule"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },

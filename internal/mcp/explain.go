@@ -4,6 +4,10 @@ package mcp
 // TestEveryDiagnosticCodeIsExplained holds it to the codes the compiler
 // declares.
 var explanations = map[string]string{
+	"invalid-refinement-literal": "A literal stands where a refinement type is expected (`type Port Int when fn p -> p >= 1`), " +
+		"and the refinement's rule, or a rule up its chain, is false for it: `Port(0)`, or `0` passed where a `Port` is expected. " +
+		"The rule runs when the program is compiled. Change the literal, or, for a value known only when the program runs, " +
+		"check it with `Port.try_from(x)`, which answers a `Maybe<Port>`.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +

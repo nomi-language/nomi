@@ -1,3 +1,5 @@
+import std::int.NonZeroInt
+
 type Score Int
 
 fn score_value(score: Score) -> Int
@@ -118,7 +120,7 @@ test "operator interfaces power custom arithmetic"
 end
 
 test "primitive operator interface functions dispatch directly"
-    divisor = Int.to_non_zero(5)?
+    divisor = NonZeroInt.try_from(5)?
 
     assert Subtract.subtract(9, 4) == 5
     assert Multiply.multiply(3, 7) == 21

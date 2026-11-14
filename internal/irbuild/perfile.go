@@ -11,7 +11,9 @@ package irbuild
 // whether the entry starts an app, the linkage names some body names and
 // no module defines, a fingerprint of every top-level declaration of
 // each file, the typed literals it checks at load (KeptLiteral), so a
-// relinked program checks each one again over the linked modules, and the
+// relinked program checks each one again over the linked modules, the
+// refinement literals and rules of each file (KeptRefinement), which it
+// checks again too, and the
 // interfaces some body renders through every implementer's Debug, with
 // the files that render and implement each (KeptDebugRendering).
 //
@@ -48,6 +50,8 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"math"
+	"math/big"
 	"runtime"
 	"slices"
 	"sort"
@@ -58,6 +62,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ast/astcodec"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // KeptLowering is a whole program's lowering kept for lowering its files
@@ -364,6 +369,24 @@ type KeptUnit struct {
 	Decls map[string][32]byte
 	// Files are the files the object's positions are in.
 	Files []string
+	// Refinements are the refinement literals the file checks, each with
+	// no Build, and Builds the object of a module whose functions are the
+	// Build of each that has one (KeptRefinement.Built), in order; Rules
+	// are the refinements the file declares. A program relinked from the
+	// kept lowering checks every one again against the rules as they are
+	// now, since an edit of another file (a rule, a function a rule calls)
+	// can change the answer.
+	Refinements []KeptRefinement
+	Builds      []byte
+	Rules       []RefinementRuleSite
+}
+
+// KeptRefinement is a RefinementSite of a kept unit.
+type KeptRefinement struct {
+	// Site is the site with no Build; Built says it had one, the next
+	// function of its unit's Builds.
+	Site  RefinementSite
+	Built bool
 }
 
 // FileMiss is LowerFile's answer when it cannot lower the file on its
@@ -439,6 +462,9 @@ type keptUnitState struct {
 	nodes     []ast.Node
 	mod       *ir.Module
 	project   bool
+	// refinements and rules are the unit's file's (gen.refinements).
+	refinements []RefinementSite
+	rules       []RefinementRuleSite
 }
 
 // keptStateOf records what Keep needs of a lowering of p, whose first own
@@ -466,7 +492,8 @@ func keptStateOf(p *Program, own int, gens []*gen, reg *typeRegistry, linked *li
 			k.why = "listed std modules lowered with the program"
 		}
 		project := i < own && !strings.HasPrefix(m.Name, "std/")
-		k.units = append(k.units, keptUnitState{key: m.Name, path: m.Path, nodes: m.Nodes, mod: gens[i].irMod, project: project})
+		k.units = append(k.units, keptUnitState{key: m.Name, path: m.Path, nodes: m.Nodes, mod: gens[i].irMod, project: project,
+			refinements: gens[i].refinements, rules: gens[i].refinementRuleSites})
 		if !project {
 			continue
 		}
@@ -523,6 +550,9 @@ func (r *Result) Keep() (*KeptLowering, error) {
 		}
 		if u.project {
 			ku.Decls = DeclFingerprints(u.nodes)
+		}
+		if err := ku.keepRefinements(u.path, u.refinements, u.rules); err != nil {
+			return nil, err
 		}
 		out.Units = append(out.Units, ku)
 	}
@@ -960,12 +990,18 @@ func LowerFileAmong(p *Program, kept *KeptLowering, moved bool, relowering, aske
 	}
 	insts := append(instances, whole.instMods...)
 	libs = append(libs, insts...)
-	res = &Result{HasMain: kept.HasMain, IR: units, irLibraries: libs, instMods: insts, Literals: lits}
+	refinements, rules, err := relinkedRefinements(kept, old, l, st.refinements, st.refinementRules)
+	if err != nil {
+		return nil, err
+	}
+	res = &Result{HasMain: kept.HasMain, IR: units, irLibraries: libs, instMods: insts, Literals: lits,
+		Refinements: refinements, RefinementRules: rules}
 	if ls != nil {
 		res.linkedMods = ls.units
 	}
 	res.file = &relowered{unit: old, mod: mod, instMods: whole.instMods, decls: DeclFingerprints(f.Nodes), literals: keptLits,
-		debugRendered: st.debugRendered, debugImplemented: st.debugImplemented}
+		debugRendered: st.debugRendered, debugImplemented: st.debugImplemented,
+		refinements: st.refinements, rules: st.refinementRules}
 	for _, m := range p.Modules[1:] {
 		if m.bodies {
 			res.file.linked = others
@@ -986,6 +1022,9 @@ type relowered struct {
 	linked []*ir.Module
 	// literals are the program's kept literals with the file's new ones.
 	literals []KeptLiteral
+	// refinements and rules are the file's (Result.perFileTables).
+	refinements []RefinementSite
+	rules       []RefinementRuleSite
 	// debugRendered and debugImplemented are the file's
 	// (KeptDebugRendering).
 	debugRendered, debugImplemented []string
@@ -1038,6 +1077,67 @@ func relinkedLiterals(kept *KeptLowering, old int, decoded []*ir.Module, mod *ir
 	return sites, out, nil
 }
 
+// relinkedRefinements are the refinement literals and rules of the program
+// LowerFileAmong links, in unit order: each kept unit's from what it kept,
+// its literals' Builds decoded by l, and the relowered file's (the unit at
+// old) from its new lowering. vmhost checks every one again.
+func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []RefinementSite, freshRules []RefinementRuleSite) ([]RefinementSite, []RefinementRuleSite, error) {
+	var sites []RefinementSite
+	var rules []RefinementRuleSite
+	for i, u := range kept.Units {
+		if i == old {
+			sites, rules = append(sites, fresh...), append(rules, freshRules...)
+			continue
+		}
+		var builds []*ir.Func
+		if u.Builds != nil {
+			m, err := decodeObject(l, u.Builds)
+			if err != nil {
+				return nil, nil, fmt.Errorf("irbuild: decoding %s's refinement literals: %w", u.Key, err)
+			}
+			builds = m.Funcs()
+		}
+		for _, kr := range u.Refinements {
+			s := kr.Site
+			if kr.Built {
+				if len(builds) == 0 {
+					return nil, nil, miss("%s's refinement literals do not hold the record of %s", u.Key, s.Text)
+				}
+				s.Build, builds = builds[0], builds[1:]
+			}
+			sites = append(sites, s)
+		}
+		rules = append(rules, u.Rules...)
+	}
+	return sites, rules, nil
+}
+
+// keepRefinements sets u's Refinements, Builds and Rules from the sites
+// and rules of the file at path.
+func (u *KeptUnit) keepRefinements(path string, sites []RefinementSite, rules []RefinementRuleSite) error {
+	u.Refinements, u.Builds, u.Rules = nil, nil, slices.Clone(rules)
+	var builds *ir.Module
+	for _, s := range sites {
+		kr := KeptRefinement{Site: s, Built: s.Build != nil}
+		kr.Site.Build = nil
+		if s.Build != nil {
+			if builds == nil {
+				builds = ir.NewModule(path + " refinement literals")
+			}
+			builds.AddFunc(s.Build)
+		}
+		u.Refinements = append(u.Refinements, kr)
+	}
+	if builds != nil {
+		data, err := ir.EncodeObject(builds)
+		if err != nil {
+			return fmt.Errorf("irbuild: encoding %s's refinement literals: %w", path, err)
+		}
+		u.Builds = data
+	}
+	return nil
+}
+
 // Undefined is a linkage name among links that no module of the program
 // res links defines, or "": after the last file of a relink, the names a
 // file's lowering dropped as asked (LowerFileAmong) must be defined again.
@@ -1079,6 +1179,9 @@ func (r *Result) Rekeep(kept *KeptLowering) (*KeptLowering, error) {
 			return nil, err
 		}
 		u.Object, u.Files = data, files
+	}
+	if err := u.keepRefinements(u.Path, f.refinements, f.rules); err != nil {
+		return nil, err
 	}
 	out.Units[f.unit] = u
 	out.Literals = f.literals
@@ -1411,7 +1514,7 @@ func decodeObject(l *ir.Linker, data []byte) (*ir.Module, error) {
 // The kept lowering's encoding.
 const (
 	keptMagic   = "NOMIKEPT"
-	keptVersion = 3
+	keptVersion = 4
 )
 
 // Encode writes k as bytes, with a CRC over them.
@@ -1437,6 +1540,20 @@ func (k *KeptLowering) Encode() []byte {
 			sum := u.Decls[n]
 			w.str(n)
 			b.Write(sum[:])
+		}
+		w.uv(uint64(len(u.Refinements)))
+		for _, kr := range u.Refinements {
+			w.refinement(kr)
+		}
+		w.bytes(u.Builds)
+		w.uv(uint64(len(u.Rules)))
+		for _, r := range u.Rules {
+			w.str(r.Path)
+			w.uv(uint64(r.Line))
+			w.uv(uint64(r.Col))
+			w.str(r.Type)
+			w.str(r.Rule)
+			w.str(r.TryFrom)
 		}
 	}
 	w.uv(uint64(len(k.Instances)))
@@ -1513,6 +1630,15 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 			var sum [32]byte
 			copy(sum[:], r.raw(32))
 			u.Decls[name] = sum
+		}
+		rn := r.count()
+		for j := 0; j < rn && r.err == nil; j++ {
+			u.Refinements = append(u.Refinements, r.refinement())
+		}
+		u.Builds = r.bytes()
+		rn = r.count()
+		for j := 0; j < rn && r.err == nil; j++ {
+			u.Rules = append(u.Rules, RefinementRuleSite{Path: r.str(), Line: int(r.uv()), Col: int(r.uv()), Type: r.str(), Rule: r.str(), TryFrom: r.str()})
 		}
 		k.Units = append(k.Units, u)
 	}
@@ -1630,6 +1756,90 @@ func (r *keptReader) literal() KeptLiteral {
 	}
 	s.CheckName = r.str()
 	return l
+}
+
+// The kinds of a kept refinement literal's value.
+const (
+	keptValueNone = iota
+	keptValueInt
+	keptValueBigInt
+	keptValueFloat
+	keptValueString
+	keptValueBool
+)
+
+// refinement writes kr: its site's position, text, type and value, then
+// its steps.
+func (w keptWriter) refinement(kr KeptRefinement) {
+	s := kr.Site
+	w.str(s.Path)
+	for _, n := range []int{s.Line, s.Col, s.EndLine, s.EndCol} {
+		w.uv(uint64(n))
+	}
+	w.str(s.Text)
+	w.str(s.Type)
+	w.flag(kr.Built)
+	switch v := s.Value.(type) {
+	case int64:
+		w.uv(keptValueInt)
+		w.uv(uint64(v))
+	case *rt.BigInt:
+		w.uv(keptValueBigInt)
+		w.str((*big.Int)(v).String())
+	case float64:
+		w.uv(keptValueFloat)
+		w.uv(math.Float64bits(v))
+	case string:
+		w.uv(keptValueString)
+		w.str(v)
+	case bool:
+		w.uv(keptValueBool)
+		w.flag(v)
+	default:
+		w.uv(keptValueNone)
+	}
+	w.uv(uint64(len(s.Steps)))
+	for _, st := range s.Steps {
+		w.str(st.Type)
+		w.str(st.Rule)
+		w.str(st.TryFrom)
+	}
+}
+
+// refinement reads what keptWriter.refinement wrote.
+func (r *keptReader) refinement() KeptRefinement {
+	var kr KeptRefinement
+	s := &kr.Site
+	s.Path = r.str()
+	for _, n := range []*int{&s.Line, &s.Col, &s.EndLine, &s.EndCol} {
+		*n = int(r.uv())
+	}
+	s.Text, s.Type = r.str(), r.str()
+	kr.Built = r.flag()
+	switch r.uv() {
+	case keptValueInt:
+		s.Value = int64(r.uv())
+	case keptValueBigInt:
+		v, ok := rt.ParseIntValue(r.str())
+		if !ok {
+			r.fail()
+		}
+		s.Value = v
+	case keptValueFloat:
+		s.Value = math.Float64frombits(r.uv())
+	case keptValueString:
+		s.Value = r.str()
+	case keptValueBool:
+		s.Value = r.flag()
+	case keptValueNone:
+	default:
+		r.fail()
+	}
+	n := r.count()
+	for i := 0; i < n && r.err == nil; i++ {
+		s.Steps = append(s.Steps, RefinementSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str()})
+	}
+	return kr
 }
 
 type keptReader struct {

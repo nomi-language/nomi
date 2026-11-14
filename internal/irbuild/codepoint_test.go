@@ -75,9 +75,9 @@ func TestCodepoint_PinnedText(t *testing.T) {
 // row's justification is evaluated rather than left in prose.
 //
 // The bar asserted is the table's own, and it is deliberately not
-// stdEnumSpecs' "some corpus program mentions it": `NonZeroInt` is mentioned by
-// ZERO corpus programs and its row is still load-bearing, because
-// `Int.divide(lhs: Int, rhs: NonZeroInt)` cannot be admitted without it. What a row
+// stdEnumSpecs' "some corpus program mentions it": `Seed` is mentioned by
+// few corpus programs and its row is still load-bearing, because
+// `Seed.from_int(n: Int) -> Seed` cannot be admitted without it. What a row
 // is for is letting a SIGNATURE name the type — so that is what is measured:
 // per spec, at least one std declaration whose parameter or result kind IS this
 // spec's kind, and which therefore could not have been admitted without the row.

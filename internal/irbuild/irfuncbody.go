@@ -385,6 +385,12 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	case *ast.GroupedExpr:
 		// It contributes no instruction. Parentheses are grammar.
 		return bl.lower(t.Expr)
+	case *ast.UncheckedRefinement:
+		return bl.uncheckedRefinement(t)
+	case *ast.RefinementRule:
+		return bl.refinementRule(t)
+	case *ast.RefinementParentCheck:
+		return bl.lower(analysis.RefinementParentChoice(bl.g.srcFA(), t))
 
 	case *ast.IntLit:
 		if bl.g.byteLiteral(t) {
@@ -1119,6 +1125,10 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	// no boundary decides its delivery.
 	if bl.testingCheckCall(t) {
 		return bl.testingCheck(t)
+	}
+	if v, k, mobile, ok, handled := bl.refinementCall(t); handled {
+		// `Port(8080)`: the literal itself (refinement.go).
+		return v, k, mobile, ok
 	}
 	if fa, qualified := t.Func.(*ast.FieldAccess); qualified && bl.namedIntrinsic(t, fa) {
 		// `Task.await(task: t)`: planned as its positional form

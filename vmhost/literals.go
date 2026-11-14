@@ -66,6 +66,17 @@ func literalHint(text string) string {
 // in source order, or nil.
 func (p *Program) checkLiterals() error {
 	ds := p.checkCurrencyCalls()
+	if p.res != nil && (len(p.res.Refinements) > 0 || len(p.res.RefinementRules) > 0) && len(p.res.IR) > 0 {
+		entry := p.entry
+		if entry == nil {
+			entry = p.res.IR[0]
+		}
+		refined, err := p.checkRefinements(p.machineOver(entry, io.Discard))
+		if err != nil {
+			return err
+		}
+		ds = append(refined, ds...)
+	}
 	if p.res == nil || len(p.res.Literals) == 0 || len(p.res.IR) == 0 {
 		if len(ds) == 0 {
 			return nil

@@ -27,7 +27,7 @@
 //
 // The `Maybe<Byte>` rows carry a second load: they are a prelude instance over
 // an anchored blessed primitive, which is the same package-neutrality question
-// `Maybe<NonZeroInt>` answers for the opaque family in std_maybe_boundary.nomi.
+// `Maybe<Codepoint>` answers for the opaque family.
 //
 // # What is deliberately absent, and it is the best row this fixture could have
 //

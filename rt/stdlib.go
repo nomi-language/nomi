@@ -472,16 +472,6 @@ func FloatTan(x float64) float64 { return math.Tan(x) }
 // positive x axis, in radians from -π to π.
 func FloatAtan2(y, x float64) float64 { return math.Atan2(y, x) }
 
-// FloatRequireTolerance is std/float's private `require_tolerance`, the check
-// `Float.equal_within` makes of its tolerance before it compares: a negative
-// or NaN tolerance is a value the caller chose, so it traps, naming it.
-func FloatRequireTolerance(tolerance float64) Unit {
-	if math.IsNaN(tolerance) || tolerance < 0 {
-		Trap("Float.equal_within: tolerance must not be negative or NaN, got " + FormatFloat(tolerance))
-	}
-	return Unit{}
-}
-
 // ComparableClampReversed is std/comparable's private `clamp_reversed`:
 // `Comparable.clamp` calls it with its bounds, as `Debug` writes them, when
 // low is greater than high, a range the caller wrote backwards.

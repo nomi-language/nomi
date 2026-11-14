@@ -28,8 +28,8 @@ import
     summable.Summable
 end
 
-//# Operations on `Int`, the one integer type, exact at any size: total
-//# division gated on the refinement types `NonZeroInt`/`PositiveInt`, floored
+//# Operations on `Int`, the one integer type, exact at any size: the
+//# refinements `NonZeroInt` and `PositiveInt`, by which division cannot trap, floored
 //# division and modulo, powers, integer square roots, `gcd`/`lcm`, digits in
 //# a base, conversion to `Float` and `Decimal`, 64-bit modular arithmetic,
 //# and bit operations. The arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable`
@@ -105,25 +105,6 @@ end
 pub host type Int
 
 impl Int
-    /// Validates that `n` is non-zero and wraps it. Returns None when n == 0.
-    //! assert Int.to_non_zero(5) == Some(NonZeroInt(5))
-    //! assert Int.to_non_zero(-3) == Some(NonZeroInt(-3))
-    //! assert Int.to_non_zero(0) == None
-    //
-    pub fn to_non_zero(n: Int) -> Maybe<NonZeroInt>
-        if n == 0 then None else Some(NonZeroInt(n))
-    end
-
-    /// Validates that `n` is positive (> 0) and wraps it. Returns None for
-    /// zero or negative values.
-    //! assert Int.to_positive(5) == Some(PositiveInt(5))
-    //! assert Int.to_positive(0) == None
-    //! assert Int.to_positive(-3) == None
-    //
-    pub fn to_positive(n: Int) -> Maybe<PositiveInt>
-        if n > 0 then Some(PositiveInt(n)) else None
-    end
-
     /// Converts an Int to the nearest Float, ties to even. Total. Precision
     /// loss is possible for |x| > 2^53 (a Float has a 52-bit mantissa), and an
     /// Int past the largest Float is an infinity.
@@ -444,47 +425,28 @@ impl Productable for Int
 end
 
 impl Divide<Int, Int> for Int
-    host fn divide(lhs: Int, rhs: Int) -> Int
-end
-
-impl Divide<NonZeroInt, Int> for Int
-    /// Integer division. Total — the type system rules out a zero divisor at
-    /// the call site by requiring `rhs: NonZeroInt`. Rounds toward zero
-    /// (matches the `/` operator). Callers who have an unvalidated Int use
-    /// `Int.to_non_zero` first; the fallibility moves to the validation step,
-    /// where it belongs.
-    //! nz = Int.to_non_zero(3)?
+    /// Integer division, `lhs / rhs`, rounding toward zero. Traps on a zero
+    /// `rhs`; a `NonZeroInt` divisor, which is an Int, cannot be zero, so
+    /// division by one cannot trap.
+    //! assert 7 / 2 == 3
+    //! assert -7 / 2 == -3
+    //! nz = NonZeroInt.try_from(3)!
     //! assert Int.divide(10, nz) == 3
     //
-    fn divide(lhs: Int, rhs: NonZeroInt) -> Int
-        NonZeroInt(n) = rhs
-        lhs / n
-    end
+    host fn divide(lhs: Int, rhs: Int) -> Int
 end
 
 impl Remainder<Int, Int> for Int
     /// `lhs % rhs`: the remainder of `/`'s division, which truncates toward
     /// zero, so it takes the sign of `lhs`. `(a / b) * b + a % b == a`.
-    /// `Int.modulo` takes the divisor's sign instead. Traps on a zero `rhs`.
+    /// `Int.modulo` takes the divisor's sign instead. Traps on a zero `rhs`,
+    /// and so cannot trap on a `NonZeroInt`.
     //! assert 7 % 3 == 1
     //! assert -7 % 3 == -1
     //! assert 7 % -3 == 1
     //! assert Int.remainder(-7, -3) == -1
     //
     host fn remainder(lhs: Int, rhs: Int) -> Int
-end
-
-impl Remainder<NonZeroInt, Int> for Int
-    /// The remainder by a divisor that cannot be zero, so it cannot trap.
-    /// Takes the sign of `lhs`, as `%` does.
-    //! nz = Int.to_non_zero(3)?
-    //! assert Int.remainder(-10, nz) == -1
-    //! assert 10 % nz == 1
-    //
-    fn remainder(lhs: Int, rhs: NonZeroInt) -> Int
-        NonZeroInt(n) = rhs
-        lhs % n
-    end
 end
 
 // The bitwise operators read an Int as two's complement with as many bits as
@@ -607,32 +569,21 @@ impl Steppable for Int
     end
 end
 
-/// An Int proven to be non-zero. The smart constructor `Int.to_non_zero` is
-/// the only way to obtain a value; once you have one, `Int.divide` by it
-/// cannot fail.
-pub opaque type NonZeroInt Int
+/// An Int that is not zero, so dividing by one cannot trap. A literal is
+/// checked when the program is compiled; `NonZeroInt.try_from(n)` checks a
+/// value at run time. A NonZeroInt is an Int, and passes wherever one is
+/// expected.
+//! d: NonZeroInt = 4
+//! assert 12 / d == 3
+//! assert NonZeroInt.try_from(5) == Some(5)
+//! assert NonZeroInt.try_from(0) == None
+//
+pub type NonZeroInt Int when fn n -> n != 0
 
-derive Debug for NonZeroInt
-derive Display for NonZeroInt
-
-/// An Int proven to be positive (> 0). Smart constructor: `Int.to_positive`.
-/// Implies non-zero, so a `PositiveInt` can be passed wherever a
-/// `NonZeroInt` is expected via `PositiveInt.to_non_zero`.
-pub opaque type PositiveInt Int
-
-impl PositiveInt
-    /// Widens a `PositiveInt` to a `NonZeroInt` — every positive Int is non-zero,
-    /// so this is total (never fails). Lets a `PositiveInt` flow into a position
-    /// that requires `NonZeroInt`, such as `Int.divide`'s divisor.
-    //! p = Int.to_positive(5)?
-    //! NonZeroInt(n) = PositiveInt.to_non_zero(p)
-    //! assert n == 5
-    //
-    pub fn to_non_zero(p: PositiveInt) -> NonZeroInt
-        PositiveInt(n) = p
-        NonZeroInt(n)
-    end
-end
-
-derive Debug for PositiveInt
-derive Display for PositiveInt
+/// An Int greater than zero. It refines `NonZeroInt`, so a PositiveInt
+/// passes wherever a NonZeroInt or an Int is expected.
+//! assert PositiveInt.try_from(5) == Some(5)
+//! assert PositiveInt.try_from(-3) == None
+//! assert PositiveInt.try_from(0) == None
+//
+pub type PositiveInt NonZeroInt when fn n -> n > 0

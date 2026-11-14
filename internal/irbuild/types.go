@@ -483,6 +483,10 @@ func (g *gen) declareTypeShells(nodes []ast.Node) {
 		case *ast.EnumDef:
 			name, isEnum = t.Name, true
 		case *ast.TypeDef:
+			if isDistinctRefinementDecl(t) {
+				// Erased: a refinement is its base (refinement.go).
+				continue
+			}
 			name, isDistinct = t.Name, true
 		default:
 			continue
@@ -1257,6 +1261,9 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		if k, isAlias := g.qualifiedAliasKind(qt); isAlias {
 			return k
 		}
+		if k, isRefinement := g.qualifiedRefinementKind(qt); isRefinement {
+			return k
+		}
 		d, found := g.namespacedType(qt)
 		if !found {
 			// `shapes.Shape`, `sql.Conn`: an interface named through the
@@ -1295,6 +1302,9 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 	}
 	if at, isAnon := te.(*ast.AnonStructType); isAnon {
 		return g.anonStructTypeOf(at)
+	}
+	if rb, isBase := te.(*ast.RefinementBaseType); isBase {
+		return g.refinementBaseKind(rb)
 	}
 	st, ok := te.(*ast.SimpleType)
 	if !ok {
@@ -1368,6 +1378,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 			return named(d)
 		}
 		return kindInvalid
+	}
+	// A distinct refinement is its base, as an alias is its target
+	// (refinement.go).
+	if k, isRefinement := g.refinementKind(st.Name); isRefinement {
+		return k
 	}
 	// A MODULE-LEVEL `typealias`, which is TRANSPARENT exactly as the
 	// block-local arm above is: `Count` IS `Int`, so this returns the target's

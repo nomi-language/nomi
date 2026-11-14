@@ -391,6 +391,88 @@ Spec: [Distinct Types](/spec/types/#distinct-types),
 
 </div>
 
+## Refinement types
+
+```nomi-run
+import std::float.{NonNegativeFloat, PositiveFloat}
+
+type Port Int when fn p -> p >= 1 and p <= 65535
+
+fn serve(port: Port) -> String
+    "listening on ${port}"
+end
+
+fn scale(x: Float, by: NonNegativeFloat) -> Float
+    x * by
+end
+
+fn main()
+    dbg serve(8080)
+
+    // A computed Int is checked when the program runs.
+    base = 8000
+    dbg Port.try_from(base + 80)
+    dbg Port.try_from(base * 10)
+
+    // A PositiveFloat is a NonNegativeFloat, which is a Float.
+    half: PositiveFloat = 0.5
+    dbg scale(10.0, half)
+    dbg Float.floor(half)
+end
+```
+<!-- expect
+dbg line 14: serve(8080) = "listening on 8080"
+dbg line 18: Port.try_from(base + 80) = Some(8080)
+dbg line 19: Port.try_from(base * 10) = None
+dbg line 23: scale(10.0, half) = 5.0
+dbg line 24: Float.floor(half) = 0.0
+-->
+
+A `when` rule makes a distinct type a refinement: a `Port` is an `Int` the
+rule holds for. Unlike `Id`, a `Port` is still an `Int`, stored and used as
+one, so `serve` can interpolate it and a `Port` passes wherever an `Int` is
+expected. A chain converts the same way upward: std's `PositiveFloat`
+refines `NonNegativeFloat`, which refines `Float`, so `half` goes to `scale`
+and to `Float.floor` as it is. Nothing converts down or sideways.
+
+A literal where a `Port` is expected, as in `serve(8080)`, is checked while
+the program compiles, so a bad one never runs:
+
+```nomi-run error
+type Port Int when fn p -> p >= 1 and p <= 65535
+
+fn serve(port: Port) -> String
+    "listening on ${port}"
+end
+
+fn main()
+    dbg serve(0)
+end
+```
+<!-- expect
+main.nomi:8:15: 0 is not a Port: `fn p -> p >= 1 and p <= 65535` is false
+main.nomi:8:15: help: a literal is checked when the program is compiled; a value known only when it runs goes through `Port.try_from(...)`, a `Maybe<Port>`
+-->
+
+Any other `Int` becomes a `Port` through `Port.try_from`, which runs the rule
+and returns a `Maybe<Port>`. std also has `NonZeroInt` and `PositiveInt` in
+`std::int`.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The rule is a lambda or the name of a function returning `Bool`. It must
+  be pure: a rule that prints or reads a file is an error.
+- `Port.unchecked(n)` skips the rule. Only the file declaring `Port` may call
+  it, where the rule is known to hold.
+- A `struct` takes a rule after its `end`:
+  `struct Span ... end when fn s -> s.low <= s.high`.
+- A refinement can't be `opaque` and takes no type parameters.
+
+Spec: [Refinement types](/spec/types/#refinement-types).
+
+</div>
+
 ## Bare types
 
 ```nomi-run

@@ -1243,11 +1243,10 @@ func TestHover_InterfaceQualifiedCall_ExternImpl_RendersConcreteImpl(t *testing.
 }
 
 func TestHover_FileFunctionRendersConcreteSignature(t *testing.T) {
-	inputWithMarker := `import std::int.{Int, PositiveInt}
+	inputWithMarker := `import std::int.PositiveInt
 
 fn main()
-  p = Int.to_positive(5)?
-  PositiveInt.▮to_non_zero(p)
+  PositiveInt.▮try_from(5)
 end
 `
 	input, pos := hoverMarkerPosition(t, inputWithMarker)
@@ -1262,11 +1261,11 @@ end
 
 	sym := doc.Analysis.SymbolAt(pos)
 	if sym == nil {
-		t.Fatal("no symbol at the to_non_zero call-site position")
+		t.Fatal("no symbol at the try_from call-site position")
 	}
 	got := renderHover(sym)
-	if !strings.Contains(got, "fn to_non_zero(p: PositiveInt) -> NonZeroInt") {
-		t.Errorf("expected hover to render concrete PositiveInt parameter type, got:\n%s", got)
+	if !strings.Contains(got, "fn try_from(value: Int) -> Maybe<PositiveInt>") {
+		t.Errorf("expected hover to render the refinement's base as the parameter type, got:\n%s", got)
 	}
 	if strings.Contains(got, "Maybe<self>") {
 		t.Errorf("hover rendered the old concrete `self` spelling, got:\n%s", got)

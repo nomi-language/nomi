@@ -277,7 +277,7 @@ T
 C decimal
 E 0
 N 25
-H c6d70fd6005af1cdcd5c8629f4648a4fcb6906f1b9ac70b35eb3d35dadc8f614
+H 924f4d1e761dce4e5445d4ae6e3eb0b7a7b634c9d3a20030c158bec4edfca893
 T ok <root>/std/decimal.nomi :: impl / to_int //! test lines 58-60
 T ok <root>/std/decimal.nomi :: impl / to_float //! test line 68
 T ok <root>/std/decimal.nomi :: impl / divide //! test lines 78-79
@@ -291,18 +291,18 @@ T ok <root>/std/decimal.nomi :: impl / abs //! test line 150
 T ok <root>/std/decimal.nomi :: impl / negate //! test line 157
 T ok <root>/std/decimal.nomi :: impl / sign //! test lines 164-166
 T ok <root>/std/decimal.nomi :: impl / is_zero //! test lines 177-178
-T ok <root>/std/decimal.nomi :: impl / split //! test lines 195-199
-T ok <root>/std/decimal.nomi :: impl / allocate //! test lines 232-235
-T ok <root>/std/decimal.nomi :: impl / format //! test lines 264-271
-T ok <root>/std/decimal.nomi :: impl / format_percent //! test lines 291-296
-T ok <root>/std/decimal.nomi :: impl / parse_in //! test lines 331-336
-T ok <root>/std/decimal.nomi :: impl / parse_percent_in //! test lines 350-355
-T ok <root>/std/decimal.nomi :: impl / to_string //! test lines 441-442
-T ok <root>/std/decimal.nomi :: impl / empty_sum //! test lines 454-455
-T ok <root>/std/decimal.nomi :: impl / divide //! test lines 474-478
-T ok <root>/std/decimal.nomi :: impl / remainder //! test lines 488-491
-T ok <root>/std/decimal.nomi :: impl / empty_product //! test lines 499-500
-T ok <root>/std/decimal.nomi :: impl / step_by //! test line 541
+T ok <root>/std/decimal.nomi :: impl / split //! test lines 196-200
+T ok <root>/std/decimal.nomi :: impl / allocate //! test lines 231-234
+T ok <root>/std/decimal.nomi :: impl / format //! test lines 263-270
+T ok <root>/std/decimal.nomi :: impl / format_percent //! test lines 290-295
+T ok <root>/std/decimal.nomi :: impl / parse_in //! test lines 330-335
+T ok <root>/std/decimal.nomi :: impl / parse_percent_in //! test lines 349-354
+T ok <root>/std/decimal.nomi :: impl / to_string //! test lines 440-441
+T ok <root>/std/decimal.nomi :: impl / empty_sum //! test lines 453-454
+T ok <root>/std/decimal.nomi :: impl / divide //! test lines 473-477
+T ok <root>/std/decimal.nomi :: impl / remainder //! test lines 487-490
+T ok <root>/std/decimal.nomi :: impl / empty_product //! test lines 498-499
+T ok <root>/std/decimal.nomi :: impl / step_by //! test line 540
 T test result: ok. 25 passed, 0 failed
 T
 C duration
@@ -356,8 +356,8 @@ T test result: ok. 12 passed, 0 failed
 T
 C float
 E 0
-N 39
-H aadce7985f1907c5492e9d52eb01f9c25e5449dc07d691c9ab1b37ec3370bf8c
+N 41
+H 6470356e191ff87a5dbfcc2c9f66a7591b77d56aa8d7c2d598e7efd37d8b583a
 T ok <root>/std/float.nomi :: impl / nan //! test line 45
 T ok <root>/std/float.nomi :: impl / positive_infinity //! test line 51
 T ok <root>/std/float.nomi :: impl / negative_infinity //! test line 57
@@ -373,7 +373,7 @@ T ok <root>/std/float.nomi :: impl / floor //! test lines 148-149
 T ok <root>/std/float.nomi :: impl / ceil //! test lines 154-155
 T ok <root>/std/float.nomi :: impl / trunc //! test lines 160-161
 T ok <root>/std/float.nomi :: impl / abs //! test lines 167-170
-T ok <root>/std/float.nomi :: impl / equal_within //! test lines 184-190
+T ok <root>/std/float.nomi :: impl / equal_within //! test lines 185-191
 T ok <root>/std/float.nomi :: impl / sign //! test lines 201-204
 T ok <root>/std/float.nomi :: impl / pow //! test lines 220-224
 T ok <root>/std/float.nomi :: impl / sqrt //! test lines 230-232
@@ -389,15 +389,17 @@ T ok <root>/std/float.nomi :: impl / format //! test lines 302-308
 T ok <root>/std/float.nomi :: impl / format_percent //! test lines 322-326
 T ok <root>/std/float.nomi :: impl / parse_in //! test lines 336-340
 T ok <root>/std/float.nomi :: impl / parse_percent_in //! test lines 354-358
-T ok <root>/std/float.nomi :: impl / to_string //! test lines 410-411
-T ok <root>/std/float.nomi :: impl / empty_sum //! test lines 423-424
-T ok <root>/std/float.nomi :: impl / empty_product //! test lines 442-443
-T ok <root>/std/float.nomi :: impl / remainder //! test lines 458-463
-T ok <root>/std/float.nomi :: impl / inspect //! test line 471
-T ok <root>/std/float.nomi :: impl / min //! test lines 540-543
-T ok <root>/std/float.nomi :: impl / max //! test lines 560-562
-T ok <root>/std/float.nomi :: impl / clamp //! test lines 584-588
-T test result: ok. 39 passed, 0 failed
+T ok <root>/std/float.nomi :: NonNegativeFloat //! test lines 403-407
+T ok <root>/std/float.nomi :: PositiveFloat //! test lines 413-414
+T ok <root>/std/float.nomi :: impl / to_string //! test lines 425-426
+T ok <root>/std/float.nomi :: impl / empty_sum //! test lines 438-439
+T ok <root>/std/float.nomi :: impl / empty_product //! test lines 457-458
+T ok <root>/std/float.nomi :: impl / remainder //! test lines 473-478
+T ok <root>/std/float.nomi :: impl / inspect //! test line 486
+T ok <root>/std/float.nomi :: impl / min //! test lines 555-558
+T ok <root>/std/float.nomi :: impl / max //! test lines 575-577
+T ok <root>/std/float.nomi :: impl / clamp //! test lines 599-603
+T test result: ok. 41 passed, 0 failed
 T
 C fs
 E 0
@@ -601,47 +603,45 @@ T test result: ok. 9 passed, 0 failed
 T
 C int
 E 0
-N 38
-H 8a190f651738c9e22789c4792099b7203c6bfb32ef1a9fa54d34c410b993a55b
+N 36
+H 414e84207211ecbf9df5db5b24a75bef47d9f7fcdcfd8d31a533f69d0abfe060
 T ok <root>/std/int.nomi :: Int //! test lines 102-103
-T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 109-111
-T ok <root>/std/int.nomi :: impl / to_positive //! test lines 119-121
-T ok <root>/std/int.nomi :: impl / to_float //! test lines 130-132
-T ok <root>/std/int.nomi :: impl / to_decimal //! test lines 137-139
-T ok <root>/std/int.nomi :: impl / to_byte //! test lines 144-148
-T ok <root>/std/int.nomi :: impl / to_codepoint //! test lines 155-157
-T ok <root>/std/int.nomi :: impl / wrapping_add //! test lines 166-167
-T ok <root>/std/int.nomi :: impl / wrapping_sub //! test line 172
-T ok <root>/std/int.nomi :: impl / wrapping_mul //! test line 177
-T ok <root>/std/int.nomi :: impl / bit_count //! test lines 185-187
-T ok <root>/std/int.nomi :: impl / bit_length //! test lines 198-205
-T ok <root>/std/int.nomi :: impl / modulo //! test lines 216-221
-T ok <root>/std/int.nomi :: impl / floor_div //! test lines 236-241
-T ok <root>/std/int.nomi :: impl / abs //! test lines 250-252
-T ok <root>/std/int.nomi :: impl / sign //! test lines 259-261
-T ok <root>/std/int.nomi :: impl / pow //! test lines 274-278
-T ok <root>/std/int.nomi :: impl / sqrt //! test lines 286-290
-T ok <root>/std/int.nomi :: impl / gcd //! test lines 297-301
-T ok <root>/std/int.nomi :: impl / lcm //! test lines 307-309
-T ok <root>/std/int.nomi :: impl / to_digits //! test lines 317-321
-T ok <root>/std/int.nomi :: impl / from_digits //! test lines 330-337
-T ok <root>/std/int.nomi :: impl / format //! test lines 349-360
-T ok <root>/std/int.nomi :: impl / parse_in //! test lines 372-385
-T ok <root>/std/int.nomi :: impl / to_string //! test lines 407-409
-T ok <root>/std/int.nomi :: impl / empty_sum //! test lines 420-421
-T ok <root>/std/int.nomi :: impl / empty_product //! test lines 438-439
-T ok <root>/std/int.nomi :: impl / divide //! test lines 456-457
-T ok <root>/std/int.nomi :: impl / remainder //! test lines 469-472
-T ok <root>/std/int.nomi :: impl / remainder //! test lines 480-482
-T ok <root>/std/int.nomi :: impl / bitwise_and //! test lines 498-501
-T ok <root>/std/int.nomi :: impl / bitwise_or //! test lines 508-510
-T ok <root>/std/int.nomi :: impl / bitwise_xor //! test lines 518-520
-T ok <root>/std/int.nomi :: impl / bitwise_not //! test lines 528-530
-T ok <root>/std/int.nomi :: impl / shift_left //! test lines 538-540
-T ok <root>/std/int.nomi :: impl / shift_right //! test lines 550-553
-T ok <root>/std/int.nomi :: impl / inspect //! test line 561
-T ok <root>/std/int.nomi :: impl / to_non_zero //! test lines 627-629
-T test result: ok. 38 passed, 0 failed
+T ok <root>/std/int.nomi :: impl / to_float //! test lines 111-113
+T ok <root>/std/int.nomi :: impl / to_decimal //! test lines 118-120
+T ok <root>/std/int.nomi :: impl / to_byte //! test lines 125-129
+T ok <root>/std/int.nomi :: impl / to_codepoint //! test lines 136-138
+T ok <root>/std/int.nomi :: impl / wrapping_add //! test lines 147-148
+T ok <root>/std/int.nomi :: impl / wrapping_sub //! test line 153
+T ok <root>/std/int.nomi :: impl / wrapping_mul //! test line 158
+T ok <root>/std/int.nomi :: impl / bit_count //! test lines 166-168
+T ok <root>/std/int.nomi :: impl / bit_length //! test lines 179-186
+T ok <root>/std/int.nomi :: impl / modulo //! test lines 197-202
+T ok <root>/std/int.nomi :: impl / floor_div //! test lines 217-222
+T ok <root>/std/int.nomi :: impl / abs //! test lines 231-233
+T ok <root>/std/int.nomi :: impl / sign //! test lines 240-242
+T ok <root>/std/int.nomi :: impl / pow //! test lines 255-259
+T ok <root>/std/int.nomi :: impl / sqrt //! test lines 267-271
+T ok <root>/std/int.nomi :: impl / gcd //! test lines 278-282
+T ok <root>/std/int.nomi :: impl / lcm //! test lines 288-290
+T ok <root>/std/int.nomi :: impl / to_digits //! test lines 298-302
+T ok <root>/std/int.nomi :: impl / from_digits //! test lines 311-318
+T ok <root>/std/int.nomi :: impl / format //! test lines 330-341
+T ok <root>/std/int.nomi :: impl / parse_in //! test lines 353-366
+T ok <root>/std/int.nomi :: impl / to_string //! test lines 388-390
+T ok <root>/std/int.nomi :: impl / empty_sum //! test lines 401-402
+T ok <root>/std/int.nomi :: impl / empty_product //! test lines 419-420
+T ok <root>/std/int.nomi :: impl / divide //! test lines 431-434
+T ok <root>/std/int.nomi :: impl / remainder //! test lines 444-447
+T ok <root>/std/int.nomi :: impl / bitwise_and //! test lines 460-463
+T ok <root>/std/int.nomi :: impl / bitwise_or //! test lines 470-472
+T ok <root>/std/int.nomi :: impl / bitwise_xor //! test lines 480-482
+T ok <root>/std/int.nomi :: impl / bitwise_not //! test lines 490-492
+T ok <root>/std/int.nomi :: impl / shift_left //! test lines 500-502
+T ok <root>/std/int.nomi :: impl / shift_right //! test lines 512-515
+T ok <root>/std/int.nomi :: impl / inspect //! test line 523
+T ok <root>/std/int.nomi :: NonZeroInt //! test lines 576-579
+T ok <root>/std/int.nomi :: PositiveInt //! test lines 585-587
+T test result: ok. 36 passed, 0 failed
 T
 C io
 E 0
@@ -977,7 +977,7 @@ T
 C money
 E 0
 N 21
-H e6b966aac0ddf909395472cf9ccd4c00648498b9a6814b5e5d51f32b33baf54c
+H 71bdaa324f84c7949f6c9b8f16b8db7779c2ac7ab3326d706e372a4d8ab5ba86
 T ok <root>/std/money.nomi :: Money //! test lines 58-61
 T ok <root>/std/money.nomi :: impl / to_string //! test lines 91-93
 T ok <root>/std/money.nomi :: impl / format //! test lines 158-173
@@ -991,14 +991,14 @@ T ok <root>/std/money.nomi :: impl / min //! test line 278
 T ok <root>/std/money.nomi :: impl / max //! test line 287
 T ok <root>/std/money.nomi :: impl / parse //! test lines 302-309
 T ok <root>/std/money.nomi :: impl / parse_in //! test lines 343-352
-T ok <root>/std/money.nomi :: impl / split //! test lines 370-373
-T ok <root>/std/money.nomi :: impl / allocate //! test lines 397-407
-T ok <root>/std/money.nomi :: impl / add //! test line 443
-T ok <root>/std/money.nomi :: impl / subtract //! test line 460
-T ok <root>/std/money.nomi :: impl / multiply //! test line 474
-T ok <root>/std/money.nomi :: impl / empty_sum //! test lines 486-491
-T ok <root>/std/money.nomi :: impl / from_fragments //! test lines 521-524
-T ok <root>/std/money.nomi :: impl / to_string //! test lines 551-552
+T ok <root>/std/money.nomi :: impl / split //! test lines 369-372
+T ok <root>/std/money.nomi :: impl / allocate //! test lines 394-404
+T ok <root>/std/money.nomi :: impl / add //! test line 440
+T ok <root>/std/money.nomi :: impl / subtract //! test line 457
+T ok <root>/std/money.nomi :: impl / multiply //! test line 471
+T ok <root>/std/money.nomi :: impl / empty_sum //! test lines 483-488
+T ok <root>/std/money.nomi :: impl / from_fragments //! test lines 518-521
+T ok <root>/std/money.nomi :: impl / to_string //! test lines 548-549
 T test result: ok. 21 passed, 0 failed
 T
 C net

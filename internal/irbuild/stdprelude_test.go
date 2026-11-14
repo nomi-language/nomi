@@ -34,9 +34,9 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 	if !shared {
 		t.Fatal("Maybe<String> was not interned as shared")
 	}
-	nz, shared := sharedPreludeInstance(maybe, []kind{opaqueKind(opaqueSpecIndex(t, "NonZeroInt"))})
+	nz, shared := sharedPreludeInstance(maybe, []kind{opaqueKind(opaqueSpecIndex(t, "Codepoint"))})
 	if !shared {
-		t.Fatal("Maybe<NonZeroInt> was not interned as shared; an anchored opaque newtype is neutral")
+		t.Fatal("Maybe<Codepoint> was not interned as shared; an anchored opaque newtype is neutral")
 	}
 	seen := map[string]kind{}
 	for _, k := range []kind{ints, strs, nz} {
@@ -46,7 +46,7 @@ func TestSharedPreludeInternKeysOnTheWholeInstantiation(t *testing.T) {
 		}
 		seen[k.def.nomi] = k
 	}
-	for _, want := range []string{"Maybe<Int>", "Maybe<String>", "Maybe<NonZeroInt>"} {
+	for _, want := range []string{"Maybe<Int>", "Maybe<String>", "Maybe<Codepoint>"} {
 		if _, made := seen[want]; !made {
 			t.Fatalf("no instantiation is spelled %q; got %v", want, sortedKeysOf(presence(seen)))
 		}
@@ -170,14 +170,14 @@ func TestSharedPreludeDefsAreNeverInPreludeOrder(t *testing.T) {
 // must still not project, and a struct outside rt must not project however it is
 // shaped.
 func TestPreludeKindOfGoTypeReadsTheArgumentsOffTheFields(t *testing.T) {
-	nzIdx := opaqueSpecIndex(t, "NonZeroInt")
+	nzIdx := opaqueSpecIndex(t, "Codepoint")
 	for _, tc := range []struct {
 		t    reflect.Type
 		want string
 	}{
 		{reflect.TypeFor[rt.Maybe[int64]](), "Maybe<Int>"},
 		{reflect.TypeFor[rt.Maybe[string]](), "Maybe<String>"},
-		{reflect.TypeFor[rt.Maybe[rt.NonZeroInt]](), "Maybe<NonZeroInt>"},
+		{reflect.TypeFor[rt.Maybe[rt.Codepoint]](), "Maybe<Codepoint>"},
 		{reflect.TypeFor[rt.Result[int64, string]](), "Result<Int, String>"},
 		{reflect.TypeFor[rt.Result[rt.Maybe[int64], string]](), "Result<Maybe<Int>, String>"},
 	} {
@@ -191,10 +191,10 @@ func TestPreludeKindOfGoTypeReadsTheArgumentsOffTheFields(t *testing.T) {
 		}
 		// The whole point of the shared table: the projected kind IS the one a
 		// call site resolves an annotation to.
-		if tc.t == reflect.TypeFor[rt.Maybe[rt.NonZeroInt]]() {
+		if tc.t == reflect.TypeFor[rt.Maybe[rt.Codepoint]]() {
 			want, _ := sharedPreludeInstance(&preludeSpecs[0], []kind{opaqueKind(nzIdx)})
 			if k != want {
-				t.Errorf("the registry's Maybe<NonZeroInt> is not the annotation's: %v vs %v", k.def, want.def)
+				t.Errorf("the registry's Maybe<Codepoint> is not the annotation's: %v vs %v", k.def, want.def)
 			}
 		}
 	}

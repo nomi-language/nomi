@@ -386,6 +386,7 @@ func instantiateNominal(t Type, args []Type) Type {
 			Origin:           bt.Origin,
 			Name:             bt.Name,
 			Inner:            bt.Inner,
+			Rule:             bt.Rule,
 			Opaque:           bt.Opaque,
 			OwningSourceFile: bt.OwningSourceFile,
 			TypeParams:       bt.TypeParams,

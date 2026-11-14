@@ -1,6 +1,7 @@
 import
     std::compiler
     std::duration.Duration
+    std::int.NonZeroInt
 end
 
 type Minutes Int
@@ -24,7 +25,7 @@ test "Int remainder takes the sign of the left operand"
 end
 
 test "Int remainder by a NonZeroInt cannot trap"
-    nz = Int.to_non_zero(4)!
+    nz = NonZeroInt.try_from(4)!
     assert 10 % nz == 2
     assert Int.remainder(-10, nz) == -2
 end

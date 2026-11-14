@@ -123,7 +123,9 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 [`Float`](/reference/float/) is fast but not exact. It stores numbers in
 binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
 the difference you accept: `Float.equal_within(0.1 + 0.2, 0.3, 1e-9)` is
-`True`. A `Float` follows IEEE 754, so dividing by zero doesn't stop the
+`True`. The tolerance is a
+[`NonNegativeFloat`](/structs-enums-distinct/#refinement-types), so a
+negative literal there fails to compile. A `Float` follows IEEE 754, so dividing by zero doesn't stop the
 program: `1.0 / 0.0` is `+Inf`, and `0.0 / 0.0` is NaN, which
 [`Float.is_nan`](/reference/float/#floatis_nan) detects.
 

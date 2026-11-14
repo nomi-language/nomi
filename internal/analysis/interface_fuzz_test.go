@@ -59,7 +59,10 @@ import (
 // `Duration.seconds` does not resolve (TestOwnerDecl_BlockImportRebindsAStdType
 // in internal/irbuild); and a type function the program's entry declares
 // names no module for the runtime to load, though a file's build reads
-// the entry by its module key (TestTheEntryProvidesNoTypeMethod). An
+// the entry by its module key (TestTheEntryProvidesNoTypeMethod); and an
+// in-memory project's directory is one whether or not the program read a
+// file under it, so an unused directory import stays unused
+// (TestAnUnreadDirectoryIsADirectoryAgainstInterfaces). An
 // empty file's interface holds no nodes rather
 // than an empty list, so a check against interfaces passes over it as
 // discovery passes over the empty source.
@@ -349,6 +352,31 @@ func mustCorpusProject(name string) incrementalProject {
 		}
 	}
 	panic("no corpus project " + name)
+}
+
+// TestAnUnreadDirectoryIsADirectoryAgainstInterfaces holds an in-memory
+// project's directory import whose files no check reads (`jobs`, unused)
+// to the same answer from source and against interfaces: a directory, so
+// an unused import, never "no module `jobs`". The check from source finds
+// the directory among the program's texts; the check against interfaces
+// once looked only among the files the program read.
+// FuzzCheckFromInterfacesMatchesFull found it.
+func TestAnUnreadDirectoryIsADirectoryAgainstInterfaces(t *testing.T) {
+	p := incrementalProject{name: "unread directory", entry: "main", texts: map[string]string{
+		"main": `import jobs
+
+fn main()
+end
+`,
+		"jobs/notify": "pub fn send() -> Int\n    1\nend\n",
+	}}
+	want, got := interfaceDumps(p, p.texts)
+	if want != got {
+		t.Fatalf("checked against interfaces differs from a full check:\n%s", dumpDiff(want, got))
+	}
+	if !strings.Contains(want, "imported directory 'jobs' is unused") {
+		t.Fatalf("the reproducer no longer reports jobs as an unused directory:\n%s", want)
+	}
 }
 
 // TestUndefinedTypeOwnerReadsNoOtherFile holds a file that names a type it

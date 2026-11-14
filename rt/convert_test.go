@@ -2,7 +2,6 @@ package rt
 
 import (
 	"math"
-	"reflect"
 	"testing"
 )
 
@@ -112,30 +111,6 @@ func TestStringToInt_Absolute(t *testing.T) {
 				t.Fatalf("StringToInt(%q) = Some(%s), want Some(%s)", tc.in, got.Some, tc.want)
 			}
 		})
-	}
-}
-
-// TestRefinedTypesAreNominallyDistinct is the property that makes the two
-// refinement newtypes worth having Go types for at all.
-//
-// `NonZeroInt` and `PositiveInt` are both defined over int64, so a Go
-// implementation that used int64 directly would compile and would let a plain
-// Int flow into `Int.divide`'s divisor — losing the proof the type carries. Go's
-// own type checker enforces it once they are defined types, and this asserts
-// that they are (a `type X = int64` alias would pass a value-equality test and
-// fail this one).
-func TestRefinedTypesAreNominallyDistinct(t *testing.T) {
-	var nz NonZeroInt = 5
-	var pos PositiveInt = 5
-	if int64(nz) != 5 || int64(pos) != 5 {
-		t.Fatal("a refinement newtype does not carry its int64 value")
-	}
-	// Reflectively, because the assignments Go would reject cannot be written.
-	if got := reflect.TypeOf(nz).Name(); got != "NonZeroInt" {
-		t.Fatalf("NonZeroInt reflects as %q; an alias would report int64", got)
-	}
-	if got := reflect.TypeOf(pos).Name(); got != "PositiveInt" {
-		t.Fatalf("PositiveInt reflects as %q; an alias would report int64", got)
 	}
 }
 

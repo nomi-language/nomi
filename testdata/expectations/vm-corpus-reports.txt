@@ -94,6 +94,7 @@
 10-generics-and-type-wrappers/args_first_inference_test.nomi
 10-generics-and-type-wrappers/bound_type_params_test.nomi
 10-generics-and-type-wrappers/bounds_test.nomi
+10-generics-and-type-wrappers/collection_refinements_test.nomi
 10-generics-and-type-wrappers/covariant_conversion_test.nomi
 10-generics-and-type-wrappers/embedded_variants_test.nomi
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi
@@ -101,6 +102,7 @@
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi
 10-generics-and-type-wrappers/generics_test.nomi
 10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi
+10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi
 10-generics-and-type-wrappers/turbofish_test.nomi
 10-generics-and-type-wrappers/type_argument_conversion/type_argument_conversion_test.nomi
 10-generics-and-type-wrappers/type_wrappers_test.nomi

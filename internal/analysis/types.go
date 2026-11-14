@@ -184,6 +184,11 @@ type StructType struct {
 	// that module; outside callers go through exported accessors.
 	Opaque           bool
 	OwningSourceFile string
+	// Rule is a struct refinement's rule as written after `end when`, on
+	// one line, and empty for a struct with none. Every value of the struct
+	// satisfies it: a literal is checked when the program is compiled, any
+	// other value goes through the generated `try_from` (refinement.go).
+	Rule string
 	// unbuilt is set while the declaration's body is not built yet, on the
 	// declaration and on each instance taken from it (unbuilt_decl.go).
 	unbuilt *unbuiltDecl
@@ -294,6 +299,11 @@ type DistinctType struct {
 	TypeParams    []string
 	TypeParamDefs []*TypeParam_
 	TypeArgs      []Type
+	// Rule is a refinement's rule as written after `when`, on one line
+	// (`fn port -> port >= 1`), and empty for every other distinct type. A
+	// refinement's value is a value of Inner: it converts up to Inner and
+	// each of Inner's ancestors, and is Inner at run time (refinement.go).
+	Rule string
 	// unbuilt is set on a declared distinct type (`type UserId Int`) until
 	// its inner type is resolved, and holds what waits on it
 	// (unbuilt_decl.go).
@@ -753,6 +763,12 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		if isEmbeddedTypeOf(a, et) {
 			return true
 		}
+	}
+
+	// A refinement's value is a value of each of its ancestors, from the
+	// actual side b into the expected a (refinement.go).
+	if m == eqAssign && refinesInto(b, a) {
+		return true
 	}
 
 	switch at := a.(type) {

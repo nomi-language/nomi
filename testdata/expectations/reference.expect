@@ -315,8 +315,8 @@ T ok Files.paths
 T ok Files.sub
 C float
 E 0
-N 39
-H 0ffc70623efce9f14a6c2277e6d4e1add7c10b2944d55bb2da107c724244c507
+N 41
+H 0b6df9887d4eee3cea310d93b8f7b41e59e3857c8348553bcd572b27749c0513
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -356,6 +356,8 @@ T ok Float.inspect (impl Debug for Float)
 T ok Float.min (impl Comparable for Float)
 T ok Float.max (impl Comparable for Float)
 T ok Float.clamp (impl Comparable for Float)
+T ok type NonNegativeFloat
+T ok type PositiveFloat
 C fs
 E 0
 N 29
@@ -538,11 +540,9 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 38
-H d337659529738c64a6b918a4d55020536a2b238cb2c717be91934a2eb761f75c
+N 36
+H 5c55c4076a8cbf87428984b76d645d6860d4848ac41bbd63c78e228376238cd2
 T ok type Int
-T ok Int.to_non_zero
-T ok Int.to_positive
 T ok Int.to_float
 T ok Int.to_decimal
 T ok Int.to_byte
@@ -567,9 +567,8 @@ T ok Int.parse_in
 T ok Int.to_string (impl Display for Int)
 T ok Int.empty_sum (impl Summable for Int)
 T ok Int.empty_product (impl Productable for Int)
-T ok Int.divide Divide<NonZeroInt, Int> (impl Divide<NonZeroInt, Int> for Int)
-T ok Int.remainder Remainder<Int, Int> (impl Remainder<Int, Int> for Int)
-T ok Int.remainder Remainder<NonZeroInt, Int> (impl Remainder<NonZeroInt, Int> for Int)
+T ok Int.divide (impl Divide<Int, Int> for Int)
+T ok Int.remainder (impl Remainder<Int, Int> for Int)
 T ok Int.bitwise_and (impl BitwiseAnd<Int, Int> for Int)
 T ok Int.bitwise_or (impl BitwiseOr<Int, Int> for Int)
 T ok Int.bitwise_xor (impl BitwiseXor<Int, Int> for Int)
@@ -577,7 +576,8 @@ T ok Int.bitwise_not (impl BitwiseNot<Int> for Int)
 T ok Int.shift_left (impl ShiftLeft<Int, Int> for Int)
 T ok Int.shift_right (impl ShiftRight<Int, Int> for Int)
 T ok Int.inspect (impl Debug for Int)
-T ok PositiveInt.to_non_zero
+T ok type NonZeroInt
+T ok type PositiveInt
 C io
 E 0
 N 33

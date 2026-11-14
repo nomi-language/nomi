@@ -305,8 +305,10 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 		}
 	case analysis.SymbolLiteral:
 		// Synthetic hover-only marker for a literal whose spelling does not
-		// name its type: `'a': Codepoint`.
+		// name its type: `'a': Codepoint`. A literal checked as a
+		// refinement says so in its doc.
 		sig = sym.Name + ": " + displayValueType(sym.Type)
+		doc = sym.Doc
 	case analysis.SymbolAssertion:
 		// Synthetic hover-only marker for assertion keywords. Like `?`,
 		// this renders prose outside the code fence, so return directly.
@@ -389,7 +391,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			doc = n.Doc
 		case *ast.StructDef:
 			sig = renderStructDef(n)
-			doc = n.Doc
+			doc = withNote(n.Doc, refinementNote(n.Name, n.Rule, sym.Type))
 		case *ast.EnumDef:
 			sig = renderEnumDef(n)
 			doc = n.Doc
@@ -401,8 +403,11 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			if n.InnerTypeExpr != nil {
 				s += " " + n.InnerTypeExpr.TypeString()
 			}
+			if n.Rule != nil {
+				s += " when " + analysis.RuleText(n.Rule)
+			}
 			sig = s
-			doc = n.Doc
+			doc = withNote(n.Doc, refinementNote(n.Name, n.Rule, sym.Type))
 		// No `doc = n.Doc` here, deliberately, unlike every sibling in
 		// this switch. The `switch sym.Kind` above already claims
 		// SymbolInterfaceMethod and sets the doc there, and every
@@ -1004,6 +1009,11 @@ func renderTypeExprSelfAware(te ast.TypeExpr, resolved analysis.Type, receiver a
 		// import: the reader knows the type by its own name.
 		return q.Member.TypeString()
 	}
+	if _, isBase := te.(*ast.RefinementBaseType); isBase && resolved != nil {
+		// A refinement's generated `try_from` takes its base, which no
+		// source spells there: the checker's type is its name.
+		return resolved.String()
+	}
 	if !typeExprContainsSelf(te) {
 		return te.TypeString()
 	}
@@ -1237,7 +1247,45 @@ func renderStructDef(n *ast.StructDef) string {
 		b.WriteString("\n")
 	}
 	b.WriteString("end")
+	if n.Rule != nil {
+		b.WriteString(" when " + analysis.RuleText(n.Rule))
+	}
 	return b.String()
+}
+
+// refinementNote is the paragraph a hover on a refinement adds below its
+// doc: the chain of types it refines, and how a value enters it. Empty for
+// a declaration with no rule.
+func refinementNote(name string, rule ast.Node, t analysis.Type) string {
+	if rule == nil {
+		return ""
+	}
+	chain := []string{name}
+	if t != nil {
+		chain = chain[:0]
+		for _, c := range analysis.RefinementChain(t) {
+			chain = append(chain, c.String())
+		}
+	}
+	var b strings.Builder
+	b.WriteString("*refinement*")
+	if len(chain) > 1 {
+		b.WriteString(": `" + strings.Join(chain, "` refines `") + "`")
+	}
+	b.WriteString(". A literal where a " + name + " is expected is checked when the program is compiled; `" +
+		name + ".try_from(...)` checks a value when it runs.")
+	return b.String()
+}
+
+// withNote is doc and note as one doc, a blank line between them.
+func withNote(doc, note string) string {
+	switch {
+	case note == "":
+		return doc
+	case doc == "":
+		return note
+	}
+	return doc + "\n\n" + note
 }
 
 func renderEnumDef(n *ast.EnumDef) string {

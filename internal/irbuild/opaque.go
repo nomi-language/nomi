@@ -113,9 +113,9 @@ type opaqueSpec struct {
 //
 // A row here is a Go type rt declares by hand, so adding one is a decision
 // rather than a mechanical extension — the same bar preludeSpecs sets. A row
-// does not need an rt extern over the type: `NonZeroInt` and `PositiveInt`
-// have none, because every function over them in std is ordinary Nomi. What a
-// row is for is letting a SIGNATURE name the type.
+// does not need an rt extern over the type: `Seed` has none, because every
+// function over it in std is ordinary Nomi. What a row is for is letting a
+// SIGNATURE name the type.
 //
 // # The shape this table admits
 //
@@ -139,19 +139,18 @@ type opaqueSpec struct {
 // rows.
 //
 // TestOpaqueSpecsAreLoadBearing checks, per row, that some std DECLARATION's
-// signature names the type, which is this table's actual bar and the reason
-// `NonZeroInt` belongs in it with zero corpus mentions.
+// signature names the type, which is this table's actual bar.
 //
-// `Codepoint`, `NonZeroInt` and `PositiveInt` are reached mostly through
-// `Maybe<…>`. A prelude instance over package-neutral arguments is interned
-// PROCESS-WIDE, for exactly the reason this file's header gives for sharing an
-// opaque def, so `Maybe<NonZeroInt>` is a kind a call site in another gen
-// compares equal to. See stdprelude.go.
+// `Codepoint` is reached mostly through `Maybe<…>`. A prelude instance over
+// package-neutral arguments is interned PROCESS-WIDE, for exactly the reason
+// this file's header gives for sharing an opaque def, so `Maybe<Codepoint>`
+// is a kind a call site in another gen compares equal to. See stdprelude.go.
+//
+// std/int's `NonZeroInt` and `PositiveInt` are refinements, which have no
+// representation of their own and so no row (refinement.go).
 var opaqueSpecs = []opaqueSpec{
 	{origin: "std/duration", nomi: "Duration", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Duration]()},
 	{origin: "std/instant", nomi: "Instant", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Instant]()},
-	{origin: "std/int", nomi: "NonZeroInt", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.NonZeroInt]()},
-	{origin: "std/int", nomi: "PositiveInt", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.PositiveInt]()},
 	{origin: "std/code_points", nomi: "Codepoint", form: formOpaque, inner: kindInt, goType: reflect.TypeFor[rt.Codepoint]()},
 	// std/random's PRNG register. A row with NO extern over it, which this
 	// table's own header says is the normal case rather than the exception:

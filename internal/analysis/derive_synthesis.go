@@ -334,7 +334,7 @@ type synthSite struct {
 func wrappingDistincts(decls map[string]ast.Node) map[string]bool {
 	out := map[string]bool{}
 	for name, n := range decls {
-		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil {
+		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil && td.Rule == nil {
 			out[name] = true
 		}
 	}
@@ -898,7 +898,9 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 			// rendered structurally by rt.DebugText, not here.
 			continue
 		}
-		if explicit[typeName] {
+		if explicit[typeName] || isDistinctRefinementDecl(n) {
+			// A distinct refinement has its base's Debug: its value is
+			// the base's at run time (refinement.go).
 			continue
 		}
 		// One impl per name. A second declaration of the same name is a
@@ -910,6 +912,10 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 		site.wrapping = wrapping
 		synthesized = append(synthesized, synthesizeAutoDebug(n, site)...)
 	}
+	// Each refinement's `try_from` and `unchecked` (refinement_synthesis.go),
+	// in this pass because it runs wherever a file's declarations are
+	// completed with what the front end writes for them.
+	synthesized = append(synthesized, synthesizeRefinements(nodes, index)...)
 	if len(synthesized) == 0 {
 		return nodes
 	}
@@ -1578,6 +1584,8 @@ func (s *uniquifyState) typeExpr(te ast.TypeExpr) {
 	switch t := te.(type) {
 	case *ast.SimpleType:
 		t.Line, t.Col = s.bump()
+	case *ast.RefinementBaseType:
+		t.Line, t.Col = s.bump()
 	case *ast.QualifiedType:
 		t.ModuleLine, t.ModuleCol = s.bump()
 		s.typeExpr(t.Member)
@@ -1792,6 +1800,40 @@ func (s *uniquifyState) node(n ast.Node) {
 				s.node(se.Expr)
 			}
 		}
+	case *ast.Binding:
+		e.Line, e.Col = s.bump()
+		if e.TypeAnnotation != nil {
+			s.typeExpr(e.TypeAnnotation)
+		}
+		s.node(e.Value)
+	case *ast.If:
+		e.Line, e.Col = s.bump()
+		s.node(e.Cond)
+		s.node(e.Then)
+		if e.Else != nil {
+			s.node(e.Else)
+		}
+	case *ast.Block:
+		e.Line, e.Col = s.bump()
+		for _, stmt := range e.Stmts {
+			s.node(stmt)
+		}
+	case *ast.UncheckedRefinement:
+		e.Line, e.Col = s.bump()
+		s.node(e.Value)
+	case *ast.RefinementRule:
+		e.Line, e.Col = s.bump()
+		s.node(e.Rule)
+		s.node(e.Value)
+	case *ast.RefinementParentCheck:
+		e.Line, e.Col = s.bump()
+		if e.Parent != nil {
+			s.typeExpr(e.Parent)
+		}
+		if e.Refined != nil {
+			s.node(e.Refined)
+		}
+		s.node(e.Plain)
 	default:
 		// Synthesizer-bug guard: any new ast.Node kind emitted by a
 		// derive synthesizer must add a case here. Falling through

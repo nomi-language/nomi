@@ -314,6 +314,26 @@ func (n *SelfType) LineNum() int       { return n.Line }
 func (*SelfType) typeExpr()            {}
 func (n *SelfType) TypeString() string { return "self" }
 
+// RefinementBaseType is the type a refinement's values are built from, in
+// the `try_from` and `unchecked` the front end generates for it (spec §4
+// *Refinement types*): the base at the end of a distinct refinement's chain
+// of parents (`Float` for `PositiveFloat`), or the record of a struct
+// refinement's fields. No source writes one: the declaring file may not
+// import the base's name.
+type RefinementBaseType struct {
+	TriviaCarrier
+	SpanCarrier
+	// Refinement is the refinement's name in its declaring file.
+	Refinement string
+	Line       int
+	Col        int
+}
+
+func (*RefinementBaseType) NodeType() string     { return "RefinementBaseType" }
+func (n *RefinementBaseType) LineNum() int       { return n.Line }
+func (*RefinementBaseType) typeExpr()            {}
+func (n *RefinementBaseType) TypeString() string { return "base(" + n.Refinement + ")" }
+
 // AnonStructType is an anonymous struct type expression like
 // `{name: String, age: Int}`. It can appear in any type-expression slot
 // (function parameter type, struct field type, tuple element type, generic
@@ -1439,9 +1459,16 @@ type StructDef struct {
 	// from TriviaCarrier.Trailing (which is for same-line trailing comments
 	// on the StructDef as a whole).
 	EndTrivia []Trivia
-	Doc       string
-	Line      int
-	Col       int
+	// Rule is the refinement rule after `end when`: a function from the
+	// struct to Bool that every value of it satisfies (spec §4
+	// *Refinement types*), a lambda or a function's name. Nil for a struct
+	// with no rule. RuleLine/RuleCol are the `when` keyword's position.
+	Rule     Node
+	RuleLine int
+	RuleCol  int
+	Doc      string
+	Line     int
+	Col      int
 }
 
 func (*StructDef) NodeType() string { return "StructDef" }
@@ -1607,6 +1634,15 @@ type TypeDef struct {
 	// which the inner type may name; empty for a non-generic distinct.
 	TypeParams    []TypeParam
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
+	// Rule is the refinement rule after `when`: a function from the inner
+	// type to Bool that every value of the type satisfies, a lambda or a
+	// function's name (spec §4 *Refinement types*). A TypeDef with a Rule
+	// is a refinement: its values are values of the inner type. Nil for an
+	// ordinary distinct type. RuleLine/RuleCol are the `when` keyword's
+	// position.
+	Rule     Node
+	RuleLine int
+	RuleCol  int
 	// HasBody/Items are retained for compiler-synthesized or legacy internal
 	// nodes. Source `type` declarations do not carry bodies; type-qualified
 	// functions and once bindings live in sibling `impl Type { ... }` blocks.
@@ -1809,6 +1845,61 @@ type BindingElse struct {
 
 func (*BindingElse) NodeType() string { return "BindingElse" }
 func (n *BindingElse) LineNum() int   { return n.Line }
+
+// UncheckedRefinement builds a value of a refinement from Value, a value of
+// its base, without evaluating its rule: the body of the `unchecked` the
+// front end generates for a refinement, and the last step of its
+// `try_from` (spec §4 *Refinement types*). No source writes one.
+type UncheckedRefinement struct {
+	TriviaCarrier
+	SpanCarrier
+	// Refinement is the refinement's name in its declaring file.
+	Refinement string
+	Value      Node
+	Line       int
+	Col        int
+}
+
+func (*UncheckedRefinement) NodeType() string { return "UncheckedRefinement" }
+func (n *UncheckedRefinement) LineNum() int   { return n.Line }
+
+// RefinementRule is the call of a refinement's rule, Rule, on Value that a
+// generated `try_from` makes (spec §4 *Refinement types*): a Bool, and
+// False when the rule traps, so `try_from` answers None for a value whose
+// rule traps. No source writes one.
+type RefinementRule struct {
+	TriviaCarrier
+	SpanCarrier
+	Rule  Node
+	Value Node
+	Line  int
+	Col   int
+}
+
+func (*RefinementRule) NodeType() string { return "RefinementRule" }
+func (n *RefinementRule) LineNum() int   { return n.Line }
+
+// RefinementParentCheck is the test a generated `try_from` makes of its
+// argument against the refinement's parent, the type it refines. The front
+// end writes both forms, since a parent declared in another file may or may
+// not be a refinement itself; the checker checks the one that applies and
+// records which (analysis.FileAnalysis.RefinementParents). Refined is
+// `Parent.try_from(value)`, for a parent that is a refinement; Plain is
+// `Some(value)`, for a parent that is the base. Both are Maybe<Parent>.
+type RefinementParentCheck struct {
+	TriviaCarrier
+	SpanCarrier
+	// Parent is the type the refinement refines, as its declaration
+	// writes it.
+	Parent  TypeExpr
+	Refined Node
+	Plain   Node
+	Line    int
+	Col     int
+}
+
+func (*RefinementParentCheck) NodeType() string { return "RefinementParentCheck" }
+func (n *RefinementParentCheck) LineNum() int   { return n.Line }
 
 // DistinctDestructure unwraps a distinct type: Id(x) = expr
 type DistinctDestructure struct {

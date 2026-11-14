@@ -1,5 +1,7 @@
 //# Parses and evaluates simple math word problems.
 
+import std::int.NonZeroInt
+
 /// Why a question has no answer.
 pub enum Error
     UnknownOperation
@@ -61,6 +63,6 @@ fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error>
 end
 
 fn divide(a: Int, b: Int) -> Result<Int, Error>
-    Some(divisor) = Int.to_non_zero(b) else return Err(.DivisionByZero)
+    Some(divisor) = NonZeroInt.try_from(b) else return Err(.DivisionByZero)
     Ok(Int.divide(a, divisor))
 end

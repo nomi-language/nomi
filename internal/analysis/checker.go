@@ -4552,6 +4552,14 @@ func (c *checker) checkNodeExpectingType(node ast.Node, expected Type) Type {
 	if rl, ok := node.(*ast.RangeLit); ok {
 		return c.checkRangeLit(rl, expected)
 	}
+	// A literal where a refinement is expected is that refinement, its
+	// rules evaluated when the program is compiled (refinement_check.go).
+	if dt := refinementOf(expected); dt != nil && refinementLiteral(node) {
+		return c.checkRefinementLiteral(node, dt)
+	}
+	if pc, ok := node.(*ast.RefinementParentCheck); ok {
+		return c.checkRefinementParentCheck(pc, expected)
+	}
 	// An Int literal where a Byte is expected is a Byte (byte_literal.go).
 	if expectsByte(expected) {
 		if _, grouped := node.(*ast.GroupedExpr); !grouped && intLiteralOperand(node) {
@@ -4796,6 +4804,11 @@ func typeWitnessNameFromFieldAccess(n *ast.FieldAccess) string {
 // an unnamed one where a distinct type over a map is expected builds that
 // type.
 func (c *checker) checkMapLitAt(n *ast.MapLit, expected Type) Type {
+	return c.checkCollectionRefinementLit(n, c.checkMapLitAs(n, expected))
+}
+
+// checkMapLitAs is checkMapLitAt before a refinement it builds is checked.
+func (c *checker) checkMapLitAs(n *ast.MapLit, expected Type) Type {
 	if n.TypeName != nil && c.stdShapeHead(n.TypeName) && n.TypeName.TypeString() == "Map" {
 		n.ShapeHead = true
 	}
@@ -4803,8 +4816,8 @@ func (c *checker) checkMapLitAt(n *ast.MapLit, expected Type) Type {
 		return c.checkMapLit(n)
 	}
 	if dt, ok := resolveTypeVar(expected).(*DistinctType); ok && n.TypeName == nil && c.buildsDistinct(dt) {
-		if mt, ok := resolveTypeVar(distinctInnerOf(dt)).(*MapType); ok {
-			if ty := c.checkMapLitAt(n, mt); ty == nil {
+		if mt, ok := resolveTypeVar(literalInnerOf(dt)).(*MapType); ok {
+			if ty := c.checkMapLitAs(n, mt); ty == nil {
 				return nil
 			}
 			return dt
@@ -4961,7 +4974,10 @@ func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape sp
 		} else {
 			ty = c.checkNode(sp.Head)
 		}
-		ty = resolveTypeVar(ty)
+		// A distinct refinement spreads as its base, which it converts up
+		// to: the literal builds a new value of the base, whose rule it
+		// need not keep.
+		ty = resolveTypeVar(RefinementBase(resolveTypeVar(ty)))
 		if ty == nil {
 			return nil, false, false
 		}
@@ -5086,6 +5102,14 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 
 	case *ast.SelfExpr:
 		return c.checkSelfValue(n)
+
+	case *ast.UncheckedRefinement:
+		return c.checkUncheckedRefinement(n)
+	case *ast.RefinementRule:
+		return c.checkRefinementRule(n)
+
+	case *ast.RefinementParentCheck:
+		return c.checkRefinementParentCheck(n, nil)
 
 	case *ast.StringInterp:
 		// All interpolation parts are checked, but result is always String.
@@ -5921,6 +5945,7 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	// off the synth band on the way out. See repointSynthDiagnostics.
 	defer c.repointSynthDiagnostics(n, len(c.errors))
 	c.registerImplBlockHover(n)
+	c.checkRefinementImpl(n)
 	if !IsSynthesizedLine(n.Line) {
 		c.checkImplReceiverDeclared(n)
 		if n.Interface != nil {
@@ -7170,6 +7195,16 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 	} else if !comparison && !operandsChecked {
 		right = c.checkNode(n.Right)
 	}
+	if n.Op != "|>" && (refinementOf(left) != nil || refinementOf(right) != nil) {
+		// An operand of a refinement is its base's value: `p + 1.0` is a
+		// Float, `port == 80` compares Ints (refinement.go).
+		left, right = RefinementBase(left), RefinementBase(right)
+	}
+	if comparison && (refinementInType(left, 0) || refinementInType(right, 0)) {
+		// A refinement inside a compared value compares as its base, the
+		// value it is: `NonZeroInt.try_from(5) == Some(5)`.
+		left, right = eraseRefinements(left, 0), eraseRefinements(right, 0)
+	}
 
 	switch n.Op {
 	case "+", "-", "*", "/", "%", "&&&", "|||", "^^^", "<<<", ">>>":
@@ -7785,7 +7820,7 @@ func (c *checker) seedPipeFromExpected(ft *FuncType, args []ast.Node, expected T
 	if expected == nil || !ContainsTypeParam(ft.Return) {
 		return nil
 	}
-	if concreteExpected(expected) && (callArgsNeedExpectedType(args) || byteLiteralsTakeExpected(args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(args) || expectsInterfaceArgument(expected)) {
+	if concreteExpected(expected) && (callArgsNeedExpectedType(args) || byteLiteralsTakeExpected(args, expected) || refinementLiteralsTakeExpected(args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(args) || expectsInterfaceArgument(expected)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v
@@ -9475,6 +9510,9 @@ func (c *checker) recordPartialOperatorCallType(n *ast.Call, ft *FuncType) {
 // finishOperatorInterfaceCall selects the impl of an operator function's
 // call `Type.add(a, b)` from its operands' types and answers its result.
 func (c *checker) finishOperatorInterfaceCall(n *ast.Call, opIface operatorInterface, left, right, expected Type) (Type, bool) {
+	// An operand of a refinement is its base's value, as at the operator
+	// itself (refinement.go).
+	left, right = RefinementBase(left), RefinementBase(right)
 	rhsExpected, result, matched, ambiguous, _ := c.selectOperatorImpl(opIface, left, right, expected)
 	if len(ambiguous) > 0 {
 		at := operandPos(n, n.Line, n.Col)
@@ -10036,6 +10074,10 @@ func (c *checker) callDefParams(funcNode ast.Node) []string {
 func (c *checker) argMatchesParam(argTy, paramTy Type, recPos Pos, recKind RecordingKind) bool {
 	if TypeAssignable(paramTy, argTy) {
 		return true
+	}
+	if dt := refinementOf(argTy); dt != nil && dt.Inner != nil {
+		// A refinement's value is its parent's (refinement.go).
+		return c.argMatchesParam(dt.Inner, paramTy, recPos, recKind)
 	}
 	// A function value enters a function-typed position when its type is
 	// assignable to the position's: contravariant parameters, covariant result
@@ -10851,7 +10893,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	}
 	var seed expectedSeed
 	if concreteExpected(expected) && !skipReturnInfer &&
-		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) && !unitSeedsOnlyLambdas(n.Args, expected) || byteLiteralsTakeExpected(n.Args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args) || expectsInterfaceArgument(expected)) {
+		ContainsTypeParam(resultTy) && (flatVariant || callArgsNeedExpectedType(n.Args) && !unitSeedsOnlyLambdas(n.Args, expected) || byteLiteralsTakeExpected(n.Args, expected) || refinementLiteralsTakeExpected(n.Args, expected) || !isUnitLike(expected) && c.argsTakeExpectedType(n.Args) || expectsInterfaceArgument(expected)) {
 		trial := make(map[*TypeParam_]Type, len(subs))
 		for k, v := range subs {
 			trial[k] = v
@@ -11741,6 +11783,10 @@ func typeImplementsInterface(c *checker, concrete Type, iface *InterfaceType, re
 	if iface.Name == "Debug" {
 		return true
 	}
+	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
+		// A refinement has its parent's impls (refinement.go).
+		return typeImplementsInterface(c, dt.Inner, iface, recPos, recKind)
+	}
 	if c != nil && !c.closing && containsTypeVar(concrete) {
 		c.openBounds = append(c.openBounds, openBound{t: concrete, meets: func(closed Type) bool {
 			return typeImplementsInterface(c, closed, iface, recPos, recKind)
@@ -12189,6 +12235,15 @@ func (c *checker) checkStructCallForm(n *ast.Call, st *StructType) Type {
 	// The field NAME stays in every message, which is the part a reader
 	// acts on; the column is the part that degrades.
 	argTy := c.checkNode(arg)
+	if st.Rule != "" && !IsSynthesizedLine(n.Line) {
+		// A refinement's rule is checked on a literal only
+		// (refinement_check.go).
+		line, col := startOf(arg)
+		c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
+			"%s(...) takes a literal: %s is a refinement, and a record computed when the program runs may not satisfy its rule", st.Name, st.Name)}.WithHint(fmt.Sprintf(
+			"check the record with `%s.try_from(...)`, which is `Some` when it satisfies `%s` and `None` when not", st.Name, st.Rule)))
+		return st
+	}
 	if anon, ok := resolveTypeVar(argTy).(*AnonStructType); ok {
 		return c.checkAnonStructTypeAgainstStruct(arg, anon, st)
 	}
@@ -12345,6 +12400,9 @@ func (c *checker) checkAnonStructTypeAgainstStruct(at ast.Node, anon *AnonStruct
 // It refuses `f: Float` given an Int (`expected Float, got Int`), as every
 // other position in the language does.
 func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType, patch bool) Type {
+	if st.Rule != "" {
+		defer c.checkStructRefinementLit(lit, st, patch)
+	}
 	if len(lit.Positional) > 0 {
 		var result Type
 		if len(st.TypeParamDefs) == 0 || len(st.TypeArgs) > 0 {
@@ -12688,6 +12746,9 @@ func (c *checker) checkStructUpdateLit(n *ast.StructLit) Type {
 	switch h := head.(type) {
 	case *StructType:
 		st := h
+		if st.Rule != "" && len(n.Fields) > 0 {
+			c.checkStructRefinementLit(n, st, true)
+		}
 		// THE HEAD'S TYPE ARGUMENTS ARE ALREADY SOLVED, and the field
 		// shape has to be read through them. `bx: Box<Int>` gives a
 		// StructType with TypeArgs [Int] but Fields still declared as
@@ -14072,7 +14133,10 @@ func (c *checker) interfaceBranchJoin(expected, have, next Type) Type {
 	// A std collection joins the same way where each branch converts to it
 	// (spec §5 *Covariant conversion*): `List<Display>` over a
 	// List<Int> and a List<String>.
-	if InterfaceMembers(resolveTypeVar(expected)) == nil && !convertibleArgs(resolveTypeVar(expected)) {
+	// A branch of a refinement joins as the type written too, which it
+	// converts up to (refinement.go).
+	if InterfaceMembers(resolveTypeVar(expected)) == nil && !convertibleArgs(resolveTypeVar(expected)) &&
+		!refinementInType(have, 0) && !refinementInType(next, 0) {
 		return nil
 	}
 	subs := map[*TypeParam_]Type{}
@@ -14616,6 +14680,14 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 						tqTypeName, n.Field.Name, tqTypeName))
 					return nil
 				}
+			}
+			if t := c.reg.Lookup(tqTypeName); IsRefinement(t) && n.Field.Name == "unchecked" {
+				// The generated `unchecked` is private to the declaring
+				// file (refinement_synthesis.go).
+				c.report(TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
+					"`%s.unchecked` builds a %s without checking its rule, and only the file that declares %s may call it", tqTypeName, tqTypeName, tqTypeName)}.WithHint(fmt.Sprintf(
+					"check the value with `%s.try_from(...)`, a `Maybe<%s>`", tqTypeName, tqTypeName)))
+				return nil
 			}
 			hint := emptyCollectionLiteralHint(c.reg.Lookup(tqTypeName), n.Field.Name)
 			if hint == "" {
@@ -17444,6 +17516,11 @@ func (c *checker) checkLiteralPattern(text string, line, col int, litTy, expecte
 	if TypesEqual(actual, litTy) {
 		return
 	}
+	if refinementOf(actual) != nil && TypesEqual(RefinementBase(actual), litTy) {
+		// A refinement's value is its base's, and the pattern compares
+		// with it as one (refinement.go).
+		return
+	}
 	c.addError(line, col, c.typef("pattern %s is %s %s, but the value is %s %s",
 		text, articleFor(litTy.String()), litTy, articleFor(actual.String()), actual))
 }
@@ -19945,6 +20022,10 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	if valTy == nil {
 		return true
 	}
+	if dt := refinementOf(valTy); dt != nil && dt.Inner != nil {
+		// A refinement has its parent's impls (refinement.go).
+		return c.typeImplementsInterface(dt.Inner, ifaceName, recPos, recKind)
+	}
 	// Universal default Debug — satisfied by every type (see the free
 	// function typeImplementsInterface above and the design doc). No
 	// manifest demand recorded; Debug registers eagerly/universally.
@@ -20037,6 +20118,11 @@ func (c *checker) recordConformanceRecording(t Type, ifaceName string, rec Recor
 		return
 	}
 	resolved := resolveTypeVar(t)
+	if dt := refinementOf(resolved); dt != nil && dt.Inner != nil {
+		// A refinement's demand is its base's (refinement.go).
+		c.recordConformanceRecording(dt.Inner, ifaceName, rec)
+		return
+	}
 	switch r := resolved.(type) {
 	case *TypeParam_:
 		c.checkDefaultSelfDemand(r, ifaceName, rec)

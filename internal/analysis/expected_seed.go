@@ -160,7 +160,7 @@ func (c *checker) seedWantedBy(arg ast.Node, param Type, expected Type) map[*Typ
 	}
 	a := ungroupExpr(unwrapNamedArg(arg))
 	_, bare := resolveTV(param).(*TypeParam_)
-	if byteLiteralsTakeExpected([]ast.Node{a}, expected) {
+	if byteLiteralsTakeExpected([]ast.Node{a}, expected) || refinementLiteralsTakeExpected([]ast.Node{a}, expected) {
 		return all()
 	}
 	switch v := a.(type) {

@@ -233,6 +233,14 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		}
 		return nil, e
 
+	case *ast.RefinementBaseType:
+		// The parameter of a refinement's generated `try_from` and
+		// `unchecked` (refinement_synthesis.go).
+		if base := refinementBaseOf(reg.Lookup(n.Refinement)); base != nil {
+			return base, nil
+		}
+		return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("%q is no refinement", n.Refinement)}
+
 	case *ast.SelfType:
 		if typeParams != nil {
 			if tp, ok := typeParams["self"]; ok {

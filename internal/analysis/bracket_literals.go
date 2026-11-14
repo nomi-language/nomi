@@ -76,11 +76,21 @@ func (c *checker) seqKindExpected(expected Type) (kind ast.SeqKind, target *Dist
 		return ast.SeqSet, nil, t
 	}
 	if dt, ok := t.(*DistinctType); ok && c.buildsDistinct(dt) {
-		if in := resolveTypeVar(distinctInnerOf(dt)); isVectorType(in) || isSetType(in) || isListType(in) {
+		if in := resolveTypeVar(literalInnerOf(dt)); isVectorType(in) || isSetType(in) || isListType(in) {
 			return seqKindOf(in), dt, in
 		}
 	}
 	return ast.SeqList, nil, expected
+}
+
+// literalInnerOf is the collection an unnamed literal builds where dt is
+// expected: dt's inner type, or for a refinement the base at the end of its
+// chain, so `[1, 2]` builds a refinement of a refinement of a List.
+func literalInnerOf(dt *DistinctType) Type {
+	if refinementOf(dt) != nil {
+		return RefinementBase(dt)
+	}
+	return distinctInnerOf(dt)
 }
 
 // buildsDistinct reports whether an unnamed literal here may build dt:
@@ -152,6 +162,12 @@ func (c *checker) checkEmptyNamedMap(n *ast.StructLit) (Type, bool) {
 // checkBracketLit types a bracket literal where expected is the type its
 // position expects, nil for none, and records its kind.
 func (c *checker) checkBracketLit(n *ast.ListLit, expected Type) Type {
+	return c.checkCollectionRefinementLit(n, c.checkBracketLitAs(n, expected))
+}
+
+// checkBracketLitAs is checkBracketLit before a refinement it builds is
+// checked.
+func (c *checker) checkBracketLitAs(n *ast.ListLit, expected Type) Type {
 	if n.TypeName != nil {
 		if name := n.TypeName.TypeString(); name != "Map" && c.stdShapeHead(n.TypeName) {
 			// `Vector[1, 2]` is the vector `[1, 2]` is where one is

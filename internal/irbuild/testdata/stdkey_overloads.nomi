@@ -27,6 +27,7 @@ import
     std::calendar.{Error, NaiveDateTime}
     std::duration.Duration
     std::instant.Instant
+    std::int.NonZeroInt
     std::io
 end
 
@@ -63,13 +64,12 @@ fn run() -> Result<Unit, Error>
         "between = " + Duration.to_string(NaiveDateTime.between(start, start + Duration.hours(24)))
     )
 
-    // --- `Int.divide`: two declarations, one spelling -------------------------
+    // --- `Int.divide` by a refinement ----------------------------------------
     //
-    // `impl Divide<Int, Int> for Int` is an unbound `host fn`; `impl
-    // Divide<NonZeroInt, Int> for Int` is an ordinary Nomi body. Both answered to
-    // `int.Int.divide`, so BOTH were refused and the total one was unreachable.
+    // `impl Divide<Int, Int> for Int` is an unbound `host fn`, and a
+    // `NonZeroInt` divisor is an Int, so it reaches the same function.
     // Rounding is toward zero, which is the line that separates it from a floor.
-    case Int.to_non_zero(3)
+    case NonZeroInt.try_from(3)
         Some(nz) ->
             io.print("div = " + Int.to_string(Int.divide(10, nz)))
             io.print("div_neg = " + Int.to_string(Int.divide(-10, nz)))

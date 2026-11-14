@@ -34,6 +34,10 @@ type implCandidate struct {
 // implCandidates is every impl of the interface iface (declared by origin)
 // that concrete has, one per distinct list of type arguments.
 func (c *checker) implCandidates(concrete Type, iface, origin string) []implCandidate {
+	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
+		// A refinement has its parent's impls (refinement.go).
+		return c.implCandidates(dt.Inner, iface, origin)
+	}
 	name := concreteTypeName(concrete)
 	if name == "" || c == nil || c.fa == nil {
 		return nil

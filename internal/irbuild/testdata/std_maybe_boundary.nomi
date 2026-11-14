@@ -5,8 +5,8 @@
 // intern table were keyed on the base name `rt.Maybe` — the collapsed key would
 // simply always answer the one entry — so the fixture would bless exactly the
 // defect it exists to catch. `Maybe<Int>` and `Maybe<String>` both cross here,
-// and `Maybe<NonZeroInt>` crosses at an opaque newtype, which is the third
-// neutral shape.
+// and `Maybe<NonZeroInt>` crosses at a refinement, whose kind is its base's,
+// Int.
 //
 // `String.strip_prefix` is deliberately absent even though its SIGNATURE is now
 // inside the boundary: its body reaches the grapheme-based `String.slice`, which
@@ -18,7 +18,10 @@
 // a collapsed key would hand `String.to_int` the `Maybe<String>` def and the
 // graph would read the wrong payload, and the payload printed
 // here would be the wrong one.
-import std::io
+import
+    std::int.{NonZeroInt, PositiveInt}
+    std::io
+end
 
 fn describe_int(text: String) -> String
     case String.to_int(text)
@@ -35,14 +38,14 @@ fn describe_trunc(x: Float) -> String
 end
 
 fn describe_non_zero(n: Int) -> String
-    case Int.to_non_zero(n)
+    case NonZeroInt.try_from(n)
         Some(nz) -> "non-zero ${nz}"
         None     -> "zero"
     end
 end
 
 fn describe_positive(n: Int) -> String
-    case Int.to_positive(n)
+    case PositiveInt.try_from(n)
         Some(p) -> "positive ${p}"
         None    -> "not positive"
     end
