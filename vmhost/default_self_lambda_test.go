@@ -74,7 +74,7 @@ const defaultSelfLambdaIface = `interface Temperature
 
     fn first(t: self) -> String
         cs = [t, t]
-        head = cs |> Iter.map(fn c -> c) |> Iter.to_list() |> List.head()
+        head = cs |> Iter.map(fn c -> c) |> Iter.to_list() |> List.first()
         case head
             Some(c) -> "first ${Temperature.unit(c)}"
             None -> "none"

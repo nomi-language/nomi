@@ -102,7 +102,7 @@ end
 fn first_even(xs: List<Int>) -> Maybe<Int>
     found = begin
         evens = Iter.filter(xs, fn x -> x % 2 == 0) |> Iter.to_list()
-        case List.head(evens)
+        case List.first(evens)
             Some(e) -> Some(e * 10)
             None -> None
         end

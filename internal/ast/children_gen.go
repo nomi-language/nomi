@@ -241,6 +241,9 @@ func generatedChildren(n Node, fn func(Node)) bool {
 			childrenOfRangeLit(n, fn)
 		}
 	case *RefinementBaseType:
+		if n != nil {
+			childrenOfRefinementBaseType(n, fn)
+		}
 	case *RefinementParentCheck:
 		if n != nil {
 			childrenOfRefinementParentCheck(n, fn)
@@ -1385,6 +1388,14 @@ func childrenOfRangeLit(x *RangeLit, fn func(Node)) {
 	}
 }
 
+func childrenOfRefinementBaseType(x *RefinementBaseType, fn func(Node)) {
+	for _, e1 := range x.Params {
+		if !absent(e1) {
+			fn(e1)
+		}
+	}
+}
+
 func childrenOfRefinementParentCheck(x *RefinementParentCheck, fn func(Node)) {
 	if !absent(x.Parent) {
 		fn(x.Parent)
@@ -1662,6 +1673,12 @@ func childrenOfTypeAlias(x *TypeAlias, fn func(Node)) {
 			fn(e2)
 		}
 	}
+	for i3 := range x.TypeParams {
+		childrenOfTypeParam(&x.TypeParams[i3], fn)
+	}
+	for i4 := range x.WhereClauses {
+		childrenOfWhereConstraint(&x.WhereClauses[i4], fn)
+	}
 }
 
 func childrenOfTypeDef(x *TypeDef, fn func(Node)) {
@@ -1677,12 +1694,20 @@ func childrenOfTypeDef(x *TypeDef, fn func(Node)) {
 	if !absent(x.InnerTypeExpr) {
 		fn(x.InnerTypeExpr)
 	}
+	for _, e4 := range x.MoreParents {
+		if !absent(e4) {
+			fn(e4)
+		}
+	}
+	for i5 := range x.WhereClauses {
+		childrenOfWhereConstraint(&x.WhereClauses[i5], fn)
+	}
 	if !absent(x.Rule) {
 		fn(x.Rule)
 	}
-	for _, e4 := range x.Items {
-		if !absent(e4) {
-			fn(e4)
+	for _, e6 := range x.Items {
+		if !absent(e6) {
+			fn(e6)
 		}
 	}
 }

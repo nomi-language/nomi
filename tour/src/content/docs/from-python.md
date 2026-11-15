@@ -69,11 +69,7 @@ fn word_lengths(text: String) -> Map<String, Int>
 end
 
 fn average(numbers: List<Int>) -> Maybe<Float>
-    if Iter.is_empty(numbers) then
-        None
-    else
-        Some(Int.to_float(Iter.sum(numbers)) / Int.to_float(Iter.count(numbers)))
-    end
+    Iter.mean(numbers)
 end
 
 // FILE: stats_test.nomi
@@ -92,4 +88,5 @@ test result: ok. 1 passed, 0 failed
 
 The comprehension becomes a pipe that reads in the order it runs: split,
 filter, map, collect. `average` says in its type that it may have no result,
-so a caller cannot forget the empty case.
+so a caller cannot forget the empty case: `Iter.mean` is `None` for an empty
+list.

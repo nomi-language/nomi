@@ -13,6 +13,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: all_your_base.nomi
 //# Converts a number, written as digits in one base, to its digits in another.
 
+import std::int.Radix
+
 /// Why a number cannot be rebased.
 pub enum Error
     InvalidInputBase
@@ -24,13 +26,11 @@ end
 /// in `input_base`, written in `output_base`. Zero, and an empty list of
 /// digits, come out as `[0]`.
 pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error>
-    if input_base < 2 then return Err(.InvalidInputBase)
+    Some(from) = Radix.try_from(input_base) else return Err(.InvalidInputBase)
+    Some(number) = Int.from_digits(digits, from) else return Err(.InvalidDigit)
+    Some(to) = Radix.try_from(output_base) else return Err(.InvalidOutputBase)
 
-    Some(number) = Int.from_digits(digits, input_base) else return Err(.InvalidDigit)
-
-    if output_base < 2 then return Err(.InvalidOutputBase)
-
-    Ok(Int.to_digits(number, output_base))
+    Ok(Int.to_digits(number, to))
 end
 
 // FILE: all_your_base_test.nomi
@@ -80,3 +80,4 @@ test result: ok. 21 passed, 0 failed
 - The digits become a number with `Int.from_digits(digits, input_base)`, whose `None` for a digit outside the base is the `InvalidDigit` error. It runs after the input base check, since a base below 2 traps there.
 - The number becomes digits with `Int.to_digits(number, output_base)`, which gives `[0]` for zero, so zero and an empty list need no early return.
 - The 21 cases are one `subtests` table. The first error row writes `Err(Error.InvalidInputBase)` and the later ones `Err(.InvalidDigit)`: a qualified variant in an earlier row gives the enum to the bare ones after it, so the table needs no type annotation.
+- Each base is checked with `Radix.try_from`, whose `None` is the base's error: a `Radix` is the base `Int.from_digits` and `Int.to_digits` take.

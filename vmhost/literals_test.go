@@ -212,7 +212,7 @@ func TestLiteralWithoutSlots_InfallibleHandlerRunsAtCompileTime(t *testing.T) {
 	if err := p.Run(context.Background(), &out, nil, false); err != nil || out.String() != "hi\n" {
 		t.Fatalf("run = %q, %v; want hi", out.String(), err)
 	}
-	traps := handler("        _ = fragments\n        Word{text: Int.to_string(1 / 0)}\n")
+	traps := handler("        zero = Iter.count(fragments) - Iter.count(fragments)\n        Word{text: Int.to_string(1 / zero)}\n")
 	ds := literalDiagnostics(t, traps+"fn main()\n    io.print(Word\"x\".text)\nend\n")
 	if len(ds) != 1 || !strings.HasPrefix(ds[0].Message, "typed literal Word\"x\" cannot be checked at compile time: its handler failed: ") {
 		t.Errorf("a trapping handler: diagnostics = %v", ds)

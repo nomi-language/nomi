@@ -68,7 +68,7 @@ fn rounds(
     case
         Iter.is_empty(hand(hands, other(collector))) -> {status: .Finished, cards:, tricks:}
         now in seen -> {status: .Loop, cards:, tricks:}
-        _ -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
+        _           -> rounds(hands, collector, Set.insert(seen, now), cards, tricks)
     end
 end
 

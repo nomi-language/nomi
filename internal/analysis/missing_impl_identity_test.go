@@ -287,11 +287,11 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // follow-on with a known mechanism, not an oversight.
 const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/BitwiseOr Byte/BitwiseXor " +
 	"Bytes/Add Chunks/Iter Cron/CheckedLiteral Date/Add Date/Subtract DateTime/Add " +
-	"DateTime/Subtract Decimal/Add Decimal/Divide Decimal/Multiply " +
-	"Decimal/Remainder Decimal/Subtract Duration/Add Duration/Divide " +
-	"Duration/Multiply Duration/Remainder Duration/Subtract Float/Add Float/Divide " +
+	"DateTime/Subtract Decimal/Add Decimal/Averageable Decimal/Divide Decimal/Multiply " +
+	"Decimal/Remainder Decimal/Subtract Duration/Add Duration/Averageable Duration/Divide " +
+	"Duration/Multiply Duration/Remainder Duration/Subtract Float/Add Float/Averageable Float/Divide " +
 	"Float/Multiply Float/Remainder Float/Subtract Instant/Add Instant/Subtract " +
-	"Int/Add Int/BitwiseAnd Int/BitwiseNot Int/BitwiseOr " +
+	"Int/Add Int/Averageable Int/BitwiseAnd Int/BitwiseNot Int/BitwiseOr " +
 	"Int/BitwiseXor Int/Divide Int/Multiply Int/Parse Int/Remainder Int/ShiftLeft " +
 	"Int/ShiftRight Int/Subtract Lines/Iter List/Add Map/Add " +
 	"Money/Add Money/Multiply Money/Subtract NaiveDateTime/Add " +

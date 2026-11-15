@@ -46,7 +46,7 @@ test "times sort chronologically"
     t3 = Time"10:00:00"
 
     sorted = Iter.sort([t1, t2, t3])
-    assert List.head(sorted) == Some(t2)
+    assert List.first(sorted) == Some(t2)
 end
 
 test "time construction rejects invalid components"

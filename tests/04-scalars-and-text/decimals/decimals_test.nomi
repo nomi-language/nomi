@@ -201,11 +201,12 @@ test "divide_exact by zero is a runtime error"
     result =
         """
         fn main()
-          _ = Decimal.divide_exact(1d, 0d)
+          zero = 0d
+          _ = Decimal.divide_exact(1d, zero)
         end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert "line 2: division by zero" in message
+    assert "line 3: division by zero" in message
 end

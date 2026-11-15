@@ -1056,7 +1056,7 @@ fn main()
             "${s} ${x}"
         end)
         |> Iter.to_list()
-    Some(first) = List.head(labels) else return
+    Some(first) = List.first(labels) else return
     io.print(if total > 2 then first else "none")
     io.print("${area(.Circle(1.0))}")
 end

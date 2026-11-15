@@ -6,6 +6,7 @@
 // types. File API objects such as `io` still require imports.
 pub import
     add.Add
+    averageable.Averageable
     bitwise.{BitwiseAnd, BitwiseNot, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight}
 
     // `Literal` / `Fragment` are intentionally not preluded. Typed-literal authors
@@ -16,23 +17,23 @@ pub import
     comparable.{Comparable, Ordering}
     contains.Contains
     context.Context
-    convert.From
+    convert.{From, TryFrom}
 
     // Ordering's variants are intentionally not preluded; use `Ordering.Less` or
     // `.Less`.
     debug.Debug
-    decimal.Decimal
+    decimal.{Decimal, NonNegativeDecimal, NonZeroDecimal, PositiveDecimal}
     discrete.Discrete
     display.Display
     divide.Divide
     equatable.Equatable
-    float.Float
+    float.{Float, NonNegativeFloat, NonZeroFloat, PositiveFloat}
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt, NonZeroInt, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     locale.Locale
-    maps.Map
+    maps.{Map, NonEmptyMap}
     maybe.Maybe
     maybe.Maybe.{None, Some}
     multiply.Multiply
@@ -43,15 +44,15 @@ pub import
     resources.{Commit, Release}
     results.{Infallible, Result}
     results.Result.{Err, Ok}
-    sets.Set
+    sets.{NonEmptySet, Set}
     startup.Startup
     steppable.Steppable
-    strings.String
+    strings.{NonEmptyString, String}
     structs.{Distinct, Struct}
     subtract.Subtract
     summable.Summable
     type.Type
     unit.Unit
     variants.Variants
-    vectors.Vector
+    vectors.{NonEmptyVector, Vector}
 end

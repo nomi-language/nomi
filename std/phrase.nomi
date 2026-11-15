@@ -452,17 +452,17 @@ end
 
 fn argument_kind(argument: Argument) -> Int
     case argument
-        Argument.Integer(_) -> 0
+        Argument.Integer(_)  -> 0
         Argument.Floating(_) -> 1
-        Argument.Exact(_) -> 2
-        Argument.Text(_) -> 3
-        Argument.Variant(_) -> 4
+        Argument.Exact(_)    -> 2
+        Argument.Text(_)     -> 3
+        Argument.Variant(_)  -> 4
         Argument.Localized{shown: _, name:, localize: _} -> if name == "" then 5 else 4
-        Argument.Named(_) -> 6
-        Argument.Items(_) -> 7
-        Argument.Day(_) -> 8
+        Argument.Named(_)  -> 6
+        Argument.Items(_)  -> 7
+        Argument.Day(_)    -> 8
         Argument.Amount(_) -> 9
-        Argument.Clock(_) -> 10
+        Argument.Clock(_)  -> 10
         Argument.Moment{key: _, shown: _, localize: _} -> 11
         Argument.Nested(_) -> 5
     end
@@ -481,14 +481,14 @@ end
 
 fn argument_key(argument: Argument) -> String
     case argument
-        Argument.Text(s) -> s
+        Argument.Text(s)       -> s
         Argument.Variant(name) -> name
         Argument.Localized{shown: _, name:, localize: _} -> name
         Argument.Day(date) -> Display.to_string(date)
-        Argument.Clock(t) -> Display.to_string(t)
+        Argument.Clock(t)  -> Display.to_string(t)
         Argument.Moment{key:, shown: _, localize: _} -> key
-        Argument.Amount(m) -> currency_key(m.currency)
-        _ -> ""
+        Argument.Amount(m)                           -> currency_key(m.currency)
+        _                                            -> ""
     end
 end
 
@@ -503,19 +503,19 @@ end
 
 fn argument_text(argument: Argument, locale: Locale, catalogs: List<Catalog>) -> String
     case argument
-        Argument.Integer(n) -> Localize.localize(n, locale)
-        Argument.Floating(f) -> Localize.localize(f, locale)
-        Argument.Exact(d) -> Localize.localize(d, locale)
-        Argument.Text(s) -> s
+        Argument.Integer(n)    -> Localize.localize(n, locale)
+        Argument.Floating(f)   -> Localize.localize(f, locale)
+        Argument.Exact(d)      -> Localize.localize(d, locale)
+        Argument.Text(s)       -> s
         Argument.Variant(name) -> name
         Argument.Localized{shown: _, name: _, localize:} -> localize(locale)
-        Argument.Named(noun) -> noun.table
-        Argument.Items(items) -> String.join_list(items, locale)
-        Argument.Day(date) -> Localize.localize(date, locale)
-        Argument.Clock(t) -> Localize.localize(t, locale)
-        Argument.Moment{key: _, shown: _, localize:} -> localize(locale)
-        Argument.Amount(m) -> Localize.localize(m, locale)
-        Argument.Nested(inner) -> Phrase.format(inner, locale, catalogs:)
+        Argument.Named(noun)                             -> noun.table
+        Argument.Items(items)                            -> String.join_list(items, locale)
+        Argument.Day(date)                               -> Localize.localize(date, locale)
+        Argument.Clock(t)                                -> Localize.localize(t, locale)
+        Argument.Moment{key: _, shown: _, localize:}     -> localize(locale)
+        Argument.Amount(m)                               -> Localize.localize(m, locale)
+        Argument.Nested(inner)                           -> Phrase.format(inner, locale, catalogs:)
     end
 end
 
@@ -537,19 +537,19 @@ end
 
 fn argument_shown(argument: Argument) -> String
     case argument
-        Argument.Integer(n) -> Debug.inspect(n)
-        Argument.Floating(f) -> Debug.inspect(f)
-        Argument.Exact(d) -> Debug.inspect(d)
-        Argument.Text(s) -> Debug.inspect(s)
+        Argument.Integer(n)    -> Debug.inspect(n)
+        Argument.Floating(f)   -> Debug.inspect(f)
+        Argument.Exact(d)      -> Debug.inspect(d)
+        Argument.Text(s)       -> Debug.inspect(s)
         Argument.Variant(name) -> name
         Argument.Localized{shown:, name: _, localize: _} -> shown
-        Argument.Named(noun) -> Debug.inspect(noun)
-        Argument.Items(items) -> Debug.inspect(items)
-        Argument.Day(date) -> Debug.inspect(date)
-        Argument.Clock(t) -> Debug.inspect(t)
-        Argument.Moment{key: _, shown:, localize: _} -> shown
-        Argument.Amount(m) -> Debug.inspect(m)
-        Argument.Nested(inner) -> Debug.inspect(inner)
+        Argument.Named(noun)                             -> Debug.inspect(noun)
+        Argument.Items(items)                            -> Debug.inspect(items)
+        Argument.Day(date)                               -> Debug.inspect(date)
+        Argument.Clock(t)                                -> Debug.inspect(t)
+        Argument.Moment{key: _, shown:, localize: _}     -> shown
+        Argument.Amount(m)                               -> Debug.inspect(m)
+        Argument.Nested(inner)                           -> Debug.inspect(inner)
     end
 end
 

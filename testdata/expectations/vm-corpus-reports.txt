@@ -54,6 +54,7 @@
 06-collections/lists_test.nomi
 06-collections/maps_test.nomi
 06-collections/named_literals_test.nomi
+06-collections/nonempty_collections_test.nomi
 06-collections/sets_test.nomi
 06-collections/spreads_test.nomi
 06-collections/tuples_test.nomi
@@ -100,6 +101,7 @@
 10-generics-and-type-wrappers/expansive_impl_member_test.nomi
 10-generics-and-type-wrappers/generic_distinct_test.nomi
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi
+10-generics-and-type-wrappers/generic_refinements_test.nomi
 10-generics-and-type-wrappers/generics_test.nomi
 10-generics-and-type-wrappers/opaque_types/opaque_types_test.nomi
 10-generics-and-type-wrappers/refinement_modules/refinement_modules_test.nomi
@@ -146,6 +148,7 @@
 13-iterators-and-pipes/iters_in_lists_test.nomi
 13-iterators-and-pipes/loop_control_test.nomi
 13-iterators-and-pipes/maybe_iter_test.nomi
+13-iterators-and-pipes/mean_test.nomi
 13-iterators-and-pipes/min_max_test.nomi
 13-iterators-and-pipes/pipe_head_expected/pipe_head_expected_test.nomi
 13-iterators-and-pipes/pipe_lambda_test.nomi

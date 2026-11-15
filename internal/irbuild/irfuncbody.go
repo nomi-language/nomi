@@ -639,7 +639,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			return bl.ownerFuncRef(t)
 		}
 		if _, mod, ok := bl.qualDottedOwner(t.Object); ok && mod != "" {
-			// `lists.List.head`: a function of a std owner the builder
+			// `lists.List.first`: a function of a std owner the builder
 			// holds no def for, through its module's qualifier. The value's
 			// body is that qualified call.
 			return bl.ownerFuncRef(t)

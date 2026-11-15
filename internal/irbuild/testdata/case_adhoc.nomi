@@ -22,10 +22,10 @@ end
 // failed.
 fn pick(n: Int) -> String
     case
-        loud("a", n > 100) -> "a"
+        loud("a", n > 100)             -> "a"
         loud("b", n > 10) when n != 50 -> "b"
-        _ when loud("c", n > 0) -> "c"
-        _ -> "d"
+        _ when loud("c", n > 0)        -> "c"
+        _                              -> "d"
     end
 end
 

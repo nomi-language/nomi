@@ -4290,6 +4290,12 @@ func (e *Encoder) structFuncType(x *ast.FuncType) {
 		}
 	}
 	e.value(x.Return)
+	e.len(x.EndTrivia == nil, len(x.EndTrivia))
+	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
+		for i9 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i9])
+		}
+	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
 }
@@ -4316,6 +4322,21 @@ func (d *Decoder) structFuncType(x *ast.FuncType) {
 	}
 	if v8 := d.value(); v8 != nil {
 		x.Return = v8.(ast.TypeExpr)
+	}
+	if n10 := d.sharedLen(); n10 == 0 {
+		x.EndTrivia = []ast.Trivia{}
+	} else if n10 > 0 {
+		if r12, fresh13 := d.ptr(); !fresh13 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r12, n10)
+		} else {
+			d.fits(n10)
+			x14 := make([]ast.Trivia, n10)
+			d.refs = append(d.refs, x14)
+			for i11 := range x14 {
+				d.structTrivia(&x14[i11])
+			}
+			x.EndTrivia = x14
+		}
 	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
@@ -6161,6 +6182,12 @@ func (e *Encoder) structRefinementBaseType(x *ast.RefinementBaseType) {
 	e.structTriviaCarrier(&x.TriviaCarrier)
 	e.structSpanCarrier(&x.SpanCarrier)
 	e.string(string(x.Refinement))
+	e.len(x.Params == nil, len(x.Params))
+	if len(x.Params) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Params)), len(x.Params), "[]ast.TypeExpr") {
+		for i1 := range x.Params {
+			e.value(x.Params[i1])
+		}
+	}
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
 }
@@ -6169,6 +6196,23 @@ func (d *Decoder) structRefinementBaseType(x *ast.RefinementBaseType) {
 	d.structTriviaCarrier(&x.TriviaCarrier)
 	d.structSpanCarrier(&x.SpanCarrier)
 	x.Refinement = string(d.string())
+	if n2 := d.sharedLen(); n2 == 0 {
+		x.Params = []ast.TypeExpr{}
+	} else if n2 > 0 {
+		if r4, fresh5 := d.ptr(); !fresh5 {
+			x.Params = d.sharedSliceSast_TypeExpr(r4, n2)
+		} else {
+			d.fits(n2)
+			x6 := make([]ast.TypeExpr, n2)
+			d.refs = append(d.refs, x6)
+			for i3 := range x6 {
+				if v7 := d.value(); v7 != nil {
+					x6[i3] = v7.(ast.TypeExpr)
+				}
+			}
+			x.Params = x6
+		}
+	}
 	x.Line = int(d.int())
 	x.Col = int(d.int())
 }
@@ -6503,6 +6547,18 @@ func (e *Encoder) structStructDef(x *ast.StructDef) {
 	e.value(x.Rule)
 	e.int(int64(x.RuleLine))
 	e.int(int64(x.RuleCol))
+	e.len(x.RuleLeading == nil, len(x.RuleLeading))
+	if len(x.RuleLeading) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.RuleLeading)), len(x.RuleLeading), "[]ast.Trivia") {
+		for i45 := range x.RuleLeading {
+			e.structTrivia(&x.RuleLeading[i45])
+		}
+	}
+	e.len(x.RuleTrailing == nil, len(x.RuleTrailing))
+	if len(x.RuleTrailing) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.RuleTrailing)), len(x.RuleTrailing), "[]ast.Trivia") {
+		for i51 := range x.RuleTrailing {
+			e.structTrivia(&x.RuleTrailing[i51])
+		}
+	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -6626,6 +6682,36 @@ func (d *Decoder) structStructDef(x *ast.StructDef) {
 	}
 	x.RuleLine = int(d.int())
 	x.RuleCol = int(d.int())
+	if n46 := d.sharedLen(); n46 == 0 {
+		x.RuleLeading = []ast.Trivia{}
+	} else if n46 > 0 {
+		if r48, fresh49 := d.ptr(); !fresh49 {
+			x.RuleLeading = d.sharedSliceSast_Trivia(r48, n46)
+		} else {
+			d.fits(n46)
+			x50 := make([]ast.Trivia, n46)
+			d.refs = append(d.refs, x50)
+			for i47 := range x50 {
+				d.structTrivia(&x50[i47])
+			}
+			x.RuleLeading = x50
+		}
+	}
+	if n52 := d.sharedLen(); n52 == 0 {
+		x.RuleTrailing = []ast.Trivia{}
+	} else if n52 > 0 {
+		if r54, fresh55 := d.ptr(); !fresh55 {
+			x.RuleTrailing = d.sharedSliceSast_Trivia(r54, n52)
+		} else {
+			d.fits(n52)
+			x56 := make([]ast.Trivia, n52)
+			d.refs = append(d.refs, x56)
+			for i53 := range x56 {
+				d.structTrivia(&x56[i53])
+			}
+			x.RuleTrailing = x56
+		}
+	}
 	x.Doc = string(d.string())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
@@ -7595,6 +7681,18 @@ func (e *Encoder) structTypeAlias(x *ast.TypeAlias) {
 			e.value(x.Bounds[i8])
 		}
 	}
+	e.len(x.TypeParams == nil, len(x.TypeParams))
+	if len(x.TypeParams) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.TypeParams)), len(x.TypeParams), "[]ast.TypeParam") {
+		for i15 := range x.TypeParams {
+			e.structTypeParam(&x.TypeParams[i15])
+		}
+	}
+	e.len(x.WhereClauses == nil, len(x.WhereClauses))
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i21 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i21])
+		}
+	}
 	e.string(string(x.Doc))
 	e.int(int64(x.Line))
 	e.int(int64(x.Col))
@@ -7640,6 +7738,36 @@ func (d *Decoder) structTypeAlias(x *ast.TypeAlias) {
 			x.Bounds = x13
 		}
 	}
+	if n16 := d.sharedLen(); n16 == 0 {
+		x.TypeParams = []ast.TypeParam{}
+	} else if n16 > 0 {
+		if r18, fresh19 := d.ptr(); !fresh19 {
+			x.TypeParams = d.sharedSliceSast_TypeParam(r18, n16)
+		} else {
+			d.fits(n16)
+			x20 := make([]ast.TypeParam, n16)
+			d.refs = append(d.refs, x20)
+			for i17 := range x20 {
+				d.structTypeParam(&x20[i17])
+			}
+			x.TypeParams = x20
+		}
+	}
+	if n22 := d.sharedLen(); n22 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n22 > 0 {
+		if r24, fresh25 := d.ptr(); !fresh25 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r24, n22)
+		} else {
+			d.fits(n22)
+			x26 := make([]ast.WhereConstraint, n22)
+			d.refs = append(d.refs, x26)
+			for i23 := range x26 {
+				d.structWhereConstraint(&x26[i23])
+			}
+			x.WhereClauses = x26
+		}
+	}
 	x.Doc = string(d.string())
 	x.Line = int(d.int())
 	x.Col = int(d.int())
@@ -7676,20 +7804,33 @@ func (e *Encoder) structTypeDef(x *ast.TypeDef) {
 		}
 	}
 	e.value(x.InnerTypeExpr)
+	e.bool(x.Subtype)
+	e.len(x.MoreParents == nil, len(x.MoreParents))
+	if len(x.MoreParents) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.MoreParents)), len(x.MoreParents), "[]ast.TypeExpr") {
+		for i20 := range x.MoreParents {
+			e.value(x.MoreParents[i20])
+		}
+	}
+	e.len(x.WhereClauses == nil, len(x.WhereClauses))
+	if len(x.WhereClauses) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.WhereClauses)), len(x.WhereClauses), "[]ast.WhereConstraint") {
+		for i27 := range x.WhereClauses {
+			e.structWhereConstraint(&x.WhereClauses[i27])
+		}
+	}
 	e.value(x.Rule)
 	e.int(int64(x.RuleLine))
 	e.int(int64(x.RuleCol))
 	e.bool(x.HasBody)
 	e.len(x.Items == nil, len(x.Items))
 	if len(x.Items) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.Items)), len(x.Items), "[]ast.Node") {
-		for i21 := range x.Items {
-			e.value(x.Items[i21])
+		for i34 := range x.Items {
+			e.value(x.Items[i34])
 		}
 	}
 	e.len(x.EndTrivia == nil, len(x.EndTrivia))
 	if len(x.EndTrivia) > 0 && e.slice(unsafe.Pointer(unsafe.SliceData(x.EndTrivia)), len(x.EndTrivia), "[]ast.Trivia") {
-		for i28 := range x.EndTrivia {
-			e.structTrivia(&x.EndTrivia[i28])
+		for i41 := range x.EndTrivia {
+			e.structTrivia(&x.EndTrivia[i41])
 		}
 	}
 	e.string(string(x.Doc))
@@ -7753,42 +7894,75 @@ func (d *Decoder) structTypeDef(x *ast.TypeDef) {
 	if v19 := d.value(); v19 != nil {
 		x.InnerTypeExpr = v19.(ast.TypeExpr)
 	}
-	if v20 := d.value(); v20 != nil {
-		x.Rule = v20.(ast.Node)
+	x.Subtype = bool(d.bool())
+	if n21 := d.sharedLen(); n21 == 0 {
+		x.MoreParents = []ast.TypeExpr{}
+	} else if n21 > 0 {
+		if r23, fresh24 := d.ptr(); !fresh24 {
+			x.MoreParents = d.sharedSliceSast_TypeExpr(r23, n21)
+		} else {
+			d.fits(n21)
+			x25 := make([]ast.TypeExpr, n21)
+			d.refs = append(d.refs, x25)
+			for i22 := range x25 {
+				if v26 := d.value(); v26 != nil {
+					x25[i22] = v26.(ast.TypeExpr)
+				}
+			}
+			x.MoreParents = x25
+		}
+	}
+	if n28 := d.sharedLen(); n28 == 0 {
+		x.WhereClauses = []ast.WhereConstraint{}
+	} else if n28 > 0 {
+		if r30, fresh31 := d.ptr(); !fresh31 {
+			x.WhereClauses = d.sharedSliceSast_WhereConstraint(r30, n28)
+		} else {
+			d.fits(n28)
+			x32 := make([]ast.WhereConstraint, n28)
+			d.refs = append(d.refs, x32)
+			for i29 := range x32 {
+				d.structWhereConstraint(&x32[i29])
+			}
+			x.WhereClauses = x32
+		}
+	}
+	if v33 := d.value(); v33 != nil {
+		x.Rule = v33.(ast.Node)
 	}
 	x.RuleLine = int(d.int())
 	x.RuleCol = int(d.int())
 	x.HasBody = bool(d.bool())
-	if n22 := d.sharedLen(); n22 == 0 {
+	if n35 := d.sharedLen(); n35 == 0 {
 		x.Items = []ast.Node{}
-	} else if n22 > 0 {
-		if r24, fresh25 := d.ptr(); !fresh25 {
-			x.Items = d.sharedSliceSast_Node(r24, n22)
+	} else if n35 > 0 {
+		if r37, fresh38 := d.ptr(); !fresh38 {
+			x.Items = d.sharedSliceSast_Node(r37, n35)
 		} else {
-			d.fits(n22)
-			x26 := make([]ast.Node, n22)
-			d.refs = append(d.refs, x26)
-			for i23 := range x26 {
-				if v27 := d.value(); v27 != nil {
-					x26[i23] = v27.(ast.Node)
+			d.fits(n35)
+			x39 := make([]ast.Node, n35)
+			d.refs = append(d.refs, x39)
+			for i36 := range x39 {
+				if v40 := d.value(); v40 != nil {
+					x39[i36] = v40.(ast.Node)
 				}
 			}
-			x.Items = x26
+			x.Items = x39
 		}
 	}
-	if n29 := d.sharedLen(); n29 == 0 {
+	if n42 := d.sharedLen(); n42 == 0 {
 		x.EndTrivia = []ast.Trivia{}
-	} else if n29 > 0 {
-		if r31, fresh32 := d.ptr(); !fresh32 {
-			x.EndTrivia = d.sharedSliceSast_Trivia(r31, n29)
+	} else if n42 > 0 {
+		if r44, fresh45 := d.ptr(); !fresh45 {
+			x.EndTrivia = d.sharedSliceSast_Trivia(r44, n42)
 		} else {
-			d.fits(n29)
-			x33 := make([]ast.Trivia, n29)
-			d.refs = append(d.refs, x33)
-			for i30 := range x33 {
-				d.structTrivia(&x33[i30])
+			d.fits(n42)
+			x46 := make([]ast.Trivia, n42)
+			d.refs = append(d.refs, x46)
+			for i43 := range x46 {
+				d.structTrivia(&x46[i43])
 			}
-			x.EndTrivia = x33
+			x.EndTrivia = x46
 		}
 	}
 	x.Doc = string(d.string())
@@ -8792,4 +8966,4 @@ var forms = []any{
 
 // CodecDigest is a digest of the code above it: a reader keys bytes this
 // codec wrote by it when the writer may be another binary.
-const CodecDigest = "d7041cb25b054882"
+const CodecDigest = "2bba8d78b2a15cc4"

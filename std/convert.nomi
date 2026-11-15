@@ -1,6 +1,8 @@
 //# The `From` interface: a value of one type made from a value of another.
 //# A `?` applies it when the error it propagates is not the function's
-//# declared error type.
+//# declared error type. `TryFrom` makes one when the value allows it.
+
+import maybe.Maybe
 
 /// A type made from an `E`: `ApiError.from(e)`. A `?` on a `Result<T, E>`
 /// in a function that returns `Result<_, F>` applies `F`'s `From<E>` impl
@@ -32,4 +34,31 @@
 /// them, and a type needs no impl to convert to itself.
 pub interface From<E>
     fn from(e: E) -> self
+end
+
+/// A type made from an `E` when the `E` allows it: `Some` of the value, or
+/// `None`. A `type` with a rule in its chain implements `TryFrom` of its
+/// base because of its rule: with `type Percent Int when fn n -> n >= 0
+/// and n <= 100`, `Percent.try_from(42)` checks the base's rules and then
+/// its own and is `Some(Percent(42))`, and `Percent.try_from(142)` is
+/// `None`. The compiler supplies that impl, so writing `impl TryFrom<Int>
+/// for Percent` is an error. Impls from other types are written as `From`'s
+/// are, one per source type:
+///
+/// ```nomi
+/// type Celsius Float when fn c -> c >= -273.15
+///
+/// type Kelvin Float when fn k -> k >= 0.0
+///
+/// impl TryFrom<Celsius> for Kelvin
+///     fn try_from(Celsius(c)) -> Maybe<Kelvin>
+///         Kelvin.try_from(c + 273.15)
+///     end
+/// end
+/// ```
+///
+/// A generic function bounded by `TryFrom<E>` checks a value into any type
+/// that has one, `where T: TryFrom<Int>` and then `T.try_from(n)`.
+pub interface TryFrom<E>
+    fn try_from(value: E) -> Maybe<self>
 end

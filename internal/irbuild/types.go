@@ -1195,6 +1195,11 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		return g.funcKind(params, g.typeOf(ft.Return))
 	}
 	if gt, isGeneric := te.(*ast.GenericType); isGeneric {
+		// `NonEmptyList<Int>`: a generic refinement is its base at the
+		// arguments (refinement.go).
+		if k, isRefinement := g.genericRefinementKind(g.refinementTypeSym(gt.Name), gt.Params); isRefinement {
+			return k
+		}
 		// `Maybe<Int>`, `Result<Int, String>`. Ahead of structuralTypeOf
 		// because a prelude enum is NAMED — its identity is a declaration —
 		// while everything structuralTypeOf answers for is interned. See
@@ -1230,6 +1235,10 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		if k, isUserGeneric := g.userGenericTypeOf(gt.Name, gt.Params); isUserGeneric {
 			return k
 		}
+		// `Pair<Int>` for `typealias Pair<T> (T, T)`. See typealias.go.
+		if k, isAlias := g.genericAliasKind(gt.Name, gt.Params); isAlias {
+			return k
+		}
 		// `Gets<String>`: a value held as a generic interface at type
 		// arguments, the existential of that instantiation. See instimpl.go.
 		if k, isInst := g.ifaceInstTypeOf(gt.Name, gt.Params); isInst {
@@ -1247,6 +1256,9 @@ func (g *gen) typeOf(te ast.TypeExpr) kind {
 		// generic member outright (qualifiedTypeParts requires a plain name)
 		// and leaves `non-local type`. See foreigngeneric.go.
 		if gt, isGeneric := qt.Member.(*ast.GenericType); isGeneric {
+			if k, isRefinement := g.genericRefinementKind(resolvedScopeSymbol(g.moduleScope(qt.Module), gt.Name), gt.Params); isRefinement {
+				return k
+			}
 			if k, isUserGeneric := g.userGenericTypeOf(qt.Module+"."+gt.Name, gt.Params); isUserGeneric {
 				return k
 			}

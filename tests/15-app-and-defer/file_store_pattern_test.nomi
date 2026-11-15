@@ -119,7 +119,7 @@ fn load_map(path: String) -> Result<Map<Int, TodoTask>, String>
         Err(e) ->
             case e
                 io.Error.NotFound{path: _} -> Ok({})
-                other -> Err(Display.to_string(other))
+                other                      -> Err(Display.to_string(other))
             end
     end
 end

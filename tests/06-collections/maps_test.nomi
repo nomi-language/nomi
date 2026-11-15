@@ -17,14 +17,14 @@ test "map patterns match keys literals and wildcard values"
 
     by_key = case config
         {"mode" => "debug", "port" => p} -> "debug on port ${p}"
-        {"port" => p} -> "port ${p}"
-        _ -> "no port"
+        {"port" => p}                    -> "port ${p}"
+        _                                -> "no port"
     end
 
     by_value = case config
         {"host" => "localhost"} -> "local"
-        {"host" => h} -> "remote: ${h}"
-        _ -> "no host"
+        {"host" => h}           -> "remote: ${h}"
+        _                       -> "no host"
     end
 
     int_key = case grid

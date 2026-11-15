@@ -71,7 +71,7 @@ var methodAliases = map[string][]string{
 	"strip":         {"trim"},
 	"is_empty":      {"is_empty"},
 	"empty":         {"is_empty"},
-	"first":         {"head", "first"},
+	"head":          {"first"},
 	"keys":          {"keys"},
 	"values":        {"values"},
 	"get":           {"get"},
@@ -198,14 +198,15 @@ func setAddHint(callee ast.Node, want, have Type) string {
 
 // aliasMemberHint is the hint for `Owner.name`, a member owner lacks under
 // the name another language gives it (methodAliases): `List.size` is
-// `List.length`. "" when owner has none of the aliases.
-func (c *checker) aliasMemberHint(owner, name string) string {
+// `List.length`, and alias is that name. Both are "" when owner has none
+// of the aliases.
+func (c *checker) aliasMemberHint(owner, name string) (hint, alias string) {
 	for _, cand := range methodAliases[strings.ToLower(snakeCase(name))] {
 		if sym, _ := c.resolveTypeMethodSymbol(owner, cand, ""); cand != name && sym != nil {
-			return fmt.Sprintf("did you mean `%s.%s`?", owner, cand)
+			return fmt.Sprintf("did you mean `%s.%s`?", owner, cand), cand
 		}
 	}
-	return ""
+	return "", ""
 }
 
 // functionNotFieldHint is the hint for `value.name` read as a field of a

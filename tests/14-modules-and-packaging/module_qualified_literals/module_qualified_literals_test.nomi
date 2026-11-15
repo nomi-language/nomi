@@ -76,9 +76,9 @@ end
 
 fn describe(slot: Slot) -> Int
     case slot
-        Slot{shape: shapes.Shape.Square(n), bag: _} -> n
+        Slot{shape: shapes.Shape.Square(n), bag: _}                           -> n
         {shape: shapes.Shape.Ring{r:}, bag: shapes.Bag.Items[first, .._rest]} -> r + first
-        {shape: shapes.Shape.Ring{r:}, bag: _} -> r
+        {shape: shapes.Shape.Ring{r:}, bag: _}                                -> r
     end
 end
 

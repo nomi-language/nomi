@@ -82,14 +82,19 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		return nil
 	}
 	k := args.kinds[0]
-	if k == kindEmptyVector && method == "concat" {
+	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the vector keeps its operand's kind.
+	if e := bl.g.recordedTypeArg(t, method, "T"); e != kindInvalid {
+		// The vector the checker solved T at, which a later operand may
+		// have widened past the first (listCallPlan).
+		k = bl.g.vectorKindOf(e)
+	} else if k == kindEmptyVector && method == "concat" {
 		k = args.kinds[1]
 	}
 	if k == kindEmptyVector {
 		// `Vector.next_item([])`: an element operand types the vector;
 		// with none, nothing constrains the element and no value of it
 		// is built or observed, so it is typed as listCallPlan types
-		// `List.head([])`.
+		// `List.first([])`.
 		k = bl.g.vectorKindOf(kindInt)
 		if method == "push" || method == "set" {
 			if e := args.kinds[len(args.kinds)-1]; irScalarLeafKind(e) {

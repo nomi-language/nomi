@@ -221,7 +221,7 @@ func TestIRLoopEndless_InALambda(t *testing.T) {
 fn main()
     spin = fn limit: Int -> Iter.loop(0, fn n ->
         io.print("spin ${n}")
-        if n == limit then io.print(1 / 0)
+        if n == limit then io.print(1 / (n - limit))
         n + 1
     end)
     drop = fn label: String ->
@@ -267,7 +267,7 @@ test "a bound loop"
     assert 2 == 2
     x = Iter.loop(fn ->
         io.print("bound")
-        io.print(1 / 0)
+        io.print(1 / (1 - 1))
     end)
     io.print("never")
     io.inspect(x)
@@ -278,7 +278,7 @@ test "a loop in an arm"
     case 1
         1 -> Iter.loop(fn ->
             io.print("arm")
-            io.print(1 / 0)
+            io.print(1 / (1 - 1))
         end)
         _ -> io.print("other")
     end

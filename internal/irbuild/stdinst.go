@@ -404,9 +404,9 @@ func stdModuleGenericTemplate(v *stdModuleView, recv, name string) *stdFunc {
 // program builds for itself, or calls a monomorphic std function that is
 // not retained for that reason (io's `Replayed` failure reaches
 // `guttered?`, which calls `String.starts_with`), or calls a function of a
-// std module lowered after its own (otherModuleCallee: Regex's Debug calls
-// `String.to_typed_literal`). A body the cache declined for any other
-// reason keeps that reason.
+// std module lowered after its own that it does not import
+// (otherModuleCallee). A body the cache declined for any other reason
+// keeps that reason.
 func (s *stdInstances) stdUnretainedMonoBody(f *stdFunc) bool {
 	return s.unretainedMono(f, map[*stdFunc]bool{})
 }
@@ -547,12 +547,12 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 // module module calls, is declared in another std module and is one a
 // program builds the body for: a monomorphic function a program builds for
 // itself (unretainedMono), or any function a program can call that is
-// declared in a module lowered after module. The shared lowering lowers
-// modules in dependency order, and a module's bodies resolve only against
-// the modules before it (buildStdlibIndexBy), so a body that calls into a
-// later module of its import cycle (std/regex's Debug calling
-// `String.to_typed_literal`, where std/strings imports std/regex) is not
-// retained there. A program builds it, against every module.
+// declared in a module outside module's scope (earlierMods). The shared
+// lowering lowers modules in dependency order, an import cycle as one
+// unit, and a module's bodies resolve only against its scope
+// (buildStdlibIndexBy), so a body that calls into a later module it does
+// not import, such as a prelude type's, is not retained there. A program
+// builds it, against every module.
 func (s *stdInstances) otherModuleCallee(module string, callee *stdFunc, visiting map[*stdFunc]bool) bool {
 	if callee == nil || callee.module == module {
 		return false
@@ -1170,12 +1170,13 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	}
 	base := irContainerBaseName(k)
 	if base == "" {
-		if len(t.Args) == 0 {
+		if len(t.Args) == 0 || !bl.boundCallTakesSelf(fa) {
 			if iface := bl.boundCallIface(fa); iface != "" {
-				// `T.empty_sum()` in `Iter.sum<Decimal>`: an interface
-				// function with no receiver, at a std type no std module's
-				// scope names. No operand selects the impl, so the
-				// interface-qualified spelling below has nothing to
+				// `T.empty_sum()` in `Iter.sum<Decimal>`, `T.mean(source)`
+				// in `Iter.mean<Decimal, Decimal>`: an interface function
+				// with no parameter of type self, at a std type no std
+				// module's scope names. No operand selects the impl, so
+				// the interface-qualified spelling below has nothing to
 				// dispatch on; T is k, and k's owner selects it.
 				if v, rk, mobile, ok, handled := bl.stdReceiverlessImplCall(t, iface, method, k); handled {
 					return v, rk, mobile, ok, true
@@ -1230,8 +1231,8 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	return bl.stdInstCallAt(t, f, k)
 }
 
-// stdReceiverlessImplCall lowers `T.method()`, an interface function of iface
-// that takes no value of T, at the std kind k the instance binds T to: the one
+// stdReceiverlessImplCall lowers `T.method(...)`, an interface function of
+// iface with no parameter of type self, at the std kind k the instance binds T to: the one
 // function std's `impl iface for <k's owner>` declares under method. handled
 // is false when std declares no such function for k.
 func (bl *irScalarBuilder) stdReceiverlessImplCall(t *ast.Call, iface, method string, k kind) (ir.Temp, kind, bool, bool, bool) {
@@ -1250,6 +1251,12 @@ func (bl *irScalarBuilder) stdReceiverlessImplCall(t *ast.Call, iface, method st
 	}
 	if f == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	if f.why == stdProgSigWhy {
+		// `T.mean(source)` at a Decimal: the impl takes an Iter, which has a
+		// kind only in a program, so the program builds the body as an
+		// instance with no arguments, as `Decimal.mean(xs)` does.
+		return bl.stdInstCallAt(t, f, kindInvalid)
 	}
 	args := bl.irQualLowerArgs(t)
 	plan := bl.stdFuncPlan(t, args, f)
@@ -1375,6 +1382,33 @@ func (bl *irScalarBuilder) boundCallIface(fa *ast.FieldAccess) string {
 		return ""
 	}
 	return sym.OwningInterface
+}
+
+// boundCallTakesSelf reports whether the interface function fa names
+// declares a parameter of type self, one an operand could select the impl
+// by. `fn mean(values: Iter<self>)` declares none: self is inside another
+// type there. It answers true when fa names no interface function.
+func (bl *irScalarBuilder) boundCallTakesSelf(fa *ast.FieldAccess) bool {
+	if bl.g.fa == nil || fa.Field == nil {
+		return true
+	}
+	sym := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != analysis.SymbolInterfaceMethod {
+		return true
+	}
+	m, ok := sym.Node.(*ast.InterfaceMethod)
+	if !ok {
+		return true
+	}
+	for _, p := range m.Params {
+		if isSelfTypeExpr(p.TypeAnnotation) {
+			return true
+		}
+	}
+	return false
 }
 
 // ifaceQualified is the call t spelled through iface: `Display.to_string(x)`

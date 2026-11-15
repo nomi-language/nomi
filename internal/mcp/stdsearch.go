@@ -151,8 +151,11 @@ func firstParagraph(doc string) string {
 // and the same result, a single capital letter in either standing for any
 // type, consistently. A query type also matches an interface it implements
 // (`List<T>` an `Iter<T>` parameter), and a candidate's result an interface
-// the query asks for. Exact matches come first, then ones that instantiate
-// a generic, then ones that go through an impl.
+// the query asks for. A refinement stands wherever its base is asked for,
+// since its values are the base's: a `NonNegativeInt` result answers
+// `-> Int`, and a `NonNegativeInt` query type an `Int` parameter. Exact
+// matches come first, then ones that instantiate a generic, then ones that
+// go through an impl or a refinement's base.
 func searchStd(query string, limit int) []stdEntry {
 	query = strings.TrimSpace(query)
 	if limit <= 0 {
@@ -396,7 +399,7 @@ func (u *unifier) unify(q, c *typeNode) bool {
 			u.q[q.name] = c.name
 		} else {
 			for _, iface := range u.bounds[c.name] {
-				if q.name != iface && !implementsName(q.name, iface) {
+				if q.name != iface && !implementsName(q, iface) {
 					return false
 				}
 				u.viaImpl = true
@@ -410,7 +413,18 @@ func (u *unifier) unify(q, c *typeNode) bool {
 		return false
 	}
 	if q.name != c.name || len(q.args) != len(c.args) {
-		return u.through(q, c, false)
+		if u.through(q, c, false) {
+			return true
+		}
+		for _, base := range refinementParents(q) {
+			saved := u.snapshot()
+			if u.unify(base, c) {
+				u.viaImpl = true
+				return true
+			}
+			*u = saved
+		}
+		return false
 	}
 	for i := range q.args {
 		if !u.unify(q.args[i], c.args[i]) {
@@ -422,14 +436,30 @@ func (u *unifier) unify(q, c *typeNode) bool {
 
 // unifyResult matches the query's result against a candidate's: the same
 // type, or the candidate's result implements the interface the query asks
-// for (`List<T>` answers an `Iter<T>`).
+// for (`List<T>` answers an `Iter<T>`), or the candidate's result is a
+// refinement whose base, or a base up its chain, does (`NonNegativeInt`
+// answers an `Int`).
 func (u *unifier) unifyResult(q, c *typeNode) bool {
 	saved := u.snapshot()
 	if u.unify(q, c) {
 		return true
 	}
 	*u = saved
-	return !q.isVar() && !c.isVar() && q.name != c.name && u.through(c, q, true)
+	if q.isVar() || c.isVar() || q.name == c.name {
+		return false
+	}
+	if u.through(c, q, true) {
+		return true
+	}
+	for _, base := range refinementParents(c) {
+		saved := u.snapshot()
+		if u.unifyResult(q, base) {
+			u.viaImpl = true
+			return true
+		}
+		*u = saved
+	}
+	return false
 }
 
 // through matches sub against super by an interface sub's type implements,
@@ -504,14 +534,58 @@ type implRel struct {
 	recv, iface *typeNode
 }
 
-func implementsName(typeName, iface string) bool {
-	for _, rel := range stdImpls()[typeName] {
+// implementsName says whether t's type implements iface, itself or, for a
+// refinement, through a base up its chain, whose impls a refinement has.
+func implementsName(t *typeNode, iface string) bool {
+	for _, rel := range stdImpls()[t.name] {
 		if rel.iface.name == iface {
+			return true
+		}
+	}
+	for _, base := range refinementParents(t) {
+		if implementsName(base, iface) {
 			return true
 		}
 	}
 	return false
 }
+
+// refinementParents answers t's parents when t's type is a std refinement
+// (`subtype PositiveInt NonNegativeInt and NonZeroInt when ...`), in t's type
+// arguments, and nothing for any other type.
+func refinementParents(t *typeNode) []*typeNode {
+	var out []*typeNode
+	for _, rel := range stdRefinements()[t.name] {
+		binding := map[string]*typeNode{}
+		if matchPattern(rel.recv, t, binding) {
+			out = append(out, substitute(rel.iface, binding))
+		}
+	}
+	return out
+}
+
+// stdRefinements indexes the stdlib's refinements by name, each parent an
+// implRel whose recv is the refinement with its type parameters
+// (`Sorted<T>`) and whose iface is the parent (`List<T>`).
+var stdRefinements = sync.OnceValue(func() map[string][]implRel {
+	out := map[string][]implRel{}
+	for _, nodes := range std.All().Nodes {
+		for _, n := range nodes {
+			d, ok := n.(*ast.TypeDef)
+			if !ok || !d.Subtype || d.InnerTypeExpr == nil {
+				continue
+			}
+			recv := &typeNode{name: d.Name}
+			for _, tp := range d.TypeParams {
+				recv.args = append(recv.args, &typeNode{name: tp.Name})
+			}
+			for _, parent := range append([]ast.TypeExpr{d.InnerTypeExpr}, d.MoreParents...) {
+				out[d.Name] = append(out[d.Name], implRel{recv: recv, iface: parseType(parent.TypeString())})
+			}
+		}
+	}
+	return out
+})
 
 // stdImpls indexes the stdlib's impls by receiver type name. Which type
 // implements which interface is the analysis's impl table

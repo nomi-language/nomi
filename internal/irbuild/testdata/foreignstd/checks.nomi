@@ -10,7 +10,7 @@ end
 // The same type in the RESULT position, and as a prelude instance's type
 // argument, so `importKind`'s list, prelude and named arms are all crossed.
 pub fn first_message(diagnostics: List<Diagnostic>) -> String
-    case List.head(diagnostics)
+    case List.first(diagnostics)
         Some(diagnostic) -> diagnostic.message
         None             -> "none"
     end

@@ -37,8 +37,8 @@ end
 
 fn is_shorter_than(x: List<Int>, y: List<Int>) -> Bool
     case (x, y)
-        (_, []) -> False
-        ([], _) -> True
+        (_, [])                        -> False
+        ([], _)                        -> True
         ([_, ..x_tail], [_, ..y_tail]) -> is_shorter_than(x_tail, y_tail)
     end
 end

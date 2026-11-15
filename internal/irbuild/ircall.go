@@ -37,7 +37,7 @@ func irCallSite(at ast.Node) ir.CallSite {
 // mixture faithful rather than convenient: `Table.Symbol` keys on `any`, and
 // Go compares an interface value by dynamic type first, so a `string` never
 // equals a `*fnSig`. Within the string half every name is owner-qualified
-// (`List.head`, `Map.get`), so two families' same-named methods are two
+// (`List.first`, `Map.get`), so two families' same-named methods are two
 // tokens. The hazard, named because it is the only way this goes wrong: a
 // family added with an UNQUALIFIED key would share a token with another
 // family's method of the same name.

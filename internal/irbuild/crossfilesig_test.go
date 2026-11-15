@@ -104,7 +104,7 @@ func TestCrossFileSignature_QualifiedPreludeTypes(t *testing.T) {
 end
 
 pub fn first(xs: List<Int>) -> maybe.Maybe<Int>
-  List.head(xs)
+  List.first(xs)
 end
 
 pub fn checked(n: Int) -> results.Result<Int, String>

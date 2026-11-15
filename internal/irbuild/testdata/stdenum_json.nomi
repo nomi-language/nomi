@@ -88,8 +88,8 @@ end
 fn name_of(jv: Json) -> String
     case jv
         Json.Obj({"name" => Json.String(n)}) -> "named " + n
-        Json.Obj(_) -> "object without a String name"
-        _ -> "not an object"
+        Json.Obj(_)                          -> "object without a String name"
+        _                                    -> "not an object"
     end
 end
 

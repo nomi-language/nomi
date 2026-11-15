@@ -296,7 +296,7 @@ end
 // `Some(Shape.Dot)` and `Ok(...)` pass to a Maybe<Shape> or Result<Shape,
 // String> parameter, and a value of the embedded type widens inside the
 // wrapper (`Some(Wrapped(c))`), as it does in a list or a tuple. A struct
-// field, `List.head`, `Map.get`, a nested Maybe and `==` over Maybe<Shape>
+// field, `List.first`, `Map.get`, a nested Maybe and `==` over Maybe<Shape>
 // run too.
 func TestRun_PreludeWrappersHoldAnEnumWithEmbeds(t *testing.T) {
 	out, err := runVM(t, `import std::io
@@ -377,7 +377,7 @@ fn main()
   h = Holder{shape: Some(Shape.Dot)}
   io.print(maybe(h.shape))
   shapes: List<Shape> = [Wrapped(Circle{r: 8}), Shape.Dot]
-  io.print(maybe(List.head(shapes)))
+  io.print(maybe(List.first(shapes)))
   m: Map<String, Shape> = {"a" => Shape.Dot}
   io.print(maybe(Map.get(m, "a")))
   io.print(maybe(Map.get(m, "b")))

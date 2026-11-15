@@ -64,7 +64,7 @@ fn main()
     // `List.compare([], [])` is deliberately absent: with NO typed side there is
     // no element type to instantiate the rt call at, so it refuses under the
     // existing `List function over an untyped empty list` — the same key
-    // `List.head([])` reports, for the same reason.
+    // `List.first([])` reports, for the same reason.
     io.print("${List.compare([], [1])}")
     io.print("${List.compare([1], [])}")
 

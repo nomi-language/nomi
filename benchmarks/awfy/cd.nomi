@@ -176,7 +176,7 @@ end
 fn blacken<K, V>(tree: RedBlackTree<K, V>) -> RedBlackTree<K, V>
     case tree
         .Node(_, left, key, value, right) -> .Node(.Black, left, key, value, right)
-        .Leaf -> .Leaf
+        .Leaf                             -> .Leaf
     end
 end
 
@@ -316,7 +316,7 @@ end
 fn redden<K, V>(tree: RedBlackTree<K, V>) -> RedBlackTree<K, V>
     case tree
         .Node(_, left, key, value, right) -> .Node(.Red, left, key, value, right)
-        .Leaf -> .Leaf
+        .Leaf                             -> .Leaf
     end
 end
 

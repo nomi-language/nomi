@@ -22,9 +22,9 @@ end
 test "list head and tail expose cons-list structure"
     xs = [1, 2, 3, 4, 5]
 
-    assert List.head(xs) == Some(1)
+    assert List.first(xs) == Some(1)
     assert List.tail(xs) == Some([2, 3, 4, 5])
-    assert List.head([]) == None
+    assert List.first([]) == None
     assert List.tail([]) == None
 end
 

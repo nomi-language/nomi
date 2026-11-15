@@ -17,9 +17,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// The items of `list` that `predicate` holds for, in order.
 pub fn keep<T>(list: List<T>, predicate: (T) -> Bool) -> List<T>
     case list
-        [] -> []
+        []                                  -> []
         [head, ..tail] when predicate(head) -> [head, ..keep(tail, predicate)]
-        [_head, ..tail] -> keep(tail, predicate)
+        [_head, ..tail]                     -> keep(tail, predicate)
     end
 end
 

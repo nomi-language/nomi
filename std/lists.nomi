@@ -1,5 +1,6 @@
 import
     add.Add
+    averageable.Averageable
     bool.Bool.{self, False, True}
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
@@ -8,7 +9,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
     maybe.Maybe.{self, None, Some}
     strings.String
@@ -16,7 +17,7 @@ import
 end
 
 //# Operations on the persistent linked `List<T>` type. Container-specific ops
-//# (`concat`, `head`, `tail`, `remove_at`, `remove`) live here;
+//# (`concat`, `first`, `tail`, `remove_at`, `remove`) live here;
 //# generic iteration — including `Iter.count` (O(1) via the
 //# `known_count` protocol) — goes through `Iter`:
 //# `Iter.map(xs, f) |> Iter.to_list()` for the strict, List-returning form.
@@ -24,7 +25,7 @@ end
 //# ## List and Iter
 //#
 //# `List`'s own functions are the ones that read or rebuild its cons
-//# structure (`length`, `head`, `tail`, `concat`, `next_item`, `remove_at`,
+//# structure (`length`, `first`, `tail`, `concat`, `next_item`, `remove_at`,
 //# `remove`, `starts_with`, `ends_with`, `split_while`), its `Contains`
 //# impl (`contains`), and the
 //# `Iter` protocol: `each_while`, and `known_count`, O(1), read from the
@@ -120,7 +121,7 @@ impl List<T>
     //! assert List.length(["a", "b"]) == 2
     //! assert List.length([]) == 0
     //
-    pub fn length<T>(list: List<T>) -> Int
+    pub fn length<T>(list: List<T>) -> NonNegativeInt
         Iter.count(list)
     end
 
@@ -129,16 +130,16 @@ impl List<T>
     //
     pub host fn concat<T>(a: List<T>, b: List<T>) -> List<T>
 
-    /// Returns the first element, or None if the list is empty. The cons-list idiom,
-    /// paired with `tail`; the stream-vocabulary equivalent is the free function
-    /// `Iter.first`.
-    //! assert List.head([1, 2, 3]) == Some(1)
-    //! assert List.head([]) == None
+    /// Returns the first element, or None if the list is empty, read from the
+    /// list's first cell; `tail` is the rest. `Iter.first` gives the same for
+    /// any iterable, and `NonEmptyList.first` the element itself.
+    //! assert List.first([1, 2, 3]) == Some(1)
+    //! assert List.first([]) == None
     //
-    pub fn head<T>(list: List<T>) -> Maybe<T>
+    pub fn first<T>(list: List<T>) -> Maybe<T>
         case list
-            [head, ..] -> Some(head)
-            []         -> None
+            [first, ..] -> Some(first)
+            []          -> None
         end
     end
 
@@ -354,5 +355,168 @@ impl Comparable for List<T> where T: Comparable
                         end
                 end
         end
+    end
+end
+
+/// A List with at least one element, so its first, last, largest and
+/// smallest elements are values rather than `Maybe`s. A literal is checked
+/// when the program is compiled, so `[]` where a NonEmptyList is expected is
+/// an error before the program runs; `NonEmptyList.try_from(xs)` checks a
+/// List computed at run time, and `NonEmptyList.of(first, rest)` builds one
+/// that cannot fail. A NonEmptyList is a List and passes wherever one is
+/// expected; a NonEmptyList<Circle> passes as a NonEmptyList<Shape> when
+/// Circle implements Shape. It is in the prelude.
+//! scores: NonEmptyList<Int> = [70, 95, 82]
+//! assert NonEmptyList.first(scores) == 70
+//! assert NonEmptyList.max(scores) == 95
+//! assert List.length(scores) == 3
+//!
+//! none: List<Int> = []
+//! assert NonEmptyList.try_from(none) == None
+//! assert NonEmptyList.try_from([1]) == Some([1])
+//
+pub subtype NonEmptyList<T> List<T> when fn list -> not Iter.is_empty(list)
+
+impl NonEmptyList<T>
+    /// A NonEmptyList of `first` followed by the elements of `rest`, which
+    /// may be empty.
+    //! assert NonEmptyList.of(1, [2, 3]) == [1, 2, 3]
+    //! assert NonEmptyList.of("a", []) == ["a"]
+    //
+    pub fn of<T>(first: T, rest: List<T>) -> NonEmptyList<T>
+        NonEmptyList.unchecked([first, ..rest])
+    end
+
+    /// The first element.
+    //! assert NonEmptyList.first([4, 5]) == 4
+    //
+    pub fn first<T>(list: NonEmptyList<T>) -> T
+        List.first(list)!
+    end
+
+    /// The last element.
+    //! assert NonEmptyList.last([4, 5]) == 5
+    //
+    pub fn last<T>(list: NonEmptyList<T>) -> T
+        Iter.last(list)!
+    end
+
+    /// The elements after the first, a List that may be empty.
+    //! assert NonEmptyList.tail([4, 5, 6]) == [5, 6]
+    //! assert NonEmptyList.tail([4]) == []
+    //
+    pub fn tail<T>(list: NonEmptyList<T>) -> List<T>
+        List.tail(list)!
+    end
+
+    /// The number of elements, at least one.
+    //! assert NonEmptyList.length(["a", "b"]) == 2
+    //
+    pub fn length<T>(list: NonEmptyList<T>) -> PositiveInt
+        PositiveInt.try_from(Iter.count(list))!
+    end
+
+    /// The largest element; the first of several equal ones.
+    //! assert NonEmptyList.max([3, 9, 4]) == 9
+    //
+    pub fn max<T>(list: NonEmptyList<T>) -> T where T: Comparable
+        Iter.max(list)!
+    end
+
+    /// The smallest element; the first of several equal ones.
+    //! assert NonEmptyList.min([3, 9, 4]) == 3
+    //
+    pub fn min<T>(list: NonEmptyList<T>) -> T where T: Comparable
+        Iter.min(list)!
+    end
+
+    /// The element whose key is largest.
+    //! assert NonEmptyList.max_by(["bb", "a", "ccc"], String.length) == "ccc"
+    //
+    pub fn max_by<T, K>(list: NonEmptyList<T>, key: (T) -> K) -> T where K: Comparable
+        Iter.max_by(list, key)!
+    end
+
+    /// The element whose key is smallest.
+    //! assert NonEmptyList.min_by(["bb", "a", "ccc"], String.length) == "a"
+    //
+    pub fn min_by<T, K>(list: NonEmptyList<T>, key: (T) -> K) -> T where K: Comparable
+        Iter.min_by(list, key)!
+    end
+
+    /// The arithmetic mean of the elements, rounded as `Iter.mean` rounds;
+    /// a value, since there is at least one.
+    //! assert NonEmptyList.mean([1, 2]) == 1.5
+    //! assert NonEmptyList.mean([1.50d, 2.25d]) == 1.875d
+    //
+    pub fn mean<T, R>(list: NonEmptyList<T>) -> R where T: Averageable<R>
+        Iter.mean(list)!
+    end
+
+    /// Combines the elements left to right with `f`, starting from the
+    /// first, so it needs no starting value: `[a, b, c]` is `f(f(a, b), c)`.
+    //! assert NonEmptyList.reduce([1, 2, 3], fn acc, n -> acc + n) == 6
+    //! assert NonEmptyList.reduce(["x"], fn acc, s -> acc + s) == "x"
+    //
+    pub fn reduce<T>(list: NonEmptyList<T>, f: (T, T) -> T) -> T
+        Iter.reduce(tail(list), first(list), f)
+    end
+
+    /// Applies `f` to each element; the result has as many elements.
+    //! assert NonEmptyList.map([1, 2], fn n -> n * 10) == [10, 20]
+    //
+    pub fn map<T, U>(list: NonEmptyList<T>, f: (T) -> U) -> NonEmptyList<U>
+        NonEmptyList.unchecked(
+            Iter.map(list, f)
+            |> Iter.to_list()
+        )
+    end
+
+    /// Each element with its index, from 0.
+    //! assert NonEmptyList.with_index(["a", "b"]) == [(0, "a"), (1, "b")]
+    //
+    pub fn with_index<T>(list: NonEmptyList<T>) -> NonEmptyList<(NonNegativeInt, T)>
+        NonEmptyList.unchecked(
+            Iter.with_index(list)
+            |> Iter.to_list()
+        )
+    end
+
+    /// The elements in reverse order.
+    //! assert NonEmptyList.reverse([1, 2, 3]) == [3, 2, 1]
+    //
+    pub fn reverse<T>(list: NonEmptyList<T>) -> NonEmptyList<T>
+        NonEmptyList.unchecked(Iter.reverse(list))
+    end
+
+    /// The elements in ascending order; the sort is stable.
+    //! assert NonEmptyList.sort([3, 1, 2]) == [1, 2, 3]
+    //
+    pub fn sort<T>(list: NonEmptyList<T>) -> NonEmptyList<T> where T: Comparable
+        NonEmptyList.unchecked(Iter.sort(list))
+    end
+
+    /// `item` before the elements of `list`, which may be empty. O(1).
+    //! assert NonEmptyList.prepend([2, 3], 1) == [1, 2, 3]
+    //! assert NonEmptyList.prepend([], 1) == [1]
+    //
+    pub fn prepend<T>(list: List<T>, item: T) -> NonEmptyList<T>
+        NonEmptyList.unchecked([item, ..list])
+    end
+
+    /// The elements of `list`, which may be empty, then `item`. O(n).
+    //! assert NonEmptyList.push([1, 2], 3) == [1, 2, 3]
+    //! assert NonEmptyList.push([], 3) == [3]
+    //
+    pub fn push<T>(list: List<T>, item: T) -> NonEmptyList<T>
+        NonEmptyList.unchecked(List.concat(list, [item]))
+    end
+
+    /// The elements of `a`, then those of `b`, which may be empty.
+    //! assert NonEmptyList.concat([1], [2, 3]) == [1, 2, 3]
+    //! assert NonEmptyList.concat([1], []) == [1]
+    //
+    pub fn concat<T>(a: NonEmptyList<T>, b: List<T>) -> NonEmptyList<T>
+        NonEmptyList.unchecked(List.concat(a, b))
     end
 end

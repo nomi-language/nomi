@@ -18,7 +18,7 @@ derive Variants for Coin
 derive Display for Coin
 
 fn first<T>() -> Maybe<T> where T: Variants
-    T.variants() |> List.head()
+    T.variants() |> List.first()
 end
 
 fn all<T>() -> List<T> where T: Variants

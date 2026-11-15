@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/nomi-language/nomi/internal/stdlibbindings"
 )
 
 // NetworkPackage is the adapter package whose functions need the network:
@@ -28,7 +30,8 @@ const NetworkTag = "nomi_nonet"
 type Files map[string][]byte
 
 // GenerateFiles is Generate's source split three ways: adapters_gen.go,
-// every adapter that does not call NetworkPackage plus NetworkNames;
+// every adapter that does not call NetworkPackage plus NetworkNames and
+// Pure (the rows internal/stdlibbindings marks Pure);
 // adapters_net_gen.go, the ones that do, built without NetworkTag; and
 // adapters_nonet_gen.go, an error-answering stub for each of those, built
 // with it. Bind names every adapter in both builds, so the two runners
@@ -87,6 +90,7 @@ func splitNetwork(src []byte) (Files, error) {
 		return nil, err
 	}
 	main = append(main, networkNamesFunc(names)...)
+	main = append(main, pureFunc(stdlibbindings.Pure())...)
 	if main, err = format.Source(main); err != nil {
 		return nil, fmt.Errorf("stdtable: formatting adapters_gen.go: %w", err)
 	}
@@ -163,6 +167,28 @@ func networkNamesFunc(names []string) []byte {
 		fmt.Fprintf(&b, "\t\t%q,\n", n)
 	}
 	b.WriteString("\t}\n}\n")
+	return b.Bytes()
+}
+
+// pureFunc is Pure, which answers the rows marked Pure from a table built
+// into the binary rather than from internal/stdlibbindings, which the
+// runners do not link.
+func pureFunc(pure map[string]bool) []byte {
+	names := make([]string, 0, len(pure))
+	for n := range pure {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	var b bytes.Buffer
+	b.WriteString("\n// pure is every crossing whose row in internal/stdlibbindings is marked\n" +
+		"// Pure, sorted.\nvar pure = map[string]bool{\n")
+	for _, n := range names {
+		fmt.Fprintf(&b, "\t%q: true,\n", n)
+	}
+	b.WriteString("}\n\n// Pure reports whether the crossing name lands on an adapter whose row is\n" +
+		"// marked Pure: one that computes its answer from its operands alone and\n" +
+		"// acts on nothing outside the machine (stdlibbindings.Binding.Pure).\n" +
+		"func Pure(name string) bool { return pure[name] }\n")
 	return b.Bytes()
 }
 

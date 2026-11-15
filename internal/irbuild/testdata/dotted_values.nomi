@@ -77,10 +77,10 @@ end
 // rather than stopping at the `Maybe`.
 fn inner_severity(m: Maybe<Probe.Reading>) -> Int
     case m
-        Some(Probe.Reading.Steady) -> 0
-        Some(Probe.Reading.Spike(n)) -> n
+        Some(Probe.Reading.Steady)    -> 0
+        Some(Probe.Reading.Spike(n))  -> n
         Some(Probe.Reading.Blip{at:}) -> at
-        None -> -1
+        None                          -> -1
     end
 end
 

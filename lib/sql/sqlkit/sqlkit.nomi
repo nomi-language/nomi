@@ -119,8 +119,8 @@ pub fn migrate(conn: Conn, migrations: List<Migration>) -> Result<Unit, sql.Erro
     |> Result.map_err(fn e ->
         case e
             .Failed{path: _, error:} -> error
-            .Database{error:} -> error
-            _ -> sql.Error.Database{code: "migrate", message: "${e}"}
+            .Database{error:}        -> error
+            _                        -> sql.Error.Database{code: "migrate", message: "${e}"}
         end
     end)
 end

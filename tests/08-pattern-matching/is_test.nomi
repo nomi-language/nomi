@@ -72,8 +72,8 @@ test "is binds like =="
     assert not shape is .Circle{r: _}
     assert shape is .Point and not shape is .Square{side: _}
     assert shape is .Circle{r: _} or shape is .Point
-    assert [1, 2] |> List.head() is Some(1)
-    assert not [] |> List.head() is Some(_)
+    assert [1, 2] |> List.first() is Some(1)
+    assert not [] |> List.first() is Some(_)
     assert (shape is .Point) == True
     assert 2 + 1 is 3
 end

@@ -36,7 +36,7 @@ func TestIs_Precedence(t *testing.T) {
 		{"x is .A or y", "({x is EnumPattern} or y)"},
 		{"a and x is .A", "(a and {x is EnumPattern})"},
 		{"x is .A or y is .B", "({x is EnumPattern} or {y is EnumPattern})"},
-		{"xs |> List.head() is Some(_)", "{(xs |> List.head()) is EnumPattern}"},
+		{"xs |> List.first() is Some(_)", "{(xs |> List.first()) is EnumPattern}"},
 		{"a + 1 is 2", "{(a + 1) is IntLit}"},
 		{"a &&& 1 is 0", "{(a &&& 1) is IntLit}"},
 		{"x.kind is .A", "{x.kind is EnumPattern}"},

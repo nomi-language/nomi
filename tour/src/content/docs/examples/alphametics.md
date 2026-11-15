@@ -50,7 +50,9 @@ fn places(word: String, sign: Int) -> List<(String, Int, Bool)>
     word
     |> Iter.reverse()
     |> Iter.with_index()
-    |> Iter.map(fn (place, name) -> (name, sign * Int.pow(10, place), place == last and last > 0))
+    |> Iter.map(fn (place, name) ->
+        (name, sign * Int.pow(10, place), place == last and last > 0)
+    end)
     |> Iter.to_list()
 end
 

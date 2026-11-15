@@ -387,7 +387,7 @@ end
 impl ClientHello
     fn of_handle(handle: http_host.Handle) -> ClientHello
         (name, protocols, versions, suites) = case http_host.hello_parts(handle)
-            [n, p, v, c] -> (List.head(n) |> Maybe.with_default(""), p, v, c)
+            [n, p, v, c] -> (List.first(n) |> Maybe.with_default(""), p, v, c)
             _            -> ("", [], [], [])
         end
 
@@ -669,11 +669,11 @@ impl Display for Error
     //
     fn to_string(error: Error) -> String
         case error
-            .Alert{code: _, reason:} -> "TLS alert: ${reason}"
+            .Alert{code: _, reason:}                -> "TLS alert: ${reason}"
             .Verification{reason:, certificates: _} -> "the certificate did not verify: ${reason}"
-            .NotTls{reason:} -> "the peer does not speak TLS: ${reason}"
-            .Certificate{reason:} -> "certificate: ${reason}"
-            .Handshake{reason:} -> "TLS handshake: ${reason}"
+            .NotTls{reason:}                        -> "the peer does not speak TLS: ${reason}"
+            .Certificate{reason:}                   -> "certificate: ${reason}"
+            .Handshake{reason:}                     -> "TLS handshake: ${reason}"
         end
     end
 end

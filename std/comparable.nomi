@@ -159,9 +159,9 @@ pub interface Comparable
         end
 
         case
-            compare(value, low) == .Less -> low
+            compare(value, low) == .Less     -> low
             compare(value, high) == .Greater -> high
-            _ -> value
+            _                                -> value
         end
     end
 end

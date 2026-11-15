@@ -145,10 +145,10 @@
 // comment it writes after code on a line (commentMark). Render then
 // (alignLines) finds each block's items whose start, end and columns share
 // one line, splits them into runs of consecutive lines at one indent, and
-// pads each run's columns in display width (textWidth), unless its left
-// parts are more than alignCutoff apart (rows excepted) or a padded line
-// would pass the width, not counting a trailing comment, which fits do not
-// count either. Trailing comments align last, over lines already padded.
+// pads each run's columns in display width (textWidth), section by
+// section where gofmt's rule splits it (alignSections: alignSmall and
+// alignRatio, rows excepted), unless a padded line would pass the width,
+// not counting a trailing comment, which fits do not count either. Trailing comments align last, over lines already padded.
 // Then it removes the marks. A comment line, a blank line or an item over
 // several lines breaks the run because its lines are not consecutive items.
 // Since the layout never sees padding and the parser ignores spacing

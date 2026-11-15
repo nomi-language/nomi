@@ -319,10 +319,13 @@ func (g *gen) wantStruct(n *types.Named, s *types.Struct) error {
 
 // analysisSets are the unexported fields the analysis sets on a tree it
 // checks, which a tree as the parser and the expansions leave it, the tree
-// an interface holds, never has set. The codec does not write them.
+// an interface holds, never has set: a block the analysis writes and
+// withholds (ImplBlock.pending) is no declaration of that tree. The codec
+// does not write them.
 var analysisSets = map[string]bool{
 	"TaggedString.expansion": true,
 	"TaggedString.template":  true,
+	"ImplBlock.pending":      true,
 }
 
 func (g *gen) file() ([]byte, error) {

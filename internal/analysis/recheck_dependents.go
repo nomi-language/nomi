@@ -40,9 +40,10 @@ func implsFingerprint(nodes []ast.Node) string {
 	for _, n := range nodes {
 		switch n := n.(type) {
 		case *ast.ImplBlock:
-			if n.Interface == nil {
+			if n.Interface == nil && !n.Withheld() {
 				// An inherent block's functions are its own type's, which
-				// only a file that imports this one can name.
+				// only a file that imports this one can name. A withheld
+				// block may yet be an interface impl, and is rendered whole.
 				b.WriteString("impl ")
 				fingerprintValue(&b, reflect.ValueOf(n.Receiver))
 				fingerprintValue(&b, reflect.ValueOf(n.Generics))

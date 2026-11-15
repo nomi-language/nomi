@@ -418,6 +418,12 @@ decimal.nomi:Decimal.parse_in	ran
 decimal.nomi:Decimal.parse_percent_in	ran
 decimal.nomi:Decimal.sign	ran
 decimal.nomi:Decimal.step_by	ran
+decimal.nomi:NonNegativeDecimal.try_from	ran
+decimal.nomi:NonNegativeDecimal.unchecked	ran
+decimal.nomi:NonZeroDecimal.try_from	ran
+decimal.nomi:NonZeroDecimal.unchecked	ran
+decimal.nomi:PositiveDecimal.try_from	ran
+decimal.nomi:PositiveDecimal.unchecked	ran
 decimal.nomi:RoundingMode.inspect	ran
 decimal.nomi:RoundingMode.to_string	ran
 decimal.nomi:decimal.Decimal.parse_in arity 2	ran
@@ -453,6 +459,8 @@ duration.nomi:Duration.parse_clock	ran
 duration.nomi:Duration.seconds	ran
 duration.nomi:DurationWidth.equal	ran
 duration.nomi:DurationWidth.inspect	ran
+duration.nomi:PositiveDuration.try_from	ran
+duration.nomi:PositiveDuration.unchecked	ran
 duration.nomi:digits_end	ran
 duration.nomi:duration.Duration.format arity 2	ran
 duration.nomi:duration.Duration.format default 3	ran
@@ -492,6 +500,8 @@ float.nomi:Float.round	ran
 float.nomi:Float.sign	ran
 float.nomi:NonNegativeFloat.try_from	ran
 float.nomi:NonNegativeFloat.unchecked	ran
+float.nomi:NonZeroFloat.try_from	ran
+float.nomi:NonZeroFloat.unchecked	ran
 float.nomi:PositiveFloat.try_from	ran
 float.nomi:PositiveFloat.unchecked	ran
 float.nomi:float.Float.format arity 2	ran
@@ -554,10 +564,14 @@ int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
 int.nomi:Int.to_digits	ran
+int.nomi:NonNegativeInt.try_from	ran
+int.nomi:NonNegativeInt.unchecked	ran
 int.nomi:NonZeroInt.try_from	ran
 int.nomi:NonZeroInt.unchecked	ran
 int.nomi:PositiveInt.try_from	ran
 int.nomi:PositiveInt.unchecked	ran
+int.nomi:Radix.try_from	ran
+int.nomi:Radix.unchecked	ran
 int.nomi:int.Int.format arity 2	ran
 int.nomi:int.Int.format arity 3	ran
 int.nomi:int.Int.format default 3	ran
@@ -693,6 +707,7 @@ random.nomi:unsafe_int	ran
 ranges.nomi:Range.from	ran
 ranges.nomi:Range.naturals	ran
 regex.nomi:Regex.from_fragments	ran
+regex.nomi:Regex.inspect	ran
 regex.nomi:Regex.to_string	ran
 results.nomi:Infallible.equal	NEVER: a parameter is Infallible, so nothing can call it
 results.nomi:Infallible.hash	NEVER: a parameter is Infallible, so nothing can call it
@@ -710,6 +725,8 @@ strings.nomi:ListStyle.equal	ran
 strings.nomi:ListStyle.inspect	ran
 strings.nomi:ListWidth.equal	ran
 strings.nomi:ListWidth.inspect	ran
+strings.nomi:NonEmptyString.try_from	ran
+strings.nomi:NonEmptyString.unchecked	ran
 strings.nomi:NormalForm.inspect	ran
 strings.nomi:NormalForm.to_string	ran
 strings.nomi:String.Contains<Codepoint>.contains	ran

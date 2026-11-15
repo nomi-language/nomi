@@ -55,11 +55,15 @@ func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
 		c.addError(line, col, fmt.Sprintf(
 			"%s wraps %s, so %s(...) takes one argument, %s %s; got %d",
 			label, formatTypeForError(dt.Inner), label,
-			articleFor(formatTypeForError(dt.Inner)), formatTypeForError(dt.Inner), len(n.Args)))
+			ArticleFor(formatTypeForError(dt.Inner)), formatTypeForError(dt.Inner), len(n.Args)))
 		return dt
 	}
-	if dt.Rule != "" {
+	if dt.Subtype {
 		c.refinementCtorArg(n.Args[0], dt, label)
+		return dt
+	}
+	if checkedDistinctOf(dt) != nil {
+		c.checkedCtorArg(n.Args[0], dt, label)
 		return dt
 	}
 	argTy := c.checkNodeExpecting(n.Args[0], distinctInnerOf(dt))
@@ -85,6 +89,8 @@ func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
 		Name:             dt.Name,
 		Inner:            dt.Inner,
 		Rule:             dt.Rule,
+		MoreParents:      dt.MoreParents,
+		Subtype:          dt.Subtype,
 		Opaque:           dt.Opaque,
 		OwningSourceFile: dt.OwningSourceFile,
 		TypeParams:       dt.TypeParams,
@@ -116,7 +122,7 @@ func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy
 			"%s takes the piped value as its only argument, got %d more", label, len(call.Args)))
 		return dt
 	}
-	if dt.Rule != "" {
+	if dt.Subtype || checkedDistinctOf(dt) != nil {
 		c.refinementPipedArg(piped, pipedTy, dt, label)
 		return dt
 	}
@@ -148,10 +154,10 @@ func distinctArgMessage(ctor string, dt *DistinctType, argTy Type) string {
 	inner := formatTypeForError(distinctInnerOf(dt))
 	if ctor == dt.Name {
 		return fmt.Sprintf("%s wraps %s, so %s(...) takes %s %s; got %s",
-			dt.Name, inner, ctor, articleFor(inner), inner, formatTypeForError(argTy))
+			dt.Name, inner, ctor, ArticleFor(inner), inner, formatTypeForError(argTy))
 	}
 	return fmt.Sprintf("%s builds %s %s, which wraps %s, so %s(...) takes %s %s; got %s",
-		ctor, articleFor(dt.Name), dt.Name, inner, ctor, articleFor(inner), inner, formatTypeForError(argTy))
+		ctor, ArticleFor(dt.Name), dt.Name, inner, ctor, ArticleFor(inner), inner, formatTypeForError(argTy))
 }
 
 func zeroSizedTypeCallMessage(label string) string {

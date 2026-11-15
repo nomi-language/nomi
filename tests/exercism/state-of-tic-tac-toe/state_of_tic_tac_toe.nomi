@@ -52,12 +52,12 @@ pub fn gamestate(board: List<String>) -> Result<State, Error>
     o_won = has_won(cells, 'O')
 
     case
-        os > xs -> Err(.OStarted)
+        os > xs     -> Err(.OStarted)
         xs > os + 1 -> Err(.XWentTwice)
         x_won and (o_won or xs == os) or o_won and xs > os -> Err(.PlayedAfterWin)
         x_won or o_won -> Ok(.Win)
-        xs + os == 9 -> Ok(.Draw)
-        _ -> Ok(.Ongoing)
+        xs + os == 9   -> Ok(.Draw)
+        _              -> Ok(.Ongoing)
     end
 end
 

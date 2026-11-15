@@ -288,7 +288,7 @@ func TestIRNestedFn_RecursionIsASelfCapture(t *testing.T) {
 }
 
 // An `if` without `else` is Unit whichever way it goes, and Unit `==` answers
-// after both operands run; List.head over struct elements is a cell
+// after both operands run; List.first over struct elements is a cell
 // operation.
 func TestIRTestBody_UnitIfAndStructListHead(t *testing.T) {
 	const src = `struct P
@@ -303,13 +303,13 @@ test "an if without else is Unit"
   refute a != b
 end
 
-test "List.head over struct elements"
-  assert List.head([P{x: 1}, P{x: 2}]) == Some(P{x: 1})
+test "List.first over struct elements"
+  assert List.first([P{x: 1}, P{x: 2}]) == Some(P{x: 1})
 end
 `
-	got, exit := irShapesRun(t, src, []string{"an if without else is Unit", "List.head over struct elements"})
+	got, exit := irShapesRun(t, src, []string{"an if without else is Unit", "List.first over struct elements"})
 	const want = `ok <path> :: an if without else is Unit
-ok <path> :: List.head over struct elements
+ok <path> :: List.first over struct elements
 `
 	if !strings.HasPrefix(got, want) || exit != 0 {
 		t.Errorf("the VM's report (exit %d):\n%s\nwant it to begin:\n%s", exit, got, want)

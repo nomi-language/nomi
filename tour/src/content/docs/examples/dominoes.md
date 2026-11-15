@@ -18,7 +18,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// match each other; `None` when no order makes one.
 pub fn chain(stones: List<(Int, Int)>) -> Maybe<List<(Int, Int)>>
     case stones
-        [] -> Some([])
+        []                               -> Some([])
         [(start, stop) as first, ..rest] -> extend(start, stop, [first], rest)
     end
 end

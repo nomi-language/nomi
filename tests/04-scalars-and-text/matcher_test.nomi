@@ -92,7 +92,7 @@ test "find is the first element find_all returns"
 end
 
 fn first_agrees<M>(text: String, m: M) -> Bool where M: Matcher
-    String.find(text, m) == (String.find_all(text, m) |> List.head())
+    String.find(text, m) == (String.find_all(text, m) |> List.first())
 end
 
 test "a function of your own takes any matcher"

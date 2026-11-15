@@ -18,10 +18,10 @@ end
 
 fn rank(n: Int) -> String
     case severity.of(n)
-        Severity.Low -> "low"
+        Severity.Low                         -> "low"
         severity.Severity.High(x) when x > 5 -> "very high ${x}"
-        .High(x) -> "high ${x}"
-        .Custom{label:} -> "custom ${label}"
+        .High(x)                             -> "high ${x}"
+        .Custom{label:}                      -> "custom ${label}"
     end
 end
 

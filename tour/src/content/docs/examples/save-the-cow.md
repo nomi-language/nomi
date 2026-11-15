@@ -63,8 +63,8 @@ impl Game
     /// and a failure with none remaining loses.
     pub fn guess(game: Game, letter: Codepoint) -> Result<Game, Error>
         case game.state
-            .Win -> Err(.AlreadyWon)
-            .Lose -> Err(.AlreadyLost)
+            .Win                                  -> Err(.AlreadyWon)
+            .Lose                                 -> Err(.AlreadyLost)
             .Ongoing when is_hidden(game, letter) -> Ok(reveal(game, letter))
             .Ongoing when game.remaining_failures == 0 -> Ok({..game, state: .Lose})
             .Ongoing -> Ok({..game, remaining_failures: .. - 1})

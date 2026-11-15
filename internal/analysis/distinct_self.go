@@ -197,7 +197,7 @@ func (c *checker) checkSelfCall(n *ast.Call) Type {
 		c.checkArgs(n.Args)
 		c.addError(callee.Line, callee.Col, fmt.Sprintf(
 			"`self` wraps %s, so self(...) takes one argument, %s %s; got %d",
-			formatTypeForError(inner), articleFor(formatTypeForError(inner)), formatTypeForError(inner), len(n.Args)))
+			formatTypeForError(inner), ArticleFor(formatTypeForError(inner)), formatTypeForError(inner), len(n.Args)))
 		return selfTy
 	}
 	argTy := c.checkNodeExpecting(n.Args[0], inner)
@@ -213,7 +213,7 @@ func (c *checker) checkSelfCall(n *ast.Call) Type {
 	}
 	if !matches {
 		c.addError(line, col, fmt.Sprintf("`self` wraps %s, so self(...) takes %s %s; got %s",
-			formatTypeForError(inner), articleFor(formatTypeForError(inner)), formatTypeForError(inner), formatTypeForError(argTy)))
+			formatTypeForError(inner), ArticleFor(formatTypeForError(inner)), formatTypeForError(inner), formatTypeForError(argTy)))
 	}
 	return selfTy
 }

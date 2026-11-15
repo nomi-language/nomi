@@ -75,7 +75,7 @@ func (c *checker) checkOrPattern(n *ast.OrPattern, expectedTy Type) {
 			if err := c.unify(f.ty, b.ty, nil); err != nil && !TypesEqual(resolveTypeVar(f.ty), resolveTypeVar(b.ty)) {
 				c.report(TypeError{Line: b.pos.Line, Col: b.pos.Col, EndLine: b.pos.Line, EndCol: b.pos.Col + len(name),
 					Message: c.typef("`%s` is %s %s in `%s` but %s %s in `%s`; a name an `or` pattern binds has one type in every alternative",
-						name, articleFor(f.ty.String()), f.ty, firstText, articleFor(b.ty.String()), b.ty, altText)})
+						name, ArticleFor(f.ty.String()), f.ty, firstText, ArticleFor(b.ty.String()), b.ty, altText)})
 			}
 		}
 	}

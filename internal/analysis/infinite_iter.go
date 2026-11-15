@@ -79,6 +79,8 @@ var infiniteIterTerminals = map[string]iterDrain{
 	"Iter.product":         {source: iterSourceArg},
 	"Iter.sum_by":          {source: iterSourceArg},
 	"Iter.product_by":      {source: iterSourceArg},
+	"Iter.mean":            {source: iterSourceArg},
+	"Iter.mean_by":         {source: iterSourceArg},
 	"Iter.reduce":          {source: iterSourceArg, callback: foldCallbackArg},
 	"Iter.each":            {source: iterSourceArg, callback: iterCallbackArg},
 	"Iter.map_reduce":      {source: iterSourceArg, callback: foldCallbackArg},

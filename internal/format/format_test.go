@@ -394,7 +394,7 @@ func TestFormat_Is(t *testing.T) {
 		{"x is .A and y is .B\n", "x is .A and y is .B\n"},
 		{"(x is .A) == b\n", "(x is .A) == b\n"},
 		{"(a < b) is True\n", "(a < b) is True\n"},
-		{"xs |> List.head() is Some(1)\n", "xs |> List.head() is Some(1)\n"},
+		{"xs |> List.first() is Some(1)\n", "xs |> List.first() is Some(1)\n"},
 		{"x is P{kind: .A, n: _}\n", "x is P{kind: .A, n: _}\n"},
 		{"x is [_, ..]\n", "x is [_, ..]\n"},
 		{"x is -1\n", "x is -1\n"},
@@ -5265,7 +5265,7 @@ func TestFormat_CompoundDepth_Depth1_StaysFlat(t *testing.T) {
 	src := `fn main()
     case x
         Obj{"name" => String(n)} -> n
-        _ -> "miss"
+        _                        -> "miss"
     end
 end
 `
@@ -5280,7 +5280,7 @@ func TestFormat_CompoundDepth_Depth2_FitsStaysFlat(t *testing.T) {
 	src := `fn main()
     case x
         Obj{"data" => Obj{"k" => v}} -> v
-        _ -> "miss"
+        _                            -> "miss"
     end
 end
 `

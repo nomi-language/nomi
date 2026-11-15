@@ -40,7 +40,7 @@ func TestCompletion_ParamTypeFromName(t *testing.T) {
 		{"interface impl", "impl Describe for Command\n    fn describe(command" + cursorMark + ") -> String\n        \"\"\n    end\nend\n", "command: Command", "command: Command"},
 		{"interface declaration", "interface Play\n    fn play(self, game" + cursorMark + ") -> Int\nend\n", "game: Game", "game: Game"},
 		{"interface declaration, unclosed", "interface Play\n    fn play(game" + cursorMark + "\nend\n", "game: Game", "game: Game"},
-		{"prelude type", "fn total(string" + cursorMark + ") {}\n", "string: String", "string: String"},
+		{"prelude type", "fn total(ordering" + cursorMark + ") {}\n", "ordering: Ordering", "ordering: Ordering"},
 		{"parameter on its own line", "fn slay(\n    game: Game,\n    command" + cursorMark + "\n", "command: Command", "command: Command"},
 	}
 	for _, tt := range tests {

@@ -36,9 +36,9 @@ pub fn tree_from_traversals<T>(
 
     case
         Iter.count(preorder) != Iter.count(inorder) -> Err(.DifferentLengths)
-        items != Iter.to_set(inorder) -> Err(.DifferentElements)
-        Set.size(items) != Iter.count(preorder) -> Err(.RepeatedItems)
-        _ -> Ok(build(preorder, inorder))
+        items != Iter.to_set(inorder)               -> Err(.DifferentElements)
+        Set.size(items) != Iter.count(preorder)     -> Err(.RepeatedItems)
+        _                                           -> Ok(build(preorder, inorder))
     end
 end
 

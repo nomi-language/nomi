@@ -1308,7 +1308,7 @@ fn field_of(
         (Some(_), _, _) -> ("value", "")
         (None, Some(f), Some(n)) when f.reader == "numeric" -> ("numeric_scaled", ", ${n}")
         (None, Some(f), _) -> (f.reader, "")
-        (None, None, _) -> ("value", "")
+        (None, None, _)    -> ("value", "")
     end
 
     // A type sqlkit picks is qualified where an import shadows it.
@@ -1583,9 +1583,9 @@ fn field_line(field: Field, name: String, anonymous: Bool) -> String
     suffix = if field.nullable then "_null" else ""
 
     type_args = case (anonymous, field.type_text, field.reader)
-        (True, Some(t), _) -> "<${t}>"
+        (True, Some(t), _)        -> "<${t}>"
         (False, Some(t), "value") -> "<${t}>"
-        _ -> ""
+        _                         -> ""
     end
 
     args = [name, "row", "${field.position}"] + (field.args
@@ -1714,7 +1714,7 @@ pub fn sql_literal(s: String, indent: String) -> String
 
     case literal
         Some(raw) when raw_value(raw) == Some(s) -> raw
-        _ -> quoted
+        _                                        -> quoted
     end
 end
 

@@ -72,7 +72,7 @@ test "in a function, the failed rows are its Err"
     assert failure.keyword == "subtests"
     assert failure.reason == "2 of 3 subtests failed"
     assert Iter.count(failure.subtests) == 2
-    assert Some(first) = List.head(failure.subtests)
+    assert Some(first) = List.first(failure.subtests)
     assert first.row == "Point{x: 4, y: 3}"
     assert first.failure.expression == "x < y"
 
@@ -145,7 +145,7 @@ end
 test "a failed row's name stands where its row would"
     assert Err(failure) = named_ordered([Point{x: 1, y: 2}, Point{x: 4, y: 3}])
 
-    assert Some(first) = List.head(failure.subtests)
+    assert Some(first) = List.first(failure.subtests)
     assert first.row == "\"4 before 3\""
 
     assert AssertionFailure.format(failure) == """

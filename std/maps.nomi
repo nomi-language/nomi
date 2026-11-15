@@ -1,14 +1,15 @@
 import
     add.Add
     bool.Bool
+    comparable.Comparable
     contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
     maybe.Maybe.{self, None, Some}
     strings.String
     summable.Summable
@@ -121,7 +122,7 @@ impl Map<K, V>
     //! m: Map<String, Int> = {}
     //! assert Map.size(m) == 0
     //
-    pub host fn size<K, V>(m: Map<K, V>) -> Int
+    pub host fn size<K, V>(m: Map<K, V>) -> NonNegativeInt
 
     /// Returns all keys as a list, in insertion order.
     //! assert Map.keys({"a" => 1, "b" => 2}) == ["a", "b"]
@@ -254,5 +255,105 @@ impl Summable for Map<K, V>
     //
     fn empty_sum() -> Map<K, V>
         {}
+    end
+end
+
+/// A Map with at least one entry. A literal is checked when the program is
+/// compiled, so `{}` where a NonEmptyMap is expected is an error before the
+/// program runs; `NonEmptyMap.try_from(m)` checks a Map computed at run
+/// time, and `NonEmptyMap.put(m, key, value)` builds one from any Map.
+/// Its keys and values are NonEmptyLists, and its first and last entries
+/// are values rather than `Maybe`s. A NonEmptyMap is a Map and passes
+/// wherever one is expected. It is in the prelude.
+//! ages: NonEmptyMap<String, Int> = {"ann" => 31, "bo" => 12}
+//! assert NonEmptyMap.first_entry(ages) == ("ann", 31)
+//! assert NonEmptyList.max(NonEmptyMap.values(ages)) == 31
+//! assert Map.get(ages, "bo") == Some(12)
+//!
+//! none: Map<String, Int> = {}
+//! assert NonEmptyMap.try_from(none) == None
+//
+pub subtype NonEmptyMap<K, V> Map<K, V> when fn m -> Map.size(m) > 0
+
+impl NonEmptyMap<K, V>
+    /// A NonEmptyMap of `key` mapped to `value`, then the entries of
+    /// `rest`, which may be empty; `rest`'s value wins if it holds `key`.
+    //! assert NonEmptyMap.of("a", 1, {"b" => 2}) == {"a" => 1, "b" => 2}
+    //
+    pub fn of<K, V>(key: K, value: V, rest: Map<K, V>) -> NonEmptyMap<K, V>
+        NonEmptyMap.unchecked(Map.merge({key => value}, rest))
+    end
+
+    /// The number of entries, at least one. O(1).
+    //! assert NonEmptyMap.size({"a" => 1}) == 1
+    //
+    pub fn size<K, V>(m: NonEmptyMap<K, V>) -> PositiveInt
+        PositiveInt.try_from(Iter.count(m))!
+    end
+
+    /// The entry inserted first.
+    //! assert NonEmptyMap.first_entry({"a" => 1, "b" => 2}) == ("a", 1)
+    //
+    pub fn first_entry<K, V>(m: NonEmptyMap<K, V>) -> (K, V)
+        Iter.first(m)!
+    end
+
+    /// The entry inserted last.
+    //! assert NonEmptyMap.last_entry({"a" => 1, "b" => 2}) == ("b", 2)
+    //
+    pub fn last_entry<K, V>(m: NonEmptyMap<K, V>) -> (K, V)
+        Iter.last(m)!
+    end
+
+    /// The entry `key` ranks largest; the first of several equal ones.
+    //! assert NonEmptyMap.max_by({"a" => 3, "b" => 9}, fn (_, v) -> v) == ("b", 9)
+    //
+    pub fn max_by<K, V, C>(m: NonEmptyMap<K, V>, key: ((K, V)) -> C) -> (K, V) where C: Comparable
+        Iter.max_by(m, key)!
+    end
+
+    /// The entry `key` ranks smallest; the first of several equal ones.
+    //! assert NonEmptyMap.min_by({"a" => 3, "b" => 9}, fn (_, v) -> v) == ("a", 3)
+    //
+    pub fn min_by<K, V, C>(m: NonEmptyMap<K, V>, key: ((K, V)) -> C) -> (K, V) where C: Comparable
+        Iter.min_by(m, key)!
+    end
+
+    /// The keys, in insertion order.
+    //! assert NonEmptyMap.keys({"a" => 1, "b" => 2}) == ["a", "b"]
+    //
+    pub fn keys<K, V>(m: NonEmptyMap<K, V>) -> NonEmptyList<K>
+        NonEmptyList.try_from(Map.keys(m))!
+    end
+
+    /// The values, in insertion order.
+    //! assert NonEmptyMap.values({"a" => 1, "b" => 2}) == [1, 2]
+    //
+    pub fn values<K, V>(m: NonEmptyMap<K, V>) -> NonEmptyList<V>
+        NonEmptyList.try_from(Map.values(m))!
+    end
+
+    /// Applies `f` to each value, keeping the keys.
+    //! assert NonEmptyMap.map_values({"a" => 1}, fn n -> n * 2) == {"a" => 2}
+    //
+    pub fn map_values<K, V, U>(m: NonEmptyMap<K, V>, f: (V) -> U) -> NonEmptyMap<K, U>
+        NonEmptyMap.unchecked(Map.map_values(m, f))
+    end
+
+    /// `m`, which may be empty, with `key` mapped to `value`.
+    //! assert NonEmptyMap.put({"a" => 1}, "b", 2) == {"a" => 1, "b" => 2}
+    //! empty: Map<String, Int> = {}
+    //! assert NonEmptyMap.put(empty, "a", 1) == {"a" => 1}
+    //
+    pub fn put<K, V>(m: Map<K, V>, key: K, value: V) -> NonEmptyMap<K, V>
+        NonEmptyMap.unchecked(Map.put(m, key, value))
+    end
+
+    /// The entries of `a`, then those of `b`, which may be empty; `b`'s
+    /// value wins on a shared key.
+    //! assert NonEmptyMap.merge({"a" => 1}, {"a" => 5, "b" => 2}) == {"a" => 5, "b" => 2}
+    //
+    pub fn merge<K, V>(a: NonEmptyMap<K, V>, b: Map<K, V>) -> NonEmptyMap<K, V>
+        NonEmptyMap.unchecked(Map.merge(a, b))
     end
 end

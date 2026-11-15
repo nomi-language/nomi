@@ -93,7 +93,7 @@ test "map patterns match composite expression keys"
 
     by_struct = case struct_keyed
         {Point{x: 1, y: 2} => v} -> v
-        _ -> "?"
+        _                        -> "?"
     end
 
     by_id = case ids

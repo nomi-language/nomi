@@ -167,7 +167,7 @@ fn main()
 end
 `,
 		"4:5: `std::phrase::format` is internal to std::phrase",
-		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::base64`, `std::bits`, `std::bitwise` and more")
+		"5:5: `std::nosuch` names no file: std has no nosuch.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::averageable`, `std::base64`, `std::bits` and more")
 }
 
 // What `std` holds, for its listing and for did-you-mean, includes the
@@ -182,7 +182,7 @@ fn main()
 end
 `,
 		"4:5: `std::storage_testing` names no file: std has no storage_testing.nomi; did you mean `std::storage::testing`?",
-		"5:5: `std::fs_host` names no file: std has no fs_host.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::base64`, `std::bits`, `std::bitwise` and more")
+		"5:5: `std::fs_host` names no file: std has no fs_host.nomi; std holds `std::actors`, `std::add`, `std::assertions`, `std::averageable`, `std::base64`, `std::bits` and more")
 
 	main := "import std\n\nfn main()\n    std::io.print(1)\nend\n"
 	root := filepath.Join(t.TempDir(), "app")

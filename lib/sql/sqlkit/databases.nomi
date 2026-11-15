@@ -86,7 +86,7 @@ derive Equatable for Database
 pub fn read(config: Json) -> List<Database>
     tables = case field(config, "database")
         Some(Json.Obj(tables)) -> tables
-        _ -> {}
+        _                      -> {}
     end
 
     if Map.size(tables) == 0 then return [defaults("main")]
@@ -139,7 +139,7 @@ end
 pub fn problems(config: Json) -> List<String>
     tables = case field(config, "database")
         Some(Json.Obj(tables)) -> tables
-        _ -> {}
+        _                      -> {}
     end
 
     tables

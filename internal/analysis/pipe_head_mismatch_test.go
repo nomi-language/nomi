@@ -44,7 +44,7 @@ fn total(xs: List<Int>) -> Int
 end
 
 fn first<T>(xs: List<T>) -> Maybe<T>
-  List.head(xs)
+  List.first(xs)
 end
 
 `

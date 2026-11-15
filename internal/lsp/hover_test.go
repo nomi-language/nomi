@@ -623,14 +623,14 @@ func TestHover_TypeDefZeroSized(t *testing.T) {
 
 func TestHover_TypeDefOpaque(t *testing.T) {
 	sym := buildSymbol(
-		"/// Positive integer.\npub opaque type PositiveInt Int",
-		"PositiveInt",
+		"/// Positive integer.\npub opaque type PosCount Int",
+		"PosCount",
 	)
 	if sym == nil {
 		t.Fatal("symbol not found")
 	}
 	result := renderHover(sym)
-	if !strings.Contains(result, "type PositiveInt Int") {
+	if !strings.Contains(result, "type PosCount Int") {
 		t.Errorf("expected sig in hover, got:\n%s", result)
 	}
 	if !strings.Contains(result, "opaque") {
@@ -1243,9 +1243,7 @@ func TestHover_InterfaceQualifiedCall_ExternImpl_RendersConcreteImpl(t *testing.
 }
 
 func TestHover_FileFunctionRendersConcreteSignature(t *testing.T) {
-	inputWithMarker := `import std::int.PositiveInt
-
-fn main()
+	inputWithMarker := `fn main()
   PositiveInt.▮try_from(5)
 end
 `

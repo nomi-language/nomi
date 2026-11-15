@@ -123,6 +123,8 @@ var infiniteIterCases = []infiniteIterCase{
 	{"product", []string{"Iter.product"}, pipe("Iter.repeat(1)", " |> Iter.product()"), true},
 	{"sum_by", []string{"Iter.sum_by"}, pipe("Iter.from(0)", " |> Iter.sum_by(&(&1 + 1))"), true},
 	{"product_by", []string{"Iter.product_by"}, pipe("Iter.repeat(0)", " |> Iter.product_by(&(&1 + 1))"), true},
+	{"mean", []string{"Iter.mean"}, pipe("Iter.from(0)", " |> Iter.mean()"), true},
+	{"mean_by", []string{"Iter.mean_by"}, pipe("Iter.repeat(1.5)", " |> Iter.mean_by(&(&1 * 2.0))"), true},
 	{"reduce", []string{"Iter.reduce"}, pipe("Iter.repeat(1)", " |> Iter.reduce(0, fn total, x -> total + x)"), true},
 	{"reduce that can break", []string{"Iter.reduce"}, pipe("Iter.from(0)", " |> Iter.reduce(0, fn total, x ->\n        if x > 4 then\n            break total\n        else\n            total + x\n        end\n    end)"), false},
 	{"each", []string{"Iter.each"}, pipe("Iter.repeat(1)", " |> Iter.each(fn _x -> Unit)"), true},

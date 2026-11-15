@@ -365,7 +365,7 @@ var borrowingHosts = map[string]bool{
 // own intrinsic answers.
 func (m *Machine) writesInPlace(c *ir.Call) int {
 	name := c.Callee().Name()
-	if !writesInPlaceHosts[name] || m.hosts[name] == nil {
+	if !writesInPlaceHosts[name] || m.hosts[name].fn == nil {
 		return -1
 	}
 	return 0
@@ -374,7 +374,7 @@ func (m *Machine) writesInPlace(c *ir.Call) int {
 // borrows reports whether a crossing keeps none of its operands.
 func (m *Machine) borrows(c *ir.Call) bool {
 	name := c.Callee().Name()
-	return borrowingHosts[name] && m.hosts[name] != nil
+	return borrowingHosts[name] && m.hosts[name].fn != nil
 }
 
 // setOwned is the owned Set record v with its membership map replaced by

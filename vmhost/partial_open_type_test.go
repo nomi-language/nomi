@@ -30,8 +30,8 @@ func TestPartialApplication_TypeSolvedByALaterUse(t *testing.T) {
 			want: "made 1\nSome(\"a\")\nmade 1\nNone\n",
 		},
 		{
-			name: "List.head",
-			body: "    h = &List.head(&1)\n    io.inspect(h([4, 5]))\n    e: List<String> = []\n    j = &List.head(&1)\n    io.inspect(j(e))\n",
+			name: "List.first",
+			body: "    h = &List.first(&1)\n    io.inspect(h([4, 5]))\n    e: List<String> = []\n    j = &List.first(&1)\n    io.inspect(j(e))\n",
 			want: "Some(4)\nNone\n",
 		},
 		{

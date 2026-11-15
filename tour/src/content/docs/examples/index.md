@@ -64,11 +64,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Encode and decode text with the affine cipher, which maps letter number `i` to `(a * i + b) mod 26`.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a></td>
 </tr>
-<tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions pipes scalars-and-strings structs-enums-distinct">
+<tr data-subject="numbers-and-math" data-chapters="scalars-and-strings structs-enums-distinct">
 <td><a href="/examples/all-your-base/">All Your Base</a></td>
 <td>Numbers &amp; Math</td>
 <td>Convert a number written as digits in one base into its digits in another.</td>
-<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a></td>
+<td><a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a></td>
 </tr>
 <tr data-subject="numbers-and-math" data-chapters="functions-and-lambdas pipes scalars-and-strings iteration-and-loops structs-enums-distinct pattern-matching interfaces-and-dispatch">
 <td><a href="/examples/allergies/">Allergies</a></td>
@@ -586,11 +586,11 @@ MIT licence, Copyright (c) 2014, 2019, 2021 Exercism.
 <td>Turn a number into raindrop sounds: &#34;Pling&#34; for a factor of 3, &#34;Plang&#34; for 5, &#34;Plong&#34; for 7, or the number itself when it has none of them.</td>
 <td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/functions-and-lambdas/">Functions &amp; Lambdas</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/iteration-and-loops/">Iteration &amp; Loops</a></td>
 </tr>
-<tr data-subject="numbers-and-math" data-chapters="bindings-and-expressions pipes scalars-and-strings collections structs-enums-distinct interfaces-and-dispatch">
+<tr data-subject="numbers-and-math" data-chapters="scalars-and-strings collections structs-enums-distinct pattern-matching interfaces-and-dispatch">
 <td><a href="/examples/rational-numbers/">Rational Numbers</a></td>
 <td>Numbers &amp; Math</td>
 <td>Implement rational numbers: the four arithmetic operations, absolute value, integer powers, a real number raised to a rational power, and reduction to lowest terms.</td>
-<td><a href="/bindings-and-expressions/">Bindings &amp; Expressions</a>, <a href="/pipes/">Pipes</a>, <a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
+<td><a href="/scalars-and-strings/">Scalars &amp; Strings</a>, <a href="/collections/">Collections</a>, <a href="/structs-enums-distinct/">Structs, Enums, Distinct Types</a>, <a href="/pattern-matching/">Pattern Matching</a>, <a href="/interfaces-and-dispatch/">Interfaces &amp; Dispatch</a></td>
 </tr>
 <tr data-subject="collections-and-algorithms" data-chapters="bindings-and-expressions functions-and-lambdas pipes scalars-and-strings collections iteration-and-loops structs-enums-distinct">
 <td><a href="/examples/react/">React</a></td>

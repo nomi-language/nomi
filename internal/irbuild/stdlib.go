@@ -5,6 +5,7 @@ import (
 	"maps"
 	"reflect"
 	goruntime "runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -792,16 +793,16 @@ type stdlibIndex struct {
 	// not contain. analysis.installCanonicalStdTypes keeps two loads' `Bool`
 	// the same type; see stdinstance.go.
 	views map[string]*stdModuleView
-	// earlierMods[module] is every stdlib module lowered STRICTLY BEFORE module,
-	// which is the resolution scope that module's own lowering had.
+	// earlierMods[module] is the resolution scope module's own lowering had:
+	// every stdlib module of an earlier lowering unit, and the other members
+	// of its own unit, an import cycle (buildStdlibIndexBy). Never the module
+	// itself.
 	//
-	// Recorded as a set of names rather than as a snapshot of the index, because
-	// `earlier` is the accumulating index itself — buildStdlibIndex passes `idx`
-	// and it keeps growing — so a retained pointer would be the COMPLETE index
-	// by the time anything read it. A name set plus `stdFunc.module` is enough
-	// to rebuild the restricted view on demand, and it keeps the DAG argument
-	// exactly as buildStdlibIndex states it: every generated edge points
-	// backwards. See restrictedTo.
+	// Recorded as a set of names rather than as a snapshot of the index,
+	// because the index keeps growing as later units are lowered, so a
+	// retained pointer would be the COMPLETE index by the time anything read
+	// it. A name set plus `stdFunc.module` is enough to rebuild the
+	// restricted view on demand (filtered).
 	earlierMods map[string]map[string]bool
 	// order is every module the index lowered or restores, in lowering
 	// order, and modFuncs and modOnces what each one's lowering filed, by
@@ -816,6 +817,10 @@ type stdlibIndex struct {
 	pending map[string]*stdModuleRecord
 	// lib is the stdlib whose modules the index holds.
 	lib *std.StdLib
+	// unitSyms is set on the scope lowerStdUnit lowers a member of an
+	// import cycle against: the unit's symbols by linkage name, which the
+	// member's gen keeps (gen.stdUnitSyms).
+	unitSyms map[string]*ir.Symbol
 }
 
 // stdlibOnce caches the index for the process.
@@ -973,97 +978,333 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 
 	idx := newStdlibIndex(names)
 	idx.lib = lib
-	// A stdlib module's Nomi body may call another module's lowered function —
+	// A stdlib module's Nomi body may call another module's lowered function:
 	// `std/instant`'s `impl Add<Duration, Instant>` is
-	// `Instant(nanos + Duration.as_nanos(rhs))`, and there is no way to write
-	// that without reaching std/duration. The generated packages then import
-	// each other, and Go forbids an import CYCLE. Nomi's own import graph may be
-	// cyclic (std/strings and std/iter import each other), so acyclicity cannot
-	// be inherited from it.
+	// `Instant(nanos + Duration.as_nanos(rhs))`. A module resolves such a call
+	// against the modules lowered before it, so modules are lowered in
+	// dependency order, imports first (stdLoweringOrder). The package NAME is
+	// `stdPackage(i)` over the SORTED list; only the visiting order follows
+	// dependencies. A name order would refuse bodies on order alone:
+	// `std/calendar` sorts near the front and imports `comparable`,
+	// `duration`, `int` and `strings`, all of which sort later.
 	//
-	// The rule is therefore: a module resolves cross-module references only
-	// against modules ALREADY lowered, i.e. earlier in the loop below. Every
-	// generated edge then points from a later module to an earlier one, so the
-	// package graph is a DAG by construction and needs no cycle detection —
-	// FOR ANY total order, which is the property that makes the next paragraph
-	// safe. TestStdlibGeneratedPackageGraphIsAcyclic checks it rather than
-	// trusting the argument.
+	// # An import cycle is one unit
 	//
-	// # The order is the DEPENDENCY order
-	//
-	// The order decides which DIRECTION of a mutually-importing Nomi pair may
-	// lower. The package NAME is `stdPackage(i)` over the SORTED list and the
-	// LOWERING ORDER is the loop; nothing requires them to be the same sequence,
-	// so names are stable and only the visiting order follows dependencies.
-	//
-	// A name order would refuse bodies on ORDER alone: `std/calendar` sorts near
-	// the front and imports `comparable`, `duration`, `int` and `strings`, all of
-	// which sort later, so `Years.compare`, `Years.hash`, `Years.inspect` and the
-	// Nomi-bodied `Add<Unit, NaiveDateTime>` rungs would all refuse.
-	//
-	// A cycle needs no special case. Ignoring back edges leaves the members in
-	// their alphabetical relative order, which is exactly what the sorted order
-	// gave them, so the shared lowering retains `std/strings`'s calls into
-	// `std/iter` and not the reverse. A body of the reverse direction is built
-	// by each program that reaches it, against every module
-	// (otherModuleCallee), so any std module may call any other.
-	// done is the modules lowered so far, which is exactly the resolution scope
-	// each next module gets. Recorded per module BEFORE that module is lowered,
-	// so `earlierMods[name]` is "strictly before" and never "including itself".
+	// Nomi's import graph may be cyclic (std/strings and std/iter import each
+	// other, and std/int, std/bytes and std/code_points). No order puts every
+	// member of a cycle after every other, so the members of one are lowered
+	// as one unit (stdLoweringUnits, lowerStdUnit): each against the modules
+	// before the unit and every other member, until no member lowers more.
+	// What lowers then does not depend on the members' order, which an edit
+	// to one member's imports may change
+	// (TestStdLoweringIsTheSameInEveryCycleOrder). earlierMods[name] is that
+	// scope: the modules of earlier units and the unit's other members.
 	done := map[string]bool{}
-	for _, name := range stdLoweringOrder(names, lib) {
-		nodes := lib.Nodes[name]
-		if len(nodes) == 0 || isProgramStd(name) {
-			continue
-		}
-		pkg := idx.modulePkg[name]
-		// SourcePath, not FileURI: a position names the file, and nothing
-		// here opens it, so no per-module stat or materialization runs.
-		path := lib.SourcePath(name)
-		earlier := make(map[string]bool, len(done))
-		for m := range done {
-			earlier[m] = true
-		}
-		idx.earlierMods[name] = earlier
-		// The FileAnalysis goes with the nodes: the tree carries the annotations
-		// the stdlib author WROTE and the analysis carries the ones the checker
-		// solved, and a backend handed only nodes has to re-infer or refuse.
-		//
-		// The view is built HERE and retained on the index rather than built
-		// inside lowerStdlibModule, so that a per-program instance is emitted
-		// against this exact context. See stdlibIndex.views for why re-deriving
-		// it is unsound rather than merely wasteful.
-		v := stdModuleContext(name, path, pkg, nodes, lib.Files[name], idx)
-		v.embedded = true
-		idx.views[name] = v
-		funcs, onces, irModule := lower(v, idx)
-		// A module none of whose bodies lowered holds nothing to link.
-		if irModule != nil && len(irModule.Funcs()) == 0 && len(irModule.Cells()) == 0 {
-			irModule = nil
-		}
-		if lowered != nil {
-			lowered(name, v, irModule)
-		}
-		if irModule != nil {
-			if lintEmbeddedStdlib {
-				irLintFinished(irModule)
+	for _, unit := range stdLoweringUnits(stdLoweringOrder(names, lib), lib) {
+		var members []string
+		for _, name := range unit {
+			if len(lib.Nodes[name]) > 0 && !isProgramStd(name) {
+				members = append(members, name)
 			}
-			idx.irModules[pkg] = irModule
 		}
-		if len(v.unlowered) > 0 {
-			idx.unlowered[pkg] = v.unlowered
+		if stdUnitOrderForTest != nil && len(members) > 1 {
+			members = stdUnitOrderForTest(slices.Clone(members))
 		}
-		for _, f := range funcs {
-			idx.add(f)
+		for _, name := range members {
+			scope := make(map[string]bool, len(done)+len(members))
+			for m := range done {
+				scope[m] = true
+			}
+			for _, m := range members {
+				if m != name {
+					scope[m] = true
+				}
+			}
+			idx.earlierMods[name] = scope
 		}
-		for _, o := range onces {
-			idx.addOnce(o)
+		for _, r := range lowerStdUnit(members, idx, lower) {
+			name, v := r.v.module, r.v
+			pkg := idx.modulePkg[name]
+			// The FileAnalysis goes with the nodes: the tree carries the
+			// annotations the stdlib author WROTE and the analysis carries the
+			// ones the checker solved, and a backend handed only nodes has to
+			// re-infer or refuse.
+			//
+			// The view is retained on the index rather than built inside
+			// lowerStdlibModule, so that a per-program instance is emitted
+			// against this exact context. See stdlibIndex.views for why
+			// re-deriving it is unsound rather than merely wasteful.
+			idx.views[name] = v
+			if lowered != nil {
+				lowered(name, v, r.irModule)
+			}
+			if r.irModule != nil {
+				if lintEmbeddedStdlib {
+					irLintFinished(r.irModule)
+				}
+				idx.irModules[pkg] = r.irModule
+			}
+			if len(v.unlowered) > 0 {
+				idx.unlowered[pkg] = v.unlowered
+			}
+			for _, f := range r.funcs {
+				idx.add(f)
+			}
+			for _, o := range r.onces {
+				idx.addOnce(o)
+			}
+			idx.order = append(idx.order, name)
+			idx.modFuncs[name], idx.modOnces[name] = r.funcs, r.onces
 		}
-		idx.order = append(idx.order, name)
-		idx.modFuncs[name], idx.modOnces[name] = funcs, onces
-		done[name] = true
+		for _, name := range members {
+			done[name] = true
+		}
 	}
 	return idx
+}
+
+// stdUnitOrderForTest, when set, reorders the members of each import
+// cycle buildStdlibIndexBy lowers, so a test can hold what lowers to be
+// the same in every order (TestStdLoweringIsTheSameInEveryCycleOrder).
+var stdUnitOrderForTest func(members []string) []string
+
+// stdModuleLowerings counts, process-wide, the std modules lowerStdUnit has
+// lowered, a member of an import cycle once per pass, so a test can hold the
+// sibling bindings to a bound per lowering (TestStdSiblingBinds_*).
+var stdModuleLowerings atomic.Int64
+
+// stdUnitModule is one module of a lowering unit as lowered: its view and
+// what lower returned for it.
+type stdUnitModule struct {
+	v        *stdModuleView
+	funcs    []*stdFunc
+	onces    []*stdOnce
+	irModule *ir.Module
+}
+
+// stdUnitMaxPasses bounds lowerStdUnit's passes over one import cycle.
+// Each pass but the last lowers more bodies than the one before, so the
+// bound is a guard against a lowering that is not monotone, not a limit
+// the stdlib comes near: its largest cycle settles in two or three.
+const stdUnitMaxPasses = 16
+
+// lowerStdUnit lowers the members of one lowering unit (stdLoweringUnits),
+// in order, against idx, which holds every module of the earlier units.
+//
+// A unit of one module is lowered once, against idx. The members of an
+// import cycle are lowered in passes. In each pass a member is lowered
+// against idx, the members before it as this pass lowered them, and the
+// members after it as the pass before lowered them, so a body may call a
+// function of any member; the passes stop when a pass lowers each member
+// after the first exactly as the pass before did, which is when no member
+// can lower more. Lowering is monotone: offered more callees, a module
+// lowers a superset of its bodies. So what lowers is the least fixed point
+// over the unit, whichever member comes first.
+//
+// A member lowered again keeps the symbols its earlier pass gave its
+// declarations (scope.unitSyms, gen.stdUnitSyms), since the other
+// members' bodies call them by symbol. In the last pass each member called
+// only functions the members after it lowered the pass before, which that
+// pass lowers too, under the same symbols, so every call names a defined
+// function.
+func lowerStdUnit(members []string, idx *stdlibIndex, lower stdModuleLowering) []*stdUnitModule {
+	lib := idx.lib
+	lowerOne := func(name string, scope *stdlibIndex) *stdUnitModule {
+		stdModuleLowerings.Add(1)
+		// SourcePath, not FileURI: a position names the file, and nothing
+		// here opens it, so no per-module stat or materialization runs.
+		v := stdModuleContext(name, lib.SourcePath(name), idx.modulePkg[name], lib.Nodes[name], lib.Files[name], scope)
+		v.embedded = true
+		scope.views[name] = v
+		funcs, onces, m := lower(v, scope)
+		// A module none of whose bodies lowered holds nothing to link.
+		if m != nil && len(m.Funcs()) == 0 && len(m.Cells()) == 0 {
+			m = nil
+		}
+		return &stdUnitModule{v: v, funcs: funcs, onces: onces, irModule: m}
+	}
+	switch len(members) {
+	case 0:
+		return nil
+	case 1:
+		return []*stdUnitModule{lowerOne(members[0], idx)}
+	}
+	syms := map[string]*ir.Symbol{}
+	var prev []*stdUnitModule
+	for pass := 1; ; pass++ {
+		cur := make([]*stdUnitModule, len(members))
+		for i, name := range members {
+			scope := idx.filtered(func(string) bool { return true })
+			scope.lib, scope.unitSyms = lib, syms
+			for j := range members {
+				var r *stdUnitModule
+				switch {
+				case j < i:
+					r = cur[j]
+				case j > i && prev != nil:
+					r = prev[j]
+				}
+				if r == nil {
+					continue
+				}
+				for _, f := range r.funcs {
+					scope.add(f)
+				}
+				for _, o := range r.onces {
+					scope.addOnce(o)
+				}
+			}
+			cur[i] = lowerOne(name, scope)
+			cur[i].keepSymbols(syms)
+		}
+		if prev != nil {
+			settled := true
+			for j := 1; j < len(members); j++ {
+				was, now := prev[j].loweredKeys(), cur[j].loweredKeys()
+				for k := range was {
+					if !now[k] {
+						panic(fmt.Sprintf("irbuild: std/%s lowered %s in pass %d of its import cycle and not in pass %d; "+
+							"a member's lowering must be monotone in what the others lower", members[j], k, pass-1, pass))
+					}
+				}
+				if len(now) != len(was) {
+					settled = false
+				}
+			}
+			if settled {
+				return cur
+			}
+		}
+		if pass == stdUnitMaxPasses {
+			panic(fmt.Sprintf("irbuild: the import cycle %v still lowers more after %d passes", members, pass))
+		}
+		prev = cur
+	}
+}
+
+// keepSymbols files under its linkage name the symbol of each declaration
+// m lowered, so the next pass over its unit gives the declaration the same
+// symbol.
+func (m *stdUnitModule) keepSymbols(syms map[string]*ir.Symbol) {
+	keep := func(s *ir.Symbol) {
+		if s != nil && s.Link() != "" && syms[s.Link()] == nil {
+			syms[s.Link()] = s
+		}
+	}
+	for _, f := range m.funcs {
+		if f.canon != nil {
+			f = f.canon
+		}
+		if f.irBody != nil {
+			keep(f.irBody.Sym())
+		}
+		for _, a := range f.irArity {
+			keep(a.Sym())
+		}
+		for _, s := range f.irSlot {
+			keep(s.Sym())
+		}
+	}
+	for _, o := range m.onces {
+		keep(o.irCell)
+	}
+}
+
+// loweredKeys is what m lowered that another module can call or read: each
+// function body, arity-reduced wrapper and default accessor, and each
+// `once` cell.
+func (m *stdUnitModule) loweredKeys() map[string]bool {
+	out := map[string]bool{}
+	for _, f := range m.funcs {
+		c := f
+		if f.canon != nil {
+			c = f.canon
+		}
+		id := fmt.Sprintf("%s@%p", f.key, f.decl)
+		if c.irBody != nil {
+			out[id] = true
+		}
+		for a := range c.irArity {
+			out[fmt.Sprintf("%s/arity%d", id, a)] = true
+		}
+		for s := range c.irSlot {
+			out[fmt.Sprintf("%s/slot%d", id, s)] = true
+		}
+	}
+	for _, o := range m.onces {
+		if o.irCell != nil {
+			out["once "+o.key] = true
+		}
+	}
+	return out
+}
+
+// stdLoweringUnits groups order, a lowering order (stdLoweringOrder), into
+// the units buildStdlibIndexBy lowers: each import cycle of the lowering
+// graph (stdModuleImports) is one unit, its members in their relative
+// order, at the place of its last member; every other module is a unit of
+// its own. A module's imports are then in its own unit or an earlier one:
+// a module the order puts between two members of a cycle and that imports
+// one of them would reach the other, and be a member itself.
+func stdLoweringUnits(order []string, lib *std.StdLib) [][]string {
+	pos := make(map[string]int, len(order))
+	for i, name := range order {
+		pos[name] = i
+	}
+	// Tarjan's strongly connected components over the modules of order.
+	index := map[string]int{}
+	low := map[string]int{}
+	onStack := map[string]bool{}
+	var stack []string
+	comp := map[string]int{}
+	var comps [][]string
+	var connect func(string)
+	connect = func(name string) {
+		index[name] = len(index)
+		low[name] = index[name]
+		stack = append(stack, name)
+		onStack[name] = true
+		for _, dep := range stdModuleImports(lib.Nodes[name]) {
+			if _, known := pos[dep]; !known {
+				continue
+			}
+			if _, seen := index[dep]; !seen {
+				connect(dep)
+				low[name] = min(low[name], low[dep])
+			} else if onStack[dep] {
+				low[name] = min(low[name], index[dep])
+			}
+		}
+		if low[name] != index[name] {
+			return
+		}
+		var members []string
+		for {
+			top := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			onStack[top] = false
+			comp[top] = len(comps)
+			members = append(members, top)
+			if top == name {
+				break
+			}
+		}
+		sort.Slice(members, func(a, b int) bool { return pos[members[a]] < pos[members[b]] })
+		comps = append(comps, members)
+	}
+	for _, name := range order {
+		if _, seen := index[name]; !seen {
+			connect(name)
+		}
+	}
+	units := make([][]string, 0, len(comps))
+	for _, name := range order {
+		members := comps[comp[name]]
+		if members[len(members)-1] == name {
+			units = append(units, members)
+		}
+	}
+	return units
 }
 
 // withModules answers x with every module lib has built and x has not
@@ -1168,11 +1409,9 @@ func (x *stdlibIndex) restoring(lib *std.StdLib, lower bool) (*stdlibIndex, erro
 // dependency graph because every execution installs a Context. Remaining roots
 // and each module's dependencies are visited in sorted name order.
 //
-// Back edges are skipped. A module resolves only against modules already
-// lowered, so generated packages form a DAG. A body that calls into a later
-// member of its Nomi import cycle is not retained here, and a program that
-// reaches it builds it (otherModuleCallee). The Context seed fixes the initial
-// cycle orientation independently of optional surface modules' names.
+// Back edges are skipped, so the members of an import cycle come in the
+// order the walk reached them; stdLoweringUnits groups each cycle into one
+// unit, whose members' order does not change what lowers (lowerStdUnit).
 // TestStdlibModuleOrderIsStable guards the deterministic traversal.
 func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 	const (
@@ -1187,12 +1426,12 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 		switch state[name] {
 		case active, done:
 			// active: a back edge, i.e. this module is one of our own
-			// ancestors. Skipping it is what confines a Nomi import cycle to a
-			// refusal rather than an infinite descent.
+			// ancestors. Skipping it is what confines a Nomi import cycle to
+			// one unit rather than an infinite descent.
 			return
 		}
 		state[name] = active
-		for _, dep := range stdModuleImports(name, lib.Nodes[name]) {
+		for _, dep := range stdModuleImports(lib.Nodes[name]) {
 			if _, known := lib.Nodes[dep]; known {
 				visit(dep)
 			}
@@ -1225,31 +1464,10 @@ func stdLoweringOrder(names []string, lib *std.StdLib) []string {
 // would match nothing, so stdLoweringOrder would see zero edges and a module
 // could be lowered before the module it imports.
 //
-// An import of std/locale or std/localize that names only types whose
-// representation is process-wide (rows of opaqueSpecs, stdEnumSpecs or
-// stdStructSpecs) is not an edge: such a type is the same def whichever
-// module is lowered first, so naming it needs nothing of its module's
-// lowering. std/int, std/float, std/decimal and std/strings import
-// `locale.Locale` and `localize.NumberParseError` for their formatting
-// functions' signatures and pass the locale straight to a host function;
-// counting those imports as edges would put std/locale, which is written
-// over Int and String, ahead of both. std/float imports
-// `decimal.RoundingMode` the same way, for `Float.round`, a host function:
-// as an edge it would put std/decimal, which is written over Int and Float,
-// ahead of std/float. The rule is held to those three modules
-// (typeOnlyImportModules) because the same reading of other std imports
-// would reorder modules that lower correctly today, strings and code_points
-// among them.
-//
-// The conversions `Int.to_decimal`, `Int.to_byte`, `Int.to_codepoint`,
-// `Float.to_decimal` and `String.to_decimal` are host functions in modules
-// lowered before the module of the type they return, and their imports of
-// that type are not edges either (conversionTypeImports). Those rows hold
-// for the named importer alone, and they also count the analyzer's
-// primitive types (Byte, Decimal: stdHostSpecs rows) as process-wide, since
-// every other module's import of `decimal.Decimal` or `bytes.Byte` stays an
-// edge that std/localize and std/strings lower by.
-func stdModuleImports(importer string, nodes []ast.Node) []string {
+// Every import is an edge, an import that closes a cycle included: the
+// members of a cycle are lowered as one unit (lowerStdUnit), so no import
+// is left out to decide which member comes first.
+func stdModuleImports(nodes []ast.Node) []string {
 	seen := map[string]bool{}
 	add := func(imp *ast.ImportStmt) {
 		if len(imp.ModulePath) == 0 {
@@ -1257,9 +1475,6 @@ func stdModuleImports(importer string, nodes []ast.Node) []string {
 		}
 		head, isHead := imp.ModulePath[0].(*ast.Ident)
 		if !isHead {
-			return
-		}
-		if !seen[head.Name] && importsOnlySharedTypes(importer, head.Name, imp) {
 			return
 		}
 		seen[head.Name] = true
@@ -1280,85 +1495,6 @@ func stdModuleImports(importer string, nodes []ast.Node) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-// typeOnlyImportModules are the std modules an import of process-wide types
-// only does not make a lowering dependency on. See stdModuleImports.
-var typeOnlyImportModules = map[string]bool{"decimal": true, "locale": true, "localize": true}
-
-// conversionTypeImports are, per importing std module, the modules whose
-// types its `to_<target>` conversions return. See stdModuleImports.
-var conversionTypeImports = map[string]map[string]bool{
-	"float":   {"decimal": true},
-	"int":     {"bytes": true, "code_points": true, "decimal": true},
-	"strings": {"decimal": true},
-}
-
-// importsOnlySharedTypes reports whether imp, an import of std module
-// module, names types only, each with a process-wide def, and module is one
-// of typeOnlyImportModules or of importer's conversionTypeImports.
-func importsOnlySharedTypes(importer, module string, imp *ast.ImportStmt) bool {
-	conversion := conversionTypeImports[importer][module]
-	if !typeOnlyImportModules[module] && !conversion || imp.IncludeParent || imp.ModuleAlias != nil {
-		return false
-	}
-	var names []string
-	for _, seg := range imp.ModulePath[1:] {
-		if id, ok := seg.(*ast.TypeIdent); ok {
-			names = append(names, id.Name)
-		} else {
-			return false
-		}
-	}
-	for _, n := range imp.Names {
-		switch id := n.(type) {
-		case *ast.TypeIdent:
-			names = append(names, id.Name)
-		case *ast.Ident:
-			names = append(names, id.Name)
-		default:
-			return false
-		}
-	}
-	if imp.Braced && len(imp.ModulePath) > 1 {
-		// `mod.Owner.{A, B}` names the owner's members, which are no types.
-		return false
-	}
-	if len(names) == 0 {
-		return false
-	}
-	origin := "std/" + module
-	shared := func(name string) bool {
-		for _, s := range opaqueSpecs {
-			if s.origin == origin && s.nomi == name {
-				return true
-			}
-		}
-		for _, s := range stdEnumSpecs {
-			if s.origin == origin && s.nomi == name {
-				return true
-			}
-		}
-		for _, s := range stdStructSpecs {
-			if s.origin == origin && s.nomi == name {
-				return true
-			}
-		}
-		// A primitive row (Byte, Decimal) is the analyzer's singleton, the
-		// same type whichever module declares its surface.
-		for _, s := range stdHostSpecs {
-			if conversion && s.prim != nil && s.nomi == name {
-				return true
-			}
-		}
-		return false
-	}
-	for _, n := range names {
-		if !shared(n) {
-			return false
-		}
-	}
-	return true
 }
 
 // add files one stdlib function under every spelling a call site may use.
@@ -1811,10 +1947,10 @@ func lowerSharedStdModule(v *stdModuleView, earlier *stdlibIndex) ([]*stdFunc, [
 // is lost by it: a phase-1 member already lowered, so there is no refusal inside
 // it for a wider sibling set to fix.
 //
-// `earlier` is the index of every module lowered BEFORE this one, and it is what
-// admits a cross-module reference. See buildStdlibIndex for why "earlier" rather
-// than "any" is the whole of the acyclicity argument. The third return value is
-// the generated stdlib packages this module's emitted text imports.
+// `earlier` is the index of the modules this one may reference: those of
+// earlier lowering units and the other members of its own import cycle
+// (buildStdlibIndexBy). The third return value is the generated stdlib
+// packages this module's emitted text imports.
 // hosts is the same for the HOST packages outside the generated module.
 // Reachable in principle — a stdlib
 // module's Nomi body may call a `host fn` in another module — and empty in
@@ -1953,7 +2089,7 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 // implementation also answers a QUALIFIED receiver
 // (`impl Debug for Probe.Reading`).
 //
-// The resulting key is `lists.List.head`, the documented host-key convention
+// The resulting key is `lists.List.first`, the documented host-key convention
 // (`int.Int.to_string`, `iter.MapIter.next`) and the key
 // `lookupImplBlockExtern` builds. A generic receiver's methods are generic, so
 // they refuse under their own name at their own call site.
@@ -2859,19 +2995,13 @@ func callArityMin(f *stdFunc) int {
 
 // newStdGen builds a gen for one stdlib module: the same builder user code goes
 // through, with a sibling table instead of a module function table and with the
-// stdlib index restricted to this module's own functions plus every module
-// lowered BEFORE it.
+// stdlib index restricted to this module's own functions plus the modules it
+// may reference: those of earlier lowering units and the other members of its
+// import cycle (buildStdlibIndexBy).
 //
-// "This module only" would make the generated import graph a trivially acyclic
-// star, and would be too strong: `std/instant`'s `impl Add<Duration, Instant>`
-// is `Instant(nanos + Duration.as_nanos(rhs))` and cannot be written without
-// reaching std/duration.
-//
-// "Earlier" is a DAG by construction: buildStdlibIndex
-// lowers modules in one fixed order and hands each the index of the ones already
-// done, so every generated edge points backwards and no cycle is representable.
-// Nomi's own import graph cannot supply that guarantee — std/strings and std/iter
-// import each other.
+// "This module only" would be too strong: `std/instant`'s `impl Add<Duration,
+// Instant>` is `Instant(nanos + Duration.as_nanos(rhs))` and cannot be written
+// without reaching std/duration.
 func newStdGen(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis, cands []*stdCandidate, settled map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex) *gen {
 	return newStdGenIn(module, path, pkg, nodes, fa, cands, settled, onces, earlier, nil)
 }
@@ -2897,6 +3027,9 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 		// TestStdModuleView_PopulatesNodes and
 		// TestIterAnchor_DeclaringModuleFailsProvenanceAndNotShape hold it.
 		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}}
+	if earlier != nil {
+		g.stdUnitSyms = earlier.unitSyms
+	}
 	if in != nil {
 		g.reg, g.files, g.impls, g.stdInsts = in.reg, in.files, in.impls, in.insts
 		g.dc = in.insts.dc

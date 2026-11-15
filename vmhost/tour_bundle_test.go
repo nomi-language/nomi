@@ -637,7 +637,8 @@ line under its subject).`,
 					t.Errorf("block %s is an error block but the staged wasm runs it clean. Fix: %s", b.name, rebuildInstruction)
 					return
 				}
-				if err := doctest.CheckOutput(b.block.Expected, doctest.Shown(got.Output, got.Error)); err != nil {
+				shown := doctest.Shown(got.Output, got.Error)
+				if err := doctest.CheckOutput(b.block.Expected, shown); err != nil {
 					t.Errorf(`STAGED TOUR WASM SHOWS ANOTHER ERROR THAN THE DOCS.
 
   block %s
@@ -645,6 +646,17 @@ line under its subject).`,
 %s
 
 Fix: %s`, b.name, err, rebuildInstruction)
+					return
+				}
+				// The page tells the two apart before any run by the
+				// record's shape (tour-client.mjs's showRecorded) and after
+				// one by the stage the wasm answers; they must agree.
+				want := "run"
+				if tourCompileErrorLine.MatchString(shown) {
+					want = "compile"
+				}
+				if got.Stage != want {
+					t.Errorf("block %s: the page shows its record as a %s failure, but the staged wasm answers stage %q. Fix: %s", b.name, want, got.Stage, rebuildInstruction)
 				}
 				return
 			}
@@ -738,9 +750,9 @@ func TestTourWasmReportsAFailedMain(t *testing.T) {
 	if len(answers) != 1 {
 		t.Fatalf("staged wasm answered %d of 1 blocks", len(answers))
 	}
-	if got := answers[0]; got.Output != "before\n" || got.Error != "error: boom" {
-		t.Errorf("staged wasm answered output %q, error %q; want output %q, error %q",
-			got.Output, got.Error, "before\n", "error: boom")
+	if got := answers[0]; got.Output != "before\n" || got.Error != "error: boom" || got.Stage != "run" {
+		t.Errorf("staged wasm answered output %q, error %q, stage %q; want output %q, error %q, stage %q",
+			got.Output, got.Error, got.Stage, "before\n", "error: boom", "run")
 	}
 }
 
@@ -1010,6 +1022,9 @@ type nodeAnswer struct {
 	Name   string `json:"name"`
 	Output string `json:"output"`
 	Error  string `json:"error"`
+	// Stage is where the run failed, as cmd/nomi-wasm names it
+	// ("compile", "run", "tests"), or "".
+	Stage string `json:"stage"`
 	// Ms is how long the block's nomiRun took, in milliseconds: the
 	// faster of two runs when the first took longer than the probe's
 	// retryOverMs.
@@ -1144,7 +1159,7 @@ go.env = { GODEBUG: "gcstoptheworld=1" };
       if (p.module) {
         // A stdlib reference editor, as run-worker.js runs one.
         const r = globalThis.nomiRunStdlibTest(p.module, p.source, p.context || "");
-        return { name: p.name, output: r.output, error: r.error };
+        return { name: p.name, output: r.output, error: r.error, stage: r.stage || "" };
       }
       // A block's tools run first, each on the source the one before
       // left, as run-worker.js runs them; what they print comes first.
@@ -1153,7 +1168,7 @@ go.env = { GODEBUG: "gcstoptheworld=1" };
       for (const t of p.tools || []) {
         const r = globalThis.nomiTool(source, t.Module, t.Name);
         printed += r.output;
-        if (r.error) return { name: p.name, output: printed, error: r.error };
+        if (r.error) return { name: p.name, output: r.stage === "compile" ? "" : printed, error: r.error, stage: r.stage || "" };
         source = r.source;
       }
       // Only the run is timed: the page starts its run budget when the
@@ -1166,7 +1181,7 @@ go.env = { GODEBUG: "gcstoptheworld=1" };
         globalThis.nomiRun(source);
         ms = Math.min(ms, lastRunMs);
       }
-      return { name: p.name, output: printed + r.output, error: r.error, ms };
+      return { name: p.name, output: r.stage === "compile" ? "" : printed + r.output, error: r.error, stage: r.stage || "", ms };
     } catch (err) {
       return { name: p.name, output: "", error: "host threw: " + String(err) };
     }

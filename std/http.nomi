@@ -152,67 +152,67 @@ derive Equatable for Status
 derive Hashable for Status
 
 impl Status
-    pub once continue_status = Status(100)
-    pub once switching_protocols = Status(101)
-    pub once processing = Status(102)
-    pub once early_hints = Status(103)
-    pub once ok = Status(200)
-    pub once created = Status(201)
-    pub once accepted = Status(202)
-    pub once non_authoritative_info = Status(203)
-    pub once no_content = Status(204)
-    pub once reset_content = Status(205)
-    pub once partial_content = Status(206)
-    pub once multi_status = Status(207)
-    pub once already_reported = Status(208)
-    pub once im_used = Status(226)
-    pub once multiple_choices = Status(300)
-    pub once moved_permanently = Status(301)
-    pub once found = Status(302)
-    pub once see_other = Status(303)
-    pub once not_modified = Status(304)
-    pub once use_proxy = Status(305)
-    pub once temporary_redirect = Status(307)
-    pub once permanent_redirect = Status(308)
-    pub once bad_request = Status(400)
-    pub once unauthorized = Status(401)
-    pub once payment_required = Status(402)
-    pub once forbidden = Status(403)
-    pub once not_found = Status(404)
-    pub once method_not_allowed = Status(405)
-    pub once not_acceptable = Status(406)
-    pub once proxy_auth_required = Status(407)
-    pub once request_timeout = Status(408)
-    pub once conflict = Status(409)
-    pub once gone = Status(410)
-    pub once length_required = Status(411)
-    pub once precondition_failed = Status(412)
-    pub once request_entity_too_large = Status(413)
-    pub once request_uri_too_long = Status(414)
-    pub once unsupported_media_type = Status(415)
+    pub once continue_status                 = Status(100)
+    pub once switching_protocols             = Status(101)
+    pub once processing                      = Status(102)
+    pub once early_hints                     = Status(103)
+    pub once ok                              = Status(200)
+    pub once created                         = Status(201)
+    pub once accepted                        = Status(202)
+    pub once non_authoritative_info          = Status(203)
+    pub once no_content                      = Status(204)
+    pub once reset_content                   = Status(205)
+    pub once partial_content                 = Status(206)
+    pub once multi_status                    = Status(207)
+    pub once already_reported                = Status(208)
+    pub once im_used                         = Status(226)
+    pub once multiple_choices                = Status(300)
+    pub once moved_permanently               = Status(301)
+    pub once found                           = Status(302)
+    pub once see_other                       = Status(303)
+    pub once not_modified                    = Status(304)
+    pub once use_proxy                       = Status(305)
+    pub once temporary_redirect              = Status(307)
+    pub once permanent_redirect              = Status(308)
+    pub once bad_request                     = Status(400)
+    pub once unauthorized                    = Status(401)
+    pub once payment_required                = Status(402)
+    pub once forbidden                       = Status(403)
+    pub once not_found                       = Status(404)
+    pub once method_not_allowed              = Status(405)
+    pub once not_acceptable                  = Status(406)
+    pub once proxy_auth_required             = Status(407)
+    pub once request_timeout                 = Status(408)
+    pub once conflict                        = Status(409)
+    pub once gone                            = Status(410)
+    pub once length_required                 = Status(411)
+    pub once precondition_failed             = Status(412)
+    pub once request_entity_too_large        = Status(413)
+    pub once request_uri_too_long            = Status(414)
+    pub once unsupported_media_type          = Status(415)
     pub once requested_range_not_satisfiable = Status(416)
-    pub once expectation_failed = Status(417)
-    pub once teapot = Status(418)
-    pub once misdirected_request = Status(421)
-    pub once unprocessable_entity = Status(422)
-    pub once locked = Status(423)
-    pub once failed_dependency = Status(424)
-    pub once too_early = Status(425)
-    pub once upgrade_required = Status(426)
-    pub once precondition_required = Status(428)
-    pub once too_many_requests = Status(429)
+    pub once expectation_failed              = Status(417)
+    pub once teapot                          = Status(418)
+    pub once misdirected_request             = Status(421)
+    pub once unprocessable_entity            = Status(422)
+    pub once locked                          = Status(423)
+    pub once failed_dependency               = Status(424)
+    pub once too_early                       = Status(425)
+    pub once upgrade_required                = Status(426)
+    pub once precondition_required           = Status(428)
+    pub once too_many_requests               = Status(429)
     pub once request_header_fields_too_large = Status(431)
-    pub once unavailable_for_legal_reasons = Status(451)
-    pub once internal_server_error = Status(500)
-    pub once not_implemented = Status(501)
-    pub once bad_gateway = Status(502)
-    pub once service_unavailable = Status(503)
-    pub once gateway_timeout = Status(504)
-    pub once http_version_not_supported = Status(505)
-    pub once variant_also_negotiates = Status(506)
-    pub once insufficient_storage = Status(507)
-    pub once loop_detected = Status(508)
-    pub once not_extended = Status(510)
+    pub once unavailable_for_legal_reasons   = Status(451)
+    pub once internal_server_error           = Status(500)
+    pub once not_implemented                 = Status(501)
+    pub once bad_gateway                     = Status(502)
+    pub once service_unavailable             = Status(503)
+    pub once gateway_timeout                 = Status(504)
+    pub once http_version_not_supported      = Status(505)
+    pub once variant_also_negotiates         = Status(506)
+    pub once insufficient_storage            = Status(507)
+    pub once loop_detected                   = Status(508)
+    pub once not_extended                    = Status(510)
     pub once network_authentication_required = Status(511)
 
     /// The status with `code`, or an `Err` outside 100 to 999.
@@ -322,7 +322,7 @@ impl Headers
     //! assert Headers.values(h, "accept") == ["text/html", "*/*"]
     //
     pub fn get(headers: Headers, name: String) -> Maybe<String>
-        Headers.values(headers, name) |> List.head()
+        Headers.values(headers, name) |> List.first()
     end
 
     /// Every value of `name`, in order.
@@ -623,10 +623,10 @@ fn read_capped(body: Body, max: Int, limit: Maybe<Int>) -> Result<Bytes, Error>
             got = Bytes.length(data)
 
             case copied
-                Ok(_) when got > max -> Err(Error.BodyTooLarge{limit: max})
-                Ok(_) -> Ok(data)
+                Ok(_) when got > max           -> Err(Error.BodyTooLarge{limit: max})
+                Ok(_)                          -> Ok(data)
                 Err(_) when limit == Some(got) -> Err(Error.BodyTooLarge{limit: got})
-                Err(error) -> Err(Error.Body{error:})
+                Err(error)                     -> Err(Error.Body{error:})
             end
 
         other ->
@@ -883,7 +883,7 @@ impl Request
         form = Request.multipart_form(request)?
 
         Map.get(form.files, field)
-        |> Maybe.flat_map(List.head)
+        |> Maybe.flat_map(List.first)
         |> Maybe.to_result(Error.MissingFile{field:})
     end
 
@@ -957,7 +957,7 @@ impl Request
         Headers.get(request.headers, "Content-Type")
         |> Maybe.with_default("")
         |> String.split(";")
-        |> List.head()
+        |> List.first()
         |> Maybe.with_default("")
         |> String.trim()
         |> String.lowercase()
@@ -987,7 +987,7 @@ impl Request
 
     /// The first cookie named `name`, as Go's `Request.Cookie`.
     pub fn cookie(request: Request, name: String) -> Maybe<Cookie>
-        Request.cookies_named(request, name) |> List.head()
+        Request.cookies_named(request, name) |> List.first()
     end
 
     /// The request with `cookie` added to its `Cookie` header. Only its name
@@ -1090,7 +1090,7 @@ impl Request
 
         (method, target, major, minor, host, length, close) = case head
             [m, t, a, b, h, n, c, _] -> (m, t, a, b, h, n, c)
-            _ -> ("GET", "/", "1", "1", "", "-1", "false")
+            _                        -> ("GET", "/", "1", "1", "", "-1", "false")
         end
 
         url =
@@ -1215,7 +1215,7 @@ impl Response
 
         (major, minor, length, close, status) = case head
             [_, _, a, b, _, n, c, s] -> (a, b, n, c, s)
-            _ -> ("1", "1", "-1", "false", "200")
+            _                        -> ("1", "1", "-1", "false", "200")
         end
 
         Ok(Response{
@@ -1617,23 +1617,23 @@ end
 impl ToResponse for Error
     fn to_response(error: Error) -> Response
         status = case error
-            .BodyTooLarge{limit: _} -> Status.request_entity_too_large
-            .CrossOrigin{reason: _} -> Status.forbidden
-            .MalformedBody{reason: _} -> Status.bad_request
-            .Form{reason: _} -> Status.bad_request
-            .MissingFile{field: _} -> Status.bad_request
-            .Body{error: _} -> Status.bad_request
-            .Timeout{during: _} -> Status.gateway_timeout
-            .HandlerTimeout -> Status.service_unavailable
-            .InvalidUrl{url: _, reason: _} -> Status.bad_gateway
-            .Dns{host: _, reason: _} -> Status.bad_gateway
-            .Connect{address: _, reason: _} -> Status.bad_gateway
-            .Tls{reason: _} -> Status.bad_gateway
-            .Canceled -> Status.bad_gateway
-            .TooManyRedirects{count: _} -> Status.bad_gateway
+            .BodyTooLarge{limit: _}             -> Status.request_entity_too_large
+            .CrossOrigin{reason: _}             -> Status.forbidden
+            .MalformedBody{reason: _}           -> Status.bad_request
+            .Form{reason: _}                    -> Status.bad_request
+            .MissingFile{field: _}              -> Status.bad_request
+            .Body{error: _}                     -> Status.bad_request
+            .Timeout{during: _}                 -> Status.gateway_timeout
+            .HandlerTimeout                     -> Status.service_unavailable
+            .InvalidUrl{url: _, reason: _}      -> Status.bad_gateway
+            .Dns{host: _, reason: _}            -> Status.bad_gateway
+            .Connect{address: _, reason: _}     -> Status.bad_gateway
+            .Tls{reason: _}                     -> Status.bad_gateway
+            .Canceled                           -> Status.bad_gateway
+            .TooManyRedirects{count: _}         -> Status.bad_gateway
             .RedirectRefused{url: _, reason: _} -> Status.bad_gateway
-            .Protocol{reason: _} -> Status.bad_gateway
-            _ -> Status.internal_server_error
+            .Protocol{reason: _}                -> Status.bad_gateway
+            _                                   -> Status.internal_server_error
         end
 
         if Status.code(status) < 500 then
@@ -1740,28 +1740,28 @@ end
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .InvalidUrl{url:, reason:} -> "invalid URL ${url}: ${reason}"
-            .InvalidRequest{reason:} -> "invalid request: ${reason}"
-            .Dns{host:, reason:} -> "looking up ${host}: ${reason}"
-            .Connect{address:, reason:} -> "connecting to ${address}: ${reason}"
-            .Tls{reason:} -> "TLS: ${reason}"
-            .Timeout{during:} -> "timed out during the ${during}"
-            .Canceled -> "the request was canceled"
-            .TooManyRedirects{count:} -> "stopped after ${count} redirects"
-            .Form{reason:} -> "reading the form: ${reason}"
-            .MissingFile{field:} -> "no file in the form's field ${field}"
-            .CrossOrigin{reason:} -> reason
+            .InvalidUrl{url:, reason:}      -> "invalid URL ${url}: ${reason}"
+            .InvalidRequest{reason:}        -> "invalid request: ${reason}"
+            .Dns{host:, reason:}            -> "looking up ${host}: ${reason}"
+            .Connect{address:, reason:}     -> "connecting to ${address}: ${reason}"
+            .Tls{reason:}                   -> "TLS: ${reason}"
+            .Timeout{during:}               -> "timed out during the ${during}"
+            .Canceled                       -> "the request was canceled"
+            .TooManyRedirects{count:}       -> "stopped after ${count} redirects"
+            .Form{reason:}                  -> "reading the form: ${reason}"
+            .MissingFile{field:}            -> "no file in the form's field ${field}"
+            .CrossOrigin{reason:}           -> reason
             .RedirectRefused{url:, reason:} -> "the redirect to ${url} was refused: ${reason}"
-            .Protocol{reason:} -> reason
-            .BodyTooLarge{limit:} -> "the body is larger than ${limit} bytes"
-            .MalformedBody{reason:} -> "malformed body: ${reason}"
-            .BodyNotAllowed -> "this request or response cannot have a body"
-            .ContentLength -> "the body's length is not its Content-Length"
-            .HandlerTimeout -> "the handler timed out"
-            .Body{error:} -> "reading the body: ${error}"
-            .Listen{address:, reason:} -> "listening on ${address}: ${reason}"
-            .Pattern{pattern:, reason:} -> "pattern ${pattern}: ${reason}"
-            .Unsupported{reason:} -> reason
+            .Protocol{reason:}              -> reason
+            .BodyTooLarge{limit:}           -> "the body is larger than ${limit} bytes"
+            .MalformedBody{reason:}         -> "malformed body: ${reason}"
+            .BodyNotAllowed                 -> "this request or response cannot have a body"
+            .ContentLength                  -> "the body's length is not its Content-Length"
+            .HandlerTimeout                 -> "the handler timed out"
+            .Body{error:}                   -> "reading the body: ${error}"
+            .Listen{address:, reason:}      -> "listening on ${address}: ${reason}"
+            .Pattern{pattern:, reason:}     -> "pattern ${pattern}: ${reason}"
+            .Unsupported{reason:}           -> reason
         end
     end
 end
@@ -2962,7 +2962,7 @@ end
 /// `/` in it is no method, and Go's own check names it.
 fn method_rule(text: String) -> Maybe<String>
     spaced = String.replace(text, "\t", " ")
-    word = String.split(spaced, " ") |> List.head() |> Maybe.with_default("")
+    word = String.split(spaced, " ") |> List.first() |> Maybe.with_default("")
 
     if not String.contains(spaced, " ") or word == "" or String.contains(word, "/") then
         None
@@ -3379,7 +3379,7 @@ impl Router
     pub fn find(router: Router, request: Request) -> Maybe<String>
         case Router.route(router, request)
             ["match", _, pattern, ..] -> Some(pattern)
-            _ -> None
+            _                         -> None
         end
     end
 
@@ -3984,7 +3984,7 @@ end
 //!     app({..request, headers: Headers[("X-Request-Id", "req-7")]})
 //! end)
 //!
-//! record = List.head(got.records)!
+//! record = List.first(got.records)!
 //! assert record.message == "request"
 //! assert List.contains(record.fields, log.string("method", "POST"))
 //! assert List.contains(record.fields, log.string("path", "/items"))
@@ -4355,7 +4355,7 @@ fn compressible(headers: Headers) -> Bool
         Headers.get(headers, "Content-Type")
         |> Maybe.with_default("")
         |> String.split(";")
-        |> List.head()
+        |> List.first()
         |> Maybe.with_default("")
         |> String.trim()
         |> String.lowercase()
@@ -5386,8 +5386,8 @@ impl ProxyRequest
 
         query = case (target.query, incoming_url.query)
             (Some(a), Some(b)) when a != "" and b != "" -> Some("${a}&${b}")
-            (Some(a), _) when a != "" -> Some(a)
-            (_, b) -> b
+            (Some(a), _) when a != ""                   -> Some(a)
+            (_, b)                                      -> b
         end
 
         url = {
@@ -5735,7 +5735,7 @@ fn wire_parts_of(
 ) -> (List<String>, List<String>, List<String>, List<String>)
     case http_host.wire_parts(message)
         [head, headers, trailers, encoding] -> (head, headers, trailers, encoding)
-        _ -> ([], [], [], [])
+        _                                   -> ([], [], [], [])
     end
 end
 

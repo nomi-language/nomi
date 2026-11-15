@@ -535,7 +535,7 @@ end
 fn instant_param(statement: Statement, index: Int) -> Instant
     case Iter.get(statement.params, index)
         Some(.Timestamptz(at)) -> at
-        _ -> Instant.from_seconds(0)
+        _                      -> Instant.from_seconds(0)
     end
 end
 

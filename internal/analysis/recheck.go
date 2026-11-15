@@ -134,7 +134,10 @@ func fingerprintValue(b *strings.Builder, v reflect.Value) {
 		body := bodyFields[t]
 		for i := range t.NumField() {
 			f := t.Field(i)
-			if body[f.Name] || isPositionField(f) || triviaTypes[f.Type] || f.Type == reflect.TypeFor[ast.SpanCarrier]() {
+			// An unexported field is no syntax (ImplBlock's set-aside
+			// parts); what of it matters is rendered through its accessor
+			// below.
+			if !f.IsExported() || body[f.Name] || isPositionField(f) || triviaTypes[f.Type] || f.Type == reflect.TypeFor[ast.SpanCarrier]() {
 				continue
 			}
 			b.WriteString(f.Name)
@@ -149,6 +152,17 @@ func fingerprintValue(b *strings.Builder, v reflect.Value) {
 			// the files that import it, as a signature edit does.
 			sig := FuncIterSignals(v.Addr().Interface().(*ast.FuncDef))
 			fmt.Fprintf(b, "iter:%t,%t ", sig.Break, sig.Continue)
+		}
+		if t == reflect.TypeFor[ast.ImplBlock]() && v.CanAddr() {
+			// A withheld block (ImplBlock.Withhold) holds the interface and
+			// items a later build may release into it, so they are part of
+			// what the block can bring whatever this build decided.
+			if iface, items, ok := v.Addr().Interface().(*ast.ImplBlock).WithheldParts(); ok {
+				b.WriteString("withheld:")
+				fingerprintValue(b, reflect.ValueOf(&iface).Elem())
+				fingerprintValue(b, reflect.ValueOf(items))
+				b.WriteByte(' ')
+			}
 		}
 		b.WriteByte('}')
 	case reflect.Slice, reflect.Array:
@@ -333,6 +347,12 @@ func (g *grafter) fields(o, n reflect.Value) {
 		f := t.Field(i)
 		fo, fn := o.Field(i), n.Field(i)
 		switch {
+		case !f.IsExported():
+			// What a pass sets aside on a node (ast.ImplBlock's withheld
+			// items): a released block holds the same items in an exported
+			// field, which is walked, and a dropped one holds them only in
+			// the synthesized band, where no text edit moves them.
+			continue
 		case f.Type == reflect.TypeFor[*ast.Expansion]():
 			// What an expansion keeps is made of its body and its inputs,
 			// as a body is: the new one replaces it.

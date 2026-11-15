@@ -34,16 +34,16 @@
 // THE PAIRED NEGATIVE: the impl case's OPERATOR twin must blame a DIFFERENT
 // line, so a lowering that took the position from the wrong node would make
 // the pair agree, and only the pair sees it.
-fn zero_divide_via_impl() -> Int
-    Divide.divide(20, 0)
+fn zero_divide_via_impl(zero: Int) -> Int
+    Divide.divide(20, zero)
 end
 
-fn zero_divide_via_operator() -> Int
-    20 / 0
+fn zero_divide_via_operator(zero: Int) -> Int
+    20 / zero
 end
 
-fn zero_remainder_via_operator() -> Int
-    20 % 0
+fn zero_remainder_via_operator(zero: Int) -> Int
+    20 % zero
 end
 
 test "the written-out impls agree on every non-trapping answer"
@@ -92,13 +92,13 @@ test "a Float divide by zero is IEEE and does not trap"
 end
 
 test "an impl-form Divide by zero blames the call's own line"
-    assert zero_divide_via_impl() == 0
+    assert zero_divide_via_impl(0) == 0
 end
 
 test "an operator divide by zero blames the operator's own line"
-    assert zero_divide_via_operator() == 0
+    assert zero_divide_via_operator(0) == 0
 end
 
 test "an operator remainder by zero blames the operator's own line"
-    assert zero_remainder_via_operator() == 0
+    assert zero_remainder_via_operator(0) == 0
 end

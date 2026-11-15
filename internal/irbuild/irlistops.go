@@ -11,10 +11,17 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 		return nil
 	}
 	lk := kindInvalid
+	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the operands' kinds are read instead.
+	if elem := bl.g.recordedTypeArg(t, method, "T"); elem != kindInvalid {
+		// The list the checker solved T at, which a later operand may
+		// have widened past an earlier one's (`List.concat(circles,
+		// shapes)` is a List<Shape>).
+		lk = bl.g.listKind(elem)
+	}
 	for _, k := range args.kinds {
-		if k.tag == tagList {
+		// kindInvalid: sentinel — no typed list representation found yet, not an operand's kind.
+		if lk == kindInvalid && k.tag == tagList {
 			lk = k
-			break
 		}
 	}
 	// The list operands: the index of remove_at is not one.
@@ -22,12 +29,12 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	if method == "remove_at" {
 		lists = lists[:1]
 	}
-	// head, tail, concat and remove_at are cell operations that never read an
+	// first, tail, concat and remove_at are cell operations that never read an
 	// element, so a list of retained structs or enums crosses as a scalar
 	// list does.
 	// kindInvalid: sentinel — no argument supplied a typed list representation.
 	if lk == kindInvalid && irAllEmptyLists(lists) {
-		// `List.head([])`: nothing constrains the element, so no value of it
+		// `List.first([])`: nothing constrains the element, so no value of it
 		// is built or observed. The list crosses as one of Int, the type
 		// the checker closes such an element as (analysis's closed_vars.go);
 		// a piped operand has no argument node here to read it from.

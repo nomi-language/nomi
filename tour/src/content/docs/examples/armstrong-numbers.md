@@ -17,7 +17,8 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// Reports whether `number` is the sum of its own digits, each raised to
 /// the power of the number of digits: `153 == 1^3 + 5^3 + 3^3`.
 pub fn is_armstrong(number: Int) -> Bool
-    digits = Int.to_digits(number)
+    Some(n) = NonNegativeInt.try_from(number) else return False
+    digits = Int.to_digits(n)
     width = Iter.count(digits)
 
     total =

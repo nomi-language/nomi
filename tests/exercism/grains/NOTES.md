@@ -16,4 +16,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/grains.
 
 ## Friction
 
-None.
+- [verbose] A square from 1 to 64 is checked as a range, so `square - 1` is an Int and goes through `NonNegativeInt.try_from(...)!` to be `Int.pow`'s exponent.

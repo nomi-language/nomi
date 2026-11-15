@@ -1,0 +1,80 @@
+import std::duration.Duration
+
+type Celsius Float
+
+impl Averageable<Celsius> for Celsius
+    fn mean(values: Iter<Celsius>) -> Maybe<Celsius>
+        values |> Iter.map(fn Celsius(c) -> c) |> Iter.mean() |> Maybe.map(fn c -> Celsius(c))
+    end
+end
+
+test "an empty source has no mean"
+    ints: List<Int> = []
+    floats: List<Float> = []
+    decimals: List<Decimal> = []
+    durations: List<Duration> = []
+    assert Iter.mean(ints) == None
+    assert Iter.mean(floats) == None
+    assert Iter.mean(decimals) == None
+    assert Iter.mean(durations) == None
+    assert Iter.mean_by(ints, &(&1 * 2)) == None
+end
+
+test "an Int mean is the exact fraction rounded once to a Float"
+    assert Iter.mean([1, 2, 2]) == Some(1.6666666666666667)
+    // The sum is past 2^53, where converting it to a Float first would
+    // round it to 2^54 and the quotient to ...661.0.
+    assert Iter.mean([Int.pow(2, 54) + 1, 0, 0]) == Some(6004799503160662.0)
+    assert Iter.mean([Int.pow(10, 400), -Int.pow(10, 400), 3]) == Some(1.0)
+end
+
+test "a Float mean sums with compensation"
+    // Ten 0.1s add to 0.9999999999999999 left to right.
+    assert Iter.mean(
+        Iter.repeat(0.1)
+        |> Iter.take(10)
+    ) == Some(0.1)
+
+    assert Iter.mean([1.0e100, 1.0, -1.0e100]) == Some(0.3333333333333333)
+    assert Iter.mean([2.0, Float.positive_infinity()]) == Some(Float.positive_infinity())
+
+    both = Iter.mean([Float.positive_infinity(), Float.negative_infinity()])
+    assert Maybe.map(both, Float.is_nan) == Some(True)
+end
+
+test "a Decimal mean divides the exact sum with Decimal's /"
+    assert Iter.mean([1.10d, 2.20d, 3.30d]) == Some(2.2d)
+
+    third = Iter.mean([1d, 0d, 0d]) |> Maybe.map(Decimal.to_string)
+    assert third == Some("0.3333333333333333333333333333333333")
+end
+
+test "a Duration mean rounds to the nearest nanosecond, ties to even"
+    ns = Duration.nanoseconds
+    assert Iter.mean([Duration.minutes(1), Duration.minutes(2)]) == Some(Duration.seconds(90))
+    assert Iter.mean([ns(0), ns(0), ns(2)]) == Some(ns(1))
+    assert Iter.mean([ns(1), ns(2)]) == Some(ns(2))
+    assert Iter.mean([ns(3), ns(4)]) == Some(ns(4))
+    assert Iter.mean([ns(-1), ns(-2)]) == Some(ns(-2))
+end
+
+test "mean_by averages a key of each element"
+    words = ["pear", "fig", "plum"]
+    assert Iter.mean_by(words, String.length) == Some(3.6666666666666665)
+    assert Iter.mean_by([(1, 2.5d), (2, 3.5d)], fn (_, price) -> price) == Some(3d)
+end
+
+test "a lazy source averages without a list"
+    squares = Iter.map(1..=4, &(&1 * &1))
+    assert Iter.mean(squares) == Some(7.5)
+end
+
+test "NonNegativeInt lengths average as Ints, to a Float"
+    lengths = ["ab", "c"] |> Iter.map(String.length) |> Iter.to_list()
+    m: Maybe<Float> = Iter.mean(lengths)
+    assert m == Some(1.5)
+end
+
+test "a program type implements Averageable"
+    assert Iter.mean([Celsius(20.0), Celsius(22.0)]) == Some(Celsius(21.0))
+end

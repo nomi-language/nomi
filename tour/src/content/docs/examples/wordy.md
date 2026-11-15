@@ -13,8 +13,6 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: wordy.nomi
 //# Parses and evaluates simple math word problems.
 
-import std::int.NonZeroInt
-
 /// Why a question has no answer.
 pub enum Error
     UnknownOperation
@@ -48,11 +46,11 @@ end
 /// Applies each operation in `words` to the running total in turn.
 fn evaluate(total: Int, words: List<String>) -> Result<Int, Error>
     case words
-        [] -> Ok(total)
-        ["plus", ..rest] -> operand(total, .Plus, rest)
-        ["minus", ..rest] -> operand(total, .Minus, rest)
+        []                           -> Ok(total)
+        ["plus", ..rest]             -> operand(total, .Plus, rest)
+        ["minus", ..rest]            -> operand(total, .Minus, rest)
         ["multiplied", "by", ..rest] -> operand(total, .Times, rest)
-        ["divided", "by", ..rest] -> operand(total, .DividedBy, rest)
+        ["divided", "by", ..rest]    -> operand(total, .DividedBy, rest)
         [word, ..] when String.to_int(word) is Some(_) -> Err(.SyntaxError)
         _ -> Err(.UnknownOperation)
     end

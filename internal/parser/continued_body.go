@@ -110,7 +110,7 @@ func (p *Parser) startsDeclarationAt(i int) bool {
 	t := p.tokens[i]
 	switch t.Type {
 	case token.TEST_PROMPT, token.DOC_COMMENT, token.AT, token.PUB, token.EXTERN,
-		token.FN, token.ONCE, token.TYPE, token.STRUCT, token.ENUM, token.TYPEALIAS,
+		token.FN, token.ONCE, token.TYPE, token.STRUCT, token.ENUM, token.TYPEALIAS, token.SUBTYPE,
 		token.INTERFACE, token.IMPL, token.OPAQUE, token.TEST:
 		return true
 	}

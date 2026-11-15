@@ -66,8 +66,8 @@
 //# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`,
 //# `transpose`, `permutations`, `combinations`, `sort`, `sort_by`,
 //# `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`,
-//# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`, `count_by`,
-//# `String.join`, `Result.partition`, `Task.spawn_all`,
+//# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`, `mean`,
+//# `mean_by`, `count_by`, `String.join`, `Result.partition`, `Task.spawn_all`,
 //# `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their
 //# callback cannot `break`. The
 //# ones that may stop early do not: `first`, `find`, `any_match`, `all_match`,
@@ -120,7 +120,8 @@
 //#   `try_reduce`, `map_reduce`, `find`, `find_index`, `find_map`, `each`,
 //#   `any_match`, `all_match`, `contains`, `is_empty`, `first`, `last`, `get`,
 //#   `count`, `count_by`, `min`, `max`, `min_by`, `max_by`, `sum`, `product`,
-//#   `sort`, `sort_by`, `sort_with`, `partition`, `group_by`, `frequencies`.
+//#   `mean`, `mean_by`, `sort`, `sort_by`, `sort_with`, `partition`,
+//#   `group_by`, `frequencies`.
 //# - **Materializers and constructors** consume a source into a collection,
 //#   or seed one: `to_list`, `to_vector`, `to_set`, `to_map`, `reverse`,
 //#   `transpose`, `from`, `repeat`, `iterate`.
@@ -173,15 +174,18 @@
 //# a compile error at the call: `Iter.sum([True])` reports
 //# `` Bool does not implement Summable (required by `where T: Summable`) ``.
 //# `Iter.product` is bounded the same way by
-//# `where T: Multiply<T, T> and Productable`.
+//# `where T: Multiply<T, T> and Productable`. `Iter.mean` is bounded by
+//# `where T: Averageable<R>`, whose impl gives the mean's type `R`: a Float
+//# for Ints and Floats, a Decimal for Decimals, a Duration for Durations.
 
 import
     add.Add
+    averageable.Averageable
     bool.Bool.{self, False, True}
     comparable.{Comparable, Direction, Ordering}
     equatable.Equatable
-    int.Int
-    lists.List
+    int.{Int, NonNegativeInt}
+    lists.{List, NonEmptyList}
     maps.Map
     maybe.Maybe
     maybe.Maybe.{None, Some}
@@ -467,7 +471,7 @@ impl Iter<T>
     //! assert Iter.find_index([1, 2], &(&1 > 99)) == None
     //! assert Iter.find_index(Iter.from(10), &(&1 % 7 == 0)) == Some(4)
     //
-    pub fn find_index<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<Int>
+    pub fn find_index<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<NonNegativeInt>
         source
         |> Iter.with_index()
         |> Iter.find(fn (_, item) -> f(item))
@@ -600,9 +604,7 @@ impl Iter<T>
     end
 
     /// Returns the first element, or None if the iterator is empty. Terminal;
-    /// short-circuits after one step. (`List` spells this `head`, paired with
-    /// `tail` — the cons-list idiom; `first` is the stream-vocabulary name that
-    /// every iterator shares.)
+    /// short-circuits after one step. `List.first` reads a List's first cell.
     //
     //! assert Iter.first([1, 2, 3]) == Some(1)
     //! assert Iter.first([]) == None
@@ -670,19 +672,22 @@ impl Iter<T>
     end
 
     /// Groups elements by a key function. Each group preserves the original order
-    /// of its members. Materializing.
+    /// of its members, and is a `NonEmptyList`, since a key is in the map only
+    /// for an element that produced it. Materializing.
     //
-    //! assert Iter.group_by([1, 2, 3, 4], &(&1 % 2)) == {1 => [1, 3], 0 => [2, 4]}
+    //! groups = Iter.group_by([1, 2, 3, 4], &(&1 % 2))
+    //! assert groups == {1 => [1, 3], 0 => [2, 4]}
+    //! assert groups |> Map.get(1) |> Maybe.map(&NonEmptyList.first(&1)) == Some(1)
     //
-    pub fn group_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Map<K, List<T>>
-        bucketed = reduce(source, {}, fn acc: Map<K, List<T>>, item ->
+    pub fn group_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Map<K, NonEmptyList<T>>
+        bucketed = reduce(source, {}, fn acc: Map<K, NonEmptyList<T>>, item ->
             k = key_fn(item)
             current: List<T> = Maybe.with_default(Map.get(acc, k), [])
-            Map.put(acc, k, [item, ..current])
+            Map.put(acc, k, NonEmptyList.prepend(current, item))
         end)
 
         // Reverse each so groups end up in insertion order.
-        Map.map_values(bucketed, fn v -> Iter.reverse(v))
+        Map.map_values(bucketed, fn v -> NonEmptyList.reverse(v))
     end
 
     /// Counts how often each element occurs. The map's keys are the distinct
@@ -757,8 +762,8 @@ impl Iter<T>
     //
     //! assert ["a", "b", "c"] |> Iter.with_index() |> Iter.to_list() == [(0, "a"), (1, "b"), (2, "c")]
     //
-    pub fn with_index<T>(source: Iter<T>) -> Iter<(Int, T)>
-        Seq{run: fn yield: ((Int, T)) -> Bool -> with_index_each(source, yield)}
+    pub fn with_index<T>(source: Iter<T>) -> Iter<(NonNegativeInt, T)>
+        Seq{run: fn yield: ((NonNegativeInt, T)) -> Bool -> with_index_each(source, yield)}
     end
 
     /// Lazy: yields at most the first `n` elements of `source`. Useful for bounding
@@ -926,16 +931,18 @@ impl Iter<T>
         Seq{run: fn yield: (U) -> Bool -> flat_map_each(source, f, yield)}
     end
 
-    /// Lazy: yields adjacent fixed-size chunks as Lists. The final chunk may be
-    /// shorter. A non-positive size yields no chunks.
+    /// Lazy: yields adjacent fixed-size chunks as NonEmptyLists. The final chunk
+    /// may be shorter. A non-positive size yields no chunks.
     //
     //! assert [1, 2, 3, 4, 5] |> Iter.chunks(2) |> Iter.to_list() == [[1, 2], [3, 4], [5]]
+    //! assert [1, 2, 3] |> Iter.chunks(2) |> Iter.map(&NonEmptyList.last(&1)) |> Iter.to_list() == [2, 3]
     //
-    pub fn chunks<T>(source: Iter<T>, size: Int) -> Iter<List<T>>
+    pub fn chunks<T>(source: Iter<T>, size: Int) -> Iter<NonEmptyList<T>>
         Seq{run: fn yield: (List<T>) -> Bool -> chunks_each(source, size, yield)}
+        |> map(fn chunk -> NonEmptyList.try_from(chunk)!)
     end
 
-    /// Lazy: yields every run of `size` neighbouring elements as a List, one
+    /// Lazy: yields every run of `size` neighbouring elements as a NonEmptyList, one
     /// starting at each element, so the runs overlap: `[1, 2, 3, 4]` with
     /// size 2 gives `[1, 2]`, `[2, 3]` and `[3, 4]`. A source with fewer
     /// than `size` elements yields none, and so does a non-positive size (as
@@ -953,19 +960,21 @@ impl Iter<T>
     //! assert rises == 2
     //! assert Iter.from(1) |> Iter.windows(3) |> Iter.first() == Some([1, 2, 3])
     //
-    pub fn windows<T>(source: Iter<T>, size: Int) -> Iter<List<T>>
+    pub fn windows<T>(source: Iter<T>, size: Int) -> Iter<NonEmptyList<T>>
         if size <= 0 then
-            source |> Iter.take(0) |> Iter.map(fn item -> [item])
+            source |> Iter.take(0) |> Iter.map(fn item -> NonEmptyList.of(item, []))
         else
             source
             |> Iter.scan([], fn window: List<T>, item -> slide(window, item, size))
             |> Iter.filter(fn window -> Iter.count(window) == size)
+            |> Iter.map(fn window -> NonEmptyList.try_from(window)!)
         end
     end
 
-    /// Lazy: yields adjacent runs whose elements produce equal keys. Unlike
-    /// `group_by`, this never reorders or merges non-adjacent elements. To
-    /// group runs of equal elements themselves, use `Iter.chunk_equal`.
+    /// Lazy: yields adjacent runs whose elements produce equal keys, each a
+    /// NonEmptyList. Unlike `group_by`, this never reorders or merges
+    /// non-adjacent elements. To group runs of equal elements themselves, use
+    /// `Iter.chunk_equal`.
     //
     //! assert [1, 2, 4, 5, 3] |> Iter.chunk_by(&(&1 % 2)) |> Iter.to_list() == [[1], [2, 4], [5, 3]]
     //!
@@ -974,11 +983,15 @@ impl Iter<T>
     //!     |> Iter.to_list()
     //!     |> List.equal([["ant", "ape"], ["bee"], ["bat", "cat"]])
     //
-    pub fn chunk_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Iter<List<T>> where K: Equatable
+    pub fn chunk_by<T, K>(
+        source: Iter<T>,
+        key_fn: (T) -> K,
+    ) -> Iter<NonEmptyList<T>> where K: Equatable
         Seq{run: fn yield: (List<T>) -> Bool -> chunk_by_each(source, key_fn, yield)}
+        |> map(fn run -> NonEmptyList.try_from(run)!)
     end
 
-    /// Lazy: yields each run of equal neighbouring elements as a List, so
+    /// Lazy: yields each run of equal neighbouring elements as a NonEmptyList, so
     /// `Iter.chunk_equal(xs)` is `Iter.chunk_by(xs, fn x -> x)`. Equal
     /// elements that are not neighbours land in separate runs; for one group
     /// per value, use `Iter.group_by` or `Iter.frequencies`. A run is never
@@ -989,7 +1002,7 @@ impl Iter<T>
     //! assert "aaabcc" |> Iter.chunk_equal() |> Iter.map(Iter.count) |> Iter.to_list() == [3, 1, 2]
     //! assert Iter.from(0) |> Iter.chunk_equal() |> Iter.first() == Some([0])
     //
-    pub fn chunk_equal<T>(source: Iter<T>) -> Iter<List<T>> where T: Equatable
+    pub fn chunk_equal<T>(source: Iter<T>) -> Iter<NonEmptyList<T>> where T: Equatable
         chunk_by(source, fn item -> item)
     end
 
@@ -1162,10 +1175,10 @@ impl Iter<T>
     //! assert Iter.count([10, 20, 30]) == 3
     //! assert Iter.from(0) |> Iter.take(5) |> Iter.count() == 5
     //
-    pub fn count<T>(source: Iter<T>) -> Int
+    pub fn count<T>(source: Iter<T>) -> NonNegativeInt
         case Iter.known_count(source)
-            Some(n) -> n
-            None    -> reduce(source, 0, fn acc, _item -> acc + 1)
+            Some(n) -> as_count(n)
+            None    -> as_count(reduce(source, 0, fn acc, _item -> acc + 1))
         end
     end
 
@@ -1180,8 +1193,8 @@ impl Iter<T>
     //! none: List<Int> = []
     //! assert Iter.count_by(none, &(&1 > 0)) == 0
     //
-    pub fn count_by<T>(source: Iter<T>, pred: (T) -> Bool) -> Int
-        reduce(source, 0, fn n, item -> if pred(item) then n + 1 else n)
+    pub fn count_by<T>(source: Iter<T>, pred: (T) -> Bool) -> NonNegativeInt
+        as_count(reduce(source, 0, fn n, item -> if pred(item) then n + 1 else n))
     end
 
     /// Returns the least element, or `None` for an empty source. Of equal
@@ -1294,6 +1307,55 @@ impl Iter<T>
     //
     pub fn sum_by<T, N>(source: Iter<T>, key: (T) -> N) -> N where N: Add<N, N> and Summable
         reduce(source, N.empty_sum(), fn total, x -> total + key(x))
+    end
+
+    /// The arithmetic mean of the elements, or `None` for an empty source.
+    /// The element type's `Averageable` impl decides the result type and
+    /// the rounding: Ints give a Float rounded once from the exact sum,
+    /// Floats are summed with compensation, Decimals divide their exact sum
+    /// with Decimal's `/`, and Durations give the nearest nanosecond.
+    /// A refinement is averaged as its base, so the mean of `NonNegativeInt`
+    /// lengths is a Float. Reads the source once, so it works on a lazy or
+    /// one-shot source; it traps on an infinite one.
+    //
+    //! assert Iter.mean([1, 2, 3, 4]) == Some(2.5)
+    //! assert Iter.mean([1, 2, 4]) == Some(2.3333333333333335)
+    //! assert Iter.mean([0.5, 1.0]) == Some(0.75)
+    //! assert Iter.mean([1.0e100, 1.0, -1.0e100]) == Some(0.3333333333333333)
+    //! assert Iter.mean([1.50d, 2.25d]) == Some(1.875d)
+    //! assert Iter.mean(1..=10) == Some(5.5)
+    //! none: List<Int> = []
+    //! assert Iter.mean(none) == None
+    //
+    pub fn mean<T, R>(source: Iter<T>) -> Maybe<R> where T: Averageable<R>
+        if Iter.is_infinite(source) then
+            // The impl's fold would trap naming the impl; `count` traps
+            // here first, naming `Iter.mean`, the call the program wrote.
+            _ = count(source)
+        end
+
+        T.mean(source)
+    end
+
+    /// The arithmetic mean of `key` of each element, or `None` for an empty
+    /// source: `Iter.mean_by(orders, .total)` is the orders' mean total.
+    /// `Iter.mean_by(xs, key)` is exactly `Iter.map(xs, key) |> Iter.mean()`,
+    /// and rounds as `Iter.mean` does. Calls `key` once per element.
+    //
+    //! orders = [{id: 1, total: 5}, {id: 2, total: 8}]
+    //! assert Iter.mean_by(orders, .total) == Some(6.5)
+    //! assert Iter.mean_by(["ab", "c"], String.length) == Some(1.5)
+    //! assert Iter.mean_by([1.5d, 2.5d], &(&1 * 2d)) == Some(4d)
+    //! none: List<String> = []
+    //! assert Iter.mean_by(none, String.length) == None
+    //
+    pub fn mean_by<T, N, R>(source: Iter<T>, key: (T) -> N) -> Maybe<R> where N: Averageable<R>
+        if Iter.is_infinite(source) then
+            // As in `Iter.mean`: trap naming the call the program wrote.
+            _ = count(source)
+        end
+
+        N.mean(map(source, key))
     end
 
     /// Multiplies the elements with `*`, left to right, starting from
@@ -1427,7 +1489,12 @@ host fn drop_while_each<T>(source: Iter<T>, pred: (T) -> Bool, yield: (T) -> Boo
 
 host fn flat_map_each<T, U>(source: Iter<T>, f: (T) -> Iter<U>, yield: (U) -> Bool) -> Bool
 
-host fn with_index_each<T>(source: Iter<T>, yield: ((Int, T)) -> Bool) -> Bool
+host fn with_index_each<T>(source: Iter<T>, yield: ((NonNegativeInt, T)) -> Bool) -> Bool
+
+// as_count is a count this module made, by adding 1s to 0 or from a
+// source's `known_count`, as the NonNegativeInt it is, without running
+// the rule again.
+host fn as_count(n: Int) -> NonNegativeInt
 
 host fn cycle_each<T>(source: Iter<T>, yield: (T) -> Bool) -> Bool
 

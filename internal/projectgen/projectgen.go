@@ -554,7 +554,7 @@ end
 
 /// The first item, or fallback when there is none.
 pub fn first_or<T>(items: List<T>, fallback: T) -> T
-    case List.head(items)
+    case List.first(items)
         Some(x) -> x
         None -> fallback
     end

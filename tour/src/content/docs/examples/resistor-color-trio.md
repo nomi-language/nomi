@@ -64,7 +64,7 @@ fn in_largest_unit(ohms: Int) -> Resistance
     end)
 end
 
-fn digit(color: Color) -> Int
+fn digit(color: Color) -> NonNegativeInt
     case color
         .Black  -> 0
         .Brown  -> 1

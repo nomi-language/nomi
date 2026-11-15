@@ -95,8 +95,8 @@ end
 fn describe(order: Order) -> String
     case order
         {status: .Paid, total:} when total > 100 -> "big order"
-        {status: .Paid} -> "paid"
-        {status: .Refunded} -> "refunded"
+        {status: .Paid}                          -> "paid"
+        {status: .Refunded}                      -> "refunded"
     end
 end
 

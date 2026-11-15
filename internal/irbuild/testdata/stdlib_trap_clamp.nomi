@@ -1,0 +1,11 @@
+// A trap inside a stdlib function is reported at the program's call into
+// the stdlib. `Float.clamp` passes its bounds to a host function inside
+// std/float.nomi, which traps on bounds that are backwards, and the report
+// names the line below.
+import std::io
+
+fn main()
+    io.print("before")
+    x = Float.clamp(1.5, 2.0, 1.0)
+    io.print(x)
+end

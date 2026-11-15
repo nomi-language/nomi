@@ -121,13 +121,13 @@ derive Debug for Error
 impl Display for Error
     fn to_string(error: Error) -> String
         case error
-            .NotFound{key:} -> "no object has the key ${key}"
-            .InvalidKey{key:, reason:} -> "invalid key \"${key}\": ${reason}"
+            .NotFound{key:}                    -> "no object has the key ${key}"
+            .InvalidKey{key:, reason:}         -> "invalid key \"${key}\": ${reason}"
             .InvalidContentType{content_type:} -> "invalid content type \"${content_type}\""
-            .NoPublicUrl -> "the store has no public URL"
-            .Denied{message:} -> "denied: ${message}"
-            .Unavailable{message:} -> "unavailable: ${message}"
-            .Backend{code:, message:} -> "${code}: ${message}"
+            .NoPublicUrl                       -> "the store has no public URL"
+            .Denied{message:}                  -> "denied: ${message}"
+            .Unavailable{message:}             -> "unavailable: ${message}"
+            .Backend{code:, message:}          -> "${code}: ${message}"
         end
     end
 end

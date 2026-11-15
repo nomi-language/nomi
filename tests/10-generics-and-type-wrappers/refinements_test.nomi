@@ -1,20 +1,16 @@
-import
-    std::compiler
-    std::float.{NonNegativeFloat, PositiveFloat}
-    std::int.{NonZeroInt, PositiveInt}
-end
+import std::compiler
 
-type Port Int when fn port -> port >= 1 and port <= 65535
+subtype Port Int when fn port -> port >= 1 and port <= 65535
 
-type Even Int when fn n -> n % 2 == 0
+subtype Even Int when fn n -> n % 2 == 0
 
 fn is_tag(s: String) -> Bool
     String.length(s) > 0 and not String.contains(s, " ")
 end
 
-type Tag String when is_tag
+subtype Tag String when is_tag
 
-type Celsius Float when fn c -> c >= -273.15
+subtype Celsius Float when fn c -> c >= -273.15
 
 impl Celsius
     fn warmer(c: Celsius, by: NonNegativeFloat) -> Celsius
@@ -26,7 +22,8 @@ end
 struct Span
     low:  Int
     high: Int
-end when fn span -> span.low <= span.high
+    when fn span -> span.low <= span.high
+end
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -143,7 +140,7 @@ fn first_error(source: String) -> String
 end
 
 test "the checker rejects a value no rule vouched for"
-    decls = "type Even Int when fn n -> n % 2 == 0\ntype Odd Int when fn n -> n % 2 == 1\n"
+    decls = "subtype Even Int when fn n -> n % 2 == 0\nsubtype Odd Int when fn n -> n % 2 == 1\n"
 
     assert first_error(decls + "fn f(e: Even) -> Odd\n    e\nend\n")
         == "return type mismatch: expected Odd, got Even"

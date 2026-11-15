@@ -31,8 +31,8 @@ var stdlibBacklogCases = []struct{ cause, module, decl string }{
 	// A generic std call with a type argument nothing constrains.
 	{"unsolved generic std call", "results", "impl / map"},
 	{"unsolved generic std call", "results", "impl / to_maybe"},
-	// `List.head([])` and `List.tail([])`.
-	{"untyped empty list operand", "lists", "impl / head"},
+	// `List.first([])` and `List.tail([])`.
+	{"untyped empty list operand", "lists", "impl / first"},
 	{"untyped empty list operand", "lists", "impl / tail"},
 	// `String.join([], ", ")`: an empty list passed to a std host.
 	{"untyped empty list operand", "strings", "impl / join"},
@@ -154,7 +154,7 @@ test "an unconstrained type argument"
 end
 
 test "untyped empty lists"
-  assert List.head([]) == None
+  assert List.first([]) == None
   assert String.join([], ", ") == ""
 end
 

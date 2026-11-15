@@ -76,7 +76,10 @@ func TestStdModuleView_BindsPhaseOneNotPhaseTwo(t *testing.T) {
 
 	// The view's gen must agree with a phase-1 gen built by hand, member for
 	// member of the sibling table — which is the only thing the choice of
-	// fixed point changes at construction time.
+	// fixed point changes at construction time. Each binding installs a fresh
+	// COPY of a candidate's stdFunc (bindStdSiblingViews), so two gens never
+	// share a sibling pointer; a sibling is the same one when its copy is of
+	// the same candidate, which `canon` names.
 	want := newStdGen(module, path, pkg, nodes, fa, v.cands, v.settled, v.onces, full)
 	got := v.gen(full)
 	if len(got.stdSiblings) != len(want.stdSiblings) {
@@ -85,7 +88,7 @@ func TestStdModuleView_BindsPhaseOneNotPhaseTwo(t *testing.T) {
 			len(got.stdSiblings), len(want.stdSiblings))
 	}
 	for name, f := range want.stdSiblings {
-		if got.stdSiblings[name] != f {
+		if g := got.stdSiblings[name]; g == nil || g.canon != f.canon {
 			t.Fatalf("stdModuleView.gen resolves sibling %q differently from a hand-built PHASE 1 gen",
 				name)
 		}

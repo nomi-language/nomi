@@ -230,8 +230,8 @@ test "a pool connects lazily: an unreachable server fails its first statement"
 
     reached = case Conn.ping(db)
         Err(sql.Error.Connection{message: _}) -> "Connection"
-        Err(e) -> "${e}"
-        Ok(_) -> "Ok"
+        Err(e)                                -> "${e}"
+        Ok(_)                                 -> "Ok"
     end
 
     assert reached == "Connection"
@@ -272,9 +272,9 @@ end
 // (`Cancelled`) or returns the `Timeout` its Go call returned.
 fn saw_cancel<T>(outcome: Outcome<Result<T, sql.Error>>) -> Bool
     case outcome
-        .Cancelled -> True
+        .Cancelled                         -> True
         .Completed(Err(sql.Error.Timeout)) -> True
-        _ -> False
+        _                                  -> False
     end
 end
 

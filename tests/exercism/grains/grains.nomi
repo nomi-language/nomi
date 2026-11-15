@@ -15,5 +15,6 @@ pub fn total() -> Int
 end
 
 fn grains_on(square: Int) -> Int
-    Int.pow(2, square - 1)
+    // Squares are numbered from 1, so the exponent is never negative.
+    Int.pow(2, NonNegativeInt.try_from(square - 1)!)
 end

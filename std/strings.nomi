@@ -11,7 +11,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt}
     iter.Iter
     lists.List
     locale.Locale
@@ -754,10 +754,22 @@ impl String
     //! assert String.length("héllo") == 5
     //! assert String.length("") == 0
     //
-    pub host fn length(s: String) -> Int
+    pub host fn length(s: String) -> NonNegativeInt
 end
 
 /// What a list `String.join_list` writes means: CLDR's list pattern types.
+/// A String with at least one character: a name, a key, a label. A literal
+/// is checked when the program is compiled, so `""` where a NonEmptyString
+/// is expected is an error before the program runs;
+/// `NonEmptyString.try_from(s)` checks a String computed at run time. It is
+/// in the prelude.
+//! name: NonEmptyString = "Ada"
+//! assert String.length(name) == 3
+//! assert NonEmptyString.try_from(String.trim("  ")) == None
+//! assert NonEmptyString.try_from(String.trim(" x ")) == Some("x")
+//
+pub subtype NonEmptyString String when fn s -> s != ""
+
 pub enum ListStyle
     /// All of the items: "a, b, and c".
     And

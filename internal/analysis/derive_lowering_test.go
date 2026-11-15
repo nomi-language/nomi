@@ -308,9 +308,9 @@ end
 }
 
 func TestLowerDerives_DistinctAndZeroSizedTypeBodies(t *testing.T) {
-	src := `pub opaque type NonZeroInt Int
+	src := `pub opaque type NonZeroCount Int
 
-impl Display for NonZeroInt
+impl Display for NonZeroCount
   fn to_string(_n: self) -> String
     "n"
   end
@@ -334,8 +334,8 @@ end
 		t.Fatalf("node 0: expected consumed TypeDef, got %T", out[0])
 	}
 	ib1, ok := out[1].(*ast.ImplBlock)
-	if !ok || TypeExprBaseName(ib1.Interface) != "Display" || TypeExprBaseName(ib1.Receiver) != "NonZeroInt" {
-		t.Fatalf("node 1: expected impl Display for NonZeroInt, got %T", out[1])
+	if !ok || TypeExprBaseName(ib1.Interface) != "Display" || TypeExprBaseName(ib1.Receiver) != "NonZeroCount" {
+		t.Fatalf("node 1: expected impl Display for NonZeroCount, got %T", out[1])
 	}
 	ib2, ok := out[3].(*ast.ImplBlock)
 	if !ok || TypeExprBaseName(ib2.Interface) != "Literal" || TypeExprBaseName(ib2.Receiver) != "Sql" {

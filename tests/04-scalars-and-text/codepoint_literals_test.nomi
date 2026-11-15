@@ -69,7 +69,7 @@ test "codepoint literals are case patterns"
 end
 
 test "codepoint literals match inside variant and tuple patterns"
-    found = case List.head(['x', 'y'])
+    found = case List.first(['x', 'y'])
         Some('x') -> "x first"
         Some(_)   -> "other first"
         None      -> "empty"

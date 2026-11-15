@@ -73,7 +73,7 @@ func TestIRPreludeValues_MissingCheckedSignatureKeepsNativeFallback(t *testing.T
 func TestIRPreludeValues_CompletePrograms(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"cached stdlib refinement", `import
-    std::io std::int.PositiveInt
+    std::io
 end
 fn present(v: Maybe<PositiveInt>) -> Bool
     case v

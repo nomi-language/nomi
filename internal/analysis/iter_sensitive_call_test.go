@@ -341,7 +341,7 @@ end
 // of one is rejected as any other's is.
 func TestIterSensitiveCall_AdmitsAGenericFunction(t *testing.T) {
 	src := `fn head_or_skip<T>(xs: List<T>) -> T
-    case List.head(xs)
+    case List.first(xs)
         Some(x) -> x
         None -> continue
     end

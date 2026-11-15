@@ -191,6 +191,26 @@ func IntToFloat(n Int) float64 {
 	return f
 }
 
+// IntRatioToFloat is std/averageable's `int_ratio_to_float`, behind Int's
+// `Averageable` impl: the Float nearest the exact fraction num / den, ties
+// to even, an infinity past Float's range. den is a PositiveInt; a
+// denominator that is not positive traps. When both fit in 53 bits each
+// converts exactly and one IEEE division rounds the quotient once;
+// otherwise big.Rat rounds the exact fraction.
+func IntRatioToFloat(num, den Int) float64 {
+	if den.Sign() <= 0 {
+		Trap(fmt.Sprintf("int_ratio_to_float: denominator %s is not positive", den))
+	}
+	const exact = 1 << 53
+	if n, ok := num.Int64(); ok && n > -exact && n < exact {
+		if d, ok := den.Int64(); ok && d < exact {
+			return float64(n) / float64(d)
+		}
+	}
+	f, _ := new(big.Rat).SetFrac(num.Big(), den.Big()).Float64()
+	return f
+}
+
 // IntWrapAdd is `Int.wrapping_add`: a + b modulo 2^64, as an int64.
 func IntWrapAdd(a, b Int) int64 { return Wrap64(a.Value()) + Wrap64(b.Value()) }
 
@@ -234,8 +254,9 @@ func IntBitLength(n Int) int64 {
 // one faults with a reason rather than running out of memory.
 const maxShift = 1 << 34
 
-// IntPow is `Int.pow`: n multiplied by itself exp times, exact. A negative
-// exponent traps, since its answer is a fraction.
+// IntPow is `Int.pow`: n multiplied by itself exp times, exact. exp is a
+// NonNegativeInt in Nomi; a negative one, which only rt's own callers could
+// pass, faults, since its answer is a fraction.
 func IntPow(n, exp Int) Int {
 	if exp.Sign() < 0 {
 		Trap(fmt.Sprintf("Int.pow: negative exponent %s: the power is a fraction, which Float.pow gives", exp))
@@ -290,7 +311,8 @@ func powSmall(n, exp int64) (int64, bool) {
 	return result, uint64(result) != BigWord
 }
 
-// IntSqrt is `Int.sqrt`: the greatest r with r*r <= n. A negative n traps.
+// IntSqrt is `Int.sqrt`: the greatest r with r*r <= n. n is a NonNegativeInt
+// in Nomi; a negative one faults.
 // The float square root is within one of the answer for an int64, and the
 // corrections compare in uint64, where the square of every candidate fits.
 func IntSqrt(n Int) Int {
@@ -308,6 +330,13 @@ func IntSqrt(n Int) Int {
 		return SmallInt(int64(r))
 	}
 	return Int{intOwned(new(big.Int).Sqrt(n.Big()))}
+}
+
+// IntAsCount is std/iter's `as_count`: a count `Iter.count` or
+// `Iter.count_by` made, which is never negative, passed through as the
+// NonNegativeInt the Nomi side declares it to be without checking the rule.
+func IntAsCount(n Int) Int {
+	return n
 }
 
 // IntGcd is `Int.gcd`: the greatest common divisor of |a| and |b|, never
@@ -329,7 +358,8 @@ func IntLcm(a, b Int) Int {
 }
 
 // IntToDigits is `Int.to_digits`: n's digits in base, most significant
-// first, and [0] for 0. A base below 2 and a negative n trap.
+// first, and [0] for 0. n is a NonNegativeInt and base a Radix in Nomi; a
+// negative n or a base below 2 faults.
 func IntToDigits(n, base Int) *List[Int] {
 	if IntCompare(base.Value(), int64(2)) < 0 {
 		Trap(fmt.Sprintf("Int.to_digits: base %s is less than 2", base))
@@ -361,7 +391,7 @@ func IntToDigits(n, base Int) *List[Int] {
 
 // IntFromDigits is `Int.from_digits`: the Int whose digits in base, most
 // significant first, are digits; Some(0) for none. None when a digit is
-// outside 0 to base - 1. A base below 2 traps.
+// outside 0 to base - 1. base is a Radix in Nomi; one below 2 faults.
 func IntFromDigits(digits *List[Int], base Int) Maybe[Int] {
 	if IntCompare(base.Value(), int64(2)) < 0 {
 		Trap(fmt.Sprintf("Int.from_digits: base %s is less than 2", base))

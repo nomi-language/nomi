@@ -92,7 +92,7 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 		subject = "`" + sym.Name + "`"
 		param = sym.Name
 	}
-	article := articleFor(it.String())
+	article := ArticleFor(it.String())
 	if verb == "holds" {
 		article = "values of"
 	}

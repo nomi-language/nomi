@@ -91,6 +91,11 @@ func TestStdBundle_DecodesToTheLowering(t *testing.T) {
 	if len(decoded.irModules) == 0 || len(decoded.byKey) == 0 {
 		t.Fatalf("the decoded index is empty, so the comparison compared nothing")
 	}
+	// Each module's scope, which an edited module is lowered against again
+	// (stdedited.go): an import cycle's members see each other.
+	if !reflect.DeepEqual(decoded.earlierMods, lowered.earlierMods) {
+		t.Errorf("the decoded index gives modules other scopes than the lowering did")
+	}
 }
 
 // TestStdBundle_ListedDecodesToTheLowering holds the bundle's listed section
@@ -205,9 +210,10 @@ func listedDump(t *testing.T, k *listedStd) string {
 // does not match this process to be refused rather than decoded.
 func TestStdBundle_RejectsAStaleOrCorruptBundle(t *testing.T) {
 	var recs []*stdModuleRecord
-	buildStdlibIndexBy(lowerSharedStdModule, func(name string, v *stdModuleView, m *ir.Module) {
+	idx := buildStdlibIndexBy(lowerSharedStdModule, func(name string, v *stdModuleView, m *ir.Module) {
 		recs = append(recs, recordStdModule(name, v, m))
 	})
+	markStdUnits(recs, idx)
 	shared, err := encodeSharedSection(recs)
 	if err != nil {
 		t.Fatal(err)

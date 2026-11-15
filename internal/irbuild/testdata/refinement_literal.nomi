@@ -1,11 +1,8 @@
 // A literal checked as a refinement breaks a rule up its chain: the program
 // does not compile, and the diagnostic names the refinement whose rule fails.
-import
-    std::float.NonNegativeFloat
-    std::io
-end
+import std::io
 
-type Probability NonNegativeFloat when fn p -> p <= 1.0
+subtype Probability NonNegativeFloat when fn p -> p <= 1.0
 
 fn percent(p: Probability) -> Float
     p * 100.0

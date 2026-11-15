@@ -89,7 +89,7 @@ func TestReplVM_AClosureKeepsItsCapturedValue(t *testing.T) {
 // An input that fails to check or faults prints its error and changes
 // nothing; the session goes on.
 func TestReplVM_AnErrorDoesNotPoisonTheSession(t *testing.T) {
-	replExpect(t, "x = 5\nundefined_name + 1\nx + 1\ny = x / 0\ny\nx\n",
+	replExpect(t, "x = 5\nundefined_name + 1\nx + 1\ny = x / (x - x)\ny\nx\n",
 		"6\n5\n",
 		"undefined variable 'undefined_name'", "division by zero", "undefined variable 'y'")
 }

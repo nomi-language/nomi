@@ -34,7 +34,7 @@ end
 fn extract_first_tag(jv: Json) -> Maybe<String>
     case jv
         .Obj{"tags" => .Arr[.String(t), ..]} -> Some(t)
-        _ -> None
+        _                                    -> None
     end
 end
 

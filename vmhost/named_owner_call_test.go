@@ -25,7 +25,7 @@ fn main()
     s = "abc"
     dbg String.length(s:)
     dbg String.trim(s: "  a ")
-    dbg List.head(list: [1, 2])
+    dbg List.first(list: [1, 2])
     config = {"host" => "localhost"}
     dbg Map.get(m: config, key: "host")
     dbg Map.get(key: mark("key first", "host"), m: {mark("map second", "host") => "x"})
@@ -47,7 +47,7 @@ end
 	}
 	want := `dbg line 12: String.length(s:) = 3
 dbg line 13: String.trim(s: "  a ") = "a"
-dbg line 14: List.head(list: [1, 2]) = Some(1)
+dbg line 14: List.first(list: [1, 2]) = Some(1)
 dbg line 16: Map.get(m: config, key: "host") = Some("localhost")
 key first
 map second

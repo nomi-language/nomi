@@ -1,0 +1,173 @@
+import
+    bool.Bool.True
+    decimal.Decimal
+    duration.Duration
+    float.Float
+    int.{Int, PositiveInt}
+    iter.Iter
+    lists.List
+    maybe.Maybe.{self, None, Some}
+end
+
+/// A type whose values have a mean of type `R`: `mean(values)` is the
+/// arithmetic mean of `values`, or `None` when there are none.
+/// `Iter.mean` and `Iter.mean_by` call it.
+///
+/// The impl owns the arithmetic, since a good mean depends on the type:
+/// Int's mean is a Float rounded once from the exact sum, Float's sums with
+/// compensation, and Decimal's divides its exact sum as Decimal's `/` does.
+/// An impl reads `values` once, with one fold that keeps the running sum and
+/// the count together, since an `Iter` may be lazy or yield its elements
+/// only once; it never counts first and sums after.
+///
+/// | Type | `R` | Rounding |
+/// |---|---|---|
+/// | Int | Float | the exact sum over the count, rounded once to the nearest Float |
+/// | Float | Float | compensated (Neumaier) sum, then one division |
+/// | Decimal | Decimal | the exact sum divided by the count with Decimal's `/` |
+/// | Duration | Duration | the exact sum over the count, to the nearest nanosecond, ties to even |
+///
+/// A refinement has its base's impl, so the mean of `NonNegativeInt`s is
+/// Int's, a `Float`.
+///
+/// ```nomi
+/// type Celsius Float
+///
+/// impl Averageable<Celsius> for Celsius
+///     fn mean(values: Iter<Celsius>) -> Maybe<Celsius>
+///         values |> Iter.map(fn Celsius(c) -> c) |> Iter.mean() |> Maybe.map(Celsius)
+///     end
+/// end
+/// ```
+//! assert Int.mean([1, 2]) == Some(1.5)
+//! assert Iter.mean([1.5, 2.5]) == Some(2.0)
+//
+pub interface Averageable<R>
+    fn mean(values: Iter<self>) -> Maybe<R>
+end
+
+impl Averageable<Float> for Int
+    /// The mean of `values` as a Float, or `None` when there are none. The
+    /// sum is exact, since an Int has no size limit, and the exact fraction
+    /// sum / count is rounded once, to the nearest Float, ties to even: no
+    /// rounding happens in the sum or in converting it. A mean past Float's
+    /// range is an infinity. Reads `values` once.
+    //! assert Int.mean([1, 2, 4]) == Some(2.3333333333333335)
+    //! assert Int.mean([-3, 4]) == Some(0.5)
+    //! assert Iter.mean([Int.pow(10, 30) + 1, Int.pow(10, 30)]) == Some(1.0e30)
+    //! none: List<Int> = []
+    //! assert Int.mean(none) == None
+    //
+    fn mean(values: Iter<Int>) -> Maybe<Float>
+        (total, count) = Iter.reduce(values, (0, 0), fn (total, count), x -> (total + x, count + 1))
+
+        case PositiveInt.try_from(count)
+            Some(n) -> Some(int_ratio_to_float(total, n))
+            None    -> None
+        end
+    end
+end
+
+// The Float nearest `numerator / denominator`, ties to even: the exact
+// fraction rounded once.
+host fn int_ratio_to_float(numerator: Int, denominator: PositiveInt) -> Float
+
+impl Averageable<Float> for Float
+    /// The mean of `values`, or `None` when there are none. The sum is
+    /// compensated (Neumaier's): beside the running sum it keeps the low
+    /// bits each addition rounded away and adds them back at the end, so a
+    /// small value between large ones of opposite sign still counts. Then
+    /// it divides once by the count. NaN and infinities follow IEEE rules:
+    /// a NaN makes the mean NaN, an infinity makes it that infinity, and
+    /// both infinities make it NaN. A sum past Float's range is an
+    /// infinity, so the mean of values near the largest Float may be one
+    /// too. Reads `values` once.
+    //! assert Float.mean([1.5, 2.5]) == Some(2.0)
+    //! assert Float.mean([1.0e100, 1.0, -1.0e100]) == Some(0.3333333333333333)
+    //! assert Float.mean([1.0, Float.positive_infinity()]) == Some(Float.positive_infinity())
+    //! assert Float.mean([1.0, Float.nan()]) |> Maybe.map(Float.is_nan) == Some(True)
+    //! none: List<Float> = []
+    //! assert Float.mean(none) == None
+    //
+    fn mean(values: Iter<Float>) -> Maybe<Float>
+        (total, lost, count) = Iter.reduce(values, (0.0, 0.0, 0), fn (total, lost, count), x ->
+            next = total + x
+
+            dropped = if Float.abs(total) >= Float.abs(x) then
+                (total - next) + x
+            else
+                (x - next) + total
+            end
+
+            (next, lost + dropped, count + 1)
+        end)
+
+        // Past Float's range or NaN, the compensation is NaN; the plain sum
+        // is the IEEE answer there.
+        sum = if Float.is_finite(total) then total + lost else total
+
+        case PositiveInt.try_from(count)
+            Some(n) -> Some(sum / Int.to_float(n))
+            None    -> None
+        end
+    end
+end
+
+impl Averageable<Decimal> for Decimal
+    /// The mean of `values`, or `None` when there are none: the exact sum
+    /// divided by the count with Decimal's `/`, so a mean that ends within
+    /// 34 significant digits is exact, and one that does not is rounded
+    /// half-even to 34. Reads `values` once.
+    //! assert Decimal.mean([1.50d, 2.50d]) == Some(2d)
+    //!
+    //! assert Decimal.mean([1d, 2d, 2d]) |> Maybe.map(Decimal.to_string) == Some(
+    //!     "1.666666666666666666666666666666667"
+    //! )
+    //!
+    //! none: List<Decimal> = []
+    //! assert Decimal.mean(none) == None
+    //
+    fn mean(values: Iter<Decimal>) -> Maybe<Decimal>
+        (total, count) = Iter.reduce(values, (0d, 0), fn (total, count), x ->
+            (total + x, count + 1)
+        end)
+
+        case PositiveInt.try_from(count)
+            Some(n) -> Some(total / Int.to_decimal(n))
+            None    -> None
+        end
+    end
+end
+
+impl Averageable<Duration> for Duration
+    /// The mean length of `values`, or `None` when there are none, to the
+    /// nearest nanosecond, ties to even. The sum is exact and has no limit,
+    /// so durations whose sum is past what a Duration holds still have
+    /// their mean. Reads `values` once.
+    //! one = Duration.seconds(1)
+    //! assert Duration.mean([one, one * 2]) == Some(Duration.milliseconds(1500))
+    //! ns = Duration.nanoseconds
+    //! assert Duration.mean([ns(1), ns(2), ns(2)]) == Some(ns(2))
+    //! assert Duration.mean([ns(1), ns(2)]) == Some(ns(2))
+    //! assert Duration.mean([ns(2), ns(3)]) == Some(ns(2))
+    //! none: List<Duration> = []
+    //! assert Duration.mean(none) == None
+    //
+    fn mean(values: Iter<Duration>) -> Maybe<Duration>
+        (total, count) = Iter.reduce(values, (0, 0), fn (total, count), d ->
+            (total + Duration.as_nanos(d), count + 1)
+        end)
+
+        case PositiveInt.try_from(count)
+            Some(n) ->
+                whole = Int.floor_div(total, n)
+                twice_left = 2 * (total - whole * n)
+                up = twice_left > n or (twice_left == n and Int.modulo(whole, 2) == 1)
+
+                Some(Duration.nanoseconds(if up then whole + 1 else whole))
+
+            None ->
+                None
+        end
+    end
+end

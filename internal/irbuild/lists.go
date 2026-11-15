@@ -5,14 +5,14 @@ import (
 )
 
 // The `impl List<T>` method surface, reached type-qualified: `List.equal(xs,
-// ys)`, `List.head(xs)`, `List.tail(xs)`, `List.concat(a, b)`.
+// ys)`, `List.first(xs)`, `List.tail(xs)`, `List.concat(a, b)`.
 //
 // # Why this is an owner-keyed arm and not the stdlib path
 //
 // These are stdlib functions with ordinary declarations in std/lists.nomi, and
 // stdlib.go's index sees them: collectStdCandidates reads the receiver with
-// analysis.TypeExprBaseName, so the index holds `lists.List.head` and
-// `byType["List.head"]` resolves.
+// analysis.TypeExprBaseName, so the index holds `lists.List.first` and
+// `byType["List.first"]` resolves.
 //
 // What the index resolves TO for these declarations is a refusal: every method
 // of `impl List<T>` is generic over T, so its entry carries
@@ -62,10 +62,10 @@ type listFn struct {
 // std/lists.nomi:125 defines the method AS `a == b`. Giving it a row here would
 // make it a second encoding of one semantics.
 //
-// Use across tests/: equal? 39 sites, head 4, tail 2,
+// Use across tests/: equal? 39 sites, first 4, tail 2,
 // concat 1.
 var listFuncs = map[string]listFn{
-	"head":   {rtCall: "rt.ListHead", args: 1, result: "maybe-elem"},
+	"first":  {rtCall: "rt.ListHead", args: 1, result: "maybe-elem"},
 	"tail":   {rtCall: "rt.ListTail", args: 1, result: "maybe-list"},
 	"concat": {rtCall: "rt.ListConcat", args: 2, result: "list"},
 	// The second operand of remove_at is the index, an Int.

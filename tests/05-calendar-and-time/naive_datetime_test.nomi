@@ -86,7 +86,7 @@ test "naive datetimes sort chronologically"
 
     sorted = Iter.sort([a, b, c])
 
-    assert List.head(sorted) == Some(b)
+    assert List.first(sorted) == Some(b)
 end
 
 test "naive datetime differences return durations"

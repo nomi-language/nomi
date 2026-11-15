@@ -196,14 +196,14 @@ end
 func TestDistinctSelf_OpaqueImplementors(t *testing.T) {
 	positive := `import scaled.Scaled
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn of(n: Int) -> PositiveInt
-    PositiveInt(n)
+pub fn of(n: Int) -> PosCount
+    PosCount(n)
 end
 
-impl Scaled for PositiveInt
-    fn describe(PositiveInt(n)) -> String
+impl Scaled for PosCount
+    fn describe(PosCount(n)) -> String
         "+${n}"
     end
 end

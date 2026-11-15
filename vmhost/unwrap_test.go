@@ -68,7 +68,7 @@ fn nice(n: Int) -> Result<Int, Nice>
 end
 
 fn first<T>(xs: List<T>) -> Maybe<T>
-    List.head(xs)
+    List.first(xs)
 end
 
 fn pick(_u: User, _c: Color, _t: (Int, String), _cp: Codepoint, _d: Decimal, _f: Float, _b: Bool, _s: String) -> Maybe<Int>

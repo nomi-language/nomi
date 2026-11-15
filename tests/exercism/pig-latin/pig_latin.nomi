@@ -23,8 +23,8 @@ end
 fn onset_length(letters: List<String>) -> Int
     case letters
         ["x", "r", ..] or ["y", "t", ..] -> 0
-        ["y", ..rest] -> 1 + consonants(rest)
-        _ -> consonants(letters)
+        ["y", ..rest]                    -> 1 + consonants(rest)
+        _                                -> consonants(letters)
     end
 end
 

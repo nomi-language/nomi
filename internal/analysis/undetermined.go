@@ -15,7 +15,7 @@ import (
 // The rule is narrower than "every inference variable must be solved".
 // An unsolved variable is harmless where no value of its type is made: the
 // element of an empty collection (`[]`, `Iter.to_list([])`,
-// `List.head([])`), the variant a value is not (`Ok(1)`'s error type,
+// `List.first([])`), the variant a value is not (`Ok(1)`'s error type,
 // `Result.map(Ok(3), f)`'s E), or a collection a call returns empty
 // (`[]`). A callee makes values of a type argument when its
 // signature mentions it

@@ -17,4 +17,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/variable-length-qu
 
 ## Friction
 
-None.
+- [verbose] The quantities are a `List<Int>`, as the tests write them, so each goes through `NonNegativeInt.try_from(n)!` before `Int.to_digits`.

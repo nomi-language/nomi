@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 83
-declared-cases 973
+records 84
+declared-cases 1037
 failing 0
 C actors
 E 0
@@ -24,6 +24,11 @@ E 0
 N 1
 H 121e0600dcb9ee476b886cbace4c2f30df52d35352abdfc4def760477e2b27e8
 T ok AssertionFailure.format
+C averageable
+E 0
+N 1
+H cfa5368eb0bd9ab3c4ab1fd3a7dcbb8f9c859baf107c74a5335c1c4058d45b5b
+T ok interface Averageable
 C base64
 E 0
 N 4
@@ -243,8 +248,8 @@ T ok Currency.is_iso
 T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
-N 25
-H 252a81d7badc2da7cc3f5ef0836368e0013aad82564645db12acc7b1d392124d
+N 28
+H b6cdaa824c1fe0225de6146253674062aabd8a1e77b2563b114e15222ca29286
 T ok Decimal.to_int
 T ok Decimal.to_float
 T ok Decimal.divide
@@ -270,10 +275,13 @@ T ok Decimal.divide Divide<Decimal, Decimal> (impl Divide<Decimal, Decimal> for 
 T ok Decimal.remainder (impl Remainder<Decimal, Decimal> for Decimal)
 T ok Decimal.empty_product (impl Productable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
+T ok type NonZeroDecimal
+T ok type NonNegativeDecimal
+T ok type PositiveDecimal
 C duration
 E 0
-N 25
-H 65a8c3ba58676dee066933e14df276630e13e38c83d5a4e814ecfc6ad7f2ed80
+N 26
+H 35e8f1bcb3735cb3cac539d2901a262047a82ab854931bd21d1f49dfad76e8d9
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
@@ -299,6 +307,7 @@ T ok Duration.divide (impl Divide<Int, Duration> for Duration)
 T ok Duration.remainder (impl Remainder<Duration, Duration> for Duration)
 T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
+T ok type PositiveDuration
 C embed
 E 0
 N 10
@@ -315,8 +324,8 @@ T ok Files.paths
 T ok Files.sub
 C float
 E 0
-N 41
-H 0b6df9887d4eee3cea310d93b8f7b41e59e3857c8348553bcd572b27749c0513
+N 42
+H 469788ca2d3f097dd3a10120e73b6f877f220e957217ebda7a9f003a656070a1
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -356,6 +365,7 @@ T ok Float.inspect (impl Debug for Float)
 T ok Float.min (impl Comparable for Float)
 T ok Float.max (impl Comparable for Float)
 T ok Float.clamp (impl Comparable for Float)
+T ok type NonZeroFloat
 T ok type NonNegativeFloat
 T ok type PositiveFloat
 C fs
@@ -540,8 +550,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 36
-H 5c55c4076a8cbf87428984b76d645d6860d4848ac41bbd63c78e228376238cd2
+N 38
+H 036526afb40ffa4bf4baa402ae278a71810e240cf8bc7b5d391c376d8f741512
 T ok type Int
 T ok Int.to_float
 T ok Int.to_decimal
@@ -577,7 +587,9 @@ T ok Int.shift_left (impl ShiftLeft<Int, Int> for Int)
 T ok Int.shift_right (impl ShiftRight<Int, Int> for Int)
 T ok Int.inspect (impl Debug for Int)
 T ok type NonZeroInt
+T ok type NonNegativeInt
 T ok type PositiveInt
+T ok type Radix
 C io
 E 0
 N 33
@@ -617,8 +629,8 @@ T ok io.capture
 T ok io.replay
 C iter
 E 0
-N 61
-H 88124ebf8feffadfb45f7b0aa6b3982579698736af92b93d3aea036d59f3f39e
+N 63
+H 73ce91f8a59a481414d7d94ec3da5a7aa1a37ac80cebdd536482477a8c676fce
 T ok Iter.loop
 T ok Iter.reduce
 T ok Iter.scan
@@ -678,6 +690,8 @@ T ok Iter.min_by
 T ok Iter.max_by
 T ok Iter.sum
 T ok Iter.sum_by
+T ok Iter.mean
+T ok Iter.mean_by
 T ok Iter.product
 T ok Iter.product_by
 C jobs
@@ -730,13 +744,13 @@ T ok jwt.verify
 T ok jwt.verify_as
 C lists
 E 0
-N 13
-H ec24a2acfa158e3ae3cff246fadcf4ff5de804eefa6487db034761797a94c8fe
+N 32
+H 0a14cbbc54cc94cfdf42e63aed137166bc6ae5ae6ea930bf3954ba8495ad8435
 T ok type List
 T ok List.next_item
 T ok List.length
 T ok List.concat
-T ok List.head
+T ok List.first
 T ok List.tail
 T ok List.remove_at
 T ok List.remove
@@ -745,6 +759,25 @@ T ok List.ends_with
 T ok List.split_while
 T ok List.contains (impl Contains for List<T>)
 T ok List.empty_sum (impl Summable for List<T>)
+T ok type NonEmptyList
+T ok NonEmptyList.of
+T ok NonEmptyList.first
+T ok NonEmptyList.last
+T ok NonEmptyList.tail
+T ok NonEmptyList.length
+T ok NonEmptyList.max
+T ok NonEmptyList.min
+T ok NonEmptyList.max_by
+T ok NonEmptyList.min_by
+T ok NonEmptyList.mean
+T ok NonEmptyList.reduce
+T ok NonEmptyList.map
+T ok NonEmptyList.with_index
+T ok NonEmptyList.reverse
+T ok NonEmptyList.sort
+T ok NonEmptyList.prepend
+T ok NonEmptyList.push
+T ok NonEmptyList.concat
 C literals
 E 0
 N 1
@@ -821,8 +854,8 @@ T ok testing.conformance [not run in the browser: connect listen]
 T ok testing.rules
 C maps
 E 0
-N 16
-H 993ac2105af2efee84e9a9665cf98a9e6f16da76041e61d42351b17c45e68b65
+N 28
+H 8a8ca68a450cdd142f17bdf7f80259b666a6cd26cc8f562fe55dd32196def235
 T ok type Map
 T ok Map.get
 T ok Map.put
@@ -839,6 +872,18 @@ T ok Map.map_keys
 T ok Map.contains (impl Contains for Map<K, V>)
 T ok Map.add (impl Add<Map<K, V>, Map<K, V>> for Map<K, V>)
 T ok Map.empty_sum (impl Summable for Map<K, V>)
+T ok type NonEmptyMap
+T ok NonEmptyMap.of
+T ok NonEmptyMap.size
+T ok NonEmptyMap.first_entry
+T ok NonEmptyMap.last_entry
+T ok NonEmptyMap.max_by
+T ok NonEmptyMap.min_by
+T ok NonEmptyMap.keys
+T ok NonEmptyMap.values
+T ok NonEmptyMap.map_values
+T ok NonEmptyMap.put
+T ok NonEmptyMap.merge
 C matcher
 E 0
 N 1
@@ -1037,8 +1082,8 @@ T ok sessions.with_session
 T ok sessions.write
 C sets
 E 0
-N 11
-H eedf290efadd845b056854c2ea6a2c33d0dee97f4866d124712980fcb04eb1ec
+N 20
+H a74755a06b52fa90b1f49bbd35e73180918b38f806a0748ec10a68e51cf85d0d
 T ok Set.insert
 T ok Set.remove
 T ok Set.size
@@ -1050,6 +1095,15 @@ T ok Set.contains (impl Contains for Set<T>)
 T ok Set.add (impl Add<Set<T>, Set<T>> for Set<T>)
 T ok Set.empty_sum (impl Summable for Set<T>)
 T ok Set.subtract (impl Subtract<Set<T>, Set<T>> for Set<T>)
+T ok type NonEmptySet
+T ok NonEmptySet.of
+T ok NonEmptySet.size
+T ok NonEmptySet.max
+T ok NonEmptySet.min
+T ok NonEmptySet.map
+T ok NonEmptySet.to_list
+T ok NonEmptySet.insert
+T ok NonEmptySet.union
 C signatures
 E 0
 N 11
@@ -1127,8 +1181,8 @@ T ok testing.invalid_keys
 T ok testing.odd_keys
 C strings
 E 0
-N 51
-H 17bcfd2916600ae4d13326defb8ed993da71187e79ec8a923a33a8f5e16df1a5
+N 52
+H c2de30045d6fd132d4681b3885568620afcb14fc9d478f6dc4e31b574b6945a8
 T ok String.contains Contains<String> (impl Contains<String> for String)
 T ok String.contains Contains<Regex<C>> (impl Contains<Regex<C>> for String)
 T ok String.contains Contains<Codepoint> (impl Contains<Codepoint> for String)
@@ -1180,6 +1234,7 @@ T ok String.length
 T ok String.to_string (impl Display for String)
 T ok String.empty_sum (impl Summable for String)
 T ok String.inspect (impl Debug for String)
+T ok type NonEmptyString
 C summable
 E 0
 N 1
@@ -1277,8 +1332,8 @@ H f01ff405457379af3a290ce9aab350978e30af5a10358920b9a8ea7d31e0eafb
 T ok interface Variants
 C vectors
 E 0
-N 9
-H 8e4970d72db73c14fb46503d5eecf4224cd5ff57ef061717a8b6b4899626cb85
+N 22
+H f32d8612b3f5cff677959309a201402f389340ed26b783701a15f8f4458ef5cd
 T ok Vector.length
 T ok Vector.get
 T ok Vector.push
@@ -1288,6 +1343,19 @@ T ok Vector.next_item
 T ok Vector.contains (impl Contains for Vector<T>)
 T ok Vector.add (impl Add<Vector<T>, Vector<T>> for Vector<T>)
 T ok Vector.empty_sum (impl Summable for Vector<T>)
+T ok type NonEmptyVector
+T ok NonEmptyVector.of
+T ok NonEmptyVector.first
+T ok NonEmptyVector.last
+T ok NonEmptyVector.length
+T ok NonEmptyVector.max
+T ok NonEmptyVector.min
+T ok NonEmptyVector.mean
+T ok NonEmptyVector.reduce
+T ok NonEmptyVector.map
+T ok NonEmptyVector.with_index
+T ok NonEmptyVector.push
+T ok NonEmptyVector.concat
 C websocket
 E 0
 N 6

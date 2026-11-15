@@ -97,7 +97,7 @@ test "middleware leaves the upgrade working"
 
     assert Ok(echoed) = got.value
     assert echoed == Ok(Some(Message.Text("longer than the body limit")))
-    record = List.head(got.records)!
+    record = List.first(got.records)!
     assert List.contains(record.fields, log.int("status", 101))
 end
 

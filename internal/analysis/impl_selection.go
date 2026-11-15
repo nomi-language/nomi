@@ -36,7 +36,7 @@ type implCandidate struct {
 func (c *checker) implCandidates(concrete Type, iface, origin string) []implCandidate {
 	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
 		// A refinement has its parent's impls (refinement.go).
-		return c.implCandidates(dt.Inner, iface, origin)
+		return c.implCandidates(DistinctInner(dt), iface, origin)
 	}
 	name := concreteTypeName(concrete)
 	if name == "" || c == nil || c.fa == nil {

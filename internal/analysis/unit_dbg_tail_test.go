@@ -30,7 +30,7 @@ func TestUnitDbgTail_OtherValuesStillRejected(t *testing.T) {
 	for name, src := range map[string]string{
 		"plain value":        "fn main()\n    x = 3\n    x\nend\n",
 		"call":               "fn twice(n: Int) -> Int\n    n * 2\nend\n\nfn main()\n    twice(2)\nend\n",
-		"dbg mid-pipe":       "fn main()\n    [1, 2]\n    |> dbg\n    |> Iter.count()\nend\n",
+		"dbg mid-pipe":       "fn main()\n    [1, 2]\n    |> dbg\n    |> Iter.sum()\nend\n",
 		"written Unit value": "fn show(n: Int) -> Unit\n    n + 1\nend\n\nfn main()\n    show(1)\nend\n",
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -375,7 +375,7 @@ impl Query
     //! assert Query.get(Query[], "a") == None
     //
     pub fn get(query: Query, key: String) -> Maybe<String>
-        Query.values(query, key) |> List.head()
+        Query.values(query, key) |> List.first()
     end
 
     /// Every value of `key`, in order.
@@ -586,7 +586,7 @@ end
 fn escapable(place: Place) -> Bool
     case place
         .InPath or .InQuery or .InFragment -> True
-        _ -> False
+        _                                  -> False
     end
 end
 

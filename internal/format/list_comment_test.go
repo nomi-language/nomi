@@ -440,6 +440,18 @@ func TestListComment_AtTheBrackets(t *testing.T) {
 			"fn double(\n    // why\n    n: Int,\n) -> Int\n    n * 2\nend\n",
 		},
 		{
+			// Kept nowhere, the comment ended the header's line, which a
+			// second format moved into the body.
+			"in a function type's empty parameter list",
+			"fn f() -> ( // a\n) -> Int\n    fn -> 1\nend\n",
+			"fn f() -> (\n    // a\n) -> Int\n    fn -> 1\nend\n",
+		},
+		{
+			"in a parameter's function type's empty parameter list",
+			"fn f(g: ( // a\n) -> Int) -> Int\n    g()\nend\n",
+			"fn f(g: (\n    // a\n) -> Int) -> Int\n    g()\nend\n",
+		},
+		{
 			"inside a map pattern",
 			"fn f(m: Map<String, Int>) -> Int\n    case m\n        { // the key\n            \"a\" => n,\n        } -> n\n        _ -> 0\n    end\nend\n",
 			"fn f(m: Map<String, Int>) -> Int\n    case m\n        {\n            // the key\n            \"a\" => n,\n        } -> n\n        _ -> 0\n    end\nend\n",

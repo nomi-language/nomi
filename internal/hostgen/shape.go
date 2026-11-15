@@ -360,6 +360,16 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 		}
 		return s, nil
 	case *ast.TypeDef:
+		if d.Subtype && d.InnerTypeExpr != nil {
+			// A subtype is its parent's value at run time, and
+			// so its base's (spec §4 *Subtypes*): it crosses as that.
+			inner, err := r.Shape(home, d.InnerTypeExpr)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", qualified, err)
+			}
+			r.cache[qualified] = inner
+			return inner, nil
+		}
 		s := &Shape{Kind: SDistinct, Name: qualified}
 		if d.InnerTypeExpr != nil {
 			inner, err := r.Shape(home, d.InnerTypeExpr)

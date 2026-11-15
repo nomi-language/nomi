@@ -100,9 +100,9 @@ end
 fn arr_sig(v: JV) -> String
     case v
         .Arr[.Num(a), .Num(b), .Num(c)] -> "${a},${b},${c}"
-        .Arr[.Num(a), .Num(b)] -> "${a},${b}"
-        .Arr(xs) -> "len ${Iter.count(xs)}"
-        _ -> "not arr"
+        .Arr[.Num(a), .Num(b)]          -> "${a},${b}"
+        .Arr(xs)                        -> "len ${Iter.count(xs)}"
+        _                               -> "not arr"
     end
 end
 
@@ -192,7 +192,7 @@ fn main()
     // The CALL-form pattern, which must agree with the flat one.
     from_arr_call = case arr_flat
         .Arr([.Num(a), .Num(b), .Num(c)]) -> "${a},${b},${c}"
-        _ -> "miss"
+        _                                 -> "miss"
     end
 
     io.print("flat and call patterns agree = ${arr_sig(arr_flat) == from_arr_call}")
@@ -218,9 +218,9 @@ fn main()
     tail = JV.Tail[JV.Num(6), JV.Num(7), JV.Num(8)]
 
     list_tag_matters = case tail
-        .Arr[.Num(a), .Num(b), .Num(c)] -> "wrongly matched Arr ${a},${b},${c}"
+        .Arr[.Num(a), .Num(b), .Num(c)]  -> "wrongly matched Arr ${a},${b},${c}"
         .Tail[.Num(a), .Num(b), .Num(c)] -> "tail ${a},${b},${c}"
-        _ -> "fell through"
+        _                                -> "fell through"
     end
 
     io.print("list_tag_matters = ${list_tag_matters}")
@@ -239,7 +239,7 @@ fn main()
     // rule that separates an exact-length match from a spread.
     wrong_arity = case arr_flat
         .Arr[.Num(a), .Num(b)] -> "wrongly matched ${a},${b}"
-        _ -> "fell through"
+        _                      -> "fell through"
     end
 
     io.print("wrong_arity = ${wrong_arity}")

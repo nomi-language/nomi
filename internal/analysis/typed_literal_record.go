@@ -91,7 +91,7 @@ func (c *checker) typedLiteralHint(expected, got Type, expr ast.Node) string {
 		return ""
 	}
 	shown := c.typef("%s", want)
-	wantText := articleFor(shown) + " `" + shown + "`"
+	wantText := ArticleFor(shown) + " `" + shown + "`"
 	if TypesEqual(want, TypeString) {
 		wantText = "a String"
 	}

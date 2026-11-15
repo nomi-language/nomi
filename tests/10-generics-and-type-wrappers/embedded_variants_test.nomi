@@ -51,9 +51,9 @@ end
 
 fn area(s: Shape) -> Float
     case s
-        Shape.Point -> 0.0
+        Shape.Point                      -> 0.0
         Shape.Rectangle{width:, height:} -> width * height
-        Shape.Circle{radius:} -> 3.14 * radius * radius
+        Shape.Circle{radius:}            -> 3.14 * radius * radius
     end
 end
 

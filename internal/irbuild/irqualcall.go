@@ -471,6 +471,29 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			}
 			return no()
 		}
+		if canon, origin := bl.g.generatedOwnerAlias(ti); canon != "" {
+			// A generated `try_from`'s call of its parent's, a parent its
+			// declaration names through a typealias: the target's, by its
+			// name where this file sees it, and where only the alias is
+			// imported by its std module or by its declaration.
+			if resolvedTypeSymbol(bl.g.fa, canon) == nil {
+				if mod, isStd := strings.CutPrefix(origin, "std/"); isStd {
+					if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, canon, method, false); handled {
+						return v, rk, mobile, ok
+					}
+					return no()
+				}
+				if bl.qualBare == nil {
+					bl.qualBare = bl.checkedBareOperands(t)
+				}
+				args := bl.irQualLowerArgs(t)
+				if plan := bl.resolvedOwnerPlan(t, args, fa); plan != nil {
+					return bl.qualEmit(t, args, plan)
+				}
+				return no()
+			}
+			ti = &ast.TypeIdent{Name: canon, Line: ti.Line, Col: ti.Col}
+		}
 		if canon := bl.g.stdOwnerAlias(ti); canon != "" {
 			// `import std::iter.Iter as It`, then `It.count(xs)`: the call
 			// is std's `Iter.count`, which every arm below names by its
@@ -503,7 +526,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, bl.g.stdOwnerUnshadowed(owner)); handled {
 				return v, rk, mobile, ok
 			}
-			// `lists.List.head(xs)`, `iter.Iter.find(xs, f)`: an operation
+			// `lists.List.first(xs)`, `iter.Iter.find(xs, f)`: an operation
 			// of a family the VM owns, which the two-segment spelling
 			// reaches through its owner's own route. The bare owner names
 			// the same std type here, so it is that call.
@@ -802,6 +825,14 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			// An impl member (`impl Display for Vector<T>`) is solved
 			// from its receiver, which the first operand is.
 			self = args.kinds[0]
+			// kindInvalid: sentinel — solvedParamKind's nothing-recorded answer; the receiver keeps the operand's kind.
+			if want := bl.g.solvedParamKind(t, method, 0); want != kindInvalid && irContainerBaseName(want) == ti.Name {
+				// The receiver at the checker's instantiation, which a
+				// later operand may have widened past the first one's
+				// (`Set.union(circles, shapes)` is a Set<Shape>); the
+				// instance converts the operand as its parameter.
+				self = want
+			}
 		}
 		prevCall, prevArgs := bl.stdInstPreCall, bl.stdInstPreArgs
 		bl.stdInstPreCall, bl.stdInstPreArgs = t, args
@@ -2042,6 +2073,58 @@ func (bl *irScalarBuilder) stdModuleTypePlan(t *ast.Call, args irQualArgs, modul
 		return nil
 	}
 	return bl.stdFuncPlan(t, args, stdPick(fs, args.kinds))
+}
+
+// generatedOwnerAlias is the type a generated function's owner names
+// through a typealias, `Tiny` in the `Tiny.try_from(value)` that `type Bit
+// Tiny` checks its parent with (analysis refinement_synthesis.go), and the
+// origin of its declaration, or "".
+// The checker resolved the call to the target's function, which this name
+// reaches.
+func (g *gen) generatedOwnerAlias(ti *ast.TypeIdent) (name, origin string) {
+	if g.fa == nil || ti == nil || !analysis.IsSynthesizedLine(ti.Line) {
+		return "", ""
+	}
+	sym := g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil || sym.Kind != analysis.SymbolTypeAlias {
+		return "", ""
+	}
+	if dt, ok := sym.Type.(*analysis.DistinctType); ok {
+		return dt.Name, dt.Origin
+	}
+	return "", ""
+}
+
+// resolvedOwnerPlan calls the owner function the checker resolved fa to
+// (its reference at the field), which another file declares, found by its
+// declaration rather than by a name this file need not see.
+func (bl *irScalarBuilder) resolvedOwnerPlan(t *ast.Call, args irQualArgs, fa *ast.FieldAccess) *irQualPlan {
+	g := bl.g
+	if g.files == nil || fa.Field == nil {
+		return nil
+	}
+	sym := g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
+	if sym == nil {
+		return nil
+	}
+	fd, ok := sym.Node.(*ast.FuncDef)
+	if !ok {
+		return nil
+	}
+	for key, sites := range g.files.ownerMembers {
+		if key.method != fa.Field.Name {
+			continue
+		}
+		for _, s := range sites {
+			if (s.item != nil && s.item.decl == fd) || (s.block != nil && slices.Contains(s.block.Items, ast.Node(fd))) {
+				return bl.siblingOwnerPlanFor(t, args, key.recv, sym.OwningType, fa.Field.Name)
+			}
+		}
+	}
+	return nil
 }
 
 // stdOwnerAlias is the std type an owner qualifier names under an import

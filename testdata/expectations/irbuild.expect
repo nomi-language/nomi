@@ -493,113 +493,6 @@ S
 T ok <dir>/control_test.nomi :: the module-qualified spelling
 T test result: ok. 1 passed, 0 failed
 T
-C control_test.nomi@31ca181f61c6f396
-E 1
-N 0
-H 5b49ae0b5412a98190ca4cc6cb63b5a47da93060ed0431c2680ad8323199f625
-S -- control_test.nomi 1019 --
-S import
-S   std::io
-S   std::literals.{Fragment, Literal}
-S end
-S
-S struct Upper
-S   text: String
-S end
-S
-S impl Literal for Upper
-S   fn from_fragments(fragments: List<Fragment<String>>) -> Upper
-S     text = Iter.reduce(fragments, "", fn acc, frag ->
-S       case frag
-S         .Static(s) -> acc + String.uppercase(s)
-S         .Dynamic(v) -> acc + v
-S       end
-S     end
-S     )
-S     Upper{text:}
-S   end
-S end
-S
-S test "a tuple"
-S   pair = (1, "one")
-S   assert pair.first == 1
-S   assert pair.second == "uno"
-S end
-S
-S test "a map"
-S   m = {"a" => 1, "b" => 2}
-S   assert Map.size(Map.put(m, "c", 3)) == 3
-S   assert Map.size(m) == 3
-S end
-S
-S test "a set and a vector"
-S   s = Set[1, 2, 1 + 1]
-S   v = Vector[1, 2, 3]
-S   assert Set.size(s) == 2
-S   assert Vector.length(v) == 4
-S end
-S
-S test "a decimal"
-S   assert 1.10d + 2.20d == 3.30d
-S   assert 1.5d == 2.5d
-S end
-S
-S test "a List host call in a case arm"
-S   case [1, 2]
-S     [] -> assert False
-S     [_, ..t] -> assert List.head(t) == Some(3)
-S   end
-S end
-S
-S test "a tagged literal"
-S   u = Upper"abc"
-S   io.print(u.text)
-S   assert u.text == "abc"
-S end
-S
-S
-T FAIL <dir>/control_test.nomi :: a tuple
-T   line 26: assertion failed
-T     assert pair.second == "uno"
-T     values:
-T       pair.second
-T         = "one"
-T FAIL <dir>/control_test.nomi :: a map
-T   line 32: assertion failed
-T     assert Map.size(m) == 3
-T     values:
-T       m
-T         = {"a" => 1, "b" => 2}
-T       Map.size(m)
-T         = 2
-T FAIL <dir>/control_test.nomi :: a set and a vector
-T   line 39: assertion failed
-T     assert Vector.length(v) == 4
-T     values:
-T       v
-T         = Vector[1, 2, 3]
-T       Vector.length(v)
-T         = 3
-T FAIL <dir>/control_test.nomi :: a decimal
-T   line 44: assertion failed
-T     assert 1.5d == 2.5d
-T FAIL <dir>/control_test.nomi :: a List host call in a case arm
-T   line 50: assertion failed
-T     assert List.head(t) == Some(3)
-T     values:
-T       t
-T         = [2]
-T       List.head(t)
-T         = Some(2)
-T FAIL <dir>/control_test.nomi :: a tagged literal
-T   ABC
-T   line 57: assertion failed
-T     assert u.text == "abc"
-T     values:
-T       u.text
-T         = "ABC"
-T test result: FAILED. 0 passed, 6 failed
-T
 C control_test.nomi@3762838aab89050c
 E 0
 N 0
@@ -1534,6 +1427,113 @@ T       Date.to_string(d)
 T         = "2026-05-04"
 T test result: FAILED. 1 passed, 1 failed
 T
+C control_test.nomi@f3dda2b03e62e716
+E 1
+N 0
+H bede6e88185d969dc1bf0b5d874aa7f67b101eee2a61883f65674b4afea88acb
+S -- control_test.nomi 1020 --
+S import
+S   std::io
+S   std::literals.{Fragment, Literal}
+S end
+S
+S struct Upper
+S   text: String
+S end
+S
+S impl Literal for Upper
+S   fn from_fragments(fragments: List<Fragment<String>>) -> Upper
+S     text = Iter.reduce(fragments, "", fn acc, frag ->
+S       case frag
+S         .Static(s) -> acc + String.uppercase(s)
+S         .Dynamic(v) -> acc + v
+S       end
+S     end
+S     )
+S     Upper{text:}
+S   end
+S end
+S
+S test "a tuple"
+S   pair = (1, "one")
+S   assert pair.first == 1
+S   assert pair.second == "uno"
+S end
+S
+S test "a map"
+S   m = {"a" => 1, "b" => 2}
+S   assert Map.size(Map.put(m, "c", 3)) == 3
+S   assert Map.size(m) == 3
+S end
+S
+S test "a set and a vector"
+S   s = Set[1, 2, 1 + 1]
+S   v = Vector[1, 2, 3]
+S   assert Set.size(s) == 2
+S   assert Vector.length(v) == 4
+S end
+S
+S test "a decimal"
+S   assert 1.10d + 2.20d == 3.30d
+S   assert 1.5d == 2.5d
+S end
+S
+S test "a List host call in a case arm"
+S   case [1, 2]
+S     [] -> assert False
+S     [_, ..t] -> assert List.first(t) == Some(3)
+S   end
+S end
+S
+S test "a tagged literal"
+S   u = Upper"abc"
+S   io.print(u.text)
+S   assert u.text == "abc"
+S end
+S
+S
+T FAIL <dir>/control_test.nomi :: a tuple
+T   line 26: assertion failed
+T     assert pair.second == "uno"
+T     values:
+T       pair.second
+T         = "one"
+T FAIL <dir>/control_test.nomi :: a map
+T   line 32: assertion failed
+T     assert Map.size(m) == 3
+T     values:
+T       m
+T         = {"a" => 1, "b" => 2}
+T       Map.size(m)
+T         = 2
+T FAIL <dir>/control_test.nomi :: a set and a vector
+T   line 39: assertion failed
+T     assert Vector.length(v) == 4
+T     values:
+T       v
+T         = Vector[1, 2, 3]
+T       Vector.length(v)
+T         = 3
+T FAIL <dir>/control_test.nomi :: a decimal
+T   line 44: assertion failed
+T     assert 1.5d == 2.5d
+T FAIL <dir>/control_test.nomi :: a List host call in a case arm
+T   line 50: assertion failed
+T     assert List.first(t) == Some(3)
+T     values:
+T       t
+T         = [2]
+T       List.first(t)
+T         = Some(2)
+T FAIL <dir>/control_test.nomi :: a tagged literal
+T   ABC
+T   line 57: assertion failed
+T     assert u.text == "abc"
+T     values:
+T       u.text
+T         = "ABC"
+T test result: FAILED. 0 passed, 6 failed
+T
 C control_test.nomi@f4d6c9180c86da02
 E 0
 N 0
@@ -2226,63 +2226,11 @@ S
 T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
 T test result: ok. 1 passed, 0 failed
 T
-C group_test.nomi@bcd4d4a2bd8b8c03
+C group_test.nomi@b71ff5f49faa5031
 E 0
 N 0
-H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
-S -- group_test.nomi 699 --
-S import
-S   std::duration.Duration
-S   std::io
-S   std::supervisors.Supervisor
-S   std::testing.Clock
-S   std::timer
-S end
-S
-S pub struct App
-S   context: Context
-S   work: Supervisor
-S end
-S
-S pub fn boot() -> Result<App, String>
-S   Ok(App{context: Context.root(), work: Supervisor.new(max_running: 2)})
-S end
-S
-S fn main() end
-S
-S fn slow() -> Unit
-S   timer.sleep(Duration.minutes(10))
-S   io.print("slow work done")
-S end
-S
-S group "virtual"
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "an hour passes at once"
-S     timer.sleep(Duration.minutes(60))
-S     assert 1 == 1
-S   end
-S
-S   test "a group's work is flushed in virtual time"
-S     _ = Supervisor.spawn(App.work, fn -> slow())
-S     _ = Supervisor.flush(App.work)
-S     assert 2 == 2
-S   end
-S end
-S
-S
-T ok <dir>/group_test.nomi :: virtual / an hour passes at once
-T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
-T   slow work done
-T test result: ok. 2 passed, 0 failed
-T
-C group_test.nomi@beaac93f392d3dba
-E 0
-N 0
-H f17003f3a21fe56838ad989f2d794312ab026f6d5ff38a2c2ac7d20845cc98f1
-S -- counter_app.nomi 6152 --
+H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
+S -- counter_app.nomi 6186 --
 S //# A single long-lived worker owning mutable state, driven by messages.
 S //#
 S //# This is the shape you reach for when several callers need to share
@@ -2385,7 +2333,8 @@ S                 count
 S
 S             // Stands in for a handler with a bug in it.
 S             Some(Request.Explode) ->
-S                 count / 0
+S                 divisor = 0
+S                 count / divisor
 S
 S             // The inbox closed and drained: no more work is coming.
 S             None ->
@@ -2527,7 +2476,59 @@ T ok <dir>/group_test.nomi :: a message-driven worker / a handler that breaks re
 T ok <dir>/group_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 103: division by zero — retrying in <jitter>
+T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
+T
+C group_test.nomi@bcd4d4a2bd8b8c03
+E 0
+N 0
+H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
+S -- group_test.nomi 699 --
+S import
+S   std::duration.Duration
+S   std::io
+S   std::supervisors.Supervisor
+S   std::testing.Clock
+S   std::timer
+S end
+S
+S pub struct App
+S   context: Context
+S   work: Supervisor
+S end
+S
+S pub fn boot() -> Result<App, String>
+S   Ok(App{context: Context.root(), work: Supervisor.new(max_running: 2)})
+S end
+S
+S fn main() end
+S
+S fn slow() -> Unit
+S   timer.sleep(Duration.minutes(10))
+S   io.print("slow work done")
+S end
+S
+S group "virtual"
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "an hour passes at once"
+S     timer.sleep(Duration.minutes(60))
+S     assert 1 == 1
+S   end
+S
+S   test "a group's work is flushed in virtual time"
+S     _ = Supervisor.spawn(App.work, fn -> slow())
+S     _ = Supervisor.flush(App.work)
+S     assert 2 == 2
+S   end
+S end
+S
+S
+T ok <dir>/group_test.nomi :: virtual / an hour passes at once
+T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
+T   slow work done
+T test result: ok. 2 passed, 0 failed
 T
 C group_test.nomi@dd45159c9281cc2a
 E 1
@@ -2838,7 +2839,7 @@ T ok <dir>/app_fields.nomi :: app fields / a later case does not see an earlier 
 T ok <dir>/app_fields.nomi :: an override in a setup / reaches the test body
 T test result: ok. 8 passed, 0 failed
 T
-C internal/irbuild/testdata/app_override_outlives_scope.nomi@fc7fd07f65af2f02
+C internal/irbuild/testdata/app_override_outlives_scope.nomi@768b13976d3f23c5
 E 0
 N 0
 H f0c4785ad586ae053e983f9508cd3ef5582fa69cb578e4aa03f88c7f5c7960ec
@@ -3536,7 +3537,7 @@ T inner y = 900
 T outer(1) = 11
 T adder(3)(4) = 7
 T
-C internal/irbuild/testdata/codepoint.nomi@17c09e24bbf5b7ad
+C internal/irbuild/testdata/codepoint.nomi@61298938941a202d
 E 0
 N 0
 H c37445a6bcf90c7173fad3efe4fcfc657aaebc15233a1ca40ecd84d31f354336
@@ -3593,10 +3594,10 @@ T parse_error = line 1, col 1: expected '}' in struct pattern
 T type_error = line 2, col 16: type mismatch: expected Int, got String
 T no_target = no hover target at line 4, col 1
 T
-C internal/irbuild/testdata/compiler_run.nomi@dbb2d09b9272570c
+C internal/irbuild/testdata/compiler_run.nomi@9865b0aabb5e951f
 E 0
 N 0
-H d507d7048cf9c066351dab0f56e06b36d63441a6f12b9431f0c53f415bc50091
+H 9d3cf7e7b475d174c86ea48ae1d49ae952a9f33b0de3b3367853f993f658d4a2
 T plain = [hi
 T ]
 T order = [a
@@ -3609,7 +3610,7 @@ T parse = ERR line 1, col 1: expected `end` to close a function's body
 T analysis = ERR analysis errors:
 T   line 2, col 7: undefined variable 'missing'
 T trap = ERR line 5: division by zero
-T trap_after_print = ERR line 5: division by zero
+T trap_after_print = ERR line 6: division by zero
 T assert_fail = ERR line 4: assertion failed
 T stdlib = [x
 T ]
@@ -4506,7 +4507,7 @@ T match-here = e|w9|lnorigin
 T match-there = whole 9
 T local = mine
 T
-C internal/irbuild/testdata/foreignstd/main.nomi@808cce7cf140f147
+C internal/irbuild/testdata/foreignstd/main.nomi@f32e65d71f06cfef
 E 0
 N 0
 H de4bbdbd6a317158cbf7d2bf652450ee23db8708cfd568a4f530ea61902e7133
@@ -4581,7 +4582,7 @@ T       run(t)
 T         = 6
 T test result: FAILED. 0 passed, 6 failed
 T
-C internal/irbuild/testdata/function_ref.nomi@d976fc6b2bb1f304
+C internal/irbuild/testdata/function_ref.nomi@5a0b5d17e522cef3
 E 0
 N 0
 H ab91cd5459b380c80d70bfbee5d5d46a12eec4d8c397c242cf2c1f8c58fc57f0
@@ -5426,7 +5427,7 @@ T wrapped(non-positive)
 T fn(outer(inner-positive))
 T fn(outer(inner-other))
 T
-C internal/irbuild/testdata/list_compare.nomi@eec6ecd8f961192c
+C internal/irbuild/testdata/list_compare.nomi@7f7d4a43798b49db
 E 0
 N 0
 H 86071567d7a8ca469e2702301fd3bc1965c8d48f89a86e7441b7b108498bafc7
@@ -5466,7 +5467,7 @@ N 0
 H 73a1fd45efde8f8e3333d3db01a0af1986dcf2b3e7230e8fa9279c58c5ca003a
 T all rows agree
 T
-C internal/irbuild/testdata/list_methods.nomi@b2a98fd356a4fe73
+C internal/irbuild/testdata/list_methods.nomi@af6279809d22dd3b
 E 0
 N 0
 H 573a3cbb7a6dbf96f5eade918d5f86a090f044a0b0ccfeb410e7ea14460b7b21
@@ -6352,7 +6353,7 @@ H 4ff5f12ba4d28d29fcee8a449e73034b0ec4f7a2134aefd130f4c2e296216f05
 T label=staged
 T tier=7
 T
-C internal/irbuild/testdata/ranges.nomi@e82b46917fdc21c2
+C internal/irbuild/testdata/ranges.nomi@9af32011d458b592
 E 0
 N 0
 H a70248c59fc13f38a409040f940d68d8b2ea979d8787ccdefd975015a12d5649
@@ -6485,7 +6486,7 @@ T geo nan:     True
 T local same:  True
 T local diff:  False
 T
-C internal/irbuild/testdata/scalar_operator_traps.nomi@b6d94bb549e9cd5f
+C internal/irbuild/testdata/scalar_operator_traps.nomi@c362a380e3b9bbef
 E 1
 N 0
 H d9e15fbb3c01b6bc683253c10bc9ca75148c10b310111f5398e982693d3688c8
@@ -6896,7 +6897,7 @@ H 0705ac138e952a20316e87e75e86af891f0a2b829d9db6e0f1f3aabcc5937341
 T mine(1)
 T mine(2)
 T
-C internal/irbuild/testdata/std_maybe_boundary.nomi@234e26311d098e07
+C internal/irbuild/testdata/std_maybe_boundary.nomi@cf6ee2fac33eb115
 E 0
 N 0
 H 125f27e8deb6802e3ee7d3acbb94b34cd3885423634c516d0e83fdebb9bf6e92
@@ -6954,7 +6955,7 @@ T items:2
 T named:1
 T empty
 T
-C internal/irbuild/testdata/stdkey_overloads.nomi@e7f8529ff4c8a2e7
+C internal/irbuild/testdata/stdkey_overloads.nomi@1733faa36d2f9ed9
 E 0
 N 0
 H 57b62b41730cc01c3a84ed271038223d23e7fae579b65f50741732aa6d7a4f09
@@ -7005,6 +7006,14 @@ T inspect float: 2.5
 T hash zero: 0
 T hash int: 7
 T
+C internal/irbuild/testdata/stdlib_trap_clamp.nomi@2b7243a074648aad
+E 1
+N 0
+H 71587b854d70208421337e078120977baf1a9d2e53896026697ac3c875c0dc09
+T before
+T --- stderr ---
+T line 9: Comparable.clamp: low 2.0 is greater than high 1.0
+T
 C internal/irbuild/testdata/stdlib_trap_deep.nomi@1de068afbfeb0ed5
 E 1
 N 0
@@ -7012,14 +7021,6 @@ H d98ee471e16db8574b76e25d63c823b0086261a86621cbdd6d8ba2aa2f583270
 T before
 T --- stderr ---
 T line 15: Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way
-T
-C internal/irbuild/testdata/stdlib_trap_digits.nomi@0fc97d04111a6b7f
-E 1
-N 0
-H 11ed751f517ddcb28b409d457a35c51236969a5e937165f33e83178e57b6f4f6
-T before
-T --- stderr ---
-T line 9: Int.to_digits: negative number -5
 T
 C internal/irbuild/testdata/stdlib_trap_lambda.nomi@26e25cd9ce7cae03
 E 1
@@ -7029,13 +7030,13 @@ T before
 T --- stderr ---
 T line 12: division by zero
 T
-C internal/irbuild/testdata/stdlib_trap_modulo.nomi@4c97980bea087e24
+C internal/irbuild/testdata/stdlib_trap_modulo.nomi@fbaa39813ae09ceb
 E 1
 N 0
-H 31ba65aaa5c5fdbd99c2f0de3ae8195a919f4d3b7ec32d57427d8c0617c7e03e
+H 70dddc006f5aca8027746a39090776e09ad1b6cbc1e6b781b58c08295e3be497
 T before
 T --- stderr ---
-T line 7: division by zero
+T line 8: division by zero
 T
 C internal/irbuild/testdata/stdlib_trap_repeat.nomi@1095f5a23e254588
 E 1
@@ -7917,7 +7918,7 @@ T       xs
 T         = [1, 2]
 T test result: FAILED. 1 passed, 3 failed
 T
-C internal/irbuild/testdata/untyped_list_calls.nomi@18288bad2b4a8e11
+C internal/irbuild/testdata/untyped_list_calls.nomi@db32cdda176c17d3
 E 0
 N 0
 H ada6de4ca1d3624f614b99fc08dd4a06d3314c00920cbb3ba854ff3fe05c659f
@@ -7939,16 +7940,16 @@ T mixed-r      [1, 2, 3]
 T discharged   True True True []
 T equal-both   True
 T
-C internal/irbuild/testdata/untyped_list_report.nomi@42984547aea6ac6e
+C internal/irbuild/testdata/untyped_list_report.nomi@9bde918b692182e6
 E 1
 N 0
-H 8aa2dc8998e1a127ee83c94763d59f6bf813223588d3cc928f8635723c36b553
+H fef10a9434510c2251462cef1310c5428e66edfdaf65c08c226b578cb4ebf2c5
 T ok <dir>/untyped_list_report.nomi :: an untyped List call that holds
 T FAIL <dir>/untyped_list_report.nomi :: a failing head renders the untyped call
 T   line 39: assertion failed
-T     assert List.head([]) != None
+T     assert List.first([]) != None
 T     values:
-T       List.head([])
+T       List.first([])
 T         = None
 T FAIL <dir>/untyped_list_report.nomi :: a failing tail renders the untyped call
 T   line 43: assertion failed
@@ -8308,6 +8309,20 @@ S
 T --- stderr ---
 T line 4: division by zero
 T
+C main.nomi@322e6ce0b865b9b7
+E 1
+N 0
+H bce7ca7cd54ae9577e128f84f213ae1d1507d37f17c8654d95194a364d14f133
+S -- main.nomi 61 --
+S import std::io
+S fn main()
+S  io.print(Int.divide(1, 1 - 1))
+S end
+S
+S
+T --- stderr ---
+T line 3: division by zero
+T
 C main.nomi@4d7140c8c96df3c3
 E 1
 N 0
@@ -8330,28 +8345,14 @@ T callback
 T --- stderr ---
 T line 8: division by zero
 T
-C main.nomi@75c3c7960b709a16
+C main.nomi@5cecff7ca9c3f0fd
 E 1
 N 0
 H bce7ca7cd54ae9577e128f84f213ae1d1507d37f17c8654d95194a364d14f133
-S -- main.nomi 60 --
+S -- main.nomi 64 --
 S import std::io
 S fn main()
-S  io.print(Divide.divide(1, 0))
-S end
-S
-S
-T --- stderr ---
-T line 3: division by zero
-T
-C main.nomi@7ae953bfed069de5
-E 1
-N 0
-H bce7ca7cd54ae9577e128f84f213ae1d1507d37f17c8654d95194a364d14f133
-S -- main.nomi 57 --
-S import std::io
-S fn main()
-S  io.print(Int.divide(1, 0))
+S  io.print(Divide.divide(1, 1 - 1))
 S end
 S
 S
@@ -8401,11 +8402,11 @@ T 0
 T --- stderr ---
 T line 5: division by zero
 T
-C main.nomi@a26476ae7bfcc9f2
+C main.nomi@dfe50c0afca81c9f
 E 1
 N 0
 H b76a6c1ce04de4e20c684d051948d2854cb1cb397a02cf196475fbc5a73f2c18
-S -- main.nomi 185 --
+S -- main.nomi 191 --
 S import std::io
 S fn main()
 S  xs = Iter.map([2, 1], fn n ->
@@ -8414,7 +8415,7 @@ S      n
 S  end)
 S  io.inspect(Iter.sort_with(xs, fn a, b ->
 S   io.print("compare")
-S   Int.compare(a / 0, b)
+S   Int.compare(a / (b - b), b)
 S  end))
 S end
 S
@@ -8634,6 +8635,42 @@ T ok <dir>/main_test.nomi :: records in another file's signatures
 T ok <dir>/main_test.nomi :: Infallible in another file's signature
 T test result: ok. 3 passed, 0 failed
 T
+C main_test.nomi@681dd1115cc36594
+E 0
+N 0
+H 37efc40ef9f38b55cfef054ead0df272cd267d110e7d2fbbac2b28ce3fbbf6c5
+S -- main_test.nomi 284 --
+S import other
+S
+S test "a qualified Maybe in another file's signature"
+S   assert other.first([4, 5]) == Some(4)
+S   assert other.first([]) == None
+S end
+S
+S test "a qualified Result in another file's signature"
+S   assert other.checked(2) == Ok(2)
+S   assert other.checked(-1) == Err("negative")
+S end
+S
+S -- other.nomi 211 --
+S import
+S   std::maybe
+S   std::results
+S end
+S
+S pub fn first(xs: List<Int>) -> maybe.Maybe<Int>
+S   List.first(xs)
+S end
+S
+S pub fn checked(n: Int) -> results.Result<Int, String>
+S   if n > 0 then Ok(n) else Err("negative")
+S end
+S
+S
+T ok <dir>/main_test.nomi :: a qualified Maybe in another file's signature
+T ok <dir>/main_test.nomi :: a qualified Result in another file's signature
+T test result: ok. 2 passed, 0 failed
+T
 C main_test.nomi@6eae229df9a77115
 E 1
 N 0
@@ -8686,42 +8723,6 @@ T         = "Bo"
 T       make(who)
 T         = "widget:Bo"
 T test result: FAILED. 2 passed, 1 failed
-T
-C main_test.nomi@aa6e6835023ea8f3
-E 0
-N 0
-H 37efc40ef9f38b55cfef054ead0df272cd267d110e7d2fbbac2b28ce3fbbf6c5
-S -- main_test.nomi 284 --
-S import other
-S
-S test "a qualified Maybe in another file's signature"
-S   assert other.first([4, 5]) == Some(4)
-S   assert other.first([]) == None
-S end
-S
-S test "a qualified Result in another file's signature"
-S   assert other.checked(2) == Ok(2)
-S   assert other.checked(-1) == Err("negative")
-S end
-S
-S -- other.nomi 210 --
-S import
-S   std::maybe
-S   std::results
-S end
-S
-S pub fn first(xs: List<Int>) -> maybe.Maybe<Int>
-S   List.head(xs)
-S end
-S
-S pub fn checked(n: Int) -> results.Result<Int, String>
-S   if n > 0 then Ok(n) else Err("negative")
-S end
-S
-S
-T ok <dir>/main_test.nomi :: a qualified Maybe in another file's signature
-T ok <dir>/main_test.nomi :: a qualified Result in another file's signature
-T test result: ok. 2 passed, 0 failed
 T
 C main_test.nomi@c898068443ef44c8
 E 0
@@ -9106,7 +9107,7 @@ T ok <dir>/dates_test.nomi :: date year shifts clamp leap days when needed
 T ok <dir>/dates_test.nomi :: date adds calendar units with plus
 T test result: ok. 10 passed, 0 failed
 T
-C tests/05-calendar-and-time/naive_datetime_test.nomi@1b5aa3e4afedf209
+C tests/05-calendar-and-time/naive_datetime_test.nomi@a30971f023969a57
 E 0
 N 0
 H cb08e1d67f70b7fa59f6682f4b65eaaebd5ed5df7d51a316f99f53adf0015d30
@@ -9231,7 +9232,7 @@ T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments
 T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments project through bounds
 T test result: ok. 2 passed, 0 failed
 T
-C tests/12-derives-and-standard-interfaces/add_test.nomi@ac7fe93185d17767
+C tests/12-derives-and-standard-interfaces/add_test.nomi@0dc89492fb284771
 E 0
 N 0
 H 38c4a41ef62e680068ef18d3f599594fa603c6db4667e425f53afe007bb0f1c0
@@ -9254,7 +9255,7 @@ T ok <dir>/pipes_test.nomi :: pipes into dispatch functions preserve interface d
 T ok <dir>/pipes_test.nomi :: tap stages run a function by name and pass the value on
 T test result: ok. 5 passed, 0 failed
 T
-C tests/15-app-and-defer/context_values_test.nomi@587f0316ae8323ef
+C tests/15-app-and-defer/context_values_test.nomi@7798ba0aeb8768de
 E 0
 N 0
 H 26327c0eeae26f152d41c62c3cfb2484bdd241dcfa1fe5ab48d0d06372a4458c

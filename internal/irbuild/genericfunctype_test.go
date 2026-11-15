@@ -47,7 +47,7 @@ enum Holder
 end
 
 fn first_or<T>(xs: List<T>, d: T) -> T
-    Maybe.with_default(List.head(xs), d)
+    Maybe.with_default(List.first(xs), d)
 end
 
 fn main()

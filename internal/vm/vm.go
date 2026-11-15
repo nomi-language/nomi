@@ -90,13 +90,13 @@ type Machine struct {
 	// where it reads their contents. See WithEmbeddedSource and
 	// embedded.go.
 	embedded *rt.EmbeddedFiles
-	// hosts is the Go function each marked crossing lands on, keyed on the
-	// callee's printed name.
+	// hosts is the intrinsic each marked crossing lands on, keyed on the
+	// callee's printed name, and whether it is pure.
 	//
 	// KEYED ON THE NAME, AND THAT IS THE CONSUMER'S BINDING RATHER THAN THE
 	// IR'S IDENTITY. `ir.Call.Crosses()` says THAT control leaves the
 	// machine; WHICH Go function it lands on is a fact about this machine.
-	hosts map[string]hostFn
+	hosts map[string]intrinsic
 	// adapters are the generated host adapters a crossing lands on when no
 	// intrinsic answers it, bound once for every view. See hostcall.go.
 	adapters *hostTables
@@ -166,6 +166,16 @@ type Machine struct {
 // else, which is `ir.Symbol`'s own "a name plus an identity and NOTHING ELSE"
 // applied to a parameter list.
 type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
+
+// intrinsic is one entry of the intrinsic table: the hostFn a crossing
+// lands on, and whether it is pure. A pure intrinsic computes its answer
+// from its operands alone and acts on nothing outside the machine, so a
+// refinement rule, a typed literal's handler, a `check` or a debugger's
+// evaluation may call it (Effects). Unset, a call to it is an effect.
+type intrinsic struct {
+	fn   hostFn
+	pure bool
+}
 
 // WithHostEnv sets environment entries that override the process
 // environment in the `Startup.env` a boot receives. `compiler.run_file` passes `RunFile.env` here.
@@ -396,115 +406,115 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 			m.link[sym] = f
 		}
 	}
-	m.hosts = map[string]hostFn{
-		"Result.map_err":        resultMapErrHost,
-		"Maybe.to_result":       maybeToResultHost,
-		"concurrent":            concurrentHost,
-		"Task.spawn":            taskSpawnHost,
-		"Task.await":            taskHost("Task.await"),
-		"Task.cancel":           taskHost("Task.cancel"),
-		"Task.outcome":          taskHost("Task.outcome"),
-		"Task.spawn_all":        taskSpawnAllHost,
-		"Task.await_all":        taskAwaitAllHost,
-		"Supervisor.spawn":      supervisorSpawnHost,
-		"Supervisor.spawn_all":  supervisorSpawnAllHost,
-		"Maybe.with_default":    withDefaultHost("Some"),
-		"Result.with_default":   withDefaultHost("Ok"),
-		"Channel.buffered":      channelHost("Channel.buffered"),
-		"Channel.unbuffered":    channelHost("Channel.unbuffered"),
-		"Sender.send":           channelHost("Sender.send"),
-		"Sender.close":          channelHost("Sender.close"),
-		"Sender.close_on_drain": channelHost("Sender.close_on_drain"),
-		"Receiver.receive":      channelHost("Receiver.receive"),
-		"List.head":             listHost("List.head"),
-		"List.tail":             listHost("List.tail"),
-		"List.concat":           listHost("List.concat"),
-		"List.contains":         listContainsHost,
-		"List.remove_at":        listRemoveAtHost,
+	m.hosts = map[string]intrinsic{
+		"Result.map_err":        {fn: resultMapErrHost, pure: true},
+		"Maybe.to_result":       {fn: maybeToResultHost, pure: true},
+		"concurrent":            {fn: concurrentHost},
+		"Task.spawn":            {fn: taskSpawnHost},
+		"Task.await":            {fn: taskHost("Task.await")},
+		"Task.cancel":           {fn: taskHost("Task.cancel")},
+		"Task.outcome":          {fn: taskHost("Task.outcome")},
+		"Task.spawn_all":        {fn: taskSpawnAllHost},
+		"Task.await_all":        {fn: taskAwaitAllHost},
+		"Supervisor.spawn":      {fn: supervisorSpawnHost},
+		"Supervisor.spawn_all":  {fn: supervisorSpawnAllHost},
+		"Maybe.with_default":    {fn: withDefaultHost("Some"), pure: true},
+		"Result.with_default":   {fn: withDefaultHost("Ok"), pure: true},
+		"Channel.buffered":      {fn: channelHost("Channel.buffered")},
+		"Channel.unbuffered":    {fn: channelHost("Channel.unbuffered")},
+		"Sender.send":           {fn: channelHost("Sender.send")},
+		"Sender.close":          {fn: channelHost("Sender.close")},
+		"Sender.close_on_drain": {fn: channelHost("Sender.close_on_drain")},
+		"Receiver.receive":      {fn: channelHost("Receiver.receive")},
+		"List.first":            {fn: listHost("List.first"), pure: true},
+		"List.tail":             {fn: listHost("List.tail"), pure: true},
+		"List.concat":           {fn: listHost("List.concat"), pure: true},
+		"List.contains":         {fn: listContainsHost, pure: true},
+		"List.remove_at":        {fn: listRemoveAtHost, pure: true},
 
 		// Waiting on several channel operations at once (channelselect).
-		"Channel.select":          channelSelectHost,
-		"Arm.receive":             channelHost("Arm.receive"),
-		"Arm.send":                channelHost("Arm.send"),
-		"Arm.after":               channelHost("Arm.after"),
-		"Receiver.receive_within": channelHost("Receiver.receive_within"),
+		"Channel.select":          {fn: channelSelectHost},
+		"Arm.receive":             {fn: channelHost("Arm.receive")},
+		"Arm.send":                {fn: channelHost("Arm.send")},
+		"Arm.after":               {fn: channelHost("Arm.after")},
+		"Receiver.receive_within": {fn: channelHost("Receiver.receive_within")},
 
 		// The two traps of a failed postfix `!` (unwrap.go).
-		"vm.bang_failed":     bangFailedHost,
-		"vm.bang_none":       bangNoneHost,
-		"vm.refinement_rule": refinementRuleHost,
+		"vm.bang_failed":     {fn: bangFailedHost, pure: true},
+		"vm.bang_none":       {fn: bangNoneHost, pure: true},
+		"vm.refinement_rule": {fn: refinementRuleHost, pure: true},
 		// `String.captures`' groups as the regex's capture type (captureshape.go).
-		captureShapeKey: captureShapeHost,
+		captureShapeKey: {fn: captureShapeHost, pure: true},
 		// `Hashable.hash` of an interface value (keys.go).
-		"vm.hash_value": hashValueHost,
+		"vm.hash_value": {fn: hashValueHost, pure: true},
 		// std/phrase/format's `variant_name`: an enum value's variant.
-		"phrase/format.variant_name": variantNameHost,
-		"List.compare":               containerCompareHost("List.compare"),
-		"Vector.compare":             containerCompareHost("Vector.compare"),
+		"phrase/format.variant_name": {fn: variantNameHost, pure: true},
+		"List.compare":               {fn: containerCompareHost("List.compare"), pure: true},
+		"Vector.compare":             {fn: containerCompareHost("Vector.compare"), pure: true},
 
-		"Range.contains":      rangeHost(true),
-		"Range.step_by":       rangeStepBy,
-		"Range.known_count":   rangeKnownCount,
-		"Range.is_bounded":    rangeHost(false),
-		"Range.containsFloat": floatRangeHost,
-		"Set.size":            setHost("Set.size"),
-		"Set.contains":        setHost("Set.contains"),
-		"Set.insert":          setHost("Set.insert"),
-		"Set.remove":          setHost("Set.remove"),
-		"Set.union":           setHost("Set.union"),
-		"Set.intersection":    setHost("Set.intersection"),
-		"Set.difference":      setHost("Set.difference"),
-		"Set.is_subset_of":    setHost("Set.is_subset_of"),
-		"Vector.length":       vectorHost("Vector.length"),
-		"Vector.get":          vectorHost("Vector.get"),
-		"Vector.push":         vectorHost("Vector.push"),
-		"Vector.concat":       vectorHost("Vector.concat"),
-		"Vector.set":          vectorHost("Vector.set"),
-		"Vector.next_item":    vectorHost("Vector.next_item"),
-		"Vector.contains":     vectorContainsHost,
-		"Map.get":             mapHost("Map.get"),
-		"Map.put":             mapHost("Map.put"),
-		"Map.size":            mapHost("Map.size"),
-		"Context.with_value":  contextWithValueHost,
-		"Context.value":       contextValueHost,
-		"Map.remove":          mapHost("Map.remove"),
-		"Map.contains":        mapHost("Map.contains"),
-		"Map.merge":           mapHost("Map.merge"),
-		"Map.keys":            mapHost("Map.keys"),
-		"Map.values":          mapHost("Map.values"),
-		"Map.map_values":      mapHost("Map.map_values"),
-		"Map.map_keys":        mapHost("Map.map_keys"),
-		"Map.map_next":        mapHost("Map.map_next"),
+		"Range.contains":      {fn: rangeHost(true), pure: true},
+		"Range.step_by":       {fn: rangeStepBy, pure: true},
+		"Range.known_count":   {fn: rangeKnownCount, pure: true},
+		"Range.is_bounded":    {fn: rangeHost(false), pure: true},
+		"Range.containsFloat": {fn: floatRangeHost, pure: true},
+		"Set.size":            {fn: setHost("Set.size"), pure: true},
+		"Set.contains":        {fn: setHost("Set.contains"), pure: true},
+		"Set.insert":          {fn: setHost("Set.insert"), pure: true},
+		"Set.remove":          {fn: setHost("Set.remove"), pure: true},
+		"Set.union":           {fn: setHost("Set.union"), pure: true},
+		"Set.intersection":    {fn: setHost("Set.intersection"), pure: true},
+		"Set.difference":      {fn: setHost("Set.difference"), pure: true},
+		"Set.is_subset_of":    {fn: setHost("Set.is_subset_of"), pure: true},
+		"Vector.length":       {fn: vectorHost("Vector.length"), pure: true},
+		"Vector.get":          {fn: vectorHost("Vector.get"), pure: true},
+		"Vector.push":         {fn: vectorHost("Vector.push"), pure: true},
+		"Vector.concat":       {fn: vectorHost("Vector.concat"), pure: true},
+		"Vector.set":          {fn: vectorHost("Vector.set"), pure: true},
+		"Vector.next_item":    {fn: vectorHost("Vector.next_item"), pure: true},
+		"Vector.contains":     {fn: vectorContainsHost, pure: true},
+		"Map.get":             {fn: mapHost("Map.get"), pure: true},
+		"Map.put":             {fn: mapHost("Map.put"), pure: true},
+		"Map.size":            {fn: mapHost("Map.size"), pure: true},
+		"Context.with_value":  {fn: contextWithValueHost},
+		"Context.value":       {fn: contextValueHost},
+		"Map.remove":          {fn: mapHost("Map.remove"), pure: true},
+		"Map.contains":        {fn: mapHost("Map.contains"), pure: true},
+		"Map.merge":           {fn: mapHost("Map.merge"), pure: true},
+		"Map.keys":            {fn: mapHost("Map.keys"), pure: true},
+		"Map.values":          {fn: mapHost("Map.values"), pure: true},
+		"Map.map_values":      {fn: mapHost("Map.map_values"), pure: true},
+		"Map.map_keys":        {fn: mapHost("Map.map_keys"), pure: true},
+		"Map.map_next":        {fn: mapHost("Map.map_next"), pure: true},
 		// Each call receives rendered text; the IR chooses Display or Debug.
-		"io.print":   outputHost("io.print", "\n"),
-		"io.write":   outputHost("io.write", ""),
-		"io.inspect": outputHost("io.inspect", "\n"),
+		"io.print":   {fn: outputHost("io.print", "\n")},
+		"io.write":   {fn: outputHost("io.write", "")},
+		"io.inspect": {fn: outputHost("io.inspect", "\n")},
 		// The stderr pair, `io.eprint` and `io.ewrite`.
-		"io.eprint": errorOutputHost("io.eprint", "\n"),
-		"io.ewrite": errorOutputHost("io.ewrite", ""),
+		"io.eprint": {fn: errorOutputHost("io.eprint", "\n")},
+		"io.ewrite": {fn: errorOutputHost("io.ewrite", "")},
 		// `io.capture` and `io.replay`: the five above and `io.read_line` go to the
 		// capture in force on the calling frame. See capture.go.
-		captureKey: captureHost,
-		replayKey:  replayHost,
+		captureKey: {fn: captureHost},
+		replayKey:  {fn: replayHost},
 		// `Reader.from_chunks`: a reader that pulls its chunks from an
 		// Iter. See readers.go.
-		readerFromChunksKey:     readerFromChunksHost(readerFromChunksKey),
-		readerFromTextChunksKey: readerFromChunksHost(readerFromTextChunksKey),
+		readerFromChunksKey:     {fn: readerFromChunksHost(readerFromChunksKey)},
+		readerFromTextChunksKey: {fn: readerFromChunksHost(readerFromTextChunksKey)},
 		// `std::fs::testing.run`: std/fs calls go to the sandbox on the calling
 		// frame. See sandbox.go.
-		sandboxKey: sandboxHost,
+		sandboxKey: {fn: sandboxHost},
 		// `std::process::testing.run`: std/process calls go to the fake on the
 		// calling frame. See sandbox.go.
-		processFakeKey:     processFakeHost,
-		networkFakeKey:     networkFakeHost,
-		networkAnswerKey:   networkAnswerHost,
-		networkRecordedKey: networkRecordedHost,
-		networkRequestKey:  networkRequestHost,
+		processFakeKey:     {fn: processFakeHost},
+		networkFakeKey:     {fn: networkFakeHost},
+		networkAnswerKey:   {fn: networkAnswerHost},
+		networkRecordedKey: {fn: networkRecordedHost},
+		networkRequestKey:  {fn: networkRequestHost},
 		// `dbg` is `rt.DbgText(w, line, expr, rendered)`: rt's layout and
 		// colour rule, called rather than transcribed. See dbg.go in this
 		// package for the two facts that are this consumer's own: which
 		// writer the colour decision is made about, and the Debug rendering.
-		dbgKey: dbgHost,
+		dbgKey: {fn: dbgHost},
 	}
 	if debugEveryMachine.Load() {
 		m.WithDebugger(NewDebugger())
@@ -1041,7 +1051,7 @@ func (m *Machine) invoke(fr *frame, n *ir.Call, args []any, fn any) (any, error)
 		if m.dbg != nil {
 			// Recorded, or answered from the recording in a replay
 			// (debugtravel.go).
-			return m.dbg.cross(fr, name, args, func() (any, error) { return m.crossInto(fr, n, name, args) })
+			return m.dbg.cross(fr, name, m.pureCrossing(name), args, func() (any, error) { return m.crossInto(fr, n, name, args) })
 		}
 		return m.crossInto(fr, n, name, args)
 	}
@@ -1062,7 +1072,7 @@ func (m *Machine) crossInto(fr *frame, n *ir.Call, name string, args []any) (any
 
 // crossOver is crossInto's crossing itself.
 func (m *Machine) crossOver(fr *frame, n *ir.Call, name string, args []any) (any, error) {
-	if host := m.hosts[name]; host != nil {
+	if host := m.hosts[name].fn; host != nil {
 		return host(m.boundAt(fr, name), n.Pos(), args)
 	}
 	fn, err := m.adapter(name)

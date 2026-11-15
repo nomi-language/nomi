@@ -56,7 +56,7 @@ impl Display for WP
 end
 
 fn first<T>(xs: List<T>) -> Maybe<T>
-    List.head(xs)
+    List.first(xs)
 end
 
 fn get(w: Wrapped) -> Int

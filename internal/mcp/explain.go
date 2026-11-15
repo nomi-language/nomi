@@ -4,10 +4,15 @@ package mcp
 // TestEveryDiagnosticCodeIsExplained holds it to the codes the compiler
 // declares.
 var explanations = map[string]string{
-	"invalid-refinement-literal": "A literal stands where a refinement type is expected (`type Port Int when fn p -> p >= 1`), " +
-		"and the refinement's rule, or a rule up its chain, is false for it: `Port(0)`, or `0` passed where a `Port` is expected. " +
-		"The rule runs when the program is compiled. Change the literal, or, for a value known only when the program runs, " +
+	"literal-breaks-rule": "A literal stands where a subtype or a validated type is expected (`subtype Port Int when fn p -> p >= 1`, " +
+		"`type Email String when is_email`), and the type's rule, or a rule up its chain, is false for it: `Port(0)`, or `0` passed where a " +
+		"`Port` is expected. The rule runs when the program is compiled. Change the literal, or, for a value known only when the program runs, " +
 		"check it with `Port.try_from(x)`, which answers a `Maybe<Port>`.",
+	"literal-zero-divisor": "An `Int` or `Decimal` `/` or `%`, or a std function that divides (`Int.modulo`, `Int.floor_div`, " +
+		"`Decimal.divide`, `Decimal.divide_exact`), has a literal zero as its divisor (`x / 0`, `x % -0`, `Int.modulo(x, 0)`, `d / 0d`). " +
+		"It would trap with `division by zero` every time it ran. Divide by the value you meant. A divisor known only when the program " +
+		"runs still traps there when it is zero; take it as a `NonZeroInt` or `NonZeroDecimal` (`NonZeroInt.try_from(n)`) to make the " +
+		"division total. `Float` division by zero gives an infinity or NaN and is not reported.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +

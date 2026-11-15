@@ -74,7 +74,7 @@ func (c *checker) recordConversion(n ast.Node, exp, t Type) {
 // type the program declares is rebuilt whenever a part converts, since
 // its value names its type arguments (internal/irbuild, irrelabel.go).
 func conversionCost(want, have Type, flipped bool) ConversionCost {
-	want, have = resolveTypeVar(want), resolveTypeVar(have)
+	want, have = refinementRunTime(resolveTypeVar(want)), refinementRunTime(resolveTypeVar(have))
 	if want == nil || have == nil || want == have || isEmptyTuple(want) || isEmptyTuple(have) {
 		return ConversionFree
 	}
@@ -180,6 +180,16 @@ func conversionCost(want, have Type, flipped bool) ConversionCost {
 	return worst
 }
 
+// refinementRunTime is t, or for a distinct refinement its base, the value
+// it is at run time, which a conversion converts: a NonEmptyList<Circle> to
+// a NonEmptyList<Shape> converts the List under it.
+func refinementRunTime(t Type) Type {
+	if refinementOf(t) != nil {
+		return resolveTypeVar(RefinementBase(t))
+	}
+	return t
+}
+
 // argsCost is conversionCost over the type arguments of two instances of
 // the generic type t: what its parts cost for a std collection (Maybe,
 // Result, Set, Vector), and a rebuild for any other whose arguments
@@ -233,7 +243,7 @@ func conversionParts(want, have Type, box func(Type, Type)) bool {
 // struct's field type, as `Sink{take: f}` expects `(T) -> String`), and
 // converts nothing.
 func convParts(want, have Type, flipped bool, box func(Type, Type)) bool {
-	want, have = resolveTypeVar(want), resolveTypeVar(have)
+	want, have = refinementRunTime(resolveTypeVar(want)), refinementRunTime(resolveTypeVar(have))
 	if want == nil || have == nil || want == have {
 		return false
 	}

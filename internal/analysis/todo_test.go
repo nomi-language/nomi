@@ -41,7 +41,7 @@ fn first<T>(xs: List<T>) -> T
 end
 
 fn pick<T>(xs: List<T>, d: T) -> T
-    case List.head(xs)
+    case List.first(xs)
         Some(x) -> x
         None -> todo ` + "`raw reason`" + `
     end

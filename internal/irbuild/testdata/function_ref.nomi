@@ -164,7 +164,7 @@ fn main()
 
     // 7. Held in a data structure and read back out.
     fns = [double, triple]
-    first = List.head(fns)
+    first = List.first(fns)
 
     case first
         Some(h) -> io.print("fns[0](6)        = ${h(6)}")

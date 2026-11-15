@@ -7,15 +7,15 @@ import (
 // Tests for opaque distinct types (spec §4, *Opaque distinct types*).
 
 func TestOpaque_SymbolFlagSet(t *testing.T) {
-	src := `pub opaque type PositiveInt Int`
+	src := `pub opaque type PosCount Int`
 	fa, errs := checkSource(src)
 	expectNoErrors(t, errs)
-	sym := fa.ModuleScope.Lookup("PositiveInt")
+	sym := fa.ModuleScope.Lookup("PosCount")
 	if sym == nil {
-		t.Fatal("PositiveInt symbol not found")
+		t.Fatal("PosCount symbol not found")
 	}
 	if !sym.Opaque {
-		t.Errorf("expected PositiveInt symbol Opaque=true, got false")
+		t.Errorf("expected PosCount symbol Opaque=true, got false")
 	}
 }
 

@@ -101,7 +101,7 @@ fn task_all_outlives_scope() -> String
         Task.await_all(ts)
     end
 
-    case List.head(results)
+    case List.first(results)
         Some(seen) -> seen
         None       -> "<none>"
     end

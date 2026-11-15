@@ -49,15 +49,15 @@ end
 /// The amino acid `codon` stands for, `None` for a STOP codon.
 fn translate(codon: String) -> Result<Maybe<AminoAcid>, Error>
     case codon
-        "AUG" -> Ok(Some(.Methionine))
-        "UUU" or "UUC" -> Ok(Some(.Phenylalanine))
-        "UUA" or "UUG" -> Ok(Some(.Leucine))
+        "AUG"                            -> Ok(Some(.Methionine))
+        "UUU" or "UUC"                   -> Ok(Some(.Phenylalanine))
+        "UUA" or "UUG"                   -> Ok(Some(.Leucine))
         "UCU" or "UCC" or "UCA" or "UCG" -> Ok(Some(.Serine))
-        "UAU" or "UAC" -> Ok(Some(.Tyrosine))
-        "UGU" or "UGC" -> Ok(Some(.Cysteine))
-        "UGG" -> Ok(Some(.Tryptophan))
-        "UAA" or "UAG" or "UGA" -> Ok(None)
-        _ -> Err(.InvalidCodon(codon))
+        "UAU" or "UAC"                   -> Ok(Some(.Tyrosine))
+        "UGU" or "UGC"                   -> Ok(Some(.Cysteine))
+        "UGG"                            -> Ok(Some(.Tryptophan))
+        "UAA" or "UAG" or "UGA"          -> Ok(None)
+        _                                -> Err(.InvalidCodon(codon))
     end
 end
 

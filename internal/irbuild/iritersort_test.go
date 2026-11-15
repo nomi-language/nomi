@@ -78,7 +78,7 @@ fn main()
  end)
  io.inspect(Iter.sort_with(xs, fn a, b ->
   io.print("compare")
-  Int.compare(a / 0, b)
+  Int.compare(a / (b - b), b)
  end))
 end
 `, "line 9: division by zero", "2\n1\ncompare\n")

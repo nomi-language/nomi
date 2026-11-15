@@ -547,7 +547,7 @@ fn main()
 
     app = Router.handler(Router.new(routes)!) |> http.cross_origin_protection(CrossOrigin{})
     signed_in = app(testing.form_request(.Post, "/sign-in", [("user", "Ada")]))
-    cookie = List.head(Response.cookies(signed_in))!
+    cookie = List.first(Response.cookies(signed_in))!
     dbg Response.text(app(Request.add_cookie(testing.request(.Get, "/dashboard"), cookie)))
     dbg app(testing.request(.Get, "/dashboard")).status
 

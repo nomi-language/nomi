@@ -215,7 +215,7 @@ end
 //! first = app(testing.request(Method.Get, "/"))
 //! assert Response.text(first) == Ok("1")
 //!
-//! cookie = List.head(Response.cookies(first))!
+//! cookie = List.first(Response.cookies(first))!
 //! assert cookie.http_only and cookie.secure
 //!
 //! again = Request.add_cookie(testing.request(Method.Get, "/"), cookie)
@@ -252,7 +252,7 @@ end
 //! session: Session<String> = Session.new(store)
 //!
 //! saved = sessions.write(Response{}, Session.set(session, "ada"))
-//! cookie = List.head(Response.cookies(saved))!
+//! cookie = List.first(Response.cookies(saved))!
 //! assert cookie.name == "session" and cookie.path == Some("/") and not cookie.secure
 //!
 //! cleared = sessions.write(Response{}, Session.clear(session))
@@ -394,7 +394,7 @@ fn strings_field(fields: Map<String, Json>, name: String) -> Maybe<List<String>>
             Iter.reduce(items, Some([]), fn acc, item ->
                 case (acc, item)
                     (Some(texts), Json.String(t)) -> Some(texts + [t])
-                    _ -> None
+                    _                             -> None
                 end
             end)
 

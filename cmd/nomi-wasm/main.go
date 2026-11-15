@@ -3,9 +3,9 @@
 // Command nomi-wasm exposes Nomi to the browser. Built with GOOS=js
 // GOARCH=wasm, it registers these global functions:
 //
-//	nomiRun(source)             -> { output: string, error: string } // run a program on the VM
-//	nomiRunStdlibTest(module, body, context) -> { output: string, error: string }
-//	nomiTool(source, module, name) -> { output, error, source, files } // `nomi tool` in a block's project
+//	nomiRun(source)             -> { output, error, stage }          // run a program on the VM
+//	nomiRunStdlibTest(module, body, context) -> { output, error, stage }
+//	nomiTool(source, module, name) -> { output, error, stage, source, files } // `nomi tool` in a block's project
 //	nomiFormat(source)          -> { output: string, error: string } // format source
 //	nomiFormatTestBody(source)  -> { output: string, error: string }
 //	nomiSemTokens(source)       -> string (JSON)                     // semantic tokens
@@ -49,8 +49,22 @@ import (
 // in-memory file system the tour's worker gives Go (go-memfs.js).
 const projectDir = "/tour"
 
+// A run's stage names where it failed, so the page can tell a program that
+// did not compile from one that stopped while it ran: stageCompile when
+// checking or lowering refused it (error is the diagnostics, and output
+// holds no program output), stageRun when it stopped running (a trap, a
+// failed `?` in main, an exit with a status; error is that failure, after
+// the output), and stageTests when only its tests failed (error is their
+// report). It is "" when nothing failed, and for a failure of the runtime
+// itself (a recovered panic).
+const (
+	stageCompile = "compile"
+	stageRun     = "run"
+	stageTests   = "tests"
+)
+
 // run executes args[0] as a Nomi program and returns a JS object
-// `{ output: string, error: string }`. error is "" on success.
+// `{ output, error, stage }`. error is "" on success.
 func run(this js.Value, args []js.Value) (res any) {
 	var buf bytes.Buffer
 	defer func() {
@@ -83,26 +97,38 @@ func run(this js.Value, args []js.Value) (res any) {
 	// at the binding.
 	hosts, err := tourgo.MarkedHosts(src)
 	if err != nil {
-		return result("", err.Error())
+		return failed("", err.Error(), stageCompile)
 	}
 	p, hasTests, err := vmhost.LoadMarked(src, projectDir, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&buf))
 	if err != nil {
-		return result(buf.String(), err.Error())
+		return failed("", err.Error(), stageCompile)
 	}
-	errText := ""
+	stopped := ""
 	if err := p.Run(context.Background(), &buf, nil, false); err != nil {
-		errText = formatRunError(err)
+		stopped = formatRunError(err)
 	}
+	report := ""
 	if hasTests {
-		report := vmhost.CaseReport(p.Cases(&buf, vmhost.TestOptions{}))
-		if strings.Contains(report, "test result: FAILED") || strings.Contains(report, "test result: BLOCKED") {
-			errText = appendError(errText, report)
-		} else if report != "" {
-			fmt.Fprintln(&buf, report)
+		report = vmhost.CaseReport(p.Cases(&buf, vmhost.TestOptions{}))
+		if !strings.Contains(report, "test result: FAILED") && !strings.Contains(report, "test result: BLOCKED") {
+			if report != "" {
+				fmt.Fprintln(&buf, report)
+			}
+			report = ""
 		}
 	}
-
-	return result(buf.String(), errText)
+	switch {
+	case stopped != "":
+		// The stop closes what the page shows: a failed tests' report
+		// comes before it, with the output.
+		if report != "" {
+			fmt.Fprintln(&buf, report)
+		}
+		return failed(buf.String(), stopped, stageRun)
+	case report != "":
+		return failed(buf.String(), report, stageTests)
+	}
+	return result(buf.String(), "")
 }
 
 // tool runs `nomi tool <args[1]> <args[2]>` in the project of args[0], a
@@ -126,11 +152,14 @@ func tool(this js.Value, args []js.Value) (res any) {
 	attached := tourgo.Source(src)
 	hosts, err := tourgo.ToolHosts(attached, args[2].String())
 	if err != nil {
-		return result("", err.Error())
+		return failed("", err.Error(), stageCompile)
 	}
 	written, err := vmhost.ToolMarked(attached, projectDir, args[1].String(), args[2].String(), &buf, vmhost.WithHosts(hosts), vmhost.WithErrorOutput(&buf))
 	if err != nil {
-		return result(buf.String(), formatRunError(err))
+		if vmhost.LoadFailed(err) {
+			return failed("", err.Error(), stageCompile)
+		}
+		return failed(buf.String(), formatRunError(err), stageRun)
 	}
 	files := map[string]any{}
 	for name, text := range written {
@@ -200,11 +229,11 @@ func runStdlibTestBody(this js.Value, args []js.Value) (res any) {
 	}
 	cases, err := vmhost.StdlibReference(args[0].String(), args[1].String(), context, &buf)
 	if err != nil {
-		return result(buf.String(), err.Error())
+		return failed("", err.Error(), stageCompile)
 	}
 	report := vmhost.CaseReport(cases)
 	if strings.Contains(report, "test result: FAILED") || strings.Contains(report, "test result: BLOCKED") {
-		return result(buf.String(), report)
+		return failed(buf.String(), report, stageTests)
 	}
 	if report != "" {
 		fmt.Fprintln(&buf, report)
@@ -213,16 +242,6 @@ func runStdlibTestBody(this js.Value, args []js.Value) (res any) {
 }
 
 func formatRunError(err error) string { return vmhost.FormatFailure(err) }
-
-func appendError(existing, next string) string {
-	if existing == "" {
-		return next
-	}
-	if next == "" {
-		return existing
-	}
-	return existing + "\n" + next
-}
 
 // semToken is the JSON shape the browser highlighter consumes for the semantic
 // overlay layer. Line and Col are 1-based; Col and Len count UTF-16 code
@@ -399,6 +418,12 @@ func warm(this js.Value, args []js.Value) any {
 
 func result(output, errStr string) any {
 	return map[string]any{"output": output, "error": errStr}
+}
+
+// failed is a run's answer when it failed at stage (stageCompile, stageRun
+// or stageTests).
+func failed(output, errStr, stage string) any {
+	return map[string]any{"output": output, "error": errStr, "stage": stage}
 }
 
 func main() {

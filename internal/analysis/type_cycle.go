@@ -7,9 +7,9 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// distinctCycle reports whether inner, about to become dt's inner type,
-// contains dt itself, directly or through the inner types of other distinct
-// types. It returns the names along the way, starting and ending with dt's,
+// distinctCycle reports whether inner, about to become dt's inner type or
+// one of a refinement's parents, contains dt itself, directly or through
+// the inner types and parents of other distinct types. It returns the names along the way, starting and ending with dt's,
 // or nil when there is no cycle.
 //
 // A distinct type's inner type is its representation, held by pointer
@@ -47,7 +47,14 @@ func distinctCycle(dt *DistinctType, inner Type) []string {
 				return p
 			}
 			if tt.Inner != nil {
-				return walk(tt.Inner, append(path, tt.Name))
+				if p := walk(tt.Inner, append(path, tt.Name)); p != nil {
+					return p
+				}
+			}
+			for _, parent := range tt.MoreParents {
+				if p := walk(parent, append(path, tt.Name)); p != nil {
+					return p
+				}
 			}
 		case *ListType:
 			return walk(tt.Elem, path)
@@ -89,6 +96,10 @@ func distinctCycleError(n *ast.TypeDef, path []string) TypeError {
 	msg := fmt.Sprintf("type '%s' is defined in terms of itself", n.Name)
 	if len(path) > 2 {
 		msg += " (" + strings.Join(path, " → ") + ")"
+	}
+	if n.Subtype {
+		return TypeError{Line: n.Line, Col: n.Col, Message: msg}.WithHint(fmt.Sprintf(
+			"a subtype's parents are types its values already are, and their parents in turn, so none of them can be '%s' itself", n.Name))
 	}
 	return TypeError{
 		Line: n.Line, Col: n.Col,

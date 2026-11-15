@@ -1,6 +1,7 @@
 package vmhost
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -149,3 +150,12 @@ func fromRootSep(text, root, rel string, sep byte) string {
 }
 
 func (e *underRoot) Unwrap() error { return e.err }
+
+// LoadFailed reports whether err is a failure to load a project's program,
+// its diagnostics (ToolMarked's when the tool's program does not compile),
+// rather than a failure while the program ran: the tour shows a program
+// that did not compile apart from one that stopped.
+func LoadFailed(err error) bool {
+	var u *underRoot
+	return errors.As(err, &u)
+}

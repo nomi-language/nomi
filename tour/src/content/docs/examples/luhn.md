@@ -24,7 +24,7 @@ pub fn is_valid(number: String) -> Bool
 
     case digits
         Some(digits) when Iter.count(digits) > 1 -> checksum(digits) % 10 == 0
-        _ -> False
+        _                                        -> False
     end
 end
 

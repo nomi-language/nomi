@@ -142,10 +142,10 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 //
 // Failure mode it pins: declaringModuleIndex collapses declarations by BASE
 // name with project-wins precedence. A project type sharing a base name with
-// a NON-prelude stdlib type (here `PositiveInt`, also declared in
+// a NON-prelude stdlib type (here `PosCount`, also declared in
 // std/int.nomi — non-prelude names are legal to redeclare) steals the
-// stdlib name's mapping, so declModule["PositiveInt"] points at the project
-// module. std/int.nomi's own `PositiveInt` type-body functions then compare
+// stdlib name's mapping, so declModule["PosCount"] points at the project
+// module. std/int.nomi's own `PosCount` type-body functions then compare
 // receiver-module ("the project") against implementing-module ("std") and —
 // without the declaredLocally short-circuit — are falsely
 // flagged orphan, failing EVERY build that declares such a type. The
@@ -158,22 +158,22 @@ func TestOrphanRule_RejectsForeignIfaceForNonPreludeStdlibType_E2E(t *testing.T)
 // — the same shape as the opaque cross-module tests where the
 // regression first surfaced. The explicit stdlib import is what makes
 // discovery walk into the std package so std/int (with its inherent
-// `impl PositiveInt` block) lands in the build's file set and actually
+// `impl PosCount` block) lands in the build's file set and actually
 // reaches detectInherentOrphanImpls; without any explicit std import
 // the inherent records never include std/int and the check trivially
 // passes regardless of the predicate. (Verified: with the
 // declaredLocally argument swapped to nil at the project_build.go call
-// site, this test fails with `orphan impl: inherent “impl PositiveInt
+// site, this test fails with `orphan impl: inherent “impl PosCount
 // { ... }“ in module "std" ...`; with the predicate wired, it passes.)
 func TestOrphanRule_ProjectTypeShadowingStdlibInherentReceiver_NoFalsePositive(t *testing.T) {
 	tmp := t.TempDir()
 	files := map[string]string{
 		"positive.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 `,
 		"main.nomi": `import positive: from_int

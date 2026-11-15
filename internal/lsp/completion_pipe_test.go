@@ -16,14 +16,14 @@ func TestCompletion_PipeOffersFunctionsTakingTheValue(t *testing.T) {
 		{
 			"a List is an Iter",
 			"fn f(xs: List<Int>) -> Int\n    xs |> " + cursorMark + "\nend\n",
-			[]string{"Iter.map", "Iter.filter", "Iter.count", "List.head", "List.concat", "dbg"},
+			[]string{"Iter.map", "Iter.filter", "Iter.count", "List.first", "List.concat", "dbg"},
 			[]string{"Iter.repeat", "Iter.iterate", "String.trim", "if_missing"},
 		},
 		{
 			"a String",
 			"fn f(s: String) -> String\n    s |> " + cursorMark + "\nend\n",
 			[]string{"String.trim", "String.uppercase", "Display.to_string"},
-			[]string{"List.head", "Duration.seconds"},
+			[]string{"List.first", "Duration.seconds"},
 		},
 		{
 			"typed prefix filters on the function name",
@@ -40,7 +40,7 @@ func TestCompletion_PipeOffersFunctionsTakingTheValue(t *testing.T) {
 		{
 			"a recorded value type",
 			"fn f(xs: List<Int>) -> Int\n    ys = xs |> Iter.map(fn x -> x + 1) |> Iter.to_list()\n    ys |> " + cursorMark + "\nend\n",
-			[]string{"Iter.map", "List.head"},
+			[]string{"Iter.map", "List.first"},
 			nil,
 		},
 	}
@@ -105,7 +105,7 @@ func TestCompletion_PipeKeywordStages(t *testing.T) {
 	labelsInclude(t, items, "dbg", "if", "case", "then", "tap")
 	labelsExclude(t, items, "assert", "refute")
 	labelsBefore(t, items, "Iter.count", "dbg")
-	labelsBefore(t, items, "List.head", "dbg")
+	labelsBefore(t, items, "List.first", "dbg")
 
 	// Mid-chain, and on a new line.
 	items = complete(t, "fn f(xs: List<Int>) -> Int\n    xs\n    |> List.tail()\n    |> "+cursorMark+"\n    |> Iter.count()\nend\n")

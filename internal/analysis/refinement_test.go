@@ -9,28 +9,29 @@ import (
 	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// Refinement types (spec §4 *Refinement types*): what the checker accepts
+// Refinement types (spec §4 *Subtypes*): what the checker accepts
 // and what it rejects, with its messages.
 
-const refinementDecls = `type NonNegative Float when fn x -> x >= 0.0
-type Positive NonNegative when fn x -> x > 0.0
-type Port Int when fn port -> port >= 1 and port <= 65535
-type Even Int when fn n -> n % 2 == 0
-type Odd Int when fn n -> n % 2 == 1
+const refinementDecls = `subtype NonNegative Float when fn x -> x >= 0.0
+subtype Positive NonNegative when fn x -> x > 0.0
+subtype Port Int when fn port -> port >= 1 and port <= 65535
+subtype Even Int when fn n -> n % 2 == 0
+subtype Odd Int when fn n -> n % 2 == 1
 
 fn is_name(s: String) -> Bool
     String.length(s) > 1
 end
 
-type Name String when is_name
+subtype Name String when is_name
 
 struct Span
     low:  Int
     high: Int
-end when fn span -> span.low <= span.high
+    when fn span -> span.low <= span.high
+end
 
-type Pair List<Int> when fn xs -> List.length(xs) == 2
-type Weights Map<String, Float> when fn m -> Map.size(m) > 0
+subtype Pair List<Int> when fn xs -> List.length(xs) == 2
+subtype Weights Map<String, Float> when fn m -> Map.size(m) > 0
 
 fn half(x: Float) -> Float
     x / 2.0
@@ -65,6 +66,8 @@ func TestRefinement_Accepted(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
 		{"a literal where the refinement is expected", "fn main()\n    p: Port = 8080\n    _ = p\nend\n"},
 		{"the call form on a literal", "fn main()\n    _ = Port(8080)\nend\n"},
+		{"a plain type in a body", "fn main()\n    type Local Int\n    _ = Local(1)\nend\n"},
+		{"a type over a list of a subtype in a body", "fn main()\n    type Locals List<Port>\n    _ = Locals([80])\nend\n"},
 		{"a negated literal", "fn main()\n    n: NonNegative = -0.0\n    _ = n\nend\n"},
 		{"a literal argument", "fn main()\n    _ = serve(80)\nend\n"},
 		{"a literal field of a list", "fn main()\n    xs: List<Port> = [80, 443]\n    _ = xs\nend\n"},
@@ -106,47 +109,51 @@ func TestRefinement_Accepted(t *testing.T) {
 func TestRefinement_Rejected(t *testing.T) {
 	for _, tc := range []struct{ name, src, want string }{
 		{"a computed base value", "fn f(n: Int) -> Port\n    n\nend\n",
-			"return type mismatch: expected Port, got Int\nhelp: Port is a refinement of Int; check the value with `Port.try_from(...)`"},
+			"return type mismatch: expected Port, got Int\nhelp: Port is a subtype of Int; check the value with `Port.try_from(...)`"},
 		{"a computed argument", "fn f(n: Int) -> Int\n    serve(n)\nend\n",
-			"argument 1: expected Port, got Int\nhelp: Port is a refinement of Int; check the value with `Port.try_from(...)`"},
+			"argument 1: expected Port, got Int\nhelp: Port is a subtype of Int; check the value with `Port.try_from(...)`"},
 		{"the call form on a computed value", "fn f(n: Int) -> Port\n    Port(n)\nend\n",
-			"Port(...) takes a literal: Port is a refinement, and an Int computed when the program runs may not satisfy its rule\nhelp: check the value with `Port.try_from(...)`"},
+			"Port(...) takes a literal: Port is a subtype, and an Int computed when the program runs may not satisfy its rule\nhelp: check the value with `Port.try_from(...)`"},
 		{"down a chain", "fn f(n: NonNegative) -> Positive\n    n\nend\n",
-			"return type mismatch: expected Positive, got NonNegative\nhelp: Positive is a refinement of NonNegative; check the value with `Positive.try_from(...)`"},
+			"return type mismatch: expected Positive, got NonNegative\nhelp: Positive is a subtype of NonNegative; check the value with `Positive.try_from(...)`"},
 		{"across siblings", "fn f(e: Even) -> Odd\n    e\nend\n",
 			"return type mismatch: expected Odd, got Even"},
 		{"a literal of another type", "fn main()\n    p: Port = \"80\"\n    _ = p\nend\n",
 			"type mismatch: expected Port, got String"},
 		{"the constructor as a function", "fn main()\n    _ = Iter.map([1], Port)\nend\n",
-			"`Port` is a refinement and has no constructor function"},
-		{"an opaque refinement", "pub opaque type Secret Int when fn n -> n > 0\n",
-			"a refinement cannot be opaque"},
-		{"a generic refinement", "type Many<T> List<T> when fn xs -> True\n",
-			"a refinement takes no type parameters"},
-		{"a rule that is no predicate", "type Wrong Int when fn n -> n + 1\n",
+			"`Port` is a subtype and has no constructor function"},
+		{"an opaque refinement", "pub opaque subtype Secret Int when fn n -> n > 0\n",
+			"a subtype cannot be opaque"},
+		{"a generic struct refinement", "struct Many<T>\n    xs: List<T>\n    when fn _ -> True\nend\n",
+			"a validated struct takes no type parameters"},
+		{"a rule that is no predicate", "subtype Wrong Int when fn n -> n + 1\n",
 			"type mismatch: expected (Int) -> Bool, got (Int) -> Int"},
 		{"an interface impl", "impl Display for Port\n    fn to_string(_p: Port) -> String\n        \"port\"\n    end\nend\n",
-			"a refinement implements no interface of its own: `Port` is an Int at run time and has Int's impls"},
+			"a subtype implements no interface of its own: `Port` is an Int at run time and has Int's impls"},
 		{"a refinement in an impl header", "struct Box\n    n: Int\nend\n\nimpl Divide<Port, Box> for Box\n    fn divide(b: Box, _rhs: Port) -> Box\n        b\n    end\nend\n",
-			"an impl's interface cannot take the refinement `Port` as an argument"},
+			"an impl's interface cannot take the subtype `Port` as an argument"},
 		{"a generated name taken", "impl Port\n    fn try_from(n: Int) -> Maybe<Port>\n        None\n    end\nend\n",
-			"`Port.try_from` is generated for the refinement `Port`; name this function otherwise"},
+			"`Port.try_from` is generated for `Port`; name this function otherwise"},
 		{"an enum embedding one", "enum Endpoint\n    embeds Port\n    Local\nend\n",
-			"an enum cannot embed the refinement `Port`"},
+			"an enum cannot embed the subtype `Port`"},
 		{"a struct literal with a computed field", "fn f(n: Int) -> Span\n    Span{low: n, high: 4}\nend\n",
-			"Span is a refinement: a literal of it is checked when the program is compiled, so each field is a literal, and `low` is not"},
+			"Span is a validated struct: a literal of it is checked when the program is compiled, so each field is a literal, and `low` is not"},
 		{"a struct patch", "fn f(s: Span) -> Span\n    {..s, low: 0}\nend\n",
-			"a patch of the refinement Span could break its rule `fn span -> span.low <= span.high`"},
+			"a patch of the validated struct Span could break its rule `fn span -> span.low <= span.high`"},
 		{"the struct call form on a record value", "fn f(r: {low: Int, high: Int}) -> Span\n    Span(r)\nend\n",
-			"Span(...) takes a literal: Span is a refinement, and a record computed when the program runs may not satisfy its rule"},
-		{"a refinement in a body", "fn main()\n    type Local Int when fn n -> n > 0\n    _ = 1\nend\n",
-			"a refinement is declared at the top of a file: move `Local` out of the body"},
+			"Span(...) takes a literal: Span is a validated struct, and a record computed when the program runs may not satisfy its rule"},
+		{"a refinement in a body", "fn main()\n    subtype Local Int when fn n -> n > 0\n    _ = 1\nend\n",
+			"a subtype is declared at the top of a file: move `Local` out of the body"},
+		{"a type over a subtype in a body", "fn main()\n    type Local Port\n    _ = Local(80)\nend\n",
+			"a type over a subtype is declared at the top of a file: move `Local` out of the body, so that it has `Local.try_from`"},
+		{"a type over a prelude subtype in a body", "fn main()\n    type Local NonNegativeInt\n    _ = Local(1)\nend\n",
+			"a type over a subtype is declared at the top of a file: move `Local` out of the body, so that it has `Local.try_from`"},
 		{"a list literal with a computed element", "fn f(n: Int) -> Pair\n    [1, n]\nend\n",
-			"Pair is a refinement: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `n` is not\nhelp: build a Pair from values known only when the program runs with `Pair.try_from(...)`"},
+			"Pair is a subtype: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `n` is not\nhelp: build a Pair from values known only when the program runs with `Pair.try_from(...)`"},
 		{"a map literal with a computed value", "fn f(x: Float) -> Weights\n    {\"a\" => x}\nend\n",
-			"Weights is a refinement: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `x` is not"},
+			"Weights is a subtype: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `x` is not"},
 		{"a list literal with a spread", "fn f(xs: List<Int>) -> Pair\n    [..xs, 1]\nend\n",
-			"Pair is a refinement: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `xs` is not"},
+			"Pair is a subtype: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `xs` is not"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			errs := checkRefinements(t, tc.src)
@@ -172,7 +179,7 @@ func TestRefinement_Rejected(t *testing.T) {
 // build one without its rule.
 func TestRefinement_UncheckedIsTheDeclaringFiles(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
-		"units.nomi": `pub type Meters Float when fn m -> m >= 0.0
+		"units.nomi": `pub subtype Meters Float when fn m -> m >= 0.0
 
 pub fn zero() -> Meters
   Meters.unchecked(0.0)
@@ -192,4 +199,121 @@ end
 	if len(errs) != 1 {
 		t.Errorf("errors = %v, want only the unchecked one", errs)
 	}
+}
+
+// A refinement whose chain reaches no base, through a parent that names no
+// type or a declaration cycle, is reported where it is declared, and a
+// literal where it is expected is checked as itself rather than against
+// the chain's end, which is the refinement again. Checking it against the
+// end recursed until the stack ran out.
+func TestRefinement_ALiteralOfAChainWithNoBase(t *testing.T) {
+	for _, tc := range []struct{ name, body, want string }{
+		{"an unknown parent", "subtype Meters Missing when fn m -> m < 1.0e7\nsubtype Height Meters when fn h -> h < 9000.0\n\nfn main()\n    h: Height = 250.0\n    _ = Height(3.0)\n    _ = h\nend\n",
+			`unknown type "Missing"`},
+		{"a cycle", "subtype Ring Loop when fn a -> True\nsubtype Loop Ring when fn b -> True\n\nfn main()\n    r: Ring = 3\n    _ = r\nend\n",
+			"is defined in terms of itself"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := checkRefinements(t, tc.body)
+			var msgs []string
+			for _, e := range errs {
+				if strings.Contains(diagText(e), tc.want) {
+					return
+				}
+				msgs = append(msgs, diagText(e))
+			}
+			t.Fatalf("errors = %q, want one containing %q", msgs, tc.want)
+		})
+	}
+}
+
+const severalParentsDecls = `subtype NonNeg Int when fn n -> n >= 0
+subtype NonZ Int when fn n -> n != 0
+subtype Pos NonNeg and NonZ when fn n -> n > 0
+
+fn nonneg(n: NonNeg) -> Int
+    n
+end
+
+fn nonz(n: NonZ) -> Int
+    n
+end
+
+`
+
+// A refinement of several parents converts up to each of them and to its
+// base, at the top and inside containers, and to nothing across or down.
+func TestRefinement_SeveralParentsConvertUpToEach(t *testing.T) {
+	errs := checkRefinements(t, severalParentsDecls+`fn main()
+    p: Pos = 4
+    _ = nonneg(p)
+    _ = nonz(p)
+    n: Int = p
+    xs: List<Pos> = [1, 2]
+    ys: List<NonZ> = xs
+    zs: List<Int> = xs
+    _ = Pos.try_from(n)
+    _ = ys
+    _ = zs
+end
+`)
+	if len(errs) != 0 {
+		t.Fatalf("errors = %v, want none", errs)
+	}
+	for _, tc := range []struct{ body, want string }{
+		{"fn main()\n    p: Pos = 4\n    e: Even = p\n    _ = e\nend\n", "type mismatch: expected Even, got Pos"},
+		{"fn main()\n    n: NonNeg = 4\n    p: Pos = n\n    _ = p\nend\n", "Pos is a subtype of NonNeg and NonZ; check the value with `Pos.try_from(...)`"},
+		{"fn main()\n    n: NonZ = 4\n    p: NonNeg = n\n    _ = p\nend\n", "type mismatch: expected NonNeg, got NonZ"},
+	} {
+		errs := checkRefinements(t, severalParentsDecls+tc.body)
+		opaqueExpectErrorContains(t, errs, tc.want)
+	}
+}
+
+// Every parent reaches one base; a parent named twice, and a cycle through
+// the parents, are errors at the declaration, and nothing else is reported.
+func TestRefinement_SeveralParentsRejections(t *testing.T) {
+	for _, tc := range []struct{ decl, want string }{
+		{"subtype Tagged NonNeg and Name when fn n -> n > 0\n", "the parents of Tagged narrow different types: NonNeg is an Int and Name is a String"},
+		{"subtype Twice NonNeg and NonNeg when fn n -> n > 0\n", "`Twice` names the parent NonNeg twice"},
+		{"subtype CycA NonNeg and CycB when fn n -> n > 0\nsubtype CycB CycA when fn n -> n > 0\n", "type 'CycB' is defined in terms of itself (CycB → CycA → CycB)"},
+	} {
+		errs := checkRefinements(t, severalParentsDecls+tc.decl+"\nfn main()\nend\n")
+		opaqueExpectErrorContains(t, errs, tc.want)
+		if len(errs) != 1 {
+			t.Errorf("%q: errors = %v, want only %q", tc.decl, errs, tc.want)
+		}
+	}
+}
+
+// A literal of a refinement of several parents is checked against each
+// parent's rules before its own, once each and in the order written, and
+// each step knows the path from the literal's type to it.
+func TestRefinement_SeveralParentsLiteralSteps(t *testing.T) {
+	src := withStdlibTestImports(refinementDecls + severalParentsDecls + "subtype Small Pos when fn n -> n < 10\n\nfn main()\n    s: Small = 3\n    _ = s\nend\n")
+	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
+	nodes = analysis.SynthesizeUniversalDebug(nodes)
+	lib := loadStd()
+	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)
+	analysis.AttachStdlibProjectImpls(fa, lib.Files)
+	analysis.BuildTypes(fa, nodes)
+	analysis.CheckTypes(fa, nodes)
+	for _, rec := range fa.RefinedLiterals {
+		if rec.Type.String() != "Small" {
+			continue
+		}
+		var got []string
+		for _, st := range rec.Steps {
+			via := ""
+			for _, v := range st.Via {
+				via += v.String() + "/"
+			}
+			got = append(got, via+st.Type.String())
+		}
+		if want := "Pos/NonNeg Pos/NonZ Pos Small"; strings.Join(got, " ") != want {
+			t.Fatalf("steps = %q, want %q", strings.Join(got, " "), want)
+		}
+		return
+	}
+	t.Fatal("no literal was checked as a Small")
 }

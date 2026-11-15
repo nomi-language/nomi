@@ -91,7 +91,7 @@ fn area(s: Shape) -> Int
 end
 
 fn first<T>(xs: List<T>, d: T) -> T
-    case List.head(xs)
+    case List.first(xs)
         Some(x) -> x
         None -> todo "empty"
     end

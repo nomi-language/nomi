@@ -7,7 +7,7 @@
 // (tests/06-collections/lists_test.nomi:27-28), and an assertion
 // subject is not an ordinary expression: `g.traceVar` is set, so binary()
 // hoists its right operand and calls recordComparisonOperands, which renders
-// BOTH operands into the failure's `values:` rows. `List.head([])` answers the
+// BOTH operands into the failure's `values:` rows. `List.first([])` answers the
 // bare `None` sentinel, whose kind has no payload type of its own — so
 // recordComparisonOperands consults inspector() for tagBareNone, and when no
 // arm answers it returns SILENTLY without recording anything. That is the
@@ -29,14 +29,14 @@
 // The CALL is what forces the row, and that is the operand the discharge is
 // about.
 test "an untyped List call that holds"
-    assert List.head([]) == None
+    assert List.first([]) == None
     assert List.tail([]) == None
     assert List.concat([], []) == []
     assert List.compare([], []) == Ordering.Equal
 end
 
 test "a failing head renders the untyped call"
-    assert List.head([]) != None
+    assert List.first([]) != None
 end
 
 test "a failing tail renders the untyped call"

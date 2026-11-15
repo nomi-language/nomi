@@ -19,9 +19,9 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 pub fn ciphertext(plaintext: String) -> String
     text = normalize(plaintext)
     length = String.length(text)
-    if length == 0 then return ""
+    Some(positive) = PositiveInt.try_from(length) else return ""
 
-    columns = width(length)
+    columns = width(positive)
     rows = (length + columns - 1) / columns
 
     text
@@ -44,7 +44,7 @@ end
 
 /// The fewest columns that hold `length` letters in a rectangle no taller
 /// than it is wide.
-fn width(length: Int) -> Int
+fn width(length: PositiveInt) -> Int
     root = Int.sqrt(length)
 
     if root * root == length then root else root + 1
@@ -93,3 +93,4 @@ test result: ok. 8 passed, 0 failed
 - Normalizing works on codepoints: `String.lowercase`, then keep each `Codepoint.is_letter` or `Codepoint.is_digit`.
 - Empty text returns `""` before the width is worked out, so nothing divides by a width of zero.
 - The canonical cases are one `subtests` table. The canonical data replaces its "54 character plaintext results in 7 chunks" case with one that says 8 chunks and expects the same text (`reimplements`); the table holds only the replacement.
+- The empty text is the `None` of `PositiveInt.try_from` on the length, so `width` takes a `PositiveInt` and `Int.sqrt` takes it as it is.

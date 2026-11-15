@@ -23,12 +23,13 @@ func TestRelinkChecksEveryRefinementLiteralAgain(t *testing.T) {
     p >= ` + low + ` and p <= 65535
 end
 
-pub type Port Int when port_ok
+pub subtype Port Int when port_ok
 
 pub struct Span
     low:  Int
     high: Int
-end when fn s -> ` + span + `
+    when fn s -> ` + span + `
+end
 
 pub fn describe(p: Port) -> String
     "port ${p}"

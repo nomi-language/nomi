@@ -257,7 +257,7 @@ func TestIRSignalCall_AGenericFunction(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
 fn head_or_skip<T>(xs: List<T>) -> T
-  case List.head(xs)
+  case List.first(xs)
     Some(x) -> x
     None -> continue
   end

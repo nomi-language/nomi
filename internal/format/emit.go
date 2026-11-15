@@ -3828,7 +3828,7 @@ const notOperandPrecedence = 4
 
 // isPrecedence is the binding level of `is` (the parser's, `==`'s). It
 // does not chain with a comparison, so its value holds only what binds more
-// tightly than a comparison bare: `xs |> List.head() is Some(_)`, `(a < b)
+// tightly than a comparison bare: `xs |> List.first() is Some(_)`, `(a < b)
 // is True`.
 const isPrecedence = 4
 
@@ -4501,6 +4501,11 @@ func emitTypeExprNode(t ast.TypeExpr) Doc {
 		paramDocs := make([]Doc, 0, len(n.Params))
 		for _, p := range n.Params {
 			paramDocs = append(paramDocs, emitTypeItem(p))
+		}
+		if len(n.Params) == 0 && trailingHasComment(n.EndTrivia) {
+			// `( // why` then `) -> R`: the list's own comments, inside it.
+			list := commentedList("(", ")", nil, nil, n.EndTrivia, false)
+			return Concat(list, Text(" -> "), emitTypeExpr(n.Return))
 		}
 		if cs, ok := typesComments(n.Params); ok {
 			if n.Return == nil {
@@ -5403,15 +5408,21 @@ func emitStructDef(v *ast.StructDef) Doc {
 		members = append(members, emitStructDeclField(f, fields.item()))
 	}
 	members = appendTypeBodyItems(members, v.Items)
+	if v.Rule != nil {
+		// The rule is the body's last item, on its own line below the
+		// fields and outside their alignment block.
+		rule := emitLeadingComments(v.RuleLeading)
+		rule = append(rule, Text("when "), emit(v.Rule))
+		rule = append(rule, emitSameLineComments(v.RuleTrailing)...)
+		members = append(members, Concat(rule...))
+	}
 	parts = append(parts, emitDeclBody(members, v.EndTrivia))
-	parts = append(parts, emitRefinementRule(v.Rule)...)
 	return Concat(parts...)
 }
 
-// emitRefinementRule renders a refinement's ` when <rule>` on the line its
-// declaration's header (a `type`) or `end` (a `struct`) ends on. The rule
-// is an ordinary expression, so a long lambda body breaks as any boolean
-// does. Nothing for a declaration with no rule.
+// emitRefinementRule renders a `type`'s ` when <rule>` on the line its
+// header ends on. The rule is an ordinary expression, so a long lambda
+// body breaks as any boolean does. Nothing for a declaration with no rule.
 func emitRefinementRule(rule ast.Node) []Doc {
 	if rule == nil {
 		return nil
@@ -5698,7 +5709,7 @@ func emitRangeLit(v *ast.RangeLit) Doc {
 	return Concat(parts...)
 }
 
-// emitTypeAlias renders `[pub ]typealias Name Target` for a single-type
+// emitTypeAlias renders `[pub ]typealias Name[<T>] Target [where ...]` for a single-type
 // alias or `[pub ]typealias Name A and B and C` for a bound alias.
 func emitTypeAlias(v *ast.TypeAlias) Doc {
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
@@ -5706,7 +5717,7 @@ func emitTypeAlias(v *ast.TypeAlias) Doc {
 	if v.Public {
 		parts = append(parts, Text("pub "))
 	}
-	parts = append(parts, Text("typealias "), Text(v.Name), Text(" "))
+	parts = append(parts, Text("typealias "), Text(v.Name), emitTypeParams(v.TypeParams), Text(" "))
 	if len(v.Bounds) > 0 {
 		for i, b := range v.Bounds {
 			if i > 0 {
@@ -5717,10 +5728,12 @@ func emitTypeAlias(v *ast.TypeAlias) Doc {
 	} else {
 		parts = append(parts, emitTypeExpr(v.TargetTypeExpr))
 	}
+	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 	return Concat(parts...)
 }
 
-// emitTypeDef renders a distinct type: `[pub ][opaque ]type Name [InnerType]`.
+// emitTypeDef renders a distinct type or a subtype: `[pub ][opaque ]type Name [InnerType]`,
+// `[pub ]subtype Name Parent [and Parent...]`.
 // A zero-sized type (`type Expired`) has no inner type. The `opaque`
 // modifier (only valid on distinct types) renders after `pub` when both
 // are present. Source type declarations are bodiless; the optional body path
@@ -5737,10 +5750,18 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 	if v.Opaque {
 		parts = append(parts, Text("opaque "))
 	}
-	parts = append(parts, Text("type "), Text(v.Name), emitTypeParams(v.TypeParams))
+	keyword := "type "
+	if v.Subtype {
+		keyword = "subtype "
+	}
+	parts = append(parts, Text(keyword), Text(v.Name), emitTypeParams(v.TypeParams))
 	if v.InnerTypeExpr != nil {
 		parts = append(parts, Text(" "), emitTypeExpr(v.InnerTypeExpr))
 	}
+	for _, parent := range v.MoreParents {
+		parts = append(parts, Text(" and "), emitTypeExpr(parent))
+	}
+	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 	parts = append(parts, emitRefinementRule(v.Rule)...)
 	parts = emitOptionalTypeBody(parts, v.HasBody, v.Items, v.EndTrivia)
 	return Concat(parts...)

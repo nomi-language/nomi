@@ -72,14 +72,18 @@
 //
 // The shared lowering lowers std modules in dependency order
 // (`stdLoweringOrder`), and a module's bodies resolve only against the
-// modules lowered before it. Inside an import cycle one member comes
-// first, so a body there that calls a later member's function (std/regex's
-// Debug calling `String.to_typed_literal`, where std/strings imports
-// std/regex) is not retained. Each program that reaches such a body
-// builds it as an instance with no arguments, against every module
-// (`stdUnretainedMonoBody`, `otherModuleCallee`), so a std module may call
-// any other's functions, type-qualified, module-qualified or bare, in
-// either direction of a cycle.
+// modules lowered before it. The members of an import cycle are lowered
+// as one unit (`stdLoweringUnits`, `lowerStdUnit`): in passes, each member
+// against every other, until no member lowers more, keeping each
+// declaration's symbol from pass to pass. So a std module may call into
+// any member of its cycle by every call shape (an operator or interface
+// dispatch to an impl, `Int.to_byte` from Byte's impls), and which bodies
+// lower does not depend on the order of the members, which an edit to one
+// member's imports may change (`TestStdLoweringIsTheSameInEveryCycleOrder`).
+// A body that calls a function of a module outside its imports that is
+// lowered after its own (a prelude type's method) is not retained; each
+// program that reaches it builds it as an instance with no arguments,
+// against every module (`stdUnretainedMonoBody`, `otherModuleCallee`).
 //
 // A std module in `programStdModules` is the exception. It is not lowered
 // with the shared stdlib: it is declared with each program that imports
@@ -761,6 +765,16 @@
 // very list it was given, where `Iter.map(xs, keep) |> Iter.to_list()`
 // enters 10,001.
 //
+// A std operation the builder lowers itself or crosses to the host
+// (`List.concat`, `Vector.push`, `Set.union`, `Map.put`,
+// `Maybe.with_default`, `Iter.concat`) types its operands at the checker's
+// instantiation of the call (`recordedTypeArg`, `solvedParamKind`), not at
+// its first operand's kind, and a std body instantiated at its receiver
+// (`Map.merge_with`) takes the receiver at that instantiation. So an
+// operand whose type parameter a later operand widened (spec §4 *Chains
+// and conversion*: `List.concat(circles, shapes)` is a `List<Shape>`)
+// converts as a user function's argument does.
+//
 // Any other value is rebuilt (`rebuildWidened`, irembedsrebuild.go): a
 // List, Vector, Set or Map through `Iter.map`'s operation with an element
 // adapter and the matching materializer, so a Set's elements and a Map's
@@ -832,38 +846,73 @@
 // TestFilesLowerOnTheirOwnAsInTheProgram (internal/expectation), and
 // TestStdBundle_DecodesToTheLowering (here).
 //
-// # Refinement types
+// # Subtypes and validated types
 //
-// A distinct refinement (spec §4 *Refinement types*; refinement.go),
-// `type Port Int when ...`, introduces a type the checker keeps apart, and no
+// A subtype (spec §4 *Subtypes*; refinement.go),
+// `subtype Port Int when ...`, introduces a type the checker keeps apart, and no
 // representation: a Port is an Int at run time. So the builder has no def
 // for it, as it has none for a `typealias`: an annotation naming it
 // (refinementKind) and a type the checker solved to it (project's
-// DistinctType arm) are its base's kind, every conversion up its chain of
-// parents costs nothing, and a literal checked as a Port is the Int
+// DistinctType arm) are its base's kind, every conversion up to a parent or
+// ancestor costs nothing, and a literal checked as a Port is the Int
 // constant. Its call form `Port(8080)`, its `unchecked` and its
-// destructuring `Port(n) = port` are the value itself. A refinement
+// destructuring `Port(n) = port` are the value itself. A subtype
 // implements no interface (the checker refuses an impl), so no dispatch
 // table can confuse it with its base.
 //
 // Its generated functions, `try_from` and `unchecked`
 // (analysis/refinement_synthesis.go), are an inherent block with no
-// receiver kind of its own, an owner block reached by the refinement's name
+// receiver kind of its own, an owner block reached by the subtype's name
 // as an interface's inherent block is (ownerimpl.go). `try_from` calls its
 // rule through the VM intrinsic `vm.refinement_rule` (ast.RefinementRule),
 // which answers False when the rule traps, so a value whose rule traps is
 // None; under vm.Machine.Evaluate the trap goes through, and vmhost reports
-// it at the literal.
+// it at the literal. A parent named through a typealias is called by the
+// target's name where the file sees it and otherwise by the declaration
+// the checker resolved the call to (generatedOwnerAlias,
+// resolvedOwnerPlan). A validated type, or a `type` over a subtype, has a
+// def, and its `try_from` is its TryFrom impl's; a generic one takes the
+// base at its impl's parameters (refinementBaseKind) and is built at the
+// type arguments the checker solved for the generated `unchecked` node.
 //
-// `struct Span ... end when ...` is an ordinary struct; only its
+// `struct Span ... when ... end` is an ordinary struct; only its
 // construction is checked. Its `unchecked` builds it from the record of its
 // fields, as the call form `Span({...})` does.
 //
-// Each literal the checker typed as a refinement
+// Each literal the checker typed as a subtype
 // (analysis.FileAnalysis.RefinedLiterals) becomes a RefinementSite: the
-// literal, and the `try_from` of each refinement on its chain by linkage
-// name, which vmhost calls on the literal before the program runs. A
-// struct or collection literal's site has a Build, a function of no
-// arguments that makes the record of its fields or the collection
-// (refinementBuild).
+// literal, and the `try_from` of each subtype whose rule it must
+// satisfy (analysis.RefinementChecks) by linkage name with the path of
+// parents to it, which vmhost calls on the literal before the program
+// runs and names in its diagnostic. A
+// literal whose value is no Go constant, a struct, a collection, a typed
+// literal (`Duration"15m"`) or a Decimal, has a Build instead, a function
+// of no arguments that makes the value as its literal lowers
+// (refinementBuild). The builds run in source order: a typed literal's
+// build declares its cell in the unit's module, so the module's cells and
+// functions, and the std bundle written from them, follow that order.
+//
+// A generic subtype is its base at its type arguments: an annotation
+// `NonEmptyList<Int>` is List<Int>'s kind (genericRefinementKind, which
+// projects the base with the declaration's parameters standing for the
+// arguments), and so is a type the checker solved to one. A literal of one
+// is checked by a function of no arguments that builds the literal and
+// calls the subtype's `try_from` instance at the literal's type
+// arguments, the call the checker typed (RefinementSiteStep.Check,
+// refinementCheckBuild); the sites are built before the late instances
+// other files asked for are flushed, so an instance such a call asks
+// another file for is built. Its declaration's RefinementRuleSite has a
+// function of the base's value calling its `try_from` at each set of type
+// arguments the checker typed (analysis.RefinementRuleCheck,
+// refinementRuleCheckBuild), which vmhost never runs and only reads for
+// effects; each lowers its instance into the unit's module. The site also
+// names the prefix of every instance's linkage name and the interfaces of
+// the bounds, so vmhost checks every instance and every impl of them the
+// linked program has (ImplLinkInterface reads an impl function's interface
+// from its linkage name), which the kept lowering keeps.
+//
+// A std signature that names a subtype, `Int.pow(n: Int, exp:
+// NonNegativeInt)`, has its base's kind (stdRefinementKind), a scalar, a
+// Decimal or a type std declares, and its host adapter takes the base's
+// value (internal/hostgen's shape of a subtype is its parent's).
 package irbuild

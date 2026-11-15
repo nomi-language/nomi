@@ -1,7 +1,5 @@
 //# Complex numbers and their arithmetic.
 
-import std::float.NonNegativeFloat
-
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex
     real:      Float

@@ -97,7 +97,7 @@ end
 //!         Response.text(Client.get(server.client, Url.resolve_text(server.url, "/a?b=1")!)!)!
 //!     end)
 //!
-//!     url = String.split(served, " ") |> List.head()!
+//!     url = String.split(served, " ") |> List.first()!
 //!     tested = testing.request(Method.Get, url)
 //!     (served, "${tested.url} ${tested.host}")
 //! end
@@ -208,8 +208,8 @@ end
 fn gather(receiver: Receiver<Bytes>, taken: List<Bytes>) -> List<Bytes>
     case Receiver.receive(receiver)
         Some(chunk) when Bytes.length(chunk) > 0 -> gather(receiver, [..taken, chunk])
-        Some(_) -> gather(receiver, taken)
-        None -> taken
+        Some(_)                                  -> gather(receiver, taken)
+        None                                     -> taken
     end
 end
 

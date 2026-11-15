@@ -1391,30 +1391,6 @@ end
 `,
 	},
 	{
-		name: "gapVectorItemsJoinCaptured",
-		src: `import
-    std::io
-    std::io.Captured
-end
-
-struct Circle
-    r: Int
-end
-
-enum Shape
-    embeds Circle
-    Dot
-end
-
-fn main()
-    a = Captured{value: Circle{r: 1}, output: "", errors: "", transcript: ""}
-    b = Captured{value: Shape.Dot, output: "", errors: "", transcript: ""}
-    v = Vector[a, b]
-    io.inspect(Vector.length(v))
-end
-`,
-	},
-	{
 		name: "gapVectorOfFunctions",
 		src: `import std::io
 

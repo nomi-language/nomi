@@ -348,9 +348,9 @@ impl Error
     //
     pub fn is_temporary(error: Error) -> Bool
         case error
-            .Network{reason: _} -> True
+            .Network{reason: _}                    -> True
             .Rejected{command: _, code:, reply: _} -> code >= 400 and code < 500
-            _ -> False
+            _                                      -> False
         end
     end
 end
@@ -943,7 +943,7 @@ fn content(message: Message) -> (List<String>, String)
     case main
         Some(part) when Iter.is_empty(attachments) -> part
         Some(part) -> multipart("mixed", List.concat([part], attachments))
-        None -> multipart("mixed", attachments)
+        None       -> multipart("mixed", attachments)
     end
 end
 
@@ -1003,14 +1003,14 @@ fn byte_tokens(g: String, prefix: String) -> List<String>
     |> Iter.to_list()
 end
 
-fn boundary(subtype: String) -> String
+fn boundary(media: String) -> String
     // Neither quoted-printable nor base64 can write `=_`, so no part holds
     // the boundary.
-    "=_nomi_${subtype}"
+    "=_nomi_${media}"
 end
 
-fn multipart(subtype: String, parts: List<(List<String>, String)>) -> (List<String>, String)
-    b = boundary(subtype)
+fn multipart(media: String, parts: List<(List<String>, String)>) -> (List<String>, String)
+    b = boundary(media)
 
     body =
         parts
@@ -1019,7 +1019,7 @@ fn multipart(subtype: String, parts: List<(List<String>, String)>) -> (List<Stri
         end)
         |> String.join()
 
-    (["Content-Type: multipart/${subtype}; boundary=\"${b}\""], "${body}--${b}--")
+    (["Content-Type: multipart/${media}; boundary=\"${b}\""], "${body}--${b}--")
 end
 
 fn base64_lines(data: Bytes) -> String
@@ -1121,7 +1121,7 @@ fn fold(line: String) -> String
     if String.length(line) <= 78 then return line
 
     words = String.split(line, " ")
-    first = List.head(words) |> Maybe.with_default("")
+    first = List.first(words) |> Maybe.with_default("")
     rest = List.tail(words) |> Maybe.with_default([])
 
     (done, last) = Iter.reduce(rest, ([], first), fn (done, current), word ->

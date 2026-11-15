@@ -6,9 +6,9 @@
 pub fn ciphertext(plaintext: String) -> String
     text = normalize(plaintext)
     length = String.length(text)
-    if length == 0 then return ""
+    Some(positive) = PositiveInt.try_from(length) else return ""
 
-    columns = width(length)
+    columns = width(positive)
     rows = (length + columns - 1) / columns
 
     text
@@ -31,7 +31,7 @@ end
 
 /// The fewest columns that hold `length` letters in a rectangle no taller
 /// than it is wide.
-fn width(length: Int) -> Int
+fn width(length: PositiveInt) -> Int
     root = Int.sqrt(length)
 
     if root * root == length then root else root + 1

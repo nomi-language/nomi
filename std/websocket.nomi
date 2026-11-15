@@ -539,12 +539,12 @@ end
 fn error_of(parts: List<String>) -> Error
     case parts
         ["Handshake", status, reason] -> Error.Handshake{status: Status(number(status)), reason:}
-        ["Protocol", code, reason] -> Error.Protocol{code: number(code), reason:}
-        ["Closed", code, reason] -> Error.Closed{code: number(code), reason:}
-        ["Timeout"] -> Error.Timeout
-        ["Network", ..rest] -> Error.Network{error: net.Error.from_parts(rest)}
-        ["Invalid", reason] -> Error.Invalid{reason:}
-        _ -> Error.Invalid{reason: String.join(parts, " ")}
+        ["Protocol", code, reason]    -> Error.Protocol{code: number(code), reason:}
+        ["Closed", code, reason]      -> Error.Closed{code: number(code), reason:}
+        ["Timeout"]                   -> Error.Timeout
+        ["Network", ..rest]           -> Error.Network{error: net.Error.from_parts(rest)}
+        ["Invalid", reason]           -> Error.Invalid{reason:}
+        _                             -> Error.Invalid{reason: String.join(parts, " ")}
     end
 end
 

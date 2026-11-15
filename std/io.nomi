@@ -104,9 +104,9 @@ end
 ///
 /// ```nomi
 /// case fs.read_text("notes.txt")
-///     Ok(text) -> io.print(text)
+///     Ok(text)                        -> io.print(text)
 ///     Err(io.Error.NotFound{path: _}) -> io.print("no notes yet")
-///     Err(e) -> io.eprint("cannot read the notes: ${e}")
+///     Err(e)                          -> io.eprint("cannot read the notes: ${e}")
 /// end
 /// ```
 //! assert "${Error.NotFound{path: "notes.txt"}}" == "notes.txt: not found"

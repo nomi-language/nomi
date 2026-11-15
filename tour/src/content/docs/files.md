@@ -58,9 +58,9 @@ end
 
 fn main()
     case fs.read_text("settings.toml")
-        Ok(text) -> io.print(text)
+        Ok(text)                      -> io.print(text)
         Err(io.Error.NotFound{path:}) -> io.print("no ${path}, so the defaults")
-        Err(e) -> io.eprint("cannot read the settings: ${e}")
+        Err(e)                        -> io.eprint("cannot read the settings: ${e}")
     end
 
     case fs.write_text("logs/today.txt", "started\n")

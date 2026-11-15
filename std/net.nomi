@@ -401,7 +401,7 @@ end
 fn mx_records(parts: List<String>) -> List<Mx>
     case parts
         [host, preference, ..rest] -> [Mx{host:, preference: int(preference)}, ..mx_records(rest)]
-        _ -> []
+        _                          -> []
     end
 end
 

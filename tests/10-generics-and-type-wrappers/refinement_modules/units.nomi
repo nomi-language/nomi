@@ -1,10 +1,8 @@
-import std::float.NonNegativeFloat
-
 /// A length in meters, never negative.
-pub type Meters NonNegativeFloat when fn m -> m < 1.0e7
+pub subtype Meters NonNegativeFloat when fn m -> m < 1.0e7
 
 /// A climbable height: under nine kilometers.
-pub type Height Meters when fn h -> h < 9000.0
+pub subtype Height Meters when fn h -> h < 9000.0
 
 /// The sum of two lengths, a length again.
 pub fn plus(a: Meters, b: Meters) -> Meters

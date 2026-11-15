@@ -11,7 +11,7 @@ func TestIRListOps_NominalElementsRetain(t *testing.T) {
     value: Int
 end
 fn choose(xs: List<Box>) -> Maybe<Box>
-    List.head(xs)
+    List.first(xs)
 end
 fn main()
     _ = choose([Box{value: 7}])
@@ -31,5 +31,5 @@ end
 			}
 		}
 	}
-	t.Fatal("choose, List.head over a List<Box>, was not retained")
+	t.Fatal("choose, List.first over a List<Box>, was not retained")
 }

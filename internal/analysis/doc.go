@@ -621,13 +621,21 @@
 //
 // Advice is a diagnostic about a program that checks and means the same
 // either way, so it is never an error and the checker does not report it.
-// A redundant `value as Type` (FileAnalysis.RedundantAscriptions) and an
+// A redundant `value as Type` (FileAnalysis.RedundantAscriptions), an
 // operand that restates the current value of the field it writes
-// (FileAnalysis.RestatedPaths) are recorded during the check, and
-// FileHints reads them as hints, for the language server and `nomi check
-// --hints` alike. A type parameter that style rule 52
-// writes as an interface value is found after it by InterfaceValueHints
-// (interface_value_hint.go), from the file's nodes and analysis: a
+// (FileAnalysis.RestatedPaths), and a call whose Maybe the value's
+// refinement answers plainly, `List.first(names)` for a NonEmptyList
+// `names` (FileAnalysis.PlainCounterparts, plain_counterpart.go), are
+// recorded during the check, and FileHints reads them as hints, for the
+// language server and `nomi check --hints` alike. The last carries a fix
+// when a `!` unwraps the call: it names the refinement's function and
+// drops the `!`. The counterpart is the refinement's function of the same
+// name and arity whose result is no Maybe, so `Iter.reduce`, which takes
+// a seed `NonEmptyList.reduce` does not, has none.
+//
+// A type parameter that style rule 52 writes as an interface value is
+// found after the check by InterfaceValueHints (interface_value_hint.go),
+// from the file's nodes and analysis: a
 // function's (or an inherent impl function's) type parameter that its
 // signature names once, as one parameter's whole type, under one interface
 // bound whose functions the body calls only as an interface value can
@@ -717,44 +725,171 @@
 // TestStdState_ReadsBackAsTheBuild), and a process's stdlib read from a
 // state to the one analyzed from source (TestShared_ModulesAreLoadsModules).
 //
-// # Refinement types
+// # Subtypes and validated types
 //
-// A refinement (spec §4 *Refinement types*; refinement.go) is a distinct
-// type or a struct that declares a rule with `when`:
-// `type Port Int when fn p -> p >= 1 and p <= 65535`. Its
-// representation is DistinctType.Rule (StructType.Rule), the rule as
-// written, which marks the type as a refinement.
+// A subtype (spec §4 *Subtypes*; refinement.go) is a `subtype`
+// declaration, `subtype Port Int when fn p -> p >= 1 and p <= 65535`, a
+// DistinctType with Subtype set (refinementOf answers it; the Go names
+// keep "subtype"). Its rule, when it writes one, is DistinctType.Rule,
+// as written. A struct with a `when` rule is a validated struct
+// (StructType.Rule). A `type` with a rule is a validated type, and a
+// `type` whose inner type is a subtype is built the same checked way;
+// checkedDistinctOf answers both. Neither converts to anything; each
+// enters only through a literal, `try_from` or `unchecked`
+// (checkedCtorArg), and its literal's checks are its inner type's then
+// its own rule (RefinementChecks). A subtype needs a rule anywhere in its
+// chain, and one of a single parent needs its own
+// (checkSubtypeHasARule): otherwise it is its parent under another name,
+// which is a typealias.
 //
-// A distinct refinement's value is a value of the type it refines, its
-// parent (DistinctType.Inner). It converts up its chain of parents to every
-// ancestor and to the base at the chain's end, implicitly and inside
-// containers, by the unifier's assign modes (unify.go). Two refinements of
-// one parent never convert to each other, and nothing converts down. A
-// refinement implements no interface of its own: it has its base's impls,
+// `A and B` of subtypes is an intersection (NewSubtypeIntersection): a
+// DistinctType with Subtype and Intersection set, whose parents are its
+// members, held sorted in TypeArgs so substitution and identity treat
+// them as type arguments. A subtype with no rule of its own, an
+// intersection among them, has exactly its parents' values, so a value
+// converts into it when it converts to every parent (intoRulelessSubtype,
+// beside the widening up in unify.go and refinesInto); this is the one
+// conversion down. checkIntersections reports an interface beside
+// subtypes that their base does not implement.
+//
+// A generic typealias is an AliasTemplate in the registry: a use
+// instantiates its target (instantiateAlias), and checkAliasBounds
+// reports a use whose argument breaks the alias's `where`.
+//
+// A validated type, and a `type` over a subtype, implements std's
+// `TryFrom` of its base, a generic one at its parameters: the front end
+// writes its `try_from` as that impl's (tryFromImpl in
+// refinement_synthesis.go), and a hand-written impl of that one source
+// type is an error (reportSuppliedTryFrom). A literal of such a type is
+// checked through a `T.try_from(v)` call typed in the literal's file
+// (refinementCheckCall), which reaches the impl.
+//
+// Whether a `type` with no rule of its own is over a subtype is a fact
+// about names, which the front end writes its functions before any
+// resolve: it writes the impl and the block with `unchecked` for every
+// `type` whose inner type is written as a name that could be one
+// (couldNameSubtype), and withholds both (ast.ImplBlock.Withhold), so
+// until they are released they are empty inherent blocks no pass sees
+// anything in. The annotation pass releases them (releaseWithheldRefinement)
+// when the inner type resolves, through the file's own references and an
+// alias's in its declaring file, to a subtype or an intersection with one;
+// it stubs them then, so a dropped block never had a symbol, a completion
+// or a TryFrom impl. Each build decides again, and a block a build of the
+// same nodes kept loses its symbols when a later one drops it. A parent a
+// declaration names through a typealias is checked through the target's
+// `try_from`: the checker resolves the generated call's owner through the
+// alias, and the IR builder calls the function by the declaration the
+// checker resolved it to, which this file may have no name for
+// (resolvedOwnerPlan).
+//
+// A subtype's value is a value of the types it refines, its
+// parents: DistinctType.Inner, the first, and MoreParents, the rest of
+// `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`. It converts up
+// to each parent, each of their ancestors and the base every parent
+// reaches, implicitly and inside containers, by the unifier's assign modes
+// (unify.go), which try each parent in turn. Two subtypes of one parent
+// never convert to each other, and nothing converts down.
+//
+// Where values meet with no type written (an `if`'s or `case`'s branches,
+// a collection literal's elements, a lambda's results, a range's
+// endpoints), a subtype beside an ancestor of it, or beside another
+// subtype they share an ancestor with, joins as the nearest shared
+// ancestor, at the top and at each position a value converts at
+// (refinementJoin, nearestSharedAncestor; branchesJoin tries it first when
+// no type is expected), and a range with no type written ranges over the
+// base (checkRangeLit). A later arm or element is checked against the
+// earlier ones' type with its subtypes erased (earlierArmsExpected,
+// checkLitElem), so a literal there is its base's. A type parameter bound
+// to a subtype widens the same way when a later argument is an
+// ancestor (widenToRefinementAncestor). A generic call, direct or piped,
+// solves its arguments through argSolving, which checks a literal
+// argument against what earlier arguments solved with subtypes
+// erased, undoes a widening an earlier argument no longer fits as a
+// mismatch at the later one (widenedPast: a function taking the
+// subtype, or taking an embedded type a later value of its enum
+// widened the parameter to, as widenToEnum does; the function would be
+// called with values it was not written for), checks a collection
+// literal whose elements are an ancestor or the enum of what earlier
+// arguments solved against the widened type, under the same rule
+// (widenedForLiteral: it checks the literal once with those parameters
+// open to learn its type, dropping what that check reports), and
+// solves a parameter a lambda argument's result names (Iter.reduce's
+// accumulator) to its base, since the lambda computes its next value.
+// Std's lengths, counts, sizes and indices are NonNegativeInts this way
+// without a `try_from` where they meet a literal.
+//
+// Every parent
+// reaches one base (checkRefinementParents), so RefinementBase follows
+// Inner; a parent that reaches the subtype itself is a declaration
+// cycle the type builder leaves out (distinctCycle). RefinementChecks
+// orders the rules a value satisfies, each once, a parent's ancestors
+// before it, the parents as written, the subtype last: the order a
+// literal's compile-time check reports the first that fails in, with the
+// path to it (RefinementStep.Via).
+//
+// A generic subtype, `subtype NonEmptyList<T> List<T> when ...`, holds
+// its parents in terms of its own type parameters, and an instance's
+// parents and base are those at its type arguments (RefinementParents,
+// RefinementBase, both through DistinctInner), so a NonEmptyList<Int>
+// converts up to List<Int>. Its arguments convert as its parents hold them
+// (variance.go reads a subtype's every parent, std's among them), and a
+// conversion of one converts its base (conversions.go, refinementRunTime).
+// A collection literal where one is expected at open type arguments solves
+// them from its elements (distinctLiteralType). A `where` on the
+// declaration bounds the parameters as a struct's does. A struct
+// subtype takes no type parameters.
+//
+// A subtype implements no interface of its own: it has its base's impls,
 // and at run time it is its base's value (irbuild erases it). So every
 // record the checker makes of a value's run-time shape reads a distinct
-// refinement as its base: the Iter view a source becomes (iterViewOf), a
+// subtype as its base: the Iter view a source becomes (iterViewOf), a
 // spread's head (checkSpreadHeads), and whether a value enters an
-// interface as itself (carriesOwnType, entersAsItself).
+// interface as itself (carriesOwnType, entersAsItself). The impls a call
+// solves a bound's open type arguments from are the base's too
+// (solveFromWhereImpls), so `Iter.mean` over NonNegativeInts solves its result
+// from Int's `Averageable<Float>`.
 //
-// A struct refinement is a struct whose values satisfy the rule. It
+// A validated struct is a struct whose values satisfy the rule. It
 // converts to nothing; its rule only constrains construction.
 //
-// A value enters a refinement in four ways:
+// A value enters a subtype, a validated type or a validated struct in
+// four ways:
 //
-//   - a literal of the base where the refinement is expected, or as the
+//   - a literal of the base where the subtype is expected (a typed
+//     literal with no `${...}` among them, `Duration"15m"`), or as the
 //     argument of its call form (`Port(8080)`), a struct literal whose
 //     fields are literals, or a collection literal whose elements are,
-//     through nested collection and tuple literals, where a refinement of
-//     a collection, or of a refinement of one, is expected or as the
+//     through nested collection and tuple literals, where a subtype of
+//     a collection, or of a subtype of one, is expected or as the
 //     argument of the call form (checkCollectionRefinementLit,
 //     literalInnerOf, refinementCtorArg): the rule is
 //     evaluated when the program is compiled (vmhost's checkRefinements
-//     over irbuild's RefinementSites);
-//   - `T.try_from(x)`, a `Maybe<T>`, generated for every refinement
-//     (SynthesizeRefinements), which checks each rule of the chain, each
+//     over irbuild's RefinementSites). A chain that reaches no base, its
+//     parent naming no type or a declaration cycle, is reported where it
+//     is declared, and a literal of it is checked as itself, since the
+//     chain's end is the subtype again (checkRefinementLiteral);
+//     A literal of a generic subtype is checked through its
+//     `try_from` at the literal's type arguments: the checker types the
+//     call `Name.try_from(v)` as the literal's file would
+//     (refinementCheckCall, RefinementStep.Check), its nodes at the
+//     literal's line and below-zero columns no token has, and v,
+//     RefinementLiteralName, the literal's value; a file no name of which
+//     reaches the subtype is told to import it. Its declaration types
+//     the same call with each parameter a value of its bounds' interface,
+//     which meets them whatever implements them, and again at the first
+//     witness type its bounds admit (Int, String, Float, Bool, Unit)
+//     (recordRefinementRuleCheck, FileAnalysis.RefinementRuleChecks), so
+//     vmhost refuses a rule with effects whether or not a literal of it
+//     is checked;
+//   - `T.try_from(x)`, a `Maybe<T>`, generated for every subtype and checked
+//     `type` (synthesizeRefinements; a checked `type`'s is its TryFrom
+//     impl's, whose parameter keeps the interface's name `value` and binds
+//     the argument under a fresh one when the rule reads a `value`), which checks each parent's `try_from` in
+//     the order written and then its own rule on the first parent's value, each
 //     call of a rule an ast.RefinementRule, a Bool that is False when the
-//     rule traps;
+//     rule traps. A generic subtype's `try_from` and `unchecked` declare
+//     its type parameters and bounds as their own (refinementHead), so a
+//     call instantiates them as std's functions on a generic type are;
 //   - `T.unchecked(x)`, which checks nothing, allowed only in the file
 //     that declares T;
 //   - an impl or function that returns T, whose body built it one of the

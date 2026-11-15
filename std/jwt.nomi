@@ -424,8 +424,8 @@ end
 fn kind_check(algorithm: Algorithm, have: KeyKind) -> Result<Unit, String>
     case kind(algorithm)
         Some(want) when want == have -> Ok(Unit)
-        Some(want) -> Err("${algorithm} signs with an ${want} key, not ${have}")
-        None -> Err("${algorithm} signs with a secret, not a key")
+        Some(want)                   -> Err("${algorithm} signs with an ${want} key, not ${have}")
+        None                         -> Err("${algorithm} signs with a secret, not a key")
     end
 end
 
@@ -510,15 +510,15 @@ fn check_claims(claims: Map<String, Json>, validation: Validation) -> Result<Uni
     leeway = Duration.as_seconds(validation.leeway)
 
     case seconds(claims, "exp")?
-        Some(exp) when now - leeway >= exp -> return Err(JwtError.Expired)
-        Some(_) -> Unit
+        Some(exp) when now - leeway >= exp  -> return Err(JwtError.Expired)
+        Some(_)                             -> Unit
         None when validation.require_expiry -> return Err(JwtError.MissingClaim("exp"))
-        None -> Unit
+        None                                -> Unit
     end
 
     case seconds(claims, "nbf")?
         Some(nbf) when now + leeway < nbf -> return Err(JwtError.NotYetValid)
-        _ -> Unit
+        _                                 -> Unit
     end
 
     case validation.issuer

@@ -81,15 +81,15 @@ fn signed_in(kept: CookieStore, user: String) -> Response
 end
 
 test "a session written by one request is read by the next"
-    signed = signed_in(store, "ada")
+    signed = signed_in(store, "ada!")
     assert signed.status == Status.see_other
-    cookie = List.head(Response.cookies(signed))!
+    cookie = List.first(Response.cookies(signed))!
     assert cookie.name == "session" and cookie.http_only and cookie.secure
     assert cookie.same_site == http.SameSite.Lax and cookie.path == Some("/")
     assert cookie.max_age == MaxAge.Seconds(14 * 24 * 60 * 60)
-    assert not String.contains(cookie.value, "ada")
+    assert not String.contains(cookie.value, "ada!")
 
-    assert Response.text(app(store)(get(signed))) == Ok("ada [Welcome, ada.]")
+    assert Response.text(app(store)(get(signed))) == Ok("ada! [Welcome, ada!.]")
 end
 
 test "a request with no cookie has no session and gets no cookie"
@@ -123,12 +123,12 @@ test "clearing deletes the session and keeps its flash"
 
     empty: Session<Visit> = Session.new(store)
     plain = sessions.write(Response{}, Session.clear(empty))
-    gone = List.head(Response.cookies(plain))!
+    gone = List.first(Response.cookies(plain))!
     assert gone.max_age == MaxAge.DeleteNow and gone.value == ""
 end
 
 test "a changed cookie reads as no session and is deleted"
-    cookie = List.head(Response.cookies(signed_in(store, "ada")))!
+    cookie = List.first(Response.cookies(signed_in(store, "ada")))!
     // One character in the middle, whose six bits all count.
     at = String.length(cookie.value) / 2
 
@@ -147,7 +147,7 @@ test "a changed cookie reads as no session and is deleted"
     r = app(store)(Request.add_cookie(testing.request(Method.Get, "/"), {..cookie, value: forged}))
 
     assert Response.text(r) == Ok("nobody []")
-    assert List.head(Response.cookies(r))!.max_age == MaxAge.DeleteNow
+    assert List.first(Response.cookies(r))!.max_age == MaxAge.DeleteNow
 
     junk = Request.add_cookie(testing.request(Method.Get, "/"), {..cookie, value: "not sealed"})
 
@@ -155,7 +155,7 @@ test "a changed cookie reads as no session and is deleted"
 end
 
 test "a cookie sealed for one name does not open as another"
-    cookie = List.head(Response.cookies(signed_in(store, "ada")))!
+    cookie = List.first(Response.cookies(signed_in(store, "ada")))!
     other = CookieStore{key:, name: "other"}
     request = Request.add_cookie(testing.request(Method.Get, "/"), {..cookie, name: "other"})
     assert Response.text(app(other)(request)) == Ok("nobody []")
@@ -217,7 +217,7 @@ group "expiry"
     test "an idle session ends, and a request moves its timeout along"
         idle = CookieStore{key:, idle_timeout: Some(Duration.minutes(30))}
         signed = signed_in(idle, "ada")
-        assert List.head(Response.cookies(signed))!.max_age == MaxAge.Seconds(30 * 60)
+        assert List.first(Response.cookies(signed))!.max_age == MaxAge.Seconds(30 * 60)
 
         timer.sleep(Duration.minutes(20))
         seen = app(idle)(get(signed))

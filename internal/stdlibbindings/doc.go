@@ -32,7 +32,12 @@
 //     function over rt values. A function that acts outside the machine in
 //     a way some target cannot gets the row's Class, which `nomi build`
 //     checks against the target (vmhost.TargetLacks,
-//     vmhost.Program.CheckTarget).
+//     vmhost.Program.CheckTarget). A function that computes its answer
+//     from its operands alone, acts on nothing outside the machine, and
+//     costs no more than its operands' size gets the row's Pure, so a
+//     refinement rule, a typed literal's handler, a `check` and a
+//     debugger's evaluation may call it (internal/vm package doc,
+//     "Effects"); unset, every call to it is an effect.
 //  3. Run `go generate ./internal/stdlibadapters`.
 //  4. Add recorded cases for the new row
 //     (internal/stdlibadapters/testdata/*.golden).
@@ -51,9 +56,9 @@
 // A module whose host functions live in a new Go package also needs:
 //
 //   - its package in `hostPackages` (internal/irbuild/stdlib.go);
-//   - its crossings in `pureCrossings` (internal/vm/evaluate.go) when they
-//     act on nothing outside the machine, since a typed literal's handler
-//     may only reach those;
+//   - `Pure` on each of its rows that acts on nothing outside the machine,
+//     since a refinement rule or a typed literal's handler may only reach
+//     those (step 2);
 //   - a row in `stdlibInventory` (internal/irbuild/inventory_test.go).
 //
 // # Std types in public signatures
@@ -67,13 +72,10 @@
 // package doc, "Instantiation and dispatch"). Without them, every call whose
 // signature names the type is reported as not supported yet.
 //
-// The shared std modules are lowered once, in import order, and a body that
-// calls into a module lowered after its own is refused. So a foundational
-// module that names a later one's type (std/int naming `Locale`) passes the
-// value to its host function rather than calling the later module's
-// functions on it (`"${locale}"` would call its `Display`).
-// `typeOnlyImportModules` (internal/irbuild/stdlib.go) keeps such an import
-// from reordering the modules. In a shared module, a function's parameter
+// The shared std modules are lowered once, in import order, the members of
+// an import cycle as one unit, so a body may call into any module it
+// imports, either direction of a cycle included (internal/irbuild package
+// doc, "The stdlib"). In a shared module, a function's parameter
 // cannot be an `Iter<T>` unless it is generic, and a generic function's
 // defaults cannot be left out at a call.
 //

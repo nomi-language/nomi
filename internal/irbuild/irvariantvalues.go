@@ -605,7 +605,7 @@ func irRetainedPreludePayload(k kind) bool {
 		return true
 	}
 	if k.tag == tagFunc && irCallableValueKind(k) {
-		// A function value (`List.head(fns)`'s `Maybe<(Int) -> Int>`), held
+		// A function value (`List.first(fns)`'s `Maybe<(Int) -> Int>`), held
 		// in the variant's reference slot.
 		return true
 	}

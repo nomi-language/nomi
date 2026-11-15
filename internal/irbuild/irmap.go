@@ -419,6 +419,9 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		}
 		args.temps[0], args.kinds[0] = v, k
 	}
+	if !bl.mapOperandsAtSolved(t, args, method) {
+		return nil
+	}
 	if args.kinds[0].tag != tagMap || !irRetainedMapKind(args.kinds[0]) {
 		return nil
 	}
@@ -494,6 +497,38 @@ func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have k
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: solved})
 	return n.Dst(), solved, true
+}
+
+// mapOperandsAtSolved converts each map operand of t (the first, and
+// `merge`'s second) to the map the checker solved K and V at
+// (recordedTypeArg), in place in args, where a later operand widened them
+// past it: `Map.put(m, "b", shape)` for m a `Map<String, Circle>` is a
+// `Map<String, Shape>`, and m converts to it as a user function's argument
+// would. False when a conversion the checker admitted is one coerceEmpty
+// cannot do.
+func (bl *irScalarBuilder) mapOperandsAtSolved(t *ast.Call, args irQualArgs, method string) bool {
+	key, val := bl.g.recordedTypeArg(t, method, "K"), bl.g.recordedTypeArg(t, method, "V")
+	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the operands keep their own kinds.
+	if key == kindInvalid || val == kindInvalid || !irMapKeyKind(key) || !irMapValueKind(val) {
+		return true
+	}
+	want := bl.g.mapKind(key, val)
+	maps := 1
+	if method == "merge" {
+		maps = 2
+	}
+	for i := 0; i < maps && i < len(args.kinds); i++ {
+		have := args.kinds[i]
+		if have == want || have.tag != tagMap || !irRetainedMapKind(have) {
+			continue
+		}
+		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], have, want)
+		if !ok {
+			return false
+		}
+		args.temps[i], args.kinds[i] = v, got
+	}
+	return true
 }
 
 // mapProjectionPlan is `Map.keys(m)` / `Map.values(m)`: the keys, or the

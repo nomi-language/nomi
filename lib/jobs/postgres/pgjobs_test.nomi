@@ -257,7 +257,7 @@ test "a table made from schema.sql under another name makes a queue of that name
 end
 
 fn hourly() -> Schedule
-    Schedule.every("hourly", Duration.hours(1), noop, 0)
+    Schedule.every("hourly", Duration"1h", noop, 0)
 end
 
 fn nine() -> Instant

@@ -172,8 +172,8 @@ func TestMCP_SearchStd(t *testing.T) {
 		{"String, Map<String, Int> -> Maybe<Int>", "Map.get"},
 		{"K, Map<K, V> -> Maybe<V>", "Map.get"},
 		// A concrete type instantiates a generic one.
-		{"List<Int> -> Maybe<Int>", "List.head"},
-		{"List<T> -> Maybe<T>", "List.head"},
+		{"List<Int> -> Maybe<Int>", "List.first"},
+		{"List<T> -> Maybe<T>", "List.first"},
 		// A List is an Iter (std's impl), and a defaulted parameter may be
 		// left out (String.join's separator).
 		{"List<T> -> Int", "Iter.count"},
@@ -181,14 +181,19 @@ func TestMCP_SearchStd(t *testing.T) {
 		{"Set<Int>, (Int) -> Bool -> Bool", "Iter.any_match"},
 		// A result that implements the interface asked for.
 		{"List<T> -> Iter<T>", "Iter.reverse"},
+		// A refinement stands where its base is asked for: Int.abs returns
+		// a NonNegativeInt and takes an Int, which a PositiveInt is up its
+		// chain.
+		{"Int -> Int", "Int.abs"},
+		{"PositiveInt -> NonNegativeInt", "Int.abs"},
 	} {
 		if got := names(tc.query); !slices.Contains(got, tc.want) {
 			t.Errorf("search_std(%q) = %v, want it to include %s", tc.query, got, tc.want)
 		}
 	}
 	// Exact and instantiating matches rank before ones through an impl.
-	if got := names("List<T> -> Maybe<T>"); len(got) == 0 || got[0] != "List.head" {
-		t.Errorf("search_std(List<T> -> Maybe<T>) = %v, want List.head first", got)
+	if got := names("List<T> -> Maybe<T>"); len(got) == 0 || got[0] != "List.first" {
+		t.Errorf("search_std(List<T> -> Maybe<T>) = %v, want List.first first", got)
 	}
 	// A bounded type variable takes only a type that implements its bound.
 	if got := names("Int -> Int"); slices.Contains(got, "Iter.count") {

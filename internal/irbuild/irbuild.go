@@ -541,6 +541,16 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	for _, g := range gens {
 		g.irBuildStdDefaultThunks()
 	}
+	// A literal of a generic refinement is checked through its `try_from`
+	// at the literal's type arguments, an instance its check may ask
+	// another file for, so the sites are built before those are flushed.
+	var refinements []RefinementSite
+	var refinementRules []RefinementRuleSite
+	for _, g := range gens {
+		g.refinements, g.refinementRuleSites = g.refinementSites(), g.refinementRules()
+		refinements = append(refinements, g.refinements...)
+		refinementRules = append(refinementRules, g.refinementRuleSites...)
+	}
 	// A generic function instance one file asked another for after that
 	// file's walk ended. See siblinggeneric.go.
 	irFlushLateInstances(gens)
@@ -551,13 +561,6 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	units := gens
 	if cases != nil {
 		units = append([]*gen{cases}, gens...)
-	}
-	var refinements []RefinementSite
-	var refinementRules []RefinementRuleSite
-	for _, g := range gens {
-		g.refinements, g.refinementRuleSites = g.refinementSites(), g.refinementRules()
-		refinements = append(refinements, g.refinements...)
-		refinementRules = append(refinementRules, g.refinementRuleSites...)
 	}
 	for _, g := range units {
 		literals = append(literals, g.literalSites...)

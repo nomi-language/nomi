@@ -13,6 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/crypto-square.
 - Normalizing works on codepoints: `String.lowercase`, then keep each `Codepoint.is_letter` or `Codepoint.is_digit`.
 - Empty text returns `""` before the width is worked out, so nothing divides by a width of zero.
 - The canonical cases are one `subtests` table. The canonical data replaces its "54 character plaintext results in 7 chunks" case with one that says 8 chunks and expects the same text (`reimplements`); the table holds only the replacement.
+- The empty text is the `None` of `PositiveInt.try_from` on the length, so `width` takes a `PositiveInt` and `Int.sqrt` takes it as it is.
 
 ## Friction
 

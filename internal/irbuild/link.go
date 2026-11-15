@@ -272,10 +272,32 @@ func (g *gen) implItemLink(it *implItem) string {
 	return b.String()
 }
 
+// ImplLinkInterface is the name of the interface whose impl block declares
+// the function of linkage name link (implItemLink): `Display` for
+// `main.impl Display for Box<T>[...].to_string<{T=2}>`, with its type
+// arguments dropped. ok is false for a function of no impl block of an
+// interface.
+func ImplLinkInterface(link string) (iface string, ok bool) {
+	_, rest, found := strings.Cut(link, ".impl ")
+	if !found {
+		return "", false
+	}
+	iface, _, found = strings.Cut(rest, " for ")
+	if !found {
+		return "", false
+	}
+	iface, _, _ = strings.Cut(iface, "<")
+	return iface, iface != ""
+}
+
 // linkImport is the symbol a declaration lowered once for the process
 // already has under link, or nil: what makes a call into a linked module
-// name the linked module's function (programstdlink.go).
+// name the linked module's function (programstdlink.go), or a std module
+// lowered again inside its import cycle keep its symbols (stdUnitSyms).
 func (g *gen) linkImport(link string) *ir.Symbol {
+	if g.stdUnitSyms != nil {
+		return g.stdUnitSyms[link]
+	}
 	if g.reg == nil || g.reg.imports == nil {
 		return nil
 	}

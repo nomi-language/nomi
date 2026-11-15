@@ -25,13 +25,13 @@ end
 fn letter_value(letter: String) -> Int
     case letter
         "a" or "e" or "i" or "o" or "u" or "l" or "n" or "r" or "s" or "t" -> 1
-        "d" or "g" -> 2
-        "b" or "c" or "m" or "p" -> 3
+        "d" or "g"                      -> 2
+        "b" or "c" or "m" or "p"        -> 3
         "f" or "h" or "v" or "w" or "y" -> 4
-        "k" -> 5
-        "j" or "x" -> 8
-        "q" or "z" -> 10
-        _ -> 0
+        "k"                             -> 5
+        "j" or "x"                      -> 8
+        "q" or "z"                      -> 10
+        _                               -> 0
     end
 end
 

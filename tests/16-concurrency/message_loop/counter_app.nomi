@@ -100,7 +100,8 @@ fn serve(inbox: Channel<Request>) -> Unit
 
             // Stands in for a handler with a bug in it.
             Some(Request.Explode) ->
-                count / 0
+                divisor = 0
+                count / divisor
 
             // The inbox closed and drained: no more work is coming.
             None ->

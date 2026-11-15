@@ -391,12 +391,48 @@ Spec: [Distinct Types](/spec/types/#distinct-types),
 
 </div>
 
-## Refinement types
+## Validated types
+
+The `type Email String` declared in [Distinct types](#distinct-types)
+accepts any `String`, even one with no `@`. A `when` rule after the wrapped
+type says which values the type accepts, and every value is checked before it
+exists. With a rule, `Email` is still a distinct type, so it doesn't pass
+where a `String` is expected.
+
+There are two ways to make one. A literal, as in `Email("ada@example.com")`,
+is checked when the program compiles, so a bad one never runs. A value known
+only when the program runs goes through `Email.try_from`, which runs the rule
+and returns a `Maybe<Email>`: `Some` when the value passes, `None` when it
+doesn't.
 
 ```nomi-run
-import std::float.{NonNegativeFloat, PositiveFloat}
+type Email String when fn s -> String.contains(s, "@")
 
-type Port Int when fn p -> p >= 1 and p <= 65535
+fn main()
+    dbg Email("ada@example.com")
+    dbg Email.try_from("ada")
+end
+```
+<!-- expect
+dbg line 4: Email("ada@example.com") = Email("ada@example.com")
+dbg line 5: Email.try_from("ada") = None
+-->
+
+`try_from` is the type's `TryFrom` impl, which its rule supplies, so a
+generic function bounded by `where T: TryFrom<String>` takes an `Email`.
+
+Spec: [Validated types](/spec/types/#validated-types).
+
+## Subtypes
+
+An `Email` with a rule is still its own type, so it doesn't pass where a
+`String` is expected. Sometimes you want the check without a new type. A port
+number is an `Int` from 1 to 65535, and code that takes one should still be
+able to print it or compare it as an `Int`. A `subtype` is the values of
+another type that a `when` rule allows, and its values remain that type.
+
+```nomi-run
+subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -414,32 +450,31 @@ fn main()
     dbg Port.try_from(base + 80)
     dbg Port.try_from(base * 10)
 
-    // A PositiveFloat is a NonNegativeFloat, which is a Float.
+    // A PositiveFloat is a NonNegativeFloat and a NonZeroFloat.
     half: PositiveFloat = 0.5
     dbg scale(10.0, half)
     dbg Float.floor(half)
 end
 ```
 <!-- expect
-dbg line 14: serve(8080) = "listening on 8080"
-dbg line 18: Port.try_from(base + 80) = Some(8080)
-dbg line 19: Port.try_from(base * 10) = None
-dbg line 23: scale(10.0, half) = 5.0
-dbg line 24: Float.floor(half) = 0.0
+dbg line 12: serve(8080) = "listening on 8080"
+dbg line 16: Port.try_from(base + 80) = Some(8080)
+dbg line 17: Port.try_from(base * 10) = None
+dbg line 21: scale(10.0, half) = 5.0
+dbg line 22: Float.floor(half) = 0.0
 -->
 
-A `when` rule makes a distinct type a refinement: a `Port` is an `Int` the
-rule holds for. Unlike `Id`, a `Port` is still an `Int`, stored and used as
-one, so `serve` can interpolate it and a `Port` passes wherever an `Int` is
-expected. A chain converts the same way upward: std's `PositiveFloat`
-refines `NonNegativeFloat`, which refines `Float`, so `half` goes to `scale`
+A `Port` is stored and used as an `Int`, so `serve` can interpolate it, and
+a `Port` passes wherever an `Int` is expected. A subtype may narrow other
+subtypes, several joined by `and`: the prelude's `PositiveFloat` is
+`NonNegativeFloat and NonZeroFloat` over `Float`, so `half` goes to `scale`
 and to `Float.floor` as it is. Nothing converts down or sideways.
 
 A literal where a `Port` is expected, as in `serve(8080)`, is checked while
 the program compiles, so a bad one never runs:
 
 ```nomi-run error
-type Port Int when fn p -> p >= 1 and p <= 65535
+subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 fn serve(port: Port) -> String
     "listening on ${port}"
@@ -454,9 +489,34 @@ main.nomi:8:15: 0 is not a Port: `fn p -> p >= 1 and p <= 65535` is false
 main.nomi:8:15: help: a literal is checked when the program is compiled; a value known only when it runs goes through `Port.try_from(...)`, a `Maybe<Port>`
 -->
 
-Any other `Int` becomes a `Port` through `Port.try_from`, which runs the rule
-and returns a `Maybe<Port>`. std also has `NonZeroInt` and `PositiveInt` in
-`std::int`.
+Any other `Int` becomes a `Port` through `Port.try_from`, as a validated
+type's value does. The prelude also has `NonZeroInt`,
+`NonNegativeInt` and `PositiveInt`, their Float and Decimal counterparts, and
+`NonEmptyString`. Std functions take them where a value would trap, and
+return them where a result always satisfies one: `Int.pow`'s exponent is a
+`NonNegativeInt`, and so is `List.length`, so `Int.pow(2, List.length(xs))`
+needs no `try_from`.
+
+A subtype can take type parameters. The prelude's `NonEmptyList<T>` is a
+List with at least one element, so its first element is a `T`, not a
+`Maybe<T>`:
+
+```nomi-run
+fn greet(names: NonEmptyList<String>) -> String
+    "Hello, ${NonEmptyList.first(names)}"
+end
+
+fn main()
+    dbg greet(["Ada", "Bo"])
+
+    typed = String.split("Cy,Di", ",")
+    dbg NonEmptyList.try_from(typed) |> Maybe.map(greet)
+end
+```
+<!-- expect
+dbg line 6: greet(["Ada", "Bo"]) = "Hello, Ada"
+dbg line 9: NonEmptyList.try_from(typed) |> Maybe.map(greet) = Some("Hello, Cy")
+-->
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -465,11 +525,22 @@ and returns a `Maybe<Port>`. std also has `NonZeroInt` and `PositiveInt` in
   be pure: a rule that prints or reads a file is an error.
 - `Port.unchecked(n)` skips the rule. Only the file declaring `Port` may call
   it, where the rule is known to hold.
-- A `struct` takes a rule after its `end`:
-  `struct Span ... end when fn s -> s.low <= s.high`.
-- A refinement can't be `opaque` and takes no type parameters.
+- A `struct` takes a rule as the last line of its body, after every field:
+  `when fn s -> s.low <= s.high`.
+- A subtype can't be `opaque`. It may take type parameters, which its
+  parents name, bounded with `where` before `when`:
+  `subtype Sorted<T> List<T> where T: Comparable when ...`.
+- A subtype must narrow: one with no rule of its own needs two parents,
+  as `subtype Strict NonNegativeInt and NonZeroInt`, and a value of every
+  parent converts into it.
+- A `type` over a subtype is a validated type: `type UserId PositiveInt`
+  has `UserId.try_from`, and converts to nothing.
+- `NonNegativeInt and NonZeroInt` is a type wherever one is written, the
+  values that are both.
+- Where a `Port` meets an `Int` with no type written, as the two branches
+  of an `if` or two elements of a list, the value is an `Int`.
 
-Spec: [Refinement types](/spec/types/#refinement-types).
+Spec: [Subtypes](/spec/types/#subtypes).
 
 </div>
 
@@ -760,9 +831,11 @@ returns and drops the `None`s.
 An alias shortens signatures: `problems` takes a `List<Rule>` instead of a
 `List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long
 anonymous shape like this one: a function type, an anonymous struct or a long
-tuple. An alias takes no type parameters. You cannot write an `impl` for it,
-and you call its target's functions by the target's name (`List.head`, not
-`Names.head` for `typealias Names List<String>`).
+tuple. An alias may take type parameters, `typealias Pair<T> (T, T)`, with a
+`where` bound after its target, and may name an intersection, `typealias Item
+Priced and Costed`. It has no rule; that is a `subtype`. You cannot write an `impl` for it,
+and you call its target's functions by the target's name (`List.first`, not
+`Names.first` for `typealias Names List<String>`).
 
 Use `type` when you want the compiler to tell two things apart. A `UserId` and
 an `OrderId` may both hold an `Int`, but you should not pass one where the

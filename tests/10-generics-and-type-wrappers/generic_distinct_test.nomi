@@ -30,7 +30,7 @@ fn value<T>(Tagged((_, v)): Tagged<T>) -> T
 end
 
 fn first<D>(xs: List<D>) -> D where D: Distinct<Int>
-    List.head(xs)!
+    List.first(xs)!
 end
 
 test "a generic distinct takes its type argument from what it wraps"

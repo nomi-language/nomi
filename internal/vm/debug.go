@@ -1092,7 +1092,7 @@ func (th *thread) blockedInGo() bool {
 // debugCallHost is opHost's crossing on a debug machine, recorded as a
 // crossing.
 func (m *Machine) debugCallHost(fr *frame, h *hostCall, args []any) (any, error) {
-	return m.dbg.cross(fr, h.name, args, func() (any, error) {
+	return m.dbg.cross(fr, h.name, m.pureCrossing(h.name), args, func() (any, error) {
 		if h.intr != nil {
 			return h.intr(m.boundAt(fr, h.name), h.call.Pos(), args)
 		}

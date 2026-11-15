@@ -58,7 +58,7 @@ var fusedIntrinsics = map[string]fastMaybe{
 
 // fastPathOf is how a crossing named name answers in parts, or fastNone.
 func (m *Machine) fastPathOf(name string) fastMaybe {
-	if intr := m.hosts[name]; intr != nil {
+	if intr := m.hosts[name].fn; intr != nil {
 		return fusedIntrinsics[name]
 	}
 	if parts, err := m.adapterParts(name); err == nil && parts != nil {

@@ -67,7 +67,7 @@ func TestIRStdMethodCall_HostBodiesStayOutsideRetainedCalls(t *testing.T) {
 
 func TestIRStdMethodCall_RefinementsAndConversions(t *testing.T) {
 	verifyLambdaProgram(t, `import
-    std::io std::int.PositiveInt std::duration.Duration std::instant.Instant
+    std::io std::duration.Duration std::instant.Instant
 end
 fn present(v: Maybe<PositiveInt>) -> Bool
     case v

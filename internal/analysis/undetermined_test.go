@@ -104,8 +104,8 @@ func TestUndeterminedTypeArgs_Accepted(t *testing.T) {
 		"dbg Iter.to_list([None])",
 		"dbg Iter.to_set([])",
 		"dbg Iter.to_vector([])",
-		"dbg List.head([])",
-		"dbg List.head([[]])",
+		"dbg List.first([])",
+		"dbg List.first([[]])",
 		"dbg Vector[]",
 		"dbg Vector.length(Vector[])",
 		"dbg List.concat([], [1])",
@@ -181,7 +181,7 @@ func TestUndeterminedTypeArgs_ResultMakesAValue(t *testing.T) {
 	}{
 		{"`!` over Vector.get of an empty vector, discarded", "_a = Vector.get(Vector[], 0)!", "the element type of `Vector[]` is not determined"},
 		{"`!` bound to `_`", "_ = Vector.get(Vector[], 0)!", "the element type of `Vector[]` is not determined"},
-		{"`!` over List.head of an empty list", "dbg List.head([])!", "the element type of `[]` is not determined"},
+		{"`!` over List.first of an empty list", "dbg List.first([])!", "the element type of `[]` is not determined"},
 		{"`!` over Map.get of an empty map", "_a = Map.get({}, 1)!", "the element type of `{}` is not determined: annotate it, as in `xs: Map<Int, V> = {}`"},
 		{"`!` on a pipe stage", "_a = Vector[] |> Vector.get(0)!", "the element type of `Vector[]` is not determined"},
 		{"`?` over Vector.get of an empty vector", "_a = Vector.get(Vector[], 0)?", "the element type of `Vector[]` is not determined"},
@@ -208,7 +208,7 @@ func TestUndeterminedTypeArgs_ResultMakesAValue(t *testing.T) {
 		"_a = Vector.get(Vector[], 0)",
 		"x: Int = Vector.get(Vector[], 0)!\n  dbg x",
 		"dbg Vector.get(Vector[], 0)! + 1",
-		"x: Int = List.head([])?\n  dbg x",
+		"x: Int = List.first([])?\n  dbg x",
 		"dbg pick([]) == 1",
 		"_a = Vector.get<Int>(Vector[], 0)!",
 		// An interface's function returns its Out bare, and the impl the

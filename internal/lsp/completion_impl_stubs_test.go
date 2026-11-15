@@ -199,7 +199,7 @@ func TestCompletion_ImplStubGenericInterfaceArguments(t *testing.T) {
 		}
 	})
 	t.Run("pinned by a written function", func(t *testing.T) {
-		src := iface + "impl Store for Cache<T>\n    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        if key > 0 then List.head(cache.items) else None\n    end\n\n    " + cursorMark + "\nend\n"
+		src := iface + "impl Store for Cache<T>\n    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        if key > 0 then List.first(cache.items) else None\n    end\n\n    " + cursorMark + "\nend\n"
 		items := completeWith(t, true, src)
 		if got := insertOf(t, items, "put"); got != "fn put(cache: Cache<T>, key: Int, value: T) -> Cache<T>\n    $0\nend" {
 			t.Fatalf("put = %q", got)

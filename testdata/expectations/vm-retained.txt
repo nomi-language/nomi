@@ -344,6 +344,10 @@
 06-collections/named_literals_test.nomi:Kvs.inspect	ran
 06-collections/named_literals_test.nomi:Settings.inspect	ran
 06-collections/named_literals_test.nomi:depth_of	ran
+06-collections/nonempty_collections_test.nomi:Cat.inspect	ran
+06-collections/nonempty_collections_test.nomi:Cat.name	ran
+06-collections/nonempty_collections_test.nomi:names	ran
+06-collections/nonempty_collections_test.nomi:sizes	ran
 06-collections/spread_diagnostics_test.nomi:at	ran
 06-collections/spreads_test.nomi:Team.inspect	ran
 06-collections/spreads_test.nomi:evens	ran
@@ -916,6 +920,25 @@
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Tree.inspect	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Tree.value_or	ran
 10-generics-and-type-wrappers/generic_inherent_impl_test.nomi:Tree.value_or	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Ascending.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Ascending.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Filled.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Filled.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Filled.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:IntPair.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:IntPair.unchecked	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.head	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Many.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Run.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Run.try_from	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Square.area	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:Square.inspect	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:largest	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:total_area	ran
+10-generics-and-type-wrappers/generic_refinements_test.nomi:widen	ran
 10-generics-and-type-wrappers/generics_test.nomi:Pair.inspect	ran
 10-generics-and-type-wrappers/generics_test.nomi:Pair.inspect	ran
 10-generics-and-type-wrappers/generics_test.nomi:Wrapper.inspect	ran
@@ -967,6 +990,26 @@
 10-generics-and-type-wrappers/refinements_test.nomi:scale	ran
 10-generics-and-type-wrappers/refinements_test.nomi:serve	ran
 10-generics-and-type-wrappers/refinements_test.nomi:width	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:Small.try_from	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:Small.unchecked	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:divisor	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:exponent	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:first_error	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m30s" at 81:31 failure	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Email.inspect	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Email.try_from	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Email.unchecked	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Strict.try_from	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:Strict.unchecked	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:UserId.inspect	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:UserId.try_from	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:UserId.unchecked	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:first_error	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:half	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:is_email	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:load	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:smallest	ran
+10-generics-and-type-wrappers/subtypes_test.nomi:swap	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:Request.inspect	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:Route.inspect	ran
 10-generics-and-type-wrappers/type_argument_conversion/routes.nomi:serve	ran
@@ -1710,6 +1753,8 @@
 13-iterators-and-pipes/maybe_iter_test.nomi:counted	ran
 13-iterators-and-pipes/maybe_iter_test.nomi:half	ran
 13-iterators-and-pipes/maybe_iter_test.nomi:total	ran
+13-iterators-and-pipes/mean_test.nomi:Celsius.inspect	ran
+13-iterators-and-pipes/mean_test.nomi:Celsius.mean	ran
 13-iterators-and-pipes/min_max_test.nomi:Card.compare	ran
 13-iterators-and-pipes/min_max_test.nomi:Card.inspect	ran
 13-iterators-and-pipes/min_max_test.nomi:Level.compare	ran
@@ -2089,6 +2134,8 @@
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2026-11-01T03:00:00-05:00[America/New_York]" at 177:12 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2026-11-02T01:30:00-05:00[America/New_York]" at 160:12 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2028-02-29T00:00:00Z[UTC]" at 201:42 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal Duration"1h" at 45:30 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal Duration"1m" at 253:51 failure	ran
 16-concurrency/jobs/schedules_test.nomi:new_york	ran
 16-concurrency/jobs/schedules_test.nomi:nine	ran
 16-concurrency/jobs/schedules_test.nomi:stepped	ran
@@ -4904,6 +4951,8 @@ std/jobs.nomi:jump	ran
 std/jobs.nomi:key_of	ran
 std/jobs.nomi:latest_tick	ran
 std/jobs.nomi:latest_within	ran
+std/jobs.nomi:literal Duration"15m" at 401:41 failure	ran
+std/jobs.nomi:literal Duration"1h" at 1418:37 failure	ran
 std/jobs.nomi:minute_field	ran
 std/jobs.nomi:month_field	ran
 std/jobs.nomi:next_day	ran
@@ -4913,7 +4962,6 @@ std/jobs.nomi:next_month	ran
 std/jobs.nomi:next_wall	ran
 std/jobs.nomi:offset_at	ran
 std/jobs.nomi:pieces	ran
-std/jobs.nomi:positive	ran
 std/jobs.nomi:renew_until	ran
 std/jobs.nomi:renewing	ran
 std/jobs.nomi:report	ran

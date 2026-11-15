@@ -726,8 +726,8 @@ typed parameter), write `{...}`, not `Order{...}`:
 fn describe(order: Order) -> String
     case order
         {status: .Paid, total:} when total > 100 -> "big order"
-        {status: .Paid} -> "paid"
-        {status: .Refunded} -> "refunded"
+        {status: .Paid}                          -> "paid"
+        {status: .Refunded}                      -> "refunded"
     end
 end
 ```
@@ -965,8 +965,8 @@ fields and leave the whole unnamed:
 ```nomi
 case result
     Ok(Transaction{kind: .Deposit} as t) -> record(t)
-    Ok(Transaction{amount:}) -> amount
-    Err(msg) -> msg
+    Ok(Transaction{amount:})             -> amount
+    Err(msg)                             -> msg
 end
 ```
 
@@ -979,7 +979,7 @@ Arms that return the same thing are one arm with alternatives (spec §10
 ```nomi
 case cp
     ' ' or '(' or ')' or '-' -> True
-    _ -> False
+    _                        -> False
 end
 ```
 
@@ -1344,7 +1344,9 @@ not `Iter.reduce(0, fn total, n -> total + n)`, which spells out the starting
 value and the step the type's `Summable` and `Add` impls already name. A fold
 that multiplies from 1 is `Iter.product` for the same reason, and a fold that
 multiplies one value by itself is `Int.pow` or `Decimal.pow`:
-`Int.pow(10, zeros)`, not `Iter.reduce(1..=zeros, 1, fn n, _ -> n * 10)`.
+`Int.pow(10, zeros)`, not `Iter.reduce(1..=zeros, 1, fn n, _ -> n * 10)`. A
+fold that sums and counts to divide is `Iter.mean`, which reads the source
+once and rounds once.
 
 A fold whose every intermediate state is wanted is `Iter.scan`, and a map that
 threads a state from one element to the next is `Iter.map_reduce`:
@@ -1945,27 +1947,51 @@ callers would read. An opaque type inspects as `<opaque Clock>`, and
 `impl Debug` that leaves them out instead.
 
 When the rule is a test of one value that callers should go on using as
-the type it refines (a port number, a divisor that is not zero, a
-tolerance that is not negative), declare a refinement instead (spec §4
-*Refinement types*; tour:
-[Structs, Enums & Distinct Types](/structs-enums-distinct/#refinement-types)).
-A parameter typed with the refinement replaces a check that traps or a
+the type it narrows (a port number, a divisor that is not zero, a
+tolerance that is not negative), declare a subtype instead (spec §4
+*Subtypes*; tour:
+[Structs, Enums & Distinct Types](/structs-enums-distinct/#subtypes)).
+A parameter typed with the subtype replaces a check that traps or a
 `Result` the function returns only for that argument: a literal argument
 is checked when the program compiles, and a computed one goes through
 `try_from` where it is made, once:
 
 ```nomi
-pub type Port Int when fn p -> p >= 1 and p <= 65535
+pub subtype Port Int when fn p -> p >= 1 and p <= 65535
 
 pub fn listen(port: Port) -> String
     "listening on ${port}"
 end
 ```
 
-Std's `equal_within` takes a `NonNegativeFloat` tolerance and
-`Money.split` a `PositiveInt` count this way. Keep `opaque` for a rule
+Std's `equal_within` takes a `NonNegativeFloat` tolerance, `Int.pow` a
+`NonNegativeInt` exponent and `Money.split` a `PositiveInt` count this
+way. Reach for the prelude's subtypes (`NonNegativeInt`,
+`PositiveFloat`, `NonEmptyString` and the rest) before declaring one, and
+name a subtype's existing parents with `and` rather than repeating their
+rules; a parameter that needs two of them takes `NonNegativeInt and
+NonZeroInt` rather than a new subtype for one function. When the value is
+a thing of its own that callers must not mix with other values of its
+base (an email address, a user id), declare a validated type, `type Email
+String when is_email` or `type UserId PositiveInt`, which converts to
+nothing. Keep `opaque` for a rule
 over a representation callers should not see, or one a single value
 cannot be tested for alone.
+
+A function that has no answer for an empty collection takes the
+prelude's `NonEmptyList` (or `NonEmptyVector`, `NonEmptyMap`,
+`NonEmptySet`) and returns its answer, rather than taking a `List` and
+returning a `Maybe` that every caller who already knows the list has
+elements must unwrap. Return a `Maybe` when emptiness comes from data the
+caller does not control, as `Iter.first` on any iterable does. A caller
+holding a List checks it once, with `NonEmptyList.try_from`, where the
+list is made:
+
+```nomi
+fn average(xs: NonEmptyList<Float>) -> Float
+    Iter.sum(xs) / Int.to_float(NonEmptyList.length(xs))
+end
+```
 
 ### 48. Give a module's errors an enum
 

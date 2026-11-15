@@ -980,7 +980,12 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 	if g.registerInstImpl(byRecv, d) {
 		return
 	}
-	if prior, dup := byRecv[d.recv]; dup {
+	if prior, dup := byRecv[d.recv]; dup && d.ifaceName == "" && d.iface == nil && prior.iface == nil && mergeInherent(prior, d) {
+		// Two inherent blocks for one type, as a `type`'s generated
+		// `try_from` and `unchecked` beside the block its file writes: one
+		// table of the type's functions, each lowered with its own block.
+		return
+	} else if dup {
 		// Two impls of one interface for one type is a coherence error the
 		// analyzer rejects. Refusing both rather than picking is the same rule
 		// rt.Method.Bind holds at run time: never let ordering decide.
@@ -989,6 +994,24 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		return
 	}
 	byRecv[d.recv] = d
+}
+
+// mergeInherent adds the functions of d, an inherent block, to prior, an
+// inherent block for the same type, when no name is in both, and reports
+// whether it did. A name in both is a redeclaration the analyzer reports.
+func mergeInherent(prior, d *implDef) bool {
+	if !prior.lowerable || !d.lowerable {
+		return false
+	}
+	for name := range d.items {
+		if _, clash := prior.items[name]; clash {
+			return false
+		}
+	}
+	for name, it := range d.items {
+		prior.items[name] = it
+	}
+	return true
 }
 
 // receiverKind resolves the type an impl block is for.

@@ -3,6 +3,7 @@
 import std::io
 
 fn main()
+    zero = 0
     io.print("before")
-    io.print(Int.modulo(5, 0))
+    io.print(Int.modulo(5, zero))
 end

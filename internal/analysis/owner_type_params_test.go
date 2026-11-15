@@ -81,7 +81,7 @@ end
 impl Seq<T>
   pub fn find<T>(source: List<T>, f: (T) -> Bool) -> Maybe<T>
     out: List<T> = Iter.filter(source, f) |> Iter.to_list()
-    List.head(out)
+    List.first(out)
   end
   pub fn from(start: Int) -> List<Int>
     [start, start + 1]

@@ -101,7 +101,7 @@ fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude)
     (Int.to_decimal(ohms) / Int.to_decimal(size), unit)
 end
 
-fn digit(color: Color) -> Maybe<Int>
+fn digit(color: Color) -> Maybe<NonNegativeInt>
     case color
         .Black           -> Some(0)
         .Brown           -> Some(1)
@@ -120,14 +120,14 @@ end
 /// The tolerance in percent a band of `color` marks, if it marks one.
 fn tolerance_of(color: Color) -> Maybe<Decimal>
     case color
-        .Grey -> Some(0.05d)
-        .Violet -> Some(0.1d)
-        .Blue -> Some(0.25d)
-        .Green -> Some(0.5d)
-        .Brown -> Some(1d)
-        .Red -> Some(2d)
-        .Gold -> Some(5d)
-        .Silver -> Some(10d)
+        .Grey                                  -> Some(0.05d)
+        .Violet                                -> Some(0.1d)
+        .Blue                                  -> Some(0.25d)
+        .Green                                 -> Some(0.5d)
+        .Brown                                 -> Some(1d)
+        .Red                                   -> Some(2d)
+        .Gold                                  -> Some(5d)
+        .Silver                                -> Some(10d)
         .Black or .Orange or .Yellow or .White -> None
     end
 end

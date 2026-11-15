@@ -61,11 +61,11 @@ func TestIRCaseDiscard_ListPayloadThenClosure(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 fn main()
   nested = [[1, 2], [3]]
-  case List.head(nested)
+  case List.first(nested)
     Some(xs) -> io.inspect(List.tail(xs))
     None -> io.print("missing")
   end
-  read = fn -> List.head(nested)
+  read = fn -> List.first(nested)
   io.inspect(read())
 end
 `, "Some([2])\nSome([1, 2])\n")

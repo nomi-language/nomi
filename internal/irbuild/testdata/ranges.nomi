@@ -51,7 +51,7 @@ import std::io
 
 // --- rendering helpers, so every answer is one printed line -----------------
 fn show_ints(xs: List<Int>) -> String
-    case List.head(xs)
+    case List.first(xs)
         None ->
             "."
 

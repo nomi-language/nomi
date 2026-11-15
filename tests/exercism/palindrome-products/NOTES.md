@@ -17,4 +17,4 @@ Adapted from Exercism problem-specifications (MIT), exercises/palindrome-product
 
 ## Friction
 
-None.
+- [verbose] A product, a digit count and a half length are never negative here, but each is an Int and goes through `NonNegativeInt.try_from(...)!` for `Int.sqrt`, `Int.pow` and `Int.to_digits`.

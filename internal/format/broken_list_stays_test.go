@@ -64,7 +64,7 @@ func TestFormat_WidthBrokenListStaysBroken(t *testing.T) {
 				"        Err(_) ->\n" +
 				"            Err(\n" +
 				"                Shape{\n" +
-				"                    path: [],\n" +
+				"                    path:     [],\n" +
 				"                    expected: \"json\",\n" +
 				"                    got_rather_long_rather_long_rather_long_rather_long: \"invalid\",\n" +
 				"                }\n" +
@@ -150,7 +150,7 @@ func TestFormat_WidthBrokenLayoutsStayBroken(t *testing.T) {
 		"    p = {\n" +
 		"        address_rather_long: Address{\n" +
 		"            street_rather_long_rather_long_rather_long: \"1 Main\",\n" +
-		"            city_rather_long: \"Springfield\",\n" +
+		"            city_rather_long:                           \"Springfield\",\n" +
 		"        },\n" +
 		"    }\n" +
 		"end\n"
@@ -167,7 +167,7 @@ func TestFormat_WidthBrokenElseBlockStaysBroken(t *testing.T) {
 		"    .Valid(r_rather_long) = c else\n" +
 		"        {\n" +
 		"            addr_rather_long_rather_long_rather_long_rather_long: \"none\",\n" +
-		"            score_rather_long_rather_long: -1,\n" +
+		"            score_rather_long_rather_long:                        -1,\n" +
 		"        }\n" +
 		"    end\n" +
 		"    r_rather_long.score\n" +
@@ -188,7 +188,7 @@ func TestFormat_WidthBrokenMapPatternStaysBroken(t *testing.T) {
 		"        {\n" +
 		"            Point{\n" +
 		"                x_rather_long_rather_long_rather_long_rather_long_rather_long: 1,\n" +
-		"                y_rather_long_rather_long_rather_long: 2,\n" +
+		"                y_rather_long_rather_long_rather_long:                         2,\n" +
 		"            } => v,\n" +
 		"        } ->\n" +
 		"            v\n" +

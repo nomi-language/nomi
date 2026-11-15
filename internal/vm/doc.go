@@ -301,6 +301,27 @@
 // tuple projections (`fn sum, (j, uj) -> ...`), takes the stage's Reusing
 // form, which rewrites one tuple per run.
 //
+// # Effects
+//
+// [Machine.Effects] answers what stops a function being run where nothing
+// may act on the world: a refinement rule, a typed literal's handler, a
+// checked literal's `check`, an editor's evaluation and a debugger's
+// (evaluate.go, debugeval.go). An effect is a read or write of the running
+// app's fields, Context or scope, or a crossing into Go that its
+// declaration does not mark pure. Purity is declared beside each crossing:
+// an intrinsic's entry in the intrinsic table (`intrinsic.pure`, vm.go),
+// and a stdlib adapter's row in internal/stdlibbindings (`Binding.Pure`),
+// which `go generate ./internal/stdlibadapters` carries into the
+// generated `stdlibadapters.Pure`. Every other crossing is an effect: the
+// tables WithHosts adds (std/compiler's hosts, a project's `go` bindings)
+// and what WithHostLookup answers. A crossing is marked pure only when one
+// call's cost follows its operands' size, which the evaluation's steps
+// bound, since a call into Go is not interrupted: `strings.String.repeat`
+// is unmarked for that reason. A debug machine reads the same mark to run
+// a pure crossing again in a replay instead of recording it
+// (debugtravel.go). TestPureCrossing_ReadsTheDeclarations holds the
+// lookup to the declarations.
+//
 // # The fault edge
 //
 // The fault edge is part of the representation (`internal/ir/fault.go`):

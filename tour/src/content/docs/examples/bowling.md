@@ -68,8 +68,8 @@ end
 fn last_frame_standing(rolls: List<Int>) -> Maybe<Int>
     case rolls
         [] or [10] or [10, 10] -> Some(10)
-        [10, second] -> Some(10 - second)
-        [first] -> Some(10 - first)
+        [10, second]           -> Some(10 - second)
+        [first]                -> Some(10 - first)
         [first, second] when first + second == 10 -> Some(10)
         _ -> None
     end

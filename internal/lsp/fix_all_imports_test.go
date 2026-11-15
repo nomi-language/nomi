@@ -250,7 +250,7 @@ func TestFixAll_BailsOnInterleavedCode(t *testing.T) {
 	src := "import std::io\n\n" +
 		"fn helper() -> Int\n    1\nend\n\n" +
 		"import std::lists\n\n" +
-		"fn main()\n  io.print(\"x\")\n  io.print(List.head([1]))\nend\n"
+		"fn main()\n  io.print(\"x\")\n  io.print(List.first([1]))\nend\n"
 	if _, ok := runFixAll(t, src); ok {
 		t.Error("expected no fixAll action when a declaration is interleaved between imports")
 	}

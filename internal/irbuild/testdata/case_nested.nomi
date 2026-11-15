@@ -22,7 +22,7 @@ fn describe(w: Wrapped) -> String
     case w
         Wrapped.Pair(Outer{inner: Inner{v: 1}, tag:}) -> "one/${tag}"
         Wrapped.Pair(Outer{inner: Inner{v:}, tag: 9}) -> "v${v}/nine"
-        Wrapped.Pair(Outer{inner: Inner{v:}, tag:}) -> "v${v}/t${tag}"
+        Wrapped.Pair(Outer{inner: Inner{v:}, tag:})   -> "v${v}/t${tag}"
         Wrapped.Empty -> "empty"
     end
 end

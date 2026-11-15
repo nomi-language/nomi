@@ -70,7 +70,8 @@ end
 func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 	const boom = `fn boom() -> Int
     io.print("partial")
-    1 / 0
+    zero = 0
+    1 / zero
 end
 
 `
@@ -98,7 +99,7 @@ end
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if want := "after\nFailed(Errored(\"line 6: division by zero\"))\n"; got != want {
+	if want := "after\nFailed(Errored(\"line 7: division by zero\"))\n"; got != want {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }

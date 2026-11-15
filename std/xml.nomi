@@ -283,8 +283,8 @@ impl Display for Error
     fn to_string(error: Error) -> String
         case error
             .Syntax{message:, line:, column:} -> "line ${line}, column ${column}: ${message}"
-            .Io{error:} -> "${error}"
-            .Invalid{message:} -> message
+            .Io{error:}                       -> "${error}"
+            .Invalid{message:}                -> message
         end
     end
 end
@@ -422,7 +422,7 @@ end
 fn name_of(parts: List<String>) -> Name
     case parts
         [prefix, local, space] -> Name{local:, space:, prefix:}
-        _ -> Name{local: ""}
+        _                      -> Name{local: ""}
     end
 end
 
@@ -432,7 +432,7 @@ fn attributes_of(flat: List<String>) -> List<Attribute>
     |> Iter.map(fn chunk ->
         case chunk
             [prefix, local, space, value] -> Attribute{name: Name{local:, space:, prefix:}, value:}
-            _ -> Attribute{name: Name{local: ""}, value: ""}
+            _                             -> Attribute{name: Name{local: ""}, value: ""}
         end
     end)
     |> Iter.to_list()

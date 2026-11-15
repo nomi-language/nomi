@@ -83,6 +83,26 @@ func (c *checker) seqKindExpected(expected Type) (kind ast.SeqKind, target *Dist
 	return ast.SeqList, nil, expected
 }
 
+// distinctLiteralType is the type of a literal that builds the distinct
+// type target over the collection inner, ty its type as that collection: a
+// generic target at the arguments the literal solves, so `[1, 2]` where a
+// `NonEmptyList<T>` is expected, its T still open (a generic call's
+// parameter), is a NonEmptyList<Int>. A literal that does not fit is
+// reported where its elements are checked.
+func (c *checker) distinctLiteralType(target Type, inner, ty Type) Type {
+	if containsTypeVar(inner) {
+		_ = c.unifyInto(inner, ty, nil)
+		return resolveSolvedVars(target)
+	}
+	if ContainsTypeParam(inner) {
+		subs := map[*TypeParam_]Type{}
+		if c.unify(inner, ty, subs) == nil && len(subs) > 0 {
+			return Substitute(target, subs)
+		}
+	}
+	return target
+}
+
 // literalInnerOf is the collection an unnamed literal builds where dt is
 // expected: dt's inner type, or for a refinement the base at the end of its
 // chain, so `[1, 2]` builds a refinement of a refinement of a List.
@@ -194,7 +214,7 @@ func (c *checker) checkBracketLitAs(n *ast.ListLit, expected Type) Type {
 	n.Kind = kind
 	ty := c.checkSeqLit(n, kind, inner)
 	if target != nil && ty != nil {
-		return target
+		return c.distinctLiteralType(target, inner, ty)
 	}
 	return ty
 }

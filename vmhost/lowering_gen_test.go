@@ -953,7 +953,7 @@ fn wrap<T>(x: T) -> List<T>
 end
 
 fn first_or<T>(xs: List<T>, d: T) -> T
-Maybe.with_default(List.head(xs), d)
+Maybe.with_default(List.first(xs), d)
 end
 
 fn apply<T, U>(x: T, f: (T) -> U) -> U

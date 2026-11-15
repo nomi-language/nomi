@@ -75,6 +75,6 @@ fn main()
 
     case heard
         Ok(Ok(Some(.Text(text)))) -> io.print("heard back: ${text}")
-        _ -> io.print("heard nothing")
+        _                         -> io.print("heard nothing")
     end
 end

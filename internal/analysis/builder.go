@@ -2224,6 +2224,9 @@ func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 		b.define(pos, sym)
 	}
 	b.walkTypeExpr(n.InnerTypeExpr, scope)
+	for _, parent := range n.MoreParents {
+		b.walkTypeExpr(parent, scope)
+	}
 	b.walkNamespaceItems(n.Items, scope)
 }
 
@@ -2585,6 +2588,9 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 
 	case *ast.TypeDef:
 		b.walkTypeExpr(n.InnerTypeExpr, scope)
+		for _, parent := range n.MoreParents {
+			b.walkTypeExpr(parent, scope)
+		}
 		b.walkTypeDeclDecoratorArgs(n.Decorators, scope)
 
 	case *ast.TypeAlias:
@@ -2623,6 +2629,7 @@ func (b *builder) defineSymbolAnnotations(node ast.Node, scope *Scope) {
 		b.walkTypeExpr(n.TypeAnnotation, scope)
 
 	case *ast.ImplBlock:
+		b.releaseWithheldRefinement(n, scope)
 		// A synthesized block's header errors name the declaration it
 		// was synthesized for, not its synth-band position.
 		from := len(b.file.TypeErrors)

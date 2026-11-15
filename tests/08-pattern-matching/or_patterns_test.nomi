@@ -26,9 +26,9 @@ end
 fn size(s: Shape) -> String
     case s
         .Circle{r:} or .Square{r:} when r > 10.0 -> "big"
-        .Circle{r:} or .Square{r:} -> "radius ${r}"
+        .Circle{r:} or .Square{r:}               -> "radius ${r}"
         .Rect{w: 0.0} or .Rect{h: 0.0} or .Point -> "flat"
-        .Rect{w:, h:} -> "${w} by ${h}"
+        .Rect{w:, h:}                            -> "${w} by ${h}"
     end
 end
 
@@ -80,15 +80,15 @@ fn reading(r: Reading) -> String
     case r
         Reading{kind: .Equilateral or .Isosceles, n:} -> "equal sides ${n}"
         Reading{n: 1 or 2} -> "small"
-        _ -> "other"
+        _                  -> "other"
     end
 end
 
 fn closer(cs: List<Codepoint>) -> String
     case cs
         [')' or ']' or '}' as c, ..rest] -> "${c} then ${Iter.count(rest)}"
-        [] or [_] -> "short"
-        _ -> "other"
+        [] or [_]                        -> "short"
+        _                                -> "other"
     end
 end
 

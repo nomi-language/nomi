@@ -55,7 +55,7 @@ fn port(text: String) -> Result<Int, String>
     if text == "" then Err("no port") else Ok(3)
 end
 fn boot(startup: Startup) -> Result<MyApp, String>
-  p = port(List.head(startup.args) |> Maybe.with_default(""))?
+  p = port(List.first(startup.args) |> Maybe.with_default(""))?
   Ok(MyApp{port: p})
 end
 fn main()

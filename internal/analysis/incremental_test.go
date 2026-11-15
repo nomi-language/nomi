@@ -326,8 +326,8 @@ var orderEdits = []editStep{
 	restore("derive back", "report"),
 	replace("impl removed", "report", "impl Shape for Circle\n    fn area(value: Circle) -> Int\n        value.radius\n    end\nend\n", ""),
 	restore("impl back", "report"),
-	replace("once value, same type", "report", "pub once base = Iter.count(main.greeting())", "pub once base = Iter.count(main.greeting()) + 1"),
-	replace("once value, new type", "report", "pub once base = Iter.count(main.greeting()) + 1", "pub once base = main.greeting()"),
+	replace("once value, same type", "report", "pub once base = Iter.count(main.greeting())", "pub once base = Iter.count(main.greeting() + \"!\")"),
+	replace("once value, new type", "report", "pub once base = Iter.count(main.greeting() + \"!\")", "pub once base = main.greeting()"),
 	restore("once back", "report"),
 	replace("import removed", "settings", "import main\n", ""),
 	restore("import back", "settings"),
@@ -1122,7 +1122,7 @@ func TestIncrementalHarnessCatchesAStaleResult(t *testing.T) {
 	}
 	onceEdit := []editStep{replace("once value, new type", "report", "pub once base = Iter.count(main.greeting())", "pub once base = main.greeting()")}
 	diff, _ = runEdits(t, p, onceEdit, keepsOnceTypes, true)
-	for _, want := range []string{"step 1 (once value, new type, editing report, recheck full)", "full check:", "recheck:", "base", "= Int", "= String"} {
+	for _, want := range []string{"step 1 (once value, new type, editing report, recheck full)", "full check:", "recheck:", "base", "= NonNegativeInt", "= String"} {
 		if !strings.Contains(diff, want) {
 			t.Errorf("the harness's report on a recheck that keeps a stale once type has no %q:\n%s", want, diff)
 		}

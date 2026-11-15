@@ -184,8 +184,8 @@ type StructType struct {
 	// that module; outside callers go through exported accessors.
 	Opaque           bool
 	OwningSourceFile string
-	// Rule is a struct refinement's rule as written after `end when`, on
-	// one line, and empty for a struct with none. Every value of the struct
+	// Rule is a struct refinement's rule, its body's last item, on one
+	// line (RuleText), and empty for a struct with none. Every value of the struct
 	// satisfies it: a literal is checked when the program is compiled, any
 	// other value goes through the generated `try_from` (refinement.go).
 	Rule string
@@ -299,11 +299,25 @@ type DistinctType struct {
 	TypeParams    []string
 	TypeParamDefs []*TypeParam_
 	TypeArgs      []Type
-	// Rule is a refinement's rule as written after `when`, on one line
-	// (`fn port -> port >= 1`), and empty for every other distinct type. A
-	// refinement's value is a value of Inner: it converts up to Inner and
-	// each of Inner's ancestors, and is Inner at run time (refinement.go).
+	// Rule is the rule as written after `when`, on one line (`fn port ->
+	// port >= 1`), and empty for a declaration with none.
 	Rule string
+	// Subtype is set for a `subtype` declaration, and for the intersection
+	// of subtypes `A and B` (Intersection). A subtype's value is a value
+	// of Inner: it converts up to Inner and each of Inner's ancestors, and
+	// is Inner at run time (refinement.go). Without it, a distinct type
+	// with a Rule is a validated type: it converts to nothing, and is
+	// built only through a check of its rule.
+	Subtype bool
+	// Intersection is set for `A and B` of subtypes, an anonymous subtype
+	// whose parents are its members: TypeArgs holds them, sorted, and Inner
+	// and MoreParents are the same members (NewSubtypeIntersection).
+	Intersection bool
+	// MoreParents are a subtype's parents after Inner, its first:
+	// `subtype PositiveInt NonNegativeInt and NonZeroInt when ...` holds
+	// NonZeroInt. Every parent reaches the same base, and a value converts
+	// up to each of them and their ancestors (refinement.go).
+	MoreParents []Type
 	// unbuilt is set on a declared distinct type (`type UserId Int`) until
 	// its inner type is resolved, and holds what waits on it
 	// (unbuilt_decl.go).
@@ -311,6 +325,9 @@ type DistinctType struct {
 }
 
 func (t *DistinctType) String() string {
+	if t.Intersection {
+		return t.Name
+	}
 	if shown := shownTypeArgs(t.TypeArgs, t.TypeParamDefs); len(shown) > 0 {
 		args := make([]string, len(shown))
 		for i, a := range shown {
@@ -443,6 +460,36 @@ type TypeParam_ struct {
 
 func (t *TypeParam_) String() string { return t.Name_ }
 func (t *TypeParam_) typeTag()       {}
+
+// AliasTemplate is a generic typealias, `typealias Pair<T> (T, T)`, as the
+// registry holds it: a use `Pair<Int>` is Target with each of Params read
+// as the use's type argument (instantiateAlias), and the alias is that
+// type, with no conversion between them. A Param's Bounds are the alias's
+// `where` clause, which a use's arguments must meet
+// (checkAliasBounds).
+type AliasTemplate struct {
+	Name   string
+	Params []*TypeParam_
+	Target Type
+}
+
+func (t *AliasTemplate) String() string {
+	names := make([]string, len(t.Params))
+	for i, p := range t.Params {
+		names[i] = p.Name_
+	}
+	return t.Name + "<" + strings.Join(names, ", ") + ">"
+}
+func (t *AliasTemplate) typeTag() {}
+
+// instantiateAlias is the generic alias at at the type arguments args.
+func instantiateAlias(at *AliasTemplate, args []Type) Type {
+	subs := make(map[*TypeParam_]Type, len(at.Params))
+	for i, p := range at.Params {
+		subs[p] = args[i]
+	}
+	return Substitute(at.Target, subs)
+}
 
 // ConjunctionType is an interface conjunction, `Priced and Costed` (spec §5
 // *Interface conjunctions*). As a value type it holds a value of any type
@@ -708,8 +755,33 @@ func TypesIdentical(a, b Type) bool {
 // expected without inference: TypesEqual, except that an enum is never
 // accepted where one of its embedded types is. A Circle is a Shape, but a
 // Shape may hold another variant, so it is not a Circle until a match says so.
+// A declared generic type's arguments compare by their parameters' variance
+// (typeArgsEqualIn), as UnifyInto's do.
 func TypeAssignable(want, have Type) bool {
 	return typesEqualIn(want, have, eqAssign)
+}
+
+// typeArgsEqualIn compares the type arguments of two instances of the
+// generic type t under m. Under eqAssign each argument converts by its
+// parameter's variance, as unifyArg's do: a covariant one as a value
+// does, a contravariant one the other way (a Sink<Shape> is a
+// Sink<Circle>, never the reverse), and an invariant one exactly.
+func typeArgsEqualIn(t Type, as, bs []Type, m eqMode) bool {
+	for i := range as {
+		am, a, b := m, as[i], bs[i]
+		if m == eqAssign {
+			switch argVariance(t, i) {
+			case VarianceContravariant:
+				a, b = b, a
+			case VarianceInvariant:
+				am = eqStrict
+			}
+		}
+		if !typesEqualIn(a, b, am) {
+			return false
+		}
+	}
+	return true
 }
 
 // eqMode is how typesEqualIn compares two types.
@@ -724,8 +796,11 @@ const (
 	// only where the checker says which way it flows (UnifyInto).
 	eqStrict
 	// eqAssign has a as the expected type and b as the actual one. It admits
-	// an embedded type only from b into a's enum, at the top and in every
-	// container type argument, tuple element and record field.
+	// an embedded type, or a refinement's value, only from b into a's enum
+	// or ancestor, at the top, in every tuple element and record field, and
+	// in a type argument by its parameter's variance: from b into a at a
+	// covariant one, from a into b at a contravariant one, and at an
+	// invariant one not at all.
 	eqAssign
 )
 
@@ -788,12 +863,7 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		if len(at.TypeArgs) != len(bt.TypeArgs) {
 			return false
 		}
-		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
-				return false
-			}
-		}
-		return true
+		return typeArgsEqualIn(at, at.TypeArgs, bt.TypeArgs, m)
 
 	case *EnumType:
 		bt, ok := b.(*EnumType)
@@ -807,12 +877,7 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		if len(at.TypeArgs) != len(bt.TypeArgs) {
 			return false
 		}
-		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
-				return false
-			}
-		}
-		return true
+		return typeArgsEqualIn(at, at.TypeArgs, bt.TypeArgs, m)
 
 	case *DistinctType:
 		bt, ok := b.(*DistinctType)
@@ -831,12 +896,7 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		if len(at.TypeArgs) != len(bt.TypeArgs) {
 			return false
 		}
-		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
-				return false
-			}
-		}
-		return true
+		return typeArgsEqualIn(at, at.TypeArgs, bt.TypeArgs, m)
 
 	case *FuncType:
 		bt, ok := b.(*FuncType)
@@ -901,12 +961,17 @@ func typesEqualIn(a, b Type, m eqMode) bool {
 		if !ok || !sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) || len(at.TypeArgs) != len(bt.TypeArgs) {
 			return false
 		}
-		for i := range at.TypeArgs {
-			if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
-				return false
+		if isStdIterType(at) {
+			// An Iter only hands its elements out: its element converts
+			// as a value does (unifyMode.iterElem).
+			for i := range at.TypeArgs {
+				if !typesEqualIn(at.TypeArgs[i], bt.TypeArgs[i], m) {
+					return false
+				}
 			}
+			return true
 		}
-		return true
+		return typeArgsEqualIn(at, at.TypeArgs, bt.TypeArgs, m)
 
 	case *ConjunctionType:
 		// Normalized by NewConjunction, so the members pair up.

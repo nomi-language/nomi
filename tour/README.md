@@ -76,10 +76,16 @@ code (`src/lib/rehype-shiki.mjs`, empty for a block with no expect block).
 The reader's first edit runs the block. A `manual` block runs only on its
 Run button, labelled "Recorded output. Press Run to run it." until then. A
 `no-run` block runs when it scrolls into view, as a stdlib reference example
-does. The panel shows the record as a run's output: an error block's failure
-is its last line, or its last two when the last is `exit status N`, or all of
-it when its first line names a file, line and column (`showRecorded` in
-`src/lib/tour-client.mjs`, which vmhost's `recordedFailure` mirrors).
+does. The panel shows the record as a run's output. An error block's record
+whose first line names a file, line and column is a compile error, shown
+under the heading "Didn't compile" with no output. Any other is a run that
+stopped: its failure is its last line, or its last two when the last is
+`exit status N`, and closes the output as a line of its own ("Stopped at line
+9: ..."). That split is `showRecorded` in `src/lib/tour-client.mjs`, which
+vmhost's `recordedFailure` mirrors. After an edit, the run's answer names
+the stage that failed (`compile`, `run` or `tests`, from `cmd/nomi-wasm`),
+and the panel shows it the same way; `TestTourWasmAnswersTheTourBlocks`
+holds each error block's stage to its record's shape.
 `astro.config.mjs` passes a hash of `rehype-shiki.mjs` as the plugin's
 option, so an edit to it clears Astro's cache of rendered pages.
 

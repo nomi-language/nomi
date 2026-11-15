@@ -76,6 +76,7 @@ const (
 	STRUCT
 	ENUM
 	TYPEALIAS
+	SUBTYPE
 	BREAK
 	CONTINUE
 	IT
@@ -237,6 +238,7 @@ var tokenNames = [...]string{
 	STRUCT:                           "STRUCT",
 	ENUM:                             "ENUM",
 	TYPEALIAS:                        "TYPEALIAS",
+	SUBTYPE:                          "SUBTYPE",
 	BREAK:                            "BREAK",
 	CONTINUE:                         "CONTINUE",
 	IT:                               "IT",

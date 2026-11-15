@@ -1133,7 +1133,7 @@ type hostCall struct {
 func (cp *compiler) hostCall(n *ir.Call) bool {
 	name := n.Callee().Name()
 	h := hostCall{call: n, name: name, dst: n.Dst()}
-	if h.intr = cp.m.hosts[name]; h.intr == nil {
+	if h.intr = cp.m.hosts[name].fn; h.intr == nil {
 		fn, err := cp.m.adapter(name)
 		if err != nil || fn == nil {
 			return false
@@ -1213,7 +1213,7 @@ func (cp *compiler) forwardedHostCall(n *ir.Call, callee *ir.Func) bool {
 		return false
 	}
 	name := inner.Callee().Name()
-	if cp.m.hosts[name] != nil {
+	if cp.m.hosts[name].fn != nil {
 		return false
 	}
 	fn, err := cp.m.adapter(name)

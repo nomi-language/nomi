@@ -50,6 +50,7 @@
 
 "fn" @keyword
 "type" @keyword
+"subtype" @keyword
 "struct" @keyword
 "enum" @keyword
 "typealias" @keyword

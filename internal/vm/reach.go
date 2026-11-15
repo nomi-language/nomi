@@ -202,7 +202,7 @@ func (w *reachWalk) visit(f *ir.Func) {
 		for _, in := range b.Instrs() {
 			w.at = in
 			if w.effects != nil {
-				if e := effectOf(in, f.Name()); e != "" {
+				if e := w.m.effectOf(in, f.Name()); e != "" {
 					w.effects[e] = true
 				}
 			}
@@ -274,7 +274,7 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 	case ir.CalleeDirect:
 		if n.Crosses() {
 			name := n.Callee().Name()
-			if fn, _ := w.m.adapter(name); fn == nil && w.m.hosts[name] == nil {
+			if fn, _ := w.m.adapter(name); fn == nil && w.m.hosts[name].fn == nil {
 				w.report(NoBinding, name, from)
 			}
 			return

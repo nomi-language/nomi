@@ -11,7 +11,8 @@ end
 /// The base-128 digits of `n`, most significant first, with the high bit set
 /// on all but the last.
 fn encode_one(n: Int) -> List<Byte>
-    digits = Int.to_digits(n, 128)
+    // A quantity is never negative.
+    digits = Int.to_digits(NonNegativeInt.try_from(n)!, 128)
     last = Iter.count(digits) - 1
 
     digits

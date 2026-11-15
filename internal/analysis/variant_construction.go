@@ -314,7 +314,7 @@ func (c *checker) checkDistinctEmbedArgs(n *ast.Call, form variantCtor, dt *Dist
 		inner := formatTypeForError(dt.Inner)
 		c.addError(form.line, form.col, fmt.Sprintf(
 			"%s builds %s %s, which wraps %s, so %s(...) takes one argument, %s %s; got %d",
-			form.label, articleFor(dt.Name), dt.Name, inner, form.label, articleFor(inner), inner, len(n.Args)))
+			form.label, ArticleFor(dt.Name), dt.Name, inner, form.label, ArticleFor(inner), inner, len(n.Args)))
 		return
 	}
 	c.checkDistinctEmbedArg(n.Args[0], c.checkNodeExpecting(n.Args[0], dt.Inner), form, dt)
@@ -406,10 +406,10 @@ func zeroSizedCallMessage(form variantCtor) string {
 }
 
 func alreadyBuiltMessage(form variantCtor, typeName, forms string) string {
-	a := articleFor(typeName)
+	a := ArticleFor(typeName)
 	return fmt.Sprintf(
 		"%s constructs %s %s with %s; this argument is already %s %s — use it where %s %s is expected and it widens",
-		form.label, a, typeName, forms, a, typeName, articleFor(form.et.Name), form.et.Name)
+		form.label, a, typeName, forms, a, typeName, ArticleFor(form.et.Name), form.et.Name)
 }
 
 // anonStructLitArg is a call-form argument as an anonymous struct literal

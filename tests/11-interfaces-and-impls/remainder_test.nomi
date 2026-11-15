@@ -1,7 +1,6 @@
 import
     std::compiler
     std::duration.Duration
-    std::int.NonZeroInt
 end
 
 type Minutes Int

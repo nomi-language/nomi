@@ -35,9 +35,9 @@ func TestResultMapErrCallbackKeepsOnceLineage(t *testing.T) {
 	ty, _ := ir.NewTable().Concrete("Int", "Int")
 	mod.DeclareLazyCell(sym, ty, init)
 	m := New(mod, io.Discard)
-	m.hosts["drive"] = func(m *Machine, _ ir.Pos, _ []any) (any, error) {
+	m.hosts["drive"] = intrinsic{fn: func(m *Machine, _ ir.Pos, _ []any) (any, error) {
 		return m.call(drive, []any{errValue(int64(1))})
-	}
+	}}
 	done := make(chan error, 1)
 	go func() { _, err := m.Run("read"); done <- err }()
 	select {

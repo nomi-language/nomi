@@ -6,12 +6,12 @@ import "testing"
 // position, and is a fixed point.
 func TestFormat_AsPatternRoundTrips(t *testing.T) {
 	for _, src := range []string{
-		"fn f(r: Result<Tx, String>) -> Int\n    case r\n        Ok(Tx{kind: .Deposit} as t) -> t.stop\n        Ok(_) as whole -> 0\n        Err(_) -> 1\n    end\nend\n",
-		"fn f(xs: List<Int>) -> Int\n    case xs\n        [Some(n) as first, ..rest] as all -> n\n        _ -> 0\n    end\nend\n",
+		"fn f(r: Result<Tx, String>) -> Int\n    case r\n        Ok(Tx{kind: .Deposit} as t) -> t.stop\n        Ok(_) as whole              -> 0\n        Err(_)                      -> 1\n    end\nend\n",
+		"fn f(xs: List<Int>) -> Int\n    case xs\n        [Some(n) as first, ..rest] as all -> n\n        _                                 -> 0\n    end\nend\n",
 		"fn f((a, b) as pair: (Int, Int)) -> Int\n    a + b\nend\n",
 		"fn f(m: Maybe<Int>) -> Int\n    Some(n) as found = m else return 0\n    (x, y) as both = (n, n)\n    if Ok(v) as r = load() then v else x\nend\n",
-		"fn f(m: Map<String, Int>) -> Int\n    case m\n        {\"k\" => 1 as one} as all -> one\n        _ -> 0\n    end\nend\n",
-		"fn f(p: String) -> String\n    case p\n        \"/users/\" + id as path -> path\n        _ -> \"\"\n    end\nend\n",
+		"fn f(m: Map<String, Int>) -> Int\n    case m\n        {\"k\" => 1 as one} as all -> one\n        _                        -> 0\n    end\nend\n",
+		"fn f(p: String) -> String\n    case p\n        \"/users/\" + id as path -> path\n        _                      -> \"\"\n    end\nend\n",
 		"test \"t\"\n    assert Some(n) as m = find()\nend\n",
 	} {
 		if got := formatTwice(t, src); got != src {

@@ -286,9 +286,14 @@ var mxFeatures = []mxFeature{
 	{name: "dot variant", decls: mxShape, typ: "Shape", expr: ".Circle(2.0)", want: "Circle(2.0)", tags: tagExpects,
 		reject: "requires a determinable enum type|resolves only to enum variants|cannot be resolved here|is not determined"},
 	{name: "distinct", decls: "type Meters Int", typ: "Meters", expr: "Meters(3)", want: "Meters(3)"},
-	{name: "refinement literal", decls: "type Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3"},
-	{name: "refinement try_from", decls: "type Port Int when fn p -> p >= 1", typ: "Maybe<Port>", expr: "Port.try_from(0)", want: "None"},
-	{name: "collection refinement", decls: "type Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
+	{name: "refinement literal", decls: "subtype Port Int when fn p -> p >= 1", typ: "Port", expr: "Port(3)", want: "3"},
+	{name: "refinement try_from", decls: "subtype Port Int when fn p -> p >= 1", typ: "Maybe<Port>", expr: "Port.try_from(0)", want: "None"},
+	{name: "validated type", decls: "type Tag String when fn s -> String.length(s) > 0", typ: "Tag", expr: `Tag("a")`, want: `Tag("a")`},
+	{name: "type over a subtype", decls: "type UserId PositiveInt", typ: "Maybe<UserId>", expr: "UserId.try_from(4)", want: "Some(UserId(4))"},
+	{name: "intersection parameter", typ: "NonNegativeInt and NonZeroInt", expr: "PositiveInt.try_from(3)!", want: "3"},
+	{name: "collection refinement", decls: "subtype Two List<Int> when fn xs -> List.length(xs) == 2", typ: "Two", expr: "Two([3, 4])",
+		obs: `"${Iter.sum($v)} ${List.length($v)} ${$v == [3, 4]}"`, want: "7 2 True"},
+	{name: "generic refinement", decls: "subtype Many<A> List<A> when fn xs -> not Iter.is_empty(xs)", typ: "Many<Int>", expr: "Many.try_from([3, 4])!",
 		obs: `"${Iter.sum($v)} ${List.length($v)} ${$v == [3, 4]}"`, want: "7 2 True"},
 	{name: "bitwise operator impl", decls: mxFlags, typ: "Flags", expr: "~~~(Flags(1) ||| Flags(4))", want: "Flags(-6)"},
 	{name: "unit", typ: "Unit", expr: "Unit", want: "Unit", tags: tagUnit},
@@ -1109,10 +1114,11 @@ var mxStdImports = []struct{ name, module, item string }{
 }
 
 var (
-	mxIdent    = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
-	mxDeclName = regexp.MustCompile(`(?m)^(?:struct|enum|type|interface|fn|once|typealias|phrase) ([A-Za-z_][A-Za-z0-9_]*)`)
-	mxPubDecl  = regexp.MustCompile(`(?m)^(struct|enum|type|interface|fn|once|typealias|phrase) `)
-	mxStrLit   = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
+	mxIdent         = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
+	mxDeclName      = regexp.MustCompile(`(?m)^(?:struct|enum|type|subtype|interface|fn|once|typealias|phrase) ([A-Za-z_][A-Za-z0-9_]*)`)
+	mxValidatedType = regexp.MustCompile(`(?m)^(?:pub )?type [A-Za-z0-9_]+ [^\n]* when `)
+	mxPubDecl       = regexp.MustCompile(`(?m)^(struct|enum|type|subtype|interface|fn|once|typealias|phrase) `)
+	mxStrLit        = regexp.MustCompile(`"(?:[^"\\]|\\.)*"`)
 )
 
 // mxUses reports the names text uses as a plain identifier, one not after a
@@ -1377,6 +1383,11 @@ func mxStdFileImports(cell, hostImports, host string) string {
 			}
 		}
 	}
+	if mxValidatedType.MatchString(cell) {
+		// A `type` with a rule implements TryFrom, which its file names
+		// as a written impl's would.
+		uses["TryFrom"] = true
+	}
 	if mxInOperator.MatchString(mxStrLit.ReplaceAllString(cell, `""`)) {
 		uses["Contains"] = true
 	}
@@ -1607,7 +1618,9 @@ func mxJsonable(typ string) bool {
 	t = strings.ReplaceAll(t, "Map<String, ", "Map<")
 	for _, id := range mxIdent.FindAllString(t, -1) {
 		switch id {
-		case "Int", "Float", "Decimal", "String", "Bool", "List", "Vector", "Set", "Map", "Maybe":
+		case "Int", "Float", "Decimal", "String", "Bool", "List", "Vector", "Set", "Map", "Maybe", "and",
+			// The prelude's subtypes are their bases' values.
+			"NonNegativeInt", "NonZeroInt", "PositiveInt":
 		default:
 			return false
 		}

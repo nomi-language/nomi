@@ -124,12 +124,12 @@ end
 /// Renders a `List<Codepoint>` as its code points in order, `-` separated and
 /// `.`-terminated, so both the ORDER and the LENGTH are in the output.
 ///
-/// Explicit recursion over `List.head` / `List.tail` rather than an `Iter`
+/// Explicit recursion over `List.first` / `List.tail` rather than an `Iter`
 /// pipeline, which is refused for its own reasons and would take the whole
 /// fixture with it. `List.tail` answers `Maybe<List<T>>`, so an empty tail and
 /// an empty list are the same base case.
 fn join_points(cps: List<Codepoint>) -> String
-    case List.head(cps)
+    case List.first(cps)
         None ->
             "."
 

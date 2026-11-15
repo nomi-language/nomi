@@ -1,7 +1,4 @@
-import
-    std::float.NonNegativeFloat
-    complex_numbers.Complex
-end
+import complex_numbers.Complex
 
 // The canonical data asks for a tolerance on results that are not whole
 // numbers.

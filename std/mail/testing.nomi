@@ -317,7 +317,7 @@ fn converse(peer: Peer, rules: Rules)
 
     verb = String.uppercase(
         String.split(line, " ")
-        |> List.head()
+        |> List.first()
         |> Maybe.with_default("")
     )
 
@@ -448,7 +448,7 @@ end
 // The address in `FROM:<a@b>` or `TO:<a@b>`, without parameters after it.
 fn path(argument: String, prefix: String) -> String
     rest = String.drop(argument, String.length(prefix))
-    first = String.split(rest, " ") |> List.head() |> Maybe.with_default("")
+    first = String.split(rest, " ") |> List.first() |> Maybe.with_default("")
     String.replace(String.replace(first, "<", ""), ">", "")
 end
 
@@ -471,7 +471,7 @@ fn authenticate(peer: Peer, rules: Rules, argument: String) -> Maybe<Peer>
     words = String.split(argument, " ")
 
     mechanism = String.uppercase(
-        List.head(words)
+        List.first(words)
         |> Maybe.with_default("")
     )
 
@@ -651,7 +651,7 @@ fn refused(o: Opened, message: Message, why: String) -> Result<Unit, String>
 end
 
 fn head_of(data: String) -> List<String>
-    String.split(data, "\r\n\r\n") |> List.head() |> Maybe.with_default("") |> String.split("\r\n")
+    String.split(data, "\r\n\r\n") |> List.first() |> Maybe.with_default("") |> String.split("\r\n")
 end
 
 fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>
@@ -798,7 +798,7 @@ fn checks() -> List<(String, (Opened) -> Result<Unit, String>)>
 
                 case (first, second)
                     (Some(a), Some(b)) when a < b -> Ok(Unit)
-                    _ -> Err("the headers arrived as ${head}")
+                    _                             -> Err("the headers arrived as ${head}")
                 end
             end,
         ),

@@ -131,7 +131,7 @@ func TestFillFunctions_GenericImpl(t *testing.T) {
 	store := "interface Store<K, V>\n    fn get(store: self, key: K) -> Maybe<V>\n    fn put(store: self, key: K, value: V) -> self\nend\n\nstruct Cache<T>\n    items: List<T>\nend\n\n"
 	// The interface's type arguments are pinned by the function the block
 	// already defines.
-	get := "    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        if key > 0 then List.head(cache.items) else None\n    end\n"
+	get := "    fn get(cache: Cache<T>, key: Int) -> Maybe<T>\n        if key > 0 then List.first(cache.items) else None\n    end\n"
 	got = checkFill(t, NewServer(), fillURI, store+"impl Store for Cache<T>\n"+get+"end\n", "Implement missing function 'put'")
 	if want := store + "impl Store for Cache<T>\n" + get + "\n    fn put(cache: Cache<T>, key: Int, value: T) -> Cache<T>\n        todo\n    end\nend\n"; got != want {
 		t.Fatalf("got\n%s\nwant\n%s", got, want)

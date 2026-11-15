@@ -12,7 +12,7 @@ func TestReturnOnlyParam_TheExpectedTypeMustMeetTheBound(t *testing.T) {
 end
 
 fn first<T>() -> Maybe<T> where T: Variants
-    T.variants() |> List.head()
+    T.variants() |> List.first()
 end
 
 fn main()

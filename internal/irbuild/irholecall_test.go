@@ -93,7 +93,7 @@ end
 `
 
 // `Iter.min([])` leaves T unconstrained: the callee makes no value of T for
-// an empty source, so the checker admits it as it admits `List.head([])`
+// an empty source, so the checker admits it as it admits `List.first([])`
 // (analysis/undetermined.go). T's `Comparable` bound refuses Unit, so the
 // checker closes T at Int and the body's `item < m` is an ordering on Int.
 func TestIRHoleCall_AComparableOpenTypeIsClosedAtInt(t *testing.T) {

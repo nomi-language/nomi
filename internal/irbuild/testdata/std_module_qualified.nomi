@@ -53,9 +53,9 @@ end
 
 fn describe(e: random.Error) -> String
     case e
-        random.Error.OsEntropy{reason:} -> "entropy: ${reason}"
+        random.Error.OsEntropy{reason:}       -> "entropy: ${reason}"
         random.Error.InvalidWeight{weight: w} -> "weight: ${w}"
-        _ -> "other"
+        _                                     -> "other"
     end
 end
 

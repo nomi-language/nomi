@@ -69,7 +69,7 @@ fn main()
 end
 
 fn head_text(xs: List<Int>) -> String
-    case List.head(xs)
+    case List.first(xs)
         .Some(h) -> "Some(${h})"
         .None    -> "None"
     end

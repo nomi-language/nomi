@@ -155,6 +155,11 @@ func (g *gen) qualifiedAliasKind(t *ast.QualifiedType) (kind, bool) {
 // representation — `dictTypeParam.bounds` is already a list — so the alias is
 // nothing to build for the same reason the transparent form is.
 func (g *gen) moduleAliasDecl(t *ast.TypeAlias) {
+	if len(t.TypeParams) > 0 {
+		// A generic alias names a type only at a use's type arguments
+		// (genericAliasKind), where an unrepresentable one is refused.
+		return
+	}
 	if t.TargetTypeExpr == nil {
 		// kindInvalid is not involved: a bound alias has no target at all, so
 		// its own conjuncts are what can fail to resolve.
@@ -329,4 +334,57 @@ func (g *gen) qualifiedAliasDef(name string) (*typeDef, bool) {
 		return nil, true
 	}
 	return k.def, true
+}
+
+// genericAliasKind is the kind `Pair<Int>` names when `Pair` is a generic
+// typealias, `typealias Pair<T> (T, T)`, reporting whether it was one: its
+// target, or its `A and B`, read with each type parameter standing for the
+// kind of the use's argument, as a generic type's template is read. The
+// target is the type the checker resolved in the alias's own file (its
+// AliasTemplate), so a name in it means what it means where the alias is
+// declared, whichever file uses it.
+func (g *gen) genericAliasKind(name string, params []ast.TypeExpr) (kind, bool) {
+	sym := resolvedTypeSymbol(g.fa, name)
+	if sym == nil {
+		return kindInvalid, false
+	}
+	alias, isAlias := sym.Node.(*ast.TypeAlias)
+	if !isAlias || len(alias.TypeParams) == 0 {
+		return kindInvalid, false
+	}
+	if len(params) != len(alias.TypeParams) {
+		return kindInvalid, true
+	}
+	args := make([]kind, len(params))
+	for i := range alias.TypeParams {
+		args[i] = g.typeOf(params[i])
+		// kindInvalid: propagates — the argument's own refusal is reported where it was resolved.
+		if args[i] == kindInvalid {
+			return kindInvalid, true
+		}
+	}
+	if at, isTemplate := sym.Type.(*analysis.AliasTemplate); isTemplate && at.Target != nil && len(at.Params) == len(args) {
+		frame := make(map[string]kind, len(args))
+		for i, p := range at.Params {
+			frame[p.Name_] = args[i]
+		}
+		g.genericSubst = append(g.genericSubst, frame)
+		defer func() { g.genericSubst = g.genericSubst[:len(g.genericSubst)-1] }()
+		return g.project(at.Target), true
+	}
+	if g.fa.Definitions[sym.Pos] != sym {
+		// Another file's alias with no template: its target's names are
+		// that file's, which this file's scope cannot read.
+		return kindInvalid, true
+	}
+	frame := make(map[string]kind, len(args))
+	for i, tp := range alias.TypeParams {
+		frame[tp.Name] = args[i]
+	}
+	g.genericSubst = append(g.genericSubst, frame)
+	defer func() { g.genericSubst = g.genericSubst[:len(g.genericSubst)-1] }()
+	if alias.TargetTypeExpr != nil {
+		return g.typeOf(alias.TargetTypeExpr), true
+	}
+	return g.typeOf(&ast.ConjunctionType{Members: alias.Bounds, Line: alias.Line, Col: alias.Col}), true
 }

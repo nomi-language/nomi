@@ -173,7 +173,7 @@ test "a block statement"
     begin
         io.print("block")
         Iter.loop(fn ->
-            io.print(1 / 0)
+            io.print(1 / (1 - 1))
         end)
     end
 end

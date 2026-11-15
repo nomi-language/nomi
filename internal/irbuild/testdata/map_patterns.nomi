@@ -124,7 +124,7 @@ end
 fn two_of(m: Map<String, String>) -> String
     case m
         {"host" => h, "mode" => md} -> "${h}/${md}"
-        _ -> "incomplete"
+        _                           -> "incomplete"
     end
 end
 
@@ -141,7 +141,7 @@ end
 fn noisy_pair(m: Map<Int, String>) -> String
     case m
         {noisy(1) => a, noisy(2) => b} -> "${a}${b}"
-        _ -> "no pair"
+        _                              -> "no pair"
     end
 end
 
@@ -176,16 +176,16 @@ end
 fn nested(m: Map<String, Map<String, Int>>) -> String
     case m
         {"data" => {"k" => n}} -> "k=${n}"
-        _ -> "no k"
+        _                      -> "no k"
     end
 end
 
 fn variant(j: JV) -> String
     case j
         .Obj{"a" => .Obj{"b" => .Num(n)}} -> "deep ${n}"
-        JV.Obj{"a" => .Num(n)} -> "flat ${n}"
-        .Obj(_) -> "obj"
-        .Num(n) -> "num ${n}"
+        JV.Obj{"a" => .Num(n)}            -> "flat ${n}"
+        .Obj(_)                           -> "obj"
+        .Num(n)                           -> "num ${n}"
     end
 end
 

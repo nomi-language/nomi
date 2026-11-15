@@ -23,7 +23,7 @@ func TestIn_Precedence(t *testing.T) {
 		{"x + 1 in s", "((x + 1) in s)"},
 		{"x in a ||| b", "(x in (a ||| b))"},
 		{"x in xs |> Iter.to_set()", "(x in (xs |> Iter.to_set()))"},
-		{"xs |> List.head() in s", "((xs |> List.head()) in s)"},
+		{"xs |> List.first() in s", "((xs |> List.first()) in s)"},
 		{"(x in s) == b", "([(x in s)] == b)"},
 		{"a == (b in s)", "(a == [(b in s)])"},
 		{"(a < b) in flags", "([(a < b)] in flags)"},

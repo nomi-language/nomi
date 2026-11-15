@@ -170,10 +170,10 @@ func TestCheckReservedTypeName_PreludeInterfaceNames(t *testing.T) {
 // asserts over, spelled out so a prelude change shows up as a diff here rather
 // than as a silently smaller test.
 var preludeInterfaceNames = []string{
-	"Add", "BitwiseAnd", "BitwiseNot", "BitwiseOr", "BitwiseXor", "Commit", "Comparable", "Contains", "Debug",
+	"Add", "Averageable", "BitwiseAnd", "BitwiseNot", "BitwiseOr", "BitwiseXor", "Commit", "Comparable", "Contains", "Debug",
 	"Discrete", "Display", "Distinct", "Divide", "From", "ShiftLeft", "ShiftRight",
 	"Equatable", "Hashable", "Iter", "Multiply", "Productable", "Release", "Remainder", "Steppable", "Struct",
-	"Subtract", "Summable", "Variants",
+	"Subtract", "Summable", "TryFrom", "Variants",
 }
 
 // TestCheckReservedTypeName_PreludeInterfaceSetIsExactlyWhatPreludeInjects

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -26,8 +27,8 @@ import (
 // takes and the elements its iterations pass along, which are the ways a
 // program repeats work. Deadline is a wall-clock backstop, read every 1024
 // steps; zero means none. A single crossing into Go is not interrupted, so
-// pureCrossings admits only crossings whose cost follows from the size of
-// their operands, which the steps bound.
+// only crossings whose cost follows from the size of their operands are
+// marked pure (pureCrossing), and the steps bound that size.
 type Limits struct {
 	Steps    int64
 	Deadline time.Time
@@ -201,163 +202,36 @@ func (m *Machine) Evaluate(ctx context.Context, f *ir.Func, args []any, lim Limi
 	return run.callWithFrame(f, args, fr)
 }
 
-// pureCrossings are the crossings into Go an evaluation may make: each
-// computes its answer from its operands alone and acts on nothing outside
-// the machine. It is the one list of them; a crossing it does not name is an
-// effect, so a host function added later is refused until someone decides it
-// belongs here. Intrinsics come first, then the generated stdlib adapters
-// (internal/stdlibbindings).
-var pureCrossings = map[string]bool{
-	"Result.map_err": true, "Maybe.to_result": true,
-	"Maybe.with_default": true, "Result.with_default": true,
-	"List.head": true, "List.tail": true, "List.concat": true, "List.compare": true, "List.contains": true,
-	"List.remove_at": true,
-	"Vector.compare": true, "vm.hash_value": true,
-	"vm.bang_failed": true, "vm.bang_none": true, captureShapeKey: true, "vm.refinement_rule": true,
-	"Range.contains": true, "Range.step_by": true, "Range.known_count": true,
-	"Range.is_bounded": true, "Range.containsFloat": true,
-	"Set.size": true, "Set.contains": true, "Set.insert": true, "Set.remove": true,
-	"Set.union": true, "Set.intersection": true, "Set.difference": true,
-	"Set.is_subset_of": true,
-	"Vector.length":    true, "Vector.get": true, "Vector.push": true, "Vector.concat": true,
-	"Vector.set": true, "Vector.next_item": true, "Vector.contains": true,
-	"Map.get": true, "Map.put": true, "Map.size": true,
-	"Map.remove": true, "Map.contains": true, "Map.merge": true, "Map.keys": true,
-	"Map.values": true, "Map.map_values": true, "Map.map_keys": true, "Map.map_next": true,
-
-	"locale.locale_fallbacks": true, "locale.locale_from_posix_raw": true, "locale.locale_language": true,
-	"locale.locale_negotiate": true, "locale.locale_parse_raw": true, "locale.locale_region": true,
-	"locale.locale_script": true, "locale.locale_available": true,
-	"plural.plural_cardinal_tag": true, "plural.plural_cardinal_tags": true,
-	"plural.plural_ordinal_tag": true, "plural.plural_ordinal_tags": true,
-	// Locale-aware formatting reads the machine's own CLDR data.
-	"int.int_format": true, "int.int_parse_in": true,
-	"float.float_format": true, "float.float_format_percent": true, "float.float_parse_in": true, "float.float_parse_percent_in": true,
-	"decimal.decimal_format": true, "decimal.decimal_format_percent": true,
-	"decimal.decimal_parse_in": true, "decimal.decimal_parse_percent_in": true,
-	"strings.join_list_raw":      true,
-	"collation.collator_new_raw": true, "collation.collator_compare_raw": true, "collation.collator_sort_key_raw": true,
-	"collation.collator_inspect_raw": true,
-	"calendar.civil_format_style":    true, "calendar.civil_format_fields": true, "calendar.civil_format_pattern": true,
-	"calendar.date_parse_style": true, "calendar.time_parse_style": true, "calendar.date_parse_pattern": true,
-	"calendar.time_parse_pattern": true, "calendar.naive_parse_pattern": true, "calendar.fields_check": true,
-	"calendar.pattern_check": true, "calendar.relative_format_raw": true, "duration.duration_format_raw": true,
-	"currency.currency_check": true, "currency.currency_code_of": true, "currency.currency_digits_of": true,
-	"money/format.money_format_raw": true, "money/format.money_parse_raw": true,
-	// A message's formatting, and the intrinsic that names an enum
-	// value's variant.
-	"phrase/format.format_raw": true, "phrase/format.variant_name": true,
-
-	"Date.days_between": true, "Date.to_string": true,
-	"DateTime.day": true, "DateTime.hour": true, "DateTime.minute": true, "DateTime.month": true,
-	"DateTime.nanosecond": true, "DateTime.second": true, "DateTime.to_offset": true,
-	"DateTime.to_string": true, "DateTime.year": true,
-	"NaiveDateTime.to_date": true, "NaiveDateTime.to_string": true, "NaiveDateTime.to_time": true,
-	"OffsetDateTime.day": true, "OffsetDateTime.hour": true, "OffsetDateTime.minute": true,
-	"OffsetDateTime.month": true, "OffsetDateTime.nanosecond": true, "OffsetDateTime.second": true,
-	"OffsetDateTime.to_naive": true, "OffsetDateTime.to_string": true, "OffsetDateTime.year": true,
-	"Time.to_string":         true,
-	"calendar.date_add_days": true, "calendar.date_add_months": true, "calendar.date_add_years": true,
-	"calendar.date_new_raw": true, "calendar.date_parse_raw": true,
-	"calendar.naive_add_days": true, "calendar.naive_add_months": true, "calendar.naive_add_nanos": true,
-	"calendar.naive_add_years": true, "calendar.naive_between_nanos": true,
-	"calendar.naive_new_exact_raw": true, "calendar.naive_parse_raw": true,
-	"calendar.offset_add_months": true, "calendar.offset_add_years": true,
-	"calendar.offset_from_instant_nanos": true, "calendar.offset_parse_raw": true,
-	"calendar.offset_with_offset_raw": true, "calendar.time_add_nanos": true,
-	"calendar.time_parse_raw": true,
-	"calendar.zoned_add_days": true, "calendar.zoned_add_hours": true,
-	"calendar.zoned_add_microseconds": true, "calendar.zoned_add_milliseconds": true,
-	"calendar.zoned_add_minutes": true, "calendar.zoned_add_months": true,
-	"calendar.zoned_add_nanoseconds": true, "calendar.zoned_add_seconds": true,
-	"calendar.zoned_add_years": true, "calendar.zoned_from_instant_in_raw": true,
-	"calendar.zoned_in_zone_raw": true, "calendar.zoned_offset_nanos": true,
-	"calendar.zoned_parse_raw": true, "calendar.zoned_with_zone_raw": true,
-	"Regex.compile": true, "Regex.find_in": true,
-	"Regex.pattern":         true,
-	"Regex.is_contained_in": true, "Regex.is_prefix_of": true, "Regex.is_suffix_of": true,
-	"Regex.split_in": true, "Regex.replace_in": true, "Regex.find_all_in": true,
-	"strings.capture_groups": true, "strings.capture_groups_all": true,
-	"String.uppercase_in": true, "String.lowercase_in": true, "String.fold_case": true,
-	"String.capitalize": true, "String.capitalize_in": true,
-	"String.snake_case": true, "String.kebab_case": true, "String.pascal_case": true, "String.camel_case": true,
-
-	"strings.String.is_contained_in": true, "strings.String.is_prefix_of": true,
-	"strings.String.is_suffix_of": true, "strings.String.find_all_in": true,
-	"strings.String.uppercase": true,
-	"strings.String.lowercase": true, "strings.String.replace_in": true, "strings.String.trim": true,
-	"strings.String.hash": true, "strings.string_compare": true, "strings.String.to_int": true,
-	"strings.String.split_in": true, "strings.String.length": true,
-	"strings.String.slice": true, "strings.String.reverse": true, "strings.String.to_bytes": true,
-	"strings.String.to_codepoints": true, "strings.String.normalize": true, "strings.String.to_literal": true,
-	"strings.String.words": true, "strings.String.lines": true,
-	"assertions.AssertionFailure.format": true,
-	// strings.String.repeat is not here: its cost is its Int operand.
-	"int.Int.to_byte": true, "bytes.Byte.to_int": true, "bytes.Bytes.length": true,
-	"bytes.Bytes.get": true, "bytes.Bytes.slice": true, "bytes.Bytes.concat": true,
-	"bytes.Bytes.to_string": true, "bytes.Bytes.hash": true, "bytes.Bytes.contains": true,
-	"bytes.Bytes.to_list": true, "bytes.Bytes.from_list": true, "bytes.bytes_compare": true,
-	"hash.sha256": true, "hash.sha512": true,
-	"hash.hmac_sha256": true, "hash.hmac_sha512": true, "hash.equal_in_constant_time": true,
-	"base64.standard": true, "base64.decode": true, "base64.url_safe": true, "base64.decode_url": true,
-	"hex.encode": true, "hex.decode": true,
-	"http/host.check_pattern": true,
-	"toml/host.check":         true, "toml/host.build": true, "toml/host.quote": true, "toml/host.float": true,
-	"csv/host.encode": true, "xml/host.escape_text": true, "xml/host.escape_attribute": true, "xml/host.is_name": true,
-	"url/host.escape_query": true, "url/host.unescape_query": true,
-	"url/host.escape_path_segment": true, "url/host.unescape_path_segment": true,
-	"url/host.parse_parts": true, "url/host.format_parts": true, "url/host.redacted_parts": true,
-	"url/host.escaped_path_parts": true, "url/host.escaped_fragment_parts": true, "url/host.request_uri_parts": true,
-	"url/host.hostname_parts": true, "url/host.port_parts": true, "url/host.resolve_parts": true,
-	"url/host.join_path_parts": true, "url/host.escape_fragment": true, "url/host.query_pairs": true,
-	"url/host.query_error": true, "url/host.query_encode": true,
-	"path/host.clean": true, "path/host.join": true, "path/host.base": true, "path/host.dir": true,
-	"mail/host.quoted_printable": true, "mail/host.date": true,
-	"int.Int.to_string": true, "int.Int.to_float": true, "int.Int.wrapping_add": true,
-	"int.Int.wrapping_sub": true, "int.Int.wrapping_mul": true, "int.Int.bit_count": true,
-	"int.Int.bit_length": true,
-	"int.Int.pow":        true, "int.Int.sqrt": true, "int.Int.gcd": true, "int.Int.lcm": true,
-	"int.int_to_digits": true, "int.int_from_digits": true,
-	"float.Float.to_string": true, "float.Float.nan": true, "float.Float.positive_infinity": true,
-	"float.Float.negative_infinity": true, "float.Float.is_nan": true, "float.float_round": true,
-	"float.Float.floor": true, "float.Float.ceil": true, "float.Float.trunc": true,
-	"float.Float.to_int": true, "float.float_bits": true,
-	"float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true, "float.Float.log": true,
-	"float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true, "float.Float.cos": true,
-	"float.Float.tan": true, "float.Float.atan2": true,
-	"decimal.Decimal.to_string": true, "decimal.Decimal.equal": true, "decimal.Decimal.hash": true,
-	"decimal.Decimal.compare": true, "int.Int.to_decimal": true,
-	"strings.String.to_decimal": true, "strings.String.to_float": true, "decimal.Decimal.to_int": true,
-	"decimal.Decimal.to_float": true, "float.Float.to_decimal": true,
-	"decimal.Decimal.normalize": true, "decimal.Decimal.scale": true, "decimal.Decimal.divide_exact": true,
-	// decimal.Decimal.divide, round and sqrt are not here: their cost is their
-	// scale operand. decimal.Decimal.pow is not either: its cost is its
-	// exponent.
-	"duration.Duration.to_string": true, "duration.nanos_in_range": true, "instant.nanos_in_range": true,
-	"code_points.Codepoint.to_string": true,
-	"code_points.Codepoint.is_letter": true, "code_points.Codepoint.is_whitespace": true,
-	"code_points.Codepoint.is_upper": true, "code_points.Codepoint.is_lower": true, "int.Int.to_codepoint": true,
-	"json.Json.decode": true, "json.Json.encode": true, "json.Json.to_dynamic": true,
-	"dynamic.Dynamic.field": true, "dynamic.Dynamic.index": true, "dynamic.Dynamic.path": true,
-	"dynamic.Dynamic.as_string": true, "dynamic.Dynamic.as_int": true,
-	"dynamic.Dynamic.as_float": true, "dynamic.Dynamic.as_bool": true,
-	"dynamic.Dynamic.as_list": true, "dynamic.Dynamic.as_dict": true,
-	"dynamic.Dynamic.is_null": true, "dynamic.Dynamic.has": true, "dynamic.Dynamic.inspect": true,
+// pureCrossing reports whether a crossing into Go named name is pure:
+// it computes its answer from its operands alone and acts on nothing
+// outside the machine. That is a property of the crossing's declaration:
+// an intrinsic marked pure in the intrinsic table (vm.go), or a generated
+// stdlib adapter whose internal/stdlibbindings row is marked Pure. An
+// intrinsic answers a name before the adapters do, as at a call. Every other
+// crossing, a binding of a project's own `go` declarations, std/compiler's
+// hosts and a REPL's session values among them, is an effect.
+func (m *Machine) pureCrossing(name string) bool {
+	if in, ok := m.hosts[name]; ok {
+		return in.pure
+	}
+	return stdlibadapters.Pure(name)
 }
 
-// Effects walks everything f can reach, as Unretained does, and answers what
-// stops it being evaluated for an editor, sorted: each crossing into Go that
-// pureCrossings does not name (output, files, the network, the clock,
-// randomness, tasks, channels, the Context), each read or write of the running
-// app's fields, Context or scope, and each declaration this machine could not
-// run. Nil means f computes its result from its operands alone.
+// Effects walks everything the functions fs can reach, as Unretained does,
+// and answers what stops them being evaluated for an editor, sorted: each
+// crossing into Go its declaration does not mark pure (output, files, the
+// network, the clock, randomness, tasks, channels, the Context), each read
+// or write of the running app's fields, Context or scope, and each
+// declaration this machine could not run. Nil means each computes its result from its operands alone.
 //
 // It over-approximates as the reachability walk does: a dispatched call
 // reaches every implementation of its method, and a function value reaches
 // every body the evaluation creates a value of.
-func (m *Machine) Effects(f *ir.Func) []string {
+func (m *Machine) Effects(fs ...*ir.Func) []string {
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}, effects: map[string]bool{}}
-	w.push(f)
+	for _, f := range fs {
+		w.push(f)
+	}
 	for len(w.queue) > 0 {
 		next := w.queue[len(w.queue)-1]
 		w.queue = w.queue[:len(w.queue)-1]
@@ -377,8 +251,8 @@ func (m *Machine) Effects(f *ir.Func) []string {
 	return out
 }
 
-// effectOf is the effect one instruction has, or "".
-func effectOf(in ir.Instr, from string) string {
+// effectOf is the effect one instruction has on m, or "".
+func (m *Machine) effectOf(in ir.Instr, from string) string {
 	switch n := in.(type) {
 	case *ir.Ref:
 		switch n.Kind() {
@@ -392,11 +266,11 @@ func effectOf(in ir.Instr, from string) string {
 	case *ir.Store:
 		return fmt.Sprintf("%s writes the running app", from)
 	case *ir.Call:
-		if n.Crosses() && !pureCrossings[n.Callee().Name()] {
+		if n.Crosses() && !m.pureCrossing(n.Callee().Name()) {
 			return fmt.Sprintf("%s calls %s", from, n.Callee().Name())
 		}
 	case *ir.Defer:
-		if c := n.Call(); c != nil && c.Crosses() && !pureCrossings[c.Callee().Name()] {
+		if c := n.Call(); c != nil && c.Crosses() && !m.pureCrossing(c.Callee().Name()) {
 			return fmt.Sprintf("%s calls %s", from, c.Callee().Name())
 		}
 	}

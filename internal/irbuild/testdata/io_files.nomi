@@ -16,9 +16,9 @@ once path: String = "${fs.temp_dir()}/nomi-io-files-fixture.txt"
 
 fn describe(e: io.Error) -> String
     case e
-        io.Error.NotFound{path:} -> "missing:${path}"
+        io.Error.NotFound{path:}        -> "missing:${path}"
         io.Error.NotADirectory{path: _} -> "not a directory"
-        _ -> "other"
+        _                               -> "other"
     end
 end
 

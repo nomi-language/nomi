@@ -42,7 +42,7 @@ fn stepped(schedule: Schedule, from: Instant, every: Duration, steps: Int) -> Li
 end
 
 fn hourly(missed: Missed = Missed.RunLatest) -> Schedule
-    Schedule.every("hourly", Duration.hours(1), tick_job, 0, missed:)
+    Schedule.every("hourly", Duration"1h", tick_job, 0, missed:)
 end
 
 fn new_york(cron: Cron) -> Schedule
@@ -250,7 +250,7 @@ group "schedules on two workers over one queue"
     boot app.boot()
 
     test "two workers running one schedule enqueue each tick once"
-        every_minute = Schedule.every("minutely", Duration.minutes(1), tick_job, 0)
+        every_minute = Schedule.every("minutely", Duration"1m", tick_job, 0)
         Worker.start(App.first, [tick_job], schedules: [every_minute])
         Worker.start(App.second, [tick_job], schedules: [every_minute])
         timer.sleep(Duration.minutes(10) + Duration.seconds(30))

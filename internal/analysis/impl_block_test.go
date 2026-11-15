@@ -129,7 +129,7 @@ func TestImplBlock_BareOperatorInterfaceCallSelectsMatchingImplArgs(t *testing.T
   fn divide(lhs: self, rhs: Rhs) -> Out
 end
 
-pub opaque type NonZeroInt Int
+pub opaque type NonZeroCount Int
 
 impl Divide<Int, Int> for Int
   fn divide(lhs: Int, rhs: Int) -> Int
@@ -138,13 +138,13 @@ impl Divide<Int, Int> for Int
   end
 end
 
-impl Divide<NonZeroInt, Int> for Int
-  fn divide(lhs: Int, rhs: NonZeroInt) -> Int
+impl Divide<NonZeroCount, Int> for Int
+  fn divide(lhs: Int, rhs: NonZeroCount) -> Int
     divide(lhs, rhs)
   end
 end
 
-fn use_non_zero(nz: NonZeroInt) -> Int
+fn use_non_zero(nz: NonZeroCount) -> Int
   divide(10, nz)
 end
 `

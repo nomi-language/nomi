@@ -11,7 +11,7 @@ fn boot(startup: Startup = Startup{}) -> Result<App, String>
     defer io.print("first cleanup")
     defer io.print("second cleanup")
 
-    case List.head(startup.args)
+    case List.first(startup.args)
         Some(name) -> Ok(App{name:})
         None       -> Err("no name was passed")
     end

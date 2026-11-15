@@ -166,7 +166,7 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 		takes, gets := c.typef("%s", hf.Params[i]), c.typef("%s", passed)
 		name := embeddableTypeName(emb)
 		msg := fmt.Sprintf("%s: %s takes %s %s, but %s calls it with %s %s, and %s %s may hold a variant other than %s",
-			label, subject, articleFor(takes), takes, by, articleFor(gets), gets, articleFor(et.Name), et.Name, name)
+			label, subject, ArticleFor(takes), takes, by, ArticleFor(gets), gets, ArticleFor(et.Name), et.Name, name)
 		hint := mismatchHint(hf.Params[i], passed)
 		if _, top := passed.(*EnumType); top && len(wf.Params) == 1 {
 			pattern := "." + name + "{}"
@@ -178,7 +178,7 @@ func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label 
 				body = fn + "(value) ..."
 			}
 			hint = fmt.Sprintf("pass a function that takes %s %s and matches it first, with `case value` and the arm `%s -> %s`",
-				articleFor(et.Name), et.Name, pattern, body)
+				ArticleFor(et.Name), et.Name, pattern, body)
 		}
 		return TypeError{Line: line, Col: col, Message: msg}.Spanning(arg).WithHint(hint), true
 	}

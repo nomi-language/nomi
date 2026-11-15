@@ -7,7 +7,7 @@ import (
 )
 
 // refinementRuleHost is a generated `try_from`'s call of its refinement's
-// rule (spec §4 *Refinement types*; irbuild's refinementRule): the rule,
+// rule (spec §4 *Subtypes*; irbuild's refinementRule): the rule,
 // a unary function, applied to the value. A rule that traps answers False,
 // so `try_from` is None for the value, and the trap is dropped: nothing
 // reports or records it. Only a fault is caught; a machine limit, a

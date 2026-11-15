@@ -83,8 +83,8 @@ func TestRunIsTheVMsPipeline(t *testing.T) {
 	t.Run("partial output is DISCARDED on a fault", func(t *testing.T) {
 		// The program prints before it traps, and the answer is an error rather
 		// than the prefix — so the error is not merely "the text so far".
-		got, err := run("import std::io\n\nfn main()\n  io.print(\"before\")\n" +
-			"  io.print(Debug.inspect(1 / 0))\nend\n")
+		got, err := run("import std::io\n\nfn main()\n  zero = 0\n  io.print(\"before\")\n" +
+			"  io.print(Debug.inspect(1 / zero))\nend\n")
 		if err == nil {
 			t.Fatalf("want an error, got output %q", got)
 		}

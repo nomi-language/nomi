@@ -21,7 +21,7 @@ fn count_all<T>(xs: List<T>) -> Int
 end
 
 fn first<T>(xs: List<T>) -> Maybe<T>
-    List.head(xs)
+    List.first(xs)
 end
 
 fn main()

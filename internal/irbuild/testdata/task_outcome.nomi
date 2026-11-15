@@ -91,9 +91,9 @@ end
 fn nested(m: Maybe<Outcome<Int>>) -> Int
     case m
         Some(Outcome.Completed(v)) -> v
-        Some(Outcome.Cancelled) -> -1
-        Some(Outcome.Failed(_)) -> -2
-        None -> -3
+        Some(Outcome.Cancelled)    -> -1
+        Some(Outcome.Failed(_))    -> -2
+        None                       -> -3
     end
 end
 

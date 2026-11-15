@@ -134,7 +134,7 @@ func carriesOwnType(t Type) bool {
 		}
 		return true
 	case *DistinctType:
-		if t.Rule != "" && t.Inner != nil {
+		if t.Subtype && t.Inner != nil {
 			return carriesOwnType(RefinementBase(t))
 		}
 		return !isStdOrigin(t.Origin) && len(t.TypeParams) == 0

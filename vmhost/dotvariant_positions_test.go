@@ -48,7 +48,7 @@ fn main()
     end
 
     fn first(xs: List<Int>) -> Maybe<Int>
-        Some(x) = List.head(xs) else
+        Some(x) = List.first(xs) else
             return .None
         end
         .Some(x * 10)

@@ -1668,13 +1668,13 @@ T
 C untyped_list_report.nomi
 E 1
 N 5
-H d4ea6b66a25fa758cae1953c5c965cae922b8d78e95f6d107e495a44ad06c3be
+H d6e64d0f2ba3df111e02c1bc42b559d32640db9b31b80c837c21338a50ecd222
 T ok <root>/internal/irbuild/testdata/untyped_list_report.nomi :: an untyped List call that holds
 T FAIL <root>/internal/irbuild/testdata/untyped_list_report.nomi :: a failing head renders the untyped call
 T   line 39: assertion failed
-T     assert List.head([]) != None
+T     assert List.first([]) != None
 T     values:
-T       List.head([])
+T       List.first([])
 T         = None
 T FAIL <root>/internal/irbuild/testdata/untyped_list_report.nomi :: a failing tail renders the untyped call
 T   line 43: assertion failed

@@ -9,7 +9,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt}
     iter.Iter
     lists.List
     maybe.Maybe
@@ -39,7 +39,7 @@ impl Byte
     //! b: Byte = 255
     //! assert Byte.to_int(b) == 255
     //
-    pub host fn to_int(b: Byte) -> Int
+    pub host fn to_int(b: Byte) -> NonNegativeInt
 end
 
 impl Display for Byte
@@ -121,7 +121,7 @@ impl Bytes
     /// Number of bytes in the buffer.
     //! assert Bytes.length(Bytes.from_list([97, 98])) == 2
     //
-    pub host fn length(data: Bytes) -> Int
+    pub host fn length(data: Bytes) -> NonNegativeInt
 
     /// Returns the byte at zero-based `index`, or None when the index is
     /// outside the buffer. For an index that must exist, `Bytes.get(data,

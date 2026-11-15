@@ -109,8 +109,8 @@ end
 test "read refuses a directory that does not exist"
     refused = case migrate.read("no/such/migrations")
         Err(Error.Read{path:, message: _}) -> path
-        Err(e) -> "${e}"
-        Ok(_) -> "Ok"
+        Err(e)                             -> "${e}"
+        Ok(_)                              -> "Ok"
     end
 
     assert refused == "no/such/migrations"
@@ -195,8 +195,8 @@ test "a failing migration keeps the ones before it and leaves itself and the res
     answers = on_each(fn db ->
         failed = case migrate.apply(db, [users, broken, seed])
             Err(Error.Failed{path:, error: _}) -> path
-            Err(e) -> "${e}"
-            Ok(ran) -> "ran ${ran}"
+            Err(e)                             -> "${e}"
+            Ok(ran)                            -> "ran ${ran}"
         end
 
         after_failure = recorded(db)?

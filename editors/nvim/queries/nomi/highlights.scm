@@ -53,6 +53,7 @@
 
 "fn" @keyword.function
 "type" @keyword.type
+"subtype" @keyword
 "struct" @keyword.type
 "enum" @keyword.type
 "typealias" @keyword.type

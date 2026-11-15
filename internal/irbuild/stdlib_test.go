@@ -391,7 +391,7 @@ func TestStdlibIndexKeysCarryTheirReceiver(t *testing.T) {
 	witnesses := map[string]string{
 		// Generic receivers. A SimpleType-only receiver read would file these
 		// as `lists.head` / `maps.keys` / `sets.size`.
-		"lists.List.head":       "List",
+		"lists.List.first":      "List",
 		"lists.List.equal":      "List",
 		"iter.Iter.map":         "Iter",
 		"maps.Map.keys":         "Map",

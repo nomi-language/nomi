@@ -128,9 +128,9 @@ end
 
 fn block_end(chars: Vector<String>, i: Int) -> Int
     case Vector.get(chars, i)
-        None -> i
+        None                                   -> i
         Some("*") when at(chars, i + 1) == "/" -> i + 2
-        Some(_) -> block_end(chars, i + 1)
+        Some(_)                                -> block_end(chars, i + 1)
     end
 end
 
@@ -140,8 +140,8 @@ fn quote_end(chars: Vector<String>, i: Int, quote: String) -> Int
     case Vector.get(chars, i)
         None -> i
         Some(c) when c == quote and at(chars, i + 1) == quote -> quote_end(chars, i + 2, quote)
-        Some(c) when c == quote -> i + 1
-        Some(_) -> quote_end(chars, i + 1, quote)
+        Some(c) when c == quote                               -> i + 1
+        Some(_)                                               -> quote_end(chars, i + 1, quote)
     end
 end
 
@@ -526,9 +526,9 @@ end
 
 fn word_at(words: Vector<Token>, i: Int) -> String
     case Vector.get(words, i)
-        Some(t) when t.kind == Kind.Word -> t.text
+        Some(t) when t.kind == Kind.Word   -> t.text
         Some(t) when t.kind == Kind.Quoted -> t.text |> cut_prefix("\"") |> cut_suffix("\"")
-        _ -> ""
+        _                                  -> ""
     end
 end
 

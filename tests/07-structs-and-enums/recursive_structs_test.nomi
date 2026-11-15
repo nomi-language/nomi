@@ -63,7 +63,7 @@ test "a struct holds itself through a List"
 
     assert size(tree) == 4
     assert tree == tree
-    assert List.head(tree.children) == Some(Node{name: "a", children: []})
+    assert List.first(tree.children) == Some(Node{name: "a", children: []})
     text = Debug.inspect(tree)
     assert text == "Node{name: \"root\", children: [Node{name: \"a\", children: []}, Node{name: \"b\", children: [Node{name: \"c\", children: []}]}]}"
 end

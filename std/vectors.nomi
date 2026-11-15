@@ -1,5 +1,6 @@
 import
     add.Add
+    averageable.Averageable
     bool.Bool
     comparable.Comparable
     comparable.Ordering.{self, Equal, Greater, Less}
@@ -8,7 +9,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
     maybe.Maybe.{self, None, Some}
     strings.String
@@ -27,7 +28,7 @@ impl Vector<T>
     /// Returns the number of elements. O(1).
     //! assert Vector.length(["a", "b"]) == 2
     //
-    pub host fn length<T>(vector: Vector<T>) -> Int
+    pub host fn length<T>(vector: Vector<T>) -> NonNegativeInt
 
     /// Returns the element at zero-based `index`, or None when the index is
     /// outside the vector. Use it when the index comes from data and may miss;
@@ -168,5 +169,118 @@ impl Comparable for Vector<T> where T: Comparable
                         end
                 end
         end
+    end
+end
+
+/// A Vector with at least one element, so its first, last, largest and
+/// smallest elements are values rather than `Maybe`s. A literal is checked
+/// when the program is compiled; `NonEmptyVector.try_from(v)` checks a
+/// Vector computed at run time, and `NonEmptyVector.push(v, item)` builds
+/// one from any Vector. A NonEmptyVector is a Vector and passes wherever one
+/// is expected. It is in the prelude.
+//! v: NonEmptyVector<Int> = [4, 8, 2]
+//! assert NonEmptyVector.last(v) == 2
+//! assert NonEmptyVector.min(v) == 2
+//! assert Vector.get(v, 1) == Some(8)
+//!
+//! none: Vector<Int> = []
+//! assert NonEmptyVector.try_from(none) == None
+//
+pub subtype NonEmptyVector<T> Vector<T> when fn vector -> Vector.length(vector) > 0
+
+impl NonEmptyVector<T>
+    /// A NonEmptyVector of `first` followed by the elements of `rest`, which
+    /// may be empty.
+    //! assert NonEmptyVector.of(1, [2, 3]) == Vector[1, 2, 3]
+    //
+    pub fn of<T>(first: T, rest: Vector<T>) -> NonEmptyVector<T>
+        NonEmptyVector.unchecked(Vector.concat([first], rest))
+    end
+
+    /// The first element.
+    //! assert NonEmptyVector.first([4, 5]) == 4
+    //
+    pub fn first<T>(vector: NonEmptyVector<T>) -> T
+        Vector.get(vector, 0)!
+    end
+
+    /// The last element.
+    //! assert NonEmptyVector.last([4, 5]) == 5
+    //
+    pub fn last<T>(vector: NonEmptyVector<T>) -> T
+        Vector.get(vector, Vector.length(vector) - 1)!
+    end
+
+    /// The number of elements, at least one. O(1).
+    //! assert NonEmptyVector.length(["a", "b"]) == 2
+    //
+    pub fn length<T>(vector: NonEmptyVector<T>) -> PositiveInt
+        PositiveInt.try_from(Iter.count(vector))!
+    end
+
+    /// The largest element; the first of several equal ones.
+    //! assert NonEmptyVector.max([3, 9, 4]) == 9
+    //
+    pub fn max<T>(vector: NonEmptyVector<T>) -> T where T: Comparable
+        Iter.max(vector)!
+    end
+
+    /// The smallest element; the first of several equal ones.
+    //! assert NonEmptyVector.min([3, 9, 4]) == 3
+    //
+    pub fn min<T>(vector: NonEmptyVector<T>) -> T where T: Comparable
+        Iter.min(vector)!
+    end
+
+    /// The arithmetic mean of the elements, rounded as `Iter.mean` rounds;
+    /// a value, since there is at least one.
+    //! assert NonEmptyVector.mean([2, 4]) == 3.0
+    //
+    pub fn mean<T, R>(vector: NonEmptyVector<T>) -> R where T: Averageable<R>
+        Iter.mean(vector)!
+    end
+
+    /// Combines the elements left to right with `f`, starting from the
+    /// first, so it needs no starting value.
+    //! assert NonEmptyVector.reduce([1, 2, 3], fn acc, n -> acc * n) == 6
+    //
+    pub fn reduce<T>(vector: NonEmptyVector<T>, f: (T, T) -> T) -> T
+        Iter.reduce(Iter.drop(vector, 1), first(vector), f)
+    end
+
+    /// Applies `f` to each element; the result has as many elements.
+    //! assert NonEmptyVector.map([1, 2], fn n -> n + 1) == Vector[2, 3]
+    //
+    pub fn map<T, U>(vector: NonEmptyVector<T>, f: (T) -> U) -> NonEmptyVector<U>
+        NonEmptyVector.unchecked(
+            Iter.map(vector, f)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// Each element with its index, from 0.
+    //! assert NonEmptyVector.with_index(["a"]) == Vector[(0, "a")]
+    //
+    pub fn with_index<T>(vector: NonEmptyVector<T>) -> NonEmptyVector<(NonNegativeInt, T)>
+        NonEmptyVector.unchecked(
+            Iter.with_index(vector)
+            |> Iter.to_vector()
+        )
+    end
+
+    /// The elements of `vector`, which may be empty, then `item`.
+    //! assert NonEmptyVector.push(Vector[1], 2) == Vector[1, 2]
+    //! empty: Vector<Int> = []
+    //! assert NonEmptyVector.push(empty, 2) == Vector[2]
+    //
+    pub fn push<T>(vector: Vector<T>, item: T) -> NonEmptyVector<T>
+        NonEmptyVector.unchecked(Vector.push(vector, item))
+    end
+
+    /// The elements of `a`, then those of `b`, which may be empty.
+    //! assert NonEmptyVector.concat([1], Vector[2, 3]) == Vector[1, 2, 3]
+    //
+    pub fn concat<T>(a: NonEmptyVector<T>, b: Vector<T>) -> NonEmptyVector<T>
+        NonEmptyVector.unchecked(Vector.concat(a, b))
     end
 end

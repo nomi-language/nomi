@@ -13,19 +13,19 @@ import (
 func TestGenericArgHead_ADifferentConstructorIsAMismatch(t *testing.T) {
 	errs := checkWithStdlib(`
 fn first_or<T>(xs: List<T>, d: T) -> T
-  Maybe.with_default(List.head(xs), d)
+  Maybe.with_default(List.first(xs), d)
 end
 
 fn main()
   u = begin end
   _ = Set.size(u)
-  _ = List.head(begin end)
+  _ = List.first(begin end)
   _ = Map.size(1.5)
   _ = first_or(3, 1)
   _ = Maybe.is_some(4)
   _ = Set.size(Set[1])
   _ = first_or([1], 2)
-  _ = List.head(1..3 |> Iter.to_list())
+  _ = List.first(1..3 |> Iter.to_list())
 end
 `)
 	var got []string
@@ -34,7 +34,7 @@ end
 	}
 	want := []string{
 		"8:16 argument 1: expected Set<T>, got Unit",
-		"9:17 argument 1: expected List<T>, got Unit",
+		"9:18 argument 1: expected List<T>, got Unit",
 		"10:16 argument 1: expected Map<K, V>, got Float",
 		"11:16 argument 1: expected List<T>, got Int",
 		"12:21 argument 1: expected Maybe<T>, got Int",
@@ -64,7 +64,7 @@ fn main()
   _ = Vector.get(1, 0)!
   _ = Task.await(1)
   _ = Vector.length([1])
-  _ = List.head(Vector[1])
+  _ = List.first(Vector[1])
   _ = first(UserId(1))
   _ = "" |> Vector.length()
   _ = Vector.get(Vector[1], 0)
@@ -81,7 +81,7 @@ end
 		"11:18 argument 1: expected Vector<T>, got String",
 		"12:18 argument 1: expected Vector<T>, got Int",
 		"13:18 argument 1: expected Task<T>, got Int",
-		"15:17 argument 1: expected List<T>, got Vector<Int>",
+		"15:18 argument 1: expected List<T>, got Vector<Int>",
 		"16:13 argument 1: expected Vector<T>, got UserId",
 		"17:13 `Vector.length` takes a Vector<T> as its first argument, but the pipe passes a String",
 	}

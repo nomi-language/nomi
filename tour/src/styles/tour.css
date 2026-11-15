@@ -679,6 +679,22 @@ pre.nomi-tour {
   min-height: 1.5em;
 }
 .nomi-out .nomi-err { color: var(--tour-err); }
+/* A compile error's help and notes, under the error they explain. */
+.nomi-out .nomi-diag-aside { color: var(--tour-fg); }
+/* The failure that stopped a run, closing its output as a line of its own:
+   "Stopped at line 9: division by zero". */
+.nomi-out .nomi-stop {
+  display: block;
+  margin: 0.4em 0 0;
+  padding: 0.2em 0 0.2em 0.65em;
+  border-left: 3px solid var(--tour-err);
+  background: color-mix(in srgb, var(--tour-out-bg) 92%, var(--tour-err) 8%);
+}
+.nomi-out .nomi-stop:first-child { margin-top: 0; }
+.nomi-out .nomi-stop-label {
+  font-weight: 700;
+  color: color-mix(in srgb, var(--tour-err) 80%, var(--tour-fg));
+}
 .nomi-out .nomi-test-fail { color: var(--tour-err); }
 .nomi-out .nomi-test-ok { color: var(--tour-ok); }
 .nomi-out .nomi-test-detail { color: var(--tok-comment); }
@@ -838,7 +854,11 @@ pre.nomi-tour {
   /* Muted, but kept above 4.5:1 on the output panel in both themes. */
   color: color-mix(in srgb, var(--tour-fg) 70%, var(--tour-out-bg));
 }
-.nomi-out-title.is-expected { font-style: italic; }
+/* Over a program that did not compile: "Didn't compile", in the error
+   colour pulled toward the text's so the small heading stays above 4.5:1. */
+.nomi-out-title.is-compile-error {
+  color: color-mix(in srgb, var(--tour-err) 80%, var(--tour-fg));
+}
 /* A manual block's note that the panel shows its recorded output, beside
    its Run button, until the reader runs it. */
 .nomi-out-note {

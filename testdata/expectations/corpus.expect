@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 749
-declared-cases 4163
+records 754
+declared-cases 4192
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -1098,6 +1098,17 @@ T ok <root>/tests/06-collections/named_literals_test.nomi :: the spreads take th
 T ok <root>/tests/06-collections/named_literals_test.nomi :: map and struct patterns
 T test result: ok. 8 passed, 0 failed
 T
+C 06-collections/nonempty_collections_test.nomi
+E 0
+N 5
+H 926b842719bef05eb592871e5a3a4979c7898793b25cf2fd85b4c46c4c839b3a
+T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptyList
+T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptyVector
+T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptyMap
+T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptySet
+T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: groups and runs are NonEmptyLists
+T test result: ok. 5 passed, 0 failed
+T
 C 06-collections/sets_test.nomi
 E 0
 N 8
@@ -1951,6 +1962,15 @@ T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi 
 T ok <root>/tests/10-generics-and-type-wrappers/generic_inherent_impl_test.nomi :: a generic enum with an inherent impl
 T test result: ok. 4 passed, 0 failed
 T
+C 10-generics-and-type-wrappers/generic_refinements_test.nomi
+E 0
+N 3
+H e2f2e72728ae827631416afaa8cdba585f2e565eb1563da0ba5c079c7d5af710
+T ok <root>/tests/10-generics-and-type-wrappers/generic_refinements_test.nomi :: literals are checked at their type arguments
+T ok <root>/tests/10-generics-and-type-wrappers/generic_refinements_test.nomi :: try_from checks every rule at its type arguments
+T ok <root>/tests/10-generics-and-type-wrappers/generic_refinements_test.nomi :: values convert as their parents do
+T test result: ok. 3 passed, 0 failed
+T
 C 10-generics-and-type-wrappers/generics_test.nomi
 E 0
 N 1
@@ -2019,6 +2039,30 @@ T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: destruc
 T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: a literal pattern matches a refined value
 T ok <root>/tests/10-generics-and-type-wrappers/refinements_test.nomi :: the checker rejects a value no rule vouched for
 T test result: ok. 11 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/std_refinements_test.nomi
+E 0
+N 6
+H f90ca98de518bb3525b0e84f23f8a25530f55c27d1675a6f5a948a17d8790ae7
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the prelude's numeric refinements take literals
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveInt passes as a NonNegativeInt, a NonZeroInt and an Int
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: try_from checks each parent's rule and its own
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the converted functions take refined arguments
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveDuration takes a typed literal
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a computed value goes through try_from
+T test result: ok. 6 passed, 0 failed
+T
+C 10-generics-and-type-wrappers/subtypes_test.nomi
+E 0
+N 6
+H cacf4e249de058a7ca224b1bf004e8142c82290fdb3d3b88aef1b0e9071698e0
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a validated type is built from a checked literal or try_from
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a type over a subtype checks the subtype's rules
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a rule's type implements TryFrom of its base
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: an intersection of subtypes takes a value of each
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: a generic alias is its target
+T ok <root>/tests/10-generics-and-type-wrappers/subtypes_test.nomi :: the checker refuses what converts nowhere
+T test result: ok. 6 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/turbofish_test.nomi
 E 0
@@ -2956,6 +3000,21 @@ T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a Maybe enters 
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: Maybe.map and Iter.map stay apart
 T ok <root>/tests/13-iterators-and-pipes/maybe_iter_test.nomi :: a lambda in a pipeline compares a prelude Maybe
 T test result: ok. 6 passed, 0 failed
+T
+C 13-iterators-and-pipes/mean_test.nomi
+E 0
+N 9
+H 088947811e993e862cd42a40dcbdc63a89ba3e39e5264f245014cb9d1762b46b
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: an empty source has no mean
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: an Int mean is the exact fraction rounded once to a Float
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: a Float mean sums with compensation
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: a Decimal mean divides the exact sum with Decimal's /
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: a Duration mean rounds to the nearest nanosecond, ties to even
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: mean_by averages a key of each element
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: a lazy source averages without a list
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: NonNegativeInt lengths average as Ints, to a Float
+T ok <root>/tests/13-iterators-and-pipes/mean_test.nomi :: a program type implements Averageable
+T test result: ok. 9 passed, 0 failed
 T
 C 13-iterators-and-pipes/min_max_test.nomi
 E 0
@@ -4071,14 +4130,14 @@ T
 C 16-concurrency/message_loop/message_loop_test.nomi
 E 0
 N 4
-H 486a09cc2a4ecf5d5f8e7960ca09e98e70babd50b1b2df9f579bdc227cfc9252
+H de13dfe5bf2085442747e05a09ef6ba7f221179eed5edf2ce834e85117586478
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / each caller gets its own reply
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 103: division by zero — retrying in <jitter>
+T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
 T
 C 16-concurrency/select_test.nomi
 E 0

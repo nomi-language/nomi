@@ -12,10 +12,10 @@ import (
 // fails here.
 func TestIRStdlibTrap_ReportsTheProgramsLine(t *testing.T) {
 	for name, want := range map[string]string{
-		// The trap is in the host function std/int.nomi's `to_digits` calls.
-		"stdlib_trap_digits.nomi": "line 9: Int.to_digits: negative number -5\n",
+		// The trap is in the host function std/float.nomi's `clamp` calls.
+		"stdlib_trap_clamp.nomi": "line 9: Comparable.clamp: low 2.0 is greater than high 1.0\n",
 		// The zero divisor is in std/int.nomi's `modulo`.
-		"stdlib_trap_modulo.nomi": "line 7: division by zero\n",
+		"stdlib_trap_modulo.nomi": "line 8: division by zero\n",
 		// Iter.sum, its reduce lambda and Duration's Add impl: the
 		// program's line is the `|> Iter.sum()` stage.
 		"stdlib_trap_deep.nomi": "line 15: Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way\n",

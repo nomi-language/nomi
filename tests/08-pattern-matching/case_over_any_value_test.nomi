@@ -22,7 +22,7 @@ end
 test "a guard over an Iter"
     n = case Iter.from(1)
         it when Iter.first(it) == Some(1) -> 1
-        _ -> 0
+        _                                 -> 0
     end
 
     assert n == 1

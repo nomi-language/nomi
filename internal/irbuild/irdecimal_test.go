@@ -77,13 +77,13 @@ end
 // with Int's `/` text at the operator's or the call's line.
 func TestIRDecimal_DivisionFaults(t *testing.T) {
 	for _, tc := range []struct{ name, call, want string }{
-		{"divide_exact", "Decimal.divide_exact(n, 0d) |> Maybe.with_default(0d)", "line 3: division by zero"},
-		{"operator", "n / 0d", "line 3: division by zero"},
-		{"Divide.divide", "Divide.divide(n, 0.00d)", "line 3: division by zero"},
+		{"divide_exact", "Decimal.divide_exact(n, zero) |> Maybe.with_default(0d)", "line 3: division by zero"},
+		{"operator", "n / zero", "line 3: division by zero"},
+		{"Divide.divide", "Divide.divide(n, zero)", "line 3: division by zero"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "main.nomi")
-			src := "fn divide() -> Decimal\n  n = 1d\n  " + tc.call + "\nend\nfn main()\n  _ = divide()\nend\n"
+			src := "fn divide(zero: Decimal) -> Decimal\n  n = 1d\n  " + tc.call + "\nend\nfn main()\n  _ = divide(0.00d)\nend\n"
 			if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 				t.Fatal(err)
 			}

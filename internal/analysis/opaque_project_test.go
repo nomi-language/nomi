@@ -100,21 +100,21 @@ func opaqueExpectNoErrors(t *testing.T, errs []analysis.TypeError) {
 // Round 2.2 — constructor calls outside the owning module are blocked.
 
 func TestOpaque_BlocksConstructorOutsideOwningModule(t *testing.T) {
-	// Unqualified-import form — selective import lifts PositiveInt into
-	// local scope; calling `PositiveInt(5)` directly is the common case.
+	// Unqualified-import form — selective import lifts PosCount into
+	// local scope; calling `PosCount(5)` directly is the common case.
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 `,
-		"main.nomi": `import positive_int.{PositiveInt}
+		"main.nomi": `import positive_int.{PosCount}
 
 fn main()
-  p = PositiveInt(5)
+  p = PosCount(5)
 end
 `,
 	})
@@ -122,16 +122,16 @@ end
 }
 
 func TestOpaque_AllowsConstructorInsideOwningModule(t *testing.T) {
-	// Smart constructor inside the owning module uses PositiveInt(n)
+	// Smart constructor inside the owning module uses PosCount(n)
 	// freely. This must not error. Calling from main uses the exported
 	// `from_int`.
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 `,
 		"main.nomi": `import positive_int
@@ -169,10 +169,10 @@ func TestOpaque_IntCallOutsideOwningModuleNamesTheAccessors(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 `,
 		"main.nomi": `import positive_int
@@ -186,7 +186,7 @@ fn main()
 end
 `,
 	})
-	opaqueExpectErrorContains(t, errs, "`Int` is a type, not a function\nhelp: the value inside PositiveInt is private to the file that declares it; use a function its module exports")
+	opaqueExpectErrorContains(t, errs, "`Int` is a type, not a function\nhelp: the value inside PosCount is private to the file that declares it; use a function its module exports")
 }
 
 func TestOpaque_AllowsParameterDestructuringInsideOwningModule(t *testing.T) {
@@ -195,13 +195,13 @@ func TestOpaque_AllowsParameterDestructuringInsideOwningModule(t *testing.T) {
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 
-pub fn to_int(PositiveInt(n)) -> Int
+pub fn to_int(PosCount(n)) -> Int
   n
 end
 `,
@@ -237,23 +237,23 @@ end
 // Round 2.4 — pattern destructuring outside owning module is blocked.
 
 func TestOpaque_BlocksDestructuringOutsideOwningModule(t *testing.T) {
-	// Outside the owning module, `case p { PositiveInt(n) -> ... }`
+	// Outside the owning module, `case p { PosCount(n) -> ... }`
 	// destructures the opaque type and exposes the wrapped value.
 	// Block it.
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 `,
-		"main.nomi": `import positive_int.{PositiveInt}
+		"main.nomi": `import positive_int.{PosCount}
 
-fn unwrap(p: PositiveInt) -> Int
+fn unwrap(p: PosCount) -> Int
   case p
-    PositiveInt(n) -> n
+    PosCount(n) -> n
   end
 end
 `,
@@ -262,20 +262,20 @@ end
 }
 
 func TestOpaque_AllowsDestructuringInsideOwningModule(t *testing.T) {
-	// Inside the owning module, `case p { PositiveInt(n) -> ... }` is
+	// Inside the owning module, `case p { PosCount(n) -> ... }` is
 	// fine — that's how the owner accesses its own representation.
 	_, errs := opaqueProject(t, map[string]string{
 		"positive_int.nomi": `
 
-pub opaque type PositiveInt Int
+pub opaque type PosCount Int
 
-pub fn from_int(n: Int) -> Maybe<PositiveInt>
-  if n > 0 then Some(PositiveInt(n)) else None
+pub fn from_int(n: Int) -> Maybe<PosCount>
+  if n > 0 then Some(PosCount(n)) else None
 end
 
-pub fn to_int(p: PositiveInt) -> Int
+pub fn to_int(p: PosCount) -> Int
   case p
-    PositiveInt(n) -> n
+    PosCount(n) -> n
   end
 end
 `,

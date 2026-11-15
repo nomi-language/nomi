@@ -70,3 +70,76 @@ func (g *gen) monoInstanceAt(ref ast.Node, tpl *monoTemplate, name string) (*mon
 	}
 	return inst, true
 }
+
+// recordedTypeArg is the kind the checker instantiated the type parameter
+// name of t's callee at. A std operation lowered as a host crossing
+// (listCallPlan, vectorCallPlan, setCallPlan, mapOperandsAtSolved) or by
+// the builder itself (`Iter.concat`) reads its element kind here rather
+// than off its first operand: `List.concat(circles, shapes)` solved T to
+// Circle at the first argument and widened it to Shape at the second (spec
+// §4 *Chains and conversion*), so the first operand converts to
+// `List<Shape>` as a user function's argument would. method is the
+// callee's name, which t must name.
+//
+// kindInvalid: sentinel — nothing recorded, or a kind outside the value
+// domain: a call the builder made for another construct (`xs + ys`, a
+// spread, a host call standing for a derived body), which names no callee
+// of its own or names the construct's, or a std body's own type
+// parameter. The caller keeps the operands' kinds.
+func (g *gen) recordedTypeArg(t *ast.Call, method, name string) kind {
+	sym := g.calleeRecord(t, method)
+	if sym == nil {
+		return kindInvalid
+	}
+	return g.valueKindOf(analysis.CallTypeArgs(sym)[name])
+}
+
+// solvedParamKind is the kind of t's i-th parameter in the signature the
+// checker instantiated its callee at, as recordedTypeArg reads a type
+// argument: an operand a later one widened its type parameter past
+// converts to it. kindInvalid: sentinel — as recordedTypeArg's.
+func (g *gen) solvedParamKind(t *ast.Call, method string, i int) kind {
+	sym := g.calleeRecord(t, method)
+	if sym == nil {
+		return kindInvalid
+	}
+	ft, _ := sym.CallType.(*analysis.FuncType)
+	if ft == nil || i >= len(ft.Params) {
+		return kindInvalid
+	}
+	return g.valueKindOf(ft.Params[i])
+}
+
+// calleeRecord is the checker's reference record at t's callee when t
+// calls `Owner.method`, or method by a bare imported name, or nil.
+func (g *gen) calleeRecord(t *ast.Call, method string) *analysis.Symbol {
+	if g.fa == nil || t == nil {
+		return nil
+	}
+	switch f := t.Func.(type) {
+	case *ast.FieldAccess:
+		if f.Field == nil || f.Field.Name != method {
+			return nil
+		}
+	case *ast.Ident:
+		if f.Name != method {
+			return nil
+		}
+	default:
+		return nil
+	}
+	line, col := calleeRefPos(t.Func)
+	return g.srcFA().References[analysis.Pos{Line: line, Col: col}]
+}
+
+// valueKindOf is ty projected, or kindInvalid (a sentinel) for no type or
+// one outside the value domain.
+func (g *gen) valueKindOf(ty analysis.Type) kind {
+	if ty == nil {
+		return kindInvalid
+	}
+	if k := g.project(ty); irCallableValueKind(k) {
+		return k
+	}
+	return kindInvalid
+}

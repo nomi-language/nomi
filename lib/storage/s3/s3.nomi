@@ -437,7 +437,7 @@ fn attempt(
     outcome = case Client.fetch(bucket.client, signed)
         Ok(response) when Status.is_success(response.status) -> Ok(response)
         Ok(response) -> Err(failure(key, response))
-        Err(error) -> Err(from_http(error))
+        Err(error)   -> Err(from_http(error))
     end
 
     case outcome
@@ -658,11 +658,11 @@ end
 
 fn payload_hash(body: Body, payload: Payload) -> String
     case (payload, body)
-        (.Unsigned, _) -> "UNSIGNED-PAYLOAD"
-        (.Signed, .Empty) -> hash.sha256_hex(String.to_bytes(""))
-        (.Signed, .Text(text)) -> hash.sha256_hex(String.to_bytes(text))
+        (.Unsigned, _)          -> "UNSIGNED-PAYLOAD"
+        (.Signed, .Empty)       -> hash.sha256_hex(String.to_bytes(""))
+        (.Signed, .Text(text))  -> hash.sha256_hex(String.to_bytes(text))
         (.Signed, .Bytes(data)) -> hash.sha256_hex(data)
-        _ -> "UNSIGNED-PAYLOAD"
+        _                       -> "UNSIGNED-PAYLOAD"
     end
 end
 

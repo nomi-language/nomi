@@ -4,7 +4,7 @@ package analysis
 //
 // The language permits an inference variable to stay unsolved where no
 // value of its type is made (undetermined.go): `[]`'s element, `Ok(1)`'s
-// error type, `List.head([])`'s Maybe. The program means the same whatever
+// error type, `List.first([])`'s Maybe. The program means the same whatever
 // the variable is, but the IR builder still has to pick a representation
 // for it, and every record that mentions the variable (ExprTypes, a call's
 // CallType, a binding's type) has to give it the same one, or an argument

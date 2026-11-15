@@ -1,15 +1,17 @@
 import
     add.Add
     bool.Bool.{self, True}
+    comparable.Comparable
     contains.Contains
     debug.Debug
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
+    lists.NonEmptyList
     maps.Map
-    maybe.Maybe.{self, Some}
+    maybe.Maybe.{self, None, Some}
     strings.String
     subtract.Subtract
     summable.Summable
@@ -43,7 +45,7 @@ impl Set<T>
     /// `Iter.count`.
     //! assert Set.size([1, 2, 3]) == 3
     //
-    pub fn size<T>(s: Set<T>) -> Int
+    pub fn size<T>(s: Set<T>) -> NonNegativeInt
         Map.size(s.items)
     end
 
@@ -171,5 +173,84 @@ impl Subtract<Set<T>, Set<T>> for Set<T>
     //
     fn subtract(a: Set<T>, rhs: Set<T>) -> Set<T>
         Set.difference(a, rhs)
+    end
+end
+
+/// A Set with at least one element. A literal is checked when the program
+/// is compiled; `NonEmptySet.try_from(s)` checks a Set computed at run
+/// time, and `NonEmptySet.insert(s, item)` builds one from any Set. Its
+/// smallest and largest elements are values rather than `Maybe`s. A
+/// NonEmptySet is a Set and passes wherever one is expected. It is in the
+/// prelude.
+//! tags: NonEmptySet<String> = ["b", "a"]
+//! assert NonEmptySet.min(tags) == "a"
+//! assert Set.size(tags) == 2
+//!
+//! none: Set<String> = []
+//! assert NonEmptySet.try_from(none) == None
+//
+pub subtype NonEmptySet<T> Set<T> when fn s -> Set.size(s) > 0
+
+impl NonEmptySet<T>
+    /// A NonEmptySet of `first` and the elements of `rest`, which may be
+    /// empty.
+    //! assert NonEmptySet.of(1, Set[2, 1]) == Set[1, 2]
+    //
+    pub fn of<T>(first: T, rest: Set<T>) -> NonEmptySet<T>
+        NonEmptySet.unchecked(Set.union([first], rest))
+    end
+
+    /// The number of elements, at least one.
+    //! assert NonEmptySet.size(["a", "b"]) == 2
+    //
+    pub fn size<T>(s: NonEmptySet<T>) -> PositiveInt
+        PositiveInt.try_from(Iter.count(s))!
+    end
+
+    /// The largest element.
+    //! assert NonEmptySet.max([3, 9, 4]) == 9
+    //
+    pub fn max<T>(s: NonEmptySet<T>) -> T where T: Comparable
+        Iter.max(s)!
+    end
+
+    /// The smallest element.
+    //! assert NonEmptySet.min([3, 9, 4]) == 3
+    //
+    pub fn min<T>(s: NonEmptySet<T>) -> T where T: Comparable
+        Iter.min(s)!
+    end
+
+    /// Applies `f` to each element; equal results collapse to one.
+    //! assert NonEmptySet.map([1, 2, 3], fn n -> n % 2) == Set[1, 0]
+    //
+    pub fn map<T, U>(s: NonEmptySet<T>, f: (T) -> U) -> NonEmptySet<U>
+        NonEmptySet.unchecked(
+            Iter.map(s, f)
+            |> Iter.to_set()
+        )
+    end
+
+    /// The elements as a NonEmptyList, in the set's order.
+    //! assert NonEmptySet.to_list(["a", "b"]) == ["a", "b"]
+    //
+    pub fn to_list<T>(s: NonEmptySet<T>) -> NonEmptyList<T>
+        NonEmptyList.try_from(Iter.to_list(s))!
+    end
+
+    /// `s`, which may be empty, with `item` added.
+    //! assert NonEmptySet.insert(Set[1], 2) == Set[1, 2]
+    //! empty: Set<Int> = []
+    //! assert NonEmptySet.insert(empty, 2) == Set[2]
+    //
+    pub fn insert<T>(s: Set<T>, item: T) -> NonEmptySet<T>
+        NonEmptySet.unchecked(Set.insert(s, item))
+    end
+
+    /// The elements of `a` and of `b`, which may be empty.
+    //! assert NonEmptySet.union([1], Set[2]) == Set[1, 2]
+    //
+    pub fn union<T>(a: NonEmptySet<T>, b: Set<T>) -> NonEmptySet<T>
+        NonEmptySet.unchecked(Set.union(a, b))
     end
 end

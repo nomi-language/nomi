@@ -331,6 +331,16 @@ derive Equatable for Duration
 derive Hashable for Duration
 derive Comparable for Duration
 
+/// A Duration longer than zero: a schedule's interval, which
+/// `jobs.Schedule.every` takes. A typed literal is checked when the program
+/// is compiled; `PositiveDuration.try_from(d)` checks a Duration computed at
+/// run time.
+//! every: PositiveDuration = Duration"15m"
+//! assert every == Duration.minutes(15)
+//! assert PositiveDuration.try_from(Duration.seconds(0)) == None
+//
+pub subtype PositiveDuration Duration when fn d -> Duration.as_nanos(d) > 0
+
 impl Add<Duration, Duration> for Duration
     /// Sum of two Durations.
     //! assert Duration.add(Duration.seconds(1), Duration.milliseconds(500)) == Duration.milliseconds(1500)

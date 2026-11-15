@@ -145,9 +145,9 @@ end
 ///
 /// ```nomi
 /// case fs.read_text("notes.txt")
-///     Ok(text) -> io.print(text)
+///     Ok(text)                        -> io.print(text)
 ///     Err(io.Error.NotFound{path: _}) -> io.print("no notes yet")
-///     Err(e) -> io.eprint("cannot read the notes: ${e}")
+///     Err(e)                          -> io.eprint("cannot read the notes: ${e}")
 /// end
 /// ```
 //! import std::fs::testing.{self, Sandbox}
@@ -1036,9 +1036,9 @@ end
 //
 pub fn exists(path: String) -> Result<Bool, Error>
     case host.metadata(path)
-        Ok(_) -> Ok(True)
+        Ok(_)                        -> Ok(True)
         Err(Error.NotFound{path: _}) -> Ok(False)
-        Err(e) -> Err(e)
+        Err(e)                       -> Err(e)
     end
 end
 

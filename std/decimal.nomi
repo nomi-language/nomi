@@ -8,7 +8,7 @@ import
     equatable.Equatable
     float.Float
     hashable.Hashable
-    int.{Int, PositiveInt}
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
     lists.List
     locale.Locale
@@ -105,9 +105,9 @@ impl Decimal
     /// `d` multiplied by itself `exp` times, exactly, as `*` multiplies: the
     /// scale is `exp` times `d`'s, so `1.5d` squared is `2.25d` and `1.50d`
     /// squared `2.2500d`. `Decimal.pow(d, 0)` is `1d` for every `d`, `0d`
-    /// included. A negative `exp` traps: its result is a quotient that may
-    /// not end, so write `1d / Decimal.pow(d, n)`, or `Decimal.divide` to
-    /// name the rounding. A result whose scale is past
+    /// included. `exp` is a `NonNegativeInt`: a negative power is a
+    /// quotient that may not end, so write `1d / Decimal.pow(d, n)`, or
+    /// `Decimal.divide` to name the rounding. A result whose scale is past
     /// Decimal's (about two billion digits) traps too.
     //! assert Decimal.pow(1.5d, 2) == 2.25d
     //! assert Decimal.to_string(Decimal.pow(1.50d, 2)) == "2.2500"
@@ -115,18 +115,20 @@ impl Decimal
     //! assert Decimal.pow(0d, 0) == 1d
     //! assert 1d / Decimal.pow(2d, 3) == 0.125d
     //
-    pub host fn pow(d: Decimal, exp: Int) -> Decimal
+    pub host fn pow(d: Decimal, exp: NonNegativeInt) -> Decimal
 
     /// The square root of `d` to exactly `scale` digits after the decimal
     /// point, rounding with `mode`, as `Decimal.divide` rounds its quotient.
     /// A root that ends within `scale` digits is exact under every mode; one
-    /// that does not traps under `Unnecessary`. A negative `d` traps.
+    /// that does not traps under `Unnecessary`. `d` is a
+    /// `NonNegativeDecimal`, and so is its root; a value from data goes
+    /// through `NonNegativeDecimal.try_from`.
     //! assert Decimal.sqrt(2d, 4, RoundingMode.HalfEven) == 1.4142d
     //! assert Decimal.sqrt(2d, 4, RoundingMode.Up) == 1.4143d
     //! assert Decimal.to_string(Decimal.sqrt(6.25d, 3, RoundingMode.Unnecessary)) == "2.500"
     //! assert Decimal.sqrt(0d, 2, RoundingMode.HalfEven) == 0d
     //
-    pub host fn sqrt(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+    pub host fn sqrt(d: NonNegativeDecimal, scale: Int, mode: RoundingMode) -> NonNegativeDecimal
 
     /// Strips trailing fractional zeros, returning the value at its minimal scale.
     /// Integer magnitude is never reduced (`100d` stays `100d`, scale 0). Zero
@@ -146,11 +148,11 @@ impl Decimal
     //
     pub host fn scale(d: Decimal) -> Int
 
-    /// Returns |d| (scale preserved).
+    /// Returns |d| (scale preserved), a `NonNegativeDecimal`.
     //! assert Decimal.abs(-1.50d) == 1.50d
     //
-    pub fn abs(d: Decimal) -> Decimal
-        if d < 0d then 0d - d else d
+    pub fn abs(d: Decimal) -> NonNegativeDecimal
+        NonNegativeDecimal.unchecked(if d < 0d then 0d - d else d)
     end
 
     /// Returns -d (scale preserved). Negating zero stays zero.
@@ -191,19 +193,14 @@ impl Decimal
     /// when `d` has more, it is split in units of its own last digit, so
     /// `0.125d` split two ways at scale 2 is `0.063d` and `0.062d`, which
     /// still sum to it. `n` is a `PositiveInt`, so there is at least one
-    /// part. A negative `scale` traps: `Decimal.split: scale must not be
-    /// negative, got -1`.
+    /// part, and `scale` a `NonNegativeInt`.
     //! assert Decimal.split(100d, 3, 2) == [33.34d, 33.33d, 33.33d]
     //! assert Display.to_string(Decimal.split(100d, 3, 2)) == "[33.34, 33.33, 33.33]"
     //! assert Decimal.split(-0.05d, 2, 2) == [-0.03d, -0.02d]
     //! assert Decimal.split(10d, 4, 0) == [3d, 3d, 2d, 2d]
     //! assert Decimal.split(0.125d, 2, 2) == [0.063d, 0.062d]
     //
-    pub fn split(d: Decimal, n: PositiveInt, scale: Int) -> List<Decimal>
-        if scale < 0 then
-            decimal_refused("Decimal.split", "scale must not be negative, got ${scale}")
-        end
-
+    pub fn split(d: Decimal, n: PositiveInt, scale: NonNegativeInt) -> List<Decimal>
         allocated(
             d,
             Iter.repeat(1)
@@ -225,15 +222,15 @@ impl Decimal
     /// `scale` is the least number of digits after the point a part has:
     /// when `d` has more, it is split in units of its own last digit, so the
     /// parts still sum to it, and each part has that many digits. An empty
-    /// list of ratios, a negative ratio, ratios that are all zero, or a
-    /// negative `scale` trap, naming the problem: `Decimal.allocate: the
-    /// ratios are all zero`.
+    /// list of ratios, a negative ratio, or ratios that are all zero trap,
+    /// naming the problem: `Decimal.allocate: the ratios are all zero`.
+    /// `scale` is a `NonNegativeInt`.
     //! assert Decimal.allocate(0.05d, [3, 7], 2) == [0.02d, 0.03d]
     //! assert Decimal.allocate(10d, [70, 0, 30], 2) == [7d, 0d, 3d]
     //! assert Decimal.allocate(-1d, [1, 2], 2) == [-0.34d, -0.66d]
     //! assert Decimal.allocate(1.5d, [1, 1], 0) == [0.8d, 0.7d]
     //
-    pub fn allocate(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal>
+    pub fn allocate(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decimal>
         if Iter.is_empty(ratios) then decimal_refused("Decimal.allocate", "there are no ratios")
 
         case Iter.find(ratios, fn r -> r < 0)
@@ -243,10 +240,6 @@ impl Decimal
 
         if Iter.all_match(ratios, fn r -> r == 0) then
             decimal_refused("Decimal.allocate", "the ratios are all zero")
-        end
-
-        if scale < 0 then
-            decimal_refused("Decimal.allocate", "scale must not be negative, got ${scale}")
         end
 
         allocated(d, ratios, scale)
@@ -381,8 +374,12 @@ end
 // the larger of `scale` and `d`'s own scale rounded toward zero, and the
 // units left over one each to the nonzero ratios in order. The sign is set
 // apart, so a negative amount splits as its magnitude does.
-fn allocated(d: Decimal, ratios: List<Int>, scale: Int) -> List<Decimal>
-    digits = Int.max(scale, Decimal.scale(d))
+fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decimal>
+    digits: NonNegativeInt = case NonNegativeInt.try_from(Decimal.scale(d))
+        Some(own) -> if own > scale then own else scale
+        None      -> scale
+    end
+
     unit = Decimal.pow(10d, digits)
     units = Decimal.to_int(d * unit)
     sign = if units < 0 then -1 else 1
@@ -469,7 +466,8 @@ end
 impl Divide<Decimal, Decimal> for Decimal
     /// `lhs / rhs`: the quotient rounded half-even to 34 significant digits,
     /// with no trailing zeros after the point. A quotient that ends within
-    /// 34 digits is exact. A zero `rhs` traps, as Int's `/` does.
+    /// 34 digits is exact. A zero `rhs` traps, as Int's `/` does; a
+    /// `NonZeroDecimal` divisor, which is a Decimal, cannot be zero.
     //! assert Decimal.to_string(10.00d / 4d) == "2.5"
     //! assert Decimal.to_string(10d / 3d) == "3.333333333333333333333333333333333"
     //! assert Decimal.to_string(1d / 4d) == "0.25"
@@ -483,7 +481,7 @@ impl Remainder<Decimal, Decimal> for Decimal
     /// `lhs % rhs`: `lhs - rhs * q`, where `q` is the quotient truncated
     /// toward zero. Exact, never rounds, and takes the sign of `lhs`; the
     /// scale is the larger of the operands'. A zero `rhs` traps, as Int's
-    /// `%` does.
+    /// `%` does, and a `NonZeroDecimal` cannot be zero.
     //! assert 10.5d % 3d == 1.5d
     //! assert Decimal.to_string(7.25d % 0.5d) == "0.25"
     //! assert -7.5d % 2d == -1.5d
@@ -555,6 +553,33 @@ end
 /// - `HalfDown` — nearest; ties toward zero
 /// - `HalfEven` — nearest; ties to even (banker's rounding)
 /// - `Unnecessary` — assert exactness; runtime error if rounding is needed
+/// A Decimal that is not zero, so dividing by one cannot trap. A literal is
+/// checked when the program is compiled; `NonZeroDecimal.try_from(d)`
+/// checks a value at run time. It is in the prelude.
+//! d: NonZeroDecimal = 4d
+//! assert 10d / d == 2.5d
+//! assert NonZeroDecimal.try_from(0.00d) == None
+//
+pub subtype NonZeroDecimal Decimal when fn d -> d != 0d
+
+/// A Decimal that is zero or more: an amount, a rate, what `Decimal.sqrt`
+/// takes. A literal is checked when the program is compiled;
+/// `NonNegativeDecimal.try_from(d)` checks a value at run time. It is in the
+/// prelude.
+//! r: NonNegativeDecimal = 6.25d
+//! assert Decimal.sqrt(r, 1, RoundingMode.HalfEven) == 2.5d
+//! assert NonNegativeDecimal.try_from(-0.01d) == None
+//
+pub subtype NonNegativeDecimal Decimal when fn d -> d >= 0d
+
+/// A Decimal greater than zero. It refines both `NonNegativeDecimal` and
+/// `NonZeroDecimal`, so a PositiveDecimal passes wherever either, or a
+/// Decimal, is expected. It is in the prelude.
+//! assert PositiveDecimal.try_from(0.5d) == Some(0.5d)
+//! assert PositiveDecimal.try_from(0d) == None
+//
+pub subtype PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d > 0d
+
 pub enum RoundingMode
     Up
     Down

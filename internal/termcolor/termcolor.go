@@ -152,7 +152,7 @@ func nomiTokenColor(tok token.Token) string {
 	switch tok.Type {
 	case token.AND, token.OR, token.NOT, token.IS, token.IN, token.IF, token.ELSE, token.FN, token.RETURN,
 		token.CASE, token.WHEN, token.TYPE, token.STRUCT, token.ENUM,
-		token.TYPEALIAS, token.BREAK, token.CONTINUE, token.IT,
+		token.TYPEALIAS, token.SUBTYPE, token.BREAK, token.CONTINUE, token.IT,
 		token.INTERFACE, token.IMPL, token.AS, token.FOR, token.IMPORT,
 		token.EXTERN, token.EXPORT, token.PUB, token.ONCE,
 		token.OPAQUE, token.WHERE, token.WITH, token.DEFER,

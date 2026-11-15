@@ -12,10 +12,10 @@ end
 /// elements appear there in order and next to each other.
 pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatable
     case
-        first == second -> .Equal
+        first == second             -> .Equal
         contains_run(second, first) -> .Sublist
         contains_run(first, second) -> .Superlist
-        _ -> .Unequal
+        _                           -> .Unequal
     end
 end
 

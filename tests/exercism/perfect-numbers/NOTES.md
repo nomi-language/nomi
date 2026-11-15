@@ -13,6 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/perfect-numbers.
 - `aliquot_sum` finds divisors only up to the square root and adds each with its pair (`divisor_pair`), so the cases near 33.5 million take about 5,800 steps rather than 33 million.
 - The divisor search runs over the range `1..=Int.sqrt(number)`.
 - Each canonical group is a test named by the group's description, with one `subtests` table, since every row in a group expects the same answer.
+- `classify` checks the number with `PositiveInt.try_from`, whose `None` is `Error.NotPositive`, so `aliquot_sum` takes a `PositiveInt` and `Int.sqrt` takes it as it is.
 
 ## Friction
 

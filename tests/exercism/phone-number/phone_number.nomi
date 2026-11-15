@@ -45,11 +45,11 @@ fn national(digits: List<Int>) -> Result<List<Int>, Error>
     count = Iter.count(digits)
 
     case digits
-        _ when count < 10 -> Err(.TooFewDigits)
-        _ when count == 10 -> Ok(digits)
+        _ when count < 10            -> Err(.TooFewDigits)
+        _ when count == 10           -> Ok(digits)
         [1, ..rest] when count == 11 -> Ok(rest)
-        _ when count == 11 -> Err(.CountryCodeNotOne)
-        _ -> Err(.TooManyDigits)
+        _ when count == 11           -> Err(.CountryCodeNotOne)
+        _                            -> Err(.TooManyDigits)
     end
 end
 

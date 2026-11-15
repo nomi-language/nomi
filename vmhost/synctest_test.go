@@ -309,14 +309,14 @@ end
 func TestSynctestRestartBackoffVirtualizesItsDelays(t *testing.T) {
 	src := supervisorProgram("shutdown_timeout: Duration.minutes(10), max_running: 1, "+
 		"restart: Restart.Transient, backoff: Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}", `
-fn breaks() -> Unit
+fn breaks(zero: Int) -> Unit
   io.print("run")
-  _ = 1 / 0
+  _ = 1 / zero
   Unit
 end
 
 fn main() -> Unit
-  _ = Supervisor.spawn(Config.notify, fn -> breaks())
+  _ = Supervisor.spawn(Config.notify, fn -> breaks(0))
 end
 `)
 	src = strings.Replace(src, "  std::supervisors.Supervisor\n", "  std::supervisors.{Backoff, Restart, Supervisor}\n", 1)

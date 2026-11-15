@@ -75,7 +75,8 @@ end
 /// `value / max`, and at least `a` while `a` is at most the square root.
 fn factors(value: Int, min: Int, max: Int) -> List<(Int, Int)>
     from = Int.max(min, (value + max - 1) / max)
-    to = Int.min(max, Int.sqrt(value))
+    // A product of the factors is never negative.
+    to = Int.min(max, Int.sqrt(NonNegativeInt.try_from(value)!))
 
     from..=to
     |> Iter.filter(&(value % &1 == 0))
@@ -86,8 +87,10 @@ end
 /// The first and last of the first halves of the palindromes of `length`
 /// digits: `100` and `999` for five or six digits.
 fn halves(length: Int) -> (Int, Int)
-    half_length = (length + 1) / 2
-    (Int.pow(10, half_length - 1), Int.pow(10, half_length) - 1)
+    // A palindrome has at least one digit.
+    half_length = NonNegativeInt.try_from((length + 1) / 2 - 1)!
+    low = Int.pow(10, half_length)
+    (low, low * 10 - 1)
 end
 
 /// The palindrome of `length` digits whose first half is `half`: `half`
@@ -103,5 +106,5 @@ fn mirror(half: Int, length: Int) -> Int
 end
 
 fn digit_count(n: Int) -> Int
-    n |> Int.to_digits() |> Iter.count()
+    NonNegativeInt.try_from(n)! |> Int.to_digits() |> Iter.count()
 end

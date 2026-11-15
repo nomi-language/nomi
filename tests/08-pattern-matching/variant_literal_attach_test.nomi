@@ -53,17 +53,17 @@ test "variant literal-attach patterns destructure payloads"
 
     call_obj = case obj_call
         .Obj({"b" => .Num(n)}) -> "call-obj: b=${n}"
-        _ -> "no match"
+        _                      -> "no match"
     end
 
     flat_arr = case arr_flat
         .Arr[.Num(a), .Num(b), .Num(c)] -> "flat-arr: ${a}, ${b}, ${c}"
-        _ -> "no match"
+        _                               -> "no match"
     end
 
     call_arr = case arr_flat
         .Arr([.Num(_), ..rest]) -> "call-arr len: ${Iter.count(rest)}"
-        _ -> "no match"
+        _                       -> "no match"
     end
 
     flat_pos = case pos_flat
@@ -78,7 +78,7 @@ test "variant literal-attach patterns destructure payloads"
 
     spread = case arr_flat
         .Arr[.Num(head), ..rest] -> "spread: head=${head} rest-len=${Iter.count(rest)}"
-        _ -> "no match"
+        _                        -> "no match"
     end
 
     assert flat_obj == "flat-obj: a=1"
@@ -102,12 +102,12 @@ test "nested literal-attach patterns work inside wrapped variants"
 
     nested_flat = case wrapped
         Some(.Obj{"k" => .Num(n)}) -> n
-        _ -> 0
+        _                          -> 0
     end
 
     nested_arr = case wrapped_arr
         Some(.Arr[.Num(a), .Num(b)]) -> "${a}, ${b}"
-        _ -> "no match"
+        _                            -> "no match"
     end
 
     assert map_size == 1

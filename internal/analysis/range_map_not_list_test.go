@@ -6,7 +6,7 @@ import "testing"
 // a List<Int> parameter does; the spec defines no conversion to a List, and
 // an Iter consumer is what takes either one.
 func TestRangeAndMapAreNotLists(t *testing.T) {
-	const decls = "fn first<T>(xs: List<T>) -> Maybe<T>\n  List.head(xs)\nend\n\n"
+	const decls = "fn first<T>(xs: List<T>) -> Maybe<T>\n  List.first(xs)\nend\n\n"
 	for _, tc := range []struct{ name, body, want string }{
 		{"a piped Range into List.equal",
 			"  _ = 0..(0) |> List.equal([])\n",

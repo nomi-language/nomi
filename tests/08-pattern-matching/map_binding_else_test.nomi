@@ -7,7 +7,7 @@ end
 fn port_or_default(config: Map<String, Int>) -> Int
     {"port" => port} = config else
         {"fallback" => fallback} -> return fallback
-        _ -> return 80
+        _                        -> return 80
     end
 
     port

@@ -10,18 +10,21 @@ import (
 const (
 	HintRedundantAscription = "redundant-ascription"
 	HintRestatedValue       = "restated-current-value"
+	HintPlainCounterpart    = "plain-counterpart"
 )
 
 // FileHints are the hints the check of the file whose analysis is fa, from
 // nodes, recorded: each `value as Type` whose value has the type without it
 // (FileAnalysis.RedundantAscriptions), spanning `as Type`, then each
 // operand in a field's new value that reads the field's current value by
-// its path (FileAnalysis.RestatedPaths), spanning the path. The program
-// means the same either way. Columns count bytes. The language server
-// publishes them as hints and `nomi check --hints` reports them; both
-// read them here.
+// its path (FileAnalysis.RestatedPaths), spanning the path, then each call
+// whose Maybe the value's refinement answers plainly
+// (FileAnalysis.PlainCounterparts), spanning the callee, with a fix when a
+// `!` unwraps it. The program means the same either way. Columns count
+// bytes. The language server publishes them as hints and `nomi check
+// --hints` reports them; both read them here.
 func FileHints(fa *FileAnalysis, nodes []ast.Node) []TypeError {
-	if fa == nil || (len(fa.RedundantAscriptions) == 0 && len(fa.RestatedPaths) == 0) {
+	if fa == nil || (len(fa.RedundantAscriptions) == 0 && len(fa.RestatedPaths) == 0 && len(fa.PlainCounterparts) == 0) {
 		return nil
 	}
 	var out []TypeError
@@ -73,6 +76,9 @@ func FileHints(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 				return false
 			})
 		}
+	}
+	if len(fa.PlainCounterparts) > 0 {
+		out = append(out, plainCounterpartHints(fa, nodes)...)
 	}
 	return out
 }

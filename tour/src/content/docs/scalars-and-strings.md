@@ -64,7 +64,8 @@ the operation.
 - `%` takes the sign of the dividend: `-7 / 3` is `-2` and `-7 % 3` is
   `-1`. [`Int.modulo`](/reference/int/#intmodulo) is the floored form:
   `Int.modulo(-7, 3)` is `2`.
-- `Int` division by zero traps with `division by zero`. `Float` division
+- `Int` division by zero traps with `division by zero`, and a literal zero
+  divisor (`n / 0`) does not compile. `Float` division
   by zero gives an infinity or NaN instead (see
   [Exact arithmetic with `Decimal`](#exact-arithmetic-with-decimal)).
 - The number types never mix. `1 + 2.0` is
@@ -124,7 +125,7 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
 the difference you accept: `Float.equal_within(0.1 + 0.2, 0.3, 1e-9)` is
 `True`. The tolerance is a
-[`NonNegativeFloat`](/structs-enums-distinct/#refinement-types), so a
+[`NonNegativeFloat`](/structs-enums-distinct/#subtypes), so a
 negative literal there fails to compile. A `Float` follows IEEE 754, so dividing by zero doesn't stop the
 program: `1.0 / 0.0` is `+Inf`, and `0.0 / 0.0` is NaN, which
 [`Float.is_nan`](/reference/float/#floatis_nan) detects.

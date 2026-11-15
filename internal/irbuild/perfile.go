@@ -1514,7 +1514,7 @@ func decodeObject(l *ir.Linker, data []byte) (*ir.Module, error) {
 // The kept lowering's encoding.
 const (
 	keptMagic   = "NOMIKEPT"
-	keptVersion = 4
+	keptVersion = 6
 )
 
 // Encode writes k as bytes, with a CRC over them.
@@ -1554,6 +1554,9 @@ func (k *KeptLowering) Encode() []byte {
 			w.str(r.Type)
 			w.str(r.Rule)
 			w.str(r.TryFrom)
+			w.str(r.Key)
+			w.str(r.Instances)
+			w.strs(r.Bounds)
 		}
 	}
 	w.uv(uint64(len(k.Instances)))
@@ -1638,7 +1641,8 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 		u.Builds = r.bytes()
 		rn = r.count()
 		for j := 0; j < rn && r.err == nil; j++ {
-			u.Rules = append(u.Rules, RefinementRuleSite{Path: r.str(), Line: int(r.uv()), Col: int(r.uv()), Type: r.str(), Rule: r.str(), TryFrom: r.str()})
+			u.Rules = append(u.Rules, RefinementRuleSite{Path: r.str(), Line: int(r.uv()), Col: int(r.uv()), Type: r.str(), Rule: r.str(), TryFrom: r.str(),
+				Key: r.str(), Instances: r.str(), Bounds: r.strs()})
 		}
 		k.Units = append(k.Units, u)
 	}
@@ -1779,6 +1783,8 @@ func (w keptWriter) refinement(kr KeptRefinement) {
 	w.str(s.Text)
 	w.str(s.Type)
 	w.flag(kr.Built)
+	w.flag(s.Compound)
+	w.flag(s.Wraps)
 	switch v := s.Value.(type) {
 	case int64:
 		w.uv(keptValueInt)
@@ -1803,6 +1809,10 @@ func (w keptWriter) refinement(kr KeptRefinement) {
 		w.str(st.Type)
 		w.str(st.Rule)
 		w.str(st.TryFrom)
+		w.uv(uint64(len(st.Via)))
+		for _, v := range st.Via {
+			w.str(v)
+		}
 	}
 }
 
@@ -1816,6 +1826,8 @@ func (r *keptReader) refinement() KeptRefinement {
 	}
 	s.Text, s.Type = r.str(), r.str()
 	kr.Built = r.flag()
+	s.Compound = r.flag()
+	s.Wraps = r.flag()
 	switch r.uv() {
 	case keptValueInt:
 		s.Value = int64(r.uv())
@@ -1837,7 +1849,12 @@ func (r *keptReader) refinement() KeptRefinement {
 	}
 	n := r.count()
 	for i := 0; i < n && r.err == nil; i++ {
-		s.Steps = append(s.Steps, RefinementSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str()})
+		st := RefinementSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str()}
+		vias := r.count()
+		for j := 0; j < vias && r.err == nil; j++ {
+			st.Via = append(st.Via, r.str())
+		}
+		s.Steps = append(s.Steps, st)
 	}
 	return kr
 }

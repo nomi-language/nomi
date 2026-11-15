@@ -7,8 +7,8 @@ func TestIRListOps_EmptyTailAndPersistence(t *testing.T) {
 fn main()
   xs = [1, 2]
   empty: List<Int> = []
-  io.inspect(List.head(xs))
-  io.inspect(List.head(empty))
+  io.inspect(List.first(xs))
+  io.inspect(List.first(empty))
   io.inspect(List.tail(xs))
   io.inspect(List.tail([1]))
   io.inspect(List.tail(empty))
@@ -27,7 +27,7 @@ fn source(label: String, value: Int) -> List<Int>
   [value]
 end
 fn first_tail(nested: List<List<Int>>) -> Maybe<List<Int>>
-  case List.head(nested)
+  case List.first(nested)
     Some(xs) -> List.tail(xs)
     None -> None
   end
@@ -36,7 +36,7 @@ fn main()
   io.inspect(List.concat(source("left", 1), source("right", 2)))
   nested = [[1, 2], [3]]
   io.inspect(first_tail(nested))
-  read = fn -> List.head(nested)
+  read = fn -> List.first(nested)
   io.inspect(read())
 end
 `, "left\nright\n[1, 2]\nSome([2])\nSome([1, 2])\n")

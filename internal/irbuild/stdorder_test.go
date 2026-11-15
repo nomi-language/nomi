@@ -48,15 +48,14 @@ func TestStdlibModuleOrderIsStable(t *testing.T) {
 }
 
 // TestStdlibLoweringOrderPutsAModuleAfterItsImports is the PROPERTY the order
-// exists for, and it is stated over std rather than over a synthetic graph
-// because the interesting inputs — a real cycle and a real deep chain — are
-// things std has and a fixture would have to guess at.
+// exists for, stated over std rather than over a synthetic graph because the
+// interesting inputs, real cycles and a real deep chain, are things std has
+// and a fixture would have to guess at.
 //
-// A module must be lowered after every sibling it imports, EXCEPT where the
-// import is part of a cycle: std/strings and std/iter import each other, so one
-// of them necessarily comes first and its reference into the other refuses.
-// That exception is enumerated rather than waved at, so a change that turned an
-// acyclic edge into a violation cannot hide behind it.
+// Every module is lowered in a unit (stdLoweringUnits) after the units of
+// the modules it imports, or in the same unit when the import is part of a
+// cycle. The cycles are enumerated, so a guard meant to hold over cycles
+// fails if std has none.
 func TestStdlibLoweringOrderPutsAModuleAfterItsImports(t *testing.T) {
 	lib := std.Load()
 	names := make([]string, 0, len(lib.Nodes))
@@ -65,51 +64,98 @@ func TestStdlibLoweringOrderPutsAModuleAfterItsImports(t *testing.T) {
 	}
 	slices.Sort(names)
 
-	position := map[string]int{}
-	for i, name := range stdLoweringOrder(names, lib) {
-		position[name] = i
-	}
-	// reaches reports whether `from` can get to `to` through import edges, which
-	// is what makes an out-of-order edge part of a CYCLE rather than a bug.
-	var reaches func(from, to string, seen map[string]bool) bool
-	reaches = func(from, to string, seen map[string]bool) bool {
-		if seen[from] {
-			return false
+	units := stdLoweringUnits(stdLoweringOrder(names, lib), lib)
+	unitOf := map[string]int{}
+	for i, unit := range units {
+		for _, name := range unit {
+			if _, twice := unitOf[name]; twice {
+				t.Errorf("%s is in two lowering units", name)
+			}
+			unitOf[name] = i
 		}
-		seen[from] = true
-		for _, dep := range stdModuleImports(from, lib.Nodes[from]) {
-			if dep == to || reaches(dep, to, seen) {
-				return true
+	}
+	if len(unitOf) != len(names) {
+		t.Fatalf("the units hold %d module(s) for %d loaded; every module must be lowered exactly once", len(unitOf), len(names))
+	}
+	var cycles []string
+	for i, unit := range units {
+		if len(unit) > 1 {
+			cycles = append(cycles, strings.Join(unit, " "))
+		}
+		for _, name := range unit {
+			for _, dep := range stdModuleImports(lib.Nodes[name]) {
+				if d, known := unitOf[dep]; known && d > i {
+					t.Errorf("%s imports %s and is lowered in unit %d, before %s's unit %d", name, dep, i, dep, d)
+				}
 			}
 		}
-		return false
 	}
+	if len(cycles) == 0 {
+		t.Error("no import cycle was found in std, so lowering a cycle as one unit is untested; " +
+			"either std lost its cycles or stdModuleImports stopped seeing edges")
+	}
+	t.Logf("import cycles lowered as one unit (%d): %s", len(cycles), strings.Join(cycles, "; "))
+}
 
-	var cyclic []string
-	for _, name := range names {
-		for _, dep := range stdModuleImports(name, lib.Nodes[name]) {
-			if _, known := lib.Nodes[dep]; !known {
-				continue
+// TestStdLoweringIsTheSameInEveryCycleOrder lowers the stdlib with the
+// members of each import cycle in their order, reversed and rotated, and
+// requires the same bodies to lower each time. A cycle is one unit
+// (lowerStdUnit), so the order an edit to one member's imports gives its
+// members cannot decide which bodies lower: with a cycle lowered a module
+// at a time, a body calling into a later member (Byte's `&&&` calling
+// `Int.to_byte`, Codepoint's `compare` calling Int's) was refused.
+func TestStdLoweringIsTheSameInEveryCycleOrder(t *testing.T) {
+	lowers := func() map[string][]string {
+		idx := buildStdlibIndex()
+		out := map[string][]string{}
+		for _, name := range idx.order {
+			m := &stdUnitModule{funcs: idx.modFuncs[name], onces: idx.modOnces[name]}
+			var keys []string
+			for k := range m.loweredKeys() {
+				keys = append(keys, k)
 			}
-			if position[dep] < position[name] {
-				continue
+			for k := range idx.unlowered[idx.modulePkg[name]] {
+				keys = append(keys, "unlowered "+k)
 			}
-			if reaches(dep, name, map[string]bool{}) {
-				cyclic = append(cyclic, dep+" <-> "+name)
-				continue
+			slices.Sort(keys)
+			out[name] = keys
+		}
+		return out
+	}
+	want := lowers()
+	defer func() { stdUnitOrderForTest = nil }()
+	for _, reorder := range []struct {
+		name string
+		f    func([]string) []string
+	}{
+		{"reversed", func(ms []string) []string { slices.Reverse(ms); return ms }},
+		{"rotated", func(ms []string) []string { return append(ms[1:], ms[0]) }},
+	} {
+		cycles := 0
+		stdUnitOrderForTest = func(ms []string) []string {
+			cycles++
+			return reorder.f(ms)
+		}
+		got := lowers()
+		if cycles == 0 {
+			t.Fatal("the stdlib lowered no import cycle, so no order was changed")
+		}
+		for name, keys := range want {
+			if !slices.Equal(got[name], keys) {
+				t.Errorf("with each cycle's members %s, std/%s lowers differently:\n  in order: %v\n  %s: %v",
+					reorder.name, name, setMinus(keys, got[name]), reorder.name, setMinus(got[name], keys))
 			}
-			t.Errorf("%s imports %s and is lowered BEFORE it (%d < %d), with no cycle to force it — "+
-				"every reference from %s into %s will refuse for no reason",
-				name, dep, position[name], position[dep], name, dep)
 		}
 	}
-	// A guard over a population meant to stay small must fail on the EMPTY set
-	// too: if std ever loses its one import cycle, the exception above stops
-	// being exercised and this test silently becomes weaker.
-	if len(cyclic) == 0 {
-		t.Error("no cyclic import pair was found in std, so the cycle exception above is untested; " +
-			"either std lost its cycle (delete the exception) or stdModuleImports stopped seeing edges")
+}
+
+// setMinus is the members of a that b lacks.
+func setMinus(a, b []string) []string {
+	var out []string
+	for _, k := range a {
+		if !slices.Contains(b, k) {
+			out = append(out, k)
+		}
 	}
-	slices.Sort(cyclic)
-	t.Logf("import cycles forcing an out-of-order edge (%d): %s", len(cyclic), strings.Join(slices.Compact(cyclic), ", "))
+	return out
 }

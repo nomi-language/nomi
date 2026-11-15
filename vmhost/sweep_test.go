@@ -71,7 +71,7 @@ var sweepConstructs = []sweepConstruct{
 	{"list map", sweepAll, "xs = [$A, $B]\n  ys = xs |> Iter.map(fn x -> x) |> Iter.to_list()\n  assert ys == xs"},
 	{"list filter count", sweepAll, "n = [$A, $B, $A] |> Iter.filter(fn x -> x == $A) |> Iter.count()\n  assert n == 2"},
 	{"list pattern", sweepAll, "case [$A, $B]\n    [h, ..] -> assert h == $A\n    [] -> assert False\n  end"},
-	{"list head", sweepAll, "assert List.head([$A, $B]) == Some($A)"},
+	{"list head", sweepAll, "assert List.first([$A, $B]) == Some($A)"},
 	{"maybe", sweepAll, "assert Maybe.with_default(Some($A), $B) == $A"},
 	{"result", sweepAll, "r: Result<$T, String> = Ok($A)\n  assert r == Ok($A)"},
 	{"tuple destructure", sweepAll, "(x, y) = ($A, $B as $T)\n  assert x == $A\n  assert y == $B"},

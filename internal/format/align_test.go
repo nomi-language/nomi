@@ -1,6 +1,7 @@
 package format
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -99,20 +100,43 @@ func TestFormat_BrokenArmsDoNotAlign(t *testing.T) {
 	roundTrip(t, src)
 }
 
-// Left parts more than alignCutoff columns apart stay as they are, for every
-// rule but rows.
-func TestFormat_AlignmentCutoff(t *testing.T) {
-	far := strings.Repeat("x", alignCutoff+2)
-	roundTrip(t, "struct S\n    a: Int\n    "+far+": Int\nend\n")
-	roundTrip(t, "fn f()\n    x = 1 // one\n    "+far+" = 2 // two\nend\n")
-	near := strings.Repeat("x", alignCutoff)
+// Where a run breaks follows gofmt (alignSections): left parts of at most
+// alignSmall columns always align, and past that an item that is
+// alignRatio times wider or narrower than its section's geometric mean
+// starts a new section, which aligns on its own. Rows have no limit.
+func TestFormat_AlignmentSections(t *testing.T) {
+	// Small left parts align however far apart: `_` beside a long pattern.
 	formatsKeepingMeaning(t,
-		"struct S\n    a: Int\n    "+near+"b: Int\nend\n",
-		"struct S\n    a:"+strings.Repeat(" ", alignCutoff+1)+"Int\n    "+near+"b: Int\nend\n")
+		"fn f(roles: Set<String>) -> String\n    case roles\n        [\"admin\", ..] -> \"all\"\n        [\"editor\", \"viewer\", ..] -> \"some\"\n        _ -> \"none\"\n    end\nend\n",
+		"fn f(roles: Set<String>) -> String\n    case roles\n        [\"admin\", ..]            -> \"all\"\n        [\"editor\", \"viewer\", ..] -> \"some\"\n        _                        -> \"none\"\n    end\nend\n")
+	// A long field after short ones starts a new section; the short ones
+	// still align.
+	long := strings.Repeat("x", alignSmall+5)
+	formatsKeepingMeaning(t,
+		"struct S\n    a: Int\n    bbb: Int\n    "+long+": Int\nend\n",
+		"struct S\n    a:   Int\n    bbb: Int\n    "+long+": Int\nend\n")
 	// Rows have none.
+	far := strings.Repeat("x", alignSmall+5)
 	formatsKeepingMeaning(t,
 		"fn f() -> List<(String, Int)>\n    [\n        (\"a\", 1),\n        (\""+far+"\", 2),\n    ]\nend\n",
 		"fn f() -> List<(String, Int)>\n    [\n        (\"a\","+strings.Repeat(" ", len(far))+"1),\n        (\""+far+"\", 2),\n    ]\nend\n")
+}
+
+func TestAlignSections(t *testing.T) {
+	for _, tc := range []struct {
+		sizes []int
+		want  [][2]int
+	}{
+		{[]int{13, 25, 1}, [][2]int{{0, 3}}},
+		{[]int{1, 3, 45}, [][2]int{{0, 2}, {2, 3}}},
+		{[]int{45, 50, 3, 4}, [][2]int{{0, 2}, {2, 4}}},
+		{[]int{41, 60, 90}, [][2]int{{0, 3}}},
+	} {
+		got := alignSections(tc.sizes)
+		if fmt.Sprint(got) != fmt.Sprint(tc.want) {
+			t.Errorf("alignSections(%v) = %v, want %v", tc.sizes, got, tc.want)
+		}
+	}
 }
 
 // Alignment never pushes a line past the width: a block that would leave

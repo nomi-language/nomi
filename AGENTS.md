@@ -460,7 +460,10 @@ until you do).
    function, `RtFuncs()` for a function over rt values. A function that acts
    outside the machine in a way some target cannot gets the row's `Class`
    (`files`), which `nomi build` checks against the target
-   (`vmhost.TargetLacks`, `vmhost.Program.CheckTarget`).
+   (`vmhost.TargetLacks`, `vmhost.Program.CheckTarget`). A function that
+   computes its answer from its operands alone and acts on nothing outside
+   the machine gets `Pure`, so a refinement rule or a typed literal's
+   handler may call it; unset, a call to it is an effect.
 3. `go generate ./internal/stdlibadapters`.
 4. Add recorded cases for the new row (`internal/stdlibadapters/testdata/*.golden`).
 5. `go test ./internal/hostpair ./internal/stdlibadapters ./internal/hostgen/...`.

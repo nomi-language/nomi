@@ -292,26 +292,26 @@ end
 // TestSynthesizeUniversalDebug_ExplicitDeriveSuppressesAuto pins precedence:
 // a type with an explicit `@derive Debug` keeps its STRUCTURAL derived body
 // — the universal pass must skip it (must not add a second, name-only one for
-// opaque types). This guards `NonZeroInt(5)` not regressing to
-// `<opaque NonZeroInt>`.
+// opaque types). This guards `NonZeroCount(5)` not regressing to
+// `<opaque NonZeroCount>`.
 func TestSynthesizeUniversalDebug_ExplicitDeriveSuppressesAuto(t *testing.T) {
 	src := `
-opaque type NonZeroInt Int
-derive Debug for NonZeroInt
+opaque type NonZeroCount Int
+derive Debug for NonZeroCount
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)      // stamps the synthetic @derive Debug decorator
 	nodes, _ = SynthesizeDerives(nodes) // produces the structural derived impl
 	out := SynthesizeUniversalDebug(nodes)
 
-	if got := countDebugImpls(out, "NonZeroInt"); got != 1 {
-		t.Fatalf("NonZeroInt: explicit @derive Debug — expected exactly 1 impl, got %d", got)
+	if got := countDebugImpls(out, "NonZeroCount"); got != 1 {
+		t.Fatalf("NonZeroCount: explicit @derive Debug — expected exactly 1 impl, got %d", got)
 	}
-	fn := debugImplForType(out, "NonZeroInt")
+	fn := debugImplForType(out, "NonZeroCount")
 	// The derived structural body for a distinct type unwraps + interpolates,
-	// so it is NOT a bare name-only StringLit "<opaque NonZeroInt>".
-	if val, ok := debugBodyIsNameOnly(fn); ok && val == "<opaque NonZeroInt>" {
-		t.Error("NonZeroInt: explicit @derive Debug regressed to name-only `<opaque NonZeroInt>`")
+	// so it is NOT a bare name-only StringLit "<opaque NonZeroCount>".
+	if val, ok := debugBodyIsNameOnly(fn); ok && val == "<opaque NonZeroCount>" {
+		t.Error("NonZeroCount: explicit @derive Debug regressed to name-only `<opaque NonZeroCount>`")
 	}
 }
 

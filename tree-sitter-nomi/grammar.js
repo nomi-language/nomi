@@ -726,9 +726,10 @@ module.exports = grammar({
     // Struct and enum forms are separate top-level rules
     // (struct_definition, enum_definition).
     //
-    // Modifier order: `pub`? `opaque`? `type`. `opaque` is only valid on
-    // distinct types (those with an `Inner` representation); the analyzer
-    // enforces.
+    // Modifier order: `pub`? `opaque`? `type` or `subtype`. `opaque` is
+    // only valid on distinct types (those with an `Inner` representation);
+    // the analyzer enforces. `subtype` declares a subtype of the types
+    // after its name, which `and` joins.
     //
     // The inner type is `_distinct_inner_type` (not the full `_type`):
     // the Go parser only admits TYPE_IDENT / IDENT / LPAREN starts there,
@@ -736,19 +737,29 @@ module.exports = grammar({
     type_definition: $ => prec.right(seq(
       optional($.pub),
       optional('opaque'),
-      'type',
+      choice('type', 'subtype'),
       field('name', $.qualified_type_identifier),
       optional($.type_parameters),
       optional(choice(
         $.go_selector_binding,
-        seq($._distinct_inner_type, optional($.refinement_rule)),
+        seq(
+          $._distinct_inner_type,
+          // A subtype's parents after the first, or the rest of the
+          // intersection a `type` wraps:
+          // `subtype PositiveInt NonNegativeInt and NonZeroInt when ...`.
+          repeat(seq('and', $._distinct_inner_type)),
+          // Bounds on the type parameters:
+          // `subtype Sorted<T> List<T> where T: Comparable when ...`.
+          optional($.where_clause),
+          optional($.refinement_rule),
+        ),
       )),
     )),
 
-    // A refinement's rule: `when` and the function from the type it refines
-    // to Bool that every value satisfies, a lambda or a function's name, on
-    // the line the declaration's header (a `type`) or `end` (a `struct`)
-    // ends on: `type Port Int when fn p -> p >= 1`.
+    // A rule: `when` and the function from the type to Bool that every
+    // value satisfies, a lambda or a function's name, on the line a `type`'s
+    // or `subtype`'s header ends on (`subtype Port Int when fn p -> p >= 1`)
+    // or as a struct body's last item.
     refinement_rule: $ => seq('when', field('rule', $._expression)),
 
     // The type expressions admitted as a distinct type's RHS — everything
@@ -773,14 +784,15 @@ module.exports = grammar({
       optional($.type_parameters),
       optional($.where_clause),
       $.struct_body,
-      optional($.refinement_rule),
     ),
 
     // Struct bodies hold newline-separated fields plus the type's own
-    // inherent API (`fn` / `once`). Interface impls, derives, and tests stay
-    // outside the type.
+    // inherent API (`fn` / `once`), and a rule, which the Go
+    // parser admits only as the last item, after every field. Interface
+    // impls, derives, and tests stay outside the type.
     struct_body: $ => typeBody($, choice(
       $.field_definition,
+      $.refinement_rule,
       $.function_definition,
       $.extern_func_definition,
       $.once_binding,
@@ -818,15 +830,18 @@ module.exports = grammar({
       ),
     ),
 
-    // Type alias — `typealias Name Target` (regular type alias) or
-    // `typealias Name A and B` (bound alias, conjunction of interfaces
-    // usable only in `where T: Name` positions).
-    type_alias: $ => seq(
+    // Type alias — `typealias Name Target`, `typealias Pair<T> (T, T)`,
+    // `typealias Sortable<T> List<T> where T: Comparable`, or `typealias
+    // Name A and B` (an intersection, or a bound list in `where T: Name`
+    // positions).
+    type_alias: $ => prec.right(seq(
       optional($.pub),
       'typealias',
       field('name', $.qualified_type_identifier),
+      optional($.type_parameters),
       field('type', $._type),
-    ),
+      optional($.where_clause),
+    )),
 
     // Interface
     //
@@ -2193,7 +2208,7 @@ module.exports = grammar({
 
     // `value is Pattern`: whether the value matches the pattern, as a `case`
     // arm's would. It binds like `==` (4), so `not x is P` negates the test
-    // and `xs |> List.head() is Some(_)` tests the pipe's result. The pattern
+    // and `xs |> List.first() is Some(_)` tests the pipe's result. The pattern
     // holds an `or` only in parentheses (`kind is (.A or .B)`): a bare `or`
     // after it is the Boolean `or`, since `or_pattern` (2) binds below the
     // test. The compiler rejects a chain with a comparison (`a == b is P`,

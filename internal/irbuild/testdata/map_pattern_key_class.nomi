@@ -79,7 +79,7 @@ fn main()
 
     a = case both
         {note_color("k", Color.Blue) => v} -> "matched ${v}"
-        _ -> "fell through"
+        _                                  -> "fell through"
     end
 
     io.print("  answer = ${a}")
@@ -99,7 +99,7 @@ fn main()
 
     c = case numbers
         {note_id("k", 5) => v} -> "matched ${v}"
-        _ -> "fell through"
+        _                      -> "fell through"
     end
 
     io.print("  answer = ${c}")
@@ -109,7 +109,7 @@ fn main()
 
     d = case numbers
         {note_text("k", "5") => v} -> "matched ${v}"
-        _ -> "fell through"
+        _                          -> "fell through"
     end
 
     io.print("  answer = ${d}")
@@ -143,8 +143,8 @@ fn main()
 
     g = case both
         {note_color("k", Color.Blue) => v} -> "matched ${v}"
-        {True => v} -> "second arm ${v}"
-        _ -> "fell through"
+        {True => v}                        -> "second arm ${v}"
+        _                                  -> "fell through"
     end
 
     io.print("  answer = ${g}")

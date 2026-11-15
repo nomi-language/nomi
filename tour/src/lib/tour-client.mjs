@@ -145,7 +145,7 @@ function ensureWorker() {
       clearTimeout(p.loadTimer);
       clearTimeout(p.runTimer);
       pending.delete(m.id);
-      p.cbs.onRun?.(m.output, m.error, m.written);
+      p.cbs.onRun?.(m.output, m.error, m.written, m.stage || "");
     }
   };
   // A worker-level script error (a missing or broken `/nomi/` asset, so
@@ -215,7 +215,7 @@ function fail(id) {
   if (!p) return;
   pending.delete(id);
   restartWorker(); // hard-kill the runaway; the replacement reloads the wasm
-  p.cbs.onFail?.("execution timed out");
+  p.cbs.onFail?.("execution timed out", "run");
 }
 
 function post(msg, cbs, budget = RUN_BUDGET_MS) {
@@ -1383,11 +1383,13 @@ function outputPanel(label) {
         },
       };
     },
-    // setHeading names what the output shows: a ```nomi-run error block's
-    // intended failure gets the "on purpose" heading in place of the label.
-    setHeading(onPurpose) {
-      title.textContent = onPurpose ? EXPECTED_ERROR_HEADING : label;
-      title.classList.toggle("is-expected", onPurpose);
+    // setHeading names what the panel shows: "Didn't compile" over a
+    // program's diagnostics (stage "compile"), the label over anything a
+    // run printed, a run that stopped included.
+    setHeading(stage) {
+      const compile = stage === "compile";
+      title.textContent = compile ? COMPILE_HEADING : label;
+      title.classList.toggle("is-compile-error", compile);
     },
     setNote(text) {
       note.textContent = text || "";
@@ -1400,42 +1402,49 @@ function outputPanel(label) {
 const RECORDED_NOTE = "Recorded output. Press Run to run it.";
 const UNRECORDED_NOTE = "Press Run to run it.";
 
+// The output panel's heading over a program that did not compile.
+const COMPILE_HEADING = "Didn't compile";
+
 // A compile error's first line: the file, line and column it is at.
 const COMPILE_ERROR = /^[^\s:]+\.nomi:\d+:\d+: /;
 // The last line of a process exit's failure, after its message.
-const EXIT_STATUS = /^exit status \d+$/;
+const EXIT_STATUS = /^exit status (\d+)$/;
 
 // showRecorded fills a block's output panel before its first run with the
 // output its expect block records, which the build carries in a hidden span
 // (rehype-shiki.mjs), as showOutput shows a run of the block as written.
-// A ```nomi-run error block's record is the run's output and then its
-// failure (internal/doctest's Shown): the whole record when it is a compile
-// error, else its last line, or its last two when the last is `exit status
-// N`. TestTourDoctests holds every error block to that split (its
+// A ```nomi-run error block's record is a compile error, or the run's
+// output and then its failure (internal/doctest's Shown), told apart by
+// shape: a compile error's first line names a file, line and column, and
+// a run's failure is its last line, or its last two when the last is `exit
+// status N`. TestTourDoctests holds every error block to that split (its
 // recordedFailure keeps the same rule). A manual block's panel says the
 // output is recorded, and one with no record (null) shows only the note.
 function showRecorded(panel, recorded, expectError, manual, parser, query) {
   if (recorded === null) {
     panel.out.textContent = "";
-    panel.setHeading(expectError);
+    panel.setHeading("");
     panel.setNote(UNRECORDED_NOTE);
     return;
   }
   let output = recorded;
   let error = "";
+  let stage = "";
   if (expectError) {
     const lines = recorded.split("\n");
     if (COMPILE_ERROR.test(lines[0])) {
       output = "";
       error = recorded;
+      stage = "compile";
     } else {
       const n = lines.length >= 2 && EXIT_STATUS.test(lines[lines.length - 1]) ? 2 : 1;
       output = lines.slice(0, -n).join("\n");
       error = lines.slice(-n).join("\n");
+      stage = "run";
     }
   }
   if (output) output += "\n";
-  showOutput(panel, output, error, parser, query, expectError);
+  showOutput(panel, output, error, stage, parser, query);
   panel.setNote(manual ? RECORDED_NOTE : "");
 }
 
@@ -1552,10 +1561,8 @@ function attachControls(widget, host, output, expectError = false, onRun = null,
 }
 
 // expectedErrorTracker follows a ```nomi-run error block as the reader edits
-// it, and answers, for each run, whether its output opens with the "on
-// purpose" heading. The heading describes the example as written, so it
-// shows only while the code is the original and fails. The badge stays until
-// an edit compiles, and comes back with the original code.
+// it, and shows its "Expected error" badge after each run: the badge stays
+// until an edit compiles, and comes back with the original code.
 function expectedErrorTracker(original, live) {
   let compiled = false;
   return (code, error) => {
@@ -1563,12 +1570,8 @@ function expectedErrorTracker(original, live) {
     if (asWritten) compiled = false;
     else if (!error) compiled = true;
     live.setExpectedError(Boolean(error) && (asWritten || !compiled));
-    return Boolean(error) && asWritten;
   };
 }
-
-// A ```nomi-run error block fails on purpose, to compile or while it runs.
-const EXPECTED_ERROR_HEADING = "This example fails on purpose:";
 
 function mapOffsetThroughFormat(before, after, offset) {
   let prefix = 0;
@@ -1776,7 +1779,7 @@ async function enhance(pre) {
       edited = true;
       formatNow(ta.value);
     });
-  const headingFor = expectError ? expectedErrorTracker(source, live) : () => false;
+  const trackExpected = expectError ? expectedErrorTracker(source, live) : () => {};
 
   const hl = widget.querySelector(".nomi-hl");
   const ta = widget.querySelector(".nomi-src");
@@ -1829,20 +1832,21 @@ async function enhance(pre) {
       onSem: (sem) => {
         if (block.req === id) hl.innerHTML = render(captures, sem, code, EDITOR_RENDER);
       },
-      onRun: (output, error) => {
+      onRun: (output, error, _written, stage) => {
         if (block.req !== id) return;
         live.setRunning(false);
         status.end();
-        showOutput(out, output, error, parser, query, headingFor(code, error));
+        trackExpected(code, error);
+        showOutput(out, output, error, stage, parser, query);
         cleanFormatSource = error ? null : code;
         if (error) live.setFormatting(false);
         else formatIfLeft();
       },
-      onFail: (reason) => {
+      onFail: (reason, stage) => {
         if (block.req !== id) return;
         live.setRunning(false);
         status.end();
-        showError(out, reason);
+        showOutput(out, "", reason, stage || "", parser, query);
         cleanFormatSource = null;
         live.setFormatting(false);
       },
@@ -2032,7 +2036,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
     edited = true;
     formatNow(nomiPanes.map((q) => ({ p: q, body: q.ta.value })));
   });
-  const headingFor = expectError ? expectedErrorTracker(stitchFiles(files), live) : () => false;
+  const trackExpected = expectError ? expectedErrorTracker(stitchFiles(files), live) : () => {};
   // Only the Nomi files go through the formatter: `nomi fmt` would read a
   // nomi.toml or a data file as Nomi statements and space them apart.
   const nomiPanes = panes.filter((p) => p.lang === "nomi");
@@ -2119,7 +2123,7 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
           if (p.code === code) p.hl.innerHTML = render(captures, sem?.[p.file.name] || [], code, EDITOR_RENDER);
         }
       },
-      onRun: (output, error, written) => {
+      onRun: (output, error, written, stage) => {
         if (block.req !== id) return;
         live.setRunning(false);
         status.end();
@@ -2133,16 +2137,17 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
             paint(p);
           }
         }
-        showOutput(out, output, error, parser, query, headingFor(stitched, error));
+        trackExpected(stitched, error);
+        showOutput(out, output, error, stage, parser, query);
         cleanFormatSnapshots = error ? null : snapshots;
         if (error) live.setFormatting(false);
         else formatIfLeft();
       },
-      onFail: (reason) => {
+      onFail: (reason, stage) => {
         if (block.req !== id) return;
         live.setRunning(false);
         status.end();
-        showError(out, reason);
+        showOutput(out, "", reason, stage || "", parser, query);
         cleanFormatSnapshots = null;
         live.setFormatting(false);
       },
@@ -2215,21 +2220,84 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
 }
 
 // showOutput writes a run's output and error into the output panel, and its
-// heading: with heading, the error is a ```nomi-run error block's intended
-// one, and the panel's header says so. The error starts on the line after the
-// output, with no blank line between, as a terminal shows a failure after
-// what the program printed; internal/doctest's Shown is this text, and a
-// block that stops on purpose holds it in its expect block.
-function showOutput(panel, output, error, parser, query, heading = false) {
+// heading, by the stage the run failed at (cmd/nomi-wasm's stages):
+//
+//   - "compile": the heading says the program did not compile, and the
+//     panel holds the diagnostics with their help, and no output.
+//   - "run": the program stopped (a trap, a failed `?` in main, an exit
+//     with a status). The panel holds what it printed, then the failure
+//     as a closing line of its own (showStop).
+//   - "tests", or "" (a failure outside the program, such as the wasm not
+//     loading): the error follows the output, on the line after it.
+//
+// internal/doctest's Shown is the output and then the error, which a
+// block that fails on purpose holds in its expect block (showRecorded).
+function showOutput(panel, output, error, stage, parser, query) {
   const out = panel.out;
-  panel.setHeading(heading);
+  panel.setHeading(error ? stage : "");
   out.textContent = "";
+  if (error && stage === "compile") {
+    appendDiagnostics(out, error);
+    return;
+  }
   if (output) appendRunText(out, output, "", parser, query);
+  if (error && stage === "run") {
+    showStop(out, error, parser, query);
+    return;
+  }
   if (error) {
     if (output && !output.endsWith("\n")) out.appendChild(document.createTextNode("\n"));
     appendRunText(out, error, "nomi-err", parser, query);
   }
   if (!output && !error) out.textContent = "(no output)";
+}
+
+// A diagnostic's help or note line, after its file, line and column.
+const DIAGNOSTIC_ASIDE = /^[^\s:]+\.nomi:\d+:\d+: (help|note): /;
+
+// appendDiagnostics writes a compile error's lines: each error in the
+// error colour, and each help or note that follows one in the text's.
+function appendDiagnostics(out, text) {
+  for (const line of text.replace(/\n+$/, "").split("\n")) {
+    if (out.childNodes.length) out.appendChild(document.createTextNode("\n"));
+    const s = document.createElement("span");
+    s.className = DIAGNOSTIC_ASIDE.test(line) ? "nomi-diag-aside" : "nomi-err";
+    s.textContent = line;
+    out.appendChild(s);
+  }
+}
+
+// showStop closes a run's output with the failure that stopped it, as a
+// line of its own, styled apart from what the program printed: "Stopped at
+// line 9: division by zero" for a failure at a line (`line 9: ...`),
+// "Exited with status 2: <message>" for a process exit, and "Stopped:
+// <failure>" for any other (`error: ` dropped, which the label says).
+function showStop(out, failure, parser, query) {
+  const lines = failure.replace(/\n+$/, "").split("\n");
+  let label = "Stopped";
+  let message = lines.join("\n");
+  const exit = EXIT_STATUS.exec(lines[lines.length - 1]);
+  const at = /^line (\d+): ([^]*)$/.exec(message);
+  if (exit) {
+    label = "Exited with status " + exit[1];
+    message = lines.slice(0, -1).join("\n");
+  } else if (at) {
+    label = "Stopped at line " + at[1];
+    message = at[2];
+  } else if (message.startsWith("error: ")) {
+    message = message.slice("error: ".length);
+  }
+  const stop = document.createElement("span");
+  stop.className = "nomi-stop";
+  const head = document.createElement("span");
+  head.className = "nomi-stop-label";
+  head.textContent = label;
+  stop.append(head);
+  if (message) {
+    stop.append(document.createTextNode(": "));
+    appendRunText(stop, message, "", parser, query);
+  }
+  out.append(stop);
 }
 
 function appendRunText(out, text, fallbackClass, parser, query) {
@@ -2353,15 +2421,6 @@ function classForRunLine(line, fallbackClass) {
   return fallbackClass;
 }
 
-function showError(panel, msg) {
-  const out = panel.out;
-  panel.setHeading(false);
-  out.textContent = "";
-  const s = document.createElement("span");
-  s.className = "nomi-err";
-  s.textContent = msg;
-  out.appendChild(s);
-}
 
 // --- hover tooltip ---
 function measureCharWidth(cs) {

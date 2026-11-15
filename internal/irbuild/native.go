@@ -410,6 +410,11 @@ type gen struct {
 	// "a user file reaching std" has to be able to recognise the one file the
 	// rule cannot sensibly be applied to. See loadIter's declaresStdIter.
 	stdModule string
+	// stdUnitSyms is, while the shared lowering lowers a std import cycle
+	// as one unit (lowerStdUnit), the symbol each declaration of the
+	// unit's modules has, by linkage name, so a module lowered again in a
+	// later pass defines the symbols the other members already call.
+	stdUnitSyms map[string]*ir.Symbol
 	// programStd is set when this gen lowers a std module listed in
 	// programStdModules with the program (programstd.go): its positions are
 	// stdlib positions, as a shared std module's are, so a trap inside it is

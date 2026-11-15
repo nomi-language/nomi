@@ -1112,6 +1112,7 @@ var keywords = map[string]token.TokenType{
 	"struct":      token.STRUCT,
 	"enum":        token.ENUM,
 	"typealias":   token.TYPEALIAS,
+	"subtype":     token.SUBTYPE,
 	"break":       token.BREAK,
 	"continue":    token.CONTINUE,
 	"interface":   token.INTERFACE,

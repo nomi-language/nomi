@@ -16,10 +16,10 @@ end
 
 fn describe(n: Int) -> String
     case n
-        0 -> "zero"
+        0                          -> "zero"
         18_446_744_073_709_551_616 -> "two to the 64"
         -9_223_372_036_854_775_808 -> "minus two to the 63"
-        _ -> "other"
+        _                          -> "other"
     end
 end
 
@@ -72,7 +72,8 @@ test "int modulo by zero traps as the remainder does"
     remainder =
         """
         fn main()
-          _ = 7 % 0
+          zero = 0
+          _ = 7 % zero
         end
         """
         |> compiler.run()
@@ -80,13 +81,14 @@ test "int modulo by zero traps as the remainder does"
     modulo =
         """
         fn main()
-          _ = Int.modulo(7, 0)
+          zero = 0
+          _ = Int.modulo(7, zero)
         end
         """
         |> compiler.run()
 
     assert Err(remainder_message) = remainder
     assert Err(modulo_message) = modulo
-    assert remainder_message == "line 2: division by zero"
-    assert modulo_message == "line 2: division by zero"
+    assert remainder_message == "line 3: division by zero"
+    assert modulo_message == "line 3: division by zero"
 end

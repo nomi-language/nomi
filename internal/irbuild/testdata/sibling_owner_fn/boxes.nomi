@@ -19,7 +19,7 @@ impl Box<T>
     end
 
     pub fn first<T>(b: Box<T>) -> Maybe<T>
-        List.head(b.items)
+        List.first(b.items)
     end
 
     pub fn pad(label: String, width: Int = 3) -> String

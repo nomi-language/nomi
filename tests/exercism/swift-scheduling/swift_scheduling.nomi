@@ -77,8 +77,8 @@ fn numbered(text: String) -> Maybe<Description>
 
     case (month, quarter)
         (Some(n), _) when n in 1..=12 -> Some(.Month(n))
-        (_, Some(n)) when n in 1..=4 -> Some(.Quarter(n))
-        _ -> None
+        (_, Some(n)) when n in 1..=4  -> Some(.Quarter(n))
+        _                             -> None
     end
 end
 

@@ -4,8 +4,8 @@ description: The rules of Nomi most often written wrong, each with a checked exa
 ---
 
 Nomi is a statically typed language where every value is immutable. This page
-is the short form of the rules most often written wrong by someone coming from
-Rust, Go, Elixir, TypeScript or Python. Every example is a test that the
+holds the rules most often written wrong by someone coming from Rust, Go,
+Elixir, TypeScript or Python. Every example is a test that the
 compiler checks. The full rules are in the
 [specification](/spec/), and the idiom is in
 [Writing Nomi](/writing/).
@@ -38,13 +38,12 @@ compiler checks. The full rules are in the
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
   annotation types the same parameter in the others:
   `[("a", fn n: Int -> n), ("b", fn n -> n * 2)]`.
-- `once name = expr` is the only file-level value computed by code,
-  on first use, once, even when several tasks read it at the same
-  time.
+- `once name = expr` is the only file-level value computed by code, once,
+  on first use, even when several tasks read it together.
 - ``embed site `static` `` is a file-level `embed.Files` holding the files
-  under `static/`, found when the program is compiled, so a built executable
-  carries them. Read one with `Files.read_text(site, "static/index.html")`;
-  its bytes are read then, not at startup.
+  under `static/` at compile time, so a built executable carries them.
+  `Files.read_text(site, "static/index.html")` reads one's bytes then, not
+  at startup.
 
 ```nomi-run
 fn area(width: Int, height: Int = 1) -> Int
@@ -186,17 +185,19 @@ test result: ok. 1 passed, 0 failed
   `derive Interface for Type` declarations.
 - `type UserId Int` is a distinct type: `UserId(5)` builds one, and the pattern
   `UserId(n)` opens it.
-- `type Port Int when fn p -> p >= 1` is an Int refinement. A literal
-  Port is checked when compiling; another Int needs
-  `Port.try_from(n)`: `Maybe<Port>`.
+- `subtype Port Int when fn p -> p >= 1` is an Int. A literal Port is
+  checked when compiling; another Int needs `Port.try_from(n)`, a Maybe.
+  `type Email String when ...` converts to nothing, built the same way.
+  `A and B` is both: `PositiveInt` is `NonNegativeInt and NonZeroInt`.
+  The prelude's `NonEmptyList<T>` makes `NonEmptyList.first(xs)` a `T`.
 - A value converts to wider type arguments through every position that
   only holds them: a `List<Maybe<Int>>` passes where a `List<Display>` is
-  expected, a `Result<Memory, E>` where a `Result<Store, E>` is, and a
-  `Box<Int>` where a `Box<Display>` is when Box's fields only hold its `T`.
+  expected, and a `Box<Int>` where a `Box<Display>` is when Box's fields
+  only hold its `T`.
   A function's parameter converts the other way, and a parameter a type
   both holds and takes compares exactly. Where nothing says which way values
-  flow (`a + b`, two branches, two list elements), their types must be one;
-  the error names the annotation that makes them one.
+  flow (`a + b`, two branches, two list elements), their types must be one,
+  or a subtype and its ancestor, which join as it.
 - There are no method calls. `x.name` only reads a field. A function is called
   through its owner:
   - a type: `String.trim(s)`, `Map.get(m, k)`, `Shape.area(shape)`;
@@ -290,17 +291,17 @@ test result: ok. 1 passed, 0 failed
   `c when c == not_found -> ...`.
 - The branches of an `if` or `case` have one type. Branches of different
   types that implement one interface join as it only where an annotation, a
-  parameter or a declared result writes the value's type as that interface:
+  parameter or a declared result names that interface:
   `shape: Shape = if round then Circle{r: 1.0} else Square{side: 2.0}`.
 - An `if` without `else` is a statement, as in Rust: its branch is `Unit`,
-  leaves (`return`, `?`) or ends in `assert` or `dbg`. An `else if` chain
-  with no final `else` is the same. Any other branch is an error, a `Maybe`
-  included: a value that may be absent is `if n > 0 then Some("positive") else None`.
-  The error's fix adds the `else None`, and where a statement drops the
-  value it writes `_ = ...` in the branch. In an `Html` literal,
-  `${if c then Some(Html"...") else None}` shows the part or nothing, and so does
-  `class='badge ${if c then Some("on") else None}'` inside a quoted value; an unquoted
-  `class=${if c then Some("on") else None}` writes the attribute or leaves it out.
+  leaves (`return`, `?`) or ends in `assert` or `dbg`, and so is an `else
+  if` chain with no final `else`. Any other branch is an error, a `Maybe`
+  included: write `if n > 0 then Some("positive") else None`, or `_ = ...`
+  in a statement's branch that drops a value. In an `Html` literal,
+  `${if c then Some(Html"...") else None}` shows the part or nothing, as
+  does `class='badge ${if c then Some("on") else None}'` in a quoted value;
+  unquoted, `class=${if c then Some("on") else None}` writes the attribute
+  or leaves it out.
 - There are no exceptions. A function that can fail returns `Maybe<T>`
   (`Some(v)` or `None`) or `Result<T, E>` (`Ok(v)` or `Err(e)`).
 - A postfix `?` returns an `Err` or `None` from the enclosing function, lambda
@@ -323,20 +324,18 @@ test result: ok. 1 passed, 0 failed
   `|> then? fn v -> ...` does the same for a lambda's result.
 - `x is Pattern` is a `Bool`.
 - A resource is closed by a `defer` on the line after it is acquired; std
-  has no `with_*` function that runs a lambda with one. A deferred call
-  returns `Unit`, so a writer's success path ends with `Writer.close(w)?`,
-  which commits and reports a failed close, after `defer Writer.discard(w)`,
-  which throws the output away on an `Err` or a trap. The checker holds both:
-  an opened resource with no deferred release, one dropped with
-  `_ = fs.open(p)?`, and a deferred discard on a path that returns `Ok`
-  without the close, are compile errors.
+  has no `with_*` function taking a lambda. A deferred call returns `Unit`,
+  so a writer's success path ends with `Writer.close(w)?`, which commits and
+  reports a failed close, after `defer Writer.discard(w)`, which drops the
+  output on an `Err` or a trap. Compile errors: an opened resource with no
+  deferred release, one dropped with `_ = fs.open(p)?`, and a deferred
+  discard on a path that returns `Ok` without the close.
 - A function that opens a resource and returns it releases it with
-  `defer on error sql.close_quietly(conn)` on the line after opening it.
-  That call runs only if the function then fails (a `?` or `return` of
-  `Err` or `None`, or a trap); a `?` before the value is handed on, with no
-  such release, is a compile error. So is a path that returns normally
-  without the value, such as `return Ok(None)`, unless it calls the release
-  (`sql.close_quietly(conn)`) first.
+  `defer on error sql.close_quietly(conn)` on the line after opening it,
+  which runs only if the function then fails (a `?`, a `return` of `Err` or
+  `None`, or a trap). A `?` before the value is handed on with no such
+  release is a compile error, and so is a normal return without the value
+  (`return Ok(None)`) that does not call the release first.
 
 ```nomi-run
 import
@@ -411,7 +410,7 @@ test result: ok. 1 passed, 0 failed
 - Every collection is an `Iter`, and the algorithms are `Iter`'s functions:
   `Iter.map`, `Iter.filter`, `Iter.reduce`, `Iter.count`, `Iter.sort`. There is
   no `List.map`. Operations particular to one container stay on its type:
-  `List.head`, `List.length`, `Map.get`, `Set.insert`, `Set.union`.
+  `List.first`, `List.length`, `Map.get`, `Set.insert`, `Set.union`.
 - Adapters are lazy. `Iter.to_list`, `to_vector`, `to_set` and `to_map`
   collect, and `String.join` joins strings.
 - A fold's starting value comes before its callback:
@@ -435,7 +434,7 @@ test "iteration and pipes"
 
     assert evens == [20, 40, 60, 80, 100]
     assert Iter.reduce(evens, 0, fn acc, n -> acc + n) == 300
-    assert List.head(evens) == Some(20)
+    assert List.first(evens) == Some(20)
     assert ["b", "a"] |> Iter.sort() |> String.join(", ") == "a, b"
     assert Iter.map_reduce([1, 2], 0, fn total, n -> (total + n, total)) == (3, [0, 1])
 end

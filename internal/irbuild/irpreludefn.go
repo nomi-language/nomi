@@ -16,6 +16,17 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 	if _, anchored := bl.g.preludeByName[owner]; !anchored {
 		return nil
 	}
+	// kindInvalid: sentinel — solvedParamKind's nothing-recorded answer; the operand keeps its own kind.
+	if want := bl.g.solvedParamKind(t, "with_default", 0); want != kindInvalid && want != args.kinds[0] && args.kinds[0].tag == tagNamed {
+		// `Maybe.with_default(Some(circle), shape)`: the checker solved T
+		// at the default's Shape, past the Maybe<Circle>, which converts
+		// to the Maybe<Shape> as a user function's argument would.
+		v, got, ok := bl.coerceEmpty(t.Args[0], args.temps[0], args.kinds[0], want)
+		if !ok || got != want {
+			return nil
+		}
+		args.temps[0], args.kinds[0] = v, got
+	}
 	d := args.kinds[0].def
 	if args.kinds[0].tag != tagNamed || d == nil || d.preludeOf == nil || d.preludeOf.spec.nomi != owner ||
 		len(d.preludeArgs) != len(d.preludeOf.spec.params) {

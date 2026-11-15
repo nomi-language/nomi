@@ -62,7 +62,7 @@ export fn guess(game: Game, letter: String) -> Game
 end
 
 export fn outcome(game: Game) -> Outcome
-  if List.head(game.guesses) == Some("w") then Outcome.Won else Outcome.Playing{left: 6 - Iter.count(game.guesses)}
+  if List.first(game.guesses) == Some("w") then Outcome.Won else Outcome.Playing{left: 6 - Iter.count(game.guesses)}
 end
 
 export fn describe(o: Outcome) -> String

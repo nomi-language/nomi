@@ -115,15 +115,23 @@
 // The language server also evaluates double-quoted typed literals with no
 // `${...}` this way, for hovers and diagnostics.
 //
-// A literal the checker typed as a refinement (spec §4 *Refinement types*)
+// A literal the checker typed as a subtype (spec §4 *Subtypes*)
 // is checked here too (refinements.go): irbuild lists each one as a
-// RefinementSite with the `try_from` of every refinement on its chain, and
-// checkRefinements calls each on the literal, a struct refinement's on the
+// RefinementSite with the `try_from` of every subtype on its chain, and
+// checkRefinements calls each on the literal, a validated struct's on the
 // record its literal fields build. A `None` is the error `-1.0 is not a
 // NonNegativeFloat: <rule> is false` at the literal, and a trap in a rule
 // is an error carrying its message. Each declared rule
 // (irbuild.Result.RefinementRules) is refused when it can reach an effect,
-// whether or not a literal is checked against it.
+// whether or not a literal is checked against it, and a literal of a
+// subtype so refused is not reported again. A generic subtype's rule
+// is walked through its `try_from` at its bounds' interfaces, whose calls
+// dispatch to every implementation the program retains, at a witness
+// type, at every instance the linked program has, and with every function
+// of every impl of its bounds' interfaces, concrete or an instance of a
+// generic one: one of them is the argument's whatever type it is, so an
+// effect in any is an error at the `when` that names it (Loud.to_string
+// calls io.print).
 //
 // std/toml's `Toml` is a checked literal over a program std module. Its
 // check and build cross into the internal std/toml/host, over

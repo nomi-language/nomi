@@ -2658,12 +2658,26 @@ func TestParseTypeAlias_SingleType_StillWorks(t *testing.T) {
 	}
 }
 
-func TestParseTypeAlias_TakesNoTypeParameters(t *testing.T) {
-	_, err := Parse(lexer.Lex("typealias Lookup<V> Map<String, V>"))
-	if err == nil {
-		t.Fatal("parsed a generic typealias, want an error")
+func TestParseTypeAlias_TakesTypeParametersAndABound(t *testing.T) {
+	nodes, err := Parse(lexer.Lex("typealias Sortable<T> List<T> where T: Comparable\n\ntypealias Tagged<T> (T, Priced and Costed)\n"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	want := "line 1, col 17: a typealias takes no type parameters; declare a struct or a `type` when the shape deserves a name of its own"
+	ta := nodes[0].(*ast.TypeAlias)
+	if len(ta.TypeParams) != 1 || ta.TypeParams[0].Name != "T" || len(ta.WhereClauses) != 1 || ta.TargetTypeExpr.TypeString() != "List<T>" {
+		t.Fatalf("got %+v, want a generic alias of List<T> bounded by Comparable", ta)
+	}
+	if tagged := nodes[1].(*ast.TypeAlias); len(tagged.TypeParams) != 1 {
+		t.Fatalf("got %+v, want a generic alias over a tuple with an intersection", tagged)
+	}
+}
+
+func TestParseTypeAlias_HasNoRule(t *testing.T) {
+	_, err := Parse(lexer.Lex("typealias Small Int when fn n -> n < 10\n"))
+	if err == nil {
+		t.Fatal("parsed a typealias with a `when` rule, want an error")
+	}
+	want := "line 1, col 21: a typealias has no rule, since it is its target under another name: for the values of Int that satisfy a rule, declare `subtype Small Int when ...`"
 	if !strings.Contains(err.Error(), want) {
 		t.Errorf("error %q, want it to contain %q", err.Error(), want)
 	}

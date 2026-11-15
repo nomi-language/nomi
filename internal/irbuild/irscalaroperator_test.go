@@ -54,8 +54,8 @@ end
 
 func TestIRScalarOperator_CheckedFaults(t *testing.T) {
 	for _, tc := range []struct{ expression, fault string }{
-		{"Int.divide(1, 0)", "division by zero"},
-		{"Divide.divide(1, 0)", "division by zero"},
+		{"Int.divide(1, 1 - 1)", "division by zero"},
+		{"Divide.divide(1, 1 - 1)", "division by zero"},
 	} {
 		t.Run(tc.expression, func(t *testing.T) {
 			verifyIterFault(t, "import std::io\nfn main()\n io.print("+tc.expression+")\nend\n", "line 3: "+tc.fault, "")

@@ -147,9 +147,9 @@ var deterministicCrossings = map[string]bool{
 	// A Context's values are what the program put there.
 	"Context.value": true, "Context.with_value": true,
 	// Pure functions vm.Effects reports because one Go call's cost follows
-	// an operand rather than the operands' size, so an editor's evaluation
-	// does not make them (vm's pureCrossings). A run here has no such
-	// limit: `String.pad_start` reaches `String.repeat`.
+	// an operand rather than the operands' size, so their rows are not
+	// marked Pure and an editor's evaluation does not make them. A run here
+	// has no such limit: `String.pad_start` reaches `String.repeat`.
 	"strings.String.repeat": true, "decimal.Decimal.divide": true, "decimal.Decimal.round": true,
 }
 

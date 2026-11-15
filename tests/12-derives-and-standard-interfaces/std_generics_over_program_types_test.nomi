@@ -42,7 +42,7 @@ test "an interface value inside a tuple entering a Map or a default"
     assert Display.to_string(Map.get(Map.put(m, "k", t), "k")!.first) == "1"
     assert Display.to_string(Maybe.with_default(None, t).first) == "1"
     seeds = Iter.iterate((7 as Display), fn x -> x) |> Iter.take(1) |> Iter.to_list()
-    assert Display.to_string(List.head(seeds)!) == "7"
+    assert Display.to_string(List.first(seeds)!) == "7"
 end
 
 struct Rev

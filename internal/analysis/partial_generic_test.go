@@ -121,3 +121,19 @@ end
 `)
 	expectNoStdlibErrors(t, errs)
 }
+
+// A partial capture's open slot met exactly by the parameter its position
+// passes is solved by it, as the lambda's parameter is: `&Int.max(&1,
+// Int.abs(-3))` where Iter.map passes an Int takes that Int, and the
+// NonNegativeInt beside it widens to it (spec §4 *Chains and conversion*),
+// so the capture is an `(Int) -> Int`, with the subtype argument written
+// second or first.
+func TestPartialGeneric_AnExactSlotTakesThePositionsParameter(t *testing.T) {
+	for _, call := range []string{
+		"&Int.max(&1, Int.abs(-3))",
+		"&Int.max(Int.abs(-3), &1)",
+	} {
+		_, errs := checkSourceWithStdlib("\nfn main()\n  xs = Iter.map([1], " + call + ") |> Iter.to_list()\n  _ = xs\nend\n")
+		expectNoStdlibErrors(t, errs)
+	}
+}

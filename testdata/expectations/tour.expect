@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 373
+records 375
 declared-cases 183
 failing 0
 C app-fields.md:L105
@@ -235,49 +235,49 @@ T example.com/search tags=[go, nomi]
 T a+b%2Bc
 T Err(invalid URL escape "%zz")
 T
-C cheat-sheet.md:L138
+C cheat-sheet.md:L137
 E 0
 N 1
 H f62a4e116d20a85d0facc6a4ca0eb339c7bf6026b105281ca9f0d979bd0036db
 T ok literals
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L219
+C cheat-sheet.md:L220
 E 0
 N 1
 H 5cace7f82b57f5da8eb4446d7142d3943cb755a3fb19a84cf2c2e2a5e4d31832
 T ok types and calls
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L341
+C cheat-sheet.md:L340
 E 0
 N 1
 H 6d65127ae100e990e3de457f13ed5f47d5ea10e74c1f126a28a90ca853fce147
 T ok branching and errors
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L428
+C cheat-sheet.md:L427
 E 0
 N 1
 H f93402d5f2460f2e7ce11bf4175a8483b47b3beb1f84ad9600867ec51dc039af
 T ok iteration and pipes
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L470
+C cheat-sheet.md:L469
 E 0
 N 0
 H fc3a7d7e7bca1e9452fd5f3ff98774dba2bb482ac70438aacc41fba680b88a47
 T 9
 T 12
 T
-C cheat-sheet.md:L49
+C cheat-sheet.md:L48
 E 0
 N 1
 H 43d4e6551530ef28b9999096eab53b4c94adb056747d99c43519d2f927f6bb81
 T ok bindings and functions
 T test result: ok. 1 passed, 0 failed
 T
-C cheat-sheet.md:L534
+C cheat-sheet.md:L533
 E 0
 N 1
 H a7280413a9dcc66fb588d5b17d2c6fc7da6a1dccdf02b01bcc260d8151ebd48f
@@ -286,14 +286,14 @@ T ok greetings / app fields
 T ok greetings / tasks
 T test result: ok. 2 passed, 0 failed
 T
-C cheat-sheet.md:L598
+C cheat-sheet.md:L597
 E 0
 N 1
 H 43911209f40f5e5955ceae3cae77b7a2282d57af2df59c6f8e4eaeb909587d9f
 T ok dates
 T test result: ok. 1 passed, 0 failed
 T
-C collections.md:L102
+C collections.md:L104
 E 0
 N 0
 H 713800f9ab33b487bc5bb05b569caee15829c376bd8940e6860186da900c6876
@@ -304,7 +304,7 @@ T   |> Iter.map(fn n -> n * n)
 T   |> Iter.sum()
 T   = 50
 T
-C collections.md:L133
+C collections.md:L142
 E 0
 N 0
 H b822631a1986055a1c5b50d7704b0df9966a5b83db4c3693424b481f701764dc
@@ -315,7 +315,7 @@ T dbg line 9: Vector.get(names, 5) = None
 T dbg line 10: Vector.get(names, 1)! = "Grace"
 T dbg line 11: names + ["Dorothy"] = Vector["Ada", "Grace", "Katherine", "Dorothy"]
 T
-C collections.md:L185
+C collections.md:L194
 E 0
 N 0
 H 7d90e5de8b76c61050edf03e6d430c195aac01f1562239e64b40859a8699b5c4
@@ -323,7 +323,7 @@ T dbg line 4: Map.size(config) = 2
 T dbg line 5: Map.get(config, "host") = Some("localhost")
 T dbg line 6: Map.get(config, "user") = None
 T
-C collections.md:L230
+C collections.md:L239
 E 0
 N 0
 H c0723da601934b73cf45644b18a377e3806849df2e6e3759ffe557ada862c4d4
@@ -333,7 +333,7 @@ T dbg line 6: not 9 in s = True
 T dbg line 7: s + [4, 5] = Set[1, 2, 3, 4, 5]
 T dbg line 8: s - [1] = Set[2, 3]
 T
-C collections.md:L297
+C collections.md:L306
 E 0
 N 0
 H a1be7f941cd64b875d7a473604080e0793afffa3ab21f2aa5828241a24d94609
@@ -343,20 +343,20 @@ T dbg line 9: ["Ada", ..v] = Vector["Ada", "Bo"]
 T dbg line 10: [..s, "blue"] = Set["red", "blue"]
 T dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
-C collections.md:L329
+C collections.md:L338
 E 0
 N 0
 H b82743e0315237f416683a7f78267848de5a16f962872141c741e4dfeefa89c5
 T dbg line 3: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 T
-C collections.md:L373
+C collections.md:L382
 E 0
 N 0
 H c8f5ef79c794b5fbe24b98617b4b8789477d23925944b939527b2267f97fc26f
 T dbg line 2: Iter.to_list(1..5) = [1, 2, 3, 4]
 T dbg line 3: Iter.to_list(1..=5) = [1, 2, 3, 4, 5]
 T
-C collections.md:L387
+C collections.md:L396
 E 0
 N 0
 H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
@@ -366,14 +366,14 @@ T   |> Iter.map(Codepoint.to_string)
 T   |> Iter.to_list()
 T   = ["a", "b", "c", "d"]
 T
-C collections.md:L407
+C collections.md:L416
 E 0
 N 0
 H a38009fe2b3a466329c1eb82003fc43f40e3edd7fa2c08340f6f2c0214485fae
 T dbg line 2: Range.contains("a".."m", "h") = True
 T dbg line 3: Range.contains(0.0..=1.0, 1.0) = True
 T
-C collections.md:L423
+C collections.md:L432
 E 0
 N 0
 H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
@@ -383,7 +383,7 @@ T   |> Range.step_by(0.1d)
 T   |> Iter.to_list()
 T   = [1.0d, 1.1d, 1.2d, 1.3d]
 T
-C collections.md:L44
+C collections.md:L46
 E 0
 N 0
 H 38c3f88650f97e2369dfd2016660ba3cf833db80121ff20c7d7175241a6b4f26
@@ -2681,7 +2681,7 @@ T   |> Iter.filter(&(&1 > 2))
 T   |> Iter.count()
 T   = 3
 T
-C scalars-and-strings.md:L105
+C scalars-and-strings.md:L106
 E 0
 N 0
 H f297a45ff57ac8d197ce438387073999261bfd448ff36eff942b6ef0fe6283db
@@ -2689,7 +2689,7 @@ T dbg line 3: 0.1 + 0.2 == 0.3 = False
 T dbg line 6: 0.1d + 0.2d == 0.3d = True
 T dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 T
-C scalars-and-strings.md:L164
+C scalars-and-strings.md:L165
 E 0
 N 0
 H 12bd532039fc4747d0e08b76d79b7f867e8f4b93beb1643ff270a34277f6eec8
@@ -2713,13 +2713,13 @@ T dbg line 10: Int.pow(2, 100) = 1267650600228229401496703205376
 T dbg line 11: 0b1011 >>> 1 &&& 1 = 1
 T dbg line 12: 0b0011 ||| 0b0100 = 7
 T
-C scalars-and-strings.md:L192
+C scalars-and-strings.md:L193
 E 0
 N 0
 H a7ddd978552e1e8e7c33a0c7183140e65a8d8c2cac29855195a576be86c89844
 T echo ${HOME} costs $5
 T
-C scalars-and-strings.md:L239
+C scalars-and-strings.md:L240
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -2732,7 +2732,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L271
+C scalars-and-strings.md:L272
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -2743,7 +2743,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L306
+C scalars-and-strings.md:L307
 E 0
 N 0
 H 44da9d4bebf6cf768c0c507a7cc4c6b6aeceeda26aa98d75c1ca848c57b39e18
@@ -2762,7 +2762,7 @@ T   |> Maybe.values()
 T   |> Iter.to_list()
 T   = [5, 5, 5, 0, 1]
 T
-C scalars-and-strings.md:L365
+C scalars-and-strings.md:L366
 E 0
 N 0
 H 1b5bde9ad561d4b30bcdc16febfa87be031bcbe6ca8905f1190ea023321d1b13
@@ -2770,7 +2770,7 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L418
+C scalars-and-strings.md:L419
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -2778,7 +2778,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L444
+C scalars-and-strings.md:L445
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -2788,7 +2788,7 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L510
+C scalars-and-strings.md:L511
 E 0
 N 0
 H 7510b833eb70110fe08e86264bc1f36bc85ac431e9e3a2122c7184b117689ae8
@@ -2801,7 +2801,7 @@ T dbg line 12: String.replace(text, Regex`\d{3,4} `, "# ") = "Order # shipped 20
 T dbg line 13: String.replace(text, date, "$3/$2/$1") = "Order 1042 shipped 25/10/2026, order 977 on 26/10/2026"
 T dbg line 15: String.find_all(text, Regex`(?i)order \d+`) = ["Order 1042", "order 977"]
 T
-C scalars-and-strings.md:L84
+C scalars-and-strings.md:L85
 E 0
 N 0
 H 1660525d2dd2eaeedc57386843db41201ef807cdb4109feb5611ce9ed50fe9b1
@@ -2878,24 +2878,38 @@ T dbg line 12: Path[3, 1, 4] = Path(Vector[3, 1, 4])
 T dbg line 13: Scores{"ada" => 3} = Scores({"ada" => 3})
 T dbg line 16: home = Path(Vector[0, 0])
 T
-C structs-enums-distinct.md:L396
+C structs-enums-distinct.md:L408
 E 0
 N 0
-H 351cbd291098e1bcea94d83083df6a3dcbe4f235ceac52999db69ac9b1a4ca81
-T dbg line 14: serve(8080) = "listening on 8080"
-T dbg line 18: Port.try_from(base + 80) = Some(8080)
-T dbg line 19: Port.try_from(base * 10) = None
-T dbg line 23: scale(10.0, half) = 5.0
-T dbg line 24: Float.floor(half) = 0.0
+H ef518b2f29e4b672f49bd0054d3731dbebbc1b6d2ed545683bb8c6f37a0e1bb7
+T dbg line 4: Email("ada@example.com") = Email("ada@example.com")
+T dbg line 5: Email.try_from("ada") = None
 T
-C structs-enums-distinct.md:L478
+C structs-enums-distinct.md:L434
+E 0
+N 0
+H 233ac3bb7e6832542674dc41ae0f2439415427ba5e02a52dfd9244f6924b8c2e
+T dbg line 12: serve(8080) = "listening on 8080"
+T dbg line 16: Port.try_from(base + 80) = Some(8080)
+T dbg line 17: Port.try_from(base * 10) = None
+T dbg line 21: scale(10.0, half) = 5.0
+T dbg line 22: Float.floor(half) = 0.0
+T
+C structs-enums-distinct.md:L504
+E 0
+N 0
+H 381efd2c7655effa80b2b40a9bbdf76b7acdb07cf7cfcb76dd4c7874a1eb9dc8
+T dbg line 6: greet(["Ada", "Bo"]) = "Hello, Ada"
+T dbg line 9: NonEmptyList.try_from(typed) |> Maybe.map(greet) = Some("Hello, Cy")
+T
+C structs-enums-distinct.md:L549
 E 0
 N 0
 H caa2c7537f180822fbe1354f21b84575c40aa9aa16d97536f082e01cd1abf304
 T dbg line 7: state = Expired
 T dbg line 8: Online = Online
 T
-C structs-enums-distinct.md:L514
+C structs-enums-distinct.md:L585
 E 0
 N 0
 H dc5d10561384c90bcfd162c700b3d04eea6cc2ac5744299c64bb221a7d67fb62
@@ -2903,19 +2917,12 @@ T dbg line 14: Direction.North = North
 T dbg line 17: c = Circle(3.0)
 T dbg line 20: r = Rectangle{width: 4.0, height: 5.0}
 T
-C structs-enums-distinct.md:L549
+C structs-enums-distinct.md:L620
 E 0
 N 0
 H 38c6069ff4a4e3f28c2d1c5d6802955c4e74334b35bc0dd40c90dec518aca38e
 T dbg line 21: describe(.North) = "up"
 T dbg line 22: describe(.West) = "left"
-T
-C structs-enums-distinct.md:L615
-E 0
-N 0
-H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
-T dbg line 18: User.full_name(alice) = "Ada Lovelace"
-T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
 T
 C structs-enums-distinct.md:L65
 E 0
@@ -2923,13 +2930,20 @@ N 0
 H 55261e44626589291e1917a4a2e1c0c448a2c51f8ef97e338c87a02c6c1c7276
 T dbg line 14: ada = Person{name: "Ada", address: Address{street: "1 Main", city: "Bath"}}
 T
-C structs-enums-distinct.md:L655
+C structs-enums-distinct.md:L686
+E 0
+N 0
+H 2173ea1bbc0759a94c9aa3b8ed9eec733df5655d591eb881c020f7cd4a8cc0e5
+T dbg line 18: User.full_name(alice) = "Ada Lovelace"
+T dbg line 21: User.full_name(renamed) = "Augusta Lovelace"
+T
+C structs-enums-distinct.md:L726
 E 0
 N 0
 H c2c34c1d0c53993b4411a413b1e27710756f1df5b9d9a071651a1687086dcf10
 T dbg line 22: events = [Click{x: 10, y: 20}, KeyDown{key: "Enter"}, FocusLost]
 T
-C structs-enums-distinct.md:L722
+C structs-enums-distinct.md:L793
 E 0
 N 0
 H 6f4c2b3bfc7d3916e23f6afc85f015c1a9fda0dc7e071e9d95425d64dd0b85f8

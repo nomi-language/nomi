@@ -100,7 +100,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	if sk == kindEmptyList && len(t.Args) >= 1 {
 		// `Iter.first([])`, `[] |> Iter.chunks(2)`: nothing constrains the
 		// element, so no value of it is built or observed, as listCallPlan
-		// argues for `List.head([])`. The literal is typed at a callback's
+		// argues for `List.first([])`. The literal is typed at a callback's
 		// parameter when there is one, and otherwise as a List of Int, the
 		// representation of an element the program never holds.
 		elem := kindInt
@@ -391,8 +391,25 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		// Both operands viewed as sources of one element kind, joined by
 		// rt.SeqConcat.
 		right, relem, ok := bl.iterPlainView(t.Args[1], args.temps[1], args.kinds[1])
-		if !ok || relem != elem {
+		if !ok {
 			return no()
+		}
+		if relem != elem {
+			// `Iter.concat(circles, shapes)`: the checker solved T at
+			// the wider of the two (recordedTypeArg), and each sequence
+			// converts to it as an argument would.
+			to := bl.g.recordedTypeArg(t, method, "T")
+			// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer, not an operand's kind; the intrinsic is not taken and the caller's std body route lowers or reports the call.
+			if to == kindInvalid {
+				return no()
+			}
+			if src, ok = bl.coerceSeqElem(t.Args[0], src, elem, to); !ok {
+				return no()
+			}
+			if right, ok = bl.coerceSeqElem(t.Args[1], right, relem, to); !ok {
+				return no()
+			}
+			elem = to
 		}
 		k := seqKindIn(bl.g, elem)
 		return appendOp(t, ir.IterConcat, ir.IterOverSeq, k, src, right), k, false, true
@@ -1016,10 +1033,10 @@ func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
 	mk, shared := bl.g.sharedMaybe(elem)
 	if !shared && irCallableValueKind(elem) {
 		// `Maybe<Point>` renders package-relative, so it is this gen's
-		// instance, as `List.head` over the same list asks for it. The
+		// instance, as `List.first` over the same list asks for it. The
 		// callable domain, not only the retained one: an interface element
 		// (`List<Named>`) is held as the concrete value, and `maybeOf`, which
-		// `Map.get` and `List.head` ask, already instantiates Maybe at it.
+		// `Map.get` and `List.first` ask, already instantiates Maybe at it.
 		mk = bl.g.preludeInstance(bl.g.preludeByName["Maybe"], []kind{elem})
 		// kindInvalid: propagates — preludeInstance answers kindInvalid for an element Maybe cannot be instantiated at, and the terminal declines.
 		shared = mk != kindInvalid
@@ -1118,4 +1135,18 @@ func irMustHold(held bool, stage string, k kind) {
 	if !held {
 		panic("iterCall: " + stage + " builds " + k.nomi() + ", which the domain does not hold")
 	}
+}
+
+// coerceSeqElem is seq, a sequence of from, as a sequence of to, by the
+// covariant conversion coerceEmpty does (irbuild package doc, "Covariant
+// conversion"); seq itself where from is to.
+func (bl *irScalarBuilder) coerceSeqElem(at ast.Node, seq ir.Temp, from, to kind) (ir.Temp, bool) {
+	if from == to {
+		return seq, true
+	}
+	v, got, ok := bl.coerceEmpty(at, seq, seqKindIn(bl.g, from), seqKindIn(bl.g, to))
+	if !ok || got != seqKindIn(bl.g, to) {
+		return ir.NoTemp, false
+	}
+	return v, true
 }

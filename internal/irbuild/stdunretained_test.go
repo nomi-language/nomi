@@ -9,9 +9,10 @@ import (
 // A monomorphic std body the cache declines because it reaches a generic
 // template, directly or through other bodies declined for that reason, is
 // built per program (stdUnretainedMonoBody). `String.strip_prefix` calls
-// the generic `String.starts_with`, and `Regex`'s `impl Debug`, reached
-// through an interface, calls the generic `String.contains`; without a
-// per-program route a program that reaches either is BLOCKED.
+// the generic `String.starts_with`, and `Instant`'s `impl ToJson`, reached
+// through an interface, calls the generic `Maybe.map` and the declined
+// `String.strip_suffix`; without a per-program route a program that
+// reaches either is BLOCKED.
 //
 // Every Nomi-bodied monomorphic std function the cache did not retain must
 // be one a program builds, and must build.
@@ -43,7 +44,7 @@ func TestStdBodiesTheCacheDeclinesAreBuiltPerProgram(t *testing.T) {
 			t.Errorf("std %s is built per program, and does not build: %s", name, why)
 		}
 	}
-	for _, want := range []string{"strings.String.strip_prefix", "regex.Regex.inspect"} {
+	for _, want := range []string{"strings.String.strip_prefix", "json.Instant.to_json"} {
 		if !checked[want] {
 			t.Errorf("std %s is no longer a body the cache declines and a program builds, so this "+
 				"test no longer covers it; point it at another one", want)

@@ -538,7 +538,7 @@ func htmlArticle(name string) string {
 	case strings.HasPrefix(name, "Url"), strings.HasPrefix(name, "Uuid"):
 		return "a"
 	}
-	return articleFor(name)
+	return ArticleFor(name)
 }
 
 // htmlArgumentMismatch is the argument check's error for a slot value

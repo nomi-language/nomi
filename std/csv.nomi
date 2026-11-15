@@ -112,8 +112,8 @@ impl Display for Error
     fn to_string(error: Error) -> String
         case error
             .Syntax{message:, line:, column:} -> "line ${line}, column ${column}: ${message}"
-            .Io{error:} -> "${error}"
-            .InvalidOptions{message:} -> message
+            .Io{error:}                       -> "${error}"
+            .InvalidOptions{message:}         -> message
         end
     end
 end

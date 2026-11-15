@@ -334,7 +334,7 @@ type synthSite struct {
 func wrappingDistincts(decls map[string]ast.Node) map[string]bool {
 	out := map[string]bool{}
 	for name, n := range decls {
-		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil && td.Rule == nil {
+		if td, ok := n.(*ast.TypeDef); ok && td.InnerTypeExpr != nil && !td.Subtype {
 			out[name] = true
 		}
 	}
@@ -1586,6 +1586,9 @@ func (s *uniquifyState) typeExpr(te ast.TypeExpr) {
 		t.Line, t.Col = s.bump()
 	case *ast.RefinementBaseType:
 		t.Line, t.Col = s.bump()
+		for _, p := range t.Params {
+			s.typeExpr(p)
+		}
 	case *ast.QualifiedType:
 		t.ModuleLine, t.ModuleCol = s.bump()
 		s.typeExpr(t.Member)
@@ -4605,6 +4608,16 @@ func cloneTypeExpr(te ast.TypeExpr, line, col int) (ast.TypeExpr, bool) {
 			ret = cloned
 		}
 		return &ast.FuncType{Params: params, Return: ret, Line: line, Col: col}, true
+	case *ast.ConjunctionType:
+		members := make([]ast.TypeExpr, len(t.Members))
+		for i, m := range t.Members {
+			cloned, ok := cloneTypeExpr(m, line, col)
+			if !ok {
+				return nil, false
+			}
+			members[i] = cloned
+		}
+		return &ast.ConjunctionType{Members: members, Line: line, Col: col}, true
 	}
 	return nil, false
 }

@@ -144,7 +144,7 @@ import
     code_points.Codepoint
     debug.Debug
     display.Display
-    duration.Duration
+    duration.{Duration, PositiveDuration}
     equatable.Equatable
     instant.Instant
     int.Int
@@ -393,22 +393,24 @@ derive Debug for Missed
 impl Schedule
     /// A schedule that enqueues `job` for `args` every `interval`, at the
     /// whole multiples of it since the Unix epoch, so every process
-    /// agrees on the ticks. An interval of zero or less traps.
+    /// agrees on the ticks. The interval is a `PositiveDuration`: a typed
+    /// literal, `Duration"15m"`, is checked when the program is compiled,
+    /// and a Duration computed at run time goes through
+    /// `PositiveDuration.try_from`.
     //! job = Job.new("sweep", fn _: Int -> Ok(Unit))
-    //! sweep = Schedule.every("sweep", Duration.minutes(15), job, 0)
+    //! sweep = Schedule.every("sweep", Duration"15m", job, 0)
     //! assert Schedule.name(sweep) == "sweep"
     //! at = Instant.from_seconds(60 * 20)
     //! assert Schedule.next_after(sweep, at) == Instant.from_seconds(60 * 30)
     //
     pub fn every<A>(
         name:     String,
-        interval: Duration,
+        interval: PositiveDuration,
         job:      Job<A>,
         args:     A,
         missed:   Missed = Missed.RunLatest,
     ) -> Schedule where A: ToJson
-        every = positive(interval)!
-        Schedule{name:, timing: Timing.Every(every), job: template(job, args), missed:}
+        Schedule{name:, timing: Timing.Every(interval), job: template(job, args), missed:}
     end
 
     /// A schedule that enqueues `job` for `args` at the times `cron`
@@ -451,14 +453,6 @@ impl Schedule
             .Cron{cron:, zone:} ->
                 cron_next(cron, zone, at)
         end
-    end
-end
-
-fn positive(interval: Duration) -> Result<Duration, String>
-    if Duration.as_nanos(interval) > 0 then
-        Ok(interval)
-    else
-        Err("a schedule's interval must be above zero, not ${interval}")
     end
 end
 
@@ -1313,11 +1307,11 @@ pub fn run_one(handler: Handler, args: Json) -> Result<Unit, Failure>
         answer = Channel.select([
             Arm.receive(done.receiver, fn got ->
                 case got
-                    Some(.Completed(result)) -> result
+                    Some(.Completed(result))          -> result
                     Some(.Failed(.Panicked(message))) -> Err(Failure.Retry("trapped: ${message}"))
-                    Some(.Failed(.Errored(message))) -> Err(Failure.Retry("trapped: ${message}"))
-                    Some(.Cancelled) -> Err(Failure.Retry("cancelled"))
-                    None -> Err(Failure.Retry("cancelled"))
+                    Some(.Failed(.Errored(message)))  -> Err(Failure.Retry("trapped: ${message}"))
+                    Some(.Cancelled)                  -> Err(Failure.Retry("cancelled"))
+                    None                              -> Err(Failure.Retry("cancelled"))
                 end
             end),
             Arm.after(Handler.timeout(handler), fn -> Err(Failure.Retry("timed out"))),
@@ -1421,7 +1415,7 @@ end
 //! import std::jobs::testing.Inline
 //!
 //! queue = Inline.new()
-//! sweep = Schedule.every("sweep", Duration.hours(1), Job.new("sweep", fn _: Int -> Ok(Unit)), 0)
+//! sweep = Schedule.every("sweep", Duration"1h", Job.new("sweep", fn _: Int -> Ok(Unit)), 0)
 //! nine = Instant.from_seconds(9 * 3_600)
 //! assert enqueue_due(queue, sweep, nine) == Ok(None)
 //!
@@ -1509,8 +1503,8 @@ fn latest_within(
 
     case
         not Instant.is_before(now, first) -> Some(walk_to(schedule, first, now))
-        start == after -> None
-        _ -> latest_within(schedule, after, now, window * 2)
+        start == after                    -> None
+        _                                 -> latest_within(schedule, after, now, window * 2)
     end
 end
 

@@ -58,7 +58,10 @@ gives one error. Type errors are reported once the file parses.
 `--hints` also reports the hints the editor shows: a `value as Type` whose
 value has the type without it (code `redundant-ascription`), and an operand
 in a field's new value that reads the field's current value by its path,
-which `..` writes (code `restated-current-value`). Each prints as `hint:`
+which `..` writes (code `restated-current-value`), and a call whose Maybe
+the value's refinement answers plainly, `List.first(names)` for a
+NonEmptyList `names`, whose `NonEmptyList.first(names)` is the element
+(code `plain-counterpart`). Each prints as `hint:`
 and fails no file; without the flag `nomi check` says nothing of them. A
 program with Go bindings, checked through its wrapper, reports none.
 
@@ -1026,9 +1029,12 @@ end
 A block is a run of such items on consecutive lines at one indent. A blank
 line, a comment line or an item over several lines ends it, and each run
 aligns on its own, so a `case` whose arms put their bodies below `->`
-aligns nothing. A block whose narrowest and widest left parts are more than
-20 columns apart stays unaligned, as gofmt leaves one; rows have no such
-limit. Widths are display columns, as line width is measured. Alignment
+aligns nothing. Where a run breaks follows gofmt: two neighbouring items
+whose left parts are both at most 40 columns wide always align, and past
+that an item starts a new section when its left part is 2.5 times wider or
+narrower than the geometric mean of its section's so far. Each section
+aligns on its own, so one long item leaves the lines around it aligned;
+rows have no such limit. Widths are display columns, as line width is measured. Alignment
 comes after the line breaks and never changes one: a block that padding
 would take past 100 columns stays unaligned. Local bindings' `=`, enum
 variants' payloads, one-line literals and pipelines are not aligned.
@@ -1647,13 +1653,15 @@ fails returns its error as text with `isError` set, for the agent to read.
 A `search_std` query with `->` is a signature, such as `String, String ->
 List<String>`. Its parameters match in any order, a parameter with a
 default may be left out, and a single capital letter stands for any type:
-`List<T> -> Maybe<T>` finds `List.head`, and so does `List<Int> ->
+`List<T> -> Maybe<T>` finds `List.first`, and so does `List<Int> ->
 Maybe<Int>`. A query type also matches an interface it implements, so
 `List<T> -> Int` finds `Iter.count`, whose parameter is an `Iter<T>`, and
 `List<String> -> String` finds `String.join`; a result matches the
-interface a query asks for. Exact matches come first, then generic ones,
-then ones through an impl. Any other query matches names and the text of
-doc comments.
+interface a query asks for. A refinement matches where its base is asked
+for, so `List<T> -> Int` finds `Iter.count` though it returns a
+`NonNegativeInt`. Exact matches come first, then generic ones, then ones
+through an impl or a refinement's base. Any other query matches names and
+the text of doc comments.
 
 `check` and `run_tests` run `nomi check` and `nomi test` as child processes
 of the same `nomi`, and download the modules a project needs as those

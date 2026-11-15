@@ -35,10 +35,10 @@ func TestKeywordAsNameSaysItIsAKeyword(t *testing.T) {
 	for src, want := range map[string]string{
 		"fn apply(with: Int, patch: Int) -> Int { patch }":       "line 1, col 10: `with` is a keyword (replaces an application field for a block), so it can't name a parameter; name it something else, such as `options`",
 		"fn main()\n    x = fn test -> 1\nend":                   "line 2, col 12: `test` is a keyword (declares a test), so it can't name a parameter; name it something else, such as `check`",
-		"fn main()\n    when = 1\nend":                           "line 2, col 5: `when` is a keyword (an arm's guard), so it can't name a binding; name it something else, such as `condition`",
+		"fn main()\n    when = 1\nend":                           "line 2, col 5: `when` is a keyword (an arm's guard, or a type's rule), so it can't name a binding; name it something else, such as `condition`",
 		"fn main()\n    for = 2\nend":                            "line 2, col 5: `for` is a keyword (names the type an `impl` is for), so it can't name a binding; name it something else, such as `target`",
 		"fn main()\n    case 1\n        type -> 1\n    end\nend": "line 3, col 9: `type` is a keyword (declares a distinct type), so it can't name a binding; name it something else, such as `kind`",
-		"struct S\n    when: Int\nend":                           "line 2, col 5: `when` is a keyword (an arm's guard), so it can't name a field; name it something else, such as `condition`",
+		"struct S\n    when: Int\nend":                           "line 2, col 5: `when` is a keyword (an arm's guard, or a type's rule), so it can't name a field; name it something else, such as `condition`",
 		"enum E\n    A{in: Int}\nend":                            "line 2, col 7: `in` is a keyword (tests membership, `x in collection`), so it can't name a field; name it something else, such as `input`",
 		"fn main()\n    s = S{test: 1}\nend":                     "line 2, col 11: `test` is a keyword (declares a test), so it can't name a field; name it something else, such as `check`",
 		"fn unreachable() end":                                   "line 1, col 4: `unreachable` is a keyword (marks code that cannot run), so it can't name a function; name it something else, such as `never`",

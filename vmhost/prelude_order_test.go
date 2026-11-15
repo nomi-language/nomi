@@ -39,7 +39,7 @@ const preludeOrderWarmup = `fn main()
     m = {"a" => 1}
     dbg Map.size(m)
     dbg Map.get(m, "a")
-    dbg List.head([Some(1)])
+    dbg List.first([Some(1)])
     dbg Iter.get(Vector["x"], 0)
 end
 `

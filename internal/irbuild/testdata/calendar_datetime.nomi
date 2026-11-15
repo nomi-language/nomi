@@ -79,9 +79,9 @@ fn run() -> Result<Unit, Error>
     // The bracket suffix is required: a bare-offset string is an OffsetDateTime
     // and inventing a zone for it would be a silent wrong answer.
     case DateTime.parse("2026-06-15T12:00:00-04:00")
-        Ok(_d) -> io.print("bare_offset = unexpectedly ok")
+        Ok(_d)                      -> io.print("bare_offset = unexpectedly ok")
         Err(Error.InvalidFormat(m)) -> io.print("bare_offset = invalid format: " + m)
-        Err(_other) -> io.print("bare_offset = wrong variant")
+        Err(_other)                 -> io.print("bare_offset = wrong variant")
     end
 
     // `from_instant_in` is total once the zone is known, and the epoch renders

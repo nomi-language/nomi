@@ -53,6 +53,6 @@ test "Unit in binding else, is and or patterns"
 
     assert case save(True)
         Ok(Unit) or Err("disk full") -> True
-        Err(_) -> False
+        Err(_)                       -> False
     end
 end

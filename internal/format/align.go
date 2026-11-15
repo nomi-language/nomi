@@ -1,6 +1,7 @@
 package format
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,10 +36,44 @@ const (
 	alignComments alignKind = 'c' // trailing comments
 )
 
-// alignCutoff is how far apart, in columns, the narrowest and the widest
-// left part of a block may be and the block still align. A block wider
-// apart stays as it is, as gofmt leaves one. Rows have no cutoff.
-const alignCutoff = 20
+// alignSmall and alignRatio are gofmt's rule for where alignment breaks
+// (go/printer's exprList). Two consecutive items whose left parts, measured
+// from the run's indent, are both at most alignSmall wide stay in one
+// section. Otherwise an item starts a new section when its left part is
+// alignRatio times wider or narrower than the geometric mean of the
+// section's left parts so far. Each section aligns on its own, so one
+// outlier leaves the lines around it aligned. Rows have no limit.
+const (
+	alignSmall = 40
+	alignRatio = 2.5
+)
+
+// alignSections splits a run's left-part sizes into sections by alignSmall
+// and alignRatio, as [start, end) ranges.
+func alignSections(sizes []int) [][2]int {
+	var out [][2]int
+	start := 0
+	log2sum, count := 0.0, 0
+	for i, size := range sizes {
+		if i > 0 {
+			prev := sizes[i-1]
+			split := false
+			if count > 0 && (prev > alignSmall || size > alignSmall) {
+				geomean := math.Exp2(log2sum / float64(count))
+				ratio := float64(max(size, 1)) / geomean
+				split = alignRatio*ratio <= 1 || alignRatio <= ratio
+			}
+			if split {
+				out = append(out, [2]int{start, i})
+				start = i
+				log2sum, count = 0, 0
+			}
+		}
+		log2sum += math.Log2(float64(max(size, 1)))
+		count++
+	}
+	return append(out, [2]int{start, len(sizes)})
+}
 
 // commentMark is the mark the renderer writes before a comment that ends a
 // line of code.
@@ -223,11 +258,34 @@ func (it *markedItem) oneLine() bool {
 	return true
 }
 
-// alignRun pads the lines of one run of a block, column by column, unless
-// its left parts are further apart than alignCutoff (rows excepted) or
-// padding would take a line past width.
+// alignRun aligns one run of a block: rows as a whole, any other kind in
+// the sections alignSections splits it into by its first column's left
+// parts.
 func alignRun(lines []string, run []*markedItem, width int) {
-	kind := run[0].kind
+	if run[0].kind == alignRows {
+		alignSection(lines, run, width)
+		return
+	}
+	indent := lineIndent(lines[run[0].start])
+	sizes := make([]int, len(run))
+	for i, it := range run {
+		line := lines[it.start]
+		off := strings.Index(line, it.colMark(0))
+		if off < 0 {
+			return
+		}
+		sizes[i] = textWidth(stripMarks(line[:off])) - indent
+	}
+	for _, sec := range alignSections(sizes) {
+		if sec[1]-sec[0] >= 2 {
+			alignSection(lines, run[sec[0]:sec[1]], width)
+		}
+	}
+}
+
+// alignSection pads the lines of one section, column by column, unless
+// padding would take a line past width.
+func alignSection(lines []string, run []*markedItem, width int) {
 	padded := make([]string, len(run))
 	for i, it := range run {
 		padded[i] = lines[it.start]
@@ -243,12 +301,9 @@ func alignRun(lines []string, run []*markedItem, width int) {
 			offs[i] = off
 			cols[i] = textWidth(stripMarks(line[:off]))
 		}
-		lo, hi := cols[0], cols[0]
+		hi := cols[0]
 		for _, c := range cols {
-			lo, hi = min(lo, c), max(hi, c)
-		}
-		if kind != alignRows && hi-lo > alignCutoff {
-			return
+			hi = max(hi, c)
 		}
 		for i, line := range padded {
 			if pad := hi - cols[i]; pad > 0 {
@@ -295,32 +350,41 @@ func alignCommentLines(lines []string, width int) {
 }
 
 func alignCommentRun(lines []string, run []int, width int) {
+	indent := lineIndent(lines[run[0]])
 	lefts := make([]string, len(run))
 	rights := make([]string, len(run))
 	cols := make([]int, len(run))
-	lo, hi := -1, -1
+	sizes := make([]int, len(run))
 	for i, l := range run {
 		at := strings.Index(lines[l], commentMark)
 		lefts[i] = strings.TrimRight(dropAlignMarks(lines[l][:at]), " ")
 		rights[i] = strings.TrimLeft(dropAlignMarks(lines[l][at+len(commentMark):]), " ")
 		cols[i] = textWidth(stripMarks(lefts[i]))
-		if lo < 0 || cols[i] < lo {
-			lo = cols[i]
+		sizes[i] = cols[i] - indent
+	}
+	for _, sec := range alignSections(sizes) {
+		if sec[1]-sec[0] < 2 {
+			continue
 		}
-		hi = max(hi, cols[i])
-	}
-	if hi-lo > alignCutoff {
-		return
-	}
-	padded := make([]string, len(run))
-	for i := range run {
-		padded[i] = lefts[i] + strings.Repeat(" ", hi-cols[i]+1) + rights[i]
-		if hi != cols[i] && textWidth(stripMarks(padded[i])) > width {
-			return
+		hi := 0
+		for i := sec[0]; i < sec[1]; i++ {
+			hi = max(hi, cols[i])
 		}
-	}
-	for i, l := range run {
-		lines[l] = padded[i]
+		padded := make([]string, sec[1]-sec[0])
+		fits := true
+		for i := sec[0]; i < sec[1]; i++ {
+			padded[i-sec[0]] = lefts[i] + strings.Repeat(" ", hi-cols[i]+1) + rights[i]
+			if hi != cols[i] && textWidth(stripMarks(padded[i-sec[0]])) > width {
+				fits = false
+				break
+			}
+		}
+		if !fits {
+			continue
+		}
+		for i := sec[0]; i < sec[1]; i++ {
+			lines[run[i]] = padded[i-sec[0]]
+		}
 	}
 }
 

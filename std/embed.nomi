@@ -357,8 +357,8 @@ impl Files
         k = key(p)?
 
         case Map.get(files.files, k)
-            Some(Contents.Held(data)) -> Ok(hash.sha256_hex(data))
-            Some(Contents.Stored{handle:}) -> Ok(host.sum(handle, p))
+            Some(Contents.Held(data))                   -> Ok(hash.sha256_hex(data))
+            Some(Contents.Stored{handle:})              -> Ok(host.sum(handle, p))
             None when Map.get(files.dirs, k) is Some(_) -> Err(Error.IsADirectory{path: p})
             None -> Err(Error.NotFound{path: p})
         end

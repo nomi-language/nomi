@@ -143,7 +143,7 @@ end
 fn open(inputs: List<String>) -> Account
     (_, account) = Iter.loop((inputs, Account{}), fn state ->
         (rest, account) = state
-        Some(input) = List.head(rest) else
+        Some(input) = List.first(rest) else
             break
         end
         case parse_amount(input)

@@ -1,0 +1,6 @@
+// A `type` with a `when` rule reads as `type` does, with `when` a keyword.
+// The declaration is the file's last, since `nomi fmt` puts a blank line
+// between any other and the comments below it.
+pub type Email String when fn s -> String.contains(s, "@")
+//  ^^^^ keyword
+//                    ^^^^ keyword

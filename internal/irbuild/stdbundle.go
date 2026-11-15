@@ -76,7 +76,7 @@ const (
 	stdBundleMagic = "NOMISTDB"
 	// stdBundleVersion versions this file's own layout; ir.FormatVersion
 	// versions the images inside it.
-	stdBundleVersion = 3
+	stdBundleVersion = 4
 	// stdBundleUnused is how long a cached bundle no process has used is
 	// kept: each build of the compiler writes its own.
 	stdBundleUnused = 24 * time.Hour
@@ -311,8 +311,18 @@ func lowerStdBundle() (*stdlibIndex, []byte, error) {
 	for i, m := range mods {
 		recs[i] = recordStdModule(m.name, m.v, m.irModule)
 	}
+	markStdUnits(recs, idx)
 	data, err := encodeSharedSection(recs)
 	return idx, data, err
+}
+
+// markStdUnits marks each record lowered in one unit with the record
+// before it (lowerStdUnit), which idx, the lowering they record, says by
+// giving the earlier module the later one in its scope.
+func markStdUnits(recs []*stdModuleRecord, idx *stdlibIndex) {
+	for i := 1; i < len(recs); i++ {
+		recs[i].withPrev = idx.earlierMods[recs[i-1].name][recs[i].name]
+	}
 }
 
 // stdModuleRecord is what lowering one module decided: the module's IR,
@@ -323,6 +333,10 @@ type stdModuleRecord struct {
 	unlowered map[string]string
 	cands     []stdCandRecord
 	onces     []stdOnceRecord
+	// withPrev is set when the module was lowered in one unit, an import
+	// cycle, with the record before it (markStdUnits), so restoring the
+	// bundle gives it the scope its lowering had (earlierMods).
+	withPrev bool
 }
 
 // stdCandRecord is the fields of one stdFunc that lowering its module sets,
@@ -726,6 +740,7 @@ func encodeSharedSection(recs []*stdModuleRecord) ([]byte, error) {
 	}
 	for _, rec := range recs {
 		w.str(rec.name)
+		w.bool1(rec.withPrev)
 		if rec.mod == nil {
 			w.uv(0)
 		} else {
@@ -815,9 +830,11 @@ func decodeStdBundle(data []byte) (*stdlibIndex, error) {
 		return nil, err
 	}
 	var want []string
-	for _, name := range stdLoweringOrder(lib.ModuleNames(), lib) {
-		if len(lib.Nodes[name]) > 0 && !isProgramStd(name) {
-			want = append(want, name)
+	for _, unit := range stdLoweringUnits(stdLoweringOrder(lib.ModuleNames(), lib), lib) {
+		for _, name := range unit {
+			if len(lib.Nodes[name]) > 0 && !isProgramStd(name) {
+				want = append(want, name)
+			}
 		}
 	}
 	if !slices.Equal(idx.order, want) {
@@ -886,17 +903,38 @@ func restoreStdShared(recs []*stdModuleRecord) (idx *stdlibIndex, err error) {
 	}
 	idx = newStdlibIndex(names)
 	idx.pending = make(map[string]*stdModuleRecord, len(recs))
+	// A module's scope is every module of an earlier unit and the other
+	// members of its own, as buildStdlibIndexBy gave it.
 	done := map[string]bool{}
+	var unit []string
+	closeUnit := func() {
+		for _, name := range unit {
+			scope := make(map[string]bool, len(done)+len(unit))
+			for m := range done {
+				scope[m] = true
+			}
+			for _, m := range unit {
+				if m != name {
+					scope[m] = true
+				}
+			}
+			idx.earlierMods[name] = scope
+		}
+		for _, name := range unit {
+			done[name] = true
+		}
+		unit = nil
+	}
+	seen := map[string]bool{}
 	for _, rec := range recs {
-		if !lowered[rec.name] || done[rec.name] {
+		if !lowered[rec.name] || seen[rec.name] {
 			return nil, fmt.Errorf("the bundle has module %s, which this stdlib does not lower", rec.name)
 		}
-		earlier := make(map[string]bool, len(done))
-		for m := range done {
-			earlier[m] = true
+		if !rec.withPrev {
+			closeUnit()
 		}
-		idx.earlierMods[rec.name] = earlier
-		done[rec.name] = true
+		unit = append(unit, rec.name)
+		seen[rec.name] = true
 		idx.order = append(idx.order, rec.name)
 		idx.pending[rec.name] = rec
 		pkg := idx.modulePkg[rec.name]
@@ -907,6 +945,7 @@ func restoreStdShared(recs []*stdModuleRecord) (idx *stdlibIndex, err error) {
 			idx.unlowered[pkg] = rec.unlowered
 		}
 	}
+	closeUnit()
 	return idx.restoring(lib, false)
 }
 
@@ -956,7 +995,7 @@ func readSharedSection(data []byte) ([]*stdModuleRecord, error) {
 	}
 	var recs []*stdModuleRecord
 	for n := r.count(); n > 0 && r.err == nil; n-- {
-		rec := &stdModuleRecord{name: r.str()}
+		rec := &stdModuleRecord{name: r.str(), withPrev: r.bool1()}
 		if m := r.uv(); m > uint64(len(mods)) {
 			r.fail("module reference")
 		} else if m > 0 {

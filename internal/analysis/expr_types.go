@@ -66,7 +66,7 @@ func ImplementsInterface(fa *FileAnalysis, t Type, iface string) bool {
 	}
 	if dt := refinementOf(t); dt != nil && dt.Inner != nil && iface != "Debug" {
 		// A refinement has its parent's impls (refinement.go).
-		return ImplementsInterface(fa, dt.Inner, iface)
+		return ImplementsInterface(fa, DistinctInner(dt), iface)
 	}
 	switch iface {
 	case "Debug":

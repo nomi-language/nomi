@@ -286,7 +286,7 @@ pub typealias Endpoint ({
 // to let a comment spill past 100 cols rather than uglify the code.
 fn trivia_examples() -> Int
     config = {"host" => "localhost", "port" => "8080", "mode" => "debug"} // explanatory
-    short_struct = Point{x: 1, y: 2} // a 2D point
+    short_struct = Point{x: 1, y: 2}                                      // a 2D point
     Map.size(config) + short_struct.x
 end
 

@@ -60,7 +60,7 @@ end
 test "a List host call in a case arm"
   case [1, 2]
     [] -> assert False
-    [_, ..t] -> assert List.head(t) == Some(3)
+    [_, ..t] -> assert List.first(t) == Some(3)
   end
 end
 

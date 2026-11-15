@@ -38,8 +38,10 @@ codepoints, and so is a `String`, which gives one character at a time.
 
 The general operations live on `Iter` and work on all of them: `Iter.map`,
 `Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.sum`, `Iter.count`,
-`Iter.count_by`, `Iter.chunk_equal`, `Iter.min`, `Iter.max` and more. Each collection type keeps only the operations specific to
-it, such as `Map.get` or `List.head`.
+`Iter.count_by`, `Iter.chunk_equal`, `Iter.min`, `Iter.max`, `Iter.mean` and more. Each collection type keeps only the operations specific to
+it, such as `Map.get` or `List.first`. `Iter.min`, `Iter.max` and
+`Iter.mean` answer `None` for an empty source, and the mean of Ints is a
+Float: `Iter.mean([1, 2])` is `Some(1.5)`.
 
 ```nomi-run
 import std::io
@@ -120,13 +122,20 @@ dbg line 8:
 -->
 
 You write a list as `[a, b, c]`. The [`List`](/reference/lists/#type-list) type
-has the functions specific to lists, such as `concat`, `head` and `tail`.
+has the functions specific to lists, such as `concat`, `first` and `tail`.
 
 To transform a list, use the `Iter` functions, as above. When you want a list
 back at the end, finish with [`Iter.to_list()`](/reference/iter/#iterto_list).
 
 `[x, ..xs]` is a new list with `x` in front of `xs`. [Spreads](#spreads) covers
 this.
+
+A function that needs at least one element takes a
+[`NonEmptyList`](/structs-enums-distinct/#subtypes), whose
+`NonEmptyList.first` and `NonEmptyList.max` return the element rather than a
+`Maybe`; `NonEmptyVector`, `NonEmptyMap` and `NonEmptySet` do the same for
+the other collections. `List.first` on a NonEmptyList is still a `Maybe`,
+and the editor hints `NonEmptyList.first` there.
 
 ## Vectors
 

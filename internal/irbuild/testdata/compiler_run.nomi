@@ -63,7 +63,7 @@ fn main()
     // arm is not merely "the text so far".
     io.print(
         "trap_after_print = " + out(
-            "import std::io\n\nfn main()\n  io.print(\"before\")\n  io.print(Debug.inspect(1 / 0))\nend\n"
+            "import std::io\n\nfn main()\n  zero = 0\n  io.print(\"before\")\n  io.print(Debug.inspect(1 / zero))\nend\n"
         )
     )
 

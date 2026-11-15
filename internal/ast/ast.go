@@ -253,8 +253,12 @@ type FuncType struct {
 	SpanCarrier
 	Params []TypeExpr
 	Return TypeExpr // nil for tuple types like (Int, String)
-	Line   int
-	Col    int
+	// EndTrivia holds the comments in a parameter list with no parameter,
+	// `( // why` then `) -> R`. A parameter's own comments are its
+	// ItemComments.
+	EndTrivia []Trivia
+	Line      int
+	Col       int
 }
 
 func (*FuncType) NodeType() string { return "FuncType" }
@@ -316,7 +320,7 @@ func (n *SelfType) TypeString() string { return "self" }
 
 // RefinementBaseType is the type a refinement's values are built from, in
 // the `try_from` and `unchecked` the front end generates for it (spec §4
-// *Refinement types*): the base at the end of a distinct refinement's chain
+// *Subtypes*): the base at the end of a distinct refinement's chain
 // of parents (`Float` for `PositiveFloat`), or the record of a struct
 // refinement's fields. No source writes one: the declaring file may not
 // import the base's name.
@@ -325,8 +329,12 @@ type RefinementBaseType struct {
 	SpanCarrier
 	// Refinement is the refinement's name in its declaring file.
 	Refinement string
-	Line       int
-	Col        int
+	// Params are a generic refinement's type arguments, the generated
+	// function's own type parameters: the base of `NonEmptyList<T>`.
+	// Empty for a refinement that is not generic.
+	Params []TypeExpr
+	Line   int
+	Col    int
 }
 
 func (*RefinementBaseType) NodeType() string     { return "RefinementBaseType" }
@@ -1459,16 +1467,21 @@ type StructDef struct {
 	// from TriviaCarrier.Trailing (which is for same-line trailing comments
 	// on the StructDef as a whole).
 	EndTrivia []Trivia
-	// Rule is the refinement rule after `end when`: a function from the
-	// struct to Bool that every value of it satisfies (spec §4
-	// *Refinement types*), a lambda or a function's name. Nil for a struct
-	// with no rule. RuleLine/RuleCol are the `when` keyword's position.
-	Rule     Node
-	RuleLine int
-	RuleCol  int
-	Doc      string
-	Line     int
-	Col      int
+	// Rule is the refinement rule, the body's last item after every
+	// field (`when fn s -> ...`): a function from the struct to Bool that
+	// every value of it satisfies (spec §4 *Subtypes*), a lambda
+	// or a function's name. Nil for a struct with no rule.
+	// RuleLine/RuleCol are the `when` keyword's position. RuleLeading
+	// holds the comments and blank lines above the `when` line, and
+	// RuleTrailing a comment on the line the rule ends on.
+	Rule         Node
+	RuleLine     int
+	RuleCol      int
+	RuleLeading  []Trivia
+	RuleTrailing []Trivia
+	Doc          string
+	Line         int
+	Col          int
 }
 
 func (*StructDef) NodeType() string { return "StructDef" }
@@ -1612,10 +1625,13 @@ func (n *EnumDef) LineNum() int   { return n.Line }
 // Distinct types
 // ---------------------------------------------------------------------------
 
-// TypeDef defines a distinct-type wrapper or a zero-sized marker:
+// TypeDef defines a distinct-type wrapper, a zero-sized marker or a
+// subtype:
 //
-//	type Name InnerType   → distinct over InnerType (primitive/tuple/generic)
-//	type Name             → zero-sized marker
+//	type Name InnerType            → distinct over InnerType (primitive/tuple/generic)
+//	type Name                      → zero-sized marker
+//	type Name InnerType when rule  → validated distinct type
+//	subtype Name Parent when rule  → subtype of Parent
 //
 // Struct (`struct Name {...}`) and enum (`enum Name { A | B }`) shapes
 // have their own AST nodes (StructDef, EnumDef) and are not produced by
@@ -1634,12 +1650,23 @@ type TypeDef struct {
 	// which the inner type may name; empty for a non-generic distinct.
 	TypeParams    []TypeParam
 	InnerTypeExpr TypeExpr // structured inner type, nil for zero-sized
-	// Rule is the refinement rule after `when`: a function from the inner
-	// type to Bool that every value of the type satisfies, a lambda or a
-	// function's name (spec §4 *Refinement types*). A TypeDef with a Rule
-	// is a refinement: its values are values of the inner type. Nil for an
-	// ordinary distinct type. RuleLine/RuleCol are the `when` keyword's
-	// position.
+	// Subtype is set for a `subtype` declaration: its values are values of
+	// its parents, InnerTypeExpr and MoreParents (spec §4 *Subtypes*).
+	Subtype bool
+	// MoreParents are a subtype's parents after the first, which is
+	// InnerTypeExpr: `subtype PositiveInt NonNegativeInt and NonZeroInt
+	// when ...` holds NonZeroInt here. Empty for a subtype of one parent
+	// and for every `type`, whose `A and B` is its InnerTypeExpr.
+	MoreParents []TypeExpr
+	// WhereClauses bounds the type parameters, written after the inner
+	// type and its parents: `type Sorted<T> List<T> where T: Comparable
+	// when ...`. Empty when the declaration writes none.
+	WhereClauses []WhereConstraint
+	// Rule is the rule after `when`: a function from the inner type to
+	// Bool that every value of the type satisfies, a lambda or a
+	// function's name (spec §4 *Subtypes*, *Validated types*). Optional on
+	// both keywords. Nil when the declaration writes none.
+	// RuleLine/RuleCol are the `when` keyword's position.
 	Rule     Node
 	RuleLine int
 	RuleCol  int
@@ -1703,9 +1730,15 @@ type TypeAlias struct {
 	Public         bool
 	TargetTypeExpr TypeExpr   // structured target type (single-type alias)
 	Bounds         []TypeExpr // bound list when RHS is `A and B` (bound alias)
-	Doc            string
-	Line           int
-	Col            int
+	// TypeParams holds `<T, ...>` after the name (`typealias Pair<T> (T,
+	// T)`), which the target names; WhereClauses bounds them, after the
+	// target (`typealias Sortable<T> List<T> where T: Comparable`). A use
+	// of the alias is its target at the use's type arguments.
+	TypeParams   []TypeParam
+	WhereClauses []WhereConstraint
+	Doc          string
+	Line         int
+	Col          int
 }
 
 func (*TypeAlias) NodeType() string { return "TypeAlias" }
@@ -1849,7 +1882,7 @@ func (n *BindingElse) LineNum() int   { return n.Line }
 // UncheckedRefinement builds a value of a refinement from Value, a value of
 // its base, without evaluating its rule: the body of the `unchecked` the
 // front end generates for a refinement, and the last step of its
-// `try_from` (spec §4 *Refinement types*). No source writes one.
+// `try_from` (spec §4 *Subtypes*). No source writes one.
 type UncheckedRefinement struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1864,7 +1897,7 @@ func (*UncheckedRefinement) NodeType() string { return "UncheckedRefinement" }
 func (n *UncheckedRefinement) LineNum() int   { return n.Line }
 
 // RefinementRule is the call of a refinement's rule, Rule, on Value that a
-// generated `try_from` makes (spec §4 *Refinement types*): a Bool, and
+// generated `try_from` makes (spec §4 *Subtypes*): a Bool, and
 // False when the rule traps, so `try_from` answers None for a value whose
 // rule traps. No source writes one.
 type RefinementRule struct {
@@ -2105,10 +2138,63 @@ type ImplBlock struct {
 	// the position, because the position is deliberately not invertible.
 	SynthOriginLine int
 	SynthOriginCol  int
+	// pending is what a front-end pass wrote for the block when whether
+	// the block exists waits on names resolving (Withhold). Unexported,
+	// so no walk, codec or copy sees it: until Release keeps it, the
+	// block is an empty inherent block.
+	pending *implPending
+}
+
+// implPending is a withheld block's header interface and items.
+type implPending struct {
+	iface TypeExpr
+	items []Node
 }
 
 func (*ImplBlock) NodeType() string { return "ImplBlock" }
 func (n *ImplBlock) LineNum() int   { return n.Line }
+
+// Withhold sets the block's interface and items aside, leaving it an
+// empty inherent block, until Release decides whether it exists. A pass
+// that writes a block for a declaration before the names the
+// declaration's meaning depends on resolve withholds it, and the
+// analyzer releases it once they have.
+func (n *ImplBlock) Withhold() {
+	n.pending = &implPending{iface: n.Interface, items: n.Items}
+	n.Interface, n.Items = nil, nil
+}
+
+// Withheld reports whether the block was withheld, whatever Release
+// decided since.
+func (n *ImplBlock) Withheld() bool { return n.pending != nil }
+
+// WithheldParts answers the interface and items a withheld block set
+// aside, whatever Release decided since; ok is false for a block never
+// withheld.
+func (n *ImplBlock) WithheldParts() (iface TypeExpr, items []Node, ok bool) {
+	if n.pending == nil {
+		return nil, nil, false
+	}
+	return n.pending.iface, n.pending.items, true
+}
+
+// Released reports whether a withheld block holds what was set aside.
+func (n *ImplBlock) Released() bool { return n.pending != nil && n.Items != nil }
+
+// Release gives a withheld block what was set aside when keep is true and
+// empties it when keep is false. Each build decides again, so a block a
+// later build reads is as that build's names say. It writes only when the
+// answer changes.
+func (n *ImplBlock) Release(keep bool) {
+	if n.pending == nil || n.Released() == keep {
+		return
+	}
+	if keep {
+		n.Interface, n.Items = n.pending.iface, n.pending.items
+		return
+	}
+	n.Interface, n.Items = nil, nil
+}
 
 // ImplConformance is one derive declaration:
 //

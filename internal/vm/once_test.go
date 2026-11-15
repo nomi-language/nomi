@@ -83,7 +83,7 @@ func TestOnceCycleThroughHostCallbackKeepsLineage(t *testing.T) {
 	ty, _ := ir.NewTable().Concrete("Int", "Int")
 	mod.DeclareLazyCell(sym, ty, init)
 	m := New(mod, io.Discard)
-	m.hosts["callback"] = func(m *Machine, _ ir.Pos, _ []any) (any, error) { return m.call(reader, nil) }
+	m.hosts["callback"] = intrinsic{fn: func(m *Machine, _ ir.Pos, _ []any) (any, error) { return m.call(reader, nil) }}
 	_, err := m.Run("read")
 	if err == nil || err.Error() != "line 1: cyclic 'once' binding: 'seed' depends on itself" {
 		t.Fatalf("cycle: %v", err)
@@ -109,13 +109,13 @@ func TestOnceFailedInitializerDoesNotCacheAValue(t *testing.T) {
 	mod.DeclareLazyCell(sym, ty, init)
 	m := New(mod, io.Discard)
 	count := 0
-	m.hosts["initialize"] = func(_ *Machine, _ ir.Pos, _ []any) (any, error) {
+	m.hosts["initialize"] = intrinsic{fn: func(_ *Machine, _ ir.Pos, _ []any) (any, error) {
 		count++
 		if count == 1 {
 			return nil, fmt.Errorf("initializer failed")
 		}
 		return int64(42), nil
-	}
+	}}
 	if _, err := m.Run("read"); err == nil || err.Error() != "initializer failed" {
 		t.Fatalf("first force: %v", err)
 	}

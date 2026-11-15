@@ -63,7 +63,7 @@ test "a failed row is reported as the statement form reports it"
     assert failure.keyword == "subtests"
     assert failure.reason == "2 of 3 subtests failed"
     assert Iter.count(failure.subtests) == 2
-    assert Some(first) = List.head(failure.subtests)
+    assert Some(first) = List.first(failure.subtests)
     assert first.row == "\"word long\""
     assert first.failure.expression == "String.length(word) < 4"
 end

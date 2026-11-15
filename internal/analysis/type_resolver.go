@@ -101,6 +101,10 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		}
 		// Then check registry.
 		if t := reg.Lookup(n.Name); t != nil {
+			if at, isAlias := t.(*AliasTemplate); isAlias {
+				return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
+					"typealias %s takes %d type argument%s: write `%s`", n.Name, len(at.Params), plural(len(at.Params)), at)}
+			}
 			if declared {
 				// `Route` where `Route<P = Unit>` was declared is
 				// `Route<Unit>` (default_type_args.go).
@@ -163,6 +167,13 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 		default:
 			// Look up base type in registry and instantiate with type args.
 			if t := reg.Lookup(n.Name); t != nil {
+				if at, isAlias := t.(*AliasTemplate); isAlias {
+					if len(args) != len(at.Params) {
+						return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
+							"typealias %s takes %d type argument%s, got %d", n.Name, len(at.Params), plural(len(at.Params)), len(args))}
+					}
+					return instantiateAlias(at, args), nil
+				}
 				if declared {
 					if terr := checkGenericArityArgs(t, len(args), n.Line, n.Col); terr != nil {
 						return nil, *terr
@@ -236,10 +247,27 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 	case *ast.RefinementBaseType:
 		// The parameter of a refinement's generated `try_from` and
 		// `unchecked` (refinement_synthesis.go).
-		if base := refinementBaseOf(reg.Lookup(n.Refinement)); base != nil {
+		named := reg.Lookup(n.Refinement)
+		if len(n.Params) > 0 {
+			args := make([]Type, len(n.Params))
+			for i, p := range n.Params {
+				a, err := resolveTypeExpr(p, reg, typeParams, fa, declared)
+				if err != nil {
+					return nil, err
+				}
+				args[i] = a
+			}
+			named = instantiateNominal(named, args)
+		}
+		if base := refinementBaseOf(named); base != nil {
 			return base, nil
 		}
-		return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("%q is no refinement", n.Refinement)}
+		if dt, ok := named.(*DistinctType); ok {
+			// A parent cycle left the refinement no parent, reported at
+			// its declaration: its functions take the refinement itself.
+			return dt, nil
+		}
+		return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("%q has no try_from", n.Refinement)}
 
 	case *ast.SelfType:
 		if typeParams != nil {
@@ -297,17 +325,40 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 	case *ast.ConjunctionType:
 		// `Priced and Costed` in a value type's position: each member is
 		// an interface, or a conjunction whose members are spliced in.
+		// `NonNegativeInt and NonZeroInt`: members that are subtypes of
+		// one base make their intersection, a subtype of each
+		// (NewSubtypeIntersection); an interface beside them is one their
+		// base implements, which the checker holds (checkIntersections).
 		var ifaces []*InterfaceType
+		var subtypes []Type
+		var base Type
 		for _, m := range n.Members {
 			resolved, err := resolveTypeExpr(m, reg, typeParams, fa, declared)
 			if err != nil {
 				return nil, err
+			}
+			if refinementOf(resolved) != nil {
+				b := RefinementBase(resolved)
+				if base != nil && !TypesIdentical(base, b) && !ContainsTypeParam(b) && !ContainsTypeParam(base) {
+					return nil, errAt(m, fmt.Sprintf(
+						"`and` intersects subtypes of one type, and %s is %s %s where %s is %s %s",
+						resolved, ArticleFor(formatTypeForError(b)), formatTypeForError(b),
+						subtypes[0], ArticleFor(formatTypeForError(base)), formatTypeForError(base)))
+				}
+				if base == nil {
+					base = b
+				}
+				subtypes = append(subtypes, resolved)
+				continue
 			}
 			members := InterfaceMembers(resolved)
 			if members == nil {
 				return nil, errAt(m, conjunctionMemberError(resolved))
 			}
 			ifaces = append(ifaces, members...)
+		}
+		if len(subtypes) > 0 {
+			return NewSubtypeIntersection(subtypes), nil
 		}
 		return NewConjunction(ifaces), nil
 
@@ -319,7 +370,7 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 // conjunctionMemberError is the error for a member of `A and B` that is no
 // interface.
 func conjunctionMemberError(t Type) string {
-	return fmt.Sprintf("`and` joins interfaces, and %s is not an interface", t)
+	return fmt.Sprintf("`and` joins interfaces or subtypes, and %s is neither", t)
 }
 
 // typeFieldFile is the file a field an anonymous struct type names at line

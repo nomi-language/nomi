@@ -1,5 +1,7 @@
 //# Converts a number, written as digits in one base, to its digits in another.
 
+import std::int.Radix
+
 /// Why a number cannot be rebased.
 pub enum Error
     InvalidInputBase
@@ -11,11 +13,9 @@ end
 /// in `input_base`, written in `output_base`. Zero, and an empty list of
 /// digits, come out as `[0]`.
 pub fn rebase(input_base: Int, digits: List<Int>, output_base: Int) -> Result<List<Int>, Error>
-    if input_base < 2 then return Err(.InvalidInputBase)
+    Some(from) = Radix.try_from(input_base) else return Err(.InvalidInputBase)
+    Some(number) = Int.from_digits(digits, from) else return Err(.InvalidDigit)
+    Some(to) = Radix.try_from(output_base) else return Err(.InvalidOutputBase)
 
-    Some(number) = Int.from_digits(digits, input_base) else return Err(.InvalidDigit)
-
-    if output_base < 2 then return Err(.InvalidOutputBase)
-
-    Ok(Int.to_digits(number, output_base))
+    Ok(Int.to_digits(number, to))
 end

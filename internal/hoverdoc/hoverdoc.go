@@ -391,7 +391,7 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			doc = n.Doc
 		case *ast.StructDef:
 			sig = renderStructDef(n)
-			doc = withNote(n.Doc, refinementNote(n.Name, n.Rule, sym.Type))
+			doc = withNote(n.Doc, refinementNote(n.Name, n.Rule != nil, sym.Type))
 		case *ast.EnumDef:
 			sig = renderEnumDef(n)
 			doc = n.Doc
@@ -399,15 +399,23 @@ func RenderWithAnalysis(sym *analysis.Symbol, fa *analysis.FileAnalysis) string 
 			sig = renderInterfaceDef(n)
 			doc = n.Doc
 		case *ast.TypeDef:
-			s := "type " + n.Name
+			keyword := "type "
+			if n.Subtype {
+				keyword = "subtype "
+			}
+			s := keyword + n.Name + renderTypeParams(n.TypeParams)
 			if n.InnerTypeExpr != nil {
 				s += " " + n.InnerTypeExpr.TypeString()
 			}
+			for _, parent := range n.MoreParents {
+				s += " and " + parent.TypeString()
+			}
+			s += renderWhereClauses(n.WhereClauses)
 			if n.Rule != nil {
 				s += " when " + analysis.RuleText(n.Rule)
 			}
 			sig = s
-			doc = withNote(n.Doc, refinementNote(n.Name, n.Rule, sym.Type))
+			doc = withNote(n.Doc, refinementNote(n.Name, n.Subtype || analysis.IsCheckedDistinct(sym.Type), sym.Type))
 		// No `doc = n.Doc` here, deliberately, unlike every sibling in
 		// this switch. The `switch sym.Kind` above already claims
 		// SymbolInterfaceMethod and sets the doc there, and every
@@ -1253,28 +1261,66 @@ func renderStructDef(n *ast.StructDef) string {
 	return b.String()
 }
 
-// refinementNote is the paragraph a hover on a refinement adds below its
-// doc: the chain of types it refines, and how a value enters it. Empty for
-// a declaration with no rule.
-func refinementNote(name string, rule ast.Node, t analysis.Type) string {
-	if rule == nil {
+// refinementNote is the paragraph a hover on a subtype, a validated type
+// or a validated struct adds below its doc: what the type is, the chain of
+// types a subtype narrows, and how a value enters it. Empty when checked
+// is false: a declaration whose values need no check.
+func refinementNote(name string, checked bool, t analysis.Type) string {
+	if !checked {
 		return ""
 	}
-	chain := []string{name}
-	if t != nil {
-		chain = chain[:0]
-		for _, c := range analysis.RefinementChain(t) {
-			chain = append(chain, c.String())
-		}
-	}
 	var b strings.Builder
-	b.WriteString("*refinement*")
-	if len(chain) > 1 {
-		b.WriteString(": `" + strings.Join(chain, "` refines `") + "`")
+	parents := analysis.RefinementParents(t)
+	switch {
+	case analysis.IsStructRefinement(t):
+		b.WriteString("*validated struct*")
+	case analysis.IsCheckedDistinct(t):
+		b.WriteString("*validated type*: `" + t.String() + "` converts to nothing")
+	default:
+		b.WriteString("*subtype*")
+	}
+	single := true
+	for _, c := range analysis.RefinementChecks(t) {
+		single = single && len(analysis.RefinementParents(c)) <= 1
+	}
+	if len(parents) == 1 && single {
+		// One parent each way up: `PositiveFloat` is a subtype of
+		// `NonNegativeFloat`, a subtype of `Float`.
+		chain := []string{t.String()}
+		for _, a := range analysis.RefinementAncestors(t) {
+			chain = append(chain, a.String())
+		}
+		b.WriteString(": `" + strings.Join(chain, "` is a subtype of `") + "`")
+	} else if len(parents) > 0 {
+		// `PositiveInt` is a subtype of `NonNegativeInt` and
+		// `NonZeroInt`, and through them `Int`.
+		direct := map[string]bool{}
+		var names, further []string
+		for _, p := range parents {
+			direct[p.String()] = true
+			names = append(names, "`"+p.String()+"`")
+		}
+		for _, a := range analysis.RefinementAncestors(t) {
+			if !direct[a.String()] {
+				further = append(further, "`"+a.String()+"`")
+			}
+		}
+		b.WriteString(": `" + t.String() + "` is a subtype of " + joinAnd(names))
+		if len(further) > 0 {
+			b.WriteString(", and through them " + joinAnd(further))
+		}
 	}
 	b.WriteString(". A literal where a " + name + " is expected is checked when the program is compiled; `" +
 		name + ".try_from(...)` checks a value when it runs.")
 	return b.String()
+}
+
+// joinAnd joins items as prose: `A`, `A and B`, `A, B and C`.
+func joinAnd(items []string) string {
+	if len(items) <= 1 {
+		return strings.Join(items, "")
+	}
+	return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 }
 
 // withNote is doc and note as one doc, a blank line between them.

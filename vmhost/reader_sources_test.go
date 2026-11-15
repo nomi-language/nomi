@@ -48,7 +48,8 @@ func TestReaderSources_ATrapInTheSourceIsTheProgramsTrap(t *testing.T) {
 
 fn main()
     r = io.Reader.from_fn(fn ->
-        n = 1 / 0
+        zero = 0
+        n = 1 / zero
         Ok(Some(String.to_bytes("${n}")))
     end)
     io.print(io.Reader.read_line(r))

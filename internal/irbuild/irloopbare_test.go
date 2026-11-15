@@ -39,7 +39,7 @@ fn main()
     io.print("start")
     forever(fn ->
         io.print("again")
-        io.print(1 / 0)
+        io.print(1 / (1 - 1))
     end)
 end
 `, "line 10: division by zero", "start\nagain\n")

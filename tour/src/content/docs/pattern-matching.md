@@ -120,9 +120,9 @@ end
 
 fn access(roles: Set<String>) -> String
     case roles
-        ["admin", ..] -> "everything"
+        ["admin", ..]            -> "everything"
         ["editor", "viewer", ..] -> "write and read"
-        _ -> "read only"
+        _                        -> "read only"
     end
 end
 

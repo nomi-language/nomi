@@ -43,7 +43,7 @@ end
 //! got = run(fn logger -> log.warn(logger, "slow", [log.int("ms", 900)]))
 //!
 //! assert Iter.count(got.records) == 1
-//! only = List.head(got.records)!
+//! only = List.first(got.records)!
 //! assert only.level == log.Level.Warn
 //! assert only.message == "slow"
 //! assert only.fields == [log.int("ms", 900)]

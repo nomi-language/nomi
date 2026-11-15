@@ -235,7 +235,7 @@ impl Scheduler
         (work_in, device_in) = case work
             Some(packet) when packet.kind == PacketKind.Work -> (append(packet, work_in), device_in)
             Some(packet) -> (work_in, append(packet, device_in))
-            None -> (work_in, device_in)
+            None         -> (work_in, device_in)
         end
 
         case work_in

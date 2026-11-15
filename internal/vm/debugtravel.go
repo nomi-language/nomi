@@ -18,7 +18,7 @@ package vm
 // recorded in the Debugger's log, in order: its name, the step it happened
 // in, and its result, a value or a fault. That is every host adapter and
 // intrinsic except the ones that compute their answer from their operands
-// (pureCrossings), the ones over the machine's own state (`Context.value`,
+// (pureCrossing), the ones over the machine's own state (`Context.value`,
 // `io.capture`, which call back into Nomi, and an `io.read_line` that an
 // `io.capture` or `io.replay` answers from its own input), and output (`io.print`,
 // `io.write`, `io.inspect`, `dbg`), which is recorded only so a replay can
@@ -476,7 +476,7 @@ const (
 )
 
 // liveCrossings are the intrinsics over the machine's own state that a
-// replay runs again, beside pureCrossings.
+// replay runs again, beside the pure ones (pureCrossing).
 var liveCrossings = map[string]bool{
 	"Context.with_value": true, "Context.value": true,
 	captureKey: true, replayKey: true,
@@ -552,9 +552,9 @@ func fileCrossingKind(fr *rt.Frame, name string, args []any) (kind crossingKind,
 	return crossAnswered, true
 }
 
-func kindOfCrossing(name string) crossingKind {
+func kindOfCrossing(name string, pure bool) crossingKind {
 	switch {
-	case pureCrossings[name] || liveCrossings[name]:
+	case pure || liveCrossings[name]:
 		return crossLive
 	case outputCrossings[name]:
 		return crossOutput
@@ -569,7 +569,7 @@ func kindOfCrossing(name string) crossingKind {
 // cross is one crossing out of a debug machine: fr's thread calls name,
 // which call performs. It shows on the thread's stack while it runs, and is
 // recorded, or answered from the log in a replay.
-func (d *Debugger) cross(fr *frame, name string, args []any, call func() (any, error)) (any, error) {
+func (d *Debugger) cross(fr *frame, name string, pure bool, args []any, call func() (any, error)) (any, error) {
 	th, prev, prevName := d.crossIn(fr, name)
 	defer d.crossOut(th, prev, prevName)
 	if th == nil || th.pass == nil || d.ttOff.Load() {
@@ -579,7 +579,7 @@ func (d *Debugger) cross(fr *frame, name string, args []any, call func() (any, e
 	if p.abandoned.Load() {
 		return nil, errAbandon
 	}
-	kind := kindOfCrossing(name)
+	kind := kindOfCrossing(name, pure)
 	if k, isFile := fileCrossingKind(fr.runtime, name, args); isFile && kind != crossLive {
 		kind = k
 	}

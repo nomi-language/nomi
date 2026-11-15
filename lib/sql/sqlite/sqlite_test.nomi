@@ -125,7 +125,7 @@ fn mismatch<T>(result: Result<T, sql.Error>) -> String
     case result
         Err(sql.Error.Database{code: "SQLITE_MISMATCH", message:}) -> message
         Err(e) -> "another error: ${e}"
-        Ok(_) -> "Ok"
+        Ok(_)  -> "Ok"
     end
 end
 
@@ -402,8 +402,8 @@ end
 test "a path that cannot be opened is a Connection error"
     opened = case sqlite.open("/nonexistent/dir/x.db")
         Err(sql.Error.Connection{message: _}) -> "Connection"
-        Err(e) -> "${e}"
-        Ok(_) -> "Ok"
+        Err(e)                                -> "${e}"
+        Ok(_)                                 -> "Ok"
     end
 
     assert opened == "Connection"

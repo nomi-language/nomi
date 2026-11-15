@@ -81,7 +81,7 @@ test "Iter.min_by and Iter.max_by compare a key, first on ties"
 end
 
 // No element is read from an empty source, so `[]` needs no element type
-// here, as for `List.head([])`.
+// here, as for `List.first([])`.
 test "an empty list literal needs no element type"
     assert Iter.min([]) == None
     assert Iter.max([]) == None

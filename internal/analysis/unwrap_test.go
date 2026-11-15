@@ -56,7 +56,7 @@ end
 	if len(errs) > 0 {
 		t.Fatalf("errors: %v", errs)
 	}
-	want := map[string]string{"a": "Int", "b": "String", "c": "Int", "d": "Float", "e": "Int", "f": "String", "g": "String", "h": "Int"}
+	want := map[string]string{"a": "Int", "b": "String", "c": "Int", "d": "Float", "e": "NonNegativeInt", "f": "String", "g": "String", "h": "Int"}
 	got := map[string]string{}
 	for n := range fa.ExprTypes {
 		if b, ok := n.(*ast.Binding); ok {
@@ -82,7 +82,7 @@ func TestUnwrap_RejectsOtherTypes(t *testing.T) {
 	}{
 		{"    _ = count(1)!", "`!` unwraps a Result or a Maybe, and `count(1)` is Int", "remove the `!`", 17},
 		{"    _ = small(1)!", "`!` unwraps a Result or a Maybe, and `small(1)` is Bool", "write `assert small(1)`", 17},
-		{"    _ = [1] |> Iter.count()!", "`!` unwraps a Result or a Maybe, and `[1] |> Iter.count()` is Int", "remove the `!`", 28},
+		{"    _ = [1] |> Iter.sum()!", "`!` unwraps a Result or a Maybe, and `[1] |> Iter.sum()` is Int", "remove the `!`", 26},
 	}
 	for _, tc := range cases {
 		_, errs := checkSourceWithStdlib(unwrapDecls + "\nfn main()\n" + tc.body + "\nend\n")

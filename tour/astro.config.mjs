@@ -29,6 +29,7 @@ const referenceItems = [
 		'actors',
 		'add',
 		'assertions',
+		'averageable',
 		'base64',
 		'bits',
 		'bitwise',

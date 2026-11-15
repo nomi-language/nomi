@@ -393,7 +393,6 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 	for _, c := range cases {
 		t.Run(c.expr, func(t *testing.T) {
 			src := `import
-    std::int.NonZeroInt
     std::io
 end
 

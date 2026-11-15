@@ -45,7 +45,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -181,9 +181,15 @@ impl Currency
     //! assert Currency.minor_digits(Currency"JPY") == 0
     //! assert Currency.minor_digits(Currency"BTC:8") == 8
     //
-    pub fn minor_digits(currency: Currency) -> Int
+    pub fn minor_digits(currency: Currency) -> NonNegativeInt
         Currency(text) = currency
-        currency_digits_of(text)
+
+        // A Currency's text is checked when it is made, so its digits are
+        // never negative.
+        case NonNegativeInt.try_from(currency_digits_of(text))
+            Some(digits) -> digits
+            None         -> 0
+        end
     end
 
     /// Whether the currency is an ISO 4217 one, not a custom one.

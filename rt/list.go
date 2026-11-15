@@ -11,7 +11,7 @@ package rt
 // Nomi's List is a persistent singly-linked list: O(1)
 // prepend, O(1) tail, structural sharing between a list and its own tail, O(n)
 // index. Its whole surface is written against those costs — `[h, ..t]` is the
-// destructuring form the language gives you, `List.head`/`List.tail` are
+// destructuring form the language gives you, `List.first`/`List.tail` are
 // documented as "the cons-list idiom", and the recursive shape
 // `case xs { [] -> …; [h, ..t] -> f(h) + go(t) }` is how a Nomi program walks
 // one. A slice inverts exactly those two costs: `..t` stays O(1) (a subslice),

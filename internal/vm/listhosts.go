@@ -7,7 +7,7 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// listHost is `List.head`, `List.tail` and `List.concat` over rt's cons cells,
+// listHost is `List.first`, `List.tail` and `List.concat` over rt's cons cells,
 // run by rt's list kernels.
 func listHost(key string) hostFn {
 	return func(_ *Machine, _ ir.Pos, args []any) (any, error) {
@@ -27,7 +27,7 @@ func listHost(key string) hostFn {
 			lists[i] = xs
 		}
 		switch key {
-		case "List.head":
+		case "List.first":
 			return maybeOf(rt.ListCellHead[any, list](lists[0])), nil
 		case "List.tail":
 			return maybeOf(rt.ListCellTail[any, list](lists[0])), nil

@@ -13,6 +13,7 @@ Adapted from Exercism problem-specifications (MIT), exercises/all-your-base.
 - The digits become a number with `Int.from_digits(digits, input_base)`, whose `None` for a digit outside the base is the `InvalidDigit` error. It runs after the input base check, since a base below 2 traps there.
 - The number becomes digits with `Int.to_digits(number, output_base)`, which gives `[0]` for zero, so zero and an empty list need no early return.
 - The 21 cases are one `subtests` table. The first error row writes `Err(Error.InvalidInputBase)` and the later ones `Err(.InvalidDigit)`: a qualified variant in an earlier row gives the enum to the bare ones after it, so the table needs no type annotation.
+- Each base is checked with `Radix.try_from`, whose `None` is the base's error: a `Radix` is the base `Int.from_digits` and `Int.to_digits` take.
 
 ## Friction
 

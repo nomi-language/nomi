@@ -18,8 +18,10 @@
 //                                            // it imports are loaded
 //        { id, kind: "sem", semtokens }      // analyzer tokens — computed first,
 //                                            // ({ file: tokens } for a multi-file run)
-//        { id, kind: "run", output, error, written } // so a hanging run still highlights;
-//                                            // written: the files the tools wrote, by path
+//        { id, kind: "run", output, error, stage, written } // so a hanging run still highlights;
+//                                            // written: the files the tools wrote, by path;
+//                                            // stage: where it failed ("compile", "run",
+//                                            // "tests"; cmd/nomi-wasm's stages), or ""
 //        { id, op: "format", output, error }  // formatter reply
 //        { id, op: "hover", markdown }        // hover reply
 //        { id, op: "sem", semtokens }         // semantic tokens reply
@@ -276,11 +278,11 @@ function handleOne(msg) {
   const written = {};
   for (const t of msg.tools || []) {
     const r = callGo(() => self.nomiTool(source, t.module, t.name));
-    const res = r.failure ? { output: "", error: r.failure } : r.value;
+    const res = r.failure ? { output: "", error: r.failure, stage: "run" } : r.value;
     printed += res.output;
     if (res.error) {
       postMessage({ id: msg.id, kind: "sem", semtokens: msg.files ? {} : [] });
-      postMessage({ id: msg.id, kind: "run", output: printed, error: res.error, written });
+      postMessage({ id: msg.id, kind: "run", output: res.stage === "compile" ? "" : printed, error: res.error, stage: res.stage || "", written });
       return;
     }
     source = res.source;
@@ -309,6 +311,9 @@ function handleOne(msg) {
           ? self.nomiRunStdlibTest(msg.module, msg.source, msg.context || "")
           : self.nomiRun(source),
       );
-  const res = r.failure ? { output: "", error: r.failure } : r.value;
-  postMessage({ id: msg.id, kind: "run", output: printed + res.output, error: res.error, written });
+  // A program that stops the Go runtime (the memory cap, the engine's
+  // stack) stopped while it ran; analysis that does is no stage of it.
+  const res = r.failure ? { output: "", error: r.failure, stage: sem.failure ? "" : "run" } : r.value;
+  const output = res.stage === "compile" ? "" : printed + res.output;
+  postMessage({ id: msg.id, kind: "run", output, error: res.error, stage: res.stage || "", written });
 }

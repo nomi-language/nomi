@@ -117,7 +117,7 @@ func TestFindDefinition_AttachedAssertBareOperatorImplResolvesByArgs(t *testing.
   fn divide(lhs: self, rhs: Rhs) -> Out
 end
 
-pub opaque type NonZeroInt Int
+pub opaque type NonZeroCount Int
 
 impl Divide<Int, Int> for Int
   fn divide(lhs: Int, rhs: Int) -> Int
@@ -125,11 +125,11 @@ impl Divide<Int, Int> for Int
   end
 end
 
-impl Divide<NonZeroInt, Int> for Int
-  //! nz = NonZeroInt(3)
+impl Divide<NonZeroCount, Int> for Int
+  //! nz = NonZeroCount(3)
   //! assert ▮divide(10, nz) == 10
   //
-  fn divide(lhs: Int, rhs: NonZeroInt) -> Int
+  fn divide(lhs: Int, rhs: NonZeroCount) -> Int
     10
   end
 end
@@ -141,7 +141,7 @@ end
 
 	loc := mustDefinitionLocation(t, s, uri, pos)
 	if loc.Range.Start.Line != 16 || loc.Range.Start.Character != 5 {
-		t.Fatalf("expected definition at NonZeroInt impl line 16 char 5, got LSP line %d char %d", loc.Range.Start.Line, loc.Range.Start.Character)
+		t.Fatalf("expected definition at NonZeroCount impl line 16 char 5, got LSP line %d char %d", loc.Range.Start.Line, loc.Range.Start.Character)
 	}
 }
 
@@ -1113,7 +1113,7 @@ func TestFindDefinition_OnStdlibModuleFunctionResolvesToStdlibFile(t *testing.T)
 import std::lists
 
 fn main()
-  first = List.head([3, 1, 2])
+  first = List.first([3, 1, 2])
   io.inspect(first)
 end
 `
@@ -1121,7 +1121,7 @@ end
 	s := NewServer()
 	s.docs.Open(uri, input)
 
-	// `head` in `List.head(...)` on line 5 (1-based): `  first = lists.` puts
+	// `head` in `List.first(...)` on line 5 (1-based): `  first = lists.` puts
 	// `head` at chars 16-20 (0-based). Click mid-token.
 	params := &protocol.DefinitionParams{
 		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -1135,7 +1135,7 @@ end
 		t.Fatalf("definition request returned error: %v", err)
 	}
 	if result == nil {
-		t.Fatal("expected a Location for `head` in `List.head(...)`, got nil")
+		t.Fatal("expected a Location for `head` in `List.first(...)`, got nil")
 	}
 	loc, ok := result.(*protocol.Location)
 	if !ok {
@@ -1143,7 +1143,7 @@ end
 	}
 	wantURI := protocol.DocumentUri(s.std.FileURI("lists"))
 	if loc.URI != wantURI {
-		t.Errorf("go-to-def on List.head routed to %q (range %v), want stdlib %q — a user-file URI here is the cursor-bumps-to-EOF bug", loc.URI, loc.Range, wantURI)
+		t.Errorf("go-to-def on List.first routed to %q (range %v), want stdlib %q — a user-file URI here is the cursor-bumps-to-EOF bug", loc.URI, loc.Range, wantURI)
 	}
 }
 

@@ -220,7 +220,7 @@ end
 	}
 }
 
-// A std owner's function the VM owns (`List.head`, `Iter.find`), called or
+// A std owner's function the VM owns (`List.first`, `Iter.find`), called or
 // named as a value through its module's qualifier, runs as the unqualified
 // spelling does.
 func TestStdModuleQualifiedOwnFamily_Runs(t *testing.T) {
@@ -233,11 +233,11 @@ func TestStdModuleQualifiedOwnFamily_Runs(t *testing.T) {
 end
 
 fn main()
-    io.inspect(lists.List.head([4, 5]))
+    io.inspect(lists.List.first([4, 5]))
     io.inspect(iter.Iter.find([1, 2, 3], fn x -> x > 1))
     io.inspect(maps.Map.get({1 => "z"}, 1))
     io.inspect(maybe.Maybe.with_default(None, 3))
-    f: (List<String>) -> Maybe<String> = lists.List.head
+    f: (List<String>) -> Maybe<String> = lists.List.first
     io.inspect(f(["a"]))
     g: (Maybe<Int>, (Int) -> Int) -> Maybe<Int> = maybe.Maybe.map
     io.inspect(g(Some(2), fn x -> x * 3))

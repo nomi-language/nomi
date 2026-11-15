@@ -90,10 +90,10 @@ end
 
 test "nested inside another pattern, and a stdlib dotted enum"
     inner = case Maybe.Some(Probe.Reading.Steady)
-        Some(Probe.Reading.Steady) -> 1
-        Some(Probe.Reading.Spike(n)) -> n
+        Some(Probe.Reading.Steady)    -> 1
+        Some(Probe.Reading.Spike(n))  -> n
         Some(Probe.Reading.Blip{at:}) -> at
-        None -> 0
+        None                          -> 0
     end
 
     outcome: Outcome<Int> = Outcome.Completed(42)

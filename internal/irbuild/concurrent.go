@@ -98,7 +98,7 @@ func taskElem(k kind) (kind, bool) {
 // module and answers NOTHING in std/tasks' own gen, so the `//!` prompt cases
 // in std/tasks.nomi would refuse `named argument`. The mechanism:
 // `lowerStdlibModule` lowers a module against `earlier`, the index of the
-// modules lowered BEFORE it, which by construction excludes the module itself;
+// other modules it may reference, which by construction excludes the module itself;
 // `bindStdSiblings` adds the module's own candidates but SKIPS any that is
 // neither settled nor rt-bound (stdlib.go's `if !settled[c] && f.rtCall ==
 // ""`), and `Task.spawn_all` is an unsettled `pub host fn` whose rt binding

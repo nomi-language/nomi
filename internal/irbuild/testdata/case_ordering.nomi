@@ -20,12 +20,12 @@ end
 // Every arm below matches `Some(Ok(5))`. Only the first may fire.
 fn nested(v: Maybe<Result<Int, String>>) -> String
     case v
-        Some(Ok(0)) -> "some ok zero"
+        Some(Ok(0))            -> "some ok zero"
         Some(Ok(n)) when n > 3 -> "some ok big ${n}"
-        Some(Ok(n)) -> "some ok ${n}"
-        Some(Err(e)) -> "some err ${e}"
-        None -> "none"
-        _ -> "unreachable"
+        Some(Ok(n))            -> "some ok ${n}"
+        Some(Err(e))           -> "some err ${e}"
+        None                   -> "none"
+        _                      -> "unreachable"
     end
 end
 

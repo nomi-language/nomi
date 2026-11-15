@@ -53,7 +53,7 @@ func TestTargetLiteral_EachPositionTakesTheType(t *testing.T) {
 		"    take(\"plain\")\n",
 		"    Box{word: \"plain\"}.word\n",
 		"    \"plain\"\n",
-		"    ws: List<Word> = [\"a\", \"b\"]\n    List.head(ws)!\n",
+		"    ws: List<Word> = [\"a\", \"b\"]\n    List.first(ws)!\n",
 	} {
 		src := targetTag + "\nfn f() -> Word\n" + body + "end\n"
 		if errs := typeErrorsOf(t, src); len(errs) > 0 {

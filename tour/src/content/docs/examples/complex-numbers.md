@@ -13,8 +13,6 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: complex_numbers.nomi
 //# Complex numbers and their arithmetic.
 
-import std::float.NonNegativeFloat
-
 /// A complex number `real + imaginary * i`.
 pub opaque struct Complex
     real:      Float
@@ -148,10 +146,7 @@ impl Divide<Complex, Complex> for Float
 end
 
 // FILE: complex_numbers_test.nomi
-import
-    std::float.NonNegativeFloat
-    complex_numbers.Complex
-end
+import complex_numbers.Complex
 
 // The canonical data asks for a tolerance on results that are not whole
 // numbers.

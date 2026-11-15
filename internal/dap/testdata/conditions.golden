@@ -27,7 +27,7 @@
 <- response stackTrace {"stackFrames":[{"column":9,"id":1,"line":29,"name":"<lambda>","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}},{"column":17,"id":2,"line":28,"name":"Iter.each","presentationHint":"subtle","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}},{"column":17,"id":3,"line":28,"name":"main","source":{"name":"eval.nomi","path":"$TESTDATA/eval.nomi"}}],"totalFrames":3}
 -> evaluate {"context":"watch","expression":"i","frameId":1}
 <- response evaluate {"result":"5","type":"Int","variablesReference":0}
--> setBreakpoints {"breakpoints":[{"line":29,"logMessage":"{label} {{i}} is {i}, doubled {i * 2}, over zero {i / 0}"},{"condition":"10 / (p.x - 3) > 0","hitCondition":">= 1","line":33}],"source":{"path":"$TESTDATA/eval.nomi"}}
+-> setBreakpoints {"breakpoints":[{"line":29,"logMessage":"{label} {{i}} is {i}, doubled {i * 2}, over zero {i / (i - i)}"},{"condition":"10 / (p.x - 3) > 0","hitCondition":">= 1","line":33}],"source":{"path":"$TESTDATA/eval.nomi"}}
 <- response setBreakpoints {"breakpoints":[{"id":4,"line":29,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true},{"id":5,"line":33,"source":{"path":"$TESTDATA/eval.nomi"},"verified":true}]}
 -> continue {"threadId":1}
 <- response continue {"allThreadsContinued":true}

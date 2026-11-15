@@ -44,7 +44,7 @@ func BenchmarkCompletion(b *testing.B) {
 		"dot variant":         "fn f() -> Ordering\n" + body.String() + "    ." + cursorMark + "\nend\n",
 		"parameter type":      "fn main()\n" + body.String() + "end\n\nfn sum(list" + cursorMark,
 		"expected type":       "import std::calendar.Date\n\nfn main()\n" + body.String() + "    d: Date = " + cursorMark + "\nend\n",
-		"generic call member": "struct P\n    n: Int\nend\n\nfn f(ps: List<P>, p: P) -> Int\n" + body.String() + "    Maybe.with_default(List.head(ps), p)." + cursorMark + "\nend\n",
+		"generic call member": "struct P\n    n: Int\nend\n\nfn f(ps: List<P>, p: P) -> Int\n" + body.String() + "    Maybe.with_default(List.first(ps), p)." + cursorMark + "\nend\n",
 	}
 	for name, src := range cases {
 		content, pos := splitCursor(b, src)

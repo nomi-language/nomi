@@ -264,6 +264,11 @@ type FileBodies struct {
 	// (noteRestatedPaths). The editor shows a hint that `..` writes it.
 	// Nil until the first record.
 	RestatedPaths map[*ast.FieldAccess]string
+	// PlainCounterparts holds each call whose Maybe result the value's
+	// refinement answers plainly, `List.first(names)` for a NonEmptyList
+	// `names` (notePlainCounterpart). The editor shows a hint naming
+	// `NonEmptyList.first`. Nil until the first record.
+	PlainCounterparts map[*ast.Call]*PlainCounterpart
 	// CheckedLiterals holds each typed literal whose tag implements
 	// CheckedLiteral (spec §18 *Checked literals*): its type is build's
 	// result in every quote style, and its check runs when the program is
@@ -297,6 +302,11 @@ type FileBodies struct {
 	// the literal when it builds the program (refinement.go). Nil until the
 	// first record.
 	RefinedLiterals map[ast.Node]*RefinedLiteral
+	// RefinementRuleChecks maps each generic refinement the file declares
+	// to the call of its `try_from` at witness type arguments, whose
+	// instance the compiler checks is pure whether or not a literal of it
+	// is checked (recordRefinementRuleCheck). Nil until the first record.
+	RefinementRuleChecks map[*ast.TypeDef]*RefinementRuleCheck
 	// RefinementParents records, for each parent check of a generated
 	// `try_from` (ast.RefinementParentCheck), whether the parent is itself a
 	// refinement, so the check is the parent's `try_from`, or the base, so

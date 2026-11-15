@@ -110,9 +110,9 @@ end
 	wantPipeHints(t, src,
 		"3:31 Iter<Int>",
 		"9:31 Iter<Int>",
-		"10:20 Int",
+		"10:20 NonNegativeInt",
 		"16:31 Iter<Int>",
-		"17:20 Int",
+		"17:20 NonNegativeInt",
 	)
 }
 
@@ -155,9 +155,10 @@ func TestPipeHints_Nested(t *testing.T) {
 end
 `
 	wantPipeHints(t, src,
-		"5:35 Iter<Int>",
-		"6:24 Int",
-		"7:9 Iter<Int>",
+		"5:35 Iter<NonNegativeInt>",
+		"6:24 NonNegativeInt",
+		"7:9 Iter<NonNegativeInt>",
+		"8:22 List<NonNegativeInt>",
 	)
 }
 
@@ -425,7 +426,7 @@ end
 		"14:35 Iter<Int>",
 		"15:18 List<Int>",
 		"19:31 Iter<Int>",
-		"20:20 Int",
+		"20:20 NonNegativeInt",
 	)
 }
 

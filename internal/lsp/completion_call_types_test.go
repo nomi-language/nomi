@@ -18,7 +18,7 @@ struct Box<T>
 end
 
 fn first<T>(xs: List<T>) -> T
-    case List.head(xs)
+    case List.first(xs)
         Some(x) -> x
         None -> first(xs)
     end
@@ -68,7 +68,7 @@ func TestCompletion_MemberOfGenericCall(t *testing.T) {
 		},
 		{
 			"owner generic function nested in one",
-			"fn f(points: List<Point>, p: Point) -> Int\n    Maybe.with_default(List.head(points), p)." + cursorMark + "\nend\n",
+			"fn f(points: List<Point>, p: Point) -> Int\n    Maybe.with_default(List.first(points), p)." + cursorMark + "\nend\n",
 			[]string{"x", "y"}, nil,
 		},
 		{
@@ -93,7 +93,7 @@ func TestCompletion_MemberOfGenericCall(t *testing.T) {
 		},
 		{
 			"a Maybe value has no fields",
-			"fn f(points: List<Point>) -> Int\n    List.head(points)." + cursorMark + "\nend\n",
+			"fn f(points: List<Point>) -> Int\n    List.first(points)." + cursorMark + "\nend\n",
 			nil, []string{"x", "y", "map", "with_default"},
 		},
 	}
@@ -153,19 +153,19 @@ func TestCompletion_MemberOfGenericCallInferenceFails(t *testing.T) {
 // the next stage is offered the functions that take it.
 func TestCompletion_PipeAfterGenericCall(t *testing.T) {
 	items := complete(t, genericDecls+"fn f(ns: List<Int>) -> Int\n    Iter.map(ns, to_point) |> Iter.to_list() |> "+cursorMark+"\nend\n")
-	labelsInclude(t, items, "first", "List.head", "Iter.map")
+	labelsInclude(t, items, "first", "List.first", "Iter.map")
 	labelsExclude(t, items, "to_point")
 
 	items = complete(t, genericDecls+"fn f(m: Map<String, Point>) -> Int\n    Map.get(m, \"a\") |> "+cursorMark+"\nend\n")
 	labelsInclude(t, items, "Maybe.with_default", "Maybe.map")
-	labelsExclude(t, items, "first", "List.head")
+	labelsExclude(t, items, "first", "List.first")
 }
 
 // A generic function from another file, file-qualified or imported by name.
 func TestCompletion_MemberOfImportedGenericCall(t *testing.T) {
 	dir := writeProject(t, map[string]string{
 		"geo.nomi":  "pub struct Point\n    x: Int\n    y: Int\nend\n",
-		"util.nomi": "pub fn first<T>(xs: List<T>, fallback: T) -> T\n    List.head(xs) |> Maybe.with_default(fallback)\nend\n",
+		"util.nomi": "pub fn first<T>(xs: List<T>, fallback: T) -> T\n    List.first(xs) |> Maybe.with_default(fallback)\nend\n",
 		"main.nomi": "fn main() end\n",
 	})
 	s := NewServer()

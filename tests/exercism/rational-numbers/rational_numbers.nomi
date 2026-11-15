@@ -32,10 +32,13 @@ impl Rational
     /// reciprocal, so zero to a negative power traps as division by zero
     /// does.
     pub fn pow(r: Rational, exponent: Int) -> Rational
-        if exponent >= 0 then
-            Rational.new(Int.pow(r.numerator, exponent), Int.pow(r.denominator, exponent))
-        else
-            Rational.new(Int.pow(r.denominator, -exponent), Int.pow(r.numerator, -exponent))
+        case NonNegativeInt.try_from(exponent)
+            Some(e) ->
+                Rational.new(Int.pow(r.numerator, e), Int.pow(r.denominator, e))
+
+            None ->
+                e = NonNegativeInt.try_from(-exponent)!
+                Rational.new(Int.pow(r.denominator, e), Int.pow(r.numerator, e))
         end
     end
 
