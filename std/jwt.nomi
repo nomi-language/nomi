@@ -19,8 +19,10 @@
 //# checked against the clock with a minute's leeway, and `iss` and `aud`
 //# against the `Validation`'s.
 //#
-//# Claims are a JSON object, a `Map<String, Json>`, or any type that
-//# derives `ToJson` and `FromJson` through `sign_as` and `verify_as`.
+//# Claims are a JSON object, a `Map<String, Json>`, or a `JsonObject`
+//# that `sign_as` takes, such as a struct's derived `ToJson` writes,
+//# checked by `JsonObject.try_from`; `verify_as` reads them as any type
+//# that derives `FromJson`.
 //#
 //# There is no encryption (JWE), and no fetching of keys from a JWKS URL.
 
@@ -37,7 +39,7 @@ import
     instant.Instant
     int.Int
     iter.Iter
-    json.{FromJson, Json, ToJson}
+    json.{FromJson, Json, JsonObject}
     maps.Map
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
@@ -300,21 +302,20 @@ pub fn sign(claims: Map<String, Json>, key: SigningKey) -> String
     "${input}.${base64.encode_url(signature, padded: False)}"
 end
 
-/// A token holding `claims` as their `ToJson` writes them, signed by
-/// `key`. The claims must be a JSON object, as a struct's derived `ToJson`
-/// is; anything else is a runtime error.
-pub fn sign_as(claims: ToJson, key: SigningKey) -> String
-    case ToJson.to_json(claims)
-        .Obj(fields) ->
-            sign(fields, key)
-
-        other ->
-            refused: Result<String, String> = Err(
-                "jwt.sign_as: the claims must be a JSON object, got ${Json.kind(other)}"
-            )
-
-            refused!
-    end
+/// A token holding `claims`, a `JsonObject`, signed by `key`: a struct's
+/// derived `ToJson` writes one, which `JsonObject.try_from` checks, so the
+/// claims are an object by their type, not by a check when the token is
+/// signed.
+//! import std::json.{JsonObject, ToJson}
+//! import std::jwt.{self, SigningKey}
+//!
+//! key = SigningKey.hs256(String.to_bytes("a secret of thirty-two bytes, or more"))!
+//! claims = JsonObject.try_from(ToJson.to_json({uid: 7}))!
+//! token = jwt.sign_as(claims, key)
+//! assert String.starts_with(token, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.")
+//
+pub fn sign_as(claims: JsonObject, key: SigningKey) -> String
+    sign(JsonObject.fields(claims), key)
 end
 
 /// The claims of `token`, once its signature is `key`'s and its header's
@@ -373,10 +374,11 @@ end
 /// The claims of `token`, checked as `verify` checks them, read as a `T`
 /// by its `FromJson`, such as a struct's derived one.
 //! import std::instant.Instant
+//! import std::json.Json
 //! import std::jwt.{self, SigningKey, Validation}
 //!
 //! key = SigningKey.hs256(String.to_bytes("a secret of thirty-two bytes, or more"))!
-//! token = jwt.sign_as({"uid" => 7, "exp" => 2_000_000_000}, key)
+//! token = jwt.sign({"uid" => Json.Int(7), "exp" => Json.Int(2_000_000_000)}, key)
 //! now = Some(Instant.from_seconds(1_900_000_000))
 //! claims: Map<String, Int> = jwt.verify_as(token, SigningKey.verifying_key(key), Validation{now:})!
 //! assert Map.get(claims, "uid") == Some(7)

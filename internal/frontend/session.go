@@ -100,6 +100,7 @@ func (c *Checker) CheckSessionFile(pi *analysis.ProgramInterfaces, key, name, sr
 	errs = append(errs, analysis.FinalizeCoherence(fa)...)
 	errs = append(errs, check.EntryChecks...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
+	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
 	analysis.MarkTailCalls(nodes)
 	if ds := stdDefectDiagnostics(c.lib); ds != nil {
 		return check, ds

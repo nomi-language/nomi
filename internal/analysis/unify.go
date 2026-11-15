@@ -1662,9 +1662,12 @@ func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
 // widens to when a directed unification meets a value that differs from
 // existing only where a refinement meets an ancestor of it: the nearest
 // ancestor the two share there (refinementJoinShape), when both convert to
-// it in this mode.
+// it in this mode. Inside a function type the expected side's parameter
+// widens too, where a function argument's result meets it: with number a
+// PositiveInt and next an `(Int) -> Int`, `Iter.iterate(number, next)`
+// solves T to Int.
 func widenToRefinementAncestor(m unifyMode, existing, have Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) (Type, bool) {
-	if m != unifyAssign && m != unifyAssignCo {
+	if m != unifyAssign && m != unifyAssignCo && m != unifyAssignIn {
 		return nil, false
 	}
 	joined, ok := refinementJoinShape(existing, have, 0)

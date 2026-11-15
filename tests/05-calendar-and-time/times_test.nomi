@@ -52,3 +52,8 @@ end
 test "time construction rejects invalid components"
     assert Err(Error.InvalidValue(_)) = Time.new(25, 0, 0)
 end
+
+test "a time wraps a duration of any length"
+    assert Time"08:00:00" + Duration.hours(24 * 1_000_000_000_000 + 1) == Time"09:00:00"
+    assert Time"08:00:00" - Duration.hours(24 * 1_000_000_000_000 + 9) == Time"23:00:00"
+end

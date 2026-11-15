@@ -35,35 +35,32 @@ type failure struct {
 	message string
 }
 
-// Open is a reader of the CSV in r. delimiter and comment are code
-// points, comment 0 for none; fields is the field count every record must
-// have, 0 for the first record's and -1 for any.
-func Open(r rt.Reader, delimiter, comment int64, trim, lazy bool, fields int64) rt.CsvRecords {
+// Open is a reader of the CSV in r, with no comment character when comment
+// is None; fields is the field count every record must have, 0 for the
+// first record's and -1 for any. A count past int64 saturates: no record
+// has that many fields, as none has the count itself.
+func Open(r rt.Reader, delimiter rt.Codepoint, comment rt.Maybe[rt.Codepoint], trim, lazy bool, fieldsArg rt.Int) rt.CsvRecords {
+	fields := fieldsArg.Saturated()
 	in := lineinput.New(r)
 	c := csv.NewReader(in)
 	c.Comma = rune(delimiter)
-	c.Comment = rune(comment)
+	if comment.Tag == rt.TagSome {
+		c.Comment = rune(comment.Some)
+	}
 	c.TrimLeadingSpace = trim
 	c.LazyQuotes = lazy
 	c.FieldsPerRecord = int(fields)
 	rec := &records{in: in, csv: c}
+	// The delimiter and the comment character are std/csv's Delimiters,
+	// which no quote, line break, U+FFFD or U+0000 is; encoding/csv refuses
+	// one on the first read if rt's own callers pass it.
 	switch {
-	case !validDelim(rune(delimiter)):
-		rec.invalid = "the delimiter " + strconv.QuoteRune(rune(delimiter)) +
-			" cannot be used: it may not be a quote, a line break or U+FFFD"
-	case comment != 0 && !validDelim(rune(comment)):
-		rec.invalid = "the comment character " + strconv.QuoteRune(rune(comment)) +
-			" cannot be used: it may not be a quote, a line break or U+FFFD"
-	case comment != 0 && comment == delimiter:
-		rec.invalid = "the comment character and the delimiter are both " + strconv.QuoteRune(rune(delimiter))
+	case c.Comment != 0 && c.Comment == c.Comma:
+		rec.invalid = "the comment character and the delimiter are both " + strconv.QuoteRune(c.Comma)
 	case fields < -1:
 		rec.invalid = "the field count " + strconv.FormatInt(fields, 10) + " is negative"
 	}
 	return rt.NewCsvRecords(rec)
-}
-
-func validDelim(r rune) bool {
-	return r > 0 && r != '"' && r != '\r' && r != '\n' && utf8.ValidRune(r) && r != utf8.RuneError
 }
 
 func of(h rt.CsvRecords) *records {
@@ -182,7 +179,7 @@ func Failure(h rt.CsvRecords) rt.IOError {
 // Encode is one record as a CSV line: each field quoted when it holds the
 // delimiter, a quote, a line break or leading space (or is `\.`), its
 // quotes doubled, and the line ended with "\n", or "\r\n" with crlf.
-func Encode(fields *rt.List[string], delimiter int64, crlf bool) string {
+func Encode(fields *rt.List[string], delimiter rt.Codepoint, crlf bool) string {
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
 	w.Comma = rune(delimiter)
@@ -190,10 +187,6 @@ func Encode(fields *rt.List[string], delimiter int64, crlf bool) string {
 	var items []string
 	for l := fields; l != nil; l = l.Tail {
 		items = append(items, l.Head)
-	}
-	if !validDelim(rune(delimiter)) {
-		rt.Trap("csv: the delimiter " + strconv.QuoteRune(rune(delimiter)) +
-			" cannot be used: it may not be a quote, a line break or U+FFFD")
 	}
 	if len(items) == 1 && items[0] == "" {
 		// encoding/csv writes a lone empty field as an empty line, which

@@ -1,11 +1,12 @@
 import
     comparable.Comparable
+    convert.TryFrom
     debug.Debug
     discrete.Discrete
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, Int64}
     maybe.Maybe.{self, None, Some}
     steppable.Steppable
     strings.String
@@ -17,9 +18,9 @@ end
 //# `'a'` or `'\n'`; every other scalar value comes from `Int.to_codepoint`.
 
 /// A Unicode code point / scalar value: `0..=0x10FFFF`, excluding UTF-16
-/// surrogate code points. Backed by `Int`, but validated at construction.
+/// surrogate code points. Backed by an `Int64`, but validated at construction.
 /// The 128 ASCII codepoints have a literal: `'a'`, `'\''`, `'\u{7F}'`.
-pub opaque type Codepoint Int
+pub opaque type Codepoint Int64
 
 impl Codepoint
     /// Returns the numeric Unicode scalar value.

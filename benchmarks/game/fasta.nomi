@@ -75,6 +75,8 @@ end
 
 fn repeat(id: String, description: String, source: String, n: Int)
     io.print(">${id} ${description}")
+    if source == "" then return
+
     width = String.length(source)
     doubled = source + source
 

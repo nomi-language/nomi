@@ -36,7 +36,7 @@ import
     equatable.Equatable
     fs.{self, Access, Entry, Kind, WriteMode}
     fs::host
-    int.Int
+    int.{Int, Int64}
     io.{Error, File, Reader, Writer}
     iter.Iter
     lists.List
@@ -181,7 +181,7 @@ pub fn run<T>(sandbox: Sandbox, body: () -> T) -> Ran<T>
     }
 end
 
-fn operation_code(operation: Operation) -> Int
+fn operation_code(operation: Operation) -> Int64
     case operation
         Operation.Read     -> 1
         Operation.Write    -> 2

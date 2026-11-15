@@ -48,6 +48,7 @@ func (c *checker) checkCapture(n *ast.Capture, expected Type) Type {
 		c.checkNode(n.Body)
 		return nil
 	}
+	c.seedCaptureElems(n, holes)
 	if call := n.PartialCall(); call != nil {
 		return c.checkPartialCapture(n, call, len(holes), expected)
 	}

@@ -2035,7 +2035,7 @@ func receiverTypeExpr(typeName string, typeParams []ast.TypeParam, line, col int
 // the squiggle lands on the offending interface name rather than on the
 // type decl. The message names the field/variant/payload so the user
 // knows exactly which component type lacks the impl.
-func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis) []TypeError {
+func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf declFiles) []TypeError {
 	if fa == nil || impls == nil {
 		// Single-file path (BuildFileWithStdlib / buildTypesFromSource):
 		// no project-level impl index was built. The check would flag
@@ -2147,7 +2147,7 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 // another file's type (CheckForeignDeriveBounds): the impl, and so what its
 // body demands, is the deriving file's, and a check that rebuilds one file
 // and keeps the other must find each demand once, in the file it rebuilt.
-func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
+func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, typeNode ast.Node, typeName, ifaceName string, derivePos Pos, typeParamSet map[string]bool) []TypeError {
 	var errs []TypeError
 	declFA := fa
 	var report func(fa *FileAnalysis, componentDesc, fieldName string, fieldPos Pos, te ast.TypeExpr)
@@ -2205,6 +2205,15 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			// requirement to the call site.
 			return
 		}
+		if base, baseFA, ok := deriveSubtypeBase(fa, fileOf, baseName); ok && ifaceName != "FromJson" {
+			// A subtype's value is its base's and has the base's impls
+			// (spec §4 *Subtypes*), so the derived body's demand is the
+			// base's: `year: Int64` is Int's Comparable. FromJson is not:
+			// the base's would build a value the subtype's rule never
+			// checked.
+			report(baseFA, componentDesc, fieldName, fieldPos, base)
+			return
+		}
 		if isInterfaceTypeName(fa, baseName) {
 			// Interface-typed field/payload (existential): the runtime
 			// value at this slot is of some concrete type that implements
@@ -2256,6 +2265,7 @@ func checkDeriveComponentTypes(fa, into *FileAnalysis, impls *ProjectImplIndex, 
 			}
 			return
 		}
+		ctx.NoEquality = deriveDemandNoEquality(fa, impls, fileOf, baseName, ifaceName)
 		rec := Recording{
 			Pos:        fieldPos,
 			Kind:       RecordingKindDeriveSynth,
@@ -2385,7 +2395,7 @@ func structuralDeriveParts(te ast.TypeExpr, ifaceName string) ([]ast.TypeExpr, b
 // looks through aliases, anonymous struct fields and std's containers,
 // whose impls need their elements to implement the interface. A function
 // is left to the other checks.
-func jsonFieldGap(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, te ast.TypeExpr, seen map[*Symbol]bool) (ast.TypeExpr, string) {
+func jsonFieldGap(fa *FileAnalysis, fileOf declFiles, te ast.TypeExpr, seen map[*Symbol]bool) (ast.TypeExpr, string) {
 	switch t := te.(type) {
 	case nil:
 		return nil, ""
@@ -2433,7 +2443,7 @@ func jsonFieldGap(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, te a
 // alias is the symbol the file resolved te's name to, written bare or
 // imported (`Counts`) or through its file (`counts.Counts`), and its target
 // names types in its own file's scope.
-func deriveAliasTarget(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, te ast.TypeExpr, seen map[*Symbol]bool) (ast.TypeExpr, *FileAnalysis) {
+func deriveAliasTarget(fa *FileAnalysis, fileOf declFiles, te ast.TypeExpr, seen map[*Symbol]bool) (ast.TypeExpr, *FileAnalysis) {
 	for {
 		alias := resolvedTypeAlias(typeExprSymbol(fa, te))
 		if alias == nil || seen[alias] {
@@ -2445,7 +2455,7 @@ func deriveAliasTarget(fa *FileAnalysis, fileOf func(path string) *FileAnalysis,
 		}
 		seen[alias] = true
 		if alias.SourceFile != "" && fileOf != nil {
-			if decl := fileOf(alias.SourceFile); decl != nil {
+			if decl := fileOf(alias.SourceFile, alias); decl != nil {
 				fa = decl
 			}
 		}
@@ -2538,7 +2548,7 @@ func phantomTypeArgs(baseName string) bool {
 // own TypeArgs when the base type itself has an impl — same rationale as
 // the outer report closure's generic-instantiation recursion: the impl's
 // synth body will dispatch through each TypeArg slot too.
-func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
+func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, ifaceName string, te ast.TypeExpr, ctx *DeriveCtx, typeParamSet map[string]bool) []TypeError {
 	if te == nil {
 		return nil
 	}
@@ -2565,10 +2575,17 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf
 		}
 		return errs
 	}
+	recCtx := ctx
+	if holds := deriveDemandNoEquality(fa, impls, fileOf, baseName, ifaceName); holds != ctx.NoEquality {
+		// The field's context, saying what this type argument holds.
+		argCtx := *ctx
+		argCtx.NoEquality = holds
+		recCtx = &argCtx
+	}
 	rec := Recording{
 		Pos:        ctx.FieldPos,
 		Kind:       RecordingKindDeriveSynth,
-		Derive:     ctx,
+		Derive:     recCtx,
 		TypeOrigin: deriveComponentOrigin(fa, baseName),
 	}
 	into.RecordManifest(baseName, ifaceName, rec)
@@ -2590,7 +2607,7 @@ func recordDeriveTypeArg(fa, into *FileAnalysis, impls *ProjectImplIndex, fileOf
 // equality. Types are not resolved when derives are checked, so this reads
 // the declarations: a component has equality when it is no function type,
 // no Iter and no host type without an `impl Equatable`, at any depth.
-func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, baseName, ifaceName string) bool {
+func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName, ifaceName string) bool {
 	if ifaceName != "Equatable" && ifaceName != "Hashable" || hasInterfaceImpl(fa, impls, baseName, ifaceName) {
 		return false
 	}
@@ -2599,25 +2616,95 @@ func deriveComponentHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileO
 
 // deriveDeclHasEquality reports whether the declaration baseName names has
 // equality: its own `impl Equatable`, or components that all have it.
-func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, baseName string, seen map[string]bool) bool {
+func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName string, seen map[string]bool) bool {
+	_, has := deriveDeclEquality(fa, impls, fileOf, baseName, seen)
+	return has
+}
+
+// deriveNoEquality is what deriveComponentHasEquality found with no
+// equality in baseName, for the help of the derive's missing impl: a part
+// it holds (`(Int) -> Int`, a function value), or "" when baseName is
+// itself the type with none, or the walk could not read its declaration.
+// A derive's demand reaches the missing-impl diagnostic by names alone, so
+// the recording carries it (DeriveCtx.NoEquality).
+func deriveNoEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName string) string {
+	holds, has := deriveDeclEquality(fa, impls, fileOf, baseName, map[string]bool{})
+	if has || strings.HasPrefix(holds, "`"+baseName+"`,") {
+		return ""
+	}
+	return holds
+}
+
+// deriveDemandNoEquality is deriveNoEquality for a derive's demand of
+// ifaceName on baseName: "" unless the demand is Equatable or Hashable,
+// which baseName has no impl of.
+func deriveDemandNoEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName, ifaceName string) string {
+	if ifaceName != "Equatable" && ifaceName != "Hashable" || hasInterfaceImpl(fa, impls, baseName, ifaceName) {
+		return ""
+	}
+	return deriveNoEquality(fa, impls, fileOf, baseName)
+}
+
+// deriveDeclEquality is deriveDeclHasEquality, and when the declaration has
+// no equality, the part of it that has none (deriveNoEquality), or "" when
+// it is a host type or a name the walk cannot read.
+func deriveDeclEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, baseName string, seen map[string]bool) (string, bool) {
 	if hasInterfaceImpl(fa, impls, baseName, "Equatable") || seen[baseName] {
-		return true
+		return "", true
 	}
 	seen[baseName] = true
 	if fa == nil || fa.ModuleScope == nil {
-		return false
+		return "", false
 	}
 	sym := fa.ModuleScope.Lookup(baseName)
 	if sym == nil {
-		return false
+		return "", false
 	}
 	if sym.Resolved != nil {
 		sym = sym.Resolved
 	}
+	if sym.Type != nil && IsRefinement(sym.Type) {
+		// A subtype's values are its base's (spec §4 *Subtypes*), so it
+		// has the base's equality. Its parents are named in its declaring
+		// file, which a std subtype's deriving file may not import
+		// (`PositiveDuration` over `NonNegativeDuration`), so the base is
+		// read from the resolved type rather than from the declaration.
+		base := RefinementBase(sym.Type)
+		if name := concreteTypeName(base); name != "" && name != baseName {
+			if hasInterfaceImpl(fa, impls, name, "Equatable") {
+				return "", true
+			}
+			if _, isPrim := base.(*PrimitiveType); isPrim {
+				return "", true
+			}
+		}
+	}
+	if td, isSubtype := sym.Node.(*ast.TypeDef); isSubtype && td.Subtype && sym.Type == nil && sym.SourceFile == "" {
+		// A std subtype read before std's types are resolved, whose
+		// declaring file this pass cannot reach. Every std subtype is over
+		// a type with equality (a number, a Duration, a collection, a
+		// range, a string, Json), and the caller checks its type
+		// arguments.
+		return "", true
+	}
 	// The declaration's parts name types in the file that declares it,
 	// which the deriving file may not import: an `embeds Spot` of another
 	// file's enum is that file's Spot.
-	fa = declaringFile(fa, fileOf, sym)
+	declFA, known := declaringFile(fa, fileOf, sym)
+	if !known && sym.Type != nil {
+		// A declaration out of reach (a std type seen from another file)
+		// whose type is resolved: its equality is the type's, as `==`
+		// decides it.
+		hasImpl := func(t Type) bool {
+			name := concreteTypeName(t)
+			return name != "" && hasInterfaceImpl(fa, impls, name, "Equatable")
+		}
+		if part, none := noEqualityPartWith(sym.Type, hasImpl, map[Type]bool{}); none {
+			return fmt.Sprintf("`%s`, %s", part, noEqualityWhat(part)), false
+		}
+		return "", true
+	}
+	fa = declFA
 	params := map[string]bool{}
 	var parts []ast.TypeExpr
 	switch d := sym.Node.(type) {
@@ -2643,61 +2730,225 @@ func deriveDeclHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf fun
 			params[tp.Name] = true
 		}
 		parts = append(parts, d.InnerTypeExpr)
+	case *ast.ExternType:
+		// A host type, whose equality only its own impl gives.
+		return fmt.Sprintf("`%s`, a host type with no `impl Equatable`", baseName), false
 	default:
-		// A host type, whose equality only its own impl gives, or a name
-		// that is no declared type.
-		return false
+		// A name that is no declared type.
+		return "", false
 	}
 	for _, te := range parts {
-		if !deriveTypeHasEquality(fa, impls, fileOf, te, params, seen) {
-			return false
+		if holds, has := deriveTypeEquality(fa, impls, fileOf, te, params, seen); !has {
+			return holds, false
 		}
 	}
-	return true
+	return "", true
 }
 
-// declaringFile answers the analysis of the file that declares sym, a
-// type of the program's own files, which fileOf finds by path, or fa.
-func declaringFile(fa *FileAnalysis, fileOf func(path string) *FileAnalysis, sym *Symbol) *FileAnalysis {
-	if fileOf == nil || sym == nil || sym.SourceFile == "" || sym.SourceFile == fa.FilePath {
-		return fa
+// deriveSubtypeBase is a parent of the non-generic subtype baseName names
+// in fa, written as a type the returned file resolves, or false when
+// baseName is no such subtype. A subtype's values are its base's, so any
+// parent stands for it (spec §4 *Subtypes*). Types may not be resolved when
+// derives are checked, so it reads the declaration when the file that
+// declares it is in reach, and otherwise the resolved type.
+func deriveSubtypeBase(fa *FileAnalysis, fileOf declFiles, baseName string) (ast.TypeExpr, *FileAnalysis, bool) {
+	if fa == nil || fa.ModuleScope == nil {
+		return nil, nil, false
 	}
-	if decl := fileOf(sym.SourceFile); decl != nil && decl.ModuleScope != nil {
+	sym := fa.ModuleScope.Lookup(baseName)
+	if sym == nil {
+		return nil, nil, false
+	}
+	if sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	td, ok := sym.Node.(*ast.TypeDef)
+	if !ok {
+		// A symbol read from a module's interface carries its type and no
+		// declaration.
+		return subtypeBaseFromType(fa, sym)
+	}
+	if !td.Subtype || td.InnerTypeExpr == nil || len(td.TypeParams) != 0 {
+		return nil, nil, false
+	}
+	declFA, known := declaringFile(fa, fileOf, sym)
+	if known && typeExprSymbol(declFA, td.InnerTypeExpr) != nil {
+		return td.InnerTypeExpr, declFA, true
+	}
+	if sym.Type != nil || known {
+		// The parent is written in a file out of reach: a std subtype
+		// (`PositiveInt` over `NonNegativeInt`, in std/int) seen from
+		// another file. The declaration's positions mean nothing in fa, and
+		// its parent's name may not resolve there, so the parent is read
+		// from the resolved type.
+		return subtypeBaseFromType(fa, sym)
+	}
+	// Std's own types are not resolved yet, and the file declaring sym is
+	// out of reach: the parent is looked up in fa by its name alone, as
+	// `Int64`'s `Int` is everywhere. One fa cannot name leaves the
+	// component checked as the subtype itself (deriveDeclHasEquality).
+	if st, ok := td.InnerTypeExpr.(*ast.SimpleType); ok && fa.ModuleScope.Lookup(st.Name) != nil {
+		return &ast.SimpleType{Name: st.Name}, fa, true
+	}
+	return nil, nil, false
+}
+
+// subtypeBaseFromType is deriveSubtypeBase from sym's resolved type: the
+// nearest ancestor of the non-generic subtype that fa names as the same
+// type. `PositiveInt` seen from a file that names neither `NonNegativeInt`
+// nor `NonZeroInt` is `Int`, the base every parent reaches.
+func subtypeBaseFromType(fa *FileAnalysis, sym *Symbol) (ast.TypeExpr, *FileAnalysis, bool) {
+	dt, ok := sym.Type.(*DistinctType)
+	if !ok || !dt.Subtype || dt.Inner == nil || len(dt.TypeParams) != 0 {
+		return nil, nil, false
+	}
+	seen := map[Type]bool{dt: true}
+	queue := RefinementParents(dt)
+	for len(queue) > 0 {
+		p := resolveTypeVar(queue[0])
+		queue = queue[1:]
+		if p == nil || seen[p] {
+			continue
+		}
+		seen[p] = true
+		if te := typeNamedIn(fa, p); te != nil {
+			return te, fa, true
+		}
+		queue = append(queue, RefinementParents(p)...)
+	}
+	return nil, nil, false
+}
+
+// typeNamedIn is a type expression naming t, a non-generic nominal type, by
+// its name when fa's scope resolves that name to t, or nil.
+func typeNamedIn(fa *FileAnalysis, t Type) ast.TypeExpr {
+	var name string
+	switch ty := t.(type) {
+	case *PrimitiveType:
+		name = ty.Name_
+	case *DistinctType:
+		if len(ty.TypeArgs) == 0 && !ty.Intersection {
+			name = ty.Name
+		}
+	case *StructType:
+		if len(ty.TypeArgs) == 0 {
+			name = ty.Name
+		}
+	case *EnumType:
+		if len(ty.TypeArgs) == 0 {
+			name = ty.Name
+		}
+	}
+	if name == "" || fa == nil || fa.ModuleScope == nil {
+		return nil
+	}
+	sym := fa.ModuleScope.Lookup(name)
+	if sym == nil {
+		return nil
+	}
+	if sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym.Type != t {
+		return nil
+	}
+	return &ast.SimpleType{Name: name}
+}
+
+// declFiles finds the analysis of a file of the build that declares sym:
+// by path, the SourceFile of a symbol of the program's own files, or for a
+// symbol with none, a std module's, the build's file whose definitions
+// hold it. Nil when the build has no such file, and a nil declFiles finds
+// none.
+type declFiles func(path string, sym *Symbol) *FileAnalysis
+
+// buildDeclFiles is the declFiles over a build's files, which remembers
+// the file it found for each symbol with no path.
+func buildDeclFiles(files map[string]*FileAnalysis) declFiles {
+	byPath := make(map[string]*FileAnalysis, len(files))
+	for _, fa := range files {
+		if fa != nil && fa.FilePath != "" {
+			byPath[fa.FilePath] = fa
+		}
+	}
+	found := map[*Symbol]*FileAnalysis{}
+	return func(path string, sym *Symbol) *FileAnalysis {
+		if path != "" {
+			return byPath[path]
+		}
+		if sym == nil {
+			return nil
+		}
+		if fa, ok := found[sym]; ok {
+			return fa
+		}
+		var decl *FileAnalysis
+		for _, fa := range files {
+			if fa != nil && fa.Definitions[sym.Pos] == sym {
+				decl = fa
+				break
+			}
+		}
+		found[sym] = decl
 		return decl
 	}
-	return fa
 }
 
-// deriveTypeHasEquality reports whether te, a component type written in a
-// declaration whose type parameters are params, has equality.
-func deriveTypeHasEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis, te ast.TypeExpr, params map[string]bool, seen map[string]bool) bool {
-	if te == nil {
-		return true
+// declaringFile answers the analysis of the file that declares sym, and
+// true: fa when fa declares it, or a file of the build that fileOf finds.
+// Otherwise it answers fa and false: sym is declared in a file out of reach
+// (a std module's, seen from a file checked against std's interfaces),
+// whose positions mean nothing in fa, though its names may still be looked
+// up there.
+func declaringFile(fa *FileAnalysis, fileOf declFiles, sym *Symbol) (*FileAnalysis, bool) {
+	if fa == nil || sym == nil {
+		return fa, false
 	}
-	if functionTypeIn(te) != nil {
-		return false
+	if (sym.SourceFile != "" && sym.SourceFile == fa.FilePath) || fa.Definitions[sym.Pos] == sym {
+		return fa, true
+	}
+	if fileOf != nil {
+		if decl := fileOf(sym.SourceFile, sym); decl != nil && decl.ModuleScope != nil {
+			return decl, true
+		}
+	}
+	return fa, false
+}
+
+// deriveTypeEquality reports whether te, a component type written in a
+// declaration whose type parameters are params, has equality, and when it
+// has none, the part that has none (deriveNoEquality).
+func deriveTypeEquality(fa *FileAnalysis, impls *ProjectImplIndex, fileOf declFiles, te ast.TypeExpr, params map[string]bool, seen map[string]bool) (string, bool) {
+	if te == nil {
+		return "", true
+	}
+	if fn := functionTypeIn(te); fn != nil {
+		return fmt.Sprintf("`%s`, a function value", fn.TypeString()), false
 	}
 	if parts, ok := structuralDeriveParts(te, "Equatable"); ok {
 		for _, p := range parts {
-			if !deriveTypeHasEquality(fa, impls, fileOf, p, params, seen) {
-				return false
+			if holds, has := deriveTypeEquality(fa, impls, fileOf, p, params, seen); !has {
+				return holds, false
 			}
 		}
-		return true
+		return "", true
 	}
 	baseName := TypeExprBaseName(te)
 	if baseName == "" || params[baseName] {
-		return true
+		return "", true
 	}
 	for _, ta := range typeArgs(te) {
-		if !deriveTypeHasEquality(fa, impls, fileOf, ta, params, seen) {
-			return false
+		if holds, has := deriveTypeEquality(fa, impls, fileOf, ta, params, seen); !has {
+			return holds, false
 		}
 	}
 	if isInterfaceTypeName(fa, baseName) {
-		return baseName != "Iter"
+		if baseName == "Iter" {
+			return "an Iter", false
+		}
+		return "", true
 	}
-	return deriveDeclHasEquality(fa, impls, fileOf, baseName, seen)
+	return deriveDeclEquality(fa, impls, fileOf, baseName, seen)
 }
 
 // deriveComponentOrigin is the build key of the file that declares the
@@ -2738,7 +2989,7 @@ func stdDeriveGap(fa *FileAnalysis, impls *ProjectImplIndex, baseName, iface str
 	return []TypeError{TypeError{
 		File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
 		Message: fmt.Sprintf("no impl of `%s` for `%s` (required via %s)", iface, baseName, formatRecordingVia(rec)),
-	}.WithHint(missingImplHelp(iface, baseName))}
+	}.WithHint(missingImplHelp(iface, baseName, []Recording{rec}))}
 }
 
 // hasInterfaceImpl reports whether the named type has an Iface impl

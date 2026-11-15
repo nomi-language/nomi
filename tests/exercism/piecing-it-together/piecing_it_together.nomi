@@ -144,7 +144,7 @@ fn column_rule(clues: Clues) -> Maybe<(Int) -> List<Int>>
 
         {pieces: Some(pieces)} ->
             Some(fn rows ->
-                if pieces % rows == 0 then [pieces / rows] else []
+                if rows != 0 and pieces % rows == 0 then [pieces / rows] else []
             end)
 
         {aspect_ratio: Some(ratio)} ->

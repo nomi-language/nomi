@@ -38,9 +38,48 @@ pub opaque struct Range<T> where T: Comparable
     inclusive: Bool
 end
 
+/// A range that holds at least one value: `a..b` with `a < b`, `a..=b` with
+/// `a <= b`, or an unbounded `Range.from(n)`. It is the parent of
+/// `ClosedRange` and `BoundedRange`, so an error for a backwards literal
+/// names this rule. A Float range with a NaN end holds nothing, since no
+/// value is `<=` NaN, so it is no NonEmptyRange. It is in the prelude.
+//! import std::float.Float
+//!
+//! r: NonEmptyRange<Int> = 3..4
+//! assert Range.contains(r, Range.start(r))
+//! assert NonEmptyRange.try_from(4..4) == None
+//! assert NonEmptyRange.try_from(4..=4) == Some(4..=4)
+//! assert NonEmptyRange.try_from(0.0..=Float.nan()) == None
+//
+pub subtype NonEmptyRange<T> Range<T> where T: Comparable when fn r ->
+    Range.contains(r, Range.start(r))
+end
+
+/// A non-empty range that holds its end, `a..=b` with `a <= b`, or an
+/// unbounded `Range.from(n)`, which has no end. It is what `clamp` takes: a
+/// value past an exclusive end has no last value in the range to go to. It
+/// is in the prelude.
+//! assert Int.clamp(15, 0..=10) == 10
+//! assert ClosedRange.try_from(0..10) == None
+//! assert ClosedRange.try_from(Range.from(0)) == Some(Range.from(0))
+//
+pub subtype ClosedRange<T> NonEmptyRange<T> where T: Comparable when fn r ->
+    Range.is_inclusive(r) or not Range.is_bounded(r)
+end
+
+/// A non-empty range with an end, `a..b` with `a < b` or `a..=b` with
+/// `a <= b`. It is what `random` draws from. It is in the prelude.
+//! assert BoundedRange.try_from(1..=6) == Some(1..=6)
+//! assert BoundedRange.try_from(Range.from(1)) == None
+//
+pub subtype BoundedRange<T> NonEmptyRange<T> where T: Comparable when fn r -> Range.is_bounded(r)
+
 impl Range<T>
-    /// Returns an unbounded ascending integer range starting at `n`.
-    /// Pair with `Iter.take(N)` before materializing. As an iterator it is
+    /// Returns an unbounded ascending range starting at `n`, a ClosedRange
+    /// of `n`'s type: what `a..` would write. Where a
+    /// `ClosedRange<NonNegativeInt>` is expected, `Range.from(2)` is one, and
+    /// its literal start is checked when the program is compiled. Over Ints,
+    /// pair it with `Iter.take(N)` before materializing. As an iterator it is
     /// `Iter.is_infinite`, so `Iter.to_list` and the other terminals that must
     /// reach the end trap on it. An Int has no largest value, so the range
     /// never ends, past 64 bits as anywhere else.
@@ -50,9 +89,11 @@ impl Range<T>
     //! assert Range.from(1) |> Range.step_by(2) |> Iter.is_infinite()
     //! top = 9_223_372_036_854_775_807
     //! assert Range.from(top) |> Iter.take(2) |> Iter.to_list() == [top, top + 1]
+    //! assert Range.contains(Range.from(0.5), 2.25)
+    //! refute Range.contains(Range.from("m"), "a")
     //
-    pub fn from(n: Int) -> Range<Int>
-        Range{start: n, stop: None, inclusive: False}
+    pub fn from<T>(n: T) -> ClosedRange<T> where T: Comparable
+        ClosedRange.unchecked(Range{start: n, stop: None, inclusive: False})
     end
 
     /// Returns an unbounded ascending integer range starting at 0.
@@ -60,8 +101,8 @@ impl Range<T>
     //! assert Range.contains(Range.naturals(), 0)
     //! refute Range.contains(Range.naturals(), -1)
     //
-    pub fn naturals() -> Range<Int>
-        Range{start: 0, stop: None, inclusive: False}
+    pub fn naturals() -> ClosedRange<Int>
+        ClosedRange.unchecked(Range{start: 0, stop: None, inclusive: False})
     end
 
     /// Returns a lazy iterable that advances through the range by `by`.
@@ -103,6 +144,35 @@ impl Range<T>
             Some(_) -> True
             None    -> False
         end
+    end
+
+    /// The value the range starts at, which it always contains unless it is
+    /// empty.
+    //! assert Range.start(2..5) == 2
+    //! assert Range.start(Range.from(7)) == 7
+    //
+    pub fn start<T>(r: Range<T>) -> T
+        r.start
+    end
+
+    /// The range's end, `None` for an unbounded range. Whether the range
+    /// holds it is `Range.is_inclusive`.
+    //! assert Range.stop(2..5) == Some(5)
+    //! assert Range.stop(2..=5) == Some(5)
+    //! assert Range.stop(Range.from(7)) == None
+    //
+    pub fn stop<T>(r: Range<T>) -> Maybe<T>
+        r.stop
+    end
+
+    /// Whether the range holds its end: `True` for `a..=b`, `False` for
+    /// `a..b` and for an unbounded range, which has no end to hold.
+    //! assert Range.is_inclusive(2..=5)
+    //! refute Range.is_inclusive(2..5)
+    //! refute Range.is_inclusive(Range.from(7))
+    //
+    pub fn is_inclusive<T>(r: Range<T>) -> Bool
+        r.inclusive
     end
 end
 

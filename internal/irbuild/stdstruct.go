@@ -989,6 +989,9 @@ var stdStructValidated = perStd(func() []bool {
 				continue
 			}
 			anchors := stdBaseAnchors(fas[i])
+			// A field of a std subtype (`year: Int64`) takes its base's kind, which
+			// the module's analysis resolves (stdRefinementKind).
+			anchors.fa = fas[i]
 			anchors.structs = map[string]int{}
 			for j := range stdStructSpecs {
 				if ok[j] && stdStructSpecs[j].origin == stdStructSpecs[i].origin {

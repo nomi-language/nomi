@@ -42,9 +42,7 @@ func cryptoCases() map[string][]hostCase {
 		"hash.pbkdf2_sha256": cases(
 			args(hBytes("passwd"), hBytes("salt"), hInt(1), hInt(64)),
 			args(hBytes(""), hBytes(""), hInt(2), hInt(16)),
-			args(hBytes("p"), hBytes("s"), hInt(0), hInt(32)),
-			args(hBytes("p"), hBytes("s"), hInt(1), hInt(0)),
-			args(hBytes("p"), hBytes("s"), hInt(1), hInt(1025)),
+			args(hBytes("p"), hBytes("s"), hInt(1), hInt(33)),
 		),
 		"signatures/host.generate_ed25519": {{args: args(), shapeOnly: true}},
 		"signatures/host.generate_p256":    {{args: args(), shapeOnly: true}},

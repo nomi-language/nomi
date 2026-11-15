@@ -1,10 +1,10 @@
 // `Int.shift_left` written as a call is the `<<<` operator, an Int operation
 // lowered as the operator is, so its fault is the operator's text at the
-// call's line: `line 9: negative shift count -1`, with no function name in
-// it, where `String.repeat`'s reads `strings.String.repeat: …`.
+// call's line: `line 9: shift count 100000000000 is too large: ...`, with no
+// function name in it, where `String.repeat`'s reads `strings.String.repeat: …`.
 import std::io
 
 fn main()
     io.print("before")
-    io.print("${Int.shift_left(1, 0 - 1)}")
+    io.print("${Int.shift_left(1, 100_000_000_000)}")
 end

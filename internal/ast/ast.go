@@ -2140,15 +2140,18 @@ type ImplBlock struct {
 	SynthOriginCol  int
 	// pending is what a front-end pass wrote for the block when whether
 	// the block exists waits on names resolving (Withhold). Unexported,
-	// so no walk, codec or copy sees it: until Release keeps it, the
-	// block is an empty inherent block.
-	pending *implPending
+	// so no walk or copy sees it: until Release keeps it, the block is an
+	// empty inherent block. internal/ast/astcodec writes it by hand
+	// (WithheldParts, SetWithheldParts), since the stdlib's state holds
+	// analyzed trees.
+	pending implPending
 }
 
 // implPending is a withheld block's header interface and items.
 type implPending struct {
-	iface TypeExpr
-	items []Node
+	withheld bool
+	iface    TypeExpr
+	items    []Node
 }
 
 func (*ImplBlock) NodeType() string { return "ImplBlock" }
@@ -2160,33 +2163,40 @@ func (n *ImplBlock) LineNum() int   { return n.Line }
 // declaration's meaning depends on resolve withholds it, and the
 // analyzer releases it once they have.
 func (n *ImplBlock) Withhold() {
-	n.pending = &implPending{iface: n.Interface, items: n.Items}
+	n.pending = implPending{withheld: true, iface: n.Interface, items: n.Items}
 	n.Interface, n.Items = nil, nil
 }
 
 // Withheld reports whether the block was withheld, whatever Release
 // decided since.
-func (n *ImplBlock) Withheld() bool { return n.pending != nil }
+func (n *ImplBlock) Withheld() bool { return n.pending.withheld }
 
 // WithheldParts answers the interface and items a withheld block set
 // aside, whatever Release decided since; ok is false for a block never
 // withheld.
 func (n *ImplBlock) WithheldParts() (iface TypeExpr, items []Node, ok bool) {
-	if n.pending == nil {
+	if !n.pending.withheld {
 		return nil, nil, false
 	}
 	return n.pending.iface, n.pending.items, true
 }
 
+// SetWithheldParts makes the block one withheld with iface and items set
+// aside, leaving what it holds now as it is: a codec reads back with it a
+// block it wrote through WithheldParts.
+func (n *ImplBlock) SetWithheldParts(iface TypeExpr, items []Node) {
+	n.pending = implPending{withheld: true, iface: iface, items: items}
+}
+
 // Released reports whether a withheld block holds what was set aside.
-func (n *ImplBlock) Released() bool { return n.pending != nil && n.Items != nil }
+func (n *ImplBlock) Released() bool { return n.pending.withheld && n.Items != nil }
 
 // Release gives a withheld block what was set aside when keep is true and
 // empties it when keep is false. Each build decides again, so a block a
 // later build reads is as that build's names say. It writes only when the
 // answer changes.
 func (n *ImplBlock) Release(keep bool) {
-	if n.pending == nil || n.Released() == keep {
+	if !n.pending.withheld || n.Released() == keep {
 		return
 	}
 	if keep {

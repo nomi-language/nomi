@@ -1,8 +1,7 @@
 import
-    std::compiler
     std::currency.{self, Currency}
     std::localize.{Localize, NumberParseError}
-    std::money.Money
+    std::money.{CurrencyMismatch, Money}
 end
 
 test "an amount is written in its currency as the locale writes it"
@@ -71,54 +70,25 @@ test "amounts add exactly in one currency"
     eur = Currency"EUR"
     a = Money{amount: 0.1d, currency: eur}
     b = Money{amount: 0.2d, currency: eur}
-    assert a + b == Money{amount: 0.3d, currency: eur}
-    assert a - b == Money{amount: -0.1d, currency: eur}
+    assert Money.add(a, b) == Ok(Money{amount: 0.3d, currency: eur})
+    assert Money.subtract(a, b) == Ok(Money{amount: -0.1d, currency: eur})
     assert a * 3 == Money{amount: 0.3d, currency: eur}
-    assert Iter.sum([a, b, a]) == Money{amount: 0.4d, currency: eur}
+    assert Money.sum([a, b, a], eur) == Ok(Money{amount: 0.4d, currency: eur})
 end
 
-test "adding two currencies traps and names both"
-    result =
-        """
-        import std::currency.Currency
-        import std::money.Money
-
-        fn main()
-          eur = Money{amount: 12.50d, currency: Currency`EUR`}
-          pln = Money{amount: 3d, currency: Currency`PLN`}
-          _ = eur + pln
-        end
-        """
-        |> compiler.run()
-
-    assert Err(message) = result
-
-    assert String.contains(
-        message,
-        "line 7: Money.add: the amounts are in two currencies, EUR and PLN",
-    )
+test "adding two currencies is an Err that names both"
+    eur = Money{amount: 12.50d, currency: Currency"EUR"}
+    pln = Money{amount: 3d, currency: Currency"PLN"}
+    assert Err(mismatch) = Money.add(eur, pln)
+    assert mismatch == CurrencyMismatch{left: Currency"EUR", right: Currency"PLN"}
+    assert "${mismatch}" == "the amounts are in two currencies, EUR and PLN"
 
     // Two custom currencies of one code and different digits are two
     // currencies, named with their digits.
-    custom =
-        """
-        import std::currency.Currency
-        import std::money.Money
-
-        fn main()
-          a = Money{amount: 5d, currency: Currency`PTS:0`}
-          b = Money{amount: 5d, currency: Currency`PTS:2`}
-          _ = a - b
-        end
-        """
-        |> compiler.run()
-
-    assert Err(text) = custom
-
-    assert String.contains(
-        text,
-        "line 7: Money.subtract: the amounts are in two currencies, PTS:0 and PTS:2",
-    )
+    a = Money{amount: 5d, currency: Currency"PTS:0"}
+    b = Money{amount: 5d, currency: Currency"PTS:2"}
+    assert Err(custom) = Money.subtract(a, b)
+    assert "${custom}" == "the amounts are in two currencies, PTS:0 and PTS:2"
 end
 
 test "an amount rounds to its currency's minor digits"
@@ -181,32 +151,16 @@ test "an amount times a rate rounds to its currency's minor digits"
     assert Money.multiply_by(Money"-10.05 EUR", 0.5d) == Money"-5.02 EUR"
     assert Money.multiply_by(Money"-10.05 EUR", 0.5d, .HalfUp) == Money"-5.03 EUR"
 
-    // A product that fits the currency's digits passes Unnecessary.
-    assert Money.multiply_by(Money"12.50 EUR", 0.2d, .Unnecessary) == Money"2.50 EUR"
+    // A product that fits the currency's digits rounds exactly.
+    assert Decimal.round_exact(Money"12.50 EUR".amount * 0.2d, 2) == Some(2.50d)
 
     // A Float rate becomes a Decimal first.
     assert Some(rate) = Float.to_decimal(0.0825, 4, .HalfEven)
     assert Money.multiply_by(Money"40.00 USD", rate) == Money"3.30 USD"
 end
 
-test "a rate that needs rounding traps under Unnecessary"
-    result =
-        """
-        import std::decimal.RoundingMode
-        import std::money.Money
-
-        fn main()
-          _ = Money.multiply_by(Money`19.99 EUR`, 0.23d, RoundingMode.Unnecessary)
-        end
-        """
-        |> compiler.run()
-
-    assert Err(message) = result
-
-    assert String.contains(
-        message,
-        "line 5: Decimal.round: decimal: rounding necessary to reach scale 2 but mode is Unnecessary",
-    )
+test "a product that needs rounding is not exact"
+    assert Decimal.round_exact(Money"19.99 EUR".amount * 0.23d, 2) == None
 end
 
 test "an amount a reader typed is read strictly by default"

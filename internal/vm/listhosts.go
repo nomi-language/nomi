@@ -38,9 +38,8 @@ func listHost(key string) hostFn {
 	}
 }
 
-// listRemoveAtHost is `List.remove_at`: rt.ListCellRemoveAt, whose trap on
-// an index outside the list becomes this machine's fault here, as
-// `Vector.set`'s does in vectorHost.
+// listRemoveAtHost is `List.remove_at`: Some of rt.ListCellRemoveAt's
+// answer, or None for an index outside the list.
 func listRemoveAtHost(_ *Machine, _ ir.Pos, args []any) (v any, err error) {
 	if len(args) != 2 {
 		return nil, fmt.Errorf("vm: List.remove_at: expected 2 operands, got %d", len(args))
@@ -52,13 +51,12 @@ func listRemoveAtHost(_ *Machine, _ ir.Pos, args []any) (v any, err error) {
 	if !rt.IsInt(args[1]) {
 		return nil, fmt.Errorf("vm: List.remove_at: operand 2 is %T, want Int", args[1])
 	}
-	defer recoverTrap(&err)
-	if _, small := args[1].(int64); !small {
-		// An index past int64's range is past any List; the fault names the
-		// index itself, not its clamp.
-		rt.Trap(rt.IndexOutOfRangeValueText("List", args[1], rt.ListCellCount[any, list](xs)))
+	// An index past int64's range is past any List.
+	index, small := args[1].(int64)
+	if !small || index < 0 || index >= rt.ListCellCount[any, list](xs) {
+		return noneValue, nil
 	}
-	return rt.ListCellRemoveAt[any, list](xs, rt.IntSaturated(args[1])), nil
+	return some(rt.ListCellRemoveAt[any, list](xs, index)), nil
 }
 
 // recoverTrap turns rt's trap, raised by an rt kernel a host calls, into

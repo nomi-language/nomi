@@ -171,26 +171,9 @@ func (i Int) Saturated() int64 { return IntSaturated(i.Value()) }
 // String is i in base 10.
 func (i Int) String() string { return FormatIntValue(i.Value()) }
 
-// DurationNanosInRange is std/duration's `nanos_in_range`: ns when a Duration
-// holds it, a signed 64-bit count of nanoseconds; a fault otherwise.
-func DurationNanosInRange(ns Int) int64 {
-	n, ok := ns.Int64()
-	if !ok {
-		Trap(fmt.Sprintf("Duration out of range: %s nanoseconds is more than a Duration holds, about 292 years either way", ns))
-	}
-	return n
-}
-
-// InstantNanosInRange is std/instant's `nanos_in_range`: ns when an Instant
-// holds it, a signed 64-bit count of nanoseconds from the epoch; a fault
-// otherwise.
-func InstantNanosInRange(ns Int) int64 {
-	n, ok := ns.Int64()
-	if !ok {
-		Trap(fmt.Sprintf("Instant out of range: %s nanoseconds from the epoch is past what an Instant holds, the years 1677 to 2262", ns))
-	}
-	return n
-}
+// Format writes i in base 10 for every verb, so a message formats an Int
+// with %d as it does an int64.
+func (i Int) Format(f fmt.State, _ rune) { fmt.Fprint(f, i.String()) }
 
 // --- arithmetic ----------------------------------------------------------
 //
@@ -320,8 +303,14 @@ func IntNot(a Value) Value {
 }
 
 // IntShl is a <<< n: a times 2 to the n, exact, so no bit is shifted out.
-// ok is false for a count ShiftCountProblem refuses.
+// ok is false for a count ShiftCountProblem refuses, one whose result would
+// not fit in memory. `<<<` takes a NonNegativeInt count, so no checked
+// program passes a negative one; a negative count shifts right by its
+// size, so the operation has an answer for every count.
 func IntShl(a, n Value) (v Value, ok bool) {
+	if IntSign(n) < 0 {
+		return IntShr(a, IntNeg(n))
+	}
 	if ShiftCountProblem(n, true) != "" {
 		return nil, false
 	}
@@ -340,10 +329,12 @@ func IntShl(a, n Value) (v Value, ok bool) {
 
 // IntShr is a >>> n: a divided by 2 to the n, rounded toward negative
 // infinity, an arithmetic shift. A count past a's bits answers 0 for a
-// non-negative a and -1 for a negative one. ok is false for a negative count.
+// non-negative a and -1 for a negative one. A negative count, which no
+// checked program passes, shifts left by its size, and ok is false where
+// that left shift's would be (IntShl).
 func IntShr(a, n Value) (v Value, ok bool) {
-	if ShiftCountProblem(n, false) != "" {
-		return nil, false
+	if IntSign(n) < 0 {
+		return IntShl(a, IntNeg(n))
 	}
 	count := IntSaturated(n)
 	if x, small := a.(int64); small {
@@ -357,12 +348,13 @@ func IntShr(a, n Value) (v Value, ok bool) {
 }
 
 // ShiftCountProblem is why n is no count for a shift, left or right, or ""
-// when it is one. A count must be non-negative, and a left shift's must
-// leave a result that fits in memory (maxShift bits). A right shift takes
-// any non-negative count.
+// when it is one: a shift that moves left, a left shift by n or a right
+// shift by a negative n, must leave a result that fits in memory (maxShift
+// bits). A shift that moves right takes any count.
 func ShiftCountProblem(n Value, left bool) string {
 	if IntSign(n) < 0 {
-		return "negative shift count " + FormatIntValue(n)
+		left = !left
+		n = IntNeg(n)
 	}
 	if left && IntSaturated(n) > maxShift {
 		return fmt.Sprintf("shift count %s is too large: the result would have more than %d bits", FormatIntValue(n), maxShift)

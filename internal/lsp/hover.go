@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
 
 	"github.com/tliron/glsp"
@@ -80,7 +81,7 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 		return nil, nil
 	}
 
-	content := hoverdoc.RenderForEditor(sym, doc.Analysis)
+	content := hoverdoc.RenderForEditor(narrowedRead(doc.Analysis, sym, tokPos), doc.Analysis)
 	if content == "" {
 		return nil, nil
 	}
@@ -137,4 +138,42 @@ func fieldSource(sym *analysis.Symbol, tokPos analysis.Pos, path string) string 
 		return ""
 	}
 	return fmt.Sprintf("*declared at* `%s:%d`", filepath.Base(sym.SourceFile), sym.Pos.Line)
+}
+
+// narrowedRead is sym as the read at pos sees it: a parameter or binding a
+// check narrowed to a std subtype there (spec §4 *Narrowing*) shows that
+// subtype, which the checker recorded as the read's type. Any other sym is
+// itself.
+func narrowedRead(fa *analysis.FileAnalysis, sym *analysis.Symbol, pos analysis.Pos) *analysis.Symbol {
+	if fa == nil || sym == nil || sym.Type == nil || (sym.Kind != analysis.SymbolParam && sym.Kind != analysis.SymbolBinding) {
+		return sym
+	}
+	for node, t := range fa.ExprTypes {
+		id, ok := node.(*ast.Ident)
+		if !ok || id.Line != pos.Line || id.Col != pos.Col || t == nil {
+			continue
+		}
+		if analysis.TypesIdentical(t, sym.Type) || !hasAncestor(t, sym.Type) {
+			return sym
+		}
+		read := *sym
+		read.Type = t
+		if read.Kind == analysis.SymbolParam {
+			// A parameter renders its written type from its declaration;
+			// the read renders the narrowed one.
+			read.Node = nil
+		}
+		return &read
+	}
+	return sym
+}
+
+// hasAncestor reports whether want is one of t's ancestors.
+func hasAncestor(t, want analysis.Type) bool {
+	for _, a := range analysis.RefinementAncestors(t) {
+		if analysis.TypesIdentical(a, want) {
+			return true
+		}
+	}
+	return false
 }

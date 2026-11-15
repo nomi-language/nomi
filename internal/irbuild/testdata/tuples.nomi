@@ -55,7 +55,7 @@ fn main()
     io.print("${first_of([(7, "seven")])}")
 end
 
-fn divide(a: Int, b: Int) -> (Int, Int)
+fn divide(a: Int, b: NonZeroInt) -> (Int, Int)
     (a / b, a % b)
 end
 

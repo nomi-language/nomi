@@ -6,11 +6,13 @@ import (
 	"maps"
 	"math/big"
 	"slices"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
+	"github.com/nomi-language/nomi/std"
 )
 
 // RefinementSite is one literal the checker typed as a refinement, which
@@ -46,6 +48,11 @@ type RefinementSite struct {
 	// parent's before its own (analysis.RefinementChecks), each with its
 	// `try_from`'s linkage name.
 	Steps []RefinementSiteStep
+	// Unchecked, when set, is why the builder could not make the literal's
+	// check ("could not be found (std/process.ExitCode.try_from)"): a
+	// compiler bug, which vmhost reports at the literal rather than let
+	// the literal through.
+	Unchecked string
 }
 
 // RefinementSiteStep is one refinement a literal is checked against.
@@ -105,6 +112,9 @@ type RefinementRuleSite struct {
 	// bounds name, sorted: every function of every impl of them the
 	// program has is checked as Check is.
 	Bounds []string
+	// Unchecked, when set, is why the builder could not name the rule's
+	// `try_from`: a compiler bug, which vmhost reports at the `when`.
+	Unchecked string
 }
 
 // isStruct reports whether n declares a struct.
@@ -154,11 +164,16 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 		if td, isType := n.(*ast.TypeDef); isType && len(td.TypeParams) > 0 {
 			rc := fa.RefinementRuleChecks[td]
 			if rc == nil {
+				// The checker records no rule check where the declaration
+				// has no base to check at (a parent that names no type, a
+				// declaration cycle), each an error where it is declared.
 				continue
 			}
 			site := RefinementRuleSite{Path: path, Line: line, Col: col, Type: name, Rule: analysis.RuleText(rule), Key: genericRefinementKey(rc.Type)}
-			if link := tryFrom(kindInvalid); link != "" {
-				site.Instances = link + "<"
+			if prefix := g.genericTryFromInstances(name, td.Subtype); prefix != "" && !plantedMissingCheck(name) {
+				site.Instances = prefix
+			} else {
+				site.Unchecked = fmt.Sprintf("could not be found (%s)", tryFromName(rc.Type))
 			}
 			for _, tp := range rc.Type.TypeParamDefs {
 				for _, b := range tp.Bounds {
@@ -176,9 +191,7 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 					site.Check = check
 				}
 			}
-			if site.Check != nil || site.Instances != "" || len(site.Bounds) > 0 {
-				out = append(out, site)
-			}
+			out = append(out, site)
 			continue
 		}
 		recv := kindInvalid
@@ -187,17 +200,65 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 			// kind of its own.
 			recv = g.typeOf(&ast.SimpleType{Name: name})
 		}
-		if link := tryFrom(recv); link != "" {
-			out = append(out, RefinementRuleSite{Path: path, Line: line, Col: col, Type: name, Rule: analysis.RuleText(rule), TryFrom: link})
+		site := RefinementRuleSite{Path: path, Line: line, Col: col, Type: name, Rule: analysis.RuleText(rule), TryFrom: tryFrom(recv)}
+		if site.TryFrom == "" || plantedMissingCheck(name) {
+			site.TryFrom, site.Unchecked = "", fmt.Sprintf("could not be found (%s)", g.declaredTryFromName(fa, name))
 		}
+		out = append(out, site)
 	}
 	return out
 }
 
+// genericTryFromInstances is the prefix every instance's linkage name of
+// the `try_from` of name, a generic refinement this unit's file declares,
+// starts with, or "" when the builder names no such function. A subtype's
+// `try_from` is in an inherent block, whose receiver key is the same at
+// every instance (`main.Small<T>[0].try_from<`). A validated type's is in
+// `impl TryFrom<base(Short)> for Short<T>`, whose receiver and interface
+// arguments are each instance's own
+// (`main.impl TryFrom<base(Short)> for Short<T>[6@main.Short<2>|9(:2)].try_from<{T=2}>`),
+// so its prefix ends at the block's declaration: the block declares
+// `try_from` alone.
+func (g *gen) genericTryFromInstances(name string, subtype bool) string {
+	links := g.programLinks()
+	for _, m := range g.nodes {
+		ib, isBlock := m.(*ast.ImplBlock)
+		if !isBlock || (ib.Interface != nil && analysis.TypeExprBaseName(ib.Interface) != "TryFrom") || ib.SynthOriginLine == 0 || analysis.TypeExprBaseName(ib.Receiver) != name {
+			continue
+		}
+		for _, item := range ib.Items {
+			fd, isFn := item.(*ast.FuncDef)
+			if !isFn || fd.Name != "try_from" {
+				continue
+			}
+			if subtype {
+				if link := g.implFuncLink(fd, kindInvalid); link != "" {
+					return link + "<"
+				}
+				return ""
+			}
+			if d, named := links[ib]; named && len(ib.Items) == 1 {
+				return d.String() + "["
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
 // refinementSites are the sites of every literal of this unit's file the
 // checker typed as a distinct refinement, in source order.
+//
+// Every literal the checker recorded becomes a site. One whose check the
+// builder cannot make (its value does not lower, or a step's `try_from`
+// has no linkage name here) keeps its site with Unchecked saying why, which
+// vmhost reports at the literal as an internal error: a literal is never
+// let through unchecked.
 func (g *gen) refinementSites() []RefinementSite {
 	fa := g.srcFA()
+	// A std module's own literals are not checked per program: Result's
+	// sites are the user units' files', and std's literals are fixed when
+	// the binary is built.
 	if fa == nil || len(fa.RefinedLiterals) == 0 || g.stdModule != "" {
 		return nil
 	}
@@ -209,96 +270,103 @@ func (g *gen) refinementSites() []RefinementSite {
 	var out []RefinementSite
 	for _, n := range lits {
 		rec := fa.RefinedLiterals[n]
-		var value any
-		var build *ir.Func
-		switch lit := n.(type) {
-		case *ast.StructLit:
-			if build = g.refinementBuild(lit, &ast.StructLit{Fields: lit.Fields, Line: lit.Line, Col: lit.Col}); build == nil {
-				continue
-			}
-		case *ast.ListLit, *ast.MapLit, *ast.TaggedString, *ast.DecimalLit:
-			// A collection, a typed literal (`Duration"15m"`) and a
-			// Decimal are built by the code their literal lowers to.
-			if build = g.refinementBuild(lit, lit); build == nil {
-				continue
-			}
-		case *ast.Unary:
-			if _, decimal := lit.Right.(*ast.DecimalLit); decimal {
-				if build = g.refinementBuild(lit, lit); build == nil {
-					continue
-				}
-				break
-			}
-			v, ok := refinementLiteralValue(n)
-			if !ok {
-				continue
-			}
-			value = v
-		default:
-			v, ok := refinementLiteralValue(n)
-			if !ok {
-				continue
-			}
-			value = v
-		}
 		line, col := nodePos(n)
-		text := renderNode(n)
-		site := RefinementSite{Path: fa.FilePath, Line: line, Col: col, Text: text, Type: analysis.Elaborate(rec.Type).String(), Value: value, Build: build, Wraps: analysis.IsCheckedDistinct(rec.Type)}
-		switch n.(type) {
-		case *ast.StructLit, *ast.ListLit, *ast.MapLit:
-			site.Compound = true
-		}
+		site := RefinementSite{Path: fa.FilePath, Line: line, Col: col, Text: renderNode(n), Type: analysis.Elaborate(rec.Type).String(), Wraps: analysis.IsCheckedDistinct(rec.Type)}
 		if site.Path == "" {
 			site.Path = g.nomiPath
 		}
 		if hs, isSpan := n.(ast.HasSpan); isSpan && !hs.GetSpan().IsZero() {
 			site.EndLine, site.EndCol = hs.GetSpan().EndLine, hs.GetSpan().EndCol
 		}
+		unchecked := func(why string) {
+			if site.Unchecked == "" {
+				site.Unchecked = why
+			}
+		}
+		switch lit := n.(type) {
+		case *ast.StructLit:
+			site.Compound = true
+			if site.Build = g.refinementBuild(lit, &ast.StructLit{Fields: lit.Fields, Line: lit.Line, Col: lit.Col}); site.Build == nil {
+				unchecked("could not be built: the record of its fields does not lower")
+			}
+		case *ast.ListLit, *ast.MapLit, *ast.RangeLit:
+			site.Compound = true
+			if site.Build = g.refinementBuild(lit, lit); site.Build == nil {
+				unchecked("could not be built: the literal does not lower")
+			}
+		default:
+			if v, ok := refinementLiteralValue(n); ok {
+				site.Value = v
+				break
+			}
+			// A typed literal (`Duration"15m"`), a Decimal, a codepoint, and
+			// any of these grouped or negated: built by the code their
+			// literal lowers to.
+			if site.Build = g.refinementBuild(n, n); site.Build == nil {
+				unchecked("could not be built: the literal does not lower")
+			}
+		}
 		for _, step := range rec.Steps {
+			var via []string
+			for _, v := range step.Via {
+				via = append(via, analysis.Elaborate(v).String())
+			}
+			ss := RefinementSiteStep{
+				Type: analysis.Elaborate(step.Type).String(),
+				Rule: analysis.RefinementRule(step.Type),
+				Via:  via,
+			}
 			if step.Check != nil {
-				check := g.refinementCheckBuild(n, step.Check)
-				if check == nil {
-					site.Steps = nil
-					break
+				ss.Key = genericRefinementKey(step.Type)
+				if ss.Check = g.refinementCheckBuild(n, step.Check); ss.Check == nil {
+					unchecked(fmt.Sprintf("could not be built (%s at the literal's type arguments does not lower)", tryFromName(step.Type)))
 				}
-				var via []string
-				for _, v := range step.Via {
-					via = append(via, analysis.Elaborate(v).String())
-				}
-				site.Steps = append(site.Steps, RefinementSiteStep{
-					Type:  analysis.Elaborate(step.Type).String(),
-					Rule:  analysis.RefinementRule(step.Type),
-					Check: check,
-					Via:   via,
-					Key:   genericRefinementKey(step.Type),
-				})
+				site.Steps = append(site.Steps, ss)
 				continue
 			}
 			recv := kindInvalid
 			if analysis.IsStructRefinement(step.Type) || analysis.IsCheckedDistinct(step.Type) {
 				recv = g.project(step.Type)
 			}
-			link := g.implFuncLink(step.TryFrom, recv)
-			if link == "" {
-				site.Steps = nil
-				break
+			// implFuncLink answers "" for a nil TryFrom too: a step the
+			// checker found no generated `try_from` for.
+			ss.TryFrom = g.implFuncLink(step.TryFrom, recv)
+			if link, built := g.programBuiltStdTryFrom(step.TryFrom); built {
+				ss.TryFrom = link
 			}
-			var via []string
-			for _, v := range step.Via {
-				via = append(via, analysis.Elaborate(v).String())
+			if ss.TryFrom == "" || plantedMissingCheck(ss.Type) {
+				ss.TryFrom = ""
+				unchecked(fmt.Sprintf("could not be found (%s)", tryFromName(step.Type)))
 			}
-			site.Steps = append(site.Steps, RefinementSiteStep{
-				Type:    analysis.Elaborate(step.Type).String(),
-				Rule:    analysis.RefinementRule(step.Type),
-				TryFrom: link,
-				Via:     via,
-			})
+			site.Steps = append(site.Steps, ss)
 		}
-		if len(site.Steps) > 0 {
-			out = append(out, site)
+		if len(site.Steps) == 0 {
+			// RefinementChecks answers the literal's own type last, so a
+			// recorded literal with no step is a checker bug.
+			unchecked("could not be found (the checker recorded no rule to check it against)")
 		}
+		out = append(out, site)
 	}
 	return out
+}
+
+// declaredTryFromName is tryFromName for the refinement fa declares as
+// name.
+func (g *gen) declaredTryFromName(fa *analysis.FileAnalysis, name string) string {
+	if sym := resolvedTypeSymbol(fa, name); sym != nil && sym.Type != nil {
+		return tryFromName(sym.Type)
+	}
+	return name + ".try_from"
+}
+
+// tryFromName names the `try_from` of the refinement t for a diagnostic:
+// the module that declares it, then the type's name.
+func tryFromName(t analysis.Type) string {
+	name := analysis.Elaborate(t).String()
+	if dt, ok := t.(*analysis.DistinctType); ok && strings.HasPrefix(dt.Origin, "std/") {
+		return strings.TrimSuffix(dt.Origin, ".nomi") + "." + name + ".try_from"
+	}
+	return name + ".try_from"
 }
 
 // compareNodePos orders two nodes of one file by where they start, then by
@@ -426,27 +494,88 @@ func (g *gen) implFuncLink(fd ast.Node, recv kind) string {
 	if !ok {
 		return ""
 	}
-	find := func(names map[ast.Node]declName) string {
-		for n, d := range names {
-			ib, isBlock := n.(*ast.ImplBlock)
-			if !isBlock || !slices.Contains(ib.Items, ast.Node(fn)) {
-				continue
-			}
-			return d.String() + "[" + portableArgsKey([]kind{recv}) + "]." + fn.Name
-		}
-		return ""
+	blockLink := func(d declName) string {
+		return d.String() + "[" + portableArgsKey([]kind{recv}) + "]." + fn.Name
 	}
 	if links := g.programLinks(); links != nil {
-		if l := find(links); l != "" {
-			return l
+		for n, d := range links {
+			if ib, isBlock := n.(*ast.ImplBlock); isBlock && slices.Contains(ib.Items, ast.Node(fn)) {
+				gt, explicit := ifaceHeaderArgs(ib.Interface)
+				if !explicit {
+					return blockLink(d)
+				}
+				// `impl TryFrom<base(Email)> for Email`, a validated type's:
+				// the interface's written arguments are the block's
+				// identity among the receiver's impls of it, as
+				// implItemLink spells them.
+				args := make([]kind, len(gt))
+				for i, te := range gt {
+					// kindInvalid: lookup — an argument this builder cannot name declined the block, which then has no function to name.
+					if args[i] = g.typeOf(te); args[i] == kindInvalid {
+						return ""
+					}
+				}
+				return d.String() + "[" + portableArgsKey([]kind{recv}) + "|" + portableArgsKey(args) + "]." + fn.Name
+			}
 		}
 	}
-	// The shared std lowering names a function of an impl block by its
-	// declaration alone (stdFuncLink).
-	if d, ok := stdLinkNames()[fd]; ok {
+	d, ok := stdLinkNames()[fd]
+	if !ok {
+		return ""
+	}
+	module := strings.TrimPrefix(d.module, "std/")
+	if !programStdModules[module] {
+		// The shared std lowering names a function of an impl block by
+		// its declaration alone (stdFuncLink).
 		return d.String()
 	}
+	// A listed module is lowered as a program is (programstdlink.go), so
+	// it names the function by its block, as implItemLink does. The
+	// program's own names skip it (programLinkNames); std's hold its
+	// block.
+	names := stdLinkNames()
+	for _, n := range std.Shared().Nodes[module] {
+		if ib, isBlock := n.(*ast.ImplBlock); isBlock && slices.Contains(ib.Items, ast.Node(fn)) {
+			if bd, named := names[ib]; named {
+				return blockLink(bd)
+			}
+		}
+	}
 	return ""
+}
+
+// programBuiltStdTryFrom is the linkage name of the instance a program
+// builds of fd, a std `try_from` the shared std lowering could not retain
+// because its body reaches a generic std function (a std subtype whose
+// parent is a generic subtype: FiniteRange over BoundedRange<Float> calls
+// `BoundedRange.try_from`), built here as a call site would build it
+// (stdInstCallAt): an instance with no arguments. built is false for a
+// `try_from` the shared lowering retains, and link is "" when the instance
+// does not build, which the caller reports at the literal.
+func (g *gen) programBuiltStdTryFrom(fd ast.Node) (link string, built bool) {
+	fn, isFunc := fd.(*ast.FuncDef)
+	if !isFunc || g.stdInsts == nil {
+		return "", false
+	}
+	d, inStd := stdLinkNames()[fn]
+	if !inStd || programStdModules[strings.TrimPrefix(d.module, "std/")] {
+		return "", false
+	}
+	s := g.stdInsts
+	for _, f := range s.std.byKey {
+		if f.decl != fn {
+			continue
+		}
+		if !s.stdUnretainedMonoBody(f) {
+			return "", false
+		}
+		inst, _ := s.instantiate(f, nil, nil, g)
+		if inst == nil {
+			return "", true
+		}
+		return inst.sym.Link(), true
+	}
+	return "", false
 }
 
 // refinementLiteralValue is the run-time value of a literal the checker
@@ -704,11 +833,14 @@ func isDistinctRefinementDecl(n ast.Node) bool {
 // through the module's own analysis, as the names it declares are.
 func stdRefinementKind(te ast.TypeExpr, anchors stdAnchors) (kind, bool) {
 	var name string
+	var generic *ast.GenericType
 	switch t := te.(type) {
 	case *ast.RefinementBaseType:
 		name = t.Refinement
 	case *ast.SimpleType:
 		name = t.Name
+	case *ast.GenericType:
+		name, generic = t.Name, t
 	default:
 		return kindInvalid, false
 	}
@@ -723,6 +855,9 @@ func stdRefinementKind(te ast.TypeExpr, anchors stdAnchors) (kind, bool) {
 	if !ok || !dt.Subtype {
 		return kindInvalid, false
 	}
+	if generic != nil {
+		return stdGenericRefinementKind(dt, generic, anchors), true
+	}
 	base := analysis.RefinementBase(dt)
 	// kindInvalid: lookup — a base with no scalar kind is not a failure here; the lines below look it up as a named std type.
 	if k := scalarKindOfType(base); k != kindInvalid {
@@ -733,7 +868,60 @@ func stdRefinementKind(te ast.TypeExpr, anchors stdAnchors) (kind, bool) {
 	if named, ok := base.(*analysis.DistinctType); ok && !named.Subtype && len(named.TypeArgs) == 0 {
 		return stdTypeKind(&ast.SimpleType{Name: named.Name}, anchors), true
 	}
+	// Any other base (a collection or a range at fixed arguments,
+	// `subtype Ratios List<Int>`, `subtype FiniteRange Range<Float>`; a
+	// struct or an enum std declares, `subtype FieldBits Bits`) is the kind
+	// of the subtype's first parent as its declaration writes it, which
+	// names only types std declares.
+	if td, ok := sym.Node.(*ast.TypeDef); ok && td.Subtype && td.InnerTypeExpr != nil {
+		return stdTypeKind(td.InnerTypeExpr, anchors), true
+	}
 	return kindInvalid, true
+}
+
+// stdGenericRefinementKind is the kind of a generic std subtype at the
+// type arguments a std signature writes, `BoundedRange<Int>` in
+// `Generator.int`: its base's kind at those arguments, `Range<Int>`. The
+// base is found through the subtype's parents with each type parameter
+// replaced by a marker, so the base's arguments say which written argument
+// each one is; a base whose arguments are anything but the subtype's own
+// parameters declines.
+func stdGenericRefinementKind(dt *analysis.DistinctType, gt *ast.GenericType, anchors stdAnchors) kind {
+	if len(dt.TypeParamDefs) == 0 || len(dt.TypeParamDefs) != len(gt.Params) {
+		return kindInvalid
+	}
+	inst := *dt
+	inst.TypeArgs = make([]analysis.Type, len(dt.TypeParamDefs))
+	markers := make(map[*analysis.TypeParam_]int, len(dt.TypeParamDefs))
+	for i, def := range dt.TypeParamDefs {
+		m := &analysis.TypeParam_{Name_: def.Name_}
+		inst.TypeArgs[i], markers[m] = m, i
+	}
+	var baseName string
+	var baseArgs []analysis.Type
+	switch b := analysis.RefinementBase(&inst).(type) {
+	case *analysis.StructType:
+		baseName, baseArgs = b.Name, b.TypeArgs
+	case *analysis.EnumType:
+		baseName, baseArgs = b.Name, b.TypeArgs
+	case *analysis.DistinctType:
+		baseName, baseArgs = b.Name, b.TypeArgs
+	default:
+		return kindInvalid
+	}
+	if len(baseArgs) == 0 {
+		return kindInvalid
+	}
+	params := make([]ast.TypeExpr, len(baseArgs))
+	for i, a := range baseArgs {
+		m, isMarker := a.(*analysis.TypeParam_)
+		at, ok := markers[m]
+		if !isMarker || !ok {
+			return kindInvalid
+		}
+		params[i] = gt.Params[at]
+	}
+	return stdTypeKind(&ast.GenericType{Name: baseName, Params: params, Line: gt.Line, Col: gt.Col}, anchors)
 }
 
 // scalarKindOfType is the kind of a scalar analysis type, kindInvalid for

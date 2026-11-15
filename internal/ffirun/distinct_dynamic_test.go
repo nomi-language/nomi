@@ -89,22 +89,24 @@ func TestFFIRun_DistinctTypesRoundTrip(t *testing.T) {
 	entry := stageCrossingProject(t, distinctGo, `import
   std::io
   std::duration.Duration
-  std::instant.Instant
+  std::int.Int64
 end
 
 gopkg "crossing" as crossing
 
-type Id Int
+subtype Int32 Int when fn n -> n >= -2147483648 and n <= 2147483647
+
+type Id Int64
 
 type Name String
 
 type Ratio Float
 
-type Small Int
+type Small Int32
 
-type Ids List<Int>
+type Ids List<Int64>
 
-type Inner Int
+type Inner Int64
 
 type Outer Inner
 
@@ -117,7 +119,7 @@ end
 
 struct Plain
   name: String
-  n: Int
+  n: Int64
 end
 
 type Wrapped Plain
@@ -154,11 +156,6 @@ fn inc_outer(x: Outer) -> Outer go crossing.Inc
 
 fn double(d: Timeout) -> Timeout go crossing.Double
 
-fn inc_timeout(d: Timeout) -> Timeout go crossing.Inc
-
-fn inc_duration(d: Duration) -> Duration go crossing.Inc
-
-fn inc_instant(i: Instant) -> Instant go crossing.Inc
 
 fn main()
   io.inspect(inc(Id(5)))
@@ -171,16 +168,13 @@ fn main()
   io.inspect(inc_maybe(None))
   io.inspect(tenfold(Id(4)))
   io.inspect(pair(Id(4)))
-  io.inspect(apply(Id(1), fn Id(k) -> Id(k * 2)))
+  io.inspect(apply(Id(1), fn Id(k) -> Id(Int64.try_from(k * 2)!)))
   io.inspect(bump(Row{name: "a", n: Id(1)}))
   io.inspect(bump_wrapped(Wrapped(Plain{name: "w", n: 1})))
   io.inspect(rows([Wrapped(Plain{name: "n", n: 0})]))
   io.inspect(inc_all({"a" => Id(1)}))
   io.inspect(inc_outer(Outer(Inner(5))))
   io.inspect(double(Timeout(Duration.seconds(1))))
-  io.inspect(inc_timeout(Timeout(Duration.seconds(1))))
-  io.inspect(inc_duration(Duration.seconds(1)))
-  io.inspect(inc_instant(Instant.from_nanos(5)) |> Instant.as_nanos())
 end
 `)
 	got := runCrossingProject(t, entry)
@@ -202,9 +196,6 @@ end
 		`{"a" => Id(1), "b" => Id(2)}`,
 		`Outer(Inner(6))`,
 		`Timeout(2s)`,
-		`Timeout(1s1ns)`,
-		`1s1ns`,
-		`6`,
 	}, "\n")
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
@@ -347,13 +338,16 @@ type Handle struct {
 
 func New(n int64) *Handle   { return &Handle{inner: &box[int64]{v: n}} }
 func Get(h *Handle) int64   { return h.inner.v + h.counter.n }
-`, `import std::io
+`, `import
+  std::int.Int64
+  std::io
+end
 
 gopkg "crossing" as crossing
 
 opaque type Handle go crossing.Handle
 
-fn new_handle(n: Int) -> Handle go crossing.New
+fn new_handle(n: Int64) -> Handle go crossing.New
 
 fn get(h: Handle) -> Int go crossing.Get
 

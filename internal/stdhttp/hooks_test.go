@@ -6,7 +6,7 @@ import (
 )
 
 const hooksProgram = `import std::http
-import std::http.{Body, Client, ClientOptions, ConnState, Listener, Request, Response, Server, Headers, Tracer, TraceEvent}
+import std::http.{Body, Client, ConnState, Listener, Request, Response, Server, Headers, Tracer, TraceEvent}
 import std::io.{self, Reader, Writer}
 import std::net.{self, Connection}
 import std::supervisors.Supervisor
@@ -56,13 +56,11 @@ fn main()
     _ = Supervisor.spawn(App.web, fn -> http.serve(listener, who, App.web))
     tracer = Tracer.new()
 
-    client = Client.new(ClientOptions{
-        tls: Some({
-            ..trusted,
-            server_name: Some("localhost"),
-            verify: Some(fn s: ConnectionState -> if s.server_name == "localhost" then Ok(Unit) else Err("wrong name")),
-        }),
-    })
+    client = Client.new() |> Client.with_tls({
+        ..trusted,
+        server_name: Some("localhost"),
+        verify: Some(fn s: ConnectionState -> if s.server_name == "localhost" then Ok(Unit) else Err("wrong name")),
+    })!
 
     url = Url.parse("https://${Listener.address(listener)}/")!
     response = Client.fetch(client, Request{url:, trace: Some(tracer)})!
@@ -71,9 +69,7 @@ fn main()
     events = Tracer.events(tracer)
     io.print("traced ${Iter.any_match(events, fn e -> e == TraceEvent.TlsStart)} ${Iter.any_match(events, fn e -> e == TraceEvent.FirstResponseByte)}")
 
-    refusing = Client.new(ClientOptions{
-        tls: Some({..trusted, server_name: Some("localhost"), verify: Some(fn _s: ConnectionState -> Err("no thanks"))}),
-    })
+    refusing = Client.new() |> Client.with_tls({..trusted, server_name: Some("localhost"), verify: Some(fn _s: ConnectionState -> Err("no thanks"))})!
 
     refused = Client.fetch(refusing, Request{url:}) |> Result.map(fn _ -> "fetched") |> Result.map_err(fn e -> String.contains("${e}", "no thanks"))
     io.print("refused ${refused}")

@@ -39,7 +39,7 @@ import
     equatable.Equatable
     fs::host
     instant.Instant
-    int.Int
+    int.{Int, Int64, PositiveInt}
     io.{Error, File, Reader, Writer}
     iter.Iter
     lists.List
@@ -115,7 +115,7 @@ end
 derive Equatable for Metadata
 
 /// The write mode as its crossing carries it.
-fn mode_code(mode: WriteMode) -> Int
+fn mode_code(mode: WriteMode) -> Int64
     case mode
         WriteMode.Replace           -> 0
         WriteMode.ReplaceAtomically -> 1
@@ -248,7 +248,7 @@ end
 //!
 //! assert ran.value == Ok([String.to_bytes("ab"), String.to_bytes("cd"), String.to_bytes("e")])
 //
-pub fn chunks(path: String, size: Int = 65536) -> Iter<Result<Bytes, Error>>
+pub fn chunks(path: String, size: PositiveInt = 65536) -> Iter<Result<Bytes, Error>>
     Chunks{path:, size:}
 end
 
@@ -271,7 +271,7 @@ end
 
 struct Chunks
     path: String
-    size: Int
+    size: PositiveInt
 end
 
 impl Iter<Result<Bytes, Error>> for Chunks
@@ -462,7 +462,7 @@ derive Equatable for Access
 //! assert patched.open == []
 //
 pub fn open_file(path: String, access = Access.Read) -> Result<File, Error>
-    code = case access
+    code: Int64 = case access
         Access.Read      -> 0
         Access.ReadWrite -> 1
         Access.Create    -> 2
@@ -896,7 +896,8 @@ pub fn copy(from: String, to: String) -> Result<Unit, Error>
     host.copy(from, to)
 end
 
-/// What is at `path`, following symlinks.
+/// What is at `path`, following symlinks. The modification time is the
+/// file system's, exactly, whatever its year.
 ///
 /// ```nomi
 /// size = (fs.metadata("big.bin")?).size
@@ -937,6 +938,7 @@ pub fn link_metadata(path: String) -> Result<Metadata, Error>
     metadata_of(path, fields)
 end
 
+// The Metadata of a crossing's fields.
 fn metadata_of(path: String, fields: List<Int>) -> Result<Metadata, Error>
     case fields
         [kind, size, modified, mode] ->

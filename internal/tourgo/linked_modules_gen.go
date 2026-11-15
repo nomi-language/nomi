@@ -1655,7 +1655,7 @@ func (b *tourModule1Bound) out25(v tourModule1_goside.Level) (rt.Value, error) {
 	return r, nil
 }
 
-// fn22 adapts sqlite/sqlite.begin_raw: begin_raw(h: Handle, depth: Int, token: Int) -> Level
+// fn22 adapts sqlite/sqlite.begin_raw: begin_raw(h: Handle, depth: Depth, token: Int64) -> Level
 func (b *tourModule1Bound) fn22(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.begin_raw", &err)
 	if len(args) != 3 {
@@ -1699,7 +1699,7 @@ func (b *tourModule1Bound) fn28(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn29 adapts sqlite/sqlite.commit_raw: commit_raw(h: Handle, depth: Int, token: Int) -> Failure
+// fn29 adapts sqlite/sqlite.commit_raw: commit_raw(h: Handle, depth: Depth, token: Int64) -> Failure
 func (b *tourModule1Bound) fn29(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.commit_raw", &err)
 	if len(args) != 3 {
@@ -1872,7 +1872,7 @@ func (b *tourModule1Bound) in33(fr *rt.Frame, v rt.Value) (out func(tourModule1_
 	}, nil
 }
 
-// fn30 adapts sqlite/sqlite.each_row_raw: each_row_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
+// fn30 adapts sqlite/sqlite.each_row_raw: each_row_raw(h: Handle, depth: Depth, token: Int64, parts: List<String>, params: List<Cell>, f: (RawRow) -> Bool) -> Failure
 func (b *tourModule1Bound) fn30(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.each_row_raw", &err)
 	if len(args) != 6 {
@@ -1950,7 +1950,7 @@ func (b *tourModule1Bound) out42(v tourModule1_goside.Answer) (rt.Value, error) 
 	return r, nil
 }
 
-// fn41 adapts sqlite/sqlite.exec_raw: exec_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
+// fn41 adapts sqlite/sqlite.exec_raw: exec_raw(h: Handle, depth: Depth, token: Int64, parts: List<String>, params: List<Cell>) -> Answer
 func (b *tourModule1Bound) fn41(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.exec_raw", &err)
 	if len(args) != 5 {
@@ -2037,7 +2037,7 @@ func (b *tourModule1Bound) fn48Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value,
 	return v, true, nil
 }
 
-// fn50 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Int, token: Int) -> Failure
+// fn50 adapts sqlite/sqlite.ping_raw: ping_raw(h: Handle, depth: Depth, token: Int64) -> Failure
 func (b *tourModule1Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.ping_raw", &err)
 	if len(args) != 3 {
@@ -2063,7 +2063,7 @@ func (b *tourModule1Bound) fn50(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn51 adapts sqlite/sqlite.rollback_raw: rollback_raw(h: Handle, depth: Int, token: Int) -> Failure
+// fn51 adapts sqlite/sqlite.rollback_raw: rollback_raw(h: Handle, depth: Depth, token: Int64) -> Failure
 func (b *tourModule1Bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.rollback_raw", &err)
 	if len(args) != 3 {
@@ -2089,7 +2089,7 @@ func (b *tourModule1Bound) fn51(fr *rt.Frame, args []rt.Value) (_ rt.Value, err 
 	return v0, nil
 }
 
-// fn52 adapts sqlite/sqlite.run_raw: run_raw(h: Handle, depth: Int, token: Int, parts: List<String>, params: List<Cell>) -> Answer
+// fn52 adapts sqlite/sqlite.run_raw: run_raw(h: Handle, depth: Depth, token: Int64, parts: List<String>, params: List<Cell>) -> Answer
 func (b *tourModule1Bound) fn52(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("sqlite/sqlite.run_raw", &err)
 	if len(args) != 5 {

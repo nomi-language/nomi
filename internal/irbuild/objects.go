@@ -97,12 +97,61 @@ func relinkThroughObjects(res *Result) error {
 			x.Params[j].Decode = remap(x.Params[j].Decode)
 		}
 	}
+	if err := relinkRefinementFuncs(res, l); err != nil {
+		return err
+	}
 	for i := range res.Literals {
 		site := &res.Literals[i]
 		site.Render = remap(site.Render)
 		if c := cells[site.Cell]; c != nil {
 			site.Cell = c
 		}
+	}
+	return nil
+}
+
+// relinkRefinementFuncs relinks the functions of no module that vmhost runs
+// to check refinement literals: each literal's Build and generic step's
+// Check, and each generic rule's Check. They call the program's functions
+// and std instances by symbol, so they go through an object too, decoded by
+// l after every module is defined, and call the linked copies; kept as
+// they were, they would call symbols the linked program defines nothing
+// for. keepRefinements keeps them through an object the same way.
+func relinkRefinementFuncs(res *Result, l *ir.Linker) error {
+	var slots []**ir.Func
+	for i := range res.Refinements {
+		site := &res.Refinements[i]
+		if site.Build != nil {
+			slots = append(slots, &site.Build)
+		}
+		for j := range site.Steps {
+			if site.Steps[j].Check != nil {
+				slots = append(slots, &site.Steps[j].Check)
+			}
+		}
+	}
+	for i := range res.RefinementRules {
+		if res.RefinementRules[i].Check != nil {
+			slots = append(slots, &res.RefinementRules[i].Check)
+		}
+	}
+	if len(slots) == 0 {
+		return nil
+	}
+	m := ir.NewModule("refinement literals")
+	for _, slot := range slots {
+		m.AddFunc(*slot)
+	}
+	data, err := ir.EncodeObject(m)
+	if err != nil {
+		return fmt.Errorf("irbuild: encoding the refinement literals as an object: %w", err)
+	}
+	dm, err := decodeObject(l, data)
+	if err != nil {
+		return fmt.Errorf("irbuild: decoding the refinement literals' object: %w", err)
+	}
+	for i, f := range dm.Funcs() {
+		*slots[i] = f
 	}
 	return nil
 }

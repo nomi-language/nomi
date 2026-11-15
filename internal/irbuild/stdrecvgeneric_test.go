@@ -148,13 +148,14 @@ func tpNames(tp map[string]bool) []string {
 //
 // The obvious implementation marks the whole BLOCK generic when its receiver
 // contributes a type parameter — which is what the front end's SCOPE does. It is
-// wrong here, and `impl Range<T>` is the witness: `from` and `naturals` return a
-// CONCRETE `Range<Int>` and mention no parameter, so a block-level rule would
-// move them onto `stdlib generic function` and trade one false reason for
-// another. They are admitted by genStructSigKind instead.
+// wrong here, and `impl Range<T>` is the witness: `naturals` returns a
+// CONCRETE `Range<Int>` and mentions no parameter, so a block-level rule would
+// move it onto `stdlib generic function` and trade one false reason for
+// another. It is admitted by genStructSigKind instead. (`from` declares a
+// type parameter of its own, so it is generic by its own signature.)
 //
 // So the two halves of this test are not two examples of one thing. `Map.hash`
-// is the positive: the rule must fire. `Range.from` is the negative: the rule
+// is the positive: the rule must fire. `Range.naturals` is the negative: the rule
 // must NOT fire on a concrete signature in a generic block, and it is the only
 // thing separating this implementation from the simpler wrong one.
 func TestReceiverGenericityIsPerSignatureNotPerBlock(t *testing.T) {
@@ -189,14 +190,14 @@ func TestReceiverGenericityIsPerSignatureNotPerBlock(t *testing.T) {
 	// The negative, and the reason it is in this test rather than in a separate
 	// one: it is the SAME rule asked about a signature in the same generic block.
 	// Splitting them lets one be deleted without the other looking incomplete.
-	for _, key := range []string{"ranges.Range.from", "ranges.Range.naturals"} {
+	for _, key := range []string{"ranges.Range.naturals"} {
 		f := idx.byKey[key]
 		if f == nil {
 			t.Errorf("%s: absent from the index", key)
 			continue
 		}
 		if f.why == "stdlib generic function" {
-			t.Errorf("%s is refused as %q. Its signature is `(): Range<Int>` / `(Int): Range<Int>` "+
+			t.Errorf("%s is refused as %q. Its signature is `(): Range<Int>` "+
 				"— CONCRETE, naming no type parameter — and `T` is merely in scope from "+
 				"`impl Range<T>`. Reaching this means the receiver-generic rule became "+
 				"BLOCK-level, which trades one false reason for another. See "+

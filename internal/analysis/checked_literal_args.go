@@ -196,11 +196,14 @@ func (c *checker) deferCheckedLiterals(order []int, args []ast.Node, posSlots []
 	var deferred []int
 	for _, i := range order {
 		slot := slotOf(i)
-		if slot < 0 || slot >= len(params) || !c.isCheckedLiteralArg(args[i], params[slot]) {
+		if slot < 0 || slot >= len(params) {
 			continue
 		}
 		mentioned := map[*TypeParam_]bool{}
 		collectTypeParamPtrs(params[slot], mentioned)
+		if !c.isCheckedLiteralArg(args[i], params[slot]) && !c.deferredNumericLiteral(args, i, slotOf, params, mentioned) {
+			continue
+		}
 		for _, j := range order {
 			other := slotOf(j)
 			if j == i || other < 0 || other >= len(params) || !c.typedOnItsOwn(args[j]) {
@@ -224,6 +227,42 @@ func (c *checker) deferCheckedLiterals(order []int, args []ast.Node, posSlots []
 		}
 	}
 	return append(out, deferred...)
+}
+
+// deferredNumericLiteral reports whether args[i] is a numeric literal
+// (numericLiteral) whose parameter names a type parameter of the call
+// (mentioned) that no lambda argument takes a parameter of: deferred, it
+// meets what the other arguments solve, so a literal that satisfies a std
+// numeric subtype they solved is that subtype whichever argument comes
+// first (`Comparable.max(0, count)` is a NonNegativeInt, as
+// `Comparable.max(count, 0)` is). A lambda that leaves its parameter's
+// type to the call would take it from the literal, so the literal keeps
+// its place there.
+func (c *checker) deferredNumericLiteral(args []ast.Node, i int, slotOf func(int) int, params []Type, mentioned map[*TypeParam_]bool) bool {
+	if len(mentioned) == 0 || !numericLiteral(valueOfArg(args[i])) {
+		return false
+	}
+	for j, arg := range args {
+		if j == i || !isLambdaArg(valueOfArg(arg)) {
+			continue
+		}
+		slot := slotOf(j)
+		if slot < 0 || slot >= len(params) {
+			return false
+		}
+		fn, ok := resolveTypeVar(params[slot]).(*FuncType)
+		if !ok {
+			return false
+		}
+		for _, p := range fn.Params {
+			takes := map[*TypeParam_]bool{}
+			collectTypeParamPtrs(p, takes)
+			if anyShared(mentioned, takes) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func anyShared(a, b map[*TypeParam_]bool) bool {

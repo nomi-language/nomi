@@ -32,6 +32,7 @@ import
     std::calendar.{Date, NaiveDateTime, OffsetDateTime, Time}
     std::duration.Duration
     std::instant.Instant
+    std::int.Int64
     std::json.Json
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
     std::uuid.Uuid
@@ -44,8 +45,8 @@ opaque type Handle go goside.Conn
 // A value as it crosses to Go: kind 0 null, 1 int, 2 float, 3 text,
 // 4 bytes, 5 a decimal's text.
 struct Cell
-    kind:  Int
-    int:   Int
+    kind:  CellKind
+    int:   Int64
     float: Float
     text:  String
     bytes: Bytes
@@ -77,9 +78,15 @@ struct RawRow
     cells:   List<Cell>
 end
 
+subtype CellKind Int when fn n -> n >= 0 and n <= 5
+
+// How deep a Conn is: 0 for the connection, 1 for a transaction and more
+// for each savepoint inside it.
+subtype Depth NonNegativeInt and Int64
+
 struct Level
-    depth:   Int
-    token:   Int
+    depth:   Depth
+    token:   Int64
     failure: Failure
 end
 
@@ -87,36 +94,36 @@ fn open_raw(path: String) -> Result<Handle, String> go goside.Open
 
 fn run_raw(
     h:      Handle,
-    depth:  Int,
-    token:  Int,
+    depth:  Depth,
+    token:  Int64,
     parts:  List<String>,
     params: List<Cell>,
 ) -> Answer go goside.Run
 
 fn exec_raw(
     h:      Handle,
-    depth:  Int,
-    token:  Int,
+    depth:  Depth,
+    token:  Int64,
     parts:  List<String>,
     params: List<Cell>,
 ) -> Answer go goside.Exec
 
 fn each_row_raw(
     h:      Handle,
-    depth:  Int,
-    token:  Int,
+    depth:  Depth,
+    token:  Int64,
     parts:  List<String>,
     params: List<Cell>,
     f:      (RawRow) -> Bool,
 ) -> Failure go goside.EachRow
 
-fn begin_raw(h: Handle, depth: Int, token: Int) -> Level go goside.Begin
+fn begin_raw(h: Handle, depth: Depth, token: Int64) -> Level go goside.Begin
 
-fn commit_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Commit
+fn commit_raw(h: Handle, depth: Depth, token: Int64) -> Failure go goside.Commit
 
-fn rollback_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Rollback
+fn rollback_raw(h: Handle, depth: Depth, token: Int64) -> Failure go goside.Rollback
 
-fn ping_raw(h: Handle, depth: Int, token: Int) -> Failure go goside.Ping
+fn ping_raw(h: Handle, depth: Depth, token: Int64) -> Failure go goside.Ping
 
 fn close_raw(h: Handle) -> Failure go goside.Close
 
@@ -126,8 +133,8 @@ fn close_raw(h: Handle) -> Failure go goside.Close
 /// each savepoint inside it.
 pub opaque struct SqliteConn
     handle: Handle
-    depth:  Int
-    token:  Int
+    depth:  Depth
+    token:  Int64
 end
 
 /// Open the SQLite database at `path`, creating it when it does not
@@ -248,7 +255,7 @@ fn cells(statement: Statement) -> Result<List<Cell>, sql.Error>
     |> Result.collect()
 end
 
-fn cell(kind: Int) -> Cell
+fn cell(kind: CellKind) -> Cell
     Cell{kind:, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
 end
 
@@ -263,12 +270,6 @@ end
 /// array type.
 fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
     case value
-        .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
-            Err(sql.Error.Database{
-                code:    "SQLITE_MISMATCH",
-                message: "parameter ?${position} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
-            })
-
         .Array(_) ->
             Err(sql.Error.Database{
                 code:    "SQLITE_MISMATCH",
@@ -279,7 +280,16 @@ fn to_cell(position: Int, value: Value) -> Result<Cell, sql.Error>
             Ok(cell(0))
 
         .Int(n) ->
-            Ok({..cell(1), int: n})
+            case Int64.try_from(n)
+                Some(int) ->
+                    Ok({..cell(1), int:})
+
+                None ->
+                    Err(sql.Error.Database{
+                        code:    "SQLITE_MISMATCH",
+                        message: "parameter ?${position} is the Int ${n}, past the signed 64-bit range of an SQLite INTEGER; write its text as a String into a TEXT column",
+                    })
+            end
 
         .Float(x) ->
             Ok({..cell(2), float: x})
@@ -322,7 +332,7 @@ end
 /// timestamps as text, so an instant written any other way would not
 /// compare in time order with the database's own.
 fn utc_text(i: Instant) -> String
-    "${OffsetDateTime.from_instant(i, Duration.hours(0))}"
+    "${OffsetDateTime.from_instant(i, Duration.hours(0))!}"
     |> String.replace("T", " ")
     |> String.replace("+00:00", "")
 end

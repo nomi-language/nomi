@@ -50,19 +50,24 @@ type ProjectSpec struct {
 // only: a project whose sibling does not parse is not type-checked, so reporting
 // the entry's clean parse and then analyzing against a half-parsed sibling would
 // answer about a program nobody wrote.
-func ProjectSpecDiagnostics(spec ProjectSpec, root string) ([]rt.Diagnostic, error) {
+//
+// A project that cannot be assembled, a manifest that does not parse or an
+// entry point the files lack, is one diagnostic at line 0, column 0, which
+// names no file: the project is data the program checks, so its faults are
+// answers, not traps.
+func ProjectSpecDiagnostics(spec ProjectSpec, root string) []rt.Diagnostic {
 	var manifest *analysis.Manifest
 	if spec.Manifest != nil {
 		m, err := analysis.ParseManifestData([]byte(*spec.Manifest), "<compiler.Project manifest>")
 		if err != nil {
-			return nil, err
+			return projectFault(err)
 		}
 		manifest = m
 	}
 
 	project, err := virtualproject.FromSources(spec.EntryPoint, spec.Files, manifest)
 	if err != nil {
-		return nil, fmt.Errorf("compiler.check_project %w", err)
+		return projectFault(fmt.Errorf("compiler.check_project %w", err))
 	}
 
 	entryNodes, parseErrs := ParseSource(project.EntrySource)
@@ -71,9 +76,14 @@ func ProjectSpecDiagnostics(spec ProjectSpec, root string) ([]rt.Diagnostic, err
 		parseErrs = append(parseErrs, errs...)
 	}
 	if len(parseErrs) > 0 {
-		return ParseDiagnostics(parseErrs), nil
+		return ParseDiagnostics(parseErrs)
 	}
 
 	return ProjectDiagnostics(entryNodes, root, Loader(project.VirtualFiles),
-		project.Manifest, project.EntryName, true), nil
+		project.Manifest, project.EntryName, true)
+}
+
+// projectFault is the one diagnostic of a project that cannot be assembled.
+func projectFault(err error) []rt.Diagnostic {
+	return []rt.Diagnostic{{Message: err.Error()}}
 }

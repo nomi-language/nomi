@@ -43,7 +43,7 @@ end
 
 test "a trap in a row fails the test as a trap"
     subtests [2, 1, 0], n
-        assert 10 / n > 0
+        assert 10 / NonZeroInt.try_from(n)! > 0
     end
 end
 

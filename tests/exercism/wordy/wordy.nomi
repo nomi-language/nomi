@@ -61,6 +61,6 @@ fn apply(operation: Operation, a: Int, b: Int) -> Result<Int, Error>
 end
 
 fn divide(a: Int, b: Int) -> Result<Int, Error>
-    Some(divisor) = NonZeroInt.try_from(b) else return Err(.DivisionByZero)
-    Ok(Int.divide(a, divisor))
+    if b == 0 then return Err(.DivisionByZero)
+    Ok(Int.divide(a, b))
 end

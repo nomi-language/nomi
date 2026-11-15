@@ -42,7 +42,7 @@ export fn win(game: Game) -> Game
 end
 
 export fn divide(a: Int, b: Int) -> Int
-    a / b
+    a / NonZeroInt.try_from(b)!
 end
 `
 
@@ -60,7 +60,7 @@ const wasiTrap = `import std::io
 
 fn main()
     io.print("before")
-    n = 10 / String.length("")
+    n = 10 / NonZeroInt.try_from(Iter.count([]))!
     io.print("after ${n}")
 end
 `
@@ -143,7 +143,7 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 		`new_game: {"word":"pipeline","guesses":[],"state":"Playing"}`,
 		`guess: {"word":"pipeline","guesses":["i","e"],"state":"Playing"}`,
 		`win: {"word":"pipeline","guesses":["i","e"],"state":"Won"}`,
-		`divide by zero rejects: line 32: division by zero`,
+		`divide by zero rejects: line 32: ` + "`NonZeroInt.try_from(b)`" + ` found nothing`,
 		`divide after the failure: 3`,
 		`an Int past 2^53: bigint 9007199254740993`,
 		`an unknown function rejects: no exported function ` + "`nope`" + `; the exported functions are divide, guess, new_game, win`,
@@ -157,7 +157,7 @@ func TestBuildCommand_ReactorWritesTheWasiLoader(t *testing.T) {
 		`words has no add: no exported function ` + "`add`" + `; the exported functions are shout`,
 		`greet: {"status":0,"output":"Hello, Ada!\n","stdout":"Hello, Ada!\n","stderr":""}`,
 		`greet streamed: 0 ["Hello, Bo!\n"]`,
-		`trap: {"status":1,"output":"before\nline 5: division by zero\n","stdout":"before\n","stderr":"line 5: division by zero\n"}`,
+		`trap: {"status":1,"output":"before\nline 5: ` + "`NonZeroInt.try_from(Iter.count([]))`" + ` found nothing\n","stdout":"before\n","stderr":"line 5: ` + "`NonZeroInt.try_from(Iter.count([]))`" + ` found nothing\n"}`,
 		`words main: 0 "words main ran\n"`,
 		`counter main: 1 "this program has no ` + "`fn main`" + `; it is called through its exported functions\n"`,
 		`sleep: {"status":0,"output":"total 3\n","stdout":"total 3\n","stderr":""} waited: true`,
@@ -301,7 +301,7 @@ func TestBuildCommand_AWasiExportBuildCarriesItsLoader(t *testing.T) {
 	want := []string{
 		`game exports: ["new_game(word: String) -> Game","guess(game: Game, letter: String) -> Game","win(game: Game) -> Game","divide(a: Int, b: Int) -> Int"]`,
 		`guess: {"word":"pipeline","guesses":["e"],"state":"Playing"}`,
-		`divide by zero rejects: line 32: division by zero`,
+		`divide by zero rejects: line 32: ` + "`NonZeroInt.try_from(b)`" + ` found nothing`,
 		`game main: 1 "this program has no ` + "`fn main`" + `; it is called through its exported functions\n"`,
 		`words exports: ["shout(text: String) -> String"]`,
 		`words shout: "HI"`,

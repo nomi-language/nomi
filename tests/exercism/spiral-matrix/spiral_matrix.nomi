@@ -53,6 +53,6 @@ end
 /// `grid` with `value` at `position`, which is on the grid: `fill` only
 /// steps onto a square `is_empty` accepted.
 fn set_cell(grid: Vector<Vector<Int>>, (row, column): (Int, Int), value: Int) -> Vector<Vector<Int>>
-    cells = Vector.get(grid, row)! |> Vector.set(column, value)
-    Vector.set(grid, row, cells)
+    cells = Vector.get(grid, row)! |> Vector.set(column, value)!
+    Vector.set(grid, row, cells)!
 end

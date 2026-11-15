@@ -304,8 +304,10 @@ type replOnce struct {
 	rhsLine, rhsCol int
 	refs            []*replEntity
 	ent             *replEntity
-	// typ is the once's type as source, empty when it cannot be spelled.
-	typ string
+	// typ is the once's type as source, empty when it cannot be spelled,
+	// and stdTyp it with every std type written through its module
+	// (replStore.stdTyp).
+	typ, stdTyp string
 }
 
 func newReplSession(out, errOut io.Writer) *replSession {
@@ -337,8 +339,11 @@ func replImportPath(key string) string { return key }
 // replSessionKey matches a session file's module key, and replQualified a
 // type spelled through one (`repl_in3.Point`).
 var (
-	replSessionKey = regexp.MustCompile(`^repl_in[0-9]+$`)
-	replQualified  = regexp.MustCompile(`\brepl_in([0-9]+)\.([A-Z][A-Za-z0-9_]*)`)
+	replSessionKey   = regexp.MustCompile(`^repl_in[0-9]+$`)
+	replQualified    = regexp.MustCompile(`\brepl_in([0-9]+)\.([A-Z][A-Za-z0-9_]*)`)
+	replStdOrigin    = regexp.MustCompile(`\bstd(/[a-z0-9_]+)+\.`)
+	replStdQualified = regexp.MustCompile(`\brepl_std__[a-z0-9_]+`)
+	replStdTyped     = regexp.MustCompile(`\brepl_std__[a-z0-9_]+\.[A-Z][A-Za-z0-9_]*`)
 )
 
 // replSessionModule reports whether module is a session file's: a value's
@@ -347,13 +352,44 @@ var (
 // its name.
 func replSessionModule(module string) bool { return replSessionKey.MatchString(module) }
 
+// replSessionOrStd is replSessionModule, and a std module too: a type the
+// input's names do not bring into scope, such as the PositiveDuration
+// `Duration.seconds(2)` is, is written through its module (replStdSpelling).
+func replSessionOrStd(module string) bool {
+	return replSessionModule(module) || strings.HasPrefix(module, "std/")
+}
+
+// replStdAlias is the name a file imports the std module at path under,
+// `std/fs/testing` as repl_std__fs__testing, and replStdPath the module
+// path an alias names.
+func replStdAlias(path string) string {
+	return "repl_std__" + strings.ReplaceAll(strings.TrimPrefix(path, "std/"), "/", "__")
+}
+
+func replStdPath(alias string) string {
+	return "std::" + strings.ReplaceAll(strings.TrimPrefix(alias, "repl_std__"), "__", "::")
+}
+
+// replStdSpelling is typ, a type text that qualifies std types by their
+// origin (`std/duration.PositiveDuration`), with each origin its alias.
+func replStdSpelling(typ string) string {
+	return replStdOrigin.ReplaceAllStringFunc(typ, func(m string) string {
+		return replStdAlias(strings.TrimSuffix(m, ".")) + "."
+	})
+}
+
+// replStdAliases are the std modules typ names a type through, as aliases.
+func replStdAliases(typ string) []string {
+	return replStdQualified.FindAllString(typ, -1)
+}
+
 // replTypeUses are the files a type spelling names a type through, and the
 // type names it writes bare.
 func replTypeUses(typ string) (files []string, bare map[string]bool) {
 	for _, m := range replQualified.FindAllStringSubmatch(typ, -1) {
 		files = append(files, "repl_in"+m[1])
 	}
-	return files, replTypeWords(replQualified.ReplaceAllString(typ, ""))
+	return files, replTypeWords(replQualified.ReplaceAllString(replStdTyped.ReplaceAllString(typ, ""), ""))
 }
 
 // replInput is one input, split for placing in a file.
@@ -721,6 +757,10 @@ type replStore struct {
 	name string
 	id   int
 	typ  string
+	// stdTyp is typ with every std type written through its module,
+	// tried when typ does not check: a std type the input's names do not
+	// bring into scope.
+	stdTyp string
 }
 
 // replPlan is what one file for an input holds beyond the input itself.
@@ -926,6 +966,31 @@ func (s *replSession) file(in *replInput, plan *replPlan) *replSource {
 	}
 	for _, f := range whole {
 		src.gen(fmt.Sprintf("import %s", replImportPath(f)))
+	}
+	// The std modules a type the file spells is written through.
+	stdMods := map[string]bool{}
+	for _, st := range plan.stores {
+		for _, a := range replStdAliases(st.typ) {
+			stdMods[a] = true
+		}
+	}
+	for _, o := range in.onces {
+		for _, a := range replStdAliases(o.typ) {
+			stdMods[a] = true
+		}
+	}
+	for _, e := range values {
+		for _, a := range replStdAliases(e.typ) {
+			stdMods[a] = true
+		}
+	}
+	aliases := make([]string, 0, len(stdMods))
+	for a := range stdMods {
+		aliases = append(aliases, a)
+	}
+	sort.Strings(aliases)
+	for _, a := range aliases {
+		src.gen(fmt.Sprintf("import %s as %s", replStdPath(a), a))
 	}
 	plan.values = map[string]*replEntity{}
 	for _, e := range values {
@@ -1362,11 +1427,14 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 			notKept = append(notKept, [2]string{name, unwritable})
 			continue
 		}
-		plan.stores = append(plan.stores, replStore{name: name, id: s.vm.NewID(), typ: typ})
+		std, _ := checked.LocalType(fmt.Sprintf("%s%d", replProbePrefix, i), replSessionOrStd)
+		plan.stores = append(plan.stores, replStore{name: name, id: s.vm.NewID(), typ: typ, stdTyp: replStdSpelling(std)})
 	}
 	for i, o := range in.onces {
-		if typ, ok := checked.LocalType(fmt.Sprintf("%sonce_%d", replProbePrefix, i), replSessionModule); ok {
-			o.typ = typ
+		probe := fmt.Sprintf("%sonce_%d", replProbePrefix, i)
+		if typ, ok := checked.LocalType(probe, replSessionModule); ok {
+			std, _ := checked.LocalType(probe, replSessionOrStd)
+			o.typ, o.stdTyp = typ, replStdSpelling(std)
 			o.ent.vid = s.vm.NewID()
 		} else {
 			notKept = append(notKept, [2]string{o.name, unwritable})
@@ -1397,6 +1465,10 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 		var kept []replStore
 		for _, st := range stores {
 			plan.stores = []replStore{st}
+			if st.stdTyp != "" && st.stdTyp != st.typ && check() != nil {
+				st.typ = st.stdTyp
+				plan.stores = []replStore{st}
+			}
 			if check() == nil {
 				kept = append(kept, st)
 			} else {
@@ -1409,6 +1481,9 @@ func (s *replSession) eval(input string, out, errOut io.Writer) {
 				continue
 			}
 			o.typ = onces[o]
+			if o.stdTyp != "" && o.stdTyp != o.typ && check() != nil {
+				o.typ = o.stdTyp
+			}
 			if check() != nil {
 				o.typ = ""
 				notKept = append(notKept, [2]string{o.name, unwritable})

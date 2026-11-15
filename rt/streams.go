@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -376,7 +375,7 @@ func ReaderReadLine(fr *Frame, r Reader) Result[Maybe[string], IOError] {
 		}
 		line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
 		if !utf8.ValidString(line) {
-			return Err[Maybe[string]](IOError{Tag: TagIOInvalidText, Path: st.src.Name, Offset: int64(InvalidUTF8Offset(line))})
+			return Err[Maybe[string]](IOError{Tag: TagIOInvalidText, Path: st.src.Name, Offset: SmallInt(int64(InvalidUTF8Offset(line)))})
 		}
 		return Ok[Maybe[string], IOError](Some(line))
 	}
@@ -384,11 +383,17 @@ func ReaderReadLine(fr *Frame, r Reader) Result[Maybe[string], IOError] {
 }
 
 // ReaderRead is `Reader.read`: up to max bytes, at least one unless the
-// stream is at its end, where it answers Ok(None).
-func ReaderRead(fr *Frame, r Reader, max int64) Result[Maybe[Bytes], IOError] {
-	if max <= 0 {
-		Trap("Reader.read: max is " + strconv.FormatInt(max, 10) + "; it must be at least 1")
+// stream is at its end, where it answers Ok(None). std declares max a
+// PositiveInt; the check is for the Go readers that call this with a
+// buffer's length, since a read of 0 bytes would never return.
+//
+// max is an Int of any size; a read returns at most what one read of the
+// source gives, so one past readChunk reads as readChunk does.
+func ReaderRead(fr *Frame, r Reader, maxArg Int) Result[Maybe[Bytes], IOError] {
+	if maxArg.Sign() <= 0 {
+		Trap("Reader.read: max is " + maxArg.String() + "; it must be at least 1")
 	}
+	max := min(maxArg.Saturated(), readChunk)
 	switch r.stream {
 	case streamStdin:
 		return stdinRead(fr, max)
@@ -458,7 +463,7 @@ func ReaderReadAllText(fr *Frame, r Reader) Result[string, IOError] {
 		return Err[string](data.Err)
 	}
 	if !utf8.ValidString(string(data.Ok)) {
-		return Err[string](IOError{Tag: TagIOInvalidText, Path: r.name(), Offset: int64(InvalidUTF8Offset(string(data.Ok)))})
+		return Err[string](IOError{Tag: TagIOInvalidText, Path: r.name(), Offset: SmallInt(int64(InvalidUTF8Offset(string(data.Ok))))})
 	}
 	return Ok[string, IOError](string(data.Ok))
 }
@@ -476,7 +481,7 @@ func (r Reader) name() string {
 func ReaderCopyTo(fr *Frame, r Reader, w Writer) Result[int64, IOError] {
 	var total int64
 	for {
-		chunk := ReaderRead(fr, r, 64<<10)
+		chunk := ReaderRead(fr, r, SmallInt(64<<10))
 		if chunk.Tag != TagOk {
 			return Err[int64](chunk.Err)
 		}

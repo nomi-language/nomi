@@ -774,10 +774,10 @@ fn element_text(
     end)?
 
     inner = if indented then
-        pad = String.repeat(options.indent, depth + 1)
+        pad = indentation(options, depth + 1)
 
-        (texts |> Iter.map(fn text -> "\n${pad}${text}") |> String.join("")) + "\n" + String.repeat(
-            options.indent,
+        (texts |> Iter.map(fn text -> "\n${pad}${text}") |> String.join("")) + "\n" + indentation(
+            options,
             depth,
         )
     else
@@ -785,6 +785,11 @@ fn element_text(
     end
 
     Ok("${open}>${inner}</${element.name}>")
+end
+
+// `depth` copies of the indent; none for a depth below 1.
+fn indentation(options: WriteOptions, depth: Int) -> String
+    Iter.repeat(options.indent) |> Iter.take(depth) |> String.join("")
 end
 
 fn attribute_text(scope: Scope, attribute: Attribute) -> Result<(Scope, String), Error>

@@ -69,7 +69,9 @@ group "random birthdates"
     setup draw(baffling_birthdays.random_birthdates(100))
 
     test "generate requested number of birthdates"
-        assert 1..=20
+        sizes: Range<NonNegativeInt> = 1..=20
+
+        assert sizes
             |> Iter.all_match(fn size ->
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
             end)
@@ -89,12 +91,14 @@ group "random birthdates"
 end
 
 test "estimated probability of at least one shared birthday"
-    [
+    groups: List<(String, NonNegativeInt, Float)> = [
         ("for one person",            1,  0.0),
         ("among ten people",          10, 11.694818),
         ("among twenty-three people", 23, 50.729723),
         ("among seventy people",      70, 99.915958),
     ]
+
+    groups
     |> subtests (description, group_size, expected), description
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 

@@ -2,20 +2,23 @@
 //# `square_root` finds it with Newton's method on integers, not with
 //# `Int.sqrt`.
 
-/// The square root of `radicand`, a perfect square of a positive integer.
+/// The square root of `radicand`, a perfect square, and 0 for 0.
 pub fn square_root(radicand: Int) -> Int
+    if radicand <= 0 then return 0
+
     newton(radicand, radicand)
 end
 
 /// Newton's step for the root of `radicand` from `guess`, an integer at or
 /// above the root. Each step lowers the guess, and the first step that
 /// would not lower it leaves the root.
-fn newton(radicand: Int, guess: Int) -> Int
+fn newton(radicand: Int, guess: PositiveInt) -> Int
     next = (guess + radicand / guess) / 2
 
     if next >= guess then
         guess
     else
-        newton(radicand, next)
+        // A step from above the root lands at or above it, so at least 1.
+        newton(radicand, PositiveInt.try_from(next)!)
     end
 end

@@ -46,13 +46,15 @@ impl Vector<T>
     //
     pub host fn push<T>(vector: Vector<T>, item: T) -> Vector<T>
 
-    /// Returns a new vector with `item` replacing the element at `index`, in
-    /// O(log32 n). The index must be in `0 <= index < length`; any other traps:
-    /// `index 7 is out of range for a Vector of length 5`. Check the index
-    /// against `Vector.length` first when it may be out.
-    //! assert Vector.set(["a", "b"], 1, "z") == ["a", "z"]
+    /// `Some` of a new vector with `item` replacing the element at zero-based
+    /// `index`, in O(log32 n), or None when the index is outside the vector.
+    /// For an index the code knows is in range, `Vector.set(vector, index,
+    /// item)!` returns the new vector and traps on any other index.
+    //! assert Vector.set(["a", "b"], 1, "z") == Some(["a", "z"])
+    //! assert Vector.set(["a", "b"], 2, "z") == None
+    //! assert Vector.set(["a", "b"], 0, "z")! == ["z", "b"]
     //
-    pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Vector<T>
+    pub host fn set<T>(vector: Vector<T>, index: Int, item: T) -> Maybe<Vector<T>>
 
     /// Concatenates two vectors, in time linear in the length of `b`.
     //! assert Vector.concat([1, 2], [3]) == [1, 2, 3]
@@ -215,7 +217,7 @@ impl NonEmptyVector<T>
     //! assert NonEmptyVector.length(["a", "b"]) == 2
     //
     pub fn length<T>(vector: NonEmptyVector<T>) -> PositiveInt
-        PositiveInt.try_from(Iter.count(vector))!
+        Iter.count(vector)
     end
 
     /// The largest element; the first of several equal ones.

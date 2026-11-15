@@ -23,7 +23,8 @@ func gzipLevel(level int64) int {
 }
 
 // GzipBytes is `std::http::host.gzip_bytes`: data compressed with gzip at level.
-func GzipBytes(data rt.Bytes, level int64) rt.Bytes {
+func GzipBytes(data rt.Bytes, levelArg rt.Int) rt.Bytes {
+	level := levelArg.Saturated()
 	var out bytes.Buffer
 	gz, _ := gzip.NewWriterLevel(&out, gzipLevel(level))
 	_, _ = gz.Write([]byte(data))
@@ -49,7 +50,8 @@ func Gunzip(data rt.Bytes) rt.Result[rt.Bytes, string] {
 // at level. Writer.flush flushes the compressor and then w, so what was
 // written so far reaches the client; closing it writes gzip's end and
 // leaves w open.
-func GzipWriter(fr *rt.Frame, w rt.Writer, level int64) rt.Writer {
+func GzipWriter(fr *rt.Frame, w rt.Writer, levelArg rt.Int) rt.Writer {
+	level := levelArg.Saturated()
 	gz, _ := gzip.NewWriterLevel(writerOutput{fr: fr, w: w}, gzipLevel(level))
 	flush := func() error {
 		if err := gz.Flush(); err != nil {
@@ -66,7 +68,8 @@ func GzipWriter(fr *rt.Frame, w rt.Writer, level int64) rt.Writer {
 // GzipReader is `std::http::host.gzip_reader`: a reader of r's bytes compressed
 // with gzip at level. Each read of r is flushed through the compressor, so
 // a stream that arrives slowly is sent as it arrives.
-func GzipReader(fr *rt.Frame, r rt.Reader, level int64) rt.Reader {
+func GzipReader(fr *rt.Frame, r rt.Reader, levelArg rt.Int) rt.Reader {
+	level := levelArg.Saturated()
 	g := &gzipping{src: readerInput{fr: fr, r: r}, buf: make([]byte, 32<<10)}
 	g.gz, _ = gzip.NewWriterLevel(&g.out, gzipLevel(level))
 	return rt.NewReader(rt.ReadSource{Name: "<gzip>", R: g})

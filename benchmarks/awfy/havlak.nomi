@@ -103,8 +103,8 @@ impl ControlFlowGraph
     fn add_edge(cfg: ControlFlowGraph, from: Int, to: Int) -> ControlFlowGraph
         cfg = cfg |> ControlFlowGraph.create_node(from) |> ControlFlowGraph.create_node(to)
         blocks = cfg.basic_block_map
-        blocks = Vector.set(blocks, from, BasicBlock.add_out_edge(Vector.get(blocks, from)!, to))
-        blocks = Vector.set(blocks, to, BasicBlock.add_in_edge(Vector.get(blocks, to)!, from))
+        blocks = Vector.set(blocks, from, BasicBlock.add_out_edge(Vector.get(blocks, from)!, to))!
+        blocks = Vector.set(blocks, to, BasicBlock.add_in_edge(Vector.get(blocks, to)!, from))!
         {..cfg, basic_block_map: blocks, edge_list: Vector.push(.., BasicBlockEdge{from:, to:})}
     end
 
@@ -182,7 +182,7 @@ impl LoopStructureGraph
         loop: Int,
         f:    (SimpleLoop) -> SimpleLoop,
     ) -> LoopStructureGraph
-        {..lsg, loops: Vector.set(.., loop, f(LoopStructureGraph.get(lsg, loop)))}
+        {..lsg, loops: Vector.set(.., loop, f(LoopStructureGraph.get(lsg, loop)))!}
     end
 
     /// The suite's `SimpleLoop.setParent`: sets `loop`'s parent and adds it
@@ -273,7 +273,7 @@ impl UnionFindNode
 
     /// Union/Find Algorithm - The union routine: points `node` at `parent`.
     fn union(nodes: Vector<UnionFindNode>, node: Int, parent: Int) -> Vector<UnionFindNode>
-        Vector.set(nodes, node, {..Vector.get(nodes, node)!, parent:})
+        Vector.set(nodes, node, {..Vector.get(nodes, node)!, parent:})!
     end
 end
 
@@ -300,14 +300,14 @@ impl HavlakLoopFinder
     end
 
     fn set_type(f: HavlakLoopFinder, w: Int, t: BlockType) -> HavlakLoopFinder
-        {..f, block_type: Vector.set(.., w, t)}
+        {..f, block_type: Vector.set(.., w, t)!}
     end
 
     /// Depth-first search along out edges, numbering the nodes.
     fn do_dfs(f: HavlakLoopFinder, current_node: Int, current: Int) -> (HavlakLoopFinder, Int)
         f = {
             ..f,
-            nodes:  Vector.set(.., current, UnionFindNode.init_node(current_node, current)),
+            nodes:  Vector.set(.., current, UnionFindNode.init_node(current_node, current))!,
             number: Map.put(.., current_node, current),
         }
 
@@ -321,7 +321,7 @@ impl HavlakLoopFinder
                 end
             end)
 
-        ({..f, last: Vector.set(.., current, last_id)}, last_id)
+        ({..f, last: Vector.set(.., current, last_id)!}, last_id)
     end
 
     fn init_all_nodes(f: HavlakLoopFinder, start: Int) -> HavlakLoopFinder
@@ -335,7 +335,7 @@ impl HavlakLoopFinder
 
     fn identify_edges(f: HavlakLoopFinder, size: Int) -> HavlakLoopFinder
         Iter.reduce(0..size, f, fn f, w ->
-            f = {..f, header: Vector.set(.., w, 0)} |> HavlakLoopFinder.set_type(w, .NonHeader)
+            f = {..f, header: Vector.set(.., w, 0)!} |> HavlakLoopFinder.set_type(w, .NonHeader)
 
             case HavlakLoopFinder.node(f, w).bb
                 None         -> HavlakLoopFinder.set_type(f, w, .Dead)
@@ -356,7 +356,11 @@ impl HavlakLoopFinder
                 else if HavlakLoopFinder.is_ancestor(f, w, v) then
                     {
                         ..f,
-                        back_preds: Vector.set(.., w, Vector.push(Vector.get(f.back_preds, w)!, v)),
+                        back_preds: Vector.set(
+                            ..,
+                            w,
+                            Vector.push(Vector.get(f.back_preds, w)!, v),
+                        )!,
                     }
                 else
                     {
@@ -365,7 +369,7 @@ impl HavlakLoopFinder
                             ..,
                             w,
                             Set.insert(Vector.get(f.non_back_preds, w)!, v),
-                        ),
+                        )!,
                     }
                 end
             end)
@@ -399,7 +403,7 @@ impl HavlakLoopFinder
                 f = HavlakLoopFinder.identify_edges(f, size)
 
                 // Start node is root of all other loops.
-                f = {..f, header: Vector.set(.., 0, 0)}
+                f = {..f, header: Vector.set(.., 0, 0)!}
 
                 HavlakLoopFinder.step_c(f, size - 1)
         end
@@ -518,7 +522,7 @@ impl HavlakLoopFinder
                         ..,
                         w,
                         Set.insert(Vector.get(f.non_back_preds, w)!, ydash_dfs),
-                    ),
+                    )!,
                 }
 
                 (f, node_pool, work_list)
@@ -536,7 +540,7 @@ impl HavlakLoopFinder
         node_pool: Vector<Int>,
         loop:      Int,
     ) -> HavlakLoopFinder
-        f = {..f, nodes: Vector.set(.., w, {..HavlakLoopFinder.node(f, w), loop: Some(loop)})}
+        f = {..f, nodes: Vector.set(.., w, {..HavlakLoopFinder.node(f, w), loop: Some(loop)})!}
 
         Iter.reduce(node_pool, f, fn f, node ->
             n = HavlakLoopFinder.node(f, node)
@@ -544,7 +548,7 @@ impl HavlakLoopFinder
             // Add nodes to loop descriptor.
             f = {
                 ..f,
-                header: Vector.set(.., n.dfs_number, w),
+                header: Vector.set(.., n.dfs_number, w)!,
                 nodes:  UnionFindNode.union(f.nodes, node, w),
             }
 

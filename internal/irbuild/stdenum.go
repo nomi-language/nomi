@@ -590,7 +590,6 @@ var stdEnumSpecs = []stdEnumSpec{{
 	variants: []stdEnumVariantSpec{
 		bareVariant("Up"), bareVariant("Down"), bareVariant("Ceiling"), bareVariant("Floor"),
 		bareVariant("HalfUp"), bareVariant("HalfDown"), bareVariant("HalfEven"),
-		bareVariant("Unnecessary"),
 	},
 }, {
 	// std/strings' `NormalForm`, the argument `String.normalize` takes. Reached

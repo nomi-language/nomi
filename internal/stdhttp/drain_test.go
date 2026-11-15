@@ -16,7 +16,7 @@ import (
 // a server kept accepting through the whole grace period.
 func TestListen_DrainStopsAcceptingAndFinishesWhatItTook(t *testing.T) {
 	defer rt.ResetSupervisors()
-	durations := rt.Cons(int64(0), rt.Cons(int64(0), rt.Cons(int64(0), rt.Cons(int64(0), rt.Cons(int64(5*time.Second), (*rt.List[int64])(nil))))))
+	durations := rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(0), rt.Cons(rt.SmallInt(int64(5*time.Second)), (*rt.List[rt.Int])(nil))))))
 	flags := rt.Cons(true, rt.Cons(true, rt.Cons(true, (*rt.List[bool])(nil))))
 	res := Listen("127.0.0.1:0", durations, nil, flags, nil, false, nil, nil, nil, false, nil, false, nil, false, nil, false)
 	if res.Tag != 1 {

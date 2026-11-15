@@ -86,9 +86,7 @@ func TestSeqEndlessPerSourceAndAdapter(t *testing.T) {
 	if got := SeqEndless(fr, chunks); got != "Iter.repeat" {
 		t.Errorf("chunks: SeqEndless = %q", got)
 	}
-	if got := SeqEndless(fr, SeqChunks(repeat, 0)); got != "" {
-		t.Errorf("chunks(0): SeqEndless = %q", got)
-	}
+
 	if got := SeqEndless(fr, SeqChunkBy(repeat, id, eq)); got != "Iter.repeat" {
 		t.Errorf("chunk_by: SeqEndless = %q", got)
 	}

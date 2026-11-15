@@ -129,7 +129,7 @@ fn handle(counter: Counter, count: Int) -> Int
     Some(Request.Get{reply:}) ->
       _ = Sender.send(reply.sender, count)
       count
-    Some(Request.Explode) -> count / (count - count)
+    Some(Request.Explode) -> count / NonZeroInt.try_from(count - count)!
     None -> -1
   end
 end

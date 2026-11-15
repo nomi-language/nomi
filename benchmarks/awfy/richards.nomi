@@ -133,7 +133,7 @@ impl Scheduler
     end
 
     fn with_task(s: Scheduler, t: Task) -> Scheduler
-        {..s, tasks: Vector.set(s.tasks, t.identity, t)}
+        {..s, tasks: Vector.set(s.tasks, t.identity, t)!}
     end
 
     fn current_task(s: Scheduler) -> Task

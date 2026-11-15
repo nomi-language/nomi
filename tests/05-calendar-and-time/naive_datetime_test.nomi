@@ -4,6 +4,7 @@ import
     std::calendar.NaiveDateTime
     std::calendar.Time
     std::duration.Duration
+    std::instant.Instant
 end
 
 test "naive datetimes parse and display without zone information"
@@ -98,4 +99,16 @@ end
 
 test "naive datetime construction validates component combinations"
     assert Err(Error.InvalidValue(_)) = NaiveDateTime.new(2026, 2, 30, 12, 0)
+end
+
+test "a reading moves by a duration of any length"
+    start = NaiveDateTime"2000-01-01T00:00:00"
+
+    assert start + Duration.hours(24 * 365 * 1000) == NaiveDateTime"2999-05-03T00:00:00"
+
+    assert NaiveDateTime.between(start, NaiveDateTime"2999-05-03T00:00:00")
+        == Duration.hours(24 * 365 * 1000)
+
+    assert Instant.to_seconds(NaiveDateTime.to_instant(NaiveDateTime"2999-05-03T00:00:00"))
+        == Instant.to_seconds(NaiveDateTime.to_instant(start)) + 24 * 365 * 1000 * 3600
 end

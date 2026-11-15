@@ -80,7 +80,7 @@ impl Multiply<Score, Score> for Score
 end
 impl Divide<Score, Score> for Score
  fn divide(lhs: Score, rhs: Score) -> Score
-     Score(number(lhs) / number(rhs))
+     Score(number(lhs) / NonZeroInt.try_from(number(rhs))!)
  end
 end
 fn left() -> Score

@@ -1,6 +1,6 @@
 import
     std::fs
-    image.{self, Dimensions, Format, Image}
+    image.{self, Dimensions, Format, Image, Pixels}
 end
 
 // testdata/gradient.{jpg,png,webp} are one 120 by 80 gradient in each
@@ -57,11 +57,13 @@ end
 test "fit scales down into the box keeping the shape"
     picture = image.decode(fixture("gradient.png"))!
 
-    [
+    boxes: List<(String, Pixels, Pixels, Int, Int)> = [
         ("wider than the box",  60,  60, 60, 40),
         ("taller than the box", 100, 20, 30, 20),
         ("a one-pixel box",     1,   1,  1,  1),
     ]
+
+    boxes
     |> subtests (description, box_width, box_height, width, height), description
         fitted = Image.fit(picture, box_width, box_height)
         assert (Image.width(fitted), Image.height(fitted)) == (width, height)

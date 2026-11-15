@@ -46,6 +46,21 @@ import
     unit.Unit
 end
 
+/// A code point that can separate fields or start a comment: any but a
+/// quote, `\r`, `\n`, U+FFFD and U+0000, which a reader could not tell
+/// apart from the text around it. `Options` and `WriteOptions` take one, so
+/// `Options{delimiter: '"'}` is a compile error, and a delimiter read when
+/// the program runs goes through `Delimiter.try_from`.
+//! tab: Delimiter = '\t'
+//! assert decode("a\tb", Options{delimiter: tab}) == Ok([["a", "b"]])
+//! assert Delimiter.try_from('"') == None
+//! assert Delimiter.try_from('\n') == None
+//! assert Delimiter.try_from(';') == Some(';')
+//
+pub subtype Delimiter Codepoint when fn c ->
+    c != '"' and c != '\r' and c != '\n' and c != '\u{0}' and Codepoint.to_int(c) != 0xFFFD
+end
+
 /// How many fields each record must have.
 pub enum FieldCount
     /// As many as the first record. A record with another count is a
@@ -71,11 +86,11 @@ derive Debug for FieldCount
 //! assert decode("a\nb,c", Options{fields: .Any}) == Ok([["a"], ["b", "c"]])
 //
 pub struct Options
-    /// What separates fields. It may not be a quote, `\r`, `\n` or U+FFFD.
-    delimiter: Codepoint = ','
+    /// What separates fields.
+    delimiter: Delimiter = ','
     /// A line that starts with this, with nothing before it, is skipped.
     /// It may not be the delimiter.
-    comment: Maybe<Codepoint> = None
+    comment: Maybe<Delimiter> = None
     /// Drop the white space at the start of each field, even when the
     /// delimiter is white space.
     trim_leading_space: Bool = False
@@ -99,9 +114,8 @@ pub enum Error
     /// The `Reader` failed.
     Io {error: io.Error}
 
-    /// The `Options` cannot be used: the delimiter or the comment
-    /// character is one that is not allowed, or they are the same, or the
-    /// field count is negative.
+    /// The `Options` cannot be used: the delimiter and the comment
+    /// character are the same, or the field count is negative.
     InvalidOptions {message: String}
 end
 
@@ -245,11 +259,6 @@ pub fn rows(reader: Reader, options: Options = Options{}) -> Iter<Result<Row, Er
 end
 
 fn open(reader: Reader, options: Options) -> host.Records
-    comment = case options.comment
-        Some(c) -> Codepoint.to_int(c)
-        None    -> 0
-    end
-
     fields = case options.fields
         .SameAsFirst -> 0
         .Any         -> -1
@@ -258,8 +267,8 @@ fn open(reader: Reader, options: Options) -> host.Records
 
     host.open(
         reader,
-        Codepoint.to_int(options.delimiter),
-        comment,
+        options.delimiter,
+        options.comment,
         options.trim_leading_space,
         options.lazy_quotes,
         fields,
@@ -344,9 +353,8 @@ end
 //! assert encode([["=SUM(A1:A9)", "-3"]], WriteOptions{escape_formulas: True}) == "'=SUM(A1:A9),'-3\n"
 //
 pub struct WriteOptions
-    /// What separates fields. It may not be a quote, `\r`, `\n` or U+FFFD:
-    /// writing with one of those is a trap.
-    delimiter: Codepoint = ','
+    /// What separates fields.
+    delimiter: Delimiter = ','
     /// End each record with `\r\n`, as RFC 4180 says, instead of `\n`.
     crlf: Bool = False
     /// Put `'` before a field that starts with `=`, `+`, `-`, `@`, a tab or
@@ -392,7 +400,7 @@ end
 fn line(record: List<String>, options: WriteOptions) -> String
     fields = if options.escape_formulas then record |> Iter.map(guard) |> Iter.to_list() else record
 
-    host.encode(fields, Codepoint.to_int(options.delimiter), options.crlf)
+    host.encode(fields, options.delimiter, options.crlf)
 end
 
 fn guard(field: String) -> String

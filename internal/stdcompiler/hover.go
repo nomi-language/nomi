@@ -94,6 +94,7 @@ func hoverAnalysis(nodes []ast.Node, root string, loader analysis.FileLoader) (*
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
+	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
 	errs = append(errs, analysis.CheckTaskLifetime(fa, nodes)...)
 	errs = append(errs, analysis.FinalizeCoherence(fa)...)
 	return fa, errs

@@ -49,7 +49,7 @@ func TestReaderSources_ATrapInTheSourceIsTheProgramsTrap(t *testing.T) {
 fn main()
     r = io.Reader.from_fn(fn ->
         zero = 0
-        n = 1 / zero
+        n = 1 / NonZeroInt.try_from(zero)!
         Ok(Some(String.to_bytes("${n}")))
     end)
     io.print(io.Reader.read_line(r))
@@ -58,14 +58,14 @@ end
 		"from_chunks": `import std::io
 
 fn main()
-    r = io.Reader.from_chunks(Iter.from(0) |> Iter.map(fn n -> String.to_bytes("${1 / n}")))
+    r = io.Reader.from_chunks(Iter.from(0) |> Iter.map(fn n -> String.to_bytes("${1 / NonZeroInt.try_from(n)!}")))
     io.print(io.Reader.read_line(r))
 end
 `,
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := runCaptureProgram(t, src, "")
-			if err == nil || !strings.Contains(err.Error(), "division by zero") {
+			if err == nil || !strings.Contains(err.Error(), "found nothing") {
 				t.Fatalf("run answered %v, want the division-by-zero trap", err)
 			}
 		})

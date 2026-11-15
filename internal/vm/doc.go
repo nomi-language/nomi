@@ -146,8 +146,10 @@
 //     or an Ok allocates nothing. A crossing fuses when it can answer in
 //     parts: every generated adapter whose binding answers a Maybe or a
 //     Result with a payload of its own has a parts form
-//     (hostadapt.PartsFunc), and Map.get and Vector.get have fast paths of
-//     their own. The parts form converts the operands as the adapter does,
+//     (hostadapt.PartsFunc), and Map.get, Vector.get and Vector.set have
+//     fast paths of their own. Vector.set's writes an owned vector in place
+//     as opHost's in-place form does, so `Vector.set(v, i, x)!` on an owned
+//     vector allocates nothing. The parts form converts the operands as the adapter does,
 //     so a String or Bytes operand still allocates its box. The fast path reads
 //     the vector and index, or the map and a scalar key, from their
 //     registers: an Int key of any size, a Float or a String is hashed and
@@ -232,7 +234,9 @@
 //     on each header, map root and node, so the operation writes the nodes
 //     its value's lineage stamped and copies any other once. A set, or a
 //     put over a key the map has, answers the operand's own box, so it
-//     allocates nothing. The lookups (`Vector.get`, `Map.size`, the
+//     allocates nothing. `Vector.set` answers a Maybe; the vector a `!` or
+//     a `Some` pattern reads out of it is owned as the Maybe is (ir package
+//     doc, "Updates written in place"), so the next set writes it too. The lookups (`Vector.get`, `Map.size`, the
 //     others in borrowingHosts) keep nothing of their operands, so they do
 //     not end a collection's ownership. A profiling machine's crossings go
 //     through hookedCallHost, which takes the in-place form as opHost does.
@@ -286,7 +290,9 @@
 // Discrete scalar, walks with Codepoint's built in, stepping over the
 // surrogate block (rt.CodepointRangeSeq): each element costs its Codepoint
 // record and no call. A Range of any other element calls its linked impls
-// per element.
+// per element. A Range's parts (`Range.start`, `Range.stop`,
+// `Range.is_inclusive`) are pure hosts over its record (rangehosts.go),
+// so a subtype rule that reads them runs when a literal is checked.
 //
 // `Iter.zip` pulls its right side one element per left element. When the
 // right side is the view of a List, a Vector or a `Range<Int>` (its Src),

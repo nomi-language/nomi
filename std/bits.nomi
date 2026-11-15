@@ -7,9 +7,9 @@
 //# numbers:
 //#
 //# ```nomi
-//# import std::bits.Bits
+//# import std::bits.{Bits, FieldBits}
 //#
-//# once continuation = Bits"10aa_aaaa"
+//# once continuation: FieldBits = Bits"10aa_aaaa"
 //#
 //# fn payload(byte: Int) -> Maybe<Int>
 //#     Bits.field(continuation, byte)
@@ -28,7 +28,7 @@ import
     debug.Debug
     display.Display
     equatable.Equatable
-    int.Int
+    int.{Int, NonNegativeInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -41,20 +41,30 @@ end
 /// its width in bits, the mask of its `0` and `1` bits, their value, and
 /// the bits its field letter covers. Two patterns are equal when they are
 /// written alike.
-//! utf8_lead = Bits"110a_aaaa"
+//! utf8_lead: FieldBits = Bits"110a_aaaa"
 //! assert Bits.matches(utf8_lead, 0b1100_0011)
 //! assert Bits.field(utf8_lead, 0b1100_0011) == Some(3)
 //! assert Debug.inspect(utf8_lead) == "Bits\"110a_aaaa\""
 //
 pub opaque struct Bits
     text:       String
-    width:      Int
+    width:      NonNegativeInt
     mask:       Int
     value:      Int
     field_mask: Int
 end
 
 derive Equatable for Bits
+
+/// A bit pattern with a field letter, which `Bits.field` reads. A
+/// `Bits"..."` literal is checked when the program is compiled, so
+/// `f: FieldBits = Bits"10xx"` is an error; `FieldBits.try_from(pattern)`
+/// checks a pattern built when it runs.
+//! f: FieldBits = Bits"110a_aaaa"
+//! assert Bits.field(f, 0b1100_0011) == Some(3)
+//! assert FieldBits.try_from(Bits"10xx") == None
+//
+pub subtype FieldBits Bits when fn pattern -> pattern.field_mask != 0
 
 /// Why text is not a bit pattern. `index` counts characters from 0.
 pub enum Error
@@ -157,30 +167,31 @@ impl Bits
     end
 
     /// The bits of `n` under the pattern's field letter, read as a number,
-    /// when `n` matches the pattern, and `None` when it does not. A pattern
-    /// with no field letter has no field, and asking it for one stops the
-    /// program.
-    //! continuation = Bits"10aa_aaaa"
+    /// when `n` matches the pattern, and `None` when it does not. The
+    /// pattern is a `FieldBits`, one with a field letter, so
+    /// `Bits.field(Bits"10xx", n)` is a compile error.
+    //! continuation: FieldBits = Bits"10aa_aaaa"
     //! assert Bits.field(continuation, 0b1010_0011) == Some(0b10_0011)
     //! assert Bits.field(continuation, 0b0010_0011) == None
     //! assert Bits.field(Bits"1aaa_0000", 0b1101_0000) == Some(5)
     //
-    pub fn field(pattern: Bits, n: Int) -> Maybe<Int>
-        if pattern.field_mask == 0 then unreachable "Bits.field: the pattern has no field letter"
+    pub fn field(pattern: FieldBits, n: Int) -> Maybe<Int>
+        FieldBits(bits) = pattern
 
-        if not Bits.matches(pattern, n) then return None
+        if not Bits.matches(bits, n) then return None
 
-        Some(
-            (n &&& pattern.field_mask) >>> (Int.bit_length(
-                pattern.field_mask &&& -pattern.field_mask
-            ) - 1)
-        )
+        // The lowest field bit's position. A FieldBits has a field bit, so
+        // its mask is not 0 and the position is not below 0.
+        at = Int.bit_length(bits.field_mask &&& -bits.field_mask) - 1
+        if at < 0 then return None
+
+        Some((n &&& bits.field_mask) >>> at)
     end
 
     /// The number of bits the pattern spells, not counting `_`.
     //! assert Bits.width(Bits"10_xx") == 4
     //
-    pub fn width(pattern: Bits) -> Int
+    pub fn width(pattern: Bits) -> NonNegativeInt
         pattern.width
     end
 
@@ -227,7 +238,7 @@ end
 // the field's first bit.
 struct Scan
     index:      Int
-    width:      Int
+    width:      NonNegativeInt
     mask:       Int
     value:      Int
     field:      Maybe<String>

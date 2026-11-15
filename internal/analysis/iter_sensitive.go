@@ -578,6 +578,9 @@ func (s *iterSensitivity) checkUses(nodes []ast.Node) map[*ast.FuncDef]bool {
 				continue
 			}
 			cb := ungroupExpr(unwrapNamedArg(arg))
+			if iteration == "Iter.iterate" {
+				s.checkIterateContinue(cb)
+			}
 			if fd := s.sensitiveFunc(cb); fd != nil {
 				// The function itself is the callback.
 				used[fd] = true
@@ -871,6 +874,57 @@ func loopCallArgs(call *ast.Call, pipeLHS ast.Node) (cb, from ast.Node) {
 		from = positional[0]
 	}
 	return cb, from
+}
+
+// checkIterateContinue reports a `continue` in the step an `Iter.iterate`
+// call passes, a lambda's own or a named function's: the step's answer is
+// the next state, so a step that skips has no state to go on to. The
+// error is at the `continue`, or at the function's name when the function
+// is the step.
+func (s *iterSensitivity) checkIterateContinue(cb ast.Node) {
+	const msg = "`continue` in an `Iter.iterate` step has no next state to go on to: the step's answer is the next state"
+	hint := "skip states after the step instead: `Iter.iterate(seed, step) |> Iter.filter(keep)`"
+	var at ast.Node
+	switch n := cb.(type) {
+	case *ast.Lambda:
+		at = firstOwnContinue(n.Body)
+	default:
+		if fd := s.sensitiveFunc(cb); fd != nil && s.signalsOf(fd).Continue {
+			at = cb
+		}
+	}
+	if at == nil {
+		return
+	}
+	e := errAt(at, msg)
+	if c, ok := at.(*ast.Continue); ok {
+		e.Line, e.Col = signalPos(c)
+	}
+	e.Hints = []string{hint}
+	s.errors = append(s.errors, e)
+}
+
+// firstOwnContinue is the first `continue` in n's own scope
+// (OwnScopeSignals), or nil.
+func firstOwnContinue(n ast.Node) ast.Node {
+	var found ast.Node
+	if n == nil {
+		return nil
+	}
+	ast.Inspect(n, func(m ast.Node) bool {
+		if found != nil {
+			return false
+		}
+		switch m.(type) {
+		case *ast.Continue:
+			found = m
+			return false
+		case *ast.Lambda, *ast.FuncDef, *ast.Capture, *ast.ConcurrentBlock:
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // checkStatelessLoop reports a stateless `Iter.loop` (`fn -> ...`, whose

@@ -149,11 +149,6 @@ test "iter chunking groups adjacent values"
         |> Iter.to_list()
         |> List.equal([[1, 2], [3, 4], [5]])
 
-    assert [1, 2, 3]
-        |> Iter.chunks(0)
-        |> Iter.to_list()
-        |> List.equal([])
-
     assert []
         |> Iter.chunks(2)
         |> Iter.to_list()

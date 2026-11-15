@@ -58,3 +58,32 @@ func TestCheck_EveryStdlibFileChecksClean(t *testing.T) {
 		}
 	}
 }
+
+// Every file of std's test-only `_fixtures` tree checks clean on its own, as
+// `nomi check std` checks it, in a process whose stdlib does not hold the
+// fixtures. A fixture is its std module (`std/_fixtures/conn`), so a bare
+// sibling import is std's: read as a user file, `import iter.Iter` loaded
+// std/iter.nomi again under the key `iter`, and `String.join` refused the
+// fixture's `Iter` as another type.
+func TestCheck_EveryStdFixtureChecksClean(t *testing.T) {
+	var files []string
+	err := filepath.WalkDir(filepath.Join("..", "std", "_fixtures"), func(path string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasSuffix(path, ".nomi") {
+			files = append(files, path)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawConn := false
+	for _, f := range files {
+		sawConn = sawConn || filepath.Base(f) == "conn.nomi"
+		if err := vmhost.Check(f); err != nil {
+			t.Errorf("%s: %v", filepath.ToSlash(f), err)
+		}
+	}
+	if !sawConn {
+		t.Fatalf("std/_fixtures/conn.nomi is not among the %d fixtures: %v", len(files), files)
+	}
+}

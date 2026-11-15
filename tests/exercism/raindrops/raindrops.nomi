@@ -1,6 +1,6 @@
 //# Converts a number to raindrop sounds by its factors 3, 5 and 7.
 
-once sounds = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
+once sounds: List<(PositiveInt, String)> = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
 
 /// The raindrop sounds for `number`'s factors 3, 5 and 7, or the number
 /// itself when it has none of them.

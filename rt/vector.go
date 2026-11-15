@@ -456,6 +456,10 @@ func vectorInRange[T any](v Vector[T], index int64) bool {
 	return index >= 0 && index < int64(v.n)
 }
 
+// VectorInRange reports whether index is a position of v, the rule
+// `Vector.set` checks before it calls VectorSet or VectorSetOwned.
+func VectorInRange[T any](v Vector[T], index int64) bool { return vectorInRange(v, index) }
+
 // --- structural updates -----------------------------------------------------
 
 // VectorPush is `Vector.push`: a new vector with item appended. v is
@@ -474,9 +478,9 @@ func VectorPush[T any](v Vector[T], item T) Vector[T] {
 	return Vector[T]{t: v.t.push(item), off: v.off, n: v.n + 1}
 }
 
-// VectorSet is `Vector.set`: a new vector with `index` replaced. An index
-// outside the vector traps with IndexOutOfRangeText. The bounds rule is
-// vectorInRange.
+// VectorSet is `Vector.set`: a new vector with `index` replaced. The caller
+// checks the index with VectorInRange first, as std's `Vector.set` answers
+// None outside it; an index outside traps with IndexOutOfRangeText.
 func VectorSet[T any](v Vector[T], index int64, item T) Vector[T] {
 	if !vectorInRange(v, index) {
 		Trap(IndexOutOfRangeText("Vector", index, int64(v.n)))

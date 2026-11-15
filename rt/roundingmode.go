@@ -13,13 +13,13 @@ import "fmt"
 // It carries no behaviour of its own. The mode is an argument a rounding
 // operation takes, and the arithmetic that reads it lives with the decimal
 // representation, which is rt's: see decimal.go's Round and DivRound. Both
-// live in rt, so the eight values below are here and not in a second enum
+// live in rt, so the seven values below are here and not in a second enum
 // beside the arithmetic.
 //
 // The type also lets Nomi code name a mode as a value (`HalfEven`, `Up`,
 // `Floor`).
 type RoundingMode struct {
-	// Tag is 1..8 in std/decimal.nomi's declaration order. 0 means never
+	// Tag is 1..7 in std/decimal.nomi's declaration order. 0 means never
 	// constructed.
 	Tag uint8
 }
@@ -33,22 +33,21 @@ type RoundingMode struct {
 // that list are two independently-written encodings of one fact and
 // TestStdEnumTagsMatchRT holds them equal.
 const (
-	TagRoundUp          uint8 = 1
-	TagRoundDown        uint8 = 2
-	TagRoundCeiling     uint8 = 3
-	TagRoundFloor       uint8 = 4
-	TagRoundHalfUp      uint8 = 5
-	TagRoundHalfDown    uint8 = 6
-	TagRoundHalfEven    uint8 = 7
-	TagRoundUnnecessary uint8 = 8
+	TagRoundUp       uint8 = 1
+	TagRoundDown     uint8 = 2
+	TagRoundCeiling  uint8 = 3
+	TagRoundFloor    uint8 = 4
+	TagRoundHalfUp   uint8 = 5
+	TagRoundHalfDown uint8 = 6
+	TagRoundHalfEven uint8 = 7
 )
 
-// The eight modes as values, which is what a switch in decimal.go compares
+// The seven modes as values, which is what a switch in decimal.go compares
 // against. Vars rather than consts because the type is a struct — Go has no
 // struct constants — and that is the price of the Tag representation being the
 // one internal/irbuild lowers to.
 //
-// One encoding, deliberately: the process holds one type for the eight modes.
+// One encoding, deliberately: the process holds one type for the seven modes.
 //
 // The zero value is not a mode. With an iota encoding `RoundUp` would be 0, so
 // a forgotten assignment would silently mean "round away from zero"; here Tag 0
@@ -56,14 +55,13 @@ const (
 // is the truncating answer — wrong in a way a test can see rather than wrong in
 // a way that looks deliberate.
 var (
-	RoundUp          = RoundingMode{Tag: TagRoundUp}
-	RoundDown        = RoundingMode{Tag: TagRoundDown}
-	RoundCeiling     = RoundingMode{Tag: TagRoundCeiling}
-	RoundFloor       = RoundingMode{Tag: TagRoundFloor}
-	RoundHalfUp      = RoundingMode{Tag: TagRoundHalfUp}
-	RoundHalfDown    = RoundingMode{Tag: TagRoundHalfDown}
-	RoundHalfEven    = RoundingMode{Tag: TagRoundHalfEven}
-	RoundUnnecessary = RoundingMode{Tag: TagRoundUnnecessary}
+	RoundUp       = RoundingMode{Tag: TagRoundUp}
+	RoundDown     = RoundingMode{Tag: TagRoundDown}
+	RoundCeiling  = RoundingMode{Tag: TagRoundCeiling}
+	RoundFloor    = RoundingMode{Tag: TagRoundFloor}
+	RoundHalfUp   = RoundingMode{Tag: TagRoundHalfUp}
+	RoundHalfDown = RoundingMode{Tag: TagRoundHalfDown}
+	RoundHalfEven = RoundingMode{Tag: TagRoundHalfEven}
 )
 
 // String renders a mode for diagnostics and test output, in std/decimal.nomi's
@@ -85,8 +83,6 @@ func (m RoundingMode) String() string {
 		return "HalfDown"
 	case RoundHalfEven:
 		return "HalfEven"
-	case RoundUnnecessary:
-		return "Unnecessary"
 	default:
 		return fmt.Sprintf("RoundingMode(%d)", m.Tag)
 	}

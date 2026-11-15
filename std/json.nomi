@@ -1,10 +1,9 @@
 import
-    bool.Bool.{self, True}
+    bool.Bool.{self, False, True}
     calendar.{Anchored, Date, NaiveDateTime, OffsetDateTime, Time}
     debug.Debug
     decimal.Decimal
     display.Display
-    duration.Duration
     dynamic.Dynamic
     equatable.Equatable
     float.Float
@@ -43,6 +42,35 @@ pub enum Json
     Arr List<Json>
     Obj Map<String, Json>
     Null
+end
+
+/// A `Json` value that is an object, `Json.Obj`: what a struct's derived
+/// `ToJson` writes, and what `jwt.sign_as` signs. `JsonObject.try_from(json)`
+/// checks a value, so `ToJson.to_json(x)` of any `ToJson` becomes one, and
+/// `JsonObject.fields` reads its keys and values back.
+//! import std::json.JsonObject
+//!
+//! object = JsonObject.try_from(ToJson.to_json({id: 7}))!
+//! assert JsonObject.fields(object) == {"id" => Json.Int(7)}
+//! assert JsonObject.try_from(Json.Int(7)) == None
+//
+pub subtype JsonObject Json when fn json ->
+    case json
+        .Obj(_) -> True
+        _       -> False
+    end
+end
+
+impl JsonObject
+    /// The object's keys and values.
+    pub fn fields(object: JsonObject) -> Map<String, Json>
+        JsonObject(json) = object
+
+        case json
+            .Obj(fields) -> fields
+            _            -> unreachable "a JsonObject is a Json.Obj"
+        end
+    end
 end
 
 impl Json
@@ -639,14 +667,7 @@ impl ToJson for Instant
     //!     == Json.String("2023-11-14T22:13:20.25Z")
     //
     fn to_json(value: Instant) -> Json
-        text = Display.to_string(OffsetDateTime.from_instant(value, Duration.seconds(0)))
-
-        utc =
-            String.strip_suffix(text, "+00:00")
-            |> Maybe.map(&(&1 + "Z"))
-            |> Maybe.with_default(text)
-
-        Json.String(utc)
+        Json.String("${NaiveDateTime.from_instant(value)}Z")
     end
 end
 

@@ -71,9 +71,9 @@ var infiniteIterCases = []infiniteIterCase{
 	{"flatten", []string{"Iter.flatten"}, pipe("Iter.repeat([1])", " |> Iter.flatten() |> Iter.to_list()"), true},
 	{"Maybe.values", []string{"Maybe.values"}, pipe("Iter.repeat(Maybe.Some(1))", " |> Maybe.values() |> Iter.to_list()"), true},
 	{"chunks", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(3) |> Iter.to_list()"), true},
-	{"chunks of zero", []string{"Iter.chunks"}, pipe("Iter.from(0)", " |> Iter.chunks(0) |> Iter.to_list()"), false},
+
 	{"windows", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(2) |> Iter.to_list()"), true},
-	{"windows of zero", []string{"Iter.windows"}, pipe("Iter.from(0)", " |> Iter.windows(0) |> Iter.to_list()"), false},
+
 	{"cycle of an infinite source", []string{"Iter.cycle"}, pipe("Iter.from(0)", " |> Iter.cycle() |> Iter.to_list()"), true},
 	{"cycle of a list", []string{"Iter.cycle"}, pipe("[1, 2] |> Iter.cycle()", " |> Iter.to_list()"), true},
 	{"cycle of a vector", []string{"Iter.cycle"}, pipe("Vector[1] |> Iter.cycle()", " |> Iter.to_list()"), true},

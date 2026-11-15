@@ -50,8 +50,8 @@
 
 import
     duration.Duration
-    int.Int
-    lists.List
+    int.{Int, PositiveInt}
+    lists.NonEmptyList
     maybe.Maybe
     results.Result
     tasks.Task
@@ -104,14 +104,14 @@ impl Channel<T>
     /// Construct a `Channel<T>` that buffers up to `capacity` pending values, so a
     /// producer can run that far ahead of its consumer before `send` blocks.
     ///
-    /// `capacity` must be at least 1. Zero is not a small buffer, it is a
-    /// different mode, and it has its own constructor -- passing 0 here is rejected
-    /// rather than quietly aliased to `Channel.unbuffered`.
+    /// `capacity` is a `PositiveInt`. Zero is not a small buffer, it is a
+    /// different mode, and it has its own constructor, `Channel.unbuffered`,
+    /// so `Channel.buffered<Int>(0)` is an error when the program is compiled.
     //! ch = Channel.buffered<Int>(1)
     //! assert Ok(_) = Sender.send(ch.sender, 7)
     //! assert Receiver.receive(ch.receiver) == Maybe.Some(7)
     //
-    pub host fn buffered<T>(capacity: Int) -> Channel<T>
+    pub host fn buffered<T>(capacity: PositiveInt) -> Channel<T>
 
     /// Construct a `Channel<T>` with no buffer, where every `send` waits for a
     /// paired `receive` and vice versa.
@@ -153,7 +153,9 @@ impl Channel<T>
     /// counts on the clock in force: under `clock Clock.Virtual` it fires as
     /// soon as every task is waiting, without a real wait. A timer of zero
     /// or less is ready at once, so `Arm.after` of zero listed last makes a
-    /// `select` that never waits. An empty list of arms is a fault.
+    /// `select` that never waits. The arms are a `NonEmptyList`, which a
+    /// list literal of arms is; a list built while the program runs goes
+    /// through `NonEmptyList.try_from`.
     ///
     /// Waiting is cancellable, as `Receiver.receive` is: when the enclosing
     /// `concurrent` block's context fires, the wait ends and no handler runs.
@@ -167,13 +169,14 @@ impl Channel<T>
     //!
     //! assert got == 7
     //
-    pub host fn select<R>(arms: List<Arm<R>>) -> R
+    pub host fn select<R>(arms: NonEmptyList<Arm<R>>) -> R
 end
 
 impl Sender<T>
     /// Send a value on the channel. Blocks until the value is taken (for
     /// unbuffered channels) or capacity is available (for buffered). Returns
-    /// `Err(ChannelClosed)` if the channel was closed at send time.
+    /// `Err(ChannelClosed)` if the channel was closed at send time, or closes
+    /// while the send waits.
     /// Cancellation-aware: when called from inside a `concurrent { }` block whose
     /// context fires (via deadline or upstream cancellation), the send unwinds
     /// silently -- user code observes ancestor cancellation through other
@@ -183,11 +186,12 @@ impl Sender<T>
     //
     pub host fn send<T>(sender: Sender<T>, value: T) -> Result<Unit, ChannelClosed>
 
-    /// Close the channel. Subsequent `send` calls return `Err(ChannelClosed)`;
-    /// pending blocked sends panic at runtime (the program is responsible for
-    /// sequencing close so there are no blocked senders at close time).
-    /// Double-close is a runtime error.
+    /// Close the channel. Subsequent `send` calls return `Err(ChannelClosed)`,
+    /// and so do sends waiting for room when it closes. Values already
+    /// buffered are still delivered to `receive`. Closing a closed channel
+    /// does nothing.
     //! ch = Channel.buffered<Int>(1)
+    //! Sender.close(ch.sender)
     //! Sender.close(ch.sender)
     //! assert Receiver.receive(ch.receiver) == Maybe.None
     //! assert Sender.send(ch.sender, 7) == Result.Err(ChannelClosed)
@@ -199,7 +203,7 @@ impl Sender<T>
     /// closes then finishes what is queued and ends, so the drain does not
     /// wait out its grace period for a reader parked on an empty channel.
     /// A `close` before shutdown cancels it, and a `close` after shutdown
-    /// closed the channel is no double close.
+    /// closed the channel does nothing.
     //! ch = Channel.buffered<Int>(1)
     //! Sender.close_on_drain(ch.sender)
     //! assert Ok(_) = Sender.send(ch.sender, 1)
@@ -224,7 +228,9 @@ impl Receiver<T>
     /// Receive the next value, waiting at most `wait`. `Ok(Some(value))` is a
     /// value, `Ok(None)` a channel closed and drained, and `Err(TimedOut)` a
     /// wait that ran out first, on the clock in force. A value already
-    /// waiting is received even when `wait` is zero.
+    /// waiting is received even when `wait` is zero. A `wait` past about 292
+    /// years, the longest the clock counts, waits that long, so it never
+    /// runs out.
     ///
     /// For waiting on more than one channel, or on a send, use
     /// `Channel.select`.
@@ -268,7 +274,9 @@ impl Arm<R>
     ) -> Arm<R>
 
     /// An arm that finishes once `wait` has passed on the clock in force,
-    /// counted from the start of the `select`, and runs `handle`.
+    /// counted from the start of the `select`, and runs `handle`. A zero or
+    /// negative `wait` is ready at once. A `wait` past about 292 years, the
+    /// longest the clock counts, waits that long, so the arm never finishes.
     //! ch = Channel.buffered<Int>(1)
     //!
     //! got = Channel.select([
@@ -282,9 +290,7 @@ impl Arm<R>
 end
 
 /// Returned by `Sender.send` when the channel was closed at the time
-/// the send attempted to enqueue. `Sender.close` itself is a one-shot
-/// operation (panics on double-close, matching Go); user code should
-/// plan shutdown so close happens exactly once.
+/// the send attempted to enqueue, or closed while the send waited.
 pub type ChannelClosed
 
 /// Returned by `Receiver.receive_within` when its wait ran out before a

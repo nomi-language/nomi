@@ -87,7 +87,7 @@ func WithEmbeddedFiles(ctx context.Context, t *EmbeddedFiles) context.Context {
 // cannot answer as it was compiled (one changed on disk since, for `nomi
 // run`) is a fault naming it: the program stops rather than read other
 // contents than it was compiled with.
-func EmbeddedRead(fr *Frame, handle int64, path string) Bytes {
+func EmbeddedRead(fr *Frame, handle Int, path string) Bytes {
 	t, f := embeddedFile(fr, handle, path)
 	data, err := t.src.ReadEmbedded(f)
 	if err != nil {
@@ -100,7 +100,7 @@ func EmbeddedRead(fr *Frame, handle int64, path string) Bytes {
 // handle names, in lowercase hex, as the compiler took it when it read the
 // file. A file compiled without one (by a front end that read no
 // contents) is read and hashed now.
-func EmbeddedSum(fr *Frame, handle int64, path string) string {
+func EmbeddedSum(fr *Frame, handle Int, path string) string {
 	_, f := embeddedFile(fr, handle, path)
 	if f.Sum != "" {
 		return f.Sum
@@ -110,8 +110,9 @@ func EmbeddedSum(fr *Frame, handle int64, path string) string {
 }
 
 // embeddedFile is the machine's table and the file handle names in it, or
-// a fault naming path.
-func embeddedFile(fr *Frame, handle int64, path string) (*EmbeddedFiles, EmbeddedFile) {
+// a fault naming path. A handle past int64 names no file, as one past the
+// table does.
+func embeddedFile(fr *Frame, handle Int, path string) (*EmbeddedFiles, EmbeddedFile) {
 	var t *EmbeddedFiles
 	if fr != nil && fr.ctx != nil {
 		t, _ = fr.ctx.Value(embeddedKey{}).(*EmbeddedFiles)
@@ -119,9 +120,13 @@ func embeddedFile(fr *Frame, handle int64, path string) (*EmbeddedFiles, Embedde
 	if t == nil {
 		Trap("embedded file " + strconv.Quote(path) + ": this machine has no embedded files")
 	}
-	f, ok := t.file(handle)
+	n, ok := handle.Int64()
+	var f EmbeddedFile
+	if ok {
+		f, ok = t.file(n)
+	}
 	if !ok {
-		Trap("embedded file " + strconv.Quote(path) + ": no such handle " + strconv.FormatInt(handle, 10))
+		Trap("embedded file " + strconv.Quote(path) + ": no such handle " + handle.String())
 	}
 	return t, f
 }

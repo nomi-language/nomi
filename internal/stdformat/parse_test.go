@@ -171,7 +171,7 @@ func TestFormatThenParseRoundTrips(t *testing.T) {
 	for _, loc := range locales {
 		for _, n := range ints {
 			for _, grouping := range []bool{true, false} {
-				text := FFIFormatInt(fr, loc, rt.SmallInt(n), grouping, 1)
+				text := FFIFormatInt(fr, loc, rt.SmallInt(n), grouping, rt.SmallInt(1))
 				for _, lenient := range []bool{false, true} {
 					if got := intResult(FFIParseInt(fr, text, loc, lenient)); got != fmt.Sprint(n) {
 						t.Errorf("%s: %d formats as %q, which parses (lenient %v) as %s", loc, n, text, lenient, got)
@@ -180,17 +180,17 @@ func TestFormatThenParseRoundTrips(t *testing.T) {
 			}
 		}
 		for _, d := range decimals {
-			text := FFIFormatDecimal(fr, loc, d, 0, 100, true)
+			text := FFIFormatDecimal(fr, loc, d, rt.SmallInt(0), rt.SmallInt(100), true)
 			if got := decResult(FFIParseDecimal(fr, text, loc, false)); got != d {
 				t.Errorf("%s: %s formats as %q, which parses as %s", loc, d, text, got)
 			}
-			pct := FFIFormatDecimalPercent(fr, loc, timesHundred(d), 0, 100)
+			pct := FFIFormatDecimalPercent(fr, loc, timesHundred(d), rt.SmallInt(0), rt.SmallInt(100))
 			if got := decResult(FFIParseDecimalPercent(fr, pct, loc, false)); got != stripScaleTo(d) {
 				t.Errorf("%s: %s formats as the percentage %q, which parses as %s", loc, d, pct, got)
 			}
 		}
 		f := -1234567.25
-		text := FFIFormatFloat(fr, loc, f, 0, 3, true)
+		text := FFIFormatFloat(fr, loc, f, rt.SmallInt(0), rt.SmallInt(3), true)
 		if r := FFIParseFloat(fr, text, loc, false); r.Tag != rt.TagOk || r.Ok != f {
 			t.Errorf("%s: %v formats as %q, which parses as %+v", loc, f, text, r)
 		}

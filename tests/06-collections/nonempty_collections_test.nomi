@@ -122,3 +122,21 @@ test "groups and runs are NonEmptyLists"
     assert Iter.to_list(runs) == [2, 1]
     assert Iter.chunks([1, 2, 3, 4], 3) |> Iter.to_list() == [[1, 2, 3], [n]]
 end
+
+test "a literal with an element is non-empty whatever its elements are"
+    n = 4
+    rest = [5]
+    xs: NonEmptyList<Int> = [n, n + 1]
+    v: NonEmptyVector<Int> = Vector[n]
+    s: NonEmptySet<Int> = Set[n, n]
+    m: NonEmptyMap<String, Int> = {"n" => n}
+    spread: NonEmptyList<Int> = [..rest, n]
+    again: NonEmptyList<Int> = [..xs]
+
+    assert NonEmptyList.first(xs) == 4
+    assert NonEmptyVector.first(v) == 4
+    assert NonEmptySet.size(s) == 1
+    assert NonEmptyMap.first_entry(m) == ("n", 4)
+    assert NonEmptyList.last(spread) == 4
+    assert NonEmptyList.length(again) == 2
+end

@@ -47,7 +47,7 @@ once tens = Vector[
 ]
 
 /// Each scale word with the number it counts, largest first.
-once scales = [
+once scales: List<(PositiveInt, String)> = [
     (1_000_000_000, "billion"),
     (1_000_000,     "million"),
     (1000,          "thousand"),

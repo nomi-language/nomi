@@ -189,7 +189,13 @@ pub enum Roots
 end
 
 /// What a certificate says: who it names and who signed it, when it is
-/// valid, and the DNS names it covers.
+/// valid, and the DNS names it covers. The validity is a pair of moments,
+/// of any year X.509 writes: a certificate may be valid until 9999-12-31
+/// ("no well-defined expiration"). Compare one with `Instant.now()`:
+///
+/// ```nomi
+/// expired = Instant.is_before(info.not_after, Instant.now())
+/// ```
 pub struct CertificateInfo
     subject:    String
     issuer:     String
@@ -209,14 +215,8 @@ impl CertificateInfo
                     subject:,
                     issuer:,
                     serial:,
-                    not_before: Instant.from_nanos(
-                        String.to_int(before)
-                        |> Maybe.with_default(0)
-                    ),
-                    not_after: Instant.from_nanos(
-                        String.to_int(after)
-                        |> Maybe.with_default(0)
-                    ),
+                    not_before: Instant.from_nanos(String.to_int(before)!),
+                    not_after:  Instant.from_nanos(String.to_int(after)!),
                     dns_names:,
                 }
 

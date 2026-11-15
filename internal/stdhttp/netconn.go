@@ -122,8 +122,21 @@ func keepAliveConfig(enabled bool, idle, interval, count int64) net.KeepAliveCon
 
 // DialWith is `std::http::host.dial_with`: Dial with every option std/net's
 // DialOptions has.
-func DialWith(fr *rt.Frame, address string, timeout int64, local string, fallback int64, kaEnabled bool,
-	kaIdle, kaInterval, kaCount int64, multipath bool) rt.Result[rt.NetConn, *rt.List[string]] {
+func DialWith(
+	fr *rt.Frame,
+	address string,
+	timeoutArg rt.Int,
+	local string,
+	fallbackArg rt.Int,
+	kaEnabled bool,
+	kaIdleArg, kaIntervalArg, kaCountArg rt.Int,
+	multipath bool,
+) rt.Result[rt.NetConn, *rt.List[string]] {
+	timeout := timeoutArg.Saturated()
+	fallback := fallbackArg.Saturated()
+	kaIdle := kaIdleArg.Saturated()
+	kaInterval := kaIntervalArg.Saturated()
+	kaCount := kaCountArg.Saturated()
 	if !hasSockets {
 		return rt.Err[rt.NetConn](netErr("dial", address, errors.New(noSocketsMessage)))
 	}
@@ -147,7 +160,10 @@ func DialWith(fr *rt.Frame, address string, timeout int64, local string, fallbac
 
 // ListenWith is `std::http::host.net_listen_with`: NetListen with std/net's
 // ListenOptions.
-func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdle, kaInterval, kaCount int64, multipath bool) rt.Result[rt.NetListener, *rt.List[string]] {
+func ListenWith(fr *rt.Frame, address string, kaEnabled bool, kaIdleArg, kaIntervalArg, kaCountArg rt.Int, multipath bool) rt.Result[rt.NetListener, *rt.List[string]] {
+	kaIdle := kaIdleArg.Saturated()
+	kaInterval := kaIntervalArg.Saturated()
+	kaCount := kaCountArg.Saturated()
 	if !hasSockets {
 		return rt.Err[rt.NetListener](netErr("listen", address, errors.New(noSocketsMessage)))
 	}
@@ -194,7 +210,8 @@ func ConnNoDelay(c rt.NetConn, on bool) rt.Unit {
 
 // ConnLinger is `std::http::host.conn_linger`: Go's SetLinger, seconds, -1 for
 // the system's default.
-func ConnLinger(c rt.NetConn, seconds int64) rt.Unit {
+func ConnLinger(c rt.NetConn, secondsArg rt.Int) rt.Unit {
+	seconds := secondsArg.Saturated()
 	if t := tcpOf(c); t != nil {
 		_ = t.SetLinger(int(seconds))
 	}
@@ -202,7 +219,10 @@ func ConnLinger(c rt.NetConn, seconds int64) rt.Unit {
 }
 
 // ConnKeepAlive is `std::http::host.conn_keep_alive`: Go's SetKeepAliveConfig.
-func ConnKeepAlive(c rt.NetConn, enabled bool, idle, interval, count int64) rt.Unit {
+func ConnKeepAlive(c rt.NetConn, enabled bool, idleArg, intervalArg, countArg rt.Int) rt.Unit {
+	idle := idleArg.Saturated()
+	interval := intervalArg.Saturated()
+	count := countArg.Saturated()
 	if t := tcpOf(c); t != nil {
 		_ = t.SetKeepAliveConfig(keepAliveConfig(enabled, idle, interval, count))
 	}
@@ -318,7 +338,9 @@ func Lookup(fr *rt.Frame, kind, name string) rt.Result[*rt.List[string], *rt.Lis
 
 // TLSDial is `std::http::host.tls_dial`: Dial, then a TLS client handshake with
 // cfg, its server name the address's host when cfg names none.
-func TLSDial(fr *rt.Frame, address string, timeout, keepAlive int64, local string, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
+func TLSDial(fr *rt.Frame, address string, timeoutArg, keepAliveArg rt.Int, local string, cfg rt.TLSConfig) rt.Result[rt.NetConn, *rt.List[string]] {
+	timeout := timeoutArg.Saturated()
+	keepAlive := keepAliveArg.Saturated()
 	if !hasSockets {
 		return rt.Err[rt.NetConn](netErr("dial", address, errors.New(noSocketsMessage)))
 	}
@@ -412,7 +434,9 @@ func ConnRemote(c rt.NetConn) string { return connOf(c).c.RemoteAddr().String() 
 
 // ConnDeadline is `std::http::host.conn_deadline`: which is 0 for both reads and
 // writes, 1 for reads, 2 for writes; at is Unix nanoseconds, or 0 for none.
-func ConnDeadline(c rt.NetConn, which, at int64) rt.Unit {
+func ConnDeadline(c rt.NetConn, whichArg, atArg rt.Int) rt.Unit {
+	which := whichArg.Saturated()
+	at := atArg.Saturated()
 	t := time.Time{}
 	if at != 0 {
 		t = time.Unix(0, at)
@@ -582,7 +606,8 @@ func (x *netListener) deadlineC() <-chan time.Time {
 
 // NetListenerDeadline is `std::http::host.net_listener_deadline`: an accept
 // waiting past at (Unix nanoseconds; 0 for none) fails with a timeout.
-func NetListenerDeadline(l rt.NetListener, at int64) rt.Unit {
+func NetListenerDeadline(l rt.NetListener, atArg rt.Int) rt.Unit {
+	at := atArg.Saturated()
 	x := netListenerOf(l)
 	x.mu.Lock()
 	x.deadline = time.Time{}

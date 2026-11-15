@@ -32,7 +32,7 @@
 //     beyond it must fail to convert rather than wrap.
 import
     std::comparable.Ordering.{Equal, Greater, Less}
-    std::decimal.RoundingMode.{Ceiling, Down, Floor, HalfDown, HalfEven, HalfUp, Unnecessary, Up}
+    std::decimal.RoundingMode.{Ceiling, Down, Floor, HalfDown, HalfEven, HalfUp, Up}
 end
 
 test "literals keep their scale and render it"
@@ -137,9 +137,9 @@ test "every rounding mode, on a tie and on both signs"
     // HalfEven ties to EVEN, so 3.5 goes the other way from 2.5.
     assert Decimal.to_string(Decimal.round(3.5d, 0, HalfEven)) == "4"
 
-    // Increasing the scale pads and is always exact; Unnecessary permits it.
+    // Increasing the scale pads and is always exact; round_exact permits it.
     assert Decimal.to_string(Decimal.round(1d, 2, Up)) == "1.00"
-    assert Decimal.to_string(Decimal.round(1.5d, 3, Unnecessary)) == "1.500"
+    assert Decimal.to_string(Decimal.round_exact(1.5d, 3)!) == "1.500"
     assert Decimal.to_string(Decimal.round(3.14159d, 2, HalfEven)) == "3.14"
 
     // A NEGATIVE scale rounds to tens and hundreds.
@@ -153,7 +153,7 @@ test "divide rounds at a named scale"
     assert Decimal.to_string(Decimal.divide(10d, 3d, 0, HalfEven)) == "3"
     assert Decimal.to_string(Decimal.divide(10.00d, 4d, 2, Down)) == "2.50"
     assert Decimal.to_string(Decimal.divide(-10d, 3d, 4, HalfEven)) == "-3.3333"
-    assert Decimal.to_string(Decimal.divide(1d, 8d, 3, Unnecessary)) == "0.125"
+    assert Decimal.to_string(Decimal.divide(1d, 8d, 3, HalfEven)) == "0.125"
 end
 
 test "conversions are explicit and total only where they can be"

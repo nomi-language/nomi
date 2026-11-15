@@ -204,13 +204,13 @@ func arithmeticNote(op string, t analysis.Type) string {
 		case "&&&", "|||", "^^^":
 			return "Two's complement at any size: a negative Int has endless leading ones."
 		case "<<<":
-			return "Times 2 to the count, exact: no bit is shifted out. Traps on a negative count."
+			return "Times 2 to the count, exact: no bit is shifted out. The count is a NonNegativeInt."
 		case ">>>":
-			return "Arithmetic shift: divides by 2 to the count, rounding toward negative infinity. Traps on a negative count."
+			return "Arithmetic shift: divides by 2 to the count, rounding toward negative infinity. The count is a NonNegativeInt."
 		case "/":
-			return "Truncates toward zero; traps on division by zero."
+			return "Truncates toward zero. The divisor is a NonZeroInt, so it never traps."
 		case "%":
-			return "Remainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero."
+			return "Remainder: takes the dividend's sign; `Int.modulo` takes the divisor's. The divisor is a NonZeroInt."
 		}
 		return "Exact at any size: never overflows."
 	case analysis.TypeFloat:
@@ -221,9 +221,9 @@ func arithmeticNote(op string, t analysis.Type) string {
 	case analysis.TypeDecimal:
 		switch op {
 		case "/":
-			return "Rounds half-even to 34 significant digits; `Decimal.divide` names a scale. Traps on division by zero."
+			return "Rounds half-even to 34 significant digits; `Decimal.divide` names a scale. The divisor is a NonZeroDecimal."
 		case "%":
-			return "Remainder: exact, takes the dividend's sign. Traps on division by zero."
+			return "Remainder: exact, takes the dividend's sign. The divisor is a NonZeroDecimal."
 		}
 		return "Exact: never rounds."
 	case analysis.TypeString:

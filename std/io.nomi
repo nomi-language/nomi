@@ -78,7 +78,7 @@ import
     bytes.Bytes
     display.Display
     equatable.Equatable
-    int.Int
+    int.{Int, NonNegativeInt, PositiveInt}
     iter.Iter
     maybe.Maybe.{self, None, Some}
     resources.{Commit, Release}
@@ -230,6 +230,7 @@ fn code_text(code: String) -> String
         "ENXIO"        -> "no such device or address"
         "EINTR"        -> "interrupted"
         "ENOTSUP"      -> "operation not supported"
+        "EOVERFLOW"    -> "value too large for defined data type"
         _              -> "operating system error"
     end
 end
@@ -422,7 +423,7 @@ impl Reader
 
     /// Up to `max` bytes, at least one, or `Ok(None)` at the end of the
     /// stream. A read returns what is ready, so it may return fewer than
-    /// `max` bytes before the end. A `max` below 1 is a trap.
+    /// `max` bytes before the end. `max` is a `PositiveInt`.
     ///
     /// ```nomi
     /// case Reader.read(r, max: 4096)
@@ -436,7 +437,7 @@ impl Reader
     //! assert Reader.read(r) == Result.Ok(Some(String.to_bytes("ef")))
     //! assert Reader.read(r) == Result.Ok(None)
     //
-    pub fn read(r: Reader, max: Int = 65536) -> Result<Maybe<Bytes>, Error>
+    pub fn read(r: Reader, max: PositiveInt = 65536) -> Result<Maybe<Bytes>, Error>
         read_up_to(r, max)
     end
 
@@ -524,7 +525,7 @@ impl Reader
     //!         String.to_bytes("e"),
     //!     ])
     //
-    pub fn chunks(r: Reader, size: Int = 65536) -> Iter<Result<Bytes, Error>>
+    pub fn chunks(r: Reader, size: PositiveInt = 65536) -> Iter<Result<Bytes, Error>>
         Iter.repeat(r)
         |> Iter.scan(Ok(String.to_bytes("")), fn _: Result<Bytes, Error>, reader ->
             case Reader.read(reader, max: size)
@@ -665,7 +666,7 @@ impl Release for Reader
 end
 
 /// Up to max bytes from r, for `Reader.read`.
-host fn read_up_to(r: Reader, max: Int) -> Result<Maybe<Bytes>, Error>
+host fn read_up_to(r: Reader, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
 
 impl Writer
     /// Writes `data` to the stream as it is. A writer over a file buffers
@@ -964,12 +965,12 @@ pub host type File
 
 impl File
     /// Up to `max` bytes at the position, which moves past them, or
-    /// `Ok(None)` at or past the end. `max` must be at least 1.
+    /// `Ok(None)` at or past the end. `max` is a `PositiveInt`.
     ///
     /// ```nomi
     /// header = File.read(f, max: 16)?
     /// ```
-    pub fn read(f: File, max: Int = 65536) -> Result<Maybe<Bytes>, Error>
+    pub fn read(f: File, max: PositiveInt = 65536) -> Result<Maybe<Bytes>, Error>
         file_read(f, max)
     end
 
@@ -979,7 +980,11 @@ impl File
     /// ```nomi
     /// record = File.read_at(f, 512 * n, max: 512)?
     /// ```
-    pub host fn read_at(f: File, position: Int, max: Int) -> Result<Maybe<Bytes>, Error>
+    pub host fn read_at(
+        f:        File,
+        position: NonNegativeInt,
+        max:      PositiveInt,
+    ) -> Result<Maybe<Bytes>, Error>
 
     /// Writes `data` at the position, which moves past it. A file opened
     /// with `Access.Read` is `PermissionDenied`.
@@ -995,22 +1000,29 @@ impl File
     /// ```nomi
     /// File.write_at(f, 0, header)?
     /// ```
-    pub host fn write_at(f: File, position: Int, data: Bytes) -> Result<Unit, Error>
+    pub host fn write_at(f: File, position: NonNegativeInt, data: Bytes) -> Result<Unit, Error>
 
-    /// Moves the position to `position`, counted in bytes from the start.
-    /// From the end is `File.seek(f, File.size(f)? - n)`, and from here
-    /// `File.seek(f, File.position(f)? + n)`.
+    /// Moves the position to `position`, counted in bytes from the start. A
+    /// position past the end is allowed, and a write there fills the gap
+    /// with zero bytes. A position counted back from the end or from here
+    /// is an Int, which `NonNegativeInt.try_from` checks: `None` when it is
+    /// before the start.
     ///
     /// ```nomi
     /// File.seek(f, 0)?
+    ///
+    /// case NonNegativeInt.try_from(File.size(f)? - 16)
+    ///     Some(at) -> File.seek(f, at)?
+    ///     None     -> File.seek(f, 0)?
+    /// end
     /// ```
-    pub host fn seek(f: File, position: Int) -> Result<Unit, Error>
+    pub host fn seek(f: File, position: NonNegativeInt) -> Result<Unit, Error>
 
     /// The position `File.read` and `File.write` start at.
-    pub host fn position(f: File) -> Result<Int, Error>
+    pub host fn position(f: File) -> Result<NonNegativeInt, Error>
 
     /// The file's size in bytes now.
-    pub host fn size(f: File) -> Result<Int, Error>
+    pub host fn size(f: File) -> Result<NonNegativeInt, Error>
 
     /// Makes the file `size` bytes long: what is past it is dropped, and a
     /// longer size adds zero bytes. The position stays where it was.
@@ -1018,7 +1030,7 @@ impl File
     /// ```nomi
     /// File.truncate(f, 0)?
     /// ```
-    pub host fn truncate(f: File, size: Int) -> Result<Unit, Error>
+    pub host fn truncate(f: File, size: NonNegativeInt) -> Result<Unit, Error>
 
     /// Closes the file. A second close is `Closed`, as is every call on a
     /// closed file. A write reaches the file as it is made, so nothing is
@@ -1038,7 +1050,7 @@ impl Release for File
     end
 end
 
-host fn file_read(f: File, max: Int) -> Result<Maybe<Bytes>, Error>
+host fn file_read(f: File, max: PositiveInt) -> Result<Maybe<Bytes>, Error>
 
 /// What `io.capture` returns: the value `run` returned, everything it
 /// printed to stdout and to stderr, and its stdout and input together as a

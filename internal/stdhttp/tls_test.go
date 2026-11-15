@@ -55,7 +55,7 @@ func selfSigned(t *testing.T, dir string) (certPath, keyPath string) {
 }
 
 const tlsProgram = `import std::http
-import std::http.{Body, Client, ClientOptions, Listener, Request, Response, Server, Status}
+import std::http.{Body, Client, Listener, Request, Response, Server, Status}
 import std::io.{self, Reader, Writer}
 import std::net.{self, Connection}
 import std::supervisors.Supervisor
@@ -89,7 +89,7 @@ fn main()
     listener = http.listen(Server{address: "127.0.0.1:0", tls: Some(ServerConfig{certificates: [certificate]})})!
     _ = Supervisor.spawn(App.web, fn -> http.serve(listener, hello, App.web))
     base = "https://${Listener.address(listener)}"
-    client = Client.new(ClientOptions{tls: Some(trusted)})
+    client = Client.new() |> Client.with_tls(trusted)!
     response = Client.get(client, Url.parse("${base}/hi")!)!
     io.print("https ${Status.code(response.status)} ${Response.text(response)!} HTTP/${response.protocol.major}")
     untrusted = http.get(Url.parse("${base}/hi")!)

@@ -567,6 +567,109 @@ with `case` or `else`. `!` works on any expression that is a `Maybe` or a `Resul
 a pipe stage (`"8" |> String.to_int()!`), a field (`user.nickname!`) or a
 name.
 
+## What can fail at run time
+
+Nothing in Nomi or its standard library stops a program while it runs unless
+the program asks for it. It asks with a `!`, an
+[`unreachable`](/functions-and-lambdas/#code-that-cannot-be-reached) or a
+[`todo`](/functions-and-lambdas/#unwritten-code), or by awaiting a task that
+[failed](/concurrency/#when-a-task-fails). Beyond those, a program can run
+out of memory, make more than 100,000 nested calls, or never finish. A
+pipeline that consumes the whole of an endless iterator stops with a message
+instead of hanging ([Iter](/collections/#iter)).
+
+The checks happen where values enter, so the operations after them cannot
+fail:
+
+- A value that must meet a rule has a
+  [subtype](/structs-enums-distinct/#subtypes): a count is a
+  `NonNegativeInt`, a list with a first element a `NonEmptyList`.
+- A literal passed where a subtype is expected is checked when the program
+  compiles.
+- A check narrows a binding: after `if d == 0 then return ...`, `d` is a
+  `NonZeroInt`. The compiler also follows ranges, so each `d` in `1..=n` is
+  one too.
+- `/` and `%` take a `NonZeroInt` divisor
+  ([Numbers](/scalars-and-strings/#numbers-booleans-operators)), so a
+  division by zero does not compile.
+- A lookup that may miss returns a [`Maybe`](#maybet-and-resultt-e), and an
+  operation that fails for a reason returns a `Result`.
+
+```nomi-run
+fn average(total: Int, count: Int) -> Maybe<Int>
+    if count == 0 then return None
+    Some(total / count)
+end
+
+fn divisors(n: Int) -> List<Int>
+    1..=n
+    |> Iter.filter(fn d -> n % d == 0)
+    |> Iter.to_list()
+end
+
+fn main()
+    dbg average(17, 4)
+    dbg average(17, 0)
+    dbg divisors(12)
+end
+```
+<!-- expect
+dbg line 13: average(17, 4) = Some(4)
+dbg line 14: average(17, 0) = None
+dbg line 15: divisors(12) = [1, 2, 3, 4, 6, 12]
+-->
+
+Without the check, `average` does not compile:
+
+```nomi-run error
+fn average(total: Int, count: Int) -> Int
+    total / count
+end
+
+fn main()
+    dbg average(17, 4)
+end
+```
+<!-- expect
+main.nomi:2:13: `/` divides by a NonZeroInt; `count` is an Int
+main.nomi:2:13: help: check it first (`if count == 0 then ...`) or take a NonZeroInt
+-->
+
+The compiler proves a divisor is not zero from the checks and ranges already
+in the code, with no solver and nothing to annotate.
+
+Other languages draw these lines in other places:
+
+| | Nomi | Elm | Gleam | Rust | Go |
+| --- | --- | --- | --- | --- | --- |
+| Integer division by zero | Compile error | Returns `0` | Returns `0` | Panic | Panic |
+| Index past the end | `Maybe` | `Maybe` | No indexing | Panic | Panic |
+| Integer overflow | None | Target decides | None on Erlang | Debug panic, release wraps | Wraps |
+| A failed task | Trap when awaited | Typed error | Linked processes crash | `Err` from `join` | Panic ends the program |
+
+- **Nomi** has no `xs[i]`: `List.get` returns a `Maybe`, and an `Int` has
+  no size limit. A task that returns an `Err` has not failed; that is its
+  result. A task fails when its body traps. Every task is waited on, and
+  how you wait decides: `Task.await` traps with the same fault, and
+  `Task.outcome` returns the failure as a value.
+- **Elm**'s `//` returns `0`, but `modBy 0 n` crashes. Its integers are
+  exact within 32 bits; past that the compilation target decides.
+- **Gleam**'s `/` returns `0`, and the separate function `int.divide`
+  returns an `Error` instead. On JavaScript its `Int` is a
+  64-bit float. A process affects no other unless they are linked:
+  `process.spawn` links the new process to its parent, and
+  `process.spawn_unlinked` does not.
+- **Rust**'s `v[i]` panics and `get` returns an `Option`.
+- **Go** refuses a constant zero divisor when compiling.
+- **Calling the host language:** in Nomi a Go `error` arrives as a
+  `Result`, and a Go panic stops the calling task. Elm has no direct calls,
+  only flags and ports. A Gleam external's type is trusted, and a wrong one
+  can crash at run time.
+
+Write `!` where you know a fact the types cannot see, such as a key that came
+from the map itself. Each place a program can stop is then written in its
+source.
+
 ## Binding with `else`
 
 `?` passes an error up unchanged. Sometimes you want to handle a failure

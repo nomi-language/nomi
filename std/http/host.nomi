@@ -7,7 +7,7 @@ import
     bool.Bool
     bytes.Bytes
     context.Context
-    int.Int
+    int.{Int, NonNegativeInt}
     io.Reader
     io.Writer
     lists.List
@@ -179,7 +179,6 @@ pub host fn next(listener: Listener) -> Maybe<Incoming>
 pub host fn shutdown(listener: Listener, timeout: Int) -> Unit
 
 pub host fn in_method(incoming: Incoming) -> String
-pub host fn in_url(incoming: Incoming) -> String
 pub host fn in_host(incoming: Incoming) -> String
 pub host fn in_remote(incoming: Incoming) -> String
 pub host fn in_target(incoming: Incoming) -> String
@@ -290,7 +289,7 @@ pub host fn format_time(nanos: Int) -> String
 pub host fn parse_time(text: String) -> Result<Int, String>
 
 /// A reader over `r` that fails past `max` bytes.
-pub host fn limit_body(r: Reader, max: Int) -> Reader
+pub host fn limit_body(r: Reader, max: NonNegativeInt) -> Reader
 
 /// A cookie jar: Go's net/http/cookiejar.
 pub host type Jar

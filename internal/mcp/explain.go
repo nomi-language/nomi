@@ -8,11 +8,21 @@ var explanations = map[string]string{
 		"`type Email String when is_email`), and the type's rule, or a rule up its chain, is false for it: `Port(0)`, or `0` passed where a " +
 		"`Port` is expected. The rule runs when the program is compiled. Change the literal, or, for a value known only when the program runs, " +
 		"check it with `Port.try_from(x)`, which answers a `Maybe<Port>`.",
-	"literal-zero-divisor": "An `Int` or `Decimal` `/` or `%`, or a std function that divides (`Int.modulo`, `Int.floor_div`, " +
-		"`Decimal.divide`, `Decimal.divide_exact`), has a literal zero as its divisor (`x / 0`, `x % -0`, `Int.modulo(x, 0)`, `d / 0d`). " +
-		"It would trap with `division by zero` every time it ran. Divide by the value you meant. A divisor known only when the program " +
-		"runs still traps there when it is zero; take it as a `NonZeroInt` or `NonZeroDecimal` (`NonZeroInt.try_from(n)`) to make the " +
-		"division total. `Float` division by zero gives an infinity or NaN and is not reported.",
+	"unchecked-literal": "A literal of a subtype or a validated type could not be checked against its rule when the program was compiled, " +
+		"so the program is refused rather than run with a value no rule vouched for. A message that starts `internal:` is a bug in Nomi: " +
+		"the compiler lost the function that checks the rule; report it. Otherwise the rule reaches something the compiler does not " +
+		"support yet; until it does, build the value with the type's `try_from`, which answers a `Maybe`.",
+	"literal-zero-divisor": "An `Int`, `Decimal` or `Duration` `/` or `%`, or its named form (`Int.divide`, `Int.remainder`, " +
+		"`Decimal.remainder`), divides by a value that is always zero: a literal zero (`x / 0`, `x % -0`, `d / 0d`), or a binding " +
+		"or expression whose value the compiler knows is 0 (`zero = 0` then `7 % zero`). Divide by the value you meant. " +
+		"`Float` division by zero gives an infinity or NaN and is not reported.",
+	"unchecked-operand": "std's `/` and `%` on `Int`, `Decimal` and `Duration` take a divisor that cannot be zero (`NonZeroInt`, " +
+		"`NonZeroDecimal`, `NonZeroDuration`; a `Duration` divided by an `Int` takes a `NonZeroInt`), and `<<<` and `>>>` a " +
+		"`NonNegativeInt` count, so a checked program never divides by zero or shifts by a negative count. The operand here is not " +
+		"shown to be one. Check it first: after `if d == 0 then return ...`, or in the `else` of `if d == 0`, `d` is a `NonZeroInt`. " +
+		"Or take the subtype as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
+		"`NonZeroInt.try_from(...)`, which answers a `Maybe`. A non-zero literal, and a value whose range rules zero out " +
+		"(`n + 1` with `n` a `NonNegativeInt`), pass as they are.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +

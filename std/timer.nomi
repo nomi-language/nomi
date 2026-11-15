@@ -5,13 +5,19 @@
 
 import
     duration.Duration
+    instant.Instant
     unit.Unit
 end
 
-/// Suspends the current task for the given duration.
+/// Suspends the current task for the given duration. A zero or negative
+/// duration returns at once, so `timer.sleep(deadline - now)` is right
+/// when the deadline has passed. A duration past about 292 years, the
+/// longest wait the clock counts, waits that long: the sleep ends only when
+/// its context is cancelled.
 ///
 /// When called inside a `concurrent { }` block, cancellation of that block's
 /// context ends the sleep early without producing a user-visible error.
-//! assert timer.sleep(Duration.nanoseconds(0)) == Unit
+//! deadline = Instant.from_seconds(0)
+//! assert timer.sleep(Instant.between(Instant.from_seconds(1), deadline)) == Unit
 //
 pub host fn sleep(d: Duration) -> Unit

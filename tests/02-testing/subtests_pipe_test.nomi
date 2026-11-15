@@ -42,7 +42,7 @@ test "rows built by a pipeline"
     |> Iter.map(fn n -> (n, n * n))
     |> Iter.to_list()
     |> subtests (n, square)
-        assert square / n == n
+        assert square == n * n
     end
 end
 

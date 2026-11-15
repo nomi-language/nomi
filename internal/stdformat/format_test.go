@@ -45,14 +45,14 @@ func TestFormatInt(t *testing.T) {
 		{"en", math.MinInt64, "-9,223,372,036,854,775,808"},
 		{"qaa", 1234567, "1,234,567"}, // no data: root
 	} {
-		if got := FFIFormatInt(fr, c.locale, rt.SmallInt(c.n), true, 1); got != c.want {
+		if got := FFIFormatInt(fr, c.locale, rt.SmallInt(c.n), true, rt.SmallInt(1)); got != c.want {
 			t.Errorf("Int.format(%d, %s) = %q, want %q", c.n, c.locale, got, c.want)
 		}
 	}
-	if got := FFIFormatInt(fr, "en", rt.SmallInt(1234567), false, 1); got != "1234567" {
+	if got := FFIFormatInt(fr, "en", rt.SmallInt(1234567), false, rt.SmallInt(1)); got != "1234567" {
 		t.Errorf("grouping: False gives %q", got)
 	}
-	if got := FFIFormatInt(fr, "en", rt.SmallInt(42), true, 5); got != "00,042" {
+	if got := FFIFormatInt(fr, "en", rt.SmallInt(42), true, rt.SmallInt(5)); got != "00,042" {
 		t.Errorf("min_digits: 5 gives %q", got)
 	}
 }
@@ -81,7 +81,7 @@ func TestFormatFloat(t *testing.T) {
 		{"en", math.NaN(), 0, 3, "NaN"},
 		{"fr", 1234.5, 0, 3, "1 234,5"},
 	} {
-		if got := FFIFormatFloat(fr, c.locale, c.f, c.minF, c.maxF, true); got != c.want {
+		if got := FFIFormatFloat(fr, c.locale, c.f, rt.SmallInt(c.minF), rt.SmallInt(c.maxF), true); got != c.want {
 			t.Errorf("Float.format(%v, %s, %d, %d) = %q, want %q", c.f, c.locale, c.minF, c.maxF, got, c.want)
 		}
 	}
@@ -104,7 +104,7 @@ func TestFormatPercent(t *testing.T) {
 		{"ar-EG", 0.5, 0, "٥٠٪؜"},
 		{"en", 12.345, 0, "1,234%"},
 	} {
-		if got := FFIFormatFloatPercent(fr, c.locale, c.f, c.maxF); got != c.want {
+		if got := FFIFormatFloatPercent(fr, c.locale, c.f, rt.SmallInt(c.maxF)); got != c.want {
 			t.Errorf("Float.format_percent(%v, %s) = %q, want %q", c.f, c.locale, got, c.want)
 		}
 	}
@@ -115,7 +115,7 @@ func TestFormatPercent(t *testing.T) {
 		{"en", "-0.01", "-0.01%"},
 		{"de", "1234.56", "1.234,56 %"},
 	} {
-		if got := FFIFormatDecimalPercent(fr, c.locale, c.d, 0, 100); got != c.want {
+		if got := FFIFormatDecimalPercent(fr, c.locale, c.d, rt.SmallInt(0), rt.SmallInt(100)); got != c.want {
 			t.Errorf("Decimal.format_percent(%s, %s) = %q, want %q", c.d, c.locale, got, c.want)
 		}
 	}
@@ -131,7 +131,7 @@ func TestFormatDecimal(t *testing.T) {
 		{"hi", "1234567.5", "12,34,567.5"},
 		{"en", "123456789012345678901234567890.25", "123,456,789,012,345,678,901,234,567,890.25"},
 	} {
-		if got := FFIFormatDecimal(fr, c.locale, c.d, 0, 100, true); got != c.want {
+		if got := FFIFormatDecimal(fr, c.locale, c.d, rt.SmallInt(0), rt.SmallInt(100), true); got != c.want {
 			t.Errorf("Decimal.format(%s, %s) = %q, want %q", c.d, c.locale, got, c.want)
 		}
 	}
@@ -139,12 +139,10 @@ func TestFormatDecimal(t *testing.T) {
 
 func TestFormatTrapsOnBadOptions(t *testing.T) {
 	for name, f := range map[string]func(){
-		"min_digits 0":                 func() { FFIFormatInt(full(), "en", rt.SmallInt(1), true, 0) },
-		"min > max":                    func() { FFIFormatFloat(full(), "en", 1, 3, 2, true) },
-		"negative max":                 func() { FFIFormatFloatPercent(full(), "en", 1, -1) },
-		"over the bound":               func() { FFIFormatFloat(full(), "en", 1, 0, 101, true) },
-		"decimal min > max":            func() { FFIFormatDecimal(full(), "en", "1.5", 2, 1, true) },
-		"decimal percent negative min": func() { FFIFormatDecimalPercent(full(), "en", "1", -1, 0) },
+		"min > max":                    func() { FFIFormatFloat(full(), "en", 1, rt.SmallInt(3), rt.SmallInt(2), true) },
+		"negative max":                 func() { FFIFormatFloatPercent(full(), "en", 1, rt.SmallInt(-1)) },
+		"decimal min > max":            func() { FFIFormatDecimal(full(), "en", "1.5", rt.SmallInt(2), rt.SmallInt(1), true) },
+		"decimal percent negative min": func() { FFIFormatDecimalPercent(full(), "en", "1", rt.SmallInt(-1), rt.SmallInt(0)) },
 	} {
 		func() {
 			defer func() {
@@ -157,6 +155,16 @@ func TestFormatTrapsOnBadOptions(t *testing.T) {
 	}
 }
 
+// A digit count has no upper bound: it is what the caller asked for.
+func TestFormatTakesAnyDigitCount(t *testing.T) {
+	if got := FFIFormatInt(full(), "en", rt.SmallInt(7), false, rt.SmallInt(150)); len(got) != 150 {
+		t.Errorf("min_digits 150 gave %d digits", len(got))
+	}
+	if got := FFIFormatFloat(full(), "en", 0.5, rt.SmallInt(120), rt.SmallInt(120), false); len(got) != 122 {
+		t.Errorf("120 fraction digits gave %q", got)
+	}
+}
+
 func TestUnlistedLocalesFallBack(t *testing.T) {
 	fr := only("de")
 	for _, c := range []struct{ locale, want string }{
@@ -164,7 +172,7 @@ func TestUnlistedLocalesFallBack(t *testing.T) {
 		{"de-CH", "1.234.567"}, // de-CH is not carried: its parent de is
 		{"fr", "1,234,567"},    // nothing on fr's chain is carried, and no source: root
 	} {
-		if got := FFIFormatInt(fr, c.locale, rt.SmallInt(1234567), true, 1); got != c.want {
+		if got := FFIFormatInt(fr, c.locale, rt.SmallInt(1234567), true, rt.SmallInt(1)); got != c.want {
 			t.Errorf("listing only de, Int.format(1234567, %s) = %q, want %q", c.locale, got, c.want)
 		}
 	}
@@ -193,7 +201,7 @@ func TestALocaleTheProgramDoesNotCarryFormatsAsTheSource(t *testing.T) {
 	} {
 		d := cldrfull.ForProgram([]string{"en", "de"}, c.source)
 		fr := rt.NewFrame(cldrdata.WithData(context.Background(), d))
-		if got := FormatStyle(d, c.locale, date, "long/-"); got != c.date {
+		if got := FormatStyle(d, c.locale, rt.SmallInt(date[0]), date[1:], "long/-"); got != c.date {
 			t.Errorf("source %q: a long date in %s is %q, want %q", c.source, c.locale, got, c.date)
 		}
 		if got := Money(d, c.locale, "12.5", "EUR", 2, true, displaySymbol, false); got != c.money {

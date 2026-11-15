@@ -55,7 +55,8 @@ fn main()
     Iter.iterate(min_depth, &(&1 + 2))
     |> Iter.take_while(&(&1 <= max_depth))
     |> Iter.each(fn depth ->
-        iterations = 1 <<< (max_depth - depth + min_depth)
+        // depth is at most max_depth.
+        iterations = 1 <<< NonNegativeInt.try_from(max_depth - depth + min_depth)!
         total = Iter.reduce(1..=iterations, 0, fn sum, _ -> sum + check(make(depth)))
         io.print("${iterations}\t trees of depth ${depth}\t check: ${total}")
     end)

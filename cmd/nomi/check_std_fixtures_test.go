@@ -8,11 +8,10 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 )
 
-// `nomi check std` skips std's `_fixtures` tree, whose modules exist only
-// in a test binary run with NOMI_STD_FIXTURES=1; checked as files, their
-// bare std imports failed with "expected std/iter.Iter<T>, got
-// iter.Iter<T>". The rest of std is still checked.
-func TestCheckCommand_SkipsTheStdFixtures(t *testing.T) {
+// `nomi check std` checks std's `_fixtures` tree with the rest of std. Each
+// fixture is checked as its std module, so its bare std imports are std's
+// (TestCheck_EveryStdFixtureChecksClean in vmhost checks them clean).
+func TestCheckCommand_ChecksTheStdFixtures(t *testing.T) {
 	stdRoot, err := analysis.StdlibPath()
 	if err != nil {
 		t.Skipf("no stdlib source tree: %v", err)
@@ -21,14 +20,13 @@ func TestCheckCommand_SkipsTheStdFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sawIter := false
+	sawIter, sawConn := false, false
 	for _, f := range files {
-		if strings.Contains(filepath.ToSlash(f), "/_fixtures/") {
-			t.Errorf("checked a fixture: %s", f)
-		}
+		slashed := filepath.ToSlash(f)
 		sawIter = sawIter || filepath.Base(f) == "iter.nomi"
+		sawConn = sawConn || strings.HasSuffix(slashed, "/_fixtures/conn.nomi")
 	}
-	if !sawIter {
-		t.Fatalf("std/iter.nomi is not among the %d files checked", len(files))
+	if !sawIter || !sawConn {
+		t.Fatalf("std/iter.nomi checked: %v, std/_fixtures/conn.nomi checked: %v, among %d files", sawIter, sawConn, len(files))
 	}
 }

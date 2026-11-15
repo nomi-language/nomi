@@ -44,6 +44,14 @@ Parts of a shipped feature that are not built. Each line is open work.
   validated struct takes no type parameters. `try_from` of a subtype
   whose parents share an ancestor runs that ancestor's rule once for each
   parent, since a rule is reached only through its type's `try_from`.
+  An element's range reaches only a lambda or capture passed straight to
+  a std `Iter` function over a range literal, `Range.from`, `Iter.from`,
+  a collection literal or an adapter chain of them (spec §4 *Value
+  ranges*): a source bound to a name first, a `once` table, the items
+  of `Iter.chunks` and `Iter.windows`, and `Iter.iterate` give none, and
+  `1..n` stays a `Range<Int>`, since `Range<T>` is invariant.
+  A `once` reaches other code with the range its type states, not its
+  exact value, and a Duration's typed literal has no range.
 
 - **Checked literals.** `Url`, `Toml`, `Cron` and std::http's `Route` are the std types that implement `CheckedLiteral`; `Regex`, `Uuid` and the calendar types keep `Literal`, since their slots splice text or can fail. `LiteralError`'s fields have no defaults, so a `check` names all three. A checked literal with no slots is built each time it is reached, not once per site as a backtick literal is. A `Url` path slot of `.` or `..` is written `%2E` or `%2E%2E`, which a WHATWG URL parser, as browsers use, still reads as a dot segment. A `Toml` literal checks its static text with a stand-in for each slot, so two key slots that hold the same value at run time, or a key slot whose value matches a static key, write a key twice, which a TOML reader refuses; an `Int` slot outside 64 bits is written whole, which a reader may refuse too.
 
@@ -53,7 +61,7 @@ Parts of a shipped feature that are not built. Each line is open work.
 - **`io.replay`.** `Replayed` is not generic, so it does not carry `run`'s value.
 - **Numbers and lists.** Compact and scientific notation, and ICU's contextual list words (Spanish `y`/`e`). `String.join_list` takes a `List<String>`, not an `Iter`, because a std function cannot take an `Iter<T>` unless it is generic, and a generic one's defaults cannot be left out.
 - **Money.** Accounting patterns (`(€12.50)`), cash rounding (CHF's 0.05), `Currency.name`, and currency spacing beyond CLDR's `alphaNextToNumber` patterns. Names are carried only for currencies some region uses today; a historical currency's name is its code.
-- **Dates and times.** Time zone names (a `Full` or `Long` time writes the GMT offset), flexible day periods (`B` is written as AM/PM), quarter and week names and fields, `OffsetDateTime.format`, `DateTime.parse_in`, `parse_in` of a `NaiveDateTime`, CLDR's `appendItems` (a skeleton field no available format has is appended after a space), and calendars other than the Gregorian.
+- **Dates and times.** Time zone names (a `Full` or `Long` time writes the GMT offset), flexible day periods (`B` is written as AM/PM), quarter and week names and fields, `OffsetDateTime.format`, `DateTime.parse_in`, `parse_in` of a `NaiveDateTime`, CLDR's `appendItems` (a skeleton field no available format has is appended after a space), and calendars other than the Gregorian. A fixed pattern's `y` writes a year before 1 as its era's year with no era (`-000044` is `45`), so `parse_with` reads it back as a year of the common era, and no pattern reads a signed year (`u`).
 - **Collation and case.** The `search`, `searchjl`, `unihan`, `zhuyin`, `eor` and `emoji` collation types and `alt` variants, `en-US-POSIX`'s rules, `maxVariable`, `-u-kr-` and `-u-kv-`, and Greek upper-casing without accents.
 - **HTTP.** `std::http` covers Go's net/http, httputil, httptest, httptrace, cookiejar and mime/multipart, `std::tls` crypto/tls and `std::net` TCP, as `internal/stdhttp/inventory.txt` lists row by row. Go's callbacks into a program (TLS `certificate_for` and `verify`, a server's connection-state, error-log and shutdown hooks, HTTP/2's error counter, the proxy-connect hook) run on the task waiting in the crossing that set them off: the server's `serve`, the client's send, a handshake or a TLS accept. So a TLS listener runs each handshake on the accepting task, one at a time. Request tracing records events as data (`Tracer`) rather than calling back. `Request.read` and `Response.read` read the body whole, a byte at a time under Go's reader, and a multipart form read whole (`multipart_form`, `read_multipart_form`) is held in memory; `multipart_parts` streams. `Url` has no `ToJson`. On Windows std::net reports a refused or reset connection as `net.Error.Other`. A js/wasm build sends through `fetch` in a browser, and cannot serve or dial TCP; under Node, Go's js/wasm transport does not use `fetch`, so a request fails there. `http.compress` writes gzip only, since Go's standard library has no brotli encoder.
 - **WebSockets.** No extension is negotiated, so there is no permessage-deflate: every message travels uncompressed. A message is sent as one frame, never fragmented, and a received one is joined whole in memory up to `max_message_size`; there is no streamed message. A text message's UTF-8 is checked once it is whole, so a bad byte in an early fragment is reported when the last arrives. WebSockets over HTTP/2 (RFC 8441) are not built: `accept` needs an HTTP/1.1 connection. `close` waits a fixed five seconds for the peer's close frame. `Server.request_timeout` bounds a connection's life, since the connection runs on its request's task. A js/wasm build cannot connect, since a browser's `WebSocket` API is not used. `std::http::testing.open_websocket` sends a fixed `Sec-WebSocket-Key`.
@@ -81,9 +89,10 @@ Parts of a shipped feature that are not built. Each line is open work.
 
 ## Type checker
 
+- [ ] The compile-time `once` cycle check (spec §6 *`once` Bindings*) does not follow a call through a function value, an interface value or a type parameter, an operator's implementation or a default argument; a cycle closed through one traps at run time. It follows every branch, so a read on a branch initialization never takes still counts.
 - [ ] The release rules (spec §9 *Releasing resources*) do not cover `fs.make_temp_dir`, whose directory is a `String`, nor a `Reader` or `Writer` that a program's own function returns outside a `Result` (`fn log() -> Reader` whose body is `fs.open(path)!`), which a caller is not held to release.
 - [ ] Unused file-private declarations are not reported.
-- [ ] A discarded call (`_ = f(x)`) is not diagnosed. Deciding that it is dead needs effect tracking, and purity is not enough: Nomi traps, so `_ = a / b` can fail on a zero divisor and is observable.
+- [ ] A discarded call (`_ = f(x)`) is not diagnosed. Deciding that it is dead needs effect tracking, and purity is not enough: Nomi traps, so `_ = Vector.get(v, i)!` can fail on an index past the end and is observable.
 
 ## Language server
 

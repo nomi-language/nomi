@@ -295,7 +295,7 @@ func TestInPlace_ADebugMachineHandsNothingOn(t *testing.T) {
 const ownedVector = `import std::io
 
 fn fill(v: Vector<Int>, n: Int) -> Vector<Int>
-    if n < 1 then v else fill(Vector.set(v, n %% 64, n), n - 1)
+    if n < 1 then v else fill(Vector.set(v, n %% 64, n)!, n - 1)
 end
 
 fn main()
@@ -325,7 +325,7 @@ func TestInPlace_AKeptCollectionKeepsItsValue(t *testing.T) {
 	const src = `import std::io
 
 fn bump(v: Vector<Int>) -> Vector<Int>
-    Vector.set(v, 0, Vector.get(v, 0)! + 100)
+    Vector.set(v, 0, Vector.get(v, 0)! + 100)!
 end
 
 fn grow(m: Map<Int, Int>, n: Int) -> Map<Int, Int>
@@ -370,7 +370,7 @@ fn main()
     io.print("${s} ${s2} ${s3}")
 
     big = Iter.to_vector(0..100)
-    big2 = Vector.push(Vector.set(big, 50, -1), 100)
+    big2 = Vector.push(Vector.set(big, 50, -1)!, 100)
     io.print("${Vector.get(big, 50)} ${Vector.get(big2, 50)} ${Vector.length(big)} ${Vector.length(big2)}")
 end
 `

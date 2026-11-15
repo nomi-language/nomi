@@ -4,16 +4,21 @@
 /// equal rationals have the same fields and `==` compares them.
 pub opaque struct Rational
     numerator:   Int
-    denominator: Int
+    denominator: PositiveInt
 end
 
+/// A Rational other than zero: what `/` divides by.
+pub subtype NonZeroRational Rational when fn r -> r.numerator != 0
+
 impl Rational
-    /// `numerator / denominator` in lowest terms. The denominator is a
-    /// divisor the caller chose, so a zero one traps as `/` does: the
-    /// reduction divides by it.
-    pub fn new(numerator: Int, denominator: Int) -> Rational
-        common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        {numerator: numerator / common, denominator: denominator / common}
+    /// `numerator / denominator` in lowest terms. The denominator is not
+    /// zero, so the reduction's divisor is not either.
+    pub fn new(numerator: Int, denominator: NonZeroInt) -> Rational
+        // The gcd of a number and a non-zero one is at least 1.
+        gcd = PositiveInt.try_from(Int.gcd(numerator, denominator))!
+        common = if denominator < 0 then -gcd else gcd
+        // `denominator / common` has the sign of `denominator * common`.
+        {numerator: numerator / common, denominator: PositiveInt.try_from(denominator / common)!}
     end
 
     pub fn numerator(r: Rational) -> Int
@@ -29,8 +34,8 @@ impl Rational
     end
 
     /// `r` to the power `exponent`. A negative exponent raises the
-    /// reciprocal, so zero to a negative power traps as division by zero
-    /// does.
+    /// reciprocal, which zero has none of, so zero to a negative power
+    /// traps.
     pub fn pow(r: Rational, exponent: Int) -> Rational
         case NonNegativeInt.try_from(exponent)
             Some(e) ->
@@ -38,7 +43,11 @@ impl Rational
 
             None ->
                 e = NonNegativeInt.try_from(-exponent)!
-                Rational.new(Int.pow(r.denominator, e), Int.pow(r.numerator, e))
+
+                Rational.new(
+                    Int.pow(r.denominator, e),
+                    NonZeroInt.try_from(Int.pow(r.numerator, e))!,
+                )
         end
     end
 
@@ -73,9 +82,12 @@ impl Multiply<Rational, Rational> for Rational
     end
 end
 
-impl Divide<Rational, Rational> for Rational
-    /// Dividing by zero traps, as `/` on `Int` does.
-    fn divide(lhs: Rational, rhs: Rational) -> Rational
-        Rational.new(lhs.numerator * rhs.denominator, lhs.denominator * rhs.numerator)
+impl Divide<NonZeroRational, Rational> for Rational
+    /// The divisor is not zero, as `/` on `Int` takes a `NonZeroInt`.
+    fn divide(lhs: Rational, rhs: NonZeroRational) -> Rational
+        NonZeroRational(r) = rhs
+        // A NonZeroRational's numerator is not zero.
+        divisor = NonZeroInt.try_from(r.numerator)!
+        Rational.new(lhs.numerator * r.denominator, lhs.denominator * divisor)
     end
 end

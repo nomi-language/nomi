@@ -16,8 +16,9 @@ import (
 // Stored facts: what the program's reductions over bodies read of one file,
 // kept with the file's record and named so another process can read it.
 //
-// The reductions are the boot-only check (CheckBootScope), the
-// application-field roots (CheckAppRoots), the whole-file imports
+// The reductions are the boot-only check (CheckBootScope), the once-cycle
+// check (CheckOnceCycles), the application-field roots (CheckAppRoots), the
+// whole-file imports
 // (CheckImplImports) and coherence's missing impls (FinalizeCoherence).
 // Each reads every file's bodies, through summaries keyed by AST and
 // *Symbol pointers that live only as long as one check. A file's FileFacts
@@ -54,6 +55,7 @@ type FileFacts struct {
 	// ("orders.nomi").
 	Path, Base  string
 	Boot        BootFacts
+	Once        OnceFacts
 	App         AppFacts
 	ImplImports ImplImportFacts
 	// Demands is the file's own ImplManifest, bucket by bucket in order,
@@ -119,6 +121,37 @@ type BootVisit struct {
 	Fn                 int
 	Calls, LambdaCalls []BootCallFact
 	Values             []BootValueFact
+}
+
+// OnceFacts is the once-cycle check's reading of one file.
+type OnceFacts struct {
+	// Decls is each `once` with a value and each function with a body the
+	// file defines, by name: the program's graph is built from every
+	// file's.
+	Decls []OnceDeclFact
+	// Reports is the names of the file's `once` bindings in the order its
+	// report visits them.
+	Reports []string
+}
+
+// OnceDeclFact is one `once`'s initializer or one function's body: what it
+// reads and calls (onceRef), each target a project file's declaration.
+// Display is how a chain names it; Line and Col are a `once`'s declaration,
+// and TypeCycle says type inference reports it already.
+type OnceDeclFact struct {
+	Name, Display string
+	Once          bool
+	Line, Col     int
+	TypeCycle     bool
+	Refs          []OnceRefFact
+}
+
+// OnceRefFact is one read of a `once` or call of a function, at Line.
+type OnceRefFact struct {
+	Target  DeclRef
+	Read    bool
+	Line    int
+	Display string
 }
 
 // AppFacts is the application-field root check's answer for one file, when
@@ -343,9 +376,11 @@ func (n *FactsNamer) add(key string, nodes []ast.Node) {
 			items = d.Items
 		}
 		for _, it := range items {
-			if fd, ok := it.(*ast.FuncDef); ok {
-				if _, named := n.byNode[fd]; !named {
-					n.byNode[fd] = DeclRef{File: key, Name: fmt.Sprintf("@%d:%d", fd.Line, fd.Col)}
+			switch d := it.(type) {
+			case *ast.FuncDef, *ast.OnceBinding:
+				if _, named := n.byNode[d]; !named {
+					p := topLevelPos(d)
+					n.byNode[d] = DeclRef{File: key, Name: fmt.Sprintf("@%d:%d", p.Line, p.Col)}
 				}
 			}
 		}
@@ -491,6 +526,9 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 	}
 	walk(nodes)
 	bootMu.Unlock()
+
+	// The once-cycle check.
+	f.Once = onceFactsOf(key, fa, nodes, namer, ownRef)
 
 	// The application-field roots, when the file's answer is its own.
 	if !appTypes {
@@ -837,9 +875,9 @@ func StdContextOf(fa *FileAnalysis) (StdContext, bool) {
 // AppRoots holds a file's answer only when every file's AppFacts is exact
 // (AppExact).
 type Reductions struct {
-	Boot, AppRoots, ImplImports map[string][]TypeError
-	Coherence                   []TypeError
-	AppExact                    bool
+	Boot, Once, AppRoots, ImplImports map[string][]TypeError
+	Coherence                         []TypeError
+	AppExact                          bool
 }
 
 // Clean reports whether r holds no diagnostic, its application-field roots
@@ -852,15 +890,16 @@ func (r *Reductions) Clean(appTypes bool) bool {
 	if !appTypes && (!r.AppExact || len(r.AppRoots) > 0) {
 		return false
 	}
-	return len(r.Boot) == 0 && len(r.ImplImports) == 0
+	return len(r.Boot) == 0 && len(r.Once) == 0 && len(r.ImplImports) == 0
 }
 
 // ReduceFacts runs the program's reductions over its project files' facts,
 // by module key, with the program's supply and the stdlib's demands.
 func ReduceFacts(files map[string]*FileFacts, supply *ProgramSupply, std StdContext) *Reductions {
 	keys := sortedKeys(files)
-	r := &Reductions{Boot: map[string][]TypeError{}, AppRoots: map[string][]TypeError{}, ImplImports: map[string][]TypeError{}, AppExact: true}
+	r := &Reductions{Boot: map[string][]TypeError{}, Once: map[string][]TypeError{}, AppRoots: map[string][]TypeError{}, ImplImports: map[string][]TypeError{}, AppExact: true}
 	reduceBoot(files, keys, r)
+	reduceOnce(files, keys, r)
 	for _, key := range keys {
 		if !files[key].App.Exact {
 			r.AppExact = false
@@ -1279,11 +1318,14 @@ func (dm *DocumentManager) StoredFactsForTest(full *CheckedProgram) (fromSource,
 	dm.analyzeMu.Unlock()
 
 	c := full.checks
-	whole = &Reductions{Boot: map[string][]TypeError{}, AppRoots: map[string][]TypeError{}, ImplImports: map[string][]TypeError{}, Coherence: c.coherence}
+	whole = &Reductions{Boot: map[string][]TypeError{}, Once: map[string][]TypeError{}, AppRoots: map[string][]TypeError{}, ImplImports: map[string][]TypeError{}, Coherence: c.coherence}
 	whole.AppExact = !appTypes
 	for key := range project {
 		if errs := c.bootScope[key]; len(errs) > 0 {
 			whole.Boot[key] = errs
+		}
+		if errs := c.onceCycles[key]; len(errs) > 0 {
+			whole.Once[key] = errs
 		}
 		if errs := c.implImports[key]; len(errs) > 0 {
 			whole.ImplImports[key] = errs

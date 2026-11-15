@@ -119,13 +119,25 @@ func (c *checker) recordRefinedLiteral(node ast.Node, t Type) {
 			dt = nil
 		}
 		if dt != nil && (len(dt.TypeArgs) > 0 || !dt.Subtype) {
-			step.Check = c.refinementCheckCall(node, dt, i)
+			var refused *TypeError
+			step.Check, refused = c.refinementCheckCall(node, dt, i)
 			if step.Check == nil {
 				line, col := startOf(node)
-				c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-					"this %s literal cannot be checked when the program is compiled: its rule is checked through `%s.try_from`, and `%s` is not named in this file",
-					formatTypeForError(t), dt.Name, dt.Name)}.WithHint(fmt.Sprintf(
-					"import `%s` into this file, or build the value with `%s.try_from(...)`", dt.Name, dt.Name)))
+				if refused != nil {
+					// The check call does not type: what it reported, at
+					// the literal, since its own nodes stand where no
+					// source is.
+					e := *refused
+					e.Line, e.Col, e.EndLine, e.EndCol = line, col, 0, 0
+					c.report(e)
+				} else if line > 0 && !IsSynthesizedLine(line) {
+					// No declaration to check it through: never silently
+					// unchecked.
+					c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
+						"this %s literal cannot be checked when the program is compiled: the program has no declaration of %s to check it through",
+						formatTypeForError(t), dt.Name)}.WithHint(fmt.Sprintf(
+						"build the value with `%s.try_from(...)`", dt.Name)))
+				}
 				return
 			}
 		} else if origin, nominal := nominalOrigin(check); nominal {
@@ -138,7 +150,7 @@ func (c *checker) recordRefinedLiteral(node ast.Node, t Type) {
 	c.fa.RefinedLiterals[node] = rec
 	line, col := startOf(node)
 	switch node.(type) {
-	case *ast.StructLit, *ast.ListLit, *ast.MapLit:
+	case *ast.StructLit, *ast.ListLit, *ast.MapLit, *ast.RangeLit:
 		// A literal of many tokens has the hover of its type.
 		return
 	}
@@ -155,6 +167,31 @@ func (c *checker) recordRefinedLiteral(node ast.Node, t Type) {
 	}
 }
 
+// refinementDeclSymbol is the symbol that declares the refinement dt: the
+// one this file binds to its name, or, where the file binds the name to
+// nothing or to another type, the declaring file's own. A literal is
+// checked against dt whatever this file names, so the check call's owner
+// is resolved through it rather than through a name in scope.
+func (c *checker) refinementDeclSymbol(dt *DistinctType) *Symbol {
+	if local, ok := c.reg.Lookup(dt.Name).(*DistinctType); ok && sameNominalIdentity(local.Origin, local.Name, dt.Origin, dt.Name) {
+		if sym := c.fa.ModuleScope.Lookup(dt.Name); sym != nil {
+			return sym
+		}
+	}
+	home := c.fa.Program().File(dt.Origin)
+	if home == nil || home.ModuleScope == nil {
+		return nil
+	}
+	sym := home.ModuleScope.LookupLocal(dt.Name)
+	if sym == nil {
+		return nil
+	}
+	if got, ok := sym.Type.(*DistinctType); !ok || !sameNominalIdentity(got.Origin, got.Name, dt.Origin, dt.Name) {
+		return nil
+	}
+	return sym
+}
+
 // RefinementLiteralName is the identifier a generic refinement's check
 // call (RefinementStep.Check) passes the literal's value through: a name
 // no source can write.
@@ -163,40 +200,44 @@ const RefinementLiteralName = "refinement literal"
 // refinementCheckCall is the call `Name.try_from(v)` that checks the
 // literal node against the generic refinement dt, its step-th check, at
 // dt's type arguments, typed as a call written in this file would be, with
-// v (RefinementLiteralName) dt's base. Its nodes stand at the literal's
-// line and at columns below zero, unique per literal and step, where no
-// source token is, so its records collide with none. Nil when dt's name
-// does not reach dt here, or the call does not check.
-func (c *checker) refinementCheckCall(node ast.Node, dt *DistinctType, step int) ast.Node {
+// v (RefinementLiteralName) dt's base. Its owner is dt's declaration
+// (refinementDeclSymbol), recorded at the owner's node, so the call needs
+// no name of this file. Its nodes stand at the literal's line and at
+// columns below zero, unique per literal and step, where no source token
+// is, so its records collide with none. Nil when there is no such call,
+// and with the first error the call reported when it does not check (a
+// type argument that breaks a bound of dt's `where`).
+func (c *checker) refinementCheckCall(node ast.Node, dt *DistinctType, step int) (ast.Node, *TypeError) {
 	if c.fa == nil || dt.Name == "" || dt.Intersection {
-		return nil
-	}
-	if local, ok := c.reg.Lookup(dt.Name).(*DistinctType); !ok || !sameNominalIdentity(local.Origin, local.Name, dt.Origin, dt.Name) {
-		return nil
+		return nil, nil
 	}
 	line, col := startOf(node)
 	if line <= 0 || IsSynthesizedLine(line) {
-		return nil
+		return nil, nil
+	}
+	typeSym := c.refinementDeclSymbol(dt)
+	if typeSym == nil {
+		return nil, nil
 	}
 	at := -(col*64 + step*4)
 	owner := &ast.TypeIdent{Name: dt.Name, Line: line, Col: at - 1}
 	value := identExpr(RefinementLiteralName, line, at-3)
 	call := &ast.Call{Func: fieldAccess(owner, "try_from", line, at-2), Args: []ast.Node{value}, Line: line, Col: at}
-	typeSym := c.fa.ModuleScope.Lookup(dt.Name)
-	if typeSym == nil {
-		return nil
-	}
 	c.fa.References[Pos{Line: line, Col: at - 1}] = typeSym
 	base := refinementBaseOf(dt)
 	c.fa.References[Pos{Line: line, Col: at - 3}] = &Symbol{Name: RefinementLiteralName, Kind: SymbolBinding, Type: base, Pos: Pos{Line: line, Col: at - 3}}
 	mark, undeterminedMark := len(c.errors), len(c.undetermined)
 	got := c.checkNode(call)
-	failed := len(c.errors) > mark
-	c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
-	if failed || got == nil {
-		return nil
+	var refused *TypeError
+	if len(c.errors) > mark {
+		e := c.errors[mark]
+		refused = &e
 	}
-	return call
+	c.errors, c.undetermined = c.errors[:mark], c.undetermined[:undeterminedMark]
+	if refused != nil || got == nil {
+		return nil, refused
+	}
+	return call, nil
 }
 
 // RefinementRuleCheck is a generic refinement's rule as its declaration
@@ -409,6 +450,12 @@ func (c *checker) refinementCtorArg(arg ast.Node, dt *DistinctType, label string
 		// `Port(port)`: already a Port.
 		return
 	}
+	if proven := c.provenRefinement(arg, argTy, dt); proven != nil {
+		// `Port(n)` after `if n >= 1 and n <= 65535`: its range proves
+		// the rule (ranges.go).
+		c.fa.recordExprType(arg, proven)
+		return
+	}
 	line, col := startOf(arg)
 	c.report(refinementNeedsCheck(line, col, dt, argTy, label+"(...)"))
 }
@@ -498,7 +545,17 @@ func refinementNeedsCheck(line, col int, dt *DistinctType, got Type, what string
 		msg = fmt.Sprintf("type mismatch: expected %s, got %s", dt.Name, formatTypeForError(got))
 	}
 	return TypeError{Line: line, Col: col, Message: msg}.WithHint(fmt.Sprintf(
-		"check the value with `%s.try_from(...)`, which is `Some` when it satisfies `%s` and `None` when not", dt.Name, dt.Rule))
+		"check the value with `%s.try_from(...)`, which is `Some` %s", dt.Name, tryFromSomeWhen(dt)))
+}
+
+// tryFromSomeWhen says when dt's try_from answers Some: when its rule
+// holds, or, for a subtype with no rule of its own (`subtype Pixels
+// PositiveInt and Int64`), when the value is each of its parents.
+func tryFromSomeWhen(dt *DistinctType) string {
+	if dt.Rule == "" {
+		return fmt.Sprintf("when it is each of %s, and `None` when not", refinementParentsText(dt))
+	}
+	return fmt.Sprintf("when it satisfies `%s` and `None` when not", dt.Rule)
 }
 
 // refinementMismatchHint is the help for `type mismatch: expected Port, got
@@ -520,8 +577,8 @@ func refinementMismatchHint(want, have Type) (string, bool) {
 	}
 	for _, anc := range RefinementAncestors(dt) {
 		if TypesIdentical(anc, have) {
-			return fmt.Sprintf("%s is a subtype of %s; check the value with `%s.try_from(...)`, which is `Some` when it satisfies `%s` and `None` when not",
-				dt.Name, refinementParentsText(dt), dt.Name, dt.Rule), true
+			return fmt.Sprintf("%s is a subtype of %s; check the value with `%s.try_from(...)`, which is `Some` %s",
+				dt.Name, refinementParentsText(dt), dt.Name, tryFromSomeWhen(dt)), true
 		}
 	}
 	return "", false
@@ -855,9 +912,15 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 	}
 	iface := TypeExprBaseName(n.Interface)
 	if gt, generic := n.Interface.(*ast.GenericType); generic {
-		// `impl Divide<Port, Int> for Int`: the impl would be selected at
+		// `impl Add<Port, Int> for Int`: the impl would be selected at
 		// run time by Port's base, where the base's own impl already is.
-		for _, arg := range gt.Params {
+		// The right operand of `/`, `%`, `<<<` and `>>>` may be a subtype
+		// (operandSubtypeInterfaces): `impl Divide<NonZeroInt, Int> for Int`
+		// states which divisors the operator takes.
+		for i, arg := range gt.Params {
+			if i == 0 && operandSubtypeInterfaces[iface] {
+				continue
+			}
 			if at, err := ResolveTypeExpr(arg, c.reg, nil, nil); err == nil && refinementOf(at) != nil {
 				c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 					"an impl's interface cannot take the subtype `%s` as an argument: `%s` is %s %s at run time, so the impl is %s's",
@@ -928,6 +991,8 @@ func holdsRefinementLiteral(n ast.Node) bool {
 				return true
 			}
 		}
+	case *ast.RangeLit:
+		return nonLiteralPart(v) == nil
 	case *ast.Call:
 		for _, a := range v.Args {
 			if holdsRefinementLiteral(a) {
@@ -973,13 +1038,16 @@ func anyRefinementInTypes(ts []Type, depth int) bool {
 	return false
 }
 
-// checkCollectionRefinementLit checks n, a list, vector, set or map
+// checkCollectionRefinementLit checks n, a list, vector, set, map or range
 // literal the checker typed as ty, when ty is a distinct refinement: one
-// whose every element, key and value is a literal, through nested
-// collection and tuple literals, is recorded for the compile-time check of
-// its rules, as a struct refinement's literal is; any other is an error
-// naming `try_from`, since its rules would have to run when the program
-// does. ty is the answer either way.
+// whose every element, key, value and endpoint is a literal, through
+// nested collection and tuple literals, is recorded for the compile-time
+// check of its rules, as a struct refinement's literal is. A literal of
+// NonEmptyList, NonEmptyVector, NonEmptyMap or NonEmptySet that holds
+// something by its shape (literalHoldsSomething) needs no literal parts:
+// its shape proves the rule. Any other is an error naming `try_from`,
+// since its rules would have to run when the program does. ty is the
+// answer either way.
 func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 	dt := refinementOf(ty)
 	if dt == nil {
@@ -989,10 +1057,29 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 		return ty
 	}
 	if bad := nonLiteralPart(n); bad != nil {
+		if isStdNonEmptyCollection(dt) {
+			if c.literalHoldsSomething(n) {
+				// `[a, b]` as a NonEmptyList: the literal's shape proves
+				// the rule, whatever its elements are.
+				return ty
+			}
+			// Only spreads, none of a non-empty type: `[..xs]`.
+			line, col := startOf(n)
+			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
+				"`%s` may be empty, and a %s holds something: none of its spreads is of a non-empty type, and it writes no element",
+				RenderLiteral(n), dt.Name)}.WithHint(fmt.Sprintf(
+				"write an element beside the spread, spread a %s, or check the value with `%s.try_from(...)`, a `Maybe<%s>`",
+				dt.Name, dt.Name, formatTypeForError(dt))))
+			return ty
+		}
+		parts := "elements"
+		if _, isRange := ungroupExpr(n).(*ast.RangeLit); isRange {
+			parts = "endpoints"
+		}
 		line, col := startOf(bad)
 		c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-			"%s is a subtype: a literal of it is checked when the program is compiled, so each of its elements is a literal, and `%s` is not",
-			dt.Name, RenderLiteral(bad))}.WithHint(fmt.Sprintf(
+			"%s is a subtype: a literal of it is checked when the program is compiled, so each of its %s is a literal, and `%s` is not",
+			dt.Name, parts, RenderLiteral(bad))}.WithHint(fmt.Sprintf(
 			"build a %s from values known only when the program runs with `%s.try_from(...)`, a `Maybe<%s>`, which checks `%s`",
 			dt.Name, dt.Name, formatTypeForError(dt), dt.Rule)))
 		return ty
@@ -1001,10 +1088,67 @@ func (c *checker) checkCollectionRefinementLit(n ast.Node, ty Type) Type {
 	return ty
 }
 
-// nonLiteralPart is the first part of the collection literal n that is no
-// literal a refinement position checks (refinementLiteral), looking through
-// nested list, vector, set, map and tuple literals, or nil when every part
-// is one. A spread is never one.
+// stdNonEmptyCollections are the std subtypes whose only rule is that the
+// collection holds something, by declaring file and name.
+var stdNonEmptyCollections = map[[2]string]bool{
+	{"std/lists", "NonEmptyList"}:     true,
+	{"std/vectors", "NonEmptyVector"}: true,
+	{"std/maps", "NonEmptyMap"}:       true,
+	{"std/sets", "NonEmptySet"}:       true,
+}
+
+// isStdNonEmptyCollection reports whether dt is NonEmptyList,
+// NonEmptyVector, NonEmptyMap or NonEmptySet, at any type arguments. A
+// subtype declared over one of them is not: its own rule says more.
+func isStdNonEmptyCollection(dt *DistinctType) bool {
+	return dt != nil && dt.Subtype && !dt.Intersection && stdNonEmptyCollections[[2]string{dt.Origin, dt.Name}]
+}
+
+// nonEmptyByType reports whether a value of t holds something because of
+// its type: t is a std non-empty collection subtype or a subtype below one.
+func nonEmptyByType(t Type) bool {
+	for _, s := range refinementChain(t) {
+		if isStdNonEmptyCollection(refinementOf(s)) {
+			return true
+		}
+	}
+	return false
+}
+
+// literalHoldsSomething reports whether the list, vector, set or map
+// literal n, already checked, holds at least one element whatever its
+// elements are: it writes an element or an entry, or spreads a value whose
+// type is non-empty (nonEmptyByType). `[..xs]` with xs a List may be empty;
+// `[..xs, y]` and `[..ys]` with ys a NonEmptyList are not.
+func (c *checker) literalHoldsSomething(n ast.Node) bool {
+	var spreads []ast.Spread
+	switch v := ungroupExpr(n).(type) {
+	case *ast.ListLit:
+		if len(v.Items) > 0 {
+			return true
+		}
+		spreads = v.Spreads
+	case *ast.MapLit:
+		if len(v.Entries) > 0 {
+			return true
+		}
+		spreads = v.Spreads
+	default:
+		return false
+	}
+	for _, sp := range spreads {
+		if c.fa != nil && nonEmptyByType(c.fa.ExprTypes[sp.Head]) {
+			return true
+		}
+	}
+	return false
+}
+
+// nonLiteralPart is the first part of the collection or range literal n
+// that is no literal a refinement position checks (refinementLiteral),
+// looking through nested list, vector, set, map and tuple literals, or nil
+// when every part is one. A spread is never one, and an endpoint a range
+// leaves out (`1..`) is no part.
 func nonLiteralPart(n ast.Node) ast.Node {
 	if refinementLiteral(n) {
 		return nil
@@ -1023,6 +1167,16 @@ func nonLiteralPart(n ast.Node) ast.Node {
 	case *ast.TupleLit:
 		for _, item := range v.Items {
 			if bad := nonLiteralPart(item); bad != nil {
+				return bad
+			}
+		}
+		return nil
+	case *ast.RangeLit:
+		for _, end := range []ast.Node{v.Start, v.End} {
+			if end == nil {
+				continue
+			}
+			if bad := nonLiteralPart(end); bad != nil {
 				return bad
 			}
 		}

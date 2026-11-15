@@ -1,6 +1,6 @@
 //# Writes numbers as Roman numerals.
 
-once numerals = [
+once numerals: List<(PositiveInt, String)> = [
     (1000, "M"),
     (900,  "CM"),
     (500,  "D"),
@@ -20,7 +20,7 @@ once numerals = [
 /// many times as it fits into what is left.
 pub fn roman(number: Int) -> String
     (_left, parts) = Iter.map_reduce(numerals, number, fn left, (value, symbol) ->
-        (left % value, String.repeat(symbol, left / value))
+        (left % value, String.repeat(symbol, NonNegativeInt.try_from(left / value)!))
     end)
 
     String.join(parts)

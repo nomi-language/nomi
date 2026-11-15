@@ -80,13 +80,7 @@ func Table(root string, virtualFiles map[string]string) func(*hostadapt.Env) (ma
 				if err != nil {
 					return nil, err
 				}
-				diags, err := stdcompiler.ProjectSpecDiagnostics(spec, root)
-				if err != nil {
-					// A host-argument fault, reported as the text alone, with
-					// no position.
-					rt.Trap(err.Error())
-				}
-				return d.diagnostics(diags), nil
+				return d.diagnostics(stdcompiler.ProjectSpecDiagnostics(spec, root)), nil
 			},
 			"compiler.format": func(_ *rt.Frame, args []rt.Value) (rt.Value, error) {
 				source, err := stringArg("compiler.format", args)

@@ -80,9 +80,10 @@ func TestCalendarUnitsAreNominallyDistinctAtTheGoLevel(t *testing.T) {
 		// The adapter's own boundary rule, asserted rather than assumed: a rung
 		// that still declared `rt.Minutes` would not survive the FFI preflight,
 		// so a row that reads that way means the registry and the facade have
-		// come apart.
-		if fn.In(1).Kind() != reflect.Int64 || fn.In(1) != reflect.TypeFor[int64]() {
-			t.Errorf("%s: rt symbol's operand is %s, want a plain int64 — "+
+		// come apart. The count is an Int of any size, which the adder
+		// refuses past the calendar's range itself.
+		if fn.In(1) != reflect.TypeFor[rt.Int]() {
+			t.Errorf("%s: rt symbol's operand is %s, want rt.Int — "+
 				"the adapter boundary is spelled in Int", b.Name, fn.In(1))
 		}
 		prefix, _, _ := strings.Cut(local, "_add_")

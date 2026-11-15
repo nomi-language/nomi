@@ -73,7 +73,7 @@ export fn describe(o: Outcome) -> String
 end
 
 export fn divide(a: Int, b: Int) -> Int
-  a / b
+  a / NonZeroInt.try_from(b)!
 end
 
 export fn nothing() end
@@ -117,7 +117,7 @@ end
 fn main()
   zero = String.length("")
   io.print("dividing")
-  io.print("${100 / zero}")
+  io.print("${100 / NonZeroInt.try_from(zero)!}")
 end
 `,
 	"spin.nomi": `fn main()
@@ -641,7 +641,7 @@ func TestBuildWeb(t *testing.T) {
 			}
 		}
 		for i, want := range map[int]string{
-			5: "line 45: division by zero",
+			5: "line 45: `NonZeroInt.try_from(b)` found nothing",
 			7: "argument `o` of `describe(o: Outcome) -> String`: expected Outcome, got \"Lost\"",
 			8: "no exported function `nope`; the exported functions are describe, divide, guess, new_game, nothing, outcome",
 		} {

@@ -13,10 +13,10 @@ import (
 )
 
 // Argon2id is RFC 9106's Argon2id of password and salt, length bytes long,
-// with time passes over memoryKiB KiB in threads lanes. The Nomi side keeps
-// every parameter in range before it calls this.
-func Argon2id(password, salt []byte, time, memoryKiB, threads, length int64) []byte {
-	return argon2.IDKey(password, salt, uint32(time), uint32(memoryKiB), uint8(threads), uint32(length))
+// with time passes over memoryKiB KiB in threads lanes. The Nomi side
+// declares each parameter's range, so threads is at most 255.
+func Argon2id(password, salt []byte, time, memoryKiB, threads, length uint32) []byte {
+	return argon2.IDKey(password, salt, time, memoryKiB, uint8(threads), length)
 }
 
 // BcryptHash is password hashed by bcrypt at cost, as `$2a$<cost>$...`

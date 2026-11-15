@@ -12,17 +12,13 @@ import (
 // fails here.
 func TestIRStdlibTrap_ReportsTheProgramsLine(t *testing.T) {
 	for name, want := range map[string]string{
-		// The trap is in the host function std/float.nomi's `clamp` calls.
-		"stdlib_trap_clamp.nomi": "line 9: Comparable.clamp: low 2.0 is greater than high 1.0\n",
-		// The zero divisor is in std/int.nomi's `modulo`.
-		"stdlib_trap_modulo.nomi": "line 8: division by zero\n",
-		// Iter.sum, its reduce lambda and Duration's Add impl: the
-		// program's line is the `|> Iter.sum()` stage.
-		"stdlib_trap_deep.nomi": "line 15: Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way\n",
+		// Decimal.format, the std function it rounds through, and the host
+		// function that ends in: the program's line is its call.
+		"stdlib_trap_deep.nomi": "line 11: Decimal.round: scale 4294967298 is past a Decimal's, which is -2147483648 to 2147483647\n",
 		// The lambda's own line, not the `Iter.map` stage's (line 10).
-		"stdlib_trap_lambda.nomi": "line 12: division by zero\n",
+		"stdlib_trap_lambda.nomi": "line 12: `NonZeroInt.try_from(divisor)` found nothing\n",
 		// A host function's text names no line; the call's is put first.
-		"stdlib_trap_repeat.nomi": "line 17: strings.String.repeat: negative count -2\n",
+		"stdlib_trap_host.nomi": "line 17: Int.pow: exponent 100000000000 is too large: the power would have more than 17179869184 bits\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := goldenReference(t, fixture(name))

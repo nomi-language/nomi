@@ -2,12 +2,15 @@ package stdformat
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/stdcalendar"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // READING DATES. `Date.parse_in` and `Time.parse_in` read text by the
@@ -82,7 +85,7 @@ func (c calendarIn) read(text string, fields []cldrdata.DateField, date, time, l
 			r.items = r.items[:len(r.items)-1]
 		}
 	}
-	v := civil{year: 1970, month: 1, day: 1}
+	v := civil{year: rt.SmallInt(1970), month: 1, day: 1}
 	pm, period, bc := false, false, false
 	h12 := int64(-1)
 	for i, f := range fields {
@@ -102,16 +105,19 @@ func (c calendarIn) read(text string, fields []cldrdata.DateField, date, time, l
 			}
 			bc = k == 0
 		case 'y', 'Y', 'u':
-			n, digits, err := r.number("the year", 1, 9, f.Count, exact)
+			// A year has as many digits as it needs.
+			text, err := r.digits("the year", 1, math.MaxInt, f.Count, exact)
 			if err != "" {
 				return "!" + err
 			}
+			n := rt.IntOf(must(rt.ParseIntValue(text)))
+			digits := len(text)
 			// A locale's `y` and `yy` read two digits as a two-digit year,
 			// as ICU does: German's medium `dd.MM.y` reads `20.10.26` as
 			// 2026. A fixed pattern's `y` reads the year itself, so
 			// parse_with reads back what to_string_with writes for year 26.
 			if digits == 2 && (f.Count == 2 || f.Count == 1 && c.d != nil) {
-				n += 2000
+				n = rt.IntOf(rt.IntAdd(n.Value(), int64(2000)))
 			}
 			v.year = n
 		case 'M', 'L':
@@ -198,7 +204,7 @@ func (c calendarIn) read(text string, fields []cldrdata.DateField, date, time, l
 		return fmt.Sprintf("!unexpected `%s` at %d after the %s", r.items[r.at].g, r.items[r.at].at, whatOf(date, time))
 	}
 	if bc {
-		v.year = 1 - v.year
+		v.year = rt.IntOf(rt.IntSub(int64(1), v.year.Value()))
 	}
 	if h12 >= 0 {
 		v.hour = h12
@@ -227,17 +233,10 @@ func (c calendarIn) answer(v civil, date, time bool) string {
 		switch {
 		case v.month < 1 || v.month > 12:
 			return fmt.Sprintf("?there is no month %d", v.month)
-		case v.day < 1 || v.day > monthDays(v.year, v.month):
-			return fmt.Sprintf("?month %d of %d has no day %d", v.month, v.year, v.day)
+		case v.day < 1 || v.day > stdcalendar.DaysInMonth(v.year, v.month):
+			return fmt.Sprintf("?month %d of %s has no day %d", v.month, v.year, v.day)
 		}
-		y := strconv.FormatInt(absInt64(v.year), 10)
-		if len(y) < 4 {
-			y = strings.Repeat("0", 4-len(y)) + y
-		}
-		if v.year < 0 {
-			y = "-" + y
-		}
-		fmt.Fprintf(&b, "%s-%02d-%02d", y, v.month, v.day)
+		b.WriteString(stdcalendar.ISODateText(v.year, v.month, v.day))
 	}
 	if time {
 		switch {
@@ -328,6 +327,24 @@ func (r *reader) itemAt(i int) int {
 // width 2, and exactly two for a two-digit year; lenient reads a year's
 // two or four.
 func (r *reader) number(what string, least, most, width int, exact bool) (int64, int, string) {
+	digits, err := r.digits(what, least, most, width, exact)
+	if err != "" {
+		return 0, 0, err
+	}
+	n, _ := strconv.ParseInt(digits, 10, 64)
+	return n, len(digits), ""
+}
+
+// must is a value an operation that cannot fail on its input answered.
+func must[T any](v T, ok bool) T {
+	if !ok {
+		panic("stdformat: a digit run did not parse")
+	}
+	return v
+}
+
+// digits reads a numeric field's digits, in ASCII, as number does.
+func (r *reader) digits(what string, least, most, width int, exact bool) (string, string) {
 	if exact && width > 1 {
 		least, most = width, width
 	}
@@ -347,13 +364,12 @@ func (r *reader) number(what string, least, most, width int, exact bool) (int64,
 		r.at++
 	}
 	if len(digits) < least {
-		return 0, 0, fmt.Sprintf("expected %s at %d, %s", what, r.itemAt(r.at-len(digits)), r.where())
+		return "", fmt.Sprintf("expected %s at %d, %s", what, r.itemAt(r.at-len(digits)), r.where())
 	}
 	if what == "the year" && width == 2 && len(digits) == 3 {
-		return 0, 0, fmt.Sprintf("expected a two- or four-digit year, %s", r.where())
+		return "", fmt.Sprintf("expected a two- or four-digit year, %s", r.where())
 	}
-	n, _ := strconv.ParseInt(string(digits), 10, 64)
-	return n, len(digits), ""
+	return string(digits), ""
 }
 
 // nameSets are the names a text field of count letters reads: in strict

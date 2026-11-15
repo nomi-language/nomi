@@ -110,9 +110,9 @@ func TestRun_WriteBySelectiveImport(t *testing.T) {
 }
 
 func TestRun_AFaultExitsOneWithItsText(t *testing.T) {
-	img := image(t, "import std::io\n\nfn d(a: Int, b: Int) -> Int\n  a / b\nend\n\nfn main()\n  io.print(d(1, 0))\nend\n")
+	img := image(t, "import std::io\n\nfn d(a: Int, b: Int) -> Int\n  a / NonZeroInt.try_from(b)!\nend\n\nfn main()\n  io.print(d(1, 0))\nend\n")
 	var out, errOut bytes.Buffer
-	if code := vmrunner.Run(img, &out, &errOut, nil, nil, false); code != 1 || !strings.Contains(errOut.String(), "division by zero") {
+	if code := vmrunner.Run(img, &out, &errOut, nil, nil, false); code != 1 || !strings.Contains(errOut.String(), "found nothing") {
 		t.Fatalf("exit %d, stderr %q", code, errOut.String())
 	}
 }

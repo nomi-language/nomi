@@ -56,7 +56,9 @@ fn mandelbrot(size: Int) -> Int
                 if bit_num == 8 then
                     Acc{sum: acc.sum ^^^ byte_acc, byte_acc: 0, bit_num: 0}
                 else if x == size - 1 then
-                    Acc{sum: acc.sum ^^^ (byte_acc <<< (8 - bit_num)), byte_acc: 0, bit_num: 0}
+                    // bit_num is below 8 here.
+                    shift = NonNegativeInt.try_from(8 - bit_num)!
+                    Acc{sum: acc.sum ^^^ (byte_acc <<< shift), byte_acc: 0, bit_num: 0}
                 else
                     {..acc, byte_acc:, bit_num:}
                 end

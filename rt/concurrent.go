@@ -567,8 +567,9 @@ func TaskCancel[T any](h Task[T]) Unit {
 // handles at once — and only execution is throttled; `spawnScopeTask` holds a
 // slot for the duration of one body.
 //
-// `maxRunning < 1` is a fault rather than a clamp. Clamping to 1 would run a
-// program whose bound is meaningless.
+// std declares max_running a PositiveInt, so a bound of 0, which would spawn
+// tasks that never run, does not compile, and a computed one goes through
+// `PositiveInt.try_from`.
 func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunning int64) *List[Task[U]] {
 	s := fr.scope
 	if s == nil {
@@ -577,9 +578,6 @@ func TaskSpawnAll[T, U any](fr *Frame, src Seq[T], f func(*Frame, T) U, maxRunni
 		// that rule ever relaxes, the failure names itself instead of
 		// dereferencing nil.
 		Trap("Task.spawn_all: no enclosing concurrent block")
-	}
-	if maxRunning < 1 {
-		Trap(fmt.Sprintf("spawn_all: max_running must be at least 1, got %d", maxRunning))
 	}
 	var items []T
 	src.Run(fr, func(fr *Frame, item T) bool {

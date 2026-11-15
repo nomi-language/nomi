@@ -1,7 +1,7 @@
 import std::io
 
 fn ratio(a: Int, b: Int) -> Int
-    q = a / b
+    q = a <<< (Int.abs(b) + 100_000_000_000)
     q
 end
 

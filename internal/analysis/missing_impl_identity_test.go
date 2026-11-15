@@ -267,9 +267,11 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // implIdentityFallbackPopulation is every (T, Iface) pair the bare table
 // claims and the identity index cannot judge, measured over the stdlib.
 //
-// They are the impls whose headers write type arguments: the 48 OPERATOR
+// They are the impls whose headers write type arguments: the OPERATOR
 // pairs (the arithmetic ones and the bitwise ones on Int and Byte), String's Contains, Url's
-// `CheckedLiteral<String, Url>`, Toml's `CheckedLiteral<ToToml, Toml>` and std/jobs's Cron literal, and std/fs's `Lines`, `Chunks` and `Walk`,
+// `CheckedLiteral<String, Url>`, Toml's `CheckedLiteral<ToToml, Toml>` and std/jobs's Cron literal,
+// Codepoint's synthesized `TryFrom<Int64>` (a type over a subtype takes the
+// rule in its chain as a TryFrom of its base), and std/fs's `Lines`, `Chunks` and `Walk`,
 // std/csv's `RecordIter` and `RowIter` and std/xml's `TokenIter` as
 // `Iter<Result<...>>`. One mechanism explains the whole set:
 // `ImplBlockInterfaceKey` spells such an impl with its type arguments
@@ -286,7 +288,7 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 // too-wide rule there costs 13 corpus files and 3 std tests. It is a named
 // follow-on with a known mechanism, not an oversight.
 const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/BitwiseOr Byte/BitwiseXor " +
-	"Bytes/Add Chunks/Iter Cron/CheckedLiteral Date/Add Date/Subtract DateTime/Add " +
+	"Bytes/Add Chunks/Iter Codepoint/TryFrom Cron/CheckedLiteral Date/Add Date/Subtract DateTime/Add " +
 	"DateTime/Subtract Decimal/Add Decimal/Averageable Decimal/Divide Decimal/Multiply " +
 	"Decimal/Remainder Decimal/Subtract Duration/Add Duration/Averageable Duration/Divide " +
 	"Duration/Multiply Duration/Remainder Duration/Subtract Float/Add Float/Averageable Float/Divide " +
@@ -294,7 +296,7 @@ const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/Bit
 	"Int/Add Int/Averageable Int/BitwiseAnd Int/BitwiseNot Int/BitwiseOr " +
 	"Int/BitwiseXor Int/Divide Int/Multiply Int/Parse Int/Remainder Int/ShiftLeft " +
 	"Int/ShiftRight Int/Subtract Lines/Iter List/Add Map/Add " +
-	"Money/Add Money/Multiply Money/Subtract NaiveDateTime/Add " +
+	"Money/Multiply NaiveDateTime/Add " +
 	"NaiveDateTime/Subtract OffsetDateTime/Add " +
 	"OffsetDateTime/Subtract RecordIter/Iter Route/CheckedLiteral RowIter/Iter Set/Add Set/Subtract Statement/Add " +
 	"String/Add String/Contains String/Parse Time/Add Time/Subtract TokenIter/Iter Toml/CheckedLiteral Url/CheckedLiteral Uuid/Parse Vector/Add " +

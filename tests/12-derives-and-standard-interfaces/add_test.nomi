@@ -51,9 +51,10 @@ impl Multiply<Score, Score> for Score
     end
 end
 
-impl Divide<Score, Score> for Score
-    fn divide(lhs: Score, rhs: Score) -> Score
-        Score(score_value(lhs) / score_value(rhs))
+// A Score divides by a count that is not zero, as Int's `/` does.
+impl Divide<NonZeroInt, Score> for Score
+    fn divide(lhs: Score, rhs: NonZeroInt) -> Score
+        Score(score_value(lhs) / rhs)
     end
 end
 
@@ -114,7 +115,7 @@ test "operator interfaces power custom arithmetic"
 
     assert score_value(score - Score(3)) == 17
     assert score_value(score * Score(2)) == 40
-    assert score_value(score / Score(4)) == 5
+    assert score_value(score / 4) == 5
 end
 
 test "primitive operator interface functions dispatch directly"
@@ -170,7 +171,7 @@ test "generic operators use their interface output type"
     later: Day = plus(Day(20), Weeks(1))
     lower: Day = minus(Day(20), Days(2))
     scaled: Score = times(Score(4), Score(3))
-    halved: Score = divided_by(Score(20), Score(2))
+    halved: Score = divided_by(Score(20), NonZeroInt(2))
 
     assert score_value(score) == 13
     assert day_value(day) == 22

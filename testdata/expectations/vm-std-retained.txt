@@ -128,6 +128,7 @@ calendar.nomi:DateTime.to_instant	ran
 calendar.nomi:DateTime.to_naive	ran
 calendar.nomi:DateTime.to_string_with	ran
 calendar.nomi:DateTime.with_zone	ran
+calendar.nomi:DateTime.zone	ran
 calendar.nomi:DateTimeFields.equal	ran
 calendar.nomi:DateTimeFields.from_fragments	ran
 calendar.nomi:DateTimeFields.inspect	ran
@@ -352,7 +353,9 @@ calendar.nomi:calendar.Time.parse_in default 3	ran
 calendar.nomi:calendar.Time.parse_in default 4	ran
 calendar.nomi:calendar.TimeUnit.format_relative arity 3	ran
 calendar.nomi:calendar.TimeUnit.format_relative default 4	ran
+calendar.nomi:component	ran
 calendar.nomi:day_nanos	ran
+calendar.nomi:offset_in_range	ran
 code_points.nomi:Codepoint.compare	ran
 code_points.nomi:Codepoint.equal	ran
 code_points.nomi:Codepoint.hash	ran
@@ -424,6 +427,8 @@ decimal.nomi:NonZeroDecimal.try_from	ran
 decimal.nomi:NonZeroDecimal.unchecked	ran
 decimal.nomi:PositiveDecimal.try_from	ran
 decimal.nomi:PositiveDecimal.unchecked	ran
+decimal.nomi:Ratios.try_from	ran
+decimal.nomi:Ratios.unchecked	ran
 decimal.nomi:RoundingMode.inspect	ran
 decimal.nomi:RoundingMode.to_string	ran
 decimal.nomi:decimal.Decimal.parse_in arity 2	ran
@@ -431,10 +436,11 @@ decimal.nomi:decimal.Decimal.parse_in default 3	ran
 decimal.nomi:decimal.Decimal.parse_percent_in arity 2	ran
 decimal.nomi:decimal.Decimal.parse_percent_in default 3	ran
 duration.nomi:Duration.Add<Duration, Duration>.add	ran
-duration.nomi:Duration.Divide<Int, Duration>.divide	ran
+duration.nomi:Duration.Divide<NonZeroInt, Duration>.divide	ran
 duration.nomi:Duration.Multiply<Int, Duration>.multiply	ran
-duration.nomi:Duration.Remainder<Duration, Duration>.remainder	ran
+duration.nomi:Duration.Remainder<NonZeroDuration, Duration>.remainder	ran
 duration.nomi:Duration.Subtract<Duration, Duration>.subtract	ran
+duration.nomi:Duration.abs	ran
 duration.nomi:Duration.as_hours	ran
 duration.nomi:Duration.as_micros	ran
 duration.nomi:Duration.as_millis	ran
@@ -457,15 +463,19 @@ duration.nomi:Duration.nanoseconds	ran
 duration.nomi:Duration.parse	ran
 duration.nomi:Duration.parse_clock	ran
 duration.nomi:Duration.seconds	ran
+duration.nomi:Duration.to_string	ran
 duration.nomi:DurationWidth.equal	ran
 duration.nomi:DurationWidth.inspect	ran
+duration.nomi:NonNegativeDuration.try_from	ran
+duration.nomi:NonNegativeDuration.unchecked	ran
+duration.nomi:NonZeroDuration.try_from	ran
+duration.nomi:NonZeroDuration.unchecked	ran
 duration.nomi:PositiveDuration.try_from	ran
 duration.nomi:PositiveDuration.unchecked	ran
 duration.nomi:digits_end	ran
 duration.nomi:duration.Duration.format arity 2	ran
 duration.nomi:duration.Duration.format default 3	ran
 duration.nomi:fraction	ran
-duration.nomi:in_range	ran
 duration.nomi:is_ascii_digit	ran
 duration.nomi:mark	ran
 duration.nomi:number	ran
@@ -506,10 +516,8 @@ float.nomi:PositiveFloat.try_from	ran
 float.nomi:PositiveFloat.unchecked	ran
 float.nomi:float.Float.format arity 2	ran
 float.nomi:float.Float.format arity 3	ran
-float.nomi:float.Float.format arity 4	ran
 float.nomi:float.Float.format default 3	ran
 float.nomi:float.Float.format default 4	ran
-float.nomi:float.Float.format default 5	ran
 float.nomi:float.Float.format_percent arity 2	ran
 float.nomi:float.Float.format_percent default 3	ran
 float.nomi:float.Float.parse_in arity 2	ran
@@ -564,6 +572,8 @@ int.nomi:Int.sign	ran
 int.nomi:Int.step_by	ran
 int.nomi:Int.steps_between	ran
 int.nomi:Int.to_digits	ran
+int.nomi:Int64.try_from	ran
+int.nomi:Int64.unchecked	ran
 int.nomi:NonNegativeInt.try_from	ran
 int.nomi:NonNegativeInt.unchecked	ran
 int.nomi:NonZeroInt.try_from	ran
@@ -617,6 +627,7 @@ json.nomi:Decimal.from_json	ran
 json.nomi:Decimal.to_json	ran
 json.nomi:Float.from_json	ran
 json.nomi:Float.to_json	ran
+json.nomi:Instant.to_json	ran
 json.nomi:Int.from_json	ran
 json.nomi:Int.to_json	ran
 json.nomi:Json.DecodeError.inspect	ran
@@ -631,6 +642,9 @@ json.nomi:Json.inspect	ran
 json.nomi:Json.kind	ran
 json.nomi:Json.to_json	ran
 json.nomi:Json.to_string	ran
+json.nomi:JsonObject.fields	ran
+json.nomi:JsonObject.try_from	ran
+json.nomi:JsonObject.unchecked	ran
 json.nomi:NaiveDateTime.from_json	ran
 json.nomi:NaiveDateTime.to_json	ran
 json.nomi:String.from_json	ran
@@ -675,8 +689,6 @@ localize.nomi:String.localize	ran
 money/format.nomi:format	ran
 money/format.nomi:label	ran
 money/format.nomi:parse	ran
-money/format.nomi:refuse	ran
-money/format.nomi:require_same	ran
 phrase/format.nomi:format	ran
 phrase/format.nomi:load	ran
 phrase/format.nomi:noun_text	ran
@@ -695,6 +707,7 @@ process/host.nomi:Fake.inspect	ran
 random.nomi:Error.equal	ran
 random.nomi:Error.inspect	ran
 random.nomi:Error.to_string	ran
+random.nomi:FiniteRange.unchecked	ran
 random.nomi:Generator.float	ran
 random.nomi:Generator.int	ran
 random.nomi:Seed.from_int	ran
@@ -704,7 +717,6 @@ random.nomi:between	ran
 random.nomi:unit_float	ran
 random.nomi:unsafe_float	ran
 random.nomi:unsafe_int	ran
-ranges.nomi:Range.from	ran
 ranges.nomi:Range.naturals	ran
 regex.nomi:Regex.from_fragments	ran
 regex.nomi:Regex.inspect	ran

@@ -1,5 +1,5 @@
 import
-    std::calendar.{Hours, Minutes, Nanoseconds, Seconds}
+    std::calendar.{Hours, Minutes, Nanoseconds, Seconds, Years}
     std::calendar.DateTime
     std::calendar.NaiveDateTime
     std::calendar.OffsetDateTime
@@ -79,4 +79,29 @@ test "zoned datetimes support civil sub-day arithmetic"
     assert dt + Nanoseconds(500_000_000) == DateTime"2026-06-15T12:00:00.5-04:00[America/New_York]"
 
     assert dt - Hours(2) == DateTime"2026-06-15T10:00:00-04:00[America/New_York]"
+end
+
+test "a zoned datetime holds years past the 64 bits of nanoseconds"
+    far = DateTime"3026-07-04T12:00:00-04:00[America/New_York]"
+
+    assert "${far + Duration.hours(24 * 180)}" == "3026-12-31T11:00:00-05:00[America/New_York]"
+
+    assert DateTime.from_instant_in(Instant.from_seconds(32_503_680_000), "UTC")
+        == Ok(DateTime"3000-01-01T00:00:00Z[UTC]")
+
+    // Before New York's first transition, its clock is local mean time.
+    assert "${DateTime"1700-01-01T12:00:00Z[America/New_York]"}"
+        == "1700-01-01T07:03:58-04:56[America/New_York]"
+end
+
+test "a zoned datetime has no first or last year"
+    july = DateTime"2026-07-04T12:00:00-04:00[America/New_York]"
+
+    assert "${july + Years(1_000_000)}" == "+1002026-07-04T12:00:00-04:00[America/New_York]"
+
+    assert DateTime.from_instant_in(Instant.from_seconds(Int.pow(10, 22)), "UTC")
+        == Ok(DateTime"+316887385070084-04-22T17:46:40Z[UTC]")
+
+    assert "${july + Duration.hours(Int.pow(10, 20))}"
+        == "+11407945862454141-08-27T03:00:00-05:00[America/New_York]"
 end

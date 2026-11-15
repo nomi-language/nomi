@@ -39,8 +39,8 @@ func TestOffsetDateTimeWallProjectsThroughTheOffsetNotUTC(t *testing.T) {
 		t.Errorf("hour = %d, want 23", got)
 	}
 	// And the instant itself is offset-free: 2026-05-05T04:30:00Z.
-	if got := odt.InstantNanos; got != 1777955400*int64(1e9) {
-		t.Errorf("instant nanos = %d, want %d", got, 1777955400*int64(1e9))
+	if got := odt.InstantNanos; got != rt.SmallInt(1777955400*int64(1e9)) {
+		t.Errorf("instant nanos = %s, want %d", got, 1777955400*int64(1e9))
 	}
 }
 
@@ -52,7 +52,7 @@ func TestOffsetDateTimeWallProjectsThroughTheOffsetNotUTC(t *testing.T) {
 // caller named an offset the type cannot hold, and answering about a different
 // offset silently is worse than refusing.
 func TestOffsetDateTimeWithOffsetRejectsSubSecondAndOverLargeOffsets(t *testing.T) {
-	naive := rt.NaiveDateTime{Year: 2026, Month: 5, Day: 4, Hour: 9}
+	naive := rt.NaiveDateTime{Year: rt.SmallInt(2026), Month: 5, Day: 4, Hour: 9}
 	sub := OffsetDateTimeWithOffset(naive, rt.Duration(500*int64(1e6)))
 	if sub.Tag == rt.TagOk {
 		t.Errorf("a 500ms offset was accepted as %+v; neither IANA nor a fixed Go zone carries "+
@@ -82,12 +82,12 @@ func TestOffsetDateTimeWithOffsetRejectsSubSecondAndOverLargeOffsets(t *testing.
 // std/calendar.nomi declares in its two return types, checked rather than
 // assumed.
 //
-// `from_instant` names a MOMENT at an offset and every moment has one, so it
-// truncates a sub-second offset instead of refusing. Reversing the two would
-// make `from_instant` fallible for no reachable reason and `with_offset` silently
-// wrong.
+// `from_instant` names a MOMENT at an offset and every moment has one, so its
+// facade truncates a sub-second offset instead of refusing. Reversing the
+// two would make `from_instant` fallible for no reachable reason and
+// `with_offset` silently wrong.
 func TestOffsetDateTimeFromInstantIsTotalWhereWithOffsetIsNot(t *testing.T) {
-	odt := OffsetDateTimeFromInstant(rt.Instant(0), rt.Duration(500*int64(1e6)))
+	odt := BoundOffsetFromInstant(rt.SmallInt(0), rt.SmallInt(500*int64(1e6)))
 	if odt.OffsetSeconds != 0 {
 		t.Errorf("offset seconds = %d, want 0 (500ms truncates)", odt.OffsetSeconds)
 	}
@@ -117,19 +117,19 @@ func TestOffsetDateTimeCivilShiftsClampAndKeepTheOffset(t *testing.T) {
 		want string
 	}{
 		{"months clamp, common year",
-			OffsetDateTimePlusMonths(parse("2026-01-31T09:15:00-05:00"), 1),
+			OffsetDateTimePlusMonths(parse("2026-01-31T09:15:00-05:00"), rt.SmallInt(1)),
 			"2026-02-28T09:15:00-05:00"},
 		{"months clamp, leap year",
-			OffsetDateTimePlusMonths(parse("2024-01-31T09:15:00-05:00"), 1),
+			OffsetDateTimePlusMonths(parse("2024-01-31T09:15:00-05:00"), rt.SmallInt(1)),
 			"2024-02-29T09:15:00-05:00"},
 		{"months back floors rather than normalizing forward",
-			OffsetDateTimePlusMonths(parse("2026-03-31T09:15:00-05:00"), -1),
+			OffsetDateTimePlusMonths(parse("2026-03-31T09:15:00-05:00"), rt.SmallInt(-1)),
 			"2026-02-28T09:15:00-05:00"},
 		{"years is twelve months, so Feb 29 clamps",
-			OffsetDateTimePlusYears(parse("2024-02-29T09:15:00-05:00"), 1),
+			OffsetDateTimePlusYears(parse("2024-02-29T09:15:00-05:00"), rt.SmallInt(1)),
 			"2025-02-28T09:15:00-05:00"},
 		{"a non-UTC offset survives the shift",
-			OffsetDateTimePlusMonths(parse("2026-01-31T09:15:00+05:30"), 1),
+			OffsetDateTimePlusMonths(parse("2026-01-31T09:15:00+05:30"), rt.SmallInt(1)),
 			"2026-02-28T09:15:00+05:30"},
 	}
 	for _, c := range cases {
@@ -157,7 +157,7 @@ func TestOffsetDateTimeCivilAndPhysicalAgreeBelowAMonth(t *testing.T) {
 	civil := OffsetDateTimeWall(odt)
 	civil.Day++
 	physical := rt.OffsetDateTime{
-		InstantNanos:  odt.InstantNanos + 24*3600*int64(1e9),
+		InstantNanos:  rt.SmallInt(smallNanos(t, odt.InstantNanos) + 24*3600*int64(1e9)),
 		OffsetSeconds: odt.OffsetSeconds,
 	}
 	shifted := OffsetDateTimeWithOffset(civil, rt.Duration(odt.OffsetSeconds*int64(1e9)))
@@ -171,8 +171,8 @@ func TestOffsetDateTimeCivilAndPhysicalAgreeBelowAMonth(t *testing.T) {
 	// The zoned control: New York's spring-forward is 2026-03-08, so the same
 	// pair diverges by an hour there.
 	ny := rt.DateTime{InstantNanos: odt.InstantNanos, Zone: "America/New_York"}
-	zonedCivil := DateTimePlusDays(ny, 1)
-	zonedPhysical := rt.DateTime{InstantNanos: ny.InstantNanos + 24*3600*int64(1e9), Zone: ny.Zone}
+	zonedCivil := DateTimePlusDays(ny, rt.SmallInt(1))
+	zonedPhysical := rt.DateTime{InstantNanos: rt.SmallInt(smallNanos(t, ny.InstantNanos) + 24*3600*int64(1e9)), Zone: ny.Zone}
 	if zonedCivil.InstantNanos == zonedPhysical.InstantNanos {
 		t.Errorf("zoned civil and physical agree across a spring-forward; they must differ by an " +
 			"hour, or the control proves nothing about the rt.OffsetDateTime case above")
@@ -208,7 +208,7 @@ func TestDateTimeToOffsetResolvesTheZoneAtThatInstant(t *testing.T) {
 	// through the language — a DateTime only exists after a successful
 	// construction — and pinned so the arm is a decision rather than an
 	// accident.
-	if got := DateTimeToOffset(rt.DateTime{InstantNanos: 0, Zone: "Not/A_Zone"}); got.OffsetSeconds != 0 {
+	if got := DateTimeToOffset(rt.DateTime{Zone: "Not/A_Zone"}); got.OffsetSeconds != 0 {
 		t.Errorf("an unloadable zone gave offset %ds, want 0", got.OffsetSeconds)
 	}
 }

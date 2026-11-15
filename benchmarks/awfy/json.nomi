@@ -61,7 +61,7 @@ impl HashIndexTable
         slot = hash_slot_for(table, name)
         // increment by 1, 0 stands for empty
         entry = if index < 255 then (index + 1) &&& 255 else 0
-        {..table, hash_table: Vector.set(table.hash_table, slot, entry)}
+        {..table, hash_table: Vector.set(table.hash_table, slot, entry)!}
     end
 
     fn get(table: HashIndexTable, name: String) -> Int

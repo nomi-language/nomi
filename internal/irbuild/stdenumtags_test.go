@@ -33,7 +33,7 @@ func TestStdEnumRowTagsMatchRtConstants(t *testing.T) {
 			"Up": int(rt.TagRoundUp), "Down": int(rt.TagRoundDown),
 			"Ceiling": int(rt.TagRoundCeiling), "Floor": int(rt.TagRoundFloor),
 			"HalfUp": int(rt.TagRoundHalfUp), "HalfDown": int(rt.TagRoundHalfDown),
-			"HalfEven": int(rt.TagRoundHalfEven), "Unnecessary": int(rt.TagRoundUnnecessary),
+			"HalfEven": int(rt.TagRoundHalfEven),
 		},
 	}, {
 		nomi: "NormalForm",

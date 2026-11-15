@@ -18,10 +18,10 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 import std::random.{Generator, Seed}
 
 once alphabet     = Iter.to_vector('a'..='z')
-once letter_count = Vector.length(alphabet)
+once letter_count = PositiveInt.try_from(Vector.length(alphabet))!
 
 /// How long a random key is.
-once random_key_length = 100
+once random_key_length: NonNegativeInt = 100
 
 /// A cipher with its key, a non-empty string of lowercase letters.
 pub opaque struct Cipher
@@ -38,7 +38,7 @@ impl Cipher
     /// `seed`, and the seed to draw from next.
     pub fn random(seed: Seed) -> (Cipher, Seed)
         (letters, next) =
-            Generator.int(0, letter_count - 1)
+            Generator.int(0..26)
             |> Generator.map(&Vector.get(alphabet, &1)!)
             |> Generator.list(random_key_length)
             |> Generator.step(seed)
@@ -170,7 +170,7 @@ test result: ok. 12 passed, 0 failed
 ## How it's written
 
 - `Cipher` is an opaque struct holding the key. `Cipher.new(key)` takes a given key, and `Cipher.random(seed)` draws one of 100 lowercase letters with std/random and answers the cipher and the next seed. Nomi has no hidden random state: randomness is a `Seed` threaded through `Generator.step`, so the random cipher is a pure function of its seed.
-- The key's letters are drawn by one generator, `Generator.int(0, 25)` mapped to the alphabet and repeated with `Generator.list(100)`. `Generator.uniform` would also do, but it takes the first choice apart from the rest.
+- The key's letters are drawn by one generator, `Generator.int(0..26)` mapped to the alphabet and repeated with `Generator.list(100)`. `Generator.uniform` would also do, but it takes a `NonEmptyList`, and the alphabet built from a range is a `Vector` no literal proves non-empty.
 - `encode` and `decode` are one `shift` with a direction of 1 or -1. The text is zipped with the key cycled by `Iter.cycle`, so a key shorter than the text repeats with no index arithmetic, and `Int.modulo` wraps a letter past `z` or before `a`.
 - A letter's number is its codepoint less `a`'s, and the moved letter is read back from the `alphabet` vector, so no `Maybe` from `Int.to_codepoint` needs unwrapping. The canonical data gives only lowercase letters, which the doc comments state as the promise.
 - The random-key cases run against a cipher made from a fixed seed, `Seed.from_int(2026)`, in a `group` whose `setup` builds it, so the tests are deterministic and still check the canonical properties (the key encodes `a`s to itself, decodes back, and is all lowercase letters) rather than a particular key.

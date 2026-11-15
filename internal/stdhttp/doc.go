@@ -10,6 +10,13 @@
 // std/url crosses through std/url/host (rt/url.go, pure), the others through
 // std/http/host here.
 //
+// A count, size, code or duration in nanoseconds crosses as an rt.Int of
+// any size, and the Go side saturates one past int64 to its bound (a
+// timeout past int64 nanoseconds waits as long as the longest one Go
+// holds), since every such value means what the bound means. A value
+// that must fit, such as an instant's nanoseconds for `format_time`, is
+// declared `Int64` in std/http/host (internal/hostgen package doc).
+//
 // inventory.txt lists every exported identifier of Go's HTTP packages, what
 // Nomi does with it and the phase that lands it. TestGoInventoryIsComplete
 // holds it to the Go the tests run under, and every covered row of a landed

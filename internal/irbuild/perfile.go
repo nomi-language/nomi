@@ -372,21 +372,27 @@ type KeptUnit struct {
 	// Refinements are the refinement literals the file checks, each with
 	// no Build, and Builds the object of a module whose functions are the
 	// Build of each that has one (KeptRefinement.Built), in order; Rules
-	// are the refinements the file declares. A program relinked from the
-	// kept lowering checks every one again against the rules as they are
-	// now, since an edit of another file (a rule, a function a rule calls)
-	// can change the answer.
+	// are the refinements the file declares, each with no Check, and
+	// RuleChecks the indexes of the rules that had one (a generic
+	// refinement's), each the next function of Builds after the literals'.
+	// A program relinked from the kept lowering checks every one again
+	// against the rules as they are now, since an edit of another file (a
+	// rule, a function a rule calls) can change the answer.
 	Refinements []KeptRefinement
 	Builds      []byte
 	Rules       []RefinementRuleSite
+	RuleChecks  []int
 }
 
 // KeptRefinement is a RefinementSite of a kept unit.
 type KeptRefinement struct {
-	// Site is the site with no Build; Built says it had one, the next
-	// function of its unit's Builds.
-	Site  RefinementSite
-	Built bool
+	// Site is the site with no Build and no step's Check; Built says it
+	// had a Build, the next function of its unit's Builds, and Checks are
+	// the indexes of the steps that had a Check, a generic subtype's, each
+	// the next function after that.
+	Site   RefinementSite
+	Built  bool
+	Checks []int
 }
 
 // FileMiss is LowerFile's answer when it cannot lower the file on its
@@ -1105,28 +1111,62 @@ func relinkedRefinements(kept *KeptLowering, old int, l *ir.Linker, fresh []Refi
 				}
 				s.Build, builds = builds[0], builds[1:]
 			}
+			if len(kr.Checks) > 0 {
+				s.Steps = slices.Clone(s.Steps)
+			}
+			for _, i := range kr.Checks {
+				if len(builds) == 0 || i >= len(s.Steps) {
+					return nil, nil, miss("%s's refinement literals do not hold the check of %s", u.Key, s.Text)
+				}
+				s.Steps[i].Check, builds = builds[0], builds[1:]
+			}
 			sites = append(sites, s)
 		}
+		at := len(rules)
 		rules = append(rules, u.Rules...)
+		for _, i := range u.RuleChecks {
+			if len(builds) == 0 || i >= len(u.Rules) {
+				return nil, nil, miss("%s's refinement literals do not hold the check of its rule %d", u.Key, i)
+			}
+			rules[at+i].Check, builds = builds[0], builds[1:]
+		}
 	}
 	return sites, rules, nil
 }
 
-// keepRefinements sets u's Refinements, Builds and Rules from the sites
-// and rules of the file at path.
+// keepRefinements sets u's Refinements, Builds, Rules and RuleChecks from
+// the sites and rules of the file at path.
 func (u *KeptUnit) keepRefinements(path string, sites []RefinementSite, rules []RefinementRuleSite) error {
-	u.Refinements, u.Builds, u.Rules = nil, nil, slices.Clone(rules)
+	u.Refinements, u.Builds, u.Rules, u.RuleChecks = nil, nil, slices.Clone(rules), nil
 	var builds *ir.Module
+	keep := func(f *ir.Func) {
+		if builds == nil {
+			builds = ir.NewModule(path + " refinement literals")
+		}
+		builds.AddFunc(f)
+	}
 	for _, s := range sites {
 		kr := KeptRefinement{Site: s, Built: s.Build != nil}
 		kr.Site.Build = nil
+		kr.Site.Steps = slices.Clone(s.Steps)
 		if s.Build != nil {
-			if builds == nil {
-				builds = ir.NewModule(path + " refinement literals")
+			keep(s.Build)
+		}
+		for i, st := range s.Steps {
+			if st.Check != nil {
+				kr.Checks = append(kr.Checks, i)
+				kr.Site.Steps[i].Check = nil
+				keep(st.Check)
 			}
-			builds.AddFunc(s.Build)
 		}
 		u.Refinements = append(u.Refinements, kr)
+	}
+	for i := range u.Rules {
+		if f := u.Rules[i].Check; f != nil {
+			u.RuleChecks = append(u.RuleChecks, i)
+			u.Rules[i].Check = nil
+			keep(f)
+		}
 	}
 	if builds != nil {
 		data, err := ir.EncodeObject(builds)
@@ -1514,7 +1554,7 @@ func decodeObject(l *ir.Linker, data []byte) (*ir.Module, error) {
 // The kept lowering's encoding.
 const (
 	keptMagic   = "NOMIKEPT"
-	keptVersion = 6
+	keptVersion = 8
 )
 
 // Encode writes k as bytes, with a CRC over them.
@@ -1547,7 +1587,8 @@ func (k *KeptLowering) Encode() []byte {
 		}
 		w.bytes(u.Builds)
 		w.uv(uint64(len(u.Rules)))
-		for _, r := range u.Rules {
+		for i, r := range u.Rules {
+			w.flag(slices.Contains(u.RuleChecks, i))
 			w.str(r.Path)
 			w.uv(uint64(r.Line))
 			w.uv(uint64(r.Col))
@@ -1557,6 +1598,7 @@ func (k *KeptLowering) Encode() []byte {
 			w.str(r.Key)
 			w.str(r.Instances)
 			w.strs(r.Bounds)
+			w.str(r.Unchecked)
 		}
 	}
 	w.uv(uint64(len(k.Instances)))
@@ -1641,8 +1683,11 @@ func DecodeKeptLowering(data []byte) (k *KeptLowering, err error) {
 		u.Builds = r.bytes()
 		rn = r.count()
 		for j := 0; j < rn && r.err == nil; j++ {
+			if r.flag() {
+				u.RuleChecks = append(u.RuleChecks, j)
+			}
 			u.Rules = append(u.Rules, RefinementRuleSite{Path: r.str(), Line: int(r.uv()), Col: int(r.uv()), Type: r.str(), Rule: r.str(), TryFrom: r.str(),
-				Key: r.str(), Instances: r.str(), Bounds: r.strs()})
+				Key: r.str(), Instances: r.str(), Bounds: r.strs(), Unchecked: r.str()})
 		}
 		k.Units = append(k.Units, u)
 	}
@@ -1782,6 +1827,7 @@ func (w keptWriter) refinement(kr KeptRefinement) {
 	}
 	w.str(s.Text)
 	w.str(s.Type)
+	w.str(s.Unchecked)
 	w.flag(kr.Built)
 	w.flag(s.Compound)
 	w.flag(s.Wraps)
@@ -1805,10 +1851,12 @@ func (w keptWriter) refinement(kr KeptRefinement) {
 		w.uv(keptValueNone)
 	}
 	w.uv(uint64(len(s.Steps)))
-	for _, st := range s.Steps {
+	for i, st := range s.Steps {
 		w.str(st.Type)
 		w.str(st.Rule)
 		w.str(st.TryFrom)
+		w.str(st.Key)
+		w.flag(slices.Contains(kr.Checks, i))
 		w.uv(uint64(len(st.Via)))
 		for _, v := range st.Via {
 			w.str(v)
@@ -1824,7 +1872,7 @@ func (r *keptReader) refinement() KeptRefinement {
 	for _, n := range []*int{&s.Line, &s.Col, &s.EndLine, &s.EndCol} {
 		*n = int(r.uv())
 	}
-	s.Text, s.Type = r.str(), r.str()
+	s.Text, s.Type, s.Unchecked = r.str(), r.str(), r.str()
 	kr.Built = r.flag()
 	s.Compound = r.flag()
 	s.Wraps = r.flag()
@@ -1849,7 +1897,10 @@ func (r *keptReader) refinement() KeptRefinement {
 	}
 	n := r.count()
 	for i := 0; i < n && r.err == nil; i++ {
-		st := RefinementSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str()}
+		st := RefinementSiteStep{Type: r.str(), Rule: r.str(), TryFrom: r.str(), Key: r.str()}
+		if r.flag() {
+			kr.Checks = append(kr.Checks, i)
+		}
 		vias := r.count()
 		for j := 0; j < vias && r.err == nil; j++ {
 			st.Via = append(st.Via, r.str())

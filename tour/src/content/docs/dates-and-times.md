@@ -93,7 +93,10 @@ dbg line 13: leap + Years(1) = 2025-02-28
 An [`Instant`](/reference/instant/) is a point in time, stored as
 nanoseconds since the Unix epoch. It has no calendar and no time zone.
 [`Instant.now()`](/reference/instant/#instantnow) returns one. Store an
-`Instant` when you need a moment that doesn't depend on any zone.
+`Instant` when you need a moment that doesn't depend on any zone. Like a
+Duration, it is an exact count of nanoseconds of any size, so
+[`Instant.from_seconds`](/reference/instant/#instantfrom_seconds) takes any
+timestamp.
 
 A [`Duration`](/reference/duration/) is an exact number of nanoseconds. You
 add it to an instant, subtract it from one, get it back from
@@ -129,6 +132,13 @@ dbg line 14: later - start = 5m
 This example doesn't use `Instant.now()` or `timer.sleep`, because they read
 the real clock and wait in real time, so their output changes from run to
 run.
+
+Neither has a range, so `Instant + Duration` and the difference of two
+instants never fault. Go's clock counts the years 1677 to 2262, and a
+function that hands an Instant to Go says what one outside them means: a
+deadline past 2262 never comes. The calendar types have no range either: a
+year is an `Int` of any size, and one outside 0000 to 9999 is written with a
+sign and at least six digits, as in `Date"+010000-01-01"`.
 
 ## Equality compares moments
 

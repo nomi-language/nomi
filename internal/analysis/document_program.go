@@ -587,6 +587,8 @@ type programChecks struct {
 	frontEnd []TypeError
 	// bootScope holds each file's boot-only call errors, by key.
 	bootScope map[string][]TypeError
+	// onceCycles holds each file's cyclic `once` errors, by key.
+	onceCycles map[string][]TypeError
 }
 
 // appRootsFrom is the analysis and body part a file's application-field
@@ -662,10 +664,13 @@ func (c *programChecks) checkEntry(p *CheckedProgram) {
 func (c *programChecks) assemble(p *CheckedProgram) {
 	// The boot-only check reads every file's calls (boot_scope.go), so it
 	// runs here, against the program as it is now, for every file.
+	// So does the once-cycle check (once_cycle.go).
 	c.bootScope = map[string][]TypeError{p.Entry: CheckBootScope(c.entry, p.Nodes[p.Entry])}
+	c.onceCycles = map[string][]TypeError{p.Entry: CheckOnceCycles(c.entry, p.Nodes[p.Entry])}
 	for _, key := range c.checked {
 		if fa, nodes := c.fileOf(p, key); fa != nil && !IsStdlibKey(key) {
 			c.bootScope[key] = CheckBootScope(fa, nodes)
+			c.onceCycles[key] = CheckOnceCycles(fa, nodes)
 		}
 	}
 	p.Errors = c.errorsWith(p, func(key string) (build, check, entryChecks, frontEnd []TypeError) {
@@ -690,6 +695,7 @@ func (c *programChecks) errorsWith(p *CheckedProgram, local func(key string) (bu
 	errs = append(errs, c.catalogTree...)
 	errs = append(errs, entryChecks...)
 	errs = append(errs, c.bootScope[p.Entry]...)
+	errs = append(errs, c.onceCycles[p.Entry]...)
 	out[p.Entry] = append(errs, frontEnd...)
 	for _, key := range c.checked {
 		if IsStdlibKey(key) {
@@ -701,6 +707,7 @@ func (c *programChecks) errorsWith(p *CheckedProgram, local func(key string) (bu
 		errs = append(errs, c.appRoots[key]...)
 		errs = append(errs, c.declChecks[key]...)
 		errs = append(errs, c.bootScope[key]...)
+		errs = append(errs, c.onceCycles[key]...)
 		out[key] = append(errs, c.implImports[key]...)
 	}
 	return out

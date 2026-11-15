@@ -5,7 +5,7 @@ end
 
 /// Reads `meter` to the end, `max` bytes at a time, and answers the bytes
 /// read and the meter after the last read.
-fn read_to_end(meter: MeteredReader, max: Int) -> Result<(Bytes, MeteredReader), io.Error>
+fn read_to_end(meter: MeteredReader, max: PositiveInt) -> Result<(Bytes, MeteredReader), io.Error>
     (data, meter) = MeteredReader.read(meter, max)?
 
     case data

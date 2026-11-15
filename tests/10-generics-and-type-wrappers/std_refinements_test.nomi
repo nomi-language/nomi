@@ -89,9 +89,28 @@ test "a computed value goes through try_from"
     )
 
     assert "check the value with `PositiveDuration.try_from(...)`" in first_error(
-        "import std::duration.{Duration, PositiveDuration}\nfn f() -> PositiveDuration\n    Duration.minutes(5)\nend\n"
+        "import std::duration.{Duration, PositiveDuration}\nfn f(n: Int) -> PositiveDuration\n    Duration.minutes(n)\nend\n"
     )
 
     assert first_error("type PositiveInt Int\n")
         |> String.starts_with("type name 'PositiveInt' is reserved")
+end
+
+fn paced(every: PositiveDuration) -> PositiveDuration
+    every
+end
+
+test "arithmetic keeps the std numeric subtypes where they hold"
+    count = List.length([1, 2])
+    size = count + 1
+    assert Iter.chunks([1, 2, 3, 4], size) |> Iter.count() == 2
+    assert exponent(count * count) == 16
+    assert exponent(if count > 5 then count else 0) == 1
+
+    found = Iter.find_index([1, 2], &(&1 > 5))
+    assert String.repeat("ab", Maybe.with_default(found, 1)) == "ab"
+
+    every: PositiveDuration = Duration"1m"
+    assert paced(every + Duration.abs(Duration.seconds(-30))) == Duration.seconds(90)
+    assert paced(every * 2) == Duration.minutes(2)
 end

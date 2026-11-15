@@ -1,14 +1,7 @@
 package irbuild
 
 import (
-	"errors"
-	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/vm"
 )
 
 func TestIRDecimal_CompletePrograms(t *testing.T) {
@@ -16,7 +9,7 @@ func TestIRDecimal_CompletePrograms(t *testing.T) {
 fn sum(a: Decimal, b: Decimal) -> Decimal
     a + b
 end
-fn divide(a: Decimal, b: Decimal) -> Decimal
+fn divide(a: Decimal, b: NonZeroDecimal) -> Decimal
     Decimal.divide_exact(a, b) |> Maybe.with_default(0d)
 end
 fn main()
@@ -57,10 +50,10 @@ end
 // `Decimal.divide` with two arguments.
 func TestIRDecimal_Division(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
-fn quotient(a: Decimal, b: Decimal) -> Decimal
+fn quotient(a: Decimal, b: NonZeroDecimal) -> Decimal
     a / b
 end
-fn half<T>(x: T, two: T) -> T where T: Divide<T, T>
+fn half<T, D>(x: T, two: D) -> T where T: Divide<D, T>
     x / two
 end
 fn main()
@@ -68,55 +61,7 @@ fn main()
   io.inspect(quotient(10.00d, 4d))
   io.inspect(Divide.divide(1d, 4d))
   io.inspect(Decimal.divide(6d, 3d))
-  io.inspect(half(-7d, 2d))
+  io.inspect(half(-7d, NonZeroDecimal(2d)))
 end
 `, "3.333333333333333333333333333333333d\n2.5d\n0.25d\n2d\n-3.5d\n")
-}
-
-// A zero divisor of `/`, `Divide.divide` and `Decimal.divide_exact` traps
-// with Int's `/` text at the operator's or the call's line.
-func TestIRDecimal_DivisionFaults(t *testing.T) {
-	for _, tc := range []struct{ name, call, want string }{
-		{"divide_exact", "Decimal.divide_exact(n, zero) |> Maybe.with_default(0d)", "line 3: division by zero"},
-		{"operator", "n / zero", "line 3: division by zero"},
-		{"Divide.divide", "Divide.divide(n, zero)", "line 3: division by zero"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "main.nomi")
-			src := "fn divide(zero: Decimal) -> Decimal\n  n = 1d\n  " + tc.call + "\nend\nfn main()\n  _ = divide(0.00d)\nend\n"
-			if err := os.WriteFile(path, []byte(src), 0600); err != nil {
-				t.Fatal(err)
-			}
-			p, err := Analyze(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			res, _, err := GenerateIR(p)
-			if err != nil {
-				t.Fatal(err)
-			}
-			retained := false
-			for _, mod := range res.IR {
-				for _, fn := range mod.Funcs() {
-					if fn.Name() != "main" {
-						continue
-					}
-					retained = true
-					_, err := vmRunSymV(vm.NewProgram(mod, res.IRModules(), io.Discard), fn.Sym())
-					var fault *vm.Fault
-					if !errors.As(err, &fault) || err.Error() != tc.want {
-						t.Fatalf("VM fault: %v; want %q", err, tc.want)
-					}
-				}
-			}
-			if !retained {
-				t.Fatal("faulting program was not retained")
-			}
-			for via, got := range map[string]observation{"vm command": vmReference(path)} {
-				if got.exit == 0 || strings.TrimSpace(got.stderr) != tc.want || got.stdout != "" {
-					t.Fatalf("%s: %v; want %q", via, got, tc.want)
-				}
-			}
-		})
-	}
 }

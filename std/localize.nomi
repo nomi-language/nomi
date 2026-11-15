@@ -20,6 +20,7 @@ import
     float.Float
     int.Int
     locale.Locale
+    ranges.Range
     results.Result.Err
     strings.String
 end
@@ -46,13 +47,14 @@ end
 
 impl Localize for Float
     fn localize(f: Float, locale: Locale) -> String
-        Float.format(f, locale, 0, 3, True)
+        Float.format(f, locale, 0..=3, True)
     end
 end
 
 impl Localize for Decimal
     fn localize(d: Decimal, locale: Locale) -> String
-        Decimal.format(d, locale, 0, Decimal.scale(d), True, RoundingMode.HalfEven)
+        // Every digit of the scale, as `Decimal.format` keeps by default.
+        Decimal.format(d, locale, Range.from(0), True, RoundingMode.HalfEven)
     end
 end
 

@@ -152,7 +152,7 @@ import
     display.Display
     equatable.Equatable
     float.Float
-    int.Int
+    int.{Int, Int64}
     iter.Iter
     lists.List
     locale.Locale
@@ -450,7 +450,7 @@ fn rejections(answer: List<String>, locale: Locale) -> List<Rejected>
     end
 end
 
-fn argument_kind(argument: Argument) -> Int
+fn argument_kind(argument: Argument) -> Int64
     case argument
         Argument.Integer(_)  -> 0
         Argument.Floating(_) -> 1

@@ -35,8 +35,9 @@ type Backoff struct {
 	//
 	// `max_restarts` counts restarts rather than runs, which std states and
 	// which the loop in supervisor.go honours: `max_restarts: 3` runs the body
-	// at most four times.
-	MaxRestarts int64
+	// at most four times. It is an Int of any size: a budget past int64
+	// restarts saturates, and never runs out either.
+	MaxRestarts Int
 	MaxElapsed  Duration
 }
 
@@ -119,7 +120,7 @@ func backoffOrDefault(b Backoff) Backoff {
 	}
 	return Backoff{
 		Tag:         TagExponential,
-		MaxRestarts: BackoffDefaultMaxRestarts,
+		MaxRestarts: SmallInt(BackoffDefaultMaxRestarts),
 		MaxElapsed:  BackoffDefaultMaxElapsed,
 	}
 }

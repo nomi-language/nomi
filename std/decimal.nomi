@@ -16,13 +16,13 @@ import
     maybe.Maybe.{self, None, Some}
     multiply.Multiply
     productable.Productable
+    ranges.{ClosedRange, Range}
     remainder.Remainder
     results.Result.{self, Err, Ok}
     steppable.Steppable
     strings.String
     subtract.Subtract
     summable.Summable
-    unit.Unit
 end
 
 //# Operations on the arbitrary-precision, exact base-10 `Decimal` type:
@@ -34,7 +34,8 @@ end
 //# one that ends exact, with no trailing zeros (`10.00d / 4d` is `2.5d`).
 //# `Decimal.divide` rounds to a scale and mode you name, `Decimal.divide_exact`
 //# returns `None` for a quotient that does not end, and `Decimal.sqrt` and
-//# `Decimal.round` round as `Decimal.divide` does. `Decimal.split` and
+//# `Decimal.round` round as `Decimal.divide` does; `Decimal.round_exact` and
+//# `Decimal.sqrt_exact` return `None` instead of rounding. `Decimal.split` and
 //# `Decimal.allocate` divide an amount into parts that sum to it exactly.
 //#
 //# `Decimal.format` and `Decimal.format_percent` write a decimal as a reader
@@ -73,34 +74,46 @@ impl Decimal
     /// quotient with `mode`. It always returns a value at the named scale.
     /// Use it when the answer's places are fixed, as cents are; `a / b`
     /// keeps 34 significant digits instead, and `divide_exact` never rounds.
-    /// Runtime error on a zero `b`, or when `mode` is `Unnecessary` and the
-    /// exact quotient does not fit at `scale`.
+    /// `b` is a `NonZeroDecimal`, so `Decimal.divide(a, 0d, 2, mode)` is a
+    /// compile error and a computed `b` goes through `NonZeroDecimal.try_from`.
+    /// Runtime error for a `scale` past Decimal's, -2147483648 to 2147483647.
     //! assert Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven) == 3.33d
     //! assert Decimal.divide(10.00d, 4d, 2, RoundingMode.Down) == 2.50d
     //
-    pub host fn divide(a: Decimal, b: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+    pub host fn divide(a: Decimal, b: NonZeroDecimal, scale: Int, mode: RoundingMode) -> Decimal
 
     /// Divides `a` by `b` exactly: `Some` of the quotient when it terminates in
     /// base 10, `None` when it does not (`10d` by `3d`). A quotient's scale is
     /// `a`'s scale less `b`'s, or more when the quotient needs more digits
-    /// (`1d` by `8d` is `0.125d`), and never below zero. Runtime error on a
-    /// zero `b`, as Int's `/` gives.
+    /// (`1d` by `8d` is `0.125d`), and never below zero. `b` is a
+    /// `NonZeroDecimal`, as `Decimal.divide`'s is, so it never traps.
     //! assert Decimal.divide_exact(10.00d, 4d) == Some(2.50d)
     //! assert Decimal.divide_exact(10.00d, 4d) |> Maybe.map(Decimal.to_string) == Some("2.50")
     //! assert Decimal.divide_exact(1d, 8d) == Some(0.125d)
     //! assert Decimal.divide_exact(10d, 3d) == None
     //
-    pub host fn divide_exact(a: Decimal, b: Decimal) -> Maybe<Decimal>
+    pub host fn divide_exact(a: Decimal, b: NonZeroDecimal) -> Maybe<Decimal>
 
     /// Quantizes `d` to exactly `scale` fractional digits using `mode`. Increasing
     /// the scale pads trailing zeros (always exact); decreasing it rounds. A
-    /// negative scale rounds to tens/hundreds/… A runtime error results only when
-    /// `mode` is `Unnecessary` and rounding would lose information.
+    /// negative scale rounds to tens/hundreds/… `round_exact` is the form that
+    /// refuses to round. A `scale` past Decimal's, -2147483648 to 2147483647,
+    /// is a runtime error.
     //! assert Decimal.round(3.14159d, 2, RoundingMode.HalfEven) == 3.14d
     //! assert Decimal.round(2.5d, 0, RoundingMode.HalfEven) == 2d
     //! assert Decimal.round(1d, 2, RoundingMode.Up) == 1.00d
     //
     pub host fn round(d: Decimal, scale: Int, mode: RoundingMode) -> Decimal
+
+    /// `d` at exactly `scale` fractional digits when that loses no digit:
+    /// `Some` of it, and `None` when reaching `scale` would round. Increasing
+    /// the scale pads trailing zeros, so it is always `Some`. Write `!` after
+    /// it where the digits are known to fit.
+    //! assert Decimal.round_exact(1.50d, 1) == Some(1.5d)
+    //! assert Decimal.round_exact(1.5d, 3) |> Maybe.map(Decimal.to_string) == Some("1.500")
+    //! assert Decimal.round_exact(1.55d, 1) == None
+    //
+    pub host fn round_exact(d: Decimal, scale: Int) -> Maybe<Decimal>
 
     /// `d` multiplied by itself `exp` times, exactly, as `*` multiplies: the
     /// scale is `exp` times `d`'s, so `1.5d` squared is `2.25d` and `1.50d`
@@ -119,16 +132,25 @@ impl Decimal
 
     /// The square root of `d` to exactly `scale` digits after the decimal
     /// point, rounding with `mode`, as `Decimal.divide` rounds its quotient.
-    /// A root that ends within `scale` digits is exact under every mode; one
-    /// that does not traps under `Unnecessary`. `d` is a
+    /// A root that ends within `scale` digits is exact under every mode, and
+    /// `sqrt_exact` is the form that refuses to round; a `scale` past
+    /// Decimal's, -2147483648 to 2147483647, traps. `d` is a
     /// `NonNegativeDecimal`, and so is its root; a value from data goes
     /// through `NonNegativeDecimal.try_from`.
     //! assert Decimal.sqrt(2d, 4, RoundingMode.HalfEven) == 1.4142d
     //! assert Decimal.sqrt(2d, 4, RoundingMode.Up) == 1.4143d
-    //! assert Decimal.to_string(Decimal.sqrt(6.25d, 3, RoundingMode.Unnecessary)) == "2.500"
+    //! assert Decimal.to_string(Decimal.sqrt(6.25d, 3, RoundingMode.Down)) == "2.500"
     //! assert Decimal.sqrt(0d, 2, RoundingMode.HalfEven) == 0d
     //
     pub host fn sqrt(d: NonNegativeDecimal, scale: Int, mode: RoundingMode) -> NonNegativeDecimal
+
+    /// The square root of `d` to exactly `scale` digits after the decimal
+    /// point when it ends within them: `Some` of it, and `None` when the root
+    /// would need rounding at `scale`.
+    //! assert Decimal.sqrt_exact(6.25d, 3) |> Maybe.map(Decimal.to_string) == Some("2.500")
+    //! assert Decimal.sqrt_exact(2d, 4) == None
+    //
+    pub host fn sqrt_exact(d: NonNegativeDecimal, scale: Int) -> Maybe<NonNegativeDecimal>
 
     /// Strips trailing fractional zeros, returning the value at its minimal scale.
     /// Integer magnitude is never reduced (`100d` stays `100d`, scale 0). Zero
@@ -221,36 +243,35 @@ impl Decimal
     ///
     /// `scale` is the least number of digits after the point a part has:
     /// when `d` has more, it is split in units of its own last digit, so the
-    /// parts still sum to it, and each part has that many digits. An empty
-    /// list of ratios, a negative ratio, or ratios that are all zero trap,
-    /// naming the problem: `Decimal.allocate: the ratios are all zero`.
-    /// `scale` is a `NonNegativeInt`.
+    /// parts still sum to it, and each part has that many digits. `ratios`
+    /// are `Ratios`, so an empty list, a negative ratio, or ratios that are
+    /// all zero are compile errors in a literal, and ratios computed when
+    /// the program runs go through `Ratios.try_from`. `scale` is a
+    /// `NonNegativeInt`.
+    //! import std::decimal.Ratios
+    //!
     //! assert Decimal.allocate(0.05d, [3, 7], 2) == [0.02d, 0.03d]
     //! assert Decimal.allocate(10d, [70, 0, 30], 2) == [7d, 0d, 3d]
     //! assert Decimal.allocate(-1d, [1, 2], 2) == [-0.34d, -0.66d]
     //! assert Decimal.allocate(1.5d, [1, 1], 0) == [0.8d, 0.7d]
+    //!
+    //! prices = [3, 1]
+    //! shares = Ratios.try_from(prices)!
+    //! assert Decimal.allocate(1d, shares, 2) == [0.75d, 0.25d]
     //
-    pub fn allocate(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decimal>
-        if Iter.is_empty(ratios) then decimal_refused("Decimal.allocate", "there are no ratios")
-
-        case Iter.find(ratios, fn r -> r < 0)
-            Some(r) -> decimal_refused("Decimal.allocate", "the ratio ${r} is negative")
-            None    -> Unit
-        end
-
-        if Iter.all_match(ratios, fn r -> r == 0) then
-            decimal_refused("Decimal.allocate", "the ratios are all zero")
-        end
-
+    pub fn allocate(d: Decimal, ratios: Ratios, scale: NonNegativeInt) -> List<Decimal>
         allocated(d, ratios, scale)
     end
 
     /// `d` as a reader of `locale` writes it, with as many digits after the
-    /// decimal point as its scale has, at least `min_fraction` and at most
-    /// `max_fraction` (0 <= min_fraction <= max_fraction <= 100, else a
-    /// trap, as `Float.format`'s bounds do). By default every digit of the
-    /// scale is kept and none rounded: `1234.50d` is `1,234.50` in `en`. A
-    /// digit past `max_fraction` is rounded as
+    /// decimal point as its scale has, held within `fraction`: padded with
+    /// zeros to its start and rounded to its end. `fraction` is one
+    /// `ClosedRange<NonNegativeInt>`, `2..=2`, so a negative count or a
+    /// backwards range is a compile error. `Range.from(2)`, which has no
+    /// end, is at least two digits and every digit of the scale past them.
+    /// By default it is `Range.from(0)`, so every digit of the scale is kept
+    /// and none rounded: `1234.50d` is `1,234.50` in `en`. A digit past the
+    /// end is rounded as
     /// `mode` says, half to even unless it says otherwise, as `Money.round`
     /// rounds.
     //! assert Decimal.format(1234.50d, Locale"de") == "1.234,50"
@@ -258,56 +279,54 @@ impl Decimal
     //! assert Decimal.format(1234567.89d, Locale"en") == "1,234,567.89"
     //! assert Decimal.format(-0.5d, Locale"sv") == "−0,5"
     //! assert Decimal.format(1234.5d, Locale"en", grouping: False) == "1234.5"
-    //! assert Decimal.format(0.125d, Locale"en", max_fraction: 2) == "0.12"
-    //! assert Decimal.format(0.125d, Locale"en", max_fraction: 2, mode: RoundingMode.HalfUp) == "0.13"
-    //! assert Decimal.format(12d, Locale"fr", min_fraction: 2) == "12,00"
+    //! assert Decimal.format(0.125d, Locale"en", fraction: 0..=2) == "0.12"
+    //! assert Decimal.format(0.125d, Locale"en", fraction: 0..=2, mode: RoundingMode.HalfUp) == "0.13"
+    //! assert Decimal.format(12d, Locale"fr", fraction: 2..=2) == "12,00"
+    //! assert Decimal.format(1.5d, Locale"en", fraction: Range.from(2)) == "1.50"
+    //! assert Decimal.format(1.23456d, Locale"en", fraction: Range.from(2)) == "1.23456"
     //
     pub fn format(
-        d:            Decimal,
-        locale:       Locale,
-        min_fraction: Int = 0,
-        max_fraction: Int = Int.max(Decimal.scale(d), min_fraction),
-        grouping:     Bool = True,
-        mode:         RoundingMode = RoundingMode.HalfEven,
+        d:        Decimal,
+        locale:   Locale,
+        fraction: ClosedRange<NonNegativeInt> = Range.from(0),
+        grouping: Bool = True,
+        mode:     RoundingMode = RoundingMode.HalfEven,
     ) -> String
-        shown = Decimal.fraction_digits(d, min_fraction, max_fraction, mode)
-        decimal_format(locale, Display.to_string(shown), min_fraction, max_fraction, grouping)
+        (min, max) = fraction_bounds(fraction, Decimal.scale(d))
+        shown = Decimal.fraction_digits(d, min, max, mode)
+        decimal_format(locale, Display.to_string(shown), min, max, grouping)
     end
 
     /// `d` as a percentage in `locale`: `d` times 100, exactly, with the
     /// locale's percent sign where the locale's pattern puts it (`%26` in
     /// `tr`), and the digits after the
     /// decimal point the percentage's scale has (two fewer than `d`'s),
-    /// limited by `min_fraction` and `max_fraction` and rounded by `mode` as
-    /// `Decimal.format` does. By default every digit is kept.
+    /// held within `fraction` and rounded by `mode` as `Decimal.format`
+    /// does. By default every digit is kept.
     //! assert Decimal.format_percent(0.125d, Locale"en") == "12.5%"
     //! assert Decimal.format_percent(0.5d, Locale"de") == "50\u{a0}%"
     //! assert Decimal.format_percent(0.26d, Locale"tr") == "%26"
-    //! assert Decimal.format_percent(0.12345d, Locale"en", max_fraction: 1) == "12.3%"
-    //! assert Decimal.format_percent(0.12355d, Locale"en", max_fraction: 2) == "12.36%"
-    //! assert Decimal.format_percent(0.5d, Locale"en", min_fraction: 1) == "50.0%"
+    //! assert Decimal.format_percent(0.12345d, Locale"en", fraction: 0..=1) == "12.3%"
+    //! assert Decimal.format_percent(0.12355d, Locale"en", fraction: 0..=2) == "12.36%"
+    //! assert Decimal.format_percent(0.5d, Locale"en", fraction: 1..=1) == "50.0%"
     //
     pub fn format_percent(
-        d:            Decimal,
-        locale:       Locale,
-        min_fraction: Int = 0,
-        max_fraction: Int = Int.max(Decimal.scale(d) - 2, min_fraction),
-        mode:         RoundingMode = RoundingMode.HalfEven,
+        d:        Decimal,
+        locale:   Locale,
+        fraction: ClosedRange<NonNegativeInt> = Range.from(0),
+        mode:     RoundingMode = RoundingMode.HalfEven,
     ) -> String
-        percent = Decimal.round(
-            d * 100d,
-            Int.max(Decimal.scale(d) - 2, 0),
-            RoundingMode.Unnecessary,
-        )
-
-        shown = Decimal.fraction_digits(percent, min_fraction, max_fraction, mode)
-        decimal_format_percent(locale, Display.to_string(shown), min_fraction, max_fraction)
+        // d times 100 ends in two more zeros than d has digits to lose,
+        // so the scale drops by two without rounding.
+        percent = Decimal.round_exact(d * 100d, Int.max(Decimal.scale(d) - 2, 0))!
+        (min, max) = fraction_bounds(fraction, Decimal.scale(d) - 2)
+        shown = Decimal.fraction_digits(percent, min, max, mode)
+        decimal_format_percent(locale, Display.to_string(shown), min, max)
     end
 
     // `d` at its own scale held between min_fraction and max_fraction,
-    // rounded by mode. Not `Int.clamp`: the bounds are checked after this,
-    // by decimal_format, whose trap names them as the caller wrote them, and
-    // a clamp would trap first on a min_fraction above max_fraction.
+    // rounded by mode. The bounds are a ClosedRange's, so min_fraction is at
+    // most max_fraction.
     fn fraction_digits(
         d:            Decimal,
         min_fraction: Int,
@@ -369,8 +388,19 @@ impl Decimal
     end
 end
 
-// `d` in parts proportional to `ratios`, which are not empty, not negative
-// and not all zero, summing to it exactly: each part's share of the units of
+// The least and most fraction digits `fraction` asks for. An unbounded
+// range has no most, and keeps every digit of `scale`.
+fn fraction_bounds(fraction: ClosedRange<NonNegativeInt>, scale: Int) -> (Int, Int)
+    min = Range.start(fraction)
+
+    case Range.stop(fraction)
+        Some(max) -> (min, max)
+        None      -> (min, Int.max(scale, min))
+    end
+end
+
+// `d` in parts proportional to `ratios`, which Ratios keeps not empty, not
+// negative and not all zero, summing to it exactly: each part's share of the units of
 // the larger of `scale` and `d`'s own scale rounded toward zero, and the
 // units left over one each to the nonzero ratios in order. The sign is set
 // apart, so a negative amount splits as its magnitude does.
@@ -380,11 +410,14 @@ fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decim
         None      -> scale
     end
 
+    // A power of ten is a PositiveDecimal.
     unit = Decimal.pow(10d, digits)
     units = Decimal.to_int(d * unit)
     sign = if units < 0 then -1 else 1
     magnitude = Int.abs(units)
-    total = Iter.sum(ratios)
+    // Ratios keeps a ratio above zero and none below, so the sum is above
+    // zero.
+    total = PositiveInt.try_from(Iter.sum(ratios))!
     left = magnitude - Iter.sum_by(ratios, fn r -> magnitude * r / total)
 
     // How many nonzero ratios come up to and including each one.
@@ -394,14 +427,11 @@ fn allocated(d: Decimal, ratios: List<Int>, scale: NonNegativeInt) -> List<Decim
     |> Iter.map(fn (r, rank) ->
         extra = if r > 0 and rank <= left then 1 else 0
         part = sign * (magnitude * r / total + extra)
-        Decimal.divide(Int.to_decimal(part), unit, digits, RoundingMode.Unnecessary)
+        // A whole number of units at `digits` places: the division is exact.
+        Decimal.divide(Int.to_decimal(part), unit, digits, RoundingMode.Down)
     end)
     |> Iter.to_list()
 end
-
-// Traps with `operation`, a colon and `reason`: an argument the caller chose
-// and could have checked, such as `Decimal.split` into no parts.
-host fn decimal_refused(operation: String, reason: String) -> Unit
 
 host fn decimal_format(
     locale:       Locale,
@@ -463,31 +493,31 @@ impl Multiply<Decimal, Decimal> for Decimal
     host fn multiply(lhs: Decimal, rhs: Decimal) -> Decimal
 end
 
-impl Divide<Decimal, Decimal> for Decimal
+impl Divide<NonZeroDecimal, Decimal> for Decimal
     /// `lhs / rhs`: the quotient rounded half-even to 34 significant digits,
     /// with no trailing zeros after the point. A quotient that ends within
-    /// 34 digits is exact. A zero `rhs` traps, as Int's `/` does; a
-    /// `NonZeroDecimal` divisor, which is a Decimal, cannot be zero.
+    /// 34 digits is exact. The divisor is a `NonZeroDecimal`, as Int's `/`
+    /// takes a `NonZeroInt`.
     //! assert Decimal.to_string(10.00d / 4d) == "2.5"
     //! assert Decimal.to_string(10d / 3d) == "3.333333333333333333333333333333333"
     //! assert Decimal.to_string(1d / 4d) == "0.25"
     //! assert Decimal.scale(6.00d / 3d) == 0
     //! assert Decimal.to_string(-2d / 3d) == "-0.6666666666666666666666666666666667"
     //
-    host fn divide(lhs: Decimal, rhs: Decimal) -> Decimal
+    host fn divide(lhs: Decimal, rhs: NonZeroDecimal) -> Decimal
 end
 
-impl Remainder<Decimal, Decimal> for Decimal
+impl Remainder<NonZeroDecimal, Decimal> for Decimal
     /// `lhs % rhs`: `lhs - rhs * q`, where `q` is the quotient truncated
     /// toward zero. Exact, never rounds, and takes the sign of `lhs`; the
-    /// scale is the larger of the operands'. A zero `rhs` traps, as Int's
-    /// `%` does, and a `NonZeroDecimal` cannot be zero.
+    /// scale is the larger of the operands'. The divisor is a
+    /// `NonZeroDecimal`.
     //! assert 10.5d % 3d == 1.5d
     //! assert Decimal.to_string(7.25d % 0.5d) == "0.25"
     //! assert -7.5d % 2d == -1.5d
     //! assert Decimal.to_string(10d % 2.50d) == "0.00"
     //
-    host fn remainder(lhs: Decimal, rhs: Decimal) -> Decimal
+    host fn remainder(lhs: Decimal, rhs: NonZeroDecimal) -> Decimal
 end
 
 impl Productable for Decimal
@@ -542,17 +572,6 @@ impl Steppable for Decimal
     end
 end
 
-/// Rounding policy for decimal division and quantization. There is no default:
-/// every rounding operation names its mode explicitly.
-///
-/// - `Up` — away from zero
-/// - `Down` — toward zero (truncate)
-/// - `Ceiling` — toward +∞
-/// - `Floor` — toward −∞
-/// - `HalfUp` — nearest; ties away from zero
-/// - `HalfDown` — nearest; ties toward zero
-/// - `HalfEven` — nearest; ties to even (banker's rounding)
-/// - `Unnecessary` — assert exactness; runtime error if rounding is needed
 /// A Decimal that is not zero, so dividing by one cannot trap. A literal is
 /// checked when the program is compiled; `NonZeroDecimal.try_from(d)`
 /// checks a value at run time. It is in the prelude.
@@ -580,6 +599,38 @@ pub subtype NonNegativeDecimal Decimal when fn d -> d >= 0d
 //
 pub subtype PositiveDecimal NonNegativeDecimal and NonZeroDecimal when fn d -> d > 0d
 
+/// The ratios `Decimal.allocate` and `Money.allocate` split an amount by: at
+/// least one, none negative, and not all zero, so every part has a share to
+/// take. A literal, `[70, 30]`, is checked when the program is compiled;
+/// `Ratios.try_from(xs)` checks ratios computed when it runs. It is not in
+/// the prelude: `import std::decimal.Ratios` to name it.
+//! import std::decimal.Ratios
+//!
+//! r: Ratios = [70, 0, 30]
+//! assert Decimal.allocate(10d, r, 2) == [7d, 0d, 3d]
+//! assert Ratios.try_from([]) == None
+//! assert Ratios.try_from([1, -1]) == None
+//! assert Ratios.try_from([0, 0]) == None
+//! assert Ratios.try_from([0, 2]) == Some([0, 2])
+//
+pub subtype Ratios List<Int> when fn ratios ->
+    Iter.all_match(ratios, fn r -> r >= 0) and Iter.any_match(ratios, fn r -> r > 0)
+end
+
+/// Rounding policy for decimal division and quantization. There is no default:
+/// every rounding operation names its mode explicitly.
+///
+/// - `Up` — away from zero
+/// - `Down` — toward zero (truncate)
+/// - `Ceiling` — toward +∞
+/// - `Floor` — toward −∞
+/// - `HalfUp` — nearest; ties away from zero
+/// - `HalfDown` — nearest; ties toward zero
+/// - `HalfEven` — nearest; ties to even (banker's rounding)
+///
+/// No mode asserts that nothing rounds: `Decimal.round_exact`,
+/// `Decimal.divide_exact` and `Decimal.sqrt_exact` return `None` when a
+/// digit would be lost.
 pub enum RoundingMode
     Up
     Down
@@ -588,7 +639,6 @@ pub enum RoundingMode
     HalfUp
     HalfDown
     HalfEven
-    Unnecessary
 end
 
 derive Display for RoundingMode

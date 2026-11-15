@@ -34,7 +34,7 @@ end
 
 test "traps"
   n = 0
-  assert 10 / n == 1
+  assert 10 / NonZeroInt.try_from(n)! == 1
 end
 
 group "group"
@@ -62,7 +62,7 @@ FAIL fixture_test.nomi :: fails
       Iter.count(xs)
         = 3
 FAIL fixture_test.nomi :: traps
-  line 21: division by zero
+  line 21: ` + "`NonZeroInt.try_from(n)`" + ` found nothing
 ok fixture_test.nomi :: group / inner ok
 FAIL fixture_test.nomi :: group / inner bad
   line 30: assertion failed
@@ -204,7 +204,7 @@ func TestTestCommand_JSONFormat(t *testing.T) {
 	if !strings.Contains(formatFixtureText, "FAIL fixture_test.nomi :: fails\n"+wantFails+"\n") {
 		t.Errorf("the json message is not the block the text report prints")
 	}
-	if got := *records[3].Message; got != "  line 21: division by zero" {
+	if got := *records[3].Message; got != "  line 21: `NonZeroInt.try_from(n)` found nothing" {
 		t.Errorf("trap message = %q", got)
 	}
 

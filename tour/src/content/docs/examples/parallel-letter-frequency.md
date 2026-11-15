@@ -168,7 +168,7 @@ pub once texts = [
 import std::tasks.Task
 
 /// How many texts are counted at once.
-once workers = 4
+once workers: PositiveInt = 4
 
 /// How often each letter appears in `texts` altogether, ignoring case,
 /// keyed by the letter in lower case. Each text is counted by its own task,

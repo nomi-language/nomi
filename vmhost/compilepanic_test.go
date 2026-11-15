@@ -78,7 +78,7 @@ fn through_task() -> String
 end
 
 fn fault(n: Int) -> Int
-    10 / n
+    10 / NonZeroInt.try_from(n)!
 end
 
 fn main()

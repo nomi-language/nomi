@@ -303,7 +303,7 @@ end
 
 test "a repeated 01:30 in New York is enqueued once across the fall change"
     (db, queue, _) = fresh()?
-    nightly = Schedule.cron("nightly", Cron"30 1 * * *", noop, 0, zone: "America/New_York")
+    nightly = Schedule.cron("nightly", Cron"30 1 * * *", noop, 0, zone: "America/New_York")!
     from = Anchored.to_instant(DateTime"2026-11-01T00:00:00-04:00[America/New_York]")
 
     Iter.each(0..=30, fn step ->

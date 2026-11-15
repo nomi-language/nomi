@@ -26,9 +26,8 @@ import (
 // # The trap texts are fixed, not invented
 //
 // Some of these fault, and the text is Nomi-observable: `nomi run` prints the
-// fault after the line of the program's call. So
-// `strings.String.repeat: negative count -2` is a recorded text. Do not tidy
-// one: the golden files hold these exact strings.
+// fault after the line of the program's call, so each is a recorded text.
+// Do not tidy one: the golden files hold these exact strings.
 
 // --- std/strings -----------------------------------------------------------
 //
@@ -137,17 +136,18 @@ func StringLines(s string) *List[string] {
 	return listOf(parts)
 }
 
-// StringRepeat is `String.repeat`. A negative count is a runtime fault.
-func StringRepeat(s string, count int64) string {
-	if count < 0 {
-		Trap(negativeRepeatText(count))
+// StringRepeat is `String.repeat`. std declares count a NonNegativeInt of
+// any size: the empty string repeats to itself however many times, and
+// copies past what memory holds trap naming the count.
+func StringRepeat(s string, count Int) string {
+	if s == "" {
 		return ""
 	}
-	return strings.Repeat(s, int(count))
-}
-
-func negativeRepeatText(count int64) string {
-	return fmt.Sprintf("strings.String.repeat: negative count %d", count)
+	n, ok := count.Int64()
+	if !ok || n > math.MaxInt/int64(len(s)) {
+		Trap(fmt.Sprintf("String.repeat: %s copies of a %d-byte string are more than memory holds", count, len(s)))
+	}
+	return strings.Repeat(s, int(n))
 }
 
 // StringCompare is std/strings' private `string_compare`: byte-lexicographic,
@@ -220,8 +220,9 @@ func IntWrapSub(a, b Int) int64 { return Wrap64(a.Value()) - Wrap64(b.Value()) }
 // IntWrapMul is `Int.wrapping_mul`: a * b modulo 2^64, as an int64.
 func IntWrapMul(a, b Int) int64 { return Wrap64(a.Value()) * Wrap64(b.Value()) }
 
-// IntBitCount is `Int.bit_count`: the number of 1 bits in a non-negative n.
-// A negative n has endless 1 bits, and faults.
+// IntBitCount is `Int.bit_count`: the number of 1 bits in n. n is a
+// NonNegativeInt in Nomi; a negative one, which only rt's own callers could
+// pass, faults, since it has endless 1 bits.
 func IntBitCount(n Int) int64 {
 	if n.Sign() < 0 {
 		Trap(fmt.Sprintf("Int.bit_count: %s is negative, and a negative Int has endless 1 bits", n))
@@ -431,10 +432,13 @@ func FloatIsNaN(x float64) bool { return math.IsNaN(x) }
 // ...) as Decimal.round rounds, and answers the Float nearest the result.
 // The binary value is what rounds: 2.675 is
 // 2.67499999999999982236431605997495353221893310546875, so it is 2.67 at
-// scale 2 under every half mode. NaN and the infinities pass through, a zero
-// result keeps x's sign, and RoundUnnecessary traps when rounding would
-// change the value.
-func FloatRound(x float64, scale int64, mode RoundingMode) float64 {
+// scale 2 under every half mode. NaN and the infinities pass through, and a
+// zero result keeps x's sign.
+//
+// scale is an Int of any size: past int64 it saturates, which the bounds
+// below already hold to.
+func FloatRound(x float64, scaleArg Int, mode RoundingMode) float64 {
+	scale := scaleArg.Saturated()
 	if scale == 0 && mode == RoundHalfEven {
 		return math.RoundToEven(x)
 	}
@@ -453,7 +457,9 @@ func FloatRound(x float64, scale int64, mode RoundingMode) float64 {
 	}
 	rounded, err := RatToDecimal(new(big.Rat).SetFloat64(x)).Round(int32(scale), mode)
 	if err != nil {
-		Trap(fmt.Sprintf("Float.round: rounding necessary to reach scale %d but mode is Unnecessary", scale))
+		// The scale is held to -400..1100 above and a finite Float's own
+		// scale is under 1100, so no drop is past a Decimal's.
+		panic("unreachable: " + err.Error())
 	}
 	out := DecimalToFloat(rounded)
 	if out == 0 {
@@ -501,30 +507,6 @@ func FloatTan(x float64) float64 { return math.Tan(x) }
 // FloatAtan2 is `Float.atan2`: the angle of the point (x, y) from the
 // positive x axis, in radians from -π to π.
 func FloatAtan2(y, x float64) float64 { return math.Atan2(y, x) }
-
-// ComparableClampReversed is std/comparable's private `clamp_reversed`:
-// `Comparable.clamp` calls it with its bounds, as `Debug` writes them, when
-// low is greater than high, a range the caller wrote backwards.
-func ComparableClampReversed(low, high string) Unit {
-	Trap("Comparable.clamp: low " + low + " is greater than high " + high)
-	return Unit{}
-}
-
-// FloatRequireClampBounds is std/float's private `require_clamp_bounds`, the
-// check `Float.clamp` makes of its bounds: a NaN bound is no range, and a low
-// above high is a range written backwards, so each traps, naming the bounds
-// as `Comparable.clamp` does.
-func FloatRequireClampBounds(low, high float64) Unit {
-	switch {
-	case math.IsNaN(low):
-		Trap("Comparable.clamp: low NaN is not a number")
-	case math.IsNaN(high):
-		Trap("Comparable.clamp: high NaN is not a number")
-	case low > high:
-		Trap("Comparable.clamp: low " + FormatFloat(low) + " is greater than high " + FormatFloat(high))
-	}
-	return Unit{}
-}
 
 // FloatBits is std/float's private `float_bits`: the IEEE-754 bit pattern as an
 // Int, backing the Float `Hashable` impl.

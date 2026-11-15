@@ -62,6 +62,9 @@ func (m *Machine) iterInstr(fr *frame, n *ir.Iter) (err error) {
 			fr.write(n.Dst(), rt.SeqIterateCtl(src, func(runtime *rt.Frame, state any) (any, rt.Ctl) {
 				next, ctl := adapterOutcome(ic.invoke(f, runtime, state))
 				if ctl == rt.CtlSkip {
+					// The checker refuses a `continue` in the step
+					// (analysis's checkIterateContinue); a skip here has
+					// no next state, so it stays refused.
 					panic(iterationFailure{fmt.Errorf("Iter.iterate: `continue` is not supported in the step callback (the step *is* the state-advancement; use Iter.filter to skip states)")})
 				}
 				return next, ctl

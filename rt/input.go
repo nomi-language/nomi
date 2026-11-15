@@ -223,7 +223,7 @@ func (in *Input) readSome(fr *Frame, max int64) Result[Maybe[Bytes], IOError] {
 // the line, or InvalidText when it is not UTF-8.
 func lineRead(line string) Result[Maybe[string], IOError] {
 	if !utf8.ValidString(line) {
-		return Err[Maybe[string]](IOError{Tag: TagIOInvalidText, Path: StdinPath, Offset: int64(InvalidUTF8Offset(line))})
+		return Err[Maybe[string]](IOError{Tag: TagIOInvalidText, Path: StdinPath, Offset: SmallInt(int64(InvalidUTF8Offset(line)))})
 	}
 	return Ok[Maybe[string], IOError](Some(line))
 }

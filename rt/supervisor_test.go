@@ -53,9 +53,9 @@ func supervisorFixture(t *testing.T) (*Frame, func()) {
 // newTestSupervisor is `Supervisor.new(max_running: n)` with std's declared
 // defaults, which is what the two-argument corpus calls spell.
 func newTestSupervisor(fr *Frame, maxRunning int64, shutdown Duration) Supervisor {
-	return SupervisorNewExact(fr, maxRunning, shutdown,
+	return SupervisorNewExact(fr, SmallInt(maxRunning), shutdown,
 		Restart{Tag: TagTemporary},
-		Backoff{Tag: TagExponential, MaxRestarts: BackoffDefaultMaxRestarts, MaxElapsed: BackoffDefaultMaxElapsed},
+		Backoff{Tag: TagExponential, MaxRestarts: SmallInt(BackoffDefaultMaxRestarts), MaxElapsed: BackoffDefaultMaxElapsed},
 		GiveUp{Tag: TagReport})
 }
 
@@ -153,24 +153,24 @@ func TestSupervisorNewOutsideBootIsAFault(t *testing.T) {
 	}
 }
 
-// TestSupervisorNewRejectsAnUnusableBound pins the two configuration values
-// that are deadlocks rather than choices.
-func TestSupervisorNewRejectsAnUnusableBound(t *testing.T) {
+// TestSupervisorNewTakesANegativeBudgetAsNone pins a negative shutdown
+// budget as no grace period, the meaning a negative duration has for
+// Context.with_timeout, timer.sleep and Arm.after. A max_running of 0 is
+// not reachable here: std declares it a PositiveInt.
+func TestSupervisorNewTakesANegativeBudgetAsNone(t *testing.T) {
 	fr, done := supervisorFixture(t)
 	defer done()
 
 	if err := recoverTrap(func() {
-		_ = newTestSupervisor(fr, 0, DefaultShutdownTimeout)
-	}); err == nil {
-		t.Error("max_running: 0 was accepted; a supervisor that accepts work and never runs it is a deadlock dressed as configuration")
+		g := newTestSupervisor(fr, 1, Duration(-1))
+		if g.s.shutdownTimeout != 0 {
+			t.Errorf("a negative shutdown_timeout became %v, want 0", g.s.shutdownTimeout)
+		}
+	}); err != nil {
+		t.Errorf("a negative shutdown_timeout trapped: %v", err.Msg)
 	}
-	if err := recoverTrap(func() {
-		_ = newTestSupervisor(fr, 1, Duration(-1))
-	}); err == nil {
-		t.Error("a negative shutdown_timeout was accepted")
-	}
-	// The paired positive: `max_running: 1` is a supervisor holding one
-	// long-lived worker, which std names as a legitimate shape.
+	// max_running: 1 is a supervisor holding one long-lived worker, which
+	// std names as a legitimate shape.
 	if err := recoverTrap(func() {
 		_ = newTestSupervisor(fr, 1, 0)
 	}); err != nil {
@@ -397,9 +397,9 @@ func TestSupervisorRestartDispositions(t *testing.T) {
 			// is the elapsed budget working as documented: which of the two
 			// bounds binds depends on how fast the failures come.
 			var runs atomic.Int64
-			sup := SupervisorNewExact(fr, 1, Duration(2*time.Second),
+			sup := SupervisorNewExact(fr, SmallInt(1), Duration(2*time.Second),
 				Restart{Tag: c.restart},
-				Backoff{Tag: TagExponential, MaxRestarts: 1, MaxElapsed: BackoffDefaultMaxElapsed},
+				Backoff{Tag: TagExponential, MaxRestarts: SmallInt(1), MaxElapsed: BackoffDefaultMaxElapsed},
 				GiveUp{Tag: TagReport})
 
 			h := SupervisorSpawn(fr, sup, func(*Frame) Unit {
@@ -432,9 +432,9 @@ func TestSupervisorPermanentReturnIsReportedAsAFailure(t *testing.T) {
 	fr, done := supervisorFixture(t)
 	defer done()
 
-	sup := SupervisorNewExact(fr, 1, Duration(time.Second),
+	sup := SupervisorNewExact(fr, SmallInt(1), Duration(time.Second),
 		Restart{Tag: TagPermanent},
-		Backoff{Tag: TagExponential, MaxRestarts: 0, MaxElapsed: BackoffDefaultMaxElapsed},
+		Backoff{Tag: TagExponential, MaxRestarts: SmallInt(0), MaxElapsed: BackoffDefaultMaxElapsed},
 		GiveUp{Tag: TagReport})
 	h := SupervisorSpawn(fr, sup, func(*Frame) Unit { return Unit{} })
 	if out := SupervisorFlushBounded(fr, sup, Wait{Tag: TagForever}); out.Tag != TagFlushed {
@@ -463,9 +463,9 @@ func TestSupervisorCancelledTaskIsNotAFailure(t *testing.T) {
 	fr, done := supervisorFixture(t)
 	defer done()
 
-	sup := SupervisorNewExact(fr, 2, Duration(time.Second),
+	sup := SupervisorNewExact(fr, SmallInt(2), Duration(time.Second),
 		Restart{Tag: TagPermanent},
-		Backoff{Tag: TagExponential, MaxRestarts: BackoffDefaultMaxRestarts, MaxElapsed: BackoffDefaultMaxElapsed},
+		Backoff{Tag: TagExponential, MaxRestarts: SmallInt(BackoffDefaultMaxRestarts), MaxElapsed: BackoffDefaultMaxElapsed},
 		GiveUp{Tag: TagReport})
 
 	var runs atomic.Int64
@@ -532,9 +532,9 @@ func TestSupervisorGiveUpExitRecordsRatherThanExits(t *testing.T) {
 	run := func(giveUp uint8) error {
 		fr, done := supervisorFixture(t)
 		defer done()
-		sup := SupervisorNewExact(fr, 1, Duration(time.Second),
+		sup := SupervisorNewExact(fr, SmallInt(1), Duration(time.Second),
 			Restart{Tag: TagTemporary},
-			Backoff{Tag: TagExponential, MaxRestarts: 0, MaxElapsed: BackoffDefaultMaxElapsed},
+			Backoff{Tag: TagExponential, MaxRestarts: SmallInt(0), MaxElapsed: BackoffDefaultMaxElapsed},
 			GiveUp{Tag: giveUp})
 		_ = SupervisorSpawn(fr, sup, func(*Frame) Unit {
 			Trap("the downstream is gone")
@@ -605,13 +605,13 @@ func TestBackoffZeroValueIsTheBuiltInSchedule(t *testing.T) {
 	if got.Tag != TagExponential {
 		t.Fatalf("the zero value resolved to tag %d, want Exponential(%d)", got.Tag, TagExponential)
 	}
-	if got.MaxRestarts != BackoffDefaultMaxRestarts || got.MaxElapsed != BackoffDefaultMaxElapsed {
+	if got.MaxRestarts != SmallInt(BackoffDefaultMaxRestarts) || got.MaxElapsed != BackoffDefaultMaxElapsed {
 		t.Errorf("the zero value resolved to {%d, %v}, want the declared defaults {%d, %v}",
 			got.MaxRestarts, got.MaxElapsed, BackoffDefaultMaxRestarts, BackoffDefaultMaxElapsed)
 	}
 	// A stated schedule is passed through unchanged, or the default would be
 	// overwriting what a caller asked for.
-	stated := Backoff{Tag: TagExponential, MaxRestarts: 3, MaxElapsed: Duration(time.Minute)}
+	stated := Backoff{Tag: TagExponential, MaxRestarts: SmallInt(3), MaxElapsed: Duration(time.Minute)}
 	if got := backoffOrDefault(stated); got != stated {
 		t.Errorf("a stated schedule came back as %+v, want %+v", got, stated)
 	}
@@ -677,9 +677,9 @@ func TestSupervisorDrainSettlesAPermanentWorkerEarly(t *testing.T) {
 	fr, done := supervisorFixture(t)
 	defer done()
 
-	sup := SupervisorNewExact(fr, 1, Duration(3*time.Second),
+	sup := SupervisorNewExact(fr, SmallInt(1), Duration(3*time.Second),
 		Restart{Tag: TagPermanent},
-		Backoff{Tag: TagExponential, MaxRestarts: BackoffDefaultMaxRestarts, MaxElapsed: BackoffDefaultMaxElapsed},
+		Backoff{Tag: TagExponential, MaxRestarts: SmallInt(BackoffDefaultMaxRestarts), MaxElapsed: BackoffDefaultMaxElapsed},
 		GiveUp{Tag: TagReport})
 
 	ch := ChannelBuffered[int64](1)

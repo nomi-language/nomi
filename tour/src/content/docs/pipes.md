@@ -106,7 +106,7 @@ argument, write a `then` stage with a
 [capture](/functions-and-lambdas/#captures), whose `&1` is the piped value:
 
 ```nomi-run
-fn divide(x: Int, y: Int) -> Int
+fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 

@@ -121,7 +121,11 @@
 // checkRefinements calls each on the literal, a validated struct's on the
 // record its literal fields build. A `None` is the error `-1.0 is not a
 // NonNegativeFloat: <rule> is false` at the literal, and a trap in a rule
-// is an error carrying its message. Each declared rule
+// is an error carrying its message. No literal passes unchecked: one whose
+// check irbuild could not make (RefinementSite.Unchecked) or whose
+// `try_from` no linked module defines is an `internal:` error at the
+// literal (UncheckedRefinementCode), and one whose check reaches what the
+// machine cannot run is an error there that names it. Each declared rule
 // (irbuild.Result.RefinementRules) is refused when it can reach an effect,
 // whether or not a literal is checked against it, and a literal of a
 // subtype so refused is not reported again. A generic subtype's rule

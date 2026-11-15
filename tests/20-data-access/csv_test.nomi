@@ -1,5 +1,5 @@
 import
-    std::csv.{self, Error, FieldCount, Options, Row, WriteOptions}
+    std::csv.{self, Delimiter, Error, FieldCount, Options, Row, WriteOptions}
     std::io.{Reader, Writer}
 end
 
@@ -76,7 +76,7 @@ test "malformed input names its line and column in code points"
 end
 
 test "options that cannot be used are an error, not a guess"
-    assert csv.decode("a", Options{delimiter: '"'}) is Err(.InvalidOptions{})
+    assert Delimiter.try_from('"') == None
     assert csv.decode("a", Options{delimiter: ';', comment: Some(';')}) is Err(.InvalidOptions{})
     assert csv.decode("a", Options{fields: FieldCount.Exactly(-1)}) is Err(.InvalidOptions{})
 end

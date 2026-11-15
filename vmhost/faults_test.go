@@ -3,6 +3,7 @@ package vmhost_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/vmhost"
@@ -20,7 +21,8 @@ func runVM(t *testing.T, src string) (string, error) {
 	return out.String(), err
 }
 
-// A cyclic `once` is the program's fault, with rt's text at the line of the
+// A cyclic `once` the compile-time check cannot see, closed through a
+// function value, is the program's fault, with rt's text at the line of the
 // read that re-entered it, not a limit of the machine.
 func TestRun_ACyclicOnceIsTheProgramsFault(t *testing.T) {
 	out, err := runVM(t, `import std::io
@@ -29,7 +31,11 @@ fn read_seed() -> Int
   seed
 end
 
-once seed: Int = read_seed() + 1
+fn apply(f: () -> Int) -> Int
+  f()
+end
+
+once seed: Int = apply(read_seed) + 1
 
 fn main()
   io.print("start")
@@ -41,6 +47,28 @@ end
 	}
 	if out != "start\n" || err == nil || err.Error() != "line 4: cyclic 'once' binding: 'seed' depends on itself" {
 		t.Fatalf("output %q, error %v", out, err)
+	}
+}
+
+// The same cycle closed through a direct call is a compile error at the
+// `once`, naming the chain, and the program never starts.
+func TestLoad_ACyclicOnceThroughACallIsACompileError(t *testing.T) {
+	_, err := vmhost.Load(writeProgram(t, `import std::io
+
+fn read_seed() -> Int
+  seed
+end
+
+once seed: Int = read_seed() + 1
+
+fn main()
+  io.print("start")
+  io.print("seed ${seed}")
+end
+`))
+	want := "cyclic 'once' binding: `seed` depends on itself: it calls `read_seed` (main.nomi:7), which reads `once seed` (main.nomi:4)"
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("load error %v, want one holding %q", err, want)
 	}
 }
 
@@ -132,7 +160,7 @@ end
 
 impl Hashable for Bad
   fn hash(b: Bad) -> Int
-    b.n / (b.n - b.n)
+    b.n / NonZeroInt.try_from(b.n - b.n)!
   end
 end
 
@@ -144,7 +172,7 @@ end
 	if b, blocked := vmhost.IsBlocked(err); blocked {
 		t.Fatalf("a key fault reported as the VM's limit: %q", b.Reasons)
 	}
-	if out != "start\n" || err == nil || err.Error() != "line 9: division by zero" {
+	if out != "start\n" || err == nil || err.Error() != "line 9: `NonZeroInt.try_from(b.n - b.n)` found nothing" {
 		t.Fatalf("output %q, error %v", out, err)
 	}
 }

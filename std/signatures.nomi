@@ -30,7 +30,7 @@ import
     debug.Debug
     display.Display
     equatable.Equatable
-    int.Int
+    int.{Int, Int64}
     maybe.Maybe.{self, None, Some}
     results.Result.{self, Err, Ok}
     signatures::host
@@ -386,7 +386,7 @@ fn scheme_kind(scheme: Scheme) -> KeyKind
 end
 
 /// A scheme as std/signatures/host numbers it.
-fn scheme_number(scheme: Scheme) -> Int
+fn scheme_number(scheme: Scheme) -> Int64
     case scheme
         .Ed25519        -> 0
         .EcdsaSha256    -> 1

@@ -31,10 +31,9 @@
 import
     bool.Bool.False
     bytes.Bytes
-    calendar.OffsetDateTime
+    calendar.NaiveDateTime
     debug.Debug
     display.Display
-    duration.Duration
     equatable.Equatable
     float.Float
     instant.Instant
@@ -267,7 +266,7 @@ fn emit(w: Writer, line: String) -> Unit
 end
 
 fn timestamp(at: Instant) -> String
-    "${OffsetDateTime.from_instant(at, Duration.hours(0))}"
+    "${NaiveDateTime.from_instant(at)}+00:00"
 end
 
 fn text_line(at: Instant, level: Level, message: String, fields: List<Field>) -> String

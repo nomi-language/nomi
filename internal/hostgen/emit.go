@@ -634,7 +634,15 @@ func (g *Generator) store(w *bytes.Buffer, rec string, off int, s *Shape, t Type
 
 // in answers the name of a method `func (b *bound) NAME(v rt.Value) (T, error)`.
 func (g *Generator) in(s *Shape, t Type) (string, error) {
-	key := "in|" + shapeKey(s) + "|" + typeIdentity(t)
+	key := "in|" + inShapeKey(s) + "|" + typeIdentity(t)
+	if s.Kind == SInt {
+		// Every range that fits t reads the same way, so one method
+		// serves them all.
+		if err := g.fits(s, t); err != nil {
+			return "", err
+		}
+		key = "in|" + shapeKey(s) + "|" + typeIdentity(t)
+	}
 	if m, ok := g.memo[key]; ok {
 		return m, nil
 	}
@@ -754,17 +762,28 @@ func (g *Generator) in(s *Shape, t Type) (string, error) {
 		d := g.distinctDesc(s)
 		fmt.Fprintf(&w, "\tr, err := hostadapt.Record(v, %q)\n\tif err != nil {\n%s\t}\n", s.Name, fail)
 		switch {
-		case isTimeDuration(t):
+		case isTimeDuration(t) || (isRtDuration(t) && s.Name == durationName):
+			// A Duration is an Int count of nanoseconds of any size, and
+			// Go's a signed 64-bit one: a length past about 292 years
+			// crosses saturated, which every Go wait takes as never
+			// (hostadapt.DurationNanos).
 			if s.Name != durationName {
 				return "", fmt.Errorf("Go time.Duration projects to Duration, not %s", s)
 			}
-			fmt.Fprintf(&w, "\tx, err := hostadapt.IntField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn %s(x), nil\n", d, fail, goT)
+			fmt.Fprintf(&w, "\tx, err := hostadapt.IntValueField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn %s(hostadapt.DurationNanos(x)), nil\n", d, fail, goT)
 		case isTimeTime(t):
+			// An Instant is an Int count of nanoseconds of any size, and
+			// a time.Time holds far more than int64 nanoseconds: the moment
+			// crosses exactly (hostadapt.InstantTime).
 			if s.Name != instantName {
 				return "", fmt.Errorf("Go time.Time projects to Instant, not %s", s)
 			}
-			g.imports["time"] = "time"
-			fmt.Fprintf(&w, "\tx, err := hostadapt.IntField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn time.Unix(0, x).UTC(), nil\n", d, fail)
+			fmt.Fprintf(&w, "\tx, err := hostadapt.IntValueField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn hostadapt.InstantTime(x), nil\n", d, fail)
+		case isRtInstant(t) && s.Name == instantName:
+			// rt.Instant is 64 bits of nanoseconds, a deadline a Go call
+			// waits for: an Instant past 2262 crosses clamped, a deadline
+			// no program reaches (hostadapt.InstantNanosClamped).
+			fmt.Fprintf(&w, "\tx, err := hostadapt.IntValueField(r, b.%s, 0, 0, \"\")\n\tif err != nil {\n%s\t}\n\treturn %s(hostadapt.InstantNanosClamped(x)), nil\n", d, fail, goT)
 		default:
 			if err := compatible(inner, t); err != nil {
 				return "", fmt.Errorf("%s over %s: %w", s, inner, err)
@@ -1092,7 +1111,7 @@ func (g *Generator) out(s *Shape, t Type) (string, error) {
 			if s.Name != instantName {
 				return "", fmt.Errorf("Go time.Time projects to Instant, not %s", s)
 			}
-			w.WriteString("\tn, err := hostadapt.InstantNanos(v)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tr.W[0] = rt.IntWord(n)\n")
+			w.WriteString("\tr.SetIntSlot(0, hostadapt.InstantNanos(v).Value())\n")
 		default:
 			if err := g.store(&w, "r", 0, s.Elems[0], t, "v", false, ""); err != nil {
 				return "", err
@@ -1227,6 +1246,14 @@ func fieldReader(s *Shape) string {
 // isRtInt reports whether t is rt.Int, an Int of any size.
 func isRtInt(t Type) bool { return isNamed(t, rtPkg, "Int") }
 
+// isRtDuration reports whether t is rt.Duration, the Go type std's
+// Duration crosses as.
+func isRtDuration(t Type) bool { return isNamed(t, rtPkg, "Duration") }
+
+// isRtInstant reports whether t is rt.Instant, the Go type std's Instant
+// crosses as.
+func isRtInstant(t Type) bool { return isNamed(t, rtPkg, "Instant") }
+
 // isBigInt reports whether t is *big.Int, which an Int of any size projects
 // to.
 func isBigInt(t Type) bool {
@@ -1281,6 +1308,9 @@ func (g *Generator) narrow(s *Shape, t Type, x string) (string, bool, error) {
 			return fmt.Sprintf("rt.IntOf(%s)", x), false, nil
 		case isBigInt(t):
 			return fmt.Sprintf("rt.IntBig(%s)", x), false, nil
+		}
+		if err := g.fits(s, t); err != nil {
+			return "", false, err
 		}
 		switch t.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -1472,18 +1502,28 @@ func layoutOffsets(slots []rt.SlotType) []int {
 	return out
 }
 
-func shapeKey(s *Shape) string {
+func shapeKey(s *Shape) string { return shapeKeyOf(s, false) }
+
+// inShapeKey is shapeKey with each nested Int's declared range, which
+// decides whether it reads into a fixed-width Go integer (fits), so a
+// conversion checked for one range is never reused for another.
+func inShapeKey(s *Shape) string { return shapeKeyOf(s, true) }
+
+func shapeKeyOf(s *Shape, ranges bool) string {
 	switch s.Kind {
 	case SStruct, SDistinct, SHost, SEnum:
 		return fmt.Sprintf("%d:%s", s.Kind, s.Name)
 	}
 	parts := make([]string, len(s.Elems))
 	for i, e := range s.Elems {
-		parts[i] = shapeKey(e)
+		parts[i] = shapeKeyOf(e, ranges)
 	}
 	k := fmt.Sprintf("%d(%s)", s.Kind, strings.Join(parts, ","))
+	if ranges && s.Kind == SInt {
+		k += s.Range.key()
+	}
 	if s.Ret != nil {
-		k += "->" + shapeKey(s.Ret)
+		k += "->" + shapeKeyOf(s.Ret, ranges)
 	}
 	return k
 }

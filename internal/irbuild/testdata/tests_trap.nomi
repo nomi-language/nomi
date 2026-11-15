@@ -3,7 +3,7 @@
 // text in that case's report.
 test "a fault inside a test"
     zero = 0
-    assert 7 / zero == 0
+    assert 7 / NonZeroInt.try_from(zero)! == 0
 end
 
 test "the next case still runs"

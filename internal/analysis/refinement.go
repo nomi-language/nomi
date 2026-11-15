@@ -6,15 +6,35 @@ import (
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// RuleText renders a refinement's rule on one line, as diagnostics and
-// hovers quote it: `fn port -> port >= 1`. Empty for no rule.
+// RuleText renders a refinement's rule as diagnostics, hovers and the
+// stdlib reference quote it: `fn port -> port >= 1`. Empty for no rule. A
+// rule the formatter writes on one line stays as written. A lambda whose one
+// expression the formatter put on the line after its arrow, as it does for a
+// rule too long for the declaration's line, reads as the one-line lambda it
+// is, with no `end`, and any other rule the formatter broke is joined onto
+// one line. A rule that does not parse once joined, a body of several
+// statements or a `case`, whose arms each start a line, keeps the
+// formatter's lines.
 func RuleText(rule ast.Node) string {
 	if rule == nil {
 		return ""
 	}
-	return strings.Join(strings.Fields(format.RenderNode(rule)), " ")
+	rendered := format.RenderNode(rule)
+	if !strings.Contains(rendered, "\n") {
+		return rendered
+	}
+	joined := strings.Join(strings.Fields(rendered), " ")
+	if l, ok := rule.(*ast.Lambda); ok && l.Body != nil && len(l.Body.Stmts) == 1 {
+		joined = strings.TrimSuffix(joined, " end")
+	}
+	if _, err := parser.Parse(lexer.Lex("rule = " + joined + "\n")); err != nil {
+		return rendered
+	}
+	return joined
 }
 
 // refinementOf answers t as a subtype, a `subtype` declaration or an
@@ -387,9 +407,12 @@ func (c *checker) refinementJoin(have, next Type) Type {
 		return nil
 	}
 	joined, ok := refinementJoinShape(have, next, 0)
-	if !ok || joined == nil || containsTypeVar(joined) {
+	if !ok || joined == nil {
 		return nil
 	}
+	// A position both sides leave open stays open, and the unifications
+	// below make the two one: `(List<?>, NonNegativeInt)` beside `(List<?>,
+	// Int)` is a `(List<?>, Int)`.
 	if c.unifyInto(joined, have, nil) != nil || c.unifyInto(joined, next, nil) != nil {
 		return nil
 	}
@@ -408,6 +431,20 @@ func refinementJoinShape(a, b Type, depth int) (Type, bool) {
 	a, b = resolveTypeVar(a), resolveTypeVar(b)
 	if TypesEqual(a, b) {
 		return embedsJoin(a, b)
+	}
+	// A position one side leaves open is the other's: `Ok(n)`, a
+	// Result<PositiveInt, ?>, beside `Err(n)`, a Result<Int, Int>, joins
+	// as Result<Int, Int>, and refinementJoin binds the open one.
+	if _, open := a.(*TypeVar); open {
+		if _, both := b.(*TypeVar); both {
+			return a, true
+		}
+	}
+	if _, open := a.(*TypeVar); open && !containsTypeVar(b) {
+		return b, true
+	}
+	if _, open := b.(*TypeVar); open && !containsTypeVar(a) {
+		return a, true
 	}
 	if refinementOf(a) != nil || refinementOf(b) != nil {
 		j := nearestSharedAncestor(a, b)
@@ -607,4 +644,12 @@ func NewSubtypeIntersection(members []Type) Type {
 		Subtype:      true,
 		Intersection: true,
 	}
+}
+
+// convertsUpTo reports whether a value of have converts to want through
+// its subtypes alone: the two join as want (refinementJoin), so a spread
+// of NonEmptyStrings fits a List<String> literal.
+func (c *checker) convertsUpTo(want, have Type) bool {
+	j := c.refinementJoin(want, have)
+	return j != nil && TypesIdentical(j, want)
 }

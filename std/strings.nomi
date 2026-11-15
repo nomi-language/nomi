@@ -11,7 +11,7 @@ import
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.{Int, NonNegativeInt}
+    int.{Int, Int64, NonNegativeInt}
     iter.Iter
     lists.List
     locale.Locale
@@ -288,10 +288,13 @@ impl String
         M.replace_in(old, s, new)
     end
 
-    /// Concatenates `count` copies of `s`. A negative `count` is a runtime error.
+    /// Concatenates `count` copies of `s`. The count is a `NonNegativeInt`:
+    /// a literal is checked when the program is compiled, and a computed
+    /// count goes through `NonNegativeInt.try_from`.
     //! assert String.repeat("ab", 3) == "ababab"
+    //! assert String.repeat("ab", 0) == ""
     //
-    pub host fn repeat(s: String, count: Int) -> String
+    pub host fn repeat(s: String, count: NonNegativeInt) -> String
 
     /// Reverses `s` by grapheme cluster, so multi-code-point clusters (combining
     /// marks, ZWJ emoji) stay intact.
@@ -433,13 +436,13 @@ impl String
         style:  ListStyle = ListStyle.And,
         width:  ListWidth = ListWidth.Wide,
     ) -> String
-        style_tag = case style
+        style_tag: Int64 = case style
             ListStyle.And  -> 1
             ListStyle.Or   -> 2
             ListStyle.Unit -> 3
         end
 
-        width_tag = case width
+        width_tag: Int64 = case width
             ListWidth.Wide   -> 1
             ListWidth.Short  -> 2
             ListWidth.Narrow -> 3
@@ -795,7 +798,7 @@ derive Equatable for ListWidth
 /// Joins items with the list pattern of a style and width (1-based, in
 /// `ListStyle` and `ListWidth` order) for a locale tag. Private helper
 /// behind `String.join_list`.
-host fn join_list_raw(locale: Locale, items: List<String>, style: Int, width: Int) -> String
+host fn join_list_raw(locale: Locale, items: List<String>, style: Int64, width: Int64) -> String
 
 // The capture groups of re's leftmost match in s, group 1 onward, each
 // `Some` of its text or `None` when it took no part; `None` when nothing
@@ -824,7 +827,9 @@ fn padding(fill: String, count: Int) -> String
     if count <= 0 or fill_length == 0 then
         ""
     else
-        String.repeat(fill, count / fill_length + 1) |> String.slice(0, count)
+        // `count` and `fill_length` are positive here, so the copies are too.
+        String.repeat(fill, count / fill_length + 1)
+        |> String.slice(0, count)
     end
 end
 

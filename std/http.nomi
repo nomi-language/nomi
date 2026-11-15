@@ -52,7 +52,7 @@ import
     html.Html
     http::host as http_host
     instant.Instant
-    int.Int
+    int.{Int, NonNegativeInt, PositiveInt}
     io
     io.{Reader, Writer}
     iter.Iter
@@ -642,15 +642,19 @@ end
 
 /// Copies at most `left` bytes of `r` to `w`.
 fn copy_capped(r: Reader, w: Writer, left: Int) -> Result<Unit, io.Error>
-    if left <= 0 then return Ok(Unit)
-
-    case Reader.read(r, max: Int.min(left, 65_536))?
-        Some(chunk) ->
-            Writer.write(w, chunk)?
-            copy_capped(r, w, left - Bytes.length(chunk))
-
+    case PositiveInt.try_from(Int.min(left, 65_536))
         None ->
             Ok(Unit)
+
+        Some(max) ->
+            case Reader.read(r, max:)?
+                Some(chunk) ->
+                    Writer.write(w, chunk)?
+                    copy_capped(r, w, left - Bytes.length(chunk))
+
+                None ->
+                    Ok(Unit)
+            end
     end
 end
 
@@ -771,7 +775,9 @@ impl Request
     //!     {
     //!         ..testing.request(Method.Post, "/"),
     //!         headers: Headers[("Content-Type", "application/x-www-form-urlencoded")],
-    //!         body:    Body.Stream(Reader.from_text("a=${String.repeat("x", size - 2)}")),
+    //!         body: Body.Stream(
+    //!             Reader.from_text("a=${String.repeat("x", NonNegativeInt.try_from(size - 2)!)}")
+    //!         ),
     //!     }
     //! end
     //!
@@ -830,7 +836,7 @@ impl Request
     //!
     //! upload = fn size: Int ->
     //!     overhead = Bytes.length(FormPart.encode([file("")]).body)
-    //!     encoded = FormPart.encode([file(String.repeat("x", size - overhead))])
+    //!     encoded = FormPart.encode([file(String.repeat("x", NonNegativeInt.try_from(size - overhead)!))])
     //!
     //!     {
     //!         ..testing.request(Method.Post, "/upload"),
@@ -1004,7 +1010,7 @@ impl Request
     /// form readers `Error.BodyTooLarge`. `max` becomes the request's
     /// `body_limit`, which replaces the form defaults, so an upload route
     /// can raise them; a second limit only lowers the first.
-    pub fn limit_body(request: Request, max: Int) -> Request
+    pub fn limit_body(request: Request, max: NonNegativeInt) -> Request
         body_limit = case request.body_limit
             Some(earlier) -> Int.min(earlier, max)
             None          -> max
@@ -1062,7 +1068,7 @@ impl Request
     pub fn extend_read_deadline(request: Request, by: Duration) -> Result<Unit, Error>
         case request.incoming
             Some(incoming) ->
-                http_host.extend_read_deadline(incoming, Duration.as_nanos(by))
+                http_host.extend_read_deadline(incoming, wait_nanos(by))
                 |> Result.map_err(fn reason -> Error.Protocol{reason:})
 
             None ->
@@ -1800,6 +1806,8 @@ pub enum Proxy
 end
 
 /// How a client's connections are made and kept: Go's `Transport` options.
+/// A timeout past about 292 years, the longest wait the clock counts, never
+/// fires.
 pub struct Transport
     proxy:                     Proxy = Proxy.FromEnvironment
     tls_handshake_timeout:     Duration = Duration.seconds(10)
@@ -1955,7 +1963,8 @@ impl Release for StreamedResponse
     end
 end
 
-/// A client's options.
+/// A client's options. A timeout past about 292 years, the longest wait the
+/// clock counts, never fires.
 pub struct ClientOptions
     /// The longest a request may take, its body included.
     timeout:   Maybe<Duration> = None
@@ -1969,10 +1978,6 @@ pub struct ClientOptions
     /// Where the client keeps cookies: it sends a jar's cookies with each
     /// request and stores those each response sets. `None` keeps none.
     cookies: Maybe<CookieJar> = None
-    /// How the client checks servers and what it offers over TLS; `None`
-    /// is Go's defaults. `Client.new` traps when its roots hold no
-    /// certificate.
-    tls: Maybe<tls.ClientConfig> = None
 end
 
 /// A client: its options and its connection pool. Make one with
@@ -2002,7 +2007,7 @@ impl Client
             end,
             proxy,
             proxy_url,
-            Duration.as_nanos(t.tls_handshake_timeout),
+            wait_nanos(t.tls_handshake_timeout),
             t.keep_alives,
             t.compression,
             t.max_idle,
@@ -2010,7 +2015,7 @@ impl Client
             Maybe.with_default(t.max_per_host, 0),
             nanos(t.idle_timeout),
             nanos(t.response_header_timeout),
-            Duration.as_nanos(t.expect_continue_timeout),
+            wait_nanos(t.expect_continue_timeout),
             Maybe.with_default(t.max_response_header_bytes, 0),
             Maybe.with_default(t.write_buffer_size, 0),
             Maybe.with_default(t.read_buffer_size, 0),
@@ -2046,12 +2051,22 @@ impl Client
             None      -> handle
         end
 
-        handle = case options.tls
-            Some(config) -> http_host.with_tls(handle, tls.ClientConfig.host(config)!)
-            None         -> handle
-        end
-
         Client{handle:, options:}
+    end
+
+    /// The client checking servers and offering what `config` says over
+    /// TLS, in place of Go's defaults, with the same options and cookies,
+    /// or the `tls.Error` for a config Go cannot build: roots that hold no
+    /// certificate, a roots file that cannot be read, or a certificate or
+    /// key that does not parse.
+    //! import std::tls.{ClientConfig, Roots}
+    //!
+    //! assert Client.new() |> Client.with_tls(ClientConfig{roots: Roots.Pem("none")}) |> Result.is_err()
+    //! assert Client.new() |> Client.with_tls(ClientConfig{}) |> Result.is_ok()
+    //
+    pub fn with_tls(client: Client, config: tls.ClientConfig) -> Result<Client, tls.Error>
+        host = tls.ClientConfig.host(config)?
+        Ok({..client, handle: http_host.with_tls(client.handle, host)})
     end
 
     /// Sends `request` and reads the whole body into `Body.Bytes`.
@@ -2179,8 +2194,15 @@ pub fn post_form(url: Url, form: Query) -> Result<Response, Error>
     Client.post_form(default_client(), url, form)
 end
 
+// A timeout's nanoseconds, 0 for `None`.
 fn nanos(d: Maybe<Duration>) -> Int
-    d |> Maybe.map(Duration.as_nanos) |> Maybe.with_default(0)
+    d |> Maybe.map(wait_nanos) |> Maybe.with_default(0)
+end
+
+// A timeout's nanoseconds held to the longest wait the clock counts, about
+// 292 years either way: a longer timeout waits that long, so it never fires.
+fn wait_nanos(d: Duration) -> Int
+    Duration.as_nanos(d) |> Int.clamp(-9_223_372_036_854_775_808..=9_223_372_036_854_775_807)
 end
 
 fn flat(headers: Headers) -> List<String>
@@ -2384,7 +2406,8 @@ fn response_of(exchange: http_host.Exchange, body: Body) -> Response
     }
 end
 
-/// How a server listens and responds. A timeout of `None` is none.
+/// How a server listens and responds. A timeout of `None` is none, and one
+/// past about 292 years, the longest wait the clock counts, never fires.
 pub struct Server
     /// The address to listen on, `host:port`, as Go's `Server.Addr`:
     /// `:http` is port 80 on every interface. Port 0 picks a free one,
@@ -2403,7 +2426,7 @@ pub struct Server
     /// The largest request body, in bytes: each request is limited as
     /// `Request.limit_body` limits it, which replaces the form readers'
     /// defaults. `None` leaves bodies unlimited but for those defaults.
-    max_body: Maybe<Int> = None
+    max_body: Maybe<NonNegativeInt> = None
     /// Whether connections are kept open between requests.
     keep_alives: Bool = True
     /// A deadline for each request's handler, on its context.
@@ -2465,7 +2488,7 @@ impl Listener
     /// waits up to the server's `shutdown_timeout` for the requests it is
     /// serving, then closes every connection. A second call does nothing.
     pub fn shutdown(listener: Listener) -> Unit
-        http_host.shutdown(listener.handle, Duration.as_nanos(listener.server.shutdown_timeout))
+        http_host.shutdown(listener.handle, wait_nanos(listener.server.shutdown_timeout))
     end
 
     /// Closes every connection the server holds, idle or busy; the server
@@ -2483,7 +2506,7 @@ pub fn listen(server: Server = Server{}) -> Result<Listener, Error>
         nanos(server.read_header_timeout),
         nanos(server.write_timeout),
         nanos(server.idle_timeout),
-        Duration.as_nanos(server.shutdown_timeout),
+        wait_nanos(server.shutdown_timeout),
     ]
 
     limits = [server.max_header_bytes, Maybe.with_default(server.max_header_value_count, 0)]
@@ -2586,11 +2609,12 @@ fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) ->
     if http_host.answered_already(incoming) then return Unit
     defer http_host.finish(incoming, [])
 
-    timeout =
-        listener.server.request_timeout |> Maybe.map(Duration.as_nanos) |> Maybe.with_default(-1)
+    timeout = listener.server.request_timeout |> Maybe.map(wait_nanos) |> Maybe.with_default(-1)
 
     http_host.run_request(incoming, timeout, fn context ->
-        request = request_of(incoming, context)
+        Ok(request) = request_of(incoming, context) else
+            Err(_) -> return respond(incoming, Response{status: Status.bad_request})
+        end
 
         limited = case listener.server.max_body
             Some(max) -> Request.limit_body(request, max)
@@ -2601,39 +2625,51 @@ fn answer(listener: Listener, incoming: http_host.Incoming, handler: Handler) ->
     end)
 end
 
-fn request_of(incoming: http_host.Incoming, context: Context) -> Request
+// The served request, or the error for a target std::url does not read,
+// which the caller answers 400 to before the handler runs.
+fn request_of(incoming: http_host.Incoming, context: Context) -> Result<Request, url.UrlError>
     (major, minor) = case http_host.in_protocol(incoming)
         [a, b] -> (a, b)
         _      -> (1, 1)
     end
 
+    method = http_host.in_method(incoming)
+    target = http_host.in_target(incoming)
     length = http_host.in_content_length(incoming)
     host = http_host.in_host(incoming)
     local_address = http_host.in_local(incoming)
     connection = http_host.in_tls(incoming) |> Maybe.map(tls.ConnectionState.of_parts)
 
-    Request{
-        method: Method.parse(http_host.in_method(incoming)),
-        url: served_url(
-            Url.parse(http_host.in_url(incoming))!,
-            host,
-            local_address,
-            connection is Some(_),
-        ),
-        headers:           Headers(pairs(http_host.in_headers(incoming))),
-        body:              Body.Stream(http_host.in_body(incoming)),
-        host:              Some(host),
-        content_length:    if length < 0 then None else Some(length),
+    Ok(Request{
+        method: Method.parse(method),
+        url: served_url(target_url(method, target)?, host, local_address, connection is Some(_)),
+        headers: Headers(pairs(http_host.in_headers(incoming))),
+        body: Body.Stream(http_host.in_body(incoming)),
+        host: Some(host),
+        content_length: if length < 0 then None else Some(length),
         transfer_encoding: http_host.in_transfer_encoding(incoming),
-        close:             http_host.in_close(incoming),
-        protocol:          Protocol{major:, minor:},
-        remote_address:    http_host.in_remote(incoming),
-        request_uri:       http_host.in_target(incoming),
+        close: http_host.in_close(incoming),
+        protocol: Protocol{major:, minor:},
+        remote_address: http_host.in_remote(incoming),
+        request_uri: target,
         context:,
         local_address:,
         tls:      connection,
         incoming: Some(incoming),
-    }
+    })
+end
+
+// The request target read as Go's server read it (net/http's readRequest,
+// and HTTP/2's :path and :authority): a CONNECT's authority as a host, and
+// anything else with url.ParseRequestURI. Go answered 400 to a target it
+// could not read, so this reads every target that reaches a handler; and a
+// target is never read as a URL with a fragment or, for `//a/b`, a host.
+fn target_url(method: String, target: String) -> Result<Url, url.UrlError>
+    if method == "CONNECT" and not String.starts_with(target, "/") then
+        Url.parse_request_uri("http://${target}") |> Result.map(&{..&1, scheme: ""})
+    else
+        Url.parse_request_uri(target)
+    end
 end
 
 /// A served request's URL made absolute, as a client wrote it: `https` over
@@ -3758,7 +3794,7 @@ end
 //! upload = http.limit_body(fn r: Request -> Response{body: Body.Text("${r.body_limit}")}, 1_000)
 //! assert Response.text(upload(testing.request(Method.Post, "/upload"))) == Ok("Some(1000)")
 //
-pub fn limit_body(handler: Handler, max: Int) -> (Request) -> Response
+pub fn limit_body(handler: Handler, max: NonNegativeInt) -> (Request) -> Response
     fn request -> ToResponse.to_response(handler(Request.limit_body(request, max)))
 end
 
@@ -5093,7 +5129,9 @@ pub fn format_time(at: Instant) -> String
 end
 
 /// A date in any of the three formats HTTP allows: the one `format_time`
-/// writes, RFC 850's and ANSI C's `asctime`.
+/// writes, RFC 850's and ANSI C's `asctime`, of any year, such as the
+/// `Fri, 31 Dec 9999 23:59:59 GMT` servers send for "never". Text in none
+/// of them is `Error.Protocol`.
 pub fn parse_time(text: String) -> Result<Instant, Error>
     http_host.parse_time(text)
     |> Result.map(Instant.from_nanos)
@@ -5126,7 +5164,10 @@ end
 derive Equatable for MaxAge
 
 /// An HTTP cookie: what a `Set-Cookie` header sets or a `Cookie` header
-/// sends. `raw_expires`, `raw` and `unparsed` are set by parsing only.
+/// sends. `raw_expires`, `raw` and `unparsed` are set by parsing only. A
+/// parsed expiry of any year (the year 9999 is common for "never") is
+/// `expires`; one Go cannot parse leaves `expires` `None` and is kept in
+/// `raw_expires`.
 pub struct Cookie
     name:  String
     value: String

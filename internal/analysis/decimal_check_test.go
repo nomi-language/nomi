@@ -21,11 +21,11 @@ end
 // division of two Decimals is a Decimal, and Decimal meets a `Divide` bound.
 // An Int or Float on the other side is the operand mismatch `*` gives.
 func TestDecimalDivisionTypechecks(t *testing.T) {
-	src := `fn quotient(x: Decimal, y: Decimal) -> Decimal
+	src := `fn quotient(x: Decimal, y: NonZeroDecimal) -> Decimal
   x / y
 end
 
-fn half<T>(x: T, two: T) -> T where T: Divide<T, T>
+fn half<T, D>(x: T, two: D) -> T where T: Divide<D, T>
   x / two
 end
 
@@ -33,7 +33,7 @@ fn f() -> Decimal
   a = 1d / 3d
   b = Divide.divide(1d, 3d)
   c = Decimal.divide(1d, 3d)
-  a + b + c + quotient(1d, 2d) + half(3d, 2d)
+  a + b + c + quotient(1d, 2d) + half(3d, NonZeroDecimal(2d))
 end
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -67,7 +67,7 @@ end
 
 impl Divide<Decimal, Money> for Money
   fn divide(lhs: Money, rhs: Decimal) -> Money
-    Money{amount: lhs.amount / rhs}
+    Money{amount: if rhs == 0d then 0d else lhs.amount / rhs}
   end
 end
 
@@ -128,7 +128,7 @@ end
 func TestRemainderOnTheStdNumbersTypechecks(t *testing.T) {
 	src := `import std::duration.Duration
 
-fn rem<T>(a: T, b: T) -> T where T: Remainder<T, T>
+fn rem<T, D>(a: T, b: D) -> T where T: Remainder<D, T>
   a % b
 end
 
@@ -136,7 +136,7 @@ fn f() -> Bool
   d = 5.0d % 2d
   x = 7.5 % 2.0
   quarter = Duration.minutes(40) % Duration.minutes(15)
-  d == 1.0d and x == 1.5 and rem(10.5d, 3d) == 1.5d and rem(1.5, 1.0) == 0.5 and quarter == Duration.minutes(10)
+  d == 1.0d and x == 1.5 and rem(10.5d, NonZeroDecimal(3d)) == 1.5d and rem(1.5, 1.0) == 0.5 and quarter == Duration.minutes(10)
 end
 `
 	_, errs := checkSourceWithStdlib(src)
@@ -163,9 +163,9 @@ end
 	}
 }
 
-// Int % Int stays accepted.
+// Int % NonZeroInt stays accepted.
 func TestIntModuloAccepted(t *testing.T) {
-	src := `fn f(a: Int, b: Int) -> Int
+	src := `fn f(a: Int, b: NonZeroInt) -> Int
   a % b
 end
 `

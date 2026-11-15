@@ -41,8 +41,8 @@ const builtinGoldenPath = "testdata/builtins.golden"
 var builtinCheckedRows = map[string]bool{
 	"int.Int.to_decimal": true, "strings.String.to_decimal": true, "decimal.Decimal.to_int": true,
 	"decimal.Decimal.to_float": true, "float.Float.to_decimal": true, "decimal.Decimal.divide": true,
-	"decimal.Decimal.divide_exact": true,
-	"decimal.Decimal.round":        true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
+	"decimal.Decimal.divide_exact": true, "decimal.Decimal.round_exact": true, "decimal.Decimal.sqrt_exact": true,
+	"decimal.Decimal.round": true, "decimal.Decimal.normalize": true, "decimal.Decimal.scale": true,
 	"strings.String.repeat": true,
 	"bytes.Bytes.to_list":   true, "bytes.Bytes.from_list": true, "bytes.Bytes.hash": true,
 	"strings.String.normalize": true, "strings.String.to_literal": true,
@@ -61,7 +61,6 @@ var builtinCheckedRows = map[string]bool{
 	"float.float_round": true, "float.Float.pow": true, "float.Float.sqrt": true, "float.Float.exp": true,
 	"float.Float.log": true, "float.Float.log2": true, "float.Float.log10": true, "float.Float.sin": true,
 	"float.Float.cos": true, "float.Float.tan": true, "float.Float.atan2": true,
-	"float.require_clamp_bounds": true, "comparable.clamp_reversed": true,
 	"decimal.Decimal.pow": true, "decimal.Decimal.sqrt": true,
 }
 
@@ -260,7 +259,7 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	fv := func(x float64) any { return x }
 	sv := func(s string) any { return s }
 	decimals := []any{dec(t, "1.50"), dec(t, "-0.001"), dec(t, "42"), dec(t, "123456789012345678901234.5"), dec(t, "0")}
-	modes := []string{"HalfEven", "HalfUp", "Down", "Floor", "Ceiling", "Up", "Unnecessary"}
+	modes := []string{"HalfEven", "HalfUp", "Down", "Floor", "Ceiling", "Up"}
 	cases := map[string][][]any{
 		"int.Int.to_decimal":           {{iv(0)}, {iv(-5)}, {iv(math.MaxInt64)}, {iv(math.MinInt64)}},
 		"strings.String.to_decimal":    {{sv("1.50")}, {sv("abc")}, {sv("-0.001")}, {sv("")}, {sv("1e5")}, {sv(" 2")}},
@@ -272,7 +271,9 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 		"decimal.Decimal.divide":       {},
 		"decimal.Decimal.divide_exact": {},
 		"decimal.Decimal.round":        {},
-		"strings.String.repeat":        {{sv("ab"), iv(3)}, {sv("x"), iv(0)}, {sv("é"), iv(2)}, {sv("x"), iv(-1)}},
+		"decimal.Decimal.round_exact":  {},
+		"decimal.Decimal.sqrt_exact":   {},
+		"strings.String.repeat":        {{sv("ab"), iv(3)}, {sv("x"), iv(0)}, {sv("é"), iv(2)}},
 		"bytes.Bytes.to_list":          {{rt.Bytes("")}, {rt.Bytes("ab\xff")}},
 		"bytes.Bytes.from_list":        {{rtList()}, {rtList(rt.Byte(1), rt.Byte(255))}},
 		"bytes.Bytes.hash":             {{rt.Bytes("")}, {rt.Bytes("ab")}, {rt.Bytes("ab\xff")}},
@@ -363,13 +364,16 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			cases["decimal.Decimal.divide"] = append(cases["decimal.Decimal.divide"], []any{d, dec(t, "3"), iv(2), mode(m)})
 		}
 		cases["decimal.Decimal.divide"] = append(cases["decimal.Decimal.divide"], []any{d, dec(t, "0"), iv(2), mode("HalfEven")})
+		for _, scale := range []int64{-1, 0, 1, 3} {
+			cases["decimal.Decimal.round_exact"] = append(cases["decimal.Decimal.round_exact"], []any{d, iv(scale)})
+		}
 		for _, by := range []string{"4", "8", "3", "0.25", "-2", "0"} {
 			cases["decimal.Decimal.divide_exact"] = append(cases["decimal.Decimal.divide_exact"], []any{d, dec(t, by)})
 		}
 	}
 	cases["decimal.Decimal.divide_exact"] = append(cases["decimal.Decimal.divide_exact"], []any{dec(t, "10.00"), dec(t, "4")})
 	for _, x := range []float64{0.1, 3.14159, -2.5, math.NaN(), math.Inf(1), 1e300} {
-		for _, m := range []string{"HalfEven", "Floor", "Unnecessary"} {
+		for _, m := range []string{"HalfEven", "Floor", "Down"} {
 			cases["float.Float.to_decimal"] = append(cases["float.Float.to_decimal"], []any{fv(x), iv(2), mode(m)})
 		}
 	}
@@ -407,16 +411,12 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 	}
 	for _, x := range []float64{2.675, -2.675, 1.25, 1234.5, 0.004, -0.004, 2.0, math.MaxFloat64, 5e-324, math.NaN(), math.Inf(-1)} {
 		for _, scale := range []int64{-400, -2, 0, 2, 1100, math.MinInt64} {
-			for _, m := range []string{"HalfUp", "HalfDown", "Floor", "Up", "Unnecessary"} {
+			for _, m := range []string{"HalfUp", "HalfDown", "Floor", "Up"} {
 				cases["float.float_round"] = append(cases["float.float_round"], []any{fv(x), iv(scale), mode(m)})
 			}
 		}
 	}
 	specials := []float64{0, math.Copysign(0, -1), 1, -1, 0.5, 2, -8, 1e308, math.Inf(1), math.Inf(-1), math.NaN()}
-	for _, b := range [][2]float64{{0, 1}, {1, 1}, {2, 1}, {math.NaN(), 1}, {0, math.NaN()}, {math.Inf(-1), math.Inf(1)}, {math.Copysign(0, -1), 0}} {
-		cases["float.require_clamp_bounds"] = append(cases["float.require_clamp_bounds"], []any{fv(b[0]), fv(b[1])})
-	}
-	cases["comparable.clamp_reversed"] = [][]any{{sv("10"), sv("1")}, {sv(`"z"`), sv(`"a"`)}}
 	for _, x := range specials {
 		for _, k := range []string{"sqrt", "exp", "log", "log2", "log10", "sin", "cos", "tan"} {
 			cases["float.Float."+k] = append(cases["float.Float."+k], []any{fv(x)})
@@ -431,9 +431,10 @@ func TestRtFuncs_NewRowsReproduceTheirRecordedOutcomes(t *testing.T) {
 			cases["decimal.Decimal.pow"] = append(cases["decimal.Decimal.pow"], []any{d, iv(e)})
 		}
 		for _, scale := range []int64{-1, 0, 1, 4} {
-			for _, m := range []string{"HalfEven", "HalfUp", "HalfDown", "Down", "Up", "Unnecessary"} {
+			for _, m := range []string{"HalfEven", "HalfUp", "HalfDown", "Down", "Up"} {
 				cases["decimal.Decimal.sqrt"] = append(cases["decimal.Decimal.sqrt"], []any{d, iv(scale), mode(m)})
 			}
+			cases["decimal.Decimal.sqrt_exact"] = append(cases["decimal.Decimal.sqrt_exact"], []any{d, iv(scale)})
 		}
 	}
 	cases["decimal.Decimal.pow"] = append(cases["decimal.Decimal.pow"], []any{dec(t, "0.01"), iv(1 << 30)}, []any{dec(t, "2"), iv(1 << 40)}, []any{dec(t, "-1"), iv(1<<40 + 1)})

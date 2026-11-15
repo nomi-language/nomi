@@ -32,12 +32,13 @@ end
 
 /// Row `i` of a diamond `size` letters tall to its middle, holding `letter`.
 fn row(letter: Codepoint, i: Int, size: Int) -> String
-    outside = String.repeat(" ", size - 1 - i)
+    // `i` counts from 0 to `size - 1`, so neither count is negative.
+    outside = String.repeat(" ", NonNegativeInt.try_from(size - 1 - i)!)
 
     if i == 0 then
         "${outside}${letter}${outside}"
     else
-        inside = String.repeat(" ", 2 * i - 1)
+        inside = String.repeat(" ", NonNegativeInt.try_from(2 * i - 1)!)
         "${outside}${letter}${inside}${letter}${outside}"
     end
 end

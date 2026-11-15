@@ -60,10 +60,10 @@ impl Factory
     end
 end
 
-/// Every name, each equally likely: a number below `name_count` read as two
+/// Every name, each equally likely: a number below `name_count`, 676,000, read as two
 /// letters and three digits.
 fn names() -> Generator<String>
-    Generator.int(0, name_count - 1)
+    Generator.int(0..676_000)
     |> Generator.map(fn n ->
         first = Vector.get(letters, n / 26_000)!
         second = Vector.get(letters, n / 1000 % 26)!

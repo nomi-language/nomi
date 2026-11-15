@@ -145,7 +145,7 @@ end
 `},
 		{"adapter", `import std::io
 
-fn down(n: Int, k: Int) -> Int
+fn down(n: Int, k: NonNegativeInt) -> Int
     if n < 1 then 0 else down(n - 1, k) + Int.bit_count(k) - 2
 end
 
@@ -154,7 +154,7 @@ fn main()
 end
 `, `import std::io
 
-fn down(n: Int, k: Int) -> Int
+fn down(n: Int, k: NonNegativeInt) -> Int
     if n < 1 then 0 else down(n - 1, k) + Int.bit_count(k) + Int.bit_count(k) - Int.bit_count(k) - 2
 end
 

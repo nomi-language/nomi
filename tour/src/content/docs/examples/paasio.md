@@ -49,7 +49,7 @@ impl MeteredReader
     /// nothing.
     pub fn read(
         meter: MeteredReader,
-        max:   Int = 65536,
+        max:   PositiveInt = 65536,
     ) -> Result<(Maybe<Bytes>, MeteredReader), io.Error>
         data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)
@@ -88,7 +88,7 @@ end
 
 /// Reads `meter` to the end, `max` bytes at a time, and answers the bytes
 /// read and the meter after the last read.
-fn read_to_end(meter: MeteredReader, max: Int) -> Result<(Bytes, MeteredReader), io.Error>
+fn read_to_end(meter: MeteredReader, max: PositiveInt) -> Result<(Bytes, MeteredReader), io.Error>
     (data, meter) = MeteredReader.read(meter, max)?
 
     case data

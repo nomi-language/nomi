@@ -31,12 +31,12 @@ fn push_disk(towers: Towers, disk: Int, pile: Int) -> Towers
         if disk >= size then unreachable "Cannot put a big disk on a smaller one"
     end
 
-    {..towers, piles: Vector.set(.., pile, [disk, ..top])}
+    {..towers, piles: Vector.set(.., pile, [disk, ..top])!}
 end
 
 fn pop_disk_from(towers: Towers, pile: Int) -> (Int, Towers)
     case Vector.get(towers.piles, pile)!
-        [top, ..rest] -> (top, {..towers, piles: Vector.set(.., pile, rest)})
+        [top, ..rest] -> (top, {..towers, piles: Vector.set(.., pile, rest)!})
         []            -> unreachable "Attempting to remove a disk from an empty pile"
     end
 end

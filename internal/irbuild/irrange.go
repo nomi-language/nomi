@@ -66,6 +66,32 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		if len(args.kinds) != 1 {
 			return no()
 		}
+	case "start", "stop", "is_inclusive":
+		// A Range's parts, read off its record with no element method, so
+		// a subtype rule generic over a Comparable element reads them as
+		// any body does (ClosedRange, BoundedRange).
+		if len(args.kinds) != 1 {
+			return no()
+		}
+		elem, _ := rangeElem(args.kinds[0])
+		result := kindBool
+		switch method {
+		case "start":
+			result = elem
+		case "stop":
+			// A Maybe of a program's type is the program's instance, as
+			// stepperSignature types a program's step_by.
+			maybeElem, shared := bl.g.sharedMaybe(elem)
+			if !shared {
+				a, anchored := bl.g.preludeNamed("Maybe")
+				if !anchored {
+					return no()
+				}
+				maybeElem = bl.g.preludeInstance(a, []kind{elem})
+			}
+			result = maybeElem
+		}
+		return bl.qualEmit(t, args, &irQualPlan{token: name, name: name, result: result, host: true})
 	case "step_by":
 		return bl.rangeStepBy(t, args)
 	case "known_count", "is_infinite", "each_while":
@@ -106,22 +132,27 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 	return bl.qualEmit(t, args, &irQualPlan{token: name, name: name, result: kindBool, host: true})
 }
 
-// rangeFrom builds the unbounded Int ranges `Range.from(n)` and
-// `Range.naturals()` with rangeFromCall's Go delivery.
+// rangeFrom builds the unbounded ranges `Range.from(n)`, of any element
+// with an order (an Int, a Float, a String), and `Range.naturals()` with
+// rangeFromCall's Go delivery.
 func (bl *irScalarBuilder) rangeFrom(t *ast.Call, args irQualArgs, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	want := 0
 	if method == "from" {
 		want = 1
 	}
-	if !args.ok || len(args.kinds) != want || (want == 1 && args.kinds[0] != kindInt) {
+	if !args.ok || len(args.kinds) != want {
 		return no()
 	}
-	k := bl.g.rangeKindOf(kindInt)
+	elem := kindInt
+	if want == 1 {
+		elem = args.kinds[0]
+	}
+	k := bl.g.rangeKindOf(elem)
 	if !irRetainedRangeKind(k) {
 		return no()
 	}
-	if ok := bl.g.rangeOrders(kindInt, t); !ok {
+	if ok := bl.g.rangeOrders(elem, t); !ok {
 		return no()
 	}
 	start := ir.NoTemp
@@ -136,10 +167,10 @@ func (bl *irScalarBuilder) rangeFrom(t *ast.Call, args irQualArgs, method string
 
 // rangeStructLit builds std/ranges' own `Range{start: n, end: None,
 // inclusive: False}`, the body of `Range.from` and `Range.naturals`, as the
-// unbounded Int range rangeFrom builds at a call site. The VM holds a Range
+// unbounded range rangeFrom builds at a call site. The VM holds a Range
 // as its own record (MakeRange), not as a declared struct, so only this
-// shape is admitted: an Int start, a bare `None` end and a `False`
-// inclusive. The call sites never needed the body; a function value
+// shape is admitted: a start of a kind a range holds, a bare `None` end
+// and a `False` inclusive. The call sites never needed the body; a function value
 // (`Iter.map(xs, Range.from)`) does.
 func (bl *irScalarBuilder) rangeStructLit(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
@@ -167,10 +198,10 @@ func (bl *irScalarBuilder) rangeStructLit(t *ast.StructLit) (ir.Temp, kind, bool
 		return no()
 	}
 	v, k, _, ok := bl.lower(start)
-	if !ok || k != kindInt {
+	if !ok {
 		return no()
 	}
-	rk := bl.g.rangeKindOf(kindInt)
+	rk := bl.g.rangeKindOf(k)
 	if !irRetainedRangeKind(rk) {
 		return no()
 	}

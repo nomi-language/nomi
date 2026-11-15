@@ -26,18 +26,27 @@ import (
 // Source is the Nomi module the bindings implement, loaded as module `ffx`.
 const Source = `import std::duration.{Duration}
 import std::instant.{Instant}
+import std::int.{Int64}
+
+// An Int position bound to a fixed-width Go integer declares a type whose
+// range fits it.
+pub subtype Int8 Int when fn n -> n >= -128 and n <= 127
+pub subtype Int16 Int when fn n -> n >= -32768 and n <= 32767
+pub subtype Int32 Int when fn n -> n >= -2147483648 and n <= 2147483647
+pub subtype Uint16 Int when fn n -> n >= 0 and n <= 65535
+pub subtype Uint32 Int when fn n -> n >= 0 and n <= 4294967295
 
 pub struct Point
-  x: Int
-  y: Int
+  x: Int64
+  y: Int64
 end
 
 pub struct Tagged
   label: String
-  x: Int
-  y: Int
-  small: Int
-  wide: Int
+  x: Int64
+  y: Int64
+  small: Int8
+  wide: Uint32
   ratio: Float
   at: Instant
   wait: Duration
@@ -49,7 +58,16 @@ end
 pub host type Box
 
 pub host fn echo(t: Tagged) -> Tagged
-pub host fn narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> Int
+pub host fn narrow(
+  a: Int8,
+  b: Int16,
+  c: Int32,
+  d: Int64,
+  e: NonNegativeInt and Int64,
+  f: Uint16,
+  g: Uint32,
+  h: NonNegativeInt and Int64,
+) -> Int
 pub host fn biggest() -> Int
 pub host fn halve(f: Float) -> Float
 pub host fn later(t: Instant, by: Duration) -> Instant
@@ -59,18 +77,18 @@ pub host fn octets(b: Bytes) -> Bytes
 pub host fn flip(b: Byte) -> Byte
 pub host fn shout(s: String) -> String
 pub host fn negate(b: Bool) -> Bool
-pub host fn triple(n: Int) -> (Int, String, Bool)
-pub host fn triple_or_fail(n: Int) -> Result<(Int, String), String>
+pub host fn triple(n: Int64) -> (Int, String, Bool)
+pub host fn triple_or_fail(n: Int64) -> Result<(Int, String), String>
 pub host fn nothing() -> Unit
 pub host fn nothing_or_fail(fail: Bool) -> Result<Unit, String>
-pub host fn points(n: Int) -> List<Point>
-pub host fn new_box(n: Int) -> Box
+pub host fn points(n: Int64) -> List<Point>
+pub host fn new_box(n: Int64) -> Box
 pub host fn box_value(b: Box) -> Int
-pub host fn apply(f: (Int) -> Int, x: Int) -> Int
+pub host fn apply(f: (Int) -> Int64, x: Int64) -> Int
 pub host fn check(f: (Point) -> Bool, p: Point) -> Bool
-pub host fn attempt(f: (String) -> Result<Int, String>, s: String) -> Result<Int, String>
+pub host fn attempt(f: (String) -> Result<Int64, String>, s: String) -> Result<Int, String>
 pub host fn run(f: () -> Result<Unit, String>) -> Result<Unit, String>
-pub host fn visit(f: (Int) -> Unit, n: Int) -> Unit
+pub host fn visit(f: (Int) -> Unit, n: Int64) -> Unit
 
 pub struct Query
   path: String

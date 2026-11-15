@@ -22,7 +22,7 @@ fn clear(flags: Vector<Bool>, k: Int, i: Int, size: Int) -> Vector<Bool>
     if k > size then
         flags
     else
-        clear(Vector.set(flags, k - 1, False), k + i, i, size)
+        clear(Vector.set(flags, k - 1, False)!, k + i, i, size)
     end
 end
 

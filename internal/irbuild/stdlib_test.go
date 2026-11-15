@@ -104,21 +104,21 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		//
 		// The keys carry the instantiation because every one of these is an impl
 		// of a GENERIC interface; see stdKey.
-		"int.Int.Add<Int, Int>.add":                   "operator impl; `+` is lowered natively and the trap text carries the operator's line",
-		"int.Int.Subtract<Int, Int>.subtract":         "operator impl; see int.Int.Add<Int, Int>.add",
-		"int.Int.Multiply<Int, Int>.multiply":         "operator impl; see int.Int.Add<Int, Int>.add",
-		"float.Float.Add<Float, Float>.add":           "operator impl; `+` on Float is Go's own `+`",
-		"float.Float.Subtract<Float, Float>.subtract": "operator impl; see float.Float.Add<Float, Float>.add",
-		"float.Float.Multiply<Float, Float>.multiply": "operator impl; see float.Float.Add<Float, Float>.add",
-		"float.Float.Divide<Float, Float>.divide":     "operator impl; `/` on Float lowers to rt.DivFloat",
-		"strings.String.Add<String, String>.add":      "operator impl; String `+` is lowered natively as concatenation",
-		"int.Int.Divide<Int, Int>.divide":             "operator impl; `/` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
-		"int.Int.BitwiseAnd<Int, Int>.bitwise_and":    "operator impl; `&&&` on Int is lowered natively",
-		"int.Int.BitwiseOr<Int, Int>.bitwise_or":      "operator impl; `|||` on Int is lowered natively",
-		"int.Int.BitwiseXor<Int, Int>.bitwise_xor":    "operator impl; `^^^` on Int is lowered natively",
-		"int.Int.BitwiseNot<Int>.bitwise_not":         "operator impl; `~~~` on Int is lowered natively",
-		"int.Int.ShiftLeft<Int, Int>.shift_left":      "operator impl; `<<<` on Int is lowered natively and the shift-count trap carries the operator's line",
-		"int.Int.ShiftRight<Int, Int>.shift_right":    "operator impl; see int.Int.ShiftLeft<Int, Int>.shift_left",
+		"int.Int.Add<Int, Int>.add":                           "operator impl; `+` is lowered natively and the trap text carries the operator's line",
+		"int.Int.Subtract<Int, Int>.subtract":                 "operator impl; see int.Int.Add<Int, Int>.add",
+		"int.Int.Multiply<Int, Int>.multiply":                 "operator impl; see int.Int.Add<Int, Int>.add",
+		"float.Float.Add<Float, Float>.add":                   "operator impl; `+` on Float is Go's own `+`",
+		"float.Float.Subtract<Float, Float>.subtract":         "operator impl; see float.Float.Add<Float, Float>.add",
+		"float.Float.Multiply<Float, Float>.multiply":         "operator impl; see float.Float.Add<Float, Float>.add",
+		"float.Float.Divide<Float, Float>.divide":             "operator impl; `/` on Float lowers to rt.DivFloat",
+		"strings.String.Add<String, String>.add":              "operator impl; String `+` is lowered natively as concatenation",
+		"int.Int.Divide<NonZeroInt, Int>.divide":              "operator impl; `/` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
+		"int.Int.BitwiseAnd<Int, Int>.bitwise_and":            "operator impl; `&&&` on Int is lowered natively",
+		"int.Int.BitwiseOr<Int, Int>.bitwise_or":              "operator impl; `|||` on Int is lowered natively",
+		"int.Int.BitwiseXor<Int, Int>.bitwise_xor":            "operator impl; `^^^` on Int is lowered natively",
+		"int.Int.BitwiseNot<Int>.bitwise_not":                 "operator impl; `~~~` on Int is lowered natively",
+		"int.Int.ShiftLeft<NonNegativeInt, Int>.shift_left":   "operator impl; `<<<` on Int is lowered natively and the shift-count trap carries the operator's line",
+		"int.Int.ShiftRight<NonNegativeInt, Int>.shift_right": "operator impl; see int.Int.ShiftLeft<NonNegativeInt, Int>.shift_left",
 
 		// A VM intrinsic the builder lowers by name (irsupervisor.go's
 		// supervisorSpawn). Its signature counts as scalar since shared std
@@ -138,13 +138,13 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		// EXPIRY: a stdlibBinding shape that can carry a call-site position.
 		// TestScalarArith_TheOperatorKeysStayUnbound is the other half of this
 		// and fires on the same event.
-		"decimal.Decimal.Add<Decimal, Decimal>.add":             "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract":   "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply":   "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Divide<Decimal, Decimal>.divide":       "the row cannot carry the call's line; scalararith.go lowers it",
-		"decimal.Decimal.Remainder<Decimal, Decimal>.remainder": "the row cannot carry the call's line; scalararith.go lowers it",
-		"int.Int.Remainder<Int, Int>.remainder":                 "operator impl; `%` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
-		"float.Float.Remainder<Float, Float>.remainder":         "operator impl; `%` on Float lowers to rt.ModFloat",
+		"decimal.Decimal.Add<Decimal, Decimal>.add":                    "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract":          "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply":          "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Divide<NonZeroDecimal, Decimal>.divide":       "the row cannot carry the call's line; scalararith.go lowers it",
+		"decimal.Decimal.Remainder<NonZeroDecimal, Decimal>.remainder": "the row cannot carry the call's line; scalararith.go lowers it",
+		"int.Int.Remainder<NonZeroInt, Int>.remainder":                 "operator impl; `%` on Int is lowered natively and the divide-by-zero trap carries the operator's line",
+		"float.Float.Remainder<Float, Float>.remainder":                "operator impl; `%` on Float lowers to rt.ModFloat",
 
 		// Three iteration protocol hosts, which count here because a std
 		// signature's function type projects. None is a crossing a program

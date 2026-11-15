@@ -16,6 +16,8 @@
 //# }
 //# ```
 
+import std::int.Int64
+
 gopkg "github.com/nomi-language/nomi/lib/image/goside"
 
 opaque type Handle go goside.Image
@@ -38,7 +40,7 @@ end
 
 fn probe_raw(data: Bytes) -> Info go goside.Probe
 
-fn decode_raw(data: Bytes, max_pixels: Int) -> (Handle, Failure) go goside.Decode
+fn decode_raw(data: Bytes, max_pixels: Pixels) -> (Handle, Failure) go goside.Decode
 
 fn width_raw(h: Handle) -> Int go goside.Width
 
@@ -46,15 +48,27 @@ fn height_raw(h: Handle) -> Int go goside.Height
 
 fn format_raw(h: Handle) -> String go goside.Format
 
-fn fit_raw(h: Handle, max_width: Int, max_height: Int) -> Handle go goside.Fit
+fn fit_raw(h: Handle, max_width: Pixels, max_height: Pixels) -> Handle go goside.Fit
 
-fn fill_raw(h: Handle, width: Int, height: Int) -> Handle go goside.Fill
+fn fill_raw(h: Handle, width: Pixels, height: Pixels) -> Handle go goside.Fill
 
-fn crop_raw(h: Handle, x: Int, y: Int, width: Int, height: Int) -> Handle go goside.Crop
+fn crop_raw(h: Handle, x: Offset, y: Offset, width: Pixels, height: Pixels) -> Handle go goside.Crop
 
-fn encode_jpeg_raw(h: Handle, quality: Int) -> Bytes go goside.EncodeJPEG
+fn encode_jpeg_raw(h: Handle, quality: Quality) -> Bytes go goside.EncodeJPEG
 
 fn encode_png_raw(h: Handle) -> Bytes go goside.EncodePNG
+
+/// A number of pixels: a width, a height, or how many an image may hold.
+/// It is at least 1, and at most what Go's image library counts in, a
+/// signed 64-bit integer.
+pub subtype Pixels PositiveInt and Int64
+
+/// How far into an image a crop starts, in pixels: 0 at the left or top
+/// edge.
+pub subtype Offset NonNegativeInt and Int64
+
+/// A JPEG's quality, 1 to 100: higher keeps more detail in a larger file.
+pub subtype Quality Int when fn n -> n >= 1 and n <= 100
 
 /// The file format an image was decoded from.
 pub enum Format
@@ -144,7 +158,7 @@ end
 /// more than `max_pixels` pixels is `Err(.TooLarge)`, refused before any
 /// pixel is decoded. The default, 50 million, is an 8,660 by 5,773 photo,
 /// which decodes into about 200 MB.
-pub fn decode(data: Bytes, max_pixels: Int = 50_000_000) -> Result<Image, Error>
+pub fn decode(data: Bytes, max_pixels: Pixels = 50_000_000) -> Result<Image, Error>
     (handle, failure) = decode_raw(data, max_pixels)
     if failure.kind != 0 then return Err(error_of(failure))
     Ok(Image{handle:, format: format_of(format_raw(handle))})
@@ -179,12 +193,8 @@ impl Image
 
     /// `image` scaled down to fit inside `max_width` by `max_height`,
     /// keeping its shape. An image that already fits is returned as it is:
-    /// `fit` never scales up. The bounds must be positive.
-    pub fn fit(image: Image, max_width: Int, max_height: Int) -> Image
-        if max_width < 1 or max_height < 1 then
-            unreachable "Image.fit's box must be at least 1 by 1"
-        end
-
+    /// `fit` never scales up.
+    pub fn fit(image: Image, max_width: Pixels, max_height: Pixels) -> Image
         fitted = Image{handle: fit_raw(image.handle, max_width, max_height), format: None}
 
         if Image.width(fitted) == Image.width(image)
@@ -197,30 +207,23 @@ impl Image
 
     /// `image` scaled and cropped to exactly `width` by `height`: scaled
     /// until it covers the box, keeping its shape, then cut to the box
-    /// around its center. The sizes must be positive.
-    pub fn fill(image: Image, width: Int, height: Int) -> Image
-        if width < 1 or height < 1 then unreachable "Image.fill's size must be at least 1 by 1"
+    /// around its center.
+    pub fn fill(image: Image, width: Pixels, height: Pixels) -> Image
         Image{handle: fill_raw(image.handle, width, height), format: None}
     end
 
     /// The part of `image` whose top left corner is at `x`, `y` and that is
     /// `width` by `height`, which must lie inside the image.
-    pub fn crop(image: Image, x: Int, y: Int, width: Int, height: Int) -> Image
-        inside = x >= 0
-            and y >= 0
-            and width >= 1
-            and height >= 1
-            and x + width <= Image.width(image)
-            and y + height <= Image.height(image)
+    pub fn crop(image: Image, x: Offset, y: Offset, width: Pixels, height: Pixels) -> Image
+        inside = x + width <= Image.width(image) and y + height <= Image.height(image)
 
         if not inside then unreachable "Image.crop's rectangle must lie inside the image"
         Image{handle: crop_raw(image.handle, x, y, width, height), format: None}
     end
 
-    /// `image` as a JPEG file at `quality`, 1 to 100. JPEG has no
-    /// transparency, so a transparent pixel is written as its color.
-    pub fn encode_jpeg(image: Image, quality: Int = 90) -> Bytes
-        if quality < 1 or quality > 100 then unreachable "Image.encode_jpeg's quality is 1 to 100"
+    /// `image` as a JPEG file at `quality`. JPEG has no transparency, so a
+    /// transparent pixel is written as its color.
+    pub fn encode_jpeg(image: Image, quality: Quality = 90) -> Bytes
         encode_jpeg_raw(image.handle, quality)
     end
 

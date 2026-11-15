@@ -72,7 +72,7 @@ func (e *assertFailure) Error() string { return e.failure.Error() }
 func (e *assertFailure) Unwrap() error { return e.failure }
 
 // Fault is a NOMI FAULT that left an activation: a zero divisor, a
-// division by zero, a `case` with no matching arm.
+// `!` on a None, a `case` with no matching arm.
 //
 // IT EXISTS BECAUSE THE RUNNER HAS TO TELL A FAULT FROM A MACHINE LIMIT: a
 // fault is the program's exit 1 with its text on stderr, and

@@ -31,7 +31,7 @@ fn main()
   io.print(answer)
   io.print(x)
 end`, "30\n5\n"},
-		{"nonfirst slot", `fn divide(x: Int, y: Int) -> Int
+		{"nonfirst slot", `fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 fn main()

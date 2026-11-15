@@ -6,7 +6,7 @@ pub fn factors(value: Int) -> List<Int>
     factors_from(value, 2)
 end
 
-fn factors_from(n: Int, divisor: Int) -> List<Int>
+fn factors_from(n: Int, divisor: PositiveInt) -> List<Int>
     case
         n == 1                -> []
         divisor * divisor > n -> [n]

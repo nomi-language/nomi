@@ -40,7 +40,8 @@ import (
 // So is a program with a `todo` or a `dbg` in any of its files, reached or
 // not, with a *LeftoversRemain listing each one: a built binary is a release,
 // a `todo` is code nobody has written yet, and a `dbg` is development-only
-// instrumentation. The stdlib has neither. So is a program with an `embed`
+// instrumentation. The stdlib has neither, which std's
+// TestEmbeddedStdlibHoldsNoTodoOrDbg holds. So is a program with an `embed`
 // pattern whose base does not exist (Program.Warnings), with Diagnostics
 // at each one: a build holds the files its patterns name.
 func (p *Program) BuildImage() (image []byte, usesCompiler bool, err error) {

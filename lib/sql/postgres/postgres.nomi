@@ -24,6 +24,7 @@ import
     std::channels.{Arm, Channel, Receiver, Sender}
     std::duration.Duration
     std::instant.Instant
+    std::int.Int64
     std::json.Json
     std::sql.{self, Conn, ConstraintKind, Dialect, Row, Statement, Value}
     std::supervisors.Supervisor
@@ -36,8 +37,8 @@ opaque type Handle go goside.Session
 
 // An array element as it crosses to Go: a Cell with no items.
 struct Item
-    kind:  Int
-    int:   Int
+    kind:  Kind
+    int:   Int64
     float: Float
     text:  String
     bytes: Bytes
@@ -46,15 +47,18 @@ end
 // A value as it crosses to Go, tagged by kind: 0 null, 1 int, 2 float,
 // 3 text, 4 bytes, 5 a decimal's text, 6 bool (int 1 or 0), 7 a date's,
 // 8 a time's and 9 a timestamp's ISO text, 10 an instant's Unix
-// nanoseconds, 11 a uuid's and 12 JSON's text, 13 an array of items.
+// nanoseconds in decimal, 11 a uuid's and 12 JSON's text, 13 an array of
+// items.
 struct Cell
-    kind:  Int
-    int:   Int
+    kind:  Kind
+    int:   Int64
     float: Float
     text:  String
     bytes: Bytes
     items: List<Item>
 end
+
+subtype Kind Int when fn n -> n >= 0 and n <= 13
 
 // An error as Go reports it: kind 0 none, 1 connection, 2 constraint,
 // 3 database, 4 finished, 5 closed, 6 the task's context ended,
@@ -221,7 +225,7 @@ impl Listener
     pub fn receiver(
         listener:   Listener,
         supervisor: Supervisor,
-        capacity:   Int = 16,
+        capacity:   PositiveInt = 16,
     ) -> Receiver<Result<Notification, sql.Error>>
         channel = Channel.buffered<Result<Notification, sql.Error>>(capacity)
         _ = Supervisor.spawn(supervisor, fn -> Listener.forward(listener, channel.sender))
@@ -395,11 +399,11 @@ fn cells(statement: Statement) -> Result<List<Cell>, sql.Error>
     |> Result.collect()
 end
 
-fn item(kind: Int) -> Item
+fn item(kind: Kind) -> Item
     Item{kind:, int: 0, float: 0.0, text: "", bytes: Bytes.from_list([])}
 end
 
-fn text_item(kind: Int, text: String) -> Item
+fn text_item(kind: Kind, text: String) -> Item
     {..item(kind), text:}
 end
 
@@ -411,11 +415,11 @@ fn to_item(value: Value) -> Maybe<Item>
         .Null ->
             Some(item(0))
 
-        .Int(n) when n > 9_223_372_036_854_775_807 or n < -9_223_372_036_854_775_808 ->
-            Some(text_item(5, "${n}"))
-
         .Int(n) ->
-            Some({..item(1), int: n})
+            case Int64.try_from(n)
+                Some(int) -> Some({..item(1), int:})
+                None      -> Some(text_item(5, "${n}"))
+            end
 
         .Float(x) ->
             Some({..item(2), float: x})
@@ -442,7 +446,7 @@ fn to_item(value: Value) -> Maybe<Item>
             Some(text_item(9, "${t}"))
 
         .Timestamptz(i) ->
-            Some({..item(10), int: Instant.as_nanos(i)})
+            Some(text_item(10, "${Instant.as_nanos(i)}"))
 
         .Uuid(id) ->
             Some(text_item(11, "${id}"))
@@ -531,7 +535,7 @@ fn scalar(kind: Int, int: Int, float: Float, text: String, bytes: Bytes) -> Valu
         7  -> Date.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Date)
         8  -> Time.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Time)
         9  -> NaiveDateTime.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Timestamp)
-        10 -> Some(Value.Timestamptz(Instant.from_nanos(int)))
+        10 -> String.to_int(text) |> Maybe.map(fn n -> Value.Timestamptz(Instant.from_nanos(n)))
         11 -> Uuid.parse(text) |> Result.to_maybe() |> Maybe.map(Value.Uuid)
         12 -> Json.decode(text) |> Result.to_maybe() |> Maybe.map(Value.Json)
         _  -> Some(Value.Null)

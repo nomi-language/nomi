@@ -185,8 +185,12 @@ test result: ok. 1 passed, 0 failed
 - `subtype Port Int when fn p -> p >= 1` is an Int. A literal Port is
   checked when compiling; another Int needs `Port.try_from(n)`, a Maybe.
   `type Email String when ...` converts to nothing, built the same way.
-  `A and B` is both: `PositiveInt` is `NonNegativeInt and NonZeroInt`.
-  The prelude's `NonEmptyList<T>` makes `NonEmptyList.first(xs)` a `T`.
+  `PositiveInt` is `NonNegativeInt and NonZeroInt`. `Int.clamp(n, 0..=10)`
+  takes a range subtype.
+- With `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n - 1` an
+  Int. After `if d == 0 then return`, `d` is a `NonZeroInt`, as `/`
+  needs. In `1..=n |> Iter.filter(fn d -> n % d == 0)`, `d` is 1 or more,
+  so `%` takes it too.
 - A value converts to wider type arguments through every position that
   only holds them: a `List<Maybe<Int>>` passes where a `List<Display>` is
   expected, and a `Box<Int>` where a `Box<Display>` is when Box's fields
@@ -584,12 +588,12 @@ test result: ok. 2 passed, 0 failed
   gives the order, punctuation and words. `DateTime.format(at, locale, date:
   .Long, time: .Short)` takes a style instead. `Date`, `Time` and
   `NaiveDateTime` have the same two functions.
-- In `en-US`, a skeleton with a date and a time puts a comma after the year,
-  and writes U+202F, a narrow no-break space, before `AM` or `PM`. A test
-  that compares against a plain space fails; write `\u{202f}`.
-- `DateTimePattern`, `DatePattern` and `TimePattern` write fixed numeric text
-  for file names, logs and protocols, with `to_string_with`. They refuse
-  month and weekday names and `AM`/`PM`, which are words of a language.
+- In `en-US`, a skeleton with a date and a time puts a comma after the
+  year and U+202F, a narrow no-break space, before `AM` or `PM`; a test
+  writes it as `\u{202f}`.
+- `DateTimePattern`, `DatePattern` and `TimePattern` write fixed numeric
+  text for file names, logs and protocols with `to_string_with`. They
+  refuse month and weekday names and `AM`/`PM`.
 
 ```nomi-run
 import std::calendar.{DateTime, DateTimeFields, DateTimePattern}

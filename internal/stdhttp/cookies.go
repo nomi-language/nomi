@@ -1,19 +1,20 @@
 package stdhttp
 
 import (
+	"math/big"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/nomi-language/nomi/rt"
 )
 
 // A cookie crosses as its fields in this order, as strings: name, value,
-// quoted, path, domain, expires (nanoseconds, or "" for none), raw_expires,
-// max_age, secure, http_only, same_site, partitioned, raw, then each
+// quoted, path, domain, expires (nanoseconds of any size, or "" for none),
+// raw_expires, max_age, secure, http_only, same_site, partitioned, raw,
+// then each
 // unparsed attribute. max_age is "" for unset, "-1" for delete now, else
 // seconds; same_site is "", "default", "lax", "strict" or "none".
 const cookieFields = 13
@@ -22,7 +23,7 @@ func cookieParts(c *http.Cookie) []string {
 	b := strconv.FormatBool
 	expires := ""
 	if !c.Expires.IsZero() {
-		expires = strconv.FormatInt(c.Expires.UnixNano(), 10)
+		expires = rt.InstantFromTime(c.Expires).String()
 	}
 	maxAge := ""
 	switch {
@@ -45,8 +46,8 @@ func cookieOf(parts []string) *http.Cookie {
 	c := &http.Cookie{Name: parts[0], Value: parts[1], Quoted: isTrue(parts[2]), Path: parts[3], Domain: parts[4],
 		RawExpires: parts[6], Secure: isTrue(parts[8]), HttpOnly: isTrue(parts[9]), Partitioned: isTrue(parts[11]),
 		Raw: parts[12], Unparsed: parts[cookieFields:]}
-	if ns, err := strconv.ParseInt(parts[5], 10, 64); err == nil {
-		c.Expires = time.Unix(0, ns).UTC()
+	if ns, ok := new(big.Int).SetString(parts[5], 10); ok {
+		c.Expires = rt.InstantTimeOf(rt.BigIntOf(ns))
 	}
 	switch parts[7] {
 	case "":

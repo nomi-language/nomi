@@ -114,7 +114,7 @@ fn main()
     None -> 0
   end
   io.print("dividing")
-  io.print("${100 / zero}")
+  io.print("${100 / NonZeroInt.try_from(zero)!}")
 end
 `,
 		"stdin.nomi": `import std::io

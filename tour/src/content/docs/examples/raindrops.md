@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: raindrops.nomi
 //# Converts a number to raindrop sounds by its factors 3, 5 and 7.
 
-once sounds = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
+once sounds: List<(PositiveInt, String)> = [(3, "Pling"), (5, "Plang"), (7, "Plong")]
 
 /// The raindrop sounds for `number`'s factors 3, 5 and 7, or the number
 /// itself when it has none of them.
@@ -71,7 +71,8 @@ test result: ok. 18 passed, 0 failed
 
 ## How it's written
 
-- The factors and sounds are a `once` table of tuples, and the sounds come
+- The factors and sounds are a `once` table of tuples, annotated
+  `List<(PositiveInt, String)>` so each factor is a divisor `%` takes, and the sounds come
   from a filter, map and `String.join` pipeline. Three `if`s appending to a
   string would repeat the same test three times, and Nomi has no mutable
   accumulator to append to.

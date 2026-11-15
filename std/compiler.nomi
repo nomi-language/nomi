@@ -146,7 +146,10 @@ pub host fn run_file(run: RunFile) -> Result<String, String>
 //
 pub host fn hover(source: String) -> Result<Hover, String>
 
-/// Checks an in-memory project and returns every diagnostic as data.
+/// Checks an in-memory project and returns every diagnostic as data. A
+/// project that cannot be assembled, a manifest that does not parse or an
+/// entry point that is not one of the files, is one diagnostic at line 0,
+/// column 0, naming the problem.
 //! import std::compiler
 //! import std::strings.String
 //!
@@ -186,5 +189,14 @@ pub host fn hover(source: String) -> Result<Hover, String>
 //!
 //! assert [diagnostic] = diagnostics
 //! assert String.contains(diagnostic.message, "no member 'secret'")
+//!
+//! assert [unread] = compiler.check_project(Project{
+//!     entry_point: "main",
+//!     manifest:    Maybe.Some("[module"),
+//!     files:       {"main" => "fn main()\n  Unit\nend\n"},
+//! })
+//!
+//! assert unread.line == 0
+//! assert String.contains(unread.message, "compiler.Project manifest")
 //
 pub host fn check_project(project: Project) -> List<Diagnostic>

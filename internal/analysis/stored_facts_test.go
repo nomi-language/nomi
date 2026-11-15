@@ -22,7 +22,7 @@ import (
 // read from its check against interfaces, and the program's reductions
 // over bodies run over the facts, encoded and read back, must report what
 // the passes over the program's analyses report: the boot-only calls, the
-// application-field roots (when the program declares no application type),
+// cyclic `once` bindings, the application-field roots (when the program declares no application type),
 // the whole-file imports and coherence's missing impls, diagnostic for
 // diagnostic (StoredFactsForTest).
 //
@@ -69,6 +69,7 @@ func storedDiff(p incrementalProject, texts map[string]string) string {
 		return ""
 	}
 	storedCompared.boot += len(whole.Boot)
+	storedCompared.once += len(whole.Once)
 	storedCompared.appRoots += len(whole.AppRoots)
 	storedCompared.implImports += len(whole.ImplImports)
 	storedCompared.coherence += len(whole.Coherence)
@@ -79,7 +80,7 @@ func storedDiff(p incrementalProject, texts map[string]string) string {
 }
 
 // storedCompared counts the diagnostics storedDiff compared, by pass.
-var storedCompared struct{ boot, appRoots, implImports, coherence int }
+var storedCompared struct{ boot, once, appRoots, implImports, coherence int }
 
 // renderReductions prints r for comparison. A file's application-field
 // root errors are sorted, since the check finds an entry boot's calls in
@@ -105,6 +106,7 @@ func renderReductions(r *analysis.Reductions) string {
 		}
 	}
 	section("boot", r.Boot, false)
+	section("once", r.Once, false)
 	section("app roots", r.AppRoots, true)
 	section("impl imports", r.ImplImports, false)
 	for _, e := range r.Coherence {
@@ -196,9 +198,9 @@ func TestStoredReductionsMatchTheProgram(t *testing.T) {
 		})
 	}
 	c := storedCompared
-	t.Logf("compared files with boot-only errors %d, application-root errors %d, unused whole-file imports %d, missing impls %d",
-		c.boot, c.appRoots, c.implImports, c.coherence)
-	if c.boot == 0 || c.appRoots == 0 || c.implImports == 0 || c.coherence == 0 {
+	t.Logf("compared files with boot-only errors %d, once cycles %d, application-root errors %d, unused whole-file imports %d, missing impls %d",
+		c.boot, c.once, c.appRoots, c.implImports, c.coherence)
+	if c.boot == 0 || c.once == 0 || c.appRoots == 0 || c.implImports == 0 || c.coherence == 0 {
 		t.Fatalf("some pass reported nothing, so the harness compared nothing of it: %+v", c)
 	}
 }
@@ -311,7 +313,8 @@ func FuzzStoredReductionsMatchTheProgram(f *testing.F) {
 // reductionsProject draws a diagnostic from each reduction over bodies: a
 // chain of calls to Supervisor.new across two files that main and a
 // private function nothing calls reach, a function value naming one, and
-// a whole-file import of a file whose impl nothing uses.
+// a whole-file import of a file whose impl nothing uses. Its edits add a
+// `once` whose initializer reaches itself through the other file.
 func reductionsProject() incrementalProject {
 	return incrementalProject{name: "reductions", entry: "main", texts: map[string]string{
 		"chain": `import std::supervisors.Supervisor
@@ -379,4 +382,9 @@ var reductionsEdits = []editStep{
 	replace("body calls a boot-only std function", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    std::jobs.{Worker}\n    std::jobs::testing.{Inline}\nend\n"),
 	replace("body calls a boot-only std function", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    _ = Worker.new(Inline.new(), 1)\n    2\n"),
 	restore("body back", "chain"),
+	replace("a once calls into another file", "lib", "fn unused_private() -> Int\n", "pub once total: Int = chain.plain()\n\nfn unused_private() -> Int\n"),
+	replace("the other file imports it back", "chain", "import std::supervisors.Supervisor\n", "import\n    std::supervisors.Supervisor\n    lib\nend\n"),
+	replace("its function reads the once: a cycle", "chain", "pub fn plain() -> Int\n    2\n", "pub fn plain() -> Int\n    lib.total\n"),
+	restore("body back", "chain"),
+	restore("body back", "lib"),
 }

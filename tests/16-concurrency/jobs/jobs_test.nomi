@@ -36,27 +36,26 @@ group "a worker over an in-memory queue"
     boot app.boot()
 
     test "it runs a job enqueued after it starts"
-        Worker.start(App.worker, handlers())
+        Worker.start(App.worker, handlers())!
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})?
         assert next_report() == "hello, Ada"
     end
 
     test "it runs a job enqueued before it starts"
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Grace"})?
-        Worker.start(App.worker, handlers())
+        Worker.start(App.worker, handlers())!
         assert next_report() == "hello, Grace"
     end
 
     test "a completed job is marked completed"
-        Worker.start(App.worker, handlers())
+        Worker.start(App.worker, handlers())!
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})?
         _ = next_report()
         assert eventually(fn -> states() == [(JobState.Completed, 1)])
     end
 
     test "a retry waits its backoff with the attempt counted"
-        Worker.start(App.worker, handlers())
-
+        Worker.start(App.worker, handlers())!
         _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Oscar", mood: "grumpy"})?
 
         assert next_report() == "refused Oscar"
@@ -67,7 +66,7 @@ group "a worker over an in-memory queue"
     end
 
     test "a discard is final"
-        Worker.start(App.worker, handlers())
+        Worker.start(App.worker, handlers())!
 
         _ = jobs.enqueue(
             App.queue,
@@ -81,7 +80,7 @@ group "a worker over an in-memory queue"
     end
 
     test "a trap is a retry that names the trap"
-        Worker.start(App.worker, handlers())
+        Worker.start(App.worker, handlers())!
 
         _ = jobs.enqueue(
             App.queue,
@@ -99,12 +98,20 @@ group "a worker over an in-memory queue"
     end
 
     test "a job past its timeout is cancelled and retried"
-        Worker.start(App.worker, handlers())
+        Worker.start(App.worker, handlers())!
         _ = jobs.enqueue(App.queue, Fake.new(), slow_job, Greeting{name: "Sloth"})?
         assert next_report() == "started Sloth"
         assert eventually(fn -> states() == [(JobState.Available, 1)])
         job = Iter.first(Inline.jobs(App.queue))!
         assert Iter.map(job.errors, &(&1.error)) |> Iter.to_list() == ["timed out"]
+    end
+
+    test "two handlers of one kind are an error, and nothing starts"
+        assert Err(message) = Worker.start(App.worker, [greet_job, slow_job, greet_job])
+        assert String.starts_with(message, "two handlers for job kind ")
+        _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})?
+        timer.sleep(Duration.seconds(1))
+        assert states() == [(JobState.Available, 0)]
     end
 end
 
@@ -119,7 +126,7 @@ group "a worker with a start rate"
         end)
 
         started = Instant.now()
-        Worker.start(App.rated, handlers())
+        Worker.start(App.rated, handlers())!
 
         Iter.each(1..=4, fn _ ->
             _ = next_report()

@@ -106,11 +106,18 @@ func NewModules(source func(module string) ([]byte, bool)) *Modules {
 }
 
 // LoadModules starts a module set over source, with std's prelude enums
-// loaded and their tag order checked.
+// loaded and their tag order checked, and std's prelude and the modules it
+// re-exports from, where the source has it, so a program's declaration
+// resolves a prelude name it does not import.
 func LoadModules(source func(module string) ([]byte, bool)) (*Modules, error) {
 	ms := NewModules(source)
 	for _, prelude := range []string{"maybe", "results"} {
 		if _, err := ms.Load(prelude); err != nil {
+			return nil, err
+		}
+	}
+	if _, ok := source("prelude"); ok {
+		if _, err := ms.Load("prelude"); err != nil {
 			return nil, err
 		}
 	}

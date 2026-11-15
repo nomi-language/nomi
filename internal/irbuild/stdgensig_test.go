@@ -194,10 +194,12 @@ func TestGenStructSigKindRefusesWhatItCannotShare(t *testing.T) {
 }
 
 // TestStdRangeConstructorsLower pins the capability the signature arm buys:
-// `Range.from(n: Int) -> Range<Int>` and `Range.naturals() -> Range<Int>` lower.
+// `Range.naturals() -> Range<Int>` lowers. (`Range.from<T>(n: T)` is a
+// generic template; a call lowers to its range at the call, rangeFrom, and a
+// function value to an instance, whose body is the same literal.)
 //
-// Their signatures are admitted by the `Range` row in the spec table, and their
-// bodies build `Range{start: n, end: None, inclusive: False}`. That literal
+// Its signature is admitted by the `Range` row in the spec table, and its
+// body builds `Range{start: 0, end: None, inclusive: False}`. That literal
 // lowers by the rule for every anchored generic std struct: a struct LITERAL of
 // a std-anchored generic struct is built AT THE ANCHOR (stdgenstructlit.go), and
 // the declaring module is exempt from stdGenStructTypeOf's shadowing carve-out,
@@ -210,7 +212,6 @@ func TestGenStructSigKindRefusesWhatItCannotShare(t *testing.T) {
 func TestStdRangeConstructorsLower(t *testing.T) {
 	idx := stdlibLowering()
 	for _, c := range []struct{ key string }{
-		{"ranges.Range.from"},
 		{"ranges.Range.naturals"},
 	} {
 		f := idx.byKey[c.key]

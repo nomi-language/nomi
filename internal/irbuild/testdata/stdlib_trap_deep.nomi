@@ -1,18 +1,14 @@
-// A trap several stdlib calls deep. `Iter.sum` reduces with a std lambda
-// whose `+` is Duration's `Add` impl, and the sum is past what a Duration
-// holds, which std/duration.nomi faults on. The report names the program's
-// call to `Iter.sum`.
-import
-    std::duration.Duration
-    std::io
-end
+// A trap two stdlib calls deep. `Decimal.format` holds the digits after
+// the point within `fraction` through a std function of its own, which
+// rounds with `Decimal.round`, a host function. Four billion digits is past
+// a Decimal's scale, -2147483648 to 2147483647, so the host function
+// faults. The report names the program's line.
+import std::io
 
 fn main()
     io.print("before")
 
-    total =
-        [Duration.nanoseconds(9_223_372_036_854_775_807), Duration.nanoseconds(1)]
-        |> Iter.sum()
+    shown = Decimal.format(1.5d, Locale"en", fraction: Range.from(4_294_967_298))
 
-    io.print(Duration.as_nanos(total))
+    io.print(shown)
 end

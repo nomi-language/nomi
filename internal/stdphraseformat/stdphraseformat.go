@@ -23,6 +23,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/mf2"
+	"github.com/nomi-language/nomi/internal/stdcalendar"
 	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdlocale"
 	"github.com/nomi-language/nomi/internal/stdplural"
@@ -340,12 +341,12 @@ func (e *environment) Money(amount, currency, display string) string {
 // Date writes a calendar value, given as its ISO 8601 text, as std/calendar's
 // format and format_fields do, in the reader's locale.
 func (e *environment) Date(v mf2.Value, r mf2.DateRequest) string {
-	fields, ok := CivilFields(v.Kind, v.Key)
+	year, fields, ok := CivilFields(v.Kind, v.Key)
 	if !ok {
 		return "{" + v.Key + "}"
 	}
 	if r.Skeleton != "" {
-		return stdformat.FormatSkeleton(e.d, e.locale, fields, r.Skeleton)
+		return stdformat.FormatSkeleton(e.d, e.locale, year, fields, r.Skeleton)
 	}
 	ds, ts := r.DateStyle, r.TimeStyle
 	if ds == "" {
@@ -354,15 +355,17 @@ func (e *environment) Date(v mf2.Value, r mf2.DateRequest) string {
 	if ts == "" {
 		ts = "-"
 	}
-	return stdformat.FormatStyle(e.d, e.locale, fields, ds+"/"+ts)
+	return stdformat.FormatStyle(e.d, e.locale, year, fields, ds+"/"+ts)
 }
 
 // CivilFields are the fields std/calendar passes its formatter for a
 // calendar value of kind k written as ISO 8601 text: `2026-10-20` (a Date),
 // `09:30:00.25` (a Time), `2026-10-20T09:30:00` (a NaiveDateTime) or
-// `2026-10-20T09:30:00+02:00[Europe/Warsaw]` (a DateTime).
-func CivilFields(k mf2.Kind, text string) ([]int64, bool) {
-	f := make([]int64, 9)
+// `2026-10-20T09:30:00+02:00[Europe/Warsaw]` (a DateTime): the year, of any
+// size, and the fields after it.
+func CivilFields(k mf2.Kind, text string) (rt.Int, []int64, bool) {
+	year := rt.SmallInt(1970)
+	f := []int64{1, 1, 0, 0, 0, 0, 0, 0}
 	var date, clock string
 	switch k {
 	case mf2.KindDate:
@@ -372,28 +375,18 @@ func CivilFields(k mf2.Kind, text string) ([]int64, bool) {
 	case mf2.KindDateTime:
 		var found bool
 		if date, clock, found = strings.Cut(text, "T"); !found {
-			return nil, false
+			return rt.Int{}, nil, false
 		}
 	default:
-		return nil, false
+		return rt.Int{}, nil, false
 	}
 	if date != "" {
-		neg := strings.HasPrefix(date, "-")
-		parts := strings.Split(strings.TrimLeft(date, "+-"), "-")
-		if len(parts) != 3 {
-			return nil, false
+		y, month, day, status := stdcalendar.SplitISODate(date)
+		if status != stdcalendar.ISODateOK {
+			return rt.Int{}, nil, false
 		}
-		for i, p := range parts {
-			n, err := strconv.ParseInt(p, 10, 64)
-			if err != nil {
-				return nil, false
-			}
-			f[i] = n
-		}
-		if neg {
-			f[0] = -f[0]
-		}
-		f[8] |= 1
+		year, f[0], f[1] = y, month, day
+		f[7] |= 1
 	}
 	if clock != "" {
 		if i := strings.IndexByte(clock, '['); i >= 0 {
@@ -406,22 +399,22 @@ func CivilFields(k mf2.Kind, text string) ([]int64, bool) {
 		hms, frac, _ := strings.Cut(clock, ".")
 		parts := strings.Split(hms, ":")
 		if len(parts) < 2 {
-			return nil, false
+			return rt.Int{}, nil, false
 		}
 		for i, p := range parts {
 			n, err := strconv.ParseInt(p, 10, 64)
 			if err != nil || i > 2 {
-				return nil, false
+				return rt.Int{}, nil, false
 			}
-			f[3+i] = n
+			f[2+i] = n
 		}
 		if frac != "" {
 			frac = (frac + "000000000")[:9]
-			f[6], _ = strconv.ParseInt(frac, 10, 64)
+			f[5], _ = strconv.ParseInt(frac, 10, 64)
 		}
-		f[8] |= 2
+		f[7] |= 2
 		if offset != "" {
-			f[8] |= 4
+			f[7] |= 4
 			if offset != "Z" {
 				sign := int64(1)
 				if offset[0] == '-' {
@@ -433,14 +426,11 @@ func CivilFields(k mf2.Kind, text string) ([]int64, bool) {
 				if len(hm) > 1 {
 					m, _ = strconv.ParseInt(hm[1], 10, 64)
 				}
-				f[7] = sign * (h*3600 + m*60)
+				f[6] = sign * (h*3600 + m*60)
 			}
 		}
 	}
-	if f[8]&1 == 0 {
-		f[0], f[1], f[2] = 1970, 1, 1
-	}
-	return f, true
+	return year, f, true
 }
 
 func (e *environment) RTL() bool { return e.rtl }

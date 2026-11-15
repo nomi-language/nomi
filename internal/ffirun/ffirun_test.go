@@ -301,12 +301,13 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import
+  std::int.Int64
   std::io
 end
 
 gopkg "taggedbinding" as tup
 
-fn divmod(a: Int, b: Int) -> (Int, Int) go tup.DivMod
+fn divmod(a: Int64, b: Int64) -> (Int, Int) go tup.DivMod
 
 fn split_once(s: String, sep: String) -> Result<(String, String), String> go tup.SplitOnce
 
@@ -634,6 +635,7 @@ entry_points = ["main"]
 
 	entryPath := filepath.Join(projectRoot, "main.nomi")
 	mustWriteHelper(t, entryPath, `import
+  std::int.Int64
   std::io
 end
 
@@ -641,7 +643,7 @@ gopkg "rowbinding" as rows
 
 struct RawRow
   name: String
-  count: Int
+  count: Int64
 end
 
 fn each_row(names: List<String>, f: (RawRow) -> Bool) -> Int go rows.EachRow
@@ -823,14 +825,17 @@ name = "bigtest"
 entry_points = ["main"]
 `)
 	entryPath := filepath.Join(projectRoot, "main.nomi")
-	mustWriteHelper(t, entryPath, `import std::io
+	mustWriteHelper(t, entryPath, `import
+  std::int.Int64
+  std::io
+end
 
 gopkg "bigbinding" as bigs
 gopkg "math/big" as big
 
 fn square(x: Int) -> Int go bigs.Square
 fn bump(x: Int) -> Int go bigs.Bump
-fn new_int(x: Int) -> Int go big.NewInt
+fn new_int(x: Int64) -> Int go big.NewInt
 fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
 
 fn main()
@@ -867,8 +872,8 @@ end
 }
 
 // A Go result Nomi cannot hold, a nil *big.Int where the binding declares
-// an Int or a time.Time outside an Instant's range, traps at the call naming
-// the Go function.
+// an Int, traps at the call naming the Go function. A time.Time of any
+// year is an Instant, exactly: the year 3000 is past what UnixNano counts.
 func TestFFIRun_UnconvertibleResultsTrap(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test invokes go run; skipped in -short mode")
@@ -913,9 +918,12 @@ replace github.com/nomi-language/nomi => %s
 name = "resultstest"
 entry_points = ["nothing", "far"]
 `)
-	for _, c := range []struct{ name, call, want string }{
-		{"nothing", "nothing()", "line 10: `results.Nothing` returned a nil *big.Int, which is not an Int"},
-		{"far", "far() == far()", "line 10: `results.Far` returned 3000-01-01T00:00:00Z, which is not an Instant from 1677-09-21T00:12:43Z to 2262-04-11T23:47:16Z"},
+	for _, c := range []struct {
+		name, call, want string
+		runs             bool
+	}{
+		{"nothing", "nothing()", "line 10: `results.Nothing` returned a nil *big.Int, which is not an Int", false},
+		{"far", "Instant.to_seconds(far())", "32503680000", true},
 	} {
 		entryPath := filepath.Join(projectRoot, c.name+".nomi")
 		mustWriteHelper(t, entryPath, `import std::io
@@ -941,7 +949,14 @@ end
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
-		if err := cmd.Run(); err == nil {
+		err = cmd.Run()
+		if c.runs {
+			if err != nil || strings.TrimSpace(stdout.String()) != c.want {
+				t.Errorf("%s: %v, stdout %q, want %q\n%s", c.name, err, stdout.String(), c.want, stderr.String())
+			}
+			continue
+		}
+		if err == nil {
 			t.Fatalf("%s: the wrapper ran to the end:\n%s", c.name, stdout.String())
 		}
 		if !strings.Contains(stderr.String(), c.want) {

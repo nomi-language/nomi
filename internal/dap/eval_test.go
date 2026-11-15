@@ -100,8 +100,8 @@ func TestSession_ConditionsHitCountsAndLogpoints(t *testing.T) {
 	frames = h.stack(thread)
 	h.eval(frames[0], "watch", "i")
 	h.breakWith("eval.nomi",
-		map[string]any{"line": 29, "logMessage": "{label} {{i}} is {i}, doubled {i * 2}, over zero {i / (i - i)}"},
-		map[string]any{"line": 33, "hitCondition": ">= 1", "condition": "10 / (p.x - 3) > 0"},
+		map[string]any{"line": 29, "logMessage": "{label} {{i}} is {i}, doubled {i * 2}, over zero {i / NonZeroInt.try_from(i - i)!}"},
+		map[string]any{"line": 33, "hitCondition": ">= 1", "condition": "10 / NonZeroInt.try_from(p.x - 3)! > 0"},
 	)
 	h.do("continue", thread)
 	h.stopped()

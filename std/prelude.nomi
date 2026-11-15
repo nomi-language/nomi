@@ -39,7 +39,7 @@ pub import
     multiply.Multiply
     phrase.{Noun, Phrase}
     productable.Productable
-    ranges.Range
+    ranges.{BoundedRange, ClosedRange, NonEmptyRange, Range}
     remainder.Remainder
     resources.{Commit, Release}
     results.{Infallible, Result}

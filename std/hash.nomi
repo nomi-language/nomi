@@ -36,7 +36,7 @@ import
     bool.Bool
     bytes.Bytes
     hex
-    int.Int
+    int.PositiveInt
     strings.String
 end
 
@@ -208,10 +208,10 @@ pub host fn equal_in_constant_time(a: Bytes, b: Bytes) -> Bool
 
 /// PBKDF2 with HMAC-SHA256 (RFC 8018): a key `length` bytes long derived
 /// from `password` and `salt` by `iterations` rounds of HMAC-SHA256. Each
-/// round costs the same, so the count sets how long a guess takes. An
-/// `iterations` below 1, or a `length` outside 1 to 1024, is a runtime
-/// error. To store a password, use std::passwords, which picks the salt
-/// and the count and records both.
+/// round costs the same, so the count sets how long a guess takes. Both
+/// counts are `PositiveInt`s, and every 32 bytes of `length` past the first
+/// 32 cost `iterations` more rounds. To store a password, use
+/// std::passwords, which picks the salt and the count and records both.
 //! import std::hash
 //! import std::hex
 //!
@@ -228,4 +228,9 @@ pub host fn equal_in_constant_time(a: Bytes, b: Bytes) -> Bool
 //!     slow
 //! ) == "4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d"
 //
-pub host fn pbkdf2_sha256(password: Bytes, salt: Bytes, iterations: Int, length: Int) -> Bytes
+pub host fn pbkdf2_sha256(
+    password:   Bytes,
+    salt:       Bytes,
+    iterations: PositiveInt,
+    length:     PositiveInt,
+) -> Bytes

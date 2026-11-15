@@ -22,7 +22,8 @@ import (
 //     `_ -> b`.
 //   - "Convert to case on 'n'": a chain whose every condition is
 //     `n == literal` over one plain name or field read of type Int, String
-//     or Codepoint becomes `case n` with `literal -> ...` arms and `_`.
+//     or Codepoint, or a subtype of one, becomes `case n` with
+//     `literal -> ...` arms and `_`.
 //   - "Convert to if/else": the reverse of each, for a subject-less `case`
 //     ending in `_`, a two-arm `case v` (`Pat -> a`, `_ -> b`), and a `case`
 //     over a plain name or field read whose arms are literals and a last
@@ -312,13 +313,16 @@ func plainRead(n ast.Node) bool {
 }
 
 // literalSubjectType reports whether n's type is one whose literal pattern
-// matches exactly the values `==` the literal: Int, String or Codepoint.
+// matches exactly the values `==` the literal: Int, String or Codepoint,
+// or a subtype of one. A rung after the first reads the subject narrowed
+// by the rungs before it (`n` is a NonZeroInt after `n == 0` is false),
+// and its value is still its base's.
 func (r *refactorRequest) literalSubjectType(n ast.Node) bool {
 	t, ok := r.fa.ExprTypes[n]
 	if !ok {
 		return false
 	}
-	switch analysis.ResolveTypeVar(t) {
+	switch analysis.ResolveTypeVar(analysis.RefinementBase(t)) {
 	case analysis.TypeInt, analysis.TypeString, analysis.TypeCodepoint:
 		return true
 	}

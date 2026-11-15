@@ -83,7 +83,7 @@ fn head_or(v: Vector<Int>) -> Int
 end
 
 fn set_or(v: Vector<Int>, i: Int, n: Int) -> Vector<Int>
-    if i >= 0 and i < Vector.length(v) then Vector.set(v, i, n) else Vector[]
+    if i >= 0 and i < Vector.length(v) then Vector.set(v, i, n)! else Vector[]
 end
 
 fn total(v: Vector<Int>) -> Int
@@ -217,7 +217,7 @@ fn main()
     // row above passes. `key window` is the mirror: a vector built by `concat` has
     // `Start == 0` and must land in the same bucket as the literal.
     keys = {Vector[1, 2] => "a", Vector[3] => "b"}
-    grid = Vector[Vector.set(pushed, 1, 20)]
+    grid = Vector[Vector.set(pushed, 1, 20)!]
     io.print("maybe eq none ${Vector.get(grid, 9) == None}")
     io.print("maybe eq some ${Vector.get(grid, 0) == Some(Vector[1, 20, 3])}")
     io.print("maybe eq no ${Vector.get(grid, 0) == Some(Vector[9, 9, 9])}")

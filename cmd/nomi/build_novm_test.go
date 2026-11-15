@@ -53,7 +53,7 @@ end
 fn main()
   io.print("dividing")
   zero = String.length("")
-  io.print("${100 / zero}")
+  io.print("${100 / NonZeroInt.try_from(zero)!}")
 end
 `,
 }
@@ -153,7 +153,7 @@ func TestBuildNoVM_TheRunnerRunsItAsNomiRunDoes(t *testing.T) {
 				t.Fatalf("echo ran as %q, exit %d; this test compares the wrong thing", want.transcript(), want.exit)
 			}
 		case "trap.nomi":
-			if want.exit != 1 || !strings.Contains(want.stderr, "division by zero") {
+			if want.exit != 1 || !strings.Contains(want.stderr, "found nothing") {
 				t.Fatalf("trap ran as %q, exit %d; this test compares the wrong thing", want.transcript(), want.exit)
 			}
 		}

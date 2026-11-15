@@ -16,18 +16,22 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// maybeSomeDecl is where std's maybe.nomi declares `Some`, as loc writes
-// it, read from the embedded source so an edit above it does not move the
-// test.
-func maybeSomeDecl() string {
-	src, _ := std.ReadFile("maybe")
-	for i, line := range strings.Split(string(src), "\n") {
-		if strings.TrimSpace(line) == "Some T" {
-			return "maybe.nomi:" + itoa(uint32(i)) + ":" + itoa(uint32(strings.Index(line, "Some")))
+// stdVariantDecl is where std module `module` declares a variant on the
+// line that reads `line` once trimmed, at the variant `name`, as loc writes
+// it. It reads the embedded source, so an edit above the variant does not
+// move the test.
+func stdVariantDecl(module, line, name string) string {
+	src, _ := std.ReadFile(module)
+	for i, l := range strings.Split(string(src), "\n") {
+		if strings.TrimSpace(l) == line {
+			return module + ".nomi:" + itoa(uint32(i)) + ":" + itoa(uint32(strings.Index(l, name)))
 		}
 	}
-	return "maybe.nomi: no `Some T` line"
+	return module + ".nomi: no `" + line + "` line"
 }
+
+// maybeSomeDecl is where std's maybe.nomi declares `Some`.
+func maybeSomeDecl() string { return stdVariantDecl("maybe", "Some T", "Some") }
 
 // dotVariantMain uses the `.Variant` shorthand in every position the
 // checker resolves it from an expected type: an argument to a user
@@ -310,11 +314,11 @@ func TestDotVariant_NavigatesLikeTheWrittenVariant(t *testing.T) {
 			hover: "Tone.Warm", decl: "tones.nomi:1:4",
 			uses: []string{m("tones.tint(.Warm)", "Warm"), "tones.nomi:7:13"}},
 		{name: "std function argument", marker: "[3, 1, 2], .Descending", word: "Descending",
-			hover: "Direction.Descending", decl: "comparable.nomi:59:4", uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
+			hover: "Direction.Descending", decl: stdVariantDecl("comparable", "Descending", "Descending"), uses: []string{m("[3, 1, 2], .Descending", "Descending")}, std: true},
 		{name: "prelude enum", marker: "= .Some(1)", written: "= Maybe.Some(1)", word: "Some",
 			hover: "Maybe.Some(Int) -> Maybe<Int>", decl: maybeSomeDecl(), uses: []string{m("= .Some(1)", "Some"), m("= Maybe.Some(1)", "Some")}, std: true},
 		{name: "lambda result", marker: "fn _x, _y -> .Less", written: "fn _x, _y -> Ordering.Less", word: "Less",
-			hover: "Ordering.Less", decl: "comparable.nomi:10:4", uses: []string{m("fn _x, _y -> .Less", "Less"), m("fn _x, _y -> Ordering.Less", "Less")}, std: true},
+			hover: "Ordering.Less", decl: stdVariantDecl("comparable", "Less", "Less"), uses: []string{m("fn _x, _y -> .Less", "Less"), m("fn _x, _y -> Ordering.Less", "Less")}, std: true},
 	}
 	for _, s := range sites {
 		t.Run(s.name, func(t *testing.T) {

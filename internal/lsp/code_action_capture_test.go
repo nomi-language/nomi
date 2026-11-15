@@ -30,7 +30,7 @@ func TestUseCapture_RewritesAOneStepLambda(t *testing.T) {
 		{"negation", "", "ns = Iter.map([1, 2], ‸fn x -> -x) |> Iter.to_list()\ndbg ns", "ns = Iter.map([1, 2], &(-&1)) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = ‸fn a, b -> a + b\ndbg add(1, 2)", "add: (Int, Int) -> Int = &(&1 + &2)"},
 		{"named argument", "", "s = Iter.map([1, 2], ‸fn n -> Int.to_string(n)) |> String.join(\",\")\ndbg s", "s = Iter.map([1, 2], &Int.to_string(&1)) |> String.join(\",\")"},
-		{"a then stage", "fn divide(x: Int, y: Int) -> Int\n    x / y\nend\n\n", "dbg 10 |> then ‸fn n -> divide(100, n)", "dbg 10 |> then &divide(100, &1)"},
+		{"a then stage", "fn subtract(x: Int, y: Int) -> Int\n    x - y\nend\n\n", "dbg 10 |> then ‸fn n -> subtract(100, n)", "dbg 10 |> then &subtract(100, &1)"},
 		{"a call in another argument", "", "xs = Iter.map([1], ‸fn x -> Int.max(x, Int.abs(-3))) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1], &Int.max(&1, Int.abs(-3))) |> Iter.to_list()"},
 		{"string", "", "ids = Iter.map([1, 2], ‸fn x -> \"id ${x}\") |> Iter.to_list()\ndbg ids", "ids = Iter.map([1, 2], &\"id ${&1}\") |> Iter.to_list()"},
 		{"two steps", "", "xs = Iter.map([1], ‸fn x -> x * 2 + 1) |> Iter.to_list()\ndbg xs", "xs = Iter.map([1], &(&1 * 2 + 1)) |> Iter.to_list()"},
@@ -182,7 +182,7 @@ func TestWriteAsLambda_RewritesACapture(t *testing.T) {
 		{"struct", pointDecl, "ps = Iter.map([1, 2], &Point{x: ‸&1, y: 0}) |> Iter.to_list()\ndbg ps", "ps = Iter.map([1, 2], fn x -> Point{x:, y: 0}) |> Iter.to_list()"},
 		{"two parameters", "", "add: (Int, Int) -> Int = &(&1 ‸+ &2)\ndbg add(1, 2)", "add: (Int, Int) -> Int = fn x, y -> x + y"},
 		{"a name in scope", "", "x = 50\nbig = Iter.filter([1, 60], &(&1 ‸> x)) |> Iter.to_list()\ndbg big", "big = Iter.filter([1, 60], fn x2 -> x2 > x) |> Iter.to_list()"},
-		{"a then stage", "fn divide(x: Int, y: Int) -> Int\n    x / y\nend\n\n", "dbg 10 |> then ‸&divide(100, &1)", "|> then fn y -> divide(100, y)"},
+		{"a then stage", "fn subtract(x: Int, y: Int) -> Int\n    x - y\nend\n\n", "dbg 10 |> then ‸&subtract(100, &1)", "|> then fn y -> subtract(100, y)"},
 		{"a field read", studentDecls, studentsLine + "by_grade = ss |> Iter.group_by(‸&grade(&1.score))\ndbg by_grade", "by_grade = ss |> Iter.group_by(fn x -> grade(x.score))"},
 		{"two field reads", studentDecls, "by: (Student, Student) -> Int = ‸&compare(&1.score, &2.score)\ndbg by", "by: (Student, Student) -> Int = fn x, y -> compare(x.score, y.score)"},
 		{"string", "", "ids = Iter.map([1, 2], ‸&\"id ${&1}\") |> Iter.to_list()\ndbg ids", "ids = Iter.map([1, 2], fn x -> \"id ${x}\") |> Iter.to_list()"},
@@ -199,9 +199,9 @@ func TestWriteAsLambda_RewritesACapture(t *testing.T) {
 // A partial capture bound with no expected type has no lambda that types
 // without an annotation, so it is offered none.
 func TestWriteAsLambda_RefusesWhatIsNoFunctionOfItsPosition(t *testing.T) {
-	decls := "fn divide(x: Int, y: Int) -> Int\n    x / y\nend\n\n"
+	decls := "fn subtract(x: Int, y: Int) -> Int\n    x - y\nend\n\n"
 	for _, body := range []string{
-		"halve = ‸&divide(&1, 2)\ndbg halve(10)",
+		"less_two = ‸&subtract(&1, 2)\ndbg less_two(10)",
 	} {
 		refuseRefactor(t, captureMain(decls, body), "Write as a lambda")
 	}

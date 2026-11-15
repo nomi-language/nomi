@@ -247,7 +247,7 @@ pub fn deliveries(count: Int) -> List<String>
 end
 
 fn main() -> Result<Unit, sql.Error>
-    Worker.start(App.worker, [email_job, batch_job])
+    Worker.start(App.worker, [email_job, batch_job])!
     _ = add_user("ada@example.com", True)?
     _ = add_user("grace@example.com", True)?
     _ = add_user("linus@example.com", False)?

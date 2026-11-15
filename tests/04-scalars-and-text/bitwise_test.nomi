@@ -24,8 +24,8 @@ impl BitwiseNot<Flags> for Flags
     end
 end
 
-impl ShiftLeft<Int, Flags> for Flags
-    fn shift_left(lhs: Flags, rhs: Int) -> Flags
+impl ShiftLeft<NonNegativeInt, Flags> for Flags
+    fn shift_left(lhs: Flags, rhs: NonNegativeInt) -> Flags
         Flags(a) = lhs
         Flags(a <<< rhs)
     end
@@ -98,7 +98,7 @@ test "shifts past 64 bits are exact"
     assert ~~~Int.pow(2, 70) == -Int.pow(2, 70) - 1
 end
 
-test "a negative shift count stops the program"
+test "a shift count that may be negative is refused before the program runs"
     result =
         """
         fn main()
@@ -109,10 +109,26 @@ test "a negative shift count stops the program"
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 3: negative shift count -1")
+
+    assert String.contains(
+        message,
+        "line 3, col 13: `<<<` shifts by a NonNegativeInt; `n` is -1 here",
+    )
+
+    unchecked =
+        """
+        fn shifted(n: Int) -> Int
+          1 >>> n
+        end
+        """
+        |> compiler.check()
+
+    assert [d] = unchecked
+    assert "`>>>` shifts by a NonNegativeInt; `n` is an Int" in d.message
+    assert "check it first (`if n < 0 then ...`) or take a NonNegativeInt" in d.message
 end
 
-test "a negative right shift count stops the program"
+test "a negative right shift count is refused before the program runs"
     result =
         """
         fn main()
@@ -122,7 +138,11 @@ test "a negative right shift count stops the program"
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: negative shift count -2")
+
+    assert String.contains(
+        message,
+        "`Int.shift_right` shifts by a NonNegativeInt, and -2 is not one",
+    )
 end
 
 test "a type with no impl names the interface"
@@ -194,19 +214,7 @@ test "bit count and bit length"
     assert Int.bit_length(-9) == 4
 end
 
-test "a negative bit count stops the program"
-    result =
-        """
-        fn main()
-          _ = Int.bit_count(-5)
-        end
-        """
-        |> compiler.run()
-
-    assert Err(message) = result
-
-    assert String.contains(
-        message,
-        "line 2: Int.bit_count: -5 is negative, and a negative Int has endless 1 bits",
-    )
+test "a negative Int has no bit count, so bit_count takes a NonNegativeInt"
+    assert NonNegativeInt.try_from(-5) == None
+    assert Int.bit_count(Int.abs(-5)) == 2
 end

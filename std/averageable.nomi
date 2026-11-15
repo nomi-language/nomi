@@ -61,10 +61,7 @@ impl Averageable<Float> for Int
     fn mean(values: Iter<Int>) -> Maybe<Float>
         (total, count) = Iter.reduce(values, (0, 0), fn (total, count), x -> (total + x, count + 1))
 
-        case PositiveInt.try_from(count)
-            Some(n) -> Some(int_ratio_to_float(total, n))
-            None    -> None
-        end
+        if count > 0 then Some(int_ratio_to_float(total, count)) else None
     end
 end
 
@@ -106,10 +103,7 @@ impl Averageable<Float> for Float
         // is the IEEE answer there.
         sum = if Float.is_finite(total) then total + lost else total
 
-        case PositiveInt.try_from(count)
-            Some(n) -> Some(sum / Int.to_float(n))
-            None    -> None
-        end
+        if count > 0 then Some(sum / Int.to_float(count)) else None
     end
 end
 
@@ -132,10 +126,7 @@ impl Averageable<Decimal> for Decimal
             (total + x, count + 1)
         end)
 
-        case PositiveInt.try_from(count)
-            Some(n) -> Some(total / Int.to_decimal(n))
-            None    -> None
-        end
+        if count > 0 then Some(total / Int.to_decimal(count)) else None
     end
 end
 
@@ -158,16 +149,12 @@ impl Averageable<Duration> for Duration
             (total + Duration.as_nanos(d), count + 1)
         end)
 
-        case PositiveInt.try_from(count)
-            Some(n) ->
-                whole = Int.floor_div(total, n)
-                twice_left = 2 * (total - whole * n)
-                up = twice_left > n or (twice_left == n and Int.modulo(whole, 2) == 1)
+        if count <= 0 then return None
 
-                Some(Duration.nanoseconds(if up then whole + 1 else whole))
+        whole = Int.floor_div(total, count)
+        twice_left = 2 * (total - whole * count)
+        up = twice_left > count or (twice_left == count and Int.modulo(whole, 2) == 1)
 
-            None ->
-                None
-        end
+        Some(Duration.nanoseconds(if up then whole + 1 else whole))
     end
 end

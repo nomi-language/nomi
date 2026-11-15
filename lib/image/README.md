@@ -46,9 +46,11 @@ runs, with the `go` on `PATH` or the Go toolchain `nomi` downloads.
 A failure to read is an `image.Error`: `UnsupportedFormat` for bytes that
 are no JPEG, PNG or WebP, `Corrupt{message:}` for one that starts as an
 image and does not decode, and `TooLarge{width:, height:}` for one whose
-header declares more pixels than allowed. A box or rectangle that cannot
-be met (a zero width, a crop outside the image) or a quality outside 1 to
-100 is the caller's mistake, and traps.
+header declares more pixels than allowed. Sizes are `image.Pixels` (at
+least 1), crop offsets `image.Offset` (at least 0) and a JPEG quality an
+`image.Quality` (1 to 100), so a zero width or a quality of 0 is a compile
+error, and a computed one goes through `Pixels.try_from(n)` first. A crop
+that reaches outside the image is the caller's mistake, and traps.
 
 ## Decompression bombs
 

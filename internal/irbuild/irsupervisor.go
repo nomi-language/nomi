@@ -322,8 +322,15 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 	g := bl.g
 	// A stdlib module's own test body calls the module's types as the std
 	// types they are, against arity wrappers the cached lowering already
-	// built (stdTestOwnType).
-	if g.std == nil || (g.stdModule != "" && !bl.stdTestOwnType()) || bl.rowsUnrecorded(t) {
+	// built (stdTestOwnType). Another std module's body calls the wrapper
+	// the callee's module built, once that module is lowered
+	// (stdShortCalleeLowered): `NaiveDateTime.from_instant(i)` in
+	// std/json, whose default `Duration.seconds(0)` names what std/json
+	// need not import.
+	if g.std == nil || bl.rowsUnrecorded(t) {
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	if g.stdModule != "" && !bl.stdTestOwnType() && !bl.stdShortCalleeLowered(t, owner, method, module) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	if !bl.stdShortCallShape(t, owner, method, module) {
@@ -338,6 +345,28 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 	}
 	v, k, mobile, ok := bl.qualEmit(t, args, plan)
 	return v, k, mobile, ok, true
+}
+
+// stdShortCalleeLowered reports whether a std module's short positional
+// call of another module's function names an arity wrapper that module has
+// already lowered. A module lowered later builds its wrappers then, so the
+// call declines through the ordinary routes, as it did before the wrapper
+// existed.
+func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call, owner, method, module string) bool {
+	if namedArgNode(t.Args) != nil {
+		return false
+	}
+	fs := bl.g.stdShortCandidates(owner, method, module)
+	if len(fs) != 1 || !fs[0].lowerable() || fs[0].pkg == bl.g.pkg {
+		return false
+	}
+	f, canon := fs[0], fs[0]
+	if f.canon != nil {
+		canon = f.canon
+	}
+	width := len(t.Args)
+	arity, ok := stdCallArity(f, width)
+	return ok && arity == width && width < len(f.params) && canon.irArity[width] != nil
 }
 
 // stdUnretainedShortCall lowers a call that writes a prefix of a defaulted
@@ -417,7 +446,7 @@ func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, mo
 // stdUnretainedDefaultedCall lowers a short call to f, a body a program
 // builds for itself (stdUnretainedMonoBody), that leaves out a parameter
 // whose default is no literal: `Decimal.format(d, locale)`, whose
-// `max_fraction` defaults to `Int.max(Decimal.scale(d), min_fraction)`. Such a
+// `fraction` defaults to `scale_digits(Decimal.scale(d))`. Such a
 // default is Nomi of f's module, so it is lowered there: the instance's gen
 // builds f's arity wrappers and default accessors beside its body, as the
 // cached lowering builds a retained function's (stdInstances.build), and the

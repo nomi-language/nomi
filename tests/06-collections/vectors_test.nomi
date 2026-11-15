@@ -29,7 +29,7 @@ end
 test "vectors push set and concat return new vectors"
     original = Vector[1, 2]
     pushed = Vector.push(original, 3)
-    updated = Vector.set(pushed, 1, 20)
+    updated = Vector.set(pushed, 1, 20)!
     concatenated = Vector.concat(updated, [4, 5])
 
     assert original == [1, 2]
@@ -141,7 +141,7 @@ end
 test "a vector filled by push and updated by set stays fast at 200k elements"
     empty: Vector<Int> = []
     filled = 1..=200000 |> Iter.reduce(empty, fn v, i -> Vector.push(v, i))
-    doubled = 0..=199999 |> Iter.reduce(filled, fn v, i -> Vector.set(v, i, i * 2))
+    doubled = 0..=199999 |> Iter.reduce(filled, fn v, i -> Vector.set(v, i, i * 2)!)
 
     assert Vector.length(filled) == 200000
     assert Vector.get(filled, 199999) == Some(200000)

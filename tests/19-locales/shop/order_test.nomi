@@ -80,7 +80,8 @@ test "a total is written as the reader's locale writes an amount in its currency
     // A total of three books, summed in their currency.
     price = Money{amount: 4.20d, currency: Currency"EUR"}
     cart = [price, price, price]
-    assert order.order_total(Iter.sum(cart)) |> Phrase.format(Locale"pl") == "Razem: 12,60\u{a0}€"
+    assert Ok(total) = Money.sum(cart, Currency"EUR")
+    assert order.order_total(total) |> Phrase.format(Locale"pl") == "Razem: 12,60\u{a0}€"
 end
 
 test "a shipping date names the weekday, the month and the day"

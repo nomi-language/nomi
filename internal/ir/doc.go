@@ -104,11 +104,14 @@
 // a fresh collection, a parameter, an owned callee result, an owned
 // collection operation, a granted field read or a fold that hands its
 // accumulator on, and every read is a move within the class, a field
-// read, a borrowing lookup, a Return, or a read after which no member is
-// live (a move: whoever receives it is its one holder). It is owned DEEP
-// when the values its fields hold are its own too; a field read of a
-// class owned deep owns the value it reads when nothing reads that field
-// through the class again (fields.go). From that it answers the updates
+// read, a variant test, a borrowing lookup, a Return, or a read after
+// which no member is live (a move: whoever receives it is its one holder).
+// It is owned DEEP when the values its fields hold are its own too; a
+// field read of a class owned deep (a Some's or an Ok's payload among
+// them) owns the value it reads when nothing reads that field through the
+// class again (fields.go). A collection operation that answers a Maybe
+// (`Vector.set`) answers it owned deep, so `Vector.set(v, i, x)!` hands
+// the vector on owned. From that it answers the updates
 // and collection operations that may write in place, the arguments each
 // direct call hands on, the folds (`Iter.reduce`, `Iter.map_reduce`) that
 // may hand their callback the accumulator ([Fold]), and the function's

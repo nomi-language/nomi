@@ -1,6 +1,6 @@
 import
     std::io
-    handler.{self, Request, Response}
+    handler.{self, Request, Response, Status}
 end
 
 fn main()
@@ -42,7 +42,7 @@ fn handle(req: Request) -> Result<Response, String>
     end
 end
 
-fn text(status: Int, body: String) -> Response
+fn text(status: Status, body: String) -> Response
     Response{
         status:,
         headers: {"content-type" => "text/plain"},

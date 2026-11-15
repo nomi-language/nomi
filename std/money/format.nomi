@@ -8,13 +8,12 @@ import
     currency.Currency
     decimal.Decimal
     display.Display
-    int.Int
+    int.{Int, Int64}
     locale.Locale
     localize.NumberParseError
     maybe.Maybe.{None, Some}
     results.Result.{self, Err, Ok}
     strings.String
-    unit.Unit
 end
 
 /// `amount` in `currency` as a reader of `locale` writes it, with the
@@ -25,7 +24,7 @@ pub fn format(
     amount:     Decimal,
     currency:   Currency,
     locale:     Locale,
-    display:    Int,
+    display:    Int64,
     accounting: Bool,
 ) -> String
     money_format_raw(
@@ -68,24 +67,10 @@ pub fn parse(
     end
 end
 
-/// Traps unless `a` and `b` are one currency, naming both: amounts in two
-/// currencies do not add. `operation` is the function that was asked
-/// (`Money.add`).
-pub fn require_same(operation: String, a: Currency, b: Currency) -> Unit
-    if a == b then
-        Unit
-    else
-        money_mixed(operation, label(a), label(b))
-    end
-end
-
-/// Traps with `operation`, a colon and `reason`: an argument the caller
-/// chose and could have checked, such as `Money.split` into no parts.
-pub fn refuse(operation: String, reason: String) -> Unit
-    money_refused(operation, reason)
-end
-
-fn label(c: Currency) -> String
+/// The currency as `CurrencyMismatch` names it: its
+/// code, with its digits when it is a custom currency (`PTS:2`), so two of
+/// one code are told apart.
+pub fn label(c: Currency) -> String
     if Currency.is_iso(c) then
         Currency.code(c)
     else
@@ -99,7 +84,7 @@ host fn money_format_raw(
     code:       String,
     digits:     Int,
     iso:        Bool,
-    display:    Int,
+    display:    Int64,
     accounting: Bool,
 ) -> String
 
@@ -111,7 +96,3 @@ host fn money_parse_raw(
     iso:     Bool,
     lenient: Bool,
 ) -> Result<String, NumberParseError>
-
-host fn money_mixed(operation: String, a: String, b: String) -> Unit
-
-host fn money_refused(operation: String, reason: String) -> Unit

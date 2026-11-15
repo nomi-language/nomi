@@ -117,8 +117,8 @@ func withDefaultHost(present string) hostFn {
 // ClosedChannel's halves.
 func IdleSupervisor() any {
 	fr := rt.EnterBoot(rt.NewFrame(context.Background()))
-	s := rt.SupervisorNewExact(fr, 1, rt.DefaultShutdownTimeout, rt.Restart{Tag: 1},
-		rt.Backoff{Tag: 1, MaxRestarts: rt.BackoffDefaultMaxRestarts, MaxElapsed: rt.BackoffDefaultMaxElapsed}, rt.GiveUp{Tag: 1})
+	s := rt.SupervisorNewExact(fr, rt.SmallInt(1), rt.DefaultShutdownTimeout, rt.Restart{Tag: 1},
+		rt.Backoff{Tag: 1, MaxRestarts: rt.SmallInt(rt.BackoffDefaultMaxRestarts), MaxElapsed: rt.BackoffDefaultMaxElapsed}, rt.GiveUp{Tag: 1})
 	return s
 }
 

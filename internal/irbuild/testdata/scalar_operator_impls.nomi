@@ -1,0 +1,60 @@
+// THE SCALAR OPERATOR IMPLS written out by name: `Divide.divide(20, 5)` is
+// the operation `20 / 5` is, lowered by scalararith.go's arm to the same rt
+// call, so each spelling answers what the operator answers.
+//
+// A zero divisor is no case here: `/` and `%` take a NonZeroInt, so
+// `Divide.divide(20, zero)` with `zero` an Int is refused before the program
+// runs (internal/analysis/operand_subtype.go), and the VM's division-by-zero
+// fault is a backstop no checked program reaches.
+test "the written-out impls agree on every non-trapping answer"
+    assert Add.add(9, 4) == 13
+    assert Subtract.subtract(9, 4) == 5
+    assert Multiply.multiply(3, 7) == 21
+    assert Divide.divide(20, 5) == 4
+    assert Int.add(9, 4) == 13
+    assert Int.subtract(9, 4) == 5
+    assert Int.multiply(3, 7) == 21
+    assert Int.divide(20, 5) == 4
+    assert Int.remainder(20, 6) == 2
+
+    assert Add.add(9.5, 4.0) == 13.5
+    assert Subtract.subtract(9.5, 4.0) == 5.5
+    assert Multiply.multiply(1.5, 2.0) == 3.0
+    assert Divide.divide(9.0, 2.0) == 4.5
+    assert Float.add(9.5, 4.0) == 13.5
+
+    assert Add.add("ab", "cd") == "abcd"
+    assert String.add("ab", "cd") == "abcd"
+end
+
+test "the written-out impls are exact past 64 bits, as the operators are"
+    big = 9223372036854775807
+    assert Add.add(big, 1) == big + 1
+    assert Add.add(big, 1) == 9_223_372_036_854_775_808
+    assert Subtract.subtract(-big, 2) == -9_223_372_036_854_775_809
+    assert Multiply.multiply(big, 2) == 18_446_744_073_709_551_614
+    assert Divide.divide(Multiply.multiply(big, 2), 2) == big
+end
+
+test "a Float divide by zero is IEEE and does not trap"
+    // Not an oversight and not symmetric with Int: a Float `/` is IEEE
+    // division, so a zero divisor is +/-Infinity and 0.0/0.0 is NaN. The
+    // builder must therefore NOT reach for a trapping helper here.
+    //
+    // Every Float division goes through rt.DivFloat, so both spellings agree on
+    // these answers by construction. The operands are bound to names first, so each divide runs
+    // on runtime values.
+    zero = 0.0
+    one = 1.0
+    assert Divide.divide(one, zero) > 0.0
+    // Nomi's Float equality is REFLEXIVE on NaN, so this is the spelling that
+    // observes 0.0/0.0 without depending on IEEE's answer to `nan == nan`.
+    nan = Divide.divide(zero, zero)
+    assert nan == nan
+end
+
+test "a divisor checked while the program runs divides in both spellings"
+    divisor = NonZeroInt.try_from(Iter.count([1, 2, 3, 4]))!
+    assert Divide.divide(20, divisor) == 20 / divisor
+    assert Remainder.remainder(22, divisor) == 22 % divisor
+end

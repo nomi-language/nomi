@@ -69,6 +69,11 @@ type Program struct {
 	// and the summaries it was built from, kept until one changes
 	// (programBootGraph). The check fills it on first use, under bootMu.
 	bootGraph *bootGraphCache
+	// onceGraph is the once-cycle check's graph of the program's `once`
+	// bindings and functions and the summaries it was built from, kept
+	// until one changes (programOnceGraph). The check fills it on first
+	// use, under onceMu.
+	onceGraph *onceGraphCache
 
 	// ContextType is the canonical std/context.Context identity.
 	ContextType Type

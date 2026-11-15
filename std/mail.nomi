@@ -416,7 +416,9 @@ pub struct SmtpConfig
     /// The name this side gives in EHLO.
     hello: String = "localhost"
     /// The longest connecting, or waiting for any one reply, may take. The
-    /// task's context bounds the whole send too.
+    /// task's context bounds the whole send too. A timeout that ends past
+    /// the year 2262, the latest the connection's clock counts, is a
+    /// deadline that never comes.
     timeout: Duration = Duration.seconds(30)
     /// How TLS checks the server. The server name it checks is `host`
     /// unless this names one.

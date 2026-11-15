@@ -10,8 +10,8 @@ import (
 // with std/process's Exit (ir.Module.SetMainExit, BootFailure.Exit): the
 // program ends with status Code, after the same shutdown as any other end
 // of main, and prints Message and a newline to stderr when it is not empty,
-// with no `error: ` before it. Code is 0 to 255; an Exit with code 0 ends the
-// program successfully.
+// with no `error: ` before it. Code is 0 to 255, since std declares the field
+// an ExitCode; an Exit with code 0 ends the program successfully.
 type Exit struct {
 	Code    int
 	Message string
@@ -33,8 +33,7 @@ func ExitCode(err error) int {
 	return 1
 }
 
-// exitOf is the Exit an `Err` payload of std/process's Exit asks for, or
-// the fault of a code outside 0 to 255.
+// exitOf is the Exit an `Err` payload of std/process's Exit asks for.
 func exitOf(payload any) error {
 	rec, isRecord := payload.(*rt.Record)
 	if !isRecord || rec == nil {
@@ -51,9 +50,6 @@ func exitOf(payload any) error {
 		case "message":
 			message, _ = rec.Field(i).(string)
 		}
-	}
-	if code < 0 || code > 255 {
-		return &Fault{err: rt.ExitCodeError(code)}
 	}
 	return &Exit{Code: int(code), Message: message}
 }

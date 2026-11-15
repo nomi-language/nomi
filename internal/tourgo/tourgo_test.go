@@ -135,9 +135,9 @@ func TestHostsAnswerAnEditedBlock(t *testing.T) {
 			"urls.nomi:17:59: this example's Go code is fixed in the tour: `urltools.Resolve` is not available " +
 				"(from urltools the tour links EscapeQuery, Parse, ParseQuery and UnescapeQuery)"},
 		{"an unlinked package", strings.Replace(std, "gopkg \"strconv\"", "gopkg \"strconv\"\n\ngopkg \"os\"\n\nfn cwd() -> Result<String, String> go os.Getwd", 1),
-			"main.nomi:9:39: this example's Go code is fixed in the tour: `os.Getwd` is not available (the tour links no Go package \"os\")"},
+			"main.nomi:12:39: this example's Go code is fixed in the tour: `os.Getwd` is not available (the tour links no Go package \"os\")"},
 		{"a changed signature", strings.Replace(std, "fn upper(s: String) -> String", "fn upper(s: String) -> Result<String, String>", 1),
-			"main.nomi:7:50: this example's Go code is fixed in the tour: `strings.ToUpper` is linked for " +
+			"main.nomi:10:50: this example's Go code is fixed in the tour: `strings.ToUpper` is linked for " +
 				"`fn upper(s: String) -> String`, so a declaration that binds it takes and returns those types"},
 		{"a changed struct", strings.Replace(urls, "    raw_query: String\n", "", 1),
 			"`urltools.Parse` is linked for `fn parse(raw: String) -> Result<ParsedURL, String>`"},

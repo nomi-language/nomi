@@ -174,7 +174,9 @@ func stdInferredOnceKind(fa *analysis.FileAnalysis, ob *ast.OnceBinding) kind {
 		}
 		t = tv.Resolved
 	}
-	switch t {
+	// A subtype is its base at run time: `once pi = 3.14...` is a
+	// PositiveFloat (its value's range, analysis/ranges.go) held as a Float.
+	switch analysis.RefinementBase(t) {
 	case analysis.TypeInt:
 		return kindInt
 	case analysis.TypeFloat:

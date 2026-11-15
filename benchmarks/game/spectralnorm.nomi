@@ -62,5 +62,5 @@ fn main()
     end)
 
     norm = Float.sqrt(dot(u, v) / dot(v, v))
-    io.print(Float.format(norm, Locale`en`, 9, 9, False))
+    io.print(Float.format(norm, Locale`en`, 9..=9, False))
 end

@@ -113,6 +113,20 @@ func literalInnerOf(dt *DistinctType) Type {
 	return distinctInnerOf(dt)
 }
 
+// shapeHeadSubtype is the subtype a literal headed by a std collection's
+// name (`Vector[x]`, `Map{k => v}`) builds where expected is one, or nil.
+// The head names the base the literal builds; a subtype of it is that
+// base with a rule, so the literal is one as the unnamed literal is. A
+// distinct type that is no subtype is not: its values are not its inner
+// type's.
+func (c *checker) shapeHeadSubtype(expected Type) *DistinctType {
+	dt, ok := resolveTypeVar(expected).(*DistinctType)
+	if !ok || refinementOf(dt) == nil || !c.buildsDistinct(dt) {
+		return nil
+	}
+	return dt
+}
+
 // buildsDistinct reports whether an unnamed literal here may build dt:
 // it is not opaque, or this is its defining file.
 func (c *checker) buildsDistinct(dt *DistinctType) bool {
@@ -194,6 +208,17 @@ func (c *checker) checkBracketLitAs(n *ast.ListLit, expected Type) Type {
 			// expected, whatever is.
 			n.ShapeHead = true
 			n.Kind = map[string]ast.SeqKind{"List": ast.SeqList, "Vector": ast.SeqVector, "Set": ast.SeqSet}[name]
+			if dt := c.shapeHeadSubtype(expected); dt != nil {
+				// `Vector[x]` where a NonEmptyVector is expected builds it,
+				// as `[x]` does: a subtype's value is one of its base.
+				if in := resolveTypeVar(literalInnerOf(dt)); seqKindOf(in) == n.Kind && (isListType(in) || isVectorType(in) || isSetType(in)) {
+					ty := c.checkSeqLit(n, n.Kind, in)
+					if ty == nil {
+						return nil
+					}
+					return c.distinctLiteralType(dt, in, ty)
+				}
+			}
 			return c.checkSeqLit(n, n.Kind, expected)
 		}
 		n.Kind = c.namedSeqKind(n)

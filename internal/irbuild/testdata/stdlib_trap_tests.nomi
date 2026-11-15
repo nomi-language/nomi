@@ -3,25 +3,27 @@
 // into the stdlib replaced it (the function's line), through a lambda the
 // stdlib runs (the lambda's line), and in a host function (the call's
 // line, which the host's text does not name).
-fn share(n: Int) -> Int
-    Int.floor_div(10, n)
+import std::decimal.RoundingMode
+
+fn rounded(d: Decimal) -> Decimal
+    Decimal.round(d, 4_294_967_298, RoundingMode.HalfEven)
 end
 
 test "a stdlib trap in a test body"
-    assert Int.modulo(5, 5 - 5) == 0
+    assert Decimal.format(1.5d, Locale"en", fraction: Range.from(4_294_967_298)) == "1.5"
 end
 
 test "a stdlib trap through a program function"
-    assert share(0) > 0
+    assert rounded(1.5d) == 1.5d
 end
 
 test "a lambda the stdlib runs"
-    quotients = [5, 0] |> Iter.map(&(10 / &1)) |> Iter.to_list()
+    quotients = [5, 0] |> Iter.map(&(10 / NonZeroInt.try_from(&1)!)) |> Iter.to_list()
     assert quotients == []
 end
 
 test "a host function's trap"
-    assert String.repeat("ab", 0 - 2) == ""
+    assert Int.pow(3, 100_000_000_000) == 0
 end
 
 test "the next case still runs"

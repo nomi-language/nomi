@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: clock.nomi
 //# A clock that handles times without dates and wraps around midnight.
 
-once minutes_per_day = 24 * 60
+once minutes_per_day: PositiveInt = 1_440
 
 /// A time of day without a date, held as minutes past midnight. Two clocks
 /// that show the same time are equal.

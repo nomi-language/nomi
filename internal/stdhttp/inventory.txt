@@ -300,7 +300,7 @@ Transport.DialContext | mapped | phase 2 | `Transport.dial: DialOptions` (std/ne
 Transport.Dial | skipped | Deprecated in Go.
 Transport.DialTLSContext | skipped | A custom TLS dial function. `Transport.tls` configures TLS; revisit with a use.
 Transport.DialTLS | skipped | Deprecated in Go.
-Transport.TLSClientConfig | covered | phase 5 | `ClientOptions.tls: Maybe<tls.ClientConfig>`
+Transport.TLSClientConfig | covered | phase 5 | `Client.with_tls(client, config)`, a `tls.ClientConfig`
 Transport.TLSHandshakeTimeout | covered | phase 2 | `Transport.tls_handshake_timeout: Duration = Duration.seconds(10)`
 Transport.DisableKeepAlives | covered | phase 2 | `Transport.keep_alives: Bool = True`
 Transport.DisableCompression | covered | phase 2 | `Transport.compression: Bool = True`

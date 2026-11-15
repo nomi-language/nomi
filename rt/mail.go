@@ -23,6 +23,6 @@ func MailQuotedPrintable(text string) string {
 
 // MailDate is `std::mail::host.date`: the instant nanos nanoseconds after the
 // Unix epoch as an RFC 5322 date in UTC, Go's RFC1123Z layout.
-func MailDate(nanos int64) string {
-	return time.Unix(0, nanos).UTC().Format(time.RFC1123Z)
+func MailDate(nanos Int) string {
+	return InstantTimeOf(nanos).Format(time.RFC1123Z)
 }

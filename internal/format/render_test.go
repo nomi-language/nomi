@@ -1,6 +1,7 @@
 package format
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -84,5 +85,38 @@ func TestRenderImports_NonImportNode(t *testing.T) {
 	}
 	if _, err := RenderImports(nodes); err == nil {
 		t.Fatal("expected error for non-import node, got nil")
+	}
+}
+
+// A refinement's rule that holds a syntax error, as a recovered tree gives
+// it mid-edit (`.Obj(_) -> True _ -> False` on the `case` line), renders
+// with a marker where the parser could not read, not a panic.
+func TestRenderNode_ErrorNodeRendersAMarker(t *testing.T) {
+	src := "subtype JsonObject Json when fn json -> case json .Obj(_) -> True _ -> False end\n"
+	nodes, errs, _ := parser.ParseResilient(lexer.Lex(src))
+	if len(errs) == 0 {
+		t.Fatal("the parser accepts a case's arms on its header's line; the fixture needs a source it recovers from")
+	}
+	var rule ast.Node
+	for _, n := range nodes {
+		if td, ok := n.(*ast.TypeDef); ok {
+			rule = td.Rule
+		}
+	}
+	if rule == nil {
+		t.Fatalf("no recovered rule in %v", nodes)
+	}
+	found := false
+	ast.Inspect(rule, func(n ast.Node) bool {
+		if _, ok := n.(*ast.ErrorNode); ok {
+			found = true
+		}
+		return true
+	})
+	if !found {
+		t.Fatal("the recovered rule holds no ErrorNode")
+	}
+	if got := RenderNode(rule); !strings.Contains(got, ErrorNodeText) {
+		t.Fatalf("RenderNode(rule) = %q, want it to hold %q", got, ErrorNodeText)
 	}
 }

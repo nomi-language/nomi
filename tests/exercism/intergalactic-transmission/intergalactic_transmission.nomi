@@ -10,7 +10,8 @@ pub fn transmit(message: List<Int>) -> List<Int>
     |> Iter.flat_map(bits)
     |> Iter.chunks(7)
     |> Iter.map(fn chunk ->
-        data = from_bits(chunk) <<< (7 - Iter.count(chunk))
+        // The last chunk may be short: zeros pad it to seven bits.
+        data = Iter.concat(chunk, Iter.repeat(0)) |> Iter.take(7) |> Iter.to_list() |> from_bits()
         data <<< 1 + Iter.sum(chunk) % 2
     end)
     |> Iter.to_list()

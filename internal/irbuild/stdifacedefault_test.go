@@ -124,8 +124,8 @@ end
 
 // A std body a program builds for itself (it reaches an interface default,
 // `Int.max`) whose parameter default is no literal: `Decimal.format`'s
-// `max_fraction` defaults to `Int.max(Decimal.scale(d), min_fraction)`, and
-// its `mode` to `RoundingMode.HalfEven`. A call that leaves either out
+// `fraction` defaults to `scale_digits(Decimal.scale(d))`, a private
+// function of std/decimal, and its `mode` to `RoundingMode.HalfEven`. A call that leaves either out
 // reaches the arity wrapper or default accessor the instance's gen built in
 // std/decimal (stdUnretainedDefaultedCall), linked in memory and through
 // objects by name.
@@ -135,11 +135,13 @@ func TestStdIfaceDefault_UnretainedBodyFillsADefaultThatIsNoLiteral(t *testing.T
 	}
 	const src = "import std::io\n\nfn main()\n" +
 		"    io.print(Decimal.format(1234.50d, Locale\"en\"))\n" +
-		"    io.print(Decimal.format(0.125d, Locale\"en\", max_fraction: 2))\n" +
-		"    io.print(Decimal.format(12d, Locale\"fr\", 2))\n" +
+		"    io.print(Decimal.format(0.125d, Locale\"en\", mode: .Down))\n" +
+		"    io.print(Decimal.format(12.5d, Locale\"fr\", grouping: False))\n" +
+		"    io.print(Decimal.format(0.125d, Locale\"en\", fraction: 0..=2))\n" +
+		"    io.print(Decimal.format(12d, Locale\"fr\", 2..=2))\n" +
 		"    io.print(Decimal.format(1234.5d, Locale\"en\", grouping: False))\n" +
 		"    io.print(Decimal.format_percent(0.125d, Locale\"en\"))\nend\n"
-	const want = "1,234.50\n0.12\n12,00\n1234.5\n12.5%\n"
+	const want = "1,234.50\n0.125\n12,5\n0.12\n12,00\n1234.5\n12.5%\n"
 	verifyLambdaProgram(t, src, want)
 	t.Run("linked through objects", func(t *testing.T) {
 		defer LinkThroughObjects()()

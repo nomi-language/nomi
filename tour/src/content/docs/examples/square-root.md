@@ -15,21 +15,24 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# `square_root` finds it with Newton's method on integers, not with
 //# `Int.sqrt`.
 
-/// The square root of `radicand`, a perfect square of a positive integer.
+/// The square root of `radicand`, a perfect square, and 0 for 0.
 pub fn square_root(radicand: Int) -> Int
+    if radicand <= 0 then return 0
+
     newton(radicand, radicand)
 end
 
 /// Newton's step for the root of `radicand` from `guess`, an integer at or
 /// above the root. Each step lowers the guess, and the first step that
 /// would not lower it leaves the root.
-fn newton(radicand: Int, guess: Int) -> Int
+fn newton(radicand: Int, guess: PositiveInt) -> Int
     next = (guess + radicand / guess) / 2
 
     if next >= guess then
         guess
     else
-        newton(radicand, next)
+        // A step from above the root lands at or above it, so at least 1.
+        newton(radicand, PositiveInt.try_from(next)!)
     end
 end
 
@@ -59,5 +62,5 @@ test result: ok. 6 passed, 0 failed
 
 - std has `Int.sqrt`, which is the answer the exercise forbids, so `square_root` uses Newton's method on integers instead. The file says so in its `//#` comment.
 - `newton` starts from the radicand itself, which is at or above the root for any positive integer, and steps to `(guess + radicand / guess) / 2`. Integer division rounds each step down, so the guesses fall to the root and the first step that does not fall stops the walk. There is no tolerance to choose, as there would be with floats.
-- The radicand is promised to be a positive perfect square, so there is no error case and no `Result`; a zero radicand would divide by zero, which is the trap style §29 asks for on a broken promise.
+- The radicand is promised to be a perfect square, so there is no error case and no `Result`. `square_root` answers 0 for 0 and below, and `newton` takes its guess as a `PositiveInt`, the divisor `/` needs. A step from above the root lands at or above it, so the next guess is at least 1, which `PositiveInt.try_from(next)!` states (style §29).
 - The six canonical cases are one `subtests` table named by the description column.

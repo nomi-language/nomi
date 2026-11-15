@@ -394,6 +394,12 @@ type DeriveCtx struct {
 	DerivePos Pos
 	FieldName string
 	FieldPos  Pos
+	// NoEquality is, for an Equatable or Hashable demand, the part of the
+	// component with no equality that the derive found (`` `(Int) ->
+	// Int`, a function value ``), or "" when the component is itself the
+	// type with none or its declaration was out of reach. The missing-impl
+	// help says what the component holds only when this names it.
+	NoEquality string
 }
 
 // Recording captures the provenance of one (Iface, Type) entry in
@@ -1769,6 +1775,12 @@ func (b *builder) walkTypeExpr(te ast.TypeExpr, scope *Scope) {
 		for _, f := range t.Fields {
 			b.walkTypeExpr(f.TypeAnnotation, scope)
 		}
+	case *ast.ConjunctionType:
+		// `NonNegativeInt and Int64`, `Priced and Costed`: each member is
+		// a reference.
+		for _, m := range t.Members {
+			b.walkTypeExpr(m, scope)
+		}
 	}
 }
 
@@ -1838,6 +1850,11 @@ func (b *builder) recordImportedTypeRefs(te ast.TypeExpr, scope *Scope) {
 	case *ast.AnonStructType:
 		for _, f := range t.Fields {
 			b.recordImportedTypeRefs(f.TypeAnnotation, scope)
+		}
+	case *ast.ConjunctionType:
+		// `NonNegativeInt and Int64` uses each member.
+		for _, m := range t.Members {
+			b.recordImportedTypeRefs(m, scope)
 		}
 	case *ast.QualifiedType:
 		switch member := t.Member.(type) {

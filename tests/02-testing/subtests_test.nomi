@@ -161,7 +161,7 @@ test "a failed row's name stands where its row would"
 end
 
 fn named_by_quotient(ns: List<Int>) -> Result<Unit, AssertionFailure>
-    subtests ns, n, "${12 / n}"
+    subtests ns, n, "${12 / NonZeroInt.try_from(n)!}"
         assert n > 0
     end
 
@@ -172,8 +172,8 @@ test "a name that traps fails its row under the rendered row"
     assert Err(failure) = named_by_quotient([3, 0, 4])
 
     assert AssertionFailure.format(failure) == """
-        subtest 0: line 164: its name trapped: division by zero
-          "\${12 / n}"
+        subtest 0: line 164: its name trapped: `NonZeroInt.try_from(n)` found nothing
+          "\${12 / NonZeroInt.try_from(n)!}"
         1 of 3 subtests failed
         """
 end

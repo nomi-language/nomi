@@ -27,12 +27,12 @@ func TestIRIterBody_CallbackFaultKeepsItsPosition(t *testing.T) {
 fn main()
  xs = Iter.map([1, 0, 2], fn n ->
   io.print(n)
-  10 / n
+  10 / NonZeroInt.try_from(n)!
  end)
  io.print("created")
  io.inspect(Iter.to_list(xs))
 end
-`, "line 5: division by zero", "created\n1\n0\n")
+`, "line 5: `NonZeroInt.try_from(n)` found nothing", "created\n1\n0\n")
 }
 
 func verifyIterFault(t *testing.T, src, fault, output string) {

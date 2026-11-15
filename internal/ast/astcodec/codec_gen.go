@@ -4610,6 +4610,7 @@ func (e *Encoder) structImplBlock(x *ast.ImplBlock) {
 	e.int(int64(x.EndCol))
 	e.int(int64(x.SynthOriginLine))
 	e.int(int64(x.SynthOriginCol))
+	e.implPending(x)
 }
 
 func (d *Decoder) structImplBlock(x *ast.ImplBlock) {
@@ -4706,6 +4707,7 @@ func (d *Decoder) structImplBlock(x *ast.ImplBlock) {
 	x.EndCol = int(d.int())
 	x.SynthOriginLine = int(d.int())
 	x.SynthOriginCol = int(d.int())
+	d.implPending(x)
 }
 
 // StructImplBlock writes *x in place.
@@ -8966,4 +8968,4 @@ var forms = []any{
 
 // CodecDigest is a digest of the code above it: a reader keys bytes this
 // codec wrote by it when the writer may be another binary.
-const CodecDigest = "2bba8d78b2a15cc4"
+const CodecDigest = "5226ba3d2b74d06e"

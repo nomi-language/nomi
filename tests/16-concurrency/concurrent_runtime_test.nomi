@@ -44,30 +44,6 @@ fn nested_outer_body() -> Result<Int, String>
     end
 end
 
-// A channel is buffered or it is a rendezvous, and 0 is not a spelling of
-// the second one — `Channel.buffered(0)` is a name contradicting its own
-// argument, so it is rejected rather than aliased. Aliasing would let a
-// computed capacity slide silently from hand-off to rendezvous.
-test "buffered rejects a capacity that is not a buffer"
-    case compiler.run(
-        """
-        import std::channels.{Channel, Sender}
-
-        fn main()
-          ch = Channel.buffered<Int>(0)
-          _ = Sender.send(ch.sender, 1)
-        end
-        """
-    )
-        Ok(_) ->
-            assert False
-
-        Err(message) ->
-            assert "capacity must be at least 1" in message
-            assert "Channel.unbuffered()" in message
-    end
-end
-
 // An unbuffered send does not return until somebody receives, so this
 // round-trips only because the two halves are in different tasks.
 test "unbuffered send and receive meet across two tasks"

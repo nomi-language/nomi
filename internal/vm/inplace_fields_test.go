@@ -64,24 +64,24 @@ fn bump_inner(s: S) -> S
 end
 
 fn set_v(s: S) -> S
-    {..s, v: Vector.set(s.v, 0, 0)}
+    {..s, v: Vector.set(s.v, 0, 0)!}
 end
 
 fn main()
     s = fresh()
     d = s.v
     s2 = {..s, count: 1}
-    d2 = Vector.set(d, 0, 9)
+    d2 = Vector.set(d, 0, 9)!
     io.print("${s2.v} ${d2}")
 
     t = fresh()
     keep = t
-    e = Vector.set(t.v, 1, 9)
+    e = Vector.set(t.v, 1, 9)!
     io.print("${keep.v} ${e}")
 
     u = fresh()
     a = u.v
-    b = Vector.set(u.v, 0, 7)
+    b = Vector.set(u.v, 0, 7)!
     io.print("${Vector.get(a, 0)} ${b}")
 
     w = fresh()
@@ -99,7 +99,7 @@ fn main()
 
     pair = (Vector[1, 2], 3)
     (pv, pn) = pair
-    io.print("${Vector.set(pv, 0, pn)} ${pair}")
+    io.print("${Vector.set(pv, 0, pn)!} ${pair}")
 end
 `
 	const want = "Vector[1, 2, 3] Vector[9, 2, 3]\nVector[1, 2, 3] Vector[1, 9, 3]\nSome(1) Vector[7, 2, 3]\n" +
@@ -117,25 +117,25 @@ func TestInPlace_AFoldKeepsWhatItDoesNotOwn(t *testing.T) {
 
 fn main()
     v = Vector[0, 0, 0]
-    r = Iter.reduce(0..3, v, fn acc, i -> Vector.set(acc, i, i + 1))
+    r = Iter.reduce(0..3, v, fn acc, i -> Vector.set(acc, i, i + 1)!)
     io.print("${v} ${r}")
 
     (last, hist) = Iter.reduce(0..3, (Vector[0, 0, 0], []), fn (acc, seen), i ->
-        (Vector.set(acc, i, 1), [acc, ..seen])
+        (Vector.set(acc, i, 1)!, [acc, ..seen])
     end)
     io.print("${last} ${hist}")
 
     w = Vector[5, 5]
-    c = Iter.reduce(0..2, Vector[0, 0], fn acc, i -> if i == 0 then w else Vector.set(acc, 0, 1))
+    c = Iter.reduce(0..2, Vector[0, 0], fn acc, i -> if i == 0 then w else Vector.set(acc, 0, 1)!)
     io.print("${w} ${c}")
 
     (state, outs) = Iter.map_reduce(0..3, Vector[0, 0, 0], fn acc, i ->
-        next = Vector.set(acc, i, 1)
+        next = Vector.set(acc, i, 1)!
         (next, Vector.length(next) + i)
     end)
     io.print("${state} ${outs}")
 
-    owned = Iter.reduce(0..3, (Vector[0, 0, 0], 0), fn (acc, n), i -> (Vector.set(acc, i, 2), n + i))
+    owned = Iter.reduce(0..3, (Vector[0, 0, 0], 0), fn (acc, n), i -> (Vector.set(acc, i, 2)!, n + i))
     io.print("${owned}")
 end
 `
@@ -152,7 +152,7 @@ end
 const sieveFold = `import std::io
 
 fn clear(flags: Vector<Bool>, k: Int, i: Int, size: Int) -> Vector<Bool>
-    if k > size then flags else clear(Vector.set(flags, k - 1, False), k + i, i, size)
+    if k > size then flags else clear(Vector.set(flags, k - 1, False)!, k + i, i, size)
 end
 
 fn sieve(flags: Vector<Bool>, size: Int) -> Int

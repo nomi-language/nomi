@@ -790,6 +790,6 @@ fn from_parts(parts: List<String>) -> Url
             }
 
         _ ->
-            todo
+            unreachable "a Url crosses as rt.partsOf's 14 parts"
     end
 end

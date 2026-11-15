@@ -180,7 +180,8 @@ vector, `None` when it is not. Use it when the index comes from data.
 itself and stops the program when the index is outside, so use it when your
 code guarantees the index.
 [`Vector.set`](/reference/vectors/#vectorset) replaces the item at an index and
-stops the program the same way.
+returns a `Maybe` the same way, so `Vector.set(names, 1, "Bo")!` is the new
+vector when your code guarantees the index.
 
 `xs + ys` joins two lists, or two vectors.
 [`List.concat`](/reference/lists/#listconcat) and
@@ -448,6 +449,12 @@ dbg line 5:
 A range whose end is below its start, such as `5..=1`, is empty. To count
 down, step by a negative amount: `Range.step_by(5..=1, -1)` gives 5, 4, 3,
 2 and 1.
+
+A function that needs a range with something in it takes a subtype of
+`Range`: `Int.clamp(n, 0..=10)` takes a `ClosedRange` and
+`Generator.int(1..=6)` a `BoundedRange`, so `Int.clamp(n, 10..=0)` is an
+error when the program is compiled. A range computed when it runs goes
+through `ClosedRange.try_from` or `BoundedRange.try_from`.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>

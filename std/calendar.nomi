@@ -80,11 +80,26 @@
 //# The programmatic constructors are `Date.new`, `Time.new` and
 //# `NaiveDateTime.new` (validated, each a `Result`), `DateTime.in_zone` (a
 //# wall reading projected through a zone, below),
-//# `OffsetDateTime.with_offset`, `OffsetDateTime.from_instant` (total),
-//# `DateTime.from_instant_in` (total once the zone is known: it fails only
-//# on `UnknownZone`), `DateTime.now_in` (the system clock projected into
-//# a zone) and `NaiveDateTime.utc_now` (the system clock as a UTC wall
-//# reading).
+//# `OffsetDateTime.with_offset`, `OffsetDateTime.from_instant` (each a `Result`),
+//# `DateTime.from_instant_in` (a `Result`: `UnknownZone`), `DateTime.now_in`
+//# (the system clock projected into a zone) and `NaiveDateTime.utc_now` (the
+//# system clock as a UTC wall reading).
+//#
+//# ## Years of any size
+//#
+//# The calendar is the proleptic Gregorian one in both directions, with no
+//# first or last year: a year is an `Int` of any size, and no construction,
+//# conversion or arithmetic fails or faults for how far it goes. A year from
+//# 0000 to 9999 is written with four digits, and any other with a sign and
+//# at least six, ISO 8601's expanded form as RFC 9557 writes it:
+//# `Date"+010000-01-01"`, `Date"-000044-03-15"` (45 BC, since year 0 is
+//# 1 BC). Every `parse` reads that form back, and also a year of more than
+//# four digits without a sign (`10000-01-01`) and a sign with four
+//# (`-0044-03-15`).
+//#
+//# ```nomi
+//# Date"2026-05-04" + Years(300_000_000_000) // → +300000002026-05-04
+//# ```
 //#
 //# ## Arithmetic: `Duration` and civil periods
 //#
@@ -291,15 +306,17 @@ import
     equatable.Equatable
     hashable.Hashable
     instant.Instant
-    int.Int
+    int.{Int, Int64, NonZeroInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
     locale.Locale
     localize.Localize
+    maybe.Maybe.{None, Some}
     results.Result.{self, Err, Ok}
     strings.String
     subtract.Subtract
+    unit.Unit
 end
 
 /// `Error` — what went wrong constructing or projecting a calendar value.
@@ -456,21 +473,25 @@ end
 /// A calendar date — year/month/day, no time-of-day, no zone. Construct
 /// via `Date.new(y, m, d)` (validating), `Date.parse`, or the
 /// `Date"…"` typed literal. Components reachable via `year`/`month`/`day`
-/// (or the `DateParts` interface).
+/// (or the `DateParts` interface). The year is an `Int` of any size; one
+/// outside 0000 to 9999 is written with a sign and at least six digits.
 //! assert Display.to_string(Date"2026-05-04") == "2026-05-04"
+//! assert Display.to_string(Date.new(-1, 12, 31)!) == "-000001-12-31"
+//! assert Date"2026-05-04" + Years(300_000_000_000) == Date"+300000002026-05-04"
 //
 pub opaque struct Date
     year:  Int
-    month: Int
-    day:   Int
+    month: Int64
+    day:   Int64
 end
 
 impl Date
     /// Construct a `Date`, validating the combination (no Feb 30,
     /// leap-year aware). Returns `Err(.InvalidValue(...))` for impossible
-    /// dates.
+    /// dates. Every year is one.
     //! assert Date.new(2026, 5, 4)? == Date"2026-05-04"
     //! assert Err(Error.InvalidValue(_msg)) = Date.new(2026, 2, 30)
+    //! assert Date.new(Int.pow(10, 30), 2, 29)? == Date"+1000000000000000000000000000000-02-29"
     //
     pub fn new(year: Int, month: Int, day: Int) -> Result<Date, Error>
         attempt = date_new_raw(year, month, day)
@@ -484,9 +505,13 @@ impl Date
 
     /// Parse an ISO-8601 date string (`YYYY-MM-DD`) into a `Date`. Backs
     /// the `Date"…"` typed literal and is exported for callers parsing
-    /// from arbitrary string sources.
+    /// from arbitrary string sources. A year outside 0000 to 9999 takes a
+    /// sign, as `Display` writes it; a year of more than four digits may
+    /// go without one.
     //! assert Date.parse("2026-05-04")? == Date"2026-05-04"
     //! assert Err(Error.InvalidFormat(_msg)) = Date.parse("05/04/2026")
+    //! assert Date.parse("-000044-03-15")? == Date.new(-44, 3, 15)?
+    //! assert Date.parse("10000-01-01")? == Date"+010000-01-01"
     //
     pub fn parse(s: String) -> Result<Date, Error>
         attempt = date_parse_raw(s)
@@ -567,7 +592,7 @@ impl Date
     //! assert Date.format(d, Locale"ja", style: .Long) == "2026年10月20日"
     //
     pub fn format(d: Date, locale: Locale, style = DateStyle.Medium) -> String
-        civil_format_style(locale, Date.fields_of(d), "${DateStyle.name(style)}/-")
+        civil_format_style(locale, d.year, Date.fields_of(d), "${DateStyle.name(style)}/-")
     end
 
     /// The date as a reader of `locale` writes the fields `fields` names,
@@ -584,7 +609,7 @@ impl Date
     //
     pub fn format_fields(d: Date, locale: Locale, fields: DateFields) -> String
         DateFields(skeleton) = fields
-        civil_format_fields(locale, Date.fields_of(d), skeleton)
+        civil_format_fields(locale, d.year, Date.fields_of(d), skeleton)
     end
 
     /// Read a date a reader of `locale` typed, as `Date.format` writes it at
@@ -632,7 +657,7 @@ impl Date
     //
     pub fn to_string_with(d: Date, pattern: DatePattern) -> String
         DatePattern(p) = pattern
-        civil_format_pattern(Date.fields_of(d), p)
+        civil_format_pattern(d.year, Date.fields_of(d), p)
     end
 
     /// Read a date by a fixed numeric pattern, as `Date.to_string_with`
@@ -652,9 +677,10 @@ impl Date
         end
     end
 
-    // The fields a pattern writes a date by: civil_format_style's list.
-    fn fields_of(d: Date) -> List<Int>
-        [d.year, d.month, d.day, 0, 0, 0, 0, 0, 1]
+    // The fields after the year a pattern writes a date by:
+    // civil_format_style's list.
+    fn fields_of(d: Date) -> List<Int64>
+        [d.month, d.day, 0, 0, 0, 0, 0, 1]
     end
 end
 
@@ -759,6 +785,15 @@ impl Subtract<Days, Date> for Date
     end
 end
 
+// A component its caller has checked is within its field's range, which an
+// Int64 holds: the field's value.
+fn component(n: Int) -> Int64
+    case Int64.try_from(n)
+        Some(checked) -> checked
+        None          -> 0
+    end
+end
+
 // ============================================================================
 // Time
 // ============================================================================
@@ -767,10 +802,10 @@ end
 /// or the `Time"…"` typed literal. Components reachable via
 /// `hour`/`minute`/`second`/`nanosecond` (or the `TimeParts` interface).
 pub opaque struct Time
-    hour:       Int
-    minute:     Int
-    second:     Int
-    nanosecond: Int
+    hour:       Int64
+    minute:     Int64
+    second:     Int64
+    nanosecond: Int64
 end
 
 impl Time
@@ -790,7 +825,14 @@ impl Time
         else if nanosecond < 0 or nanosecond > 999_999_999 then
             Err(Error.InvalidValue("nanosecond out of range: " + Int.to_string(nanosecond)))
         else
-            Ok(Time{hour:, minute:, second:, nanosecond:})
+            Ok(
+                Time{
+                    hour:       component(hour),
+                    minute:     component(minute),
+                    second:     component(second),
+                    nanosecond: component(nanosecond),
+                }
+            )
         end
     end
 
@@ -825,7 +867,7 @@ impl Time
     //! assert Time.format(t, Locale"fr", style: .Medium) == "21:30:00"
     //
     pub fn format(t: Time, locale: Locale, style = TimeStyle.Short) -> String
-        civil_format_style(locale, Time.fields_of(t), "-/${TimeStyle.name(style)}")
+        civil_format_style(locale, 1970, Time.fields_of(t), "-/${TimeStyle.name(style)}")
     end
 
     /// The time of day as a reader of `locale` writes the fields `fields`
@@ -838,7 +880,7 @@ impl Time
     //
     pub fn format_fields(t: Time, locale: Locale, fields: TimeFields) -> String
         TimeFields(skeleton) = fields
-        civil_format_fields(locale, Time.fields_of(t), skeleton)
+        civil_format_fields(locale, 1970, Time.fields_of(t), skeleton)
     end
 
     /// Read a time of day a reader of `locale` typed, as `Time.format`
@@ -870,7 +912,7 @@ impl Time
     //
     pub fn to_string_with(t: Time, pattern: TimePattern) -> String
         TimePattern(p) = pattern
-        civil_format_pattern(Time.fields_of(t), p)
+        civil_format_pattern(1970, Time.fields_of(t), p)
     end
 
     /// Read a time of day by a fixed numeric pattern.
@@ -887,9 +929,9 @@ impl Time
         end
     end
 
-    // The fields a pattern writes a time by.
-    fn fields_of(t: Time) -> List<Int>
-        [1970, 1, 1, t.hour, t.minute, t.second, t.nanosecond, 0, 2]
+    // The fields after the year a pattern writes a time by.
+    fn fields_of(t: Time) -> List<Int64>
+        [1, 1, t.hour, t.minute, t.second, t.nanosecond, 0, 2]
     end
 end
 
@@ -952,7 +994,7 @@ impl Add<Duration, Time> for Time
     //! assert Time"08:33:00" + Duration.minutes(3) == Time"08:36:00"
     //
     fn add(lhs: Time, rhs: Duration) -> Time
-        time_add_nanos(lhs, Duration.as_nanos(rhs))
+        time_add_nanos(lhs, Int.modulo(Duration.as_nanos(rhs), 86_400_000_000_000))
     end
 end
 
@@ -977,12 +1019,12 @@ end
 /// "local time of day" that will be resolved into a zone later).
 pub opaque struct NaiveDateTime
     year:       Int
-    month:      Int
-    day:        Int
-    hour:       Int
-    minute:     Int
-    second:     Int
-    nanosecond: Int
+    month:      Int64
+    day:        Int64
+    hour:       Int64
+    minute:     Int64
+    second:     Int64
+    nanosecond: Int64
 end
 
 impl NaiveDateTime
@@ -1001,6 +1043,7 @@ impl NaiveDateTime
     ) -> String
         civil_format_style(
             locale,
+            dt.year,
             NaiveDateTime.fields_of(dt),
             "${DateStyle.name(date)}/${TimeStyle.name(time)}",
         )
@@ -1015,7 +1058,7 @@ impl NaiveDateTime
     //
     pub fn format_fields(dt: NaiveDateTime, locale: Locale, fields: DateTimeFields) -> String
         DateTimeFields(skeleton) = fields
-        civil_format_fields(locale, NaiveDateTime.fields_of(dt), skeleton)
+        civil_format_fields(locale, dt.year, NaiveDateTime.fields_of(dt), skeleton)
     end
 
     /// The date and time by a fixed numeric pattern.
@@ -1024,7 +1067,7 @@ impl NaiveDateTime
     //
     pub fn to_string_with(dt: NaiveDateTime, pattern: DateTimePattern) -> String
         DateTimePattern(p) = pattern
-        civil_format_pattern(NaiveDateTime.fields_of(dt), p)
+        civil_format_pattern(dt.year, NaiveDateTime.fields_of(dt), p)
     end
 
     /// Read a date and time by a fixed numeric pattern.
@@ -1042,9 +1085,9 @@ impl NaiveDateTime
         end
     end
 
-    // The fields a pattern writes a date and time by.
-    fn fields_of(dt: NaiveDateTime) -> List<Int>
-        [dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.nanosecond, 0, 3]
+    // The fields after the year a pattern writes a date and time by.
+    fn fields_of(dt: NaiveDateTime) -> List<Int64>
+        [dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.nanosecond, 0, 3]
     end
 
     /// Combine a `Date` and a `Time`. Both parts are already valid, so
@@ -1053,13 +1096,13 @@ impl NaiveDateTime
     //
     pub fn of(d: Date, t: Time) -> NaiveDateTime
         NaiveDateTime{
-            year:       Date.year(d),
-            month:      Date.month(d),
-            day:        Date.day(d),
-            hour:       Time.hour(t),
-            minute:     Time.minute(t),
-            second:     Time.second(t),
-            nanosecond: Time.nanosecond(t),
+            year:       d.year,
+            month:      d.month,
+            day:        d.day,
+            hour:       t.hour,
+            minute:     t.minute,
+            second:     t.second,
+            nanosecond: t.nanosecond,
         }
     end
 
@@ -1068,9 +1111,9 @@ impl NaiveDateTime
     //
     pub fn at_midnight(d: Date) -> NaiveDateTime
         NaiveDateTime{
-            year:       Date.year(d),
-            month:      Date.month(d),
-            day:        Date.day(d),
+            year:       d.year,
+            month:      d.month,
+            day:        d.day,
             hour:       0,
             minute:     0,
             second:     0,
@@ -1159,16 +1202,32 @@ impl NaiveDateTime
     /// The wall reading of an `Instant` at a fixed UTC `offset`, UTC when
     /// no offset is given: what a clock at that offset showed at that
     /// moment. A sub-second offset is truncated to whole seconds, as
-    /// `OffsetDateTime.from_instant` truncates it. For a reading in an
-    /// IANA zone, read `DateTime.from_instant_in(i, zone)` with
+    /// `OffsetDateTime.from_instant` truncates it, and an offset of any
+    /// length moves the reading by that much. For a reading in an IANA
+    /// zone, read `DateTime.from_instant_in(i, zone)` with
     /// `DateTime.to_naive`.
     //! assert NaiveDateTime.from_instant(Instant.from_seconds(0)) == NaiveDateTime"1970-01-01T00:00:00"
     //!
     //! assert NaiveDateTime.from_instant(Instant.from_seconds(0), Duration.hours(-5))
     //!     == NaiveDateTime"1969-12-31T19:00:00"
+    //!
+    //! assert NaiveDateTime.from_instant(Instant.from_seconds(0), Duration.hours(48))
+    //!     == NaiveDateTime"1970-01-03T00:00:00"
     //
     pub fn from_instant(i: Instant, offset: Duration = Duration.seconds(0)) -> NaiveDateTime
-        OffsetDateTime.to_naive(OffsetDateTime.from_instant(i, offset))
+        epoch = NaiveDateTime{
+            year:       1970,
+            month:      1,
+            day:        1,
+            hour:       0,
+            minute:     0,
+            second:     0,
+            nanosecond: 0,
+        }
+
+        epoch + Duration.nanoseconds(Instant.as_nanos(i)) + Duration.seconds(
+            Duration.as_seconds(offset)
+        )
     end
 
     /// Read the current wall clock in UTC: the form a database `TIMESTAMP`
@@ -1185,13 +1244,16 @@ impl NaiveDateTime
 
     /// The `Instant` a clock at a fixed UTC `offset` showed this reading
     /// at, reading it as UTC when no offset is given: the inverse of
-    /// `NaiveDateTime.from_instant`. Faults, as `Instant.from_nanos` does,
-    /// when the moment is outside the years an `Instant` holds. To resolve
-    /// a reading in an IANA zone, use `DateTime.in_zone`.
+    /// `NaiveDateTime.from_instant`. An Instant has no range, so every
+    /// reading has one. To resolve a reading in an IANA zone, use
+    /// `DateTime.in_zone`.
     //! assert NaiveDateTime.to_instant(NaiveDateTime"1970-01-01T00:00:42") == Instant.from_seconds(42)
     //!
     //! assert NaiveDateTime.to_instant(NaiveDateTime"1969-12-31T19:00:00", Duration.hours(-5))
     //!     == Instant.from_seconds(0)
+    //!
+    //! assert Instant.to_seconds(NaiveDateTime.to_instant(NaiveDateTime"2300-01-01T00:00:00"))
+    //!     == 10_413_792_000
     //!
     //! i = Instant.from_nanos(-1_700_000_000_123_456_789)
     //!
@@ -1338,7 +1400,11 @@ end
 impl Add<Duration, NaiveDateTime> for NaiveDateTime
     /// Add an exact `Duration`.
     fn add(lhs: NaiveDateTime, rhs: Duration) -> NaiveDateTime
-        naive_add_nanos(lhs, Duration.as_nanos(rhs))
+        // Whole days first, as civil days, which on a reading with no zone
+        // are 24 exact hours: a Duration of any length moves the reading.
+        n = Duration.as_nanos(rhs)
+        day: NonZeroInt = 86_400_000_000_000
+        naive_add_nanos(lhs + Days(Int.floor_div(n, day)), Int.modulo(n, day))
     end
 end
 
@@ -1438,17 +1504,33 @@ end
 /// `OffsetDateTime.parse`, or the `OffsetDateTime"…"` typed literal.
 pub opaque struct OffsetDateTime
     instant_nanos:  Int
-    offset_seconds: Int
+    offset_seconds: Int64
+end
+
+// `Ok` when `offset`, cut to whole seconds, is within ±18 hours, which an
+// OffsetDateTime's offset is; otherwise the InvalidValue naming it.
+fn offset_in_range(offset: Duration) -> Result<Unit, Error>
+    seconds = Duration.as_seconds(offset)
+
+    if seconds < -64_800 or seconds > 64_800 then
+        Err(Error.InvalidValue("offset out of range (±18h): ${seconds}s"))
+    else
+        Ok(Unit)
+    end
 end
 
 impl OffsetDateTime
     /// Combine a `NaiveDateTime` wall-reading with a fixed UTC offset.
     /// Returns `Err(.InvalidValue(...))` if the offset is outside the
-    /// IANA-acceptable range (`±18:00`).
+    /// IANA-acceptable range (`±18:00`) or not a whole number of seconds.
     //! assert OffsetDateTime.with_offset(NaiveDateTime"2026-05-04T09:00:00", Duration.hours(-5))?
     //!     == OffsetDateTime"2026-05-04T09:00:00-05:00"
+    //!
+    //! assert OffsetDateTime.with_offset(NaiveDateTime"2026-05-04T09:00:00", Duration.hours(19))
+    //!     == Err(Error.InvalidValue("offset out of range (±18h): 68400s"))
     //
     pub fn with_offset(dt: NaiveDateTime, offset: Duration) -> Result<OffsetDateTime, Error>
+        offset_in_range(offset)?
         attempt = offset_with_offset_raw(dt, Duration.as_nanos(offset))
 
         if attempt.kind == 0 then
@@ -1458,13 +1540,25 @@ impl OffsetDateTime
         end
     end
 
-    /// Attach a fixed offset to an absolute `Instant`. Always total —
-    /// every instant has a representation at every fixed offset.
+    /// Attach a fixed offset to an absolute `Instant`, of any year. A
+    /// sub-second offset is cut to whole seconds. Returns
+    /// `Err(.InvalidValue(...))` for an offset outside ±18 hours, as
+    /// `with_offset` does.
     //! assert OffsetDateTime.from_instant(Instant.from_seconds(0), Duration.hours(0))
-    //!     == OffsetDateTime"1970-01-01T00:00:00Z"
+    //!     == Ok(OffsetDateTime"1970-01-01T00:00:00Z")
+    //!
+    //! assert OffsetDateTime.from_instant(Instant.from_seconds(100_000_000_000), Duration.hours(0))
+    //!     == Ok(OffsetDateTime"5138-11-16T09:46:40Z")
+    //!
+    //! assert OffsetDateTime.from_instant(Instant.from_seconds(Int.pow(10, 22)), Duration.hours(0))
+    //!     == Ok(OffsetDateTime"+316887385070084-04-22T17:46:40Z")
+    //!
+    //! assert OffsetDateTime.from_instant(Instant.from_seconds(0), Duration.hours(19))
+    //!     == Err(Error.InvalidValue("offset out of range (±18h): 68400s"))
     //
-    pub fn from_instant(i: Instant, offset: Duration) -> OffsetDateTime
-        offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset))
+    pub fn from_instant(i: Instant, offset: Duration) -> Result<OffsetDateTime, Error>
+        offset_in_range(offset)?
+        Ok(offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset)))
     end
 
     /// Parse an ISO-8601 timestamp with offset suffix
@@ -1528,9 +1622,10 @@ impl Debug for OffsetDateTime
 end
 
 impl DateParts for OffsetDateTime
-    // `DateParts`/`TimeParts` accessors are Go projections through
-    // `time.Unix(0, instant_nanos).In(time.FixedZone("", offset_seconds))` — the
-    // extern IS the interface function (no wrapper).
+    // `DateParts`/`TimeParts` accessors are Go projections of
+    // `instant_nanos` at `offset_seconds` in exact civil arithmetic
+    // (stdcalendar.OffsetDateTimeWall): the extern IS the interface function
+    // (no wrapper).
     host fn year(value: OffsetDateTime) -> Int
     host fn month(value: OffsetDateTime) -> Int
     host fn day(value: OffsetDateTime) -> Int
@@ -1564,12 +1659,9 @@ impl Anchored for OffsetDateTime
 end
 
 impl Add<Duration, OffsetDateTime> for OffsetDateTime
-    /// Add an exact `Duration`.
+    /// Add an exact `Duration`, of any length.
     fn add(lhs: OffsetDateTime, rhs: Duration) -> OffsetDateTime
-        OffsetDateTime{
-            instant_nanos:  lhs.instant_nanos + Duration.as_nanos(rhs),
-            offset_seconds: lhs.offset_seconds,
-        }
+        offset_add_nanos(lhs, Duration.as_nanos(rhs))
     end
 end
 
@@ -1856,6 +1948,7 @@ impl DateTime
     ) -> String
         civil_format_style(
             locale,
+            DateParts.year(dt),
             DateTime.fields_of(dt),
             "${DateStyle.name(date)}/${TimeStyle.name(time)}",
         )
@@ -1867,7 +1960,7 @@ impl DateTime
     //
     pub fn format_fields(dt: DateTime, locale: Locale, fields: DateTimeFields) -> String
         DateTimeFields(skeleton) = fields
-        civil_format_fields(locale, DateTime.fields_of(dt), skeleton)
+        civil_format_fields(locale, DateParts.year(dt), DateTime.fields_of(dt), skeleton)
     end
 
     /// The moment's wall clock by a fixed numeric pattern.
@@ -1876,20 +1969,23 @@ impl DateTime
     //
     pub fn to_string_with(dt: DateTime, pattern: DateTimePattern) -> String
         DateTimePattern(p) = pattern
-        civil_format_pattern(DateTime.fields_of(dt), p)
+        civil_format_pattern(DateParts.year(dt), DateTime.fields_of(dt), p)
     end
 
-    // The fields a pattern writes a moment by: its wall clock and offset.
-    fn fields_of(dt: DateTime) -> List<Int>
+    // The fields after the year a pattern writes a moment by: its wall
+    // clock and offset.
+    fn fields_of(dt: DateTime) -> List<Int64>
+        odt = DateTime.to_offset(dt)
+        wall = OffsetDateTime.to_naive(odt)
+
         [
-            DateTime.year(dt),
-            DateTime.month(dt),
-            DateTime.day(dt),
-            DateTime.hour(dt),
-            DateTime.minute(dt),
-            DateTime.second(dt),
-            DateTime.nanosecond(dt),
-            zoned_offset_nanos(dt) / 1_000_000_000,
+            wall.month,
+            wall.day,
+            wall.hour,
+            wall.minute,
+            wall.second,
+            wall.nanosecond,
+            odt.offset_seconds,
             7,
         ]
     end
@@ -1920,7 +2016,7 @@ impl DateTime
         zone: String,
         mode: Disambiguation,
     ) -> Result<DateTime, Error>
-        mode_tag = case mode
+        mode_tag: Int64 = case mode
             Disambiguation.Compatible -> 1
             Disambiguation.Earlier    -> 2
             Disambiguation.Later      -> 3
@@ -1936,10 +2032,18 @@ impl DateTime
         end
     end
 
-    /// Project an absolute `Instant` into an IANA zone. Always total
-    /// once the zone is known. Fails only on `UnknownZone`.
+    /// Project an absolute `Instant`, of any year, into an IANA zone.
+    /// Fails only on an unknown zone, `UnknownZone`. Past the last
+    /// transition a zone's database lists, its offset follows the rule
+    /// the database extends forever (New York's daylight saving every
+    /// summer); before the first, it is the zone's first offset, its
+    /// local mean time. Past about 292 billion years either way, where no
+    /// rule reaches, the offset is the one at the nearer end.
     //! assert DateTime.from_instant_in(Instant.from_seconds(0), "UTC")?
     //!     == DateTime"1970-01-01T00:00:00Z[UTC]"
+    //!
+    //! assert DateTime.from_instant_in(Instant.from_seconds(100_000_000_000), "America/New_York")?
+    //!     == DateTime"5138-11-16T04:46:40-05:00[America/New_York]"
     //
     pub fn from_instant_in(i: Instant, zone: String) -> Result<DateTime, Error>
         attempt = zoned_from_instant_in_raw(Instant.as_nanos(i), zone)
@@ -1990,6 +2094,14 @@ impl DateTime
         else
             Err(Error.of(attempt.kind, attempt.reason))
         end
+    end
+
+    /// The IANA zone the value reads its wall clock in, which its
+    /// construction checked.
+    //! assert DateTime.zone(DateTime"2026-06-15T12:00:00-04:00[America/New_York]") == "America/New_York"
+    //
+    pub fn zone(d: DateTime) -> String
+        d.zone
     end
 
     /// Parse an RFC 9557 datetime-with-zone string
@@ -2082,12 +2194,9 @@ impl Anchored for DateTime
 end
 
 impl Add<Duration, DateTime> for DateTime
-    /// Add an exact `Duration`.
+    /// Add an exact `Duration`, of any length.
     fn add(lhs: DateTime, rhs: Duration) -> DateTime
-        DateTime{
-            instant_nanos: lhs.instant_nanos + Duration.as_nanos(rhs),
-            zone:          lhs.zone,
-        }
+        zoned_add_nanos(lhs, Duration.as_nanos(rhs))
     end
 end
 
@@ -2374,7 +2483,7 @@ impl TimeUnit
         unit:    TimeUnit,
         numeric: Bool = False,
     ) -> String
-        position = case unit
+        position: Int64 = case unit
             TimeUnit.Second  -> 0
             TimeUnit.Minute  -> 1
             TimeUnit.Hour    -> 2
@@ -2811,7 +2920,11 @@ host fn naive_add_nanos(dt: NaiveDateTime, nanos: Int) -> NaiveDateTime
 // --- OffsetDateTime ---------------------------------------------------------
 host fn offset_with_offset_raw(dt: NaiveDateTime, offset_nanos: Int) -> OffsetAttempt
 
+// An OffsetDateTime at `instant_nanos` from the epoch, at an offset the
+// caller checked (`offset_in_range`).
 host fn offset_from_instant_nanos(instant_nanos: Int, offset_nanos: Int) -> OffsetDateTime
+
+host fn offset_add_nanos(odt: OffsetDateTime, nanos: Int) -> OffsetDateTime
 
 host fn offset_parse_raw(s: String) -> OffsetAttempt
 
@@ -2820,9 +2933,11 @@ host fn offset_add_years(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 host fn offset_add_months(odt: OffsetDateTime, n: Int) -> OffsetDateTime
 
 // --- DateTime ---------------------------------------------------------------
-host fn zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int) -> ZonedAttempt
+host fn zoned_in_zone_raw(dt: NaiveDateTime, zone: String, mode: Int64) -> ZonedAttempt
 
 host fn zoned_from_instant_in_raw(instant_nanos: Int, zone: String) -> ZonedAttempt
+
+host fn zoned_add_nanos(d: DateTime, nanos: Int) -> DateTime
 
 host fn zoned_with_zone_raw(d: DateTime, zone: String) -> ZonedAttempt
 
@@ -2849,15 +2964,20 @@ host fn zoned_add_microseconds(d: DateTime, n: Int) -> DateTime
 host fn zoned_add_nanoseconds(d: DateTime, n: Int) -> DateTime
 
 // --- Text for a reader ------------------------------------------------------
-// A value crosses as its fields (`fields_of`): year, month, day, hour,
-// minute, second, nanosecond, UTC offset in seconds, and flags (1 a date,
-// 2 a time, 4 an offset). A style crosses as `<date style>/<time style>`,
-// `-` for a part not written.
-host fn civil_format_style(locale: Locale, fields: List<Int>, spec: String) -> String
+// A value crosses as its year, an Int of any size, and its other fields
+// (`fields_of`): month, day, hour, minute, second, nanosecond, UTC offset
+// in seconds, and flags (1 a date, 2 a time, 4 an offset). A style crosses
+// as `<date style>/<time style>`, `-` for a part not written.
+host fn civil_format_style(locale: Locale, year: Int, fields: List<Int64>, spec: String) -> String
 
-host fn civil_format_fields(locale: Locale, fields: List<Int>, skeleton: String) -> String
+host fn civil_format_fields(
+    locale:   Locale,
+    year:     Int,
+    fields:   List<Int64>,
+    skeleton: String,
+) -> String
 
-host fn civil_format_pattern(fields: List<Int>, pattern: String) -> String
+host fn civil_format_pattern(year: Int, fields: List<Int64>, pattern: String) -> String
 
 host fn date_parse_style(text: String, locale: Locale, spec: String, lenient: Bool) -> DateAttempt
 
@@ -2871,8 +2991,8 @@ host fn naive_parse_pattern(text: String, pattern: String) -> NaiveAttempt
 
 // Why text is not a skeleton (`fields_check`) or a fixed pattern
 // (`pattern_check`) of a kind, 0 a date's, 1 a time's, 2 both's, or "".
-host fn fields_check(kind: Int, text: String) -> String
+host fn fields_check(kind: Int64, text: String) -> String
 
-host fn pattern_check(kind: Int, text: String) -> String
+host fn pattern_check(kind: Int64, text: String) -> String
 
-host fn relative_format_raw(locale: Locale, count: Int, unit: Int, numeric: Bool) -> String
+host fn relative_format_raw(locale: Locale, count: Int, unit: Int64, numeric: Bool) -> String

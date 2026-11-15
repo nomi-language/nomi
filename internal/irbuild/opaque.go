@@ -297,7 +297,7 @@ func opaqueDeclIn(fa *analysis.FileAnalysis, s *opaqueSpec) *ast.TypeDef {
 		return nil
 	}
 	decl, isDecl := sym.Node.(*ast.TypeDef)
-	if !isDecl || !s.matches(decl) {
+	if !isDecl || !s.matches(decl, dt.Inner) {
 		return nil
 	}
 	return decl
@@ -323,8 +323,10 @@ func (g *gen) loadOpaques() {
 // module names. The inner type because `rt.Duration` is int64, so a std edit
 // to `opaque type Duration Float` must produce no anchor rather than lower
 // against the wrong width. A `type Name` marker has a nil InnerTypeExpr, which
-// scalarKind answers kindInvalid for, so it cannot match either.
-func (s *opaqueSpec) matches(decl *ast.TypeDef) bool {
+// scalarKind answers kindInvalid for, so it cannot match either. inner is
+// the inner type as the checker resolved it in the declaring module, which
+// names a subtype the importing module may not have in scope.
+func (s *opaqueSpec) matches(decl *ast.TypeDef, inner analysis.Type) bool {
 	want := formOpaque
 	if !decl.Opaque {
 		want = formDistinct
@@ -348,7 +350,17 @@ func (s *opaqueSpec) matches(decl *ast.TypeDef) bool {
 			return false
 		}
 	}
-	return scalarKind(decl.InnerTypeExpr) == s.inner
+	k := scalarKind(decl.InnerTypeExpr)
+	// kindInvalid: lookup — an inner type with no scalar kind of its own may be a subtype, read through its base below.
+	if k == kindInvalid && inner != nil {
+		if _, sub := decl.InnerTypeExpr.(*ast.SimpleType); sub {
+			// A subtype of a scalar (`opaque type Instant Int64`) is its
+			// base's value (spec §4 *Subtypes*), so it has the base's
+			// representation.
+			k = scalarKindOfType(analysis.RefinementBase(inner))
+		}
+	}
+	return k == s.inner
 }
 
 // opaqueDeclared reports the spec index for a type declaration this module

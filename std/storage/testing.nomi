@@ -542,7 +542,8 @@ fn checks() -> List<(String, (Store) -> Result<Unit, String>)>
         (
             "an object of 5 MiB round-trips",
             fn store ->
-                data = bytes(String.repeat("0123456789abcdef", 5 * 1024 * 64))
+                // 327,680 runs of 16 bytes: 5 MiB.
+                data = bytes(String.repeat("0123456789abcdef", 327_680))
                 round_trips(store, "conformance/large.bin", data, "application/octet-stream")
             end,
         ),

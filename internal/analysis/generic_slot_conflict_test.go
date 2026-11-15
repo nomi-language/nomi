@@ -36,6 +36,26 @@ fn rest<T>(pairs: List<(Float, T)>) -> Int
     0
 end
 
+fn weights<T>(pairs: List<(NonNegativeFloat, T)>) -> Int
+    _ = pairs
+    0
+end
+
+fn weight_vector<T>(pairs: Vector<(NonNegativeFloat, T)>) -> Int
+    _ = pairs
+    0
+end
+
+fn weight_set<T>(pairs: Set<(NonNegativeFloat, T)>) -> Int where T: Hashable
+    _ = pairs
+    0
+end
+
+fn weight_map<T>(pairs: Map<NonNegativeFloat, T>) -> Int
+    _ = pairs
+    0
+end
+
 fn floats<T>(xs: List<Float>, tag: T) -> T
     _ = xs
     tag
@@ -89,8 +109,12 @@ func TestGenericSlotConflict_MismatchIsRejectedAtTheArgument(t *testing.T) {
 		{`x = weight((10, "x"))`, `(10`, "argument 1: expected (Float, T), got (Int, String)"},
 		{`x = nested(((10, "x"), 1))`, `((10`, "argument 1: expected ((Float, T), Int), got ((Int, String), Int)"},
 		{`x = rest([(10, "x")])`, `[`, "argument 1: expected List<(Float, T)>, got List<(Int, String)>"},
+		{`x = weights([(1.0, "x"), (2.0, 1)])`, `(2.0`, "list element type mismatch: expected (NonNegativeFloat, String), got (NonNegativeFloat, Int)"},
+		{`x = weight_vector([(1.0, "x"), (2.0, 1)])`, `(2.0`, "vector element type mismatch: expected (NonNegativeFloat, String), got (NonNegativeFloat, Int)"},
+		{`x = weight_set(Set[(1.0, "x"), (2.0, 1)])`, `(2.0`, "set element type mismatch: expected (NonNegativeFloat, String), got (NonNegativeFloat, Int)"},
+		{`x = weight_map({1.0 => "x", 2.0 => 1})`, `1}`, "map value type mismatch: expected String, got Int"},
 		{`x = result(Ok(10))`, `Ok`, "argument 1: expected Result<Float, T>, got Result<Int, _>"},
-		{`x = Generator.weighted((-10, "bad"), [])`, `(-10`, "argument 1: expected (Float, T), got (Int, String)"},
+		{`x = Generator.weighted([(10, "bad")])`, `10,`, "type mismatch: expected NonNegativeFloat, got Int"},
 		{`x = first((Size{w: 1}, "x"))`, `(Size`, "argument 1: expected (Point, T), got (Size, String)"},
 		{`x = label((Point{x: 1}, 2))`, `(Point`, "argument 1: expected (String, T), got (Point, Int)"},
 		{`x = first((1, "x"))`, `(1`, "argument 1: expected (Point, T), got (Int, String)"},
@@ -98,7 +122,7 @@ func TestGenericSlotConflict_MismatchIsRejectedAtTheArgument(t *testing.T) {
 		{`x = record({w: 10, t: 1})`, `{w`, "argument 1: expected {w: Float, t: T}, got {w: Int, t: Int}"},
 		{`x = maybe(Some(10), 1)`, `Some`, "argument 1: expected Maybe<Float>, got Maybe<Int>"},
 		{`x = floats([10], 1)`, `10]`, "list element type mismatch: expected Float, got Int"},
-		{`x = Generator.weighted((-10.0, "bad"), [(1, "x")])`, `(1,`, "list element type mismatch: expected (Float, String), got (Int, String)"},
+		{`x = Generator.weighted([(1.0, "ok"), (1, "x")])`, `1, "x"`, "type mismatch: expected NonNegativeFloat, got Int"},
 	} {
 		src, line := genericSlotSource(tc.stmt)
 		_, errs := checkSourceWithStdlib(src)
@@ -128,6 +152,13 @@ func TestGenericSlotConflict_MatchingArgumentsAreAccepted(t *testing.T) {
 		`x = weight((10.0, 1))`,
 		`x = nested(((10.0, "x"), 1))`,
 		`x = rest([(10.0, "x"), (-1.5, "y")])`,
+		// A literal in a list element's refined slot beside a T takes the
+		// refinement, as it does in a tuple argument's.
+		`x = weights([(1.0, "x"), (2.5, "y")])`,
+		`x = weight_vector([(1.0, "x"), (2.5, "y")])`,
+		`x = weight_vector(Vector[(1.0, "x")])`,
+		`x = weight_set(Set[(1.0, "x"), (2.5, "y")])`,
+		`x = weight_map({1.0 => "x", 2.5 => "y"})`,
 		`x = floats([10.0], 1)`,
 		`x = maybe(Some(10.0), 1)`,
 		`x = result(Ok(10.0))`,
@@ -137,7 +168,7 @@ func TestGenericSlotConflict_MatchingArgumentsAreAccepted(t *testing.T) {
 		`x = walk([1, 2])`,
 		// A patch named before the struct that solves its Partial<self>.
 		`x = Struct.update(updates: {x: 2}, original: Point{x: 1})`,
-		`x = Generator.weighted((-10.0, "bad"), [])`,
+		`x = Generator.weighted([(-10.0, "bad")])`,
 	} {
 		src, _ := genericSlotSource(stmt)
 		_, errs := checkSourceWithStdlib(src)

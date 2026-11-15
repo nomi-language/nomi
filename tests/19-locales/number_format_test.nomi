@@ -14,8 +14,8 @@ end
 test "options are named arguments"
     assert Int.format(1234567, Locale"en", grouping: False) == "1234567"
     assert Int.format(42, Locale"en", min_digits: 4) == "0,042"
-    assert Float.format(1.5, Locale"de", min_fraction: 2) == "1,50"
-    assert Float.format(3.14159, Locale"en", max_fraction: 2) == "3.14"
+    assert Float.format(1.5, Locale"de", fraction: 2..=3) == "1,50"
+    assert Float.format(3.14159, Locale"en", fraction: 0..=2) == "3.14"
     assert Float.format_percent(0.1234, Locale"en", max_fraction: 1) == "12.3%"
     assert Float.format(1234.5, Locale"en", grouping: False) == "1234.5"
 end
@@ -36,9 +36,9 @@ end
 test "a Decimal keeps its scale and a Float rounds half to even"
     assert Decimal.format(1234.50d, Locale"de") == "1.234,50"
     assert Decimal.format(0.000d, Locale"en") == "0.000"
-    assert Float.format(2.5, Locale"en", max_fraction: 0) == "2"
-    assert Float.format(3.5, Locale"en", max_fraction: 0) == "4"
-    assert Float.format(1.015, Locale"en", max_fraction: 2) == "1.02"
+    assert Float.format(2.5, Locale"en", fraction: 0..=0) == "2"
+    assert Float.format(3.5, Locale"en", fraction: 0..=0) == "4"
+    assert Float.format(1.015, Locale"en", fraction: 0..=2) == "1.02"
 end
 
 test "Display is the same everywhere; Localize is not"
@@ -112,16 +112,15 @@ end
 
 test "a decimal's digits are limited and rounded as the options say"
     en = Locale"en"
-    assert Decimal.format(0.125d, en, max_fraction: 2) == "0.12"
-    assert Decimal.format(0.125d, en, max_fraction: 2, mode: .HalfUp) == "0.13"
-    assert Decimal.format(12d, Locale"de", min_fraction: 2) == "12,00"
+    assert Decimal.format(0.125d, en, fraction: 0..=2) == "0.12"
+    assert Decimal.format(0.125d, en, fraction: 0..=2, mode: .HalfUp) == "0.13"
+    assert Decimal.format(12d, Locale"de", fraction: 2..=2) == "12,00"
 
-    assert Decimal.format(1234.5678d, en, min_fraction: 1, max_fraction: 1, grouping: False)
-        == "1234.6"
+    assert Decimal.format(1234.5678d, en, fraction: 1..=1, grouping: False) == "1234.6"
 
     assert Decimal.format_percent(0.12345d, en) == "12.345%"
-    assert Decimal.format_percent(0.12345d, en, max_fraction: 0) == "12%"
-    assert Decimal.format_percent(0.5d, en, min_fraction: 2) == "50.00%"
+    assert Decimal.format_percent(0.12345d, en, fraction: 0..=0) == "12%"
+    assert Decimal.format_percent(0.5d, en, fraction: 2..=2) == "50.00%"
 end
 
 test "a float reads a percentage back as a fraction"

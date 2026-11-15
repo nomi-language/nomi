@@ -78,10 +78,10 @@ fn main()
  end)
  io.inspect(Iter.sort_with(xs, fn a, b ->
   io.print("compare")
-  Int.compare(a / (b - b), b)
+  Int.compare(a / NonZeroInt.try_from(b - b)!, b)
  end))
 end
-`, "line 9: division by zero", "2\n1\ncompare\n")
+`, "line 9: `NonZeroInt.try_from(b - b)` found nothing", "2\n1\ncompare\n")
 }
 
 // Decimal's `compare` is a `host fn`: the sort's comparator is a function

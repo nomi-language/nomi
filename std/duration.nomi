@@ -29,7 +29,7 @@ import
     divide.Divide
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, Int64, NonZeroInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -57,25 +57,23 @@ end
 /// types from `std::calendar`. It pairs with `Instant` and backs
 /// `timer.sleep` / `Context.with_timeout`.
 ///
-/// A Duration holds a signed 64-bit count of nanoseconds, about 292 years
-/// either way, which is what clocks, timers and Go's `time.Duration` count
-/// in. A constructor or an operator whose result is past that faults, naming
-/// the length it was asked for.
+/// A Duration is an exact `Int` count of nanoseconds of any size, so no
+/// constructor and no `+`, `-` or `*` has a range to fault on, and the
+/// difference of any two Instants is a Duration. Only `/` and `%` by zero
+/// fault. A function that hands a Duration to the clock (`timer.sleep`,
+/// `Context.with_timeout`, `Arm.after`, a server's timeouts) says what a
+/// length past about 292 years, the longest wait the clock counts, means
+/// there: a wait that never ends.
+//! assert Duration.hours(1_000_000_000_000) / 1_000_000_000_000 == Duration.hours(1)
+//
 pub opaque type Duration Int
-
-// The nanoseconds a Duration holds at most and at least.
-once max_nanos = 9_223_372_036_854_775_807
-once min_nanos = -9_223_372_036_854_775_808
-
-// `ns` when a Duration holds it; a fault naming it otherwise.
-host fn nanos_in_range(ns: Int) -> Int
 
 impl Duration
     /// Construct a `Duration` from whole nanoseconds.
     //! assert Duration.as_nanos(Duration.nanoseconds(42)) == 42
     //
     pub fn nanoseconds(n: Int) -> Duration
-        Duration(nanos_in_range(n))
+        Duration(n)
     end
 
     /// Construct a `Duration` from whole microseconds.
@@ -83,14 +81,14 @@ impl Duration
     //! assert Duration.as_nanos(Duration.microseconds(2)) == 2000
     //
     pub fn microseconds(n: Int) -> Duration
-        Duration(nanos_in_range(n * 1_000))
+        Duration(n * 1_000)
     end
 
     /// Construct a `Duration` from whole milliseconds.
     //! assert Duration.as_millis(Duration.milliseconds(1500)) == 1500
     //
     pub fn milliseconds(n: Int) -> Duration
-        Duration(nanos_in_range(n * 1_000_000))
+        Duration(n * 1_000_000)
     end
 
     /// Construct a `Duration` from whole seconds.
@@ -98,22 +96,29 @@ impl Duration
     //! assert Duration.seconds(5) == Duration.milliseconds(5000)
     //
     pub fn seconds(n: Int) -> Duration
-        Duration(nanos_in_range(n * 1_000_000_000))
+        Duration(n * 1_000_000_000)
     end
 
     /// Construct a `Duration` from whole minutes.
     //! assert Duration.as_seconds(Duration.minutes(3)) == 180
     //
     pub fn minutes(n: Int) -> Duration
-        Duration(nanos_in_range(n * 60_000_000_000))
+        Duration(n * 60_000_000_000)
     end
 
-    /// Construct a `Duration` from whole hours. A count past about 292 years
-    /// faults.
+    /// Construct a `Duration` from whole hours.
     //! assert Duration.to_string(Duration.hours(1)) == "1h"
     //
     pub fn hours(n: Int) -> Duration
-        Duration(nanos_in_range(n * 3_600_000_000_000))
+        Duration(n * 3_600_000_000_000)
+    end
+
+    /// The Duration's length with its sign dropped, a `NonNegativeDuration`.
+    //! assert Duration.abs(Duration.seconds(-90)) == Duration.seconds(90)
+    //! assert Duration.abs(Duration.seconds(5)) == Duration.seconds(5)
+    //
+    pub fn abs(Duration(ns)) -> NonNegativeDuration
+        NonNegativeDuration.unchecked(Duration(Int.abs(ns)))
     end
 
     /// Total whole nanoseconds in the Duration (the exact magnitude).
@@ -175,7 +180,7 @@ impl Duration
     pub fn format(d: Duration, locale: Locale, width: DurationWidth = DurationWidth.Long) -> String
         Duration(ns) = d
 
-        width_tag = case width
+        width_tag: Int64 = case width
             DurationWidth.Long   -> 1
             DurationWidth.Short  -> 2
             DurationWidth.Narrow -> 3
@@ -200,7 +205,7 @@ impl Duration
     pub fn clock(d: Duration, fraction_digits: Int = 0) -> String
         Duration(ns) = d
         whole = Int.abs(ns / 1_000_000_000)
-        digits = Int.clamp(fraction_digits, 0, 9)
+        digits = Int.clamp(fraction_digits, 0..=9)
 
         fraction = if digits == 0 then
             ""
@@ -218,8 +223,7 @@ impl Duration
     /// `-`, the hours in one digit or more, then `:`, the minutes, `:` and the
     /// seconds in two digits each, both below 60, and an optional `.` and one
     /// to nine digits of the second. The error says where the text stops
-    /// being that, at a position counted in grapheme clusters, or that the
-    /// length does not fit a `Duration` (`.OutOfRange`).
+    /// being that, at a position counted in grapheme clusters.
     //! assert Duration.parse_clock("00:01:28") == Ok(Duration.seconds(88))
     //! assert Duration.parse_clock("-1:00:00.5") == Ok(Duration.milliseconds(-3_600_500))
     //! assert Duration.parse_clock("00:61:00") == Err(NumberParseError.Unexpected{at: 3, text: "61"})
@@ -249,17 +253,17 @@ impl Duration
         end
 
         magnitude = (hours * 3600 + minutes * 60 + seconds) * 1_000_000_000 + nanos
-        in_range(if negative then -magnitude else magnitude)
+        Ok(Duration(if negative then -magnitude else magnitude))
     end
 
     /// Reads a length written as `Display` writes it: an optional `-`, then
     /// counts, each followed by its unit, largest unit first and each at
     /// most once: `h`, `m`, `s`, `ms`, `µs` and `ns` (`1h30m`, `1s500ms`,
     /// `-5m`, `0s`). A count below the hours stays below the next unit up,
-    /// so 90 minutes is `1h30m`, not `90m`. The error says where the text
-    /// stops being that, at a position counted in grapheme clusters, or that
-    /// the length does not fit a `Duration` (`.OutOfRange`). A
-    /// `Duration"1m28s"` literal reads its text the same way.
+    /// so 90 minutes is `1h30m`, not `90m`; the hours have no bound. The
+    /// error says where the text stops being that, at a position counted in
+    /// grapheme clusters. A `Duration"1m28s"` literal reads its text the
+    /// same way.
     //! assert Duration.parse("1m28s") == Ok(Duration.seconds(88))
     //! assert Duration.parse("-1h30m15s250ms") == Ok(Duration.milliseconds(-5_415_250))
     //! assert Duration.parse("0s") == Ok(Duration.seconds(0))
@@ -268,8 +272,8 @@ impl Duration
     //! assert Duration.parse("5") == Err(NumberParseError.Unexpected{at: 1, text: ""})
     //! assert Duration.parse("") == Err(NumberParseError.Empty)
     //!
-    //! least = Duration.nanoseconds(-9_223_372_036_854_775_808)
-    //! assert Duration.parse(Duration.to_string(least)) == Ok(least)
+    //! long = Duration.hours(-10_000_000_000) - Duration.nanoseconds(1)
+    //! assert Duration.parse(Duration.to_string(long)) == Ok(long)
     //
     pub fn parse(text: String) -> Result<Duration, NumberParseError>
         if String.length(text) == 0 then return Err(NumberParseError.Empty)
@@ -277,17 +281,7 @@ impl Duration
         negative = String.take(text, 1) == "-"
         (hours, rest) = parts(text, if negative then 1 else 0, -1, 0, 0)?
         magnitude = hours * 3_600_000_000_000 + rest
-        in_range(if negative then -magnitude else magnitude)
-    end
-end
-
-// A parsed length as a Duration, or `.OutOfRange` when a Duration does not
-// hold it.
-fn in_range(ns: Int) -> Result<Duration, NumberParseError>
-    if ns > max_nanos or ns < min_nanos then
-        Err(NumberParseError.OutOfRange)
-    else
-        Ok(Duration(ns))
+        Ok(Duration(if negative then -magnitude else magnitude))
     end
 end
 
@@ -331,15 +325,41 @@ derive Equatable for Duration
 derive Hashable for Duration
 derive Comparable for Duration
 
+/// A Duration that is not zero long. A typed literal is checked when the
+/// program is compiled; `NonZeroDuration.try_from(d)` checks a Duration
+/// computed at run time.
+//! step: NonZeroDuration = Duration"-1s"
+//! assert step == Duration.seconds(-1)
+//! assert NonZeroDuration.try_from(Duration.seconds(0)) == None
+//
+pub subtype NonZeroDuration Duration when fn d -> Duration.as_nanos(d) != 0
+
+/// A Duration of zero or more: how long something took, or how long to
+/// wait. `Duration.abs` returns one. A typed literal is checked when the
+/// program is compiled; `NonNegativeDuration.try_from(d)` checks a Duration
+/// computed at run time.
+//! wait: NonNegativeDuration = Duration"0s"
+//! assert wait == Duration.seconds(0)
+//! assert NonNegativeDuration.try_from(Duration.seconds(-1)) == None
+//
+pub subtype NonNegativeDuration Duration when fn d -> Duration.as_nanos(d) >= 0
+
 /// A Duration longer than zero: a schedule's interval, which
-/// `jobs.Schedule.every` takes. A typed literal is checked when the program
-/// is compiled; `PositiveDuration.try_from(d)` checks a Duration computed at
+/// `jobs.Schedule.every` takes. It refines both `NonNegativeDuration` and
+/// `NonZeroDuration`, so a PositiveDuration passes wherever either, or a
+/// Duration, is expected. A typed literal is checked when the program is
+/// compiled; `PositiveDuration.try_from(d)` checks a Duration computed at
 /// run time.
 //! every: PositiveDuration = Duration"15m"
 //! assert every == Duration.minutes(15)
+//! wait: NonNegativeDuration = every
+//! assert wait == every
 //! assert PositiveDuration.try_from(Duration.seconds(0)) == None
+//! assert PositiveDuration.try_from(Duration.seconds(-1)) == None
 //
-pub subtype PositiveDuration Duration when fn d -> Duration.as_nanos(d) > 0
+pub subtype PositiveDuration NonNegativeDuration and NonZeroDuration when fn d ->
+    Duration.as_nanos(d) > 0
+end
 
 impl Add<Duration, Duration> for Duration
     /// Sum of two Durations.
@@ -347,7 +367,7 @@ impl Add<Duration, Duration> for Duration
     //! assert Duration.seconds(1) + Duration.milliseconds(500) == Duration.milliseconds(1500)
     //
     fn add(Duration(a), Duration(b)) -> Duration
-        Duration(nanos_in_range(a + b))
+        Duration(a + b)
     end
 end
 
@@ -368,7 +388,7 @@ impl Subtract<Duration, Duration> for Duration
     //! assert Duration.seconds(1) - Duration.seconds(3) == Duration.seconds(-2)
     //
     fn subtract(Duration(a), Duration(b)) -> Duration
-        Duration(nanos_in_range(a - b))
+        Duration(a - b)
     end
 end
 
@@ -378,28 +398,29 @@ impl Multiply<Int, Duration> for Duration
     //! assert Duration.seconds(2) * 3 == Duration.seconds(6)
     //
     fn multiply(Duration(ns), rhs: Int) -> Duration
-        Duration(nanos_in_range(ns * rhs))
+        Duration(ns * rhs)
     end
 end
 
-impl Divide<Int, Duration> for Duration
-    /// Divide a Duration by an integer divisor.
+impl Divide<NonZeroInt, Duration> for Duration
+    /// Divide a Duration by a non-zero integer divisor, truncating toward
+    /// zero.
     //! assert Duration.seconds(6) / 3 == Duration.seconds(2)
     //
-    fn divide(Duration(ns), rhs: Int) -> Duration
-        Duration(nanos_in_range(ns / rhs))
+    fn divide(Duration(ns), rhs: NonZeroInt) -> Duration
+        Duration(ns / rhs)
     end
 end
 
-impl Remainder<Duration, Duration> for Duration
+impl Remainder<NonZeroDuration, Duration> for Duration
     /// What is left of `lhs` after as many whole `rhs` as fit, with `lhs`'s
     /// sign: `elapsed % Duration.minutes(15)` is how far into the current
-    /// quarter hour `elapsed` is. Traps on a zero `rhs`.
+    /// quarter hour `elapsed` is. The divisor is a `NonZeroDuration`.
     //! assert Duration.minutes(40) % Duration.minutes(15) == Duration.minutes(10)
     //! assert Duration.seconds(-7) % Duration.seconds(3) == Duration.seconds(-1)
     //
-    fn remainder(Duration(ns), Duration(by)) -> Duration
-        Duration(ns % by)
+    fn remainder(Duration(ns), rhs: NonZeroDuration) -> Duration
+        Duration(ns % Duration.as_nanos(rhs))
     end
 end
 
@@ -411,11 +432,15 @@ impl Display for Duration
     //! assert Duration.to_string(Duration.minutes(90)) == "1h30m"
     //! assert Duration.to_string(Duration.nanoseconds(0)) == "0s"
     //!
-    //! assert Duration.to_string(Duration.nanoseconds(-9_223_372_036_854_775_808))
-    //!     == "-2562047h47m16s854ms775µs808ns"
+    //! assert Duration.to_string(Duration.hours(-10_000_000_000) - Duration.nanoseconds(1))
+    //!     == "-10000000000h1ns"
     //
-    host fn to_string(d: Duration) -> String
+    fn to_string(Duration(ns)) -> String
+        render_nanos(ns)
+    end
 end
+
+host fn render_nanos(ns: Int) -> String
 
 impl Localize for Duration
     /// The length as `Duration.format` writes it, in long words.
@@ -424,7 +449,7 @@ impl Localize for Duration
     end
 end
 
-host fn duration_format_raw(locale: Locale, nanos: Int, width: Int) -> String
+host fn duration_format_raw(locale: Locale, nanos: Int, width: Int64) -> String
 
 impl Debug for Duration
     // Debug renders identically to Display for Duration — the compact form is

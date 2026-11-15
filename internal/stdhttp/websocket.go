@@ -54,7 +54,10 @@ func WsValidKey(key string) bool { return websocket.ValidKey(key) }
 // WsOpen is `std::http::host.ws_open`: a WebSocket over a connection whose
 // handshake is done. Deadlines a server left on a hijacked connection are
 // cleared. The connection is the WebSocket's from here on.
-func WsOpen(conn rt.NetConn, client bool, max, ping, idle int64) rt.HTTPHandle {
+func WsOpen(conn rt.NetConn, client bool, maxArg, pingArg, idleArg rt.Int) rt.HTTPHandle {
+	max := maxArg.Saturated()
+	ping := pingArg.Saturated()
+	idle := idleArg.Saturated()
 	x := connOf(conn)
 	_ = x.c.SetDeadline(time.Time{})
 	return wsHandle(websocket.New(x.c, nil, wsOptions(client, max, ping, idle)), "")
@@ -62,7 +65,10 @@ func WsOpen(conn rt.NetConn, client bool, max, ping, idle int64) rt.HTTPHandle {
 
 // WsConnect is `std::http::host.ws_connect`: the client's opening handshake over
 // conn, its request target and headers given, offering protocols.
-func WsConnect(fr *rt.Frame, conn rt.NetConn, host, target string, headers, protocols *rt.List[string], max, ping, idle int64) rt.Result[rt.HTTPHandle, *rt.List[string]] {
+func WsConnect(fr *rt.Frame, conn rt.NetConn, host, target string, headers, protocols *rt.List[string], maxArg, pingArg, idleArg rt.Int) rt.Result[rt.HTTPHandle, *rt.List[string]] {
+	max := maxArg.Saturated()
+	ping := pingArg.Saturated()
+	idle := idleArg.Saturated()
 	x := connOf(conn)
 	h := http.Header{}
 	for l := headers; l != nil && l.Tail != nil; l = l.Tail.Tail {
@@ -114,7 +120,8 @@ func WsPing(fr *rt.Frame, h rt.HTTPHandle, data rt.Bytes) rt.Result[rt.Unit, *rt
 
 // WsClose is `std::http::host.ws_close`: the closing handshake with code and
 // reason.
-func WsClose(h rt.HTTPHandle, code int64, reason string) rt.Result[rt.Unit, *rt.List[string]] {
+func WsClose(h rt.HTTPHandle, codeArg rt.Int, reason string) rt.Result[rt.Unit, *rt.List[string]] {
+	code := codeArg.Saturated()
 	return wsDone(wsOf(h).c.Close(int(code), reason))
 }
 

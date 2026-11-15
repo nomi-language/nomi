@@ -184,7 +184,7 @@ import
     bool.Bool.{self, False, True}
     comparable.{Comparable, Direction, Ordering}
     equatable.Equatable
-    int.{Int, NonNegativeInt}
+    int.{Int, NonNegativeInt, PositiveInt}
     lists.{List, NonEmptyList}
     maps.Map
     maybe.Maybe
@@ -931,26 +931,25 @@ impl Iter<T>
         Seq{run: fn yield: (U) -> Bool -> flat_map_each(source, f, yield)}
     end
 
-    /// Lazy: yields adjacent fixed-size chunks as NonEmptyLists. The final chunk
-    /// may be shorter. A non-positive size yields no chunks.
+    /// Lazy: yields adjacent chunks of `size` elements as NonEmptyLists. The
+    /// final chunk may be shorter. The size is a `PositiveInt`.
     //
     //! assert [1, 2, 3, 4, 5] |> Iter.chunks(2) |> Iter.to_list() == [[1, 2], [3, 4], [5]]
     //! assert [1, 2, 3] |> Iter.chunks(2) |> Iter.map(&NonEmptyList.last(&1)) |> Iter.to_list() == [2, 3]
     //
-    pub fn chunks<T>(source: Iter<T>, size: Int) -> Iter<NonEmptyList<T>>
+    pub fn chunks<T>(source: Iter<T>, size: PositiveInt) -> Iter<NonEmptyList<T>>
         Seq{run: fn yield: (List<T>) -> Bool -> chunks_each(source, size, yield)}
         |> map(fn chunk -> NonEmptyList.try_from(chunk)!)
     end
 
     /// Lazy: yields every run of `size` neighbouring elements as a NonEmptyList, one
     /// starting at each element, so the runs overlap: `[1, 2, 3, 4]` with
-    /// size 2 gives `[1, 2]`, `[2, 3]` and `[3, 4]`. A source with fewer
-    /// than `size` elements yields none, and so does a non-positive size (as
-    /// in `chunks`). It is infinite when `source` is and `size` is positive.
+    /// size 2 gives `[1, 2]`, `[2, 3]` and `[3, 4]`. The size is a
+    /// `PositiveInt`. A source with fewer than `size` elements yields none,
+    /// and it is infinite when `source` is.
     //
     //! assert [1, 2, 3, 4] |> Iter.windows(2) |> Iter.to_list() == [[1, 2], [2, 3], [3, 4]]
     //! assert [1, 2] |> Iter.windows(3) |> Iter.to_list() == []
-    //! assert [1, 2] |> Iter.windows(0) |> Iter.to_list() == []
     //!
     //! rises =
     //!     [3, 5, 4, 8]
@@ -960,15 +959,11 @@ impl Iter<T>
     //! assert rises == 2
     //! assert Iter.from(1) |> Iter.windows(3) |> Iter.first() == Some([1, 2, 3])
     //
-    pub fn windows<T>(source: Iter<T>, size: Int) -> Iter<NonEmptyList<T>>
-        if size <= 0 then
-            source |> Iter.take(0) |> Iter.map(fn item -> NonEmptyList.of(item, []))
-        else
-            source
-            |> Iter.scan([], fn window: List<T>, item -> slide(window, item, size))
-            |> Iter.filter(fn window -> Iter.count(window) == size)
-            |> Iter.map(fn window -> NonEmptyList.try_from(window)!)
-        end
+    pub fn windows<T>(source: Iter<T>, size: PositiveInt) -> Iter<NonEmptyList<T>>
+        source
+        |> Iter.scan([], fn window: List<T>, item -> slide(window, item, size))
+        |> Iter.filter(fn window -> Iter.count(window) == size)
+        |> Iter.map(fn window -> NonEmptyList.try_from(window)!)
     end
 
     /// Lazy: yields adjacent runs whose elements produce equal keys, each a
@@ -1083,9 +1078,9 @@ impl Iter<T>
     /// - Plain return value v: emit the current state, advance to v.
     /// - `break v`: emit v as the final element, then stop.
     /// - bare `break`: stop immediately without emitting.
-    /// - `continue`: runtime error — iterate's step *is* the state-advancement,
-    /// so `continue` has no next state to fall forward to. Use
-    /// `Iter.iterate(...) |> Iter.filter(...)` to skip states.
+    /// - `continue`: a compile error, since iterate's step *is* the
+    /// state-advancement and `continue` has no next state to fall forward
+    /// to. Use `Iter.iterate(...) |> Iter.filter(...)` to skip states.
     ///
     /// It is `is_infinite` unless the step can `break`, which may end it.
     //! assert Iter.iterate(1, &(&1 * 2))
@@ -1500,7 +1495,7 @@ host fn cycle_each<T>(source: Iter<T>, yield: (T) -> Bool) -> Bool
 
 host fn zip_each<T, U>(left: Iter<T>, right: Iter<U>, yield: ((T, U)) -> Bool) -> Bool
 
-host fn chunks_each<T>(source: Iter<T>, size: Int, yield: (List<T>) -> Bool) -> Bool
+host fn chunks_each<T>(source: Iter<T>, size: PositiveInt, yield: (List<T>) -> Bool) -> Bool
 
 host fn chunk_by_each<T, K>(
     source: Iter<T>,
@@ -1518,7 +1513,7 @@ fn permutations_of<T>(left: List<T>) -> Iter<List<T>>
         left
         |> Iter.with_index()
         |> Iter.flat_map(fn (index, item) ->
-            List.remove_at(left, index)
+            List.remove_at(left, index)!
             |> permutations_of()
             |> Iter.map(fn rest -> [item, ..rest])
         end)

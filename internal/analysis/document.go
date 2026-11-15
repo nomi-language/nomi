@@ -1018,6 +1018,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 		// Concurrency layer 1 structural rules.
 		fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, nodes)...)
 		fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, nodes)...)
+		fa.TypeErrors = append(fa.TypeErrors, CheckOnceCycles(fa, nodes)...)
 		fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
 		// FinalizeCoherence: now exercises the attached ProjectImpls
 		// (above), so missing-impl diagnostics that recordings inside a
@@ -1066,6 +1067,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 				// Concurrency layer 1 structural rules.
 				fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, nodes)...)
 				fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, nodes)...)
+				fa.TypeErrors = append(fa.TypeErrors, CheckOnceCycles(fa, nodes)...)
 				fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, nodes)...)
 				// Post-CheckTypes coherence: missing-impl diagnostic et
 				// al. Must come AFTER CheckTypes — the LSP runs
@@ -1130,6 +1132,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// Concurrency layer 1 structural rules.
 	fa.TypeErrors = append(fa.TypeErrors, CheckConcurrentScope(fa, prog)...)
 	fa.TypeErrors = append(fa.TypeErrors, CheckBootScope(fa, prog)...)
+	fa.TypeErrors = append(fa.TypeErrors, CheckOnceCycles(fa, prog)...)
 	fa.TypeErrors = append(fa.TypeErrors, CheckTaskLifetime(fa, prog)...)
 	// Post-CheckTypes coherence: missing-impl diagnostic et al. See
 	// internal/frontend's Checker.Analyze for the rationale; here the focused doc IS the

@@ -202,10 +202,15 @@ func bindGroupedNames(v reflect.Value) {
 			bindGroupedNames(v.Elem())
 		}
 	case reflect.Struct:
-		if v.CanAddr() {
+		if v.CanAddr() && v.CanInterface() {
 			bindGroupedName(v.Addr().Interface())
 		}
 		for i := 0; i < v.NumField(); i++ {
+			// An unexported field (ast.ImplBlock's withheld parts) is
+			// analysis state, not source the formatter writes.
+			if !v.Type().Field(i).IsExported() {
+				continue
+			}
 			bindGroupedNames(v.Field(i))
 		}
 	case reflect.Slice, reflect.Array:

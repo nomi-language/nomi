@@ -66,8 +66,8 @@ end
 /// `grid` with `value` at `position`, which is on the grid: `fill` only
 /// steps onto a square `is_empty` accepted.
 fn set_cell(grid: Vector<Vector<Int>>, (row, column): (Int, Int), value: Int) -> Vector<Vector<Int>>
-    cells = Vector.get(grid, row)! |> Vector.set(column, value)
-    Vector.set(grid, row, cells)
+    cells = Vector.get(grid, row)! |> Vector.set(column, value)!
+    Vector.set(grid, row, cells)!
 end
 
 // FILE: spiral_matrix_test.nomi
@@ -117,5 +117,5 @@ test result: ok. 6 passed, 0 failed
 
 - `0` marks an unwritten square, so "free" is `cell_at(grid, position) == Some(0)`, which is `False` both off the grid and on a written square. One comparison does both checks.
 - The walk is a tail-recursive `fn fill` with the position and heading as tuples; turning clockwise is `(dr, dc) -> (dc, -dr)`. It stops after writing `size * size`, so size 0 needs no special case.
-- `set_cell` returns the new grid. It reads the row with `Vector.get(...)!` and writes with `Vector.set`, both of which trap on an index outside the vector; `fill` only steps onto a square `is_empty` accepted, so the position is always on the grid.
+- `set_cell` returns the new grid. It reads the row with `Vector.get(...)!` and writes with `Vector.set(...)!`, both of which trap on an index outside the vector; `fill` only steps onto a square `is_empty` accepted, so the position is always on the grid.
 - The cases are one `subtests` table of `(description, size, expected)` rows. The 4x4 and 5x5 grids are written one grid row per line, which `nomi fmt` keeps because each breaks after its `Vector[`.

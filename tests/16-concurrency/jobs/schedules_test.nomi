@@ -46,7 +46,7 @@ fn hourly(missed: Missed = Missed.RunLatest) -> Schedule
 end
 
 fn new_york(cron: Cron) -> Schedule
-    Schedule.cron("ny", cron, tick_job, 0, zone: "America/New_York")
+    Schedule.cron("ny", cron, tick_job, 0, zone: "America/New_York")!
 end
 
 fn nine() -> Instant
@@ -179,7 +179,7 @@ test "an hourly cron runs the repeated hour once across the fall change"
 end
 
 test "names, ranges, steps and lists pick the times a cron expression names"
-    weekdays = Schedule.cron("weekdays", Cron"0 9-17/4 * JAN,jun mon-FRI", tick_job, 0)
+    weekdays = Schedule.cron("weekdays", Cron"0 9-17/4 * JAN,jun mon-FRI", tick_job, 0)!
 
     assert ticks(weekdays, at(DateTime"2026-06-05T16:00:00Z[UTC]"), 4) == [
         at(DateTime"2026-06-05T17:00:00Z[UTC]"),
@@ -189,7 +189,7 @@ test "names, ranges, steps and lists pick the times a cron expression names"
     ]
 
     // Both day fields given: the 1st, or a Sunday.
-    either = Schedule.cron("either", Cron"0 0 1 * 0", tick_job, 0)
+    either = Schedule.cron("either", Cron"0 0 1 * 0", tick_job, 0)!
 
     assert ticks(either, at(DateTime"2026-02-27T00:00:00Z[UTC]"), 3) == [
         at(DateTime"2026-03-01T00:00:00Z[UTC]"),
@@ -197,13 +197,13 @@ test "names, ranges, steps and lists pick the times a cron expression names"
         at(DateTime"2026-03-15T00:00:00Z[UTC]"),
     ]
 
-    leap = Schedule.cron("leap", Cron"0 0 29 2 *", tick_job, 0)
+    leap = Schedule.cron("leap", Cron"0 0 29 2 *", tick_job, 0)!
     assert ticks(leap, nine(), 1) == [at(DateTime"2028-02-29T00:00:00Z[UTC]")]
 end
 
 test "a unique enqueue with a period stores one job per period"
     queue = Inline.new()
-    unique = Unique{key: "digest", period: Some(Duration.hours(1))}
+    unique = Unique{key: "digest", period: Some(Duration"1h")}
     first = jobs.enqueue(queue, Fake.new(), tick_job, 1, unique: Some(unique))?
     again = jobs.enqueue(queue, Fake.new(), tick_job, 2, unique: Some(unique))?
     assert again == Enqueued{id: first.id, duplicate: True}
@@ -251,8 +251,8 @@ group "schedules on two workers over one queue"
 
     test "two workers running one schedule enqueue each tick once"
         every_minute = Schedule.every("minutely", Duration"1m", tick_job, 0)
-        Worker.start(App.first, [tick_job], schedules: [every_minute])
-        Worker.start(App.second, [tick_job], schedules: [every_minute])
+        Worker.start(App.first, [tick_job], schedules: [every_minute])!
+        Worker.start(App.second, [tick_job], schedules: [every_minute])!
         timer.sleep(Duration.minutes(10) + Duration.seconds(30))
         assert kinds("tick") == 10
 
@@ -268,7 +268,7 @@ group "schedules on two workers over one queue"
         hourly_schedule = hourly()
         // The queue last recorded a tick three and a half hours ago.
         _ = jobs.enqueue_due(App.shared, hourly_schedule, Instant.now() - Duration.minutes(210))?
-        Worker.start(App.first, [tick_job], schedules: [hourly_schedule])
+        Worker.start(App.first, [tick_job], schedules: [hourly_schedule])!
         timer.sleep(Duration.minutes(30))
         assert kinds("tick") == 1
         timer.sleep(Duration.minutes(31))

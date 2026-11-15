@@ -47,7 +47,7 @@ export fn grow(s: Shape) -> Shape
 end
 
 export fn divide(a: Int, b: Int) -> Int
-    a / b
+    a / NonZeroInt.try_from(b)!
 end
 
 export fn shout(text: String)
@@ -189,7 +189,7 @@ func TestBuildCommand_Wasip1ReactorServesExportedFunctions(t *testing.T) {
 		`{"ok":{"x":4,"y":2}}`,
 		`{"ok":{"Circle":{"radius":8}}}`,
 		`{"ok":"Dot"}`,
-		"error:division by zero",
+		"error:`NonZeroInt.try_from(b)` found nothing",
 		`{"ok":3}`,
 		"error:no exported function `nope`; the exported functions are divide, grow, moved, shout",
 		"HI",

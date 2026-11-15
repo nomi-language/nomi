@@ -228,9 +228,6 @@ func typesFiles(path string) ([]string, error) {
 					return filepath.SkipDir
 				}
 			}
-			if stdFixturesDir(p) {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 		if filepath.Ext(p) != ".nomi" {

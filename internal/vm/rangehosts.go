@@ -30,6 +30,31 @@ func rangeBacking(v any) (rt.Range[any], error) {
 	return r, nil
 }
 
+// rangePartHost reads one part of a Range: `Range.start` its start,
+// `Range.stop` its end as a Maybe (None when unbounded), and
+// `Range.is_inclusive` whether a bounded range includes its end (False for an
+// unbounded one, the canonical form rangeBacking reads). Each takes no element
+// method, so a subtype rule over a Range of any Comparable reads them.
+func rangePartHost(name string) hostFn {
+	return func(_ *Machine, _ ir.Pos, args []any) (any, error) {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("vm: %s expected 1 operand, got %d", name, len(args))
+		}
+		r, err := rangeBacking(args[0])
+		if err != nil {
+			return nil, err
+		}
+		switch name {
+		case "Range.start":
+			return r.Start, nil
+		case "Range.stop":
+			return maybeOf(r.End), nil
+		default:
+			return boolValue(r.End.Tag == rt.TagSome && r.Inclusive), nil
+		}
+	}
+}
+
 func rangeHost(contains bool) hostFn {
 	return func(m *Machine, _ ir.Pos, args []any) (any, error) {
 		arity := 1

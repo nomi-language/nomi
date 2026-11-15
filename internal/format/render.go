@@ -59,6 +59,10 @@ func RenderImports(nodes []ast.Node) (string, error) {
 	return Render(Concat(parts...), defaultWidth), nil
 }
 
+// ErrorNodeText is what RenderNode writes for an *ast.ErrorNode, a run of
+// source the recovering parser could not read.
+const ErrorNodeText = "<syntax error>"
+
 // RenderNode renders a single AST node in canonical layout. It is intended for
 // diagnostics and tooling that need source-shaped text for a parsed node.
 func RenderNode(n ast.Node) string {

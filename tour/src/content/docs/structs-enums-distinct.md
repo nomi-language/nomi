@@ -492,10 +492,12 @@ main.nomi:8:15: help: a literal is checked when the program is compiled; a value
 Any other `Int` becomes a `Port` through `Port.try_from`, as a validated
 type's value does. The prelude also has `NonZeroInt`,
 `NonNegativeInt` and `PositiveInt`, their Float and Decimal counterparts, and
-`NonEmptyString`. Std functions take them where a value would trap, and
-return them where a result always satisfies one: `Int.pow`'s exponent is a
-`NonNegativeInt`, and so is `List.length`, so `Int.pow(2, List.length(xs))`
-needs no `try_from`.
+`NonEmptyString`. Std functions take them where a value would trap or be
+ignored, and return them where a result always satisfies one: `Int.pow`'s
+exponent and `String.repeat`'s count are `NonNegativeInt`s, and so is
+`List.length`, so `Int.pow(2, List.length(xs))` needs no `try_from`.
+`Iter.chunks` takes a `PositiveInt`, so `Iter.chunks(xs, 0)` does not
+compile.
 
 A subtype can take type parameters. The prelude's `NonEmptyList<T>` is a
 List with at least one element, so its first element is a `T`, not a
@@ -511,12 +513,30 @@ fn main()
 
     typed = String.split("Cy,Di", ",")
     dbg NonEmptyList.try_from(typed) |> Maybe.map(greet)
+
+    // Below this check, typed is a NonEmptyList.
+    if typed == [] then return
+    dbg greet(typed)
 end
 ```
 <!-- expect
 dbg line 6: greet(["Ada", "Bo"]) = "Hello, Ada"
 dbg line 9: NonEmptyList.try_from(typed) |> Maybe.map(greet) = Some("Hello, Cy")
+dbg line 13: greet(typed) = "Hello, Cy"
 -->
+
+A list literal with an element is a `NonEmptyList` whatever its elements
+are, so `greet([name])` needs no check, and the same holds for vector, set
+and map literals and their non-empty subtypes.
+
+A check narrows a binding to the std subtype it proves, where it holds:
+past `if typed == [] then return`, `typed` is a `NonEmptyList`, and in
+`if n > 0 then ...`, `n` is a `PositiveInt`. So a value the code checks
+already needs no `try_from`. The compiler follows each number's range
+through comparisons with constants and arithmetic, so after `if size > 1`,
+`size - 1` is a `PositiveInt` too. Division leans on this: `/` and `%`
+divide by a `NonZeroInt`, so `total / count` compiles once `count` is
+checked (`if count == 0 then return 0`) or typed, and never divides by zero.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -538,7 +558,15 @@ dbg line 9: NonEmptyList.try_from(typed) |> Maybe.map(greet) = Some("Hello, Cy")
 - `NonNegativeInt and NonZeroInt` is a type wherever one is written, the
   values that are both.
 - Where a `Port` meets an `Int` with no type written, as the two branches
-  of an `if` or two elements of a list, the value is an `Int`.
+  of an `if` or two elements of a list, the value is an `Int`. A literal
+  beside a std numeric subtype that satisfies its rule is that subtype:
+  with `n` a `NonNegativeInt`, `if c then n else 0` is one.
+- Arithmetic gives the std numeric subtype its result's range proves:
+  with `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n * n` a
+  `NonNegativeInt`, and `n - 1` an `Int`. A value whose range proves a
+  subtype passes where one is expected, std::int's `Int64` and a rule of
+  literal bounds over `Int` included. No range relates two bindings:
+  `i < n` says nothing of `i`.
 
 Spec: [Subtypes](/spec/types/#subtypes).
 

@@ -198,22 +198,23 @@ func (n numbers) affixed(neg bool, body string, p *cldrdata.Pattern) string {
 	return prefix.Render(n.sym.percent, n.sym.minus, n.sym.plus) + body + suffix.Render(n.sym.percent, n.sym.minus, n.sym.plus)
 }
 
-// FFIFormatInt is `Int.format`.
-func FFIFormatInt(fr *rt.Frame, locale string, value rt.Int, grouping bool, minDigits int64) string {
-	if minDigits < 1 || minDigits > maxDigits {
-		rt.Trap(fmt.Sprintf("Int.format: min_digits must be 1 to %d, got %d", maxDigits, minDigits))
-	}
+// FFIFormatInt is `Int.format`. min_digits is a NonNegativeInt in Nomi, and
+// 0 pads nothing, as 1 does. It has no upper bound: the count is what the
+// caller asked for, and padding past what memory holds traps naming it, as
+// String.repeat's count does.
+func FFIFormatInt(fr *rt.Frame, locale string, value rt.Int, grouping bool, minDigits rt.Int) string {
 	n := numbersFor(stdlocale.Data(fr), locale)
 	negative := value.Sign() < 0
 	digits := strings.TrimPrefix(value.String(), "-")
-	if len(digits) < int(minDigits) {
-		digits = strings.Repeat("0", int(minDigits)-len(digits)) + digits
+	pad, ok := minDigits.Int64()
+	if !ok || pad > math.MaxInt {
+		rt.Trap(fmt.Sprintf("Int.format: %s digits are more than memory holds", minDigits))
+	}
+	if int64(len(digits)) < pad {
+		digits = strings.Repeat("0", int(pad)-len(digits)) + digits
 	}
 	return n.render(negative, digits, "", n.decimal, grouping)
 }
-
-// maxDigits bounds the digit counts the options may ask for.
-const maxDigits = 100
 
 func absInt(v int64) uint64 {
 	if v < 0 {
@@ -223,23 +224,30 @@ func absInt(v int64) uint64 {
 }
 
 // FFIFormatFloat is `Float.format`.
-func FFIFormatFloat(fr *rt.Frame, locale string, value float64, minFraction, maxFraction int64, grouping bool) string {
-	checkFraction("Float.format", minFraction, maxFraction)
+func FFIFormatFloat(fr *rt.Frame, locale string, value float64, minFraction, maxFraction rt.Int, grouping bool) string {
+	lo, hi := minFraction.Saturated(), maxFraction.Saturated()
+	checkFraction("Float.format", lo, hi)
 	n := numbersFor(stdlocale.Data(fr), locale)
-	return n.float(value, 0, int(minFraction), int(maxFraction), n.decimal, grouping)
+	return n.float(value, 0, int(lo), int(hi), n.decimal, grouping)
 }
 
 // FFIFormatFloatPercent is `Float.format_percent`.
-func FFIFormatFloatPercent(fr *rt.Frame, locale string, value float64, maxFraction int64) string {
-	checkFraction("Float.format_percent", 0, maxFraction)
+func FFIFormatFloatPercent(fr *rt.Frame, locale string, value float64, maxFraction rt.Int) string {
+	hi := maxFraction.Saturated()
+	checkFraction("Float.format_percent", 0, hi)
 	n := numbersFor(stdlocale.Data(fr), locale)
-	return n.float(value, 2, 0, int(maxFraction), n.percent, true)
+	return n.float(value, 2, 0, int(hi), n.percent, true)
 }
 
+// checkFraction holds the fraction digits to 0 <= min <= max. There is no
+// upper bound: the count is what the caller asked for, as String.repeat's
+// is, and a Decimal's default max_fraction is its scale, which may be any
+// size. A count crosses as an Int of any size and saturates past int64:
+// a Float has fewer digits than that, and a Decimal's text holds its own.
 func checkFraction(fn string, minFraction, maxFraction int64) {
-	if minFraction < 0 || maxFraction > maxDigits || minFraction > maxFraction {
-		rt.Trap(fmt.Sprintf("%s: the fraction digits must satisfy 0 <= min_fraction <= max_fraction <= %d, got %d and %d",
-			fn, maxDigits, minFraction, maxFraction))
+	if minFraction < 0 || minFraction > maxFraction {
+		rt.Trap(fmt.Sprintf("%s: the fraction digits must satisfy 0 <= min_fraction <= max_fraction, got %d and %d",
+			fn, minFraction, maxFraction))
 	}
 }
 
@@ -337,8 +345,8 @@ func decimalParts(text string) (neg bool, intDigits, frac string) {
 
 // FFIFormatDecimal is `Decimal.format`: every digit of the scale, none
 // rounded. text is the Decimal's Display text.
-func FFIFormatDecimal(fr *rt.Frame, locale, text string, minFraction, maxFraction int64, grouping bool) string {
-	checkFraction("Decimal.format", minFraction, maxFraction)
+func FFIFormatDecimal(fr *rt.Frame, locale, text string, minFraction, maxFraction rt.Int, grouping bool) string {
+	checkFraction("Decimal.format", minFraction.Saturated(), maxFraction.Saturated())
 	n := numbersFor(stdlocale.Data(fr), locale)
 	neg, intDigits, frac := decimalParts(text)
 	return n.render(neg, intDigits, frac, n.decimal, grouping)
@@ -347,8 +355,8 @@ func FFIFormatDecimal(fr *rt.Frame, locale, text string, minFraction, maxFractio
 // FFIFormatDecimalPercent is `Decimal.format_percent`: text is the
 // percentage, the value times 100 that std/decimal rounded to the digits
 // it shows (12.5 for 0.125d).
-func FFIFormatDecimalPercent(fr *rt.Frame, locale, text string, minFraction, maxFraction int64) string {
-	checkFraction("Decimal.format_percent", minFraction, maxFraction)
+func FFIFormatDecimalPercent(fr *rt.Frame, locale, text string, minFraction, maxFraction rt.Int) string {
+	checkFraction("Decimal.format_percent", minFraction.Saturated(), maxFraction.Saturated())
 	n := numbersFor(stdlocale.Data(fr), locale)
 	neg, intDigits, frac := decimalParts(text)
 	return n.render(neg, intDigits, frac, n.percent, true)

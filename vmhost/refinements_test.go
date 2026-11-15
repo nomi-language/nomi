@@ -2,8 +2,12 @@ package vmhost
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/irbuild"
 )
 
 // Refinement types at load and at run time (refinements.go): a literal is
@@ -12,7 +16,7 @@ import (
 // when the program runs.
 
 const refinementSrc = `import
-    std::duration.{Duration, PositiveDuration}
+    std::duration.{Duration, NonNegativeDuration, PositiveDuration}
     std::io
 end
 
@@ -44,12 +48,22 @@ fn interval(d: PositiveDuration) -> Duration
     d
 end
 
+fn wait(d: NonNegativeDuration) -> Duration
+    d
+end
+
 fn chance(p: Probability) -> Float
     p * 100.0
 end
 
 fn per_slot(total: Int, slots: PositiveInt) -> Int
     total / slots
+end
+
+subtype Wide Range<Int> when fn r -> Range.contains(r, 0) and Range.contains(r, 5)
+
+fn span(r: Wide) -> Int
+    Iter.count(r)
 end
 
 `
@@ -77,7 +91,15 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 		{"    s: NonEmptyString = \"\"\n    io.inspect(s)\n",
 			"\"\" is not a NonEmptyString: `fn s -> s != \"\"` is false"},
 		{"    t: PositiveDuration = Duration\"0s\"\n    io.inspect(t)\n",
-			"Duration\"0s\" is not a PositiveDuration: `fn d -> Duration.as_nanos(d) > 0` is false"},
+			"Duration\"0s\" is not a PositiveDuration: PositiveDuration is a subtype of NonZeroDuration, and NonZeroDuration's rule `fn d -> Duration.as_nanos(d) != 0` is false"},
+		{"    io.inspect(wait(Duration\"-1s\"))\n",
+			"Duration\"-1s\" is not a NonNegativeDuration: `fn d -> Duration.as_nanos(d) >= 0` is false"},
+		{"    io.inspect(String.repeat(\"ab\", -2))\n",
+			"-2 is not a NonNegativeInt: `fn n -> n >= 0` is false"},
+		{"    io.inspect(span(1..3))\n",
+			"this Wide literal breaks its rule: `fn r -> Range.contains(r, 0) and Range.contains(r, 5)` is false"},
+		{"    io.inspect(Iter.chunks([1, 2], 0) |> Iter.to_list())\n",
+			"0 is not a PositiveInt: PositiveInt is a subtype of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
 		{"    io.inspect(Int.pow(2, -1))\n",
 			"-1 is not a NonNegativeInt: `fn n -> n >= 0` is false"},
 		{"    io.inspect(Port(70000))\n",
@@ -112,20 +134,172 @@ func TestRefinement_LiteralsAreCheckedWhenTheProgramIsCompiled(t *testing.T) {
 	}
 }
 
+// The prelude's range subtypes check a range literal's bounds against each
+// other when the program is compiled: their rules read the range's parts
+// (Range.start, Range.stop, Range.is_inclusive), which lower for any
+// Comparable element, so clamp's ClosedRange and random's BoundedRange are
+// checked at every element type they take.
+func TestRefinement_RangeSubtypesCheckBoundsThatMustAgree(t *testing.T) {
+	nonEmpty := func(elem string) string {
+		return "breaks the rule of NonEmptyRange<" + elem + ">, a supertype of it: `fn r -> Range.contains(r, Range.start(r))` is false"
+	}
+	for _, tc := range []struct{ src, want string }{
+		{"fn main()\n    dbg Int.clamp(5, 10..=1)\nend\n",
+			"this ClosedRange<Int> literal " + nonEmpty("Int")},
+		{"fn main()\n    dbg Comparable.clamp(5, 10..=1)\nend\n",
+			"this ClosedRange<Int> literal " + nonEmpty("Int")},
+		{"fn main()\n    dbg String.clamp(\"b\", \"z\"..=\"a\")\nend\n",
+			"this ClosedRange<String> literal " + nonEmpty("String")},
+		{"fn main()\n    dbg Float.clamp(0.5, 0.0..1.0)\nend\n",
+			"this ClosedRange<Float> literal breaks its rule: `fn r -> Range.is_inclusive(r) or not Range.is_bounded(r)` is false"},
+		{"import std::random.Generator\n\nfn main()\n    _ = Generator.int(6..=1)\nend\n",
+			"this BoundedRange<Int> literal " + nonEmpty("Int")},
+		{"import std::random.Generator\n\nfn main()\n    _ = Generator.int(4..4)\nend\n",
+			"this BoundedRange<Int> literal " + nonEmpty("Int")},
+		{"import std::random.Generator\n\nfn main()\n    _ = Generator.float(2.5..1.5)\nend\n",
+			"this FiniteRange literal " + nonEmpty("Float")},
+		{"fn main()\n    r: NonEmptyRange<Int> = 3..3\n    dbg r\nend\n",
+			"this NonEmptyRange<Int> literal breaks its rule: `fn r -> Range.contains(r, Range.start(r))` is false"},
+	} {
+		ds := literalDiagnostics(t, tc.src)
+		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
+			t.Errorf("diagnostics = %v, want one reading %q\n%s", ds, tc.want, tc.src)
+		}
+	}
+}
+
+// A range's parts read the same for every element type, a range computed
+// when the program runs goes through try_from, and clamp and random take
+// the range subtypes: an unbounded range clamps only below, and a range
+// with a NaN end is no ClosedRange.
+func TestRefinement_RangeSubtypesRunOverTheirParts(t *testing.T) {
+	p, err := LoadSource("main", `import
+    std::io
+    std::random.{Generator, Seed}
+end
+
+struct Version
+    major: Int
+end
+
+derive Comparable for Version
+
+fn main()
+    io.inspect((Range.start(2..5), Range.stop(2..5), Range.is_inclusive(2..5)))
+    io.inspect((Range.start("a"..="c"), Range.stop(Range.from(4)), Range.is_inclusive(Range.from(4))))
+    v1 = Version{major: 1}
+    v3 = Version{major: 3}
+    io.inspect(Range.stop(v1..=v3))
+    io.inspect(Version.clamp(Version{major: 9}, ClosedRange.try_from(v1..=v3)!))
+    io.inspect(ClosedRange.try_from(v3..=v1))
+    io.inspect((Int.clamp(-4, Range.from(0)), Int.clamp(40, Range.from(0)), Int.clamp(40, 0..=11)))
+    io.inspect(ClosedRange.try_from(0.0..=Float.nan()))
+    io.inspect(BoundedRange.try_from(0.0..1.0))
+    io.inspect(BoundedRange.try_from(Range.from(1)))
+    n = 3
+    io.inspect(BoundedRange.try_from(n..n))
+    (x, _) = Generator.step(Generator.int(BoundedRange.try_from(n..=n)!), Seed.from_int(1))
+    io.inspect(x)
+    io.inspect(Iter.map([1..=2, 5..9], Range.start) |> Iter.to_list())
+end
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	const want = "(2, Some(5), False)\n(\"a\", None, False)\nSome(Version{major: 3})\nVersion{major: 3}\nNone\n(0, 40, 11)\nNone\nSome(0.0..1.0)\nNone\nNone\n3\n[1, 5]\n"
+	if out.String() != want {
+		t.Errorf("output = %q, want %q", out.String(), want)
+	}
+}
+
+// A subtype a listed std module declares (std::process's ExitCode) is lowered
+// with the listed modules, which name its `try_from` by its impl block, as a
+// program's own are (irbuild's implFuncLink): its literals are checked as a
+// shared module's are, in a field and an argument alike.
+func TestRefinement_AListedStdModulesSubtypeChecksItsLiterals(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"import std::process.Exit\n\nfn main() -> Result<Unit, Exit>\n    Err(Exit{code: 300})\nend\n",
+			"300 is not an ExitCode: `fn code -> code >= 0 and code <= 255` is false"},
+		{"import std::process.ExitCode\n\nfn main()\n    c: ExitCode = -1\n    dbg c\nend\n",
+			"-1 is not an ExitCode: `fn code -> code >= 0 and code <= 255` is false"},
+		{"import std::tasks.Task\n\nfn main()\n    xs = concurrent\n        Task.spawn_all([1], &(&1 * 2), max_running: 0) |> Task.await_all()\n    end\n    dbg xs\nend\n",
+			"0 is not a PositiveInt: PositiveInt is a subtype of NonZeroInt, and NonZeroInt's rule `fn n -> n != 0` is false"},
+	} {
+		ds := literalDiagnostics(t, tc.src)
+		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
+			t.Errorf("diagnostics = %v, want one reading %q\n%s", ds, tc.want, tc.src)
+		}
+	}
+	if _, err := LoadSource("main", "import std::process.Exit\n\nfn main() -> Result<Unit, Exit>\n    Err(Exit{code: 255})\nend\n"); err != nil {
+		t.Errorf("Exit{code: 255} does not load: %v", err)
+	}
+}
+
+// A literal of a generic subtype another file declares is checked through
+// that declaration's `try_from`, whatever the literal's file names: a file
+// that imports only a function taking the subtype checks its literal
+// arguments, an import of the subtype's name alone for them is unused, and
+// a file declaring its own type of the same name still checks against the
+// other file's rule.
+func TestRefinement_AGenericSubtypesLiteralNeedsNoNameInScope(t *testing.T) {
+	const lib = "pub subtype Many<T> List<T> when fn xs -> List.length(xs) > 1\n\n" +
+		"pub subtype Asc<T> List<T> where T: Comparable when fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)\n\n" +
+		"pub fn first(xs: Many<Int>) -> Int\n    Iter.first(xs)!\nend\n\n" +
+		"pub fn top<T>(xs: Asc<T>) -> Maybe<T> where T: Comparable\n    Iter.last(xs)\nend\n"
+	got := runProject(t, map[string]string{"lib.nomi": lib, "main.nomi": "import\n    std::io\n    lib.{first, top}\nend\n\n" +
+		"fn main()\n    io.inspect(first([1, 2]))\n    io.inspect(top([1, 3]))\nend\n"})
+	if want := "1\nSome(3)\n"; got != want {
+		t.Errorf("output = %q, want %q", got, want)
+	}
+	for _, tc := range []struct{ name, main, want string }{
+		{"a broken rule", "import lib.first\n\nfn main()\n    dbg first([1])\nend\n",
+			"this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
+		{"a bounded rule", "import lib.top\n\nfn main()\n    dbg top([3, 1])\nend\n",
+			"this Asc<Int> literal breaks its rule: `fn xs -> Iter.zip(xs, Iter.drop(xs, 1)) |> Iter.all_match(fn (a, b) -> a <= b)` is false"},
+		{"a name of its own", "import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
+			"fn main()\n    m: Many<Int> = [1, 2, 3, 4, 5, 6]\n    dbg m\n    dbg first([1])\nend\n",
+			"this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
+		{"an import used by nothing", "import lib.{Many, first}\n\nfn main()\n    dbg first([1, 2])\nend\n",
+			"imported name 'Many' is unused — remove it from the import"},
+		{"a broken bound", "import lib.Asc\n\nstruct Circle\n    r: Int\nend\n\nfn main()\n    u: Asc<Circle> = []\n    dbg u\nend\n",
+			"Circle does not implement Comparable (required by `where T: Comparable`)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, src := range map[string]string{"lib.nomi": lib, "main.nomi": tc.main} {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, err := Load(filepath.Join(dir, "main.nomi"))
+			if err == nil {
+				t.Fatalf("the program loads; want %q", tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("load error = %v, want one reading %q", err, tc.want)
+			}
+		})
+	}
+}
+
 func TestRefinement_ARuleThatCannotBeEvaluated(t *testing.T) {
 	const decls = "import std::io\n\n" +
 		"fn loud(n: Int) -> Bool\n    io.print(\"checking\")\n    n > 0\nend\n\n" +
 		"fn spin(n: Int) -> Bool\n    if n > 100000000 then True else spin(n + 1)\nend\n\n" +
 		"subtype Noisy Int when loud\n" +
 		"subtype Slow Int when spin\n" +
-		"subtype Trapping Int when fn n -> 10 / n > 1\n\n"
+		"subtype Trapping Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1\n\n"
 	for _, tc := range []struct{ body, want string }{
 		{"    io.inspect(Noisy.try_from(1))\n",
 			"the rule of Noisy has effects (loud calls io.print): a rule is a pure function of the value it checks"},
 		{"    s: Slow = 1\n    io.inspect(s)\n",
 			"1 cannot be checked as a Slow when the program is compiled: its rule `spin` did not finish within 1000000 steps"},
 		{"    t: Trapping = 0\n    io.inspect(t)\n",
-			"0 is not a Trapping: Trapping's rule `fn n -> 10 / n > 1` failed: "},
+			"0 is not a Trapping: Trapping's rule `fn n -> 10 / NonZeroInt.try_from(n)! > 1` failed: "},
 	} {
 		ds := literalDiagnostics(t, decls+"fn main()\n"+tc.body+"end\n")
 		found := false
@@ -331,14 +505,14 @@ end
 func TestRefinement_ARuleThatTrapsIsFalseWhenTheProgramRuns(t *testing.T) {
 	p, err := LoadSource("main", `import std::io
 
-subtype Ratio Int when fn n -> 10 / n > 1
+subtype Ratio Int when fn n -> 10 / NonZeroInt.try_from(n)! > 1
 
 subtype SmallRatio Ratio when fn n -> n < 5
 
 struct Fraction
     top:    Int
     bottom: Int
-    when fn f -> f.top / f.bottom < 1
+    when fn f -> f.top / NonZeroInt.try_from(f.bottom)! < 1
 end
 
 fn main()
@@ -348,7 +522,7 @@ fn main()
     io.inspect(SmallRatio.try_from(3))
     io.inspect(Fraction.try_from({top: 1, bottom: 0}))
     zero = Iter.sum([0])
-    io.inspect(10 / zero)
+    io.inspect(10 / NonZeroInt.try_from(zero)!)
 end
 `)
 	if err != nil {
@@ -360,7 +534,100 @@ end
 	if out.String() != want {
 		t.Errorf("output = %q, want %q", out.String(), want)
 	}
-	if err == nil || !strings.Contains(err.Error(), "div") {
-		t.Errorf("the division outside a rule = %v, want it to stop the program", err)
+	if err == nil || !strings.Contains(err.Error(), "found nothing") {
+		t.Errorf("the trap outside a rule = %v, want it to stop the program", err)
+	}
+}
+
+// A literal whose check the builder cannot find is an internal error at the
+// literal, naming the subtype and the `try_from` it looked for, never a
+// literal let through unchecked: the builder is made to miss the check
+// (irbuild.PlantMissingRefinementCheckForTest), as a linkage name built
+// wrong did for a listed std module's ExitCode. A rule the program
+// declares is reported at its `when` too, since its purity is checked
+// through the same function.
+func TestRefinement_ALiteralWhoseCheckIsMissingIsAnInternalError(t *testing.T) {
+	type want struct {
+		line, col int
+		msg       string
+	}
+	for _, tc := range []struct {
+		name, plant, src string
+		want             []want
+	}{
+		{"a program's subtype", "Port",
+			"subtype Port Int when fn p -> p >= 1\n\nfn main()\n    p: Port = 80\n    dbg p\nend\n",
+			[]want{
+				{1, 18, "internal: the check of Port's rule could not be found (Port.try_from)"},
+				{4, 15, "internal: the check for this Port literal could not be found (Port.try_from)"},
+			}},
+		{"a listed std module's subtype", "ExitCode",
+			"import std::process.Exit\n\nfn main() -> Result<Unit, Exit>\n    Err(Exit{code: 3})\nend\n",
+			[]want{{4, 20, "internal: the check for this ExitCode literal could not be found (std/process.ExitCode.try_from)"}}},
+		{"a parent's rule", "NonNegativeInt",
+			"fn main()\n    n: PositiveInt = 5\n    dbg n\nend\n",
+			[]want{{2, 22, "internal: the check for this PositiveInt literal could not be found (std/int.NonNegativeInt.try_from)"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			restore := irbuild.PlantMissingRefinementCheckForTest(tc.plant)
+			defer restore()
+			var ds Diagnostics
+			for _, d := range literalDiagnostics(t, tc.src) {
+				// A listed std module is lowered with the program, so its
+				// own literals and rule are reported too; only main's are
+				// this test's.
+				if d.Path == "main.nomi" {
+					ds = append(ds, d)
+				}
+			}
+			if len(ds) != len(tc.want) {
+				t.Fatalf("diagnostics = %v, want %d", ds, len(tc.want))
+			}
+			for i, w := range tc.want {
+				d := ds[i]
+				if d.Line != w.line || d.Col != w.col || d.Message != w.msg || d.Code != UncheckedRefinementCode {
+					t.Errorf("diagnostic %d = %d:%d %q (%s), want %d:%d %q (%s)", i, d.Line, d.Col, d.Message, d.Code, w.line, w.col, w.msg, UncheckedRefinementCode)
+				}
+			}
+		})
+	}
+}
+
+// Every literal the checker types as a subtype is checked, whatever its
+// form: a codepoint, and a grouped Decimal, typed literal or negated
+// number, which the builder makes by lowering the literal.
+func TestRefinement_EveryFormOfLiteralIsChecked(t *testing.T) {
+	const decls = "import std::duration.Duration\n\n" +
+		"subtype Vowel Codepoint when fn c -> c == 'a' or c == 'e'\n\n" +
+		"subtype PosDec Decimal when fn d -> d > 0d\n\n" +
+		"subtype Pos Int when fn n -> n > 0\n\n" +
+		"subtype Long Duration when fn d -> Duration.as_nanos(d) > 1_000_000_000\n\n"
+	for _, tc := range []struct{ body, want string }{
+		{"    v: Vowel = 'b'\n    dbg v\n", "'b' is not a Vowel: `fn c -> c == 'a' or c == 'e'` is false"},
+		{"    d: PosDec = (-1.5d)\n    dbg d\n", "(-1.5d) is not a PosDec: `fn d -> d > 0d` is false"},
+		{"    d: PosDec = (0d)\n    dbg d\n", "0d is not a PosDec: `fn d -> d > 0d` is false"},
+		{"    n: Pos = (-3)\n    dbg n\n", "(-3) is not a Pos: `fn n -> n > 0` is false"},
+		{"    l: Long = (Duration\"1s\")\n    dbg l\n", "Duration\"1s\" is not a Long: `fn d -> Duration.as_nanos(d) > 1_000_000_000` is false"},
+	} {
+		ds := literalDiagnostics(t, decls+"fn main()\n"+tc.body+"end\n")
+		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
+			t.Errorf("%s: diagnostics = %v, want one reading %q", strings.TrimSpace(tc.body), ds, tc.want)
+		}
+	}
+	if _, err := LoadSource("main", decls+"fn main()\n    v: Vowel = 'a'\n    d: PosDec = (1.5d)\n    l: Long = (Duration\"2s\")\n    dbg (v, d, l)\nend\n"); err != nil {
+		t.Errorf("literals that keep their rules do not load: %v", err)
+	}
+}
+
+// A validated type's rule is checked for effects at its `when` whether or
+// not anything builds one, as a subtype's is: its `try_from` is its TryFrom
+// impl's, which the builder names with the interface's arguments.
+func TestRefinement_AValidatedTypesRuleWithEffectsIsAnError(t *testing.T) {
+	const src = "import std::io\n\nfn loud(s: String) -> Bool\n    io.print(\"checking\")\n    String.contains(s, \"@\")\nend\n\n" +
+		"type Email String when loud\n\nfn main()\n    io.print(\"hi\")\nend\n"
+	ds := literalDiagnostics(t, src)
+	const want = "the rule of Email has effects (loud calls io.print): a rule is a pure function of the value it checks"
+	if len(ds) != 1 || ds[0].Message != want || ds[0].Line != 8 || ds[0].Code != InvalidRefinementCode {
+		t.Errorf("diagnostics = %v, want one at line 8 reading %q", ds, want)
 	}
 }

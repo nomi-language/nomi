@@ -12,13 +12,13 @@
 population stdlib
 what one record per stdlib module carrying `//!` prompt cases, run as `nomi test std/<module>` runs it. N is the module's prompt-case count.
 records 86
-declared-cases 1065
+declared-cases 1088
 failing 0
 C actors
 E 0
 N 1
-H 58f5c92878fce35219176d1b1e2c4acfc294b0878bd65ffe11d904d60d46db56
-T ok <root>/std/actors.nomi :: impl / to_string //! test line 80
+H 080dc452125e9fc23d92bbfe050167e05f2933209a30546227531485c98ab8c7
+T ok <root>/std/actors.nomi :: impl / to_string //! test line 81
 T test result: ok. 1 passed, 0 failed
 T
 C assertions
@@ -31,12 +31,12 @@ T
 C averageable
 E 0
 N 5
-H 154b48b9ba004d4c85a1ce0230ea6a65e19ce171251e9b99accd7d9ec68ada65
+H 147245379b8205db46172ad9c26907f0c399d212b286b8586975dc654628a181
 T ok <root>/std/averageable.nomi :: Averageable //! test lines 42-43
 T ok <root>/std/averageable.nomi :: impl / mean //! test lines 55-59
-T ok <root>/std/averageable.nomi :: impl / mean //! test lines 85-90
-T ok <root>/std/averageable.nomi :: impl / mean //! test lines 121-128
-T ok <root>/std/averageable.nomi :: impl / mean //! test lines 147-154
+T ok <root>/std/averageable.nomi :: impl / mean //! test lines 82-87
+T ok <root>/std/averageable.nomi :: impl / mean //! test lines 115-122
+T ok <root>/std/averageable.nomi :: impl / mean //! test lines 138-145
 T test result: ok. 5 passed, 0 failed
 T
 C base64
@@ -51,16 +51,17 @@ T test result: ok. 4 passed, 0 failed
 T
 C bits
 E 0
-N 7
-H 008082a64b1b0a65e23297a12f41635b560b5d00ef28c3729415f3025a91ecab
+N 8
+H 70a7299c6989e7fe5602b5108a169af7d4a0d832208bbb7b2ed21d8412bbd8fc
 T ok <root>/std/bits.nomi :: Bits //! test lines 44-47
-T ok <root>/std/bits.nomi :: impl / parse //! test lines 102-108
-T ok <root>/std/bits.nomi :: impl / matches //! test lines 147-153
-T ok <root>/std/bits.nomi :: impl / field //! test lines 163-166
-T ok <root>/std/bits.nomi :: impl / width //! test line 181
-T ok <root>/std/bits.nomi :: impl / mask //! test line 188
-T ok <root>/std/bits.nomi :: impl / value //! test line 195
-T test result: ok. 7 passed, 0 failed
+T ok <root>/std/bits.nomi :: FieldBits //! test lines 63-65
+T ok <root>/std/bits.nomi :: impl / parse //! test lines 112-118
+T ok <root>/std/bits.nomi :: impl / matches //! test lines 157-163
+T ok <root>/std/bits.nomi :: impl / field //! test lines 173-176
+T ok <root>/std/bits.nomi :: impl / width //! test line 192
+T ok <root>/std/bits.nomi :: impl / mask //! test line 199
+T ok <root>/std/bits.nomi :: impl / value //! test line 206
+T test result: ok. 8 passed, 0 failed
 T
 C bool
 E 0
@@ -98,109 +99,110 @@ T test result: ok. 20 passed, 0 failed
 T
 C calendar
 E 0
-N 66
-H 6bdc1b0d9deefa4412524062decd4085d1c96302739a7bc971af1de50f6320d7
-T ok <root>/std/calendar.nomi :: Months //! test line 351
-T ok <root>/std/calendar.nomi :: Hours //! test lines 379-381
-T ok <root>/std/calendar.nomi :: Date //! test line 460
-T ok <root>/std/calendar.nomi :: impl / new //! test lines 472-473
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 488-489
-T ok <root>/std/calendar.nomi :: impl / days_between //! test lines 504-505
-T ok <root>/std/calendar.nomi :: impl / weekday //! test lines 510-512
-T ok <root>/std/calendar.nomi :: impl / is_leap_year //! test lines 531-534
-T ok <root>/std/calendar.nomi :: impl / days_in_month //! test lines 543-547
-T ok <root>/std/calendar.nomi :: impl / format //! test lines 561-567
-T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 578-583
-T ok <root>/std/calendar.nomi :: impl / parse_in //! test lines 598-610
-T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 629-631
-T ok <root>/std/calendar.nomi :: impl / parse_with //! test lines 640-642
-T ok <root>/std/calendar.nomi :: impl / add //! test lines 712-713
-T ok <root>/std/calendar.nomi :: impl / new //! test lines 779-781
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 798-799
-T ok <root>/std/calendar.nomi :: impl / between //! test line 812
-T ok <root>/std/calendar.nomi :: impl / format //! test lines 822-825
-T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 834-837
-T ok <root>/std/calendar.nomi :: impl / parse_in //! test lines 847-850
-T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 868-869
-T ok <root>/std/calendar.nomi :: impl / parse_with //! test line 877
-T ok <root>/std/calendar.nomi :: day_nanos //! test line 897
-T ok <root>/std/calendar.nomi :: impl / add //! test line 952
-T ok <root>/std/calendar.nomi :: impl / subtract //! test line 961
-T ok <root>/std/calendar.nomi :: impl / format //! test lines 992-994
-T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 1011-1014
-T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 1022-1023
-T ok <root>/std/calendar.nomi :: impl / parse_with //! test lines 1031-1032
-T ok <root>/std/calendar.nomi :: impl / of //! test line 1052
-T ok <root>/std/calendar.nomi :: impl / at_midnight //! test line 1067
-T ok <root>/std/calendar.nomi :: impl / to_date //! test line 1082
-T ok <root>/std/calendar.nomi :: impl / to_time //! test line 1087
-T ok <root>/std/calendar.nomi :: impl / new //! test lines 1093-1094
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1136-1139
-T ok <root>/std/calendar.nomi :: impl / between //! test lines 1152-1153
-T ok <root>/std/calendar.nomi :: impl / from_instant //! test lines 1165-1168
-T ok <root>/std/calendar.nomi :: impl / utc_now //! test lines 1179-1180
-T ok <root>/std/calendar.nomi :: impl / to_instant //! test lines 1191-1199
-T ok <root>/std/calendar.nomi :: impl / with_offset //! test lines 1448-1449
-T ok <root>/std/calendar.nomi :: impl / from_instant //! test lines 1463-1464
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1472-1475
-T ok <root>/std/calendar.nomi :: impl / between //! test lines 1489-1492
-T ok <root>/std/calendar.nomi :: impl / to_naive //! test lines 1500-1501
-T ok <root>/std/calendar.nomi :: Disambiguation //! test lines 1785-1799
-T ok <root>/std/calendar.nomi :: DateTime //! test lines 1828-1833
-T ok <root>/std/calendar.nomi :: impl / format //! test lines 1845-1849
-T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 1865-1866
-T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 1874-1875
-T ok <root>/std/calendar.nomi :: impl / in_zone //! test lines 1902-1908
-T ok <root>/std/calendar.nomi :: impl / from_instant_in //! test lines 1941-1942
-T ok <root>/std/calendar.nomi :: impl / now_in //! test line 1956
-T ok <root>/std/calendar.nomi :: impl / to_offset //! test lines 1965-1966
-T ok <root>/std/calendar.nomi :: impl / to_naive //! test lines 1973-1974
-T ok <root>/std/calendar.nomi :: impl / with_zone //! test lines 1982-1983
-T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1999-2002
-T ok <root>/std/calendar.nomi :: impl / between //! test lines 2016-2019
-T ok <root>/std/calendar.nomi :: Weekday //! test line 2265
-T ok <root>/std/calendar.nomi :: impl / format_relative //! test lines 2364-2369
-T ok <root>/std/calendar.nomi :: DateFields //! test lines 2398-2399
-T ok <root>/std/calendar.nomi :: TimeFields //! test line 2442
-T ok <root>/std/calendar.nomi :: DateTimeFields //! test line 2483
-T ok <root>/std/calendar.nomi :: DatePattern //! test lines 2528-2529
-T ok <root>/std/calendar.nomi :: TimePattern //! test line 2572
-T ok <root>/std/calendar.nomi :: DateTimePattern //! test line 2613
-T test result: ok. 66 passed, 0 failed
+N 67
+H ecada22b6b5a71c6afdf491d2052ce35e77f3120a89c60907360a7514849e5d4
+T ok <root>/std/calendar.nomi :: Months //! test line 368
+T ok <root>/std/calendar.nomi :: Hours //! test lines 396-398
+T ok <root>/std/calendar.nomi :: Date //! test lines 478-480
+T ok <root>/std/calendar.nomi :: impl / new //! test lines 492-494
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 511-514
+T ok <root>/std/calendar.nomi :: impl / days_between //! test lines 529-530
+T ok <root>/std/calendar.nomi :: impl / weekday //! test lines 535-537
+T ok <root>/std/calendar.nomi :: impl / is_leap_year //! test lines 556-559
+T ok <root>/std/calendar.nomi :: impl / days_in_month //! test lines 568-572
+T ok <root>/std/calendar.nomi :: impl / format //! test lines 586-592
+T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 603-608
+T ok <root>/std/calendar.nomi :: impl / parse_in //! test lines 623-635
+T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 654-656
+T ok <root>/std/calendar.nomi :: impl / parse_with //! test lines 665-667
+T ok <root>/std/calendar.nomi :: impl / add //! test lines 738-739
+T ok <root>/std/calendar.nomi :: impl / new //! test lines 814-816
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 840-841
+T ok <root>/std/calendar.nomi :: impl / between //! test line 854
+T ok <root>/std/calendar.nomi :: impl / format //! test lines 864-867
+T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 876-879
+T ok <root>/std/calendar.nomi :: impl / parse_in //! test lines 889-892
+T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 910-911
+T ok <root>/std/calendar.nomi :: impl / parse_with //! test line 919
+T ok <root>/std/calendar.nomi :: day_nanos //! test line 939
+T ok <root>/std/calendar.nomi :: impl / add //! test line 994
+T ok <root>/std/calendar.nomi :: impl / subtract //! test line 1003
+T ok <root>/std/calendar.nomi :: impl / format //! test lines 1034-1036
+T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 1054-1057
+T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 1065-1066
+T ok <root>/std/calendar.nomi :: impl / parse_with //! test lines 1074-1075
+T ok <root>/std/calendar.nomi :: impl / of //! test line 1095
+T ok <root>/std/calendar.nomi :: impl / at_midnight //! test line 1110
+T ok <root>/std/calendar.nomi :: impl / to_date //! test line 1125
+T ok <root>/std/calendar.nomi :: impl / to_time //! test line 1130
+T ok <root>/std/calendar.nomi :: impl / new //! test lines 1136-1137
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1179-1182
+T ok <root>/std/calendar.nomi :: impl / between //! test lines 1195-1196
+T ok <root>/std/calendar.nomi :: impl / from_instant //! test lines 1209-1215
+T ok <root>/std/calendar.nomi :: impl / utc_now //! test lines 1238-1239
+T ok <root>/std/calendar.nomi :: impl / to_instant //! test lines 1250-1261
+T ok <root>/std/calendar.nomi :: impl / with_offset //! test lines 1526-1530
+T ok <root>/std/calendar.nomi :: impl / from_instant //! test lines 1547-1557
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 1566-1569
+T ok <root>/std/calendar.nomi :: impl / between //! test lines 1583-1586
+T ok <root>/std/calendar.nomi :: impl / to_naive //! test lines 1594-1595
+T ok <root>/std/calendar.nomi :: Disambiguation //! test lines 1877-1891
+T ok <root>/std/calendar.nomi :: DateTime //! test lines 1920-1925
+T ok <root>/std/calendar.nomi :: impl / format //! test lines 1937-1941
+T ok <root>/std/calendar.nomi :: impl / format_fields //! test lines 1958-1959
+T ok <root>/std/calendar.nomi :: impl / to_string_with //! test lines 1967-1968
+T ok <root>/std/calendar.nomi :: impl / in_zone //! test lines 1998-2004
+T ok <root>/std/calendar.nomi :: impl / from_instant_in //! test lines 2042-2046
+T ok <root>/std/calendar.nomi :: impl / now_in //! test line 2060
+T ok <root>/std/calendar.nomi :: impl / to_offset //! test lines 2069-2070
+T ok <root>/std/calendar.nomi :: impl / to_naive //! test lines 2077-2078
+T ok <root>/std/calendar.nomi :: impl / with_zone //! test lines 2086-2087
+T ok <root>/std/calendar.nomi :: impl / zone //! test line 2101
+T ok <root>/std/calendar.nomi :: impl / parse //! test lines 2111-2114
+T ok <root>/std/calendar.nomi :: impl / between //! test lines 2128-2131
+T ok <root>/std/calendar.nomi :: Weekday //! test line 2374
+T ok <root>/std/calendar.nomi :: impl / format_relative //! test lines 2473-2478
+T ok <root>/std/calendar.nomi :: DateFields //! test lines 2507-2508
+T ok <root>/std/calendar.nomi :: TimeFields //! test line 2551
+T ok <root>/std/calendar.nomi :: DateTimeFields //! test line 2592
+T ok <root>/std/calendar.nomi :: DatePattern //! test lines 2637-2638
+T ok <root>/std/calendar.nomi :: TimePattern //! test line 2681
+T ok <root>/std/calendar.nomi :: DateTimePattern //! test line 2722
+T test result: ok. 67 passed, 0 failed
 T
 C channels
 E 0
 N 11
-H b5a95e1e8354d90d872705024ee77cc3a1eafa980c5ebedc3eb0a393cade0b3d
+H a27816e7fc188a2aed039f3019a4eed3a6f83ed8957079e8ee7b745f9d7053e7
 T ok <root>/std/channels.nomi :: impl / buffered //! test lines 110-112
 T ok <root>/std/channels.nomi :: impl / unbuffered //! test lines 125-134
-T ok <root>/std/channels.nomi :: impl / select //! test lines 160-168
-T ok <root>/std/channels.nomi :: impl / send //! test lines 181-182
-T ok <root>/std/channels.nomi :: impl / close //! test lines 190-193
-T ok <root>/std/channels.nomi :: impl / close_on_drain //! test lines 203-207
-T ok <root>/std/channels.nomi :: impl / receive //! test lines 218-220
-T ok <root>/std/channels.nomi :: impl / receive_within //! test lines 231-234
-T ok <root>/std/channels.nomi :: impl / receive //! test lines 250-252
-T ok <root>/std/channels.nomi :: impl / send //! test lines 259-262
-T ok <root>/std/channels.nomi :: impl / after //! test lines 272-279
+T ok <root>/std/channels.nomi :: impl / select //! test lines 162-170
+T ok <root>/std/channels.nomi :: impl / send //! test lines 184-185
+T ok <root>/std/channels.nomi :: impl / close //! test lines 193-197
+T ok <root>/std/channels.nomi :: impl / close_on_drain //! test lines 207-211
+T ok <root>/std/channels.nomi :: impl / receive //! test lines 222-224
+T ok <root>/std/channels.nomi :: impl / receive_within //! test lines 237-240
+T ok <root>/std/channels.nomi :: impl / receive //! test lines 256-258
+T ok <root>/std/channels.nomi :: impl / send //! test lines 265-268
+T ok <root>/std/channels.nomi :: impl / after //! test lines 280-287
 T test result: ok. 11 passed, 0 failed
 T
 C code_points
 E 0
 N 12
-H 71cb974605ad7dab14ef3da665cd0855f54a4c3ca1ccad9cd9643410aa5a2540
-T ok <root>/std/code_points.nomi :: impl / to_int //! test line 26
-T ok <root>/std/code_points.nomi :: impl / is_letter //! test lines 36-39
-T ok <root>/std/code_points.nomi :: impl / is_digit //! test lines 48-51
-T ok <root>/std/code_points.nomi :: impl / to_digit //! test lines 61-64
-T ok <root>/std/code_points.nomi :: impl / is_whitespace //! test lines 75-78
-T ok <root>/std/code_points.nomi :: impl / is_upper //! test lines 86-89
-T ok <root>/std/code_points.nomi :: impl / is_lower //! test lines 97-100
-T ok <root>/std/code_points.nomi :: impl / to_string //! test line 111
-T ok <root>/std/code_points.nomi :: impl / inspect //! test line 118
-T ok <root>/std/code_points.nomi :: impl / next //! test lines 128-129
-T ok <root>/std/code_points.nomi :: impl / steps_between //! test line 145
-T ok <root>/std/code_points.nomi :: impl / step_by //! test line 162
+H 274fc8893f3f3a4a1b5623d6b4a61c8737f14567ba34c6c909a31d714a1c42b8
+T ok <root>/std/code_points.nomi :: impl / to_int //! test line 27
+T ok <root>/std/code_points.nomi :: impl / is_letter //! test lines 37-40
+T ok <root>/std/code_points.nomi :: impl / is_digit //! test lines 49-52
+T ok <root>/std/code_points.nomi :: impl / to_digit //! test lines 62-65
+T ok <root>/std/code_points.nomi :: impl / is_whitespace //! test lines 76-79
+T ok <root>/std/code_points.nomi :: impl / is_upper //! test lines 87-90
+T ok <root>/std/code_points.nomi :: impl / is_lower //! test lines 98-101
+T ok <root>/std/code_points.nomi :: impl / to_string //! test line 112
+T ok <root>/std/code_points.nomi :: impl / inspect //! test line 119
+T ok <root>/std/code_points.nomi :: impl / next //! test lines 129-130
+T ok <root>/std/code_points.nomi :: impl / steps_between //! test line 146
+T ok <root>/std/code_points.nomi :: impl / step_by //! test line 163
 T test result: ok. 12 passed, 0 failed
 T
 C collation
@@ -217,20 +219,20 @@ T
 C comparable
 E 0
 N 2
-H 4208cc45f6279bfefc9594800c68f1f00fa1c0ab1094cc57ec749b7753154504
-T ok <root>/std/comparable.nomi :: impl / chain //! test lines 28-43
-T ok <root>/std/comparable.nomi :: Comparable //! test lines 98-128
+H 8e35431a61d2d82398ce2a145129229b177f5380b5bc2f6df42cc4302c8d113d
+T ok <root>/std/comparable.nomi :: impl / chain //! test lines 29-44
+T ok <root>/std/comparable.nomi :: Comparable //! test lines 99-129
 T test result: ok. 2 passed, 0 failed
 T
 C compiler
 E 0
 N 5
-H ec614093f81b338ac1331447555afb250245b4096a0dffa88a1e0def670b6f94
+H d1eea76e54319807ad71f8578f9f0db07635d2fcf0d190cde74157e69f8f2ee0
 T ok <root>/std/compiler.nomi :: check //! test lines 60-72
 T ok <root>/std/compiler.nomi :: format //! test lines 82-93
 T ok <root>/std/compiler.nomi :: run //! test lines 109-121
 T ok <root>/std/compiler.nomi :: hover //! test lines 134-145
-T ok <root>/std/compiler.nomi :: check_project //! test lines 150-188
+T ok <root>/std/compiler.nomi :: check_project //! test lines 153-200
 T test result: ok. 5 passed, 0 failed
 T
 C contains
@@ -243,34 +245,35 @@ T
 C context
 E 0
 N 7
-H 175180afac44dfb8abf0e0c4524836183fe26f2bb679b313e1d5ae46ce003a84
+H 690817f664f384f29f814103845ff9e32c2891dc3348caa016cec44898f5f7a1
 T ok <root>/std/context.nomi :: impl / root //! test lines 42-43
 T ok <root>/std/context.nomi :: impl / deadline //! test line 48
 T ok <root>/std/context.nomi :: impl / deadline_remaining //! test line 54
-T ok <root>/std/context.nomi :: impl / with_deadline //! test lines 60-61
-T ok <root>/std/context.nomi :: impl / with_timeout //! test lines 67-68
-T ok <root>/std/context.nomi :: impl / with_value //! test lines 78-80
-T ok <root>/std/context.nomi :: impl / value //! test lines 90-92
+T ok <root>/std/context.nomi :: impl / with_deadline //! test lines 63-64
+T ok <root>/std/context.nomi :: impl / with_timeout //! test lines 73-77
+T ok <root>/std/context.nomi :: impl / with_value //! test lines 87-89
+T ok <root>/std/context.nomi :: impl / value //! test lines 99-101
 T test result: ok. 7 passed, 0 failed
 T
 C csv
 E 0
-N 13
-H 58cb8e7bac3507b49ce790e0d3ab4a3111ff1ea6f13b8677906e5c0800abcaf0
-T ok <root>/std/csv.nomi :: Options //! test lines 66-71
-T ok <root>/std/csv.nomi :: Error //! test lines 90-92
-T ok <root>/std/csv.nomi :: Row //! test lines 123-127
-T ok <root>/std/csv.nomi :: impl / get //! test lines 142-144
-T ok <root>/std/csv.nomi :: impl / to_map //! test lines 153-154
-T ok <root>/std/csv.nomi :: decode //! test lines 168-183
-T ok <root>/std/csv.nomi :: decode_bytes //! test lines 190-196
-T ok <root>/std/csv.nomi :: decode_rows //! test lines 204-206
-T ok <root>/std/csv.nomi :: records //! test lines 216-225
-T ok <root>/std/csv.nomi :: rows //! test lines 234-241
-T ok <root>/std/csv.nomi :: WriteOptions //! test lines 343-344
-T ok <root>/std/csv.nomi :: encode //! test lines 363-367
-T ok <root>/std/csv.nomi :: write //! test lines 375-377
-T test result: ok. 13 passed, 0 failed
+N 14
+H 77369efa95969c59f90afd21782ca6abc71e3e05fed275f4aedbfa6c2d9e9b28
+T ok <root>/std/csv.nomi :: Delimiter //! test lines 54-58
+T ok <root>/std/csv.nomi :: Options //! test lines 81-86
+T ok <root>/std/csv.nomi :: Error //! test lines 105-107
+T ok <root>/std/csv.nomi :: Row //! test lines 137-141
+T ok <root>/std/csv.nomi :: impl / get //! test lines 156-158
+T ok <root>/std/csv.nomi :: impl / to_map //! test lines 167-168
+T ok <root>/std/csv.nomi :: decode //! test lines 182-197
+T ok <root>/std/csv.nomi :: decode_bytes //! test lines 204-210
+T ok <root>/std/csv.nomi :: decode_rows //! test lines 218-220
+T ok <root>/std/csv.nomi :: records //! test lines 230-239
+T ok <root>/std/csv.nomi :: rows //! test lines 248-255
+T ok <root>/std/csv.nomi :: WriteOptions //! test lines 352-353
+T ok <root>/std/csv.nomi :: encode //! test lines 371-375
+T ok <root>/std/csv.nomi :: write //! test lines 383-385
+T test result: ok. 14 passed, 0 failed
 T
 C currency
 E 0
@@ -287,69 +290,76 @@ T test result: ok. 7 passed, 0 failed
 T
 C decimal
 E 0
-N 28
-H 541792e468bb1c15c0c598260b4b392035c38d478984d42a44c06aacf7aed890
-T ok <root>/std/decimal.nomi :: impl / to_int //! test lines 58-60
-T ok <root>/std/decimal.nomi :: impl / to_float //! test line 68
-T ok <root>/std/decimal.nomi :: impl / divide //! test lines 78-79
-T ok <root>/std/decimal.nomi :: impl / divide_exact //! test lines 88-91
-T ok <root>/std/decimal.nomi :: impl / round //! test lines 99-101
-T ok <root>/std/decimal.nomi :: impl / pow //! test lines 112-116
-T ok <root>/std/decimal.nomi :: impl / sqrt //! test lines 126-129
-T ok <root>/std/decimal.nomi :: impl / normalize //! test lines 138-139
-T ok <root>/std/decimal.nomi :: impl / scale //! test lines 146-147
-T ok <root>/std/decimal.nomi :: impl / abs //! test line 152
-T ok <root>/std/decimal.nomi :: impl / negate //! test line 159
-T ok <root>/std/decimal.nomi :: impl / sign //! test lines 166-168
-T ok <root>/std/decimal.nomi :: impl / is_zero //! test lines 179-180
-T ok <root>/std/decimal.nomi :: impl / split //! test lines 197-201
-T ok <root>/std/decimal.nomi :: impl / allocate //! test lines 228-231
-T ok <root>/std/decimal.nomi :: impl / format //! test lines 256-263
-T ok <root>/std/decimal.nomi :: impl / format_percent //! test lines 283-288
-T ok <root>/std/decimal.nomi :: impl / parse_in //! test lines 323-328
-T ok <root>/std/decimal.nomi :: impl / parse_percent_in //! test lines 342-347
-T ok <root>/std/decimal.nomi :: impl / to_string //! test lines 437-438
-T ok <root>/std/decimal.nomi :: impl / empty_sum //! test lines 450-451
-T ok <root>/std/decimal.nomi :: impl / divide //! test lines 471-475
-T ok <root>/std/decimal.nomi :: impl / remainder //! test lines 485-488
-T ok <root>/std/decimal.nomi :: impl / empty_product //! test lines 496-497
-T ok <root>/std/decimal.nomi :: impl / step_by //! test line 538
-T ok <root>/std/decimal.nomi :: NonZeroDecimal //! test lines 559-561
-T ok <root>/std/decimal.nomi :: NonNegativeDecimal //! test lines 569-571
-T ok <root>/std/decimal.nomi :: PositiveDecimal //! test lines 578-579
-T test result: ok. 28 passed, 0 failed
+N 31
+H 35303bc83ce96328c4105a383396ae7bdfffceb89cfa25b87b8da07bd5410a89
+T ok <root>/std/decimal.nomi :: impl / to_int //! test lines 59-61
+T ok <root>/std/decimal.nomi :: impl / to_float //! test line 69
+T ok <root>/std/decimal.nomi :: impl / divide //! test lines 80-81
+T ok <root>/std/decimal.nomi :: impl / divide_exact //! test lines 90-93
+T ok <root>/std/decimal.nomi :: impl / round //! test lines 102-104
+T ok <root>/std/decimal.nomi :: impl / round_exact //! test lines 112-114
+T ok <root>/std/decimal.nomi :: impl / pow //! test lines 125-129
+T ok <root>/std/decimal.nomi :: impl / sqrt //! test lines 140-143
+T ok <root>/std/decimal.nomi :: impl / sqrt_exact //! test lines 150-151
+T ok <root>/std/decimal.nomi :: impl / normalize //! test lines 160-161
+T ok <root>/std/decimal.nomi :: impl / scale //! test lines 168-169
+T ok <root>/std/decimal.nomi :: impl / abs //! test line 174
+T ok <root>/std/decimal.nomi :: impl / negate //! test line 181
+T ok <root>/std/decimal.nomi :: impl / sign //! test lines 188-190
+T ok <root>/std/decimal.nomi :: impl / is_zero //! test lines 201-202
+T ok <root>/std/decimal.nomi :: impl / split //! test lines 219-223
+T ok <root>/std/decimal.nomi :: impl / allocate //! test lines 251-260
+T ok <root>/std/decimal.nomi :: impl / format //! test lines 277-286
+T ok <root>/std/decimal.nomi :: impl / format_percent //! test lines 306-311
+T ok <root>/std/decimal.nomi :: impl / parse_in //! test lines 342-347
+T ok <root>/std/decimal.nomi :: impl / parse_percent_in //! test lines 361-366
+T ok <root>/std/decimal.nomi :: impl / to_string //! test lines 467-468
+T ok <root>/std/decimal.nomi :: impl / empty_sum //! test lines 480-481
+T ok <root>/std/decimal.nomi :: impl / divide //! test lines 501-505
+T ok <root>/std/decimal.nomi :: impl / remainder //! test lines 515-518
+T ok <root>/std/decimal.nomi :: impl / empty_product //! test lines 526-527
+T ok <root>/std/decimal.nomi :: impl / step_by //! test line 568
+T ok <root>/std/decimal.nomi :: NonZeroDecimal //! test lines 578-580
+T ok <root>/std/decimal.nomi :: NonNegativeDecimal //! test lines 588-590
+T ok <root>/std/decimal.nomi :: PositiveDecimal //! test lines 597-598
+T ok <root>/std/decimal.nomi :: Ratios //! test lines 607-614
+T test result: ok. 31 passed, 0 failed
 T
 C duration
 E 0
-N 26
-H 8306f5214a0ec03ceb061679363446754fbd5a8c6ff24065db00c0a21bfdfd34
-T ok <root>/std/duration.nomi :: impl / nanoseconds //! test line 75
-T ok <root>/std/duration.nomi :: impl / microseconds //! test lines 82-83
-T ok <root>/std/duration.nomi :: impl / milliseconds //! test line 90
-T ok <root>/std/duration.nomi :: impl / seconds //! test lines 97-98
-T ok <root>/std/duration.nomi :: impl / minutes //! test line 105
-T ok <root>/std/duration.nomi :: impl / hours //! test line 113
-T ok <root>/std/duration.nomi :: impl / as_nanos //! test line 120
-T ok <root>/std/duration.nomi :: impl / as_micros //! test line 127
-T ok <root>/std/duration.nomi :: impl / as_millis //! test line 134
-T ok <root>/std/duration.nomi :: impl / as_seconds //! test line 141
-T ok <root>/std/duration.nomi :: impl / as_minutes //! test line 148
-T ok <root>/std/duration.nomi :: impl / as_hours //! test line 155
-T ok <root>/std/duration.nomi :: impl / format //! test lines 168-173
-T ok <root>/std/duration.nomi :: impl / clock //! test lines 194-198
-T ok <root>/std/duration.nomi :: impl / parse_clock //! test lines 223-230
-T ok <root>/std/duration.nomi :: impl / parse //! test lines 263-272
-T ok <root>/std/duration.nomi :: impl / from_fragments //! test lines 299-304
-T ok <root>/std/duration.nomi :: PositiveDuration //! test lines 338-340
-T ok <root>/std/duration.nomi :: impl / add //! test lines 346-347
-T ok <root>/std/duration.nomi :: impl / empty_sum //! test lines 356-357
-T ok <root>/std/duration.nomi :: impl / subtract //! test lines 367-368
-T ok <root>/std/duration.nomi :: impl / multiply //! test lines 377-378
-T ok <root>/std/duration.nomi :: impl / divide //! test line 387
-T ok <root>/std/duration.nomi :: impl / remainder //! test lines 398-399
-T ok <root>/std/duration.nomi :: impl / to_string //! test lines 409-415
-T ok <root>/std/duration.nomi :: impl / inspect //! test line 432
-T test result: ok. 26 passed, 0 failed
+N 30
+H 416d269aaadcd82253e2e430ff99f44e1fe062100ca62abfdc4ae79d5abd1024
+T ok <root>/std/duration.nomi :: Duration //! test line 67
+T ok <root>/std/duration.nomi :: impl / nanoseconds //! test line 73
+T ok <root>/std/duration.nomi :: impl / microseconds //! test lines 80-81
+T ok <root>/std/duration.nomi :: impl / milliseconds //! test line 88
+T ok <root>/std/duration.nomi :: impl / seconds //! test lines 95-96
+T ok <root>/std/duration.nomi :: impl / minutes //! test line 103
+T ok <root>/std/duration.nomi :: impl / hours //! test line 110
+T ok <root>/std/duration.nomi :: impl / abs //! test lines 117-118
+T ok <root>/std/duration.nomi :: impl / as_nanos //! test line 125
+T ok <root>/std/duration.nomi :: impl / as_micros //! test line 132
+T ok <root>/std/duration.nomi :: impl / as_millis //! test line 139
+T ok <root>/std/duration.nomi :: impl / as_seconds //! test line 146
+T ok <root>/std/duration.nomi :: impl / as_minutes //! test line 153
+T ok <root>/std/duration.nomi :: impl / as_hours //! test line 160
+T ok <root>/std/duration.nomi :: impl / format //! test lines 173-178
+T ok <root>/std/duration.nomi :: impl / clock //! test lines 199-203
+T ok <root>/std/duration.nomi :: impl / parse_clock //! test lines 227-234
+T ok <root>/std/duration.nomi :: impl / parse //! test lines 267-276
+T ok <root>/std/duration.nomi :: impl / from_fragments //! test lines 293-298
+T ok <root>/std/duration.nomi :: NonZeroDuration //! test lines 331-333
+T ok <root>/std/duration.nomi :: NonNegativeDuration //! test lines 341-343
+T ok <root>/std/duration.nomi :: PositiveDuration //! test lines 353-358
+T ok <root>/std/duration.nomi :: impl / add //! test lines 366-367
+T ok <root>/std/duration.nomi :: impl / empty_sum //! test lines 376-377
+T ok <root>/std/duration.nomi :: impl / subtract //! test lines 387-388
+T ok <root>/std/duration.nomi :: impl / multiply //! test lines 397-398
+T ok <root>/std/duration.nomi :: impl / divide //! test line 408
+T ok <root>/std/duration.nomi :: impl / remainder //! test lines 419-420
+T ok <root>/std/duration.nomi :: impl / to_string //! test lines 430-436
+T ok <root>/std/duration.nomi :: impl / inspect //! test line 457
+T test result: ok. 30 passed, 0 failed
 T
 C embed
 E 0
@@ -372,17 +382,17 @@ T
 C float
 E 0
 N 42
-H 780544e2980ed6488b90790122d98f4c62a32847812a1f1ba67c597c47084ea9
-T ok <root>/std/float.nomi :: impl / nan //! test line 45
-T ok <root>/std/float.nomi :: impl / positive_infinity //! test line 51
-T ok <root>/std/float.nomi :: impl / negative_infinity //! test line 57
-T ok <root>/std/float.nomi :: impl / pi //! test lines 63-64
-T ok <root>/std/float.nomi :: impl / e //! test lines 70-71
-T ok <root>/std/float.nomi :: impl / is_nan //! test lines 76-77
-T ok <root>/std/float.nomi :: impl / is_infinite //! test lines 82-83
-T ok <root>/std/float.nomi :: impl / is_finite //! test lines 90-92
-T ok <root>/std/float.nomi :: impl / to_int //! test lines 101-105
-T ok <root>/std/float.nomi :: impl / to_decimal //! test lines 114-115
+H 159c2fd36dc29a5751f20ee600a5d88ccb4c3f1e116638516a3de110f4b10961
+T ok <root>/std/float.nomi :: impl / nan //! test line 46
+T ok <root>/std/float.nomi :: impl / positive_infinity //! test line 52
+T ok <root>/std/float.nomi :: impl / negative_infinity //! test line 58
+T ok <root>/std/float.nomi :: impl / pi //! test lines 64-65
+T ok <root>/std/float.nomi :: impl / e //! test lines 71-72
+T ok <root>/std/float.nomi :: impl / is_nan //! test lines 77-78
+T ok <root>/std/float.nomi :: impl / is_infinite //! test lines 83-84
+T ok <root>/std/float.nomi :: impl / is_finite //! test lines 91-93
+T ok <root>/std/float.nomi :: impl / to_int //! test lines 102-106
+T ok <root>/std/float.nomi :: impl / to_decimal //! test lines 115-116
 T ok <root>/std/float.nomi :: impl / round //! test lines 132-141
 T ok <root>/std/float.nomi :: impl / floor //! test lines 148-149
 T ok <root>/std/float.nomi :: impl / ceil //! test lines 154-155
@@ -400,27 +410,27 @@ T ok <root>/std/float.nomi :: impl / sin //! test lines 268-270
 T ok <root>/std/float.nomi :: impl / cos //! test lines 275-276
 T ok <root>/std/float.nomi :: impl / tan //! test lines 281-282
 T ok <root>/std/float.nomi :: impl / atan2 //! test lines 291-293
-T ok <root>/std/float.nomi :: impl / format //! test lines 302-308
-T ok <root>/std/float.nomi :: impl / format_percent //! test lines 322-326
-T ok <root>/std/float.nomi :: impl / parse_in //! test lines 336-340
-T ok <root>/std/float.nomi :: impl / parse_percent_in //! test lines 354-358
-T ok <root>/std/float.nomi :: NonZeroFloat //! test lines 403-406
-T ok <root>/std/float.nomi :: NonNegativeFloat //! test lines 415-419
-T ok <root>/std/float.nomi :: PositiveFloat //! test lines 426-427
-T ok <root>/std/float.nomi :: impl / to_string //! test lines 438-439
-T ok <root>/std/float.nomi :: impl / empty_sum //! test lines 451-452
-T ok <root>/std/float.nomi :: impl / empty_product //! test lines 470-471
-T ok <root>/std/float.nomi :: impl / remainder //! test lines 486-491
-T ok <root>/std/float.nomi :: impl / inspect //! test line 499
-T ok <root>/std/float.nomi :: impl / min //! test lines 568-571
-T ok <root>/std/float.nomi :: impl / max //! test lines 588-590
-T ok <root>/std/float.nomi :: impl / clamp //! test lines 612-616
+T ok <root>/std/float.nomi :: impl / format //! test lines 304-310
+T ok <root>/std/float.nomi :: impl / format_percent //! test lines 328-332
+T ok <root>/std/float.nomi :: impl / parse_in //! test lines 342-346
+T ok <root>/std/float.nomi :: impl / parse_percent_in //! test lines 360-364
+T ok <root>/std/float.nomi :: NonZeroFloat //! test lines 409-412
+T ok <root>/std/float.nomi :: NonNegativeFloat //! test lines 421-425
+T ok <root>/std/float.nomi :: PositiveFloat //! test lines 432-433
+T ok <root>/std/float.nomi :: impl / to_string //! test lines 441-442
+T ok <root>/std/float.nomi :: impl / empty_sum //! test lines 454-455
+T ok <root>/std/float.nomi :: impl / empty_product //! test lines 473-474
+T ok <root>/std/float.nomi :: impl / remainder //! test lines 489-494
+T ok <root>/std/float.nomi :: impl / inspect //! test line 502
+T ok <root>/std/float.nomi :: impl / min //! test lines 571-574
+T ok <root>/std/float.nomi :: impl / max //! test lines 591-593
+T ok <root>/std/float.nomi :: impl / clamp //! test lines 614-619
 T test result: ok. 42 passed, 0 failed
 T
 C fs
 E 0
 N 29
-H 3a2fb27db603c429a59604a029d5f617ca7696552eff86c7af2225762c57f38c
+H 9dd3cba7bda832f697bdcb5ee4f45118c9605b194c60f39df8411a7f31199c5d
 T ok <root>/std/fs.nomi :: WriteMode //! test lines 54-62
 T ok <root>/std/fs.nomi :: read //! test lines 132-135
 T ok <root>/std/fs.nomi :: read_text //! test lines 153-159
@@ -441,15 +451,15 @@ T ok <root>/std/fs.nomi :: remove_all //! test lines 835-842
 T ok <root>/std/fs.nomi :: remove_all_quietly //! test lines 854-858
 T ok <root>/std/fs.nomi :: rename //! test lines 870-877
 T ok <root>/std/fs.nomi :: copy //! test lines 889-893
-T ok <root>/std/fs.nomi :: metadata //! test lines 904-911
-T ok <root>/std/fs.nomi :: link_metadata //! test lines 925-933
-T ok <root>/std/fs.nomi :: create_symlink //! test lines 958-965
-T ok <root>/std/fs.nomi :: read_link //! test lines 977-986
-T ok <root>/std/fs.nomi :: set_mode //! test lines 1001-1008
-T ok <root>/std/fs.nomi :: exists //! test lines 1029-1035
-T ok <root>/std/fs.nomi :: temp_dir //! test lines 1054-1056
-T ok <root>/std/fs.nomi :: make_temp_dir //! test lines 1077-1089
-T ok <root>/std/fs.nomi :: current_dir //! test lines 1103-1105
+T ok <root>/std/fs.nomi :: metadata //! test lines 905-912
+T ok <root>/std/fs.nomi :: link_metadata //! test lines 926-934
+T ok <root>/std/fs.nomi :: create_symlink //! test lines 960-967
+T ok <root>/std/fs.nomi :: read_link //! test lines 979-988
+T ok <root>/std/fs.nomi :: set_mode //! test lines 1003-1010
+T ok <root>/std/fs.nomi :: exists //! test lines 1031-1037
+T ok <root>/std/fs.nomi :: temp_dir //! test lines 1056-1058
+T ok <root>/std/fs.nomi :: make_temp_dir //! test lines 1079-1091
+T ok <root>/std/fs.nomi :: current_dir //! test lines 1105-1107
 T test result: ok. 29 passed, 0 failed
 T
 C fs/testing
@@ -509,8 +519,8 @@ T test result: ok. 10 passed, 0 failed
 T
 C http
 E 0
-N 76
-H b4d4fcc98137e93823c8fdddcffe299daa3aeda5f1cc4ef708b25ed05e128a74
+N 77
+H 5183b97f3d92f9e700359e731b18eb164f7816a7ba44a273180818c83fed2d90
 T ok <root>/std/http.nomi :: impl / text //! test lines 99-102
 T ok <root>/std/http.nomi :: impl / parse //! test lines 120-123
 T ok <root>/std/http.nomi :: impl / from_code //! test lines 219-222
@@ -524,186 +534,188 @@ T ok <root>/std/http.nomi :: impl / write_to //! test lines 391-398
 T ok <root>/std/http.nomi :: impl / read_all //! test lines 450-452
 T ok <root>/std/http.nomi :: impl / encode //! test lines 495-498
 T ok <root>/std/http.nomi :: impl / file_disposition //! test lines 511-513
-T ok <root>/std/http.nomi :: impl / is_at_least //! test lines 671-674
-T ok <root>/std/http.nomi :: impl / parse //! test lines 682-686
-T ok <root>/std/http.nomi :: impl / form //! test lines 749-754
-T ok <root>/std/http.nomi :: impl / post_form //! test lines 767-783
-T ok <root>/std/http.nomi :: impl / multipart_form //! test lines 824-846
-T ok <root>/std/http.nomi :: impl / form_file //! test lines 862-880
-T ok <root>/std/http.nomi :: impl / text //! test lines 895-906
-T ok <root>/std/http.nomi :: impl / json_as //! test lines 922-945
-T ok <root>/std/http.nomi :: impl / cookies //! test lines 968-975
-T ok <root>/std/http.nomi :: impl / basic_auth //! test lines 1032-1039
-T ok <root>/std/http.nomi :: impl / read //! test lines 1076-1083
-T ok <root>/std/http.nomi :: impl / dump //! test lines 1128-1132
-T ok <root>/std/http.nomi :: impl / write_to //! test lines 1241-1245
-T ok <root>/std/http.nomi :: impl / set_cookie //! test lines 1280-1287
-T ok <root>/std/http.nomi :: impl / html //! test lines 1297-1306
-T ok <root>/std/http.nomi :: impl / json //! test lines 1316-1328
-T ok <root>/std/http.nomi :: impl / error //! test lines 1341-1345
-T ok <root>/std/http.nomi :: impl / redirect //! test lines 1363-1367
-T ok <root>/std/http.nomi :: impl / content //! test lines 1388-1404
-T ok <root>/std/http.nomi :: impl / with_headers //! test lines 1431-1436
-T ok <root>/std/http.nomi :: impl / with_default_headers //! test lines 1451-1459
-T ok <root>/std/http.nomi :: impl / json_as //! test lines 1493-1498
-T ok <root>/std/http.nomi :: ToResponse //! test lines 1537-1556
-T ok <root>/std/http.nomi :: impl //! test lines 1605-1615
-T ok <root>/std/http.nomi :: impl / to_string //! test lines 1842-1844
-T ok <root>/std/http.nomi :: stream //! test lines 2142-2156
-T ok <root>/std/http.nomi :: Route //! test lines 2764-2768
-T ok <root>/std/http.nomi :: impl / parse //! test lines 2781-2804
-T ok <root>/std/http.nomi :: impl / with_method //! test lines 2819-2833
-T ok <root>/std/http.nomi :: impl / path //! test lines 2857-2858
-T ok <root>/std/http.nomi :: impl / path_with //! test lines 2868-2870
-T ok <root>/std/http.nomi :: impl / to_with //! test lines 2912-2923
-T ok <root>/std/http.nomi :: Router //! test lines 3330-3350
-T ok <root>/std/http.nomi :: impl / new //! test lines 3363-3369
-T ok <root>/std/http.nomi :: strip_prefix //! test lines 3478-3486
-T ok <root>/std/http.nomi :: allow_query_semicolons //! test lines 3509-3518
-T ok <root>/std/http.nomi :: timeout //! test lines 3537-3556
-T ok <root>/std/http.nomi :: Origin //! test lines 3586-3590
-T ok <root>/std/http.nomi :: impl / parse //! test lines 3600-3604
-T ok <root>/std/http.nomi :: impl / check //! test lines 3669-3686
-T ok <root>/std/http.nomi :: cross_origin_protection //! test lines 3704-3716
-T ok <root>/std/http.nomi :: limit_body //! test lines 3755-3759
-T ok <root>/std/http.nomi :: wrap_routes //! test lines 3768-3791
-T ok <root>/std/http.nomi :: cors //! test lines 3851-3887
-T ok <root>/std/http.nomi :: log_requests //! test lines 3974-3993
-T ok <root>/std/http.nomi :: security_headers //! test lines 4064-4094
-T ok <root>/std/http.nomi :: request_id //! test lines 4125-4145
-T ok <root>/std/http.nomi :: compress //! test lines 4222-4246
-T ok <root>/std/http.nomi :: basic_auth //! test lines 4413-4441
-T ok <root>/std/http.nomi :: method_override //! test lines 4476-4498
-T ok <root>/std/http.nomi :: serve_file //! test lines 4549-4572
-T ok <root>/std/http.nomi :: file_server //! test lines 4667-4682
-T ok <root>/std/http.nomi :: serve_embedded //! test lines 4730-4777
-T ok <root>/std/http.nomi :: file_server_embedded //! test lines 4851-4884
-T ok <root>/std/http.nomi :: is_page_route //! test lines 4912-4926
-T ok <root>/std/http.nomi :: detect_content_type //! test line 5079
-T ok <root>/std/http.nomi :: format_time //! test lines 5087-5089
-T ok <root>/std/http.nomi :: impl / parse_header //! test lines 5152-5155
-T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 5165-5170
-T ok <root>/std/http.nomi :: impl / cookies //! test lines 5296-5305
-T ok <root>/std/http.nomi :: impl / to_string //! test lines 5335-5337
-T ok <root>/std/http.nomi :: chunked_reader //! test lines 5790-5794
-T ok <root>/std/http.nomi :: multipart_parts //! test lines 5836-5847
-T test result: ok. 76 passed, 0 failed
+T ok <root>/std/http.nomi :: impl / is_at_least //! test lines 675-678
+T ok <root>/std/http.nomi :: impl / parse //! test lines 686-690
+T ok <root>/std/http.nomi :: impl / form //! test lines 753-758
+T ok <root>/std/http.nomi :: impl / post_form //! test lines 771-789
+T ok <root>/std/http.nomi :: impl / multipart_form //! test lines 830-852
+T ok <root>/std/http.nomi :: impl / form_file //! test lines 868-886
+T ok <root>/std/http.nomi :: impl / text //! test lines 901-912
+T ok <root>/std/http.nomi :: impl / json_as //! test lines 928-951
+T ok <root>/std/http.nomi :: impl / cookies //! test lines 974-981
+T ok <root>/std/http.nomi :: impl / basic_auth //! test lines 1038-1045
+T ok <root>/std/http.nomi :: impl / read //! test lines 1082-1089
+T ok <root>/std/http.nomi :: impl / dump //! test lines 1134-1138
+T ok <root>/std/http.nomi :: impl / write_to //! test lines 1247-1251
+T ok <root>/std/http.nomi :: impl / set_cookie //! test lines 1286-1293
+T ok <root>/std/http.nomi :: impl / html //! test lines 1303-1312
+T ok <root>/std/http.nomi :: impl / json //! test lines 1322-1334
+T ok <root>/std/http.nomi :: impl / error //! test lines 1347-1351
+T ok <root>/std/http.nomi :: impl / redirect //! test lines 1369-1373
+T ok <root>/std/http.nomi :: impl / content //! test lines 1394-1410
+T ok <root>/std/http.nomi :: impl / with_headers //! test lines 1437-1442
+T ok <root>/std/http.nomi :: impl / with_default_headers //! test lines 1457-1465
+T ok <root>/std/http.nomi :: impl / json_as //! test lines 1499-1504
+T ok <root>/std/http.nomi :: ToResponse //! test lines 1543-1562
+T ok <root>/std/http.nomi :: impl //! test lines 1611-1621
+T ok <root>/std/http.nomi :: impl / to_string //! test lines 1850-1852
+T ok <root>/std/http.nomi :: impl / with_tls //! test lines 2062-2065
+T ok <root>/std/http.nomi :: stream //! test lines 2157-2171
+T ok <root>/std/http.nomi :: Route //! test lines 2800-2804
+T ok <root>/std/http.nomi :: impl / parse //! test lines 2817-2840
+T ok <root>/std/http.nomi :: impl / with_method //! test lines 2855-2869
+T ok <root>/std/http.nomi :: impl / path //! test lines 2893-2894
+T ok <root>/std/http.nomi :: impl / path_with //! test lines 2904-2906
+T ok <root>/std/http.nomi :: impl / to_with //! test lines 2948-2959
+T ok <root>/std/http.nomi :: Router //! test lines 3366-3386
+T ok <root>/std/http.nomi :: impl / new //! test lines 3399-3405
+T ok <root>/std/http.nomi :: strip_prefix //! test lines 3514-3522
+T ok <root>/std/http.nomi :: allow_query_semicolons //! test lines 3545-3554
+T ok <root>/std/http.nomi :: timeout //! test lines 3573-3592
+T ok <root>/std/http.nomi :: Origin //! test lines 3622-3626
+T ok <root>/std/http.nomi :: impl / parse //! test lines 3636-3640
+T ok <root>/std/http.nomi :: impl / check //! test lines 3705-3722
+T ok <root>/std/http.nomi :: cross_origin_protection //! test lines 3740-3752
+T ok <root>/std/http.nomi :: limit_body //! test lines 3791-3795
+T ok <root>/std/http.nomi :: wrap_routes //! test lines 3804-3827
+T ok <root>/std/http.nomi :: cors //! test lines 3887-3923
+T ok <root>/std/http.nomi :: log_requests //! test lines 4010-4029
+T ok <root>/std/http.nomi :: security_headers //! test lines 4100-4130
+T ok <root>/std/http.nomi :: request_id //! test lines 4161-4181
+T ok <root>/std/http.nomi :: compress //! test lines 4258-4282
+T ok <root>/std/http.nomi :: basic_auth //! test lines 4449-4477
+T ok <root>/std/http.nomi :: method_override //! test lines 4512-4534
+T ok <root>/std/http.nomi :: serve_file //! test lines 4585-4608
+T ok <root>/std/http.nomi :: file_server //! test lines 4703-4718
+T ok <root>/std/http.nomi :: serve_embedded //! test lines 4766-4813
+T ok <root>/std/http.nomi :: file_server_embedded //! test lines 4887-4920
+T ok <root>/std/http.nomi :: is_page_route //! test lines 4948-4962
+T ok <root>/std/http.nomi :: detect_content_type //! test line 5115
+T ok <root>/std/http.nomi :: format_time //! test lines 5123-5125
+T ok <root>/std/http.nomi :: impl / parse_header //! test lines 5193-5196
+T ok <root>/std/http.nomi :: impl / parse_set_cookie //! test lines 5206-5211
+T ok <root>/std/http.nomi :: impl / cookies //! test lines 5337-5346
+T ok <root>/std/http.nomi :: impl / to_string //! test lines 5376-5378
+T ok <root>/std/http.nomi :: chunked_reader //! test lines 5831-5835
+T ok <root>/std/http.nomi :: multipart_parts //! test lines 5877-5888
+T test result: ok. 77 passed, 0 failed
 T
 C http/testing
 E 0
 N 7
-H ede60dfa918270655316638ca998a94c2e64d5e5b0bb79b8685ffe56df1a8c69
+H 1bb9a4e8d84e01810a6b64c8b7e7c223b44ee63aabbd4bc3a7c332ef89095bec
 T ok <root>/std/http/testing.nomi :: run //! test lines 60-72
 T ok <root>/std/http/testing.nomi :: request //! test lines 86-112
 T ok <root>/std/http/testing.nomi :: form_request //! test lines 122-126
 T ok <root>/std/http/testing.nomi :: chunks //! test lines 140-152
 T ok <root>/std/http/testing.nomi :: decompressed //! test lines 185-193
 T ok <root>/std/http/testing.nomi :: with_server //! test lines 240-248
-T ok <root>/std/http/testing.nomi :: open_websocket //! test lines 315-341
+T ok <root>/std/http/testing.nomi :: open_websocket //! test lines 313-339
 T test result: ok. 7 passed, 0 failed
 T
 C instant
 E 0
 N 9
-H c221ba59b51c79d7ffca2a0802867417442b8a2ec3f7a533afecd76de0caf5c5
-T ok <root>/std/instant.nomi :: impl / from_seconds //! test line 33
-T ok <root>/std/instant.nomi :: impl / to_seconds //! test line 41
-T ok <root>/std/instant.nomi :: impl / from_nanos //! test line 54
-T ok <root>/std/instant.nomi :: impl / as_nanos //! test line 62
-T ok <root>/std/instant.nomi :: impl / between //! test line 69
-T ok <root>/std/instant.nomi :: impl / is_before //! test lines 76-77
-T ok <root>/std/instant.nomi :: impl / add //! test line 88
-T ok <root>/std/instant.nomi :: impl / subtract //! test line 97
-T ok <root>/std/instant.nomi :: impl / subtract //! test lines 107-108
+H a705895f0589276ebbf8cd40701a801bd38525f9f7a9a3d9c66524cf111fd050
+T ok <root>/std/instant.nomi :: impl / from_seconds //! test lines 36-37
+T ok <root>/std/instant.nomi :: impl / to_seconds //! test line 45
+T ok <root>/std/instant.nomi :: impl / from_nanos //! test lines 58-61
+T ok <root>/std/instant.nomi :: impl / as_nanos //! test line 69
+T ok <root>/std/instant.nomi :: impl / between //! test line 77
+T ok <root>/std/instant.nomi :: impl / is_before //! test lines 84-85
+T ok <root>/std/instant.nomi :: impl / add //! test lines 97-98
+T ok <root>/std/instant.nomi :: impl / subtract //! test line 108
+T ok <root>/std/instant.nomi :: impl / subtract //! test lines 118-123
 T test result: ok. 9 passed, 0 failed
 T
 C int
 E 0
-N 38
-H 79cb9e8e6761f28a9b862869bf50fb62a2db1e28fca81d6a76e4d9d376991710
-T ok <root>/std/int.nomi :: Int //! test lines 103-104
-T ok <root>/std/int.nomi :: impl / to_float //! test lines 112-114
-T ok <root>/std/int.nomi :: impl / to_decimal //! test lines 119-121
-T ok <root>/std/int.nomi :: impl / to_byte //! test lines 126-130
-T ok <root>/std/int.nomi :: impl / to_codepoint //! test lines 137-139
-T ok <root>/std/int.nomi :: impl / wrapping_add //! test lines 148-149
-T ok <root>/std/int.nomi :: impl / wrapping_sub //! test line 154
-T ok <root>/std/int.nomi :: impl / wrapping_mul //! test line 159
-T ok <root>/std/int.nomi :: impl / bit_count //! test lines 167-169
-T ok <root>/std/int.nomi :: impl / bit_length //! test lines 180-187
-T ok <root>/std/int.nomi :: impl / modulo //! test lines 198-203
-T ok <root>/std/int.nomi :: impl / floor_div //! test lines 218-223
-T ok <root>/std/int.nomi :: impl / abs //! test lines 233-235
-T ok <root>/std/int.nomi :: impl / sign //! test lines 242-244
-T ok <root>/std/int.nomi :: impl / pow //! test lines 258-262
-T ok <root>/std/int.nomi :: impl / sqrt //! test lines 270-274
-T ok <root>/std/int.nomi :: impl / gcd //! test lines 281-285
-T ok <root>/std/int.nomi :: impl / lcm //! test lines 291-293
-T ok <root>/std/int.nomi :: impl / to_digits //! test lines 301-305
-T ok <root>/std/int.nomi :: impl / from_digits //! test lines 315-322
-T ok <root>/std/int.nomi :: impl / format //! test lines 334-345
-T ok <root>/std/int.nomi :: impl / parse_in //! test lines 357-370
-T ok <root>/std/int.nomi :: impl / to_string //! test lines 392-394
-T ok <root>/std/int.nomi :: impl / empty_sum //! test lines 405-406
-T ok <root>/std/int.nomi :: impl / empty_product //! test lines 423-424
-T ok <root>/std/int.nomi :: impl / divide //! test lines 435-438
-T ok <root>/std/int.nomi :: impl / remainder //! test lines 448-451
-T ok <root>/std/int.nomi :: impl / bitwise_and //! test lines 464-467
-T ok <root>/std/int.nomi :: impl / bitwise_or //! test lines 474-476
-T ok <root>/std/int.nomi :: impl / bitwise_xor //! test lines 484-486
-T ok <root>/std/int.nomi :: impl / bitwise_not //! test lines 494-496
-T ok <root>/std/int.nomi :: impl / shift_left //! test lines 504-506
-T ok <root>/std/int.nomi :: impl / shift_right //! test lines 516-519
-T ok <root>/std/int.nomi :: impl / inspect //! test line 527
-T ok <root>/std/int.nomi :: NonZeroInt //! test lines 580-583
-T ok <root>/std/int.nomi :: NonNegativeInt //! test lines 590-593
-T ok <root>/std/int.nomi :: PositiveInt //! test lines 600-605
-T ok <root>/std/int.nomi :: Radix //! test lines 612-613
-T test result: ok. 38 passed, 0 failed
+N 39
+H 17554c5790fcabd8916a8fad95950dd6711eab79741dbc8b065462a41084907e
+T ok <root>/std/int.nomi :: Int //! test lines 106-107
+T ok <root>/std/int.nomi :: impl / to_float //! test lines 115-117
+T ok <root>/std/int.nomi :: impl / to_decimal //! test lines 122-124
+T ok <root>/std/int.nomi :: impl / to_byte //! test lines 129-133
+T ok <root>/std/int.nomi :: impl / to_codepoint //! test lines 140-142
+T ok <root>/std/int.nomi :: impl / wrapping_add //! test lines 151-152
+T ok <root>/std/int.nomi :: impl / wrapping_sub //! test line 157
+T ok <root>/std/int.nomi :: impl / wrapping_mul //! test line 162
+T ok <root>/std/int.nomi :: impl / bit_count //! test lines 171-174
+T ok <root>/std/int.nomi :: impl / bit_length //! test lines 185-192
+T ok <root>/std/int.nomi :: impl / modulo //! test lines 204-209
+T ok <root>/std/int.nomi :: impl / floor_div //! test lines 224-229
+T ok <root>/std/int.nomi :: impl / abs //! test lines 239-241
+T ok <root>/std/int.nomi :: impl / sign //! test lines 248-250
+T ok <root>/std/int.nomi :: impl / pow //! test lines 264-268
+T ok <root>/std/int.nomi :: impl / sqrt //! test lines 276-280
+T ok <root>/std/int.nomi :: impl / gcd //! test lines 287-291
+T ok <root>/std/int.nomi :: impl / lcm //! test lines 297-299
+T ok <root>/std/int.nomi :: impl / to_digits //! test lines 307-311
+T ok <root>/std/int.nomi :: impl / from_digits //! test lines 321-328
+T ok <root>/std/int.nomi :: impl / format //! test lines 340-352
+T ok <root>/std/int.nomi :: impl / parse_in //! test lines 364-377
+T ok <root>/std/int.nomi :: impl / to_string //! test lines 399-401
+T ok <root>/std/int.nomi :: impl / empty_sum //! test lines 412-413
+T ok <root>/std/int.nomi :: impl / empty_product //! test lines 430-431
+T ok <root>/std/int.nomi :: impl / divide //! test lines 442-445
+T ok <root>/std/int.nomi :: impl / remainder //! test lines 455-458
+T ok <root>/std/int.nomi :: impl / bitwise_and //! test lines 471-474
+T ok <root>/std/int.nomi :: impl / bitwise_or //! test lines 481-483
+T ok <root>/std/int.nomi :: impl / bitwise_xor //! test lines 491-493
+T ok <root>/std/int.nomi :: impl / bitwise_not //! test lines 501-503
+T ok <root>/std/int.nomi :: impl / shift_left //! test lines 511-513
+T ok <root>/std/int.nomi :: impl / shift_right //! test lines 523-526
+T ok <root>/std/int.nomi :: impl / inspect //! test line 534
+T ok <root>/std/int.nomi :: NonZeroInt //! test lines 587-590
+T ok <root>/std/int.nomi :: NonNegativeInt //! test lines 597-600
+T ok <root>/std/int.nomi :: PositiveInt //! test lines 607-612
+T ok <root>/std/int.nomi :: Radix //! test lines 619-620
+T ok <root>/std/int.nomi :: Int64 //! test lines 631-634
+T test result: ok. 39 passed, 0 failed
 T
 C io
 E 0
 N 33
-H 35216bbb3bc3949c2d64666d587cf0bd568d1e73940231ad1b24f751136f4040
+H 1f0773bbca40831c9f833e5a7057395df947b92e2b0b03c081e5bf97bebb861c
 T ok <root>/std/io.nomi :: Error //! test lines 112-119
-T ok <root>/std/io.nomi :: eprint //! test lines 284-290
-T ok <root>/std/io.nomi :: ewrite //! test lines 300-305
-T ok <root>/std/io.nomi :: read_line //! test lines 325-326
-T ok <root>/std/io.nomi :: lines //! test lines 345-350
-T ok <root>/std/io.nomi :: stdout //! test lines 374-379
-T ok <root>/std/io.nomi :: impl / read_line //! test lines 405-419
-T ok <root>/std/io.nomi :: impl / read //! test lines 434-437
-T ok <root>/std/io.nomi :: impl / read_all //! test lines 448-451
-T ok <root>/std/io.nomi :: impl / read_all_text //! test lines 462-468
-T ok <root>/std/io.nomi :: impl / lines //! test lines 485-496
-T ok <root>/std/io.nomi :: impl / chunks //! test lines 519-525
-T ok <root>/std/io.nomi :: impl / copy_to //! test lines 545-549
-T ok <root>/std/io.nomi :: impl / close //! test lines 559-562
-T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 575-578
-T ok <root>/std/io.nomi :: impl / from_bytes //! test lines 590-591
-T ok <root>/std/io.nomi :: impl / from_text //! test lines 600-601
-T ok <root>/std/io.nomi :: impl / from_fn //! test lines 616-623
-T ok <root>/std/io.nomi :: impl / from_chunks //! test lines 634-641
-T ok <root>/std/io.nomi :: impl / from_text_chunks //! test lines 651-656
-T ok <root>/std/io.nomi :: impl / write //! test lines 677-681
-T ok <root>/std/io.nomi :: impl / write_text //! test lines 690-693
-T ok <root>/std/io.nomi :: impl / print //! test lines 703-712
-T ok <root>/std/io.nomi :: impl / flush //! test lines 724-726
-T ok <root>/std/io.nomi :: impl / close //! test lines 738-740
-T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 755-758
-T ok <root>/std/io.nomi :: impl / discard //! test lines 786-799
-T ok <root>/std/io.nomi :: impl / write_all //! test lines 810-815
-T ok <root>/std/io.nomi :: impl / write_lines //! test lines 833-844
-T ok <root>/std/io.nomi :: impl / from_fn //! test lines 875-889
-T ok <root>/std/io.nomi :: impl / collect //! test lines 908-918
-T ok <root>/std/io.nomi :: capture //! test lines 1102-1125
-T ok <root>/std/io.nomi :: replay //! test lines 1252-1356
+T ok <root>/std/io.nomi :: eprint //! test lines 285-291
+T ok <root>/std/io.nomi :: ewrite //! test lines 301-306
+T ok <root>/std/io.nomi :: read_line //! test lines 326-327
+T ok <root>/std/io.nomi :: lines //! test lines 346-351
+T ok <root>/std/io.nomi :: stdout //! test lines 375-380
+T ok <root>/std/io.nomi :: impl / read_line //! test lines 406-420
+T ok <root>/std/io.nomi :: impl / read //! test lines 435-438
+T ok <root>/std/io.nomi :: impl / read_all //! test lines 449-452
+T ok <root>/std/io.nomi :: impl / read_all_text //! test lines 463-469
+T ok <root>/std/io.nomi :: impl / lines //! test lines 486-497
+T ok <root>/std/io.nomi :: impl / chunks //! test lines 520-526
+T ok <root>/std/io.nomi :: impl / copy_to //! test lines 546-550
+T ok <root>/std/io.nomi :: impl / close //! test lines 560-563
+T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 576-579
+T ok <root>/std/io.nomi :: impl / from_bytes //! test lines 591-592
+T ok <root>/std/io.nomi :: impl / from_text //! test lines 601-602
+T ok <root>/std/io.nomi :: impl / from_fn //! test lines 617-624
+T ok <root>/std/io.nomi :: impl / from_chunks //! test lines 635-642
+T ok <root>/std/io.nomi :: impl / from_text_chunks //! test lines 652-657
+T ok <root>/std/io.nomi :: impl / write //! test lines 678-682
+T ok <root>/std/io.nomi :: impl / write_text //! test lines 691-694
+T ok <root>/std/io.nomi :: impl / print //! test lines 704-713
+T ok <root>/std/io.nomi :: impl / flush //! test lines 725-727
+T ok <root>/std/io.nomi :: impl / close //! test lines 739-741
+T ok <root>/std/io.nomi :: impl / close_quietly //! test lines 756-759
+T ok <root>/std/io.nomi :: impl / discard //! test lines 787-800
+T ok <root>/std/io.nomi :: impl / write_all //! test lines 811-816
+T ok <root>/std/io.nomi :: impl / write_lines //! test lines 834-845
+T ok <root>/std/io.nomi :: impl / from_fn //! test lines 876-890
+T ok <root>/std/io.nomi :: impl / collect //! test lines 909-919
+T ok <root>/std/io.nomi :: capture //! test lines 1114-1137
+T ok <root>/std/io.nomi :: replay //! test lines 1264-1368
 T test result: ok. 33 passed, 0 failed
 T
 C iter
 E 0
 N 63
-H 72d7c11b606e7d0e0793cec6241bdec01d6a7fc6246953f838cd279501d97ca3
+H 268d0fd470adacdcff543199e1fb38415142be628e3e5acd74023d128a97eccc
 T ok <root>/std/iter.nomi :: impl / loop //! test lines 280-298
 T ok <root>/std/iter.nomi :: impl / reduce //! test lines 324-326
 T ok <root>/std/iter.nomi :: impl / scan //! test lines 340-344
@@ -743,135 +755,137 @@ T ok <root>/std/iter.nomi :: impl / drop //! test line 909
 T ok <root>/std/iter.nomi :: impl / drop_while //! test line 917
 T ok <root>/std/iter.nomi :: impl / flat_map //! test lines 925-928
 T ok <root>/std/iter.nomi :: impl / chunks //! test lines 937-938
-T ok <root>/std/iter.nomi :: impl / windows //! test lines 951-961
-T ok <root>/std/iter.nomi :: impl / chunk_by //! test lines 979-984
-T ok <root>/std/iter.nomi :: impl / chunk_equal //! test lines 1001-1003
-T ok <root>/std/iter.nomi :: impl / permutations //! test lines 1017-1027
-T ok <root>/std/iter.nomi :: impl / combinations //! test lines 1040-1050
-T ok <root>/std/iter.nomi :: impl / from //! test lines 1064-1065
-T ok <root>/std/iter.nomi :: impl / repeat //! test lines 1073-1074
-T ok <root>/std/iter.nomi :: impl / iterate //! test lines 1091-1105
-T ok <root>/std/iter.nomi :: impl / to_map //! test line 1114
-T ok <root>/std/iter.nomi :: impl / flatten //! test lines 1123-1124
-T ok <root>/std/iter.nomi :: impl / transpose //! test lines 1137-1141
-T ok <root>/std/iter.nomi :: impl / reverse //! test line 1158
-T ok <root>/std/iter.nomi :: impl / count //! test lines 1175-1176
-T ok <root>/std/iter.nomi :: impl / count_by //! test lines 1190-1194
-T ok <root>/std/iter.nomi :: impl / min //! test lines 1203-1205
-T ok <root>/std/iter.nomi :: impl / max //! test lines 1219-1221
-T ok <root>/std/iter.nomi :: impl / min_by //! test lines 1236-1237
-T ok <root>/std/iter.nomi :: impl / max_by //! test lines 1256-1257
-T ok <root>/std/iter.nomi :: impl / sum //! test lines 1282-1288
-T ok <root>/std/iter.nomi :: impl / sum_by //! test lines 1301-1306
-T ok <root>/std/iter.nomi :: impl / mean //! test lines 1321-1328
-T ok <root>/std/iter.nomi :: impl / mean_by //! test lines 1345-1350
-T ok <root>/std/iter.nomi :: impl / product //! test lines 1370-1375
-T ok <root>/std/iter.nomi :: impl / product_by //! test lines 1389-1393
+T ok <root>/std/iter.nomi :: impl / windows //! test lines 951-960
+T ok <root>/std/iter.nomi :: impl / chunk_by //! test lines 974-979
+T ok <root>/std/iter.nomi :: impl / chunk_equal //! test lines 996-998
+T ok <root>/std/iter.nomi :: impl / permutations //! test lines 1012-1022
+T ok <root>/std/iter.nomi :: impl / combinations //! test lines 1035-1045
+T ok <root>/std/iter.nomi :: impl / from //! test lines 1059-1060
+T ok <root>/std/iter.nomi :: impl / repeat //! test lines 1068-1069
+T ok <root>/std/iter.nomi :: impl / iterate //! test lines 1086-1100
+T ok <root>/std/iter.nomi :: impl / to_map //! test line 1109
+T ok <root>/std/iter.nomi :: impl / flatten //! test lines 1118-1119
+T ok <root>/std/iter.nomi :: impl / transpose //! test lines 1132-1136
+T ok <root>/std/iter.nomi :: impl / reverse //! test line 1153
+T ok <root>/std/iter.nomi :: impl / count //! test lines 1170-1171
+T ok <root>/std/iter.nomi :: impl / count_by //! test lines 1185-1189
+T ok <root>/std/iter.nomi :: impl / min //! test lines 1198-1200
+T ok <root>/std/iter.nomi :: impl / max //! test lines 1214-1216
+T ok <root>/std/iter.nomi :: impl / min_by //! test lines 1231-1232
+T ok <root>/std/iter.nomi :: impl / max_by //! test lines 1251-1252
+T ok <root>/std/iter.nomi :: impl / sum //! test lines 1277-1283
+T ok <root>/std/iter.nomi :: impl / sum_by //! test lines 1296-1301
+T ok <root>/std/iter.nomi :: impl / mean //! test lines 1316-1323
+T ok <root>/std/iter.nomi :: impl / mean_by //! test lines 1340-1345
+T ok <root>/std/iter.nomi :: impl / product //! test lines 1365-1370
+T ok <root>/std/iter.nomi :: impl / product_by //! test lines 1384-1388
 T test result: ok. 63 passed, 0 failed
 T
 C jobs
 E 0
 N 15
-H a9be9b57e5d780611793bcd9af0b89d721863ed30d371bba8d9f99d54317ed09
+H 5fd90eac19178225aeb6ec5e5acd21d5b12b73adf7ed78f0f75250b15b058234
 T ok <root>/std/jobs.nomi :: impl / new //! test lines 189-194
 T ok <root>/std/jobs.nomi :: impl / renamed_from //! test lines 209-212
 T ok <root>/std/jobs.nomi :: Failure //! test line 227
 T ok <root>/std/jobs.nomi :: enqueue //! test lines 272-280
-T ok <root>/std/jobs.nomi :: impl / key_for //! test lines 331-334
-T ok <root>/std/jobs.nomi :: impl / every //! test lines 400-404
-T ok <root>/std/jobs.nomi :: impl / cron //! test lines 419-427
-T ok <root>/std/jobs.nomi :: Cron //! test lines 486-487
-T ok <root>/std/jobs.nomi :: impl / parse //! test lines 533-546
-T ok <root>/std/jobs.nomi :: impl / next_after //! test lines 614-618
-T ok <root>/std/jobs.nomi :: run_one //! test lines 1294-1296
-T ok <root>/std/jobs.nomi :: backoff //! test lines 1328-1329
-T ok <root>/std/jobs.nomi :: settle_for //! test lines 1339-1358
-T ok <root>/std/jobs.nomi :: handlers_by_kind //! test lines 1384-1387
-T ok <root>/std/jobs.nomi :: enqueue_due //! test lines 1414-1424
+T ok <root>/std/jobs.nomi :: impl / key_for //! test lines 335-338
+T ok <root>/std/jobs.nomi :: impl / every //! test lines 408-412
+T ok <root>/std/jobs.nomi :: impl / cron //! test lines 429-438
+T ok <root>/std/jobs.nomi :: Cron //! test lines 498-499
+T ok <root>/std/jobs.nomi :: impl / parse //! test lines 545-558
+T ok <root>/std/jobs.nomi :: impl / next_after //! test lines 626-630
+T ok <root>/std/jobs.nomi :: run_one //! test lines 1320-1322
+T ok <root>/std/jobs.nomi :: backoff //! test lines 1354-1355
+T ok <root>/std/jobs.nomi :: settle_for //! test lines 1365-1384
+T ok <root>/std/jobs.nomi :: handlers_by_kind //! test lines 1410-1413
+T ok <root>/std/jobs.nomi :: enqueue_due //! test lines 1440-1450
 T test result: ok. 15 passed, 0 failed
 T
 C jobs/testing
 E 0
 N 5
-H cdd4dded9932b5f4ea03bb3e59d6d4c54df356ef722b5e357ed3d12b68e9e490
+H 50cfa3a6dc9bd8aa4a517cb97921edbf641ee2e3651376b0f48a0f920a5717f9
 T ok <root>/std/jobs/testing.nomi :: Inline //! test lines 94-97
-T ok <root>/std/jobs/testing.nomi :: run_queued //! test lines 408-430
-T ok <root>/std/jobs/testing.nomi :: decodes //! test lines 471-473
-T ok <root>/std/jobs/testing.nomi :: conformance //! test lines 519-521
-T ok <root>/std/jobs/testing.nomi :: rules //! test line 545
+T ok <root>/std/jobs/testing.nomi :: run_queued //! test lines 409-431
+T ok <root>/std/jobs/testing.nomi :: decodes //! test lines 472-474
+T ok <root>/std/jobs/testing.nomi :: conformance //! test lines 520-522
+T ok <root>/std/jobs/testing.nomi :: rules //! test line 546
 T test result: ok. 5 passed, 0 failed
 T
 C json
 E 0
-N 18
-H 2d278429976f5c27b9a4470ea5899719553bc1f64ff1bdbc4c27a1708fdd7345
-T ok <root>/std/json.nomi :: impl / decode //! test lines 56-62
-T ok <root>/std/json.nomi :: impl / encode //! test lines 72-75
-T ok <root>/std/json.nomi :: impl / to_dynamic //! test lines 81-82
-T ok <root>/std/json.nomi :: impl / decode_as //! test lines 90-101
-T ok <root>/std/json.nomi :: impl / encode_as //! test lines 119-125
-T ok <root>/std/json.nomi :: ToJson //! test lines 357-358
-T ok <root>/std/json.nomi :: FromJson //! test lines 379-386
-T ok <root>/std/json.nomi :: impl / from_json //! test lines 452-453
-T ok <root>/std/json.nomi :: impl / to_json //! test lines 636-639
-T ok <root>/std/json.nomi :: impl / from_json //! test lines 656-663
-T ok <root>/std/json.nomi :: impl / to_json //! test line 682
-T ok <root>/std/json.nomi :: impl / from_json //! test lines 691-696
-T ok <root>/std/json.nomi :: impl / to_json //! test lines 714-715
-T ok <root>/std/json.nomi :: impl / from_json //! test lines 724-729
-T ok <root>/std/json.nomi :: impl / to_json //! test line 747
-T ok <root>/std/json.nomi :: impl / from_json //! test lines 756-761
-T ok <root>/std/json.nomi :: impl / to_json //! test line 779
-T ok <root>/std/json.nomi :: impl / from_json //! test lines 790-802
-T test result: ok. 18 passed, 0 failed
+N 19
+H 8906145d2b0b4eee9ad34b67369e8a0e5be89d6207b3f9c74cf5002432d736c2
+T ok <root>/std/json.nomi :: JsonObject //! test lines 51-55
+T ok <root>/std/json.nomi :: impl / decode //! test lines 84-90
+T ok <root>/std/json.nomi :: impl / encode //! test lines 100-103
+T ok <root>/std/json.nomi :: impl / to_dynamic //! test lines 109-110
+T ok <root>/std/json.nomi :: impl / decode_as //! test lines 118-129
+T ok <root>/std/json.nomi :: impl / encode_as //! test lines 147-153
+T ok <root>/std/json.nomi :: ToJson //! test lines 385-386
+T ok <root>/std/json.nomi :: FromJson //! test lines 407-414
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 480-481
+T ok <root>/std/json.nomi :: impl / to_json //! test lines 664-667
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 677-684
+T ok <root>/std/json.nomi :: impl / to_json //! test line 703
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 712-717
+T ok <root>/std/json.nomi :: impl / to_json //! test lines 735-736
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 745-750
+T ok <root>/std/json.nomi :: impl / to_json //! test line 768
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 777-782
+T ok <root>/std/json.nomi :: impl / to_json //! test line 800
+T ok <root>/std/json.nomi :: impl / from_json //! test lines 811-823
+T test result: ok. 19 passed, 0 failed
 T
 C jwt
 E 0
-N 5
-H 45545f3be41cedfd89556d4fb9defc3403c9ae01f692f6d9b0fa8ffd3fda4bb2
-T ok <root>/std/jwt.nomi :: impl / hs256 //! test lines 105-108
-T ok <root>/std/jwt.nomi :: impl / eddsa //! test lines 131-138
-T ok <root>/std/jwt.nomi :: sign //! test lines 278-286
-T ok <root>/std/jwt.nomi :: verify //! test lines 324-344
-T ok <root>/std/jwt.nomi :: verify_as //! test lines 375-382
-T test result: ok. 5 passed, 0 failed
+N 6
+H 49646a8e62b3df0cfd23fe883e1077a6a171117cd9eca78704e5fc9fbfd0d62b
+T ok <root>/std/jwt.nomi :: impl / hs256 //! test lines 107-110
+T ok <root>/std/jwt.nomi :: impl / eddsa //! test lines 133-140
+T ok <root>/std/jwt.nomi :: sign //! test lines 280-288
+T ok <root>/std/jwt.nomi :: sign_as //! test lines 309-315
+T ok <root>/std/jwt.nomi :: verify //! test lines 325-345
+T ok <root>/std/jwt.nomi :: verify_as //! test lines 376-384
+T test result: ok. 6 passed, 0 failed
 T
 C lists
 E 0
 N 32
-H f980995a687817fce078fd689e478625dcd1850c7f5e0bbc8fb39b48afb44348
+H 714e922c3a30d5c8ecaf5f36ca2b94528b1179a361d17f56c8a2bfba93794a05
 T ok <root>/std/lists.nomi :: List //! test lines 78-98
 T ok <root>/std/lists.nomi :: impl / next_item //! test lines 112-113
 T ok <root>/std/lists.nomi :: impl / length //! test lines 121-122
 T ok <root>/std/lists.nomi :: impl / concat //! test line 129
 T ok <root>/std/lists.nomi :: impl / first //! test lines 136-137
 T ok <root>/std/lists.nomi :: impl / tail //! test lines 147-148
-T ok <root>/std/lists.nomi :: impl / remove_at //! test lines 161-162
-T ok <root>/std/lists.nomi :: impl / remove //! test lines 168-169
-T ok <root>/std/lists.nomi :: impl / starts_with //! test lines 181-184
-T ok <root>/std/lists.nomi :: impl / ends_with //! test lines 202-205
-T ok <root>/std/lists.nomi :: impl / split_while //! test lines 222-224
-T ok <root>/std/lists.nomi :: impl / contains //! test lines 269-271
-T ok <root>/std/lists.nomi :: impl / empty_sum //! test lines 284-287
-T ok <root>/std/lists.nomi :: NonEmptyList //! test lines 369-376
-T ok <root>/std/lists.nomi :: impl / of //! test lines 383-384
-T ok <root>/std/lists.nomi :: impl / first //! test line 391
-T ok <root>/std/lists.nomi :: impl / last //! test line 398
-T ok <root>/std/lists.nomi :: impl / tail //! test lines 405-406
-T ok <root>/std/lists.nomi :: impl / length //! test line 413
-T ok <root>/std/lists.nomi :: impl / max //! test line 420
-T ok <root>/std/lists.nomi :: impl / min //! test line 427
-T ok <root>/std/lists.nomi :: impl / max_by //! test line 434
-T ok <root>/std/lists.nomi :: impl / min_by //! test line 441
-T ok <root>/std/lists.nomi :: impl / mean //! test lines 449-450
-T ok <root>/std/lists.nomi :: impl / reduce //! test lines 458-459
-T ok <root>/std/lists.nomi :: impl / map //! test line 466
-T ok <root>/std/lists.nomi :: impl / with_index //! test line 476
-T ok <root>/std/lists.nomi :: impl / reverse //! test line 486
-T ok <root>/std/lists.nomi :: impl / sort //! test line 493
-T ok <root>/std/lists.nomi :: impl / prepend //! test lines 500-501
-T ok <root>/std/lists.nomi :: impl / push //! test lines 508-509
-T ok <root>/std/lists.nomi :: impl / concat //! test lines 516-517
+T ok <root>/std/lists.nomi :: impl / remove_at //! test lines 162-164
+T ok <root>/std/lists.nomi :: impl / remove //! test lines 170-171
+T ok <root>/std/lists.nomi :: impl / starts_with //! test lines 183-186
+T ok <root>/std/lists.nomi :: impl / ends_with //! test lines 204-207
+T ok <root>/std/lists.nomi :: impl / split_while //! test lines 224-226
+T ok <root>/std/lists.nomi :: impl / contains //! test lines 271-273
+T ok <root>/std/lists.nomi :: impl / empty_sum //! test lines 286-289
+T ok <root>/std/lists.nomi :: NonEmptyList //! test lines 371-378
+T ok <root>/std/lists.nomi :: impl / of //! test lines 385-386
+T ok <root>/std/lists.nomi :: impl / first //! test line 393
+T ok <root>/std/lists.nomi :: impl / last //! test line 400
+T ok <root>/std/lists.nomi :: impl / tail //! test lines 407-408
+T ok <root>/std/lists.nomi :: impl / length //! test line 415
+T ok <root>/std/lists.nomi :: impl / max //! test line 422
+T ok <root>/std/lists.nomi :: impl / min //! test line 429
+T ok <root>/std/lists.nomi :: impl / max_by //! test line 436
+T ok <root>/std/lists.nomi :: impl / min_by //! test line 443
+T ok <root>/std/lists.nomi :: impl / mean //! test lines 451-452
+T ok <root>/std/lists.nomi :: impl / reduce //! test lines 460-461
+T ok <root>/std/lists.nomi :: impl / map //! test line 468
+T ok <root>/std/lists.nomi :: impl / with_index //! test line 478
+T ok <root>/std/lists.nomi :: impl / reverse //! test line 488
+T ok <root>/std/lists.nomi :: impl / sort //! test line 495
+T ok <root>/std/lists.nomi :: impl / prepend //! test lines 502-503
+T ok <root>/std/lists.nomi :: impl / push //! test lines 510-511
+T ok <root>/std/lists.nomi :: impl / concat //! test lines 518-519
 T test result: ok. 32 passed, 0 failed
 T
 C literals
@@ -910,24 +924,24 @@ T
 C localize
 E 0
 N 3
-H fa2f16cb302644d139883ea77f23fcb4bbce1e09e96591842242cc09a02eef9a
-T ok <root>/std/localize.nomi :: Localize //! test lines 34-35
-T ok <root>/std/localize.nomi :: NumberParseError //! test lines 68-71
-T ok <root>/std/localize.nomi :: impl / to_string //! test lines 95-98
+H 85baca2c00f0fc26a0d4dd428d85a8351cb4e9816fed393f187a0373b2b7e2f0
+T ok <root>/std/localize.nomi :: Localize //! test lines 35-36
+T ok <root>/std/localize.nomi :: NumberParseError //! test lines 70-73
+T ok <root>/std/localize.nomi :: impl / to_string //! test lines 97-100
 T test result: ok. 3 passed, 0 failed
 T
 C log
 E 0
 N 8
-H c801c4a4b9c1acb50416bd35f74bb29b187fc6670f23a1d51126c4dc28d0a601
-T ok <root>/std/log.nomi :: impl / rank //! test line 63
-T ok <root>/std/log.nomi :: impl / is_at_least //! test lines 75-76
-T ok <root>/std/log.nomi :: impl / to_string //! test line 84
-T ok <root>/std/log.nomi :: string //! test line 115
-T ok <root>/std/log.nomi :: any //! test line 137
-T ok <root>/std/log.nomi :: impl / text //! test lines 166-170
-T ok <root>/std/log.nomi :: impl / json //! test lines 179-183
-T ok <root>/std/log.nomi :: impl / is_enabled //! test line 219
+H b3660f5b695dfb811654f334dd2fa1e95b68923b081697ba97c43632578660bf
+T ok <root>/std/log.nomi :: impl / rank //! test line 62
+T ok <root>/std/log.nomi :: impl / is_at_least //! test lines 74-75
+T ok <root>/std/log.nomi :: impl / to_string //! test line 83
+T ok <root>/std/log.nomi :: string //! test line 114
+T ok <root>/std/log.nomi :: any //! test line 136
+T ok <root>/std/log.nomi :: impl / text //! test lines 165-169
+T ok <root>/std/log.nomi :: impl / json //! test lines 178-182
+T ok <root>/std/log.nomi :: impl / is_enabled //! test line 218
 T test result: ok. 8 passed, 0 failed
 T
 C log/testing
@@ -940,17 +954,17 @@ T
 C mail
 E 0
 N 10
-H 31694e3458cc9ce1c8baa7d2247e22618ff9499f30c722edbc6ddbfde51d61e4
+H 79e427f408a8e374102559c7b3878b15398a51a209d4feba0e0c19012bf5d5f0
 T ok <root>/std/mail.nomi :: Address //! test lines 112-115
 T ok <root>/std/mail.nomi :: impl / new //! test lines 127-136
 T ok <root>/std/mail.nomi :: impl / parse //! test lines 148-150
 T ok <root>/std/mail.nomi :: impl / is_temporary //! test lines 345-347
 T ok <root>/std/mail.nomi :: impl / to_string //! test lines 359-360
-T ok <root>/std/mail.nomi :: smtp //! test lines 433-477
-T ok <root>/std/mail.nomi :: render //! test lines 847-883
-T ok <root>/std/mail.nomi :: quoted_printable //! test lines 1036-1038
-T ok <root>/std/mail.nomi :: encoded_words //! test line 1057
-T ok <root>/std/mail.nomi :: rfc5322_date //! test lines 1139-1142
+T ok <root>/std/mail.nomi :: smtp //! test lines 435-479
+T ok <root>/std/mail.nomi :: render //! test lines 849-885
+T ok <root>/std/mail.nomi :: quoted_printable //! test lines 1038-1040
+T ok <root>/std/mail.nomi :: encoded_words //! test line 1059
+T ok <root>/std/mail.nomi :: rfc5322_date //! test lines 1141-1144
 T test result: ok. 10 passed, 0 failed
 T
 C mail/testing
@@ -1027,41 +1041,42 @@ T test result: ok. 14 passed, 0 failed
 T
 C money
 E 0
-N 21
-H 71bdaa324f84c7949f6c9b8f16b8db7779c2ac7ab3326d706e372a4d8ab5ba86
-T ok <root>/std/money.nomi :: Money //! test lines 58-61
-T ok <root>/std/money.nomi :: impl / to_string //! test lines 91-93
-T ok <root>/std/money.nomi :: impl / format //! test lines 158-173
-T ok <root>/std/money.nomi :: impl / round //! test lines 199-202
-T ok <root>/std/money.nomi :: impl / multiply_by //! test lines 221-230
-T ok <root>/std/money.nomi :: impl / abs //! test lines 241-242
-T ok <root>/std/money.nomi :: impl / negate //! test line 250
-T ok <root>/std/money.nomi :: impl / sign //! test lines 258-260
-T ok <root>/std/money.nomi :: impl / is_zero //! test lines 267-268
-T ok <root>/std/money.nomi :: impl / min //! test line 278
-T ok <root>/std/money.nomi :: impl / max //! test line 287
-T ok <root>/std/money.nomi :: impl / parse //! test lines 302-309
-T ok <root>/std/money.nomi :: impl / parse_in //! test lines 343-352
-T ok <root>/std/money.nomi :: impl / split //! test lines 369-372
-T ok <root>/std/money.nomi :: impl / allocate //! test lines 394-404
-T ok <root>/std/money.nomi :: impl / add //! test line 440
-T ok <root>/std/money.nomi :: impl / subtract //! test line 457
-T ok <root>/std/money.nomi :: impl / multiply //! test line 471
-T ok <root>/std/money.nomi :: impl / empty_sum //! test lines 483-488
-T ok <root>/std/money.nomi :: impl / from_fragments //! test lines 518-521
-T ok <root>/std/money.nomi :: impl / to_string //! test lines 548-549
-T test result: ok. 21 passed, 0 failed
+N 22
+H d208ee2065d7e7aa5372d3ce8836fe7925ec01d36ce826fb5ac7caddd2a8c1d0
+T ok <root>/std/money.nomi :: Money //! test lines 57-60
+T ok <root>/std/money.nomi :: impl / to_string //! test lines 102-103
+T ok <root>/std/money.nomi :: impl / to_string //! test lines 112-114
+T ok <root>/std/money.nomi :: impl / format //! test lines 179-194
+T ok <root>/std/money.nomi :: impl / round //! test lines 220-223
+T ok <root>/std/money.nomi :: impl / multiply_by //! test lines 242-251
+T ok <root>/std/money.nomi :: impl / abs //! test lines 262-263
+T ok <root>/std/money.nomi :: impl / negate //! test line 271
+T ok <root>/std/money.nomi :: impl / sign //! test lines 279-281
+T ok <root>/std/money.nomi :: impl / is_zero //! test lines 288-289
+T ok <root>/std/money.nomi :: impl / min //! test lines 299-302
+T ok <root>/std/money.nomi :: impl / max //! test line 312
+T ok <root>/std/money.nomi :: impl / add //! test lines 324-327
+T ok <root>/std/money.nomi :: impl / subtract //! test lines 336-337
+T ok <root>/std/money.nomi :: impl / sum //! test lines 348-355
+T ok <root>/std/money.nomi :: impl / parse //! test lines 379-386
+T ok <root>/std/money.nomi :: impl / parse_in //! test lines 420-429
+T ok <root>/std/money.nomi :: impl / split //! test lines 446-449
+T ok <root>/std/money.nomi :: impl / allocate //! test lines 472-482
+T ok <root>/std/money.nomi :: impl / multiply //! test line 499
+T ok <root>/std/money.nomi :: impl / from_fragments //! test lines 529-532
+T ok <root>/std/money.nomi :: impl / to_string //! test lines 559-560
+T test result: ok. 22 passed, 0 failed
 T
 C net
 E 0
 N 6
-H 46d9fd7f1ca135bb5a3eaac59e584c54144bfbaef1f107cb219c7efcac9ad075
-T ok <root>/std/net.nomi :: impl / to_string //! test line 261
-T ok <root>/std/net.nomi :: pipe //! test lines 308-310
-T ok <root>/std/net.nomi :: split_host_port //! test line 321
-T ok <root>/std/net.nomi :: join_host_port //! test line 332
-T ok <root>/std/net.nomi :: lookup_host //! test lines 361-362
-T ok <root>/std/net.nomi :: lookup_port //! test line 409
+H 0402a1c9587c49a30e99b8ec3a399c0d6871237f9f2031fba0cdafb62cab69ca
+T ok <root>/std/net.nomi :: impl / to_string //! test line 262
+T ok <root>/std/net.nomi :: pipe //! test lines 315-317
+T ok <root>/std/net.nomi :: split_host_port //! test line 328
+T ok <root>/std/net.nomi :: join_host_port //! test line 339
+T ok <root>/std/net.nomi :: lookup_host //! test lines 368-369
+T ok <root>/std/net.nomi :: lookup_port //! test line 416
 T test result: ok. 6 passed, 0 failed
 T
 C parse
@@ -1076,13 +1091,13 @@ T
 C passwords
 E 0
 N 6
-H d6a0b86a7299e3ce90a80e1914dba269c9167cde7b24b00403c4185ae7c74da0
-T ok <root>/std/passwords.nomi :: hash //! test lines 157-166
-T ok <root>/std/passwords.nomi :: verify //! test lines 177-190
-T ok <root>/std/passwords.nomi :: needs_rehash //! test lines 211-216
-T ok <root>/std/passwords.nomi :: algorithm //! test lines 230-234
-T ok <root>/std/passwords.nomi :: impl / parse //! test lines 263-272
-T ok <root>/std/passwords.nomi :: impl / int_param //! test lines 320-324
+H d9886f6465b4c56bea9e357e098029f9fe07e58bc4e17834ba6f13be9e43ccab
+T ok <root>/std/passwords.nomi :: hash //! test lines 152-161
+T ok <root>/std/passwords.nomi :: verify //! test lines 172-185
+T ok <root>/std/passwords.nomi :: needs_rehash //! test lines 206-211
+T ok <root>/std/passwords.nomi :: algorithm //! test lines 225-229
+T ok <root>/std/passwords.nomi :: impl / parse //! test lines 258-267
+T ok <root>/std/passwords.nomi :: impl / int_param //! test lines 315-319
 T test result: ok. 6 passed, 0 failed
 T
 C path
@@ -1145,17 +1160,18 @@ T test result: ok. 10 passed, 0 failed
 T
 C process
 E 0
-N 8
-H 300fdd945997cb083b6e2f2877f53ede7186720c9e794f839fec804715191e53
+N 9
+H 8f0c308ba101d964473edf96b95cd46becebb2f8ca41e566c3765fb8694e917e
 T ok <root>/std/process.nomi :: Exit //! test lines 65-67
-T ok <root>/std/process.nomi :: Command //! test lines 78-80
-T ok <root>/std/process.nomi :: impl / is_success //! test lines 126-128
-T ok <root>/std/process.nomi :: impl / code //! test lines 135-136
-T ok <root>/std/process.nomi :: impl / to_string //! test lines 147-148
-T ok <root>/std/process.nomi :: output //! test lines 172-184
-T ok <root>/std/process.nomi :: run //! test lines 201-209
-T ok <root>/std/process.nomi :: spawn //! test lines 230-243
-T test result: ok. 8 passed, 0 failed
+T ok <root>/std/process.nomi :: ExitCode //! test lines 78-80
+T ok <root>/std/process.nomi :: Command //! test lines 86-88
+T ok <root>/std/process.nomi :: impl / is_success //! test lines 134-136
+T ok <root>/std/process.nomi :: impl / code //! test lines 143-144
+T ok <root>/std/process.nomi :: impl / to_string //! test lines 155-156
+T ok <root>/std/process.nomi :: output //! test lines 180-192
+T ok <root>/std/process.nomi :: run //! test lines 209-217
+T ok <root>/std/process.nomi :: spawn //! test lines 238-251
+T test result: ok. 9 passed, 0 failed
 T
 C process/testing
 E 0
@@ -1174,33 +1190,40 @@ T test result: ok. 1 passed, 0 failed
 T
 C random
 E 0
-N 12
-H a027a0be9bc212bd73000e337d4c9f0f7e83c6a44366428fd4c89bbf7b85cc7b
-T ok <root>/std/random.nomi :: impl / from_int //! test lines 72-74
-T ok <root>/std/random.nomi :: secure_bytes //! test lines 107-111
-T ok <root>/std/random.nomi :: impl / step //! test lines 151-153
-T ok <root>/std/random.nomi :: impl / int //! test lines 163-172
-T ok <root>/std/random.nomi :: impl / float //! test lines 184-188
-T ok <root>/std/random.nomi :: impl / bool //! test lines 196-197
-T ok <root>/std/random.nomi :: impl / constant //! test lines 204-205
-T ok <root>/std/random.nomi :: impl / uniform //! test lines 216-220
-T ok <root>/std/random.nomi :: impl / weighted //! test lines 231-234
-T ok <root>/std/random.nomi :: impl / map //! test lines 246-249
-T ok <root>/std/random.nomi :: impl / flat_map //! test lines 269-274
-T ok <root>/std/random.nomi :: impl / list //! test lines 287-297
-T test result: ok. 12 passed, 0 failed
+N 13
+H 15711fe41899f40265c71614cb344ac1f975e212ccde8b48a24fb94955e18479
+T ok <root>/std/random.nomi :: FiniteRange //! test lines 51-58
+T ok <root>/std/random.nomi :: impl / from_int //! test lines 94-96
+T ok <root>/std/random.nomi :: secure_bytes //! test lines 129-133
+T ok <root>/std/random.nomi :: impl / step //! test lines 167-169
+T ok <root>/std/random.nomi :: impl / int //! test lines 180-192
+T ok <root>/std/random.nomi :: impl / float //! test lines 207-218
+T ok <root>/std/random.nomi :: impl / bool //! test lines 226-227
+T ok <root>/std/random.nomi :: impl / constant //! test lines 234-235
+T ok <root>/std/random.nomi :: impl / uniform //! test lines 248-252
+T ok <root>/std/random.nomi :: impl / weighted //! test lines 265-270
+T ok <root>/std/random.nomi :: impl / map //! test lines 284-287
+T ok <root>/std/random.nomi :: impl / flat_map //! test lines 307-312
+T ok <root>/std/random.nomi :: impl / list //! test lines 325-335
+T test result: ok. 13 passed, 0 failed
 T
 C ranges
 E 0
-N 6
-H 644d182d158f1225e121d0eec0aff6462e8eb623ce2f27736c9e9ba7e83046d9
-T ok <root>/std/ranges.nomi :: impl / from //! test lines 47-52
-T ok <root>/std/ranges.nomi :: impl / naturals //! test lines 60-61
-T ok <root>/std/ranges.nomi :: impl / step_by //! test lines 81-90
-T ok <root>/std/ranges.nomi :: impl / is_bounded //! test lines 98-99
-T ok <root>/std/ranges.nomi :: impl / contains //! test lines 112-118
-T ok <root>/std/ranges.nomi :: impl / to_string //! test lines 141-144
-T test result: ok. 6 passed, 0 failed
+N 12
+H b8dde4129a810aeb3a93655db366ad6fc5e252c2311bde2edd7d7bcb01e7bd2a
+T ok <root>/std/ranges.nomi :: NonEmptyRange //! test lines 46-52
+T ok <root>/std/ranges.nomi :: ClosedRange //! test lines 62-64
+T ok <root>/std/ranges.nomi :: BoundedRange //! test lines 72-73
+T ok <root>/std/ranges.nomi :: impl / from //! test lines 86-93
+T ok <root>/std/ranges.nomi :: impl / naturals //! test lines 101-102
+T ok <root>/std/ranges.nomi :: impl / step_by //! test lines 122-131
+T ok <root>/std/ranges.nomi :: impl / is_bounded //! test lines 139-140
+T ok <root>/std/ranges.nomi :: impl / start //! test lines 151-152
+T ok <root>/std/ranges.nomi :: impl / stop //! test lines 160-162
+T ok <root>/std/ranges.nomi :: impl / is_inclusive //! test lines 170-172
+T ok <root>/std/ranges.nomi :: impl / contains //! test lines 182-188
+T ok <root>/std/ranges.nomi :: impl / to_string //! test lines 211-214
+T test result: ok. 12 passed, 0 failed
 T
 C regex
 E 0
@@ -1361,7 +1384,7 @@ T
 C strings
 E 0
 N 53
-H eb6734b92ba7d8e7f9f70cb92802c0b8a39865539919574caa43d00051ef2627
+H 3f9f9f4ee25f62996b07920a5fa310e6eece3795dbb90725b847c251f7ca3e8e
 T ok <root>/std/strings.nomi :: impl / contains //! test lines 79-81
 T ok <root>/std/strings.nomi :: impl / contains //! test lines 90-93
 T ok <root>/std/strings.nomi :: impl / contains //! test lines 102-103
@@ -1381,40 +1404,40 @@ T ok <root>/std/strings.nomi :: impl / kebab_case //! test lines 246-248
 T ok <root>/std/strings.nomi :: impl / pascal_case //! test lines 257-261
 T ok <root>/std/strings.nomi :: impl / camel_case //! test lines 266-268
 T ok <root>/std/strings.nomi :: impl / replace //! test lines 277-285
-T ok <root>/std/strings.nomi :: impl / repeat //! test line 292
-T ok <root>/std/strings.nomi :: impl / reverse //! test line 298
-T ok <root>/std/strings.nomi :: impl / normalize //! test lines 303-304
-T ok <root>/std/strings.nomi :: impl / slice //! test line 310
-T ok <root>/std/strings.nomi :: impl / take //! test lines 318-321
-T ok <root>/std/strings.nomi :: impl / drop //! test lines 331-334
-T ok <root>/std/strings.nomi :: impl / pad_start //! test lines 346-358
-T ok <root>/std/strings.nomi :: impl / pad_end //! test lines 370-381
-T ok <root>/std/strings.nomi :: impl / join //! test lines 392-398
-T ok <root>/std/strings.nomi :: impl / join_list //! test lines 410-428
-T ok <root>/std/strings.nomi :: impl / split //! test lines 456-467
-T ok <root>/std/strings.nomi :: impl / find_all //! test lines 476-480
-T ok <root>/std/strings.nomi :: impl / find //! test lines 490-495
-T ok <root>/std/strings.nomi :: impl / captures //! test lines 512-520
-T ok <root>/std/strings.nomi :: impl / captures_all //! test lines 532-536
-T ok <root>/std/strings.nomi :: impl / words //! test lines 547-551
-T ok <root>/std/strings.nomi :: impl / lines //! test lines 558-563
-T ok <root>/std/strings.nomi :: impl / trim //! test lines 570-572
-T ok <root>/std/strings.nomi :: impl / to_int //! test lines 579-583
-T ok <root>/std/strings.nomi :: impl / to_float //! test lines 595-600
-T ok <root>/std/strings.nomi :: impl / to_decimal //! test lines 609-611
-T ok <root>/std/strings.nomi :: impl / to_bytes //! test lines 616-619
-T ok <root>/std/strings.nomi :: impl / to_codepoints //! test lines 624-628
-T ok <root>/std/strings.nomi :: impl / from_codepoints //! test lines 635-647
-T ok <root>/std/strings.nomi :: impl / to_literal //! test lines 689-696
-T ok <root>/std/strings.nomi :: impl / to_typed_literal //! test lines 705-708
-T ok <root>/std/strings.nomi :: impl / strip_prefix //! test lines 722-723
-T ok <root>/std/strings.nomi :: impl / strip_suffix //! test lines 737-738
-T ok <root>/std/strings.nomi :: impl / length //! test lines 754-755
-T ok <root>/std/strings.nomi :: NonEmptyString //! test lines 766-769
-T ok <root>/std/strings.nomi :: impl / is_contained_in //! test lines 861-869
-T ok <root>/std/strings.nomi :: impl / to_string //! test lines 912-913
-T ok <root>/std/strings.nomi :: impl / empty_sum //! test lines 927-929
-T ok <root>/std/strings.nomi :: impl / inspect //! test lines 939-940
+T ok <root>/std/strings.nomi :: impl / repeat //! test lines 294-295
+T ok <root>/std/strings.nomi :: impl / reverse //! test line 301
+T ok <root>/std/strings.nomi :: impl / normalize //! test lines 306-307
+T ok <root>/std/strings.nomi :: impl / slice //! test line 313
+T ok <root>/std/strings.nomi :: impl / take //! test lines 321-324
+T ok <root>/std/strings.nomi :: impl / drop //! test lines 334-337
+T ok <root>/std/strings.nomi :: impl / pad_start //! test lines 349-361
+T ok <root>/std/strings.nomi :: impl / pad_end //! test lines 373-384
+T ok <root>/std/strings.nomi :: impl / join //! test lines 395-401
+T ok <root>/std/strings.nomi :: impl / join_list //! test lines 413-431
+T ok <root>/std/strings.nomi :: impl / split //! test lines 459-470
+T ok <root>/std/strings.nomi :: impl / find_all //! test lines 479-483
+T ok <root>/std/strings.nomi :: impl / find //! test lines 493-498
+T ok <root>/std/strings.nomi :: impl / captures //! test lines 515-523
+T ok <root>/std/strings.nomi :: impl / captures_all //! test lines 535-539
+T ok <root>/std/strings.nomi :: impl / words //! test lines 550-554
+T ok <root>/std/strings.nomi :: impl / lines //! test lines 561-566
+T ok <root>/std/strings.nomi :: impl / trim //! test lines 573-575
+T ok <root>/std/strings.nomi :: impl / to_int //! test lines 582-586
+T ok <root>/std/strings.nomi :: impl / to_float //! test lines 598-603
+T ok <root>/std/strings.nomi :: impl / to_decimal //! test lines 612-614
+T ok <root>/std/strings.nomi :: impl / to_bytes //! test lines 619-622
+T ok <root>/std/strings.nomi :: impl / to_codepoints //! test lines 627-631
+T ok <root>/std/strings.nomi :: impl / from_codepoints //! test lines 638-650
+T ok <root>/std/strings.nomi :: impl / to_literal //! test lines 692-699
+T ok <root>/std/strings.nomi :: impl / to_typed_literal //! test lines 708-711
+T ok <root>/std/strings.nomi :: impl / strip_prefix //! test lines 725-726
+T ok <root>/std/strings.nomi :: impl / strip_suffix //! test lines 740-741
+T ok <root>/std/strings.nomi :: impl / length //! test lines 757-758
+T ok <root>/std/strings.nomi :: NonEmptyString //! test lines 769-772
+T ok <root>/std/strings.nomi :: impl / is_contained_in //! test lines 866-874
+T ok <root>/std/strings.nomi :: impl / to_string //! test lines 917-918
+T ok <root>/std/strings.nomi :: impl / empty_sum //! test lines 932-934
+T ok <root>/std/strings.nomi :: impl / inspect //! test lines 944-945
 T test result: ok. 53 passed, 0 failed
 T
 C summable
@@ -1427,12 +1450,12 @@ T
 C tasks
 E 0
 N 5
-H 332a9c155300e264ea3d15878ea7ec659fcb9bdba38e704d9d5b41e0fedc828b
-T ok <root>/std/tasks.nomi :: impl / spawn //! test lines 55-60
-T ok <root>/std/tasks.nomi :: impl / await //! test lines 81-86
-T ok <root>/std/tasks.nomi :: impl / spawn_all //! test lines 108-114
-T ok <root>/std/tasks.nomi :: impl / await_all //! test lines 133-139
-T ok <root>/std/tasks.nomi :: impl / outcome //! test lines 150-156
+H d207623d44a9d5ed1f8f7b5451146c47b10ccbc579c4e29e55849f6c0f23a1bd
+T ok <root>/std/tasks.nomi :: impl / spawn //! test lines 56-61
+T ok <root>/std/tasks.nomi :: impl / await //! test lines 82-87
+T ok <root>/std/tasks.nomi :: impl / spawn_all //! test lines 109-115
+T ok <root>/std/tasks.nomi :: impl / await_all //! test lines 138-144
+T ok <root>/std/tasks.nomi :: impl / outcome //! test lines 155-161
 T test result: ok. 5 passed, 0 failed
 T
 C testing
@@ -1445,8 +1468,8 @@ T
 C timer
 E 0
 N 1
-H e5575fdcff3ed00284ea9cd47d6364ca4a90469da18a0a670107b80f90cb9c01
-T ok <root>/std/timer.nomi :: sleep //! test line 15
+H 700b5f91c8cbe0a7893296f85ae0581b566a781b38298b35b97d6181e84a2a87
+T ok <root>/std/timer.nomi :: sleep //! test lines 20-21
 T test result: ok. 1 passed, 0 failed
 T
 C tls
@@ -1535,29 +1558,29 @@ T
 C vectors
 E 0
 N 22
-H 2c7d469827d45e12d2afcf419c28bba6752ad0b1c7bbd707a8cc27474607686f
+H 4241576859dffb670bde45fd7d5f08176bb65f6ac1182c852a3494c318b9cd8a
 T ok <root>/std/vectors.nomi :: impl / length //! test line 29
 T ok <root>/std/vectors.nomi :: impl / get //! test lines 37-40
 T ok <root>/std/vectors.nomi :: impl / push //! test line 45
-T ok <root>/std/vectors.nomi :: impl / set //! test line 53
-T ok <root>/std/vectors.nomi :: impl / concat //! test line 58
-T ok <root>/std/vectors.nomi :: impl / next_item //! test lines 64-65
-T ok <root>/std/vectors.nomi :: impl / contains //! test lines 84-87
-T ok <root>/std/vectors.nomi :: impl / add //! test lines 94-95
-T ok <root>/std/vectors.nomi :: impl / empty_sum //! test lines 105-108
-T ok <root>/std/vectors.nomi :: NonEmptyVector //! test lines 181-187
-T ok <root>/std/vectors.nomi :: impl / of //! test line 194
-T ok <root>/std/vectors.nomi :: impl / first //! test line 201
-T ok <root>/std/vectors.nomi :: impl / last //! test line 208
-T ok <root>/std/vectors.nomi :: impl / length //! test line 215
-T ok <root>/std/vectors.nomi :: impl / max //! test line 222
-T ok <root>/std/vectors.nomi :: impl / min //! test line 229
-T ok <root>/std/vectors.nomi :: impl / mean //! test line 237
-T ok <root>/std/vectors.nomi :: impl / reduce //! test line 245
-T ok <root>/std/vectors.nomi :: impl / map //! test line 252
-T ok <root>/std/vectors.nomi :: impl / with_index //! test line 262
-T ok <root>/std/vectors.nomi :: impl / push //! test lines 272-274
-T ok <root>/std/vectors.nomi :: impl / concat //! test line 281
+T ok <root>/std/vectors.nomi :: impl / set //! test lines 53-55
+T ok <root>/std/vectors.nomi :: impl / concat //! test line 60
+T ok <root>/std/vectors.nomi :: impl / next_item //! test lines 66-67
+T ok <root>/std/vectors.nomi :: impl / contains //! test lines 86-89
+T ok <root>/std/vectors.nomi :: impl / add //! test lines 96-97
+T ok <root>/std/vectors.nomi :: impl / empty_sum //! test lines 107-110
+T ok <root>/std/vectors.nomi :: NonEmptyVector //! test lines 183-189
+T ok <root>/std/vectors.nomi :: impl / of //! test line 196
+T ok <root>/std/vectors.nomi :: impl / first //! test line 203
+T ok <root>/std/vectors.nomi :: impl / last //! test line 210
+T ok <root>/std/vectors.nomi :: impl / length //! test line 217
+T ok <root>/std/vectors.nomi :: impl / max //! test line 224
+T ok <root>/std/vectors.nomi :: impl / min //! test line 231
+T ok <root>/std/vectors.nomi :: impl / mean //! test line 239
+T ok <root>/std/vectors.nomi :: impl / reduce //! test line 247
+T ok <root>/std/vectors.nomi :: impl / map //! test line 254
+T ok <root>/std/vectors.nomi :: impl / with_index //! test line 264
+T ok <root>/std/vectors.nomi :: impl / push //! test lines 274-276
+T ok <root>/std/vectors.nomi :: impl / concat //! test line 283
 T test result: ok. 22 passed, 0 failed
 T
 C websocket

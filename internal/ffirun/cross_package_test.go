@@ -97,7 +97,7 @@ func Keep(items []string, check core.Check) int64 { return 0 }
 
 const crossPackageNomiStructs = `struct Cell
   text: String
-  n: Int
+  n: Int64
 end
 
 struct Address
@@ -120,10 +120,12 @@ end
 func TestPrepareBindsStructsOfAnotherPackage(t *testing.T) {
 	t.Setenv(cacheRootEnv, t.TempDir())
 	root := stageCrossPackageProject(t, map[string]string{
-		"main.nomi": `gopkg "example.com/app/adapter"
+		"main.nomi": `import std::int.Int64
+
+gopkg "example.com/app/adapter"
 
 ` + crossPackageNomiStructs + `
-fn make_cell(t: String, n: Int) -> Cell go adapter.MakeCell
+fn make_cell(t: String, n: Int64) -> Cell go adapter.MakeCell
 
 fn direct(c: Cell) -> Cell go adapter.Direct
 
@@ -133,7 +135,7 @@ fn aliased(u: User) -> List<User> go adapter.Aliased
 
 fn raw(b: Bytes) -> Bytes go adapter.Raw
 
-fn count(tags: Map<String, Int>) -> Map<String, Int> go adapter.Count
+fn count(tags: Map<String, Int64>) -> Map<String, Int> go adapter.Count
 
 fn keep(items: List<String>, check: (String) -> Bool) -> Int go adapter.Keep
 `,

@@ -2,6 +2,7 @@ package stdio
 
 import (
 	"strings"
+	"time"
 
 	"github.com/nomi-language/nomi/rt"
 )
@@ -46,8 +47,10 @@ type DirEntry struct {
 type Info struct {
 	Kind Kind
 	Size int64
-	// Modified is nanoseconds since the Unix epoch.
-	Modified int64
+	// Modified is the modification time as the file system gives it. It
+	// becomes an Instant only where it crosses to std/fs (infoList),
+	// exactly, whatever its year (rt.InstantFromTime).
+	Modified time.Time
 	Mode     int64
 }
 

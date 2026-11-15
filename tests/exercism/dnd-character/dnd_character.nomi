@@ -22,7 +22,7 @@ end
 
 /// One ability score: four dice rolled, the lowest dropped, the rest added.
 pub fn ability() -> Generator<Int>
-    Generator.int(1, 6)
+    Generator.int(1..=6)
     |> Generator.list(4)
     |> Generator.map(fn rolls -> rolls |> Iter.sort() |> Iter.drop(1) |> Iter.sum())
 end

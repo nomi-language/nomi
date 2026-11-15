@@ -9,7 +9,8 @@ Adapted from Exercism problem-specifications (MIT), exercises/raindrops.
 
 ## Choices
 
-- The factors and sounds are a `once` table of tuples, and the sounds come
+- The factors and sounds are a `once` table of tuples, annotated
+  `List<(PositiveInt, String)>` so each factor is a divisor `%` takes, and the sounds come
   from a filter, map and `String.join` pipeline. Three `if`s appending to a
   string would repeat the same test three times, and Nomi has no mutable
   accumulator to append to.

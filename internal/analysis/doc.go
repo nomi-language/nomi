@@ -43,10 +43,11 @@
 // when the rechecked files are every file.
 //
 // The program-wide reductions over bodies (coherence, whole-file imports,
-// a rootless file's application-field roots, the boot-only check's
-// summaries) keep each file's part with its analysis, so a body edit reads
-// only the edited files again. The boot-only check rebuilds its program
-// graph once from the kept summaries.
+// a rootless file's application-field roots, the boot-only check's and the
+// once-cycle check's summaries) keep each file's part with its analysis, so
+// a body edit reads only the edited files again. The boot-only and
+// once-cycle checks each rebuild their program graph once from the kept
+// summaries.
 //
 // # Anonymous struct fields
 //
@@ -187,9 +188,9 @@
 // program (storedDocumentErrors): its build's and check's errors, its
 // concurrency, task-lifetime and duplicate test name checks (the entry's
 // own checks and front-end errors for the entry), and the reductions'
-// reports in it (Reductions.of: boot-only calls, application-field roots,
-// unused whole-file imports, as CheckImplImports settles them), dropped
-// inside a declaration the parse repaired. The state keeps them
+// reports in it (Reductions.of: boot-only calls, cyclic `once` bindings,
+// application-field roots, unused whole-file imports, as CheckImplImports
+// settles them), dropped inside a declaration the parse repaired. The state keeps them
 // (storedProgram.reports). Left to the whole check: the program's impl
 // errors (collisions, the orphan rule), missing impls, and a reduction's
 // diagnostic in a file the edit does not check. A program with an
@@ -504,6 +505,35 @@
 // body's: a branch of an `if` with no final `else` keeps its value returns,
 // since that `if` has no value.
 //
+// # Cyclic once bindings
+//
+// A `once` whose initializer reaches the `once` itself is an error at its
+// declaration (spec §6 *`once` Bindings*; once_cycle.go,
+// CheckOnceCycles). The check runs beside the boot-only check, after every
+// file is checked, and is built the same way: each file's bodies are read
+// once per body part into a summary of what each `once` initializer and
+// each function body reads and calls, the program's graph is built from
+// the summaries of its own files (std's are left out: std imports no module
+// of the program, so no cycle through a program's `once` passes through
+// it), and each file reports the `once` bindings it declares that lie on a
+// cycle, with the shortest chain back. A program opened from its record
+// reduces the same graph from each file's OnceFacts.
+//
+// The graph is precise where the checker resolved the target and silent
+// elsewhere, so the check has no false positives from dispatch: an arc is a
+// read of a `once` (a call of a function-valued one included), a call the
+// checker resolved to one function (by name, `Type.f`, an interface
+// function on a concrete receiver through DispatchImpl, a pipe stage or
+// `tap` naming a function), or the body of a lambda a `then` or `tap`
+// stage, or `(fn -> ...)()`, applies where it is written. A lambda,
+// capture or nested `fn` anywhere else adds nothing, since it runs only
+// when called; so do a call through a function value, an interface value
+// or a type parameter, an operator's implementation and a default
+// argument. Every branch counts, as in Go's initialization-cycle rule. The
+// run-time check (rt.OnceCell) still traps a cycle the graph does not see.
+// An unannotated `once` whose value reads its own type is left to type
+// inference's error (OnceTable.cycles).
+//
 // # Releasing resources
 //
 // The release rules (spec §9 *Releasing resources*) are a check over one
@@ -799,12 +829,38 @@
 // no type is expected), and a range with no type written ranges over the
 // base (checkRangeLit). A later arm or element is checked against the
 // earlier ones' type with its subtypes erased (earlierArmsExpected,
-// checkLitElem), so a literal there is its base's. A type parameter bound
+// checkLitElem), so a literal there is its base's, until the values have
+// joined: then the literals among them, in any position, are the nearest
+// std numeric subtype at or above what the other values join to whose
+// rules each literal satisfies, decided in the checker, since those rules
+// are known (narrowLiteralJoin, numeric_subtypes.go). A numeric value has
+// a range (spec §4 *Value ranges*; ranges.go): an interval with a bit for
+// "off zero", from literals, its type's std subtypes and literal-bound Int
+// rules, comparisons with constants, exact arithmetic (+, -, * and unary -
+// on Int, Decimal and Duration nanoseconds; `+` of non-negative Floats)
+// and a few std results (callRange), and the elements of a range
+// literal, `Iter.from`, a collection literal or an adapter chain over
+// them for the parameter of a callback a std Iter function passes them
+// to (element_ranges.go: noted with its source as the call is checked,
+// seeded when the callback is). As each expression is checked,
+// rangeTyped records its range and types it as the narrowest std numeric
+// subtype the range proves when the range rests on something other than
+// literals (typeForRange), so `1 + 2` stays an Int; checkNodeExpecting
+// converts any value whose range proves the subtype expected
+// (provenRefinement), a literal-bound Int subtype over Int such as Int64
+// included. Bindings are immutable, so a binding's range (bindRange)
+// holds wherever it is read, with no fixed point for loops or recursion;
+// nothing relates two bindings. An unannotated `once` takes the subtype
+// its value's range proves as its type (onceRangeType). Every other
+// operation on a subtype is its base's. A type parameter bound
 // to a subtype widens the same way when a later argument is an
 // ancestor (widenToRefinementAncestor). A generic call, direct or piped,
 // solves its arguments through argSolving, which checks a literal
 // argument against what earlier arguments solved with subtypes
-// erased, undoes a widening an earlier argument no longer fits as a
+// erased, or against the std numeric subtype they solved when the literal
+// satisfies it (a numeric literal argument is checked after the arguments
+// that solve its parameter on their own, deferredNumericLiteral, so the
+// order is irrelevant), undoes a widening an earlier argument no longer fits as a
 // mismatch at the later one (widenedPast: a function taking the
 // subtype, or taking an embedded type a later value of its enum
 // widened the parameter to, as widenToEnum does; the function would be
@@ -816,7 +872,27 @@
 // solves a parameter a lambda argument's result names (Iter.reduce's
 // accumulator) to its base, since the lambda computes its next value.
 // Std's lengths, counts, sizes and indices are NonNegativeInts this way
-// without a `try_from` where they meet a literal.
+// without a `try_from` where they meet a literal. Inside a function type
+// the widening reaches the expected side too, where a function argument's
+// result meets a parameter an earlier value solved: `Iter.iterate(p,
+// next)` with p a PositiveInt and next an `(Int) -> Int` solves T to Int.
+//
+// A condition narrows a parameter or local binding in the code it guards
+// (spec §4 *Narrowing*; subtype_narrowing.go): condFacts reads
+// comparisons with a constant (an expression whose range is one value),
+// `Iter.is_empty` and comparisons with an empty literal, through `not`,
+// `and` and `or`, into a range or non-emptiness per binding, and
+// narrowSubtypes meets the binding's range with it in checker.symRanges
+// and records the subtype the range proves in checker.narrowed, which
+// every read of the binding takes (checkIdent), so ExprTypes, hover and
+// the IR builder see it. The regions are the branches of an `if`, the
+// right operand of `and` and `or`, a `case` arm's body after its guard or,
+// in a case with no subject, after its condition and the earlier ones,
+// and the rest of a block after an `if` that leaves or an assertion
+// (factsAfter). The same map holds a case arm's `embeds` narrowing
+// (narrowing.go), which the IR builder lowers as a projection; a subtype
+// narrowing is a static fact, since the value is its base at run time. A
+// binding of a user's subtype keeps its type, though its range narrows.
 //
 // Every parent
 // reaches one base (checkRefinementParents), so RefinementBase follows
@@ -838,6 +914,14 @@
 // them from its elements (distinctLiteralType). A `where` on the
 // declaration bounds the parameters as a struct's does. A struct
 // subtype takes no type parameters.
+//
+// The right operand of `/`, `%`, `<<<` and `>>>` may be a subtype in an
+// impl (operandSubtypeInterfaces): std's `impl Divide<NonZeroInt, Int> for
+// Int` and `impl ShiftLeft<NonNegativeInt, Int> for Int`. The impl is
+// selected by the operand's base (subtypeOperandFits), and the operand is
+// then held to the subtype by its type or its range (checkSubtypeOperand,
+// operand_subtype.go), so a checked program never divides by zero or
+// shifts by a negative count; the VM's checks are a backstop.
 //
 // A subtype implements no interface of its own: it has its base's impls,
 // and at run time it is its base's value (irbuild erases it). So every
@@ -861,8 +945,16 @@
 //     fields are literals, or a collection literal whose elements are,
 //     through nested collection and tuple literals, where a subtype of
 //     a collection, or of a subtype of one, is expected or as the
-//     argument of the call form (checkCollectionRefinementLit,
-//     literalInnerOf, refinementCtorArg): the rule is
+//     argument of the call form, or a range literal whose endpoints are
+//     literals where a subtype of Range is expected (checkRangeLit)
+//     (checkCollectionRefinementLit, literalInnerOf, refinementCtorArg).
+//     A literal headed by a collection's name (`Vector[x]`, `Map{...}`)
+//     builds a subtype of that collection as the unnamed one does
+//     (shapeHeadSubtype). A literal of NonEmptyList, NonEmptyVector,
+//     NonEmptySet or NonEmptyMap themselves needs no literal parts when
+//     it writes an element or spreads a value of a non-empty type
+//     (literalHoldsSomething): its shape proves the rule, so it is not
+//     recorded and no rule runs on it. Otherwise the rule is
 //     evaluated when the program is compiled (vmhost's checkRefinements
 //     over irbuild's RefinementSites). A chain that reaches no base, its
 //     parent naming no type or a declaration cycle, is reported where it
@@ -870,11 +962,15 @@
 //     chain's end is the subtype again (checkRefinementLiteral);
 //     A literal of a generic subtype is checked through its
 //     `try_from` at the literal's type arguments: the checker types the
-//     call `Name.try_from(v)` as the literal's file would
+//     call `Name.try_from(v)` in the literal's file
 //     (refinementCheckCall, RefinementStep.Check), its nodes at the
 //     literal's line and below-zero columns no token has, and v,
-//     RefinementLiteralName, the literal's value; a file no name of which
-//     reaches the subtype is told to import it. Its declaration types
+//     RefinementLiteralName, the literal's value. Its owner is recorded as
+//     the subtype's declaration (refinementDeclSymbol), and
+//     receiverOriginForReceiver takes that owner's origin from the record,
+//     so the file need bind no name to the subtype, and a type of its own
+//     by that name changes nothing; an error the call reports, a type
+//     argument that breaks a bound, is reported at the literal. Its declaration types
 //     the same call with each parameter a value of its bounds' interface,
 //     which meets them whatever implements them, and again at the first
 //     witness type its bounds admit (Int, String, Float, Bool, Unit)

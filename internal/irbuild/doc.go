@@ -448,9 +448,12 @@
 //
 // So are each file's refinement literals and declared rules
 // ([KeptRefinement], KeptUnit.Rules): a literal's value and the
-// `try_from` of each step of its chain by linkage name, and a struct
-// refinement literal's Build, the function that makes the record of its
-// fields, in an object of its own (KeptUnit.Builds). A lowering of one
+// `try_from` of each step of its chain by linkage name, and a literal's
+// Build and each generic step's Check, the functions that make its value
+// and call a generic subtype's `try_from` at its type arguments, in an
+// object of its own (KeptUnit.Builds). A declared generic rule's Check is
+// not kept: its Instances prefix finds the instance it calls in the kept
+// objects. A lowering of one
 // file answers every unit's, the kept units' decoded and the file's from
 // its new lowering, so vmhost evaluates each rule again over the linked
 // modules: an edit of a rule, or of a function a rule calls, can break a
@@ -697,8 +700,9 @@
 // which builds no instances; a program builds it as an instance with no
 // arguments (`stdUnretainedMonoBody`), including a call that leaves out a
 // parameter with a literal default (`stdUnretainedShortCall`). A default
-// that is no literal (`max_fraction: Int = Int.max(Decimal.scale(d),
-// min_fraction)` in `Decimal.format`) is Nomi of the function's module, so
+// that is no literal (`fraction: ClosedRange<NonNegativeInt> =
+// scale_digits(Decimal.scale(d))` in `Decimal.format`) is Nomi of the
+// function's module, so
 // the instance's gen builds the function's arity wrappers and default
 // accessors beside its body and plans the call against them
 // (`stdUnretainedDefaultedCall`). They link by the names the shared
@@ -709,9 +713,13 @@
 // (`Int.min`), so it never defines a name a program's own `Int.min` call
 // defines too.
 //
-// Range's and Iter's own protocols (`known_count`, `is_infinite`,
-// `steps_between` as a Range's step count) keep their lowering in iter.go
-// and irrange.go: the VM drives them with the impl's functions as values
+// Range's own functions are intrinsics (irrange.go): `contains`,
+// `is_bounded` and its parts `start`, `stop` and `is_inclusive`, which the
+// VM reads off the range's record with no element method, so a subtype
+// rule generic over a Comparable element (`ClosedRange`, `BoundedRange`)
+// lowers and runs as any body does, at compile time too. Range's and
+// Iter's own protocols (`known_count`, `is_infinite`, `steps_between` as a
+// Range's step count) keep their lowering in iter.go and irrange.go: the VM drives them with the impl's functions as values
 // and answers an inherited default statically, and `Iter` is generic, which
 // the template does not cover.
 //
@@ -882,24 +890,41 @@
 // Each literal the checker typed as a subtype
 // (analysis.FileAnalysis.RefinedLiterals) becomes a RefinementSite: the
 // literal, and the `try_from` of each subtype whose rule it must
-// satisfy (analysis.RefinementChecks) by linkage name with the path of
-// parents to it, which vmhost calls on the literal before the program
-// runs and names in its diagnostic. A
-// literal whose value is no Go constant, a struct, a collection, a typed
-// literal (`Duration"15m"`) or a Decimal, has a Build instead, a function
-// of no arguments that makes the value as its literal lowers
+// satisfy (analysis.RefinementChecks) by linkage name (implFuncLink: a
+// shared std module's by the function's declaration, a listed one's and
+// a program's by its block, with an interface impl's written arguments,
+// `impl TryFrom<base(Email)> for Email`'s) with the path of parents to
+// it, which vmhost calls on the literal before the program runs and names
+// in its diagnostic. A literal whose value is no Go constant, a struct, a
+// collection, a typed literal (`Duration"15m"`), a Decimal, a codepoint,
+// or any of these grouped or negated, has a Build instead, a function of
+// no arguments that makes the value as its literal lowers
 // (refinementBuild). The builds run in source order: a typed literal's
 // build declares its cell in the unit's module, so the module's cells and
 // functions, and the std bundle written from them, follow that order.
 //
+// Every recorded literal becomes a site, and so does every declared rule.
+// One whose check the builder cannot make, a Build or a generic check
+// that does not lower or a `try_from` it cannot name, keeps its site with
+// Unchecked saying why, and vmhost reports it at the literal (or the
+// `when`) as an internal error, never a literal let through:
+// PlantMissingRefinementCheckForTest makes the builder miss one, so a
+// test holds that.
+//
 // A generic subtype is its base at its type arguments: an annotation
 // `NonEmptyList<Int>` is List<Int>'s kind (genericRefinementKind, which
 // projects the base with the declaration's parameters standing for the
-// arguments), and so is a type the checker solved to one. A literal of one
+// arguments), and so is a type the checker solved to one. In a std
+// signature, `BoundedRange<Int>` in `Generator.int`, it is the base's
+// signature kind at the written arguments (stdGenericRefinementKind),
+// which the shared lowering retains as it does a body over the base. A
+// literal of one
 // is checked by a function of no arguments that builds the literal and
 // calls the subtype's `try_from` instance at the literal's type
 // arguments, the call the checker typed (RefinementSiteStep.Check,
-// refinementCheckBuild); the sites are built before the late instances
+// refinementCheckBuild), its owner the declaration the checker recorded
+// where the file binds the subtype's name to nothing or to another type
+// (refinementCheckOwner: resolvedOwnerPlan, or its std module); the sites are built before the late instances
 // other files asked for are flushed, so an instance such a call asks
 // another file for is built. Its declaration's RefinementRuleSite has a
 // function of the base's value calling its `try_from` at each set of type
@@ -914,5 +939,9 @@
 // A std signature that names a subtype, `Int.pow(n: Int, exp:
 // NonNegativeInt)`, has its base's kind (stdRefinementKind), a scalar, a
 // Decimal or a type std declares, and its host adapter takes the base's
-// value (internal/hostgen's shape of a subtype is its parent's).
+// value (internal/hostgen's shape of a subtype is its parent's). A
+// subtype of any other base, a collection or range at fixed arguments
+// (`Ratios`, `List<Int>`; `FiniteRange`, `Range<Float>`), a struct or an
+// enum std declares (`FieldBits`, `JsonObject`), has the kind of its first
+// parent as its declaration writes it.
 package irbuild

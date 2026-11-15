@@ -23,7 +23,8 @@ pub fn transmit(message: List<Int>) -> List<Int>
     |> Iter.flat_map(bits)
     |> Iter.chunks(7)
     |> Iter.map(fn chunk ->
-        data = from_bits(chunk) <<< (7 - Iter.count(chunk))
+        // The last chunk may be short: zeros pad it to seven bits.
+        data = Iter.concat(chunk, Iter.repeat(0)) |> Iter.take(7) |> Iter.to_list() |> from_bits()
         data <<< 1 + Iter.sum(chunk) % 2
     end)
     |> Iter.to_list()
@@ -184,8 +185,8 @@ test result: ok. 26 passed, 0 failed
 ## How it's written
 
 - Both directions work on a stream of bits rather than shifting a carry between bytes: `bits` answers a byte's eight bits most significant first, and `from_bits` reads a list of bits back as a number, `Int.from_digits(bits, 2)!`, whose `None` would mean a digit other than 0 or 1. `transmit` is `Iter.flat_map(bits)`, `Iter.chunks(7)` and one byte per chunk; `receive` checks and strips each byte, `Iter.flatten`s the data bits and reads them back eight at a time.
-- Bit `i` of a byte is `byte >>> (7 - i) &&& 1`, and a byte with room for its parity bit is `data <<< 1 + parity`: the shifts and `&&&` bind like `*`, as in Go, so only the shift count needs parentheses.
-- The last chunk of a message may be short. `transmit` shifts it left by what it lacks, which pads it with zeros, and its parity is the sum of its bits modulo 2, so padding needs no special case. `receive` drops a short last chunk, the padding the sender added.
+- Bit `i` of a byte is `byte >>> (7 - i) &&& 1` over `0..8`. Each `i` is 0 to 7, so `7 - i` is 0 to 7, which `>>>` takes as a `NonNegativeInt` count. A byte with room for its parity bit is `data <<< 1 + parity`: the shifts and `&&&` bind like `*`, as in Go, so only the shift count needs parentheses.
+- The last chunk of a message may be short. `transmit` pads it to seven bits with zeros from `Iter.repeat(0)`, and its parity is the sum of its bits modulo 2, so padding needs no special case. `receive` drops a short last chunk, the padding the sender added.
 - A byte with odd parity is `Err("wrong parity")`, the canonical message, as grains and variable-length-quantity do with their one error. `Result.collect` stops at the first bad byte.
 - Bytes are `List<Int>` written in hex, as in variable-length-quantity, for the reason its Friction gives.
 - The transmit and decode groups are one `subtests` table each, named by the description column.

@@ -94,7 +94,7 @@ func TestBootOnly_WorkerNewInBootIsAccepted(t *testing.T) {
 end
 
 fn main()
-    Worker.start(App.worker, [])
+    Worker.start(App.worker, [])!
 end
 `,
 		"workers.nomi": `import std::jobs.{Queue, Worker}

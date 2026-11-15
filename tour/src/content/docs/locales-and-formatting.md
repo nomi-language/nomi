@@ -75,8 +75,9 @@ That text often ends up in web addresses, headers or CSV files, which a
 program reads, so it must not change from reader to reader.
 
 Each format function takes named arguments for the digits:
-`Float.format(rating, locale, max_fraction: 1)` writes `4.8125` as `4,8`
-in German. [`Int.format`](/reference/int/#intformat),
+`Float.format(rating, locale, fraction: 0..=1)` writes `4.8125` as `4,8`
+in German. The digits after the point are one range, at least its start
+and at most its end, so a backwards range is a compile error. [`Int.format`](/reference/int/#intformat),
 [`Float.format`](/reference/float/#floatformat) and
 [`Decimal.format`](/reference/decimal/#decimalformat) list every option
 and how each type rounds.
@@ -574,7 +575,7 @@ end
 impl Localize for Weight
     fn localize(w: Weight, locale: Locale) -> String
         kilograms = Int.to_float(w.grams) / 1000.0
-        "${Float.format(kilograms, locale, max_fraction: 2)} kg"
+        "${Float.format(kilograms, locale, fraction: 0..=2)} kg"
     end
 end
 

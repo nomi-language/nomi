@@ -83,8 +83,8 @@ end
 		want     string
 	}{
 		{"Int +", "  (n / 3", "+", 1, "```nomi\nInt + Int -> Int\n```\n\nExact at any size: never overflows.\n\n`impl Add<Int, Int> for Int` in `std/int`."},
-		{"Int /", "  (n / 3", "/", 1, "```nomi\nInt / Int -> Int\n```\n\nTruncates toward zero; traps on division by zero.\n\n`impl Divide<Int, Int> for Int` in `std/int`."},
-		{"Int %", "  (n / 3", "%", 1, "```nomi\nInt % Int -> Int\n```\n\nRemainder: takes the dividend's sign; `Int.modulo` takes the divisor's. Traps on division by zero.\n\n`impl Remainder<Int, Int> for Int` in `std/int`."},
+		{"Int /", "  (n / 3", "/", 1, "```nomi\nInt / Int -> Int\n```\n\nTruncates toward zero. The divisor is a NonZeroInt, so it never traps.\n\n`impl Divide<NonZeroInt, Int> for Int` in `std/int`."},
+		{"Int %", "  (n / 3", "%", 1, "```nomi\nInt % Int -> Int\n```\n\nRemainder: takes the dividend's sign; `Int.modulo` takes the divisor's. The divisor is a NonZeroInt.\n\n`impl Remainder<NonZeroInt, Int> for Int` in `std/int`."},
 		{"unary - on Int", "  (n / 3", "-n", 1, "```nomi\n-Int -> Int\n```\n\nNegation, exact at any size."},
 		{"Decimal *", "  (n / 3", "*", 1, "```nomi\nDecimal * Decimal -> Decimal\n```\n\nExact: never rounds.\n\n`impl Multiply<Decimal, Decimal> for Decimal` in `std/decimal`."},
 		{"Float *", "  (n / 3", "*", 2, "```nomi\nFloat * Float -> Float\n```\n\nIEEE 754: never traps.\n\n`impl Multiply<Float, Float> for Float` in `std/float`."},

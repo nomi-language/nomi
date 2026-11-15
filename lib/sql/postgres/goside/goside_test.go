@@ -64,7 +64,7 @@ func TestValues_RoundTrip(t *testing.T) {
 		{Kind: KindDate, Text: "2026-10-19"},
 		{Kind: KindTime, Text: "12:30:05.5"},
 		{Kind: KindTimestamp, Text: "2026-10-19T12:30:05.5"},
-		{Kind: KindTimestamptz, Int: at.UnixNano()},
+		{Kind: KindTimestamptz, Text: instantText(at)},
 		{Kind: KindUuid, Text: "0192f4c8-6f0e-7b39-9d6a-3c1f2b5e8a10"},
 		{Kind: KindJson, Text: `{"a": [1, 2]}`},
 		{Kind: KindJson, Text: `{"b":1, "a":2}`},

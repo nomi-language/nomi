@@ -264,7 +264,7 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 // stdFactsVersion versions Encode's layout.
-const stdFactsVersion = 1
+const stdFactsVersion = 2
 
 // Encode writes f, naming each file a position names by fileName.
 func (f *StdFacts) Encode(fileName func(string) string) []byte {
@@ -311,6 +311,7 @@ func (f *StdFacts) Encode(fileName func(string) string) []byte {
 				pos(d.DerivePos)
 				e.String(d.FieldName)
 				pos(d.FieldPos)
+				e.String(d.NoEquality)
 			}
 			e.String(r.rec.Op)
 			e.String(r.rec.TypeOrigin)
@@ -368,7 +369,7 @@ func DecodeStdFacts(data []byte, filePath func(string) string) (*StdFacts, error
 				r.rec.Pos = pos()
 				r.rec.Kind = RecordingKind(d.Int())
 				if d.Bool() {
-					r.rec.Derive = &DeriveCtx{Iface: d.String(), TypeName: d.String(), DerivePos: pos(), FieldName: d.String(), FieldPos: pos()}
+					r.rec.Derive = &DeriveCtx{Iface: d.String(), TypeName: d.String(), DerivePos: pos(), FieldName: d.String(), FieldPos: pos(), NoEquality: d.String()}
 				}
 				r.rec.Op = d.String()
 				r.rec.TypeOrigin = d.String()

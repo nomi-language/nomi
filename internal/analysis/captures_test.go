@@ -31,21 +31,21 @@ fn add(a: Int, b: Int) -> Int
     a + b
 end
 
-fn divide(x: Int, y: Int) -> Int
+fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 
 type Ticks Int
 
-impl Divide<Int, Ticks> for Ticks
-    fn divide(Ticks(a), rhs: Int) -> Ticks
+impl Divide<NonZeroInt, Ticks> for Ticks
+    fn divide(Ticks(a), rhs: NonZeroInt) -> Ticks
         Ticks(a / rhs)
     end
 end
 
 impl Divide<Ticks, Int> for Ticks
     fn divide(Ticks(a), Ticks(b)) -> Int
-        a / b
+        if b == 0 then 0 else a / b
     end
 end
 
@@ -105,7 +105,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"an operator function's call with no expected type, the parameter on the left", "fn f() -> Int\n    dec = &Int.subtract(&1, 1)\n    dec(9)\nend\n", "(Int) -> Int"},
 		{"an operator function's call of several impls, the parameter on the left", "fn f() -> Maybe<Int>\n    Some(d) = Some(Ticks(4)) else\n        return None\n    end\n    half = &Ticks.divide(&1, d)\n    Some(half(Ticks(9)))\nend\n", "(Ticks) -> Int"},
 		{"an operator function's call reordering its parameters", "fn f() -> (Int, Int) -> Int\n    &Int.subtract(&2, &1)\nend\n", "(Int, Int) -> Int"},
-		{"a call reordering its parameters", "fn f() -> (Int, Int) -> Int\n    &divide(&2, &1)\nend\n", "(Int, Int) -> Int"},
+		{"a call reordering its parameters", "fn f() -> (NonZeroInt, Int) -> Int\n    &divide(&2, &1)\nend\n", "(NonZeroInt, Int) -> Int"},
 		{"a call reusing its parameter", "fn f() -> (Int) -> Int\n    &add(&1, &1)\nend\n", "(Int) -> Int"},
 		{"a call with a deeper parameter", "fn f() -> (Int) -> Maybe<Int>\n    &Some(&1 + 1)\nend\n", "(Int) -> Maybe<Int>"},
 		{"a call of a type parameter's function", "import std::json.{Json, FromJson}\n\nfn f<T>(xs: List<Json>) -> List<Result<T, Json.ShapeError>> where T: FromJson\n    Iter.map(xs, &T.from_json(&1)) |> Iter.to_list()\nend\n", "(Json) -> Result<T, Json.ShapeError>"},
@@ -126,7 +126,7 @@ func TestCapture_EachBodyIsAFunction(t *testing.T) {
 		{"the argument of Some", "fn f() -> Maybe<(Int) -> Int>\n    Some(&(&1 + 1))\nend\n", "(Int) -> Int"},
 		{"an ignored parameter", "fn f() -> Int\n    apply2(&(&2 * 10))\nend\n", "(Int, Int) -> Int"},
 		{"a partial ignoring a parameter", "fn f() -> Int\n    apply2(&add(&1, 100))\nend\n", "(Int, Int) -> Int"},
-		{"a then stage", "fn f() -> Int\n    10 |> then &divide(100, &1)\nend\n", "(Int) -> Int"},
+		{"a then stage", "fn f() -> Int\n    10 |> then &divide(100, &1)\nend\n", "(NonZeroInt) -> Int"},
 		{"a then stage with no partial", "fn f() -> Int\n    10 |> then &(&1 + 1)\nend\n", "(Int) -> Int"},
 		{"a tap stage", "import std::io\n\nfn f() -> Int\n    10 |> tap &io.print(Int.to_string(&1))\nend\n", "(Int) -> Unit"},
 	} {
@@ -214,9 +214,9 @@ func TestCapture_Rejections(t *testing.T) {
 		{"a reduction's callback", "fn f() -> Int\n    [1, 2] |> Iter.reduce(&(&1 + &2))\nend\n",
 			"missing argument for parameter 'from'"},
 		{"no expected type, an operator function of several impls", "fn f() -> Int\n    inv = &Ticks.divide(Ticks(12), &1)\n    inv(Ticks(4))\nend\n",
-			"cannot infer type for `&1` in `&Ticks.divide(Ticks(12), &1)`\nhelp: `Ticks` has 2 `Divide` impls, whose right operands are `Int` and `Ticks`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Int) -> Ticks = &Ticks.divide(Ticks(12), &1)`, or write a lambda with an annotated parameter, as in `fn x: Int -> Ticks.divide(Ticks(12), x)`"},
+			"cannot infer type for `&1` in `&Ticks.divide(Ticks(12), &1)`\nhelp: `Ticks` has 2 `Divide` impls, whose right operands are `NonZeroInt` and `Ticks`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (NonZeroInt) -> Ticks = &Ticks.divide(Ticks(12), &1)`, or write a lambda with an annotated parameter, as in `fn x: NonZeroInt -> Ticks.divide(Ticks(12), x)`"},
 		{"no expected type, an operator function of several impls with both operands open", "fn f() -> Int\n    div = &Ticks.divide(&1, &2)\n    div(Ticks(12), Ticks(4))\nend\n",
-			"cannot infer type for `&2` in `&Ticks.divide(&1, &2)`\nhelp: `Ticks` has 2 `Divide` impls, whose right operands are `Int` and `Ticks`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Ticks, Int) -> Ticks = &Ticks.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Ticks, b: Int -> Ticks.divide(a, b)`"},
+			"cannot infer type for `&2` in `&Ticks.divide(&1, &2)`\nhelp: `Ticks` has 2 `Divide` impls, whose right operands are `NonZeroInt` and `Ticks`, so only the function expected where the capture stands can pick one; annotate the binding with the function's type, as in `f: (Ticks, NonZeroInt) -> Ticks = &Ticks.divide(&1, &2)`, or write a lambda with an annotated parameter, as in `fn a: Ticks, b: NonZeroInt -> Ticks.divide(a, b)`"},
 		{"an operand of and", "fn f(ready: Bool) -> (Int) -> Bool\n    &(&1 > 2) and ready\nend\n",
 			"cannot infer type for `&1` in `&(&1 > 2)`"},
 		{"no expected type, a string", "fn f() -> String\n    say = &\"id ${&1}\"\n    say(1)\nend\n",

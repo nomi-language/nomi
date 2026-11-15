@@ -26,17 +26,17 @@ test "an unwrapped Vector.get traps on a negative index"
     assert String.contains(message, "line 2: `Vector.get(Vector[1, 2], -1)` found nothing")
 end
 
-test "vector set traps on an index outside the vector"
+test "an unwrapped Vector.set traps on an index outside the vector"
     result =
         """
         fn main()
-          _ = Vector.set(Vector["a"], 1, "b")
+          _ = Vector.set(Vector["a"], 1, "b")!
         end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: index 1 is out of range for a Vector of length 1")
+    assert String.contains(message, "line 2: `Vector.set(Vector[\"a\"], 1, \"b\")` found nothing")
 end
 
 test "an unwrapped Bytes.get traps on an index outside the buffer"
@@ -53,36 +53,40 @@ test "an unwrapped Bytes.get traps on an index outside the buffer"
     assert String.contains(message, "line 2: `Bytes.get(String.to_bytes(\"hi\"), 2)` found nothing")
 end
 
-test "an index trap inside a std call is reported at the program's call"
+test "an unwrapped set in a lambda a std call runs traps at the lambda"
     result =
         """
         fn main()
           rows = [Vector[1, 2], Vector[3]]
-          _ = rows |> Iter.map(&Vector.set(&1, 1, 0)) |> Iter.to_list()
+          _ = rows |> Iter.map(&Vector.set(&1, 1, 0)!) |> Iter.to_list()
         end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 3: index 1 is out of range for a Vector of length 1")
+    assert String.contains(message, "line 3: `Vector.set(&1, 1, 0)` found nothing")
 end
 
-test "get answers None where its unwrapping traps"
+test "get, set and remove_at answer None where their unwrapping traps"
     assert Vector.get([1, 2, 3, 4, 5], 7) == None
     assert Bytes.get(String.to_bytes("hi"), 2) == None
+    assert Vector.set([1, 2], 2, 0) == None
+    assert Vector.set([1, 2], -1, 0) == None
+    assert List.remove_at([1, 2, 3], 3) == None
+    assert List.remove_at([1, 2, 3], -1) == None
 end
 
-test "list remove_at traps on an index outside the list"
+test "an unwrapped List.remove_at traps on an index outside the list"
     result =
         """
         fn main()
-          _ = List.remove_at([1, 2, 3], 3)
+          _ = List.remove_at([1, 2, 3], 3)!
         end
         """
         |> compiler.run()
 
     assert Err(message) = result
-    assert String.contains(message, "line 2: index 3 is out of range for a List of length 3")
+    assert String.contains(message, "line 2: `List.remove_at([1, 2, 3], 3)` found nothing")
 end
 
 test "an unwrapped Map.get traps on a missing key and names the call"

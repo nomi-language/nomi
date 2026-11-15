@@ -323,8 +323,10 @@ end
 
 // The low `count` hexadecimal digits of n, most significant first.
 fn hex(n: Int, count: Int) -> String
-    0..count
-    |> Iter.map(fn i -> hex_digit(n >>> ((count - 1 - i) * 4) &&& 15))
+    Iter.iterate(n, fn rest -> rest >>> 4)
+    |> Iter.take(count)
+    |> Iter.map(fn rest -> hex_digit(rest &&& 15))
+    |> Iter.reverse()
     |> String.join()
 end
 
@@ -356,7 +358,12 @@ end
 // whole of Int is a bijection of the seed, so the bits are the entropy's.
 fn random_int() -> Result<Int, random.Error>
     seed = Seed.from_os()?
-    (n, _) = Generator.step(Generator.int(sign_bit, -1 - sign_bit), seed)
+
+    (n, _) = Generator.step(
+        Generator.int(-9_223_372_036_854_775_808..=9_223_372_036_854_775_807),
+        seed,
+    )
+
     Ok(n)
 end
 

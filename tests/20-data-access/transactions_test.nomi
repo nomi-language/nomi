@@ -119,8 +119,9 @@ test "a transaction rolls back when its body traps"
         task = Task.spawn(fn ->
             sql.transaction(fake, fn tx ->
                 insert(tx, "Ada")?
-                zero = Iter.count([])
-                Ok(1 / zero)
+                // `!` on None traps.
+                divisor = NonZeroInt.try_from(Iter.count([]))!
+                Ok(1 / divisor)
             end)
         end)
 
@@ -212,7 +213,8 @@ test "the suite names its rules"
 end
 
 test "the suite closes every connection it opens"
-    opened: Channel<Fake> = Channel.buffered(Iter.count(testing.rules()))
+    // One place per rule; the suite has rules, so the count is positive.
+    opened: Channel<Fake> = Channel.buffered(PositiveInt.try_from(Iter.count(testing.rules()))!)
 
     open = fn ->
         fake = Fake.new(answer: testing.conformance_answer)
@@ -469,8 +471,8 @@ fn add_then_trap(conn: Fake) -> Result<Int, sql.Error>
     defer sql.close_quietly(conn)
 
     insert(conn, "Ada")?
-    zero = Iter.count([])
-    Ok(1 / zero)
+    divisor = NonZeroInt.try_from(Iter.count([]))!
+    Ok(1 / divisor)
 end
 
 test "a deferred close_quietly closes the connection when the body traps"
@@ -503,10 +505,7 @@ end
 // `defer` cannot assert, so a connection left open traps here, which fails
 // the test as a failed cleanup.
 fn expect_closed(fake: Fake)
-    if not Fake.is_closed(fake) then
-        zero = Iter.count([])
-        _ = 1 / zero
-    end
+    if not Fake.is_closed(fake) then unreachable "the connection was left open"
 end
 
 group "a connection setup opens and a defer closes"

@@ -17,15 +17,21 @@ import
     std::random.Generator
 end
 
+// A weight is a NonNegativeFloat, so the one a weight can be and still be
+// refused is an infinite one.
+fn endless() -> NonNegativeFloat
+    NonNegativeFloat.try_from(Float.positive_infinity())!
+end
+
 test "a struct-shaped stdlib error variant renders"
-    case Generator.weighted((-1.0, "bad"), [])
+    case Generator.weighted([(endless(), "bad")])
         Ok(_)  -> assert False
-        Err(e) -> assert Display.to_string(e) == "invalid random weight: -1.0"
+        Err(e) -> assert Display.to_string(e) == "invalid random weight: +Inf"
     end
 end
 
 test "a bare stdlib error variant renders"
-    case Generator.weighted((0.0, "never"), [])
+    case Generator.weighted([(0.0, "never")])
         Ok(_) ->
             assert False
 
@@ -38,14 +44,14 @@ end
 // The shape a caller writes first. Interpolation goes through Display, so it
 // trapped for exactly the same reason.
 test "interpolation renders a stdlib error"
-    case Generator.weighted((-1.0, "bad"), [])
+    case Generator.weighted([(endless(), "bad")])
         Ok(_)  -> assert False
-        Err(e) -> assert "${e}" == "invalid random weight: -1.0"
+        Err(e) -> assert "${e}" == "invalid random weight: +Inf"
     end
 end
 
 test "Debug.inspect renders a stdlib error"
-    case Generator.weighted((-1.0, "bad"), [])
+    case Generator.weighted([(endless(), "bad")])
         Ok(_)  -> assert False
         Err(e) -> assert Debug.inspect(e) != ""
     end
@@ -60,7 +66,7 @@ test "two modules' same-named errors each get their own impl"
             assert False
 
         Err(calendar_error) ->
-            case Generator.weighted((-1.0, "bad"), [])
+            case Generator.weighted([(endless(), "bad")])
                 Ok(_) ->
                     assert False
 
@@ -68,7 +74,7 @@ test "two modules' same-named errors each get their own impl"
                     assert Display.to_string(calendar_error)
                         == "invalid format: expected YYYY-MM-DD, got \"05/04/2026\""
 
-                    assert Display.to_string(random_error) == "invalid random weight: -1.0"
+                    assert Display.to_string(random_error) == "invalid random weight: +Inf"
                     refute Display.to_string(calendar_error) == Display.to_string(random_error)
             end
     end

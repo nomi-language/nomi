@@ -491,6 +491,9 @@ impl Planner
 
                 if b.direction == Some(.Forward) then
                     set_value(p, b.v2, variable(p, b.v1).value * scale + offset)
+                else if scale == 0 then
+                    // No value of v1 scales to v2 by 0: leave it.
+                    p
                 else
                     set_value(p, b.v1, (variable(p, b.v2).value - offset) / scale)
                 end

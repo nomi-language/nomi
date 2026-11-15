@@ -57,11 +57,16 @@ func TestStdlibModuleForPathNamesAFlatStdlibModule(t *testing.T) {
 		// (TestStdlibModuleForPathNamesANestedModuleOnDisk has one).
 		{"std/storage/testing.nomi", "storage/testing", true},
 		{"/repo/std/storage/testing.nomi", "", false},
+		// A fixture directly under std/_fixtures is the module std.Load
+		// names it in a test binary that loads the fixtures, so its bare
+		// sibling imports are std's.
+		{"/repo/std/_fixtures/conn.nomi", "_fixtures/conn", true},
+		{"std/_fixtures/conn.nomi", "_fixtures/conn", true},
+		{"/repo/project/_fixtures/conn.nomi", "", false},
 		// std/_fixtures' nested tree, which std.Load does not carry, and a
 		// re-nested adapter facade, which is the regression this row
 		// exists to catch, are not modules this can name.
 		{"/repo/std/_fixtures/nested/deeper/module.nomi", "", false},
-		{"/repo/std/_fixtures/conn.nomi", "", false},
 		{"std/calendar/calendar.nomi", "", false},
 		{"/repo/std/calendar/calendar.nomi", "", false},
 		{"std/storage/deeper/testing.nomi", "", false},
@@ -113,6 +118,7 @@ func TestOriginForStandalonePathIsTheModulesOwnKey(t *testing.T) {
 	for _, c := range []struct{ path, want string }{
 		{"/repo/std/json.nomi", "std/json"},
 		{"/repo/std/calendar.nomi", "std/calendar"},
+		{"/repo/std/_fixtures/conn.nomi", "std/_fixtures/conn"},
 		{"/repo/project/main.nomi", OriginEntry},
 		{"", OriginEntry},
 	} {

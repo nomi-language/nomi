@@ -977,10 +977,11 @@ var mxShells = []*mxContext{
 			mxString(want) + "\n    end\nend", nil, "\n--- " + mxCase + ": ok: <nil>\n"
 	}},
 	{name: "subtests name", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
-		// The row's name observes the value: it divides by zero, which
-		// fails the row, unless the observation is the one expected.
-		return "test \"" + mxCase + "\"\n    subtests [" + mxIndentTail(e) + "], got, Int.to_string(100 / (if " + mxObs(obs, "got") + " == " +
-			mxString(want) + " then 1 else 0))\n        assert True\n    end\nend", nil, "\n--- " + mxCase + ": ok: <nil>\n"
+		// The row's name observes the value: it traps on a NonZeroInt
+		// of zero, which fails the row, unless the observation is the one
+		// expected.
+		return "test \"" + mxCase + "\"\n    subtests [" + mxIndentTail(e) + "], got, Int.to_string(100 / NonZeroInt.try_from(if " + mxObs(obs, "got") + " == " +
+			mxString(want) + " then 1 else 0)!)\n        assert True\n    end\nend", nil, "\n--- " + mxCase + ": ok: <nil>\n"
 	}},
 	{name: "defer", shell: func(b *mxBuild, e, obs, want string) (string, []string, string) {
 		// One deferred call reads the local, widening it to the parameter's

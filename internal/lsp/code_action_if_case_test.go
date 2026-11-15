@@ -199,6 +199,15 @@ end)`), toCase, toIfElse},
 	}
 }
 
+// A rung after the first reads its subject narrowed by the rungs before
+// it: after `n == 0` is false, `n` is a NonZeroInt, whose literal patterns
+// match as an Int's do.
+func TestIfCase_LiteralChainOverANarrowedSubject(t *testing.T) {
+	decls := "fn label(n: Int) -> String\n    ‸if n == 0 then\n        \"zero\"\n    else if n == 1 then\n        \"one\"\n    else\n        \"many\"\n    end\nend\n\n"
+	want := "fn label(n: Int) -> String\n    case n\n        0 -> \"zero\"\n        1 -> \"one\"\n        _ -> \"many\"\n    end\nend\n\n"
+	convertIfCase(t, fnMainAfter(decls, "io.print(label(1))"), "Convert to case on 'n'", fnMainAfter(want, "io.print(label(1))"))
+}
+
 func TestIfCase_LiteralChainToCase(t *testing.T) {
 	src := fnMain(`n = 2
 

@@ -70,7 +70,7 @@ pub fn boot() -> Result<App, String>
 end
 
 fn main()
-    Worker.start(App.worker, [])
+    Worker.start(App.worker, [])!
     io.print("started")
 end
 `,

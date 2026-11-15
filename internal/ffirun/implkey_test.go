@@ -122,17 +122,18 @@ func AddBonus(lhs Score, rhs Bonus) Score {
 	return Score{Points: lhs.Points + rhs.Points*10}
 }
 `, `import
+  std::int.Int64
   std::io
 end
 
 gopkg "implbinding" as go_add
 
 pub struct Score
-  points: Int
+  points: Int64
 end
 
 pub struct Bonus
-  points: Int
+  points: Int64
 end
 
 impl Add<Score, Score> for Score
@@ -233,17 +234,18 @@ func Render(s Score) string { return "rendered" }
 
 func Label(n int64) string { return "label" }
 `, `import
+  std::int.Int64
   std::io
 end
 
 gopkg "implbinding" as go_add
 
 pub struct Score
-  points: Int
+  points: Int64
 end
 
 pub struct Bonus
-  points: Int
+  points: Int64
 end
 
 pub opaque struct Box<T>
@@ -267,7 +269,7 @@ impl Display for Score
 end
 
 impl Box<T>
-  pub fn label(n: Int) -> String go go_add.Label
+  pub fn label(n: Int64) -> String go go_add.Label
 end
 
 fn main()

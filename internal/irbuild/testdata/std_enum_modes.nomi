@@ -1,5 +1,5 @@
 import
-    std::decimal.RoundingMode.{self, Ceiling, Down, HalfEven, Unnecessary, Up}
+    std::decimal.RoundingMode.{self, Ceiling, Down, HalfEven, HalfUp, Up}
     std::strings.NormalForm.{self, NFC, NFD, NFKC, NFKD}
 end
 
@@ -8,8 +8,8 @@ end
 //
 // Both are BARE enums whose whole observable content is which variant a value
 // is, so every case below is a place a lowering could get a tag wrong.
-// The widest row on purpose: RoundingMode has eight variants and this file names
-// all eight, because the tags are derived from declaration ORDER and a fixture
+// The widest row on purpose: RoundingMode has seven variants and this file names
+// six, because the tags are derived from declaration ORDER and a fixture
 // that named two would pass against a permuted table.
 fn round_name(m: RoundingMode) -> String
     case m
@@ -35,14 +35,14 @@ test "a variant-only import names every rounding mode"
     assert round_name(Down) == "down"
     assert round_name(Ceiling) == "ceiling"
     assert round_name(HalfEven) == "half-even"
-    assert round_name(Unnecessary) == "other"
+    assert round_name(HalfUp) == "other"
 end
 
 test "rounding modes are equal only to themselves"
     assert HalfEven == HalfEven
     refute HalfEven == Up
     refute Up == Down
-    refute Ceiling == Unnecessary
+    refute Ceiling == HalfUp
 end
 
 test "every normal form has its own tag"
@@ -56,7 +56,7 @@ end
 
 test "derived Display and Debug render the variant name"
     assert Display.to_string(HalfEven) == "HalfEven"
-    assert Display.to_string(Unnecessary) == "Unnecessary"
+    assert Display.to_string(HalfUp) == "HalfUp"
     assert Debug.inspect(Up) == "Up"
     assert Debug.inspect(NFKD) == "NFKD"
 end

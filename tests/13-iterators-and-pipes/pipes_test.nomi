@@ -8,7 +8,7 @@ fn add(x: Int, y: Int) -> Int
     x + y
 end
 
-fn divide(x: Int, y: Int) -> Int
+fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 

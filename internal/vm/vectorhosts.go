@@ -13,9 +13,8 @@ import (
 // element: the machine's vectors and lists hold `any`, which no std
 // declaration's type parameter describes to the generator.
 //
-// `Vector.set` traps on an index outside the vector. rt raises
-// the trap with its text, and it becomes this machine's fault here, as an
-// adapter's does in callAdapter.
+// `Vector.set` answers None for an index outside the vector and Some of the
+// new vector otherwise; hostMaybe's fast path answers it in registers.
 func vectorHost(key string) hostFn { return vectorHostWith(key, false) }
 
 // vectorHostWith is vectorHost, writing an owned receiver's storage in place
@@ -56,10 +55,9 @@ func vectorHostWith(key string, owned bool) hostFn {
 			}
 		}()
 		if key == "Vector.set" {
-			if _, small := args[1].(int64); !small {
-				// An index past int64's range is past any Vector; the fault
-				// names the index itself, not its clamp.
-				rt.Trap(rt.IndexOutOfRangeValueText("Vector", args[1], rt.VectorLength(vec)))
+			// An index past int64's range is past any Vector.
+			if _, small := args[1].(int64); !small || !rt.VectorInRange(vec, index) {
+				return noneValue, nil
 			}
 		}
 		switch key {
@@ -80,15 +78,7 @@ func vectorHostWith(key string, owned bool) hostFn {
 			}
 			return some(pair(vec.At(0), rt.VectorTail(vec))), nil
 		case "Vector.set":
-			if owned {
-				// A set written in place leaves the window as it was, so
-				// the operand's box is the answer's and nothing is boxed.
-				if out := rt.VectorSetOwned(vec, index, args[2]); out != vec {
-					return out, nil
-				}
-				return args[0], nil
-			}
-			return rt.VectorSet(vec, index, args[2]), nil
+			return some(vectorSetBox(args[0], vec, index, args[2], owned)), nil
 		default:
 			other, ok := args[1].(rt.Vector[any])
 			if !ok {
@@ -97,6 +87,20 @@ func vectorHostWith(key string, owned bool) hostFn {
 			return rt.VectorConcat(vec, other), nil
 		}
 	}
+}
+
+// vectorSetBox is the vector box `Vector.set` answers for an index in
+// range: vec (boxed as box) with index replaced, written in place when
+// owned. A set written in place leaves the window as it was, so the
+// operand's box is the answer's and nothing is boxed.
+func vectorSetBox(box any, vec rt.Vector[any], index int64, item any, owned bool) any {
+	if owned {
+		if out := rt.VectorSetOwned(vec, index, item); out != vec {
+			return out
+		}
+		return box
+	}
+	return rt.VectorSet(vec, index, item)
 }
 
 // vectorContainsHost is `Vector.contains`: rt's scan of the vector's window

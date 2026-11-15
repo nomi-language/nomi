@@ -1,9 +1,14 @@
-// The cycle closes through an ordinary function CALL, inside this file, and it
-// is FORCED from another file's bare selectively-imported read. So the forcing
-// lineage has to survive the generated package boundary: main's frame is handed
-// to seedlib's getter, which conses this cell onto it before calling the RHS.
-pub once seed: Int = grow()
+// The cycle closes through a call of a function VALUE, inside this file,
+// which the compile-time check does not follow, and it is FORCED from another
+// file's bare selectively-imported read. So the forcing lineage has to
+// survive the module boundary: main's frame is handed to seedlib's getter,
+// which conses this cell onto it before calling the RHS.
+pub once seed: Int = apply(grow)
 
 pub fn grow() -> Int
     seed + 1
+end
+
+fn apply(f: () -> Int) -> Int
+    f()
 end

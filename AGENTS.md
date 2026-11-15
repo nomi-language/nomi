@@ -471,8 +471,10 @@ until you do).
 `TestGeneratedFileIsCurrent` fails until you regenerate, and generation refuses
 a row whose Go signature does not match its declaration. A Go parameter or
 result for a Nomi `Int` is `rt.Int` when the function handles an Int of any
-size, and `int64` when it needs a machine integer, where the adapter refuses
-an Int past its range. An adapter returning a
+size, and `int64` when it needs a machine integer; generation refuses an
+`int64` parameter whose declared type admits Ints past its range, so declare
+it `Int64` (std::int) or take `rt.Int` and define what a large value means.
+An adapter returning a
 Nomi struct must build it with the declared type's descriptor, or every impl
 lookup on it misses.
 

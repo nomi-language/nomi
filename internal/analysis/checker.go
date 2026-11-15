@@ -178,10 +178,20 @@ type checker struct {
 	// undeterminedPatterns is the pattern bindings whose names are checked
 	// for a determined type once every body is checked.
 	undeterminedPatterns []undeterminedPattern
-	// narrowed is the type each name holds inside the arm being checked
-	// that matched it against an embedded variant (narrowing.go).
-	narrowed  map[*Symbol]Type
-	typeVarID int // counter for generating fresh type variables
+	// narrowed is the type each name holds where the checker is: in an arm
+	// that matched it against an embedded variant (narrowing.go), or where
+	// a check proved a subtype of it (subtype_narrowing.go).
+	narrowed map[*Symbol]Type
+	// ranges is the range of each numeric expression the checker
+	// computed one for, and symRanges each binding's where the checker
+	// is: the value it was bound to, or what a check narrowed it to
+	// (ranges.go).
+	ranges    map[ast.Node]famRange
+	symRanges map[*Symbol]famRange
+	// callbackElems is each callback a std Iter function calls with its
+	// source's elements, with that source (element_ranges.go).
+	callbackElems map[ast.Node]callbackElem
+	typeVarID     int // counter for generating fresh type variables
 	// vars is every inference variable this checker made, in order, and
 	// openBounds each interface bound checked against a type that still
 	// held one; closeOpenVariables closes the variables left unsolved
@@ -1645,7 +1655,6 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	c.recordCallInterfaces(nodes)
 	c.recordHoleDisplays()
 	c.recordOperatorUses()
-	c.checkZeroDivisors(nodes)
 	c.recordCoercions(nodes)
 	// The application-field roots and the file's boot errors are reported
 	// by CheckAppRoots, once the program's files are checked.
@@ -3300,6 +3309,10 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	}
 	if n.TypeAnnotation == nil {
 		c.checkLocallyDetermined(n.Name, n.Value, valTy, nil, n.Line, n.Col)
+		// A `once` is a constant: the narrowest std numeric subtype its
+		// value's range proves is its type, for every file that reads it
+		// (ranges.go). `once k = 60 * 60` is a PositiveInt.
+		valTy = c.onceRangeType(n.Value, valTy)
 	}
 	if sym != nil && sym.Type == nil {
 		sym.Type = valTy
@@ -3318,12 +3331,15 @@ func (c *checker) checkBlockStmts(block *ast.Block) Type {
 		return TypeUnit
 	}
 	defer c.enterBlockImports(block)()
+	var undo []func()
+	defer func() { undoNarrowings(undo) }()
 	var last Type = TypeUnit
 	for i, stmt := range block.Stmts {
 		if i == len(block.Stmts)-1 {
 			last = c.checkNode(stmt)
 		} else {
 			last = c.checkStmtUnexpected(stmt)
+			undo = c.blockNarrowings(stmt, undo)
 		}
 		c.checkNonFinalExprStmt(stmt, last, i == len(block.Stmts)-1)
 	}
@@ -3697,6 +3713,11 @@ func (c *checker) resolveBoundaryReturns(bodyTy Type, returns []boundaryReturn, 
 			continue
 		}
 		if err := c.unify(result, ret.ty, nil); err != nil && !TypesEqual(result, ret.ty) {
+			if declared && c.unifyInto(result, ret.ty, nil) == nil {
+				// A value of a subtype returned where its ancestor is the
+				// result converts up.
+				continue
+			}
 			if joined := c.refinementJoin(result, ret.ty); joined != nil && !declared {
 				result = joined
 				continue
@@ -4416,6 +4437,8 @@ func (c *checker) checkBlockExpectingReturn(block *ast.Block) Type {
 		return c.checkBlock(block)
 	}
 	defer c.enterBlockImports(block)()
+	var undo []func()
+	defer func() { undoNarrowings(undo) }()
 	var last Type = TypeUnit
 	for i, stmt := range block.Stmts {
 		if i == len(block.Stmts)-1 {
@@ -4434,6 +4457,9 @@ func (c *checker) checkBlockExpectingReturn(block *ast.Block) Type {
 			}
 		}
 		last = c.checkStmtUnexpected(stmt)
+		if i < len(block.Stmts)-1 {
+			undo = c.blockNarrowings(stmt, undo)
+		}
 		c.checkNonFinalExprStmt(stmt, last, false)
 	}
 	return last
@@ -4469,6 +4495,8 @@ func (c *checker) checkBlockExpecting(block *ast.Block, expected Type) Type {
 		return c.checkBlock(block)
 	}
 	defer c.enterBlockImports(block)()
+	var undo []func()
+	defer func() { undoNarrowings(undo) }()
 	var last Type = TypeUnit
 	for i, stmt := range block.Stmts {
 		if i == len(block.Stmts)-1 {
@@ -4478,6 +4506,9 @@ func (c *checker) checkBlockExpecting(block *ast.Block, expected Type) Type {
 			}
 		}
 		last = c.checkStmtUnexpected(stmt)
+		if i < len(block.Stmts)-1 {
+			undo = c.blockNarrowings(stmt, undo)
+		}
 		c.checkNonFinalExprStmt(stmt, last, false)
 	}
 	return last
@@ -4512,8 +4543,13 @@ func (c *checker) checkNodeExpecting(node ast.Node, expected Type) Type {
 	}
 	c.exprStack = append(c.exprStack, node)
 	defer func() { c.exprStack = c.exprStack[:len(c.exprStack)-1] }()
-	ty := c.rejectKeyWithoutEquality(node, c.checkNodeExpectingType(node, expected))
+	ty := c.rangeTyped(node, c.rejectKeyWithoutEquality(node, c.checkNodeExpectingType(node, expected)))
 	c.fa.recordExprType(node, ty)
+	// A value whose range proves the subtype expected is one (ranges.go).
+	if proven := c.provenRefinement(node, ty, expected); proven != nil {
+		ty = proven
+		c.fa.recordExprType(node, ty)
+	}
 	return ty
 }
 
@@ -4832,7 +4868,7 @@ func (c *checker) checkMapLitAs(n *ast.MapLit, expected Type) Type {
 	if n.TypeName != nil && !n.ShapeHead {
 		return c.checkMapLit(n)
 	}
-	if dt, ok := resolveTypeVar(expected).(*DistinctType); ok && n.TypeName == nil && c.buildsDistinct(dt) {
+	if dt, ok := resolveTypeVar(expected).(*DistinctType); ok && (n.TypeName == nil || c.shapeHeadSubtype(dt) != nil) && c.buildsDistinct(dt) {
 		if mt, ok := resolveTypeVar(literalInnerOf(dt)).(*MapType); ok {
 			ty := c.checkMapLitAs(n, mt)
 			if ty == nil {
@@ -4854,6 +4890,23 @@ func (c *checker) checkMapLitAs(n *ast.MapLit, expected Type) Type {
 }
 
 func (c *checker) checkMapLitExpecting(n *ast.MapLit, keyTy, valTy Type) Type {
+	if keyTy != nil && valTy != nil && !containsTypeVar(keyTy) && !containsTypeVar(valTy) &&
+		refinedOpenElem(&TupleType{Elems: []Type{keyTy, valTy}}) && len(n.Entries) > 0 {
+		// A refined key or value beside a type parameter, as a list's
+		// element (checkListLitAgainstOpenFunc): each key and each value
+		// is checked against its expected type, and the map is their joins.
+		keys := make([]ast.Node, len(n.Entries))
+		vals := make([]ast.Node, len(n.Entries))
+		for i, entry := range n.Entries {
+			keys[i], vals[i] = entry.Key, entry.Value
+		}
+		k, _ := c.joinItemsAgainstOpen(keys, keyTy, "map key")
+		v, _ := c.joinItemsAgainstOpen(vals, valTy, "map value")
+		if k == nil || v == nil {
+			return nil
+		}
+		return &MapType{Key: k, Val: v}
+	}
 	if keyTy == nil || valTy == nil || ContainsTypeParam(keyTy) || ContainsTypeParam(valTy) || containsTypeVar(keyTy) || containsTypeVar(valTy) {
 		return c.checkMapLit(n)
 	}
@@ -5033,7 +5086,7 @@ func (c *checker) checkSpreadHeads(spreads []ast.Spread, expected Type, shape sp
 	if len(iters) > 0 {
 		litElem, _ := shape.elemOf(resolveTypeVar(lit))
 		for _, it := range iters {
-			if err := UnifyWithImpls(litElem, it.elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+			if err := UnifyWithImpls(litElem, it.elem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil && !c.convertsUpTo(litElem, it.elem) {
 				c.addError(it.sp.Line, it.sp.Col, c.typef("%s spread element type mismatch: expected %s, got %s", shape.name, resolveTypeVar(litElem), resolveTypeVar(it.elem)))
 				return nil, false, false
 			}
@@ -5065,7 +5118,7 @@ func (c *checker) checkNode(node ast.Node) Type {
 	}
 	c.exprStack = append(c.exprStack, node)
 	defer func() { c.exprStack = c.exprStack[:len(c.exprStack)-1] }()
-	ty := c.rejectKeyWithoutEquality(node, c.checkNodeType(node))
+	ty := c.rangeTyped(node, c.rejectKeyWithoutEquality(node, c.checkNodeType(node)))
 	c.fa.recordExprType(node, ty)
 	return ty
 }
@@ -6880,6 +6933,19 @@ func (c *checker) callFnTypeFromResolved(node ast.Node) Type {
 // T, so it fills what the endpoints leave open: `c: Range<List<Int>> =
 // []..[]` (spec §5 *Type arguments from the arguments*).
 func (c *checker) checkRangeLit(n *ast.RangeLit, expected Type) Type {
+	// A range literal where a subtype of Range is expected builds it, as
+	// `[1, 2]` builds a NonEmptyList: checked against the Range at the end
+	// of the subtype's chain, its rules run when the program is compiled
+	// (checkCollectionRefinementLit).
+	if dt, ok := resolveTypeVar(expected).(*DistinctType); ok && refinementOf(dt) != nil && c.buildsDistinct(dt) {
+		if in := resolveTypeVar(literalInnerOf(dt)); isStdRangeType(in) {
+			ty := c.checkRangeLit(n, in)
+			if ty == nil {
+				return nil
+			}
+			return c.checkCollectionRefinementLit(n, c.distinctLiteralType(dt, in, ty))
+		}
+	}
 	var endpoint Type
 	if st, ok := resolveTypeVar(expected).(*StructType); ok && st.Name == "Range" && isStdOrigin(st.Origin) && len(st.TypeArgs) == 1 && concreteExpected(st.TypeArgs[0]) {
 		endpoint = st.TypeArgs[0]
@@ -6935,6 +7001,12 @@ func (c *checker) checkRangeLit(n *ast.RangeLit, expected Type) Type {
 		}
 	}
 	return c.instantiateRangeType(elemTy)
+}
+
+// isStdRangeType reports whether t is std's Range<T>.
+func isStdRangeType(t Type) bool {
+	st, ok := t.(*StructType)
+	return ok && st.Name == "Range" && isStdOrigin(st.Origin) && len(st.TypeArgs) == 1
 }
 
 // instantiateRangeType is std's Range<elem>. It reads std's declaration
@@ -7215,6 +7287,7 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.addError(acc.Line, acc.Col, fieldAccessorPipeStageMessage(acc))
 		} else if call, ok := rhs.(*ast.Call); ok {
 			pipeCall = call
+			c.noteIterCallbacks(call, n.Left)
 			if earlyCall {
 				right = earlyCallee
 			} else {
@@ -7237,12 +7310,19 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			c.calleeNode = prevCallee
 			return nil
 		}
+	} else if (n.Op == "and" || n.Op == "or") && !operandsChecked {
+		// The right operand runs only where the left one is True for
+		// `and` and False for `or`, and is checked with what that proves
+		// (subtype_narrowing.go): `d != 0 and n % d == 0`.
+		c.withCondition(n.Left, n.Op == "and", func() { right = c.checkNode(n.Right) })
 	} else if !comparison && !operandsChecked {
 		right = c.checkNode(n.Right)
 	}
 	if n.Op != "|>" && (refinementOf(left) != nil || refinementOf(right) != nil) {
 		// An operand of a refinement is its base's value: `p + 1.0` is a
-		// Float, `port == 80` compares Ints (refinement.go).
+		// Float, `port == 80` compares Ints (refinement.go). The value's
+		// range types it as a std numeric subtype where it proves one
+		// (range_typing.go).
 		left, right = RefinementBase(left), RefinementBase(right)
 	}
 	if comparison && (refinementInType(left, 0) || refinementInType(right, 0)) {
@@ -7607,7 +7687,9 @@ func (c *checker) selectOperatorImpl(opIface operatorInterface, left, right, exp
 	}
 	var fits []implCandidate
 	for _, cand := range cands {
-		if c.fitsInto(cand.args[0], right) || TypesEqual(cand.args[0], right) {
+		if c.fitsInto(cand.args[0], right) || TypesEqual(cand.args[0], right) || subtypeOperandFits(cand.args[0], right) {
+			// A subtype right operand, `Divide<NonZeroInt, Int>`, is chosen
+			// by its base; checkSubtypeOperand holds the operand to it.
 			fits = append(fits, cand)
 		}
 	}
@@ -7660,6 +7742,11 @@ func (c *checker) reportAmbiguousOperator(line, col int, opIface operatorInterfa
 }
 
 func (c *checker) checkOperatorRhs(n *ast.Binary, opIface operatorInterface, right, rhsExpected, result Type) (Type, bool) {
+	if subtypeOperandFits(rhsExpected, right) {
+		// `x / d` where the impl takes a NonZeroInt (operand_subtype.go).
+		c.checkSubtypeOperand(n.Right, n.Op, rhsExpected)
+		return result, true
+	}
 	c.settleTodo(n.Right, rhsExpected)
 	if err := c.unify(rhsExpected, right, nil); err != nil && !TypesEqual(rhsExpected, right) {
 		at := operandPos(n.Right, n.Line, n.Col)
@@ -8456,11 +8543,15 @@ func (c *checker) checkUnary(n *ast.Unary) Type {
 
 	switch n.Op {
 	case "-":
-		if operand != TypeInt && operand != TypeFloat && operand != TypeDecimal {
+		// A subtype's value is its base's: `-n` with n a NonNegativeInt
+		// is an Int, and its range types it (range_typing.go).
+		base := RefinementBase(operand)
+		if base != TypeInt && base != TypeFloat && base != TypeDecimal {
 			c.addError(n.Line, n.Col, fmt.Sprintf(
 				"unary - operand must be numeric, got %s", operand))
+			return operand
 		}
-		return operand
+		return base
 
 	case "not":
 		c.settleTodo(n.Right, TypeBool)
@@ -8482,6 +8573,11 @@ func (c *checker) checkUnary(n *ast.Unary) Type {
 // type's `BitwiseNot<Out>` impl, or of a type parameter's bound.
 func (c *checker) checkBitwiseNot(n *ast.Unary, operand Type) Type {
 	const iface = "BitwiseNot"
+	// An operand of a subtype is its base's value (refinement.go):
+	// `~~~Int.pow(2, 70)` is an Int's.
+	if refinementOf(operand) != nil {
+		operand = RefinementBase(operand)
+	}
 	resolved := resolveTypeVar(operand)
 	switch t := resolved.(type) {
 	case *TypeVar:
@@ -8877,6 +8973,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 	}
 	c.markStructUpdatePatch(n)
 	c.markCallHoles(n)
+	c.noteIterCallbacks(n, nil)
 	if fa, ok := n.Func.(*ast.FieldAccess); ok {
 		if c.methodCalls == nil {
 			c.methodCalls = map[*ast.FieldAccess]*ast.Call{}
@@ -9213,7 +9310,14 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 		case *ast.Placeholder:
 			slot := posSlots[i]
 			if slot >= 0 && slot < len(ft.Params) {
-				remainingParams = append(remainingParams, ft.Params[slot])
+				param := ft.Params[slot]
+				if ht := c.partialHoleType(n, arg); ht != nil && c.holeProvesSlot(arg, ht, param) {
+					// `1..=n |> Iter.map(&half(x, &1))` with half's slot
+					// a PositiveInt: the elements' range proves it, so
+					// the capture takes the Int the position passes.
+					param = ht
+				}
+				remainingParams = append(remainingParams, param)
 				if slot < len(calleeDefaults) && calleeDefaults[slot] {
 					remainingDefaults++
 				}
@@ -9587,7 +9691,9 @@ func (c *checker) finishOperatorInterfaceCall(n *ast.Call, opIface operatorInter
 			"no matching %s impl for %s %s %s", opIface.Interface, left, opIface.Op, right))
 		return nil, true
 	}
-	if err := c.unify(rhsExpected, right, nil); err != nil && !TypesEqual(rhsExpected, right) {
+	if subtypeOperandFits(rhsExpected, right) {
+		c.checkSubtypeOperand(n.Args[1], operatorCallName(n.Func), rhsExpected)
+	} else if err := c.unify(rhsExpected, right, nil); err != nil && !TypesEqual(rhsExpected, right) {
 		at := operandPos(n.Args[1], n.Line, n.Col)
 		c.report(TypeError{Line: at.Line, Col: at.Col, Message: c.typef("argument 2: expected %s, got %s", rhsExpected, right)}.
 			WithHint(setAddHint(n.Func, rhsExpected, right)).WithHint(c.mismatchHint(rhsExpected, right)))
@@ -11083,6 +11189,11 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 					subs = trial
 					instArgs = append(instArgs, [2]Type{ft.Params[slot], ht})
 					holeTypes[slot] = ht
+				} else if c.holeProvesSlot(arg, ht, ft.Params[slot]) {
+					// `1..=n |> Iter.map(&half(x, &1))` with half's slot a
+					// PositiveInt: the elements' range proves it, so the
+					// capture takes the Int the position passes.
+					holeTypes[slot] = ht
 				}
 			}
 			continue
@@ -11485,7 +11596,9 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 //     argument solved a parameter to as against its base, as a later
 //     branch of an `if` is (earlierArmsExpected):
 //     `Maybe.with_default(found, -1)` with found a `Maybe<NonNegativeInt>`
-//     is an Int;
+//     is an Int, unless the literal satisfies a std numeric subtype at or
+//     above the refinement, which it is checked as:
+//     `Maybe.with_default(found, 0)` is a NonNegativeInt;
 //   - a parameter widened from a refinement to an ancestor
 //     (widenToRefinementAncestor) or from an embedded type to its enum
 //     (widenToEnum) where an earlier argument takes it the other way, as
@@ -11588,6 +11701,18 @@ func typeParamsOf(t Type) []*TypeParam_ {
 // expected is the type arg is checked against at param under subs.
 func (st *argSolving) expected(param Type, subs map[*TypeParam_]Type, arg ast.Node) Type {
 	if len(st.fromArgs) > 0 && holdsRefinementLiteral(arg) {
+		if tp, ok := resolveTypeVar(param).(*TypeParam_); ok && st.fromArgs[tp] && refinementOf(Substitute(param, subs)) != nil {
+			// A literal that satisfies the std numeric subtype the other
+			// arguments solved, or the nearest ancestor of it that is one,
+			// is that subtype: `Maybe.with_default(count, 1)` is a
+			// NonNegativeInt (narrowLiteralJoin).
+			solved := Substitute(param, subs)
+			for _, t := range append([]Type{solved}, RefinementAncestors(solved)...) {
+				if literalFitsNumericSubtype(valueOfArg(arg), t) {
+					return t
+				}
+			}
+		}
 		erased := maps.Clone(subs)
 		for tp := range st.fromArgs {
 			if t, ok := erased[tp]; ok {
@@ -13729,6 +13854,12 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			}
 		}
 	}
+	// The binding holds its value's range wherever it is read; an
+	// annotated one holds what its type states, as a parameter does
+	// (ranges.go).
+	if sym, ok := c.fa.Definitions[pos]; ok && sym.Type != nil && valTy != nil && declared == nil {
+		c.bindRange(sym, n.Value)
+	}
 
 	return TypeUnit
 }
@@ -14411,8 +14542,16 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 	if !c.elselessLinks[n] && ifChainLacksElse(n) {
 		return c.checkElselessIf(n, condTy, expected, patternInput, narrowSym, narrowTy)
 	}
+	// A condition narrows the bindings it proves a std subtype of in each
+	// branch (subtype_narrowing.go).
+	var cond ast.Node
+	if !patternInput {
+		cond = n.Cond
+	}
 	checkThen := func(want Type) (ty Type) {
-		c.withNarrowing(narrowSym, narrowTy, func() { ty = c.checkBlockExpecting(n.Then, want) })
+		c.withNarrowing(narrowSym, narrowTy, func() {
+			c.withCondition(cond, true, func() { ty = c.checkBlockExpecting(n.Then, want) })
+		})
 		if c.elselessLinks[n] && endsInStatement(n.Then) {
 			// A branch of an `if` with no `else` that ends in an `assert`
 			// or a `dbg` is a statement, as a Unit branch is.
@@ -14437,14 +14576,16 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 		elseWant = earlierArmsExpected(expected, thenTy, n.Else)
 	}
 	var elseTy Type
-	switch e := n.Else.(type) {
-	case *ast.Block:
-		elseTy = c.checkBlockExpecting(e, elseWant)
-	case *ast.If:
-		elseTy = c.checkIf(e, elseWant)
-	default:
-		elseTy = c.checkNodeExpecting(n.Else, elseWant)
-	}
+	c.withCondition(cond, false, func() {
+		switch e := n.Else.(type) {
+		case *ast.Block:
+			elseTy = c.checkBlockExpecting(e, elseWant)
+		case *ast.If:
+			elseTy = c.checkIf(e, elseWant)
+		default:
+			elseTy = c.checkNodeExpecting(n.Else, elseWant)
+		}
+	})
 
 	// If one branch diverges (Infallible), use the other branch's type.
 	if thenTy == TypeInfallible {
@@ -14464,7 +14605,9 @@ func (c *checker) checkIfBranches(n *ast.If, condTy Type, expected Type, pattern
 		// pre-existing stdlib shapes.
 		if err := c.unify(thenTy, elseTy, nil); err != nil {
 			if joined := c.branchesJoin(expected, thenTy, elseTy); joined != nil {
-				thenTy = joined
+				// A literal branch beside a std numeric subtype it
+				// satisfies is that subtype (narrowLiteralJoin).
+				thenTy = c.narrowLiteralJoin(joined, []ast.Node{n.Then, n.Else}, []Type{thenTy, elseTy})
 			} else if c.elselessLinks[n] {
 				// Two branches of a chain with no final `else` that do not
 				// join: at least one has a value the chain cannot have.
@@ -15955,7 +16098,7 @@ func (c *checker) checkBreak(n *ast.Break) Type {
 			// substituted to Int (from the starting state), so `break "hello"`
 			// surfaces as Int vs String.
 			subs := map[*TypeParam_]Type{}
-			if err := c.unify(c.iterBreakTy, vTy, subs); err != nil {
+			if err := c.unifyInto(c.iterBreakTy, vTy, subs); err != nil {
 				c.addMismatch(n.Line, n.Col, c.iterBreakTy, vTy, c.typef("break value type mismatch: expected %s, got %s", c.iterBreakTy, vTy))
 			} else if c.returnUnwinds != nil {
 				// `break value` is `return value` then stop (spec §13), so
@@ -16061,6 +16204,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 	var elemTy Type
 	var pos litPosition
 	itemTys := make([]Type, 0, len(n.Items))
+	itemNodes := make([]ast.Node, 0, len(n.Items))
 	seeds := c.seedLitLambdas(litLambdaRoot{items: n.Items})
 	defer seeds.done()
 	for _, item := range n.Items {
@@ -16069,6 +16213,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 			continue
 		}
 		itemTys = append(itemTys, ty)
+		itemNodes = append(itemNodes, item)
 		joined, ok := c.joinLitElem(elemTy, ty)
 		if !ok {
 			e := errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty))
@@ -16092,6 +16237,12 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 		// type is unknown, not a collection of an open element type, which draws
 		// "not locally determined" over the binding it is given to.
 		return nil
+	}
+	if len(n.Spreads) == 0 {
+		// A literal element beside a std numeric subtype it satisfies is
+		// that subtype: `[n, 0]` and `[0, n]` with n a NonNegativeInt are
+		// List<NonNegativeInt>s.
+		elemTy = c.narrowLiteralJoin(elemTy, itemNodes, itemTys)
 	}
 	markEmbedsWidening(n, elemTy, itemTys)
 	return &ListType{Elem: elemTy}
@@ -16128,7 +16279,7 @@ func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
 		return c.checkListLit(n)
 	}
 	if c.openElemType(elemTy) {
-		if !containsTypeVar(elemTy) && funcShapedElem(elemTy) {
+		if !containsTypeVar(elemTy) && (funcShapedElem(elemTy) || refinementInType(elemTy, 0)) {
 			return c.checkListLitAgainstOpenFunc(n, elemTy)
 		}
 		return c.checkListLit(n)
@@ -16166,21 +16317,23 @@ func funcShapedElem(ty Type) bool {
 	return false
 }
 
-// checkListLitAgainstOpenFunc checks each item of a list literal against
-// elemTy, an element type that names a generic callee's unsolved type
-// parameters and holds a function type, as the call checks an argument
-// against such a parameter: `run_all([parse, parse_hex], "1")` with `fs:
-// List<(String) -> T>` checks `parse` against `(String) -> T`, so its
-// defaults fill (defaultFilledFuncValue) and it joins `parse_hex`'s
-// `(String) -> Maybe<Int>`. The list's element type is the items' join, as
-// with no expected type, and the call solves its parameters from it.
-func (c *checker) checkListLitAgainstOpenFunc(n *ast.ListLit, elemTy Type) Type {
-	if len(n.Items) == 0 {
-		return c.checkListLit(n)
-	}
+// refinedOpenElem reports whether ty, an expected element, key or value
+// type naming a type parameter, has a refinement in it whose literals
+// must be checked against it (joinItemsAgainstOpen): `(NonNegativeFloat,
+// T)`. An inference variable in it keeps the unexpected path.
+func refinedOpenElem(ty Type) bool {
+	return ty != nil && !containsTypeVar(ty) && ContainsTypeParam(ty) && refinementInType(ty, 0)
+}
+
+// joinItemsAgainstOpen checks each of items against elemTy, an expected
+// type that names unsolved type parameters, and joins what they are, as a
+// literal with no expected type joins its items; what names the part in
+// a mismatch ("list element", "map key"). It answers the join, nil when
+// every item has an error, and each item's type.
+func (c *checker) joinItemsAgainstOpen(items []ast.Node, elemTy Type, what string) (Type, []Type) {
 	var joined Type
-	itemTys := make([]Type, 0, len(n.Items))
-	for _, item := range n.Items {
+	itemTys := make([]Type, 0, len(items))
+	for _, item := range items {
 		ty := c.checkNodeExpecting(item, elemTy)
 		if ty == nil {
 			continue
@@ -16188,10 +16341,31 @@ func (c *checker) checkListLitAgainstOpenFunc(n *ast.ListLit, elemTy Type) Type 
 		itemTys = append(itemTys, ty)
 		next, ok := c.joinLitElem(joined, ty)
 		if !ok {
-			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", joined, ty)).WithHint(c.mismatchHint(joined, ty)))
+			c.report(errAt(item, c.typef(what+" type mismatch: expected %s, got %s", joined, ty)).WithHint(c.mismatchHint(joined, ty)))
 		}
 		joined = next
 	}
+	return joined, itemTys
+}
+
+// checkListLitAgainstOpenFunc checks each item of a list literal against
+// elemTy, an element type that names a generic callee's unsolved type
+// parameters and holds a function type, as the call checks an argument
+// against such a parameter: `run_all([parse, parse_hex], "1")` with `fs:
+// List<(String) -> T>` checks `parse` against `(String) -> T`, so its
+// defaults fill (defaultFilledFuncValue) and it joins `parse_hex`'s
+// `(String) -> Maybe<Int>`. An element type with a refinement in it is
+// checked the same way, so a literal takes the refinement its slot names:
+// `Generator.weighted([(1.0, "a")])` with `NonEmptyList<(NonNegativeFloat,
+// T)>` types `(1.0, "a")` as `(NonNegativeFloat, String)`, where with no
+// expected type it was a `(Float, String)` the parameter rejects. The
+// list's element type is the items' join, as with no expected type, and
+// the call solves its parameters from it.
+func (c *checker) checkListLitAgainstOpenFunc(n *ast.ListLit, elemTy Type) Type {
+	if len(n.Items) == 0 {
+		return c.checkListLit(n)
+	}
+	joined, itemTys := c.joinItemsAgainstOpen(n.Items, elemTy, "list element")
 	if joined == nil {
 		return nil
 	}
@@ -16602,11 +16776,14 @@ func (c *checker) checkVectorLit(n *ast.ListLit) Type {
 	var pos litPosition
 	seeds := c.seedLitLambdas(litLambdaRoot{items: n.Items})
 	defer seeds.done()
+	var itemNodes []ast.Node
+	var itemTys []Type
 	for _, item := range n.Items {
 		ty := c.checkLitElem(&pos, item, elemTy)
 		if ty == nil {
 			continue
 		}
+		itemNodes, itemTys = append(itemNodes, item), append(itemTys, ty)
 		joined, ok := c.joinLitElem(elemTy, ty)
 		if !ok {
 			c.report(errAt(item, c.typef("vector element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty)))
@@ -16623,12 +16800,21 @@ func (c *checker) checkVectorLit(n *ast.ListLit) Type {
 		// "not locally determined" over the binding it is given to.
 		return nil
 	}
+	elemTy = c.narrowLiteralJoin(elemTy, itemNodes, itemTys)
 	return makeVectorType(elemTy, c.reg)
 }
 
 func (c *checker) checkVectorLitExpecting(n *ast.ListLit, elemTy Type) Type {
 	if len(n.Spreads) > 0 {
 		return c.checkVectorUpdateLit(n, elemTy)
+	}
+	if refinedOpenElem(elemTy) && len(n.Items) > 0 {
+		// A refined slot beside a type parameter, as a list's
+		// (checkListLitAgainstOpenFunc).
+		if joined, _ := c.joinItemsAgainstOpen(n.Items, elemTy, "vector element"); joined != nil {
+			return makeVectorType(joined, c.reg)
+		}
+		return nil
 	}
 	if elemTy == nil || ContainsTypeParam(elemTy) || containsTypeVar(elemTy) {
 		return c.checkVectorLit(n)
@@ -16654,11 +16840,14 @@ func (c *checker) checkSetLit(n *ast.ListLit) Type {
 	var pos litPosition
 	seeds := c.seedLitLambdas(litLambdaRoot{items: n.Items})
 	defer seeds.done()
+	var itemNodes []ast.Node
+	var itemTys []Type
 	for _, item := range n.Items {
 		ty := c.checkLitElem(&pos, item, elemTy)
 		if ty == nil {
 			continue
 		}
+		itemNodes, itemTys = append(itemNodes, item), append(itemTys, ty)
 		joined, ok := c.joinLitElem(elemTy, ty)
 		if !ok {
 			c.report(errAt(item, c.typef("set element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.mismatchHint(elemTy, ty)))
@@ -16675,10 +16864,19 @@ func (c *checker) checkSetLit(n *ast.ListLit) Type {
 		// "not locally determined" over the binding it is given to.
 		return nil
 	}
+	elemTy = c.narrowLiteralJoin(elemTy, itemNodes, itemTys)
 	return makeSetType(elemTy, c.reg)
 }
 
 func (c *checker) checkSetLitExpecting(n *ast.ListLit, elemTy Type) Type {
+	if refinedOpenElem(elemTy) && len(n.Items) > 0 {
+		// A refined slot beside a type parameter, as a list's
+		// (checkListLitAgainstOpenFunc).
+		if joined, _ := c.joinItemsAgainstOpen(n.Items, elemTy, "set element"); joined != nil {
+			return makeSetType(joined, c.reg)
+		}
+		return nil
+	}
 	if elemTy == nil || ContainsTypeParam(elemTy) || containsTypeVar(elemTy) {
 		return c.checkSetLit(n)
 	}
@@ -16726,7 +16924,7 @@ func (c *checker) checkListSpreadLitExpecting(n *ast.ListLit, elemTy Type) Type 
 			c.report(errAt(sp.Head, spreadNotIterMessage("list", tailTy)))
 			return nil
 		}
-		if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+		if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil && !c.convertsUpTo(elemTy, spreadElem) {
 			e := errAt(sp.Head, c.typef(
 				"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem)))
 			// The list's type is fixed, so the spread's binding takes it.
@@ -16819,8 +17017,12 @@ func (c *checker) checkListSpreadLit(n *ast.ListLit) Type {
 		if elemTy == nil {
 			elemTy = ht
 		} else if err := UnifyWithImpls(elemTy, ht, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
-			c.addErrorAt(h, c.typef(
-				"list element type mismatch: %s vs %s", elemTy, ht))
+			if joined := c.refinementJoin(elemTy, ht); joined != nil {
+				elemTy = joined
+			} else {
+				c.addErrorAt(h, c.typef(
+					"list element type mismatch: %s vs %s", elemTy, ht))
+			}
 		}
 	}
 	if pos.unresolved {
@@ -16873,6 +17075,11 @@ func (c *checker) checkListSpread(n *ast.ListLit, sp ast.Spread, elemTy Type, pr
 		return spreadElem, true
 	}
 	if err := UnifyWithImpls(elemTy, spreadElem, nil, c.implsContext(), c.implTypeArgsContext()); err != nil {
+		// Elements of a subtype beside elements of its ancestor join as
+		// the ancestor, as a list literal's elements do (refinementJoin).
+		if joined := c.refinementJoin(elemTy, spreadElem); joined != nil {
+			return joined, true
+		}
 		c.report(c.spreadAnnotationHelp(errAt(sp.Head, c.typef(
 			"list spread element type mismatch: %s vs %s", elemTy, resolveTypeVar(spreadElem))), n, elemTy, spreadElem))
 	}
@@ -17018,9 +17225,17 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 	}
 	seeds := c.seedLitLambdas(litLambdaRoot{root: "k", items: keys}, litLambdaRoot{root: "v", items: vals})
 	defer seeds.done()
+	var keyNodes, valNodes []ast.Node
+	var keyTys, valTys []Type
 	for _, entry := range n.Entries {
 		kt := c.checkLitElem(&keyPos, entry.Key, keyTy)
 		vt := c.checkLitElem(&valPos, entry.Value, valTy)
+		if kt != nil {
+			keyNodes, keyTys = append(keyNodes, entry.Key), append(keyTys, kt)
+		}
+		if vt != nil {
+			valNodes, valTys = append(valNodes, entry.Value), append(valTys, vt)
+		}
 		if kt != nil {
 			joined, ok := c.joinLitElem(keyTy, kt)
 			if !ok {
@@ -17040,6 +17255,10 @@ func (c *checker) checkMapLit(n *ast.MapLit) Type {
 	}
 	if keyPos.unresolved || valPos.unresolved {
 		return nil
+	}
+	if len(n.Spreads) == 0 {
+		keyTy = c.narrowLiteralJoin(keyTy, keyNodes, keyTys)
+		valTy = c.narrowLiteralJoin(valTy, valNodes, valTys)
 	}
 	if keyTy == nil {
 		keyTy = c.freshTypeVar()
@@ -18427,22 +18646,47 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 	c.checkCaseExhaustiveness(n, scrutineeTy)
 
 	var resultTy Type
+	// The arms' values and types, for narrowLiteralJoin once a join
+	// widened them.
+	var armNodes []ast.Node
+	var armTys []Type
+	widened := false
+	// In a case with no subject, an arm runs where its condition is true
+	// and every earlier one false, which narrows what they prove
+	// (subtype_narrowing.go).
+	var earlier []subtypeFact
 	for _, branch := range n.Branches {
 		if branch.Pattern != nil && scrutineeTy != nil {
 			c.checkPattern(branch.Pattern, scrutineeTy)
 			c.notePatternBindings(patternSites(branch.Pattern), n.Value)
 		}
 		var bodyTy Type
+		var armFacts []subtypeFact
+		if n.Value == nil && scrutineeTy == nil && branch.Pattern != nil && !isAdHocCatchAll(branch.Pattern) {
+			armFacts = mergeSubtypeFacts(earlier, c.condFacts(branch.Pattern, true))
+			// A guard that fails lets a later arm run with this condition
+			// true, so a guarded arm's condition proves nothing there.
+			if branch.Guard == nil {
+				earlier = mergeSubtypeFacts(earlier, c.condFacts(branch.Pattern, false))
+			}
+		} else {
+			armFacts = earlier
+		}
 		narrowSym, narrowTy := c.narrowingFor(n.Value, scrutineeTy, branch.Pattern)
 		c.withNarrowing(narrowSym, narrowTy, func() {
+			restore := c.narrowSubtypes(armFacts)
+			defer restore()
 			if branch.Guard != nil {
 				c.checkCondition(branch.Guard, "`when` guard")
 			}
-			bodyTy = c.checkNodeExpecting(branch.Body, earlierArmsExpected(expected, resultTy, branch.Body))
+			c.withCondition(branch.Guard, true, func() {
+				bodyTy = c.checkNodeExpecting(branch.Body, earlierArmsExpected(expected, resultTy, branch.Body))
+			})
 		})
 		if bodyTy == nil {
 			continue
 		}
+		armNodes, armTys = append(armNodes, branch.Body), append(armTys, bodyTy)
 		if resultTy == nil || isInfallibleLike(resultTy) {
 			// A diverging arm (`return`, `todo`) says nothing about the
 			// case's type, so the first arm that produces a value does.
@@ -18470,6 +18714,7 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 		if err := c.unify(resultTy, bodyTy, nil); err != nil {
 			if joined := c.branchesJoin(expected, resultTy, bodyTy); joined != nil {
 				resultTy = joined
+				widened = true
 				continue
 			}
 			if !TypesEqual(resultTy, bodyTy) {
@@ -18489,6 +18734,11 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 			continue
 		}
 		resultTy = branchJoin(resultTy, bodyTy)
+	}
+	if widened {
+		// A literal arm beside a std numeric subtype it satisfies is that
+		// subtype, whichever arm comes first.
+		resultTy = c.narrowLiteralJoin(resultTy, armNodes, armTys)
 	}
 	if resultTy != nil && !isInfallibleLike(resultTy) {
 		for _, branch := range n.Branches {
@@ -19431,6 +19681,8 @@ func (c *checker) checkLambdaExpecting(n *ast.Lambda, expected *FuncType) Type {
 			}
 		}
 	}
+
+	c.seedLambdaElems(n, params, expected.Params)
 
 	// Compute the `break v` expected type for this callback — expected.Return
 	// with any TypeParam_s that were concretized via param defaults/annotations
@@ -21093,6 +21345,16 @@ func (c *checker) receiverOriginForReceiver(object ast.Node, names ...string) st
 			sym = sym.Resolved
 		}
 		if sym != nil {
+			if origin, ok := nominalOrigin(sym.Type); ok && origin != OriginUnresolved {
+				return origin
+			}
+		}
+	}
+	if ti, ok := object.(*ast.TypeIdent); ok && ti.Col < 0 {
+		// A refinement literal's check call (refinementCheckCall), whose
+		// owner is the declaration it recorded, whatever this file binds
+		// the name to.
+		if sym := c.fa.References[Pos{Line: ti.Line, Col: ti.Col}]; sym != nil {
 			if origin, ok := nominalOrigin(sym.Type); ok && origin != OriginUnresolved {
 				return origin
 			}

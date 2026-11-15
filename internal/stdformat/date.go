@@ -2,10 +2,12 @@ package stdformat
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/cldrdata"
+	"github.com/nomi-language/nomi/internal/stdcalendar"
 	"github.com/nomi-language/nomi/internal/stdlocale"
 	"github.com/nomi-language/nomi/rt"
 )
@@ -20,7 +22,9 @@ import (
 
 // civil is a calendar value's fields, as a pattern writes them.
 type civil struct {
-	year, month, day           int64
+	// year is an Int of any size, as a Date's is.
+	year                       rt.Int
+	month, day                 int64
 	hour, minute, second, nano int64
 	// offset is the UTC offset in seconds east, when zone is set.
 	offset           int64
@@ -34,51 +38,14 @@ const (
 	hasZone
 )
 
-// civilOf reads the fields std/calendar passes: year, month, day, hour,
-// minute, second, nanosecond, offset seconds, and the flags saying which
-// of the date, the time and the offset the value has.
-func civilOf(fields []int64) civil {
-	f := make([]int64, 9)
+// civilOf reads the fields std/calendar passes: the year, and then month,
+// day, hour, minute, second, nanosecond, offset seconds, and the flags
+// saying which of the date, the time and the offset the value has.
+func civilOf(year rt.Int, fields []int64) civil {
+	f := make([]int64, 8)
 	copy(f, fields)
-	return civil{year: f[0], month: f[1], day: f[2], hour: f[3], minute: f[4], second: f[5], nano: f[6], offset: f[7],
-		date: f[8]&hasDate != 0, time: f[8]&hasTime != 0, zone: f[8]&hasZone != 0}
-}
-
-// daysFromCivil is the days from 1970-01-01 to the proleptic Gregorian
-// date (Howard Hinnant's days_from_civil).
-func daysFromCivil(y, m, d int64) int64 {
-	if m <= 2 {
-		y--
-	}
-	era := y / 400
-	if y < 0 && y%400 != 0 {
-		era--
-	}
-	yoe := y - era*400
-	mp := (m + 9) % 12
-	doy := (153*mp+2)/5 + d - 1
-	doe := yoe*365 + yoe/4 - yoe/100 + doy
-	return era*146097 + doe - 719468
-}
-
-// weekday is the day of the week, 0 Sunday to 6 Saturday.
-func weekday(y, m, d int64) int {
-	return int(((daysFromCivil(y, m, d) % 7) + 7 + 4) % 7)
-}
-
-func leap(y int64) bool { return y%4 == 0 && (y%100 != 0 || y%400 == 0) }
-
-func monthDays(y, m int64) int64 {
-	switch m {
-	case 2:
-		if leap(y) {
-			return 29
-		}
-		return 28
-	case 4, 6, 9, 11:
-		return 30
-	}
-	return 31
+	return civil{year: year, month: f[0], day: f[1], hour: f[2], minute: f[3], second: f[4], nano: f[5], offset: f[6],
+		date: f[7]&hasDate != 0, time: f[7]&hasTime != 0, zone: f[7]&hasZone != 0}
 }
 
 // calendarIn is what writing a date reads of one locale: its records, along
@@ -180,6 +147,30 @@ func absInt64(n int64) int64 {
 	return n
 }
 
+// numberInt is number for an Int of any size, as a year is.
+func (c calendarIn) numberInt(n rt.Int, width int) string {
+	if v, ok := n.Int64(); ok && v != math.MinInt64 {
+		return c.number(v, width)
+	}
+	s := n.String()
+	neg := n.Sign() < 0
+	if neg {
+		s = s[1:]
+	}
+	if len(s) < width {
+		s = strings.Repeat("0", width-len(s)) + s
+	}
+	s = c.num.localDigits(s)
+	if neg {
+		minus := c.num.sym.minus
+		if minus == "" {
+			minus = "-"
+		}
+		s = minus + s
+	}
+	return s
+}
+
 // write writes v by the pattern's fields.
 func (c calendarIn) write(fields []cldrdata.DateField, v civil) string {
 	var b strings.Builder
@@ -196,9 +187,11 @@ func (c calendarIn) write(fields []cldrdata.DateField, v civil) string {
 // field writes one pattern field of v.
 func (c calendarIn) field(f cldrdata.DateField, v civil) string {
 	n := f.Count
+	// A year of the common era is itself; year 0 is 1 BC, -1 is 2 BC.
 	eraYear := v.year
-	if eraYear <= 0 {
-		eraYear = 1 - eraYear
+	bc := v.year.Sign() <= 0
+	if bc {
+		eraYear = rt.IntOf(rt.IntSub(int64(1), v.year.Value()))
 	}
 	switch f.Letter {
 	case 'G':
@@ -207,7 +200,7 @@ func (c calendarIn) field(f cldrdata.DateField, v civil) string {
 			ns = c.names("eras", "format", "abbreviated")
 		}
 		if len(ns) == 2 {
-			if v.year <= 0 {
+			if bc {
 				return ns[0]
 			}
 			return ns[1]
@@ -215,11 +208,12 @@ func (c calendarIn) field(f cldrdata.DateField, v civil) string {
 		return ""
 	case 'y', 'Y':
 		if n == 2 {
-			return c.number(eraYear%100, 2)
+			r, _ := rt.IntRem(eraYear.Value(), int64(100))
+			return c.number(r.(int64), 2)
 		}
-		return c.number(eraYear, n)
+		return c.numberInt(eraYear, n)
 	case 'u', 'r':
-		return c.number(v.year, n)
+		return c.numberInt(v.year, n)
 	case 'Q', 'q':
 		return c.number((v.month-1)/3+1, min(n, 2))
 	case 'M', 'L':
@@ -237,10 +231,9 @@ func (c calendarIn) field(f cldrdata.DateField, v civil) string {
 	case 'd':
 		return c.number(v.day, n)
 	case 'D':
-		doy := daysFromCivil(v.year, v.month, v.day) - daysFromCivil(v.year, 1, 1) + 1
-		return c.number(doy, n)
+		return c.number(stdcalendar.DayOfYear(v.year, v.month, v.day), n)
 	case 'E', 'c', 'e':
-		wd := weekday(v.year, v.month, v.day)
+		wd := int(stdcalendar.WeekdayOf(v.year, v.month, v.day))
 		if n <= 2 && f.Letter != 'E' {
 			return c.number(int64((wd+6)%7+1), n)
 		}
@@ -505,12 +498,12 @@ func unquote(s string) string {
 // FFIFormatCivilStyle is `calendar.civil_format_style`: a value's fields in
 // locale by a style spec, `<date style>/<time style>`, `-` for a part not
 // written (`medium/short`).
-func FFIFormatCivilStyle(fr *rt.Frame, locale string, fields []int64, spec string) string {
-	return FormatStyle(stdlocale.Data(fr), locale, fields, spec)
+func FFIFormatCivilStyle(fr *rt.Frame, locale string, year rt.Int, fields []int64, spec string) string {
+	return FormatStyle(stdlocale.Data(fr), locale, year, fields, spec)
 }
 
 // FormatStyle writes a value's fields in locale by a style spec.
-func FormatStyle(d *cldrdata.Data, locale string, fields []int64, spec string) string {
+func FormatStyle(d *cldrdata.Data, locale string, year rt.Int, fields []int64, spec string) string {
 	c := calendarFor(d, locale)
 	ds, ts, _ := strings.Cut(spec, "/")
 	if ds == "-" {
@@ -519,20 +512,20 @@ func FormatStyle(d *cldrdata.Data, locale string, fields []int64, spec string) s
 	if ts == "-" {
 		ts = ""
 	}
-	v := civilOf(fields)
+	v := civilOf(year, fields)
 	return c.write(c.stylePattern(ds, ts, v), v)
 }
 
 // FFIFormatCivilFields is `calendar.civil_format_fields`: a value's fields
 // in locale by a skeleton.
-func FFIFormatCivilFields(fr *rt.Frame, locale string, fields []int64, skeleton string) string {
-	return FormatSkeleton(stdlocale.Data(fr), locale, fields, skeleton)
+func FFIFormatCivilFields(fr *rt.Frame, locale string, year rt.Int, fields []int64, skeleton string) string {
+	return FormatSkeleton(stdlocale.Data(fr), locale, year, fields, skeleton)
 }
 
 // FormatSkeleton writes a value's fields in locale by a skeleton.
-func FormatSkeleton(d *cldrdata.Data, locale string, fields []int64, skeleton string) string {
+func FormatSkeleton(d *cldrdata.Data, locale string, year rt.Int, fields []int64, skeleton string) string {
 	c := calendarFor(d, locale)
-	v := civilOf(fields)
+	v := civilOf(year, fields)
 	p := parseDate(ResolveSkeleton(d, locale, skeleton))
 	if !v.zone {
 		p = withoutZone(p)
@@ -542,6 +535,6 @@ func FormatSkeleton(d *cldrdata.Data, locale string, fields []int64, skeleton st
 
 // FFIFormatCivilPattern is `calendar.civil_format_pattern`: a value's
 // fields by a fixed pattern, in ASCII digits.
-func FFIFormatCivilPattern(fields []int64, pattern string) string {
-	return fixedCalendar().write(parseDate(pattern), civilOf(fields))
+func FFIFormatCivilPattern(year rt.Int, fields []int64, pattern string) string {
+	return fixedCalendar().write(parseDate(pattern), civilOf(year, fields))
 }

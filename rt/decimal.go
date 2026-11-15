@@ -38,9 +38,24 @@ var (
 	bigTen  = big.NewInt(10)
 )
 
-// pow10 returns a fresh 10^n as a *big.Int (n >= 0).
-func pow10(n int32) *big.Int {
-	return new(big.Int).Exp(bigTen, big.NewInt(int64(n)), nil)
+// pow10 returns a fresh 10^n as a *big.Int. n is an int64 so that a
+// difference of two int32 scales reaches it unwrapped; an n past
+// math.MaxInt32 is a number with more digits than a Decimal's scale can
+// name, and traps rather than computing it.
+func pow10(n int64) *big.Int {
+	if n < 0 || n > math.MaxInt32 {
+		Trap(fmt.Sprintf("Decimal: 10^%d has more digits than a Decimal holds, whose scale runs from %d to %d", n, math.MinInt32, math.MaxInt32))
+	}
+	return new(big.Int).Exp(bigTen, big.NewInt(n), nil)
+}
+
+// fitScale narrows a scale computed in int64 to a Decimal's int32 scale,
+// reporting false when it lies outside it.
+func fitScale(s int64) (int32, bool) {
+	if s < math.MinInt32 || s > math.MaxInt32 {
+		return 0, false
+	}
+	return int32(s), true
 }
 
 // stripFactor divides every factor of the prime p out of n, returning a freshly
@@ -254,10 +269,10 @@ func alignScales(a, b Decimal) (am, bm *big.Int, scale int32) {
 	bm = new(big.Int).Set(b.MantissaOrZero())
 	switch {
 	case a.Scale < b.Scale:
-		am.Mul(am, pow10(b.Scale-a.Scale))
+		am.Mul(am, pow10(int64(b.Scale)-int64(a.Scale)))
 		scale = b.Scale
 	case b.Scale < a.Scale:
-		bm.Mul(bm, pow10(a.Scale-b.Scale))
+		bm.Mul(bm, pow10(int64(a.Scale)-int64(b.Scale)))
 		scale = a.Scale
 	default:
 		scale = a.Scale
@@ -288,8 +303,12 @@ func (v Decimal) Sub(b Decimal) Decimal {
 
 // Mul returns a * b exactly. Result scale = a.Scale + b.Scale.
 func (v Decimal) Mul(b Decimal) Decimal {
+	scale, ok := fitScale(int64(v.Scale) + int64(b.Scale))
+	if !ok {
+		Trap(fmt.Sprintf("Decimal *: the product's scale, %d plus %d, is past a Decimal's, which is %d to %d", v.Scale, b.Scale, math.MinInt32, math.MaxInt32))
+	}
 	m := new(big.Int).Mul(v.MantissaOrZero(), b.MantissaOrZero())
-	return Decimal{Mantissa: m, Scale: v.Scale + b.Scale}
+	return Decimal{Mantissa: m, Scale: scale}
 }
 
 // IsZero reports whether the value is exactly zero (any scale).
@@ -334,9 +353,9 @@ func (v Decimal) DivExact(b Decimal) (Decimal, bool) {
 	}
 	if v.IsZero() {
 		// 0 / b is exactly 0 at the preferred scale (clamped to >= 0).
-		ps := v.Scale - b.Scale
-		if ps < 0 {
-			ps = 0
+		ps, ok := fitScale(max(int64(v.Scale)-int64(b.Scale), 0))
+		if !ok {
+			v.quotientPastScale(b)
 		}
 		return Decimal{Mantissa: big.NewInt(0), Scale: ps}, true
 	}
@@ -347,7 +366,7 @@ func (v Decimal) DivExact(b Decimal) (Decimal, bool) {
 	num := new(big.Int).Set(v.MantissaOrZero())
 	den := new(big.Int).Set(b.MantissaOrZero())
 	// Fold the 10^(b.Scale - v.Scale) factor into num/den as powers of 10.
-	if d := b.Scale - v.Scale; d > 0 {
+	if d := int64(b.Scale) - int64(v.Scale); d > 0 {
 		num.Mul(num, pow10(d))
 	} else if d < 0 {
 		den.Mul(den, pow10(-d))
@@ -390,11 +409,20 @@ func (v Decimal) DivExact(b Decimal) (Decimal, bool) {
 
 	// Honour the preferred scale: pad with trailing zeros if the minimal
 	// scale is below it (Java's preferred-scale rule). Never round.
-	preferred := v.Scale - b.Scale
-	if preferred > res.Scale {
+	preferred, ok := fitScale(int64(v.Scale) - int64(b.Scale))
+	if !ok && v.Scale > b.Scale {
+		v.quotientPastScale(b)
+	}
+	if ok && preferred > res.Scale {
 		res = res.rescaleUp(preferred)
 	}
 	return res, true
+}
+
+// quotientPastScale traps for an exact quotient of v by b whose preferred
+// scale, v's less b's, is past what a Decimal's scale holds.
+func (v Decimal) quotientPastScale(b Decimal) {
+	Trap(fmt.Sprintf("Decimal.divide_exact: the quotient's scale, %d less %d, is past a Decimal's, which is %d to %d", v.Scale, b.Scale, math.MinInt32, math.MaxInt32))
 }
 
 // rescaleUp returns v at a strictly larger scale by padding trailing zeros
@@ -403,7 +431,7 @@ func (v Decimal) rescaleUp(target int32) Decimal {
 	if target == v.Scale {
 		return v
 	}
-	m := new(big.Int).Mul(v.MantissaOrZero(), pow10(target-v.Scale))
+	m := new(big.Int).Mul(v.MantissaOrZero(), pow10(int64(target)-int64(v.Scale)))
 	return Decimal{Mantissa: m, Scale: target}
 }
 
@@ -412,14 +440,18 @@ func (v Decimal) rescaleUp(target int32) Decimal {
 // out the surplus digits and applies mode to the discarded remainder. A
 // negative target scale is legitimate (rounding to tens/hundreds/…, like Java
 // BigDecimal): scale -2 rounds to the nearest hundred and Displays e.g. "1200".
-// Returns an error only for RoundUnnecessary when rounding would lose
-// information; every other mode is total.
+// Every mode is total; the error is only for a drop of more digits than a
+// Decimal's scale holds. RoundExact is the form that refuses to lose
+// information.
 func (v Decimal) Round(scale int32, mode RoundingMode) (Decimal, error) {
 	if scale >= v.Scale {
 		return v.rescaleUp(scale), nil
 	}
 	// Drop (v.Scale - scale) least-significant digits with rounding.
-	drop := v.Scale - scale
+	drop, err := v.dropTo(scale)
+	if err != nil {
+		return Decimal{}, err
+	}
 	divisor := pow10(drop)
 	q := new(big.Int)
 	r := new(big.Int)
@@ -427,16 +459,38 @@ func (v Decimal) Round(scale int32, mode RoundingMode) (Decimal, error) {
 	if r.Sign() == 0 {
 		return Decimal{Mantissa: q, Scale: scale}, nil // exact
 	}
-	if mode == RoundUnnecessary {
-		return Decimal{}, fmt.Errorf("decimal: rounding necessary to reach scale %d but mode is Unnecessary", scale)
-	}
 	q = applyRounding(q, r, divisor, v.Sign(), mode)
 	return Decimal{Mantissa: q, Scale: scale}, nil
 }
 
+// dropTo is how many digits rounding v to scale (below v's) drops, or the
+// error for more than a Decimal's scale holds.
+func (v Decimal) dropTo(scale int32) (int64, error) {
+	drop := int64(v.Scale) - int64(scale)
+	if drop > math.MaxInt32 {
+		return 0, fmt.Errorf("decimal: rounding from scale %d to scale %d drops %d digits, past a Decimal's scale, which is %d to %d", v.Scale, scale, drop, math.MinInt32, math.MaxInt32)
+	}
+	return drop, nil
+}
+
+// RoundExact is v at exactly the given scale when no digit is lost, and
+// ok false when reaching it would round. Increasing the scale pads, so it
+// is always exact. The error is Round's, for a drop past a Decimal's scale.
+func (v Decimal) RoundExact(scale int32) (Decimal, bool, error) {
+	if scale >= v.Scale {
+		return v.rescaleUp(scale), true, nil
+	}
+	drop, err := v.dropTo(scale)
+	if err != nil {
+		return Decimal{}, false, err
+	}
+	q, r := new(big.Int), new(big.Int)
+	q.QuoRem(v.MantissaOrZero(), pow10(drop), r)
+	return Decimal{Mantissa: q, Scale: scale}, r.Sign() == 0, nil
+}
+
 // DivRound divides a / b to exactly the requested scale with the given mode.
-// Returns an error if b is zero (the caller's division-by-zero), or for
-// RoundUnnecessary when the exact quotient does not fit at scale. Backs
+// Returns an error only if b is zero (the caller's division-by-zero). Backs
 // Decimal.divide.
 func (v Decimal) DivRound(b Decimal, scale int32, mode RoundingMode) (Decimal, error) {
 	if b.IsZero() {
@@ -448,7 +502,10 @@ func (v Decimal) DivRound(b Decimal, scale int32, mode RoundingMode) (Decimal, e
 	// rounding on the remainder.
 	num := new(big.Int).Set(v.MantissaOrZero())
 	den := new(big.Int).Set(b.MantissaOrZero())
-	shift := scale - v.Scale + b.Scale
+	shift := int64(scale) - int64(v.Scale) + int64(b.Scale)
+	if shift > math.MaxInt32 || shift < -math.MaxInt32 {
+		return Decimal{}, fmt.Errorf("decimal: a quotient at scale %d of a dividend at scale %d by a divisor at scale %d needs 10^%d, past a Decimal's scale, which is %d to %d", scale, v.Scale, b.Scale, shift, math.MinInt32, math.MaxInt32)
+	}
 	if shift > 0 {
 		num.Mul(num, pow10(shift))
 	} else if shift < 0 {
@@ -465,9 +522,6 @@ func (v Decimal) DivRound(b Decimal, scale int32, mode RoundingMode) (Decimal, e
 	q.QuoRem(num, den, r) // q,r truncated toward zero; with num,den >=0 here, r >= 0
 	if r.Sign() == 0 {
 		return Decimal{Mantissa: q, Scale: scale}, nil // exact
-	}
-	if mode == RoundUnnecessary {
-		return Decimal{}, fmt.Errorf("decimal: division of %s by %s is not exact at scale %d but mode is Unnecessary", v.Display(), b.Display(), scale)
 	}
 	q = applyRounding(q, r, den, resultSign, mode)
 	return Decimal{Mantissa: q, Scale: scale}, nil
@@ -506,7 +560,7 @@ func (v Decimal) Quo(b Decimal) (Decimal, error) {
 	// |v| / |b| as integers n / d.
 	n := new(big.Int).Abs(v.MantissaOrZero())
 	d := new(big.Int).Abs(b.MantissaOrZero())
-	if k := b.Scale - v.Scale; k > 0 {
+	if k := int64(b.Scale) - int64(v.Scale); k > 0 {
 		n.Mul(n, pow10(k))
 	} else if k < 0 {
 		d.Mul(d, pow10(-k))
@@ -516,9 +570,9 @@ func (v Decimal) Quo(b Decimal) (Decimal, error) {
 	e := int64(decimalDigits(n)) - int64(decimalDigits(d))
 	lhs, rhs := n, d
 	if e >= 0 {
-		rhs = new(big.Int).Mul(d, pow10(int32(e)))
+		rhs = new(big.Int).Mul(d, pow10(e))
 	} else {
-		lhs = new(big.Int).Mul(n, pow10(int32(-e)))
+		lhs = new(big.Int).Mul(n, pow10(-e))
 	}
 	if lhs.Cmp(rhs) < 0 {
 		e--
@@ -541,10 +595,10 @@ func decimalDigits(n *big.Int) int {
 	// bitlen-1 bits guarantee at least floor((bitlen-1)·log10 2)+1 digits;
 	// the loop corrects the estimate by at most one step.
 	digits := int(float64(n.BitLen()-1)*math.Log10(2)) + 1
-	for digits > 1 && n.CmpAbs(pow10(int32(digits-1))) < 0 {
+	for digits > 1 && n.CmpAbs(pow10(int64(digits-1))) < 0 {
 		digits--
 	}
-	for n.CmpAbs(pow10(int32(digits))) >= 0 {
+	for n.CmpAbs(pow10(int64(digits))) >= 0 {
 		digits++
 	}
 	return digits

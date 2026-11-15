@@ -209,7 +209,7 @@ fn f(a: Int, b: Int) -> Int
     a * 10 + b
 end
 
-fn divide(x: Int, y: Int) -> Int
+fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 
@@ -282,7 +282,7 @@ fn f(a: Int, b: Int) -> Int
     a * 10 + b
 end
 
-fn divide(x: Int, y: Int) -> Int
+fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 
@@ -380,8 +380,8 @@ func TestCaptureFunc_AnOperatorFunctionsPartialIsAFunctionOfItsOpenOperands(t *t
 		{"Result.map_err(err(), &Int.subtract(&1, 1))", "Err(3)"},
 		{"Iter.reduce([1, 2, 3], 10, &Int.subtract(&2, &1))", "-8"},
 		{"(&Int.add(7, &1))(1)", "8"},
-		// A refinement's value is its base's: a NonZeroInt divisor reaches
-		// `Divide<Int, Int>`.
+		// Int's `/` takes a NonZeroInt divisor: a NonZeroInt reaches
+		// `Divide<NonZeroInt, Int>`.
 		{"nz(4) |> Maybe.map(&Int.divide(12, &1))", "Some(3)"},
 		{"Maybe.map(nz(4), &Int.divide(12, &1))", "Some(3)"},
 		{"nz(4) |> Maybe.to_result(\"zero\") |> Result.map(&Int.divide(12, &1))", "Ok(3)"},

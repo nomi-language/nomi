@@ -108,10 +108,10 @@ test "Iter.contains scans any iterable and stops at the first match"
     refute Iter.contains([], 1)
     assert Iter.contains(Iter.from(0), 1_000)
 
-    // Element 5 would divide by zero, so reaching it would trap.
+    // Element 5 has no NonZeroInt divisor, so reaching it would trap.
     trap_at_five =
         Iter.from(0)
-        |> Iter.map(fn n -> 10 / (5 - n))
+        |> Iter.map(fn n -> 10 / NonZeroInt.try_from(5 - n)!)
 
     assert Iter.contains(trap_at_five, 10)
 end

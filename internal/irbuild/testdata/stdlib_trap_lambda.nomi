@@ -9,7 +9,7 @@ fn main()
         [5, 0, 1]
         |> Iter.map(fn x ->
             divisor = x
-            10 / divisor
+            10 / NonZeroInt.try_from(divisor)!
         end)
         |> Iter.to_list()
 

@@ -13,7 +13,7 @@ import
     duration.Duration
     equatable.Equatable
     instant.Instant
-    int.Int
+    int.{Int, NonZeroInt}
     iter.Iter
     lists.List
     maybe.Maybe.{self, None, Some}
@@ -1044,10 +1044,9 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                     task = Task.spawn(fn ->
                         sql.transaction(conn, fn tx ->
                             _ = Conn.exec(tx, insert(1, None))?
-                            // A zero the checker cannot see, so the
-                            // division traps.
-                            zero = Iter.count([])
-                            Ok(1 / zero)
+                            // `!` on None traps.
+                            divisor = NonZeroInt.try_from(Iter.count([]))!
+                            Ok(1 / divisor)
                         end)
                     end)
 
@@ -1146,8 +1145,8 @@ fn checks() -> List<(String, (Conn) -> Result<Unit, String>)>
                     task = Task.spawn(fn ->
                         closing(conn, fn c ->
                             _ = Conn.exec(c, insert(1, None))?
-                            zero = Iter.count([])
-                            Ok(1 / zero)
+                            divisor = NonZeroInt.try_from(Iter.count([]))!
+                            Ok(1 / divisor)
                         end)
                     end)
 

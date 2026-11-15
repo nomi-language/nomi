@@ -472,14 +472,16 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 			sibErrs[key] = append(sibErrs[key], extChecks[key]...)
 		}
 	}
-	// Every file's calls to boot-only functions, which the check follows
-	// across the whole program (analysis.CheckBootScope).
+	// Every file's calls to boot-only functions and its cyclic `once`
+	// bindings, which the checks follow across the whole program
+	// (analysis.CheckBootScope, analysis.CheckOnceCycles).
 	for _, key := range sibKeys {
 		sibFA := siblingFAs[key]
 		if _, shared := c.sharedStdlib(key, sibFA); shared {
 			continue
 		}
 		sibErrs[key] = append(sibErrs[key], c.kept(analysis.CheckBootScope(sibFA, siblingNodes[key]))...)
+		sibErrs[key] = append(sibErrs[key], c.kept(analysis.CheckOnceCycles(sibFA, siblingNodes[key]))...)
 	}
 	var sibDiags Diagnostics
 	sibDiagsOf := map[string]Diagnostics{}
@@ -522,6 +524,7 @@ func (c *Checker) Analyze(nodes []ast.Node) (*analysis.FileAnalysis, map[string]
 	errs = append(errs, iter...)
 	errs = append(errs, concurrent...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
+	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
 	errs = append(errs, tasks...)
 	analysis.MarkTailCalls(nodes)
 	if checkFromInterfaces && c.prepared {
@@ -738,6 +741,7 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
+	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
 	errs = append(errs, analysis.CheckTaskLifetime(fa, nodes)...)
 	if len(errs) > 0 {
 		return nil, typeDiagnostics(c.diagPath, c.entrySrc, errs)

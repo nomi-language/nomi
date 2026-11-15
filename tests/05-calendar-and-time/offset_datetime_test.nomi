@@ -1,5 +1,5 @@
 import
-    std::calendar.{Hours, Minutes, Months, Seconds}
+    std::calendar.{Error, Hours, Minutes, Months, Seconds}
     std::calendar.NaiveDateTime
     std::calendar.OffsetDateTime
     std::duration.Duration
@@ -79,4 +79,65 @@ test "offset datetimes support civil sub-day arithmetic"
     assert start + Seconds(90) == OffsetDateTime"2026-05-04T23:31:30-05:00"
 
     assert start - Hours(2) == OffsetDateTime"2026-05-04T21:30:00-05:00"
+end
+
+test "with_offset refuses an offset past ±18 hours of any length in its own words"
+    noon = NaiveDateTime"2026-05-04T12:00:00"
+
+    refused = fn offset: Duration -> OffsetDateTime.with_offset(noon, offset)
+
+    assert refused(Duration.hours(19))
+        == Err(Error.InvalidValue("offset out of range (±18h): 68400s"))
+
+    assert refused(Duration.hours(-19))
+        == Err(Error.InvalidValue("offset out of range (±18h): -68400s"))
+
+    assert refused(Duration.hours(10_000_000_000))
+        == Err(Error.InvalidValue("offset out of range (±18h): 36000000000000s"))
+
+    assert refused(Duration.hours(-10_000_000_000))
+        == Err(Error.InvalidValue("offset out of range (±18h): -36000000000000s"))
+
+    assert refused(Duration.hours(18)) is Ok(_)
+end
+
+test "from_instant refuses an offset past ±18 hours as with_offset does"
+    epoch = Instant.from_seconds(0)
+
+    assert OffsetDateTime.from_instant(epoch, Duration.hours(10_000_000_000))
+        == Err(Error.InvalidValue("offset out of range (±18h): 36000000000000s"))
+
+    assert OffsetDateTime.from_instant(epoch, Duration.hours(-19))
+        == Err(Error.InvalidValue("offset out of range (±18h): -68400s"))
+
+    assert OffsetDateTime.from_instant(epoch, Duration.hours(-5))
+        == Ok(OffsetDateTime"1969-12-31T19:00:00-05:00")
+end
+
+test "NaiveDateTime.from_instant moves the reading by an offset of any length"
+    epoch = Instant.from_seconds(0)
+
+    assert NaiveDateTime.from_instant(epoch, Duration.hours(48))
+        == NaiveDateTime"1970-01-03T00:00:00"
+
+    assert NaiveDateTime.from_instant(epoch, Duration.hours(10_000_000_000))
+        == NaiveDateTime"1970-01-01T00:00:00" + Duration.hours(10_000_000_000)
+end
+
+test "an offset datetime has no first or last year"
+    far = OffsetDateTime"3000-01-01T00:00:00+01:00"
+
+    assert "${far + Duration.hours(24)}" == "3000-01-02T00:00:00+01:00"
+    assert "${far + Months(13)}" == "3001-02-01T00:00:00+01:00"
+
+    assert OffsetDateTime.from_instant(Instant.from_seconds(32_503_680_000), Duration.hours(0))
+        == Ok(OffsetDateTime"3000-01-01T00:00:00Z")
+
+    assert OffsetDateTime.between(OffsetDateTime"1000-01-01T00:00:00Z", far)
+        == Duration.hours(17_531_639)
+
+    huge = Instant.from_nanos(1_000_000_000_000_000_000_000_000_000_000)
+
+    assert OffsetDateTime.from_instant(huge, Duration.hours(0))
+        == Ok(OffsetDateTime"+31688738508781-06-07T01:46:40Z")
 end

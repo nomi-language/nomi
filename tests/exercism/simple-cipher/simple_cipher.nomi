@@ -5,10 +5,10 @@
 import std::random.{Generator, Seed}
 
 once alphabet     = Iter.to_vector('a'..='z')
-once letter_count = Vector.length(alphabet)
+once letter_count = PositiveInt.try_from(Vector.length(alphabet))!
 
 /// How long a random key is.
-once random_key_length = 100
+once random_key_length: NonNegativeInt = 100
 
 /// A cipher with its key, a non-empty string of lowercase letters.
 pub opaque struct Cipher
@@ -25,7 +25,7 @@ impl Cipher
     /// `seed`, and the seed to draw from next.
     pub fn random(seed: Seed) -> (Cipher, Seed)
         (letters, next) =
-            Generator.int(0, letter_count - 1)
+            Generator.int(0..26)
             |> Generator.map(&Vector.get(alphabet, &1)!)
             |> Generator.list(random_key_length)
             |> Generator.step(seed)

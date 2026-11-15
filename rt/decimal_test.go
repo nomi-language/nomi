@@ -299,11 +299,7 @@ func TestRound(t *testing.T) {
 	for _, tt := range tests {
 		in := mustParse(t, tt.in)
 		for _, mw := range tt.modes {
-			got, err := in.Round(0, mw.mode)
-			if err != nil {
-				t.Errorf("Round(%s, 0, %v) error: %v", tt.in, mw.mode, err)
-				continue
-			}
+			got, _ := in.Round(0, mw.mode)
 			if got.Display() != mw.want {
 				t.Errorf("Round(%s, 0, %v) = %q, want %q", tt.in, mw.mode, got.Display(), mw.want)
 			}
@@ -337,11 +333,7 @@ func TestRoundToScale2(t *testing.T) {
 	}
 	for _, tt := range tests {
 		in := mustParse(t, tt.in)
-		got, err := in.Round(2, tt.mode)
-		if err != nil {
-			t.Errorf("Round(%s, 2, %v) error: %v", tt.in, tt.mode, err)
-			continue
-		}
+		got, _ := in.Round(2, tt.mode)
 		if got.Display() != tt.want {
 			t.Errorf("Round(%s, 2, %v) = %q, want %q", tt.in, tt.mode, got.Display(), tt.want)
 		}
@@ -395,11 +387,7 @@ func TestRoundNegativeScale(t *testing.T) {
 	}
 	for _, tt := range tests {
 		in := mustParse(t, tt.in)
-		got, err := in.Round(tt.scale, tt.mode)
-		if err != nil {
-			t.Errorf("Round(%s, %d, %v) error: %v", tt.in, tt.scale, tt.mode, err)
-			continue
-		}
+		got, _ := in.Round(tt.scale, tt.mode)
 		if got.Display() != tt.want {
 			t.Errorf("Round(%s, %d, %v) = %q, want %q", tt.in, tt.scale, tt.mode, got.Display(), tt.want)
 		}
@@ -452,45 +440,37 @@ func TestRoundSmallMagnitude(t *testing.T) {
 	}
 	for _, tt := range tests {
 		in := mustParse(t, tt.in)
-		got, err := in.Round(0, tt.mode)
-		if err != nil {
-			t.Errorf("Round(%s, 0, %v) error: %v", tt.in, tt.mode, err)
-			continue
-		}
+		got, _ := in.Round(0, tt.mode)
 		if got.Display() != tt.want {
 			t.Errorf("Round(%s, 0, %v) = %q, want %q", tt.in, tt.mode, got.Display(), tt.want)
 		}
 	}
 }
 
-func TestRoundUnnecessary(t *testing.T) {
-	// Exact at the target scale → ok.
-	in := mustParse(t, "1.50")
-	got, err := in.Round(2, RoundUnnecessary)
-	if err != nil {
-		t.Fatalf("Round(1.50, 2, Unnecessary) error: %v", err)
-	}
-	if got.Display() != "1.50" {
-		t.Errorf("Round(1.50, 2, Unnecessary) = %q, want 1.50", got.Display())
-	}
-	// Exact when reducing scale (trailing zeros only discarded).
-	got, err = mustParse(t, "1.500").Round(1, RoundUnnecessary)
-	if err != nil {
-		t.Fatalf("Round(1.500, 1, Unnecessary) error: %v", err)
-	}
-	if got.Display() != "1.5" {
-		t.Errorf("Round(1.500, 1, Unnecessary) = %q, want 1.5", got.Display())
-	}
-	// Increasing scale is always exact.
-	if _, err := mustParse(t, "1.5").Round(3, RoundUnnecessary); err != nil {
-		t.Errorf("Round(1.5, 3, Unnecessary) error: %v", err)
-	}
-	// Inexact → error.
-	if _, err := mustParse(t, "1.555").Round(2, RoundUnnecessary); err == nil {
-		t.Errorf("Round(1.555, 2, Unnecessary) = nil error, want error")
-	}
-	if _, err := mustParse(t, "10").Round(0, RoundUnnecessary); err != nil {
-		t.Errorf("Round(10, 0, Unnecessary) error: %v", err)
+func TestRoundExact(t *testing.T) {
+	for _, tt := range []struct {
+		in    string
+		scale int32
+		want  string // "" when rounding would lose a digit
+	}{
+		{"1.50", 2, "1.50"},  // already at the scale
+		{"1.500", 1, "1.5"},  // only trailing zeros dropped
+		{"1.5", 3, "1.500"},  // increasing the scale pads
+		{"1.555", 2, ""},     // a digit would be lost
+		{"10", 0, "10"},      // integer at scale 0
+		{"1200", -2, "1200"}, // a negative scale that loses nothing
+		{"1250", -2, ""},     // one that would round
+	} {
+		got, ok, _ := mustParse(t, tt.in).RoundExact(tt.scale)
+		if tt.want == "" {
+			if ok {
+				t.Errorf("RoundExact(%s, %d) = %s, want not exact", tt.in, tt.scale, got.Display())
+			}
+			continue
+		}
+		if !ok || got.Display() != tt.want {
+			t.Errorf("RoundExact(%s, %d) = %s, %v, want %s", tt.in, tt.scale, got.Display(), ok, tt.want)
+		}
 	}
 }
 
@@ -542,21 +522,6 @@ func TestDivRoundByZero(t *testing.T) {
 	z2 := mustParse(t, "0.00")
 	if _, err := a.DivRound(z2, 2, RoundHalfEven); err == nil {
 		t.Errorf("DivRound(1, 0.00, ...) = nil error, want division-by-zero error")
-	}
-}
-
-func TestDivRoundUnnecessary(t *testing.T) {
-	// Exact quotient at the requested scale → ok.
-	got, err := mustParse(t, "10").DivRound(mustParse(t, "4"), 2, RoundUnnecessary)
-	if err != nil {
-		t.Fatalf("DivRound(10, 4, 2, Unnecessary) error: %v", err)
-	}
-	if got.Display() != "2.50" {
-		t.Errorf("DivRound(10, 4, 2, Unnecessary) = %q, want 2.50", got.Display())
-	}
-	// Non-terminating → error.
-	if _, err := mustParse(t, "10").DivRound(mustParse(t, "3"), 4, RoundUnnecessary); err == nil {
-		t.Errorf("DivRound(10, 3, 4, Unnecessary) = nil error, want error")
 	}
 }
 

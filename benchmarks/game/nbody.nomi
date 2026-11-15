@@ -163,7 +163,7 @@ fn advance(bodies: List<Body>, steps: Int) -> List<Body>
 end
 
 fn show(e: Float) -> String
-    Float.format(e, Locale`en`, 9, 9, False)
+    Float.format(e, Locale`en`, 9..=9, False)
 end
 
 fn main()

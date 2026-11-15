@@ -118,25 +118,55 @@ type Hooks struct {
 // server shuts down as Shutdown does with the shutdown timeout: it stops
 // accepting at once, and the requests it took finish inside the
 // supervisors' grace period (rt.OnDrain).
-func Listen(address string, durations *rt.List[int64], limits *rt.List[int64], flags *rt.List[bool],
-	protocols *rt.List[bool], hasProtocols bool, http2 *rt.List[int64], http2Flags *rt.List[bool],
-	onState func(*rt.Frame, string, int64) rt.Unit, hasOnState bool,
-	onError func(*rt.Frame, string) rt.Unit, hasOnError bool,
-	onShutdown func(*rt.Frame) rt.Unit, hasOnShutdown bool,
-	onCountError func(*rt.Frame, string) rt.Unit, hasOnCountError bool) rt.Result[rt.HTTPListener, *rt.List[string]] {
+func Listen(
+	address string,
+	durationsArg *rt.List[rt.Int],
+	limitsArg *rt.List[rt.Int],
+	flags *rt.List[bool],
+	protocols *rt.List[bool],
+	hasProtocols bool,
+	http2Arg *rt.List[rt.Int],
+	http2Flags *rt.List[bool],
+	onState func(*rt.Frame, string, int64) rt.Unit,
+	hasOnState bool,
+	onError func(*rt.Frame, string) rt.Unit,
+	hasOnError bool,
+	onShutdown func(*rt.Frame) rt.Unit,
+	hasOnShutdown bool,
+	onCountError func(*rt.Frame, string) rt.Unit,
+	hasOnCountError bool,
+) rt.Result[rt.HTTPListener, *rt.List[string]] {
+	durations := saturatedList(durationsArg)
+	limits := saturatedList(limitsArg)
+	http2 := saturatedList(http2Arg)
 	return listen(address, durations, limits, flags, protocols, hasProtocols, http2, http2Flags,
 		hooks(onState, hasOnState, onError, hasOnError, onShutdown, hasOnShutdown, onCountError, hasOnCountError), nil)
 }
 
 // ListenTLS is `std::http::host.listen_tls`: Listen, serving HTTPS with cfg, as
 // Go's ListenAndServeTLS does (HTTP/2 included when cfg allows it).
-func ListenTLS(address string, durations *rt.List[int64], limits *rt.List[int64], flags *rt.List[bool],
-	protocols *rt.List[bool], hasProtocols bool, http2 *rt.List[int64], http2Flags *rt.List[bool],
-	onState func(*rt.Frame, string, int64) rt.Unit, hasOnState bool,
-	onError func(*rt.Frame, string) rt.Unit, hasOnError bool,
-	onShutdown func(*rt.Frame) rt.Unit, hasOnShutdown bool,
-	onCountError func(*rt.Frame, string) rt.Unit, hasOnCountError bool,
-	cfg rt.TLSConfig) rt.Result[rt.HTTPListener, *rt.List[string]] {
+func ListenTLS(
+	address string,
+	durationsArg *rt.List[rt.Int],
+	limitsArg *rt.List[rt.Int],
+	flags *rt.List[bool],
+	protocols *rt.List[bool],
+	hasProtocols bool,
+	http2Arg *rt.List[rt.Int],
+	http2Flags *rt.List[bool],
+	onState func(*rt.Frame, string, int64) rt.Unit,
+	hasOnState bool,
+	onError func(*rt.Frame, string) rt.Unit,
+	hasOnError bool,
+	onShutdown func(*rt.Frame) rt.Unit,
+	hasOnShutdown bool,
+	onCountError func(*rt.Frame, string) rt.Unit,
+	hasOnCountError bool,
+	cfg rt.TLSConfig,
+) rt.Result[rt.HTTPListener, *rt.List[string]] {
+	durations := saturatedList(durationsArg)
+	limits := saturatedList(limitsArg)
+	http2 := saturatedList(http2Arg)
 	return listen(address, durations, limits, flags, protocols, hasProtocols, http2, http2Flags,
 		hooks(onState, hasOnState, onError, hasOnError, onShutdown, hasOnShutdown, onCountError, hasOnCountError), confOf(cfg))
 }
@@ -159,6 +189,20 @@ func hooks(onState func(*rt.Frame, string, int64) rt.Unit, hasOnState bool,
 		h.OnCountError = onCountError
 	}
 	return h
+}
+
+// saturatedList is a list of Ints of any size as int64s, one past int64
+// saturated (stdhttp package doc, "Ints of any size").
+func saturatedList(l *rt.List[rt.Int]) *rt.List[int64] {
+	var out []int64
+	for ; l != nil; l = l.Tail {
+		out = append(out, l.Head.Saturated())
+	}
+	var list *rt.List[int64]
+	for i := len(out) - 1; i >= 0; i-- {
+		list = rt.Cons(out[i], list)
+	}
+	return list
 }
 
 func ints(l *rt.List[int64]) []int64 {
@@ -329,7 +373,8 @@ func Next(fr *rt.Frame, l rt.HTTPListener) rt.Maybe[rt.HTTPIncoming] {
 // accepting and waits up to timeout (nanoseconds) for the requests it is
 // answering; then it closes every connection, and requests still
 // unanswered are abandoned. A second call does nothing.
-func Shutdown(l rt.HTTPListener, timeout int64) rt.Unit {
+func Shutdown(l rt.HTTPListener, timeoutArg rt.Int) rt.Unit {
+	timeout := timeoutArg.Saturated()
 	listenerOf(l).shutdown(timeout)
 	return rt.Unit{}
 }
@@ -354,7 +399,6 @@ func (ln *listener) shutdown(timeout int64) {
 // The parts of a received request.
 
 func InMethod(in rt.HTTPIncoming) string { return incomingOf(in).r.Method }
-func InURL(in rt.HTTPIncoming) string    { return incomingOf(in).r.URL.String() }
 func InHost(in rt.HTTPIncoming) string   { return incomingOf(in).r.Host }
 func InRemote(in rt.HTTPIncoming) string { return incomingOf(in).r.RemoteAddr }
 func InTarget(in rt.HTTPIncoming) string { return incomingOf(in).r.RequestURI }
@@ -422,8 +466,21 @@ func trailerNames(trailers *rt.List[string]) *rt.List[string] {
 // Respond is `std::http::host.respond`: write the whole response. kind is 0 for no
 // body, 1 for data, 2 for input; a negative contentLength is unknown. An Err
 // is an http.Error variant's name and fields.
-func Respond(fr *rt.Frame, i rt.HTTPIncoming, status int64, headers, trailers *rt.List[string], kind int64,
-	data rt.Bytes, input rt.Reader, contentLength, writeTimeout int64, fullDuplex bool) rt.Result[rt.Unit, *rt.List[string]] {
+func Respond(
+	fr *rt.Frame,
+	i rt.HTTPIncoming,
+	statusArg rt.Int,
+	headers, trailers *rt.List[string],
+	kindArg rt.Int,
+	data rt.Bytes,
+	input rt.Reader,
+	contentLengthArg, writeTimeoutArg rt.Int,
+	fullDuplex bool,
+) rt.Result[rt.Unit, *rt.List[string]] {
+	status := statusArg.Saturated()
+	kind := kindArg.Saturated()
+	contentLength := contentLengthArg.Saturated()
+	writeTimeout := writeTimeoutArg.Saturated()
 	in := incomingOf(i)
 	in.mu.Lock()
 	defer in.mu.Unlock()
@@ -458,7 +515,9 @@ func Respond(fr *rt.Frame, i rt.HTTPIncoming, status int64, headers, trailers *r
 // the trailers named, and answer a Writer over the body. Each time the
 // writer passes bytes on (when its buffer fills, or at Writer.flush), they
 // are sent to the client at once.
-func Produce(i rt.HTTPIncoming, status int64, headers, trailerNames *rt.List[string], writeTimeout int64, fullDuplex bool) rt.Writer {
+func Produce(i rt.HTTPIncoming, statusArg rt.Int, headers, trailerNames *rt.List[string], writeTimeoutArg rt.Int, fullDuplex bool) rt.Writer {
+	status := statusArg.Saturated()
+	writeTimeout := writeTimeoutArg.Saturated()
 	in := incomingOf(i)
 	in.mu.Lock()
 	if !in.gone && !in.wrote {
@@ -674,7 +733,8 @@ func badTarget() *rt.List[string] { return listOf([]string{"answer", "400", "inv
 // the response's headers before ServeContent runs, name and value
 // alternating: an ETag there is what If-None-Match and If-Range are
 // checked against, and a Content-Type there is kept.
-func AnswerContent(method, target string, headers *rt.List[string], name string, modified int64, set *rt.List[string], data rt.Bytes) *rt.List[string] {
+func AnswerContent(method, target string, headers *rt.List[string], name string, modifiedArg rt.Int, set *rt.List[string], data rt.Bytes) *rt.List[string] {
+	modified := modifiedArg.Saturated()
 	req, ok := synthetic(method, target, headers)
 	if !ok {
 		return badTarget()
@@ -693,7 +753,8 @@ func AnswerContent(method, target string, headers *rt.List[string], name string,
 
 // AnswerRedirect is `std::http::host.answer_redirect`: Go's Redirect to to, which
 // may be relative to the request's path.
-func AnswerRedirect(method, target string, headers *rt.List[string], to string, status int64) *rt.List[string] {
+func AnswerRedirect(method, target string, headers *rt.List[string], to string, statusArg rt.Int) *rt.List[string] {
+	status := statusArg.Saturated()
 	req, ok := synthetic(method, target, headers)
 	if !ok {
 		return badTarget()
@@ -704,20 +765,23 @@ func AnswerRedirect(method, target string, headers *rt.List[string], to string, 
 }
 
 // FormatTime is `std::http::host.format_time`: Go's TimeFormat in UTC.
-func FormatTime(nanos int64) string { return time.Unix(0, nanos).UTC().Format(http.TimeFormat) }
+func FormatTime(nanos rt.Int) string { return rt.InstantTimeOf(nanos).Format(http.TimeFormat) }
 
-// ParseTime is `std::http::host.parse_time`: Go's ParseTime, in nanoseconds.
-func ParseTime(text string) rt.Result[int64, string] {
+// ParseTime is `std::http::host.parse_time`: Go's ParseTime, in nanoseconds
+// of any size, so the `Fri, 31 Dec 9999 23:59:59 GMT` servers send as
+// "never" is that moment (rt.InstantFromTime).
+func ParseTime(text string) rt.Result[rt.Int, string] {
 	t, err := http.ParseTime(text)
 	if err != nil {
-		return rt.Err[int64](err.Error())
+		return rt.Err[rt.Int](err.Error())
 	}
-	return rt.Ok[int64, string](t.UnixNano())
+	return rt.Ok[rt.Int, string](rt.InstantFromTime(t))
 }
 
 // LimitBody is `std::http::host.limit_body`: a reader over r that fails once more
 // than max bytes are read, as Go's MaxBytesReader does.
-func LimitBody(fr *rt.Frame, r rt.Reader, max int64) rt.Reader {
+func LimitBody(fr *rt.Frame, r rt.Reader, maxArg rt.Int) rt.Reader {
+	max := maxArg.Saturated()
 	return rt.NewReader(rt.ReadSource{Name: "<request>", R: &limited{r: readerInput{fr: fr, r: r}, left: max}})
 }
 
@@ -762,7 +826,8 @@ func InTLS(in rt.HTTPIncoming) rt.Maybe[*rt.List[*rt.List[string]]] {
 // ExtendReadDeadline is `std::http::host.extend_read_deadline`: Go's
 // ResponseController.SetReadDeadline, by nanoseconds from now (0 for
 // none). An Err is the reason Go gives, as when the protocol cannot.
-func ExtendReadDeadline(i rt.HTTPIncoming, by int64) rt.Result[rt.Unit, string] {
+func ExtendReadDeadline(i rt.HTTPIncoming, byArg rt.Int) rt.Result[rt.Unit, string] {
+	by := byArg.Saturated()
 	in := incomingOf(i)
 	in.mu.Lock()
 	defer in.mu.Unlock()
@@ -795,7 +860,8 @@ func (in *incoming) control(writeTimeout int64, fullDuplex bool) {
 // take the connection from the server, as Go's Hijack does, for the
 // handler to speak another protocol over. What the client sent after the
 // request is read first. An Err is an http.Error variant's name and fields.
-func Upgrade(i rt.HTTPIncoming, status int64, headers *rt.List[string]) rt.Result[rt.NetConn, *rt.List[string]] {
+func Upgrade(i rt.HTTPIncoming, statusArg rt.Int, headers *rt.List[string]) rt.Result[rt.NetConn, *rt.List[string]] {
+	status := statusArg.Saturated()
 	in := incomingOf(i)
 	in.mu.Lock()
 	defer in.mu.Unlock()

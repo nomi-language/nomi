@@ -10,12 +10,13 @@ import
     divide.Divide
     equatable.Equatable
     hashable.Hashable
-    int.Int
+    int.{Int, NonNegativeInt}
     locale.Locale
     localize.NumberParseError
     maybe.Maybe
     multiply.Multiply
     productable.Productable
+    ranges.{ClosedRange, Range}
     remainder.Remainder
     results.Result.{self, Err, Ok}
     strings.String
@@ -109,8 +110,8 @@ impl Float
     /// Converts a Float to a Decimal at exactly `scale` fractional digits,
     /// rounding the Float's exact binary value with `mode`. The scale and
     /// mode are required so it never hands back `0.1000…0055` silently.
-    /// Returns None for NaN and ±Infinity. `RoundingMode.Unnecessary` traps
-    /// when rounding would lose information.
+    /// Returns None for NaN and ±Infinity. A `scale` past Decimal's,
+    /// -2147483648 to 2147483647, traps.
     //! assert Float.to_decimal(0.1, 2, RoundingMode.HalfEven) == Maybe.Some(0.10d)
     //! assert Float.to_decimal(3.14159, 2, RoundingMode.Floor) == Maybe.Some(3.14d)
     //
@@ -119,9 +120,8 @@ impl Float
     /// Rounds `x` to `scale` digits after the decimal point by `mode`:
     /// `Float.round(x)` is the nearest integer-valued Float, half to even
     /// (banker's rounding), and a negative scale rounds to tens, hundreds
-    /// and so on. The modes are `Decimal.round`'s, and `Unnecessary` traps
-    /// when rounding would change the value. NaN and ±Infinity pass through
-    /// unchanged, and a result of zero keeps `x`'s sign.
+    /// and so on. The modes are `Decimal.round`'s. NaN and ±Infinity pass
+    /// through unchanged, and a result of zero keeps `x`'s sign.
     ///
     /// A Float is binary, so most decimal fractions are not exactly one:
     /// `2.675` is 2.67499999999999982236431605997495353221893310546875, which
@@ -294,38 +294,44 @@ impl Float
     //
     pub host fn atan2(y: Float, x: Float) -> Float
 
-    /// `f` as a reader of `locale` writes it, rounded half to even to at
-    /// most `max_fraction` digits and padded to at least `min_fraction`
-    /// (0 <= min_fraction <= max_fraction <= 100, else a trap). Rounding
-    /// works on the shortest decimal that reads back as `f`, so `1.015`
-    /// rounds to `1.02`. Infinity and NaN are the locale's symbols.
+    /// `f` as a reader of `locale` writes it, with the digits after the
+    /// decimal point held within `fraction`: rounded half to even to its
+    /// end and padded with zeros to its start. `fraction` is one
+    /// `ClosedRange<NonNegativeInt>`, so a negative count or a backwards
+    /// range is a compile error. Rounding works on the shortest decimal
+    /// that reads back as `f`, so `1.015` rounds to `1.02`. Infinity and
+    /// NaN are the locale's symbols.
     //! assert Float.format(1234567.891, Locale"en") == "1,234,567.891"
     //! assert Float.format(1234567.89, Locale"de") == "1.234.567,89"
-    //! assert Float.format(1.5, Locale"fr", 2) == "1,50"
-    //! assert Float.format(2.5, Locale"en", 0, 0) == "2"
-    //! assert Float.format(-1234.5, Locale"en", 0, 3, False) == "-1234.5"
-    //! assert Float.format(1234.5, Locale"fr", min_fraction: 2) == "1\u{202f}234,50"
-    //! assert Float.format(1.015, Locale"en", max_fraction: 2) == "1.02"
+    //! assert Float.format(1.5, Locale"fr", 2..=3) == "1,50"
+    //! assert Float.format(2.5, Locale"en", 0..=0) == "2"
+    //! assert Float.format(-1234.5, Locale"en", 0..=3, False) == "-1234.5"
+    //! assert Float.format(1234.5, Locale"fr", fraction: 2..=2) == "1\u{202f}234,50"
+    //! assert Float.format(1.015, Locale"en", fraction: 0..=2) == "1.02"
     //
     pub fn format(
-        f:            Float,
-        locale:       Locale,
-        min_fraction: Int = 0,
-        max_fraction: Int = 3,
-        grouping:     Bool = True,
+        f:        Float,
+        locale:   Locale,
+        fraction: ClosedRange<NonNegativeInt> = 0..=3,
+        grouping: Bool = True,
     ) -> String
-        float_format(locale, f, min_fraction, max_fraction, grouping)
+        min = Range.start(fraction)
+        // An unbounded range, which no ClosedRange<NonNegativeInt> literal
+        // is, keeps 100 digits.
+        max = Maybe.with_default(Range.stop(fraction), 100)
+        float_format(locale, f, min, max, grouping)
     end
 
     /// `f` as a percentage in `locale`: `f` times 100, with the locale's
-    /// percent sign where the locale puts it.
+    /// percent sign where the locale puts it, rounded half to even to at
+    /// most `max_fraction` digits, a `NonNegativeInt`.
     //! assert Float.format_percent(0.256, Locale"en") == "26%"
     //! assert Float.format_percent(0.256, Locale"fr") == "26\u{a0}%"
     //! assert Float.format_percent(0.256, Locale"de") == "26\u{a0}%"
     //! assert Float.format_percent(0.256, Locale"tr") == "%26"
     //! assert Float.format_percent(0.1234, Locale"en", 1) == "12.3%"
     //
-    pub fn format_percent(f: Float, locale: Locale, max_fraction: Int = 0) -> String
+    pub fn format_percent(f: Float, locale: Locale, max_fraction: NonNegativeInt = 0) -> String
         float_format_percent(locale, f, max_fraction)
     end
 
@@ -427,9 +433,6 @@ pub subtype NonNegativeFloat Float when fn x -> x >= 0.0
 //! assert PositiveFloat.try_from(0.0) == Maybe.None
 //
 pub subtype PositiveFloat NonNegativeFloat and NonZeroFloat when fn x -> x > 0.0
-
-// Traps when `Float.clamp`'s bounds are NaN or backwards.
-host fn require_clamp_bounds(low: Float, high: Float) -> Unit
 
 impl Display for Float
     /// Returns the canonical string form of `x`, matching the runtime
@@ -601,28 +604,35 @@ impl Comparable for Float
         end
     end
 
-    /// `value` held to `low..high`, both ends included. A NaN `value` stays
+    /// `value` held to `range`, both ends included. A NaN `value` stays
     /// NaN, as every IEEE operation on one does; `compare` would put it above
-    /// `high` and return `high`, a number nobody asked for. A NaN bound is no
-    /// range at all and a `low` greater than `high` is one written
-    /// backwards, so both trap, naming the bounds: `Comparable.clamp: low
-    /// 2.0 is greater than high 1.0`, `Comparable.clamp: low NaN is not a
-    /// number`. Within the range the value comes back
-    /// as it is, so `-0.0` held to `0.0..1.0` stays `-0.0`.
-    //! assert Float.clamp(1.5, 0.0, 1.0) == 1.0
-    //! assert Float.clamp(-0.5, 0.0, 1.0) == 0.0
-    //! assert Float.clamp(0.25, 0.0, 1.0) == 0.25
-    //! assert Float.is_nan(Float.clamp(Float.nan(), 0.0, 1.0))
-    //! assert Float.clamp(Float.positive_infinity(), 0.0, 1.0) == 1.0
+    /// the end and return the end, a number nobody asked for. A range with a
+    /// NaN end holds no value, so it is no `ClosedRange` and
+    /// `ClosedRange.try_from` answers `None` for it; no literal is NaN.
+    /// Within the range the value comes back as it is, so `-0.0` held to
+    /// `0.0..=1.0` stays `-0.0`.
+    //! assert Float.clamp(1.5, 0.0..=1.0) == 1.0
+    //! assert Float.clamp(-0.5, 0.0..=1.0) == 0.0
+    //! assert Float.clamp(0.25, 0.0..=1.0) == 0.25
+    //! assert Float.is_nan(Float.clamp(Float.nan(), 0.0..=1.0))
+    //! assert Float.clamp(Float.positive_infinity(), 0.0..=1.0) == 1.0
+    //! assert ClosedRange.try_from(0.0..=Float.nan()) == Maybe.None
     //
-    fn clamp(value: Float, low: Float, high: Float) -> Float
-        require_clamp_bounds(low, high)
+    fn clamp(value: Float, range: ClosedRange<Float>) -> Float
+        low = Range.start(range)
 
         case
-            Float.is_nan(value) -> value
-            value < low         -> low
-            value > high        -> high
-            _                   -> value
+            Float.is_nan(value) ->
+                value
+
+            value < low ->
+                low
+
+            _ ->
+                case Range.stop(range)
+                    Maybe.Some(high) -> if value > high then high else value
+                    Maybe.None       -> value
+                end
         end
     end
 end

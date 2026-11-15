@@ -26,9 +26,9 @@ end
 
 struct Spigot
     acc: Int
-    den: Int
+    den: PositiveInt
     num: Int
-    k:   Int
+    k:   NonNegativeInt
 end
 
 fn next_term(s: Spigot) -> Spigot

@@ -38,7 +38,7 @@ import
     bytes.Bytes
     display.Display
     equatable.Equatable
-    int.Int
+    int.{Int, Int64}
     io.{Error, Reader, Writer}
     lists.List
     maps.Map
@@ -52,8 +52,8 @@ end
 /// What a `main` or an entry boot returns in its `Err` to end the program
 /// with a status of its choosing. The program prints `message` and a
 /// newline to stderr when it is not empty, with no `error: ` before it, and
-/// exits with `code`. A `code` outside 0 to 255 is a trap. An `Exit` with
-/// code 0 ends the program successfully, its message printed all the same.
+/// exits with `code`. An `Exit` with code 0 ends the program successfully,
+/// its message printed all the same.
 ///
 /// ```nomi
 /// import std::process.Exit
@@ -67,11 +67,19 @@ end
 //! assert Exit{} == Exit{code: 1, message: ""}
 //
 pub struct Exit
-    /// The exit status, 0 to 255.
-    code: Int = 1
+    /// The exit status.
+    code: ExitCode = 1
     /// What to print to stderr before exiting; nothing when empty.
     message: String = ""
 end
+
+/// A status a program can exit with: 0 to 255. A literal outside it does
+/// not compile; a computed code goes through `ExitCode.try_from`.
+//! assert ExitCode.try_from(255) == Some(255)
+//! assert ExitCode.try_from(256) == None
+//! assert ExitCode.try_from(-1) == None
+//
+pub subtype ExitCode Int when fn code -> code >= 0 and code <= 255
 
 /// A program to start and how: an immutable value, so one command can be
 /// run any number of times.
@@ -299,9 +307,9 @@ end
 // Starts command with its output and error in the modes given (the
 // program's 1, captured 2, piped 3), and its input piped when piped is
 // set, else as the command says.
-fn start(command: Command, stdout: Int, stderr: Int, piped: Bool) -> Result<Child, Error>
+fn start(command: Command, stdout: Int64, stderr: Int64, piped: Bool) -> Result<Child, Error>
     (mode, input) = if piped then
-        (3, Reader.from_text(""))
+        piped_stdin()
     else
         stdin_of(command.stdin)
     end
@@ -321,7 +329,12 @@ fn start(command: Command, stdout: Int, stderr: Int, piped: Bool) -> Result<Chil
     Ok(Child{handle:})
 end
 
-fn stdin_of(stdin: Stdin) -> (Int, Reader)
+// A standard input the caller writes to: mode 3.
+fn piped_stdin() -> (Int64, Reader)
+    (3, Reader.from_text(""))
+end
+
+fn stdin_of(stdin: Stdin) -> (Int64, Reader)
     case stdin
         Stdin.Null         -> (0, Reader.from_text(""))
         Stdin.Inherit      -> (1, Reader.from_text(""))

@@ -113,7 +113,7 @@ end
 		"fault.nomi": `import std::io
 
 fn divide(a: Int, b: Int) -> Int
-  a / b
+  a / NonZeroInt.try_from(b)!
 end
 
 fn main()

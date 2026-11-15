@@ -1,8 +1,8 @@
-import rational_numbers.Rational
+import rational_numbers.{NonZeroRational, Rational}
 
 /// The rational a canonical `[numerator, denominator]` pair writes.
 fn rational((numerator, denominator): (Int, Int)) -> Rational
-    Rational.new(numerator, denominator)
+    Rational.new(numerator, NonZeroInt.try_from(denominator)!)
 end
 
 test "addition"
@@ -71,7 +71,7 @@ test "division"
         ("Divide a rational number by 1",        (1, 2),  (1, 1),  (1, 2)),
     ]
     |> subtests (description, a, b, expected), description
-        assert rational(a) / rational(b) == rational(expected)
+        assert rational(a) / NonZeroRational.try_from(rational(b))! == rational(expected)
     end
 end
 

@@ -11,7 +11,7 @@
 //# ```nomi
 //# seed = Seed.from_int(42)
 //#
-//# die = Generator.int(1, 6)
+//# die = Generator.int(1..=6)
 //#
 //# (roll, seed) = die |> Generator.step(seed)
 //#
@@ -30,14 +30,36 @@ import
     bytes.Bytes
     display.Display
     equatable.Equatable
-    float.Float
-    int.Int
+    float.{Float, NonNegativeFloat}
+    int.{Int, NonNegativeInt}
     iter.Iter
-    lists.List
+    lists.{List, NonEmptyList}
+    maybe.Maybe.{self, None, Some}
+    ranges.{BoundedRange, Range}
     results.Result.{self, Err, Ok}
     strings.String
-    unit.Unit
     vectors.Vector
+end
+
+/// A range of Floats that holds a value and has an end, both ends finite:
+/// what `Generator.float` draws from, since an infinite end has no uniform
+/// draw. It narrows `BoundedRange<Float>` to finite ends, so it has no NaN
+/// end either, and a backwards or empty literal breaks `NonEmptyRange`'s
+/// rule. A literal with finite ends, `0.0..1.0`, is checked when the
+/// program is compiled; `FiniteRange.try_from(r)` checks a range computed
+/// when it runs.
+//! import std::random.FiniteRange
+//!
+//! r: FiniteRange = 0.0..=1.0
+//! assert Range.contains(r, 0.5)
+//! assert FiniteRange.try_from(Float.negative_infinity()..1.0) == None
+//! assert FiniteRange.try_from(0.0..Float.positive_infinity()) == None
+//! assert FiniteRange.try_from(1.0..0.0) == None
+//! assert FiniteRange.try_from(0.0..1.0) == Some(0.0..1.0)
+//
+pub subtype FiniteRange BoundedRange<Float> when fn r ->
+    Float.is_finite(Range.start(r))
+        and Float.is_finite(Maybe.with_default(Range.stop(r), Float.nan()))
 end
 
 /// Errors returned when weights cannot make a generator, or when OS entropy is
@@ -70,7 +92,7 @@ impl Seed
     /// forever: splitmix64 is fully specified, so this holds across
     /// platforms and releases.
     //! seed = Seed.from_int(123)
-    //! (roll, _) = Generator.step(Generator.int(1, 6), seed)
+    //! (roll, _) = Generator.step(Generator.int(1..=6), seed)
     //! assert roll == 2
     //
     pub fn from_int(n: Int) -> Seed
@@ -103,20 +125,14 @@ host fn os_state() -> Result<Int, String>
 /// `count` bytes from the operating system's cryptographically secure
 /// random source, for keys, tokens, salts and nonces. Unlike a `Generator`
 /// it takes no seed and never repeats, so a test cannot predict its bytes.
-/// A negative `count` is a runtime error.
+/// `count` is a `NonNegativeInt`.
 //! import std::random
 //!
 //! key = random.secure_bytes(32)
 //! assert Bytes.length(key) == 32
 //! assert Bytes.length(random.secure_bytes(0)) == 0
 //
-pub host fn secure_bytes(count: Int) -> Bytes
-
-/// Traps unless `from <= to`, naming both bounds.
-host fn require_int_range(from: Int, to: Int) -> Unit
-
-/// Traps unless both bounds are finite and `from < to`, naming both bounds.
-host fn require_float_range(from: Float, to: Float) -> Unit
+pub host fn secure_bytes(count: NonNegativeInt) -> Bytes
 
 /// Unbiased integer in `[from, to]` plus the next seed. Module-private -- the
 /// building block the public integer generators draw on.
@@ -144,7 +160,7 @@ impl Generator<T>
     /// Produce a value and the next seed. The pure core of `Generator`.
     ///
     /// ```nomi
-    /// die = Generator.int(1, 6)
+    /// die = Generator.int(1..=6)
     ///
     /// (n, _) = die |> Generator.step(Seed.from_int(42))
     /// ```
@@ -156,40 +172,54 @@ impl Generator<T>
         gen.run(seed)
     end
 
-    /// Uniform integer in the inclusive range `[from, to]`, which must hold
-    /// `from <= to`. A reversed range traps: `Generator.int: from 6 is greater
-    /// than to 1`. Compare the bounds first when they come from data. Any
-    /// range that passes draws uniformly, the whole of `Int` included.
-    //! die = Generator.int(1, 6)
+    /// Uniform integer in `range`, a `BoundedRange`: `1..=6` draws 1 to 6
+    /// and `0..10` draws 0 to 9. A backwards or empty range (`6..=1`,
+    /// `4..4`) is an error when the program is compiled, and a range
+    /// computed when it runs goes through `BoundedRange.try_from`. Any range
+    /// draws uniformly, the whole of `Int` included.
+    //! die = Generator.int(1..=6)
     //! (roll, _) = Generator.step(die, Seed.from_int(123))
     //! assert roll >= 1 and roll <= 6
-    //! (only, _) = Generator.step(Generator.int(4, 4), Seed.from_int(123))
+    //! (only, _) = Generator.step(Generator.int(4..=4), Seed.from_int(123))
     //! assert only == 4
-    //! (n, _) = Generator.step(Generator.int(-5, 9_223_372_036_854_775_807), Seed.from_int(7))
+    //! (below, _) = Generator.step(Generator.int(4..5), Seed.from_int(123))
+    //! assert below == 4
+    //! (n, _) = Generator.step(Generator.int(-5..=9_223_372_036_854_775_807), Seed.from_int(7))
     //! assert n >= -5
     //! huge = Int.pow(10, 30)
-    //! (big, _) = Generator.step(Generator.int(huge, huge * 2), Seed.from_int(7))
+    //! wide = BoundedRange.try_from(huge..=huge * 2)!
+    //! (big, _) = Generator.step(Generator.int(wide), Seed.from_int(7))
     //! assert big >= huge and big <= huge * 2
     //
-    pub fn int(from: Int, to: Int) -> Generator<Int>
-        require_int_range(from, to)
-        unsafe_int(from, to)
+    pub fn int(range: BoundedRange<Int>) -> Generator<Int>
+        // A BoundedRange has an end, so the `!` holds.
+        to = Range.stop(range)!
+        unsafe_int(Range.start(range), if Range.is_inclusive(range) then to else to - 1)
     end
 
-    /// Uniform float in the half-open range `[from, to)`, which must hold
-    /// `from < to`, with both bounds finite. Any other pair, a NaN bound
-    /// included, traps: `Generator.float: from 2.5 is not less than to 1.5`,
-    /// or `Generator.float: bounds must be finite, got -Inf and 1.0`. Bounds
-    /// whose difference is too large for a Float still draw uniformly.
-    //! gen = Generator.float(1.5, 2.5)
+    /// Uniform float in `range`, a `FiniteRange`: `1.5..2.5` draws from 1.5
+    /// up to but not including 2.5. An inclusive range draws the same way,
+    /// so `x..=x` always draws `x`. A backwards or empty range is an error
+    /// when the program is compiled, and a range computed when it runs goes
+    /// through `FiniteRange.try_from`, which also refuses a NaN or an
+    /// infinite end. Ends whose difference is too large for a Float still
+    /// draw uniformly.
+    //! import std::random.FiniteRange
+    //!
+    //! gen = Generator.float(1.5..2.5)
     //! (x, _) = Generator.step(gen, Seed.from_int(123))
     //! assert x >= 1.5 and x < 2.5
-    //! (wide, _) = Generator.step(Generator.float(-1.0e308, 1.0e308), Seed.from_int(7))
+    //! (same, _) = Generator.step(Generator.float(0.5..=0.5), Seed.from_int(123))
+    //! assert same == 0.5
+    //! (wide, _) = Generator.step(Generator.float(-1.0e308..1.0e308), Seed.from_int(7))
     //! assert Float.is_finite(wide)
+    //! low = 0.25
+    //! (y, _) = Generator.step(Generator.float(FiniteRange.try_from(low..1.0)!), Seed.from_int(7))
+    //! assert y >= low and y < 1.0
     //
-    pub fn float(from: Float, to: Float) -> Generator<Float>
-        require_float_range(from, to)
-        unsafe_float(from, to)
+    pub fn float(range: FiniteRange) -> Generator<Float>
+        // A FiniteRange has an end, so the `!` holds.
+        unsafe_float(Range.start(range), Range.stop(range)!)
     end
 
     /// `True` or `False` with equal probability.
@@ -208,33 +238,41 @@ impl Generator<T>
         Generator{run: fn seed -> (value, seed)}
     end
 
-    /// Uniform choice among `first` and `rest` -- non-empty by construction.
+    /// Uniform choice among `options`, a `NonEmptyList`, which a list
+    /// literal with an element is; a list built while the program runs goes
+    /// through `NonEmptyList.try_from`.
     ///
     /// ```nomi
-    /// Generator.uniform("rock", ["paper", "scissors"])
+    /// Generator.uniform(["rock", "paper", "scissors"])
     /// ```
     //! (choice, _) =
-    //!     Generator.uniform("rock", ["paper", "scissors"])
+    //!     Generator.uniform(["rock", "paper", "scissors"])
     //!     |> Generator.step(Seed.from_int(123))
     //!
     //! assert choice == "paper" or choice == "rock" or choice == "scissors"
     //
-    pub fn uniform<T>(first: T, rest: List<T>) -> Generator<T>
-        all = [first, ..rest] |> Iter.to_vector()
+    pub fn uniform<T>(options: NonEmptyList<T>) -> Generator<T>
+        all = Iter.to_vector(options)
 
-        unsafe_int(0, Iter.count(rest)) |> map(&Vector.get(all, &1)!)
+        unsafe_int(0, Vector.length(all) - 1) |> map(&Vector.get(all, &1)!)
     end
 
-    /// Weighted choice; each option carries a relative weight. Non-empty.
-    /// Weights must be non-negative, and at least one weight must be positive;
-    /// they need not sum to 1.
-    //! assert Ok(gen) = Generator.weighted((1.0, "always"), [])
+    /// Weighted choice among `options`, a `NonEmptyList`; each option carries
+    /// a relative weight, a `NonNegativeFloat`, and the weights need not sum
+    /// to 1. The result is `Err(Error.ZeroWeightTotal)` when every weight is
+    /// zero, and `Err(Error.InvalidWeight{...})` when a weight or their sum
+    /// is infinite.
+    //! assert Ok(gen) = Generator.weighted([(1.0, "always")])
     //! (choice, _) = Generator.step(gen, Seed.from_int(123))
     //! assert choice == "always"
-    //! assert Err(Error.ZeroWeightTotal) = Generator.weighted((0.0, "never"), [])
+    //! assert Err(Error.ZeroWeightTotal) = Generator.weighted([(0.0, "never")])
+    //! endless = NonNegativeFloat.try_from(Float.positive_infinity())!
+    //! assert Err(Error.InvalidWeight{weight: _}) = Generator.weighted([(endless, "all")])
     //
-    pub fn weighted<T>(first: (Float, T), rest: List<(Float, T)>) -> Result<Generator<T>, Error>
-        total = total_weight([first, ..rest], 0.0)?
+    pub fn weighted<T>(options: NonEmptyList<(NonNegativeFloat, T)>) -> Result<Generator<T>, Error>
+        total = total_weight(options, 0.0)?
+        first = NonEmptyList.first(options)
+        rest = NonEmptyList.tail(options)
 
         Ok(
             unsafe_float(0.0, total)
@@ -262,7 +300,7 @@ impl Generator<T>
     /// generator.
     ///
     /// ```nomi
-    /// gen = Generator.int(1, 6)
+    /// gen = Generator.int(1..=6)
     ///
     /// gen |> Generator.flat_map(fn n -> Generator.list(Generator.bool(), n))
     /// ```
@@ -282,10 +320,10 @@ impl Generator<T>
         }
     end
 
-    /// A list of `length` independent draws from `gen`. A non-positive length
-    /// produces an empty list.
+    /// A list of `length` independent draws from `gen`. `length` is a
+    /// `NonNegativeInt`, and a length of 0 is an empty list.
     //! (hand, _) =
-    //!     Generator.int(1, 6)
+    //!     Generator.int(1..=6)
     //!     |> Generator.list(5)
     //!     |> Generator.step(Seed.from_int(7))
     //!
@@ -296,7 +334,7 @@ impl Generator<T>
     //! (values, _) = Generator.step(gen, Seed.from_int(123))
     //! assert values == ["ha", "ha", "ha"]
     //
-    pub fn list<T>(gen: Generator<T>, length: Int) -> Generator<List<T>>
+    pub fn list<T>(gen: Generator<T>, length: NonNegativeInt) -> Generator<List<T>>
         Generator{run: &draw_list(gen, length, &1, [])}
     end
 end
@@ -328,7 +366,7 @@ end
 
 /// Tail-recursive accumulator for `Generator.list`.
 fn draw_list<T>(gen: Generator<T>, remaining: Int, seed: Seed, acc: List<T>) -> (List<T>, Seed)
-    if remaining <= 0 then
+    if remaining == 0 then
         (Iter.reverse(acc), seed)
     else
         (x, seed) = Generator.step(gen, seed)
@@ -338,7 +376,11 @@ end
 
 /// Walk cumulative weights to land `target` on an option. Total by construction
 /// (the first option is always present, so the last arm returns a real `T`).
-fn pick_weighted<T>(first: (Float, T), rest: List<(Float, T)>, target: Float) -> T
+fn pick_weighted<T>(
+    first:  (NonNegativeFloat, T),
+    rest:   List<(NonNegativeFloat, T)>,
+    target: Float,
+) -> T
     (w, x) = first
 
     if target < w then
@@ -351,7 +393,7 @@ fn pick_weighted<T>(first: (Float, T), rest: List<(Float, T)>, target: Float) ->
     end
 end
 
-fn total_weight<T>(items: List<(Float, T)>, acc: Float) -> Result<Float, Error>
+fn total_weight<T>(items: List<(NonNegativeFloat, T)>, acc: Float) -> Result<Float, Error>
     case items
         [] ->
             if Float.is_finite(acc) == False then
@@ -364,8 +406,6 @@ fn total_weight<T>(items: List<(Float, T)>, acc: Float) -> Result<Float, Error>
 
         [(w, _), ..tail] ->
             if Float.is_finite(w) == False then
-                Err(Error.InvalidWeight{weight: w})
-            else if w < 0.0 then
                 Err(Error.InvalidWeight{weight: w})
             else
                 total_weight(tail, acc + w)

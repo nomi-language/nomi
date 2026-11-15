@@ -629,15 +629,20 @@ type storedReport struct {
 }
 
 // storedReduced is what the program's reductions over bodies report in one
-// file: its boot-only calls, its application-field roots and its unused
-// whole-file imports.
+// file: its boot-only calls, its cyclic `once` bindings, its
+// application-field roots and its unused whole-file imports.
 type storedReduced struct {
-	Boot, App, Imports []TypeError
+	Boot, Once, App, Imports []TypeError
+}
+
+// count is how many diagnostics d holds.
+func (d storedReduced) count() int {
+	return len(d.Boot) + len(d.Once) + len(d.App) + len(d.Imports)
 }
 
 // of answers what r reports in the file with key.
 func (r *Reductions) of(key string) storedReduced {
-	return storedReduced{Boot: r.Boot[key], App: r.AppRoots[key], Imports: r.ImplImports[key]}
+	return storedReduced{Boot: r.Boot[key], Once: r.Once[key], App: r.AppRoots[key], Imports: r.ImplImports[key]}
 }
 
 // reductions answers what the reductions report in r's file, none for a
@@ -664,7 +669,7 @@ func settleStoredImplImports(fa *FileAnalysis, red storedReduced) {
 // empty reports whether r's file reports nothing.
 func (r *storedReport) empty() bool {
 	d := r.Reduced
-	return len(r.Syntax)+len(r.Damaged)+len(r.Errs)+len(d.Boot)+len(d.App)+len(d.Imports) == 0
+	return len(r.Syntax)+len(r.Damaged)+len(r.Errs)+d.count() == 0
 }
 
 // anyReduced reports whether the reductions over bodies report something
@@ -672,7 +677,7 @@ func (r *storedReport) empty() bool {
 func (sp *storedProgram) anyReduced() bool {
 	for _, r := range sp.reports {
 		d := r.Reduced
-		if len(d.Boot)+len(d.App)+len(d.Imports) > 0 {
+		if d.count() > 0 {
 			return true
 		}
 	}
@@ -711,6 +716,7 @@ func storedDocumentErrors(c *FileCheck, entry bool, entryOwn int, red storedRedu
 		errs = append(errs, red.App...)
 		errs = append(errs, c.EntryChecks...)
 		errs = append(errs, red.Boot...)
+		errs = append(errs, red.Once...)
 		errs = append(errs, red.Imports...)
 		errs = append(errs, c.FrontEnd...)
 	} else {
@@ -718,6 +724,7 @@ func storedDocumentErrors(c *FileCheck, entry bool, entryOwn int, red storedRedu
 		errs = append(errs, red.App...)
 		errs = append(errs, CheckConcurrentScope(fa, own)...)
 		errs = append(errs, red.Boot...)
+		errs = append(errs, red.Once...)
 		errs = append(errs, CheckTaskLifetime(fa, own)...)
 		errs = append(errs, red.Imports...)
 		errs = append(errs, CheckDuplicateTestNames(own)...)

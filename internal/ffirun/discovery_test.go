@@ -418,9 +418,11 @@ func Waits(ctx context.Context, n int64) int64 {
 	return n
 }
 `)
-	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `gopkg "example.com/binding/source" as binding
+	mustWriteHelper(t, filepath.Join(root, "main.nomi"), `import std::int.Int64
 
-fn waits(n: Int) -> Int go binding.Waits
+gopkg "example.com/binding/source" as binding
+
+fn waits(n: Int64) -> Int go binding.Waits
 `)
 	if _, err := Prepare(filepath.Join(root, "main.nomi")); err != nil {
 		t.Fatalf("the binding with a leading context.Context is refused: %v", err)

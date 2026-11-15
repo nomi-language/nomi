@@ -21,19 +21,19 @@ import "testing"
 // later "simplification" to a shared struct fails here with the reason attached
 // rather than compiling and quietly widening equality.
 func TestDateAndTimeAreDistinctFromEachOtherAndFromNaive(t *testing.T) {
-	d := rt.Date{Year: 2026, Month: 5, Day: 4}
-	mid := NaiveDateTimeToDate(rt.NaiveDateTime{Year: 2026, Month: 5, Day: 4})
+	d := rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 4}
+	mid := NaiveDateTimeToDate(rt.NaiveDateTime{Year: rt.SmallInt(2026), Month: 5, Day: 4})
 	if d != mid {
 		t.Errorf("two Dates naming one day differ: %+v vs %+v", d, mid)
 	}
 	// A Date carries no time-of-day and a Time no date, so neither projection
 	// can round-trip through the other. Asserted as a value claim because the
 	// field sets are what `derive` compares.
-	tm := NaiveDateTimeToTime(rt.NaiveDateTime{Year: 2026, Month: 5, Day: 4, Hour: 14, Minute: 30})
+	tm := NaiveDateTimeToTime(rt.NaiveDateTime{Year: rt.SmallInt(2026), Month: 5, Day: 4, Hour: 14, Minute: 30})
 	if want := (rt.Time{Hour: 14, Minute: 30}); tm != want {
 		t.Errorf("to_time = %+v, want %+v", tm, want)
 	}
-	if got := NaiveDateTimeToDate(rt.NaiveDateTime{Year: 2026, Month: 5, Day: 4, Hour: 14, Minute: 30}); got != d {
+	if got := NaiveDateTimeToDate(rt.NaiveDateTime{Year: rt.SmallInt(2026), Month: 5, Day: 4, Hour: 14, Minute: 30}); got != d {
 		t.Errorf("to_date kept a time component: %+v", got)
 	}
 }
@@ -63,8 +63,8 @@ func TestTimeWrapsWhereNaiveDateTimeRollsOver(t *testing.T) {
 	}
 
 	wall := NaiveDateTimePlusDuration(
-		rt.NaiveDateTime{Year: 2026, Month: 5, Day: 4, Hour: 23, Minute: 30}, twoHours)
-	want := rt.NaiveDateTime{Year: 2026, Month: 5, Day: 5, Hour: 1, Minute: 30}
+		rt.NaiveDateTime{Year: rt.SmallInt(2026), Month: 5, Day: 4, Hour: 23, Minute: 30}, twoHours)
+	want := rt.NaiveDateTime{Year: rt.SmallInt(2026), Month: 5, Day: 5, Hour: 1, Minute: 30}
 	if wall != want {
 		t.Errorf("rt.NaiveDateTime 2026-05-04T23:30 + 2h = %+v, want %+v (a wall reading rolls over)", wall, want)
 	}
@@ -120,21 +120,21 @@ func TestDateCivilRungsClampThroughOneImplementation(t *testing.T) {
 		want rt.Date
 	}{
 		{"month clamp into a common February",
-			DatePlusMonths(rt.Date{Year: 2011, Month: 1, Day: 31}, 1), rt.Date{Year: 2011, Month: 2, Day: 28}},
+			DatePlusMonths(rt.Date{Year: rt.SmallInt(2011), Month: 1, Day: 31}, rt.SmallInt(1)), rt.Date{Year: rt.SmallInt(2011), Month: 2, Day: 28}},
 		{"month clamp into a leap February",
-			DatePlusMonths(rt.Date{Year: 2012, Month: 1, Day: 31}, 1), rt.Date{Year: 2012, Month: 2, Day: 29}},
+			DatePlusMonths(rt.Date{Year: rt.SmallInt(2012), Month: 1, Day: 31}, rt.SmallInt(1)), rt.Date{Year: rt.SmallInt(2012), Month: 2, Day: 29}},
 		{"month clamp into a 30-day month",
-			DatePlusMonths(rt.Date{Year: 2026, Month: 3, Day: 31}, 1), rt.Date{Year: 2026, Month: 4, Day: 30}},
+			DatePlusMonths(rt.Date{Year: rt.SmallInt(2026), Month: 3, Day: 31}, rt.SmallInt(1)), rt.Date{Year: rt.SmallInt(2026), Month: 4, Day: 30}},
 		{"negative months clamp too",
-			DatePlusMonths(rt.Date{Year: 2026, Month: 1, Day: 31}, -1), rt.Date{Year: 2025, Month: 12, Day: 31}},
+			DatePlusMonths(rt.Date{Year: rt.SmallInt(2026), Month: 1, Day: 31}, rt.SmallInt(-1)), rt.Date{Year: rt.SmallInt(2025), Month: 12, Day: 31}},
 		{"year off a leap day clamps",
-			DatePlusYears(rt.Date{Year: 2024, Month: 2, Day: 29}, 1), rt.Date{Year: 2025, Month: 2, Day: 28}},
+			DatePlusYears(rt.Date{Year: rt.SmallInt(2024), Month: 2, Day: 29}, rt.SmallInt(1)), rt.Date{Year: rt.SmallInt(2025), Month: 2, Day: 28}},
 		{"year onto a leap day does not",
-			DatePlusYears(rt.Date{Year: 2024, Month: 2, Day: 29}, 4), rt.Date{Year: 2028, Month: 2, Day: 29}},
+			DatePlusYears(rt.Date{Year: rt.SmallInt(2024), Month: 2, Day: 29}, rt.SmallInt(4)), rt.Date{Year: rt.SmallInt(2028), Month: 2, Day: 29}},
 		{"days cross a year boundary",
-			DatePlusDays(rt.Date{Year: 2026, Month: 12, Day: 30}, 5), rt.Date{Year: 2027, Month: 1, Day: 4}},
+			DatePlusDays(rt.Date{Year: rt.SmallInt(2026), Month: 12, Day: 30}, rt.SmallInt(5)), rt.Date{Year: rt.SmallInt(2027), Month: 1, Day: 4}},
 		{"negative days cross backwards",
-			DatePlusDays(rt.Date{Year: 2026, Month: 1, Day: 1}, -1), rt.Date{Year: 2025, Month: 12, Day: 31}},
+			DatePlusDays(rt.Date{Year: rt.SmallInt(2026), Month: 1, Day: 1}, rt.SmallInt(-1)), rt.Date{Year: rt.SmallInt(2025), Month: 12, Day: 31}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if c.got != c.want {
@@ -159,7 +159,9 @@ func TestParseDateAndTimeFaultText(t *testing.T) {
 	}{
 		{"shape", ParseDate("05/04/2026"), rt.TagInvalidFormat, `expected YYYY-MM-DD, got "05/04/2026"`},
 		{"non-numeric", ParseDate("2026-ab-04"), rt.TagInvalidFormat, `non-numeric component in "2026-ab-04"`},
-		{"negative year is a shape fault", ParseDate("-2026-05-04"), rt.TagInvalidFormat, `expected YYYY-MM-DD, got "-2026-05-04"`},
+		{"a year of three digits is a shape fault", ParseDate("226-05-04"), rt.TagInvalidFormat, `expected YYYY-MM-DD, got "226-05-04"`},
+		{"minus zero is a shape fault", ParseDate("-000000-05-04"), rt.TagInvalidFormat, `expected YYYY-MM-DD, got "-000000-05-04"`},
+		{"impossible day far out", ParseDate("+1000000000000000000000000000100-02-29"), rt.TagInvalidValue, "day 29 not valid for +1000000000000000000000000000100-02"},
 		{"impossible day", ParseDate("2026-02-29"), rt.TagInvalidValue, "day 29 not valid for 2026-02"},
 		{"month out of range", ParseDate("2026-13-04"), rt.TagInvalidValue, "month out of range: 13"},
 	} {
@@ -229,15 +231,18 @@ func TestDateDaysBetweenIsSigned(t *testing.T) {
 		earlier, later rt.Date
 		want           int64
 	}{
-		{"same day", rt.Date{Year: 2026, Month: 5, Day: 4}, rt.Date{Year: 2026, Month: 5, Day: 4}, 0},
-		{"forward", rt.Date{Year: 2026, Month: 5, Day: 4}, rt.Date{Year: 2026, Month: 5, Day: 7}, 3},
-		{"backward", rt.Date{Year: 2026, Month: 5, Day: 7}, rt.Date{Year: 2026, Month: 5, Day: 4}, -3},
-		{"common year", rt.Date{Year: 2026, Month: 1, Day: 1}, rt.Date{Year: 2026, Month: 12, Day: 31}, 364},
-		{"leap year counts 366", rt.Date{Year: 2024, Month: 1, Day: 1}, rt.Date{Year: 2025, Month: 1, Day: 1}, 366},
+		{"same day", rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 4}, rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 4}, 0},
+		{"forward", rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 4}, rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 7}, 3},
+		{"backward", rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 7}, rt.Date{Year: rt.SmallInt(2026), Month: 5, Day: 4}, -3},
+		{"common year", rt.Date{Year: rt.SmallInt(2026), Month: 1, Day: 1}, rt.Date{Year: rt.SmallInt(2026), Month: 12, Day: 31}, 364},
+		{"leap year counts 366", rt.Date{Year: rt.SmallInt(2024), Month: 1, Day: 1}, rt.Date{Year: rt.SmallInt(2025), Month: 1, Day: 1}, 366},
+		// Past the 292 years a time.Duration holds, where t2.Sub(t1) saturates.
+		{"past 292 years forward", rt.Date{Year: rt.SmallInt(1970), Month: 1, Day: 1}, rt.Date{Year: rt.SmallInt(2300), Month: 1, Day: 1}, 120530},
+		{"past 292 years backward", rt.Date{Year: rt.SmallInt(1970), Month: 1, Day: 1}, rt.Date{Year: rt.SmallInt(1500), Month: 1, Day: 1}, -171664},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if got := DateDaysBetween(c.earlier, c.later); got != c.want {
-				t.Errorf("DateDaysBetween = %d, want %d", got, c.want)
+			if got := DateDaysBetween(c.earlier, c.later); got != rt.SmallInt(c.want) {
+				t.Errorf("DateDaysBetween = %s, want %d", got, c.want)
 			}
 		})
 	}

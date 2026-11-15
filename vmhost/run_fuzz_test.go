@@ -655,7 +655,7 @@ func TestRunInputClassifies(t *testing.T) {
 		skip      string
 	}{
 		{"ok", "import std::io\n\nfn main()\n    io.print(1 + 2)\nend\n", runOK, ""},
-		{"a trap", "import std::io\n\nfn half(n: Int) -> Int\n    10 / n\nend\n\nfn main()\n    io.print(half(0))\nend\n", runTrap, ""},
+		{"a trap", "import std::io\n\nfn half(n: Int) -> Int\n    10 / NonZeroInt.try_from(n)!\nend\n\nfn main()\n    io.print(half(0))\nend\n", runTrap, ""},
 		{"a failed test case", "test \"t\"\n    assert 1 == 2\nend\n", runTrap, ""},
 		{"recursion past the budget", "import std::io\n\nfn spin(n: Int) -> Int\n    spin(n + 1)\nend\n\nfn main()\n    io.print(spin(0))\nend\n", runTooLong, "it may loop"},
 		{"pure std functions", "import std::io\n\nfn main()\n    io.print(String.pad_start(\"7\", 3, \"0\"))\n    io.inspect(String.words(\"a b\"))\n    io.inspect(String.lines(\"a\\nb\"))\nend\n", runOK, ""},

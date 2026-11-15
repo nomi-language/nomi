@@ -892,13 +892,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// by defineImplBlockStub on the synthesizer's emitted
 	// impl block during Sweep A/B-ann), letting recursive types
 	// pass their own self-reference check naturally.
-	byPath := make(map[string]*FileAnalysis, len(filesByKey))
-	for _, fa := range filesByKey {
-		if fa != nil && fa.FilePath != "" {
-			byPath[fa.FilePath] = fa
-		}
-	}
-	fileOf := func(path string) *FileAnalysis { return byPath[path] }
+	fileOf := buildDeclFiles(filesByKey)
 	for _, fb := range built {
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)
 		fb.fa.TypeErrors = append(fb.fa.TypeErrors, CheckForeignDeriveBounds(fb.fa, fb.nodes, implIndex, fileOf)...)

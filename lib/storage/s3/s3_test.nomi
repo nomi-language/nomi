@@ -610,7 +610,7 @@ fn list_response(memory: Memory, bucket: String, query: Query) -> Response
                         field("Key", inner(e.key)),
                         field(
                             "LastModified",
-                            "${OffsetDateTime.from_instant(e.modified, Duration.seconds(0))}",
+                            "${OffsetDateTime.from_instant(e.modified, Duration.seconds(0))!}",
                         ),
                         field("Size", "${e.size}"),
                     ],

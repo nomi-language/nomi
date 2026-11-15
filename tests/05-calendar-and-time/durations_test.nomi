@@ -41,3 +41,17 @@ end
 test "duration equality uses nanosecond magnitude"
     assert Duration.seconds(5) == Duration.milliseconds(5000)
 end
+
+test "durations have no range"
+    big = Duration.hours(1_000_000_000_000)
+
+    assert Duration.as_nanos(big * 1_000) == 3_600_000_000_000_000_000_000_000_000
+    assert big + big - big == big
+
+    assert Duration.abs(Duration.nanoseconds(-9_223_372_036_854_775_808))
+        == Duration.nanoseconds(9_223_372_036_854_775_808)
+
+    assert Duration.to_string(big + Duration.nanoseconds(1)) == "1000000000000h1ns"
+    assert Duration.parse("1000000000000h1ns") == Ok(big + Duration.nanoseconds(1))
+    assert Duration.clock(big) == "1000000000000:00:00"
+end

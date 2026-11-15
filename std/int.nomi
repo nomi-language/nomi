@@ -58,8 +58,11 @@ end
 //#   picks the locale's native system. When the locale has no symbols for
 //#   that system, its Latin symbols stand: `en-u-nu-arab` writes
 //#   `١,٢٣٤,٥٦٧`.
-//# - **Options** out of range trap, naming the function and the option:
-//#   `Int.format: min_digits must be 1 to 100, got 0`.
+//# - **Options** are typed: a digit count is a `NonNegativeInt`, and the
+//#   digits after the decimal point are one `ClosedRange<NonNegativeInt>`,
+//#   `fraction: 0..=2`, so a negative count or a backwards range is a
+//#   compile error. A count has no upper bound: it is what the caller
+//#   asked for.
 //#
 //# ## Parsing numbers a reader wrote
 //#
@@ -160,15 +163,17 @@ impl Int
     //
     pub host fn wrapping_mul(a: Int, b: Int) -> Int
 
-    /// The number of 1 bits in a non-negative `n`, its population count.
-    /// A negative Int, read as two's complement, has endless 1 bits, so a
-    /// negative `n` is a runtime error; count `-n`'s or `~~~n`'s bits,
-    /// whichever the algorithm means.
+    /// The number of 1 bits in `n`, its population count. A negative Int,
+    /// read as two's complement, has endless 1 bits, so `n` is a
+    /// `NonNegativeInt`: `Int.bit_count(-1)` is a compile error, and a
+    /// computed `n` goes through `NonNegativeInt.try_from`, or count
+    /// `Int.abs(n)`'s or `~~~n`'s bits, whichever the algorithm means.
     //! assert Int.bit_count(0) == 0
     //! assert Int.bit_count(13) == 3
-    //! assert Int.bit_count(Int.pow(2, 100) - 1) == 100
+    //! assert Int.bit_count(1_267_650_600_228_229_401_496_703_205_375) == 100
+    //! assert Int.bit_count(Int.abs(-13)) == 3
     //
-    pub host fn bit_count(n: Int) -> NonNegativeInt
+    pub host fn bit_count(n: NonNegativeInt) -> NonNegativeInt
 
     /// The number of bits `n` needs, not counting a sign: the position of a
     /// non-negative `n`'s highest 1 bit plus one, so `0` for `0` and `k`
@@ -194,7 +199,8 @@ impl Int
     /// `1439`. `x % y` differs for operands of opposite signs: it is the
     /// remainder, takes the sign of the dividend `x`, and matches `/`
     /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * Int.floor_div(x, y)`.
-    /// A zero `y` traps with the division-by-zero error `%` gives.
+    /// `y` is a `NonZeroInt`, so `Int.modulo(x, 0)` is a compile error, and
+    /// a computed `y` goes through `NonZeroInt.try_from`.
     //! assert Int.modulo(7, 3) == 1
     //! assert Int.modulo(-7, 3) == 2
     //! assert Int.modulo(7, -3) == -2
@@ -202,7 +208,7 @@ impl Int
     //! assert Int.modulo(-1, 1440) == 1439
     //! assert -1 % 1440 == -1
     //
-    pub fn modulo(x: Int, y: Int) -> Int
+    pub fn modulo(x: Int, y: NonZeroInt) -> Int
         r = x % y
 
         if r != 0 and (r < 0) != (y < 0) then r + y else r
@@ -213,8 +219,8 @@ impl Int
     /// `int.floor_divide` return. It is the partner of `Int.modulo`:
     /// `x == y * Int.floor_div(x, y) + Int.modulo(x, y)` for every `x` and
     /// non-zero `y`. `x / y` differs for operands of opposite signs: it
-    /// truncates toward zero (`-7 / 2` is `-3`). A zero `y` traps with the
-    /// division-by-zero error `/` gives.
+    /// truncates toward zero (`-7 / 2` is `-3`). `y` is a `NonZeroInt`, as
+    /// `Int.modulo`'s is.
     //! assert Int.floor_div(7, 2) == 3
     //! assert Int.floor_div(-7, 2) == -4
     //! assert Int.floor_div(7, -2) == -4
@@ -222,7 +228,7 @@ impl Int
     //! assert -7 / 2 == -3
     //! assert 2 * Int.floor_div(-7, 2) + Int.modulo(-7, 2) == -7
     //
-    pub fn floor_div(x: Int, y: Int) -> Int
+    pub fn floor_div(x: Int, y: NonZeroInt) -> Int
         q = x / y
 
         if x % y != 0 and (x < 0) != (y < 0) then q - 1 else q
@@ -328,9 +334,9 @@ impl Int
     /// `n` as a reader of `locale` writes it: the locale's digits, minus
     /// sign and group separator, grouped as the locale groups (`hi` writes
     /// lakhs). `grouping: False` leaves the separators out, and `min_digits`
-    /// pads with zeros to at least that many digits (1 to 100, else a
-    /// trap). `Display` stays `1234567` everywhere. Polish and Spanish group
-    /// only from five integer digits.
+    /// pads with zeros to at least that many digits; 0 and 1 pad nothing.
+    /// `Display` stays `1234567` everywhere. Polish and Spanish group only
+    /// from five integer digits.
     //! assert Int.format(1234567, Locale"en") == "1,234,567"
     //! assert Int.format(1234567, Locale"de") == "1.234.567"
     //! assert Int.format(1234567, Locale"pl") == "1\u{a0}234\u{a0}567"
@@ -342,9 +348,10 @@ impl Int
     //! assert Int.format(1234567, Locale"en-u-nu-arab") == "١,٢٣٤,٥٦٧"
     //! assert Int.format(1234567, Locale"en", False) == "1234567"
     //! assert Int.format(7, Locale"en", True, 3) == "007"
+    //! assert Int.format(7, Locale"en", True, 0) == "7"
     //! assert Int.format(Int.pow(10, 21), Locale"de") == "1.000.000.000.000.000.000.000"
     //
-    pub fn format(n: Int, locale: Locale, grouping = True, min_digits: Int = 1) -> String
+    pub fn format(n: Int, locale: Locale, grouping = True, min_digits: NonNegativeInt = 1) -> String
         int_format(locale, n, grouping, min_digits)
     end
 
@@ -428,29 +435,29 @@ impl Productable for Int
     end
 end
 
-impl Divide<Int, Int> for Int
-    /// Integer division, `lhs / rhs`, rounding toward zero. Traps on a zero
-    /// `rhs`; a `NonZeroInt` divisor, which is an Int, cannot be zero, so
-    /// division by one cannot trap.
+impl Divide<NonZeroInt, Int> for Int
+    /// Integer division, `lhs / rhs`, rounding toward zero. The divisor is a
+    /// `NonZeroInt`: a non-zero literal, a value whose range rules out zero,
+    /// or one checked first (`if d == 0 then ...`), so division never traps.
     //! assert 7 / 2 == 3
     //! assert -7 / 2 == -3
     //! nz = NonZeroInt.try_from(3)!
     //! assert Int.divide(10, nz) == 3
     //
-    host fn divide(lhs: Int, rhs: Int) -> Int
+    host fn divide(lhs: Int, rhs: NonZeroInt) -> Int
 end
 
-impl Remainder<Int, Int> for Int
+impl Remainder<NonZeroInt, Int> for Int
     /// `lhs % rhs`: the remainder of `/`'s division, which truncates toward
     /// zero, so it takes the sign of `lhs`. `(a / b) * b + a % b == a`.
-    /// `Int.modulo` takes the divisor's sign instead. Traps on a zero `rhs`,
-    /// and so cannot trap on a `NonZeroInt`.
+    /// `Int.modulo` takes the divisor's sign instead. The divisor is a
+    /// `NonZeroInt`, as `/`'s is.
     //! assert 7 % 3 == 1
     //! assert -7 % 3 == -1
     //! assert 7 % -3 == 1
     //! assert Int.remainder(-7, -3) == -1
     //
-    host fn remainder(lhs: Int, rhs: Int) -> Int
+    host fn remainder(lhs: Int, rhs: NonZeroInt) -> Int
 end
 
 // The bitwise operators read an Int as two's complement with as many bits as
@@ -498,27 +505,27 @@ impl BitwiseNot<Int> for Int
     host fn bitwise_not(value: Int) -> Int
 end
 
-impl ShiftLeft<Int, Int> for Int
+impl ShiftLeft<NonNegativeInt, Int> for Int
     /// Shift left, `a <<< n`: `a` times 2 to the `n`, exact, so no bit is
-    /// ever shifted out. A negative `n` is a runtime error.
+    /// ever shifted out. The count is a `NonNegativeInt`.
     //! assert Int.shift_left(1, 4) == 16
     //! assert 1 <<< 64 == 18_446_744_073_709_551_616
     //! assert -3 <<< 2 == -12
     //
-    host fn shift_left(lhs: Int, rhs: Int) -> Int
+    host fn shift_left(lhs: Int, rhs: NonNegativeInt) -> Int
 end
 
-impl ShiftRight<Int, Int> for Int
+impl ShiftRight<NonNegativeInt, Int> for Int
     /// Arithmetic shift right, `a >>> n`: `a` divided by 2 to the `n`,
     /// rounded toward negative infinity. A count past `a`'s bits yields 0
-    /// for a non-negative `a` and -1 for a negative one. A negative `n` is
-    /// a runtime error.
+    /// for a non-negative `a` and -1 for a negative one. The count is a
+    /// `NonNegativeInt`.
     //! assert Int.shift_right(-8, 1) == -4
     //! assert Int.pow(2, 100) >>> 98 == 4
     //! assert -1 >>> 200 == -1
     //! assert 7 >>> 200 == 0
     //
-    host fn shift_right(lhs: Int, rhs: Int) -> Int
+    host fn shift_right(lhs: Int, rhs: NonNegativeInt) -> Int
 end
 
 impl Debug for Int
@@ -613,3 +620,17 @@ pub subtype PositiveInt NonNegativeInt and NonZeroInt when fn n -> n > 0
 //! assert Radix.try_from(1) == None
 //
 pub subtype Radix Int when fn b -> b >= 2
+
+/// An Int that fits in 64 bits, from -9223372036854775808 to
+/// 9223372036854775807: what a Go `int64` holds. A std function or field
+/// whose limit is 64 bits takes one (`Instant.as_nanos`, a `Date`'s
+/// year), so a literal past the range is an error when the program is
+/// compiled and a computed value is checked with `Int64.try_from(n)`
+/// before the call rather than refused during it. An Int64 is an Int,
+/// and passes wherever one is expected.
+//! n: Int64 = 9223372036854775807
+//! assert n + 1 == 9223372036854775808
+//! assert Int64.try_from(-9223372036854775808) == Some(-9223372036854775808)
+//! assert Int64.try_from(9223372036854775808) == None
+//
+pub subtype Int64 Int when fn n -> n >= -9223372036854775808 and n <= 9223372036854775807

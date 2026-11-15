@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -119,18 +120,30 @@ func a(v ...any) []any { return v }
 // calendar answer: leap days, month ends, DST gaps and folds, negative and
 // large instants, unknown zones, and malformed text.
 func calendarCases() map[string][]argSet {
-	dates := []any{date(2024, 2, 29), date(2026, 1, 31), date(1, 1, 1), date(9999, 12, 31)}
+	// 10^30 is a year past int64, which a Date holds as any other.
+	farYear := rt.IntFromBig(new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil))
+	dates := []any{date(2024, 2, 29), date(2026, 1, 31), date(1, 1, 1), date(9999, 12, 31),
+		record("calendar.Date", "year", farYear, "month", int64(2), "day", int64(29)), date(-1, 12, 31)}
 	times := []any{clock(0, 0, 0, 0), clock(23, 59, 59, 999_999_999), clock(12, 30, 15, 500)}
-	naives := []any{naive(2026, 3, 8, 2, 30, 0, 0), naive(2024, 2, 29, 23, 59, 59, 999_999_999), naive(2026, 11, 1, 1, 30, 0, 0)}
-	offsets := []any{offsetDT(1_700_000_000_000_000_000, 19800), offsetDT(0, -18000), offsetDT(-1_000_000_000_000_000_000, 0)}
+	naives := []any{naive(2026, 3, 8, 2, 30, 0, 0), naive(2024, 2, 29, 23, 59, 59, 999_999_999), naive(2026, 11, 1, 1, 30, 0, 0),
+		record("calendar.NaiveDateTime", "year", farYear, "month", int64(7), "day", int64(4), "hour", int64(12),
+			"minute", int64(0), "second", int64(0), "nanosecond", int64(0))}
+	// 2^70 nanoseconds is the year 39381, past the 64 bits Go's UnixNano
+	// counts, which an OffsetDateTime and a DateTime hold.
+	past64 := rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70))
+	offsets := []any{offsetDT(1_700_000_000_000_000_000, 19800), offsetDT(0, -18000), offsetDT(-1_000_000_000_000_000_000, 0),
+		record("calendar.OffsetDateTime", "instant_nanos", past64, "offset_seconds", int64(3600))}
 	zones := []any{
 		zoned(1_700_000_000_000_000_000, "America/New_York"),
 		zoned(0, "UTC"),
 		zoned(1_741_417_200_000_000_000, "America/New_York"), // 2026-03-08, the spring-forward day
 		zoned(-1_000_000_000_000_000_000, "Europe/London"),
 		zoned(1_700_000_000_000_000_000, "Asia/Kolkata"),
+		record("calendar.DateTime", "instant_nanos", past64, "zone", "America/New_York"),
 	}
-	ns := []any{i(0), i(1), i(-1), i(12), i(1000), i(1 << 40)}
+	// 2^70 of any unit is past what int64 counts and past every year a
+	// Date once held.
+	ns := []any{i(0), i(1), i(-1), i(12), i(1000), i(1 << 40), past64}
 
 	unary := func(xs []any) []argSet {
 		out := make([]argSet, len(xs))
@@ -177,9 +190,9 @@ func calendarCases() map[string][]argSet {
 		"DateTime.to_string":           unary(zones),
 		"DateTime.to_offset":           unary(zones),
 		"calendar.zoned_offset_nanos":  unary(zones),
-		"calendar.date_add_days":       withN(dates[:2]),
-		"calendar.date_add_months":     withN(dates[:2]),
-		"calendar.date_add_years":      withN(dates[:2]),
+		"calendar.date_add_days":       withN(append(dates[:2:2], dates[4])),
+		"calendar.date_add_months":     withN(append(dates[:2:2], dates[4])),
+		"calendar.date_add_years":      withN(append(dates[:2:2], dates[4])),
 		"calendar.time_add_nanos":      withN(times),
 		"calendar.naive_add_days":      withN(naives),
 		"calendar.naive_add_months":    withN(naives),
@@ -190,13 +203,16 @@ func calendarCases() map[string][]argSet {
 		"calendar.offset_add_years":    withN(offsets),
 		"calendar.date_new_raw": sets(
 			a(i(2026), i(5), i(4)), a(i(2024), i(2), i(29)), a(i(2023), i(2), i(29)),
-			a(i(2026), i(2), i(30)), a(i(2026), i(13), i(1)), a(i(0), i(0), i(0))),
+			a(i(2026), i(2), i(30)), a(i(2026), i(13), i(1)), a(i(0), i(0), i(0)),
+			a(farYear, i(2), i(29)), a(i(-1), i(2), i(29)), a(i(2026), past64, i(1))),
 		"calendar.naive_new_exact_raw": sets(
 			a(i(2026), i(5), i(4), i(12), i(30), i(0), i(0)),
 			a(i(2026), i(5), i(4), i(24), i(0), i(0), i(0)),
 			a(i(2024), i(2), i(29), i(23), i(59), i(59), i(999_999_999)),
-			a(i(2026), i(5), i(4), i(1), i(2), i(3), i(1_000_000_000))),
-		"calendar.date_parse_raw":   texts("2026-05-04", "2024-02-29", "2023-02-29", "bad", ""),
+			a(i(2026), i(5), i(4), i(1), i(2), i(3), i(1_000_000_000)),
+			a(farYear, i(5), i(4), i(1), i(2), i(3), i(0))),
+		"calendar.date_parse_raw": texts("2026-05-04", "2024-02-29", "2023-02-29", "bad", "",
+			"+1000000000000000000000000000000-02-29", "-000001-12-31", "10000-01-01", "-000000-01-01", "999-01-01"),
 		"calendar.time_parse_raw":   texts("12:34:56.789", "00:00", "25:00:00", "12:61:00", "x"),
 		"calendar.naive_parse_raw":  texts("2026-03-08T02:30:00", "2026-03-08T02:30:00.5", "2026-03-08 02:30", "nope"),
 		"calendar.offset_parse_raw": texts("2026-03-08T02:30:00+05:30", "2026-03-08T02:30:00Z", "2026-03-08T02:30:00", "2026-03-08T02:30:00+25:00"),
@@ -205,9 +221,23 @@ func calendarCases() map[string][]argSet {
 		"calendar.offset_with_offset_raw": sets(
 			a(naives[0], i(19800)), a(naives[1], i(-18000)), a(naives[2], i(90_000)), a(naives[0], i(1))),
 		"calendar.offset_from_instant_nanos": sets(
-			a(i(1_700_000_000_000_000_000), i(19800)), a(i(0), i(0)), a(i(-1), i(-3600))),
+			a(i(1_700_000_000_000_000_000), i(19800)), a(i(0), i(0)), a(i(-1), i(-3600)),
+			// An instant past 64 bits of nanoseconds, the year 39381.
+			a(rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70)), i(0)),
+			// The year 40170248388634, past 64 bits of seconds.
+			a(rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 100)), i(0))),
 		"calendar.zoned_from_instant_in_raw": sets(
-			a(i(1_700_000_000_000_000_000), s("America/New_York")), a(i(0), s("UTC")), a(i(0), s("Mars/Olympus"))),
+			a(i(1_700_000_000_000_000_000), s("America/New_York")), a(i(0), s("UTC")), a(i(0), s("Mars/Olympus")),
+			a(rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70)), s("UTC")),
+			a(rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 100)), s("America/New_York"))),
+		"calendar.offset_add_nanos": sets(
+			a(offsets[0], i(3_600_000_000_000)), a(offsets[1], i(-1)),
+			a(offsets[0], rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70))),
+			a(offsets[0], rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 100)))),
+		"calendar.zoned_add_nanos": sets(
+			a(zones[0], i(3_600_000_000_000)), a(zones[1], i(-1)),
+			a(zones[0], rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70))),
+			a(zones[0], rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 100)))),
 		"calendar.zoned_with_zone_raw": sets(
 			a(zones[0], s("Asia/Tokyo")), a(zones[1], s("America/Los_Angeles")), a(zones[0], s("Mars/Olympus"))),
 	}
@@ -241,12 +271,7 @@ func randomCases() map[string][]argSet {
 			a(i(42), i(math.MinInt64), i(0)), a(i(42), i(math.MaxInt64), i(math.MaxInt64))),
 		"random.unit_float_state": sets(a(i(1)), a(i(42)), a(i(-1)), a(i(math.MinInt64))),
 		"random.os_state":         {{args: a(), shapeOnly: true}},
-		"random.secure_bytes":     {{args: a(i(0))}, {args: a(i(-1))}, {args: a(i(16)), shapeOnly: true}},
-		"random.require_int_range": sets(a(i(1), i(6)), a(i(4), i(4)), a(i(6), i(1)),
-			a(i(math.MinInt64), i(math.MaxInt64)), a(i(math.MaxInt64), i(math.MinInt64))),
-		"random.require_float_range": sets(a(hFloat(1.5), hFloat(2.5)), a(hFloat(2.5), hFloat(1.5)),
-			a(hFloat(1.0), hFloat(1.0)), a(hFloat(math.NaN()), hFloat(1.0)), a(hFloat(math.Inf(-1)), hFloat(math.Inf(1))),
-			a(hFloat(math.Inf(-1)), hFloat(1.0)), a(hFloat(-math.MaxFloat64), hFloat(math.MaxFloat64))),
+		"random.secure_bytes":     {{args: a(i(0))}, {args: a(i(16)), shapeOnly: true}},
 	}
 }
 
@@ -310,7 +335,10 @@ func formatCases() map[string][]argSet {
 		}
 	}
 	intFormats = append(intFormats, sets(a(loc("en"), i(1234), false, i(1)), a(loc("en"), i(7), true, i(3)),
-		a(loc("en"), i(7), true, i(0)))...)
+		a(loc("en"), i(7), true, i(0)), a(loc("en"), i(7), true, i(101)),
+		// A count past 64 bits pads past what memory holds: Int.format's
+		// own fault, naming it.
+		a(loc("en"), i(7), true, rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70))))...)
 	parses := func(texts ...string) []argSet {
 		var out []argSet
 		for _, l := range []string{"en", "de"} {
@@ -328,7 +356,8 @@ func formatCases() map[string][]argSet {
 			"(5)", "1.5"),
 		"float.float_format": sets(a(loc("en"), 1234.5678, i(0), i(3), true), a(loc("de"), -0.5, i(2), i(2), true),
 			a(loc("fr"), math.Inf(1), i(0), i(3), true), a(loc("en"), math.NaN(), i(0), i(3), false),
-			a(loc("en"), 2.5, i(0), i(0), true), a(loc("en"), 1.0, i(3), i(2), true)),
+			a(loc("en"), 2.5, i(0), i(0), true), a(loc("en"), 1.0, i(3), i(2), true),
+			a(loc("en"), 0.5, i(101), i(101), true)),
 		"float.float_format_percent": sets(a(loc("en"), 0.256, i(0)), a(loc("fr"), 0.256, i(1)),
 			a(loc("tr"), -0.5, i(0)), a(loc("en"), 0.5, i(-1))),
 		"float.float_parse_in":         parses("1,234.5", "1.234,5", "-∞", "NaN", "1e5"),
@@ -385,9 +414,12 @@ func formatCases() map[string][]argSet {
 // and std/calendar's and std/duration's text for a reader: each display,
 // pattern kind, parse answer and error, and the money trap.
 func moneyDateCases() map[string][]argSet {
-	date := intList(2026, 10, 20, 0, 0, 0, 0, 0, 1)
-	clock := intList(1970, 1, 1, 21, 5, 30, 250_000_000, 0, 2)
-	moment := intList(2026, 10, 20, 9, 30, 0, 0, 7200, 7)
+	// A value crosses as its year and the fields after it.
+	date := intList(10, 20, 0, 0, 0, 0, 0, 1)
+	clock := intList(1, 1, 21, 5, 30, 250_000_000, 0, 2)
+	moment := intList(10, 20, 9, 30, 0, 0, 7200, 7)
+	y2026, y1970 := i(2026), i(1970)
+	farYear := rt.IntFromBig(new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil))
 	return map[string][]argSet{
 		"currency.currency_check": sets(a(s("EUR"), i(-1)), a(s("BTC"), i(-1)), a(s("BTC"), i(8)), a(s("EUR"), i(2)),
 			a(s("eur"), i(-1)), a(s("POINTS"), i(19)), a(s("ABCDEFGHIJKLM"), i(0))),
@@ -405,26 +437,30 @@ func moneyDateCases() map[string][]argSet {
 			a(s("€12.505"), loc("en"), s("EUR"), i(2), true, false), a(s("12,50 zł"), loc("pl"), s("EUR"), i(2), true, false),
 			a(s("12.50"), loc("en"), s("EUR"), i(2), true, false), a(s(" 12.50 "), loc("en"), s("EUR"), i(2), true, true),
 			a(s("0.5 BTC"), loc("en"), s("BTC"), i(8), false, true), a(s(""), loc("en"), s("EUR"), i(2), true, false)),
-		"money/format.money_mixed":   sets(a(s("Money.add"), s("EUR"), s("PLN"))),
-		"money/format.money_refused": sets(a(s("Money.split"), s("n must be positive, got 0"))),
-		"decimal.decimal_refused":    sets(a(s("Decimal.split"), s("n must be positive, got 0"))),
-		"calendar.civil_format_style": sets(a(loc("en"), date, s("full/-")), a(loc("pl"), date, s("long/-")),
-			a(loc("en"), clock, s("-/medium")), a(loc("de"), moment, s("full/full")), a(loc("ar-EG"), date, s("short/-"))),
-		"calendar.civil_format_fields": sets(a(loc("en"), date, s("yMMMd")), a(loc("pl"), date, s("MMMMd")),
-			a(loc("ja"), date, s("MMMMEEEEd")), a(loc("en"), clock, s("jms")), a(loc("de"), moment, s("yMMMdjm"))),
-		"calendar.civil_format_pattern": sets(a(date, s("yyyy-MM-dd")), a(clock, s("HH:mm:ss.SSS")),
-			a(moment, s("yyyyMMdd'T'HHmmss"))),
+		"calendar.civil_format_style": sets(a(loc("en"), y2026, date, s("full/-")), a(loc("pl"), y2026, date, s("long/-")),
+			a(loc("en"), y1970, clock, s("-/medium")), a(loc("de"), y2026, moment, s("full/full")),
+			a(loc("ar-EG"), y2026, date, s("short/-")), a(loc("en"), farYear, date, s("full/-"))),
+		"calendar.civil_format_fields": sets(a(loc("en"), y2026, date, s("yMMMd")), a(loc("pl"), y2026, date, s("MMMMd")),
+			a(loc("ja"), y2026, date, s("MMMMEEEEd")), a(loc("en"), y1970, clock, s("jms")),
+			a(loc("de"), y2026, moment, s("yMMMdjm")), a(loc("en"), farYear, date, s("yMMMEd"))),
+		"calendar.civil_format_pattern": sets(a(y2026, date, s("yyyy-MM-dd")), a(y1970, clock, s("HH:mm:ss.SSS")),
+			a(y2026, moment, s("yyyyMMdd'T'HHmmss")), a(farYear, date, s("yyyy-MM-dd D"))),
 		"calendar.date_parse_style": sets(a(s("4.5.26"), loc("de"), s("short/-"), false),
 			a(s("4.5.2026"), loc("de"), s("short/-"), false), a(s("4.5.2026"), loc("de"), s("short/-"), true),
 			a(s("31.2.26"), loc("de"), s("short/-"), false), a(s("Oct 20, 2026"), loc("en"), s("medium/-"), false)),
 		"calendar.time_parse_style": sets(a(s("9:05 PM"), loc("en"), s("-/short"), false),
 			a(s("9:05 pm"), loc("en"), s("-/short"), true), a(s("25:00"), loc("de"), s("-/short"), false)),
-		"calendar.date_parse_pattern": sets(a(s("19/10/2026"), s("dd/MM/yyyy")), a(s("2026-10-19"), s("dd/MM/yyyy"))),
+		"calendar.date_parse_pattern": sets(a(s("19/10/2026"), s("dd/MM/yyyy")), a(s("2026-10-19"), s("dd/MM/yyyy")),
+			a(s("29/02/1000000000000000000000000000000"), s("dd/MM/yyyy"))),
 		"calendar.time_parse_pattern": sets(a(s("0905"), s("HHmm")), a(s("09"), s("HHmm"))),
 		"calendar.naive_parse_pattern": sets(a(s("20261019T093000"), s("yyyyMMdd'T'HHmmss")),
 			a(s("20261319T093000"), s("yyyyMMdd'T'HHmmss"))),
 		"calendar.fields_check": sets(a(i(0), s("yMMMd")), a(i(0), s("yMMMdH")), a(i(1), s("jm")), a(i(2), s("yMy")),
-			a(i(0), s("q")), a(i(0), s(""))),
+			a(i(0), s("q")), a(i(0), s("")),
+			// A kind past 64 bits, which the declared Int64 keeps a
+			// program from passing and the Go function's int64 cannot
+			// take: the adapter's own refusal, the failure population.
+			a(rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70)), s("y"))),
 		"calendar.pattern_check": sets(a(i(0), s("yyyy-MM-dd")), a(i(0), s("dd MMM yyyy")), a(i(1), s("hh:mm a")),
 			a(i(2), s("yyyyMMdd'T'HHmmss")), a(i(0), s("'unclosed"))),
 		"calendar.relative_format_raw": sets(a(loc("en"), i(3), i(3), false), a(loc("en"), i(-1), i(3), false),
@@ -432,7 +468,7 @@ func moneyDateCases() map[string][]argSet {
 			a(loc("ja"), i(0), i(7), false)),
 		"duration.duration_format_raw": sets(a(loc("en"), i(5_400_000_000_000), i(1)), a(loc("pl"), i(5_400_000_000_000), i(1)),
 			a(loc("en"), i(0), i(1)), a(loc("en"), i(1_500_000_000), i(2)), a(loc("en"), i(-300_000_000_000), i(3)),
-			a(loc("de"), i(math.MinInt64), i(1))),
+			a(loc("de"), i(math.MinInt64), i(1)), a(loc("en"), hBig("-36000000000000000000000000001"), i(2))),
 	}
 }
 
@@ -678,11 +714,27 @@ func TestAdapterFailuresAreTheMarshallers(t *testing.T) {
 		t.Errorf("a handle of the wrong Go type: %v", err)
 	}
 	// A DateTime in a zone the tzdb does not carry traps inside the Go
-	// function; the adapter reports the panic as the marshaller's wrapper did.
+	// function. The row sets PanicsPropagate, so the rt trap passes through
+	// the adapter unrecovered and reaches the program as its fault
+	// (vmhost's TestRun_AValuePastAStdRangeIsTheProgramsFault).
 	dt := rt.NewStructDesc("calendar.DateTime", []rt.FieldSpec{{Name: "instant_nanos", Type: rt.SlotInt}, {Name: "zone", Type: rt.SlotString}})
-	_, err = table["calendar.zoned_add_days"](nil, a(dt.Make(int64(0), "Mars/Olympus"), int64(1)))
-	if err == nil || !strings.HasPrefix(err.Error(), "calendar.zoned_add_days: panic: ") {
-		t.Errorf("a panic in the Go function: %v", err)
+	func() {
+		defer func() {
+			fault, ok := recover().(*rt.Error)
+			if !ok || !strings.Contains(fault.Msg, `civil shift on "Mars/Olympus"`) {
+				t.Errorf("a propagating row's trap: recovered %v, want the rt trap", fault)
+			}
+		}()
+		_, err = table["calendar.zoned_add_days"](nil, a(dt.Make(int64(0), "Mars/Olympus"), int64(1)))
+		t.Errorf("zoned_add_days in an unknown zone answered %v, want a trap", err)
+	}()
+	// An argument the Go function's int64 cannot hold is the adapter's own
+	// refusal, an error naming the row. Generation admits an int64 only for
+	// a declared type within its range (`kind: Int64`), so only an operand the
+	// checker never saw reaches it.
+	_, err = table["calendar.fields_check"](nil, a(rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70)), "yyyy"))
+	if err == nil || !strings.Contains(err.Error(), "`calendar.fields_check`'s `kind` takes an Int that fits in 64 bits") {
+		t.Errorf("an Int past 64 bits: %v", err)
 	}
 	// A callback whose Nomi function fails hands the failure to the Go
 	// callback's error result, and with no Invoker there is nothing to call.

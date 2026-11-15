@@ -11,9 +11,12 @@ pub struct Request
     body:    Bytes
 end
 
+/// An HTTP status code, which Go holds in an int64.
+pub subtype Status Int when fn n -> n >= 100 and n <= 599
+
 /// What the handler gives back to Go.
 pub struct Response
-    status:  Int
+    status:  Status
     headers: Map<String, String>
     body:    Bytes
 end

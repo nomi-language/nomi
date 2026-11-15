@@ -89,16 +89,18 @@ fn make(digits: List<Color>, multiplier: Color, tolerance: Color) -> Maybe<Label
 end
 
 /// The units above ohms, largest first, with how many ohms each is.
-once units = [(1_000_000_000, Magnitude.Gigaohms), (1_000_000, .Megaohms), (1000, .Kiloohms)]
+once units: List<(PositiveInt, Magnitude)> = [
+    (1_000_000_000, .Gigaohms),
+    (1_000_000,     .Megaohms),
+    (1000,          .Kiloohms),
+]
 
 /// `ohms` in the largest unit it reaches at least one of.
 fn in_largest_unit(ohms: Int) -> (Decimal, Magnitude)
-    (size, unit) =
-        units
-        |> Iter.find(fn (size, _unit) -> ohms >= size)
-        |> Maybe.with_default((1, .Ohms))
-
-    (Int.to_decimal(ohms) / Int.to_decimal(size), unit)
+    case Iter.find(units, fn (size, _unit) -> ohms >= size)
+        Some((size, unit)) -> (Int.to_decimal(ohms) / Int.to_decimal(size), unit)
+        None               -> (Int.to_decimal(ohms), .Ohms)
+    end
 end
 
 fn digit(color: Color) -> Maybe<NonNegativeInt>

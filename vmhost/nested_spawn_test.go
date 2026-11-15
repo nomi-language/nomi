@@ -130,7 +130,7 @@ func TestNestedSpawn_TrapFailsTheAwaiter(t *testing.T) {
 import std::tasks.Task
 
 fn divide(n: Int) -> Int
-  100 / n
+  100 / NonZeroInt.try_from(n)!
 end
 
 fn outer() -> Int
@@ -151,7 +151,7 @@ end
 	}
 	var out lockedBuffer
 	err = p.Run(context.Background(), &out, nil, false)
-	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+	if err == nil || !strings.Contains(err.Error(), "found nothing") {
 		t.Fatalf("run = %v, want the nested task's division by zero", err)
 	}
 }

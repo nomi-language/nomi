@@ -81,7 +81,7 @@ fn reset(count: Vector<Int>, r: Int) -> Vector<Int>
     if r == 1 then
         count
     else
-        reset(Vector.set(count, r - 1, r), r - 1)
+        reset(Vector.set(count, r - 1, r)!, r - 1)
     end
 end
 
@@ -92,7 +92,7 @@ fn next(perm: List<Int>, count: Vector<Int>, r: Int, n: Int) -> Maybe<(List<Int>
     else
         perm = rotate(perm, r)
         left = Vector.get(count, r)! - 1
-        count = Vector.set(count, r, left)
+        count = Vector.set(count, r, left)!
 
         if left > 0 then
             Some((perm, count, r))

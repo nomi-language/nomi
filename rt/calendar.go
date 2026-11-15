@@ -89,8 +89,12 @@ type Disambiguation struct {
 // `NaiveDateTime"2026-05-04T00:00:00"` structurally equal, which is a wrong
 // answer rather than a wasted field — `derive` generates the comparison over
 // the fields that exist.
+//
+// Year is an Int of any size: the proleptic Gregorian calendar has no last
+// year, and a Date counts every one. Month and Day are within 1 to 12 and 1
+// to 31, which every constructor checks.
 type Date struct {
-	Year  int64
+	Year  Int
 	Month int64
 	Day   int64
 }
@@ -113,10 +117,11 @@ type Time struct {
 // difference is why the two are not one struct: a wall reading is
 // its components, and a moment is its instant.
 //
-// Fields are `int64` because the Nomi fields are `Int`, and the adapter
-// reads and writes them directly.
+// Year is an Int of any size, as Date's is; the other six fields are
+// bounded (a month, a day of one, a time of day), `Int64` in std and int64
+// here, and the adapter reads and writes them directly.
 type NaiveDateTime struct {
-	Year       int64
+	Year       Int
 	Month      int64
 	Day        int64
 	Hour       int64
@@ -140,9 +145,9 @@ type NaiveDateTime struct {
 // adapter's side, and internal/irbuild's testdata/calendar_datetime.nomi pins it
 // from the language's.
 type DateTime struct {
-	// InstantNanos is Unix nanoseconds: the moment, and the whole of the
-	// identity.
-	InstantNanos int64
+	// InstantNanos is nanoseconds from the Unix epoch, an Int of any size:
+	// the moment, and the whole of the identity.
+	InstantNanos Int
 	// Zone is an IANA name (`America/New_York`). Display metadata.
 	Zone string
 }
@@ -163,9 +168,9 @@ type DateTime struct {
 // and disagree for DateTime. Only the month and year rungs need a wall-reading
 // shift, which is why the adapter carries exactly two.
 type OffsetDateTime struct {
-	// InstantNanos is Unix nanoseconds: the moment, and the whole of the
-	// identity.
-	InstantNanos int64
+	// InstantNanos is nanoseconds from the Unix epoch, an Int of any size:
+	// the moment, and the whole of the identity.
+	InstantNanos Int
 	// OffsetSeconds is the signed UTC offset, capped at ±18h. Display
 	// metadata.
 	OffsetSeconds int64

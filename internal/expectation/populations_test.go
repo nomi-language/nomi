@@ -520,7 +520,6 @@ var failureFixtures = []string{
 	"pipe_assert_report.nomi",
 	"pipe_stage_keyword_report.nomi",
 	"pipe_stages.nomi",
-	"scalar_operator_traps.nomi",
 	"sibimpl/report_test.nomi",
 	"siblings/report_test.nomi",
 	"std_enum_modes.nomi",

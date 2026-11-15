@@ -26,8 +26,10 @@
 02-testing/setup_try_test.nomi
 02-testing/subtests_test.nomi
 03-tooling-and-diagnostics/formatting_test.nomi
+04-scalars-and-text/bits_test.nomi
 04-scalars-and-text/code_points_test.nomi
 04-scalars-and-text/codepoint_literals_test.nomi
+04-scalars-and-text/encodings_test.nomi
 04-scalars-and-text/floats_test.nomi
 04-scalars-and-text/interpolate_composite_test.nomi
 04-scalars-and-text/interpolate_display_value_test.nomi
@@ -46,6 +48,7 @@
 05-calendar-and-time/instant_test.nomi
 05-calendar-and-time/naive_datetime_test.nomi
 05-calendar-and-time/offset_datetime_test.nomi
+05-calendar-and-time/past_an_instant_test.nomi
 05-calendar-and-time/times_test.nomi
 06-collections/any_value_in_a_container_test.nomi
 06-collections/contains_test.nomi
@@ -110,6 +113,7 @@
 10-generics-and-type-wrappers/type_wrappers_test.nomi
 11-interfaces-and-impls/boxed_existentials/boxed_existentials_test.nomi
 11-interfaces-and-impls/boxed_existentials/std_interface_boxes_test.nomi
+11-interfaces-and-impls/comparable_defaults_test.nomi
 11-interfaces-and-impls/container_impls/container_impls_test.nomi
 11-interfaces-and-impls/cross_file_impls/cross_file_impls_test.nomi
 11-interfaces-and-impls/defaults_through_the_type/defaults_through_the_type_test.nomi
@@ -133,6 +137,7 @@
 12-derives-and-standard-interfaces/maybe_result_equatable_test.nomi
 12-derives-and-standard-interfaces/set_debug_test.nomi
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi
+12-derives-and-standard-interfaces/subtype_fields_test.nomi
 12-derives-and-standard-interfaces/unit_hashable_test.nomi
 12-derives-and-standard-interfaces/universal_debug/universal_debug_test.nomi
 12-derives-and-standard-interfaces/value_equality_test.nomi
@@ -211,6 +216,7 @@
 19-locales/list_format_test.nomi
 19-locales/listed_locales/main_test.nomi
 19-locales/locale_test.nomi
+19-locales/money_test.nomi
 19-locales/number_format_test.nomi
 19-locales/plural_test.nomi
 19-locales/shop/cart_test.nomi

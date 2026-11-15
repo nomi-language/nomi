@@ -36,25 +36,25 @@ func TestRtFuncs_CsvAndXmlReaders(t *testing.T) {
 		}
 	}
 
-	records := call("csv/host.open", rt.ReaderFromText("\ufeffa,\"b\"\"c\"\nd,é\"x"), int64(','), int64(0), false, false, int64(0))
+	records := call("csv/host.open", rt.ReaderFromText("\ufeffa,\"b\"\"c\"\nd,é\"x"), hCodepoint(','), rb.Variant("maybe.Maybe", "None"), false, false, int64(0))
 	want("the first record", text(call("csv/host.next", records)), `[String("a"), String("b\"c")]`)
 	want("its line", text(call("csv/host.line", records)), `Int(1)`)
 	want("the second read", text(call("csv/host.next", records)), `[]`)
 	want("the stop", text(call("csv/host.stopped", records)), `[Int(1), Int(2), Int(4)]`)
 	want("the message", text(call("csv/host.message", records)), `String("a quote in a field that is not quoted; double it inside a quoted field, or allow lazy quotes")`)
 
-	invalid := call("csv/host.open", rt.ReaderFromText("a"), int64('"'), int64(0), false, false, int64(0))
-	want("an invalid delimiter's read", text(call("csv/host.next", invalid)), `[]`)
+	invalid := call("csv/host.open", rt.ReaderFromText("a"), hCodepoint(';'), rb.Variant("maybe.Maybe", "Some", hCodepoint(';')), false, false, int64(0))
+	want("a comment that is the delimiter's read", text(call("csv/host.next", invalid)), `[]`)
 	want("its stop", text(call("csv/host.stopped", invalid)), `[Int(3), Int(0), Int(0)]`)
 
 	failing := rt.ReaderFromText("a")
 	rt.ReaderClose(failing)
-	closed := call("csv/host.open", failing, int64(','), int64(0), false, false, int64(-1))
+	closed := call("csv/host.open", failing, hCodepoint(','), rb.Variant("maybe.Maybe", "None"), false, false, int64(-1))
 	call("csv/host.next", closed)
 	want("a closed reader's stop", text(call("csv/host.stopped", closed)), `[Int(2), Int(0), Int(0)]`)
 	want("its failure", text(call("csv/host.failure", closed)), `io.Error/4.Closed{}`)
 
-	want("an encoded record", text(call("csv/host.encode", rtStrings("a", "b,c", " d", "e\"f"), int64(','), true)),
+	want("an encoded record", text(call("csv/host.encode", rtStrings("a", "b,c", " d", "e\"f"), hCodepoint(','), true)),
 		`String("a,\"b,c\",\" d\",\"e\"\"f\"\r\n")`)
 
 	tokens := call("xml/host.open", rt.ReaderFromText(`<?xml version="1.0"?><p:a xmlns:p="urn:p" x="1">t</p:a>`), false)

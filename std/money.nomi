@@ -20,21 +20,22 @@
 //# product with a Decimal rate, round, to the currency's minor digits.
 //# `Money.split` and `Money.allocate` divide an amount into parts that sum
 //# to it exactly, a bill shared three ways or 70 to 30. Two amounts in
-//# different currencies do not add: `+` and `-` trap and name both. Std has
-//# no exchange rates;
+//# different currencies do not add, so Money has no `+` or `-`:
+//# `Money.add`, `Money.subtract`, `Money.sum`, `Money.min` and `Money.max`
+//# return `Err(CurrencyMismatch)` for them. `*` by an Int count is total
+//# and stays an operator. Std has no exchange rates;
 //# a library that has them converts and checks the currency first.
 //# `Money.format` writes an amount as a reader of a locale writes it, and
 //# `Money.parse_in` reads one back, strictly by default.
 
 import
-    add.Add
     bool.Bool.{self, False, True}
     currency.{self, Currency}
-    decimal.{Decimal, RoundingMode}
+    decimal.{Decimal, Ratios, RoundingMode}
     display.Display
     equatable.Equatable
     hashable.Hashable
-    int.{Int, PositiveInt}
+    int.{Int, Int64, PositiveInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -45,8 +46,6 @@ import
     multiply.Multiply
     results.Result.{self, Err, Ok}
     strings.String
-    subtract.Subtract
-    summable.Summable
     unit.Unit
 end
 
@@ -85,6 +84,28 @@ pub enum Error
 end
 
 derive Equatable for Error
+
+/// Two amounts in different currencies, which do not add, subtract or
+/// compare: what `Money.add`, `Money.subtract`, `Money.sum`, `Money.min`
+/// and `Money.max` return for them. `left` is the first amount's currency and
+/// `right` the second's.
+pub struct CurrencyMismatch
+    left:  Currency
+    right: Currency
+end
+
+derive Equatable for CurrencyMismatch
+
+impl Display for CurrencyMismatch
+    /// The two currencies, naming a custom currency with its digits so two
+    /// of one code are told apart (`PTS:0 and PTS:2`).
+    //! assert Display.to_string(CurrencyMismatch{left: Currency"EUR", right: Currency"PLN"})
+    //!     == "the amounts are in two currencies, EUR and PLN"
+    //
+    fn to_string(m: CurrencyMismatch) -> String
+        "the amounts are in two currencies, ${format.label(m.left)} and ${format.label(m.right)}"
+    end
+end
 
 impl Display for Error
     /// What is wrong, as a compile error at a `Money"…"` literal shows it.
@@ -178,7 +199,7 @@ impl Money
         display: CurrencyDisplay = CurrencyDisplay.Symbol,
         sign:    CurrencySign = CurrencySign.Standard,
     ) -> String
-        shown = case display
+        shown: Int64 = case display
             CurrencyDisplay.Symbol -> 0
             CurrencyDisplay.Narrow -> 1
             CurrencyDisplay.Code   -> 2
@@ -216,8 +237,8 @@ impl Money
     /// them should be in the code where a reader sees it. There is no Float
     /// form: a Float is binary, so `0.1` is not one tenth. Convert a Float
     /// rate first, with `Float.to_decimal(rate, 4, RoundingMode.HalfEven)`.
-    /// `RoundingMode.Unnecessary` traps when the product has more digits
-    /// than the currency, as `Decimal.round` does.
+    /// To refuse a product with more digits than the currency, round it
+    /// with `Decimal.round_exact`.
     //! import std::float.Float
     //!
     //! assert Money.multiply_by(Money"19.99 EUR", 0.23d) == Money"4.60 EUR"
@@ -272,23 +293,79 @@ impl Money
     end
 
     /// The lesser of two amounts in one currency (ties return `a`): what a
-    /// refund is capped at. Amounts in two currencies trap, naming both,
-    /// as `+` does: `Money.min: the amounts are in two currencies, EUR and
-    /// PLN`.
-    //! assert Money.min(Money"12.50 EUR", Money"20 EUR") == Money"12.50 EUR"
+    /// refund is capped at. Amounts in two currencies are
+    /// `Err(CurrencyMismatch)`; write `!` after it where the currencies are
+    /// known to match.
+    //! assert Money.min(Money"12.50 EUR", Money"20 EUR") == Ok(Money"12.50 EUR")
+    //!
+    //! assert Money.min(Money"12.50 EUR", Money"20 PLN")
+    //!     == Err(CurrencyMismatch{left: Currency"EUR", right: Currency"PLN"})
     //
-    pub fn min(a: Money, b: Money) -> Money
-        format.require_same("Money.min", a.currency, b.currency)
-        if a.amount <= b.amount then a else b
+    pub fn min(a: Money, b: Money) -> Result<Money, CurrencyMismatch>
+        Money.same(a, b)?
+        Ok(if a.amount <= b.amount then a else b)
     end
 
     /// The greater of two amounts in one currency (ties return `a`): a
-    /// minimum charge. Amounts in two currencies trap, as `Money.min` does.
-    //! assert Money.max(Money"0.30 EUR", Money"0.50 EUR") == Money"0.50 EUR"
+    /// minimum charge. Amounts in two currencies are
+    /// `Err(CurrencyMismatch)`, as for `Money.min`.
+    //! assert Money.max(Money"0.30 EUR", Money"0.50 EUR")! == Money"0.50 EUR"
     //
-    pub fn max(a: Money, b: Money) -> Money
-        format.require_same("Money.max", a.currency, b.currency)
-        if a.amount >= b.amount then a else b
+    pub fn max(a: Money, b: Money) -> Result<Money, CurrencyMismatch>
+        Money.same(a, b)?
+        Ok(if a.amount >= b.amount then a else b)
+    end
+
+    /// The sum of two amounts in one currency, exact, or
+    /// `Err(CurrencyMismatch)` for amounts in two currencies. Money has no
+    /// `+`, since a sum of two currencies has no answer; write `?` after it
+    /// to pass the mismatch on, or `!` where the currencies are known to
+    /// match.
+    //! assert Money.add(Money"12.50 EUR", Money"0.75 EUR") == Ok(Money"13.25 EUR")
+    //!
+    //! assert Money.add(Money"12.50 EUR", Money"1 PLN")
+    //!     == Err(CurrencyMismatch{left: Currency"EUR", right: Currency"PLN"})
+    //
+    pub fn add(a: Money, b: Money) -> Result<Money, CurrencyMismatch>
+        Money.same(a, b)?
+        Ok(Money{amount: a.amount + b.amount, currency: a.currency})
+    end
+
+    /// `a` less `b`, exact, or `Err(CurrencyMismatch)` for amounts in two
+    /// currencies, as for `Money.add`.
+    //! assert Money.subtract(Money"12.50 EUR", Money"20 EUR") == Ok(Money"-7.50 EUR")
+    //! assert Money.subtract(Money"1 EUR", Money"1 USD") |> Result.is_err()
+    //
+    pub fn subtract(a: Money, b: Money) -> Result<Money, CurrencyMismatch>
+        Money.same(a, b)?
+        Ok(Money{amount: a.amount - b.amount, currency: a.currency})
+    end
+
+    /// The sum of `amounts`, every one in `currency`: a cart's total. No
+    /// amounts sum to zero in `currency`, so an empty cart's total is in
+    /// the currency the shop charges in. The first amount in another
+    /// currency is `Err(CurrencyMismatch)`, with `currency` on the left.
+    //! prices = [Money"12.50 EUR", Money"3 EUR"]
+    //! assert Money.sum(prices, Currency"EUR") == Ok(Money"15.50 EUR")
+    //!
+    //! empty: List<Money> = []
+    //! assert Money.sum(empty, Currency"EUR") == Ok(Money"0 EUR")
+    //!
+    //! assert Money.sum([Money"1 EUR", Money"2 USD"], Currency"EUR")
+    //!     == Err(CurrencyMismatch{left: Currency"EUR", right: Currency"USD"})
+    //
+    pub fn sum(amounts: Iter<Money>, currency: Currency) -> Result<Money, CurrencyMismatch>
+        zero = Money{amount: Int.to_decimal(0), currency:}
+        Iter.try_reduce(amounts, zero, Money.add)
+    end
+
+    // Ok when a and b are in one currency, else the mismatch.
+    fn same(a: Money, b: Money) -> Result<Unit, CurrencyMismatch>
+        if a.currency == b.currency then
+            Ok(Unit)
+        else
+            Err(CurrencyMismatch{left: a.currency, right: b.currency})
+        end
     end
 
     /// The money `text` writes: the amount, one space and the currency, as
@@ -388,9 +465,10 @@ impl Money
     /// A minor unit is the currency's (a cent in `EUR`, a yen in `JPY`), or
     /// the amount's last digit when it has more: `0.125 EUR` is split in
     /// thousandths, so the parts still sum to it. A part has that many
-    /// digits. An empty list of ratios, a negative ratio, or ratios that are
-    /// all zero trap, naming the problem: `Money.allocate: the ratios are
-    /// all zero`.
+    /// digits. `ratios` are `Ratios` (std::decimal), so an empty list, a
+    /// negative ratio, or ratios that are all zero are compile errors in a
+    /// literal, and ratios computed when the program runs go through
+    /// `Ratios.try_from`.
     //! assert Money.allocate(Money"100.00 EUR", [1, 1, 1]) == [
     //!     Money"33.34 EUR",
     //!     Money"33.33 EUR",
@@ -403,18 +481,7 @@ impl Money
     //! assert Money.allocate(Money"0.125 EUR", [1, 1]) == [Money"0.063 EUR", Money"0.062 EUR"]
     //! assert Money.allocate(Money"-1 USD", [1, 2]) == [Money"-0.34 USD", Money"-0.66 USD"]
     //
-    pub fn allocate(money: Money, ratios: List<Int>) -> List<Money>
-        if Iter.is_empty(ratios) then format.refuse("Money.allocate", "there are no ratios")
-
-        case Iter.find(ratios, fn r -> r < 0)
-            Some(r) -> format.refuse("Money.allocate", "the ratio ${r} is negative")
-            None    -> Unit
-        end
-
-        if Iter.all_match(ratios, fn r -> r == 0) then
-            format.refuse("Money.allocate", "the ratios are all zero")
-        end
-
+    pub fn allocate(money: Money, ratios: Ratios) -> List<Money>
         Decimal.allocate(money.amount, ratios, Currency.minor_digits(money.currency))
         |> Money.all_in(money.currency)
     end
@@ -425,45 +492,6 @@ impl Money
         |> Iter.map(fn amount -> Money{amount:, currency:})
         |> Iter.to_list()
     end
-
-    /// Whether the amount is the sum of no amounts, `Money.empty_sum()`.
-    fn is_empty(money: Money) -> Bool
-        money.currency == Currency"XXX" and Decimal.is_zero(money.amount)
-    end
-end
-
-impl Add<Money, Money> for Money
-    /// The sum of two amounts in one currency, exact. Amounts in two
-    /// currencies trap, naming both: `Money.add: the amounts are in two
-    /// currencies, EUR and PLN`. A custom currency is named with its
-    /// digits, so two of one code are told apart (`PTS:0 and PTS:2`).
-    //! assert Money"12.50 EUR" + Money"0.75 EUR" == Money"13.25 EUR"
-    //
-    fn add(lhs: Money, rhs: Money) -> Money
-        if Money.is_empty(lhs) then
-            rhs
-        else if Money.is_empty(rhs) then
-            lhs
-        else
-            format.require_same("Money.add", lhs.currency, rhs.currency)
-            Money{amount: lhs.amount + rhs.amount, currency: lhs.currency}
-        end
-    end
-end
-
-impl Subtract<Money, Money> for Money
-    /// The difference of two amounts in one currency, exact; amounts in two
-    /// currencies trap, as `+` does.
-    //! assert Money"12.50 EUR" - Money"20 EUR" == Money"-7.50 EUR"
-    //
-    fn subtract(lhs: Money, rhs: Money) -> Money
-        if Money.is_empty(rhs) then
-            lhs
-        else
-            format.require_same("Money.subtract", lhs.currency, rhs.currency)
-            Money{amount: lhs.amount - rhs.amount, currency: rhs.currency}
-        end
-    end
 end
 
 impl Multiply<Int, Money> for Money
@@ -472,23 +500,6 @@ impl Multiply<Int, Money> for Money
     //
     fn multiply(money: Money, rhs: Int) -> Money
         Money{amount: money.amount * Int.to_decimal(rhs), currency: money.currency}
-    end
-end
-
-impl Summable for Money
-    /// The sum of no amounts: zero in `XXX`, ISO's code for no currency,
-    /// which `+` leaves the other amount alone for. So `Iter.sum` of a
-    /// cart's prices is their total in their currency, and of an empty cart
-    /// zero in no currency.
-    //! import std::iter.Iter
-    //!
-    //! prices = [Money"12.50 EUR", Money"3 EUR"]
-    //! assert Iter.sum(prices) == Money"15.50 EUR"
-    //! empty: List<Money> = []
-    //! assert Iter.sum(empty) == Money"0 XXX"
-    //
-    fn empty_sum() -> Money
-        Money{amount: Int.to_decimal(0), currency: Currency"XXX"}
     end
 end
 

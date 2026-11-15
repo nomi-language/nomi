@@ -72,6 +72,25 @@
 // handle's internals may name types the reader cannot read, such as
 // pgxpool's `*puddle.Pool[*connResource]`.
 //
+// # Ints
+//
+// A Nomi Int is exact at any size, so an Int position a Go fixed-width
+// integer receives declares a type whose range fits it (spec §19 *How Nomi
+// types project to Go*). The two stages split the work. Validation
+// (projectionCheck.subtypeBase, validate.go) matches a subtype of a scalar,
+// or an intersection of subtypes, against the Go type its base projects to,
+// resolving a name the binding's file does not declare as the generator
+// does: in the files beside it and the ones it imports, then std as this
+// binary embeds it (SetStdSource, which package std calls; the compiler's
+// source where nothing did), read only when a binding names such a type
+// (validationModules). So
+// `Int64`, `NonNegativeInt and Int64` and a project's `Pixels` fill an
+// int64 slot. The generator then holds the range to the Go integer
+// (hostgen's fits), and generateAdapters reports a hostgen.IntRangeError as
+// an error at the binding, failing the build as a mismatch does, where
+// other refusals become an adapter that answers the refusal when the
+// program reaches it.
+//
 // # Context
 //
 // A leading context.Context parameter is left out of the match

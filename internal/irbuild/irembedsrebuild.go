@@ -96,13 +96,12 @@ func (bl *irScalarBuilder) rebuildWidened(at ast.Node, v ir.Temp, have, want kin
 }
 
 // irSameGeneric reports whether a and b are two instances of one generic
-// declaration: a user generic struct or enum, or a prelude enum.
+// declaration: a user generic struct or enum, or a prelude enum. A std
+// generic struct is none: std structs are invariant (spec §5 *Covariant
+// conversion*), so no accepted program rebuilds one at a wider type.
 func irSameGeneric(a, b *typeDef) bool {
 	if a.genericOf != nil {
 		return a.genericOf == b.genericOf
-	}
-	if a.genStructOf != nil {
-		return a.genStructOf == b.genStructOf
 	}
 	return a.preludeOf != nil && b.preludeOf != nil && a.preludeOf.spec == b.preludeOf.spec
 }

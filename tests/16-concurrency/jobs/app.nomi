@@ -68,8 +68,8 @@ pub fn greet(greeting: Greeting) -> Result<Unit, Failure>
 
         "trapping" ->
             _ = Sender.send(App.done.sender, "trapping ${greeting.name}")
-            zero = String.length(greeting.mood) - 8
-            _ = 1 / zero
+            // `!` on None traps: the mood has 8 letters.
+            _ = NonZeroInt.try_from(String.length(greeting.mood) - 8)!
             Ok(Unit)
 
         _ ->
@@ -97,7 +97,7 @@ pub fn next_report() -> String
 end
 
 fn main()
-    Worker.start(App.worker, [greet_job, slow_job])
+    Worker.start(App.worker, [greet_job, slow_job])!
     _ = jobs.enqueue(App.queue, Fake.new(), greet_job, Greeting{name: "Ada"})
     io.print(next_report())
 end

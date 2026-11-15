@@ -64,7 +64,7 @@ func ReadText(fr *rt.Frame, path string) rt.Result[string, rt.IOError] {
 	}
 	if !utf8.Valid(data) {
 		return rt.Err[string](rt.IOError{Tag: rt.TagIOInvalidText, Path: path,
-			Offset: int64(rt.InvalidUTF8Offset(string(data)))})
+			Offset: rt.SmallInt(int64(rt.InvalidUTF8Offset(string(data))))})
 	}
 	return ok(string(data))
 }
@@ -201,22 +201,23 @@ func Copy(fr *rt.Frame, from, to string) rt.Result[rt.Unit, rt.IOError] {
 }
 
 // Metadata is `fs.metadata`, following symlinks: the kind, the size, the
-// modification time in nanoseconds since the Unix epoch, and the permission
-// bits, which std/fs builds a Metadata from.
-func Metadata(fr *rt.Frame, path string) rt.Result[*rt.List[int64], rt.IOError] {
+// modification time in nanoseconds since the Unix epoch, an Int of any size
+// (rt.InstantFromTime), and the permission bits, which std/fs builds a
+// Metadata from.
+func Metadata(fr *rt.Frame, path string) rt.Result[*rt.List[rt.Int], rt.IOError] {
 	if e := validPath(path); e != nil {
-		return failed[*rt.List[int64]](e)
+		return failed[*rt.List[rt.Int]](e)
 	}
 	info, e := backendOf(fr).Stat(path)
 	if e != nil {
-		return failed[*rt.List[int64]](e)
+		return failed[*rt.List[rt.Int]](e)
 	}
 	return ok(infoList(info))
 }
 
-func infoList(info Info) *rt.List[int64] {
-	var out *rt.List[int64]
-	for _, v := range []int64{info.Mode, info.Modified, info.Size, int64(info.Kind)} {
+func infoList(info Info) *rt.List[rt.Int] {
+	var out *rt.List[rt.Int]
+	for _, v := range []rt.Int{rt.SmallInt(info.Mode), rt.InstantFromTime(info.Modified), rt.SmallInt(info.Size), rt.SmallInt(int64(info.Kind))} {
 		out = rt.Cons(v, out)
 	}
 	return out
@@ -224,13 +225,13 @@ func infoList(info Info) *rt.List[int64] {
 
 // LinkMetadata is `fs.link_metadata`: Metadata's fields, describing a
 // symlink at path as itself.
-func LinkMetadata(fr *rt.Frame, path string) rt.Result[*rt.List[int64], rt.IOError] {
+func LinkMetadata(fr *rt.Frame, path string) rt.Result[*rt.List[rt.Int], rt.IOError] {
 	if e := validPath(path); e != nil {
-		return failed[*rt.List[int64]](e)
+		return failed[*rt.List[rt.Int]](e)
 	}
 	info, e := backendOf(fr).Lstat(path)
 	if e != nil {
-		return failed[*rt.List[int64]](e)
+		return failed[*rt.List[rt.Int]](e)
 	}
 	return ok(infoList(info))
 }
@@ -262,10 +263,12 @@ func ReadLink(fr *rt.Frame, path string) rt.Result[string, rt.IOError] {
 // SetMode is `fs.set_mode`: the permission bits, 0 to 0o777, of what path
 // names. Any other number is EINVAL, as chmod answers a mode it cannot
 // set.
-func SetMode(fr *rt.Frame, path string, mode int64) rt.Result[rt.Unit, rt.IOError] {
+func SetMode(fr *rt.Frame, path string, modeArg rt.Int) rt.Result[rt.Unit, rt.IOError] {
 	if e := validPath(path); e != nil {
 		return failed[rt.Unit](e)
 	}
+	// A mode past int64 saturates, and is out of range as the bound is.
+	mode := modeArg.Saturated()
 	if mode < 0 || mode > 0o777 {
 		return rt.Err[rt.Unit](rt.IOError{Tag: rt.TagIOOther, Operation: "chmod", Path: path, Code: "EINVAL"})
 	}

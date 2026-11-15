@@ -8,6 +8,7 @@
 //# rules ([Concurrency](/spec/concurrency/)).
 
 import
+    int.PositiveInt
     iter.Iter
     lists.List
     unit.Unit
@@ -113,7 +114,11 @@ impl Task<T>
     //!
     //! assert results == [2, 4, 6]
     //
-    pub host fn spawn_all<T, U>(source: Iter<T>, f: (T) -> U, max_running: Int) -> List<Task<U>>
+    pub host fn spawn_all<T, U>(
+        source:      Iter<T>,
+        f:           (T) -> U,
+        max_running: PositiveInt,
+    ) -> List<Task<U>>
 
     /// Wait for every task in `tasks` and collect their values, in the
     /// order the tasks were spawned.

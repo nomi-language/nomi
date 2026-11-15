@@ -104,6 +104,11 @@
 // so code earlier inputs compiled calls the new impl. A value's or once's
 // type is kept as source with each REPL-declared type spelled through its
 // file (vmhost.Checked.LocalType's qualifier, analysis.TypeTextQualifying).
+// When that spelling does not check, because a std type in it is one the
+// input's names do not bring into scope (`calendar.Date` through a whole
+// import, or the PositiveDuration a range gives `Duration.seconds(2)`),
+// each std type is spelled through its module instead, which the files that
+// keep and read the value import under an alias (replStdSpelling).
 // The front end synthesizes a Debug impl for every type in its file, so a
 // later input's Debug impl, written or derived, is a second one in the
 // program; the lowering ranks them as the coherence check does: a

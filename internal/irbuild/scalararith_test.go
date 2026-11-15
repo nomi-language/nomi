@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"fmt"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"os"
 	"path/filepath"
@@ -9,88 +8,29 @@ import (
 	"testing"
 )
 
-// TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine is the ABSOLUTE
-// half, and it is not redundant with the golden comparison above.
-//
-// A golden comparison holds the output to whatever was last recorded, so it
-// cannot see a recording that is wrong: a written-out impl that blamed `line 0`
-// would pass it. This test checks the lines themselves.
-//
-// WHAT IT PINS IS A RELATION, NOT THREE LITERALS. The property that survives an
-// edit anywhere in the fixture is that the three trapping cases blame three
-// DISTINCT real lines: each spelling blames its own source position, so no two
-// of them can coincide and none of them can be 0. Pinning the numbers
-// themselves would make an unrelated edit above line 38 present as a
-// regression.
-func TestScalarArith_TheWrittenOutSpellingBlamesTheCallsOwnLine(t *testing.T) {
+// TestScalarArith_TheWrittenOutSpellingAnswersAsTheOperator runs the scalar
+// operator impls written out by name (`Divide.divide(20, 5)`, `Int.add`)
+// beside the operators, and needs every case to pass: the arm in
+// scalararith.go lowers both spellings to one rt call. A zero divisor is no
+// case: the divisor of `/` and `%` is a NonZeroInt, so a checked program
+// never reaches the VM's division-by-zero fault.
+func TestScalarArith_TheWrittenOutSpellingAnswersAsTheOperator(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	got := vmReference(fixture("scalar_operator_traps.nomi"))
-	if got.exit != 1 {
-		t.Fatalf("three cases in the fixture trap on purpose, so the run must exit 1: %s", got)
+	got := vmReference(fixture("scalar_operator_impls.nomi"))
+	if got.exit != 0 {
+		t.Fatalf("every case of the fixture passes, so the run must exit 0: %s", got)
 	}
-	// The POSITIVE control: the two non-trapping cases must have passed, or the
-	// trap assertions below are being satisfied by a fixture that fell over
-	// before it reached them.
 	for _, want := range []string{
-		"ok ", "the written-out impls agree on every non-trapping answer",
+		"the written-out impls agree on every non-trapping answer",
 		"the written-out impls are exact past 64 bits, as the operators are",
 		"a Float divide by zero is IEEE and does not trap",
+		"a divisor checked while the program runs divides in both spellings",
 	} {
-		if !strings.Contains(got.stdout, want) {
-			t.Fatalf("the fixture did not get as far as its trapping cases (%q missing):\n%s",
-				want, got.stdout)
+		if !strings.Contains(got.stdout, "ok ") || !strings.Contains(got.stdout, want) {
+			t.Fatalf("the fixture did not report %q:\n%s", want, got.stdout)
 		}
-	}
-	// Every fault row, by its TEXT rather than by its line, so the set is
-	// derived from the report and the lines are read off it. The impl row and
-	// its two operator twins are the whole trapping population; they share a
-	// text, which is the point — only the LINE distinguishes them.
-	faultTexts := []string{"division by zero"}
-	var faultLines []int
-	zeros := 0
-	for _, line := range strings.Split(got.stdout, "\n") {
-		trimmed := strings.TrimSpace(line)
-		matched := false
-		for _, text := range faultTexts {
-			if strings.HasSuffix(trimmed, text) {
-				matched = true
-				break
-			}
-		}
-		if !matched || !strings.HasPrefix(trimmed, "line ") {
-			continue
-		}
-		var n int
-		if _, err := fmt.Sscanf(trimmed, "line %d:", &n); err != nil {
-			t.Errorf("a fault row does not start with a line number: %q", trimmed)
-			continue
-		}
-		if n == 0 {
-			zeros++
-		}
-		faultLines = append(faultLines, n)
-	}
-	if len(faultLines) != 3 {
-		t.Fatalf("want 3 fault rows (the impl spelling and two operator twins), got %d:\n%s",
-			len(faultLines), got.stdout)
-	}
-	if zeros > 0 {
-		t.Errorf("%d fault row(s) blame line 0, which is a position no file has.\n"+
-			"The builder passes the call's own line through t.Line in "+
-			"scalararith.go; a fault row at line 0 means that stopped.\nreport was:\n%s",
-			zeros, got.stdout)
-	}
-	seen := map[int]bool{}
-	for _, n := range faultLines {
-		if seen[n] {
-			t.Errorf("two fault rows blame line %d. Each of the three traps is on its own "+
-				"source line, so a repeat means a position came from the wrong node — "+
-				"the enclosing function, say, rather than the call.\nreport was:\n%s",
-				n, got.stdout)
-		}
-		seen[n] = true
 	}
 }
 
@@ -125,7 +65,7 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 		"int.Int.Add<Int, Int>.add",
 		"int.Int.Subtract<Int, Int>.subtract",
 		"int.Int.Multiply<Int, Int>.multiply",
-		"int.Int.Divide<Int, Int>.divide",
+		"int.Int.Divide<NonZeroInt, Int>.divide",
 		"float.Float.Add<Float, Float>.add",
 		"float.Float.Subtract<Float, Float>.subtract",
 		"float.Float.Multiply<Float, Float>.multiply",
@@ -134,10 +74,10 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 		"decimal.Decimal.Add<Decimal, Decimal>.add",
 		"decimal.Decimal.Subtract<Decimal, Decimal>.subtract",
 		"decimal.Decimal.Multiply<Decimal, Decimal>.multiply",
-		"decimal.Decimal.Divide<Decimal, Decimal>.divide",
-		"int.Int.Remainder<Int, Int>.remainder",
+		"decimal.Decimal.Divide<NonZeroDecimal, Decimal>.divide",
+		"int.Int.Remainder<NonZeroInt, Int>.remainder",
 		"float.Float.Remainder<Float, Float>.remainder",
-		"decimal.Decimal.Remainder<Decimal, Decimal>.remainder",
+		"decimal.Decimal.Remainder<NonZeroDecimal, Decimal>.remainder",
 	}
 	for _, key := range keys {
 		if _, bound := stdlibHostRegistry().funcs[key]; bound {

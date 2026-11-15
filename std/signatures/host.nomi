@@ -9,7 +9,7 @@
 import
     bool.Bool
     bytes.Bytes
-    int.Int
+    int.{Int, Int64}
     results.Result
     strings.String
 end
@@ -63,7 +63,7 @@ pub host fn ed25519_public_from_bytes(raw: Bytes) -> Result<Bytes, String>
 pub host fn ed25519_public_bytes(der: Bytes) -> Bytes
 
 /// `message` signed under a private key with a scheme its kind has.
-pub host fn sign(der: Bytes, scheme: Int, message: Bytes) -> Bytes
+pub host fn sign(der: Bytes, scheme: Int64, message: Bytes) -> Bytes
 
 /// Whether `signature` is `message`'s under a public key with a scheme.
-pub host fn is_valid(der: Bytes, scheme: Int, message: Bytes, signature: Bytes) -> Bool
+pub host fn is_valid(der: Bytes, scheme: Int64, message: Bytes, signature: Bytes) -> Bool

@@ -9,9 +9,10 @@ package stdcalendar
 // which `internal/hostgen` generates adapters from), so a type the projection
 // does not carry cannot appear in a bound signature.
 //
-// It carries `Int` (int64), `String` (string), `Bool` (bool), `Float`
-// (float64) and every struct rt declares — which is most of
-// std/calendar's surface, and is why `DateToString`, `DateDaysBetween`,
+// It carries `Int` (int64, or rt.Int for one of any size), `String`
+// (string), `Bool` (bool), `Float` (float64) and every struct rt declares —
+// which is most of std/calendar's surface, and is why `DateToString`,
+// `DateDaysBetween`,
 // `NaiveDateTimeToDate`, `NaiveDateTimeToString`, `OffsetDateTimeToString`,
 // `DateTimeToString`, `DateTimeToOffset` and the fourteen
 // `OffsetDateTime*`/`DateTime*` component accessors in calendar.go are bound
@@ -39,8 +40,8 @@ package stdcalendar
 //     `rhs: Years` is refused the same way. Each ladder rung is a NOMI body
 //     that destructures its period and calls an `Int`-taking function here —
 //     the shape std/calendar already used for `Add<Weeks, Date>`. The
-//     semantics keep `rt.Years`, so the civil-period types stay load-bearing
-//     one layer in.
+//     count crosses as an rt.Int of any size, and the semantics take it as
+//     one.
 //
 // # Every declaration bound from Nomi is TOP-LEVEL and module-private
 //
@@ -58,7 +59,13 @@ package stdcalendar
 // be a second encoding of something calendar.go already decides, which is the
 // property the whole two-file split exists to keep checkable.
 
-import "github.com/nomi-language/nomi/rt"
+import (
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/nomi-language/nomi/rt"
+)
 
 // --- the carriers ----------------------------------------------------------
 //
@@ -101,11 +108,45 @@ func zonedCarrier(r rt.Result[rt.DateTime, rt.CalendarError]) rt.CalendarZonedRe
 	return rt.CalendarZonedResult{Value: r.Ok}
 }
 
+// --- counts of any size ---------------------------------------------------
+//
+// A count crosses as an Int of any size (rt.Int). A year and a shift's count
+// pass to the semantics as they are, which are exact for every Int; a
+// bounded component (a month, a day, a time of day) past int64 is past its
+// bound, and refused as such.
+
+// bounded is a constructor's bounded component as an int64, or the
+// InvalidValue naming it when it passes int64, which is past every bound.
+func bounded(name string, n rt.Int) (int64, rt.CalendarError, bool) {
+	v, ok := n.Int64()
+	if !ok {
+		return 0, CalendarErr(rt.TagInvalidValue, fmt.Sprintf("%s out of range: %s", name, n)), false
+	}
+	return v, rt.CalendarError{}, true
+}
+
+// components is bounded over several components, the first failure first.
+func components(names []string, ns ...rt.Int) ([]int64, rt.CalendarError, bool) {
+	out := make([]int64, len(ns))
+	for i, n := range ns {
+		v, e, ok := bounded(names[i], n)
+		if !ok {
+			return nil, e, false
+		}
+		out[i] = v
+	}
+	return out, rt.CalendarError{}, true
+}
+
 // --- Date ------------------------------------------------------------------
 
 // BoundDateNew is `Date.new`.
-func BoundDateNew(year, month, day int64) rt.CalendarDateResult {
-	return dateCarrier(NewDate(year, month, day))
+func BoundDateNew(year, month, day rt.Int) rt.CalendarDateResult {
+	c, e, ok := components([]string{"month", "day"}, month, day)
+	if !ok {
+		return rt.CalendarDateResult{Kind: int64(e.Tag), Reason: e.Msg}
+	}
+	return dateCarrier(NewDate(year, c[0], c[1]))
 }
 
 // BoundDateParse is `Date.parse`, and it also backs the `Date"…"` typed literal
@@ -113,13 +154,13 @@ func BoundDateNew(year, month, day int64) rt.CalendarDateResult {
 func BoundDateParse(s string) rt.CalendarDateResult { return dateCarrier(ParseDate(s)) }
 
 // BoundDateAddYears is `impl Add<Years, Date>`.
-func BoundDateAddYears(d rt.Date, n int64) rt.Date { return DatePlusYears(d, rt.Years(n)) }
+func BoundDateAddYears(d rt.Date, n rt.Int) rt.Date { return DatePlusYears(d, n) }
 
 // BoundDateAddMonths is `impl Add<Months, Date>`.
-func BoundDateAddMonths(d rt.Date, n int64) rt.Date { return DatePlusMonths(d, rt.Months(n)) }
+func BoundDateAddMonths(d rt.Date, n rt.Int) rt.Date { return DatePlusMonths(d, n) }
 
 // BoundDateAddDays is `impl Add<Days, Date>`.
-func BoundDateAddDays(d rt.Date, n int64) rt.Date { return DatePlusDays(d, rt.Days(n)) }
+func BoundDateAddDays(d rt.Date, n rt.Int) rt.Date { return DatePlusDays(d, n) }
 
 // --- Time ------------------------------------------------------------------
 
@@ -127,9 +168,13 @@ func BoundDateAddDays(d rt.Date, n int64) rt.Date { return DatePlusDays(d, rt.Da
 func BoundTimeParse(s string) rt.CalendarTimeResult { return timeCarrier(ParseTime(s)) }
 
 // BoundTimeAddNanos is `impl Add<Duration, Time>`: exact elapsed time, wrapping
-// around midnight.
-func BoundTimeAddNanos(t rt.Time, nanos int64) rt.Time {
-	return TimePlusDuration(t, rt.Duration(nanos))
+// around midnight, for a Duration of any length.
+func BoundTimeAddNanos(t rt.Time, nanos rt.Int) rt.Time {
+	if v, ok := nanos.Int64(); ok {
+		return TimePlusDuration(t, rt.Duration(v))
+	}
+	day := new(big.Int).Mod(nanos.Big(), big.NewInt(int64(24*time.Hour)))
+	return TimePlusDuration(t, rt.Duration(day.Int64()))
 }
 
 // --- NaiveDateTime ---------------------------------------------------------
@@ -137,50 +182,66 @@ func BoundTimeAddNanos(t rt.Time, nanos int64) rt.Time {
 // BoundNaiveNewExact is `NaiveDateTime.new_exact`: seven components, no
 // defaults. The two defaults `NaiveDateTime.new` carries belong to the Nomi
 // declaration that documents them, which is the whole point of the split.
-func BoundNaiveNewExact(year, month, day, hour, minute, second, nanosecond int64) rt.CalendarNaiveResult {
-	return naiveCarrier(NaiveDateTimeFromComponents(year, month, day, hour, minute, second, nanosecond))
+func BoundNaiveNewExact(year, month, day, hour, minute, second, nanosecond rt.Int) rt.CalendarNaiveResult {
+	c, e, ok := components([]string{"month", "day", "hour", "minute", "second", "nanosecond"},
+		month, day, hour, minute, second, nanosecond)
+	if !ok {
+		return rt.CalendarNaiveResult{Kind: int64(e.Tag), Reason: e.Msg}
+	}
+	return naiveCarrier(NaiveDateTimeFromComponents(year, c[0], c[1], c[2], c[3], c[4], c[5]))
 }
 
 // BoundNaiveParse is `NaiveDateTime.parse`, and it also backs the
 // `NaiveDateTime"…"` typed literal.
 func BoundNaiveParse(s string) rt.CalendarNaiveResult { return naiveCarrier(ParseNaiveDateTime(s)) }
 
-// BoundNaiveBetweenNanos is `NaiveDateTime.between` in nanoseconds.
-func BoundNaiveBetweenNanos(earlier, later rt.NaiveDateTime) int64 {
-	return int64(NaiveDateTimeBetween(earlier, later))
+// BoundNaiveBetweenNanos is `NaiveDateTime.between` in nanoseconds, exact at
+// any distance (NaiveDateTimeBetween).
+func BoundNaiveBetweenNanos(earlier, later rt.NaiveDateTime) rt.Int {
+	return NaiveDateTimeBetween(earlier, later)
 }
 
 // BoundNaiveAddYears is `impl Add<Years, NaiveDateTime>`.
-func BoundNaiveAddYears(dt rt.NaiveDateTime, n int64) rt.NaiveDateTime {
-	return NaiveDateTimePlusYears(dt, rt.Years(n))
+func BoundNaiveAddYears(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	return NaiveDateTimePlusYears(dt, n)
 }
 
 // BoundNaiveAddMonths is `impl Add<Months, NaiveDateTime>`.
-func BoundNaiveAddMonths(dt rt.NaiveDateTime, n int64) rt.NaiveDateTime {
-	return NaiveDateTimePlusMonths(dt, rt.Months(n))
+func BoundNaiveAddMonths(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	return NaiveDateTimePlusMonths(dt, n)
 }
 
 // BoundNaiveAddDays is `impl Add<Days, NaiveDateTime>`.
-func BoundNaiveAddDays(dt rt.NaiveDateTime, n int64) rt.NaiveDateTime {
-	return NaiveDateTimePlusDays(dt, rt.Days(n))
+func BoundNaiveAddDays(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	return NaiveDateTimePlusDays(dt, n)
 }
 
-// BoundNaiveAddNanos is `impl Add<Duration, NaiveDateTime>`: the EXACT rung.
-func BoundNaiveAddNanos(dt rt.NaiveDateTime, nanos int64) rt.NaiveDateTime {
-	return NaiveDateTimePlusDuration(dt, rt.Duration(nanos))
+// BoundNaiveAddNanos is `impl Add<Duration, NaiveDateTime>`: the EXACT rung,
+// for a Duration of any length.
+func BoundNaiveAddNanos(dt rt.NaiveDateTime, nanos rt.Int) rt.NaiveDateTime {
+	return CivilShift(dt, zero, zero, zero, zero, zero, zero, nanos)
 }
 
 // --- OffsetDateTime --------------------------------------------------------
 
 // BoundOffsetWithOffset is `OffsetDateTime.with_offset`.
-func BoundOffsetWithOffset(dt rt.NaiveDateTime, offsetNanos int64) rt.CalendarOffsetResult {
-	return offsetCarrier(OffsetDateTimeWithOffset(dt, rt.Duration(offsetNanos)))
+// An offset is a Duration of any length; one past int64 nanoseconds
+// saturates, which is past ±18 hours either way and refused as such.
+func BoundOffsetWithOffset(dt rt.NaiveDateTime, offsetNanos rt.Int) rt.CalendarOffsetResult {
+	return offsetCarrier(OffsetDateTimeWithOffset(dt, rt.Duration(offsetNanos.Saturated())))
 }
 
-// BoundOffsetFromInstant is `OffsetDateTime.from_instant`. Total: every instant
-// has a representation at every fixed offset.
-func BoundOffsetFromInstant(instantNanos, offsetNanos int64) rt.OffsetDateTime {
-	return OffsetDateTimeFromInstant(rt.Instant(instantNanos), rt.Duration(offsetNanos))
+// BoundOffsetFromInstant is `OffsetDateTime.from_instant`: an instant of
+// any size at a fixed offset. The facade has checked the offset is within
+// ±18 hours, so saturating it changes nothing, and a sub-second offset is
+// cut to whole seconds.
+func BoundOffsetFromInstant(instantNanos rt.Int, offsetNanos rt.Int) rt.OffsetDateTime {
+	return OffsetDateTimeFromInstant(instantNanos, offsetNanos.Saturated()/int64(time.Second))
+}
+
+// BoundOffsetAddNanos is `impl Add<Duration, OffsetDateTime>`.
+func BoundOffsetAddNanos(odt rt.OffsetDateTime, nanos rt.Int) rt.OffsetDateTime {
+	return OffsetDateTimePlusNanos(odt, nanos)
 }
 
 // BoundOffsetParse is `OffsetDateTime.parse`, and it also backs the
@@ -190,13 +251,13 @@ func BoundOffsetParse(s string) rt.CalendarOffsetResult {
 }
 
 // BoundOffsetAddYears is `impl Add<Years, OffsetDateTime>`.
-func BoundOffsetAddYears(odt rt.OffsetDateTime, n int64) rt.OffsetDateTime {
-	return OffsetDateTimePlusYears(odt, rt.Years(n))
+func BoundOffsetAddYears(odt rt.OffsetDateTime, n rt.Int) rt.OffsetDateTime {
+	return OffsetDateTimePlusYears(odt, n)
 }
 
 // BoundOffsetAddMonths is `impl Add<Months, OffsetDateTime>`.
-func BoundOffsetAddMonths(odt rt.OffsetDateTime, n int64) rt.OffsetDateTime {
-	return OffsetDateTimePlusMonths(odt, rt.Months(n))
+func BoundOffsetAddMonths(odt rt.OffsetDateTime, n rt.Int) rt.OffsetDateTime {
+	return OffsetDateTimePlusMonths(odt, n)
 }
 
 // --- DateTime --------------------------------------------------------------
@@ -211,9 +272,15 @@ func BoundZonedInZone(dt rt.NaiveDateTime, zone string, mode int64) rt.CalendarZ
 	return zonedCarrier(ResolveInZone(dt, zone, rt.Disambiguation{Tag: uint8(mode)}))
 }
 
-// BoundZonedFromInstantIn is `DateTime.from_instant_in`.
-func BoundZonedFromInstantIn(instantNanos int64, zone string) rt.CalendarZonedResult {
-	return zonedCarrier(DateTimeFromInstantIn(rt.Instant(instantNanos), zone))
+// BoundZonedFromInstantIn is `DateTime.from_instant_in`: an instant of any
+// size in an IANA zone.
+func BoundZonedFromInstantIn(instantNanos rt.Int, zone string) rt.CalendarZonedResult {
+	return zonedCarrier(DateTimeFromInstantIn(instantNanos, zone))
+}
+
+// BoundZonedAddNanos is `impl Add<Duration, DateTime>`.
+func BoundZonedAddNanos(d rt.DateTime, nanos rt.Int) rt.DateTime {
+	return DateTimePlusNanos(d, nanos)
 }
 
 // BoundZonedWithZone is `DateTime.with_zone`.
@@ -239,48 +306,48 @@ func BoundZonedOffsetNanos(d rt.DateTime) int64 { return int64(DateTimeOffset(d)
 // Mar 8 (23 hours of elapsed time) while `+ Duration.hours(24)` is 1pm.
 
 // BoundZonedAddYears is `impl Add<Years, DateTime>`.
-func BoundZonedAddYears(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusYears(d, rt.Years(n))
+func BoundZonedAddYears(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusYears(d, n)
 }
 
 // BoundZonedAddMonths is `impl Add<Months, DateTime>`.
-func BoundZonedAddMonths(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusMonths(d, rt.Months(n))
+func BoundZonedAddMonths(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusMonths(d, n)
 }
 
 // BoundZonedAddDays is `impl Add<Days, DateTime>`, and it is the rung the whole
 // civil-versus-physical distinction is visible through.
-func BoundZonedAddDays(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusDays(d, rt.Days(n))
+func BoundZonedAddDays(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusDays(d, n)
 }
 
 // BoundZonedAddHours is `impl Add<Hours, DateTime>`: a WALL-CLOCK hour, not
 // `Duration.hours(n)`.
-func BoundZonedAddHours(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusHours(d, rt.Hours(n))
+func BoundZonedAddHours(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusHours(d, n)
 }
 
 // BoundZonedAddMinutes is `impl Add<Minutes, DateTime>`.
-func BoundZonedAddMinutes(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusMinutes(d, rt.Minutes(n))
+func BoundZonedAddMinutes(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusMinutes(d, n)
 }
 
 // BoundZonedAddSeconds is `impl Add<Seconds, DateTime>`.
-func BoundZonedAddSeconds(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusSeconds(d, rt.Seconds(n))
+func BoundZonedAddSeconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusSeconds(d, n)
 }
 
 // BoundZonedAddMilliseconds is `impl Add<Milliseconds, DateTime>`.
-func BoundZonedAddMilliseconds(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusMilliseconds(d, rt.Milliseconds(n))
+func BoundZonedAddMilliseconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusMilliseconds(d, n)
 }
 
 // BoundZonedAddMicroseconds is `impl Add<Microseconds, DateTime>`.
-func BoundZonedAddMicroseconds(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusMicroseconds(d, rt.Microseconds(n))
+func BoundZonedAddMicroseconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusMicroseconds(d, n)
 }
 
 // BoundZonedAddNanoseconds is `impl Add<Nanoseconds, DateTime>`.
-func BoundZonedAddNanoseconds(d rt.DateTime, n int64) rt.DateTime {
-	return DateTimePlusNanoseconds(d, rt.Nanoseconds(n))
+func BoundZonedAddNanoseconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimePlusNanoseconds(d, n)
 }

@@ -10,14 +10,17 @@ import (
 // stdBindingProgram binds three Go standard library packages with no wrapper
 // package of its own: a string function, one returning (T, error), and a
 // float function.
-const stdBindingProgram = `import std::io
+const stdBindingProgram = `import
+    std::int.Int64
+    std::io
+end
 
 gopkg "strings" as strings
 gopkg "strconv" as strconv
 gopkg "math" as math
 
 fn upper(s: String) -> String go strings.ToUpper
-fn itoa(n: Int) -> String go strconv.Itoa
+fn itoa(n: Int64) -> String go strconv.Itoa
 fn atoi(s: String) -> Result<Int, String> go strconv.Atoi
 fn sqrt(x: Float) -> Float go math.Sqrt
 
@@ -90,13 +93,17 @@ func TestFFI_DefaultedParameters(t *testing.T) {
 	if goModAbove(dir) {
 		t.Skip("a go.mod above the temp directory")
 	}
-	mustWrite(t, filepath.Join(dir, "lib.nomi"), `gopkg "strings" as strs
+	mustWrite(t, filepath.Join(dir, "lib.nomi"), `import std::int.Int64
 
-fn twice(s: String) -> Int
-    String.length(s) * 2
+gopkg "strings" as strs
+
+pub subtype Count NonNegativeInt and Int64
+
+fn twice(s: String) -> Count
+    Count.try_from(String.length(s) * 2)!
 end
 
-pub fn rep(s: String, n: Int = twice(s)) -> String go strs.Repeat
+pub fn rep(s: String, n: Count = twice(s)) -> String go strs.Repeat
 `)
 	entry := filepath.Join(dir, "main.nomi")
 	mustWrite(t, entry, `import
@@ -182,11 +189,14 @@ func TestFFI_StdBigInt(t *testing.T) {
 		t.Skip("a go.mod above the temp directory")
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import std::io
+	mustWrite(t, entry, `import
+    std::int.Int64
+    std::io
+end
 
 gopkg "math/big" as big
 
-fn new_int(x: Int) -> Int go big.NewInt
+fn new_int(x: Int64) -> Int go big.NewInt
 fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
 
 fn main()
@@ -213,14 +223,17 @@ func TestFFI_StdStreams(t *testing.T) {
 		t.Skip("a go.mod above the temp directory")
 	}
 	entry := filepath.Join(dir, "main.nomi")
-	mustWrite(t, entry, `import std::io.{self, Reader, Writer}
+	mustWrite(t, entry, `import
+    std::int.Int64
+    std::io.{self, Reader, Writer}
+end
 
 gopkg "encoding/hex" as hex
 gopkg "io" as goio
 
 fn hex_encoder(w: Writer) -> Writer go hex.NewEncoder
 fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder
-fn limit(r: Reader, n: Int) -> Reader go goio.LimitReader
+fn limit(r: Reader, n: Int64) -> Reader go goio.LimitReader
 
 fn main()
     (_, encoded) = Writer.collect(fn w -> Writer.write_text(hex_encoder(w), "Nomi"))
@@ -237,11 +250,12 @@ end
 	}
 }
 
-// An Int a Go binding's integer parameter cannot hold is a trap at the
-// call, naming the Go function and its parameter: `nomi test` fails the
-// case, `nomi run` exits 1 with the trap, and neither reports a machine
-// limit or a program the VM cannot run.
-func TestFFI_IntPastAGoSlotTraps(t *testing.T) {
+// A Go binding's integer parameter takes a type whose every value fits:
+// one declared `Int` is an error at the binding for `nomi check` and `nomi
+// test`, before anything runs, naming the type to declare.
+// Declared so, values reach Go across the whole of each width, and a
+// computed Int is checked with `Int64.try_from` before the call.
+func TestFFI_IntWiderThanAGoSlotIsRefusedAtTheBinding(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; builds FFI wrappers; -short")
 	}
@@ -250,7 +264,7 @@ func TestFFI_IntPastAGoSlotTraps(t *testing.T) {
 		t.Skip("a go.mod above the temp directory")
 	}
 	env := buildEnv(t.TempDir())
-	tests := filepath.Join(dir, "widths_test.nomi")
+	tests := filepath.Join(dir, "refused", "widths_test.nomi")
 	mustWrite(t, tests, `gopkg "strconv" as strconv
 gopkg "math/bits" as bits
 
@@ -258,65 +272,60 @@ fn format(i: Int, base: Int) -> String go strconv.FormatInt
 fn format_unsigned(i: Int, base: Int) -> String go strconv.FormatUint
 fn len32(x: Int) -> Int go bits.Len32
 
-test "an Int past int64"
-    assert format(123456789012345678901234567890, 10) == ""
-end
-
-test "a negative Int for uint64"
-    assert format_unsigned(-1, 10) == ""
-end
-
-test "an Int past uint32"
-    assert len32(4294967296) == 0
-end
-
 test "in range"
-    assert format(-9223372036854775808, 10) == "-9223372036854775808"
-    assert format_unsigned(18446744073709551615, 16) == "ffffffffffffffff"
-    assert len32(4294967295) == 32
+    assert format(-1, 10) == "-1"
 end
 `)
-	r := runProcess(t, env, t.TempDir(), "", nomiBin, "test", tests)
-	if r.exit == 0 {
-		t.Fatalf("nomi test passed:\n%s", r.transcript())
+	wants := []string{
+		`widths_test.nomi:4:51: Go function "FormatInt" in package "strconv": parameter i (Int) to Go int64: ` +
+			"Go int64 holds an Int in -9223372036854775808..9223372036854775807, and Int admits Ints past that: declare it `Int64` (std::int)",
+		`Go function "FormatUint" in package "strconv": parameter i (Int) to Go uint64: Go uint64 holds an Int in 0..18446744073709551615, ` +
+			"and Int admits Ints past that: declare it `NonNegativeInt and Int64` (std::int)",
+		`Go function "Len32" in package "math/bits": parameter x (Int) to Go uint32: Go uint32 holds an Int in 0..4294967295, ` +
+			"and Int admits Ints past that: declare it a subtype whose `when` bounds it within 0..4294967295",
 	}
-	for _, want := range []string{
-		"line 9: `strconv.FormatInt`'s `i` takes an Int that fits in 64 bits; got 123456789012345678901234567890",
-		"line 13: `strconv.FormatUint`'s `i` takes an Int from 0 to 18446744073709551615; got -1",
-		"line 17: `bits.Len32`'s `x` takes an Int from 0 to 4294967295; got 4294967296",
-		"1 passed, 3 failed",
-	} {
-		if !strings.Contains(r.stdout+r.stderr, want) {
-			t.Errorf("nomi test: missing %q\n%s", want, r.transcript())
+	for _, cmd := range []string{"check", "test"} {
+		r := runProcess(t, env, t.TempDir(), "", nomiBin, cmd, tests)
+		if r.exit == 0 {
+			t.Fatalf("nomi %s accepted the bindings:\n%s", cmd, r.transcript())
 		}
-	}
-	for _, refused := range []string{"BLOCKED", "machine limit", "cannot run"} {
-		if strings.Contains(r.stdout+r.stderr, refused) {
-			t.Errorf("nomi test reports %q:\n%s", refused, r.transcript())
+		for _, want := range wants {
+			if !strings.Contains(r.stdout+r.stderr, want) {
+				t.Errorf("nomi %s: missing %q\n%s", cmd, want, r.transcript())
+			}
+		}
+		if strings.Contains(r.stdout, "in range") {
+			t.Errorf("nomi %s ran a test past a refused binding:\n%s", cmd, r.transcript())
 		}
 	}
 
-	entry := filepath.Join(dir, "run", "main.nomi")
-	mustWrite(t, entry, `import std::io
+	entry := filepath.Join(dir, "typed", "main.nomi")
+	mustWrite(t, entry, `import
+    std::int.Int64
+    std::io
+end
 
 gopkg "strconv" as strconv
+gopkg "math/bits" as bits
 
-fn format(i: Int, base: Int) -> String go strconv.FormatInt
+subtype Base Int when fn n -> n >= 2 and n <= 36
+subtype Uint64 Int when fn n -> n >= 0 and n <= 18446744073709551615
+subtype Uint32 Int when fn n -> n >= 0 and n <= 4294967295
+
+fn format(i: Int64, base: Base) -> String go strconv.FormatInt
+fn format_unsigned(i: Uint64, base: Base) -> String go strconv.FormatUint
+fn len32(x: Uint32) -> Int go bits.Len32
 
 fn main()
-    io.print(format(12, 10))
-    io.print(format(123456789012345678901234567890, 10))
-    io.print("not reached")
+    io.print(format(-9223372036854775808, 10))
+    io.print(format_unsigned(18446744073709551615, 16))
+    io.print(len32(4294967295))
+    io.print(Int64.try_from(Int.pow(10, 30)))
 end
 `)
-	r = runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry)
-	if want := "line 9: `strconv.FormatInt`'s `i` takes an Int that fits in 64 bits; got 123456789012345678901234567890"; r.exit != 1 || r.stdout != "12\n" || !strings.Contains(r.stderr, want) {
-		t.Errorf("nomi run: exit %d, stdout %q, want exit 1, stdout \"12\\n\" and %q on stderr\n%s", r.exit, r.stdout, want, r.transcript())
-	}
-	for _, refused := range []string{"BLOCKED", "machine limit", "cannot run"} {
-		if strings.Contains(r.stderr, refused) {
-			t.Errorf("nomi run reports %q:\n%s", refused, r.transcript())
-		}
+	const want = "-9223372036854775808\nffffffffffffffff\n32\nNone\n"
+	if r := runProcess(t, env, t.TempDir(), "", nomiBin, "run", entry); r.exit != 0 || r.stdout != want {
+		t.Errorf("nomi run: exit %d, stdout %q, want %q\nstderr:\n%s", r.exit, r.stdout, want, r.stderr)
 	}
 }
 

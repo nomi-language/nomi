@@ -1,7 +1,7 @@
 import
     std::calendar.Error
     std::calendar.{Days, Months, Weeks, Years}
-    std::calendar.Date
+    std::calendar.{Date, Weekday}
 end
 
 test "dates parse and expose components"
@@ -95,4 +95,22 @@ test "date adds calendar units with plus"
     assert feb29 + Years(1) == Date"2025-02-28"
     assert Add.add(may4, Weeks(1)) == Date"2026-05-11"
     assert Add.add(may4, Months(1)) == Date"2026-06-04"
+end
+
+test "a date of any year"
+    far = Date"2026-05-04" + Years(Int.pow(10, 30))
+
+    assert "${far}" == "+1000000000000000000000000002026-05-04"
+    assert Date.year(far) == Int.pow(10, 30) + 2026
+    assert Date.parse("${far}") == Ok(far)
+    assert Date.weekday(Date"+1000000000000000000000000000000-01-01") == Weekday.Saturday
+
+    assert Date"2026-01-01" + Days(9_223_372_036_854_775_807) == Date"+25252734927768580-07-27"
+
+    assert Date.days_between(Date"2026-01-01", Date"+25252734927768580-07-27")
+        == 9_223_372_036_854_775_807
+
+    assert "${Date.new(-44, 3, 15)?}" == "-000044-03-15"
+    assert Date.parse("10000-01-01") == Ok(Date"+010000-01-01")
+    assert Date.parse("-000000-01-01") is Err(Error.InvalidFormat(_))
 end

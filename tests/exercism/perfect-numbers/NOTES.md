@@ -11,9 +11,9 @@ Adapted from Exercism problem-specifications (MIT), exercises/perfect-numbers.
 - The answer is a `Classification` enum, and `classify` returns `Result<Classification, Error>`, where `Error` has the one variant `NotPositive` for zero and negative numbers.
 - The classification is a `case` over `Int.compare(aliquot_sum(number), number)`, whose three `Ordering`s are the three classes.
 - `aliquot_sum` finds divisors only up to the square root and adds each with its pair (`divisor_pair`), so the cases near 33.5 million take about 5,800 steps rather than 33 million.
-- The divisor search runs over the range `1..=Int.sqrt(number)`.
+- The divisor search runs over the range `1..=Int.sqrt(number)`. Each candidate is 1 or more, so `%` takes it as a divisor and `divisor_pair` takes it as a `PositiveInt`.
 - Each canonical group is a test named by the group's description, with one `subtests` table, since every row in a group expects the same answer.
-- `classify` checks the number with `PositiveInt.try_from`, whose `None` is `Error.NotPositive`, so `aliquot_sum` takes a `PositiveInt` and `Int.sqrt` takes it as it is.
+- `classify` returns `Error.NotPositive` when `number <= 0`, and the check makes `number` a `PositiveInt` below it, so `aliquot_sum` takes a `PositiveInt` and `Int.sqrt` takes it as it is.
 
 ## Friction
 

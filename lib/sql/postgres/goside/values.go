@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,34 @@ const (
 	timeLayout      = "15:04:05.999999999"
 	timestampLayout = "2006-01-02T15:04:05.999999999"
 )
+
+// minTimestamptz and maxTimestamptz are the first and last moments a
+// timestamptz holds, 4713 BC and the year 294276 to the microsecond.
+var (
+	minTimestamptz = time.Date(-4713, 11, 24, 0, 0, 0, 0, time.UTC)
+	maxTimestamptz = time.Date(294276, 12, 31, 23, 59, 59, 999999000, time.UTC)
+)
+
+// instantText is a time's nanoseconds from the epoch in decimal, exact for
+// every year, from Unix seconds, which do not wrap where UnixNano does.
+func instantText(t time.Time) string {
+	n := new(big.Int).Mul(big.NewInt(t.Unix()), big.NewInt(int64(time.Second)))
+	return n.Add(n, big.NewInt(int64(t.Nanosecond()))).String()
+}
+
+// timestamptz is the timestamptz of an Instant's nanoseconds in decimal,
+// refusing one past what a timestamptz holds, which pgx would send wrapped.
+func timestamptz(text string) (pgtype.Timestamptz, error) {
+	n, ok := new(big.Int).SetString(text, 10)
+	if !ok {
+		return pgtype.Timestamptz{}, fmt.Errorf("the Instant %q is not nanoseconds", text)
+	}
+	sec, nsec := new(big.Int).DivMod(n, big.NewInt(int64(time.Second)), new(big.Int))
+	if !sec.IsInt64() || sec.Int64() < minTimestamptz.Unix() || sec.Int64() > maxTimestamptz.Unix() {
+		return pgtype.Timestamptz{}, fmt.Errorf("the Instant %sns from the epoch is past what a timestamptz holds, 4713 BC to 294276 AD", text)
+	}
+	return pgtype.Timestamptz{Time: time.Unix(sec.Int64(), nsec.Int64()).UTC(), Valid: true}, nil
+}
 
 // values is the parameters as pgx binds them.
 func values(params []Cell) ([]any, Failure) {
@@ -66,7 +95,7 @@ func param(kind, n int64, x float64, text string, bytes []byte) (any, error) {
 	case KindBool:
 		return n != 0, nil
 	case KindDate:
-		t, err := time.Parse(dateLayout, text)
+		t, err := civilTime(text, dateLayout)
 		if err != nil {
 			return nil, err
 		}
@@ -79,13 +108,13 @@ func param(kind, n int64, x float64, text string, bytes []byte) (any, error) {
 		since := t.Sub(time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC))
 		return pgtype.Time{Microseconds: since.Microseconds(), Valid: true}, nil
 	case KindTimestamp:
-		t, err := time.Parse(timestampLayout, text)
+		t, err := civilTime(text, timestampLayout)
 		if err != nil {
 			return nil, err
 		}
 		return pgtype.Timestamp{Time: t, Valid: true}, nil
 	case KindTimestamptz:
-		return pgtype.Timestamptz{Time: time.Unix(0, n).UTC(), Valid: true}, nil
+		return timestamptz(text)
 	case KindUuid:
 		var u pgtype.UUID
 		if err := u.Scan(text); err != nil {
@@ -270,7 +299,7 @@ func scalar(v any, oid uint32, column string) (Cell, error) {
 		case oidTimestamp:
 			return Cell{Kind: KindTimestamp, Text: v.Format(timestampLayout)}, nil
 		}
-		return Cell{Kind: KindTimestamptz, Int: v.UnixNano()}, nil
+		return Cell{Kind: KindTimestamptz, Text: instantText(v)}, nil
 	case pgtype.Time:
 		t := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(v.Microseconds) * time.Microsecond)
 		return Cell{Kind: KindTime, Text: t.Format(timeLayout)}, nil
@@ -319,4 +348,30 @@ func decimalText(digits *big.Int, exp int32) string {
 		s = strings.Repeat("0", scale-len(s)+1) + s
 	}
 	return sign + s[:len(s)-scale] + "." + s[len(s)-scale:]
+}
+
+// civilTime reads a Date's or a NaiveDateTime's ISO 8601 text, by layout,
+// as that reading in UTC. A year outside 0000 to 9999 is written with a
+// sign and six or more digits (`+010000-01-01`, `-000044-03-15`), which
+// time.Parse does not read, so the year is read apart from the rest. A year
+// past an int is past every year Postgres holds, and is refused.
+func civilTime(text, layout string) (time.Time, error) {
+	date, clock, timed := strings.Cut(text, "T")
+	if len(date) < len("0-01-01") {
+		return time.Time{}, fmt.Errorf("%q is not a date", text)
+	}
+	cut := len(date) - len("-01-01")
+	year, err := strconv.Atoi(date[:cut])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("the year of %q: %w", text, err)
+	}
+	rest := "2000" + date[cut:]
+	if timed {
+		rest += "T" + clock
+	}
+	t, err := time.Parse(layout, rest)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Date(year, t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.UTC), nil
 }

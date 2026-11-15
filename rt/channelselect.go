@@ -30,9 +30,10 @@ import (
 // A receive on a closed channel finishes at once with no value, Go's own
 // two-value receive. A send on a closed channel finishes at once as closed:
 // the first pass tests the closed flag under the channel's close mutex, as
-// SenderSend does, so it never reaches Go's panicking send. A close that
-// lands while the select is blocked on a send is SenderSend's residual race,
-// with the same answer.
+// SenderSend does, so it never reaches Go's panicking send. A select that
+// blocks registers each send case's channel as parked and waits on the
+// channel's done beside it, so a close that lands while it waits finishes
+// that case as closed, as SenderSend's parked send answers Err.
 //
 // # Timers and the clock in force
 //
@@ -62,6 +63,11 @@ type SelectCase struct {
 	closed func() bool
 	lock   func()
 	unlock func()
+	// park, unpark and done are the channel's parked-sender registration
+	// (Chan.park, Chan.unpark) and its done channel, for a blocking wait.
+	park   func() bool
+	unpark func()
+	done   reflect.Value
 	// value is a send case's value.
 	value reflect.Value
 	// wait is a timer case's duration.
@@ -86,6 +92,9 @@ func SelectSend[T any](s Sender[T], v T) SelectCase {
 		closed: c.closed.Load,
 		lock:   c.closeMu.Lock,
 		unlock: c.closeMu.Unlock,
+		park:   c.park,
+		unpark: c.unpark,
+		done:   reflect.ValueOf(c.done),
 		value:  val,
 	}
 }
@@ -105,19 +114,29 @@ type Selected struct {
 	OK    bool
 }
 
-// SelectEmptyText is the fault a select with no arms raises.
-func SelectEmptyText() string { return "Channel.select: needs at least one arm" }
-
-// Select waits until one of cases can finish and reports it.
+// Select waits until one of cases can finish and reports it. cases holds
+// at least one: `Channel.select` takes a NonEmptyList.
 //
 // It takes the frame for SenderSend's reason: the blocking wait is a
 // cancellation point, and a cancelled wait unwinds rather than answering.
 func Select(fr *Frame, cases []SelectCase) Selected {
-	if len(cases) == 0 {
-		Trap(SelectEmptyText())
-	}
 	if got, ready := selectNow(cases); ready {
 		return got
+	}
+	// Register every send case as parked before waiting, so a close while
+	// this waits leaves the Go channel open (Chan.park). A channel closed
+	// since the first pass finishes its case as closed now.
+	for i, c := range cases {
+		if c.kind != selectSend {
+			continue
+		}
+		c.lock()
+		ok := c.park()
+		c.unlock()
+		if !ok {
+			return Selected{Index: i}
+		}
+		defer c.unpark()
 	}
 	// Parked for the blocking wait, as ReceiverReceive is: a task waiting
 	// here has no scheduled wake a draining supervisor could see.
@@ -125,12 +144,17 @@ func Select(fr *Frame, cases []SelectCase) Selected {
 	defer SupervisedUnpark(fr)
 	rcases := make([]reflect.SelectCase, 0, len(cases)+1)
 	index := make([]int, 0, len(cases))
+	// closedAt maps an rcases index of a send case's done to its case.
+	closedAt := map[int]int{}
 	for i, c := range cases {
 		switch c.kind {
 		case selectReceive:
 			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: c.ch})
 		case selectSend:
 			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectSend, Chan: c.ch, Send: c.value})
+			index = append(index, i)
+			closedAt[len(rcases)] = i
+			rcases = append(rcases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: c.done})
 		case selectAfter:
 			timer := time.NewTimer(time.Duration(c.wait))
 			defer stopTimer(timer)
@@ -143,6 +167,9 @@ func Select(fr *Frame, cases []SelectCase) Selected {
 	if chosen == len(index) {
 		raiseCanceled(fr)
 		panic("unreachable")
+	}
+	if i, closed := closedAt[chosen]; closed {
+		return Selected{Index: i}
 	}
 	i := index[chosen]
 	switch cases[i].kind {

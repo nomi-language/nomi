@@ -261,7 +261,7 @@ fn zero() -> Int
 end
 
 pub fn boot() -> Result<App, String>
-  Ok(App{context: Context.root(), n: 10 / zero()})
+  Ok(App{context: Context.root(), n: 10 / NonZeroInt.try_from(zero())!})
 end
 
 fn main() end

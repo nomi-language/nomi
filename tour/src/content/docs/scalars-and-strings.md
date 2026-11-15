@@ -47,8 +47,9 @@ Arithmetic and comparisons work as in most languages. The logical operators
 are `and`, `or` and `not`. `not` binds looser than a comparison, so
 `not a == b` is `not (a == b)`. An [`Int`](/reference/int/) is a whole number
 of any size, so arithmetic never overflows. `/` on `Int` drops the remainder,
-rounding toward zero, and `%` gives the remainder. Dividing by zero stops the
-program. The bitwise operators are `&&&`, `|||`, `^^^`, prefix `~~~`, `<<<`
+rounding toward zero, and `%` gives the remainder. Their divisor is a
+[`NonZeroInt`](/structs-enums-distinct/#subtypes), so a division by zero
+does not compile. The bitwise operators are `&&&`, `|||`, `^^^`, prefix `~~~`, `<<<`
 and `>>>`; `&&&` and the shifts bind like `*`, and `|||` and `^^^` like `+`.
 
 Each arithmetic operator comes from an interface: `+` from
@@ -64,9 +65,13 @@ the operation.
 - `%` takes the sign of the dividend: `-7 / 3` is `-2` and `-7 % 3` is
   `-1`. [`Int.modulo`](/reference/int/#intmodulo) is the floored form:
   `Int.modulo(-7, 3)` is `2`.
-- `Int` division by zero traps with `division by zero`, and a literal zero
-  divisor (`n / 0`) does not compile. `Float` division
-  by zero gives an infinity or NaN instead (see
+- `n / d` with `d` an `Int` is
+  ``` `/` divides by a NonZeroInt; `d` is an Int ```: check it first
+  (`if d == 0 then ...`) or take a `NonZeroInt`. A non-zero literal
+  (`n / 2`) passes, and so does a value whose range rules zero out, such
+  as each `d` in `1..=n |> Iter.filter(fn d -> n % d == 0)`. The
+  shift count of `<<<` and `>>>` is a `NonNegativeInt` the same way.
+  `Float` division by zero gives an infinity or NaN instead (see
   [Exact arithmetic with `Decimal`](#exact-arithmetic-with-decimal)).
 - The number types never mix. `1 + 2.0` is
   `binary + type mismatch: Int vs Float`; convert with `Int.to_float` or
@@ -141,7 +146,7 @@ NaN compares three ways, chosen so maps, sorting and patterns behave:
   deterministic: `Float.compare(nan, nan)` is `Equal`.
 - `<`, `<=`, `>` and `>=` follow IEEE 754: `nan <= nan` is `False`.
 
-`Decimal` has no NaN or infinity, and its division by zero traps. Its scale
+`Decimal` has no NaN or infinity, and its divisor is a `NonZeroDecimal`. Its scale
 shows in display but not in equality: `1.50d == 1.5d`.
 
 Spec: [Float Special Values](/spec/types/#float-special-values),

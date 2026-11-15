@@ -121,3 +121,49 @@ func TestSelect_AParkedSelectObservesCancellation(t *testing.T) {
 		t.Error("the statement after the parked select executed, so the select returned instead of unwinding")
 	}
 }
+
+// A second close does nothing, and the channel stays closed.
+func TestSenderClose_TwiceIsNoFault(t *testing.T) {
+	fr := NewFrame(context.Background())
+	ch := ChannelBuffered[int64](1)
+	SenderClose(ch.Sender)
+	if err := recoverTrap(func() { SenderClose(ch.Sender) }); err != nil {
+		t.Fatalf("a second close trapped: %v", err.Msg)
+	}
+	if got := SenderSend(fr, ch.Sender, 1); got.Tag != TagErr {
+		t.Fatalf("a send after two closes answered %+v, want Err(ChannelClosed)", got)
+	}
+}
+
+// A sender parked on a full channel when it closes answers Err(ChannelClosed)
+// rather than reaching Go's panicking send, and a receiver then drains the
+// buffer and sees the close. The same holds for a send case parked in a
+// select.
+func TestSenderSend_AParkedSendAnswersClosed(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		fr := NewFrame(context.Background())
+		ch := ChannelBuffered[int64](1)
+		SenderSend(fr, ch.Sender, 1)
+		var send Result[Unit, ChannelClosed]
+		var sel Selected
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() { defer wg.Done(); send = SenderSend(fr, ch.Sender, 2) }()
+		go func() { defer wg.Done(); sel = Select(fr, []SelectCase{SelectSend(ch.Sender, 3)}) }()
+		synctest.Wait()
+		SenderClose(ch.Sender)
+		wg.Wait()
+		if send.Tag != TagErr {
+			t.Errorf("the parked send answered %+v, want Err(ChannelClosed)", send)
+		}
+		if sel.Index != 0 || sel.OK {
+			t.Errorf("the parked select answered %+v, want case 0 not sent", sel)
+		}
+		if v := ReceiverReceive(fr, ch.Receiver); v.Tag != TagSome || v.Some != 1 {
+			t.Errorf("the buffer holds %+v, want Some(1)", v)
+		}
+		if v := ReceiverReceive(fr, ch.Receiver); v.Tag != TagNone {
+			t.Errorf("after the buffer drained the receive answered %+v, want None", v)
+		}
+	})
+}

@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/subtle"
-	"fmt"
 )
 
 // SHA256 is the SHA-256 digest of data, 32 bytes: std/hash's `sha256`.
@@ -62,16 +61,13 @@ func EqualInConstantTime(a, b Bytes) bool {
 
 // PBKDF2SHA256 is std/hash's `pbkdf2_sha256`: PBKDF2 with HMAC-SHA256
 // (RFC 8018) over password and salt, iterations rounds, length bytes long.
-// An iteration count below 1, or a length outside 1 to 1024 bytes, is a
-// trap; std/passwords checks its options before it calls this.
-func PBKDF2SHA256(password, salt Bytes, iterations, length int64) Bytes {
-	if iterations < 1 {
-		Trap(fmt.Sprintf("hash.pbkdf2_sha256: iterations must be at least 1, got %d", iterations))
-	}
-	if length < 1 || length > 1024 {
-		Trap(fmt.Sprintf("hash.pbkdf2_sha256: length must be 1 to 1024 bytes, got %d", length))
-	}
-	key, err := pbkdf2.Key(sha256.New, string(password), []byte(salt), int(iterations), int(length))
+// std declares both counts PositiveInts of any size, and any length is
+// derived: RFC 8018's own limit, (2^32 - 1) blocks of 32 bytes, is past
+// what memory holds, so Go's error for it is a backstop. A count past int64
+// saturates: as many iterations never end either, and as long a key is past
+// that limit.
+func PBKDF2SHA256(password, salt Bytes, iterations, length Int) Bytes {
+	key, err := pbkdf2.Key(sha256.New, string(password), []byte(salt), int(iterations.Saturated()), int(length.Saturated()))
 	if err != nil {
 		Trap("hash.pbkdf2_sha256: " + err.Error())
 	}

@@ -478,10 +478,8 @@ func SeqFlatMapList[T, U any](src Seq[T], f func(fr *Frame, item T) *List[U]) Se
 
 // ChunksEach is `host fn chunks_each<T>(source: Iter<T>, size: Int, yield) -> Bool`.
 //
-// Three details are observable:
+// std declares size a PositiveInt. Two details are observable:
 //
-//   - a non-positive size yields nothing and answers True without touching the
-//     source, so `chunks(0)` terminates over an unbounded one.
 //   - the trailing short chunk is emitted after the source exhausts, and only
 //     when the source exhausted — a consumer that stopped mid-buffer must not
 //     then receive a partial chunk it did not ask for.
@@ -489,9 +487,6 @@ func SeqFlatMapList[T, U any](src Seq[T], f func(fr *Frame, item T) *List[U]) Se
 //     array, so handing the slice to the List builder without copying would let
 //     the next chunk overwrite the previous one's elements.
 func ChunksEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame, item *List[T]) bool) bool {
-	if size <= 0 {
-		return true
-	}
 	buf := make([]T, 0, size)
 	completed := src.Run(fr, func(fr *Frame, item T) bool {
 		buf = append(buf, item)
@@ -515,22 +510,18 @@ func ChunksEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame, 
 func SeqChunks[T any](src Seq[T], size int64) Seq[*List[T]] {
 	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
 		return ChunksEach(fr, src, size, yield)
-	}, Endless: chunksEndless(src, size)}
+	}, Endless: src.Endless}
 }
 
 // WindowsEach is `Iter.windows`: each run of `size` neighbouring elements,
-// one starting at each element, as a List. A non-positive size yields
-// nothing and answers True without touching the source, as ChunksEach
-// does, and a source shorter than `size` yields nothing.
+// one starting at each element, as a List. std declares size a
+// PositiveInt, and a source shorter than `size` yields nothing.
 //
 // The last `size` elements live in a ring, so each window is built once
 // from it: `size` cells per window and nothing else per element. A List
 // window cannot share cells with the one before it, since the two differ at
 // both ends.
 func WindowsEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame, item *List[T]) bool) bool {
-	if size <= 0 {
-		return true
-	}
 	ring := make([]T, 0, size)
 	next := 0 // the oldest element once the ring is full
 	return src.Run(fr, func(fr *Frame, item T) bool {
@@ -555,7 +546,7 @@ func WindowsEach[T any](fr *Frame, src Seq[T], size int64, yield func(fr *Frame,
 func SeqWindows[T any](src Seq[T], size int64) Seq[*List[T]] {
 	return Seq[*List[T]]{Run: func(fr *Frame, yield func(fr *Frame, item *List[T]) bool) bool {
 		return WindowsEach(fr, src, size, yield)
-	}, Endless: chunksEndless(src, size)}
+	}, Endless: src.Endless}
 }
 
 // --- zip, the one adapter push cannot express directly -----------------------

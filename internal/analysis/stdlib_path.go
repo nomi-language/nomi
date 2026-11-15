@@ -167,9 +167,16 @@ func StdlibLogicalModuleName(rel string) string {
 // name is its path (`storage/testing`). It holds for all three physical
 // shapes that reach here — the in-repo source (`std/x.nomi`), the jump-to-def
 // materialization (`~/.cache/nomi/std/<version>/x.nomi`), and the key-shaped
-// paths callers synthesize (`std/x.nomi`) — and it answers NO for
-// `std/_fixtures/nested/deeper/module.nomi`, which std.Load does not carry
-// either.
+// paths callers synthesize (`std/x.nomi`).
+//
+// A file directly under the root's `_fixtures` directory is the test-only
+// module `_fixtures/<name>` (`std/_fixtures/conn`), as std.Load names it in
+// a test binary that loads the fixtures (std.FixturesLoaded). It is std
+// whether or not this process loaded it: a fixture names its siblings bare
+// (`import iter.Iter`) as every std module does, and read as a user file
+// those imports loaded `std/iter.nomi` a second time under the key `iter`,
+// so its `Iter` was not the `Iter` `String.join` takes. The nested tree,
+// `std/_fixtures/nested/deeper/module.nomi`, is never a module.
 //
 // A module's name must be its path under std. It was not once, and the cost
 // was visible: while `std/calendar` shipped its facade at
@@ -193,6 +200,9 @@ func stdlibModuleForPath(filePath string) (string, bool) {
 	}
 	if isStdlibRootDir(parent) {
 		return name, true
+	}
+	if path.Base(parent) == "_fixtures" && isStdlibRootDir(path.Dir(parent)) {
+		return "_fixtures/" + name, true
 	}
 	if p := path.Base(parent); nestedStdlibParent(parent, p, name) {
 		return p + "/" + name, true

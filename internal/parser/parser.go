@@ -2058,6 +2058,9 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			}
 			continue
 		}
+		if err := p.subscriptAt(start); err != nil {
+			return nil, err
+		}
 		// Turbofish: `f<T>(...)` — explicit type args on a call. Speculatively
 		// parse a `<Type, ...>` list immediately followed by `(`; otherwise `<`
 		// is the comparison operator handled below. Restricted to callable

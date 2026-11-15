@@ -171,7 +171,9 @@ exit status 2
 
 In a terminal, this prints its two lines to standard error and exits with
 status 2. The page shows the status under them. `code` defaults to 1 and
-`message` to `""`, which prints nothing. A code outside 0 to 255 is a trap.
+`message` to `""`, which prints nothing. `code` is an `ExitCode`, 0 to 255,
+so `Exit{code: 300}` does not compile; check a computed code with
+`ExitCode.try_from`.
 A `boot` that returns an `Exit` ends the program the same way, before `main`
 runs.
 

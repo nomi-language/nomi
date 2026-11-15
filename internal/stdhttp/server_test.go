@@ -174,7 +174,7 @@ fn posted(body: Reader) -> Request
 end
 
 fn form(size: Int) -> Request
-    posted(Reader.from_text("a=${String.repeat("x", size - 2)}"))
+    posted(Reader.from_text("a=${String.repeat("x", NonNegativeInt.try_from(size - 2)!)}"))
 end
 
 fn main()

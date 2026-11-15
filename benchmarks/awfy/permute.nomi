@@ -40,8 +40,8 @@ end
 
 fn swap(state: Permute, i: Int, j: Int) -> Permute
     tmp = Vector.get(state.v, i)!
-    v = Vector.set(state.v, i, Vector.get(state.v, j)!)
-    {..state, v: Vector.set(v, j, tmp)}
+    v = Vector.set(state.v, i, Vector.get(state.v, j)!)!
+    {..state, v: Vector.set(v, j, tmp)!}
 end
 
 fn benchmark() -> Int

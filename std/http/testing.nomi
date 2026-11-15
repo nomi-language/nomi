@@ -266,10 +266,8 @@ pub fn with_server<T>(
 
         (
             Some(ServerConfig{certificates: [certificate]}),
-            Client.new(ClientOptions{
-                tls:       Some(ClientConfig{roots: Roots.Pem(cert)}),
-                transport: {..Transport.default, force_http2: http2},
-            }),
+            Client.new(ClientOptions{transport: {..Transport.default, force_http2: http2}})
+            |> Client.with_tls(ClientConfig{roots: Roots.Pem(cert)})!,
             Some(Certificate.info(certificate)),
         )
     else if http2 then
@@ -367,7 +365,7 @@ pub fn open_websocket<T>(
 
     (server, client) = case host.ws_pipe()
         [a, b] -> (Connection.of_handle(a), Connection.of_handle(b))
-        _      -> todo
+        _      -> unreachable "host.ws_pipe answers the two ends of one pipe"
     end
 
     protocol = Headers.get(response.headers, "Sec-WebSocket-Protocol")

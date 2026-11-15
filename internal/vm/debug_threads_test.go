@@ -14,7 +14,7 @@ const taskTrapSrc = `import std::io
 import std::tasks.Task
 
 fn work(n: Int) -> Int
-  r = 10 / n
+  r = 10 <<< (Int.abs(n) + 100_000_000_000)
   r
 end
 
@@ -46,7 +46,7 @@ func TestDebug_ATaskFailureStopsInTheTaskAndAgainWhereItIsAwaited(t *testing.T) 
 	s.d.Continue()
 	st = s.stop()
 	s.at(st, vm.StopTaskFailure, "<concurrent>:12 concurrent:10 main:10", "t: Task<Int> = <task>")
-	if !strings.Contains(st.Text, "division by zero") {
+	if !strings.Contains(st.Text, "is too large") {
 		t.Fatalf("the failure's text: %q", st.Text)
 	}
 	s.d.Continue()

@@ -66,7 +66,8 @@ end
 // every argument it was solved from converts to it, so not past a
 // function argument that takes it.
 func TestRefinementJoin_NoNearerThanTheSharedAncestor(t *testing.T) {
-	const decls = "fn int_of(c: Bool) -> Int\n    if c then 1 else -1\nend\n\nfn count(n: NonNegativeInt) -> Int\n    n\nend\n\nfn nonzero(n: NonZeroInt) -> Int\n    n\nend\n\nfn apply<T>(f: (T) -> Int, x: T) -> Int\n    f(x)\nend\n\n"
+	const decls = "fn int_of(c: Bool) -> Int\n    if c then 1 else -1\nend\n\nfn count(n: NonNegativeInt) -> Int\n    n\nend\n\nfn nonzero(n: NonZeroInt) -> Int\n    n\nend\n\nfn apply<T>(f: (T) -> Int, x: T) -> Int\n    f(x)\nend\n\n" +
+		"subtype Both NonNegativeInt and NonZeroInt\n\nfn both(n: Both) -> Int\n    n\nend\n\n"
 	for _, tc := range []struct{ name, body, want, at string }{
 		{"a refinement and its base", "    j = if c then nn else i\n    _ = (count(j), nz)",
 			"argument 1: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "j"},
@@ -78,6 +79,8 @@ func TestRefinementJoin_NoNearerThanTheSharedAncestor(t *testing.T) {
 			"argument 2: expected NonNegativeInt, got Int\nhelp: NonNegativeInt is a subtype of Int; check the value with `NonNegativeInt.try_from(...)`, which is `Some` when it satisfies `fn n -> n >= 0` and `None` when not", "i"},
 		{"different bases", "    s: NonEmptyString = \"a\"\n    v = if c then nn else s\n    _ = (v, nz, i)",
 			"if/else branch type mismatch: then is NonNegativeInt, else is NonEmptyString", "s"},
+		{"a subtype with no rule of its own", "    _ = (both(i), nn, nz)",
+			"argument 1: expected Both, got Int\nhelp: Both is a subtype of NonNegativeInt and NonZeroInt; check the value with `Both.try_from(...)`, which is `Some` when it is each of NonNegativeInt and NonZeroInt, and `None` when not", "i"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := decls + "fn main()\n    c = True\n    nn: NonNegativeInt = 1\n    nz: NonZeroInt = -1\n    i = int_of(c)\n" + tc.body + "\nend\n"

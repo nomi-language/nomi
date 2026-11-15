@@ -84,7 +84,7 @@ end
 fn divide(a: Int, b: Int) -> Result<Int, String>
   defer note("plain")
   defer on error note("on error")
-  Ok(a / b)
+  Ok(a / NonZeroInt.try_from(b)!)
 end
 
 fn main()
@@ -93,7 +93,7 @@ fn main()
 end
 `
 	const stdout = "cleanup plain\nOk(2)\ncleanup on error\ncleanup plain\n"
-	const fault = "line 10: division by zero"
+	const fault = "line 10: `NonZeroInt.try_from(b)` found nothing"
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

@@ -28,12 +28,12 @@ fn main()
             io.print("inner")
             Iter.loop(fn ->
                 io.print("again")
-                io.print(1 / zero)
+                io.print(1 / NonZeroInt.try_from(zero)!)
             end)
         end
     end
 end
-`, "line 12: division by zero", "main\nstart\ninner\nagain\n")
+`, "line 12: `NonZeroInt.try_from(zero)` found nothing", "main\nstart\ninner\nagain\n")
 
 	// A block value bound to a name, with code after it that never runs,
 	// and a block ending an Int function.
@@ -43,7 +43,7 @@ fn tail_block() -> Int
     begin
         io.print("tail block")
         Iter.loop(0, fn n ->
-            if n == 1 then io.print(1 / (n - 1))
+            if n == 1 then io.print(1 / NonZeroInt.try_from(n - 1)!)
             n + 1
         end)
     end
@@ -59,7 +59,7 @@ fn main()
     end
     io.inspect(x)
 end
-`, "line 7: division by zero", "value block\ntail block\n")
+`, "line 7: `NonZeroInt.try_from(n - 1)` found nothing", "value block\ntail block\n")
 
 	// Arms that are blocks ending in a block that never finishes, in a
 	// binding's `case` and a statement `if`, and a block that never
@@ -72,7 +72,7 @@ fn pick(flag: Int) -> Int
             io.print("arm 0")
             begin
                 Iter.loop(0, fn n ->
-                    if n == 1 then io.print(1 / (n - 1))
+                    if n == 1 then io.print(1 / NonZeroInt.try_from(n - 1)!)
                     n + 1
                 end)
             end
@@ -83,7 +83,7 @@ fn pick(flag: Int) -> Int
         begin
             io.print("if branch")
             Iter.loop(fn ->
-                io.print(1 / (y - y))
+                io.print(1 / NonZeroInt.try_from(y - y)!)
             end)
         end
     else
@@ -96,23 +96,23 @@ end
 fn main()
     io.inspect(pick(1) + pick(0))
 end
-`, "line 9: division by zero", "10\nelse\narm 0\n")
+`, "line 9: `NonZeroInt.try_from(n - 1)` found nothing", "10\nelse\narm 0\n")
 	verifyEndlessTrap(t, pick+`
 fn main()
     io.inspect(pick(1) + pick(2))
 end
-`, "line 20: division by zero", "10\nelse\n20\nif branch\n")
+`, "line 20: `NonZeroInt.try_from(y - y)` found nothing", "10\nelse\n20\nif branch\n")
 	verifyEndlessTrap(t, pick+`
 fn main()
     io.inspect(pick(1) + begin
         io.print("operand")
         Iter.loop(0, fn n ->
-            if n == 1 then io.print(1 / (n - 1))
+            if n == 1 then io.print(1 / NonZeroInt.try_from(n - 1)!)
             n + 1
         end)
     end)
 end
-`, "line 33: division by zero", "10\nelse\noperand\n")
+`, "line 33: `NonZeroInt.try_from(n - 1)` found nothing", "10\nelse\noperand\n")
 
 	// A lambda's body, a loop body and a concurrent body, each ending in a
 	// block that never finishes.
@@ -125,7 +125,7 @@ fn main()
         begin
             Iter.loop(fn ->
                 io.print("lambda loop")
-                io.print(1 / zero)
+                io.print(1 / NonZeroInt.try_from(zero)!)
             end)
         end
     end
@@ -142,7 +142,7 @@ fn main()
         end
     end
 end
-`, "line 10: division by zero", "outer 0\nouter 1\n2\nconcurrent\nlambda\nlambda loop\n")
+`, "line 10: `NonZeroInt.try_from(zero)` found nothing", "outer 0\nouter 1\n2\nconcurrent\nlambda\nlambda loop\n")
 
 	verifyEndlessTrap(t, `import std::io
 
@@ -152,13 +152,13 @@ fn main()
         begin
             io.print("inner block")
             Iter.loop(0, fn n ->
-                if n == 1 then io.print(1 / (n - 1))
+                if n == 1 then io.print(1 / NonZeroInt.try_from(n - 1)!)
                 n + 1
             end)
         end
     end)
 end
-`, "line 9: division by zero", "outer 0\ninner block\n")
+`, "line 9: `NonZeroInt.try_from(n - 1)` found nothing", "outer 0\ninner block\n")
 }
 
 // A test body's block statement, and a block value it binds, ending in a
@@ -173,7 +173,7 @@ test "a block statement"
     begin
         io.print("block")
         Iter.loop(fn ->
-            io.print(1 / (1 - 1))
+            io.print(1 / NonZeroInt.try_from(1 - 1)!)
         end)
     end
 end
@@ -184,7 +184,7 @@ test "a bound block"
         io.print("bound block")
         begin
             Iter.loop(0, fn n ->
-                if n == 1 then io.print(1 / (n - 1))
+                if n == 1 then io.print(1 / NonZeroInt.try_from(n - 1)!)
                 n + 1
             end)
         end
@@ -225,8 +225,8 @@ end
 		t.Fatalf("exit %d, report:\n%s", exit, report)
 	}
 	for _, want := range []string{
-		"block\n", "line 8: division by zero",
-		"bound block\n", "line 19: division by zero",
+		"block\n", "line 8: `NonZeroInt.try_from(1 - 1)` found nothing",
+		"bound block\n", "line 19: `NonZeroInt.try_from(n - 1)` found nothing",
 	} {
 		if !strings.Contains(report, want) {
 			t.Errorf("the report lacks %q:\n%s", want, report)

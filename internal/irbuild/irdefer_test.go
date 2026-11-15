@@ -182,7 +182,7 @@ fn divide(a: Int, b: Int) -> Int
   defer note("divide")
   begin
     defer note("inner")
-    io.print(a / b)
+    io.print(a / NonZeroInt.try_from(b)!)
   end
   a
 end
@@ -193,7 +193,7 @@ fn main()
 end
 `
 	const stdout = "2\ncleanup inner\ncleanup divide\n4\ncleanup inner\ncleanup divide\n"
-	const fault = "line 11: division by zero"
+	const fault = "line 11: `NonZeroInt.try_from(b)` found nothing"
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)
@@ -378,7 +378,7 @@ fn main()
   defer note("main")
   divide = fn d: Int ->
     defer note("divide")
-    10 / d
+    10 / NonZeroInt.try_from(d)!
   end
   io.print(divide(2))
   _ = Iter.loop(1, fn n ->
@@ -389,7 +389,7 @@ fn main()
 end
 `
 	const stdout = "cleanup divide\n5\ncleanup divide\n10\ncleanup iteration\ncleanup divide\ncleanup iteration\ncleanup main\n"
-	const fault = "line 11: division by zero"
+	const fault = "line 11: `NonZeroInt.try_from(d)` found nothing"
 	path := filepath.Join(t.TempDir(), "main.nomi")
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
 		t.Fatal(err)

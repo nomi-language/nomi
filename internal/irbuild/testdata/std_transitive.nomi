@@ -23,7 +23,6 @@ fn main()
     base = Instant.from_seconds(100)
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)
-
     io.print("forward = ${Int.to_string(Instant.to_seconds(shift(base, a, b)))}")
     io.print("backward = ${Int.to_string(Instant.to_seconds(shift(base, b, a)))}")
     io.print("zero = ${Int.to_string(Instant.to_seconds(shift(base, a, a)))}")

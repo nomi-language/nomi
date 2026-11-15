@@ -855,7 +855,7 @@ func (v memView) Rename(from, to string) *rt.IOError {
 }
 
 func infoOfNode(n *memNode) Info {
-	info := Info{Kind: n.kind(), Size: int64(len(n.data)), Modified: n.modified, Mode: n.mode}
+	info := Info{Kind: n.kind(), Size: int64(len(n.data)), Modified: time.Unix(0, n.modified), Mode: n.mode}
 	switch {
 	case n.dir:
 		info.Size = 0

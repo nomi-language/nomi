@@ -1,7 +1,4 @@
-import
-    std::bits.{self, Bits}
-    std::compiler
-end
+import std::bits.{self, Bits, FieldBits}
 
 test "a pattern matches the Ints whose fixed bits it names"
     lead = Bits"110x_xxxx"
@@ -19,7 +16,7 @@ test "bits above the pattern's width must be zero"
 end
 
 test "the field reads the bits under its letter"
-    continuation = Bits"10aa_aaaa"
+    continuation: FieldBits = Bits"10aa_aaaa"
     assert Bits.field(continuation, 0b1011_1111) == Some(63)
     assert Bits.field(continuation, 0b1000_0001) == Some(1)
     assert Bits.field(continuation, 0b1100_0001) == None
@@ -51,7 +48,7 @@ test "parse reads text at run time"
     assert Bits.parse("1 0") == Err(bits.Error.Character{index: 1, found: " "})
     assert Bits.parse("1X") == Err(bits.Error.Character{index: 1, found: "X"})
     assert Bits.parse("ab") == Err(bits.Error.SecondField{index: 1, field: "a", found: "b"})
-    assert Bits.field(Bits.parse("a_a")?, 3) == Some(3)
+    assert Bits.field(FieldBits.try_from(Bits.parse("a_a")?)!, 3) == Some(3)
     assert Bits.parse("aa1a") == Err(bits.Error.SplitField{index: 3, field: "a"})
 end
 
@@ -64,17 +61,7 @@ test "an error says what is wrong with the text"
     )
 end
 
-test "a pattern with no field letter has no field to read"
-    result =
-        """
-        import std::bits.Bits
-
-        fn main()
-          _ = Bits.field(Bits`10xx`, 8)
-        end
-        """
-        |> compiler.run()
-
-    assert Err(message) = result
-    assert String.contains(message, "Bits.field: the pattern has no field letter")
+test "a pattern with no field letter is no FieldBits, so Bits.field never sees one"
+    assert FieldBits.try_from(Bits`10xx`) == None
+    assert FieldBits.try_from(Bits"1a") == Some(Bits"1a")
 end

@@ -33,8 +33,9 @@ import (
 //     question: the limit protects a downstream — a connection pool, a rate
 //     limit — and a supervisor is reached from call sites all over the program,
 //     so an omitted bound would mean unbounded forever rather than unbounded
-//     for one call. Zero is rejected outright: a supervisor that accepts work
-//     and never runs it is a deadlock dressed as configuration.
+//     for one call. std declares it a PositiveInt, so zero does not compile: a
+//     supervisor that accepts work and never runs it is a deadlock dressed as
+//     configuration.
 //
 //  2. **The `shutdown_timeout:` budget is a grace period, not an unwind
 //     window.** In-flight work runs to completion; only at expiry is the
@@ -278,17 +279,17 @@ func supervisors() *supervisorRegistry {
 // reach.
 func SupervisorNewExact(
 	fr *Frame,
-	maxRunning int64,
+	maxRunningArg Int,
 	shutdownTimeout Duration,
 	restart Restart,
 	backoff Backoff,
 	onGiveUp GiveUp,
 ) Supervisor {
-	if maxRunning < 1 {
-		Trap(fmt.Sprintf("Supervisor.new: max_running must be at least 1, got %d", maxRunning))
-	}
 	if shutdownTimeout < 0 {
-		Trap("Supervisor.new: shutdown_timeout must not be negative, got " + DurationToString(shutdownTimeout))
+		// A negative budget has already passed, as a negative duration has
+		// for Context.with_timeout, timer.sleep and Arm.after: no grace
+		// period.
+		shutdownTimeout = 0
 	}
 	if fr == nil || !fr.inBoot {
 		Trap("a supervisor here would be a new one every time this runs, and each " +
@@ -297,6 +298,11 @@ func SupervisorNewExact(
 			"Create it while `boot` builds the app value: in boot, or in " +
 			"something boot calls")
 	}
+
+	// max_running is a PositiveInt of any size; past int64 it saturates,
+	// which no program reaches either. The semaphore's slots hold nothing,
+	// so a channel of any capacity costs none.
+	maxRunning := maxRunningArg.Saturated()
 
 	reg := supervisors()
 	reg.mu.Lock()
@@ -628,7 +634,7 @@ func (g *supervisor) decideRestart(attempt int64, backoffStep int, sinceFirstFai
 	// Either budget ending it is a give-up. Two stopping conditions rather than
 	// one because "how many times" and "for how long" are different questions,
 	// and which binds depends on how fast the failures come.
-	if attempt > g.backoff.MaxRestarts || Duration(sinceFirstFailure) >= g.backoff.MaxElapsed {
+	if attempt > g.backoff.MaxRestarts.Saturated() || Duration(sinceFirstFailure) >= g.backoff.MaxElapsed {
 		return 0, false
 	}
 	return backoffDelay(backoffStep), true

@@ -30,9 +30,11 @@ type Binding struct {
 	// text `<name>: panic: <value>` (hostadapt.Recover). Set on every RtFuncs
 	// row: an rt trap (*rt.Error) is a Nomi fault the VM reports with rt's
 	// text, and a cancellation unwind (rt.TimerSleep in a cancelled task) must
-	// keep unwinding the task. Set too on the Funcs rows whose job is to trap
-	// (std/random's range checks); unset on the other Funcs rows, whose
-	// adapters recover.
+	// keep unwinding the task. Set too on the Funcs rows that trap: on a
+	// value past a range (std/random's range checks, a TLS cipher suite
+	// past 16 bits), and std/calendar's zoned civil shifts on a broken
+	// invariant (a DateTime's zone loads); unset on the other Funcs rows,
+	// whose adapters recover.
 	PanicsPropagate bool
 	// Class is the capability the function needs from the target it runs on
 	// (ClassFiles), or "" for one every target has. `nomi build` refuses a
@@ -47,7 +49,8 @@ type Binding struct {
 	// cost follows one operand's value rather than the operands' size is
 	// not marked either, since a call into Go is not interrupted and an
 	// editor's evaluation is bounded by steps: `strings.String.repeat` (its
-	// count), `decimal.Decimal.divide`, `round` and `sqrt` (their scale) and
+	// count), `decimal.Decimal.divide`, `round`, `round_exact`, `sqrt` and
+	// `sqrt_exact` (their scale) and
 	// `decimal.Decimal.pow` (its exponent). Reading the program's own CLDR
 	// data, as locale-aware formatting does, is not acting outside the
 	// machine.
@@ -176,6 +179,7 @@ func Funcs() []Binding {
 		{Name: "calendar.naive_parse_raw", Fn: stdcalendar.BoundNaiveParse, Pure: true},
 		{Name: "calendar.offset_add_months", Fn: stdcalendar.BoundOffsetAddMonths, Pure: true},
 		{Name: "calendar.offset_add_years", Fn: stdcalendar.BoundOffsetAddYears, Pure: true},
+		{Name: "calendar.offset_add_nanos", Fn: stdcalendar.BoundOffsetAddNanos, Pure: true},
 		{Name: "calendar.offset_from_instant_nanos", Fn: stdcalendar.BoundOffsetFromInstant, Pure: true},
 		{Name: "calendar.offset_parse_raw", Fn: stdcalendar.BoundOffsetParse, Pure: true},
 		{Name: "calendar.offset_with_offset_raw", Fn: stdcalendar.BoundOffsetWithOffset, Pure: true},
@@ -185,15 +189,16 @@ func Funcs() []Binding {
 		{Name: "calendar.time_parse_pattern", Fn: stdformat.FFIParseTimePattern, Pure: true},
 		{Name: "calendar.time_parse_raw", Fn: stdcalendar.BoundTimeParse, Pure: true},
 		{Name: "calendar.time_parse_style", Fn: stdformat.FFIParseTimeStyle, Pure: true},
-		{Name: "calendar.zoned_add_days", Fn: stdcalendar.BoundZonedAddDays, Pure: true},
-		{Name: "calendar.zoned_add_hours", Fn: stdcalendar.BoundZonedAddHours, Pure: true},
-		{Name: "calendar.zoned_add_microseconds", Fn: stdcalendar.BoundZonedAddMicroseconds, Pure: true},
-		{Name: "calendar.zoned_add_milliseconds", Fn: stdcalendar.BoundZonedAddMilliseconds, Pure: true},
-		{Name: "calendar.zoned_add_minutes", Fn: stdcalendar.BoundZonedAddMinutes, Pure: true},
-		{Name: "calendar.zoned_add_months", Fn: stdcalendar.BoundZonedAddMonths, Pure: true},
-		{Name: "calendar.zoned_add_nanoseconds", Fn: stdcalendar.BoundZonedAddNanoseconds, Pure: true},
-		{Name: "calendar.zoned_add_seconds", Fn: stdcalendar.BoundZonedAddSeconds, Pure: true},
-		{Name: "calendar.zoned_add_years", Fn: stdcalendar.BoundZonedAddYears, Pure: true},
+		{Name: "calendar.zoned_add_days", Fn: stdcalendar.BoundZonedAddDays, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_hours", Fn: stdcalendar.BoundZonedAddHours, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_microseconds", Fn: stdcalendar.BoundZonedAddMicroseconds, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_milliseconds", Fn: stdcalendar.BoundZonedAddMilliseconds, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_minutes", Fn: stdcalendar.BoundZonedAddMinutes, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_months", Fn: stdcalendar.BoundZonedAddMonths, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_nanoseconds", Fn: stdcalendar.BoundZonedAddNanoseconds, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_seconds", Fn: stdcalendar.BoundZonedAddSeconds, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_years", Fn: stdcalendar.BoundZonedAddYears, PanicsPropagate: true, Pure: true},
+		{Name: "calendar.zoned_add_nanos", Fn: stdcalendar.BoundZonedAddNanos, Pure: true},
 		{Name: "calendar.zoned_from_instant_in_raw", Fn: stdcalendar.BoundZonedFromInstantIn, Pure: true},
 		{Name: "calendar.zoned_in_zone_raw", Fn: stdcalendar.BoundZonedInZone, Pure: true},
 		{Name: "calendar.zoned_offset_nanos", Fn: stdcalendar.BoundZonedOffsetNanos, Pure: true},
@@ -211,7 +216,6 @@ func Funcs() []Binding {
 		{Name: "decimal.decimal_format_percent", Fn: stdformat.FFIFormatDecimalPercent, PanicsPropagate: true, Pure: true},
 		{Name: "decimal.decimal_parse_in", Fn: stdformat.FFIParseDecimal, Pure: true},
 		{Name: "decimal.decimal_parse_percent_in", Fn: stdformat.FFIParseDecimalPercent, Pure: true},
-		{Name: "decimal.decimal_refused", Fn: stdformat.FFIRefused, PanicsPropagate: true},
 		{Name: "float.float_format", Fn: stdformat.FFIFormatFloat, PanicsPropagate: true, Pure: true},
 		{Name: "float.float_format_percent", Fn: stdformat.FFIFormatFloatPercent, PanicsPropagate: true, Pure: true},
 		{Name: "float.float_parse_in", Fn: stdformat.FFIParseFloat, Pure: true},
@@ -225,9 +229,7 @@ func Funcs() []Binding {
 		{Name: "phrase/format.load_raw", Fn: stdphraseformat.FFILoad},
 		{Name: "phrase/format.noun_raw", Fn: stdphraseformat.FFINoun, PanicsPropagate: true},
 		{Name: "money/format.money_format_raw", Fn: stdformat.FFIFormatMoney, Pure: true},
-		{Name: "money/format.money_mixed", Fn: stdformat.FFIMoneyMixed, PanicsPropagate: true},
 		{Name: "money/format.money_parse_raw", Fn: stdformat.FFIParseMoney, Pure: true},
-		{Name: "money/format.money_refused", Fn: stdformat.FFIRefused, PanicsPropagate: true},
 		{Name: "locale.locale_fallbacks", Fn: stdlocale.FFIFallbacks, Pure: true},
 		{Name: "locale.locale_from_posix_raw", Fn: stdlocale.FFIFromPosix, Pure: true},
 		{Name: "locale.locale_language", Fn: stdlocale.FFILanguage, Pure: true},
@@ -242,8 +244,6 @@ func Funcs() []Binding {
 		{Name: "random.between_state", Fn: stdrandom.FFIBetween},
 		{Name: "random.os_state", Fn: stdrandom.FFIFromOS},
 		{Name: "random.secure_bytes", Fn: stdrandom.FFISecureBytes, PanicsPropagate: true},
-		{Name: "random.require_float_range", Fn: stdrandom.FFIRequireFloatRange, PanicsPropagate: true},
-		{Name: "random.require_int_range", Fn: stdrandom.FFIRequireIntRange, PanicsPropagate: true},
 		{Name: "random.unit_float_state", Fn: stdrandom.FFIUnitFloat},
 		{Name: "Regex.compile", Fn: stdregex.FFICompile, Pure: true},
 		{Name: "Regex.is_contained_in", Fn: stdregex.FFIMatch, Pure: true},
@@ -445,8 +445,6 @@ func RtFuncs() []Binding {
 		{Name: "float.Float.trunc", Fn: rt.FloatTrunc, Pure: true},
 		{Name: "float.Float.to_int", Fn: rt.FloatToInt, Pure: true},
 		{Name: "float.float_bits", Fn: rt.FloatBits, Pure: true},
-		{Name: "float.require_clamp_bounds", Fn: rt.FloatRequireClampBounds, Pure: true},
-		{Name: "comparable.clamp_reversed", Fn: rt.ComparableClampReversed},
 		{Name: "float.Float.pow", Fn: rt.FloatPow, Pure: true},
 		{Name: "float.Float.sqrt", Fn: rt.FloatSqrt, Pure: true},
 		{Name: "float.Float.exp", Fn: rt.FloatExp, Pure: true},
@@ -461,7 +459,7 @@ func RtFuncs() []Binding {
 		{Name: "decimal.Decimal.equal", Fn: rt.EqDecimal, Pure: true},
 		{Name: "decimal.Decimal.hash", Fn: rt.DecimalHash, Pure: true},
 		{Name: "decimal.Decimal.compare", Fn: rt.DecimalCompare, Pure: true},
-		{Name: "duration.Duration.to_string", Fn: rt.DurationToString, Pure: true},
+		{Name: "duration.render_nanos", Fn: rt.DurationNanosToString, Pure: true},
 		{Name: "instant.Instant.now", Fn: rt.InstantNow},
 		{Name: "int.Int.to_codepoint", Fn: rt.IntToCodepoint, Pure: true},
 		{Name: "code_points.Codepoint.to_string", Fn: rt.CodepointToString, Pure: true},
@@ -479,8 +477,6 @@ func RtFuncs() []Binding {
 		{Name: "supervisors.Supervisor.flush_bounded", Fn: rt.SupervisorFlushBounded},
 		{Name: "assertions.AssertionFailure.format", Fn: rt.FormatNomiAssertionFailure, Pure: true},
 		{Name: "int.Int.to_decimal", Fn: rt.IntToDecimal, Pure: true},
-		{Name: "duration.nanos_in_range", Fn: rt.DurationNanosInRange, Pure: true},
-		{Name: "instant.nanos_in_range", Fn: rt.InstantNanosInRange, Pure: true},
 		{Name: "strings.String.to_decimal", Fn: rt.StringToDecimal, Pure: true},
 		{Name: "strings.String.to_float", Fn: rt.StringToFloat, Pure: true},
 		{Name: "decimal.Decimal.to_int", Fn: rt.DecimalToInt, Pure: true},
@@ -489,8 +485,10 @@ func RtFuncs() []Binding {
 		{Name: "decimal.Decimal.divide", Fn: rt.DecimalDivide},
 		{Name: "decimal.Decimal.divide_exact", Fn: rt.DecimalDivideExact, Pure: true},
 		{Name: "decimal.Decimal.round", Fn: rt.DecimalRound},
+		{Name: "decimal.Decimal.round_exact", Fn: rt.DecimalRoundExact},
 		{Name: "decimal.Decimal.pow", Fn: rt.DecimalPow},
 		{Name: "decimal.Decimal.sqrt", Fn: rt.DecimalSqrt},
+		{Name: "decimal.Decimal.sqrt_exact", Fn: rt.DecimalSqrtExact},
 		{Name: "decimal.Decimal.normalize", Fn: rt.DecimalNormalize, Pure: true},
 		{Name: "decimal.Decimal.scale", Fn: rt.DecimalScale, Pure: true},
 		{Name: "strings.String.repeat", Fn: rt.StringRepeat},
@@ -606,7 +604,7 @@ func RtFuncs() []Binding {
 		{Name: "http/host.certificate_from_pem", Fn: stdhttp.CertificateFromPEM},
 		{Name: "http/host.certificate_load", Fn: stdhttp.CertificateLoad, Class: ClassFiles},
 		{Name: "http/host.certificate_info", Fn: stdhttp.CertificateInfo},
-		{Name: "http/host.tls_config", Fn: stdhttp.TLSConfig},
+		{Name: "http/host.tls_config", Fn: stdhttp.TLSConfig, PanicsPropagate: true},
 		{Name: "http/host.tls_with_certificate", Fn: stdhttp.TLSWithCertificate},
 		{Name: "http/host.cipher_suites", Fn: stdhttp.CipherSuites},
 		{Name: "http/host.cipher_suite_name", Fn: stdhttp.CipherSuiteName},
@@ -683,7 +681,6 @@ func RtFuncs() []Binding {
 		{Name: "http/host.next", Fn: stdhttp.Next},
 		{Name: "http/host.shutdown", Fn: stdhttp.Shutdown},
 		{Name: "http/host.in_method", Fn: stdhttp.InMethod},
-		{Name: "http/host.in_url", Fn: stdhttp.InURL},
 		{Name: "http/host.in_host", Fn: stdhttp.InHost},
 		{Name: "http/host.in_remote", Fn: stdhttp.InRemote},
 		{Name: "http/host.in_target", Fn: stdhttp.InTarget},

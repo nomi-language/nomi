@@ -40,7 +40,7 @@ end
 
 fn put(grid: Vector<Vector<Int>>, row: Int, column: Int, value: Int) -> Maybe<Vector<Vector<Int>>>
     cells = Vector.get(grid, row)?
-    Some(Vector.set(grid, row, Vector.set(cells, column, value)))
+    Vector.set(grid, row, Vector.set(cells, column, value)?)
 end
 
 fn sets() -> Result<Vector<Set<Int>>, String>
@@ -62,9 +62,9 @@ fn main()
     grid = Vector[Vector[0, 0], Vector[0, 0]]
     io.inspect(put(grid, 1, 0, 7))
     io.inspect(put(grid, 2, 0, 7))
-    written = Vector.set(grid, 0, Vector[5])
+    written = Vector.set(grid, 0, Vector[5])!
     io.inspect(written)
-    io.inspect(Maybe.map(Vector.get(grid, 0), fn cells -> Vector.set(grid, 1, cells)))
+    io.inspect(Maybe.map(Vector.get(grid, 0), fn cells -> Vector.set(grid, 1, cells)!))
     io.inspect(Board{rows: put(grid, 0, 1, 3)})
     io.inspect(sets())
     io.inspect(lists())

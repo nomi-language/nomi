@@ -12,7 +12,7 @@
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
 records 84
-declared-cases 1037
+declared-cases 1060
 failing 0
 C actors
 E 0
@@ -39,8 +39,8 @@ T ok base64.encode_url
 T ok base64.decode_url
 C bits
 E 0
-N 7
-H 31c047a31046b683d07255b36bd37b29c19823aae8d442804b15227884bdcd4b
+N 8
+H 9c9624255f10c13eef4e1a207904ecff49f13640f7480e124aed6586b474ce48
 T ok struct Bits
 T ok Bits.parse
 T ok Bits.matches
@@ -48,6 +48,7 @@ T ok Bits.field
 T ok Bits.width
 T ok Bits.mask
 T ok Bits.value
+T ok type FieldBits
 C bool
 E 0
 N 2
@@ -80,8 +81,8 @@ T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 65
-H c15fa0de9ea52cbfb31ea9ef4447e2a388cde11d2ee5cd35a92008d300462779
+N 66
+H 61e6f02f84987ac8c9b95c19727cfcd9688666fbc90bfd985fe0d2a4a4b94301
 T ok type Months
 T ok type Hours
 T ok struct Date
@@ -137,6 +138,7 @@ T ok DateTime.now_in
 T ok DateTime.to_offset
 T ok DateTime.to_naive
 T ok DateTime.with_zone
+T ok DateTime.zone
 T ok DateTime.parse
 T ok DateTime.between
 T ok enum Weekday
@@ -220,8 +222,9 @@ T ok Context.with_value
 T ok Context.value
 C csv
 E 0
-N 13
-H 88ce9dcca19863525bca8fd1952fd47ce33f678dd0103aafc2bfc65c010c2336
+N 14
+H bd71572fe956fb1619b88a68b109bb815743f140690c3f21c4a8ffa7851c58a5
+T ok type Delimiter
 T ok struct Options
 T ok enum Error
 T ok struct Row
@@ -248,15 +251,17 @@ T ok Currency.is_iso
 T ok Error.to_string (impl Display for Error)
 C decimal
 E 0
-N 28
-H b6cdaa824c1fe0225de6146253674062aabd8a1e77b2563b114e15222ca29286
+N 31
+H df2fc1e90e966e25cad540f9b627646e9a2426961f13e412fcf07e41311a38bb
 T ok Decimal.to_int
 T ok Decimal.to_float
 T ok Decimal.divide
 T ok Decimal.divide_exact
 T ok Decimal.round
+T ok Decimal.round_exact
 T ok Decimal.pow
 T ok Decimal.sqrt
+T ok Decimal.sqrt_exact
 T ok Decimal.normalize
 T ok Decimal.scale
 T ok Decimal.abs
@@ -271,23 +276,26 @@ T ok Decimal.parse_in
 T ok Decimal.parse_percent_in
 T ok Decimal.to_string (impl Display for Decimal)
 T ok Decimal.empty_sum (impl Summable for Decimal)
-T ok Decimal.divide Divide<Decimal, Decimal> (impl Divide<Decimal, Decimal> for Decimal)
-T ok Decimal.remainder (impl Remainder<Decimal, Decimal> for Decimal)
+T ok Decimal.divide Divide<NonZeroDecimal, Decimal> (impl Divide<NonZeroDecimal, Decimal> for Decimal)
+T ok Decimal.remainder (impl Remainder<NonZeroDecimal, Decimal> for Decimal)
 T ok Decimal.empty_product (impl Productable for Decimal)
 T ok Decimal.step_by (impl Steppable for Decimal)
 T ok type NonZeroDecimal
 T ok type NonNegativeDecimal
 T ok type PositiveDecimal
+T ok type Ratios
 C duration
 E 0
-N 26
-H 35e8f1bcb3735cb3cac539d2901a262047a82ab854931bd21d1f49dfad76e8d9
+N 30
+H 8efc0c5c642527eb72cc5bf7cac6afc8e52cecc8fe1d85aba287e2e055e3239e
+T ok type Duration
 T ok Duration.nanoseconds
 T ok Duration.microseconds
 T ok Duration.milliseconds
 T ok Duration.seconds
 T ok Duration.minutes
 T ok Duration.hours
+T ok Duration.abs
 T ok Duration.as_nanos
 T ok Duration.as_micros
 T ok Duration.as_millis
@@ -303,10 +311,12 @@ T ok Duration.add (impl Add<Duration, Duration> for Duration)
 T ok Duration.empty_sum (impl Summable for Duration)
 T ok Duration.subtract (impl Subtract<Duration, Duration> for Duration)
 T ok Duration.multiply (impl Multiply<Int, Duration> for Duration)
-T ok Duration.divide (impl Divide<Int, Duration> for Duration)
-T ok Duration.remainder (impl Remainder<Duration, Duration> for Duration)
+T ok Duration.divide (impl Divide<NonZeroInt, Duration> for Duration)
+T ok Duration.remainder (impl Remainder<NonZeroDuration, Duration> for Duration)
 T ok Duration.to_string (impl Display for Duration)
 T ok Duration.inspect (impl Debug for Duration)
+T ok type NonZeroDuration
+T ok type NonNegativeDuration
 T ok type PositiveDuration
 C embed
 E 0
@@ -447,8 +457,8 @@ T ok Html.concat
 T ok Html.each
 C http
 E 0
-N 75
-H 0877702dff421e0990f981bce5b78e7ac88fba7609666b34bcbc20595f5c25c1
+N 76
+H 13d4430e5f3e1c9d718a6faa77e440785550b5dcc18bd7f9dae7b1b69c716313
 T ok Method.text
 T ok Method.parse
 T ok Status.from_code
@@ -486,6 +496,7 @@ T ok Response.with_default_headers
 T ok Response.json_as
 T ok interface ToResponse
 T ok Protocols.to_string (impl Display for Protocols)
+T ok Client.with_tls
 T ok http.stream
 T ok type Route
 T ok Route.parse
@@ -550,8 +561,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 38
-H 036526afb40ffa4bf4baa402ae278a71810e240cf8bc7b5d391c376d8f741512
+N 39
+H 8140fc296ce59910ca0c077f709d989a8dfd9ae624024c5f8bdc16562974e7a5
 T ok type Int
 T ok Int.to_float
 T ok Int.to_decimal
@@ -577,19 +588,20 @@ T ok Int.parse_in
 T ok Int.to_string (impl Display for Int)
 T ok Int.empty_sum (impl Summable for Int)
 T ok Int.empty_product (impl Productable for Int)
-T ok Int.divide (impl Divide<Int, Int> for Int)
-T ok Int.remainder (impl Remainder<Int, Int> for Int)
+T ok Int.divide (impl Divide<NonZeroInt, Int> for Int)
+T ok Int.remainder (impl Remainder<NonZeroInt, Int> for Int)
 T ok Int.bitwise_and (impl BitwiseAnd<Int, Int> for Int)
 T ok Int.bitwise_or (impl BitwiseOr<Int, Int> for Int)
 T ok Int.bitwise_xor (impl BitwiseXor<Int, Int> for Int)
 T ok Int.bitwise_not (impl BitwiseNot<Int> for Int)
-T ok Int.shift_left (impl ShiftLeft<Int, Int> for Int)
-T ok Int.shift_right (impl ShiftRight<Int, Int> for Int)
+T ok Int.shift_left (impl ShiftLeft<NonNegativeInt, Int> for Int)
+T ok Int.shift_right (impl ShiftRight<NonNegativeInt, Int> for Int)
 T ok Int.inspect (impl Debug for Int)
 T ok type NonZeroInt
 T ok type NonNegativeInt
 T ok type PositiveInt
 T ok type Radix
+T ok type Int64
 C io
 E 0
 N 33
@@ -724,22 +736,24 @@ T ok testing.conformance
 T ok testing.rules
 C json
 E 0
-N 7
-H 8db274a16debc2fd840d31f6907c5b1898bd2b0158b155f38dbf5e14c3420d7f
+N 8
+H 60769a894c6c76a80d23501309b9f6cffbe1e1c60676b4ddb4afb27a798601c2
 T ok Json.decode
 T ok Json.encode
 T ok Json.to_dynamic
 T ok Json.decode_as
 T ok Json.encode_as
+T ok type JsonObject
 T ok interface ToJson
 T ok interface FromJson
 C jwt
 E 0
-N 5
-H 55f3408ad1a605935a5442a36bdc64939dbfb11b041f40a6abb1d1b5e4c06f6d
+N 6
+H 7d2b88112dd2c2c86e0ae96833a42e95b99db67fc570f953f7b1de84d82dccc7
 T ok SigningKey.hs256
 T ok SigningKey.eddsa
 T ok jwt.sign
+T ok jwt.sign_as
 T ok jwt.verify
 T ok jwt.verify_as
 C lists
@@ -909,8 +923,8 @@ T ok Maybe.values
 T ok Maybe.each_while (impl Iter for Maybe<T>)
 C money
 E 0
-N 21
-H 0e740a04ddde50c3e0073fb091b8229f6f379b41caa37eada7ef57930479c256
+N 22
+H c5c2c2d6014b3788316498682d7741aad9d11dfeaa87e0f1d8f8ebcf49a59ba0
 T ok struct Money
 T ok Money.format
 T ok Money.round
@@ -921,17 +935,18 @@ T ok Money.sign
 T ok Money.is_zero
 T ok Money.min
 T ok Money.max
+T ok Money.add
+T ok Money.subtract
+T ok Money.sum
 T ok Money.parse
 T ok Money.parse_in
 T ok Money.split
 T ok Money.allocate
-T ok Money.add (impl Add<Money, Money> for Money)
-T ok Money.subtract (impl Subtract<Money, Money> for Money)
 T ok Money.multiply (impl Multiply<Int, Money> for Money)
-T ok Money.empty_sum (impl Summable for Money)
 T ok Money.from_fragments (impl Literal for Money)
 T ok Money.to_string (impl Display for Money)
 T ok Error.to_string (impl Display for Error)
+T ok CurrencyMismatch.to_string (impl Display for CurrencyMismatch)
 C net
 E 0
 N 6
@@ -998,9 +1013,10 @@ T ok Presence.to_json (impl ToJson for Presence<T>)
 T ok Presence.from_json (impl FromJson for Presence<T>)
 C process
 E 0
-N 8
-H a41908e48a5e6da07ea2206a89d75e071f2a665dba2f48d6a01dc23ab915262a
+N 9
+H e6d69d80921668b9f69be1739db26eb45e469331db6f07048319470b173bdf53
 T ok struct Exit
+T ok type ExitCode
 T ok struct Command
 T ok Status.is_success
 T ok Status.code
@@ -1021,8 +1037,9 @@ H 160ca3a8a6588c1e688c9dfee1c5e35f497aa4ac7e136b369308cf3c6b427846
 T ok interface Productable
 C random
 E 0
-N 12
-H f5cd607ec906af53f51cb8d28240018c77db5e4025e55471b535737428f1c8e8
+N 13
+H 3cfb6e6bf1b93ffae98ad821e904243b29f94f6b889d076be430b220efe3ecc8
+T ok type FiniteRange
 T ok Seed.from_int
 T ok random.secure_bytes
 T ok Generator.step
@@ -1037,14 +1054,20 @@ T ok Generator.flat_map
 T ok Generator.list
 C ranges
 E 0
-N 6
-H d9a0d675c8bc90282c1ced311c9c778cedfad73f6ec4477a01ea657d7cb819a9
+N 12
+H cdb652801875b25b2df9ca66f9db1eeaae682eb9a99cf445bfe2bdbfbc673bcc
 T ok Range.from
 T ok Range.naturals
 T ok Range.step_by
 T ok Range.is_bounded
+T ok Range.start
+T ok Range.stop
+T ok Range.is_inclusive
 T ok Range.contains (impl Contains for Range<T>)
 T ok Range.to_string (impl Display for Range<T>)
+T ok type NonEmptyRange
+T ok type ClosedRange
+T ok type BoundedRange
 C regex
 E 0
 N 4

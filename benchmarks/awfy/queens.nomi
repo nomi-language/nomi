@@ -44,7 +44,7 @@ fn place_queen(board: Board, c: Int) -> Maybe<Board>
     0..8
     |> Iter.find_map(fn r ->
         if get_row_column(board, r, c) then
-            placed = set_row_column({..board, queen_rows: Vector.set(.., r, c)}, r, c, False)
+            placed = set_row_column({..board, queen_rows: Vector.set(.., r, c)!}, r, c, False)
 
             if c == 7 then
                 Some(placed)
@@ -66,9 +66,9 @@ end
 fn set_row_column(board: Board, r: Int, c: Int, v: Bool) -> Board
     {
         ..board,
-        free_rows: Vector.set(.., r, v),
-        free_maxs: Vector.set(.., c + r, v),
-        free_mins: Vector.set(.., c - r + 7, v),
+        free_rows: Vector.set(.., r, v)!,
+        free_maxs: Vector.set(.., c + r, v)!,
+        free_mins: Vector.set(.., c - r + 7, v)!,
     }
 end
 

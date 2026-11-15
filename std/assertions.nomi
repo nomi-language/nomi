@@ -15,7 +15,7 @@
 //# `Result<Subject, AssertionFailure>` value instead of propagating.
 
 import
-    int.Int
+    int.Int64
     lists.List
     maybe.Maybe.{self, None}
     strings.String
@@ -90,7 +90,7 @@ end
 /// failing rows of a `subtests` statement, whose `keyword` is `"subtests"`,
 /// and is empty for every other failure.
 pub struct AssertionFailure
-    line:       Int
+    line:       Int64
     keyword:    String
     expression: String
     reason:     String

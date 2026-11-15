@@ -17,8 +17,10 @@
 //   - a slice by its length and then its elements, nil and empty told apart;
 //   - *big.Int and *ast.Expansion by hand-written codecs (codec.go).
 //
-// Any other field type, or an unexported field outside Expansion, is an
-// error, so no field is ever silently left out.
+// An unexported field is written by a hand-written method when handWritten
+// names it (a withheld impl block's parts), and left out when analysisSets
+// does. Any other field type, or another unexported field outside
+// Expansion, is an error, so no field is ever silently left out.
 package codecgen
 
 import (
@@ -309,7 +311,7 @@ func (g *gen) wantStruct(n *types.Named, s *types.Struct) error {
 		return nil
 	}
 	for i := range s.NumFields() {
-		if f := s.Field(i); !f.Exported() && !analysisSets[name+"."+f.Name()] {
+		if f := s.Field(i); !f.Exported() && !analysisSets[name+"."+f.Name()] && handWritten[name+"."+f.Name()] == "" {
 			return fmt.Errorf("struct %s has an unexported field %s, which the codec cannot write", name, f.Name())
 		}
 	}
@@ -319,13 +321,18 @@ func (g *gen) wantStruct(n *types.Named, s *types.Struct) error {
 
 // analysisSets are the unexported fields the analysis sets on a tree it
 // checks, which a tree as the parser and the expansions leave it, the tree
-// an interface holds, never has set: a block the analysis writes and
-// withholds (ImplBlock.pending) is no declaration of that tree. The codec
-// does not write them.
+// an interface holds, never has set. The codec does not write them.
 var analysisSets = map[string]bool{
 	"TaggedString.expansion": true,
 	"TaggedString.template":  true,
-	"ImplBlock.pending":      true,
+}
+
+// handWritten are the unexported fields a hand-written method of the
+// encoder and the decoder writes (codec.go), given the struct holding the
+// field. A block the analysis writes and withholds (ImplBlock.pending) is
+// in the analyzed trees the stdlib's state holds, which read back with it.
+var handWritten = map[string]string{
+	"ImplBlock.pending": "implPending",
 }
 
 func (g *gen) file() ([]byte, error) {
@@ -415,6 +422,11 @@ func (g *gen) file() ([]byte, error) {
 			g.tmp = 0
 			for i := range s.NumFields() {
 				f := s.Field(i)
+				if hook := handWritten[name+"."+f.Name()]; hook != "" {
+					fmt.Fprintf(&eb, "e.%s(x)\n", hook)
+					fmt.Fprintf(&db, "d.%s(x)\n", hook)
+					continue
+				}
 				if !f.Exported() {
 					continue
 				}

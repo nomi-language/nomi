@@ -105,7 +105,7 @@ type vectorFn struct {
 	// result is how the result kind is derived. "vector" is `Vector<T>`, "int"
 	// `Int`, "bool" `Bool`, "string" `String`, "ordering" the
 	// shared `Ordering`, "elem" `T`, "maybeElem" `Maybe<T>`,
-	// "nextItem" `Maybe<(T, Vector<T>)>`.
+	// "maybeVector" `Maybe<Vector<T>>`, "nextItem" `Maybe<(T, Vector<T>)>`.
 	result string
 	// ops records which element operation the rt call needs appended: "" none,
 	// "eq", "hash", "cmp", or "render" for a rendering.
@@ -127,7 +127,7 @@ var vectorFuncs = map[string]vectorFn{
 	"length":    {rtCall: "rt.VectorLength", vecs: 1, result: "int"},
 	"get":       {rtCall: "rt.VectorGet", vecs: 1, rest: []string{"int"}, result: "maybeElem"},
 	"push":      {rtCall: "rt.VectorPush", vecs: 1, rest: []string{"elem"}, result: "vector"},
-	"set":       {rtCall: "rt.VectorSet", vecs: 1, rest: []string{"int", "elem"}, result: "vector"},
+	"set":       {rtCall: "rt.VectorSet", vecs: 1, rest: []string{"int", "elem"}, result: "maybeVector"},
 	"concat":    {rtCall: "rt.VectorConcat", vecs: 2, result: "vector"},
 	"next_item": {rtCall: "rt.VectorNextItem", vecs: 1, result: "nextItem"},
 
@@ -191,6 +191,8 @@ func (g *gen) vectorResultKind(tag string, vk, elem kind, at ast.Node) (kind, bo
 		return stdEnumKind(stdEnumOrdering), true
 	case "maybeElem":
 		return g.maybeOf(elem, at)
+	case "maybeVector":
+		return g.maybeOf(vk, at)
 	case "elem":
 		return elem, true
 	case "nextItem":

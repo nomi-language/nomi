@@ -361,13 +361,18 @@ func TestRunFile_FFINumericWidthHelpersRoundTrip(t *testing.T) {
 		t.Skip("integration; -short")
 	}
 	cacheRoot := t.TempDir()
-	projectRoot, entryPath := stageNumericWidthFixture(t, `import std::io
+	projectRoot, entryPath := stageNumericWidthFixture(t, `import
+  std::int.Int64
+  std::io
+end
 
 gopkg "widthbinding" as ffi
 
-fn double_int(n: Int) -> Int go ffi.DoubleInt
+subtype Uint32 Int when fn n -> n >= 0 and n <= 4294967295
 
-fn add_u32(n: Int) -> Int go ffi.AddUint32
+fn double_int(n: Int64) -> Int go ffi.DoubleInt
+
+fn add_u32(n: Uint32) -> Int go ffi.AddUint32
 
 fn main()
   io.print(double_int(21))
@@ -391,7 +396,10 @@ end
 	_ = projectRoot
 }
 
-func TestRunFile_FFINumericWidthHelperOverflow(t *testing.T) {
+// A binding whose Int parameter admits values its Go integer cannot hold is
+// an error at the binding, before the program runs, naming the type to
+// declare.
+func TestRunFile_FFINumericWidthHelperRefusesAWiderInt(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
@@ -403,18 +411,21 @@ gopkg "widthbinding" as ffi
 fn double_tiny(n: Int) -> Int go ffi.DoubleInt8
 
 fn main()
-  io.print(double_tiny(128))
+  io.print("ran")
+  io.print(double_tiny(12))
 end
 `)
 	out, err := runNomi(t, cacheRoot, "run", entryPath)
 	if err == nil {
 		t.Fatalf("expected nomi run to fail, got output:\n%s", out)
 	}
-	if want := "line 8: `widthbinding.DoubleInt8`'s `n` takes an Int that fits in 8 bits; got 128"; !strings.Contains(out, want) {
+	want := `main.nomi:5:38: Go function "DoubleInt8" in package "widthbinding": parameter n (Int) to Go int8: ` +
+		"Go int8 holds an Int in -128..127, and Int admits Ints past that: declare it a subtype whose `when` bounds it within -128..127"
+	if !strings.Contains(out, want) {
 		t.Fatalf("expected %q in output, got:\n%s", want, out)
 	}
-	if strings.Contains(out, "BLOCKED") || strings.Contains(out, "machine limit") {
-		t.Fatalf("an Int past the Go slot is a trap, not a machine limit:\n%s", out)
+	if strings.Contains(out, "ran") {
+		t.Fatalf("the program ran past a refused binding:\n%s", out)
 	}
 	_ = projectRoot
 }
@@ -2166,9 +2177,10 @@ func TestTestCommand_StdlibFileIsTestedAsItIsOnDisk(t *testing.T) {
 	})
 
 	t.Run("edited body", func(t *testing.T) {
-		const body = "Ok(Time{hour:, minute:, second:, nanosecond:})"
-		replaceInFile(t, calendar, body, "Ok(Time{hour:, minute: minute + 1, second:, nanosecond:})")
-		defer replaceInFile(t, calendar, "Ok(Time{hour:, minute: minute + 1, second:, nanosecond:})", body)
+		const body = "minute:     component(minute),"
+		const edited = "minute:     component(minute + 1),"
+		replaceInFile(t, calendar, body, edited)
+		defer replaceInFile(t, calendar, edited, body)
 		out, err := runNomiWithStd(t, cacheRoot, stdPath, "test", calendar, "--line", line)
 		if err == nil {
 			t.Fatalf("a prompt calling an edited body passed, so the embedded body ran:\n%s", out)
@@ -3172,14 +3184,15 @@ entry_points = ["main"]
 
 	entry := filepath.Join(root, "main.nomi")
 	mustWrite(t, entry, `import
+  std::int.Int64
   std::io
 end
 
 gopkg "mapbinding" as ffi
 
-fn counts() -> Map<String, Int> go ffi.Counts
+fn counts() -> Map<String, Int64> go ffi.Counts
 
-fn add_totals(items: Map<String, Int>) -> Map<String, Int> go ffi.AddTotals
+fn add_totals(items: Map<String, Int64>) -> Map<String, Int> go ffi.AddTotals
 
 fn main()
   counted = counts()
@@ -3313,13 +3326,16 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std::io
+	mustWrite(t, entry, `import
+  std::int.Int64
+  std::io
+end
 
 gopkg "maybeokbinding" as ffi
 
 fn lookup(key: String) -> Maybe<Int> go ffi.LookupMaybe
 
-fn describe(value: Maybe<Int>) -> String go ffi.DescribeMaybe
+fn describe(value: Maybe<Int64>) -> String go ffi.DescribeMaybe
 
 fn main()
   present = lookup("present")
@@ -3515,7 +3531,10 @@ entry_points = ["main"]
 `)
 
 	entry := filepath.Join(root, "main.nomi")
-	mustWrite(t, entry, `import std::io
+	mustWrite(t, entry, `import
+  std::int.Int64
+  std::io
+end
 
 gopkg "structbinding" as ffi
 
@@ -3528,7 +3547,7 @@ derive Display for Address
 
 struct User
   name: String
-  age: Int
+  age: Int64
 end
 
 struct Profile

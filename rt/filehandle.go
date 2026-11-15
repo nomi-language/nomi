@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"runtime"
-	"strconv"
 	"sync"
 )
 
@@ -102,20 +101,24 @@ func fileDo[T any](f File, body func(st *fileState) Result[T, IOError]) Result[T
 	return body(st)
 }
 
-func checkMax(op string, max int64) {
-	if max <= 0 {
-		Trap(op + ": max is " + strconv.FormatInt(max, 10) + "; it must be at least 1")
-	}
-}
-
-func checkOffset(op string, offset int64) {
-	if offset < 0 {
-		Trap(op + ": the position is " + strconv.FormatInt(offset, 10) + "; it must be at least 0")
-	}
-}
-
 // readAt reads up to max bytes at offset: Ok(None) at or past the end.
-func (st *fileState) readAt(offset, max int64) Result[Maybe[Bytes], IOError] {
+// Both are Ints of any size. An offset past int64 is past the end of every
+// file, and a read past what the file holds reads what it holds, so the
+// buffer is never larger than the file.
+func (st *fileState) readAt(offsetArg, maxArg Int) Result[Maybe[Bytes], IOError] {
+	offset, ok := offsetArg.Int64()
+	if !ok {
+		return Ok[Maybe[Bytes], IOError](None[Bytes]())
+	}
+	max := maxArg.Saturated()
+	if max > readChunk {
+		if size, err := st.src.Size(); err == nil {
+			max = min(max, size-offset)
+		}
+		if max <= 0 {
+			return Ok[Maybe[Bytes], IOError](None[Bytes]())
+		}
+	}
 	buf := make([]byte, max)
 	n, err := st.src.F.ReadAt(buf, offset)
 	if n > 0 {
@@ -127,9 +130,24 @@ func (st *fileState) readAt(offset, max int64) Result[Maybe[Bytes], IOError] {
 	return Err[Maybe[Bytes]](st.fail("read", err))
 }
 
-func (st *fileState) writeAt(offset int64, data Bytes) Result[Unit, IOError] {
+// readChunk is the read size past which readAt holds a read to the
+// file's size before it allocates.
+const readChunk = 1 << 20
+
+// pastFile is the error for an offset past int64, which no operating
+// system's file reaches: what one reports for a write or a size past its
+// largest file.
+func (st *fileState) pastFile(op, code string) IOError {
+	return IOError{Tag: TagIOOther, Path: st.src.Name, Operation: op, Code: code}
+}
+
+func (st *fileState) writeAt(offsetArg Int, data Bytes) Result[Unit, IOError] {
 	if !st.src.Writable {
 		return Err[Unit](IOError{Tag: TagIOPermissionDenied, Path: st.src.Name})
+	}
+	offset, ok := offsetArg.Int64()
+	if !ok {
+		return Err[Unit](st.pastFile("write", "EFBIG"))
 	}
 	if _, err := st.src.F.WriteAt([]byte(data), offset); err != nil {
 		return Err[Unit](st.fail("write", err))
@@ -138,11 +156,11 @@ func (st *fileState) writeAt(offset int64, data Bytes) Result[Unit, IOError] {
 }
 
 // FileRead is std/io's private `file_read`, which `File.read` calls: up to
-// max bytes at the position, which moves past them.
-func FileRead(f File, max int64) Result[Maybe[Bytes], IOError] {
-	checkMax("File.read", max)
+// max bytes at the position, which moves past them. std declares max a
+// PositiveInt, and every position here a NonNegativeInt, so none is checked.
+func FileRead(f File, max Int) Result[Maybe[Bytes], IOError] {
 	return fileDo(f, func(st *fileState) Result[Maybe[Bytes], IOError] {
-		got := st.readAt(st.pos, max)
+		got := st.readAt(SmallInt(st.pos), max)
 		if got.Tag == TagOk && got.Ok.Tag == TagSome {
 			st.pos += int64(len(got.Ok.Some))
 		}
@@ -152,16 +170,14 @@ func FileRead(f File, max int64) Result[Maybe[Bytes], IOError] {
 
 // FileReadAt is `File.read_at`: up to max bytes at offset. The position
 // stays where it was.
-func FileReadAt(f File, offset, max int64) Result[Maybe[Bytes], IOError] {
-	checkOffset("File.read_at", offset)
-	checkMax("File.read_at", max)
+func FileReadAt(f File, offset, max Int) Result[Maybe[Bytes], IOError] {
 	return fileDo(f, func(st *fileState) Result[Maybe[Bytes], IOError] { return st.readAt(offset, max) })
 }
 
 // FileWrite is `File.write`: data at the position, which moves past it.
 func FileWrite(f File, data Bytes) Result[Unit, IOError] {
 	return fileDo(f, func(st *fileState) Result[Unit, IOError] {
-		res := st.writeAt(st.pos, data)
+		res := st.writeAt(SmallInt(st.pos), data)
 		if res.Tag == TagOk {
 			st.pos += int64(len(data))
 		}
@@ -171,16 +187,20 @@ func FileWrite(f File, data Bytes) Result[Unit, IOError] {
 
 // FileWriteAt is `File.write_at`: data at offset. A write past the end
 // fills the gap with zeros. The position stays where it was.
-func FileWriteAt(f File, offset int64, data Bytes) Result[Unit, IOError] {
-	checkOffset("File.write_at", offset)
+func FileWriteAt(f File, offset Int, data Bytes) Result[Unit, IOError] {
 	return fileDo(f, func(st *fileState) Result[Unit, IOError] { return st.writeAt(offset, data) })
 }
 
 // FileSeek is `File.seek`: the position becomes to, counted from the start.
-// A position past the end is allowed; a write there fills the gap.
-func FileSeek(f File, to int64) Result[Unit, IOError] {
-	checkOffset("File.seek", to)
+// A position past the end is allowed; a write there fills the gap. One past
+// int64 is past what a file's position holds, as an operating system's
+// seek reports.
+func FileSeek(f File, toArg Int) Result[Unit, IOError] {
 	return fileDo(f, func(st *fileState) Result[Unit, IOError] {
+		to, ok := toArg.Int64()
+		if !ok {
+			return Err[Unit](st.pastFile("seek", "EOVERFLOW"))
+		}
 		st.pos = to
 		return Ok[Unit, IOError](Unit{})
 	})
@@ -204,11 +224,14 @@ func FileSize(f File) Result[int64, IOError] {
 
 // FileTruncate is `File.truncate`: the file's size becomes size. The
 // position stays where it was.
-func FileTruncate(f File, size int64) Result[Unit, IOError] {
-	checkOffset("File.truncate", size)
+func FileTruncate(f File, sizeArg Int) Result[Unit, IOError] {
 	return fileDo(f, func(st *fileState) Result[Unit, IOError] {
 		if !st.src.Writable {
 			return Err[Unit](IOError{Tag: TagIOPermissionDenied, Path: st.src.Name})
+		}
+		size, ok := sizeArg.Int64()
+		if !ok {
+			return Err[Unit](st.pastFile("truncate", "EFBIG"))
 		}
 		if err := st.src.F.Truncate(size); err != nil {
 			return Err[Unit](st.fail("truncate", err))

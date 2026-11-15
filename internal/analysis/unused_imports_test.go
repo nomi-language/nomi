@@ -279,6 +279,17 @@ end
 `))
 }
 
+// A member of an intersection annotation (`NonNegativeInt and Int64`)
+// counts as a use of the imported type.
+func TestUnusedImport_IntersectionMemberIsUse(t *testing.T) {
+	expectNoUnused(t, buildErrsWithStdlib(t, `import std::int.Int64
+
+fn f(n: NonNegativeInt and Int64) -> Int
+  n
+end
+`))
+}
+
 // A typed-literal tag (`Date"..."`) counts as a use of the imported tag
 // type, even though the tag reference is recorded as a proxy symbol.
 func TestUnusedImport_TypedLiteralTagIsUse(t *testing.T) {

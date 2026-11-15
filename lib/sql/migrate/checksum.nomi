@@ -27,8 +27,7 @@ end
 fn hex(n: Int) -> String
     digits = "0123456789abcdef"
 
-    Iter.from(0)
-    |> Iter.take(16)
+    0..16
     |> Iter.map(fn k ->
         nibble = Int.bitwise_and(Int.shift_right(n, 60 - 4 * k), 15)
         String.slice(digits, nibble, nibble + 1)

@@ -56,16 +56,25 @@ impl Context
     pub host fn deadline_remaining(c: Context) -> Maybe<Duration>
 
     /// Child context with deadline at `at`. If the parent has a tighter
-    /// deadline already, the parent's deadline wins (no-op).
+    /// deadline already, the parent's deadline wins (no-op). The clock
+    /// counts a deadline in 64 bits of nanoseconds, so one past the year
+    /// 2262 is clamped to the latest it counts, which no program reaches,
+    /// and one before 1677 to the earliest, which has passed.
     //! child = Context.with_deadline(Context.root(), Instant.from_seconds(0))
     //! assert Context.deadline_remaining(child) == Maybe.Some(Duration.seconds(0))
     //
     pub host fn with_deadline(c: Context, at: Instant) -> Context
 
     /// Child context with deadline at `now() + dur`. If the parent has
-    /// a tighter deadline already, the parent's deadline wins.
+    /// a tighter deadline already, the parent's deadline wins. A zero or
+    /// negative `dur` makes a context whose deadline has already passed. A
+    /// deadline past the year 2262, the latest the clock counts, is that
+    /// latest moment, which no program reaches.
     //! child = Context.with_timeout(Context.root(), Duration.seconds(-1))
     //! assert Context.deadline_remaining(child) == Maybe.Some(Duration.seconds(0))
+    //!
+    //! never = Context.with_timeout(Context.root(), Duration.hours(1_000_000_000))
+    //! assert Context.deadline(never) == Maybe.Some(Instant.from_nanos(9_223_372_036_854_775_807))
     //
     pub host fn with_timeout(c: Context, dur: Duration) -> Context
 

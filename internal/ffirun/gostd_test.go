@@ -74,12 +74,14 @@ func discoverStd(t *testing.T, src string) (string, []DiscoveredPackage) {
 	return root, got
 }
 
-const stdBindingsSource = `gopkg "strings" as strings
+const stdBindingsSource = `import std::int.Int64
+
+gopkg "strings" as strings
 gopkg "strconv" as strconv
 gopkg "math" as math
 
 fn upper(s: String) -> String go strings.ToUpper
-fn itoa(n: Int) -> String go strconv.Itoa
+fn itoa(n: Int64) -> String go strconv.Itoa
 fn atoi(s: String) -> Result<Int, String> go strconv.Atoi
 fn sqrt(x: Float) -> Float go math.Sqrt
 `
@@ -192,9 +194,11 @@ func TestComputeHashes_StdBindingKeysTheToolchain(t *testing.T) {
 // than to a Maybe of a struct, and its adapter converts it as an Int of any
 // size. Declaring it as a Maybe is a mismatch that names Int.
 func TestStdBindings_BigIntCrossesAsInt(t *testing.T) {
-	root, got := discoverStd(t, `gopkg "math/big" as big
+	root, got := discoverStd(t, `import std::int.Int64
 
-fn new_int(x: Int) -> Int go big.NewInt
+gopkg "math/big" as big
+
+fn new_int(x: Int64) -> Int go big.NewInt
 fn jacobi(x: Int, y: Int) -> Int go big.Jacobi
 `)
 	if err := validateDiscoveredGoBindings(root, got); err != nil {
@@ -264,13 +268,16 @@ opaque type B go strs.Builder
 // and answer them. A Go type that is both, io.ReadWriter, projects to
 // neither, and a Reader declared for an io.Writer is the mismatch.
 func TestStdBindings_StreamsCrossAsReaderAndWriter(t *testing.T) {
-	root, got := discoverStd(t, `import std::io.{Reader, Writer}
+	root, got := discoverStd(t, `import
+  std::int.Int64
+  std::io.{Reader, Writer}
+end
 
 gopkg "io" as goio
 gopkg "encoding/hex" as hex
 
 fn tee(r: Reader, w: Writer) -> Reader go goio.TeeReader
-fn limit(r: Reader, n: Int) -> Reader go goio.LimitReader
+fn limit(r: Reader, n: Int64) -> Reader go goio.LimitReader
 fn no_close(r: Reader) -> Reader go goio.NopCloser
 fn hex_encoder(w: Writer) -> Writer go hex.NewEncoder
 fn hex_decoder(r: Reader) -> Reader go hex.NewDecoder

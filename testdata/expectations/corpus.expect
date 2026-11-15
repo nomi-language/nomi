@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population corpus
 what one record per .nomi file under tests/, run as the command that owns it would: `nomi test` when the file declares tests, `nomi run` otherwise, through the generated FFI wrapper when the project needs one. N is the case count vmcmd.Tester.File answers, each `subtests` row a case.
-records 754
-declared-cases 4192
+records 757
+declared-cases 4216
 failing 0
 C 01-foundations/block_scoping/block_scoping_test.nomi
 E 0
@@ -560,7 +560,7 @@ T
 C 04-scalars-and-text/bits_test.nomi
 E 0
 N 9
-H aac550752eeeb2443f059d1a6a81a08fd802011dfa37b6e3f7ec642d1471c7fd
+H 44efb14515a5c1f8e1691331ff3775e13775d04af4bb7a9081e9f635ccd153b5
 T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern matches the Ints whose fixed bits it names
 T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: bits above the pattern's width must be zero
 T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: the field reads the bits under its letter
@@ -569,27 +569,27 @@ T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern wider than 64 
 T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: Debug writes the literal as written
 T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: parse reads text at run time
 T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: an error says what is wrong with the text
-T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern with no field letter has no field to read
+T ok <root>/tests/04-scalars-and-text/bits_test.nomi :: a pattern with no field letter is no FieldBits, so Bits.field never sees one
 T test result: ok. 9 passed, 0 failed
 T
 C 04-scalars-and-text/bitwise_test.nomi
 E 0
 N 14
-H 24e5b676cc10cba49cb1d6cdc66c1a262dcbc48a5cb1aeca40a614bd28b67079
+H 4589f306f18f99aa8f1dc55444b3ce788293919a4043c2222b8c6bf1d816bedd
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: each operator on Int
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: the operators are the Int functions
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: shifts and &&& bind like *, ||| and ^^^ like +
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: pipes take the operators' results
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: negative Ints read as two's complement with endless ones
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: shifts past 64 bits are exact
-T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative shift count stops the program
-T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative right shift count stops the program
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a shift count that may be negative is refused before the program runs
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative right shift count is refused before the program runs
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a type with no impl names the interface
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a Byte has no shift
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: each operator on Byte
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a distinct type opts in with impls
 T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: bit count and bit length
-T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative bit count stops the program
+T ok <root>/tests/04-scalars-and-text/bitwise_test.nomi :: a negative Int has no bit count, so bit_count takes a NonNegativeInt
 T test result: ok. 14 passed, 0 failed
 T
 C 04-scalars-and-text/byte_literals_test.nomi
@@ -634,8 +634,8 @@ T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/decimals_test.nomi
 E 0
-N 18
-H ddfde736587742708fe12fba91b9398df0f644e320604986d172993cf9d444cc
+N 20
+H aec4dae4eec6fa9b4348f9d5792d435a24ac1813d3175a3f1d3dc68c131a70da
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal literals preserve display scale
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal operators are exact
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal rounding and shaping functions are explicit
@@ -649,12 +649,14 @@ T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal div
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: an exact decimal quotient keeps its smallest scale
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division keeps every integer digit of a large quotient
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division counts significant digits from the first non-zero one
-T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division by zero is a runtime error
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division by zero is refused before the program runs
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: decimal division takes no Int operand
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact keeps the quotient's scale when it terminates
 T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact is None when the quotient does not terminate
-T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact by zero is a runtime error
-T test result: ok. 18 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: divide_exact's divisor is a NonZeroDecimal
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: a computed divisor goes through NonZeroDecimal.try_from
+T ok <root>/tests/04-scalars-and-text/decimals/decimals_test.nomi :: computed ratios go through Ratios.try_from
+T test result: ok. 20 passed, 0 failed
 T
 C 04-scalars-and-text/decimals/test_helpers.nomi
 E 1
@@ -665,13 +667,12 @@ T nomi run: <root>/tests/04-scalars-and-text/decimals/test_helpers.nomi declares
 T
 C 04-scalars-and-text/encodings_test.nomi
 E 0
-N 4
-H 6d8b44684ea1b032ab34291c5727c2642882ba99b13d72d2dd3d7da4bcc4c868
+N 3
+H 527a87ed5cb384bbac02e6170f619a92e5bc6f99c4b3badb9e1cb8469c5fd66d
 T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: a signed token round-trips through base64 and checks in constant time
 T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: hex and base64 read what they write
 T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: a query and a path segment escape what their place needs
-T ok <root>/tests/04-scalars-and-text/encodings_test.nomi :: secure bytes of a negative count trap at the program's call
-T test result: ok. 4 passed, 0 failed
+T test result: ok. 3 passed, 0 failed
 T
 C 04-scalars-and-text/floats_test.nomi
 E 0
@@ -692,12 +693,12 @@ T
 C 04-scalars-and-text/int_exact_test.nomi
 E 0
 N 5
-H 2cbce25f186e796c30b210a72b4a8d48ec31bf29fbabb3c17d5ef08aa1c67e1a
+H e1e07cb5dffe722a021bd7d10fae968495a4b6dbff6feda5e0ce2b40a27cb3b5
 T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: int arithmetic is exact past 64 bits
 T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: a big value that comes back into range is an ordinary Int again
 T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: big values compare, hash and key maps by value
 T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: big values live in structs, enums and patterns
-T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: int modulo by zero traps as the remainder does
+T ok <root>/tests/04-scalars-and-text/int_exact_test.nomi :: a zero remainder divisor is refused, and Int.modulo's divisor is a NonZeroInt
 T test result: ok. 5 passed, 0 failed
 T
 C 04-scalars-and-text/interpolate_composite_test.nomi
@@ -791,27 +792,25 @@ T test result: ok. 4 passed, 0 failed
 T
 C 04-scalars-and-text/random_test.nomi
 E 0
-N 6
-H e18829e5e7cbfe7816cb04f4ce3dc0a1210b4762cc8d39e7c6bc7b2fb15cec30
+N 8
+H e91c59c65e10f3b02d55a271c664afd75b92fcaf4bf462249e5ff25f79f98a72
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: seeded generators produce deterministic values
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: random generators compose dependent draws
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators require positive total weight
-T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators reject negative weights
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: weighted generators reject infinite weights
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: an integer range of any width draws in range
 T ok <root>/tests/04-scalars-and-text/random_test.nomi :: a float range wider than a Float can span draws in range
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: an exclusive integer range leaves out its end
+T ok <root>/tests/04-scalars-and-text/random_test.nomi :: a range computed when the program runs goes through try_from
+T test result: ok. 8 passed, 0 failed
 T
 C 04-scalars-and-text/random_traps_test.nomi
 E 0
-N 6
-H 782118b96455a7489f5f703ab306544daeb7d5a634092543693899624dc0a7e0
-T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: a reversed integer range traps at the program's call
-T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: an empty float range traps at the program's call
-T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal float bounds trap
-T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: a range trap inside a lambda names the lambda's line
-T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal integer bounds make a constant draw
-T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: an infinite float bound traps
-T test result: ok. 6 passed, 0 failed
+N 2
+H c2f9cdaacf34d2531c20c08268123d5e8bb30aad4aac8b929afd4483fa575570
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: equal bounds of an inclusive range make a constant draw
+T ok <root>/tests/04-scalars-and-text/random_traps_test.nomi :: an infinite float bound is no FiniteRange, so Generator.float never sees one
+T test result: ok. 2 passed, 0 failed
 T
 C 04-scalars-and-text/ranges_test.nomi
 E 0
@@ -866,8 +865,8 @@ T test result: ok. 4 passed, 0 failed
 T
 C 05-calendar-and-time/dates_test.nomi
 E 0
-N 10
-H 22aaac0e162d89e2b9fef23670142d3340cdc37619c25084c0d9a8f2caaedc26
+N 11
+H da2e2a61faa5c47a120f9a3edcefe52bc0d062357a8ec46fbb111a06cd1e4381
 T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: dates parse and expose components
 T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date literals support interpolation
 T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date parser is shared by literals and explicit parse
@@ -878,12 +877,13 @@ T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date day and week shif
 T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date month shifts clamp invalid month days
 T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date year shifts clamp leap days when needed
 T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: date adds calendar units with plus
-T test result: ok. 10 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/dates_test.nomi :: a date of any year
+T test result: ok. 11 passed, 0 failed
 T
 C 05-calendar-and-time/datetime_test.nomi
 E 0
-N 8
-H ee380d58aa26b6466496ef0400f2bd85cd5258264b3ce12857b2ccbbcd379814
+N 10
+H c76fb792d3e0dd388af270ed1853ea5594cdaa5ef3649b1e37b60f59ba21b22f
 T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes parse and display RFC 9557 bracket form
 T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes can be built from wall readings and zones
 T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetime components project through the stored zone
@@ -892,7 +892,9 @@ T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetime equa
 T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes can be projected to fixed offset datetimes
 T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes add durations as physical elapsed time
 T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: zoned datetimes support civil sub-day arithmetic
-T test result: ok. 8 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: a zoned datetime holds years past the 64 bits of nanoseconds
+T ok <root>/tests/05-calendar-and-time/datetime_test.nomi :: a zoned datetime has no first or last year
+T test result: ok. 10 passed, 0 failed
 T
 C 05-calendar-and-time/datetime_zone_changes_test.nomi
 E 0
@@ -931,27 +933,31 @@ T test result: ok. 6 passed, 0 failed
 T
 C 05-calendar-and-time/durations_test.nomi
 E 0
-N 5
-H 4ad60ae0dd960197eb29f4f6ed670965d8dcf166e0196d16f01f3f987832d6b0
+N 6
+H a248d8fb34fcae7f86b22f83186584f2d547e72337b540c4683d6232abf7c4e6
 T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations construct from named units
 T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: duration debug matches display
 T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations expose total units
 T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations support arithmetic
 T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: duration equality uses nanosecond magnitude
-T test result: ok. 5 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/durations_test.nomi :: durations have no range
+T test result: ok. 6 passed, 0 failed
 T
 C 05-calendar-and-time/instant_test.nomi
 E 0
-N 2
-H e59ec8b6a4ae06b9255c82b2dea249e9a64a4b05a5d7a01dbe85c7e8233ba830
+N 5
+H daefc10e4ceec4b0384e98951116d3c64891f5df9a83787c03d02970f7f45b7c
 T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: instants add durations
 T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: instants subtract durations and other instants
-T test result: ok. 2 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: an Instant has no range
+T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: adding and subtracting a Duration never faults
+T ok <root>/tests/05-calendar-and-time/instant_test.nomi :: the difference of any two instants is a duration
+T test result: ok. 5 passed, 0 failed
 T
 C 05-calendar-and-time/naive_datetime_test.nomi
 E 0
-N 10
-H 7adee6ef82543b97af8154b8b1d63c77deed35ed884bc84b57a0c4fe4fb38860
+N 11
+H 88eebad1f815e5d40e338dbf5a72886822f5456b9eab9908d72e97609d363eac
 T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes parse and display without zone information
 T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetime accessors expose date and time parts
 T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: dates and times combine into naive datetimes
@@ -962,12 +968,13 @@ T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetim
 T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetimes sort chronologically
 T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetime differences return durations
 T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: naive datetime construction validates component combinations
-T test result: ok. 10 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/naive_datetime_test.nomi :: a reading moves by a duration of any length
+T test result: ok. 11 passed, 0 failed
 T
 C 05-calendar-and-time/offset_datetime_test.nomi
 E 0
-N 8
-H a0d4434a3e5db1f9c65b05980a63276ae468d12dd769c46b889a6f08b8afa2dd
+N 12
+H 829c81d4c58b8eb53806e3426a0cc178821a16957a865b97f83d274cfb77ec72
 T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes parse and display fixed offsets
 T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes can be built from wall readings and offsets
 T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetime accessors expose fixed-offset wall time
@@ -976,19 +983,33 @@ T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datet
 T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetime calendar shifts preserve fixed offsets
 T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes add durations with fixed-offset physical time
 T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: offset datetimes support civil sub-day arithmetic
-T test result: ok. 8 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: with_offset refuses an offset past ±18 hours of any length in its own words
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: from_instant refuses an offset past ±18 hours as with_offset does
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: NaiveDateTime.from_instant moves the reading by an offset of any length
+T ok <root>/tests/05-calendar-and-time/offset_datetime_test.nomi :: an offset datetime has no first or last year
+T test result: ok. 12 passed, 0 failed
+T
+C 05-calendar-and-time/past_an_instant_test.nomi
+E 0
+N 3
+H 2ad257e26ccd023738db4785f9c4fa9197d6c1920c7cdbb0985a8dbae1fd4933
+T ok <root>/tests/05-calendar-and-time/past_an_instant_test.nomi :: a certificate valid until 9999 says so
+T ok <root>/tests/05-calendar-and-time/past_an_instant_test.nomi :: an HTTP date past 2262 is that moment
+T ok <root>/tests/05-calendar-and-time/past_an_instant_test.nomi :: a cookie expiring in 9999 keeps its expiry
+T test result: ok. 3 passed, 0 failed
 T
 C 05-calendar-and-time/times_test.nomi
 E 0
-N 6
-H 5a242feb1b2b2c350e19ad6a5c4ad2e842a7122e56e954fa838d1710a5ef9c83
+N 7
+H 80dbbef5f8bd9e158a1264b5b024fd3954c686d7bdecbfe06de25194b41013af
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times parse and expose components
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time display preserves meaningful subsecond precision
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times support duration arithmetic with midnight wrapping
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time equality uses time of day
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: times sort chronologically
 T ok <root>/tests/05-calendar-and-time/times_test.nomi :: time construction rejects invalid components
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/05-calendar-and-time/times_test.nomi :: a time wraps a duration of any length
+T test result: ok. 7 passed, 0 failed
 T
 C 06-collections/any_value_in_a_container_test.nomi
 E 0
@@ -1049,14 +1070,14 @@ T
 C 06-collections/index_traps_test.nomi
 E 0
 N 8
-H 8d2173dca6681f3357d6a582b4f71da4c3cb7e12cefa86c788b4cec1dc18af93
+H 5eeabeebf44163001a8ab37d0581ca378c6ac8ee5cb398964d42a5bdccf48733
 T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Vector.get traps on an index past the end
 T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Vector.get traps on a negative index
-T ok <root>/tests/06-collections/index_traps_test.nomi :: vector set traps on an index outside the vector
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Vector.set traps on an index outside the vector
 T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Bytes.get traps on an index outside the buffer
-T ok <root>/tests/06-collections/index_traps_test.nomi :: an index trap inside a std call is reported at the program's call
-T ok <root>/tests/06-collections/index_traps_test.nomi :: get answers None where its unwrapping traps
-T ok <root>/tests/06-collections/index_traps_test.nomi :: list remove_at traps on an index outside the list
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped set in a lambda a std call runs traps at the lambda
+T ok <root>/tests/06-collections/index_traps_test.nomi :: get, set and remove_at answer None where their unwrapping traps
+T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped List.remove_at traps on an index outside the list
 T ok <root>/tests/06-collections/index_traps_test.nomi :: an unwrapped Map.get traps on a missing key and names the call
 T test result: ok. 8 passed, 0 failed
 T
@@ -1100,14 +1121,15 @@ T test result: ok. 8 passed, 0 failed
 T
 C 06-collections/nonempty_collections_test.nomi
 E 0
-N 5
-H 926b842719bef05eb592871e5a3a4979c7898793b25cf2fd85b4c46c4c839b3a
+N 6
+H cd585e78ff3dfac2ca18f253219c3b2e8249d9693a4c12740c441e2869d94476
 T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptyList
 T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptyVector
 T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptyMap
 T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: NonEmptySet
 T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: groups and runs are NonEmptyLists
-T test result: ok. 5 passed, 0 failed
+T ok <root>/tests/06-collections/nonempty_collections_test.nomi :: a literal with an element is non-empty whatever its elements are
+T test result: ok. 6 passed, 0 failed
 T
 C 06-collections/sets_test.nomi
 E 0
@@ -1978,6 +2000,15 @@ H 035bb3d608d5d046af74da14a1c9585c6706ec2c9d298b991eb626ca3f987edc
 T ok <root>/tests/10-generics-and-type-wrappers/generics_test.nomi :: generic structs enums interfaces and functions preserve types
 T test result: ok. 1 passed, 0 failed
 T
+C 10-generics-and-type-wrappers/narrowing_test.nomi
+E 0
+N 3
+H 92757df9e31a5edeb284cecfd14e5c6f01048a1c6addd85e7bacbac082c267b5
+T ok <root>/tests/10-generics-and-type-wrappers/narrowing_test.nomi :: a check narrows the binding it guards
+T ok <root>/tests/10-generics-and-type-wrappers/narrowing_test.nomi :: a narrowed value is its base at run time
+T ok <root>/tests/10-generics-and-type-wrappers/narrowing_test.nomi :: a float that is not zero may be NaN, so it does not narrow
+T test result: ok. 3 passed, 0 failed
+T
 C 10-generics-and-type-wrappers/opaque_types/counter.nomi
 E 1
 N 0
@@ -2042,15 +2073,16 @@ T test result: ok. 11 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/std_refinements_test.nomi
 E 0
-N 6
-H f90ca98de518bb3525b0e84f23f8a25530f55c27d1675a6f5a948a17d8790ae7
+N 7
+H 8c454be88a3dda49d10d98d4ac1d0bfb5ba5367ba7cb699c9f313a947a673f25
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the prelude's numeric refinements take literals
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveInt passes as a NonNegativeInt, a NonZeroInt and an Int
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: try_from checks each parent's rule and its own
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: the converted functions take refined arguments
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a PositiveDuration takes a typed literal
 T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: a computed value goes through try_from
-T test result: ok. 6 passed, 0 failed
+T ok <root>/tests/10-generics-and-type-wrappers/std_refinements_test.nomi :: arithmetic keeps the std numeric subtypes where they hold
+T test result: ok. 7 passed, 0 failed
 T
 C 10-generics-and-type-wrappers/subtypes_test.nomi
 E 0
@@ -2157,14 +2189,13 @@ T test result: ok. 4 passed, 0 failed
 T
 C 11-interfaces-and-impls/comparable_defaults_test.nomi
 E 0
-N 5
-H 9675471c0d2393fb44e1561fc760736310bfe2274f608498a4e96878ffa6811b
+N 4
+H c369a5078030336fe405e38abfaec2a1059f05f8df313cade91a0f043ad2a886
 T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a derived Comparable has min, max and clamp
 T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a tie returns the first argument
 T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: clamp through a generic bound
-T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a NaN value stays NaN, a NaN bound traps
-T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: clamp with low above high traps, naming both bounds
-T test result: ok. 5 passed, 0 failed
+T ok <root>/tests/11-interfaces-and-impls/comparable_defaults_test.nomi :: a NaN value stays NaN, and a range with a NaN end is no ClosedRange
+T test result: ok. 4 passed, 0 failed
 T
 C 11-interfaces-and-impls/container_impls/container_impls_test.nomi
 E 0
@@ -2476,17 +2507,18 @@ T test result: ok. 6 passed, 0 failed
 T
 C 11-interfaces-and-impls/remainder_test.nomi
 E 0
-N 8
-H ec6f8976623593a6512c8a3593a7e1691b7b1d0617fb4d8f97a03bd9d7990fcb
+N 9
+H 1231a792b3279b97db9ec75faa52f2d0fdbc64d612e4fe578a2ac1cf367c0a2c
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Int remainder takes the sign of the left operand
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Int remainder by a NonZeroInt cannot trap
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Float remainder is IEEE fmod
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Decimal remainder is exact at the larger scale
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: Duration remainder is how far into the interval
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a type of its own implements Remainder
-T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a remainder by zero traps
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a remainder by a divisor that may be zero is refused
+T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a NonZeroInt the program checks while it runs cannot divide by zero
 T ok <root>/tests/11-interfaces-and-impls/remainder_test.nomi :: a type without a Remainder impl is refused at the operator
-T test result: ok. 8 passed, 0 failed
+T test result: ok. 9 passed, 0 failed
 T
 C 11-interfaces-and-impls/same_named_stdlib_type/same_named_stdlib_type_test.nomi
 E 0
@@ -2750,6 +2782,13 @@ T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_t
 T ok <root>/tests/12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi :: List.compare over tuples holding a program's Comparable
 T test result: ok. 4 passed, 0 failed
 T
+C 12-derives-and-standard-interfaces/subtype_fields_test.nomi
+E 0
+N 1
+H d1f2eda118e9bde1580de5908d0611846b88b0245185b6f14ddd91299404cdd0
+T ok <root>/tests/12-derives-and-standard-interfaces/subtype_fields_test.nomi :: subtype fields compare and hash as their base values do
+T test result: ok. 1 passed, 0 failed
+T
 C 12-derives-and-standard-interfaces/summable_test.nomi
 E 0
 N 9
@@ -2868,6 +2907,15 @@ T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: return inside
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: reduce with a pattern seed supports continue
 T ok <root>/tests/13-iterators-and-pipes/control_flow_test.nomi :: an iter-sensitive function is passed as the callback itself
 T test result: ok. 8 passed, 0 failed
+T
+C 13-iterators-and-pipes/element_ranges_test.nomi
+E 0
+N 3
+H d3d4bb71b4b921bbc2c7754094c0d1d149bdea8186d07d51bb0c7d6fbe729768
+T ok <root>/tests/13-iterators-and-pipes/element_ranges_test.nomi :: a range's elements divide
+T ok <root>/tests/13-iterators-and-pipes/element_ranges_test.nomi :: the fact passes through adapters and into captures
+T ok <root>/tests/13-iterators-and-pipes/element_ranges_test.nomi :: an element that may be zero is refused
+T test result: ok. 3 passed, 0 failed
 T
 C 13-iterators-and-pipes/infinite_test.nomi
 E 0
@@ -3911,13 +3959,6 @@ T --- stderr ---
 T boot cleanup
 T usage: count <file>
 T
-C 15-app-and-defer/exit_status/out_of_range.nomi
-E 1
-N 0
-H 64f619b8852dac5aea29223abb5bb676612b923873d87daed3cb0b17fc0ce571
-T --- stderr ---
-T exit code 256 is outside 0 to 255
-T
 C 15-app-and-defer/exit_status/own_exit.nomi
 E 1
 N 0
@@ -4068,9 +4109,8 @@ T nomi run: <root>/tests/16-concurrency/concurrent_diagnostics/test_helpers.nomi
 T
 C 16-concurrency/concurrent_runtime_test.nomi
 E 0
-N 9
-H ec8c830df5504205b9d4ce6d6ef1912603aed2960823ad43f1558073d23b2605
-T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: buffered rejects a capacity that is not a buffer
+N 8
+H 70649c9e762a604cda9f778fc2084ee857c2036a23e4cee978de2ccec8bac651
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: unbuffered send and receive meet across two tasks
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: producer consumer pipeline drains after channel close
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: parallel sleepers complete inside concurrent block
@@ -4079,7 +4119,7 @@ T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: nested concurre
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: env context timeout cancels blocked channel receives
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: sibling cancellation is observable under a virtual clock / a short-circuit cancels its siblings instead of waiting for them
 T ok <root>/tests/16-concurrency/concurrent_runtime_test.nomi :: sibling cancellation is observable under a virtual clock / cancellation reaches tasks nested inside a cancelled sibling
-T test result: ok. 9 passed, 0 failed
+T test result: ok. 8 passed, 0 failed
 T
 C 16-concurrency/jobs/app.nomi
 E 0
@@ -4089,8 +4129,8 @@ T hello, Ada
 T
 C 16-concurrency/jobs/jobs_test.nomi
 E 0
-N 8
-H 536094f90ad0c95512ae66d3c26671098cee600ab5f2c36f863433aa031cc6cd
+N 9
+H 48e13224645a76c725900a6e767b86b460a5c14e77b5164818c908371caa3508
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / it runs a job enqueued after it starts
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / it runs a job enqueued before it starts
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a completed job is marked completed
@@ -4098,8 +4138,9 @@ T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memo
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a discard is final
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a trap is a retry that names the trap
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / a job past its timeout is cancelled and retried
+T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker over an in-memory queue / two handlers of one kind are an error, and nothing starts
 T ok <root>/tests/16-concurrency/jobs/jobs_test.nomi :: a worker with a start rate / it starts no more jobs a second than its rate
-T test result: ok. 8 passed, 0 failed
+T test result: ok. 9 passed, 0 failed
 T
 C 16-concurrency/jobs/schedules_test.nomi
 E 0
@@ -4130,26 +4171,26 @@ T
 C 16-concurrency/message_loop/message_loop_test.nomi
 E 0
 N 4
-H de13dfe5bf2085442747e05a09ef6ba7f221179eed5edf2ce834e85117586478
+H 2bebcaad4e3aaea82575b27e6b52519e26cf81871a0c2dbfd80c0a4dc6bf8b1e
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / messages accumulate into state a caller can read back
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / each caller gets its own reply
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a handler that breaks restarts the worker with fresh state
 T ok <root>/tests/16-concurrency/message_loop/message_loop_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
+T nomi: background task errored (attempt 1): line 103: `NonZeroInt.try_from(0)` found nothing — retrying in <jitter>
 T
 C 16-concurrency/select_test.nomi
 E 0
 N 14
-H fefe4c627c5cad9891890fe029b66d87deed7d2c747c62fac98a5ed0f93c6388
+H 627a155c49a2e8b2c846abc08736177b07ebf2929688a42b84a7961d347d6755
 T ok <root>/tests/16-concurrency/select_test.nomi :: the first listed ready arm wins
 T ok <root>/tests/16-concurrency/select_test.nomi :: arms over channels of different element types share one result
 T ok <root>/tests/16-concurrency/select_test.nomi :: a closed channel is ready with None, a send on one with ChannelClosed
 T ok <root>/tests/16-concurrency/select_test.nomi :: a send arm waits for room in the buffer
 T ok <root>/tests/16-concurrency/select_test.nomi :: a zero timer listed last makes a select that never waits
 T ok <root>/tests/16-concurrency/select_test.nomi :: receive_within tells a value, a closed channel and a timeout apart
-T ok <root>/tests/16-concurrency/select_test.nomi :: a select with no arms is a fault
+T ok <root>/tests/16-concurrency/select_test.nomi :: a select takes a non-empty list of arms
 T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / a timer fires when nothing else is ready
 T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / a value that arrives first beats the timer
 T ok <root>/tests/16-concurrency/select_test.nomi :: timers on the virtual clock / the shorter of two timers fires
@@ -4628,16 +4669,16 @@ T
 C 19-locales/money_test.nomi
 E 0
 N 12
-H be77aaf6ceca77bb226b200fe42a614a11d22066d6f251a27795d18059f32693
+H 9a1fd2b53b20d9bd9a6ae9536f1d4198aa280833112f2228dcb4002b01b21cc4
 T ok <root>/tests/19-locales/money_test.nomi :: an amount is written in its currency as the locale writes it
 T ok <root>/tests/19-locales/money_test.nomi :: the currency shows as its symbol, narrow symbol, code or name
 T ok <root>/tests/19-locales/money_test.nomi :: a custom currency has its own code and minor digits
 T ok <root>/tests/19-locales/money_test.nomi :: a currency is checked when it is made
 T ok <root>/tests/19-locales/money_test.nomi :: amounts add exactly in one currency
-T ok <root>/tests/19-locales/money_test.nomi :: adding two currencies traps and names both
+T ok <root>/tests/19-locales/money_test.nomi :: adding two currencies is an Err that names both
 T ok <root>/tests/19-locales/money_test.nomi :: an amount rounds to its currency's minor digits
 T ok <root>/tests/19-locales/money_test.nomi :: an amount times a rate rounds to its currency's minor digits
-T ok <root>/tests/19-locales/money_test.nomi :: a rate that needs rounding traps under Unnecessary
+T ok <root>/tests/19-locales/money_test.nomi :: a product that needs rounding is not exact
 T ok <root>/tests/19-locales/money_test.nomi :: an amount a reader typed is read strictly by default
 T ok <root>/tests/19-locales/money_test.nomi :: lenient reading takes the currency on either side, or none
 T ok <root>/tests/19-locales/money_test.nomi :: a wrong currency reads as a person reads it
@@ -5774,9 +5815,9 @@ T
 C exercism/intergalactic-transmission/intergalactic_transmission.nomi
 E 0
 N 2
-H 41ac68a7657d5a419b12b7083ba53ba6f8a2057cbd3150f0af25736ee59eef25
+H 7fa2a8fe1b7d0d8b8b5a26a21daf51551e40120fac2187c6826808bcbfa1eea7
 T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: transmit //! test line 6
-T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: receive //! test line 22
+T ok <root>/tests/exercism/intergalactic-transmission/intergalactic_transmission.nomi :: receive //! test line 23
 T test result: ok. 2 passed, 0 failed
 T
 C exercism/intergalactic-transmission/intergalactic_transmission_test.nomi

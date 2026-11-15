@@ -9,6 +9,8 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
+	"math"
 	"math/big"
 	"net"
 	"os"
@@ -96,15 +98,18 @@ func CertificateInfo(c rt.TLSCertificate) *rt.List[string] {
 	return listOf(certInfo(certificateOf(c).leaf))
 }
 
-// certInfo is a certificate's subject, issuer, serial number, validity
-// (Unix nanoseconds) and DNS names, in that order, for std/tls's
-// CertificateInfo. A nil certificate is empty parts.
+// certInfo is a certificate's subject, issuer, serial number, validity and
+// DNS names, in that order, for std/tls's CertificateInfo. The validity is
+// two UTC wall readings, `2006-01-02T15:04:05`, rather than Unix
+// nanoseconds: X.509 writes years up to 9999, and a certificate valid until
+// 9999-12-31 is common, where no Instant reaches. A nil certificate is empty
+// parts at the epoch.
 func certInfo(x *x509.Certificate) []string {
 	if x == nil {
 		return []string{"", "", "", "0", "0"}
 	}
 	out := []string{x.Subject.String(), x.Issuer.String(), x.SerialNumber.String(),
-		strconv.FormatInt(x.NotBefore.UnixNano(), 10), strconv.FormatInt(x.NotAfter.UnixNano(), 10)}
+		rt.InstantFromTime(x.NotBefore).String(), rt.InstantFromTime(x.NotAfter).String()}
 	return append(out, x.DNSNames...)
 }
 
@@ -196,13 +201,35 @@ func roots(kind int64, pem string, files *rt.List[string]) (*x509.CertPool, []st
 // Versions are 10 to 13 and 0 for Go's default; ciphers and curves apply
 // when their flag is set; renegotiation is 0 never, 1 once, 2 freely;
 // clientAuth is Go's ClientAuthType in order.
-func TLSConfig(server bool, rootsKind int64, rootsPEM string, rootsFiles *rt.List[string], serverName string,
-	insecure bool, nextProtos *rt.List[string], minVersion, maxVersion int64, ciphers *rt.List[int64],
-	hasCiphers bool, curves *rt.List[string], hasCurves bool, sessionTickets bool, sessionCache int64,
-	renegotiation, clientAuth int64,
-	certificateFor func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate], hasCertificateFor bool,
-	verify func(*rt.Frame, *rt.List[*rt.List[string]]) string, hasVerify bool,
-	keyLog rt.Writer, hasKeyLog bool) rt.Result[rt.TLSConfig, *rt.List[string]] {
+func TLSConfig(
+	server bool,
+	rootsKindArg rt.Int,
+	rootsPEM string,
+	rootsFiles *rt.List[string],
+	serverName string,
+	insecure bool,
+	nextProtos *rt.List[string],
+	minVersionArg, maxVersionArg rt.Int,
+	ciphers *rt.List[rt.Int],
+	hasCiphers bool,
+	curves *rt.List[string],
+	hasCurves bool,
+	sessionTickets bool,
+	sessionCacheArg rt.Int,
+	renegotiationArg, clientAuthArg rt.Int,
+	certificateFor func(*rt.Frame, rt.HTTPHandle) rt.Maybe[rt.TLSCertificate],
+	hasCertificateFor bool,
+	verify func(*rt.Frame, *rt.List[*rt.List[string]]) string,
+	hasVerify bool,
+	keyLog rt.Writer,
+	hasKeyLog bool,
+) rt.Result[rt.TLSConfig, *rt.List[string]] {
+	rootsKind := rootsKindArg.Saturated()
+	minVersion := minVersionArg.Saturated()
+	maxVersion := maxVersionArg.Saturated()
+	sessionCache := sessionCacheArg.Saturated()
+	renegotiation := renegotiationArg.Saturated()
+	clientAuth := clientAuthArg.Saturated()
 	pool, fail := roots(rootsKind, rootsPEM, rootsFiles)
 	if fail != nil {
 		return rt.Err[rt.TLSConfig](listOf(fail))
@@ -223,10 +250,7 @@ func TLSConfig(server bool, rootsKind int64, rootsPEM string, rootsFiles *rt.Lis
 		c.RootCAs = pool
 	}
 	if hasCiphers {
-		c.CipherSuites = []uint16{}
-		for l := ciphers; l != nil; l = l.Tail {
-			c.CipherSuites = append(c.CipherSuites, uint16(l.Head))
-		}
+		c.CipherSuites = cipherSuiteIDs(ciphers)
 	}
 	if hasCurves {
 		c.CurvePreferences = []tls.CurveID{}
@@ -387,7 +411,34 @@ func CipherSuites(insecure bool) *rt.List[*rt.List[string]] {
 }
 
 // CipherSuiteName is `std::http::host.cipher_suite_name`: Go's CipherSuiteName.
-func CipherSuiteName(id int64) string { return tls.CipherSuiteName(uint16(id)) }
+// An id past a suite ID's 16 bits names no suite, so it is its hex, as an
+// unknown suite's is, at any size.
+func CipherSuiteName(idArg rt.Int) string {
+	id, fits := idArg.Int64()
+	if !fits || id < 0 || id > math.MaxUint16 {
+		b := idArg.Big()
+		if b.Sign() < 0 {
+			return fmt.Sprintf("-0x%X", new(big.Int).Neg(b))
+		}
+		return fmt.Sprintf("0x%X", b)
+	}
+	return tls.CipherSuiteName(uint16(id))
+}
+
+// cipherSuiteIDs is the suites a configuration offers as Go's 16-bit IDs.
+// One past 16 bits traps naming it, rather than offering whichever suite
+// its low bits name.
+func cipherSuiteIDs(ids *rt.List[rt.Int]) []uint16 {
+	out := []uint16{}
+	for l := ids; l != nil; l = l.Tail {
+		id, fits := l.Head.Int64()
+		if !fits || id < 0 || id > math.MaxUint16 {
+			rt.Trap(fmt.Sprintf("tls: cipher suite %s is past a suite ID's 16 bits, 0x0000 to 0xFFFF", CipherSuiteName(l.Head)))
+		}
+		out = append(out, uint16(id))
+	}
+	return out
+}
 
 // tlsErrorParts is a TLS failure as a tls.Error variant's parts.
 func tlsErrorParts(err error) []string {

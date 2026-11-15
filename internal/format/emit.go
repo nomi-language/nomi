@@ -958,6 +958,13 @@ func emitNode(n ast.Node) Doc {
 			typeName = emitTypeExpr(v.TypeNameExpr)
 		}
 		return emitBindingValue(Concat(typeName, Text("("), inner, Text(")")), v.Value)
+	case *ast.ErrorNode:
+		// A run of source the recovering parser could not read. A file
+		// holding one never reaches the formatter (ParseFile fails), but
+		// RenderNode renders nodes from a recovered tree, a refinement's
+		// rule mid-edit among them. The node keeps no source text, so it
+		// renders as a marker.
+		return Text(ErrorNodeText)
 	}
 	panic("unimplemented: " + n.NodeType())
 }

@@ -55,11 +55,15 @@ func TestConcurrent_TaskRowNamesRTsOwnType(t *testing.T) {
 // --- the annotated channel constructor ---------------------------------------
 
 // TestChannel_BufferedCapacityIsAnInt reads STD's own declaration, because
-// channelCtorFromTarget coerces the capacity to Int from the row's arity rather
-// than from the checker's answer.
+// channelCtorFromTarget lowers the capacity as an Int (it takes the row's
+// arity and refuses an argument of any other kind) rather than from the
+// checker's answer. The capacity is declared PositiveInt, a subtype whose
+// values are Ints: its base is Int and the builder erases it to kindInt,
+// so an annotated `Channel.buffered(n)` passes the argument through.
 //
-// A std edit changing the capacity's type must fail HERE — where the assumption
-// is written — rather than silently coercing to the wrong type at a call site.
+// A std edit changing the capacity's type to one that is not an Int must
+// fail HERE, where the assumption is written, rather than send the wrong
+// kind at a call site.
 func TestChannel_BufferedCapacityIsAnInt(t *testing.T) {
 	decl := stdDeclOf(t, "std/channels", "Channel", "buffered")
 	if decl == nil {
@@ -68,8 +72,16 @@ func TestChannel_BufferedCapacityIsAnInt(t *testing.T) {
 	if len(decl.Params) != 1 {
 		t.Fatalf("Channel.buffered declares %d parameter(s); channelFuncs says 1", len(decl.Params))
 	}
-	if got := analysis.TypeExprBaseName(decl.Params[0].TypeAnnotation); got != "Int" {
-		t.Errorf("Channel.buffered's capacity is declared %q; channelCtorFromTarget coerces it to Int", got)
+	name := analysis.TypeExprBaseName(decl.Params[0].TypeAnnotation)
+	sym := resolvedTypeSymbol(std.Load().Files["channels"], name)
+	if sym == nil || sym.Type == nil {
+		t.Fatalf("std/channels resolves no type %q for Channel.buffered's capacity", name)
+	}
+	if base := analysis.RefinementBase(sym.Type); base.String() != "Int" {
+		t.Errorf("Channel.buffered's capacity is declared %s, whose base is %s; channelCtorFromTarget lowers it as an Int", name, base)
+	}
+	if k := (&gen{}).project(sym.Type); k != kindInt {
+		t.Errorf("Channel.buffered's capacity, %s, lowers as %s; channelCtorFromTarget refuses all but Int", name, k.nomi())
 	}
 }
 

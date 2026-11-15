@@ -2,6 +2,7 @@ package rt
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -139,8 +140,22 @@ func ContextWithDeadline(c Context, at Instant) Context {
 
 // ContextWithTimeout is `Context.with_timeout(c, dur)`: a deadline at
 // `now() + dur`, pushed for ContextWithDeadline's reason.
+//
+// The sum saturates at an Instant's range: a timeout that ends past the
+// latest Instant (the year 2262) ends there, which std/context documents as
+// a deadline no program reaches, and one that ends before the earliest has
+// passed. dur itself arrived saturated at int64 (hostadapt.DurationNanos),
+// so an unsaturated sum would wrap and end a long timeout at once.
 func ContextWithTimeout(c Context, dur Duration) Context {
-	return Context{node: &contextNode{deadline: time.Now().UnixNano() + int64(dur), set: true, parent: c.node}}
+	now := time.Now().UnixNano()
+	deadline := now + int64(dur)
+	switch {
+	case dur > 0 && deadline < now:
+		deadline = math.MaxInt64
+	case dur < 0 && deadline > now:
+		deadline = math.MinInt64
+	}
+	return Context{node: &contextNode{deadline: deadline, set: true, parent: c.node}}
 }
 
 // ContextWithValue is `Context.with_value(c, value)`: a child context binding
@@ -310,11 +325,13 @@ func ContextDeadlineRemaining(c Context) Maybe[Duration] {
 	if !ok {
 		return None[Duration]()
 	}
-	remaining := ns - time.Now().UnixNano()
-	if remaining < 0 {
-		remaining = 0
+	// Compared before subtracting: a deadline saturated at the earliest
+	// Instant minus now would wrap past int64.
+	now := time.Now().UnixNano()
+	if ns <= now {
+		return Some(Duration(0))
 	}
-	return Some(Duration(remaining))
+	return Some(Duration(ns - now))
 }
 
 // ContextInspect renders a Context, and it renders the contents away on purpose.

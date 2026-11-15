@@ -152,7 +152,8 @@ pub struct KeepAlive
     count: Maybe<Int> = None
 end
 
-/// How `dial` connects.
+/// How `dial` connects. A timeout past about 292 years, the longest wait the
+/// clock counts, never fires.
 pub struct DialOptions
     /// The longest connecting may take; the context's deadline applies too.
     timeout:    Maybe<Duration> = None
@@ -297,9 +298,15 @@ pub fn dial(address: String, options: DialOptions = DialOptions{}) -> Result<Con
     Ok(Connection{handle:})
 end
 
-/// For std::tls: a duration in nanoseconds, 0 for `None`.
+/// For std::tls: a timeout in nanoseconds, 0 for `None`, held to the
+/// longest wait the clock counts, about 292 years either way: a longer
+/// timeout waits that long, so it never fires.
 pub fn nanos(d: Maybe<Duration>) -> Int
-    d |> Maybe.map(Duration.as_nanos) |> Maybe.with_default(0)
+    d
+    |> Maybe.map(fn d ->
+        Duration.as_nanos(d) |> Int.clamp(-9_223_372_036_854_775_808..=9_223_372_036_854_775_807)
+    end)
+    |> Maybe.with_default(0)
 end
 
 /// Two connections joined in memory, each end's writes the other's
@@ -312,7 +319,7 @@ end
 pub fn pipe() -> (Connection, Connection)
     case http_host.pipe()
         [a, b] -> (Connection{handle: a}, Connection{handle: b})
-        _      -> todo
+        _      -> unreachable "host.pipe answers the two ends of one net.Pipe"
     end
 end
 

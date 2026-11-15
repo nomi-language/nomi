@@ -5,7 +5,7 @@
 // half a value-only fixture cannot see.
 import std::io
 
-fn noisy(label: String, v: Int) -> Int
+fn noisy(label: String, v: NonZeroInt) -> NonZeroInt
     io.print("  eval ${label}")
     v
 end
@@ -14,7 +14,7 @@ fn add(x: Int, y: Int) -> Int
     x + y
 end
 
-fn divide(x: Int, y: Int) -> Int
+fn divide(x: Int, y: NonZeroInt) -> Int
     x / y
 end
 

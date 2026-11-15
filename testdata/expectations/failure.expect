@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population failure
 what one record per deliberately-red fixture under internal/irbuild/testdata, run as the command that owns it would. Every record FAILS on purpose, so every record carries its transcript verbatim: this is the only population in the repo with power over a wrong failure message. Membership is measured by TestExpectation_FailureCensus.
-records 55
-declared-cases 300
-failing 55
+records 54
+declared-cases 294
+failing 54
 C anon_struct.nomi
 E 1
 N 1
@@ -979,21 +979,6 @@ T     assert Ok(True) = unpiped_check()
 T     actual: Err(AssertionFailure{actual: None, binding: None, details: [], expression: "String.contains(\"Ada Lovelace\", \"Grace\")", keyword: "check", line: 52, reason: "check failed", subtests: [], values: [AssertionValue{expression: "\"Ada Lovelace\"", pipeline: [], value: "\"Ada Lovelace\""}, AssertionValue{expression: "\"Grace\"", pipeline: [], value: "\"Grace\""}]})
 T test result: FAILED. 0 passed, 4 failed
 T
-C scalar_operator_traps.nomi
-E 1
-N 6
-H 16c9b0163deb3f8ca0ab0dc6718195882cb61c811f669469f538b8032a127537
-T ok <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: the written-out impls agree on every non-trapping answer
-T ok <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: the written-out impls are exact past 64 bits, as the operators are
-T ok <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: a Float divide by zero is IEEE and does not trap
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an impl-form Divide by zero blames the call's own line
-T   line 38: division by zero
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an operator divide by zero blames the operator's own line
-T   line 42: division by zero
-T FAIL <root>/internal/irbuild/testdata/scalar_operator_traps.nomi :: an operator remainder by zero blames the operator's own line
-T   line 46: division by zero
-T test result: FAILED. 3 passed, 3 failed
-T
 C sibimpl/report_test.nomi
 E 1
 N 2
@@ -1039,15 +1024,15 @@ T
 C stdlib_trap_tests.nomi
 E 1
 N 5
-H 92db5d4aa53e3ed3794180493c5f785215d618308be0981097ca82eed0a0a52d
+H 5064920bc094f3cc3107734e563666e54d5ec9c31be30561426ef725a9955fcb
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap in a test body
-T   line 11: division by zero
+T   line 13: Decimal.round: scale 4294967298 is past a Decimal's, which is -2147483648 to 2147483647
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a stdlib trap through a program function
-T   line 7: division by zero
+T   line 9: Decimal.round: scale 4294967298 is past a Decimal's, which is -2147483648 to 2147483647
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a lambda the stdlib runs
-T   line 19: division by zero
+T   line 21: `NonZeroInt.try_from(&1)` found nothing
 T FAIL <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: a host function's trap
-T   line 24: strings.String.repeat: negative count -2
+T   line 26: Int.pow: exponent 100000000000 is too large: the power would have more than 17179869184 bits
 T ok <root>/internal/irbuild/testdata/stdlib_trap_tests.nomi :: the next case still runs
 T test result: FAILED. 1 passed, 4 failed
 T
@@ -1095,7 +1080,7 @@ T
 C subtests_names_report.nomi
 E 1
 N 12
-H a2d2c1148529f7961644a2a151a00911e8872fa4aaed3ebac9480b35d7f38103
+H e1d12a709cd9f3f82cfb6ab27fcc94f1662fce3d75f1c71d0521ba7da5136ed7
 T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a failed row reports its name
 T   subtest "year divisible by 400 is leap year": line 20: assertion failed
 T     assert is_leap_year(year) == expected
@@ -1124,8 +1109,8 @@ T       sum
 T         = 4
 T   2 of 3 subtests failed
 T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a name that traps fails its row without running it
-T   subtest 0: line 31: its name trapped: division by zero
-T     "${10 / n}"
+T   subtest 0: line 31: its name trapped: `NonZeroInt.try_from(n)` found nothing
+T     "${10 / NonZeroInt.try_from(n)!}"
 T   subtest "10": line 32: assertion failed
 T     assert n > 1
 T     values:
@@ -1133,7 +1118,7 @@ T       n
 T         = 1
 T   2 of 3 subtests failed
 T FAIL <root>/internal/irbuild/testdata/subtests_names_report.nomi :: a name that traps in a function it calls
-T   subtest 0: line 37: its name trapped: line 9: division by zero
+T   subtest 0: line 37: its name trapped: line 9: `NonZeroInt.try_from(n)` found nothing
 T     label(n)
 T   1 of 1 subtest failed
 T ok <root>/internal/irbuild/testdata/subtests_names_report.nomi :: every named row passes (2 cases)
@@ -1142,7 +1127,7 @@ T
 C subtests_report.nomi
 E 1
 N 14
-H 8a7ad4d20cee5e0da8849cdceb314c6c629d7f0a1661ab45b51bd8088f6d306d
+H 601d4751c8fd51040791ec0ce579b8b72e9d309dcd275389ab48b897d7206fff
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: two of four rows fail
 T   subtest ("abc", True): line 18: assertion failed
 T     assert is_palindrome(line) == known_palindrome
@@ -1185,7 +1170,7 @@ T       y
 T         = 3
 T   1 of 2 subtests failed
 T FAIL <root>/internal/irbuild/testdata/subtests_report.nomi :: a trap in a row fails the test as a trap
-T   line 46: division by zero
+T   line 46: `NonZeroInt.try_from(n)` found nothing
 T ok <root>/internal/irbuild/testdata/subtests_report.nomi :: every row passes (2 cases)
 T test result: FAILED. 8 passed, 6 failed
 T
@@ -1554,9 +1539,9 @@ T
 C tests_trap.nomi
 E 1
 N 2
-H b79a8570b654d913ab5b71fdb8c71c81279fa4532794eb9595b17dfb03cad290
+H c62c5f3db9a5b00e917450664f9b4848efa9b8f98bb321efc8b6999d506d0d58
 T FAIL <root>/internal/irbuild/testdata/tests_trap.nomi :: a fault inside a test
-T   line 6: division by zero
+T   line 6: `NonZeroInt.try_from(zero)` found nothing
 T ok <root>/internal/irbuild/testdata/tests_trap.nomi :: the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T
@@ -1701,9 +1686,9 @@ T
 C virtual_clock_trap.nomi
 E 1
 N 2
-H a2b730112fda6f7cff98f0761f29d2aee393bcb650c0b8199405399900eba998
+H 489c270a34edeeadcd0629221461af1fb5428ec97c0a6358bdf47380e65fef50
 T FAIL <root>/internal/irbuild/testdata/virtual_clock_trap.nomi :: a fault under a virtual clock / the trap's own text survives the bubble
-T   line 27: division by zero
+T   line 27: `NonZeroInt.try_from(n)` found nothing
 T ok <root>/internal/irbuild/testdata/virtual_clock_trap.nomi :: a fault under a virtual clock / the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T

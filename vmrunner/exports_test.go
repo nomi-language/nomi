@@ -79,7 +79,7 @@ export fn describe(o: Outcome) -> String
 end
 
 export fn divide(a: Int, b: Int) -> Int
-    a / b
+    a / NonZeroInt.try_from(b)!
 end
 
 export fn huge() -> Int
@@ -166,7 +166,7 @@ func TestInstance_CallsRoundTripStructsAndEnums(t *testing.T) {
 
 func TestInstance_EachFailureIsAnErrorAndTheNextCallRuns(t *testing.T) {
 	in, _ := start(t, hangman)
-	callFails(t, in, "divide", `[1, 0]`, "line 50: division by zero")
+	callFails(t, in, "divide", `[1, 0]`, "line 50: `NonZeroInt.try_from(b)` found nothing")
 	if got := call(t, in, "divide", `[7, 2]`); got != "3" {
 		t.Fatalf("divide after a trap answered %s", got)
 	}
@@ -322,7 +322,7 @@ func TestInstance_CallResultIsOkOrError(t *testing.T) {
 		Error *string          `json:"error"`
 	}
 	if err := json.Unmarshal(got, &answer); err != nil || answer.Ok != nil || answer.Error == nil ||
-		!strings.Contains(*answer.Error, "division by zero") {
+		!strings.Contains(*answer.Error, "found nothing") {
 		t.Fatalf("divide by zero answered %s (%v)", got, err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // A skeleton resolves to each locale's own order, punctuation and words,
@@ -34,7 +35,7 @@ func TestSkeletonsResolvePerLocale(t *testing.T) {
 		if got := ResolveSkeleton(d, c.locale, c.skeleton); got != c.pattern {
 			t.Errorf("%s %s: resolves to %q, want %q", c.locale, c.skeleton, got, c.pattern)
 		}
-		if got := FormatSkeleton(d, c.locale, date, c.skeleton); got != c.text {
+		if got := FormatSkeleton(d, c.locale, rt.SmallInt(date[0]), date[1:], c.skeleton); got != c.text {
 			t.Errorf("%s %s: writes %q, want %q", c.locale, c.skeleton, got, c.text)
 		}
 	}
@@ -63,8 +64,8 @@ func TestAResolvedBundleWritesAsTheFullData(t *testing.T) {
 	date := []int64{2026, 10, 20, 9, 30, 0, 0, 0, hasDate | hasTime}
 	for _, tag := range append(listed, "de-AT", "en-AU") {
 		for _, s := range skeletons {
-			want := FormatSkeleton(withFormats, tag, date, s)
-			if got := FormatSkeleton(resolved, tag, date, s); got != want {
+			want := FormatSkeleton(withFormats, tag, rt.SmallInt(date[0]), date[1:], s)
+			if got := FormatSkeleton(resolved, tag, rt.SmallInt(date[0]), date[1:], s); got != want {
 				t.Errorf("%s %s: the resolved bundle writes %q, the available formats %q", tag, s, got, want)
 			}
 		}
@@ -72,7 +73,7 @@ func TestAResolvedBundleWritesAsTheFullData(t *testing.T) {
 	// The listed locales write as the full data writes them.
 	for _, tag := range listed {
 		for _, s := range skeletons {
-			if got, want := FormatSkeleton(resolved, tag, date, s), FormatSkeleton(full, tag, date, s); got != want {
+			if got, want := FormatSkeleton(resolved, tag, rt.SmallInt(date[0]), date[1:], s), FormatSkeleton(full, tag, rt.SmallInt(date[0]), date[1:], s); got != want {
 				t.Errorf("%s %s: the bundle writes %q, the full data %q", tag, s, got, want)
 			}
 		}
@@ -104,7 +105,7 @@ func TestStylesWriteTheLocalesPatterns(t *testing.T) {
 		{"en", zoned, "-/full", "9:30:00 AM GMT-05:00"},
 		{"fr", zoned, "short/full", "20/10/2026 09:30:00 UTC−05:00"},
 	} {
-		if got := FormatStyle(d, c.locale, c.fields, c.spec); got != c.want {
+		if got := FormatStyle(d, c.locale, rt.SmallInt(c.fields[0]), c.fields[1:], c.spec); got != c.want {
 			t.Errorf("%s %s: %q, want %q", c.locale, c.spec, got, c.want)
 		}
 	}
@@ -140,6 +141,36 @@ func TestATwoDigitYearIsInThisCentury(t *testing.T) {
 	}
 	if got := ParsePattern("26-10-20", "yy-MM-dd", true, false); got != "=2026-10-20" {
 		t.Errorf("fixed yy-MM-dd: %q, want =2026-10-20", got)
+	}
+}
+
+// A year of any size is written with all its digits, its weekday and its
+// day of the year are the calendar's, and every reader reads it back.
+func TestAYearOfAnySize(t *testing.T) {
+	d := cldrfull.Full()
+	huge, _ := rt.ParseIntValue("1000000000000000000000000000000")
+	year := rt.IntOf(huge)
+	fields := []int64{1, 1, 0, 0, 0, 0, 0, hasDate}
+	if got := FormatStyle(d, "en", year, fields, "full/-"); got != "Saturday, January 1, 1000000000000000000000000000000" {
+		t.Errorf("en full: %q", got)
+	}
+	if got := FFIFormatCivilPattern(year, fields, "yyyy-MM-dd D"); got != "1000000000000000000000000000000-01-01 1" {
+		t.Errorf("a fixed pattern: %q", got)
+	}
+	for _, c := range []struct{ got, want string }{
+		{ParsePattern("1000000000000000000000000000000-12-31", "yyyy-MM-dd", true, false), "=+1000000000000000000000000000000-12-31"},
+		{ParseStyle(d, "Dec 31, 1000000000000000000000000000000", "en", "medium/-", false), "=+1000000000000000000000000000000-12-31"},
+		{ParsePattern("1000000000000000000000000000100-02-29", "yyyy-MM-dd", true, false), "?month 2 of 1000000000000000000000000000100 has no day 29"},
+	} {
+		if c.got != c.want {
+			t.Errorf("read %q, want %q", c.got, c.want)
+		}
+	}
+	// Before year 1, an era's year counts back from 1 BC, and `u` is the
+	// signed year.
+	minus, _ := rt.ParseIntValue("-123456789012345678901")
+	if got := FFIFormatCivilPattern(rt.IntOf(minus), fields, "y u"); got != "123456789012345678902 -123456789012345678901" {
+		t.Errorf("a year before 1: %q", got)
 	}
 }
 

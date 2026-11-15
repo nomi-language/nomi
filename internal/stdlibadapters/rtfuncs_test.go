@@ -86,8 +86,8 @@ type idleSupervisor struct{ s rt.Supervisor }
 
 func idleSupervisorValue() rt.Supervisor {
 	fr := rt.EnterBoot(rt.NewFrame(context.Background()))
-	return rt.SupervisorNewExact(fr, 1, rt.DefaultShutdownTimeout, rt.Restart{Tag: 1},
-		rt.Backoff{Tag: 1, MaxRestarts: rt.BackoffDefaultMaxRestarts, MaxElapsed: rt.BackoffDefaultMaxElapsed}, rt.GiveUp{Tag: 1})
+	return rt.SupervisorNewExact(fr, rt.SmallInt(1), rt.DefaultShutdownTimeout, rt.Restart{Tag: 1},
+		rt.Backoff{Tag: 1, MaxRestarts: rt.SmallInt(rt.BackoffDefaultMaxRestarts), MaxElapsed: rt.BackoffDefaultMaxElapsed}, rt.GiveUp{Tag: 1})
 }
 
 type rtFuncsSuite struct {
@@ -290,9 +290,13 @@ func gzipOf(text string) string {
 	return out.String()
 }
 
-func hByte(b byte) any       { return rt.Byte(b) }
-func hDur(n int64) any       { return rb.Distinct("duration.Duration", n) }
-func hCodepoint(n int64) any { return rb.Distinct("code_points.Codepoint", n) }
+func hByte(b byte) any { return rt.Byte(b) }
+func hDur(n int64) any { return rb.Distinct("duration.Duration", n) }
+
+// hBigDur is a Duration past int64 nanoseconds, which crosses into Go
+// saturated (hostadapt.DurationNanos).
+func hBigDur(text string) any { return rb.Distinct("duration.Duration", hBig(text)) }
+func hCodepoint(n int64) any  { return rb.Distinct("code_points.Codepoint", n) }
 func hDecimal(t *testing.T, text string) any {
 	d, err := rt.ParseDecimal(text)
 	if err != nil {
@@ -409,8 +413,9 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 	}
 	decimals := []any{hDecimal(t, "1.50"), hDecimal(t, "1.5"), hDecimal(t, "-0.00"), hDecimal(t, "0"),
 		hDecimal(t, "123456789012345678901234.5"), hDecimal(t, "0.001"), hDecimal(t, "-7")}
-	durations := []any{hDur(0), hDur(1), hDur(1_500_000), hDur(-3_600_000_000_000), hDur(90 * int64(time.Minute)),
-		hDur(math.MaxInt64), hDur(math.MinInt64)}
+	// A Duration is an Int of any size: past int64 the hours are big.
+	durationNanos := []any{hInt(0), hInt(1), hInt(1_500_000), hInt(-3_600_000_000_000), hInt(90 * int64(time.Minute)),
+		hInt(math.MaxInt64), hInt(math.MinInt64), hBig("9223372036854775808"), hBig("-36000000000000000000000000001")}
 	// ASCII upper, lower, digit and space; Latin-1 É, é and U+00A0; Cyrillic
 	// Ж and ж; 中; title-case ǅ; U+0301 COMBINING ACUTE ACCENT; U+3000; full-width
 	// １; Arabic-Indic ٣; 🙂.
@@ -443,8 +448,6 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"strings.String.slice":           slice,
 		"strings.String.replace_in":      cases(args(hStr("-"), hStr("a-b-c"), hStr("+")), args(hStr(""), hStr("aaa"), hStr("x")), args(hStr(""), hStr(""), hStr("y")), args(hStr("l"), hStr("héllo"), hStr("L"))),
 		"int.Int.to_byte":                unary(hInt(-1), hInt(0), hInt(255), hInt(256), hInt(math.MinInt64), hBig("18446744073709551616")),
-		"duration.nanos_in_range":        unary(hInt(0), hInt(math.MaxInt64), hInt(math.MinInt64), hBig("9223372036854775808"), hBig("-9223372036854775809")),
-		"instant.nanos_in_range":         unary(hInt(0), hInt(math.MaxInt64), hBig("9223372036854775808")),
 		"bytes.Byte.to_int":              unary(hByte(0), hByte(127), hByte(255)),
 		"iter.as_count":                  unary(hInt(0), hInt(3), hInt(math.MaxInt64), hBig("18446744073709551616")),
 		"bytes.Bytes.length":             unary(blobs...),
@@ -513,7 +516,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"path/host.base":                     unary(hStr("data/log.txt"), hStr("data/"), hStr("/"), hStr(""), hStr("a/.."), hStr("//")),
 		"path/host.dir":                      unary(hStr("a/b"), hStr("/etc"), hStr("log.txt"), hStr("/"), hStr("."), hStr("../a")),
 		"mail/host.quoted_printable":         unary(hStr("a=b ö"), hStr("end \nnext"), hStr(strings.Repeat("x", 80)), hStr("a\r\nb\rc"), hStr("tail\t"), hStr("")),
-		"mail/host.date":                     unary(hInt(1793638245_000000000), hInt(951782400_000000000), hInt(0), hInt(-1)),
+		"mail/host.date":                     unary(hInt(1793638245_000000000), hInt(951782400_000000000), hInt(0), hInt(-1), hBig("1180591620717411303424")),
 		"http/host.headers_wire":             cases(args(strList("b", "2", "a", "1", "B", "3"), strList()), args(strList("x", " a\r\nb ", "y", "1"), strList("Y")), args(strList(), strList())),
 		"http/host.parse_http_version":       unary(hStr("HTTP/1.1"), hStr("HTTP/2.0"), hStr("HTTP/1.-1"), hStr("HTTP/10.0"), hStr("http/1.1"), hStr("")),
 		"http/host.basic_auth":               unary(hStr("Basic YW5uOnB3"), hStr("basic YW5uOnB3OmV4dHJh"), hStr("Bearer x"), hStr("Basic !!"), hStr("Basic /w=="), hStr("")),
@@ -558,7 +561,7 @@ func (p *rtFuncsSuite) scalarCases() map[string][]hostCase {
 		"decimal.Decimal.hash":                unary(decimals...),
 		"decimal.Decimal.equal":               pairs(decimals...),
 		"decimal.Decimal.compare":             pairs(decimals...),
-		"duration.Duration.to_string":         unary(durations...),
+		"duration.render_nanos":               unary(durationNanos...),
 		"int.Int.to_codepoint":                unary(hInt(-1), hInt(0), hInt(65), hInt(0xD7FF), hInt(0xD800), hInt(0xDFFF), hInt(0xE000), hInt(0x10FFFF), hInt(0x110000), hInt(math.MinInt64)),
 		"code_points.Codepoint.to_string":     unary(hCodepoint(65), hCodepoint(0x1F642), hCodepoint(0xE9), hCodepoint(0)),
 		"code_points.Codepoint.is_letter":     unary(classified...),
@@ -624,8 +627,8 @@ func (p *rtFuncsSuite) concurrencyCases() map[string][]hostCase {
 	}
 
 	// A supervisor with a task still running, so a bounded flush times out.
-	busy := rt.SupervisorNewExact(boot, 1, rt.DefaultShutdownTimeout, rt.Restart{Tag: rt.TagTemporary},
-		rt.Backoff{Tag: rt.TagExponential, MaxRestarts: 1, MaxElapsed: rt.Duration(time.Minute)}, rt.GiveUp{Tag: rt.TagReport})
+	busy := rt.SupervisorNewExact(boot, rt.SmallInt(1), rt.DefaultShutdownTimeout, rt.Restart{Tag: rt.TagTemporary},
+		rt.Backoff{Tag: rt.TagExponential, MaxRestarts: rt.SmallInt(1), MaxElapsed: rt.Duration(time.Minute)}, rt.GiveUp{Tag: rt.TagReport})
 	release := make(chan struct{})
 	rt.SupervisorSpawn(boot, busy, func(*rt.Frame) rt.Unit { <-release; return rt.Unit{} })
 	p.t.Cleanup(func() {
@@ -637,8 +640,8 @@ func (p *rtFuncsSuite) concurrencyCases() map[string][]hostCase {
 	// panic through untouched.
 	taskFrame := make(chan *rt.Frame)
 	finish := make(chan struct{})
-	holder := rt.SupervisorNewExact(boot, 1, rt.DefaultShutdownTimeout, rt.Restart{Tag: rt.TagTemporary},
-		rt.Backoff{Tag: rt.TagExponential, MaxRestarts: 1, MaxElapsed: rt.Duration(time.Minute)}, rt.GiveUp{Tag: rt.TagReport})
+	holder := rt.SupervisorNewExact(boot, rt.SmallInt(1), rt.DefaultShutdownTimeout, rt.Restart{Tag: rt.TagTemporary},
+		rt.Backoff{Tag: rt.TagExponential, MaxRestarts: rt.SmallInt(1), MaxElapsed: rt.Duration(time.Minute)}, rt.GiveUp{Tag: rt.TagReport})
 	task := rt.SupervisorSpawn(boot, holder, func(fr *rt.Frame) rt.Unit {
 		taskFrame <- fr
 		<-finish
@@ -658,17 +661,19 @@ func (p *rtFuncsSuite) concurrencyCases() map[string][]hostCase {
 			{args: args(hDur(0))}, {args: args(hDur(int64(time.Millisecond)))}, {args: args(hDur(-5))},
 			{args: args(hDur(int64(time.Hour))), frame: cancelled},
 			{args: args(hDur(int64(time.Hour))), frame: inTask},
+			{args: args(hBigDur("-100000000000000000000000000000"))},
+			{args: args(hBigDur("100000000000000000000000000000")), frame: cancelled},
 		},
 		"context.Context.root": cases(args()),
 		"context.Context.with_timeout": cases(
 			args(root, hDur(int64(time.Second))), args(root, hDur(0)), args(root, hDur(-1)),
 			args(bounded, hDur(int64(2*time.Hour))), args(bounded, hDur(int64(time.Minute))),
+			args(root, hBigDur("-100000000000000000000000000000")),
 		),
 		"supervisors.Supervisor.new_exact": {
 			{args: good(1, 0, "Temporary", "Report"), frame: boot, shapeOnly: true},
 			{args: good(4, int64(time.Second), "Transient", "Exit"), frame: boot, shapeOnly: true},
 			{args: good(2, 5, "Permanent", "Report"), frame: boot, shapeOnly: true},
-			{args: good(0, 0, "Temporary", "Report"), frame: boot},
 			{args: good(1, -1, "Temporary", "Report"), frame: boot},
 			{args: good(1, 0, "Temporary", "Report")}, // not in boot
 			{args: args(hInt(1), hDur(0), restart("Temporary"), undeclared, giveUp("Report")), frame: boot},
@@ -733,7 +738,7 @@ func TestRtFuncs_AdaptersReproduceTheRecordedHosts(t *testing.T) {
 	}
 	// Its server crossings answer requests a client sends; TestServer_* run
 	// each through a Nomi program serving on 127.0.0.1.
-	for _, k := range []string{"listen", "address", "next", "shutdown", "in_method", "in_url", "in_host",
+	for _, k := range []string{"listen", "address", "next", "shutdown", "in_method", "in_host",
 		"in_remote", "in_target", "in_protocol", "in_headers", "in_trailers", "in_content_length",
 		"in_transfer_encoding", "in_close", "in_body", "respond", "produce", "finish", "answered_already",
 		"detect_content_type", "new_mux", "route", "answer_content", "answer_redirect", "format_time",

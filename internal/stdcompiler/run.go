@@ -64,6 +64,7 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, nodes)...)
 	errs = append(errs, analysis.CheckBootScope(fa, nodes)...)
+	errs = append(errs, analysis.CheckOnceCycles(fa, nodes)...)
 	errs = append(errs, analysis.CheckTaskLifetime(fa, nodes)...)
 	if len(errs) > 0 {
 		return nil, nil, fmt.Errorf("analysis errors:\n  %s", JoinTypeErrors(errs))

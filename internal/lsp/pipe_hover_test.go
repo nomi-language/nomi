@@ -22,7 +22,7 @@ end
 
 type UserId String
 
-fn divide(a: Int, b: Int) -> Int
+fn divide(a: Int, b: NonZeroInt) -> Int
   a / b
 end
 
@@ -100,7 +100,7 @@ end
 		{"a then stage's capture", `fn main()
   io.inspect(10 ▮|> then &divide(100, &1))
 end
-`, "`Int` → `then &divide(100, &1)` → `Int`\n\n`&1` is the `Int`; the stage returns the capture's result."},
+`, "`NonZeroInt` → `then &divide(100, &1)` → `Int`\n\n`&1` is the `NonZeroInt`; the stage returns the capture's result."},
 		{"a pipe inside a lambda body", `fn main()
   xs = [1, 2] |> Iter.map(fn n -> n ▮|> Int.to_string()) |> Iter.to_list()
   io.inspect(xs)
@@ -211,7 +211,7 @@ end
   end
   io.inspect(t)
 end
-`, "`Int` → `divide(a, b)` → `Int` → `case` → `String`\n\n```nomi\nfn divide(a: Int, b: Int) -> Int\n```\n\nThe piped value fills `a`.\n\nMatches the piped `Int` against the arms."},
+`, "`Int` → `divide(a, b)` → `Int` → `case` → `String`\n\n```nomi\nfn divide(a: Int, b: NonZeroInt) -> Int\n```\n\nThe piped value fills `a`.\n\nMatches the piped `Int` against the arms."},
 		{"todo", `fn later() -> Int
   3 ▮|> todo
 end

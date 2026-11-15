@@ -331,7 +331,7 @@ impl Store for Bucket
     fn list(bucket: Bucket, options: ListOptions) -> Result<storage.Listing, storage.Error>
         storage.check_prefix(options.prefix)?
         config = bucket.config
-        limit = Int.clamp(options.limit, 1, 1000)
+        limit = Int.clamp(options.limit, 1..=1000)
 
         pairs =
             [

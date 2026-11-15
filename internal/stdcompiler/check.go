@@ -148,6 +148,7 @@ func ProjectDiagnostics(entryNodes []ast.Node, root string, loader analysis.File
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, entryNodes)...)
 	errs = append(errs, analysis.CheckConcurrentScope(fa, entryNodes)...)
 	errs = append(errs, analysis.CheckBootScope(fa, entryNodes)...)
+	errs = append(errs, analysis.CheckOnceCycles(fa, entryNodes)...)
 	errs = append(errs, analysis.CheckTaskLifetime(fa, entryNodes)...)
 
 	diags := make([]rt.Diagnostic, len(errs))

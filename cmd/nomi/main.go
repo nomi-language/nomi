@@ -600,9 +600,6 @@ func discoverCheckFiles(root string) (files []string, through map[string][]strin
 			case ".git", "node_modules", "dist", ".astro":
 				return filepath.SkipDir
 			}
-			if stdFixturesDir(path) {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 		if !strings.HasSuffix(d.Name(), ".nomi") {
@@ -621,23 +618,6 @@ func discoverCheckFiles(root string) (files []string, through map[string][]strin
 	sort.Strings(files)
 	files, through = programRoots(files)
 	return files, through, false, nil
-}
-
-// stdFixturesDir reports whether dir is the standard library's `_fixtures`
-// tree. Its modules are std modules only in a test binary run with
-// NOMI_STD_FIXTURES=1 (std.FixturesLoaded); this nomi's stdlib does not
-// hold them, so a check would read their bare std imports as other files'
-// and report type identities that differ only by path.
-func stdFixturesDir(dir string) bool {
-	if filepath.Base(dir) != "_fixtures" {
-		return false
-	}
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return false
-	}
-	_, stdRoot, ok := frontend.StdlibFile(abs)
-	return ok && filepath.Dir(abs) == filepath.Clean(stdRoot)
 }
 
 // programRoots is the files of a directory check that are checked as

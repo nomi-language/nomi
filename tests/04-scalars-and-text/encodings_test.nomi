@@ -1,6 +1,5 @@
 import
     std::base64
-    std::compiler
     std::hash
     std::hex
     std::random
@@ -41,17 +40,3 @@ test "a query and a path segment escape what their place needs"
     assert url.unescape_path_segment(url.escape_path_segment(term)) == Ok(term)
 end
 
-test "secure bytes of a negative count trap at the program's call"
-    result =
-        """
-        import std::random
-
-        fn main()
-          _ = random.secure_bytes(-1)
-        end
-        """
-        |> compiler.run()
-
-    assert Err(message) = result
-    assert String.contains(message, "random.secure_bytes: negative count -1")
-end

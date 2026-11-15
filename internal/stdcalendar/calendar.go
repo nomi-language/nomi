@@ -30,10 +30,31 @@
 // size. Keeping it out of rt keeps that cost off binaries that never mention a
 // calendar type.
 //
-// # Two layers in two files
+// # Years of any size
 //
-// This file is the semantics, typed in rt's shapes:
-// `rt.Result[T, rt.CalendarError]`, `rt.Duration`, `rt.Instant`, `rt.Years`.
+// A Date's and a NaiveDateTime's year is an Int of any size, and an
+// OffsetDateTime and a DateTime hold their instant as an Int of nanoseconds
+// of any size, as std/instant's Instant is. So no calendar type has a range:
+// every constructor from an instant answers, and every shift and `+`
+// answers, however far it goes. The year arithmetic (years.go: the leap
+// rule, DaysFromCivil, CivilFromDays, the weekday) is exact for every year,
+// in int64 for the years a program ordinarily holds and in math/big past
+// them, and the readings come from it (instantAt, wallAt), never from a
+// time.Time. Go's tzdb answers one question, a zone's offset at an int64
+// second (zoneOffsetAt), which it answers for every second: past a zone's
+// last transition by the rule the tzdb extends forever, before its first by
+// its local mean time; an instant past int64 seconds, about 292 billion
+// years either way, takes the offset at the nearest end.
+//
+// A year past 9999 or before 0000 is written as ISO 8601's expanded form, a
+// sign and at least six digits (`+010000-01-01`, `-000001-01-01`), as RFC
+// 9557 and Temporal write one, and every parse reads it back
+// (ISOYearText, ParseISOYear).
+//
+// # Two layers
+//
+// This file and years.go are the semantics, typed in rt's shapes:
+// `rt.Result[T, rt.CalendarError]`, `rt.Duration`, `rt.Int`.
 // boundary.go is the FFI-shaped surface, and every function there is a
 // projection onto one of these. The split exists because the FFI projection
 // does not carry three of rt's types; see boundary.go's header for which three
@@ -41,7 +62,11 @@
 package stdcalendar
 
 import (
+	"cmp"
 	"fmt"
+	"math"
+	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -92,21 +117,17 @@ func CalendarErrorText(e rt.CalendarError) string {
 }
 
 // ValidateDateComponents reports the error a (year, month, day) triple is
-// invalid with, or ok when it names a real calendar date.
-//
-// Leap years are not special-cased: `time.Date` NORMALIZES an impossible
-// combination, so a round-trip that comes back different is the detection, and
-// it is right for every proleptic-Gregorian year by construction.
-func ValidateDateComponents(year, month, day int64) (rt.CalendarError, bool) {
+// invalid with, or ok when it names a real calendar date. Every year is one:
+// the proleptic Gregorian calendar has no first or last.
+func ValidateDateComponents(year rt.Int, month, day int64) (rt.CalendarError, bool) {
 	if month < 1 || month > 12 {
 		return CalendarErr(rt.TagInvalidValue, fmt.Sprintf("month out of range: %d", month)), false
 	}
 	if day < 1 || day > 31 {
 		return CalendarErr(rt.TagInvalidValue, fmt.Sprintf("day out of range: %d", day)), false
 	}
-	t := time.Date(int(year), time.Month(month), int(day), 0, 0, 0, 0, time.UTC)
-	if int64(t.Year()) != year || int64(t.Month()) != month || int64(t.Day()) != day {
-		return CalendarErr(rt.TagInvalidValue, fmt.Sprintf("day %d not valid for %04d-%02d", day, year, month)), false
+	if day > DaysInMonth(year, month) {
+		return CalendarErr(rt.TagInvalidValue, fmt.Sprintf("day %d not valid for %s-%02d", day, ISOYearText(year), month)), false
 	}
 	return rt.CalendarError{}, true
 }
@@ -147,7 +168,7 @@ func ValidateTimeComponents(hour, minute, second, nanosecond int64) (rt.Calendar
 // `second` and `nanosecond` and calls this — and that is the whole point of the
 // split. This function padding a short list would put the default's authority
 // back in Go, one layer further down.
-func NaiveDateTimeFromComponents(year, month, day, hour, minute, second, nanosecond int64) rt.Result[rt.NaiveDateTime, rt.CalendarError] {
+func NaiveDateTimeFromComponents(year rt.Int, month, day, hour, minute, second, nanosecond int64) rt.Result[rt.NaiveDateTime, rt.CalendarError] {
 	if e, valid := ValidateDateComponents(year, month, day); !valid {
 		return rt.Err[rt.NaiveDateTime, rt.CalendarError](e)
 	}
@@ -169,9 +190,9 @@ func FormatNanosFrac(nanos int64) string {
 	return "." + strings.TrimRight(fmt.Sprintf("%09d", nanos), "0")
 }
 
-// ISODateText renders `YYYY-MM-DD`.
-func ISODateText(year, month, day int64) string {
-	return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+// ISODateText renders `YYYY-MM-DD`, the year as ISOYearText writes it.
+func ISODateText(year rt.Int, month, day int64) string {
+	return fmt.Sprintf("%s-%02d-%02d", ISOYearText(year), month, day)
 }
 
 // ISOTimeText renders `HH:MM:SS[.fff…]`.
@@ -265,20 +286,28 @@ const (
 
 // SplitISODate splits `YYYY-MM-DD` into components without bounds checking.
 //
-// Exactly three `-`-separated parts, so a negative year (which would tokenize
-// as four) is a shape failure rather than being silently accepted.
-func SplitISODate(s string) (year, month, day int64, status ISODateSplit) {
-	parts := strings.Split(s, "-")
-	if len(parts) != 3 {
-		return 0, 0, 0, ISODateShape
+// The year is ParseISOYear's: four or more digits, or a sign and four or
+// more (`-000001`, `+123456789`). After it, exactly two `-`-separated parts.
+// A year of fewer digits is a shape failure, as is minus zero.
+func SplitISODate(s string) (year rt.Int, month, day int64, status ISODateSplit) {
+	sign := 0
+	if s != "" && (s[0] == '+' || s[0] == '-') {
+		sign = 1
 	}
-	y, err1 := strconv.Atoi(parts[0])
+	parts := strings.Split(s[sign:], "-")
+	if len(parts) != 3 {
+		return rt.Int{}, 0, 0, ISODateShape
+	}
+	y, numeric, yearOK := ParseISOYear(s[:sign] + parts[0])
 	mo, err2 := strconv.Atoi(parts[1])
 	d, err3 := strconv.Atoi(parts[2])
-	if err1 != nil || err2 != nil || err3 != nil {
-		return 0, 0, 0, ISODateNonNumeric
+	if !numeric || err2 != nil || err3 != nil {
+		return rt.Int{}, 0, 0, ISODateNonNumeric
 	}
-	return int64(y), int64(mo), int64(d), ISODateOK
+	if !yearOK {
+		return rt.Int{}, 0, 0, ISODateShape
+	}
+	return y, int64(mo), int64(d), ISODateOK
 }
 
 // ParseNaiveDateTime parses `YYYY-MM-DDTHH:MM:SS[.fff…]`, tolerating a single
@@ -354,9 +383,7 @@ func ParseOffsetDateTime(s string) rt.Result[rt.OffsetDateTime, rt.CalendarError
 		if naive.Tag != rt.TagOk {
 			return rt.Err[rt.OffsetDateTime, rt.CalendarError](naive.Err)
 		}
-		return rt.Ok[rt.OffsetDateTime, rt.CalendarError](rt.OffsetDateTime{
-			InstantNanos: naiveAsUTC(naive.Ok).UnixNano(),
-		})
+		return rt.Ok[rt.OffsetDateTime, rt.CalendarError](offsetDateTimeAt(naive.Ok, 0))
 	}
 	tIdx := strings.IndexAny(s, "T ")
 	if tIdx < 0 {
@@ -387,18 +414,13 @@ func ParseOffsetDateTime(s string) rt.Result[rt.OffsetDateTime, rt.CalendarError
 	if naive.Tag != rt.TagOk {
 		return rt.Err[rt.OffsetDateTime, rt.CalendarError](naive.Err)
 	}
-	dt := naive.Ok
-	t := time.Date(int(dt.Year), time.Month(dt.Month), int(dt.Day), int(dt.Hour), int(dt.Minute),
-		int(dt.Second), int(dt.Nanosecond), time.FixedZone("", int(offsetSeconds)))
-	return rt.Ok[rt.OffsetDateTime, rt.CalendarError](rt.OffsetDateTime{
-		InstantNanos:  t.UnixNano(),
-		OffsetSeconds: offsetSeconds,
-	})
+	return rt.Ok[rt.OffsetDateTime, rt.CalendarError](offsetDateTimeAt(naive.Ok, offsetSeconds))
 }
 
-func naiveAsUTC(dt rt.NaiveDateTime) time.Time {
-	return time.Date(int(dt.Year), time.Month(dt.Month), int(dt.Day), int(dt.Hour), int(dt.Minute),
-		int(dt.Second), int(dt.Nanosecond), time.UTC)
+// offsetDateTimeAt reads a wall reading at a fixed offset. Total: the
+// instant is an Int of any size (instantAt).
+func offsetDateTimeAt(dt rt.NaiveDateTime, offsetSeconds int64) rt.OffsetDateTime {
+	return rt.OffsetDateTime{InstantNanos: instantAt(dt, offsetSeconds), OffsetSeconds: offsetSeconds}
 }
 
 // LoadZone resolves an IANA zone name, answering the `UnknownZone` error rather
@@ -414,80 +436,146 @@ func LoadZone(zone string) (*time.Location, rt.CalendarError, bool) {
 // ResolveInZone is the DST gap/fold core: it projects a wall reading into a
 // zone under one Disambiguation mode.
 //
-// Three cases, and the detection of each is a property rather than a table:
+// The wall reading counts `local` seconds from the epoch as if it were UTC,
+// and an instant shows it in the zone when `local - offset` has that offset.
+// The candidate offsets are the zone's a day before and a day after the
+// reading (no zone moves its clock twice within a day of one reading), and
+// the offsets at those candidates' instants. Three cases follow from how
+// many candidates hold:
 //
-//  1. GAP (spring forward). `time.Date` silently normalizes a wall reading that
-//     does not exist, so the candidate's own components differ from the input.
-//     The two instants either side of the gap are then built by interpreting
-//     the REQUESTED components at the pre- and post-transition offsets, because
-//     which side `time.Date` normalized toward depends on the zone's rule shape
-//     and is not something to rely on.
-//  2. FOLD (fall back). Probe one hour forward in real time; if the offset
-//     there differs, a transition just passed, so the same wall reading may
-//     name two instants. The second is `candidate + (candidateOffset -
-//     otherOffset)`, and it is only a genuine fold if that instant really does
-//     render back to the same wall reading.
-//  3. Unambiguous — one instant, every mode agrees.
+//  1. GAP (spring forward): none. The reading does not exist. The instants
+//     either side of the gap read it at the offset before the transition
+//     (the later one, past the gap) and at the offset after it (the earlier
+//     one).
+//  2. FOLD (fall back): two. The same reading names two instants; the
+//     earlier has the larger offset.
+//  3. Unambiguous: one, and every mode agrees.
+//
+// The arithmetic is exact over every reading a NaiveDateTime holds, and the
+// zone's offsets come from zoneOffsetAt, which answers for every instant.
 func ResolveInZone(dt rt.NaiveDateTime, zone string, mode rt.Disambiguation) rt.Result[rt.DateTime, rt.CalendarError] {
 	loc, zerr, ok := LoadZone(zone)
 	if !ok {
 		return rt.Err[rt.DateTime, rt.CalendarError](zerr)
 	}
-	candidate := time.Date(int(dt.Year), time.Month(dt.Month), int(dt.Day), int(dt.Hour),
-		int(dt.Minute), int(dt.Second), int(dt.Nanosecond), loc)
-	if !sameWallReading(candidate, dt) {
-		// Gap: the requested reading does not exist in this zone.
-		preOffset := offsetSecondsAt(candidate.Add(-time.Hour))
-		postOffset := offsetSecondsAt(candidate.Add(time.Hour))
-		wallUTC := naiveAsUTC(dt)
-		post := wallUTC.Add(-time.Duration(preOffset) * time.Second)
-		pre := wallUTC.Add(-time.Duration(postOffset) * time.Second)
+	at := func(offset int64) rt.Result[rt.DateTime, rt.CalendarError] {
+		return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: instantAt(dt, offset), Zone: zone})
+	}
+	local := secondsSaturated(instantAt(dt, 0))
+	before := zoneOffsetAt(loc, satAdd(local, -secondsPerDay))
+	after := zoneOffsetAt(loc, satAdd(local, secondsPerDay))
+	// valid holds each candidate offset whose instant shows the reading,
+	// largest first, so the earliest instant first.
+	var valid []int64
+	for _, o := range []int64{before, after, zoneOffsetAt(loc, satAdd(local, -before)), zoneOffsetAt(loc, satAdd(local, -after))} {
+		if zoneOffsetAt(loc, satAdd(local, -o)) == o && !slices.Contains(valid, o) {
+			valid = append(valid, o)
+		}
+	}
+	slices.SortFunc(valid, func(a, b int64) int { return cmp.Compare(b, a) })
+	switch {
+	case len(valid) == 0:
 		switch mode.Tag {
 		case rt.TagReject:
 			return rt.Err[rt.DateTime, rt.CalendarError](CalendarErr(rt.TagNonexistent,
 				fmt.Sprintf("%s does not exist in %s (DST gap)", ISONaiveText(dt), zone)))
 		case rt.TagEarlier:
-			return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: pre.UnixNano(), Zone: zone})
+			return at(after)
 		default: // Compatible, Later
-			return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: post.UnixNano(), Zone: zone})
+			return at(before)
+		}
+	case len(valid) > 1:
+		switch mode.Tag {
+		case rt.TagReject:
+			return rt.Err[rt.DateTime, rt.CalendarError](CalendarErr(rt.TagAmbiguous,
+				fmt.Sprintf("%s is ambiguous in %s (DST fold)", ISONaiveText(dt), zone)))
+		case rt.TagLater:
+			return at(valid[len(valid)-1])
+		default: // Compatible, Earlier
+			return at(valid[0])
 		}
 	}
-	candidateOffset := offsetSecondsAt(candidate)
-	if afterOffset := offsetSecondsAt(candidate.Add(time.Hour)); afterOffset != candidateOffset {
-		other := candidate.Add(time.Duration(candidateOffset-afterOffset) * time.Second)
-		if sameWallReading(other.In(loc), dt) {
-			// Fold: candidate is the earlier instant (larger offset).
-			switch mode.Tag {
-			case rt.TagReject:
-				return rt.Err[rt.DateTime, rt.CalendarError](CalendarErr(rt.TagAmbiguous,
-					fmt.Sprintf("%s is ambiguous in %s (DST fold)", ISONaiveText(dt), zone)))
-			case rt.TagLater:
-				return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: other.UnixNano(), Zone: zone})
-			default: // Compatible, Earlier
-				return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: candidate.UnixNano(), Zone: zone})
-			}
-		}
-	}
-	return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: candidate.UnixNano(), Zone: zone})
+	return at(valid[0])
 }
 
-func sameWallReading(t time.Time, dt rt.NaiveDateTime) bool {
-	return int64(t.Year()) == dt.Year && int64(t.Month()) == dt.Month && int64(t.Day()) == dt.Day &&
-		int64(t.Hour()) == dt.Hour && int64(t.Minute()) == dt.Minute &&
-		int64(t.Second()) == dt.Second && int64(t.Nanosecond()) == dt.Nanosecond
-}
+const (
+	nanosPerSecond = int64(time.Second)
+	secondsPerDay  = int64(24 * 60 * 60)
+)
 
-func offsetSecondsAt(t time.Time) int64 {
-	_, off := t.Zone()
+// zoneOffsetAt is loc's UTC offset, in seconds east, at sec seconds from the
+// epoch. Go's zone lookup answers for every int64 second: before a zone's
+// first transition it is the zone's first offset (local mean time), and
+// after its last it is the rule the tzdb extends forever (a POSIX TZ
+// string, `EST5EDT,M3.2.0,M11.1.0`). An instant past int64 seconds, about
+// 292 billion years either way, takes the offset at the nearest end
+// (secondsSaturated): no zone has a rule that far out to follow.
+func zoneOffsetAt(loc *time.Location, sec int64) int64 {
+	_, off := time.Unix(sec, 0).In(loc).Zone()
 	return int64(off)
 }
 
-// DaysInMonth is the length of one month, leap-year aware. Derived by asking
-// `time` for the day before the first of the next month rather than from a
-// table, so February needs no special case and neither does the century rule.
-func DaysInMonth(year, month int64) int64 {
-	return int64(time.Date(int(year), time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC).Day())
+// instantAt is the instant at which a clock at offset seconds east of UTC
+// shows dt, in nanoseconds from the epoch: exact for every reading, an Int
+// past int64 nanoseconds (the years 1677 to 2262).
+func instantAt(dt rt.NaiveDateTime, offset int64) rt.Int {
+	days := DaysFromCivil(dt.Year, dt.Month, dt.Day)
+	sod := dt.Hour*3600 + dt.Minute*60 + dt.Second - offset
+	if d, ok := days.Int64(); ok && d > -100_000 && d < 100_000 {
+		// Under 274 years from the epoch either way, so the nanoseconds
+		// fit int64.
+		return small((d*secondsPerDay+sod)*nanosPerSecond + dt.Nanosecond)
+	}
+	z := days.Big()
+	z.Mul(z, big.NewInt(secondsPerDay))
+	z.Add(z, big.NewInt(sod))
+	z.Mul(z, big.NewInt(nanosPerSecond))
+	return rt.BigIntOf(z.Add(z, big.NewInt(dt.Nanosecond)))
 }
+
+// wallAt is the reading a clock at offset seconds east of UTC shows at the
+// instant ns nanoseconds from the epoch, in exact proleptic Gregorian
+// arithmetic (CivilFromDays), for every instant.
+func wallAt(ns rt.Int, offset int64) rt.NaiveDateTime {
+	var days rt.Int
+	var sod, nsec int64
+	if n, ok := ns.Int64(); ok {
+		sec, rest := floorDivMod(n, nanosPerSecond)
+		d, s := floorDivMod(sec+offset, secondsPerDay)
+		days, sod, nsec = small(d), s, rest
+	} else {
+		local := ns.Big()
+		local.Add(local, new(big.Int).Mul(big.NewInt(offset), big.NewInt(nanosPerSecond)))
+		q, r := new(big.Int).DivMod(local, big.NewInt(secondsPerDay*nanosPerSecond), new(big.Int))
+		days = rt.BigIntOf(q)
+		sod, nsec = r.Int64()/nanosPerSecond, r.Int64()%nanosPerSecond
+	}
+	year, month, day := CivilFromDays(days)
+	return rt.NaiveDateTime{
+		Year: year, Month: month, Day: day,
+		Hour: sod / 3600, Minute: sod % 3600 / 60, Second: sod % 60, Nanosecond: nsec,
+	}
+}
+
+// secondsSaturated is the whole seconds, rounded down, of the instant ns
+// nanoseconds from the epoch, clamped to int64.
+func secondsSaturated(ns rt.Int) int64 {
+	if n, small := ns.Int64(); small {
+		sec, _ := floorDivMod(n, nanosPerSecond)
+		return sec
+	}
+	q, _ := new(big.Int).DivMod(ns.Big(), big.NewInt(nanosPerSecond), new(big.Int))
+	switch {
+	case q.IsInt64():
+		return q.Int64()
+	case q.Sign() > 0:
+		return math.MaxInt64
+	}
+	return math.MinInt64
+}
+
+// satAdd is a + b clamped to int64.
+func satAdd(a, b int64) int64 { return addI(small(a), small(b)).Saturated() }
 
 // PlusMonthsClamped shifts a wall reading by whole calendar months, CLAMPING to
 // the last day of the target month.
@@ -500,42 +588,68 @@ func DaysInMonth(year, month int64) int64 {
 //
 // Negative n is the same computation: the month index floors toward negative
 // infinity, which is what makes `2011-03-31 - 1 month` land on `2011-02-28`
-// rather than on a normalized `2011-03-03`.
-func PlusMonthsClamped(dt rt.NaiveDateTime, n int64) rt.NaiveDateTime {
-	monthIdx := dt.Year*12 + (dt.Month - 1) + n
-	year := monthIdx / 12
-	month := monthIdx%12 + 1
-	if monthIdx%12 < 0 {
-		month += 12
-		year--
-	}
-	day := dt.Day
-	if maxDay := DaysInMonth(year, month); day > maxDay {
-		day = maxDay
-	}
+// rather than on a normalized `2011-03-03`. Exact for every count.
+func PlusMonthsClamped(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	monthIdx := addI(addI(mulI(dt.Year, small(12)), small(dt.Month-1)), n)
+	year, month := floorDivModI(monthIdx, 12)
+	month++
 	out := dt
-	out.Year, out.Month, out.Day = year, month, day
+	out.Year, out.Month, out.Day = year, month, min(dt.Day, DaysInMonth(year, month))
 	return out
 }
 
 // CivilShift is the general civil-arithmetic step over a wall reading: months
-// and years clamp first, then every remaining unit is added to its component
-// and `time.Date` normalizes the carries.
+// and years clamp first, then every remaining unit carries into whole days
+// and a time of day, and the days count from the epoch.
 //
 // Order is load-bearing. Clamping BEFORE the day shift is what makes
 // `Jan 31 + 1 month + 1 day` land on `Mar 1` (clamp to Feb 28, then +1) rather
 // than on `Mar 4` (Jan 31 + 1 day, then +1 month with nothing to clamp).
-func CivilShift(dt rt.NaiveDateTime, years, months, days, hours, minutes, seconds, nanos int64) rt.NaiveDateTime {
-	if years != 0 || months != 0 {
-		dt = PlusMonthsClamped(dt, years*12+months)
+//
+// Every count is an Int of any size and the answer is exact, so a shift
+// never fails.
+func CivilShift(dt rt.NaiveDateTime, years, months, days, hours, minutes, seconds, nanos rt.Int) rt.NaiveDateTime {
+	if years.Sign() != 0 || months.Sign() != 0 {
+		dt = PlusMonthsClamped(dt, addI(mulI(years, small(12)), months))
 	}
-	t := time.Date(int(dt.Year), time.Month(dt.Month), int(dt.Day+days), int(dt.Hour+hours),
-		int(dt.Minute+minutes), int(dt.Second+seconds), int(dt.Nanosecond+nanos), time.UTC)
+	// Each unit carries its whole days apart, so what is left of each is
+	// under a day, and their sum with the time of day is under six.
+	const dayNanos = int64(24 * time.Hour)
+	tod := dt.Hour*int64(time.Hour) + dt.Minute*int64(time.Minute) + dt.Second*int64(time.Second) + dt.Nanosecond
+	dayNum := DaysFromCivil(dt.Year, dt.Month, dt.Day)
+	for _, u := range [...]struct {
+		n         rt.Int
+		per, unit int64
+	}{
+		{days, 1, dayNanos}, {hours, 24, int64(time.Hour)}, {minutes, 24 * 60, int64(time.Minute)},
+		{seconds, 24 * 60 * 60, int64(time.Second)}, {nanos, dayNanos, 1},
+	} {
+		if u.n.Sign() == 0 {
+			continue
+		}
+		whole, rest := floorDivModI(u.n, u.per)
+		dayNum = addI(dayNum, whole)
+		tod += rest * u.unit
+	}
+	carry, tod := floorDivMod(tod, dayNanos)
+	dayNum = addI(dayNum, small(carry))
+	year, month, day := CivilFromDays(dayNum)
 	return rt.NaiveDateTime{
-		Year: int64(t.Year()), Month: int64(t.Month()), Day: int64(t.Day()),
-		Hour: int64(t.Hour()), Minute: int64(t.Minute()),
-		Second: int64(t.Second()), Nanosecond: int64(t.Nanosecond()),
+		Year: year, Month: month, Day: day,
+		Hour: tod / int64(time.Hour), Minute: tod % int64(time.Hour) / int64(time.Minute),
+		Second: tod % int64(time.Minute) / int64(time.Second), Nanosecond: tod % int64(time.Second),
 	}
+}
+
+// floorDivMod is a divided by b > 0, rounded toward negative infinity, and
+// the remainder, which is never negative.
+func floorDivMod(a, b int64) (q, r int64) {
+	q, r = a/b, a%b
+	if r < 0 {
+		q--
+		r += b
+	}
+	return q, r
 }
 
 // DateTimeCivilShift is civil arithmetic on a ZONED moment: shift the WALL
@@ -553,7 +667,7 @@ func CivilShift(dt rt.NaiveDateTime, years, months, days, hours, minutes, second
 // every gap and fold. A gap CAN be landed on (`+ Days(1)` from the day before a
 // spring-forward 2:30am), so the mode is doing real work rather than covering
 // an impossible case.
-func DateTimeCivilShift(d rt.DateTime, years, months, days, hours, minutes, seconds, nanos int64) rt.Result[rt.DateTime, rt.CalendarError] {
+func DateTimeCivilShift(d rt.DateTime, years, months, days, hours, minutes, seconds, nanos rt.Int) rt.Result[rt.DateTime, rt.CalendarError] {
 	wall, cerr, ok := DateTimeWall(d)
 	if !ok {
 		return rt.Err[rt.DateTime, rt.CalendarError](cerr)
@@ -568,12 +682,7 @@ func DateTimeWall(d rt.DateTime) (rt.NaiveDateTime, rt.CalendarError, bool) {
 	if !ok {
 		return rt.NaiveDateTime{}, cerr, false
 	}
-	t := time.Unix(0, d.InstantNanos).In(loc)
-	return rt.NaiveDateTime{
-		Year: int64(t.Year()), Month: int64(t.Month()), Day: int64(t.Day()),
-		Hour: int64(t.Hour()), Minute: int64(t.Minute()),
-		Second: int64(t.Second()), Nanosecond: int64(t.Nanosecond()),
-	}, rt.CalendarError{}, true
+	return wallAt(d.InstantNanos, zoneOffsetAt(loc, secondsSaturated(d.InstantNanos))), rt.CalendarError{}, true
 }
 
 // ParseZonedDateTime parses the RFC 9557 bracket form,
@@ -607,13 +716,20 @@ func DateTimeWithZone(d rt.DateTime, zone string) rt.Result[rt.DateTime, rt.Cale
 	return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: d.InstantNanos, Zone: zone})
 }
 
-// DateTimeFromInstantIn projects an absolute Instant into a zone. Total once
-// the zone is known.
-func DateTimeFromInstantIn(i rt.Instant, zone string) rt.Result[rt.DateTime, rt.CalendarError] {
+// DateTimeFromInstantIn projects an instant, ns nanoseconds from the epoch
+// and of any size, into a zone. It fails only on a zone the tzdb does not
+// carry.
+func DateTimeFromInstantIn(ns rt.Int, zone string) rt.Result[rt.DateTime, rt.CalendarError] {
 	if _, cerr, ok := LoadZone(zone); !ok {
 		return rt.Err[rt.DateTime, rt.CalendarError](cerr)
 	}
-	return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: int64(i), Zone: zone})
+	return rt.Ok[rt.DateTime, rt.CalendarError](rt.DateTime{InstantNanos: ns, Zone: zone})
+}
+
+// DateTimePlusNanos is `DateTime + Duration`: the instant nanos later, in
+// the same zone, which the value's constructor checked. Total.
+func DateTimePlusNanos(d rt.DateTime, nanos rt.Int) rt.DateTime {
+	return rt.DateTime{InstantNanos: addI(d.InstantNanos, nanos), Zone: d.Zone}
 }
 
 // DateTimeToString is the RFC 9557 rendering — wall reading, effective offset,
@@ -628,17 +744,11 @@ func DateTimeToString(d rt.DateTime) string {
 	if !ok {
 		return CalendarErrorText(cerr)
 	}
-	t := time.Unix(0, d.InstantNanos).In(loc)
-	_, off := t.Zone()
-	wall := rt.NaiveDateTime{
-		Year: int64(t.Year()), Month: int64(t.Month()), Day: int64(t.Day()),
-		Hour: int64(t.Hour()), Minute: int64(t.Minute()),
-		Second: int64(t.Second()), Nanosecond: int64(t.Nanosecond()),
-	}
-	return ISONaiveText(wall) + FormatOffsetHHMM(int64(off)) + "[" + d.Zone + "]"
+	off := zoneOffsetAt(loc, secondsSaturated(d.InstantNanos))
+	return ISONaiveText(wallAt(d.InstantNanos, off)) + FormatOffsetHHMM(off) + "[" + d.Zone + "]"
 }
 
-func DateTimeYear(d rt.DateTime) int64 { w, _, _ := DateTimeWall(d); return w.Year }
+func DateTimeYear(d rt.DateTime) rt.Int { w, _, _ := DateTimeWall(d); return w.Year }
 
 func DateTimeMonth(d rt.DateTime) int64 { w, _, _ := DateTimeWall(d); return w.Month }
 
@@ -658,18 +768,18 @@ func DateTimeOffset(d rt.DateTime) rt.Duration {
 	if !ok {
 		return rt.Duration(0)
 	}
-	_, off := time.Unix(0, d.InstantNanos).In(loc).Zone()
-	return rt.Duration(int64(off) * int64(time.Second))
+	return rt.Duration(zoneOffsetAt(loc, secondsSaturated(d.InstantNanos)) * nanosPerSecond)
 }
 
 // NaiveDateTimeToString is the ISO rendering.
 func NaiveDateTimeToString(dt rt.NaiveDateTime) string { return ISONaiveText(dt) }
 
-// NaiveDateTimeBetween is `later - earlier`, computed as if both were UTC wall
-// readings — which is the only reading available, since a naive value names no
-// instant.
-func NaiveDateTimeBetween(earlier, later rt.NaiveDateTime) rt.Duration {
-	return rt.Duration(naiveAsUTC(later).UnixNano() - naiveAsUTC(earlier).UnixNano())
+// NaiveDateTimeBetween is `later - earlier` in nanoseconds, computed as if
+// both were UTC wall readings, which is the only reading available, since a
+// naive value names no instant. Exact at any distance: a Duration is an Int
+// of any size.
+func NaiveDateTimeBetween(earlier, later rt.NaiveDateTime) rt.Int {
+	return rt.BigIntOf(new(big.Int).Sub(instantAt(later, 0).Big(), instantAt(earlier, 0).Big()))
 }
 
 // NaiveDateTimePlusDuration is `impl Add<Duration, NaiveDateTime>`: the EXACT
@@ -684,25 +794,20 @@ func NaiveDateTimeBetween(earlier, later rt.NaiveDateTime) rt.Duration {
 // need instead. `+ Duration.hours(24)` and `+ Days(1)` agree here and disagree
 // on a DateTime across a transition, which is DateTimeCivilShift's subject.
 //
-// The computation: interpret the reading as UTC, add the nanoseconds through
-// time.Time so the carries and month lengths come from one implementation, read
-// the components back.
+// The computation is CivilShift's, the one place a reading carries into
+// whole days.
 func NaiveDateTimePlusDuration(dt rt.NaiveDateTime, d rt.Duration) rt.NaiveDateTime {
-	t := naiveAsUTC(dt).Add(time.Duration(d))
-	return rt.NaiveDateTime{
-		Year: int64(t.Year()), Month: int64(t.Month()), Day: int64(t.Day()),
-		Hour: int64(t.Hour()), Minute: int64(t.Minute()),
-		Second: int64(t.Second()), Nanosecond: int64(t.Nanosecond()),
-	}
+	return CivilShift(dt, zero, zero, zero, zero, zero, zero, small(int64(d)))
 }
+
+// zero is the count of a unit a shift does not move.
+var zero = small(0)
 
 // NewDate is `Date.new`: validate the combination, then build.
 //
-// The validation is ValidateDateComponents', which detects an impossible
-// combination by round-tripping through `time.Date` rather than special-casing
-// leap years, so `2026-02-29` fails for every proleptic-Gregorian year by
-// construction.
-func NewDate(year, month, day int64) rt.Result[rt.Date, rt.CalendarError] {
+// The validation is ValidateDateComponents', whose month lengths follow the
+// leap rule for every year, so `2026-02-29` fails and `2024-02-29` does not.
+func NewDate(year rt.Int, month, day int64) rt.Result[rt.Date, rt.CalendarError] {
 	if e, ok := ValidateDateComponents(year, month, day); !ok {
 		return rt.Err[rt.Date, rt.CalendarError](e)
 	}
@@ -789,31 +894,25 @@ func asNaive(d rt.Date) rt.NaiveDateTime {
 // DateDaysBetween is `Date.days_between`: whole days from `earlier` to `later`,
 // negative when `later` is the earlier of the two.
 //
-// The `Hours()/24` route rather than a direct day subtraction is deliberate:
-// both signs are pinned, and changing the route is a behaviour change to make
-// on its own.
-//
-// Both operands are midnight UTC, so no DST transition can shorten a day and
-// the quotient is exact.
-func DateDaysBetween(earlier, later rt.Date) int64 {
-	t1 := time.Date(int(earlier.Year), time.Month(earlier.Month), int(earlier.Day), 0, 0, 0, 0, time.UTC)
-	t2 := time.Date(int(later.Year), time.Month(later.Month), int(later.Day), 0, 0, 0, 0, time.UTC)
-	return int64(t2.Sub(t1).Hours()) / 24
+// The difference of the two day numbers, so it is exact however far apart
+// the dates are.
+func DateDaysBetween(earlier, later rt.Date) rt.Int {
+	return subI(DaysFromCivil(later.Year, later.Month, later.Day), DaysFromCivil(earlier.Year, earlier.Month, earlier.Day))
 }
 
 // DatePlusYears is `impl Add<Years, Date>`: clamp the day into the target month.
-func DatePlusYears(d rt.Date, n rt.Years) rt.Date {
-	return NaiveDateTimeToDate(CivilShift(asNaive(d), int64(n), 0, 0, 0, 0, 0, 0))
+func DatePlusYears(d rt.Date, n rt.Int) rt.Date {
+	return NaiveDateTimeToDate(CivilShift(asNaive(d), n, zero, zero, zero, zero, zero, zero))
 }
 
 // DatePlusMonths is `impl Add<Months, Date>`: end-of-month clamping.
-func DatePlusMonths(d rt.Date, n rt.Months) rt.Date {
-	return NaiveDateTimeToDate(CivilShift(asNaive(d), 0, int64(n), 0, 0, 0, 0, 0))
+func DatePlusMonths(d rt.Date, n rt.Int) rt.Date {
+	return NaiveDateTimeToDate(CivilShift(asNaive(d), zero, n, zero, zero, zero, zero, zero))
 }
 
 // DatePlusDays is `impl Add<Days, Date>`: advance the day.
-func DatePlusDays(d rt.Date, n rt.Days) rt.Date {
-	return NaiveDateTimeToDate(CivilShift(asNaive(d), 0, 0, int64(n), 0, 0, 0, 0))
+func DatePlusDays(d rt.Date, n rt.Int) rt.Date {
+	return NaiveDateTimeToDate(CivilShift(asNaive(d), zero, zero, n, zero, zero, zero, zero))
 }
 
 // TimePlusDuration is `impl Add<Duration, Time>`: exact elapsed time, wrapping
@@ -831,7 +930,7 @@ func TimePlusDuration(t rt.Time, d rt.Duration) rt.Time {
 	const dayNanos = int64(24 * time.Hour)
 	total := t.Hour*int64(time.Hour) + t.Minute*int64(time.Minute) +
 		t.Second*int64(time.Second) + t.Nanosecond
-	total = (total + int64(d)) % dayNanos
+	total = (total + int64(d)%dayNanos) % dayNanos // d % dayNanos first: the sum of d itself can pass int64
 	if total < 0 {
 		total += dayNanos
 	}
@@ -848,19 +947,11 @@ func TimePlusDuration(t rt.Time, d rt.Duration) rt.Time {
 //
 // Total, unlike DateTimeWall: a fixed offset needs no tzdb lookup, so there is
 // no zone that can fail to load and no error arm to propagate.
+//
+// It is the one place that projection is written; every accessor below
+// reads through it.
 func OffsetDateTimeWall(odt rt.OffsetDateTime) rt.NaiveDateTime {
-	t := offsetWall(odt)
-	return rt.NaiveDateTime{
-		Year: int64(t.Year()), Month: int64(t.Month()), Day: int64(t.Day()),
-		Hour: int64(t.Hour()), Minute: int64(t.Minute()),
-		Second: int64(t.Second()), Nanosecond: int64(t.Nanosecond()),
-	}
-}
-
-// offsetWall projects instant + offset onto a Go time in a fixed zone. The one
-// place that projection is written; every accessor below reads through it.
-func offsetWall(odt rt.OffsetDateTime) time.Time {
-	return time.Unix(0, odt.InstantNanos).In(time.FixedZone("", int(odt.OffsetSeconds)))
+	return wallAt(odt.InstantNanos, odt.OffsetSeconds)
 }
 
 // OffsetDateTimeWithOffset combines a wall reading with a fixed UTC offset.
@@ -883,27 +974,25 @@ func OffsetDateTimeWithOffset(dt rt.NaiveDateTime, offset rt.Duration) rt.Result
 		return rt.Err[rt.OffsetDateTime, rt.CalendarError](CalendarErr(rt.TagInvalidValue,
 			fmt.Sprintf("offset out of range (±18h): %ds", offsetSeconds)))
 	}
-	t := time.Date(int(dt.Year), time.Month(dt.Month), int(dt.Day), int(dt.Hour), int(dt.Minute),
-		int(dt.Second), int(dt.Nanosecond), time.FixedZone("", int(offsetSeconds)))
-	return rt.Ok[rt.OffsetDateTime, rt.CalendarError](rt.OffsetDateTime{
-		InstantNanos:  t.UnixNano(),
-		OffsetSeconds: offsetSeconds,
-	})
+	return rt.Ok[rt.OffsetDateTime, rt.CalendarError](offsetDateTimeAt(dt, offsetSeconds))
 }
 
-// OffsetDateTimeFromInstant attaches a fixed offset to an absolute instant.
+// OffsetDateTimeFromInstant attaches a fixed offset, in seconds, to an
+// instant ns nanoseconds from the epoch, an Int of any size. Total.
 //
-// TOTAL, and std declares it returning `OffsetDateTime` rather than a Result to
-// say so: every instant has a representation at every offset, so there is
-// nothing to reject. A sub-second offset truncates here where WithOffset
-// refuses, and the asymmetry is std/calendar.nomi's own design — the two
-// functions differ in whether a caller is naming a MOMENT (total) or asserting
-// a WALL READING at an offset (validated).
-func OffsetDateTimeFromInstant(i rt.Instant, offset rt.Duration) rt.OffsetDateTime {
-	return rt.OffsetDateTime{
-		InstantNanos:  int64(i),
-		OffsetSeconds: int64(offset) / int64(time.Second),
-	}
+// std/calendar.nomi's `from_instant` returns InvalidValue for an offset past
+// ±18h before it crosses (`offset_in_range`), as `with_offset` does, so
+// offset is within that here. A sub-second offset was cut to whole seconds:
+// a caller of from_instant names a MOMENT, and one of with_offset asserts a
+// WALL READING at an offset.
+func OffsetDateTimeFromInstant(ns rt.Int, offsetSeconds int64) rt.OffsetDateTime {
+	return rt.OffsetDateTime{InstantNanos: ns, OffsetSeconds: offsetSeconds}
+}
+
+// OffsetDateTimePlusNanos is `OffsetDateTime + Duration`: the instant nanos
+// later, at the same offset. Total.
+func OffsetDateTimePlusNanos(odt rt.OffsetDateTime, nanos rt.Int) rt.OffsetDateTime {
+	return rt.OffsetDateTime{InstantNanos: addI(odt.InstantNanos, nanos), OffsetSeconds: odt.OffsetSeconds}
 }
 
 // OffsetDateTimeToString is the `Display.to_string` rendering:
@@ -916,21 +1005,19 @@ func OffsetDateTimeToString(odt rt.OffsetDateTime) string {
 	return ISONaiveText(OffsetDateTimeWall(odt)) + FormatOffsetHHMM(odt.OffsetSeconds)
 }
 
-func OffsetDateTimeYear(odt rt.OffsetDateTime) int64 { return int64(offsetWall(odt).Year()) }
+func OffsetDateTimeYear(odt rt.OffsetDateTime) rt.Int { return OffsetDateTimeWall(odt).Year }
 
-func OffsetDateTimeMonth(odt rt.OffsetDateTime) int64 { return int64(offsetWall(odt).Month()) }
+func OffsetDateTimeMonth(odt rt.OffsetDateTime) int64 { return OffsetDateTimeWall(odt).Month }
 
-func OffsetDateTimeDay(odt rt.OffsetDateTime) int64 { return int64(offsetWall(odt).Day()) }
+func OffsetDateTimeDay(odt rt.OffsetDateTime) int64 { return OffsetDateTimeWall(odt).Day }
 
-func OffsetDateTimeHour(odt rt.OffsetDateTime) int64 { return int64(offsetWall(odt).Hour()) }
+func OffsetDateTimeHour(odt rt.OffsetDateTime) int64 { return OffsetDateTimeWall(odt).Hour }
 
-func OffsetDateTimeMinute(odt rt.OffsetDateTime) int64 { return int64(offsetWall(odt).Minute()) }
+func OffsetDateTimeMinute(odt rt.OffsetDateTime) int64 { return OffsetDateTimeWall(odt).Minute }
 
-func OffsetDateTimeSecond(odt rt.OffsetDateTime) int64 { return int64(offsetWall(odt).Second()) }
+func OffsetDateTimeSecond(odt rt.OffsetDateTime) int64 { return OffsetDateTimeWall(odt).Second }
 
-func OffsetDateTimeNanosecond(odt rt.OffsetDateTime) int64 {
-	return int64(offsetWall(odt).Nanosecond())
-}
+func OffsetDateTimeNanosecond(odt rt.OffsetDateTime) int64 { return OffsetDateTimeWall(odt).Nanosecond }
 
 // OffsetDateTimePlusMonths shifts the WALL READING by whole calendar months,
 // clamping a shorter target month, and re-anchors at the same offset.
@@ -938,8 +1025,8 @@ func OffsetDateTimeNanosecond(odt rt.OffsetDateTime) int64 {
 // The clamp is PlusMonthsClamped's — the one place a shorter target month
 // clamps, per rt/calendar.go's header — so Date, NaiveDateTime, DateTime and
 // this type all answer 2026-02-28 for January 31st plus one month.
-func OffsetDateTimePlusMonths(odt rt.OffsetDateTime, n rt.Months) rt.OffsetDateTime {
-	return offsetShiftMonths(odt, int64(n))
+func OffsetDateTimePlusMonths(odt rt.OffsetDateTime, n rt.Int) rt.OffsetDateTime {
+	return offsetDateTimeAt(PlusMonthsClamped(OffsetDateTimeWall(odt), n), odt.OffsetSeconds)
 }
 
 // OffsetDateTimePlusYears shifts by whole calendar years.
@@ -947,16 +1034,8 @@ func OffsetDateTimePlusMonths(odt rt.OffsetDateTime, n rt.Months) rt.OffsetDateT
 // Twelve months rather than a year field, which is what makes 2024-02-29 plus
 // one year clamp to 2025-02-28 through the SAME rule as the month rung instead
 // of a second leap-day special case.
-func OffsetDateTimePlusYears(odt rt.OffsetDateTime, n rt.Years) rt.OffsetDateTime {
-	return offsetShiftMonths(odt, int64(n)*12)
-}
-
-func offsetShiftMonths(odt rt.OffsetDateTime, months int64) rt.OffsetDateTime {
-	shifted := PlusMonthsClamped(OffsetDateTimeWall(odt), months)
-	t := time.Date(int(shifted.Year), time.Month(shifted.Month), int(shifted.Day),
-		int(shifted.Hour), int(shifted.Minute), int(shifted.Second), int(shifted.Nanosecond),
-		time.FixedZone("", int(odt.OffsetSeconds)))
-	return rt.OffsetDateTime{InstantNanos: t.UnixNano(), OffsetSeconds: odt.OffsetSeconds}
+func OffsetDateTimePlusYears(odt rt.OffsetDateTime, n rt.Int) rt.OffsetDateTime {
+	return OffsetDateTimePlusMonths(odt, mulI(n, small(12)))
 }
 
 // DateTimeToOffset projects a zoned moment onto the fixed offset that is
@@ -983,14 +1062,14 @@ func DateTimeToOffset(d rt.DateTime) rt.OffsetDateTime {
 
 // NaiveDateTimePlusYears is `impl Add<Years, NaiveDateTime>`: clamp the day
 // into the target month, then keep the wall clock.
-func NaiveDateTimePlusYears(dt rt.NaiveDateTime, n rt.Years) rt.NaiveDateTime {
-	return CivilShift(dt, int64(n), 0, 0, 0, 0, 0, 0)
+func NaiveDateTimePlusYears(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	return CivilShift(dt, n, zero, zero, zero, zero, zero, zero)
 }
 
 // NaiveDateTimePlusMonths is `impl Add<Months, NaiveDateTime>`: end-of-month
 // clamping, leap years included.
-func NaiveDateTimePlusMonths(dt rt.NaiveDateTime, n rt.Months) rt.NaiveDateTime {
-	return CivilShift(dt, 0, int64(n), 0, 0, 0, 0, 0)
+func NaiveDateTimePlusMonths(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	return CivilShift(dt, zero, n, zero, zero, zero, zero, zero)
 }
 
 // NaiveDateTimePlusDays is `impl Add<Days, NaiveDateTime>`: advance the day and
@@ -999,8 +1078,8 @@ func NaiveDateTimePlusMonths(dt rt.NaiveDateTime, n rt.Months) rt.NaiveDateTime 
 // On a naive value this agrees with `+ Duration.hours(24)`, and on a DateTime
 // it does not. The agreement here is a fact about there being no zone, not a
 // sign that the two operations are the same one.
-func NaiveDateTimePlusDays(dt rt.NaiveDateTime, n rt.Days) rt.NaiveDateTime {
-	return CivilShift(dt, 0, 0, int64(n), 0, 0, 0, 0)
+func NaiveDateTimePlusDays(dt rt.NaiveDateTime, n rt.Int) rt.NaiveDateTime {
+	return CivilShift(dt, zero, zero, n, zero, zero, zero, zero)
 }
 
 // CivilShiftFaultText is the message a civil shift that cannot resolve produces.
@@ -1016,12 +1095,12 @@ func CivilShiftFaultText(zone string, e rt.CalendarError) string {
 // `impl Add<Years, DateTime>`'s `add` returns `DateTime`, not
 // `Result<DateTime, Error>` — std's decision that arithmetic does not fail,
 // which DateTimeCivilShift honours by resolving every gap and fold with
-// `Compatible`. The one residual failure is a zone the tzdb does not carry, and
-// no DateTime a program can hold has one: every constructor (`in_zone`,
-// `from_instant_in`, `parse`, `with_zone`) validates the zone first. So this
-// arm is unreachable rather than merely unlikely, and it traps rather than
-// inventing a value, with CivilShiftFaultText's text.
-func DateTimeCivilShiftOrTrap(d rt.DateTime, years, months, days, hours, minutes, seconds, nanos int64) rt.DateTime {
+// `Compatible` over a shift exact for every count. The one failure left is
+// a zone the tzdb does not carry, and it is unreachable: every constructor
+// (`in_zone`, `from_instant_in`, `parse`, `with_zone`) validates the zone
+// first, so the trap with CivilShiftFaultText's text reports a broken
+// invariant, never a program's input.
+func DateTimeCivilShiftOrTrap(d rt.DateTime, years, months, days, hours, minutes, seconds, nanos rt.Int) rt.DateTime {
 	res := DateTimeCivilShift(d, years, months, days, hours, minutes, seconds, nanos)
 	if res.Tag != rt.TagOk {
 		rt.Trap(CivilShiftFaultText(d.Zone, res.Err))
@@ -1030,13 +1109,13 @@ func DateTimeCivilShiftOrTrap(d rt.DateTime, years, months, days, hours, minutes
 }
 
 // DateTimePlusYears is `impl Add<Years, DateTime>`.
-func DateTimePlusYears(d rt.DateTime, n rt.Years) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, int64(n), 0, 0, 0, 0, 0, 0)
+func DateTimePlusYears(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, n, zero, zero, zero, zero, zero, zero)
 }
 
 // DateTimePlusMonths is `impl Add<Months, DateTime>`.
-func DateTimePlusMonths(d rt.DateTime, n rt.Months) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, int64(n), 0, 0, 0, 0, 0)
+func DateTimePlusMonths(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, n, zero, zero, zero, zero, zero)
 }
 
 // DateTimePlusDays is `impl Add<Days, DateTime>`, and it is the rung the whole
@@ -1044,8 +1123,8 @@ func DateTimePlusMonths(d rt.DateTime, n rt.Months) rt.DateTime {
 //
 // `noon Mar 7 in New York + Days(1)` is noon on Mar 8 — 23 hours of elapsed
 // time — while `+ Duration.hours(24)` is 1pm on Mar 8.
-func DateTimePlusDays(d rt.DateTime, n rt.Days) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, int64(n), 0, 0, 0, 0)
+func DateTimePlusDays(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, n, zero, zero, zero, zero)
 }
 
 // DateTimePlusHours is `impl Add<Hours, DateTime>`: a WALL-CLOCK hour.
@@ -1053,31 +1132,31 @@ func DateTimePlusDays(d rt.DateTime, n rt.Days) rt.DateTime {
 // Not `Duration.hours(n)`. Adding 24 civil hours across a spring-forward lands
 // on the same reading `+ Days(1)` does, because both shift the wall reading and
 // then re-resolve; adding a 24-hour Duration does not.
-func DateTimePlusHours(d rt.DateTime, n rt.Hours) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, 0, int64(n), 0, 0, 0)
+func DateTimePlusHours(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, zero, n, zero, zero, zero)
 }
 
 // DateTimePlusMinutes is `impl Add<Minutes, DateTime>`.
-func DateTimePlusMinutes(d rt.DateTime, n rt.Minutes) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, 0, 0, int64(n), 0, 0)
+func DateTimePlusMinutes(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, zero, zero, n, zero, zero)
 }
 
 // DateTimePlusSeconds is `impl Add<Seconds, DateTime>`.
-func DateTimePlusSeconds(d rt.DateTime, n rt.Seconds) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, 0, 0, 0, int64(n), 0)
+func DateTimePlusSeconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, zero, zero, zero, n, zero)
 }
 
 // DateTimePlusMilliseconds is `impl Add<Milliseconds, DateTime>`.
-func DateTimePlusMilliseconds(d rt.DateTime, n rt.Milliseconds) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, 0, 0, 0, 0, int64(n)*1_000_000)
+func DateTimePlusMilliseconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, zero, zero, zero, zero, mulI(n, small(1_000_000)))
 }
 
 // DateTimePlusMicroseconds is `impl Add<Microseconds, DateTime>`.
-func DateTimePlusMicroseconds(d rt.DateTime, n rt.Microseconds) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, 0, 0, 0, 0, int64(n)*1_000)
+func DateTimePlusMicroseconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, zero, zero, zero, zero, mulI(n, small(1_000)))
 }
 
 // DateTimePlusNanoseconds is `impl Add<Nanoseconds, DateTime>`.
-func DateTimePlusNanoseconds(d rt.DateTime, n rt.Nanoseconds) rt.DateTime {
-	return DateTimeCivilShiftOrTrap(d, 0, 0, 0, 0, 0, 0, int64(n))
+func DateTimePlusNanoseconds(d rt.DateTime, n rt.Int) rt.DateTime {
+	return DateTimeCivilShiftOrTrap(d, zero, zero, zero, zero, zero, zero, n)
 }

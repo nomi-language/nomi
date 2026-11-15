@@ -20,7 +20,10 @@ pub fn sublist<T>(first: List<T>, second: List<T>) -> Relation where T: Equatabl
 end
 
 /// Whether `run` appears in `list` with its elements next to each other.
-/// Every list holds the empty run; `Iter.windows` of size 0 yields nothing.
+/// Every list holds the empty run, which has no window size.
 fn contains_run<T>(list: List<T>, run: List<T>) -> Bool where T: Equatable
-    Iter.is_empty(run) or Iter.windows(list, Iter.count(run)) |> Iter.any_match(&(&1 == run))
+    case PositiveInt.try_from(Iter.count(run))
+        None       -> True
+        Some(size) -> Iter.windows(list, size) |> Iter.any_match(&(&1 == run))
+    end
 end

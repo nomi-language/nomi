@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# Digits pass through unchanged, and everything else is dropped.
 
 once alphabet     = Iter.to_vector('a'..='z')
-once letter_count = Vector.length(alphabet)
+once letter_count = PositiveInt.try_from(Vector.length(alphabet))!
 
 /// Each lowercase letter's number, from 0 for `a`.
 once letter_numbers =

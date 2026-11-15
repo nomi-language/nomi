@@ -141,6 +141,19 @@ end
 	}
 }
 
+// A generic validated type's rule is checked for effects as a generic
+// subtype's is: its `try_from` is in `impl TryFrom<base(Loud)> for
+// Loud<T>`, whose every instance the check finds.
+func TestTryFrom_AGenericValidatedRuleWithEffectsIsAnError(t *testing.T) {
+	ds := literalDiagnostics(t, "import std::io\n\n"+
+		"type Loud<T> List<T> when fn xs ->\n    io.print(\"checking\")\n    not Iter.is_empty(xs)\nend\n\n"+
+		"fn main()\n    io.inspect(Loud.try_from([1]))\n    io.inspect(Loud([\"a\"]))\nend\n")
+	const want = "the rule of Loud has effects (lambda calls io.print): a rule is a pure function of the value it checks"
+	if len(ds) != 1 || ds[0].Line != 3 || ds[0].Message != want || ds[0].Code != InvalidRefinementCode {
+		t.Fatalf("diagnostics = %v, want one at line 3: %q", ds, want)
+	}
+}
+
 // A rule that reads a name `value` keeps it: the generated parameter is
 // the interface's `value`, binding the argument under another name.
 func TestTryFrom_ARuleThatReadsValue(t *testing.T) {

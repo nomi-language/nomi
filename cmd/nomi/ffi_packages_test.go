@@ -75,13 +75,16 @@ func CountIf(cells []Cell, keep core.Check) ID {
 	return n
 }
 `,
-		"main.nomi": `import std::io
+		"main.nomi": `import
+  std::int.Int64
+  std::io
+end
 
 gopkg "example.com/app/adapter"
 
 struct Cell
   text: String
-  n: Int
+  n: Int64
 end
 
 derive Display for Cell
@@ -97,7 +100,7 @@ struct User
   best: Maybe<Cell>
 end
 
-fn make_cell(text: String, n: Int) -> Cell go adapter.MakeCell
+fn make_cell(text: String, n: Int64) -> Cell go adapter.MakeCell
 
 fn greet(u: User) -> User go adapter.Greet
 

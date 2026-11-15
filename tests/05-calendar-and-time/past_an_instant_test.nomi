@@ -1,0 +1,61 @@
+// Times from outside the program past the years Go's clock counts, 1677 to
+// 2262, cross as the exact moment, never a wrapped one: a certificate's
+// validity, an HTTP date and a cookie's expiry hold any year.
+import
+    std::calendar.OffsetDateTime
+    std::duration.Duration
+    std::http.{self, Cookie}
+    std::instant.Instant
+    std::tls.Certificate
+end
+
+// The moment a clock in UTC shows `text`.
+fn utc(text: String) -> Instant
+    OffsetDateTime.to_instant(OffsetDateTime.parse(text)!)
+end
+
+// Self-signed for forever.test, valid from 1600-01-01 to 9999-12-31T23:59:59Z.
+once forever_cert = """
+    -----BEGIN CERTIFICATE-----
+    MIIBOzCB46ADAgECAgInDzAKBggqhkjOPQQDAjAXMRUwEwYDVQQDEwxmb3JldmVy
+    LnRlc3QwIhgPMTYwMDAxMDEwMDAwMDBaGA85OTk5MTIzMTIzNTk1OVowFzEVMBMG
+    A1UEAxMMZm9yZXZlci50ZXN0MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAERkaW
+    FHz3e156qMjVCzhut1udK4LnCqrynPbP/YNDFkQIF9mwa8Lt4WBhyEaDo1lFpbVt
+    RZNeTuM9AelToabIlaMbMBkwFwYDVR0RBBAwDoIMZm9yZXZlci50ZXN0MAoGCCqG
+    SM49BAMCA0cAMEQCIFknlE44aAE8WQ1BNCflujlQwjcCVyMsiALcBQMuE9xqAiB+
+    j6T7W5W3B90F/1weE/j0TWR80JpcD4RrZbi7qbrroA==
+    -----END CERTIFICATE-----
+    """
+
+once forever_key = """
+    -----BEGIN EC PRIVATE KEY-----
+    MHcCAQEEINRiwAbYithvTCKsUZVvNkkdTmb+ddE6/KdFZjxxCjVQoAoGCCqGSM49
+    AwEHoUQDQgAERkaWFHz3e156qMjVCzhut1udK4LnCqrynPbP/YNDFkQIF9mwa8Lt
+    4WBhyEaDo1lFpbVtRZNeTuM9AelToabIlQ==
+    -----END EC PRIVATE KEY-----
+    """
+
+test "a certificate valid until 9999 says so"
+    info = Certificate.info(Certificate.from_pem(forever_cert, forever_key)!)
+
+    assert info.not_before == utc("1600-01-01T00:00:00Z")
+    assert info.not_after == utc("9999-12-31T23:59:59Z")
+    assert Instant.is_before(Instant.now(), info.not_after)
+    assert info.dns_names == ["forever.test"]
+end
+
+test "an HTTP date past 2262 is that moment"
+    assert http.parse_time("Fri, 31 Dec 9999 23:59:59 GMT") == Ok(utc("9999-12-31T23:59:59Z"))
+    assert http.parse_time("Sun, 06 Nov 1994 08:49:37 GMT") == Ok(utc("1994-11-06T08:49:37Z"))
+    assert http.parse_time("yesterday") is Err(http.Error.Protocol{reason: _})
+
+    later = utc("9999-12-31T23:59:59Z") + Duration.seconds(1)
+    assert http.format_time(later) == "Sat, 01 Jan 10000 00:00:00 GMT"
+end
+
+test "a cookie expiring in 9999 keeps its expiry"
+    c = Cookie.parse_set_cookie("id=7; Expires=Fri, 31 Dec 9999 23:59:59 GMT")!
+
+    assert c.expires == Some(utc("9999-12-31T23:59:59Z"))
+    assert c.raw_expires == Some("Fri, 31 Dec 9999 23:59:59 GMT")
+end

@@ -11,19 +11,19 @@ import (
 // program"), since joining the two dropped the first one's kind.
 func TestRun_ACleanupTrapDuringATrapReportsBoth(t *testing.T) {
 	o := runInput(t.TempDir(), `fn boom(n: Int)
-    dbg 10 / n
+    dbg 10 / NonZeroInt.try_from(n)!
 end
 
 fn main()
     zero = 0
     defer boom(zero)
-    dbg 1 / zero
+    dbg 1 / NonZeroInt.try_from(zero)!
 end
 `)
 	if o.class != runTrap {
 		t.Fatalf("the run is %v (%s), not the program's own failure:\n%s", o.class, o.crash, o.transcript)
 	}
-	want := "line 8: division by zero; cleanup error: line 7: deferred cleanup failed: line 2: division by zero"
+	want := "line 8: `NonZeroInt.try_from(zero)` found nothing; cleanup error: line 7: deferred cleanup failed: line 2: `NonZeroInt.try_from(n)` found nothing"
 	if !strings.Contains(o.transcript, want) {
 		t.Fatalf("the run reports\n%s\nwant it to hold %q", o.transcript, want)
 	}

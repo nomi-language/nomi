@@ -420,7 +420,7 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		// instead.
 		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
 	}
-	return e.WithHint(missingImplHelp(iface, shown))
+	return e.WithHint(missingImplHelp(iface, shown, recs))
 }
 
 // builtinPrimitive reports whether a demand for typeName of origin is for
@@ -480,18 +480,37 @@ func stdTypeHelp(iface, typeName, origin string, implementers []string) string {
 }
 
 // missingImplHelp is the help line for a type that has no impl of iface,
-// from names alone (DetectMissingImpls): an operator interface's block
-// shape, a derive when iface is derivable, or an impl block. boundHelp is
-// the call-site bound check's, which knows the interface's functions.
-func missingImplHelp(iface, typeName string) string {
+// from names alone (DetectMissingImpls), for the demands recs: an operator
+// interface's block shape, a derive when iface is derivable, or an impl
+// block. boundHelp is the call-site bound check's, which knows the
+// interface's functions.
+//
+// For Equatable or Hashable, a declared type with equality meets either
+// with no impl (structural_bounds.go), so the checker records such a
+// demand only for a type that holds a value with none. A derive's demand
+// says what that is when the derive found it (DeriveCtx.NoEquality); when
+// it did not, the help claims nothing about the type's parts.
+func missingImplHelp(iface, typeName string, recs []Recording) string {
 	if opIface, ok := operatorInterfaceByName(iface); ok {
 		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s` block with `fn %s(lhs: %s, rhs: Rhs) -> Out`",
 			opIface.Interface, typeName, opIface.Method, typeName)
 	}
 	if iface == "Equatable" || iface == "Hashable" {
-		// A declared type with equality meets either with no impl, so one
-		// that misses it holds a value with none (structural_bounds.go).
-		return fmt.Sprintf("`%s` holds a function, an Iter or a handle to running state, which has no equality; write an `impl %s for %s` block that leaves it out", typeName, iface, typeName)
+		holds, checked := "", false
+		for _, rec := range recs {
+			if rec.Derive == nil {
+				checked = true
+			} else if holds == "" {
+				holds = rec.Derive.NoEquality
+			}
+		}
+		switch {
+		case holds != "":
+			return fmt.Sprintf("`%s` holds %s, which has no equality; write an `impl %s for %s` block that leaves it out", typeName, holds, iface, typeName)
+		case checked:
+			return fmt.Sprintf("`%s` holds a function, an Iter or a handle to running state, which has no equality; write an `impl %s for %s` block that leaves it out", typeName, iface, typeName)
+		}
+		return fmt.Sprintf("write an `impl %s for %s` block", iface, typeName)
 	}
 	if deriveSupported[iface] {
 		return fmt.Sprintf("add `derive %s` to `%s` or write an `impl %s for %s` block", iface, typeName, iface, typeName)
@@ -545,7 +564,7 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 		return stdTypeHelp(bound.Name, name, origin, c.implementersOf(bound.Name))
 	}
 	if _, ok := operatorInterfaceByName(bound.Name); ok {
-		return missingImplHelp(bound.Name, name)
+		return missingImplHelp(bound.Name, name, nil)
 	}
 	impl := fmt.Sprintf("write an `impl %s for %s` block", bound, name)
 	if sigs := c.requiredSignatures(bound, concrete); len(sigs) > 0 {

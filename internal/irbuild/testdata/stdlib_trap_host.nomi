@@ -1,0 +1,18 @@
+// A mapped stdlib extern that FAULTS.
+//
+// `Int.pow` with an exponent whose power would not fit in memory is a
+// runtime error. A builtin's own text names no line, so the report puts the
+// line of the program's call in front of it, as for any trap inside the
+// stdlib, and the words after it reach the user VERBATIM. So the text is a
+// contract rt owns, and the `Int.pow:` qualification (which `Int.shift_left`'s
+// does NOT share) is part of it rather than something to tidy.
+//
+// The print before the fault is the other half of the fixture: stdout must carry
+// `before` before the error reaches stderr, which is what rt.Print
+// writing unbuffered straight to fd 1 buys.
+import std::io
+
+fn main()
+    io.print("before")
+    io.inspect(Int.pow(3, 100_000_000_000))
+end

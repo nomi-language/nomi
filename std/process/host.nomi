@@ -7,7 +7,7 @@
 import
     bool.Bool
     bytes.Bytes
-    int.Int
+    int.{Int, Int64}
     io.{Error, Reader, Writer}
     lists.List
     maps.Map
@@ -33,10 +33,10 @@ pub host fn start(
     env:       Map<String, String>,
     clear_env: Bool,
     dir:       String,
-    stdin:     Int,
+    stdin:     Int64,
     input:     Reader,
-    stdout:    Int,
-    stderr:    Int,
+    stdout:    Int64,
+    stderr:    Int64,
 ) -> Result<Child, Error>
 
 /// The writer to a piped standard input.
@@ -54,7 +54,7 @@ pub host fn wait(child: Child) -> Result<List<Int>, Error>
 
 /// What a finished child wrote to a captured standard output (1) or error
 /// (2).
-pub host fn captured(child: Child, stream: Int) -> Bytes
+pub host fn captured(child: Child, stream: Int64) -> Bytes
 
 /// Ends the child if it is still running, and reaps it.
 pub host fn kill(child: Child) -> Unit
@@ -69,7 +69,7 @@ pub host fn fake_answer(
     program:  String,
     args:     List<String>,
     any_args: Bool,
-    code:     Int,
+    code:     Int64,
     stdout:   Bytes,
     stderr:   Bytes,
 ) -> Unit

@@ -458,6 +458,15 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	method := fa.Field.Name
 	obj, isIdent := ast.QualifierIdent(fa.Object)
 	ti, isType := fa.Object.(*ast.TypeIdent)
+	if isType && method == "unchecked" && len(t.Args) == 1 {
+		if _, isSubtype := bl.g.refinementDecl(ti.Name); isSubtype {
+			// A subtype's `unchecked` is its value, which is its base's
+			// (uncheckedRefinement): `ClosedRange.unchecked(r)` in a std
+			// body the shared lowering retains, which builds no instance
+			// of the generic `unchecked`.
+			return bl.lower(t.Args[0])
+		}
+	}
 	if isType {
 		if owner, mod, rebound := bl.g.stdOwnerByDecl(ti); rebound {
 			// `Duration.seconds(1)` where the checker bound `Duration` to
@@ -468,6 +477,26 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 			// `duration.Duration.seconds(1)` is.
 			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, false); handled {
 				return v, rk, mobile, ok
+			}
+			return no()
+		}
+		if name, origin := bl.g.refinementCheckOwner(ti); name != "" {
+			// A generic subtype's literal checked through its `try_from`
+			// (analysis.RefinementStep.Check) in a file that binds no name
+			// to the subtype: the declaration the checker resolved the
+			// owner to.
+			if mod, isStd := strings.CutPrefix(origin, "std/"); isStd {
+				if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, name, method, false); handled {
+					return v, rk, mobile, ok
+				}
+				return no()
+			}
+			if bl.qualBare == nil {
+				bl.qualBare = bl.checkedBareOperands(t)
+			}
+			args := bl.irQualLowerArgs(t)
+			if plan := bl.resolvedOwnerPlan(t, args, fa); plan != nil {
+				return bl.qualEmit(t, args, plan)
 			}
 			return no()
 		}
@@ -2096,6 +2125,32 @@ func (g *gen) generatedOwnerAlias(ti *ast.TypeIdent) (name, origin string) {
 		return dt.Name, dt.Origin
 	}
 	return "", ""
+}
+
+// refinementCheckOwner is the subtype a refinement literal's check call
+// names as its owner (analysis.RefinementStep.Check), by its declaration's
+// name and origin, when this file binds that name to no declaration or to
+// another one; "" otherwise, and for any other owner. The call's nodes
+// stand at columns below zero, where no source token is.
+func (g *gen) refinementCheckOwner(ti *ast.TypeIdent) (name, origin string) {
+	if g.fa == nil || ti == nil || ti.Col >= 0 {
+		return "", ""
+	}
+	sym := g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
+	for sym != nil && sym.Resolved != nil {
+		sym = sym.Resolved
+	}
+	if sym == nil {
+		return "", ""
+	}
+	dt, ok := sym.Type.(*analysis.DistinctType)
+	if !ok || !dt.Subtype {
+		return "", ""
+	}
+	if local := resolvedTypeSymbol(g.fa, ti.Name); local == sym {
+		return "", ""
+	}
+	return dt.Name, dt.Origin
 }
 
 // resolvedOwnerPlan calls the owner function the checker resolved fa to

@@ -25,7 +25,11 @@ func ptrKeys() map[*int64]int64        { return nil }
 // binding. An adapter the generator cannot write must be a build-time error,
 // never a run-time one.
 func TestUnadaptableBindingsFailGenerationByName(t *testing.T) {
-	const source = `pub struct Point
+	const source = `import
+  int.Int64
+end
+
+pub struct Point
   x: Int
   y: Int
   z: Int
@@ -34,9 +38,9 @@ end
 pub host fn with_map(m: Map<String, Int>) -> Int
 pub host fn drift(p: Point) -> Int
 pub host fn wrong_scalar(x: Float) -> Int
-pub host fn hidden_error(x: Int) -> Int
-pub host fn short(x: Int, y: Int) -> Int
-pub host fn user_enum(x: Int) -> Maybe<Maybe<Int>>
+pub host fn hidden_error(x: Int64) -> Int
+pub host fn short(x: Int64, y: Int64) -> Int
+pub host fn user_enum(x: Int64) -> Maybe<Maybe<Int>>
 pub host fn ptr_keys() -> Map<Maybe<Int>, Int>
 `
 	// A closure has no name a generated file can call.
@@ -103,9 +107,13 @@ pub host fn ptr_keys() -> Map<Maybe<Int>, Int>
 // refusal; without the rollback its wrapper failed to compile
 // (`b.out6 undefined`).
 func TestARefusedBindingLeavesNoHalfWrittenConversion(t *testing.T) {
-	const source = `pub host fn first(x: Int) -> Maybe<Maybe<Int>>
-pub host fn second(x: Int) -> Maybe<Maybe<Int>>
-pub host fn fine(x: Int, y: Int) -> Int
+	const source = `import
+  int.Int64
+end
+
+pub host fn first(x: Int64) -> Maybe<Maybe<Int>>
+pub host fn second(x: Int64) -> Maybe<Maybe<Int>>
+pub host fn fine(x: Int64, y: Int64) -> Int
 `
 	ms, err := LoadModules(func(m string) ([]byte, bool) {
 		if m == "t" {

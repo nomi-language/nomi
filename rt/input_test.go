@@ -32,7 +32,7 @@ func TestReadLine_InvalidText(t *testing.T) {
 		t.Fatalf("first line = %q", got)
 	}
 	got := ReadLine(fr)
-	want := IOError{Tag: TagIOInvalidText, Path: StdinPath, Offset: 2}
+	want := IOError{Tag: TagIOInvalidText, Path: StdinPath, Offset: SmallInt(2)}
 	if got.Tag != TagErr || got.Err != want {
 		t.Fatalf("ReadLine = %+v, want Err(%+v)", got, want)
 	}

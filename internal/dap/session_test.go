@@ -87,10 +87,10 @@ func TestSession_ATailCallAndATrap(t *testing.T) {
 	h.check("failures")
 }
 
-// A trap inside the standard library stops where it arose, in std's frame
-// (deemphasized, so a client focuses the program's call below it), and its
-// exception text names the program's line, as the program's failure on the
-// error stream does.
+// A trap in a callback the standard library calls stops where it arose, with
+// std's frame below it deemphasized, so a client focuses the program's
+// frames, and its exception text is the program's failure on the error
+// stream.
 func TestSession_ATrapInsideTheStdlib(t *testing.T) {
 	h := newHarness(t)
 	h.start(false, runConfig("stdtrap.nomi"))

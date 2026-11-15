@@ -133,9 +133,13 @@ fn apply(stack: List<Int>, op: Op) -> Result<List<Int>, Error>
         (.Add, [b, a, ..rest])      -> Ok([a + b, ..rest])
         (.Subtract, [b, a, ..rest]) -> Ok([a - b, ..rest])
         (.Multiply, [b, a, ..rest]) -> Ok([a * b, ..rest])
-        (.Divide, [0, _, ..])       -> Err(.DivideByZero)
-        (.Divide, [b, a, ..rest])   -> Ok([a / b, ..rest])
+        (.Divide, [b, a, ..rest])   -> divide(a, b) |> Result.map(&[&1, ..rest])
     end
+end
+
+/// `a / b`, or `DivideByZero` when `b` is 0.
+fn divide(a: Int, b: Int) -> Result<Int, Error>
+    if b == 0 then Err(.DivideByZero) else Ok(a / b)
 end
 
 // FILE: forth_test.nomi

@@ -170,6 +170,28 @@ func (e *Encoder) expansion(x *ast.Expansion) {
 	e.string(x.Keyword)
 }
 
+// implPending writes what a withheld impl block set aside
+// (ast.ImplBlock.WithheldParts): 0 for a block never withheld, 1 for one
+// that holds those parts, written already as its interface and items, and
+// 2 and the parts for one that does not.
+func (e *Encoder) implPending(x *ast.ImplBlock) {
+	iface, items, ok := x.WithheldParts()
+	switch {
+	case !ok:
+		e.uint(0)
+	case x.Interface == iface && len(x.Items) == len(items) && (x.Items == nil) == (items == nil) &&
+		(len(items) == 0 || unsafe.SliceData(x.Items) == unsafe.SliceData(items)):
+		e.uint(1)
+	default:
+		e.uint(2)
+		e.value(iface)
+		e.len(items == nil, len(items))
+		for _, n := range items {
+			e.value(n)
+		}
+	}
+}
+
 // Decoder reads what an Encoder wrote.
 type Decoder struct {
 	buf  []byte
@@ -385,6 +407,31 @@ func (d *Decoder) bigInt() *big.Int {
 		d.fail("a bad big number")
 	}
 	return v
+}
+
+func (d *Decoder) implPending(x *ast.ImplBlock) {
+	switch d.uint() {
+	case 0:
+	case 1:
+		x.SetWithheldParts(x.Interface, x.Items)
+	case 2:
+		var iface ast.TypeExpr
+		if v := d.value(); v != nil {
+			iface = v.(ast.TypeExpr)
+		}
+		var items []ast.Node
+		if n := d.len(); n >= 0 {
+			items = make([]ast.Node, n)
+			for i := range items {
+				if v := d.value(); v != nil {
+					items[i] = v.(ast.Node)
+				}
+			}
+		}
+		x.SetWithheldParts(iface, items)
+	default:
+		d.fail("a bad withheld block")
+	}
 }
 
 func (d *Decoder) expansion() *ast.Expansion {

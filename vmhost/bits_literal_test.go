@@ -10,10 +10,10 @@ import (
 // the program loads.
 func TestBitsLiteral_IsTheParsedPattern(t *testing.T) {
 	const src = "import\n" +
-		"    std::bits.Bits\n" +
+		"    std::bits.{Bits, FieldBits}\n" +
 		"    std::io\n" +
 		"end\n\n" +
-		"once lead = Bits\"110a_aaaa\"\n\n" +
+		"once lead: FieldBits = Bits\"110a_aaaa\"\n\n" +
 		"fn main()\n" +
 		"    io.print(Bits.matches(lead, 0b1100_0011))\n" +
 		"    io.print(Debug.inspect(Bits.field(lead, 0b1100_0011)))\n" +

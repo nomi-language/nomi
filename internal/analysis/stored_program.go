@@ -738,7 +738,7 @@ func storedReportsOf(p *CheckedProgram, rec *storedRecord, appTypes bool) (map[s
 	}
 	for key := range rec.Files {
 		d := red.of(key)
-		if len(d.Boot)+len(d.App)+len(d.Imports) == 0 {
+		if d.count() == 0 {
 			continue
 		}
 		if out[key] == nil {

@@ -23,7 +23,7 @@ end
 		{"Range.from and Range.naturals as function values", `import std::io
 
 fn main()
-  f = Range.from
+  f: (Int) -> ClosedRange<Int> = Range.from
   io.inspect(f(2))
   [1, 2] |> Iter.map(Range.from) |> Iter.to_list() |> io.inspect()
   g = Range.naturals

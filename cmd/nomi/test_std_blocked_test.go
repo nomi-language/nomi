@@ -32,10 +32,9 @@ func stdPosition(t *testing.T, path, text string, offset int) (int, int) {
 	return line, i - strings.LastIndex(string(src[:i]), "\n")
 }
 
-// A std/timer.nomi prompt calls `Duration.nanoseconds`, whose body in
-// std/duration.nomi declines at its call to `nanos_in_range`. The case was
-// reported at the prompt's call in std/timer.nomi ("this call to
-// `Duration.nanoseconds` is not supported yet"), since the cached stdlib
+// A std/timer.nomi prompt calls `Instant.between`, whose body in
+// std/instant.nomi declines at its call to `Duration.nanoseconds`. The case was
+// reported at the prompt's call in std/timer.nomi, since the cached stdlib
 // lowering keeps no std body's decline; it is reported at the construct the
 // builder declined, in its own file and line, by `nomi test` and
 // `nomi check` alike.
@@ -43,20 +42,20 @@ func TestTestCommand_StdCaseBlockedInAnotherStdFileNamesThatFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	withPlantedDeclineOf(t, "nanos_in_range")
-	promptLine, _ := stdPosition(t, "std/timer.nomi", "//! assert timer.sleep(Duration.nanoseconds(0))", 0)
-	line, col := stdPosition(t, "std/duration.nomi", "pub fn nanoseconds(n: Int) -> Duration\n        Duration(nanos_in_range(n))", len("pub fn nanoseconds(n: Int) -> Duration\n        Duration("))
-	at := fmt.Sprintf("std/duration.nomi:%d:%d", line, col)
-	message := "this call to `nanos_in_range` is not supported yet, so `fn Duration.nanoseconds` cannot run"
+	withPlantedDeclineOf(t, "Duration.nanoseconds")
+	promptLine, _ := stdPosition(t, "std/timer.nomi", "//! deadline = Instant.from_seconds(0)", 0)
+	line, col := stdPosition(t, "std/instant.nomi", "        Duration.nanoseconds(later - earlier)", len("        "))
+	at := fmt.Sprintf("std/instant.nomi:%d:%d", line, col)
+	message := "this call to `Duration.nanoseconds` is not supported yet, so `fn Instant.between` cannot run"
 
 	out, err := runNomi(t, t.TempDir(), "test", "std/timer.nomi")
 	plain := termcolor.StripANSI(out)
 	if err == nil {
 		t.Fatalf("nomi test with a blocked case exited 0:\n%s", plain)
 	}
-	want := fmt.Sprintf("BLOCKED std/timer.nomi :: sleep //! test line %d %s: %s\n"+
+	want := fmt.Sprintf("BLOCKED std/timer.nomi :: sleep //! test lines %d-%d %s: %s\n"+
 		"  %s: help: this is a gap in Nomi, not a mistake in your code; please report it at https://github.com/nomi-language/nomi/issues\n"+
-		"test result: BLOCKED. 0 passed, 0 failed, 1 blocked\n", promptLine, at, message, at)
+		"test result: BLOCKED. 0 passed, 0 failed, 1 blocked\n", promptLine, promptLine+1, at, message, at)
 	if plain != want {
 		t.Fatalf("nomi test std/timer.nomi printed:\n%s\nwant:\n%s", plain, want)
 	}

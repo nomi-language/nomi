@@ -5,13 +5,14 @@ end
 
 type Minutes Int
 
-impl Remainder<Minutes, Minutes> for Minutes
-    fn remainder(Minutes(a), Minutes(b)) -> Minutes
-        Minutes(a % b)
+// Minutes take a remainder by a count that is not zero, as Int's `%` does.
+impl Remainder<NonZeroInt, Minutes> for Minutes
+    fn remainder(Minutes(a), rhs: NonZeroInt) -> Minutes
+        Minutes(a % rhs)
     end
 end
 
-fn rem<T>(a: T, b: T) -> T where T: Remainder<T, T>
+fn rem<T, D>(a: T, b: D) -> T where T: Remainder<D, T>
     a % b
 end
 
@@ -52,10 +53,10 @@ test "Duration remainder is how far into the interval"
 end
 
 test "a type of its own implements Remainder"
-    assert Minutes(130) % Minutes(60) == Minutes(10)
-    assert rem(Minutes(5), Minutes(3)) == Minutes(2)
-    assert rem(10, 4) == 2
-    assert rem(10.5d, 4d) == 2.5d
+    assert Minutes(130) % 60 == Minutes(10)
+    assert rem(Minutes(5), NonZeroInt(3)) == Minutes(2)
+    assert rem(10, NonZeroInt(4)) == 2
+    assert rem(10.5d, NonZeroDecimal(4d)) == 2.5d
 end
 
 fn trap_text(source: String) -> String
@@ -65,15 +66,30 @@ fn trap_text(source: String) -> String
     end
 end
 
-test "a remainder by zero traps"
-    assert "line 3: division by zero" in trap_text("fn main()\n  zero = 0\n  _ = 7 % zero\nend\n")
+test "a remainder by a divisor that may be zero is refused"
+    int_zero = compiler.check("fn main()\n  zero = 0\n  _ = 7 % zero\nend\n")
+    assert [d] = int_zero
+    assert "division by zero: `zero` is 0 here" in d.message
 
-    assert "line 3: division by zero" in trap_text(
-        "fn main()\n  zero = 0.0d\n  _ = 7d % zero\nend\n"
+    unchecked = compiler.check("fn f(n: Int) -> Int\n  7 % n\nend\n")
+    assert [d2] = unchecked
+    assert "`%` divides by a NonZeroInt; `n` is an Int" in d2.message
+
+    decimal_zero = compiler.check("fn main()\n  zero = 0.0d\n  _ = 7d % zero\nend\n")
+    assert [d3] = decimal_zero
+    assert "division by zero: `zero` is 0 here" in d3.message
+
+    duration_zero = compiler.check(
+        "import std::duration.Duration\nfn main()\n  _ = Duration.seconds(7) % Duration.seconds(0)\nend\n"
     )
 
-    assert "division by zero" in trap_text(
-        "import std::duration.Duration\nfn main()\n  _ = Duration.seconds(7) % Duration.seconds(0)\nend\n"
+    assert [d4] = duration_zero
+    assert "division by zero: this divisor is always 0" in d4.message
+end
+
+test "a NonZeroInt the program checks while it runs cannot divide by zero"
+    assert "found nothing" in trap_text(
+        "fn main()\n  zero = NonZeroInt.try_from(0)!\n  _ = 7 % zero\nend\n"
     )
 end
 

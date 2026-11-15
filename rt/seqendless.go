@@ -145,14 +145,6 @@ func cycleEndless[T any](src Seq[T]) func(fr *Frame) string {
 	}
 }
 
-// chunksEndless is chunks' answer: a non-positive size yields nothing.
-func chunksEndless[T any](src Seq[T], size int64) func(fr *Frame) string {
-	if size <= 0 {
-		return nil
-	}
-	return src.Endless
-}
-
 // rangeEndless is an unbounded Range's answer. std builds an unbounded Range
 // only over Int (`Range.from`, `Range.naturals`), and an Int has no largest
 // value, so every one is endless.

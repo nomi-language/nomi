@@ -1095,20 +1095,52 @@ write `&(not f(&1))`.
 
 ### 29. Pick the tool by what happens on failure
 
-**Writing a function that can fail.** When a function you write cannot give
-the result asked for, decide by who could have known (spec §11 *Traps,
-`Maybe` and `Result`*; tour:
+**Writing a function that cannot take every input.** When some input has
+no answer, pick the first of these that fits (spec §4 *Subtypes*, §11
+*Traps, `Maybe` and `Result`*; tour:
 [Pattern Matching](/pattern-matching/#maybet-and-resultt-e)):
 
-- Return `Maybe` or `Result` when the result depends on data the caller does
-  not control or cannot cheaply check: a lookup that may miss, a parse, input,
-  a file, a position that may legitimately fall off the edge.
-- Trap when the caller broke a promise it could have checked: an index it
-  computed, a divisor it chose, a count that must not be negative, a range
-  whose bounds it picked (`Generator.int(6, 1)`). A trap reports a bug;
-  nothing in the program catches it.
-- Give every trapping function a total way around it: a sibling that returns
-  `Maybe`, or a cheap check the caller can run first.
+1. **Type it.** When the requirement is about one argument's value alone
+   and a pure rule can check it, take a subtype: a count is a
+   `NonNegativeInt`, a buffer size a `PositiveInt`, a list that must have
+   an element a `NonEmptyList`. A literal argument is checked when the
+   program is compiled. A check narrows a binding (spec §4 *Narrowing*),
+   and arithmetic keeps what its range proves (spec §4 *Value ranges*):
+   after `if d == 0 then return Err(.DivisionByZero)`, `d` is a
+   `NonZeroInt`, and after `if size > 1`, `size - 1` is a `PositiveInt`,
+   so a computed value often needs no `try_from`. Write the
+   check where the code already makes it; a value no check covers pays
+   one `try_from` where it enters. Two arguments that must agree are one
+   value with a rule: a range, or a struct with a `when`.
+2. **Define it.** When an input that looks wrong has the meaning a caller
+   would want, give it that meaning: `String.take(s, -1)` is `""`, and
+   `timer.sleep` with a negative duration returns at once. Define only the
+   meaning a caller would expect, never a guess that hides a bug: a chunk
+   size of 0 has none, so `Iter.chunks` takes a `PositiveInt`.
+3. **Return `Maybe`** when absence is an ordinary outcome that depends on
+   the data: a lookup that may miss, `find`, the first element of a list
+   that may be empty. Where a subtype proves the value is there, give that
+   subtype a function that answers it plainly, as `NonEmptyList.first`
+   does.
+4. **Return `Result`** when the failure has a reason worth reporting, or
+   comes from outside the program: a parse, input, a file, the network.
+5. **Trap** only on a caller's mistake that no type carries at a fair cost
+   and no `Maybe` can answer. A zero divisor is not one: `/` takes a
+   `NonZeroInt`, so a divisor is checked first or typed. An index past the
+   end depends on another value, so `Vector.get` and `Vector.set` return
+   `Maybe`, and a caller that computed the index writes `!`. A trap reports a bug; nothing in the program catches
+   it. Say in the doc comment what traps, make the message name the bad
+   value, and give the caller a total way around it: a sibling that
+   returns `Maybe`, or a cheap check to run first.
+
+A failed task is the one trap that crosses a boundary: `Task.await`
+propagates the trap of the task it waits for, and the cancellation of a
+cancelled one, to the code that awaits it. That is by design. The trap was
+a bug in the task's body, and it surfaces as it would have had the body run
+inline; an `Err` the body returned is a value and arrives as one. Where a
+task's failure is an outcome rather than a bug, because the code cancelled
+the task or runs work whose failure it reports, wait with `Task.outcome`,
+the total form, which returns how the task ended as an `Outcome`.
 
 Write the function once, returning a `Maybe` or a `Result`, as std's `get`
 does, and let a caller that knows the call cannot fail write `!` after it:

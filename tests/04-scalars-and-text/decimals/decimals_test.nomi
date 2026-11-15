@@ -1,6 +1,7 @@
 import
     std::comparable.Ordering.{Equal, Greater, Less}
     std::compiler
+    std::decimal.Ratios
     std::decimal.RoundingMode.{Floor, HalfEven, Up}
     test_helpers
 end
@@ -159,7 +160,7 @@ test "decimal division counts significant digits from the first non-zero one"
         == "0.00000000000000000000000000000000000000003333333333333333333333333333333333"
 end
 
-test "decimal division by zero is a runtime error"
+test "decimal division by zero is refused before the program runs"
     result =
         """
         fn main()
@@ -170,7 +171,7 @@ test "decimal division by zero is a runtime error"
         |> compiler.run()
 
     assert Err(message) = result
-    assert "line 3: division by zero" in message
+    assert "line 3, col 12: division by zero: `zero` is 0 here" in message
 end
 
 test "decimal division takes no Int operand"
@@ -197,7 +198,7 @@ test "divide_exact is None when the quotient does not terminate"
     assert Decimal.divide_exact(2d, 6d) == None
 end
 
-test "divide_exact by zero is a runtime error"
+test "divide_exact's divisor is a NonZeroDecimal"
     result =
         """
         fn main()
@@ -208,5 +209,19 @@ test "divide_exact by zero is a runtime error"
         |> compiler.run()
 
     assert Err(message) = result
-    assert "line 3: division by zero" in message
+    assert "expected NonZeroDecimal, got Decimal" in message
+end
+
+test "a computed divisor goes through NonZeroDecimal.try_from"
+    zero = 0d
+    assert NonZeroDecimal.try_from(zero) == None
+    assert Decimal.divide_exact(1d, NonZeroDecimal.try_from(zero + 8d)!) == Some(0.125d)
+end
+
+test "computed ratios go through Ratios.try_from"
+    prices = [3, 1]
+    assert Ratios.try_from([]) == None
+    assert Ratios.try_from([2, -1]) == None
+    assert Ratios.try_from([0, 0]) == None
+    assert Decimal.allocate(1d, Ratios.try_from(prices)!, 2) == [0.75d, 0.25d]
 end

@@ -379,28 +379,30 @@ func ToFloat32[T ~float32](v float64, goType string) (T, error) {
 	return T(v), nil
 }
 
-var (
-	instantMinTime = time.Unix(0, math.MinInt64)
-	instantMaxTime = time.Unix(0, math.MaxInt64)
-)
+// DurationNanos is a Duration's nanoseconds, an Int of any size, as Go's
+// signed 64-bit count, saturated past its range (about 292 years either
+// way). Go takes a Duration as a wait, a timeout or a deadline, and a wait
+// of 292 years is one nothing outlives, so a longer one crosses as that and
+// never ends, and a more negative one crosses as already passed; no Go wait
+// tells them apart.
+func DurationNanos(v rt.Value) int64 { return rt.IntSaturated(v) }
 
-// InstantNanos is an Instant's nanoseconds for a Go time, refusing a time
-// outside the range UnixNano represents, as the marshaller does.
-func InstantNanos(t time.Time) (int64, error) {
-	if t.Before(instantMinTime) || t.After(instantMaxTime) {
-		got := t.UTC().Format(time.RFC3339Nano)
-		lo, hi := instantMinTime.UTC().Format(time.RFC3339), instantMaxTime.UTC().Format(time.RFC3339)
-		return 0, &ConvertError{
-			Takes: "an Instant from " + lo + " to " + hi,
-			Got:   got,
-			msg: fmt.Sprintf(
-				"marshal time.Time: %s is outside Instant's representable range (%s .. %s); "+
-					"UnixNano would wrap silently and name a different moment",
-				got, lo, hi),
-		}
-	}
-	return t.UnixNano(), nil
-}
+// InstantNanosClamped is an Instant's nanoseconds, an Int of any size, as
+// rt.Instant's signed 64-bit count, clamped past its range (the years 1677
+// to 2262). Go takes an rt.Instant as a deadline, and one past 2262 is a
+// deadline no program reaches, so a later one crosses as that, and an
+// earlier one than 1677 as already passed.
+func InstantNanosClamped(v rt.Value) int64 { return rt.IntSaturated(v) }
+
+// InstantTime is the Go time of an Instant's nanoseconds, an Int of any
+// size: exact for every moment a program names, and clamped past about 146
+// billion years from 1970 (rt.InstantTimeOf).
+func InstantTime(v rt.Value) time.Time { return rt.InstantTimeOf(rt.IntOf(v)) }
+
+// InstantNanos is an Instant's nanoseconds for a Go time: exact for every
+// time Go represents (rt.InstantFromTime), since an Instant is an Int of
+// any size.
+func InstantNanos(t time.Time) rt.Int { return rt.InstantFromTime(t) }
 
 // CallbackFailure is the panic value of a Go callback with no `error` result
 // whose Nomi function failed: it has nowhere to put the failure. The text is

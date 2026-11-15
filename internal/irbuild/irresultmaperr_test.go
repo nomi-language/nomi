@@ -65,11 +65,11 @@ end
 fn main()
  io.inspect(Result.map_err(source(), fn n: Int ->
   io.print("callback")
-  1 / n
+  1 / NonZeroInt.try_from(n)!
  end))
  io.print("after")
 end
-`, "line 8: division by zero", "callback\n")
+`, "line 8: `NonZeroInt.try_from(n)` found nothing", "callback\n")
 }
 
 func TestIRScalarText_ConcreteCalls(t *testing.T) {

@@ -104,8 +104,8 @@ func TestFirstPartyDiscoveryHasNoRemainingTrigger(t *testing.T) {
 	mustWriteHelper(t, filepath.Join(root, "go.mod"), "module example.com/app\n\ngo 1.27.0\n")
 	mustWriteHelper(t, filepath.Join(root, "ffi.go"), "package app\n\nfunc Double(n int64) int64 { return n * 2 }\n")
 	entry := filepath.Join(root, "main.nomi")
-	mustWriteHelper(t, entry, "gopkg \"example.com/app\" as app\n\n"+
-		"pub fn double(n: Int) -> Int go app.Double\n")
+	mustWriteHelper(t, entry, "import std::int.Int64\n\ngopkg \"example.com/app\" as app\n\n"+
+		"pub fn double(n: Int64) -> Int go app.Double\n")
 	res, err := Prepare(entry)
 	if err != nil {
 		t.Fatalf("Prepare: %v", err)

@@ -452,7 +452,7 @@ func (p *partnerNames) unqualified(text string) string {
 // analysis answers by fileOf, its path's analysis, since the component
 // types are named there. A component without the impl is reported as one
 // of a derive in the declaring file is, naming the derive.
-func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf func(path string) *FileAnalysis) []TypeError {
+func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplIndex, fileOf declFiles) []TypeError {
 	if fa == nil || impls == nil || fa.ModuleScope == nil {
 		return nil
 	}
@@ -479,7 +479,7 @@ func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *Project
 		if sym == nil || sym.Node == nil || sym.SourceFile == "" || sym.SourceFile == fa.FilePath {
 			continue
 		}
-		declFA := fileOf(sym.SourceFile)
+		declFA := fileOf(sym.SourceFile, sym)
 		if declFA == nil {
 			continue
 		}

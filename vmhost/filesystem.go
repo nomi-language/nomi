@@ -140,7 +140,9 @@ type DirEntry struct {
 }
 
 // FileInfo is what FileSystem.Stat and Lstat answer. Mode holds the
-// permission bits.
+// permission bits. A zero Modified, a file system that records no time as
+// an fs.FS from embed does, reads as the Unix epoch, as std/embed's files
+// do; any other Modified reaches `fs.metadata` exactly, whatever its year.
 type FileInfo struct {
 	Kind     FileKind
 	Size     int64
@@ -340,7 +342,11 @@ func fsFailed(op, p string, err error) *rt.IOError {
 }
 
 func fsInfo(i FileInfo) stdio.Info {
-	return stdio.Info{Kind: stdio.Kind(i.Kind), Size: i.Size, Modified: i.Modified.UnixNano(), Mode: int64(i.Mode.Perm())}
+	modified := i.Modified
+	if modified.IsZero() {
+		modified = time.Unix(0, 0)
+	}
+	return stdio.Info{Kind: stdio.Kind(i.Kind), Size: i.Size, Modified: modified, Mode: int64(i.Mode.Perm())}
 }
 
 // --- internal/stdio's backend as a FileSystem ------------------------------
@@ -440,7 +446,7 @@ func (f backendFiles) CurrentDir() (string, error) {
 }
 
 func publicInfo(i stdio.Info) FileInfo {
-	return FileInfo{Kind: FileKind(i.Kind), Size: i.Size, Modified: time.Unix(0, i.Modified).UTC(), Mode: fs.FileMode(i.Mode).Perm()}
+	return FileInfo{Kind: FileKind(i.Kind), Size: i.Size, Modified: i.Modified, Mode: fs.FileMode(i.Mode).Perm()}
 }
 
 type fsReader struct{ src rt.ReadSource }

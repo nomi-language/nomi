@@ -46,8 +46,16 @@
 //
 // A row whose Go signature does not match the declaration fails generation
 // by name. A Go parameter or result for a Nomi `Int` is `rt.Int` when the
-// function handles an Int of any size, and `int64` when it needs a machine
-// integer, where the adapter refuses an Int past its range. An adapter
+// function handles an Int of any size, and `int64` (or a narrower width)
+// when it needs a machine integer. A parameter takes a fixed width only
+// when its declared type admits no Int past that width: `Int64`
+// (std::int), a subtype whose `when` bounds it within the range, or an
+// intersection with one (`NonNegativeInt and Int64`); generation refuses
+// a plain `Int` there, since the adapter could only refuse the value as
+// the program runs. Such a function takes `rt.Int` and defines what a
+// large value means: an error or a range trap that names it, or, where
+// every value past int64 means the same as the bound, saturation
+// (`rt.Int.Saturated`). A result may be any width. An adapter
 // returning a Nomi struct must build it with the declared type's
 // descriptor, or every impl lookup on it misses.
 //

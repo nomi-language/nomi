@@ -17,16 +17,21 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// equal rationals have the same fields and `==` compares them.
 pub opaque struct Rational
     numerator:   Int
-    denominator: Int
+    denominator: PositiveInt
 end
 
+/// A Rational other than zero: what `/` divides by.
+pub subtype NonZeroRational Rational when fn r -> r.numerator != 0
+
 impl Rational
-    /// `numerator / denominator` in lowest terms. The denominator is a
-    /// divisor the caller chose, so a zero one traps as `/` does: the
-    /// reduction divides by it.
-    pub fn new(numerator: Int, denominator: Int) -> Rational
-        common = Int.gcd(numerator, denominator) * Int.sign(denominator)
-        {numerator: numerator / common, denominator: denominator / common}
+    /// `numerator / denominator` in lowest terms. The denominator is not
+    /// zero, so the reduction's divisor is not either.
+    pub fn new(numerator: Int, denominator: NonZeroInt) -> Rational
+        // The gcd of a number and a non-zero one is at least 1.
+        gcd = PositiveInt.try_from(Int.gcd(numerator, denominator))!
+        common = if denominator < 0 then -gcd else gcd
+        // `denominator / common` has the sign of `denominator * common`.
+        {numerator: numerator / common, denominator: PositiveInt.try_from(denominator / common)!}
     end
 
     pub fn numerator(r: Rational) -> Int
@@ -42,8 +47,8 @@ impl Rational
     end
 
     /// `r` to the power `exponent`. A negative exponent raises the
-    /// reciprocal, so zero to a negative power traps as division by zero
-    /// does.
+    /// reciprocal, which zero has none of, so zero to a negative power
+    /// traps.
     pub fn pow(r: Rational, exponent: Int) -> Rational
         case NonNegativeInt.try_from(exponent)
             Some(e) ->
@@ -51,7 +56,11 @@ impl Rational
 
             None ->
                 e = NonNegativeInt.try_from(-exponent)!
-                Rational.new(Int.pow(r.denominator, e), Int.pow(r.numerator, e))
+
+                Rational.new(
+                    Int.pow(r.denominator, e),
+                    NonZeroInt.try_from(Int.pow(r.numerator, e))!,
+                )
         end
     end
 
@@ -86,19 +95,22 @@ impl Multiply<Rational, Rational> for Rational
     end
 end
 
-impl Divide<Rational, Rational> for Rational
-    /// Dividing by zero traps, as `/` on `Int` does.
-    fn divide(lhs: Rational, rhs: Rational) -> Rational
-        Rational.new(lhs.numerator * rhs.denominator, lhs.denominator * rhs.numerator)
+impl Divide<NonZeroRational, Rational> for Rational
+    /// The divisor is not zero, as `/` on `Int` takes a `NonZeroInt`.
+    fn divide(lhs: Rational, rhs: NonZeroRational) -> Rational
+        NonZeroRational(r) = rhs
+        // A NonZeroRational's numerator is not zero.
+        divisor = NonZeroInt.try_from(r.numerator)!
+        Rational.new(lhs.numerator * r.denominator, lhs.denominator * divisor)
     end
 end
 
 // FILE: rational_numbers_test.nomi
-import rational_numbers.Rational
+import rational_numbers.{NonZeroRational, Rational}
 
 /// The rational a canonical `[numerator, denominator]` pair writes.
 fn rational((numerator, denominator): (Int, Int)) -> Rational
-    Rational.new(numerator, denominator)
+    Rational.new(numerator, NonZeroInt.try_from(denominator)!)
 end
 
 test "addition"
@@ -167,7 +179,7 @@ test "division"
         ("Divide a rational number by 1",        (1, 2),  (1, 1),  (1, 2)),
     ]
     |> subtests (description, a, b, expected), description
-        assert rational(a) / rational(b) == rational(expected)
+        assert rational(a) / NonZeroRational.try_from(rational(b))! == rational(expected)
     end
 end
 
@@ -266,8 +278,8 @@ test result: ok. 43 passed, 0 failed
 ## How it's written
 
 - `Rational` is an opaque struct that is always in lowest terms with a positive denominator. `Rational.new` is the only way to make one, so `==`, with no `Equatable` of its own, compares two rationals by their fields, and `1/2 == 2/4` holds because both are stored as `1/2`.
-- `Rational.new` reduces by dividing both parts by their greatest common divisor times the denominator's sign, which also moves a minus sign to the numerator. A zero denominator makes that divisor zero, so it traps as `/` does: the denominator is a divisor the caller chose (style §29). The canonical data has no zero denominator.
-- The four operations are `Add`, `Subtract`, `Multiply` and `Divide` impls, so the tests write `a + b` and `a / b`. Each builds its result with `Rational.new`, which reduces it. The impl functions name their parameters `lhs` and `rhs`, as the interfaces do; the checker requires the interface's names.
+- `Rational.new` reduces by dividing both parts by their greatest common divisor times the denominator's sign, which also moves a minus sign to the numerator. The denominator is a `NonZeroInt` and the stored one a `PositiveInt`, so the divisor the reduction uses is never zero; the test helper checks each canonical denominator with `NonZeroInt.try_from(...)!`.
+- The four operations are `Add`, `Subtract`, `Multiply` and `Divide` impls, so the tests write `a + b` and `a / b`. `Divide` takes a `NonZeroRational`, a subtype of `Rational` whose numerator is not zero, as `Int`'s `/` takes a `NonZeroInt`, so the tests check each divisor with `NonZeroRational.try_from(...)!`. Each builds its result with `Rational.new`, which reduces it. The impl functions name their parameters `lhs` and `rhs`, as the interfaces do; the checker requires the interface's names.
 - `Rational.pow` raises the reciprocal for a negative exponent, with `Int.pow` on each part. `Rational.raise` raises a `Float` to a rational power through `Float.pow` and the exponent as a `Float`.
 - `Rational.numerator` and `Rational.denominator` read the parts, since the struct is opaque. The reduction cases check the parts, which is what "reduced" means; the other cases compare rationals.
 - The real-power cases compare with `Float.equal_within(actual, expected, 1e-12)`: eight to the power 4/3 is `15.999999999999998`, not the canonical `16.0`, and rounding to a fixed number of places does not fit the canonical `0.3333333333333333`.

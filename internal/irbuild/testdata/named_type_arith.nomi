@@ -34,7 +34,6 @@ end
 
 test "an Instant plus a Duration is an Instant"
     start = Instant.from_seconds(100)
-
     io.print("plus 5s = ${Int.to_string(Instant.to_seconds(start + Duration.seconds(5)))}")
     io.print("minus 5s = ${Int.to_string(Instant.to_seconds(start + Duration.seconds(-5)))}")
 
@@ -59,7 +58,6 @@ end
 test "Instant.between returns a Duration across the module boundary"
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)
-
     io.print("between = ${Int.to_string(seconds_between(a, b))}")
 
     assert seconds_between(a, b) == 5
@@ -70,7 +68,6 @@ end
 
 test "adding a Duration is associative with building one"
     start = Instant.from_seconds(0)
-
     assert Instant.to_seconds(start + Duration.seconds(1) + Duration.seconds(2)) == 3
 
     assert Instant.to_seconds(start + (Duration.seconds(1) + Duration.seconds(2))) == 3
@@ -80,7 +77,6 @@ test "std/duration's package is pulled in transitively, with no Duration call he
     base = Instant.from_seconds(100)
     a = Instant.from_seconds(10)
     b = Instant.from_seconds(15)
-
     // Every name here is std/instant's. The Duration that `Instant.between`
     // returns is built by std/duration and consumed by std/instant's own `add`,
     // so this program never names a `Duration.` function, yet the linked

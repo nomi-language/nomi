@@ -14,6 +14,7 @@ package ffirun
 // error, so a program that reaches it fails naming the binding and why.
 
 import (
+	"errors"
 	"fmt"
 	goast "go/ast"
 	"os"
@@ -127,14 +128,30 @@ func generateAdaptersNamed(projectRoot string, packages []DiscoveredPackage, pre
 			byKey[e.Key] = e
 		}
 	}
+	var outOfRange []string
 	for _, b := range bindings {
 		if err := g.Add(b); err != nil {
-			out.Refused = append(out.Refused, refusedBinding{Key: b.Key, Reason: strings.TrimPrefix(err.Error(), b.Key+": ")})
+			reason := strings.TrimPrefix(err.Error(), b.Key+": ")
+			var rangeErr *hostgen.IntRangeError
+			if errors.As(err, &rangeErr) {
+				// An Int position whose declared type admits values its Go
+				// integer cannot hold is an error at the binding, as a
+				// signature mismatch is (spec §19 *How Nomi types project
+				// to Go*).
+				e := byKey[b.Key]
+				outOfRange = append(outOfRange, fmt.Sprintf("%s: Go function %q in package %q: %s",
+					bindingLocation(projectRoot, e.SourceFile, e.SourceLine, e.SourceCol), e.FuncName, b.Go.Pkg, reason))
+				continue
+			}
+			out.Refused = append(out.Refused, refusedBinding{Key: b.Key, Reason: reason})
 			continue
 		}
 		if e := byKey[b.Key]; e.EntryKey != "" {
 			out.Rekeyed = append(out.Rekeyed, e)
 		}
+	}
+	if len(outOfRange) > 0 {
+		return nil, fmt.Errorf("nomi FFI binding validation failed:\n  - %s", strings.Join(outOfRange, "\n  - "))
 	}
 	decls, imports := g.Fragment()
 	out.Decls = string(decls)

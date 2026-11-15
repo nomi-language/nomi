@@ -203,8 +203,8 @@ func vmArgsForKindsIn(params []kind, qual string) ([]any, bool) {
 }
 
 // vmAscending is args with each Int and Float raised by its position, so a
-// body whose scalar parameters must be ordered (`Generator.float(from, to)`
-// traps unless from < to) has a vector that keeps the order. It is tried after
+// body whose scalar parameters must be ordered (a low and a high bound) has
+// a vector that keeps the order. It is tried after
 // args, so a body that runs on equal samples keeps its first answer.
 func vmAscending(args []any) []any {
 	out := make([]any, len(args))

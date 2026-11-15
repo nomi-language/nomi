@@ -238,3 +238,101 @@ derive Comparable for Report
 		t.Fatalf("a std derive over a List of a component with no `Comparable` is admitted: want %q, got:\n  %s", msg, errMsgs(errs))
 	}
 }
+
+// A derive over a field of a subtype takes the base's impl: a subtype's value
+// is its base's (spec §4 *Subtypes*), so `year: Int64` and a field of the
+// program's own subtype of Int are compared, hashed and shown as Ints.
+func TestDeriveOverASubtypeComponentUsesTheBase(t *testing.T) {
+	for _, iface := range []string{"Equatable", "Hashable", "Comparable", "Display"} {
+		t.Run(iface, func(t *testing.T) {
+			src := fmt.Sprintf(`import std::int.Int64
+
+subtype Small Int when fn n -> n < 100
+
+struct S
+  year: Int64
+  small: Small
+end
+
+derive %s for S
+`, iface)
+			fa := buildWithStdlibForDerive(src)
+			if len(fa.TypeErrors) != 0 {
+				t.Fatalf("a derive over subtype fields is refused:\n  %s", errMsgs(fa.TypeErrors))
+			}
+		})
+	}
+}
+
+// A subtype of several parents has their base's impls too: the program's
+// own `Pos` over `NonNeg and NonZero`, std's PositiveInt (NonNegativeInt
+// and NonZeroInt), and a field written as the intersection itself.
+func TestDeriveOverAnIntersectionSubtypeComponentUsesTheBase(t *testing.T) {
+	for _, iface := range []string{"Equatable", "Hashable", "Comparable", "Display"} {
+		t.Run(iface, func(t *testing.T) {
+			src := fmt.Sprintf(`subtype NonNeg Int when fn n -> n >= 0
+subtype NonZero Int when fn n -> n != 0
+subtype Pos NonNeg and NonZero when fn n -> n > 0
+
+struct S
+  own: Pos
+  std: PositiveInt
+  both: NonNegativeInt and NonZeroInt
+end
+
+derive %s for S
+`, iface)
+			fa := buildWithStdlibForDerive(src)
+			if len(fa.TypeErrors) != 0 {
+				t.Fatalf("a derive over intersection subtype fields is refused:\n  %s", errMsgs(fa.TypeErrors))
+			}
+		})
+	}
+}
+
+// A std file checked on its own derives over a PositiveInt field as over
+// an Int, as std/jobs's `Rate` does. vmhost's
+// TestCheck_EveryStdlibFileChecksClean checks std/jobs itself, as a std
+// module whose scope names neither of PositiveInt's parents.
+func TestStdDeriveOverAPositiveIntFieldIsAccepted(t *testing.T) {
+	for _, iface := range []string{"Equatable", "Hashable", "Comparable"} {
+		t.Run(iface, func(t *testing.T) {
+			src := fmt.Sprintf(`pub struct Rate
+  count: PositiveInt
+  burst: Int = 1
+end
+
+derive %s for Rate
+`, iface)
+			if errs := buildStdFileForDerive(t, "ratealone", src); len(errs) > 0 {
+				t.Fatalf("a std derive over a PositiveInt field is refused:\n  %s", errMsgs(errs))
+			}
+		})
+	}
+}
+
+// A derive's missing Equatable or Hashable says what the component holds
+// that has no equality, by its type.
+func TestDeriveMissingEqualityHelpNamesThePart(t *testing.T) {
+	src := `struct Op
+  name: String
+  run: (Int) -> Int
+end
+
+struct W
+  op: Op
+end
+
+derive Equatable for W
+`
+	fa := buildWithStdlibForDerive(src)
+	want := "no impl of `Equatable` for `Op` (required via `derive Equatable for W`, field `op`)\n" +
+		"help: `Op` holds `(Int) -> Int`, a function value, which has no equality; write an `impl Equatable for Op` block that leaves it out"
+	if len(fa.TypeErrors) != 1 || diagText(fa.TypeErrors[0]) != want {
+		var got []string
+		for _, e := range fa.TypeErrors {
+			got = append(got, diagText(e))
+		}
+		t.Fatalf("want the one error %q, got:\n  %s", want, strings.Join(got, "\n  "))
+	}
+}

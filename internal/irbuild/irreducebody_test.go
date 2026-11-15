@@ -71,10 +71,10 @@ func TestIRReduceBody_CallbackFault(t *testing.T) {
 fn main()
  io.print(Iter.reduce([1, 0, 2], 10, fn acc, n ->
   io.print(n)
-  acc / n
+  acc / NonZeroInt.try_from(n)!
  end))
 end
-`, "line 5: division by zero", "1\n0\n")
+`, "line 5: `NonZeroInt.try_from(n)` found nothing", "1\n0\n")
 }
 
 // A Map whose values are Maps is an iteration source like any other map: the

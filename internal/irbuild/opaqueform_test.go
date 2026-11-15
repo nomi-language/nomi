@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/std"
 )
@@ -58,7 +59,7 @@ func TestOpaqueSpecFormIsRequiredAndChecked(t *testing.T) {
 		// the field a check rather than a label.
 		flipped := *decl
 		flipped.Opaque = !decl.Opaque
-		if s.matches(&flipped) {
+		if s.matches(&flipped, fa.ModuleScope.Lookup(s.nomi).Type.(*analysis.DistinctType).Inner) {
 			t.Errorf("%s: a `%s` declaration matched a row declared for the other clause; "+
 				"a std edit to the clause would go unnoticed", s.nomi, clauseName(!wantOpaque))
 		}

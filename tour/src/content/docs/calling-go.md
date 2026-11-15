@@ -136,8 +136,9 @@ pass it as `Dynamic` and decode it on the Nomi side
 
 | Go type | Nomi type | Notes |
 | --- | --- | --- |
-| `string`, `bool`, `int64`, `float64`, `uint8` | `String`, `Bool`, `Int`, `Float`, `Byte` | An `Int` too big for `int64` is an error at the call. It is never cut short. |
-| `int`, another sized or unsigned Go integer (`int32`, `uint64`, …) | `Int` | Range-checked the same way. |
+| `string`, `bool`, `float64`, `uint8` | `String`, `Bool`, `Float`, `Byte` | |
+| `int64`, `int` | `Int64` from `std::int` | A parameter declared `Int` is an error at the binding, since an `Int` may be larger. A result may be declared `Int`. |
+| `int32`, `uint64` and the other sized Go integers | a subtype within the Go type's range | `uint64` takes `NonNegativeInt and Int64`; `int32` takes a subtype of your own, such as `subtype Int32 Int when fn n -> n >= -2147483648 and n <= 2147483647`. |
 | `*big.Int` | `Int` | Takes and returns any Int. |
 | `[]byte` | `Bytes` | A byte buffer, not the same type as `List<Byte>`. |
 | `[]T`, `map[K]V` | `List<T>`, `Map<K, V>` | The element, key and value types must be in this table too. |
@@ -157,9 +158,10 @@ pass it as `Dynamic` and decode it on the Nomi side
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- An `Int` past a Go parameter's width traps at the call, naming the Go
-  function and the parameter:
-  `` `strings.Repeat`'s `count` takes an Int that fits in 64 bits; got 100000000000000000000 ``.
+- A parameter whose type admits an Int the Go integer can't hold is an
+  error at the binding, naming the type to declare. An intersection such
+  as `PositiveInt and Int64` keeps a size positive and within `int64`. A
+  computed value goes through `Int64.try_from(n)` before the call.
 - `Byte` and `Int` don't stand in for each other: an `Int` doesn't fill a
   `uint8` parameter.
 - A `float32` slot is range-checked. NaN and the infinities cross
@@ -184,7 +186,10 @@ A Go standard library package needs no adapter file and no `go.mod`. Bind its
 functions directly:
 
 ```nomi-run
-import std::io
+import
+    std::int.Int64
+    std::io
+end
 
 gopkg "strings"
 
@@ -192,15 +197,19 @@ gopkg "strconv"
 
 fn upper(s: String) -> String go strings.ToUpper
 
+fn repeat(s: String, count: NonNegativeInt and Int64) -> String go strings.Repeat
+
 fn parse_int(s: String) -> Result<Int, String> go strconv.Atoi
 
 fn main()
     io.print(upper("hi"))
+    io.print(repeat("ab", 3))
     io.print(parse_int("42"))
 end
 ```
 <!-- expect
 HI
+ababab
 Ok(42)
 -->
 

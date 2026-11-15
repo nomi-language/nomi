@@ -12,12 +12,14 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/iancoleman/strcase"
 	"golang.org/x/mod/modfile"
 
 	nomiast "github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ffitypes"
+	"github.com/nomi-language/nomi/internal/hostgen"
 	"github.com/nomi-language/nomi/internal/modcache"
 )
 
@@ -38,6 +40,7 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 		explicit[pkg.ImportPath] = append(explicit[pkg.ImportPath], pkg.Types...)
 	}
 	parsed := map[string]*goParsedPackage{}
+	mods := validationModules(packages)
 	for _, pkg := range packages {
 		if !isFile(filepath.Join(projectRoot, "go.mod")) && !IsStdPackage(pkg.ImportPath) {
 			why, fix := unprovided(pkg.OwnerFile, pkg.ImportPath)
@@ -88,7 +91,7 @@ func validateDiscoveredGoBindings(projectRoot string, packages []DiscoveredPacka
 			views: map[string]*goPkgTypes{}}
 		boundPkg := reader.view(pkg.ImportPath, parsed[pkg.ImportPath], false)
 		boundTypes := boundPkg.bindings
-		check := &projectionCheck{pkg: boundPkg, opaque: opaque}
+		check := &projectionCheck{pkg: boundPkg, opaque: opaque, mods: mods}
 		for _, typ := range pkg.Types {
 			localName := typ.LocalName
 			if localName == "" {
@@ -303,12 +306,78 @@ type projectionCheck struct {
 	// unwrapping is each distinct whose inner type the check is comparing,
 	// so a distinct that reaches itself ends.
 	unwrapping map[string]bool
+	// mods resolves a type another file declares (subtypeBase), and
+	// resolve resolves one as the binding's file names it.
+	mods    *adapterModules
+	resolve func(nomiast.TypeExpr) (*hostgen.Shape, bool)
 }
 
 func (c *projectionCheck) begin(loc, funcName, importPath string, exp DiscoveredExport) {
 	c.loc, c.funcName, c.importPath = loc, funcName, importPath
 	c.nomiStructs, c.nomiDistincts = exp.Structs, exp.Distincts
 	c.unwrapping = map[string]bool{}
+	c.resolve = nil
+	if c.mods == nil {
+		return
+	}
+	var (
+		once sync.Once
+		hf   hostgen.HostFunc
+		res  *hostgen.Resolver
+	)
+	c.resolve = func(t nomiast.TypeExpr) (*hostgen.Shape, bool) {
+		once.Do(func() {
+			var err error
+			if hf, res, err = c.mods.hostFunc(exp); err != nil {
+				res = nil
+			}
+		})
+		if res == nil {
+			return nil, false
+		}
+		s, err := res.Shape(hf.Module, t)
+		return s, err == nil
+	}
+}
+
+// embeddedStd reads a std module's source from the std this binary embeds
+// (SetStdSource).
+var embeddedStd func(module string) ([]byte, bool)
+
+// SetStdSource gives the forward check the std this binary embeds. Package
+// std sets it, since this package cannot import std.
+func SetStdSource(f func(module string) ([]byte, bool)) { embeddedStd = f }
+
+// validationModules is the module set the forward check resolves another
+// file's types in: the project's files, then std's, as this binary embeds
+// it, or else read from the compiler's source when a binding first names
+// such a type.
+func validationModules(packages []DiscoveredPackage) *adapterModules {
+	var (
+		once sync.Once
+		std  func(string) ([]byte, bool)
+	)
+	stdSource := func(module string) ([]byte, bool) {
+		once.Do(func() {
+			if embeddedStd != nil {
+				std = embeddedStd
+			} else if src, err := resolveCompilerSource(); err == nil {
+				std = hostgen.DirSource(filepath.Join(src.Dir, "std"))
+			}
+		})
+		if std == nil {
+			return nil, false
+		}
+		return std(module)
+	}
+	return newAdapterModules(packages, func(user func(string) ([]byte, bool)) (*hostgen.Modules, error) {
+		return hostgen.LoadModules(func(module string) ([]byte, bool) {
+			if data, ok := user(module); ok {
+				return data, true
+			}
+			return stdSource(module)
+		})
+	})
 }
 
 // stdDistinctInner is the inner type of each std distinct a binding may
@@ -338,6 +407,37 @@ func (c *projectionCheck) distinct(t nomiast.TypeExpr) (string, nomiast.TypeExpr
 		return v.Name, inner, true
 	}
 	return "", nil, false
+}
+
+// subtypeBase reports whether t is a subtype of a scalar that the binding's
+// file does not declare, or an intersection of subtypes (`NonNegativeInt
+// and Int64`), and the scalar it crosses as. Such a name is resolved as the
+// adapter generator resolves it (adapterModules): in the binding's file,
+// the files it imports, and std's prelude. A subtype is its base's value
+// at run time, so std's `Int64` fills an int64 slot; whether its range
+// fits the Go integer is the generator's check (hostgen.IntRangeError).
+func (c *projectionCheck) subtypeBase(t nomiast.TypeExpr) (nomiast.TypeExpr, bool) {
+	switch v := t.(type) {
+	case *nomiast.SimpleType:
+		if projectedNomiNames[v.Name] || c.nomiDistincts[v.Name] != nil || c.nomiStructs[v.Name] != nil || c.opaque[v.Name] {
+			return nil, false
+		}
+	case *nomiast.QualifiedType, *nomiast.ConjunctionType:
+	default:
+		return nil, false
+	}
+	if c.resolve == nil {
+		return nil, false
+	}
+	s, ok := c.resolve(t)
+	if !ok {
+		return nil, false
+	}
+	switch s.Kind {
+	case hostgen.SInt, hostgen.SFloat, hostgen.SBool, hostgen.SString, hostgen.SByte, hostgen.SBytes:
+		return &nomiast.SimpleType{Name: s.String()}, true
+	}
+	return nil, false
 }
 
 // unwrapped calls f with the inner type of the distinct t names, and
@@ -376,6 +476,9 @@ func (c *projectionCheck) matches(p *goProjection, t nomiast.TypeExpr) bool {
 	// also fills a time.Duration slot, and Instant a time.Time one.
 	if name, inner, ok := c.distinct(t); ok && !p.isLeaf(name) {
 		return c.unwrapped(name, inner, func(inner nomiast.TypeExpr) bool { return c.matches(p, inner) })
+	}
+	if base, ok := c.subtypeBase(t); ok {
+		return c.matches(p, base)
 	}
 	if p.kind == projStruct {
 		return c.namesStruct(t)

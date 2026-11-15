@@ -35,7 +35,7 @@ or says the expression is rejected.
 A compile error is quoted as the compiler prints it, in a code span:
 `` `type mismatch: expected Byte, got Int` ``. A compile error stops the
 program before any of it runs. A run-time fault, a trap, is quoted with the
-line prefix it prints: `line 3: division by zero`.
+line prefix it prints: `line 3: index 7 is out of range for a Vector of length 5`.
 
 A section that a tour chapter teaches starts with a "Taught in" line that
 links it. A citation `§N *Heading*` names a heading in chapter N.
@@ -828,8 +828,28 @@ end
 ```
 
 Reversed bounds give an empty range. An unbounded range comes from
-`Range.from(n)` or `Range.naturals()`, and a step from `Range.step_by`
-([std::ranges](/reference/ranges/)).
+`Range.from(n)`, of `n`'s type, or `Range.naturals()`, and a step from `Range.step_by`
+([std::ranges](/reference/ranges/)). A range's parts are
+`Range.start(r)`, `Range.stop(r)` (its end, `None` when unbounded) and
+`Range.is_inclusive(r)`.
+
+The prelude holds three subtypes of `Range<T>` (§4 *Generic subtypes*).
+`NonEmptyRange<T>` is a range that holds a value, `Range.contains(r,
+Range.start(r))`: `a..b` with `a < b`, `a..=b` with `a <= b`, or an
+unbounded range. `ClosedRange<T>` is a NonEmptyRange that holds its end or
+has none, `a..=b` or `Range.from(n)`, and `BoundedRange<T>` is a
+NonEmptyRange with an end. A function whose two bounds must agree takes one
+of them, so a literal written backwards is an error when the program is
+compiled, with the rule that is false:
+``this ClosedRange<Int> literal breaks the rule of NonEmptyRange<Int>, a supertype of it: `fn r -> Range.contains(r, Range.start(r))` is false``.
+`Comparable.clamp(value, 0..=11)` takes a ClosedRange (§5),
+`random`'s `Generator.int(1..=6)` takes a BoundedRange, and
+`Generator.float(0.0..1.0)` takes a `FiniteRange`, a bounded range whose
+ends are finite. `Range.from(n)` and
+`Range.naturals()` are ClosedRanges: where a `ClosedRange<NonNegativeInt>`
+is expected, `Range.from(2)` is one, and its literal `2` is checked as a
+NonNegativeInt when the program is compiled. A Float range with a NaN end holds no
+value, since no Float is `<=` NaN, so it is none of the three.
 
 `..` binds tighter than comparison and the pipe, and looser than arithmetic:
 `1 + 2..5 + 6` is `(1 + 2)..(5 + 6)`.
@@ -908,7 +928,7 @@ except as noted (§12).
 **`Int`** is the one integer type: signed and exact at any size, with no
 largest or smallest value. There are no sized or unsigned variants.
 Arithmetic never overflows; the value grows (§8). Where an `Int` meets a
-fixed number of bits (a Go binding, a `Duration`, a database column), a
+fixed number of bits (a Go binding, a database column), a
 value that does not fit is an error there. The bitwise operators work on
 `Int`s of any size (§8).
 
@@ -988,9 +1008,9 @@ produced by IEEE 754 arithmetic and by `Float.nan()`,
 `Float.positive_infinity()` and `Float.negative_infinity()`.
 
 `Float` division by zero does not trap: it gives the IEEE value. `Int`
-division by zero traps (`line 3: division by zero`), since every `Int` is a
-number and none can stand for the missing result. A literal zero divisor
-(`n / 0`) is a compile error (§8 *Integer division and remainder*).
+division takes a `NonZeroInt` divisor, since every `Int` is a number and
+none can stand for the missing result, so a divisor that may be zero is a
+compile error (§8 *Integer division and remainder*).
 
 ```nomi
 fn main()
@@ -1042,7 +1062,7 @@ one as captures do: `t.first`, `t.second`, `t.third`, ... up to
 have the same type.
 
 ```nomi
-fn divide(x: Int, y: Int) -> (Int, Int)
+fn divide(x: Int, y: NonZeroInt) -> (Int, Int)
     (x / y, x % y)
 end
 
@@ -2112,10 +2132,19 @@ which is the base when nothing nearer is. `if c then List.length(xs) else
 -1` is an `Int`; `PositiveInt` beside `NonZeroInt` is a `NonZeroInt`, and
 `NonNegativeInt` beside `NonZeroInt` is an `Int`. They join the same way
 at every position a value converts at: `[Some(List.length(xs)), Some(-1)]`
-is a `List<Maybe<Int>>`. A literal after an arm, element or argument that
-gave a subtype is its base's, so `Maybe.with_default(Iter.find_index(xs,
-f), -1)` is an `Int`, and a range with no type written ranges over its
-endpoints' base: `0..List.length(xs)` is a `Range<Int>`. A type written
+is a `List<Maybe<Int>>`. A literal beside values of a subtype there, in
+any order, is the nearest of that subtype and its ancestors that is a std
+numeric subtype (*Value ranges*) whose rules the literal
+satisfies, which the compiler decides as it checks the program, and the
+values join as that type: with `n` a `NonNegativeInt`, `if c then n else
+0`, `if c then 0 else n`, `[0, n]` and `Maybe.with_default(Iter.find_index(xs,
+f), 0)` are `NonNegativeInt`s, and with `s` a `subtype Small NonNegativeInt
+when fn n -> n < 10`, `if c then s else 1` is a `NonNegativeInt`. A
+literal that satisfies none is its base's, so
+`Maybe.with_default(Iter.find_index(xs, f), -1)` is an `Int`, and so is a
+literal beside a subtype whose rule only the built program runs: with `p`
+a `Port`, `if c then p else 80` is an `Int`. A range with no type written
+ranges over its endpoints' base: `0..List.length(xs)` is a `Range<Int>`. A type written
 for the value still decides it, so `m: NonNegativeInt = if c then 1 else
 2` checks each literal against the rule. A type parameter solved to a
 subtype widens to the ancestor only where every argument it was solved
@@ -2134,10 +2163,15 @@ interface of its own: `impl Display for Port` is
 ``a subtype implements no interface of its own: `Port` is an Int at run time and has Int's impls``,
 and so is a `derive`. Functions in an inherent block, `impl Port`, are
 allowed. An interface impl whose interface takes a subtype as an
-argument (`impl Divide<Port, Int> for Int`) is an error, since the impl at
-the base serves the subtype already. An operand of a subtype is its
+argument (`impl Add<Port, Int> for Int`) is an error, since the impl at
+the base serves the subtype already. The right operand of `/`, `%`, `<<<`
+and `>>>` is the exception: an impl of `Divide`, `Remainder`, `ShiftLeft`
+or `ShiftRight` may take a subtype there, which states the operands the
+operator takes, as std's `impl Divide<NonZeroInt, Int> for Int` does
+(§8 *Integer division and remainder*). An operand of a subtype is its
 base's value: `p + 1.0` is a `Float`, `port == 80` compares Ints, and a
-literal pattern matches a narrowed value. An enum cannot embed a
+literal pattern matches a narrowed value. The std numeric subtypes are
+the one exception: an operation on them is the subtype its value's range proves (*Value ranges*). An enum cannot embed a
 subtype. A validated struct is a struct: it converts to nothing, and
 its rule only constrains how values are built.
 
@@ -2214,12 +2248,14 @@ the program is compiled with `T` as `Int`, and `T.try_from(x)` is generic,
 its argument solving the type parameters: `Ascending.try_from(circles)`,
 with `Circle` no `Comparable`, is the error
 ``Circle does not implement Comparable (required by `where T: Comparable`)``.
-A literal of a generic subtype is checked through the subtype's
-`try_from` called by its name in the literal's file, so where no name of
-the file reaches the type (a parameter type of a module the file does not
-import), the literal is the error
-``this NonEmpty<Int> literal cannot be checked when the program is compiled: its rule is checked through `NonEmpty.try_from`, and `NonEmpty` is not named in this file``,
-and importing the type, or building the value with `try_from`, settles it.
+A literal of a generic subtype is checked through the `try_from` of the
+subtype's declaration at the literal's type arguments, whatever the
+literal's file names: `first([1, 2])` checks its argument against a
+`NonEmpty<Int>` parameter of a module whose `NonEmpty` the file does not
+import, and an import of `NonEmpty` used by nothing else is unused. A type
+argument that breaks a bound is the error at the literal:
+`u: Ascending<Circle> = []` is
+``Circle does not implement Comparable (required by `where T: Comparable`)``.
 
 A generic rule is checked for effects at its declaration, whatever its
 type arguments will be: its own body, and through its bounds every impl
@@ -2258,6 +2294,24 @@ A value enters a subtype three ways:
   `subtype Pair List<Int> when fn xs -> List.length(xs) == 2`,
   `p: Pair = [1, 2]` and `Pair([1, 2])` are checked, and `[1, 2, 3]` there is
   ``this Pair literal breaks its rule: `fn xs -> List.length(xs) == 2` is false``.
+  A list, vector, set or map literal where `NonEmptyList`,
+  `NonEmptyVector`, `NonEmptySet` or `NonEmptyMap` is expected needs no
+  literal elements when its shape proves it holds something: it writes
+  an element or an entry, or spreads a value of one of those types (or a
+  subtype of one). `[a, b]`, `Vector[f(x)]`, `Set[x]`, `{k => v}`,
+  `[..xs, y]` and `[..ys]` with `ys` a `NonEmptyList` are each one, with
+  each element checked against the element type as usual. A literal
+  made only of spreads of collections that may be empty, `[..xs]` with
+  `xs` a `List`, is the error ``` `[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads is of a non-empty type, and it writes no element ```,
+  and an empty one, `[]`, breaks the rule. A subtype declared over one
+  of them keeps its own rule, so its literal's elements are literals. A
+  literal headed by a collection's name, `List[...]`, `Vector[...]`,
+  `Set[...]` or `Map{...}`, builds a subtype of that collection where
+  one is expected, as the unnamed literal does.
+  A range literal whose endpoints are both literals is one where a subtype
+  of `Range` is expected: with `subtype Wide Range<Int> when fn r ->
+  Range.contains(r, 0) and Range.contains(r, 5)`, `w: Wide = 0..10` is
+  checked, and `0..n` there is an error naming `n` and `Wide.try_from`.
   The compiler evaluates the rule of each ancestor that has one
   on the literal before the program runs, each once, a parent's ancestors
   before the parent and the parents in the order they are written, then
@@ -2285,8 +2339,8 @@ A value enters a subtype three ways:
   (adding two non-negative values gives a non-negative one); elsewhere it
   is ``` `Port.unchecked` builds a Port without checking its rule, and only the file that declares Port may call it ```.
 
-Any other value of the base where a subtype is expected is an error
-that names `try_from`: with `n: Int`, `p: Port = n` is
+Any other value of the base where a subtype is expected, unless a check
+narrowed it (*Narrowing*) or its range proves the rule (*Value ranges*), is an error that names `try_from`: with `n: Int`, `p: Port = n` is
 `type mismatch: expected Port, got Int` with the help
 ``Port is a subtype of Int; check the value with `Port.try_from(...)`, which is `Some` when it satisfies `fn port -> port >= 1 and port <= 65535` and `None` when not``,
 and `Port(n)` is
@@ -2294,7 +2348,8 @@ and `Port(n)` is
 A validated struct's literal with a field that is no literal, its call
 form over a record value, a patch of one (`{..span, low: 0}`,
 `Struct.update`), and a collection subtype's literal with an element
-that is no literal or a spread (`[1, n]` as a `Pair`) are errors naming
+that is no literal or a spread (`[1, n]` as a `Pair`), except one of the
+std non-empty collections above, are errors naming
 `try_from` the same way. An operand of a comparison is the exception: a
 collection literal compared with a value whose type holds a subtype is
 checked against that type with its subtypes erased when it does not
@@ -2316,10 +2371,32 @@ functions whose result keeps the guarantee (`NonEmptyList.map`,
 `NonEmptyList.prepend` onto any List, `NonEmptyMap.put` into any Map,
 `NonEmptySet.union` with any Set), a constructor that cannot fail
 (`NonEmptyList.of(first, rest)`), and a length or size that is a
-`PositiveInt`. A std function whose argument
-would otherwise trap takes one: `Int.pow`'s exponent is a `NonNegativeInt`,
-so `Int.pow(2, -1)` is
-``-1 is not a NonNegativeInt: `fn n -> n >= 0` is false``. A std function
+`PositiveInt`. Outside the prelude, std::int's `Int64` is the Ints
+from -2^63 to 2^63 - 1. A std
+function whose limit is 64 bits takes one, so `Int64.try_from(n)` checks a
+computed value before the call. A std function whose argument
+would otherwise trap or be ignored takes one: `Int.pow`'s exponent,
+`String.repeat`'s count, `Int.bit_count`'s argument and the digit counts
+of `Int.format` and `Float.format_percent` are `NonNegativeInt`s, so
+`Int.pow(2, -1)` is
+``-1 is not a NonNegativeInt: `fn n -> n >= 0` is false``; a size
+that must hold something is a `PositiveInt` (`Channel.buffered`'s
+capacity, `Reader.read`'s `max`, `Iter.chunks` and `Iter.windows`); and
+the divisor of a named function that divides is a `NonZeroInt`
+(`Int.modulo`, `Int.floor_div`) or a `NonZeroDecimal` (`Decimal.divide`,
+`Decimal.divide_exact`). Two bounds that must agree are one range of the
+prelude's range subtypes (§3 *Range literals*): `Int.clamp(n, 0..=11)`,
+`Generator.int(1..=6)`, and the digits after the point of `Float.format`,
+`Decimal.format` and `Decimal.format_percent`, a
+`ClosedRange<NonNegativeInt>` (`fraction: 0..=2`, or `Range.from(2)` for
+at least two and every digit past them). Std modules declare
+subtypes of their own where one argument has a rule: `Decimal.allocate`
+and `Money.allocate` take std::decimal's `Ratios` (none negative, not all
+zero, at least one), `Generator.float` std::random's `FiniteRange` (a
+range with finite ends), std::csv's options a `Delimiter` (no quote, line
+break, U+FFFD or U+0000), `Bits.field` std::bits' `FieldBits` (a pattern
+with a field letter) and `jwt.sign_as` std::json's `JsonObject` (a
+`Json.Obj`). A computed argument goes through `try_from`, or a check that narrows it. A std function
 whose result always satisfies one returns it: a length, size or count
 (`List.length`, `String.length`, `Map.size`, `Iter.count`) and an index
 (`Iter.with_index`'s, `Iter.find_index`'s) are `NonNegativeInt`s, and so
@@ -2333,6 +2410,223 @@ Float, since the absolute value of NaN is NaN, which is no
 Destructuring reads a subtype's parent, its first when it has
 several, as it reads a distinct type's inner value: `Positive(x) = p`
 binds a `NonNegative`.
+
+#### Value ranges
+
+The std numeric subtypes are the prelude's `NonZeroInt`,
+`NonNegativeInt` and `PositiveInt`, their Float and Decimal counterparts,
+and std::duration's `NonZeroDuration`, `NonNegativeDuration` and
+`PositiveDuration`. The compiler knows, of each value of Int, Decimal,
+Duration and Float where it can, an interval the value lies in, open or
+unbounded at either end, and whether it is off zero: the value's
+*range*. A value is the narrowest std numeric subtype its range proves:
+Positive when no value in it is zero or below, NonNegative when none is
+below zero, NonZero when it excludes zero. With `count` a
+`NonNegativeInt`, `count + 1` is a `PositiveInt`, `count + 0` a
+`NonNegativeInt` and `count - 1` an `Int`; after `if size > 1`, `size -
+1` is a `PositiveInt`.
+
+A range comes from:
+
+- a literal, possibly negated: its value;
+- a type: what the std numeric subtypes on its chain state (a
+  `PositiveInt` is 1 and up), with the bounds of each Int subtype on it
+  whose rule compares its parameter with Int literals (a conjunct of
+  another form bounds nothing); a parameter, a field, an annotated
+  binding and any other value not listed here has its type's range;
+- a binding with no type written: its value's, so with `k = 60 * 60`,
+  `k` is 3600 wherever it is read;
+- a check of a binding (*Narrowing*);
+- arithmetic, which is exact (§8 *Integer arithmetic is exact*, §8
+  *Decimal arithmetic*): `a + b`, `a - b`, `a * b` and `-a` of Ints and
+  of Decimals, and `a + b` and `a - b` of Durations and a Duration
+  times an Int, as Int arithmetic on nanoseconds. Of Floats, `a + b`
+  where neither is below zero is no NaN (an overflow is `+inf`), at
+  least zero, and above zero when either is, since rounding to nearest
+  takes no such sum below its larger operand; `-a` is exact. A Float
+  product or difference has no range: the product of two positive
+  values can round to `0.0`, and `0.0 * inf` and `inf - inf` are NaN;
+- an Int's `a / b`, which truncates toward zero, by a `b` above zero:
+  between 0 and `a`, so `n / 2` of a non-negative `n` is non-negative;
+  by a `b` below zero, between 0 and `-a`. An Int's `a % b`, which takes
+  `a`'s sign: between 0 and `a`, and smaller in size than the largest
+  `b` can be when `b` is bounded;
+- the branches of an `if` with an `else` or of a `case`, and a block's
+  last expression: every value a branch that finishes can have;
+- `Int.abs`, `Decimal.abs` and `Duration.abs`: the absolute values of the
+  argument's range; `Int.pow(b, e)` and `Decimal.pow(b, e)`: 1 when `e`
+  is 0, the power when both are one value and it is small enough to work
+  out (`Int.pow(2, 63) - 1` is 2^63 - 1), else positive, non-negative or
+  off zero as `b` is; `Int.sqrt(n)`: the roots of `n`'s ends;
+  `Int.to_decimal(n)`: `n`'s range; `Duration.as_nanos(d)`: `d`'s range;
+  `Duration.nanoseconds`,
+  `microseconds`, `milliseconds`, `seconds`, `minutes` and `hours`: the
+  argument's range in nanoseconds, so `Duration.minutes(p)` with `p` a
+  `PositiveInt` is a `PositiveDuration`; `String.length`, `List.length`,
+  `Vector.length`, `Map.size`, `Set.size` and `Iter.count` of a
+  non-empty subtype: positive; `Int.max(a, b)`, `Decimal.max` and
+  `Duration.max`: at least the higher of the arguments' lowest values
+  and at most the higher of their highest, and `min` the other way
+  round, so `Int.max(1, n)` is a `PositiveInt`;
+- an element a std `Iter` function passes to a callback (below).
+
+Anything else, a Decimal's `/` and `%` and the bitwise operators among
+them, has its type's range. A Float's range holds only of a value that is no NaN, and a
+Float of none may be NaN. A Duration's typed literal has none, since the
+compiler does not read its value. No range relates two values: after `i
+< n`, `i` is no narrower than before.
+
+A value whose range rests on literals alone keeps its base as its type,
+so `1 + 2` and `x` after `x = 3` are Ints, and `List.concat([n], [-1])`
+is a `List<Int>`. A check of such a binding (*Narrowing*) types it by
+what the check proves of its type alone: after `x = 3` and `if x < 0
+then return`, `x` is still an Int, and its range still rests on literals. An unannotated `once` is a constant, and its type is the
+narrowest std numeric subtype its value's range proves: `once k = 60 *
+60` is a `PositiveInt` in every file that reads it.
+
+Where a subtype is expected, a value converts to it when its range proves
+the subtype's rules, with nothing run when the program does: a std
+numeric subtype, an intersection of them, or an Int subtype whose only
+parent is `Int` and whose rule is comparisons of its parameter with Int
+literals joined by `and`, as std::int's `Int64` is. With `k = 60 * 60`,
+`Int.pow(2, k)` needs no `try_from`, and with `subtype Digit Int when fn
+n -> n >= 0 and n <= 9`, neither does `digit(n)` after `if n >= 0 and n
+<= 9`. A subtype whose rule is of any other form, or whose parent is
+another subtype, is checked through `try_from` as before.
+
+A user-declared subtype gets no arithmetic of its own; its value is a
+value of its ancestors, so with `s` a `subtype Small NonNegativeInt when
+fn n -> n < 10`, `s + s` is a `NonNegativeInt` (0 to 18), not a `Small`.
+
+The elements of some iterables have a range, and a lambda or capture
+that a std `Iter` function calls with them takes it for the parameter
+that receives one: the element of `Iter.map`, `filter`, `reject`,
+`each`, `find`, `find_map`, `find_index`, `any_match`, `all_match`,
+`flat_map`, `take_while`, `drop_while`, `partition`, `group_by`,
+`count_by`, `min_by`, `max_by`, `sum_by`, `mean_by`, `product_by`,
+`chunk_by`, `sort_by` and `sort_with`, and the item of `reduce`, `scan`,
+`try_reduce` and `map_reduce`. The parameter keeps its type, an `Int`
+here, and converts where its range proves a subtype, as a binding with
+no type written does. The elements with a range are those of:
+
+- a range literal of Ints: `a..=b` from the lowest value `a`'s range
+  holds to the highest `b`'s, and `a..b` below that, so every element of
+  `1..=n` is 1 or more and every element of `0..8` is 0 to 7;
+- `Range.from(n)` and `Iter.from(n)`: `n`'s lowest value and up;
+  `Range.naturals()`: 0 and up; `Range.step_by(a..=b, by)`: between `a`
+  and `b`, whichever way the step goes;
+- a List, Vector or Set literal with no spread: its elements' ranges
+  together, a tuple's part by part;
+- `Iter.filter`, `reject`, `take`, `drop`, `take_while`, `drop_while`,
+  `sort`, `sort_by`, `sort_with`, `reverse`, `to_list`, `to_vector`,
+  `to_set` and `cycle` of a source with a range, which pass on elements
+  they keep unchanged; `Iter.concat` of two; the second part of
+  `Iter.with_index`'s tuples and each part of `Iter.zip`'s;
+- `Iter.map` and `Iter.scan`: the range of the callback's result, when
+  its body has no `return` or `break`.
+
+A source of any other form, a binding among them, gives its elements no
+range, and `Iter.iterate` gives none.
+
+```nomi
+fn divisors(n: PositiveInt) -> List<Int>
+    1..=n |> Iter.filter(fn d -> n % d == 0) |> Iter.to_list()
+end
+
+fn bits(byte: Int) -> List<Int>
+    Iter.map(0..8, &(byte >>> (7 - &1) &&& 1)) |> Iter.to_list()
+end
+
+fn main()
+    dbg divisors(12) // [1, 2, 3, 4, 6, 12]
+    dbg bits(5)      // [0, 0, 0, 0, 0, 1, 0, 1]
+end
+```
+
+#### Narrowing
+
+A check of a parameter or local binding narrows its range in the code
+the check guards, so a value computed while the program runs needs no
+`try_from` there:
+
+```nomi
+fn divide(n: Int, d: Int) -> Maybe<Int>
+    if d == 0 then return None
+    Some(Int.divide(n, d)) // d is a NonZeroInt here
+end
+
+fn first_or(xs: List<Int>, fallback: Int) -> Int
+    if xs == [] then
+        fallback
+    else
+        NonEmptyList.first(xs)
+    end
+end
+
+fn last_index(size: Int) -> PositiveInt
+    if size <= 1 then return 1
+    size - 1 // size is 2 and up here
+end
+
+fn main()
+    dbg divide(7, 2)    // Some(3)
+    dbg first_or([], 0) // 0
+    dbg last_index(4)   // 3
+    n = 3
+    dbg if n >= 0 then Int.pow(2, n) else 0 // 8
+end
+```
+
+A comparison `x op k` or `k op x`, with `op` one of `==`, `!=`, `<`,
+`<=`, `>` and `>=`, narrows `x`, a binding of Int, Decimal, Duration or
+Float, when `k` is a constant of its base: a value whose range is one
+value, a literal, possibly negated, or a binding of one. Where it is
+true, `x > k` keeps of `x`'s range the values above `k`, `x >= k` those
+from `k` up, `x < k` and `x <= k` those below, `x == k` the value `k`, and
+`x != k` all but `k`: after `n >= 0 and n != 0`, `n` is a `PositiveInt`,
+and `x != 0` makes `x` off zero. A comparison of an Int, Decimal or
+Duration that is false is its opposite that is true: in the `else` of
+`if n < 0`, `n >= 0` and `n` is a `NonNegativeInt`. A Float comparison
+but `!=` is false when `x` is NaN, so a true one also proves `x` is no
+NaN, and a false one proves nothing unless `x`'s range already rules NaN
+out, except `x != k` false, which is `x == k`. So `x != 0.0` narrows
+nothing of a Float that may be NaN, since `NonZeroFloat` holds no NaN.
+
+`Iter.is_empty(x)` false, `x != e` true and `x == e` false, with `e` an
+empty literal, `[]`, `{}` or `""`, narrow a List, Vector, Map, Set or
+String to `NonEmptyList`, `NonEmptyVector`, `NonEmptyMap`, `NonEmptySet`
+or `NonEmptyString` at its type arguments; `xs |> Iter.is_empty()` is
+`Iter.is_empty(xs)`.
+
+`not c` proves what `c` proves when it has the other value; `a and b` that
+is true proves what each proves true, and `a or b` that is false what each
+proves false. Two facts about one binding meet. A binding that is a std
+subtype already narrows further the same way, so a `NonNegativeInt`
+checked `!= 0` is a `PositiveInt`. A check narrows:
+
+- the `then` branch of an `if` where its condition is true, and the
+  `else` branch, with each `else if` after it, where it is false;
+- the right operand of `and` where the left one is true, and of `or`
+  where it is false: `d != 0 and n % d == 0` is no error;
+- a `case` arm's body after its `when` guard, and in a `case` with no
+  subject, an arm's body where its condition is true and every earlier
+  unguarded condition false;
+- the rest of the block after an `if` whose first branch leaves (`return`,
+  `break`, `continue`, a trap or another expression of type `Infallible`)
+  where the condition is false, after an `if` whose `else` leaves where it
+  is true, after an `else if` chain with no final `else` whose branches all
+  leave where every condition is false, and after `assert c` where `c` is
+  true and `refute c` where it is false.
+
+Bindings are immutable, so a narrowed binding holds its value everywhere
+in that code, a lambda's body included, and a name rebound there is a new
+binding with its own type. Nothing else narrows: a value that is no
+binding (`if n + 1 > 0` says nothing of `n + 1`), a field read, an `is`
+test, and a comparison of two bindings neither of which is a constant
+(`a > b`). A binding of a user's subtype keeps its type, though its range
+narrows: after `s > 0` with `s` a `Small`, `s` is a `Small` that passes
+where a `PositiveInt` is expected. A narrowed value is its base at run
+time, as every subtype's is.
 
 ### Validated types
 
@@ -3250,15 +3544,17 @@ natural order implement `Comparable`: `Int`, `Float`, `Decimal`, `String`,
 
 `Comparable` also gives every implementing type `min`, `max` and `clamp`,
 open defaults written over `compare`: `Int.min(a, b)`, `Date.clamp(day,
-first, last)`, `Version.max(a, b)` on a derived impl, or `Comparable.min(a,
+first..=last)`, `Version.max(a, b)` on a derived impl, or `Comparable.min(a,
 b)` in a function generic over `T: Comparable`. A tie returns the first
-argument. `clamp(value, low, high)` holds `value` to `low..high`, both ends
-included, and a `low` greater than `high` traps, naming both bounds as
-`Debug` writes them: `Comparable.clamp: low 10 is greater than high 1`.
-`Float` overrides all three: `min` and `max` are IEEE 754-2019's `minimum`
-and `maximum` (NaN if either operand is NaN, and `-0.0` below `0.0`), and
-`clamp` keeps a NaN value NaN and traps on a NaN bound (`Comparable.clamp:
-low NaN is not a number`).
+argument. `clamp(value, range)` holds `value` to a `ClosedRange<T>` (§3
+*Range literals*): the range's start when `value` is below it, its end when above,
+and an unbounded `Range.from(n)` clamps only below. A backwards range
+(`10..=1`) or an exclusive one (`0..10`) is an error when the program is
+compiled, and a range computed when it runs goes through
+`ClosedRange.try_from`. `Float` overrides all three: `min` and `max` are IEEE
+754-2019's `minimum` and `maximum` (NaN if either operand is NaN, and `-0.0`
+below `0.0`), and `clamp` keeps a NaN value NaN. A Float range with a NaN end
+holds no value, so it is no `ClosedRange`, and no literal is NaN.
 
 A tuple is `Comparable` when every element is: the first elements decide
 unless they are `Equal`, then the second, and so on, and an element after
@@ -3400,8 +3696,23 @@ end
   `` `?` cannot be used in the initializer of `once port`: a `once` has no function to return from ``.
   A lambda, a nested `fn` or a `concurrent` block inside it is a boundary of
   its own.
-- **Cycles.** A `once` whose initializer reads itself while it is being
-  computed traps rather than overflowing:
+- **Cycles.** A `once` whose initializer reaches the `once` itself is an
+  error at its declaration, naming the chain:
+  ``cyclic 'once' binding: `seed` depends on itself: it calls `read_seed` (main.nomi:7), which reads `once seed` (main.nomi:4)``.
+  Each `once` on the cycle is reported. The check follows, across
+  modules, what an initializer does while it runs: each `once` it reads,
+  and each call whose function is known when the program is compiled, into
+  that function's body and on. Those calls are a call by name or as
+  `Type.f`, an interface function called on a value of a concrete type
+  (`Display.to_string(money)`), a pipe stage or `tap` naming a function,
+  and the lambda a `then` or `tap` stage applies. Every branch counts,
+  whether or not initialization takes it. A lambda, capture or nested `fn`
+  written anywhere else runs when something calls it, so a `once` that
+  holds a lambda reading the `once` is no cycle:
+  `once retry: () -> Int = fn -> retry() + 1`. Not followed are a call
+  through a function value, an interface value or a type parameter, an
+  operator's implementation, and a default argument. A cycle closed through
+  one of those traps when the read re-enters, at that read:
   `line 2: cyclic 'once' binding: 'a' depends on itself`.
 - **A function value has no defaults.** A `once` that holds a lambda or a
   partial capture is a value, and a call through it passes every argument
@@ -4287,7 +4598,7 @@ Values cross as `ToJson` writes them and `FromJson` reads them:
 | `Decimal` | string of its exact digits, scale kept (`"12.50"`); a number is read too | `string` |
 | `Uuid` | string, lowercase 8-4-4-4-12 hex | `string` |
 | `Instant` | string, RFC 3339 in UTC (`"2023-11-14T22:13:20.25Z"`); any offset is read | `string` |
-| `Date`, `Time`, `NaiveDateTime` | string, `YYYY-MM-DD`, `HH:MM:SS[.fff]`, `YYYY-MM-DDTHH:MM:SS[.fff]` | `string` |
+| `Date`, `Time`, `NaiveDateTime` | string, `YYYY-MM-DD`, `HH:MM:SS[.fff]`, `YYYY-MM-DDTHH:MM:SS[.fff]`; a year outside 0000 to 9999 as `+010000` | `string` |
 | `List<T>`, `Vector<T>`, `Set<T>` | array | array |
 | `Map<String, V>` | object | object |
 | struct | object, as `derive ToJson` writes it | object |
@@ -4386,6 +4697,11 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   type mismatch: Int vs Float`, `comparison type mismatch: Int vs Decimal`).
   Convert with `Int.to_float`, `Float.to_int`, `Int.to_decimal`,
   `Decimal.to_float` or `Float.to_decimal`.
+- An operand of a subtype is its base's value, and the result is the
+  base's, except that `+`, `*` and prefix `-` on the std numeric subtypes
+  keep one where it provably holds: with `count` a `NonNegativeInt`,
+  `count + 1` is a `PositiveInt` and `count - 1` an `Int` (§4 *Arithmetic
+  on numeric subtypes*).
 - `+` on two `String` or two `Bytes` values concatenates.
 - On collections, `+` and `-` combine two collections of one type. `List<T> +
   List<T>` and `Vector<T> + Vector<T>` concatenate. `Set<T> + Set<T>` is the
@@ -4426,16 +4742,26 @@ Where a value must fit a machine integer, the boundary says so:
   takes all of `xs`, and `Vector.get(v, Int.pow(10, 30))!` traps as any index
   out of range does.
 - A Go function bound with `go` (§19) that takes `int64`, `int` or a narrower
-  integer refuses an `Int` it cannot hold. The call traps, naming the Go
-  function, its parameter and the value: `` `strconv.FormatInt`'s `i` takes an
-  Int that fits in 64 bits; got 123456789012345678901234567890 ``. An unsigned
-  slot names its range (`` takes an Int from 0 to 4294967295 ``). A Go
+  integer declares a parameter type whose every value it holds: `Int64`, or
+  a subtype whose rule bounds it within the Go type's range. A plain `Int`
+  there is an error at the binding (§19 *How Nomi types project to Go*), so
+  `Int64.try_from(n)` checks a computed value before the call. A Go
   `uint64` result past 64 signed bits is an exact `Int`. A Go `*big.Int`
   parameter or result takes any `Int`, and a nil `*big.Int` result traps
   (`` `pkg.F` returned a nil *big.Int, which is not an Int ``).
-- A library type with a 64-bit range says so in its reference:
-  [`Duration`](/reference/duration/) and `Instant` count nanoseconds in 64
-  bits, and a database driver refuses an `Int` its engine cannot store.
+- A library type with a 64-bit range says so in its reference: a
+  database driver refuses an `Int` its engine cannot store. A
+  [`Duration`](/reference/duration/) is an `Int` of nanoseconds with no
+  range, and an [`Instant`](/reference/instant/) an `Int` of nanoseconds
+  from the epoch with none, so `Instant + Duration` never faults; a wait
+  past the 64 bits the clock counts (about 292 years) never ends, and a
+  deadline past 2262 never comes. The calendar types have no range either:
+  a [`Date`](/reference/calendar/)'s year is an `Int` of any size, an
+  `OffsetDateTime` or `DateTime` holds any `Instant`, and no construction,
+  conversion or arithmetic on them faults for how far it goes. A year
+  outside 0000 to 9999 is written in ISO 8601's expanded form, a sign and
+  at least six digits (`+010000-01-01`, `-000001-12-31`), and every `parse`
+  reads it back.
   [std::json](/reference/json/) reads and writes an `Int` of any size, and an
   `export fn` result past ±2⁵³ fails the call (§7 *Exported Functions*).
 
@@ -4445,19 +4771,54 @@ Where a value must fit a machine integer, the boundary says so:
 sign of the dividend, so `(a / b) * b + (a % b) == a`: `-7 / 3 == -2` and `-7
 % 3 == -1`.
 
-- `/` and `%` trap on a zero divisor: `line N: division by zero` (§11
-  *Traps, `Maybe` and `Result`*).
-- A divisor written as a literal zero is a compile error, since the
-  expression would trap every time it ran: `x / 0`, `x % -0`, `x / (0x0)`,
-  `d / 0.00d`, and the divisor of `Int.modulo`, `Int.floor_div`,
-  `Int.divide`, `Int.remainder`, `Decimal.divide`, `Decimal.remainder` and
-  `Decimal.divide_exact`. The error is reported at the divisor:
-  `` `division by zero: the divisor is the literal 0` ``. Only the literal is
-  checked: a binding or a `once` whose value is zero, and a call through the
-  interface (`Divide.divide(x, 0)`), trap when they run. `Float` division
-  is not affected.
-- `/` and `%` with a `NonZeroInt` on the right use std's `Divide<NonZeroInt,
-  Int>` and `Remainder<NonZeroInt, Int>` impls, which cannot trap.
+- The divisor is a `NonZeroInt`: std's impls are `Divide<NonZeroInt, Int>`
+  and `Remainder<NonZeroInt, Int>`, and `Int.divide` and `Int.remainder`
+  take one. A divisor passes when it is a non-zero literal, when its type is
+  `NonZeroInt` or below it, or when its range proves it off zero (§4 *Value
+  ranges*): a binding checked first (§4 *Narrowing*), `n + 1` with `n` a
+  `NonNegativeInt`, `Duration.minutes(15)`. Any other divisor is an error at
+  the divisor that says how to make it one:
+  ``` `/` divides by a NonZeroInt; `elapsed` is an Int ``` with the help
+  ``check it first (`if elapsed == 0 then ...`) or take a NonZeroInt``.
+  A divisor that is always zero is
+  `` `division by zero: the divisor is the literal 0` ``, or with `zero = 0`,
+  `` division by zero: `zero` is 0 here ``.
+
+```nomi
+fn per_hour(count: Int, hours: Int) -> Int
+    if hours == 0 then return 0
+    count / hours // hours is a NonZeroInt here
+end
+
+fn average(total: Int, n: PositiveInt) -> Int
+    total / n
+end
+
+fn main()
+    dbg per_hour(120, 4)                             // 30
+    dbg average(10, 4)                               // 2
+    dbg 7 % 3                                        // 1
+    dbg Int.divide(9, NonZeroInt.try_from(3 - 1)!) // 4
+end
+```
+
+- So a checked program never divides an `Int` by zero. The VM still checks
+  each division and stops with `line N: division by zero` (§11 *Traps,
+  `Maybe` and `Result`*), a backstop no checked program reaches.
+- A generic function that divides by its own type, `where T: Divide<T, T>`,
+  does not take an `Int`, whose `/` takes a `NonZeroInt`; one bounded by the
+  divisor's type does: `fn rem<T, D>(a: T, b: D) -> T where T:
+  Remainder<D, T>` takes `rem(10, NonZeroInt(4))`.
+- The named functions that divide take a non-zero divisor too:
+  `Int.modulo(x, y)` and `Int.floor_div(x, y)` a `NonZeroInt`, and
+  `Decimal.divide` and `Decimal.divide_exact` a `NonZeroDecimal`, so
+  `Int.modulo(x, 0)` is ``0 is not a NonZeroInt: `fn n -> n != 0` is false``.
+- An impl of `Divide` or `Remainder` for a type of one's own takes a divisor
+  that cannot be zero in the same way: a `NonZeroInt`
+  (`impl Divide<NonZeroInt, Score> for Score`, so `score / 4`), or a subtype
+  of its own type whose rule rules zero out (`impl
+  Divide<NonZeroRational, Rational> for Rational`). Its body divides an
+  `Int` under the same rule as any other code.
 - `Float`'s `%` is IEEE 754's fmod: `a - b * trunc(a / b)` computed exactly,
   with the sign of `a` (`-7.5 % 2.0 == -1.5`). It never traps: a zero divisor
   or an infinite dividend gives NaN, and an infinite divisor gives `a`.
@@ -4489,22 +4850,25 @@ enough for any amount of money and any rate applied to it.
 - A quotient that does not end has all 34 digits: `10d / 3d` is
   `3.333333333333333333333333333333333d` and `2d / -3d` is
   `-0.6666666666666666666666666666666667d`.
-- A zero divisor traps as `Int`'s `/` does: `line N: division by zero`.
-  A literal zero divisor (`d / 0d`) is a compile error, as for `Int`.
+- The divisor is a `NonZeroDecimal`, as `Int`'s is a `NonZeroInt`: `d / e`
+  with `e` a `Decimal` is ``` `/` divides by a NonZeroDecimal; `e` is a Decimal ```
+  until a check (`if e == 0d then ...`) or a type says it is not zero.
 - `Divide.divide(a, b)` and `Decimal.divide(a, b)` are the same operation,
-  and `Decimal` meets a `Divide<Decimal, Decimal>` bound.
+  and `Decimal` meets a `Divide<NonZeroDecimal, Decimal>` bound.
 - `/` takes two `Decimal`s, as `*` does: `1d / 3` is ``binary / type
   mismatch: Decimal vs Int``.
 
 [std::decimal](/reference/decimal/)'s `Decimal.divide(a, b, scale, mode)`
 rounds to a scale and `RoundingMode` you name, for an answer whose digits are
 fixed (cents, a rate to four places). `Decimal.divide_exact` returns `None`
-for a quotient that does not end.
+for a quotient that does not end, and `Decimal.round_exact` and
+`Decimal.sqrt_exact` return `None` where a digit would be lost; no
+`RoundingMode` asserts exactness.
 
 `%` is exact: `a - b * q`, where `q` is the quotient truncated toward zero.
 It takes the sign of `a`, never rounds, and has the larger of the two scales:
 `10.5d % 3d == 1.5d`, `7.25d % 0.5d` is `0.25d`, `-7.5d % 2d == -1.5d` and
-`10d % 2.50d` is `0.00d`. A zero divisor traps as `Int`'s does.
+`10d % 2.50d` is `0.00d`. Its divisor is a `NonZeroDecimal`, as `/`'s is.
 
 Equality and comparison are by value and ignore scale: `1.50d == 1.5d` is
 `True`. Scale is kept for display: `Decimal.scale(1.50d) == 2` and
@@ -4546,9 +4910,11 @@ end
   right operand's type (§12 *Several instantiations for one type*): `Instant -
   Duration` is an `Instant` and `Instant - Instant` a `Duration`.
 - std implements arithmetic for `Int`, `Float` and `Decimal`, and `Add` for
-  `String` and `Bytes`. `Duration` has `Remainder<Duration, Duration>`:
-  `elapsed % Duration.minutes(15)` is how far into the current quarter hour
-  `elapsed` is.
+  `String` and `Bytes`. `Int`'s and `Decimal`'s `Divide` and `Remainder`
+  take a `NonZeroInt` and a `NonZeroDecimal` (*Integer division and
+  remainder*). `Duration` has `Divide<NonZeroInt, Duration>` and
+  `Remainder<NonZeroDuration, Duration>`: `elapsed % Duration.minutes(15)`
+  is how far into the current quarter hour `elapsed` is.
 - Generic code that uses an operator names the bound: `where T: Add<Step,
   Out>`.
 - An operator impl may be generic over the receiver's type parameters. Its
@@ -4622,8 +4988,12 @@ end
 - `a >>> n` divides by 2 to the `n`, rounding toward negative infinity. A count
   past `a`'s bits returns `0` for a non-negative `a` and `-1` for a negative
   one.
-- A negative shift count traps (`line 3: negative shift count -1`), and so does
-  a left shift whose result would not fit in memory.
+- The count is a `NonNegativeInt` (`impl ShiftLeft<NonNegativeInt, Int> for
+  Int`), held to it as a divisor is to `NonZeroInt` (§8 *Integer division
+  and remainder*): with `n` an `Int`, `1 <<< n` is
+  ``` `<<<` shifts by a NonNegativeInt; `n` is an Int ``` with the help
+  ``check it first (`if n < 0 then ...`) or take a NonNegativeInt``. A left
+  shift whose result would not fit in memory traps.
 - `Byte` has `&&&`, `|||`, `^^^` and `~~~`, whose results stay within 8 bits
   (`~~~b` is `255 - b`). It has no shift, since a left shift could carry bits
   past 8: shift the `Int` (`Byte.to_int(b) <<< 1`). `b <<< 1` is ``no impl of
@@ -4945,7 +5315,7 @@ body)(x)` would. `x |> then &f(a, &1)` applies the capture, as `(&f(a,
 &1))(x)` would, and `x` is checked as `f`'s argument at the `&1`.
 
 ```nomi
-fn divide(a: Int, b: Int) -> Int
+fn divide(a: Int, b: NonZeroInt) -> Int
     a / b
 end
 
@@ -5138,6 +5508,10 @@ fn main()
 end
 ```
 
+- A condition that checks a binding against a constant, or tests it for
+  emptiness, narrows it to a std subtype in each branch (§4 *Narrowing*):
+  in `if d != 0 then n / d else 0`, `d` is a `NonZeroInt` in the first
+  branch, and after `if d == 0 then return 0`, in the rest of the block.
 - An `if` without `else`, and an `else if` chain with no final `else`, is
   a statement, of type `Unit`. Its branch is `Unit`, leaves (`return`,
   `break`, a `?` that propagates, a call that never returns), or ends in an
@@ -5243,7 +5617,10 @@ matches. An arm is `Pattern -> body` or `Pattern when guard -> body` (§10
 body`, and the first arm whose condition is `True` runs. A condition is a
 `Bool`: `x + 1 -> ...` is `case condition must be Bool, got Int`. The arms must
 end with `_ -> body`, since conditions cannot be shown exhaustive: without one
-the error is ``non-exhaustive case: add a `_` arm``.
+the error is ``non-exhaustive case: add a `_` arm``. An arm's body runs where
+its condition is true and every earlier one false, which narrows the
+bindings they check (§4 *Narrowing*): after `n < 0` and `n == 0`, the `_`
+arm's `n` is a `PositiveInt`.
 
 ```nomi
 fn size(x: Int) -> String
@@ -6125,6 +6502,9 @@ pattern's names are in scope in the condition.
 - In a guard, `or` is the Boolean operator: `.Circle{r} when r < 1.0 or r >
   9.0`.
 - An arm with a guard never counts toward exhaustiveness.
+- A guard narrows what it checks in the arm's body, as an `if` condition
+  does its branch (§4 *Narrowing*): in `n when n > 0 -> ...`, `n` is a
+  `PositiveInt`.
 
 ### Alternatives: `or`
 
@@ -6307,6 +6687,9 @@ end
   `embeds`, the `else` branch, a binding with `else` and a piped `case` narrow
   nothing.
 - A narrowed value may still be passed where the enum is expected.
+- A `value is Pattern` test narrows nothing, in an `if` condition or
+  anywhere; `if Pattern = name` is the form that narrows. A condition
+  narrows a binding's range, and so its std subtype, by its own rule (§4 *Narrowing*).
 
 ### Bindings with `else`
 
@@ -6637,8 +7020,9 @@ An operation that cannot give the result asked for either returns a `Maybe` or
 `Result`, or traps. std returns one when the outcome depends on data the
 caller does not control (`Map.get`, `String.to_int`, I/O), and traps when the
 caller broke a promise it could have checked: a divisor it chose (`/`, §8
-*Integer division and remainder*), an index it computed (`Vector.set`), a
-`todo` it left in, or an `unreachable` whose invariant it broke. Each trapping
+*Integer division and remainder*), an index it computed and unwrapped
+(`Vector.set(v, i, x)!`), a `todo` it left in, or an `unreachable` whose
+invariant it broke. Each trapping
 operation has a total way around it, such as `Vector.get`, which returns
 `None` where `Vector.get(...)!` traps. Writing Nomi's
 [Pick the tool by what happens on failure](/writing/) applies the same rule
@@ -6654,19 +7038,22 @@ map pattern is refutable for the same reason (§10 *Map Destructuring*).
 
 #### Where a trap is reported
 
-A trap prints `line N:` and then its own text: `line 4: division by zero`,
+A trap prints `line N:` and then its own text: `` line 4: `Int.from_digits(ds, 2)` found nothing ``,
 `line 9: index 7 is out of range for a Vector of length 5`.
 
 - `N` is a line of the program's own code: the line of the operation that
   trapped or, when the trap happens inside the standard library, the line of
-  the program's call into it, however many std calls deep. The text does not
-  name the std function; the call on line `N` does. `_ = Int.modulo(7, n)` on
-  line 2, with `n` zero, prints `line 2: division by zero`.
+  the program's call into it, however many std calls deep. `shown =
+  Decimal.format(1.5d, locale, fraction: Range.from(4_294_967_298))` on
+  line 2, which rounds through a std function of `Decimal.format`'s own,
+  prints `line 2: Decimal.round: scale 4294967298 is past a Decimal's,
+  which is -2147483648 to 2147483647`.
 - A lambda of the program that traps while a std function runs it
-  (`Iter.map(xs, fn x -> 10 / x)`) is the program's code, so the trap names the
+  (`Iter.map(xs, fn i -> Vector.get(v, i)!)`) is the program's code, so the trap names the
   lambda's line.
 - A trap whose own text names no line (a host function's, such as
-  `String.repeat` with a negative count) gets the line of the program's call.
+  `hash.pbkdf2_sha256` with a length past 1024 bytes) gets the line of the
+  program's call.
 - A `todo` names its own file and line instead (*Unwritten code: `todo`*).
 - `nomi run`, `nomi test`, a built executable and the REPL print the same
   line.
@@ -8171,6 +8558,12 @@ it.
 | `map_reduce` | `(next_state, output)`, kept | no output, keeps the state | the state and outputs so far |
 | `Map.map_values`, `Map.map_keys` | the entry's new value or key | leaves the entry out | the entries made so far |
 | `Iter.loop` | the loop's value | the same state again | the state this round started with |
+| `Iter.iterate` | the last element, emitted | a compile error | ends without emitting |
+
+`continue` in an `Iter.iterate` step, written in its lambda or in a named
+function passed as the step, is the error ``` `continue` in an `Iter.iterate` step has no next state to go on to: the step's answer is the next state ```
+at the `continue`, or at the function's name; skip states with
+`Iter.iterate(seed, step) |> Iter.filter(keep)`.
 
 ```nomi
 fn main()
@@ -8577,7 +8970,7 @@ fn run() -> Result<Unit, String>
 end // as `main`: prints `error: config file not found` and exits 1
 ```
 
-To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: Int = 1` and `message: String = ""`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A code outside 0 to 255 is the trap `exit code 300 is outside 0 to 255`, and exits 1.
+To choose the status, `main` returns std::process's `Exit` in its `Err`. `Exit` is a struct with the fields `code: ExitCode = 1` and `message: String = ""`, where `ExitCode` is std::process's `subtype ExitCode Int when fn code -> code >= 0 and code <= 255`. A `main` declared `-> Result<Unit, Exit>` that returns `Err(e)` prints `e.message` and a newline to standard error, with no `error: ` before it, when the message is not empty, and exits with `e.code`. A code of 0 exits 0, and its message still prints. A literal code outside 0 to 255 does not compile (`300 is not an ExitCode: ...`), and a computed one goes through `ExitCode.try_from`.
 
 ```nomi
 import std::process.Exit
@@ -8857,6 +9250,8 @@ concurrent
 end
 ```
 
+A task that fails is a different matter: its body trapped, so there is no value to return. `Task.await` propagates the failure to the code that awaits it, by design, as the trap would have surfaced had the body run inline, and awaiting a task that was cancelled propagates the cancellation. On the main line either ends the program with the task's fault, as any trap does. `Task.await_all` propagates a failure the same way, as soon as a task in the block fails. `Task.outcome(task)` is the total form: it waits as `Task.await` does and returns how the task ended as a value, `Outcome<T>` (*Failures and restarts* below). Code that cancelled a task, or that reports a task's failure instead of inheriting it, reads the task with `Task.outcome`.
+
 Cancellation has two sources. Both stop the work at its next safe point (*Safe points* below), and the stop unwinds the task, running its deferred calls on the way out.
 
 - **The block exits early.** When a `concurrent` block exits by `?`, `return`, `break` or `continue`, it cancels every task still running in it. User code does not see this: the cancelled body stops and unwinds.
@@ -8889,7 +9284,7 @@ Taught in [Concurrency](/concurrency/#channels).
 
 A channel is a typed FIFO queue between tasks, held as two halves. `std::channels` declares `Channel<T>`, a struct of a `Sender<T>` (`ch.sender`) and a `Receiver<T>` (`ch.receiver`). A function that takes one half can use only that direction; nothing at run time keeps the halves apart.
 
-- `Sender.send` returns an `Err` once the channel is closed, and `Receiver.receive` returns `None` once it is closed and drained. Only a `Sender` closes it. [std::channels](/reference/channels/) has the functions.
+- `Sender.send` returns an `Err` once the channel is closed, including a send waiting for room when it closes, and `Receiver.receive` returns `None` once it is closed and drained. Only a `Sender` closes it, and closing a closed channel does nothing. [std::channels](/reference/channels/) has the functions.
 - A `send`, `receive` or `select` blocked when its context is cancelled unwinds like any cancelled wait.
 - A channel belongs to no block. It may be made in one block, returned, and used in a later one, and its memory is reclaimed when nothing refers to it.
 
@@ -8935,7 +9330,7 @@ end
 
 #### Waiting on several channels
 
-`Channel.select(arms)` waits until one of a list of arms can finish, runs that arm's handler and returns its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
+`Channel.select(arms)` waits until one of a non-empty list of arms can finish, runs that arm's handler and returns its result. An arm is an `Arm<R>`: `Arm.receive(receiver, handle)` passes `handle` the received `Maybe<T>`, `Arm.send(sender, value, handle)` passes it the send's `Result<Unit, ChannelClosed>`, and `Arm.after(wait, handle)` calls it with nothing once `wait` has passed. The arms may be on channels of different element types; every handler returns the one type `R`.
 
 ```nomi
 import
@@ -8958,7 +9353,7 @@ end
 - **The first listed ready arm wins.** When several arms can finish as the `select` starts, the first one in the list finishes and the others take and send nothing, so a run repeats exactly. An arm that is always ready therefore starves the arms listed after it; a loop that serves several channels fairly rotates its arms. While the `select` waits, the first arm to become ready wins.
 - **Closed channels are ready.** A receive arm on a closed and drained channel finishes at once with `None`, and a send arm on a closed channel with `Err(ChannelClosed)`. So a `select` whose channels are all closed runs its first listed channel arm.
 - **Timers count on the clock in force** from the start of the `select`: under `clock Clock.Virtual` a timer fires as soon as every task is waiting, with no real wait. A timer of zero or less is ready at once, so `Arm.after` of zero listed last makes a `select` that never waits.
-- **An empty list of arms** is the fault `Channel.select: needs at least one arm`.
+- **The arms are a `NonEmptyList<Arm<R>>`**, which a list literal of arms is, whatever its arms are (§4 *Subtypes*); a list built while the program runs goes through `NonEmptyList.try_from`.
 - **A waiting `select` is cancellable**: when its context is cancelled it unwinds like any cancelled wait, and no handler runs.
 
 `Receiver.receive_within(receiver, wait)` is the one-channel case: `Ok(Some(value))`, `Ok(None)` when the channel is closed and drained, or `Err(TimedOut)` when `wait` runs out first. A value already waiting is received even when `wait` is zero.
@@ -8969,7 +9364,7 @@ Fan-in from producers that share one message type needs no `select`: they send o
 
 Taught in [Background Work](/background-work/#declaring-your-supervisors).
 
-Long-lived background work is owned by a `Supervisor`, from `std::supervisors`. A supervisor is a set of tasks that share one policy: a required `max_running` bound, a shutdown budget (`shutdown_timeout`, with a default for ordinary background work) and a restart policy. `max_running` is required because no default bound is safe for an unknown downstream.
+Long-lived background work is owned by a `Supervisor`, from `std::supervisors`. A supervisor is a set of tasks that share one policy: a required `max_running` bound (a `PositiveInt`), a shutdown budget (`shutdown_timeout`, with a default for ordinary background work) and a restart policy. `max_running` is required because no default bound is safe for an unknown downstream.
 
 A supervisor is created only while `boot` builds the application value, in boot or in something boot calls, and is usually kept in an application field. Anywhere else, `Supervisor.new` is the error `` a supervisor here would be a new one every time this runs, and each is kept for the life of the program with a `max_running` of its own — so the bound would be per call rather than per downstream. Create it while `boot` builds the app value: in boot, or in something boot calls ``.
 
@@ -9276,8 +9671,8 @@ FAIL palindrome_test.nomi :: determines palindromes
 A row whose name trapped is listed under the rendered row with `its name trapped:` and the trap's text (without its own `line N:` when the trap is on the name's line), then the name as written:
 
 ```text
-  subtest 0: line 12: its name trapped: division by zero
-    "${10 / n}"
+  subtest 0: line 12: its name trapped: `NonZeroInt.try_from(n)` found nothing
+    "${10 / NonZeroInt.try_from(n)!}"
 ```
 
 **Cases.** Each row a test runs is a case in the run's totals. A test that runs `subtests` counts as many cases as rows it ran, summed over its statements, and a test with none counts one. A failed row is a failed case and a passing row a passed one, so 9 rows of which 1 failed add `8 passed, 1 failed`. A failure outside every row (an assertion after the rows, or a trap in a row) is one more failed case. A passing test prints one `ok` line with its count, `ok palindrome_test.nomi :: determines palindromes (3 cases)`.
@@ -9912,7 +10307,8 @@ A binding's Nomi types project to Go types:
 |---|---|
 | `String` | `string` |
 | `Bool` | `bool` |
-| `Int` | `int64`; also `int`, the sized signed widths, the unsigned widths other than `uint8`, and `*big.Int` |
+| `Int` | `*big.Int`; a result also `int64`, `int`, the sized signed widths and the unsigned widths other than `uint8` |
+| `Int64`, or a subtype of `Int` within the Go type's range | `int64`, `int`, the sized signed widths and the unsigned widths other than `uint8` |
 | `Byte` | `uint8` |
 | `Float` | `float64`; also `float32` |
 | `Bytes` | `[]byte` |
@@ -9929,11 +10325,12 @@ A binding's Nomi types project to Go types:
 | a callback `(A, ...) -> R` | `func(A, ...) R` |
 | a distinct type | what its inner type projects to |
 
-- **Int.** An `Int` is exact at any size, so a narrowing to a fixed-width Go integer is checked, never truncated. An `Int` past the width traps at the call, naming the Go function and its parameter: `` `strings.Repeat`'s `count` takes an Int that fits in 64 bits; got 100000000000000000000 ``. A Go `uint64` past 2^63 - 1 is an exact `Int`, and `*big.Int` holds any `Int`.
+- **Int.** An `Int` is exact at any size, so a fixed-width Go integer that receives one (a parameter, a struct field or element it reaches, a callback's result) takes a type whose every value it holds: std::int's `Int64` for `int64` and `int`, an intersection such as `NonNegativeInt and Int64` for `uint64`, or a subtype whose `when` rule bounds it (`subtype Int32 Int when fn n -> n >= -2147483648 and n <= 2147483647`). The bounds are read from rules that compare the value with Int literals joined by `and`, through a subtype's parents and an intersection's members; a conjunct of another form narrows the values further and is not read. A type that admits a value past the width is an error at the binding, naming the type to declare: ``Go function "Repeat" in package "strings": parameter count (Int) to Go int: Go int holds an Int in -9223372036854775808..9223372036854775807, and Int admits Ints past that: declare it `Int64` (std::int), or a subtype whose `when` bounds it within that range; a Go function that takes an Int of any size takes *big.Int``. A Go function that defines what a larger `Int` means takes `*big.Int`, which holds any `Int`. A Go integer result is an `Int` whatever its width, a `uint64` past 2^63 - 1 included.
 - **Byte.** `Byte` is its own type: an `Int` does not fill a `uint8` parameter, and a `Byte` does not fill an `int64` one.
 - **Float.** A `float32` slot is range-checked. `NaN` and `±Inf` cross unchanged, and `NaN` stays equal to itself under Nomi's equality.
 - **Streams.** A Go stream a function returns becomes a `Reader` or `Writer` over it, closed through the Go value's `Close` when it has one; a `Writer` hands Go each write as it is made. A stream passed to Go is read or written through the handle's own buffer and lock, so Go reads what the program would read next, and writes in order with it. The Go type must be the interface itself: a function that returns `*gzip.Reader` is bound through one that returns `io.Reader`, and a type that is both a reader and a writer, such as `io.ReadWriter` or `net.Conn`, has no projection.
-- **Instant.** An `Instant` is nanoseconds since the Unix epoch, so a `time.Time` outside that range traps at the call. An `Instant` returns to Go in UTC, with no zone and no monotonic reading, so two round-tripped times are `Equal` but not `==`.
+- **Duration.** A `Duration` is an `Int` of nanoseconds of any size, and a `time.Duration` 64 bits of them, about 292 years either way. A longer `Duration` crosses as the longest `time.Duration`, which a Go wait takes as never ending, and a more negative one as the most negative, already passed.
+- **Instant.** An `Instant` is an `Int` of nanoseconds since the Unix epoch of any size. One crosses to a `time.Time` exactly, clamped only past about 146 billion years from 1970. A `time.Time` of any year crosses back as its exact `Instant`, read from its Unix seconds rather than `UnixNano`, which wraps outside the years 1677 to 2262; Go's zero time is the year 1. An `Instant` returns to Go in UTC, with no zone and no monotonic reading, so two round-tripped times are `Equal` but not `==`.
 - **Map.** The projected key is a valid Go map key. A Go map projects with its keys in ascending order: strings and numbers in their natural order, `false` before `true`, a struct by its exported fields in declaration order. A Go key type with no such order, such as a pointer or an interface, is refused at the binding. Two keys that would become one on either side fail the conversion rather than drop an entry.
 - **Structs.** Field names are snake_case unless a `nomi:"..."` tag says otherwise. The Nomi type of a struct value always comes from the declaration at that position (the declared result of the binding, or the declared parameter type of the Nomi function being called), never from the Go type; only the fields are compared, at every depth. So a Go `func(Row) bool` binds a Nomi `(RawRow) -> Bool`. The Go struct may be the bound package's, or one of another package it imports that the project's `go.mod` provides, named directly (`model.User`) or through an alias the bound package declares (`type Cell = core.Cell`). A struct of a Go standard library package crosses only from a bound standard library package.
 - **Dynamic.** A Go empty interface holds the value the `Dynamic` wraps. A `Dynamic` from `Json.to_dynamic` holds what `encoding/json` decodes to: `map[string]any`, `[]any`, `string`, `float64` or `int64`, `bool`, `nil`. `rt.Dynamic` from `github.com/nomi-language/nomi/rt` is the `Dynamic` itself. Nothing else takes a `Dynamic`; declare the type the Go value has.
@@ -9941,7 +10338,7 @@ A binding's Nomi types project to Go types:
 - **Enums.** A declared Nomi `enum` has no projection. The only enums that cross are `Result`, `Maybe` and `Bool`, as a trailing Go `error`, `*T` and `bool`, matched by the std type's identity: a same-named type of another module is rejected.
 - **Results.** The Go signature decides the result. With `N` results that are not `error`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `(A, B, ...)`. A trailing `error` wraps that in `Result<_, String>`: `error` alone is `Result<Unit, String>`, `(T, error)` is `Result<T, String>`, and `(A, B, error)` is `Result<(A, B), String>`.
 - **Tuples** project in result position only, since Go has no tuple type to take as a parameter. A Go struct against a Nomi struct of the same shape carries several values both ways.
-- **Distinct types.** A distinct type, opaque or not, crosses as its inner type, at every depth: `type Id Int` as `int64` or any Go integer width an `Int` takes, `type Ids List<Int>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int` as `int64`. The value Go returns is wrapped in the declared type again. So `Duration` and `Instant`, both `opaque type ... Int` in std, may also fill an `int64` slot. A marker type (`type Expired`) holds no value and has no projection.
+- **Distinct types.** A distinct type, opaque or not, crosses as its inner type, at every depth: `type Id Int64` as `int64`, `type Ids List<Int64>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int64` as `int64`. The value Go returns is wrapped in the declared type again. So `Instant` (`opaque type Instant Int64` in std) may also fill an `int64` slot; `Duration` (`opaque type Duration Int`) is an `Int` of any size, so it fills a `time.Duration` slot but not an `int64` one. A marker type (`type Expired`) holds no value and has no projection.
 
 **The check.** Bindings are checked against Go source before the program loads: the project's own packages, packages of required modules in the Go module cache or a local `replace`, the packages a bound package's signatures and struct fields name, and bound standard library packages, read from the toolchain's GOROOT with this platform's build constraints. A missing name, a generic Go function and a signature mismatch are errors that point at the binding:
 
@@ -9950,4 +10347,4 @@ Go function "Index" in package "slices" is generic, and a binding needs one conc
 signature mismatch for Go function "ToUpper" in package "strings": parameter 1 "x" projects to String, but Nomi declares Int
 ```
 
-The check runs forward only. For each declared Nomi type, it computes the Go type the Nomi type projects to and compares it with the Go type the bound declaration has: a scalar by its row above; `Dynamic` against a Go empty interface or `rt.Dynamic`; a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure; an opaque binding by the Go type it binds; a struct of the binding's file field by field; and a distinct type of the binding's file, and std's `Duration` and `Instant`, through the inner type. It does not read another file's declarations: a name declared there fills a Go struct slot on trust, its fields held to the Go struct's when the binding is built, and fills no other slot, so a binding that passes a distinct type declares it in the binding's file. The inverse is not checked, because a Go type does not determine its Nomi type (`int64` is `Int` and every distinct type over `Int`), so an inverse check would reject bindings that work.
+The check runs forward only. For each declared Nomi type, it computes the Go type the Nomi type projects to and compares it with the Go type the bound declaration has: a scalar by its row above; `Dynamic` against a Go empty interface or `rt.Dynamic`; a `List`, `Maybe`, `Map`, `Result`, tuple or callback by its structure; an opaque binding by the Go type it binds; a struct of the binding's file field by field; a distinct type of the binding's file, and std's `Duration` and `Instant`, through the inner type; and a subtype of a scalar, or an intersection of subtypes, as its base. A subtype is resolved where the binding's file finds it: declared in that file, in a file it imports (`import std::int.Int64`, `import units.{Pixels}`), or in the prelude (`NonNegativeInt`). Another name declared in another file fills a Go struct slot on trust, its fields held to the Go struct's when the binding is built, and fills no other slot, so a binding that passes a distinct type declares it in the binding's file. Whether an `Int` subtype's range fits its Go integer is checked when the binding is built, before the program runs (*Int* above). The inverse is not checked, because a Go type does not determine its Nomi type (`int64` is `Int64` and every distinct type over it), so an inverse check would reject bindings that work.

@@ -13,7 +13,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 // FILE: roman_numerals.nomi
 //# Writes numbers as Roman numerals.
 
-once numerals = [
+once numerals: List<(PositiveInt, String)> = [
     (1000, "M"),
     (900,  "CM"),
     (500,  "D"),
@@ -33,7 +33,7 @@ once numerals = [
 /// many times as it fits into what is left.
 pub fn roman(number: Int) -> String
     (_left, parts) = Iter.map_reduce(numerals, number, fn left, (value, symbol) ->
-        (left % value, String.repeat(symbol, left / value))
+        (left % value, String.repeat(symbol, NonNegativeInt.try_from(left / value)!))
     end)
 
     String.join(parts)
@@ -84,7 +84,7 @@ test result: ok. 27 passed, 0 failed
 
 ## How it's written
 
-- The numerals, subtractive pairs included, are a `once` table of `(value, symbol)` tuples, largest first.
+- The numerals, subtractive pairs included, are a `once` table of `(value, symbol)` tuples, largest first, annotated `List<(PositiveInt, String)>` so each value is a divisor `/` and `%` take.
 - One `Iter.map_reduce` over the table: each numeral's output is its symbol repeated `left / value` times, and the state carried to the next is `left % value`. The parts are joined with `String.join`. An `Iter.reduce` threading `(left, text)` and concatenating was the other form; style §33 picks `map_reduce` when each element has its own output and the state only carries what the next one needs.
 - No validation of the range, since the canonical data has no error cases.
 - One `subtests` table for all 27 cases.

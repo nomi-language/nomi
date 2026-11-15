@@ -36,7 +36,7 @@ impl MeteredReader
     /// nothing.
     pub fn read(
         meter: MeteredReader,
-        max:   Int = 65536,
+        max:   PositiveInt = 65536,
     ) -> Result<(Maybe<Bytes>, MeteredReader), io.Error>
         data = Reader.read(meter.reader, max)?
         bytes = data |> Maybe.map(Bytes.length) |> Maybe.with_default(0)

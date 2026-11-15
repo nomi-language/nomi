@@ -656,7 +656,8 @@ dbg line 11: Version.max(Version{major: 1, minor: 9}, Version{major: 1, minor: 1
 -->
 
 Every `Comparable` type also has `min`, `max` and `clamp`, as `Version.max`
-shows. `Int.clamp(n, 0, 100)` holds a number to a range, both ends included.
+shows. `Int.clamp(n, 0..=100)` holds a number to a range that holds its end;
+a backwards range such as `100..=0` is an error when the program is compiled.
 
 On an enum, `derive Comparable` ranks the variants in the order they are
 declared, and compares payloads only between two values of the same variant.

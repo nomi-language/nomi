@@ -76,3 +76,54 @@ end
 		}
 	}
 }
+
+// TestRelinkChecksAGenericSubtypesKeptLiteral: main.nomi's literal of the
+// generic subtype `Many<Int>` is checked through a function built at its
+// type arguments (irbuild.RefinementSiteStep.Check), which the kept
+// lowering holds beside its unit's literal builds. An edit of the helper
+// the rule calls, in rules.nomi alone, relinks the program, and main.nomi's
+// kept literal, which the new helper refuses, is reported as a fresh check
+// reports it, not let through.
+func TestRelinkChecksAGenericSubtypesKeptLiteral(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs nomi several times per edit; -short")
+	}
+	rules := func(least string) string {
+		return `pub fn enough(n: Int) -> Bool
+    n >= ` + least + `
+end
+
+pub subtype Many<T> List<T> when fn xs -> enough(List.length(xs))
+
+pub fn count<T>(xs: Many<T>) -> Int
+    List.length(xs)
+end
+`
+	}
+	const main = `import
+    std::io
+    rules.{Many, count}
+end
+
+fn main()
+    m: Many<Int> = [1, 2]
+    io.print("${count(m)}")
+end
+`
+	p := cacheProject{name: "generic-refinements", entry: "main.nomi", files: map[string]string{
+		"nomi.toml":  "[module]\nname = \"generic_refinements\"\nentry_points = [\"main\"]\n",
+		"rules.nomi": rules("1"),
+		"main.nomi":  main,
+	}}
+	_, _, byEdit := runCacheEditsBy(t, p, []cacheEdit{
+		{what: "the helper's body", rel: "rules.nomi", text: rules("2")},
+		{what: "the helper refuses the literal", rel: "rules.nomi", text: rules("3")},
+		{what: "the helper back", rel: "rules.nomi", text: rules("1")},
+	})
+	if byEdit["the helper's body"] == 0 {
+		t.Errorf("after the helper's body, no command relinked the program: %v", cacheWhy["the helper's body"])
+	}
+	if byEdit["the helper refuses the literal"] != 0 {
+		t.Errorf("after the helper refuses the literal, a command relinked a program a fresh check rejects")
+	}
+}

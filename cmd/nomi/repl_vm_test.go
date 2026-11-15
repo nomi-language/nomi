@@ -89,9 +89,9 @@ func TestReplVM_AClosureKeepsItsCapturedValue(t *testing.T) {
 // An input that fails to check or faults prints its error and changes
 // nothing; the session goes on.
 func TestReplVM_AnErrorDoesNotPoisonTheSession(t *testing.T) {
-	replExpect(t, "x = 5\nundefined_name + 1\nx + 1\ny = x / (x - x)\ny\nx\n",
+	replExpect(t, "x = 5\nundefined_name + 1\nx + 1\ny = x / NonZeroInt.try_from(x - x)!\ny\nx\n",
 		"6\n5\n",
-		"undefined variable 'undefined_name'", "division by zero", "undefined variable 'y'")
+		"undefined variable 'undefined_name'", "`NonZeroInt.try_from(x - x)` found nothing", "undefined variable 'y'")
 }
 
 // A redefinition applies to later inputs only: an earlier function that
@@ -285,13 +285,16 @@ func TestReplVM_ImportingAnInherentFunctionByNameIsRejected(t *testing.T) {
 		"file 'std::duration' has no exported name 'seconds'")
 }
 
-// A value the session cannot carry is reported and the input still runs.
-func TestReplVM_AValueThatCannotBeKeptIsReported(t *testing.T) {
-	// A type from a module the session imported whole is spelled short
-	// (`Date`), which does not resolve in a later input.
-	replExpect(t, "import std::calendar\nd = calendar.Date.new(2020, 1, 2)\nx = 1\nx\n",
-		"1\n",
-		"note: d is not kept for later inputs")
+// A value whose std type the input's names do not bring into scope is kept:
+// a type from a module the session imported whole (`Date` through
+// `calendar`), and one a range types (`Duration.seconds(2)` is a
+// PositiveDuration, which only std::duration names), are written through
+// their modules in the files that keep and read them.
+func TestReplVM_AValueOfAStdTypeOutOfScopeIsKept(t *testing.T) {
+	replExpect(t, "import std::calendar\nd = calendar.Date.new(2020, 1, 2)\nx = 1\nx\nd\n",
+		"1\nOk(2020-01-02)\n")
+	replExpect(t, "import std::duration.Duration\nd = Duration.seconds(2)\nd\nDuration.as_millis(d)\n",
+		"2s\n2000\n")
 }
 
 // A lazy Iter is a value like any other: it is kept, and each later input

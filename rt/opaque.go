@@ -3,6 +3,7 @@ package rt
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 )
@@ -52,7 +53,11 @@ import (
 // lowered program can reach: one of these is materialized only through a
 // constructor call.
 
-// Duration is `std/duration.Duration`: a signed span in nanoseconds.
+// Duration is `std/duration.Duration` as Go code takes it: a signed span in
+// nanoseconds. The Nomi value is an Int of any size; a host function that
+// takes a Duration gets it saturated at int64 (hostadapt.DurationNanos), a
+// wait no clock outlasts, and one that has to keep every length takes the
+// nanoseconds as an Int (DurationNanosToString).
 //
 // Nominally its own type, structurally int64 — so Go refuses to assign one to an
 // int64, or to an Instant, without a conversion, which is exactly the rule the
@@ -61,29 +66,54 @@ import (
 // cannot compare equal.
 type Duration int64
 
-// Instant is `std/instant.Instant`: an absolute point in time, as nanoseconds
-// since the Unix epoch.
+// Instant is `std/instant.Instant` as Go code takes it: an absolute point in
+// time, as nanoseconds since the Unix epoch in 64 bits, the years 1677 to
+// 2262. The Nomi value is an Int of any size. A host function that takes an
+// Instant gets it clamped to int64 (hostadapt.InstantNanosClamped), which for
+// a deadline is one that never comes or has passed; one that has to keep
+// every moment takes the nanoseconds as an Int and reads them with
+// InstantTimeOf.
 type Instant int64
 
 // --- std/duration ----------------------------------------------------------
 
-// DurationToString is `Duration.to_string`, and through the module's
-// `impl Debug for Duration` it is also how a Duration inspects.
+// DurationToString is DurationNanosToString for a Duration Go code holds,
+// such as a supervisor's shutdown timeout in a trap message.
+func DurationToString(d Duration) string {
+	return DurationNanosToString(IntOf(int64(d)))
+}
+
+// DurationNanosToString is std/duration's `render_nanos`, the body of
+// `Duration.to_string`, and through the module's `impl Debug for Duration`
+// it is also how a Duration inspects. It takes the nanoseconds as an Int
+// because a Duration is an Int count of any size.
 //
 // The compact form std/duration's Display documents: sign, then every non-zero
 // unit component largest-to-smallest concatenated, or "0s" for zero. 0 -> "0s",
-// 5e9 -> "5s", 1.5e9 -> "1s500ms", 5.4e12 -> "1h30m", -5e9 -> "-5s".
-func DurationToString(d Duration) string {
-	if d == 0 {
+// 5e9 -> "5s", 1.5e9 -> "1s500ms", 5.4e12 -> "1h30m", -5e9 -> "-5s". The hours
+// have no bound, so a length past int64 is split there: the hours are an Int,
+// and what is left is under an hour.
+func DurationNanosToString(ns Int) string {
+	if ns.Sign() == 0 {
 		return "0s"
 	}
 	var b strings.Builder
-	// The magnitude as a uint64: negating the most negative Duration
-	// overflows an int64, and its magnitude fits a uint64.
-	nanos := uint64(d)
-	if d < 0 {
+	if ns.Sign() < 0 {
 		b.WriteByte('-')
-		nanos = -nanos
+	}
+	var nanos uint64
+	if n, ok := ns.Int64(); ok {
+		// The magnitude as a uint64: negating the most negative int64
+		// overflows, and its magnitude fits a uint64.
+		nanos = uint64(n)
+		if n < 0 {
+			nanos = -nanos
+		}
+	} else {
+		mag := new(big.Int).Abs(ns.Big())
+		hours, rest := new(big.Int).QuoRem(mag, big.NewInt(int64(time.Hour)), new(big.Int))
+		fmt.Fprintf(&b, "%sh", hours)
+		nanos = rest.Uint64()
 	}
 	for _, u := range durationUnits {
 		if factor := uint64(u.factor); nanos >= factor {
@@ -116,6 +146,38 @@ var durationUnits = [...]struct {
 // point on the wall clock with `Instant.to_seconds` giving Unix seconds, so a
 // monotonic reading would answer a different question.
 func InstantNow() Instant { return Instant(time.Now().UnixNano()) }
+
+// InstantFromTime is the nanoseconds from the epoch of a Go time, the Int a
+// Nomi Instant is: exact for every time Go represents, from Unix seconds,
+// which do not wrap, never UnixNano, which wraps outside the years 1677 to
+// 2262. Every place a Go time becomes an Instant goes through it.
+func InstantFromTime(t time.Time) Int {
+	sec, nsec := t.Unix(), int64(t.Nanosecond())
+	if sec > -9_000_000_000 && sec < 9_000_000_000 {
+		return SmallInt(sec*int64(time.Second) + nsec)
+	}
+	z := new(big.Int).Mul(big.NewInt(sec), big.NewInt(int64(time.Second)))
+	return BigIntOf(z.Add(z, big.NewInt(nsec)))
+}
+
+// InstantTimeOf is the Go time ns nanoseconds from the epoch, in UTC: exact
+// while the seconds fit in 62 bits, about 146 billion years either way, and
+// clamped to that past it, where time.Unix's own arithmetic would wrap. A
+// Nomi Instant is an Int of any size, and this is where one becomes a Go
+// time that keeps its moment (`http.format_time`, `mail.rfc5322_date`, a Go
+// binding's time.Time).
+func InstantTimeOf(ns Int) time.Time {
+	const limit = int64(1) << 62
+	billion := big.NewInt(int64(time.Second))
+	sec, nsec := new(big.Int).DivMod(ns.Big(), billion, new(big.Int))
+	switch {
+	case sec.Cmp(big.NewInt(limit)) > 0:
+		return time.Unix(limit, 0).UTC()
+	case sec.Cmp(big.NewInt(-limit)) < 0:
+		return time.Unix(-limit, 0).UTC()
+	}
+	return time.Unix(sec.Int64(), nsec.Int64()).UTC()
+}
 
 // --- std/timer -------------------------------------------------------------
 

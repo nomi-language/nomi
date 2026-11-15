@@ -47,6 +47,7 @@ import
     display.Display
     duration.Duration
     equatable.Equatable
+    int.PositiveInt
     iter.Iter
     maybe.Maybe.{None, Some}
     results.Result.{self, Err, Ok}
@@ -96,7 +97,7 @@ impl Actor<M>
     pub fn start<S>(
         supervisor: Supervisor,
         state:      S,
-        inbox:      Int = 64,
+        inbox:      PositiveInt = 64,
         handle:     (S, M) -> S,
     ) -> Actor<M>
         inbox = Channel.buffered<M>(inbox)

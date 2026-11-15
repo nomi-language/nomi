@@ -1516,7 +1516,7 @@ func canEndStatement(tt token.TokenType) bool {
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
 		token.RPAREN, token.RBRACKET, token.RBRACE, token.GT,
 		token.END,
-		token.RETURN, token.BREAK, token.CONTINUE, token.QUESTION,
+		token.RETURN, token.BREAK, token.CONTINUE, token.QUESTION, token.BANG,
 		token.ASSERT, token.REFUTE, token.DBG,
 		token.UNDERSCORE, token.PLACEHOLDER:
 		return true

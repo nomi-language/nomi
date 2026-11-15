@@ -1,6 +1,7 @@
 package rt
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -197,19 +198,28 @@ func TestInt_TheBitwiseOperationsReadTwosComplementAtAnySize(t *testing.T) {
 	}
 }
 
-// TestInt_AShiftRefusesANegativeCountAndAnUnholdableResult.
-func TestInt_AShiftRefusesANegativeCountAndAnUnholdableResult(t *testing.T) {
-	if _, ok := IntShl(int64(1), int64(-1)); ok {
-		t.Error("1 <<< -1 answered")
+// TestInt_AShiftRefusesOnlyAnUnholdableResult: a negative count, which no
+// checked program passes, shifts the other way, and only a result past
+// maxShift bits is refused.
+func TestInt_AShiftRefusesOnlyAnUnholdableResult(t *testing.T) {
+	if v, ok := IntShl(int64(8), int64(-1)); !ok || v != int64(4) {
+		t.Errorf("8 <<< -1 = %v, %v; want 4", v, ok)
 	}
-	if _, ok := IntShr(int64(1), int64(-1)); ok {
-		t.Error("1 >>> -1 answered")
+	if v, ok := IntShr(int64(1), int64(-3)); !ok || v != int64(8) {
+		t.Errorf("1 >>> -3 = %v, %v; want 8", v, ok)
 	}
 	if _, ok := IntShl(int64(1), int64(maxShift+1)); ok {
 		t.Error("a left shift past maxShift bits answered")
 	}
-	if err := ShiftCountError(3, int64(-1), true); err.Error() != "line 3: negative shift count -1" {
-		t.Errorf("negative count: %q", err)
+	if _, ok := IntShr(int64(1), int64(-(maxShift + 1))); ok {
+		t.Error("a right shift by a negative count past maxShift bits answered")
+	}
+	if v, ok := IntShr(int64(-1), int64(maxShift+1)); !ok || v != int64(-1) {
+		t.Errorf("-1 >>> past maxShift = %v, %v; want -1", v, ok)
+	}
+	want := fmt.Sprintf("line 3: shift count %d is too large: the result would have more than %d bits", maxShift+1, maxShift)
+	if err := ShiftCountError(3, int64(-(maxShift + 1)), false); err.Error() != want {
+		t.Errorf("negative right count: %q", err)
 	}
 }
 

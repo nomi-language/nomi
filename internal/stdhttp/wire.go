@@ -127,8 +127,21 @@ func header(flat *rt.List[string]) http.Header {
 // written to w (op 0), as a proxy writes it (1), or dumped: as a server
 // received it with its body (2) or without (3), or as a client sends it
 // with its body (4) or without (5). A dump answers its text.
-func WireRequest(fr *rt.Frame, op int64, w rt.Writer, method, target string, headers *rt.List[string], host string,
-	contentLength int64, transferEncoding *rt.List[string], closes bool, trailers *rt.List[string], body rt.Bytes) rt.Result[string, string] {
+func WireRequest(
+	fr *rt.Frame,
+	opArg rt.Int,
+	w rt.Writer,
+	method, target string,
+	headers *rt.List[string],
+	host string,
+	contentLengthArg rt.Int,
+	transferEncoding *rt.List[string],
+	closes bool,
+	trailers *rt.List[string],
+	body rt.Bytes,
+) rt.Result[string, string] {
+	op := opArg.Saturated()
+	contentLength := contentLengthArg.Saturated()
 	u, err := url.Parse(target)
 	if err != nil {
 		return rt.Err[string](err.Error())
@@ -173,9 +186,24 @@ func WireRequest(fr *rt.Frame, op int64, w rt.Writer, method, target string, hea
 // WireResponse is `std::http::host.wire_response`: a response to a request of
 // method from its parts, written to w (op 0) or dumped with its body (1)
 // or without (2).
-func WireResponse(fr *rt.Frame, op int64, w rt.Writer, status, major, minor int64, headers *rt.List[string],
-	contentLength int64, transferEncoding *rt.List[string], closes bool, trailers *rt.List[string], body rt.Bytes,
-	method string) rt.Result[string, string] {
+func WireResponse(
+	fr *rt.Frame,
+	opArg rt.Int,
+	w rt.Writer,
+	statusArg, majorArg, minorArg rt.Int,
+	headers *rt.List[string],
+	contentLengthArg rt.Int,
+	transferEncoding *rt.List[string],
+	closes bool,
+	trailers *rt.List[string],
+	body rt.Bytes,
+	method string,
+) rt.Result[string, string] {
+	op := opArg.Saturated()
+	status := statusArg.Saturated()
+	major := majorArg.Saturated()
+	minor := minorArg.Saturated()
+	contentLength := contentLengthArg.Saturated()
 	resp := &http.Response{StatusCode: int(status), ProtoMajor: int(major), ProtoMinor: int(minor),
 		Proto:  "HTTP/" + strconv.FormatInt(major, 10) + "." + strconv.FormatInt(minor, 10),
 		Header: header(headers), ContentLength: contentLength, TransferEncoding: strsOf(transferEncoding),

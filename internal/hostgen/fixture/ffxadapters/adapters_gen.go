@@ -192,7 +192,7 @@ func (b *bound) out4(v int64) (rt.Value, error) {
 	return rt.Value(int64(v)), nil
 }
 
-// fn1 adapts ffx.apply: apply(f: (Int) -> Int, x: Int) -> Int
+// fn1 adapts ffx.apply: apply(f: (Int) -> Int64, x: Int64) -> Int
 func (b *bound) fn1(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.apply", &err)
 	if len(args) != 2 {
@@ -261,7 +261,7 @@ func (b *bound) in7(fr *rt.Frame, v rt.Value) (out string, err error) {
 	return string(x), nil
 }
 
-// fn5 adapts ffx.attempt: attempt(f: (String) -> Result<Int, String>, s: String) -> Result<Int, String>
+// fn5 adapts ffx.attempt: attempt(f: (String) -> Result<Int64, String>, s: String) -> Result<Int, String>
 func (b *bound) fn5(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.attempt", &err)
 	if len(args) != 2 {
@@ -470,11 +470,11 @@ func (b *bound) in20(fr *rt.Frame, v rt.Value) (out time.Time, err error) {
 	if err != nil {
 		return out, err
 	}
-	x, err := hostadapt.IntField(r, b.d3, 0, 0, "")
+	x, err := hostadapt.IntValueField(r, b.d3, 0, 0, "")
 	if err != nil {
 		return out, err
 	}
-	return time.Unix(0, x).UTC(), nil
+	return hostadapt.InstantTime(x), nil
 }
 
 // in21 reads a Duration as Go time.Duration.
@@ -483,11 +483,11 @@ func (b *bound) in21(fr *rt.Frame, v rt.Value) (out time.Duration, err error) {
 	if err != nil {
 		return out, err
 	}
-	x, err := hostadapt.IntField(r, b.d4, 0, 0, "")
+	x, err := hostadapt.IntValueField(r, b.d4, 0, 0, "")
 	if err != nil {
 		return out, err
 	}
-	return time.Duration(x), nil
+	return time.Duration(hostadapt.DurationNanos(x)), nil
 }
 
 // in22 reads a List<String> as Go []string.
@@ -653,11 +653,7 @@ func (b *bound) in19(fr *rt.Frame, v rt.Value) (out fixture.Tagged, err error) {
 // out25 builds a Instant from Go time.Time.
 func (b *bound) out25(v time.Time) (rt.Value, error) {
 	r := b.d3.New()
-	n, err := hostadapt.InstantNanos(v)
-	if err != nil {
-		return nil, err
-	}
-	r.W[0] = rt.IntWord(n)
+	r.SetIntSlot(0, hostadapt.InstantNanos(v).Value())
 	return r, nil
 }
 
@@ -948,7 +944,7 @@ func (b *bound) in51(fr *rt.Frame, v rt.Value) (out uint64, err error) {
 	return hostadapt.ToUnsigned[uint64](x, "uint64")
 }
 
-// fn43 adapts ffx.narrow: narrow(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int, g: Int, h: Int) -> Int
+// fn43 adapts ffx.narrow: narrow(a: Int8, b: Int16, c: Int32, d: Int64, e: NonNegativeInt and Int64, f: Uint16, g: Uint32, h: NonNegativeInt and Int64) -> Int
 func (b *bound) fn43(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.narrow", &err)
 	if len(args) != 8 {
@@ -1017,7 +1013,7 @@ func (b *bound) out54(v *fixture.Box) (rt.Value, error) {
 	return rt.HostHandle{TypeName: "ffx.Box", Value: v}, nil
 }
 
-// fn53 adapts ffx.new_box: new_box(n: Int) -> Box
+// fn53 adapts ffx.new_box: new_box(n: Int64) -> Box
 func (b *bound) fn53(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.new_box", &err)
 	if len(args) != 1 {
@@ -1142,7 +1138,7 @@ func (b *bound) out61(v []fixture.Point) (rt.Value, error) {
 	return xs, nil
 }
 
-// fn60 adapts ffx.points: points(n: Int) -> List<Point>
+// fn60 adapts ffx.points: points(n: Int64) -> List<Point>
 func (b *bound) fn60(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.points", &err)
 	if len(args) != 1 {
@@ -1370,7 +1366,7 @@ func (b *bound) fn71(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return v0, nil
 }
 
-// fn74 adapts ffx.triple: triple(n: Int) -> (Int, String, Bool)
+// fn74 adapts ffx.triple: triple(n: Int64) -> (Int, String, Bool)
 func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple", &err)
 	if len(args) != 1 {
@@ -1388,7 +1384,7 @@ func (b *bound) fn74(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	return tup, nil
 }
 
-// fn75 adapts ffx.triple_or_fail: triple_or_fail(n: Int) -> Result<(Int, String), String>
+// fn75 adapts ffx.triple_or_fail: triple_or_fail(n: Int64) -> Result<(Int, String), String>
 func (b *bound) fn75(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.triple_or_fail", &err)
 	if len(args) != 1 {
@@ -1426,7 +1422,7 @@ func (b *bound) in77(fr *rt.Frame, v rt.Value) (out func(int64), err error) {
 	}, nil
 }
 
-// fn76 adapts ffx.visit: visit(f: (Int) -> Unit, n: Int) -> Unit
+// fn76 adapts ffx.visit: visit(f: (Int) -> Unit, n: Int64) -> Unit
 func (b *bound) fn76(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("ffx.visit", &err)
 	if len(args) != 2 {

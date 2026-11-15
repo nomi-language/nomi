@@ -22,14 +22,14 @@ end
 fn main()
     x = loop(0, fn n ->
         if n == 2 then return 10
-        if n == 11 then io.print(1 / (n - 11))
+        if n == 11 then io.print(1 / NonZeroInt.try_from(n - 11)!)
         io.print("bound ${n}")
         n + 1
     end)
     io.inspect(x)
     io.inspect(spin())
 end
-`, "line 16: division by zero", "bound 0\nbound 1\nbound 10\n")
+`, "line 16: `NonZeroInt.try_from(n - 11)` found nothing", "bound 0\nbound 1\nbound 10\n")
 	verifyEndlessTrap(t, `import
     std::io
     std::iter.Iter.{loop as forever}
@@ -39,10 +39,10 @@ fn main()
     io.print("start")
     forever(fn ->
         io.print("again")
-        io.print(1 / (1 - 1))
+        io.print(1 / NonZeroInt.try_from(1 - 1)!)
     end)
 end
-`, "line 10: division by zero", "start\nagain\n")
+`, "line 10: `NonZeroInt.try_from(1 - 1)` found nothing", "start\nagain\n")
 }
 
 // A local function named `loop` is an ordinary call: the statement after it

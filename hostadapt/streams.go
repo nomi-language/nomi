@@ -67,7 +67,7 @@ func (g *goReader) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	got := rt.ReaderRead(g.fr, g.r, int64(len(p)))
+	got := rt.ReaderRead(g.fr, g.r, rt.SmallInt(int64(len(p))))
 	if got.Tag != rt.TagOk {
 		return 0, rt.IOFailure{E: got.Err}
 	}

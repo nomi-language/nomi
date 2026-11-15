@@ -50,7 +50,7 @@ func TestCalendarZoneIsNotIdentity(t *testing.T) {
 		t.Fatalf("with_zone failed: %s", CalendarErrorText(tokyo.Err))
 	}
 	if ny.InstantNanos != tokyo.Ok.InstantNanos {
-		t.Fatalf("re-zoning changed the instant: %d != %d", ny.InstantNanos, tokyo.Ok.InstantNanos)
+		t.Fatalf("re-zoning changed the instant: %s != %s", ny.InstantNanos, tokyo.Ok.InstantNanos)
 	}
 	if ny == tokyo.Ok {
 		t.Fatal("Go's == answered true for two zones; the test's premise is gone " +
@@ -85,7 +85,7 @@ func TestCalendarZoneIsNotIdentity(t *testing.T) {
 func TestCalendarCivilAndPhysicalDivergeAcrossSpringForward(t *testing.T) {
 	start := mustParseZoned(t, "2026-03-07T12:00:00-05:00[America/New_York]")
 
-	civil := DateTimeCivilShift(start, 0, 0, 1, 0, 0, 0, 0)
+	civil := DateTimeCivilShift(start, rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(1), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0))
 	if civil.Tag != rt.TagOk {
 		t.Fatalf("civil shift failed: %s", CalendarErrorText(civil.Err))
 	}
@@ -93,12 +93,12 @@ func TestCalendarCivilAndPhysicalDivergeAcrossSpringForward(t *testing.T) {
 		t.Fatalf("civil + 1 day renders %q, want noon EDT on Mar 8", got)
 	}
 
-	physical := rt.DateTime{InstantNanos: start.InstantNanos + 24*int64(time.Hour), Zone: start.Zone}
+	physical := rt.DateTime{InstantNanos: rt.SmallInt(smallNanos(t, start.InstantNanos) + 24*int64(time.Hour)), Zone: start.Zone}
 	if got := DateTimeToString(physical); got != "2026-03-08T13:00:00-04:00[America/New_York]" {
 		t.Fatalf("physical + 24h renders %q, want 1pm EDT on Mar 8", got)
 	}
 
-	elapsed := civil.Ok.InstantNanos - start.InstantNanos
+	elapsed := smallNanos(t, civil.Ok.InstantNanos) - smallNanos(t, start.InstantNanos)
 	if elapsed != 23*int64(time.Hour) {
 		t.Fatalf("civil + 1 day elapsed %v, want 23h", time.Duration(elapsed))
 	}
@@ -137,7 +137,8 @@ func TestCalendarEndOfMonthClamping(t *testing.T) {
 		{"2011-01-15T06:30:45", 1, "2011-02-15T06:30:45"},
 	}
 	for _, c := range cases {
-		got := ISONaiveText(PlusMonthsClamped(mustParseNaive(t, c.from), c.months))
+		shifted := PlusMonthsClamped(mustParseNaive(t, c.from), rt.SmallInt(c.months))
+		got := ISONaiveText(shifted)
 		if got != c.want {
 			t.Errorf("%s + %d months = %s, want %s", c.from, c.months, got, c.want)
 		}
@@ -161,17 +162,17 @@ func TestCalendarEndOfMonthClamping(t *testing.T) {
 // claim, and it is the guard that would catch the order being swapped when
 // something does reach it.
 func TestCalendarClampBeforeDayShift(t *testing.T) {
-	if got := ISONaiveText(CivilShift(mustParseNaive(t, "2011-01-31T00:00:00"), 0, 1, -1, 0, 0, 0, 0)); got != "2011-02-27T00:00:00" {
+	if got := ISONaiveText(CivilShift(mustParseNaive(t, "2011-01-31T00:00:00"), rt.SmallInt(0), rt.SmallInt(1), rt.SmallInt(-1), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0))); got != "2011-02-27T00:00:00" {
 		t.Errorf("Jan 31 + 1 month - 1 day = %s, want 2011-02-27T00:00:00 (clamp before the day shift)", got)
 	}
 	// The agreeing direction, kept so a rewrite that broke the ordinary case
 	// fails here rather than only on the discriminator.
-	if got := ISONaiveText(CivilShift(mustParseNaive(t, "2011-01-31T00:00:00"), 0, 1, 1, 0, 0, 0, 0)); got != "2011-03-01T00:00:00" {
+	if got := ISONaiveText(CivilShift(mustParseNaive(t, "2011-01-31T00:00:00"), rt.SmallInt(0), rt.SmallInt(1), rt.SmallInt(1), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0))); got != "2011-03-01T00:00:00" {
 		t.Errorf("Jan 31 + 1 month + 1 day = %s, want 2011-03-01T00:00:00", got)
 	}
 	// Sub-day units carry through `time.Date` normalization, and the time of
 	// day is preserved by the clamp.
-	if got := ISONaiveText(CivilShift(mustParseNaive(t, "2011-01-31T23:30:00"), 0, 1, 0, 1, 0, 0, 0)); got != "2011-03-01T00:30:00" {
+	if got := ISONaiveText(CivilShift(mustParseNaive(t, "2011-01-31T23:30:00"), rt.SmallInt(0), rt.SmallInt(1), rt.SmallInt(0), rt.SmallInt(1), rt.SmallInt(0), rt.SmallInt(0), rt.SmallInt(0))); got != "2011-03-01T00:30:00" {
 		t.Errorf("Jan 31 23:30 + 1 month + 1 hour = %s, want 2011-03-01T00:30:00", got)
 	}
 }
@@ -239,7 +240,7 @@ func TestCalendarDisambiguationModes(t *testing.T) {
 	// readings above cannot show.
 	earlier := ResolveInZone(fold, zone, rt.Disambiguation{Tag: rt.TagEarlier})
 	later := ResolveInZone(fold, zone, rt.Disambiguation{Tag: rt.TagLater})
-	if d := later.Ok.InstantNanos - earlier.Ok.InstantNanos; d != int64(time.Hour) {
+	if d := smallNanos(t, later.Ok.InstantNanos) - smallNanos(t, earlier.Ok.InstantNanos); d != int64(time.Hour) {
 		t.Errorf("fold Earlier and Later are %v apart, want 1h", time.Duration(d))
 	}
 }
@@ -252,7 +253,7 @@ func TestCalendarUnknownZoneIsAnError(t *testing.T) {
 	if res := DateTimeWithZone(ny, "Not/A_Zone"); res.Tag != rt.TagErr || res.Err.Tag != rt.TagUnknownZone {
 		t.Errorf("with_zone on an unknown zone answered tag=%d err=%d", res.Tag, res.Err.Tag)
 	}
-	if res := DateTimeFromInstantIn(rt.Instant(0), "Mars/Base"); res.Tag != rt.TagErr || res.Err.Tag != rt.TagUnknownZone {
+	if res := DateTimeFromInstantIn(rt.SmallInt(0), "Mars/Base"); res.Tag != rt.TagErr || res.Err.Tag != rt.TagUnknownZone {
 		t.Errorf("from_instant_in on an unknown zone answered tag=%d err=%d", res.Tag, res.Err.Tag)
 	}
 	if res := ResolveInZone(mustParseNaive(t, "2026-06-15T12:00:00"), "Mars/Base", rt.Disambiguation{Tag: rt.TagCompatible}); res.Tag != rt.TagErr || res.Err.Tag != rt.TagUnknownZone {
@@ -304,7 +305,7 @@ func TestCalendarDaysInMonth(t *testing.T) {
 		{2026, 1, 31}, {2026, 4, 30}, {2026, 12, 31},
 	}
 	for _, c := range cases {
-		if got := DaysInMonth(c.year, c.month); got != c.want {
+		if got := DaysInMonth(rt.SmallInt(c.year), c.month); got != c.want {
 			t.Errorf("DaysInMonth(%d, %d) = %d, want %d", c.year, c.month, got, c.want)
 		}
 	}
@@ -325,8 +326,8 @@ func TestCalendarNaiveRoundTripAndBetween(t *testing.T) {
 			t.Errorf("naive %q renders %q, want %q", c.in, got, c.want)
 		}
 	}
-	if got := NaiveDateTimeBetween(mustParseNaive(t, "2026-05-04T09:00:00"), mustParseNaive(t, "2026-05-04T11:30:00")); got != rt.Duration(150*int64(time.Minute)) {
-		t.Errorf("between = %d nanos, want 150 minutes", int64(got))
+	if got := NaiveDateTimeBetween(mustParseNaive(t, "2026-05-04T09:00:00"), mustParseNaive(t, "2026-05-04T11:30:00")); got != rt.SmallInt(150*int64(time.Minute)) {
+		t.Errorf("between = %s nanos, want 150 minutes", got)
 	}
 	// An impossible date is a value error, not a format error.
 	res := ParseNaiveDateTime("2026-02-30T12:00:00")
@@ -341,8 +342,8 @@ func TestCalendarNaiveRoundTripAndBetween(t *testing.T) {
 // `+ Duration` and `+ Months(1)` are different operations that agree on most
 // inputs, so a month END is the only place the difference shows: January 31st
 // plus 24 hours is February 1st, where a civil `+ 1 month` clamps to February
-// 28th. The leap pair then pins the month LENGTH, which comes from time.Date's
-// normalization rather than from a table this file wrote.
+// 28th. The leap pair then pins the month LENGTH, which comes from
+// CivilFromDays rather than from a table this file wrote.
 //
 // This is where that rule is checked absolutely. The Nomi-level fixture
 // (internal/irbuild/testdata/stdkey_overloads.nomi) is checked against its
@@ -376,8 +377,8 @@ func TestCalendarNaivePlusDurationIsExactNotCivil(t *testing.T) {
 	// And the inverse closes: between(t, t+d) is d.
 	base := mustParseNaive(t, "2011-01-31T12:00:00")
 	d := rt.Duration(37*int64(time.Hour) + 12345)
-	if got := NaiveDateTimeBetween(base, NaiveDateTimePlusDuration(base, d)); got != d {
-		t.Errorf("between(t, t+d) = %d nanos, want %d", int64(got), int64(d))
+	if got := NaiveDateTimeBetween(base, NaiveDateTimePlusDuration(base, d)); got != rt.SmallInt(int64(d)) {
+		t.Errorf("between(t, t+d) = %s nanos, want %d", got, int64(d))
 	}
 }
 

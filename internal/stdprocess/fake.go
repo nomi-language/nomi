@@ -99,9 +99,11 @@ func FakeCalls(f rt.ProcessFake) int64 {
 	return int64(len(fake.calls))
 }
 
-func (fake *Fake) callAt(i int64) *call {
+func (fake *Fake) callAt(pos rt.Int) *call {
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
+	// A position past int64 saturates, and is past the calls as it is.
+	i := pos.Saturated()
 	if i < 0 || i >= int64(len(fake.calls)) {
 		rt.Trap("std::process::testing: no such call")
 	}
@@ -110,24 +112,24 @@ func (fake *Fake) callAt(i int64) *call {
 
 // FakeCommand is std/process/host's `fake_command`: the program and then
 // the arguments of the call at position i, from 0.
-func FakeCommand(f rt.ProcessFake, i int64) *rt.List[string] {
+func FakeCommand(f rt.ProcessFake, i rt.Int) *rt.List[string] {
 	c := fakeOf(f).callAt(i)
 	return stringList(append([]string{c.program}, c.args...))
 }
 
 // FakeDir is std/process/host's `fake_dir`: the directory the call at
 // position i asked for, or "" for the current one.
-func FakeDir(f rt.ProcessFake, i int64) string { return fakeOf(f).callAt(i).dir }
+func FakeDir(f rt.ProcessFake, i rt.Int) string { return fakeOf(f).callAt(i).dir }
 
 // FakeEnv is std/process/host's `fake_env`: the environment the call at
 // position i added.
-func FakeEnv(f rt.ProcessFake, i int64) rt.Map[string, string] {
+func FakeEnv(f rt.ProcessFake, i rt.Int) rt.Map[string, string] {
 	return rt.MapOf(rt.HashString, rt.Eq[string], fakeOf(f).callAt(i).env)
 }
 
 // FakeInput is std/process/host's `fake_input`: everything the call at
 // position i was given on its standard input.
-func FakeInput(f rt.ProcessFake, i int64) rt.Bytes {
+func FakeInput(f rt.ProcessFake, i rt.Int) rt.Bytes {
 	c := fakeOf(f).callAt(i)
 	c.mu.Lock()
 	defer c.mu.Unlock()

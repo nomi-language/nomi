@@ -119,18 +119,21 @@
 03-tooling-and-diagnostics/type_qualified_missing_variant/test_helpers.nomi:hover_signature	ran
 03-tooling-and-diagnostics/unused_import/test_helpers.nomi:has_diagnostic	ran
 03-tooling-and-diagnostics/unused_import/test_helpers.nomi:hover_signature	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"10aa_aaaa" at 22:20 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"10x" at 49:36 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"10xx_aa01" at 31:9 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"10xx_xxxx" at 45:26 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"110x_xxxx" at 7:12 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"1bbb_0000" at 26:23 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"1xxx_xxxx" at 15:25 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"1xxx_xxxx" at 16:25 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"1xxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx" at 38:9 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"b" at 27:23 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"xxxx" at 17:25 failure	ran
-04-scalars-and-text/bits_test.nomi:literal Bits"xxxx" at 18:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"10aa_aaaa" at 19:31 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"10x" at 46:36 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"10xx_aa01" at 28:9 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"10xx_xxxx" at 42:26 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"110x_xxxx" at 4:12 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"1a" at 66:31 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"1a" at 66:49 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"1bbb_0000" at 23:23 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"1xxx_xxxx" at 12:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"1xxx_xxxx" at 13:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"1xxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx_xxxx" at 35:9 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"b" at 24:23 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"xxxx" at 14:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits"xxxx" at 15:25 failure	ran
+04-scalars-and-text/bits_test.nomi:literal Bits`10xx` at 65:31 failure	ran
 04-scalars-and-text/bitwise_test.nomi:Flags.bitwise_and	ran
 04-scalars-and-text/bitwise_test.nomi:Flags.bitwise_not	ran
 04-scalars-and-text/bitwise_test.nomi:Flags.bitwise_or	ran
@@ -186,6 +189,10 @@
 04-scalars-and-text/strings_test.nomi:slash_joined	ran
 04-scalars-and-text/words_and_lines_test.nomi:count_non_empty_lines	ran
 04-scalars-and-text/words_and_lines_test.nomi:sum_numbers	ran
+05-calendar-and-time/dates_test.nomi:literal Date"+010000-01-01" at 114:44 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date"+1000000000000000000000000000000-01-01" at 106:25 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date"+25252734927768580-07-27" at 108:66 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date"+25252734927768580-07-27" at 110:48 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2023-02-28" at 84:32 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2024-01-01" at 46:18 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2024-01-31" at 68:16 failure	ran
@@ -196,6 +203,8 @@
 05-calendar-and-time/dates_test.nomi:literal Date"2025-02-28" at 82:32 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2025-02-28" at 95:32 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2025-12-31" at 76:36 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date"2026-01-01" at 108:12 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date"2026-01-01" at 110:30 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-01-01" at 36:13 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-01-15" at 75:34 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-01-31" at 67:16 failure	ran
@@ -208,6 +217,7 @@
 05-calendar-and-time/dates_test.nomi:literal Date"2026-04-30" at 74:33 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-05-01" at 39:15 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-05-01" at 62:28 failure	ran
+05-calendar-and-time/dates_test.nomi:literal Date"2026-05-04" at 101:11 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-05-04" at 53:10 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-05-04" at 88:12 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2026-05-04" at 8:9 failure	ran
@@ -225,6 +235,8 @@
 05-calendar-and-time/dates_test.nomi:literal Date"2026-12-31" at 37:12 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2027-01-04" at 61:31 failure	ran
 05-calendar-and-time/dates_test.nomi:literal Date"2028-02-29" at 83:32 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime"+316887385070084-04-22T17:46:40Z[UTC]" at 103:15 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime"1700-01-01T12:00:00Z[America/New_York]" at 93:15 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-06-15T10:00:00-04:00[America/New_York]" at 81:29 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-06-15T11:15:00-04:00[America/New_York]" at 67:41 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-06-15T12:00:00-04:00[America/New_York]" at 11:10 failure	ran
@@ -240,6 +252,9 @@
 05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-06-15T14:00:00-04:00[America/New_York]" at 65:38 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-06-15T14:00:00-04:00[America/New_York]" at 73:29 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]" at 47:13 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime"2026-07-04T12:00:00-04:00[America/New_York]" at 98:12 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime"3000-01-01T00:00:00Z[UTC]" at 90:15 failure	ran
+05-calendar-and-time/datetime_test.nomi:literal DateTime"3026-07-04T12:00:00-04:00[America/New_York]" at 85:11 failure	ran
 05-calendar-and-time/datetime_test.nomi:literal NaiveDateTime"2026-06-15T12:00:00" at 17:13 failure	ran
 05-calendar-and-time/datetime_zone_changes_test.nomi:literal DateTime"2026-06-15T12:00:00-04:00[America/New_York]" at 16:10 failure	ran
 05-calendar-and-time/datetime_zone_changes_test.nomi:literal DateTime"2026-06-15T12:00:00-04:00[America/New_York]" at 34:10 failure	ran
@@ -258,37 +273,47 @@
 05-calendar-and-time/dst_spring_forward_test.nomi:literal DateTime"2026-03-07T12:00:00-05:00[America/New_York]" at 63:13 failure	ran
 05-calendar-and-time/dst_spring_forward_test.nomi:literal NaiveDateTime"2026-03-08T02:30:00" at 17:13 failure	ran
 05-calendar-and-time/dst_spring_forward_test.nomi:literal NaiveDateTime"2026-03-08T02:30:00" at 9:13 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal Date"2026-05-04" at 27:9 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal Date"2026-05-04" at 38:9 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2025-12-31T09:00:00" at 62:33 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2025-12-31T23:59:59" at 84:9 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-01-31T09:00:00" at 58:13 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-02-28T09:00:00" at 61:33 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:00:00" at 93:13 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:30:00" at 78:30 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:30:00" at 83:9 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T10:00:00" at 85:9 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T11:30:00" at 94:12 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T13:45:00" at 79:32 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:00" at 10:10 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:00" at 69:10 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:00.5" at 76:45 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:45" at 16:10 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:31:30" at 75:32 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T15:15:00" at 74:32 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T16:30:00" at 72:29 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T22:45:00" at 54:43 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T23:30:00" at 48:12 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T23:30:00" at 70:12 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-05T01:30:00" at 50:40 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-05T01:30:00" at 52:48 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-05T01:30:00" at 73:31 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-12-30T23:59:59" at 65:29 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-12-31T23:59:59" at 59:11 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2027-01-01T23:59:59" at 64:29 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal Time"00:00:00" at 39:21 failure	ran
-05-calendar-and-time/naive_datetime_test.nomi:literal Time"14:30:00" at 28:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Date"2026-05-04" at 28:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Date"2026-05-04" at 39:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2000-01-01T00:00:00" at 105:13 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2025-12-31T09:00:00" at 63:33 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2025-12-31T23:59:59" at 85:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-01-31T09:00:00" at 59:13 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-02-28T09:00:00" at 62:33 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:00:00" at 94:13 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:30:00" at 79:30 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:30:00" at 84:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T10:00:00" at 86:9 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T11:30:00" at 95:12 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T13:45:00" at 80:32 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:00" at 11:10 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:00" at 70:10 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:00.5" at 77:45 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:30:45" at 17:10 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T14:31:30" at 76:32 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T15:15:00" at 75:32 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T16:30:00" at 73:29 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T22:45:00" at 55:43 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T23:30:00" at 49:12 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-04T23:30:00" at 71:12 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-05T01:30:00" at 51:40 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-05T01:30:00" at 53:48 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-05-05T01:30:00" at 74:31 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-12-30T23:59:59" at 66:29 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2026-12-31T23:59:59" at 60:11 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2027-01-01T23:59:59" at 65:29 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2999-05-03T00:00:00" at 107:55 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2999-05-03T00:00:00" at 109:41 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal NaiveDateTime"2999-05-03T00:00:00" at 112:56 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Time"00:00:00" at 40:21 failure	ran
+05-calendar-and-time/naive_datetime_test.nomi:literal Time"14:30:00" at 29:9 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal NaiveDateTime"1970-01-01T00:00:00" at 124:12 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal NaiveDateTime"1970-01-03T00:00:00" at 121:12 failure	ran
 05-calendar-and-time/offset_datetime_test.nomi:literal NaiveDateTime"2026-05-04T09:00:00" at 16:13 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal NaiveDateTime"2026-05-04T12:00:00" at 85:12 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"+31688738508781-06-07T01:46:40Z" at 142:15 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"1000-01-01T00:00:00Z" at 136:35 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"1969-12-31T19:00:00-05:00" at 114:15 failure	ran
 05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"2026-01-31T12:00:00-05:00" at 60:11 failure	ran
 05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"2026-02-28T12:00:00-05:00" at 62:31 failure	ran
 05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"2026-05-04T14:30:00-05:00" at 10:11 failure	ran
@@ -304,10 +329,19 @@
 05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"2026-05-05T00:15:00-05:00" at 77:35 failure	ran
 05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"2026-05-05T01:30:00-05:00" at 68:41 failure	ran
 05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"2026-05-05T01:30:00-05:00" at 76:32 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"3000-01-01T00:00:00+01:00" at 128:11 failure	ran
+05-calendar-and-time/offset_datetime_test.nomi:literal OffsetDateTime"3000-01-01T00:00:00Z" at 134:15 failure	ran
+05-calendar-and-time/past_an_instant_test.nomi:`!` failure Error	ran
+05-calendar-and-time/past_an_instant_test.nomi:`!` failure Error	ran
+05-calendar-and-time/past_an_instant_test.nomi:`!` failure Error	ran
+05-calendar-and-time/past_an_instant_test.nomi:utc	ran
 05-calendar-and-time/times_test.nomi:literal Time"00:30:00" at 25:13 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"01:30:00" at 27:22 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time"08:00:00" at 57:12 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time"08:00:00" at 58:12 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"08:15:00" at 45:10 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"08:45:00" at 33:43 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time"09:00:00" at 57:75 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"09:30:00" at 23:12 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"09:30:00" at 37:9 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"09:30:00" at 38:9 failure	ran
@@ -315,6 +349,7 @@
 05-calendar-and-time/times_test.nomi:literal Time"09:30:00" at 8:9 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"10:00:00" at 46:10 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"11:30:00" at 26:15 failure	ran
+05-calendar-and-time/times_test.nomi:literal Time"23:00:00" at 58:75 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"23:30:00" at 24:12 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"23:30:00" at 28:23 failure	ran
 05-calendar-and-time/times_test.nomi:literal Time"23:45:12.5" at 17:12 failure	ran
@@ -946,6 +981,13 @@
 10-generics-and-type-wrappers/generics_test.nomi:identity	ran
 10-generics-and-type-wrappers/generics_test.nomi:make_pair	ran
 10-generics-and-type-wrappers/generics_test.nomi:wrap_list	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:checked	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:classify	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:divide	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:first_error	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:first_or	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:largest	ran
+10-generics-and-type-wrappers/narrowing_test.nomi:power	ran
 10-generics-and-type-wrappers/opaque_types/counter.nomi:Counter.inspect	ran
 10-generics-and-type-wrappers/opaque_types/counter.nomi:bump	ran
 10-generics-and-type-wrappers/opaque_types/counter.nomi:increments	ran
@@ -995,7 +1037,9 @@
 10-generics-and-type-wrappers/std_refinements_test.nomi:divisor	ran
 10-generics-and-type-wrappers/std_refinements_test.nomi:exponent	ran
 10-generics-and-type-wrappers/std_refinements_test.nomi:first_error	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m" at 113:31 failure	ran
 10-generics-and-type-wrappers/std_refinements_test.nomi:literal Duration"1m30s" at 81:31 failure	ran
+10-generics-and-type-wrappers/std_refinements_test.nomi:paced	ran
 10-generics-and-type-wrappers/subtypes_test.nomi:Email.inspect	ran
 10-generics-and-type-wrappers/subtypes_test.nomi:Email.try_from	ran
 10-generics-and-type-wrappers/subtypes_test.nomi:Email.unchecked	ran
@@ -1423,6 +1467,7 @@
 11-interfaces-and-impls/same_owner_calls/same_owner_calls_test.nomi:display	ran
 11-interfaces-and-impls/same_owner_calls/test_helpers.nomi:has_diagnostic	ran
 11-interfaces-and-impls/same_owner_calls/test_helpers.nomi:hover_signature	ran
+11-interfaces-and-impls/stdlib_error_display/stdlib_error_display_test.nomi:endless	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Cat.inspect	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Click.inspect	ran
 11-interfaces-and-impls/structural_interfaces/structural_interfaces_test.nomi:Dog.inspect	ran
@@ -1671,6 +1716,13 @@
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Pt.inspect	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Rev.compare	ran
 12-derives-and-standard-interfaces/std_generics_over_program_types_test.nomi:Rev.inspect	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:Pace.equal	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:Pace.hash	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:Pace.inspect	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 18:31 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 19:39 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"1m" at 21:68 failure	ran
+12-derives-and-standard-interfaces/subtype_fields_test.nomi:literal Duration"5s" at 20:36 failure	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.add	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.empty_sum	ran
 12-derives-and-standard-interfaces/summable_test.nomi:Cents.inspect	ran
@@ -1730,6 +1782,10 @@
 13-iterators-and-pipes/constrained_sort/sort_widget.nomi:make	ran
 13-iterators-and-pipes/control_flow_test.nomi:add_checked	ran
 13-iterators-and-pipes/control_flow_test.nomi:checked_score	ran
+13-iterators-and-pipes/element_ranges_test.nomi:bits	ran
+13-iterators-and-pipes/element_ranges_test.nomi:divisors	ran
+13-iterators-and-pipes/element_ranges_test.nomi:half	ran
+13-iterators-and-pipes/element_ranges_test.nomi:is_prime	ran
 13-iterators-and-pipes/infinite_test.nomi:Countdown.each_while	ran
 13-iterators-and-pipes/infinite_test.nomi:Countdown.inspect	ran
 13-iterators-and-pipes/iter_equality_test.nomi:reports	ran
@@ -2006,8 +2062,6 @@
 15-app-and-defer/exit_status/main_exit.nomi:count	ran
 15-app-and-defer/exit_status/main_exit.nomi:main	ran
 15-app-and-defer/exit_status/main_exit.nomi:main failure	ran
-15-app-and-defer/exit_status/out_of_range.nomi:main	ran
-15-app-and-defer/exit_status/out_of_range.nomi:main failure	ran
 15-app-and-defer/exit_status/own_exit.nomi:Exit.inspect	ran
 15-app-and-defer/exit_status/own_exit.nomi:main	ran
 15-app-and-defer/exit_status/own_exit.nomi:main failure	ran
@@ -2092,6 +2146,7 @@
 16-concurrency/jobs/jobs_test.nomi:eventually	ran
 16-concurrency/jobs/jobs_test.nomi:handlers	ran
 16-concurrency/jobs/jobs_test.nomi:states	ran
+16-concurrency/jobs/schedules_test.nomi:`!` failure Error	ran
 16-concurrency/jobs/schedules_test.nomi:again	ran
 16-concurrency/jobs/schedules_test.nomi:at	ran
 16-concurrency/jobs/schedules_test.nomi:check Cron literal at 129:24 failure	ran
@@ -2134,6 +2189,7 @@
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2026-11-01T03:00:00-05:00[America/New_York]" at 177:12 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2026-11-02T01:30:00-05:00[America/New_York]" at 160:12 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal DateTime"2028-02-29T00:00:00Z[UTC]" at 201:42 failure	ran
+16-concurrency/jobs/schedules_test.nomi:literal Duration"1h" at 206:49 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal Duration"1h" at 45:30 failure	ran
 16-concurrency/jobs/schedules_test.nomi:literal Duration"1m" at 253:51 failure	ran
 16-concurrency/jobs/schedules_test.nomi:new_york	ran
@@ -2635,77 +2691,83 @@
 19-locales/locale_test.nomi:literal Locale"zh-Hant-HK" at 5:45 failure	ran
 19-locales/locale_test.nomi:literal Locale"zh-TW" at 51:29 failure	ran
 19-locales/locale_test.nomi:literal Locale"zh-TW" at 51:48 failure	ran
-19-locales/money_test.nomi:literal Currency"BHD" at 19:55 failure	ran
-19-locales/money_test.nomi:literal Currency"BTC:8" at 163:62 failure	ran
-19-locales/money_test.nomi:literal Currency"BTC:8" at 165:19 failure	ran
-19-locales/money_test.nomi:literal Currency"BTC:8" at 253:11 failure	ran
-19-locales/money_test.nomi:literal Currency"BTC:8" at 45:11 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 125:11 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 213:11 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 239:11 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 23:58 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 260:54 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 71:11 failure	ran
-19-locales/money_test.nomi:literal Currency"EUR" at 9:44 failure	ran
-19-locales/money_test.nomi:literal Currency"JPY" at 158:57 failure	ran
-19-locales/money_test.nomi:literal Currency"JPY" at 160:19 failure	ran
-19-locales/money_test.nomi:literal Currency"JPY" at 17:56 failure	ran
-19-locales/money_test.nomi:literal Currency"JPY" at 234:52 failure	ran
-19-locales/money_test.nomi:literal Currency"JPY" at 40:53 failure	ran
-19-locales/money_test.nomi:literal Currency"PLN" at 37:39 failure	ran
-19-locales/money_test.nomi:literal Currency"PTS:0" at 56:14 failure	ran
-19-locales/money_test.nomi:literal Currency"USD" at 24:54 failure	ran
-19-locales/money_test.nomi:literal Currency"USD" at 30:39 failure	ran
-19-locales/money_test.nomi:literal Locale"de" at 11:30 failure	ran
-19-locales/money_test.nomi:literal Locale"de" at 57:65 failure	ran
-19-locales/money_test.nomi:literal Locale"de-CH" at 15:30 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 10:30 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 19:71 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 216:42 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 218:40 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 221:38 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 225:36 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 231:40 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 234:40 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 23:74 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 247:43 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 24:70 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 255:38 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 25:35 failure	ran
+19-locales/money_test.nomi:literal Currency"BHD" at 18:55 failure	ran
+19-locales/money_test.nomi:literal Currency"BTC:8" at 133:62 failure	ran
+19-locales/money_test.nomi:literal Currency"BTC:8" at 135:19 failure	ran
+19-locales/money_test.nomi:literal Currency"BTC:8" at 207:11 failure	ran
+19-locales/money_test.nomi:literal Currency"BTC:8" at 44:11 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 167:11 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 193:11 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 214:54 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 22:58 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 70:11 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 80:43 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 83:47 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 8:44 failure	ran
+19-locales/money_test.nomi:literal Currency"EUR" at 95:11 failure	ran
+19-locales/money_test.nomi:literal Currency"JPY" at 128:57 failure	ran
+19-locales/money_test.nomi:literal Currency"JPY" at 130:19 failure	ran
+19-locales/money_test.nomi:literal Currency"JPY" at 16:56 failure	ran
+19-locales/money_test.nomi:literal Currency"JPY" at 188:52 failure	ran
+19-locales/money_test.nomi:literal Currency"JPY" at 39:53 failure	ran
+19-locales/money_test.nomi:literal Currency"PLN" at 36:39 failure	ran
+19-locales/money_test.nomi:literal Currency"PLN" at 81:39 failure	ran
+19-locales/money_test.nomi:literal Currency"PLN" at 83:69 failure	ran
+19-locales/money_test.nomi:literal Currency"PTS:0" at 55:14 failure	ran
+19-locales/money_test.nomi:literal Currency"PTS:0" at 88:37 failure	ran
+19-locales/money_test.nomi:literal Currency"PTS:2" at 89:37 failure	ran
+19-locales/money_test.nomi:literal Currency"USD" at 23:54 failure	ran
+19-locales/money_test.nomi:literal Currency"USD" at 29:39 failure	ran
+19-locales/money_test.nomi:literal Locale"de" at 10:30 failure	ran
+19-locales/money_test.nomi:literal Locale"de" at 56:65 failure	ran
+19-locales/money_test.nomi:literal Locale"de-CH" at 14:30 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 170:42 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 172:40 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 175:38 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 179:36 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 185:40 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 188:40 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 18:71 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 201:43 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 209:38 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 22:74 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 23:70 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 24:35 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 32:30 failure	ran
 19-locales/money_test.nomi:literal Locale"en" at 33:30 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 34:30 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 40:69 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 52:31 failure	ran
-19-locales/money_test.nomi:literal Locale"en" at 54:31 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 39:69 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 51:31 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 53:31 failure	ran
+19-locales/money_test.nomi:literal Locale"en" at 9:30 failure	ran
+19-locales/money_test.nomi:literal Locale"en-CA" at 30:30 failure	ran
 19-locales/money_test.nomi:literal Locale"en-CA" at 31:30 failure	ran
-19-locales/money_test.nomi:literal Locale"en-CA" at 32:30 failure	ran
-19-locales/money_test.nomi:literal Locale"fr" at 13:30 failure	ran
-19-locales/money_test.nomi:literal Locale"ja" at 14:30 failure	ran
-19-locales/money_test.nomi:literal Locale"ja" at 17:72 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 12:30 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 214:40 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 228:40 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 241:36 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 244:40 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 250:40 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 38:30 failure	ran
-19-locales/money_test.nomi:literal Locale"pl" at 53:31 failure	ran
-19-locales/money_test.nomi:literal Money"-10.05 EUR" at 181:30 failure	ran
-19-locales/money_test.nomi:literal Money"-10.05 EUR" at 182:30 failure	ran
-19-locales/money_test.nomi:literal Money"-5.02 EUR" at 181:58 failure	ran
-19-locales/money_test.nomi:literal Money"-5.03 EUR" at 182:67 failure	ran
-19-locales/money_test.nomi:literal Money"0.12 EUR" at 174:56 failure	ran
-19-locales/money_test.nomi:literal Money"0.13 EUR" at 175:65 failure	ran
-19-locales/money_test.nomi:literal Money"0.25 EUR" at 174:30 failure	ran
-19-locales/money_test.nomi:literal Money"0.25 EUR" at 175:30 failure	ran
-19-locales/money_test.nomi:literal Money"12.50 EUR" at 185:30 failure	ran
-19-locales/money_test.nomi:literal Money"19.99 EUR" at 171:30 failure	ran
-19-locales/money_test.nomi:literal Money"2.50 EUR" at 185:71 failure	ran
-19-locales/money_test.nomi:literal Money"3.30 USD" at 189:57 failure	ran
-19-locales/money_test.nomi:literal Money"4.60 EUR" at 171:58 failure	ran
-19-locales/money_test.nomi:literal Money"40.00 USD" at 189:30 failure	ran
-19-locales/money_test.nomi:literal Money"80 JPY" at 178:56 failure	ran
-19-locales/money_test.nomi:literal Money"999 JPY" at 178:30 failure	ran
+19-locales/money_test.nomi:literal Locale"fr" at 12:30 failure	ran
+19-locales/money_test.nomi:literal Locale"ja" at 13:30 failure	ran
+19-locales/money_test.nomi:literal Locale"ja" at 16:72 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 11:30 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 168:40 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 182:40 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 195:36 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 198:40 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 204:40 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 37:30 failure	ran
+19-locales/money_test.nomi:literal Locale"pl" at 52:31 failure	ran
+19-locales/money_test.nomi:literal Money"-10.05 EUR" at 151:30 failure	ran
+19-locales/money_test.nomi:literal Money"-10.05 EUR" at 152:30 failure	ran
+19-locales/money_test.nomi:literal Money"-5.02 EUR" at 151:58 failure	ran
+19-locales/money_test.nomi:literal Money"-5.03 EUR" at 152:67 failure	ran
+19-locales/money_test.nomi:literal Money"0.12 EUR" at 144:56 failure	ran
+19-locales/money_test.nomi:literal Money"0.13 EUR" at 145:65 failure	ran
+19-locales/money_test.nomi:literal Money"0.25 EUR" at 144:30 failure	ran
+19-locales/money_test.nomi:literal Money"0.25 EUR" at 145:30 failure	ran
+19-locales/money_test.nomi:literal Money"12.50 EUR" at 155:32 failure	ran
+19-locales/money_test.nomi:literal Money"19.99 EUR" at 141:30 failure	ran
+19-locales/money_test.nomi:literal Money"19.99 EUR" at 163:32 failure	ran
+19-locales/money_test.nomi:literal Money"3.30 USD" at 159:57 failure	ran
+19-locales/money_test.nomi:literal Money"4.60 EUR" at 141:58 failure	ran
+19-locales/money_test.nomi:literal Money"40.00 USD" at 159:30 failure	ran
+19-locales/money_test.nomi:literal Money"80 JPY" at 148:56 failure	ran
+19-locales/money_test.nomi:literal Money"999 JPY" at 148:30 failure	ran
 19-locales/number_format_test.nomi:literal Locale"ar-EG" at 109:61 failure	ran
 19-locales/number_format_test.nomi:literal Locale"ar-EG" at 26:29 failure	ran
 19-locales/number_format_test.nomi:literal Locale"ar-EG" at 57:39 failure	ran
@@ -2725,9 +2787,9 @@
 19-locales/number_format_test.nomi:literal Locale"de-CH" at 8:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale"en" at 109:13 failure	ran
 19-locales/number_format_test.nomi:literal Locale"en" at 114:10 failure	ran
-19-locales/number_format_test.nomi:literal Locale"en" at 128:44 failure	ran
-19-locales/number_format_test.nomi:literal Locale"en" at 130:42 failure	ran
-19-locales/number_format_test.nomi:literal Locale"en" at 132:41 failure	ran
+19-locales/number_format_test.nomi:literal Locale"en" at 127:44 failure	ran
+19-locales/number_format_test.nomi:literal Locale"en" at 129:42 failure	ran
+19-locales/number_format_test.nomi:literal Locale"en" at 131:41 failure	ran
 19-locales/number_format_test.nomi:literal Locale"en" at 15:32 failure	ran
 19-locales/number_format_test.nomi:literal Locale"en" at 16:27 failure	ran
 19-locales/number_format_test.nomi:literal Locale"en" at 18:34 failure	ran
@@ -2757,7 +2819,7 @@
 19-locales/number_format_test.nomi:literal Locale"en" at 95:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale"en-u-nu-arab" at 29:29 failure	ran
 19-locales/number_format_test.nomi:literal Locale"fr" at 109:37 failure	ran
-19-locales/number_format_test.nomi:literal Locale"fr" at 129:48 failure	ran
+19-locales/number_format_test.nomi:literal Locale"fr" at 128:48 failure	ran
 19-locales/number_format_test.nomi:literal Locale"fr" at 47:35 failure	ran
 19-locales/number_format_test.nomi:literal Locale"fr" at 55:38 failure	ran
 19-locales/number_format_test.nomi:literal Locale"fr" at 6:32 failure	ran
@@ -2867,39 +2929,40 @@
 19-locales/shop/order.nomi:watching	ran
 19-locales/shop/order_test.nomi:literal Currency"EUR" at 68:44 failure	ran
 19-locales/shop/order_test.nomi:literal Currency"EUR" at 81:44 failure	ran
+19-locales/shop/order_test.nomi:literal Currency"EUR" at 83:40 failure	ran
 19-locales/shop/order_test.nomi:literal Currency"JPY" at 76:42 failure	ran
-19-locales/shop/order_test.nomi:literal Date"2026-10-20" at 88:15 failure	ran
-19-locales/shop/order_test.nomi:literal Date"2026-10-21" at 89:17 failure	ran
-19-locales/shop/order_test.nomi:literal Date"2026-10-25" at 90:14 failure	ran
+19-locales/shop/order_test.nomi:literal Date"2026-10-20" at 89:15 failure	ran
+19-locales/shop/order_test.nomi:literal Date"2026-10-21" at 90:17 failure	ran
+19-locales/shop/order_test.nomi:literal Date"2026-10-25" at 91:14 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"de" at 71:54 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"de" at 97:22 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"de" at 98:22 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 10:10 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"en" at 111:44 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"en" at 112:44 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 34:56 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 42:58 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 43:58 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 51:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 69:54 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"en" at 78:52 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"en" at 91:53 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"fr" at 113:42 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"en" at 92:53 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"fr" at 100:53 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"fr" at 114:42 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"fr" at 72:54 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"fr" at 99:53 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"ja" at 100:53 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"ja" at 101:53 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"ja" at 73:54 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"ja" at 77:52 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"pl" at 110:42 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"pl" at 111:42 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pl" at 11:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pl" at 33:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pl" at 41:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pl" at 52:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pl" at 70:54 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"pl" at 83:63 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"pl" at 87:10 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"pt" at 101:52 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"pl" at 84:54 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"pl" at 88:10 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"pt" at 102:52 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pt" at 21:10 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pt" at 64:22 failure	ran
-19-locales/shop/order_test.nomi:literal Locale"pt-PT" at 106:22 failure	ran
+19-locales/shop/order_test.nomi:literal Locale"pt-PT" at 107:22 failure	ran
 19-locales/shop/order_test.nomi:literal Locale"pt-PT" at 29:22 failure	ran
 20-data-access/csv_test.nomi:`!` failure Error	ran
 20-data-access/http_middleware_test.nomi:`!` failure Error	ran
@@ -3271,6 +3334,7 @@ exercism/food-chain/food_chain.nomi:verse	ran
 exercism/forth/forth.nomi:Error.inspect	ran
 exercism/forth/forth.nomi:Op.inspect	ran
 exercism/forth/forth.nomi:apply	ran
+exercism/forth/forth.nomi:divide	ran
 exercism/forth/forth.nomi:evaluate	ran
 exercism/forth/forth.nomi:execute	ran
 exercism/forth/forth.nomi:resolve	ran
@@ -3668,6 +3732,8 @@ exercism/rail-fence-cipher/rail_fence_cipher.nomi:decode	ran
 exercism/rail-fence-cipher/rail_fence_cipher.nomi:encode	ran
 exercism/rail-fence-cipher/rail_fence_cipher.nomi:zigzag	ran
 exercism/raindrops/raindrops.nomi:convert	ran
+exercism/rational-numbers/rational_numbers.nomi:NonZeroRational.try_from	ran
+exercism/rational-numbers/rational_numbers.nomi:NonZeroRational.unchecked	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.abs	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.add	ran
 exercism/rational-numbers/rational_numbers.nomi:Rational.denominator	ran
@@ -4114,8 +4180,16 @@ std/bits.nomi:Bits.width	ran
 std/bits.nomi:Error.equal	ran
 std/bits.nomi:Error.inspect	ran
 std/bits.nomi:Error.to_string	ran
+std/bits.nomi:FieldBits.try_from	ran
+std/bits.nomi:FieldBits.unchecked	ran
 std/bits.nomi:Scan.inspect	ran
+std/bits.nomi:literal Bits"10aa_aaaa" at 173:35 failure	ran
+std/bits.nomi:literal Bits"110a_aaaa" at 44:28 failure	ran
+std/bits.nomi:literal Bits"110a_aaaa" at 63:20 failure	ran
+std/bits.nomi:literal Bits"1aaa_0000" at 176:27 failure	ran
 std/bits.nomi:read_bit	ran
+std/csv.nomi:Delimiter.try_from	ran
+std/csv.nomi:Delimiter.unchecked	ran
 std/csv.nomi:Error.equal	ran
 std/csv.nomi:Error.inspect	ran
 std/csv.nomi:Error.to_string	ran
@@ -4435,13 +4509,13 @@ std/http.nomi:Client.new default 1	NETWORK: declared in std/http, std/net or std
 std/http.nomi:Client.post	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.post_form	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Client.stream	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:Client.with_tls	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.cookies default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.max_body default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.redirects default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.round_trip default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ClientOptions.timeout default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:ClientOptions.tls default	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Compress.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ConnState.equal	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:ConnState.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4696,7 +4770,6 @@ std/http.nomi:Tracer.events	NETWORK: declared in std/http, std/net or std/tls, s
 std/http.nomi:Tracer.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Tracer.new	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:Transport.inspect	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
-std/http.nomi:`!` failure Error	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:`!` failure UrlError	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:accept	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:accepted_codings	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4804,10 +4877,12 @@ std/http.nomi:stray_brace	NETWORK: declared in std/http, std/net or std/tls, so 
 std/http.nomi:stream	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:strip_prefix	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:take_requests	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:target_url	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:text_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:timeout	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:typed	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:vary_on	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
+std/http.nomi:wait_nanos	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wildcard_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wire_length	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/http.nomi:wire_parts_of	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -4918,7 +4993,6 @@ std/jobs.nomi:Worker.start	ran
 std/jobs.nomi:Worker.start default 3	ran
 std/jobs.nomi:`!` failure CronError	ran
 std/jobs.nomi:`!` failure Error	ran
-std/jobs.nomi:`!` failure Error	ran
 std/jobs.nomi:backoff	ran
 std/jobs.nomi:charge	ran
 std/jobs.nomi:claim_loop	ran
@@ -4951,9 +5025,11 @@ std/jobs.nomi:jump	ran
 std/jobs.nomi:key_of	ran
 std/jobs.nomi:latest_tick	ran
 std/jobs.nomi:latest_within	ran
-std/jobs.nomi:literal Duration"15m" at 401:41 failure	ran
-std/jobs.nomi:literal Duration"1h" at 1418:37 failure	ran
+std/jobs.nomi:literal Duration"15m" at 409:41 failure	ran
+std/jobs.nomi:literal Duration"1h" at 1444:37 failure	ran
+std/jobs.nomi:literal Duration"1h" at 335:48 failure	ran
 std/jobs.nomi:minute_field	ran
+std/jobs.nomi:moment_in	ran
 std/jobs.nomi:month_field	ran
 std/jobs.nomi:next_day	ran
 std/jobs.nomi:next_hour	ran
@@ -5155,6 +5231,9 @@ std/log/testing.nomi:run	ran
 std/log/testing.nomi:run default 1	ran
 std/money.nomi:CurrencyDisplay.equal	ran
 std/money.nomi:CurrencyDisplay.inspect	ran
+std/money.nomi:CurrencyMismatch.equal	ran
+std/money.nomi:CurrencyMismatch.inspect	ran
+std/money.nomi:CurrencyMismatch.to_string	ran
 std/money.nomi:CurrencySign.equal	ran
 std/money.nomi:CurrencySign.inspect	ran
 std/money.nomi:Error.equal	ran
@@ -5164,7 +5243,6 @@ std/money.nomi:Money.abs	ran
 std/money.nomi:Money.add	ran
 std/money.nomi:Money.all_in	ran
 std/money.nomi:Money.allocate	ran
-std/money.nomi:Money.empty_sum	ran
 std/money.nomi:Money.equal	ran
 std/money.nomi:Money.format	ran
 std/money.nomi:Money.format default 3	ran
@@ -5172,7 +5250,6 @@ std/money.nomi:Money.format default 4	ran
 std/money.nomi:Money.from_fragments	ran
 std/money.nomi:Money.hash	ran
 std/money.nomi:Money.inspect	ran
-std/money.nomi:Money.is_empty	ran
 std/money.nomi:Money.is_zero	ran
 std/money.nomi:Money.localize	ran
 std/money.nomi:Money.max	ran
@@ -5186,12 +5263,12 @@ std/money.nomi:Money.parse_in	ran
 std/money.nomi:Money.parse_in default 4	ran
 std/money.nomi:Money.round	ran
 std/money.nomi:Money.round default 2	ran
+std/money.nomi:Money.same	ran
 std/money.nomi:Money.sign	ran
 std/money.nomi:Money.split	ran
 std/money.nomi:Money.subtract	ran
+std/money.nomi:Money.sum	ran
 std/money.nomi:Money.to_string	ran
-std/money.nomi:literal Currency"XXX" at 431:27 failure	ran
-std/money.nomi:literal Currency"XXX" at 491:52 failure	ran
 std/net.nomi:Connection.close	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_read	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
 std/net.nomi:Connection.close_write	NETWORK: declared in std/http, std/net or std/tls, so it is not run on made-up arguments
@@ -5359,6 +5436,8 @@ std/process.nomi:Command.stdin default	ran
 std/process.nomi:Exit.code default	ran
 std/process.nomi:Exit.inspect	ran
 std/process.nomi:Exit.message default	ran
+std/process.nomi:ExitCode.try_from	ran
+std/process.nomi:ExitCode.unchecked	ran
 std/process.nomi:Output.equal	ran
 std/process.nomi:Output.inspect	ran
 std/process.nomi:Status.code	ran
@@ -5368,6 +5447,7 @@ std/process.nomi:Status.is_success	ran
 std/process.nomi:Status.to_string	ran
 std/process.nomi:Stdin.inspect	ran
 std/process.nomi:output	ran
+std/process.nomi:piped_stdin	ran
 std/process.nomi:run	ran
 std/process.nomi:spawn	ran
 std/process.nomi:start	ran
@@ -6038,6 +6118,7 @@ std/xml.nomi:element_text	ran
 std/xml.nomi:encode	ran
 std/xml.nomi:encode default 2	ran
 std/xml.nomi:fresh_prefix	ran
+std/xml.nomi:indentation	ran
 std/xml.nomi:invalid	ran
 std/xml.nomi:name_of	ran
 std/xml.nomi:named	ran

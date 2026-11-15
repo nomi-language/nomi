@@ -14,7 +14,8 @@ end
 /// so `b` is whole or there is no such triplet.
 fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)>
     top = n * n - 2 * n * a
-    bottom = 2 * (n - a)
+    // `a` is below `n / 3`, so `n - a` is above 0.
+    bottom = PositiveInt.try_from(2 * (n - a))!
     b = top / bottom
 
     if top % bottom == 0 and a < b then Some((a, b, n - a - b)) else None

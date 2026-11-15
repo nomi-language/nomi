@@ -37,7 +37,7 @@ group "a blog's notifications on a Postgres queue"
     boot app.boot()
 
     test "publishing a post emails each subscriber once"
-        Worker.start(App.worker, [email_job, batch_job])
+        Worker.start(App.worker, [email_job, batch_job])!
         _ = add_user("ada@example.com", True)?
         _ = add_user("grace@example.com", True)?
         _ = add_user("linus@example.com", False)?

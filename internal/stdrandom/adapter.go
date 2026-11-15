@@ -1,9 +1,11 @@
 // Package random supplies std/random's splitmix64 PRNG and OS-entropy seed.
 //
-// The generator state is carried across the boundary as a plain int64 — the
-// same bit pattern std/random's opaque `Seed` wraps — because a Nomi `Int` is
-// an int64 and the arithmetic below is defined on uint64. Every conversion is
-// a reinterpretation, never a numeric change.
+// The generator state is std/random's opaque `Seed`, an Int, and the
+// arithmetic below is defined on its splitmix64 register, a uint64. A Seed
+// crosses as an Int of any size (rt.Int) and its register is its low 64
+// bits, two's complement (register), so `Seed.from_int(n)` and
+// `Seed.from_int(n + 2^64)` step alike; the state a draw returns is the
+// register reinterpreted as an int64, never a numeric change.
 //
 // A draw produces two results (the value and the advanced state), which the
 // FFI boundary carries as a Nomi tuple: a Go multiple return projects
@@ -14,7 +16,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/nomi-language/nomi/rt"
@@ -32,11 +33,12 @@ func splitmix64(state uint64) (out uint64, next uint64) {
 }
 
 // FFIBetween returns an unbiased integer in the inclusive range [from, to]
-// and the advanced state. The caller has checked from <= to
-// (FFIRequireIntRange). A range whose bounds fit int64 is drawn by
+// and the advanced state. The caller's range is a BoundedRange, so from <=
+// to. A range whose bounds fit int64 is drawn by
 // between64; a wider one by bigBetween. A reversed range answers from with
 // the state unchanged rather than inventing a value.
-func FFIBetween(state int64, from, to rt.Int) (value rt.Int, next int64) {
+func FFIBetween(seed, from, to rt.Int) (value rt.Int, next int64) {
+	state := register(seed)
 	f, fromFits := from.Int64()
 	t, toFits := to.Int64()
 	if fromFits && toFits {
@@ -106,55 +108,10 @@ func below(s, n uint64) (uint64, uint64) {
 	}
 }
 
-// FFIRequireIntRange is std/random's `require_int_range`, the check
-// `Generator.int` makes before it builds a generator: it traps unless
-// from <= to. The caller chose both bounds and can compare them first, so a
-// reversed range is a broken promise (spec §11), not an Err.
-func FFIRequireIntRange(from, to rt.Int) rt.Unit {
-	if rt.IntCompare(from.Value(), to.Value()) > 0 {
-		rt.Trap(IntRangeText(from, to))
-	}
-	return rt.Unit{}
-}
-
-// IntRangeText is the trap a reversed `Generator.int` range raises:
-// `Generator.int: from 6 is greater than to 1`.
-func IntRangeText(from, to rt.Int) string {
-	return fmt.Sprintf("Generator.int: from %s is greater than to %s", from, to)
-}
-
-// FFIRequireFloatRange is std/random's `require_float_range`, the check
-// `Generator.float` makes: it traps unless both bounds are finite and
-// from < to, which also refuses a NaN bound, since NaN is less than nothing.
-// An infinite bound has no uniform draw, so it is refused rather than
-// answered with infinities or NaN.
-func FFIRequireFloatRange(from, to float64) rt.Unit {
-	if math.IsInf(from, 0) || math.IsInf(to, 0) {
-		rt.Trap(FloatBoundsText(from, to))
-	}
-	if !(from < to) {
-		rt.Trap(FloatRangeText(from, to))
-	}
-	return rt.Unit{}
-}
-
-// FloatBoundsText is the trap a `Generator.float` with an infinite bound
-// raises: `Generator.float: bounds must be finite, got -Inf and 1.0`.
-func FloatBoundsText(from, to float64) string {
-	return fmt.Sprintf("Generator.float: bounds must be finite, got %s and %s", rt.FormatFloat(from), rt.FormatFloat(to))
-}
-
-// FloatRangeText is the trap an empty `Generator.float` range raises:
-// `Generator.float: from 2.5 is not less than to 1.5`. The bounds read as
-// Nomi prints a Float.
-func FloatRangeText(from, to float64) string {
-	return fmt.Sprintf("Generator.float: from %s is not less than to %s", rt.FormatFloat(from), rt.FormatFloat(to))
-}
-
 // FFIUnitFloat returns a float in [0.0, 1.0) and the advanced state, using the
 // top 53 bits (the float64 mantissa width).
-func FFIUnitFloat(state int64) (value float64, next int64) {
-	z, advanced := splitmix64(uint64(state))
+func FFIUnitFloat(seed rt.Int) (value float64, next int64) {
+	z, advanced := splitmix64(uint64(register(seed)))
 	return float64(z>>11) / float64(uint64(1)<<53), int64(advanced)
 }
 
@@ -169,14 +126,26 @@ func FFIFromOS() (int64, error) {
 
 // FFISecureBytes is std/random's `secure_bytes`: count bytes from the
 // operating system's cryptographically secure source. crypto/rand.Read does
-// not fail since Go 1.24, so the result needs no error. A negative count
-// traps.
-func FFISecureBytes(count int64) rt.Bytes {
-	if count < 0 {
-		rt.Trap(fmt.Sprintf("random.secure_bytes: negative count %d", count))
-		return ""
+// not fail since Go 1.24, so the result needs no error. std declares count a
+// NonNegativeInt.
+//
+// A count past int64 is more bytes than memory holds, and traps naming it.
+func FFISecureBytes(count rt.Int) rt.Bytes {
+	n, ok := count.Int64()
+	if !ok {
+		rt.Trap(fmt.Sprintf("random.secure_bytes: %s bytes are more than memory holds", count))
 	}
-	b := make([]byte, count)
+	b := make([]byte, n)
 	rand.Read(b)
 	return rt.Bytes(b)
+}
+
+// register is a Seed's splitmix64 register: its low 64 bits, two's
+// complement, as an int64.
+func register(seed rt.Int) int64 {
+	if v, ok := seed.Int64(); ok {
+		return v
+	}
+	low := new(big.Int).And(seed.Big(), new(big.Int).SetUint64(^uint64(0)))
+	return int64(low.Uint64())
 }

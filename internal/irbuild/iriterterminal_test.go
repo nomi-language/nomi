@@ -34,12 +34,12 @@ func TestIRIterTerminal_CallbackFault(t *testing.T) {
 fn main()
  xs = Iter.map([0, 1], fn n ->
   io.print(n)
-  10 / n
+  10 / NonZeroInt.try_from(n)!
  end)
  io.print("created")
  io.print(Iter.`+op+`(xs))
 end
-`, "line 5: division by zero", "created\n0\n")
+`, "line 5: `NonZeroInt.try_from(n)` found nothing", "created\n0\n")
 		})
 	}
 }

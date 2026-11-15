@@ -95,10 +95,7 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 			if tc.manifest != "" {
 				manifest = &tc.manifest
 			}
-			got, err := stdcompiler.ProjectSpecDiagnostics(specOf(tc.entry, tc.files, manifest), "")
-			if err != nil {
-				t.Fatal(err)
-			}
+			got := stdcompiler.ProjectSpecDiagnostics(specOf(tc.entry, tc.files, manifest), "")
 			var lines []string
 			for _, d := range got {
 				lines = append(lines, diagText(d))
@@ -114,49 +111,37 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 	// POINTER for exactly this value: a `string` field would make the two
 	// indistinguishable and silently give `Some("")` None's behaviour.
 	//
-	// The discriminator turned out sharper than expected and is recorded as
-	// MEASURED rather than as designed: an empty manifest is not a manifest
-	// with no sections, it is INVALID — `[module] name is required (non-empty,
-	// non-whitespace)` — so Some errors where None is clean. Two different
-	// answers, one of which is not even a diagnostic list.
+	// An empty manifest is not a manifest with no sections, it is INVALID —
+	// `[module] name is required (non-empty, non-whitespace)` — so Some
+	// answers that one diagnostic where None is clean.
 	t.Run("an EMPTY manifest is Some, not None", func(t *testing.T) {
 		files := map[string]string{"main": "fn main()\n  Unit\nend\n"}
-		if _, err := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, new("")), ""); err == nil {
-			t.Error("Some(\"\") produced no error, so it was treated as None and the " +
-				"pointer in ProjectSpec is doing nothing")
-		} else if want := "<compiler.Project manifest>: [module] name is required " +
-			"(non-empty, non-whitespace)"; err.Error() != want {
-			t.Errorf("error text\n got %q\nwant %q", err.Error(), want)
+		got := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, new("")), "")
+		want := "0:0 <compiler.Project manifest>: [module] name is required (non-empty, non-whitespace)"
+		if len(got) != 1 || diagText(got[0]) != want {
+			t.Errorf("Some(\"\") answered %v, want the one diagnostic %q", got, want)
 		}
-		none, err := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, nil), "")
-		if err != nil {
-			t.Fatalf("None: %v", err)
-		}
-		if len(none) != 0 {
+		if none := stdcompiler.ProjectSpecDiagnostics(specOf("main", files, nil), ""); len(none) != 0 {
 			t.Errorf("None should be clean, got %d: %v", len(none), none)
 		}
 	})
 
-	// The two fault paths, both of which have nowhere to go as data because std
-	// declares no error channel: the `compiler.check_project` host traps with
-	// this error's text.
-	t.Run("a missing entry point is an error", func(t *testing.T) {
-		_, err := stdcompiler.ProjectSpecDiagnostics(
+	// A project that cannot be assembled is one diagnostic at 0:0, which
+	// names no file, not a trap: the project is data.
+	t.Run("a missing entry point is a diagnostic", func(t *testing.T) {
+		got := stdcompiler.ProjectSpecDiagnostics(
 			specOf("absent", map[string]string{"main": "fn main()\n  Unit\nend\n"}, nil), "")
-		if err == nil {
-			t.Fatal("want an error for an entry point absent from files")
-		}
-		const want = `compiler.check_project entry "absent" is not present in files`
-		if err.Error() != want {
-			t.Errorf("error text\n got %q\nwant %q", err.Error(), want)
+		const want = `0:0 compiler.check_project entry "absent" is not present in files`
+		if len(got) != 1 || diagText(got[0]) != want {
+			t.Errorf("got %v, want the one diagnostic %q", got, want)
 		}
 	})
-	t.Run("an unparseable manifest is an error", func(t *testing.T) {
-		_, err := stdcompiler.ProjectSpecDiagnostics(
+	t.Run("an unparseable manifest is a diagnostic", func(t *testing.T) {
+		got := stdcompiler.ProjectSpecDiagnostics(
 			specOf("main", map[string]string{"main": "fn main()\n  Unit\nend\n"},
 				new("[module\n")), "")
-		if err == nil {
-			t.Fatal("want an error for a manifest that is not TOML")
+		if len(got) != 1 || got[0].Line != 0 || !strings.HasPrefix(got[0].Message, "parse <compiler.Project manifest>: ") {
+			t.Errorf("got %v, want one diagnostic at 0:0 naming the manifest", got)
 		}
 	})
 }

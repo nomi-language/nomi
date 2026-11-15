@@ -34,7 +34,9 @@ func Count(h *Handle) int64 { return h.n }
 
 func Describe(h *Handle) []Table { return []Table{{Name: %q, %s: h.n}} }
 `, goField, name, goField),
-		name + "/describe.nomi": fmt.Sprintf(`gopkg "example.com/sql/%s/goside"
+		name + "/describe.nomi": fmt.Sprintf(`import std::int.Int64
+
+gopkg "example.com/sql/%s/goside"
 
 pub struct Table
     name: String
@@ -43,7 +45,7 @@ end
 
 pub opaque type Handle go goside.Handle
 
-pub fn open(n: Int) -> Handle go goside.Open
+pub fn open(n: Int64) -> Handle go goside.Open
 
 pub fn count(h: Handle) -> Int go goside.Count
 

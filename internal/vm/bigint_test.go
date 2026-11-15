@@ -10,7 +10,6 @@ package vm_test
 // the 64-bit wrapping operators.
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -142,20 +141,5 @@ end
 	want := "None\n[1, 2, 3]\n[]\nello\nNone\nNone\n"
 	if out != want || err == nil || err.Error() != "line 12: `Vector.get(Vector[1, 2], big)` found nothing" {
 		t.Fatalf("output %q, error %v; want %q and the index fault", out, err, want)
-	}
-}
-
-// TestBigInt_AZeroDivisorFaultsWhateverTheDividend: the one Int fault is a
-// zero divisor, reported at its operator, whatever the dividend's size.
-func TestBigInt_AZeroDivisorFaultsWhateverTheDividend(t *testing.T) {
-	_, err := runDepth(t, `import std::io
-
-fn main()
-  zero = 0
-  io.print(Int.pow(10, 30) / zero)
-end
-`)
-	if err == nil || !strings.Contains(err.Error(), "line 5: division by zero") {
-		t.Fatalf("got %v, want the zero divisor at line 5", err)
 	}
 }

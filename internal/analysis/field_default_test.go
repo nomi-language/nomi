@@ -698,7 +698,7 @@ end
 // five checks. tests/20-data-access/jwt_test.nomi adds one (`Login`'s
 // `admin`).
 var fieldDefaultDenominator = map[string]int{
-	"std":             292,
+	"std":             291,
 	"tests":           75,
 	"tour (nomi-run)": 26,
 	"tour (nomi)":     0,

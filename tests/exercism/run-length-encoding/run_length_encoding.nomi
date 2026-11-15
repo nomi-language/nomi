@@ -26,7 +26,11 @@ pub fn decode(encoded: String) -> String
     encoded
     |> String.captures_all(Regex`(\d*)(\D)`)
     |> Iter.map(fn (count, letter) ->
-        times = String.to_int(count) |> Maybe.with_default(1)
+        times =
+            String.to_int(count)
+            |> Maybe.flat_map(NonNegativeInt.try_from)
+            |> Maybe.with_default(1)
+
         String.repeat(letter, times)
     end)
     |> String.join()

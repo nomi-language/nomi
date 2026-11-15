@@ -26,8 +26,9 @@ type IOError struct {
 	// Reason is `InvalidPath`'s: what is wrong with the path.
 	Reason string
 	// Offset is `InvalidText`'s: the byte offset of the first sequence that
-	// is not UTF-8.
-	Offset int64
+	// is not UTF-8. An Int of any size, since a program's own Reader may
+	// report one.
+	Offset Int
 	// Operation is `Unsupported`'s and `Other`'s: the operation that failed
 	// (`process.run`, `open`).
 	Operation string

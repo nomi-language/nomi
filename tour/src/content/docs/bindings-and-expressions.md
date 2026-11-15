@@ -488,7 +488,9 @@ for constants and configuration.
 - An initializer is not a function body, so `?`, `return`, `break` and
   `continue` written directly in it are errors. A lambda inside it is a body
   of its own.
-- A `once` whose initializer reads itself traps with
+- A `once` whose initializer reads itself, directly or through the
+  functions it calls, is a compile error naming the chain. A cycle through
+  a function value or an interface value traps when it runs instead:
   `cyclic 'once' binding: 'a' depends on itself`.
 - A `once` may also stand in an inherent `impl` block and is read through
   its type: `Money.zero`.

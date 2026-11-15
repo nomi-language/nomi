@@ -176,7 +176,7 @@ test "an if without else whose value a statement drops says to write _ ="
     diagnostics = compiler.check(
         """
           fn label(n: Int) -> Int
-            if n > 0 then n + 1
+            if n != 0 then n - 1
             n
           end
         """
@@ -184,7 +184,7 @@ test "an if without else whose value a statement drops says to write _ ="
 
     assert test_helpers.has_diagnostic(
         diagnostics,
-        "this branch is an `Int`, which this statement drops. Write `_ = n + 1` in the branch, or add an `else`",
+        "this branch is an `Int`, which this statement drops. Write `_ = n - 1` in the branch, or add an `else`",
     )
 end
 

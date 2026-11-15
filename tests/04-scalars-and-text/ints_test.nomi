@@ -38,11 +38,13 @@ end
 test "modulo past 64 bits is exact"
     assert Int.modulo(-9_223_372_036_854_775_808, -1) == 0
     assert -9_223_372_036_854_775_808 % -1 == 0
+
     assert Int.modulo(-Int.pow(2, 80), Int.pow(2, 63) - 1) == Int.pow(2, 63) - 1 - Int.pow(2, 17)
+
     assert Int.modulo(Int.pow(2, 80) + 7, Int.pow(2, 64)) == 7
 end
 
-fn floor_divide(x: Int, y: Int) -> Int
+fn floor_divide(x: Int, y: NonZeroInt) -> Int
     q = x / y
 
     if x % y != 0 and (x < 0) != (y < 0) then q - 1 else q
@@ -50,7 +52,7 @@ end
 
 test "modulo is the dividend less the divisor times the floored quotient"
     values = [-7, -6, -5, -1, 0, 1, 5, 6, 7]
-    divisors = [-3, -2, -1, 1, 2, 3]
+    divisors: List<NonZeroInt> = [-3, -2, -1, 1, 2, 3]
 
     mismatches =
         values

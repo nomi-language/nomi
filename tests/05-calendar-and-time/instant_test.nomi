@@ -5,17 +5,41 @@ end
 
 test "instants add durations"
     start = Instant.from_seconds(100)
-
     assert Instant.to_seconds(start + Duration.seconds(5)) == 105
 end
 
 test "instants subtract durations and other instants"
     start = Instant.from_seconds(100)
     later = Instant.from_seconds(130)
-
     assert start - Duration.seconds(5) == Instant.from_seconds(95)
     assert later - start == Duration.seconds(30)
     assert start - later == Duration.seconds(-30)
     assert later - start == Instant.between(start, later)
     assert start + (later - start) == later
+end
+
+test "an Instant has no range"
+    assert Instant.to_seconds(Instant.from_seconds(10_000_000_000)) == 10_000_000_000
+
+    assert Instant.as_nanos(Instant.from_nanos(9_223_372_036_854_775_808))
+        == 9_223_372_036_854_775_808
+
+    assert Instant.as_nanos(Instant.from_nanos(-9_223_372_036_854_775_809))
+        == -9_223_372_036_854_775_809
+end
+
+test "adding and subtracting a Duration never faults"
+    latest = Instant.from_nanos(9_223_372_036_854_775_807)
+    earliest = Instant.from_nanos(-9_223_372_036_854_775_808)
+    assert Instant.as_nanos(latest + Duration.nanoseconds(1)) == 9_223_372_036_854_775_808
+    assert Instant.as_nanos(earliest - Duration.nanoseconds(1)) == -9_223_372_036_854_775_809
+    assert latest - (latest - earliest) == earliest
+    assert Instant.to_seconds(latest + Duration.hours(3_000_000)) == 20_023_372_036
+end
+
+test "the difference of any two instants is a duration"
+    latest = Instant.from_nanos(9_223_372_036_854_775_807)
+    earliest = Instant.from_nanos(-9_223_372_036_854_775_808)
+    assert Duration.as_nanos(latest - earliest) == 18_446_744_073_709_551_615
+    assert earliest + (latest - earliest) == latest
 end

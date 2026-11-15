@@ -204,7 +204,7 @@ impl NonEmptySet<T>
     //! assert NonEmptySet.size(["a", "b"]) == 2
     //
     pub fn size<T>(s: NonEmptySet<T>) -> PositiveInt
-        PositiveInt.try_from(Iter.count(s))!
+        Iter.count(s)
     end
 
     /// The largest element.

@@ -8,7 +8,7 @@ import "testing"
 //
 // The rungs are one-line wrappers over CivilShift and DateTimeCivilShift, whose
 // rules are pinned in calendar_test.go. What is NOT pinned there is the WIRING:
-// CivilShift takes seven positional int64s, and a wrapper that passed its
+// CivilShift takes seven positional Ints, and a wrapper that passed its
 // operand into the neighbouring slot would still have the right operand TYPE,
 // still compile, and still be accepted by every guard that reads signatures —
 // internal/irbuild's TestCalendarUnitsAreNominallyDistinctAtTheGoLevel included,
@@ -19,7 +19,7 @@ import "testing"
 // anchor whose every component is far from a boundary so a carry cannot make
 // two rows agree by accident.
 func TestCalendarUnitRungsMoveTheirOwnComponent(t *testing.T) {
-	anchor := rt.NaiveDateTime{Year: 2021, Month: 6, Day: 15, Hour: 10, Minute: 20, Second: 30, Nanosecond: 400_000_000}
+	anchor := rt.NaiveDateTime{Year: rt.SmallInt(2021), Month: 6, Day: 15, Hour: 10, Minute: 20, Second: 30, Nanosecond: 400_000_000}
 	zone := "America/New_York"
 	zoned := ResolveInZone(anchor, zone, rt.Disambiguation{Tag: rt.TagCompatible})
 	if zoned.Tag != rt.TagOk {
@@ -31,9 +31,9 @@ func TestCalendarUnitRungsMoveTheirOwnComponent(t *testing.T) {
 		got  rt.NaiveDateTime
 		want rt.NaiveDateTime
 	}{
-		{"rt.Years", NaiveDateTimePlusYears(anchor, 3), withYMD(anchor, 2024, 6, 15)},
-		{"rt.Months", NaiveDateTimePlusMonths(anchor, 3), withYMD(anchor, 2021, 9, 15)},
-		{"rt.Days", NaiveDateTimePlusDays(anchor, 3), withYMD(anchor, 2021, 6, 18)},
+		{"rt.Years", NaiveDateTimePlusYears(anchor, rt.SmallInt(3)), withYMD(anchor, 2024, 6, 15)},
+		{"rt.Months", NaiveDateTimePlusMonths(anchor, rt.SmallInt(3)), withYMD(anchor, 2021, 9, 15)},
+		{"rt.Days", NaiveDateTimePlusDays(anchor, rt.SmallInt(3)), withYMD(anchor, 2021, 6, 18)},
 	}
 	for _, c := range naive {
 		if c.got != c.want {
@@ -50,24 +50,24 @@ func TestCalendarUnitRungsMoveTheirOwnComponent(t *testing.T) {
 		sec  = int64(1_000_000_000)
 		hour = 3600 * sec
 	)
-	base := zoned.Ok.InstantNanos
+	base := smallNanos(t, zoned.Ok.InstantNanos)
 	zonedRows := []struct {
 		name string
 		got  rt.DateTime
 		want int64
 	}{
-		{"rt.Hours", DateTimePlusHours(zoned.Ok, 5), base + 5*hour},
-		{"rt.Minutes", DateTimePlusMinutes(zoned.Ok, 5), base + 5*60*sec},
-		{"rt.Seconds", DateTimePlusSeconds(zoned.Ok, 5), base + 5*sec},
-		{"rt.Milliseconds", DateTimePlusMilliseconds(zoned.Ok, 5), base + 5*1_000_000},
-		{"rt.Microseconds", DateTimePlusMicroseconds(zoned.Ok, 5), base + 5*1_000},
-		{"rt.Nanoseconds", DateTimePlusNanoseconds(zoned.Ok, 5), base + 5},
-		{"rt.Days", DateTimePlusDays(zoned.Ok, 3), base + 3*24*hour},
+		{"rt.Hours", DateTimePlusHours(zoned.Ok, rt.SmallInt(5)), base + 5*hour},
+		{"rt.Minutes", DateTimePlusMinutes(zoned.Ok, rt.SmallInt(5)), base + 5*60*sec},
+		{"rt.Seconds", DateTimePlusSeconds(zoned.Ok, rt.SmallInt(5)), base + 5*sec},
+		{"rt.Milliseconds", DateTimePlusMilliseconds(zoned.Ok, rt.SmallInt(5)), base + 5*1_000_000},
+		{"rt.Microseconds", DateTimePlusMicroseconds(zoned.Ok, rt.SmallInt(5)), base + 5*1_000},
+		{"rt.Nanoseconds", DateTimePlusNanoseconds(zoned.Ok, rt.SmallInt(5)), base + 5},
+		{"rt.Days", DateTimePlusDays(zoned.Ok, rt.SmallInt(3)), base + 3*24*hour},
 	}
 	for _, c := range zonedRows {
-		if c.got.InstantNanos != c.want {
+		if got := smallNanos(t, c.got.InstantNanos); got != c.want {
 			t.Errorf("DateTimePlus%s: instant %d, want %d (delta %d, want %d)",
-				c.name, c.got.InstantNanos, c.want, c.got.InstantNanos-base, c.want-base)
+				c.name, got, c.want, got-base, c.want-base)
 		}
 		if c.got.Zone != zone {
 			t.Errorf("DateTimePlus%s: zone became %q, want %q — a civil shift re-resolves IN the zone",
@@ -81,8 +81,8 @@ func TestCalendarUnitRungsMoveTheirOwnComponent(t *testing.T) {
 		got  rt.DateTime
 		want string
 	}{
-		{"rt.Years", DateTimePlusYears(zoned.Ok, 3), "2024-06-15T10:20:30.4-04:00[America/New_York]"},
-		{"rt.Months", DateTimePlusMonths(zoned.Ok, 3), "2021-09-15T10:20:30.4-04:00[America/New_York]"},
+		{"rt.Years", DateTimePlusYears(zoned.Ok, rt.SmallInt(3)), "2024-06-15T10:20:30.4-04:00[America/New_York]"},
+		{"rt.Months", DateTimePlusMonths(zoned.Ok, rt.SmallInt(3)), "2021-09-15T10:20:30.4-04:00[America/New_York]"},
 	} {
 		if got := DateTimeToString(c.got); got != c.want {
 			t.Errorf("DateTimePlus%s: %s, want %s", c.name, got, c.want)
@@ -91,7 +91,7 @@ func TestCalendarUnitRungsMoveTheirOwnComponent(t *testing.T) {
 }
 
 func withYMD(dt rt.NaiveDateTime, y, m, d int64) rt.NaiveDateTime {
-	dt.Year, dt.Month, dt.Day = y, m, d
+	dt.Year, dt.Month, dt.Day = rt.SmallInt(y), m, d
 	return dt
 }
 
@@ -107,8 +107,8 @@ func withYMD(dt rt.NaiveDateTime, y, m, d int64) rt.NaiveDateTime {
 // (CivilShiftFaultText) and delivered by another (the trap), and a drift
 // between the two is exactly what nothing else here would report.
 func TestCivilShiftFaultTextIsOneString(t *testing.T) {
-	bogus := rt.DateTime{InstantNanos: 0, Zone: "Mars/Olympus_Mons"}
-	res := DateTimeCivilShift(bogus, 0, 0, 1, 0, 0, 0, 0)
+	bogus := rt.DateTime{Zone: "Mars/Olympus_Mons"}
+	res := DateTimeCivilShift(bogus, zero, zero, rt.SmallInt(1), zero, zero, zero, zero)
 	if res.Tag == rt.TagOk {
 		t.Fatal("an unknown zone resolved, so this test has nothing to check")
 	}
@@ -136,5 +136,5 @@ func TestCivilShiftFaultTextIsOneString(t *testing.T) {
 				err.Msg, want)
 		}
 	}()
-	DateTimeCivilShiftOrTrap(bogus, 0, 0, 1, 0, 0, 0, 0)
+	DateTimeCivilShiftOrTrap(bogus, zero, zero, rt.SmallInt(1), zero, zero, zero, zero)
 }

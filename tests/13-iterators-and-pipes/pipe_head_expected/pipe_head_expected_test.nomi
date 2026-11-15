@@ -22,7 +22,7 @@ fn low(b: Byte) -> Int
     Byte.to_int(b)
 end
 
-fn divide(a: Int, b: Int) -> Int
+fn divide(a: Int, b: NonZeroInt) -> Int
     a / b
 end
 

@@ -332,6 +332,7 @@ func tourBlock1Specs() []*hostadapt.DescSpec {
 func tourBlock1Names() []string {
 	return []string{
 		"parse_int",
+		"repeat",
 		"upper",
 	}
 }
@@ -349,7 +350,8 @@ func tourBlock1Bind(env *hostadapt.Env) (map[string]hostadapt.Func, error) {
 	}
 	return map[string]hostadapt.Func{
 		"parse_int": b.fn1,
-		"upper":     b.fn4,
+		"repeat":    b.fn4,
+		"upper":     b.fn7,
 	}, nil
 }
 
@@ -415,13 +417,44 @@ func (b *tourBlock1Bound) fn1Parts(fr *rt.Frame, args []rt.Value) (_ rt.Value, _
 	return v, true, nil
 }
 
-// out5 builds a String from Go string.
-func (b *tourBlock1Bound) out5(v string) (rt.Value, error) {
+// in5 reads a Int as Go int.
+func (b *tourBlock1Bound) in5(fr *rt.Frame, v rt.Value) (out int, err error) {
+	if !rt.IsInt(v) {
+		return out, hostadapt.Want("Int", v)
+	}
+	x := v
+	return hostadapt.ToSigned[int](x, "int")
+}
+
+// out6 builds a String from Go string.
+func (b *tourBlock1Bound) out6(v string) (rt.Value, error) {
 	return string(v), nil
 }
 
-// fn4 adapts upper: upper(s: String) -> String
+// fn4 adapts repeat: repeat(s: String, count: NonNegativeInt and Int64) -> String
 func (b *tourBlock1Bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
+	defer hostadapt.Recover("repeat", &err)
+	if len(args) != 2 {
+		return nil, hostadapt.Arity("repeat", 2, len(args))
+	}
+	a0, err := b.in2(fr, args[0])
+	if err != nil {
+		return nil, hostadapt.Param("repeat", 0, "strings.Repeat", "s", err)
+	}
+	a1, err := b.in5(fr, args[1])
+	if err != nil {
+		return nil, hostadapt.Param("repeat", 1, "strings.Repeat", "count", err)
+	}
+	r0 := tourBlock1_strings.Repeat(a0, a1)
+	v0, err := b.out6(r0)
+	if err != nil {
+		return nil, hostadapt.Returned("strings.Repeat", err)
+	}
+	return v0, nil
+}
+
+// fn7 adapts upper: upper(s: String) -> String
+func (b *tourBlock1Bound) fn7(fr *rt.Frame, args []rt.Value) (_ rt.Value, err error) {
 	defer hostadapt.Recover("upper", &err)
 	if len(args) != 1 {
 		return nil, hostadapt.Arity("upper", 1, len(args))
@@ -431,7 +464,7 @@ func (b *tourBlock1Bound) fn4(fr *rt.Frame, args []rt.Value) (_ rt.Value, err er
 		return nil, hostadapt.Param("upper", 0, "strings.ToUpper", "s", err)
 	}
 	r0 := tourBlock1_strings.ToUpper(a0)
-	v0, err := b.out5(r0)
+	v0, err := b.out6(r0)
 	if err != nil {
 		return nil, hostadapt.Returned("strings.ToUpper", err)
 	}
@@ -445,5 +478,6 @@ var linked = []linkedFunc{
 	{importPath: "urltools", fn: "ParseQuery", decl: "fn parse_query(raw: String) -> Result<Map<String, List<String>>, String>", shape: "4\t->10<16<4,8<4,>,>,4,>", file: "urls.nomi", block: 0, bind: tourBlock0Bind, key: "urls.parse_query"},
 	{importPath: "urltools", fn: "UnescapeQuery", decl: "fn unescape_query(value: String) -> Result<String, String>", shape: "4\t->10<4,4,>", file: "urls.nomi", block: 0, bind: tourBlock0Bind, key: "urls.unescape_query"},
 	{importPath: "strconv", fn: "Atoi", decl: "fn parse_int(s: String) -> Result<Int, String>", shape: "4\t->10<1,4,>", file: "main.nomi", block: 1, bind: tourBlock1Bind, key: "parse_int"},
+	{importPath: "strings", fn: "Repeat", decl: "fn repeat(s: String, count: NonNegativeInt and Int64) -> String", shape: "4\t!type NonNegativeInt and Int64: only an intersection of Int subtypes crosses the host boundary\t->4", file: "main.nomi", block: 1, bind: tourBlock1Bind, key: "repeat"},
 	{importPath: "strings", fn: "ToUpper", decl: "fn upper(s: String) -> String", shape: "4\t->4", file: "main.nomi", block: 1, bind: tourBlock1Bind, key: "upper"},
 }

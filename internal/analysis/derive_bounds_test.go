@@ -182,7 +182,7 @@ func TestDeriveChecksEachPartOfATupleOrAnonymousStructField(t *testing.T) {
 		byEquality := tc.iface == "Equatable" || tc.iface == "Hashable"
 		if byEquality && !tc.ok {
 			p, keys = holdsFn, ""
-			help = "`P` holds a function, an Iter or a handle to running state, which has no equality; write an `impl " + tc.iface + " for P` block that leaves it out"
+			help = "`P` holds `(Int) -> Int`, a function value, which has no equality; write an `impl " + tc.iface + " for P` block that leaves it out"
 		}
 		src := p + "struct W\n    f: " + tc.field + "\nend\n\nderive " + tc.iface + " for W\n" + keys
 		fa := buildWithStdlibForDerive(src)

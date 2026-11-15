@@ -26,8 +26,8 @@ type declinePlant struct{ callee, reason string }
 // that planted ends.
 var plantedDecline atomic.Pointer[declinePlant]
 
-// PlantDeclineForTest makes the builder decline each call `callee(...)`,
-// with reason as the builder's own reason, until restore is called. It
+// PlantDeclineForTest makes the builder decline each call `callee(...)`, or
+// `Owner.name(...)` for a callee written `Owner.name`, with reason as the builder's own reason, until restore is called. It
 // panics outside a test binary. The plant is process-wide, so a test that
 // plants must not run in parallel with another that lowers a call to callee.
 // callee should be a name no stdlib function has: the stdlib's shared
@@ -45,10 +45,10 @@ func PlantDeclineForTest(callee, reason string) (restore func()) {
 }
 
 // DeclinesPlanted reports whether a test has planted a decline
-// (PlantDeclineForTest, PlantTypeDeclineForTest), which no kept program
-// holds.
+// (PlantDeclineForTest, PlantTypeDeclineForTest,
+// PlantMissingRefinementCheckForTest), which no kept program holds.
 func DeclinesPlanted() bool {
-	return plantedDecline.Load() != nil || plantedTypeDecline.Load() != nil
+	return plantedDecline.Load() != nil || plantedTypeDecline.Load() != nil || plantedMissingRefinementCheck.Load() != nil
 }
 
 // plantedTypeDecline is the struct a test made the builder refuse, or nil:
@@ -81,6 +81,34 @@ func plantedRefusal(name string) string {
 	return ""
 }
 
+// plantedMissingRefinementCheck is the subtype whose literals' checks a
+// test made the builder fail to find, or nil: callee is its name.
+var plantedMissingRefinementCheck atomic.Pointer[declinePlant]
+
+// PlantMissingRefinementCheckForTest makes the builder find no `try_from`
+// for the subtype named typeName when it lists a literal's checks
+// (refinementSites), as a linkage name built wrong would, until restore is
+// called: a test that such a literal is an internal error at the literal,
+// not let through unchecked, needs no real naming bug. It panics outside a
+// test binary, and is process-wide as PlantDeclineForTest is.
+func PlantMissingRefinementCheckForTest(typeName string) (restore func()) {
+	if !testing.Testing() {
+		panic("irbuild.PlantMissingRefinementCheckForTest called outside a test")
+	}
+	if typeName == "" {
+		panic("irbuild.PlantMissingRefinementCheckForTest needs a type name")
+	}
+	prev := plantedMissingRefinementCheck.Swap(&declinePlant{callee: typeName})
+	return func() { plantedMissingRefinementCheck.Store(prev) }
+}
+
+// plantedMissingCheck reports whether a test planted a missing check for
+// the subtype named typeName.
+func plantedMissingCheck(typeName string) bool {
+	p := plantedMissingRefinementCheck.Load()
+	return p != nil && p.callee == typeName
+}
+
 // plantedDeclineAt is the planted reason when n is a call to the planted
 // callee, else "".
 func plantedDeclineAt(n ast.Node) string {
@@ -89,8 +117,16 @@ func plantedDeclineAt(n ast.Node) string {
 		return ""
 	}
 	if c, ok := n.(*ast.Call); ok {
-		if id, ok := c.Func.(*ast.Ident); ok && id.Name == p.callee {
-			return p.reason
+		switch f := c.Func.(type) {
+		case *ast.Ident:
+			if f.Name == p.callee {
+				return p.reason
+			}
+		case *ast.FieldAccess:
+			// A callee planted as `Owner.name` matches a qualified call.
+			if owner, ok := f.Object.(*ast.TypeIdent); ok && f.Field != nil && owner.Name+"."+f.Field.Name == p.callee {
+				return p.reason
+			}
 		}
 	}
 	return ""

@@ -17,8 +17,8 @@ import (
 // takes the reference register as it is (opProjM), and `?` leaves only on a
 // 0 (opTryM). A Some or an Ok is then no allocation at all.
 //
-// A crossing fuses when it can answer in parts: Map.get and Vector.get by
-// their fast paths below, and every adapter whose binding answers a Maybe
+// A crossing fuses when it can answer in parts: Map.get, Vector.get and
+// Vector.set by their fast paths below, and every adapter whose binding answers a Maybe
 // or a Result through its parts form (hostadapt.PartsFunc, which
 // internal/hostgen writes for every such binding with a payload of its
 // own). A crossing with neither keeps its record, which fusing would only
@@ -46,6 +46,7 @@ const (
 	fastNone fastMaybe = iota
 	fastMapGet
 	fastVectorGet
+	fastVectorSet
 	fastParts
 )
 
@@ -54,6 +55,7 @@ const (
 var fusedIntrinsics = map[string]fastMaybe{
 	"Map.get":    fastMapGet,
 	"Vector.get": fastVectorGet,
+	"Vector.set": fastVectorSet,
 }
 
 // fastPathOf is how a crossing named name answers in parts, or fastNone.
@@ -194,7 +196,20 @@ func (m *Machine) hostMaybe(fr *frame, h *hostCall, ref, tag int) error {
 	fast := h.fast
 	if m.hooked {
 		// The debugger records each crossing's operands and answer, and
-		// the profiler takes its samples at a crossing's return.
+		// the profiler takes its samples at a crossing's return. A
+		// profiling machine reads no values, so it sets a vector as a
+		// plain one does, in place when owned, inside its crossing.
+		if fast == fastVectorSet && m.dbg == nil {
+			var done bool
+			_, err := m.profCross(fr, h.call, h.name, func() (any, error) {
+				var err error
+				done, err = m.vectorSetM(fr, h, ref, tag)
+				return nil, err
+			})
+			if done || err != nil {
+				return err
+			}
+		}
 		fast = fastNone
 	}
 	switch fast {
@@ -211,6 +226,10 @@ func (m *Machine) hostMaybe(fr *frame, h *hostCall, ref, tag int) error {
 				}
 				return nil
 			}
+		}
+	case fastVectorSet:
+		if done, err := m.vectorSetM(fr, h, ref, tag); done || err != nil {
+			return err
 		}
 	case fastMapGet:
 		ml := fr.c.locs[h.args[0]]
@@ -283,6 +302,38 @@ func (m *Machine) hostMaybe(fr *frame, h *hostCall, ref, tag int) error {
 		stk.r[fr.rb+ref], stk.w[fr.wb+tag] = v, 0
 	}
 	return nil
+}
+
+// vectorSetM is Vector.set's fast path: the vector and the index from their
+// registers, the item as it reads, and the set written in place when the
+// activation owns the vector (inplace.go), as opHost's in-place form does,
+// so an owned set allocates nothing. done is false when an operand is not
+// where the fast path reads it, for the intrinsic to answer.
+func (m *Machine) vectorSetM(fr *frame, h *hostCall, ref, tag int) (done bool, err error) {
+	stk := fr.stk
+	vl, il := fr.c.locs[h.args[0]], fr.c.locs[h.args[1]]
+	if vl.bank() != bankR || il.bank() != bankW {
+		return false, nil
+	}
+	box := stk.r[fr.rb+vl.reg()]
+	vec, ok := box.(rt.Vector[any])
+	if !ok {
+		return false, nil
+	}
+	// A big index's word is math.MinInt64, which is past any vector, as
+	// the big index is.
+	index := int64(stk.w[fr.wb+il.reg()])
+	if !rt.VectorInRange(vec, index) {
+		stk.r[fr.rb+ref], stk.w[fr.wb+tag] = noneValue, 0
+		return true, nil
+	}
+	item, err := fr.read(h.args[2])
+	if err != nil {
+		return true, err
+	}
+	owned := h.inPlace != nil && fr.owned&h.need == h.need
+	stk.r[fr.rb+ref], stk.w[fr.wb+tag] = vectorSetBox(box, vec, index, item, owned), 1
+	return true, nil
 }
 
 // carriedPayload is a Some's or an Ok's payload, and false for any other

@@ -71,7 +71,7 @@ func TestCapture_TrapPropagatesAndRestoresOutput(t *testing.T) {
 	const boom = `fn boom() -> Int
     io.print("partial")
     zero = 0
-    1 / zero
+    1 / NonZeroInt.try_from(zero)!
 end
 
 `
@@ -81,7 +81,7 @@ end
     io.print("unreachable")
 end
 `, "")
-	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+	if err == nil || !strings.Contains(err.Error(), "found nothing") {
 		t.Fatalf("err = %v, want the division trap", err)
 	}
 	if got != "before\n" {
@@ -99,7 +99,7 @@ end
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if want := "after\nFailed(Errored(\"line 7: division by zero\"))\n"; got != want {
+	if want := "after\nFailed(Errored(\"line 7: `NonZeroInt.try_from(zero)` found nothing\"))\n"; got != want {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }

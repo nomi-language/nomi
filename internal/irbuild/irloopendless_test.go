@@ -69,7 +69,7 @@ end
 
 fn work(n: Int)
     io.print("job ${n}")
-    io.print(10 / (3 - n))
+    io.print(10 / NonZeroInt.try_from(3 - n)!)
 end
 
 fn main()
@@ -85,7 +85,7 @@ fn main()
         end
     end)
 end
-`, "line 8: division by zero", "start\njob 0\n3\njob 1\n5\njob 2\n10\njob 3\n")
+`, "line 8: `NonZeroInt.try_from(3 - n)` found nothing", "start\njob 0\n3\njob 1\n5\njob 2\n10\njob 3\n")
 }
 
 func TestIRLoopEndless_ReturnAndContinueGoRound(t *testing.T) {
@@ -101,11 +101,11 @@ fn main()
             io.print("two")
             return 5
         end
-        io.print(10 / (n - 5))
+        io.print(10 / NonZeroInt.try_from(n - 5)!)
         continue
     end)
 end
-`, "line 11: division by zero", "n 0\nn 1\nn 2\ntwo\nn 5\n")
+`, "line 11: `NonZeroInt.try_from(n - 5)` found nothing", "n 0\nn 1\nn 2\ntwo\nn 5\n")
 }
 
 func TestIRLoopEndless_ValuePositions(t *testing.T) {
@@ -115,13 +115,13 @@ func TestIRLoopEndless_ValuePositions(t *testing.T) {
 	// `concurrent` body's tail. Arms that do not loop still answer.
 	for name, call := range map[string]struct{ main, fault, output string }{
 		"tail": {"io.print(arm(4))\n    io.print(branch(True))\n    io.print(count(5) + bound())",
-			"line 6: division by zero", "40\n7\ncount 0\n2\ncount 1\n2\ncount 2\n3\ncount 3\n5\ncount 4\n10\ncount 5\n"},
-		"bound":      {"io.print(bound())", "line 14: division by zero", "bound 1\n10\nbound 2\n"},
-		"operand":    {"io.print(operand())", "line 28: division by zero", "first\n"},
-		"arm":        {"io.print(arm(0))", "line 36: division by zero", ""},
-		"branch":     {"io.print(branch(False))", "line 48: division by zero", ""},
-		"nested":     {"nested()", "line 60: division by zero", "outer 0\nouter 1\ninner 1\n5\ninner 2\n10\ninner 3\n"},
-		"concurrent": {"io.print(conc())", "line 70: division by zero", "conc\n5\n10\n"},
+			"line 6: `NonZeroInt.try_from(limit - n)` found nothing", "40\n7\ncount 0\n2\ncount 1\n2\ncount 2\n3\ncount 3\n5\ncount 4\n10\ncount 5\n"},
+		"bound":      {"io.print(bound())", "line 14: `NonZeroInt.try_from(2 - n)` found nothing", "bound 1\n10\nbound 2\n"},
+		"operand":    {"io.print(operand())", "line 28: `NonZeroInt.try_from(n)` found nothing", "first\n"},
+		"arm":        {"io.print(arm(0))", "line 36: `NonZeroInt.try_from(n)` found nothing", ""},
+		"branch":     {"io.print(branch(False))", "line 48: `NonZeroInt.try_from(n)` found nothing", ""},
+		"nested":     {"nested()", "line 60: `NonZeroInt.try_from(3 - j)` found nothing", "outer 0\nouter 1\ninner 1\n5\ninner 2\n10\ninner 3\n"},
+		"concurrent": {"io.print(conc())", "line 70: `NonZeroInt.try_from(n)` found nothing", "conc\n5\n10\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			verifyEndlessTrap(t, endlessPositions(call.main), call.fault, call.output)
@@ -137,7 +137,7 @@ func endlessPositions(body string) string {
 fn count(limit: Int) -> Int
     Iter.loop(0, fn n ->
         io.print("count ${n}")
-        io.print(10 / (limit - n))
+        io.print(10 / NonZeroInt.try_from(limit - n)!)
         n + 1
     end)
 end
@@ -145,7 +145,7 @@ end
 fn bound() -> Int
     x = Iter.loop(1, fn n ->
         io.print("bound ${n}")
-        io.print(10 / (2 - n))
+        io.print(10 / NonZeroInt.try_from(2 - n)!)
         n + 1
     end)
     io.print("never")
@@ -159,7 +159,7 @@ end
 
 fn operand() -> Int
     noisy("first") + Iter.loop(0, fn n ->
-        io.print(10 / n)
+        io.print(10 / NonZeroInt.try_from(n)!)
         n
     end)
 end
@@ -167,7 +167,7 @@ end
 fn arm(x: Int) -> Int
     case x
         0 -> Iter.loop(0, fn n ->
-            io.print(10 / n)
+            io.print(10 / NonZeroInt.try_from(n)!)
             n
         end)
         _ -> x * 10
@@ -179,7 +179,7 @@ fn branch(flag: Bool) -> Int
         return 7
     else
         Iter.loop(0, fn n ->
-            io.print(10 / n)
+            io.print(10 / NonZeroInt.try_from(n)!)
             n
         end)
     end
@@ -191,7 +191,7 @@ fn nested()
         if i < 1 then return i + 1
         Iter.loop(i, fn j ->
             io.print("inner ${j}")
-            io.print(10 / (3 - j))
+            io.print(10 / NonZeroInt.try_from(3 - j)!)
             j + 1
         end)
     end)
@@ -201,7 +201,7 @@ fn conc() -> Int
     concurrent
         io.print("conc")
         Iter.loop(2, fn n ->
-            io.print(10 / n)
+            io.print(10 / NonZeroInt.try_from(n)!)
             n - 1
         end)
     end
@@ -221,20 +221,20 @@ func TestIRLoopEndless_InALambda(t *testing.T) {
 fn main()
     spin = fn limit: Int -> Iter.loop(0, fn n ->
         io.print("spin ${n}")
-        if n == limit then io.print(1 / (n - limit))
+        if n == limit then io.print(1 / NonZeroInt.try_from(n - limit)!)
         n + 1
     end)
     drop = fn label: String ->
         io.print(label)
         _ = Iter.loop(0, fn n ->
-            io.print(10 / (1 - n))
+            io.print(10 / NonZeroInt.try_from(1 - n)!)
             n + 1
         end)
     end
     early = fn x: Int ->
         if x > 0 then return x * 2
         Iter.loop(0, fn n ->
-            io.print(1 / n)
+            io.print(1 / NonZeroInt.try_from(n)!)
             n
         end)
     end
@@ -243,7 +243,7 @@ fn main()
     _ = f
     io.print(spin(2))
 end
-`, "line 6: division by zero", "8\nspin 0\nspin 1\nspin 2\n")
+`, "line 6: `NonZeroInt.try_from(n - limit)` found nothing", "8\nspin 0\nspin 1\nspin 2\n")
 }
 
 func TestIRLoopEndless_TestBodies(t *testing.T) {
@@ -258,7 +258,7 @@ test "a worker loop"
     Iter.loop(0, fn n ->
         io.print("worker ${n}")
         if n < 2 then return n + 1
-        io.print(10 / (2 - n))
+        io.print(10 / NonZeroInt.try_from(2 - n)!)
         n
     end)
 end
@@ -267,7 +267,7 @@ test "a bound loop"
     assert 2 == 2
     x = Iter.loop(fn ->
         io.print("bound")
-        io.print(1 / (1 - 1))
+        io.print(1 / NonZeroInt.try_from(1 - 1)!)
     end)
     io.print("never")
     io.inspect(x)
@@ -278,7 +278,7 @@ test "a loop in an arm"
     case 1
         1 -> Iter.loop(fn ->
             io.print("arm")
-            io.print(1 / (1 - 1))
+            io.print(1 / NonZeroInt.try_from(1 - 1)!)
         end)
         _ -> io.print("other")
     end
@@ -317,9 +317,9 @@ end
 		t.Fatalf("exit %d, report:\n%s", exit, report)
 	}
 	for _, want := range []string{
-		"  worker 0\n  worker 1\n  worker 2\n", "line 8: division by zero",
-		"  bound\n", "line 17: division by zero",
-		"  arm\n", "line 28: division by zero",
+		"  worker 0\n  worker 1\n  worker 2\n", "line 8: `NonZeroInt.try_from(2 - n)` found nothing",
+		"  bound\n", "line 17: `NonZeroInt.try_from(1 - 1)` found nothing",
+		"  arm\n", "line 28: `NonZeroInt.try_from(1 - 1)` found nothing",
 	} {
 		if !strings.Contains(report, want) {
 			t.Errorf("the report lacks %q:\n%s", want, report)

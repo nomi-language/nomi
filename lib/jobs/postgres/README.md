@@ -61,7 +61,7 @@ fn publish(post_id: Int) -> Result<Unit, sql.Error>
 end
 
 fn main()
-    Worker.start(App.worker, [notify_job])
+    Worker.start(App.worker, [notify_job])!
     // ... serve requests that call publish
 end
 ```

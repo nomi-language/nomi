@@ -30,7 +30,7 @@
 import
     bytes.Bytes
     equatable.Equatable
-    int.Int
+    int.Int64
     io.Error
     iter.Iter
     lists.List
@@ -70,7 +70,7 @@ pub struct Answer
     /// The arguments it matches; `None` matches any.
     args: Maybe<List<String>> = None
     /// The exit code.
-    code: Int = 0
+    code: Int64 = 0
     /// What the program writes to its standard output.
     stdout: String = ""
     /// What it writes to its standard error.

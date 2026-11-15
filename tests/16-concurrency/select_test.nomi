@@ -102,7 +102,7 @@ test "receive_within tells a value, a closed channel and a timeout apart"
     assert Receiver.receive_within(ch.receiver, Duration.seconds(0)) == Ok(None)
 end
 
-test "a select with no arms is a fault"
+test "a select takes a non-empty list of arms"
     case compiler.run(
         """
         import std::channels.{Arm, Channel}
@@ -114,7 +114,7 @@ test "a select with no arms is a fault"
         """
     )
         Ok(_)        -> assert False
-        Err(message) -> assert "needs at least one arm" in message
+        Err(message) -> assert "got List<Arm<Int>>" in message and "NonEmptyList" in message
     end
 end
 

@@ -142,3 +142,34 @@ func TestUnwrap_CaptureBody(t *testing.T) {
 		t.Errorf("`&1` is not the capture's parameter")
 	}
 }
+
+// A line that ends in a postfix `!` or `?` ends its statement, as one that
+// ends in `)` does: a `case` arm's body ends there, and the next arm's
+// `.Variant{...}` or `.Variant(...)` pattern starts an arm rather than
+// continuing the body as a field access.
+func TestUnwrap_EndsACaseArmBeforeADotPattern(t *testing.T) {
+	for _, op := range []string{"!", "?"} {
+		for _, next := range []string{".B{x:}", ".B(x)", ".C"} {
+			for _, gap := range []string{"\n", "\n\n"} {
+				src := "case t\n    .A(n) ->\n        Some(n)" + op + gap + "    " + next + " ->\n        x\nend\n"
+				nodes, err := Parse(lexer.Lex(src))
+				if err != nil {
+					t.Errorf("%q: %v", src, err)
+					continue
+				}
+				c, ok := nodes[0].(*ast.ExprStmt).Expr.(*ast.Case)
+				if !ok {
+					t.Errorf("%q: %T, want a case", src, nodes[0].(*ast.ExprStmt).Expr)
+					continue
+				}
+				if len(c.Branches) != 2 {
+					t.Errorf("%q: %d arms, want 2", src, len(c.Branches))
+				}
+			}
+		}
+	}
+	// On one line, a `.` after `!` still reads a field of the unwrapped value.
+	if got := shape(parseExpr(t, "f(x)!.y")); got != "(f(x))!.y" {
+		t.Errorf("f(x)!.y: %s", got)
+	}
+}

@@ -279,7 +279,7 @@ n = Task.await(short)? // the Err has been sitting here the whole time
 Now the program takes five seconds. It still returns `Err("boom")`, but only
 after waiting for the slow task.
 
-A runtime failure, such as dividing by zero, works the same way. You find
+A runtime failure, such as a `!` on `None`, works the same way. You find
 out about it when you await that task. So await first the task you most want
 to hear from.
 
@@ -374,7 +374,8 @@ finished: `b.txt`, `a.txt`, then `missing.txt`, the order of the input.
 `words` returns a `Result`, so the file that isn't there is an `Err` in the
 list, and the other two still finish.
 
-`max_running` is required. For work that only uses the CPU, the number of
+`max_running` is required, and it is a `PositiveInt`: `max_running: 0` does
+not compile. For work that only uses the CPU, the number of
 cores is a good choice. For most other work, the limit protects something
 the tasks talk to: a pool, a queue, an API, or a single worker. If you don't
 know, start low; a limit that is too low is only slower, and you can measure
@@ -590,7 +591,7 @@ ordinary value to `case` on.
 ## When a task fails
 
 So far, tasks ended because they finished or because you stopped them. A
-task can also break: a bug, a bad FFI call, a division by zero.
+task can also break: a bug, a bad FFI call, an index past the end.
 
 A task ends in one of three ways:
 
@@ -609,7 +610,7 @@ A task that returns `Err` completed; `?` passes the `Err` on, as in
 task is passed on by `Task.await` itself, up through owners until
 `Task.outcome`, a supervisor or the top of the program stops it. Nothing at
 the call site shows this. `Task.await` on a `Task<Int>` returns an `Int`.
-A failed task is like a division by zero, not like an `Err` your code chose
+A failed task is like an index past the end, not like an `Err` your code chose
 to return.
 
 To look at what happened instead of having it passed on, ask for the

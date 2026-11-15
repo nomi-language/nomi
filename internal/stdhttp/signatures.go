@@ -97,11 +97,13 @@ func SigGenerateP256() rt.Bytes {
 
 // SigGenerateRSA is `std::signatures::host.generate_rsa`: a new RSA private key
 // of bits bits from crypto/rand, or why bits is out of range.
-func SigGenerateRSA(bits int64) rt.Result[rt.Bytes, string] {
-	if bits < sigRSAMinBits || bits > sigRSAMaxBits {
-		return rt.Err[rt.Bytes](fmt.Sprintf("an RSA key has %d to %d bits, got %d", sigRSAMinBits, sigRSAMaxBits, bits))
+func SigGenerateRSA(bits rt.Int) rt.Result[rt.Bytes, string] {
+	// A count past int64 saturates, and is out of range as the bound is.
+	n := bits.Saturated()
+	if n < sigRSAMinBits || n > sigRSAMaxBits {
+		return rt.Err[rt.Bytes](fmt.Sprintf("an RSA key has %d to %d bits, got %s", sigRSAMinBits, sigRSAMaxBits, bits))
 	}
-	key, err := rsa.GenerateKey(rand.Reader, int(bits))
+	key, err := rsa.GenerateKey(rand.Reader, int(n))
 	if err != nil {
 		return rt.Err[rt.Bytes](err.Error())
 	}

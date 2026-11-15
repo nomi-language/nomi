@@ -372,7 +372,7 @@ func TestDebug_ABoxedExistentialShowsItsValue(t *testing.T) {
 const trapSrc = `import std::io
 
 fn ratio(a: Int, b: Int) -> Int
-  q = a / b
+  q = a <<< (Int.abs(b) + 100_000_000_000)
   q
 end
 
@@ -387,12 +387,12 @@ func TestDebug_ATrapStopsWhereItHappens(t *testing.T) {
 	s.run()
 	st := s.stop()
 	s.at(st, vm.StopTrap, "ratio:4 main:10", "a: Int = 10, b: Int = 0")
-	if !strings.Contains(st.Text, "division by zero") {
+	if !strings.Contains(st.Text, "is too large") {
 		t.Fatalf("the trap's text: %q", st.Text)
 	}
 	s.d.Continue()
 	err := s.finish()
-	if err == nil || !strings.Contains(err.Error(), "division by zero") {
+	if err == nil || !strings.Contains(err.Error(), "is too large") {
 		t.Fatalf("the program's failure after the stop: %v", err)
 	}
 }

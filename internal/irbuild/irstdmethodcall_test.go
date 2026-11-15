@@ -83,3 +83,23 @@ fn main()
 end
 `, "True\nFalse\n3\n42\n")
 }
+
+// A std body that calls another std module's function and leaves a
+// defaulted parameter out calls the arity wrapper the callee's module
+// built: std/json's `ToJson` for Instant writes
+// `NaiveDateTime.from_instant(value)`, whose default `Duration.seconds(0)`
+// names what std/json does not import. It declined before ("qualified
+// call, Type.method: NaiveDateTime.from_instant"), so every program that
+// wrote an Instant as JSON was BLOCKED.
+func TestIRStdMethodCall_StdBodyLeavesOutAnotherModulesDefault(t *testing.T) {
+	verifyLambdaProgram(t, `import
+    std::io
+    std::instant.Instant
+    std::json.ToJson
+end
+
+fn main()
+    io.print(ToJson.to_json(Instant.from_nanos(1_700_000_000_250_000_000)))
+end
+`, "\"2023-11-14T22:13:20.25Z\"\n")
+}

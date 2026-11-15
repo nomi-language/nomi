@@ -23,7 +23,7 @@ func TestIRStdOperator_LinkedFunctionRunsOnTheVM(t *testing.T) {
 		{"add", "+", "Duration", "Duration.nanoseconds(21)", durationVMValue(21), 27},
 		{"subtract", "-", "Duration", "Duration.nanoseconds(21)", durationVMValue(21), -15},
 		{"multiply", "*", "Int", "3", int64(3), 18},
-		{"divide", "/", "Int", "3", int64(3), 2},
+		{"divide", "/", "NonZeroInt", "3", int64(3), 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := fmt.Sprintf(`import

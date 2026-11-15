@@ -200,7 +200,7 @@ func TestProgram_AnalysisDoesNotDependOnCheckOrderOrEntry(t *testing.T) {
 	for key, fragment := range map[string]string{
 		"":       "duplicate impl",
 		"report": "this test has no boot",
-		"shapes": "def 20:10 unit 11 = Int in /shapes.nomi",
+		"shapes": "def 20:10 unit 11 = NonNegativeInt in /shapes.nomi",
 	} {
 		if !strings.Contains(want[key], fragment) {
 			t.Fatalf("%q's dump has no %q:\n%s", key, fragment, want[key])

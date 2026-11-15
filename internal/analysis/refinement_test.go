@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 )
@@ -130,7 +131,7 @@ func TestRefinement_Rejected(t *testing.T) {
 			"type mismatch: expected (Int) -> Bool, got (Int) -> Int"},
 		{"an interface impl", "impl Display for Port\n    fn to_string(_p: Port) -> String\n        \"port\"\n    end\nend\n",
 			"a subtype implements no interface of its own: `Port` is an Int at run time and has Int's impls"},
-		{"a refinement in an impl header", "struct Box\n    n: Int\nend\n\nimpl Divide<Port, Box> for Box\n    fn divide(b: Box, _rhs: Port) -> Box\n        b\n    end\nend\n",
+		{"a refinement in an impl header", "struct Box\n    n: Int\nend\n\nimpl Add<Port, Box> for Box\n    fn add(b: Box, _rhs: Port) -> Box\n        b\n    end\nend\n",
 			"an impl's interface cannot take the subtype `Port` as an argument"},
 		{"a generated name taken", "impl Port\n    fn try_from(n: Int) -> Maybe<Port>\n        None\n    end\nend\n",
 			"`Port.try_from` is generated for `Port`; name this function otherwise"},
@@ -316,4 +317,64 @@ func TestRefinement_SeveralParentsLiteralSteps(t *testing.T) {
 		return
 	}
 	t.Fatal("no literal was checked as a Small")
+}
+
+// RuleText quotes a rule on one line when it reads as one, and keeps the
+// formatter's lines when joining them would not parse: std/json's
+// JsonObject rule is a `case`, whose arms each start a line, and the stdlib
+// reference renders its signature from this text.
+func TestRuleText_KeepsLinesARuleNeeds(t *testing.T) {
+	cases := []struct {
+		name, src, want string
+	}{
+		{
+			name: "one line",
+			src:  "subtype Port Int when fn port -> port >= 1 and port <= 65535\n",
+			want: "fn port -> port >= 1 and port <= 65535",
+		},
+		{
+			name: "one expression on the line after the arrow",
+			src:  "subtype Port Int when fn port ->\n    port >= 1 and port <= 65535\nend\n",
+			want: "fn port -> port >= 1 and port <= 65535",
+		},
+		{
+			name: "a case",
+			src:  "subtype Small Int when fn n ->\n    case n\n        0 -> True\n        _ -> False\n    end\nend\n",
+			want: "fn n ->\n    case n\n        0 -> True\n        _ -> False\n    end\nend",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			nodes, err := parser.Parse(lexer.Lex(c.src))
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			td, ok := nodes[0].(*ast.TypeDef)
+			if !ok || td.Rule == nil {
+				t.Fatalf("no rule in %#v", nodes[0])
+			}
+			if got := analysis.RuleText(td.Rule); got != c.want {
+				t.Fatalf("RuleText = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// A rule holding a syntax error, as a recovered tree gives it mid-edit,
+// renders with a marker where the parser could not read: the type builder
+// quotes every rule, and before the formatter emitted an ErrorNode this
+// panicked the whole check.
+func TestRuleText_ARuleWithASyntaxErrorRenders(t *testing.T) {
+	src := "subtype Small Int when fn n -> case n 0 -> True _ -> False end\n"
+	nodes, errs, _ := parser.ParseResilient(lexer.Lex(src))
+	if len(errs) == 0 {
+		t.Fatal("the parser accepts a case's arms on its header's line; the fixture needs a source it recovers from")
+	}
+	td, ok := nodes[0].(*ast.TypeDef)
+	if !ok || td.Rule == nil {
+		t.Fatalf("no recovered rule in %#v", nodes[0])
+	}
+	if got := analysis.RuleText(td.Rule); !strings.Contains(got, "<syntax error>") {
+		t.Fatalf("RuleText = %q, want the syntax error's marker", got)
+	}
 }

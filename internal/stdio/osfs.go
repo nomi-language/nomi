@@ -317,7 +317,7 @@ func (d *disk) Rename(from, to string) *rt.IOError {
 }
 
 func infoOf(info fs.FileInfo) Info {
-	return Info{Kind: kindOf(info.Mode().Type()), Size: info.Size(), Modified: info.ModTime().UnixNano(),
+	return Info{Kind: kindOf(info.Mode().Type()), Size: info.Size(), Modified: info.ModTime(),
 		Mode: int64(info.Mode().Perm())}
 }
 

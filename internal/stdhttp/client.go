@@ -50,13 +50,37 @@ func dur(ns int64) time.Duration { return time.Duration(ns) }
 // (http2Config); proxyHeaders alternate name and value, sent with each
 // CONNECT to a proxy. onProxyConnect, when set, sees each CONNECT's answer
 // (the proxy URL, status and headers) and answers "" to go on or why not.
-func NewClient(timeout, redirects, proxy int64, proxyURL string, tlsHandshakeTimeout int64,
-	keepAlives, compression bool, maxIdle, maxIdlePerHost, maxPerHost, idleTimeout,
-	responseHeaderTimeout, expectContinueTimeout, maxResponseHeaderBytes, writeBufferSize,
-	readBufferSize int64, forceHTTP2 bool, protocols *rt.List[bool], hasProtocols bool,
-	http2 *rt.List[int64], http2Flags *rt.List[bool], proxyHeaders *rt.List[string],
-	onProxyConnect func(*rt.Frame, string, int64, *rt.List[string]) string, hasOnProxyConnect bool,
-	onCountError func(*rt.Frame, string) rt.Unit, hasOnCountError bool) rt.HTTPClient {
+func NewClient(
+	timeoutArg, redirectsArg, proxyArg rt.Int,
+	proxyURL string,
+	tlsHandshakeTimeoutArg rt.Int,
+	keepAlives, compression bool,
+	maxIdleArg, maxIdlePerHostArg, maxPerHostArg, idleTimeoutArg, responseHeaderTimeoutArg, expectContinueTimeoutArg, maxResponseHeaderBytesArg, writeBufferSizeArg, readBufferSizeArg rt.Int,
+	forceHTTP2 bool,
+	protocols *rt.List[bool],
+	hasProtocols bool,
+	http2Arg *rt.List[rt.Int],
+	http2Flags *rt.List[bool],
+	proxyHeaders *rt.List[string],
+	onProxyConnect func(*rt.Frame, string, int64, *rt.List[string]) string,
+	hasOnProxyConnect bool,
+	onCountError func(*rt.Frame, string) rt.Unit,
+	hasOnCountError bool,
+) rt.HTTPClient {
+	http2 := saturatedList(http2Arg)
+	timeout := timeoutArg.Saturated()
+	redirects := redirectsArg.Saturated()
+	proxy := proxyArg.Saturated()
+	tlsHandshakeTimeout := tlsHandshakeTimeoutArg.Saturated()
+	maxIdle := maxIdleArg.Saturated()
+	maxIdlePerHost := maxIdlePerHostArg.Saturated()
+	maxPerHost := maxPerHostArg.Saturated()
+	idleTimeout := idleTimeoutArg.Saturated()
+	responseHeaderTimeout := responseHeaderTimeoutArg.Saturated()
+	expectContinueTimeout := expectContinueTimeoutArg.Saturated()
+	maxResponseHeaderBytes := maxResponseHeaderBytesArg.Saturated()
+	writeBufferSize := writeBufferSizeArg.Saturated()
+	readBufferSize := readBufferSizeArg.Saturated()
 	b := newBroker()
 	tr := &http.Transport{
 		DialContext:            (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
@@ -130,7 +154,8 @@ func NewClient(timeout, redirects, proxy int64, proxyURL string, tlsHandshakeTim
 }
 
 var defaultClient = sync.OnceValue(func() rt.HTTPClient {
-	return NewClient(0, 10, 0, "", int64(10*time.Second), true, true, 100, 2, 0, int64(90*time.Second), 0, int64(time.Second), 0, 0, 0, true,
+	n := rt.SmallInt
+	return NewClient(n(0), n(10), n(0), "", n(int64(10*time.Second)), true, true, n(100), n(2), n(0), n(int64(90*time.Second)), n(0), n(int64(time.Second)), n(0), n(0), n(0), true,
 		nil, false, nil, nil, nil, nil, false, nil, false)
 })
 
@@ -175,9 +200,26 @@ const (
 // Err is the http.Error's variant name and its fields (errorParts). With
 // stream false the body is read whole, refused past maxBody bytes when
 // maxBody is not negative; with stream true it stays open for the reader.
-func Send(fr *rt.Frame, c rt.HTTPClient, method, target string, headers *rt.List[string], bodyKind int64,
-	data rt.Bytes, input rt.Reader, contentLength int64, host string, closes bool, trailers *rt.List[string],
-	stream bool, maxBody int64, tracer rt.HTTPHandle, traced bool) rt.Result[rt.HTTPExchange, *rt.List[string]] {
+func Send(
+	fr *rt.Frame,
+	c rt.HTTPClient,
+	method, target string,
+	headers *rt.List[string],
+	bodyKindArg rt.Int,
+	data rt.Bytes,
+	input rt.Reader,
+	contentLengthArg rt.Int,
+	host string,
+	closes bool,
+	trailers *rt.List[string],
+	stream bool,
+	maxBodyArg rt.Int,
+	tracer rt.HTTPHandle,
+	traced bool,
+) rt.Result[rt.HTTPExchange, *rt.List[string]] {
+	bodyKind := bodyKindArg.Saturated()
+	contentLength := contentLengthArg.Saturated()
+	maxBody := maxBodyArg.Saturated()
 	fail := func(parts ...string) rt.Result[rt.HTTPExchange, *rt.List[string]] {
 		return rt.Err[rt.HTTPExchange](listOf(parts))
 	}
@@ -399,7 +441,7 @@ func CanonicalKey(name string) string { return http.CanonicalHeaderKey(name) }
 
 // StatusText is `std::http::host.status_text`: Go's StatusText, "" for a code it
 // does not name.
-func StatusText(code int64) string { return http.StatusText(int(code)) }
+func StatusText(code rt.Int) string { return http.StatusText(int(code.Saturated())) }
 
 // readerInput is a Reader as an io.Reader, for a request body.
 type readerInput struct {
@@ -413,7 +455,7 @@ func (in readerInput) Read(p []byte) (n int, err error) {
 			n, err = 0, errors.New("http: the request body's read was cancelled")
 		}
 	}()
-	chunk := rt.ReaderRead(in.fr, in.r, int64(len(p)))
+	chunk := rt.ReaderRead(in.fr, in.r, rt.SmallInt(int64(len(p))))
 	if chunk.Tag != rt.TagOk {
 		return 0, rt.IOFailure{E: chunk.Err}
 	}

@@ -60,7 +60,7 @@ once tens = Vector[
 ]
 
 /// Each scale word with the number it counts, largest first.
-once scales = [
+once scales: List<(PositiveInt, String)> = [
     (1_000_000_000, "billion"),
     (1_000_000,     "million"),
     (1000,          "thousand"),
@@ -152,7 +152,7 @@ test result: ok. 19 passed, 0 failed
 ## How it's written
 
 - `say` returns `Result<String, Error>`, with `Error.OutOfRange` for a number below zero or above 999,999,999,999. The range check is the one place a number can fail, so the rest of the code works on numbers already in range.
-- `words` is one recursive rule for every scale: find the largest of billion, million, thousand and hundred that the number reaches, say how many of it (`words(n / size)`), then say the rest when there is one. "Hundred" is a scale like the others, so "nine hundred eighty-seven billion" falls out of the same rule twice.
+- `words` is one recursive rule for every scale: find the largest of billion, million, thousand and hundred that the number reaches, say how many of it (`words(n / size)`), then say the rest when there is one. The scales are a `once` table annotated `List<(PositiveInt, String)>`, so each size is a divisor `/` and `%` take. "Hundred" is a scale like the others, so "nine hundred eighty-seven billion" falls out of the same rule twice.
 - Below a hundred, the words come from two `Vector` tables, `small` for 0 to 19 and `tens` by tens digit, joined with a hyphen when the ones digit is not zero. The tables are `once` bindings, read with `Vector.get(...)!` at an index the range check and the arithmetic keep in bounds (style §29).
 - The scales are a list of `(size, name)` tuples, largest first, so `Iter.find` with `n >= size` picks the largest one the number reaches.
 - Large literals are written with digit separators, `987_654_321_123`, in the solution and the tests.

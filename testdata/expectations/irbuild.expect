@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 373
+records 374
 declared-cases 0
-failing 85
+failing 84
 C assert_subject_test.nomi@295b6bb031afecb5
 E 1
 N 0
@@ -1725,39 +1725,6 @@ T   "hi"
 T   dbg line 10: Json.to_dynamic(Json.String("four")) = "four"
 T test result: ok. 1 passed, 0 failed
 T
-C group_test.nomi@0092e7456b542d7f
-E 1
-N 0
-H d30e279a268202cc1bc9ad18c95461eafffab0e4c8e68cf71b717b775c9b9aab
-S -- group_test.nomi 276 --
-S pub struct App
-S   context: Context
-S   n: Int
-S end
-S
-S fn zero() -> Int
-S   0
-S end
-S
-S pub fn boot() -> Result<App, String>
-S   Ok(App{context: Context.root(), n: 10 / zero()})
-S end
-S
-S fn main() end
-S
-S group "group"
-S   boot boot()
-S
-S   test "never reaches its body"
-S     assert App.n == 10
-S   end
-S end
-S
-S
-T FAIL <dir>/group_test.nomi :: group / never reaches its body
-T   line 11: division by zero
-T test result: FAILED. 0 passed, 1 failed
-T
 C group_test.nomi@05c870498b88d42d
 E 0
 N 0
@@ -1793,6 +1760,39 @@ S
 T ok <dir>/group_test.nomi :: group / reads the app
 T   boot
 T test result: ok. 1 passed, 0 failed
+T
+C group_test.nomi@0ab75a3911fa8627
+E 1
+N 0
+H f6809736d0b4ad6a6351284cae346b0cb9b5020e717379f8793ed6aac2fd7ac6
+S -- group_test.nomi 298 --
+S pub struct App
+S   context: Context
+S   n: Int
+S end
+S
+S fn zero() -> Int
+S   0
+S end
+S
+S pub fn boot() -> Result<App, String>
+S   Ok(App{context: Context.root(), n: 10 / NonZeroInt.try_from(zero())!})
+S end
+S
+S fn main() end
+S
+S group "group"
+S   boot boot()
+S
+S   test "never reaches its body"
+S     assert App.n == 10
+S   end
+S end
+S
+S
+T FAIL <dir>/group_test.nomi :: group / never reaches its body
+T   line 11: `NonZeroInt.try_from(zero())` found nothing
+T test result: FAILED. 0 passed, 1 failed
 T
 C group_test.nomi@0c05a911d4606d0a
 E 0
@@ -2226,11 +2226,63 @@ S
 T ok <dir>/group_test.nomi :: spawn over a called supervisor / both tasks report
 T test result: ok. 1 passed, 0 failed
 T
-C group_test.nomi@b71ff5f49faa5031
+C group_test.nomi@bcd4d4a2bd8b8c03
 E 0
 N 0
-H e019c6e21c78ff249c81afe7868bda70b47a34ab26570bb52c25d9e725941521
-S -- counter_app.nomi 6186 --
+H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
+S -- group_test.nomi 699 --
+S import
+S   std::duration.Duration
+S   std::io
+S   std::supervisors.Supervisor
+S   std::testing.Clock
+S   std::timer
+S end
+S
+S pub struct App
+S   context: Context
+S   work: Supervisor
+S end
+S
+S pub fn boot() -> Result<App, String>
+S   Ok(App{context: Context.root(), work: Supervisor.new(max_running: 2)})
+S end
+S
+S fn main() end
+S
+S fn slow() -> Unit
+S   timer.sleep(Duration.minutes(10))
+S   io.print("slow work done")
+S end
+S
+S group "virtual"
+S   clock Clock.Virtual
+S
+S   boot boot()
+S
+S   test "an hour passes at once"
+S     timer.sleep(Duration.minutes(60))
+S     assert 1 == 1
+S   end
+S
+S   test "a group's work is flushed in virtual time"
+S     _ = Supervisor.spawn(App.work, fn -> slow())
+S     _ = Supervisor.flush(App.work)
+S     assert 2 == 2
+S   end
+S end
+S
+S
+T ok <dir>/group_test.nomi :: virtual / an hour passes at once
+T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
+T   slow work done
+T test result: ok. 2 passed, 0 failed
+T
+C group_test.nomi@c9a21f773c6fdf40
+E 0
+N 0
+H 9fb3004f92c0c9f46e3113d502f2bcaa2b914ec2bfb95e62d939d76edf503bd4
+S -- counter_app.nomi 6208 --
 S //# A single long-lived worker owning mutable state, driven by messages.
 S //#
 S //# This is the shape you reach for when several callers need to share
@@ -2333,7 +2385,7 @@ S                 count
 S
 S             // Stands in for a handler with a bug in it.
 S             Some(Request.Explode) ->
-S                 divisor = 0
+S                 divisor = NonZeroInt.try_from(0)!
 S                 count / divisor
 S
 S             // The inbox closed and drained: no more work is coming.
@@ -2476,59 +2528,7 @@ T ok <dir>/group_test.nomi :: a message-driven worker / a handler that breaks re
 T ok <dir>/group_test.nomi :: a message-driven worker / a call observes every cast queued before it
 T test result: ok. 4 passed, 0 failed
 T --- stderr ---
-T nomi: background task errored (attempt 1): line 104: division by zero — retrying in <jitter>
-T
-C group_test.nomi@bcd4d4a2bd8b8c03
-E 0
-N 0
-H 236157263803fe1ce52c0756ac47ff1846250a9cdb21ccb4902b0a258d0cde29
-S -- group_test.nomi 699 --
-S import
-S   std::duration.Duration
-S   std::io
-S   std::supervisors.Supervisor
-S   std::testing.Clock
-S   std::timer
-S end
-S
-S pub struct App
-S   context: Context
-S   work: Supervisor
-S end
-S
-S pub fn boot() -> Result<App, String>
-S   Ok(App{context: Context.root(), work: Supervisor.new(max_running: 2)})
-S end
-S
-S fn main() end
-S
-S fn slow() -> Unit
-S   timer.sleep(Duration.minutes(10))
-S   io.print("slow work done")
-S end
-S
-S group "virtual"
-S   clock Clock.Virtual
-S
-S   boot boot()
-S
-S   test "an hour passes at once"
-S     timer.sleep(Duration.minutes(60))
-S     assert 1 == 1
-S   end
-S
-S   test "a group's work is flushed in virtual time"
-S     _ = Supervisor.spawn(App.work, fn -> slow())
-S     _ = Supervisor.flush(App.work)
-S     assert 2 == 2
-S   end
-S end
-S
-S
-T ok <dir>/group_test.nomi :: virtual / an hour passes at once
-T ok <dir>/group_test.nomi :: virtual / a group's work is flushed in virtual time
-T   slow work done
-T test result: ok. 2 passed, 0 failed
+T nomi: background task errored (attempt 1): line 103: `NonZeroInt.try_from(0)` found nothing — retrying in <jitter>
 T
 C group_test.nomi@dd45159c9281cc2a
 E 1
@@ -3279,7 +3279,7 @@ T arity6_rejects = second out of range: 99
 T nanos_reject = nanosecond out of range: 1000000000
 T arity5_rejects = day 30 not valid for 2026-02
 T
-C internal/irbuild/testdata/calendar_offset_datetime.nomi@bf2e12e8b449f23d
+C internal/irbuild/testdata/calendar_offset_datetime.nomi@93689e52a392e873
 E 0
 N 0
 H db05fbe831c289085a35f8628bc311bbc1f19f0a2d809415505abd648c40de0a
@@ -3597,7 +3597,7 @@ T
 C internal/irbuild/testdata/compiler_run.nomi@9865b0aabb5e951f
 E 0
 N 0
-H 9d3cf7e7b475d174c86ea48ae1d49ae952a9f33b0de3b3367853f993f658d4a2
+H de1f86fdd83154f2d9072f627f07bff7bac929fbea9134125a4b8bd73bda7041
 T plain = [hi
 T ]
 T order = [a
@@ -3609,8 +3609,10 @@ T ]
 T parse = ERR line 1, col 1: expected `end` to close a function's body
 T analysis = ERR analysis errors:
 T   line 2, col 7: undefined variable 'missing'
-T trap = ERR line 5: division by zero
-T trap_after_print = ERR line 6: division by zero
+T trap = ERR analysis errors:
+T   line 5, col 30: division by zero: `zero` is 0 here
+T trap_after_print = ERR analysis errors:
+T   line 6, col 30: division by zero: `zero` is 0 here
 T assert_fail = ERR line 4: assertion failed
 T stdlib = [x
 T ]
@@ -3957,7 +3959,7 @@ T       r
 T         = Rev{alpha: 2, zeta: 1}
 T test result: FAILED. 1 passed, 1 failed
 T
-C internal/irbuild/testdata/decimal.nomi@4cfce85858a4f572
+C internal/irbuild/testdata/decimal.nomi@9b67571ae768fc70
 E 1
 N 0
 H d31b156b6528c8fca0b4dcb1973b37804a8b623447926626d62de8a1c9484375
@@ -5844,21 +5846,21 @@ T base 5
 T port 8080 label svc
 T shadowed 1 port still 8080
 T
-C internal/irbuild/testdata/once_cycle.nomi@2dada21f551b1df6
+C internal/irbuild/testdata/once_cycle.nomi@8758eba603a029a0
 E 1
 N 0
-H 6b5fa7343b6e61aa3ccd291bb9df43e5d961d7b9c9211d47e93f935388b64314
+H 75958482f8e44b4772d82479d35bd4de805c5eda4e9e2511206789a3b7cfcc30
 T start
 T --- stderr ---
-T line 16: cyclic 'once' binding: 'seed' depends on itself
+T line 17: cyclic 'once' binding: 'seed' depends on itself
 T
-C internal/irbuild/testdata/once_cycle_files/main.nomi@ff96b53dc52a94c2
+C internal/irbuild/testdata/once_cycle_files/main.nomi@9e62fcc1845997ef
 E 1
 N 0
-H 81a16f11488ffc2cfb16747d31a8c631d84e5f30ace37f09dd8a59a61c0993da
+H ec9a1c913ebe2e2789257cc8107e1f2a995918cc7de43babbaa34db9a28ad40f
 T start
 T --- stderr ---
-T line 8: cyclic 'once' binding: 'seed' depends on itself
+T line 9: cyclic 'once' binding: 'seed' depends on itself
 T
 C internal/irbuild/testdata/once_sibling/main.nomi@7596540c02b8edc2
 E 0
@@ -6177,7 +6179,7 @@ T lambda = 42
 T piped into print
 T total = 6
 T
-C internal/irbuild/testdata/placeholder.nomi@31b0a5ca15cfd8ce
+C internal/irbuild/testdata/placeholder.nomi@3309bd36870b9b55
 E 0
 N 0
 H 60e642ae732f4c2d50c29e9783d0c2349ea64d1bebdd85007073c242dbdb5c19
@@ -6433,7 +6435,7 @@ H 2b48c751028e728603da863ad6f0d914846af50021c61d0ff00828d63bc9086d
 T depth = 2
 T weight = 5
 T
-C internal/irbuild/testdata/rem_min_no_trap.nomi@afdd8a526a9e0236
+C internal/irbuild/testdata/rem_min_no_trap.nomi@846b417ccea96407
 E 0
 N 0
 H 1101f7396d4dcea29980bbaeda8f96c53af8073cc930a4f24d5c78ca87ca7a57
@@ -6485,21 +6487,6 @@ T geo diff:    False
 T geo nan:     True
 T local same:  True
 T local diff:  False
-T
-C internal/irbuild/testdata/scalar_operator_traps.nomi@c362a380e3b9bbef
-E 1
-N 0
-H d9e15fbb3c01b6bc683253c10bc9ca75148c10b310111f5398e982693d3688c8
-T ok <dir>/scalar_operator_traps.nomi :: the written-out impls agree on every non-trapping answer
-T ok <dir>/scalar_operator_traps.nomi :: the written-out impls are exact past 64 bits, as the operators are
-T ok <dir>/scalar_operator_traps.nomi :: a Float divide by zero is IEEE and does not trap
-T FAIL <dir>/scalar_operator_traps.nomi :: an impl-form Divide by zero blames the call's own line
-T   line 38: division by zero
-T FAIL <dir>/scalar_operator_traps.nomi :: an operator divide by zero blames the operator's own line
-T   line 42: division by zero
-T FAIL <dir>/scalar_operator_traps.nomi :: an operator remainder by zero blames the operator's own line
-T   line 46: division by zero
-T test result: FAILED. 3 passed, 3 failed
 T
 C internal/irbuild/testdata/seed_function_value.nomi@9efe5db4e6c8a5a7
 E 0
@@ -6831,7 +6818,7 @@ T has present: True
 T has absent: False
 T has on Int: False
 T
-C internal/irbuild/testdata/std_enum_modes.nomi@3004eb8385933ecd
+C internal/irbuild/testdata/std_enum_modes.nomi@20c32c71b87a4789
 E 1
 N 0
 H a39647a2aadb77e449ca901dba0853a52bbc90fbf3845bafb4cb5408a38f5a24
@@ -7006,53 +6993,37 @@ T inspect float: 2.5
 T hash zero: 0
 T hash int: 7
 T
-C internal/irbuild/testdata/stdlib_trap_clamp.nomi@2b7243a074648aad
+C internal/irbuild/testdata/stdlib_trap_deep.nomi@89fc01a61a6c6892
 E 1
 N 0
-H 71587b854d70208421337e078120977baf1a9d2e53896026697ac3c875c0dc09
+H 6306f3a518f008af164416f21dcb69ea4ed3b360fa5c3c5b1773542b3ca46aa2
 T before
 T --- stderr ---
-T line 9: Comparable.clamp: low 2.0 is greater than high 1.0
+T line 11: Decimal.round: scale 4294967298 is past a Decimal's, which is -2147483648 to 2147483647
 T
-C internal/irbuild/testdata/stdlib_trap_deep.nomi@1de068afbfeb0ed5
+C internal/irbuild/testdata/stdlib_trap_host.nomi@8b9365ac23aa457b
 E 1
 N 0
-H d98ee471e16db8574b76e25d63c823b0086261a86621cbdd6d8ba2aa2f583270
+H 31e55ccdd86fdb6687fc9dd389d0144d0ad834e55ba675d0f4e087e92e1bd619
 T before
 T --- stderr ---
-T line 15: Duration out of range: 9223372036854775808 nanoseconds is more than a Duration holds, about 292 years either way
+T line 17: Int.pow: exponent 100000000000 is too large: the power would have more than 17179869184 bits
 T
-C internal/irbuild/testdata/stdlib_trap_lambda.nomi@26e25cd9ce7cae03
+C internal/irbuild/testdata/stdlib_trap_lambda.nomi@0534bc007fc95a16
 E 1
 N 0
-H 6c29e338d06ebb3fb4731e9a9806b54731c8d32d7ad07ab142de062bbe91fd98
+H fff350577b32e77af0529d62c51bb91fb32efaa6c7da526f6c455f7493287c45
 T before
 T --- stderr ---
-T line 12: division by zero
+T line 12: `NonZeroInt.try_from(divisor)` found nothing
 T
-C internal/irbuild/testdata/stdlib_trap_modulo.nomi@fbaa39813ae09ceb
+C internal/irbuild/testdata/stdlib_trap_shift.nomi@30d99e073346acac
 E 1
 N 0
-H 70dddc006f5aca8027746a39090776e09ad1b6cbc1e6b781b58c08295e3be497
+H f473513cc2593a01979de006bcacd908b0019b77419878c2198173b5f6347960
 T before
 T --- stderr ---
-T line 8: division by zero
-T
-C internal/irbuild/testdata/stdlib_trap_repeat.nomi@1095f5a23e254588
-E 1
-N 0
-H 44db7036b251cb691a4e33863129713dc42ea8e12c349d1af0103e9cfb6b6e3c
-T before
-T --- stderr ---
-T line 17: strings.String.repeat: negative count -2
-T
-C internal/irbuild/testdata/stdlib_trap_shift.nomi@5cce6e0e50bb5800
-E 1
-N 0
-H 07b3cd83dbc0f20c01b5f11dbb013a7f4f8f170d12f139f67b6958688931fa65
-T before
-T --- stderr ---
-T line 9: negative shift count -1
+T line 9: shift count 100000000000 is too large: the result would have more than 17179869184 bits
 T
 C internal/irbuild/testdata/stdstruct_defaults.nomi@81bd8660c46ff3ea
 E 0
@@ -7628,12 +7599,12 @@ T       3 < 2
 T         = False
 T test result: FAILED. 0 passed, 2 failed
 T
-C internal/irbuild/testdata/tests_trap.nomi@96713ef1a667a0f4
+C internal/irbuild/testdata/tests_trap.nomi@3a8edf2d5d079907
 E 1
 N 0
-H 3f522fbd0d38769763acc3a3ae8d692ad5862b45c1ba186a8f35df0fc73717a6
+H f2049e71a9c9fb2b087da2a5c7d1d32c44a233fe4229ff34ac6df1b0434dd87f
 T FAIL <dir>/tests_trap.nomi :: a fault inside a test
-T   line 6: division by zero
+T   line 6: `NonZeroInt.try_from(zero)` found nothing
 T ok <dir>/tests_trap.nomi :: the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T
@@ -7653,22 +7624,6 @@ T raw:x = 1
 T raw:y = 2
 T z = 3
 T "7" = "a \"b\""
-T
-C internal/irbuild/testdata/trap_div_zero.nomi@a2e3fbbc383ee77c
-E 1
-N 0
-H d9e9cec55635611976fa2cacd7987821bbc10ff1260f5fc31d187b0f3b4632d9
-T before
-T --- stderr ---
-T line 4: division by zero
-T
-C internal/irbuild/testdata/trap_rem_zero.nomi@bc901e2c038c6e84
-E 1
-N 0
-H d9e9cec55635611976fa2cacd7987821bbc10ff1260f5fc31d187b0f3b4632d9
-T before
-T --- stderr ---
-T line 4: division by zero
 T
 C internal/irbuild/testdata/try_attached.nomi@58c4878ee5e25ef2
 E 1
@@ -7773,7 +7728,7 @@ T untyped: keeps 9 [1, 2, 3]
 T pattern: a4=True b2=True
 T pattern: nested 21
 T
-C internal/irbuild/testdata/tuples.nomi@19602ca5733ed03e
+C internal/irbuild/testdata/tuples.nomi@880f05c2f99d4796
 E 0
 N 0
 H a20d3b45de36108a456783cb0e47ec76afd6e5ddad8a1775ea3adff009a08146
@@ -8011,7 +7966,7 @@ T 5/1
 T lib
 T entry
 T
-C internal/irbuild/testdata/vectors.nomi@eaafce8d29900e44
+C internal/irbuild/testdata/vectors.nomi@4179a2d720eb04b1
 E 0
 N 0
 H c28d7fbe3450164cdb00b0c10d3489e4301f231f1db6b49d614205d71cab212a
@@ -8096,12 +8051,12 @@ T ok <dir>/virtual_clock.nomi :: back on the system clock / a tiny real sleep st
 T ok <dir>/virtual_clock.nomi :: no clause / the real clock is the default
 T test result: ok. 6 passed, 0 failed
 T
-C internal/irbuild/testdata/virtual_clock_trap.nomi@5d12715ac8362cfa
+C internal/irbuild/testdata/virtual_clock_trap.nomi@b7ffcd03641549d1
 E 1
 N 0
-H d336d73a7aefd22dc4d91ed67e0ede60a131fd45b613ca6d6af26a403dd92d6c
+H 618bf95f560ce59752a6617bf7467393cfc509e61507f85bf5700d0210cd7b3b
 T FAIL <dir>/virtual_clock_trap.nomi :: a fault under a virtual clock / the trap's own text survives the bubble
-T   line 27: division by zero
+T   line 27: `NonZeroInt.try_from(n)` found nothing
 T ok <dir>/virtual_clock_trap.nomi :: a fault under a virtual clock / the next case still runs
 T test result: FAILED. 1 passed, 1 failed
 T
@@ -8270,10 +8225,31 @@ T       n
 T         = 3
 T test result: FAILED. 1 passed, 5 failed
 T
+C main.nomi@2c6c1ae1cd739c70
+E 1
+N 0
+H 194a4e22f11b1da0a4f718abe2dcc4db4b8d2c91874b8e2189b1ff910ae3103e
+S -- main.nomi 158 --
+S import std::io
+S fn main()
+S  xs = Iter.map([0, 1], fn n ->
+S   io.print(n)
+S   10 / NonZeroInt.try_from(n)!
+S  end)
+S  io.print("created")
+S  io.print(Iter.count(xs))
+S end
+S
+S
+T created
+T 0
+T --- stderr ---
+T line 5: `NonZeroInt.try_from(n)` found nothing
+T
 C main.nomi@2d3954675b23b9b5
 E 1
 N 0
-H 7138a8bc81745c5aa87808f13c738b784fac77148089ed545999a426210af3f7
+H bb0a6a090fdaa2008f1a795edfbf37d8d29f1451e66220e1e8c1a959c9a6e124
 S -- main.nomi 139 --
 S import std::io
 S fn main()
@@ -8286,15 +8262,18 @@ S  io.print(Iter.is_empty(xs))
 S end
 S
 S
-T created
-T 0
 T --- stderr ---
-T line 5: division by zero
+T error: `/` divides by a NonZeroInt; `n` is an Int
+T  --> <dir>/main.nomi:5:8
+T   |
+T 5 |   10 / n
+T   |        ^
+T   = help: check it first (`if n == 0 then ...`) or take a NonZeroInt
 T
 C main.nomi@2f913b685b9c9f74
 E 1
 N 0
-H e74119ad4c04372bfb9c7557c8902cd6963f2449a273d72f59a140b3b31b87a3
+H 564333a210b76d0a07c47e8bba91b66d0f121dc3f1abd846fe3d900ac49aae98
 S -- main.nomi 110 --
 S import std::io
 S fn divide() -> Int
@@ -8307,12 +8286,17 @@ S end
 S
 S
 T --- stderr ---
-T line 4: division by zero
+T error: division by zero: `zero` is 0 here
+T  --> <dir>/main.nomi:4:20
+T   |
+T 4 |  Divide.divide(20, zero)
+T   |                    ^^^^
+T   = help: `Divide.divide` divides by a NonZeroInt
 T
 C main.nomi@322e6ce0b865b9b7
 E 1
 N 0
-H bce7ca7cd54ae9577e128f84f213ae1d1507d37f17c8654d95194a364d14f133
+H fe72d9081cfde460278753e0a720f100596bc5070d70b84954be047a2e8b6669
 S -- main.nomi 61 --
 S import std::io
 S fn main()
@@ -8321,12 +8305,17 @@ S end
 S
 S
 T --- stderr ---
-T line 3: division by zero
+T error: division by zero: this divisor is always 0
+T  --> <dir>/main.nomi:3:25
+T   |
+T 3 |  io.print(Int.divide(1, 1 - 1))
+T   |                         ^
+T   = help: `Int.divide` divides by a NonZeroInt
 T
 C main.nomi@4d7140c8c96df3c3
 E 1
 N 0
-H f664a6b8c163787ab9d55c6a9ca8f90cf3ad85f9c582c94da8c9172cd7a3bf6d
+H 3ffc5685c3da2155fc889b875e7223bc8707f4a70aef7b7c8240f3d4f6187893
 S -- main.nomi 183 --
 S import std::io
 S fn source() -> Result<Int, Int>
@@ -8341,14 +8330,40 @@ S  io.print("after")
 S end
 S
 S
+T --- stderr ---
+T error: `/` divides by a NonZeroInt; `n` is an Int
+T  --> <dir>/main.nomi:8:7
+T   |
+T 8 |   1 / n
+T   |       ^
+T   = help: check it first (`if n == 0 then ...`) or take a NonZeroInt
+T
+C main.nomi@5c2cecec57c25306
+E 1
+N 0
+H 7390a81d0e64e977a804754f8f05a815351e681d439423a83afed9c4c3f7388e
+S -- main.nomi 205 --
+S import std::io
+S fn source() -> Result<Int, Int>
+S     Err(0)
+S end
+S fn main()
+S  io.inspect(Result.map_err(source(), fn n: Int ->
+S   io.print("callback")
+S   1 / NonZeroInt.try_from(n)!
+S  end))
+S  io.print("after")
+S end
+S
+S
 T callback
 T --- stderr ---
-T line 8: division by zero
+T line 8: `NonZeroInt.try_from(n)` found nothing
 T
 C main.nomi@5cecff7ca9c3f0fd
 E 1
 N 0
-H bce7ca7cd54ae9577e128f84f213ae1d1507d37f17c8654d95194a364d14f133
+H 14a4954a1ff6562224b6b09c4dc52fee4a0b96e1f1fc1908ea80d765ba3f361e
 S -- main.nomi 64 --
 S import std::io
 S fn main()
@@ -8357,12 +8372,62 @@ S end
 S
 S
 T --- stderr ---
-T line 3: division by zero
+T error: division by zero: this divisor is always 0
+T  --> <dir>/main.nomi:3:28
+T   |
+T 3 |  io.print(Divide.divide(1, 1 - 1))
+T   |                            ^
+T   = help: `Divide.divide` divides by a NonZeroInt
+T
+C main.nomi@74f01acb4db56e79
+E 1
+N 0
+H f76a746490301ad3dffc8b0d338cacfa6e0c08aa9541a2b17c344d02ca1d33cd
+S -- main.nomi 211 --
+S import std::io
+S fn main()
+S  xs = Iter.map([2, 1], fn n ->
+S      io.print(n)
+S      n
+S  end)
+S  io.inspect(Iter.sort_with(xs, fn a, b ->
+S   io.print("compare")
+S   Int.compare(a / NonZeroInt.try_from(b - b)!, b)
+S  end))
+S end
+S
+S
+T 2
+T 1
+T compare
+T --- stderr ---
+T line 9: `NonZeroInt.try_from(b - b)` found nothing
+T
+C main.nomi@7e618176c498eea7
+E 1
+N 0
+H 194a4e22f11b1da0a4f718abe2dcc4db4b8d2c91874b8e2189b1ff910ae3103e
+S -- main.nomi 161 --
+S import std::io
+S fn main()
+S  xs = Iter.map([0, 1], fn n ->
+S   io.print(n)
+S   10 / NonZeroInt.try_from(n)!
+S  end)
+S  io.print("created")
+S  io.print(Iter.is_empty(xs))
+S end
+S
+S
+T created
+T 0
+T --- stderr ---
+T line 5: `NonZeroInt.try_from(n)` found nothing
 T
 C main.nomi@877498feb0f87f85
 E 1
 N 0
-H 7138a8bc81745c5aa87808f13c738b784fac77148089ed545999a426210af3f7
+H bb0a6a090fdaa2008f1a795edfbf37d8d29f1451e66220e1e8c1a959c9a6e124
 S -- main.nomi 136 --
 S import std::io
 S fn main()
@@ -8375,15 +8440,18 @@ S  io.print(Iter.count(xs))
 S end
 S
 S
-T created
-T 0
 T --- stderr ---
-T line 5: division by zero
+T error: `/` divides by a NonZeroInt; `n` is an Int
+T  --> <dir>/main.nomi:5:8
+T   |
+T 5 |   10 / n
+T   |        ^
+T   = help: check it first (`if n == 0 then ...`) or take a NonZeroInt
 T
 C main.nomi@98c6f0fad0141684
 E 1
 N 0
-H f997ebe3fbc2279d50f37289e81b4b1cf47b0186c9bcf9a9a632c35557671a95
+H bb0a6a090fdaa2008f1a795edfbf37d8d29f1451e66220e1e8c1a959c9a6e124
 S -- main.nomi 143 --
 S import std::io
 S fn main()
@@ -8396,16 +8464,59 @@ S  io.inspect(Iter.to_list(xs))
 S end
 S
 S
+T --- stderr ---
+T error: `/` divides by a NonZeroInt; `n` is an Int
+T  --> <dir>/main.nomi:5:8
+T   |
+T 5 |   10 / n
+T   |        ^
+T   = help: check it first (`if n == 0 then ...`) or take a NonZeroInt
+T
+C main.nomi@a15eb401fef8d1ec
+E 1
+N 0
+H 7fded0a1950b75be24fcb239353e6bb0d03d3e83c0b179ffd74ec447a343904d
+S -- main.nomi 165 --
+S import std::io
+S fn main()
+S  xs = Iter.map([1, 0, 2], fn n ->
+S   io.print(n)
+S   10 / NonZeroInt.try_from(n)!
+S  end)
+S  io.print("created")
+S  io.inspect(Iter.to_list(xs))
+S end
+S
+S
 T created
 T 1
 T 0
 T --- stderr ---
-T line 5: division by zero
+T line 5: `NonZeroInt.try_from(n)` found nothing
+T
+C main.nomi@a80e2b056d7690ae
+E 1
+N 0
+H ed5df14cf582e48993a518e7ecac28f42f24ba151eae782a9907c23b4e8812bd
+S -- main.nomi 132 --
+S import std::io
+S fn main()
+S  io.print(Iter.reduce([1, 0, 2], 10, fn acc, n ->
+S   io.print(n)
+S   acc / NonZeroInt.try_from(n)!
+S  end))
+S end
+S
+S
+T 1
+T 0
+T --- stderr ---
+T line 5: `NonZeroInt.try_from(n)` found nothing
 T
 C main.nomi@dfe50c0afca81c9f
 E 1
 N 0
-H b76a6c1ce04de4e20c684d051948d2854cb1cb397a02cf196475fbc5a73f2c18
+H d543bddab6cf88f26e3a6e52248d3c29a8e63a3f547a3a021484962d49e98758
 S -- main.nomi 191 --
 S import std::io
 S fn main()
@@ -8420,16 +8531,18 @@ S  end))
 S end
 S
 S
-T 2
-T 1
-T compare
 T --- stderr ---
-T line 9: division by zero
+T error: `/` divides by a NonZeroInt, and `b - b` is an Int
+T  --> <dir>/main.nomi:9:19
+T   |
+T 9 |   Int.compare(a / (b - b), b)
+T   |                   ^
+T   = help: bind it and check it first (`d = ...`, then `if d == 0 then ...`), or check it with `NonZeroInt.try_from(...)`
 T
 C main.nomi@e43ff89e9dab9cf6
 E 1
 N 0
-H 9b2b791803c2f8caa13199b43aca2ae120ab894503a905c98a5d935f8ef14044
+H fa9b9497634941b6f3072a27c5cc339f2e38533df1341e3aeea9ea8eb4fdda52
 S -- main.nomi 110 --
 S import std::io
 S fn main()
@@ -8440,10 +8553,13 @@ S  end))
 S end
 S
 S
-T 1
-T 0
 T --- stderr ---
-T line 5: division by zero
+T error: `/` divides by a NonZeroInt; `n` is an Int
+T  --> <dir>/main.nomi:5:9
+T   |
+T 5 |   acc / n
+T   |         ^
+T   = help: check it first (`if n == 0 then ...`) or take a NonZeroInt
 T
 C main.nomi@e8453f69bbb8675c
 E 1
@@ -9053,7 +9169,7 @@ T ok <dir>/inline_annotations_test.nomi :: annotation mismatches are rejected
 T ok <dir>/inline_annotations_test.nomi :: annotated bindings expose the annotated hover signature
 T test result: ok. 7 passed, 0 failed
 T
-C tests/01-foundations/once_bindings/once_bindings_test.nomi@4d67a4783e96715c
+C tests/01-foundations/once_bindings/once_bindings_test.nomi@1cf860f31a722007
 E 0
 N 0
 H 35398e1f58e3d2d2065c10f2038e7159668120627ce6f971296cf5d79500ed31
@@ -9091,10 +9207,10 @@ H 87e33a9a852ce0988ab214be2ae4be8516c91906447ed1feee4f44af456bd563
 T ok <dir>/formatting_test.nomi :: formatter showcase declarations remain executable
 T test result: ok. 1 passed, 0 failed
 T
-C tests/05-calendar-and-time/dates_test.nomi@2490f3682c964448
+C tests/05-calendar-and-time/dates_test.nomi@2b33583ed10016e6
 E 0
 N 0
-H 1c44d06032c61527381311bb18cf92dc7b829b60e47713d4d60274ecca99662b
+H 5ca2e9c7a4f230fece20621e53b2e19d5efc1a5033a3f70c32e283b90fd2dcee
 T ok <dir>/dates_test.nomi :: dates parse and expose components
 T ok <dir>/dates_test.nomi :: date literals support interpolation
 T ok <dir>/dates_test.nomi :: date parser is shared by literals and explicit parse
@@ -9105,12 +9221,13 @@ T ok <dir>/dates_test.nomi :: date day and week shifts cross calendar boundaries
 T ok <dir>/dates_test.nomi :: date month shifts clamp invalid month days
 T ok <dir>/dates_test.nomi :: date year shifts clamp leap days when needed
 T ok <dir>/dates_test.nomi :: date adds calendar units with plus
-T test result: ok. 10 passed, 0 failed
+T ok <dir>/dates_test.nomi :: a date of any year
+T test result: ok. 11 passed, 0 failed
 T
-C tests/05-calendar-and-time/naive_datetime_test.nomi@a30971f023969a57
+C tests/05-calendar-and-time/naive_datetime_test.nomi@fc4803c0c66ef901
 E 0
 N 0
-H cb08e1d67f70b7fa59f6682f4b65eaaebd5ed5df7d51a316f99f53adf0015d30
+H 3e20da133634b7268dbfc14376027f323935b4984d1c74fcf541e7601b155c7f
 T ok <dir>/naive_datetime_test.nomi :: naive datetimes parse and display without zone information
 T ok <dir>/naive_datetime_test.nomi :: naive datetime accessors expose date and time parts
 T ok <dir>/naive_datetime_test.nomi :: dates and times combine into naive datetimes
@@ -9121,7 +9238,8 @@ T ok <dir>/naive_datetime_test.nomi :: naive datetimes support civil sub-day ari
 T ok <dir>/naive_datetime_test.nomi :: naive datetimes sort chronologically
 T ok <dir>/naive_datetime_test.nomi :: naive datetime differences return durations
 T ok <dir>/naive_datetime_test.nomi :: naive datetime construction validates component combinations
-T test result: ok. 10 passed, 0 failed
+T ok <dir>/naive_datetime_test.nomi :: a reading moves by a duration of any length
+T test result: ok. 11 passed, 0 failed
 T
 C tests/07-structs-and-enums/anonymous_structs/anonymous_structs_test.nomi@1134d4ab7e85d895
 E 0
@@ -9162,7 +9280,7 @@ T ok <dir>/struct_spread_test.nomi :: ordinary construction is not a patch
 T ok <dir>/struct_spread_test.nomi :: a spread with no fields is rejected
 T test result: ok. 23 passed, 0 failed
 T
-C tests/09-functions-and-control-flow/call_semantics_test.nomi@6546a0d31e6c8eca
+C tests/09-functions-and-control-flow/call_semantics_test.nomi@e80760d585366d6a
 E 0
 N 0
 H cd1ef70afeeadd6e49dfb427623801901d9c8e1075fabcc7af411addf41331aa
@@ -9232,7 +9350,7 @@ T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments
 T ok <dir>/type_argument_inference_test.nomi :: generic interface type arguments project through bounds
 T test result: ok. 2 passed, 0 failed
 T
-C tests/12-derives-and-standard-interfaces/add_test.nomi@0dc89492fb284771
+C tests/12-derives-and-standard-interfaces/add_test.nomi@183a0c714049be50
 E 0
 N 0
 H 38c4a41ef62e680068ef18d3f599594fa603c6db4667e425f53afe007bb0f1c0
@@ -9244,7 +9362,7 @@ T ok <dir>/add_test.nomi :: Add impl identity includes rhs type
 T ok <dir>/add_test.nomi :: generic operators use their interface output type
 T test result: ok. 6 passed, 0 failed
 T
-C tests/13-iterators-and-pipes/pipes_test.nomi@6e7fdd14253ab714
+C tests/13-iterators-and-pipes/pipes_test.nomi@9b43639e8d385b4b
 E 0
 N 0
 H dcc203566113b33932f799caf625098892b57c0ee2d2c964c13dc6fb06e50a41

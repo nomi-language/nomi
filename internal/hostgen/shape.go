@@ -16,6 +16,17 @@
 // marshaller's projection rules and refuses, by binding name, any pair it
 // cannot convert. A refusal fails generation, so an unadaptable binding is a
 // build-time error rather than a run-time one.
+//
+// An Int position carries the range its declared type admits (IntRange),
+// read off a subtype chain's `when` bounds and an intersection's members.
+// A Nomi-to-Go Int position takes a fixed-width Go integer only when that
+// range fits it (fits): std's `Instant.as_nanos` is an `Int64` and fills
+// an int64; a plain `Int` does not, and its Go function takes rt.Int or
+// *big.Int. A project's `go` bindings are held to the same rule, and
+// internal/ffirun reports the refusal, an IntRangeError, as an error at
+// the binding (spec §19 *How Nomi types project to Go*). The adapter still
+// narrows with a checked conversion, which a value the declared range
+// admits always passes.
 package hostgen
 
 import (
@@ -59,6 +70,9 @@ type Shape struct {
 	Fields []ShapeField
 	// Variants is an enum's variants in declaration order.
 	Variants []ShapeVariant
+	// Range is an Int's declared bounds, read off the subtype it is
+	// declared as (IntRange); nil for a plain Int.
+	Range *IntRange
 }
 
 // ShapeVariant is one enum variant: bare, one positional payload (Fields
@@ -259,6 +273,24 @@ func (r *Resolver) Shape(mod *Module, t ast.TypeExpr) (*Shape, error) {
 			return nil, fmt.Errorf("type %s: module %q is not loaded", x.TypeString(), x.Module)
 		}
 		return r.Shape(target, x.Member)
+	case *ast.ConjunctionType:
+		// `NonNegativeInt and Int64`: an intersection of Int subtypes is an
+		// Int within every member's bounds.
+		var rng *IntRange
+		for _, m := range x.Members {
+			ms, err := r.Shape(mod, m)
+			if err != nil {
+				return nil, err
+			}
+			if ms.Kind != SInt {
+				return nil, fmt.Errorf("type %s: only an intersection of Int subtypes crosses the host boundary", x.TypeString())
+			}
+			rng = rng.intersect(ms.Range)
+		}
+		if rng != nil {
+			rng = &IntRange{Min: rng.Min, Max: rng.Max, Via: x.TypeString()}
+		}
+		return &Shape{Kind: SInt, Range: rng}, nil
 	case *ast.FuncType:
 		elems := make([]*Shape, len(x.Params))
 		for i, p := range x.Params {
@@ -362,10 +394,26 @@ func (r *Resolver) named(mod *Module, name string, params []ast.TypeExpr) (*Shap
 	case *ast.TypeDef:
 		if d.Subtype && d.InnerTypeExpr != nil {
 			// A subtype is its parent's value at run time, and
-			// so its base's (spec §4 *Subtypes*): it crosses as that.
+			// so its base's (spec §4 *Subtypes*): it crosses as that. An
+			// Int subtype carries the bounds its chain states (IntRange).
 			inner, err := r.Shape(home, d.InnerTypeExpr)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", qualified, err)
+			}
+			if inner.Kind == SInt {
+				rng := inner.Range
+				for _, p := range d.MoreParents {
+					ps, err := r.Shape(home, p)
+					if err != nil {
+						return nil, fmt.Errorf("%s: %w", qualified, err)
+					}
+					rng = rng.intersect(ps.Range)
+				}
+				rng = rng.intersect(ruleRange(d.Rule))
+				if rng != nil {
+					rng = &IntRange{Min: rng.Min, Max: rng.Max, Via: name}
+				}
+				inner = &Shape{Kind: SInt, Range: rng}
 			}
 			r.cache[qualified] = inner
 			return inner, nil
@@ -440,7 +488,9 @@ func (r *Resolver) variant(home *Module, enum string, v ast.EnumVariant) (ShapeV
 }
 
 // lookup finds the declaration of a type name: the module's own first, then
-// the modules its imports name.
+// the modules its imports name, then, for a program's file, which has the
+// prelude without importing it, the modules std's prelude re-exports from
+// (`NonNegativeInt` in a `go` binding's declaration).
 func (r *Resolver) lookup(mod *Module, name string) (*Module, ast.Node) {
 	if d := typeDecl(mod.Nodes, name); d != nil {
 		return mod, d
@@ -453,6 +503,9 @@ func (r *Resolver) lookup(mod *Module, name string) (*Module, ast.Node) {
 		if d := typeDecl(m.Nodes, name); d != nil {
 			return m, d
 		}
+	}
+	if prelude, ok := r.Modules["prelude"]; ok && mod != prelude {
+		return r.lookup(prelude, name)
 	}
 	return nil, nil
 }

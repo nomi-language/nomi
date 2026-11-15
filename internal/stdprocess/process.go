@@ -207,7 +207,7 @@ func (in readerInput) Read(p []byte) (n int, err error) {
 			n, err = 0, errors.New("process: the input's read was cancelled")
 		}
 	}()
-	chunk := rt.ReaderRead(in.fr, in.r, int64(len(p)))
+	chunk := rt.ReaderRead(in.fr, in.r, rt.SmallInt(int64(len(p))))
 	if chunk.Tag != rt.TagOk {
 		return 0, rt.IOFailure{E: chunk.Err}
 	}

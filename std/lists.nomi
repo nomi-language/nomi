@@ -154,14 +154,16 @@ impl List<T>
         end
     end
 
-    /// The list without the element at zero-based `index`, which must be in
-    /// `0 <= index < length`. Any other index traps:
-    /// `index 7 is out of range for a List of length 5`. O(n): the elements
-    /// before `index` are copied, and the ones after it are shared.
-    //! assert List.remove_at(["a", "b", "c"], 1) == ["a", "c"]
-    //! assert List.remove_at(["a", "b", "c"], 0) == ["b", "c"]
+    /// `Some` of the list without the element at zero-based `index`, or None
+    /// when the index is outside the list. O(n): the elements before `index`
+    /// are copied, and the ones after it are shared. For an index the code
+    /// knows is in range, `List.remove_at(list, index)!` returns the list and
+    /// traps on any other index.
+    //! assert List.remove_at(["a", "b", "c"], 1) == Some(["a", "c"])
+    //! assert List.remove_at(["a", "b", "c"], 0)! == ["b", "c"]
+    //! assert List.remove_at(["a", "b", "c"], 3) == None
     //
-    pub host fn remove_at<T>(list: List<T>, index: Int) -> List<T>
+    pub host fn remove_at<T>(list: List<T>, index: Int) -> Maybe<List<T>>
 
     /// The list without the first element `==` to `value`, or the same list
     /// when no element is. O(n).
@@ -170,7 +172,7 @@ impl List<T>
     //
     pub fn remove<T>(list: List<T>, value: T) -> List<T> where T: Equatable
         case Iter.find_index(list, fn item -> item == value)
-            Some(index) -> List.remove_at(list, index)
+            Some(index) -> List.remove_at(list, index)!
             None        -> list
         end
     end
@@ -413,7 +415,7 @@ impl NonEmptyList<T>
     //! assert NonEmptyList.length(["a", "b"]) == 2
     //
     pub fn length<T>(list: NonEmptyList<T>) -> PositiveInt
-        PositiveInt.try_from(Iter.count(list))!
+        Iter.count(list)
     end
 
     /// The largest element; the first of several equal ones.

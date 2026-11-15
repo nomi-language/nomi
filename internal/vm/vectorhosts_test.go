@@ -1,7 +1,7 @@
 package vm
 
 import (
-	"errors"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -43,21 +43,19 @@ func TestVectorDebugPropagatesUnsupportedElement(t *testing.T) {
 	}
 }
 
-// TestVectorSet: Vector.set over the machine's vectors, leaving the receiver
-// unchanged and faulting with rt's index trap out of range.
+// TestVectorSet: Vector.set over the machine's vectors answers Some of the
+// new vector, leaving the receiver unchanged, and None for an index outside
+// it, a big Int's included.
 func TestVectorSet(t *testing.T) {
 	v := rt.VectorOf([]any{int64(1), int64(2), int64(3)})
 	set, err := vectorHost("Vector.set")(nil, ir.Pos{}, []any{v, int64(1), int64(20)})
-	if err != nil || rt.RowText(set) != "Vector[1, 20, 3]" || rt.RowText(v) != "Vector[1, 2, 3]" {
+	if err != nil || rt.RowText(set) != "Some(Vector[1, 20, 3])" || rt.RowText(v) != "Vector[1, 2, 3]" {
 		t.Fatalf("set(v, 1, 20) = %v, v = %v, %v", rt.RowText(set), rt.RowText(v), err)
 	}
-	for key, args := range map[string][]any{
-		"Vector.set": {v, int64(9), int64(99)},
-	} {
-		_, err := vectorHost(key)(nil, ir.Pos{}, args)
-		var fault *Fault
-		if !errors.As(err, &fault) || err.Error() != "index 9 is out of range for a Vector of length 3" {
-			t.Fatalf("%s out of range: %v", key, err)
+	for _, index := range []any{int64(9), int64(-1), int64(3), rt.IntFromBig(new(big.Int).Lsh(big.NewInt(1), 70))} {
+		got, err := vectorHost("Vector.set")(nil, ir.Pos{}, []any{v, index, int64(99)})
+		if err != nil || rt.RowText(got) != "None" {
+			t.Fatalf("set(v, %v, 99) = %v, %v; want None", index, rt.RowText(got), err)
 		}
 	}
 }

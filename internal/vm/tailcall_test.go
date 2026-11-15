@@ -157,7 +157,7 @@ func TestTailCall_AFaultInADeepLoopReportsItsLine(t *testing.T) {
 
 fn spin(n: Int) -> Int
   if n == 0 then
-    10 / n
+    10 / NonZeroInt.try_from(n)!
   else
     spin(n - 1)
   end
@@ -169,9 +169,9 @@ fn main()
 end
 `)
 	if err == nil {
-		t.Fatalf("the division by zero did not fault; output %q", out)
+		t.Fatalf("the `!` on None did not fault; output %q", out)
 	}
-	if want := "line 5: division by zero"; err.Error() != want {
+	if want := "line 5: `NonZeroInt.try_from(n)` found nothing"; err.Error() != want {
 		t.Fatalf("failure %q, want %q", err.Error(), want)
 	}
 	var fault *vm.Fault

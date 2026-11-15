@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/projectgen"
 )
 
@@ -83,7 +84,7 @@ func TestLowerFileMatchesTheWholeLowering(t *testing.T) {
 func TestKeptLoweringRefusesACorruptEncoding(t *testing.T) {
 	k := &KeptLowering{EntryPath: "/p/main.nomi", HasMain: true, Units: []KeptUnit{
 		{Key: "main", Path: "/p/main.nomi", Object: []byte("object"), Decls: map[string][32]byte{"main": {1}}},
-		{Key: "util", Path: "/p/util.nomi"},
+		{Key: "util", Path: "/p/util.nomi", Rules: []RefinementRuleSite{{Path: "/p/util.nomi", Line: 2, Type: "Small", Key: "k"}, {Type: "Plain"}}, RuleChecks: []int{0}},
 	}, Listed: []string{"http"}, Dangling: []string{"util.f"}, Declines: map[string][]string{"/p/util.nomi": {"f: why"}},
 		DebugRenderings: []KeptDebugRendering{{Iface: "8:std/display.Display", Renderers: []string{"", "/p/util.nomi"}, Implementers: []string{"/p/main.nomi"}}}}
 	data := k.Encode()
@@ -202,5 +203,130 @@ end
 		if !strings.Contains(fm.Why, "through every implementer's Debug") {
 			t.Errorf("%s misses for another reason: %s", key, fm.Why)
 		}
+	}
+}
+
+// TestRelowerEachFileLinksTheRefinementChecks lowers a file whose literals
+// are checked as a generic std subtype (a range literal as a ClosedRange,
+// whose step calls NonEmptyRange's try_from<Int>) on its own and links it
+// (RelowerEachFile), and requires every function vmhost runs to check
+// them to name the linked program's symbols. A check the whole lowering
+// made calls the try_from instance by a symbol the linked program does
+// not define, which the VM reports as not retained.
+func TestRelowerEachFileLinksTheRefinementChecks(t *testing.T) {
+	dir := t.TempDir()
+	entry := filepath.Join(dir, "main.nomi")
+	src := `import std::io
+
+fn main()
+    r: ClosedRange<Int> = 0..=10
+    io.print(Int.clamp(15, r))
+    io.print(Int.clamp(-3, 0..=10))
+end
+`
+	if err := os.WriteFile(entry, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fe := frontend.New(frontend.Config{SourceBoundProvided: true})
+	proj, err := fe.CheckFile(entry, frontend.Mode{})
+	if err != nil {
+		t.Fatalf("the front end rejects the program: %v", err)
+	}
+	p := fileProgram(entry, proj, false)
+	p.interfaces = fe.Interfaces
+	defer RelowerEachFile()()
+	res, refusal, err := GenerateIR(p)
+	if err != nil || refusal != nil {
+		t.Fatalf("the program does not lower: %v %v", err, refusal)
+	}
+	checks := ir.NewModule("refinement checks")
+	for _, s := range res.Refinements {
+		if s.Build != nil {
+			checks.AddFunc(s.Build)
+		}
+		for _, st := range s.Steps {
+			if st.Check != nil {
+				checks.AddFunc(st.Check)
+			}
+		}
+	}
+	if checks.Empty() {
+		t.Fatal("no refinement literal has a generic step's check; the fixture is wrong")
+	}
+	if split := splitDefinitions(append(res.IRModules(), checks)); split != "" {
+		t.Fatalf("a refinement check of the program linked from the file lowered on its own names %s", split)
+	}
+}
+
+// TestLowerFileKeepsAnotherFilesGenericRuleCheck lowers main.nomi on its
+// own against the kept object of many.nomi, which declares a generic
+// subtype. The rule's Check (analysis.RefinementRuleCheck), which vmhost
+// walks for effects, must come through the kept unit (KeptUnit.RuleChecks)
+// as the whole lowering made it, decoded against the linked program.
+func TestLowerFileKeepsAnotherFilesGenericRuleCheck(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"many.nomi": "pub subtype Many<T> List<T> when fn xs -> not Iter.is_empty(xs)\n",
+		"main.nomi": `import
+    std::io
+    many.{Many}
+end
+
+fn main()
+    xs: Many<Int> = [1, 2]
+    io.print(List.length(xs))
+end
+`,
+	}
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entry := filepath.Join(dir, "main.nomi")
+	fe := frontend.New(frontend.Config{SourceBoundProvided: true})
+	proj, err := fe.CheckFile(entry, frontend.Mode{})
+	if err != nil {
+		t.Fatalf("the front end rejects the program: %v", err)
+	}
+	res, refusal, err := GenerateIR(fileProgram(entry, proj, false))
+	if err != nil || refusal != nil {
+		t.Fatalf("the program does not lower: %v %v", err, refusal)
+	}
+	checked := func(r *Result) int {
+		n := 0
+		for _, rule := range r.RefinementRules {
+			if rule.Type == "Many" && rule.Check != nil {
+				n++
+			}
+		}
+		return n
+	}
+	if checked(res) == 0 {
+		t.Fatal("the whole lowering makes no Check for Many's rule; the fixture is wrong")
+	}
+	kept, err := res.Keep()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kept, err = DecodeKeptLowering(kept.Encode()); err != nil {
+		t.Fatal(err)
+	}
+	pi := fe.Interfaces()
+	got, err := LowerFile(FileProgram(pi.Check("main"), "main", entry, dir, false), kept, false)
+	if err != nil {
+		t.Fatalf("main.nomi does not lower on its own: %v", err)
+	}
+	if checked(got) != checked(res) {
+		t.Fatalf("main.nomi lowered on its own links %d checks of Many's rule, the whole lowering %d", checked(got), checked(res))
+	}
+	checks := ir.NewModule("rule checks")
+	for _, rule := range got.RefinementRules {
+		if rule.Check != nil {
+			checks.AddFunc(rule.Check)
+		}
+	}
+	if split := splitDefinitions(append(got.IRModules(), checks)); split != "" {
+		t.Fatalf("a rule check of the program main.nomi lowered on its own links names %s", split)
 	}
 }

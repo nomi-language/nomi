@@ -11,14 +11,14 @@ import
     std::reverse.Reverse
 end
 
-fn frequencies(sequence: List<String>, k: Int) -> Map<String, Int>
+fn frequencies(sequence: List<String>, k: PositiveInt) -> Map<String, Int>
     sequence
     |> Iter.windows(k)
     |> Iter.map(&String.join(&1))
     |> Iter.frequencies()
 end
 
-fn percentages(sequence: List<String>, k: Int)
+fn percentages(sequence: List<String>, k: PositiveInt)
     counts = frequencies(sequence, k)
     total = Int.to_float(Iter.count(sequence) - k + 1)
 
@@ -26,7 +26,7 @@ fn percentages(sequence: List<String>, k: Int)
     |> Iter.sort_by(fn (key, count) -> (Reverse.of(count), key))
     |> Iter.each(fn (key, count) ->
         percent = 100.0 * Int.to_float(count) / total
-        io.print("${key} ${Float.format(percent, Locale`en`, 3, 3, False)}")
+        io.print("${key} ${Float.format(percent, Locale`en`, 3..=3, False)}")
     end)
 
     io.print("")
@@ -34,7 +34,9 @@ end
 
 fn occurrences(sequence: List<String>, fragment: String)
     count =
-        frequencies(sequence, String.length(fragment)) |> Map.get(fragment) |> Maybe.with_default(0)
+        frequencies(sequence, PositiveInt.try_from(String.length(fragment))!)
+        |> Map.get(fragment)
+        |> Maybe.with_default(0)
 
     io.print("${count}\t${fragment}")
 end

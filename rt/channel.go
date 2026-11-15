@@ -1,7 +1,6 @@
 package rt
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -50,13 +49,8 @@ import (
 // single-goroutine program hangs, detected by Go's scheduler ("all goroutines
 // are asleep - deadlock!").
 //
-// # The observable strings live here, once
-//
-// `Channel.buffered(0)` and a double `Sender.close` are the two faults this
-// surface can raise, and their text is user-visible. trap.go's rule applies
-// (an observable string has one copy), so the two format functions below are
-// the only copy. Neither carries a `line N:` prefix: under `nomi run`,
-// `Channel.buffered<Int>(0)` prints the message and nothing else.
+// This surface raises no fault: `Channel.select` takes a NonEmptyList of
+// arms, and a second `Sender.close` does nothing.
 
 // Chan is one channel: the Go channel, its capacity, and the closed flag that
 // keeps a Nomi `send` from panicking.
@@ -71,9 +65,14 @@ type Chan[T any] struct {
 	// sets it under CloseMu while a parked sender may be observing it.
 	closed  atomic.Bool
 	closeMu sync.Mutex
-	// drained is set when SenderCloseOnDrain's hook closed the channel, so
-	// the owner's own close after it is no double close.
-	drained bool
+	// done closes when the channel closes, before ch does, so a parked
+	// sender wakes and answers Err(ChannelClosed) instead of reaching Go's
+	// panicking send on a closed channel.
+	done chan struct{}
+	// parked counts senders blocked on ch (SenderSend's step 3 and Select's
+	// send cases), under closeMu. While any is parked, a close closes done
+	// and leaves ch open; the last parked sender to leave closes ch.
+	parked int
 	// unhookDrain unregisters SenderCloseOnDrain's hook; the owner's close
 	// calls it, so a closed channel is not closed again at shutdown.
 	unhookDrain func()
@@ -124,20 +123,18 @@ type ChannelClosed struct{}
 
 // ChannelBuffered is `Channel.buffered(capacity)`.
 //
-// Zero is rejected rather than aliased to the unbuffered constructor, which is
-// std's decision: "a channel is buffered or it is a
-// rendezvous, and 0 is not a spelling of the second one". A computed capacity
-// sliding silently from hand-off to rendezvous is the thing the rejection buys.
+// std declares capacity a PositiveInt rather than aliasing 0 to the
+// unbuffered constructor: "a channel is buffered or it is a rendezvous, and 0
+// is not a spelling of the second one". A computed capacity goes through
+// `PositiveInt.try_from`, so it cannot slide silently from hand-off to
+// rendezvous.
 func ChannelBuffered[T any](capacity int64) Channel[T] {
-	if capacity < 1 {
-		Trap(ChannelCapacityText(capacity))
-	}
-	return channelOf(&Chan[T]{ch: make(chan T, capacity), cap: int(capacity)})
+	return channelOf(&Chan[T]{ch: make(chan T, capacity), cap: int(capacity), done: make(chan struct{})})
 }
 
 // ChannelUnbuffered is `Channel.unbuffered()`: every send is a rendezvous.
 func ChannelUnbuffered[T any]() Channel[T] {
-	return channelOf(&Chan[T]{ch: make(chan T)})
+	return channelOf(&Chan[T]{ch: make(chan T), done: make(chan struct{})})
 }
 
 // channelOf wraps one channel as the pair its halves are read out of. Both
@@ -146,19 +143,37 @@ func channelOf[T any](c *Chan[T]) Channel[T] {
 	return Channel[T]{Sender: Sender[T]{c: c}, Receiver: Receiver[T]{c: c}}
 }
 
-// ChannelCapacityText is the fault `Channel.buffered(n < 1)` raises.
-//
-// A function rather than an inline literal for trap.go's stated reason: an
-// observable string has one copy.
-func ChannelCapacityText(capacity int64) string {
-	return fmt.Sprintf(
-		"Channel.buffered: capacity must be at least 1, got %d — for a channel with no buffer, use Channel.unbuffered()",
-		capacity)
+// shut closes c, with closeMu held and closed just set: done at once, and
+// ch at once when no sender is parked on it, else when the last one leaves
+// (unpark).
+func (c *Chan[T]) shut() {
+	close(c.done)
+	if c.parked == 0 {
+		close(c.ch)
+	}
 }
 
-// ChannelDoubleCloseText is the fault a second `Sender.close` raises. A
-// function for ChannelCapacityText's reason.
-func ChannelDoubleCloseText() string { return "Sender.close: channel already closed" }
+// park registers a sender about to block on ch. It returns false when the
+// channel is closed, which the caller answers as Err(ChannelClosed). Called
+// with closeMu held.
+func (c *Chan[T]) park() bool {
+	if c.closed.Load() {
+		return false
+	}
+	c.parked++
+	return true
+}
+
+// unpark undoes park once the blocked send has finished, closing ch for a
+// close that came while this sender was parked.
+func (c *Chan[T]) unpark() {
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
+	c.parked--
+	if c.parked == 0 && c.closed.Load() {
+		close(c.ch)
+	}
+}
 
 // --- the three operations ---------------------------------------------------
 
@@ -171,16 +186,16 @@ func ChannelDoubleCloseText() string { return "Sender.close: channel already clo
 //     test atomic with respect to a concurrent close.
 //  2. Try a non-blocking send while still holding the mutex. This is the whole
 //     buffered case under capacity, and it completes before any close can run.
-//  3. Otherwise release the mutex and park on a blocking send or the frame's
-//     cancellation, so a concurrent close is not deadlocked behind a sender
-//     waiting for a receiver and an abandoned sender does not outlive its block.
+//  3. Otherwise register as parked (Chan.park), release the mutex and park on
+//     a blocking send, the channel's done or the frame's cancellation, so a
+//     concurrent close is not deadlocked behind a sender waiting for a
+//     receiver and an abandoned sender does not outlive its block.
 //
-// Step 3 has a residual race: a close completing while a sender is parked.
-// The send arm fires only on a successful enqueue, so arriving means the value
-// was taken or buffered before the close, and either way the answer is Ok. The
-// other half of that race: a close that completes while this is parked makes
-// Go's own send panic, which a task wrapper reports as `Failed(Panicked(...))`
-// rather than killing the process.
+// A close while a sender is parked closes done and leaves ch open until the
+// last parked sender leaves, so the parked send answers Err(ChannelClosed)
+// and never reaches Go's panicking send on a closed channel. When a receiver
+// takes the value at the moment of the close, Go may pick either ready arm:
+// the send and the close raced, and either answer is one of them winning.
 //
 // The cancel arm is only in step 3, not in steps 1 and 2. A send that can
 // complete without blocking completes: Nomi's rule is that cancellation is
@@ -201,7 +216,9 @@ func SenderSend[T any](fr *Frame, s Sender[T], v T) Result[Unit, ChannelClosed] 
 		return Ok[Unit, ChannelClosed](Unit{})
 	default:
 	}
+	c.park()
 	c.closeMu.Unlock()
+	defer c.unpark()
 	// Parked for the duration of the blocking send: a task waiting on a full
 	// channel has no scheduled wake, so a draining permanent supervisor must be
 	// able to see that there is nothing left to wait for. No-op outside a
@@ -211,6 +228,8 @@ func SenderSend[T any](fr *Frame, s Sender[T], v T) Result[Unit, ChannelClosed] 
 	select {
 	case c.ch <- v:
 		return Ok[Unit, ChannelClosed](Unit{})
+	case <-c.done:
+		return Err[Unit, ChannelClosed](ChannelClosed{})
 	case <-fr.Context().Done():
 		raiseCanceled(fr)
 	}
@@ -260,10 +279,10 @@ func ReceiverReceive[T any](fr *Frame, r Receiver[T]) Maybe[T] {
 
 // SenderClose is `Sender.close(sender)`.
 //
-// Double close is a fault, matching Go's panic-on-double-close as a Nomi trap
-// rather than as a Go panic.
-// The flag flips under CloseMu so a sender in SenderSend's mutex-guarded fast
-// path observes it consistently.
+// A second close does nothing: a send after the first already answers
+// Err(ChannelClosed), so nothing is lost, and a shutdown path that may close
+// twice need not track whether it has. The flag flips under CloseMu so a
+// sender in SenderSend's mutex-guarded fast path observes it consistently.
 func SenderClose[T any](s Sender[T]) Unit {
 	c := s.c
 	c.closeMu.Lock()
@@ -272,15 +291,9 @@ func SenderClose[T any](s Sender[T]) Unit {
 		c.unhookDrain()
 		c.unhookDrain = nil
 	}
-	if !c.closed.CompareAndSwap(false, true) {
-		if c.drained {
-			// Shutdown closed it first (SenderCloseOnDrain): the owner's
-			// close is the one it would have made.
-			return Unit{}
-		}
-		Trap(ChannelDoubleCloseText())
+	if c.closed.CompareAndSwap(false, true) {
+		c.shut()
 	}
-	close(c.ch)
 	return Unit{}
 }
 
@@ -288,8 +301,8 @@ func SenderClose[T any](s Sender[T]) Unit {
 // when the program starts draining its supervisors (OnDrain), so a task that
 // reads it until it closes finishes what is queued and ends, and the drain
 // does not wait out its grace period for a reader parked on an empty
-// channel. A close by the owner first unregisters it; one after it is no
-// double close.
+// channel. A close by the owner first unregisters it; one after it does
+// nothing, as any second close does.
 func SenderCloseOnDrain[T any](s Sender[T]) Unit {
 	c := s.c
 	c.closeMu.Lock()
@@ -305,8 +318,7 @@ func SenderCloseOnDrain[T any](s Sender[T]) Unit {
 		c.closeMu.Lock()
 		defer c.closeMu.Unlock()
 		if c.closed.CompareAndSwap(false, true) {
-			c.drained = true
-			close(c.ch)
+			c.shut()
 		}
 	})
 	c.closeMu.Lock()

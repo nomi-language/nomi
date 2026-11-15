@@ -24,7 +24,7 @@ end
 
 fn boom(n: Int) -> Int
     timer.sleep(Duration.minutes(10))
-    100 / n
+    100 / NonZeroInt.try_from(n)!
 end
 
 group "a fault under a virtual clock"

@@ -37,12 +37,6 @@ fn main() -> Result<Unit, Exit>
   Err(Exit{code: 0, message: "nothing to do"})
 end
 `, "", "nothing to do\n", 0},
-	{"a code past 255 is a trap", `import std::process.Exit
-
-fn main() -> Result<Unit, Exit>
-  Err(Exit{code: 256, message: "x"})
-end
-`, "", "exit code 256 is outside 0 to 255\n", 1},
 	{"boot's Exit sets the status after its cleanup", `import
   std::io
   std::process.Exit

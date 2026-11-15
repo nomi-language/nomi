@@ -26,8 +26,11 @@ package ir
 //     `to_set` (each builds a new collection), a Copy or Bind from a
 //     member, a parameter (which adds its bit to the need), a direct call
 //     whose callee's result is fresh, a crossing Callees.Writes names (a
-//     collection operation, below), a field read fields.go grants, or a
-//     fold that hands its accumulator on (below). A direct call's result is
+//     collection operation, below, whose answer may be a Maybe of the
+//     collection, as `Vector.set`'s is), a field read fields.go grants (a
+//     Some's payload included), or a fold that hands its accumulator on
+//     (below). No enum literal is fresh, so an enum value is owned only as
+//     such a crossing answered it, or as a parameter. A direct call's result is
 //     owned when its callee answers Fresh and every argument the callee may
 //     return (ResultOwnership.Params) is a move (below) of an owned class:
 //     the result's need is the union of theirs, each argument's deep need
@@ -36,7 +39,7 @@ package ir
 //     class is never owned.
 //   - Not escaped: every read of a member is a Copy or Bind into the class,
 //     the base of an update, a field read (ProjField, ProjRecordField,
-//     ProjSlot), a
+//     ProjSlot, ProjPayload), a variant test, a
 //     crossing Callees.Borrows names (`Vector.get`, `Map.size`), a Return,
 //     or a MOVE: a read after which no member is live, on any path,
 //     a fault edge's included, the instruction's own destination excepted.
@@ -69,7 +72,9 @@ package ir
 //   - Takes: per crossing Callees.Writes names, when its receiver operand
 //     is a move of an owned class, the need. The crossing may write the
 //     receiver's storage (internal/vm package doc, "Updates written in
-//     place"); its result is owned under the same need.
+//     place"); its result is owned under the same need, and owned deep:
+//     a Maybe it answers holds only the collection it wrote, so
+//     `Vector.set(v, i, x)!` hands the next set an owned vector.
 //   - Folds: per `Iter.reduce` or `Iter.map_reduce` whose callback is a
 //     lambda the function builds and whose seed is a move of an owned
 //     class, the seed's needs and the callback's ResultOwnership (asked of
@@ -244,20 +249,21 @@ func ownableKind(t *ValType) bool {
 		return true
 	}
 	switch t.Kind() {
-	case KindStruct, KindRecord, KindTuple, KindVector, KindMap, KindSet, KindAny:
+	case KindStruct, KindRecord, KindTuple, KindVector, KindMap, KindSet, KindEnum, KindAny:
 		return true
 	}
 	return false
 }
 
 // fieldsKind reports whether a value of type t may have fields a
-// projection reads (a struct, a record, a tuple, or a generic value).
+// projection reads (a struct, a record, a tuple, an enum's payloads, or a
+// generic value).
 func fieldsKind(t *ValType) bool {
 	if t == nil {
 		return true
 	}
 	switch t.Kind() {
-	case KindStruct, KindRecord, KindTuple, KindAny:
+	case KindStruct, KindRecord, KindTuple, KindEnum, KindAny:
 		return true
 	}
 	return false
@@ -267,21 +273,29 @@ func fieldsKind(t *ValType) bool {
 const never = Never
 
 // fieldKey names a field a projection reads: a struct's or a record's by
-// name, a tuple's slot by index.
+// name, a tuple's slot by index, a variant's payload by the variant and
+// its index or field.
 type fieldKey struct {
-	slot bool
-	idx  int
-	name string
+	slot    bool
+	idx     int
+	name    string
+	variant string
 }
 
 // projField answers the field p reads, when p reads a field of a struct, a
-// record or a tuple.
+// record or a tuple, or a payload of a variant whose tag is known (not an
+// `embeds` variant's, whose payload is the value itself).
 func projField(p *Proj) (fieldKey, bool) {
 	switch p.kind {
 	case ProjField, ProjRecordField:
 		return fieldKey{name: p.text}, true
 	case ProjSlot:
 		return fieldKey{slot: true, idx: p.idx}, true
+	case ProjPayload:
+		if p.embeds != nil {
+			return fieldKey{}, false
+		}
+		return fieldKey{slot: true, idx: p.idx, name: p.field, variant: p.text}, true
 	}
 	return fieldKey{}, false
 }
@@ -565,7 +579,12 @@ func Owns(f *Func, callees Callees) *Ownership {
 				// A move within the class (a Ref here reads a parameter).
 				return
 			case *Proj:
-				if x.kind == ProjField || x.kind == ProjRecordField || x.kind == ProjSlot {
+				if _, isField := projField(x); isField {
+					return
+				}
+			case *Match:
+				if x.kind == MatchVariant {
+					// A variant test reads the tag and keeps nothing.
 					return
 				}
 			case *Call:

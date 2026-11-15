@@ -1,0 +1,85 @@
+import
+    std::assertions.AssertionFailure
+    std::compiler
+end
+
+fn divide(n: Int, d: Int) -> Maybe<Int>
+    if d == 0 then return None
+    Some(Int.divide(n, d))
+end
+
+fn power(n: Int) -> Int
+    if n >= 0 then Int.pow(2, n) else 0
+end
+
+fn first_or(xs: List<Int>, fallback: Int) -> Int
+    if xs == [] then
+        fallback
+    else
+        NonEmptyList.first(xs)
+    end
+end
+
+fn classify(n: Int) -> String
+    case
+        n < 0  -> "negative"
+        n == 0 -> "zero"
+        _      -> String.repeat("+", n)
+    end
+end
+
+fn largest(xs: List<Int>) -> Maybe<Int>
+    case xs
+        ys when not Iter.is_empty(ys) -> Some(NonEmptyList.max(ys))
+        _                             -> None
+    end
+end
+
+fn checked(n: Int) -> Result<PositiveInt, AssertionFailure>
+    assert n > 0
+    Ok(n)
+end
+
+fn first_error(source: String) -> String
+    case compiler.check(source)
+        [d, ..] -> d.message
+        []      -> "no error"
+    end
+end
+
+test "a check narrows the binding it guards"
+    assert divide(7, 2) == Some(3)
+    assert divide(7, 0) == None
+    assert power(3) == 8
+    assert power(-1) == 0
+    assert first_or([4, 5], 0) == 4
+    assert first_or([], 9) == 9
+    assert classify(-2) == "negative"
+    assert classify(0) == "zero"
+    assert classify(3) == "+++"
+    assert largest([3, 9, 4]) == Some(9)
+    assert largest([]) == None
+    assert checked(2) == Ok(2)
+end
+
+test "a narrowed value is its base at run time"
+    n = 5
+
+    if n > 0 then
+        doubled = [n, n] |> Iter.map(fn p -> p * 2) |> Iter.to_list()
+        assert doubled == [10, 10]
+        assert Int.to_string(n) == "5"
+    end
+end
+
+test "a float that is not zero may be NaN, so it does not narrow"
+    error = first_error(
+        """
+          fn half(x: Float) -> NonZeroFloat
+            if x != 0.0 then x else 1.0
+          end
+        """
+    )
+
+    assert String.contains(error, "expected NonZeroFloat, got Float")
+end

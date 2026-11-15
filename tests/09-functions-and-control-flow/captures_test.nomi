@@ -38,7 +38,7 @@ fn tens(a: Int, b: Int) -> Int
     a * 10 + b
 end
 
-fn halve(n: Int, by: Int) -> Int
+fn halve(n: Int, by: NonZeroInt) -> Int
     n / by
 end
 
@@ -153,7 +153,7 @@ end
 test "a pipe fills the first argument"
     diagnostics =
         """
-        fn halve(n: Int, by: Int) -> Int
+        fn halve(n: Int, by: NonZeroInt) -> Int
             n / by
         end
 

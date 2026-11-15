@@ -74,7 +74,12 @@ end
 /// is `value`. `b = value / a` is at most `max` once `a` is at least
 /// `value / max`, and at least `a` while `a` is at most the square root.
 fn factors(value: Int, min: Int, max: Int) -> List<(Int, Int)>
-    from = Int.max(min, (value + max - 1) / max)
+    // A palindrome here is at least 1 and at most `max * max`, with `min`
+    // at most `max`, so `max` is at least 1.
+    if max < 1 then return []
+
+    // A factor of a palindrome here is at least 1.
+    from = Int.max(1, Int.max(min, (value + max - 1) / max))
     // A product of the factors is never negative.
     to = Int.min(max, Int.sqrt(NonNegativeInt.try_from(value)!))
 

@@ -1,6 +1,7 @@
 package stdformat
 
 import (
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -24,12 +25,12 @@ var relativeUnits = []string{"second", "minute", "hour", "day", "week", "month",
 // FFIFormatRelative is `calendar.relative_format_raw`: n units from now in
 // locale, unit by its position in TimeUnit; with numeric false, the
 // locale's word for it when it has one (`yesterday`, `tomorrow`).
-func FFIFormatRelative(fr *rt.Frame, locale string, n, unit int64, numeric bool) string {
+func FFIFormatRelative(fr *rt.Frame, locale string, n rt.Int, unit int64, numeric bool) string {
 	return Relative(stdlocale.Data(fr), locale, n, unit, numeric)
 }
 
-// Relative writes n units from now in locale.
-func Relative(d *cldrdata.Data, locale string, n, unit int64, numeric bool) string {
+// Relative writes n units from now in locale, for a count of any size.
+func Relative(d *cldrdata.Data, locale string, n rt.Int, unit int64, numeric bool) string {
 	if unit < 0 || int(unit) >= len(relativeUnits) {
 		unit = 3
 	}
@@ -39,17 +40,16 @@ func Relative(d *cldrdata.Data, locale string, n, unit int64, numeric bool) stri
 		v, _, _ := d.Resolve(chain, key)
 		return v
 	}
-	if !numeric && n >= -2 && n <= 2 {
-		if words := strings.Split(get(cldrdata.RecordKey("relative", name)), "\t"); len(words) == 5 && words[n+2] != "" {
-			return words[n+2]
+	if small, ok := n.Int64(); ok && !numeric && small >= -2 && small <= 2 {
+		if words := strings.Split(get(cldrdata.RecordKey("relative", name)), "\t"); len(words) == 5 && words[small+2] != "" {
+			return words[small+2]
 		}
 	}
 	kind := "relative-future"
-	if n < 0 {
+	if n.Sign() < 0 {
 		kind = "relative-past"
 	}
-	abs := absInt(n)
-	count := strconv.FormatUint(abs, 10)
+	count := strings.TrimPrefix(n.String(), "-")
 	category := stdplural.Rules(d, locale, false).CategoryOf(count)
 	pattern := pluralForm(get(cldrdata.RecordKey(kind, name)), category)
 	if pattern == "" {
@@ -75,7 +75,7 @@ var unitWidths = map[int64]string{int64(rt.TagDurationLong): "long", int64(rt.Ta
 
 // FFIFormatDuration is `duration.duration_format_raw`: nanos as a reader of
 // locale reads a length of time, at width (DurationWidth's tag).
-func FFIFormatDuration(fr *rt.Frame, locale string, nanos, width int64) string {
+func FFIFormatDuration(fr *rt.Frame, locale string, nanos rt.Int, width int64) string {
 	return Duration(stdlocale.Data(fr), locale, nanos, width)
 }
 
@@ -83,8 +83,9 @@ func FFIFormatDuration(fr *rt.Frame, locale string, nanos, width int64) string {
 // has from hours down, with the unit's pattern for the number's plural
 // form, joined as the locale joins the parts of one measure. Zero is zero
 // seconds; a negative length has the locale's minus sign before its first
-// number.
-func Duration(d *cldrdata.Data, locale string, nanos, width int64) string {
+// number. The hours have no bound: a Duration is an Int of any size, so
+// the hours are counted as an Int and what is left is under an hour.
+func Duration(d *cldrdata.Data, locale string, nanos rt.Int, width int64) string {
 	w, ok := unitWidths[width]
 	if !ok {
 		w = "long"
@@ -92,11 +93,9 @@ func Duration(d *cldrdata.Data, locale string, nanos, width int64) string {
 	chain := stdlocale.Fallbacks(d, locale)
 	nums := numbersFor(d, locale)
 	rules := stdplural.Rules(d, locale, false)
-	neg := nanos < 0
-	rest := absInt(nanos)
+	neg := nanos.Sign() < 0
 	var parts []string
-	part := func(unit string, n uint64) {
-		count := strconv.FormatUint(n, 10)
+	part := func(unit string, count string) {
 		v, _, _ := d.Resolve(chain, cldrdata.RecordKey("duration-unit", unit+"-"+w))
 		pattern := pluralForm(v, rules.CategoryOf(count))
 		if pattern == "" {
@@ -105,13 +104,18 @@ func Duration(d *cldrdata.Data, locale string, nanos, width int64) string {
 		number := nums.render(neg && len(parts) == 0, count, "", nums.decimal, true)
 		parts = append(parts, strings.Replace(pattern, "{0}", number, 1))
 	}
-	if rest == 0 {
-		part("second", 0)
+	hours, rest := new(big.Int).QuoRem(new(big.Int).Abs(nanos.Big()), big.NewInt(durationUnits[0].nanos), new(big.Int))
+	if hours.Sign() == 0 && rest.Sign() == 0 {
+		part("second", "0")
 	}
-	for _, u := range durationUnits {
-		if n := rest / uint64(u.nanos); n > 0 {
-			rest -= n * uint64(u.nanos)
-			part(u.name, n)
+	if hours.Sign() > 0 {
+		part(durationUnits[0].name, hours.String())
+	}
+	under := rest.Uint64()
+	for _, u := range durationUnits[1:] {
+		if n := under / uint64(u.nanos); n > 0 {
+			under -= n * uint64(u.nanos)
+			part(u.name, strconv.FormatUint(n, 10))
 		}
 	}
 	typ := "unit"

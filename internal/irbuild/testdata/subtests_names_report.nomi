@@ -6,7 +6,7 @@ fn is_leap_year(year: Int) -> Bool
 end
 
 fn label(n: Int) -> String
-    "${100 / n}"
+    "${100 / NonZeroInt.try_from(n)!}"
 end
 
 test "a failed row reports its name"
@@ -28,7 +28,7 @@ test "a built name, shared by two rows"
 end
 
 test "a name that traps fails its row without running it"
-    subtests [2, 0, 1], n, "${10 / n}"
+    subtests [2, 0, 1], n, "${10 / NonZeroInt.try_from(n)!}"
         assert n > 1
     end
 end

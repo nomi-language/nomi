@@ -35,15 +35,15 @@ end
 
 /// `group_size` birthdates, each a uniformly random day of a random year
 /// that is not a leap year.
-pub fn random_birthdates(group_size: Int) -> Generator<List<Date>>
+pub fn random_birthdates(group_size: NonNegativeInt) -> Generator<List<Date>>
     Generator.list(birthdate(), group_size)
 end
 
 /// The percentage of `trials` random groups of `group_size` people in
 /// which two share a birthday.
 pub fn estimated_probability_of_shared_birthday(
-    group_size: Int,
-    trials:     Int = 10000,
+    group_size: NonNegativeInt,
+    trials:     NonNegativeInt = 10000,
 ) -> Generator<Float>
     random_birthdates(group_size)
     |> Generator.map(has_shared_birthday)
@@ -72,7 +72,9 @@ end
 /// A uniformly random day of a random common year. Each year has 365 days,
 /// so one draw below 365 times the number of years picks both.
 fn birthdate() -> Generator<Date>
-    Generator.int(0, Vector.length(new_years_days) * 365 - 1)
+    // The number of years is computed, so the range goes through try_from;
+    // the list of years is never empty.
+    Generator.int(BoundedRange.try_from(0..Vector.length(new_years_days) * 365)!)
     |> Generator.map(fn n -> Vector.get(new_years_days, n / 365)! + Days(n % 365))
 end
 
@@ -148,7 +150,9 @@ group "random birthdates"
     setup draw(baffling_birthdays.random_birthdates(100))
 
     test "generate requested number of birthdates"
-        assert 1..=20
+        sizes: Range<NonNegativeInt> = 1..=20
+
+        assert sizes
             |> Iter.all_match(fn size ->
                 Iter.count(draw(baffling_birthdays.random_birthdates(size))) == size
             end)
@@ -168,12 +172,14 @@ group "random birthdates"
 end
 
 test "estimated probability of at least one shared birthday"
-    [
+    groups: List<(String, NonNegativeInt, Float)> = [
         ("for one person",            1,  0.0),
         ("among ten people",          10, 11.694818),
         ("among twenty-three people", 23, 50.729723),
         ("among seventy people",      70, 99.915958),
     ]
+
+    groups
     |> subtests (description, group_size, expected), description
         estimate = draw(baffling_birthdays.estimated_probability_of_shared_birthday(group_size))
 

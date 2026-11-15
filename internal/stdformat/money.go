@@ -42,8 +42,9 @@ const maxCurrencyDigits = 18
 
 // FFICurrencyCheck is `currency.currency_check`: whether code (with digits,
 // or -1 for an ISO code) makes a currency, by currency_check's answers.
-func FFICurrencyCheck(fr *rt.Frame, code string, digits int64) int64 {
-	return int64(CurrencyCheck(stdlocale.Data(fr), code, digits))
+// digits past int64 saturate, past maxCurrencyDigits either way.
+func FFICurrencyCheck(fr *rt.Frame, code string, digits rt.Int) int64 {
+	return int64(CurrencyCheck(stdlocale.Data(fr), code, digits.Saturated()))
 }
 
 // CurrencyCheck checks a currency code against d's ISO codes: an ISO code
@@ -132,28 +133,6 @@ func FFICurrencyDigitsOf(fr *rt.Frame, text string) int64 {
 		n = cldrdata.DefaultCurrencyDigits
 	}
 	return int64(n)
-}
-
-// FFIMoneyMixed is `std::money::format.money_mixed`: the trap two amounts in two
-// currencies raise, naming both.
-func FFIMoneyMixed(operation, a, b string) rt.Unit {
-	rt.Trap(MixedText(operation, a, b))
-	return rt.Unit{}
-}
-
-// FFIRefused is `std::money::format.money_refused` and `decimal.decimal_refused`:
-// the trap a `Money` or `Decimal` function raises for an argument the caller
-// chose and could have checked, such as `Money.split` into no parts:
-// `Money.split: n must be positive, got 0`.
-func FFIRefused(operation, reason string) rt.Unit {
-	rt.Trap(operation + ": " + reason)
-	return rt.Unit{}
-}
-
-// MixedText is the trap `Money.add` raises for amounts in two currencies:
-// `Money.add: the amounts are in two currencies, EUR and PLN`.
-func MixedText(operation, a, b string) string {
-	return fmt.Sprintf("%s: the amounts are in two currencies, %s and %s", operation, a, b)
 }
 
 // currencyIn is what formatting and parsing read of one currency in one
@@ -247,9 +226,10 @@ func (c currencyIn) patternFor(marker string, accounting bool) *cldrdata.Pattern
 
 // FFIFormatMoney is `std::money::format.money_format_raw`: amount (a Decimal's
 // text) in the currency of code, written as display says, in the locale's
-// accounting pattern when accounting is set.
-func FFIFormatMoney(fr *rt.Frame, locale, amount, code string, digits int64, iso bool, display int64, accounting bool) string {
-	return Money(stdlocale.Data(fr), locale, amount, code, int(digits), iso, int(display), accounting)
+// accounting pattern when accounting is set. digits are a Currency's, 0 to
+// maxCurrencyDigits, checked when it was made.
+func FFIFormatMoney(fr *rt.Frame, locale, amount, code string, digits rt.Int, iso bool, display int64, accounting bool) string {
+	return Money(stdlocale.Data(fr), locale, amount, code, int(digits.Saturated()), iso, int(display), accounting)
 }
 
 // Money writes amount (a Decimal's text) in the currency of code, with
@@ -358,8 +338,8 @@ func concrete(p *cldrdata.Pattern, marker string) *cldrdata.Pattern {
 
 // FFIParseMoney is `std::money::format.money_parse_raw`: the amount, as a
 // Decimal's text, that text writes in the currency of code.
-func FFIParseMoney(fr *rt.Frame, text, locale, code string, digits int64, iso, lenient bool) rt.Result[string, rt.NumberParseError] {
-	amount, err := ParseMoney(stdlocale.Data(fr), text, locale, code, int(digits), iso, lenient)
+func FFIParseMoney(fr *rt.Frame, text, locale, code string, digits rt.Int, iso, lenient bool) rt.Result[string, rt.NumberParseError] {
+	amount, err := ParseMoney(stdlocale.Data(fr), text, locale, code, int(digits.Saturated()), iso, lenient)
 	if err != nil {
 		return rt.Result[string, rt.NumberParseError]{Tag: rt.TagErr, Err: *err}
 	}

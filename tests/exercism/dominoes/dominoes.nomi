@@ -32,5 +32,5 @@ end
 fn picks(stones: List<(Int, Int)>) -> Iter<((Int, Int), List<(Int, Int)>)>
     stones
     |> Iter.with_index()
-    |> Iter.map(fn (index, stone) -> (stone, List.remove_at(stones, index)))
+    |> Iter.map(fn (index, stone) -> (stone, List.remove_at(stones, index)!))
 end

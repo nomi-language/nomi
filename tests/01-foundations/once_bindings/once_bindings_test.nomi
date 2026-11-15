@@ -119,7 +119,7 @@ test "compiler hover can assert once signatures with a marker"
         """
     )
 
-    assert signature == "once default_port: Int = 8080"
+    assert signature == "once default_port: PositiveInt = 8080"
 end
 
 fn retry_message(attempt: Int) -> String

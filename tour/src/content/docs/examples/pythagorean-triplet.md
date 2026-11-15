@@ -27,7 +27,8 @@ end
 /// so `b` is whole or there is no such triplet.
 fn triplet(n: Int, a: Int) -> Maybe<(Int, Int, Int)>
     top = n * n - 2 * n * a
-    bottom = 2 * (n - a)
+    // `a` is below `n / 3`, so `n - a` is above 0.
+    bottom = PositiveInt.try_from(2 * (n - a))!
     b = top / bottom
 
     if top % bottom == 0 and a < b then Some((a, b, n - a - b)) else None
@@ -82,6 +83,6 @@ test result: ok. 7 passed, 0 failed
 ## How it's written
 
 - A triplet is a tuple, `(a, b, c)`, and the answer a `List` of them, smallest `a` first, as the canonical data lists them. The three sides are read together and never apart, so a struct would only name them.
-- The search runs over `a` alone. With `c = n - a - b`, the equation solves to `b = (n² - 2na) / (2(n - a))`, so each `a` has at most one triplet, and it exists when that division is exact and `a < b`. That is one pass of `n / 3` steps, which keeps the largest case (`n = 30000`) to 10,000 divisions instead of a nested loop over `a` and `b`.
+- The search runs over `a` alone. With `c = n - a - b`, the equation solves to `b = (n² - 2na) / (2(n - a))`, so each `a` has at most one triplet, and it exists when that division is exact and `a < b`. `a` is below `n / 3`, so `2(n - a)` is above zero, which `PositiveInt.try_from(...)!` states so `/` and `%` take it. That is one pass of `n / 3` steps, which keeps the largest case (`n = 30000`) to 10,000 divisions instead of a nested loop over `a` and `b`.
 - `triplet` answers a `Maybe` per `a`, and `Maybe.values` keeps the ones that exist. The derivation sits in `triplet`'s doc comment, so the arithmetic is explained where it is written.
 - The seven canonical cases are one `subtests` table named by the description column.

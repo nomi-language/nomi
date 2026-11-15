@@ -107,7 +107,7 @@ func (g *gen) programLinks() map[ast.Node]declName {
 
 // linkName is the linkage name of the symbol a table interns for token, or
 // "" for one only its own module names (ir.Table.SetLinkage).
-func (g *gen) linkName(token any, _ string) string {
+func (g *gen) linkName(token any, name string) string {
 	switch t := token.(type) {
 	case *ast.FuncDef:
 		if inst := g.stdInstCur; inst != nil && inst.fd == t {
@@ -162,6 +162,28 @@ func (g *gen) linkName(token any, _ string) string {
 		return within(g.declLink(t.boot), " startup default")
 	case irStdArity:
 		return within(stdFuncLink(g, t.f), " arity "+strconv.Itoa(t.arity))
+	case literalCellKey:
+		// A program file's typed literal cell, which a refinement
+		// literal's build reads from outside the file's module
+		// (relinkRefinementFuncs): named by the file's module and the
+		// cell's own name, which holds the literal's text and position.
+		// A std module's cells stay unnamed, since a generic std body is
+		// lowered once shared and again per program instance.
+		if g.stdModule != "" || g.stdInstCur != nil {
+			return ""
+		}
+		return within(g.unitLinkModule(), "."+name)
+	}
+	return ""
+}
+
+// unitLinkModule is the module part of the linkage names of this unit's
+// file's declarations, or "" when it declares none.
+func (g *gen) unitLinkModule() string {
+	for _, n := range g.nodes {
+		if d, ok := g.declNameOf(n); ok {
+			return d.module
+		}
 	}
 	return ""
 }

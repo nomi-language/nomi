@@ -120,8 +120,9 @@ func SortSliceToListCells[T any, N ListCellShape[T, N]](items []T, less func(T, 
 
 // ListCellRemoveAt is `List.remove_at`: the list without the element at
 // zero-based index, rebuilding the cells before it and sharing the cells
-// after it. An index outside `0 <= index < length` traps with
-// IndexOutOfRangeText, as `Vector.set` does.
+// after it. The caller checks the index against ListCellCount first, as
+// std's `List.remove_at` answers None outside it; an index outside
+// `0 <= index < length` traps with IndexOutOfRangeText.
 func ListCellRemoveAt[T any, N ListCellShape[T, N]](xs *N, index int64) *N {
 	length := ListCellCount[T, N](xs)
 	if index < 0 || index >= length {

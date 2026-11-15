@@ -95,11 +95,9 @@ type infiniteIterAdapter int
 
 const (
 	// iterKeeps is endless when its source is, unless its callback (if
-	// any) can stop it.
+	// any) can stop it. `chunks` and `windows` are among them: their size
+	// is a PositiveInt.
 	iterKeeps infiniteIterAdapter = iota
-	// iterChunks is endless when its source is and its size is a literal
-	// above zero (chunks, windows).
-	iterChunks
 	// iterCycles is endless when its source is, or when the source is a
 	// literal collection with an element.
 	iterCycles
@@ -134,8 +132,8 @@ var infiniteIterAdapters = map[string]iterAdapterRule{
 	"Iter.flat_map":    {iterKeeps, iterCallbackArg},
 	"Iter.flatten":     {iterKeeps, nil},
 	"Maybe.values":     {iterKeeps, nil},
-	"Iter.chunks":      {iterChunks, nil},
-	"Iter.windows":     {iterChunks, nil},
+	"Iter.chunks":      {iterKeeps, nil},
+	"Iter.windows":     {iterKeeps, nil},
 	"Iter.cycle":       {iterCycles, nil},
 	"Iter.concat":      {iterEither, nil},
 	"Iter.zip":         {iterBoth, nil},
@@ -313,10 +311,7 @@ func (c *infiniteIterCheck) endlessCall(call *ast.Call, piped ast.Node, depth in
 	switch rule.rule {
 	case iterKeeps:
 		return c.endless(args.at(iterSourceArg), depth)
-	case iterChunks:
-		if n, ok := intLiteral(args.at(iterArg{1, "size"})); ok && n > 0 {
-			return c.endless(args.at(iterSourceArg), depth)
-		}
+
 	case iterCycles:
 		src := args.at(iterSourceArg)
 		if e := c.endless(src, depth); e != nil {

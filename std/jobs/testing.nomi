@@ -404,7 +404,8 @@ derive Equatable for Ran
 /// task, oldest first, and settles each as a worker would. A job a handler
 /// enqueues runs in the same call when it is due; a retried or snoozed job
 /// does not, since it is due later. Returns each job run, in order. Two
-/// handlers of one kind trap, as `Worker.start` does.
+/// handlers of one kind trap, where `Worker.start` returns an `Err`: a test
+/// fails at its line.
 //! queue = Inline.new()
 //!
 //! double = Job.new("double", fn n: Int ->

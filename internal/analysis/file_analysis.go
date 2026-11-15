@@ -38,6 +38,9 @@ type FileAnalysis struct {
 	// boot is what the file's bodies tell the boot-only check, for one
 	// body part (bootSummaryOf).
 	boot *bootSummary
+	// onces is what the file's bodies tell the once-cycle check, for one
+	// body part (onceSummaryOf).
+	onces *onceSummary
 }
 
 // scopeNames are the file's ScopeNames that name types, capitalized, or

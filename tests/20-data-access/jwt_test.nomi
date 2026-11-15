@@ -6,7 +6,7 @@ import
     std::base64
     std::duration.Duration
     std::instant.Instant
-    std::json.{FromJson, Json, ToJson}
+    std::json.{FromJson, Json, JsonObject, ToJson}
     std::jwt.{self, Algorithm, JwtError, SigningKey, Validation, VerifyingKey}
     std::signatures.{self, PrivateKey, PublicKey}
     std::testing.Clock
@@ -157,7 +157,12 @@ derive Equatable for Login
 
 test "claims as a typed struct"
     key = SigningKey.hs256(secret())!
-    token = jwt.sign_as(Login{sub: "ada", exp: 4_000_000_000, admin: True}, key)
+
+    claims = JsonObject.try_from(
+        ToJson.to_json(Login{sub: "ada", exp: 4_000_000_000, admin: True})
+    )!
+
+    token = jwt.sign_as(claims, key)
     login: Login = jwt.verify_as(token, SigningKey.verifying_key(key))!
     assert login == Login{sub: "ada", exp: 4_000_000_000, admin: True}
 

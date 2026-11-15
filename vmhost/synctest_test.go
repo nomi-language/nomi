@@ -311,7 +311,7 @@ func TestSynctestRestartBackoffVirtualizesItsDelays(t *testing.T) {
 		"restart: Restart.Transient, backoff: Backoff.Exponential{max_restarts: 3, max_elapsed: Duration.minutes(5)}", `
 fn breaks(zero: Int) -> Unit
   io.print("run")
-  _ = 1 / zero
+  _ = 1 / NonZeroInt.try_from(zero)!
   Unit
 end
 

@@ -63,27 +63,31 @@ second has two digits after the point.
 
 ## Adding amounts
 
-`+` and `-` work on two amounts in one currency, `*` multiplies an amount
-by an `Int`, and `Iter.sum` adds a list of them. Nothing is lost to
-rounding:
+`*` multiplies an amount by an `Int`. Adding and subtracting are functions
+that return a `Result`, since dollars and euros don't add: `Money.add` and
+`Money.subtract` take two amounts, and `Money.sum` adds a list of them in a
+currency you name, which is also what the sum of no amounts is in. Nothing
+is lost to rounding:
 
 ```nomi-run
 import
+    std::currency.Currency
     std::io
-    std::money.Money
+    std::money.{CurrencyMismatch, Money}
 end
 
-fn main()
+fn main() -> Result<Unit, CurrencyMismatch>
     book = Money"12.50 USD"
     pen = Money"2.35 USD"
 
-    io.print(book + pen)
-    io.print(book - pen)
+    io.print(Money.add(book, pen)?)
+    io.print(Money.subtract(book, pen)?)
     io.print(book * 3)
-    io.print(Iter.sum([book, pen, pen]))
+    io.print(Money.sum([book, pen, pen], Currency"USD")?)
 
     empty: List<Money> = []
-    io.print(Iter.sum(empty))
+    io.print(Money.sum(empty, Currency"USD")?)
+    Ok(Unit)
 end
 ```
 <!-- expect
@@ -91,37 +95,37 @@ end
 10.15 USD
 37.50 USD
 17.20 USD
-0 XXX
+0 USD
 -->
-
-The sum of no amounts is zero in `XXX`, ISO's code for no currency. `+`
-leaves the other amount alone when one of them is that zero, so the sum of
-a cart's prices is in the cart's currency.
 
 ## Mixing currencies
 
-Adding dollars to euros gives a number with no meaning, so it stops the
-program, as a division by zero does. The message names both currencies:
+Adding dollars to euros gives a number with no meaning, so it is an
+`Err(CurrencyMismatch)`, which names both currencies. Here `main` passes it
+on with `?`, and the program stops with it:
 
 ```nomi-run error
 import
     std::io
-    std::money.Money
+    std::money.{CurrencyMismatch, Money}
 end
 
-fn main()
+fn main() -> Result<Unit, CurrencyMismatch>
     price = Money"12.50 USD"
     fee = Money"2.00 EUR"
-    total = price + fee
+    total = Money.add(price, fee)?
     io.print(total)
+    Ok(Unit)
 end
 ```
 <!-- expect
-line 9: Money.add: the amounts are in two currencies, USD and EUR
+error: the amounts are in two currencies, USD and EUR
 -->
 
 Convert one amount first, with a rate your program gets from somewhere it
-trusts.
+trusts. Where the currencies are known to match, as for two literals, write
+`!` after the call instead of `?`. `Money.min` and `Money.max` return a
+`Result` the same way.
 
 ## Rounding
 
@@ -210,7 +214,7 @@ import
 end
 
 fn main()
-    points = Money"1200 PTS:0" + Money"300 PTS:0"
+    points = Money.add(Money"1200 PTS:0", Money"300 PTS:0")!
     io.print(points)
     io.print(Money.format(points, Locale"en-US"))
     dbg Currency.parse("PTS:0") == Ok(points.currency)
@@ -232,7 +236,7 @@ dbg line 11: Currency.parse("PTS:0") == Ok(points.currency) = True
 
 Two custom currencies are equal when their codes and digits are, so two
 libraries that each write `PTS:0` share one currency. `PTS:0` and `PTS:2`
-are two currencies, and adding them stops the program. A custom currency
+are two currencies, and adding them is an `Err`. A custom currency
 can't reuse an ISO code, and has no symbol, so `Money.format` writes its
 code.
 

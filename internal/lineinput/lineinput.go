@@ -43,7 +43,7 @@ func (in *Input) Read(p []byte) (int, error) {
 		return 0, nil
 	}
 	for len(in.pending) == 0 {
-		chunk := rt.ReaderRead(in.Frame, in.r, int64(max(len(p), 4096)))
+		chunk := rt.ReaderRead(in.Frame, in.r, rt.SmallInt(int64(max(len(p), 4096))))
 		if chunk.Tag != rt.TagOk {
 			e := chunk.Err
 			in.Failure = &e
@@ -60,7 +60,7 @@ func (in *Input) Read(p []byte) (int, error) {
 			// A byte order mark may arrive split over reads; wait for
 			// three bytes or the end before deciding.
 			if len(in.pending) < 3 && bytes.HasPrefix([]byte("\xef\xbb\xbf"), in.pending) {
-				more := rt.ReaderRead(in.Frame, in.r, 3)
+				more := rt.ReaderRead(in.Frame, in.r, rt.SmallInt(3))
 				if more.Tag == rt.TagOk && more.Ok.Tag == rt.TagSome {
 					in.pending = append(in.pending, more.Ok.Some...)
 				}

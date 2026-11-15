@@ -654,8 +654,8 @@ func fuzzing() bool {
 // decline: a call to `planted_decline`, which irbuild.PlantDeclineForTest
 // makes the builder decline, never on a real gap, which a fix would close.
 // A test of a stdlib module's cases plants the decline on a call std itself
-// makes (cmd/nomi's withPlantedDeclineOf, `nanos_in_range` in
-// std/duration.nomi), in a child that keeps no std bundle, so std is
+// makes (cmd/nomi's withPlantedDeclineOf, `checked` in
+// std/instant.nomi), in a child that keeps no std bundle, so std is
 // lowered with the plant in place.
 func FuzzFrontEndAcceptsSoItLowers(f *testing.F) {
 	f.Setenv("NOMI_DEBUG_LOWERING", "1")

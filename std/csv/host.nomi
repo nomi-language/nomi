@@ -4,22 +4,24 @@
 
 import
     bool.Bool
+    code_points.Codepoint
     int.Int
     io.{Error, Reader}
     lists.List
+    maybe.Maybe
     strings.String
 end
 
 /// A CSV reader over a `Reader`, which reads it a record at a time.
 pub host type Records
 
-/// A reader of the CSV in `reader`. `delimiter` and `comment` are code
-/// points, `comment` 0 for none; `fields` is the field count of every
+/// A reader of the CSV in `reader`, `comment` `None` for no comment
+/// character; `fields` is the field count of every
 /// record, 0 for the first record's and -1 for any.
 pub host fn open(
     reader:    Reader,
-    delimiter: Int,
-    comment:   Int,
+    delimiter: Codepoint,
+    comment:   Maybe<Codepoint>,
     trim:      Bool,
     lazy:      Bool,
     fields:    Int,
@@ -44,4 +46,4 @@ pub host fn message(records: Records) -> String
 pub host fn failure(records: Records) -> Error
 
 /// `fields` as one CSV line, ended by `\r\n` when `crlf` and `\n` if not.
-pub host fn encode(fields: List<String>, delimiter: Int, crlf: Bool) -> String
+pub host fn encode(fields: List<String>, delimiter: Codepoint, crlf: Bool) -> String
