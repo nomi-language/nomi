@@ -51,7 +51,7 @@ func TestMapPatternKeyIsTypeChecked(t *testing.T) {
   end
 end
 `)
-	if !strings.Contains(got, "arguments") {
+	if !strings.Contains(got, "expected 1 argument, got") {
 		t.Errorf("an arity error inside a map PATTERN key went unreported.\n"+
 			"got: %q\n"+
 			"checkPattern's *ast.MapPattern arm must reach entry.Key through "+
@@ -71,7 +71,7 @@ func TestMapDestructureKeyIsTypeChecked(t *testing.T) {
   v
 end
 `)
-	if !strings.Contains(got, "arguments") {
+	if !strings.Contains(got, "expected 1 argument, got") {
 		t.Errorf("an arity error inside a map DESTRUCTURE key went unreported.\n"+
 			"got: %q\n"+
 			"a map pattern binding must reach entry.Key through "+
@@ -93,7 +93,7 @@ func TestMapLiteralKeyIsTypeChecked(t *testing.T) {
   {Int.to_string(1, 2, 3) => "x"}
 end
 `)
-	if !strings.Contains(got, "arguments") {
+	if !strings.Contains(got, "expected 1 argument, got") {
 		t.Errorf("a map LITERAL key stopped being type-checked: %q\n"+
 			"this is the control for TestMapPatternKeyIsTypeChecked. Its whole "+
 			"job is to show the check pre-existed at a sibling position.", got)

@@ -12,9 +12,9 @@ import (
 
 func TestKeyWithoutEquality_IsRejectedWhereTheCollectionIsBuilt(t *testing.T) {
 	const iterSet = "`Iter<Int>` cannot be a Set element: an Iter has no equality or hashing; " +
-		"materialize it with `Iter.to_list` first"
+		"collect it into a list with `Iter.to_list` first"
 	const iterKey = "`Iter<Int>` cannot be a Map key: an Iter has no equality or hashing; " +
-		"materialize it with `Iter.to_list` first"
+		"collect it into a list with `Iter.to_list` first"
 	cases := []struct {
 		name, body, want string
 		line, col        int
@@ -34,7 +34,7 @@ func TestKeyWithoutEquality_IsRejectedWhereTheCollectionIsBuilt(t *testing.T) {
 			"`(Int) -> Int` cannot be a Map key: a function value has no equality or hashing", 5, 7},
 		{"key holding an Iter", "m = {Feed{items: it} => 1}\n  _ = m",
 			"`Feed` cannot be a Map key: it holds `Iter<Int>`, and an Iter has no equality or hashing; " +
-				"materialize it with `Iter.to_list` first", 4, 7},
+				"collect it into a list with `Iter.to_list` first", 4, 7},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

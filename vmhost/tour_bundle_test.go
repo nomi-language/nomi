@@ -553,7 +553,8 @@ func modTime(t *testing.T, path string) string {
 //
 // A block's expect block holds what its page shows before any run, its
 // tests' report after its output included, so the staged wasm's output is
-// compared with it whole, for a block with tests too.
+// compared with it whole, for a block with tests too. A First Steps lesson
+// has no expect block: the staged wasm must print its tests' report.
 func TestTourWasmAnswersTheTourBlocks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; loads a 25MB wasm under node; -short")
@@ -627,6 +628,17 @@ node does. Make the program cheaper. A block that cannot be cheap enough
 can be a manual block (an example's NOTES.md says so with a "Run: manual"
 line under its subject).`,
 					b.name, got.Ms, limit, 2*limit)
+			}
+			if b.block.HasInfo(doctest.InfoLesson) {
+				// A First Steps lesson's starter fails a test on purpose,
+				// or passes on a lesson whose reader writes the tests;
+				// TestTourDoctests holds the starter and its solution to
+				// that. Here the staged wasm must compile it and report its
+				// tests, which is what the page's Check reads.
+				if shown := doctest.Shown(got.Output, got.Error); !strings.Contains(shown, "test result:") {
+					t.Errorf("lesson block %s: the staged wasm prints no test report, so Check would say the code doesn't run:\n%s\nFix: %s", b.name, shown, rebuildInstruction)
+				}
+				return
 			}
 			if b.block.HasInfo(doctest.InfoError) {
 				// An error block fails on purpose: its expect block holds
@@ -702,6 +714,7 @@ TestTourDoctests holds the in-process VM to. Fix: %s`,
 			}
 		})
 		switch {
+		case b.block.HasInfo(doctest.InfoLesson):
 		case b.block.HasInfo(doctest.InfoError):
 			errors++
 		case b.hasTests:

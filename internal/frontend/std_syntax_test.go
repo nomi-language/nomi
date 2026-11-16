@@ -95,7 +95,7 @@ func TestStdlibErrorsAnswerEveryModulesErrors(t *testing.T) {
 	}
 	broken := *std.Shared()
 	broken.Errors = map[string][]analysis.TypeError{
-		"duration": {{Line: 584, Col: 7, Message: "binary + type mismatch: Int vs String"}},
+		"duration": {{Line: 584, Col: 7, Message: "`+` needs two values of one type, and these are Int and String"}},
 	}
 	var ds Diagnostics
 	if err := stdlibErrors(&broken); !errors.As(err, &ds) {
@@ -105,8 +105,8 @@ func TestStdlibErrorsAnswerEveryModulesErrors(t *testing.T) {
 		t.Fatalf("got %d diagnostics, want one: %v", len(ds), ds)
 	}
 	d := ds[0]
-	if d.Path != "std/duration.nomi" || d.Line != 584 || d.Col != 7 || d.Message != "binary + type mismatch: Int vs String" {
-		t.Errorf("diagnostic = %s:%d:%d: %s, want std/duration.nomi:584:7: binary + type mismatch: Int vs String",
+	if d.Path != "std/duration.nomi" || d.Line != 584 || d.Col != 7 || d.Message != "`+` needs two values of one type, and these are Int and String" {
+		t.Errorf("diagnostic = %s:%d:%d: %s, want std/duration.nomi:584:7: `+` needs two values of one type, and these are Int and String",
 			d.Path, d.Line, d.Col, d.Message)
 	}
 	if !strings.Contains(strings.Join(d.Hints, "\n"), "does not check; fix it and rebuild nomi") {

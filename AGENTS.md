@@ -588,6 +588,25 @@ the doctest:
 - **`tool:<module>/<name>`** (repeatable): runs `nomi tool <module> <name>`
   in the block's project before each run, as a reader runs `sqlkit generate`
   before `nomi run`.
+- **`lesson`**: a First Steps task (`tour/src/content/docs/learn/`). One file
+  holds the function the reader finishes and the `test` blocks that check
+  it, with a comment saying the tests need no change. It runs only on its
+  Check button and has no expect block. A ` ```nomi-hint ` fence (plain
+  text) and a ` ```nomi-solution ` fence (the file, solved) follow it, and
+  the page reveals them on request. The doctest requires the starter to
+  compile and fail a test, the solution to pass every test, and both to
+  hold the same tests from the first `test` line on
+  (`vmhost/tour_lesson_test.go`). A ` ```nomi-bug ` fence after a lesson
+  (the lesson's code with a mistake planted in it, never shown) makes the
+  reader write the tests: Check runs them on the lesson's code, where all
+  must pass, then on the bug, where one must fail. There the starter and
+  solution share the code before the first `test` line instead, and the
+  doctest requires the starter's tests to pass on both and the solution's
+  to catch the bug. A Check that does not compile shows a
+  plain note for its first error from `tour/public/lesson-notes.json`;
+  `TestLessonNotesMatchTheirErrors` compiles each note's example and
+  requires its first error to find that note first, so reword a message
+  and its note's match together.
 
 A block runs on an in-memory file system. A `// FILE:` section that is not
 Nomi source or `nomi.toml` is a data file the block starts with; one named

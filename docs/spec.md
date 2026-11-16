@@ -3386,7 +3386,8 @@ Taught in [Scalars & Strings](/scalars-and-strings/#numbers-booleans-operators).
 
 No value converts to another type implicitly. `Int`, `Float` and `Decimal`
 are three types, and arithmetic needs one: `x + y` with an `Int` and a
-`Float` is `binary + type mismatch: Int vs Float`. Conversions are
+`Float` is the error `` `+` needs two values of one type, and these are Int
+and Float ``. Conversions are
 functions: `Int.to_float(x)` is total, and `Float.to_int(y)` is a
 `Maybe<Int>` that truncates toward zero and is `None` for NaN and the
 infinities ([std::int](/reference/int/), [std::float](/reference/float/)).
@@ -3445,7 +3446,7 @@ one is a compile error:
 
 A value that holds one, in a field, a tuple or record part, an element or a
 payload, has no equality either:
-`` `==` cannot compare `Feed`: it holds `Iter<Int>`, and an Iter has no equality; materialize it with `Iter.to_list` to compare its elements ``.
+`` `==` cannot compare `Feed`: it holds `Iter<Int>`, and an Iter has no equality; collect it into a list with `Iter.to_list` to compare its elements ``.
 A struct or enum with its own `impl Equatable` compares through it instead.
 
 #### Equality bounds
@@ -3500,7 +3501,7 @@ A `Map` finds its keys and a `Set` its elements by `==`. So any value with
 equality may be a key, at any depth: a tuple, a list, a struct, a distinct
 value. A value with no equality may not: building a `Set` or `Map` over one
 is an error at the expression that builds it
-(`` `Iter<Int>` cannot be a Set element: an Iter has no equality or hashing; materialize it with `Iter.to_list` first ``).
+(`` `Iter<Int>` cannot be a Set element: an Iter has no equality or hashing; collect it into a list with `Iter.to_list` first ``).
 
 Keys match by `==`, so a NaN key is found again, and `-0.0` and `0.0` are
 one key. A key of a type with a hand-written `impl Equatable` matches
@@ -4693,8 +4694,9 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   remainder*).
 
 - The numeric types never mix. `1 + 2.0`, `1 + 1.50d`, `1 < 2.0` and `1 ==
-  1.0` are compile errors (`binary + type mismatch: Int vs Float`, `equality
-  type mismatch: Int vs Float`, `comparison type mismatch: Int vs Decimal`).
+  1.0` are compile errors (`` `+` needs two values of one type, and these
+  are Int and Float ``, `equality type mismatch: Int vs Float`, `comparison
+  type mismatch: Int vs Decimal`).
   Convert with `Int.to_float`, `Float.to_int`, `Int.to_decimal`,
   `Decimal.to_float` or `Float.to_decimal`.
 - An operand of a subtype is its base's value, and the result is the
@@ -4715,7 +4717,7 @@ Taught in [Scalars and Strings](/scalars-and-strings/#numbers-booleans-operators
   Handler)>`, ``[(Route`GET /`, home)] + routes`` is a `List<(Route,
   Handler)>` though `home` is a `(Request) -> Response`. Two operands that
   each have a type of their own must have one type: with ``mine =
-  [(Route`GET /`, home)]``, `mine + routes` is `binary + type mismatch`.
+  [(Route`GET /`, home)]``, `mine + routes` is the error that `+` needs two values of one type.
 
 #### Integer arithmetic is exact
 
@@ -8361,9 +8363,9 @@ source yields is in [std::iter](/reference/iter/).
 
 **A collection is an `Iter`; an `Iter` is not a collection.** An `Iter<T>`
 where a collection is expected (an annotation, an argument, a field, an
-element, a result) is a type error whose help names the materializer:
-`type mismatch: expected List<Int>, got Iter<Int>`, with ``an Iter is not a
-collection; materialize it with `|> Iter.to_list()` ``. The same holds for
+element, a result) is a type error whose help names the function that
+collects it: `type mismatch: expected List<Int>, got Iter<Int>`, with ``an
+Iter is not a collection; collect it into one with `|> Iter.to_list()` ``. The same holds for
 every interface: a value of interface type never stands where an implementor is
 expected.
 

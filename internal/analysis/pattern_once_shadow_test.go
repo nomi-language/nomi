@@ -34,7 +34,7 @@ func checkOnceShadowProject(t *testing.T, entry string, siblings map[string]stri
 	}
 	all := append([]analysis.TypeError{}, fa.TypeErrors...)
 	all = append(all, analysis.CheckTypes(fa, nodes)...)
-	all = append(all, analysis.CheckUnusedBindings(fa)...)
+	all = append(all, analysis.CheckUnusedBindings(fa, nodes)...)
 	for _, sib := range cache {
 		all = append(all, sib.TypeErrors...)
 	}

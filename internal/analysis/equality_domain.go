@@ -37,7 +37,7 @@ func (c *checker) noEqualityMessage(t Type, op string) string {
 	what := noEqualityWhat(part)
 	fix := ""
 	if isStdIterType(part) {
-		fix = "; materialize it with `Iter.to_list` to compare its elements"
+		fix = "; collect it into a list with `Iter.to_list` to compare its elements"
 	}
 	if part == resolveTypeVar(t) {
 		return fmt.Sprintf("`%s` cannot compare `%s`: %s has no equality%s", op, t, what, fix)
@@ -255,7 +255,7 @@ func (c *checker) keyWithoutEqualityMessage(coll, key, part Type) string {
 	what := noEqualityWhat(part)
 	fix := ""
 	if isStdIterType(part) {
-		fix = "; materialize it with `Iter.to_list` first"
+		fix = "; collect it into a list with `Iter.to_list` first"
 	}
 	msg := fmt.Sprintf("`%s` cannot be %s: %s has no equality or hashing%s", key, role, what, fix)
 	if part != key {

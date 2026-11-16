@@ -108,7 +108,7 @@ func TestPublishedDiagnostics_ArityIsAtTheCall(t *testing.T) {
 	if got := rangeText(findDiag(t, diags, "expected 3 arguments, got 1").Range); got != "1:8-1:25" {
 		t.Errorf("too-few range %s, want 1:8-1:25", got)
 	}
-	if got := rangeText(findDiag(t, diags, "expected 1 arguments, got 2").Range); got != "2:25-2:28" {
+	if got := rangeText(findDiag(t, diags, "expected 1 argument, got 2").Range); got != "2:25-2:28" {
 		t.Errorf("too-many range %s, want 2:25-2:28", got)
 	}
 }

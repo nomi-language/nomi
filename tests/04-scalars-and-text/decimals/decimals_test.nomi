@@ -126,7 +126,10 @@ test "decimal arithmetic rejects mixed numeric types"
         """
         |> compiler.check()
 
-    assert test_helpers.has_diagnostic(diagnostics, "binary + type mismatch: Int vs Decimal")
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "`+` needs two values of one type, and these are Int and Decimal",
+    )
 end
 
 test "decimal division rounds to 34 significant digits"
@@ -183,7 +186,10 @@ test "decimal division takes no Int operand"
         """
         |> compiler.check()
 
-    assert test_helpers.has_diagnostic(diagnostics, "binary / type mismatch: Decimal vs Int")
+    assert test_helpers.has_diagnostic(
+        diagnostics,
+        "`/` needs two values of one type, and these are Decimal and Int",
+    )
 end
 
 test "divide_exact keeps the quotient's scale when it terminates"

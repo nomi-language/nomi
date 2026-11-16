@@ -1016,7 +1016,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	// when unifying an interface-typed parameter against a concrete argument
 	// (e.g. an `Iter<T>`-typed param against a custom `impl Iter` argument —
 	// Set, the std/iter.nomi lazy wrappers). Without this, inline-lambda
-	// inference through those HOFs fails ("binary * type mismatch: T vs
+	// inference through those HOFs fails ("`*` needs two values of one type, and these are T and
 	// Int"). Over a base the stdlib's are in it already.
 	var typeArgFiles []*FileAnalysis
 	if share == nil {

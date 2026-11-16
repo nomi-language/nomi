@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 375
-declared-cases 183
-failing 0
+records 416
+declared-cases 201
+failing 16
 C app-fields.md:L105
 E 0
 N 1
@@ -2058,6 +2058,13 @@ H b15893906451bcb5240d4d6eef8c96b3a7a0215aa35368c9214a36d2814ef0b4
 T ok the server shouts back
 T test result: ok. 1 passed, 0 failed
 T
+C index.md:L63
+E 0
+N 0
+H ae079f8c8903411f8799d9cd753380509f6817f0294bb98648f9295623adf26e
+T dbg line 11: age_of("Ada") = "Ada is 36"
+T dbg line 12: age_of("Cy") = "no age for Cy"
+T
 C input-and-output.md:L121
 E 0
 N 0
@@ -2266,6 +2273,489 @@ T a list of 3
 T an object with the keys age, name
 T null
 T not JSON: json decode error at line 1, col 2: unexpected end of input: incomplete JSON value
+T
+C learn/booleans.md:L15
+E 0
+N 0
+H fe899ad0d8f9af9c2bf80a1278fd807f1a0c2eb6a77f9bace52fcbc1042a249b
+T dbg line 6: has_discount(8) = True
+T dbg line 7: has_discount(30) = False
+T dbg line 8: has_discount(70) = True
+T dbg line 9: not has_discount(30) = True
+T
+C learn/booleans.md:L44
+E 1
+N 1
+H 8747559f6ca8148b7d32abd633b904e62671670f9972d84992cbf6fe1d91bcfa
+T ok old enough and tall enough
+T FAIL old enough, but too short
+T   line 11: assertion failed
+T     assert not can_ride(10, 110)
+T     values:
+T       10
+T         = 10
+T       110
+T         = 110
+T ok tall enough, but too young
+T test result: FAILED. 2 passed, 1 failed
+T
+C learn/case.md:L10
+E 0
+N 0
+H 9901293698295312a6ebc8defdf002570955e6432e29b2a54ac612e420f317d0
+T dbg line 17: today = Rainy
+T dbg line 18: advice(today) = "take an umbrella"
+T dbg line 19: advice(.Snowy) = "wear boots"
+T
+C learn/case.md:L50
+E 0
+N 0
+H 826242b8c0a1ae145f8d7417cf8de8abf5e38f8744ee128cca568fea3bf5a159
+T dbg line 9: hello(Some("Ada")) = "Hello, Ada"
+T dbg line 10: hello(None) = "Hello, stranger"
+T
+C learn/case.md:L82
+E 1
+N 1
+H dcfdd0f8cb8ad6652adb66036edadc897d539352b3668b3dee00be1add5b697d
+T ok red goes to green
+T FAIL green goes to yellow
+T   line 20: assertion failed
+T     assert next(.Green) == .Yellow
+T     values:
+T       .Green
+T         = Green
+T       next(.Green)
+T         = Red
+T       .Yellow
+T         = Yellow
+T ok yellow goes back to red
+T test result: FAILED. 2 passed, 1 failed
+T
+C learn/decisions.md:L31
+E 0
+N 0
+H 6977bd8edaab69c4db776cb072c27a918371ba8cbf6f667208dad7538af88383
+T dbg line 10: size(5) = "small"
+T dbg line 11: size(50) = "medium"
+T dbg line 12: size(500) = "large"
+T
+C learn/decisions.md:L74
+E 0
+N 0
+H 28edec859d2acedbe8901634d05fcd454d13b13d9ff88bd04ad107d5123e1747
+T dbg line 6: share(10, 3) = 3
+T dbg line 7: share(10, 0) = 0
+T
+C learn/decisions.md:L9
+E 0
+N 0
+H 9e0daff0129964211741849d85732cb6e83ae96a1c958c48015de96959a68174
+T dbg line 3: if age >= 18 then "adult" else "young" = "young"
+T
+C learn/decisions.md:L99
+E 1
+N 1
+H d2aefc45c598dc902f034fc999791c49b78532d846377d22af00c20b206c535f
+T ok 5 degrees is cold
+T ok 18 degrees is mild
+T FAIL 30 degrees is hot
+T   line 15: assertion failed
+T     assert describe(30) == "hot"
+T     values:
+T       describe(30)
+T         = "mild"
+T test result: FAILED. 2 passed, 1 failed
+T
+C learn/filter.md:L39
+E 1
+N 1
+H f901f40328a477e0adaf6b966aeb8acf9477d9956908e5dc28e8fd66251c7ffc
+T FAIL the odd numbers of 1 to 5, squared
+T   line 7: assertion failed
+T     assert odd_squares([1, 2, 3, 4, 5]) == [1, 9, 25]
+T     values:
+T       odd_squares([1, 2, 3, 4, 5])
+T         = [1, 2, 3, 4, 5]
+T FAIL a negative odd number
+T   line 11: assertion failed
+T     assert odd_squares([-3, 4]) == [9]
+T     values:
+T       odd_squares([-3, 4])
+T         = [-3, 4]
+T FAIL no odd numbers
+T   line 15: assertion failed
+T     assert odd_squares([2, 4]) == []
+T     values:
+T       odd_squares([2, 4])
+T         = [2, 4]
+T test result: FAILED. 0 passed, 3 failed
+T
+C learn/filter.md:L9
+E 0
+N 0
+H 3a86b98bf493d25c5b8e8665a5212067456a59ed7108c994674701ac727dc430
+T dbg line 2:
+T   [1, 2, 3, 4]
+T   |> Iter.filter(fn n -> n > 2)
+T   |> Iter.map(fn n -> n * 10)
+T   |> Iter.to_list()
+T   = [30, 40]
+T
+C learn/functions.md:L35
+E 0
+N 0
+H 9687df637606e0fed59154cf8ad075d6a3bc7c7cbc0246d32a39840ad5c39efb
+T dbg line 8: order_cost(3, 4) = 17
+T
+C learn/functions.md:L56
+E 1
+N 1
+H 2c4fadafa4ca2e431df798ae896be21624bf8b112726e5b5753f620e3e508f67
+T FAIL triple of 4 is 12
+T   line 11: assertion failed
+T     assert triple(4) == 12
+T     values:
+T       triple(4)
+T         = 8
+T FAIL triple of 10 is 30
+T   line 15: assertion failed
+T     assert triple(10) == 30
+T     values:
+T       triple(10)
+T         = 20
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/functions.md:L9
+E 0
+N 0
+H 20267840f1dd7199cf46099cc7179361b4309ff2b17ad144a5b8b1c88d221896
+T dbg line 6: double(5) = 10
+T dbg line 7: double(21) = 42
+T
+C learn/lists.md:L38
+E 1
+N 1
+H 7041669ff36facc054889d88a0877b3084b29df1ca08baab1cc1c27329adf1fc
+T FAIL three scores
+T   line 7: assertion failed
+T     assert summary([7, 9, 4]) == "3 scores, total 20"
+T     values:
+T       summary([7, 9, 4])
+T         = "3 scores"
+T FAIL no scores
+T   line 11: assertion failed
+T     assert summary([]) == "0 scores, total 0"
+T     values:
+T       summary([])
+T         = "0 scores"
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/lists.md:L9
+E 0
+N 0
+H 9718152a66a09cf5050f32899e89584fa95f05077b0725eefe4de071575c7923
+T dbg line 3: scores = [7, 9, 4]
+T dbg line 4: Iter.count(scores) = 3
+T dbg line 5: Iter.sum(scores) = 20
+T dbg line 6: 9 in scores = True
+T
+C learn/maybe.md:L44
+E 1
+N 1
+H ee3839fcb478075ac5ecc089198e19d72162ed44133cedda628571b3e87c9ce3
+T ok Ada likes green
+T FAIL Bo likes blue
+T   line 11: assertion failed
+T     assert favorite_color("Bo") == "blue"
+T     values:
+T       favorite_color("Bo")
+T         = "unknown"
+T ok someone not in the map
+T test result: FAILED. 2 passed, 1 failed
+T
+C learn/maybe.md:L9
+E 0
+N 0
+H 49ba5712bcc59a092fe2b8ce8def1014e34353c3e0c262e818df00585a786b62
+T dbg line 3: Map.get(ages, "Ada") = Some(36)
+T dbg line 4: Map.get(ages, "Cy") = None
+T dbg line 5: ages |> Map.get("Cy") |> Maybe.with_default(0) = 0
+T
+C learn/names.md:L17
+E 0
+N 0
+H 10b9a92db32431bcf584bcd43953e7c5420e89d22e4c4e7760231920e62ac10c
+T dbg line 5: total = 12
+T
+C learn/names.md:L44
+E 1
+N 1
+H 94da79f4064d30139f76b989c495807525dc8b7681723da0bb5f9c70fa1e6e49
+T FAIL a 3 by 4 rectangle
+T   line 8: assertion failed
+T     assert rectangle_area(3, 4) == 12
+T     values:
+T       rectangle_area(3, 4)
+T         = 7
+T FAIL a 10 by 2 rectangle
+T   line 12: assertion failed
+T     assert rectangle_area(10, 2) == 20
+T     values:
+T       rectangle_area(10, 2)
+T         = 12
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/pipes.md:L14
+E 0
+N 0
+H 8418412a8a4ee8cc298316d4c62950c4bf783c35a5e412484e3fd837bd4f5ee6
+T dbg line 2:
+T   [1, 2, 3]
+T   |> Iter.map(fn n -> n * 10)
+T   |> Iter.to_list()
+T   = [10, 20, 30]
+T
+C learn/pipes.md:L45
+E 1
+N 1
+H 5933362b6e13ba56290a922115a5e443005e25707af79104ccb02a9429176b06
+T FAIL three words
+T   line 7: assertion failed
+T     assert lengths(["a", "map", "pipe"]) == [1, 3, 4]
+T     values:
+T       lengths(["a", "map", "pipe"])
+T         = [3]
+T FAIL no words
+T   line 11: assertion failed
+T     assert lengths([]) == []
+T     values:
+T       lengths([])
+T         = [0]
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/programs.md:L10
+E 0
+N 0
+H 4b91b1fb57332720cf7191d7cb769ea11727674cfd0465be9888dc3854126e16
+T Shopping list
+T - eggs
+T - milk
+T - bread
+T
+C learn/programs.md:L37
+E 0
+N 0
+H 1f320a933bc4f5d92e31ea807bcfd61cdd72175e230fe9794fc6c138f7049c48
+T dbg line 2: 1..=5 |> Iter.map(fn n -> n * n) |> Iter.to_list() = [1, 4, 9, 16, 25]
+T
+C learn/programs.md:L57
+E 1
+N 1
+H b44b33815d82d48dd34f12ad2ddf3793b1e01c37aee8add3d66dfdb1c5d822ad
+T FAIL the table of 3
+T   line 7: assertion failed
+T     assert times_table(3) == ["3 x 1 = 3", "3 x 2 = 6", "3 x 3 = 9", "3 x 4 = 12", "3 x 5 = 15"]
+T     values:
+T       times_table(3)
+T         = ["3 x 1 = 3"]
+T FAIL the table of 10
+T   line 11: assertion failed
+T     assert times_table(10) == [
+T         "10 x 1 = 10",
+T         "10 x 2 = 20",
+T         "10 x 3 = 30",
+T         "10 x 4 = 40",
+T         "10 x 5 = 50",
+T     ]
+T     values:
+T       times_table(10)
+T         = ["10 x 1 = 10"]
+T       [
+T           "10 x 1 = 10",
+T           "10 x 2 = 20",
+T           "10 x 3 = 30",
+T           "10 x 4 = 40",
+T           "10 x 5 = 50",
+T       ]
+T         = ["10 x 1 = 10", "10 x 2 = 20", "10 x 3 = 30", "10 x 4 = 40", "10 x 5 = 50"]
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/project.md:L10
+E 0
+N 0
+H 8497acdacd05fdfa9ec3cfb4627a08286d93845c2e3c369cd66a5e9f7c7ad54c
+T Ada: 95 (A)
+T Bo: 72 (B)
+T Cy: 40 (F)
+T
+C learn/project.md:L57
+E 1
+N 1
+H 4cd5315a00eb8c2747f20a72d2f56b7bfc12f08334dcacb36523083149700234
+T FAIL a class of three
+T   line 29: assertion failed
+T     assert report(students) == ["Ada: 95 (A)", "Bo: 72 (B)", "Cy: 40 (F)", "2 of 3 passed"]
+T     values:
+T       students
+T         = [Student{name: "Ada", score: 95}, Student{name: "Bo", score: 72}, Student{name: "Cy", score: 40}]
+T       report(students)
+T         = ["Ada: 95 (A)", "Bo: 72 (B)", "Cy: 40 (F)"]
+T FAIL an empty class
+T   line 33: assertion failed
+T     assert report([]) == ["0 of 0 passed"]
+T     values:
+T       report([])
+T         = []
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/repeating.md:L11
+E 0
+N 0
+H d34031f0be7beb2f908f35cf2def2baf3b4d4d5d5bc0c5962ce4ad736771d4aa
+T dbg line 9: first_double_above(100) = 128
+T
+C learn/repeating.md:L49
+E 1
+N 1
+H 87a39a039d272f6fc61702a2d57b14452cdf45aab862ca4d6e4db4a148f03d05
+T FAIL the first square above 50 is 64
+T   line 10: assertion failed
+T     assert first_square_above(50) == 64
+T     values:
+T       first_square_above(50)
+T         = 51
+T FAIL the first square above 10 is 16
+T   line 14: assertion failed
+T     assert first_square_above(10) == 16
+T     values:
+T       first_square_above(10)
+T         = 11
+T ok the first square above 0 is 1
+T test result: FAILED. 1 passed, 2 failed
+T
+C learn/structs.md:L35
+E 1
+N 1
+H 60a3c4affbb7cd73cb692d2bfd7fbec01fe092446851c233a04394442da71947
+T FAIL a dog
+T   line 13: assertion failed
+T     assert describe(Pet{name: "Rex", kind: "dog", age: 3}) == "Rex is a dog, 3 years old"
+T     values:
+T       Pet{name: "Rex", kind: "dog", age: 3}
+T         = Pet{age: 3, kind: "dog", name: "Rex"}
+T       describe(Pet{name: "Rex", kind: "dog", age: 3})
+T         = "Rex is a pet"
+T FAIL a cat
+T   line 17: assertion failed
+T     assert describe(Pet{name: "Tom", kind: "cat", age: 7}) == "Tom is a cat, 7 years old"
+T     values:
+T       Pet{name: "Tom", kind: "cat", age: 7}
+T         = Pet{age: 7, kind: "cat", name: "Tom"}
+T       describe(Pet{name: "Tom", kind: "cat", age: 7})
+T         = "Tom is a pet"
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/structs.md:L9
+E 0
+N 0
+H bcaf785836d51091b0ffa52f29f72c7829fe8265a0b871335d2b352a57328f50
+T dbg line 8: book.title = "Matilda"
+T dbg line 9: book.pages = 240
+T
+C learn/testing.md:L10
+E 0
+N 1
+H 9f40bc768f3d54ee14704b425fd3159ea59c484cb18072de6341e65a3f1290cd
+T ok double
+T test result: ok. 1 passed, 0 failed
+T
+C learn/testing.md:L57
+E 0
+N 1
+H 9f402cfe0659b7791221a9daaf530929c1dfc1a31381fa21bca76a97797c6d1b
+T ok a teen and a child
+T test result: ok. 1 passed, 0 failed
+T
+C learn/text.md:L42
+E 1
+N 1
+H ada672294c04ca7a7b6f4a8ed67e5ea2553f937d694af467a5f754a0d0da6139
+T FAIL Ada's badge
+T   line 7: assertion failed
+T     assert badge("Ada", 36) == "ADA (36)"
+T     values:
+T       badge("Ada", 36)
+T         = "Ada (36)"
+T FAIL Bo's badge
+T   line 11: assertion failed
+T     assert badge("Bo", 7) == "BO (7)"
+T     values:
+T       badge("Bo", 7)
+T         = "Bo (7)"
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/text.md:L9
+E 0
+N 0
+H af11fe3d6b74099dcb8298016ac24ae2eb1c22a3f0544be28ede2383e1e881ea
+T dbg line 4: first + " " + last = "Ada Lovelace"
+T dbg line 5: "Hello, ${first}!" = "Hello, Ada!"
+T dbg line 6: "${first} is ${String.length(first)} letters long" = "Ada is 3 letters long"
+T
+C learn/types.md:L18
+E 0
+N 0
+H 6f50948a88e60b743f467cf2531e1cbbf3f6a5f2c281eea3357d8768d38a9a0b
+T dbg line 2: 3 + 4 = 7
+T dbg line 3: "3" + "4" = "34"
+T dbg line 4: 19.99d * 3d = 59.97d
+T dbg line 5: 10 > 3 = True
+T
+C learn/types.md:L61
+E 0
+N 0
+H f1ce9f0fd2ba16f67eb9831220b9f42f970c698541e0d9e1ea886cd3286aa270
+T dbg line 2: 0.1 + 0.2 = 0.30000000000000004
+T dbg line 3: 0.1d + 0.2d = 0.3d
+T
+C learn/types.md:L79
+E 1
+N 1
+H 89b7d6b12d7eaf9902bf2439d7598007d059e77271288257566481572dfd98f5
+T FAIL halfway between 3 and 4 is 3.5
+T   line 7: assertion failed
+T     assert midpoint(3d, 4d) == 3.5d
+T     values:
+T       midpoint(3d, 4d)
+T         = 7
+T FAIL halfway between 1.25 and 1.75 is 1.5
+T   line 11: assertion failed
+T     assert midpoint(1.25d, 1.75d) == 1.5d
+T     values:
+T       midpoint(1.25d, 1.75d)
+T         = 3.00
+T test result: FAILED. 0 passed, 2 failed
+T
+C learn/values.md:L15
+E 0
+N 0
+H 10532ce87a60c611d57e6ddf6ea1a6884b106b4bd878920b78f719c186505f22
+T dbg line 2: "Hello" = "Hello"
+T dbg line 3: 40 + 2 = 42
+T dbg line 4: 10 > 3 = True
+T
+C learn/values.md:L60
+E 1
+N 1
+H 2594796652dfbab1bd65b058daeb90711d8341bc07d6a4274c498c645d7ff722
+T FAIL the greeting says hello to Ada
+T   line 7: assertion failed
+T     assert greeting() == "Hello, Ada"
+T     values:
+T       greeting()
+T         = "Hello, world"
+T test result: FAILED. 0 passed, 1 failed
 T
 C locales-and-formatting.md:L100
 E 0
@@ -2690,7 +3180,7 @@ T   |> Iter.filter(&(&1 > 2))
 T   |> Iter.count()
 T   = 3
 T
-C scalars-and-strings.md:L111
+C scalars-and-strings.md:L112
 E 0
 N 0
 H f297a45ff57ac8d197ce438387073999261bfd448ff36eff942b6ef0fe6283db
@@ -2714,7 +3204,7 @@ T dbg line 10: Int.pow(2, 100) = 1267650600228229401496703205376
 T dbg line 11: 0b1011 >>> 1 &&& 1 = 1
 T dbg line 12: 0b0011 ||| 0b0100 = 7
 T
-C scalars-and-strings.md:L170
+C scalars-and-strings.md:L171
 E 0
 N 0
 H 12bd532039fc4747d0e08b76d79b7f867e8f4b93beb1643ff270a34277f6eec8
@@ -2722,13 +3212,13 @@ T Hello, Nomi!
 T 1 + 2 = 3
 T Hello, Nomi
 T
-C scalars-and-strings.md:L198
+C scalars-and-strings.md:L199
 E 0
 N 0
 H a7ddd978552e1e8e7c33a0c7183140e65a8d8c2cac29855195a576be86c89844
 T echo ${HOME} costs $5
 T
-C scalars-and-strings.md:L245
+C scalars-and-strings.md:L246
 E 0
 N 0
 H cff6393d182403018e5caea07c68973571060a71844d3567a0734c3cb596e6db
@@ -2741,7 +3231,7 @@ T   |> Iter.map(Codepoint.to_int)
 T   |> Iter.to_list()
 T   = [99, 97, 102, 233]
 T
-C scalars-and-strings.md:L277
+C scalars-and-strings.md:L278
 E 0
 N 0
 H a97a2e7423efe650e12b847e990d065c63e2c8038cb9fe248e84a7a5365902c9
@@ -2752,7 +3242,7 @@ T   |> Iter.map(kind)
 T   |> Iter.to_list()
 T   = ["a", "comma", "space", "b"]
 T
-C scalars-and-strings.md:L312
+C scalars-and-strings.md:L313
 E 0
 N 0
 H 44da9d4bebf6cf768c0c507a7cc4c6b6aeceeda26aa98d75c1ca848c57b39e18
@@ -2771,7 +3261,7 @@ T   |> Maybe.values()
 T   |> Iter.to_list()
 T   = [5, 5, 5, 0, 1]
 T
-C scalars-and-strings.md:L371
+C scalars-and-strings.md:L372
 E 0
 N 0
 H 1b5bde9ad561d4b30bcdc16febfa87be031bcbe6ca8905f1190ea023321d1b13
@@ -2779,7 +3269,7 @@ T dbg line 5: Bytes.length(raw) = 5
 T dbg line 6: raw |> Iter.map(Byte.to_int) |> Iter.to_list() = [99, 97, 102, 195, 169]
 T go:café
 T
-C scalars-and-strings.md:L424
+C scalars-and-strings.md:L425
 E 0
 N 0
 H 6b7fa18b982141013e7f33144f4ded532201bb493dbbdcea608b7e16f022455e
@@ -2787,7 +3277,7 @@ T SELECT *
 T FROM users
 T WHERE name = 'Alice'
 T
-C scalars-and-strings.md:L450
+C scalars-and-strings.md:L451
 E 0
 N 0
 H 6e0610ac3a3c4d4b78b33e733d23365a0b7af665a34bfc86fbd364392d3bed15
@@ -2797,7 +3287,7 @@ T SELECT *
 T FROM invoices
 T WHERE total > ${MIN_TOTAL}
 T
-C scalars-and-strings.md:L516
+C scalars-and-strings.md:L517
 E 0
 N 0
 H 7510b833eb70110fe08e86264bc1f36bc85ac431e9e3a2122c7184b117689ae8

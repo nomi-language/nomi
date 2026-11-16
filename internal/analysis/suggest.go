@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 
@@ -187,8 +188,10 @@ func fieldNames(fields []FieldDef) []string {
 }
 
 // typeMemberNames are what `Type.member` can name on typeName: its variants
-// when it is an enum, the functions its impl blocks declare, and the
-// defaults it inherits from its interfaces.
+// when it is an enum, the functions its impl blocks declare, the public ones
+// the program's other modules declare for it (std's `List.length`, as
+// resolveTypeMethodSymbol reaches them), and the defaults it inherits from
+// its interfaces.
 func (c *checker) typeMemberNames(typeName string) []string {
 	var names []string
 	if et, ok := c.reg.Lookup(typeName).(*EnumType); ok && et != nil {
@@ -198,6 +201,13 @@ func (c *checker) typeMemberNames(typeName string) []string {
 		fns := c.fa.TypeDefaultFunctions(typeName)
 		for name, sym := range c.fa.VisibleTypeMethods(typeName) {
 			fns[name] = sym
+		}
+		if idx := c.fa.Program().ImplIndex; idx != nil {
+			for name, sym := range idx.TypeMethods[typeName] {
+				if sym != nil && sym.Public {
+					fns[name] = sym
+				}
+			}
 		}
 		for name := range fns {
 			names = append(names, name)
@@ -265,6 +275,25 @@ func stdCollectionName(ty Type) string {
 // collection ("Map", "Set", "List") that it lacks and that reads as a
 // membership test: Nomi tests membership with `in`, which calls the
 // collection's `contains` (the `Contains` interface).
+// iterMemberHint is the help for `List.sum`, `Set.map` or `Vector.get`: a
+// member a std List, Set or Vector lacks that Iter has under the same name,
+// and which works on it, since each is iterable. Otherwise "".
+func (c *checker) iterMemberHint(ty Type, member string) string {
+	name := stdCollectionName(ty)
+	if name == "" {
+		if t, ok := resolveTypeVar(ty).(*PrimitiveType); ok && IsStdlibKey(t.Origin) && t.Name_ == "Vector" {
+			name = "Vector"
+		}
+	}
+	if name == "" || name == "Map" {
+		return ""
+	}
+	if sym, _ := c.resolveTypeMethodSymbol("Iter", member, ""); sym == nil {
+		return ""
+	}
+	return fmt.Sprintf("`%s` is an `Iter` function, and works on a %s: write `Iter.%s(...)`", member, name, member)
+}
+
 func membershipHint(collection, member string) string {
 	if collection == "" || !membershipNames[member] {
 		return ""

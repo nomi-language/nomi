@@ -24,6 +24,7 @@ func TestConfusion_ParserNamesNomisSpelling(t *testing.T) {
 		{"def", "def main()\n    dbg 1\nend\n", "with `fn`, not `def`", "fn main()\n    dbg 1\nend\n"},
 		{"func", "func main()\n    dbg 1\nend\n", "with `fn`, not `func`", "fn main()\n    dbg 1\nend\n"},
 		{"++", "fn main()\n    x = 1\n    x++\n    dbg x\nend\n", "no `++`", "fn main()\n    x = 1\n    x = x + 1\n    dbg x\nend\n"},
+		{"a ++ b", "fn main()\n    xs = [1] ++ [2]\n    dbg xs\nend\n", "with `+`", "fn main()\n    xs = [1] + [2]\n    dbg xs\nend\n"},
 		{"+=", "fn main()\n    x = 1\n    x += 2\n    dbg x\nend\n", "no `+=`", "fn main()\n    x = 1\n    x = x + 2\n    dbg x\nend\n"},
 		{"# comment", "fn main()\n    # one more\n    dbg 1\nend\n", "starts with `//`", "fn main()\n    // one more\n    dbg 1\nend\n"},
 		{"match", "fn main()\n    x = 1\n    y = match x\n        _ -> 2\n    end\n    dbg y\nend\n", "matches with `case`", "fn main()\n    x = 1\n    y = case x\n        _ -> 2\n    end\n    dbg y\nend\n"},

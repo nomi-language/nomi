@@ -217,7 +217,7 @@ func TestConstructorValue_TupleTakesTheTuple(t *testing.T) {
 	}
 	src := decls + "fn main()\n  f = Pair\n  x = f(1, \"a\")\n  _ = x\nend\n"
 	_, errs := checkSourceWithStdlib(src)
-	expectStdlibError(t, errs, "expected 1 arguments, got 2")
+	expectStdlibError(t, errs, "expected 1 argument, got 2")
 }
 
 // The names that stay errors keep their messages: a struct-shaped variant,

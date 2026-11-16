@@ -380,7 +380,7 @@ end
 	if len(errs) == 0 {
 		t.Fatal("the front end accepts adding a String field to an Int one through `.Valid(r)`")
 	}
-	if !strings.Contains(strings.Join(errs, "\n"), "type mismatch: Int vs String") {
+	if !strings.Contains(strings.Join(errs, "\n"), "`+` needs two values of one type, and these are Int and String") {
 		t.Fatalf("rejected for another reason: %v", errs)
 	}
 }

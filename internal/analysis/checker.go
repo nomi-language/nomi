@@ -2664,7 +2664,7 @@ func (c *checker) checkFunc(fn *ast.FuncDef) {
 			}
 			if !matched {
 				c.report(returnMismatchError(fn, c.typef(
-					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.typedLiteralHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.mismatchHint(c.returnTy, bodyTy)))
+					"return type mismatch: expected %s, got %s", c.returnTy, bodyTy)).WithHint(c.wholeResultHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.typedLiteralHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(numberLiteralHint(c.returnTy, bodyTy, tailExpr(fn.Body))).WithHint(c.mismatchHint(c.returnTy, bodyTy)))
 			}
 		}
 	}
@@ -3303,12 +3303,20 @@ func (c *checker) checkOnce(n *ast.OnceBinding) {
 	if declared != nil {
 		if err := c.unifyInto(declared, valTy, map[*TypeParam_]Type{}); err != nil {
 			c.report(errAt(n.Value, c.typef(
-				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.typedLiteralHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
+				"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.typedLiteralHint(declared, valTy, n.Value)).WithHint(numberLiteralHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
 		}
 		return
 	}
 	if n.TypeAnnotation == nil {
-		c.checkLocallyDetermined(n.Name, n.Value, valTy, nil, n.Line, n.Col)
+		if !c.checkLocallyDetermined(n.Name, n.Value, valTy, nil, n.Line, n.Col) {
+			// Reported as undetermined, the binding is poison: its symbol
+			// keeps no type, so every read of it is quiet. Given the open
+			// type, the first file to read it solved the variable for every
+			// file after (`slow_job`'s Job<?1> became a Job<Greeting> once a
+			// test enqueued a Greeting), and a file checked against
+			// interfaces, which reads it open, disagreed with a full check.
+			return
+		}
 		// A `once` is a constant: the narrowest std numeric subtype its
 		// value's range proves is its type, for every file that reads it
 		// (ranges.go). `once k = 60 * 60` is a PositiveInt.
@@ -7756,6 +7764,75 @@ func (c *checker) checkOperatorRhs(n *ast.Binary, opIface operatorInterface, rig
 	return result, true
 }
 
+// floatLiteralHint is the help for a number literal beside a Float or a
+// Decimal operand of another type: `x / 2` with a Float `x` is "write `2` as
+// `2.0`", and with a Decimal `x` "write `2` as `2d`", as is `x * 2.5`.
+// Otherwise "".
+func floatLiteralHint(n *ast.Binary, left, right Type) string {
+	if hint := numberOperandHint(n.Right, left, right); hint != "" {
+		return hint
+	}
+	return numberOperandHint(n.Left, right, left)
+}
+
+// numberOperandHint is floatLiteralHint for one side: lit, of type litTy,
+// beside an operand of type other.
+func numberOperandHint(lit ast.Node, other, litTy Type) string {
+	text, isInt, ok := numberLiteralText(lit)
+	if !ok {
+		return ""
+	}
+	switch {
+	case TypesEqual(other, TypeFloat) && isInt && TypesEqual(litTy, TypeInt):
+		return fmt.Sprintf("write `%s` as `%s.0`, a Float, or convert an Int with `Int.to_float(...)`", text, text)
+	case TypesEqual(other, TypeDecimal) && isInt && TypesEqual(litTy, TypeInt):
+		return fmt.Sprintf("write `%s` as `%sd`, a Decimal, or convert an Int with `Int.to_decimal(...)`", text, text)
+	case TypesEqual(other, TypeDecimal) && !isInt && TypesEqual(litTy, TypeFloat):
+		return fmt.Sprintf("write `%s` as `%sd`, a Decimal", text, text)
+	}
+	return ""
+}
+
+// numberLiteralHint is the help for a number literal where a Float or a
+// Decimal is expected and it is another type: `x: Decimal = 19.99` is "write
+// `19.99d`". Otherwise "".
+func numberLiteralHint(expected, got Type, expr ast.Node) string {
+	text, isInt, ok := numberLiteralText(expr)
+	if !ok || expected == nil || got == nil {
+		return ""
+	}
+	want := resolveTypeVar(expected)
+	switch {
+	case TypesEqual(want, TypeDecimal):
+		return fmt.Sprintf("write `%sd`: a number with no `d` after it is an Int or a Float, not a Decimal", text)
+	case TypesEqual(want, TypeFloat) && isInt:
+		return fmt.Sprintf("write `%s.0`: a number with no decimal point is an Int, not a Float", text)
+	}
+	return ""
+}
+
+// numberLiteralText is how a whole-number or decimal literal is written,
+// with its minus sign, and whether it is a whole number. ok is false for
+// anything else, and for a literal with an exponent, which no suffix
+// turns into a Decimal.
+func numberLiteralText(n ast.Node) (text string, isInt, ok bool) {
+	sign := ""
+	n = ungroupExpr(n)
+	if u, isNeg := n.(*ast.Unary); isNeg && u.Op == "-" {
+		sign, n = "-", ungroupExpr(u.Right)
+	}
+	switch lit := n.(type) {
+	case *ast.IntLit:
+		return sign + intLiteralText(lit), true, true
+	case *ast.FloatLit:
+		if lit.Lexeme == "" || strings.ContainsAny(lit.Lexeme, "eE") {
+			return "", false, false
+		}
+		return sign + lit.Lexeme, false, true
+	}
+	return "", false, false
+}
+
 func (c *checker) checkBuiltinOperator(n *ast.Binary, left, right Type) (Type, bool) {
 	// A bitwise operator is built in on an Int left operand only: `b <<< 1`
 	// on a Byte is a missing impl, not a mismatch with the Int.
@@ -7770,7 +7847,10 @@ func (c *checker) checkBuiltinOperator(n *ast.Binary, left, right Type) (Type, b
 	}
 	if mismatch {
 		e := TypeError{Line: n.Line, Col: n.Col, Message: c.typef(
-			"binary %s type mismatch: %s vs %s", n.Op, left, right)}
+			"`%s` needs two values of one type, and these are %s and %s", n.Op, left, right)}
+		if hint := floatLiteralHint(n, left, right); hint != "" {
+			e = e.WithHint(hint)
+		}
 		if (n.Op == "+" || n.Op == "-") && collectionKind(left) != "" && collectionKind(left) == collectionKind(right) {
 			// Two collections of one kind whose types both convert to a
 			// third join once an annotation says which (annotation_help.go).
@@ -8152,13 +8232,13 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					"expected %d to %d arguments, got %d (counting the piped value)", len(ft.Params)-ft.DefaultCount, len(ft.Params), got)))
 			} else {
 				c.report(arityError(pipeCall, pipeCall.Args, len(ft.Params), argShift, fmt.Sprintf(
-					"expected %d arguments, got %d (counting the piped value)", len(ft.Params), got)))
+					"expected %s, got %d (counting the piped value)", argumentCount(len(ft.Params)), got)))
 			}
 		} else if ft.DefaultCount > 0 && got < len(ft.Params) && c.calleeIsNamelessValue(pipeCall.Func) && !c.calleeCopiesADeclaration(pipeCall.Func) {
 			// Defaults belong to a declaration, as in checkCall: a pipe
 			// through a function value with none behind it passes every
 			// argument.
-			c.report(errAt(pipeCall, fmt.Sprintf("expected %d arguments, got %d (counting the piped value)", len(ft.Params), got)).
+			c.report(errAt(pipeCall, fmt.Sprintf("expected %s, got %d (counting the piped value)", argumentCount(len(ft.Params)), got)).
 				WithHint("a function type's parameters have no defaults; pass every argument"))
 		} else if fewest := len(ft.Params) - ft.DefaultCount; got < fewest && c.callDefParams(pipeCall.Func) == nil {
 			if ft.DefaultCount > 0 {
@@ -8166,7 +8246,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					"expected %d to %d arguments, got %d (counting the piped value)", fewest, len(ft.Params), got)))
 			} else {
 				c.report(errAt(pipeCall, fmt.Sprintf(
-					"expected %d arguments, got %d (counting the piped value)", fewest, got)))
+					"expected %s, got %d (counting the piped value)", argumentCount(fewest), got)))
 			}
 		}
 		pipeSlots = computePipeArgSlots(pipeCall.Args, argShift, c.callDefParams(pipeCall.Func), ft.Params)
@@ -8448,7 +8528,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 				if _, isPh := value.(*ast.Placeholder); !isPh && valTy != nil && expectedTy != nil {
 					argLine, argCol := nodeLineCol(value)
 					if !c.argMatchesParam(valTy, expectedTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
-						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(c.unwrappedOneShortHint(expectedTy, valTy, value)).WithHint(c.typedLiteralHint(expectedTy, valTy, value)).WithHint(c.mismatchHint(expectedTy, valTy)))
+						c.report(errAt(value, c.typef("%s: expected %s, got %s", label, expectedTy, valTy)).WithHint(c.defaultedFuncValueHint(expectedTy, valTy, value)).WithHint(c.unwrappedOneShortHint(expectedTy, valTy, value)).WithHint(c.typedLiteralHint(expectedTy, valTy, value)).WithHint(numberLiteralHint(expectedTy, valTy, value)).WithHint(c.mismatchHint(expectedTy, valTy)))
 					}
 				}
 			} else {
@@ -9193,7 +9273,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 	// came from a function with defaults. A copy of a lambda or partial bound
 	// to a name keeps them (calleeCopiesADeclaration).
 	if ft.DefaultCount > 0 && !isDispatch && len(n.Args) < len(ft.Params) && c.calleeIsNamelessValue(n.Func) && !c.calleeCopiesADeclaration(n.Func) {
-		c.report(errAt(n, fmt.Sprintf("expected %d arguments, got %d", len(ft.Params), len(n.Args))).
+		c.report(errAt(n, fmt.Sprintf("expected %s, got %d", argumentCount(len(ft.Params)), len(n.Args))).
 			WithHint("a function type's parameters have no defaults; pass every argument"))
 		for _, arg := range n.Args {
 			c.checkNode(arg)
@@ -9239,7 +9319,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args))))
 		} else {
 			c.report(arityError(n, n.Args, len(ft.Params), 0, fmt.Sprintf(
-				"expected %d arguments, got %d", len(ft.Params), len(n.Args))))
+				"expected %s, got %d", argumentCount(len(ft.Params)), len(n.Args))))
 		}
 	}
 
@@ -9304,7 +9384,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(a.Value)
 				if !c.argMatchesParam(argTy, expectedParamTy, c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(a.Value, c.typef(
-						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(c.typedLiteralHint(expectedParamTy, argTy, a.Value)).WithHint(c.mismatchHint(expectedParamTy, argTy)))
+						"argument '%s': expected %s, got %s", a.Name, expectedParamTy, argTy)).WithHint(c.defaultedFuncValueHint(expectedParamTy, argTy, a.Value)).WithHint(c.wholeResultHint(expectedParamTy, argTy, a.Value)).WithHint(c.typedLiteralHint(expectedParamTy, argTy, a.Value)).WithHint(numberLiteralHint(expectedParamTy, argTy, a.Value)).WithHint(c.mismatchHint(expectedParamTy, argTy)))
 				}
 			}
 		case *ast.Placeholder:
@@ -9337,7 +9417,7 @@ func (c *checker) checkCallExpr(n *ast.Call, expected Type) Type {
 				argLine, argCol := nodeLineCol(arg)
 				if !c.argMatchesParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam) {
 					c.report(errAt(arg, c.typef(
-						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(routeCallHint(n, ft.Params[slot], argTy)).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.typedLiteralHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
+						"%s: expected %s, got %s", c.argLabel(n, i), ft.Params[slot], argTy)).WithHint(routeCallHint(n, ft.Params[slot], argTy)).WithHint(c.defaultedFuncValueHint(ft.Params[slot], argTy, arg)).WithHint(c.wholeResultHint(ft.Params[slot], argTy, arg)).WithHint(c.unwrappedOneShortHint(ft.Params[slot], argTy, arg)).WithHint(c.typedLiteralHint(ft.Params[slot], argTy, arg)).WithHint(numberLiteralHint(ft.Params[slot], argTy, arg)).WithHint(c.mismatchHint(ft.Params[slot], argTy)))
 				}
 			}
 		}
@@ -10592,7 +10672,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 			if hint == "" {
 				hint = c.functionJoinHint(param, substituted, argTy)
 			}
-			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.typedLiteralHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
+			c.report(expectedGot(substituted).WithHint(hint).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.wholeResultHint(substituted, argTy, arg)).WithHint(c.typedLiteralHint(substituted, argTy, arg)).WithHint(numberLiteralHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
 		}
 		return
 	}
@@ -10606,7 +10686,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 	// still holds a type parameter, and no solution of it makes the argument
 	// fit (`(Float, T)` given `(Int, String)`, `Set<T>` given Unit,
 	// `Maybe<T>` given a function), so the call could never be lowered.
-	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.typedLiteralHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
+	c.report(expectedGot(substituted).WithHint(routeCalleeHint(callee, substituted, argTy)).WithHint(c.defaultedFuncValueHint(substituted, argTy, arg)).WithHint(c.typedLiteralHint(substituted, argTy, arg)).WithHint(numberLiteralHint(substituted, argTy, arg)).WithHint(c.mismatchHint(substituted, argTy)))
 }
 
 // functionJoinHint explains a rejected argument whose function type would be
@@ -10978,7 +11058,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 				"expected %d to %d arguments, got %d", minArgs, len(ft.Params), len(n.Args))))
 		} else {
 			c.report(arityError(n, n.Args, len(ft.Params), 0, fmt.Sprintf(
-				"expected %d arguments, got %d", len(ft.Params), len(n.Args))))
+				"expected %s, got %d", argumentCount(len(ft.Params)), len(n.Args))))
 		}
 	}
 
@@ -12978,7 +13058,7 @@ func (c *checker) checkStructLitAgainstStruct(lit *ast.StructLit, st *StructType
 			}
 			if !c.argMatchesParam(valTy, declared, c.recPos(valLine, valCol), RecordingKindInterfaceTypedParam) {
 				err := TypeError{Line: valLine, Col: valCol, Message: c.typef("field '%s' of %s: expected %s, got %s", f.Name, st.Name, declared, valTy)}.
-					Spanning(f.Value).WithHint(c.typedLiteralHint(declared, valTy, f.Value)).WithHint(c.mismatchHint(declared, valTy))
+					Spanning(f.Value).WithHint(c.typedLiteralHint(declared, valTy, f.Value)).WithHint(numberLiteralHint(declared, valTy, f.Value)).WithHint(c.mismatchHint(declared, valTy))
 				if nested, ok := f.Value.(*ast.StructLit); ok {
 					err = err.WithHint(c.wholeValueHint(nested, declared))
 				}
@@ -13536,9 +13616,10 @@ func (c *checker) attachCallTypeArgs(funcNode ast.Node, ct Type, subs map[*TypeP
 // Annotated bindings (declared != nil) are exempt: the annotation is the
 // local determination. Type parameters in scope (a function's own <T>) are
 // not inference vars, so generic-function-local bindings are unaffected.
-func (c *checker) checkLocallyDetermined(name string, value ast.Node, valTy, declared Type, line, col int) {
+// It answers false when it reports the binding.
+func (c *checker) checkLocallyDetermined(name string, value ast.Node, valTy, declared Type, line, col int) bool {
 	if declared != nil || valTy == nil {
-		return
+		return true
 	}
 	if isWhollyUnresolved(valTy) {
 		c.markUndeterminedReported(value)
@@ -13546,7 +13627,9 @@ func (c *checker) checkLocallyDetermined(name string, value ast.Node, valTy, dec
 			"binding '%s' type is not locally determined: it has unsolved type "+
 				"parameter(s) — add an annotation (`%s: T = …`) or a type argument (`f<T>(…)`)",
 			name, name))
+		return false
 	}
+	return true
 }
 
 // patternSite is one name a pattern or destructure binds, at the position
@@ -13785,7 +13868,7 @@ func (c *checker) checkBinding(n *ast.Binding) Type {
 			subs := map[*TypeParam_]Type{}
 			if err := c.unifyInto(declared, valTy, subs); err != nil {
 				c.report(errAt(n.Value, c.typef(
-					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.typedLiteralHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
+					"type mismatch: expected %s, got %s", declared, valTy)).WithHint(c.defaultedFuncValueHint(declared, valTy, n.Value)).WithHint(c.typedLiteralHint(declared, valTy, n.Value)).WithHint(numberLiteralHint(declared, valTy, n.Value)).WithHint(c.mismatchHint(declared, valTy)))
 			} else if len(subs) > 0 {
 				valTy = Substitute(valTy, subs)
 			}
@@ -14075,7 +14158,7 @@ func (c *checker) checkStructDestructure(n *ast.StructDestructure) Type {
 //
 // MEASURED, as a paired positive/negative rather than an absence:
 // `{Int.to_string(1, 2, 3) => "x"}` — a map LITERAL — is a front-end error
-// ("expected 1 arguments, got 3"), because checkMapLit calls
+// ("expected 1 argument, got 3"), because checkMapLit calls
 // checkNodeExpecting on its keys. The SAME expression as a map PATTERN key,
 // `case m { {Int.to_string(1, 2, 3) => v} -> v }`, was ACCEPTED. One expression,
 // two answers, and the literal path is the one that is right. So this is a
@@ -15243,6 +15326,9 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 				hint, alias = c.aliasMemberHint(tqTypeName, n.Field.Name)
 			}
 			if hint == "" {
+				hint = c.iterMemberHint(c.reg.Lookup(tqTypeName), n.Field.Name)
+			}
+			if hint == "" {
 				hint = didYouMean(n.Field.Name, c.typeMemberNames(tqTypeName))
 			}
 			e := TypeError{Line: fieldPos.Line, Col: fieldPos.Col, Message: fmt.Sprintf(
@@ -16064,7 +16150,7 @@ func (c *checker) checkReturn(n *ast.Return) Type {
 		}
 		if !c.argMatchesParam(valTy, c.returnTy, c.recPos(n.Line, n.Col), RecordingKindInterfaceTypedParam) {
 			c.report(errAt(n.Value, c.typef(
-				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(c.typedLiteralHint(c.returnTy, valTy, n.Value)).WithHint(c.mismatchHint(c.returnTy, valTy)))
+				"return type mismatch: expected %s, got %s", c.returnTy, valTy)).WithHint(c.wholeResultHint(c.returnTy, valTy, n.Value)).WithHint(c.typedLiteralHint(c.returnTy, valTy, n.Value)).WithHint(numberLiteralHint(c.returnTy, valTy, n.Value)).WithHint(c.mismatchHint(c.returnTy, valTy)))
 		}
 	}
 	return TypeInfallible
@@ -16216,7 +16302,7 @@ func (c *checker) checkListLit(n *ast.ListLit) Type {
 		itemNodes = append(itemNodes, item)
 		joined, ok := c.joinLitElem(elemTy, ty)
 		if !ok {
-			e := errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty))
+			e := errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(numberLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty))
 			if len(e.Hints) == 0 {
 				e = c.valueAnnotationHelp(e, n, elemTy, ty, listOf)
 			}
@@ -16292,7 +16378,7 @@ func (c *checker) checkListLitExpecting(n *ast.ListLit, elemTy Type) Type {
 		}
 		itemTys = append(itemTys, ty)
 		if !c.litElemFits(elemTy, ty, item) {
-			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty)))
+			c.report(errAt(item, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, item)).WithHint(numberLiteralHint(elemTy, ty, item)).WithHint(c.mismatchHint(elemTy, ty)))
 		}
 	}
 	markEmbedsWidening(n, elemTy, itemTys)
@@ -16906,7 +16992,7 @@ func (c *checker) checkListSpreadLitExpecting(n *ast.ListLit, elemTy Type) Type 
 			continue
 		}
 		if !c.litElemFits(elemTy, ty, h) {
-			c.report(errAt(h, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, h)).WithHint(c.mismatchHint(elemTy, ty)))
+			c.report(errAt(h, c.typef("list element type mismatch: expected %s, got %s", elemTy, ty)).WithHint(c.typedLiteralHint(elemTy, ty, h)).WithHint(numberLiteralHint(elemTy, ty, h)).WithHint(c.mismatchHint(elemTy, ty)))
 		}
 	}
 	want := &ListType{Elem: elemTy}
@@ -18725,7 +18811,7 @@ func (c *checker) checkCaseWithScrutineeType(n *ast.Case, scrutineeTy Type, expe
 					_ = c.unify(expected, resultTy, nil)
 				}
 				e := errAt(valueExpr(branch.Body), c.typef(
-					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.typedLiteralHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.mismatchHint(resultTy, bodyTy)).WithHint(c.branchJoinHint(resultTy, bodyTy))
+					"case branch type mismatch: expected %s, got %s", resultTy, bodyTy)).WithHint(c.wholeResultHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.typedLiteralHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(numberLiteralHint(resultTy, bodyTy, valueExpr(branch.Body))).WithHint(c.mismatchHint(resultTy, bodyTy)).WithHint(c.branchJoinHint(resultTy, bodyTy))
 				if expected == nil && len(e.Hints) == 0 {
 					e = c.valueAnnotationHelp(e, n, resultTy, bodyTy, sameSpelling)
 				}
@@ -22543,4 +22629,12 @@ func variantFieldType(v VariantDef, name string) (Type, bool) {
 		}
 	}
 	return nil, false
+}
+
+// argumentCount is "1 argument" or "n arguments", for an arity error.
+func argumentCount(n int) string {
+	if n == 1 {
+		return "1 argument"
+	}
+	return fmt.Sprintf("%d arguments", n)
 }

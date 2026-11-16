@@ -880,7 +880,7 @@ compile error at the literal. To build a value from text known only when the
 program runs, call the type's own function, such as `Date.parse(text)`, or
 put the text in a slot.
 
-### 22. Reach for `DateTime`, not `NaiveDateTime`, for real timestamps
+### 22. Reach for the type that holds the value exactly: `DateTime`, and `Decimal` over `Float`
 
 [`std::calendar`](/reference/calendar/) gives the bare name to the safe default
 (tour: [Dates & Times](/dates-and-times/)): `DateTime` is zoned by
@@ -901,6 +901,26 @@ If you find yourself writing a `NaiveDateTime` literal, check whether you want a
 form input before zone resolution, and naturally zone-less data such as
 birthdays. It does not fit "the meeting is at 2:30pm": meetings happen in time
 zones.
+
+A number with a fraction that people read, add up or compare, such as a
+price, a measurement, a score's average or a percentage, is a `Decimal`.
+Its arithmetic is exact, so `0.1d + 0.2d` is `0.3d`; the same sum of Floats
+is `0.30000000000000004`. `Float` is for science, graphics, statistics and
+other work where speed and range matter more than the last digit, and for
+values a Float-based library hands back. Money is `Money`
+(tour: [Money](/money/)).
+
+```nomi
+// yes: read by people, added up
+price = 19.99d
+
+discount = 0.15d
+
+total = price * (1d - discount)
+
+// a measurement in a physics step, where Float's speed and range fit
+velocity = velocity + acceleration * dt
+```
 
 ### 23. Write bit operations with the operators
 

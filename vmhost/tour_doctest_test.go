@@ -154,6 +154,12 @@ func TestTourDoctests(t *testing.T) {
 				})
 				continue
 			}
+			if b.HasInfo(doctest.InfoLesson) {
+				solution := lessonSolution(string(data), b)
+				bug := lessonBug(string(data), b)
+				t.Run(name, func(t *testing.T) { checkTourLesson(t, b, solution, bug) })
+				continue
+			}
 			if b.HasInfo(doctest.InfoError) {
 				t.Run(name, func(t *testing.T) { checkTourErrorBlock(t, b) })
 				continue

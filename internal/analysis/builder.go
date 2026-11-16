@@ -1479,7 +1479,7 @@ func checkUnused(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	var errs []TypeError
 	errs = append(errs, CheckUnusedImports(fa, nodes)...)
 	errs = append(errs, CheckRedundantPreludeImports(fa, nodes)...)
-	errs = append(errs, CheckUnusedBindings(fa)...)
+	errs = append(errs, CheckUnusedBindings(fa, nodes)...)
 	errs = append(errs, CheckUselessReturns(nodes)...)
 	return append(errs, CheckRepeatedFields(nodes)...)
 }

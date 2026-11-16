@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/lexer"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 func unusedBindingErrors(errs []analysis.TypeError) []analysis.TypeError {
@@ -217,7 +219,7 @@ end
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := expectUnusedBindingContaining(t, buildErrsWithStdlib(t, tc.src), tc.want)
-			if !strings.Contains(diagText(e), "use a discard name or discard the value explicitly") {
+			if !strings.Contains(diagText(e), "read it in the body, or prefix it with '_' if the function does not need it") {
 				t.Errorf("hint: got %q, want the parameter hint", diagText(e))
 			}
 		})
@@ -297,4 +299,24 @@ fn f(m: Maybe<Int>, xs: List<Int>, p: (Int, Int)) -> Int
 end
 `)
 	expectNoUnusedBindings(t, errs)
+}
+
+// An `if n = 1` written for `if n == 1` reports only the checker's error,
+// whose help says to write `==`: neither the parameter it hides nor the name
+// the pattern binds is reported as unread first.
+func TestUnusedBindings_AComparisonWrittenAsAPatternReportsOnlyItsHelp(t *testing.T) {
+	nodes, _ := parser.ParseWithRecovery(lexer.Lex("fn f(n: Int) -> Bool\n    if n = 1 then True else False\nend\n"))
+	lib := loadStd()
+	fa, _, _ := analysis.BuildProjectWithCache(nodes, lib.Primitives, lib.Modules, lib.Files, t.TempDir(), nil)
+	errs := append(fa.TypeErrors, analysis.CheckTypes(fa, nodes)...)
+	expectNoUnusedBindings(t, errs)
+	var found bool
+	for _, e := range errs {
+		if strings.Contains(diagText(e), "write `if n == ...`") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the checker no longer says to write `if n == ...`: %v", errs)
+	}
 }

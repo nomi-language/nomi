@@ -31,7 +31,7 @@ end
 `
 
 func iterHint(fn string) string {
-	return "\nhelp: an Iter is not a collection; materialize it with `|> " + fn + "()`"
+	return "\nhelp: an Iter is not a collection; collect it into one with `|> " + fn + "()`"
 }
 
 // expectDiagAt fails unless one error reads exactly want and spans the last

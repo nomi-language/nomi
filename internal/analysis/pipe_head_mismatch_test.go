@@ -69,7 +69,7 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 		{"an Iter into a List stage",
 			"  _ = [1] |> Iter.map(fn x -> x + 1) |> total()\n",
 			"`total` takes a List<Int> as its first argument, but the pipe passes an Iter<Int>\n" +
-				"help: an Iter is not a collection; materialize it with `|> Iter.to_list()`",
+				"help: an Iter is not a collection; collect it into one with `|> Iter.to_list()`",
 			"total", "Iter.map(fn x -> x + 1)"},
 		{"a Maybe into a stage that takes its payload",
 			"  _ = \"4\" |> String.to_int() |> Int.to_string()\n",
@@ -122,7 +122,7 @@ func TestPipeHeadMismatch_IsReportedAtTheStage(t *testing.T) {
 		{"a generic stage",
 			"  _ = [1] |> Iter.map(fn x -> x + 1) |> first()\n",
 			"`first` takes a List<T> as its first argument, but the pipe passes an Iter<Int>\n" +
-				"help: an Iter is not a collection; materialize it with `|> Iter.to_list()`",
+				"help: an Iter is not a collection; collect it into one with `|> Iter.to_list()`",
 			"first", "Iter.map(fn x -> x + 1)"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

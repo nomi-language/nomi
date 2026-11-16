@@ -1116,7 +1116,7 @@ var genLeafInners = []struct {
 	{typ: "Maybe<Byte>", val: func(n int) string { return fmt.Sprintf("Bytes.get(String.to_bytes(\"b%d\"), 0)", n) }},
 	{typ: "Codepoint", val: func(n int) string { return fmt.Sprintf("'%c'", 'a'+rune(n%26)) }},
 	{typ: "Unit", val: func(int) string { return "Unit" }},
-	{typ: "Regex", val: func(n int) string { return fmt.Sprintf("Regex\"a{%d}\"", n+1) }},
+	{typ: "Regex<Unit>", val: func(n int) string { return fmt.Sprintf("Regex\"a{%d}\"", n+1) }},
 	{typ: "Duration", val: func(n int) string { return fmt.Sprintf("Duration.seconds(%d)", n) }},
 	{typ: "List<Decimal>", val: func(n int) string { return fmt.Sprintf("[%d.5d, 0.25d]", n) }},
 	{typ: "Maybe<Decimal>", val: func(n int) string { return fmt.Sprintf("Some(%d.5d)", n) }},
@@ -1462,7 +1462,7 @@ func (g *gen) fixedKindBlock() string {
 		rhs := []string{"[]", fmt.Sprintf("[%d]", n)}[r.Intn(2)]
 		fmt.Fprintf(&out, "io.print((%d, []) == (%d, %s))\n", n, n, rhs)
 	case 6:
-		fmt.Fprintf(&out, "%s: Captured<List<Int>> = Captured{value: [], output: \"\", transcript: \"\"}\n", name("fk"))
+		fmt.Fprintf(&out, "%s: Captured<List<Int>> = Captured{value: [], output: \"\", errors: \"\", transcript: \"\"}\n", name("fk"))
 		fmt.Fprintf(&out, "io.inspect(%s.value)\n", name("fk"))
 	case 7:
 		embeds()
@@ -1491,7 +1491,7 @@ func (g *gen) fixedKindBlock() string {
 		if r.Intn(2) == 0 {
 			fmt.Fprintf(&out, "%s: Vector<Iter<%s>> = Vector[[%s], [%s, %s]]\n", name("fv"), fig, fc, pt, fc)
 		} else {
-			fmt.Fprintf(&out, "%s: Vector<Captured<%s>> = Vector[Captured{value: %s, output: \"\", transcript: \"\"}]\n", name("fv"), fig, fc)
+			fmt.Fprintf(&out, "%s: Vector<Captured<%s>> = Vector[Captured{value: %s, output: \"\", errors: \"\", transcript: \"\"}]\n", name("fv"), fig, fc)
 		}
 		fmt.Fprintf(&out, "io.print(Vector.length(%s))\n", name("fv"))
 	default:
@@ -1724,7 +1724,7 @@ func (g *gen) patternBlock(inTest bool) string {
 			fmt.Sprintf("%s.Rec{w: %d, h: %d}", alias, a, b),
 			alias + ".Dot",
 		}
-		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s\n%s.Num(n) -> n\n.Rec({w: %d, h}) -> h + 100\n%s.Rec{w, h} -> w * h\n%s.Dot -> -1\nend)\n",
+		fmt.Fprintf(&out, "%s: %s = %s\nio.inspect(case %s\n%s.Num(n) -> n\n.Rec({w: %d, h:}) -> h + 100\n%s.Rec{w:, h:} -> w * h\n%s.Dot -> -1\nend)\n",
 			name("pa"), en, vals[r.Intn(len(vals))], name("pa"), alias, r.Intn(4), alias, alias)
 	case 9:
 		en := name("Pop")
@@ -1750,7 +1750,7 @@ func (g *gen) patternBlock(inTest bool) string {
 		fmt.Fprintf(&out, "type %s Map<String, Int>\n", kvs)
 		inner := `{"a" => v}`
 		if r.Intn(2) == 0 {
-			inner = "%" + kvs + `{"a" => v}`
+			inner = kvs + `{"a" => v}`
 		}
 		fmt.Fprintf(&out, "%s = {\"k\" => %s({%s => %d})}\nio.inspect(case %s\n{\"k\" => %s} -> v\n_ -> 0\nend)\n", name("pm"), kvs, str, a, name("pm"), inner)
 	}
@@ -2208,7 +2208,7 @@ func generatedProgramSized(i, bindings, depth int) loweringSeed {
 		out = "import std::io.{inspect as peek}\n\n" + out
 	}
 	// leafDistinctBlock's std types outside the prelude.
-	if strings.Contains(out, "Regex`") {
+	if strings.Contains(out, "Regex`") || strings.Contains(out, "Regex\"") {
 		out = "import std::regex.Regex\n" + out
 	}
 	// fixedKindBlock's Captured.

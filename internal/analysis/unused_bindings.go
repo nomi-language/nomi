@@ -11,10 +11,10 @@ import (
 const UnusedBindingCode = "unused-binding"
 
 // CheckUnusedBindings reports every local binding or body parameter whose symbol is never
-// referenced after its definition. It intentionally runs at the same point as
+// referenced after its definition, among the file's top-level nodes. It intentionally runs at the same point as
 // CheckUnusedImports: after the builder has walked bodies and before CheckTypes
 // replaces reference entries with call-site proxy symbols.
-func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
+func CheckUnusedBindings(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 	if fa == nil || len(fa.Definitions) == 0 {
 		return nil
 	}
@@ -25,6 +25,8 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 			used[s] = true
 		}
 	}
+
+	markComparisonsWrittenAsPatterns(fa, nodes, used)
 
 	// A pattern name refused for naming a `once` is reported there.
 	onceShadows := make(map[Pos]bool)
@@ -89,7 +91,7 @@ func CheckUnusedBindings(fa *FileAnalysis) []TypeError {
 		}
 		hint := "prefix it with '_' if the value is intentionally ignored"
 		if kind == "parameter" {
-			hint = "use a discard name or discard the value explicitly"
+			hint = "read it in the body, or prefix it with '_' if the function does not need it"
 		}
 		errs = append(errs, TypeError{
 			Line:    sym.Pos.Line,
@@ -155,4 +157,35 @@ func unfinishedBody(fa *FileAnalysis, node ast.Node) bool {
 		return n.Body != nil && containsTodo(fa, n.Body)
 	}
 	return false
+}
+
+// markComparisonsWrittenAsPatterns counts as read the names in an `if n = 1`
+// written for `if n == 1`: the name the pattern binds and the one of the same
+// name it hides. The checker rejects the pattern, since a bare name always
+// matches, and its help says to write `==` (reportIrrefutableIfPattern); an
+// unread name reported beside it would come first and point the other way.
+func markComparisonsWrittenAsPatterns(fa *FileAnalysis, nodes []ast.Node, used map[*Symbol]bool) {
+	for _, n := range nodes {
+		ast.Inspect(n, func(n ast.Node) bool {
+			f, ok := n.(*ast.If)
+			if !ok {
+				return true
+			}
+			p, ok := f.CondPattern.(*ast.IdentPattern)
+			if !ok {
+				return true
+			}
+			own := Pos{Line: p.Line, Col: p.Col}
+			if sym := fa.Definitions[own]; sym != nil {
+				used[sym] = true
+			}
+			for scope := fa.ScopeAt(Pos{Line: f.Line, Col: f.Col}); scope != nil; scope = scope.Parent {
+				if sym := scope.LookupLocal(p.Name); sym != nil && sym.Pos != own {
+					used[sym] = true
+					break
+				}
+			}
+			return true
+		})
+	}
 }

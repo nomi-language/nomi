@@ -59,7 +59,7 @@ func TestTargetLiteral_RouteArgumentTypedByTheHandler(t *testing.T) {
 		{"[Route\"PATCH /todos/{id}\" |> Route.to_with(update)]", "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _: Request, p: {id: Int} -> Response{body: Body.Text("${p.id + 1}")})]`, "", 0},
 		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text(p.id + "!")})]`, "", 0},
-		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text("${p.id + 1}")})]`, "binary + type mismatch: String vs Int", 0},
+		{`[Route.to_with("GET /n/{id}", fn _, p -> Response{body: Body.Text("${p.id + 1}")})]`, "`+` needs two values of one type, and these are String and Int", 0},
 		{`[Route.to_with("GET /flags/{id}", flag)]`, "a route's parameters are read from its path and written into links as text: each field's type implements `Parse` and `Display`, and `Bool`, the type of `id`, does not implement `Parse`", 20},
 		{"[Route.to_with(Route\"GET /b/{id}\", wrap(show))]", "", 0},
 		{`[Route.to_with("GET /b/{id}", wrap(show))]`, "", 0},

@@ -132,5 +132,61 @@ func TestTypeDiagnostic_OrdinaryMismatchIsUnchanged(t *testing.T) {
 		samePointSiblings)
 	assertErrorExact(t, errs, "argument 1: expected Int, got String")
 	assertErrorExact(t, errs, "return type mismatch: expected Int, got String")
-	assertErrorExact(t, errs, "binary + type mismatch: Int vs Point")
+	assertErrorExact(t, errs, "`+` needs two values of one type, and these are Int and Point")
+}
+
+// A whole-number literal beside a Float is answered with the literal written
+// as a Float, on either side of the operator; an Int that is not a literal
+// gets no such help.
+func TestTypeDiagnostic_AnIntLiteralBesideAFloatSaysToWriteItAsOne(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{"a / 2", "write `2` as `2.0`"},
+		{"3 * a", "write `3` as `3.0`"},
+		{"a + Iter.count([1])", ""},
+	} {
+		t.Run(tc.body, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib("fn f(a: Float) -> Float\n    " + tc.body + "\nend\n")
+			var mismatch *analysis.TypeError
+			for i, e := range errs {
+				if strings.Contains(e.Message, "needs two values of one type") {
+					mismatch = &errs[i]
+				}
+			}
+			if mismatch == nil {
+				t.Fatalf("no operand mismatch reported: %v", errs)
+			}
+			hints := strings.Join(mismatch.Hints, "\n")
+			if tc.want == "" && strings.Contains(hints, "as `") {
+				t.Fatalf("a non-literal Int is told to write a literal: %q", hints)
+			}
+			if !strings.Contains(hints, tc.want) {
+				t.Fatalf("hints %q, want %q", hints, tc.want)
+			}
+		})
+	}
+}
+
+// A number literal where a Decimal or a Float belongs is answered with the
+// literal written as one: beside an operand, and where a declared type, a
+// result or a parameter expects it.
+func TestTypeDiagnostic_ANumberLiteralWhereADecimalBelongsSaysToWriteOne(t *testing.T) {
+	for _, tc := range []struct{ src, want string }{
+		{"fn f(a: Decimal) -> Decimal\n    a * 2\nend\n", "write `2` as `2d`, a Decimal"},
+		{"fn f(a: Decimal) -> Decimal\n    a - 1.5\nend\n", "write `1.5` as `1.5d`, a Decimal"},
+		{"fn f() -> Decimal\n    19.99\nend\n", "write `19.99d`"},
+		{"fn f() -> Decimal\n    -3\nend\n", "write `-3d`"},
+		{"fn f() -> Decimal\n    price: Decimal = 19.99\n    price\nend\n", "write `19.99d`"},
+		{"fn h(p: Decimal) -> Decimal\n    p\nend\n\nfn f() -> Decimal\n    h(1.5)\nend\n", "write `1.5d`"},
+		{"fn f() -> Float\n    3\nend\n", "write `3.0`"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(tc.src)
+			for _, e := range errs {
+				if strings.Contains(strings.Join(e.Hints, "\n"), tc.want) {
+					return
+				}
+			}
+			t.Fatalf("no error's help says %q: %v", tc.want, errs)
+		})
+	}
 }

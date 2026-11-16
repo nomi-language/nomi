@@ -614,6 +614,7 @@ func TestVMReport_AttachedCasesAreRetained(t *testing.T) {
 // record would prove the comparison sees SOMETHING, not that it sees the rows.
 func TestVMReport_APlantedWrongFailureMessageIsCaught(t *testing.T) {
 	vmReportPlant(t, "deleting the `values:` rows", vmReportWithValueRows,
+		func(c expectation.Case) bool { return strings.Contains(c.Transcript, "values:") },
 		nil,
 		func(normalized string) string { return dropValueRows(normalized) })
 }
@@ -626,7 +627,13 @@ func TestVMReport_APlantedWrongFailureMessageIsCaught(t *testing.T) {
 // mutation lives — `install` for a mutation inside `rt`, `bend` for one
 // applied to the transcript — and a second copy of the clean-run control is a
 // second chance to forget it.
+//
+// A First Steps lesson's starter (a tour record under `learn/`) fails on
+// purpose and is edited often, so its line-numbered ID is not listed in
+// mustReport. lessonReports says from its recorded report whether the plant
+// must show in it.
 func vmReportPlant(t *testing.T, what string, mustReport []string,
+	lessonReports func(expectation.Case) bool,
 	install func() func(), bend func(string) string) {
 	t.Helper()
 	root, err := expectation.Root()
@@ -643,6 +650,11 @@ func vmReportPlant(t *testing.T, what string, mustReport []string,
 			t.Fatalf("%s: %v", population, err)
 		}
 		ids, recorded := reportShapedIDs(set)
+		for _, id := range ids {
+			if strings.HasPrefix(id, "learn/") && lessonReports(recorded[id]) {
+				named[id] = true
+			}
+		}
 		pathFor := vmReportPathResolver(t, population)
 		// THE BEND IS APPLIED TO THE TRANSCRIPT BEFORE `NewCase`, because
 		// `NewCase` computes the digest and the failing flag from the text it
@@ -768,6 +780,7 @@ func dropValueRows(transcript string) string {
 func TestVMReport_APlantedWrongSourceFragmentIsCaught(t *testing.T) {
 	vmReportPlant(t, "a mutation inside rt's own report layout",
 		vmReportWithSourceFragment,
+		func(c expectation.Case) bool { return strings.Contains(c.Transcript, "FAIL ") },
 		func() func() {
 			prev := rt.Highlight
 			rt.Highlight = func(_ io.Writer, src string) string { return src + " <PLANTED>" }

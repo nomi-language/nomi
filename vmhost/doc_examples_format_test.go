@@ -22,7 +22,8 @@ import (
 // after the reader's first edit, reformats the parts they did not touch.
 // It reads:
 //
-//   - every ```nomi and ```nomi-run block of the tour's chapters, the docs
+//   - every ```nomi, ```nomi-run and ```nomi-solution block (a First Steps
+//     lesson's solution, revealed on request) of the tour's chapters, the docs
 //     under docs/, README.md, CONTRIBUTING.md and tests/README.md, and the ```nomi fences in
 //     std's `///` and `//#` doc comments, which the stdlib reference renders;
 //     a block holding `// FILE: <name>` markers is checked per file, its
@@ -84,7 +85,7 @@ func TestDocExamplesAreFormatted(t *testing.T) {
 			t.Fatal(err)
 		}
 		tally.file(rel)
-		for _, lang := range []string{"nomi", "nomi-run"} {
+		for _, lang := range []string{"nomi", "nomi-run", "nomi-solution"} {
 			for _, b := range doctest.ExtractBlocks(string(data), lang) {
 				tally.checkBlock(t, rel, b.Line, b.Code, func(line string) string { return line })
 			}

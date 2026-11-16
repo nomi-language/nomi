@@ -31,7 +31,7 @@ func TestCurrentValueOperand_Diagnostics(t *testing.T) {
 		{"a field whose value is `..`", `  _a = {..ada(), name: ‸..}`, keeps},
 		{"a whole value at the field is the field's type", `  _a = {..ada(), address: {street: ‸.., city: "x"}}`,
 			"field 'street' of Address: expected String, got Address"},
-		{"the wrong type", `  _a = {..ada(), name: .. ‸+ 1}`, "binary + type mismatch: String vs Int"},
+		{"the wrong type", `  _a = {..ada(), name: .. ‸+ 1}`, "`+` needs two values of one type, and these are String and Int"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

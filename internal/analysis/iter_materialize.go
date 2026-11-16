@@ -240,5 +240,5 @@ func iterMaterializeHint(want, have Type) string {
 	if fn == "" {
 		return ""
 	}
-	return fmt.Sprintf("an Iter is not a collection; materialize it with `|> %s()`", fn)
+	return fmt.Sprintf("an Iter is not a collection; collect it into one with `|> %s()`", fn)
 }

@@ -73,8 +73,9 @@ the operation.
   shift count of `<<<` and `>>>` is a `NonNegativeInt` the same way.
   `Float` division by zero gives an infinity or NaN instead (see
   [Exact arithmetic with `Decimal`](#exact-arithmetic-with-decimal)).
-- The number types never mix. `1 + 2.0` is
-  `binary + type mismatch: Int vs Float`; convert with `Int.to_float` or
+- The number types never mix. `1 + 2.0` is the error
+  `` `+` needs two values of one type, and these are Int and Float ``, whose
+  help says to write `1.0`; convert a value with `Int.to_float` or
   `Float.to_int`, which is `None` for NaN and the infinities.
 - `%` works on `Float` and `Decimal` too, with the dividend's sign:
   `-7.5 % 2.0` is `-1.5`, and `1.0 % 0.0` is NaN.

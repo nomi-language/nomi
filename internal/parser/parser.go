@@ -2093,6 +2093,13 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 		if p.atOrOperatorSpelledBars(tok) {
 			return nil, errorAt(tok.Line, tok.Col, "Nomi spells logical or `or`: write `a or b`, not `a || b`")
 		}
+		if p.atConcatSpelledPluses(tok) {
+			// `[n] ++ rest`: Haskell's and Elixir's concatenation. The
+			// plain error at the second `+` would say it needs an operand.
+			return nil, ParseError{Line: tok.Line, Col: tok.Col,
+				Message: "Nomi joins two lists, or two strings, with `+`: write `a + b`, not `a ++ b`",
+				Fix:     Replace("Write `+`", tok.Line, tok.Col, tok.Line, tok.Col+2, "+")}
+		}
 		shr := p.shiftRightAt(p.pos)
 		if !shr && tok.Type == token.GT && p.adjacentGTs(p.pos) && p.prevLine() == tok.Line {
 			return nil, errorAt(tok.Line, tok.Col, "Nomi spells shift right `>>>`: write `a >>> n`, not `a >> n`")
@@ -2473,6 +2480,19 @@ func (p *Parser) atOrOperatorSpelledBars(tok token.Token) bool {
 	}
 	next := p.peekAt(1)
 	return next.Type == token.BAR && next.Line == tok.Line && next.Col == tok.Col+1
+}
+
+// atConcatSpelledPluses reports whether tok, just after an operand, starts
+// `++` written as an infix operator: two adjacent pluses on the operand's
+// line with an operand after them on that line. A `++` that ends its line is
+// `x++`, which the statement's own error names (confusion.go).
+func (p *Parser) atConcatSpelledPluses(tok token.Token) bool {
+	if tok.Type != token.PLUS || p.pos == 0 || p.prevLine() != tok.Line {
+		return false
+	}
+	next, after := p.peekAt(1), p.peekAt(2)
+	return next.Type == token.PLUS && next.Line == tok.Line && next.Col == tok.Col+1 &&
+		after.Line == tok.Line && after.Type != token.EOF && after.Type != token.NEWLINE
 }
 
 func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRight []ast.Trivia) (ast.Node, error) {

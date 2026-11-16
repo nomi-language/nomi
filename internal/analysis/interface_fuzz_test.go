@@ -452,6 +452,69 @@ end
 	}
 }
 
+// TestAnUndeterminedOnceIsPoisonInEveryFile holds a `once` whose type is
+// not locally determined (`pub once open = Box.empty()`, a Box<?1>) to the
+// same check from source and against interfaces. The binding's symbol took
+// the open type, so in a full check the first file to read it solved ?1
+// for every file after (Box<Int> from `main`'s list, and then `solve`'s
+// Box<String> argument a mismatch, or the other way round), where a check
+// of each file against interfaces read Box<?1>. The binding is poison
+// now, quiet in every file, and the undefined `missing` is the only error
+// beside it. FuzzCheckFromInterfacesMatchesFull found it in
+// 16-concurrency/jobs, through std/jobs's Handler.
+func TestAnUndeterminedOnceIsPoisonInEveryFile(t *testing.T) {
+	p := incrementalProject{name: "undetermined once", entry: "main", texts: map[string]string{
+		"box": `pub struct Box<T>
+    items: List<T>
+end
+
+impl Box<T>
+    pub fn empty() -> Box<T>
+        Box{items: []}
+    end
+end
+
+pub once open = Box.empty()
+`,
+		"solve": `import box.{Box, open}
+
+pub fn strings(b: Box<String>) -> Int
+    List.length(b.items)
+end
+
+pub fn solved() -> Int
+    strings(open)
+end
+`,
+		"main": `import
+    std::io
+    box.{Box, open}
+    solve
+end
+
+fn ints(bs: List<Box<Int>>) -> Int
+    List.length(bs)
+end
+
+fn main()
+    io.inspect(solve.solved())
+    io.inspect(ints([missing, open]))
+end
+`,
+	}}
+	want, got := interfaceDumps(p, p.texts)
+	if want != got {
+		t.Fatalf("checked against interfaces differs from a full check:\n%s", dumpDiff(want, got))
+	}
+	if !strings.Contains(want, "binding 'open' type is not locally determined") ||
+		!strings.Contains(want, "undefined variable 'missing'") {
+		t.Fatalf("the reproducer no longer reports the undetermined once and the undefined element:\n%s", want)
+	}
+	if strings.Contains(want, "mismatch") {
+		t.Fatalf("a read of the undetermined once reports a mismatch:\n%s", want)
+	}
+}
+
 // TestAGenericReceiversImplIsSeenWithoutItsFile holds an impl for a generic
 // receiver written without a `<T>` clause (`impl Named for Box<T>`) to the
 // same check from source and against interfaces in a file that imports

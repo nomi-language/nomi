@@ -276,6 +276,48 @@ export default function rehypeShiki() {
           } else if (hasClass(code, "language-console")) {
             node.children[i] = consoleBlock(textContent(code).replace(/\n+$/, ""));
             continue;
+          } else if (hasClass(code, "language-nomi-hint")) {
+            // ```nomi-hint after a ```nomi-run lesson block: the lesson's
+            // hint, plain text the client reveals on request.
+            node.children[i] = {
+              type: "element",
+              tagName: "div",
+              properties: { className: ["nomi-lesson-hint"], hidden: true, dataNomiHint: "" },
+              children: textContent(code)
+                .replace(/\n+$/, "")
+                .split(/\n\s*\n/)
+                .map((para) => ({ type: "element", tagName: "p", properties: {}, children: [{ type: "text", value: para.replace(/\n/g, " ") }] })),
+            };
+            continue;
+          } else if (hasClass(code, "language-nomi-bug")) {
+            // ```nomi-bug after a ```nomi-run lesson block: the lesson's
+            // function with a mistake planted in it, which makes the lesson
+            // one where the reader writes tests. The client runs the
+            // reader's tests against it, and never shows it.
+            node.children[i] = {
+              type: "element",
+              tagName: "div",
+              properties: { hidden: true, dataNomiBug: "", dataPagefindIgnore: "" },
+              children: [{ type: "text", value: textContent(code).replace(/\n+$/, "") }],
+            };
+            continue;
+          } else if (hasClass(code, "language-nomi-solution")) {
+            // ```nomi-solution after a ```nomi-run lesson block: the
+            // lesson's starter solved, a highlighted block the client
+            // reveals once the hint has been shown.
+            // The block sits in a hidden wrapper, since the client rebuilds
+            // the block itself to highlight it; tour.css labels its chip
+            // "Solution" by the wrapper.
+            code.properties = { ...(code.properties || {}), className: ["language-nomi"] };
+            setCodeLabel(child, "Nomi");
+            node.children[i] = {
+              type: "element",
+              tagName: "div",
+              properties: { className: ["nomi-lesson-solution"], hidden: true, dataNomiSolution: "" },
+              children: [child],
+            };
+            visit(child, node.children[i]);
+            continue;
           } else if (
             hasClass(code, "language-nomi-run") &&
             String(code.data?.meta || "").split(/\s+/).includes("compile-only")
@@ -304,6 +346,13 @@ export default function rehypeShiki() {
               const props = { ...(child.properties || {}) };
               if (words.includes("error")) props.dataNomiExpect = "error";
               if (words.includes("manual")) props.dataNomiManual = "1";
+              // ```nomi-run lesson: a First Steps task. It runs only on its
+              // Check button, as a manual block runs on Run, and the client
+              // adds the hint and solution that follow it.
+              if (words.includes("lesson")) {
+                props.dataNomiManual = "1";
+                props.dataNomiLesson = "1";
+              }
               const readOnly = words.filter((w) => w.startsWith("read-only:")).map((w) => w.slice("read-only:".length));
               if (readOnly.length) props.dataNomiReadOnly = readOnly.join(" ");
               // ```nomi-run tool:<module>/<name>: the tools each run runs first.

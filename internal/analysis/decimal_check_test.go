@@ -42,8 +42,8 @@ end
 
 func TestDecimalMixedDivisionRejected(t *testing.T) {
 	for _, tc := range []struct{ expr, want string }{
-		{"1d / 3", "binary / type mismatch: Decimal vs Int"},
-		{"1 / 3d", "binary / type mismatch: Int vs Decimal"},
+		{"1d / 3", "`/` needs two values of one type, and these are Decimal and Int"},
+		{"1 / 3d", "`/` needs two values of one type, and these are Int and Decimal"},
 	} {
 		_, errs := checkSourceWithStdlib("fn f() -> Decimal\n  " + tc.expr + "\nend\n")
 		found := false

@@ -101,7 +101,7 @@ func TestScopedValuesBootLineChecksTheBootsSignature(t *testing.T) {
 		{"fn boot(startup: Startup = Startup{}) -> Result<MyApp, String>\n    Ok(MyApp{port: Iter.count(startup.args)})\nend", "", ""},
 		{"fn boot(startup: Startup = Startup{}) -> Result<MyApp, String>\n    Ok(MyApp{port: Iter.count(startup.args)})\nend", "Startup{args: [\"a\"]}", ""},
 		{"fn boot(startup: Startup) -> Result<MyApp, String>\n    Ok(MyApp{port: Iter.count(startup.args)})\nend", "Startup{}", ""},
-		{"fn boot(startup: Startup) -> Result<MyApp, String>\n    Ok(MyApp{port: Iter.count(startup.args)})\nend", "", "expected 1 arguments, got 0"},
+		{"fn boot(startup: Startup) -> Result<MyApp, String>\n    Ok(MyApp{port: Iter.count(startup.args)})\nend", "", "expected 1 argument, got 0"},
 		{"fn boot() -> Result<MyApp, String>\n    Ok(MyApp{port: 3})\nend", "Startup{}", "expected 0 arguments, got 1"},
 		{"fn boot(startup: Startup) -> Result<MyApp, String>\n    Ok(MyApp{port: Iter.count(startup.args)})\nend", "3", "argument 1: expected Startup, got Int"},
 	} {

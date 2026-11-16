@@ -101,7 +101,7 @@ var annotationHelpCases = map[string]annotationHelpCase{
 	"two typed operands of +": {annotationHelpDecls, "_c: Bool",
 		`mine = [("b", page)]
   r = mine + routes()`,
-		"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>\n" +
+		"`+` needs two values of one type, and these are List<(String, (Int) -> Page)> and List<(String, (Int) -> Reply)>\n" +
 			"help: annotate the binding: `mine: List<(String, Handler)> = ...`"},
 	"two typed spreads": {annotationHelpDecls, "_c: Bool",
 		`mine = [("b", page)]
@@ -134,13 +134,13 @@ var annotationHelpCases = map[string]annotationHelpCase{
 		"\nfn replies() -> List<(Int) -> Reply>\n    [page]\nend\n", "_c: Bool",
 		`mine = [page]
   r = mine + replies()`,
-		"binary + type mismatch: List<(Int) -> Page> vs List<(Int) -> Reply>\n" +
+		"`+` needs two values of one type, and these are List<(Int) -> Page> and List<(Int) -> Reply>\n" +
 			"help: annotate the binding: `mine: List<(Int) -> Reply> = ...`"},
 	// Two aliases fit; the one the function's signature names is the one.
 	"the alias the signature names": {annotationHelpDecls + "\ntypealias Responder (Int) -> Reply\n", "_c: Bool, _r: Responder",
 		`mine = [("b", page)]
   r = mine + routes()`,
-		"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>\n" +
+		"`+` needs two values of one type, and these are List<(String, (Int) -> Page)> and List<(String, (Int) -> Reply)>\n" +
 			"help: annotate the binding: `mine: List<(String, Responder)> = ...`"},
 	// An alias a module the file imports declares is written qualified.
 	"a qualified alias": {`import std::http
@@ -155,7 +155,7 @@ fn routes() -> List<(http.Route<Unit>, http.Handler)>
 end
 `, "route: http.Route<Unit>",
 		"mine = [(route, home)]\n  r = mine + routes()",
-		"binary + type mismatch: List<(Route, (Request) -> Html)> vs List<(Route, (Request) -> ToResponse)>\n" +
+		"`+` needs two values of one type, and these are List<(Route, (Request) -> Html)> and List<(Route, (Request) -> ToResponse)>\n" +
 			"help: annotate the binding: `mine: List<(http.Route<Unit>, http.Handler)> = ...`"},
 }
 
@@ -201,16 +201,16 @@ func TestAnnotationHelp_NoneWithoutOneCommonType(t *testing.T) {
 		"a narrowing parameter": {annotationHelpDecls, "_c: Bool",
 			`mine = [("b", other)]
   r = mine + routes()`,
-			"binary + type mismatch: List<(String, (String) -> Page)> vs List<(String, (Int) -> Reply)>"},
+			"`+` needs two values of one type, and these are List<(String, (String) -> Page)> and List<(String, (Int) -> Reply)>"},
 		"unrelated elements": {annotationHelpDecls, "_c: Bool",
 			`a = [1]
   b = ["x"]
   r = a + b`,
-			"binary + type mismatch: List<Int> vs List<String>"},
+			"`+` needs two values of one type, and these are List<Int> and List<String>"},
 		"two aliases, neither named": {annotationHelpDecls + "\ntypealias Responder (Int) -> Reply\n", "_c: Bool",
 			`mine = [("b", page)]
   r = mine + routes()`,
-			"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>"},
+			"`+` needs two values of one type, and these are List<(String, (Int) -> Page)> and List<(String, (Int) -> Reply)>"},
 		// Branches join as a type written for them only when it is an
 		// interface or a collection, so an annotation of a function type
 		// would not make these check.

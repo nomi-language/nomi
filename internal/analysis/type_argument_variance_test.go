@@ -341,10 +341,10 @@ func TestTypeArgumentVariance_LiteralBuiltAsTheOtherOperand(t *testing.T) {
 func TestTypeArgumentVariance_LiteralOperandMismatchIsRefused(t *testing.T) {
 	for name, tc := range map[string]struct{ body, want string }{
 		"a narrowing parameter": {`r = [("b", other)] + routes()`,
-			"binary + type mismatch: List<(String, (String) -> Page)> vs List<(String, (Int) -> Reply)>"},
-		"an element of another type": {`r = [1] + ["a"]`, "binary + type mismatch: List<Int> vs List<String>"},
+			"`+` needs two values of one type, and these are List<(String, (String) -> Page)> and List<(String, (Int) -> Reply)>"},
+		"an element of another type": {`r = [1] + ["a"]`, "`+` needs two values of one type, and these are List<Int> and List<String>"},
 		"two typed operands": {`mine = [("b", page)]; r = mine + routes()`,
-			"binary + type mismatch: List<(String, (Int) -> Page)> vs List<(String, (Int) -> Reply)>"},
+			"`+` needs two values of one type, and these are List<(String, (Int) -> Page)> and List<(String, (Int) -> Reply)>"},
 		"a spread beside a narrowing element": {`r = [("b", other), ..routes()]`,
 			"list spread element type mismatch: (String, (String) -> Page) vs (String, (Int) -> Reply)"},
 		"two typed spreads": {`mine = [("b", page)]; r = [..mine, ..routes()]`,

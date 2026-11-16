@@ -1,0 +1,160 @@
+{
+  "about": "Plain notes the First Steps runner shows under a compile error after Check: the first note whose match finds the run's first error. A note's $1, $2 are the match's groups; `code` in a note is shown as code. A run's first error is its first line and the help and note lines under it. A note with \"page\": true answers a message the page writes itself (tour-client.mjs), such as a run that times out, and has no example. Each example's first error must be matched by its own note before any other (vmhost/tour_lesson_notes_test.go). match is a regular expression that Go and JavaScript read alike.",
+  "notes": [
+    {
+      "match": "division by zero: the divisor is the literal 0",
+      "note": "Dividing by 0 has no answer, so Nomi stops it before your code runs.",
+      "example": "fn odd(n: Int) -> Bool\n    n % 0 == 1\nend\n"
+    },
+    {
+      "match": "divides by a NonZeroInt",
+      "note": "Nomi won't divide by a number that might be zero, since that has no answer. Name the number, check it first, and divide only when it isn't zero: `if count == 0 then ... else total / count`.",
+      "link": {
+        "href": "/learn/decisions/",
+        "label": "The lesson on decisions shows how"
+      },
+      "example": "fn average(xs: List<Int>) -> Int\n    Iter.sum(xs) / Iter.count(xs)\nend\n"
+    },
+    {
+      "match": "write `if (\\w+) == \\.\\.\\.`",
+      "note": "A single `=` names a value. To compare two values, write `==`: `if $1 == ...`.",
+      "example": "fn is_one(n: Int) -> Bool\n    if n = 1 then True else False\nend\n"
+    },
+    {
+      "match": "parameter '(\\w+)' is never read",
+      "note": "Your function takes `$1` but doesn't use it yet. Use `$1` in the function's body.",
+      "example": "fn double(n: Int) -> Int\n    4\nend\n"
+    },
+    {
+      "match": "binding '(\\w+)' is never read",
+      "note": "You named a value `$1` but never used it. Use it, or remove the line that names it.",
+      "example": "fn double(n: Int) -> Int\n    twice = n * 2\n    n + n\nend\n"
+    },
+    {
+      "match": "undefined variable '(\\w+)'",
+      "note": "Nomi doesn't know the name `$1`. Check its spelling against the names your code already has.",
+      "example": "fn double(n: Int) -> Int\n    n * 2\nend\n\nfn triple(n: Int) -> Int\n    doubel(n) + n\nend\n"
+    },
+    {
+      "match": "type '(\\w+)' has no member '(\\w+)'",
+      "note": "`$1` has nothing called `$2`. Check its spelling.",
+      "example": "fn total(xs: List<Int>) -> Int\n    Iter.summ(xs)\nend\n"
+    },
+    {
+      "match": "expected Decimal, got (Float|Int)",
+      "note": "A number with no `d` after it isn't a Decimal. Write `19.99d`, not `19.99`, and `2d`, not `2`.",
+      "link": {
+        "href": "/learn/types/",
+        "label": "The lesson on types shows how"
+      },
+      "example": "fn price() -> Decimal\n    19.99\nend\n"
+    },
+    {
+      "match": "expected (\\d+) arguments?, got (\\d+)",
+      "note": "This call gives the function $2 values, and it takes $1. The values go in the parentheses, separated by commas.",
+      "example": "fn double(n: Int) -> Int\n    n * 2\nend\n\nfn triple(n: Int) -> Int\n    double(n, 3)\nend\n"
+    },
+    {
+      "match": "argument (\\d+): expected (\\w+), got (\\w+)",
+      "note": "Value number $1 in this call should be a `$2`, and it is a `$3`.",
+      "example": "fn double(n: Int) -> Int\n    n * 2\nend\n\nfn four() -> Int\n    double(\"2\")\nend\n"
+    },
+    {
+      "match": "return type mismatch: expected \\S+, got Iter<",
+      "note": "`Iter.map` and `Iter.filter` give back an Iter, a sequence that isn't a list yet. End the pipe with `|> Iter.to_list()`.",
+      "link": {
+        "href": "/learn/pipes/",
+        "label": "The lesson on pipes shows how"
+      },
+      "example": "fn doubled(xs: List<Int>) -> List<Int>\n    xs |> Iter.map(fn n -> n * 2)\nend\n"
+    },
+    {
+      "match": "return type mismatch: expected \\S+, got Maybe<",
+      "note": "This value might be missing, so it is a Maybe. Say what to give back when it is missing, with `Maybe.with_default`.",
+      "link": {
+        "href": "/learn/maybe/",
+        "label": "The lesson on missing values shows how"
+      },
+      "example": "fn age(name: String) -> Int\n    ages = {\"Ada\" => 36}\n    Map.get(ages, name)\nend\n"
+    },
+    {
+      "match": "return type mismatch: expected (\\S+), got (\\S+)",
+      "note": "The function promises to give back `$1`, the type after `->`, but this gives back `$2`.",
+      "example": "fn greeting() -> String\n    42\nend\n"
+    },
+    {
+      "match": "`\\S+` needs two values of one type, and these are (Int and Decimal|Decimal and Int|Float and Decimal|Decimal and Float)",
+      "note": "Write every number in a sum with Decimals with a `d` after it: `2d`, not `2`.",
+      "link": {
+        "href": "/learn/types/",
+        "label": "The lesson on types shows how"
+      },
+      "example": "fn midpoint(a: Decimal, b: Decimal) -> Decimal\n    (a + b) / 2\nend\n"
+    },
+    {
+      "match": "`\\S+` needs two values of one type, and these are (Int and Float|Float and Int)",
+      "note": "A whole number and a decimal are different types, and Nomi won't mix them. Write the whole number with a decimal point: `2.0`, not `2`.",
+      "link": {
+        "href": "/learn/types/",
+        "label": "The lesson on types shows how"
+      },
+      "example": "fn midpoint(a: Float, b: Float) -> Float\n    (a + b) / 2\nend\n"
+    },
+    {
+      "match": "`\\+` needs two values of one type, and these are (String and \\w+|\\w+ and String)",
+      "note": "To put a value into a piece of text, write it inside the quotes: `\"n is ${n}\"`.",
+      "link": {
+        "href": "/learn/text/",
+        "label": "The lesson on text shows how"
+      },
+      "example": "fn describe(n: Int) -> String\n    \"n is \" + n\nend\n"
+    },
+    {
+      "match": "equality type mismatch: (\\S+) vs (\\S+)",
+      "note": "`==` compares two values of the same type, and this compares a `$1` with a `$2`. `1` is a number and `\"1\"` is text.",
+      "example": "fn is_one(n: Int) -> Bool\n    n == \"1\"\nend\n"
+    },
+    {
+      "match": "an `if` without `else`",
+      "note": "An `if` that gives back a value needs an `else`, for when its test is false.",
+      "link": {
+        "href": "/learn/decisions/",
+        "label": "The lesson on decisions shows how"
+      },
+      "example": "fn describe(t: Int) -> String\n    if t < 10 then \"cold\"\nend\n"
+    },
+    {
+      "match": "expected `then` after the `if` condition",
+      "note": "Write `then` between an `if`'s test and its value: `if n > 1 then \"big\" else \"small\"`.",
+      "example": "fn size(n: Int) -> String\n    if n > 1 \"big\" else \"small\"\nend\n"
+    },
+    {
+      "match": "expected `end` to close",
+      "note": "Every `fn`, and every `test`, ends with its own `end`.",
+      "example": "fn double(n: Int) -> Int\n    n * 2\n"
+    },
+    {
+      "match": "non-exhaustive case on (\\w+): missing (.+)",
+      "note": "A `case` says what to do for every kind of `$1`, and this one leaves out $2.",
+      "link": {
+        "href": "/learn/case/",
+        "label": "The lesson on choosing by kind shows how"
+      },
+      "example": "enum Light\n    Red\n    Yellow\n    Green\nend\n\nfn next(light: Light) -> Light\n    case light\n        .Red -> .Green\n        .Green -> .Yellow\n    end\nend\n"
+    },
+    {
+      "match": "an expression cannot be written at file level",
+      "note": "Code runs inside a function. Put it between `fn main()` and its `end`.",
+      "example": "dbg 1 + 2\n"
+    },
+    {
+      "match": "^execution timed out",
+      "note": "A loop whose step never reaches its `break` repeats forever. Check that each step moves toward the stop.",
+      "link": {
+        "href": "/learn/repeating/",
+        "label": "The lesson on repeating shows how"
+      },
+      "page": true
+    }
+  ]
+}

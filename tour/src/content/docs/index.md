@@ -1,141 +1,158 @@
 ---
 title: Nomi Lang
-description: A runnable introduction to the Nomi language.
-# The wordmark carries the NAME, so the <h1> carries the DESCRIPTION rather than
-# repeating it — a mark reading "NOMI" above a heading reading "Nomi Lang" is the
-# same word twice. `title` above still supplies the browser tab, the sidebar
-# label and the image's alt text, so the name is not lost anywhere the mark
-# cannot be seen. The h1 text is this page's own `description`, not new copy.
+description: A friendly, statically typed language that catches mistakes before your program runs.
+# The splash template gives the home page the whole width: no sidebar and no
+# table of contents. Every other page keeps both, with Home first in the
+# sidebar.
+template: splash
+next: false
+prev: false
+# The wordmark carries the NAME, so the <h1> carries the PITCH rather than
+# repeating it: a mark reading "NOMI" above a heading reading "Nomi Lang" is
+# the same word twice. `title` above still supplies the browser tab, the
+# sidebar label and the image's alt text, so the name is not lost anywhere
+# the mark cannot be seen.
 hero:
-  title: A runnable introduction to the Nomi language.
+  title: "A friendly language that catches mistakes before your program runs."
+  tagline: "Statically typed, with values that never change. No null, no exceptions, no forgotten case."
   image:
     alt: Nomi Lang
     light: ../../assets/nomi-wordmark.svg
     dark: ../../assets/nomi-wordmark-dark.svg
+  # The three ways in, one per reader: new to programming, new to Nomi,
+  # and coming from a language they know. Install is for a reader already
+  # convinced.
+  actions:
+    - text: First Steps
+      link: /learn/values/
+      variant: primary
+    - text: Language Tour
+      link: /introduction/
+      variant: secondary
+    - text: Coming from…
+      link: /coming-from/
+      variant: secondary
+    - text: Install
+      link: /tooling/install/
+      variant: minimal
 ---
 
-Nomi is a statically typed language where every value is immutable. Most
-code is written as expressions: `if`, `case` and blocks all produce values.
+<!-- The home page's sections are plain HTML around Markdown, styled in
+tour.css under "Home page". A blank line after each opening tag lets the
+Markdown inside it render, the live example included. -->
 
-This site is the language tour and the public reference. You can edit and run
-every example in your browser. An example formats itself after each edit that
-parses, and hovering shows the same information your editor does.
+<div class="nomi-home-showcase">
 
-## Nomi at a glance
+<div class="nomi-home-showcase-text">
 
-- **Static types.** Named functions write out their parameter types and any
-  return type other than `Unit`. Bindings and lambdas infer their types.
-- **Immutable values.** Bindings, structs and collections never change. To
-  "modify" a value, you make a new one.
-- **Functional style.** Functions are values, types can be sums of variants,
-  and [`case`](/pattern-matching/) must cover every shape a value can take.
-  Tail calls run in constant stack space.
-- **Plain control flow.** `return`, `break`, `continue` and a postfix `?` are
-  there when they make a function easier to read.
-- **Explicit interfaces.** A type implements an interface with
-  `impl Interface for Type`, or gets a generated implementation with
-  `derive`.
-- **Qualified calls.** A function is called through the type, interface or
-  file that owns it: `User.rename(user)`, `String.length(name)`,
-  `Display.to_string(value)`. There is no `user.rename()`.
-- **Pipes.** `x |> f()` lets data flow read from top to bottom.
-- **Structured concurrency.** Tasks are started inside a
-  [`concurrent` block](/concurrency/), which keeps them scoped to it.
-  Channels and context-style cancellation are built in.
-- **App fields.** Configuration and dependencies live on one
-  [app value](/app-fields/). A test can swap one with a line
-  such as `with App.logger = ...`.
-- **Web apps.** A server renders checked HTML templates, or serves a React
-  or Vue build and its JSON API; [Frontends](/frontends/) compares the ways.
-- **Built-in tests.** [`test` blocks](/testing/), assertions and `//!`
-  examples are ordinary Nomi code, and `nomi test` runs them.
+<p class="nomi-home-kicker">Try it</p>
+
+## Mistakes caught before it runs
+
+`Map.get` can't promise an age, since the name might not be in the map, so
+it gives back a `Maybe`: `Some(age)` or `None`.
+
+Delete the `None` line. Nomi won't run the program, and says the `case` is
+missing `None`. Every program gets that check, before any of it runs.
+
+Every example on this site runs in your browser, and runs again as you
+edit it.
+
+</div>
+
+```nomi-run
+fn age_of(name: String) -> String
+    ages = {"Ada" => 36, "Bo" => 7}
+
+    case Map.get(ages, name)
+        Some(age) -> "${name} is ${age}"
+        None      -> "no age for ${name}"
+    end
+end
+
+fn main()
+    dbg age_of("Ada")
+    dbg age_of("Cy")
+end
+```
+<!-- expect
+dbg line 11: age_of("Ada") = "Ada is 36"
+dbg line 12: age_of("Cy") = "no age for Cy"
+-->
+
+</div>
+
+<div class="nomi-home-section">
+
+<p class="nomi-home-kicker">The language</p>
+
+## At a glance
+
+<div class="nomi-home-features">
+<div class="nomi-home-feature">
+<h3>No surprises at run time</h3>
+<p>No null. A lookup that can miss gives back a <code>Maybe</code>, a <code>case</code> handles every case, and <code>/</code> won't divide by an Int that might be zero. <a href="/pattern-matching/#what-can-fail-at-run-time">What can still stop a program</a>.</p>
+</div>
+<div class="nomi-home-feature">
+<h3>Values never change</h3>
+<p>A value you hold can't change behind your back. To “change” one, you make a new one.</p>
+</div>
+<div class="nomi-home-feature">
+<h3>Pipes</h3>
+<p><code>prices |> Iter.filter(on_sale) |> Iter.sum()</code> reads in the order the steps happen.</p>
+</div>
+<div class="nomi-home-feature">
+<h3>Tests beside the code</h3>
+<p><code>test</code> blocks are ordinary Nomi, next to what they test, and <code>nomi test</code> runs them.</p>
+</div>
+<div class="nomi-home-feature">
+<h3>One file to ship</h3>
+<p><code>nomi build</code> writes one executable that needs nothing installed, for your platform or another.</p>
+</div>
+<div class="nomi-home-feature">
+<h3>Go when you need it</h3>
+<p>A program can <a href="/calling-go/">call Go libraries</a> for what the standard library doesn't have.</p>
+</div>
+</div>
+
+</div>
+
+<div class="nomi-home-section">
+
+<p class="nomi-home-kicker">Where to start</p>
+
+## Pick your way in
+
+<div class="nomi-home-paths">
+<a class="nomi-home-path is-primary" href="/learn/values/">
+<span class="nomi-home-path-for">New to programming, or to types</span>
+<span class="nomi-home-path-name">First Steps</span>
+<span class="nomi-home-path-what">Seventeen short lessons from the very start, each with a task you check in the page. Good too if types, values that never change or <code>Maybe</code> are new to you.</span>
+</a>
+<a class="nomi-home-path" href="/introduction/">
+<span class="nomi-home-path-for">You program already</span>
+<span class="nomi-home-path-name">Language Tour</span>
+<span class="nomi-home-path-what">The whole language, a chapter at a time, every example runnable.</span>
+</a>
+<a class="nomi-home-path" href="/coming-from/">
+<span class="nomi-home-path-for">You know a language well</span>
+<span class="nomi-home-path-name">Coming from…</span>
+<span class="nomi-home-path-what">Rust, Go, Elixir, TypeScript, Python, Kotlin, Swift or Ruby, mapped onto Nomi.</span>
+</a>
+</div>
+
+<p class="nomi-home-aside"><a href="/tooling/install/">Install Nomi</a> to run it on your own machine. The source is on <a href="https://github.com/nomi-language/nomi">GitHub</a>.</p>
+
+</div>
+
+<div class="nomi-home-section">
 
 :::note[Design Status]
 Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
 used and tested parts. Concurrency, calling Go, and module management are
-newer. The editor rechecks only what an edit touches, and `nomi run`,
-`nomi check` and `nomi test` relink a program from what they kept when an
-edit changes only function bodies.
+newer.
 :::
 
-## Running Nomi
-
-[Installing Nomi](/tooling/install/) covers getting the `nomi` command.
-Then:
-
-```console
-$ nomi run app.nomi           # run a program
-$ nomi run --watch app.nomi   # run it again on every save
-$ nomi test                   # run every test under the current directory
-$ nomi test --watch           # run the tests again on every save
-$ nomi                        # an interactive REPL
-$ nomi build app.nomi         # write a standalone executable
-```
-
-`nomi build` writes one executable file that needs nothing else installed.
-`--target` builds it for another platform. `nomi build --web` writes a web
-page that runs the program in the browser, the way the examples on this site
-run. [Building & Shipping](/building-and-shipping/) covers these and the other
-ways to ship a program.
-
-### The Nomi VM
-
-Nomi compiles your program and runs it on its own virtual machine (VM), as
-Lua and Python do. Each function becomes bytecode the first time it runs:
-
-- `nomi run`, `nomi test` and the REPL run your program on it.
-- `nomi build` puts it in the executable beside your program.
-- The examples on this site run on it in your browser. Edit one and it runs
-  again as you type.
-- A Go application can embed it to load a Nomi program and call its
-  functions.
-
-## Where Go fits
-
-Nomi is written in Go. It follows Go on practical matters: garbage
-collection, builds for other platforms, shipping one file, formatting and
-tooling, and dependencies. The language itself is different from Go.
-
-- A Nomi module works like a Go module. It is a directory tree with a
-  manifest, `nomi.toml`, and it is versioned and used as one unit. Inside a
-  module, you import a file, and `pub` controls what other files can see.
-  There are no packages.
-- Nomi can [call Go code](/calling-go/) when you need a library the
-  standard library doesn't have. You don't need Go installed: Nomi's own
-  libraries that wrap Go come prebuilt, and for your own Go code `nomi`
-  uses the `go` on your `PATH` or downloads the release it was built with.
-
-## Coming from another language
-
-**[Elixir](/from-elixir/).** Pipes, pattern matching, immutable data and
-functions that transform data will feel familiar. What is different: types
-are static, variants are declared types rather than atoms or tagged tuples,
-`Iter` pipelines replace `Enum` and `Stream`, and concurrency starts from
-`concurrent` blocks and supervisors, with `std::actors` for mailbox-style
-servers.
-
-**Gleam.** Sum types, `Result` and `Maybe`, no null, local type inference and
-expression-oriented code will feel familiar. Nomi adds bindings without
-`let`, `impl Interface for Type` blocks, `derive`, app fields, `defer`, typed
-literals, and early `return`, `break` and `continue`.
-
-**[Rust](/from-rust/).** Traits become interfaces, and an implementation is
-`impl Interface for Type`. `where` bounds are checked at each call.
-`Result` and `Maybe` propagate with `?`, as Rust's do. Distinct types do the job of
-newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
-macros: a library [generates code](/generating-code/) into ordinary files
-instead. Type inference stays inside a function body.
-
-**[Go](/from-go/).** You will recognize modules that work like Go modules, a standard
-formatter, explicit imports, channels and context-style cancellation. Values
-are immutable, errors are `Result` values, a type says which interfaces it
-implements, and concurrency is structured.
-
-There are also guides for [TypeScript](/from-typescript/),
-[Python](/from-python/), [Kotlin](/from-kotlin/), [Swift](/from-swift/) and
-[Ruby](/from-ruby/).
-
-Start with [Bindings & Expressions](/bindings-and-expressions/). Each chapter
-builds on the one before.
+</div>

@@ -30,7 +30,7 @@ end
 		{"builtin mismatch", `fn main()
     _ = 1 ‸+ "a"
 end
-`, "binary + type mismatch: Int vs String"},
+`, "`+` needs two values of one type, and these are Int and String"},
 		{"operand on a continuation line", `fn main()
     _ = True and
         ‸3

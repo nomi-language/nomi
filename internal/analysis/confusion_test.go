@@ -57,3 +57,27 @@ func TestConfusion_CheckerNamesNomisSpelling(t *testing.T) {
 		})
 	}
 }
+
+// A misspelled std member is answered with the one the program can name:
+// std's functions for a type are reached through the program's impl index,
+// not through the file's imports. A List function that is Iter's is
+// answered with Iter's.
+func TestConfusion_AStdMemberTypoNamesTheMember(t *testing.T) {
+	for _, tc := range []struct{ call, want string }{
+		{"List.lenght(xs)", "did you mean 'length'?"},
+		{"Iter.summ(xs)", "did you mean 'sum'?"},
+		{"Iter.coutn(xs)", "did you mean 'count'?"},
+		{"List.sum(xs)", "`sum` is an `Iter` function, and works on a List: write `Iter.sum(...)`"},
+		{"List.get(xs, 0) |> Maybe.with_default(0)", "write `Iter.get(...)`"},
+	} {
+		t.Run(tc.call, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib("fn f(xs: List<Int>) -> Int\n    " + tc.call + "\nend\n")
+			for _, e := range errs {
+				if strings.Contains(strings.Join(e.Hints, "\n"), tc.want) {
+					return
+				}
+			}
+			t.Fatalf("no error says %q: %v", tc.want, errs)
+		})
+	}
+}

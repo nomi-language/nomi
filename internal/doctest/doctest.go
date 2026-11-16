@@ -41,6 +41,14 @@ const (
 	// block's expect block, which it must have. A doctest runs it like any
 	// other block, and it combines with InfoError.
 	InfoManual = "manual"
+	// InfoLesson marks a First Steps task: one file holding the function
+	// the reader writes and the `test` blocks that check it. The tour runs
+	// it only on its Check button, and shows the ```nomi-hint and
+	// ```nomi-solution fences that follow it on request. A doctest requires
+	// the starter to fail a test, the solution (the same file, solved) to
+	// pass them all, and the two to hold the same tests. It has no
+	// `<!-- expect ... -->` block: the page shows nothing until a Check.
+	InfoLesson = "lesson"
 	// InfoReadOnly, followed by a glob (`read-only:photos/*`), marks the
 	// data files the glob matches as files whose contents the program never
 	// reads: only their names matter to the example, so the tour shows them
@@ -64,7 +72,7 @@ type Tool struct {
 }
 
 // infoWords are the words a ```nomi-run fence may carry.
-var infoWords = []string{InfoError, InfoNoRun, InfoCompileOnly, InfoManual}
+var infoWords = []string{InfoError, InfoNoRun, InfoCompileOnly, InfoManual, InfoLesson}
 
 // InfoWords answers the words a ```nomi-run fence may carry after its
 // language, for a message naming them.

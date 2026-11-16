@@ -131,6 +131,10 @@ pre.nomi-tour {
   content: "Nomi";
   background: #5b79e3;
 }
+/* A First Steps lesson's revealed solution (```nomi-solution). */
+.nomi-lesson-solution .nomi-chip-nomi::before {
+  content: "Solution";
+}
 .nomi-chip-go::before {
   content: "Go";
   background: #25845f;
@@ -1537,4 +1541,241 @@ dialog.nomi-modal::backdrop {
 }
 .sl-markdown-content .tour-examples-all::after {
   content: " →";
+}
+
+/* First Steps: the bar under a ```nomi-run lesson block's widget, with the
+   result of the last Check and the hint and solution buttons. */
+.nomi-lesson-bar {
+  margin-top: 0.5rem;
+}
+.nomi-lesson-status {
+  margin: 0 0 0.5rem;
+  min-height: 1.4em;
+}
+.nomi-lesson-status:empty {
+  display: none;
+}
+.nomi-lesson-status.is-passed {
+  color: var(--sl-color-green-high, #2f7d32);
+  font-weight: 600;
+}
+.nomi-lesson-status.is-failed {
+  color: var(--sl-color-text);
+}
+.nomi-lesson-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.nomi-lesson-button {
+  padding: 0.3em 0.9em;
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tour-bg) 88%, var(--sl-color-accent) 12%);
+  color: var(--sl-color-accent);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.nomi-lesson-button:hover,
+.nomi-lesson-button:focus-visible {
+  background: color-mix(in srgb, var(--tour-bg) 75%, var(--sl-color-accent) 25%);
+}
+/* A plain note under a compile error after Check (lesson-notes.json). */
+.nomi-lesson-note {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.9rem;
+  border-left: 3px solid var(--sl-color-accent);
+  background: color-mix(in srgb, var(--tour-bg) 92%, var(--sl-color-accent) 8%);
+}
+.nomi-lesson-hint {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-left: 3px solid var(--sl-color-accent);
+  background: color-mix(in srgb, var(--tour-bg) 92%, var(--sl-color-accent) 8%);
+}
+.nomi-lesson-hint p {
+  margin: 0;
+}
+.nomi-lesson-hint p + p {
+  margin-top: 0.5rem;
+}
+
+/* --- Home page (index.md, the splash template) ---
+   The hero stays one centered column at every width, the wordmark above
+   the pitch. The sections below are plain HTML around Markdown: a
+   showcase (text beside the live example), a grid of feature cards and
+   three path cards. Colors come from the theme's tokens, so light and dark
+   both follow. */
+.hero {
+  grid-template-columns: 100%;
+  padding-block: 2.5rem 1rem;
+  background: radial-gradient(ellipse 50% 48% at 50% 50%,
+    color-mix(in srgb, var(--sl-color-accent) 24%, transparent), transparent 70%);
+}
+.hero > img {
+  order: 0;
+  width: min(80%, 24rem);
+}
+.hero .stack {
+  text-align: center;
+}
+.hero .copy {
+  align-items: center;
+}
+.hero h1 {
+  max-width: 22ch;
+  font-size: clamp(2rem, calc(0.75rem + 3.5vw), 3.25rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+.hero .tagline {
+  max-width: 46ch;
+  line-height: 1.55;
+}
+.hero .actions {
+  justify-content: center;
+}
+
+.nomi-home-showcase,
+.nomi-home-section {
+  max-width: 72rem;
+  margin-inline: auto;
+}
+.sl-markdown-content .nomi-home-showcase,
+.sl-markdown-content .nomi-home-section {
+  margin-top: 5rem;
+}
+.nomi-home-showcase {
+  display: grid;
+  gap: 1.5rem 3rem;
+  align-items: center;
+}
+@media (min-width: 60rem) {
+  .nomi-home-showcase {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+}
+.sl-markdown-content .nomi-home-showcase > * {
+  margin-top: 0;
+}
+.sl-markdown-content .nomi-home-kicker {
+  margin: 0;
+  color: var(--sl-color-text-accent);
+  font-size: var(--sl-text-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* Starlight wraps each heading in an anchor-link wrapper with its own
+   top margin; under a kicker it sits close. */
+.sl-markdown-content .nomi-home-showcase .sl-heading-wrapper,
+.sl-markdown-content .nomi-home-section .sl-heading-wrapper {
+  margin-top: 0.35rem;
+}
+/* Cards in a grid line up: no margin between siblings. */
+.sl-markdown-content .nomi-home-features > *,
+.sl-markdown-content .nomi-home-paths > * {
+  margin-top: 0;
+}
+.sl-markdown-content .nomi-home-showcase h2,
+.sl-markdown-content .nomi-home-section h2 {
+  margin-top: 0;
+  font-size: clamp(1.6rem, calc(0.9rem + 2vw), 2.25rem);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.nomi-home-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+.sl-markdown-content .nomi-home-features {
+  margin-top: 1.75rem;
+}
+.nomi-home-feature {
+  padding: 1.25rem 1.4rem;
+  border: 1px solid var(--sl-color-hairline-shade);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--sl-color-bg) 94%, var(--sl-color-accent) 6%);
+}
+.sl-markdown-content .nomi-home-feature > * {
+  margin: 0;
+}
+.sl-markdown-content .nomi-home-feature h3 {
+  font-size: var(--sl-text-lg);
+  line-height: 1.3;
+}
+.sl-markdown-content .nomi-home-feature p {
+  margin-top: 0.5rem;
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+  line-height: 1.6;
+}
+
+.nomi-home-paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+.sl-markdown-content .nomi-home-paths {
+  margin-top: 1.75rem;
+}
+.sl-markdown-content a.nomi-home-path {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 1.5rem 1.6rem;
+  border: 1px solid var(--sl-color-hairline-shade);
+  border-radius: 0.9rem;
+  color: var(--sl-color-text);
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.sl-markdown-content a.nomi-home-path:hover,
+.sl-markdown-content a.nomi-home-path:focus-visible {
+  border-color: var(--sl-color-accent);
+  transform: translateY(-2px);
+}
+.sl-markdown-content a.nomi-home-path.is-primary {
+  border-color: var(--sl-color-accent);
+  background: color-mix(in srgb, var(--sl-color-bg) 85%, var(--sl-color-accent) 15%);
+}
+.nomi-home-path-for {
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.nomi-home-path-name {
+  color: var(--sl-color-white);
+  font-size: var(--sl-text-2xl);
+  font-weight: 700;
+}
+.nomi-home-path-name::after {
+  content: " →";
+  color: var(--sl-color-text-accent);
+}
+.nomi-home-path-what {
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+  line-height: 1.55;
+}
+.sl-markdown-content .nomi-home-aside {
+  margin-top: 1.25rem;
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sl-markdown-content a.nomi-home-path { transition: none; }
+  .sl-markdown-content a.nomi-home-path:hover { transform: none; }
+}
+/* The home page's headings are section titles, not places to link to. */
+.nomi-home-showcase .sl-anchor-link,
+.nomi-home-section .sl-anchor-link {
+  display: none;
 }

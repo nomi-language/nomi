@@ -530,7 +530,7 @@ func TestCheckOperatorTypeMismatch(t *testing.T) {
 	_, errs := checkSource(`fn f() -> Int
     1 + "two"
 end`)
-	expectError(t, errs, "type mismatch")
+	expectError(t, errs, "`+` needs two values of one type, and these are Int and String")
 }
 
 // 6. Valid field access
@@ -612,7 +612,7 @@ func TestCheckListConcatInvalid(t *testing.T) {
 	_, errs := checkSource(`fn f() -> List<Int>
     [1] + ["x"]
 end`)
-	expectError(t, errs, "type mismatch")
+	expectError(t, errs, "`+` needs two values of one type, and these are List<Int> and List<String>")
 }
 
 func TestCheckVectorConcatValid(t *testing.T) {
@@ -880,7 +880,7 @@ func TestCheckLambdaDefaultTypeRejectsMismatch(t *testing.T) {
 	_, errs := checkSource(`fn main()
   f = fn n = 5 -> n + "!"
 end`)
-	expectError(t, errs, "type mismatch")
+	expectError(t, errs, "`+` needs two values of one type, and these are Int and String")
 }
 
 // Equality operators accept any types
@@ -4662,8 +4662,8 @@ func TestNaming_ImportTypeNameUnderscore_Rejected(t *testing.T) {
 // short (TestArityErrorsAreAtTheCall covers the other call forms).
 func TestArity_FileQualifiedUserFunctionIsAtTheCall(t *testing.T) {
 	for _, tc := range []struct{ call, message, span string }{
-		{"other.g(1, 2)", "expected 1 arguments, got 2", "4:18-4:19"},
-		{"other.g()", "expected 1 arguments, got 0", "4:7-4:16"},
+		{"other.g(1, 2)", "expected 1 argument, got 2", "4:18-4:19"},
+		{"other.g()", "expected 1 argument, got 0", "4:7-4:16"},
 	} {
 		src := "import other\n\nfn main()\n  _ = " + tc.call + "\nend\n"
 		_, errs := checkSourceWithModules(t, src, map[string]string{

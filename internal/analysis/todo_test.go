@@ -126,7 +126,7 @@ func TestTodo_UnfinishedBodiesDoNotReportUnreadParameters(t *testing.T) {
 			t.Fatalf("parse: %v", perrs)
 		}
 		var out []string
-		for _, e := range analysis.CheckUnusedBindings(analysis.BuildFile(nodes)) {
+		for _, e := range analysis.CheckUnusedBindings(analysis.BuildFile(nodes), nodes) {
 			out = append(out, e.Message)
 		}
 		return out

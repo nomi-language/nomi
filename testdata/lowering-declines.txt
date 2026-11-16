@@ -761,7 +761,7 @@ b	irScalarBuilder.assertionValue | false | t.Check ¦¦ isNilNode(t.Expr)#1	irte
 d	irScalarBuilder.assertionValue | note | "an assertion subject that is not a Bool, Maybe, Result or retained Assertable"#1	irtestbody.go:984	-	could not find an Assertable subject type that is not retained
 a	gen.irTestGroup | note | "a test boot that names no entry boot this program lowers"#1	irtestgroup.go:44	irbuild	
 b	gen.irTestStartup | note | "a test boot line that does not pass at most one Startup"#1	irtestgroup.go:124	-	checker rejects: a boot line must call an entry's boot ("`boot` in a `group` calls an entry's boot"), and boot takes at most one Startup
-b	gen.irTestStartup | note | "a test boot line that passes no Startup to a boot whose parameter has no default"#1	irtestgroup.go:143	-	checker rejects: "expected 1 arguments, got 0" for `boot app.boot()` when the parameter has no default
+b	gen.irTestStartup | note | "a test boot line that passes no Startup to a boot whose parameter has no default"#1	irtestgroup.go:143	-	checker rejects: "expected 1 argument, got 0" for `boot app.boot()` when the parameter has no default
 b	gen.irStartupFunc | note | "a test boot whose Startup parameter has no retained kind"#1	irtestgroup.go:165	-	defensive fence: the boot's parameter is std's Startup struct, which is retained
 a	irScalarBuilder.recordedQualCall | false | !ok#1	irtestgroup.go:239	irbuild	
 d	irScalarBuilder.recordedQualCall | note | "a qualified call in an assertion subject whose operands no row can name"#1	irtestgroup.go:245	-	String/Map/List/Iter/Display/Int/Debug owner calls and Iter.loop in grouped assertion subjects all lowered; could not find a qualified call that leaves no recorded operands
@@ -789,7 +789,7 @@ d	irScalarBuilder.tupleCompareCall | false | !args.ok#1	irtuplecompare.go:44	-	a
 b	irScalarBuilder.tupleHashOf | false | ok && k != kindInt#1	irtuplehash.go:114	-	Hashable.hash returns Int; std's hash mixing is checked as Int
 d	irScalarBuilder.turbofishDispatch | false | len(t.TypeArgs) != 1#1	irturbofish.go:44	-	gapTurbofishTwoTypeArgs's reproducer, ported to today's syntax, lowers without reaching it (vmhost's declineReproducers); no other program reaching it found
 a	irScalarBuilder.turbofishDispatch | false | !simple#1	irturbofish.go:58	irbuild	
-b	irScalarBuilder.userOperatorCall | false | !found#1	iruseroperator.go:18	-	only `%` is outside operIfaceByOp, and `%` on a named type or on two types is a checker error ("modulo is not defined on Meters", "binary % type mismatch: Int vs Pct")
+b	irScalarBuilder.userOperatorCall | false | !found#1	iruseroperator.go:18	-	only `%` is outside operIfaceByOp, and `%` on a named type or on two types is a checker error ("modulo is not defined on Meters", "`%` needs two values of one type, and these are Int and Pct")
 a	irScalarBuilder.userOperatorCall | false | rival ¦¦ it == nil ¦¦ !it.lowerable ¦¦ len(params) != 2 ¦¦ len(it.params0) != 2 ¦¦ params[…#1	iruseroperator.go:34	irbuild	
 d	irScalarBuilder.bitwiseNot | false | f.irBody == nil ¦¦ f.rtCall != ""#1	iruseroperator.go:56	-	a std BitwiseNot impl with no IR body or with a host call; its result, when lowered, is held. No program found that reaches this one
 d	irScalarBuilder.bitwiseNot | false | rival ¦¦ it == nil ¦¦ !it.lowerable ¦¦ len(params) != 1 ¦¦ params[0] != k ¦¦ !irCallableVa…#1	iruseroperator.go:77	-	the Operators record names the BitwiseNot impl the checker chose (gate); the registry's item fails this only when it is unlowerable or two files each declare one (rival), a domain guard

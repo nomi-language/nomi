@@ -27,7 +27,7 @@ func TestHandleEquality_IsRejected(t *testing.T) {
 		{"held in a Vector", "v = Vector[Context.root()]\n    _ = v == v",
 			"`==` cannot compare `Vector<Context>`: it holds `Context`, and a handle to running state has no equality"},
 		{"Iter held in a Vector", "v = Vector[Iter.from(1)]\n    _ = v == v",
-			"`==` cannot compare `Vector<Iter<Int>>`: it holds `Iter<Int>`, and an Iter has no equality; materialize it with `Iter.to_list` to compare its elements"},
+			"`==` cannot compare `Vector<Iter<Int>>`: it holds `Iter<Int>`, and an Iter has no equality; collect it into a list with `Iter.to_list` to compare its elements"},
 		{"map key", "m = {Context.root() => 1}\n    _ = m",
 			"`Context` cannot be a Map key: a handle to running state has no equality or hashing"},
 	}

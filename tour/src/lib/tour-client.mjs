@@ -1535,8 +1535,9 @@ function attachControls(widget, host, output, expectError = false, onRun = null,
     setRunning(active) {
       if (!onRun) return;
       dot.classList.toggle("is-running", active);
-      dot.textContent = active ? "Running" : "Run";
-      dot.setAttribute("aria-label", active ? "Running" : RUN_LABEL);
+      // A lesson's button reads Check when idle (dataset.idleLabel).
+      dot.textContent = active ? "Running" : dot.dataset.idleLabel || "Run";
+      dot.setAttribute("aria-label", active ? "Running" : dot.dataset.idleAria || RUN_LABEL);
       if (active) dot.setAttribute("aria-disabled", "true");
       else dot.removeAttribute("aria-disabled");
     },
@@ -1726,9 +1727,211 @@ function tabKeys(ta, hint) {
 }
 
 // --- per-block wiring ---
+// --- First Steps lessons (a ```nomi-run lesson block) ---
+// A lesson block is a manual block whose Run button reads Check. A run's
+// test report decides the result: every test passed, or some failed. The
+// ```nomi-hint and ```nomi-solution fences that follow the block arrive as
+// hidden siblings (rehype-shiki.mjs), and the bar under the widget reveals
+// them: the hint first, then the solution. Nothing is kept between visits:
+// a lesson starts from its starter each time.
+const LESSON_PASSED = /test result: ok\./;
+const LESSON_FAILED = /test result: FAILED|^FAIL /m;
+
+// lessonTests is the part of a lesson's file from its first `test` line
+// on: the reader's tests, in a lesson where they write them.
+function lessonTests(code) {
+  const lines = code.split("\n");
+  const i = lines.findIndex((l) => l.startsWith("test "));
+  return i < 0 ? "" : lines.slice(i).join("\n");
+}
+
+// A compile error after Check gets a plain note under the status, from
+// the table in /lesson-notes.json: the first note whose match finds the
+// run's first error, its first line and the help and note lines under it.
+// vmhost/tour_lesson_notes_test.go holds each note to the message it
+// answers. The table is fetched once, on the first error; without it the
+// status shows alone.
+let lessonNotes = null;
+function loadLessonNotes() {
+  lessonNotes ??= fetch("/lesson-notes.json")
+    .then((r) => (r.ok ? r.json() : { notes: [] }))
+    .then((t) => t.notes.map((n) => ({ ...n, re: new RegExp(n.match) })))
+    .catch(() => []);
+  return lessonNotes;
+}
+
+const LESSON_ERROR_DETAIL = /^\S+:\d+:\d+: (help|note): /;
+
+function firstLessonError(text) {
+  const lines = text.split("\n");
+  let n = 1;
+  while (n < lines.length && LESSON_ERROR_DETAIL.test(lines[n])) n++;
+  return lines.slice(0, n).join("\n");
+}
+
+// lessonNoteElement renders a note: `code` spans as code, $1 and $2 as the
+// match's groups, and the note's link after it, unless it links the lesson
+// the reader is on.
+function lessonNoteElement(note, groups) {
+  const p = document.createElement("p");
+  p.className = "nomi-lesson-note";
+  const text = note.note.replace(/\$(\d)/g, (_, i) => groups[Number(i)] ?? "");
+  text.split(/(`[^`]*`)/).forEach((part) => {
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 1) {
+      const code = document.createElement("code");
+      code.textContent = part.slice(1, -1);
+      p.append(code);
+    } else if (part) {
+      p.append(part);
+    }
+  });
+  if (note.link && note.link.href !== location.pathname) {
+    p.append(" ");
+    const a = document.createElement("a");
+    a.href = note.link.href;
+    a.textContent = note.link.label + ".";
+    p.append(a);
+  }
+  return p;
+}
+
+// lessonOf collects the lesson's hint and solution before the block is
+// replaced by its widget, and answers what attaches the lesson's bar.
+function lessonOf(pre) {
+  let hint = null;
+  let solution = null;
+  let bug = null;
+  for (let el = pre.nextElementSibling; el; el = el.nextElementSibling) {
+    if (el.matches("[data-nomi-hint]")) hint = el;
+    else if (el.matches("[data-nomi-solution]")) solution = el;
+    else if (el.matches("[data-nomi-bug]")) bug = el.textContent;
+    else if (el.querySelector?.("[data-nomi-lesson]") || el.matches("pre")) break;
+  }
+  let status;
+  let note = null;
+  let runs = 0;
+  return {
+    attach(widget, out) {
+      const button = widget.querySelector(".nomi-run-button");
+      if (button) {
+        button.dataset.idleLabel = "Check";
+        button.dataset.idleAria = "Check your code: run the tests below it.";
+        button.textContent = button.dataset.idleLabel;
+        button.setAttribute("aria-label", button.dataset.idleAria);
+      }
+      out.setNote("Press Check to test your code.");
+      const bar = document.createElement("div");
+      bar.className = "nomi-lesson-bar";
+      status = document.createElement("p");
+      status.className = "nomi-lesson-status";
+      status.setAttribute("role", "status");
+      bar.append(status);
+      note = document.createElement("div");
+      bar.append(note);
+      const buttons = document.createElement("div");
+      buttons.className = "nomi-lesson-buttons";
+      if (hint) {
+        const showHint = document.createElement("button");
+        showHint.type = "button";
+        showHint.className = "nomi-lesson-button";
+        showHint.textContent = "Show a hint";
+        showHint.addEventListener("click", () => {
+          hint.hidden = false;
+          showHint.hidden = true;
+          if (showSolution) showSolution.hidden = false;
+        });
+        buttons.append(showHint);
+      }
+      let showSolution = null;
+      if (solution) {
+        showSolution = document.createElement("button");
+        showSolution.type = "button";
+        showSolution.className = "nomi-lesson-button";
+        showSolution.textContent = "Show the solution";
+        showSolution.hidden = !!hint;
+        showSolution.addEventListener("click", () => {
+          solution.hidden = false;
+          showSolution.hidden = true;
+        });
+        buttons.append(showSolution);
+      }
+      bar.append(buttons);
+      widget.after(bar);
+    },
+    done(said = "All the checks pass. ") {
+      status.className = "nomi-lesson-status is-passed";
+      const next = document.querySelector('.pagination-links a[rel="next"]');
+      status.textContent = said;
+      if (next) {
+        const link = document.createElement("a");
+        link.href = next.href;
+        link.textContent = "Next lesson →";
+        status.append(link);
+      }
+    },
+    // result judges a Check's run of the reader's file, code. In a lesson
+    // with a planted bug (```nomi-bug) the reader writes the tests: they
+    // pass on the lesson's function, and then they run once more on the
+    // bug in its place, where at least one must fail.
+    result(output, error, code) {
+      if (!status) return;
+      const run = ++runs;
+      note.replaceChildren();
+      // A failing test ends the run with an error too, so the report
+      // decides first; an error with no report is code that doesn't run.
+      // A failing test's report arrives as the run's error.
+      const shown = output + "\n" + (error || "");
+      if (!error && LESSON_PASSED.test(output)) {
+        if (bug == null) {
+          this.done();
+          return;
+        }
+        status.className = "nomi-lesson-status";
+        status.textContent = "Your tests pass. Now running them on the function with the mistake…";
+        const settle = (out, err) => {
+          if (run !== runs) return;
+          if (LESSON_FAILED.test(out + "\n" + (err || ""))) {
+            this.done("Your tests pass on the right function and catch the mistake. ");
+          } else if (!err && LESSON_PASSED.test(out)) {
+            status.className = "nomi-lesson-status is-failed";
+            status.textContent = "Not yet: your tests pass on the function with the mistake too, so they wouldn't catch it. Add an assert whose answer the mistake gets wrong.";
+          } else {
+            status.className = "nomi-lesson-status is-failed";
+            status.textContent = "Your tests didn't run on the function with the mistake: " + (err || "no report") + ".";
+          }
+        };
+        dispatch(++reqSeq, bug + "\n\n" + lessonTests(code), { onRun: settle, onFail: (reason) => settle("", reason) }, undefined, [], true);
+      } else if (!error && !LESSON_FAILED.test(shown) && bug != null) {
+        status.className = "nomi-lesson-status is-failed";
+        status.textContent = "Write at least one test below the function, then press Check.";
+      } else if (LESSON_FAILED.test(shown)) {
+        status.className = "nomi-lesson-status is-failed";
+        status.textContent = "Not yet: a check failed. The output shows which one, and the value your code made.";
+      } else if (error) {
+        status.className = "nomi-lesson-status is-failed";
+        status.textContent = /^execution timed out/.test(error)
+          ? "Your code ran too long, so the page stopped it."
+          : "Your code doesn't run yet. Read the message in the output, fix it, and press Check again.";
+        const first = firstLessonError(error);
+        loadLessonNotes().then((notes) => {
+          if (run !== runs) return;
+          for (const n of notes) {
+            const m = n.re.exec(first);
+            if (m) {
+              note.replaceChildren(lessonNoteElement(n, m));
+              return;
+            }
+          }
+        });
+      }
+    },
+  };
+}
+
 async function enhance(pre) {
   if (pre.dataset.enhanced) return;
   pre.dataset.enhanced = "1";
+  const lesson = pre.dataset.nomiLesson === "1" ? lessonOf(pre) : null;
 
   const { parser, query, marked, DOMPurify } = await syntax();
   const codeEl = pre.querySelector("code");
@@ -1838,6 +2041,7 @@ async function enhance(pre) {
         status.end();
         trackExpected(code, error);
         showOutput(out, output, error, stage, parser, query);
+        lesson?.result(output, error, code);
         cleanFormatSource = error ? null : code;
         if (error) live.setFormatting(false);
         else formatIfLeft();
@@ -1847,6 +2051,7 @@ async function enhance(pre) {
         live.setRunning(false);
         status.end();
         showOutput(out, "", reason, stage || "", parser, query);
+        lesson?.result("", reason, code);
         cleanFormatSource = null;
         live.setFormatting(false);
       },
@@ -1897,6 +2102,7 @@ async function enhance(pre) {
   // The block shows its recorded output and asks only for the analyzer's
   // tokens, which a run would bring; the reader's first edit runs it.
   showRecorded(out, recorded, expectError, manual, parser, query);
+  lesson?.attach(widget, out);
   const id = ++reqSeq;
   block.req = id;
   const { code, captures } = block;
