@@ -282,10 +282,10 @@ end
 ```
 
 The checker holds these rules for every resource. An opened value that is
-neither released by a `defer` nor returned is an error. So is a `?` between opening a value and
-handing it on, with nothing that releases it on that path, and a path that
-returns normally without the value, such as `return Ok(None)`, unless it
-calls the release first. A value that a plain `defer` releases can't leave
+neither released by a `defer` nor returned is an error. So is a `?` between
+opening a value and handing it on, with nothing that releases it on that
+path, and a path that returns normally without the value, such as
+`return Ok(None)`, unless it calls the release first. A value that a plain `defer` releases can't leave
 its block, since it is closed by the time anything outside sees it.
 [Files](/files/#streams) shows the errors.
 
@@ -365,8 +365,7 @@ body run, and the cleanup `boot` deferred runs when the test ends (see
 
 Settings are ordinary code: field defaults for development, a function that
 adjusts them for each environment, and `boot` reading the environment
-variables that override them. `nomi test` sets `NOMI_ENV` to `test` unless it
-is already set, so a program can pick its test settings by it:
+variables that override them. Here `NOMI_ENV` names the environment:
 
 ```nomi-run
 import std::io
@@ -381,17 +380,9 @@ fn configure(deployment: String) -> Config
     base = Config{deployment:}
 
     case deployment
-        "prod" ->
-            Struct.update(base, {max_connections: 20})
-
-        "test" ->
-            Struct.update(
-                base,
-                {database_url: "postgres://localhost/myapp_test", max_connections: 2},
-            )
-
-        _ ->
-            base
+        "prod" -> {..base, max_connections: 20}
+        "test" -> {..base, database_url: "postgres://localhost/myapp_test", max_connections: 2}
+        _      -> base
     end
 end
 
@@ -402,7 +393,7 @@ fn boot(startup: Startup) -> Result<Config, String>
     database_url =
         Map.get(startup.env, "DATABASE_URL") |> Maybe.with_default(configured.database_url)
 
-    Ok(Struct.update(configured, {database_url:}))
+    Ok({..configured, database_url:})
 end
 
 fn main()
@@ -415,6 +406,13 @@ dev: postgres://localhost/myapp_dev, 5 connections
 
 Every variable the program reads is a `Map.get` in `boot`, so there is no
 hidden mapping from the environment to the struct.
+
+A group's `boot` line passes the `Startup` it builds, not the real
+environment, so a test picks the test settings with
+`boot boot(Startup{env: {"NOMI_ENV" => "test"}})`
+([Testing code that reads app fields](#testing-code-that-reads-app-fields)).
+`nomi test` also sets `NOMI_ENV` to `test` in its own environment unless it
+is already set, which a program the tests start sees.
 
 ## Deadlines
 

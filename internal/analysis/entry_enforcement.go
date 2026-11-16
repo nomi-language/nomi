@@ -57,7 +57,7 @@ func CheckEntryPlacement(
 			errs = append(errs, TypeError{
 				Line: 1, Col: 1,
 				Message: fmt.Sprintf(
-					"%s is a tool, since it is under tools/, but has no entry callback; add `fn main()`, or move a helper file into tools/internal/",
+					"%s is a tool, since it is under tools/, but has no `fn main`; add one, or move a helper file into tools/internal/",
 					modulePath),
 			})
 		case isEntry && !hasEntry:
@@ -68,14 +68,14 @@ func CheckEntryPlacement(
 			errs = append(errs, TypeError{
 				Line: 1, Col: 1,
 				Message: fmt.Sprintf(
-					"%s is declared in nomi.toml entry_points but has no entry callback; add `fn main()`, or remove %q from entry_points",
+					"%s is declared in nomi.toml entry_points but has no `fn main`; add one, or remove %q from entry_points",
 					modulePath, modulePath),
 			})
 		case !isEntry && hasEntry:
 			errs = append(errs, TypeError{
 				Line: entryNode.Line, Col: entryNode.Col,
 				Message: fmt.Sprintf(
-					"entry callback in %s but file is not declared in nomi.toml entry_points; add %q to entry_points, or move the entry callback to an entry file or to a tool under tools/",
+					"%s has a `fn main` but is not declared in nomi.toml entry_points; add %q to entry_points, or move `fn main` to an entry file or to a tool under tools/",
 					modulePath, modulePath),
 			})
 		}

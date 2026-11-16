@@ -107,9 +107,9 @@ end
 ///   statics, and a description of the literal's type: each of its type
 ///   arguments as Nomi spells it, in order. A `Route<{id: Uuid}>` literal
 ///   gets `["{id: Uuid}"]`, a `Url` one `[]`. The description is text,
-///   not the types themselves, which no value holds. Its default is `check(statics)`, so a type
-///   whose text need not agree with its type arguments writes only
-///   `check`.
+///   not the types themselves, which no value holds. Its default is
+///   `check(statics)`, so a type whose text need not agree with its type
+///   arguments writes only `check`.
 /// - `build` runs when the program runs and gets the fragments
 ///   `Literal.from_fragments` would get. It cannot fail: once `check`
 ///   accepts the text, every slot value must build. A `build` that traps

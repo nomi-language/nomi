@@ -369,8 +369,9 @@ end
 
 impl Literal for Locale
     /// `Locale"pt-BR"` is the locale `Locale.parse` gives for its text. A
-    /// literal without slots is checked when the program is checked, so a malformed tag
-    /// is a compile error at the literal, worded by `Error`'s `Display`:
+    /// literal without slots is checked when the program is checked, so a
+    /// malformed tag is a compile error at the literal, worded by `Error`'s
+    /// `Display`:
     /// ``typed literal Locale"pt_BR" is invalid: a locale tag separates subtags with `-`, not `_`: write `pt-BR` (Locale.from_posix reads a POSIX value)``.
     ///
     /// In a program that lists its locales (`[i18n].locales` and

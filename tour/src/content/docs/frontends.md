@@ -97,13 +97,13 @@ dbg line 52: Response.text(bad) = Ok("<html>\n  <head>\n    <title>Sign up</titl
 
 Each `${...}` is escaped for where it stands, so the `<ada>` typed into the
 form comes back as text in the `value` attribute, not as a tag. A `${...}`
-holding a `Maybe` shows its value, or nothing when it is `None`. Static
-files such as the htmx script and a stylesheet go in a folder the program
-embeds and serves with `http.file_server_embedded`, as the next section
-does with a JavaScript build.
-A form that edits or deletes posts a hidden `_method` field of `PATCH`
-or `DELETE`, and a router wrapped in `http.method_override()` routes it
-as that method.
+holding a `Maybe` shows its value, or nothing when it is `None`.
+
+Static files such as the htmx script and a stylesheet go in a folder the
+program embeds and serves with `http.file_server_embedded`, as the next
+section does with a JavaScript build. A form that edits or deletes posts a
+hidden `_method` field of `PATCH` or `DELETE`, and a router wrapped in
+`http.method_override()` routes it as that method.
 [HTTP](/http/#handlers-and-routes) covers templates, routes and errors in
 depth, and [sessions](/http/#sessions) keep a signed-in user across pages.
 
@@ -137,8 +137,9 @@ JSON types and their handlers. `nomi types` writes `web/src/api.ts`, and
 
 ### The API
 
-An API handler returns a response with a `Json` body. A type the frontend
-reads derives `ToJson`, and is `pub` so that `nomi types` declares it:
+An API handler builds its response with `Response.json`, which takes any
+value whose type implements `ToJson`. A type the frontend reads derives
+`ToJson`, and is `pub` so that `nomi types` declares it:
 
 ```nomi-run
 import

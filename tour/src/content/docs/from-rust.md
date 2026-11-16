@@ -21,8 +21,9 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `(1, "a")`, `t.0` | A tuple is `(1, "a")` as in Rust, but its items are read as `t.first`, `t.second`, ... |
 | `if c { x }` needs `x: ()`; `c.then_some(x)`, `c.then(\|\| x)` | The same rule as Rust: an `if` without `else` is a statement, and its branch is `Unit` or leaves. `then_some` has no counterpart; write `if c then Some(x) else None`. |
 | `x as f64` | `Int.to_float(x)`. Nomi's `x as T` is no cast: it only states a type the value already fits (`[] as List<String>`) |
+| `a / b` panics when `b` is 0, and an `i64` can overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
 | `impl Drop` | `defer close(x)` on the line after acquiring it; it runs when its block ends, and the checker requires one for a resource. `defer on error` runs only when the function fails. |
-| `for x in xs { .. }` | `Iter.each(xs, fn x -> ..)`, a fold, or recursion |
+| `for x in xs { .. }`, `while`, `loop` | `Iter.each(xs, fn x -> ..)`, a fold, recursion, or `Iter.loop` |
 | `#[derive(PartialEq, Eq, Hash, Debug)]` | Nothing: `==`, hashing and `dbg` work on every struct and enum, field by field. `derive Comparable for T` orders field by field, as `#[derive(PartialOrd, Ord)]` does. |
 | `fn f(x: &dyn Speak)`, `fn f(x: impl Speak)` | `fn f(x: Speak)`: a parameter used only through one interface takes it as its type. Write a type parameter when the type comes back, as in `fn larger<T>(a: T, b: T) -> T` |
 | `Box<dyn Speak + Send>`; `dyn Speak + Display` is refused, since only auto traits join a trait object | `Speak and Display`: a value of any type implementing both, through either interface, as a parameter, a field or a list element (`List<Speak and Display>`) |
@@ -41,12 +42,14 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `.unwrap_or(x)`, `.or(other)`, `.or_else(f)` | `Maybe.with_default(m, x)`, `Maybe.otherwise(m, other)`, `Maybe.or_else(m, f)` |
 | serde's `Option<Option<T>>` for a key missing or `null` | `Presence<Maybe<T>>`: `Absent`, `Present(None)` or `Present(Some(v))` |
 | `trait`, `fn f(&self)` | `interface`, `fn f(value: self)` |
-| `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map`; an `fn(&dyn Speak)` never stands in for an `fn(&Dog)` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied, and a `(Speak) -> String` where a `(Dog) -> String` is: type parameters are covariant or contravariant by where they appear, inferred from the type |
+| `Vec<Dog>` into `Vec<Box<dyn Speak>>` takes a `map`; an `fn(&dyn Speak)` never stands in for an `fn(&Dog)` | A `List<Dog>` passes where a `List<Speak>` is expected, with nothing copied, and a `(Speak) -> String` passes where a `(Dog) -> String` is expected |
 | `Shape::new()`, `Shape::Circle { radius: 1 }` | `Shape.new()`, `Shape.Circle{radius: 1}` or `.Circle{radius: 1}` |
 | `format!("{x}")` | `"${x}"` |
+| `dec!(1.50)` from the `rust_decimal` crate | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `todo!("parse")` | `todo "parse"` |
 | `tokio::spawn` | `Task.spawn` inside a `concurrent` ... `end` block |
 | `#[test] fn t()` | `test "name"` ... `end` |
+| `pub`, `pub(crate)` | `pub` alone. A declaration is private to its file unless it is marked `pub` |
 | `mod`, `use a::b` | A file is the unit of import: `import a.{b}`. A path is `::`-joined like Rust's (`import db::posts`), and the file is then used by its last part, `posts.find(1)`. Importing a directory, `import db`, is like `use crate::db`: `db::posts.find(1)` reaches the file. |
 | axum's `.route("/users/{id}", get(show))` with `Path(id): Path<u64>` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
@@ -126,5 +129,5 @@ test result: ok. 1 passed, 0 failed
 -->
 
 `impl Shape` holds functions called through the type, `Shape.area(shape)`,
-which is also how `Iter.map` takes it. The function's first parameter is a
+which is also how `Iter.sum_by` takes it. The function's first parameter is a
 plain parameter: there is no `self` receiver outside an interface.

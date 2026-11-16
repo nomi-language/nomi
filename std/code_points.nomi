@@ -115,7 +115,7 @@ impl Display for Codepoint
 end
 
 impl Debug for Codepoint
-    /// Returns the developer-facing representation, e.g. `Codepoint(65)`.
+    /// Returns the developer-facing form: `Codepoint(65)` for `'A'`.
     //! assert Codepoint.inspect('A') == "Codepoint(65)"
     //
     fn inspect(cp: Codepoint) -> String

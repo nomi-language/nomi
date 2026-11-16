@@ -39,7 +39,7 @@ can go straight into an `if`: `if has_discount(age) then 5 else 8`.
 
 A roller coaster lets you ride when you are at least 8 years old and at
 least 120 cm tall. `can_ride` should answer whether someone can. Right now
-it checks only the age.
+it lets anyone of that age ride, whatever their height.
 
 ```nomi-run lesson
 fn can_ride(age: Int, height: Int) -> Bool

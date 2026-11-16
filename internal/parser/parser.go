@@ -8420,8 +8420,7 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 }
 
 // rejectRuleAfterStructEnd refuses a `when` on the line a struct's `end`
-// ends on: a struct's rule is its body's last item (spec §4 *Refinement
-// types*).
+// ends on: a struct's rule is its body's last item (spec §4 *Subtypes*).
 func (p *Parser) rejectRuleAfterStructEnd() error {
 	if p.atEnd() || p.peek().Type != token.WHEN || p.pos == 0 || p.peek().Line != p.tokens[p.pos-1].Line {
 		return nil

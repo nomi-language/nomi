@@ -45,25 +45,29 @@ import
     unit.Unit
 end
 
-/// A length of time — a fixed span, independent of any wall clock or
-/// calendar. Backed by nanoseconds (`opaque type Duration Int`), so
-/// sub-second spans (timeouts, sleep intervals, elapsed measurements)
-/// compose precisely. Construct with unit functions (`Duration.seconds(5)`,
-/// `Duration.milliseconds(250)`); inspect via the `Duration.as_*` accessors;
-/// combine via `+`, `-`, `*`, and `/`; compare via `Comparable` / `==`.
+/// A length of time: a fixed span, the same whatever a wall clock or a
+/// calendar reads. It is a count of nanoseconds, so sub-second spans
+/// (timeouts, sleep intervals, elapsed measurements) add up exactly. Build
+/// one with a unit function (`Duration.seconds(5)`,
+/// `Duration.milliseconds(250)`) or a literal (`Duration"1h30m"`), read it
+/// with the `Duration.as_*` functions, combine two with `+`, `-` and `%`,
+/// scale one with `*` and `/` by an `Int`, and compare two with `==`, `<`
+/// and the rest of `Comparable`.
 ///
-/// `Duration` is a time-domain quantity and deliberately does not interact
-/// with `Date`; civil calendar and wall-clock arithmetic use calendar period
-/// types from `std::calendar`. It pairs with `Instant` and backs
-/// `timer.sleep` / `Context.with_timeout`.
+/// A `Duration` does not add to a `Date`, which has no time of day. Calendar
+/// and wall-clock arithmetic uses the civil periods of `std::calendar`. A
+/// `Duration` adds to an `Instant` and to the time-bearing calendar types,
+/// and `timer.sleep` and `Context.with_timeout` take one.
 ///
 /// A Duration is an exact `Int` count of nanoseconds of any size, so no
 /// constructor and no `+`, `-` or `*` has a range to fault on, and the
-/// difference of any two Instants is a Duration. Only `/` and `%` by zero
-/// fault. A function that hands a Duration to the clock (`timer.sleep`,
-/// `Context.with_timeout`, `Arm.after`, a server's timeouts) says what a
-/// length past about 292 years, the longest wait the clock counts, means
-/// there: a wait that never ends.
+/// difference of any two Instants is a Duration. `/` takes a `NonZeroInt`
+/// and `%` a `NonZeroDuration`, so neither divides by zero. A function that
+/// hands a Duration to the clock (`timer.sleep`, `Context.with_timeout`,
+/// `Arm.after`, a server's timeouts) says what a length past about 292
+/// years, the longest wait the clock counts, means there: a wait that never
+/// ends.
+//! assert Duration.minutes(90) == Duration"1h30m"
 //! assert Duration.hours(1_000_000_000_000) / 1_000_000_000_000 == Duration.hours(1)
 //
 pub opaque type Duration Int
@@ -121,8 +125,10 @@ impl Duration
         NonNegativeDuration.unchecked(Duration(Int.abs(ns)))
     end
 
-    /// Total whole nanoseconds in the Duration (the exact magnitude).
+    /// The Duration in nanoseconds, exactly. A negative Duration gives a
+    /// negative count, here and in the other `as_*` functions.
     //! assert Duration.as_nanos(Duration.microseconds(2)) == 2000
+    //! assert Duration.as_nanos(Duration.seconds(-1)) == -1_000_000_000
     //
     pub fn as_nanos(Duration(ns)) -> Int
         ns
@@ -142,8 +148,9 @@ impl Duration
         ns / 1_000_000
     end
 
-    /// Total whole seconds, truncating any sub-second remainder.
+    /// Total whole seconds, truncating any sub-second remainder toward zero.
     //! assert Duration.as_seconds(Duration.minutes(3)) == 180
+    //! assert Duration.as_seconds(Duration.milliseconds(-1500)) == -1
     //
     pub fn as_seconds(Duration(ns)) -> Int
         ns / 1_000_000_000
@@ -165,12 +172,14 @@ impl Duration
 
     /// The length as a reader of `locale` says it: each unit it has, from
     /// hours down to nanoseconds, in the plural form the count takes, joined
-    /// with CLDR's duration unit patterns, joined by the locale's unit list
-    /// pattern, as the locale joins the parts of one measure. `width` picks the
-    /// units' long, short or narrow words (`DurationWidth`). Zero is zero seconds; a negative
-    /// length has the locale's minus sign before its first number. Days are
-    /// civil, so a length is counted in hours.
+    /// by the locale's unit list pattern, as the locale joins the parts of
+    /// one measure. `width` picks the units' long, short or narrow words
+    /// (`DurationWidth`). Zero is zero seconds. A negative length has the
+    /// locale's minus sign before its first number. A day is a civil unit
+    /// of no fixed length, so the largest unit is the hour: 50 hours reads
+    /// "50 hours".
     //! assert Duration.format(Duration.minutes(90), Locale"en") == "1 hour, 30 minutes"
+    //! assert Duration.format(Duration.hours(50), Locale"en") == "50 hours"
     //! assert Duration.format(Duration.minutes(90), Locale"pl") == "1 godzina i 30 minut"
     //! assert Duration.format(Duration.minutes(90), Locale"de") == "1 Stunde, 30 Minuten"
     //! assert Duration.format(Duration.seconds(0), Locale"en") == "0 seconds"
@@ -193,9 +202,9 @@ impl Duration
     /// two digits and as many more as they need, then the minutes and the
     /// seconds in two digits each. A negative length has a leading `-`. The
     /// seconds are whole unless `fraction_digits` asks for that many digits
-    /// of the second after a `.`, at most 9 (nanoseconds); what the digits
-    /// do not show is cut off, not rounded. `Duration.parse_clock` reads it
-    /// back.
+    /// of the second after a `.`. A count above 9 (nanoseconds) writes 9
+    /// digits and one below 0 writes none. What the digits do not show is
+    /// cut off, not rounded. `Duration.parse_clock` reads it back.
     //! assert Duration.clock(Duration.seconds(88)) == "00:01:28"
     //! assert Duration.clock(Duration.hours(100) + Duration.minutes(5)) == "100:05:00"
     //! assert Duration.clock(Duration.seconds(-5)) == "-00:00:05"
@@ -403,9 +412,11 @@ impl Multiply<Int, Duration> for Duration
 end
 
 impl Divide<NonZeroInt, Duration> for Duration
-    /// Divide a Duration by a non-zero integer divisor, truncating toward
-    /// zero.
+    /// Divide a Duration by a `NonZeroInt`, truncating toward zero. A
+    /// literal divisor is checked when the program is compiled;
+    /// `NonZeroInt.try_from(n)` checks one computed at run time.
     //! assert Duration.seconds(6) / 3 == Duration.seconds(2)
+    //! assert Duration.nanoseconds(-7) / 2 == Duration.nanoseconds(-3)
     //
     fn divide(Duration(ns), rhs: NonZeroInt) -> Duration
         Duration(ns / rhs)
@@ -425,8 +436,9 @@ impl Remainder<NonZeroDuration, Duration> for Duration
 end
 
 impl Display for Duration
-    /// Compact, human-readable rendering — decomposes into the largest units
-    /// that fit (e.g. `1h30m`, `250ms`).
+    /// The length as counts of units, largest first, leaving out a unit
+    /// whose count is zero: `1h30m`, `250ms`. Zero is `0s`, and a negative
+    /// length starts with `-`. `Duration.parse` reads it back.
     //! assert Duration.to_string(Duration.seconds(5)) == "5s"
     //! assert Duration.to_string(Duration.milliseconds(1500)) == "1s500ms"
     //! assert Duration.to_string(Duration.minutes(90)) == "1h30m"
@@ -444,6 +456,8 @@ host fn render_nanos(ns: Int) -> String
 
 impl Localize for Duration
     /// The length as `Duration.format` writes it, in long words.
+    //! assert Duration.localize(Duration.minutes(90), Locale"en") == "1 hour, 30 minutes"
+    //
     fn localize(d: Duration, locale: Locale) -> String
         Duration.format(d, locale, DurationWidth.Long)
     end

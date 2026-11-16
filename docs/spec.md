@@ -193,7 +193,7 @@ word is for and offers another name.
 (§4 *Subtypes*, §4 *Validated types*). `extern` has no construct:
 `extern fn` is the error
 ``runtime-provided declarations use `host fn`, not `extern fn` ``, and
-`extern` anywhere else is
+`extern` before any other declaration is
 `` unexpected 'extern'; runtime-provided declarations use `host`, and Go package handles use `gopkg` ``.
 
 These words have a meaning only where their construct stands, and are
@@ -241,7 +241,6 @@ even inside `fn f(derive: Int)`.
 | `..` `..=` | ranges (§3); `..` is also a spread and a rest pattern |
 | `.` | field access, `.Variant`, field accessor |
 | `::` | joins the segments of a file's path, with no space around it (§14) |
-
 | `&` | a capture, and `&1`, `&2`, ... its parameters (§7) |
 | `,` `:` `;` | separators |
 | `(` `)` `[` `]` `{` `}` | brackets |
@@ -291,8 +290,8 @@ The operator goes at the end of the line above.
 `database.save(db, page)?; count + 1`.
 
 A statement that starts right after the end of another, with no space,
-newline or `;` between them, is an error at its first token: `[1][2]` is a
-literal followed by a literal, `` unexpected `[` right after the end of a statement ``.
+newline or `;` between them, is an error at its first token: `"a"[1]` is a
+string followed by a list, `` unexpected `[` right after the end of a statement ``.
 
 ### Bodies
 
@@ -503,8 +502,8 @@ fn main()
 end
 ```
 
-A line indented less than the closing `"""` lowers the baseline rather than
-keeping its indentation out of the value.
+A line indented less than the closing `"""` sets the baseline, and the
+lines indented more keep the difference.
 
 ### Raw strings
 
@@ -870,14 +869,16 @@ literal without slots is checked at compile time in any of the three, and a
 failure is a compile error at the literal.
 
 ```nomi
-Date"2026-05-04" // quoted, interpolated
+// quoted: escapes and slots
+Date"2026-05-04"
 
+// triple-quoted: slots, no escapes
 Date"""
 2026-05-04
 """
 
-// triple-quoted, interpolated
-Regex`\d{3,4}` // raw
+// backtick: raw text
+Regex`\d{3,4}`
 ```
 
 ## 4. Types
@@ -947,8 +948,9 @@ and `Float`.
   half-even (`10d / 3d` is `3.333333333333333333333333333333333d`), and an
   exact quotient keeps its smallest scale (`10.00d / 4d` is `2.5d`). §8
   *Decimal arithmetic* gives the rule.
-- `Decimal` has no NaN and no infinities. Division by zero traps, as for
-  `Int`.
+- `Decimal` has no NaN and no infinities. `/` and `%` take a
+  `NonZeroDecimal` divisor, as `Int`'s take a `NonZeroInt`, so a divisor
+  that may be zero is a compile error (§8 *Decimal arithmetic*).
 - The scale shows in display (`1.50d` prints `1.50`) but not in equality:
   `==`, `Comparable`, `Hashable` and patterns compare by value, so
   `1.50d == 1.5d` and the two are one map key.
@@ -1177,8 +1179,9 @@ fn main()
 end
 ```
 
-Two fields on one line are the error
-`struct fields are newline- or semicolon-separated`. The newline rule is for
+Two fields on one line with no `;` between them, `x: Int y: Int`, are the
+error `struct fields are newline- or semicolon-separated`, and a comma
+between fields is an error too. The newline rule is for
 declaration bodies only: an anonymous struct type, a struct literal and a
 struct-shaped variant (`Card {rank: Int}`) keep commas.
 
@@ -1283,8 +1286,9 @@ end
 
 `{...}`, a struct literal with no type name and no spread, builds the
 nominal struct its position expects, as the dot of `.Circle{radius:}`
-stands for `Shape`: `Point{x: 0}` is `{x: 0}` where a `Point` is expected. The positions that supply a struct are the ones that
-supply an enum to a `.Variant` (*Variant Resolution*):
+stands for `Shape`: `{x: 0}` is `Point{x: 0}` where a `Point` is expected.
+The positions that supply a struct are the ones that supply an enum to a
+`.Variant` (*Variant Resolution*):
 
 - an annotated binding or `once`;
 - a struct field in construction, and a function or constructor argument;
@@ -1329,9 +1333,14 @@ defining file.
 
 Where no struct type is expected, `{...}` is an anonymous struct. It stays
 anonymous where the expected type is an anonymous struct type, an interface,
-a type parameter or an enum, since none names one struct to build:
-`a: Display = {street: "x", city: "y"}` is
-`type mismatch: expected Display, got {street: String, city: String}`.
+a type parameter or an enum, since none names one struct to build. An
+interface takes the anonymous struct when the struct implements it:
+`a: Display = {street: "x", city: "y"}` holds an anonymous struct, which
+has `Display` when each field does (§12), and
+`a: Comparable = {street: "x", city: "y"}` is
+`type mismatch: expected Comparable, got {street: String, city: String}`.
+An enum takes none: `c: Color = {street: "x"}` is
+`type mismatch: expected Color, got {street: String}`.
 
 #### Struct Updates
 
@@ -1477,7 +1486,7 @@ spread may, beside other spreads, and a literal takes one: a second is
 
 A bare `..`, as a spread or an operand, is legal only in the value of a
 field or key of a literal that is itself an update: one with a named spread
-(`{..base, ...}`, `{..base, ...}`), one with a bare `..`, or the literal
+(`{..base, ...}`), one with a bare `..`, or the literal
 patch of a `Struct.update` call. Anywhere else, at the top of a plain
 literal, in a list element, in an operand of `+` or `Map.merge`, in a call
 argument (`Some({.., ...})` included) or in a patch passed to another
@@ -2071,7 +2080,7 @@ The rule is checked as a `(P) -> Bool`, where P is the subtype's first
 parent: `fn x -> x + 1` is
 ``type mismatch: expected (Float) -> Bool, got (Float) -> Float``. A
 validated struct's rule takes the struct. A `when` after the struct's
-`end` is
+`end`, on its line, is
 ``a struct's `when` rule goes inside its body, after its fields``, and one
 above a field is ``a struct's `when` rule comes after every field``.
 The rule is a pure function of
@@ -2198,8 +2207,8 @@ fn main()
 end
 ```
 
-Members are in any order, and one another member is below says nothing
-more: `NonNegativeInt and NonZeroInt` and `NonZeroInt and NonNegativeInt`
+The order of the members does not matter, and a member that is an
+ancestor of another adds nothing: `NonNegativeInt and NonZeroInt` and `NonZeroInt and NonNegativeInt`
 are one type, and `PositiveInt and NonZeroInt` is `PositiveInt`. Members
 of different bases are an error,
 ``` `and` intersects subtypes of one type, and NonEmptyString is a String where NonNegativeInt is an Int ```,
@@ -3082,8 +3091,8 @@ it at run time is the interface value itself, and any other is held with
 the static type it had, and compares and hashes by that type's own
 equality (§5 *Hashing and keys*). Two distinct keys of one type therefore
 stay distinct, and the converted `Set` or `Map` has the size it had:
-`s: Set<Hashable> = Set[Some(1), None]` holds two elements, and
-`Set.contains(s, Some(1))` is `True`.
+with `m = Set[Some(1), None]`, `s: Set<Hashable> = m` holds two elements,
+and `Set.contains(s, Some(1))` is `True`.
 
 A conversion costs nothing when each element already is a value of the
 wider type: an `Int`, `Float`, `Bool` or `String`, a declared struct, a
@@ -3101,7 +3110,7 @@ a literal operand of `+` or `-` beside a value of the same collection, and
 the elements of a list literal beside a spread: `[1, Some(2)] + ds` and
 `[1, ..ds]` are `List<Display>`s for `ds: List<Display>`. The branches of
 an `if` or `case` whose type is written join as it when each converts to
-it: `c: List<Display> = if f { ints } else { words }`.
+it: `c: List<Display> = if f then ints else words`.
 
 ### Annotations and local inference
 
@@ -3173,7 +3182,8 @@ with a parameter still open: `x = Ok(42)` is a `Result<Int, ?>`, and
 The enclosing function's return type is an expected type only for its
 result: its tail, a `return`, and the arms of a `case` or `if` in tail
 position. A block's expected type reaches only its tail: in
-`once o: Shape = { b = .Circle(2.0); b }`, `.Circle` names no enum.
+a `once o: Shape = begin ... end` whose body is `b = .Circle(2.0)` and then
+`b`, `.Circle` names no enum.
 
 A name a pattern binds, in a `case` arm, an `if Pattern = value`, a
 destructure or a binding with `else`, must not have a wholly unknown type
@@ -4248,8 +4258,9 @@ operand's type from the expected function type, which picks among the type's
 impls. With nothing expected, an open left operand is the type that
 qualifies the function (`f = &Int.divide(&1, 2)` takes an `Int`, and `f(9)`
 is 4), and an open right operand is the right-hand type of the type's one
-impl; with several it is ``cannot infer type for `&1` in `&Int.divide(12, &1)` ``,
-whose help names the impls.
+impl (`&Int.divide(12, &1)` takes a `NonZeroInt`); with several it is
+``cannot infer type for `&1` in `&Date.add(day, &1)` ``, whose help names
+the impls.
 
 Any other capture's parameters have no names and no defaults, except a
 struct literal whose `&N`s are its whole fields, each once, which takes the
@@ -4783,7 +4794,7 @@ sign of the dividend, so `(a / b) * b + (a % b) == a`: `-7 / 3 == -2` and `-7
   ``` `/` divides by a NonZeroInt; `elapsed` is an Int ``` with the help
   ``check it first (`if elapsed == 0 then ...`) or take a NonZeroInt``.
   A divisor that is always zero is
-  `` `division by zero: the divisor is the literal 0` ``, or with `zero = 0`,
+  `division by zero: the divisor is the literal 0`, or with `zero = 0`,
   `` division by zero: `zero` is 0 here ``.
 
 ```nomi
@@ -4857,8 +4868,9 @@ enough for any amount of money and any rate applied to it.
   until a check (`if e == 0d then ...`) or a type says it is not zero.
 - `Divide.divide(a, b)` and `Decimal.divide(a, b)` are the same operation,
   and `Decimal` meets a `Divide<NonZeroDecimal, Decimal>` bound.
-- `/` takes two `Decimal`s, as `*` does: `1d / 3` is ``binary / type
-  mismatch: Decimal vs Int``.
+- `/` takes two `Decimal`s, as `*` does: `1d / 3` is `` `/` needs two
+  values of one type, and these are Decimal and Int ``, whose help writes
+  `3d`.
 
 [std::decimal](/reference/decimal/)'s `Decimal.divide(a, b, scale, mode)`
 rounds to a scale and `RoundingMode` you name, for an answer whose digits are
@@ -5057,8 +5069,8 @@ passing as values (`Iter.reduce(flags, 0, Int.bitwise_or)`).
   looser than comparisons and arithmetic, so it cannot be their operand ``,
   whose help shows `a == (not b)`. The same holds for `-not x` and a capture
   body `&not f(&1)` (write `&(not f(&1))`).
-- `a and b` is `if a then b else False`, and `a or b` is `if a { True } else
-  { b }`: the right operand runs only when the left does not decide the
+- `a and b` is `if a then b else False`, and `a or b` is `if a then True
+  else b`: the right operand runs only when the left does not decide the
   result. The right operand may leave instead of returning (a block ending in
   `return`, `break` or `continue`, an `if` or `case` every arm of which
   leaves, a failing `?`, a trap). On that path the expression has no value;
@@ -5137,7 +5149,7 @@ end
 - **An `or` pattern goes in parentheses:** `kind is (.Circle or .Square)`. A
   bare `or` after the pattern is the Boolean `or`, so `x is .A or y > 0` is `(x
   is .A) or (y > 0)`. When the right side can only be a pattern (`_`, a
-  `.Variant`, `.B{...}` or `.B{...}`), it is the parse error `` this `or`
+  `.Variant`, `.B(...)` or `.B{...}`), it is the parse error `` this `or`
   joins two Bool values, and a pattern cannot be its right operand: `is` takes
   one pattern ``. When the right side is read as a Bool and is not one, the
   `'or' operands must be Bool` error's help names the parenthesized form.
@@ -5348,10 +5360,10 @@ end
 - A capture ends with its body, so `10 |> then &divide(100, &1) |> dbg`
   divides and then prints.
 - A bare lambda body ends at the next `|>` of the pipeline, so the stages after
-  it stay in the pipeline. Braces keep a pipe inside the body: `|> then fn v ->
-  { v |> Iter.filter(.is_paid) |> Iter.count() }`. A parameter of a bare
-  `then` body used in a later stage is an error that says where the body
-  ended.
+  it stay in the pipeline. A body written below `then fn v ->` and closed by
+  `end` keeps a pipe inside it, and so do parentheses: `|> then fn v -> (v |>
+  Iter.filter(.is_paid) |> Iter.count())`. A parameter of a bare `then` body
+  used in a later stage is an error that says where the body ended.
 - A partial capture that does not take the value at its `&1` is reported at
   the `&1`, as a call stage is: `` `label` takes a String as its second
   argument ``, or for a named `&1`, `` `label` takes a String as `text`, but
@@ -5711,9 +5723,9 @@ or `continue`. Statements end at a newline (§2).
 
 - A statement before the last one that is an expression must have type `Unit`,
   unless it is a `dbg` observation. Its value would otherwise be lost: `1 + 2`
-  there is the error `non-final expression has type Int, but only Unit results
+  there is the error ``non-final expression has type Int, but only Unit results
   can be ignored — write `_ = ...` if intentional, use `dbg ...` to inspect it,
-  or move it to the end to return it`. Discard a value with `_ = expr`.
+  or move it to the end to return it``. Discard a value with `_ = expr`.
 - The last statement of a body whose return type is `Unit`, written or
   omitted, may be a `dbg` observation: `dbg expr`, or a pipe whose last stage
   is `|> dbg`. The body returns `Unit`. Any other last statement whose type is
@@ -6501,7 +6513,7 @@ pattern's names are in scope in the condition.
 
 - A guard is a `Bool`: `n when n + 1 -> ...` is the error `` `when` guard must
   be Bool, got Int ``.
-- In a guard, `or` is the Boolean operator: `.Circle{r} when r < 1.0 or r >
+- In a guard, `or` is the Boolean operator: `.Circle{r:} when r < 1.0 or r >
   9.0`.
 - An arm with a guard never counts toward exhaustiveness.
 - A guard narrows what it checks in the arm's body, as an `if` condition
@@ -6609,7 +6621,7 @@ end
   and body, may shadow, must be read unless it starts with `_`.
 - In a binding with `else`, an `as` around the whole pattern rules out a
   fallback, since there is no value to bind it to: `Some(n) as m = find() else
-  { 0 }` is the no-single-payload error. An `as` inside the payload is allowed:
+  0` is the no-single-payload error. An `as` inside the payload is allowed:
   `Ok((w, h) as size) = r else (80, 24)`.
 
 ### Exhaustiveness checking
@@ -6641,8 +6653,9 @@ When the compiler can name a missing value it does: `non-exhaustive case on
 Shape: missing Rect`, `non-exhaustive case on (Maybe<Int>, Maybe<Int>):
 missing (None, None)`, `non-exhaustive case on List<Int>: missing [_, _,
 ..]`, `non-exhaustive case on Vector<Int>: missing [_, _, ..]`. When only a
-value no list of literals can cover is missing, as in `case (n, n) { (0, 0)
--> "zero" }`, the error is ``non-exhaustive case: add a `_` arm``.
+value no list of literals can cover is missing, as in a `case (n, n)` whose
+only arm is `(0, 0) -> "zero"`, the error is ``non-exhaustive case: add a
+`_` arm``.
 
 ### Type Narrowing
 
@@ -7018,17 +7031,39 @@ end
 
 ### Traps, `Maybe` and `Result`
 
-An operation that cannot give the result asked for either returns a `Maybe` or
-`Result`, or traps. std returns one when the outcome depends on data the
-caller does not control (`Map.get`, `String.to_int`, I/O), and traps when the
-caller broke a promise it could have checked: a divisor it chose (`/`, §8
-*Integer division and remainder*), an index it computed and unwrapped
-(`Vector.set(v, i, x)!`), a `todo` it left in, or an `unreachable` whose
-invariant it broke. Each trapping
-operation has a total way around it, such as `Vector.get`, which returns
-`None` where `Vector.get(...)!` traps. Writing Nomi's
+An operation that cannot always give the result asked for returns a `Maybe`
+or `Result`, or takes a type that rules the failure out. std returns a
+`Maybe` or `Result` when the outcome depends on data the caller does not
+control (`Map.get`, `String.to_int`, I/O). Where the caller can check an
+operand first, the parameter's type requires the check: `/` and `%` take a
+`NonZeroInt` divisor, so dividing by an `Int` that may be zero does not
+compile (§8 *Integer division and remainder*). Writing Nomi's
 [Pick the tool by what happens on failure](/writing/) applies the same rule
 to code a program writes.
+
+A trap stops the task it happens in, with a message. A program traps
+where it asks to:
+
+- a `!` on an `Err` or a `None` (*Unwrapping with `!`*), such as an index it
+  computed and unwrapped (`Vector.get(v, i)!`);
+- an `unreachable` it reaches, or a `todo` it left in;
+- `Task.await` of a task that failed or was cancelled (§16 *Errors and
+  cancellation*).
+
+Beyond those, a run stops when it:
+
+- runs out of memory, or makes more than 100,000 nested calls (`stack
+  overflow: more than 100000 nested calls`);
+- asks std for a value too large to build: a `Decimal` whose scale is
+  outside -2147483648 to 2147483647 or that has more digits than a `Decimal`
+  holds (`Decimal.sqrt(2d, 4294967298, .HalfEven)`; `Decimal.round`,
+  `Decimal.pow` and `Float.to_decimal` too), or a `String.repeat` of more
+  copies than memory holds;
+- consumes the whole of an iterator that never ends (§13 *Infinite
+  iterators*);
+- closes a `once` cycle through a function value (§6 *`once` Bindings*).
+
+Any other program that never finishes runs until something outside stops it.
 
 - **A trap is never caught inside the program.** It ends the task it happens
   in: a program's main task ends the program with status 1, and a spawned
@@ -7041,7 +7076,7 @@ map pattern is refutable for the same reason (§10 *Map Destructuring*).
 #### Where a trap is reported
 
 A trap prints `line N:` and then its own text: `` line 4: `Int.from_digits(ds, 2)` found nothing ``,
-`line 9: index 7 is out of range for a Vector of length 5`.
+`line 8: unreachable: chunk_by never yields an empty run`.
 
 - `N` is a line of the program's own code: the line of the operation that
   trapped or, when the trap happens inside the standard library, the line of
@@ -7054,7 +7089,7 @@ A trap prints `line N:` and then its own text: `` line 4: `Int.from_digits(ds, 2
   (`Iter.map(xs, fn i -> Vector.get(v, i)!)`) is the program's code, so the trap names the
   lambda's line.
 - A trap whose own text names no line (a host function's, such as
-  `hash.pbkdf2_sha256` with a length past 1024 bytes) gets the line of the
+  `Decimal.sqrt` with a scale past a `Decimal`'s) gets the line of the
   program's call.
 - A `todo` names its own file and line instead (*Unwritten code: `todo`*).
 - `nomi run`, `nomi test`, a built executable and the REPL print the same
@@ -8300,7 +8335,7 @@ for Id`, `Hashable.hash(Id(n)) == Hashable.hash(n)`.
 
 A `pub opaque` type may be derived. `Equatable`, `Hashable` and `Comparable`
 show no structure. `derive Debug` replaces the name-only default with
-structural output in place of `<opaque NonZeroInt>`.
+structural output in place of `<opaque Token>`.
 
 #### Host types
 
@@ -8459,12 +8494,12 @@ end
 
 impl Iter for Countdown
     fn each_while(collection: Countdown, yield: (Int) -> Bool) -> Bool
-        if collection.remaining <= 0 then
-            True
-        else if yield(collection.remaining) then
-            each_while(Countdown{remaining: collection.remaining - 1}, yield)
-        else
-            False
+        n = collection.remaining
+
+        case
+            n <= 0   -> True
+            yield(n) -> each_while(Countdown{remaining: n - 1}, yield)
+            _        -> False
         end
     end
 end
@@ -8498,8 +8533,7 @@ end
   (§9 *`break` and `continue`*).
 - **The starting state** is `from`, written before the callback:
   `Iter.loop(5, fn n -> ...)`, `Iter.loop(5, step)`. It fixes `S`. A loop
-  with state and no starting state is ``missing argument for parameter
-  'from'``.
+  with state and no starting state is `expected 2 arguments, got 1`.
 - **`break value`** ends the loop with `value`, which has type `S`: `break
   "hello"` in `Iter.loop(5, fn n -> ...)` is `break value type mismatch:
   expected Int, got String`.
@@ -8685,7 +8719,7 @@ The rules:
 
 - `X.Y` after an import names a member of `X`, never a file: `import utils::inner.Thing` needs `utils/inner.nomi`, and does not look inside `utils.nomi`. A top-level function imported this way is called bare; a file imported path-only is reached through its qualifier.
 - Between the path and the selected names, only PascalCase segments are owners, since an owner is a type. A lowercase segment after a dot with more after it is a path segment, so `import std.io.print` is `import std::io.print`.
-- A `/` between segments is an error that spells the path with `::`: `import std::io` is `` import paths use `::`: write `std::io` ``. A `::` with a space on either side joins nothing, and is the error `` `::` joins the lowercase segments of a file's path, with no space around it, as in `std::io` or `db::posts.post_by_id` ``.
+- A `/` between segments is an error that spells the path with `::`: `import std/io` is `` import paths use `::`: write `std::io` ``. A `::` with a space on either side joins nothing, and is the error `` `::` joins the lowercase segments of a file's path, with no space around it, as in `std::io` or `db::posts.post_by_id` ``.
 - Braces select names from one file; a path cannot be grouped. `import std::{io, regex.Regex}` is the error `` braces select names from one file, as in `std::regex.{Regex, Match}` ``.
 - A selector list cannot hold another: `import shapes.{self, Shape.{Circle, Square}}` is the error `a selector list cannot hold another list`. Write `shapes` and `shapes.Shape.{Circle, Square}` as two entries of a block.
 - A variant is imported through its enum. `import shape.Circle` is the error `` cannot import variant 'Circle' directly — use 'import shape.Shape.{Circle}' to lift specific variants, or 'import shape.{Shape}' and qualify as 'Shape.Circle' ``.
@@ -8754,7 +8788,8 @@ Every file outside the standard library starts with the imports in `std/prelude.
 
 - the primitive and collection types `Int`, `Float`, `Decimal`, `String`, `Unit`, `Infallible`, `Byte`, `Bytes`, `Codepoint`, `List`, `Vector`, `Map`, `Set` and `Range`, and `Bool` with its variants `True` and `False`;
 - `Maybe` with `Some` and `None`, and `Result` with `Ok` and `Err`;
-- the interfaces `Add`, `Subtract`, `Multiply`, `Divide`, `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight`, `Averageable`, `Comparable`, `Contains`, `Debug`, `Discrete`, `Display`, `Distinct`, `Equatable`, `Hashable`, `Iter`, `Productable`, `Steppable`, `Struct`, `Summable` and `Variants`, and `From` (§11 *Propagating with `?`*);
+- std's subtypes of the primitive and collection types (§4 *Subtypes*): `NonZeroInt`, `NonNegativeInt` and `PositiveInt`, the same three for `Float` and `Decimal` (`NonZeroFloat`, `PositiveDecimal`), `NonEmptyString`, `NonEmptyList`, `NonEmptyVector`, `NonEmptyMap`, `NonEmptySet`, and `NonEmptyRange`, `ClosedRange` and `BoundedRange`;
+- the interfaces `Add`, `Subtract`, `Multiply`, `Divide`, `Remainder`, `BitwiseAnd`, `BitwiseOr`, `BitwiseXor`, `BitwiseNot`, `ShiftLeft`, `ShiftRight`, `Averageable`, `Comparable`, `Contains`, `Debug`, `Discrete`, `Display`, `Distinct`, `Equatable`, `Hashable`, `Iter`, `Productable`, `Steppable`, `Struct`, `Summable` and `Variants`, `From` (§11 *Propagating with `?`*) and `TryFrom` (§12 *TryFrom*), and `Release` and `Commit` (§9 *Releasing resources*);
 - `Ordering`, `Type`, `Startup` and `Context`;
 - `Locale` (std::locale), and `Phrase` and `Noun` (§18 *Phrases*), so formatting a phrase needs no import.
 
@@ -8782,7 +8817,7 @@ http.nomi           // imports http/request; declares HttpRequest
 http/request.nomi   // imports http.HttpRequest
 ```
 
-A `once` whose initializer reads its own value while it is being computed is a cyclic-binding error when the program runs (§6 *Bindings*).
+A `once` whose initializer reads its own value is a compile error at its declaration, `` cyclic 'once' binding: `a` depends on itself: it reads `once a` (main.nomi:1) ``. A cycle closed through a function value traps when the read re-enters (§6 *`once` Bindings*).
 
 ### Import errors
 
@@ -9567,7 +9602,7 @@ What each subject requires, and what the assertion's value is when it holds:
 ```nomi
 assert [left, right] = pair
 
-assert Err(Error.InvalidFormat(reason)) = Date"not-a-date"
+assert Err(Error.InvalidFormat(reason)) = Date.parse("not-a-date")
 ```
 
 **Where an assertion stands.** An assertion is a statement, or a binding's value (`ok = assert x`). Its value is the same wherever it stands: `ok = begin` above `assert x` and `end`, an `if` or `case` arm ending in `assert x` whose value is bound, `ok: Bool = assert x` and `Some(n) = assert m else return` all bind what `ok = assert x` binds, and `_ = assert x` checks `x` and discards it. A case arm's body may be an assertion. It is not an operand: `not assert x` is the error `` `assert` cannot be an operand of `not` ``, whose help suggests `refute x` or `assert not x`, and so is an assertion beside any binary operator but `|>`. Anywhere else it is the error `` `assert` cannot be used as a value here: an assertion stands as its own statement or as a binding's value ``: as another assertion's subject, an argument, a collection element, inside parentheses, a condition or scrutinee, a returned value, or the head of a pipe. To assert a pipeline, put the keyword before the whole of it:
@@ -10340,7 +10375,7 @@ A binding's Nomi types project to Go types:
 - **Enums.** A declared Nomi `enum` has no projection. The only enums that cross are `Result`, `Maybe` and `Bool`, as a trailing Go `error`, `*T` and `bool`, matched by the std type's identity: a same-named type of another module is rejected.
 - **Results.** The Go signature decides the result. With `N` results that are not `error`, `N == 0` projects to `Unit`, `N == 1` to that value, and `N >= 2` to the tuple `(A, B, ...)`. A trailing `error` wraps that in `Result<_, String>`: `error` alone is `Result<Unit, String>`, `(T, error)` is `Result<T, String>`, and `(A, B, error)` is `Result<(A, B), String>`.
 - **Tuples** project in result position only, since Go has no tuple type to take as a parameter. A Go struct against a Nomi struct of the same shape carries several values both ways.
-- **Distinct types.** A distinct type, opaque or not, crosses as its inner type, at every depth: `type Id Int64` as `int64`, `type Ids List<Int64>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int64` as `int64`. The value Go returns is wrapped in the declared type again. So `Instant` (`opaque type Instant Int64` in std) may also fill an `int64` slot; `Duration` (`opaque type Duration Int`) is an `Int` of any size, so it fills a `time.Duration` slot but not an `int64` one. A marker type (`type Expired`) holds no value and has no projection.
+- **Distinct types.** A distinct type, opaque or not, crosses as its inner type, at every depth: `type Id Int64` as `int64`, `type Ids List<Int64>` as `[]int64`, a distinct over a struct as a Go struct with that struct's fields, and `type Outer Inner` over `type Inner Int64` as `int64`. The value Go returns is wrapped in the declared type again. std's `Instant` and `Duration` are opaque types over `Int`, an integer of any size, so one fills a `time.Time` slot and the other a `time.Duration` slot, and neither fills an `int64` one. A marker type (`type Expired`) holds no value and has no projection.
 
 **The check.** Bindings are checked against Go source before the program loads: the project's own packages, packages of required modules in the Go module cache or a local `replace`, the packages a bound package's signatures and struct fields name, and bound standard library packages, read from the toolchain's GOROOT with this platform's build constraints. A missing name, a generic Go function and a signature mismatch are errors that point at the binding:
 

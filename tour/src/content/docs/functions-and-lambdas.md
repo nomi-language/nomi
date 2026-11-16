@@ -58,10 +58,12 @@ dbg line 10: describe("cart", 3) = "cart: 3 items"
 
 A lambda is written `fn params -> body`. Several parameters are separated by
 commas. A body of more than one line goes on the lines below the `->`, closed
-by `end`, as `describe`'s does. Write a
-parameter's type when nothing else tells the compiler what it is. When the
-lambda is passed to a function that expects a certain type, the type is
-inferred. In a list of lambdas, writing the type in one element is enough:
+by `end`, as `describe`'s does.
+
+Write a parameter's type when nothing else tells the compiler what it is, as
+for a lambda bound to a name. A lambda passed to a function that expects a
+certain type gets its parameter types from there. In a list of lambdas,
+writing the type in one element is enough:
 `[("a", fn n: Int -> n), ("b", fn n -> n * 2)]`.
 
 A lambda is a value. You can bind it to a name, pass it to a function, or
@@ -96,9 +98,9 @@ dbg line 12: xs |> Iter.map(&"id ${&1}") |> Iter.to_list() = ["id 1", "id 2", "i
 -->
 
 A capture writes a small function in place: `&`, then the function's body.
-`&1` is its first parameter, `&2` its second. `&(&1 > 1)` is `fn x -> x >
-1`, `&(&1 * 2 + 1)` is `fn x -> x * 2 + 1`, `&Point{x: &1, y: 0}` is
-`fn x -> Point{x:, y: 0}`, and `&"id ${&1}"` is `fn x -> "id ${x}"`.
+`&1` is its first parameter, `&2` its second. `&(&1 > 1)` is
+`fn n -> n > 1`, `&Point{x: &1, y: 0}` is `fn n -> Point{x: n, y: 0}`, and
+`&"id ${&1}"` is `fn n -> "id ${n}"`.
 
 `Iter.filter` and `Iter.map` work on any collection, and `Iter.to_list`
 collects the result into a list. [Collections](/collections/) covers them.
@@ -364,10 +366,11 @@ dbg line 11: transform(5, factor: 3, fn x -> x + 1) = 16
 dbg line 12: transform(5, factor: 3, double) = 30
 -->
 
-When a function's last parameter is a function, you can pass that argument
-last without a name. In `transform(5, fn x -> x + 1)`, the lambda skips `factor`
-and goes to `f`, so `factor` keeps its default. The same happens after a
-named argument, as in the second call.
+A callback is a function you pass to another function. When a function's
+last parameter is a function, you can pass that argument last without a
+name. In `transform(5, fn x -> x + 1)`, the lambda skips `factor` and goes
+to `f`, so `factor` keeps its default. The same happens after a named
+argument, as in the second call.
 
 The last call passes `double`, an existing function, instead of a lambda. It
 goes to `f` the same way. What decides is the parameter list, not how the
@@ -438,8 +441,8 @@ missing value there needs real handling.
 
 When the guarantee is that one call succeeds, a
 [postfix `!`](/pattern-matching/#calls-that-cannot-fail) says it after the
-call: `Date.new(2024, 1, 1)!`. Keep `unreachable` for a reason the reader cannot see
-from the call, like the one above.
+call: `Date.new(2024, 1, 1)!`. Keep `unreachable` for a reason the reader
+cannot see from the call, like the one above.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>

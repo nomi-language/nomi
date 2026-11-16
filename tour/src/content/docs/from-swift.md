@@ -24,6 +24,8 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `Int?`, `if let x = maybe`, `guard let` | `Maybe<Int>`; `case`, `if Some(x) = maybe then ..`, or a postfix `?` |
 | `throws`, `try`, `do / catch` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `Double(x)`, `x as! Coffee` | `Int.to_float(x)`. Nomi's `x as T` is Swift's upcasting `as` only: it states a type the value already fits (`[] as List<String>`) |
+| `a / b` traps when `b` is 0, and an `Int` traps on overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
+| `for x in xs { .. }`, `while` | `Iter.each(xs, fn x -> ..)`, a fold, recursion, or `Iter.loop` |
 | Vapor's `configure(_ app:)`, which sets up services on the `Application`, or an app that hands them down with `.environment(..)` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
 ## Spelled differently
@@ -39,9 +41,13 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `any Priced & Costed` | `Priced and Costed`, as a parameter, a field or an element: `List<Priced and Costed>` |
 | `func larger<T: Comparable>(_ a: T, _ b: T) -> T` | `fn larger<T>(a: T, b: T) -> T where T: Comparable`: a type parameter when the type comes back |
 | `[1, 2]`, `["a": 1]`, `Set([1])` | `[1, 2]`, `{"a" => 1}`, `Set[1]`; as in Swift, `[1]` is the array, vector or set its type says, so `s: Set<Int> = [1]` |
+| `"\(name) has \(n)"` | `"${name} has ${n}"` |
+| Foundation's `Decimal(string: "1.50")` | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `defer { file.close() }` | `defer Reader.close_quietly(r)`: one call, run when the block ends. The checker requires it for a resource, and `defer on error` runs only when the function fails. |
 | `async let`, `TaskGroup` | `Task.spawn` and `Task.await` inside `concurrent` ... `end` |
 | `#expect(a == b)`, `XCTAssertEqual(a, b)` | `assert a == b` in a `test "name"` .. `end` |
+| The files of a module see each other with no `import` | Each file imports what it uses from another: `import db::posts`, then `posts.find(1)` |
+| `internal` unless marked `public` or `private` | A declaration is private to its file unless it is marked `pub` |
 | Vapor's `app.get("users", ":id")`, then `req.parameters.get("id", as: Int.self)` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 
 ## The same program

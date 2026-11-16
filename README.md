@@ -2,8 +2,9 @@
 
 [![test](https://github.com/nomi-language/nomi/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/nomi-language/nomi/actions/workflows/test.yml)
 
-Nomi is a statically typed, immutable language for writing expression-shaped
-programs that stay explicit as they grow.
+Nomi is a statically typed language where every value is immutable. It has
+no null and no exceptions, and a `case` must cover every shape its value can
+take, so the compiler catches those mistakes before the program runs.
 
 **[Take the tour at nomi-lang.org](https://nomi-lang.org)** to read and run Nomi
 in your browser.
@@ -39,8 +40,17 @@ exercised; concurrency, FFI and module management are younger.
 
 ## Learn
 
-- **[The language spec](docs/spec.md)**: canonical
-  for what the language does.
+- **[The tour](https://nomi-lang.org/introduction/)**: the language a chapter
+  at a time, with examples that run in the browser.
+  [First Steps](https://nomi-lang.org/learn/values/) is for someone new to
+  programming, and [Coming from…](https://nomi-lang.org/coming-from/) has a
+  guide for each of several languages.
+- **[The cheat sheet](docs/cheatsheet.md)**: the rules most often written
+  wrong, with checked examples.
+- **[The language spec](docs/spec.md)**: canonical for what the language
+  does.
+- **[The tooling reference](docs/tooling.md)**: the `nomi` command,
+  `nomi.toml`, dependencies, the test runner and builds.
 - **[Style guide](docs/style.md)**, **[feature status](docs/feature-status.md)**,
   **[roadmap](docs/roadmap.md)**.
 
@@ -133,8 +143,8 @@ stepping, the call stack, locals, each pipeline stage's value, watches, hovers
 and a debug console that evaluate Nomi in the paused frame, restart frame,
 function breakpoints, step into target, go to a variable's binding, and step
 back and reverse continue (by replaying the program with the input, clock and
-randomness it recorded), for a program's `main` or a single test. VS Code and Neovim put a Debug lens
-beside each Run lens; VS Code needs nothing more, and Neovim needs
+randomness it recorded), for a program's `main` or a single test. VS Code
+and Neovim put a Debug lens beside each Run lens; VS Code needs nothing more, and Neovim needs
 [nvim-dap](https://github.com/mfussenegger/nvim-dap). Zed's extension
 registers the adapter and gives each `nomi run` and `nomi test` task a debug
 entry. Helix's `languages.toml` block adds run and test templates to

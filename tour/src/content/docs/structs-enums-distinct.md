@@ -98,8 +98,7 @@ literal stands in the head of an `if` or `case` as anywhere else:
 - A struct also has a call form taking an anonymous struct:
   `User({name: "Ada"})`, which a pipe can feed.
 - `{...}` stays anonymous where an interface or a type parameter is
-  expected, since neither names one struct: `a: Display = {street: "x"}`
-  is a type mismatch.
+  expected, since neither names one struct.
 
 Spec: [Structs](/spec/types/#structs),
 [Construction](/spec/types/#construction),
@@ -396,8 +395,7 @@ Spec: [Distinct Types](/spec/types/#distinct-types),
 The `type Email String` declared in [Distinct types](#distinct-types)
 accepts any `String`, even one with no `@`. A `when` rule after the wrapped
 type says which values the type accepts, and every value is checked before it
-exists. With a rule, `Email` is still a distinct type, so it doesn't pass
-where a `String` is expected.
+exists.
 
 There are two ways to make one. A literal, as in `Email("ada@example.com")`,
 is checked when the program compiles, so a bad one never runs. A value known
@@ -418,8 +416,9 @@ dbg line 4: Email("ada@example.com") = Email("ada@example.com")
 dbg line 5: Email.try_from("ada") = None
 -->
 
-`try_from` is the type's `TryFrom` impl, which its rule supplies, so a
-generic function bounded by `where T: TryFrom<String>` takes an `Email`.
+`try_from` is a function of the prelude's `TryFrom` interface, which the rule
+implements for the type.
+[Interfaces & Dispatch](/interfaces-and-dispatch/) covers interfaces.
 
 Spec: [Validated types](/spec/types/#validated-types).
 
@@ -859,11 +858,13 @@ returns and drops the `None`s.
 An alias shortens signatures: `problems` takes a `List<Rule>` instead of a
 `List<(String) -> Maybe<String>>`. Reach for an alias to shorten a long
 anonymous shape like this one: a function type, an anonymous struct or a long
-tuple. An alias may take type parameters, `typealias Pair<T> (T, T)`, with a
-`where` bound after its target, and may name an intersection, `typealias Item
-Priced and Costed`. It has no rule; that is a `subtype`. You cannot write an `impl` for it,
-and you call its target's functions by the target's name (`List.first`, not
-`Names.first` for `typealias Names List<String>`).
+tuple.
+
+An alias may take type parameters, as in `typealias Pair<T> (T, T)`, and may
+name several interfaces joined by `and`. It has no rule; that is a `subtype`.
+You cannot write an `impl` for it, and you call its target's functions by the
+target's name: for `typealias Names List<String>`, write `List.first`, not
+`Names.first`.
 
 Use `type` when you want the compiler to tell two things apart. A `UserId` and
 an `OrderId` may both hold an `Int`, but you should not pass one where the

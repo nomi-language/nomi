@@ -56,11 +56,11 @@ request by a `Route`, a method and a path pattern. A route's type says
 what its wildcards hold: `Route<{id: Uuid}>` for `GET /posts/{id}`, and
 a plain `Route` (`Route<Unit>`) for a route with none. `Route.to_with`
 hands the handler the parameters, each wildcard parsed into its field's
-type, and `Route.to` takes a route with none. A request whose wildcard does not parse gets a
-404, as one no route matches does, and one that matches only under another
-method a 405. `Route.path_with` fills the parameters into a link. Since a
-handler is a function, a test calls it, or the router, with a request and
-no network:
+type, and `Route.to` takes a route with none. A request whose wildcard
+does not parse gets a 404, as one no route matches does, and one that
+matches only under another method gets a 405. `Route.path_with` fills the
+parameters into a link. Since a handler is a function, a test calls it, or
+the router, with a request and no network:
 
 ```nomi-run
 import
@@ -106,9 +106,9 @@ sends only `GET` and `POST`, so `Router.handler(router) |>
 http.method_override()` routes a posted form with a `_method` field of
 `PUT`, `PATCH` or `DELETE` as that method.
 
-A route is checked when the program is checked, so a pattern Go would
-refuse is a compile error at the literal, and so is a wildcard that is not
-one of the parameters' fields. So is a method other than the standard ones
+A route literal is checked when the program is checked. A malformed
+pattern is a compile error at the literal, and so is a wildcard that is
+not one of the parameters' fields, a method other than the standard ones
 in capitals, such as `GETX` (`Route.with_method` routes WebDAV's
 `PROPFIND` and the like), and a brace outside a wildcard that is a whole
 segment, such as `/token}`:
@@ -168,12 +168,14 @@ end
 dbg line 24: Response.text(profile(testing.request(.Get, "/"))) = Ok("<main>\n  <h1>&lt;nobody&gt; <span class='badge'>3</span></h1>\n</main>")
 -->
 
-A slot shows a `Maybe`'s value or nothing, so `${if unread > 0 then Some(Html"<b>${unread} new</b>") else None}` shows its part
-only when the condition holds. Inside a quoted attribute value it adds its
-text or nothing, as in `class='tab ${if active then Some("active") else None}'`; an unquoted
-`class=${if active then Some("active") else None}` writes the attribute or leaves it out.
-What a slot in an attribute, a URL or a
-`style` takes is in the spec's
+A slot shows a `Maybe`'s value or nothing, so
+`${if unread > 0 then Some(Html"<b>${unread} new</b>") else None}` shows
+its part only when the condition holds. Inside a quoted attribute value it
+adds its text or nothing, as in
+`class='tab ${if active then Some("active") else None}'`. An unquoted
+`class=${if active then Some("active") else None}` writes the attribute or
+leaves it out. What a slot in an attribute, a URL or a `style` takes is in
+the spec's
 [HTML templates](/spec/typed-literals-and-keyword-declarations/#html-templates).
 
 A handler may return any value whose type implements
@@ -313,6 +315,8 @@ folder beside it.
 [Frontends](/frontends/) shows a React or Vue app served this way, with a
 Nomi JSON API behind it.
 
+### Request bodies
+
 A handler that reads a posted form with `Request.form` reads at most
 10 MB of it, and `Request.multipart_form` at most 32 MB; a larger body is
 `Error.BodyTooLarge`. `Request.text` reads a body as text and
@@ -380,8 +384,9 @@ every `/admin` route, before they join the others. std::http has `cors`,
 `cross_origin_protection`, `compress`, `basic_auth` and
 `method_override`; see the [reference](/reference/http/#httpcors) for
 their options. `http.compress()` gzips a response for a client that
-takes gzip. `http.basic_auth("admin", check)` returns 401 until the
-browser sends a user and password `check` accepts; compare them with
+takes gzip. `http.basic_auth("admin", check)` returns 401, naming the
+realm `admin`, until the browser sends a user and password `check`
+accepts; compare them with
 `hash.equal_in_constant_time`, never `==`, whose timing shows how much
 of a guess was right.
 
@@ -715,7 +720,7 @@ end
 `accept` refuses a page from another origin with `403` unless
 `AcceptOptions.allowed_origins` lists it, and closes a connection whose
 message is over `max_message_size`, 1 MiB unless set. A client connects
-with `websocket.connect(Url`wss://example.com/chat`)`. A test hands a
+with `websocket.connect(Url"wss://example.com/chat")`. A test hands a
 handler a connection in memory with `std::http::testing.open_websocket`:
 
 ```nomi-run

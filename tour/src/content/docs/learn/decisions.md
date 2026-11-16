@@ -20,7 +20,7 @@ The part after `if` is a question whose answer is `True` or `False`. When
 it is `True` you get the value after `then`; when it is `False`, the value
 after `else`. The questions you can ask about numbers are `<` (less than),
 `>` (greater than), `<=` and `>=` (or equal), `==` (equal) and `!=` (not
-equal). Note the two `=` in `==`: one `=` gives a name a value.
+equal). `==` has two `=`, because one `=` gives a name a value.
 
 To choose between more than two values, use `case`. Each line under it
 is a question, `->`, and the value to give back when its answer is `True`.

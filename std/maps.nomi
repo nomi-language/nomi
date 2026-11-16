@@ -15,28 +15,32 @@ import
     summable.Summable
 end
 
-//# Operations on the insertion-ordered `Map<K, V>` type. Map-specific ops
-//# (`Map.map_values`, `Map.map_keys`, `Map.keys`/`values`, `Map.size`, ...)
-//# live here; the generic iteration ops (`Iter.reduce`, `Iter.find`,
-//# `Iter.each`, `Iter.count`, `Iter.to_list`, ...) are `Iter`
-//# functions, applied to a `Map` because it iterates as `Iter<(K, V)>`.
-//# `Map.size` is the map's own O(1) count; the generic count is `Iter.count`.
-//# `a + b` merges two maps, the right-hand map winning on a shared key.
-//# For lazy pipelines, use `Iter`; materialize back with
-//# `Iter.to_map`.
+//# A `Map<K, V>` holds values under keys, written
+//# `{"ann" => 31, "bo" => 12}`. It is immutable: `Map.put` and `Map.remove`
+//# return a new map. A map keeps its entries in the order their keys were
+//# first added, and every function here keeps that order. Two maps are `==`
+//# when they hold the same entries, in any order.
 //#
-//# Maps iterate in insertion order, and every transformation keeps it. A
-//# map element is a `(K, V)` pair, so every generic `Iter` op
-//# (`Iter.reduce`, `Iter.each`, `Iter.find`, `Iter.filter`, ...) takes a
-//# single tuple parameter, and filtering or generically mapping a map is
-//# `Iter.filter(m, p) |> Iter.to_map()`. `Map.map_values` and `Map.map_keys`
-//# stay on `Map` because a generic map or filter cannot keep the other half
-//# of a pair, or could collide keys.
+//# `Map.get` reads a key and returns a `Maybe`, since the key may be
+//# missing. `a + b` is `Map.merge(a, b)`: the right-hand map wins on a
+//# shared key.
+//#
+//# ## Map and Iter
+//#
+//# A map iterates as its `(key, value)` pairs, so every
+//# [`Iter`](/reference/iter/) function works on one. A function passed to
+//# it takes one pair: `Iter.each(ages, fn (name, age) -> ...)`.
+//# `Iter.filter` and `Iter.map` give an `Iter` of pairs, and
+//# `Iter.to_map()` collects it into a map. `Map.map_values` and
+//# `Map.map_keys` change one half of each pair and keep the other.
+//# `Map.size` is the number of entries, which the map keeps; `Iter.count`
+//# returns the same.
 
-/// Immutable hash map from `K` to `V`. `a + b` is `Map.merge(a, b)`.
+/// An immutable map from keys of type `K` to values of type `V`, in the
+/// order the keys were first added. `a + b` is `Map.merge(a, b)`.
 //! ages = {"ann" => 31, "bo" => 12, "cy" => 19}
 //!
-//! // Iter.filter gives an Iter<(K, V)>; Iter.to_map materializes it.
+//! // Iter.filter gives an Iter<(K, V)>; Iter.to_map collects it into a Map.
 //! adults =
 //!     ages
 //!     |> Iter.filter(fn (_, age) -> age > 18)
@@ -58,19 +62,22 @@ impl Map<K, V>
     //
     pub host fn get<K, V>(m: Map<K, V>, key: K) -> Maybe<V>
 
-    /// Returns a new map with the key-value pair added or updated.
+    /// Returns a new map with `value` under `key`. A new key goes at the
+    /// end; a key the map already holds keeps its place.
     //! assert Map.put({"a" => 1}, "b", 2) == {"a" => 1, "b" => 2}
     //! assert Map.put({"a" => 1}, "a", 9) == {"a" => 9}
     //
     pub host fn put<K, V>(m: Map<K, V>, key: K, value: V) -> Map<K, V>
 
-    /// Returns a new map with the key removed. No-op if the key is absent.
+    /// Returns a new map with the key removed, or the same map if the key
+    /// is absent.
     //! assert Map.remove({"a" => 1, "b" => 2}, "a") == {"b" => 2}
+    //! assert Map.remove({"a" => 1}, "z") == {"a" => 1}
     //
     pub host fn remove<K, V>(m: Map<K, V>, key: K) -> Map<K, V>
 
-    /// Merges two maps. Values from the second map win on key conflict.
-    /// `a + b` is the same call.
+    /// Merges two maps: `a`'s keys, then the keys only `b` holds. On a key
+    /// both hold, `b`'s value wins. `a + b` is the same call.
     //! assert Map.merge({"a" => 1}, {"a" => 9, "b" => 2}) == {"a" => 9, "b" => 2}
     //
     pub host fn merge<K, V>(a: Map<K, V>, b: Map<K, V>) -> Map<K, V>
@@ -110,14 +117,13 @@ impl Map<K, V>
         Map.put(m, key, f(before))
     end
 
-    /// Returns the next key-value pair and remaining map, or None if empty.
-    /// Drives the `Iter` implementation for `Map`.
+    /// Returns the first key-value pair and the map without it, or None if
+    /// the map is empty.
     //! assert Map.map_next({"a" => 1}) == Some((("a", 1), {}))
     //
     pub host fn map_next<K, V>(m: Map<K, V>) -> Maybe<((K, V), Map<K, V>)>
 
-    /// Returns the number of entries in the map. O(1) — read from the backing
-    /// map's size (host-backed), not folded.
+    /// Returns the number of entries in the map. O(1): a Map keeps its size.
     //! assert Map.size({"a" => 1, "b" => 2}) == 2
     //! m: Map<String, Int> = {}
     //! assert Map.size(m) == 0
@@ -138,16 +144,17 @@ impl Map<K, V>
         Iter.map(m, fn (_, v) -> v) |> Iter.to_list()
     end
 
-    /// Transforms each value by applying a function. Keys are unchanged.
+    /// Applies `f` to each value. Keys are unchanged.
     //! assert Map.map_values({"a" => 1, "b" => 2}, &(&1 * 10)) == {"a" => 10, "b" => 20}
     //
     pub fn map_values<K, V, U>(m: Map<K, V>, f: (V) -> U) -> Map<K, U>
         Iter.map(m, fn (k, v) -> (k, f(v))) |> Iter.to_map()
     end
 
-    /// Transforms each key by applying a function. Collisions resolve
-    /// last-write-wins in insertion order.
+    /// Applies `f` to each key. When two keys become the same key, the later
+    /// entry's value is kept.
     //! assert Map.map_keys({"a" => 1, "b" => 2}, &(&1 + "!")) == {"a!" => 1, "b!" => 2}
+    //! assert Map.map_keys({"a" => 1, "b" => 2}, fn _ -> "k") == {"k" => 2}
     //
     pub fn map_keys<K, V, J>(m: Map<K, V>, f: (K) -> J) -> Map<J, V>
         Iter.map(m, fn (k, v) -> (f(k), v)) |> Iter.to_map()
@@ -263,7 +270,7 @@ end
 /// program runs; `NonEmptyMap.try_from(m)` checks a Map computed at run
 /// time, and `NonEmptyMap.put(m, key, value)` builds one from any Map.
 /// Its keys and values are NonEmptyLists, and its first and last entries
-/// are values rather than `Maybe`s. A NonEmptyMap is a Map and passes
+/// are plain values, not `Maybe`s. A NonEmptyMap is a Map and passes
 /// wherever one is expected. It is in the prelude.
 //! ages: NonEmptyMap<String, Int> = {"ann" => 31, "bo" => 12}
 //! assert NonEmptyMap.first_entry(ages) == ("ann", 31)

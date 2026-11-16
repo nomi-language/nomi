@@ -1,12 +1,12 @@
-//# Pure pseudo-random generation. A `random.Generator<T>` is an immutable
-//# recipe for producing a `T`; run it against a `random.Seed` with
-//# `Generator.step` to get back the value paired with the next seed.
-//# Same seed in -> same value out, so every draw is reproducible and testable.
-//# There is no stateful global generator and no mutation: randomness is an
-//# explicit value, threaded by hand or composed with combinators. The two
-//# impure calls read the operating system's entropy: `Seed.from_os`, for a
-//# fresh starting seed, and `random.secure_bytes`, for keys, tokens and
-//# salts, which a seeded generator must never make.
+//# Pseudo-random values from a seed. A `random.Generator<T>` describes how
+//# to produce a `T`. `Generator.step` runs it with a `random.Seed` and
+//# returns the value and the next seed. The same seed always gives the
+//# same value, so a draw can be repeated and tested. There is no global
+//# generator and nothing is mutated: a program passes the seed along
+//# itself, or composes generators with `map` and `flat_map`. Two functions
+//# read the operating system's entropy instead: `Seed.from_os`, for a
+//# starting seed, and `random.secure_bytes`, for keys, tokens and salts,
+//# which a seeded generator must never make.
 //#
 //# ```nomi
 //# seed = Seed.from_int(42)
@@ -15,15 +15,14 @@
 //#
 //# (roll, seed) = die |> Generator.step(seed)
 //#
-//# (next, _) = die |> Generator.step(seed) // a fresh seed → a fresh draw
+//# (next, _) = die |> Generator.step(seed) // the new seed gives a new draw
 //# ```
 //#
 //# When several draws are known up front, compose them into one generator
-//# and `step` once; thread the `random.Seed` by hand only when draws are
-//# interleaved with other work, such as across turns of an interactive
-//# loop. There is no applicative `mapN` family (`map2`, `map3`, ...):
-//# `step` makes hand-threading the natural move, and `flat_map` and `map`
-//# express any composite generator when one is needed.
+//# and `step` once. Pass the `random.Seed` along by hand only when other
+//# work happens between the draws, such as across turns of an interactive
+//# loop. There are no `map2` or `map3` functions: `flat_map` and `map`
+//# build any composite generator.
 
 import
     bool.Bool.{self, False, True}
@@ -82,15 +81,16 @@ impl Display for Error
     end
 end
 
-/// Opaque PRNG state (a splitmix64 register). Thread it explicitly through
-/// `Generator.step`; never mutated. Seed reproducibly with `Seed.from_int`, or
-/// pull a non-deterministic one with `Seed.from_os`.
+/// The state of the pseudo-random sequence (a splitmix64 register). It is
+/// never mutated: `Generator.step` takes one and returns the next.
+/// `Seed.from_int` makes a seed that repeats, and `Seed.from_os` one that
+/// does not.
 pub opaque type Seed Int
 
 impl Seed
-    /// A reproducible seed from an integer. Same `n` -> same sequence,
-    /// forever: splitmix64 is fully specified, so this holds across
-    /// platforms and releases.
+    /// A seed from an integer. The same `n` gives the same sequence on
+    /// every platform and in every release, since splitmix64 is fully
+    /// specified.
     //! seed = Seed.from_int(123)
     //! (roll, _) = Generator.step(Generator.int(1..=6), seed)
     //! assert roll == 2
@@ -99,10 +99,9 @@ impl Seed
         Seed(n)
     end
 
-    /// A non-deterministic seed from OS entropy. The one impure call on `Seed`
-    /// -- the entry point when you want real randomness. A program seeded
-    /// with `from_os` is no longer reproducible (so it cannot be doctested);
-    /// reach for `from_int` in tests.
+    /// A seed from the operating system's entropy, different on every run.
+    /// It is the only function of `Seed` that is not pure. A program seeded
+    /// with it cannot repeat its draws, so tests use `from_int`.
     pub fn from_os() -> Result<Seed, Error>
         case os_state()
             Ok(state)   -> Ok(Seed(state))
@@ -134,30 +133,32 @@ host fn os_state() -> Result<Int, String>
 //
 pub host fn secure_bytes(count: NonNegativeInt) -> Bytes
 
-/// Unbiased integer in `[from, to]` plus the next seed. Module-private -- the
-/// building block the public integer generators draw on.
+/// Unbiased integer in `[from, to]` plus the next seed. The public integer
+/// generators draw with it.
 fn between(Seed(state), from: Int, to: Int) -> (Int, Seed)
     (value, next) = between_state(state, from, to)
     (value, Seed(next))
 end
 
-/// Float in `[0.0, 1.0)` plus the next seed. Module-private.
+/// Float in `[0.0, 1.0)` plus the next seed.
 fn unit_float(Seed(state)) -> (Float, Seed)
     (value, next) = unit_float_state(state)
     (value, Seed(next))
 end
 
-/// An immutable recipe for producing a `T`: not a value, but a description
-/// of how to produce one from a seed. Build one with a constructor
-/// (`Generator.int`, ...), reshape it with `map` / `flat_map`, then run it with
-/// `Generator.step`. `Generator.weighted` returns a `Result`, since its weights
-/// may come from data; unwrap it with `?` or `case` before composing.
+/// A description of how to produce a `T` from a seed. Build one with
+/// `Generator.int`, `Generator.float`, `Generator.bool`,
+/// `Generator.uniform` or `Generator.weighted`, change it with `map` and
+/// `flat_map`, then run it with `Generator.step`. `Generator.weighted`
+/// returns a `Result`, since its weights may come from data: unwrap it with
+/// `?` or `case` before composing.
 pub opaque struct Generator<T>
     run: (Seed) -> (T, Seed)
 end
 
 impl Generator<T>
-    /// Produce a value and the next seed. The pure core of `Generator`.
+    /// Produces a value and the next seed. The same generator and seed
+    /// always give the same pair.
     ///
     /// ```nomi
     /// die = Generator.int(1..=6)
@@ -230,7 +231,7 @@ impl Generator<T>
         unsafe_int(0, 1) |> map(&(&1 == 1))
     end
 
-    /// Always produces `value` (consuming no randomness, seed unchanged).
+    /// Always produces `value`, and returns the seed it was given.
     //! (value, _) = Generator.step(Generator.constant("fixed"), Seed.from_int(123))
     //! assert value == "fixed"
     //
@@ -280,7 +281,7 @@ impl Generator<T>
         )
     end
 
-    /// Transform the produced value.
+    /// A generator of `f` applied to each value `gen` produces.
     //! gen = Generator.constant(21) |> Generator.map(&(&1 * 2))
     //!
     //! (value, _) = Generator.step(gen, Seed.from_int(123))
@@ -295,9 +296,8 @@ impl Generator<T>
         }
     end
 
-    /// Sequence a dependent generator (the next draw depends on the previous
-    /// value) -- the bind operation, and the way to build a composite
-    /// generator.
+    /// A generator that draws from `gen`, then from the generator `f`
+    /// returns for that value: a draw that depends on an earlier one.
     ///
     /// ```nomi
     /// gen = Generator.int(1..=6)

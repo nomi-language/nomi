@@ -41,9 +41,7 @@ Nomi is very early. This site is the main place to try the language while the
 design is still being worked out. Expressions, types, pattern matching,
 imports, interfaces, derives, tests, collections and control flow are the most
 used and tested parts. Concurrency, calling Go, and module management are
-newer. The editor rechecks only what an edit touches, and `nomi run`,
-`nomi check` and `nomi test` relink a program from what they kept when an
-edit changes only function bodies.
+newer.
 :::
 
 ## Running Nomi
@@ -93,5 +91,4 @@ tooling, and dependencies. The language itself is different from Go.
   libraries that wrap Go come prebuilt, and for your own Go code `nomi`
   uses the `go` on your `PATH` or downloads the release it was built with.
 
-Start with [Bindings & Expressions](/bindings-and-expressions/). Each chapter
-builds on the one before.
+The tour starts with [Bindings & Expressions](/bindings-and-expressions/).

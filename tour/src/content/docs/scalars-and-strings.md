@@ -49,8 +49,10 @@ are `and`, `or` and `not`. `not` binds looser than a comparison, so
 of any size, so arithmetic never overflows. `/` on `Int` drops the remainder,
 rounding toward zero, and `%` gives the remainder. Their divisor is a
 [`NonZeroInt`](/structs-enums-distinct/#subtypes), so a division by zero
-does not compile. The bitwise operators are `&&&`, `|||`, `^^^`, prefix `~~~`, `<<<`
-and `>>>`; `&&&` and the shifts bind like `*`, and `|||` and `^^^` like `+`.
+does not compile.
+
+The bitwise operators are `&&&`, `|||`, `^^^`, prefix `~~~`, `<<<` and
+`>>>`. `&&&` and the shifts bind like `*`, and `|||` and `^^^` like `+`.
 
 Each arithmetic operator comes from an interface: `+` from
 [`Add`](/reference/add/), `-` from [`Subtract`](/reference/subtract/), `*`
@@ -131,10 +133,22 @@ dbg line 9: 19.99d + 5.00d + 2.50d + 0.99d = 28.48d
 binary, so `0.1 + 0.2` is not quite `0.3`. To compare a computed Float, give
 the difference you accept: `Float.equal_within(0.1 + 0.2, 0.3, 1e-9)` is
 `True`. The tolerance is a
-[`NonNegativeFloat`](/structs-enums-distinct/#subtypes), so a
-negative literal there fails to compile. A `Float` follows IEEE 754, so dividing by zero doesn't stop the
-program: `1.0 / 0.0` is `+Inf`, and `0.0 / 0.0` is NaN, which
+[`NonNegativeFloat`](/structs-enums-distinct/#subtypes), so a negative
+literal there fails to compile.
+
+A `Float` follows IEEE 754, so dividing by zero doesn't stop the program:
+`1.0 / 0.0` is `+Inf`, and `0.0 / 0.0` is NaN, which
 [`Float.is_nan`](/reference/float/#floatis_nan) detects.
+
+[`Decimal`](/reference/decimal/) stores numbers in base 10 and adds them
+exactly. Use it when a rounding error would be a bug, as with money. A
+decimal literal ends in `d`.
+
+`Decimal`'s `+`, `-` and `*` are exact. `/` keeps 34 significant digits,
+rounded half-even, so `10d / 3d` is `3.333333333333333333333333333333333d`,
+and a quotient that ends is exact with no trailing zeros: `10.00d / 4d` is
+`2.5d`. To round to a number of places, name them and the rounding:
+`Decimal.divide(10d, 3d, 2, .HalfEven)` is `3.33d`.
 
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
@@ -147,24 +161,14 @@ NaN compares three ways, chosen so maps, sorting and patterns behave:
   deterministic: `Float.compare(nan, nan)` is `Equal`.
 - `<`, `<=`, `>` and `>=` follow IEEE 754: `nan <= nan` is `False`.
 
-`Decimal` has no NaN or infinity, and its divisor is a `NonZeroDecimal`. Its scale
-shows in display but not in equality: `1.50d == 1.5d`.
+`Decimal` has no NaN or infinity, and its divisor is a `NonZeroDecimal`. Its
+scale shows in display but not in equality: `1.50d == 1.5d`.
 
 Spec: [Float Special Values](/spec/types/#float-special-values),
 [NaN and the three comparison behaviours](/spec/type-relations/#nan-and-the-three-comparison-behaviours),
 [Decimal arithmetic](/spec/expressions/#decimal-arithmetic).
 
 </div>
-
-[`Decimal`](/reference/decimal/) stores numbers in base 10 and adds them
-exactly. Use it when a rounding error would be a bug, as with money. A
-decimal literal ends in `d`.
-
-`Decimal`'s `+`, `-` and `*` are exact. `/` keeps 34 significant digits,
-rounded half-even, so `10d / 3d` is `3.333333333333333333333333333333333d`,
-and a quotient that ends is exact with no trailing zeros: `10.00d / 4d` is
-`2.5d`. To round to a number of places, name them and the rounding:
-`Decimal.divide(10d, 3d, 2, .HalfEven)` is `3.33d`.
 
 ## String interpolation and concatenation
 
@@ -185,7 +189,7 @@ Hello, Nomi
 -->
 
 `${expr}` inside a string inserts the value of `expr`. `+` joins two
-strings, because `String` implements `Add`, the interface behind `+`.
+strings, because `String` implements `Add`.
 
 Interpolation turns each value into text with
 [`Display.to_string`](/reference/display/#displayto_string).
@@ -193,7 +197,8 @@ Interpolation turns each value into text with
 `Display`. So you rarely convert a value to a string yourself before
 printing it.
 
-`${` is the only special sequence in a string. To write a literal `${`,
+A backslash starts an escape: `\n`, `\r`, `\t`, `\\`, `\"` and
+`\u{1F600}`, a character by its Unicode number. To write a literal `${`,
 write `\${`. A `$` on its own is ordinary text:
 
 ```nomi-run

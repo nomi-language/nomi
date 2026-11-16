@@ -16,183 +16,149 @@ import
     unit.Unit
 end
 
-/// Which endings put a task back to work.
+/// Which endings make a supervisor run a task again.
 ///
-/// A disposition, not a schedule: this says *whether* a stopped task runs
-/// again, and `Backoff` says when and how many times. Keeping them apart
-/// is what lets each be a short list, and it is the split BEAM settled
-/// on — these three are its `:temporary` / `:transient` / `:permanent`.
+/// `Restart` says whether a stopped task runs again. `Backoff` says when,
+/// and how many times. The three values match the BEAM's `:temporary`,
+/// `:transient` and `:permanent`.
 ///
-/// Restart re-invokes the closure the spawn was given, so it rebuilds
-/// whatever state that closure sets up. There is nothing else it could
-/// do: the closure is the only description of the work.
+/// A restart calls the function the spawn was given again, so whatever
+/// state that function sets up is built again.
 ///
-/// Being *cancelled* is never a restart trigger under any disposition.
-/// Shutdown cancels, and a policy that fought its own shutdown would
-/// never let the program exit.
+/// A cancelled task is never restarted, under any value. Shutdown cancels
+/// tasks, and a restart then would keep the program from exiting.
 pub enum Restart
-    /// Never restarted. The default, because a supervisor holds whatever you
-    /// spawn into it and most of that is work meant to finish.
+    /// Never restarted. This is the default, since most work spawned under a
+    /// supervisor is meant to finish.
     ///
-    /// Failures are still reported: declining to retry is not declining to
-    /// look.
+    /// A failure is still reported on standard error.
     Temporary
 
-    /// Restarted if it *fails* — a panic or a runtime error. A task that
+    /// Restarted if it fails, which is a trap in its body. A task that
     /// returned is done.
     ///
-    /// For work with an end: send this email, write this audit row. Retry
-    /// it if it breaks, and let it finish when it finishes.
+    /// For work with an end, such as sending an email or writing an audit
+    /// row: it is retried when it breaks and left alone once it finishes.
     Transient
 
-    /// Restarted if it stops *at all*, whether it failed or returned.
+    /// Restarted whenever it stops, whether it failed or returned.
     ///
-    /// For work with no end: a worker draining a queue, a server reading an
-    /// inbox. Such a task returning on its own is a bug — the loop hit a
-    /// branch it should not have, or someone closed the channel it was
-    /// reading — and this is what turns that from silence into a report and
-    /// a restart. Without it a worker with a bug that exits early simply
-    /// vanishes, while `boot` still lists it.
+    /// For work with no end, such as a worker draining a queue or a server
+    /// reading an inbox. Such a task returning on its own is a bug: its loop
+    /// took a branch it should not have, or the channel it read was closed.
+    /// Under `Permanent` that is reported and the task restarted. Under the
+    /// other two values the worker would stop with no report.
     Permanent
 end
 
-/// When to try again, and how many times before giving up.
-///
-/// Separate from `Restart` because *whether* to restart and *how
-/// patiently* are different questions; answering them together would make
-/// every caller write a schedule even when the default suits them.
+/// When a supervisor tries a failed task again, and how many times before
+/// it gives up.
 pub enum Backoff
-    /// Exponential with jitter, bounded two ways: give up after
-    /// `max_restarts` attempts, or after `max_elapsed` spent trying,
-    /// whichever comes first.
+    /// Exponential delays with jitter. The first delay is one second, each
+    /// later one is double the last, and none is longer than a minute. The
+    /// supervisor gives up after `max_restarts` restarts or after
+    /// `max_elapsed` spent trying, whichever comes first.
     ///
-    /// Both bounds have defaults, so `.Exponential{}` is the built-in
-    /// schedule and what you get by choosing a disposition and nothing
-    /// else. Naming one field keeps the other — `.Exponential{max_restarts:
-    /// 3}` still gives up after fifteen minutes.
+    /// Both fields have defaults, so `.Exponential{}` is the schedule a
+    /// supervisor has when none is named. Naming one field keeps the other's
+    /// default: `.Exponential{max_restarts: 3}` still gives up after fifteen
+    /// minutes.
     ///
-    /// Those are the two questions worth answering — how many times, and
-    /// for how long. The delay curve is not one of them: it starts at a
-    /// second, doubles, and levels off at a minute.
+    /// `max_restarts` counts restarts, not runs, so `max_restarts: 3` runs
+    /// the body at most four times.
     ///
-    /// `max_restarts` counts restarts rather than runs, so
-    /// `max_restarts: 3` runs the body at most four times.
+    /// Jitter is always applied. Without it, a supervisor restarting fifty
+    /// identical tasks would retry them all at the same instant.
     ///
-    /// Jitter is always applied and is not optional. Without it a supervisor
-    /// restarting fifty identical tasks retries them all at the same
-    /// instant, reproducing the thundering herd the backoff exists to damp.
-    ///
-    /// **A healthy run resets both budgets.** A run lasting longer than the
-    /// delay ceiling counts as recovered, so the next failure starts over
-    /// from the first delay with a full count and clock. Without that a
-    /// worker failing once a month would exhaust `max_restarts` after ten
-    /// months and stay dead — the budgets are for a run of trouble, not for
-    /// the lifetime of the process.
+    /// A run longer than a minute, the longest delay, counts as recovered:
+    /// the next failure starts again from the first delay with the whole
+    /// count and the whole time. So a worker that fails once a month never
+    /// uses up `max_restarts`.
     Exponential {
         max_restarts: Int = 10,
         max_elapsed: Duration = Duration.minutes(15),
     }
 end
 
-/// What happens at the moment the runtime decides a task will not run
-/// again — under `Restart.Temporary` its first failure, and under
+/// What a supervisor does when it decides a task will not run again:
+/// under `Restart.Temporary` at its first failure, and under
 /// `Backoff.Exponential` once `max_restarts` or `max_elapsed` runs out.
 ///
-/// These two are the whole space rather than a simplification. With no
-/// child specs there is no subtree to restart and nothing to escalate
-/// to, so a supervisor that gives up can only report locally or hand off to
-/// whatever is above the process.
-///
-/// Note that handing off means *exiting*. Nothing here restarts the
-/// program — the runtime has no self-restart, so `Exit` ends the process
-/// and whatever runs it decides whether anything comes back.
+/// Neither choice restarts the program. `Exit` ends the process, and
+/// whatever runs the process decides whether it starts again.
 pub enum GiveUp
-    /// The default: report the failure and carry on. The rest of the
-    /// supervisor's work keeps running.
+    /// The default: report the failure on standard error and carry on. The
+    /// supervisor's other tasks keep running.
     Report
 
     /// End the process: every supervisor is drained, then the program exits
-    /// non-zero.
+    /// with a non-zero status.
     ///
-    /// **It exits rather than restarts.** Nothing in Nomi brings the
-    /// program back — that is the job of whatever runs it, a service
-    /// manager or an orchestrator. What makes handing off worthwhile is
-    /// that a *new process* re-runs `boot`, so it starts with fresh
-    /// connections, fresh state, and a rebuilt supervisor set: far more cleared
-    /// than restarting one task could manage.
+    /// Nomi does not start the program again. A service manager or an
+    /// orchestrator does, and the new process runs `boot` again, so it
+    /// starts with new connections, new state and new supervisors.
     ///
-    /// Drastic, and therefore not the default. It is also a poor fit for a
-    /// long-running process with nothing above it — a desktop application,
-    /// an embedded runtime — where nothing will restart it and `Report`
-    /// plus your own monitoring is all that is on offer.
+    /// It is a poor fit for a long-running process with nothing above it to
+    /// restart it, such as a desktop application or an embedded runtime.
+    /// There, use `Report` and your own monitoring.
     Exit
 end
 
-/// How long `Supervisor.flush` is willing to block.
-///
-/// A union rather than a `Duration` with a magic "forever" value: an
-/// unbounded wait is a different thing from a long one, and giving
-/// `Duration` a sentinel would leak into every arithmetic and comparison
-/// that touches it.
+/// How long `Supervisor.flush` may block.
 pub enum Wait
     /// Block until the supervisor's work finishes, however long that takes.
     Forever
 
     /// Block until the work finishes or this much time passes, whichever
-    /// comes first. Returns as soon as the work is done — the bound is a
-    /// ceiling, not a duration to spend. A bound past about 292 years, the
-    /// longest wait the clock counts, waits that long, as `Forever` does.
+    /// comes first. It returns as soon as the work is done. A bound past
+    /// about 292 years, the longest wait the clock counts, waits that long,
+    /// as `Forever` does.
     UpTo Duration
 end
 
 /// How a `Supervisor.flush` ended.
 ///
-/// Distinct from an ambient `Context` deadline, which *aborts* the work
-/// that exceeded it. A bound given here returns a value instead, so the
-/// caller decides what a slow flush means.
+/// A deadline on the `Context` in force stops the work that runs past
+/// it. A bound given to `flush` stops nothing and returns `TimedOut`, so
+/// the caller decides what a slow flush means.
 pub enum FlushOutcome
-    /// Every task outstanding when you asked has finished.
+    /// Every task outstanding when `flush` was called has finished.
     Flushed
 
     /// The bound ran out with work still outstanding. Nothing was
-    /// cancelled — the work carries on, and shutdown's drain is still what
-    /// eventually bounds it.
+    /// cancelled: the work carries on, and shutdown still bounds it.
     TimedOut
 end
 
-/// An owner for work that has to outlive the call that started it.
+/// An owner for tasks that outlive the call that started them.
 ///
-/// A `concurrent { }` block is an *anonymous* owner, and it cannot
-/// return until every task inside it has been awaited — which is exactly
-/// wrong for a signup that responds now and mails later. A named
-/// `Supervisor` is the same idea with a longer life: your function
-/// returns while the work keeps running, and the supervisor decides how long
-/// shutdown waits for it.
+/// A `concurrent` block does not produce its value until every task in
+/// it has finished, which does not suit a signup handler that responds
+/// now and sends mail later. A function that spawns under a
+/// `Supervisor` returns while the work keeps running, and the
+/// supervisor decides how long shutdown waits for it. Every task has
+/// one of these two owners.
 ///
-/// Either way the task has an owner. There is nowhere to spawn that is
-/// not already owned by something with a shutdown policy.
+/// A supervisor is a set of tasks that share a policy. Its tasks share
+/// one `max_running` limit and wait on each other for a slot,
+/// `Supervisor.flush` waits for all of them, and shutdown drains all of
+/// them within one `shutdown_timeout`. Tasks under different supervisors
+/// do not affect each other. Put work under one supervisor when it
+/// should be treated the same way at shutdown and on failure, not
+/// because it serves the same feature.
 ///
-/// A supervisor is a set of tasks that share a policy. The policy decides
-/// membership — work belongs together because it should be treated the
-/// same way at shutdown and on failure, not because it serves the same
-/// feature — and the set is what the policy acts on: its tasks share one
-/// `max_running` semaphore and contend with each other for slots,
-/// `Supervisor.flush` waits for all of them, and the drain cancels all of
-/// them on one budget. Tasks under different supervisors do none of that to each
-/// other.
-///
-/// Supervisors live on the app payload and are created in `boot` — one per
-/// shutdown policy the app needs, not one per feature:
+/// Supervisors are fields of the application struct and are created in
+/// `boot`, one per policy the program needs:
 ///
 /// ```nomi
-/// struct Config
+/// struct App
 ///     context: Context
 ///     audit:   Supervisor
 ///     notify:  Supervisor
 /// end
 ///
-/// fn boot() -> Result<Config, String>
-///     Ok(Config{
+/// fn boot() -> Result<App, String>
+///     Ok(App{
 ///         context: Context.root(),
 ///         audit:   Supervisor.new(shutdown_timeout: Duration.seconds(30), max_running: 4),
 ///         notify:  Supervisor.new(shutdown_timeout: Duration.milliseconds(200), max_running: 50),
@@ -200,58 +166,46 @@ end
 /// end
 /// ```
 ///
-/// Background work is in-process, not durable: a hard crash between
-/// "response sent" and "email sent" loses the email. Fine for a welcome
-/// message, not for a receipt.
+/// Supervised work lives in the process and is not durable: a crash
+/// after the response is sent and before the email is sent loses the
+/// email. That is acceptable for a welcome message and not for a
+/// receipt.
 pub host type Supervisor
 
 impl Supervisor
-    /// Create a named supervisor with its own shutdown budget.
+    /// Creates a supervisor.
     ///
-    /// `shutdown_timeout:` is how long shutdown lets this supervisor's work
-    /// run before cancelling it: a grace period, not a window to unwind in.
-    /// Work that finishes inside it is never cancelled. A zero or negative
-    /// budget is no grace period: shutdown cancels the work at once, as a
-    /// negative duration has already passed for `timer.sleep`. Supervisors
-    /// drain concurrently and their budgets are unrelated, so a 30-second budget
-    /// and a 200-millisecond one do not queue behind each other. When the
-    /// budget expires the runtime cancels whatever is left and waits up to
-    /// one second for it to unwind and run its deferred calls, then
-    /// abandons it — otherwise a task that never observes cancellation
-    /// could hang shutdown forever, and every budget would be decorative.
-    /// Boot's deferred calls run after the drain, so they close what the
-    /// work used only once the work has stopped. A budget past about 292
-    /// years, the longest wait the clock counts, lets the work run until it
-    /// finishes.
-    ///
-    /// `max_running:` is how many of its tasks run at once, and it
-    /// is not optional. Other languages default this to the CPU count,
-    /// which answers "how much parallelism can this machine use?" — the
-    /// right question for CPU-bound work and the wrong one here, where the
-    /// limit exists to protect a connection pool or a rate limit. Leaving
-    /// it off would not mean "unbounded for this call": work reaches a
-    /// supervisor from call sites all over the program, so it would mean
-    /// unbounded forever. A supervisor holding one long-lived worker is
+    /// `max_running` is how many of its tasks run at once, and it has no
+    /// default. The limit protects whatever the tasks call, such as a
+    /// connection pool or a rate-limited service, and only the program
+    /// knows that number. Work reaches a supervisor from call sites all
+    /// over the program, so no limit would mean no limit for the whole
+    /// run. A supervisor that holds one long-lived worker has
     /// `max_running: 1`.
     ///
-    /// **Creatable only during `boot`**, because a supervisor is a fixed
-    /// cost and a fixed bound. Every one is retained for the life of the
-    /// program — nothing releases it — and carries its own `max_running`
-    /// semaphore. Built in a request handler, it would be a fresh one per
-    /// request, each with its own bound: `max_running: 8` under a thousand
-    /// concurrent requests is eight thousand tasks at the far end, which is
-    /// the opposite of what the number is for. Creating it once is what
-    /// keeps it a limit on a downstream rather than a limit on a call.
+    /// `shutdown_timeout` is how long shutdown lets this supervisor's work
+    /// run before cancelling it. Work that finishes within it is never
+    /// cancelled. With a zero or negative timeout, shutdown cancels the
+    /// work at once. Supervisors drain at the same time, each within its
+    /// own timeout, so a 30-second one and a 200-millisecond one do not
+    /// wait for each other. When the timeout runs out, the runtime cancels
+    /// what is left, waits up to one second for it to unwind and run its
+    /// deferred calls, and then abandons it, so a task that never reaches
+    /// a safe point cannot hang shutdown. Boot's deferred calls run after
+    /// the drain, so they close what the work used only once the work has
+    /// stopped. A timeout past about 292 years, the longest wait the clock
+    /// counts, lets the work run until it finishes.
     ///
-    /// Note what the rule does *not* do: a supervisor made anywhere would
-    /// still be drained at shutdown, since it registers on creation. The
-    /// restriction is about how many exist, not whether they are known.
+    /// `restart`, `backoff` and `on_give_up` say what happens when a task
+    /// stops: see `Restart`, `Backoff` and `GiveUp`.
     ///
-    /// Not only *inside* boot: a constructor `boot` calls may create its
-    /// own, which is how a server type owns its supervisor and its restart
-    /// disposition. Calling such a constructor from anywhere `boot` does
-    /// not reach is a compile error, so the set of supervisors is still
-    /// fixed by the time the program runs.
+    /// A supervisor can be created only during `boot`: in `boot` itself or
+    /// in a constructor `boot` calls, which is how a server type owns its
+    /// supervisor and its restart policy. A call to `Supervisor.new` that
+    /// `boot` does not reach is a compile error. Every supervisor lives as
+    /// long as the program and has its own `max_running`, so one created
+    /// per request would give each request its own limit: `max_running: 8`
+    /// under a thousand requests at once would be eight thousand tasks.
     pub fn new(
         max_running:      PositiveInt,
         shutdown_timeout: Duration = Duration.seconds(5),
@@ -275,7 +229,7 @@ impl Supervisor
     //
     // The split is also the reason `Supervisor.new` can be lowered at all:
     // internal/irbuild refuses a `host fn` with a trailing default outright, by
-    // name, and says so — the declared
+    // name, and says so: the declared
     // default of an extern is documentation of whatever the implementation does
     // with a short argument list, and a builder filling from it would agree with
     // a second encoding by luck.
@@ -287,72 +241,62 @@ impl Supervisor
         on_give_up:       GiveUp,
     ) -> Supervisor
 
-    /// Put `body` under `supervisor`, and return immediately.
+    /// Starts `body` as a task under `supervisor` and returns at once.
     ///
-    /// The task is *enrolled* when this returns, not finished — so a spawn
-    /// past the supervisor's `max_running` never blocks the caller; it waits
-    /// for a slot on its own.
+    /// The call never blocks. When `max_running` tasks are already
+    /// running, the new task waits for a slot on its own.
     ///
-    /// Returns a `Task` like `Task.spawn` does, but imposes no await
-    /// obligation, because the supervisor drains it at shutdown. The handle is
-    /// an extra way to observe or cancel one task, not an obligation to.
-    /// Discard it with `_ =` when you want neither.
+    /// It returns a `Task`, as `Task.spawn` does, and this one need not be
+    /// awaited, because the supervisor drains it at shutdown. Use the
+    /// handle to cancel the task or to read its `Task.outcome`, or discard
+    /// it with `_ =`.
     ///
-    /// The body must return `Unit`. Nobody is obliged to await grouped
-    /// work, so a returned value has nowhere to go — and for a `Result`
-    /// that means a silently discarded `Err`, the most common
-    /// fire-and-forget bug in every language that has the feature. Wrap
-    /// the call in a function that decides what failure means, and report
-    /// it somewhere.
+    /// The body must return `Unit`. Nobody has to await supervised work,
+    /// so a returned value would have nowhere to go, and a returned `Err`
+    /// would be dropped without a report. Wrap the call in a function that
+    /// handles the failure and reports it.
     pub host fn spawn(supervisor: Supervisor, body: () -> Unit) -> Task<Unit>
 
-    /// Spawn one task per item of `source` under `supervisor`.
+    /// Starts one task per item of `source` under `supervisor`, each
+    /// running `f` on its item.
     ///
-    /// No `max_running` here — the supervisor's own limit is the only one. A
-    /// limit on this call would protect only the traffic that happened to
-    /// arrive as a batch, leaving every ordinary `Supervisor.spawn` spawn
-    /// unbounded, which is not what anyone means by bounding a supervisor.
+    /// It takes no `max_running`: the supervisor's limit applies to these
+    /// tasks and to every other task spawned under it.
     ///
-    /// Bodies return `Unit`, as all supervised work does, so there is
-    /// nothing to collect. The handles come back for cancellation, or for
-    /// `Task.await_all` when you want to wait for *this* batch rather than
-    /// the supervisor's whole workload. It consumes the whole source, so a
-    /// source that is `Iter.is_infinite` traps before any task is spawned.
+    /// `f` returns `Unit`, as all supervised work does, so there are no
+    /// values to collect. Use the handles to cancel tasks, or pass them to
+    /// `Task.await_all` to wait for this batch and not for everything
+    /// under the supervisor. It consumes the whole source, so a source that
+    /// is `Iter.is_infinite` traps before any task is spawned.
     pub host fn spawn_all<T>(
         supervisor: Supervisor,
         source:     Iter<T>,
         f:          (T) -> Unit,
     ) -> List<Task<Unit>>
 
-    /// Block until every task outstanding under `supervisor` has finished.
+    /// Blocks until every task outstanding under `supervisor` has finished.
     ///
-    /// It does **not** cancel, and that is the whole distinction from the
-    /// `shutdown_timeout:` a few lines up — shutdown cancels
-    /// what is left when it expires, and this never cancels anything. It
-    /// waits and reports. Reach for it at a checkpoint, to be sure queued
-    /// work went out before reporting success, or in a test, to let the
-    /// background work a call kicked off finish before asserting on it.
+    /// It cancels nothing. Shutdown cancels what is left when
+    /// `shutdown_timeout` runs out; `flush` waits and reports. Call it
+    /// where queued work must have gone out before the program reports
+    /// success, or in a test, so the background work a call started
+    /// finishes before the test asserts on it.
     ///
-    /// "Outstanding" means enrolled by the time you call: `spawn` enrols
-    /// before it returns, so work started on an earlier line is always
-    /// included, and work a flushed task spawns is waited for too. Work
-    /// that arrives afterwards is not — this is a checkpoint, not a barrier
-    /// that closes the supervisor.
+    /// A task is outstanding if it was spawned before the call: `spawn`
+    /// adds its task before it returns, so work started on an earlier line
+    /// is always included, and work a flushed task spawns is waited for
+    /// too. Work spawned after the call is not waited for.
     ///
-    /// Unbounded by default. Pass `Wait.UpTo(d)` to cap it, which returns
-    /// `FlushOutcome.TimedOut` rather than unwinding:
+    /// With no `bound` it waits as long as the work takes. Pass
+    /// `Wait.UpTo(d)` to limit the wait; when the time runs out it returns
+    /// `FlushOutcome.TimedOut` and the work carries on:
     ///
     /// ```nomi
-    /// case Supervisor.flush(Config.notify, Wait.UpTo(Duration.seconds(5)))
+    /// case Supervisor.flush(App.notify, Wait.UpTo(Duration.seconds(5)))
     ///     FlushOutcome.Flushed  -> report_sent()
     ///     FlushOutcome.TimedOut -> carry_on()
     /// end
     /// ```
-    ///
-    /// That is deliberately unlike an ambient `Context` deadline, which
-    /// aborts the work that exceeds it. Use the deadline to put a ceiling
-    /// on a whole region; use this to ask one question and get an answer
-    /// back either way.
     pub fn flush(supervisor: Supervisor, bound = Wait.Forever) -> FlushOutcome
         Supervisor.flush_bounded(supervisor, bound)
     end

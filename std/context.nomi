@@ -5,8 +5,8 @@
 //# type-qualified (`Context.deadline(c)`); there are no file-level
 //# functions.
 //#
-//# `with_deadline` takes an absolute `Instant`; `with_timeout` is sugar for
-//# deriving a deadline at `now() + dur`. Both return a fresh `Context`.
+//# `with_deadline` takes an absolute `Instant`; `with_timeout` sets a
+//# deadline at `now() + dur`. Both return a new `Context`.
 //# Deadlines flow from parent to child and only tighten: the earliest
 //# deadline anywhere along the chain is the one in force, so a child can
 //# bound its own work and can never loosen the bound it inherited.
@@ -36,7 +36,7 @@ end
 pub host type Context
 
 impl Context
-    /// Construct a fresh root Context — no deadline, not canceled, no parent.
+    /// Construct a root Context: no deadline, no values and no parent.
     /// A boot that wants a context field builds it with this, or with a child
     /// derived from it (`Context.with_timeout(Context.root(), d)`).
     //! root = Context.root()
@@ -50,13 +50,13 @@ impl Context
     pub host fn deadline(c: Context) -> Maybe<Instant>
 
     /// Time until the deadline, if there is one. `None` means no deadline
-    /// is set; `Some(0)` means it has passed.
+    /// is set; a Duration of zero means it has passed.
     //! assert Context.deadline_remaining(Context.root()) == Maybe.None
     //
     pub host fn deadline_remaining(c: Context) -> Maybe<Duration>
 
     /// Child context with deadline at `at`. If the parent has a tighter
-    /// deadline already, the parent's deadline wins (no-op). The clock
+    /// deadline already, the parent's deadline stays in force. The clock
     /// counts a deadline in 64 bits of nanoseconds, so one past the year
     /// 2262 is clamped to the latest it counts, which no program reaches,
     /// and one before 1677 to the earliest, which has passed.

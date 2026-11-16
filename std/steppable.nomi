@@ -1,6 +1,6 @@
 import maybe.Maybe
 
-/// Protocol for values that can move by a caller-provided step.
+/// The interface of values that can move by a step the caller gives.
 ///
 /// `Discrete.next` is for types with a canonical next value. `Steppable` is
 /// for types where the caller supplies the step, such as Decimal values

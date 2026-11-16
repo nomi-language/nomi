@@ -16,70 +16,55 @@ import
     summable.Summable
 end
 
-//# Operations on the persistent linked `List<T>` type. Container-specific ops
-//# (`concat`, `first`, `tail`, `remove_at`, `remove`) live here;
-//# generic iteration — including `Iter.count` (O(1) via the
-//# `known_count` protocol) — goes through `Iter`:
-//# `Iter.map(xs, f) |> Iter.to_list()` for the strict, List-returning form.
+//# A `List<T>` is an ordered, immutable sequence of values of one type,
+//# written `[1, 2, 3]`. `[0, ..xs]` is `xs` with `0` in front: it takes
+//# constant time and shares `xs`. A List keeps its length, so `List.length`
+//# does not walk it.
 //#
 //# ## List and Iter
 //#
-//# `List`'s own functions are the ones that read or rebuild its cons
-//# structure (`length`, `first`, `tail`, `concat`, `next_item`, `remove_at`,
-//# `remove`, `starts_with`, `ends_with`, `split_while`), its `Contains`
-//# impl (`contains`), and the
-//# `Iter` protocol: `each_while`, and `known_count`, O(1), read from the
-//# cached length. Every generic operation (transform, filter, reduce, sort,
-//# count, index access) is an `Iter` owner function over any `Iter<T>`, and
-//# a `List` is an `Iter<T>`. The adapters are lazy and fuse; end a chain with
-//# `Iter.to_list()` to materialize a `List` back, one allocation at the
-//# visible step. The rule: generic over any iterable is `Iter.X`; specific to
-//# a container's structure is that container's owner.
+//# This module holds the functions that depend on how a List is built:
+//# `length`, `first`, `tail`, `concat`, `remove_at`, `remove`, `starts_with`,
+//# `ends_with`, `split_while` and `contains`. Transforming, filtering,
+//# sorting, folding and reading by index are functions of
+//# [`Iter`](/reference/iter/), which work on a List as on every other
+//# collection. `Iter.map`, `Iter.filter` and the other adapters are lazy:
+//# they do no work until something reads the result. End a pipeline with
+//# `Iter.to_list()` to get a List back.
 //#
 //# ```nomi
-//# Iter.count(xs) // O(1) via known_count
+//# names = ["cy", "ann", "bo"]
 //#
-//# Iter.first(xs) / Iter.last(xs) / Iter.get(xs, i)
+//# Iter.count(names) // 3
 //#
-//# Iter.is_empty(xs)
+//# Iter.get(names, 1) // Some("ann")
 //#
-//# Iter.reverse(xs) // → List
+//# Iter.sort(names) // ["ann", "bo", "cy"]
 //#
-//# Iter.map(xs, f) |> Iter.to_list()
+//# Iter.contains(names, "bo") // True
 //#
-//# Iter.filter(xs, p) |> Iter.to_list()
-//#
-//# Iter.take(xs, n) / Iter.drop(xs, n)
-//#
-//# Iter.take_while(xs, p) / Iter.drop_while(xs, p)
-//#
-//# Iter.flat_map(xs, f) / Iter.flatten(xss) / Iter.zip(a, b) / Iter.with_index(xs)
-//#
-//# Iter.transpose(rows) // → List<List<T>>, column i from each row long enough
-//#
-//# Iter.chunks(xs, n) / Iter.chunk_by(xs, key)
-//#
-//# Iter.permutations(xs) / Iter.combinations(xs, k) // → Iter<List<T>>, by source position
-//#
-//# Iter.reduce(xs, start, f) / Iter.each(xs, f) / Iter.find(xs, p)
-//#
-//# Iter.scan(xs, start, f) / Iter.map_reduce(xs, start, fn acc, x -> (next, out))
-//#
-//# Iter.min(xs) / Iter.max(xs) / Iter.min_by(xs, key) / Iter.max_by(xs, key) / Iter.sum(xs)
-//#
-//# Iter.any_match(xs, p) / Iter.all_match(xs, p) / Iter.contains(xs, x)
-//#
-//# Iter.sort(xs) / Iter.sort_by(xs, key) / Iter.sort_with(xs, cmp)
-//#
-//# Iter.partition(xs, p) / Iter.group_by(xs, key) / Iter.frequencies(xs)
+//# names
+//# |> Iter.map(String.uppercase)
+//# |> Iter.to_list() // ["CY", "ANN", "BO"]
 //# ```
+//#
+//# The `Iter` functions used most with a List:
+//#
+//# - Reading: `Iter.first`, `Iter.last`, `Iter.get`, `Iter.count`,
+//#   `Iter.is_empty`, `Iter.find`, `Iter.contains`.
+//# - Transforming (lazy): `Iter.map`, `Iter.filter`, `Iter.flat_map`,
+//#   `Iter.take`, `Iter.drop`, `Iter.zip`, `Iter.with_index`, `Iter.chunks`.
+//# - Folding: `Iter.reduce`, `Iter.sum`, `Iter.min`, `Iter.max`,
+//#   `Iter.any_match`, `Iter.all_match`.
+//# - Rebuilding: `Iter.sort`, `Iter.sort_by`, `Iter.reverse`,
+//#   `Iter.partition`, `Iter.group_by`, `Iter.frequencies`.
 
 /// Ordered, immutable sequence of elements.
 //! names = ["Alice", "Bob"]
 //! names = ["Carol", ..names]
 //! assert names == ["Carol", "Alice", "Bob"]
 //!
-//! // A lazy pipeline with a strict terminal...
+//! // Iter.filter and Iter.map are lazy; Iter.sum reads the result.
 //! total =
 //!     [1, 2, 3, 4, 5]
 //!     |> Iter.filter(fn x -> x > 2)
@@ -88,7 +73,7 @@ end
 //!
 //! assert total == 24
 //!
-//! // ...or materialized back to a List.
+//! // Iter.to_list collects the result into a List.
 //! doubled =
 //!     [1, 2, 3, 4, 5]
 //!     |> Iter.filter(fn x -> x > 2)
@@ -107,8 +92,8 @@ fn list_next<T>(list: List<T>) -> Maybe<(T, List<T>)>
 end
 
 impl List<T>
-    /// Returns the next element and remaining list, or None if empty. Drives the
-    /// `Iter` implementation for `List`.
+    /// Returns the first element and the rest of the list, or None if the
+    /// list is empty.
     //! assert List.next_item([1, 2, 3]) == Some((1, [2, 3]))
     //! assert List.next_item([]) == None
     //
@@ -130,9 +115,9 @@ impl List<T>
     //
     pub host fn concat<T>(a: List<T>, b: List<T>) -> List<T>
 
-    /// Returns the first element, or None if the list is empty, read from the
-    /// list's first cell; `tail` is the rest. `Iter.first` gives the same for
-    /// any iterable, and `NonEmptyList.first` the element itself.
+    /// Returns the first element, or None if the list is empty. `Iter.first`
+    /// gives the same for any iterable, and `NonEmptyList.first` returns the
+    /// element itself.
     //! assert List.first([1, 2, 3]) == Some(1)
     //! assert List.first([]) == None
     //
@@ -326,7 +311,7 @@ end
 
 impl Hashable for List<T> where T: Hashable
     // FNV-style fold; agrees with `==` (equal lists hash equally) and requires the
-    // element type to be Hashable. Wrapping arithmetic — hashes are modular.
+    // element type to be Hashable. The arithmetic wraps: hashes are modular.
     fn hash(list: List<T>) -> Int
         Iter.reduce(list, 17, fn acc, x ->
             Int.wrapping_add(Int.wrapping_mul(acc, 31), Hashable.hash(x))
@@ -361,7 +346,7 @@ impl Comparable for List<T> where T: Comparable
 end
 
 /// A List with at least one element, so its first, last, largest and
-/// smallest elements are values rather than `Maybe`s. A literal is checked
+/// smallest elements are plain values, not `Maybe`s. A literal is checked
 /// when the program is compiled, so `[]` where a NonEmptyList is expected is
 /// an error before the program runs; `NonEmptyList.try_from(xs)` checks a
 /// List computed at run time, and `NonEmptyList.of(first, rest)` builds one

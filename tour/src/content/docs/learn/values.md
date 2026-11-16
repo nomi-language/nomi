@@ -32,14 +32,14 @@ full, like `"Hello"`, makes itself, so it shows up on both sides.
 
 The lines around them hold the program together:
 
-- `fn` starts a **function**, a named piece of code. You will write your
-  own in the lesson on functions.
+- `fn` starts a **function**, a named piece of code. The lesson on
+  functions is about them.
 - `main` is the function every program starts with. Nomi runs the lines
   inside `main`, top to bottom.
 - `end` closes it. Everything between `fn main()` and `end` is the
   program.
 
-Until the lesson on functions, each task gives you a function that is almost finished.
+Each task gives you a function that is almost finished.
 
 ## Your turn
 

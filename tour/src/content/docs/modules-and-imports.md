@@ -98,8 +98,8 @@ split differently.
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- A `once` whose initializer ends up reading its own value traps when the
-  program runs, whichever files the cycle passes through.
+- A `once` whose initializer ends up reading its own value is a compile
+  error that names the chain, whichever files the cycle passes through.
 - A `fn` nested in a body is the exception to "any order": it is visible
   only below its declaration, so nested functions can't call each other in
   a cycle.
@@ -437,9 +437,8 @@ Spec: [Re-exporting imported names](/spec/files-modules-and-imports/#re-exportin
 
 ## Nomi modules
 
-A directory with a `nomi.toml` is a Nomi module, and the files under it import
-each other. The `nomi.toml` alone makes a module. The standard library is one
-module, with a `nomi.toml` and no `go.mod`.
+A `nomi.toml` alone makes a module. The standard library is one module, with
+a `nomi.toml` and no `go.mod`.
 
 A module that uses other modules, or that you publish for others to use, also
 has a `go.mod` file. Nomi publishes and downloads modules the same way Go

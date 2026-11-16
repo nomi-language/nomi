@@ -104,7 +104,8 @@ derive Equatable for Entry
 /// What `fs.metadata` returns about a path.
 pub struct Metadata
     kind: Kind
-    /// The size in bytes; 0 for a directory.
+    /// The size in bytes. A directory's is what its file system reports:
+    /// 0 in memory, and often not 0 on a disk.
     size: Int
     /// When the contents last changed.
     modified: Instant
@@ -205,8 +206,8 @@ pub fn write_text(
     host.write(path, String.to_bytes(text), mode_code(mode))
 end
 
-/// Each line of the file at `path`, without its `\n` and a `\r` before it,
-/// a last line with no newline included, as `Reader.lines` reads them.
+/// Each line of the file at `path`, as `Reader.lines` reads them: without
+/// its `\n` and a `\r` before it, and with a last line that has no newline.
 /// Each run of the iterator opens the file, reads it and closes it, so it
 /// can run more than once, and a consumer that stops early closes the file
 /// when it stops. A failure (the file is missing, a line is not UTF-8) is
@@ -319,8 +320,10 @@ end
 /// Defer `Writer.discard` on the next line, and end the success path with
 /// `Writer.close(w)?`, which commits the write and reports a failed close.
 /// When the function leaves any other way, an `Err` or a trap, the deferred
-/// discard throws the output away: with `ReplaceAtomically` the old file is
-/// left as it was. A discard after the close does nothing.
+/// discard gives the writer up. With `ReplaceAtomically` it drops the
+/// temporary file, and the old file is left as it was. With any other mode
+/// it closes the file, which keeps what was written to it. A discard after
+/// the close does nothing.
 ///
 /// ```nomi
 /// fn save(path: String, rows: List<String>) -> Result<Unit, io.Error>
@@ -473,18 +476,18 @@ end
 
 /// Runs `body` with every std::fs call in it, and in the tasks it starts,
 /// confined to the directory `dir`. Inside, a relative path is under
-/// `dir`, an absolute path must be under it, `fs.current_dir()` returns it,
-/// and a path that leads outside it, by `..` or through a symlink, is
-/// `InvalidPath` instead of reaching what is there, with the reason `the
-/// path leads outside the directory fs.within confines calls to`. An
-/// absolute symlink is refused for the same reason, wherever it points. On
-/// the operating system's file system each name is resolved under the
-/// directory as it is opened, so a symlink changed during the call cannot
-/// lead out either. `fs.current_dir()` returns `dir` made absolute.
-/// `fs.make_temp_dir` is `Unsupported {operation: "fs.make_temp_dir",
-/// target: "fs.within"}`, since its directory is elsewhere. A `within`
-/// inside another confines the call further. A `dir` that is not a
-/// directory is `NotFound` or `NotADirectory`.
+/// `dir`, an absolute path must be under it, and `fs.current_dir()`
+/// returns `dir` made absolute. A path that leads outside it, by `..` or
+/// through a symlink, is `InvalidPath` instead of reaching what is there,
+/// with the reason `the path leads outside the directory fs.within
+/// confines calls to`. An absolute symlink is refused for the same reason,
+/// wherever it points. On the operating system's file system each name is
+/// resolved under the directory as it is opened, so a symlink changed
+/// during the call cannot lead out either. `fs.make_temp_dir` is
+/// `Unsupported{operation: "fs.make_temp_dir", target: "fs.within"}`,
+/// since its directory is elsewhere. A `within` inside another confines
+/// the call further. A `dir` that is missing is `NotFound`, and one that
+/// is not a directory is an error too (`NotADirectory` in memory).
 ///
 /// It is how a program handles paths it was given (an archive's entries, a
 /// request's file name) without reaching files it did not mean to. On the
@@ -780,8 +783,10 @@ fn walk_matches(w: Walk, base: String, pattern: String) -> Result<List<String>, 
 end
 
 /// Makes the directory `path`. Its parent must exist unless `parents` is
-/// `True`, which makes every missing directory above it too and is content
-/// when the directory is already there.
+/// `True`, which makes every missing directory above it too and succeeds
+/// when the directory is already there. Without `parents` an existing
+/// directory is `AlreadyExists`, and a file at `path` is `AlreadyExists`
+/// either way.
 ///
 /// ```nomi
 /// fs.create_dir("out/2026", parents: True)?

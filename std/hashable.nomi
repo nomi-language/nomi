@@ -4,10 +4,8 @@ import int.Int
 ///
 /// `Hashable.hash(value)` returns an Int such that
 /// `Equatable.equal(a, b)` implies `Hashable.hash(a) == Hashable.hash(b)`.
-/// Used by hash-based collections (`Map` and friends) to bucket values by
-/// structural identity. The hash is **not** cryptographic and may change
-/// between runs of the runtime; it is suitable only for in-process
-/// bucketing.
+/// `Map` and `Set` find a key by it. The hash is not cryptographic and may
+/// change between runs of a program, so use it only inside one run.
 ///
 /// The primitive types `Int`, `Float`, `Bool` and `String` implement
 /// `Hashable`, and so does `Unit`, whose one value always hashes the same.

@@ -4,7 +4,7 @@ description: "Declare an interface, implement it for your types, and call its fu
 ---
 
 Nomi has no `value.method()` calls. A function about a type is called through
-the type's name, as in `User.rename(user)` or
+the type's name, as in `User.full_name(user)` or
 [`List.concat(xs, ys)`](/reference/lists/#listconcat). A function that
 belongs to no type is called through its file's name, as in
 [`io.print(value)`](/reference/io/#ioprint).
@@ -13,10 +13,6 @@ The [Structs, Enums, Distinct Types](/structs-enums-distinct/#type-owned-functio
 chapter showed `impl Type` blocks, which add functions to a type. This
 chapter covers interfaces. An `interface` lists functions that a type must
 provide. A type provides them in an `impl Interface for Type` block.
-
-You call these functions through the type's name, as in `User.to_json(user)`,
-or through the interface's name, as in
-[`Display.to_string(value)`](/reference/display/#displayto_string).
 
 ## Defining and implementing an interface
 
@@ -503,35 +499,22 @@ scores, and adding a number of days to a day:
 
 ```nomi-run
 type Score Int
-
-fn score_number(score: Score) -> Int
-    Score(n) = score
-    n
-end
-
 type Day Int
-
-fn day_number(day: Day) -> Int
-    Day(n) = day
-    n
-end
-
 type Days Int
-
-fn days_number(days: Days) -> Int
-    Days(n) = days
-    n
-end
 
 impl Add<Score, Score> for Score
     fn add(lhs: Score, rhs: Score) -> Score
-        Score(score_number(lhs) + score_number(rhs))
+        Score(a) = lhs
+        Score(b) = rhs
+        Score(a + b)
     end
 end
 
 impl Add<Days, Day> for Day
     fn add(lhs: Day, rhs: Days) -> Day
-        Day(day_number(lhs) + days_number(rhs))
+        Day(day) = lhs
+        Days(count) = rhs
+        Day(day + count)
     end
 end
 
@@ -540,18 +523,15 @@ fn plus<L, R, Out>(lhs: L, rhs: R) -> Out where L: Add<R, Out>
 end
 
 fn main()
-    score = Score(2) + Score(3)
-    day = Day(10) + Days(4)
-
-    dbg score_number(score)
-    dbg day_number(day)
+    dbg Score(2) + Score(3)
+    dbg Day(10) + Days(4)
     dbg plus(Day(10), Days(4))
 end
 ```
 <!-- expect
-dbg line 42: score_number(score) = 5
-dbg line 43: day_number(day) = 14
-dbg line 44: plus(Day(10), Days(4)) = Day(14)
+dbg line 26: Score(2) + Score(3) = Score(5)
+dbg line 27: Day(10) + Days(4) = Day(14)
+dbg line 28: plus(Day(10), Days(4)) = Day(14)
 -->
 
 A generic function can use an operator through its interface, as `plus` does.
@@ -584,7 +564,9 @@ writes works field by field, or variant by variant. You can derive:
 
 - `Display` and `Debug`, to turn values into text.
 - `Equatable` and `Hashable`, for `==` and for use as `Map` keys and `Set`
-  elements.
+  elements. Your types already have both
+  ([Structural equality](#structural-equality)), so these derives are rarely
+  needed.
 - `Comparable`, for `<`, `>` and `Iter.sort`.
 - `ToJson` and `FromJson`, to convert to and from JSON.
 - `Variants`, to list every variant of an enum whose variants carry no data.
@@ -686,7 +668,8 @@ dbg line 10: sorted = [User{name: "Ann", age: 41}, User{name: "Cara", age: 35}]
 -->
 
 A tuple key sorts by several fields, and
-[`Reverse.of`](/reference/reverse/) around a key puts the largest first:
+[`Reverse.of`](/reference/reverse/), from `std::reverse`, around a key puts
+the largest first:
 `Iter.sort_by(users, fn u -> (Reverse.of(u.age), u.name))`.
 [`Iter.sort_with`](/reference/iter/#itersort_with) takes a function that
 compares two values. So when the compiler says a type has no `Comparable`

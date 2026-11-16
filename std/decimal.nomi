@@ -25,11 +25,12 @@ import
     summable.Summable
 end
 
-//# Operations on the arbitrary-precision, exact base-10 `Decimal` type:
-//# conversions to/from `Int`/`Float`/`String`, explicit-rounding division and
-//# quantization (every rounding op names a `RoundingMode`), sign/scale/abs
-//# helpers, and the value-based (scale-insensitive) arithmetic/`Equatable`/`Comparable`/
-//# `Hashable` impls. `+ - *` and `Decimal.pow` are exact. `/` rounds a
+//# Operations on `Decimal`, the exact base-10 number of any size:
+//# conversions to and from `Int`, `Float` and `String`, division and
+//# rounding to a scale under a `RoundingMode`, sign, scale and absolute
+//# value, and arithmetic, `Equatable`, `Comparable` and `Hashable` impls
+//# that go by value, whatever the scale. `+ - *` and `Decimal.pow` are
+//# exact. `/` rounds a
 //# quotient that does not end to 34 significant digits, half-even, and keeps
 //# one that ends exact, with no trailing zeros (`10.00d / 4d` is `2.5d`).
 //# `Decimal.divide` rounds to a scale and mode you name, `Decimal.divide_exact`
@@ -44,12 +45,12 @@ end
 //# for [formatting](/reference/int/#formatting-numbers-for-a-reader) and
 //# [parsing](/reference/int/#parsing-numbers-a-reader-wrote) numbers.
 
-/// Arbitrary-precision exact base-10 number. The third blessed numeric type
-/// alongside `Int` and `Float`: `+ - *` are always exact, `/` rounds to 34
-/// significant digits, and there is no implicit conversion to/from `Int` or
-/// `Float`. Literals carry
-/// a `d` suffix (`1.50d`); scale is significant for display (`1.50d` prints
-/// "1.50") but equality is scale-insensitive (`1.50d == 1.5d`).
+/// An exact base-10 number of any size, the third numeric type beside
+/// `Int` and `Float`: `+ - *` are always exact, `/` rounds to 34
+/// significant digits, and nothing converts it to or from an `Int` or a
+/// `Float` implicitly. A literal carries a `d` suffix (`1.50d`). The scale
+/// shows when it prints (`1.50d` prints `1.50`), and equality ignores it
+/// (`1.50d == 1.5d`).
 pub host type Decimal
 
 impl Decimal
@@ -62,10 +63,9 @@ impl Decimal
     //
     pub host fn to_int(d: Decimal) -> Int
 
-    /// Converts a Decimal to a Float. Total and lossy-by-nature (Float is binary64,
-    /// so most base-10 fractions are not exactly representable). Magnitudes beyond
-    /// Float's range become ±Infinity. Explicit by design — there is no implicit
-    /// Decimal→Float coercion.
+    /// Converts a Decimal to a Float. A Float is binary, so most base-10
+    /// fractions are not exactly one, and a magnitude past Float's range
+    /// becomes ±Infinity. No Decimal becomes a Float implicitly.
     //! assert Decimal.to_float(1.50d) == 1.5
     //
     pub host fn to_float(d: Decimal) -> Float
@@ -76,7 +76,7 @@ impl Decimal
     /// keeps 34 significant digits instead, and `divide_exact` never rounds.
     /// `b` is a `NonZeroDecimal`, so `Decimal.divide(a, 0d, 2, mode)` is a
     /// compile error and a computed `b` goes through `NonZeroDecimal.try_from`.
-    /// Runtime error for a `scale` past Decimal's, -2147483648 to 2147483647.
+    /// A `scale` past Decimal's, -2147483648 to 2147483647, traps.
     //! assert Decimal.divide(10d, 3d, 2, RoundingMode.HalfEven) == 3.33d
     //! assert Decimal.divide(10.00d, 4d, 2, RoundingMode.Down) == 2.50d
     //
@@ -94,11 +94,11 @@ impl Decimal
     //
     pub host fn divide_exact(a: Decimal, b: NonZeroDecimal) -> Maybe<Decimal>
 
-    /// Quantizes `d` to exactly `scale` fractional digits using `mode`. Increasing
-    /// the scale pads trailing zeros (always exact); decreasing it rounds. A
-    /// negative scale rounds to tens/hundreds/… `round_exact` is the form that
-    /// refuses to round. A `scale` past Decimal's, -2147483648 to 2147483647,
-    /// is a runtime error.
+    /// Rounds `d` to exactly `scale` fractional digits using `mode`. Increasing
+    /// the scale pads trailing zeros, which is always exact; decreasing it
+    /// rounds. A negative scale rounds to tens, hundreds and so on.
+    /// `round_exact` is the form that refuses to round. A `scale` past
+    /// Decimal's, -2147483648 to 2147483647, traps.
     //! assert Decimal.round(3.14159d, 2, RoundingMode.HalfEven) == 3.14d
     //! assert Decimal.round(2.5d, 0, RoundingMode.HalfEven) == 2d
     //! assert Decimal.round(1d, 2, RoundingMode.Up) == 1.00d
@@ -121,7 +121,7 @@ impl Decimal
     /// included. `exp` is a `NonNegativeInt`: a negative power is a
     /// quotient that may not end, so write `1d / Decimal.pow(d, n)`, or
     /// `Decimal.divide` to name the rounding. A result whose scale is past
-    /// Decimal's (about two billion digits) traps too.
+    /// Decimal's (about two billion digits) traps.
     //! assert Decimal.pow(1.5d, 2) == 2.25d
     //! assert Decimal.to_string(Decimal.pow(1.50d, 2)) == "2.2500"
     //! assert Decimal.pow(2d, 64) == 18446744073709551616d
@@ -152,19 +152,17 @@ impl Decimal
     //
     pub host fn sqrt_exact(d: NonNegativeDecimal, scale: Int) -> Maybe<NonNegativeDecimal>
 
-    /// Strips trailing fractional zeros, returning the value at its minimal scale.
-    /// Integer magnitude is never reduced (`100d` stays `100d`, scale 0). Zero
-    /// normalizes to scale 0. Equality/hashing already treat scale-equal values as
-    /// equal; `normalize` is for when you want the minimal-scale
-    /// representation for display.
+    /// Strips trailing fractional zeros, returning the value at its smallest
+    /// scale. Whole-number digits stay (`100d` stays `100d`, scale 0), and
+    /// zero goes to scale 0. Equality and hashing already ignore the scale;
+    /// `normalize` is for showing a value without its trailing zeros.
     //! assert Decimal.normalize(1.50d) == 1.5d
     //! assert Decimal.normalize(100.00d) == 100d
     //
     pub host fn normalize(d: Decimal) -> Decimal
 
-    /// Returns the scale (number of fractional digits) of `d`. Scale is
-    /// display-significant — `1.50d` has scale 2, `1.5d` has scale 1 — even though
-    /// the two are `==`-equal.
+    /// Returns the scale of `d`, its number of fractional digits. `1.50d`
+    /// has scale 2 and `1.5d` scale 1, though the two are equal under `==`.
     //! assert Decimal.scale(1.50d) == 2
     //! assert Decimal.scale(5d) == 0
     //
@@ -461,9 +459,8 @@ host fn decimal_parse_percent_in(
 ) -> Result<String, NumberParseError>
 
 impl Display for Decimal
-    /// Returns the canonical scale-preserving string form of `d`, matching the
-    /// runtime stringifier used by `io.print` and string interpolation. Trailing
-    /// zeros are kept (`1.50d` → `"1.50"`).
+    /// Returns `d` in digits at its scale, the text `io.print` and string
+    /// interpolation write. Trailing zeros are kept (`1.50d` is `"1.50"`).
     //! assert Decimal.to_string(1.50d) == "1.50"
     //! assert Decimal.to_string(100d) == "100"
     //
@@ -563,8 +560,7 @@ impl Comparable for Decimal
 end
 
 impl Steppable for Decimal
-    /// Returns `value + by`. Decimal stepping is exact because Decimal is
-    /// arbitrary-precision base-10.
+    /// Returns `value + by`, exactly, as Decimal's `+` adds.
     //! assert Decimal.step_by(1.0d, 0.1d) == Some(1.1d)
     //
     fn step_by(value: Decimal, by: Decimal) -> Maybe<Decimal>
@@ -617,16 +613,17 @@ pub subtype Ratios List<Int> when fn ratios ->
     Iter.all_match(ratios, fn r -> r >= 0) and Iter.any_match(ratios, fn r -> r > 0)
 end
 
-/// Rounding policy for decimal division and quantization. There is no default:
-/// every rounding operation names its mode explicitly.
+/// How a Decimal operation rounds. `Decimal.divide`, `Decimal.round` and
+/// `Decimal.sqrt` take one with no default. `Decimal.format` and
+/// `Float.round` default to `HalfEven`, which Decimal's `/` always uses.
 ///
-/// - `Up` — away from zero
-/// - `Down` — toward zero (truncate)
-/// - `Ceiling` — toward +∞
-/// - `Floor` — toward −∞
-/// - `HalfUp` — nearest; ties away from zero
-/// - `HalfDown` — nearest; ties toward zero
-/// - `HalfEven` — nearest; ties to even (banker's rounding)
+/// - `Up`: away from zero
+/// - `Down`: toward zero (truncate)
+/// - `Ceiling`: toward +∞
+/// - `Floor`: toward −∞
+/// - `HalfUp`: nearest; ties away from zero
+/// - `HalfDown`: nearest; ties toward zero
+/// - `HalfEven`: nearest; ties to even (banker's rounding)
 ///
 /// No mode asserts that nothing rounds: `Decimal.round_exact`,
 /// `Decimal.divide_exact` and `Decimal.sqrt_exact` return `None` when a

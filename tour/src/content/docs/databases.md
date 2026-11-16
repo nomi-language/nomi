@@ -265,9 +265,10 @@ so a failure there undoes only the inner part.
 
 One `Conn` can serve a whole program: a server keeps it in an app field and
 every request uses it. While one task has a transaction open, a statement
-another task sends through the shared `Conn` waits for the transaction to
-end, then runs outside it. Inside the transaction, use `tx`, never the
-shared `Conn`: a statement there would wait for its own transaction.
+another task sends through the shared `Conn` runs outside it: on another
+connection of a Postgres pool, or after the transaction ends on SQLite's
+single connection. Inside the transaction, use `tx`, never the shared
+`Conn`: a statement there may wait for its own transaction.
 
 <div class="tour-details">
 <p class="tour-details-label">Testing direct SQL</p>
@@ -820,7 +821,7 @@ covers what the chapter leaves out:
 - other layouts and several databases in `nomi.toml`.
 
 [`lib/sql/examples/shop`](https://github.com/nomi-language/nomi/tree/main/lib/sql/examples/shop)
-is a larger shop with more queries, transactions over queries and eleven
+is a larger shop with more queries, transactions over queries and more
 tests.
 
 </div>

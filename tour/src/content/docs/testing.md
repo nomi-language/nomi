@@ -7,8 +7,8 @@ A test is ordinary Nomi code. A `test` declaration gives a name and a block to
 run. You can put tests next to the code they check, or in a file whose name
 ends in `_test.nomi`. `shapes_test.nomi` beside `shapes.nomi` can use that
 file's private declarations, so nothing needs `pub` just to be tested.
-It can also `derive` an interface for that file's types, such as
-`derive Equatable for Shape`, which exists only while the tests run.
+It can also [`derive`](/interfaces-and-dispatch/#deriving-impls) an interface
+for that file's types, and the derive exists only while the tests run.
 
 `nomi test` runs them. Anything a test prints, `dbg` included, appears under
 its `ok` or `FAIL` line. `nomi test --watch` runs the tests again each time
@@ -39,10 +39,7 @@ pattern, as the second line of each test below does.
 
 ```nomi-run
 fn parse_id(text: String) -> Result<Int, String>
-    case String.to_int(text)
-        Some(id) -> Ok(id)
-        None     -> Err("expected a numeric id")
-    end
+    String.to_int(text) |> Maybe.to_result("expected a numeric id")
 end
 
 test "assert checks successful results"
@@ -100,6 +97,20 @@ When a `Result` or `Maybe` is only setup for the rest of the test, put `?`
 after the call. If it is `Err` or `None`, the test fails there. Use a pattern
 assertion instead when the result is the thing you are testing.
 
+```nomi-run
+import std::calendar.Date
+
+test "formats parsed date"
+    d = Date.parse("2026-05-04")?
+
+    assert Date.to_string(d) == "2026-05-04"
+end
+```
+<!-- expect
+ok formats parsed date
+test result: ok. 1 passed, 0 failed
+-->
+
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
@@ -118,20 +129,6 @@ Spec: [Assertions](/spec/tests/#assertions),
 [Failure reports](/spec/tests/#failure-reports).
 
 </div>
-
-```nomi-run
-import std::calendar.Date
-
-test "formats parsed date"
-    d = Date.parse("2026-05-04")?
-
-    assert Date.to_string(d) == "2026-05-04"
-end
-```
-<!-- expect
-ok formats parsed date
-test result: ok. 1 passed, 0 failed
--->
 
 ## Attached tests
 

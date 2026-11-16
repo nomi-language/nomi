@@ -21,10 +21,16 @@ import
     summable.Summable
 end
 
-//# String operations including text-specific ops (`split`, `replace`, `join`,
-//# `reverse`, ...) and the grapheme-cluster iterator used to drive lazy `iter`
-//# pipelines over a `String`. Transform graphemes with `Iter.map(s, f) |>
-//# String.join()`; join any `Iter<String>` back into one string with `String.join`.
+//# Text. A `String` is immutable UTF-8 text, and this module holds the
+//# functions that work on one: `length`, `trim`, `uppercase`, `split`,
+//# `join`, `replace`, `contains` and the rest.
+//#
+//# A string's characters are grapheme clusters: what a reader sees as one
+//# character, however many code points or bytes encode it. `String.length`,
+//# `String.slice`, `String.take`, `String.reverse` and iteration all count
+//# that way, so `String.length("héllo")` is 5 and an emoji with a skin tone
+//# counts as 1.
+//#
 //# The search functions (`starts_with`, `ends_with`, `replace`, `split`,
 //# `find`, `find_all`) take any `Matcher`: a `String`, a `Regex` or a
 //# `Codepoint`. `contains` takes the same three as String's `Contains` impls.
@@ -66,9 +72,10 @@ end
 //# `Iter.filter(s, p) |> String.join()`. `String.join` takes any
 //# `Iter<String>` (a List, Set or Vector, graphemes, or a lazy chain) and a
 //# separator that defaults to `""`. `String.reverse` and `String.length`
-//# stay container-specific: native, by grapheme cluster.
+//# are String's own functions and work by grapheme cluster too.
 
-/// UTF-8 encoded string.
+/// Text, stored as UTF-8. A string is immutable: every function here
+/// returns a new string.
 pub host type String
 
 // String's membership test is `Contains` at three type arguments: a `String`
@@ -108,8 +115,8 @@ impl Contains<Codepoint> for String
 end
 
 impl String
-    /// True if `prefix` matches at the start of `s`. `prefix` is a `String` or
-    /// a `Regex`.
+    /// True if `prefix` matches at the start of `s`. `prefix` is a `String`, a
+    /// `Regex` or a `Codepoint`. Every string starts with `""`.
     //! import std::regex.Regex
     //!
     //! assert String.starts_with("hello", "he")
@@ -120,8 +127,8 @@ impl String
         M.is_prefix_of(prefix, s)
     end
 
-    /// True if `suffix` matches at the end of `s`. `suffix` is a `String` or a
-    /// `Regex`.
+    /// True if `suffix` matches at the end of `s`. `suffix` is a `String`, a
+    /// `Regex` or a `Codepoint`.
     //! import std::regex.Regex
     //!
     //! assert String.ends_with("hello.txt", ".txt")
@@ -131,12 +138,17 @@ impl String
         M.is_suffix_of(suffix, s)
     end
 
-    /// Upper-cases `s` (Unicode-aware, locale-independent).
+    /// `s` in upper case. It maps each letter by Unicode's rules, the same in
+    /// every language, and keeps the number of letters: `ß` stays `ß`.
+    /// `String.uppercase_in` applies a language's rules.
+    //! assert String.uppercase("hello") == "HELLO"
     //! assert String.uppercase("café") == "CAFÉ"
     //
     pub host fn uppercase(s: String) -> String
 
-    /// Lower-cases `s` (Unicode-aware, locale-independent).
+    /// `s` in lower case. It maps each letter by Unicode's rules, the same in
+    /// every language. `String.lowercase_in` applies a language's rules.
+    //! assert String.lowercase("Hello") == "hello"
     //! assert String.lowercase("CAFÉ") == "café"
     //
     pub host fn lowercase(s: String) -> String
@@ -290,27 +302,40 @@ impl String
 
     /// Concatenates `count` copies of `s`. The count is a `NonNegativeInt`:
     /// a literal is checked when the program is compiled, and a computed
-    /// count goes through `NonNegativeInt.try_from`.
+    /// count goes through `NonNegativeInt.try_from`. A result of more than
+    /// 2 GiB stops the program with a message naming the count.
     //! assert String.repeat("ab", 3) == "ababab"
     //! assert String.repeat("ab", 0) == ""
     //
     pub host fn repeat(s: String, count: NonNegativeInt) -> String
 
-    /// Reverses `s` by grapheme cluster, so multi-code-point clusters (combining
-    /// marks, ZWJ emoji) stay intact.
+    /// `s` with its characters in the opposite order. It reverses by grapheme
+    /// cluster, so a letter keeps its combining marks and an emoji made of
+    /// several code points stays whole.
     //! assert String.reverse("abc") == "cba"
+    //! assert String.reverse("👋🏽!") == "!👋🏽"
     //
     pub host fn reverse(s: String) -> String
 
-    /// Returns `s` in the given Unicode normalization form.
-    //! assert String.normalize("é", NormalForm.NFC) == "é"
-    //! assert String.normalize("é", NormalForm.NFD) == "é"
+    /// Returns `s` in the given Unicode normalization form. Two strings that
+    /// look the same and differ in form are not `==` until both are
+    /// normalized to one form.
+    //! composed = "é"
+    //! decomposed = "é"
+    //! refute composed == decomposed
+    //! assert String.normalize(decomposed, NormalForm.NFC) == composed
+    //! assert String.normalize(composed, NormalForm.NFD) == decomposed
     //
     pub host fn normalize(s: String, form: NormalForm) -> String
 
-    /// Returns a substring from start index to end index (grapheme-based,
-    /// start inclusive, end exclusive).
+    /// The part of `s` from index `start` up to, and not including, index
+    /// `stop`. Indexes count grapheme clusters from 0, the units
+    /// `String.length` counts. A `start` below zero is 0, a `stop` past the
+    /// end is the end, and a `stop` at or before `start` gives "".
     //! assert String.slice("hello", 1, 4) == "ell"
+    //! assert String.slice("hello", 3, 99) == "lo"
+    //! assert String.slice("hello", -2, 3) == "hel"
+    //! assert String.slice("hello", 4, 2) == ""
     //
     pub host fn slice(s: String, start: Int, stop: Int) -> String
 
@@ -451,16 +476,19 @@ impl String
         join_list_raw(locale, items, style_tag, width_tag)
     end
 
-    /// Splits a string into a list of substrings on every non-overlapping
-    /// match of `separator`, a `String` or a `Regex`. The separator itself is
-    /// consumed and never appears in the output. Adjacent matches produce
-    /// empty-string entries. An empty string `separator` splits at every UTF-8
-    /// codepoint boundary (one entry per codepoint). Inverse of `String.join`.
+    /// Splits `s` into the list of pieces between the matches of
+    /// `separator`, a `String`, a `Regex` or a `Codepoint`. The separators
+    /// are not in the result. Two matches side by side, or one at either
+    /// end, leave an empty string between them, and a string with no match
+    /// comes back as the one piece, so `String.split("", ",")` is `[""]`.
+    /// An empty `separator` splits `s` into its code points.
+    /// `String.join` with the same separator puts the pieces back together.
     //! import std::regex.Regex
     //!
     //! assert String.split("a,b,c", ",") == ["a", "b", "c"]
     //! assert String.split("a, b, c", ", ") == ["a", "b", "c"]
     //! assert String.split(",a,", ",") == ["", "a", ""]
+    //! assert String.split("abc", "-") == ["abc"]
     //! assert String.split("hello", "") == ["h", "e", "l", "l", "o"]
     //! assert String.split("a, b,c", Regex`,\s*`) == ["a", "b", "c"]
     //! assert "one  two\tthree" |> String.split(Regex`\s+`) == ["one", "two", "three"]
@@ -567,22 +595,25 @@ impl String
     //
     pub host fn lines(s: String) -> List<String>
 
-    /// Returns `s` with leading and trailing whitespace removed (spaces,
-    /// tabs, newlines, carriage returns — Go's `strings.TrimSpace` rules).
-    /// Inner whitespace is preserved.
+    /// `s` without the whitespace at its start and end. Whitespace is
+    /// Unicode's: spaces, tabs, newlines, carriage returns, and others such
+    /// as U+00A0 NO-BREAK SPACE. Whitespace inside the text stays.
     //! assert String.trim("  hello  ") == "hello"
     //! assert String.trim("\n\tworld\n") == "world"
     //! assert String.trim("a  b") == "a  b"
     //
     pub host fn trim(s: String) -> String
 
-    /// Parses `s` as a base-10 signed integer. Returns Some(n) on success,
-    /// None on any failure (non-digit characters, empty string, out-of-range
-    /// value). Leading/trailing whitespace is tolerated.
+    /// Parses `s` as a base-10 integer: digits with an optional `+` or `-`
+    /// in front, and whitespace allowed around them. Returns `Some(n)`, or
+    /// `None` for anything else: empty text, a letter, a `.`, a `_`
+    /// separator. An Int has no largest value, so no number of digits is too
+    /// many.
     //! assert String.to_int("42") == Some(42)
     //! assert String.to_int("-7") == Some(-7)
     //! assert String.to_int("  3  ") == Some(3)
     //! assert String.to_int("abc") == None
+    //! assert String.to_int("4.0") == None
     //! assert String.to_int("") == None
     //
     pub host fn to_int(s: String) -> Maybe<Int>
@@ -607,15 +638,17 @@ impl String
     /// Parses `s` as a plain base-10 Decimal. It accepts an optional sign,
     /// `_` digit separators and one fractional part, and the number of
     /// digits after the `.` becomes the scale (`"1.50"` is scale 2).
-    /// Exponent notation is not accepted. Returns None for empty or
+    /// Exponent notation is not accepted, and neither is whitespace around
+    /// the number; `String.trim` it first. Returns None for empty or
     /// malformed input.
     //! assert String.to_decimal("1.50") == Some(1.50d)
     //! assert String.to_decimal("1_000") == Some(1000d)
+    //! assert String.to_decimal(" 1.50") == None
     //! assert String.to_decimal("oops") == None
     //
     pub host fn to_decimal(s: String) -> Maybe<Decimal>
 
-    /// Returns the raw bytes of the string (UTF-8 encoded).
+    /// The bytes of `s`'s UTF-8 encoding.
     //! assert String.to_bytes("ab")
     //! |> Bytes.to_list()
     //! |> Iter.map(Byte.to_int)
@@ -623,7 +656,8 @@ impl String
     //
     pub host fn to_bytes(s: String) -> Bytes
 
-    /// Returns the Unicode codepoints of the string as scalar values.
+    /// The Unicode code points of `s`, in order. A character a reader sees
+    /// as one can be several: "e" followed by U+0301 is two.
     //! assert "ab"
     //!     |> String.to_codepoints()
     //!     |> Iter.map(Codepoint.to_int)
@@ -720,8 +754,8 @@ impl String
         end
     end
 
-    /// Strips a prefix from the string. Returns Some(rest) if the prefix matches,
-    /// or None otherwise.
+    /// `s` without `prefix` at its start: `Some(rest)` when `s` starts with
+    /// `prefix`, and `None` when it does not.
     //! assert String.strip_prefix("hello world", "hello ") == Some("world")
     //! assert String.strip_prefix("hello", "xyz") == None
     //
@@ -735,8 +769,8 @@ impl String
         end
     end
 
-    /// Strips a suffix from the string. Returns Some(rest) if the suffix matches,
-    /// or None otherwise.
+    /// `s` without `suffix` at its end: `Some(rest)` when `s` ends with
+    /// `suffix`, and `None` when it does not.
     //! assert String.strip_suffix("hello.txt", ".txt") == Some("hello")
     //! assert String.strip_suffix("hello", "xyz") == None
     //
@@ -750,17 +784,23 @@ impl String
         end
     end
 
-    /// Number of grapheme clusters in the string. Scans the text without
-    /// materializing clusters. Grapheme-based, not byte-based:
-    /// `String.length("héllo")` is 5. (`String` keeps its own `length` because the
-    /// generic count, `Iter.count`, is the fold; this is the fast path.)
+    /// The number of characters in `s`, counted as grapheme clusters: what a
+    /// reader sees as one character. An accented letter is one, whether it
+    /// is stored as one code point or as a letter and a combining mark, and
+    /// so is an emoji built from several code points. It does not count
+    /// bytes or code points: `String.to_bytes` and `String.to_codepoints`
+    /// give those. `Iter.count(s)` gives the same number; this scans the text
+    /// without building each cluster.
+    //! assert String.length("hello") == 5
     //! assert String.length("héllo") == 5
+    //! assert String.length("é") == 1
+    //! assert String.length("👋🏽") == 1
+    //! assert List.length(String.to_codepoints("👋🏽")) == 2
     //! assert String.length("") == 0
     //
     pub host fn length(s: String) -> NonNegativeInt
 end
 
-/// What a list `String.join_list` writes means: CLDR's list pattern types.
 /// A String with at least one character: a name, a key, a label. A literal
 /// is checked when the program is compiled, so `""` where a NonEmptyString
 /// is expected is an error before the program runs;
@@ -773,6 +813,7 @@ end
 //
 pub subtype NonEmptyString String when fn s -> s != ""
 
+/// What a list `String.join_list` writes means: CLDR's list pattern types.
 pub enum ListStyle
     /// All of the items: "a, b, and c".
     And
@@ -956,8 +997,8 @@ impl Equatable for String
 end
 
 impl Hashable for String
-    /// FNV-1a 64-bit hash of the UTF-8 bytes, reinterpreted as an Int. Stable
-    /// within one runtime process; not cryptographic, not stable across runs.
+    /// The FNV-1a 64-bit hash of the UTF-8 bytes, as an Int. It is not
+    /// cryptographic.
     host fn hash(s: String) -> Int
 end
 
@@ -973,10 +1014,11 @@ impl Comparable for String
     end
 end
 
-/// Unicode normalization forms (UAX #15). Equality and hashing are byte-based,
-/// so two visually identical strings in different forms — a precomposed "é"
-/// (U+00E9) vs a decomposed "e" + U+0301 — are *not* `==`. Normalize to a
-/// common form first when comparing text from mixed sources.
+/// Unicode normalization forms (UAX #15). Equality and hashing compare
+/// bytes, so two strings that look the same in different forms are not `==`:
+/// a precomposed "é" (U+00E9) differs from a decomposed "e" followed by
+/// U+0301. Normalize both to one form before comparing text from mixed
+/// sources.
 pub enum NormalForm
     NFC
     NFD

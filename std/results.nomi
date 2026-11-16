@@ -8,20 +8,21 @@ import
     maybe.Maybe.{self, None, Some}
 end
 
-//# `Result<T, E>`: the outcome of something that can fail, `Ok(value)` or
-//# `Err(error)`. Its owner functions are called `Result.map(r, f)` and so
-//# on: test it with `is_ok` and `is_err`, transform the value with `map` and
-//# `flat_map` and the error with `map_err`, take the value out with
-//# `with_default`, and drop the error with `to_maybe`. `collect` and
-//# `partition` work over many results at once. `Infallible` is the error
-//# type of a `Result` that cannot fail.
+//# A `Result<T, E>` is the outcome of something that can fail: `Ok(value)`
+//# or `Err(error)`. `Result`, `Ok` and `Err` are in the prelude, so a
+//# program writes them without an import.
 //#
-//# A `Result` renders, in `Display` and in `Debug`, as its variant
-//# constructor, never unwrapped: `Ok(...)` or `Err(...)` holding the value
-//# rendered by the same interface.
+//# Test a `Result` with `is_ok` and `is_err`. Change the value with `map`
+//# and `flat_map`, and the error with `map_err`. Take the value out with
+//# `with_default`. Drop the error with `to_maybe`. `collect` and `partition`
+//# work over many results at once. `Infallible` is the error type of a
+//# `Result` that cannot fail.
+//#
+//# A `Result` renders, in `Display` and in `Debug`, as `Ok(...)` or
+//# `Err(...)` around the rendered value, never as the bare value.
 
-/// Uninhabited type — no values can be constructed. Useful as the error type
-/// of a `Result` that cannot fail.
+/// A type with no values. It is the error type of a `Result` that cannot
+/// fail.
 pub host type Infallible
 
 /// A value that is either a success (Ok) or a failure (Err).
@@ -73,7 +74,7 @@ impl Result<T, E>
         end
     end
 
-    /// Transforms the Ok value, passes Err through.
+    /// Applies `f` to the Ok value. An Err stays as it is.
     //! assert Result.map(Result.Ok(3), &(&1 * 2)) == Result.Ok(6)
     //! assert Result.map(Result.Err("bad"), &(&1 * 2)) == Result.Err("bad")
     //
@@ -95,7 +96,9 @@ impl Result<T, E>
         end
     end
 
-    /// Like map, but the function returns a Result. Flattens the result.
+    /// Applies `f`, which returns a Result itself, to the Ok value and
+    /// returns what `f` returns, not a Result of a Result. An Err stays as
+    /// it is.
     //! parse_int = fn s: String ->
     //!     if s == "1" then
     //!         Result.Ok(1)
@@ -114,7 +117,7 @@ impl Result<T, E>
         end
     end
 
-    /// Transforms the Err value, passes Ok through.
+    /// Applies `f` to the Err value. An Ok stays as it is.
     //! assert Result.map_err(Result.Err("bad"), &("error: " + &1)) == Result.Err("error: bad")
     //! assert Result.map_err(Result.Ok(3), &("error: " + &1)) == Result.Ok(3)
     //
@@ -154,7 +157,7 @@ impl Result<T, E>
     //!
     //! assert checked == Result.Ok([30, 10, 20])
     //!
-    //! // An infinite source ends: collect stops pulling at the first Err.
+    //! // On an endless source, collect stops reading at the first Err.
     //! stopped =
     //!     Range.naturals()
     //!     |> Iter.map(fn n -> if n < 3 then Result.Ok(n) else Result.Err(n))

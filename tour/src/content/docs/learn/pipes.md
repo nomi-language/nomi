@@ -5,8 +5,8 @@ description: "First Steps, lesson 9: passing a value through steps with |>, and 
 
 `|>` is a **pipe**: it passes the value on its left into the function on
 its right, as that function's first value. `scores |> Iter.sum()` means
-the same as `Iter.sum(scores)`, and `ages |> Map.get("Cy")` the same as
-`Map.get(ages, "Cy")`.
+the same as `Iter.sum(scores)`, and `3 |> rectangle_area(4)` the same as
+`rectangle_area(3, 4)`.
 
 Pipes let you write steps in the order they happen, one per line. A line
 that starts with `|>` carries on the line above it:

@@ -40,12 +40,13 @@ wanted, as in `advice(.Snowy)`, the dot and the kind's name are enough.
 
 `case` from the lesson on decisions can also take a value, written right
 after it: `case weather`. Then it chooses by that value's kind. Each line
-under it is an **arm**: a kind, `->`, and the value to give back for it. Nomi checks that the arms cover every kind,
-so if you add `Windy` to the enum, it tells you which `case` doesn't handle
-it yet.
+under it is an **arm**: a kind, `->`, and the value to give back for it.
+Nomi checks that the arms cover every kind, so if you add `Windy` to the
+enum, it tells you which `case` doesn't handle it yet.
 
 A Maybe has two kinds, `Some` and `None`, so `case` works on it too. In an
-arm, `Some(n)` matches a Some and names the value inside it `n`:
+arm, `Some(n)` matches a Some and names the value inside it `n`. The type
+`Maybe<String>` is a Maybe whose value, when there is one, is a String:
 
 ```nomi-run
 fn hello(name: Maybe<String>) -> String

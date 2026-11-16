@@ -8,6 +8,7 @@ To do something to every value in a list, you have the `Iter` functions:
 a starting value and a step, and you repeat the step until something is
 true, without knowing how many times that will take. That is
 `Iter.loop`:
+
 ```nomi-run
 fn first_double_above(limit: Int) -> Int
     Iter.loop(1, fn n ->

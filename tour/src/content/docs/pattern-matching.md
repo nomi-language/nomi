@@ -287,10 +287,9 @@ The `when` guard applies to the whole arm: if it is false, matching goes on to
 the next arm.
 
 `or` works inside other patterns too, as in `Some(.Circle(_) or .Square(_))`.
-A trailing `as` names the whole value
-whichever alternative matched. Together, the alternatives count toward
-covering every value, so `.Red or .Green` and `.Blue` cover a three-color enum
-without `_`.
+A trailing `as` names the whole value whichever alternative matched. Together,
+the alternatives count toward covering every value, so `.Red or .Green` and
+`.Blue` cover a three-color enum without `_`.
 
 ### Testing a match with `is`
 
@@ -514,8 +513,8 @@ and `Iter.flat_map` with a function that returns a `Maybe` keeps only the
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- `?` never converts an error. The error types must be the same type, or
-  the `?` is an error that suggests converting first:
+- `?` converts an error only through a `From` impl. With none, an `Err` of
+  another type is an error that suggests converting first:
   `status(text) |> Result.map_err(fn code -> "error ${code}")?`.
 - `?` binds as tightly as a call: `load()?.name` reads `name` from the
   loaded value.
@@ -524,6 +523,78 @@ and `Iter.flat_map` with a function that returns a `Maybe` keeps only the
 - In a test body, a failing `?` ends the test and reports the value.
 
 Spec: [Propagating with `?`](/spec/failure/#propagating-with-).
+
+</div>
+
+## Binding with `else`
+
+`?` passes a failure up. Sometimes you want to handle it right where it
+happens instead. Write the pattern you expect, then `else` and
+what to do when the value does not match:
+
+```nomi-run
+enum PortError
+    Missing
+    Invalid String
+end
+
+fn parse_port(text: Maybe<String>) -> Result<Int, PortError>
+    Some(raw) = text else return Err(.Missing)
+
+    Some(n) = String.to_int(raw) else return Err(.Invalid(raw))
+
+    Ok(n)
+end
+
+fn port(text: Maybe<String>) -> Result<Int, String>
+    Ok(n) = parse_port(text) else
+        Err(.Missing)      -> 8080
+        Err(.Invalid(raw)) -> return Err("bad port: ${raw}")
+    end
+
+    Ok(n)
+end
+
+fn main()
+    dbg port(Some("3000"))
+    dbg port(Some("eighty"))
+    dbg port(None)
+end
+```
+<!-- expect
+dbg line 24: port(Some("3000")) = Ok(3000)
+dbg line 25: port(Some("eighty")) = Err("bad port: eighty")
+dbg line 26: port(None) = Ok(8080)
+-->
+
+When the value matches, the names in the pattern can be used for the rest of
+the block. When it does not, the `else` part runs. On the `else`'s own line it
+is a value or a jump. On the lines below, closed by `end`, it is statements,
+or `case` arms over the value that did not match.
+
+`parse_port` writes it on the `else`'s line. Each one returns an error.
+
+`port` uses `case` arms over the error that came back. A missing port gives
+`8080`, which takes the place of the `Ok` value, so `n` is `8080`. An invalid
+port returns an error naming the bad text.
+
+Each path through the `else` must do one of two things. It can leave, with
+`return` (or `break` or `continue` inside a loop callback). Or it can give a
+value to use in place of the matched one, as `8080` does for `n`. That works
+only when the pattern binds a single value. `[first, ..rest] = xs else ...`
+binds two, so its `else` must leave.
+
+<div class="tour-details">
+<p class="tour-details-label">Fine print</p>
+
+- The pattern's names are not in scope inside the `else`.
+- A path that traps, with `unreachable "..."` or `todo`, counts as leaving.
+- A fallback stands in for one variant's payload. A nested pattern such as
+  `Ok(Some(x))` has no single payload, so its `else` must leave.
+- A pattern that always matches takes no `else`:
+  `(x, y) = pair else return` is `this pattern always matches; remove the else`.
+
+Spec: [Bindings with `else`](/spec/patterns/#bindings-with-else).
 
 </div>
 
@@ -563,9 +634,10 @@ stops with ``line 12: `half(3)` failed: 3 is odd``.
 Use `!` when a failure would be a bug in your own code: the arguments are
 constants, the key came from the map itself, or the input was checked
 already. When the failure can really happen, pass it up with `?` or handle it
-with `case` or `else`. `!` works on any expression that is a `Maybe` or a `Result`: a call,
-a pipe stage (`"8" |> String.to_int()!`), a field (`user.nickname!`) or a
-name.
+with `case` or `else`.
+
+`!` works on any expression that is a `Maybe` or a `Result`: a call, a pipe
+stage (`"8" |> String.to_int()!`), a field (`user.nickname!`) or a name.
 
 ## What can fail at run time
 
@@ -574,7 +646,8 @@ the program asks for it. It asks with a `!`, an
 [`unreachable`](/functions-and-lambdas/#code-that-cannot-be-reached) or a
 [`todo`](/functions-and-lambdas/#unwritten-code), or by awaiting a task that
 [failed](/concurrency/#when-a-task-fails). Beyond those, a program can run
-out of memory, make more than 100,000 nested calls, or never finish. A
+out of memory, make more than 100,000 nested calls, ask for a `Decimal` with
+more than about two billion digits after the point, or never finish. A
 pipeline that consumes the whole of an endless iterator stops with a message
 instead of hanging ([Iter](/collections/#iter)).
 
@@ -647,8 +720,8 @@ Other languages draw these lines in other places:
 | Integer overflow | None | Target decides | None on Erlang | Debug panic, release wraps | Wraps |
 | A failed task | Trap when awaited | Typed error | Linked processes crash | `Err` from `join` | Panic ends the program |
 
-- **Nomi** has no `xs[i]`: `List.get` returns a `Maybe`, and an `Int` has
-  no size limit. A task that returns an `Err` has not failed; that is its
+- **Nomi** has no `xs[i]`: `Vector.get` and `Iter.get` return a `Maybe`,
+  and an `Int` has no size limit. A task that returns an `Err` has not failed; that is its
   result. A task fails when its body traps. Every task is waited on, and
   how you wait decides: `Task.await` traps with the same fault, and
   `Task.outcome` returns the failure as a value.
@@ -669,78 +742,6 @@ Other languages draw these lines in other places:
 Write `!` where you know a fact the types cannot see, such as a key that came
 from the map itself. Each place a program can stop is then written in its
 source.
-
-## Binding with `else`
-
-`?` passes an error up unchanged. Sometimes you want to handle a failure
-right where it happens instead. Write the pattern you expect, then `else` and
-what to do when the value does not match:
-
-```nomi-run
-enum PortError
-    Missing
-    Invalid String
-end
-
-fn parse_port(text: Maybe<String>) -> Result<Int, PortError>
-    Some(raw) = text else return Err(.Missing)
-
-    Some(n) = String.to_int(raw) else return Err(.Invalid(raw))
-
-    Ok(n)
-end
-
-fn port(text: Maybe<String>) -> Result<Int, String>
-    Ok(n) = parse_port(text) else
-        Err(.Missing)      -> 8080
-        Err(.Invalid(raw)) -> return Err("bad port: ${raw}")
-    end
-
-    Ok(n)
-end
-
-fn main()
-    dbg port(Some("3000"))
-    dbg port(Some("eighty"))
-    dbg port(None)
-end
-```
-<!-- expect
-dbg line 24: port(Some("3000")) = Ok(3000)
-dbg line 25: port(Some("eighty")) = Err("bad port: eighty")
-dbg line 26: port(None) = Ok(8080)
--->
-
-When the value matches, the names in the pattern can be used for the rest of
-the block. When it does not, the `else` part runs. It is a value or a jump on
-the `else`'s line, or on the lines below, closed by `end`, statements or a set
-of `case` arms over the value that did not match.
-
-`parse_port` writes it on the `else`'s line. Each one returns an error.
-
-`port` uses `case` arms over the error that came back. A missing port gives
-`8080`, which takes the place of the `Ok` value, so `n` is `8080`. An invalid
-port returns an error naming the bad text.
-
-Each path through the `else` must do one of two things. It can leave, with
-`return` (or `break` or `continue` inside a loop callback). Or it can give a
-value to use in place of the matched one, as `8080` does for `n`. That works
-only when the pattern binds a single value. `[first, ..rest] = xs else ...`
-binds two, so its `else` must leave.
-
-<div class="tour-details">
-<p class="tour-details-label">Fine print</p>
-
-- The pattern's names are not in scope inside the `else`.
-- A path that traps, with `unreachable "..."` or `todo`, counts as leaving.
-- A fallback stands in for one variant's payload. A nested pattern such as
-  `Ok(Some(x))` has no single payload, so its `else` must leave.
-- A pattern that always matches takes no `else`:
-  `(x, y) = pair else return` is `this pattern always matches; remove the else`.
-
-Spec: [Bindings with `else`](/spec/patterns/#bindings-with-else).
-
-</div>
 
 ## See it in action
 

@@ -8,7 +8,8 @@ with pattern matching, `%{"a" => 1}` maps, `Map` and `Enum`-style functions
 called through their module, string interpolation, supervised tasks, and tests
 beside the code. What differs most: Nomi is statically typed, so every
 `case` must cover every shape, failures are `Result` and `Maybe` values rather
-than `{:error, _}` tuples, and there are no atoms or processes with mailboxes.
+than `{:error, _}` tuples, there are no atoms, and tasks talk over channels
+rather than through a mailbox each.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
@@ -25,7 +26,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{a, b}`, `elem(t, 0)` | `(a, b)`, `t.first` |
 | `%{name: "Ada"}` (atom keys) | `{name: "Ada"}`, an anonymous struct |
 | `cond do`, `if .. do` | `case` alone on its line for `cond`, and `if .. then` .. `else` .. `end` for `if`. Without `else`, Elixir's gives `nil` when the condition fails; Nomi's is a statement with no value, and its branch must be `Unit` or leave. Nothing stands in for `nil` there: Elixir's `if c, do: x` is `if c then Some(x) else None`. |
-| `7 / 2` is `3.5`; `div(7, 2)`, `rem(-7, 3)` | `/` on two `Int`s is `div`: `7 / 2` is `3`, truncated toward zero. `%` is `rem`: `-7 % 3` is `-1`. Convert an operand with `Int.to_float` for a `Float` result. |
+| `7 / 2` is `3.5`; `div(7, 2)`, `rem(-7, 3)` | `/` on two `Int`s is `div`: `7 / 2` is `3`, truncated toward zero. `%` is `rem`: `-7 % 3` is `-1`. Convert an operand with `Int.to_float` for a `Float` result. The divisor must be a `NonZeroInt`: a literal other than 0 is one, and so is `d` after `if d == 0 then return ..`. |
 | `spawn`, `send`, `receive` | `Task.spawn` in `concurrent` ... `end`, and channels |
 | `File.open(path, fn file -> .. end)` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
 
@@ -35,10 +36,13 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 |---|---|
 | `%User{name: "Ada"}`, `%{"a" => 1}` | `User{name: "Ada"}`, `{"a" => 1}`: no `%` |
 | `"#{x}"` | `"${x}"` |
+| `Decimal.new("1.50")` from the `decimal` package | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `when` guards | `when` guards, the same |
 | `defp` | A declaration without `pub` |
+| `defprotocol Speak`, `defimpl Speak, for: Dog` | `interface Speak`, `impl Speak for Dog` |
 | `alias MyApp.Db.Posts`, then `Posts.find(1)` | `import db::posts`, then `posts.find(1)`: a file is used by its path's last part. `import db` imports the directory, and `db::posts.find(1)` reaches the file through it. |
 | `Supervisor` | `Supervisor.new` in `boot` |
+| `GenServer`, with `call` and `cast` | `Actor.start`, `Actor.call` and `Actor.cast` from `std::actors`: one task that folds each message into its state |
 | The application callback, `start/2`, which starts the supervision tree; settings read with `Application.get_env` | `fn boot() -> Result<App, String>` builds an `App` struct, and starts any supervisors, before `main` runs. Any function reads a field as `App.repo`. A test replaces one with `with App.repo = ..`. See [App Fields](/app-fields/). |
 | `ExUnit` | `test "name"` ... `end` |
 | Phoenix's `get "/users/:id", UserController, :show`, with `%{"id" => id}` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |

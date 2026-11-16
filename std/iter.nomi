@@ -1,141 +1,59 @@
-//# Lazy iteration over any `Iter<T>`.
+//# Lazy iteration over any `Iter<T>`: a `List`, `Vector`, `Set`, `Map`,
+//# `String`, `Maybe`, `Bytes` or range, and any type with an `Iter` impl.
+//# Each function here is called as `Iter.map(xs, f)`, or as a stage of a
+//# pipe:
 //#
-//# The lazy **adapters** (`map`, `filter`, `take`, `flat_map`, ...) are
-//# type functions on `Iter` — `Iter.map(xs, f)` — not protocol
-//# requirements. Each returns `Iter<...>` backed by a private `Seq` — a source
-//# expressed as nothing but its own push loop — so chains stay lazy,
-//# consuming one element at a time through the whole pipeline without building
-//# intermediate lists. There are no eager, container-preserving adapter functions
-//# on the collections: to get a container back, append an explicit materialize
-//# step — `Iter.map(xs, f) |> Iter.to_list()`,
-//# `Iter.filter(s, p) |> Iter.to_set()`.
-//#
-//# The **terminals** are also type functions on `Iter` —
-//# `Iter.reduce(xs, f)` — over any `Iter<T>`. The `Iter` interface itself is
-//# just the `{ each_while:, known_count:, is_infinite: }` protocol. Terminals come in two kinds:
-//# - Streaming: `reduce`, `each`, `find`, `any_match`, `all_match`,
-//# `is_empty` produce a scalar; no concrete collection is ever built.
-//# - Materializing: `to_list`/`to_vector`/`to_set`/`sort`, plus `to_map`,
-//# consume the iterator and produce a concrete collection. `String.join`
-//# joins an `Iter<String>` into one string.
-//#
-//# A collection's own form of an op may diverge from the generic one
-//# (`String.reverse → String` rebuilds a `String`, not the generic
-//# `List`), so those collections keep a container-specific native function;
-//# the generic form (`Iter.reverse -> List`) stays an `Iter` type function.
-//#
-//# Infinite sequences: `Iter.from(0)` / `Iter.iterate(seed, step)` /
-//# `Iter.repeat(x)` / `Iter.cycle(xs)` and `Range.from(n)` produce iterators
-//# that don't terminate on their own, and say so: `Iter.is_infinite` is True for
-//# them and for every lazy adapter over one that cannot stop it (`map`,
-//# `filter`, `drop`, `with_index`, `zip` of two of them, `concat` with one).
-//# A terminal that has to reach the end (`to_list`, `count`, `reduce`, `sum`,
-//# `max`, `sort`, `String.join`, ...) traps at once on such an iterator instead
-//# of running until memory runs out:
-//#
-//# ```text
-//# line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+//# ```nomi
+//# total =
+//#     [3, 8, 5, 12]
+//#     |> Iter.filter(fn n -> n > 4)
+//#     |> Iter.map(fn n -> n * 2)
+//#     |> Iter.sum()
 //# ```
 //#
-//# Bound them with `Iter.take(n)` or `Iter.take_while(pred)` before such a
-//# terminal, or use one that stops early: `Iter.find`, `any_match`,
-//# `all_match`, `first`, `get`, `contains`, `is_empty`, or a `reduce` whose
-//# callback can `break`.
+//# `total` is 50. No list is built between the stages: each element goes
+//# through the whole chain before the next one is read.
 //#
-//# `is_infinite` is True for `Iter.repeat`, `Iter.from`, `Iter.iterate`
-//# (whose step cannot `break`), `Range.from`, `Range.naturals`,
-//# `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle`
-//# of a source that is infinite or knows a non-zero count. The adapters
-//# carry it:
-//#
-//# | Adapter | Infinite when |
-//# |---|---|
-//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map`, `flatten`, `Maybe.values` | the source is, unless the callback can `break` |
-//# | `chunks(n)` | the source is and `n > 0` |
-//# | `cycle` | the source is, or knows a count above zero |
-//# | `concat(a, b)` | either is |
-//# | `zip(a, b)` | both are |
-//# | `take`, `take_while` | never |
-//#
-//# `filter` of an infinite source stays infinite even when nothing passes,
-//# and `flat_map` and `flatten` are infinite only through their outer
-//# source. `Iter.take(n)` knows its count: `n` over an infinite source, and
-//# the lesser of `n` and the source's count when it has one.
-//#
-//# The terminals that trap on an infinite source are `to_list`,
-//# `to_vector`, `to_set`, `to_map`, `count`, `last`, `reverse`,
-//# `transpose`, `permutations`, `combinations`, `sort`, `sort_by`,
-//# `sort_with`, `partition`, `group_by`, `frequencies`, `min`, `max`,
-//# `min_by`, `max_by`, `sum`, `sum_by`, `product`, `product_by`, `mean`,
-//# `mean_by`, `count_by`, `String.join`, `Result.partition`, `Task.spawn_all`,
-//# `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their
-//# callback cannot `break`. The
-//# ones that may stop early do not: `first`, `find`, `any_match`, `all_match`,
-//# `contains`, `get`, `is_empty`, `each_while`, `Maybe.collect`,
-//# `Result.collect`, and a `reduce`, `each` or `map_reduce` whose callback
-//# can `break`.
+//# ## What a source yields
 //#
 //# A `List`, `Vector` or `Set` yields its elements, a `List` and a `Vector`
 //# in order. A `Map<K, V>` yields `(key, value)` pairs in insertion order, a
-//# `String` its grapheme clusters, and a `Maybe` its value when it is `Some`,
-//# so `Iter.flat_map(xs, f)` with an `f` that returns a `Maybe` keeps the
-//# `Some` values.
+//# `String` its grapheme clusters, and a range its values. A `Maybe` yields
+//# its value when it is `Some`, so `Iter.flat_map(xs, f)` with an `f` that
+//# returns a `Maybe` keeps the `Some` values.
 //#
-//# If you want a List back from a List, the spelling is always the explicit
-//# `Iter.map(xs, f) |> Iter.to_list()` — the lazy adapter plus a materialize
-//# step. There is no eager `List.map`; the materialize step is what makes the
-//# result strict.
+//# ## Adapters and terminals
 //#
-//# Iterables in Nomi are replayable: binding `x = Iter.map(xs, f)` and
-//# consuming `x` multiple times yields consistent results, because a source
-//# walks itself from a value it never mutates. A stream's iterators
-//# (`Reader.lines`, `Reader.chunks`, `io.lines`) are the exception: they read
-//# the stream as they run, so a second run carries on where the first
-//# stopped.
-//#
-//# `Iter` also hosts `loop`, the state-threading repetition primitive —
-//# it takes no collection, but its callback speaks the same `break`/`continue`
-//# protocol as every other iteration callback here.
-//#
-//# A named function that uses `break` or `continue` acts only on an
-//# iteration it is directly the callback of, so it is passed as the callback
-//# itself and never called: `Iter.map(xs, keep)`, or after the starting
-//# value for a fold, `Iter.reduce(xs, 0, add_until_zero)`. See
-//# [helper functions that break or continue](/iteration-and-loops/#helper-functions-that-break-or-continue).
-//#
-//# ## The operations
-//#
-//# The protocol is only `each_while` (required) and the two `open` defaults
-//# `known_count` (`None` unless a type stores its size) and `is_infinite`
-//# (`False` unless the source never ends). Every other function here is an
-//# owner function, reached `Iter.X(...)`, not a dispatch call:
-//#
-//# - **Adapters** are lazy and return an `Iter`: `map`, `filter`, `reject`,
-//#   `scan`, `take`, `drop`, `take_while`, `drop_while`, `flat_map`,
-//#   `flatten`, `zip`, `cycle`, `concat`, `intersperse`, `with_index`,
-//#   `chunks`, `windows`, `chunk_by`, `chunk_equal`, `permutations`,
-//#   `combinations`. Each is built once, when the chain is built, not per
-//#   element, so a pipeline fuses.
-//# - **Terminals** consume the source and return a value: `reduce`,
+//# - **Adapters** take a source and return another `Iter`: `map`, `filter`,
+//#   `reject`, `scan`, `take`, `drop`, `take_while`, `drop_while`,
+//#   `flat_map`, `flatten`, `zip`, `cycle`, `concat`, `intersperse`,
+//#   `with_index`, `chunks`, `windows`, `chunk_by`, `chunk_equal`,
+//#   `permutations`, `combinations`. An adapter is lazy: it reads nothing
+//#   until a terminal asks it for elements.
+//# - **Terminals** read the source and return a value: `reduce`,
 //#   `try_reduce`, `map_reduce`, `find`, `find_index`, `find_map`, `each`,
-//#   `any_match`, `all_match`, `contains`, `is_empty`, `first`, `last`, `get`,
-//#   `count`, `count_by`, `min`, `max`, `min_by`, `max_by`, `sum`, `product`,
-//#   `mean`, `mean_by`, `sort`, `sort_by`, `sort_with`, `partition`,
-//#   `group_by`, `frequencies`.
-//# - **Materializers and constructors** consume a source into a collection,
-//#   or seed one: `to_list`, `to_vector`, `to_set`, `to_map`, `reverse`,
-//#   `transpose`, `from`, `repeat`, `iterate`.
+//#   `any_match`, `all_match`, `contains`, `is_empty`, `first`, `last`,
+//#   `get`, `count`, `count_by`, `min`, `max`, `min_by`, `max_by`, `sum`,
+//#   `sum_by`, `product`, `product_by`, `mean`, `mean_by`, `sort`, `sort_by`,
+//#   `sort_with`, `partition`, `group_by`, `frequencies`, `reverse`,
+//#   `transpose`.
+//# - **Collectors** are the terminals that build a collection: `to_list`,
+//#   `to_vector`, `to_set` and `to_map`. `String.join` joins an
+//#   `Iter<String>` into one string.
+//# - **Constructors** make a source from a value: `from`, `repeat`,
+//#   `iterate`. Each is infinite.
 //#
-//# They work on the built-in sources (`List`, `Vector`, `Set`, `Map`,
-//# `Maybe`, `String`, `Range`, `Bytes`) and on any type with an `Iter` impl.
-//# `Iter.count` is O(1) on a source that stores or can compute its count
-//# (`List`, `Vector`, `Map`, `Set`, `Maybe`, a bounded range whose element
-//# type can count steps, through `known_count`) and an O(n) fold otherwise.
-//# The short-circuit terminals (`find`, `any_match`, `all_match`, `is_empty`,
-//# `first`) end on an infinite source when the predicate permits; the full-consuming
-//# ones (`count`, `reduce`, `last`, `sort`, `to_list`, ...) trap on a source
-//# that is `Iter.is_infinite`, and never finish on one that never ends
-//# without saying so. `break` and `continue` work in every `Iter` callback.
+//# A `List`, `Vector` or `Set` has no `map` or `filter` of its own. To get a
+//# List back from a List, end the chain with a collector:
+//# `Iter.map(xs, f) |> Iter.to_list()`. A collection has a function of its
+//# own only where the result differs: `String.reverse` returns a `String`,
+//# and `Iter.reverse` returns a List.
+//#
+//# `Iter.count` returns at once for a source that stores or can compute its
+//# count (`List`, `Vector`, `Map`, `Set`, `Maybe`, a bounded range whose
+//# element type can count steps) and walks any other source to its end.
+//#
+//# `Iter.loop` repeats a function with no source at all.
 //#
 //# ## Starting values
 //#
@@ -145,36 +63,113 @@
 //# empty `xs`; piped, `xs |> Iter.reduce(0, Int.add)`. A call without it is
 //# the ordinary missing-argument error.
 //#
-//# There is no first-element fallback, so a reduction never fails at run
-//# time for an empty source. For the least or greatest element, which has no
-//# return for an empty source, use `Iter.min` and `Iter.max`: each returns a
+//# There is no first-element fallback, so a reduction never fails at run time
+//# for an empty source. For the least or greatest element, which an empty
+//# source does not have, use `Iter.min` and `Iter.max`: each returns a
 //# `Maybe`, `None` when the source is empty.
 //#
-//# `Iter.scan`, `Iter.map_reduce` and `Iter.try_reduce` take their
-//# starting value the same way, and so does `Iter.loop`, which has no
-//# source: `Iter.loop(0, step)`. `Iter.scan` is lazy and yields each state
-//# after the starting value, one per element; `Iter.map_reduce` is eager and
-//# returns the final state with the outputs in order, `(start, [])` for an
-//# empty source.
+//# `Iter.scan`, `Iter.map_reduce` and `Iter.try_reduce` take their starting
+//# value the same way, and so does `Iter.loop`, which has no source:
+//# `Iter.loop(0, step)`. `Iter.scan` is lazy and yields each state after the
+//# starting value, one per element; `Iter.map_reduce` reads the whole source
+//# and returns the final state with the outputs in order, `(start, [])` for
+//# an empty source.
+//#
+//# ## Break and continue
+//#
+//# `break` and `continue` work in every `Iter` callback, and each function's
+//# doc says what they do there. In `Iter.reduce`, `continue` skips an element
+//# and `break value` ends the fold with `value`.
+//#
+//# A named function that uses `break` or `continue` acts only on an iteration
+//# it is directly the callback of, so it is passed as the callback itself and
+//# never called: `Iter.map(xs, keep)`, or after the starting value for a
+//# fold, `Iter.reduce(xs, 0, add_until_zero)`. See
+//# [helper functions that break or continue](/iteration-and-loops/#helper-functions-that-break-or-continue).
+//#
+//# ## Infinite sources
+//#
+//# `Iter.from(0)`, `Iter.iterate(seed, step)`, `Iter.repeat(x)`,
+//# `Iter.cycle(xs)`, `Range.from(n)` and `Range.naturals` never end on their
+//# own, and say so: `Iter.is_infinite` is `True` for them. A terminal that
+//# has to reach the end (`to_list`, `count`, `reduce`, `sum`, `max`, `sort`,
+//# `String.join`, ...) traps on such a source before it reads anything,
+//# instead of running until memory runs out:
+//#
+//# ```text
+//# line 3: `Iter.to_list` of an infinite iterator (`Iter.repeat`) never finishes; limit it with `Iter.take` or `Iter.take_while`
+//# ```
+//#
+//# When the whole pipeline is written where the terminal is, the checker
+//# reports the same text as a compile error.
+//#
+//# Limit an infinite source with `Iter.take(n)` or `Iter.take_while(pred)`
+//# before such a terminal, or use a terminal that stops early: `Iter.find`,
+//# `any_match`, `all_match`, `first`, `get`, `contains`, `is_empty`, or a
+//# `reduce` whose callback can `break`.
+//#
+//# `is_infinite` is `True` for `Iter.repeat`, `Iter.from`, `Iter.iterate`
+//# (whose step cannot `break`), `Range.from`, `Range.naturals`,
+//# `Range.step_by` of an unbounded range whose step moves, and `Iter.cycle`
+//# of a source that is infinite or knows a non-zero count. The adapters carry
+//# it:
+//#
+//# | Adapter | Infinite when |
+//# |---|---|
+//# | `map`, `filter`, `drop`, `drop_while`, `with_index`, `intersperse`, `scan`, `chunk_by`, `chunk_equal`, `flat_map`, `flatten`, `Maybe.values` | the source is, unless the callback can `break` |
+//# | `chunks(n)` | the source is |
+//# | `cycle` | the source is, or knows a count above zero |
+//# | `concat(a, b)` | either is |
+//# | `zip(a, b)` | both are |
+//# | `take`, `take_while` | never |
+//#
+//# `filter` of an infinite source stays infinite even when nothing passes,
+//# and `flat_map` and `flatten` are infinite only through their outer source.
+//# `Iter.take(n)` knows its count: `n` over an infinite source, and the
+//# lesser of `n` and the source's count when it has one.
+//#
+//# The terminals that trap on an infinite source are `to_list`, `to_vector`,
+//# `to_set`, `to_map`, `count`, `last`, `reverse`, `transpose`,
+//# `permutations`, `combinations`, `sort`, `sort_by`, `sort_with`,
+//# `partition`, `group_by`, `frequencies`, `min`, `max`, `min_by`, `max_by`,
+//# `sum`, `sum_by`, `product`, `product_by`, `mean`, `mean_by`, `count_by`,
+//# `String.join`, `Result.partition`, `Task.spawn_all`,
+//# `Supervisor.spawn_all`, and `reduce`, `each` and `map_reduce` when their
+//# callback cannot `break`. The ones that may stop early do not: `first`,
+//# `find`, `any_match`, `all_match`, `contains`, `get`, `is_empty`,
+//# `each_while`, `Maybe.collect`, `Result.collect`, and a `reduce`, `each` or
+//# `map_reduce` whose callback can `break`.
+//#
+//# A source that never ends and does not say so, such as a `take_while` whose
+//# predicate never fails, is not caught: a terminal that has to reach its end
+//# never returns.
+//#
+//# ## Running a source twice
+//#
+//# A source can be run again: binding `x = Iter.map(xs, f)` and consuming `x`
+//# twice yields the same elements both times, because a source walks a value
+//# that never changes. A stream's iterators (`Reader.lines`, `Reader.chunks`,
+//# `io.lines`) are the exception: they read the stream as they run, so a
+//# second run carries on where the first stopped.
 //#
 //# ## Element types
 //#
-//# `Iter.to_map` and `String.join` check their element types at compile
-//# time. A source whose element type is not a `(K, V)` pair or a `String`
-//# is a type error:
+//# `Iter.to_map` and `String.join` check their element types at compile time.
+//# A source whose element type is not a `(K, V)` pair or a `String` is a type
+//# error:
 //#
 //# ```nomi
-//# Iter.to_map([1, 2, 3]) // type error: Iter<(K, V)> expected, got Iter<Int>
+//# Iter.to_map([1, 2, 3]) // error: argument 1: expected Iter<(K, V)>, got List<Int>
 //#
-//# String.join([1, 2, 3], ", ") // type error: Iter<String> expected, got Iter<Int>
+//# String.join([1, 2, 3], ", ") // error: list element type mismatch: expected String, got Int
 //# ```
 //#
 //# `Iter.sum` is bounded by `where T: Add<T, T> and Summable`, so an empty
-//# source sums to the type's empty sum, and a type without the two impls is
-//# a compile error at the call: `Iter.sum([True])` reports
-//# `` Bool does not implement Summable (required by `where T: Summable`) ``.
-//# `Iter.product` is bounded the same way by
-//# `where T: Multiply<T, T> and Productable`. `Iter.mean` is bounded by
+//# source sums to the type's empty sum, and a type without the two impls is a
+//# compile error at the call: `Iter.sum([True])` reports
+//# `` Bool does not implement Summable (required by `where T: Summable`) ``,
+//# and the same for `Add<Bool, Bool>`. `Iter.product` is bounded the same way
+//# by `where T: Multiply<T, T> and Productable`. `Iter.mean` is bounded by
 //# `where T: Averageable<R>`, whose impl gives the mean's type `R`: a Float
 //# for Ints and Floats, a Decimal for Decimals, a Duration for Durations.
 
@@ -199,25 +194,22 @@ import
     vectors.Vector
 end
 
-/// Protocol for pushing elements to a consumer.
+/// What every source implements: one function, `each_while`, that walks the
+/// source's own elements and hands each one to `yield`.
 ///
-/// A type implementing `Iter<T>` provides a single function, `each_while`,
-/// that walks its own elements and hands each one to `yield`. Returning `False`
-/// from `yield` asks the source to stop; `each_while` itself returns `True`
-/// when the source ran to exhaustion and `False` when a consumer stopped it
-/// early. The source drives its own loop, so no `self` appears anywhere in the
-/// signature and nothing is rebuilt per element. This is Go's `iter.Seq` shape,
-/// spelled for Nomi.
+/// `yield` returns `False` to ask the source to stop. `each_while` returns
+/// `True` when the source ran to its end and `False` when the consumer
+/// stopped it early. Every function in this module is built on it, so a type
+/// that implements `each_while` gets all of them.
 ///
-/// Because `each_while` reads a collection it never mutates, Nomi iterators are
-/// replayable — driving the same iterator binding twice yields the same
-/// sequence. A stream's iterators (`Reader.lines`) read the stream as they
-/// run, and are not.
+/// `each_while` reads a value that never changes, so running the same source
+/// twice yields the same elements. A stream's iterators (`Reader.lines`) read
+/// the stream as they run, and do not.
 ///
-/// Built-in types like `List`, `Map`, `String`, and ranges over `Discrete`
-/// values (`Int`, `Codepoint`) already implement `Iter`, so the operations
-/// below work directly on them. To implement it for a custom type, walk your
-/// own structure and stop as soon as `yield` says to:
+/// `List`, `Vector`, `Set`, `Map`, `String`, `Maybe`, `Bytes` and ranges over
+/// `Discrete` values (`Int`, `Codepoint`) implement `Iter`. To implement it
+/// for a type of your own, walk the structure and stop as soon as `yield`
+/// says to:
 ///
 /// ```nomi
 /// pub struct Countdown
@@ -237,49 +229,60 @@ end
 pub interface Iter<T>
     fn each_while(collection: self, yield: (T) -> Bool) -> Bool
 
-    /// Some(n) if this iterator can report how many elements it yields without
-    /// consuming them; None if it can't (a filtered/lazy pipeline) or won't
-    /// terminate (an unbounded source, which `is_infinite` reports). `Iter.count`
-    /// uses it for an O(1) count. `Iter.take(n)` returns it when its source
-    /// does or never ends.
+    /// `Some(n)` when the source can say how many elements it yields without
+    /// walking them, as a `List` or a bounded `Int` range can. `None` when it
+    /// cannot (a filtered chain, a `String`) or never ends (`is_infinite`
+    /// reports that). `Iter.count` asks it first. `Iter.take(n)` knows its
+    /// count when its source does or never ends.
     open fn known_count(_collection: self) -> Maybe<Int>
         None
     end
 
-    /// True if this iterator never ends on its own, so a terminal that has to
-    /// reach its end (`Iter.to_list`, `Iter.count`, `Iter.sum`, ...) could
-    /// never return. Such a terminal traps at once instead of running until
-    /// memory runs out. False means it may end. The sources that never end
-    /// (`Iter.repeat`, `Iter.from`, `Iter.iterate`, `Iter.cycle` of a
-    /// non-empty source, `Range.from`) return True, and so does every lazy
-    /// adapter over one that cannot stop it; `Iter.take` and `Iter.take_while`
-    /// can.
+    /// `True` when the source never ends on its own, so a terminal that has
+    /// to reach its end (`Iter.to_list`, `Iter.count`, `Iter.sum`, ...) could
+    /// never return. Such a terminal traps before it reads anything instead
+    /// of running until memory runs out. `False` means the source may end.
+    /// The sources that never end (`Iter.repeat`, `Iter.from`,
+    /// `Iter.iterate`, `Iter.cycle` of a non-empty source, `Range.from`)
+    /// return `True`, and so does every lazy adapter over one that cannot
+    /// stop it; `Iter.take` and `Iter.take_while` can.
     ///
-    /// A type of your own returns False unless its impl writes this function.
+    /// A type of your own returns `False` unless its impl writes this
+    /// function.
     open fn is_infinite(_collection: self) -> Bool
         False
     end
 end
 
 impl Iter<T>
-    /// Loops indefinitely, invoking `f` each iteration. The callback either
-    /// carries state or is stateless (`fn -> body`). A loop with state starts
-    /// from `from`, written before the callback: `Iter.loop(0, fn n -> ...)`
-    /// or `Iter.loop(0, step)`. A stateless loop takes the callback alone,
-    /// `Iter.loop(fn -> ...)`. The callback's return value becomes the next
-    /// iteration's state. The state type, the
-    /// `break` value type, and the loop's result type are all one type `S`:
-    /// for a stated callback `S` comes from the starting state, and a
-    /// stateless callback has state `Unit`, so it breaks with `break` alone
-    /// and the loop returns `Unit`.
+    /// Calls `f` again and again until it breaks, and returns the value it
+    /// broke with. It walks no collection: use it to repeat a step until a
+    /// condition holds, as a `while` loop does in other languages.
     ///
-    /// Use `break value` to exit with `value`, or bare `break` to exit with
-    /// the current state. `continue` starts the next round with the state
-    /// unchanged. Without an explicit break this loops forever.
+    /// Each round gets the state the round before returned, and the first
+    /// gets `from`: `Iter.loop(0, fn n -> ...)`, or `Iter.loop(0, step)` with
+    /// a named function. `break value` ends the loop with `value`, and a bare
+    /// `break` ends it with the current state. `continue` starts the next
+    /// round with the state unchanged. A loop that never breaks never ends.
+    ///
+    /// A loop with no state takes the callback alone, `Iter.loop(fn -> ...)`.
+    /// It ends on a bare `break` and returns `Unit`.
+    ///
+    /// The state, the `break` value and the result are one type, `S`.
     //
+    //! first_power_over_100 = Iter.loop(1, fn n ->
+    //!     if n > 100 then
+    //!         break n
+    //!     else
+    //!         n * 2
+    //!     end
+    //! end)
+    //!
+    //! assert first_power_over_100 == 128
+    //!
     //! assert Iter.loop(0, fn n ->
     //!     if n >= 3 then
-    //!         break n
+    //!         break
     //!     else
     //!         n + 1
     //!     end
@@ -288,14 +291,6 @@ impl Iter<T>
     //! assert Iter.loop(fn ->
     //!     break
     //! end) == Unit
-    //!
-    //! assert Iter.loop(1, fn n ->
-    //!     if n >= 3 then
-    //!         break n
-    //!     else
-    //!         n + 1
-    //!     end
-    //! end) == 3
     //
     pub host fn loop<S>(from: S, f: (S) -> S) -> S
 
@@ -312,18 +307,34 @@ impl Iter<T>
     // short-circuits by refusing the next element, not by declining to ask for
     // one.
     // ---------------------------------------------------------------------------
-    /// Reduces a collection to a single value by folding.
+    /// Folds the elements into one value. It starts from `from`, calls
+    /// `f(acc, x)` with the value so far and each element in turn, and takes
+    /// what `f` returns as the value so far for the next element. The result
+    /// is the last one, or `from` for an empty source.
     ///
-    /// The starting value is `from`, before the callback:
-    /// `Iter.reduce(xs, 0, Int.add)` and
-    /// `Iter.reduce(xs, 0, fn acc, x -> acc + x)` are the same fold. It is
-    /// the result for an empty source. For the least or greatest element use
-    /// `Iter.min` or `Iter.max`.
+    /// `Iter.reduce(xs, 0, fn acc, x -> acc + x)` adds the elements up, and
+    /// `Iter.reduce(xs, 0, Int.add)` is the same fold with a named function.
+    /// `Iter.sum`, `Iter.count`, `Iter.min` and `Iter.max` are folds already
+    /// written.
     ///
-    /// Supports `break` / `break value` / `continue` in the callback.
+    /// In the callback, `continue` skips the element and keeps the value so
+    /// far, `break value` ends the fold with `value`, and a bare `break` ends
+    /// it with the value so far.
+    //
     //! assert Iter.reduce([1, 2, 3], 0, fn acc, x -> acc + x) == 6
-    //! assert Iter.reduce([], 0, fn acc, x -> acc + x) == 0
     //! assert Iter.reduce([1, 2, 3], 10, Int.add) == 16
+    //! assert Iter.reduce([], 0, fn acc, x -> acc + x) == 0
+    //! assert Iter.reduce(["a", "b"], "", fn text, s -> "${text}${s}!") == "a!b!"
+    //!
+    //! until_zero = Iter.reduce([4, 5, 0, 6], 0, fn acc, x ->
+    //!     if x == 0 then
+    //!         break
+    //!     else
+    //!         acc + x
+    //!     end
+    //! end)
+    //!
+    //! assert until_zero == 9
     //
     pub host fn reduce<T, U>(source: Iter<T>, from: U, f: (U, T) -> U) -> U
 
@@ -333,9 +344,9 @@ impl Iter<T>
     /// is `from`, as in `Iter.reduce`, and is not itself yielded, so there is
     /// one state per element and an empty source yields nothing.
     ///
-    /// In the callback, `continue` skips the element: no state is yielded
-    /// and the state stays as it was. `break value` yields `value` as the
-    /// last state, then stops; a bare `break` stops without yielding.
+    /// In the callback, `continue` skips the element: no state is yielded and
+    /// the state stays as it was. `break value` yields `value` as the last
+    /// state, then stops; a bare `break` stops without yielding.
     //
     //! running = [3, 1, 4] |> Iter.scan(0, fn total, x -> total + x) |> Iter.to_list()
     //! assert running == [3, 4, 8]
@@ -348,15 +359,18 @@ impl Iter<T>
     /// Maps each element with a state threaded through, and returns the final
     /// state with the outputs in order. The callback takes the state and an
     /// element and returns `(next_state, output)`, state first as in
-    /// `Iter.reduce`; the starting state is `from`, as in `Iter.reduce`. An
-    /// empty source returns the starting state and no outputs. Consumes the
-    /// whole iterator.
+    /// `Iter.reduce`; the starting state is `from`. An empty source returns
+    /// the starting state and no outputs. It reads the whole source.
     ///
     /// In the callback, `continue` skips the element: no output, and the
     /// state stays as it was. `break (state, output)` keeps that state and
     /// output, then stops; a bare `break` stops with the state and outputs so
     /// far.
     //
+    //! (total, running) = Iter.map_reduce([1, 2, 3], 0, fn sum, x -> (sum + x, sum + x))
+    //! assert running == [1, 3, 6]
+    //! assert total == 6
+    //!
     //! lines = ["a", "abc", "ab"]
     //!
     //! (width, rows) =
@@ -375,10 +389,13 @@ impl Iter<T>
     //
     pub host fn map_reduce<T, U, A>(source: Iter<T>, from: A, f: (A, T) -> (A, U)) -> (A, List<U>)
 
-    /// Returns the first element matching the predicate, or None.
+    /// The first element for which `f` returns `True`, or `None` when there
+    /// is none. It stops at that element, so it ends on an infinite source
+    /// that holds one.
     //
-    //! assert Iter.find([1, 2, 3, 4], &(&1 > 2)) == Some(3)
-    //! assert Iter.find([1, 2], &(&1 > 99)) == None
+    //! assert Iter.find([1, 2, 3, 4], fn n -> n > 2) == Some(3)
+    //! assert Iter.find([1, 2], fn n -> n > 99) == None
+    //! assert Iter.find(Iter.from(1), fn n -> n * n > 50) == Some(8)
     //
     pub fn find<T>(source: Iter<T>, f: (T) -> Bool) -> Maybe<T>
         reduce(source, None, fn _acc, item ->
@@ -463,9 +480,10 @@ impl Iter<T>
         end)
     end
 
-    /// Returns the zero-based index of the first element matching the
-    /// predicate, or None. Stops at the first match, so it ends on an
-    /// infinite source that holds one. `Iter.find` returns the element itself.
+    /// The zero-based index of the first element for which `f` returns
+    /// `True`, or `None` when there is none. It stops at that element, so it
+    /// ends on an infinite source that holds one. `Iter.find` returns the
+    /// element itself.
     //
     //! assert Iter.find_index(["a", "b", "c"], &(&1 == "b")) == Some(1)
     //! assert Iter.find_index([1, 2], &(&1 > 99)) == None
@@ -478,27 +496,28 @@ impl Iter<T>
         |> Maybe.map(fn (index, _) -> index)
     end
 
-    /// Consumes the iterator and returns its elements as a List sorted by the
-    /// comparator. A materializing terminal — like `to_list`, but ordered — so
-    /// it works on any iterable (a lazy chain, a range, a List). The sort is
-    /// stable: equal elements keep their input order.
+    /// The elements as a List, sorted by `compare`, which returns the
+    /// `Ordering` of two elements. The sort is stable: elements that compare
+    /// `Equal` keep their order. It reads the whole source, of any kind: a
+    /// List, a range, a lazy chain.
     ///
-    /// This is the explicit-comparator sort primitive (no `Comparable` bound).
-    /// When the element type is `Comparable`, prefer `sort` (natural order) or
-    /// `sort_by` (key projection), which call this under the hood.
+    /// Use it for an order the element type does not have. When the elements
+    /// are `Comparable`, `Iter.sort` sorts them in their own order and
+    /// `Iter.sort_by` by a key.
     //
     //! assert Iter.sort_with([3, 1, 2], Int.compare) == [1, 2, 3]
     //
     pub host fn sort_with<T>(source: Iter<T>, compare: (T, T) -> Ordering) -> List<T>
 
-    /// Consumes the iterator and returns its elements as a List in natural
-    /// order, using the element type's `Comparable` impl. Defaults to ascending;
-    /// pass `Descending` to flip. A materializing terminal — works on any
-    /// iterable (a lazy chain, a Range, a List). The sort is stable: equal
-    /// elements keep their input order.
+    /// The elements as a List in ascending order, by the element type's
+    /// `Comparable` impl. `.Descending` (a `Direction`, from std::comparable)
+    /// sorts from greatest to least. The sort is stable: equal elements keep
+    /// their order. It reads the whole source, of any kind: a List, a range,
+    /// a lazy chain.
     //
     //! assert Iter.sort([3, 1, 2]) == [1, 2, 3]
-    //! assert Iter.sort([3, 1, 2], Direction.Descending) == [3, 2, 1]
+    //! assert Iter.sort(["pear", "fig", "apple"]) == ["apple", "fig", "pear"]
+    //! assert Iter.sort([3, 1, 2], .Descending) == [3, 2, 1]
     //
     pub fn sort<T>(
         source:    Iter<T>,
@@ -510,14 +529,18 @@ impl Iter<T>
         end
     end
 
-    /// Sorts by a `Comparable` key projected from each element, returning a List
-    /// in key order. Defaults to ascending; pass `Descending` to flip. A
-    /// materializing terminal; the sort is stable. The trailing `key` lambda may
-    /// be passed with `direction` omitted (`Iter.sort_by(xs, .k)`); the
-    /// default fills the skipped slot.
+    /// The elements as a List, sorted by the `Comparable` key that `key`
+    /// returns for each: `Iter.sort_by(people, .age)` is the people from
+    /// youngest to oldest. `.Descending` sorts from the greatest key to the
+    /// least. The sort is stable: elements with equal keys keep their order.
+    ///
+    /// `direction` comes before `key`. A call may leave it out when `key` is
+    /// written as a lambda, a capture or a field accessor
+    /// (`Iter.sort_by(xs, .k)`).
     //
     //! assert Iter.sort_by(["bb", "a", "ccc"], &String.length(&1)) == ["a", "bb", "ccc"]
-    //! assert Iter.sort_by([1, 2, 3], Direction.Descending, fn n -> n) == [3, 2, 1]
+    //! assert Iter.sort_by([{k: 2}, {k: 1}], .k) == [{k: 1}, {k: 2}]
+    //! assert Iter.sort_by(["bb", "a", "ccc"], .Descending, String.length) == ["ccc", "bb", "a"]
     //
     pub fn sort_by<T, K>(
         source:    Iter<T>,
@@ -530,9 +553,18 @@ impl Iter<T>
         end
     end
 
-    /// Calls f for each element. Returns Unit (discards the accumulator).
-    //! seen = Iter.reduce([1, 2, 3], 0, fn acc, n -> acc + n)
-    //! assert seen == 6
+    /// Calls `f` with each element in turn and returns `Unit`. Use it when
+    /// the callback is run for what it does, such as printing; to build a
+    /// value from the elements, use `Iter.map` or `Iter.reduce`.
+    ///
+    /// In the callback, `continue` goes on to the next element and `break`
+    /// stops the walk.
+    //
+    //! import std::io
+    //!
+    //! printed = io.capture("", fn -> Iter.each(["pear", "fig"], io.print))
+    //! assert printed.output == "pear\nfig\n"
+    //!
     //! assert Iter.each([1, 2, 3], fn _n -> Unit) == Unit
     //
     pub fn each<T>(source: Iter<T>, f: (T) -> Unit)
@@ -541,11 +573,13 @@ impl Iter<T>
         end
     end
 
-    /// Returns true if any element matches the predicate. Short-circuits on the
-    /// first match.
+    /// Whether `f` returns `True` for at least one element. It stops at the
+    /// first one that matches. An empty source has none, so the result is
+    /// `False`.
     //
-    //! assert Iter.any_match([1, 2, 3], &(&1 > 2))
-    //! refute Iter.any_match([1, 2], &(&1 > 99))
+    //! assert Iter.any_match([1, 2, 3], fn n -> n > 2)
+    //! refute Iter.any_match([1, 2], fn n -> n > 99)
+    //! refute Iter.any_match([], fn n -> n > 0)
     //
     pub fn any_match<T>(source: Iter<T>, f: (T) -> Bool) -> Bool
         reduce(source, False, fn _acc, item ->
@@ -557,10 +591,10 @@ impl Iter<T>
         end)
     end
 
-    /// Returns true if an element is `==` to `x`. A linear scan through the
-    /// push protocol that stops at the first match, so it ends on an infinite
-    /// source that holds `x`. For any iterable, including a lazy pipeline; a
-    /// collection's own `contains` (the `Contains` interface) may be faster.
+    /// Whether an element is `==` to `x`. It checks each element in turn and
+    /// stops at the first match, so it ends on an infinite source that holds
+    /// `x`. It works on any source, a lazy chain included; a collection's own
+    /// `contains` (the `Contains` interface, which `in` uses) may be faster.
     //
     //! assert Iter.contains([1, 2, 3], 2)
     //! refute Iter.contains(Iter.map([1, 2], &(&1 * 10)), 2)
@@ -576,11 +610,13 @@ impl Iter<T>
         end)
     end
 
-    /// Returns true if all elements match the predicate. Vacuously true for an
-    /// empty iterator. Short-circuits on the first miss.
+    /// Whether `f` returns `True` for every element. It stops at the first
+    /// one that does not match. An empty source has none that fail, so the
+    /// result is `True`.
     //
-    //! assert Iter.all_match([2, 4, 6], &(&1 > 0))
-    //! refute Iter.all_match([2, -4, 6], &(&1 > 0))
+    //! assert Iter.all_match([2, 4, 6], fn n -> n > 0)
+    //! refute Iter.all_match([2, -4, 6], fn n -> n > 0)
+    //! assert Iter.all_match([], fn n -> n > 0)
     //
     pub fn all_match<T>(source: Iter<T>, f: (T) -> Bool) -> Bool
         reduce(source, True, fn _acc, item ->
@@ -592,7 +628,8 @@ impl Iter<T>
         end)
     end
 
-    /// Returns true if the iterator is empty. Short-circuits on the first element.
+    /// Whether the source yields no element. It reads at most one, so it
+    /// works on an infinite source.
     //
     //! assert Iter.is_empty([])
     //! refute Iter.is_empty([1])
@@ -603,8 +640,8 @@ impl Iter<T>
         end)
     end
 
-    /// Returns the first element, or None if the iterator is empty. Terminal;
-    /// short-circuits after one step. `List.first` reads a List's first cell.
+    /// The first element, or `None` when the source is empty. It reads at
+    /// most one element, so it works on an infinite source.
     //
     //! assert Iter.first([1, 2, 3]) == Some(1)
     //! assert Iter.first([]) == None
@@ -615,8 +652,8 @@ impl Iter<T>
         end)
     end
 
-    /// Returns the last element, or None if the iterator is empty. Terminal;
-    /// consumes the whole iterator, so it traps on an infinite source.
+    /// The last element, or `None` when the source is empty. It reads the
+    /// whole source, so it traps on an infinite one.
     //
     //! assert Iter.last([1, 2, 3]) == Some(3)
     //! assert Iter.last([]) == None
@@ -625,12 +662,17 @@ impl Iter<T>
         reduce(source, None, fn _acc, item -> Some(item))
     end
 
-    /// Returns the element at the given zero-based index, or None if the index is
-    /// out of range (or negative). Walks the iterator, so it is O(index).
+    /// The element at `index`, counting from 0, or `None` when the source has
+    /// none there: `index` is negative, or the source is too short. It walks
+    /// the source from its start and stops at `index`, so a far index takes
+    /// that many steps, and it works on an infinite source. A `Vector` reads
+    /// any index in one step with `Vector.get`.
     //
+    //! assert Iter.get([10, 20, 30], 0) == Some(10)
     //! assert Iter.get([10, 20, 30], 1) == Some(20)
     //! assert Iter.get([10, 20, 30], 9) == None
     //! assert Iter.get([10, 20, 30], -1) == None
+    //! assert Iter.get("héllo", 1) == Some("é")
     //
     pub fn get<T>(source: Iter<T>, index: Int) -> Maybe<T>
         if index < 0 then
@@ -651,8 +693,9 @@ impl Iter<T>
         end
     end
 
-    /// Splits the elements into (matches, rest) by a predicate, preserving the
-    /// original order within each. Materializing.
+    /// Splits the elements into two Lists: those for which `f` returns
+    /// `True`, then the rest. Each keeps the source's order. It reads the
+    /// whole source.
     //
     //! assert Iter.partition([1, 2, 3, 4], &(&1 > 2)) == ([3, 4], [1, 2])
     //
@@ -671,13 +714,18 @@ impl Iter<T>
         (Iter.reverse(ts), Iter.reverse(fs))
     end
 
-    /// Groups elements by a key function. Each group preserves the original order
-    /// of its members, and is a `NonEmptyList`, since a key is in the map only
-    /// for an element that produced it. Materializing.
+    /// Groups the elements by the key `key_fn` returns for each, as a Map
+    /// from each key to its elements. The keys are in the order each first
+    /// appears, and each group keeps the source's order. A group is a
+    /// `NonEmptyList`, since a key is in the map only for an element that
+    /// produced it. It reads the whole source.
     //
-    //! groups = Iter.group_by([1, 2, 3, 4], &(&1 % 2))
+    //! groups = Iter.group_by([1, 2, 3, 4], fn n -> n % 2)
     //! assert groups == {1 => [1, 3], 0 => [2, 4]}
-    //! assert groups |> Map.get(1) |> Maybe.map(&NonEmptyList.first(&1)) == Some(1)
+    //! assert groups |> Map.get(1) |> Maybe.map(NonEmptyList.first) == Some(1)
+    //!
+    //! by_length = Iter.group_by(["fig", "pear", "plum"], String.length)
+    //! assert by_length == {3 => ["fig"], 4 => ["pear", "plum"]}
     //
     pub fn group_by<T, K>(source: Iter<T>, key_fn: (T) -> K) -> Map<K, NonEmptyList<T>>
         bucketed = reduce(source, {}, fn acc: Map<K, NonEmptyList<T>>, item ->
@@ -690,9 +738,10 @@ impl Iter<T>
         Map.map_values(bucketed, fn v -> NonEmptyList.reverse(v))
     end
 
-    /// Counts how often each element occurs. The map's keys are the distinct
-    /// elements, in the order each first appears; `group_by` keeps the
-    /// elements themselves instead of their count. Materializing.
+    /// Counts how often each element occurs, as a Map from each distinct
+    /// element to its count. The keys are in the order each first appears.
+    /// `Iter.group_by` keeps the elements themselves instead of their count.
+    /// It reads the whole source.
     //
     //! assert Iter.frequencies(["a", "b", "a"]) == {"a" => 2, "b" => 1}
     //! assert Iter.frequencies("banana") |> Map.keys() == ["b", "a", "n"]
@@ -707,20 +756,22 @@ impl Iter<T>
         end)
     end
 
-    /// Consumes the iterator and materializes its elements into a List. A `List`
-    /// argument is returned as-is (O(1) — lists are immutable); any other iterator
-    /// is folded into a fresh List. An infinite iterator (`Iter.is_infinite`)
-    /// traps before anything is taken from it, since the List could never be
-    /// finished.
+    /// The elements of `source` as a List, in order. It is the step that ends
+    /// a chain of lazy adapters and runs it. A `List` is returned as it is.
+    ///
+    /// An infinite source (`Iter.is_infinite`) traps before anything is read
+    /// from it, since the List could never be finished.
     //
+    //! assert [1, 2, 3] |> Iter.map(fn n -> n * 2) |> Iter.to_list() == [2, 4, 6]
+    //! assert Iter.to_list(1..=3) == [1, 2, 3]
+    //! assert Iter.to_list("hey") == ["h", "e", "y"]
     //! assert Iter.from(0) |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
     //
     pub host fn to_list<T>(source: Iter<T>) -> List<T>
 
-    /// Consumes the iterator and materializes its elements, in order, into a
-    /// Vector. The vector is built directly in one pass, with no intermediate
-    /// List, and a source that knows its count (a List, Set or Map) sizes it
-    /// once up front. A `Vector` argument is returned as-is.
+    /// The elements of `source` as a Vector, in order. The vector is built in
+    /// one pass, with no List in between, and a source that knows its count
+    /// (a List, Set or Map) sizes it once. A `Vector` is returned as it is.
     //
     //! assert Iter.to_vector([1, 2, 3]) == [1, 2, 3]
     //! assert 1..=3 |> Iter.to_vector() == [1, 2, 3]
@@ -738,8 +789,7 @@ impl Iter<T>
     //
     pub host fn to_vector<T>(source: Iter<T>) -> Vector<T>
 
-    /// Consumes the iterator and materializes its elements into a Set, discarding
-    /// duplicates.
+    /// The elements of `source` as a Set, which keeps one of each.
     //
     //! assert Iter.to_set([1, 2, 2, 3]) == [1, 2, 3]
     //! assert 1..=3 |> Iter.to_set() == [1, 2, 3]
@@ -766,10 +816,12 @@ impl Iter<T>
         Seq{run: fn yield: ((NonNegativeInt, T)) -> Bool -> with_index_each(source, yield)}
     end
 
-    /// Lazy: yields at most the first `n` elements of `source`. Useful for bounding
-    /// an infinite iterator: the result is never infinite, and its
-    /// `known_count` is `n` when `source` never ends, or the lesser of `n` and
-    /// the source's own count when it has one.
+    /// Lazy: yields the first `n` elements of `source`, or all of them when
+    /// it has fewer. An `n` of 0 or less yields nothing.
+    ///
+    /// It is how an infinite source is limited: the result is never infinite,
+    /// and its `known_count` is `n` when `source` never ends, or the lesser
+    /// of `n` and the source's own count when it has one.
     //
     //! assert Iter.from(0) |> Iter.take(3) |> Iter.to_list() == [0, 1, 2]
     //! refute Iter.repeat("x") |> Iter.take(3) |> Iter.is_infinite()
@@ -780,10 +832,10 @@ impl Iter<T>
         Seq{run: fn yield: (T) -> Bool -> take_each(source, n, yield)}
     end
 
-    /// Lazy: cycles through `source` endlessly. Empty source yields nothing.
-    /// It is `is_infinite` when `source` is, or when `source` knows its count
-    /// and it is not zero; a source that may be empty (a filtered one) leaves
-    /// it unknown.
+    /// Lazy: yields the elements of `source` over and over. An empty source
+    /// yields nothing. It is `is_infinite` when `source` is, or when `source`
+    /// knows its count and it is not zero; a source that may be empty (a
+    /// filtered one) leaves it unknown.
     //
     //! assert [1, 2, 3]
     //! |> Iter.cycle()
@@ -816,7 +868,7 @@ impl Iter<T>
     end
 
     /// Lazy: yields the elements of `source` with `separator` between each
-    /// two neighbours, so `n` elements become `2n - 1`, and none stay none.
+    /// two neighbors, so `n` elements become `2n - 1`, and none stay none.
     /// Infinite when `source` is.
     //
     //! assert ["a", "b", "c"] |> Iter.intersperse(",") |> Iter.to_list() == ["a", ",", "b", ",", "c"]
@@ -835,8 +887,9 @@ impl Iter<T>
         end)
     end
 
-    /// Lazy: pairs elements from two iterators. Stops when either exhausts,
-    /// so it is infinite only when both are.
+    /// Lazy: pairs the elements of two sources, the first of each, then the
+    /// second of each, and so on. It stops when either runs out, so it is
+    /// infinite only when both are.
     //
     //! assert Iter.zip([1, 2, 3], ["a", "b"]) |> Iter.to_list() == [(1, "a"), (2, "b")]
     //! assert Iter.zip(["a", "b"], Iter.from(0)) |> Iter.to_list() == [("a", 0), ("b", 1)]
@@ -852,9 +905,12 @@ impl Iter<T>
         Seq{run: fn yield: ((T, U)) -> Bool -> zip_each(a, b, yield)}
     end
 
-    /// Lazy: yields elements of `source` while `pred` returns true. In the callback,
-    /// `value` is the keep/stop decision: `break True` takes the current element
-    /// then stops, `break False`/bare `break` stop without it, `continue` skips it.
+    /// Lazy: yields the elements of `source` up to the first for which `pred`
+    /// returns `False`, and stops there.
+    ///
+    /// In the callback, `break True` yields the current element and then
+    /// stops, `break False` or a bare `break` stops without it, and
+    /// `continue` skips it and goes on.
     //
     //! assert Iter.from(1)
     //! |> Iter.take_while(&(&1 < 4))
@@ -866,27 +922,39 @@ impl Iter<T>
         Seq{run: fn yield: (T) -> Bool -> take_while_each(source, pred, yield)}
     end
 
-    /// Lazy: applies `f` to each element of `source`. Infinite when `source`
-    /// is, unless the callback can `break`.
+    /// Lazy: yields `f(x)` for each element `x` of `source`, in order. The
+    /// result is an `Iter`, and `f` runs only as something reads it: end the
+    /// chain with `Iter.to_list()` for a List, or with another terminal such
+    /// as `Iter.sum`.
+    ///
+    /// In the callback, `continue` skips the element, `break value` yields
+    /// `value` and then stops, and a bare `break` stops. The result is
+    /// infinite when `source` is, unless the callback can `break`.
     //
-    //! assert [1, 2, 3] |> Iter.map(&(&1 * 10)) |> Iter.to_list() == [10, 20, 30]
+    //! assert [1, 2, 3] |> Iter.map(fn n -> n * 10) |> Iter.to_list() == [10, 20, 30]
+    //! assert ["a", "bb"] |> Iter.map(String.length) |> Iter.to_list() == [1, 2]
+    //! assert 1..=3 |> Iter.map(fn n -> n * n) |> Iter.sum() == 14
     //
     pub fn map<T, U>(source: Iter<T>, f: (T) -> U) -> Iter<U>
         Seq{run: fn yield: (U) -> Bool -> map_each(source, f, yield)}
     end
 
-    /// Lazy: keeps only elements where `pred` returns true. In the callback,
-    /// `value` is the keep/drop decision: `break True` keeps the current element
-    /// then stops, `break False` drops it then stops, bare `break` stops without
-    /// deciding, `continue` skips. Append `|> Iter.to_list()` for the strict,
-    /// List-returning form.
+    /// Lazy: yields the elements for which `pred` returns `True`, in order,
+    /// and drops the rest. `Iter.reject` keeps the others. End the chain with
+    /// `Iter.to_list()` for a List.
+    ///
+    /// In the callback, `continue` drops the element, `break True` keeps it
+    /// and then stops, and `break False` or a bare `break` drops it and
+    /// stops.
     ///
     /// The filter of an infinite source is infinite even if nothing passes:
     /// collecting it never finishes either way. A predicate that can `break`
     /// may end it, so that filter is not known to be infinite.
     //
-    //! assert [1, 2, 3, 4] |> Iter.filter(&(&1 > 2)) |> Iter.to_list() == [3, 4]
-    //! assert Iter.from(0) |> Iter.filter(&(&1 % 2 == 0)) |> Iter.is_infinite()
+    //! assert [1, 2, 3, 4] |> Iter.filter(fn n -> n > 2) |> Iter.to_list() == [3, 4]
+    //! assert ["fig", "", "pear"] |> Iter.filter(fn s -> s != "") |> Iter.to_list() == ["fig", "pear"]
+    //! assert 1..=10 |> Iter.filter(fn n -> n % 2 == 0) |> Iter.count() == 5
+    //! assert Iter.from(0) |> Iter.filter(fn n -> n % 2 == 0) |> Iter.is_infinite()
     //
     pub fn filter<T>(source: Iter<T>, pred: (T) -> Bool) -> Iter<T>
         Seq{run: fn yield: (T) -> Bool -> filter_each(source, pred, yield)}
@@ -904,7 +972,8 @@ impl Iter<T>
         Iter.filter(source, fn item -> not pred(item))
     end
 
-    /// Lazy: skips the first `n` elements of `source`.
+    /// Lazy: skips the first `n` elements of `source` and yields the rest. An
+    /// `n` of 0 or less skips nothing.
     //
     //! assert [1, 2, 3, 4] |> Iter.drop(2) |> Iter.to_list() == [3, 4]
     //
@@ -912,7 +981,8 @@ impl Iter<T>
         Seq{run: fn yield: (T) -> Bool -> drop_each(source, n, yield)}
     end
 
-    /// Lazy: drops the leading run of elements where `pred` is true.
+    /// Lazy: skips elements while `pred` returns `True`, then yields the
+    /// first for which it does not and every element after it.
     //
     //! assert [1, 2, 3, 1] |> Iter.drop_while(&(&1 < 3)) |> Iter.to_list() == [3, 1]
     //
@@ -920,12 +990,17 @@ impl Iter<T>
         Seq{run: fn yield: (T) -> Bool -> drop_while_each(source, pred, yield)}
     end
 
-    /// Lazy: for each element of `source`, apply `f` and yield all its elements.
+    /// Lazy: calls `f` with each element of `source` and yields every element
+    /// of what it returns, in order: a `map` whose results are joined into
+    /// one sequence. An `f` that returns a `Maybe` keeps the `Some` values
+    /// and drops the `None`s.
     //
-    //! assert [1, 2, 3]
-    //!     |> Iter.flat_map(fn x -> [x, x * 10])
-    //!     |> Iter.to_list()
-    //!     |> List.equal([1, 10, 2, 20, 3, 30])
+    //! assert [1, 2, 3] |> Iter.flat_map(fn x -> [x, x * 10]) |> Iter.to_list() == [1, 10, 2, 20, 3, 30]
+    //!
+    //! words = ["a b", "c"] |> Iter.flat_map(fn s -> String.split(s, " ")) |> Iter.to_list()
+    //! assert words == ["a", "b", "c"]
+    //!
+    //! assert ["1", "x", "3"] |> Iter.flat_map(String.to_int) |> Iter.to_list() == [1, 3]
     //
     pub fn flat_map<T, U>(source: Iter<T>, f: (T) -> Iter<U>) -> Iter<U>
         Seq{run: fn yield: (U) -> Bool -> flat_map_each(source, f, yield)}
@@ -942,11 +1017,11 @@ impl Iter<T>
         |> map(fn chunk -> NonEmptyList.try_from(chunk)!)
     end
 
-    /// Lazy: yields every run of `size` neighbouring elements as a NonEmptyList, one
-    /// starting at each element, so the runs overlap: `[1, 2, 3, 4]` with
-    /// size 2 gives `[1, 2]`, `[2, 3]` and `[3, 4]`. The size is a
-    /// `PositiveInt`. A source with fewer than `size` elements yields none,
-    /// and it is infinite when `source` is.
+    /// Lazy: yields every run of `size` neighboring elements as a
+    /// NonEmptyList, one starting at each element, so the runs overlap:
+    /// `[1, 2, 3, 4]` with size 2 gives `[1, 2]`, `[2, 3]` and `[3, 4]`. The
+    /// size is a `PositiveInt`. A source with fewer than `size` elements
+    /// yields none, and it is infinite when `source` is.
     //
     //! assert [1, 2, 3, 4] |> Iter.windows(2) |> Iter.to_list() == [[1, 2], [2, 3], [3, 4]]
     //! assert [1, 2] |> Iter.windows(3) |> Iter.to_list() == []
@@ -986,9 +1061,9 @@ impl Iter<T>
         |> map(fn run -> NonEmptyList.try_from(run)!)
     end
 
-    /// Lazy: yields each run of equal neighbouring elements as a NonEmptyList, so
-    /// `Iter.chunk_equal(xs)` is `Iter.chunk_by(xs, fn x -> x)`. Equal
-    /// elements that are not neighbours land in separate runs; for one group
+    /// Lazy: yields each run of equal neighboring elements as a NonEmptyList,
+    /// so `Iter.chunk_equal(xs)` is `Iter.chunk_by(xs, fn x -> x)`. Equal
+    /// elements that are not neighbors land in separate runs; for one group
     /// per value, use `Iter.group_by` or `Iter.frequencies`. A run is never
     /// empty, and an empty source yields none. It is infinite when `source`
     /// is.
@@ -1054,7 +1129,9 @@ impl Iter<T>
     // on the `Iter` API surface: `Iter.from(...)`, `Iter.to_map(...)`.
     // (`loop` is the same shape.)
     // ---------------------------------------------------------------------------
-    /// Infinite iterator yielding start, start+1, start+2, ...
+    /// An infinite source that counts up from `start`: `start`, `start + 1`,
+    /// `start + 2`, and so on. Limit it with `Iter.take` or `Iter.take_while`
+    /// before collecting it.
     //
     //! assert Iter.from(10) |> Iter.take(3) |> Iter.to_list() == [10, 11, 12]
     //! assert Iter.is_infinite(Iter.from(10))
@@ -1063,7 +1140,7 @@ impl Iter<T>
         Seq{run: fn yield: (Int) -> Bool -> from_each(start, yield)}
     end
 
-    /// Infinite iterator yielding `x` forever.
+    /// An infinite source that yields `x` over and over.
     //
     //! assert Iter.repeat("ha") |> Iter.take(3) |> Iter.to_list() == ["ha", "ha", "ha"]
     //! assert Iter.repeat("ha") |> Iter.map(&String.length(&1)) |> Iter.is_infinite()
@@ -1072,15 +1149,18 @@ impl Iter<T>
         Seq{run: fn yield: (T) -> Bool -> repeat_each(x, yield)}
     end
 
-    /// Infinite iterator: seed, step(seed), step(step(seed)), ...
+    /// An infinite source that starts at `seed` and applies `step` to get
+    /// each next element: `seed`, `step(seed)`, `step(step(seed))`, and so
+    /// on.
     ///
-    /// The step callback runs in iter-callback context:
-    /// - Plain return value v: emit the current state, advance to v.
-    /// - `break v`: emit v as the final element, then stop.
-    /// - bare `break`: stop immediately without emitting.
-    /// - `continue`: a compile error, since iterate's step *is* the
-    /// state-advancement and `continue` has no next state to fall forward
-    /// to. Use `Iter.iterate(...) |> Iter.filter(...)` to skip states.
+    /// In the step callback:
+    ///
+    /// - A plain result `v` yields the current state and moves on to `v`.
+    /// - `break v` yields `v` as the last element, then stops.
+    /// - A bare `break` stops without yielding.
+    /// - `continue` is a compile error: the step's result is the next state,
+    ///   so there is nothing to continue to. Skip states after the step
+    ///   instead, with `Iter.iterate(...) |> Iter.filter(...)`.
     ///
     /// It is `is_infinite` unless the step can `break`, which may end it.
     //! assert Iter.iterate(1, &(&1 * 2))
@@ -1103,17 +1183,17 @@ impl Iter<T>
         Seq{run: fn yield: (T) -> Bool -> iterate_each(seed, step, yield)}
     end
 
-    /// Consumes the iterator and materializes its (K, V) pair elements into a Map.
-    /// A later pair with a key already seen replaces the earlier value.
+    /// The `(key, value)` pairs of `source` as a Map. A later pair with a key
+    /// already seen replaces the earlier value.
     //
     //! assert Iter.to_map([("a", 1), ("b", 2)]) == {"a" => 1, "b" => 2}
     //
     pub host fn to_map<K, V>(source: Iter<(K, V)>) -> Map<K, V>
 
-    /// Lazy: yields the elements of each inner iterator in turn, in order,
-    /// as it reads them, so it works on an endless source. Its source's
-    /// elements must themselves be iterable, so it is a type function
-    /// rather than a `self`-based `Iter` interface function.
+    /// Lazy: yields the elements of each inner source in turn, in order: a
+    /// List of Lists becomes one sequence of their elements. It reads each
+    /// inner source only as it reaches it, so it works on an endless outer
+    /// source.
     //
     //! assert Iter.flatten([[1, 2], [3], [4, 5]]) |> Iter.to_list() == [1, 2, 3, 4, 5]
     //! assert Iter.repeat([1, 2]) |> Iter.flatten() |> Iter.take(3) |> Iter.to_list() == [1, 2, 1]
@@ -1125,9 +1205,8 @@ impl Iter<T>
     /// The columns of `rows`, as a List of Lists: column `i` holds the `i`th
     /// element of each row long enough to have one, in row order. A ragged
     /// row adds nothing past its end, so no element is invented and none is
-    /// dropped. A materializing terminal, since the first column needs every
-    /// row. Its source's elements must themselves be iterable, so it is a
-    /// type function rather than a `self`-based `Iter` interface function.
+    /// dropped. It reads the whole source, since the first column needs every
+    /// row.
     //
     //! assert Iter.transpose([[1, 2, 3], [4, 5, 6]]) == [[1, 4], [2, 5], [3, 6]]
     //! assert Iter.transpose([[1, 2, 3], [4], [5, 6]]) == [[1, 4, 5], [2, 6], [3]]
@@ -1142,13 +1221,8 @@ impl Iter<T>
         |> transpose_columns([])
     end
 
-    /// Returns the elements of `source` reversed, as a List. A materializing
-    /// terminal (consumes the whole iterator). Generic over any iterator. A
-    /// collection that wants its own container back keeps a container-specific
-    /// native function (`String.reverse → String`), which is why this generic form is
-    /// a type function rather than an `Iter` protocol function: the two return types
-    /// would otherwise have to diverge, and `String.reverse` could not equal
-    /// `Iter.reverse`.
+    /// The elements of `source` as a List, last first. It reads the whole
+    /// source. `String.reverse` reverses a String into a String.
     //
     //! assert Iter.reverse([1, 2, 3]) == [3, 2, 1]
     //
@@ -1156,18 +1230,20 @@ impl Iter<T>
         reduce(source, [], fn acc, item -> [item, ..acc])
     end
 
-    /// Returns the number of elements in `source`, consuming it. The single
-    /// generic count over any `Iter<T>`: it consults the `known_count` protocol
-    /// function first, so it's O(1) on any source that stores its size
-    /// (`List`/`Map`/`Set`/bounded ranges whose element type can count steps);
-    /// everything else (lazy pipelines,
-    /// `String`) inherits the `None` default and folds in O(n). Because the fold
-    /// runs to exhaustion, `Iter.count` traps on an infinite source — bound it
-    /// with `Iter.take(n)` first. For the sized-only,
-    /// non-consuming return (`None` when unknown or unbounded), use
-    /// `Iter.known_count` directly.
+    /// The number of elements in `source`. A source that stores its size (a
+    /// `List`, `Vector`, `Map`, `Set`, `Maybe`, or a bounded range whose
+    /// element type can count steps) answers at once, through `known_count`.
+    /// Any other source, such as a `String` or a filtered chain, is walked to
+    /// its end and counted.
+    ///
+    /// It traps on an infinite source; limit one with `Iter.take` first.
+    /// `Iter.known_count` returns the count only when it is known without a
+    /// walk, and `None` otherwise.
     //
     //! assert Iter.count([10, 20, 30]) == 3
+    //! assert Iter.count([]) == 0
+    //! assert Iter.count("héllo") == 5
+    //! assert 1..=10 |> Iter.filter(fn n -> n % 3 == 0) |> Iter.count() == 3
     //! assert Iter.from(0) |> Iter.take(5) |> Iter.count() == 5
     //
     pub fn count<T>(source: Iter<T>) -> NonNegativeInt
@@ -1177,10 +1253,10 @@ impl Iter<T>
         end
     end
 
-    /// Returns the number of elements for which `pred` holds, consuming the
-    /// whole iterator: `Iter.count_by(xs, pred)` is
-    /// `Iter.filter(xs, pred) |> Iter.count()`. It calls `pred` once per
-    /// element and traps on an infinite source.
+    /// The number of elements for which `pred` returns `True`:
+    /// `Iter.count_by(xs, pred)` is `Iter.filter(xs, pred) |> Iter.count()`.
+    /// It calls `pred` once per element, reads the whole source and traps on
+    /// an infinite one.
     //
     //! assert Iter.count_by([1, 2, 3, 4, 5], &(&1 > 2)) == 3
     //! assert Iter.count_by("banana", &(&1 == "a")) == 3
@@ -1192,8 +1268,8 @@ impl Iter<T>
         as_count(reduce(source, 0, fn n, item -> if pred(item) then n + 1 else n))
     end
 
-    /// Returns the least element, or `None` for an empty source. Of equal
-    /// least elements, the first wins. Consumes the whole iterator.
+    /// The least element, or `None` for an empty source. Of equal least
+    /// elements, the first wins. It reads the whole source.
     //
     //! assert Iter.min([3, 1, 2]) == Some(1)
     //! assert Iter.min(["pear", "fig", "plum"]) == Some("fig")
@@ -1208,8 +1284,8 @@ impl Iter<T>
         end)
     end
 
-    /// Returns the greatest element, or `None` for an empty source. Of equal
-    /// greatest elements, the first wins. Consumes the whole iterator.
+    /// The greatest element, or `None` for an empty source. Of equal greatest
+    /// elements, the first wins. It reads the whole source.
     //
     //! assert Iter.max([3, 1, 2]) == Some(3)
     //! assert Iter.max(["pear", "fig", "plum"]) == Some("plum")
@@ -1224,9 +1300,9 @@ impl Iter<T>
         end)
     end
 
-    /// Returns the element whose `key` is least, or `None` for an empty
-    /// source. Of elements with equal least keys, the first wins. Calls `key`
-    /// once per element.
+    /// The element whose `key` is least, or `None` for an empty source. Of
+    /// elements with equal least keys, the first wins. It calls `key` once
+    /// per element.
     //
     //! assert Iter.min_by(["pear", "fig", "plum"], &String.length(&1)) == Some("fig")
     //! assert Iter.min_by([(1, "a"), (0, "b"), (0, "c")], fn (n, _) -> n) == Some((0, "b"))
@@ -1244,9 +1320,9 @@ impl Iter<T>
         Maybe.map(best, fn (item, _) -> item)
     end
 
-    /// Returns the element whose `key` is greatest, or `None` for an empty
-    /// source. Of elements with equal greatest keys, the first wins. Calls
-    /// `key` once per element.
+    /// The element whose `key` is greatest, or `None` for an empty source. Of
+    /// elements with equal greatest keys, the first wins. It calls `key` once
+    /// per element.
     //
     //! assert Iter.max_by(["pear", "fig", "plum"], &String.length(&1)) == Some("pear")
     //! assert Iter.max_by([(1, "a"), (0, "b"), (1, "c")], fn (n, _) -> n) == Some((1, "a"))
@@ -1264,21 +1340,22 @@ impl Iter<T>
         Maybe.map(best, fn (item, _) -> item)
     end
 
-    /// Adds the elements with `+`, left to right, starting from
-    /// `T.empty_sum()`. An empty source sums to `T.empty_sum()`: 0 for Int,
-    /// "" for String, `[]` for List.
+    /// The elements added up with `+`, left to right. An empty source sums to
+    /// the type's empty sum, `T.empty_sum()`: 0 for Int, 0.0 for Float, ""
+    /// for String, `[]` for List.
     ///
     /// `Iter.sum(xs)` is exactly
-    /// `Iter.reduce(xs, T.empty_sum(), fn total, x -> total + x)`, so it rounds
-    /// Floats as that fold does. Summing Maps follows Map's `+`: a later map
-    /// wins on a shared key. Consumes the whole iterator, so it traps on an
-    /// infinite source.
+    /// `Iter.reduce(xs, T.empty_sum(), fn total, x -> total + x)`, so it
+    /// rounds Floats as that fold does; Decimals add exactly. Summing Maps
+    /// follows Map's `+`: a later map wins on a shared key. It reads the
+    /// whole source, so it traps on an infinite one.
     //
     //! assert Iter.sum([1, 2, 3]) == 6
+    //! assert Iter.sum(1..=4) == 10
+    //! assert Iter.sum([19.99d, 5.01d]) == 25.00d
     //! assert Iter.sum([0.5, 0.25]) == 0.75
     //! assert Iter.sum(["a", "b", "c"]) == "abc"
     //! assert Iter.sum([[1], [2, 3]]) == [1, 2, 3]
-    //! assert Iter.sum(1..=4) == 10
     //! none: List<Int> = []
     //! assert Iter.sum(none) == 0
     //
@@ -1286,12 +1363,12 @@ impl Iter<T>
         reduce(source, T.empty_sum(), fn total, x -> total + x)
     end
 
-    /// Adds `key` of each element with `+`, left to right, starting from
-    /// `N.empty_sum()`: `Iter.sum_by(orders, .total)` is the sum of the
-    /// orders' totals. An empty source sums to `N.empty_sum()`.
+    /// The sum of `key` of each element, added with `+`, left to right:
+    /// `Iter.sum_by(orders, .total)` is the sum of the orders' totals. An
+    /// empty source sums to `N.empty_sum()`.
     ///
     /// `Iter.sum_by(xs, key)` is exactly `Iter.map(xs, key) |> Iter.sum()`.
-    /// Consumes the whole iterator, so it traps on an infinite source.
+    /// It reads the whole source, so it traps on an infinite one.
     //
     //! orders = [{id: 1, total: 5}, {id: 2, total: 7}]
     //! assert Iter.sum_by(orders, .total) == 12
@@ -1305,13 +1382,13 @@ impl Iter<T>
     end
 
     /// The arithmetic mean of the elements, or `None` for an empty source.
-    /// The element type's `Averageable` impl decides the result type and
-    /// the rounding: Ints give a Float rounded once from the exact sum,
-    /// Floats are summed with compensation, Decimals divide their exact sum
-    /// with Decimal's `/`, and Durations give the nearest nanosecond.
-    /// A refinement is averaged as its base, so the mean of `NonNegativeInt`
-    /// lengths is a Float. Reads the source once, so it works on a lazy or
-    /// one-shot source; it traps on an infinite one.
+    /// The element type's `Averageable` impl decides the result type and the
+    /// rounding: Ints give a Float rounded once from the exact sum, Floats
+    /// are summed with compensation, Decimals divide their exact sum with
+    /// Decimal's `/`, and Durations give the nearest nanosecond. A subtype is
+    /// averaged as its base, so the mean of `NonNegativeInt` lengths is a
+    /// Float. It reads the source once, so it works on a lazy source or a
+    /// stream's; it traps on an infinite one.
     //
     //! assert Iter.mean([1, 2, 3, 4]) == Some(2.5)
     //! assert Iter.mean([1, 2, 4]) == Some(2.3333333333333335)
@@ -1353,14 +1430,14 @@ impl Iter<T>
         N.mean(map(source, key))
     end
 
-    /// Multiplies the elements with `*`, left to right, starting from
-    /// `T.empty_product()`. An empty source's product is
-    /// `T.empty_product()`: 1 for Int, 1.0 for Float, 1d for Decimal.
+    /// The elements multiplied with `*`, left to right. An empty source's
+    /// product is the type's empty product, `T.empty_product()`: 1 for Int,
+    /// 1.0 for Float, 1d for Decimal.
     ///
     /// `Iter.product(xs)` is exactly
-    /// `Iter.reduce(xs, T.empty_product(), fn product, x -> product * x)`,
-    /// so it rounds Floats as that fold does. It does not stop at a zero.
-    /// Consumes the whole iterator, so it traps on an infinite source.
+    /// `Iter.reduce(xs, T.empty_product(), fn product, x -> product * x)`, so
+    /// it rounds Floats as that fold does. It does not stop at a zero. It
+    /// reads the whole source, so it traps on an infinite one.
     //
     //! assert Iter.product([2, 3, 4]) == 24
     //! assert Iter.product([0.5, 4.0]) == 2.0
@@ -1373,13 +1450,12 @@ impl Iter<T>
         reduce(source, T.empty_product(), fn product, x -> product * x)
     end
 
-    /// Multiplies `key` of each element with `*`, left to right, starting
-    /// from `N.empty_product()`. An empty source's product is
-    /// `N.empty_product()`.
+    /// The product of `key` of each element, multiplied with `*`, left to
+    /// right. An empty source's product is `N.empty_product()`.
     ///
     /// `Iter.product_by(xs, key)` is exactly
-    /// `Iter.map(xs, key) |> Iter.product()`. Consumes the whole iterator,
-    /// so it traps on an infinite source.
+    /// `Iter.map(xs, key) |> Iter.product()`. It reads the whole source, so
+    /// it traps on an infinite one.
     //
     //! sides = [{w: 2, h: 3}, {w: 4, h: 1}]
     //! assert Iter.product_by(sides, .w) == 8

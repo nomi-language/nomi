@@ -24,10 +24,11 @@ dbg line 6: 9 in scores = True
 
 `Iter.count` counts the values in a list, and `Iter.sum` adds them up.
 `Iter` is short for *iterate*, which means to go through values one at a
-time, and it holds the functions that work through a list that way. A
-list's type says what it holds:
-`List<Int>`, read "list of Int", is a list of whole numbers. `in` asks
-whether a value is in a list, and answers with a Bool.
+time, and it holds the functions that work through a list that way. `in`
+asks whether a value is in a list, and answers with a Bool.
+
+A list's type says what it holds: `List<Int>`, read "list of Int", is a
+list of whole numbers.
 
 ## Your turn
 

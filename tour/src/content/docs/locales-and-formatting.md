@@ -27,9 +27,10 @@ Portuguese as written in Brazil. The language comes first, then the region.
 `Locale` is in the prelude, so it needs no import.
 
 `Int.format`, `Float.format` and `Decimal.format` write a number the way a
-reader of a locale expects. `format_percent` writes a fraction as a
-percentage, so `0.15` becomes `15%`. Use `Decimal` for amounts that must
-stay exact. A price in a currency is a `Money`, shown below.
+reader of a locale expects. `Float.format_percent` and
+`Decimal.format_percent` write a fraction as a percentage, so `0.15`
+becomes `15%`. Use `Decimal` for amounts that must stay exact. A price in
+a currency is a `Money`, shown below.
 
 ```nomi-run
 import std::io
@@ -242,7 +243,6 @@ fn main()
     dbg String.join_list(["S", "M", "L"], Locale"en-US", style: .Or)
     dbg String.join_list(["S", "M", "L"], Locale"pl", style: .Or)
     dbg String.join_list(["2 lb", "3 oz"], Locale"en-US", style: .Unit)
-    Unit
 end
 ```
 <!-- expect
@@ -324,7 +324,6 @@ fn main()
     dbg Date.parse_in("10/20/2026", us, lenient: True)
     dbg Date.parse_in("2/31/26", us)
     dbg Date.parse_in("Oct 20, 2026", us, style: .Medium)
-    Unit
 end
 ```
 <!-- expect
@@ -357,7 +356,6 @@ fn main()
     dbg Locale.parse("pt_BR")
     dbg Locale.from_posix("pl_PL.UTF-8")
     dbg Locale.fallbacks(Locale"es-MX")
-    Unit
 end
 ```
 <!-- expect
@@ -402,7 +400,6 @@ fn main()
     dbg page_locale([Locale"de-AT"])
     dbg page_locale([Locale"ja", Locale"pl"])
     dbg page_locale([Locale"ja"])
-    Unit
 end
 ```
 <!-- expect
@@ -536,7 +533,6 @@ fn main()
     dbg String.uppercase_in("istanbul", Locale"tr")
     dbg String.lowercase_in("KIRMIZI", Locale"tr")
     dbg String.fold_case("Straße") == String.fold_case("STRASSE")
-    Unit
 end
 ```
 <!-- expect
@@ -574,8 +570,8 @@ end
 
 impl Localize for Weight
     fn localize(w: Weight, locale: Locale) -> String
-        kilograms = Int.to_float(w.grams) / 1000.0
-        "${Float.format(kilograms, locale, fraction: 0..=2)} kg"
+        kilograms = Int.to_decimal(w.grams) / 1000d
+        "${Decimal.format(kilograms, locale)} kg"
     end
 end
 

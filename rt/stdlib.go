@@ -136,15 +136,21 @@ func StringLines(s string) *List[string] {
 	return listOf(parts)
 }
 
+// maxStringBytes bounds the String that String.repeat builds, as maxShift
+// bounds an Int: a larger one does not fit in memory a program can have, so
+// a request for one faults with a reason rather than running out of memory,
+// which ends the process with Go's own report.
+const maxStringBytes = maxShift / 8
+
 // StringRepeat is `String.repeat`. std declares count a NonNegativeInt of
 // any size: the empty string repeats to itself however many times, and
-// copies past what memory holds trap naming the count.
+// copies past maxStringBytes trap naming the count.
 func StringRepeat(s string, count Int) string {
 	if s == "" {
 		return ""
 	}
 	n, ok := count.Int64()
-	if !ok || n > math.MaxInt/int64(len(s)) {
+	if !ok || n > maxStringBytes/int64(len(s)) {
 		Trap(fmt.Sprintf("String.repeat: %s copies of a %d-byte string are more than memory holds", count, len(s)))
 	}
 	return strings.Repeat(s, int(n))

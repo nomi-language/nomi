@@ -1,15 +1,15 @@
 //# Regular expressions in RE2 syntax, matched in time linear in the input.
-//# Use raw typed literals for readable patterns, such as ``Regex`\d+``. A
-//# literal without slots has its pattern compiled when the program is
-//# checked, so an invalid one is a compile error and the literal is a
-//# `Regex`; a literal with a slot (``Regex"room ${word}"``) is compiled when
-//# it runs and is a `Result` of one.
+//# Write a pattern as a backtick literal, such as ``Regex`\d+` ``, so its
+//# backslashes need no escaping. A literal without slots has its pattern
+//# compiled when the program is checked, so an invalid one is a compile
+//# error and the literal is a `Regex`. A literal with a slot
+//# (`Regex"room ${word}"`) is compiled when it runs and is a `Result` of
+//# one.
+//#
 //# A `Regex<C>` names its capture groups: `C` is what `String.captures`
-//# gives for a match. A literal's `C` comes from its pattern, a tuple of
-//# `String` and `Maybe<String>` groups (``Regex`(\d+)-(\w+)?` `` is a
-//# `Regex<(String, Maybe<String>)>`), an anonymous struct when every group
-//# is named, one group's type alone, or `Unit` for none; a regex compiled
-//# while the program runs is a `Regex<List<Maybe<String>>>`.
+//# gives for a match, and a literal's `C` comes from its pattern
+//# ([Capture types](#capture-types)).
+//#
 //# A `Regex` is a `Matcher`, so String's search functions take one in place of
 //# a plain string. Test for a match with ``String.contains(text, Regex`\d+`)``,
 //# collect every match with `String.find_all(text, re)`, and split around
@@ -59,7 +59,7 @@
 //# `String.contains`, the `Matcher` search functions, `Display` and `Debug`)
 //# take a `Regex<C>` for any `C`, and ordinary code never writes it. A
 //# function of your own that takes any regex is generic in it:
-//# `fn first<C>(re: Regex<C>, text: String) -> Maybe<C> { String.captures(text, re) }`.
+//# `fn first<C>(re: Regex<C>, text: String) -> Maybe<C>`.
 //# Annotating a binding of a literal names its type, as
 //# ``digits: Regex<Unit> = Regex`\d+` ``.
 
@@ -78,10 +78,11 @@ end
 
 /// A compiled regular expression whose capture groups have the type `C`.
 ///
-/// Nomi regexes use Go's `regexp` package, so matching is RE2-style:
-/// predictable and non-backtracking, without lookaround or backreferences.
-/// Prefer raw typed literals for patterns so regex escapes stay readable and
-/// the pattern is checked at compile time: `` Regex`\d+` ``.
+/// Matching is RE2's, by Go's `regexp` package: it never backtracks, so it
+/// takes time linear in the input, and it has no lookaround or
+/// backreferences. Write a pattern as a backtick literal, `` Regex`\d+` ``:
+/// its backslashes need no escaping and the pattern is checked when the
+/// program is compiled.
 ///
 /// A `Regex` is a `Matcher`: test, find, collect and split with the String
 /// functions. `C` is what `String.captures` gives for a match; a literal's
@@ -113,16 +114,16 @@ end
 pub host type Regex<C>
 
 impl Regex<C>
-    /// Compile a pattern into a `Regex`. Its groups are known only once it
-    /// runs, so `String.captures` gives them as a list, one `Maybe` per
-    /// group.
+    /// Compiles a pattern into a `Regex`, or returns `Err` with the reason
+    /// the pattern is invalid. Its groups are known only once it runs, so
+    /// `String.captures` gives them as a list, one `Maybe` per group.
     //! assert Regex.pattern(Regex.compile("a+")?) == "a+"
     //! assert Err(_msg) = Regex.compile("(")
     //! assert String.captures("b", Regex.compile("(a)|(b)")?) == Maybe.Some([Maybe.None, Maybe.Some("b")])
     //
     pub host fn compile(pattern: String) -> Result<Regex<List<Maybe<String>>>, String>
 
-    /// Return the source pattern for a compiled regex.
+    /// Returns the pattern the regex was compiled from.
     //! assert Regex.pattern(Regex`\d+`) == "\\d+"
     //
     pub host fn pattern<C>(re: Regex<C>) -> String

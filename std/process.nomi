@@ -9,12 +9,12 @@
 //# A `Command` names a program and its arguments, with no shell between:
 //# nothing in an argument is expanded, split or quoted, so an argument
 //# holding a space or a `*` reaches the program as it is. `output` runs it
-//# to the end and returns what it wrote, `run` runs it with its output
-//# going to the program's own, and `spawn` starts it with its three
-//# streams to read and write, and `defer Child.kill(child)` stops it when
-//# the function that started it ends. A program that ends
-//# with a non-zero code is a `Status` to inspect, not an error; an `Err`
-//# means it could not be started.
+//# to the end and returns what it wrote. `run` runs it with its output
+//# going to the program's own. `spawn` starts it with its three streams to
+//# read and write, and `defer Child.kill(child)` stops it when the function
+//# that started it ends. A program that ends with a non-zero code is a
+//# `Status` to inspect, not an error; an `Err` means it could not be
+//# started.
 //#
 //# ```nomi
 //# import

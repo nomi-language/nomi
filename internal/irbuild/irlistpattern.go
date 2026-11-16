@@ -54,17 +54,15 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		}
 		return true
 	}
-	nestedHeads := len(pat.Tails) > 0
+	// A rest that is a pattern of its own (`[a, ..[b]]`) tests the suffix.
+	nested := len(pat.Tails) > 0 || (spread && !simple(pat.TailSpread))
 	for _, head := range pat.Heads {
 		if !simple(head) && !flatTuple(head) {
-			nestedHeads = true
+			nested = true
 		}
 	}
-	if nestedHeads {
+	if nested {
 		return bl.listCaseTestNested(pat, subj, k, arm, next)
-	}
-	if spread && !simple(pat.TailSpread) {
-		return false
 	}
 	if spread && len(pat.Heads) == 0 {
 		// `[..rest]` matches every list, so there is no length test: the
@@ -122,31 +120,49 @@ func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 }
 
 // listCaseTestNested is listCaseTest for heads that test their element
-// (`[.Num(a), 0, ..rest]`) and for a pattern with tails (`[first, ..mid,
-// last]`): after the length test each head is projected and matched in
+// (`[.Num(a), 0, ..rest]`), for a pattern with tails (`[first, ..mid,
+// last]`) and for a rest at the end that is a pattern of its own (`[a,
+// ..[b]]`): after the length test each head is projected and matched in
 // order, then each tail, read from the list's last cells, and any failed
 // element test selects the next arm. A rest before tails is a copy of the
-// elements between them (ir.ProjListSlice). The builder ends in arm.
+// elements between them (ir.ProjListSlice). A rest at the end is the
+// list's suffix, sharing its cells, and a pattern there is matched against
+// it as any nested pattern is against its value. The builder ends in arm.
 func (bl *irScalarBuilder) listCaseTestNested(pat *ast.ListPattern, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	spread := !isNilNode(pat.TailSpread)
 	fixed := len(pat.Heads) + len(pat.Tails)
+	restPattern := false
 	if spread {
 		switch pat.TailSpread.(type) {
 		case *ast.IdentPattern, *ast.WildcardPattern:
 		default:
-			return false
+			// The parser admits a pattern for the rest only at the end.
+			if len(pat.Tails) > 0 {
+				return false
+			}
+			restPattern = true
 		}
 	}
-	var match *ir.Match
-	if spread {
-		match = ir.NewMatchListMinInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, fixed)
-	} else {
-		match = ir.NewMatchListLenInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, fixed)
+	var passed ir.Temp
+	switch {
+	case spread && fixed == 0:
+		// `[..[a, b]]` puts no length test before the rest's own. The
+		// branch is on a constant, as `[..rest]`'s is (listCaseTest).
+		always := ir.NewBool(bl.g.irNodePos(pat), bl.f.NewTemp(), true)
+		bl.b.Append(always)
+		passed = always.Dst()
+	case spread:
+		match := ir.NewMatchListMinInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, fixed)
+		bl.b.Append(match)
+		passed = match.Dst()
+	default:
+		match := ir.NewMatchListLenInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj, fixed)
+		bl.b.Append(match)
+		passed = match.Dst()
 	}
-	bl.b.Append(match)
-	bl.side(match.Dst(), irScalarSide{k: kindBool})
+	bl.side(passed, irScalarSide{k: kindBool})
 	body := bl.f.NewBlock(bl.g.irNodePos(pat), "list elements")
-	bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), body.ID(), next.ID()))
+	bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), passed, body.ID(), next.ID()))
 	bl.b = body
 	elem := k.comp.parts[0]
 	for i, head := range pat.Heads {
@@ -183,6 +199,12 @@ func (bl *irScalarBuilder) listCaseTestNested(pat *ast.ListPattern, subj ir.Temp
 		bl.side(suffix.Dst(), irScalarSide{k: k})
 		if id, ok := pat.TailSpread.(*ast.IdentPattern); ok {
 			bl.patternBinding(id, id.Name, suffix.Dst(), k)
+		}
+		if restPattern {
+			target := bl.f.NewBlock(bl.g.irNodePos(pat.TailSpread), "list rest")
+			if !bl.patternValueTest(pat.TailSpread, suffix.Dst(), k, target, next) {
+				return false
+			}
 		}
 	}
 	bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))

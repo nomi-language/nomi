@@ -229,9 +229,8 @@ end
 main.nomi:6:5: non-final expression has type Int, but only Unit results can be ignored — write `_ = ...` if intentional, use `dbg ...` to inspect it, or move it to the end to return it
 -->
 
-Write `_ = compute()` to discard it on purpose. Moving `compute()` to the
-last line doesn't help either. It would become `main`'s result, and `main`
-can only return `Unit` or `Result<Unit, E>`.
+Moving `compute()` to the last line doesn't help here. It would become
+`main`'s result, and `main` can only return `Unit` or `Result<Unit, E>`.
 
 You can bind a name that is already in use. The new binding shadows the old
 one: from that line on, the name means the new value. Nothing is mutated.
@@ -272,8 +271,7 @@ dbg line 5:
   = "jane"
 -->
 
-`dbg` returns its value, so it can sit in a pipeline like this, at the end or
-between two stages.
+A bare `dbg` can end a pipeline like this, or sit between two stages.
 
 A binding that is replaced before anything reads it is an error. In
 `name = "Jane"` followed by `name = "John"`, the compiler reports that the
@@ -332,11 +330,9 @@ dbg line 9:
   = 0
 -->
 
-`{}` alone could be a map of any key and value types, so you say which.
-The empty literals `[]` and `{}` are each collection's empty value, and each
-needs its type from somewhere: `[]` is a list, a vector or a set by the type
-it is given, as `[1, 2]` is. There are three ways to give
-a type:
+`{}` alone could be a map of any key and value types, and `[]` could be an
+empty list, vector or set of anything, so each needs its type from
+somewhere. There are three ways to give one:
 
 - Annotate the binding: `scores: Map<String, Int> = {}`. Use this when you
   name the value.
@@ -520,8 +516,6 @@ Inside a function body, Nomi works out types from how values are used:
   type, or another `case` arm.
 - In `f: (Int) -> Int = fn x -> x + 1`, the lambda's `x` gets its type from the
   annotation, so you don't write `fn x: Int ->`.
-- In `m: Map<String, Int> = {}`, the annotation tells `{}` which map it
-  is.
 
 Inference stops at two boundaries.
 
@@ -553,9 +547,8 @@ main.nomi:2:5: binding 'm' type is not locally determined: it has unsolved type 
 
 The second line would tell the compiler that `m` maps `String` to `Int`.
 Nomi rejects the first line anyway, so that someone reading from the top
-knows what `m` is without looking ahead. The fix
-is an annotation or a type argument, as in
-[Type annotations](#type-annotations).
+knows what `m` is without looking ahead. The fix is an annotation or a type
+argument, as in [Type annotations](#type-annotations).
 
 Most lines in a function body need no annotation. You write types at
 signatures, and on the few bindings whose type the line itself doesn't show.

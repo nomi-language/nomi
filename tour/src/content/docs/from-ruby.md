@@ -23,10 +23,14 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `x = x + 1` with `x` reassigned | The same text, but it binds a new `x`; the old value is unchanged |
 | `xs.each { \|x\| total += x }` | `Iter.reduce(xs, 0, fn total, x -> total + x)`: nothing mutates, so a fold carries the state |
 | `nil`, `&.` | `Maybe<T>`: `None` or `Some(v)`, with `Maybe.map` |
+| `x = (y if c)` is `nil` when `c` is false | An `if` without `else` is a statement with no value. Write `if c then Some(y) else None`. |
 | `raise`, `rescue` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `:paid` | An enum variant, `.Paid`, or a string where any text will do |
-| `-7 / 2` is `-4`; `-7 % 3` is `2` | `/` on two `Int`s truncates toward zero, so `-7 / 2` is `-3`. `%` takes the sign of its left operand, so `-7 % 3` is `-1`. `Int.floor_div` and `Int.modulo` are Ruby's `/` and `%`. |
+| Duck typing, `include Comparable` | An `interface`, and a type implements one by saying so: `impl Speak for Dog`, `derive Comparable for Order` |
+| `n.to_f`, `"12".to_i`, where `"x".to_i` is `0` | `Int.to_float(n)`, `String.to_int(s)`, which returns a `Maybe`: `None` for `"x"` |
+| `-7 / 2` is `-4`; `-7 % 3` is `2` | `/` on two `Int`s truncates toward zero, so `-7 / 2` is `-3`. `%` takes the sign of its left operand, so `-7 % 3` is `-1`. `Int.floor_div` and `Int.modulo` are Ruby's `/` and `%`. The divisor must be a `NonZeroInt`: a literal other than 0 is one, and so is `d` after `if d == 0 then return ..`. |
 | `File.open(path) do \|f\| .. end` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
+| `Thread.new { .. }`, `thread.value` | `Task.spawn(fn -> ..)` and `Task.await(task)` inside `concurrent` ... `end`, which waits for its tasks |
 | Rails initializers in `config/initializers/` that set up shared clients | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
 ## Spelled differently
@@ -34,14 +38,16 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | Ruby | Nomi |
 |---|---|
 | `xs.select { \|x\| x.paid? }.map(&:total)` | `xs \|> Iter.filter(fn x -> x.paid) \|> Iter.map(.total)` |
-| `{a: 1}`, `{"k" => v}` | `{a: 1}`, `{"k" => v}` |
+| `{a: 1}`, `{"k" => v}` | `{a: 1}` is an anonymous struct with a field `a`, read as `x.a`; `{"k" => v}` is a map |
 | `"#{name} has #{n}"` | `"${name} has ${n}"` |
 | `Order = Data.define(:customer, :total)` | `struct Order` with `customer: String` and `total: Int`, one field per line |
 | `case x in {status: :paid, total:}` | `case x`, an arm `{status: .Paid, total:} -> ..`, `end` |
 | `do .. end` | `end` without `do`: `fn x ->` .. `end`, `if c then` .. `end` |
-| `empty?`, `key?` | `is_empty`, `has_key` |
+| `xs.empty?`, `h.key?(k)` | `Iter.is_empty(xs)`, `k in h`: a name holds no `?`, and a predicate usually starts with `is_` |
 | `fetch`, `save!` that raise | A postfix `!` on a `Maybe` or `Result`, which traps on `None` or `Err` |
-| `BigDecimal("1.50")` | `1.50d`, a `Decimal` literal. `+`, `-` and `*` are exact. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Money](/money/). |
+| `BigDecimal("1.50")` | `1.50d`, a `Decimal` literal. `+`, `-` and `*` are exact. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
+| `require_relative "db/posts"` | `import db::posts`, then `posts.find(1)`. Nothing is global: each file imports what it uses. |
+| `private` | A declaration is private to its file unless it is marked `pub` |
 | RSpec, Minitest | `test "name"` ... `end` beside the code |
 | `get "/users/:id", to: "users#show"` in Rails, with `params[:id]` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 

@@ -95,8 +95,8 @@ func TestEntryEnforcement_EntryWithoutMainRejected(t *testing.T) {
 	if !strings.Contains(errs[0].Message, "tools/seed") {
 		t.Errorf("error should mention %q, got %q", "tools/seed", errs[0].Message)
 	}
-	if !strings.Contains(errs[0].Message, "no entry callback") {
-		t.Errorf("error should mention %q, got %q", "no entry callback", errs[0].Message)
+	if !strings.Contains(errs[0].Message, "no `fn main`") {
+		t.Errorf("error should mention %q, got %q", "no `fn main`", errs[0].Message)
 	}
 	if errs[0].Line != 1 || errs[0].Col != 1 {
 		t.Errorf("expected placeholder position (1,1), got (%d,%d)",
@@ -150,8 +150,8 @@ func TestEntryEnforcement_EntryFileChecked(t *testing.T) {
 		if !strings.Contains(errs[0].Message, "main") {
 			t.Errorf("error should mention %q, got %q", "main", errs[0].Message)
 		}
-		if !strings.Contains(errs[0].Message, "no entry callback") {
-			t.Errorf("error should mention %q, got %q", "no entry callback", errs[0].Message)
+		if !strings.Contains(errs[0].Message, "no `fn main`") {
+			t.Errorf("error should mention %q, got %q", "no `fn main`", errs[0].Message)
 		}
 	})
 }

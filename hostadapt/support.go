@@ -35,8 +35,8 @@ func Arg(name string, i int, err error) error {
 }
 
 // ConvertError is a value the other side's type cannot hold: an Int past a
-// fixed-width Go integer, a Float past float32, a nil *big.Int, a time.Time
-// outside an Instant's range. It is the program's value that is wrong, not
+// fixed-width Go integer, a Float past float32, a nil *big.Int. It is the
+// program's value that is wrong, not
 // the adapter, so a call that meets one traps as a Nomi fault (Param,
 // Returned) rather than failing the machine.
 type ConvertError struct {

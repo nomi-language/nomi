@@ -41,8 +41,9 @@ When the call takes more arguments, you write the rest in the parentheses.
   parentheses is a function value.
 - A lambda or a capture is a stage only after `then` or `tap`.
   `5 |> fn n -> n * 2` is an error that suggests `then`.
-- A variant stage names its enum: `5 |> Shape.Dot()`. A bare `.Dot()` has
-  no enum to look in.
+- A variant stage names its enum: `5 |> Shape.Dot()`. A bare `.Dot()`
+  works only where the pipeline's type is expected, as in
+  `s: Shape = 5 |> .Dot()`.
 - `|> if` and `|> case` may prefix the call that computes their operand:
   `input |> case parse_id()` is `input |> parse_id() |> case`, each above the
   same arms.
@@ -99,33 +100,6 @@ dbg line 9:
 Both give `3`. The nested version runs from the inside out, so you read it
 backwards. The pipeline runs in the order you read it.
 
-## Piping into another argument
-
-A stage takes the piped value as its first argument. To pass it as another
-argument, write a `then` stage with a
-[capture](/functions-and-lambdas/#captures), whose `&1` is the piped value:
-
-```nomi-run
-fn divide(x: Int, y: NonZeroInt) -> Int
-    x / y
-end
-
-fn main()
-    10 |> then &divide(100, &1) |> dbg
-    100 |> then &divide(y: 4, x: &1) |> dbg
-end
-```
-<!-- expect
-dbg line 6: 10 |> then &divide(100, &1) = 10
-dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
--->
-
-`10 |> then &divide(100, &1)` is `divide(100, 10)`. A named argument can
-be `&1` too: `100 |> then &divide(y: 4, x: &1)` is `divide(100, 4)`. The
-stage passes one value, so the capture takes one parameter. A bare `&1` in
-a call stage, as in `10 |> divide(100, &1)`, is an error that suggests the
-`then` stage.
-
 ## The `then` stage
 
 ```nomi-run
@@ -176,6 +150,33 @@ Spec: [The `then` stage](/spec/expressions/#the-then-stage).
 
 </div>
 
+## Piping into another argument
+
+A call stage takes the piped value as its first argument. To pass it as
+another argument, write the `then` stage with a
+[capture](/functions-and-lambdas/#captures), whose `&1` is the piped value:
+
+```nomi-run
+fn divide(x: Int, y: NonZeroInt) -> Int
+    x / y
+end
+
+fn main()
+    10 |> then &divide(100, &1) |> dbg
+    100 |> then &divide(y: 4, x: &1) |> dbg
+end
+```
+<!-- expect
+dbg line 6: 10 |> then &divide(100, &1) = 10
+dbg line 7: 100 |> then &divide(y: 4, x: &1) = 25
+-->
+
+`10 |> then &divide(100, &1)` is `divide(100, 10)`. A named argument can
+be `&1` too: `100 |> then &divide(y: 4, x: &1)` is `divide(100, 4)`. The
+stage passes one value, so the capture takes one parameter. A bare `&1` in
+a call stage, as in `10 |> divide(100, &1)`, is an error that suggests the
+`then` stage.
+
 ## The `tap` stage
 
 ```nomi-run
@@ -221,15 +222,14 @@ Spec: [The `tap` stage](/spec/expressions/#the-tap-stage).
 
 ## Other stages
 
-A bare `dbg` prints the value and passes it on. A
-[`?`](/pattern-matching/#passing-failures-up) after a stage unwraps its
-[`Maybe`](/reference/maybe/) or [`Result`](/reference/results/). An
-[assertion](/testing/#assertions) can start a pipeline, and `if` and `case`
-can take the piped value. A stage that starts with `not` negates the stage's
-result: `name |> not String.is_empty()` is `not String.is_empty(name)`.
+A bare `dbg` stage prints the value and passes it on. A stage that starts
+with `not` negates the stage's result: `name |> not String.is_empty()` is
+`not String.is_empty(name)`.
 
-A `?` unwraps a `Some` or an `Ok` and passes the value inside on. On `None`
-or `Err`, it returns that from the function straight away:
+A [`?`](/pattern-matching/#passing-failures-up) after a stage unwraps its
+[`Maybe`](/reference/maybe/) or [`Result`](/reference/results/). It passes
+on the value inside a `Some` or an `Ok`. On `None` or `Err`, it returns that
+from the function straight away:
 
 ```nomi-run
 fn parse(text: String) -> Maybe<Int>
@@ -254,7 +254,8 @@ When a `then` lambda's result is what can fail, write `then?`:
 `|> then? fn n -> half(n)` passes on the value inside, or returns the `None`
 or `Err` from the function.
 
-An assertion can check the result of a whole pipeline:
+An [assertion](/testing/#assertions) can check the result of a whole
+pipeline:
 
 ```nomi-run
 test "pipeline result is true"

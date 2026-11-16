@@ -193,7 +193,7 @@ error: pl: `cart_count` has no `few` arm; 2, 3 and 4 select `few` in Polish
 The error says which numbers would have used the missing category, so you
 can check the fix.
 
-The editor helps with each of these. Hovering a phrase shows its text in
+The editor helps with catalogs too. Hovering a phrase shows its text in
 every locale. In a catalog, the editor completes phrase names, parameter
 names after `$`, and the keys a `.match` needs. Its quick fixes add a
 missing translation (a copy of the English with every variant the locale

@@ -53,7 +53,8 @@ dbg line 15: total = 120
 - `concurrent` ... `end` owns every task started inside it. Its value is its
   last expression.
 - [`Task.spawn(fn -> expr)`](/reference/tasks/#taskspawn) starts the lambda as
-  a task and returns a handle to it, a `Task<T>`, right away.
+  a task and returns a handle to it, a `Task<T>`, right away. A function
+  that takes no arguments can be passed by name: `Task.spawn(refresh)`.
 - [`Task.await(task)`](/reference/tasks/#taskawait) waits for the task and
   returns its result.
 
@@ -211,8 +212,8 @@ returns `Ok(Some(v))`, `Ok(None)` when closed, or `Err(TimedOut)`.
   `Receiver.receive` keeps returning values already sent after the close,
   and `None` once they are gone.
 - There is no `Receiver.close`. Only the sending side closes.
-- `Channel.buffered(0)` traps. A channel with no buffer is
-  `Channel.unbuffered()`.
+- The capacity is a `PositiveInt`, so `Channel.buffered(0)` does not
+  compile. A channel with no buffer is `Channel.unbuffered()`.
 - A channel belongs to no block. It can be made in one block and used in a
   later one.
 - A `send`, `receive` or `select` that is waiting when its task is
@@ -249,8 +250,8 @@ end
 
 fn main()
     outcome = concurrent
-        short = Task.spawn(fn -> short_fail())
-        long = Task.spawn(fn -> long_sleep())
+        short = Task.spawn(short_fail)
+        long = Task.spawn(long_sleep)
         n = Task.await(short)?
         _ = Task.await(long)?
         Ok(n)
@@ -316,7 +317,7 @@ concurrent
         |> Iter.to_list()
 
     handles
-    |> Iter.map(&Task.await(&1))
+    |> Iter.map(Task.await)
     |> Iter.to_list()
 end
 ```
@@ -421,9 +422,9 @@ because a `?` sees an `Err`, or because a task breaks. Here, nothing uses
 
 ## Cancelling one task
 
-`Task.cancel` stops one task and leaves the others running. A cancelled task
-stops right away. `Task.outcome` tells you whether a task finished or was
-cancelled:
+`Task.cancel` stops one task and leaves the others running. The task stops
+at its next call, loop round or wait. `Task.outcome` tells you whether a
+task finished or was cancelled:
 
 ```nomi-run
 import
@@ -440,7 +441,7 @@ end
 
 fn main()
     outcome = concurrent
-        conn = Task.spawn(fn -> serve_conn())
+        conn = Task.spawn(serve_conn)
         Task.cancel(conn)
         // `Task.await` on a cancelled task would cancel this block too;
         // `Task.outcome` reports it instead.
@@ -461,15 +462,14 @@ Cancelling a task also cancels everything it started. If `serve_conn` ran
 its read and write loops in its own `concurrent` block, cancelling the task
 stops those loops too.
 
-`Task.cancel` works on tasks in a `concurrent` block too. For example, when
-several tasks race, you can stop the ones that lose. You still have to await
-or inspect each handle, but a cancelled task returns quickly, so the block
-doesn't wait for the slowest one.
+When several tasks race, you can cancel the ones that lose. You still have
+to await or inspect each handle, but a cancelled task returns quickly, so
+the block doesn't wait for the slowest one.
 
 ## A task's own context
 
-Inside a task, `Config.context` is that task's own context, not the one
-`boot` built. This has two effects.
+Inside a task, the app's context field, `Config.context` in these examples,
+is that task's own context, not the one `boot` built. This has two effects.
 
 First, you don't need to check whether your task was cancelled. The runtime
 checks for you at every loop iteration, every function call, and every
@@ -490,8 +490,9 @@ return `Cancelled`. Put cleanup in a `defer`, which runs however the work
 ends.
 
 A `Context` holds a deadline and any typed values you add to it. It has no
-"cancelled" flag. `Context.deadline_remaining` returns a zero `Duration` once
-the deadline has passed, but that only tells you about the clock. A task
+"cancelled" flag. `Context.deadline_remaining` returns `Some` of a zero
+`Duration` once the deadline has passed, but that only tells you about the
+clock. A task
 never reads whether it was cancelled; the runtime stops it.
 
 Second, you can give the work a deadline by deriving a new context:
@@ -524,7 +525,7 @@ fn attempt() -> String
     with Config.context = Context.with_timeout(Config.context, Duration.seconds(1))
 
     outcome = concurrent
-        t = Task.spawn(fn -> slow())
+        t = Task.spawn(slow)
         Task.outcome(t)
     end
 
@@ -567,7 +568,7 @@ end
 
 fn main()
     outcome = concurrent
-        t = Task.spawn(fn -> slow_bounded())
+        t = Task.spawn(slow_bounded)
         Task.outcome(t)
     end
 

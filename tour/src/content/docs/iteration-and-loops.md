@@ -1,6 +1,6 @@
 ---
 title: "Iteration & Loops"
-description: "Iter.loop for loops that carry state, and what break, continue and return do inside the functions you pass to Iter, and recursion with tail calls."
+description: "Iter.loop for loops that carry state, what break, continue and return do inside the functions you pass to Iter, and recursion with tail calls."
 ---
 
 Most loops in Nomi are calls to [`Iter`](/reference/iter/#interface-iter)
@@ -54,14 +54,12 @@ ends the loop with the current state as its result. `break value` ends it with
 `value`, which has the same type as the state.
 
 The state is a single value. To carry more than one thing, use a
-[tuple](/structs-enums-distinct/#tuples) or a struct. The Fibonacci loop carries a pair, and its parameter is a pattern that
-takes the pair apart.
+[tuple](/structs-enums-distinct/#tuples) or a struct. The Fibonacci loop
+carries a pair, and its parameter is a pattern that takes the pair apart.
 
 `continue` ends the round early and starts the next one with the same state.
-Take care with it in a loop that has a state. The next round starts from the
-same value as the last one. Unless the last round did something outside the
-loop, such as reading a line of input, the next one does exactly the same
-thing, and the loop never ends.
+Unless the round did something outside the loop, such as reading a line of
+input, the next round does exactly the same thing, and the loop never ends.
 
 A loop with nothing to carry takes no parameter: `Iter.loop(fn -> ...)`. It
 ends with a bare `break`, and its result is `Unit`. Writing `break 0` in such a
@@ -121,9 +119,8 @@ the call gives back the final state and the list of results.
 
 ## `break` and `continue` in iter callbacks
 
-A callback is a function you pass to another function, like the lambda you
-pass to `Iter.map`. Inside a callback you pass to an `Iter` function, you can
-use `break` to stop early and `continue` to skip an element:
+Inside a callback you pass to an `Iter` function, you can use `break` to
+stop early and `continue` to skip an element:
 
 ```nomi-run
 fn main()
@@ -175,9 +172,8 @@ it.
 - Only these functions' callbacks take `break` and `continue`: `Iter.map`,
   `scan`, `filter`, `take_while`, `drop_while`, `flat_map`, `iterate`,
   `reduce`, `map_reduce`, `each`, `find`, `any_match`, `all_match`,
-  `Iter.loop`, and
-  `Map.map_values` and `Map.map_keys`. In any other lambda they are an
-  error.
+  `Iter.loop`, `Map.map_values` and `Map.map_keys`. In any other lambda
+  they are an error.
 - `continue` takes no value. To carry a new value forward, make it the
   callback's result.
 - A bare `break` in `find`, `any_match` and `all_match` returns `None`,

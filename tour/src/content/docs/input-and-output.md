@@ -76,8 +76,8 @@ In a terminal both lines appear, but `nomi run report.nomi > /dev/null`
 shows only the second. This page shows both streams in one box.
 
 A test checks what such a function writes with `Writer.collect(fn w ->
-report(w, 3))`, which hands it a writer into memory and returns what it
-wrote.
+report(w, 3))`, which hands it a writer into memory and returns a pair: what
+the function returned, and the bytes it wrote.
 
 ## Reading input
 

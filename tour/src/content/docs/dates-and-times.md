@@ -93,10 +93,7 @@ dbg line 13: leap + Years(1) = 2025-02-28
 An [`Instant`](/reference/instant/) is a point in time, stored as
 nanoseconds since the Unix epoch. It has no calendar and no time zone.
 [`Instant.now()`](/reference/instant/#instantnow) returns one. Store an
-`Instant` when you need a moment that doesn't depend on any zone. Like a
-Duration, it is an exact count of nanoseconds of any size, so
-[`Instant.from_seconds`](/reference/instant/#instantfrom_seconds) takes any
-timestamp.
+`Instant` when you need a moment that doesn't depend on any zone.
 
 A [`Duration`](/reference/duration/) is an exact number of nanoseconds. You
 add it to an instant, subtract it from one, get it back from
@@ -133,10 +130,12 @@ This example doesn't use `Instant.now()` or `timer.sleep`, because they read
 the real clock and wait in real time, so their output changes from run to
 run.
 
-Neither has a range, so `Instant + Duration` and the difference of two
-instants never fault. Go's clock counts the years 1677 to 2262, and a
-function that hands an Instant to Go says what one outside them means: a
-deadline past 2262 never comes. The calendar types have no range either: a
+An `Instant` and a `Duration` are counts of any size, so
+[`Instant.from_seconds`](/reference/instant/#instantfrom_seconds) takes any
+timestamp, and `Instant + Duration` and the difference of two instants
+never overflow. Go's clock counts the years 1677 to 2262, and a function
+that hands an `Instant` to Go says what one outside them means: a deadline
+past 2262 never comes. The calendar types have no range either: a
 year is an `Int` of any size, and one outside 0000 to 9999 is written with a
 sign and at least six digits, as in `Date"+010000-01-01"`.
 
@@ -162,6 +161,28 @@ end
 dbg line 7: ny == paris = True
 dbg line 8: ny = 2026-06-15T12:00:00-04:00[America/New_York]
 dbg line 9: paris = 2026-06-15T18:00:00+02:00[Europe/Paris]
+-->
+
+## Showing a moment in another zone
+
+[`DateTime.with_zone(dt, zone)`](/reference/calendar/#datetimewith_zone)
+keeps the same moment and shows it in another zone. Noon in New York is
+1 AM the next day in Tokyo:
+
+```nomi-run
+import std::calendar.{DateTime, Error}
+
+fn main() -> Result<Unit, Error>
+    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
+    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
+    dbg tokyo
+    dbg ny == tokyo
+    Ok(Unit)
+end
+```
+<!-- expect
+dbg line 6: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
+dbg line 7: ny == tokyo = True
 -->
 
 ## Daylight saving time
@@ -195,51 +216,6 @@ dbg line 13: physical = 2026-03-08T13:00:00-04:00[America/New_York]
 Both results are correct for different questions. `+ Days(1)` keeps the
 clock reading, noon, and works out the new UTC offset.
 `+ Duration.hours(24)` moves the moment forward by exactly 24 hours.
-
-## Showing a date to a person
-
-`dbg` and `"${date}"` write ISO 8601, `2026-10-20`, the same everywhere. A
-person reads a date the way their language writes it, so `Date.format`
-takes a locale:
-
-```nomi-run
-import std::calendar.Date
-
-fn main()
-    ships = Date"2026-10-20"
-    dbg Date.format(ships, Locale"en-US", style: .Long)
-    dbg Date.format(ships, Locale"de", style: .Long)
-end
-```
-<!-- expect
-dbg line 5: Date.format(ships, Locale"en-US", style: .Long) = "October 20, 2026"
-dbg line 6: Date.format(ships, Locale"de", style: .Long) = "20. Oktober 2026"
--->
-
-[Locales & Formatting](/locales-and-formatting/#dates-and-times) covers
-the styles, choosing the fields, times, and reading dates people type.
-
-## Showing a moment in another zone
-
-[`DateTime.with_zone(dt, zone)`](/reference/calendar/#datetimewith_zone)
-keeps the same moment and shows it in another zone. Noon in New York is
-1 AM the next day in Tokyo:
-
-```nomi-run
-import std::calendar.{DateTime, Error}
-
-fn main() -> Result<Unit, Error>
-    ny = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
-    tokyo = DateTime.with_zone(ny, "Asia/Tokyo")?
-    dbg tokyo
-    dbg ny == tokyo
-    Ok(Unit)
-end
-```
-<!-- expect
-dbg line 6: tokyo = 2026-06-16T01:00:00+09:00[Asia/Tokyo]
-dbg line 7: ny == tokyo = True
--->
 
 ## DST: gaps and folds
 
@@ -287,6 +263,29 @@ the earlier moment. In a gap it moves forward past the jump, so 2:30 becomes
 `Disambiguation.Reject` returns an `Err` for a gap or a fold instead of
 picking. Use it when a person typed the time, so you can ask them which one
 they meant.
+
+## Showing a date to a person
+
+`dbg` and `"${date}"` write ISO 8601, `2026-10-20`, the same everywhere. A
+person reads a date the way their language writes it, so `Date.format`
+takes a locale:
+
+```nomi-run
+import std::calendar.Date
+
+fn main()
+    ships = Date"2026-10-20"
+    dbg Date.format(ships, Locale"en-US", style: .Long)
+    dbg Date.format(ships, Locale"de", style: .Long)
+end
+```
+<!-- expect
+dbg line 5: Date.format(ships, Locale"en-US", style: .Long) = "October 20, 2026"
+dbg line 6: Date.format(ships, Locale"de", style: .Long) = "20. Oktober 2026"
+-->
+
+[Locales & Formatting](/locales-and-formatting/#dates-and-times) covers
+the styles, choosing the fields, times, and reading dates people type.
 
 ## Reading the current time
 

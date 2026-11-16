@@ -10,7 +10,7 @@
 //# claims = jwt.verify(token, SigningKey.verifying_key(key))?
 //# ```
 //#
-//# Four algorithms: HS256 (HMAC-SHA256 with a shared secret), RS256 and
+//# Five algorithms: HS256 (HMAC-SHA256 with a shared secret), RS256 and
 //# PS256 (RSA), ES256 (ECDSA P-256) and EdDSA (Ed25519), over std::hash and
 //# std::signatures. A key is made for one algorithm, and `verify` refuses a
 //# token whose header names another: it never lets the token choose how it

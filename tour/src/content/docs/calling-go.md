@@ -166,8 +166,8 @@ pass it as `Dynamic` and decode it on the Nomi side
   `uint8` parameter.
 - A `float32` slot is range-checked. NaN and the infinities cross
   unchanged.
-- A `time.Time` outside what an `Instant` holds traps. An `Instant` goes
-  back to Go in UTC, with no zone.
+- A `time.Time` of any year crosses as its exact `Instant`. An `Instant`
+  goes back to Go in UTC, with no zone.
 - A Go map comes back with its keys in ascending order. A Go key type with
   no order, such as a pointer, is refused at the binding.
 - Your own enums don't cross. Only `Result`, `Maybe` and `Bool` do, as a

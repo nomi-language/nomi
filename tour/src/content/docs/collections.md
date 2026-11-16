@@ -13,19 +13,12 @@ A collection never changes. An operation that adds, removes or replaces
 something gives you a new collection, and the original stays as it was.
 Collections that work this way are called persistent.
 
-Brackets hold a list, a vector or a set: `[1, 2]` is the one the place it
-stands in expects, as `{x: 1}` builds the struct its place expects
-([Structs, Enums and Distinct Types](/structs-enums-distinct/)). Where
-nothing expects a collection it is a list, the commonest one. To make a
-vector or a set where nothing says which, name it: `Vector[1, 2]`,
-`Set[1, 2]`. Braces hold a map, `{"a" => 1}`, and a tuple is its parentheses
-with a comma inside, `(1, "a")`.
-
-A type you build on a collection writes its name before the brackets or
-braces: `Ids[1, 2]` for `type Ids List<Int>`, `Path[1, 2]` for
-`type Path Vector<Int>`, `Tags["a"]` for `type Tags Set<String>` and
-`Scores{"ada" => 3}` for `type Scores Map<String, Int>`.
-[Distinct types](/structs-enums-distinct/) covers these.
+Brackets hold a list, a vector or a set. `[1, 2]` is a vector where a vector
+is expected and a set where a set is expected. Where nothing expects a
+collection, it is a list. To make a vector or a set there, name it:
+`Vector[1, 2]`, `Set[1, 2]`. Braces hold a map, `{"a" => 1}`. Parentheses
+with a comma inside hold a tuple, `(1, "a")`, a fixed group of values that
+[Tuples](/structs-enums-distinct/#tuples) covers.
 
 A function that works on a collection takes it as its first argument. That is
 what lets you chain calls with pipes.
@@ -38,10 +31,10 @@ codepoints, and so is a `String`, which gives one character at a time.
 
 The general operations live on `Iter` and work on all of them: `Iter.map`,
 `Iter.filter`, `Iter.take`, `Iter.reduce`, `Iter.sum`, `Iter.count`,
-`Iter.count_by`, `Iter.chunk_equal`, `Iter.min`, `Iter.max`, `Iter.mean` and more. Each collection type keeps only the operations specific to
-it, such as `Map.get` or `List.first`. `Iter.min`, `Iter.max` and
-`Iter.mean` answer `None` for an empty source, and the mean of Ints is a
-Float: `Iter.mean([1, 2])` is `Some(1.5)`.
+`Iter.min`, `Iter.max`, `Iter.mean` and more. Each collection type keeps
+only the operations specific to it, such as `Map.get` or `List.first`.
+`Iter.min`, `Iter.max` and `Iter.mean` return `None` for an empty source,
+and the mean of Ints is a Float: `Iter.mean([1, 2])` is `Some(1.5)`.
 
 ```nomi-run
 import std::io
@@ -274,6 +267,15 @@ literal.
 An empty set takes its element type from where it is used. On a binding with no
 other use to go by, write the type: `empty: Set<Int> = []`.
 
+`a + b` is every value in either set, and `a - b` is the values of `a` that are
+not in `b`. [`Set.union`](/reference/sets/#setunion) and
+[`Set.difference`](/reference/sets/#setdifference) do the same by name. To add
+or remove one value, use [`Set.insert`](/reference/sets/#setinsert) and
+[`Set.remove`](/reference/sets/#setremove).
+
+A `case` can ask whether a set holds certain values, as
+[Pattern Matching](/pattern-matching/#lists-vectors-and-sets) shows.
+
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
@@ -290,15 +292,6 @@ Spec: [Repeated keys](/spec/literals/#repeated-keys),
 [Literal forms](/spec/literals/#literal-forms).
 
 </div>
-
-`a + b` is every value in either set, and `a - b` is the values of `a` that are
-not in `b`. [`Set.union`](/reference/sets/#setunion) and
-[`Set.difference`](/reference/sets/#setdifference) do the same by name. To add
-or remove one value, use [`Set.insert`](/reference/sets/#setinsert) and
-[`Set.remove`](/reference/sets/#setremove).
-
-A `case` can ask whether a set holds certain values, as
-[Pattern Matching](/pattern-matching/#lists-vectors-and-sets) shows.
 
 ## Spreads
 
@@ -362,8 +355,10 @@ the same way ([Updating a struct](/structs-enums-distinct/#updating-a-struct)).
   error: `[..s]` asks you to write `s`.
 - A struct literal takes one spread, and it comes first. That is a struct
   update.
-- A spread has no named form: `Kvs{..base, "a" => 1}` is an error, since
-  the base already carries the type.
+- A [distinct type](/structs-enums-distinct/#distinct-types) over a
+  collection writes its name before its literal, and that form takes no
+  spread: with `type Kvs Map<String, Int>`, `Kvs{..base, "a" => 1}` is an
+  error, since the base already carries the type.
 
 Spec: [Spreads](/spec/literals/#spreads).
 
@@ -427,8 +422,8 @@ dbg line 3: Range.contains(0.0..=1.0, 1.0) = True
 
 [`Range.step_by`](/reference/ranges/#rangestep_by) walks through a range in
 steps of the size you give. It works on a range of any
-[`Steppable`](/reference/steppable/) type. Below, that type is `Decimal`,
-written with a `d` suffix. Like `Iter.map`, `Range.step_by` is lazy:
+[`Steppable`](/reference/steppable/) type. Below, that type is `Decimal`.
+Like `Iter.map`, `Range.step_by` is lazy:
 
 ```nomi-run
 fn main()

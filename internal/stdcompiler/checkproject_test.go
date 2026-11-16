@@ -40,10 +40,10 @@ func TestCheckProjectDiagnosticsArePinned(t *testing.T) {
 			"other": "pub fn helper() -> Unit\n  Unit\nend\n",
 		},
 		want: []string{
-			"3:4 entry callback in main but file is not declared in nomi.toml entry_points; " +
-				"add \"main\" to entry_points, or move the entry callback to an entry file or to a tool under tools/",
-			"1:1 other is declared in nomi.toml entry_points but has no entry callback; " +
-				"add `fn main()`, or remove \"other\" from entry_points",
+			"3:4 main has a `fn main` but is not declared in nomi.toml entry_points; " +
+				"add \"main\" to entry_points, or move `fn main` to an entry file or to a tool under tools/",
+			"1:1 other is declared in nomi.toml entry_points but has no `fn main`; " +
+				"add one, or remove \"other\" from entry_points",
 		},
 	}, {
 		name:  "without a manifest the same project is clean",

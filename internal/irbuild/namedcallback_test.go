@@ -382,3 +382,81 @@ func irDeclinesOf(t *testing.T, src string) map[string]string {
 	}
 	return declined
 }
+
+// A named argument past a generic std function's parameter left to its
+// default: `key:` past `direction: Direction = Direction.Ascending` of
+// `Iter.sort_by`. The shared lowering builds no accessor for a generic
+// function's default, and the default names `Direction`, which the calling
+// file does not import, so the program builds the accessor in std/iter's
+// scope (stdInstances.defaultAccessor). It was an internal compiler error,
+// "a function value with no reference record", from lowering the default
+// in the caller's file. The file's own `Direction` shows the default is
+// std's: std's `.Ascending` sorts ascending.
+func TestNamedCallback_GenericStdDefaultSkippedByName(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+enum Direction
+  Descending
+  Ascending
+end
+struct P
+  name: String
+  age: Int
+end
+fn by_size<T>(xs: List<T>, f: (T) -> Int) -> List<T>
+  Iter.sort_by(xs, key: f)
+end
+fn noisy(s: String) -> Int
+  io.print("key ${s}")
+  String.length(s)
+end
+fn main()
+  io.print("${Iter.sort_by(["bb", "a", "ccc"], key: String.length)}")
+  io.print("${Iter.sort_by(["bb", "a", "ccc"], key: fn s -> String.length(s))}")
+  io.print("${["bb", "a", "ccc"] |> Iter.sort_by(key: String.length)}")
+  io.print("${Iter.sort_by(["bb", "a", "ccc"], direction: .Descending, key: String.length)}")
+  io.print("${Iter.sort_by(1..=3, key: fn n -> 0 - n)}")
+  io.inspect(Iter.sort_by([P{name: "a", age: 3}, P{name: "b", age: 1}], key: .age))
+  io.print("${Iter.sort_by({"x" => 2, "y" => 1}, key: fn (_, v) -> v)}")
+  io.print("${["ccc", "a", "bb"] |> Iter.map(fn s -> "${s}!") |> Iter.sort_by(key: String.length)}")
+  io.print("${by_size([[1, 2], [3]], fn l -> Iter.count(l))}")
+  io.print("${by_size(["zz", "y"], String.length)}")
+  io.print("${Iter.sort_by(["bb", "a"], key: noisy)}")
+  sort = &Iter.sort_by(&1, key: String.length)
+  io.print("${sort(["bb", "a"])}")
+  io.inspect(Direction.Descending)
+end
+`, `[a, bb, ccc]
+[a, bb, ccc]
+[a, bb, ccc]
+[ccc, bb, a]
+[3, 2, 1]
+[P{name: "b", age: 1}, P{name: "a", age: 3}]
+[(y, 1), (x, 2)]
+[a!, bb!, ccc!]
+[[3], [1, 2]]
+[y, zz]
+key a
+key bb
+[a, bb]
+[a, bb]
+Descending
+`)
+}
+
+// The same call inside an assertion subject, whose failing case reports
+// the call's value.
+func TestNamedCallback_GenericStdDefaultSkippedByNameInAnAssertion(t *testing.T) {
+	const src = `test "a named argument past a generic function's omitted default"
+  assert Iter.sort_by(["bb", "a", "ccc"], key: String.length) == ["a", "bb", "ccc"]
+  assert (["bb", "a", "ccc"] |> Iter.sort_by(key: String.length)) == ["a", "bb", "ccc"]
+end
+
+test "a failing one reports the call's value"
+  assert Iter.sort_by(["bb", "a"], key: String.length) == ["bb", "a"]
+end
+`
+	out := irTestBodyVM(t, src, 2)
+	if !strings.Contains(out, "= [\"a\", \"bb\"]") {
+		t.Errorf("the failing case does not report the named call's value:\n%s", out)
+	}
+}

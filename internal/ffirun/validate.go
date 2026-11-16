@@ -381,8 +381,8 @@ func validationModules(packages []DiscoveredPackage) *adapterModules {
 }
 
 // stdDistinctInner is the inner type of each std distinct a binding may
-// name: Duration and Instant are `opaque type ... Int`, so an int64 slot
-// carries either one, as well as time.Duration and time.Time.
+// name: Duration and Instant are `opaque type ... Int`, an Int of any size,
+// which crosses as time.Duration and time.Time and not as an int64.
 var stdDistinctInner = map[string]nomiast.TypeExpr{
 	ffitypes.NomiDuration: &nomiast.SimpleType{Name: ffitypes.NomiInt},
 	ffitypes.NomiInstant:  &nomiast.SimpleType{Name: ffitypes.NomiInt},

@@ -68,19 +68,18 @@ derive Display for Direction
 /// they are equal under the type's notion of equality (which should
 /// agree with `Equatable.equal`).
 ///
-/// `<`, `<=`, `>`, `>=` desugar to `Comparable.compare(a, b)` followed
-/// by an `Ordering` match. The operators *require* a declared impl:
-/// using them on a type with no `Comparable` impl is a compile-time
-/// missing-impl error (unlike `==`, which falls back to structural
-/// equality — ordering has no canonical structural meaning, so it must
-/// be declared via `derive Comparable` or a hand-written `Comparable`
-/// conformance).
+/// `<`, `<=`, `>` and `>=` call `Comparable.compare(a, b)` and match on
+/// the `Ordering`. They need a declared impl: on a type with no
+/// `Comparable` impl they are a compile error. `==` compares a type with
+/// no impl structurally, but ordering has no structural meaning, so a type
+/// declares it with `derive Comparable` or a hand-written impl.
 ///
-/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
-/// implement `Comparable`. `Int` uses numeric order. `Float` uses a total
-/// order where NaN compares equal to NaN and greater than every non-NaN value.
-/// `Bool` orders `False < True`. `String` is byte-lexicographic over its
-/// UTF-8 bytes.
+/// `Int`, `Float`, `Decimal`, `Bool` and `String` implement `Comparable`.
+/// `Int` and `Decimal` use numeric order. `Bool` orders `False < True`.
+/// `String` compares its UTF-8 bytes. `Float.compare` is a total order in
+/// which NaN equals NaN and is greater than every other Float; the
+/// operators on Floats follow IEEE 754 instead, where every ordering
+/// comparison with NaN is `False`.
 ///
 /// `derive Comparable` synthesizes a lexicographic compare for structs
 /// (field-by-field in declaration order), enums (variant-tag-then-payload),
@@ -91,7 +90,8 @@ derive Display for Direction
 /// on. That makes a tuple the key for a sort by several fields,
 /// `Iter.sort_by(rows, fn r -> (r.team, r.name))`. To sort one of the keys
 /// descending, negate a number in the key (`(-r.points, r.name)`), or
-/// wrap it in `Reverse.of` from `std::reverse`, `(Reverse.of(r.name), r.points)`, which works for any `Comparable` key; a number can also be negated, `(-r.points, r.name)`.
+/// wrap any `Comparable` key in `Reverse.of` from `std::reverse`
+/// (`(Reverse.of(r.name), r.points)`).
 ///
 /// Every `Comparable` type also has `min`, `max` and `clamp`, written once
 /// here over `compare`: `Int.min(a, b)`, `Date.clamp(day, first..=last)`, or

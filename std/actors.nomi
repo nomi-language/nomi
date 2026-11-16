@@ -61,7 +61,7 @@ pub opaque struct Actor<M>
     inbox: Channel<M>
 end
 
-/// The way back to a caller waiting in `Actor.call`: the handler replies
+/// The way back to a caller waiting in `Actor.call`: the handler answers
 /// it with `Reply.send`.
 pub opaque struct Reply<R>
     sender: Sender<R>

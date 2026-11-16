@@ -50,9 +50,7 @@ gives back an Int. Nomi checks every call against that line, so
 `rectangle_area("3", 4)` is caught before the program runs.
 
 Whole numbers and decimals are different types too: `1 + 2.5d` is an
-error. Write the whole number as a Decimal, `1d + 2.5d`. When the whole
-number is a name, `Int.to_decimal(n)` gives you the same number as a
-Decimal.
+error. Write the whole number as a Decimal, `1d + 2.5d`.
 
 Nomi has a second kind of decimal number, **Float**, written without the
 `d`: `3.5`. It is fast and approximate, made for science and graphics, so

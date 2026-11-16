@@ -19,7 +19,7 @@ To make a type usable this way, implement the
 function is [`from_fragments`](/reference/literals/#literalfrom_fragments).
 When Nomi sees `Html"..."`, it calls `Html`'s `from_fragments`. This is an
 ordinary interface call, so the usual rules about who may implement an
-interface for a type apply:
+interface for a type apply.
 
 ```nomi-run
 import
@@ -215,8 +215,8 @@ Spec: [A literal without slots is checked at compile time](/spec/typed-literals-
 [Scalars & Strings](/scalars-and-strings/#regular-expressions) shows what
 you can do with a `Regex`: find, split, replace and read capture groups.
 [`Bits`](/reference/bits/) from `std::bits` is checked the same way:
-`Bits"10aa_aaaa"` is a bit pattern whose `x`s match any bit and whose
-letters name a field, and `Bits"10z2"` does not compile.
+`Bits"10aa_aaaa"` is a bit pattern whose letter names a field, where an `x`
+would match any bit, and `Bits"10z2"` does not compile.
 
 ## Checked literals
 

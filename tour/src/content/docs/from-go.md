@@ -20,11 +20,13 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `func (s Shape) Area() int`, `s.Area()` | `fn area(shape: Shape) -> Int` in an `impl Shape` block, `Shape.area(s)`: there are no method calls on a value |
 | An interface is satisfied implicitly | `impl Interface for Type` |
 | `nil` | `None`, from `Maybe<T>` |
+| `func f() (int, string)`, `n, s := f()` | `fn f() -> (Int, String)`, a tuple, and `(n, s) = f()`. Its items are also read as `t.first`, `t.second`, ... |
 | `if err != nil { return err }` | A postfix `?` on a `Result` or `Maybe` |
 | `switch x { case 1: .. }` | `case x`, then an arm per line such as `1 -> ..`, then `end`; it must cover every value |
 | `defer f.Close()` | `defer Reader.close_quietly(r)` on the line after opening. It runs when its block ends, where Go's waits for the function to return, and the checker requires it for a resource. `defer on error` runs only when the function fails. |
-| `for i, x := range xs { .. }` | `Iter` functions: `Iter.each`, `Iter.map`, `Iter.reduce`, `Iter.with_index` |
+| `for i, x := range xs { .. }`, `for cond { .. }` | `Iter` functions: `Iter.each`, `Iter.map`, `Iter.reduce`, `Iter.with_index`. A loop over no collection is recursion or `Iter.loop`. |
 | `float64(x)` | `Int.to_float(x)`. Nomi's `x as T` converts nothing: it only states a type the value already fits (`[] as List<String>`) |
+| `a / b` panics when `b` is 0, and an `int` wraps on overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
 | `go f()`, `sync.WaitGroup` | `Task.spawn(fn -> f())` inside `concurrent` ... `end`, which waits for its tasks |
 | Dependencies built in `main` and passed to handlers in a struct | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`, with nothing passed down. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
@@ -38,6 +40,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | A `[]Dog` is no `[]Speaker`; copy it in a loop | A `List<Dog>` passes where a `List<Speaker>` is expected, with nothing copied |
 | `select` | `Channel.select([..])` |
 | `fmt.Sprintf("%d items", n)` | `"${n} items"` |
+| `decimal.RequireFromString("1.50")` from `shopspring/decimal` | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `func Map[T any](..)` | `fn map<T>(..)` |
 | `_test.go` files | `test "name"` ... `end` blocks beside the code |
 | `import "app/db/posts"`, then `posts.Find(1)` | `import db::posts`, then `posts.find(1)`; where `posts` is taken, `import db` imports the directory and `db::posts.find(1)` reaches the file, instead of an import alias |

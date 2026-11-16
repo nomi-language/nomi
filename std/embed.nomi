@@ -216,7 +216,8 @@ fn key(p: String) -> Result<String, Error>
 end
 
 impl Files
-    /// The contents of the file at `p`.
+    /// The contents of the file at `p`. A directory is `IsADirectory`, and
+    /// a path the tree does not hold is `NotFound`.
     ///
     /// ```nomi
     /// logo = Files.read(site, "static/logo.png")?
@@ -379,12 +380,14 @@ impl Files
         |> from_held()
     end
 
-    /// Whether a file or directory is at `p`.
+    /// Whether a file or directory is at `p`. A path that starts with `/`
+    /// or leaves the tree is `False`.
     //! files = from_held([("a/b.txt", String.to_bytes("hi"))])
     //!
     //! assert Files.exists(files, "a/b.txt")
     //! assert Files.exists(files, "a")
     //! refute Files.exists(files, "b")
+    //! refute Files.exists(files, "/a")
     //
     pub fn exists(files: Files, p: String) -> Bool
         case key(p)

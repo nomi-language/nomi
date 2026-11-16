@@ -1,6 +1,6 @@
 ---
 title: "15. Programs that print"
-description: "First Steps, lesson 15: a program's main function, printing with io.print, and counting with ranges."
+description: "First Steps, lesson 15: printing with io.print, doing something for each value with Iter.each, and counting with ranges."
 ---
 
 `dbg` is for you while you write code: it shows the code, its line and its

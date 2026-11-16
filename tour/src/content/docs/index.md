@@ -55,8 +55,8 @@ it gives back a `Maybe`: `Some(age)` or `None`.
 Delete the `None` line. Nomi won't run the program, and says the `case` is
 missing `None`. Every program gets that check, before any of it runs.
 
-Every example on this site runs in your browser, and runs again as you
-edit it.
+The examples on this site run in your browser, and run again as you edit
+them.
 
 </div>
 
@@ -91,7 +91,7 @@ dbg line 12: age_of("Cy") = "no age for Cy"
 <div class="nomi-home-features">
 <div class="nomi-home-feature">
 <h3>No surprises at run time</h3>
-<p>No null. A lookup that can miss gives back a <code>Maybe</code>, a <code>case</code> handles every case, and <code>/</code> won't divide by an Int that might be zero. <a href="/pattern-matching/#what-can-fail-at-run-time">What can still stop a program</a>.</p>
+<p>No null. A lookup that can miss gives back a <code>Maybe</code>, a <code>case</code> has to cover every possibility, and <code>/</code> won't divide by an Int that might be zero. <a href="/pattern-matching/#what-can-fail-at-run-time">What can still stop a program</a>.</p>
 </div>
 <div class="nomi-home-feature">
 <h3>Values never change</h3>

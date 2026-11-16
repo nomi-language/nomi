@@ -235,43 +235,69 @@ fn code_text(code: String) -> String
     end
 end
 
-/// Prints a value's user-facing representation to stdout, followed by a
-/// newline. The argument may be any value whose type implements `Display` —
-/// via an `impl Display for T` block or `derive Display` — and is stringified via
-/// `Display.to_string`. `String` implements `Display` as the identity, so
-/// `io.print("hello")` prints `hello` unchanged; no need to pre-stringify
-/// other values. Use `io.inspect` for the developer-facing `Debug` form.
+/// Prints `value` to standard output, followed by a newline. It takes any
+/// value whose type implements `Display` and writes its
+/// `Display.to_string` text: a String as it is, with no quotes, and a
+/// number or a list without converting it first. A type of your own
+/// prints once it has an `impl Display` or a `derive Display`.
+/// `io.inspect` prints the `Debug` form, which every value has.
 ///
 /// ```nomi
 /// io.print("hello") // prints: hello
 ///
 /// io.print(42) // prints: 42
 /// ```
+//! run = capture("", fn ->
+//!     print("hello")
+//!     print(42)
+//!     print([1, 2])
+//! end)
+//!
+//! assert run.output == "hello\n42\n[1, 2]\n"
+//
 pub host fn print<T>(value: T) -> Unit where T: Display
 
-/// Writes a value's user-facing representation to stdout with no trailing
-/// newline. It renders exactly as `io.print` does, through
-/// `Display.to_string`. Use it for a prompt that the user answers on the
-/// same line, or to build one line of output from several writes.
+/// Prints `value` to standard output with no newline after it. It writes
+/// the same text as `io.print`, the value's `Display.to_string`. Use it for
+/// a prompt that the user answers on the same line, or to build one line
+/// of output from several writes.
 ///
 /// ```nomi
 /// io.write("> ") // prints: > (and no newline)
 ///
 /// io.read_line() // the user types on the same line
 /// ```
+//! run = capture("", fn ->
+//!     write("a")
+//!     write(1)
+//!     print("!")
+//! end)
+//!
+//! assert run.output == "a1!\n"
+//
 pub host fn write<T>(value: T) -> Unit where T: Display
 
-/// Prints a value's runtime representation to stdout via `Debug.inspect`.
-/// `Debug` is universal — every value is inspectable with no
-/// `derive`/`impl` required (a structural impl is auto-synthesized for any
-/// type that doesn't supply its own; opaque types render `<opaque T>`), so
-/// `inspect` carries no `Debug` bound. Write an explicit `impl Debug`
-/// implementation only to customize the rendering. Use `dbg` when you want to inspect a value
-/// while preserving it in an expression or pipeline.
+/// Prints `value` to standard output as code would write it, followed by
+/// a newline: its `Debug.inspect` text, in which a String has its quotes
+/// and a struct its name and fields. Every value can be inspected, with no
+/// `derive` or `impl`: a type that writes no `impl Debug` gets one made
+/// from its structure, and a value of an opaque type prints as
+/// `<opaque T>`. Write an `impl Debug` only to change the text. `dbg`
+/// prints a value and returns it, so it fits inside an expression or a
+/// pipeline.
 ///
 /// ```nomi
 /// io.inspect([1, 2, 3]) // prints: [1, 2, 3]
+///
+/// io.inspect("hello") // prints: "hello"
 /// ```
+//! run = capture("", fn ->
+//!     inspect("hello")
+//!     inspect(Some(1))
+//! end)
+//!
+//! assert run.output == "\"hello\"\nSome(1)\n"
+//
 pub host fn inspect<T>(value: T) -> Unit
 
 /// Prints a value's user-facing representation to stderr, followed by a

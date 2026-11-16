@@ -142,6 +142,14 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		if rec == nil || len(rec.Params) != len(temps) {
 			panic("irbuild: a call leaving out parameters with no CallDefaults record over its slots")
 		}
+		if f := bl.stdTemplateDefaults(fa, rec, temps); f != nil {
+			// A generic function of another std module, whose defaults
+			// that module's accessors answer (stdslotfill.go).
+			if !bl.fillStdTemplateDefaults(t, f, kinds, temps) {
+				return no()
+			}
+			return bl.namedPlacedCall(t, fa, plan, names, temps, kinds, len(temps)-1)
+		}
 		home, params := bl.namedCallHome(t, fa, rec, kinds, temps)
 		if params != nil && len(params) != len(temps) {
 			return no()
@@ -196,6 +204,13 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		}
 		last = len(temps) - 1
 	}
+	return bl.namedPlacedCall(t, fa, plan, names, temps, kinds, last)
+}
+
+// namedPlacedCall plans the named-argument call t as the call written
+// positionally over its slots up to last, each operand a stand-in for the
+// temporary it was evaluated or filled into.
+func (bl *irScalarBuilder) namedPlacedCall(t *ast.Call, fa *ast.FieldAccess, plan argPlan, names []string, temps []ir.Temp, kinds []kind, last int) (ir.Temp, kind, bool, bool) {
 	args := make([]ast.Node, last+1)
 	placed := make(map[ast.Node]irPlacedArg, len(args))
 	for slot := range args {

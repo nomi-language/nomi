@@ -3,36 +3,60 @@ title: Coming from another language
 description: How the ideas of a language you know look in Nomi, and a page for each language.
 ---
 
-Pick the language you know best. Its page shows how its ideas look in
-Nomi.
+Pick the language you know best. Its page lists what carries over, what
+will trip you up and what is only spelled differently, then shows one
+program written in both languages.
 
-**[Elixir](/from-elixir/).** Pipes, pattern matching, immutable data and
-functions that transform data will feel familiar. What is different: types
-are static, variants are declared types rather than atoms or tagged tuples,
-`Iter` pipelines replace `Enum` and `Stream`, and concurrency starts from
-`concurrent` blocks and supervisors, with `std::actors` for mailbox-style
-servers.
+**[Rust](/from-rust/).** Enums with payloads, exhaustive matching, `Result`
+with a postfix `?`, `impl` blocks, bounded generics and `derive` carry over,
+and a trait is an `interface`. There is no ownership, no `mut`, no
+`value.method()` call and no macros: a library
+[generates code](/generating-code/) into ordinary files instead.
 
-**Gleam.** Sum types, `Result` and `Maybe`, no null, local type inference and
-expression-oriented code will feel familiar. Nomi adds bindings without
-`let`, `impl Interface for Type` blocks, `derive`, app fields, `defer`, typed
-literals, and early `return`, `break` and `continue`.
+**[Go](/from-go/).** Errors as values, structs, interfaces, one formatter,
+channels and a single executable carry over, and a Nomi program can
+[call Go packages](/calling-go/). Values never change, an error passes up
+with a postfix `?`, a type says which interfaces it implements, and tasks
+run only inside a `concurrent` block, which waits for them.
 
-**[Rust](/from-rust/).** Traits become interfaces, and an implementation is
-`impl Interface for Type`. `where` bounds are checked at each call.
-`Result` and `Maybe` propagate with `?`, as Rust's do. Distinct types do the job of
-newtypes. There is no ownership, no `mut`, no `value.method()` calls and no
-macros: a library [generates code](/generating-code/) into ordinary files
-instead. Type inference stays inside a function body.
+**[Elixir](/from-elixir/).** Immutable data, pipes, pattern matching,
+functions called through their module and supervised tasks carry over. Types
+are static, an `enum` variant stands where an atom or a tagged tuple would,
+`Iter` does the work of `Enum` and `Stream`, and tasks talk over channels,
+with `std::actors` for a server like a `GenServer`.
 
-**[Go](/from-go/).** You will recognize modules that work like Go modules, a standard
-formatter, explicit imports, channels and context-style cancellation. Values
-are immutable, errors are `Result` values, a type says which interfaces it
-implements, and concurrency is structured.
+**[TypeScript](/from-typescript/).** Static types with inference for locals,
+generics, lambdas and `${...}` interpolation carry over, and a discriminated
+union is an `enum`. Nothing is `null` or `undefined`, a failure is a
+`Result` rather than a thrown error, and `Int`, `Float` and `Decimal` are
+separate types.
 
-There are also guides for [TypeScript](/from-typescript/),
-[Python](/from-python/), [Kotlin](/from-kotlin/), [Swift](/from-swift/) and
-[Ruby](/from-ruby/).
+**[Python](/from-python/).** Little punctuation, named arguments with
+defaults, tuples you unpack and first-class functions carry over. Every type
+is checked before the program runs, a block ends with `end`, values never
+change, and a failure is a value the function returns.
+
+**[Kotlin](/from-kotlin/).** `val` bindings, data classes, sealed
+hierarchies with an exhaustive `when`, named arguments with defaults and
+structured concurrency carry over. A nullable type is a `Maybe`, errors are
+values, and there are no methods or extension functions.
+
+**[Swift](/from-swift/).** Value types, enums with associated values,
+optionals that must be handled, protocols a type adopts by saying so and
+the leading dot of `.small` carry over. Every value is immutable, a
+function that `throws` returns a `Result` instead, and a function is called
+through its owner.
+
+**[Ruby](/from-ruby/).** The last expression as the result, `Enumerable`
+chains, `=>` in a hash and `case`/`in` patterns carry over. Types are
+checked before the program runs, values never change, there are no methods
+to call on a value, and a class is never reopened.
+
+**Gleam** has no page of its own. Custom types with variants, `Result`, no
+null, pipes and code built from expressions carry over, and `Option` is
+`Maybe`. Nomi adds bindings without `let`, interfaces with
+`impl Interface for Type`, `derive`, app fields, `defer`, typed literals,
+and early `return`, `break` and `continue`.
 
 After that, the [Language Tour](/introduction/) covers the whole
 language, and the [Cheat Sheet](/cheat-sheet/) lists the rules most often

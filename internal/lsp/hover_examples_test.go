@@ -15,7 +15,7 @@ func TestHover_StdFunctionShowsItsExamples(t *testing.T) {
   _ = String.▮split("a,b", ",")
 end
 `)
-	want := "Inverse of `String.join`.\n\n**Examples**\n\n```nomi\n" +
+	want := "`String.join` with the same separator puts the pieces back together.\n\n**Examples**\n\n```nomi\n" +
 		"import std::regex.Regex\n\n" +
 		"assert String.split(\"a,b,c\", \",\") == [\"a\", \"b\", \"c\"]\n"
 	if !strings.Contains(got, want) {

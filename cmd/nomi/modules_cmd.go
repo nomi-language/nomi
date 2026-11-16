@@ -481,7 +481,7 @@ func agentsText(name string) string {
 	return "# " + name + "\n\n" +
 		"This is a Nomi project. Nomi is a statically typed language where every value is immutable. " +
 		"It looks like Rust, Go and Elixir in places, and code written from their habits does not compile: " +
-		"there is no `let`, no `x.method()`, and most literals start with `#` or `%`.\n\n" +
+		"there is no `let`, no `x.method()`, no `for` or `while`, no null and no exceptions, and a block closes with `end`.\n\n" +
 		"Read the cheat sheet before writing Nomi: https://nomi-lang.org/cheatsheet.md. " +
 		"The whole language and standard library are in one file at https://nomi-lang.org/llms-full.txt.\n\n" +
 		"## Commands\n\n" +
@@ -489,7 +489,8 @@ func agentsText(name string) string {
 		"- `nomi test` runs every `test` block under this directory.\n" +
 		"- `nomi check main.nomi` reports errors without running. `--format json` writes them as JSON Lines, with fixes to apply.\n" +
 		"- `nomi fmt -w .` formats every file. The formatter owns layout.\n" +
-		"- `nomi add <module>` adds a dependency. Do not edit `go.mod` by hand.\n\n" +
+		"- `nomi add <module>` adds a dependency. Do not edit `go.mod` by hand.\n" +
+		"- `nomi mcp` serves the compiler to a coding agent over the Model Context Protocol: check, types, definitions, std search, tests and formatting.\n\n" +
 		"## Layout\n\n" +
 		"- `nomi.toml` names the module and lists its entry points, the files with a `fn main`.\n" +
 		"- `main.nomi` is the program's entry point.\n" +

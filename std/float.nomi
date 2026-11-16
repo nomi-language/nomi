@@ -25,10 +25,11 @@ import
 end
 
 //# Operations on the IEEE 754 double-precision `Float` type: the special
-//# values (`nan`, `±infinity`), the constants `pi` and `e`, classification predicates, rounding, powers,
-//# roots, logarithms, trigonometry, and conversion to `Int`. The arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/
-//# `Comparable` impls give `Float` a total order and `==`-consistent hashing
-//# (NaN and signed zero normalized).
+//# values (`nan`, `±infinity`), the constants `pi` and `e`, classification
+//# predicates, rounding, powers, roots, logarithms, trigonometry, and
+//# conversion to `Int`. Its `Equatable`, `Hashable` and `Comparable` impls
+//# give `Float` a total order and hashing that agrees with `==` (NaN equals
+//# NaN, and `-0.0` equals `0.0`).
 //#
 //# `Float.format` and `Float.format_percent` write a float as a reader of a
 //# locale writes it, and `Float.parse_in` and `Float.parse_percent_in` read
@@ -87,7 +88,7 @@ impl Float
         x == Float.positive_infinity() or x == Float.negative_infinity()
     end
 
-    /// True if x is a finite real number — not NaN, not ±Infinity.
+    /// True if x is a finite number: not NaN and not ±Infinity.
     //! assert Float.is_finite(42.0)
     //! refute Float.is_finite(Float.nan())
     //! refute Float.is_finite(Float.negative_infinity())
@@ -211,8 +212,8 @@ impl Float
         end
     end
 
-    /// `x` raised to the power `y`, with IEEE 754's results at the edges, as
-    /// Go's `math.Pow` gives them: `Float.pow(x, 0.0)` and
+    /// `x` raised to the power `y`, with IEEE 754's results at the edges:
+    /// `Float.pow(x, 0.0)` and
     /// `Float.pow(1.0, y)` are `1.0` for every `x` and `y`, NaN included; a
     /// negative `x` to a `y` that is not a whole number is NaN; `0.0` to a
     /// negative `y` is +Infinity; and a result past the Float range is
@@ -284,7 +285,7 @@ impl Float
     pub host fn tan(x: Float) -> Float
 
     /// The angle in radians, from -π to π, between the positive x axis and
-    /// the point (`x`, `y`); note that `y` comes first, as in C, Go and
+    /// the point (`x`, `y`). The `y` argument comes first, as in C, Go and
     /// Python. The quadrant comes from both signs, so
     /// `Float.atan2(0.0, -1.0)` is π, and the signed zeros follow IEEE 754:
     /// `Float.atan2(-0.0, -1.0)` is -π. NaN when either is NaN.
@@ -435,9 +436,9 @@ pub subtype NonNegativeFloat Float when fn x -> x >= 0.0
 pub subtype PositiveFloat NonNegativeFloat and NonZeroFloat when fn x -> x > 0.0
 
 impl Display for Float
-    /// Returns the canonical string form of `x`, matching the runtime
-    /// stringifier used by `io.print` and string interpolation. NaN renders as
-    /// `NaN`, ±Infinity as `+Inf` / `-Inf`.
+    /// Returns `x` as text, what `io.print` and string interpolation write: a
+    /// whole number keeps its `.0`, NaN is `NaN`, and the infinities are
+    /// `+Inf` and `-Inf`.
     //! assert Float.to_string(3.14) == "3.14"
     //! assert Float.to_string(1e20) == "100000000000000000000.0"
     //
@@ -479,6 +480,12 @@ impl Productable for Float
 end
 
 impl Divide<Float, Float> for Float
+    /// `lhs / rhs` by IEEE 754. The divisor may be zero: a nonzero `lhs`
+    /// over `0.0` is an infinity and `0.0 / 0.0` is NaN, so it never traps.
+    //! assert 1.0 / 4.0 == 0.25
+    //! assert 1.0 / 0.0 == Float.positive_infinity()
+    //! assert Float.is_nan(0.0 / 0.0)
+    //
     host fn divide(lhs: Float, rhs: Float) -> Float
 end
 

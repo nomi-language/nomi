@@ -32,6 +32,9 @@ const usage = `usage:
                                         from a compiled program (.nomic) nomi build --no-vm wrote
   nomi run --watch <file> [args]        run the program, and stop it and run it again
                                         whenever a file it is built from changes
+  nomi run --profile[=<file>] <file> [args]
+                                        run the program and report where its time went
+                                        when it ends; =<file> also writes a pprof profile
   nomi run --web [--port N] [--open] [--static <dir>] <file>
                                         serve the program in a browser on localhost
                                         (port 8000 or the next free one), and rebuild
@@ -59,7 +62,10 @@ const usage = `usage:
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
                                         the pub types of the named files and directories
                                         cross as, for a frontend; stdout by default
-  nomi fmt [-w|-l] <paths>              format source
+  nomi fmt [-w|-l|-d|-check] [paths]    format source, to standard output; -w writes each
+                                        file, -l lists the files that would change, -d prints
+                                        the changes, -check lists them and exits 1 if any would;
+                                        with no path, formats standard input
   nomi new <module path> [dir]          start a project: nomi.toml, go.mod and a
                                         main.nomi, in dir (default: the path's last element)
   nomi init [module path]               make the current directory a project: write the
@@ -81,9 +87,12 @@ const usage = `usage:
                                         --target's runner, so --offline works later
   --offline                             on run, test, check, build, fetch and add:
                                         download nothing, and name what is missing
-  nomi build <file> [-o <out>] [--target <goos>/<goarch>]
+  nomi build <file> [-o <out>] [--target <goos>/<goarch>] [--allow-unsupported <class>]
                                         build a single executable: nomi-vm with the
-                                        program's IR appended (runs at nomi run speed)
+                                        program's IR appended (runs at nomi run speed);
+                                        a program that reaches a call its target cannot
+                                        make (files in a browser) is refused, unless
+                                        --allow-unsupported names the call's class
   nomi build <file> --no-vm [-o <out>]  write the compiled program alone, as <file>.nomic,
                                         which any nomi-vm of the same program format
                                         runs: nomi-vm app.nomic [args]
@@ -91,8 +100,10 @@ const usage = `usage:
                                         build a folder that runs the program in a browser,
                                         with the files of its web/ folder (or --static's)
                                         copied in
-  nomi build-vm [--target <goos>/<goarch>] [--compiler] [-o <out>]
-                                        write nomi-vm itself, with no program (default nomi-vm)
+  nomi build-vm [--target <goos>/<goarch>] [--compiler] [--no-network] [-o <out>]
+                                        write nomi-vm itself, with no program (default nomi-vm);
+                                        --no-network writes the smaller one for programs
+                                        that never use std::http, std::net or std::tls
   nomi build-vm --reactor [--compiler] [-o <out>]
                                         write the WASI reactor with no program (default nomi-vm-reactor.wasm),
                                         which a runner instantiates per .nomic and hands it

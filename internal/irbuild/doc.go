@@ -152,6 +152,20 @@
 // interface-typed parameter of a type-qualified call enters by erasure
 // before its slot is matched (`qualEraseSlotted`).
 //
+// A call into a std module from outside it fills an omitted parameter
+// through that module, since the default may name what the caller's file
+// does not import. A short call of a function the shared lowering retains
+// is the module's arity wrapper, and a named argument past an omitted
+// default calls the module's accessor for that slot (stdslotfill.go). The
+// shared lowering retains no generic function, so for one (`Iter.sort_by(xs,
+// key: f)`, past `direction: Direction = Direction.Ascending`) the program
+// builds the accessor, in a gen of the declaring module at the call's type
+// arguments (`stdInstances.defaultAccessor`), whether the function's body
+// is instantiated from std's source or the builder lowers the operation
+// itself. That accessor takes no parameters, so a generic std function's
+// default that reads an earlier parameter declines; a default that is a
+// literal is lowered at the call.
+//
 // # Interpolation
 //
 // The checker records how each interpolation hole's value renders by
@@ -369,9 +383,9 @@
 // process-wide std interface (`stdIfaceDefs`) by its spec's module and
 // name, so a bundle's reader and writer name `impl CheckedLiteral<Display,
 // Url> for Url`'s functions alike. An impl function adds its block's
-// receiver and substitution, a default accessor its slot; an interface
-// method a program interns for a std interface (`stdIfaceMethodToken`) is
-// the program's.
+// receiver and substitution, a default accessor its slot (after the type
+// arguments, for a generic std function's); an interface method a program
+// interns for a std interface (`stdIfaceMethodToken`) is the program's.
 //
 // The name depends on the declaration, not the lowering, so two lowerings
 // of one module name its declarations alike, which lets a program import

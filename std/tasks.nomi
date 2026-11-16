@@ -1,4 +1,4 @@
-//# Tasks: work running in parallel inside a `concurrent { }` block.
+//# Tasks: work running in parallel inside a `concurrent` block.
 //# `Task.spawn` starts one and `Task.await` waits for its value;
 //# `Task.spawn_all` and `Task.await_all` do the same for many at once,
 //# with a bound on how many run together. `Task.outcome` returns how a
@@ -14,45 +14,47 @@ import
     unit.Unit
 end
 
-/// Why a task broke. Cancellation is deliberately absent: being
-/// cancelled is not a failure, and a restart policy that treats it as
-/// one would fight its own shutdown.
+/// Why a task failed. A cancelled task has not failed, so cancellation is
+/// not one of these: it is `Outcome.Cancelled`.
 pub enum Failure
+    /// A fault in the runtime itself, with its text. No Nomi code causes one.
     Panicked String
+    /// A trap in the task's body, with the fault's text and line:
+    /// ``line 5: `m` found nothing``.
     Errored String
 end
 
-/// How a task ended. Exactly one of three, and the difference decides
-/// what a restart policy should do about it.
+/// How a task ended, as `Task.outcome` returns it.
 ///
-/// Note what is *not* here: an `Err` your body returned deliberately is
-/// a `Completed` task carrying an `Err` value, not a `Failed` one. That
-/// task ran to completion and produced a value; `Failed` is reserved for
-/// the unplanned.
+/// An `Err` the body returned is a value, not a failure: that task is
+/// `Completed` and holds the `Err`. `Failed` is a trap in the body.
 pub enum Outcome<T>
+    /// The body returned this value.
     Completed T
+    /// The task was cancelled before it finished.
     Cancelled
+    /// The body trapped.
     Failed Failure
 end
 
-/// In-flight or completed asynchronous computation. `Task<T>` carries
-/// one type parameter — the body's return type. Errors-as-values via
-/// `Result<T, E>` are the universal Nomi idiom, so `Task.await(task)?`
-/// composes the same way `fetch_user(42)?` does.
+/// The handle of a running or finished task. `T` is the type its body
+/// returns. A body that can fail returns a `Result`, and
+/// `Task.await(task)?` propagates its `Err` as any call's.
 ///
-/// `Task<T>` values are scoped to the enclosing `concurrent { }` block:
-/// they cannot escape the block (the analyzer rejects `return t`,
-/// `Sender.send(ch.sender, t)`, etc.) and they must be consumed by
-/// `Task.await` (or explicitly discarded via `_ = Task.await(t)`).
-/// The analyzer enforces all of this: `Task.spawn` outside `concurrent`,
-/// un-awaited `Task<T>` values, and `Task<T>` escapes are rejected.
+/// A task belongs to the `concurrent` block it was spawned in, and the
+/// compiler holds it there. A `Task.spawn` that can run outside every
+/// block is an error. So is a task that is never passed to `Task.await`,
+/// `Task.await_all` or `Task.outcome`, and one that leaves its block by
+/// being returned or sent on a channel. `_ = Task.await(t)` waits for a
+/// task and discards its value.
 pub host type Task<T>
 
 impl Task<T>
-    /// Spawn `body` as a parallel task in the enclosing `concurrent { }`
-    /// block. Legal only inside the dynamic extent of `concurrent { }`;
-    /// the analyzer rejects `Task.spawn` calls reachable from a function body
-    /// without a `concurrent` ancestor.
+    /// Starts `body` as a task of the enclosing `concurrent` block and
+    /// returns its handle at once. The body runs alongside the code that
+    /// spawned it. A function that calls `Task.spawn` may be called from
+    /// inside a block; a spawn that can run outside every block is a
+    /// compile error.
     //! value = concurrent
     //!     task = Task.spawn(fn -> 42)
     //!     Task.await(task)
@@ -62,23 +64,15 @@ impl Task<T>
     //
     pub host fn spawn<T>(body: () -> T) -> Task<T>
 
-    /// Block until `task` completes and return its value.
+    /// Waits for `task` and returns its value.
     ///
-    /// Two channels, not one. The **value** channel is ordinary: a
-    /// Result-typed body bubbles its errors through `Task.await(t)?`
-    /// like any other Result-returning call, and an `Err` the body
-    /// returned deliberately is a value that arrives here normally.
+    /// An `Err` the body returned is a value and arrives here like any
+    /// other, so `Task.await(t)?` propagates it.
     ///
-    /// The **failure** channel is out-of-band. If the task panicked or
-    /// died of a runtime error, awaiting it fails *you* — the failure
-    /// propagates up the ownership chain rather than being returned, the
-    /// same way it would have surfaced had the body run inline. There is
-    /// no `Err` to match on, because the task never chose to produce one.
-    /// Awaiting a task you cancelled propagates the cancellation for the
-    /// same reason.
-    ///
-    /// Reach for `Task.outcome` when you want that fate as a value instead
-    /// of inheriting it — always, if you cancelled the task yourself.
+    /// A task that failed has no value, because its body trapped. Awaiting
+    /// it traps with the task's fault, as the trap would have ended the
+    /// caller had the body run inline. Awaiting a cancelled task propagates
+    /// the cancellation. `Task.outcome` returns either one as a value.
     //! value = concurrent
     //!     task = Task.spawn(fn -> "done")
     //!     Task.await(task)
@@ -88,24 +82,17 @@ impl Task<T>
     //
     pub host fn await<T>(task: Task<T>) -> T
 
-    /// Spawn one task per item of `source`, running at most `max_running`
-    /// of them at once, and hand back a handle for each.
+    /// Starts one task per item of `source`, each running `f` on its item,
+    /// with at most `max_running` of them running at once. It returns a
+    /// handle for each, in the source's order.
     ///
-    /// Without a bound, ten thousand items means ten thousand simultaneous
-    /// tasks. The goroutines are cheap; ten thousand concurrent database
-    /// queries are not. `max_running` is required for the same reason it is
-    /// required on a supervisor — there is no default that is right for a
-    /// downstream the runtime knows nothing about.
+    /// `max_running` has no default. The limit protects what the tasks
+    /// call: ten thousand items should not become ten thousand database
+    /// queries at once, and only the program knows the right number.
     ///
-    /// The bound is on the spawn rather than the await because by the time
-    /// you are awaiting, everything is already running.
-    ///
-    /// Terminal, not lazy: it consumes the whole source and returns a
-    /// `List`. A lazy sequence of tasks would spawn *after* its block had
-    /// exited, with the bodies never running. As with `Iter.to_list`, a source
-    /// that is `Iter.is_infinite` traps before any task is spawned, and one that
-    /// never ends without saying so hangs: `max_running` throttles execution,
-    /// not enqueueing.
+    /// It consumes the whole source and returns a `List`. As with
+    /// `Iter.to_list`, a source that is `Iter.is_infinite` traps before any
+    /// task is spawned, and one that never ends without saying so hangs.
     //! results = concurrent
     //!     [1, 2, 3]
     //!     |> Task.spawn_all(&(&1 * 2), max_running: 2)
@@ -120,21 +107,17 @@ impl Task<T>
         max_running: PositiveInt,
     ) -> List<Task<U>>
 
-    /// Wait for every task in `tasks` and collect their values, in the
-    /// order the tasks were spawned.
+    /// Waits for every task in `tasks` and returns their values, in the
+    /// order of `tasks`.
     ///
-    /// An `Err` a body returned does not short-circuit: you get a
-    /// `List<Result<U, E>>` to handle. What happens to the other 9,997
-    /// tasks when item 3 returns `Err` is a policy worth deciding
-    /// deliberately rather than inheriting from a mapping helper.
+    /// An `Err` a body returned is a value. It stops nothing: the other
+    /// tasks run to their end, and the result is a `List<Result<U, E>>` for
+    /// the caller to handle.
     ///
-    /// A *failure* does short-circuit. This watches every task in the
-    /// batch, so one that breaks surfaces straight away rather than when
-    /// the collect loop reaches it — a batch where item 3 fails instantly
-    /// does not wait out items 1 and 2 first. Once anything has failed the
-    /// outcome is settled, so the wait would buy nothing. The cost is that
-    /// with two failures you get whichever happened first rather than the
-    /// lowest-indexed one.
+    /// A task that fails does stop the wait. `await_all` traps with that
+    /// task's fault as soon as it fails, without waiting for the tasks
+    /// before it in the list. When two tasks fail, the fault is the one
+    /// that happened first.
     //! results = concurrent
     //!     ["a", "b"]
     //!     |> Task.spawn_all(&(&1 + "!"), max_running: 2)
@@ -145,13 +128,12 @@ impl Task<T>
     //
     pub host fn await_all<U>(tasks: List<Task<U>>) -> List<U>
 
-    /// Wait for `task` and hand back how it ended, rather than inheriting
-    /// it. `Task.await` is this with the non-`Completed` cases propagated
-    /// for you.
+    /// Waits for `task`, as `Task.await` does, and returns how it ended as
+    /// a value: `Completed` with the body's value, `Cancelled`, or `Failed`
+    /// with the fault that ended the body. It never traps.
     ///
-    /// Reach for it when you cancelled the task yourself — inheriting a
-    /// cancellation you asked for makes no sense — or when you are
-    /// deliberately inspecting a task's fate rather than using its value.
+    /// Use it to read a task you cancelled, and to report a task's failure
+    /// where `Task.await` would trap with it.
     //! outcome = concurrent
     //!     task = Task.spawn(fn -> 42)
     //!     Task.outcome(task)
@@ -159,30 +141,31 @@ impl Task<T>
     //!
     //! expected: Outcome<Int> = .Completed(42)
     //! assert outcome == expected
+    //!
+    //! // A body that traps is `Failed`, and the program carries on.
+    //! failed = concurrent
+    //!     task = Task.spawn(fn -> Iter.find([1, 2], &(&1 > 5))!)
+    //!     Task.outcome(task)
+    //! end
+    //!
+    //! ending = case failed
+    //!     Outcome.Failed(_) -> "failed"
+    //!     _                 -> "other"
+    //! end
+    //!
+    //! assert ending == "failed"
     //
     pub host fn outcome<T>(task: Task<T>) -> Outcome<T>
 
-    /// Ask one task to stop, leaving its siblings alone. Cancellation
-    /// reaches the body's cancellation-aware operations and any
-    /// `concurrent` block nested inside it.
+    /// Asks one task to stop and leaves the other tasks alone. The task
+    /// stops at its next safe point and unwinds, running its deferred
+    /// calls. A `concurrent` block inside it is cancelled too. It cancels a
+    /// task of a `concurrent` block and a supervised task alike.
     ///
-    /// On `Task` rather than `Supervisor` even for grouped work, because
-    /// cancelling needs only the task in your hand — the supervisor would
-    /// be a redundant argument, and a supervisor-side version could not cancel a
-    /// block-owned task at all. One verb covers both, which is what makes stopping
-    /// the losers of a race the same operation as stopping a background worker.
+    /// A cancelled task must still be awaited, and the wait ends once the
+    /// task has stopped. Read it with `Task.outcome`, which returns
+    /// `Cancelled`; `Task.await` would propagate the cancellation.
     ///
-    /// It does not release you from awaiting — there are still no orphan
-    /// tasks — but the await returns promptly instead of waiting for work
-    /// that will never finish. Reach for `Task.outcome` rather than
-    /// `Task.await` afterwards: `await` would propagate a cancellation you
-    /// asked for.
-    ///
-    /// Cancelling twice, or cancelling a task that already finished, is a
-    /// no-op.
-    ///
-    /// (No doctest here: whether a cancel lands before a short body
-    /// finishes is a race, so the only deterministic examples need a
-    /// sleeping task. Those live in rt/concurrent_test.go.)
+    /// Cancelling a task twice, or one that has finished, does nothing.
     pub host fn cancel<T>(task: Task<T>) -> Unit
 end

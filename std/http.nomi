@@ -1060,7 +1060,6 @@ impl Request
         {..request, headers: Headers.set(.., "Authorization", "Basic ${token}")}
     end
 
-    /// The value a router matched for the wildcard `name`.
     /// Lets the client take until `by` from now to send the rest of the
     /// body, past the server's `read_timeout`. Go's
     /// `ResponseController.SetReadDeadline`. An `Err` for a request no
@@ -1169,6 +1168,8 @@ impl Request
         end
     end
 
+    /// The value a router matched for the wildcard `name`, or `None` when
+    /// the matched pattern has no wildcard of that name.
     pub fn path_value(request: Request, name: String) -> Maybe<String>
         Map.get(request.path_values, name)
     end
@@ -2442,7 +2443,7 @@ pub struct Server
     /// Responds to `OPTIONS *` itself, as Go does; `False` hands it to the
     /// handler.
     answer_options_star: Bool = True
-    /// Honours the priorities HTTP/2 and HTTP/3 clients ask for.
+    /// Honors the priorities HTTP/2 and HTTP/3 clients ask for.
     client_priority: Bool = True
     /// The protocols the server accepts; `None` is Go's choice, HTTP/1
     /// and, over TLS, HTTP/2.
@@ -5655,6 +5656,8 @@ pub struct Tracer
 end
 
 impl Tracer
+    /// A tracer that has recorded nothing. A request names it in its
+    /// `trace` field.
     pub fn new() -> Tracer
         Tracer{handle: http_host.new_tracer()}
     end

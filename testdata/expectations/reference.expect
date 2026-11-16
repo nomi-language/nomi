@@ -11,8 +11,8 @@
 # T <transcript line>, verbatim
 population reference
 what one record per stdlib reference page carrying interactive tests, each editor run as the tour's worker runs it (vmhost.StdlibReference). A `T` line is an editor's outcome and its label: the entry heading, its impl context, and #n for an entry's later editors, and `[not run in the browser: <classes>]` for a prompt the page shows as code since it reaches a capability the browser lacks; it runs here natively. N is the page's editor count.
-records 84
-declared-cases 1060
+records 85
+declared-cases 1103
 failing 0
 C actors
 E 0
@@ -57,9 +57,11 @@ T ok enum Bool
 T ok Bool.inspect (impl Debug for Bool)
 C bytes
 E 0
-N 20
-H de2b6a00aafa1c7f8fdf36d8e9695f10e814eef73a45e1484f96f7110cfce717
+N 22
+H 4932d32be1259d31c68b19ec86f640474fb6b3930fffbda80b1ab935b2a4ba7f
 T ok Byte.to_int
+T ok Byte.to_string (impl Display for Byte)
+T ok Byte.inspect (impl Debug for Byte)
 T ok Byte.bitwise_and (impl BitwiseAnd<Byte, Byte> for Byte)
 T ok Byte.bitwise_or (impl BitwiseOr<Byte, Byte> for Byte)
 T ok Byte.bitwise_xor (impl BitwiseXor<Byte, Byte> for Byte)
@@ -81,9 +83,13 @@ T ok Bytes.compare (impl Comparable for Bytes)
 T ok Bytes.hash (impl Hashable for Bytes)
 C calendar
 E 0
-N 66
-H 61e6f02f84987ac8c9b95c19727cfcd9688666fbc90bfd985fe0d2a4a4b94301
+N 79
+H 9c434bb26807706ab3c479df57db2cb52ba618d0ad2e1e2d0a6fa4e749c1224a
+T ok enum Error
+T ok type Years
 T ok type Months
+T ok type Weeks
+T ok type Days
 T ok type Hours
 T ok struct Date
 T ok Date.new
@@ -98,6 +104,8 @@ T ok Date.parse_in
 T ok Date.to_string_with
 T ok Date.parse_with
 T ok Date.add Add<Months, Date> (impl Add<Months, Date> for Date)
+T ok Date.localize (impl Localize for Date)
+T ok struct Time
 T ok Time.new
 T ok Time.parse
 T ok Time.between
@@ -108,6 +116,8 @@ T ok Time.to_string_with
 T ok Time.parse_with
 T ok Time.add (impl Add<Duration, Time> for Time)
 T ok Time.subtract (impl Subtract<Duration, Time> for Time)
+T ok Time.localize (impl Localize for Time)
+T ok struct NaiveDateTime
 T ok NaiveDateTime.format
 T ok NaiveDateTime.format_fields
 T ok NaiveDateTime.to_string_with
@@ -122,11 +132,14 @@ T ok NaiveDateTime.between
 T ok NaiveDateTime.from_instant
 T ok NaiveDateTime.utc_now
 T ok NaiveDateTime.to_instant
+T ok struct OffsetDateTime
 T ok OffsetDateTime.with_offset
 T ok OffsetDateTime.from_instant
 T ok OffsetDateTime.parse
 T ok OffsetDateTime.between
 T ok OffsetDateTime.to_naive
+T ok OffsetDateTime.to_instant (impl Anchored for OffsetDateTime)
+T ok OffsetDateTime.offset (impl Anchored for OffsetDateTime)
 T ok enum Disambiguation
 T ok struct DateTime
 T ok DateTime.format
@@ -141,6 +154,8 @@ T ok DateTime.with_zone
 T ok DateTime.zone
 T ok DateTime.parse
 T ok DateTime.between
+T ok DateTime.to_instant (impl Anchored for DateTime)
+T ok DateTime.offset (impl Anchored for DateTime)
 T ok enum Weekday
 T ok TimeUnit.format_relative
 T ok type DateFields
@@ -286,8 +301,8 @@ T ok type PositiveDecimal
 T ok type Ratios
 C duration
 E 0
-N 30
-H 8efc0c5c642527eb72cc5bf7cac6afc8e52cecc8fe1d85aba287e2e055e3239e
+N 31
+H 0880ce884ae937ff6692c3778945bfa43182bb95d87bed7821359080c9836402
 T ok type Duration
 T ok Duration.nanoseconds
 T ok Duration.microseconds
@@ -314,10 +329,23 @@ T ok Duration.multiply (impl Multiply<Int, Duration> for Duration)
 T ok Duration.divide (impl Divide<NonZeroInt, Duration> for Duration)
 T ok Duration.remainder (impl Remainder<NonZeroDuration, Duration> for Duration)
 T ok Duration.to_string (impl Display for Duration)
+T ok Duration.localize (impl Localize for Duration)
 T ok Duration.inspect (impl Debug for Duration)
 T ok type NonZeroDuration
 T ok type NonNegativeDuration
 T ok type PositiveDuration
+C dynamic
+E 0
+N 8
+H 10b278a4b92cfbe4d3df27df029e39d098e943734c6d9a9cb33702df70a19a5c
+T ok type Dynamic
+T ok Dynamic.field
+T ok Dynamic.index
+T ok Dynamic.path
+T ok Dynamic.as_int
+T ok Dynamic.as_float
+T ok Dynamic.as_maybe
+T ok Dynamic.at_field
 C embed
 E 0
 N 10
@@ -334,8 +362,8 @@ T ok Files.paths
 T ok Files.sub
 C float
 E 0
-N 42
-H 469788ca2d3f097dd3a10120e73b6f877f220e957217ebda7a9f003a656070a1
+N 43
+H a7c56e02c329f98ebe3856b189a5f7ba6d64c7ee55d1f966beb8954f45ce4ca3
 T ok Float.nan
 T ok Float.positive_infinity
 T ok Float.negative_infinity
@@ -370,6 +398,7 @@ T ok Float.parse_percent_in
 T ok Float.to_string (impl Display for Float)
 T ok Float.empty_sum (impl Summable for Float)
 T ok Float.empty_product (impl Productable for Float)
+T ok Float.divide (impl Divide<Float, Float> for Float)
 T ok Float.remainder (impl Remainder<Float, Float> for Float)
 T ok Float.inspect (impl Debug for Float)
 T ok Float.min (impl Comparable for Float)
@@ -446,8 +475,8 @@ T ok hex.encode
 T ok hex.decode
 C html
 E 0
-N 7
-H 7c3bbed324a8fd0a6311fcd06af69195e587d37f00b9011a3a0ab07f94baacfb
+N 14
+H f0ed15c3592998a7add24aed0d57860c6a76cf8a28260586ae6f33fd08edfb0e
 T ok struct Html
 T ok Html.inspect (impl Debug for Html)
 T ok Html.trusted
@@ -455,6 +484,13 @@ T ok Html.text
 T ok Html.empty
 T ok Html.concat
 T ok Html.each
+T ok Html.to_string
+T ok Html.write_to
+T ok interface ToHtml
+T ok interface UrlValue
+T ok type SafeUrl
+T ok type Css
+T ok interface OptionalAttribute
 C http
 E 0
 N 76
@@ -548,8 +584,9 @@ T ok testing.with_server [not run in the browser: listen]
 T ok testing.open_websocket
 C instant
 E 0
-N 9
-H b30e07c1f9e120a29deb75bfd7e54fcd958a1f0bf206758bb746fe78e757bc78
+N 10
+H 47c53b5dcd1e7e41502b88b8bb77fa88b5f4671e72e0d956288398cf1f4d45ed
+T ok type Instant
 T ok Instant.from_seconds
 T ok Instant.to_seconds
 T ok Instant.from_nanos
@@ -561,8 +598,8 @@ T ok Instant.subtract Subtract<Duration, Instant> (impl Subtract<Duration, Insta
 T ok Instant.subtract Subtract<Instant, Duration> (impl Subtract<Instant, Duration> for Instant)
 C int
 E 0
-N 39
-H 8140fc296ce59910ca0c077f709d989a8dfd9ae624024c5f8bdc16562974e7a5
+N 43
+H 27cae7bef61107033dba91b4f3565c587be1b34bd417dee5c207f1b98a35d50e
 T ok type Int
 T ok Int.to_float
 T ok Int.to_decimal
@@ -586,7 +623,10 @@ T ok Int.from_digits
 T ok Int.format
 T ok Int.parse_in
 T ok Int.to_string (impl Display for Int)
+T ok Int.add (impl Add<Int, Int> for Int)
 T ok Int.empty_sum (impl Summable for Int)
+T ok Int.subtract (impl Subtract<Int, Int> for Int)
+T ok Int.multiply (impl Multiply<Int, Int> for Int)
 T ok Int.empty_product (impl Productable for Int)
 T ok Int.divide (impl Divide<NonZeroInt, Int> for Int)
 T ok Int.remainder (impl Remainder<NonZeroInt, Int> for Int)
@@ -597,6 +637,7 @@ T ok Int.bitwise_not (impl BitwiseNot<Int> for Int)
 T ok Int.shift_left (impl ShiftLeft<NonNegativeInt, Int> for Int)
 T ok Int.shift_right (impl ShiftRight<NonNegativeInt, Int> for Int)
 T ok Int.inspect (impl Debug for Int)
+T ok Int.compare (impl Comparable for Int)
 T ok type NonZeroInt
 T ok type NonNegativeInt
 T ok type PositiveInt
@@ -604,9 +645,12 @@ T ok type Radix
 T ok type Int64
 C io
 E 0
-N 33
-H 188b11157f30009659a536dd3ad16fc176935f37f0ca40a5ff35c08780fc75be
+N 36
+H ae8aa59b511d76617b68e792d70cef90aa08e691a7ea530ffdc0454dc654f4a5
 T ok enum Error
+T ok io.print
+T ok io.write
+T ok io.inspect
 T ok io.eprint
 T ok io.ewrite
 T ok io.read_line
@@ -736,8 +780,9 @@ T ok testing.conformance
 T ok testing.rules
 C json
 E 0
-N 8
-H 60769a894c6c76a80d23501309b9f6cffbe1e1c60676b4ddb4afb27a798601c2
+N 9
+H 133ffffe32b9e8525d9eeea860aca8ed76125870d57599ce244ad4e3d28806b5
+T ok enum Json
 T ok Json.decode
 T ok Json.encode
 T ok Json.to_dynamic
@@ -1054,8 +1099,9 @@ T ok Generator.flat_map
 T ok Generator.list
 C ranges
 E 0
-N 12
-H cdb652801875b25b2df9ca66f9db1eeaae682eb9a99cf445bfe2bdbfbc673bcc
+N 13
+H 51e3cd2202dbd5e68f98f9ec93a27229255139e12d88a253dc2e48e688bc953a
+T ok struct Range
 T ok Range.from
 T ok Range.naturals
 T ok Range.step_by
@@ -1105,8 +1151,9 @@ T ok sessions.with_session
 T ok sessions.write
 C sets
 E 0
-N 20
-H a74755a06b52fa90b1f49bbd35e73180918b38f806a0748ec10a68e51cf85d0d
+N 21
+H 925729c7302a1a2908b91d842a44e5ff7708f629fb9c7bb4ee0982a13ddf3028
+T ok struct Set
 T ok Set.insert
 T ok Set.remove
 T ok Set.size

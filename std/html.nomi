@@ -28,7 +28,8 @@
 //# `%2F`; a `style` value takes a number or a `Css`; `checked=${on}` takes
 //# a `Bool` or a `Maybe<String>` and writes the attribute or leaves it out.
 //# Everywhere else a `Maybe` writes its value, or nothing for `None`, so an
-//# `if` with no `else` adds a class: `class="badge ${if on { "on" }}"`.
+//# `if` adds a class when its condition holds:
+//# `class='badge ${if on then Some("on") else None}'`.
 //# A slot where no escaping is safe, markup that is not closed, and a value
 //# with no rendering where it stands are compile errors.
 //#
@@ -135,11 +136,20 @@ impl Html
     end
 
     /// The markup as text.
+    //! name = "Bo & Co"
+    //! assert Html.to_string(Html"<p>${name}</p>") == "<p>Bo &amp; Co</p>"
+    //
     pub fn to_string(html: Html) -> String
         html.text
     end
 
     /// Writes the markup to `writer`.
+    //! import std::io
+    //!
+    //! ran = io.capture("", fn -> Html.write_to(Html"<p>hi</p>", io.stdout))
+    //! assert ran.value == Result.Ok(Unit)
+    //! assert ran.output == "<p>hi</p>"
+    //
     pub fn write_to(html: Html, writer: Writer) -> Result<Unit, Error>
         Writer.write_text(writer, html.text)
     end
@@ -147,10 +157,13 @@ end
 
 /// A value that renders itself in an element's content: `String` and the
 /// numbers as escaped text, an `Html` as it is, a `List<Html>` joined, and
-/// a `Maybe` of any of them as its value, or nothing for `None`, so an `if`
-/// with no `else` shows its branch or nothing. Element content writes a
-/// `Display` value that is not a `ToHtml` as escaped text; a program's own
-/// type implements `ToHtml` to render as markup instead.
+/// a `Maybe` of any of them as its value, or nothing for `None`, so
+/// `if shown then Some(part) else None` shows the part or nothing. Element
+/// content writes a `Display` value that is not a `ToHtml` as escaped text;
+/// a program's own type implements `ToHtml` to render as markup instead.
+//! parts = [Html"<i>a</i>", Html"<i>b</i>"]
+//! assert Html.to_string(Html"<p>${"a < b"} ${2} ${parts}</p>") == "<p>a &lt; b 2 <i>a</i><i>b</i></p>"
+//
 pub interface ToHtml
     fn to_html(value: self) -> Html
 end
@@ -209,7 +222,12 @@ end
 /// A value a URL attribute's value can start with: a `Url`, whose scheme
 /// must be http, https, mailto or tel (another is written as
 /// `about:invalid#unsafe-url`), or a `SafeUrl`, which the program vouches
-/// for.
+/// for. A relative `Url` has no scheme and is written as it is.
+//! link = fn text: String -> Html"<a href='${Url.parse(text) |> Result.to_maybe()}'>x</a>"
+//!
+//! assert Html.to_string(link("/about")) == "<a href='/about'>x</a>"
+//! assert Html.to_string(link("javascript:alert(1)")) == "<a href='about:invalid#unsafe-url'>x</a>"
+//
 pub interface UrlValue
     fn to_url(value: self) -> String
 end
@@ -222,6 +240,9 @@ end
 
 /// A URL the program vouches for, whatever its scheme: written as it is,
 /// escaped for the attribute.
+//! data = SafeUrl("data:text/plain,a&b")
+//! assert Html.to_string(Html"<a href='${data}'>x</a>") == "<a href='data:text/plain,a&amp;b'>x</a>"
+//
 pub type SafeUrl String
 
 impl UrlValue for SafeUrl
@@ -269,6 +290,9 @@ impl CssValue for Decimal
 end
 
 /// CSS the program vouches for, escaped for the attribute.
+//! bar = Html"<i style='color: ${Css("red")}; width: ${40}%'></i>"
+//! assert Html.to_string(bar) == "<i style='color: red; width: 40%'></i>"
+//
 pub type Css String
 
 impl CssValue for Css
@@ -293,7 +317,12 @@ end
 
 /// An attribute written or left out by its value, in `name=${value}`:
 /// `True` writes the bare attribute and `False` leaves it out; `Some(text)`
-/// writes `name="text"` and `None` leaves it out.
+/// writes `name="text"`, escaped, and `None` leaves it out.
+//! box = fn on: Bool, tip: Maybe<String> -> Html"<input checked=${on} title=${tip}>"
+//!
+//! assert Html.to_string(box(True, Some("a & b"))) == "<input checked title=\"a &amp; b\">"
+//! assert Html.to_string(box(False, None)) == "<input>"
+//
 pub interface OptionalAttribute
     /// The attribute's value, `Some("")` for a bare attribute, or `None` to
     /// leave it out.

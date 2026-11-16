@@ -5,6 +5,12 @@
 /// the right-hand operand and the output type. That lets an impl choose a
 /// result that is not necessarily the same type as the left-hand operand.
 ///
+/// The std impls for `Int`, `Decimal` and `Duration` take a divisor type
+/// that leaves out zero (`NonZeroInt`, `NonZeroDecimal`), so `n / 0` is a
+/// compile error and a divisor computed while the program runs goes
+/// through `NonZeroInt.try_from`. Float's takes any Float, and dividing by
+/// `0.0` gives an infinity or NaN.
+///
 /// ```nomi
 /// pub type Ratio Decimal
 /// pub type Scale Decimal

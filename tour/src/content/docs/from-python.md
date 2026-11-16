@@ -7,8 +7,8 @@ Much of Python carries over: readable code with little punctuation, named
 arguments and defaults, first-class functions, tuples you unpack, and string
 interpolation. What differs most: every type is checked before the program
 runs, values never change, a block ends with `end` rather than with its
-indentation, and a
-failure is a value the function returns rather than an exception it raises.
+indentation, and a failure is a value the function returns rather than an
+exception it raises.
 
 The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 
@@ -21,13 +21,15 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `class User:` with `self.name` | `struct User` with a `name: String` field, read as `user.name`; behavior goes in `impl User` |
 | `None` | `None`, but only in a `Maybe<T>`: a value that may be missing says so in its type |
 | `raise ValueError(..)`, `try:` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
-| `if xs:` on any value | `if` takes a `Bool`: `if Iter.is_empty(xs)`, `if count > 0` |
+| `if xs:` on any value | `if` takes a `Bool`: `if not Iter.is_empty(xs)`, `if count > 0` |
 | `match`, which does nothing when no case matches | `case`, which must cover every value; the checker rejects one that does not |
 | `pair[0]` | `pair.first`, `pair.second`, ...: a tuple's items are read by name |
-| `1 / 2` is `0.5`; `-7 // 2` is `-4`; `-7 % 3` is `2` | `/` on two `Int`s truncates toward zero: `1 / 2` is `0` and `-7 / 2` is `-3`. Convert an operand with `Int.to_float` for a `Float` result. `%` takes the sign of its left operand, so `-7 % 3` is `-1`; `Int.floor_div` and `Int.modulo` are Python's `//` and `%`. |
+| `1 / 2` is `0.5`; `-7 // 2` is `-4`; `-7 % 3` is `2` | `/` on two `Int`s truncates toward zero: `1 / 2` is `0` and `-7 / 2` is `-3`. Convert an operand with `Int.to_float` for a `Float` result. `%` takes the sign of its left operand, so `-7 % 3` is `-1`; `Int.floor_div` and `Int.modulo` are Python's `//` and `%`. The divisor must be a `NonZeroInt`: a literal other than 0 is one, and so is `d` after `if d == 0 then return ..`. |
 | `float(n)`, `int(s)` | `Int.to_float(n)`, `String.to_int(s)`, which returns a `Maybe`. Nomi's `x as T` converts nothing: it only states a type the value already fits (`[] as List<String>`). |
 | `with open(path) as f:` | `defer Reader.close_quietly(r)` on the line after opening; the checker requires it for a resource |
 | `for x in xs:`, `while` | `Iter.each`, a fold, recursion, or `Iter.loop` |
+| Duck typing, or a `Protocol` any class of that shape satisfies | An `interface`, and a type implements one by saying so: `impl Speak for Dog` |
+| `asyncio.gather(f(), g())`, `async def`, `await` | `Task.spawn` and `Task.await` inside `concurrent` ... `end`. No function is marked `async`. |
 | A `create_app()` factory that sets `app.config` and calls `db.init_app(app)` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
 ## Spelled differently
@@ -39,8 +41,9 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{"a": 1}`, `{1, 2}` | `{"a" => 1}`, `Set[1, 2]` |
 | `(a, b)`, `a, b = pair` | `(a, b)`, `(a, b) = pair` |
 | `f"{name} has {n}"` | `"${name} has ${n}"` |
-| `Decimal("1.50")` | `1.50d`, a `Decimal` literal. `+`, `-` and `*` are exact. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even, where Python's default context keeps 28. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Money](/money/). |
-| `import json` | `import std::json` |
+| `Decimal("1.50")` | `1.50d`, a `Decimal` literal. `+`, `-` and `*` are exact. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even, where Python's default context keeps 28. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
+| `import json`, `from db.posts import find` | `import std::json`, `import db::posts.{find}` |
+| `_helper`, private by convention | A declaration is private to its file unless it is marked `pub` |
 | `def test_x():` with pytest | `test "name"` ... `end` beside the code |
 | `@app.get("/users/<int:id>")` in Flask | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 

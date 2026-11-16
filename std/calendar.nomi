@@ -10,11 +10,10 @@
 //# "yesterday". The calendar is the Gregorian one; the words and patterns
 //# come from CLDR, from the data the program carries.
 //#
-//# `std::calendar` covers the civil date-time surface: wall-clock readings,
-//# zoned moments, the conversions between them, and DST-aware arithmetic.
-//# With `std::instant` (the absolute-instant clock and the `Instant` type)
-//# and `std::duration` (exact elapsed time, `Duration`), it is the whole
-//# date and time story.
+//# `std::calendar` covers civil dates and times: wall-clock readings, zoned
+//# moments, the conversions between them, and DST-aware arithmetic.
+//# `std::instant` has the clock and the absolute `Instant`, and
+//# `std::duration` has exact elapsed time, `Duration`.
 //#
 //# ## The type ladder
 //#
@@ -24,36 +23,35 @@
 //# - **`Time`**: a time of day. Hour, minute, second and nanosecond; no
 //#   calendar.
 //# - **`NaiveDateTime`**: a wall-clock reading. A date and a time of day, no
-//#   zone. **Not a real moment in history.**
+//#   zone. It names no moment.
 //# - **`OffsetDateTime`**: anchored at a fixed UTC offset. A real moment; no
 //#   DST.
 //# - **`DateTime`**: anchored in an IANA zone (`America/New_York`,
-//#   `Asia/Tokyo`, ...). Fully DST-aware. **The default for real moments.**
+//#   `Asia/Tokyo`, ...), following its daylight-saving rules. The type to
+//#   use for a moment.
 //#
 //# Two adjacent types live in sibling modules:
 //#
-//# - **`Instant`** (`std::instant`): pure UTC nanoseconds since the Unix
-//#   epoch. No calendar, no zone, no display ceremony. `Instant + Duration`
+//# - **`Instant`** (`std::instant`): nanoseconds since the Unix epoch, in
+//#   UTC. It has no calendar and no zone. `Instant + Duration`
 //#   and `Instant - Duration` are Instants; `a - b` on two Instants is the
 //#   `Duration` from `b` to `a` (`Instant.between(b, a)`).
-//# - **`Duration`** (`std::duration`): exact elapsed time, in nanoseconds at
-//#   the storage layer. Construct it with unit functions such as
+//# - **`Duration`** (`std::duration`): exact elapsed time, a count of
+//#   nanoseconds. Build one with a unit function such as
 //#   `Duration.seconds(5)`, or with a literal as `Display` writes it,
-//#   `Duration"1h30m"`. Hours, minutes and seconds exist there; months
-//#   and years do not, since they are not exact units.
+//#   `Duration"1h30m"`. Hours, minutes and seconds are units there; months
+//#   and years are not, since their lengths vary.
 //#
-//# The five-type ladder mirrors `java.time` (`LocalDate`, `LocalTime`,
-//# `LocalDateTime`, `OffsetDateTime`, `ZonedDateTime`), but the naming
-//# reverses the usual pattern: the bare name `DateTime` is the IANA-zoned
-//# safe default, and `NaiveDateTime` carries the "Naive" prefix as a
-//# warning. The longer name goes on the unsafe shape, so a caller opts into
-//# it by spelling it out, the opposite of "Local" or "Zoned" prefixes that
-//# make the unsafe form the easier reach.
+//# The five types mirror `java.time` (`LocalDate`, `LocalTime`,
+//# `LocalDateTime`, `OffsetDateTime`, `ZonedDateTime`) under other names.
+//# The bare name `DateTime` is the zoned type, the one to use for a moment.
+//# The reading with no zone has the longer name, `NaiveDateTime`, so code
+//# that uses it says that the value names no moment.
 //#
 //# ## Construction and typed literals
 //#
-//# Every calendar type has a same-named `Literal` handler, so the typed
-//# literal is the primary way to write a value:
+//# Each of the five types has a typed literal, the usual way to write a
+//# value:
 //#
 //# ```
 //# Date"YYYY-MM-DD"
@@ -115,8 +113,10 @@
 //#   `Minutes`, `Seconds`, `Milliseconds`, `Microseconds` and `Nanoseconds`
 //#   (and `-` of each) are civil period arithmetic. They adjust the wall
 //#   reading and, for a zoned `DateTime`, resolve it through the zone again.
-//#   Months and years clamp to the end of the month (``Date`2026-01-31` +
-//#   Months(1)`` is `Date"2026-02-28"`).
+//#   Months and years clamp to the end of the month (`Date"2026-01-31" +
+//#   Months(1)` is `Date"2026-02-28"`). A `Date` takes years, months, weeks
+//#   and days; the date-time types take all ten; a `Time` takes only a
+//#   `Duration`, and wraps at midnight.
 //#
 //# Across a spring-forward transition the two differ:
 //#
@@ -180,24 +180,24 @@
 //#                                                 different zone)
 //# ```
 //#
-//# Three conversions are missing on purpose:
+//# A wall reading is not a moment, so a `NaiveDateTime` becomes one only
+//# where the code says whose clock showed it: a zone, with
+//# `DateTime.in_zone(naive, zone, mode)`, or a fixed offset, with
+//# `OffsetDateTime.with_offset(naive, offset)` or
+//# `NaiveDateTime.to_instant(naive, offset)`. `NaiveDateTime.to_instant`
+//# with no offset reads the value as a UTC reading, which is what
+//# `NaiveDateTime.utc_now` returns.
 //#
-//# 1. **`NaiveDateTime` to `Instant`.** A wall reading is not a moment. The
-//#    only way to an instant is to commit to a zone with
-//#    `DateTime.in_zone(naive, zone, mode)` or to an offset with
-//#    `OffsetDateTime.with_offset(naive, offset)`, so the zone choice is made
-//#    in the calling code, where the author has the context to make it.
-//# 2. **`OffsetDateTime` to `DateTime`.** A fixed offset does not determine
+//# Two conversions are missing on purpose:
+//#
+//# 1. **`OffsetDateTime` to `DateTime`.** A fixed offset does not determine
 //#    an IANA zone: offset `-05:00` is in effect in many zones at various
 //#    points in history. The caller names the zone:
-//#    `OffsetDateTime` to `Instant`, then `DateTime.from_instant_in(instant,
+//#    `OffsetDateTime.to_instant`, then `DateTime.from_instant_in(instant,
 //#    zone)`.
-//# 3. **`Date` or `Time` to `Instant`.** A calendar day or a time of day is
-//#    not a moment without a zone. `NaiveDateTime.of(date, time)` makes a
-//#    `NaiveDateTime`, and `in_zone` carries it the rest of the way.
-//#
-//# The API will not turn a wall reading into a moment unless a zone is
-//# named, which rules out the most common date-time bug in the type system.
+//# 2. **`Date` or `Time` to `Instant`.** A calendar day or a time of day is
+//#    not a moment. `NaiveDateTime.of(date, time)` makes a `NaiveDateTime`,
+//#    and `in_zone` carries it the rest of the way.
 //#
 //# ## Equality and ordering
 //#
@@ -213,9 +213,9 @@
 //# ny == paris // → True (same instant)
 //# ```
 //#
-//# The offset or zone is display metadata, not identity. To ask for "same
-//# instant and same zone", compare the rendered forms too, since a
-//# `DateTime` displays with its zone bracket:
+//# The offset or zone decides how a value displays and takes no part in
+//# `==`. To ask for the same instant in the same zone, compare the displayed
+//# forms too, since a `DateTime` displays with its zone bracket:
 //#
 //# ```nomi
 //# a == b and Display.to_string(a) == Display.to_string(b)
@@ -238,11 +238,11 @@
 //#
 //# **Styles.** `DateStyle` and `TimeStyle` are `Full`, `Long`, `Medium` and
 //# `Short`, and the locale decides the rest. A date and a time join as the
-//# locale's date-time pattern for the date's style joins them. A `Full` or
-//# `Long` time of a `DateTime` ends with its offset in the locale's GMT
-//# format (`GMT+02:00`, `UTC+2` in `fr`); zone names are not std's. A `Time`
-//# and a `NaiveDateTime` have no zone, so their `Full` and `Long` times
-//# write what `Medium` does.
+//# locale's date-time pattern for the date's style joins them. A `Long`
+//# time of a `DateTime` ends with its offset in the locale's short GMT
+//# format (`GMT+2`, `UTC+2` in `fr`) and a `Full` one in its long format
+//# (`GMT+02:00`); std has no zone names. A `Time` and a `NaiveDateTime`
+//# have no zone, so their `Full` and `Long` times write what `Medium` does.
 //#
 //# **Skeletons.** `DateFields`, `TimeFields` and `DateTimeFields` name the
 //# fields a value shows and their widths as a CLDR skeleton: `y` the year,
@@ -319,17 +319,22 @@ import
     unit.Unit
 end
 
-/// `Error` — what went wrong constructing or projecting a calendar value.
+/// What went wrong building, parsing or converting a calendar value. Each
+/// variant holds the reason as text, and `Display` writes the kind and then
+/// the reason.
 ///
-/// The first two variants (`InvalidFormat`, `InvalidValue`) cover parsing
-/// and construction across every civil type. The last three
-/// (`UnknownZone`, `Nonexistent`, `Ambiguous`) are only surfaced by the
-/// anchored projection cluster (`OffsetDateTime`, `DateTime`):
-/// `UnknownZone` when the zone name isn't in the embedded tzdb;
-/// `Nonexistent` when a wall-clock reading falls in a spring-forward
-/// gap with `mode = Reject`; `Ambiguous` when a wall-clock reading
-/// falls in a fall-back fold with `mode = Reject`. (Other
-/// disambiguation modes resolve gaps/folds silently.)
+/// Every type's constructors and parsers return `InvalidFormat`, for text
+/// that does not read, and `InvalidValue`, for a value that is no date or
+/// time (`day 30 not valid for 2026-02`). The other three come from
+/// `DateTime` alone. `UnknownZone` is a zone name the embedded zone
+/// database lacks. `Nonexistent` is a wall reading in a spring-forward gap
+/// and `Ambiguous` one in a fall-back fold, which `DateTime.in_zone` returns
+/// only with `Disambiguation.Reject`; the other modes resolve both.
+//! assert Date.new(2026, 2, 30) == Err(Error.InvalidValue("day 30 not valid for 2026-02"))
+//!
+//! assert Display.to_string(Error.InvalidValue("month out of range: 13"))
+//!     == "invalid value: month out of range: 13"
+//
 pub enum Error
     InvalidFormat String
     InvalidValue String
@@ -356,6 +361,11 @@ end
 // Civil Periods
 // ============================================================================
 /// Whole calendar years for civil calendar arithmetic on date-bearing values.
+/// Adding years to February 29 gives February 28 in a year that is not a
+/// leap year.
+//! assert Date"2024-02-29" + Years(1) == Date"2025-02-28"
+//! assert Date"2024-02-29" + Years(4) == Date"2028-02-29"
+//
 pub type Years Int
 
 derive Equatable for Years
@@ -375,6 +385,8 @@ derive Comparable for Months
 derive Display for Months
 
 /// Whole calendar weeks for civil calendar arithmetic on date-bearing values.
+//! assert Date"2026-05-04" + Weeks(2) == Date"2026-05-18"
+//
 pub type Weeks Int
 
 derive Equatable for Weeks
@@ -383,6 +395,12 @@ derive Comparable for Weeks
 derive Display for Weeks
 
 /// Whole calendar days for civil calendar arithmetic on date-bearing values.
+/// In a zone, a day keeps the time of day across a daylight-saving change.
+//! assert Date"2026-05-04" - Days(4) == Date"2026-04-30"
+//!
+//! assert DateTime"2026-03-07T12:00:00-05:00[America/New_York]" + Days(1)
+//!     == DateTime"2026-03-08T12:00:00-04:00[America/New_York]"
+//
 pub type Days Int
 
 derive Equatable for Days
@@ -444,17 +462,20 @@ derive Hashable for Nanoseconds
 derive Comparable for Nanoseconds
 derive Display for Nanoseconds
 
-/// Date-bearing values expose their `year`/`month`/`day` components.
-/// Impls: `Date`, `NaiveDateTime`, `OffsetDateTime`, `DateTime`.
+/// The year, the month (1 to 12) and the day of the month of a value that
+/// has a date. `Date`, `NaiveDateTime`, `OffsetDateTime` and `DateTime`
+/// implement it; the last two read their wall clock at their offset or in
+/// their zone.
 pub interface DateParts
     fn year(value: self) -> Int
     fn month(value: self) -> Int
     fn day(value: self) -> Int
 end
 
-/// Time-of-day values expose their `hour`/`minute`/`second`/
-/// `nanosecond` components. Impls: `Time`, `NaiveDateTime`,
-/// `OffsetDateTime`, `DateTime`.
+/// The hour (0 to 23), minute, second and nanosecond of a value that has a
+/// time of day. `Time`, `NaiveDateTime`, `OffsetDateTime` and `DateTime`
+/// implement it; the last two read their wall clock at their offset or in
+/// their zone.
 pub interface TimeParts
     fn hour(value: self) -> Int
     fn minute(value: self) -> Int
@@ -462,20 +483,21 @@ pub interface TimeParts
     fn nanosecond(value: self) -> Int
 end
 
-/// Anchored-to-a-moment values expose their underlying `Instant`
-/// plus the effective UTC offset at that instant. Impls:
-/// `OffsetDateTime`, `DateTime`.
+/// The `Instant` a value names and its UTC offset at that instant.
+/// `OffsetDateTime` and `DateTime` implement it.
 pub interface Anchored
     fn to_instant(value: self) -> Instant
     fn offset(value: self) -> Duration
 end
 
-/// A calendar date — year/month/day, no time-of-day, no zone. Construct
-/// via `Date.new(y, m, d)` (validating), `Date.parse`, or the
-/// `Date"…"` typed literal. Components reachable via `year`/`month`/`day`
-/// (or the `DateParts` interface). The year is an `Int` of any size; one
-/// outside 0000 to 9999 is written with a sign and at least six digits.
+/// A calendar date: a year, a month and a day, with no time of day and no
+/// zone. Build one with the `Date"…"` typed literal, `Date.new(y, m, d)` or
+/// `Date.parse`, and read its parts with `Date.year`, `Date.month` and
+/// `Date.day` (the `DateParts` interface). The year is an `Int` of any
+/// size; one outside 0000 to 9999 is written with a sign and at least six
+/// digits.
 //! assert Display.to_string(Date"2026-05-04") == "2026-05-04"
+//! assert Date.month(Date"2026-05-04") == 5
 //! assert Display.to_string(Date.new(-1, 12, 31)!) == "-000001-12-31"
 //! assert Date"2026-05-04" + Years(300_000_000_000) == Date"+300000002026-05-04"
 //
@@ -486,9 +508,9 @@ pub opaque struct Date
 end
 
 impl Date
-    /// Construct a `Date`, validating the combination (no Feb 30,
-    /// leap-year aware). Returns `Err(.InvalidValue(...))` for impossible
-    /// dates. Every year is one.
+    /// Construct a `Date`, checking that the month is 1 to 12 and has the
+    /// day: no February 30, and February 29 only in a leap year. A date
+    /// that does not exist is `Err(.InvalidValue(...))`. Any year is valid.
     //! assert Date.new(2026, 5, 4)? == Date"2026-05-04"
     //! assert Err(Error.InvalidValue(_msg)) = Date.new(2026, 2, 30)
     //! assert Date.new(Int.pow(10, 30), 2, 29)? == Date"+1000000000000000000000000000000-02-29"
@@ -503,9 +525,8 @@ impl Date
         end
     end
 
-    /// Parse an ISO-8601 date string (`YYYY-MM-DD`) into a `Date`. Backs
-    /// the `Date"…"` typed literal and is exported for callers parsing
-    /// from arbitrary string sources. A year outside 0000 to 9999 takes a
+    /// Parse an ISO 8601 date (`YYYY-MM-DD`). The `Date"…"` typed literal
+    /// reads its text the same way. A year outside 0000 to 9999 takes a
     /// sign, as `Display` writes it; a year of more than four digits may
     /// go without one.
     //! assert Date.parse("2026-05-04")? == Date"2026-05-04"
@@ -523,9 +544,8 @@ impl Date
         end
     end
 
-    /// Number of whole days between two `Date`s — positive if `later` is
-    /// after `earlier`, negative if before. (Calendar-day count, ignoring
-    /// any sub-day time of day.)
+    /// The number of days from `earlier` to `later`: positive when `later`
+    /// is the later date, negative when it is the earlier one.
     //! assert Date.days_between(Date"2026-05-04", Date"2026-05-07") == 3
     //! assert Date.days_between(Date"2026-05-07", Date"2026-05-04") == -3
     //
@@ -702,7 +722,8 @@ impl Literal for Date
 end
 
 impl Display for Date
-    /// ISO-8601 date string (`YYYY-MM-DD`).
+    /// ISO 8601 date (`YYYY-MM-DD`). A year outside 0000 to 9999 has a sign
+    /// and at least six digits.
     host fn to_string(d: Date) -> String
 end
 
@@ -797,10 +818,14 @@ end
 // ============================================================================
 // Time
 // ============================================================================
-/// A time-of-day — hour/minute/second/nanosecond, no date, no zone.
-/// Construct via `Time.new(h, m, s, ns)` (validating), `Time.parse`,
-/// or the `Time"…"` typed literal. Components reachable via
-/// `hour`/`minute`/`second`/`nanosecond` (or the `TimeParts` interface).
+/// A time of day: an hour, a minute, a second and a nanosecond, with no
+/// date and no zone. Build one with the `Time"…"` typed literal,
+/// `Time.new(h, m, s, ns)` or `Time.parse`, and read its parts with
+/// `Time.hour`, `Time.minute`, `Time.second` and `Time.nanosecond` (the
+/// `TimeParts` interface).
+//! assert Display.to_string(Time"08:30:00") == "08:30:00"
+//! assert Time.hour(Time"08:30:00") == 8
+//
 pub opaque struct Time
     hour:       Int64
     minute:     Int64
@@ -809,8 +834,9 @@ pub opaque struct Time
 end
 
 impl Time
-    /// Construct a `Time`, validating each component (hour 0..=23,
-    /// minute/second 0..=59, nanosecond 0..=999_999_999).
+    /// Construct a `Time`, checking each part's range: the hour 0 to 23,
+    /// the minute and second 0 to 59, the nanosecond 0 to 999_999_999. One
+    /// out of range is `Err(.InvalidValue(...))`.
     //! assert Time.new(8, 30)? == Time"08:30:00"
     //! assert Time.new(8, 30, 15, 250_000_000)? == Time"08:30:15.25"
     //! assert Err(Error.InvalidValue(_msg)) = Time.new(24, 0)
@@ -836,8 +862,10 @@ impl Time
         end
     end
 
-    /// Parse a time-of-day string (`HH:MM:SS` or `HH:MM:SS.fff…`).
+    /// Parse a time of day (`HH:MM:SS` or `HH:MM:SS.fff…`, with up to nine
+    /// digits of the second). The seconds are required.
     //! assert Time.parse("08:30:00")? == Time"08:30:00"
+    //! assert Err(Error.InvalidFormat(_msg)) = Time.parse("08:30")
     //! assert Err(Error.InvalidFormat(_msg)) = Time.parse("nope")
     //
     pub fn parse(s: String) -> Result<Time, Error>
@@ -850,8 +878,10 @@ impl Time
         end
     end
 
-    /// Exact duration from `earlier` to `later`, measured within one civil day.
+    /// Exact duration from `earlier` to `later` within one day, negative
+    /// when `later` is the earlier time.
     //! assert Time.between(Time"08:30:00", Time"08:33:00") == Duration.minutes(3)
+    //! assert Time.between(Time"08:33:00", Time"08:30:00") == Duration.minutes(-3)
     //
     pub fn between(earlier: Time, later: Time) -> Duration
         Duration.nanoseconds(day_nanos(later) - day_nanos(earlier))
@@ -935,7 +965,7 @@ impl Time
     end
 end
 
-/// Total nanoseconds since midnight. Module-private — backs `Time.between`.
+/// Total nanoseconds since midnight, for `Time.between`.
 //! assert Time"08:33:00" |> day_nanos() == 30780000000000
 //
 fn day_nanos(t: Time) -> Int
@@ -960,8 +990,9 @@ impl Literal for Time
 end
 
 impl Display for Time
-    /// ISO time string. Sub-second precision renders as a trailing `.fff…`
-    /// only when nonzero (so `09:30:00`, not `09:30:00.000`).
+    /// ISO 8601 time (`HH:MM:SS`). A fraction of a second follows only
+    /// when it is not zero, without trailing zeros: `09:30:00`,
+    /// `09:30:00.25`.
     host fn to_string(t: Time) -> String
 end
 
@@ -992,6 +1023,7 @@ end
 impl Add<Duration, Time> for Time
     /// Add an exact `Duration`, wrapping around midnight.
     //! assert Time"08:33:00" + Duration.minutes(3) == Time"08:36:00"
+    //! assert Time"23:00:00" + Duration.hours(2) == Time"01:00:00"
     //
     fn add(lhs: Time, rhs: Duration) -> Time
         time_add_nanos(lhs, Int.modulo(Duration.as_nanos(rhs), 86_400_000_000_000))
@@ -1010,13 +1042,15 @@ end
 // ============================================================================
 // NaiveDateTime
 // ============================================================================
-/// A naive date+time — a wall-clock reading like `2026-05-04T14:30:00`,
-/// with no zone or offset. **Looks like a complete timestamp but
-/// isn't**: a wall reading without a zone doesn't name a real moment in
-/// history. Reach for `DateTime` (IANA-zoned) when you need a real
-/// instant; reach for `NaiveDateTime` only when the value is genuinely
-/// a wall reading (calendar templates, schedule patterns, dates with a
-/// "local time of day" that will be resolved into a zone later).
+/// A date and a time of day with no zone or offset: a wall-clock reading
+/// such as `2026-05-04T14:30:00`. It looks like a timestamp, but without a
+/// zone it names no moment. Use `DateTime` for a moment, and
+/// `NaiveDateTime` where the value is a wall reading: a calendar template,
+/// a schedule pattern, a local time that a zone resolves later.
+//! dt = NaiveDateTime"2026-05-04T14:30:00"
+//! assert dt == NaiveDateTime.of(Date"2026-05-04", Time"14:30:00")
+//! assert Display.to_string(dt + Hours(10)) == "2026-05-05T00:30:00"
+//
 pub opaque struct NaiveDateTime
     year:       Int
     month:      Int64
@@ -1090,8 +1124,8 @@ impl NaiveDateTime
         [dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.nanosecond, 0, 3]
     end
 
-    /// Combine a `Date` and a `Time`. Both parts are already valid, so
-    /// this is infallible.
+    /// Combine a `Date` and a `Time`. Both parts are valid already, so it
+    /// cannot fail.
     //! assert NaiveDateTime.of(Date"2026-05-04", Time"14:30:00") == NaiveDateTime"2026-05-04T14:30:00"
     //
     pub fn of(d: Date, t: Time) -> NaiveDateTime
@@ -1121,18 +1155,19 @@ impl NaiveDateTime
         }
     end
 
-    /// The date component.
+    /// The date.
     //! assert NaiveDateTime.to_date(NaiveDateTime"2026-05-04T14:30:00") == Date"2026-05-04"
     //
     pub host fn to_date(dt: NaiveDateTime) -> Date
 
-    /// The time-of-day component.
+    /// The time of day.
     //! assert NaiveDateTime.to_time(NaiveDateTime"2026-05-04T14:30:00") == Time"14:30:00"
     //
     pub host fn to_time(dt: NaiveDateTime) -> Time
 
-    /// Construct from seven integers, validating each component AND the
-    /// year/month/day combination.
+    /// Construct from a year, month, day, hour and minute, and a second
+    /// and nanosecond when given, checking each part's range and that the
+    /// month has the day, as `Date.new` and `Time.new` do.
     //! assert NaiveDateTime.new(2026, 5, 4, 14, 30)? == NaiveDateTime"2026-05-04T14:30:00"
     //! assert Err(Error.InvalidValue(_msg)) = NaiveDateTime.new(2026, 2, 30, 12, 0)
     //
@@ -1174,8 +1209,8 @@ impl NaiveDateTime
         end
     end
 
-    /// Parse an ISO naive datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
-    /// Allows a single space instead of `T` between the date and time.
+    /// Parse an ISO 8601 date and time with no offset
+    /// (`YYYY-MM-DDTHH:MM:SS[.fff…]`). One space may stand for the `T`.
     //! assert NaiveDateTime.parse("2026-05-04T14:30:00")?
     //!     == NaiveDateTime.of(Date"2026-05-04", Time"14:30:00")
     //!
@@ -1191,7 +1226,8 @@ impl NaiveDateTime
         end
     end
 
-    /// Difference (later − earlier), computed as if both were UTC wall-readings.
+    /// Exact duration from `earlier` to `later`, counting each day as 24
+    /// hours; negative when `later` is the earlier reading.
     //! assert NaiveDateTime.between(NaiveDateTime"2026-05-04T09:00:00", NaiveDateTime"2026-05-04T11:30:00")
     //!     == Duration.minutes(150)
     //
@@ -1232,7 +1268,7 @@ impl NaiveDateTime
 
     /// Read the current wall clock in UTC: the form a database `TIMESTAMP`
     /// column (one without a time zone) holds when the program writes UTC
-    /// into it. Sugar for `NaiveDateTime.from_instant(Instant.now())`. A
+    /// into it. The same as `NaiveDateTime.from_instant(Instant.now())`. A
     /// naive reading names no moment by itself; for an absolute time read
     /// `Instant.now()`, and for a reading in a zone `DateTime.now_in`.
     //! before = NaiveDateTime.from_instant(Instant.now())
@@ -1285,7 +1321,7 @@ impl Literal for NaiveDateTime
 end
 
 impl Display for NaiveDateTime
-    /// ISO datetime string (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
+    /// ISO 8601 date and time (`YYYY-MM-DDTHH:MM:SS[.fff…]`).
     host fn to_string(dt: NaiveDateTime) -> String
 end
 
@@ -1488,20 +1524,22 @@ end
 // ============================================================================
 // OffsetDateTime
 // ============================================================================
-/// A date+time anchored at a fixed UTC offset (`-05:00`), with no DST
-/// awareness. The right type for ISO-8601 timestamps from APIs that
-/// include an offset but not a zone (`2026-05-04T14:30:00-05:00`).
-/// For DST-aware semantics, reach for `DateTime` instead — `DateTime`
-/// is the recommended default for real moments-in-time; an
-/// `OffsetDateTime` deliberately can't tell you which zone you were
-/// in, so converting back to `DateTime` requires re-naming the zone.
+/// A date and time at a fixed UTC offset (`-05:00`). It names a moment and
+/// follows no daylight-saving rules. It is the type for an ISO 8601
+/// timestamp that carries an offset and no zone
+/// (`2026-05-04T14:30:00-05:00`). For a moment in a zone, use `DateTime`.
+/// An `OffsetDateTime` records no zone, so making a `DateTime` from one
+/// means naming the zone.
 ///
-/// Equality and ordering are **instant-only**: two `OffsetDateTime`
-/// values with the same underlying nanos but different offsets are
-/// equal (they're the same moment in real history; the offset is
-/// display metadata). Construct via `OffsetDateTime.with_offset(naive,
-/// offset)`, `OffsetDateTime.from_instant(instant, offset)`,
-/// `OffsetDateTime.parse`, or the `OffsetDateTime"…"` typed literal.
+/// Equality and ordering compare the instant only: two values at one
+/// moment with different offsets are equal, and the offset decides how each
+/// displays. Build one with the `OffsetDateTime"…"` typed literal,
+/// `OffsetDateTime.with_offset(naive, offset)`,
+/// `OffsetDateTime.from_instant(instant, offset)` or `OffsetDateTime.parse`.
+//! odt = OffsetDateTime"2026-05-04T14:30:00-05:00"
+//! assert Display.to_string(odt) == "2026-05-04T14:30:00-05:00"
+//! assert odt == OffsetDateTime"2026-05-04T19:30:00Z"
+//
 pub opaque struct OffsetDateTime
     instant_nanos:  Int
     offset_seconds: Int64
@@ -1520,9 +1558,9 @@ fn offset_in_range(offset: Duration) -> Result<Unit, Error>
 end
 
 impl OffsetDateTime
-    /// Combine a `NaiveDateTime` wall-reading with a fixed UTC offset.
-    /// Returns `Err(.InvalidValue(...))` if the offset is outside the
-    /// IANA-acceptable range (`±18:00`) or not a whole number of seconds.
+    /// The moment a clock at a fixed UTC `offset` showed the wall reading
+    /// `dt`. Returns `Err(.InvalidValue(...))` for an offset outside ±18
+    /// hours or one that is not a whole number of seconds.
     //! assert OffsetDateTime.with_offset(NaiveDateTime"2026-05-04T09:00:00", Duration.hours(-5))?
     //!     == OffsetDateTime"2026-05-04T09:00:00-05:00"
     //!
@@ -1561,8 +1599,9 @@ impl OffsetDateTime
         Ok(offset_from_instant_nanos(Instant.as_nanos(i), Duration.as_nanos(offset)))
     end
 
-    /// Parse an ISO-8601 timestamp with offset suffix
-    /// (`YYYY-MM-DDTHH:MM:SS[.fff…][±HH:MM|Z]`).
+    /// Parse an ISO 8601 timestamp with an offset:
+    /// `YYYY-MM-DDTHH:MM:SS[.fff…]` and then `±HH:MM` or `Z`. The offset is
+    /// required.
     //! assert OffsetDateTime.parse("2026-05-04T14:30:00-05:00")?
     //!     == OffsetDateTime"2026-05-04T14:30:00-05:00"
     //!
@@ -1578,8 +1617,8 @@ impl OffsetDateTime
         end
     end
 
-    /// Exact duration between two fixed-offset date-times, comparing their
-    /// underlying instants rather than their displayed wall readings.
+    /// Exact duration from `earlier` to `later`, between their instants,
+    /// whatever their offsets; negative when `later` is the earlier moment.
     //! assert OffsetDateTime.between(
     //!     OffsetDateTime"2026-05-04T14:30:00-05:00",
     //!     OffsetDateTime"2026-05-04T20:30:00+00:00",
@@ -1611,7 +1650,8 @@ impl Literal for OffsetDateTime
 end
 
 impl Display for OffsetDateTime
-    /// ISO-8601 datetime + offset string (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM`).
+    /// ISO 8601 date and time with its offset
+    /// (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM`). UTC is written `+00:00`.
     host fn to_string(odt: OffsetDateTime) -> String
 end
 
@@ -1639,20 +1679,17 @@ impl TimeParts for OffsetDateTime
 end
 
 impl Anchored for OffsetDateTime
-    /// The underlying instant.
-    ///
-    /// A field read rather than a Go call: the instant IS the stored
-    /// representation, and the offset is display metadata that a projection
-    /// onto a moment drops.
+    /// The moment the value names, with its offset dropped.
+    //! assert OffsetDateTime.to_instant(OffsetDateTime"1970-01-01T01:00:42+01:00")
+    //!     == Instant.from_seconds(42)
+    //
     fn to_instant(odt: OffsetDateTime) -> Instant
         Instant.from_nanos(odt.instant_nanos)
     end
 
-    /// The fixed UTC offset.
-    ///
-    /// Read rather than computed, which is the difference from `DateTime`: a
-    /// zoned value has to ask the tzdb what its offset is at that instant, and a
-    /// fixed-offset value carries the result.
+    /// The fixed UTC offset the value carries.
+    //! assert OffsetDateTime.offset(OffsetDateTime"2026-05-04T14:30:00-05:00") == Duration.hours(-5)
+    //
     fn offset(odt: OffsetDateTime) -> Duration
         Duration.seconds(odt.offset_seconds)
     end
@@ -1687,7 +1724,7 @@ impl Add<Weeks, OffsetDateTime> for OffsetDateTime
 end
 
 impl Add<Days, OffsetDateTime> for OffsetDateTime
-    /// Add whole calendar days.
+    /// Add whole calendar days, each 24 hours at a fixed offset.
     fn add(lhs: OffsetDateTime, Days(n)) -> OffsetDateTime
         lhs + Duration.hours(n * 24)
     end
@@ -1833,44 +1870,25 @@ end
 // ============================================================================
 // Disambiguation
 // ============================================================================
-/// How `DateTime.in_zone` resolves wall-clock readings that fall in a DST
-/// spring-forward **gap** (the wall time never exists — clocks
-/// jumped over it) or a fall-back **fold** (the wall time exists
-/// twice — clocks rolled back). Modeled on Temporal's
-/// `disambiguation` option.
+/// How `DateTime.in_zone` resolves a wall-clock reading that falls in a
+/// spring-forward gap (clocks jumped over it, so it never happens) or a
+/// fall-back fold (clocks rolled back, so it happens twice). The modes
+/// follow Temporal's `disambiguation` option.
 ///
-/// The four modes:
-///
-/// - **`Compatible`** (the default — pass no `mode` argument and
-///   you get this) — "do the obvious thing", always returning an
-///   instant. In a fold, picks the **earlier** instant (the
-///   pre-transition occurrence). In a gap, advances **forward**
-///   through the gap so `02:30` becomes `03:30` post-transition.
-///   Matches the intuition that "30 minutes after the gap started"
-///   means "30 minutes of wall time after the gap's start". Reach
-///   for this unless you have a specific reason not to.
-///
-/// - **`Earlier`** — pick the earlier instant in both transitions.
-///   In a fold, same as `Compatible` (the pre-transition
-///   occurrence). In a gap, the instant *just before* the
-///   transition: `02:30` in a spring-forward gap resolves to `01:30`
-///   pre-transition. Useful when "earlier is safer" — e.g.
-///   scheduling a deadline or notification where the earlier
-///   interpretation prevents a missed event.
-///
-/// - **`Later`** — pick the later instant in both transitions. In a
-///   fold, the post-transition occurrence (`01:30` EST after the
-///   fall-back). In a gap, the post-transition instant (same as
-///   `Compatible` for gaps). Useful when "later is safer" — e.g.
-///   expirations and grace periods, where the later interpretation
-///   gives the user the benefit of the doubt.
-///
-/// - **`Reject`** — surface DST anomalies as `Err` instead of
-///   resolving silently: `Err(Ambiguous ...)` for folds,
-///   `Err(Nonexistent ...)` for gaps. The strict mode for code
-///   that should never silently disambiguate — typically when the
-///   wall reading came from a user (UI form, API request) and the
-///   right answer is to bounce the ambiguity back to them.
+/// - **`Compatible`**, the default, always returns an instant. In a fold
+///   it is the earlier one, before the transition. In a gap it moves the
+///   reading forward by the gap's length, so `02:30` becomes `03:30` after
+///   the transition.
+/// - **`Earlier`** is the earlier instant in a fold, as `Compatible`'s is.
+///   In a gap it moves the reading back by the gap's length, so `02:30`
+///   becomes `01:30` before the transition. Use it where earlier is safer,
+///   as for a deadline or a reminder.
+/// - **`Later`** is the later instant in a fold, after the transition. In a
+///   gap it is `Compatible`'s. Use it where later is safer, as for an
+///   expiration or a grace period.
+/// - **`Reject`** returns `Err(Ambiguous ...)` for a fold and
+///   `Err(Nonexistent ...)` for a gap. Use it when the reading came from a
+///   person (a form, an API request) who can be asked which they meant.
 ///
 /// Civil shifts (`+ Hours(...)`, `+ Months(...)`, ...) always resolve with
 /// `Compatible`, so they are total.
@@ -1900,25 +1918,24 @@ end
 // ============================================================================
 // DateTime (IANA-zoned, DST-aware)
 // ============================================================================
-/// A date+time anchored to an IANA time zone (`America/New_York`),
-/// fully DST-aware. The default type for real moments in history —
-/// short name, attractive-by-design, the right choice for almost
-/// every timestamp a program handles. Backed by `time/tzdata`
-/// embedded in the runtime, so IANA-zone lookups work on every
-/// host without external tzdata.
+/// A date and time in an IANA time zone (`America/New_York`), following
+/// the zone's daylight-saving rules. It is the type for a moment, and the
+/// one to use for almost every timestamp a program handles. The zone
+/// database is embedded in the program, so a zone lookup works on every
+/// host.
 ///
-/// Equality and ordering are **instant-only**: same moment in two
-/// different zones compares equal. The zone is display metadata,
-/// not identity.
+/// Equality and ordering compare the instant only: one moment read in two
+/// zones is two equal values. The zone decides how each displays.
 ///
-/// Construct via `DateTime.in_zone(naive, zone, mode)` (the fallible
-/// wall→instant projection — see `Disambiguation` for the gap/fold
-/// modes), `DateTime.from_instant_in(instant, zone)` (always total),
-/// `DateTime.now_in(zone)` (the system clock projected into a zone),
-/// `DateTime.parse`, or the `DateTime"…"` typed literal (RFC 9557
-/// bracket form).
+/// Build one with the `DateTime"…"` typed literal (RFC 9557's bracket
+/// form), `DateTime.in_zone(naive, zone, mode)` (a wall reading in a zone;
+/// `Disambiguation` covers gaps and folds),
+/// `DateTime.from_instant_in(instant, zone)`, `DateTime.now_in(zone)` or
+/// `DateTime.parse`. A function that takes a zone name returns
+/// `Err(UnknownZone ...)` for one the database lacks.
 //! dt = DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
 //! assert Display.to_string(dt) == "2026-06-15T12:00:00-04:00[America/New_York]"
+//! assert DateTime.hour(dt) == 12
 //!
 //! paris = DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
 //! assert dt == paris
@@ -1931,11 +1948,13 @@ end
 
 impl DateTime
     /// The moment as a reader of `locale` writes its wall clock, the date
-    /// at the length `date` says and the time at `time`'s. `Full` and `Long`
-    /// times end with the zone's offset in the locale's GMT format
-    /// (`GMT+02:00`); zone names are not std's.
+    /// at the length `date` says and the time at `time`'s. A `Long` time
+    /// ends with the zone's offset in the locale's short GMT format
+    /// (`GMT+2`) and a `Full` one in its long format (`GMT+02:00`). std has
+    /// no zone names.
     //! dt = DateTime"2026-10-20T09:30:00+02:00[Europe/Warsaw]"
     //! assert DateTime.format(dt, Locale"pl") == "20 paź 2026, 09:30"
+    //! assert DateTime.format(dt, Locale"en", time: .Full) == "Oct 20, 2026, 9:30:00\u{202f}AM GMT+02:00"
     //!
     //! assert DateTime.format(dt, Locale"en", date: .Full, time: .Long)
     //!     == "Tuesday, October 20, 2026, 9:30:00\u{202f}AM GMT+2"
@@ -1990,11 +2009,10 @@ impl DateTime
         ]
     end
 
-    /// Project a naive wall-reading into an IANA zone, returning a
-    /// `DateTime` anchored at the resolved instant. Fails on
-    /// `UnknownZone` always, and — only when `mode = Reject` — on
-    /// `Nonexistent` (gap) or `Ambiguous` (fold). The three resolving
-    /// modes (`Compatible`/`Earlier`/`Later`) always land on an instant.
+    /// The moment the clocks of an IANA zone showed the wall reading `dt`.
+    /// An unknown zone is `Err(UnknownZone ...)`. A reading in a gap or a
+    /// fold resolves as `mode` says (`Disambiguation`), and is an `Err`,
+    /// `Nonexistent` or `Ambiguous`, only with `Disambiguation.Reject`.
     //! assert DateTime.in_zone(NaiveDateTime"2026-06-15T12:00:00", "America/New_York")?
     //!     == DateTime"2026-06-15T12:00:00-04:00[America/New_York]"
     //!
@@ -2055,7 +2073,7 @@ impl DateTime
         end
     end
 
-    /// Read the current wall clock and project into a zone. Sugar for
+    /// The current moment, read in a zone. The same as
     /// `DateTime.from_instant_in(Instant.now(), zone)`.
     //! assert Err(Error.UnknownZone(_zone)) = DateTime.now_in("Mars/Base")
     //
@@ -2063,9 +2081,8 @@ impl DateTime
         DateTime.from_instant_in(Instant.now(), zone)
     end
 
-    /// Freeze the zone's current offset at this instant — produces an
-    /// `OffsetDateTime` carrying the offset effective at the `DateTime`'s
-    /// instant. Lossy: the result no longer remembers the IANA zone.
+    /// The same moment as an `OffsetDateTime`, at the offset the zone has
+    /// at that moment. The result does not record the zone.
     //! assert DateTime.to_offset(DateTime"2026-06-15T12:00:00-04:00[America/New_York]")
     //!     == OffsetDateTime"2026-06-15T12:00:00-04:00"
     //
@@ -2081,8 +2098,8 @@ impl DateTime
         OffsetDateTime.to_naive(DateTime.to_offset(d))
     end
 
-    /// Same instant, different IANA zone — re-project the wall reading
-    /// through a new zone. Fails only on `UnknownZone`.
+    /// The same instant read in another IANA zone. Fails only on an
+    /// unknown zone, `UnknownZone`.
     //! assert DateTime.with_zone(DateTime"2026-06-15T12:00:00-04:00[America/New_York]", "Europe/Paris")?
     //!     == DateTime"2026-06-15T18:00:00+02:00[Europe/Paris]"
     //
@@ -2104,12 +2121,17 @@ impl DateTime
         d.zone
     end
 
-    /// Parse an RFC 9557 datetime-with-zone string
-    /// (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`). The IANA-zone
-    /// bracket suffix is required — bare offset forms parse via
-    /// `OffsetDateTime.parse` instead.
+    /// Parse an RFC 9557 date and time with a zone
+    /// (`YYYY-MM-DDTHH:MM:SS[.fff…]±HH:MM[Zone/Name]`). The offset and the
+    /// bracketed zone are both required; text with an offset and no bracket
+    /// reads with `OffsetDateTime.parse`. The offset names the instant and
+    /// the zone reads it, so where the offset is not the zone's at that
+    /// moment the wall reading changes.
     //! assert DateTime.parse("2026-06-15T12:00:00-04:00[America/New_York]")?
     //!     == DateTime.in_zone(NaiveDateTime"2026-06-15T12:00:00", "America/New_York")?
+    //!
+    //! winter_offset = DateTime.parse("2026-06-15T12:00:00-05:00[America/New_York]")?
+    //! assert Display.to_string(winter_offset) == "2026-06-15T13:00:00-04:00[America/New_York]"
     //!
     //! assert Err(Error.InvalidFormat(_msg)) = DateTime.parse("2026-06-15T12:00:00-04:00")
     //
@@ -2123,8 +2145,8 @@ impl DateTime
         end
     end
 
-    /// Exact duration between two zoned date-times, comparing their underlying
-    /// instants rather than their displayed wall readings.
+    /// Exact duration from `earlier` to `later`, between their instants,
+    /// whatever their zones; negative when `later` is the earlier moment.
     //! assert DateTime.between(
     //!     DateTime"2026-06-15T12:00:00-04:00[America/New_York]",
     //!     DateTime"2026-06-15T18:30:00+02:00[Europe/Paris]",
@@ -2149,7 +2171,8 @@ impl Literal for DateTime
 end
 
 impl Display for DateTime
-    /// RFC 9557 datetime+zone string.
+    /// RFC 9557 date and time with its offset and zone
+    /// (`2026-06-15T12:00:00-04:00[America/New_York]`).
     host fn to_string(d: DateTime) -> String
 end
 
@@ -2176,18 +2199,18 @@ impl TimeParts for DateTime
 end
 
 impl Anchored for DateTime
-    /// The underlying instant.
-    ///
-    /// A field read rather than a Go call: the instant IS the stored
-    /// representation and the zone is display metadata.
+    /// The moment the value names, with its zone dropped.
+    //! assert DateTime.to_instant(DateTime"1970-01-01T00:00:42Z[UTC]") == Instant.from_seconds(42)
+    //
     fn to_instant(d: DateTime) -> Instant
         Instant.from_nanos(d.instant_nanos)
     end
 
-    /// The effective UTC offset at this instant.
-    ///
-    /// COMPUTED, unlike `OffsetDateTime.offset`: the result depends on where
-    /// this moment falls among the zone's transitions, so it is a tzdb read.
+    /// The zone's UTC offset at this moment, which changes with the zone's
+    /// daylight saving.
+    //! assert DateTime.offset(DateTime"2026-06-15T12:00:00-04:00[America/New_York]") == Duration.hours(-4)
+    //! assert DateTime.offset(DateTime"2026-01-15T12:00:00-05:00[America/New_York]") == Duration.hours(-5)
+    //
     fn offset(d: DateTime) -> Duration
         Duration.nanoseconds(zoned_offset_nanos(d))
     end
@@ -2472,6 +2495,7 @@ impl TimeUnit
     /// (`yesterday`, `tomorrow`, `vorgestern`).
     //! assert TimeUnit.format_relative(3, Locale"en", TimeUnit.Day) == "in 3 days"
     //! assert TimeUnit.format_relative(-1, Locale"en", TimeUnit.Day) == "yesterday"
+    //! assert TimeUnit.format_relative(0, Locale"en", TimeUnit.Day) == "today"
     //! assert TimeUnit.format_relative(-1, Locale"en", TimeUnit.Day, numeric: True) == "1 day ago"
     //! assert TimeUnit.format_relative(-3, Locale"de", TimeUnit.Day) == "vor 3 Tagen"
     //! assert TimeUnit.format_relative(3, Locale"pl", TimeUnit.Week) == "za 3 tygodnie"
@@ -2761,6 +2785,8 @@ end
 
 impl Localize for Date
     /// The date as `Date.format` writes it at its default length.
+    //! assert Date.localize(Date"2026-10-20", Locale"en") == "Oct 20, 2026"
+    //
     fn localize(d: Date, locale: Locale) -> String
         Date.format(d, locale, DateStyle.Medium)
     end
@@ -2768,6 +2794,8 @@ end
 
 impl Localize for Time
     /// The time of day as `Time.format` writes it at its default length.
+    //! assert Time.localize(Time"21:30:00", Locale"de") == "21:30"
+    //
     fn localize(t: Time, locale: Locale) -> String
         Time.format(t, locale, TimeStyle.Short)
     end

@@ -65,9 +65,9 @@ second has two digits after the point.
 
 `*` multiplies an amount by an `Int`. Adding and subtracting are functions
 that return a `Result`, since dollars and euros don't add: `Money.add` and
-`Money.subtract` take two amounts, and `Money.sum` adds a list of them in a
-currency you name, which is also what the sum of no amounts is in. Nothing
-is lost to rounding:
+`Money.subtract` take two amounts, and `Money.sum` adds a list of them. It
+takes the currency too, so the sum of an empty list is zero in that
+currency. Nothing is lost to rounding:
 
 ```nomi-run
 import
@@ -288,7 +288,6 @@ fn main()
 
     dbg "${price}"
     dbg Money.format(Money"1500 JPY", Locale"ja")
-    Unit
 end
 ```
 <!-- expect
@@ -321,7 +320,6 @@ fn main()
     usd = Money"5 USD"
     dbg Money.format(usd, Locale"en-US", display: .Code)
     dbg Money.format(usd, Locale"en-CA")
-    Unit
 end
 ```
 <!-- expect
@@ -354,7 +352,6 @@ fn main()
     dbg Money.parse_in("$1,299.50", Locale"en-US", usd)
     dbg Money.parse_in("1299.50", Locale"en-US", usd, lenient: True)
     dbg Money.parse_in("€12.50", Locale"en-US", usd)
-    Unit
 end
 ```
 <!-- expect

@@ -94,7 +94,7 @@ fn main()
 
     io.print(
         "it names main: ${Iter.any_match(entry_points_wrong, fn d ->
-            String.contains(d.message, "entry callback in main but file is not declared")
+            String.contains(d.message, "main has a `fn main` but is not declared")
         end)}"
     )
 

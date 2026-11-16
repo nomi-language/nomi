@@ -14,78 +14,108 @@ import
     strings.String
 end
 
-/// Opaque wrapper for a value of unknown shape returned by an extern function
-/// or decoded from an external source such as JSON, YAML, RPC payloads, or
-/// database rows.
+/// A value of unknown shape: one a host function returned, or one decoded
+/// from JSON, a database row or another outside source.
 ///
-/// `Dynamic` values are produced by externs that declare `Dynamic` in their
-/// return type. Pure Nomi code cannot construct one directly. To pass a typed
-/// Nomi value to host code as a dynamic value, call an extern that accepts a
-/// `Dynamic` argument and let its adapter hand it to the host.
+/// Nomi code cannot build a `Dynamic` directly. A host function that
+/// declares `Dynamic` in its return type produces one, and
+/// `Json.to_dynamic` makes one from a `Json` tree.
 ///
-/// Inspect via `Dynamic.field`/`index`/`path` navigators and
-/// `Dynamic.as_string`/`as_int`/... extractors. Each step returns
-/// `Result<_, Error>` with a structured path; chain with `?` to
-/// propagate.
+/// Read one with the navigators `Dynamic.field`, `Dynamic.index` and
+/// `Dynamic.path`, then an extractor such as `Dynamic.as_string` or
+/// `Dynamic.as_int`. Each step returns a `Result` whose `Error` names the
+/// path it failed at, so a chain propagates with `?`.
+//! import std::json.Json
+//!
+//! d = Json.to_dynamic(Json.Obj{"name" => Json.String("Ada"), "age" => Json.Int(36)})
+//! assert Dynamic.as_string(Dynamic.field(d, "name")?) == Ok("Ada")
+//! assert Dynamic.as_int(Dynamic.field(d, "age")?) == Ok(36)
+//
 pub host type Dynamic
 
 impl Dynamic
-    /// Drill into a struct/dict-shaped Dynamic by field name. Fails with
-    /// `expected="object with field <name>"` if d is a dict but doesn't have the
-    /// field, or `expected="object"` if d is not a dict at all.
+    /// The value under `name` in an object. `Err` when `d` is an object
+    /// without that field (`expected` is `object with field "name"`), or is
+    /// not an object at all (`expected` is `object`).
+    //! import std::json.Json
+    //!
+    //! d = Json.to_dynamic(Json.Obj{"name" => Json.String("Ada")})
+    //! assert Dynamic.field(d, "name") |> Result.flat_map(Dynamic.as_string) == Ok("Ada")
+    //! assert Result.is_err(Dynamic.field(d, "age"))
+    //
     pub host fn field(d: Dynamic, name: String) -> Result<Dynamic, Error>
 
-    /// Drill into a list-shaped Dynamic by zero-based index. Fails with
-    /// `expected="list with at least <i+1> elements"` if d is a list but the index
-    /// is out of bounds, or `expected="list"` if d is not a list at all.
+    /// The element at zero-based index `i` of a list. `Err` when `d` is a
+    /// list without that index (`expected` is `list with at least 3
+    /// elements` for index 2), or is not a list at all (`expected` is
+    /// `list`).
+    //! import std::json.Json
+    //!
+    //! d = Json.to_dynamic(Json.Arr([Json.Int(7), Json.Int(8)]))
+    //! assert Dynamic.index(d, 1) |> Result.flat_map(Dynamic.as_int) == Ok(8)
+    //! assert Result.is_err(Dynamic.index(d, 2))
+    //
     pub host fn index(d: Dynamic, i: Int) -> Result<Dynamic, Error>
 
-    /// Convenience: dotted-path navigator. `Dynamic.path(d, "a.b.c")` is
-    /// equivalent to
+    /// The value at a dotted path of field names: `Dynamic.path(d, "a.b.c")`
+    /// is
     /// `d |> Dynamic.field("a")? |> Dynamic.field("b")? |> Dynamic.field("c")`.
-    /// Does NOT support index notation (use `index` directly for lists). Empty
-    /// segments (e.g. `"a..b"`) error.
+    /// A path names fields only; use `index` for a list. An empty segment
+    /// (`"a..b"`) is an `Err`.
+    //! import std::json.Json
+    //!
+    //! d = Json.to_dynamic(Json.Obj{"user" => Json.Obj{"name" => Json.String("Ada")}})
+    //! assert Dynamic.path(d, "user.name") |> Result.flat_map(Dynamic.as_string) == Ok("Ada")
+    //! assert Result.is_err(Dynamic.path(d, "user..name"))
+    //
     pub host fn path(d: Dynamic, dotted: String) -> Result<Dynamic, Error>
 
-    /// Extract a Dynamic as a String. Err on type mismatch.
+    /// `d` as a String, or `Err` when it holds anything else.
     pub host fn as_string(d: Dynamic) -> Result<String, Error>
 
-    /// Extract a Dynamic as an Int. Accepts integer-shaped Floats (e.g. JSON's
-    /// number 36.0) but rejects values with a fractional part.
+    /// `d` as an Int. A Float with no fractional part (JSON's `36.0`) is its
+    /// whole number; one with a fractional part is an `Err`.
+    //! import std::json.Json
+    //!
+    //! assert Dynamic.as_int(Json.to_dynamic(Json.Float(36.0))) == Ok(36)
+    //! assert Result.is_err(Dynamic.as_int(Json.to_dynamic(Json.Float(36.5))))
+    //! assert Result.is_err(Dynamic.as_int(Json.to_dynamic(Json.String("36"))))
+    //
     pub host fn as_int(d: Dynamic) -> Result<Int, Error>
 
-    /// Extract a Dynamic as a Float. Accepts Ints (widening) and Floats.
+    /// `d` as a Float. An Int is converted to a Float.
+    //! import std::json.Json
+    //!
+    //! assert Dynamic.as_float(Json.to_dynamic(Json.Int(3))) == Ok(3.0)
+    //
     pub host fn as_float(d: Dynamic) -> Result<Float, Error>
 
-    /// Extract a Dynamic as a Bool. Err on type mismatch.
+    /// `d` as a Bool, or `Err` when it holds anything else.
     pub host fn as_bool(d: Dynamic) -> Result<Bool, Error>
 
-    /// Extract a Dynamic as `List<Dynamic>` -- each element is still wrapped, so
-    /// per-element decoding composes through `as_list`. Err if d is not a list.
+    /// `d` as a `List<Dynamic>`, or `Err` when it is not a list. Each element
+    /// is still a `Dynamic`, to decode in turn.
     pub host fn as_list(d: Dynamic) -> Result<List<Dynamic>, Error>
 
-    /// Extract a Dynamic as `Map<String, Dynamic>` -- each value is still
-    /// wrapped, so per-value decoding composes. Err if d is not a dict/object.
+    /// `d` as a `Map<String, Dynamic>`, or `Err` when it is not an object.
+    /// Each value is still a `Dynamic`, to decode in turn.
     pub host fn as_dict(d: Dynamic) -> Result<Map<String, Dynamic>, Error>
 
-    /// True iff d represents a null/nil value at the source (JSON null, Go nil,
-    /// etc.). Never errors.
+    /// Whether `d` is the source's null (JSON `null`, Go `nil`).
     pub host fn is_null(d: Dynamic) -> Bool
 
-    /// True iff d is a dict and contains the named field. False otherwise
-    /// (including when d is not a dict). Never errors.
+    /// Whether `d` is an object with a field `name`. `False` when `d` is not
+    /// an object.
     pub host fn has(d: Dynamic, name: String) -> Bool
 
-    /// Apply `sub` to d only if d is non-null. Null -> Ok(None); present ->
-    /// Ok(Some(sub(d)?)).
-    ///
-    /// The ergonomic helper for JSON's ubiquitous nullable fields.
-    ///
-    /// ```nomi
-    /// d
-    /// |> Dynamic.as_maybe(Dynamic.as_string)?
-    /// // -> Maybe<String> from the value (or None if null).
-    /// ```
+    /// `sub` applied to `d` unless `d` is null: `Ok(None)` for null, and
+    /// `Ok(Some(value))` when `sub` returns `Ok(value)`. It reads a JSON
+    /// field that may be `null`.
+    //! import std::json.Json
+    //!
+    //! assert Dynamic.as_maybe(Json.to_dynamic(Json.Null), Dynamic.as_string) == Ok(None)
+    //! assert Dynamic.as_maybe(Json.to_dynamic(Json.String("x")), Dynamic.as_string) == Ok(Some("x"))
+    //
     pub fn as_maybe<T>(d: Dynamic, sub: (Dynamic) -> Result<T, Error>) -> Result<Maybe<T>, Error>
         if Dynamic.is_null(d) then
             Ok(None)
@@ -97,38 +127,41 @@ impl Dynamic
         end
     end
 
-    /// Navigate into a struct/dict field AND apply a sub-decoder, accumulating the
-    /// path segment on any error the sub-decoder returns. The chain
+    /// The field `name` of `d`, decoded by `sub`, with `Field(name)` put at
+    /// the front of the path of any error `sub` returns. Nested calls
     ///
     /// ```nomi
     /// d
-    /// |> Dynamic.at_field("user", fn inner ->
-    ///     inner
-    ///     |> Dynamic.at_field("address", fn inner2 ->
-    ///         inner2
-    ///         |> Dynamic.at_field("zip", Dynamic.as_int)
-    ///     end)
+    /// |> Dynamic.at_field("user", fn user ->
+    ///     Dynamic.at_field(user, "zip", Dynamic.as_int)
     /// end)
     /// ```
     ///
-    /// produces a `Error` with `path = [Field("user"), Field("address"),
-    /// Field("zip")]` if `as_int` fails, vs. the raw form
+    /// give an error whose path is `[Field("user"), Field("zip")]` when
+    /// `as_int` fails, which `Display` writes as `decode error at user.zip:
+    /// expected Int, got String`. The chain
     ///
     /// ```nomi
     /// d
     /// |> Dynamic.field("user")?
-    /// |> Dynamic.field("address")?
     /// |> Dynamic.field("zip")?
     /// |> Dynamic.as_int()
     /// ```
     ///
-    /// which produces an empty-path error because `?` returns Err unchanged. Use
-    /// this when you want path-rich diagnostics; the raw form stays available when
-    /// you don't.
+    /// gives the same failure an empty path, since `?` returns the `Err` as
+    /// it is.
     ///
-    /// Field-missing failures from the navigator itself pass through unchanged --
-    /// they already carry `[Field(name)]` from `field`'s own error, so the path is
-    /// not doubled.
+    /// A missing field already carries `[Field(name)]` from `field`, and
+    /// passes through unchanged.
+    //! import std::json.Json
+    //!
+    //! d = Json.to_dynamic(Json.Obj{"user" => Json.Obj{"zip" => Json.String("x")}})
+    //! zip = Dynamic.at_field(d, "user", fn user -> Dynamic.at_field(user, "zip", Dynamic.as_int))
+    //!
+    //! assert zip |> Result.map_err(&Display.to_string(&1)) == Err(
+    //!     "decode error at user.zip: expected Int, got String"
+    //! )
+    //
     pub fn at_field<T>(
         d:    Dynamic,
         name: String,
@@ -150,9 +183,10 @@ impl Dynamic
         end
     end
 
-    /// List-index counterpart to `at_field`. Same path-accumulation behaviour:
-    /// prepends `Index(i)` to any error the sub-decoder returns; navigator failures
-    /// (out-of-bounds, non-list) pass through unchanged.
+    /// The element at index `i` of `d`, decoded by `sub`, as `at_field`
+    /// decodes a field: `Index(i)` goes at the front of the path of any
+    /// error `sub` returns, and a missing index or a `d` that is not a list
+    /// passes through unchanged.
     pub fn at_index<T>(d: Dynamic, i: Int, sub: (Dynamic) -> Result<T, Error>) -> Result<T, Error>
         case Dynamic.index(d, i)
             Err(e) ->
@@ -193,8 +227,8 @@ impl Debug for Dynamic
     host fn inspect(d: Dynamic) -> String
 end
 
-/// One segment of a `Error`'s path. `Field` for a dict-key navigation,
-/// `Index` for a list-index navigation.
+/// One segment of an `Error`'s path: `Field` for a field name, `Index` for
+/// a list index.
 pub enum PathSegment
     Field String
     Index Int
@@ -202,15 +236,14 @@ end
 
 derive Display for PathSegment
 
-/// Structured decode failure. `path` locates the failure site; one segment per
-/// navigator that contributed to this error. Raw `?` chains short-circuit on
-/// `Err` unchanged, so a chain like
+/// Why a `Dynamic` could not be read. `expected` and `got` name the
+/// mismatch, and `path` says where it was, one segment per navigator that
+/// added one. A chain of `?` returns an `Err` as it is, so
 /// `d |> Dynamic.field("a")? |> Dynamic.field("b")? |> Dynamic.as_int()`
-/// produces an empty-path error if `as_int` fails -- the outer navigators never
-/// see the inner error to prepend their segment. Use `at_field` / `at_index`
-/// when you want path-rich diagnostics; those combinators wrap a navigator +
-/// sub-extractor and prepend the path segment on any error the sub-extractor
-/// returns. `expected` and `got` name the type mismatch.
+/// gives an empty path when `as_int` fails. `at_field` and `at_index` add
+/// their segment to an error their decoder returns. `Display` writes
+/// `decode error at a.b[3]: expected Int, got String`, with `<root>` for an
+/// empty path.
 pub struct Error
     path:     List<PathSegment>
     expected: String

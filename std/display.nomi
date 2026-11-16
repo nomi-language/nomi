@@ -5,18 +5,16 @@ import strings.String
 //# how every built-in type renders in each is on
 //# [std::debug](/reference/debug/#how-built-in-values-render).
 
-/// Protocol for converting a value to a human-readable `String`.
+/// Protocol for converting a value to a `String` a person reads.
 ///
-/// `Display` is the canonical "stringify" interface. The runtime
-/// stringifier (used by `io.print` and string interpolation
-/// `"${value}"`) produces the same form an impl of
-/// `Display` must reproduce, so user types interoperate with the
-/// built-in path uniformly. Typed-literal handler types require the
-/// per-slot value-type interface to extend `Display` so every
-/// interpolated value has a canonical rendering.
+/// `io.print` and string interpolation (`"${value}"`) write a value's
+/// `Display` form, so a type with an impl prints as the built-in types
+/// do. The interface a typed literal's handler names for its slot values
+/// extends `Display`, so every interpolated value has a text form.
 ///
-/// All four primitive types — `Int`, `Float`, `Bool`, `String` —
-/// implement `Display`. To implement it for a custom type:
+/// `Int`, `Float`, `Decimal`, `Bool` and `String` implement `Display`, and
+/// so does a collection whose elements do. To implement it for a custom
+/// type:
 ///
 /// ```nomi
 /// pub struct Greeter

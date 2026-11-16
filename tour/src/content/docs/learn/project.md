@@ -143,9 +143,8 @@ That's the end of First Steps. You can now write and test small programs
 of your own: try changing this one, to give an A* for 95 and up, or to
 list only the students who passed.
 
-The [Language Tour](/introduction/) covers all of Nomi, at a
-quicker pace, for readers who know some programming, which now includes
-you. The
+The [Language Tour](/introduction/) covers all of Nomi, at a quicker pace,
+for readers who know some programming, which now includes you. The
 [Cheat Sheet](/cheat-sheet/) lists the rules on one page, and the
 [Standard Library](/reference/) has every function, `Iter` and `String`
 among them.

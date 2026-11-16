@@ -9,15 +9,16 @@ import strings.String
 //# | Type | Display | Debug |
 //# |---|---|---|
 //# | `Int`, `Float`, `Bool` | numeric / variant form: `42`, `3.14`, `True` / `False` | identical |
+//# | `Decimal` | its digits at its scale: `1.50` | its literal: `1.50d` |
 //# | `Unit` | no Display impl; rendering one is a compile error | `Unit` |
 //# | `String` | raw text, no quotes | its literal, `String.to_literal`: `"..."` with `\n`, `\r`, `\t`, `\\`, `\"` and `\${` escaped and `\u{...}` for any other character that is not printable |
 //# | `Infallible` | uninhabited; can never be called | none |
 //#
-//# Numeric and Bool primitives have no user-vs-developer distinction. String
-//# is the one primitive where the split matters. Display gives the bare text,
-//# so `"hello ${name}"` doesn't double-quote. Debug gives the round-trippable
-//# literal, so `io.inspect("a\"b")` reveals the escape; `String.to_literal`
-//# gives the rules for that literal.
+//# `Int`, `Float` and `Bool` render the same in both, and a `Decimal`'s
+//# Debug adds its literal's `d`. For a String the two differ more. Display
+//# gives the bare text, so `"hello ${name}"` doesn't double-quote. Debug
+//# gives the literal, so `io.inspect("a\"b")` shows the escape;
+//# `String.to_literal` gives the rules for that literal.
 //#
 //# Containers recurse through the same interface as the caller: a container's
 //# Display uses Display on its elements, and its Debug uses Debug. Brackets,
@@ -54,57 +55,43 @@ import strings.String
 //# keeps the variant: the user-facing form of `Maybe.None` is `"None"`, not
 //# the empty string.
 
-/// Protocol for producing a structural, developer-facing `String`
-/// representation of a value.
+/// Protocol for a developer-facing `String` form of a value.
 ///
-/// `Debug` is the structural-representation protocol. Implementors
-/// produce a string that "looks like the literal" — round-trippable
-/// Nomi source for the value when feasible, or a faithful structural
-/// rendering otherwise.
+/// An impl writes text that looks like the value's literal: Nomi source
+/// that builds the value again where that is possible, and a faithful
+/// rendering of its structure where it is not.
 ///
-/// Used for developer-facing output: `io.inspect`, `dbg`, debug logs,
-/// and explicit `Debug.inspect(value)` calls. NOT used for user-facing
-/// output — that's `Display`'s job (see `display.nomi`). String
-/// interpolation `"${value}"` calls `Display`, not `Debug`.
+/// `io.inspect`, `dbg`, debug logs and `Debug.inspect(value)` write it.
+/// Text for a user is `Display`'s: string interpolation `"${value}"` calls
+/// `Display`, not `Debug`.
 ///
 /// `dbg expr` is a language form, not a member of this interface. It evaluates
 /// `expr`, prints the source location, source text, and `Debug.inspect` output,
 /// then returns the original value. The LSP reports every `dbg` as a warning
-/// because it is development-only instrumentation. `io.inspect(value)` is the
-/// ordinary file function for intentionally printing the Debug form as part
-/// of a program's behavior.
+/// because it is for development only. `io.inspect(value)` is the function
+/// for printing the Debug form as part of a program's behavior.
 ///
-/// Debug's function is `inspect` (distinct from `Display.to_string`) so the two
-/// most prolific interfaces don't collide on a function name. Use
-/// `Display.to_string(value)` for user-facing text and `Debug.inspect(value)`
-/// for developer-facing structure.
+/// Debug's function is `inspect` and Display's is `to_string`, so a type
+/// that implements both has two functions with two names.
 ///
-/// Concrete contrast for `String`:
+/// For a `String` the two differ: `Display.to_string("hello")` is `hello`,
+/// and `Debug.inspect("hello")` is `"hello"`, in quotes as the literal is.
+/// For `Int`, `Float`, and `Bool`, `Debug.inspect` is the same text as
+/// `Display.to_string`, because the literal is the user-facing form.
 ///
-/// ```nomi
-/// Display.to_string("hello") = hello       (no quotes — UI presentation)
-/// Debug.inspect("hello")     = "hello"     (quoted — looks like the literal)
-/// ```
+/// Every value has a `Debug` form, with no `derive` and no impl. The
+/// compiler writes a structural `Debug` for any declared type that does not
+/// supply one, so an `impl Debug` is only for changing how a type renders.
 ///
-/// For `Int`, `Float`, and `Bool`, `Debug.inspect` coincides with
-/// `Display.to_string` because the literal source matches the user-facing form.
+/// Precedence, highest first: a hand-written `impl Debug`, then `derive
+/// Debug`, then the structural impl the compiler writes.
 ///
-/// `Debug` is **universal and automatic** — every value is `Debug.inspect`-able
-/// with no `derive` or explicit impl required. The compiler synthesizes a
-/// structural `Debug` impl for any declared type that doesn't supply one, so
-/// you write an explicit `impl Debug` conformance only to **customize** a
-/// type's rendering.
-///
-/// Precedence (highest first): explicit `impl Debug` implementation > explicit
-/// `derive Debug` > auto-synthesized structural impl.
-///
-/// **Opaque types** default to a name-only `<opaque T>` (a structural default
-/// would leak exactly the internals `opaque` exists to hide); write an explicit
-/// `impl Debug for T` implementation to expose richer output. **Declared
-/// host types** default to the bare type name (`True` inspects as `True` and
-/// `Unit` as `Unit` — internals are host-side, so there is nothing structural
-/// to render). Value kinds with no declaration render deterministic
-/// placeholders: `<function>`, `<Task>`, `<Channel>`, `<file M>`, `<context>`.
+/// An opaque type inspects as its name only, `<opaque T>`, since a
+/// structural form would show the internals `opaque` hides; write an `impl
+/// Debug for T` in its file to show more. A host type with no impl
+/// inspects as its bare name (`True` as `True`, `Unit` as `Unit`). Values
+/// with no declaration have placeholders: `<function>`, `<task>`,
+/// `<channel>`, `<arm>` and `<iter>`.
 pub interface Debug
     fn inspect(value: self) -> String
 end

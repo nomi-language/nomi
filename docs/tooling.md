@@ -16,8 +16,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 
 | Command | What it does |
 |---|---|
-| `nomi run <file>` | Run a program ([Running a program](#running-a-program)); `nomi <file>` runs a script ([Scripts](#scripts-nomi-file)), `--watch` runs it again on every change ([`--watch`](#running-again-on-every-change---watch)), and `--profile` reports where its time went ([`--profile`](#where-the-time-goes---profile)). |
-| `nomi run <module>/<entry>` | Run a project's entry point ([Project mode](#project-mode-nomi-run-moduleentry)). |
+| `nomi run <file>` | Run a program ([Running a program](#running-a-program)), in a module one of its entry points ([Project mode](#project-mode)); `nomi <file>` runs a script ([Scripts](#scripts-nomi-file)), `--watch` runs it again on every change ([`--watch`](#running-again-on-every-change---watch)), and `--profile` reports where its time went ([`--profile`](#where-the-time-goes---profile)). |
 | `nomi run --web <file>` | Serve a browser build on localhost and rebuild it on a change ([A program in the browser](#a-program-in-the-browser)). |
 | `nomi test [path]` | Run tests ([Running tests](#running-tests)). |
 | `nomi check <path>` | Check a program without running it, as text or JSON ([Checking](#checking-nomi-check)). |
@@ -32,7 +31,154 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi phrases accept <locale> <phrase>` | Mark a translation current ([`[i18n]`](#i18n)). |
 | `nomi dap` | The debugger editors start ([Debugging](#debugging)). |
 | `nomi mcp` | The compiler as tools for a coding agent ([Coding agents](#coding-agents-nomi-mcp)). |
-| `nomi version` | Print the version. |
+| `nomi version` | Print the version, as `nomi --version` does. |
+
+### Running a program
+
+One engine runs every Nomi program: the VM, under `nomi run`, `nomi test`, the REPL, a built executable and the tour's editors. The compiler parses and type-checks the program and compiles its functions to bytecode for the VM, not to native code.
+
+#### File mode: `nomi run <file>`
+
+`nomi run <file>` runs the file's top-level `fn main`, which need not be `pub`. A program whose functions a host calls (spec §7 *Exported Functions*) has no `main`, and is built with `nomi build --web` instead. For a file in a directory of its own, the project root is that directory, and every import resolves from it ([Project root discovery](#project-root-discovery)).
+
+```
+my_project/
+  app.nomi           # declares fn main; `import math` works
+  math.nomi          # import path `math`
+  models/
+    user.nomi        # import path `models::user`
+```
+
+```sh
+nomi run app.nomi
+```
+
+File mode needs no config file, which suits scripts and small projects.
+
+#### Running again on every change: `--watch`
+
+`nomi run --watch <file> [args]` runs the program, then watches the files it
+is built from: the entry, every file it imports (not the standard library's)
+and its project's `nomi.toml`, polled every 250 ms as `nomi run --web` polls
+them. Once a burst of saves has settled, it stops the run if it is still
+going, prints `<file> changed; running again` on standard error, and runs the
+program again with the same arguments. A run that is computing stops at its
+next call or loop iteration, and one waiting on input, a timer, a channel or a
+task stops waiting; what a stopped run would still write is dropped. A
+program that fails to compile is reported as `nomi run` reports it, and the
+next change runs it again. The watched files are worked out again on every
+run, so a file the program starts importing is watched from then on.
+
+The program reads standard input as under `nomi run`. A read still waiting
+when a file changes ends with the run, and a line typed while the program
+restarts goes to the new run. Ctrl-C stops the run and exits with status 130.
+A compiled program (`.nomic`) has no source to watch and is refused.
+
+#### Where the time goes: `--profile`
+
+`nomi run --profile <file> [args]` runs the program and, when it ends, prints
+on standard error where its time went, by Nomi function:
+
+```text
+nomi profile: 2.68s sampled over 2.68s, one sample every 1ms
+garbage collector: 0.70s of CPU over 51 cycles, on threads beside the program
+
+    self            total          function
+   1.43s   53.1%    1.63s   60.6%  prefix_reversed  fannkuchredux.nomi:39
+   0.37s   13.7%    2.00s   74.3%  flips  fannkuchredux.nomi:50
+   0.20s    7.5%    0.20s    7.5%  List.concat  (host)
+   0.18s    6.9%    0.18s    6.9%  insert_at  fannkuchredux.nomi:59
+   0.14s    5.0%    0.45s   16.9%  next  fannkuchredux.nomi:89
+   0.13s    4.8%    2.68s  100.0%  walk  fannkuchredux.nomi:105
+   ...
+```
+
+A function's self time is spent in its own code, and its total time adds
+what the functions it calls spent. A second table, after the functions,
+names the lines the time was spent at. A lambda is `<lambda>` at its line and
+column. A std function written in Nomi is marked `std`, and a function
+implemented in Go, such as `Map.get` or `String.join`, is marked `(host)`.
+`--profile=<file>` also writes the profile to `<file>` in pprof's format,
+which `go tool pprof -http=: <file>` shows as a call graph and a flame graph.
+
+The VM samples the program every millisecond, at its next call or loop
+iteration, and when a call into Go returns, so a profile measures wall time:
+a call that waits for input, a timer or a task is charged with its wait. A
+function that ends in a tail call is replaced by the function it calls, as a
+tail call does, and drops out of the stack, except that a call into a std
+function (an `Iter` pipeline at the end of a function) keeps the caller under
+the std function. A caller is shown by its function, not the line it called
+from. The garbage collector runs on other threads beside the program, so its
+time is a total rather than a share. A profiled run is a few percent slower;
+one that is not profiled pays nothing. An executable `nomi build` wrote is
+profiled with `NOMI_PROFILE` ([Environment variables](#environment-variables)).
+
+### Scripts: `nomi <file>`
+
+`nomi <file> [args]` is `nomi run <file> [args]`. Together with a shebang line
+(spec §2 *Shebang line*) it lets a file run as a command:
+
+```console
+$ cat hi.nomi
+#!/usr/bin/env nomi
+import std::io
+
+fn main()
+    io.print("hi")
+end
+$ chmod +x hi.nomi
+$ ./hi.nomi a b
+```
+
+The operating system runs `./hi.nomi a b` as `nomi ./hi.nomi a b`. Every
+argument after the file, flags included, is the program's own: `boot` reads
+them as `startup.args` (spec §15 *Scoped application fields*), here `["a", "b"]`.
+
+Subcommand names are matched first. After them, the first argument is a file
+when it ends in `.nomi`, whether or not it exists, so a missing `x.nomi` is
+reported as a missing file; no subcommand name ends in `.nomi`, so `nomi test`
+is the command and `nomi test.nomi` runs that file. Any other argument is a
+file only when it exists and its first two bytes are `#!`; otherwise it is an
+unknown command.
+
+A `.nomi` script runs exactly as `nomi run` would run it, including the
+project root discovery below. A script alone in a directory such as `~/bin` is
+its own project, and sibling scripts do not affect it unless it imports them.
+A `.nomi` script inside a module (a `nomi.toml` above it) is held to that
+module's entry points, so it must be listed in `entry_points` unless it is
+one of the module's tools under `tools/`.
+
+**Extensionless scripts.** A file without the `.nomi` extension is a program
+when it starts with `#!`, so a command can be named like any other:
+
+```console
+$ head -1 ~/bin/greet
+#!/usr/bin/env nomi
+$ greet world        # runs as nomi /home/me/bin/greet world
+```
+
+`nomi run`, `nomi check`, `nomi test` and `nomi build` accept such a file by
+path. Its project root is its own directory: root discovery looks for
+`nomi.toml` or `main.nomi` there and nowhere above, so a `main.nomi` in a home
+directory or a module around the script never changes what a command on
+`PATH` does. It imports `.nomi` files from its own directory and below, as
+`import greeting` reads `greeting.nomi` beside it, and nothing above it. Its
+module name is the file name, so a `greet.nomi` beside `greet` is a different
+file that `import greet` would read. A script in a module's subdirectory is
+not one of the module's entries and needs no `entry_points` line; one beside
+the module's `nomi.toml` is, and is listed by its bare name. `nomi check` and
+`nomi test` on a directory still look only at `.nomi` files. A script binds
+Go as a `.nomi` file does: Go FFI discovery reads the script itself and the
+`.nomi` files of its project, but no other extensionless file beside it, and
+a `gopkg` resolves through the nearest `go.mod` above the script, as it does
+for any declaring file. A script that binds only Go standard library packages
+needs no `go.mod`.
+
+### The REPL
+
+The REPL compiles each input as one more file of the session's program, which sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input is never checked, compiled or run again, so an input takes as long in a long session as in a new one: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function affects later inputs only, and so does redeclaring a type with a different declaration: earlier values, functions and impls keep the old type, and a later input that names the type gets the new one, which starts with no impls. When the two meet in an error, each is named by the input that declared it (`expected Point (input 1), got Point (input 5)`). Redeclaring a type exactly as it is keeps it, and redefining an impl replaces the old one everywhere. An input that fails to check, faults or is blocked prints its error and changes nothing.
+
+An input may be any declaration a file may hold: `fn`, `host fn`, a type, an interface, an `impl` or `derive`, an `import`, `gopkg`, `once`, `embed`, `test` and `group`, and `phrase` and `noun` declarations. A `phrase`, `noun` or `embed` is redefined as a function is: an earlier function keeps the one it was written against. The REPL is no project, so its source locale is `en` and it reads no catalogs, as a file run outside a project does. An input continues onto the next line while a `{`, `(` or `[` is open, while it ends in an operator, and while a backtick or `"""` string is open.
 
 ### Checking: `nomi check`
 
@@ -177,153 +323,6 @@ Nomi type named `Record` is named with its file's too, since the
 declarations use TypeScript's own `Record`. A `///` comment on a type
 becomes its JSDoc comment.
 
-### Running a program
-
-One engine runs a Nomi program: the VM, for `nomi run`, `nomi test`, the REPL and the tour playground. The compiler parses, analyzes and type-checks the program and compiles each function it can for the VM. It is not native code.
-
-#### File mode: `nomi run <file>`
-
-Runs a specific file. The file must define a top-level `fn main()` callback; a program whose functions a host calls (spec §7 *Exported Functions*) has none, and is built with `nomi build --web` instead. `fn main` is the program entry point — the host invokes it from the file's own scope, so it does not need to be `pub`. The project root is the directory containing the file — all imports resolve relative to that directory.
-
-```
-my_project/
-  app.nomi           # declares fn main; `import math` works
-  math.nomi          # import path `math`
-  models/
-    user.nomi        # import path `models::user`
-```
-
-```sh
-nomi run app.nomi
-```
-
-This is the simplest way to run Nomi — no config file needed. Good for scripts, small projects, and getting started quickly.
-
-#### Running again on every change: `--watch`
-
-`nomi run --watch <file> [args]` runs the program, then watches the files it
-is built from: the entry, every file it imports (not the standard library's)
-and its project's `nomi.toml`, polled every 250 ms as `nomi run --web` polls
-them. Once a burst of saves has settled, it stops the run if it is still
-going, prints `<file> changed; running again` on standard error, and runs the
-program again with the same arguments. A run that is computing stops at its
-next call or loop iteration, and one waiting on input, a timer, a channel or a
-task stops waiting; what a stopped run would still write is dropped. A
-program that fails to compile is reported as `nomi run` reports it, and the
-next change runs it again. The watched files are worked out again on every
-run, so a file the program starts importing is watched from then on.
-
-The program reads standard input as under `nomi run`. A read still waiting
-when a file changes ends with the run, and a line typed while the program
-restarts goes to the new run. Ctrl-C stops the run and exits with status 130.
-A compiled program (`.nomic`) has no source to watch and is refused.
-
-#### Where the time goes: `--profile`
-
-`nomi run --profile <file> [args]` runs the program and, when it ends, prints
-on standard error where its time went, by Nomi function:
-
-```text
-nomi profile: 2.68s sampled over 2.68s, one sample every 1ms
-garbage collector: 0.70s of CPU over 51 cycles, on threads beside the program
-
-    self            total          function
-   1.43s   53.1%    1.63s   60.6%  prefix_reversed  fannkuchredux.nomi:39
-   0.37s   13.7%    2.00s   74.3%  flips  fannkuchredux.nomi:50
-   0.20s    7.5%    0.20s    7.5%  List.concat  (host)
-   0.18s    6.9%    0.18s    6.9%  insert_at  fannkuchredux.nomi:59
-   0.14s    5.0%    0.45s   16.9%  next  fannkuchredux.nomi:89
-   0.13s    4.8%    2.68s  100.0%  walk  fannkuchredux.nomi:105
-   ...
-```
-
-A function's self time is spent in its own code, and its total time adds
-what the functions it calls spent. A second table, after the functions,
-names the lines the time was spent at. A lambda is `<lambda>` at its line and
-column. A std function written in Nomi is marked `std`, and a function
-implemented in Go, such as `Map.get` or `String.join`, is marked `(host)`.
-`--profile=<file>` also writes the profile to `<file>` in pprof's format,
-which `go tool pprof -http=: <file>` shows as a call graph and a flame graph.
-
-The VM samples the program every millisecond, at its next call or loop
-iteration, and when a call into Go returns, so a profile measures wall time:
-a call that waits for input, a timer or a task is charged with its wait. A
-function that ends in a tail call is replaced by the function it calls, as a
-tail call does, and drops out of the stack, except that a call into a std
-function (an `Iter` pipeline at the end of a function) keeps the caller under
-the std function. A caller is shown by its function, not the line it called
-from. The garbage collector runs on other threads beside the program, so its
-time is a total rather than a share. A profiled run is a few percent slower;
-one that is not profiled pays nothing. An executable `nomi build` wrote is
-profiled with `NOMI_PROFILE` ([Environment variables](#environment-variables)).
-
-### Scripts: `nomi <file>`
-
-`nomi <file> [args]` is `nomi run <file> [args]`. Together with a shebang line
-(spec §2 *Shebang line*) it lets a file run as a command:
-
-```console
-$ cat hi.nomi
-#!/usr/bin/env nomi
-import std::io
-
-fn main()
-    io.print("hi")
-end
-$ chmod +x hi.nomi
-$ ./hi.nomi a b
-```
-
-The operating system runs `./hi.nomi a b` as `nomi ./hi.nomi a b`. Every
-argument after the file, flags included, is the program's own: `boot` reads
-them as `startup.args` (spec §15 *Scoped application fields*), here `["a", "b"]`.
-
-Subcommand names are matched first. After them, the first argument is a file
-when it ends in `.nomi`, whether or not it exists, so a missing `x.nomi` is
-reported as a missing file; no subcommand name ends in `.nomi`, so `nomi test`
-is the command and `nomi test.nomi` runs that file. Any other argument is a
-file only when it exists and its first two bytes are `#!`; otherwise it is an
-unknown command.
-
-A `.nomi` script runs exactly as `nomi run` would run it, including the
-project root discovery below. A script alone in a directory such as `~/bin` is
-its own project, and sibling scripts do not affect it unless it imports them.
-A `.nomi` script inside a module (a `nomi.toml` above it) is held to that
-module's entry points, so it must be listed in `entry_points` unless it is
-one of the module's tools under `tools/`.
-
-**Extensionless scripts.** A file without the `.nomi` extension is a program
-when it starts with `#!`, so a command can be named like any other:
-
-```console
-$ head -1 ~/bin/greet
-#!/usr/bin/env nomi
-$ greet world        # runs as nomi /home/me/bin/greet world
-```
-
-`nomi run`, `nomi check`, `nomi test` and `nomi build` accept such a file by
-path. Its project root is its own directory: root discovery looks for
-`nomi.toml` or `main.nomi` there and nowhere above, so a `main.nomi` in a home
-directory or a module around the script never changes what a command on
-`PATH` does. It imports `.nomi` files from its own directory and below, as
-`import greeting` reads `greeting.nomi` beside it, and nothing above it. Its
-module name is the file name, so a `greet.nomi` beside `greet` is a different
-file that `import greet` would read. A script in a module's subdirectory is
-not one of the module's entries and needs no `entry_points` line; one beside
-the module's `nomi.toml` is, and is listed by its bare name. `nomi check` and
-`nomi test` on a directory still look only at `.nomi` files. A script binds
-Go as a `.nomi` file does: Go FFI discovery reads the script itself and the
-`.nomi` files of its project, but no other extensionless file beside it, and
-a `gopkg` resolves through the nearest `go.mod` above the script, as it does
-for any declaring file. A script that binds only Go standard library packages
-needs no `go.mod`.
-
-### The REPL
-
-The REPL compiles each input as one more file of the session's program, which sees the declarations and top-level bindings of the inputs before it, and runs it on one live VM. An earlier input is never checked, compiled or run again, so an input takes as long in a long session as in a new one: a later input reads the value an earlier binding computed, and a closure keeps the value it captured. Redefining a function affects later inputs only, and so does redeclaring a type with a different declaration: earlier values, functions and impls keep the old type, and a later input that names the type gets the new one, which starts with no impls. When the two meet in an error, each is named by the input that declared it (`expected Point (input 1), got Point (input 5)`). Redeclaring a type exactly as it is keeps it, and redefining an impl replaces the old one everywhere. An input that fails to check, faults or is blocked prints its error and changes nothing.
-
-An input may be any declaration a file may hold: `fn`, `host fn`, a type, an interface, an `impl` or `derive`, an `import`, `gopkg`, `once`, `embed`, `test` and `group`, and `phrase` and `noun` declarations. A `phrase`, `noun` or `embed` is redefined as a function is: an earlier function keeps the one it was written against. The REPL is no project, so its source locale is `en` and it reads no catalogs, as a file run outside a project does. An input continues onto the next line while a `{`, `(` or `[` is open, while it ends in an operator, and while a backtick or `"""` string is open.
-
 ### The artifact cache
 
 `nomi run`, `nomi check`, `nomi test` and `nomi build` keep each program
@@ -382,15 +381,15 @@ it wrote.
 
 A Nomi module's identity lives in two files at the module root:
 
-- **`go.mod`** — the Go module path (used by `go` tooling and the
+- **`go.mod`**: the Go module path (used by `go` tooling and the
   module proxy), dependency graph (`require` / `replace`), and Go
   version. Standard `go.mod` syntax; nothing Nomi-specific. `nomi` writes
   it (`nomi new`, `nomi init`, `nomi add`, `nomi remove`, `nomi update`, `nomi fetch`),
   and a Nomi project commits it and `go.sum` without editing either.
-- **`nomi.toml`** — the Nomi-side identity (`[module].name`, the
+- **`nomi.toml`**: the Nomi-side identity (`[module].name`, the
   module's short name used by other modules' import paths) and the
   entry points other than the module's tools (`[module].entry_points`;
-  every file under `tools/` is an entry point without being listed, [Project mode](#project-mode-nomi-run-moduleentry)).
+  every file under `tools/` is an entry point without being listed, [Project mode](#project-mode)).
 
 ```toml
 # nomi.toml
@@ -403,7 +402,7 @@ entry_points = ["main"]
 # go.mod
 module github.com/example/my_app
 
-go 1.22
+go 1.27.0
 
 require example.com/shared_kit v0.0.0
 replace example.com/shared_kit => ../shared_kit
@@ -414,7 +413,7 @@ Every key `nomi.toml` accepts:
 | Table | Key | What it holds |
 |---|---|---|
 | `[module]` | `name` | The module's short name, the first part of other modules' import paths. |
-| `[module]` | `entry_points` | The files with a `fn main`, other than tools ([Project mode](#project-mode-nomi-run-moduleentry)). |
+| `[module]` | `entry_points` | The files with a `fn main`, other than tools ([Project mode](#project-mode)). |
 | `[i18n]` | `locales` | The locales every phrase is translated into, and whose CLDR data the program carries ([`[i18n]`](#i18n)). |
 | `[i18n]` | `partial_locales` | Locales whose catalogs may leave a phrase out. |
 | `[i18n]` | `source_locale` | The language of `phrase` declarations' own text; `en` when left out. |
@@ -429,30 +428,22 @@ holds a `nomi.toml` is importable under its `[module].name` (spec §14). A
 directory the module, as in Go; `nomi add ../shared_kit` writes both lines
 above.
 
-### Project mode: `nomi run <module>/<entry>`
+### Project mode
 
-Runs from a Nomi module — a directory containing both `go.mod` and
-`nomi.toml`. The manifest's `[module].name` is the module's short
-name; its `entry_points` lists the files that contain `fn main`, other
-than its tools. Every `.nomi` file under the module's `tools/` directory is
-a tool, which `nomi tool <module> <name>` runs, and an entry point without
-being listed. Test files there are not tools, and neither is a file in an
-`internal/` directory there, which is where a tool's helpers go. Listing a
-tool in `entry_points` is allowed and changes nothing. The project root is
-the directory containing `nomi.toml`.
-
-```toml
-# nomi.toml
-[module]
-name = "my_app"
-entry_points = ["main"]
-```
+A Nomi module is a directory containing both `go.mod` and `nomi.toml`, and
+it is the project root of every file under it. `nomi.toml`'s
+`entry_points` lists the files that contain `fn main`, other than the module's tools. Every `.nomi`
+file under the module's `tools/` directory is a tool, which `nomi tool
+<module> <name>` runs, and an entry point without being listed. Test files
+there are not tools, and neither is a file in an `internal/` directory
+there, which is where a tool's helpers go. Listing a tool in `entry_points`
+is allowed and changes nothing.
 
 ```
 my_project/
-  go.mod             # Go-side identity + dependencies (require, replace)
-  nomi.toml          # Nomi-side identity + entry points
-  main.nomi          # entry — declares fn main + optional fn boot
+  go.mod             # Go-side identity and dependencies (require, replace)
+  nomi.toml          # Nomi-side identity and entry points
+  main.nomi          # an entry: fn main and an optional fn boot
   tools/
     seed.nomi        # a tool, an entry run by nomi tool my_app seed
   math.nomi          # library file (no fn main)
@@ -464,26 +455,22 @@ my_project/
 
 ```sh
 cd my_project
-nomi run main             # runs main.nomi
-nomi run tools/seed       # runs tools/seed.nomi
+nomi run main.nomi        # runs the entry main.nomi
+nomi tool my_app seed     # runs tools/seed.nomi
 ```
 
-The compiler enforces the manifest-vs-source invariant: every entry
-point, each file listed in `entry_points` and each tool, must have
-exactly one `fn main`, and every other file must have zero. Files inside `internal/` are
-reachable only from files rooted at the parent of that `internal/`
-(intra-module) and unreachable from any other module (regardless of
-`pub`). See the *Module boundaries* note in spec §14.
+Every entry point, each file listed in `entry_points` and each tool, must
+have exactly one `fn main`, and every other file must have none. A file
+inside `internal/` is reachable only from files under the parent of that
+`internal/`, and from no other module, whether or not it is `pub`. See the
+*Module boundaries* note in spec §14.
 
-In both modes, the project root is the same concept — the directory
-from which imports resolve. File mode infers it from the file's
-location; project mode infers it from `nomi.toml`'s location. The
-runtime walks upward from the entry file looking for `nomi.toml`
-first, then `main.nomi` as the file-mode fallback.
+File mode and project mode differ only in where the project root comes
+from: the file's own location, or `nomi.toml`'s.
 
 ### Project root discovery
 
-When the runtime or tooling needs to determine a project root from any file in a project — typically a file deep in a sub-directory the user has opened in their editor, not the entry-point — discovery walks upward from that file:
+A command or the editor finds the project root of a file, such as one deep in a subdirectory, by walking upward from it:
 
 1. First directory containing `nomi.toml` → project root (project mode).
 2. Else first directory containing `main.nomi` → project root (file mode).
@@ -493,7 +480,7 @@ An extensionless `#!` script's walk stops at its own directory (*Extensionless s
 
 The walk stops at any workspace bound the host has supplied (the editor's open folder, for instance); it never escapes above. `nomi run`, `nomi test`, `nomi check`, the language server and other tooling share this one rule, so a file opened in an editor resolves its imports to the same files `nomi run` loads.
 
-This is why a sub-directory file like `app/prod.nomi` correctly finds `types.nomi` one directory up: the walk lands at the project root that contains `main.nomi` (or `nomi.toml`), not at the file's immediate parent.
+So a file in a subdirectory, such as `app/prod.nomi`, imports `types.nomi` one directory up: the walk ends at the directory that holds `main.nomi` or `nomi.toml`, not at the file's own.
 
 ### `[i18n]`
 
@@ -571,15 +558,16 @@ A Nomi module's identity is split between `go.mod` (Go-side identity and
 dependencies) and `nomi.toml` (Nomi-side identity and entry points). A
 Nomi module is a Go module, so it is published by pushing a version tag and
 fetched through the Go module proxy, without the `go` command. `nomi
-publish` is reserved, there is no Nomi-specific registry, and the compiler
-does not check semantic versions; the [roadmap](roadmap.md) holds the plans.
+publish` is a reserved name with no command behind it, there is no
+Nomi-specific registry ([Distribution](#distribution)), and the compiler does not check
+semantic versions.
 
 ### Add, update and remove dependencies
 
 Run these in the project's directory. They write `go.mod` and `go.sum`,
 which the project commits; nobody edits `go.mod` by hand.
 
-- `nomi add <module>[@version]` — require a module in `go.mod` (its latest
+- `nomi add <module>[@version]`: require a module in `go.mod` (its latest
   release when no version is given, else a full version such as `v1.2.3`),
   with at least the versions of what it requires, download it, and write
   the checksums to `go.sum`. A Go package's path adds the module that holds
@@ -587,18 +575,18 @@ which the project commits; nobody edits `go.mod` by hand.
   a first-party `lib/` module with no version at the commit it was cut at,
   whose Go side it carries prebuilt ([Go bindings](#go-bindings));
   `@latest` takes the latest commit.
-- `nomi add <directory>` — for an argument that starts with `./`, `../` or
+- `nomi add <directory>`, for an argument that starts with `./`, `../` or
   `/`: require the Nomi module in that directory (`require <its module
   path> v0.0.0`, from its `go.mod`) and `replace` it with the directory,
   relative to the project root. A directory without a `go.mod` or a
   `nomi.toml` is refused.
-- `nomi remove <module>` — take a requirement, and any `replace` of it, out
+- `nomi remove <module>`: take a requirement, and any `replace` of it, out
   of `go.mod`, with each `// indirect` requirement no remaining module's
   `go.mod` requires, and their lines out of `go.sum`. `<module>` is the
   module path or the module's short name. It refuses while a Nomi file of
   the project imports the module, or binds a Go package of it with
   `gopkg`, and names the file and line.
-- `nomi update [module]` — move one requirement, or every one not replaced
+- `nomi update [module]`: move one requirement, or every one not replaced
   with a directory, to the highest release of its module path, as `go get
   -u` does: never a new major version (that is another path, `/v2`), and
   never a pre-release. It raises what the new versions require, writes
@@ -606,18 +594,14 @@ which the project commits; nobody edits `go.mod` by hand.
   change as `<path> <old> -> <new>`. A `lib/` module has no releases: its
   latest is the latest commit, except on a release `nomi`, which moves every
   `lib/` module to the commit it was cut at.
-- `nomi fetch [--target <goos>/<goarch>]... [dir]` — download everything the
+- `nomi fetch [--target <goos>/<goarch>]... [dir]`: download everything the
   project needs: the modules (adding to `go.mod` what a Nomi dependency
   requires), and, for a project with Go bindings, the Go toolchain when
   there is no `go`, the Go modules its bindings link, and the runner for
   each `--target`. A later command with `--offline` then needs no network.
-- `--offline` on `run`, `test`, `check`, `build`, `fetch` and `add` —
+- `--offline` on `run`, `test`, `check`, `build`, `fetch` and `add`:
   download nothing; a module or toolchain the caches lack is an error that
   names it. `GOPROXY=off` refuses module downloads the same way.
-
-`nomi publish` is reserved: publishing a module is pushing a version tag to
-its repository, as for any Go module, and the module proxy serves it from
-there ([Distribution](#distribution)).
 
 ### Dependencies
 
@@ -858,11 +842,13 @@ row, in a frame of its own.
 ### The test environment
 
 `nomi test` sets the environment variable `NOMI_ENV` to `test` for the run,
-unless the environment already sets it. Nothing else reads it: a program
-reads it from `startup.env` as it reads any variable, so a `boot` can pick
-its settings by it ([App Fields, Defer &
-Context](/app-fields/#settings-per-environment)). `nomi run`
-does not set it.
+unless the environment already sets it. Nothing else reads it: a program the
+tests start reads it from `startup.env` as it reads any variable. A `boot`
+that a test group's `boot` line calls gets the `Startup` that line builds,
+not the real environment, so a test passes the variable itself:
+`boot boot(Startup{env: {"NOMI_ENV" => "test"}})` ([App Fields, Defer &
+Context](/app-fields/#settings-per-environment)). `nomi run` does not set
+it.
 
 Under `nomi test` a test file's working directory is its module root: the
 nearest directory at or above the file holding a `nomi.toml`, or the file's
@@ -1163,7 +1149,7 @@ A JavaScript frontend's static build is embedded and served with `http.file_serv
 | Angular | `dist/<project>/browser/` | `proxy.conf.json` | `["*-*.js", "*-*.css"]`, the hashed files at its root |
 | Create React App | `build/` | `"proxy"` in `package.json` | `["static/**"]` |
 | SvelteKit, static adapter | `build/` | `server.proxy`, as Vite | `["_app/immutable/**"]` |
-| Next, `output: 'export'` in `next.config.js` | `out/` | — | `["_next/static/**"]` |
+| Next, `output: 'export'` in `next.config.js` | `out/` | none | `["_next/static/**"]` |
 
 `http.file_server_embedded` sends a `.br` or `.gz` copy that sits beside a file to a browser that accepts it. In Vite, a compression plugin (`npm install -D vite-plugin-compression2`) writes those copies. A React app's `web/vite.config.ts`, with the proxy to a Nomi server on port 8080:
 
@@ -1306,7 +1292,7 @@ The page needs a server, since a browser does not fetch modules from `file:` URL
 - Every `.html` page served, the generated one or a static one, gets one more script, `/__nomi/dev.js`, added before its `</head>` (or at its end when it has none). It listens to the server-sent event stream `/__nomi/events`. Each event is `{"build": n, "static": m, "error": "..."}`: `n` counts the successful builds and `m` the changes to the static files, and a page reloads when either differs from the one it was served at. `nomi build --web` never writes any of this.
 - Ctrl-C stops the server and removes the temporary directory. A project with Go bindings is served as `--web` builds it.
 
-The browser program takes no arguments, so a word after the file is a usage error. `--port`, `--open` and `--static` without `--web` are usage errors too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes no flags but `--watch` ([`--watch`](#running-again-on-every-change---watch)), and every word after the file is the program's.
+The browser program takes no arguments, so a word after the file is a usage error. `--port`, `--open` and `--static` without `--web` are usage errors too, and so is `--watch` with `--web`, since `--web` already rebuilds on every change. Without `--web`, `nomi run` takes only `--watch` ([`--watch`](#running-again-on-every-change---watch)), `--profile` ([`--profile`](#where-the-time-goes---profile)) and `--offline` before the file, and every word after the file is the program's.
 
 ### Calling exported functions
 
@@ -1539,7 +1525,7 @@ once.
 
 ## Go bindings
 
-A program with `gopkg` bindings needs a Go toolchain, unless every binding is a first-party `lib/` module's (the SQLite and Postgres drivers, sqlkit, markdown, image) and the `nomi` is a release. Pure-Nomi programs and tests need none.
+A program with `gopkg` bindings needs a Go toolchain, unless every binding is a first-party `lib/` module's (the SQLite and Postgres drivers, sqlkit, markdown, image, the password hashers) and the `nomi` is a release. Pure-Nomi programs and tests need none.
 
 - A release carries the `lib/` modules' Go side prebuilt, at the commit it was cut at: `nomi-lib`, which `nomi run`, `nomi test` and `nomi check` run such a program in, and `nomi-vm-lib`, which `nomi build` appends it to, for each native platform and `js/wasm`. They ship in a lib archive per platform beside the main one, which `nomi` downloads from its release the first time it needs it unless it is unpacked beside `nomi`, and they must come from the same commit as `nomi`. `nomi add` takes a `lib/` module at that commit, and `nomi update` moves every `lib/` module to it. A project that also has a binding of its own, or a `lib/` module at another commit, builds a wrapper with Go as below; with no Go, the error names the binding or the version, and for a version, that `nomi update` aligns it. `wasip1/wasm` has no prebuilt `lib/` runner, since modernc.org/sqlite does not build for it.
 - `nomi run`, `nomi check` and `nomi test` compile the bound packages, with Nomi's own Go module, into a wrapper they cache under the user cache directory (`nomi/builds/`, safe to delete). The first run of a project is slower; later runs reuse the wrapper until the project's Go code, its `go.mod` or `nomi` changes, and editing `.nomi` files never rebuilds it. A released or `go install`ed `nomi` compiles against Nomi's module at its own version, which Go fetches; one built from a clone compiles against the clone ([Installing Nomi](install.md)).
@@ -1584,7 +1570,7 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 | `NOMI_GO` | The `go` command, or a Go root, that builds Go bindings, ahead of the `go` on `PATH` and the downloaded toolchain ([The Go toolchain](#the-go-toolchain)). |
 | `NOMI_GO_DOWNLOAD_URL` | Where the managed Go toolchain is downloaded from, in place of `https://go.dev/dl/`. |
 | `NOMI_TOOLCHAIN_ROOT` | The directory that holds downloaded Go toolchains, in place of `<user cache>/nomi/go`. |
-| `NOMI_COMPILER_SOURCE` | For work on the compiler. A checkout of the compiler that the wrapper of a program with Go bindings builds against, in place of the compiler version `nomi` was built from. It is for working on the compiler. |
+| `NOMI_COMPILER_SOURCE` | For work on the compiler. A checkout of the compiler that the wrapper of a program with Go bindings builds against, in place of the compiler version `nomi` was built from. |
 | `NOMI_FFIRUN_CACHE_ROOT` | The directory that holds Go-binding builds, in place of `<user cache>/nomi/builds`. The cache is safe to delete. |
 | `NOMI_FFIRUN_CACHE_MAX_ENTRIES` | How many build directories that cache keeps before it removes the oldest (256 unless set); zero or less keeps every one. |
 | `NOMI_STD_CACHE_ROOT` | The directory, in place of `<user cache>/nomi`, under which the language server writes the standard library's source for go-to-definition into std. |
@@ -1597,28 +1583,63 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 
 ## Editors and debugger
 
-- Opinionated formatter: `nomi fmt [-w|-l|-d|-check] <paths>`
-- Check without running: `nomi check`, which also reports, at its source, any code the program reaches that type-checks but cannot be compiled to run yet
-- Language server: `nomi-lsp` (diagnostics, hover, go-to-definition, completion, rename, code actions). It reports each `todo` and `dbg` as a warning. Hover on a keyword shows the construct it starts, what it does there and a link to the page that teaches it, following the place it stands in: `as` in an import or a pattern, `case` as an expression or a pipe stage, the function a `return` leaves, the iteration a `break` leaves, what a `pub` publishes. Hover also states rules the text leaves implicit: an `if` without `else` says it is a statement and when its branch runs, a binding's `else` says when it runs and whether it must leave, the `[` or `{` of a collection literal says which collection it builds and what expected it, a punned `name:` shows both the field or parameter it labels and the binding it reads, and a value that converts to a wider type (a `List<Maybe<Int>>` where a `List<Display>` is expected) ends with what the conversion does at run time: one pass over a collection's elements, one match of a Maybe, Result or enum, a rebuild field by field, or a wrapper around a function. A conversion that leaves the value as it is says nothing. A typed literal (`Html"<p>${name}</p>"`) says what type it is, that it is not a `String`, what builds it and what each `${}` takes, and a hover on a slot's expression ends with what that slot takes. Go to definition on a pun offers both of its targets. Its quick fixes include:
-  - append `()` to a pipe stage that names a function without calling it;
-  - insert `then` before a lambda written as a pipe stage;
-  - insert `|> Display.to_string()` before a stage that takes a `String` when the piped value implements `Display`;
-  - put `|> Iter.take(todo)` before a terminal stage over an infinite iterator;
-  - write a tuple read by number by its ordinal, `t.0` as `t.first`;
-  - name a struct literal's values written without field names, in declaration order;
-  - add `else None` to an `if` without `else` whose branch is a `Maybe`, or write `_ = ` before a branch's value where a statement drops it;
-  - write missing functions, fields and `case` arms, each filled with `todo`, so the result checks.
-  - write a type parameter used once as a parameter's type, under one bound, as an interface value (`fn label<T>(value: T) where T: Named` becomes `fn label(value: Named)`), which the server reports as a hint.
-
-  Its refactors include "Remove type annotation" on a field or parameter whose default already has the written type (`limit: Int = 10` becomes `limit = 10`), and "Add type annotation", which writes the type a default gives (`limit = 10` becomes `limit: Int = 10`). Neither is offered as a fix or run by fix-all.
-- Debugger: `nomi dap`; see [Debugging](#debugging).
-- Coding agents: `nomi mcp`; see [Coding agents](#coding-agents-nomi-mcp).
-
 Each editor's setup is in its README:
 [VS Code](../editors/vscode/README.md),
 [Neovim](../editors/nvim/README.md) and
 [Helix](../editors/helix/README.md). The Zed extension is
-[`editors/zed`](../editors/zed/extension.toml).
+[`editors/zed`](../editors/zed/extension.toml). An editor formats on save
+with `nomi fmt` ([Formatting](#formatting)), reports what `nomi check`
+reports ([Checking](#checking-nomi-check)) through the language server
+`nomi-lsp`, debugs through `nomi dap` ([Debugging](#debugging)), and a
+coding agent asks the compiler through `nomi mcp`
+([Coding agents](#coding-agents-nomi-mcp)).
+
+### The language server
+
+`nomi-lsp` gives diagnostics, hover, go-to-definition, completion, rename
+and code actions. Its diagnostics are `nomi check`'s, including code the
+program reaches that type-checks but cannot be compiled to run yet, and it
+reports each `todo` and `dbg` as a warning.
+
+**Hover.** On a keyword, hover shows the construct it starts, what it does
+there and a link to the page that teaches it, following the place it
+stands in: `as` in an import or a pattern, `case` as an expression or a
+pipe stage, the function a `return` leaves, the iteration a `break`
+leaves, what a `pub` publishes. Hover also states rules the text leaves
+implicit:
+
+- an `if` without `else` says it is a statement and when its branch runs;
+- a binding's `else` says when it runs and whether it must leave;
+- the `[` or `{` of a collection literal says which collection it builds
+  and what expected it;
+- a punned `name:` shows both the field or parameter it labels and the
+  binding it reads, and go to definition on it offers both targets;
+- a value that converts to a wider type (a `List<Maybe<Int>>` where a
+  `List<Display>` is expected) ends with what the conversion does at run
+  time: one pass over a collection's elements, one match of a Maybe,
+  Result or enum, a rebuild field by field, or a wrapper around a
+  function. A conversion that leaves the value as it is says nothing;
+- a typed literal (`Html"<p>${name}</p>"`) says what type it is, that it
+  is not a `String`, what builds it and what each `${}` takes, and a hover
+  on a slot's expression ends with what that slot takes.
+
+**Quick fixes.** They include:
+
+- append `()` to a pipe stage that names a function without calling it;
+- insert `then` before a lambda written as a pipe stage;
+- insert `|> Display.to_string()` before a stage that takes a `String` when the piped value implements `Display`;
+- put `|> Iter.take(todo)` before a terminal stage over an infinite iterator;
+- write a tuple read by number by its ordinal, `t.0` as `t.first`;
+- name a struct literal's values written without field names, in declaration order;
+- add `else None` to an `if` without `else` whose branch is a `Maybe`, or write `_ = ` before a branch's value where a statement drops it;
+- write missing functions, fields and `case` arms, each filled with `todo`, so the result checks;
+- write a type parameter used once as a parameter's type, under one bound, as an interface value (`fn label<T>(value: T) where T: Named` becomes `fn label(value: Named)`), which the server reports as a hint.
+
+**Refactors.** "Remove type annotation" is offered on a field or parameter
+whose default already has the written type (`limit: Int = 10` becomes
+`limit = 10`), and "Add type annotation" writes the type a default gives
+(`limit = 10` becomes `limit: Int = 10`). Neither is offered as a fix or
+run by fix-all.
 
 ### Coding agents: `nomi mcp`
 

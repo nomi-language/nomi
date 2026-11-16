@@ -16,16 +16,19 @@ import
     summable.Summable
 end
 
-//# Operations on the immutable random-access `Vector<T>` type. Use `List<T>`
-//# for cons-style recursion and cheap prepends; use `Vector<T>` when indexed
-//# lookup and push-at-end are the natural operations. Generic iteration goes
-//# through `Iter`, and `Iter.to_vector` materializes any iterator into one.
+//# `Vector<T>`: an immutable sequence with fast lookup by index and fast
+//# append at the end. Use a `List<T>` for recursion over a head and a tail
+//# and for cheap prepends; use a `Vector<T>` when looking up by index and
+//# appending at the end are the common operations. Every `Iter` function
+//# works on a Vector, and `Iter.to_vector` collects any sequence into one.
 
-/// Immutable random-access sequence of elements.
+/// An immutable sequence with fast lookup by index. Write one as
+/// `Vector[1, 2, 3]`, or as a list literal where a Vector is expected.
 pub host type Vector<T>
 
 impl Vector<T>
-    /// Returns the number of elements. O(1).
+    /// The number of elements. The vector stores its count, so this does not
+    /// walk the elements.
     //! assert Vector.length(["a", "b"]) == 2
     //
     pub host fn length<T>(vector: Vector<T>) -> NonNegativeInt
@@ -213,7 +216,7 @@ impl NonEmptyVector<T>
         Vector.get(vector, Vector.length(vector) - 1)!
     end
 
-    /// The number of elements, at least one. O(1).
+    /// The number of elements, at least one.
     //! assert NonEmptyVector.length(["a", "b"]) == 2
     //
     pub fn length<T>(vector: NonEmptyVector<T>) -> PositiveInt

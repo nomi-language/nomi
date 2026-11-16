@@ -95,7 +95,7 @@ SELECT id, title, body, created_at FROM posts WHERE id = @id;
 - A name the file imports means the imported type: `post` builds a
   `models.Post`.
 - `schema.Post` always means the table's row.
-- A name the file does not import means the table's row, as before.
+- A name the file does not import means the table's row.
 
 The generated file imports `models.Post` for the first and the schema
 module for the second, each only when a query names it, so neither import
@@ -144,14 +144,14 @@ WHERE email = @email;
 /// The user with this email, if any.
 pub fn user_by_email(conn: sql.Conn, email: String) -> Result<Maybe<User>, sql.Error>
     statement = runtime.statement(
-        ["SELECT id, email, name, created_at FROM users WHERE email = ", ""],
+        [`SELECT id, email, name, created_at FROM users WHERE email = `, ``],
         [runtime.bind(email)],
     )
 
     runtime.optional(conn, "user_by_email", statement, fn row -> Ok(User{
-            id: runtime.int("user_by_email", row, 0)?,
-            email: runtime.text("user_by_email", row, 1)?,
-            name: runtime.text_null("user_by_email", row, 2)?,
+            id:         runtime.int("user_by_email", row, 0)?,
+            email:      runtime.text("user_by_email", row, 1)?,
+            name:       runtime.text_null("user_by_email", row, 2)?,
             created_at: runtime.timestamptz("user_by_email", row, 3)?,
         }))
 end

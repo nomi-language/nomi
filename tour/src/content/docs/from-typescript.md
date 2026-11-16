@@ -22,9 +22,11 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `switch (s.kind) { case "circle": .. }` | `case s` with arms such as `.Circle{radius:} -> ..`, then `end`; it must cover every variant |
 | `[a, b]` as a pair, `pair[0]` | `(a, b)`, `pair.first` |
 | `x as Item` | Also `x as Item`, but checked: it states a type the value already fits (`[] as List<String>`) and converts nothing |
-| `number`, where `7 / 2` is `3.5` | `Int`, exact at any size, and `Float`, a 64-bit float. Neither converts to the other on its own. `/` on two `Int`s truncates toward zero, so `7 / 2` is `3`; convert an operand with `Int.to_float` for a `Float` result. |
-| `0.1 + 0.2 !== 0.3`, or a library such as decimal.js for money | `1.50d` is a `Decimal`, which is exact: `0.1d + 0.2d == 0.3d`. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Money](/money/). |
+| `number`, where `7 / 2` is `3.5` | `Int`, exact at any size, and `Float`, a 64-bit float. Neither converts to the other on its own. `/` on two `Int`s truncates toward zero, so `7 / 2` is `3`; convert an operand with `Int.to_float` for a `Float` result. The divisor must be a `NonZeroInt`: a literal other than 0 is one, and so is `d` after `if d == 0 then return ..`. |
+| `0.1 + 0.2 !== 0.3`, or a library such as decimal.js for money | `1.50d` is a `Decimal`, which is exact: `0.1d + 0.2d == 0.3d`. `/` returns an exact quotient when it ends and otherwise rounds to 34 significant digits, half-even. `Decimal.divide(a, b, 2, RoundingMode.HalfEven)` rounds to a scale you name. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `===` | `==`, which compares values structurally |
+| `for (const x of xs) { .. }`, `while` | `Iter.each(xs, fn x -> ..)`, a fold, recursion, or `Iter.loop` |
+| `interface Named { name: string }`, which any value of that shape satisfies | An `interface` holds functions, and a type implements one by saying so: `impl Named for User` |
 | `async` / `await`, `Promise.all` | `Task.spawn` and `Task.await` inside `concurrent` ... `end` |
 | `try { .. } finally { f.close() }`, `using` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
 | A module-level singleton, `export const db = ..`, or a DI container | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
@@ -38,7 +40,8 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `{ kind: "circle"; r: number } \| ..` | `enum Shape` with a variant per line, such as `Circle {radius: Float}`, then `end` |
 | `Record<string, number>` | `Map<String, Int>`, written `{"a" => 1}` |
 | `xs.filter(f).map(g)` | `xs \|> Iter.filter(f) \|> Iter.map(g) \|> Iter.to_list()` |
-| `export function` | `pub fn` |
+| `export function` | `pub fn`. A declaration is private to its file unless it is marked `pub` |
+| `import { find } from "./db/posts"` | `import db::posts.{find}`, with the path from the module's directory, or `import db::posts` and then `posts.find(1)` |
 | `describe` / `it` | `test "name"` ... `end` beside the code |
 | Express's `app.get("/users/:id", ..)`, with `req.params.id` a string | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |
 

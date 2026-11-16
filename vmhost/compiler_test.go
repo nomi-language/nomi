@@ -50,7 +50,7 @@ func TestCompilerRun_NestedProgramIsNoFileOfTheProject(t *testing.T) {
 		if _, unrunnable := err.(*stdcompilerrun.Unrunnable); unrunnable {
 			t.Fatalf("the shared front end accepted what the VM refused: %v", err)
 		}
-		if !strings.Contains(err.Error(), "entry callback in stray but file is not declared in nomi.toml entry_points") {
+		if !strings.Contains(err.Error(), "stray has a `fn main` but is not declared in nomi.toml entry_points") {
 			t.Fatalf("error %q does not name stray's placement", err)
 		}
 	})

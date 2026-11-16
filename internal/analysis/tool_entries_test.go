@@ -75,14 +75,14 @@ func TestToolEntry_PlacementTreatsToolsAsEntries(t *testing.T) {
 	errs := analysis.CheckEntryPlacement(m, []ast.Node{toolMain()}, "main", map[string][]ast.Node{
 		"tools/helper": {&ast.FuncDef{Name: "items", Line: 2, Col: 1}},
 	})
-	if len(errs) != 1 || !strings.Contains(errs[0].Message, "tools/helper is a tool, since it is under tools/, but has no entry callback") {
+	if len(errs) != 1 || !strings.Contains(errs[0].Message, "tools/helper is a tool, since it is under tools/, but has no `fn main`") {
 		t.Errorf("a tool with no fn main: %+v", errs)
 	}
 	errs = analysis.CheckEntryPlacement(m, []ast.Node{toolMain()}, "main", map[string][]ast.Node{
 		"helper": {toolMain()},
 	})
 	if len(errs) != 1 || strings.Contains(errs[0].Message, "—") ||
-		!strings.Contains(errs[0].Message, "entry callback in helper but file is not declared in nomi.toml entry_points; add \"helper\" to entry_points") {
+		!strings.Contains(errs[0].Message, "helper has a `fn main` but is not declared in nomi.toml entry_points; add \"helper\" to entry_points") {
 		t.Errorf("an unlisted fn main outside tools/: %+v", errs)
 	}
 }

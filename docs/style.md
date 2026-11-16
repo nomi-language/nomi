@@ -51,7 +51,7 @@ after the type, and its derives and interface implementations follow that
 block. A `once` that describes a type (`Float.pi`, `Status.ok`,
 `RetryPolicy.default`) belongs in that block, so a caller reaches it
 through the type; a file-level `once` is for a value that belongs to the
-file, such as its configuration or a lookup table its functions share. An impl for a type from another file sits with the code that needs it:
+file, such as its configuration or a lookup table its functions share:
 
 ```nomi
 pub struct RetryPolicy
@@ -78,6 +78,8 @@ impl Display for RetryPolicy
     end
 end
 ```
+
+An impl for a type from another file sits with the code that needs it.
 
 This is a house style. Keep a different order when the local narrative is
 clearer, for example a tiny helper type right next to the one function that
@@ -532,8 +534,8 @@ fn clamp(n: Int) -> Int
 end
 ```
 
-The choice is where to leave early. A run of guards like these keeps the main path unindented,
-where an `if`/`else` would nest it. A body you have not written yet gets
+A run of guards like these keeps the main path unindented, where an
+`if`/`else` would nest it. A body you have not written yet gets
 `todo`, not a bare `return` (§30).
 
 ## Types and values
@@ -798,8 +800,8 @@ which repeats the path the field already names.
 A distinct is read with the pattern that mirrors its construction (spec §10
 *Distinct Type Destructuring*; tour:
 [Structs, Enums & Distinct Types](/structs-enums-distinct/#distinct-types)):
-`Balance(n) = balance`, a `case` arm, or a parameter (`fn cents(Balance(n)):
-Int`). The pattern names the distinct, so changing `type Balance Int` to
+`Balance(n) = balance`, a `case` arm, or a parameter
+(`fn cents(Balance(n)) -> Int`). The pattern names the distinct, so changing `type Balance Int` to
 `type Balance Decimal` leaves each one correct and only retypes `n`.
 
 When other code reads the value in many places, give the type an accessor in
@@ -1107,7 +1109,7 @@ fresh = candidates |> Iter.reject(&(&1 in seen))
 
 not `Iter.filter(fn c -> not c in seen)`. Elsewhere a negated
 call reads well as a `not` pipe stage when the value is already flowing
-through a pipeline (`name |> String.trim() |> not String.is_empty()`), and as
+through a pipeline (`name |> String.trim() |> not Iter.is_empty()`), and as
 a plain `not f(x)` otherwise. When `Iter.reject` does not fit a capture,
 write `&(not f(&1))`.
 
@@ -1532,7 +1534,7 @@ the list in order and needs neither (§33).
 
 Tuples compare element by element (spec §5 *Ordering requires a declared
 `Comparable`*; tour:
-[Interfaces & Dispatch](/interfaces-and-dispatch/#deriving-vs-sorting-by-key)),
+[Interfaces & Dispatch](/interfaces-and-dispatch/#ordering)),
 so a sort by several keys is one
 `Iter.sort_by` whose key is a tuple of them, most significant first. Wrap a
 key in `Reverse.of` (`std::reverse`) to sort it descending; it works for any
@@ -1547,7 +1549,7 @@ table = Iter.sort_by(standings, fn s -> (Reverse.of(s.points), s.team))
 Don't chain stable sorts, `|> Iter.sort_by(.team)` and then
 `|> Iter.sort_by(Direction.Descending, .points)`: the reader has to know the
 sort is stable and read the keys bottom up. To sort a whole list descending,
-pass `Direction.Descending`. `Iter.sort_with` and `Ordering.chain` remain for
+pass `Direction.Descending` (`std::comparable`). `Iter.sort_with` and `Ordering.chain` remain for
 a comparator that is not a key, such as one that compares by a function of
 both values.
 
@@ -2128,6 +2130,7 @@ Describe a whole file with `//#` lines at its top, in every file, not only in
 `std/`. A test file may leave it out: its name says which file it tests, and
 its tests' names say what they check. Use `//#` rather than a plain `//`
 above the first declaration, which reads as that declaration's comment.
+
 ```nomi
 //# Parses and evaluates the word problems of the exercise.
 

@@ -11,15 +11,14 @@
 //# after it is opened, and `Conn.close(conn)?` on the success path when a
 //# failed close should be reported.
 //#
-//# std holds no driver: drivers are modules of their own, such as the
-//# SQLite driver (`nomi add github.com/nomi-language/nomi/lib/sql/sqlite`,
-//# https://nomi-lang.org/databases/), and `std::sql::testing` has a recording
-//# fake `Conn` and the conformance suite every driver runs. Both std modules
-//# are written in Nomi. The first-party SQLite driver and the checked-SQL
-//# library sqlkit are modules of their own in the nomi repository, under
-//# `lib/sql/`, which a project adds with `nomi add
-//# github.com/nomi-language/nomi/lib/sql/sqlite` and `nomi add
-//# github.com/nomi-language/nomi/lib/sql/sqlkit`.
+//# std holds no driver. The first-party drivers and the checked-SQL library
+//# sqlkit are modules of their own in the nomi repository, under `lib/sql/`,
+//# which a project adds with `nomi add`:
+//# `github.com/nomi-language/nomi/lib/sql/sqlite`,
+//# `github.com/nomi-language/nomi/lib/sql/postgres` and
+//# `github.com/nomi-language/nomi/lib/sql/sqlkit`
+//# ([Databases](/databases/) shows them in use). `std::sql::testing` has a
+//# recording fake `Conn` and the conformance suite every driver runs.
 
 import
     add.Add

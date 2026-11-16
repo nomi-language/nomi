@@ -33,8 +33,8 @@ compiler checks. The full rules are in the
 - A parameter the body never reads may be written as its type alone:
   `fn health(Request) -> Response` takes a `Request` and binds nothing.
 - A lambda is `fn x -> expr` on one line, or `fn x, y ->` with the body on
-  the lines below and `end`. Its parameters are
-  inferred from where it is passed. A lambda bound to a name needs annotated
+  the lines below and `end`. Its parameters are inferred from where it is
+  passed. A lambda bound to a name needs annotated
   parameters: `fn n: Int -> n * 2`. In a collection literal, one element's
   annotation types the same parameter in the others:
   `[("a", fn n: Int -> n), ("b", fn n -> n * 2)]`.
@@ -42,8 +42,8 @@ compiler checks. The full rules are in the
   on first use, even when several tasks read it together.
 - ``embed site `static` `` is a file-level `embed.Files` holding the files
   under `static/` at compile time, so a built executable carries them.
-  `Files.read_text(site, "static/index.html")` reads one's bytes then, not
-  at startup.
+  `Files.read_text(site, "static/index.html")` reads a file's bytes when it
+  is called, not at startup.
 
 ```nomi-run
 fn area(width: Int, height: Int = 1) -> Int
@@ -174,7 +174,8 @@ test result: ok. 1 passed, 0 failed
   per line, with no commas, `|` or `field` keyword. An interface declares only
   functions. A value every implementor supplies is a function, such as
   `fn name(value: self) -> String`.
-- A field with a default may leave out its type when the default tells it: `misses = 0` is an `Int` field. An empty collection, `None` or a
+- A field with a default may leave out its type when the default tells it:
+  `misses = 0` is an `Int` field. An empty collection, `None` or a
   `.Variant` needs the type written: `guessed: Set<String> = []`.
 - `value as Type` checks the value against the type where no annotation
   can stand: `[] as List<String>` in a record literal. It converts
@@ -519,8 +520,9 @@ entry_points = ["main"]
 - Code reads a field as `App.field`. The statement `with App.field = value`
   replaces it from that line to the end of the block. Several fields take
   several lines.
-- `test "name"` blocks, closed by `end`, sit beside the code. `assert` checks a `Bool`,
-  `Some` or `Ok`, or a pattern; `refute` the opposite. `nomi test` runs them.
+- `test "name"` blocks, closed by `end`, sit beside the code. `assert`
+  checks a `Bool`, `Some` or `Ok`, or a pattern; `refute` the opposite.
+  `nomi test` runs them.
 - A `group` holds at most one `clock`, `boot` and `setup`, in that order, then
   its tests. Groups do not nest. `boot server.boot(startup)` calls an entry's
   boot; a test may also call `server.boot(startup)` itself to assert on the

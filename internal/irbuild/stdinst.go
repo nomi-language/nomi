@@ -3,6 +3,7 @@ package irbuild
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -44,6 +45,15 @@ import (
 // symbol that no linked module defines. A member reached while it is still
 // pending answers its own symbol, which is what makes recursion terminate.
 //
+// # A default's accessor
+//
+// A call from outside the module that leaves out a generic function's
+// parameter, past a default that is no literal, needs the default as the
+// module means it. The table builds it the same way, as an instance whose
+// one function is the accessor of that parameter's default in place of the
+// function's body (defaultAccessor, stdslotfill.go), keyed by the
+// declaration, the arguments and the slot.
+//
 // # What declines
 //
 // The declaration refuses nothing; a call at an instantiation this builder
@@ -70,6 +80,10 @@ type stdInst struct {
 	// depth is the length of the instantiation chain that reached this
 	// instance, for stdInstCap.
 	depth int
+	// slot is the parameter whose default this instance builds an accessor
+	// for in place of the function's body (defaultAccessor), -1 for the
+	// body.
+	slot int
 }
 
 // stdInstances is the per-program table of stdlib instances, shared by every
@@ -172,7 +186,30 @@ func stdInstKey(fd *ast.FuncDef, args []kind) string {
 // instantiate answers the instance of f at args, building its closure on a
 // cold table. A nested call reached while a closure is attempted joins it.
 func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, caller *gen) (*stdInst, string) {
+	return s.instantiateAt(f, tps, args, -1, caller)
+}
+
+// defaultAccessor answers the accessor of the default of f's parameter
+// slot at args: a function of no parameters, built by a gen of f's module
+// as an instance's body is, so the default means what that module wrote.
+// It is how a call from outside the module fills a generic function's
+// omitted parameter whose default is no literal (`direction: Direction =
+// Direction.Ascending` of `Iter.sort_by`): the shared lowering builds no
+// accessor for a generic function, and the default may name what the
+// caller's file does not import. The default reads no earlier parameter
+// (stdDefaultReadsParams), so the accessor takes none and a caller passes
+// its operands to the function alone.
+func (s *stdInstances) defaultAccessor(f *stdFunc, tps []string, args []kind, slot int, caller *gen) (*stdInst, string) {
+	return s.instantiateAt(f, tps, args, slot, caller)
+}
+
+// instantiateAt is instantiate for f's body (slot -1) or defaultAccessor
+// for its parameter slot's default.
+func (s *stdInstances) instantiateAt(f *stdFunc, tps []string, args []kind, slot int, caller *gen) (*stdInst, string) {
 	key := stdInstKey(f.decl, args)
+	if slot >= 0 {
+		key += "\x00default " + strconv.Itoa(slot)
+	}
 	prevCaller := s.caller
 	s.caller = caller
 	defer func() { s.caller = prevCaller }()
@@ -186,12 +223,12 @@ func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, caller
 		return nil, why
 	}
 	if s.attempting {
-		return s.queue(f, tps, args, key)
+		return s.queue(f, tps, args, slot, key)
 	}
-	return s.attemptClosure(f, tps, args, key)
+	return s.attemptClosure(f, tps, args, slot, key)
 }
 
-func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, key string) (*stdInst, string) {
+func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, slot int, key string) (*stdInst, string) {
 	s.attempting = true
 	// The closure is built in the middle of the caller's own attempt, whose
 	// decline record is set aside and restored, and neither the decline
@@ -206,7 +243,7 @@ func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, key
 		s.pendingOrder = nil
 		s.building = nil
 	}()
-	top, why := s.queue(f, tps, args, key)
+	top, why := s.queue(f, tps, args, slot, key)
 	if top == nil {
 		s.failed[key] = why
 		return nil, why
@@ -229,7 +266,7 @@ func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, key
 // queue resolves one instance's signature and adds it to the closure. The
 // signature is resolved here rather than when the body is built, because a
 // recursive caller of a pending instance needs its parameter kinds first.
-func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, key string) (*stdInst, string) {
+func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, slot int, key string) (*stdInst, string) {
 	depth := 1
 	if s.building != nil {
 		depth = s.building.depth + 1
@@ -282,7 +319,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, key string) 
 		// A default's every `self` is the receiver it is instantiated at.
 		return nil, "a stdlib interface default whose interface its module does not declare: " + f.key
 	}
-	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, gen: g, depth: depth}
+	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, gen: g, depth: depth, slot: slot}
 	g.stdInstCur = inst
 	view := *f
 	view.canon = nil
@@ -326,7 +363,11 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, key string) 
 	view.pkg = v.pkg
 	g.stdInstName = f.key + "<" + kindsNomi(args) + ">"
 	inst.view = &view
-	inst.sym = g.irCalleeSym(inst.fd, f.key+"<"+kindsNomi(args)+">")
+	if slot >= 0 {
+		inst.sym = g.irCalleeSym(irSlotDefault{inst.view, slot}, fmt.Sprintf("%s default %d", g.stdInstName, slot+1))
+	} else {
+		inst.sym = g.irCalleeSym(inst.fd, g.stdInstName)
+	}
 	s.pending[key] = inst
 	s.pendingOrder = append(s.pendingOrder, key)
 	return inst, ""
@@ -339,6 +380,14 @@ func (s *stdInstances) build(inst *stdInst) string {
 	prev := s.building
 	s.building = inst
 	defer func() { s.building = prev }()
+	if inst.slot >= 0 {
+		g.irModule()
+		g.irStdSlotRetain(inst.view, inst.fd, inst.slot, inst.slot)
+		if inst.view.irSlot[inst.slot] == nil {
+			return "stdlib default " + g.stdInstName + " of parameter " + inst.fd.Params[inst.slot].Name + ": it does not lower"
+		}
+		return ""
+	}
 	g.emitStdFunc(inst.view, inst.fd)
 	if g.irMod != nil && g.irMod.FuncFor(inst.sym) != nil {
 		if len(inst.tps) == 0 && inst.f.ifaceDefault == nil && irDefaultsNotAllLiteral(inst.fd) {

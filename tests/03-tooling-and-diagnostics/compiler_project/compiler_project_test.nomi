@@ -70,11 +70,11 @@ test "compiler project checks manifest entry points"
 
     assert test_helpers.has_diagnostic(
         diagnostics,
-        "entry callback in main but file is not declared in nomi.toml entry_points",
+        "main has a `fn main` but is not declared in nomi.toml entry_points",
     )
 
     assert test_helpers.has_diagnostic(
         diagnostics,
-        "other is declared in nomi.toml entry_points but has no entry callback",
+        "other is declared in nomi.toml entry_points but has no `fn main`",
     )
 end

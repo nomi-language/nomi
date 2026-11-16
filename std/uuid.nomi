@@ -2,8 +2,9 @@
 //# identifiers that cross JSON, URLs and databases. `Uuid` is an opaque
 //# type: its values come from parsing, from bytes, or from generation, and
 //# it is `Equatable`, `Hashable` and `Comparable`. The functions are owner
-//# functions of `Uuid` (`Uuid.parse(text)`). A `Uuid` is written as 32 hexadecimal digits in five
-//# groups, `0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`. Read text with
+//# functions of `Uuid` (`Uuid.parse(text)`). A `Uuid` is written as 32
+//# hexadecimal digits in five groups,
+//# `0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a`. Read text with
 //# `Uuid.parse`, write a fixed one as the raw typed literal
 //# `Uuid"0190a0b2-7f3c-7c3e-8a1b-1f2e3d4c5b6a"`, which is checked when the
 //# program is checked, and make new ones with `Uuid.v4` (random) or

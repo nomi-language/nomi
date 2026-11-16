@@ -575,29 +575,31 @@ func (bl *irScalarBuilder) supervisorSpawnAll(t *ast.Call) (ir.Temp, kind, bool,
 }
 
 // irStdSlotRetain builds the `_DEFAULT<slot>` accessor of f for the VM: the
-// parameters before slot, and slot's default lowered in the declaring module's
-// scope with those parameters in hand.
-func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, slot int) {
+// parameters from the one at from up to slot, and slot's default lowered in
+// the declaring module's scope with those parameters in hand. from is 0,
+// every parameter before slot, or slot, none, for a default that reads no
+// earlier parameter (stdInstances.defaultAccessor).
+func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, from, slot int) {
 	// VM-only: no Go names what the build resolves.
 	if g.irMod == nil {
 		return
 	}
-	for _, p := range fd.Params[:slot] {
+	for _, p := range fd.Params[from:slot] {
 		if p.Destructure != nil {
 			return
 		}
 	}
 	g.pushScope()
 	defer g.popScope()
-	params := make([]kind, slot)
-	for i, p := range fd.Params[:slot] {
-		params[i] = f.params[i]
+	params := make([]kind, slot-from)
+	for i, p := range fd.Params[from:slot] {
+		params[i] = f.params[from+i]
 		if !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: f.params[i]})
+			g.bind(p.Name, local{k: params[i]})
 		}
 	}
 	short := *fd
-	short.Params = fd.Params[:slot]
+	short.Params = fd.Params[from:slot]
 	name := stdSlotName(f, slot)
 	sig := irFuncSig{result: f.params[slot], decl: fd, name: name, origin: irFromStd}
 	sh := g.irFuncShellWithCallee(&short, sig, params, g.irCalleeSym(irSlotDefault{f, slot}, fmt.Sprintf("%s default %d", f.key, slot+1)))
@@ -606,18 +608,18 @@ func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, slot int) {
 	}
 	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: f.params[slot], sides: sh.sides,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{}, vmOnly: true}
-	args := make([]ir.Temp, slot+1)
-	for i, p := range fd.Params[:slot] {
+	args := make([]ir.Temp, slot-from+1)
+	for i, p := range fd.Params[from:slot] {
 		args[i] = sh.params[p.Name]
 	}
-	args[slot] = ir.NoTemp
+	args[slot-from] = ir.NoTemp
 	filled := *fd
-	filled.Params = fd.Params[:slot+1]
-	if !bl.callDefaults(&fnSig{decl: &filled, params: f.params[:slot+1]}, args) {
+	filled.Params = fd.Params[from : slot+1]
+	if !bl.callDefaults(&fnSig{decl: &filled, params: f.params[from : slot+1]}, args) {
 		return
 	}
 	at := g.irNodePos(fd)
-	cp := ir.NewCopy(at, sh.result, args[slot])
+	cp := ir.NewCopy(at, sh.result, args[slot-from])
 	bl.b.Append(cp)
 	bl.side(sh.result, irScalarSide{k: f.params[slot]})
 	bl.b.SetTerm(ir.NewReturn(at, sh.result))

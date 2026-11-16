@@ -22,6 +22,8 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `String?`, `?.`, `?:` | `Maybe<String>`, `Maybe.map`, `Maybe.with_default`, or `Maybe.otherwise` when the fallback may be missing too |
 | `throw`, `runCatching` | Return `Result<T, E>`; a postfix `?` passes an `Err` up |
 | `x.toDouble()`, `x as Shape` | `Int.to_float(x)`. Nomi's `x as T` never casts or throws: it only states a type the value already fits (`[] as List<String>`) |
+| `a / b` throws `ArithmeticException` when `b` is 0, and an `Int` wraps on overflow | `/` and `%` on two `Int`s take a `NonZeroInt` divisor, so the check for zero comes before the division: a literal other than 0 is one, and so is `b` after `if b == 0 then return ..`. An `Int` is exact at any size and never overflows. |
+| `for (x in xs) { .. }`, `while` | `Iter.each(xs, fn x -> ..)`, a fold, recursion, or `Iter.loop` |
 | `file.use { .. }` | `defer Reader.close_quietly(r)` on the line after opening; it runs when its block ends, and the checker requires it for a resource |
 | Spring's constructor injection, or Koin or Ktor's `dependencies { provide { .. } }` | `fn boot() -> Result<App, String>` builds an `App` struct before `main` runs, and any function reads a field as `App.db`, with nothing injected. A test replaces one with `with App.db = ..`. See [App Fields](/app-fields/). |
 
@@ -35,8 +37,12 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `when (e) { is Deposit -> .. }` | `case e` with arms such as `.Deposit(amount) -> ..`, then `end`; it must cover every variant |
 | `Pair(a, b)`, `a to b` | `(a, b)`, read as `.first` and `.second` as a `Pair` is |
 | `listOf(1, 2)`, `mapOf("a" to 1)` | `[1, 2]`, `{"a" => 1}` |
+| `"$name has ${n + 1}"` | `"${name} has ${n + 1}"`: the braces are always written |
+| `BigDecimal("1.50")` | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `interface` with default methods | `interface`, where a default an impl may replace is an `open fn`; each implementation goes in `impl Interface for Type` |
 | `TODO("parse")` | `todo "parse"` |
+| `package app.db`, `import app.db.find` | `import db::posts.{find}`: a file is the unit of import, by its path, and declares no package |
+| Public unless marked `private` | A declaration is private to its file unless it is marked `pub` |
 | `coroutineScope { launch { .. } }` | `Task.spawn(fn -> ..)` inside `concurrent` .. `end` |
 | `@Test fun t()` | `test "name"` ... `end` |
 | Ktor's `get("/users/{id}") { call.parameters["id"] }`, Spring's `@GetMapping("/users/{id}")` with `@PathVariable id: Long` | `Route.to_with("GET /users/{id}", show)` with `fn show(Request, user: {id: Int}) -> Response`. The handler gets `user.id` already parsed, `/users/ann` gets a 404, and the pattern is checked when the program is. See [HTTP](/http/#handlers-and-routes) and [Frontends](/frontends/). |

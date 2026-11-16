@@ -198,7 +198,11 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 		if !a.known && !b.known {
 			return numRange{}, false
 		}
+		// The larger or smaller of two values is one of them, so it is
+		// non-zero when both are; its bounds may say so too (normalize).
 		r = extremeRange(name == "max", a, b)
+		r.nonZero = a.known && b.known && a.nonZero && b.nonZero
+		r = r.normalize(fam)
 	case name == "pow" && len(args) == 2 && ((owner.Name == "Int" && fam == intFamily) || (owner.Name == "Decimal" && fam == decimalFamily)):
 		b, ok := arg(0, fam)
 		if !ok {

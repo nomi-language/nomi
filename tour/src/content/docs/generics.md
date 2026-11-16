@@ -32,8 +32,8 @@ different types.
 
 ## Generic types
 
-Structs, enums, interfaces and distinct types (`type Tagged<T> (String, T)`)
-can have type parameters. A type alias can't.
+Structs, enums, interfaces, distinct types (`type Tagged<T> (String, T)`),
+subtypes and type aliases can have type parameters.
 
 ```nomi-run
 struct Box<T>
@@ -121,7 +121,7 @@ derive Display for Box<T> where T: Display
 ```
 
 A bound on a type declaration carries into every impl of that type, so an
-impl for `Span<T>` can compare `start` and `end` without its own `where`. A
+impl for `Span<T>` can compare `start` and `stop` without its own `where`. A
 bound on a `derive` or a function applies only to that one declaration.
 
 <div class="tour-details">

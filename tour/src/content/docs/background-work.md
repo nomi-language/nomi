@@ -82,9 +82,6 @@ app struct. See [Where mutable state lives](#where-mutable-state-lives).
 <div class="tour-details">
 <p class="tour-details-label">Fine print</p>
 
-- `Supervisor.new` outside `boot` and the functions it calls is a compile
-  error, since its limit would then apply to each call instead of to the
-  whole program.
 - A supervised task's body must return `Unit`, since nobody has to await
   it. Its handle may be discarded with `_ =`.
 - A supervised task may open its own `concurrent` block. The block owns the
@@ -300,18 +297,19 @@ deadline, `Task.cancel`, or shutdown.
 
 A task under a supervisor doesn't get the deadline of the code that started
 it. Its owner is the supervisor, and the supervisor's limit is its
-`shutdown_timeout:`. If background work had the request's deadline, the
-request's deadline would stop it, and the point of running it in the
-background is to let it outlast the request. The context's values do carry
+`shutdown_timeout:`. Background work is meant to outlast the request that
+started it, and the request's deadline would stop it. The context's values
+do carry
 over. `Context.with_value(Config.context, TraceId("t-1"))` adds a value, and
 `Context.value(Config.context, TraceId)` reads it, in the background task
 too. Only the deadline is dropped.
 
 ## Restarting work that breaks
 
-By default a supervisor restarts nothing. That default is
-`Restart.Temporary`, which only reports failures. Choose another restart
-rule in `boot` when a failed task should run again:
+A supervised task fails when it traps. An `Err` cannot leave it, since
+its body returns `Unit`. By default a supervisor restarts nothing. That
+default is `Restart.Temporary`, which only reports failures. Choose another
+restart rule in `boot` when a failed task should run again:
 
 ```nomi
 // One-shot work: the built-in schedule, then give up and report it.
@@ -555,7 +553,7 @@ test "a receipt job runs once it is enqueued"
     queue = Inline.new()
     _ = jobs.enqueue(queue, Fake.new(), receipt_job, 42)?
     ran = testing.run_queued(queue, [receipt_job])
-    assert Iter.map(ran, &(&1.answer)) |> Iter.to_list() == [Ok(Unit)]
+    assert ran |> Iter.map(&(&1.answer)) |> Iter.to_list() == [Ok(Unit)]
 end
 ```
 <!-- expect

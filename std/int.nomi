@@ -28,13 +28,27 @@ import
     summable.Summable
 end
 
-//# Operations on `Int`, the one integer type, exact at any size: the
-//# refinements `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (in the
-//# prelude) and `Radix`, by which division, powers and digits cannot trap, floored
-//# division and modulo, powers, integer square roots, `gcd`/`lcm`, digits in
-//# a base, conversion to `Float` and `Decimal`, 64-bit modular arithmetic,
-//# and bit operations. The arithmetic, `Display`/`Debug`/`Equatable`/`Hashable`/`Comparable`
-//# impls give `Int` its string form, hashing, and total order.
+//# `Int`, the one integer type, and its operations. An Int is exact at any
+//# size: `+`, `-` and `*` never overflow.
+//#
+//# - **Subtypes.** `NonZeroInt`, `NonNegativeInt` and `PositiveInt` (all in
+//#   the prelude), `Radix` and `Int64` are Ints that passed a check. `/` and
+//#   `%` take a `NonZeroInt` divisor, `Int.pow` a `NonNegativeInt` exponent
+//#   and `Int.to_digits` a `Radix`, so none of them can fail while the
+//#   program runs. A literal is checked when the program is compiled, and
+//#   `NonZeroInt.try_from(n)` checks a value the program computes.
+//# - **Division.** `/` and `%` round toward zero; `Int.floor_div` and
+//#   `Int.modulo` round toward negative infinity.
+//# - **Math.** `Int.abs`, `Int.sign`, `Int.pow`, `Int.sqrt`, `Int.gcd` and
+//#   `Int.lcm`.
+//# - **Conversion.** `Int.to_float`, `Int.to_decimal`, `Int.to_byte`,
+//#   `Int.to_codepoint`, `Int.to_digits` and `Int.from_digits`.
+//#   `String.to_int` reads an Int from text.
+//# - **Bits.** `&&&`, `|||`, `^^^`, `~~~`, `<<<` and `>>>`, `Int.bit_count`
+//#   and `Int.bit_length`, and the 64-bit modular `Int.wrapping_add`,
+//#   `Int.wrapping_sub` and `Int.wrapping_mul`.
+//# - **Text for a reader.** `Int.format` and `Int.parse_in` write and read
+//#   an Int as a locale writes numbers.
 //#
 //# ## Formatting numbers for a reader
 //#
@@ -109,23 +123,26 @@ end
 pub host type Int
 
 impl Int
-    /// Converts an Int to the nearest Float, ties to even. Total. Precision
-    /// loss is possible for |x| > 2^53 (a Float has a 52-bit mantissa), and an
-    /// Int past the largest Float is an infinity.
+    /// The Float nearest to `x`, a tie going to the even one. A Float holds
+    /// 53 bits of precision, so every Int from -2^53 to 2^53 converts
+    /// exactly and one past that may be rounded. An Int past the largest
+    /// Float is an infinity.
     //! assert Int.to_float(5) == 5.0
     //! assert Int.to_float(-7) == -7.0
+    //! assert Int.to_float(9_007_199_254_740_993) == 9_007_199_254_740_992.0
     //! assert Int.to_float(Int.pow(10, 400)) == Float.positive_infinity()
     //
     pub host fn to_float(x: Int) -> Float
 
-    /// Converts an Int to a Decimal exactly, at scale 0. Total.
+    /// `n` as a Decimal with no digits after the decimal point. The
+    /// conversion is exact for every Int.
     //! assert Int.to_decimal(42) == 42d
     //! assert Int.to_decimal(-7) == -7d
     //! assert Int.to_decimal(123_456_789_012_345_678_901) == 123_456_789_012_345_678_901d
     //
     pub host fn to_decimal(n: Int) -> Decimal
 
-    /// Converts an Int to a Byte when it is in range 0..255.
+    /// `n` as a Byte, or `None` when `n` is outside 0 to 255.
     //! b = Int.to_byte(65)?
     //! assert Byte.to_int(b) == 65
     //! assert Int.to_byte(-1) == None
@@ -134,9 +151,9 @@ impl Int
     //
     pub host fn to_byte(n: Int) -> Maybe<Byte>
 
-    /// Converts an Int to a Codepoint when it is a Unicode scalar value:
-    /// `0` through `0x10FFFF`, outside the UTF-16 surrogate block
-    /// `0xD800` through `0xDFFF`.
+    /// The Codepoint numbered `n`, or `None` when `n` is not a Unicode
+    /// scalar value: one from `0` through `0x10FFFF` that is not in the
+    /// UTF-16 surrogate block, `0xD800` through `0xDFFF`.
     //! assert Int.to_codepoint(65) == Some('A')
     //! assert Int.to_codepoint(55_296) == None
     //! assert Int.to_codepoint(1_114_112) == None
@@ -234,8 +251,9 @@ impl Int
         if x % y != 0 and (x < 0) != (y < 0) then q - 1 else q
     end
 
-    /// Returns |n|, a `NonNegativeInt`, so `Int.to_digits(Int.abs(n))`
-    /// takes any `n`.
+    /// The absolute value of `n`: `n` without its sign. The result is a
+    /// `NonNegativeInt`, so it passes where one is needed:
+    /// `Int.to_digits(Int.abs(n))` takes any `n`.
     //! assert Int.abs(-5) == 5
     //! assert Int.abs(0) == 0
     //! assert Int.abs(-9_223_372_036_854_775_808) == 9_223_372_036_854_775_808
@@ -244,7 +262,8 @@ impl Int
         NonNegativeInt.unchecked(if n < 0 then -n else n)
     end
 
-    /// Returns the sign of `n` as -1, 0, or +1.
+    /// The sign of `n`: -1 for a negative `n`, 0 for 0 and 1 for a
+    /// positive one.
     //! assert Int.sign(-7) == -1
     //! assert Int.sign(0) == 0
     //! assert Int.sign(7) == 1
@@ -394,16 +413,23 @@ host fn int_format(locale: Locale, n: Int, grouping: Bool, min_digits: Int) -> S
 host fn int_parse_in(text: String, locale: Locale, lenient: Bool) -> Result<Int, NumberParseError>
 
 impl Display for Int
-    /// Returns the canonical decimal string form of `n`, matching the runtime
-    /// stringifier used by `io.print` and string interpolation.
+    /// `n` in decimal digits, with a `-` before a negative one and no
+    /// separators: the text `io.print` and string interpolation write.
+    /// `Int.format` writes an Int for a reader in a locale.
     //! assert Int.to_string(42) == "42"
     //! assert Int.to_string(-7) == "-7"
+    //! assert "${1234567}" == "1234567"
     //! assert Int.to_string(Int.pow(2, 70)) == "1180591620717411303424"
     //
     host fn to_string(n: Int) -> String
 end
 
 impl Add<Int, Int> for Int
+    /// `lhs + rhs`, exact at any size. `Int.add` names it where a function
+    /// is passed: `Iter.reduce(xs, 0, Int.add)`.
+    //! assert 2 + 3 == 5
+    //! assert Int.add(2, 3) == 5
+    //
     host fn add(lhs: Int, rhs: Int) -> Int
 end
 
@@ -418,10 +444,18 @@ impl Summable for Int
 end
 
 impl Subtract<Int, Int> for Int
+    /// `lhs - rhs`, exact at any size.
+    //! assert 2 - 3 == -1
+    //! assert Int.subtract(2, 3) == -1
+    //
     host fn subtract(lhs: Int, rhs: Int) -> Int
 end
 
 impl Multiply<Int, Int> for Int
+    /// `lhs * rhs`, exact at any size.
+    //! assert 4 * 3 == 12
+    //! assert Int.multiply(4, 3) == 12
+    //
     host fn multiply(lhs: Int, rhs: Int) -> Int
 end
 
@@ -436,11 +470,19 @@ impl Productable for Int
 end
 
 impl Divide<NonZeroInt, Int> for Int
-    /// Integer division, `lhs / rhs`, rounding toward zero. The divisor is a
-    /// `NonZeroInt`: a non-zero literal, a value whose range rules out zero,
-    /// or one checked first (`if d == 0 then ...`), so division never traps.
+    /// Integer division, `lhs / rhs`, rounded toward zero. The divisor is a
+    /// `NonZeroInt`, so a division never fails while the program runs: it
+    /// is a literal other than 0, a value whose type rules out zero, or an
+    /// Int the code has compared with 0 on the way to the division. `7 / d`
+    /// with a `d` that is only known to be an Int is a compile error.
+    /// `Int.floor_div` rounds toward negative infinity.
     //! assert 7 / 2 == 3
     //! assert -7 / 2 == -3
+    //!
+    //! share = fn total: Int, people: Int -> if people == 0 then 0 else total / people
+    //! assert share(10, 4) == 2
+    //! assert share(10, 0) == 0
+    //!
     //! nz = NonZeroInt.try_from(3)!
     //! assert Int.divide(10, nz) == 3
     //
@@ -551,6 +593,12 @@ impl Hashable for Int
 end
 
 impl Comparable for Int
+    /// The order of `a` and `b` as numbers: `Less`, `Equal` or `Greater`.
+    /// It is what `<`, `>`, `Iter.sort`, `Iter.min` and `Iter.max` use.
+    //! assert Int.compare(1, 2) == Ordering.Less
+    //! assert Int.compare(2, 2) == Ordering.Equal
+    //! assert Int.compare(3, 2) == Ordering.Greater
+    //
     fn compare(a: Int, b: Int) -> Ordering
         case
             a < b  -> Less
@@ -580,7 +628,8 @@ impl Steppable for Int
     end
 end
 
-/// An Int that is not zero, so dividing by one cannot trap. A literal is
+/// An Int that is not zero, which `/` and `%` take as their divisor, so a
+/// division cannot fail while the program runs. A literal is
 /// checked when the program is compiled; `NonZeroInt.try_from(n)` checks a
 /// value at run time. A NonZeroInt is an Int, and passes wherever one is
 /// expected. It is in the prelude.
@@ -601,7 +650,7 @@ pub subtype NonZeroInt Int when fn n -> n != 0
 //
 pub subtype NonNegativeInt Int when fn n -> n >= 0
 
-/// An Int greater than zero. It refines both `NonNegativeInt` and
+/// An Int greater than zero. It is a subtype of both `NonNegativeInt` and
 /// `NonZeroInt`, so a PositiveInt passes wherever either, or an Int, is
 /// expected. It is in the prelude.
 //! p: PositiveInt = 4
@@ -623,11 +672,10 @@ pub subtype Radix Int when fn b -> b >= 2
 
 /// An Int that fits in 64 bits, from -9223372036854775808 to
 /// 9223372036854775807: what a Go `int64` holds. A std function or field
-/// whose limit is 64 bits takes one (`Instant.as_nanos`, a `Date`'s
-/// year), so a literal past the range is an error when the program is
-/// compiled and a computed value is checked with `Int64.try_from(n)`
-/// before the call rather than refused during it. An Int64 is an Int,
-/// and passes wherever one is expected.
+/// whose limit is 64 bits is an Int64, as a `Date`'s month and day are.
+/// A literal past the range is an error when the program is compiled, and
+/// `Int64.try_from(n)` checks a value at run time, before the call that
+/// needs it. An Int64 is an Int, and passes wherever one is expected.
 //! n: Int64 = 9223372036854775807
 //! assert n + 1 == 9223372036854775808
 //! assert Int64.try_from(-9223372036854775808) == Some(-9223372036854775808)

@@ -11,9 +11,9 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 374
+records 375
 declared-cases 0
-failing 84
+failing 85
 C assert_subject_test.nomi@295b6bb031afecb5
 E 1
 N 0
@@ -1147,6 +1147,32 @@ S
 S
 T ok <dir>/control_test.nomi :: aliased owners
 T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@9cb0a500e0973e8f
+E 1
+N 0
+H 1362c305379d641dbfbd14d8fc285c485b69fb84773711c4e212db0f540ef74d
+S -- control_test.nomi 363 --
+S test "a named argument past a generic function's omitted default"
+S   assert Iter.sort_by(["bb", "a", "ccc"], key: String.length) == ["a", "bb", "ccc"]
+S   assert (["bb", "a", "ccc"] |> Iter.sort_by(key: String.length)) == ["a", "bb", "ccc"]
+S end
+S
+S test "a failing one reports the call's value"
+S   assert Iter.sort_by(["bb", "a"], key: String.length) == ["bb", "a"]
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a named argument past a generic function's omitted default
+T FAIL <dir>/control_test.nomi :: a failing one reports the call's value
+T   line 7: assertion failed
+T     assert Iter.sort_by(["bb", "a"], key: String.length) == ["bb", "a"]
+T     values:
+T       String.length
+T         = <builtin: strings.String.length>
+T       Iter.sort_by(["bb", "a"], key: String.length)
+T         = ["a", "bb"]
+T test result: FAILED. 1 passed, 1 failed
 T
 C control_test.nomi@a631361f37b55c81
 E 0
@@ -3481,7 +3507,7 @@ T strings = ab
 T second_ctor = 99
 T both = 41
 T
-C internal/irbuild/testdata/check_project.nomi@630d5fa4d6562bd6
+C internal/irbuild/testdata/check_project.nomi@7daea34fe49db5f5
 E 0
 N 0
 H 19845bdd207b1256a62fdd3a196cdc90f7743bfd4ac294e00e18aba02eaaaa67

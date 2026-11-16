@@ -1,7 +1,5 @@
-//# Scheduling primitives for delaying the current task.
-//#
-//# `timer` is separate from `Instant` and `Duration`: those files describe
-//# time values, while this file performs time-based waiting.
+//# Waiting: `timer.sleep` suspends the current task for a `Duration`.
+//# `Instant` and `Duration` are the time values it works with.
 
 import
     duration.Duration
@@ -15,7 +13,7 @@ end
 /// longest wait the clock counts, waits that long: the sleep ends only when
 /// its context is cancelled.
 ///
-/// When called inside a `concurrent { }` block, cancellation of that block's
+/// When called inside a `concurrent` block, cancellation of that block's
 /// context ends the sleep early without producing a user-visible error.
 //! deadline = Instant.from_seconds(0)
 //! assert timer.sleep(Instant.between(Instant.from_seconds(1), deadline)) == Unit

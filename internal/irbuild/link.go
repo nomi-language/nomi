@@ -157,6 +157,11 @@ func (g *gen) linkName(token any, name string) string {
 	case irFileSlotDefault:
 		return within(t.callee.Link(), " default "+strconv.Itoa(t.slot+1))
 	case irSlotDefault:
+		if inst := g.stdInstCur; inst != nil && inst.slot >= 0 && inst.view == t.f {
+			// A generic std function's default at an instance's type
+			// arguments, in its own gen (stdInstances.defaultAccessor).
+			return within(g.declLink(inst.fd), "<"+stdInstLinkArgs(inst)+"> default "+strconv.Itoa(t.slot+1))
+		}
 		return within(stdFuncLink(g, t.f), " default "+strconv.Itoa(t.slot+1))
 	case irBootDefaultToken:
 		return within(g.declLink(t.boot), " startup default")

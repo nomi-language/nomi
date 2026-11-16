@@ -1,9 +1,11 @@
 //# Plural rules: which grammatical form a number takes in a language.
-//# English has two cardinal forms (`1 coin`, `2 coins`); Polish has three
-//# for whole numbers, plus one for fractions; Arabic six, Japanese one. `PluralCategory.cardinal(count, locale)` gives
-//# the CLDR category a count selects, and `PluralCategory.ordinal` the one
-//# an ordinal (1st, 2nd) selects. The rules are CLDR's, from the release
-//# Nomi pins.
+//# English has two cardinal forms (`1 coin`, `2 coins`). Polish has three
+//# for whole numbers and one more for fractions, Arabic has six and
+//# Japanese one. `PluralCategory.cardinal(count, locale)` gives the CLDR
+//# category a count selects, and `PluralCategory.ordinal` the one an
+//# ordinal (1st, 2nd) selects. The rules are CLDR's, from the release Nomi
+//# pins.
+//#
 //# A count is an `Int` or a `Decimal`. A Decimal's fraction digits are part
 //# of the number a reader sees, so `1.0d` is not `1`: English says "1 coin"
 //# and "1.0 coins". `Float` is not a count, because its category depends on

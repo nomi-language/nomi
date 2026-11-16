@@ -89,11 +89,13 @@ folder holds:
 
 While you work, `nomi run --web app.nomi` serves the page at
 `http://localhost:8000/`, or the next free port (`--port` picks one). Each
-time you save, it rebuilds and reloads the page. If the build fails, the error shows on the page until you fix it.
-`--open` opens the page in your browser.
+time you save, it rebuilds and reloads the page. If the build fails, the
+error shows on the page until you fix it. `--open` opens the page in your
+browser.
 
 To use your own page, scripts or images, put them in a folder named `web/`
-next to your program. Both commands include it, and a `web/index.html`
+at your project's root, beside `nomi.toml`, or beside the program when it is
+in no project. Both commands include it, and a `web/index.html`
 replaces the generated page. Your page runs the program with `run` from
 `nomi.js`.
 

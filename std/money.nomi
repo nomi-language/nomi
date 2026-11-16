@@ -22,8 +22,8 @@
 //# to it exactly, a bill shared three ways or 70 to 30. Two amounts in
 //# different currencies do not add, so Money has no `+` or `-`:
 //# `Money.add`, `Money.subtract`, `Money.sum`, `Money.min` and `Money.max`
-//# return `Err(CurrencyMismatch)` for them. `*` by an Int count is total
-//# and stays an operator. Std has no exchange rates;
+//# return `Err(CurrencyMismatch)` for them. `*` by an Int count always has
+//# an answer, so it is an operator: `price * 3`. Std has no exchange rates;
 //# a library that has them converts and checks the currency first.
 //# `Money.format` writes an amount as a reader of a locale writes it, and
 //# `Money.parse_in` reads one back, strictly by default.
@@ -77,7 +77,8 @@ pub enum Error
     Amount {text: String}
     /// `amount` is an amount with no currency after it.
     NoCurrency {amount: String}
-    /// `code`, after the amount `amount`, is not a currency.
+    /// The text after the amount `amount` is not a currency; `error` says
+    /// why.
     NotACurrency {amount: String, error: currency.Error}
     /// The literal interpolates a value, which a `Money` literal does not.
     Interpolated

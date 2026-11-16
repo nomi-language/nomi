@@ -69,7 +69,7 @@ impl Presence<T>
         end
     end
 
-    /// Transforms the value inside Present, passes Absent through.
+    /// Applies `f` to the value inside Present. Absent stays Absent.
     //! assert Presence.map(Presence.Present(3), &(&1 * 2)) == Presence.Present(6)
     //! assert Presence.map(Presence.Absent, &(&1 * 2)) == Presence.Absent
     //

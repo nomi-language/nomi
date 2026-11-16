@@ -1,25 +1,25 @@
-//# `Struct` — the interface every struct satisfies, named or anonymous. Its
-//# sole function, `update`, returns a copy of a struct with selected fields
-//# replaced, and is reached type-qualified: `Struct.update(original, updates)`.
+//# `Struct` is the interface every struct satisfies, named or anonymous. Its
+//# one function, `Struct.update(original, updates)`, returns a copy of a
+//# struct with some fields replaced.
 //#
-//# `Distinct<T>` — the interface every distinct type `type X T` satisfies. It
+//# `Distinct<T>` is the interface every distinct type `type X T` satisfies. It
 //# has no functions; it is a bound that lets an interface default take
 //# `self` apart (`self(n)`) and build one (`self(x)`).
 
-/// The universal struct interface. Every struct value — a named `struct` type
-/// or an anonymous `{...}` — satisfies `Struct`, so its functions are callable on
-/// any of them; no non-struct type satisfies it. `Struct` is also usable as a
-/// bound (`fn f<T>(x: T) -> T where T: Struct`) and an existential (`fn f(s: Struct)`).
+/// The interface every struct satisfies: a named `struct` type and an
+/// anonymous `{...}` alike. No other type satisfies it. `Struct` also serves
+/// as a bound (`fn f<T>(x: T) -> T where T: Struct`) and as a parameter type
+/// that takes any struct (`fn f(s: Struct)`).
 pub interface Struct
-    // `Partial<T>` (used below) is a compiler-known built-in type operator — a
+    // `Partial<T>` (used below) is a compiler-known built-in type operator: a
     // partial of struct T, valid only in parameter position. It has no
     // import and no declaration anywhere in stdlib (unlike `List`/`Map`, which
     // are real `host type`s): it has no inhabitants, so it's recognized by name
     // in the resolver (analysis/type_resolver.go's `case "Partial"`) and lowers
     // to the deep-partial matcher.
-    /// Returns a new struct with fields from `updates` merged into `original`.
-    /// Non-overlapping fields on the original are preserved; fields present on
-    /// both take the value from `updates`. `updates` is a `Partial<self>`: it
+    /// Returns a copy of `original` with the fields `updates` names replaced
+    /// by its values. Every other field keeps its value. `updates` is a
+    /// `Partial<self>`: it
     /// may omit fields, and each field it writes is a whole value, or a
     /// literal with a bare `..` that updates the field's current value
     /// (`{address: {.., city: "NYC"}}` changes only the city).

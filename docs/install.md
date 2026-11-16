@@ -74,7 +74,7 @@ project (`nomi init` makes an existing directory one), and `nomi` writes its
 
 A release `nomi` also runs, tests and builds a project whose Go bindings are
 all the first-party `lib/` modules' (the SQLite and Postgres drivers,
-sqlkit, markdown, image) with no Go: their Go side is prebuilt in a lib
+sqlkit, markdown, image, the password hashers) with no Go: their Go side is prebuilt in a lib
 archive per platform, `nomi_<version>_<os>_<arch>_lib.tar.gz` (`.zip` on
 Windows), which `nomi` downloads from its release the first time a project
 needs it (about 24 MB), unless you unpack it beside `nomi`. That needs the
@@ -90,8 +90,8 @@ checks it against a checksum compiled into `nomi`, and keeps it in
 yourself. The editor's language server never downloads modules or Go: run
 `nomi fetch` in the project once, which downloads everything the project
 needs, so the editor finds every module and `--offline` commands need no
-network. Go bindings
-build without cgo, so a Go package that calls C cannot be bound.
+network. Go bindings build without cgo, so a Go package that calls C cannot
+be bound.
 
 ## Windows
 

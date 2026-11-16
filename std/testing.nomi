@@ -1,8 +1,9 @@
-//# Testing helpers built on the assertion runtime.
+//# Helpers for tests.
 //#
-//# `testing.check(expr)` uses the same assertion machinery as `assert expr`,
-//# but returns `Result<Subject, AssertionFailure>` instead of propagating the
-//# failure. It is useful when tests need to inspect or render a failure value.
+//# `testing.check(expr)` checks `expr` as `assert expr` does and returns a
+//# `Result<Subject, AssertionFailure>` where `assert` would fail the test, so
+//# a test can inspect or render the failure. `Clock` names the clock a test
+//# group runs under.
 
 import
     assertions.AssertionFailure
@@ -18,27 +19,26 @@ end
 /// and work that can never finish is reported as a deadlock rather than
 /// hanging.
 ///
-/// It is not the default, because a virtual clock changes behaviour:
-/// waiting on something outside the program (reading input, a real network
-/// call) never lets the clock move and is reported as a deadlock;
-/// background work still running when a test ends is an error rather than
-/// something that carries into the next test; and `Instant.now` starts at
+/// It is not the default, because a virtual clock changes behavior.
+/// Waiting on something outside the program (reading input, a real network
+/// call) never lets the clock move and is reported as a deadlock.
+/// Background work still running when a test ends is an error, where under
+/// the real clock it carries into the next test. `Instant.now` starts at
 /// midnight on 1 January 2000.
 ///
 /// A group without a `clock` line runs under `System`, so each group that
 /// wants virtual time declares it.
 pub enum Clock
-    /// The real clock. The default, and what every test used before this
-    /// existed.
+    /// The real clock. The default.
     System
 
     /// A clock that only advances when every task in the test is blocked.
     Virtual
 end
 
-/// Returns `Ok(subject)` when `subject` would pass `assert`; otherwise returns
-/// `Err(failure)` with the same structured assertion context used by
-/// `nomi test`.
+/// Returns `Ok(subject)` when `subject` would pass `assert`, and otherwise
+/// `Err(failure)`, the `AssertionFailure` that `nomi test` would report.
+//! assert testing.check(1 == 1)
 //! refute testing.check(1 == 2)
 //
 pub host fn check<T>(subject: T) -> Result<T, AssertionFailure>
