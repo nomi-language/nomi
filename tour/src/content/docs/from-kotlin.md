@@ -37,7 +37,7 @@ The [cheat sheet](/cheat-sheet/) lists the rules in one place.
 | `when (e) { is Deposit -> .. }` | `case e` with arms such as `.Deposit(amount) -> ..`, then `end`; it must cover every variant |
 | `Pair(a, b)`, `a to b` | `(a, b)`, read as `.first` and `.second` as a `Pair` is |
 | `listOf(1, 2)`, `mapOf("a" to 1)` | `[1, 2]`, `{"a" => 1}` |
-| `"$name has ${n + 1}"` | `"${name} has ${n + 1}"`: the braces are always written |
+| `"$name has ${n + 1}"` | `"${name} has ${n + 1}"`: the braces are always written, and `"$name"` is the text `$name`, which the compiler warns about |
 | `BigDecimal("1.50")` | `1.50d`, a `Decimal` literal, in the language: `0.1d + 0.2d == 0.3d`. See [Exact arithmetic with `Decimal`](/scalars-and-strings/#exact-arithmetic-with-decimal). |
 | `interface` with default methods | `interface`, where a default an impl may replace is an `open fn`; each implementation goes in `impl Interface for Type` |
 | `TODO("parse")` | `todo "parse"` |

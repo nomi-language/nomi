@@ -10,24 +10,15 @@ import (
 //
 // iter.go owns the anchor, the kind, the call router and the stateless
 // adapters. The seam between the two files is the one in std/iter.nomi
-// itself: seq.go's six adapters are stateless one-call wrappers, and
+// itself: rt/seq.go's six adapters are stateless one-call wrappers, and
 // everything here either introduces a SOURCE or carries PER-RUN STATE. See
 // rt/seqsrc.go for the runtime half.
 //
 // Two refusal keys meet here and are distinct: `unlowered Iter function` names
 // an `Iter.X` with no lowering, and `Iter over an unlowered source` names a
-// source whose `each_while` has no Go implementation.
+// source whose `each_while` has no walk the VM can run.
 // `13-iterators-and-pipes/string_iterators_test.nomi` exercises both, and
 // neither implies the other.
-//
-// # A tuple is an anonymous Go struct, so rt cannot name it
-//
-// Three functions here produce a tuple — `Map`'s pairs, `with_index`'s
-// `(Int, T)`, `partition`'s `(List<T>, List<T>)` — and a Nomi tuple lowers to a
-// per-package anonymous struct that rt has no way to spell. So each rt entry
-// point takes a CONSTRUCTOR closure and the call site emits it, which is the
-// shape maps.go already uses in the other direction for `rt.MapFromList`'s two
-// projections. One closure per pipeline BUILD, nothing per element.
 //
 // # `known_count` is answered from the static kind
 //
@@ -53,7 +44,7 @@ import (
 // one. Neither needs a source walked differently.
 //
 // Both resolve the key's hash and equality STATICALLY from the key kind, through
-// the same mapOps every other Map call site uses — so a key that groups together
+// the same mapKeyOK every other Map call site uses — so a key that groups together
 // here is a key that compares equal everywhere else, and a key type the Map
 // representation cannot carry refuses under `map key type` rather than under a
 // name of this file's own.
@@ -63,7 +54,7 @@ import (
 //
 // A small reader of one table, here rather than in stdhost.go because the
 // only callers are this file's and stdhost.go belongs to the stdlib surface. The
-// pointer comparison is the identity; see isDynamicKind for the argument.
+// pointer comparison is the identity.
 func isStdHostPrim(k kind, prim *analysis.PrimitiveType) bool {
 	for i := range stdHostSpecs {
 		if stdHostSpecs[i].prim != prim {
@@ -84,9 +75,8 @@ func isStdHostPrim(k kind, prim *analysis.PrimitiveType) bool {
 // — the builder knows the element kind statically, so it can build the
 // comparator rather than look it up at run time.
 //
-// They do not wait on the type-parameter dictionary; the measurement is in
-// iterMaxArity's header. What the dictionary really blocks
-// is one level down — `Comparable.compare` at a type parameter INSIDE a
+// They do not wait on the type-parameter dictionary. What the dictionary
+// really blocks is one level down — `Comparable.compare` at a type parameter INSIDE a
 // generic impl body, which is `impl Comparable for List<T>` and is why a
 // nested list's element comparator is restricted to Int and Float. So these
 // refuse by the ELEMENT KIND, naming the thing that is missing, rather than by

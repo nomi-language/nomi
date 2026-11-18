@@ -9,7 +9,7 @@ import (
 //
 // # The pinned text is the guard, and why an agreement check is not
 //
-// `List.equal` and `==` share one lowering (collections.go's listEqual), which
+// `List.equal` and `==` share one lowering, which
 // is the right structure — it makes the two spellings unable to disagree — and
 // it also makes an AGREEMENT assertion between them blind to the failure that
 // matters most. Replacing `rt.ListEqual(a, b, eq)` with a pointer comparison
@@ -114,7 +114,7 @@ func TestIterToMap_PinnedText(t *testing.T) {
 // --- List order -----------------------------------------------------------
 //
 // `List.compare` and `<` / `>` / `<=` / `>=` on two Lists, which are one
-// operation with two spellings (listCompare emits both).
+// operation with two spellings.
 
 // TestListCompare_PinnedText pins the reference bytes absolutely.
 //

@@ -112,7 +112,7 @@ func BuildStdBase(byName map[string]*FileAnalysis) *StdBase {
 	}
 	b.names = b.lookupNames()
 	b.collisionGroups = stdCollisionGroups(idx)
-	b.declModules = declaringModuleIndex(b.files, "", nil, nil, nil)
+	b.declModules = declaringModuleIndex(b.files, "", nil)
 	b.demands, b.pairs, b.wanted = stdDemands(b.filesInKeyOrder())
 	for _, fa := range b.files {
 		fa.program.formsBase.Store(b)
@@ -360,6 +360,7 @@ func addImplTypeArgs(idx *ProjectImplIndex, files []*FileAnalysis) {
 				idx.ImplTypeArgSets[typeName][ifaceName] = append(idx.ImplTypeArgSets[typeName][ifaceName], set...)
 			}
 		}
+		addImplBlocks(idx, fa)
 	}
 }
 
@@ -469,6 +470,7 @@ func (s *programShare) fold(own *implTables, owned map[*FileAnalysis]bool) *Proj
 		ImplFiles:                   maps.Clone(x.ImplFiles),
 		ImplTypeArgs:                maps.Clone(x.ImplTypeArgs),
 		ImplTypeArgSets:             maps.Clone(x.ImplTypeArgSets),
+		ImplBlocks:                  maps.Clone(x.ImplBlocks),
 		ImplFuncTypes:               maps.Clone(x.ImplFuncTypes),
 		TypeMethods:                 maps.Clone(x.TypeMethods),
 		TypeMethodModule:            maps.Clone(x.TypeMethodModule),
@@ -556,6 +558,7 @@ func (s *programShare) layOver(idx *ProjectImplIndex) {
 	maps.Copy(idx.ImplBlockInterfaceKeyExtern, u.ImplBlockInterfaceKeyExtern)
 	unionInner(idx.ImplTypeArgs, base.ImplTypeArgs, u.ImplTypeArgs)
 	appendInner(idx.ImplTypeArgSets, base.ImplTypeArgSets, u.ImplTypeArgSets)
+	appendInner(idx.ImplBlocks, base.ImplBlocks, u.ImplBlocks)
 	// A stdlib method is folded first and is typed (StdBase.fits), so a
 	// program's method of the same type and name never replaces it.
 	for typeName, byMethod := range u.TypeMethods {

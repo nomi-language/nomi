@@ -1272,15 +1272,6 @@ func (s *replSession) prepare(in *replInput, key string) *replPlan {
 	return plan
 }
 
-func replContains(xs []string, x string) bool {
-	for _, y := range xs {
-		if y == x {
-			return true
-		}
-	}
-	return false
-}
-
 // resolve records for in's declarations and onces which entities each
 // refers to, from the checked probe file src.
 func (s *replSession) resolve(in *replInput, checked *vmhost.Checked, src *replSource, plan *replPlan) {

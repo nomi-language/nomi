@@ -246,7 +246,7 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 			return no()
 		}
 	default:
-		return no()
+		panic("irbuild: contextValueCall: reached for Context." + method + ", which is neither with_value nor value")
 	}
 	if bl.qualRecord == t {
 		bl.qualRecordArgs, bl.qualRecordSeen = a, true

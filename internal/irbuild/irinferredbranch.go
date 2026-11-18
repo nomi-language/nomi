@@ -47,12 +47,8 @@ func (bl *irScalarBuilder) inferredRegionValue(value ast.Node, statement bool) (
 	}
 	// The region's kind is its arms' join, each a lowered value's.
 	irHeldOperand(k, "an `if` or `case` used for its value")
+	// A held kind has an IR type: irTypeOf answers nil only for kindInvalid.
 	ty := bl.g.irTypeOf(k)
-	if ty == nil {
-		bl.g.dc.note("an `if` or `case` whose value has no IR type: " + k.nomi())
-		bl.abandonRegion(value)
-		return no()
-	}
 	if statement {
 		// Case statements hold their subject before allocating the
 		// discarded result; case operands allocate their result first.

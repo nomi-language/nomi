@@ -8,11 +8,9 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// irLambdaPlan holds Go spelling facts beside the executable closure body.
-// Bodies contain fresh bindings and effects followed by an expression, with
-// plain parameters and stable captures.
-// Enclosing functions combine stable captures with no rebinding; lambdas in
-// test bodies are declined.
+// irLambdaPlan is what the builder keeps about the closure an `ir.FuncValue`
+// builds, for a later call through a local alias (callablePlan): the
+// parameters' names and kinds, the default suppliers and the signalling form.
 type irLambdaPlan struct {
 	// ctl is the signalling convention the enclosing Iter call widened this
 	// callback to, or irCtlNone.
@@ -21,25 +19,25 @@ type irLambdaPlan struct {
 	// names are the parameters' names a call writes, positionally: the
 	// source's, or for a partial application's lambda the callee's
 	// (partialSlots.names).
-	names    []string
-	body     *irScalarPlan
-	params   []kind
-	group    *irLambdaGroup
-	supplier int // -1 for the lambda itself; otherwise the supplied parameter slot
+	names  []string
+	body   *irScalarPlan
+	params []kind
+	group  *irLambdaGroup
 	// entry, of kind entryKind, is the closure a call that leaves an
-	// argument out goes through, when this is a partial whose callee has a
-	// computed default the partial leaves unmentioned before an open slot's
-	// computed default (partialApplication). It takes this plan's
-	// parameters and then those hidden slots, and entryGroup supplies every
-	// one a call omits, each callee default once, in the callee's order.
+	// argument out goes through, when this is a partial with an open slot
+	// whose default is computed and either written arguments or a computed
+	// default it leaves unmentioned before that slot (partialApplication).
+	// It takes this plan's parameters and then those held and hidden
+	// slots, and entryGroup supplies every one a call omits: each written
+	// argument once, then each callee default once, in the callee's order.
 	// entryGroup is nil otherwise.
 	entry      ir.Temp
 	entryKind  kind
 	entryGroup *irLambdaGroup
 }
 
-// A literal and its supplier closures share parameter spelling. Suppliers are
-// executable FuncValues in the parent graph, referenced by their temporaries.
+// A literal and its supplier closures share parameter kinds. Suppliers are
+// FuncValues in the parent graph, referenced by their temporaries.
 type irLambdaGroup struct {
 	params    []kind
 	suppliers []ir.Temp
@@ -104,22 +102,11 @@ func argsAt(args []ir.Temp, slots []int) []ir.Temp {
 // type a pattern names or the checker recorded for it, or the inferred type.
 // kindInvalid is a miss, which the caller declines.
 func (g *gen) lambdaParamKind(p ast.Param) kind {
-	_, tuple := p.Destructure.(*ast.TuplePattern)
-	switch {
-	case p.TypeAnnotation != nil:
-		return g.typeOf(p.TypeAnnotation)
-	case p.Destructure != nil && !tuple:
-		// A self-typing pattern names its type: `fn Dur(n) ->` takes a Dur,
-		// `fn Point{x, y} ->` a Point and `fn Box.Extent{w, h} ->` a Box.
-		// kindInvalid: lookup — the head names no distinct; a struct or enum head may name the type.
-		if k := g.irPatternHeadKind(p.Destructure); k != kindInvalid {
-			return k
-		}
-		return g.irParamPatternKind(p)
-	case tuple:
-		// `fn (k, v) ->`, `fn (_, v) ->`, `fn (a, (b, _)) ->`: the type the checker
-		// recorded for the whole pattern.
-		return g.irParamPatternKind(p)
+	if p.TypeAnnotation != nil || p.Destructure != nil {
+		// `fn Dur(n) ->` takes a Dur, `fn Point{x, y} ->` a Point and
+		// `fn (k, v) ->` the tuple its position gives it: the type the
+		// checker recorded for the pattern (paramKind).
+		return g.paramKind(p)
 	}
 	_, k := g.inferredParamKind(p)
 	return k
@@ -182,7 +169,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if supplier < 0 {
 		// Types the body declares resolve by name while it lowers.
 		defer bl.g.enterBlockTypes(t.Body)()
-		lead, body = bl.g.irScalarBlock(t.Body, "")
+		lead, body = bl.g.irScalarBlock(t.Body)
 	}
 	if body == nil {
 		return no()
@@ -230,7 +217,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		if i == 0 && child.ctl == irCtlReduce {
 			child.ctlAcc = temp
 		}
-		if irPrologueParam(p, params[i]) {
+		if bl.g.irPrologueParam(p, params[i]) {
 			patterned = append(patterned, irPatternParam{pat: p.Destructure, temp: temp, k: params[i]})
 			continue
 		}
@@ -249,7 +236,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		if p.Destructure != nil {
 			// `fn Dur(n) ->`: the argument's inner value, bound to n, as a
 			// distinct destructure statement binds it.
-			name, _ := irDistinctParamBinding(p.Destructure, params[i])
+			name, _ := bl.g.irDistinctParamBinding(p.Destructure, params[i])
 			if !ast.IsDiscardName(name) {
 				inner := child.distinctProjection(p.Destructure, temp, params[i], true, "irlambda.go distinct parameter")
 				child.patternBinding(p.Destructure, name, inner, params[i].def.inner)
@@ -307,7 +294,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		case *ast.If, *ast.Case:
 			sig = irFuncSig{result: want}
 		case *ast.ListLit:
-			// `fn -> { io.print("left") [] }`: an untyped literal answers the
+			// `fn -> { io.print("left") [] }`: an empty literal answers the
 			// solved result.
 			if len(b.Items) == 0 && b.TypeName == nil {
 				sig = irFuncSig{result: want}
@@ -477,7 +464,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 	if po, partial := bl.partialOpen[t]; partial {
 		names = po.names
 	}
-	bl.side(n.Dst(), irScalarSide{k: fk, lambda: &irLambdaPlan{ctl: child.ctl, source: t, names: names, body: plan, params: params, group: group, supplier: supplier}})
+	bl.side(n.Dst(), irScalarSide{k: fk, lambda: &irLambdaPlan{ctl: child.ctl, source: t, names: names, body: plan, params: params, group: group}})
 	return n.Dst(), fk, true, true
 }
 
@@ -636,19 +623,15 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 	}
 	params := funcParams(fk)
 	metadata := bl.callablePlan(callee)
-	var names []string
-	if metadata != nil {
-		names = metadata.names
-	}
-	plan, planned := argSlotPlan(t.Args, params, names)
+	plan, planned := bl.g.callPlan(t, len(params))
 	if !planned {
-		return no()
+		panic("irbuild: a call through a function value placed for other parameters than the value's")
 	}
 	args := make([]ir.Temp, len(params))
 	for i := range args {
 		args[i] = ir.NoTemp
 	}
-	defaulted := len(t.Args) < len(params)
+	defaulted := len(plan.defaulted) > 0
 	if defaulted && metadata == nil {
 		// A local copy of a declared function (`g = parse`) keeps its
 		// defaults: the call goes through the function's shorter value,
@@ -680,7 +663,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 		// Only the final operand may stay unforced. An assertion subject
 		// also forces it, because it names the final operand twice, in its
 		// row and in the call.
-		v, k, ok = bl.coerceEmpty(a, v, k, params[slot])
+		v, k, ok = bl.convertTo(a, v, k, params[slot])
 		if !ok {
 			return no()
 		}
@@ -696,7 +679,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 			// too, so each default is evaluated here, once.
 			group, callee = metadata.entryGroup, metadata.entry
 			params = group.params
-			for len(args) < len(params) {
+			for range params[len(args):] {
 				args = append(args, ir.NoTemp)
 			}
 		}
@@ -760,7 +743,7 @@ func irCallableValueKind(k kind) bool {
 // irRetainedSeqKind is a lowered `Iter<T>` over a retained element: a value
 // like any other, held as the `rt.Seq` closure, in a binding, a parameter, a
 // result, a field, a payload or an element. A declared `Iter<T>` has this
-// kind too (structuralTypeOf), and a source entering one is viewed (seqView).
+// kind too (typeOf), and a source entering one is viewed (seqView).
 func irRetainedSeqKind(k kind) bool {
 	return k.tag == tagSeq && k.comp != nil && len(k.comp.parts) == 1 && (irCallableValueKind(k.comp.parts[0]) || k.comp.parts[0] == kindUnit)
 }
@@ -772,24 +755,21 @@ func irRetainedSeqKind(k kind) bool {
 // symbol is shared with direct calls and bodies.
 func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if bl.g.onces[t.Name] != nil && !bl.g.blockImported(t) {
+	if sym := bl.g.checkedRef(t.Line, t.Col); sym != nil && sym.Kind == analysis.SymbolOnce {
 		return no()
 	}
-	if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, true); handled {
+	decl := bl.g.funcDeclAt(t.Line, t.Col)
+	if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, decl, true); handled {
 		// A stdlib sibling resolves before `g.funcs`, as a call to it does.
 		return v, k, mobile, ok
 	}
 	if bl.g.defaultFilledRef(t) {
 		return bl.callFuncValue(t, t.Name)
 	}
-	sig := bl.g.funcs[t.Name]
-	if sig != nil && bl.g.blockImported(t) {
-		// A block `import` shadows the module's function of the name.
-		sig = nil
-	}
+	sig := bl.g.sigByDecl[decl]
 	if sig == nil && bl.g.files != nil {
 		// `ident` after `import span.{ident}`.
-		if site, ok := bl.g.files.lookupBare(bl.g.srcFA(), t); ok && site.fn != nil && site.unit != bl.g.fileUnit {
+		if site, ok := bl.g.files.byDecl[decl]; ok && decl != nil && site.fn != nil && site.unit != bl.g.fileUnit {
 			return bl.siblingFuncRef(t, site.unit, site.fn, site.host)
 		}
 	}
@@ -808,7 +788,7 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		sig = inst.sig
 	}
 	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil || sig.tps != nil {
-		if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, false); handled {
+		if v, k, mobile, ok, handled := bl.stdOwnFuncRef(t, decl, false); handled {
 			return v, k, mobile, ok
 		}
 		return no()
@@ -829,15 +809,15 @@ func (bl *irScalarBuilder) funcRef(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 }
 
 // irDistinctParamBinding is the name a lambda parameter pattern `Dur(n)`
-// binds when the parameter's kind is the wrapping distinct the pattern names;
+// binds when the parameter's kind is a wrapping distinct, which the
+// pattern's head names (the checker types the pattern against the value);
 // `_` for `Dur(_)`. Any other pattern answers false.
-func irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
+func (g *gen) irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
 	ep, ok := pattern.(*ast.EnumPattern)
 	if !ok || k.tag != tagNamed || !irWrappingDistinct(k.def) {
 		return "", false
 	}
-	owner, member, ok := patternHeadAsWritten(ep.Variant)
-	if !ok || owner != "" || member != k.def.nomi {
+	if _, isVariant := g.patternVariant(ep.Variant); isVariant {
 		return "", false
 	}
 	if ep.Binding != "" && ep.Payload == nil {
@@ -850,31 +830,6 @@ func irDistinctParamBinding(pattern ast.Node, k kind) (string, bool) {
 		return "_", true
 	}
 	return "", false
-}
-
-// irPatternHeadKind is the type a self-typing parameter pattern names
-// (`Dur(n)` names Dur), or kindInvalid.
-func (g *gen) irPatternHeadKind(pattern ast.Node) kind {
-	ep, ok := pattern.(*ast.EnumPattern)
-	if !ok {
-		return kindInvalid
-	}
-	if d := g.selfHeadDef(ep.Variant); d != nil {
-		return named(d)
-	}
-	owner, member, ok := g.patternHead(ep.Variant)
-
-	if !ok || owner != "" {
-		return kindInvalid
-	}
-	d, found := g.namedType(member)
-	if !found || !d.isDistinct || g.genericTemplates[member] != nil {
-		// A generic distinct's pattern (`fn Wrap(x) ->`) names no
-		// instance; the checker's type for the parameter does
-		// (irParamPatternKind).
-		return kindInvalid
-	}
-	return named(d)
 }
 
 // irFlatTupleParam reports a tuple pattern of names and wildcards whose arity

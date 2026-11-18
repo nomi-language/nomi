@@ -30,8 +30,7 @@ package irbuild
 //   - a `Result<T, AssertionFailure>` outside the retained prelude payloads.
 //
 // `check` is lowered anywhere it is written, test body or not: its
-// delivery is a value, so no boundary decides it. The Go reader spells no
-// `check`, so a test body holding one is retained for the VM only.
+// delivery is a value, so no boundary decides it.
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
@@ -47,10 +46,9 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	if _, named := t.Args[0].(*ast.NamedArg); named {
 		return false
 	}
-	if id, bare := t.Func.(*ast.Ident); bare {
+	if _, bare := t.Func.(*ast.Ident); bare {
 		// `check(e)` after `import std::testing.check`, aliased or not.
-		module, name, isStd := stdBareFileFunc(bl.g.srcFA(), id)
-		return isStd && module == "testing" && name == "check"
+		return bl.g.calleeOf(t).Std == testingCheck
 	}
 	if !isTestingCheckCallee(t.Func) {
 		return false
@@ -110,11 +108,12 @@ func (bl *irScalarBuilder) testingCheck(t *ast.Call) (ir.Temp, kind, bool, bool)
 			return no()
 		}
 	}
+	// A Result's payload holds any value of the domain, and both are valid
+	// kinds: the lowered subject's and std's AssertionFailure.
 	result := bl.g.preludeInstanceOf(preludeSpecFor("std/results", "Result"), []kind{k, failure})
-	// kindInvalid: propagates — preludeInstanceOf answers it for an argument it rejected.
+	// kindInvalid: fenced — a Result over two valid kinds always forms; the panic names the invariant.
 	if result == kindInvalid {
-		bl.g.dc.note("a testing.check whose Result<T, AssertionFailure> is outside the retained payloads")
-		return no()
+		panic("irbuild: testing.check's Result<" + k.nomi() + ", AssertionFailure> did not form over a lowered subject")
 	}
 	if !mobile {
 		c := ir.NewCopy(bl.g.irNodePos(subject), bl.f.NewTemp(), subj)

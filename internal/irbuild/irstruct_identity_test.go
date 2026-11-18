@@ -196,7 +196,7 @@ func irReturnsStructTyped(fn *ir.Func) bool {
 // The second is the harder one to catch. `ir` has no declaration, so nothing
 // in the graph can say a field name is misspelled, only that the value the
 // machine built from it disagrees with the node, or that the name is not a
-// name at all. A misspelling is caught one layer up, by `irMakeStruct` taking
+// name at all. A misspelling is caught one layer up, by the builder taking
 // the names off `d.fields`, and by TestIRStruct_TheVMKeysFieldsByTheDeclaredName.
 func TestIRStruct_ABareIdentityOnAGraphIsReported(t *testing.T) {
 	build := func(typeName string, fieldNames []string) *ir.Func {
@@ -266,7 +266,7 @@ func TestIRStruct_TheVMKeysFieldsByTheDeclaredName(t *testing.T) {
 		"fn f(a: Int, b: String) -> Point\n  Point{x: a, y: b}\nend\n"
 	var fns []*ir.Func
 	prev := irFuncObserved
-	irFuncObserved = func(_ irFuncOrigin, name string, fn *ir.Func, _ bool) {
+	irFuncObserved = func(_ irFuncOrigin, name string, fn *ir.Func) {
 		if fn != nil && name == "f" {
 			fns = append(fns, fn)
 		}
@@ -322,8 +322,8 @@ func irStructKeys(sv *rt.Record) []string {
 // the whole production population, as an invariant the graph alone can check.
 //
 // A struct's field names come from its DECLARATION and not from the literal
-// that constructs it (`structValue` walks `d.fields` to assemble the operands
-// and `irMakeStruct` takes the names off the same slice), so every
+// that constructs it (the builder walks `d.fields` to assemble the operands
+// and takes the names off the same slice), so every
 // construction of one struct must name the same fields in the same ORDER,
 // whatever order the source wrote them in. A producer that took them off the
 // literal would disagree between two literals of one struct: `shapes.Status` is
@@ -466,7 +466,7 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 		{"a field value that is an operator", point,
 			"fn f(n: Int) -> Point\n  Point{x: n + 1, y: 2}\nend\n", true},
 		{"a field the literal omits", "struct D\n  x: Int\n  y: Int = 9\nend",
-			// The declared default fills the omitted field, as fillFieldDefaults does.
+			// The declared default fills the omitted field (fieldDefault).
 			"fn f(n: Int) -> D\n  D{x: n}\nend\n", true},
 		{"nested", point + "\n\nstruct Outer\n  p: Point\nend",
 			"fn f(p: Point) -> Outer\n  Outer{p:}\nend\n", true},
@@ -489,7 +489,7 @@ func TestIRStruct_WhichShapesAreRetained(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var seen []string
 			prev := irFuncObserved
-			irFuncObserved = func(_ irFuncOrigin, name string, f *ir.Func, _ bool) {
+			irFuncObserved = func(_ irFuncOrigin, name string, f *ir.Func) {
 				if f != nil {
 					seen = append(seen, name)
 				}
@@ -549,7 +549,7 @@ func irStructStdFuncs(t *testing.T) []*ir.Func {
 	buildStdlibIndex()
 	var out []*ir.Func
 	prev := irFuncObserved
-	irFuncObserved = func(origin irFuncOrigin, _ string, f *ir.Func, _ bool) {
+	irFuncObserved = func(origin irFuncOrigin, _ string, f *ir.Func) {
 		if origin == irFromStd && f != nil && irStructMentions(f) {
 			out = append(out, f)
 		}

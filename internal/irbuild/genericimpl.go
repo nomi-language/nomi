@@ -5,32 +5,30 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// An impl block on a GENERIC receiver, registered and built PER INSTANCE.
+// An impl block on a generic receiver, registered and built per instance.
 //
 // # Why per instance
 //
 // generictype.go monomorphizes a user generic struct to one *typeDef per
 // instantiation. `g.implsByIface[iface][kind]` is keyed on the `*typeDef`
-// POINTER, so an instance def is a NEW pointer, and an impl registered only on
-// the generic receiver would leave the table EMPTY for every instance. That
-// would be a WRONG ANSWER with no diagnostic: noEquatableImpl(k) would return
-// TRUE ("the builder has ESTABLISHED that no impl Equatable exists") and `==`
-// would take the STRUCTURAL fallback while a hand-written `impl Equatable for
-// Box<T>` sat unused. displayCode and the ordering arms would miss identically.
+// pointer, so an instance def is a new pointer, and an impl registered only on
+// the generic receiver would leave the map empty for every instance. That
+// would be a wrong answer with no diagnostic: noEquatableImpl(k) would answer
+// that no impl Equatable exists, and `==` would take the structural fallback
+// while a hand-written `impl Equatable for Box<T>` sat unused.
 //
-// So this file registers each impl block ONCE PER INSTANCE, under the
+// So this file registers each impl block once per instance, under the
 // template's substitution frame, so `implsByIface["Describe"][Wrapped<Point>]`
-// is a real entry and every consultation that reads the table gets the user's
+// is a real entry and every consultation that reads the map gets the user's
 // own impl.
 //
-// # A THIRD file rather than an extension of either neighbour
+// # A third file and not an extension of either neighbour
 //
-// genericmono.go monomorphizes a generic FUNCTION, whose instances are
-// FUNCTIONS reached through funcDecl/directCall. generictype.go monomorphizes a
-// generic TYPE, whose instances are TYPE DEFS reached through typeOf. This
-// mechanism produces neither: it populates a DISPATCH TABLE, and it reads
-// implDef, implsByIface and emitImpl, which are impl.go's. Folding it into either
-// neighbour would put two headers' worth of reasoning under one.
+// genericmono.go monomorphizes a generic function, whose instances are
+// functions reached through a call. generictype.go monomorphizes a generic
+// type, whose instances are type defs reached through typeOf. This mechanism
+// produces neither: it fills g.implsByIface for an instance, and it reads
+// implDef, implsByIface and emitImpl, which are impl.go's.
 //
 // What the three genuinely share is `g.genericSubst`, and they already share it.
 // That is the single insertion point typeOf's *ast.SimpleType arm consults, which
@@ -252,10 +250,9 @@ func implWhereNamesTemplateParams(ib *ast.ImplBlock, tpl *genericTemplate) bool 
 // registerInstanceImpls registers every one of tpl's impl blocks against the
 // instance def, under the substitution frame, and queues each to be built.
 //
-// Reports the reason the INSTANCE cannot be admitted, so genericInstance can
-// decline rather than build a def whose dispatch table is half-populated -- which
-// is the state templateWall existed to prevent and which this must not
-// reintroduce by a different route.
+// Reports the reason the instance cannot be admitted, so genericInstance can
+// decline and not build a def only some of whose impls are registered, which
+// is the state templateWall prevents for a template.
 //
 // # The declaration-level bound is not checked here
 //
@@ -278,7 +275,7 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 		return "", ""
 	}
 	recv := named(d)
-	g.pushGenericSubst(tpl, args)
+	g.pushGenericSubst(substImpl, tpl, args, d.genericTypes)
 	defer g.popGenericSubst()
 	for _, it := range tpl.impls {
 		if it.why != "" {
@@ -300,7 +297,7 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 		// an unresolved name again, which is the refusal this mechanism exists
 		// to dissolve, arriving one phase later.
 		g.genericImplQueue = append(g.genericImplQueue,
-			&genericImplInst{impl: id, tpl: tpl, args: args})
+			&genericImplInst{impl: id, tpl: tpl, args: args, recv: d})
 	}
 	tpl.registerSiblingInstances(d)
 	return "", ""
@@ -351,12 +348,11 @@ func (g *gen) genericInstRefusal(t *ast.GenericType, tpl *genericTemplate) (stri
 // isGenericImplTemplate reports whether ib is an impl block this file owns --
 // one whose receiver names a generic template that admitted it.
 //
-// Asked by implDecl, which must emit and refuse NOTHING for such a block. The
-// membership test is the template's own `impls` list rather than a re-derivation
-// from the receiver spelling, because the two could disagree: a template WALLED
+// Asked by implDecl, which must lower and refuse nothing for such a block. The
+// membership test is the template's own `impls` list and not a re-derivation
+// from the receiver spelling, because the two could disagree: a template walled
 // by collectGenericImpls keeps its blocks out of the list, and those blocks must
-// keep reporting at their own position rather than falling silent. A spelling
-// test would silence them.
+// keep reporting at their own position. A spelling test would silence them.
 func (g *gen) isGenericImplTemplate(ib *ast.ImplBlock) bool {
 	tpl := g.genericTemplates[implReceiverBaseName(ib.Receiver)]
 	if tpl == nil || tpl.why != "" {
@@ -370,49 +366,41 @@ func (g *gen) isGenericImplTemplate(ib *ast.ImplBlock) bool {
 	return false
 }
 
-// flushGenericImpls emits the Go functions and dispatch bindings for every
-// instance impl this module registered.
+// flushGenericImpls lowers the functions of every instance impl this module
+// registered.
 //
-// A WORKLIST rather than a range, for flushMonoInstances' reason: emitting one
-// body can queue more, because a body may construct a FURTHER instantiation whose
-// own impls are registered at that moment. The loop re-reads len() each turn.
+// A worklist and not a range, for flushMonoInstances' reason: lowering one
+// body can queue more, because a body may construct a further instantiation
+// whose own impls are registered at that moment. The loop re-reads len() each
+// turn.
 //
 // # The queue is deliberately not rolled back by snapshot()
 //
-// `genericStructLit` lowers a literal's field values TWICE -- once into a probe
-// run discarded with `g.snapshot()`, once for real -- and a probe run can MINT an
-// instance, which registers that instance's impls onto this queue. snapshot does
-// not undo it, and must not.
+// A run discarded with `g.snapshot()` can mint an instance, which registers
+// that instance's impls onto this queue. snapshot does not undo it, and must
+// not.
 //
-// The reason is that the INSTANCE is not rolled back either: `g.genericInsts` is
-// an intern table and a discarded run's entry survives, which is correct (a
-// second mention of one instantiation must get one answer). Truncating the
-// queue while leaving the instance interned would leave an interned instance
-// whose impls were never built, and the next real use would find it interned,
-// skip registration, and dispatch through a table entry that does not exist:
-// a TRAP at run time.
+// The instance is not rolled back either: `g.genericInsts` is an intern table
+// and a discarded run's entry survives, which is correct (a second mention of
+// one instantiation must get one answer). Truncating the queue while leaving
+// the instance interned would leave an interned instance whose impls were
+// never built. The next real use would find it interned and skip
+// registration, and a dispatch on it would find no impl at run time.
 //
 // So the two must be rolled back together or neither, and neither is the safe
-// choice. What it costs is that a probe run whose outer literal then refuses can
-// leave one instance's impl functions built and unreferenced: DEAD but
-// harmless, since nothing calls them. The opposite hazard, speculation dropping
-// a real refusal, does not apply here, because this queue holds build work and
-// never a refusal.
+// choice. What it costs is that a discarded run can leave one instance's impl
+// functions built and unreferenced, which is harmless, since nothing calls
+// them. The queue holds build work and never a refusal, so a discarded run
+// drops no refusal through it.
 func (g *gen) flushGenericImpls() {
-	// From where the last flush stopped: a VM-only test body built after the
+	// From where the last flush stopped: a test body lowered after the
 	// module walk can mint an instance, and its impls are built by a second
 	// flush without building the earlier ones again.
 	for ; g.genericImplsDone < len(g.genericImplQueue); g.genericImplsDone++ {
 		e := g.genericImplQueue[g.genericImplsDone]
-		if e.subst != nil {
-			g.pushIfaceSubst(e.subst)
-			g.emitImpl(e.impl)
-			g.popIfaceSubst()
-			continue
-		}
-		g.pushGenericSubst(e.tpl, e.args)
+		g.pushGenericImplInst(e)
 		g.emitImpl(e.impl)
-		g.popGenericSubst()
+		g.popSubst()
 	}
 }
 
@@ -427,28 +415,50 @@ type genericImplInst struct {
 	impl *implDef
 	tpl  *genericTemplate
 	args []kind
+	// recv is the instance the block is for, whose checker types the
+	// frame carries (typeDef.genericTypes), read when the frame is entered
+	// since a later construction may supply them.
+	recv *typeDef
 	// subst is an already-solved frame, for a queue entry whose specialization
 	// is not a (template, arguments) pair. A METHOD instantiation is that case:
 	// its frame is the receiver's substitution plus the method's own solved
 	// parameters, and there is no genericTemplate whose params they are. Mutually
 	// exclusive with tpl/args, and pushed through pushIfaceSubst, which writes
 	// the SAME g.genericSubst stack — there is deliberately no fourth stack.
-	subst map[string]kind
+	// substTypes is subst as the checker's types, nil where it has none.
+	subst      map[string]kind
+	substTypes map[string]analysis.Type
 }
 
-// templateCallInstance is the instance of tpl a type-qualified call
-// `Span.new(1, 5)` or `Tree.value_or(Tree.Leaf, "none")` names when no
-// operand is already one: the impl block that supplies method, at the type
-// arguments the checker instantiated the call at (implRecvTypeArgs).
-func (g *gen) templateCallInstance(t *ast.Call, tpl *genericTemplate, method string) (kind, bool) {
+// pushGenericImplInst enters e's frame: the receiver instance's, or the
+// solved frame of a std container's impl at a program type.
+func (g *gen) pushGenericImplInst(e *genericImplInst) {
+	if e.subst != nil {
+		g.pushSubst(substImpl, e.impl, substFrame{kinds: e.subst, checked: e.substTypes})
+		return
+	}
+	var types []analysis.Type
+	if e.recv != nil {
+		types = e.recv.genericTypes
+	}
+	g.pushGenericSubst(substImpl, e.tpl, e.args, types)
+}
+
+// templateCallInstance is the instance of tpl, a template of og, a
+// type-qualified call `Span.new(1, 5)` or `Tree.value_or(Tree.Leaf,
+// "none")` names when no operand is already one: the impl block that
+// supplies method, at the type arguments the checker instantiated the call
+// at (implRecvTypedArgs), built by og in its own kinds.
+func (g *gen) templateCallInstance(og *gen, t *ast.Call, tpl *genericTemplate, method string) (kind, bool) {
 	var args []kind
+	var types []analysis.Type
 	for _, it := range tpl.impls {
 		for _, item := range it.decl.Items {
 			f, ok := implItemFunc(item)
 			if !ok || f.Name != method {
 				continue
 			}
-			got, ok := g.implRecvTypeArgs(t.Func, it.decl, len(tpl.params))
+			got, gotTypes, ok := g.implRecvTypedArgs(og, t.Func, it.decl, len(tpl.params))
 			if !ok {
 				return kindInvalid, false
 			}
@@ -457,7 +467,7 @@ func (g *gen) templateCallInstance(t *ast.Call, tpl *genericTemplate, method str
 				// the call is not this question's to settle.
 				return kindInvalid, false
 			}
-			args = got
+			args, types = got, gotTypes
 		}
 	}
 	if args == nil {
@@ -468,7 +478,7 @@ func (g *gen) templateCallInstance(t *ast.Call, tpl *genericTemplate, method str
 			return kindInvalid, false
 		}
 	}
-	k, ok := g.genericInstance(tpl, args)
+	k, ok := og.genericInstance(tpl, args, types)
 	if !ok || k.tag != tagNamed {
 		return kindInvalid, false
 	}
@@ -476,34 +486,55 @@ func (g *gen) templateCallInstance(t *ast.Call, tpl *genericTemplate, method str
 }
 
 // implRecvTypeArgs is the type arguments of impl block ib's receiver at the
-// call whose callee is ref, n of them: a position the receiver writes as
-// one of the block's type parameters (`T` of `impl Box<T>`) is the
-// argument the checker instantiated the call at (calleeTypeArgs), and a
+// call whose callee is ref, n of them, as og, the gen that declares ib,
+// names them: a position the receiver writes as one of the block's type
+// parameters (`T` of `impl Box<T>`) is the argument the checker
+// instantiated the call at (calleeTypeArgs, imported into og), and a
 // concrete one (`impl Box<Int>`) is itself.
-func (g *gen) implRecvTypeArgs(ref ast.Node, ib *ast.ImplBlock, n int) ([]kind, bool) {
+func (g *gen) implRecvTypeArgs(og *gen, ref ast.Node, ib *ast.ImplBlock, n int) ([]kind, bool) {
+	ks, _, ok := g.implRecvTypedArgs(og, ref, ib, n)
+	return ks, ok
+}
+
+// implRecvTypedArgs is implRecvTypeArgs with each argument the call
+// instantiated as the checker's type too (calleeTypedArgs); a concrete
+// one the receiver writes has none.
+func (g *gen) implRecvTypedArgs(og *gen, ref ast.Node, ib *ast.ImplBlock, n int) ([]kind, []analysis.Type, bool) {
 	gt, ok := ib.Receiver.(*ast.GenericType)
 	if !ok || len(gt.Params) != n {
-		return nil, false
+		return nil, nil, false
 	}
-	names := analysis.ReceiverTypeParamNames(ib.Receiver, g.declaresTypeName)
+	names := analysis.ReceiverTypeParamNames(ib.Receiver, og.declaresTypeName)
 	out := make([]kind, n)
+	var types []analysis.Type
 	for i, p := range gt.Params {
 		if i < len(names) && names[i] != "" {
-			ks, ok := g.calleeTypeArgs(ref, names[i:i+1])
+			ks, ts, ok := g.calleeTypedArgs(ref, names[i:i+1])
 			if !ok {
-				return nil, false
+				return nil, nil, false
 			}
 			out[i] = ks[0]
+			if og != g {
+				if out[i], ok = og.importKind(ks[0]); !ok {
+					return nil, nil, false
+				}
+			}
+			if ts[0] != nil {
+				if types == nil {
+					types = make([]analysis.Type, n)
+				}
+				types[i] = ts[0]
+			}
 			continue
 		}
-		k := g.typeOf(p)
+		k := og.typeOf(p)
 		// kindInvalid: lookup — a concrete receiver argument with no kind names no instance, and the caller tries the next route.
 		if k == kindInvalid {
-			return nil, false
+			return nil, nil, false
 		}
 		out[i] = k
 	}
-	return out, true
+	return out, types, true
 }
 
 // implsOf is every impl block registered for the receiver k: the module's own

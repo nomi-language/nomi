@@ -29,7 +29,7 @@ import
     divide.Divide
     equatable.Equatable
     hashable.Hashable
-    int.{Int, Int64, NonZeroInt}
+    int.{Int, Int64, NonNegativeInt, NonZeroInt}
     iter.Iter
     lists.List
     literals.{Fragment, Literal}
@@ -203,7 +203,7 @@ impl Duration
     /// seconds in two digits each. A negative length has a leading `-`. The
     /// seconds are whole unless `fraction_digits` asks for that many digits
     /// of the second after a `.`. A count above 9 (nanoseconds) writes 9
-    /// digits and one below 0 writes none. What the digits do not show is
+    /// digits. What the digits do not show is
     /// cut off, not rounded. `Duration.parse_clock` reads it back.
     //! assert Duration.clock(Duration.seconds(88)) == "00:01:28"
     //! assert Duration.clock(Duration.hours(100) + Duration.minutes(5)) == "100:05:00"
@@ -211,10 +211,10 @@ impl Duration
     //! assert Duration.clock(Duration.milliseconds(1_999)) == "00:00:01"
     //! assert Duration.clock(Duration.milliseconds(1_250), fraction_digits: 3) == "00:00:01.250"
     //
-    pub fn clock(d: Duration, fraction_digits: Int = 0) -> String
+    pub fn clock(d: Duration, fraction_digits: NonNegativeInt = 0) -> String
         Duration(ns) = d
         whole = Int.abs(ns / 1_000_000_000)
-        digits = Int.clamp(fraction_digits, 0..=9)
+        digits = Int.min(fraction_digits, 9)
 
         fraction = if digits == 0 then
             ""
@@ -491,7 +491,7 @@ fn parts(
 
     if digits == at then return Err(unexpected(text, at))
 
-    unit_end = digits + (String.drop(text, digits)
+    unit_end = digits + (String.slice(text, digits, String.length(text))
     |> Iter.take_while(fn m -> not is_ascii_digit(m))
     |> Iter.count())
 
@@ -538,7 +538,9 @@ end
 
 // The index after the run of ASCII digits in `text` that starts at `at`.
 fn digits_end(text: String, at: Int) -> Int
-    at + (String.drop(text, at) |> Iter.take_while(is_ascii_digit) |> Iter.count())
+    at + (String.slice(text, at, String.length(text))
+    |> Iter.take_while(is_ascii_digit)
+    |> Iter.count())
 end
 
 fn is_ascii_digit(mark: String) -> Bool
@@ -609,7 +611,7 @@ fn fraction(text: String, at: Int) -> Result<Int, NumberParseError>
                     Err(NumberParseError.TooManyFractionDigits{max: 9})
 
                 _ ->
-                    digits = String.drop(text, at + 1) |> String.pad_end(9, "0")
+                    digits = String.slice(text, at + 1, stop) |> String.pad_end(9, "0")
 
                     Ok(
                         String.to_int(digits)

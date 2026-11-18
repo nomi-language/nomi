@@ -1,14 +1,11 @@
 package irbuild
 
 import (
-	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-
-	"github.com/nomi-language/nomi/rt"
 )
 
 // A STDLIB interface, as an existential this builder can represent: a method
@@ -30,7 +27,7 @@ import (
 // `Comparable.compare`, `Equatable.equal`, `Hashable.hash` and `Debug.inspect`
 // lower at every receiver whose stdlib impl is lowered, and at a user struct
 // with a hand-written impl, through the stdlib FUNCTION index. So the wiring
-// adds exactly one arm to `implCall`, for the ERASED receiver, and leaves every
+// adds exactly one arm to the qualified call, for the ERASED receiver, and leaves every
 // other route untouched.
 //
 // `foreignIfaceOwner` looks a name up in `typeRegistry`, which
@@ -77,9 +74,9 @@ import (
 //
 // The anchor is therefore `(declaring module, name, validated declaration
 // shape)`, and the resulting `*ifaceDef` POINTER is the identity every
-// downstream comparison already uses — `implKeyFor`, `tableCall`'s
-// `recv.k.iface != d`, `implsByIface`. Nothing in the path compares a name.
-// TestStdIface_TwoSameNamedInterfacesDoNotCollapse and
+// downstream comparison already uses — `implKeyFor`, `implsByIface`. Nothing
+// in the path compares a name.
+// TestStdIface_ShadowingDeclarationIsNotTheSharedDef and
 // testdata/std_iface_shadow.nomi pin the negative half, which is the half a
 // name-keyed lookup gets wrong.
 //
@@ -87,9 +84,8 @@ import (
 //
 // opaque.go's and stdenum.go's reason, unchanged: a shared def has to be
 // shared, not merely may be, because kinds are compared by POINTER across gens.
-// It is SAFE because nothing about these defs is package-relative — every
-// parameter and result kind is a scalar or a process-wide rt type, and the
-// table is a variable in rt rather than in some package's output.
+// It is safe because these defs reach no program's declarations: every
+// parameter and result kind is a scalar or a process-wide rt type.
 // TestStdIfaceDefsArePackageNeutral is the guard on that precondition rather
 // than a comment claiming it.
 
@@ -108,7 +104,7 @@ type stdIfaceSpec struct {
 	methods []stdIfaceMethodSpec
 }
 
-// stdIfaceMethodSpec is one function, and the rt table that dispatches it.
+// stdIfaceMethodSpec is one function of a std interface.
 type stdIfaceMethodSpec struct {
 	name   string
 	params []stdIfaceParamSpec
@@ -122,12 +118,6 @@ type stdIfaceMethodSpec struct {
 	// SIGNATURE resolves through, so there is one answer to "is this the std
 	// type" rather than two.
 	resultKind func() kind
-	// rtVar is the dispatch table itself. Held as the VARIABLE rather than as
-	// its spelling for the reason opaqueSpec.goType is held as a type: a
-	// rename or a deletion in rt is then a Go compile error in this file, and
-	// the emitted spelling is DERIVED, so nobody types the pairing and it
-	// cannot disagree with itself.
-	rtVar any
 }
 
 // stdIfaceParamSpec is one declared parameter.
@@ -174,19 +164,18 @@ type stdIfaceParamSpec struct {
 // `fn make(n: Int) -> self` lowers, while `Result<self, String>`, `Maybe<self>`
 // and `List<self>` refuse; `from_json(json: Json) -> Result<self, ShapeError>` is
 // the second group. impl.go's `gapNestedSelfResult` states the mechanism and is
-// the row that fires. See ifaceturbofish_selfreturn_test.go, which pins both
-// halves.
+// the row that fires.
 //
 // `Debug` is a row even though it is universally auto-synthesized and its call
 // surface lowers without one, because a row does not, by itself, change any
-// route. `implCall`'s chain reaches `stdIfaceCall` only AFTER every arm that
-// names a function statically has declined, so a CONCRETE receiver takes the
+// route. The qualified call's chain reaches the erased arm only AFTER every
+// arm that names a function statically has declined, so a CONCRETE receiver takes the
 // direct call and the table is consulted only at positions that would
 // otherwise refuse: `fn f(v: Named) { Debug.inspect(v) }` over an erased
 // value, and `fn f<T>(v: T) where T: Debug` at the dictionary seam in
 // `dictBoundIface`.
 //
-// If an arm ABOVE `stdIfaceCall` in `implCall`'s chain ever routes a
+// If an arm ABOVE the erased one in that chain ever routes a
 // statically-known receiver through `rt.MDebugInspect`, this row stops being
 // additive. Nothing asserts that a concrete receiver lowers to a direct call:
 // the rendered output is identical either way, so no differential fixture can
@@ -199,7 +188,6 @@ var stdIfaceSpecs = []stdIfaceSpec{{
 		params:     []stdIfaceParamSpec{{name: "value", self: true}},
 		result:     "String",
 		resultKind: func() kind { return kindString },
-		rtVar:      rt.MDisplayToString,
 	}},
 }, {
 	module: "std/comparable",
@@ -212,7 +200,6 @@ var stdIfaceSpecs = []stdIfaceSpec{{
 		},
 		result:     "Ordering",
 		resultKind: func() kind { return stdEnumKind(stdEnumOrdering) },
-		rtVar:      rt.MComparableCompare,
 	}},
 }, {
 	module: "std/debug",
@@ -222,7 +209,6 @@ var stdIfaceSpecs = []stdIfaceSpec{{
 		params:     []stdIfaceParamSpec{{name: "value", self: true}},
 		result:     "String",
 		resultKind: func() kind { return kindString },
-		rtVar:      rt.MDebugInspect,
 	}},
 }}
 
@@ -255,21 +241,19 @@ var stdIfaceDefs = sync.OnceValue(func() []*ifaceDef {
 			// scanning, and that predicate must not depend on this table.
 			stdShared: true,
 			// A local declaration's unit is -1 and so is this: the def belongs
-			// to no generated module, which is what the empty `foreign` also
-			// says and what keeps useIfacePkg from registering an import for a
-			// table that lives in rt.
+			// to no unit of the program, which is what the empty `foreign`
+			// also says.
 			unit: -1,
 		}
 		for j := range s.methods {
 			ms := &s.methods[j]
 			im := ast.InterfaceMethod{Name: ms.name}
-			m := &ifaceMethod{name: ms.name, result: kindUnit, table: rtMethodName(ms.rtVar) != ""}
+			m := &ifaceMethod{name: ms.name, result: kindUnit, table: true}
 			for _, p := range ms.params {
 				// The canonical parameter carries a REAL `self` annotation, and
 				// it has to. Without it any AST-derived rule would read self@none
 				// off it while the spec row beside it says otherwise; a single
 				// derivation of self positions makes the annotation load-bearing.
-				// TestStdIface_CanonicalASTAgreesWithTheSpecRow is the guard.
 				var ann ast.TypeExpr
 				if p.self {
 					ann = &ast.SelfType{}
@@ -327,48 +311,6 @@ func stdIfaceOf(d *ifaceDef) (int, bool) {
 	return -1, false
 }
 
-// rtMethodName is the emitted spelling of an rt dispatch table, derived from
-// the variable rather than typed out beside it.
-//
-// Guarded: anything that is not a `*rt.Method` declared in exactly the rt package
-// answers "", which makes the spec row produce a table-less method — refused at
-// every dispatch site — rather than emitting an identifier nothing declares.
-func rtMethodName(v any) string {
-	t := reflect.TypeOf(v)
-	if t == nil || t.Kind() != reflect.Pointer {
-		return ""
-	}
-	e := t.Elem()
-	if e.PkgPath() != rtModulePath || !strings.HasPrefix(e.Name(), "Method[") {
-		return ""
-	}
-	name := rtTableVarName(v)
-	if name == "" {
-		return ""
-	}
-	return "rt." + name
-}
-
-// rtTableVarName recovers WHICH rt table a value is, by identity against the
-// declared set.
-//
-// A reflect value cannot name the variable it was read out of, so the pairing
-// has to exist somewhere; one switch, in the same file as the specs that use
-// it, is the smallest place it can be. TestStdIfaceTableNamesResolve asserts
-// every spec resolves to a non-empty name, so a row added without a pairing
-// fails there rather than silently emitting a table-less method.
-func rtTableVarName(v any) string {
-	switch v {
-	case any(rt.MDisplayToString):
-		return "MDisplayToString"
-	case any(rt.MComparableCompare):
-		return "MComparableCompare"
-	case any(rt.MDebugInspect):
-		return "MDebugInspect"
-	}
-	return ""
-}
-
 // --- anchoring -------------------------------------------------------------
 
 // stdIfaceAnchors resolves the specs against one module's analysis: the
@@ -405,7 +347,7 @@ func stdIfaceAnchorsWith(fa *analysis.FileAnalysis, anchors stdAnchors) (map[*as
 	// a stdlib SIGNATURE resolves through, so `Ordering` means the shared rt
 	// enum here or it means nothing. A module that cannot name `Ordering`
 	// therefore cannot anchor `Comparable`, which is the fail-safe direction:
-	// the table's result type would have had nothing to render as.
+	// the method's result kind would not resolve there.
 	for i := range stdIfaceSpecs {
 		s := &stdIfaceSpecs[i]
 		sym := fa.ModuleScope.Lookup(s.nomi)
@@ -514,11 +456,11 @@ func stdImporterOf(fa *analysis.FileAnalysis, sym *analysis.Symbol) string {
 // parameters, moves the self position, changes a result type, gives a row's
 // method a body or makes it host-backed produces NO anchor, and every
 // mention then refuses under
-// `stdlib interface` instead of lowering against a table whose Go type no
-// longer describes it.
+// `stdlib interface` instead of lowering against a shared def whose methods
+// no longer describe it.
 //
 // That is the one failure this file's identity machinery cannot otherwise
-// detect: a shape drift is a wrong answer, not a compile error.
+// detect: a shape drift is a wrong answer, not a refusal.
 //
 // An attached `//!` test is deliberately NOT a disqualifier — see
 // stdStructSpec.matches.
@@ -630,10 +572,10 @@ func (ms *stdIfaceMethodSpec) matches(im *ast.InterfaceMethod, anchors stdAnchor
 // kind the spec declares.
 //
 // Both halves, deliberately. The SPELLING is what a reader checks against the
-// std source by eye. The KIND is what the emitted table's Go type was built
-// from, resolved through stdTypeKind — the same function stdlib signatures go
-// through — so an `Ordering` that is some other module's `Ordering` produces no
-// anchor rather than a table typed on the wrong Go type.
+// std source by eye. The KIND is what the shared def's method was built
+// with, resolved through stdTypeKind, the same function stdlib signatures go
+// through, so an `Ordering` that is some other module's `Ordering` produces no
+// anchor rather than a def typed on the wrong kind.
 func stdIfaceNames(te ast.TypeExpr, nomi string, want kind, anchors stdAnchors) bool {
 	st, isSimple := te.(*ast.SimpleType)
 	if !isSimple || st.Name != nomi {

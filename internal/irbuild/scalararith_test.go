@@ -38,16 +38,16 @@ func TestScalarArith_TheWrittenOutSpellingAnswersAsTheOperator(t *testing.T) {
 // rather than left as an absence.
 //
 // The written-out scalar operator impls lower through a BUILDER ARM and
-// deliberately have no stdlibBindings row, so their std keys are still refused
-// by the index and still exempted in TestStdlibRefusesUnmappedHostFnsByName.
+// deliberately have no internal/stdlibbindings row, so their std keys are
+// still refused by the index.
 // They are the Int, Float and Decimal arithmetic operators plus String's `+`. None
 // can be a registry row, because a row is a named rt symbol of exactly the Nomi
 // arity and has nowhere to put the line a `/` fault must blame. Two things
 // follow and both are checkable here:
 //
 //   - The chain POSITION is what makes the calls lower, so an edit that moved
-//     scalarArithCall below stdlibCall would put every one of them straight back
-//     onto `stdlib host function` with nothing else failing.
+//     scalarOperatorCall below stdMethodCallPlan would put every one of them
+//     straight back onto `stdlib host function` with nothing else failing.
 //   - stdKey instantiates these keys (`int.Int.Add<Int, Int>.add`), while a
 //     bare spelling (`int.Int.add`) is the other candidate, so a future
 //     registry row has to decide which it is keyed on. That is the expiry
@@ -120,13 +120,13 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 // selecting on an owner STRING, recorded as a fact about the language rather
 // than as a claim about this package.
 //
-// scalarArithCall keys on seven names — `Add`, `Subtract`, `Multiply`, `Divide`
+// scalarArithOp keys on seven names — `Add`, `Subtract`, `Multiply`, `Divide`
 // as interfaces and `Int`, `Float`, `String` as types — and a name is the one
 // thing a user could in principle collide with. The obvious hazard is a module
 // declaring its own generic `interface Add<Rhs, Out>` whose `add` does something
-// else: implCall's ifaceNamed arm resolves a LOWERABLE local interface before
-// this arm is reached, but a NON-LOWERABLE local one with no `foreign` falls
-// through it, so on that path a user's call could have been claimed here.
+// else: scalarOperatorCall declines an owner ifaceNamed finds as a local or
+// imported interface, but one ifaceNamed does not answer for would fall
+// through that check, so on that path a user's call could be claimed here.
 //
 // IT CANNOT HAPPEN, and the reason is upstream of this package: all seven names
 // are RESERVED BY THE FRONT END. Each redeclaration is rejected:
@@ -143,7 +143,7 @@ func TestScalarArith_TheOperatorKeysStayUnbound(t *testing.T) {
 // relaxing one of the seven. It does NOT assert anything about irbuild, which is
 // the point — a guard inside irbuild could not see the change that breaks it.
 //
-// Related but NOT the same claim: scalarArithCall also declines a kindInvalid
+// Related but NOT the same claim: scalarOperatorCall also declines a kindInvalid
 // operand rather than claiming the call and suppressing, which is stricter than
 // scalarEqualCall. That is about keeping the chain's existing report for a call
 // whose operands refused, and it is checked by the corpus rather than here —

@@ -101,7 +101,7 @@ func TestMatch_TheProducerCannotBuildAQuestionNothingAsks(t *testing.T) {
 	NewMatchListMin(pos, 9, 1)
 }
 
-// TestMatch_NoFieldCarriesAConsumerDECISION, which is the IR/consumer line for
+// TestMatch_NoFieldCarriesAConsumerDecision, which is the IR/consumer line for
 // this class.
 //
 // The node is read back field by field and each field is one of: which
@@ -169,9 +169,8 @@ func TestBind_IsADeclarationAndNotACopy(t *testing.T) {
 		t.Errorf("a binding names %v from %v", first.Dst(), first.Src())
 	}
 
-	// A Copy has no name, which is the difference. `tupleDestructure` builds
-	// a Bind for a fresh name and a Copy for a rebind, which reuses the
-	// binding it finds.
+	// A Copy has no name, which is the difference. internal/irbuild/irbind.go
+	// builds a Bind for a fresh name and a Copy for a rebind or a hold.
 	c := NewCopy(pos, 1, 9)
 	if c.Dst() != 1 || c.Src() != 9 {
 		t.Errorf("a copy names %v from %v", c.Dst(), c.Src())

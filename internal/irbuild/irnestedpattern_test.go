@@ -82,9 +82,8 @@ end
 `
 
 // A variant pattern nested in a prelude constructor's payload tests the outer
-// tag, projects the payload and tests the inner tag in the success arm, as
-// native's matchArm recursion does. A failed inner test proceeds to the next
-// arm.
+// tag, projects the payload and tests the inner tag in the success arm. A
+// failed inner test proceeds to the next arm.
 func TestIRNestedPattern_VariantInsidePreludePayload(t *testing.T) {
 	names := irRetainedFuncNames(t, irNestedPatternSource)
 	for _, fn := range []string{"classify", "outcome", "main"} {

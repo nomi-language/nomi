@@ -497,6 +497,10 @@ func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *proto
 			s.publishFFIInvalidation(ctx)
 			continue
 		}
+		if isManifestURI(uri) {
+			s.manifestChanged(uri)
+			continue
+		}
 		if s.followsInput(uri) {
 			// An editor's text of an open input wins over the disk's.
 			if !s.inputOpen(uri) {

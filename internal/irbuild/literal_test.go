@@ -83,7 +83,7 @@ func walkForTaggedString(nodes []ast.Node, out **ast.TaggedString) {
 //
 // literal.go identifies the fragment enum by SPEC POINTER, resolved once
 // through the (Origin, Name) rule. If the spec table ever stops carrying that
-// row the pointer goes nil, `lowerTaggedLiteral` declines for every site, and
+// row the pointer goes nil, `taggedLiteral` declines for every site, and
 // every typed literal silently reverts to a refusal — green everywhere else.
 func TestLiteral_FragmentSpecIsResolved(t *testing.T) {
 	if fragmentSpec == nil {

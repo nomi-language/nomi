@@ -10,9 +10,7 @@ assertions.nomi:AssertionFailure.inspect	ran
 assertions.nomi:AssertionPipelineStage.inspect	ran
 assertions.nomi:AssertionValue.inspect	ran
 assertions.nomi:SubtestFailure.inspect	ran
-base64.nomi:base64.encode arity 1	ran
 base64.nomi:base64.encode default 2	ran
-base64.nomi:base64.encode_url arity 1	ran
 base64.nomi:base64.encode_url default 2	ran
 base64.nomi:encode	ran
 base64.nomi:encode_url	ran
@@ -317,41 +315,23 @@ calendar.nomi:Years.hash	ran
 calendar.nomi:Years.inspect	ran
 calendar.nomi:Years.to_string	ran
 calendar.nomi:ZonedAttempt.inspect	ran
-calendar.nomi:calendar.Date.format arity 2	ran
 calendar.nomi:calendar.Date.format default 3	ran
-calendar.nomi:calendar.Date.parse_in arity 2	ran
-calendar.nomi:calendar.Date.parse_in arity 3	ran
 calendar.nomi:calendar.Date.parse_in default 3	ran
 calendar.nomi:calendar.Date.parse_in default 4	ran
-calendar.nomi:calendar.DateTime.format arity 2	ran
-calendar.nomi:calendar.DateTime.format arity 3	ran
 calendar.nomi:calendar.DateTime.format default 3	ran
 calendar.nomi:calendar.DateTime.format default 4	ran
-calendar.nomi:calendar.DateTime.in_zone arity 2	ran
 calendar.nomi:calendar.DateTime.in_zone default 3	ran
-calendar.nomi:calendar.NaiveDateTime.format arity 2	ran
-calendar.nomi:calendar.NaiveDateTime.format arity 3	ran
 calendar.nomi:calendar.NaiveDateTime.format default 3	ran
 calendar.nomi:calendar.NaiveDateTime.format default 4	ran
-calendar.nomi:calendar.NaiveDateTime.from_instant arity 1	ran
 calendar.nomi:calendar.NaiveDateTime.from_instant default 2	ran
-calendar.nomi:calendar.NaiveDateTime.new arity 5	ran
-calendar.nomi:calendar.NaiveDateTime.new arity 6	ran
 calendar.nomi:calendar.NaiveDateTime.new default 6	ran
 calendar.nomi:calendar.NaiveDateTime.new default 7	ran
-calendar.nomi:calendar.NaiveDateTime.to_instant arity 1	ran
 calendar.nomi:calendar.NaiveDateTime.to_instant default 2	ran
-calendar.nomi:calendar.Time.format arity 2	ran
 calendar.nomi:calendar.Time.format default 3	ran
-calendar.nomi:calendar.Time.new arity 2	ran
-calendar.nomi:calendar.Time.new arity 3	ran
 calendar.nomi:calendar.Time.new default 3	ran
 calendar.nomi:calendar.Time.new default 4	ran
-calendar.nomi:calendar.Time.parse_in arity 2	ran
-calendar.nomi:calendar.Time.parse_in arity 3	ran
 calendar.nomi:calendar.Time.parse_in default 3	ran
 calendar.nomi:calendar.Time.parse_in default 4	ran
-calendar.nomi:calendar.TimeUnit.format_relative arity 3	ran
 calendar.nomi:calendar.TimeUnit.format_relative default 4	ran
 calendar.nomi:component	ran
 calendar.nomi:day_nanos	ran
@@ -376,10 +356,6 @@ collation.nomi:Collator.new	ran
 collation.nomi:Collator.sort_key	ran
 collation.nomi:Strength.equal	ran
 collation.nomi:Strength.inspect	ran
-collation.nomi:collation.Collator.new arity 1	ran
-collation.nomi:collation.Collator.new arity 2	ran
-collation.nomi:collation.Collator.new arity 3	ran
-collation.nomi:collation.Collator.new arity 4	ran
 collation.nomi:collation.Collator.new default 2	ran
 collation.nomi:collation.Collator.new default 3	ran
 collation.nomi:collation.Collator.new default 4	ran
@@ -431,9 +407,7 @@ decimal.nomi:Ratios.try_from	ran
 decimal.nomi:Ratios.unchecked	ran
 decimal.nomi:RoundingMode.inspect	ran
 decimal.nomi:RoundingMode.to_string	ran
-decimal.nomi:decimal.Decimal.parse_in arity 2	ran
 decimal.nomi:decimal.Decimal.parse_in default 3	ran
-decimal.nomi:decimal.Decimal.parse_percent_in arity 2	ran
 decimal.nomi:decimal.Decimal.parse_percent_in default 3	ran
 duration.nomi:Duration.Add<Duration, Duration>.add	ran
 duration.nomi:Duration.Divide<NonZeroInt, Duration>.divide	ran
@@ -473,7 +447,6 @@ duration.nomi:NonZeroDuration.unchecked	ran
 duration.nomi:PositiveDuration.try_from	ran
 duration.nomi:PositiveDuration.unchecked	ran
 duration.nomi:digits_end	ran
-duration.nomi:duration.Duration.format arity 2	ran
 duration.nomi:duration.Duration.format default 3	ran
 duration.nomi:fraction	ran
 duration.nomi:is_ascii_digit	ran
@@ -514,18 +487,11 @@ float.nomi:NonZeroFloat.try_from	ran
 float.nomi:NonZeroFloat.unchecked	ran
 float.nomi:PositiveFloat.try_from	ran
 float.nomi:PositiveFloat.unchecked	ran
-float.nomi:float.Float.format arity 2	ran
-float.nomi:float.Float.format arity 3	ran
 float.nomi:float.Float.format default 3	ran
 float.nomi:float.Float.format default 4	ran
-float.nomi:float.Float.format_percent arity 2	ran
 float.nomi:float.Float.format_percent default 3	ran
-float.nomi:float.Float.parse_in arity 2	ran
 float.nomi:float.Float.parse_in default 3	ran
-float.nomi:float.Float.parse_percent_in arity 2	ran
 float.nomi:float.Float.parse_percent_in default 3	ran
-float.nomi:float.Float.round arity 1	ran
-float.nomi:float.Float.round arity 2	ran
 float.nomi:float.Float.round default 2	ran
 float.nomi:float.Float.round default 3	ran
 fs/host.nomi:FileSystem.inspect	ran
@@ -582,15 +548,10 @@ int.nomi:PositiveInt.try_from	ran
 int.nomi:PositiveInt.unchecked	ran
 int.nomi:Radix.try_from	ran
 int.nomi:Radix.unchecked	ran
-int.nomi:int.Int.format arity 2	ran
-int.nomi:int.Int.format arity 3	ran
 int.nomi:int.Int.format default 3	ran
 int.nomi:int.Int.format default 4	ran
-int.nomi:int.Int.from_digits arity 1	ran
 int.nomi:int.Int.from_digits default 2	ran
-int.nomi:int.Int.parse_in arity 2	ran
 int.nomi:int.Int.parse_in default 3	ran
-int.nomi:int.Int.to_digits arity 1	ran
 int.nomi:int.Int.to_digits default 2	ran
 io.nomi:Error.equal	ran
 io.nomi:Error.inspect	ran
@@ -612,9 +573,7 @@ io.nomi:Writer.inspect	ran
 io.nomi:Writer.print	ran
 io.nomi:Writer.release	ran
 io.nomi:code_text	ran
-io.nomi:io.File.read arity 1	ran
 io.nomi:io.File.read default 2	ran
-io.nomi:io.Reader.read arity 1	ran
 io.nomi:io.Reader.read default 2	ran
 io.nomi:io.Writer.from_fn default 1	ran
 io.nomi:io.Writer.from_fn default 2	ran
@@ -749,6 +708,7 @@ strings.nomi:String.drop	ran
 strings.nomi:String.empty_sum	ran
 strings.nomi:String.equal	ran
 strings.nomi:String.find_in	ran
+strings.nomi:String.from_codepoints	ran
 strings.nomi:String.inspect	ran
 strings.nomi:String.join_list	ran
 strings.nomi:String.pad_end	ran
@@ -757,13 +717,9 @@ strings.nomi:String.take	ran
 strings.nomi:String.to_string	ran
 strings.nomi:String.to_typed_literal	ran
 strings.nomi:padding	ran
-strings.nomi:strings.String.join_list arity 2	ran
-strings.nomi:strings.String.join_list arity 3	ran
 strings.nomi:strings.String.join_list default 3	ran
 strings.nomi:strings.String.join_list default 4	ran
-strings.nomi:strings.String.pad_end arity 2	ran
 strings.nomi:strings.String.pad_end default 3	ran
-strings.nomi:strings.String.pad_start arity 2	ran
 strings.nomi:strings.String.pad_start default 3	ran
 supervisors.nomi:Backoff.inspect	ran
 supervisors.nomi:FlushOutcome.inspect	ran
@@ -773,12 +729,7 @@ supervisors.nomi:Supervisor.flush	ran
 supervisors.nomi:Supervisor.inspect	ran
 supervisors.nomi:Supervisor.new	ran
 supervisors.nomi:Wait.inspect	ran
-supervisors.nomi:supervisors.Supervisor.flush arity 1	ran
 supervisors.nomi:supervisors.Supervisor.flush default 2	ran
-supervisors.nomi:supervisors.Supervisor.new arity 1	ran
-supervisors.nomi:supervisors.Supervisor.new arity 2	ran
-supervisors.nomi:supervisors.Supervisor.new arity 3	ran
-supervisors.nomi:supervisors.Supervisor.new arity 4	ran
 supervisors.nomi:supervisors.Supervisor.new default 2	ran
 supervisors.nomi:supervisors.Supervisor.new default 3	ran
 supervisors.nomi:supervisors.Supervisor.new default 4	ran

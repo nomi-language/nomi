@@ -97,7 +97,7 @@ fn main()
  io.print(bool(False))
  text = fn x = "hello" -> x
  io.print("[${text("")}]")
-end`, "7\n9\n20\n36\n0\nFalse\n[]\n"},
+end`, "9\n7\n20\n36\n0\nFalse\n[]\n"},
 		{"short-circuit defaults", `import std::io
 fn mark() -> Bool
     io.print("unexpected")

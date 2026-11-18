@@ -16,14 +16,8 @@ func Todos(nodes []ast.Node, fa *FileAnalysis) []*ast.Todo {
 	return todos
 }
 
-// Dbgs is every `dbg` expression in nodes, in source order. `nomi build`
-// refuses a program with any, and the language server reports each one.
-func Dbgs(nodes []ast.Node) []*ast.Dbg {
-	_, dbgs := TodosAndDbgs(nodes, nil)
-	return dbgs
-}
-
-// TodosAndDbgs is Todos and Dbgs from one walk of nodes.
+// TodosAndDbgs is Todos and every `dbg` expression in nodes, in source
+// order, from one walk. `nomi build` refuses a program with either.
 func TodosAndDbgs(nodes []ast.Node, fa *FileAnalysis) (todos []*ast.Todo, dbgs []*ast.Dbg) {
 	for _, n := range nodes {
 		WalkNodes(n, func(c ast.Node) {

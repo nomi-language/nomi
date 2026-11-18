@@ -1,7 +1,7 @@
 import food_chain
 
 test "food chain"
-    [
+    cases: List<(String, PositiveInt, Int, List<String>)> = [
         (
             "fly",
             1,
@@ -179,7 +179,8 @@ test "food chain"
             ],
         ),
     ]
-    |> subtests (description, start, stop, expected), description
+
+    subtests cases, (description, start, stop, expected), description
         assert food_chain.recite(start, stop) == expected
     end
 end

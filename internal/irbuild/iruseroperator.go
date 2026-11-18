@@ -5,21 +5,37 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// userOperatorCall selects the impl through operImplFor. Exact parameter kinds
+// userOperatorCall lowers `a op b`, whose operator interface is spec, as
+// a call of the impl function og's item it, whose parameter and result kinds as this gen names them are
+// params and result: the impl the checker recorded for the operator
+// (recordedOperatorImpl), or for an operator over a type parameter the one
+// its instance's kinds select (instanceOperatorImpl). Exact parameter kinds
 // need no coercion instructions; wider signatures are declined.
+func (bl *irScalarBuilder) userOperatorCall(at *ast.Binary, spec *operIfaceSpec, og *gen, it *implItem, params []kind, result kind, left, right ir.Temp, lk, rk kind) (ir.Temp, kind, bool, bool) {
+	if spec == nil || it == nil || it.impl == nil || !it.impl.lowerable || !it.lowerable || len(params) != 2 || len(it.params0) != 2 || params[0] != lk || params[1] != rk || !irCallableValueKind(result) {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	n := ir.NewCall(bl.g.irNodePos(at), bl.f.NewTemp(), irCallSite(at), og.irCalleeSym(it, spec.nomi+"."+spec.method), left, right)
+	bl.b.Append(n)
+	bl.side(n.Dst(), irScalarSide{k: result, deferrable: true})
+	return n.Dst(), result, false, true
+}
+
+// instanceOperatorImpl selects the impl of an operator the checker
+// resolved over a type parameter, at the kinds its instance gives the
+// operands, through operImplFor.
 //
 // Inside a std generic instance built at a program type (`total + x` in
 // `Iter.sum<Cents>`), the impl is the program's: the instance interns the
 // program's kinds in the calling gen's tables, so that gen's operator index
 // selects it, as callerImplPlan selects an interface impl there.
-func (bl *irScalarBuilder) userOperatorCall(at *ast.Binary, left, right ir.Temp, lk, rk kind) (ir.Temp, kind, bool, bool) {
-	spec, found := operIfaceByOp[at.Op]
-	if !found {
-		return ir.NoTemp, kindInvalid, false, false
+func (bl *irScalarBuilder) instanceOperatorImpl(at *ast.Binary, spec *operIfaceSpec, lk, rk kind) (og *gen, it *implItem, params []kind, result kind, rival bool) {
+	if spec == nil {
+		return nil, nil, nil, kindInvalid, false
 	}
-	og := bl.g
-	it, _, rival := og.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk}, bl.g.checkedKind(at))
-	params, result := []kind{lk, rk}, kindInvalid
+	og = bl.g
+	it, _, rival = og.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk}, bl.g.checkedKind(at))
+	params, result = []kind{lk, rk}, kindInvalid
 	if it != nil {
 		params, result = it.params, it.result
 	}
@@ -30,17 +46,17 @@ func (bl *irScalarBuilder) userOperatorCall(at *ast.Binary, left, right ir.Temp,
 		// An impl another file writes.
 		og, it, params, result, rival = bl.g.siblingOperImpl(spec, lk, rk)
 	}
-	if rival || it == nil || !it.lowerable || len(params) != 2 || len(it.params0) != 2 || params[0] != lk || params[1] != rk || !irCallableValueKind(result) {
-		return ir.NoTemp, kindInvalid, false, false
+	if rival {
+		return nil, nil, nil, kindInvalid, true
 	}
-	n := ir.NewCall(bl.g.irNodePos(at), bl.f.NewTemp(), irCallSite(at), og.irCalleeSym(it, spec.nomi+"."+spec.method), left, right)
-	bl.b.Append(n)
-	bl.side(n.Dst(), irScalarSide{k: result, deferrable: true})
-	return n.Dst(), result, false, true
+	return og, it, params, result, false
 }
 
 // bitwiseNot lowers `~~~operand`: Int's is `ir.OpNot`, and any other type's
-// is a call of its `BitwiseNot` impl, std's (Byte's) or the program's.
+// is a call of its `BitwiseNot` impl, std's (Byte's) or the program's: the
+// one the checker recorded (recordedOperatorImpl), or for an operand of a
+// type parameter or a primitive, which name none, the one the operand's
+// kind selects.
 func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if ak, modelled := bl.g.irArithKind(ir.OpNot, k, false); modelled {
@@ -48,7 +64,14 @@ func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Tem
 		bl.b.Append(a)
 		return a.Dst(), k, false, true
 	}
-	if f := bl.g.stdlibUnaryOperatorFor(k); f != nil {
+	spec := operIfaceByName["BitwiseNot"]
+	og, it, f, recorded := bl.recordedOperatorImpl(t, k)
+	if !recorded {
+		f = bl.g.stdlibUnaryOperatorFor(k)
+	} else if f != nil && (f.why != "" || !sameParamKinds(f.params, []kind{k})) {
+		f = nil
+	}
+	if f != nil {
 		if f.canon != nil {
 			f = f.canon
 		}
@@ -62,18 +85,29 @@ func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Tem
 		bl.side(n.Dst(), irScalarSide{k: f.result, deferrable: true})
 		return n.Dst(), f.result, false, true
 	}
-	spec := operIfaceByName["BitwiseNot"]
-	og := bl.g
-	it, _, rival := og.operImplFor(spec.nomi, k, spec.method, []kind{k}, bl.g.checkedKind(t))
-	params, result := []kind{k}, kindInvalid
+	var params []kind
+	var result kind
 	if it != nil {
-		params, result = it.params, it.result
+		var ok bool
+		if params, result, ok = bl.g.itemKinds(og, it); !ok {
+			return no()
+		}
+	} else if !recorded {
+		og = bl.g
+		var rival bool
+		it, _, rival = og.operImplFor(spec.nomi, k, spec.method, []kind{k}, bl.g.checkedKind(t))
+		if it != nil {
+			params, result = it.params, it.result
+		}
+		if it == nil && !rival && bl.g.stdModule == "" {
+			// An impl another file writes.
+			og, it, params, result, rival = bl.g.siblingOperImpl(spec, k)
+		}
+		if rival {
+			it = nil
+		}
 	}
-	if it == nil && !rival && bl.g.stdModule == "" {
-		// An impl another file writes.
-		og, it, params, result, rival = bl.g.siblingOperImpl(spec, k)
-	}
-	if rival || it == nil || !it.lowerable || len(params) != 1 || params[0] != k || !irCallableValueKind(result) {
+	if it == nil || !it.impl.lowerable || !it.lowerable || len(params) != 1 || params[0] != k || !irCallableValueKind(result) {
 		return no()
 	}
 	n := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), og.irCalleeSym(it, spec.nomi+"."+spec.method), src)
@@ -151,15 +185,7 @@ func (g *gen) siblingOperImpl(spec *operIfaceSpec, lk kind, rest ...kind) (*gen,
 	if chosen == nil {
 		return nil, nil, nil, kindInvalid, false
 	}
-	params := make([]kind, len(chosen.params))
-	for i, p := range chosen.params {
-		ip, ok := g.importKind(p)
-		if !ok {
-			return nil, nil, nil, kindInvalid, false
-		}
-		params[i] = ip
-	}
-	result, ok := g.importKind(chosen.result)
+	params, result, ok := g.itemKinds(og, chosen)
 	if !ok {
 		return nil, nil, nil, kindInvalid, false
 	}
@@ -176,4 +202,19 @@ func sameOperReceiver(recv, lk kind, named bool) bool {
 		return true
 	}
 	return named && recv.tag == tagNamed && recv.def != nil && recv.def.decl == lk.def.decl
+}
+
+// instanceOperatorCall lowers `a op b` over a declared type whose impl the
+// checker left to each instance (instanceOperatorImpl). An operator whose
+// record names an impl no gen registered at these kinds declines.
+func (bl *irScalarBuilder) instanceOperatorCall(at *ast.Binary, spec *operIfaceSpec, recorded bool, left, right ir.Temp, lk, rk kind) (ir.Temp, kind, bool, bool) {
+	if recorded {
+		return ir.NoTemp, kindInvalid, false, false
+	}
+	og, it, params, result, rival := bl.instanceOperatorImpl(at, spec, lk, rk)
+	if rival {
+		// Two impls fit: userOperatorCall declines with no item.
+		it = nil
+	}
+	return bl.userOperatorCall(at, spec, og, it, params, result, left, right, lk, rk)
 }

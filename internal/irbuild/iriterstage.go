@@ -10,7 +10,7 @@ import (
 // drives through rt's Seq function of the same name: `drop`, `take_while`,
 // `drop_while`, `cycle`, `each`, `to_set`, `to_vector`, `to_map`, `flat_map`,
 // `chunks`, `windows` and `chunk_by`, and the constructors `iterate` and `repeat`.
-// rt's functions state std's bodies (seqsrc.go, seqterm.go).
+// rt's functions state std's bodies (rt/seqsrc.go, rt/seqterm.go).
 //
 // `take_while`, `drop_while`, `each` and `flat_map` take a callback lowered
 // under the signalling form (`break` / `continue` in the lambda or the named
@@ -259,7 +259,7 @@ func (bl *irScalarBuilder) iterConstructor(t *ast.Call, args irQualArgs, method 
 		// `Iter.iterate((7 as Display), fn x -> x)`: the seed enters the
 		// step's parameter, an interface it implements, as an argument
 		// enters a parameter.
-		v, k, ok := bl.coerceEmpty(t.Args[0], args.temps[0], elem, funcParams(fk)[0])
+		v, k, ok := bl.convertTo(t.Args[0], args.temps[0], elem, funcParams(fk)[0])
 		if !ok {
 			return no()
 		}

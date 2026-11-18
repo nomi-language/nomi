@@ -20,23 +20,19 @@ package rt
 // one way going in and the other coming out. This witness takes identity from
 // the declaration, so the question cannot arise.
 //
-// Here identity is the address of the `TypeID` variable the declaration
-// produced, established by the Go linker — the same rule `Method.impls`
-// (dispatch.go) and `onceID` (once.go) already key on, and the two hazards
-// dispatch.go designed against apply unchanged: `TypeID` is non-empty so two
-// package-level variables cannot legally share an address, and its diagnostic
-// name is module-qualified so two distinct types are never byte-identical
-// merge candidates.
+// Here identity is the address of the type's `TypeID`, which the VM interns
+// one of per qualified name (dispatch.go). `onceID` (once.go) keys the same
+// way. `TypeID` is non-empty, so two of them cannot legally share an
+// address, and its diagnostic name is module-qualified, so two distinct
+// types are never byte-identical merge candidates.
 //
 // # Why T is on the Go type and carries no storage
 //
-// `T` is phantom: a `Type[T]` is one pointer at run time, whatever T is. It is
-// on the Go type anyway, and that is the same trade rt/channel.go states for
-// `Sender[T]`/`Receiver[T]` — two Go types over one runtime object, so a
-// wrong-direction lowering is a Go compile error rather than a wrong answer.
-// Passing a `Type<Marker>` where a `Type<TraceId>` is wanted does not compile,
-// and `ContextValue` can therefore return `Maybe[T]` with T read off the witness
-// instead of taking a second type argument nothing checks against the first.
+// `T` is phantom: a `Type[T]` is one pointer at run time, whatever T is, and
+// the VM holds every witness as a `Type[any]` (internal/vm/context.go). A
+// Go caller that names T gets `ContextValue`'s `Maybe[T]` with T read off
+// the witness, instead of a second type argument nothing checks against
+// the first.
 //
 // The zero value is deliberately not a valid witness: `TID` is nil, which
 // `ContextValue` cannot match against any stored node because a value node

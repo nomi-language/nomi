@@ -18,7 +18,7 @@ test "a spread that is no Iter, or an Iter of other elements, is refused"
           n = 3
           words = ["a"] |> Iter.map(fn w -> w + "!")
           _a = [1, ..n]
-          _b = [1, ..words]
+          _b = [..[1], ..words]
           _c = Vector[..Vector[1], ..Some("x")]
           _d = Set[..Set[1], ..n]
         end
@@ -28,11 +28,11 @@ test "a spread that is no Iter, or an Iter of other elements, is refused"
     assert at(
         diagnostics,
         4,
-        14,
+        12,
         "list spread `..` requires an Iter of the list's elements, got Int",
     )
 
-    assert at(diagnostics, 5, 14, "list spread element type mismatch: Int vs String")
+    assert at(diagnostics, 5, 16, "list spread element type mismatch: expected Int, got String")
     assert at(diagnostics, 6, 28, "vector spread element type mismatch: expected Int, got String")
     assert at(diagnostics, 7, 22, "set spread `..` requires an Iter of the set's elements, got Int")
 end

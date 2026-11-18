@@ -341,36 +341,41 @@ impl String
 
     /// The first `n` grapheme clusters of `s`, counted as `String.slice` and
     /// `String.length` count them. An `n` past the end gives the whole
-    /// string, and an `n` of zero or less gives "". `String.drop` gives the
-    /// rest, so `String.take(s, n) + String.drop(s, n) == s`.
+    /// string, and an `n` of zero gives "". `String.drop` gives the rest, so
+    /// `String.take(s, n) + String.drop(s, n) == s`. The count is a
+    /// `NonNegativeInt`: a literal is checked when the program is compiled,
+    /// and a computed count needs a check that narrows it or
+    /// `NonNegativeInt.try_from`.
     //! assert String.take("hello", 2) == "he"
     //! assert String.take("héllo", 2) == "hé"
     //! assert String.take("hi", 5) == "hi"
-    //! assert String.take("hi", -1) == ""
+    //! assert String.take("hi", 0) == ""
     //
-    pub fn take(s: String, n: Int) -> String
+    pub fn take(s: String, n: NonNegativeInt) -> String
         slice(s, 0, n)
     end
 
     /// `s` after its first `n` grapheme clusters, counted as `String.slice`
     /// and `String.length` count them. An `n` past the end gives "", and an
-    /// `n` of zero or less gives the whole string. `String.take` gives the
-    /// clusters this drops.
+    /// `n` of zero gives the whole string. `String.take` gives the clusters
+    /// this drops, and its count is a `NonNegativeInt` as that one's is.
     //! assert String.drop("hello", 2) == "llo"
     //! assert String.drop("héllo", 2) == "llo"
     //! assert String.drop("hi", 5) == ""
-    //! assert String.drop("hi", -1) == "hi"
+    //! assert String.drop("hi", 0) == "hi"
     //
-    pub fn drop(s: String, n: Int) -> String
-        if n <= 0 then s else slice(s, n, length(s))
+    pub fn drop(s: String, n: NonNegativeInt) -> String
+        slice(s, n, length(s))
     end
 
     /// Prepends copies of `fill` until `s` is `width` grapheme clusters long,
     /// the units `String.length` counts. A multi-character `fill` repeats and
     /// is cut to fit exactly. A string already `width` long or longer comes
     /// back unchanged, never truncated, and so does any `s` when `fill` is
-    /// empty or `width` is zero or negative. The "é" below is "e" followed by
-    /// U+0301 COMBINING ACUTE ACCENT: two code points, one grapheme cluster.
+    /// empty. The width is a `NonNegativeInt`, so a computed one needs a
+    /// check that narrows it or `NonNegativeInt.try_from`. The "é" below is
+    /// "e" followed by U+0301 COMBINING ACUTE ACCENT: two code points, one
+    /// grapheme cluster.
     //! assert String.pad_start("5", 3) == "  5"
     //! assert String.pad_start("5", 3, "0") == "005"
     //! assert String.pad_start("5", 4, "ab") == "aba5"
@@ -378,14 +383,13 @@ impl String
     //! assert String.pad_start("👋🏽", 2, "-") == "-👋🏽"
     //! assert String.pad_start("hello", 3) == "hello"
     //! assert String.pad_start("hi", 0) == "hi"
-    //! assert String.pad_start("hi", -4) == "hi"
     //! assert String.pad_start("hi", 5, "") == "hi"
     //!
     //! // Right-align a column of amounts.
     //! assert String.pad_start("9.50", 7) == "   9.50"
     //! assert String.pad_start("120.00", 7) == " 120.00"
     //
-    pub fn pad_start(s: String, width: Int, fill: String = " ") -> String
+    pub fn pad_start(s: String, width: NonNegativeInt, fill: String = " ") -> String
         padding(fill, width - length(s)) + s
     end
 
@@ -393,14 +397,15 @@ impl String
     /// the units `String.length` counts. A multi-character `fill` repeats and
     /// is cut to fit exactly. A string already `width` long or longer comes
     /// back unchanged, never truncated, and so does any `s` when `fill` is
-    /// empty or `width` is zero or negative. The "é" in "café" below is "e"
-    /// followed by U+0301 COMBINING ACUTE ACCENT, one grapheme cluster.
+    /// empty. The width is a `NonNegativeInt`, as `String.pad_start`'s is.
+    /// The "é" in "café" below is "e" followed by U+0301 COMBINING ACUTE
+    /// ACCENT, one grapheme cluster.
     //! assert String.pad_end("ab", 4) == "ab  "
     //! assert String.pad_end("5", 4, "ab") == "5aba"
     //! assert String.pad_end("café", 6, ".") == "café.."
     //! assert String.pad_end("👋🏽", 3, "*") == "👋🏽**"
     //! assert String.pad_end("hello", 2) == "hello"
-    //! assert String.pad_end("hi", -1, "*") == "hi"
+    //! assert String.pad_end("hi", 0, "*") == "hi"
     //! assert String.pad_end("hi", 5, "") == "hi"
     //!
     //! // A table row: the name left-aligned, the count right-aligned.
@@ -408,7 +413,7 @@ impl String
     //! assert row == "fig       12"
     //! assert String.length(row) == 12
     //
-    pub fn pad_end(s: String, width: Int, fill: String = " ") -> String
+    pub fn pad_end(s: String, width: NonNegativeInt, fill: String = " ") -> String
         s + padding(fill, width - length(s))
     end
 

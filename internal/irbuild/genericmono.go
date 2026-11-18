@@ -7,32 +7,23 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// A generic FUNCTION whose type parameters are mentioned at DEPTH,
-// MONOMORPHIZED per call site.
+// A generic function, lowered once per type-argument tuple.
 //
-// # The line between this file and generic.go, and why there are two
+// # Templates and instances
 //
-// generic.go lowers a bound-free generic `fn` by ERASURE: one Go body whose
-// type-parameter positions are `any`, the concrete type argument bound at the
-// call and the boxed answer asserted back there. That is complete for a
-// declaration whose every type-parameter mention is a BARE `T`, and it is
-// refused the moment one is not — `List<T>`, `Maybe<T>`, `Half<T>`, `(T, Int)`,
-// `(A) -> B`. generic.go's header states the reason: the box would be at the
-// wrong DEPTH, because the body builds a `*rt.List[any]` while the caller wants
-// a `*rt.List[int64]`, so an assertion would fail at run time rather than refuse
-// at compile time.
+// A generic `fn` declaration is a template (monoTemplate). A call or a
+// function value of it lowers an instance: the declaration's body, lowered by
+// funcDecl with each type parameter resolved to the type argument the call
+// bound (pushMonoSubst). Instances are interned per (declaration, argument
+// tuple), so two calls at the same type arguments call one function.
 //
-// That reason is not a reason to refuse the shape; it is a reason not to lower
-// it BY ERASURE. This file lowers it by monomorphization instead.
-//
-// # Why erasure is kept
-//
-// Monomorphizing everything and deleting the erasure path is the wrong trade.
-// An all-bare bound-free generic lowers by erasure as ONE body, and
-// monomorphizing it would emit N copies for no gain while putting it under the
-// instantiation guard below. So the rule is one sentence with a fast path:
-// COPY ONLY WHEN THE BOX WOULD BE AT THE WRONG DEPTH. Two mechanisms for two
-// disjoint populations under one stated rule.
+// monoTemplateFor derives the template. It is asked from two places.
+// declaredSignature (native.go) asks it when genericSignature (generic.go)
+// declined the declaration, a type parameter mentioned inside `List<T>`,
+// `Maybe<T>`, `Half<T>`, `(T, Int)` or `(A) -> B` among the reasons, and
+// records the answer as `sig.mono`. irMonoTemplate (irfuncbody.go) asks it for
+// a declaration dictSignature or genericSignature claimed, so a call to one of
+// those lowers an instance too.
 //
 // # The instantiation guard
 //
@@ -41,67 +32,43 @@ import (
 //	}
 //
 // has an infinite instantiation set: the recursive call binds `T := Box<T>`,
-// so monomorphizing it produces `Box<Int>`, `Box<Box<Int>>`, … without end.
-// Without monomorphization `deep_grow` refuses at `generic type | Box<T>` —
-// generictype.go's population C, an instantiation at a type PARAMETER, walled
-// because there is no concrete argument to monomorphize AT. Monomorphization is
-// what supplies that argument, so it is what makes the unbounded chain
-// reachable, and the guard (monoInstCap) is what stops it.
+// so instantiating it produces `Box<Int>`, `Box<Box<Int>>`, … without end.
+// The guard (monoInstCap) stops the chain.
 //
 // It is not a language change, which is why there is no spec section and no
-// front-end diagnostic. The front end accepts `deep_grow`; a BUILDER refusal
+// front-end diagnostic. The front end accepts `deep_grow`; a builder refusal
 // under a named key changes no language rule, like every other key in this
 // package.
 //
-// # PER-GEN, and the Go name is minted against the PROGRAM-WIDE set
+// # Per gen
 //
-// The intern table is `g.monoInsts`, per gen, for genericInstance's reason: an
-// instance's parameter types can name a type ONE module's package declares.
+// The intern table is `g.monoInsts`, per gen, as genericInstance's is: an
+// instance's parameter kinds are this gen's kinds, and a type another file
+// declares is this gen's mirror of it (foreign.go).
 //
-// For types, routing through `g.reg.byDecl[decl]` would give every
-// instantiation one def, because that map is keyed on a DECLARATION NODE and
-// every instance of one template shares it. A monomorphized FUNCTION has
-// exactly the same shape — one
-// `*ast.FuncDef`, N instances — and a strongly-connected component of the Nomi
-// import graph becomes ONE Go package, so two co-tenant files each declaring
-// `fn get<T>` and each instantiating it at `Int` would both mint
-// `Nomi_get_int64`.
+// # What monoTemplateFor declines
 //
-// # What stays refused, and why
+//   - A decorator, `main`, a missing body. Each has a funcDecl clause that
+//     reports at the declaration's own position, so admitting it here would
+//     lower past a refusal.
+//   - A parameter with neither an annotation nor a default.
+//   - A type parameter that no parameter annotation, return annotation or
+//     `where` bound mentions (boundMentionedParams).
 //
-//   - A BOUNDED generic that dict.go's seam claims. The dictionary is asked
-//     first and this file takes only its residue; see monoTemplateFor.
-//   - A tail-cycle member. refuseGenericTailCycles owns it and keeps
-//     `recursive tail call`. Each instance is a distinct Go function, so a
-//     same-`T` self-call IS a self-call of the instance and TCO would be
-//     available, but it needs its own mechanism and claiming it without one
-//     would grow the stack without bound.
-//   - A NESTED generic `fn`. nestedfn.go's clause stands; a nested `fn` is a Go
-//     func literal and MarkTailCalls never enters one.
-//   - A type parameter no parameter mentions, a defaulted parameter, a
-//     destructuring parameter, a decorator, `main`, an impl function, a missing
-//     body. Each already has a funcDecl clause that reports at the declaration's
-//     own position, so admitting it here would lower past a refusal.
-//   - A type argument that is itself a type parameter, or one of the untyped
-//     literal kinds. bindableTypeArg owns both and is reused verbatim: the first
-//     is not a concrete type to bind (it resolves to an unresolved
-//     type-parameter name), and the second would fix an artifact's element type from a literal whose real type
-//     the program decides elsewhere.
+// # The declaration refuses nothing
 //
-// # THE DECLARATION REFUSES NOTHING, AND THAT IS cascade.go's DISCIPLINE
+// funcDecl lowers nothing and refuses nothing for a declaration whose
+// `sig.mono` is set. A template is not a function; it is a rule for making
+// them. So:
 //
-// funcDecl lowers nothing and REFUSES nothing for a template. A template is not
-// a function; it is a rule for making them. So:
-//
-//   - Called at a monomorphizable type argument: the instance is lowered and
-//     nothing is refused.
-//   - Called at one this builder cannot represent: THE CALL refuses, at the
-//     position that has the information. That is cascade.go's rule — refuse
-//     where the answer is known — and it is why `generic function` at the
+//   - Called at a type argument the builder can represent: the instance is
+//     lowered and nothing is refused.
+//   - Called at one this builder cannot represent: the call refuses, at the
+//     position that has the information. That is cascade.go's rule, refuse
+//     where the answer is known, and it is why `generic function` at the
 //     declaration is the wrong key for it.
 //   - Never called: nothing is lowered and nothing is refused, because a
-//     template with no instantiation is a rule nobody applied. Dead generic code
-//     costs the program nothing.
+//     template with no instantiation is a rule nobody applied.
 
 // monoInstCap is the deepest chain of DISTINCT instantiations one call graph may
 // require before this builder refuses it.
@@ -136,57 +103,47 @@ type monoTemplate struct {
 type monoInst struct {
 	tpl  *monoTemplate
 	args []kind
-	// sig is an ORDINARY MONOMORPHIC signature — `tps` nil, `dict` nil,
-	// `lowerable` true, `genericWhy` empty. That is the whole trick: the call
-	// path swaps it in and every downstream step (arity, named arguments, defaults,
-	// coercion, the tail hop) runs unchanged, so a call to an instance and a
-	// call to a hand-written monomorphic function agree about argument checking
-	// by construction rather than by a second copy of it.
+	// types is args as the checker's types, nil where the call that made
+	// the instance had none (substFrame).
+	types []analysis.Type
+	// sig is an ordinary monomorphic signature: `tps` nil, `dict` nil,
+	// `lowerable` true, `genericWhy` empty. The call path swaps it in and
+	// every downstream step (arity, named arguments, defaults, coercion) runs
+	// unchanged, so a call to an instance and a call to a hand-written
+	// monomorphic function check their arguments with the same code.
 	sig *fnSig
 	// depth is the length of the instantiation chain that reached this
 	// instance. Recorded rather than re-derived so the guard reads one number.
 	depth int
-	// emitted guards the worklist against emitting one instance twice, which
+	// emitted guards the worklist against lowering one instance twice, which
 	// a diamond in the call graph would otherwise do.
 	emitted bool
 }
 
 // monoTemplateFor answers the template fd is, or nil.
 //
-// Every clause is a NEGATIVE mirror of a funcDecl clause that reports at the
-// declaration, plus the one generic.go owns. They are re-stated here rather
-// than read off `genericWhy` because `genericWhy` is one string for eight
-// different reasons and this file may only claim ONE of them: the depth rule.
-// Reading the string would make a decorator on a generic `fn` silently
-// monomorphizable.
+// The first clauses mirror funcDecl clauses that report at the declaration.
+// They are stated here rather than read off `genericWhy` because `genericWhy`
+// is one string for several reasons, and reading it would make a decorator on
+// a generic `fn` an instantiable template.
 //
-// # A BOUNDED generic reaches here
+// # Who asks
 //
-// A concrete type argument discharges the bound statically. The dictionary and
-// an instance are required to agree on OBSERVABLE BEHAVIOUR, which the golden
-// records check, not on mechanism.
+// declaredSignature (native.go), for a declaration genericSignature declined,
+// and irMonoTemplate (irfuncbody.go), for one dictSignature or
+// genericSignature claimed.
 //
-// # This takes nothing from the dictionary
+// # A bounded generic
 //
-// This function is asked from ONE place: `signature`, at native.go, and only
-// after `dictSignature` has already DECLINED to claim the declaration. So the
-// ordering implements "dictionary first, monomorphization for its residue" and
-// no clause here is what protects it — a bounded generic whose
-// bound resolves to a lowerable `*ifaceDef` never reaches this function at all.
-//
-// The residue it does reach is exactly `dictSeamFor`'s three declines: two or
-// more BOUNDED type parameters, a bound naming an interface this builder cannot
-// erase (a GENERIC interface, `Iter<T>` and `Add<T, T>`), and a bound that
-// resolves to nothing. In an instance every one of those dissolves rather than
-// being handled: the frame is pushed, `T` is `Score`, and `Add.add(a, b)` is an
-// ordinary concrete dispatch with no dictionary to pass and no erased table to
-// demand. That is genericimpl.go's own observation about `T.hello(v.value)`,
-// one construct over.
+// A concrete type argument discharges the bound statically. In an instance
+// the frame is pushed, `T` is `Score`, and `Add.add(a, b)` is an ordinary
+// concrete dispatch. That is genericimpl.go's own observation about
+// `T.hello(v.value)`, one construct over.
 func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	switch {
 	case fd == nil, len(fd.TypeParams) == 0:
 		return nil
-	case fd.ImplFunction, len(fd.Decorators) > 0, fd.Body == nil, fd.Name == "main":
+	case len(fd.Decorators) > 0, fd.Body == nil, fd.Name == "main":
 		// funcDecl reports each of these at the declaration's own position, so
 		// claiming the declaration here would lower past a refusal.
 		return nil
@@ -219,10 +176,10 @@ func (g *gen) monoTemplateFor(fd *ast.FuncDef) *monoTemplate {
 	// And every type parameter must be NAMED somewhere in the SIGNATURE — a
 	// parameter annotation or the RETURN annotation.
 	//
-	// Erasure (generic.go) requires a PARAMETER to mention every type
-	// parameter, because it has no other source to bind `T` from.
-	// Monomorphization has a third source: the analyzer's own solved return
-	// type at the call (calleeTypeArgs). A return-position parameter such as
+	// genericSignature (generic.go) requires a parameter to mention every
+	// type parameter. A template has another source to bind `T` from: the
+	// analyzer's own solved return type at the call. A return-position
+	// parameter such as
 	// `fn decode<T>(json: Json) -> Result<T, ShapeError> where T: FromJson`
 	// produces a value of `T` by dispatching on it, and `fn plus<L, R,
 	// Out>(lhs: L, rhs: R): Out where L: Add<R, Out>`
@@ -318,12 +275,12 @@ func calleeRefPos(callee ast.Node) (int, int) {
 
 // resolveMonoInstance owns interning and signature resolution. Reporting is
 // separate so a retained attempt can decline without duplicating a refusal.
-func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, name string) (*monoInst, string, string) {
+func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, types []analysis.Type, name string) (*monoInst, string, string) {
 	key := monoInstKey(tpl, args)
 	if got, found := g.monoInsts[key]; found {
 		return got, "", ""
 	}
-	// The chain is measured from the instance being emitted, so a same-`T`
+	// The chain is measured from the instance being lowered, so a same-`T`
 	// recursion — which re-finds the interned instance above and never reaches
 	// here — costs nothing, and only a STRICTLY GROWING argument advances it.
 	depth := g.monoDepth + 1
@@ -332,7 +289,7 @@ func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, name string) (
 			fmt.Sprintf("%s<%s> is %d instantiations deep; the chain does not terminate",
 				name, kindsNomi(args), depth)
 	}
-	inst := &monoInst{tpl: tpl, args: args, depth: depth}
+	inst := &monoInst{tpl: tpl, args: args, types: types, depth: depth}
 	// Interned BEFORE the signature is resolved, so a self-referential
 	// instantiation finds the same instance rather than recursing forever —
 	// genericInstance's rule, one level up.
@@ -341,7 +298,7 @@ func (g *gen) resolveMonoInstance(tpl *monoTemplate, args []kind, name string) (
 	}
 	g.monoInsts[key] = inst
 
-	g.pushMonoSubst(tpl, args)
+	g.pushMonoSubst(inst)
 	sig := &fnSig{
 		decl:      tpl.decl,
 		instance:  inst,
@@ -412,17 +369,11 @@ func monoInstKey(tpl *monoTemplate, args []kind) string {
 // `(T) -> Bool` are all covered at every depth by one insertion point that
 // already exists. A separate stack for functions would be a second answer to
 // "what does this name mean here", reachable from the same typeOf.
-func (g *gen) pushMonoSubst(tpl *monoTemplate, args []kind) {
-	frame := make(map[string]kind, len(tpl.params))
-	for i, p := range tpl.params {
-		frame[p] = args[i]
-	}
-	g.genericSubst = append(g.genericSubst, frame)
+func (g *gen) pushMonoSubst(inst *monoInst) {
+	g.pushSubst(substMono, inst.tpl, newSubstFrame(inst.tpl.params, inst.args, inst.types))
 }
 
-func (g *gen) popMonoSubst() {
-	g.genericSubst = g.genericSubst[:len(g.genericSubst)-1]
-}
+func (g *gen) popMonoSubst() { g.popSubst() }
 
 // flushMonoInstances lowers every instance this module built, including
 // instances discovered while an earlier instance's body was walked.
@@ -432,10 +383,9 @@ func (g *gen) popMonoSubst() {
 // caller's own instantiation is known. The loop re-reads len() each turn for
 // that reason, and `emitted` guards a diamond in the call graph.
 //
-// At the END of the module walk, which is the licence flushBlockLocalTypes, flushTypeIDs and flushInspectors take:
-// module-level functions have no order requirement, and an instance is
-// discovered inside a body where there is no module-level position to
-// interleave it at.
+// At the end of the module walk: module-level functions have no order
+// requirement, and an instance is discovered inside a body where there is no
+// module-level position to interleave it at.
 func (g *gen) flushMonoInstances() {
 	// NOT `for i := range len(g.monoQueue)`: the body APPENDS to the queue it
 	// is walking, so the bound has to be re-read each turn. `range` over an int
@@ -454,12 +404,11 @@ func (g *gen) flushMonoInstances() {
 
 // emitMonoInstance lowers one instance.
 //
-// funcDecl is REUSED rather than mirrored, and that is the difference between
-// this file and a second builder. `g.monoSig` overrides the signature funcDecl
-// would look up, `g.genericSubst` makes `T` concrete inside the body, and
-// everything else — the scope, the destructuring, the tail plan, the return-kind
-// check, the refusal reporting — is the one implementation every other function
-// goes through. A copy of funcDecl's lowering tail would be a second place for
+// funcDecl is reused rather than mirrored. `g.monoSig` overrides the signature
+// funcDecl would look up, `g.genericSubst` makes `T` concrete inside the body,
+// and everything else (the scope, the destructuring, the return-kind check,
+// the refusal reporting) is the one implementation every other function goes
+// through. A copy of funcDecl's lowering tail would be a second place for
 // the return-kind check to drift out of agreement with the first.
 //
 // `g.monoDepth` is set for the length of the walk so a call inside this body
@@ -468,7 +417,7 @@ func (g *gen) flushMonoInstances() {
 func (g *gen) emitMonoInstance(inst *monoInst) {
 	prevSig, prevDepth := g.monoSig, g.monoDepth
 	g.monoSig, g.monoDepth = inst.sig, inst.depth
-	g.pushMonoSubst(inst.tpl, inst.args)
+	g.pushMonoSubst(inst)
 	defer func() {
 		g.popMonoSubst()
 		g.monoSig, g.monoDepth = prevSig, prevDepth

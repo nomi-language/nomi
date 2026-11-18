@@ -38,7 +38,7 @@ func (u UnresolvedExpr) String() string {
 //   - a pattern (a case arm's, a destructuring binding's, `if P = e`'s, a
 //     parameter's): its literals are compared and its names bound, and the
 //     bindings' types live on their symbols (FileAnalysis.Definitions,
-//     LambdaPatternTypes). An ad-hoc conditional's arm (`case { x > 1 ->
+//     PatternTypes). An ad-hoc conditional's arm (`case { x > 1 ->
 //     ... }`) is a condition, so it does count.
 //   - a name: the field of `x.f`, the type or file qualifier of `T.f` and
 //     `io.print`, a field accessor's path, the target of `with App.f = v`,

@@ -72,6 +72,8 @@ type stdInst struct {
 	fd   *ast.FuncDef
 	tps  []string
 	args []kind
+	// types is the checker's type of each of args, or nil (substFrame).
+	types []analysis.Type
 	// gen builds this instance's body; the signature below was resolved
 	// through it, so the two cannot disagree about an annotation.
 	gen  *gen
@@ -186,26 +188,32 @@ func stdInstKey(fd *ast.FuncDef, args []kind) string {
 // instantiate answers the instance of f at args, building its closure on a
 // cold table. A nested call reached while a closure is attempted joins it.
 func (s *stdInstances) instantiate(f *stdFunc, tps []string, args []kind, caller *gen) (*stdInst, string) {
-	return s.instantiateAt(f, tps, args, -1, caller)
+	return s.instantiateAt(f, tps, args, nil, -1, caller)
+}
+
+// instantiateTyped is instantiate with types, the checker's types for args
+// or nil, which an instance it builds carries (substFrame).
+func (s *stdInstances) instantiateTyped(f *stdFunc, tps []string, args []kind, types []analysis.Type, caller *gen) (*stdInst, string) {
+	return s.instantiateAt(f, tps, args, types, -1, caller)
 }
 
 // defaultAccessor answers the accessor of the default of f's parameter
-// slot at args: a function of no parameters, built by a gen of f's module
-// as an instance's body is, so the default means what that module wrote.
+// slot at args: a function of the parameters before slot, built by a gen
+// of f's module as an instance's body is (irSlotAccessor), so the default
+// means what that module wrote and may read an earlier parameter.
 // It is how a call from outside the module fills a generic function's
 // omitted parameter whose default is no literal (`direction: Direction =
 // Direction.Ascending` of `Iter.sort_by`): the shared lowering builds no
 // accessor for a generic function, and the default may name what the
-// caller's file does not import. The default reads no earlier parameter
-// (stdDefaultReadsParams), so the accessor takes none and a caller passes
-// its operands to the function alone.
-func (s *stdInstances) defaultAccessor(f *stdFunc, tps []string, args []kind, slot int, caller *gen) (*stdInst, string) {
-	return s.instantiateAt(f, tps, args, slot, caller)
+// caller's file does not import. A caller passes it the operands before
+// slot, written or already filled (fillStdTemplateDefaults).
+func (s *stdInstances) defaultAccessor(f *stdFunc, tps []string, args []kind, types []analysis.Type, slot int, caller *gen) (*stdInst, string) {
+	return s.instantiateAt(f, tps, args, types, slot, caller)
 }
 
 // instantiateAt is instantiate for f's body (slot -1) or defaultAccessor
 // for its parameter slot's default.
-func (s *stdInstances) instantiateAt(f *stdFunc, tps []string, args []kind, slot int, caller *gen) (*stdInst, string) {
+func (s *stdInstances) instantiateAt(f *stdFunc, tps []string, args []kind, types []analysis.Type, slot int, caller *gen) (*stdInst, string) {
 	key := stdInstKey(f.decl, args)
 	if slot >= 0 {
 		key += "\x00default " + strconv.Itoa(slot)
@@ -223,12 +231,12 @@ func (s *stdInstances) instantiateAt(f *stdFunc, tps []string, args []kind, slot
 		return nil, why
 	}
 	if s.attempting {
-		return s.queue(f, tps, args, slot, key)
+		return s.queue(f, tps, args, types, slot, key)
 	}
-	return s.attemptClosure(f, tps, args, slot, key)
+	return s.attemptClosure(f, tps, args, types, slot, key)
 }
 
-func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, slot int, key string) (*stdInst, string) {
+func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, types []analysis.Type, slot int, key string) (*stdInst, string) {
 	s.attempting = true
 	// The closure is built in the middle of the caller's own attempt, whose
 	// decline record is set aside and restored, and neither the decline
@@ -243,7 +251,7 @@ func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, slo
 		s.pendingOrder = nil
 		s.building = nil
 	}()
-	top, why := s.queue(f, tps, args, slot, key)
+	top, why := s.queue(f, tps, args, types, slot, key)
 	if top == nil {
 		s.failed[key] = why
 		return nil, why
@@ -266,7 +274,7 @@ func (s *stdInstances) attemptClosure(f *stdFunc, tps []string, args []kind, slo
 // queue resolves one instance's signature and adds it to the closure. The
 // signature is resolved here rather than when the body is built, because a
 // recursive caller of a pending instance needs its parameter kinds first.
-func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, slot int, key string) (*stdInst, string) {
+func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, types []analysis.Type, slot int, key string) (*stdInst, string) {
 	depth := 1
 	if s.building != nil {
 		depth = s.building.depth + 1
@@ -279,14 +287,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, slot int, ke
 		return nil, "a generic stdlib function with no retained module view: " + f.key
 	}
 	stdBodies(f.module)
-	offer := make(map[*stdCandidate]bool, len(v.settled)+len(v.withCycles))
-	for c := range v.settled {
-		offer[c] = true
-	}
-	for c := range v.withCycles {
-		offer[c] = true
-	}
-	g := newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, offer, v.onces, s.std)
+	g := newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, v.settled, v.onces, s.std)
 	g.stdInsts, g.dc = s, s.dc
 	if c := s.caller; c != nil {
 		g.progLinks = c.programLinks()
@@ -310,21 +311,16 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, slot int, ke
 			g.stdProgCaller = c
 		}
 	}
-	frame := make(map[string]kind, len(tps))
-	for i, tp := range tps {
-		frame[tp] = args[i]
-	}
-	g.genericSubst = append(g.genericSubst, frame)
+	g.pushSubst(substStd, f, newSubstFrame(tps, args, types))
 	if f.why == stdIfaceDefaultWhy && (len(args) != 1 || !g.bindStdIfaceDefaultSelf(f, args[0])) {
 		// A default's every `self` is the receiver it is instantiated at.
 		return nil, "a stdlib interface default whose interface its module does not declare: " + f.key
 	}
-	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, gen: g, depth: depth, slot: slot}
+	inst := &stdInst{f: f, fd: f.decl, tps: tps, args: args, types: types, gen: g, depth: depth, slot: slot}
 	g.stdInstCur = inst
 	view := *f
 	view.canon = nil
 	view.irBody = nil
-	view.irArity = nil
 	view.irSlot = nil
 	view.why = ""
 	if len(tps) == 0 && f.why != stdProgSigWhy {
@@ -358,7 +354,6 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, slot int, ke
 	if view.result != kindUnit && !irCallableValueKind(view.result) {
 		return nil, "a generic stdlib instance's result outside the domain: " + f.key + " at " + kindsNomi(args)
 	}
-	view.arityMin = len(view.params)
 	view.body = true
 	view.pkg = v.pkg
 	g.stdInstName = f.key + "<" + kindsNomi(args) + ">"
@@ -382,7 +377,7 @@ func (s *stdInstances) build(inst *stdInst) string {
 	defer func() { s.building = prev }()
 	if inst.slot >= 0 {
 		g.irModule()
-		g.irStdSlotRetain(inst.view, inst.fd, inst.slot, inst.slot)
+		g.irStdSlotRetain(inst.view, inst.fd, inst.slot)
 		if inst.view.irSlot[inst.slot] == nil {
 			return "stdlib default " + g.stdInstName + " of parameter " + inst.fd.Params[inst.slot].Name + ": it does not lower"
 		}
@@ -390,13 +385,12 @@ func (s *stdInstances) build(inst *stdInst) string {
 	}
 	g.emitStdFunc(inst.view, inst.fd)
 	if g.irMod != nil && g.irMod.FuncFor(inst.sym) != nil {
-		if len(inst.tps) == 0 && inst.f.ifaceDefault == nil && irDefaultsNotAllLiteral(inst.fd) {
-			// A monomorphic body built per program whose defaults are not
-			// all literals: its arity wrappers and default accessors, built
-			// here in its own module's scope, where those defaults resolve
-			// (stdUnretainedDefaultedCall).
+		if len(inst.tps) == 0 && inst.f.ifaceDefault == nil && irDefaulted(inst.fd) {
+			// A monomorphic body built per program with a defaulted
+			// parameter: its default accessors, built here in its own
+			// module's scope, where those defaults resolve
+			// (stdUnretainedShortCall).
 			inst.view.irBody = g.irMod.FuncFor(inst.sym)
-			g.emitStdDefaultWrappers(inst.view, inst.fd)
 			g.emitStdSlotDefaults(inst.view, inst.fd)
 		}
 		return ""
@@ -553,15 +547,19 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 		if c, isCall := n.(*ast.Call); isCall {
 			switch callee := c.Func.(type) {
 			case *ast.Ident:
-				if stdModuleGenericTemplate(v, f.recv, callee.Name) != nil ||
-					stdModuleGenericTemplate(v, "", callee.Name) != nil ||
-					s.unretainedMono(stdModuleMonoFunc(v, f.recv, callee.Name), visiting) ||
-					s.unretainedMono(stdModuleMonoFunc(v, "", callee.Name), visiting) {
-					found = true
-					return
+				// The function the checker resolved the bare name to.
+				var id analysis.StdFunc
+				if rc := v.fa.Calls[c]; rc != nil {
+					id = rc.Callee.Std
 				}
-				if module, name, isStd := stdBareFileFunc(v.fa, callee); isStd &&
-					s.otherModuleCallee(f.module, s.std.byFile[module+"."+name], visiting) {
+				switch {
+				case id.IsZero():
+				case stdShortModule(id.Module) == f.module:
+					if s.stdTemplateOf(id) != nil || s.unretainedMono(stdModuleMonoFunc(v, id.Owner, id.Name), visiting) {
+						found = true
+						return
+					}
+				case id.Owner == "" && s.otherModuleCallee(f.module, s.std.byFile[stdHostKey(id)], visiting):
 					found = true
 					return
 				}
@@ -785,12 +783,34 @@ func (g *gen) stdRecvTypeArgs(tps []string, ib *ast.ImplBlock, self kind, unitOK
 	return out, true
 }
 
+// stdRecvTypes is the checker's type each type parameter of f's impl block
+// ib stands for where recv, the receiver's checker type, selects ib: ib's
+// receiver as the checker resolved it matched against recv
+// (analysis.ImplBlockArgsAt), by name. nil when recv is nil or does not
+// match.
+func (s *stdInstances) stdRecvTypes(f *stdFunc, ib *ast.ImplBlock, recv analysis.Type) map[string]analysis.Type {
+	if recv == nil || ib == nil {
+		return nil
+	}
+	v := s.std.views[f.module]
+	if v == nil {
+		return nil
+	}
+	out, ok := analysis.ImplBlockArgsAt(v.fa, ib, recv)
+	if !ok {
+		return nil
+	}
+	return out
+}
+
 // --- call sites --------------------------------------------------------------
 
 // stdInstCallAt instantiates template f for the call t at the type
 // arguments the checker instantiated t at (stdInstTypeArgs), and lowers the
-// call. handled is false when f is nil.
-func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir.Temp, kind, bool, bool, bool) {
+// call. self is the receiver kind that selects an impl block's member, and
+// selfType the checker's type it was read from, nil when the caller has
+// none. handled is false when f is nil.
+func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind, selfType analysis.Type) (ir.Temp, kind, bool, bool, bool) {
 	if f == nil || bl.g.stdInsts == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
@@ -803,12 +823,13 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 	s := bl.g.stdInsts
 	tps, ib := s.stdTemplateParams(f)
 	var args []kind
+	var types []analysis.Type
 	if stdGenericTemplateUsable(f) {
 		if len(tps) == 0 {
-			return no("a generic stdlib call with no type parameters to solve: " + f.key)
+			panic("irbuild: stdInstCallAt: every usable std generic template declares type parameters")
 		}
 		var ok bool
-		args, ok = bl.stdInstTypeArgs(t, f, tps, ib, self)
+		args, types, ok = bl.stdInstTypeArgs(t, f, tps, ib, self, selfType)
 		if !ok {
 			return no("a generic stdlib call whose type arguments are unrecorded or outside the domain: " + f.key)
 		}
@@ -818,10 +839,11 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 		// like an instance with no arguments.
 		tps = nil
 	}
-	inst, why := s.instantiate(f, tps, args, bl.g)
+	inst, why := s.instantiateTyped(f, tps, args, types, bl.g)
 	if inst == nil {
 		return no(why)
 	}
+	bl.g.verifyCallee(t, f.node)
 	v, k, mobile, ok := bl.stdInstCall(t, inst)
 	return v, k, mobile, ok, true
 }
@@ -830,12 +852,15 @@ func (bl *irScalarBuilder) stdInstCallAt(t *ast.Call, f *stdFunc, self kind) (ir
 // the call t: the checker's (calleeTypeArgs). For a member of an impl
 // block the receiver kind self selected, the call's record is the interface
 // method's, so the block's receiver parameters are read off self
-// (stdRecvTypeArgs). A type argument inference left open is the type the
-// checker closed it as, which may be Unit (`Result.map(Result.Ok(3), f)`'s
-// E).
-func (bl *irScalarBuilder) stdInstTypeArgs(t *ast.Call, f *stdFunc, tps []string, ib *ast.ImplBlock, self kind) ([]kind, bool) {
+// (stdRecvTypeArgs), and their checker types off selfType, the receiver's
+// checker type (stdRecvTypes). A type argument inference left open is the
+// type the checker closed it as, which may be Unit
+// (`Result.map(Result.Ok(3), f)`'s E). Each argument the call's record
+// gives is the checker's type too (calleeTypedArgs).
+func (bl *irScalarBuilder) stdInstTypeArgs(t *ast.Call, f *stdFunc, tps []string, ib *ast.ImplBlock, self kind, selfType analysis.Type) ([]kind, []analysis.Type, bool) {
 	g := bl.g
 	recv := map[string]kind{}
+	var recvTypes map[string]analysis.Type
 	// kindInvalid: sentinel — no receiver kind selects this member.
 	if self != kindInvalid && ib != nil {
 		// The parameters the block's receiver names, which a derived
@@ -854,10 +879,25 @@ func (bl *irScalarBuilder) stdInstTypeArgs(t *ast.Call, f *stdFunc, tps []string
 		}
 		ks, ok := g.stdRecvTypeArgs(named, ib, self, true)
 		if !ok {
-			return nil, false
+			return nil, nil, false
 		}
 		for i, n := range named {
 			recv[n] = ks[i]
+		}
+		recvTypes = g.stdInsts.stdRecvTypes(f, ib, selfType)
+		if recvTypes == nil && ib.Interface == nil {
+			// An inherent block's member (`List.length(xs)`): the checker
+			// solved the block's parameters as the call's own.
+			if _, called, ok := g.calleeTypedArgs(t.Func, named); ok {
+				for i, n := range named {
+					if called[i] != nil {
+						if recvTypes == nil {
+							recvTypes = map[string]analysis.Type{}
+						}
+						recvTypes[n] = called[i]
+					}
+				}
+			}
 		}
 	}
 	var rest []string
@@ -866,53 +906,54 @@ func (bl *irScalarBuilder) stdInstTypeArgs(t *ast.Call, f *stdFunc, tps []string
 			rest = append(rest, n)
 		}
 	}
-	called, ok := g.calleeTypeArgs(t.Func, rest)
+	called, calledTypes, ok := g.calleeTypedArgs(t.Func, rest)
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
 	out := make([]kind, len(tps))
+	var types []analysis.Type
 	for i, n := range tps {
 		if k, ok := recv[n]; ok {
 			out[i] = k
+			if rt := recvTypes[n]; rt != nil {
+				if types == nil {
+					types = make([]analysis.Type, len(tps))
+				}
+				types[i] = rt
+			}
 			continue
 		}
 		out[i], called = called[0], called[1:]
+		if calledTypes[0] != nil {
+			if types == nil {
+				types = make([]analysis.Type, len(tps))
+			}
+			types[i] = calledTypes[0]
+		}
+		calledTypes = calledTypes[1:]
 	}
-	return out, true
+	return out, types, true
 }
 
-// irClosedDefaults is args, the positional operands of a call to fd, with
-// each omitted trailing parameter's default after them, or args unchanged
-// when an omitted one has no default that is a literal.
-func irClosedDefaults(fd *ast.FuncDef, args []ast.Node) []ast.Node {
-	if fd == nil || len(args) >= len(fd.Params) {
-		return args
-	}
-	for _, a := range args {
-		if _, named := a.(*ast.NamedArg); named {
-			return args
-		}
-	}
-	out := append([]ast.Node(nil), args...)
-	for _, p := range fd.Params[len(args):] {
-		if p.Default == nil || !irClosedLiteral(p.Default) {
-			return args
-		}
-		out = append(out, p.Default)
-	}
-	return out
-}
-
-// irDefaultsNotAllLiteral reports a parameter of fd whose default is not a
-// literal (irClosedLiteral), which a call that leaves it out cannot fill in
-// the caller's file.
-func irDefaultsNotAllLiteral(fd *ast.FuncDef) bool {
+// irDefaulted reports whether a parameter of fd has a default.
+func irDefaulted(fd *ast.FuncDef) bool {
 	for _, p := range fd.Params {
-		if p.Default != nil && !irClosedLiteral(p.Default) {
+		if p.Default != nil {
 			return true
 		}
 	}
 	return false
+}
+
+// writesAPrefix reports whether call t, placed by plan, writes its callee's
+// leading parameters positionally and in order.
+func writesAPrefix(t *ast.Call, plan argPlan) bool {
+	for i, a := range t.Args {
+		if _, named := a.(*ast.NamedArg); named || plan.slots[i] != i {
+			return false
+		}
+	}
+	return true
 }
 
 // stdInstCall lowers the call t to a committed or pending instance, with its
@@ -926,12 +967,18 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		params[i] = bl.g.stdProgHere(p)
 	}
 	args := t.Args
-	if len(args) < len(params) && bl.stdInstPreCall != t {
-		// `Reader.chunks(r)`: each omitted trailing default a literal
-		// (irClosedLiteral), which lowers the same in any file.
-		args = irClosedDefaults(inst.fd, args)
+	var accessors []*stdInst
+	if bl.stdInstPreCall != t && bl.g.leavesDefaults(t, len(params)) {
+		// `Reader.chunks(r)`: each omitted trailing parameter is filled by
+		// the accessor of its default at this instance (fillStdInstDefaults).
+		if plan, _ := bl.g.callPlan(t, len(params)); writesAPrefix(t, plan) {
+			var ok bool
+			if accessors, ok = bl.g.stdDefaultAccessors(inst.f, inst.tps, inst.args, inst.types, plan.defaulted); !ok {
+				return no()
+			}
+		}
 	}
-	if len(args) != len(params) {
+	if len(args)+len(accessors) != len(params) {
 		return no()
 	}
 	temps := make([]ir.Temp, len(params))
@@ -942,7 +989,7 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 			return no()
 		}
 		for i, a := range t.Args {
-			src, _, ok := bl.coerceEmpty(a, pre.temps[i], pre.kinds[i], params[i])
+			src, _, ok := bl.convertTo(a, pre.temps[i], pre.kinds[i], params[i])
 			if !ok {
 				return no()
 			}
@@ -961,7 +1008,7 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		if !ok {
 			return no()
 		}
-		src, k, ok = bl.coerceEmpty(a, src, k, params[i])
+		src, k, ok = bl.convertTo(a, src, k, params[i])
 		if !ok {
 			return no()
 		}
@@ -983,6 +1030,9 @@ func (bl *irScalarBuilder) stdInstCall(t *ast.Call, inst *stdInst) (ir.Temp, kin
 		mobile := make([]bool, n)
 		bl.qualRecordArgs, bl.qualRecordSeen = irQualArgs{temps: temps[:n], kinds: kinds, mobile: mobile, ok: true}, true
 	}
+	if len(accessors) > 0 {
+		bl.fillStdInstDefaults(t, params, temps, accessors)
+	}
 	c := ir.NewCall(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), irCallSite(t), inst.sym, temps...)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: inst.view.result, deferrable: true})
@@ -999,49 +1049,23 @@ func (bl *irScalarBuilder) stdGenericQualCall(t *ast.Call, owner, method string)
 		// The builder lowers these families' operations itself.
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	return bl.stdInstCallAt(t, bl.g.stdGenericTemplate(owner, method), kindInvalid)
+	return bl.stdInstCallAt(t, bl.g.stdGenericTemplate(owner, method), kindInvalid, nil)
 }
 
 // stdGenericFileCall lowers `module.fn(args)` where fn is a generic top-level
 // function of a stdlib file (`io.capture(input, run)`), instantiated at the
-// call's types like a generic std member. handled is false when the
-// qualifier is not a stdlib file or the file declares no such template.
-func (bl *irScalarBuilder) stdGenericFileCall(t *ast.Call, ownerID *ast.Ident, method string) (ir.Temp, kind, bool, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
-	if bl.g.stdInsts == nil {
-		return no()
+// call's types like a generic std member: the function the call's record
+// names (analysis.Callee.Std). handled is false for any other callee.
+func (bl *irScalarBuilder) stdGenericFileCall(t *ast.Call) (ir.Temp, kind, bool, bool, bool) {
+	id := bl.g.calleeOf(t).Std
+	if id.Owner != "" {
+		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	if bl.g.files != nil {
-		if _, isSibling := bl.g.files.lookupQualifier(bl.g.fa, ownerID); isSibling {
-			return no()
-		}
-	}
-	module, isStd := stdFileQualifier(bl.g.fa, ownerID)
-	if !isStd {
-		module, isStd = bl.stdOwnFileQualifier(ownerID.Name)
-	}
-	if !isStd {
-		return no()
-	}
-	f := stdModuleInstFunc(bl.g.stdInsts.std.views[module], "", method)
+	f := bl.g.stdInsts.stdInstFuncOf(id)
 	if f == nil {
-		return no()
+		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	return bl.stdInstCallAt(t, f, kindInvalid)
-}
-
-// stdBareGenericFileFunc is the generic top-level stdlib function a bare name
-// was selectively imported as (`import std::io.capture`), or nil.
-func (bl *irScalarBuilder) stdBareGenericFileFunc(id *ast.Ident) *stdFunc {
-	g := bl.g
-	if g.stdInsts == nil {
-		return nil
-	}
-	module, name, ok := stdBareFileFunc(g.srcFA(), id)
-	if !ok {
-		return nil
-	}
-	return stdModuleInstFunc(g.stdInsts.std.views[module], "", name)
+	return bl.stdInstCallAt(t, f, kindInvalid, nil)
 }
 
 // stdModuleInstFunc is the function `recv.name` of a std module that a
@@ -1058,30 +1082,6 @@ func stdModuleInstFunc(v *stdModuleView, recv, name string) *stdFunc {
 	return nil
 }
 
-// stdBareFileFunc names the std file and the declared name of the top-level
-// stdlib function a bare name was selectively imported as, aliased or not:
-// `read_line` after `import std::io.read_line` is ("io", "read_line"), and
-// `next_line` after `import std::io.{read_line as next_line}` is too. A member
-// of a type (`import std::calendar.Date.parse`) is not a file's function.
-func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, bool) {
-	if fa == nil {
-		return "", "", false
-	}
-	sym := resolvedBareSymbolAt(fa, id)
-	if sym == nil || sym.OwningType != "" || sym.Name == "" {
-		return "", "", false
-	}
-	for module, scope := range fa.Program().StdlibModuleScopes {
-		if isProgramStd(module) {
-			continue
-		}
-		if scope != nil && resolveSymbol(scope.Lookup(sym.Name)) == sym {
-			return module, sym.Name, true
-		}
-	}
-	return "", "", false
-}
-
 // stdGenericSiblingCall lowers a bare call inside a stdlib body to a generic
 // sibling: `map(...)` inside `impl Generator<T>`, `decode_list(...)`. A bare
 // call to a `host fn` of the receiver's inherent block (`concat(lhs, rhs)`
@@ -1091,59 +1091,25 @@ func stdBareFileFunc(fa *analysis.FileAnalysis, id *ast.Ident) (string, string, 
 // itself (irIterOwnArity): `chunk_by(...)` is `Iter.chunk_by(...)`. Its std
 // body (`chunk_by_each`, `flat_map_each`) reaches a module host fn that only
 // iterCall lowers, so instantiating the body would decline.
-func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.Temp, kind, bool, bool, bool) {
+func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, id analysis.StdFunc) (ir.Temp, kind, bool, bool, bool) {
 	g := bl.g
-	if g.stdModule == "" || g.stdInsts == nil {
+	if g.stdModule == "" || g.stdInsts == nil || id.IsZero() {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	if g.stdModule == "io" && name == "run_captured" {
-		v, k, mobile, ok := bl.runCaptured(t, "io.run_captured", kindString, kindString, kindString)
+	if v, k, mobile, ok, handled := bl.stdRouteCall(t, id); handled {
 		return v, k, mobile, ok, true
 	}
-	if g.stdModule == "fs/host" && name == "run_on" {
-		v, k, mobile, ok := bl.runOnFiles(t, "fs/host.run_on")
-		return v, k, mobile, ok, true
-	}
-	if g.stdModule == "process/host" && name == "run_on" {
-		v, k, mobile, ok := bl.runOnFiles(t, "process/host.run_on")
-		return v, k, mobile, ok, true
-	}
-	if g.stdModule == "http/host" && name == "run_on" {
-		v, k, mobile, ok := bl.runOnFiles(t, "http/host.run_on")
-		return v, k, mobile, ok, true
-	}
-	if g.stdModule == "http/host" && name == "request_on" {
-		v, k, mobile, ok := bl.requestOn(t, "http/host.request_on")
-		return v, k, mobile, ok, true
-	}
-	if g.stdModule == "http/host" && name == "answer_on" {
-		v, k, mobile, ok := bl.answerOn(t, "http/host.answer_on")
-		return v, k, mobile, ok, true
-	}
-	if g.stdModule == "http/host" && name == "recorded_on" {
-		v, k, mobile, ok := bl.recordedOn(t, "http/host.recorded_on")
-		return v, k, mobile, ok, true
-	}
-	if g.stdModule == "io" && name == "run_replayed" {
-		v, k, mobile, ok := bl.runCaptured(t, "io.run_replayed", kindString, kindString, kindString, kindInt)
-		return v, k, mobile, ok, true
-	}
-	v := g.stdInsts.std.views[g.stdModule]
-	var f *stdFunc
-	if g.implSelf != "" {
-		f = stdModuleInstFunc(v, g.implSelf, name)
-	}
-	if f == nil {
-		f = stdModuleInstFunc(v, "", name)
-	}
+	v := g.stdInsts.std.views[stdShortModule(id.Module)]
+	f := g.stdInsts.stdInstFuncOf(id)
+	name := id.Name
 	_, iterOwn := irIterOwnArity(name)
-	iterOwn = iterOwn && g.implSelf == "Iter" && f != nil && f.recv == "Iter"
-	if callee, bare := t.Func.(*ast.Ident); bare && g.implSelf != "" && (iterOwn || f == nil && stdModuleInherentHost(v, g.implSelf, name)) {
+	iterOwn = iterOwn && id.Owner == "Iter" && f != nil
+	if callee, bare := t.Func.(*ast.Ident); bare && id.Owner != "" && (iterOwn || f == nil && stdModuleInherentHost(v, id.Owner, name)) {
 		// The field keeps the bare name's position, where the checker
 		// recorded the call's signature.
 		call := *t
 		call.Func = &ast.FieldAccess{
-			Object: &ast.TypeIdent{Name: g.implSelf, Line: callee.Line, Col: callee.Col},
+			Object: &ast.TypeIdent{Name: id.Owner, Line: callee.Line, Col: callee.Col},
 			Field:  &ast.Ident{Name: name, Line: callee.Line, Col: callee.Col},
 			Line:   callee.Line,
 			Col:    callee.Col,
@@ -1151,7 +1117,7 @@ func (bl *irScalarBuilder) stdGenericSiblingCall(t *ast.Call, name string) (ir.T
 		v, k, mobile, ok := bl.lower(&call)
 		return v, k, mobile, ok, true
 	}
-	return bl.stdInstCallAt(t, f, kindInvalid)
+	return bl.stdInstCallAt(t, f, kindInvalid, nil)
 }
 
 // stdModuleInherentHost reports whether the module declares exactly one
@@ -1174,8 +1140,9 @@ func stdModuleInherentHost(v *stdModuleView, recv, name string) bool {
 // turbofish names: a scalar or local declared type's impl as the
 // type-qualified call it spells, and a generic std container's impl
 // (`List<Int>`, `Maybe<String>`, `Map<String, Int>`) as an instance selected
-// by the receiver. handled is false when k names neither.
-func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (ir.Temp, kind, bool, bool, bool) {
+// by the receiver. kt is the checker's type k was read from, nil when the
+// caller has none. handled is false when k names neither.
+func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
 	fa, qualified := t.Func.(*ast.FieldAccess)
 	if !qualified || fa.Field == nil {
@@ -1193,7 +1160,7 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		// `T.from_sql(v)` at a `Date`: a program's impl for a std type,
 		// which no operand may name. A call std's own impl answers has
 		// no candidate here and is spelled by the owner below.
-		if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, method); handled {
+		if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, kt, method); handled {
 			return v, rk, mobile, ok, true
 		}
 	}
@@ -1206,15 +1173,17 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 			// The template's name does not say which instance an owner
 			// function's call is (`Field.from_json(json)` has no Field
 			// operand), so the instance travels beside the call.
-			prevCall, prevKind := bl.instCall, bl.instKind
-			bl.instCall, bl.instKind = &call, k
-			defer func() { bl.instCall, bl.instKind = prevCall, prevKind }()
+			prevCall, prevKind, prevType := bl.instCall, bl.instKind, bl.instType
+			bl.instCall, bl.instKind, bl.instType = &call, k, kt
+			defer func() { bl.instCall, bl.instKind, bl.instType = prevCall, prevKind, prevType }()
 		}
+		// The copy is the same call, qualified with k's type.
+		defer bl.g.carryCall(&call, bl.g.respelledCallOf(t, bl.g.kindQualifier(k)))()
 		v, rk, mobile, ok := bl.lower(&call)
 		return v, rk, mobile, ok, true
 	}
 	if irKindDeclared(k) {
-		v, rk, mobile, ok := bl.kindImplCall(t, k, method)
+		v, rk, mobile, ok := bl.kindImplCall(t, k, kt, method)
 		return v, rk, mobile, ok, true
 	}
 	base := irContainerBaseName(k)
@@ -1238,7 +1207,7 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 				// type no std module's scope names, so the call is the
 				// bound interface's at that receiver, which stdIfacePlan
 				// selects by the receiver's kind.
-				v, rk, mobile, ok := bl.lower(ifaceQualified(t, fa, iface))
+				v, rk, mobile, ok := bl.ifaceQualifiedCall(t, fa, iface)
 				return v, rk, mobile, ok, true
 			}
 		}
@@ -1247,12 +1216,12 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 			// to spell the call by, so it is the bound interface's
 			// (`Display.to_string(x)`), which renders or dispatches by the
 			// argument's kind.
-			v, rk, mobile, ok := bl.lower(ifaceQualified(t, fa, iface))
+			v, rk, mobile, ok := bl.ifaceQualifiedCall(t, fa, iface)
 			return v, rk, mobile, ok, true
 		}
 		return no()
 	}
-	if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, method); handled {
+	if v, rk, mobile, ok, handled := bl.stdRecvKindCall(t, k, kt, method); handled {
 		// `T.zero(n)` at a `List<Int>`, `Zero.zero<Maybe<Int>>(1)`: the
 		// program's impl over the container. See stdrecvimpl.go.
 		return v, rk, mobile, ok, true
@@ -1265,6 +1234,8 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 		call.TypeArgs = nil
 		call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: base, Line: fa.Line, Col: fa.Col},
 			Field: fa.Field, Line: fa.Line, Col: fa.Col}
+		// The copy is the same call, qualified with the container.
+		defer bl.g.carryCall(&call, bl.g.respelledCallOf(t, bl.g.kindQualifier(k)))()
 		v, rk, mobile, ok := bl.lower(&call)
 		return v, rk, mobile, ok, true
 	}
@@ -1272,12 +1243,12 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, method string) (
 	if f == nil {
 		// No impl of the container writes method: a std interface's
 		// default (`T.from_missing()` at a `List<Int>`).
-		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultAtKind(t, bl.irQualLowerArgs(t), k, method); handled {
+		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultAtKind(t, bl.irQualLowerArgs(t), k, kt, method); handled {
 			return v, rk, mobile, ok, true
 		}
 		return no()
 	}
-	return bl.stdInstCallAt(t, f, k)
+	return bl.stdInstCallAt(t, f, k, kt)
 }
 
 // stdReceiverlessImplCall lowers `T.method(...)`, an interface function of
@@ -1305,7 +1276,7 @@ func (bl *irScalarBuilder) stdReceiverlessImplCall(t *ast.Call, iface, method st
 		// `T.mean(source)` at a Decimal: the impl takes an Iter, which has a
 		// kind only in a program, so the program builds the body as an
 		// instance with no arguments, as `Decimal.mean(xs)` does.
-		return bl.stdInstCallAt(t, f, kindInvalid)
+		return bl.stdInstCallAt(t, f, kindInvalid, nil)
 	}
 	args := bl.irQualLowerArgs(t)
 	plan := bl.stdFuncPlan(t, args, f)
@@ -1381,8 +1352,8 @@ func irKindDeclared(k kind) bool {
 // the program (`T.from_json(item)` in `List.from_json<Note>`), or a user
 // generic instantiated at another file's type. The impl is found by the
 // kind's declaration, as a receiver operand would find it, so no operand
-// need be of the type.
-func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, method string) (ir.Temp, kind, bool, bool) {
+// need be of the type. kt is the checker's type k was read from, or nil.
+func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool) {
 	if bl.qualBare == nil {
 		bl.qualBare = bl.checkedBareOperands(t)
 	}
@@ -1408,7 +1379,7 @@ func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, method string) (ir.
 	if plan == nil {
 		// No impl of k writes method: a std interface's default
 		// (`T.from_missing()` at a derived struct).
-		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultAtKind(t, args, k, method); handled {
+		if v, rk, mobile, ok, handled := bl.stdIfaceDefaultAtKind(t, args, k, kt, method); handled {
 			return v, rk, mobile, ok
 		}
 		return ir.NoTemp, kindInvalid, false, false
@@ -1460,14 +1431,17 @@ func (bl *irScalarBuilder) boundCallTakesSelf(fa *ast.FieldAccess) bool {
 	return false
 }
 
-// ifaceQualified is the call t spelled through iface: `Display.to_string(x)`
-// for `T.to_string(x)`.
-func ifaceQualified(t *ast.Call, fa *ast.FieldAccess, iface string) *ast.Call {
+// ifaceQualifiedCall lowers the call t spelled through iface, the
+// interface whose function it names: `Display.to_string(x)` for
+// `T.to_string(x)`. The copy is qualified with that interface, the
+// function's owner in t's record.
+func (bl *irScalarBuilder) ifaceQualifiedCall(t *ast.Call, fa *ast.FieldAccess, iface string) (ir.Temp, kind, bool, bool) {
 	call := *t
 	call.TypeArgs = nil
 	call.Func = &ast.FieldAccess{Object: &ast.TypeIdent{Name: iface, Line: fa.Line, Col: fa.Col},
 		Field: fa.Field, Line: fa.Line, Col: fa.Col}
-	return &call
+	defer bl.g.carryCall(&call, bl.g.respelledCallOf(t, bl.g.calleeOf(t).Owner))()
+	return bl.lower(&call)
 }
 
 // callerKindIface is the one interface whose impl for k, among the program's

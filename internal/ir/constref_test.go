@@ -338,7 +338,7 @@ func TestCopy_IsTheMultipleWriterPrimitive(t *testing.T) {
 
 	// Two instructions writing one temporary is legal and is the whole reason
 	// Copy exists: the arms of a branch assign one destination, which is what
-	// gen.slot / gen.fixSlot already does.
+	// internal/irbuild's branch lowering builds.
 	f := ir.NewFunc(pos, "f")
 	entry := f.NewBlock(pos, "entry")
 	dst := f.NewTemp()

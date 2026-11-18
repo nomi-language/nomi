@@ -3,8 +3,6 @@ package irbuild
 import (
 	"strings"
 	"testing"
-
-	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // TestNamedArg_ExplicitZeroIsNotAbsence is the mechanism's central claim, held
@@ -32,112 +30,12 @@ func TestNamedArg_ExplicitZeroIsNotAbsence(t *testing.T) {
 	}
 }
 
-// TestNamedArg_SlotPlanMirrorsResolveArgs pins the three placement rules of
-// Nomi's argument resolution, at the unit level, including the two that the
-// corpus does not currently spell.
-//
-// Rules 1 and 2 are the ones a positional-only reading gets wrong, and neither
-// is reachable from a fixture today: rule 1 needs a bare
-// module-function reference (`unbound name` in this builder, see
-// arg_slots.nomi's closing comment) and rule 2's suppression needs
-// `Task.spawn_all`. So they are asserted directly rather than left uncovered.
-func TestNamedArg_SlotPlanMirrorsResolveArgs(t *testing.T) {
-	fn := kind{tag: tagFunc}
-	named := func(name string) ast.Node { return &ast.NamedArg{Name: name, Value: atomNode()} }
-
-	t.Run("a name places its argument regardless of written position", func(t *testing.T) {
-		// order(b: _, _) — the named argument takes slot 1, the positional 0.
-		args := []ast.Node{named("b"), atomNode()}
-		plan, ok := argSlotPlan(args, []kind{kindInt, kindInt}, []string{"a", "b"})
-		if !ok {
-			t.Fatal("declined a call the checker accepts")
-		}
-		if plan.slots[0] != 1 || plan.slots[1] != 0 {
-			t.Fatalf("slots = %v, want [1 0]: the name must decide, not the position", plan.slots)
-		}
-	})
-
-	t.Run("EVALUATION ORDER is positionals then named, not written order", func(t *testing.T) {
-		args := []ast.Node{named("b"), atomNode()}
-		plan, ok := argSlotPlan(args, []kind{kindInt, kindInt}, []string{"a", "b"})
-		if !ok {
-			t.Fatal("declined a call the checker accepts")
-		}
-		// Written index 1 (the positional) is evaluated FIRST; written index 0
-		// (the named) LAST; the fixture shows it.
-		if len(plan.order) != 2 || plan.order[0] != 1 || plan.order[1] != 0 {
-			t.Fatalf("order = %v, want [1 0]: resolveArgs drains every positional "+
-				"before any named argument, so a named argument written FIRST is "+
-				"evaluated LAST", plan.order)
-		}
-	})
-
-	t.Run("rule 1: a positional AFTER a named argument skips the claimed slot", func(t *testing.T) {
-		// each(items, opts: 8, handler) — `handler` is written third, slot 1 is
-		// claimed by name, so it must land in slot 2 rather than colliding.
-		args := []ast.Node{atomNode(), named("opts"), &ast.Lambda{}}
-		plan, ok := argSlotPlan(args, []kind{kindInt, kindInt, fn}, []string{"items", "opts", "handler"})
-		if !ok {
-			t.Fatal("declined the options-then-callback shape the checker accepts")
-		}
-		if plan.slots[2] != 2 {
-			t.Fatalf("the trailing positional landed in slot %d, want 2: a positional "+
-				"written after a named argument skips name-claimed slots", plan.slots[2])
-		}
-	})
-
-	t.Run("rule 1: a positional BEFORE a named argument does NOT skip", func(t *testing.T) {
-		// add(1, a: 2) — the `1` came first and does mean slot 0, so the name
-		// collides, which is an "already has a value" error. Declined.
-		args := []ast.Node{atomNode(), named("a")}
-		if _, ok := argSlotPlan(args, []kind{kindInt, kindInt}, []string{"a", "b"}); ok {
-			t.Fatal("accepted `add(1, a: 2)`, which is a duplicate-slot error: a " +
-				"positional written BEFORE a named argument must not skip past it")
-		}
-	})
-
-	t.Run("rule 2: a name on the last parameter SUPPRESSES the trailing-lambda move", func(t *testing.T) {
-		// Task.spawn_all(items, fn x -> f(x), max_running: 8) — the lambda is the
-		// last positional, but the last slot is spoken for by name, so moving
-		// it there would collide.
-		args := []ast.Node{atomNode(), &ast.Lambda{}, named("max_running")}
-		plan, ok := argSlotPlan(args, []kind{kindInt, fn, kindInt}, []string{"items", "body", "max_running"})
-		if !ok {
-			t.Fatal("declined a call the checker accepts")
-		}
-		if plan.slots[1] != 1 {
-			t.Fatalf("the lambda moved to slot %d; a named argument targeting the "+
-				"last parameter must suppress the trailing-lambda move, or the "+
-				"two collide", plan.slots[1])
-		}
-	})
-
-	t.Run("an unknown parameter name is declined, not placed", func(t *testing.T) {
-		args := []ast.Node{named("nope")}
-		if _, ok := argSlotPlan(args, []kind{kindInt}, []string{"a"}); ok {
-			t.Fatal("accepted a name no parameter has; that is a front-end error and " +
-				"this walk must not invent a slot for it")
-		}
-	})
-
-	t.Run("no name table declines a named argument but not a positional one", func(t *testing.T) {
-		// A synthesized signature records kinds only. Declining is what makes
-		// directCall report `named argument` instead of guessing a slot.
-		if _, ok := argSlotPlan([]ast.Node{named("a")}, []kind{kindInt}, nil); ok {
-			t.Fatal("placed a named argument with no parameter names available")
-		}
-		if _, ok := argSlotPlan([]ast.Node{atomNode()}, []kind{kindInt}, nil); !ok {
-			t.Fatal("a wholly positional call must be unaffected by a missing name table")
-		}
-	})
-}
-
 // A named call to an interface function that leaves a defaulted slot empty
 // before a supplied one (`Sum.f(x, 1, c: 9)`) fills it from the declaration
 // the call reaches, as a call omitting trailing slots does: an inherited
-// default's or an override's own for a concrete receiver, through the
-// interface, the type and a bounded type parameter, and the interface's for
-// an erased receiver.
+// default's or an override's own, through the interface, the type, a
+// bounded type parameter and an erased receiver, whose impl's is chosen
+// when the call runs.
 func TestNamedArg_InterfaceCallFillsAnEarlierDefault(t *testing.T) {
 	verifyLambdaProgram(t, `import std::io
 
@@ -194,5 +92,145 @@ fn main()
     io.inspect(erased(x))
     io.inspect(erased(o))
 end
-`, "4129\n4129\n-5159\n-5159\n-5159\n4129\n-5159\n4129\n-5129\n")
+`, "4129\n4129\n-5159\n-5159\n-5159\n4129\n-5159\n4129\n-5159\n")
+}
+
+// A nested function that calls itself with named arguments: the call goes
+// through the function's value, which carries no parameter names, and its
+// arguments reach the slots the checker recorded.
+func TestNamedArg_ANestedFunctionCallsItselfByName(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+fn main()
+    fn fact(n: Int, acc: Int = 1) -> Int
+        if n <= 1 then acc else fact(acc: acc * n, n: n - 1)
+    end
+    io.print(fact(n: 5))
+    io.print(fact(acc: 2, n: 3))
+end
+`, "120\n12\n")
+}
+
+// Arguments are evaluated left to right as written, a named argument where
+// it is written (spec §8 *Evaluation order*): a callee that is an
+// expression first, then a pipe's head, then the written arguments, then
+// the defaults the call leaves out. A partial capture evaluates its written
+// arguments when the function it makes is called.
+func TestNamedArg_ArgumentsAreEvaluatedAsWritten(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+fn p(tag: String) -> String
+    io.print("eval ${tag}")
+    tag
+end
+
+fn f(a: String, b: String, c: String = p("default")) -> String
+    "${a}/${b}/${c}"
+end
+
+fn pick(tag: String) -> (String, String) -> String
+    io.print("callee ${tag}")
+    fn a, b -> "${a}+${b}"
+end
+
+fn main()
+    io.print(f(b: p("B"), p("A")))
+    io.print(f(c: p("C"), b: p("B"), a: p("A")))
+    io.print(p("head") |> f(b: p("B")))
+    io.print(pick("K")(p("A"), p("B")))
+    io.print(p("head") |> pick("K")(p("B")))
+    g = &f(b: p("PB"), &1)
+    io.print(g(p("PA")))
+end
+`, "eval B\neval A\neval default\nA/B/default\neval C\neval B\neval A\nA/B/C\neval head\neval B\neval default\nhead/B/default\ncallee K\neval A\neval B\nA+B\ncallee K\neval head\neval B\nhead+B\neval PA\neval PB\neval default\nPA/PB/default\n")
+}
+
+// `Struct.update` takes a patch that is a value of the base's own struct
+// type, written as a literal that names the type or spreads another value:
+// it names every field, so the update is the patch.
+func TestStructUpdate_APatchOfTheBasesOwnType(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+struct Point
+    x: Int
+    y: Int
+end
+
+fn main()
+    p = Point{x: 1, y: 2}
+    q = Struct.update(p, {..p, x: 3})
+    io.print(q.x)
+    io.print(q.y)
+    r = Struct.update(p, Point{x: 3, y: 9})
+    io.print(r.y)
+    s = Struct.update(updates: {..p, y: 7}, original: p)
+    io.print(s.x)
+    io.print(s.y)
+end
+`, "3\n2\n9\n1\n7\n")
+}
+
+// A partial application over a function value the builder holds no lambda
+// for takes its callee from the checker's record: a local copy of a declared
+// function is that function's partial, and a nested function named inside
+// its own body has its declaration's parameters. A value with no function
+// behind it (a call's result, a parameter) has its type's parameters.
+func TestPartial_OverAFunctionValueTheRecordNames(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+fn sub(a: Int, b: Int = 1) -> Int
+    a - b
+end
+
+fn mk() -> (Int, Int) -> Int
+    fn a, b -> a - b
+end
+
+fn apply(f: (Int, Int) -> Int) -> Int
+    h = &f(&1, 2)
+    h(10)
+end
+
+fn main()
+    g = sub
+    q = &g(&1, 3)
+    io.print(q(9))
+    r = &g(&1)
+    io.print(r(9))
+    fn walk(n: Int, acc: Int = 0) -> Int
+        step = &walk(acc: &1, n: n - 1)
+        if n <= 0 then acc else step(acc + n)
+    end
+    io.print(walk(3))
+    k = mk()
+    p = &k(&1, 3)
+    io.print(p(9))
+    io.print(apply(k))
+end
+`, "6\n8\n6\n6\n8\n")
+}
+
+// A program's impl for a std type is called through the type's name as
+// through the interface's: the checker's record names the program's
+// function, so the route for std's own Range functions leaves it alone.
+func TestQualCall_AProgramsImplOverARange(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+interface Describe
+    fn describe(value: self) -> String
+end
+
+impl Describe for Range<Int>
+    fn describe(r: Range<Int>) -> String
+        "range from ${Range.start(r)}"
+    end
+end
+
+fn main()
+    io.print(Range.describe(1..3))
+    io.print(Describe.describe(1..3))
+    io.print(1..3 |> Range.describe())
+    io.print(Range.to_string(1..3))
+end
+`, "range from 1\nrange from 1\nrange from 1\n1..3\n")
 }

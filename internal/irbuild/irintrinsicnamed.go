@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -13,7 +14,7 @@ import (
 // Each intrinsic reads its operands positionally, so the call is planned as
 // the same call written positionally in the declaration's parameter order,
 // as namedQualCall plans an ordinary qualified call: every operand runs in
-// argSlotPlan's order (positionals, then named arguments as written) into a
+// callPlan's order (the arguments as written) into a
 // temporary that a stand-in node answers (irScalarBuilder.placed). A type
 // name runs nothing, so it stays in place, where Context.value reads its
 // witness from the node. The intrinsics have no defaults, so the arguments
@@ -62,7 +63,7 @@ func (bl *irScalarBuilder) mustBePlacedIntrinsic(t *ast.Call, arity int, what st
 func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if bl.g.fa == nil {
-		return no()
+		panic("irbuild: namedIntrinsicCall: the builder lowers only checked programs, which carry their analysis")
 	}
 	sym := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
 	if sym == nil {
@@ -75,7 +76,7 @@ func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) 
 	case *ast.FuncDef:
 		params = def.Params
 	default:
-		return no()
+		panic(fmt.Sprintf("irbuild: namedIntrinsicCall: an intrinsic declared by %T, which is no function declaration", sym.Node))
 	}
 	names := make([]string, len(params))
 	for i, p := range params {
@@ -87,12 +88,12 @@ func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) 
 		}
 		names[i] = p.Name
 	}
-	plan, planned := argSlotPlan(t.Args, make([]kind, len(names)), names)
+	plan, planned := bl.g.callPlan(t, len(names))
 	if !planned || len(t.Args) != len(names) {
 		return no()
 	}
 	if _, contiguous := contiguousSlots(plan); !contiguous {
-		// argSlotPlan gives each argument its own slot below len(names),
+		// The record gives each argument its own slot below len(names),
 		// so as many arguments as names claim every slot.
 		panic("irbuild: a full argument plan that leaves a slot unclaimed")
 	}
@@ -129,7 +130,9 @@ func (bl *irScalarBuilder) namedIntrinsicCall(t *ast.Call, fa *ast.FieldAccess) 
 		placed[stand] = irPlacedArg{temp: v, k: k}
 		bl.placed[stand] = placed[stand]
 	}
+	// The stand-ins are written at their slots, in order.
 	positional := &ast.Call{Func: t.Func, Args: args, IsTailCall: t.IsTailCall, Line: t.Line, Col: t.Col}
+	defer bl.g.carryCall(positional, bl.g.rewrittenCallOf(t, len(args), len(args)))()
 	v, k, mobile, ok := bl.call(positional)
 	if ok && recording > 0 {
 		// Inside an assertion subject the rows name the written arguments

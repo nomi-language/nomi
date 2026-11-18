@@ -59,7 +59,7 @@ func (c *checker) checkedLiteralTypeArgs(n *ast.TaggedString, ret Type) Type {
 		// links, field by field: the bound Route.to_with and
 		// Route.path_with hold them to, checked at the literal that names
 		// them.
-		if p := resolveTV(dt.TypeArgs[0]); !containsTypeVar(p) && !ContainsTypeParam(p) {
+		if p := resolveTypeVar(dt.TypeArgs[0]); !containsTypeVar(p) && !ContainsTypeParam(p) {
 			if help, bad := c.parseFieldsHelp(p); bad {
 				c.addError(n.Line, max(n.Col-len(n.Tag), 1), "a route's parameters are read from its path and written into links as text: "+help)
 			}
@@ -120,11 +120,11 @@ func RouteWildcards(pattern string) []string {
 // isRouteType reports whether t is std/http's Route, and its parameters
 // type.
 func isRouteType(t Type) (Type, bool) {
-	dt, ok := resolveTV(t).(*DistinctType)
+	dt, ok := resolveTypeVar(t).(*DistinctType)
 	if !ok || dt.Origin != "std/http" || dt.Name != "Route" || len(dt.TypeArgs) != 1 {
 		return nil, false
 	}
-	return resolveTV(dt.TypeArgs[0]), true
+	return resolveTypeVar(dt.TypeArgs[0]), true
 }
 
 // routeCallHint is the help for a route with parameters passed where a
@@ -145,9 +145,9 @@ func routeCalleeHint(callee ast.Node, want, have Type) string {
 			return ""
 		}
 	}
-	if wf, ok := resolveTV(want).(*FuncType); ok && fn == "to_with" {
-		hf, ok := resolveTV(have).(*FuncType)
-		if ok && len(wf.Params) == 2 && len(hf.Params) == 1 && resolveTV(wf.Params[1]) == TypeUnit {
+	if wf, ok := resolveTypeVar(want).(*FuncType); ok && fn == "to_with" {
+		hf, ok := resolveTypeVar(have).(*FuncType)
+		if ok && len(wf.Params) == 2 && len(hf.Params) == 1 && resolveTypeVar(wf.Params[1]) == TypeUnit {
 			return "this route has no parameters; use `Route.to(route, fn request -> ...)`, whose handler takes only the request"
 		}
 		return ""
@@ -366,7 +366,7 @@ func (c *checker) solvableCallee(call *ast.Call) *FuncType {
 	if sym.Type == nil {
 		return nil
 	}
-	ft, ok := resolveTV(sym.Type).(*FuncType)
+	ft, ok := resolveTypeVar(sym.Type).(*FuncType)
 	if !ok || containsTypeVar(ft) || len(call.Args) != len(ft.Params) {
 		return nil
 	}

@@ -246,11 +246,12 @@
 // # Elaboration
 //
 // The IR builder lowers what the checker decided: each expression's type,
-// each call's callee and, for a generic callee, the type arguments it is
+// each call's callee, where its arguments go and, for a generic callee,
+// the type arguments it is
 // instantiated at. [VerifyElaboration] checks a checked file against that
-// invariant, reading only the checker's records (ExprTypes, ExpectedTypes,
-// References with each reference's CallType and DispatchImpl,
-// Operators, CallDefaults, HoleDisplays, Coercions, IterViews, Conversions, ImplTypeArgSets, each reference's CallInterface, the `?` markers), and returns each place a record is
+// invariant, reading only the checker's records (ExprTypes, TypeExprTypes,
+// ExpectedTypes, References with each reference's CallType and DispatchImpl,
+// Calls, Memberships, Operators, CallDefaults, HoleDisplays, UnwrapFailures, each TypedLiteral's Failure, Coercions, IterViews, Conversions, ImplTypeArgSets, each reference's CallInterface, the `?` markers), and returns each place a record is
 // missing or open, by construct (call, expression, implicit operation) and
 // category. Its doc comment defines "closed": no unsolved inference
 // variable at any depth and no type parameter but the enclosing
@@ -280,8 +281,7 @@
 //
 // A call of an interface function the checker selected no impl for (no
 // DispatchImpl: a receiver of a type parameter or an interface value, or
-// an inherited default reached through a type) is dispatched where it
-// runs, and its reference records the interface instance it goes through
+// an inherited default reached through a type) records, on its reference, the interface instance it goes through
 // (call_interfaces.go, Symbol.CallInterface): the bound for `C.holds(c,
 // x)` under `C: Holds<T>`, recorded as the call is typed, and otherwise
 // the interface at the type arguments its signature is instantiated at,
@@ -303,14 +303,108 @@
 // and through its own projection of a variable; it fills no hole itself.
 // The verifier counts a closed variable as closed.
 //
+// Each call has a record of where its arguments go (resolved_call.go,
+// Calls, a [ResolvedCall]): for each of the callee's parameters, the
+// written argument, the piped value, the default or the partial's `&N`
+// that fills it, and the written arguments in the order they are
+// evaluated, which is the order they are written (spec §8 *Evaluation
+// order*). One function routes arguments to parameters (placeArgs), for a
+// direct call, a pipe stage, which is a call with the piped value placed
+// first, and a partial application, which is a call with holes; the
+// direct, generic and pipe checks record what it answered
+// (recordPlacement). A form that takes its arguments in order (a
+// constructor, an operator function, `testing.check`) is recorded so,
+// through the same function, where the form is checked
+// (recordPositional). A `then` or `tap` stage's call of its function has
+// its record under the stage. The record classifies the callee too
+// (callee.go, [Callee]): a declared `fn`, a `host fn`, an impl's
+// function, an interface function dispatched where it runs, a function
+// value (naming the declared
+// function it copies, if it copies one), a variant, a type's constructor
+// or a keyword form, each by the checker's symbol and declaration node.
+// A std function's record also carries its identity (StdFunc): its
+// module, the type or interface it is declared under, the interface of
+// the impl block that declares it with that interface's type arguments,
+// and its name. It names one declaration of its module, so two parses of
+// the module (the shared analysis's and one checked from its text) agree
+// on each function, and two impls of one interface at different type
+// arguments do not share one. A module checked from its text reaches the
+// shared parse of itself too (an attached test's `import std::hex` in
+// std/hex), which its program keeps beside the edited one for this
+// (Program.reachedFiles).
+// A call of an interface's function whose receiver's type is known where
+// it is checked names the impl block it reaches (Callee.Impl,
+// impl_reached.go) and the function that runs there: the block's `fn`, a
+// derive's synthesized one, its `host fn`, or the interface's default the
+// block inherits. The block is the one of the receiver's type and the
+// interface (FileAnalysis.ImplBlocks, each block with its resolved
+// receiver and its interface's origin, so a program's `Error` and
+// std/json's, or a file's `DateParts` and std/calendar's, are told apart;
+// the universal or derived Debug block of a std file that does not import
+// Debug is registered under std's own, compilerKnownSynthTypeOf),
+// chosen among several by the receiver's type arguments, or the one the
+// checker selected (impl_selection.go). Every call of an interface's
+// function also records how it is answered (Callee.Form, callForm), in
+// the terms an operator through the interface records it
+// (OperatorUse.Form) and by the same rules: OperatorByImpl where it
+// reaches a block; OperatorStructural where the receiver's shape answers
+// it (a tuple, an anonymous struct, a collection, a function value:
+// shapeUse) or the receiver is a declared type with no block of the
+// interface that meets it all the same (the Equatable and Hashable of a
+// type with no impl of its own, a block-local type's Debug, a struct's
+// Struct: noImplUse); OperatorDispatched on an interface value; and
+// OperatorPerInstance through a type parameter. An operator asks the
+// same two rules with the call's block resolver between them
+// (interfaceUseFor, implMethodFor, implBlockFor), so `a == b` and
+// `Equatable.equal(a, b)` are answered alike. A block is a type's when
+// its receiver is the type's declaration (implBlocksOf): a type declared
+// inside a body, which no impl can name, has none, whatever a std module
+// declares under its name. TestElaborationGate holds a call on a receiver
+// of a known type to a block or a Form (ElabImplUnrecorded), and an
+// operator's recorded impl to one of its operand's type's blocks
+// (ElabOperatorForeignImpl).
+// A generic body is checked once, so a call in it through a type
+// parameter (`T.area(x)`, `Shape.area(x)` with `x: T`, `T.from_json(j)`)
+// records the interface's function, For the type parameter, and no
+// block. FileAnalysis.CalleeAt answers that record at an instance's type
+// arguments: For substituted and, where it is a known type, the block and
+// function a call written at that type records. It asks the resolver
+// reachedImpl asks (interfaceImplAt), with the receiver's type as an
+// argument. An operator over a type parameter (OperatorPerInstance) is
+// answered at an instance the same way (OperatorUseAt, through
+// interfaceUseFor, the resolver operatorUseOf asks). For is the type
+// parameter of a function, of an impl block (written `impl<B>`, or named
+// by its receiver alone, `A` in `impl Make for Box<A>`, whose symbol the
+// type builder gives the block's parameter: attachReceiverTypeParams) or of
+// a generic type in its own block. A generic interface's qualified call
+// (`Contains.contains(xs, x)`), whose `self` no argument solves, is for
+// the type of the argument at its `self` parameter, `List<T>` included,
+// and a bare call of an interface's own function in one of its defaults
+// (`compare(b, a)` in Comparable's `min`) is for the default's `self`,
+// which an instance of the default binds: both recorded as the
+// reference's `self` type argument (recordCallSelf). A membership test
+// `x in c` is the call `Contains.contains(c, x)` (in.go,
+// FileAnalysis.Memberships), recorded as that written call is.
+// A check classifies the calls it recorded (settleCallees), so a test
+// checked against a file afterwards (CheckAddedTest), whose copy shares
+// the file's records, leaves them as the file's check made them: a `fn`
+// declared inside one of the file's bodies stays a function value.
+// One function follows a callee back to the function behind it
+// (calleeOf); the names a call may write, the defaults it may leave out
+// and the classification all read its answer. The record says what the call means and
+// nothing of how a machine holds a value, and the IR builder places a
+// call's arguments from it alone (internal/irbuild package doc, "Calls").
+//
 // A call that leaves defaulted parameters out has a record of what fills
 // them (call_defaults.go, CallDefaults): the declaration whose defaults
-// they are, its file and the slots, made where the checker routes the
-// call's arguments to their slots, so a pipe's subject and a trailing
+// they are, its file and the slots, made from the call's placement, so a
+// pipe's subject and a trailing
 // callback count as it counts them. A call through a local copy of a
 // declared function names the function the copy was made from, and a call
-// of an interface function the checker resolved to an impl takes the impl
-// function's defaults (settleCallDefaults). A declared function named as
+// of an interface function the checker resolved to an impl takes, per
+// slot, the impl function's default where it declares one and the
+// interface's where it does not: the record names each slot's declaration
+// (DefaultedCall.From, settleCallDefaults). A declared function named as
 // a value where fewer parameters are expected records the slots its
 // call fills (DefaultedRefs). The IR builder fills omitted parameters
 // from these records alone.
@@ -326,13 +420,23 @@
 // file; an interface value renders through the impl of the value it
 // holds. A hole of a type parameter, or of the `self` of an interface
 // default (an InterfaceType marked DefaultSelf, which is the implementor
-// and not an interface value), records only that: the IR builder renders
-// it at each instance by the same rule over the instance's kind.
+// and not an interface value), records only that: at an instance whose
+// types are known, DisplayAt answers the record a value of the
+// substituted type has, and the IR builder renders the `self` of a
+// default by the same rule over the instance's kind. DisplayCallee is
+// what a call of a record's impl function reaches, which the builder
+// calls it by. The error a typed literal is refused with, E of a fixed
+// literal's handler's `Result<T, E>` or a checked literal's check's
+// LiteralError (TypedLiteral.Failure), and the error a `!` over a Result
+// shows when it traps (UnwrapFailures) have the record a hole of that
+// type has, made with the holes' (recordDisplays).
 //
-// Each binary operator over a value that is not a primitive has a record
-// of what it means (operator_uses.go, Operators), made once the file's
-// variables are closed: the impl it calls (its OperatorImpls record, or for
-// a derive-synthesized body the same record made for it there), a
+// Each binary operator over a value that is not a primitive, and each
+// prefix `~~~` over one, has a record of what it means (operator_uses.go,
+// Operators), made once the file's variables are closed: the impl it calls
+// (a binary operator's OperatorImpls record, or for a derive-synthesized
+// body the same record made for it there; `~~~`'s one BitwiseNot impl of
+// its operand's type), a
 // comparison by shape (a tuple, anonymous struct or collection, or a
 // declared type no file writes or derives an Equatable for), a comparison
 // of two interface values by their run-time types, or, over a type
@@ -388,6 +492,7 @@
 // stdlib, the tour, the spec and internal/irbuild's fixtures and fails on
 // any call or expression without a closed record, derived bodies included,
 // and on each implicit operation the checker records (gatedImplicit: a
+// call's argument placement, a
 // call leaving defaulted parameters out, an interpolation hole, an
 // operator, a value entering an interface, a source entering an `Iter<T>`,
 // a value converting below its top,
@@ -395,8 +500,7 @@
 // arguments, a call of an interface function dispatched where it runs).
 // TestElaborationCensus runs it over the same programs, or over one project
 // directory read in place, and prints counts by category and construct
-// with examples, the implicit operations included, which nothing gates
-// yet:
+// with examples, the implicit operations included:
 //
 //	NOMI_ELAB_CENSUS=1 go test ./vmhost -run TestElaborationCensus -count=1 -v
 //	NOMI_ELAB_DIR=<project> go test ./vmhost -run TestElaborationCensus -count=1 -v
@@ -601,7 +705,7 @@
 //     tail value that is not `Err` or `None`, `break`, `continue`, and the
 //     end of the binding's block. A call of the commit or the release with
 //     the name settles the path, including one inside a lambda. The flow is
-//     the unreachable-code rule's shape (alwaysExits) carried with a state,
+//     the unreachable-code rule's shape (leavingRegion) carried with a state,
 //     since the analyzer has no control-flow graph; `leaks-on-return` runs
 //     the same flow.
 //   - `released-value-escapes` (defer_escape.go, checkDeferredEscapes):
@@ -647,6 +751,37 @@
 // elsewhere, since they change the meaning: `&(f(&1))` is no partial and
 // `&f(&1)` is one.
 //
+// # Diagnostic codes
+//
+// A diagnostic is a TypeError: a position, a Message, help lines (Hints),
+// related locations, and three fields for whatever acts on it rather than
+// shows it. Code names its kind ("missing-field"). Args are the values the
+// message names that a reader of the code needs, in the order the code's
+// constant documents (the field's name). Fix is the edit that repairs it
+// (parser.Fix), built where the error is built, by the code that knows
+// what the source should say.
+//
+// Nothing recognizes a diagnostic by its message. The language server's
+// quick fixes read Code and Args, or offer the Fix as it is; a later pass
+// of the checker that revises an error it reported (an unknown type that
+// is an inherent block's type parameter, an argument mismatch that is an
+// HTML slot's) finds it by Code; and where one function needs to know
+// what another just reported, the other returns it
+// (reportGenericArgMismatch's result) or is told what to write
+// (implCalleeLabel names a membership test's callee `in` in the message
+// itself). So a message, a help line and a fix's title may be reworded
+// freely. The one comparison of messages left is of an error with itself:
+// alreadyReported drops a second report of the error a site already made.
+//
+// A code is an exported constant, `<Kind>Code`, in the file that builds
+// its error; an error no consumer acts on has none. A new code needs an
+// explanation in internal/mcp's explanations
+// (TestEveryDiagnosticCodeIsExplained). The codecs carry Args with Code:
+// the generated state codec and the std facts (std_facts.go).
+// internal/docscheck's TestNoCodeRecognizesADiagnosticByItsMessage fails
+// when non-test Go code tests message text, with the few exceptions
+// listed there by reason.
+//
 // # Advice
 //
 // Advice is a diagnostic about a program that checks and means the same
@@ -684,6 +819,128 @@
 // from Check only, so `nomi run` and `nomi test` say nothing of them; a kept program holds its advice, so a check that
 // reads it reports what a fresh one does. Neither reports advice about a
 // std file.
+//
+// # Warnings
+//
+// A warning is a diagnostic about a program that checks and runs and
+// likely does not do what its writer meant, so, unlike advice, every way
+// of running it reports it. There are two. An `embed` pattern whose base
+// does not exist is one (EmbedWarnings, embed.go). A quoted or
+// triple-quoted string that writes `$name` where a value named `name` is
+// in scope is the other (DollarWarnings, dollar_interpolation.go): the
+// lexer records each `$name` as it reads a string's text
+// (token.DollarRef), the parser keeps them on the literal (ast.DollarRef),
+// the builder, which holds the scope at each literal, records the ones
+// that name a value in FileAnalysis.DollarRefs, and DollarWarnings reports
+// each such literal, with the Fix that writes `${name}`. A binding or parameter whose only use is such a `$name` is
+// the unused-binding error, which then says the string is text. vmhost
+// writes a program's warnings where WithWarnings says
+// (vmhost.Program.Warnings), for `nomi run`, `check`, `test` and the REPL,
+// and the language server publishes them as warnings.
+//
+// # Walks over a type
+//
+// What a [Type] is built from is read in one place (type_walk.go).
+// typeChildren answers the types one level inside a type: an element, a
+// key and value, a tuple's elements, an anonymous struct's fields, a
+// function type's parameters and result, type arguments, a conjunction's
+// members, a Partial's target, a solved inference variable's solution.
+// withTypeChildren builds the same type from other parts. walkType visits
+// every type inside a type, typeHolds asks whether one of them answers a
+// question, and mapType rebuilds a type with a function applied to its
+// parts. A function that looks for something inside a type or replaces
+// part of one is a visit or a mapping over these, and names only the kinds
+// it treats specially: a kind it must stay out of is a visit that answers
+// false for it, with the reason beside it. A new kind of Type gets a case
+// in typeChildrenIn and withTypeChildren, which
+// TestTypeChildrenNamesEveryKind requires, and every walk covers it.
+//
+// A declared type's own structure is not among the parts: a struct's
+// fields, an enum's variants, an interface's functions, a distinct type's
+// Inner and MoreParents. A recursive declaration reaches itself through
+// them, so a walk that needs one reads it by name (containsTypeVar and a
+// distinct type's Inner, distinctCycle).
+//
+// Two types are walked in step through pairedTypeChildren, which answers
+// the parts of each, position by position, when the two have the same
+// shape (sameTypeShape: the same kind, the same declaration, as many
+// parts, an anonymous struct's fields by name) and nothing when they do
+// not. A function that pairs two types structurally is a recursion over
+// those pairs and names only the kinds it treats specially, a function
+// type's parameters above all, which a value enters the other way:
+// matchTypeParams, embedsDowncastIn, refinementJoinShape, differsByEmbeds,
+// typesMayOverlap. sameTypeShape has a case for every kind
+// (TestTypeChildrenNamesEveryKind).
+//
+// Unification, equality and conversion (unifyIn, typesEqualIn,
+// conversionCost, convParts) are written out per kind and do not go
+// through these: what they do at a position depends on the kind around it
+// and on the mode they run in. So are variance and exactParams,
+// substitution, which rebuilds a declared type's fields, and the functions
+// that spell a type.
+//
+// # Type expressions' types
+//
+// Every type a program writes (an `ast.TypeExpr`: a parameter's or a
+// binding's annotation, a field's type, a type argument at a call, an impl
+// header, a `where` bound, an alias's target, a subtype's parent, the
+// type of an `as`) is resolved through resolveTypeExpr, which records the
+// type for the node, and for each node nested in it, in
+// FileAnalysis.TypeExprTypes: one map write per node resolved. The type
+// is the one the position gives it, so inside a generic declaration it
+// names the declaration's own parameters (`List<T>`), and an alias's use
+// records its target. A resolution that fails records the node with no
+// type; one that succeeds later replaces it, and a failure never replaces
+// a type. The IR builder reads a generic instance's type arguments here
+// where an annotation spells the instance (internal/irbuild package doc,
+// "Instantiation and dispatch").
+//
+// The table is part of FileBodies and is written only while the file is
+// checked, as ExprTypes is. Type expressions in declarations are resolved
+// before the bodies are walked or while BuildTypes types the declarations
+// (typingDecls); that share is kept (keptDecls.typeExprs) and starts the
+// table again whenever the bodies are rebuilt, since a recheck grafts the
+// new bodies into the old declaration nodes. A body's are recorded again
+// when the body is checked again. A file built from its interface and never
+// checked (another file of a check against interfaces, which irbuild
+// declares to lower one file alone or a REPL input) holds that share
+// alone, so every type expression the lowering of a declaration reads is
+// resolved there, an impl block's receiver included (buildImplBlockTypes).
+// The stdlib's state writes the table with
+// the rest of each file's analysis. [VerifyElaboration] holds every type
+// expression of a checked file to a record, apart from the heads of
+// literals and patterns, which name a variant or the type the literal's
+// ExprTypes records, a decorator's arguments, which a derive lowers to the
+// impl block it writes, and an impl item's ImplIface, which is its block's
+// Interface node. The universal Debug the builder writes for a type a
+// block declares is never checked, since no impl can name such a type;
+// [UniversalDebugTypes] gives its type expressions their types from the
+// checker's type for the declaration, and its patterns' heads their
+// variants.
+//
+// # Patterns' types
+//
+// checkPattern, which every pattern goes through in every position (a
+// `case` arm, a binding, a parameter, a lambda parameter, `if P = e`, `is`,
+// a subtests row, and each pattern nested in one), records in
+// FileAnalysis.PatternTypes the type of the value the pattern matches,
+// and a distinct destructure statement (`JobId(n) = job`) records its
+// value's. A pattern whose head names a type (`Point{x, y}`, `JobId(n)`,
+// `self(n)`) needs no record of the declaration beside it: the checker
+// requires the head to name the value's own type, so the type is the
+// declaration. A head that names a variant (`Some`, `Shape.Circle`,
+// `.Rect`, an aliased `I[x, ..]`) records the variant's declared name in
+// FileAnalysis.PatternVariants, keyed by the head, the type expression
+// TypeExprTypes leaves out; keyed so, a copy of the pattern that keeps
+// its head keeps the record. A parameter's pattern is typed with the
+// declarations (paramPatternType), so that share is kept
+// (keptDecls.patternTypes) and survives a rebuild of the bodies, as
+// type expressions' records do. [VerifyElaboration] holds every pattern
+// node to a PatternTypes record and every variant-naming head to a
+// PatternVariants record, apart from the `_` arm of a `case` with no
+// subject, which matches no value; a literal pattern is a value of its own
+// type and is not held. Nothing is recorded about how a pattern is
+// lowered.
 //
 // # The stdlib's state
 //
@@ -842,7 +1099,10 @@
 // literal, `Iter.from`, a collection literal or an adapter chain over
 // them for the parameter of a callback a std Iter function passes them
 // to (element_ranges.go: noted with its source as the call is checked,
-// seeded when the callback is). As each expression is checked,
+// seeded when the callback is; a callback whose parameter is a subtype
+// that range proves takes the type the position passes, by one judgement
+// for a lambda's annotated parameter, a partial capture's slot and a
+// function passed by name, elemProves). As each expression is checked,
 // rangeTyped records its range and types it as the narrowest std numeric
 // subtype the range proves when the range rests on something other than
 // literals (typeForRange), so `1 + 2` stays an Int; checkNodeExpecting
@@ -948,7 +1208,7 @@
 //     argument of the call form, or a range literal whose endpoints are
 //     literals where a subtype of Range is expected (checkRangeLit)
 //     (checkCollectionRefinementLit, literalInnerOf, refinementCtorArg).
-//     A literal headed by a collection's name (`Vector[x]`, `Map{...}`)
+//     A literal headed by a collection's name (`Vector[x]`, `Set[x]`)
 //     builds a subtype of that collection as the unnamed one does
 //     (shapeHeadSubtype). A literal of NonEmptyList, NonEmptyVector,
 //     NonEmptySet or NonEmptyMap themselves needs no literal parts when

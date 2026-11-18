@@ -21,12 +21,15 @@ const listHeader = `# Every place internal/irbuild can decline a body, with whet
 # without this file. Columns, tab-separated:
 #
 #   class   a  reached: a suite below executes the site
-#           b  unreached, and the checker rejects every program that would reach it
+#           b  unreached, and the checker rejects every program that would reach it:
+#              dead, so it is to become a panic that names the invariant, or lose
+#              its check, once a program aimed at it is shown rejected
 #           c  unreached, and the checker accepts such a program: a gap, pinned in
-#              vmhost's knownLoweringGaps (it moves to a once the coverage reruns)
+#              vmhost's inventoryLoweringGaps (it moves to a once the coverage reruns)
 #           d  unreached, and this inventory could not decide which
 #           -  unreached, not classified yet
 #           ?  added since the coverage last ran
+#   cause   for a d, why the site is there (below); - for any other class
 #   key     function | kind | description#n (kinds: note, false, computed)
 #   pos     file:line in internal/irbuild, refreshed by regeneration
 #   reached the suites whose coverage executes the site, or -
@@ -39,6 +42,22 @@ const listHeader = `# Every place internal/irbuild can decline a body, with whet
 # x operation grid), irbuild (the builder's own tests). A site a suite executes
 # need not decline there: a caller may try another lowering when it fails.
 #
+# Causes of a d site. The first six are where an accepted program could
+# decline; the rest are bookkeeping the builder's representation forces.
+#   conversion     a kind does not convert to, join with or view as another
+#   shape          a statement or body outside the shapes a construct lowers
+#   instantiation  a std template or generic instance that did not form
+#   ffi            a Go-bound function that takes or returns a function
+#   scope          a binding that shadows a module-level name, found by name
+#   route          a call or literal no route took, where no program was found
+#   unlowerable    a def, impl or std body refused elsewhere, passed on here
+#   plan           a plan function's nil, or a memo of another site's decline
+#   destructure    a refusal of the gen-level destructure, which records its
+#                  own errors (gen.reject) and no site
+#   invariant      a state the checker is believed to rule out, not yet shown
+#   domain         a kind outside the value domain, not yet shown held
+#   registry       a cross-file type mirror or layout fail-safe
+#
 # Regenerate the list, keeping classes and notes:
 #   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1
 # Rerun the coverage too (about ten minutes; runs the whole irbuild package):
@@ -50,8 +69,13 @@ const listHeader = `# Every place internal/irbuild can decline a body, with whet
 `
 
 type entry struct {
-	class, key, pos, reached, note string
+	class, cause, key, pos, reached, note string
 }
+
+// causes are the causes a class d site may carry (the list's header says
+// what each is), in the order the test prints their counts.
+var causes = []string{"conversion", "shape", "instantiation", "ffi", "scope", "route",
+	"unlowerable", "plan", "destructure", "invariant", "domain", "registry"}
 
 func readList(path string) (map[string]entry, error) {
 	f, err := os.Open(path)
@@ -68,10 +92,10 @@ func readList(path string) (map[string]entry, error) {
 			continue
 		}
 		f := strings.Split(line, "\t")
-		if len(f) != 5 {
-			return nil, fmt.Errorf("%s:%d: want 5 tab-separated fields, have %d", path, n, len(f))
+		if len(f) != 6 {
+			return nil, fmt.Errorf("%s:%d: want 6 tab-separated fields, have %d", path, n, len(f))
 		}
-		e := entry{f[0], f[1], f[2], f[3], f[4]}
+		e := entry{f[0], f[1], f[2], f[3], f[4], f[5]}
 		if _, dup := out[e.key]; dup {
 			return nil, fmt.Errorf("%s:%d: %s is listed twice", path, n, e.key)
 		}
@@ -85,7 +109,10 @@ func writeList(path string, sites []Site, entries map[string]entry) error {
 	b.WriteString(listHeader)
 	for _, s := range sites {
 		e := entries[s.Key()]
-		fmt.Fprintf(&b, "%s\t%s\t%s\t%s\t%s\n", e.class, s.Key(), s.Pos(), e.reached, e.note)
+		if e.class != "d" || e.cause == "" {
+			e.cause = "-"
+		}
+		fmt.Fprintf(&b, "%s\t%s\t%s\t%s\t%s\t%s\n", e.class, e.cause, s.Key(), s.Pos(), e.reached, e.note)
 	}
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
@@ -96,7 +123,16 @@ func writeList(path string, sites []Site, entries map[string]entry) error {
 // and nothing else is. Each line carries the site's class (reached by a
 // suite, dead because the checker rejects what would reach it, a pinned
 // gap, or undecided) and a reproducer or reason, so adding or removing a
-// site fails here until the list moves with it.
+// site fails here until the list moves with it. An undecided site carries
+// its cause, and the test logs the count of each.
+//
+// Three counts only go down. A decline site is a place where the builder
+// may refuse a program the checker accepted, so the total is bounded
+// (maxSites): new code that adds a site removes one. A dead site (class b)
+// should not be a decline at all, since no checked program reaches it: it
+// becomes a panic that names the invariant, or its check is deleted
+// (maxDeadSites). An undecided site (class d) is decided: a checker error,
+// an assertion, a fix, or a reproducer pinned as a gap (maxUndecidedSites).
 //
 //	NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/declinesites -run TestDeclineSitesAreListed -count=1
 //
@@ -150,14 +186,42 @@ func TestDeclineSitesAreListed(t *testing.T) {
 			len(added), len(removed), strings.Join(added, "\n  "), strings.Join(removed, "\n  "))
 	}
 	counts := map[string]int{}
-	var unclassified []string
+	byCause := map[string]int{}
+	var unclassified, uncaused []string
 	for k, e := range entries {
 		counts[e.class]++
 		if e.class == "?" || e.class == "-" {
 			unclassified = append(unclassified, k)
 		}
+		switch {
+		case e.class == "d" && !slices.Contains(causes, e.cause):
+			uncaused = append(uncaused, k+" (cause "+e.cause+")")
+		case e.class == "d":
+			byCause[e.cause]++
+		case e.cause != "-":
+			uncaused = append(uncaused, k+" (class "+e.class+" with cause "+e.cause+")")
+		}
 	}
 	sort.Strings(unclassified)
+	sort.Strings(uncaused)
+	if len(uncaused) > 0 {
+		t.Errorf("%d sites carry no cause the list's header names: a class d site has one of %v, and any other class has -.\n  %s",
+			len(uncaused), causes, strings.Join(uncaused, "\n  "))
+	}
+	var perCause []string
+	for _, c := range causes {
+		perCause = append(perCause, fmt.Sprintf("%s %d", c, byCause[c]))
+	}
+	t.Logf("%d sites: %d reached (a), %d dead (b), %d pinned gaps (c), %d undecided (d): %s",
+		len(entries), counts["a"], counts["b"], counts["c"], counts["d"], strings.Join(perCause, ", "))
+	if len(entries) > maxSites {
+		t.Errorf("%d decline sites are listed, and at most %d may be: a new site is a new place the builder can refuse "+
+			"a program the checker accepted, so remove one (make it a checker error, an assertion or a fix) for each added", len(entries), maxSites)
+	}
+	if counts["b"] > maxDeadSites {
+		t.Errorf("%d decline sites are dead (class b), and at most %d may be: a state no checked program reaches is a panic "+
+			"that names the invariant, or no check at all, not a decline", counts["b"], maxDeadSites)
+	}
 	if len(unclassified) > maxUnclassifiedSites {
 		t.Errorf("%d decline sites are unclassified (class ? or -), and at most %d may be: give each new site a class and a note "+
 			"(the file's header says which), or write the program that reaches it.\n  %s",
@@ -167,19 +231,21 @@ func TestDeclineSitesAreListed(t *testing.T) {
 		t.Errorf("%d decline sites are undecided (class d), and at most %d may be: decide the new ones "+
 			"(a checker error, an assertion, a fix, or a reproducer pinned as a gap) instead of adding to d", counts["d"], maxUndecidedSites)
 	}
-	if counts["d"] < maxUndecidedSites || len(unclassified) < maxUnclassifiedSites {
-		t.Logf("the ratchet can go down: set maxUndecidedSites to %d and maxUnclassifiedSites to %d", counts["d"], len(unclassified))
+	if counts["d"] < maxUndecidedSites || len(unclassified) < maxUnclassifiedSites || len(entries) < maxSites || counts["b"] < maxDeadSites {
+		t.Logf("the ratchets can go down: set maxSites to %d, maxDeadSites to %d, maxUndecidedSites to %d and maxUnclassifiedSites to %d",
+			len(entries), counts["b"], counts["d"], len(unclassified))
 	}
 }
 
-// The ratchet on undecided sites. An unclassified or undecided site is a
-// place irbuild may decline that nobody has shown unreachable, so their
-// count only goes down: lower these when sites are decided, and never raise
-// them. The aim is none of either, with every limit a checker error and
-// every impossible state an assertion.
+// The ratchets. Each count only goes down: lower these when sites are
+// removed or decided, and never raise them. The aim is a list of reached
+// sites and pinned gaps only, with every limit a checker error and every
+// impossible state an assertion.
 const (
+	maxSites             = 639
+	maxDeadSites         = 326
 	maxUnclassifiedSites = 0
-	maxUndecidedSites    = 219
+	maxUndecidedSites    = 157
 )
 
 // promote runs only the suites named and marks the sites they execute a,
@@ -220,7 +286,7 @@ func promote(t *testing.T, sites []Site, old map[string]entry, names []string) {
 					have = append(have, n)
 				}
 			}
-			e.class, e.reached = "a", strings.Join(have, ",")
+			e.class, e.cause, e.reached = "a", "-", strings.Join(have, ",")
 			e.note = ""
 		}
 		entries[s.Key()] = e
@@ -265,11 +331,11 @@ func regenerate(t *testing.T, sites []Site, old map[string]entry, coverage bool,
 	for _, s := range sites {
 		e, ok := old[s.Key()]
 		if !ok {
-			e = entry{class: "?", reached: "?"}
+			e = entry{class: "?", cause: "-", reached: "?"}
 		}
 		if reached != nil {
 			if r := reached[s.Key()]; len(r) > 0 {
-				e.class, e.reached = "a", strings.Join(r, ",")
+				e.class, e.cause, e.reached = "a", "-", strings.Join(r, ",")
 			} else {
 				e.reached = "-"
 				if e.class == "a" || e.class == "?" {

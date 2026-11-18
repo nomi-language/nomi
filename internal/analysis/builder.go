@@ -2244,7 +2244,6 @@ func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 	for _, parent := range n.MoreParents {
 		b.walkTypeExpr(parent, scope)
 	}
-	b.walkNamespaceItems(n.Items, scope)
 }
 
 // defineTypeAlias registers a TypeAlias's symbol in the given scope and
@@ -2368,7 +2367,6 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 			}
 		}
 	}
-	b.walkNamespaceItems(n.Items, inner)
 }
 
 // defineStruct registers a StructDef's symbol (with field member symbols)
@@ -2409,7 +2407,6 @@ func (b *builder) defineStruct(n *ast.StructDef, scope *Scope) {
 			b.walkNode(f.Default, inner)
 		}
 	}
-	b.walkNamespaceItems(n.Items, inner)
 }
 
 // defineOnce registers a OnceBinding's symbol and marks it public when
@@ -2824,30 +2821,6 @@ func (b *builder) defineForeignBindingRefs(node ast.Node, scope *Scope) {
 	}
 	if sym := scope.Lookup(alias); sym != nil {
 		b.file.References[pos] = sym
-	}
-}
-
-func (b *builder) walkNamespaceItems(items []ast.Node, scope *Scope) {
-	for _, item := range items {
-		b.walkAttachedTests(item, scope)
-		switch n := item.(type) {
-		case *ast.FuncDef:
-			b.walkNode(n, scope)
-		case *ast.ExternFunc:
-			// Signature refs were handled in the annotations pass; externs
-			// have no body to walk.
-		case *ast.OnceBinding:
-			if n.Value != nil {
-				b.walkNode(n.Value, scope)
-			}
-		case *ast.ImportStmt, *ast.ImportBlock, *ast.ExternPackage:
-			// Imports are file setup for the module scope; annotations
-			// already resolved their bindings, and they have no body.
-		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef, *ast.ImplBlock:
-			b.walkNode(n, scope)
-		case *ast.TestDecl:
-			b.walkNode(n, scope)
-		}
 	}
 }
 
@@ -3528,29 +3501,18 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		var name string
 		var pos Pos
 		var explicitIface ast.TypeExpr
-		var inferred bool
 		var public bool
 		switch it := item.(type) {
 		case *ast.FuncDef:
-			name, pos, explicitIface, inferred, public = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.ImplIfaceInferred, it.Public
+			name, pos, explicitIface, public = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.Public
 		case *ast.ExternFunc:
-			name, pos, explicitIface, inferred, public = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.ImplIfaceInferred, it.Public
+			name, pos, explicitIface, public = it.Name, Pos{Line: it.Line, Col: it.Col}, it.ImplIface, it.Public
 		default:
 			continue
 		}
 		methodDeclared := ifaceSym == nil || interfaceSymbolHasMethod(ifaceSym, name)
 		if explicitIface != nil {
 			if TypeExprBaseName(explicitIface) != ifaceName {
-				if inferred && methodDeclared {
-					b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
-						Line: pos.Line, Col: pos.Col,
-						Message: fmt.Sprintf("function '%s' cannot be shared between `%s` and `%s` for '%s'; write one `impl ... for ...` block per interface", name, TypeExprBaseName(explicitIface), ifaceName, recv),
-					})
-					if sym := b.file.Definitions[pos]; sym != nil {
-						sym.IsImplMethod = false
-						sym.ImplInterface = ""
-					}
-				}
 				continue
 			}
 			if !methodDeclared {
@@ -3560,9 +3522,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 			if !methodDeclared {
 				continue
 			}
-			setImplItemInterface(item, n.Interface, n.InferInterfaceMethods)
-			explicitIface = n.Interface
-			inferred = n.InferInterfaceMethods
+			setImplItemInterface(item, n.Interface)
 		}
 		// Record each method into the override map so registerImplDefaults
 		// knows which interface defaults are met.
@@ -3611,14 +3571,12 @@ func interfaceSymbolHasMethod(sym *Symbol, method string) bool {
 	return member != nil && member.Kind == SymbolInterfaceMethod
 }
 
-func setImplItemInterface(item ast.Node, iface ast.TypeExpr, inferred bool) {
+func setImplItemInterface(item ast.Node, iface ast.TypeExpr) {
 	switch it := item.(type) {
 	case *ast.FuncDef:
 		it.ImplIface = iface
-		it.ImplIfaceInferred = inferred
 	case *ast.ExternFunc:
 		it.ImplIface = iface
-		it.ImplIfaceInferred = inferred
 	}
 }
 
@@ -4552,8 +4510,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 		b.defineTypeAlias(n, scope)
 
 	case *ast.ExternType:
-		inner := b.defineTypeParams(n.TypeParams, scope)
-		b.walkNamespaceItems(n.Items, inner)
+		b.defineTypeParams(n.TypeParams, scope)
 
 	case *ast.InterfaceDef:
 		// defineInterface handles symbol registration + method type-expr
@@ -4574,37 +4531,12 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 			methodInner := b.defineTypeParams(m.TypeParams, ifaceInner)
 			b.walkWhereClauses(m.WhereClauses, methodInner)
 			child := NewScope(methodInner)
-			// Walk param type annotations and default values in the interface
-			// method scope (not param scope), before defining the params — a
-			// default can't reference a sibling param. This records references
-			// for names used in defaults (e.g. `loud: Bool = False`), so the
-			// checker's validation of default values
-			// (checkInterfaceDefaultParamDefaults) can resolve them; without it
-			// bare-name defaults read as undefined.
 			for _, p := range m.Params {
 				b.walkTypeExpr(p.TypeAnnotation, methodInner)
-				if p.Default != nil {
-					b.walkNode(p.Default, methodInner)
-				}
 			}
-			for _, p := range m.Params {
-				if p.Destructure != nil {
-					b.defineParamPattern(p.Destructure, child, m)
-					continue
-				}
-				sym := &Symbol{
-					Name: p.Name,
-					Kind: SymbolParam,
-					Pos:  Pos{Line: p.Line, Col: p.Col},
-					Node: m,
-				}
-				if !ast.IsDiscardName(p.Name) {
-					child.Define(sym)
-				}
-				if p.Line > 0 {
-					b.define(sym.Pos, sym)
-				}
-			}
+			// The parameters are bound as a function's are: each default
+			// sees the parameters before it.
+			b.defineParams(m.Params, child, m)
 			if block, ok := m.Body.(*ast.Block); ok {
 				setScopeSpan(child, block.Line, block.Col, block.EndLine, block.EndCol)
 				if methodInner != ifaceInner {
@@ -5083,10 +5015,16 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.NamedArg:
 		b.walkNode(n.Value, scope)
 
+	case *ast.StringLit:
+		b.file.noteDollarRefs(n, scope, n.Dollars)
+
 	case *ast.StringInterp:
 		for _, part := range n.Parts {
-			if se, ok := part.(ast.StringExpr); ok {
-				b.walkNode(se.Expr, scope)
+			switch p := part.(type) {
+			case ast.StringExpr:
+				b.walkNode(p.Expr, scope)
+			case ast.StringText:
+				b.file.noteDollarRefs(n, scope, p.Dollars)
 			}
 		}
 
@@ -5131,7 +5069,7 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	// Nodes that need no traversal: literals, patterns (handled via definePattern),
 	// Placeholder, WildcardPattern. (StructDef/EnumDef/TypeDef/ExternType/
 	// TypeAlias/InterfaceDef/ImportStmt are handled above for nested-decl support.)
-	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.StringLit, *ast.Placeholder, *ast.PlaceholderParam,
+	case *ast.IntLit, *ast.FloatLit, *ast.DecimalLit, *ast.CodepointLit, *ast.Placeholder, *ast.PlaceholderParam,
 		*ast.WildcardPattern,
 		*ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.EnumPattern, *ast.StructPattern,
 		*ast.TuplePattern, *ast.ListPattern, *ast.MapPattern, *ast.ExternPackage:

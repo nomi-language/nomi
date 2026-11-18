@@ -21,7 +21,7 @@ type CallShape struct {
 // CallResultType is the result type of a call to a function of type ft,
 // with the callee's type parameters solved from the arguments' types as
 // checkGenericCall and checkPipe solve them: each argument is routed to its
-// parameter (computePositionalSlots, computePipeArgSlots) and its type is
+// parameter (placeArgs) and its type is
 // unified against the parameter's under the file's impl tables, so a List
 // argument solves an `Iter<T>` parameter.
 //
@@ -102,9 +102,9 @@ func (fa *FileAnalysis) solveCallShape(ft *FuncType, call CallShape, skip int) (
 		if !bind(0, call.PipedType) {
 			return nil, nil, false
 		}
-		slots = computePipeArgSlots(call.Args, 1, call.ParamNames, ft.Params)
+		slots = positionalSlots(call.Args, 1, call.ParamNames, ft.Params)
 	} else {
-		slots = computePositionalSlots(call.Args, ft.Params, call.ParamNames)
+		slots = positionalSlots(call.Args, 0, call.ParamNames, ft.Params)
 	}
 	for i, arg := range call.Args {
 		if i == skip {

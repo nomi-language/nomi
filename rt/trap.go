@@ -92,13 +92,6 @@ func IndexOutOfRangeText(owner string, index, length int64) string {
 	return fmt.Sprintf("index %d is out of range for a %s of length %d", index, owner, length)
 }
 
-// IndexOutOfRangeValueText is IndexOutOfRangeText for an Int value of any
-// size, for an index past int64's range that a caller checks before it
-// clamps.
-func IndexOutOfRangeValueText(owner string, index Value, length int64) string {
-	return fmt.Sprintf("index %s is out of range for a %s of length %d", FormatIntValue(index), owner, length)
-}
-
 // TodoError is the failure a `todo` reports when a program reaches it: the
 // file and line of the `todo`, then the programmer's reason when there is one.
 // file is the path the front end read the `todo` from, shown relative to the

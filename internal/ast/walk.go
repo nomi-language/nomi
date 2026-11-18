@@ -251,3 +251,82 @@ func buildFieldsStep(t reflect.Type) step {
 		}
 	}
 }
+
+// childField is one field of a node type that can hold a child.
+type childField struct {
+	name  string
+	index int
+	s     step
+}
+
+// childFields caches childFieldsOf by struct type.
+var childFields sync.Map
+
+// childFieldsOf is the exported fields of struct type t that can hold a
+// node, in declaration order, each with the step that walks it.
+func childFieldsOf(t reflect.Type) []childField {
+	if fs, ok := childFields.Load(t); ok {
+		return fs.([]childField)
+	}
+	var fs []childField
+	if t.Kind() == reflect.Struct {
+		buildMu.Lock()
+		for i := range t.NumField() {
+			f := t.Field(i)
+			if !f.IsExported() {
+				continue
+			}
+			if s := stepLocked(valCells, f.Type, buildValueStep); s != nil {
+				fs = append(fs, childField{f.Name, i, s})
+			}
+		}
+		buildMu.Unlock()
+	}
+	childFields.Store(t, fs)
+	return fs
+}
+
+// FieldChildren calls fn on each node directly beneath n, as Children does
+// and in the same order, with the name of the field of n it is under: the
+// field itself, or the slice or plain struct in that field that holds it
+// (a `case` arm's body is under `Branches`). A consumer that must decide
+// something about every child by where it sits keys its decision by node
+// type and field, and NodeChildFields lists every pair there is.
+func FieldChildren(n Node, fn func(field string, child Node)) {
+	v := reflect.ValueOf(n)
+	if !v.IsValid() || v.Kind() != reflect.Pointer || v.IsNil() {
+		return
+	}
+	v = v.Elem()
+	for _, f := range childFieldsOf(v.Type()) {
+		f.s(v.Field(f.index), func(c Node) { fn(f.name, c) })
+	}
+}
+
+// NodeTypes calls fn with the name of every node type of this package (the
+// Go type's name, `Call`): the closed set a switch over nodes is held to.
+func NodeTypes(fn func(node string)) {
+	for _, proto := range generatedTypes {
+		t := reflect.TypeOf(proto)
+		if t.Kind() != reflect.Pointer || !t.Implements(nodeType) {
+			continue
+		}
+		fn(t.Elem().Name())
+	}
+}
+
+// NodeChildFields calls fn with the name of every node type of this package
+// (the Go type's name, `Call`) and of each of its fields that can hold a
+// child, in the order FieldChildren reports them. A node type with no such
+// field is not reported.
+func NodeChildFields(fn func(node, field string)) {
+	for _, proto := range generatedTypes {
+		t := reflect.TypeOf(proto)
+		if t.Kind() != reflect.Pointer || !t.Implements(nodeType) {
+			continue
+		}
+		for _, f := range childFieldsOf(t.Elem()) {
+			fn(t.Elem().Name(), f.name)
+		}
+	}
+}

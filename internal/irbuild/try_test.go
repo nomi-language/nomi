@@ -5,16 +5,10 @@ import (
 	"testing"
 )
 
-// TestPreludeInstanceSlotsAreNeverBoxed pins the invariant tryGuard depends on
-// and cannot check at its own call site.
-//
-// A lambda's guard is BUILT after the lambda's whole body has been lowered, so
-// anything that writes a statement while building it would land its statement
-// at the end of the body. variantValue writes one for a BOXED payload — and it
-// cannot reach that branch for a prelude instance, because preludeInstance
-// assigns slots directly instead of going through assignSlots, which is the
-// only place an enum slot is ever marked boxed. This asserts that rather than
-// leaving it as a reading of the code.
+// TestPreludeInstanceSlotsAreNeverBoxed pins that a prelude instance's slots
+// are never boxed: preludeInstance assigns slots directly instead of going
+// through assignSlots, which is the only place an enum slot is ever marked
+// boxed. This asserts that rather than leaving it as a reading of the code.
 func TestPreludeInstanceSlotsAreNeverBoxed(t *testing.T) {
 	// A struct reached through a prelude enum, and reached from that struct
 	// again, which is the shape that boxes anything at all.

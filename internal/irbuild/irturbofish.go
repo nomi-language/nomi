@@ -49,7 +49,8 @@ func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, 
 		// The type argument's own impl: a scalar or a local type spelled as
 		// its type-qualified call, or a generic std container's impl
 		// instantiated at the argument's components.
-		if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, fa.Field.Name); handled {
+		// The checker's type of the argument is the type the call is for.
+		if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, bl.g.checkerTypeArg(bl.g.calleeOf(t).For), fa.Field.Name); handled {
 			return v, rk, mobile, ok
 		}
 	}
@@ -61,6 +62,9 @@ func (bl *irScalarBuilder) turbofishDispatch(t *ast.Call) (ir.Temp, kind, bool, 
 	call := *t
 	call.TypeArgs = nil
 	call.Func = &ast.FieldAccess{Object: owner, Field: fa.Field, Line: fa.Line, Col: fa.Col}
+	// The copy is qualified with the type argument, as the checker
+	// resolved the name at its position.
+	defer bl.g.carryCall(&call, bl.g.respelledCallOf(t, bl.g.srcFA().CalleeOf(call.Func).Qualifier))()
 	return bl.lower(&call)
 }
 
@@ -101,5 +105,5 @@ func (bl *irScalarBuilder) returnSelfDispatch(t *ast.Call) (ir.Temp, kind, bool,
 	if k == kindInvalid {
 		return no()
 	}
-	return bl.stdKindQualCall(t, k, fa.Field.Name)
+	return bl.stdKindQualCall(t, k, bl.g.checkerTypeArg(ref.ReturnSelf), fa.Field.Name)
 }

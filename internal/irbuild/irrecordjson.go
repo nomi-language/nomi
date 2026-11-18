@@ -4,6 +4,7 @@ import (
 	"maps"
 	"strconv"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -72,9 +73,11 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 	if !bl.recordJsonCallArg(t) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	jsonK := kindInvalid
+	// The record's checker type: the checked parameter's, or for a call
+	// this file synthesized, the type its record names (stdIfaceCallRecord).
+	jsonK, st := kindInvalid, bl.g.calleeOf(t).For
 	if ft := bl.g.checkedCallSignature(t); ft != nil {
-		jsonK = bl.g.project(ft.Return)
+		jsonK, st = bl.g.project(ft.Return), bl.g.checkerTypeArg(ft.Params[0])
 	}
 	subj, sk, _, sok := bl.lower(t.Args[0])
 	if !sok {
@@ -90,10 +93,10 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 		if jsonK == kindInvalid {
 			return ir.NoTemp, kindInvalid, false, false, true
 		}
-		v, k, ok = bl.recordToJsonFieldOf(t, subj, sk, jsonK)
+		v, k, ok = bl.recordToJsonFieldOf(t, subj, sk, st, jsonK)
 		return v, k, false, ok, true
 	}
-	v, k, ok = bl.recordToJsonOf(t, subj, sk, jsonK, "")
+	v, k, ok = bl.recordToJsonOf(t, subj, sk, st, jsonK, "")
 	return v, k, false, ok, true
 }
 
@@ -138,7 +141,7 @@ func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, method string
 			return ir.NoTemp, kindInvalid, false, false, true
 		}
 		bl.noteQualRecordRow(t, subj, sk)
-		v, rk, ok := bl.recordToJsonOf(t, subj, k, jsonK, "")
+		v, rk, ok := bl.recordToJsonOf(t, subj, k, bl.g.operandCheckerType(t.Args[0]), jsonK, "")
 		return v, rk, false, ok, true
 	case method == "from_json" && (iface == "FromJson" || iface == ""):
 		resultK := kindInvalid
@@ -166,7 +169,9 @@ func (bl *irScalarBuilder) noteQualRecordRow(t *ast.Call, v ir.Temp, k kind) {
 }
 
 // recordToJsonOf is `Json.Obj` of subj's fields' JSON, for subj a lowered
-// record of kind sk. jsonK is the call's Json kind when the caller knows
+// record of kind sk and checker type st (nil where the builder holds it by
+// kind alone); each field's call carries the record of its ToJson function
+// at the field's type. jsonK is the call's Json kind when the caller knows
 // it, else kindInvalid, and the first field's answer names it. path tells
 // a nested record's synthesized names from its parent's.
 //
@@ -174,7 +179,7 @@ func (bl *irScalarBuilder) noteQualRecordRow(t *ast.Call, v ir.Temp, k kind) {
 // `ToJson.to_json_field` answers Some, so an `Absent` field is left out;
 // every other field's type writes `Some(to_json(v))` by the default, so
 // its key is written with its `to_json` and no test.
-func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, jsonK kind, path string) (ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st analysis.Type, jsonK kind, path string) (ir.Temp, kind, bool) {
 	no := func(why string) (ir.Temp, kind, bool) {
 		bl.g.dc.note("ToJson.to_json at " + sk.nomi() + ": " + why)
 		return ir.NoTemp, kindInvalid, false
@@ -208,9 +213,10 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, js
 		}
 		var jv ir.Temp
 		var jk kind
+		pt := partCheckerType(st, sk, i)
 		switch {
 		case irRetainedRecordKind(part):
-			jv, jk, ok = bl.recordToJsonOf(t, field, part, jsonK, path+"."+strconv.Itoa(i))
+			jv, jk, ok = bl.recordToJsonOf(t, field, part, pt, jsonK, path+"."+strconv.Itoa(i))
 		// kindInvalid: sentinel — no Json kind is known yet; the field's own ToJson call below names it.
 		case irUnitMaybe(part) && jsonK != kindInvalid:
 			// `{detail: None}`: a None nothing typed, read as a Maybe of
@@ -218,7 +224,7 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, js
 			jv, jk, ok = bl.jsonNull(t, jsonK)
 		case part.tag == tagNamed && !irMaybeKind(part):
 			mv, mk, mok := bl.lowerJsonFieldCall(t, field, part, path+"."+strconv.Itoa(i), func(arg ast.Node) *ast.Call {
-				return synthIfaceCall(t.Line, "ToJson", "to_json_field", arg)
+				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json_field", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json_field", pt))
 			})
 			if !mok || mk.tag != tagNamed || mk.def == nil || !irMaybeKind(mk) {
 				return no("field " + name + "'s ToJson.to_json_field")
@@ -238,7 +244,7 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, js
 			continue
 		default:
 			jv, jk, ok = bl.lowerJsonFieldCall(t, field, part, path+"."+strconv.Itoa(i), func(arg ast.Node) *ast.Call {
-				return synthIfaceCall(t.Line, "ToJson", "to_json", arg)
+				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json", pt))
 			})
 		}
 		if !ok {
@@ -326,15 +332,15 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, js
 // recordToJsonFieldOf is `ToJson.to_json_field(r)` for subj a lowered record
 // of kind sk: the interface's default, `Some(to_json(r))`, with maybeK the
 // call's `Maybe<Json>` kind.
-func (bl *irScalarBuilder) recordToJsonFieldOf(t *ast.Call, subj ir.Temp, sk kind, maybeK kind) (ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) recordToJsonFieldOf(t *ast.Call, subj ir.Temp, sk kind, st analysis.Type, maybeK kind) (ir.Temp, kind, bool) {
 	if maybeK.tag != tagNamed || maybeK.def == nil || !irMaybeKind(maybeK) {
 		return ir.NoTemp, kindInvalid, false
 	}
 	some := maybeK.def.variant("Some")
 	if some == nil || len(some.payloads) != 1 {
-		return ir.NoTemp, kindInvalid, false
+		panic("irbuild: recordToJsonFieldOf: the prelude Maybe's Some has one payload")
 	}
-	jv, _, ok := bl.recordToJsonOf(t, subj, sk, some.payloads[0].k, "")
+	jv, _, ok := bl.recordToJsonOf(t, subj, sk, st, some.payloads[0].k, "")
 	if !ok {
 		return ir.NoTemp, kindInvalid, false
 	}
@@ -361,10 +367,12 @@ func (bl *irScalarBuilder) jsonNull(t *ast.Call, jsonK kind) (ir.Temp, kind, boo
 	return v, k, ok
 }
 
-// synthIfaceCall is `Owner.method(arg)` on line, at column 0, where the
-// checker records nothing.
-func synthIfaceCall(line int, owner, method string, arg ast.Node) *ast.Call {
-	return &ast.Call{
+// synthIfaceCall is `Owner.method(arg)` on line, at column 0, a call the
+// builder writes. It carries the record of a call that passes its one
+// argument (analysis.PositionalCall), as every call the builder writes
+// does.
+func (g *gen) synthIfaceCall(line int, owner, method string, arg ast.Node, rec *analysis.ResolvedCall) *ast.Call {
+	call := &ast.Call{
 		Func: &ast.FieldAccess{
 			Object: &ast.TypeIdent{Name: owner, Line: line},
 			Field:  &ast.Ident{Name: method, Line: line},
@@ -373,6 +381,8 @@ func synthIfaceCall(line int, owner, method string, arg ast.Node) *ast.Call {
 		Args: []ast.Node{arg},
 		Line: line,
 	}
+	g.carryCall(call, rec)
+	return call
 }
 
 // lowerJsonFieldCall binds v, a field's value of kind part, to a name no
@@ -623,9 +633,9 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 	if part.tag == tagNamed && part.def != nil {
 		owner = part.def.nomi
 	}
-	call := synthIfaceCall(line, owner, "from_json", &ast.Ident{Name: name, Line: line})
+	call := bl.g.synthIfaceCall(line, owner, "from_json", &ast.Ident{Name: name, Line: line}, analysis.PositionalCall(1, 1))
 	if irKindDeclared(part) {
-		v, rk, _, ok := bl.kindImplCall(call, part, "from_json")
+		v, rk, _, ok := bl.kindImplCall(call, part, nil, "from_json")
 		return v, rk, ok
 	}
 	if bl.g.std != nil {
@@ -649,7 +659,7 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 			return v, rk, ok
 		}
 	}
-	if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, "from_json"); handled {
+	if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, nil, "from_json"); handled {
 		return v, rk, ok
 	}
 	v, rk, _, ok := bl.lower(call)
@@ -664,7 +674,7 @@ func (bl *irScalarBuilder) fromMissingAt(t *ast.Call, part kind) (ir.Temp, kind,
 	if g.stdInsts == nil {
 		return ir.NoTemp, kindInvalid, false
 	}
-	f := stdModuleGenericTemplate(g.stdInsts.std.views["json"], "", "missing_value")
+	f := g.stdInsts.stdTemplateOf(analysis.StdFunc{Module: "std/json", Name: "missing_value"})
 	if f == nil {
 		return ir.NoTemp, kindInvalid, false
 	}

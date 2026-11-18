@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -38,6 +39,8 @@ type methodInst struct {
 	d     *implDef
 	it    *implItem
 	frame map[string]kind
+	// types is the frame's checker types (substFrame).
+	types map[string]analysis.Type
 	built bool
 	// accessorName is set when another file's call omits a defaulted
 	// parameter of this instance whose default it cannot lower itself
@@ -54,7 +57,6 @@ type methodInst struct {
 type withheldMember struct {
 	params []ast.Param
 	tps    []ast.TypeParam
-	where  []ast.WhereConstraint
 	ret    ast.TypeExpr
 	body   *ast.Block
 	decl   *ast.FuncDef
@@ -89,7 +91,6 @@ func (d *implDef) withheldMember(method string) (withheldMember, bool) {
 			return w, false
 		}
 		w.params, w.tps, w.ret, w.line, w.body = w.decl.Params, w.decl.TypeParams, w.decl.ReturnTypeExpr, w.decl.Line, w.decl.Body
-		w.where = w.decl.WhereClauses
 	case d.iface != nil && d.iface.methods[method] != nil:
 		m := d.iface.methods[method]
 		if m.decl == nil || m.decl.Body == nil || m.decl.Extern {
@@ -100,7 +101,6 @@ func (d *implDef) withheldMember(method string) (withheldMember, bool) {
 			return w, false
 		}
 		w.params, w.tps, w.ret, w.body, w.line = m.decl.Params, m.decl.TypeParams, m.decl.ReturnTypeExpr, b, m.decl.Line
-		w.where = m.decl.WhereClauses
 		w.shape = &m.shape
 	default:
 		return w, false
@@ -141,11 +141,11 @@ func (bl *irScalarBuilder) genericMethodItem(t *ast.Call, d *implDef, method str
 	if !ok {
 		return nil
 	}
-	args, ok := bl.g.calleeTypeArgs(t.Func, w.typeParamNames())
+	args, types, ok := bl.g.calleeTypedArgs(t.Func, w.typeParamNames())
 	if !ok {
 		return nil
 	}
-	return bl.g.methodInstance(d, method, w, args)
+	return bl.g.methodInstance(d, method, w, args, types)
 }
 
 // methodInstance is block d's withheld member w instantiated at args, its
@@ -155,29 +155,41 @@ func (bl *irScalarBuilder) genericMethodItem(t *ast.Call, d *implDef, method str
 //
 // A call in another file reaches this through the declaring gen
 // (siblingMethodInstance), which hands it kinds imported into its own tables.
-func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []kind) *implItem {
+func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []kind, ownTypes []analysis.Type) *implItem {
 	if len(own) != len(w.tps) {
 		return nil
 	}
 	frame := map[string]kind{}
+	types := map[string]analysis.Type{}
 	if def := d.recv.def; def != nil && def.genericOf != nil {
 		for i, p := range def.genericOf.params {
 			frame[p] = def.genericArgs[i]
+			if i < len(def.genericTypes) && def.genericTypes[i] != nil {
+				types[p] = def.genericTypes[i]
+			}
 		}
 	}
 	for n, k := range d.ifaceSubst {
 		frame[n] = k
+		delete(types, n)
+		if t, ok := d.ifaceSubstTypes[n]; ok {
+			types[n] = t
+		}
 	}
 	args := make([]string, 0, len(w.tps))
 	for i, tp := range w.tps {
 		frame[tp.Name] = own[i]
+		delete(types, tp.Name)
+		if i < len(ownTypes) && ownTypes[i] != nil {
+			types[tp.Name] = ownTypes[i]
+		}
 		args = append(args, own[i].key())
 	}
 	key := fmt.Sprintf("%p\x00%s\x00%s", d, method, strings.Join(args, "\x00"))
 	if mi := g.methodInsts[key]; mi != nil {
 		return mi.it
 	}
-	g.pushIfaceSubst(frame)
+	g.pushIfaceSubst(substMethod, d, frame, types)
 	defer g.popIfaceSubst()
 	var it *implItem
 	if w.decl != nil {
@@ -201,8 +213,13 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 		// A `self` inside a parameter or result type (`(self, U)`) is the
 		// implementor, as in inheritedDefaultSig.
 		prevSelf := g.defaultSelf
-		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
+		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv, typ: d.recvType}
 		defer func() { g.defaultSelf = prevSelf }()
+		if d.iface != nil && d.iface.foreign != "" && d.iface.unit >= 0 {
+			// The signature is written in the declaring file, as in
+			// inheritedDefaultSig.
+			defer g.lowerNamesFrom(d.iface.unit)()
+		}
 		for i, p := range w.params {
 			// kindInvalid: sentinel — no kind read yet for this parameter.
 			k := kindInvalid
@@ -230,7 +247,7 @@ func (g *gen) methodInstance(d *implDef, method string, w withheldMember, own []
 	if g.methodInsts == nil {
 		g.methodInsts = map[string]*methodInst{}
 	}
-	mi := &methodInst{d: d, it: it, frame: frame}
+	mi := &methodInst{d: d, it: it, frame: frame, types: types}
 	g.methodInsts[key] = mi
 	g.methodInstQueue = append(g.methodInstQueue, mi)
 	return it
@@ -243,13 +260,13 @@ func (g *gen) flushMethodInsts() {
 		mi := g.methodInstQueue[i]
 		if !mi.built {
 			mi.built = true
-			g.pushIfaceSubst(mi.frame)
+			g.pushIfaceSubst(substMethod, mi.d, mi.frame, mi.types)
 			g.implFunc(mi.d, mi.it)
 			g.popIfaceSubst()
 		}
 		if mi.accessorName != "" && !mi.accessorsBuilt {
 			mi.accessorsBuilt = true
-			g.pushIfaceSubst(mi.frame)
+			g.pushIfaceSubst(substMethod, mi.d, mi.frame, mi.types)
 			g.methodInstSlotDefaults(mi)
 			g.popIfaceSubst()
 		}

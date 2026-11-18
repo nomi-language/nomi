@@ -40,6 +40,36 @@
 // internal/stdio's Backend. [DiskFiles] and [NewMemoryFiles] are the two
 // Nomi builds in.
 //
+// # Holding a program to a list
+//
+// A host that runs code it did not write, such as a pricing rule a user
+// uploads, loads it with [WithCapabilities] and the names of what it may
+// reach outside the machine, the names nomi.toml's [capabilities] lists
+// use (`std::io`, `go:<import path>`) and `host:<key>` for the host's own
+// functions. With no names the program may reach nothing:
+//
+//	p, err := vmhost.LoadSource("rule", src, vmhost.WithCapabilities())
+//	rate, err := p.Call(ctx, "discount", vmhost.Fields{"items": 12, "loyal": true})
+//
+// The load walks what every function a host can run reaches (main and the
+// boot, every function the entry declares, since Call may call any, and
+// the test cases), as the build's walk does, and refuses the program with
+// a [*CapabilityError] before anything runs: the diagnostics `nomi check`
+// prints, and each call as data (its name, its site, the chain from a
+// root with the kind of each step). Run, Test and Call hold the program
+// again from their own roots, to the host's list and the project's
+// nomi.toml, which both apply. A program loaded without the option is
+// held to nomi.toml's lists where it runs: Run, Test, Call and the image a
+// build makes. LoadMarked and ToolMarked, which load a block for the
+// tour's runner, hold it at the load from what `nomi check` holds, so a
+// block over its lists fails as one that does not compile
+// (TestCapabilityLists_EveryEntryPointRefuses). Cases holds nothing: Test
+// holds before it, and a block's program was held when it loaded.
+// Evaluate refuses every effect already.
+// What the list does not confine is in WithCapabilities' doc: the files
+// WithFileSystem hands the program, the host's own functions, what a Go
+// binding does inside, a nested std::compiler run, and time and memory.
+//
 // # The engine and nomi check
 //
 // `nomi check` lowers the program as `nomi run` does, and a test file's
@@ -207,6 +237,12 @@
 // interfaces and kept objects.
 // filerecord.go's file comment lists the steps. These hold beyond them:
 //
+//   - Each file checked again must report nothing (analysis.FileCheck.Clean):
+//     neither its own diagnostics nor the errors its build works out about
+//     the program's impls (a second type-owned impl block, colliding
+//     impls, the orphan rules), which a whole check reports with the
+//     entry's. An edit that adds a declaration breaking one of those is a
+//     miss, and the whole check reports it.
 //   - More than maxRelowered files and a quarter of the program (a hub's
 //     signature) checks the whole program instead, since each relinked
 //     file's check and lowering link against every other file.

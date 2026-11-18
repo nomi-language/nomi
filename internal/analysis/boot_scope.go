@@ -563,14 +563,6 @@ func (r *bootReport) visit(node ast.Node) {
 		if n.Body != nil {
 			r.root(r.s.bodyOf(r.fa, n, n.Body))
 		}
-	case *ast.StructDef:
-		r.visitAll(n.Items)
-	case *ast.EnumDef:
-		r.visitAll(n.Items)
-	case *ast.TypeDef:
-		r.visitAll(n.Items)
-	case *ast.ExternType:
-		r.visitAll(n.Items)
 	case *ast.ImplBlock:
 		r.visitAll(n.Items)
 	}

@@ -39,7 +39,7 @@ end`, "empty\nempty\ndbg line 10: xs = []\ndbg line 11: ys = [[], [1]]\n"},
      [amount]
  end
  empty: List<Int> = begin
-     [..xs]
+     [..xs, ..xs]
  end
  dbg xs
  dbg ys

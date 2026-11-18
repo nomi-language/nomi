@@ -19,7 +19,7 @@ func TestUnifyTypeVarToConcrete(t *testing.T) {
 	if err := Unify(tv, TypeInt); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	resolved := resolveTV(tv)
+	resolved := resolveTypeVar(tv)
 	if resolved != TypeInt {
 		t.Fatalf("expected TypeInt, got %s", resolved)
 	}
@@ -35,7 +35,7 @@ func TestUnifyTwoTypeVarsChained(t *testing.T) {
 	if err := Unify(tv2, tv1); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	resolved := resolveTV(tv2)
+	resolved := resolveTypeVar(tv2)
 	if resolved != TypeInt {
 		t.Fatalf("expected TypeInt, got %s", resolved)
 	}
@@ -49,7 +49,7 @@ func TestUnifyListType(t *testing.T) {
 	if err := Unify(a, b); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	resolved := resolveTV(tv)
+	resolved := resolveTypeVar(tv)
 	if resolved != TypeInt {
 		t.Fatalf("expected TypeInt, got %s", resolved)
 	}
@@ -65,11 +65,11 @@ func TestUnifyFuncType(t *testing.T) {
 	if err := Unify(a, b); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	if resolveTV(tvParam) != TypeString {
-		t.Fatalf("expected TypeString for param, got %s", resolveTV(tvParam))
+	if resolveTypeVar(tvParam) != TypeString {
+		t.Fatalf("expected TypeString for param, got %s", resolveTypeVar(tvParam))
 	}
-	if resolveTV(tvRet) != TypeBool {
-		t.Fatalf("expected TypeBool for return, got %s", resolveTV(tvRet))
+	if resolveTypeVar(tvRet) != TypeBool {
+		t.Fatalf("expected TypeBool for return, got %s", resolveTypeVar(tvRet))
 	}
 }
 
@@ -100,11 +100,11 @@ func TestUnifyMapType(t *testing.T) {
 	if err := Unify(a, b); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	if resolveTV(tvKey) != TypeString {
-		t.Fatalf("expected TypeString for key, got %s", resolveTV(tvKey))
+	if resolveTypeVar(tvKey) != TypeString {
+		t.Fatalf("expected TypeString for key, got %s", resolveTypeVar(tvKey))
 	}
-	if resolveTV(tvVal) != TypeInt {
-		t.Fatalf("expected TypeInt for val, got %s", resolveTV(tvVal))
+	if resolveTypeVar(tvVal) != TypeInt {
+		t.Fatalf("expected TypeInt for val, got %s", resolveTypeVar(tvVal))
 	}
 }
 
@@ -116,8 +116,8 @@ func TestUnifyTupleType(t *testing.T) {
 	if err := Unify(a, b); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
-	if resolveTV(tv) != TypeFloat {
-		t.Fatalf("expected TypeFloat, got %s", resolveTV(tv))
+	if resolveTypeVar(tv) != TypeFloat {
+		t.Fatalf("expected TypeFloat, got %s", resolveTypeVar(tv))
 	}
 }
 

@@ -37,7 +37,7 @@ func (bl *irScalarBuilder) stdFieldDefault(at ast.Node, f *fieldDef) (ir.Temp, b
 	switch lit.form {
 	case stdDefaultString:
 		if f.k != kindString {
-			return ir.NoTemp, false
+			panic("irbuild: stdFieldDefault: the stdStringDefault anchor matches only a String default on the declared field (stdstruct.go:533)")
 		}
 		c := ir.NewString(pos, bl.f.NewTemp(), lit.text)
 		bl.b.Append(c)
@@ -45,28 +45,19 @@ func (bl *irScalarBuilder) stdFieldDefault(at ast.Node, f *fieldDef) (ir.Temp, b
 		return c.Dst(), true
 	case stdDefaultVariant:
 		if f.k.tag != tagNamed || !irRetainedEnumKind(f.k.def) {
-			return ir.NoTemp, false
+			panic("irbuild: stdFieldDefault: stdNoneDefault anchors are on Maybe fields std declares (stdstruct.go:535-591)")
 		}
 		v := f.k.def.variant(lit.text)
 		if v == nil || len(v.payloads) != 0 {
-			return ir.NoTemp, false
+			panic("irbuild: stdFieldDefault: None is payload-free in std/maybe")
 		}
 		dst, k, _, ok := bl.variantValue(at, f.k.def, v, nil, true)
 		return dst, ok && k == f.k
-	case stdDefaultEmptyList:
-		c := ir.NewEmptyList(pos, bl.f.NewTemp(), nil)
-		bl.b.Append(c)
-		// Typed as `lower` types an empty list literal it answers, so the
-		// constant the coercion copies has a stored type.
-		bl.side(c.Dst(), irScalarSide{k: kindEmptyList})
-		v, k, ok := bl.coerceEmpty(at, c.Dst(), kindEmptyList, f.k)
-		return v, ok && k == f.k
-	case stdDefaultEmptyMap:
-		n := ir.NewMakeMap(pos, bl.f.NewTemp(), nil)
-		bl.b.Append(n)
-		bl.side(n.Dst(), irScalarSide{k: kindEmptyMap, pureMake: true})
-		v, k, ok := bl.coerceEmpty(at, n.Dst(), kindEmptyMap, f.k)
+	case stdDefaultEmptyList, stdDefaultEmptyMap:
+		// Built at the field's kind, which the default states nothing
+		// against.
+		v, k, _, ok := bl.emptyOf(at, f.k)
 		return v, ok && k == f.k
 	}
-	return ir.NoTemp, false
+	panic("irbuild: stdFieldDefault: an anchored std default with no form, which stdstruct.go never attaches")
 }

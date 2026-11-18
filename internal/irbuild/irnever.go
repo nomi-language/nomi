@@ -78,7 +78,7 @@ func (bl *irScalarBuilder) neverOperand(n ast.Node) (ir.Temp, kind, bool, bool, 
 	// The construct never completes, so its value is of Infallible too: the
 	// checker's type for it when it recorded one, which a consumer reads
 	// directly, and otherwise Infallible, which the consumer retypes
-	// (coerceEmpty) or reads as it is.
+	// (convertTo) or reads as it is.
 	// kindInvalid: lookup — no recorded type leaves the value Infallible.
 	if want := bl.neverResultKind(n); want != kindInvalid && want != kindNever {
 		if retyped, ok := bl.neverAs(n, v, k, want); ok {

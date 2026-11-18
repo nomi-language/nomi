@@ -3,10 +3,10 @@ package rt
 // Currency is `std/currency.Currency`: an ISO 4217 code (`EUR`), or a
 // custom code and its minor digits (`BTC:8`).
 //
-// Here for Locale's reason (rt/locale.go): nothing in rt operates on it, and
-// a Go type in rt is what lets a std signature, `NumberParseError`'s
-// `WrongCurrency` among them, name the type across generated packages. The
-// codes and their digits are internal/stdformat's.
+// Here for Locale's reason (rt/locale.go): nothing in rt operates on it.
+// std's Go adapters (internal/stdformat) take and return it, in
+// `NumberParseError`'s `WrongCurrency` among other places. The codes and
+// their digits are internal/stdformat's.
 type Currency string
 
 // CurrencyError is `std/currency.Error`: why text, or a code and its digits,

@@ -21,7 +21,7 @@ import
     equatable.Equatable
     hashable.Hashable
     instant.Instant
-    int.Int
+    int.{Int, NonNegativeInt}
     iter.Iter
     json.{FromJson, Json, ToJson, shape_error_root}
     lists.List
@@ -323,7 +323,7 @@ fn hex_value(code: Int) -> Maybe<Int>
 end
 
 // The low `count` hexadecimal digits of n, most significant first.
-fn hex(n: Int, count: Int) -> String
+fn hex(n: Int, count: NonNegativeInt) -> String
     Iter.iterate(n, fn rest -> rest >>> 4)
     |> Iter.take(count)
     |> Iter.map(fn rest -> hex_digit(rest &&& 15))

@@ -84,13 +84,17 @@ func (w *reachWalk) run(roots []*ir.Func, boots []*ir.Symbol) (map[*ir.Func]bool
 		if sym == nil {
 			continue
 		}
-		w.symbol(sym, "boot", NotRetained)
+		w.symbol(sym, "boot", NotRetained, EdgeBoot)
 		if render := m.bootFailures[sym]; render != nil {
-			w.symbol(render, "boot failure", NotRetained)
+			w.symbol(render, "boot failure", NotRetained, EdgeBoot)
 		}
 	}
+	root := w.rootKind
+	if root == 0 {
+		root = EdgeRoot
+	}
 	for _, f := range roots {
-		w.push(f)
+		w.push(f, root)
 	}
 	for len(w.queue) > 0 {
 		f := w.queue[len(w.queue)-1]
@@ -117,8 +121,8 @@ type reachWalk struct {
 	queue []*ir.Func
 	found map[string]Unretained
 	// keys marks the key bodies (keys.go) queued: every hand-written
-	// Equatable and Hashable body is reachable from any comparison,
-	// construction, iteration or crossing that may hash or compare a value.
+	// Equatable and Hashable body is reachable from any instruction that
+	// may hash or compare a value of a declared type (runsKeyBodies).
 	keys bool
 	// effects collects what Effects reports; nil for Unretained's walk.
 	effects map[string]bool
@@ -131,11 +135,31 @@ type reachWalk struct {
 	// reached each function; at is the instruction being visited.
 	via map[*ir.Func]ir.Instr
 	at  ir.Instr
+	// rootKind is the edge kind each root is reached by: EdgeRoot unless
+	// the caller says otherwise (EdgeTest for test cases).
+	rootKind EdgeKind
+	// kinds, recorded with parent, is the edge kind that first reached
+	// each function.
+	kinds map[*ir.Func]EdgeKind
+	// edges, when set, records every edge the walk takes out of each
+	// function, a function already seen included: what OutsideCalls
+	// follows to name an outside call (outside.go).
+	edges map[*ir.Func][]reachEdge
 }
 
-// keyBodies queues every recorded Equatable and Hashable body, once.
+// reachEdge is one way the walk reached to from the function being
+// visited: at is the instruction of its body that did, and kind how.
+type reachEdge struct {
+	to   *ir.Func
+	kind EdgeKind
+	at   ir.Instr
+}
+
+// keyBodies queues every recorded Equatable and Hashable body, once; a walk
+// that records edges records them from every instruction that may hash or
+// compare.
 func (w *reachWalk) keyBodies(from string) {
-	if w.keys {
+	if w.keys && w.edges == nil {
 		return
 	}
 	w.keys = true
@@ -146,16 +170,27 @@ func (w *reachWalk) keyBodies(from string) {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			w.symbol(table[name], from, NotRetained)
+			w.symbol(table[name], from, NotRetained, EdgeKeys)
 		}
 	}
 }
 
-func (w *reachWalk) push(f *ir.Func) {
-	if f == nil || w.seen[f] {
+// push queues f, which the walk reached by an edge of kind from the
+// function being visited (none for a root or a boot).
+func (w *reachWalk) push(f *ir.Func, kind EdgeKind) {
+	if f == nil {
+		return
+	}
+	if w.edges != nil && w.cur != nil {
+		w.edges[w.cur] = append(w.edges[w.cur], reachEdge{to: f, kind: kind, at: w.at})
+	}
+	if w.seen[f] {
 		return
 	}
 	w.seen[f] = true
+	if w.kinds != nil {
+		w.kinds[f] = kind
+	}
 	if w.parent != nil && w.cur != nil {
 		w.parent[f] = w.cur
 		if w.via != nil {
@@ -187,14 +222,15 @@ func (w *reachWalk) chain(from string) []string {
 	return names
 }
 
-// symbol resolves a callee the way a call does and queues its body.
-func (w *reachWalk) symbol(sym *ir.Symbol, from string, kind UnretainedKind) {
+// symbol resolves a callee the way a call does and queues its body, which
+// the walk reached by an edge of kind edge.
+func (w *reachWalk) symbol(sym *ir.Symbol, from string, kind UnretainedKind, edge EdgeKind) {
 	f, err := w.m.resolveFunc(sym, from)
 	if err != nil {
 		w.report(kind, sym.Name(), from)
 		return
 	}
-	w.push(f)
+	w.push(f, edge)
 }
 
 func (w *reachWalk) visit(f *ir.Func) {
@@ -206,31 +242,27 @@ func (w *reachWalk) visit(f *ir.Func) {
 					w.effects[e] = true
 				}
 			}
-			switch in.(type) {
-			case *ir.Compare, *ir.Make, *ir.Iter:
+			if runsKeyBodies(f, in) {
 				w.keyBodies(f.Name())
 			}
 			switch n := in.(type) {
 			case *ir.Call:
-				if n.Crosses() {
-					w.keyBodies(f.Name())
-				}
 				w.call(n, f.Name())
 			case *ir.Defer:
 				w.call(n.Call(), f.Name())
 			case *ir.FuncValue:
-				w.push(n.Body())
+				w.push(n.Body(), EdgeValue)
 			case *ir.Ref:
 				switch n.Kind() {
 				case ir.RefFunc:
-					w.symbol(n.Sym(), f.Name(), NotRetained)
+					w.symbol(n.Sym(), f.Name(), NotRetained, EdgeValue)
 				case ir.RefOnce:
 					cell, found := w.m.onces[n.Sym()]
 					if !found || cell == nil {
 						w.report(OnceNotRetained, n.Sym().Name(), f.Name())
 						continue
 					}
-					w.push(cell.body)
+					w.push(cell.body, EdgeOnce)
 				}
 			case *ir.Assert, *ir.Record, *ir.Subtests:
 				// A `values:` row renders a value of a type with a
@@ -241,11 +273,11 @@ func (w *reachWalk) visit(f *ir.Func) {
 				}
 				sort.Strings(names)
 				for _, name := range names {
-					w.symbol(w.m.rowDebugs[name], f.Name(), NotRetained)
+					w.symbol(w.m.rowDebugs[name], f.Name(), NotRetained, EdgeDebug)
 				}
 			case *ir.Render:
 				for _, impl := range n.DebugImpls() {
-					w.symbol(impl.Fn, f.Name(), NotRetained)
+					w.symbol(impl.Fn, f.Name(), NotRetained, EdgeDebug)
 				}
 				if n.Kind() == ir.RenderDisplay && (n.Erased() || !scalarType(f.TempType(n.Src()))) {
 					// Any retained Display body may run; each is reachable.
@@ -258,7 +290,7 @@ func (w *reachWalk) visit(f *ir.Func) {
 					}
 					sort.Strings(names)
 					for _, name := range names {
-						w.symbol(w.m.displays[name], f.Name(), NotRetained)
+						w.symbol(w.m.displays[name], f.Name(), NotRetained, EdgeDisplay)
 					}
 				}
 			}
@@ -279,7 +311,7 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			}
 			return
 		}
-		w.symbol(n.Callee(), from, NotRetained)
+		w.symbol(n.Callee(), from, NotRetained, EdgeCall)
 	case ir.CalleeDispatched:
 		impls := w.m.dispatch[n.Callee()]
 		if len(impls) == 0 {
@@ -293,7 +325,7 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			return
 		}
 		for _, impl := range impls {
-			w.symbol(impl, from, NotRetained)
+			w.symbol(impl, from, NotRetained, EdgeDispatch)
 		}
 	}
 }

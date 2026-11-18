@@ -28,7 +28,7 @@ func TestDefaultedHostFnArmStillEvaluates(t *testing.T) {
 	// fd == nil is what makes it a `host fn`: there is no Nomi body to hang a
 	// default on.
 	c := stdCandidateFor("probe", "Thing", "", "", "make", params, intType(),
-		true, false, false, nil, stdAnchors{})
+		false, false, nil, stdAnchors{})
 	const want = "stdlib host function with a defaulted parameter"
 	if c.f.why != want {
 		t.Errorf("a host fn with a trailing default is classified %q, want %q; the arm "+
@@ -41,7 +41,7 @@ func TestDefaultedHostFnArmStillEvaluates(t *testing.T) {
 	// refusing on `defaulted > 0` alone and every Nomi-bodied default in std
 	// would be refused with it, including `NaiveDateTime.new`.
 	withBody := stdCandidateFor("probe", "Thing", "", "", "make", params, intType(),
-		true, false, false, &ast.FuncDef{Name: "make", Params: params,
+		false, false, &ast.FuncDef{Name: "make", Params: params,
 			Body: &ast.Block{}}, stdAnchors{})
 	if withBody.f.why == want {
 		t.Errorf("a Nomi-bodied function with the same trailing default is also refused "+

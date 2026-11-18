@@ -18,7 +18,7 @@ import (
 //
 // A call through the value cannot do that entry itself: it holds only the
 // expected type. So the value is wrapped in an adapter closure of the
-// expected type that converts each argument (coerceEmpty, the conversion a
+// expected type that converts each argument (convertTo, the conversion a
 // direct call's argument goes through), calls the function, and converts its
 // result.
 
@@ -59,7 +59,7 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 	inner := bl.g.irAddParam(f, ir.NewSymbol("_"), have)
 	args := make([]ir.Temp, len(wp))
 	for i := range wp {
-		v, k, ok := child.coerceEmpty(at, in[i], wp[i], hp[i])
+		v, k, ok := child.convertTo(at, in[i], wp[i], hp[i])
 		if !ok || k != hp[i] {
 			return ir.NoTemp, false
 		}
@@ -68,7 +68,7 @@ func (bl *irScalarBuilder) funcWiden(at ast.Node, fn ir.Temp, have, want kind) (
 	call := ir.NewIndirectCall(pos, f.NewTemp(), ir.OrdinaryCall, inner, args...)
 	child.b.Append(call)
 	child.side(call.Dst(), irScalarSide{k: funcResult(have), deferrable: true})
-	result, rk, ok := child.coerceEmpty(at, call.Dst(), funcResult(have), funcResult(want))
+	result, rk, ok := child.convertTo(at, call.Dst(), funcResult(have), funcResult(want))
 	if !ok || rk != funcResult(want) {
 		return ir.NoTemp, false
 	}

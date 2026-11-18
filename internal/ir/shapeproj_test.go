@@ -23,8 +23,9 @@ import (
 // on a projection and demands the violation, with a control differing in the
 // recorded shape alone.
 //
-// SEVEN POSITIONS, the same seven `TestShape_ARecordedParameterShapeIsRead
-// AtEveryPosition` uses, because they are the seven distinct shape demands the
+// SEVEN POSITIONS, the same seven
+// `TestShape_ARecordedParameterShapeIsReadAtEveryPosition` uses, because they
+// are the seven distinct shape demands the
 // rule's ten conditions make and a projection's result can land at any of
 // them. Production projections land mostly at the arithmetic and concat
 // positions; the rest are the fence.

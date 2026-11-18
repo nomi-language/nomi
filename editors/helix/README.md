@@ -94,7 +94,9 @@ go-to-binding either.
 
 - `tree-sitter-nomi/queries/injections.scm`
 
-`highlights.scm` is generated from Zed's last-wins query order, with captures
+`highlights.scm` is generated from Zed's last-wins query, itself generated
+from `tree-sitter-nomi/queries/highlights.scm` (`make build-helix` runs
+both), with captures
 translated to Helix's themed scopes where needed (`variable.other.member` for
 fields, `constant.numeric` for numbers, `namespace` for module paths). Helix
 and Zed both let later overlapping captures win in practice; keeping catch-alls

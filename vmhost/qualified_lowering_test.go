@@ -107,6 +107,45 @@ entry_points = ["main"]
 	}
 }
 
+// A distinct type of another module opens in a nested pattern through its
+// module's qualifier (`Some(ids.Id(x))`).
+func TestLowering_QualifiedDistinctSubPattern(t *testing.T) {
+	const program = `// FILE: main.nomi
+import
+    ids
+    std::io
+end
+
+fn unwrap(m: Maybe<ids.Id>) -> Int
+    case m
+        Some(ids.Id(x)) -> x
+        None -> 0
+    end
+end
+
+fn main()
+    io.print(unwrap(Some(ids.Id(7))))
+    io.print(unwrap(None))
+end
+// FILE: ids.nomi
+pub type Id Int
+// FILE: nomi.toml
+[module]
+name = "app"
+entry_points = ["main"]
+`
+	entry, err := writeInput(t.TempDir(), program)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := checkText(t, entry); text != "" {
+		t.Fatalf("the program does not check:\n%s", text)
+	}
+	if got := runText(t, entry); got != "7\n0\n" {
+		t.Errorf("got %q", got)
+	}
+}
+
 func checkText(t *testing.T, path string) string {
 	t.Helper()
 	err := Check(path)

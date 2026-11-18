@@ -166,7 +166,8 @@ func (r *typeRegistry) deferringGroup(from, to int) *typeGroup {
 	return nil
 }
 
-// defersIfaceMirror is defersMirror for an interface, whose signatures are
+// defersIfaceMirror reports whether the mirror unit `from` asks for of an
+// interface unit `to` declares is made pending. An interface's signatures are
 // resolved after every member's types are laid out.
 func (r *typeRegistry) defersIfaceMirror(from, to int) bool {
 	grp := r.groupFor(to)

@@ -533,9 +533,11 @@ func implHeaderFiles(fa *FileAnalysis, block *ast.ImplBlock, keyOf func(path str
 
 // implicitTypeParam reports whether sym is a type parameter a generic
 // receiver names without a `<T>` clause (`impl Named for Box<T>`): a type
-// symbol with no declaration and no type, which names no file.
+// symbol with no declaration whose type is the block's parameter
+// (attachReceiverTypeParams), which names no file.
 func implicitTypeParam(sym *Symbol) bool {
-	return sym.Kind == SymbolType && sym.Node == nil && sym.Type == nil
+	_, param := sym.Type.(*TypeParam_)
+	return sym.Kind == SymbolType && sym.Node == nil && (param || sym.Type == nil)
 }
 
 // lookupTypeName answers the symbol a type name means in scope: a bare

@@ -3,15 +3,16 @@ package ir
 // Lint: the well-formedness check every retained ir.Func passes before a
 // consumer reads it.
 //
-// WHY THIS EXISTS, AND IT IS NOT "MORE TESTS". A comparison of outputs is a
-// comparison between two things that share a producer, so a producer bug
-// reproduces identically on both sides and says nothing about the
-// representation itself. Lint checks the representation directly.
+// WHY THIS EXISTS, AND IT IS NOT "MORE TESTS". A test of a program's output
+// sees a malformed graph only where the VM happens to run it, and then as a
+// wrong answer or a machine error far from the builder code that made it.
+// Lint checks the representation directly: `internal/irbuild` lints each
+// function it retains (`irRequireLint`) and panics on a violation, since a
+// malformed graph is a producer bug no user input reaches.
 //
-// GHC has exactly this exposure — its native code generator and its bytecode
-// interpreter both consume STG from Core — and its answer is `-dcore-lint` /
-// `-dstg-lint`. The users guide states whose sanity it checks: "It checks
-// GHC's sanity, not yours." This is that, at this representation's level.
+// GHC's answer to the same exposure is `-dcore-lint` / `-dstg-lint`. The
+// users guide states whose sanity it checks: "It checks GHC's sanity, not
+// yours." This is that, at this representation's level.
 //
 // TEN RULES, EACH NAMED BY A PROPERTY THE GRAPH COULD GET WRONG or by a node a
 // read-back asked for. None of them is a rule about a property the IR cannot
@@ -42,7 +43,7 @@ package ir
 //     about: the end is
 //     present, and it is not before the start. Its population is TOTAL rather
 //     than the handful of spanning positions — `At` sets a point's end to its
-//     own start, so every position in all 235 retained functions is checked —
+//     own start, so every position in every retained function is checked —
 //     which is what keeps it from being a rule with a three-member population.
 //     Its third question, "the end is in a different file", is refused as a
 //     rule and closed at the constructor instead: the end carries no file, so
@@ -346,19 +347,15 @@ func lintFuncTree(f *Func, vs *[]Violation, seen map[*Func]bool) {
 //
 // WHAT IT DOES NOT CHECK, AND WHY EACH WOULD BE A RULE THAT CANNOT FIRE:
 //
-//   - "every Store names a cell this module declares". The def-use rule one
-//     level up, and the right rule to want — but no `Store` is reachable
-//     from a Module. `internal/irbuild` builds one and consumes it at the
-//     same call, as it does for free-standing nodes elsewhere (`irjump.go`,
-//     `ircall.go`). So the rule's population is empty and it would pass vacuously over every module in
-//     the corpus. It becomes real when a function body containing a `with` is
-//     retained, which is not this shape.
+//   - "every Store names a cell this module declares". A Store writes an app
+//     field, the Context or the running scope (store.go), and none of those
+//     is a Cell: the cells `internal/irbuild` declares are the lazy ones a
+//     RefOnce forces (DeclareLazyCell). The rule would report every Store.
 //   - "every cell is read or written by something". A cell nothing reads is
-//     LEGAL and intended: `internal/irbuild`'s `flushAppCells` emits every cell
-//     a module declares rather than only the ones something read, so that one
-//     unchanged program does not get two content addresses depending on the
-//     order its units are rendered in. A rule against dead storage would
-//     report that deliberate choice.
+//     LEGAL: what a module declares does not depend on which of its
+//     declarations something reads, and `Pruned` is what drops a cell a
+//     built program does not reach. A rule against dead storage would report
+//     every such cell.
 //
 // INCREMENTAL BY CONSTRUCTION. It checks the entries past st's prefix against
 // st's seen-sets and then extends the prefix, so LintModule (a fresh st) asks
@@ -678,9 +675,9 @@ func lintFaultEdges(f *Func, vs *[]Violation) {
 // THE PROPERTY IS "EVERY PATH", NOT "SOME DEFINITION DOMINATES". Those differ
 // in this IR and the difference is the point: it is deliberately not SSA, so
 // two arms of a branch may both write one destination and neither dominates
-// the join. Dominance would report that shape — which `gen.slot` / `gen.fixSlot`
-// produces today — as a violation. So this is the standard MUST analysis over
-// available definitions; see `cfg.available`.
+// the join. Dominance would report that shape — which `internal/irbuild`'s
+// branch lowering produces — as a violation. So this is the standard MUST
+// analysis over available definitions; see `cfg.available`.
 //
 // A PARAMETER'S TEMPORARY IS DEFINED AT ENTRY, by `Func.AddParam`. Nothing in a body writes it — the caller does — so without
 // seeding the entry set every function with a parameter would report its

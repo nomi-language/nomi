@@ -101,9 +101,9 @@ func load(dir string) (*types.Package, error) {
 	return pkg, nil
 }
 
-// generatedNames are the functions OutputFile declares that the rest of
-// the package calls.
-var generatedNames = []string{"generatedChildren", "absent"}
+// generatedNames are the names OutputFile declares that the rest of the
+// package uses.
+var generatedNames = []string{"generatedChildren", "absent", "generatedTypes"}
 
 type gen struct {
 	pkg  *types.Package

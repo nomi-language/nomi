@@ -1,8 +1,6 @@
 package irbuild
 
 import (
-	"strings"
-
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -27,11 +25,12 @@ import (
 // (`Box.seven()`) cannot select, and builds no inherent block on an interface
 // at all, since an interface is no receiver kind. So the owner functions of
 // such a block are held apart, in a def with no receiver that is built once
-// and reached by the owner's name (qualImplPlan), and the per-instance
-// registration leaves them out. A function with its own type parameters is
-// withheld from that def as any impl function's is, and each call
-// instantiates it (genericMethodItem). A bare call from the same block is
-// the type-qualified call (bareImplCall).
+// and reached from the declaration a call's record names
+// (recordedOwnerItem), and the per-instance registration leaves them out. A
+// function with its own type parameters is withheld from that def as any
+// impl function's is, and each call instantiates it (recordedWithheldPlan,
+// genericMethodItem). A bare call from the same block is the
+// type-qualified call (bareImplCall).
 
 // namesBlockParam reports whether fd's signature or one of its `where`
 // clauses names one of block, the type parameters an impl block's receiver
@@ -153,61 +152,13 @@ func (g *gen) registerOwnerImpl(d *implDef, ib *ast.ImplBlock) bool {
 			d.noteGap(fd.Name, gap)
 			continue
 		}
-		d.items[it.name] = it
-		d.order = append(d.order, it)
+		g.addImplItem(d, it)
 	}
 	if g.ownerImpls == nil {
 		g.ownerImpls = map[string][]*implDef{}
 	}
 	g.ownerImpls[d.owner] = append(g.ownerImpls[d.owner], d)
 	return true
-}
-
-// ownerImplOf is the def holding ib's owner functions, or nil.
-func (g *gen) ownerImplOf(ib *ast.ImplBlock) *implDef {
-	if ib == nil || ib.Interface != nil {
-		return nil
-	}
-	for _, d := range g.ownerImpls[implReceiverBaseName(ib.Receiver)] {
-		if d.decl == ib {
-			return d
-		}
-	}
-	return nil
-}
-
-// ownerImplPlan resolves `Owner.method(args)` to an owner function: one item
-// or a withheld generic function instantiated for this call. Two blocks that
-// both supply the name decline, as typeQualifiedCall's ambiguity does.
-func (bl *irScalarBuilder) ownerImplPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	var only *implItem
-	supplied := false
-	for _, d := range bl.g.ownerImpls[owner] {
-		if d.supplies(method) {
-			supplied = true
-		}
-		if !d.lowerable || !d.supplies(method) {
-			continue
-		}
-		if only != nil {
-			return nil
-		}
-		only = d.items[method]
-		if only == nil {
-			only = bl.genericMethodItem(t, d, method)
-		}
-		if only == nil {
-			return nil
-		}
-	}
-	if only == nil {
-		if supplied {
-			return nil
-		}
-		// No block of this file supplies it: another file's may.
-		return bl.siblingOwnerPlan(t, args, owner, method)
-	}
-	return bl.implItemPlan(t, args, only, owner+"."+method)
 }
 
 // ownerDecl is the declaration of owner, a generic type or an interface this
@@ -226,29 +177,6 @@ func (g *gen) ownerDecl(owner string) ast.Node {
 	return nil
 }
 
-// siblingOwnerPlan resolves `Owner.method(args)` to an owner function another
-// file declares for Owner: `Box.of(1)` where boxes.nomi declares `Box<T>` and
-// `impl Box<T> { pub fn of<U>(item: U) -> Box<U> }`. The owner is the
-// declaration the analyzer resolved the name to, so an alias or a selective
-// import reaches the same entry. A monomorphic one is called in the declaring
-// unit, its kinds translated into this one as an impl function's are
-// (qualSiblingIfaceImplPlan); a generic one is instantiated by the declaring
-// unit for this call (siblingMethodPlan). One site only: two files supplying
-// the name decline, as two local blocks do.
-func (bl *irScalarBuilder) siblingOwnerPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	sym := resolvedTypeSymbol(bl.g.fa, owner)
-	if q, name, dotted := strings.Cut(owner, "."); dotted {
-		if scope := bl.g.moduleScope(q); scope != nil {
-			// `boxes.Box.of(1)`: the owner the qualifier's file exports.
-			sym = resolvedScopeSymbol(scope, name)
-		}
-	}
-	if sym == nil || sym.Node == nil {
-		return nil
-	}
-	return bl.siblingOwnerPlanFor(t, args, sym.Node, owner, method)
-}
-
 // siblingOwnerSites is the owner functions other files declare under method
 // for the owner decl declares.
 func (g *gen) siblingOwnerSites(decl ast.Node, method string) []implMemberSite {
@@ -264,7 +192,14 @@ func (g *gen) siblingOwnerSites(decl ast.Node, method string) []implMemberSite {
 	return sites
 }
 
-// siblingOwnerPlanFor is siblingOwnerPlan for the owner decl declares.
+// siblingOwnerPlanFor resolves `Owner.method(args)` to an owner function
+// another file declares for the owner decl declares: `Box.of(1)` where
+// boxes.nomi declares `Box<T>` and `impl Box<T> { pub fn of<U>(item: U) ->
+// Box<U> }`. A monomorphic one is called in the declaring unit, its kinds
+// translated into this one as an impl function's are
+// (qualSiblingIfaceImplPlan); a generic one is instantiated by the
+// declaring unit for this call (siblingMethodPlan). One site only: two
+// files supplying the name decline, as two local blocks do.
 func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, decl ast.Node, owner, method string) *irQualPlan {
 	g := bl.g
 	sites := g.siblingOwnerSites(decl, method)
@@ -300,7 +235,7 @@ func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, dec
 		return nil
 	}
 	var filled *irQualArgs
-	if args.ok && len(args.temps) < len(params) {
+	if args.ok && bl.g.leavesDefaults(t, len(params)) {
 		// `Box.pad("p")` omitting a parameter the declaring file defaults.
 		if namedArgNode(t.Args) != nil {
 			return nil
@@ -327,7 +262,7 @@ func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, dec
 // The three-segment route finds a type owner by the dotted name of its mirror
 // and an interface by its interface mirror (qualDottedOwner); a generic type
 // has neither, so without this the call would be read as a call through a
-// value. siblingOwnerPlan resolves the spelling.
+// value. The call's record names the owner function (recordedCallPlan).
 func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (string, bool) {
 	inner, isFA := qual.(*ast.FieldAccess)
 	if !isFA || inner.Field == nil {
@@ -339,7 +274,7 @@ func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (s
 	}
 	scope := bl.g.moduleScope(mod.Name)
 	if scope == nil {
-		return "", false
+		panic("irbuild: siblingOwnerSpelling: a module the program imports has a scope")
 	}
 	sym := resolvedScopeSymbol(scope, inner.Field.Name)
 	if sym == nil || sym.Node == nil || len(bl.g.siblingOwnerSites(sym.Node, method)) == 0 {

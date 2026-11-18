@@ -90,69 +90,14 @@ func (c *checker) closeOpenVariables() {
 func openVarsIn(t Type) []*TypeVar {
 	var out []*TypeVar
 	seen := map[*TypeVar]bool{}
-	walkTypeParts(t, func(p Type) {
+	walkType(t, func(p Type) bool {
 		if v, ok := p.(*TypeVar); ok && v.Resolved == nil && !seen[v] {
 			seen[v] = true
 			out = append(out, v)
 		}
+		return true
 	})
 	return out
-}
-
-// walkTypeParts calls f on t and each type inside it, through solved
-// variables.
-func walkTypeParts(t Type, f func(Type)) {
-	var walk func(t Type, depth int)
-	walk = func(t Type, depth int) {
-		t = resolveTypeVar(t)
-		if t == nil || depth > 64 {
-			return
-		}
-		f(t)
-		switch tt := t.(type) {
-		case *ListType:
-			walk(tt.Elem, depth+1)
-		case *MapType:
-			walk(tt.Key, depth+1)
-			walk(tt.Val, depth+1)
-		case *TupleType:
-			for _, e := range tt.Elems {
-				walk(e, depth+1)
-			}
-		case *FuncType:
-			for _, p := range tt.Params {
-				walk(p, depth+1)
-			}
-			walk(tt.Return, depth+1)
-		case *AnonStructType:
-			for _, fd := range tt.Fields {
-				walk(fd.Type, depth+1)
-			}
-		case *EnumType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *StructType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *DistinctType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *InterfaceType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *ConjunctionType:
-			for _, m := range tt.Members {
-				walk(m, depth+1)
-			}
-		case *PartialType:
-			walk(tt.Inner, depth+1)
-		}
-	}
-	walk(t, 0)
 }
 
 // substituteVars is t with each unsolved variable answers names replaced by
@@ -192,7 +137,7 @@ func Elaborate(t Type) Type {
 // solution too; without, one whose solution holds nothing to replace is
 // kept.
 func mapOpenVars(t Type, answer func(*TypeVar) Type, solved bool, depth int) Type {
-	if t == nil || depth > 64 {
+	if t == nil || depth > maxTypeWalkDepth {
 		return t
 	}
 	if r := resolveTypeVar(t); r != t {
@@ -201,108 +146,22 @@ func mapOpenVars(t Type, answer func(*TypeVar) Type, solved bool, depth int) Typ
 		}
 		return t
 	}
-	sub := func(x Type) Type { return mapOpenVars(x, answer, solved, depth+1) }
-	subs := func(xs []Type) ([]Type, bool) {
-		var out []Type
-		for i, x := range xs {
-			y := sub(x)
-			if y != x && out == nil {
-				out = make([]Type, len(xs))
-				copy(out, xs[:i])
-			}
-			if out != nil {
-				out[i] = y
-			}
-		}
-		if out == nil {
-			return xs, false
-		}
-		return out, true
-	}
-	switch tt := t.(type) {
-	case *TypeVar:
-		if a := answer(tt); a != nil {
+	if v, ok := t.(*TypeVar); ok {
+		if a := answer(v); a != nil {
 			return a
 		}
-	case *ListType:
-		if e := sub(tt.Elem); e != tt.Elem {
-			return &ListType{Elem: e}
-		}
-	case *MapType:
-		k, v := sub(tt.Key), sub(tt.Val)
-		if k != tt.Key || v != tt.Val {
-			return &MapType{Key: k, Val: v}
-		}
-	case *TupleType:
-		if es, changed := subs(tt.Elems); changed {
-			return &TupleType{Elems: es}
-		}
-	case *FuncType:
-		ps, changed := subs(tt.Params)
-		r := sub(tt.Return)
-		if changed || r != tt.Return {
-			c := *tt
-			c.Params, c.Return = ps, r
+		return t
+	}
+	sub := func(x Type) Type { return mapOpenVars(x, answer, solved, depth+1) }
+	m := mapType(t, sub)
+	if d, ok := m.(*DistinctType); ok {
+		// Beside its type arguments, a distinct type holds the type it
+		// wraps.
+		if in := sub(d.Inner); in != d.Inner {
+			c := *d
+			c.Inner = in
 			return &c
-		}
-	case *AnonStructType:
-		var fields []FieldDef
-		for i, f := range tt.Fields {
-			ft := sub(f.Type)
-			if ft != f.Type && fields == nil {
-				fields = make([]FieldDef, len(tt.Fields))
-				copy(fields, tt.Fields)
-			}
-			if fields != nil {
-				fields[i].Type = ft
-			}
-		}
-		if fields != nil {
-			return &AnonStructType{Fields: fields}
-		}
-	case *EnumType:
-		if as, changed := subs(tt.TypeArgs); changed {
-			c := *tt
-			c.TypeArgs = as
-			return &c
-		}
-	case *StructType:
-		if as, changed := subs(tt.TypeArgs); changed {
-			c := *tt
-			c.TypeArgs = as
-			return &c
-		}
-	case *DistinctType:
-		as, changed := subs(tt.TypeArgs)
-		in := sub(tt.Inner)
-		if changed || in != tt.Inner {
-			c := *tt
-			c.TypeArgs, c.Inner = as, in
-			return &c
-		}
-	case *InterfaceType:
-		if as, changed := subs(tt.TypeArgs); changed {
-			c := *tt
-			c.TypeArgs = as
-			return &c
-		}
-	case *ConjunctionType:
-		members := make([]*InterfaceType, len(tt.Members))
-		changed := false
-		for i, m := range tt.Members {
-			members[i], _ = sub(m).(*InterfaceType)
-			if members[i] == nil {
-				return t
-			}
-			changed = changed || members[i] != m
-		}
-		if changed {
-			return NewConjunction(members)
-		}
-	case *PartialType:
-		if in := sub(tt.Inner); in != tt.Inner {
-			return &PartialType{Inner: in}
 		}
 	}
-	return t
+	return m
 }

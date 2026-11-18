@@ -35,9 +35,8 @@ func isSubtestsRowBoundary(boundary string) bool {
 
 // subtests lowers the statement in the current block.
 func (bl *irScalarBuilder) subtests(t *ast.Subtests) bool {
-	if bl.recording > 0 || (bl.inTest && !bl.testWalked) {
-		bl.g.dc.note("a `subtests` statement in a body the builder reads back")
-		return false
+	if bl.recording > 0 {
+		panic("irbuild: subtests: testStmt never runs while an assertion subject is recording")
 	}
 	if bl.subtestsRow {
 		bl.g.dc.note("a `subtests` statement inside a `subtests` row")
@@ -138,7 +137,7 @@ func (bl *irScalarBuilder) subtestsRowFunc(t *ast.Subtests, rowK kind) (ir.Temp,
 	child := &irScalarBuilder{
 		g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
-		inTest: true, testApp: bl.testApp, testWalked: true,
+		inTest: true, testApp: bl.testApp,
 		root: body, subtestsRow: true, deferOK: true,
 	}
 	defer bl.g.enterBlockTypes(body)()

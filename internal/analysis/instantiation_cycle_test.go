@@ -18,6 +18,15 @@ end`,
 		"direct, through a tuple": `fn pair<T>(x: T, n: Int) -> Int
   if n == 0 then 0 else pair((x, x), n - 1)
 end`,
+		"direct, through an anonymous struct": `fn nest<T>(x: T, n: Int) -> Int
+  if n == 0 then 0 else nest({v: x}, n - 1)
+end`,
+		"an anonymous struct parameter": `fn deeper<T>(r: {v: T}, n: Int) -> Int
+  if n == 0 then 0 else deeper({v: {v: r.v}}, n - 1)
+end`,
+		"a vector parameter": `fn stack<T>(r: Vector<T>, n: Int) -> Int
+  if n == 0 then 0 else stack(Vector[r], n - 1)
+end`,
 		"mutual, through a list": `fn ping<T>(x: T, n: Int) -> Int
   if n == 0 then 0 else pong([x], n - 1)
 end
@@ -54,6 +63,13 @@ end
 
 fn twice<T>(x: T) -> Box<Box<T>>
   wrap(wrap(x))
+end`,
+		"growing through an anonymous struct but not recursive": `fn field<T>(x: T) -> {v: T}
+  {v: x}
+end
+
+fn fields<T>(x: T) -> {v: {v: T}}
+  field(field(x))
 end`,
 	}
 	for name, src := range accepted {

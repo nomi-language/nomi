@@ -71,7 +71,7 @@ func TestGenericInstanceAtATypeParameterIsRefused(t *testing.T) {
 		t.Fatal("no `Box` template, so this test has nothing to gate")
 	}
 	tp := typeParamKind(&typeParamDef{nomi: "U"})
-	if k, built := g.genericInstance(tpl, []kind{tp}); built || k != kindInvalid {
+	if k, built := g.genericInstance(tpl, []kind{tp}, nil); built || k != kindInvalid {
 		t.Fatalf("genericInstance built %s at a bare type parameter. There is no concrete argument "+
 			"at that position, so the instance's `item` field would be a Go `any` — a "+
 			"representation nothing in this package emits or reads", k.nomi())
@@ -92,7 +92,7 @@ func TestGenericInstanceAtATypeParameterIsRefused(t *testing.T) {
 //
 // "The file refuses" does not discriminate here: a witness field can refuse
 // through a path that fires either way (a `Set<T>` field has
-// `stdGenStructTypeOf` calling `g.reject` directly; a generic enum's own
+// `typeOf` calling `g.reject` directly; a generic enum's own
 // declaration is replayed by typeDecl). The invariant does: an instance's
 // member count equals the template's, or the instance is not lowerable. So the
 // guard reads `g.genericInstOrder` and the template's own declaration, and

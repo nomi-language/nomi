@@ -286,7 +286,8 @@ A `case` can ask whether a set holds certain values, as
   keeps the earlier position: with `x = 1` and `y = 1`,
   `{x => "a", 2 => "c", y => "b"}` is `{1 => "b", 2 => "c"}`.
 - `[1, 2]` is a list wherever nothing expects a vector or a set.
-  `List[1, 2]` and `Map{"a" => 1}` are allowed too, and never needed.
+  A list literal and a map literal have no name in front, so `List[1, 2]`
+  and `Map{"a" => 1}` are errors.
 
 Spec: [Repeated keys](/spec/literals/#repeated-keys),
 [Literal forms](/spec/literals/#literal-forms).

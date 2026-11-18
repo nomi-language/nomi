@@ -26,61 +26,15 @@ type irPatternParam struct {
 
 // irPrologueParam reports whether p destructures through the prologue rather
 // than through irlambda.go's own tuple and distinct projections.
-func irPrologueParam(p ast.Param, k kind) bool {
+func (g *gen) irPrologueParam(p ast.Param, k kind) bool {
 	if p.Destructure == nil {
 		return false
 	}
 	if tp, tuple := p.Destructure.(*ast.TuplePattern); tuple {
 		return !irFlatTupleParam(tp, k)
 	}
-	_, distinct := irDistinctParamBinding(p.Destructure, k)
+	_, distinct := g.irDistinctParamBinding(p.Destructure, k)
 	return !distinct
-}
-
-// irParamPatternKind is the kind a destructuring parameter's pattern names:
-// its annotation, the type or enum its head names, or for a head-less pattern
-// the type the checker recorded for it. kindInvalid otherwise. It
-// reports nothing, unlike patternParamKind, because a lambda declines.
-func (g *gen) irParamPatternKind(p ast.Param) kind {
-	if p.TypeAnnotation != nil {
-		return g.typeOf(p.TypeAnnotation)
-	}
-	var head ast.TypeExpr
-	switch pat := ast.WithoutAs(p.Destructure).(type) {
-	case *ast.StructPattern:
-		head = pat.TypeName
-	case *ast.EnumPattern:
-		head = pat.Variant
-	}
-	if head == nil {
-		if k, found := g.inferredPatternKind(p.Destructure); found {
-			return k
-		}
-		return kindInvalid
-	}
-	if d := g.selfHeadDef(head); d != nil {
-		return named(d)
-	}
-	owner, member, ok := g.patternHead(head)
-	if !ok {
-		return kindInvalid
-	}
-	name := owner
-	if name == "" {
-		name = member
-	}
-	if g.genericTemplates[name] != nil {
-		// A generic type's pattern (`fn Wrap(x) ->`, `fn Box{v} ->`)
-		// names no instance; the checker's type for the pattern does.
-		if k, found := g.inferredPatternKind(p.Destructure); found {
-			return k
-		}
-		return kindInvalid
-	}
-	if d, found := g.types[name]; found && d.lowerable {
-		return named(d)
-	}
-	return kindInvalid
 }
 
 // patternParams builds every prologue-destructured parameter into the

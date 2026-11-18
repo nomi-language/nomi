@@ -176,7 +176,7 @@ func compactDeclKind(n ast.Node) (string, bool) {
 		}
 		return "once", true
 	case *ast.TypeDef:
-		if v.Doc != "" || len(v.Decorators) > 0 || v.HasBody {
+		if v.Doc != "" || len(v.Decorators) > 0 {
 			return "", false
 		}
 		return "type", true
@@ -186,7 +186,7 @@ func compactDeclKind(n ast.Node) (string, bool) {
 		}
 		return "typealias", true
 	case *ast.ExternType:
-		if v.Doc != "" || len(v.Decorators) > 0 || v.HasBody {
+		if v.Doc != "" || len(v.Decorators) > 0 {
 			return "", false
 		}
 		return "host type", true
@@ -2049,31 +2049,6 @@ func isVariantCallee(n ast.Node) bool {
 	return false
 }
 
-// isAtomicBlockBody reports whether a block body qualifies as atomic for the
-// if/else inlining rule. A block is atomic iff it contains exactly one
-// statement (unwrapping ExprStmt) and that statement is an atomic expression.
-// Empty blocks and multi-stmt blocks are never atomic.
-func isAtomicBlockBody(b *ast.Block) bool {
-	if b == nil || len(b.Stmts) != 1 {
-		return false
-	}
-	// A trailing *comment* before `}` needs its own line, so such a block is
-	// not atomic even with one stmt. Trailing *blank* lines don't count —
-	// emitEndTrivia strips them — so they must not suppress inlining (else the
-	// block would collapse only on a second format pass, breaking idempotency).
-	if trailingHasComment(b.GetTrailing()) {
-		return false
-	}
-	stmt := b.Stmts[0]
-	if hasTrailingLineComment(stmt) {
-		return false
-	}
-	if es, ok := stmt.(*ast.ExprStmt); ok {
-		stmt = es.Expr
-	}
-	return isAtomicExpr(stmt)
-}
-
 // trailingHasComment reports whether end-of-block trivia contains a comment
 // (which needs its own line before `}`). Trailing blank lines alone don't
 // count — emitEndTrivia strips them — so a block whose only end-of-block trivia
@@ -2105,7 +2080,7 @@ func trailingHasComment(trivia []ast.Trivia) bool {
 
 // isInlineableBlockBody reports whether a block body may render inline in a
 // single-line if/else: exactly one statement, no end-of-block trivia, no
-// trailing comment. Unlike isAtomicBlockBody it does NOT restrict the
+// trailing comment. It does NOT restrict the
 // statement's *content* — width (via fits) decides whether the inline form is
 // actually used, and an inherently multi-line statement (case, multi-stage
 // pipe) introduces a HardLine that fits rejects.
@@ -3714,7 +3689,7 @@ func emitPatternNode(n ast.Node) Doc {
 		}
 		hasEndTrivia := trailingHasComment(v.EndTrivia)
 		// Spread patterns (`[a, b, ..rest]`) skip the
-		// emitBracedList/forceBrokenBraced path: the trailing `..rest`
+		// emitBracedList/forceBrokenBracedWithEndTrivia path: the trailing `..rest`
 		// piece is not a comma-separated entry, and the existing
 		// formatter convention (mirroring ListSpreadLit) is to emit
 		// spread patterns flat regardless.
@@ -3788,75 +3763,18 @@ func emitPatternNode(n ast.Node) Doc {
 	return emit(n)
 }
 
-// precedence returns a numeric precedence level for binary operators,
-// matching the parser's infixPrecedence table in parser/parser.go.
-// Higher number = tighter binding.
-//
-//	or           = 2
-//	and          = 3
-//	== !=        = 4
-//	< > <= >=    = 5
-//	|>           = 6
-//	.. ..=       = 7
-//	+ - ||| ^^^           = 8
-//	* / % &&& <<< >>>     = 9
-//	(unary)               = 10
-func precedence(op string) int {
-	switch op {
-	case "|>":
-		return 6
-	case "or":
-		return 2
-	case "and":
-		return 3
-	case "==", "!=", "in":
-		return 4
-	case "<", ">", "<=", ">=":
-		return 5
-	case "+", "-", "|||", "^^^":
-		return 8
-	case "*", "/", "%", "&&&", "<<<", ">>>":
-		return 9
-	}
-	// Unknown operator — treat as tight-binding; callers add parens
-	// defensively when the child has strictly-lower precedence.
-	return 100
-}
-
-// unaryPrecedence is the binding level of unary `-` and `~~~` (parser's
-// prefixPrecedence). It's greater than any binary precedence, so any
-// binary child of a unary needs parenthesizing.
-const unaryPrecedence = 10
-
-// notOperandPrecedence is the loosest operator `not`'s operand holds bare
-// (the parser's notOperandPrecedence): `not a == b` negates the comparison,
-// and an `and` or `or` under a `not` keeps its parentheses.
-const notOperandPrecedence = 4
-
-// isPrecedence is the binding level of `is` (the parser's, `==`'s). It
-// does not chain with a comparison, so its value holds only what binds more
-// tightly than a comparison bare: `xs |> List.first() is Some(_)`, `(a < b)
-// is True`.
-const isPrecedence = 4
-
-// ascriptionPrecedence is the binding level of `as` (the parser's, `|>`'s).
-const ascriptionPrecedence = 6
-
 // emitAscription writes `value as Type`. The value holds what binds at
 // least as tightly as `|>` bare, so `xs |> Iter.to_list() as List<Int>`
 // keeps its shape, and a looser operator keeps its parentheses.
 func emitAscription(v *ast.Ascription) Doc {
-	return Concat(emitOperand(v.Value, ascriptionPrecedence, followsOther), Text(" as "), emitTypeExpr(v.Type))
+	return Concat(emitOperand(v.Value, "as", token.LeftOperand, followsOther), Text(" as "), emitTypeExpr(v.Type))
 }
 
 // emitIs writes `value is Pattern` with one space on each side of `is`. A
 // pattern that is an `or` (or names one with `as`) keeps its parentheses,
 // since a bare `or` after the pattern is the Boolean `or`.
 func emitIs(v *ast.Is) Doc {
-	value := emitOperand(v.Value, precedence("<")+1, followsOther)
-	if u, ok := v.Value.(*ast.Unary); ok && u.Op == "not" {
-		value = Concat(Text("("), emit(v.Value), Text(")"))
-	}
+	value := emitOperand(v.Value, "is", token.LeftOperand, followsOther)
 	pattern := emitPattern(v.Pattern)
 	if isOrPattern(v.Pattern) {
 		pattern = Concat(Text("("), pattern, Text(")"))
@@ -4055,11 +3973,10 @@ type binaryPart struct {
 // whose last stage the operator follows, and a comparison has no right
 // operand that spans lines.
 func binaryChain(v *ast.Binary, next follower) (Doc, []binaryPart, bool) {
-	p := precedence(v.Op)
 	boolean := v.Op == "and" || v.Op == "or"
-	// Left child: all Nomi binary operators are left-associative (parser
-	// uses prec+1 for the right operand), so a left child at the same
-	// precedence level needs no parens.
+	// Operators of one level read left to right, so a left operand at the
+	// operator's own level needs no parentheses and a right one does
+	// (`1 - (2 - 3)`): token.OperandNeedsParens.
 	leftNext := followsOther
 	if v.Op == "<" {
 		leftNext = followsLess
@@ -4071,25 +3988,17 @@ func binaryChain(v *ast.Binary, next follower) (Doc, []binaryPart, bool) {
 		// `in` does not chain with a comparison, so each operand holds
 		// only what binds more tightly than one bare: `x in xs |>
 		// Iter.to_set()`, `(a < b) in flags`.
-		head = emitOperand(v.Left, precedence("<")+1, leftNext)
-		right := emitOperand(v.Right, precedence("<")+1, next)
+		head = emitOperand(v.Left, v.Op, token.LeftOperand, leftNext)
+		right := emitOperand(v.Right, v.Op, token.RightOperand, next)
 		return head, []binaryPart{{op: v.Op, right: right}}, false
 	}
 	if lb, ok := v.Left.(*ast.Binary); ok && boolean && lb.Op == v.Op && !hasDangling(lb) {
 		head, parts, breakable = binaryChain(lb, leftNext)
 	} else {
-		head = emitOperand(v.Left, p, leftNext)
+		head = emitOperand(v.Left, v.Op, token.LeftOperand, leftNext)
 		breakable = !isPipeExpr(v.Left)
 	}
-	// Right child: for left-associative operators, a right child at the
-	// same precedence level DOES need parens to preserve the tree shape
-	// (e.g., `1 - (2 - 3)`).
-	var right Doc
-	if b, ok := v.Right.(*ast.Binary); ok && b.Op != "|>" && precedence(b.Op) <= p {
-		right = Concat(Text("("), emit(v.Right), Text(")"))
-	} else {
-		right = emitOperand(v.Right, p, next)
-	}
+	right := emitOperand(v.Right, v.Op, token.RightOperand, next)
 	breakable = breakable && continuesLine(v.Op) && !opensBracket(v.Right)
 	var comments []string
 	if continuesLine(v.Op) {
@@ -4132,13 +4041,14 @@ func continuesLine(op string) bool {
 // followed by a space and holds everything down to `==` bare.
 func emitUnary(v *ast.Unary, next follower) Doc {
 	if v.Op == "not" {
-		return Concat(Text("not "), emitOperand(v.Right, notOperandPrecedence, next))
+		return Concat(Text("not "), emitOperand(v.Right, "not", token.PrefixOperand, next))
 	}
-	return Concat(Text(v.Op), emitOperand(v.Right, unaryPrecedence, next))
+	return Concat(Text(v.Op), emitOperand(v.Right, v.Op, token.PrefixOperand, next))
 }
 
-// emitOperand writes child as an operand of an operator that binds at
-// minPrec, in parentheses when its own operator binds looser.
+// emitOperand writes child as the operand on side of the operator op, in
+// parentheses when its own operator would otherwise take a different
+// shape (token.OperandNeedsParens, over the one precedence table).
 //
 // next is what follows the operand, and some parentheses must stay because
 // of it. The name they hold may end a longer operand, `-(f)` or `a + (f)`.
@@ -4147,19 +4057,13 @@ func emitUnary(v *ast.Unary, next follower) Doc {
 //     followed by `<T>(` as a call with type arguments, so dropping the
 //     parentheses from `(f) < Dog > (x)`, two comparisons, writes the call
 //     `f<Dog>(x)`.
-func emitOperand(child ast.Node, minPrec int, next follower) Doc {
+func emitOperand(child ast.Node, op string, side token.Side, next follower) Doc {
 	if ifn, ok := child.(*ast.If); ok {
 		// An inline `if`'s `else` branch extends as far right as it can, so
 		// as an operand it goes in parentheses.
 		return emitIfParens(ifn, true)
 	}
-	if b, ok := child.(*ast.Binary); ok && precedence(b.Op) < minPrec {
-		return Concat(Text("("), emit(child), Text(")"))
-	}
-	if _, ok := child.(*ast.Is); ok && minPrec > isPrecedence {
-		return Concat(Text("("), emit(child), Text(")"))
-	}
-	if _, ok := child.(*ast.Ascription); ok && minPrec > ascriptionPrecedence {
+	if inner, ok := outermostOperator(child); ok && token.OperandNeedsParens(op, side, inner) {
 		return Concat(Text("("), emit(child), Text(")"))
 	}
 	if next == followsOther {
@@ -4191,6 +4095,27 @@ func emitOperand(child ast.Node, minPrec int, next follower) Doc {
 		return withDangling(c, emitUnary(c, next))
 	}
 	return emit(child)
+}
+
+// outermostOperator is the operator n applies last, as the precedence
+// table names it: an infix operator as written, or "not".
+func outermostOperator(n ast.Node) (string, bool) {
+	switch v := n.(type) {
+	case *ast.Binary:
+		return v.Op, true
+	case *ast.Is:
+		return "is", true
+	case *ast.Ascription:
+		return "as", true
+	case *ast.RangeLit:
+		if v.Inclusive {
+			return "..=", true
+		}
+		return "..", true
+	case *ast.Unary:
+		return v.Op, v.Op == "not"
+	}
+	return "", false
 }
 
 // emitCapture writes a capture as `&` against its body. A parenthesized
@@ -4267,10 +4192,6 @@ func stripDroppedParens(n ast.Node) ast.Node {
 	}
 }
 
-// tryOperandPrecedence is the binding level of `?`'s operand (the
-// parser's tryOperandPrecedence).
-const tryOperandPrecedence = 10
-
 // emitFuncDef renders a function definition:
 //
 //	[pub ]fn name[<T, ...>](params)[: ReturnType] {
@@ -4339,14 +4260,7 @@ func emitFuncDefHeader(v *ast.FuncDef) Doc {
 	if v.Public {
 		parts = append(parts, Text("pub "))
 	}
-	if v.ImplFunction {
-		parts = append(parts, Text("impl "))
-	}
-	parts = append(parts, Text("fn "))
-	if v.ImplIface != nil && v.ImplIfaceSourceQualified {
-		parts = append(parts, emitTypeExpr(v.ImplIface), Text("."))
-	}
-	parts = append(parts, Text(v.Name))
+	parts = append(parts, Text("fn "), Text(v.Name))
 
 	if len(v.TypeParams) > 0 {
 		docs := make([]Doc, len(v.TypeParams))
@@ -4662,23 +4576,18 @@ func structFieldsHaveComments(fields []ast.StructField) bool {
 	return false
 }
 
-// forceBrokenBraced renders `{e1, e2, ...}` always-broken: each elem on
-// its own indented line, trailing comma on the last. Used by the preserve-
-// user-multi-line paths so the layout doesn't depend on width.
+// forceBrokenBracedWithEndTrivia renders `{e1, e2, ...}` always-broken: each
+// elem on its own indented line, trailing comma on the last, then an
+// optional trailing EndTrivia block between the last element and the closing
+// delimiter. Used by the preserve-user-multi-line paths, so the layout does
+// not depend on width, and by struct / anon struct emit paths to preserve
+// trailing in-body comments.
 //
 // Wrapped in LocalBroken so the inner HardLines don't propagate up to
 // ancestor Groups (the param-list Group, the call-arg-list Group, etc.).
 // Without LocalBroken, a multi-line struct literal inside a single param
 // would force the param list to break too — see LocalBroken doc for the
 // underlying Wadler limitation.
-func forceBrokenBraced(open, close string, elems []Doc) Doc {
-	return forceBrokenBracedWithEndTrivia(open, close, elems, nil)
-}
-
-// forceBrokenBracedWithEndTrivia is forceBrokenBraced plus an optional
-// trailing EndTrivia block rendered between the last element (including
-// its trailing comma) and the closing delimiter. Used by struct / anon
-// struct emit paths to preserve trailing in-body comments.
 //
 // When elems is empty and endTrivia is set, the trivia renders by itself
 // inside the braces.
@@ -5053,120 +4962,6 @@ func emitSameLineComments(trivia []ast.Trivia) []Doc {
 	return parts
 }
 
-// appendTypeBodyItems renders a type body's legacy/internal non-shape items
-// and appends them to members.
-// A blank line is forced between executable/declarative items — and before
-// the first such item when field/variant/contract members precede it —
-// unless the item already carries a leading blank (avoids doubling).
-// Mirrors emitImplBlock's adjacent-item rule and emitFile's top-level rule.
-func appendTypeBodyItems(members []Doc, items []ast.Node) []Doc {
-	items = orderTypeBodyItems(items)
-	hasPrior := len(members) > 0
-	for i := 0; i < len(items); i++ {
-		item := items[i]
-		if isImplConformance(item) {
-			start := i
-			for i+1 < len(items) && isImplConformance(items[i+1]) {
-				i++
-			}
-			d := emitConformanceLines(items[start : i+1])
-			if hasPrior || start > 0 {
-				d = Concat(HardLine(), d)
-			}
-			members = append(members, d)
-			continue
-		}
-		tightConformance := i > 0 && isImplConformance(items[i-1]) && isImplConformance(item)
-		d := emitWithTrivia(item)
-		if (!hasPrior && i == 0) || tightConformance {
-			d = emitWithTriviaNoLeadingBlank(item)
-		}
-		if (hasPrior || i > 0) && !hasLeadingBlank(item) {
-			if !tightConformance {
-				d = Concat(HardLine(), d)
-			}
-		}
-		members = append(members, d)
-	}
-	return members
-}
-
-func emitConformanceLines(items []ast.Node) Doc {
-	var lines []Doc
-	var prevDerive bool
-	for i := 0; i < len(items); {
-		conf, ok := items[i].(*ast.ImplConformance)
-		if !ok {
-			i++
-			continue
-		}
-		derive := conf.Derive
-		start := i
-		originalLine := conf.Line
-		hasOwnTrivia := conformanceHasOwnTrivia(conf)
-		i++
-		for i < len(items) {
-			next, ok := items[i].(*ast.ImplConformance)
-			if !ok || next.Derive != derive {
-				break
-			}
-			if next.Line != originalLine && hasLeadingBlank(next) {
-				break
-			}
-			if hasOwnTrivia && next.Line != originalLine {
-				break
-			}
-			if !hasOwnTrivia && conformanceHasOwnTrivia(next) {
-				break
-			}
-			i++
-		}
-		var line Doc
-		if hasOwnTrivia {
-			line = emitConformanceListWithTrivia(items[start:i], derive)
-		} else {
-			line = emitConformanceList(items[start:i], derive)
-		}
-		if len(lines) > 0 && (hasLeadingBlank(conf) || prevDerive != derive) {
-			line = Concat(HardLine(), line)
-		}
-		lines = append(lines, line)
-		prevDerive = derive
-	}
-	if len(lines) == 0 {
-		return Nil()
-	}
-	return Join(HardLine(), lines...)
-}
-
-func conformanceHasOwnTrivia(conf *ast.ImplConformance) bool {
-	if conf.Doc != "" || len(conf.AttachedTests) > 0 {
-		return true
-	}
-	for _, tr := range conf.GetLeading() {
-		if tr.Kind == ast.TriviaComment {
-			return true
-		}
-	}
-	return false
-}
-
-func emitConformanceList(items []ast.Node, derive bool) Doc {
-	keyword := "impl"
-	if derive {
-		keyword = "derive"
-	}
-	entries := make([]string, 0, len(items))
-	for _, item := range items {
-		conf, ok := item.(*ast.ImplConformance)
-		if !ok {
-			continue
-		}
-		entries = append(entries, Render(emitTypeExpr(conf.Interface), defaultWidth))
-	}
-	return emitPackedConformanceList(keyword, entries)
-}
-
 func emitDeriveInterfaceList(conf *ast.ImplConformance) string {
 	var entries []string
 	if len(conf.Interfaces) > 0 {
@@ -5180,221 +4975,16 @@ func emitDeriveInterfaceList(conf *ast.ImplConformance) string {
 	return strings.Join(entries, ", ")
 }
 
-func emitPackedConformanceList(keyword string, entries []string) Doc {
-	if len(entries) == 0 {
-		return Text(keyword)
-	}
-	flat := keyword + " " + strings.Join(entries, ", ")
-	if textWidth(flat) <= conformanceWrapWidth {
-		return Text(flat)
-	}
-
-	lines := packConformanceEntries(keyword, entries)
-	parts := []Doc{Text(keyword + " " + strings.Join(lines[0], ", "))}
-	for i := 1; i < len(lines); i++ {
-		parts = append(parts, Text(","))
-		parts = append(parts, Nest(defaultIndent, Concat(
-			HardLine(),
-			Text(strings.Join(lines[i], ", ")),
-		)))
-	}
-	return Concat(parts...)
-}
-
-func packConformanceEntries(keyword string, entries []string) [][]string {
-	widths := make([]int, len(entries))
-	for i, entry := range entries {
-		widths[i] = textWidth(entry)
-	}
-	var lines [][]string
-	i := 0
-	for _, line := range packGreedy(widths, textWidth(keyword)+1, 0, conformanceWrapWidth, 0) {
-		lines = append(lines, entries[i:i+len(line)])
-		i += len(line)
-	}
-	return lines
-}
-
-func emitConformanceListWithTrivia(items []ast.Node, derive bool) Doc {
-	if len(items) == 0 {
-		return Nil()
-	}
-	conf, ok := items[0].(*ast.ImplConformance)
-	if !ok {
-		return emitConformanceList(items, derive)
-	}
-	parts := emitLeadingComments(withoutBlankTrivia(conf.GetLeading()))
-	parts = append(parts, emitDocBeforeAttachedTests(conf.Doc, conf.AttachedTests)...)
-	parts = append(parts, emitAttachedTests(conf.AttachedTests)...)
-	parts = append(parts, emitConformanceList(items, derive))
-	return Concat(parts...)
-}
-
-func flattenNestedImplBlocks(items []ast.Node) []ast.Node {
-	counts := map[string]int{}
-	for _, item := range items {
-		ib, ok := item.(*ast.ImplBlock)
-		if !ok || ib.Interface == nil || ib.Receiver != nil {
-			continue
-		}
-		for _, child := range ib.Items {
-			if name := implItemName(child); name != "" {
-				counts[name]++
-			}
-		}
-	}
-	var out []ast.Node
-	changed := false
-	for _, item := range items {
-		ib, ok := item.(*ast.ImplBlock)
-		if !ok || ib.Interface == nil || ib.Receiver != nil {
-			out = append(out, item)
-			continue
-		}
-		changed = true
-		out = append(out, &ast.ImplConformance{
-			AttachedTests: ib.AttachedTests,
-			Interface:     ib.Interface,
-			Doc:           ib.Doc,
-			Line:          ib.Line,
-			Col:           ib.Col,
-		})
-		for _, child := range ib.Items {
-			switch it := child.(type) {
-			case *ast.FuncDef:
-				it.ImplFunction = true
-			case *ast.ExternFunc:
-				it.ImplFunction = true
-			}
-			if counts[implItemName(child)] > 1 {
-				switch it := child.(type) {
-				case *ast.FuncDef:
-					it.ImplIface = ib.Interface
-					it.ImplIfaceInferred = false
-					it.ImplIfaceSourceQualified = true
-				case *ast.ExternFunc:
-					it.ImplIface = ib.Interface
-					it.ImplIfaceInferred = false
-					it.ImplIfaceSourceQualified = true
-				}
-			}
-			out = append(out, child)
-		}
-	}
-	if !changed {
-		return items
-	}
-	return out
-}
-
-func implItemName(item ast.Node) string {
-	switch it := item.(type) {
-	case *ast.FuncDef:
-		return it.Name
-	case *ast.ExternFunc:
-		return it.Name
-	default:
-		return ""
-	}
-}
-
-// orderTypeBodyItems reorders a type body's items into the reader-facing
-// house order: ordinary value members in stable source order.
+// emitStructDef renders a struct declaration: its fields one per line (no
+// commas), then its `when` rule if it has one, closed by `end`:
 //
-// Blank-line subgrouping authored BETWEEN ADJACENT conformances (e.g. a derived
-// group kept apart from a hand-written group) is preserved; a blank that merely
-// separated a conformance from a method is dropped (it was method-separation,
-// not a conformance split). Leading comments on each entry are kept.
-//
-// Fast path: a body that is already ordered is returned untouched, so existing
-// source that already follows the house style never churns. The reorder path
-// mutates the leading trivia of conformance nodes — safe because the formatter
-// re-parses a throwaway AST per Format call.
-func orderTypeBodyItems(items []ast.Node) []ast.Node {
-	items = flattenNestedImplBlocks(items)
-	if typeBodyItemsAlreadyOrdered(items) {
-		return items
-	}
-	var confs, values, impls []ast.Node
-	for i, it := range items {
-		if isMethodImplBlock(it) {
-			impls = append(impls, it)
-			continue
-		}
-		if !isImplConformance(it) {
-			values = append(values, it)
-			continue
-		}
-		if c, ok := it.(*ast.ImplConformance); ok {
-			// A new block boundary only when this entry was blank-separated from the
-			// immediately-preceding conformance in the source (author intent); a
-			// blank inherited from a preceding method is method-separation, dropped.
-			split := len(confs) > 0 && i > 0 && isImplConformance(items[i-1]) && hasLeadingBlank(it)
-			var lead []ast.Trivia
-			if split {
-				lead = append(lead, ast.Trivia{Kind: ast.TriviaBlankLine})
-			}
-			for _, tr := range c.GetLeading() {
-				if tr.Kind == ast.TriviaComment {
-					lead = append(lead, tr)
-				}
-			}
-			c.Leading = lead
-		}
-		confs = append(confs, it)
-	}
-	ordered := append(confs, values...)
-	return append(ordered, impls...)
-}
-
-// typeBodyItemsAlreadyOrdered reports whether a parsed body follows the
-// canonical category order. The non-value categories exist for recovery and
-// migration paths; source type bodies emit only fields/variants, inherent
-// functions, and once bindings.
-func typeBodyItemsAlreadyOrdered(items []ast.Node) bool {
-	phase := 0
-	for _, it := range items {
-		category := 1
-		if isImplConformance(it) {
-			category = 0
-		} else if isMethodImplBlock(it) {
-			category = 2
-		}
-		if category < phase {
-			return false
-		}
-		if category > phase {
-			phase = category
-		}
-	}
-	return true
-}
-
-func isImplConformance(n ast.Node) bool {
-	_, ok := n.(*ast.ImplConformance)
-	return ok
-}
-
-func isMethodImplBlock(n ast.Node) bool {
-	ib, ok := n.(*ast.ImplBlock)
-	return ok && ib.Interface != nil
-}
-
-// emitStructDef renders a struct declaration in the canonical form — fields
-// one per line (no commas), then derive entries and value items, blank-line
-// separated for internally produced or legacy ASTs:
-//
-//	[pub ][opaque ]struct Name[<T, ...>] {
+//	[pub ][opaque ]struct Name[<T, ...>]
 //	  one: Type
 //	  two: Type = default
+//	end
 //
-//	  fn method(s: Name) -> T { ... }
-//	}
-//
-// The body is always multi-line when non-empty. A single space
-// separates the type name (or type-params) from the opening `{`. `pub`
-// precedes `opaque` when both are present; `opaque` is emitted before
-// `struct` whenever the AST carries the flag (see spec §4, *Opaque distinct types*).
+// `pub` precedes `opaque` when both are present (spec §4, *Opaque distinct
+// types*).
 func emitStructDef(v *ast.StructDef) Doc {
 	// Doc-comment first, then any decorators the derive lowering attached.
 	parts := emitDocBeforeAttachedTests(v.Doc, v.AttachedTests)
@@ -5409,12 +4999,11 @@ func emitStructDef(v *ast.StructDef) Doc {
 	parts = append(parts, Text("struct "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 
-	members := make([]Doc, 0, len(v.Fields)+len(v.Items))
+	members := make([]Doc, 0, len(v.Fields)+1)
 	fields := newAlignBlock(alignFields)
 	for _, f := range v.Fields {
 		members = append(members, emitStructDeclField(f, fields.item()))
 	}
-	members = appendTypeBodyItems(members, v.Items)
 	if v.Rule != nil {
 		// The rule is the body's last item, on its own line below the
 		// fields and outside their alignment block.
@@ -5476,20 +5065,16 @@ func emitEnumDeclVariant(v ast.EnumVariant) Doc {
 	return Concat(parts...)
 }
 
-// emitEnumDef renders an enum declaration in the canonical form — variants
-// one per line (no `|` separators; old pipe-alternation input migrates), then
-// value items, blank-line separated for internally produced or legacy ASTs:
+// emitEnumDef renders an enum declaration: its variants one per line,
+// closed by `end`:
 //
-//	[pub ][opaque ]enum Maybe<T> {
+//	[pub ][opaque ]enum Maybe<T>
 //	  None
 //	  Some T
-//	}
+//	end
 //
-// The body is ALWAYS multi-line — a one-liner pipe enum stacks. An empty
-// enum is unreachable for well-formed input but renders as `enum Name {}`
-// for resilience. `pub` precedes `opaque` when both are present; `opaque`
-// is emitted before `enum` whenever the AST carries the flag (see spec
-// §4, *Opaque distinct types*).
+// `pub` precedes `opaque` when both are present (spec §4, *Opaque distinct
+// types*).
 func emitEnumDef(v *ast.EnumDef) Doc {
 	// Doc-comment first, then decorators — see emitStructDef for the parser
 	// constraint that drives this order.
@@ -5505,11 +5090,10 @@ func emitEnumDef(v *ast.EnumDef) Doc {
 	parts = append(parts, Text("enum "), Text(v.Name), emitTypeParams(v.TypeParams))
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 
-	members := make([]Doc, 0, len(v.Variants)+len(v.Items))
+	members := make([]Doc, 0, len(v.Variants))
 	for _, va := range v.Variants {
 		members = append(members, emitEnumDeclVariant(va))
 	}
-	members = appendTypeBodyItems(members, v.Items)
 	parts = append(parts, emitDeclBody(members, v.EndTrivia))
 	return Concat(parts...)
 }
@@ -5743,8 +5327,7 @@ func emitTypeAlias(v *ast.TypeAlias) Doc {
 // `[pub ]subtype Name Parent [and Parent...]`.
 // A zero-sized type (`type Expired`) has no inner type. The `opaque`
 // modifier (only valid on distinct types) renders after `pub` when both
-// are present. Source type declarations are bodiless; the optional body path
-// below exists for internally produced or legacy ASTs.
+// are present.
 func emitTypeDef(v *ast.TypeDef) Doc {
 	// Doc-comment first, then decorators — see emitStructDef for the parser
 	// constraint that drives this order.
@@ -5770,19 +5353,7 @@ func emitTypeDef(v *ast.TypeDef) Doc {
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
 	parts = append(parts, emitRefinementRule(v.Rule)...)
-	parts = emitOptionalTypeBody(parts, v.HasBody, v.Items, v.EndTrivia)
 	return Concat(parts...)
-}
-
-// emitOptionalTypeBody appends an optional item body, closed by `end`, for
-// internal ASTs. Source `type` and `host type` declarations do not parse with
-// bodies anymore.
-func emitOptionalTypeBody(parts []Doc, hasBody bool, items []ast.Node, endTrivia []ast.Trivia) []Doc {
-	if !hasBody || (len(items) == 0 && len(endTrivia) == 0) {
-		return parts
-	}
-	members := appendTypeBodyItems(nil, items)
-	return append(parts, emitDeclBody(members, endTrivia))
 }
 
 // emitOnceBinding renders `[pub ]once name: T = expr`. The value is laid
@@ -5837,14 +5408,7 @@ func emitExternFunc(v *ast.ExternFunc) Doc {
 	if v.ForeignAlias != "" {
 		parts = append(parts, Text("fn "), Text(v.Name), emitTypeParams(v.TypeParams))
 	} else {
-		if v.ImplFunction {
-			parts = append(parts, Text("impl "))
-		}
-		parts = append(parts, Text("host fn "))
-		if v.ImplIface != nil && v.ImplIfaceSourceQualified {
-			parts = append(parts, emitTypeExpr(v.ImplIface), Text("."))
-		}
-		parts = append(parts, Text(v.Name), emitTypeParams(v.TypeParams))
+		parts = append(parts, Text("host fn "), Text(v.Name), emitTypeParams(v.TypeParams))
 	}
 
 	parts = append(parts, emitParamList(v.Line, funcParamDocs(v.Params), v.Params, v.ParamsEndTrivia))
@@ -5890,7 +5454,7 @@ func emitEmbedDecl(v *ast.EmbedDecl) Doc {
 	return Concat(parts...)
 }
 
-// emitExternType renders `[pub ]host type Name[<T, ...>]` or a Go binding, optionally followed by a type-body item list.
+// emitExternType renders `[pub ]host type Name[<T, ...>]` or a Go binding.
 func emitExternType(v *ast.ExternType) Doc {
 	// Doc-comment first, then decorators — see emitStructDef for the parser
 	// constraint that drives this order.
@@ -5910,7 +5474,6 @@ func emitExternType(v *ast.ExternType) Doc {
 		parts = append(parts, Text("host type "), Text(v.Name), emitTypeParams(v.TypeParams))
 	}
 	parts = append(parts, emitWhereClause(v.WhereClauses)...)
-	parts = emitOptionalTypeBody(parts, v.HasBody, v.Items, v.EndTrivia)
 	return Concat(parts...)
 }
 
@@ -6544,15 +6107,6 @@ func shapeOpen(sigil string, name ast.TypeExpr, bracket string) string {
 		return sigil + bracket
 	}
 	return sigil + name.TypeString() + bracket
-}
-
-// spreadRestDoc is a vector or set pattern's `..` with what follows it: a
-// name, `_`, or nothing.
-func spreadRestDoc(rest ast.Node) Doc {
-	if rest == nil {
-		return Text("..")
-	}
-	return Concat(Text(".."), emitPattern(rest))
 }
 
 // emitListSpreadLit writes a bracket literal with spreads, `[head, ..tail]`,

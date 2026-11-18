@@ -63,10 +63,9 @@ fn main()
  io.inspect(Iter.to_list(ys))
  io.inspect(Iter.to_list(ys))
  io.inspect(Iter.to_list(Iter.take(xs, 0)))
- io.inspect(Iter.to_list(Iter.take(xs, -1)))
  io.inspect(Iter.sort(empty()))
 end
-`, "created\n3\n1\n[3, 1]\n3\n1\n[3, 1]\n[]\n[]\n[]\n")
+`, "created\n3\n1\n[3, 1]\n3\n1\n[3, 1]\n[]\n[]\n")
 }
 
 func TestIRIterSort_CallbackFault(t *testing.T) {

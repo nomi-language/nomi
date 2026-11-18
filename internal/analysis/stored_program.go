@@ -336,10 +336,18 @@ func (sp *storedProgram) check(dm *DocumentManager, key string) *FileCheck {
 	return c
 }
 
-// clean reports whether c reports nothing of its own, as the record's
-// program did not.
-func (c *FileCheck) clean() bool {
-	return len(c.Build)+len(c.Check)+len(c.EntryChecks)+len(c.FrontEnd) == 0
+// Clean reports whether c reports nothing, as the record's program did
+// not: none of its own diagnostics, and none of the errors its build
+// worked out about the program's impls (Program.Errors: duplicate impls,
+// clashing type functions, the orphan rules), which a whole check reports
+// with the entry's and a check of one file finds among the impls it can
+// see.
+func (c *FileCheck) Clean() bool {
+	if len(c.Build)+len(c.Check)+len(c.EntryChecks)+len(c.FrontEnd) > 0 {
+		return false
+	}
+	p := c.FA.Program()
+	return p == nil || len(p.Errors) == 0
 }
 
 // storedBuild is the build of the open document with module key key from
@@ -352,7 +360,7 @@ func (dm *DocumentManager) storedBuild(sp *storedProgram, key, content string) (
 	}
 	c := sp.check(dm, key)
 	rep := sp.reports[key]
-	if rep == nil && !c.clean() {
+	if rep == nil && !c.Clean() {
 		return builtAnalysis{}, false
 	}
 	b := builtAnalysis{
@@ -437,7 +445,7 @@ func (dm *DocumentManager) storedClosed(uri string) *DocSnapshot {
 		}
 		c := sp.check(dm, key)
 		rep := sp.reports[key]
-		if rep == nil && !c.clean() {
+		if rep == nil && !c.Clean() {
 			return nil
 		}
 		snap := &DocSnapshot{

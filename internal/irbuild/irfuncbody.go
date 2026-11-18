@@ -32,8 +32,6 @@ type irScalarSide struct {
 	// treats the copied value as already held (irHeldValue), as effect-free
 	// (effectFree), or as an alias callablePlan may look through.
 	copy irCopyRole
-	// copyPure marks an injected pipe value whose source was itself held.
-	copyPure bool
 	// pureMake marks an `ir.Make` whose operands are all effect-free.
 	pureMake bool
 	// deferrable marks an `ir.Call` a `defer` may register: a call to a
@@ -44,13 +42,10 @@ type irScalarSide struct {
 	ctl irCtlForm
 }
 
-// irScalarBuilder lowers one function body into an `ir.Func` and EMITS
-// NOTHING.
+// irScalarBuilder lowers one function body into an `ir.Func`.
 //
-// A declined build consumes no identifiers from the gen's namespace.
-// The builder reads resolved declarations and may intern type/symbol identities;
-// consumer-side spelling is recorded for the read-back. In particular,
-// consuming gen.uniq during a failed attempt would renumber later temporaries.
+// The builder reads resolved declarations and may intern type and symbol
+// identities.
 type irScalarBuilder struct {
 	// placed holds the operands a named-argument qualified call already
 	// evaluated, by the synthetic node that stands for each (irnamedarg.go).
@@ -85,8 +80,7 @@ type irScalarBuilder struct {
 	casePrefix map[*ir.Block]int
 	parent     *irScalarBuilder
 	// synthesized marks a derive-synthesized declaration. Its graph is
-	// retained for the VM with synthesized positions and never read back
-	// into Go.
+	// retained with synthesized positions.
 	synthesized bool
 	// literalCell is the typed literal without slots whose lazy cell
 	// initializer this builder lowers: there the literal is its handler's
@@ -117,9 +111,9 @@ type irScalarBuilder struct {
 	sides     []irScalarSide
 	// bound is the temporary each name this body BINDS already lives in, and
 	// boundK its kind. A read of a bound name is not a fresh `ir.Ref`: after
-	// `y := v` the value IS temporary tN, which is exactly what `irbind.go`'s
-	// `irName` models. So the read reuses the Bind's destination and the
-	// def-use chain crosses the statement boundary.
+	// `y := v` the value IS the temporary the Bind wrote. So the read reuses
+	// the Bind's destination and the def-use chain crosses the statement
+	// boundary.
 	bound  map[string]ir.Temp
 	boundK map[string]kind
 	// orJoin is set while an alternative of an `or` pattern is tested: the
@@ -138,11 +132,6 @@ type irScalarBuilder struct {
 	// VM runner boots it before the body, so an app-field read has an app to
 	// read. See irtestgroup.go.
 	testApp bool
-	// testWalked is set for a test body the builder never reads back: one
-	// built for the VM only, such as a case under a `group`. Gates that
-	// that once kept a test body narrow do not apply
-	// to it.
-	testWalked bool
 	// qualRecord is the qualified call recordedQualCall is lowering inside a
 	// grouped case's assertion subject, and qualRecordArgs the operands
 	// irQualLowerArgs lowered for it, so its `values:` rows can be recorded
@@ -166,10 +155,14 @@ type irScalarBuilder struct {
 	// operand is one, since an owner function takes no receiver.
 	instCall *ast.Call
 	instKind kind
+	// instType is the checker's type instKind was read from, or nil.
+	instType analysis.Type
 	// defaultRecv is the receiver of a std interface default with no
 	// `self` operand that stdIfaceDefaultAtKind is lowering
-	// (`T.from_missing()` at T's binding), else kindInvalid.
-	defaultRecv kind
+	// (`T.from_missing()` at T's binding), else kindInvalid, and
+	// defaultRecvType the checker's type it was read from, or nil.
+	defaultRecv     kind
+	defaultRecvType analysis.Type
 	// foldCallbacks are the callback lambdas of the `Iter.reduce`,
 	// `Iter.scan` and `Iter.map_reduce` calls being lowered. The value says
 	// whether the callback answers its accumulator, as a reduce's and a
@@ -241,17 +234,11 @@ type irScalarBuilder struct {
 	testStages map[ir.Temp][]ir.AssertStage
 	testAfter  []ast.Node
 	// boot marks the program boot's own body. It admits the Context kind
-	// for a parameter read and a struct field, and is never read back.
+	// for a parameter read and a struct field.
 	boot bool
-	// vmOnly marks a std arity wrapper's body, which only the VM reads. It
-	// admits a std enum field's Go-stated default as its constant, as every
-	// body the test read-back does not spell does (`Backoff.Exponential{}`
-	// in a program).
-	vmOnly bool
 	// body is the named function's own block, the one scope whose app-field
-	// writes are retained; stores counts them. See irappboot.go.
-	body   *ast.Block
-	stores int
+	// writes are retained. See irappboot.go.
+	body *ast.Block
 	// loop is the inline `Iter.loop` whose callback body is being lowered,
 	// or nil. Every `break`, `continue` and `return` in that body is the
 	// loop's, wherever it sits: a guard is a loop guard (loopGuard) and an
@@ -306,7 +293,7 @@ type irScalarBuilder struct {
 	root ast.Node
 }
 
-// irSideSet records one consumer-side fact at t, growing the list.
+// irSideSet records the builder's facts about t, growing the list.
 //
 // A FUNCTION OVER THE SLICE rather than a method on the builder, because two
 // producers fill one list: `irScalarBuilder` for the body and `irProjExpr`
@@ -327,7 +314,7 @@ func (bl *irScalarBuilder) side(t ir.Temp, s irScalarSide) {
 // lowerNode appends the instructions computing n and answers the temporary
 // they write, its kind, and whether the value is MOBILE: whether a later
 // operand's instructions can change it, which decides whether a non-final
-// operand is forced into a Copy (forceCallOperand).
+// operand is forced into a Copy (irCopyForce).
 //
 // CALLED THROUGH `bl.lower`, which is one frame in irdecline.go: every decline
 // arm below has to be classified for the first-decline census, and a
@@ -336,7 +323,7 @@ func (bl *irScalarBuilder) side(t ir.Temp, s irScalarSide) {
 // makes the INNERMOST decline the reason a body is filed under.
 func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 	if isNilNode(n) {
-		return ir.NoTemp, kindInvalid, false, false
+		panic("irbuild: lowerNode: callers never pass a nil node (irScalarBlock drops nil statements first)")
 	}
 	if p, placed := bl.placed[n]; placed {
 		return p.temp, p.k, true, true
@@ -366,8 +353,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// kindInvalid: sentinel — no expected type; the tail's own kind.
 		return bl.blockValue(t, kindInvalid)
 	case *ast.With:
-		bl.g.dc.note("a `with` statement in an operand position")
-		return ir.NoTemp, kindInvalid, false, false
+		panic("irbuild: lowerNode: parser accepts `with` only as a statement (`1 -> with X.f = v` is \"unexpected `with`\"), and irScalarBlock moves a block-ending `with` into the lead")
 	case *ast.DotVariant:
 		if t.ResolvedEnum != "" {
 			// kindInvalid: no expected type here; the checker's type of
@@ -417,8 +403,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		if twin := bl.g.srcFA().TargetLiterals[t]; twin != nil {
 			return bl.taggedLiteral(twin)
 		}
-		// The parser supplies decoded text for every string spelling; both
-		// consumers use the same constant node and value. A message's
+		// The parser supplies decoded text for every string spelling. A message's
 		// compiled texts are written with its parameters' resolved types,
 		// which its expansion could not know.
 		text := t.Value
@@ -454,9 +439,8 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		case "Unit":
 			c := ir.NewUnit(bl.g.irPos(line, col), bl.f.NewTemp())
 			bl.b.Append(c)
-			// MOBILE, from the class rather than from this name:
-			// `irConstExpr` answers `pure: true` for every constant,
-			// because a constant reads no temporary and runs nothing.
+			// Mobile, as every constant is: a constant reads no temporary
+			// and runs nothing.
 			return c.Dst(), kindUnit, true, true
 		default:
 			if wk := bl.g.project(bl.g.checkedExprType(t)); irTypeWitnessKind(wk) {
@@ -517,20 +501,22 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.isTest(t)
 
 	case *ast.Ascription:
-		if want := bl.g.typeOf(t.Type); irHeldKind(want) {
-			// `Post{...} as Named`: the VM's existential is the concrete
-			// value, and the position that reads it erases it as it would
-			// the bare value (an argument, an annotated binding).
-			return bl.lower(t.Value)
-		}
+		// `Post{...} as Named` is the value `named: Named = Post{...}`
+		// binds (spec §5 *Type ascription*). A value entering an interface
+		// unboxed is the operand's own temp, which its instruction writes
+		// at the operand's type; as a binding's Bind holds it in a temp of
+		// the annotation's, the ascription holds it in one of its type.
 		v, k, ok := bl.annotatedValue(t.Value, t.Type)
+		if held := bl.f.TempType(v); ok && held != nil && held != bl.g.irValType(k) {
+			v = bl.relabel(t, v, k)
+		}
 		return v, k, false, ok
 
 	case *ast.Unary:
 		if t.Op != "-" && t.Op != "not" && t.Op != "~~~" {
-			return ir.NoTemp, kindInvalid, false, false
+			panic("irbuild: lowerNode: Unary is built only with \"not\", \"-\" and \"~~~\"")
 		}
-		// A unary operator never hoists its operand into a `vN :=` temporary.
+		// A unary operator has one operand, so nothing forces it into a Copy.
 		src, k, _, ok := bl.lower(t.Right)
 		if !ok {
 			return ir.NoTemp, kindInvalid, false, false
@@ -674,7 +660,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		if _, ok := t.Func.(*ast.SelfExpr); ok {
 			// `self(x)` in an interface default: the constructor of the
-			// implementor this copy is emitted for (irdistinct.go).
+			// implementor this copy is lowered for (irdistinct.go).
 			if d := bl.g.selfDistinct(); d != nil {
 				if dst, k, mobile, ok := bl.distinctMakeOf(t, d); ok {
 					return dst, k, mobile, true
@@ -732,9 +718,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return bl.unwrap(t)
 
 	case *ast.Dbg:
-		// `dbg E`, built from existing IR nodes; the operand is fenced to the scalar domain because
-		// `debugRendering` can refuse and `irScalarRender` panics rather than
-		// routing one. See irdbg.go.
+		// `dbg E`, built from existing IR nodes. See irdbg.go.
 		return bl.dbg(t)
 
 	case *ast.Todo:
@@ -745,7 +729,10 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		// See irtodo.go.
 		return bl.unreachable(t, kindInvalid)
 	}
-	return ir.NoTemp, kindInvalid, false, false
+	// Every node type classed a value has an arm above
+	// (TestEveryNodeTypeHasAForm), and the parser puts no other in an
+	// expression's place.
+	panic(fmt.Sprintf("irbuild: lowerNode reached with %T, which is no expression (nodeForms)", n))
 }
 
 // binary lowers an arithmetic operator, String concatenation, the PIPE and a
@@ -758,7 +745,7 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return bl.membership(t)
 	}
 	if op, isCompare := irCompareOps[t.Op]; isCompare {
-		// `emitCompare` spells it; see ircompare.go.
+		// See ircompare.go.
 		//
 		// AHEAD of the arithmetic table because no comparison is in it, and
 		// ahead of the pipe for the same reason. `bl.compare` lowers both
@@ -781,11 +768,10 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if !mobile {
-		// An impure left operand is forced into a temporary
-		// so a later operand's statements cannot be hoisted ahead of it. THE
-		// COPY IS THE NODE FOR THAT, and
-		// its position is the operand's own — the construct being
-		// materialized, not the operator.
+		// An impure left operand is forced into a temporary so the right
+		// operand's instructions cannot change the value it holds. The Copy
+		// is the node for that, and its position is the operand's own, the
+		// construct being held, not the operator.
 		c := ir.NewCopy(bl.g.irNodePos(t.Left), bl.f.NewTemp(), lhs)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: lk, copy: irCopyForce})
@@ -795,18 +781,34 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if f := bl.g.stdlibOperatorFor(t.Op, lk, rk); f != nil {
+	// The impl the checker recorded is called, unless the operands are of a
+	// kind the machine operates on itself; an operator over a type
+	// parameter is resolved at this instance's kinds.
+	spec := operIfaceByOp[t.Op]
+	og, it, f, recorded := bl.recordedOperatorImpl(t, lk)
+	if it != nil {
+		params, result, ok := bl.g.itemKinds(og, it)
+		if !ok {
+			return ir.NoTemp, kindInvalid, false, false
+		}
+		return bl.userOperatorCall(t, spec, og, it, params, result, lhs, rhs, lk, rk)
+	}
+	if !recorded {
+		f = bl.g.stdlibOperatorFor(t.Op, lk, rk)
+	} else if !stdOperatorFits(t.Op, f, lk, rk) {
+		f = nil
+	}
+	if f != nil {
 		return bl.stdOperatorCall(t, f, lhs, rhs)
 	}
 	if v, k, mobile, ok, handled := bl.stdGenericOperatorCall(t, lhs, rhs, lk, rk); handled {
 		return v, k, mobile, ok
 	}
 	if lk.def != nil && !isDecimalKind(lk) {
-		return bl.userOperatorCall(t, lhs, rhs, lk, rk)
+		return bl.instanceOperatorCall(t, spec, recorded, lhs, rhs, lk, rk)
 	}
-	if t.Op == "+" && (lk.tag == tagList || rk.tag == tagList || (lk == kindEmptyList && rk == kindEmptyList)) {
-		// `xs + ys` is List.concat's own `rt.ListConcat(xs, ys)` host call,
-		// with the untyped side coerced to the typed one.
+	if t.Op == "+" && (lk.tag == tagList || rk.tag == tagList) {
+		// `xs + ys` is List.concat's own `rt.ListConcat(xs, ys)` host call.
 		call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
 		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
 		if p := bl.listCallPlan(call, args, "concat"); p != nil {
@@ -818,15 +820,13 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		// A std receiver's operator at a right-hand type the program
 		// declares (`d * rate`, `impl Multiply<Rate, Decimal> for
 		// Decimal`) is the program's impl. Any other mixed-type operator
-		// is declined; the body is stubbed and refused if reachable.
-		return bl.userOperatorCall(t, lhs, rhs, lk, rk)
+		// is declined.
+		return bl.instanceOperatorCall(t, spec, recorded, lhs, rhs, lk, rk)
 	}
 	if lk == kindString {
 		// `"a" + "b"` is concatenation, not arithmetic, and `+` is
-		// the only operator String has. The node is
-		// `ir.Concat` and the delivery is `irConcatBinary`; every arith
-		// shape's `expr` is impure, and so is a join, because its
-		// operands' spellings are re-read.
+		// the only operator String has. The node is `ir.Concat`, and its
+		// result is not mobile, as an arithmetic result is not.
 		if t.Op != "+" {
 			return ir.NoTemp, kindInvalid, false, false
 		}
@@ -841,9 +841,8 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	}
 	a := ir.NewArith(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ak, lhs, rhs)
 	bl.b.Append(a)
-	// Every arith shape's `expr` is impure — `emitArith` returns a
-	// zero `pure` for all seven — so an arith result in a left operand
-	// position always hoists. Read off that fact rather than restated.
+	// An arithmetic result is not mobile, so one in a left operand position
+	// is always forced into a Copy.
 	return a.Dst(), lk, false, true
 }
 
@@ -867,9 +866,7 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 		case ast.StringText:
 			// `ast.StringText` has no position of its own — it is one field
 			// and it is the string — so a text run is blamed on the
-			// interpolation it belongs to. irinterp.go records that as the
-			// one enumeration row asking for something the AST cannot
-			// supply.
+			// interpolation it belongs to.
 			c := ir.NewString(pos, bl.f.NewTemp(), part.Value)
 			bl.b.Append(c)
 			parts = append(parts, c.Dst())
@@ -900,10 +897,9 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 				continue
 			}
 			// The hole renders as the checker recorded (irdisplayhole.go).
-			// On a String that is the IDENTITY, which render.go names as
-			// "the one discipline whose answer for some kind is the operand
-			// unchanged", so no Render is built for it.
-			r, ok := bl.renderDisplay(part.Expr, src, k, bl.holeDisplay(part.Expr, k))
+			// On a String that is the IDENTITY, so no Render is built for
+			// it.
+			r, ok := bl.renderDisplay(part.Expr, src, k, bl.holeDisplay(part.Expr, k), nil)
 			if !ok {
 				// A hole the record does not render declines here, naming
 				// the operand and its kind, rather than rendering it
@@ -915,8 +911,7 @@ func (bl *irScalarBuilder) interp(t *ast.StringInterp) (ir.Temp, kind, bool, boo
 			}
 			parts = append(parts, r)
 		default:
-			bl.g.dc.note("an interpolation part of an unknown form")
-			return ir.NoTemp, kindInvalid, false, false
+			panic(fmt.Sprintf("irbuild: interp: an interpolation part of the form %T, which the parser does not build", part))
 		}
 	}
 	switch len(parts) {
@@ -1112,8 +1107,9 @@ func stdDeclaringSymbol(fa *analysis.FileAnalysis, origin, name string) *analysi
 
 // call lowers module functions, callable values and qualified calls.
 //
-// Direct calls place arguments with argSlotPlan. Explicit operands run in
-// its order; omitted defaults follow in parameter order, in callee scope.
+// Direct calls place arguments as the checker recorded (callPlan). Explicit
+// operands run in its order; omitted defaults follow in parameter order, in
+// callee scope.
 func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if v, k, mobile, ok, handled := bl.captureShapeCall(t); handled {
@@ -1160,7 +1156,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	// TAIL POSITION IS A FACT AND NOT A SHAPE, which is `ir/call.go`'s own
 	// division: `analysis/tail_position.go` computes it, `ast.Call.IsTailCall`
-	// carries it, and both consumers read it. So the site rides on the node
+	// carries it, and the VM reads it. So the site rides on the node
 	// through `irCallSite` rather than declining the call. A tail plan's
 	// REWRITE is `tail`'s code shape and cannot arise here: a tail-plan
 	// member is built as an ordinary body with its calls marked
@@ -1210,7 +1206,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		if owner, module, isStdOwner := bl.stdShortOwner(fa); isStdOwner {
 			if bl.recording > 0 && namedArgNode(t.Args) == nil && bl.stdShortCallShape(t, owner, fa.Field.Name, module) {
-				// Inside a VM-only assertion subject, its rows recorded after
+				// Inside an assertion subject, its rows recorded after
 				// the call as any other qualified call's are.
 				return bl.recordedQualCall(t, func() (ir.Temp, kind, bool, bool) {
 					v, k, mobile, ok, _ := bl.stdShortCall(t, owner, fa.Field.Name, module)
@@ -1256,55 +1252,25 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		return bl.qualCall(t, fa)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok && bl.bareIterLoop(id) {
+	callee, direct := t.Func.(*ast.Ident)
+	if !direct {
+		return bl.indirectCall(t)
+	}
+	// What the name is, as the checker recorded it for this call: the
+	// builder looks nothing up by the name's spelling to decide.
+	target := bl.g.calleeOf(t)
+	sym := resolveSymbol(target.Ref)
+	if target.Kind != analysis.CalleeValue && bl.bareIterLoop(sym) {
 		// `import std::iter.Iter.{loop}` then `loop(...)`: Iter.loop.
 		return bl.iterLoop(t)
 	}
-	if id, ok := t.Func.(*ast.Ident); ok {
-		if v, k, mobile, lowered, handled := bl.genericNestedCall(t, id); handled {
-			return v, k, mobile, lowered
-		}
+	if v, k, mobile, lowered, handled := bl.genericNestedCall(t, callee); handled {
+		return v, k, mobile, lowered
 	}
-	if id, ok := t.Func.(*ast.Ident); ok {
-		for parent := bl.parent; parent != nil; parent = parent.parent {
-			if parent.boundK[id.Name].tag == tagFunc {
-				return bl.indirectCall(t)
-			}
-		}
-		if k, bound := bl.boundK[id.Name]; bound && (k.tag == tagFunc || irCallableDistinct(k)) {
-			return bl.indirectCall(t)
-		}
-		if l, bound := bl.g.lookup(id.Name); bound && (l.k.tag == tagFunc || irCallableDistinct(l.k)) {
-			return bl.indirectCall(t)
-		}
-		if _, bound := bl.g.lookup(id.Name); !bound && !hasNamed && !bl.g.blockImported(id) {
-			// `add_op(1)` over `once add_op: (Int) -> Int`: a call through
-			// the function value the cell holds. A local of the name was
-			// tried above, so this is the file's `once`.
-			if d := bl.g.onces[id.Name]; d != nil && d.k.tag == tagFunc {
-				return bl.indirectCall(t)
-			}
-			// The same over a `once` another file declares and this one
-			// imports by name: the call reads that file's cell.
-			if g := bl.g; g.onces[id.Name] == nil && g.files != nil && g.reg != nil {
-				if site, ok := g.files.lookupBare(g.srcFA(), id); ok && site.once != nil && site.unit < len(g.reg.gens) && g.reg.gens[site.unit] != nil {
-					if od := g.reg.gens[site.unit].oncesByDecl[site.once]; od != nil && od.k.tag == tagFunc {
-						return bl.indirectCall(t)
-					}
-				}
-			}
-		}
-	} else {
+	if target.Kind == analysis.CalleeValue {
+		// A parameter, a binding, a `once`, a nested `fn`: a call through
+		// the function value the name holds.
 		return bl.indirectCall(t)
-	}
-	callee, direct := t.Func.(*ast.Ident)
-	if !direct {
-		return no()
-	}
-	if _, shadowed := bl.g.lookup(callee.Name); shadowed {
-		// A local name shadowing a function is a call THROUGH A VALUE, which
-		// is `CalleeIndirect` and a different resolution.
-		return no()
 	}
 	if !hasNamed {
 		// `compare(b, a)` in a std interface default being instantiated:
@@ -1313,7 +1279,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return v, k, mobile, ok
 		}
 	}
-	if f := bl.g.stdlibSibling(callee.Name); f != nil {
+	if f := bl.g.stdSiblingDecls[target.Decl]; f != nil {
 		if !hasNamed && !bl.inTest && irScalarHost(f) {
 			args := bl.irQualLowerArgs(t)
 			if bl.qualSignature(t, args, f.params, f.result) {
@@ -1323,7 +1289,11 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// A Nomi-bodied sibling links to its retained declaration in this
 		// module, and stdFuncPlan answers only when that body already exists;
 		// an extern-backed host sibling is a crossing by binding name.
-		if qualified, own := bl.ownSiblingCall(t, callee, f, hasNamed); own {
+		if qualified, own := bl.ownSiblingCall(t, f, hasNamed); own {
+			// The qualified call is t with another callee spelling, so it
+			// takes t's record: a call the builder made (a partial's, over
+			// stand-ins) carries one that its position does not find.
+			defer bl.g.carryCall(qualified, bl.g.resolvedCallOf(t))()
 			return bl.call(qualified)
 		}
 		// A stdlib module's own test body calls a sibling the cached lowering
@@ -1339,7 +1309,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			// that declares add3: the defaults are filled at the call, in
 			// this gen, which is the declaring module's, as
 			// `Type.method(...)` written short in its own module is.
-			if len(t.Args) < len(f.params) {
+			if bl.g.leavesDefaults(t, len(f.params)) {
 				if p := bl.stdSiblingShortPlan(t, args, f); p != nil {
 					return bl.qualEmit(t, args, p)
 				}
@@ -1351,36 +1321,33 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		return no()
 	}
 	if !hasNamed {
-		if v, k, mobile, ok, handled := bl.stdGenericSiblingCall(t, callee.Name); handled {
+		if v, k, mobile, ok, handled := bl.stdGenericSiblingCall(t, target.Std); handled {
 			return v, k, mobile, ok
 		}
 	}
 	// `import std::calendar.Date.parse` puts a stdlib type's method in this
 	// file's scope; the bare call reaches the same route the qualified
 	// spelling reaches.
-	sig := bl.g.funcs[callee.Name]
-	if sig != nil && bl.g.blockImported(callee) {
-		// A block `import` shadows the module's function of the name.
-		sig = nil
-	}
+	sig := bl.g.sigByDecl[target.Decl]
 	if sig == nil && !hasNamed {
-		if v, k, mobile, ok, handled := bl.bareStdMethodCall(t, callee); handled {
+		if v, k, mobile, ok, handled := bl.bareStdMethodCall(t, callee, sym); handled {
 			return v, k, mobile, ok
 		}
 	}
 	if sig == nil && !hasNamed {
-		if key, output := stdBareOutputKey(bl.g.srcFA(), callee); output || bl.inStdIO() && bl.ownOutputKey(callee, &key) {
+		if key, output := stdBareOutputKey(bl.g.srcFA(), sym); output || bl.inStdIO() && bl.ownOutputKey(sym, &key) {
 			// `import std::io.print` then `print(x)`: io.print itself.
 			return bl.hostOutputKey(t, key)
 		}
-		if f := bl.stdBareGenericFileFunc(callee); f != nil {
+		if f := bl.g.stdInsts.stdInstFuncOf(target.Std); f != nil && target.Std.Owner == "" {
 			// `import std::io.capture` then `capture(...)`: the generic
 			// stdlib function, instantiated as `io.capture(...)` is.
-			if v, k, mobile, ok, handled := bl.stdInstCallAt(t, f, kindInvalid); handled {
+			if v, k, mobile, ok, handled := bl.stdInstCallAt(t, f, kindInvalid, nil); handled {
 				return v, k, mobile, ok
 			}
 		}
-		if module, name, isStd := stdBareFileFunc(bl.g.srcFA(), callee); isStd {
+		if id := target.Std; !id.IsZero() && id.Owner == "" && !isProgramStd(stdShortModule(id.Module)) {
+			module, name := stdShortModule(id.Module), id.Name
 			// `import std::io.read_line` then `read_line()`: the call
 			// `io.read_line()` plans, under any alias the import gave it.
 			lower := func() (ir.Temp, kind, bool, bool) {
@@ -1400,7 +1367,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	if sig == nil && bl.g.files != nil {
-		if site, ok := bl.g.files.lookupBare(bl.g.srcFA(), callee); ok && site.fn != nil && site.unit != bl.g.fileUnit {
+		if site, ok := bl.g.files.byDecl[target.Decl]; ok && target.Decl != nil && site.fn != nil && site.unit != bl.g.fileUnit {
 			return bl.siblingCall(t, site)
 		}
 	}
@@ -1410,7 +1377,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 	}
 	if tpl := bl.g.irMonoTemplate(sig); tpl != nil {
-		// A walk-only test body is built after the module's instances are
+		// An ungrouped test body is built after the module's instances are
 		// flushed; irRetryWalkOnlyTestBodies flushes again after it.
 		// Named arguments and omitted defaults are placed below against the
 		// instance's signature; the checker's instantiated signature has
@@ -1426,9 +1393,8 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	}
 	if sig == nil || !sig.lowerable || sig.decl == nil || sig.dict != nil ||
 		sig.tps != nil {
-		// `sig.tps != nil` and not `len(sig.tps) != 0`: a generic callee,
-		// even with an empty type-parameter slice, can need a Go type
-		// assertion on its result, which this producer does not build.
+		// `sig.tps != nil` and not `len(sig.tps) != 0`: a generic callee
+		// declines here even with an empty type-parameter slice.
 		return no()
 	}
 	// A lowerable signature's result is in the value domain (signature,
@@ -1437,7 +1403,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	if !ok {
 		return no()
 	}
-	plan, planned := argSlotPlan(t.Args, sig.params, sigParamNames(sig))
+	plan, planned := bl.g.callPlan(t, len(sig.params))
 	// Inside an assertion subject the rows follow the argument slot
 	// mapping (recordCallSlots).
 	if !planned {
@@ -1456,7 +1422,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		// Only the final operand may stay unforced. Inside an assertion
 		// subject it is also forced, because it is named twice, in its row
 		// and in the call.
-		src, k, ok = bl.coerceEmpty(a, src, k, sig.params[slot])
+		src, k, ok = bl.convertTo(a, src, k, sig.params[slot])
 		if !ok {
 			return no()
 		}
@@ -1477,6 +1443,7 @@ func (bl *irScalarBuilder) call(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		bl.recordCallSlots(t.Args, plan, sigParamNames(sig), args, sig.params, sig.result)
 	}
 	calleeSym := bl.g.irFunctionCallee(sig)
+	bl.g.verifyCallee(t, sig.decl)
 	bl.g.irNoteBootCall(sig.decl, calleeSym)
 	if signalling {
 		return bl.signallingCall(t, sig.decl, calleeSym, args, sig.result)
@@ -1542,12 +1509,12 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 // recordInstance is the instance of the generic struct template tpl the
 // struct call form over a record value builds: the one the checker typed
 // n, the call or the pipe it came from, as (literalTypeArgs).
-func (g *gen) recordInstance(n ast.Node, tpl *genericTemplate, instantiate func([]kind) (kind, bool)) *typeDef {
-	args, ok := g.literalTypeArgs(n, len(tpl.params))
+func (g *gen) recordInstance(n ast.Node, tpl *genericTemplate, instantiate typeInstantiator) *typeDef {
+	args, types, ok := g.literalTypeArgs(n, len(tpl.params))
 	if !ok {
 		return nil
 	}
-	k, ok := instantiate(args)
+	k, ok := instantiate(args, types)
 	if !ok || k.tag != tagNamed {
 		return nil
 	}
@@ -1594,17 +1561,9 @@ func irSeededIterCallee(fa *ast.FieldAccess) bool {
 	return isType && ti.Name == "Iter" && fa.Field != nil && (irSeededIterMethod(fa.Field.Name) || fa.Field.Name == "loop")
 }
 
-func (bl *irScalarBuilder) bareIterLoop(id *ast.Ident) bool {
-	name := id.Name
-	if _, local := bl.g.funcs[name]; local {
-		return false
-	}
-	for scope := bl; scope != nil; scope = scope.parent {
-		if _, bound := scope.boundK[name]; bound {
-			return false
-		}
-	}
-	sym := resolvedBareSymbolAt(bl.g.srcFA(), id)
+// bareIterLoop reports whether sym, the declaration the checker resolved a
+// bare callee to, is std's Iter.loop (`import std::iter.Iter.{loop}`).
+func (bl *irScalarBuilder) bareIterLoop(sym *analysis.Symbol) bool {
 	return sym != nil && sym.OwningType == "Iter" && sym.Name == "loop" && bl.g.iterOwns("Iter")
 }
 
@@ -1631,11 +1590,11 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 	return bl.hostOutputKey(t, key)
 }
 
-// stdBareOutputKey is the host key of a bare call to std/io's print, write
-// or inspect brought into scope by a selective import (`import std::io.print`).
-func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
-	sym := resolvedBareSymbolAt(fa, id)
-	if sym == nil || fa.Program().StdlibModuleScopes == nil {
+// stdBareOutputKey is the host key of std/io's print, write or inspect when
+// sym, the declaration the checker resolved a bare name to, is one of them,
+// brought into scope by a selective import (`import std::io.print`).
+func stdBareOutputKey(fa *analysis.FileAnalysis, sym *analysis.Symbol) (string, bool) {
+	if sym == nil || fa == nil || fa.Program().StdlibModuleScopes == nil {
 		return "", false
 	}
 	io := fa.Program().StdlibModuleScopes["io"]
@@ -1643,7 +1602,7 @@ func stdBareOutputKey(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 		return "", false
 	}
 	for _, key := range outputKeys {
-		if resolveSymbol(io.Lookup(strings.TrimPrefix(key, "io."))) == sym {
+		if boundSameDecl(io.Lookup(strings.TrimPrefix(key, "io.")), sym) {
 			return key, true
 		}
 	}
@@ -1659,13 +1618,12 @@ func (bl *irScalarBuilder) inStdIO() bool {
 
 // ownOutputKey reports, inside std/io, whether a bare name is the module's
 // own print, write or inspect, and sets key to its host key.
-func (bl *irScalarBuilder) ownOutputKey(id *ast.Ident, key *string) bool {
-	sym := resolvedBareSymbolAt(bl.g.srcFA(), id)
+func (bl *irScalarBuilder) ownOutputKey(sym *analysis.Symbol, key *string) bool {
 	if sym == nil {
 		return false
 	}
 	for _, k := range outputKeys {
-		if resolveSymbol(bl.g.fa.ModuleScope.Lookup(strings.TrimPrefix(k, "io."))) == sym {
+		if boundSameDecl(bl.g.fa.ModuleScope.Lookup(strings.TrimPrefix(k, "io.")), sym) {
 			*key = k
 			return true
 		}
@@ -1680,9 +1638,6 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 		return no()
 	}
 	src, k, _, ok := bl.lower(t.Args[0])
-	if ok {
-		src, k, ok = bl.typeOpenEmpty(t.Args[0], src, k)
-	}
 	debug := key == inspectKey
 	if ok && debug && k.tag == tagNamed {
 		plan := bl.namedDebugPlan(k)
@@ -1714,7 +1669,7 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 	if ok && !debug && !irScalarLeafKind(k) && !isDecimalKind(k) {
 		// `io.print(xs)` over a container, a record or a tuple renders as
 		// its interpolation `"${xs}"` does.
-		if r, rendered := bl.displayValue(t.Args[0], src, k); rendered {
+		if r, rendered := bl.displayValue(t.Args[0], src, k, bl.g.operandCheckerType(t.Args[0])); rendered {
 			c := ir.NewHostCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(key, key), r)
 			bl.b.Append(c)
 			bl.side(c.Dst(), irScalarSide{k: kindUnit, deferrable: true})
@@ -1734,9 +1689,9 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 		var text ir.Temp
 		var rendered bool
 		if debug {
-			text, rendered = bl.debugOver(t.Args[0], src, k)
+			text, rendered = bl.debugOver(t.Args[0], src, k, bl.g.operandCheckerType(t.Args[0]))
 		} else {
-			text, rendered = bl.displayValue(t.Args[0], src, k)
+			text, rendered = bl.displayValue(t.Args[0], src, k, bl.g.operandCheckerType(t.Args[0]))
 		}
 		if !rendered {
 			return no()
@@ -1773,8 +1728,9 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 
 // debugOver renders an already-lowered value as `Debug.inspect(at)` does:
 // the synthesized structural render, std's instance for a container, or the
-// value's own impl.
-func (bl *irScalarBuilder) debugOver(at ast.Node, src ir.Temp, k kind) (ir.Temp, bool) {
+// value's own impl. vt is the value's checker type at this instance, or
+// nil.
+func (bl *irScalarBuilder) debugOver(at ast.Node, src ir.Temp, k kind, vt analysis.Type) (ir.Temp, bool) {
 	line, col := nodePos(at)
 	call := &ast.Call{
 		Func: &ast.FieldAccess{
@@ -1786,11 +1742,12 @@ func (bl *irScalarBuilder) debugOver(at ast.Node, src ir.Temp, k kind) (ir.Temp,
 		Line: line,
 		Col:  col,
 	}
+	defer bl.g.carryCall(call, bl.g.stdIfaceCallRecord(stdDebug, "inspect", vt))()
 	args := irQualArgs{temps: []ir.Temp{src}, kinds: []kind{k}, mobile: []bool{true}, ok: true}
 	if v, rk, _, ok := bl.synthDebugRender(call, args, "Debug", "inspect"); ok {
 		return v, rk == kindString
 	}
-	if v, rk, _, ok, handled := bl.ifaceContainerCall(call, args, "Debug", "inspect"); handled {
+	if v, rk, _, ok, handled := bl.ifaceContainerCall(call, args, "Debug", "inspect", vt); handled {
 		return v, ok && rk == kindString
 	}
 	plan := bl.qualImplPlan(call, args, "Debug", "inspect")
@@ -1801,8 +1758,8 @@ func (bl *irScalarBuilder) debugOver(at ast.Node, src ir.Temp, k kind) (ir.Temp,
 	return v, ok
 }
 
-// namedDebugPlan calls a retained struct's or enum's Debug impl through the
-// native named inspector, or std's.
+// namedDebugPlan plans a call to a retained struct's or enum's Debug impl:
+// std's (stdDebugPlan), or the one structDebugPlan names.
 func (bl *irScalarBuilder) namedDebugPlan(k kind) *irQualPlan {
 	if p := bl.stdDebugPlan(k); p != nil {
 		return p
@@ -1845,13 +1802,19 @@ type irScalarPlan struct {
 // The final statement is unwrapped: an ExprStmt's expression is the node both
 // the cursor and the assignment are taken from.
 func (g *gen) irScalarBody(fd *ast.FuncDef) ([]ast.Node, ast.Node) {
-	return g.irScalarBlock(fd.Body, irDeclineSynthMask(fd))
+	return g.irScalarBlock(fd.Body)
 }
 
 // exitingRegion reports whether n is an `if` or `case` every branch of which
-// leaves the block by `return`, `break` or `continue` or never finishes, as
-// the checker's unreachable-code rule decides, an `Iter.loop` with no
-// `break`, which never finishes, or a block whose tail leaves (blockLeaves).
+// leaves the block by `return`, `break` or `continue` or never finishes, an
+// `Iter.loop` with no `break`, which never finishes, or a block whose tail
+// leaves (blockLeaves). For an `if` or a `case` it is the checker's answer
+// for a node that is itself what leaves (analysis, AlwaysExits over
+// leavingRegion), which asks of each branch whether its statements leave,
+// through their operands too. The checker's unreachable-code rule and a
+// block's type ask the wider question of a whole statement (analysis,
+// leaves); the builder finds the region among the operands itself
+// (exitingOperand), since it lowers the operands before it.
 func (g *gen) exitingRegion(n ast.Node) bool {
 	switch v := n.(type) {
 	case *ast.If, *ast.Case:
@@ -1874,12 +1837,12 @@ func (g *gen) blockLeaves(block *ast.Block) bool {
 	if block == nil {
 		return false
 	}
-	_, tail := g.irScalarBlock(block, "")
+	_, tail := g.irScalarBlock(block)
 	switch tail.(type) {
 	case *ast.Return, *ast.Break, *ast.Continue:
 		return true
 	}
-	return tail != nil && g.exitingRegion(tail)
+	return g.exitingRegion(tail)
 }
 
 // neverFinishes reports whether n is an `Iter.loop` with no `break`
@@ -1894,8 +1857,8 @@ func (g *gen) neverFinishes(n ast.Node) bool {
 	if !isBlock || block == nil {
 		return false
 	}
-	_, tail := g.irScalarBlock(block, "")
-	return tail != nil && g.neverFinishes(tail)
+	_, tail := g.irScalarBlock(block)
+	return g.neverFinishes(tail)
 }
 
 // endlessLoop lowers n when it never finishes (neverFinishes) in a position
@@ -1956,7 +1919,7 @@ func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore fun
 			return n, restore, true
 		}
 		undo = append(undo, bl.g.enterBlockTypes(block))
-		lead, inner := bl.g.irScalarBlock(block, "")
+		lead, inner := bl.g.irScalarBlock(block)
 		bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 		bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 		deferScope, withScope, openDefers := bl.deferScope, bl.withScope, bl.openDefers
@@ -1974,92 +1937,41 @@ func (bl *irScalarBuilder) leavingBlocks(n ast.Node) (tail ast.Node, restore fun
 }
 
 // exitingOperand finds an exiting region that n always evaluates: n itself,
-// or an operand evaluated whatever the values before it, as in `calls(case x
-// { 0 -> return 10  _ -> return 20 })`, `noisy(1) + if c { return 1 } else
-// { return 2 }`, a struct field, a list item, a pipe's source or a `?`'s
-// operand. Nothing that reads the region's value can run, so the builder
-// lowers prefix, the operands evaluated before the region in Nomi's order,
-// for their effects, then the region as the block's tail, and drops the
-// construct around it. A short-circuit operand, a lambda body and an arm are
-// not always evaluated, and are not searched.
+// or an operand evaluated whatever the values before it
+// (ast.EvaluatedOperands, which the checker reads too: analysis, leaves),
+// as in `calls(case x { 0 -> return 10  _ -> return 20 })`, `noisy(1) + if c
+// { return 1 } else { return 2 }`, a struct field, a list item, a pipe's
+// source, a `?`'s operand, a string's hole or `dbg`'s operand. n may be a
+// statement, whose operands are its value's: a binding, a destructure, an
+// assertion, a `defer` or a `with`. Nothing that reads the region's value
+// can run, so the builder lowers prefix, the operands evaluated before the
+// region in Nomi's order, for their effects, then the region as the block's
+// tail, and drops the construct around it.
 func (g *gen) exitingOperand(n ast.Node) (prefix []ast.Node, region ast.Node, ok bool) {
 	if isNilNode(n) {
-		return nil, nil, false
+		panic("irbuild: exitingOperand: irScalarBlock and armInto never pass a nil operand")
 	}
 	if g.exitingRegion(n) {
 		return nil, n, true
 	}
-	// in searches operands in evaluation order, collecting each one before
-	// the region as prefix.
-	in := func(operands ...ast.Node) ([]ast.Node, ast.Node, bool) {
-		var before []ast.Node
-		for _, o := range operands {
-			if isNilNode(o) {
-				continue
-			}
-			if p, r, found := g.exitingOperand(o); found {
-				return append(before, p...), r, true
-			}
-			if hasEffect(o) {
-				before = append(before, o)
-			}
+	// Each operand before the region is collected as prefix.
+	var before []ast.Node
+	for _, o := range ast.EvaluatedOperands(n) {
+		if p, r, found := g.exitingOperand(o); found {
+			return append(before, p...), r, true
 		}
-		return nil, nil, false
-	}
-	switch v := n.(type) {
-	case *ast.Call:
-		args := make([]ast.Node, 0, len(v.Args))
-		for _, a := range v.Args {
-			if named, isNamed := a.(*ast.NamedArg); isNamed {
-				a = named.Value
-			}
-			args = append(args, a)
+		if hasEffect(o) {
+			before = append(before, o)
 		}
-		return in(args...)
-	case *ast.Binary:
-		switch v.Op {
-		case "and", "or":
-			return in(v.Left)
-		case "|>":
-			// The source, then the stage's own arguments.
-			if call, isCall := v.Right.(*ast.Call); isCall {
-				return in(append([]ast.Node{v.Left}, call.Args...)...)
-			}
-			return in(v.Left)
-		}
-		return in(v.Left, v.Right)
-	case *ast.Unary:
-		return in(v.Right)
-	case *ast.GroupedExpr:
-		return in(v.Expr)
-	case *ast.TryOp:
-		return in(v.Expr)
-	case *ast.Unwrap:
-		return in(v.Expr)
-	case *ast.FieldAccess:
-		return in(v.Object)
-	case *ast.StructLit:
-		operands := []ast.Node{v.Spread}
-		for _, f := range v.Fields {
-			operands = append(operands, f.Value)
-		}
-		return in(operands...)
-	case *ast.ListLit:
-		return in(v.Items...)
-	case *ast.TupleLit:
-		return in(v.Items...)
-	case *ast.If:
-		// The condition, or the value an `if Pattern = expr` matches.
-		return in(v.Cond)
-	case *ast.Case:
-		return in(v.Value)
 	}
 	return nil, nil, false
 }
 
 // hasEffect reports whether evaluating n may do something other than
-// produce its value. A number literal, a name and a lambda only make a value, so an
-// operand before an exiting region that is one of them is not lowered.
+// produce its value. A number literal, a name and a lambda only make a
+// value, so an operand before an exiting region that is one of them is not
+// lowered. A node type not listed is lowered, which costs an evaluation
+// that does nothing and never drops one that does something.
 func hasEffect(n ast.Node) bool {
 	switch n.(type) {
 	case *ast.Ident, *ast.TypeIdent, *ast.Lambda, *ast.IntLit, *ast.FloatLit:
@@ -2068,18 +1980,16 @@ func hasEffect(n ast.Node) bool {
 	return true
 }
 
-func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast.Node) {
-	g.dc.bodyWhy = "the statement list"
+func (g *gen) irScalarBlock(block *ast.Block) ([]ast.Node, ast.Node) {
 	if block == nil {
-		g.dc.bodyWhy = "no body"
-		return nil, nil
+		panic("irbuild: irScalarBlock: every block the builder lowers and every built fn has a parsed body")
 	}
 	if len(block.Stmts) == 0 {
 		// `fn main() {}`: an empty block answers Unit.
 		return nil, &ast.TypeIdent{Name: "Unit", Line: block.Line, Col: block.Col}
 	}
 	// A block also has a scope, its own type scope and scope exits. The
-	// type scope emits nothing: the caller that lowers the statements makes
+	// type scope builds no instruction: the caller that lowers the statements makes
 	// the block's types visible while it does (enterBlockTypes), and a name
 	// lowered without them declines where it is used. A `defer`'s exit is an
 	// `ir.RunDefer` its block's lowering appends. See irdefer.go.
@@ -2092,40 +2002,34 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			// and identity come from the typeDef blocklocaltype.go resolved,
 			// visible while the block's type scope is pushed.
 			continue
-		case *ast.Assertion:
-			// An assertion in an ordinary `fn`, whose failure is the
-			// function's `Err(AssertionFailure)`; `leading` checks the
-			// checker's boundary.
-			if prefix, region, ok := g.exitingOperand(st.Expr); ok {
-				// `assert "x" == { io.print("y")  return }`: the subject
-				// never finishes, so nothing is judged and nothing after
-				// the assertion runs, as for a binding of it.
-				return append(lead, prefix...), region
-			}
+		case *ast.Block, *ast.FuncDef, *ast.ImportStmt, *ast.Subtests:
 			lead = append(lead, st)
-		case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.Defer, *ast.With, *ast.Block, *ast.FuncDef, *ast.ImportStmt,
-			*ast.PatternDestructure, *ast.Subtests,
+		case *ast.Binding, *ast.Assertion, *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure,
+			*ast.PatternDestructure, *ast.Defer, *ast.With,
 			// A pattern binding, whose else branches off the block.
 			*ast.PatternBinding:
-			lead = append(lead, st)
-		case *ast.Binding:
-			if prefix, region, ok := g.exitingOperand(st.Value); ok {
+			// A statement with a value: a binding (a discard name binds
+			// nothing and never enters scope, irdiscard.go), an assertion
+			// in an ordinary `fn`, whose failure is the function's
+			// `Err(AssertionFailure)` (`leading` checks the checker's
+			// boundary), a destructure, a `defer`'s call or a `with`'s
+			// value.
+			if prefix, region, ok := g.exitingOperand(st); ok {
 				// `y = case x { 0 -> continue  _ -> break 1 }`: every arm
 				// leaves, so nothing after the binding runs. The region is
 				// the block's tail, whose join no path reaches, and the
 				// statements after it are never lowered. The same holds
 				// for `y = calls(case x { ... })`, after the operands
-				// evaluated before the region.
+				// evaluated before the region, for `assert "x" == {
+				// io.print("y")  return }`, where nothing is judged, and
+				// for `defer note(if c { return 1 } else { return 2 })`,
+				// where nothing is registered.
 				return append(lead, prefix...), region
 			}
-			// A discard name binds nothing and never enters scope, which is
-			// why the rebind check in `irScalarBuild` does not apply to it.
-			// See irdiscard.go.
 			lead = append(lead, st)
 		case *ast.ExprStmt:
 			if isNilNode(st.Expr) {
-				g.dc.bodyWhy = "a nil leading expression statement"
-				return nil, nil
+				panic("irbuild: irScalarBlock: parser never builds an ExprStmt with a nil expression")
 			}
 			if prefix, region, ok := g.exitingOperand(st.Expr); ok && region != st.Expr {
 				// `calls(case x { 0 -> return 1  _ -> return 2 })` as a
@@ -2134,8 +2038,11 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 			}
 			lead = append(lead, st.Expr)
 		default:
-			g.dc.bodyWhy = fmt.Sprintf("a leading statement form outside the shape: %T", s) + synthMask
-			return nil, nil
+			// Every node type classed a statement has an arm above
+			// (TestEveryNodeTypeHasAForm). What is left is a declaration
+			// the checker rejects in a body, or a `return`, `break` or
+			// `continue`, after which it rejects any statement.
+			panic(fmt.Sprintf("irbuild: a block holds %T before its last statement, which is no statement (nodeForms)", s))
 		}
 	}
 	n := block.Stmts[last]
@@ -2143,22 +2050,15 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		n = es.Expr
 	}
 	if isNilNode(n) {
-		g.dc.bodyWhy = "a nil final statement"
-		return nil, nil
+		panic("irbuild: irScalarBlock: parser never builds a nil final statement")
 	}
-	if b, isBinding := n.(*ast.Binding); isBinding {
-		if prefix, region, ok := g.exitingOperand(b.Value); ok {
-			// `_ = calls(case x { 0 -> return 1  _ -> return 2 })` ending
-			// a block, as a leading binding of one does.
-			return append(lead, prefix...), region
-		}
-	}
-	if a, isAssertion := n.(*ast.Assertion); isAssertion {
-		if prefix, region, ok := g.exitingOperand(a.Expr); ok {
-			// An assertion whose subject never finishes ending a block, as
-			// a leading one does.
-			return append(lead, prefix...), region
-		}
+	if prefix, region, ok := g.exitingOperand(n); ok {
+		// A tail that reads an exiting region, `calls(case x { 0 -> return
+		// 1  _ -> return 2 })`, never reads it: the region is the tail. So
+		// is one in the value of a statement ending the block, `_ =
+		// calls(case x { ... })` or an assertion whose subject never
+		// finishes, as in a leading one.
+		return append(lead, prefix...), region
 	}
 	if w, isWith := n.(*ast.With); isWith {
 		// A `with` ending a block: the override holds to the block's end,
@@ -2190,11 +2090,6 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 		line, col := nodePos(st)
 		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
 	}
-	if prefix, region, ok := g.exitingOperand(n); ok {
-		// A tail that reads an exiting region, `calls(case x { 0 -> return
-		// 1  _ -> return 2 })`, never reads it: the region is the tail.
-		return append(lead, prefix...), region
-	}
 	return lead, n
 }
 
@@ -2203,17 +2098,11 @@ func (g *gen) irScalarBlock(block *ast.Block, synthMask string) ([]ast.Node, ast
 //
 // It declines rather than refusing. The caller records the decline reason, and
 // the VM reports the body as BLOCKED if a program reaches it (irnative.go).
-func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *irFuncShell) (*irScalarPlan, bool) {
+func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, sh *irFuncShell) (*irScalarPlan, bool) {
 	g.irDeclineOpen(fd.Name)
 	switch {
 	case sh == nil:
 		g.dc.note("no function shell")
-		return nil, false
-	// A discarded lowering (`g.probing`, `g.stdSettling`) is handled by
-	// `irScalarLower` ahead of the observation hook rather than here.
-	case plan != nil:
-		// A body with a tail plan is `tail`'s shape, not this one.
-		g.dc.note("a tail plan")
 		return nil, false
 	case !sh.patternOK:
 		// A destructuring parameter that did not lower leaves the prologue
@@ -2228,10 +2117,6 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 	// as they do for the front end (blocklocaltype.go).
 	defer g.enterBlockTypes(fd.Body)()
 	lead, body := g.irScalarBody(fd)
-	if body == nil {
-		g.dc.note(g.dc.bodyWhy)
-		return nil, false
-	}
 	if block, isBlock := body.(*ast.Block); isBlock && sig.result == kindUnit && !g.blockLeaves(block) {
 		// A Unit function ending in a block statement: the block runs in
 		// its own scope (scopedBlock, which restores a `with`'s overrides
@@ -2335,7 +2220,7 @@ func (g *gen) irScalarBuild(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		bl.b.SetTerm(ir.NewReturn(g.irNodePos(body), sh.result))
 	}
 	// An app-field write is admitted only in the body's own statements or a
-	// scoped block's (appFieldWrite), whose extents the VM gives it: the
+	// scoped block's, whose extents the VM gives it: the
 	// activation, or the block up to its StoreScope. A deferred call runs at
 	// its block's exit with the writes made before it in force, and a branch or a return after a top-level write leaves the write
 	// in force as the rest of the body does.
@@ -2354,7 +2239,7 @@ func (bl *irScalarBuilder) inSynthesized() bool {
 }
 
 // positionOK reports whether a node's line can carry a retained position:
-// an emittable source line, or a synthesized line inside a synthesized
+// a source line (emittableLine), or a synthesized line inside a synthesized
 // declaration.
 func (bl *irScalarBuilder) positionOK(line int) bool {
 	if emittableLine(line) {
@@ -2472,9 +2357,6 @@ func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
 	exit := bl.f.NewBlock(bl.g.irNodePos(t), "exit")
 	br := ir.NewBranch(bl.g.irPos(t.Line, t.Col), cond, then.ID(), els.ID())
 	bl.b.SetTerm(br)
-	// The Go `if` is mapped to where the condition left the cursor, which is
-	// not the `if`'s own line when the condition is a piped value from an
-	// earlier line or spans lines.
 
 	tk, ok := bl.armInto(then, exit, t.Then, sig)
 	if !ok {
@@ -2508,7 +2390,7 @@ var kindDiverged = kind{tag: tagNamed, def: &typeDef{nomi: "<diverged>"}}
 func (bl *irScalarBuilder) laterArmSig(sig irFuncSig, prior kind) irFuncSig {
 	// kindInvalid: sentinel — an earlier arm that settled no kind gives no expected type.
 	unsettled := prior == kindInvalid
-	if !sig.inferResult || bl.ctl != irCtlNone || prior == kindDiverged || prior == kindEmptyList || prior == kindNever ||
+	if !sig.inferResult || bl.ctl != irCtlNone || prior == kindDiverged || prior == kindNever ||
 		unsettled || !irCallableValueKind(prior) {
 		return sig
 	}
@@ -2567,8 +2449,7 @@ func (bl *irScalarBuilder) testElse(els, exit *ir.Block, t *ast.If, then kind, s
 func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFuncSig) (kind, bool) {
 	defer bl.keepOpenDefers()()
 	if isNilNode(body) {
-		bl.g.dc.note("an arm body that is not one expression")
-		return kindInvalid, false
+		panic("irbuild: armInto: parser never builds an arm with a nil body")
 	}
 	line, _ := nodePos(body)
 	if !bl.positionOK(line) {
@@ -2606,11 +2487,7 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 	var ws *irWithScope
 	if block, ok := body.(*ast.Block); ok {
 		defer bl.g.enterBlockTypes(block)()
-		lead, tail := bl.g.irScalarBlock(block, "")
-		if tail == nil {
-			bl.g.dc.note(bl.g.dc.bodyWhy)
-			return kindInvalid, false
-		}
+		lead, tail := bl.g.irScalarBlock(block)
 		scope = bl.openDeferScope(block)
 		ws = bl.openWithScope(false)
 		if !bl.leading(lead) {
@@ -2797,9 +2674,8 @@ func (bl *irScalarBuilder) armInto(arm, exit *ir.Block, body ast.Node, sig irFun
 // wildcard or flat irrefutable tuple supplies the exhaustive arm; other pattern
 // forms remain outside this retained region.
 //
-// The subject is evaluated once and held when its Go spelling is not a bare
-// identifier. The existing hold delivery preserves this for calls, arithmetic
-// and concatenation as well as field reads.
+// The subject is evaluated once and copied into a temporary of its own unless
+// it is already held in one (irHeldValue), so every arm tests one value.
 func (bl *irScalarBuilder) tailCase(t *ast.Case, sig irFuncSig) (kind, bool) {
 	k, ok := bl.caseRegion(t, sig)
 	if ok {
@@ -2816,8 +2692,8 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		// admits it only where no value reaches it, so it diverges as a
 		// failed match does and no arm writes the region.
 		if adHoc {
-			bl.g.dc.note("an ad hoc `case` with no branches")
-			return kindInvalid, false
+			// "non-exhaustive case: add a `_` arm" is the checker's error.
+			panic("irbuild: an ad hoc `case` with no branches")
 		}
 		if _, _, _, ok := bl.lower(t.Value); !ok {
 			return kindInvalid, false
@@ -2891,15 +2767,6 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 			return kindInvalid, false
 		}
 		if k != kindDiverged {
-			if have && sig.inferResult && k != result {
-				// An inferred result whose arms are `[]` and a list: the empty
-				// list is a value of the list's kind.
-				if k == kindEmptyList && result.tag == tagList {
-					k = result
-				} else if result == kindEmptyList && k.tag == tagList {
-					result = k
-				}
-			}
 			if have {
 				joined, agree := irJoinArms(result, k, sig)
 				if !agree {
@@ -2926,7 +2793,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 
 // litFor lowers one literal pattern as the operand a MatchLit compares
 // against. A literal is its own instruction writing a temporary, which is
-// ir.go's rule for every operand shape.
+// internal/ir/ir.go's rule for every operand shape.
 func (bl *irScalarBuilder) litFor(pat ast.Node, want kind) (ir.Temp, kind, bool, bool) {
 	line, _ := nodePos(pat)
 	if !bl.positionOK(line) {
@@ -2955,10 +2822,10 @@ func colOf(n ast.Node) int {
 //
 // A statement that declines where `lower` gave the decline no position (a
 // nested `fn`, a rebinding in a test) is where the decline is reported.
-func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
+func (bl *irScalarBuilder) leading(lead []ast.Node) (ok bool) {
 	var cur ast.Node
 	defer func() {
-		if !lowered && cur != nil {
+		if !ok && cur != nil {
 			bl.g.dc.atNode(cur)
 			if bl.stalledStmt == nil {
 				bl.stalledStmt = cur
@@ -3086,15 +2953,12 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 		}
 		b, isBinding := s.(*ast.Binding)
 		if !isBinding {
-			// AN EXPRESSION STATEMENT, lowered for its effect. A Unit-valued
-			// one drops nothing: the IR records no discard, an unread
-			// temporary is legal here, and the `_ = <call>` a Go statement
-			// needs rides on the `ir.Call` itself (`irCallDiscarded`).
+			// An expression statement, lowered for its effect. A call drops
+			// nothing: the IR records no discard and an unread temporary is
+			// legal here.
 			//
-			// A non-Unit member: `dbg n` is transparent, so it answers the
-			// operand's kind and Go needs `_ = n2_n` after the print.
-			// `irStatementDrop` is that statement, as a recorded `ir.Copy`
-			// delivery; see irdiscard.go and ircopydelivery.go.
+			// A value that is not a call, such as a transparent `dbg n`, is
+			// followed by `irStatementDrop`'s `ir.Copy`; see irdiscard.go.
 			val, k, _, ok := bl.lower(s)
 			if !ok {
 				return false
@@ -3113,7 +2977,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			}
 			bl.irStatementDrop(b, src, k)
 			// And the statement's own Unit value, discarded after the
-			// binding, as `irScalarBindLocal` does for a named binding.
+			// binding, as a named binding's statement does.
 			bl.irDiscardStmtUnit(b)
 			continue
 		}
@@ -3132,7 +2996,7 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (lowered bool) {
 			return false
 		}
 		// Reads in the initializer retain the previous identity. Only later
-		// reads see the new value, even when Go reuses its storage.
+		// reads see the new value.
 		sym := ir.NewSymbol(b.Name)
 		bl.sh.syms[b.Name] = sym
 		bind := ir.NewBind(bl.g.irPos(line, colOf(b)), bl.f.NewTemp(), src, sym)
@@ -3164,8 +3028,8 @@ func (bl *irScalarBuilder) bindingValue(b *ast.Binding) (ir.Temp, kind, bool) {
 		sym = bl.g.srcFA().Definitions[analysis.Pos{Line: b.Line, Col: b.Col}]
 	}
 	if sym == nil {
-		bl.g.dc.note("a branch or block binding with no checked definition")
-		return ir.NoTemp, kindInvalid, false
+		// The checker records a definition at every binding it types.
+		panic("irbuild: a branch or block binding with no checked definition: " + b.Name)
 	}
 	k := bl.g.project(sym.Type)
 	if seq, ok := bl.g.irSeqKindOf(sym.Type); ok {
@@ -3177,14 +3041,11 @@ func (bl *irScalarBuilder) bindingValue(b *ast.Binding) (ir.Temp, kind, bool) {
 // typedRegionValue gives a branch or block one immutable typed destination.
 // Callers supply a checked binding type or an expected operand type.
 func (bl *irScalarBuilder) typedRegionValue(value ast.Node, k kind) (ir.Temp, kind, bool) {
+	// k is the checker's type of the binding, projected, or the kind an
+	// operand's position expects: held either way, so the region has a slot
+	// to deliver into (irTypeOf answers nil only for kindInvalid).
+	irHeldOperand(k, "a branch or block used for its value")
 	ty := bl.g.irTypeOf(k)
-	if ty == nil || (!irCallableValueKind(k) && k != kindUnit) {
-		// The checked kind has no retained IR type, so the region has no
-		// slot to deliver into.
-		bl.g.dc.note("a branch or block value kind with no IR type: " + k.nomi())
-		bl.g.dc.atNode(value)
-		return ir.NoTemp, kindInvalid, false
-	}
 	result := bl.f.NewTemp()
 	slot := ir.NewSlot(bl.g.irNodePos(value), result, ty)
 	bl.b.Append(slot)
@@ -3273,10 +3134,10 @@ func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.T
 		if v, _, how := bl.coerceRecorded(value, v, k, want); how != irNotCoerced {
 			return v, want, true
 		}
-		// `v: Display = (7 as Display)`: the checker recorded the
-		// coercion at the `as` operand, so the value enters the interface
-		// here as any value entering a position of it does.
-		v, _, ok = bl.coerceEmpty(value, v, k, want)
+		// A value whose coercion the checker recorded at a part of it,
+		// not at value itself, enters the interface here as any value
+		// entering a position of it does.
+		v, _, ok = bl.convertTo(value, v, k, want)
 		if !ok {
 			return ir.NoTemp, kindInvalid, false
 		}
@@ -3365,10 +3226,10 @@ func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind
 		// `ir.Ref.Stable()` gives for RefLocal.
 		return held, bl.boundK[t.Name], true, true
 	}
-	if inst, isNested := bl.genericNestedRef(t); isNested {
+	if inst, ok, handled := bl.genericNestedRef(t); handled {
 		// A generic nested fn named as a value: the instance the checker
 		// instantiated the reference at.
-		if inst == nil {
+		if !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 		return bl.lower(inst)

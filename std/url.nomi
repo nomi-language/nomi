@@ -341,8 +341,8 @@ impl Display for Userinfo
     /// `name` or `name:password`, escaped as in a URL.
     fn to_string(user: Userinfo) -> String
         u = Url{scheme: "x", user: Some(user), host: "h"}
-        written = "${u}" |> String.drop(4)
-        String.take(written, String.length(written) - 2)
+        written = "${u}"
+        String.slice(written, 4, String.length(written) - 2)
     end
 end
 

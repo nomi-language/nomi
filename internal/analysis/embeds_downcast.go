@@ -17,9 +17,9 @@ import (
 // embedsDowncastHint.
 
 // embedsDowncast finds where have, flowing into want, would turn an enum into
-// a type it embeds: at the top, or in a type argument, tuple element or
-// record field where both sides have the same shape. It answers the enum and
-// the embedded type.
+// a type it embeds: at the top, or in a part of the two where both sides
+// have the same shape (pairedTypeChildren). It answers the enum and the
+// embedded type.
 func embedsDowncast(want, have Type) (*EnumType, Type, bool) {
 	return embedsDowncastIn(want, have, 0)
 }
@@ -29,71 +29,20 @@ func embedsDowncastIn(want, have Type, depth int) (*EnumType, Type, bool) {
 		return nil, nil, false
 	}
 	depth++
-	want, have = resolveTV(want), resolveTV(have)
+	want, have = resolveTypeVar(want), resolveTypeVar(have)
 	if et, ok := have.(*EnumType); ok && isEmbeddedTypeOf(want, et) {
 		return et, want, true
 	}
-	pairs := func(ws, hs []Type) (*EnumType, Type, bool) {
-		if len(ws) != len(hs) {
-			return nil, nil, false
+	ws, hs, _ := pairedTypeChildren(want, have)
+	_, fn := want.(*FuncType)
+	for i := range ws {
+		w, h := ws[i], hs[i]
+		if fn && i < len(ws)-1 {
+			// A function value flows the other way through its parameters.
+			w, h = h, w
 		}
-		for i := range ws {
-			if et, emb, ok := embedsDowncastIn(ws[i], hs[i], depth); ok {
-				return et, emb, true
-			}
-		}
-		return nil, nil, false
-	}
-	switch w := want.(type) {
-	case *ListType:
-		if h, ok := have.(*ListType); ok {
-			return embedsDowncastIn(w.Elem, h.Elem, depth)
-		}
-	case *MapType:
-		if h, ok := have.(*MapType); ok {
-			return pairs([]Type{w.Key, w.Val}, []Type{h.Key, h.Val})
-		}
-	case *TupleType:
-		if h, ok := have.(*TupleType); ok {
-			return pairs(w.Elems, h.Elems)
-		}
-	case *StructType:
-		if h, ok := have.(*StructType); ok && sameNominalIdentity(w.Origin, w.Name, h.Origin, h.Name) {
-			return pairs(w.TypeArgs, h.TypeArgs)
-		}
-	case *EnumType:
-		if h, ok := have.(*EnumType); ok && sameNominalIdentity(w.Origin, w.Name, h.Origin, h.Name) {
-			return pairs(w.TypeArgs, h.TypeArgs)
-		}
-	case *DistinctType:
-		if h, ok := have.(*DistinctType); ok && sameNominalIdentity(w.Origin, w.Name, h.Origin, h.Name) {
-			return pairs(w.TypeArgs, h.TypeArgs)
-		}
-	case *InterfaceType:
-		if h, ok := have.(*InterfaceType); ok && sameNominalIdentity(w.Origin, w.Name, h.Origin, h.Name) {
-			return pairs(w.TypeArgs, h.TypeArgs)
-		}
-	case *AnonStructType:
-		if h, ok := have.(*AnonStructType); ok && len(w.Fields) == len(h.Fields) {
-			for _, f := range w.Fields {
-				hf, found := scopedField(h, f.Name)
-				if !found {
-					return nil, nil, false
-				}
-				if et, emb, ok := embedsDowncastIn(f.Type, hf.Type, depth); ok {
-					return et, emb, true
-				}
-			}
-		}
-	case *FuncType:
-		// A function value flows the other way through its parameters.
-		if h, ok := have.(*FuncType); ok && len(w.Params) == len(h.Params) {
-			for i := range w.Params {
-				if et, emb, ok := embedsDowncastIn(h.Params[i], w.Params[i], depth); ok {
-					return et, emb, true
-				}
-			}
-			return embedsDowncastIn(normalizeReturn(w.Return), normalizeReturn(h.Return), depth)
+		if et, emb, ok := embedsDowncastIn(w, h, depth); ok {
+			return et, emb, true
 		}
 	}
 	return nil, nil, false
@@ -126,16 +75,16 @@ func embedsDowncastHint(want, have Type) string {
 // is not determined"; this names the parameter instead. want is the callee's
 // parameter with the type arguments solved so far, have the argument's type.
 func (c *checker) callbackDowncast(callee, arg ast.Node, want, have Type, label string, line, col int) (TypeError, bool) {
-	wf, ok := resolveTV(want).(*FuncType)
+	wf, ok := resolveTypeVar(want).(*FuncType)
 	if !ok {
 		return TypeError{}, false
 	}
-	hf, ok := resolveTV(have).(*FuncType)
+	hf, ok := resolveTypeVar(have).(*FuncType)
 	if !ok || len(wf.Params) != len(hf.Params) {
 		return TypeError{}, false
 	}
 	for i := range wf.Params {
-		passed := resolveTV(wf.Params[i])
+		passed := resolveTypeVar(wf.Params[i])
 		if passed == nil || containsTypeVar(passed) || ContainsTypeParam(passed) {
 			continue
 		}

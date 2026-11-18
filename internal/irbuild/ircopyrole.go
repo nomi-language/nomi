@@ -1,6 +1,6 @@
 package irbuild
 
-// The role of one `ir.Copy`, which later lowerings in the same body read back.
+// The role of one `ir.Copy`, which later lowerings in the same body read.
 //
 // A `case` or pattern-`if` subject, and a recorded operand, is copied into a
 // temporary of its own unless it is already held in one (irHeldValue).
@@ -21,8 +21,6 @@ const (
 	// irCopyDrop is a non-final expression statement whose value the block
 	// discards (`dbg n` as a leading statement).
 	irCopyDrop
-	// irCopyEmptyValue retypes an empty collection to its contextual type.
-	irCopyEmptyValue
 	// irCopyProjection holds a sort key projection the comparator reads twice.
 	irCopyProjection
 	// irCopyNever retypes a value of Infallible to its contextual type. It

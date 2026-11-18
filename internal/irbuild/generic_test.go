@@ -48,7 +48,7 @@ func lastFuncDef(t *testing.T, p *Program) *ast.FuncDef {
 	t.Helper()
 	var last *ast.FuncDef
 	for _, n := range p.Entry().Nodes {
-		if fd, isFn := n.(*ast.FuncDef); isFn && !fd.ImplFunction {
+		if fd, isFn := n.(*ast.FuncDef); isFn {
 			last = fd
 		}
 	}
@@ -65,8 +65,7 @@ func lastFuncDef(t *testing.T, p *Program) *ast.FuncDef {
 // that actually holds: the checker rejects both witnesses before the builder
 // sees them. `type argument mismatch` is therefore unreachable, and it is
 // kept rather than deleted, because falsified it is a value lowered at the
-// wrong type rather than a refusal, and that is the wrong side to be cheap on. tail.go's
-// tailMemberSig keeps two predicates on the identical ground.
+// wrong type rather than a refusal, and that is the wrong side to be cheap on.
 //
 // If the front end ever admits either shape, this test fails and the builder's
 // own refusal becomes the live one — which is the notification a reader needs,
@@ -75,7 +74,7 @@ func TestGeneric_TheFrontEndForecloses(t *testing.T) {
 	cases := []struct{ name, src string }{{
 		// A turbofish disagreeing with the argument. In this subset every type
 		// parameter is also inferable from a parameter, so the two can
-		// conflict — and bindTypeParam refuses the conflict rather than
+		// conflict — and the checker refuses the conflict rather than
 		// letting either side win.
 		name: "a turbofish that disagrees with the argument",
 		src: "fn first<T>(x: T) -> T\n  x\nend\n\n" +
@@ -102,8 +101,8 @@ func TestGeneric_TheFrontEndForecloses(t *testing.T) {
 // one implementation is worth nothing unless the implementation is pinned.
 //
 // The rows are the reason the line is DERIVED rather than conventional: with
-// zero bounds, typeParamDispatchIface's scan has nothing to scan and returns
-// "", so a bound-free type parameter provably cannot host `T.method(x)`. And
+// zero bounds there is no interface to dispatch through, so a bound-free
+// type parameter provably cannot host `T.method(x)`. And
 // `TypeParam.Bounds` is read alongside WhereClauses because the analyzer
 // SYNTHESIZES bounds into it — reading only the source-written half would admit
 // a synthesized bound as bound-free.

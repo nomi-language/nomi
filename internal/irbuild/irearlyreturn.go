@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 	"maps"
@@ -17,7 +18,7 @@ func (bl *irScalarBuilder) guardShape(t *ast.If) bool {
 	if bl.inTest || (bl.returnKind == kindInvalid && bl.inferReturn == nil) || t.Else != nil || t.CondPattern != nil || isNilNode(t.Cond) {
 		return false
 	}
-	_, tail := bl.g.irScalarBlock(t.Then, "")
+	_, tail := bl.g.irScalarBlock(t.Then)
 	_, isReturn := tail.(*ast.Return)
 	_, isBreak := tail.(*ast.Break)
 	_, isContinue := tail.(*ast.Continue)
@@ -29,7 +30,7 @@ func (bl *irScalarBuilder) guardReturn(t *ast.If) bool {
 		return false
 	}
 	defer bl.g.enterBlockTypes(t.Then)()
-	lead, tail := bl.g.irScalarBlock(t.Then, "")
+	lead, tail := bl.g.irScalarBlock(t.Then)
 	ret, isReturn := tail.(*ast.Return)
 	cond, ck, _, ok := bl.lower(t.Cond)
 	if !ok || ck != kindBool {
@@ -114,7 +115,7 @@ func (bl *irScalarBuilder) explicitReturn(ret *ast.Return) (kind, bool) {
 //     Unit"): the kinds the builder settled are projections of the
 //     checker's boundary type, so a Unit boundary settles only Unit.
 //   - A builder with neither a result nor an inference never reaches an
-//     exit: guardShape and tailArm refuse that combination, a lambda's
+//     exit: guardShape refuses that combination, a lambda's
 //     supplier (the only lambda with neither) lowers a parameter default,
 //     where the checker rejects `return` and `break`, and every other
 //     builder is built with its result kind.
@@ -139,7 +140,7 @@ const (
 )
 
 // ctlReturn lowers a `break` or `continue` that ends a guard arm of a
-// signalling callback, as breakStmt and continueStmt do: in a reduce, a bare
+// signalling callback: in a reduce, a bare
 // `break` stops with the unchanged accumulator and `continue` keeps going
 // with it; in an adapter, `continue` skips and a bare `break` stops. `break v`
 // answers v and stops in both.
@@ -181,7 +182,7 @@ func (bl *irScalarBuilder) ctlReturn(n ast.Node) bool {
 		bl.settleReturn(k, "break")
 		r = ir.NewReturnCtl(pos, val, ir.CtlEmitStop)
 	default:
-		return false
+		panic(fmt.Sprintf("irbuild: ctlReturn: reached with %T, which is no break or continue", n))
 	}
 	bl.b.SetTerm(r)
 	return true
@@ -221,16 +222,13 @@ func (g *gen) irCtlTailGuard(lead []ast.Node, tail ast.Node) ([]ast.Node, ast.No
 		// An else block that declares types keeps its own scope.
 		return lead, tail
 	}
-	_, thenTail := g.irScalarBlock(t.Then, "")
+	_, thenTail := g.irScalarBlock(t.Then)
 	switch thenTail.(type) {
 	case *ast.Break, *ast.Continue:
 	default:
 		return lead, tail
 	}
-	elseLead, elseTail := g.irScalarBlock(els, "")
-	if elseTail == nil {
-		return lead, tail
-	}
+	elseLead, elseTail := g.irScalarBlock(els)
 	guard := *t
 	guard.Else = nil
 	out := make([]ast.Node, 0, len(lead)+1+len(elseLead))

@@ -12,7 +12,7 @@ import (
 // The kind is one row in `stdGenHostSpecs`. `stdgenhost.go`, the GENERIC STD
 // HOST TYPE family, is anchored on `*ast.ExternType` WITH type parameters,
 // which is exactly what `pub host type Vector<T>` is, so the process-wide
-// instance interning, the annotation door (`stdGenHostTypeOf`), the inferred
+// instance interning, the annotation door (`typeOf`), the inferred
 // door (`genHostOfType`) and the refusal reasoning are shared. A Vector is a
 // `tagNamed` kind over a shared def, exactly as `Set<T>` is.
 //
@@ -38,12 +38,6 @@ import (
 // call site, which is what records one. The last two lines are the
 // discriminator: the same element type, two spellings, two answers.
 //
-// So `vectorCmp` routes through `orderingOf` and NOT `sortComparator`, and the
-// two are deliberately different widths for a reason the type system cannot
-// express. The wide resolution would print `Less` for
-// `Vector.compare(["a"], ["b"])` where the recorded answer FAULTS, which an
-// output comparison only sees if the fixture contains the row.
-//
 // # Why this is an owner-keyed arm and not the stdlib path
 //
 // `sets.go`'s header states the rule and its "what is NOT here" section names
@@ -52,8 +46,9 @@ import (
 // `sigNamesTypeParam` (stdrecvgeneric.go) keys all of them `stdlib generic
 // function`. The index can NAME `vectors.Vector.push` and cannot supply
 // `T`; the CALL SITE can, off the lowered receiver. So the index answers with a
-// refusal and this file answers with an implementation, which is listCall's,
-// mapCall's and setCall's arrangement reached by the same route.
+// refusal and this file answers with an implementation, which is
+// listCallPlan's, mapCallPlan's and setCallPlan's arrangement reached by the
+// same route.
 //
 // # `Vector.length` is O(1) and `Vector.get` is indexed, and that is the type's
 // whole reason for existing
@@ -96,7 +91,6 @@ import (
 // of its rows is; `Vector.get(v, index)` and `Vector.set(v, index, item)` take an
 // `Int` in a non-leading position, so the shape has to be spelled out.
 type vectorFn struct {
-	rtCall string
 	// rest are the wanted kinds of the arguments AFTER the vector-typed ones, in
 	// order. "elem" is the element type and "int" is `Int`.
 	rest []string
@@ -107,9 +101,6 @@ type vectorFn struct {
 	// shared `Ordering`, "elem" `T`, "maybeElem" `Maybe<T>`,
 	// "maybeVector" `Maybe<Vector<T>>`, "nextItem" `Maybe<(T, Vector<T>)>`.
 	result string
-	// ops records which element operation the rt call needs appended: "" none,
-	// "eq", "hash", "cmp", or "render" for a rendering.
-	ops string
 }
 
 // vectorFuncs is the lowered surface of `std/vectors.nomi`: the functions of
@@ -119,23 +110,23 @@ type vectorFn struct {
 // The five interface members are here under their METHOD names because that is
 // how a program spells them: `Vector.equal(a, b)`, `Vector.to_string(v)`,
 // `Vector.inspect(v)`, `Vector.hash(v)`, `Vector.compare(a, b)` — all five appear
-// in `06-collections/vectors_test.nomi`. Reaching them through `implCall`'s
-// interface routes instead would need `implsByIface["Equatable"][vectorKind]` to
-// hold an entry, and std's impl is generic so nothing registers one; that is the
-// same split lists.go describes for `List.equal`.
+// in `06-collections/vectors_test.nomi`. Reaching them through the impl tables
+// instead would need `implsByIface["Equatable"]` to hold an entry at the
+// Vector's kind, and std's impl is generic so nothing registers one; that is
+// the same split lists.go describes for `List.equal`.
 var vectorFuncs = map[string]vectorFn{
-	"length":    {rtCall: "rt.VectorLength", vecs: 1, result: "int"},
-	"get":       {rtCall: "rt.VectorGet", vecs: 1, rest: []string{"int"}, result: "maybeElem"},
-	"push":      {rtCall: "rt.VectorPush", vecs: 1, rest: []string{"elem"}, result: "vector"},
-	"set":       {rtCall: "rt.VectorSet", vecs: 1, rest: []string{"int", "elem"}, result: "maybeVector"},
-	"concat":    {rtCall: "rt.VectorConcat", vecs: 2, result: "vector"},
-	"next_item": {rtCall: "rt.VectorNextItem", vecs: 1, result: "nextItem"},
+	"length":    {vecs: 1, result: "int"},
+	"get":       {vecs: 1, rest: []string{"int"}, result: "maybeElem"},
+	"push":      {vecs: 1, rest: []string{"elem"}, result: "vector"},
+	"set":       {vecs: 1, rest: []string{"int", "elem"}, result: "maybeVector"},
+	"concat":    {vecs: 2, result: "vector"},
+	"next_item": {vecs: 1, result: "nextItem"},
 
-	"equal":     {rtCall: "rt.VectorEqual", vecs: 2, result: "bool", ops: "eq"},
-	"compare":   {rtCall: "rt.VectorCompare", vecs: 2, result: "ordering", ops: "cmp"},
-	"hash":      {rtCall: "rt.VectorHash", vecs: 1, result: "int", ops: "hash"},
-	"to_string": {rtCall: "rt.FormatVector", vecs: 1, result: "string", ops: "display"},
-	"inspect":   {rtCall: "rt.FormatVector", vecs: 1, result: "string", ops: "debug"},
+	"equal":     {vecs: 2, result: "bool"},
+	"compare":   {vecs: 2, result: "ordering"},
+	"hash":      {vecs: 1, result: "int"},
+	"to_string": {vecs: 1, result: "string"},
+	"inspect":   {vecs: 1, result: "string"},
 }
 
 // vectorSpec is the `Vector` row of stdGenHostSpecs, resolved by (origin, name)

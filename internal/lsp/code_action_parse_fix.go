@@ -12,8 +12,16 @@ import (
 //
 //   - "Use `//` comments" for a `///` or `//!` run inside a body, which
 //     turns each of its markers into `//`.
-//   - the text edits of a parse or type error written as another language
-//     writes it (parser.Fix.Edits): `let`, `match`, `xs.len()`, `nil`.
+//   - the text edits of a parse or type error that knows its repair
+//     (parser.Fix.Edits): one written as another language writes it
+//     (`let`, `match`, `xs.len()`, `nil`), "Call `f()`" for a bare name
+//     used as a pipe stage, "Write `then` before the lambda" for a lambda
+//     piped into, "Add `|> Display.to_string()` before this stage" for a
+//     Display value piped into a stage that takes a String, and "Limit
+//     with `Iter.take`" for a pipe stage that drains an infinite iterator.
+//
+// The checker builds each of those where it builds the error, so the
+// language server has no code per fix.
 func buildParseFixActions(content, uri string, errs []parser.ParseError, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction
@@ -81,8 +89,7 @@ func fixTextEdits(lines *lineIndex, edits []parser.Edit) []protocol.TextEdit {
 
 // typeErrorFixes are the errors of errs that carry a fix, as parse errors
 // at their start, so buildParseFixActions offers each fix the checker
-// knows: the rewrite of a method call, `nil`, a list literal where a
-// vector is expected.
+// knows.
 func typeErrorFixes(errs []analysis.TypeError) []parser.ParseError {
 	var out []parser.ParseError
 	for _, e := range errs {
@@ -93,14 +100,11 @@ func typeErrorFixes(errs []analysis.TypeError) []parser.ParseError {
 	return out
 }
 
-// parseErrorAt is the parse error with a fix that diagnostic d reports: the
-// same headline at the same start.
+// parseErrorAt is the parse error with a fix that diagnostic d was
+// published for (reported).
 func parseErrorAt(lines *lineIndex, errs []parser.ParseError, d protocol.Diagnostic) (parser.ParseError, bool) {
-	head := diagnosticHeadline(d.Message)
-	line := int(d.Range.Start.Line) + 1
-	col := lines.byteCol(d.Range.Start.Line, d.Range.Start.Character)
 	for _, e := range errs {
-		if e.Fix != nil && e.Line == line && e.Col == col && e.Message == head {
+		if e.Fix != nil && reported(lines, d, e.Line, e.Col, e.Message) {
 			return e, true
 		}
 	}

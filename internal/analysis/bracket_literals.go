@@ -4,19 +4,26 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // Bracket literals.
 //
 // `[...]` names no collection in its tokens. A literal that names a type
 // (`Ids[1]`, `Path[1]`, `.Items[1]`) is the collection that type is built
-// on; one that names a std collection itself (`Vector[1]`, `Set[1]`,
-// `List[1]`) is that collection; and an unnamed one is the List, Vector or
-// Set its position expects, a distinct type over one of them included,
-// which it then builds, and a List where nothing fixes it. The decision is
+// on; one that names std's `Vector` or `Set` (`Vector[1]`, `Set[1]`) is
+// that collection; and an unnamed one is the List, Vector or Set its
+// position expects, a distinct type over one of them included, which it
+// then builds, and a List where nothing fixes it. The decision is
 // recorded on the node (ast.ListLit.Kind) for the IR builder. A brace
 // literal is a map or a struct by its first entry, which the parser reads;
 // `Name{}` is decided here, by what Name declares (checkEmptyNamedMap).
+//
+// A list and a map literal have no named form, since the unnamed literal
+// is one already: `List[1]`, `Map{"a" => 1}` and `Map{}` are each an error
+// whose fix removes the name (reportNamedLit), and each is checked as the
+// unnamed literal it would be.
 
 // stdShapeHeadName reports whether te is written as one of the std
 // collections a literal may name: `List`, `Vector`, `Set` or `Map`.
@@ -114,7 +121,7 @@ func literalInnerOf(dt *DistinctType) Type {
 }
 
 // shapeHeadSubtype is the subtype a literal headed by a std collection's
-// name (`Vector[x]`, `Map{k => v}`) builds where expected is one, or nil.
+// name (`Vector[x]`) builds where expected is one, or nil.
 // The head names the base the literal builds; a subtype of it is that
 // base with a rule, so the literal is one as the unnamed literal is. A
 // distinct type that is no subtype is not: its values are not its inner
@@ -184,6 +191,7 @@ func (c *checker) checkEmptyNamedMap(n *ast.StructLit) (Type, bool) {
 	}
 	n.EmptyMap = true
 	if c.stdShapeHead(n.TypeName) {
+		c.reportNamedLit(n.TypeName, "map", &ast.MapLit{})
 		return &MapType{Key: c.freshTypeVar(), Val: c.freshTypeVar()}, true
 	}
 	t, ok := c.resolveShapeTarget(n.TypeName, n.Line, n.Col, n.TypeName.TypeString()+"{}", "map", "Map<K, V>", isMapType, true)
@@ -196,7 +204,33 @@ func (c *checker) checkEmptyNamedMap(n *ast.StructLit) (Type, bool) {
 // checkBracketLit types a bracket literal where expected is the type its
 // position expects, nil for none, and records its kind.
 func (c *checker) checkBracketLit(n *ast.ListLit, expected Type) Type {
-	return c.checkCollectionRefinementLit(n, c.checkBracketLitAs(n, expected))
+	ty := c.checkCollectionRefinementLit(n, c.checkBracketLitAs(n, expected))
+	c.checkLoneSpread(n, ty)
+	return ty
+}
+
+// checkLoneSpread reports a list, vector or set literal n of one spread
+// and nothing else whose spread already has the literal's type ty:
+// values are immutable, so the literal is the spread's own value, and is
+// written as it (reportEmptySpread). A spread of a subtype of ty is one
+// too, since widening a value changes nothing. A literal that converts
+// its spread is not: a List spread where a Vector is expected, elements
+// of a subtype widened to their base (`[..ps]` with `ps` a
+// `List<PositiveInt>` as a `List<Int>`), or a value of a distinct type's
+// inner type, which the literal builds the distinct type from.
+func (c *checker) checkLoneSpread(n *ast.ListLit, ty Type) {
+	if len(n.Items) != 0 || len(n.Spreads) != 1 || ty == nil {
+		return
+	}
+	sp := n.Spreads[0]
+	spreadTy := resolveTypeVar(c.fa.ExprTypes[sp.Head])
+	if spreadTy == nil {
+		return
+	}
+	lit := resolveTypeVar(ty)
+	if TypesIdentical(spreadTy, lit) || refinesInto(spreadTy, lit) {
+		c.reportEmptySpread(sp, "a "+n.Kind.String()+" spread with no elements")
+	}
 }
 
 // checkBracketLitAs is checkBracketLit before a refinement it builds is
@@ -207,6 +241,11 @@ func (c *checker) checkBracketLitAs(n *ast.ListLit, expected Type) Type {
 			// `Vector[1, 2]` is the vector `[1, 2]` is where one is
 			// expected, whatever is.
 			n.ShapeHead = true
+			if name == "List" {
+				bare := *n
+				bare.TypeName = nil
+				c.reportNamedLit(n.TypeName, "list", &bare)
+			}
 			n.Kind = map[string]ast.SeqKind{"List": ast.SeqList, "Vector": ast.SeqVector, "Set": ast.SeqSet}[name]
 			if dt := c.shapeHeadSubtype(expected); dt != nil {
 				// `Vector[x]` where a NonEmptyVector is expected builds it,
@@ -244,6 +283,29 @@ func (c *checker) checkBracketLitAs(n *ast.ListLit, expected Type) Type {
 	return ty
 }
 
+// NamedLitCode tags the error for a list or map literal with std's
+// `List` or `Map` in front.
+const NamedLitCode = "named-collection-literal"
+
+// reportNamedLit reports a literal of kind ("list", "map") written with
+// the std collection's name in front, `List[...]` or `Map{...}`, at the
+// name. bare is the literal without the name: the help shows it when it
+// fits on a line, and the fix removes the name.
+func (c *checker) reportNamedLit(name ast.TypeExpr, kind string, bare ast.Node) {
+	e := errAt(name, "a "+kind+" literal has no name in front")
+	e.Code = NamedLitCode
+	head := "`" + name.TypeString() + "`"
+	hint := "write the literal without " + head
+	if text := format.RenderNode(bare); !strings.Contains(text, "\n") {
+		hint = "write `" + text + "`"
+	}
+	if st, ok := name.(*ast.SimpleType); ok {
+		e.Line, e.Col, e.EndLine, e.EndCol = st.Line, st.Col, st.Line, st.Col+len(st.Name)
+		e.Fix = parser.Replace("Remove "+head, st.Line, st.Col, st.Line, st.Col+len(st.Name), "")
+	}
+	c.report(e.WithHint(hint))
+}
+
 // spreadKind is the kind of an unnamed bracket literal with spreads whose
 // position expects no collection: the collection its first spread with a
 // type of its own is, when that is a Vector or a Set (`[..v, x]` with `v`
@@ -264,7 +326,8 @@ func (c *checker) spreadKind(n *ast.ListLit) ast.SeqKind {
 
 // checkSeqLit types the literal n as a collection of kind, where expected
 // is the type its position expects, nil for none. Only an expected type of
-// that collection, or an `Iter`, gives its elements a type.
+// that collection, or an `Iter`, gives its elements a type. A literal with
+// spreads is checked the same way for the three kinds (checkSeqSpreadLit).
 func (c *checker) checkSeqLit(n *ast.ListLit, kind ast.SeqKind, expected Type) Type {
 	switch kind {
 	case ast.SeqVector:
@@ -276,22 +339,22 @@ func (c *checker) checkSeqLit(n *ast.ListLit, kind ast.SeqKind, expected Type) T
 			if !ok {
 				elemTy = nil
 			}
-			return c.checkVectorUpdateLit(n, elemTy)
+			return c.checkSeqSpreadLit(n, vectorSpreads, elemTy)
 		}
 		if ok {
 			return c.checkVectorLitExpecting(n, elemTy)
 		}
 		return c.checkVectorLit(n)
 	case ast.SeqSet:
-		if len(n.Spreads) > 0 {
-			if !isSetType(expected) {
-				expected = nil
-			}
-			return c.checkSetUpdateLit(n, expected)
-		}
 		elemTy, ok := setElemType(expected)
 		if !ok {
 			elemTy, ok = iterElemType(expected)
+		}
+		if len(n.Spreads) > 0 {
+			if !ok {
+				elemTy = nil
+			}
+			return c.checkSeqSpreadLit(n, setSpreads, elemTy)
 		}
 		if ok {
 			return c.checkSetLitExpecting(n, elemTy)
@@ -314,10 +377,7 @@ func (c *checker) checkSeqLit(n *ast.ListLit, kind ast.SeqKind, expected Type) T
 		// them, so an expected list pushes its element type into each head
 		// (`[.Red, ..rest]` against `List<Color>`) and the whole into the
 		// tail.
-		if elemTy != nil {
-			return c.checkListSpreadLitExpecting(n, elemTy)
-		}
-		return c.checkListSpreadLit(n)
+		return c.checkSeqSpreadLit(n, listSpreads, elemTy)
 	}
 	if elemTy != nil {
 		// Heterogeneous list literals need the expected element type pushed

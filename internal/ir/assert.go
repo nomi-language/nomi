@@ -48,8 +48,9 @@ import "strconv"
 // it is the reason there is no `trap bool` here. `assert`, `refute` and `testing.check` are ONE judgement with THREE
 // deliveries — a `return` out of a test function, a `return` of
 // `Err(f.NomiFailure())` out of an ordinary `fn`, and an ordinary `Result`
-// VALUE for `check`. irbuild's `assertionExit` lives in the `jump` class for
-// that reason.
+// VALUE for `check`. irbuild picks the delivery from the boundary the checker
+// recorded for the keyword (`assertionBoundary`, in
+// internal/irbuild/assertexit.go).
 //
 // Whether the subject is a Bool, a `Maybe`/`Result` shape or an `Assertable`
 // is not a field either. As with patterns (match.go), it is a consumer choice
@@ -286,11 +287,10 @@ type RecordKind uint8
 
 const (
 	// RecordOperand is a `values:` row: one operand observed while the subject
-	// was evaluated. Owners: recordOperand, and the whole-subject row a piped
-	// `testing.check` appends.
+	// was evaluated. Owner: `record` (internal/irbuild/irtestbody.go).
 	RecordOperand RecordKind = iota + 1
 	// RecordStage is a `pipeline values:` row: one cumulative prefix of a pipe
-	// and the value it produced. Owner: pipeStages.
+	// and the value it produced. Owner: testingCheck.
 	//
 	// The redundancy rule does not apply to it, which is why SuppressRedundant
 	// is a predicate rather than a parameter of this kind's constructor.

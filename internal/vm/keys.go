@@ -61,6 +61,77 @@ func (m *Machine) keysOver(fr *frame, v any) *rt.Keys {
 	return m.keysFor(fr)
 }
 
+// runsKeyBodies reports whether executing in, an instruction of f, may hash
+// or compare through keysFor and so run a recorded Equatable or Hashable
+// body. That takes an operation that hashes or compares with keys: `==`
+// over a container, variant, struct or interface value (compare), a Map or
+// Set literal (records.go), the iteration stages that build or group by
+// keys (iter.go), or a crossing into Go, whose host may (maphosts.go,
+// sethosts.go). And, as keysOver answers at run time, it takes an operand
+// that may hold a value of a declared type (mayHoldKeyed): a body runs only
+// on a value of the type that declares it. The reachability walk (reach.go)
+// asks it, so a refinement's rule that compares Ints, or passes an Int and
+// a `fn (Int) -> Bool` to a host, reaches no `equal` of the program's.
+func runsKeyBodies(f *ir.Func, in ir.Instr) bool {
+	switch n := in.(type) {
+	case *ir.Compare:
+		if n.Ranked() {
+			return false
+		}
+		switch n.Shape() {
+		case ir.ValContainer, ir.ValVariant, ir.ValStruct, ir.ValIface:
+		default:
+			return false
+		}
+	case *ir.Make:
+		if n.Kind() != ir.MakeMap && n.Kind() != ir.MakeSet {
+			return false
+		}
+	case *ir.Iter:
+		switch n.Op() {
+		case ir.IterGroupBy, ir.IterToSet, ir.IterToMap, ir.IterChunkBy:
+		default:
+			return false
+		}
+	case *ir.Call:
+		if !n.Crosses() {
+			return false
+		}
+	default:
+		return false
+	}
+	for _, t := range in.AppendUses(nil) {
+		if mayHoldKeyed(f.TempType(t)) {
+			return true
+		}
+	}
+	return false
+}
+
+// mayHoldKeyed reports whether a value of t may be, or hold, a value of a
+// declared type, whose Equatable or Hashable a module may write by hand: a
+// struct, an enum, a distinct, an interface value, an erased or opaque
+// value, or a composite or function over one (a function's result may be
+// hashed, as group_by's key is). A nil type (none stated) may.
+func mayHoldKeyed(t *ir.ValType) bool {
+	if t == nil {
+		return true
+	}
+	switch t.Kind() {
+	case ir.KindTuple, ir.KindRecord, ir.KindList, ir.KindSet, ir.KindVector, ir.KindMap,
+		ir.KindRange, ir.KindSeq, ir.KindFunc:
+		for i := range t.NumElems() {
+			if mayHoldKeyed(t.Elem(i)) {
+				return true
+			}
+		}
+		return t.Kind() == ir.KindFunc && t.Result() != nil && mayHoldKeyed(t.Result())
+	case ir.KindNever:
+		return false
+	}
+	return !scalarType(t)
+}
+
 func (kc *keyCaller) call(sym *ir.Symbol, args []any) any {
 	owner := "a key kernel"
 	if kc.fr != nil {

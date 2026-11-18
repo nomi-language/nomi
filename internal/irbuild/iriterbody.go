@@ -76,51 +76,14 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		return no()
 	}
 	src, sk := args.temps[0], args.kinds[0]
-	if method == "to_list" && (sk.tag == tagList || sk.tag == tagEmptyList) {
+	if method == "to_list" && sk.tag == tagList {
 		return src, sk, args.mobile[0], true
 	}
 	if _, ok := vectorElem(sk); method == "to_vector" && ok {
 		// A Vector is immutable, so materializing one answers it as-is.
 		return src, sk, args.mobile[0], true
 	}
-	if method == "is_empty" && sk.tag == tagEmptyList {
-		// `Iter.is_empty([])`: the literal has no elements, so the answer is
-		// the constant std's `first(source) == None` computes.
-		c := ir.NewBool(bl.g.irNodePos(t), bl.f.NewTemp(), method == "is_empty")
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindBool})
-		return c.Dst(), kindBool, true, true
-	}
-	if method == "count" && sk.tag == tagEmptyList {
-		n := ir.NewInt(bl.g.irNodePos(t), bl.f.NewTemp(), 0)
-		bl.b.Append(n)
-		bl.side(n.Dst(), irScalarSide{k: kindInt})
-		return n.Dst(), kindInt, true, true
-	}
-	if sk == kindEmptyList && len(t.Args) >= 1 {
-		// `Iter.first([])`, `[] |> Iter.chunks(2)`: nothing constrains the
-		// element, so no value of it is built or observed, as listCallPlan
-		// argues for `List.first([])`. The literal is typed at a callback's
-		// parameter when there is one, and otherwise as a List of Int, the
-		// representation of an element the program never holds.
-		elem := kindInt
-		if method == "join" {
-			elem = kindString
-		} else if want == 2 && len(args.kinds) > 1 && args.kinds[1].tag == tagFunc && len(funcParams(args.kinds[1])) >= 1 {
-			elem = funcParams(args.kinds[1])[0]
-			if irSeededIterMethod(method) && len(funcParams(args.kinds[1])) == 2 {
-				// A seeded callback takes the accumulator first.
-				elem = funcParams(args.kinds[1])[1]
-			}
-		}
-		v, k, ok := bl.coerceEmpty(t.Args[0], src, sk, bl.g.listKind(elem))
-		if !ok {
-			return no()
-		}
-		src, sk = v, k
-		args.temps[0], args.kinds[0] = v, k
-	}
-	vs, ok := bl.viewSourceFor(srcAt, sk)
+	vs, ok := bl.viewSourceAt(srcAt, sk)
 	if !ok {
 		return no()
 	}
@@ -198,7 +161,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		}
 	}
 	if method == "any_match" || method == "all_match" || method == "each_while" || method == "find" || method == "partition" {
-		// Native iterPredicate: a one-parameter Bool function over the element.
+		// A predicate: a one-parameter Bool function over the element.
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != elem || funcResult(fk) != kindBool {
 			return no()
@@ -274,8 +237,8 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		return appendOp(t, ir.IterCount, ir.IterOverMap, kindInt, src), kindInt, false, true
 	}
 	if method == "known_count" {
-		// iterKnownCount's arms: the families whose count std overrides, and
-		// the families that inherit the declining default without a view.
+		// The families whose count std overrides, and the families that
+		// inherit the declining default without a view.
 		mk, ok := bl.iterMaybeKind(kindInt)
 		if !ok {
 			return no()
@@ -572,11 +535,8 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 	}
 	args.temps[0], args.kinds[0], args.mobile[0] = src, sk, mobile
 	lowerSeed := func(seed ast.Node, accK kind) (ir.Temp, bool) {
-		v, k, _, ok := bl.lowerWant(seed, accK)
-		if !ok {
-			return ir.NoTemp, false
-		}
-		v, _, ok = bl.coerceEmpty(seed, v, k, accK)
+		// lowerWant answers accK when ok.
+		v, _, _, ok := bl.lowerWant(seed, accK)
 		return v, ok
 	}
 	seedTemp := ir.NoTemp
@@ -633,19 +593,25 @@ func (bl *irScalarBuilder) iterReduceCall(t *ast.Call, method string) (ir.Temp, 
 	return bl.iterCall(t, args, method, srcNode)
 }
 
-// irSeqKindOf is the retained kind of a value the checker typed as std's
-// `Iter<T>`: the push sequence over T. `project` answers no kind for a generic
-// interface instance, so this answers `rt.Seq[T]`'s kind here. Identity is the
-// anchor's, not the spelling's. The element is any callable value, a function
-// among them (`Iter<(Int) -> Int>`), as irRetainedSeqKind's is.
-func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
+// seqElemOf is the kind of T when t is std's `Iter<T>`, the push sequence
+// over T, which is how `project` answers it: `seqKindIn` of the element, as
+// typeOf answers the annotation. Identity is the anchor's, not
+// the spelling's.
+func (g *gen) seqElemOf(t analysis.Type) (kind, bool) {
 	it, ok := t.(*analysis.InterfaceType)
 	if !ok || len(it.TypeArgs) != 1 || !g.iterOwns("Iter") || g.iter.ty == nil ||
 		it.Name != g.iter.ty.Name || it.Origin != g.iter.ty.Origin {
 		return kindInvalid, false
 	}
-	elem := g.project(it.TypeArgs[0])
-	if elem != kindUnit && !irCallableValueKind(elem) {
+	return g.project(it.TypeArgs[0]), true
+}
+
+// irSeqKindOf is the retained kind of a value the checker typed as std's
+// `Iter<T>` (seqElemOf) whose element is any callable value, a function
+// among them (`Iter<(Int) -> Int>`), as irRetainedSeqKind's is.
+func (g *gen) irSeqKindOf(t analysis.Type) (kind, bool) {
+	elem, isSeq := g.seqElemOf(t)
+	if !isSeq || (elem != kindUnit && !irCallableValueKind(elem)) {
 		return kindInvalid, false
 	}
 	return seqKindIn(g, elem), true
@@ -659,7 +625,6 @@ type userIterSource struct {
 	each       userIterFn
 	knownCount *userIterFn
 	infinite   *userIterFn
-	elem       kind
 }
 
 // userSource is the `each_while` u, a named source's own `impl Iter`,
@@ -672,7 +637,7 @@ func (bl *irScalarBuilder) userSource(sk kind, u userIterImpl) (*userIterSource,
 	if !ok || !irRetainedValueKind(elem) {
 		return nil, kindInvalid
 	}
-	src := &userIterSource{each: each, elem: elem}
+	src := &userIterSource{each: each}
 	if kc := u.d.items["known_count"]; kc != nil && !kc.inherited {
 		f, ok := u.fn(bl.g, "known_count")
 		if mk, shared := bl.g.sharedMaybe(kindInt); !ok || !shared || len(f.params) != 1 || f.params[0] != sk || f.result != mk {
@@ -790,8 +755,7 @@ func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind) 
 	return c.Dst(), mk, false, true
 }
 
-// iterGroupBy lowers `Iter.group_by(source, key_fn)` as one IterGroupBy whose
-// Go takes the key's hash-and-equality pair spliced before the callback. The
+// iterGroupBy lowers `Iter.group_by(source, key_fn)` as one IterGroupBy. The
 // key is any map key, so the result is a retained Map of Lists; the VM groups
 // through rt.SeqGroupByCells with the machine's key kernels (vm/keys.go).
 func (bl *irScalarBuilder) iterGroupBy(t *ast.Call, src ir.Temp, elem kind, fn ir.Temp, fk kind) (ir.Temp, kind, bool, bool) {
@@ -851,7 +815,7 @@ func (bl *irScalarBuilder) sortComparator(k kind) (*implItem, *ir.Symbol, *stdFu
 	return nil, nil, f, true
 }
 
-// comparatorOperand emits the comparator sortComparator chose for elem as a
+// comparatorOperand builds the comparator sortComparator chose for elem as a
 // function value: a reference to the program's impl body (this file's or the
 // declaring file's) or to std's retained body, or a forwarding body around
 // std's host.
@@ -898,7 +862,7 @@ func (bl *irScalarBuilder) elemComparator(at ast.Node, elem kind) (ir.Temp, bool
 const irRangeKnownCountHost = "Range.known_count"
 
 // localCompareItem is a nominal element's local `Comparable.compare`, the
-// first route compareResult takes, with a body the builder can retain.
+// first route sortComparator takes, with a body the builder can retain.
 // siblingCompareSym is the callee symbol of a sibling file's written
 // `impl Comparable for T { fn compare(a: T, b: T) -> Ordering }`, for an element
 // type another file of the program declares, or nil.
@@ -1049,8 +1013,8 @@ func (bl *irScalarBuilder) iterMaybeKind(elem kind) (kind, bool) {
 	return mk, true
 }
 
-// iterPaired appends a stage whose Go realization takes a minted tuple
-// constructor as its last operand: `Iter.with_index` and `Iter.zip`.
+// iterPaired appends a stage whose elements are pairs the VM builds:
+// `Iter.with_index` and `Iter.zip`.
 func (bl *irScalarBuilder) iterPaired(t *ast.Call, op ir.IterOp, k kind, operands ...ir.Temp) ir.Temp {
 	n := ir.NewIter(bl.g.irNodePos(t), bl.f.NewTemp(), op, ir.IterOverSeq, operands...)
 	bl.b.Append(n)
@@ -1109,8 +1073,7 @@ func irIterSourceArg(t *ast.Call) ast.Node {
 	return argExpr(t.Args[0])
 }
 
-// mapView views a Map as its `(K, V)` pairs. Go takes a minted tuple
-// constructor; the VM builds the tuple itself.
+// mapView views a Map as its `(K, V)` pairs. The VM builds each tuple.
 func (bl *irScalarBuilder) mapView(at ast.Node, src ir.Temp, m, pair kind) ir.Temp {
 	n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, ir.IterOverMap, src)
 	bl.b.Append(n)
@@ -1138,13 +1101,13 @@ func irMustHold(held bool, stage string, k kind) {
 }
 
 // coerceSeqElem is seq, a sequence of from, as a sequence of to, by the
-// covariant conversion coerceEmpty does (irbuild package doc, "Covariant
+// covariant conversion convertTo does (irbuild package doc, "Covariant
 // conversion"); seq itself where from is to.
 func (bl *irScalarBuilder) coerceSeqElem(at ast.Node, seq ir.Temp, from, to kind) (ir.Temp, bool) {
 	if from == to {
 		return seq, true
 	}
-	v, got, ok := bl.coerceEmpty(at, seq, seqKindIn(bl.g, from), seqKindIn(bl.g, to))
+	v, got, ok := bl.convertTo(at, seq, seqKindIn(bl.g, from), seqKindIn(bl.g, to))
 	if !ok || got != seqKindIn(bl.g, to) {
 		return ir.NoTemp, false
 	}

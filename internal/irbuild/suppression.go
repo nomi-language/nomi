@@ -42,11 +42,10 @@ import (
 // reported at. That is a correctness requirement rather than a nicety:
 // gen.nomiLine is a LOWERING CURSOR and not a position. The cursor has already
 // moved by the time a guard fires — walking the operand advances it to the
-// operand's innermost descendant, and caseInto's arm probes every branch
+// operand's innermost descendant, and a `case` probes every branch
 // before declining, which advances it to the last line of the last branch.
 // Because dedupe is BY position, a drifted line that lands on an
-// already-counted one would vanish and silently undercount. See
-// TestSuppression_PositionsAreTheNodesNotTheCursor.
+// already-counted one would vanish and silently undercount.
 //
 // It is NOT a count of missing tally keys, and this file will not claim it is.
 // A masked site might have lowered cleanly once its operand resolved. What the

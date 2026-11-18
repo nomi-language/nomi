@@ -559,7 +559,11 @@ fn multipart_of(flat: List<Bytes>, form: MultipartForm) -> MultipartForm
             multipart_of(rest, {..form, values: Query.add(.., text_of(name), text_of(value))})
 
         [_, field, filename, count, ..rest] ->
-            n = String.to_int(text_of(count)) |> Maybe.with_default(0)
+            n =
+                String.to_int(text_of(count))
+                |> Maybe.flat_map(NonNegativeInt.try_from)
+                |> Maybe.with_default(0)
+
             texts = rest |> Iter.take(2 * n) |> Iter.map(text_of) |> Iter.to_list()
 
             headers = Headers(

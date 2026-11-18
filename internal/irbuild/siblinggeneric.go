@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -33,21 +34,21 @@ import (
 func (g *gen) siblingGenericInstance(ref ast.Node, to int, f *fileFunc) ([]kind, kind, *ir.Symbol, bool) {
 	no := func() ([]kind, kind, *ir.Symbol, bool) { return nil, kindInvalid, nil, false }
 	if f == nil || !f.generic || f.decl == nil || g.reg == nil || to < 0 || to >= len(g.reg.gens) {
-		return no()
+		panic("irbuild: siblingGenericInstance: callers pass a generic fileFunc with a valid unit")
 	}
 	owner := g.reg.gens[to]
 	if owner == nil || owner == g {
-		return no()
+		panic("irbuild: siblingGenericInstance: the owner unit is another file's gen")
 	}
 	sig := owner.funcs[f.decl.Name]
 	if sig == nil || sig.decl != f.decl {
-		return no()
+		panic("irbuild: siblingGenericInstance: the owner's funcs table holds the same declaration")
 	}
 	tpl := owner.irMonoTemplate(sig)
 	if tpl == nil {
-		return no()
+		panic("irbuild: siblingGenericInstance: a generic owner func always has a mono template")
 	}
-	here, ok := g.calleeTypeArgs(ref, tpl.params)
+	here, types, ok := g.calleeTypedArgs(ref, tpl.params)
 	if !ok {
 		return no()
 	}
@@ -55,7 +56,7 @@ func (g *gen) siblingGenericInstance(ref ast.Node, to int, f *fileFunc) ([]kind,
 	if !ok {
 		return no()
 	}
-	return g.siblingResolve(owner, tpl, f, args)
+	return g.siblingResolve(owner, tpl, f, args, types)
 }
 
 // importKinds is importKind over ks.
@@ -73,14 +74,14 @@ func (g *gen) importKinds(ks []kind) ([]kind, bool) {
 
 // siblingResolve is owner's instance of tpl at args, its signature
 // translated back into this gen's kinds.
-func (g *gen) siblingResolve(owner *gen, tpl *monoTemplate, f *fileFunc, args []kind) ([]kind, kind, *ir.Symbol, bool) {
+func (g *gen) siblingResolve(owner *gen, tpl *monoTemplate, f *fileFunc, args []kind, types []analysis.Type) ([]kind, kind, *ir.Symbol, bool) {
 	no := func() ([]kind, kind, *ir.Symbol, bool) { return nil, kindInvalid, nil, false }
 	// The chain is measured from the caller's instance, so two files whose
 	// generics instantiate each other at growing arguments still meet
 	// monoInstCap.
 	prevDepth := owner.monoDepth
 	owner.monoDepth = g.monoDepth
-	inst, why, _ := owner.resolveMonoInstance(tpl, args, f.decl.Name)
+	inst, why, _ := owner.resolveMonoInstance(tpl, args, types, f.decl.Name)
 	owner.monoDepth = prevDepth
 	if why != "" || inst == nil {
 		return no()
@@ -122,8 +123,15 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 		// its own type parameters, instantiated by the owner.
 		return bl.siblingMethodPlan(t, args, owner, impl, method)
 	}
-	it := impl.items[method]
-	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) < len(t.Args) {
+	return bl.siblingInstanceItemPlan(t, args, owner, impl, impl.items[method])
+}
+
+// siblingInstanceItemPlan is the call t of it, the function of impl that
+// owner, another gen, registered for a generic instance: its signature
+// imported here, called by the symbol the owner interned.
+func (bl *irScalarBuilder) siblingInstanceItemPlan(t *ast.Call, args irQualArgs, owner *gen, impl *implDef, it *implItem) *irQualPlan {
+	g := bl.g
+	if !impl.lowerable || it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) < len(t.Args) {
 		return nil
 	}
 	params := make([]kind, len(it.params))
@@ -139,7 +147,7 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 		return nil
 	}
 	var filled *irQualArgs
-	if len(t.Args) < len(params) {
+	if bl.g.leavesDefaults(t, len(params)) {
 		// `Box.grow(b, fn x, n -> x + n)` omitting a parameter the
 		// declaring file defaults, before the trailing callback or after
 		// the written operands: each written operand at the slot a direct
@@ -171,7 +179,7 @@ func (bl *irScalarBuilder) siblingInstanceImplPlan(t *ast.Call, args irQualArgs,
 // member w for the call t, at the type arguments the checker instantiated
 // t at, read in this gen's kinds and imported into the owner's.
 func (g *gen) siblingMethodInstance(t *ast.Call, owner *gen, d *implDef, method string, w withheldMember) *implItem {
-	here, ok := g.calleeTypeArgs(t.Func, w.typeParamNames())
+	here, types, ok := g.calleeTypedArgs(t.Func, w.typeParamNames())
 	if !ok {
 		return nil
 	}
@@ -179,7 +187,7 @@ func (g *gen) siblingMethodInstance(t *ast.Call, owner *gen, d *implDef, method 
 	if !ok {
 		return nil
 	}
-	return owner.methodInstance(d, method, w, there)
+	return owner.methodInstance(d, method, w, there, types)
 }
 
 // siblingMethodPlan resolves a call to a generic impl function another file
@@ -218,7 +226,7 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 		return nil
 	}
 	var filled *irQualArgs
-	if args.ok && len(args.temps) < len(params) {
+	if args.ok && bl.g.leavesDefaults(t, len(params)) {
 		// `Box.pad("p")` omitting a parameter the declaring file defaults,
 		// filled as qualSiblingIfaceImplPlan fills a monomorphic member's.
 		if namedArgNode(t.Args) != nil {

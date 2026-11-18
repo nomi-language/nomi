@@ -61,9 +61,4 @@ func TestListElementIsPartOfTheGoType(t *testing.T) {
 	if k := g.listKind(kindInvalid); k != kindInvalid {
 		t.Fatalf("List<?> produced %q instead of kindInvalid", k.key())
 	}
-	// The empty list is NOT a List<Unit> in disguise, however alike their Go
-	// types look: nothing may mistake one for a real list of anything.
-	if kindEmptyList == g.listKind(kindUnit) {
-		t.Fatal("the untyped empty list shares a kind with List<Unit>")
-	}
 }

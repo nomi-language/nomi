@@ -165,15 +165,15 @@ func conversionCost(want, have Type, flipped bool) ConversionCost {
 			add(conversionCost(normalizeReturn(w.Return), normalizeReturn(h.Return), flipped))
 		}
 	case *StructType:
-		if h, ok := have.(*StructType); ok && sameGenericDecl(w, h) {
+		if h, ok := have.(*StructType); ok && sameTypeShape(w, h) {
 			add(argsCost(w, w.TypeArgs, h.TypeArgs, flipped))
 		}
 	case *EnumType:
-		if h, ok := have.(*EnumType); ok && sameGenericDecl(w, h) {
+		if h, ok := have.(*EnumType); ok && sameTypeShape(w, h) {
 			add(argsCost(w, w.TypeArgs, h.TypeArgs, flipped))
 		}
 	case *DistinctType:
-		if h, ok := have.(*DistinctType); ok && sameGenericDecl(w, h) {
+		if h, ok := have.(*DistinctType); ok && sameTypeShape(w, h) {
 			add(argsCost(w, w.TypeArgs, h.TypeArgs, flipped))
 		}
 	}
@@ -344,15 +344,15 @@ func convParts(want, have Type, flipped bool, box func(Type, Type)) bool {
 		}
 		return convParts(normalizeReturn(w.Return), normalizeReturn(h.Return), flipped, box) || changed
 	case *StructType:
-		if h, ok := have.(*StructType); ok && sameGenericDecl(w, h) {
+		if h, ok := have.(*StructType); ok && sameTypeShape(w, h) {
 			return argParts(w, w.TypeArgs, h.TypeArgs, flipped, box)
 		}
 	case *EnumType:
-		if h, ok := have.(*EnumType); ok && sameGenericDecl(w, h) {
+		if h, ok := have.(*EnumType); ok && sameTypeShape(w, h) {
 			return argParts(w, w.TypeArgs, h.TypeArgs, flipped, box)
 		}
 	case *DistinctType:
-		if h, ok := have.(*DistinctType); ok && sameGenericDecl(w, h) {
+		if h, ok := have.(*DistinctType); ok && sameTypeShape(w, h) {
 			return argParts(w, w.TypeArgs, h.TypeArgs, flipped, box)
 		}
 	}
@@ -385,7 +385,7 @@ func argParts(t Type, ws, hs []Type, flipped bool, box func(Type, Type)) bool {
 // std struct enters std's Display and Debug boxed. A distinct refinement
 // enters as its base does, the value it is at run time.
 func entersAsItself(it *InterfaceType, have Type) bool {
-	have = resolveTV(RefinementBase(resolveTV(have)))
+	have = resolveTypeVar(RefinementBase(resolveTypeVar(have)))
 	if st, ok := have.(*StructType); ok && isStdOrigin(st.Origin) && (isStdInterfaceNamed(it, "Display") || isStdInterfaceNamed(it, "Debug")) {
 		// A std struct's own Display may be a host function or a body the
 		// program never lowers, so it enters std's Display and Debug boxed
@@ -418,7 +418,7 @@ func entersAsItself(it *InterfaceType, have Type) bool {
 // rendered by std's impl at its own type, or a declared non-generic enum,
 // by its own impl (irbuild's irErases).
 func displayReadsOff(display *InterfaceType, t Type) bool {
-	t = resolveTV(t)
+	t = resolveTypeVar(t)
 	if it, ok := t.(*InterfaceType); ok {
 		return isStdInterfaceNamed(it, "Display")
 	}

@@ -1,0 +1,46 @@
+package irbuild
+
+import (
+	"github.com/nomi-language/nomi/internal/ast"
+)
+
+// A pattern's types are the checker's. It resolved each pattern against
+// the value it takes apart and recorded the type of that value
+// (analysis.FileAnalysis.PatternTypes) and, for a head that names a
+// variant, which variant (PatternVariants). The builder reads both: the
+// kind a destructuring parameter takes, whether a head names its value's
+// distinct type, and which variant of the subject's enum an arm tests. It
+// looks no pattern's head up by name.
+
+// patternKind is the kind of the value pat matches: the projection of the
+// type the checker recorded for it. ok is false where the checker
+// recorded none.
+func (g *gen) patternKind(pat ast.Node) (kind, bool) {
+	fa := g.srcFA()
+	if fa == nil {
+		return kindInvalid, false
+	}
+	t, ok := fa.PatternTypes[pat]
+	if !ok {
+		return kindInvalid, false
+	}
+	return g.project(t), true
+}
+
+// patternVariant is the declared name of the variant head, a pattern's
+// head, names. ok is false for a head that names its value's own type, a
+// distinct type or a struct.
+func (g *gen) patternVariant(head ast.TypeExpr) (string, bool) {
+	if head == nil {
+		return "", false
+	}
+	if fa := g.srcFA(); fa != nil {
+		if v, ok := fa.PatternVariants[head]; ok {
+			return v, true
+		}
+	}
+	// Code the builder wrote for a block-local declaration, which the
+	// checker never checked (noteSynthTypeExprs).
+	v, ok := g.synthPatternVariants[head]
+	return v, ok
+}

@@ -1047,7 +1047,7 @@
         "value": -1,
         "content": {
           "type": "PATTERN",
-          "value": "and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with"
+          "value": "and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|subtype|tap|test|then|todo|type(alias)?|unreachable|when|where|with"
         }
       }
     },
@@ -3624,27 +3624,6 @@
             {
               "type": "SYMBOL",
               "name": "type_parameters"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": "extends"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "_type"
-                }
-              ]
             },
             {
               "type": "BLANK"

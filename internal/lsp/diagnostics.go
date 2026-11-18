@@ -116,6 +116,29 @@ func diagnosticHeadline(msg string) string {
 	return head
 }
 
+// reported reports whether the request's diagnostic d is the one published
+// for the error at line:col (1-based, byte column) whose message is
+// message: its range holds that position (diagCovers) and its headline is
+// that message. A client
+// sends a diagnostic back without its code (glsp's IntegerOrString drops
+// it on the way in), so this is how a quick fix finds the error a
+// diagnostic stands for. What kind of error it is, and what it names, are
+// then the error's Code and Args, never its text.
+func reported(lines *lineIndex, d protocol.Diagnostic, line, col int, message string) bool {
+	return diagnosticHeadline(d.Message) == message && diagCovers(lines, d, line, col)
+}
+
+// reportedError is the error of errs, in this document, that the request's
+// diagnostic d was published for.
+func reportedError(lines *lineIndex, errs []analysis.TypeError, d protocol.Diagnostic) (analysis.TypeError, bool) {
+	for _, e := range errs {
+		if e.File == "" && reported(lines, d, e.Line, e.Col, e.Message) {
+			return e, true
+		}
+	}
+	return analysis.TypeError{}, false
+}
+
 // errorRange is the 0-based protocol range of a 1-based span with byte
 // columns; a zero end is a point.
 func errorRange(line, col, endLine, endCol int) protocol.Range {
@@ -171,7 +194,7 @@ func errorsInDocument(uri string, errs []analysis.TypeError) []analysis.TypeErro
 }
 
 // buildPublishedDiagnosticsFor is uri's diagnostics: the parser's, the
-// analysis's, and the dbg and todo warnings. A point error spans the token it
+// analysis's, and the dbg, todo, embed and `$name` warnings. A point error spans the token it
 // names (analysis.CompleteSpans). related reports whether the client reads
 // relatedInformation; when it does not, related locations become `note:`
 // lines of the message. contentOf reads the text of another file a related
@@ -207,6 +230,7 @@ func buildPublishedDiagnosticsFor(uri string, content string, contentOf func(pro
 	diags = append(diags, dbgWarningDiagnostics(dbgs)...)
 	diags = append(diags, todoWarningDiagnostics(todos)...)
 	diags = append(diags, embedWarningDiagnostics(uri, nodes)...)
+	diags = append(diags, dollarWarningDiagnostics(uri, fa, nodes)...)
 	// Diagnostic columns are byte-based (analyzer positions); convert to the
 	// UTF-16 columns the protocol expects so a squiggle after a non-ASCII
 	// character on its line lands on the right span. A related location is
@@ -432,6 +456,21 @@ func embedWarningDiagnostics(uri string, nodes []ast.Node) []protocol.Diagnostic
 	diags := typeErrorsToDiagnosticsIn(uri, analysis.EmbedWarnings(nodes))
 	severity := protocol.DiagnosticSeverityWarning
 	source := "nomi-embed"
+	for i := range diags {
+		diags[i].Severity = &severity
+		diags[i].Source = &source
+	}
+	return diags
+}
+
+// dollarWarningDiagnostics reports each string that writes `$name` where a
+// value named `name` is in scope as a warning (analysis.DollarWarnings):
+// the program runs with the text `$name`. The range is the `$name`; the
+// code action offers the rewrite to `${name}` (typeErrorFixes).
+func dollarWarningDiagnostics(uri string, fa *analysis.FileAnalysis, nodes []ast.Node) []protocol.Diagnostic {
+	diags := typeErrorsToDiagnosticsIn(uri, analysis.DollarWarnings(fa, nodes))
+	severity := protocol.DiagnosticSeverityWarning
+	source := "nomi"
 	for i := range diags {
 		diags[i].Severity = &severity
 		diags[i].Source = &source

@@ -10,8 +10,8 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// The stdlib's BLESSED PRIMITIVE types — `Byte`, `Bytes` — as Go types declared
-// in rt.
+// The stdlib's blessed primitive types, `Byte`, `Bytes` and the rows beside
+// them, each paired with the Go type rt declares for it.
 //
 // # These are the analyzer's own singletons
 //
@@ -56,15 +56,16 @@ import (
 // which has no inner at all"). That is what a primitive with no Nomi-visible
 // contents is from here: no inner to convert through, and no Nomi syntax that
 // constructs or destructures one, because there is nothing to build it out of.
-// What differs from a marker is only that the Go type is rt's, which
-// `rtDeclared` says.
+// What differs from a marker is that the value has contents rt owns, which
+// `rtOpaque` says. `rtDeclared` marks the def as process-wide.
 //
 // Shared process-wide for opaque.go's reason, restated because it is a
 // precondition and not a preference: a stdFunc's parameter and result kinds are
 // built once in stdCandidateFor and compared BY POINTER against a call site's
 // kinds in a different gen, so a per-gen def would make `Bytes.length(data)`
 // mismatch against itself. A leaf def has no components, so nothing about it is
-// package-relative — TestStdHostDefsArePackageNeutral asserts that directly.
+// package-relative — TestStdHostDefsAreDistinctAndPackageNeutral asserts that
+// directly.
 
 // stdHostSpec is one blessed stdlib `host type`, and there are TWO identity
 // channels because the analyzer gives the family two shapes.
@@ -100,9 +101,10 @@ type stdHostSpec struct {
 	// be circular for the scope check, so it is stated and
 	// TestStdHostSpecNamesMatchTheirSingleton pins the pair.
 	nomi string
-	// goType is rt's Go type, held as the TYPE rather than as its spelling for
+	// goType is rt's Go type, held as the type rather than as its spelling for
 	// opaqueSpec.goType's reason: a rename or deletion in rt is then a Go
-	// compile error in this file, and the emitted spelling is DERIVED.
+	// compile error in this file. stdHostKindOfGoType reads it to give a host
+	// function's Go signature its kinds.
 	goType reflect.Type
 	// marker says the type is ZERO-WIDTH — one inhabitant, nothing inside —
 	// rather than a leaf whose payload rt owns.
@@ -112,9 +114,9 @@ type stdHostSpec struct {
 	// FIRST, before the marker arm). The two answers are not
 	// interchangeable in either direction: a marker read as a leaf cannot be
 	// MATERIALIZED, so `case b { Bool.False(x) -> … }` has nowhere to get `x`
-	// from; a leaf read as a marker gets Go `==` and the unit hash over a value
-	// with contents, which is the wrong-ANSWER direction and the reason
-	// `rtOpaque` exists at all.
+	// from; a leaf read as a marker is equal to every other and takes the unit
+	// hash over a value with contents, which is a wrong answer and the reason
+	// `rtOpaque` exists.
 	//
 	// Stated per row rather than derived from `goType.Size() == 0`, because a
 	// Go type's width is not the question. `rt.Unit` is zero-width and `Unit` is
@@ -139,8 +141,7 @@ type stdHostSpec struct {
 	// What the bit decides here is the `values:` RENDERING: a handle renders
 	// as `"<" + short type name + ">"`, so a row's operand renders
 	// `<Regex>`. Every other row in this table is a type std
-	// writes its own `impl Debug` for, which is why inspectorBody's
-	// `case def.rtOpaque:` declines — see stdGoHandleDef.
+	// writes its own `impl Debug` for.
 	handle bool
 	// phantom names the declaration's type parameters when every one is
 	// PHANTOM: no value of the type stores anything of it, so the
@@ -148,7 +149,7 @@ type stdHostSpec struct {
 	// `Regex<C>` is the row: C is the shape the checker gives a match's
 	// capture groups (`String.captures`), and the compiled pattern the handle
 	// holds is the same for every C. Each channel reads `Regex<X>` as the
-	// row's one kind and drops X (phantomHostTypeOf, phantomHostSigKind,
+	// row's one kind and drops X (typeOf, phantomHostSigKind,
 	// projectPhantomHost), a std function whose type parameters stand only
 	// there is not generic to the builder (stdrecvgeneric.go's phantomOnly),
 	// and a generic function of a program's is instantiated at X from the
@@ -166,9 +167,8 @@ type stdHostSpec struct {
 // unbounded, and none for any other row, because a generic `host type` is a
 // `*DistinctType` and a different mechanism entirely (see
 // buildExternTypeShell's other branch): a row here must not redirect one whose
-// parameters a value stores. No
-// body or items, because each is layout-relevant. An attached `//!` test is NOT
-// checked: it cannot affect layout and it refuses at its own position — see
+// parameters a value stores. An attached `//!` test is not checked: it cannot
+// affect the representation and it refuses at its own position — see
 // stdStructSpec.matches.
 func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 	if decl.Name != s.nomi || !decl.Public || len(decl.TypeParams) != len(s.phantom) || len(decl.WhereClauses) > 0 {
@@ -178,9 +178,6 @@ func (s *stdHostSpec) declaredHostType(decl *ast.ExternType) bool {
 		if tp.Name != s.phantom[i] || len(tp.Bounds) > 0 {
 			return false
 		}
-	}
-	if decl.HasBody || len(decl.Items) > 0 {
-		return false
 	}
 	for _, dec := range decl.Decorators {
 		// `derive` is the one decorator that is not a gap, for the reason
@@ -237,11 +234,10 @@ var stdHostSpecs = []stdHostSpec{
 	// `with_value<T>` and `value<T>` key a store by a `Type<T>` witness.
 	// `Type<T>` is a `stdGenHostSpecs` row over `rt.Type[T]`, `rt.Context` has
 	// value storage keyed on a `*rt.TypeID` ADDRESS, and both calls lower
-	// through `contextValueCall` in implCall's chain above `stdlibCall`, so the
+	// through `contextValueCall` ahead of the stdlib index, so the
 	// INDEX stamps both `stdlib generic function` while the LANGUAGE lowers
-	// them, as it does for `Sender.send` and `Task.await`. See contextvalue.go,
-	// rt/context.go, rt/typewitness.go, and stdcontext_test.go, which asserts
-	// the index/language distinction on both halves.
+	// them, as it does for `Sender.send` and `Task.await`. See
+	// ircontextvalue.go, rt/context.go and rt/typewitness.go.
 	{origin: "std/context", nomi: "Context", goType: reflect.TypeFor[rt.Context]()},
 	// `Dynamic` is the SECOND origin-identified row, and it is here for exactly
 	// the reason `Context` is: `pub host type Dynamic` in std/dynamic.nomi is
@@ -263,13 +259,13 @@ var stdHostSpecs = []stdHostSpec{
 	// contents at all.
 	//
 	// Both resolve to a `*analysis.PrimitiveType` over an `*ast.ExternType`
-	// that is public, has no type parameters, no body, no items and only
-	// `derive` decorators, which is `declaredHostType`'s test verbatim. Neither
+	// that is public, has no type parameters and only `derive` decorators,
+	// which is `declaredHostType`'s test. Neither
 	// is a blessed singleton, so the ORIGIN channel is the only one that can
 	// anchor them, as for `Context` and `Dynamic`.
 	//
-	// `Bool` collapses to a Go `bool`, so these two types need rows of their
-	// own for `bool.Bool.inspect`, `bool.Bool.to_string`, `bool.Bool.equal`
+	// A `Bool` value is the scalar kindBool, which names neither embedded
+	// type, so these two types need rows of their own for `bool.Bool.inspect`, `bool.Bool.to_string`, `bool.Bool.equal`
 	// and `bool.Bool.hash` to lower. Each is a DERIVE-SYNTHESIZED body over
 	// `case value { Bool.False(v0) -> … }` (analysis/derive_synthesis.go's
 	// `stringifyEnumExpr` plus `stringifyVariantBody`'s `"embedded"` arm), so
@@ -373,9 +369,8 @@ var stdHostDefs = sync.OnceValue(func() []*typeDef {
 			// `isDistinct && inner == kindInvalid` means what it looks like:
 			// there is genuinely nothing inside, so `zeroSized()` must answer
 			// true and the value must be materializable from its type alone.
-			isDistinct: true, inner: kindInvalid, rtOpaque: !s.marker, lowerable: true, // rtDeclared, so typeDecl emits nothing: the Go type is
-			// hand-written in rt/bytes.go, and a second declaration would be a
-			// second Go type for one Nomi type.
+			isDistinct: true, inner: kindInvalid, rtOpaque: !s.marker, lowerable: true, // rtDeclared: rt declares the type, so the def is process-wide and
+			// package-neutral.
 			rtDeclared: true}
 	}
 	return defs
@@ -638,21 +633,7 @@ func projectPhantomHost(ty *analysis.DistinctType) (kind, bool) {
 	return stdHostKind(i), true
 }
 
-// phantomHostTypeOf is the kind of an annotation `Regex<X>` whose name this
-// module anchors to a phantom-parameter row: the row's one leaf.
-func (g *gen) phantomHostTypeOf(gt *ast.GenericType) (kind, bool) {
-	g.loadStdHosts()
-	i, anchored := g.stdHostByName[gt.Name]
-	if !anchored || len(stdHostSpecs[i].phantom) == 0 {
-		return kindInvalid, false
-	}
-	if len(gt.Params) != len(stdHostSpecs[i].phantom) {
-		return kindInvalid, true
-	}
-	return stdHostKind(i), true
-}
-
-// phantomHostSigKind is phantomHostTypeOf for a stdlib signature, against the
+// phantomHostSigKind is typeOf for a stdlib signature, against the
 // module's anchors.
 func phantomHostSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 	i, anchored := anchors.hosts[gt.Name]

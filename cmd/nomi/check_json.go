@@ -27,6 +27,7 @@ type checkJSONRecord struct {
 	checkJSONSpan
 	Severity string             `json:"severity,omitempty"`
 	Code     string             `json:"code,omitempty"`
+	Args     []string           `json:"args,omitempty"`
 	Message  string             `json:"message,omitempty"`
 	Hints    []string           `json:"hints,omitempty"`
 	Related  []checkJSONRelated `json:"related,omitempty"`
@@ -156,7 +157,7 @@ func (cj *checkJSON) diagnostic(entry string, d vmhost.Diagnostic) checkJSONReco
 		file = entry
 	}
 	r := checkJSONRecord{
-		Type: "diagnostic", File: file, Severity: "error", Code: d.Code,
+		Type: "diagnostic", File: file, Severity: "error", Code: d.Code, Args: d.Args,
 		Message: d.Message, Hints: d.Hints,
 		checkJSONSpan: cj.span(file, d.Line, d.Col, d.EndLine, d.EndCol),
 	}

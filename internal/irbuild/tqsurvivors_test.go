@@ -13,18 +13,18 @@ import (
 // thing, "these three guards have no reachable input", and splitting it would
 // let two rows keep passing while the third's reason expired unnoticed.
 //
-//	siblingequal.go: the RIVAL refusal, which refuses rather than picking
+//	siblingImplSite (irqualcall.go): the RIVAL refusal, which declines rather than picking
 //	     when two files each provide `Equatable.equal` for one receiver.
 //	     registerImpl's rule at a second site: never let ordering decide. The
 //	     front end forecloses the input. EXPIRES if the derive-collision check or
 //	     interface coherence is relaxed.
 //
-//	siblingequal.go: the result-is-Bool check. The analyzer rejects an
+//	equatableImplCall (irequality.go): the result-is-Bool check. The analyzer rejects an
 //	     impl function whose return type disagrees with the interface's, so an
 //	     `Equatable.equal` returning anything but Bool cannot be declared.
 //	     EXPIRES if that check is dropped.
 //
-//	listconcat.go: the `+` gate. Every other arithmetic operator on two
+//	irfuncbody.go: the `+` gate. Every other arithmetic operator on two
 //	     lists is a front-end error, so nothing else reaches the concatenation
 //	     arm. This one is "unreached in practice, live in principle": the
 //	     POPULATION to watch is an `impl Subtract for List` (or Multiply,

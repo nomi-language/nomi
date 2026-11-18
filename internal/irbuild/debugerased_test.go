@@ -9,8 +9,8 @@ import (
 // # Why this needs a fixture that READS THE OUTPUT
 //
 // Getting Debug wrong is a wrong ANSWER, not a build error. Every plausible
-// mis-wiring of an erased Debug call — the table pointing at inspect.go's
-// structural inspector, the table ignoring a hand-written impl, an opaque type
+// mis-wiring of an erased Debug call — the table pointing at the row's
+// structural renderer, the table ignoring a hand-written impl, an opaque type
 // leaking its payload — produces a program that compiles and runs and prints a
 // different string. `0 COMPILE-FAIL` says nothing about any of them.
 //
@@ -47,7 +47,7 @@ import (
 //
 //	1 / 8    Rev{zeta: 1, alpha: 2}  DECLARATION order. Sorted order is
 //	         `Rev{alpha: 2, zeta: 1}` and is what the values: row answers, so a
-//	         table wired to inspect.go's inspector fails here and only here.
+//	         table wired to the row's renderer fails here and only here.
 //	2 / 7 / 9  CUSTOM-DEBUG          a hand-written impl WINS through the table.
 //	         A structural renderer answers `Custom{zeta: 3, alpha: 4}`.
 //	3 / 10   <opaque Meters>         Debug shows LESS. The structural walk

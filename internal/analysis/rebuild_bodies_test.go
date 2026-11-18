@@ -114,12 +114,6 @@ func graftBodies(nodes, fresh []ast.Node) {
 			d.Body, d.Clock, d.Boot, d.Setup, d.ContextPattern = nt.Body, nt.Clock, nt.Boot, nt.Setup, nt.ContextPattern
 		case *ast.ImplBlock:
 			graftBodies(d.Items, f.(*ast.ImplBlock).Items)
-		case *ast.StructDef:
-			graftBodies(d.Items, f.(*ast.StructDef).Items)
-		case *ast.EnumDef:
-			graftBodies(d.Items, f.(*ast.EnumDef).Items)
-		case *ast.TypeDef:
-			graftBodies(d.Items, f.(*ast.TypeDef).Items)
 		}
 	}
 }

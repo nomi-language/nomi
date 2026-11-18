@@ -464,6 +464,13 @@ func (l *lexer) scanString(tag string) {
 	buf := make([]byte, 0, 32)
 	hasInterpolation := false
 	firstPart := true
+	// The `$name`s of the text being read (token.DollarRef), the byte of
+	// text before the cursor (0 at the text's start and after an escape),
+	// and where the literal's opening token is once one of its texts
+	// holds a `$name`.
+	var dollars []token.DollarRef
+	prev := byte(0)
+	openPos, openTok, anyDollars := l.pos-1, -1, false
 
 	for !l.atEnd() {
 		ch := l.peek()
@@ -474,13 +481,17 @@ func (l *lexer) scanString(tag string) {
 			if hasInterpolation {
 				// Closing token: STRING_END regardless of tagged-ness.
 				// Tag was attached only to the opening START.
-				l.tokens = append(l.tokens, token.Token{Type: token.STRING_END, Lexeme: string(buf), Line: startLine, Col: startCol})
+				l.tokens = append(l.tokens, token.Token{Type: token.STRING_END, Lexeme: string(buf), Line: startLine, Col: startCol, Dollars: dollars})
 			} else {
 				kind := token.STRING_LITERAL
 				if tag != "" {
 					kind = token.TAGGED_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: string(buf), Tag: tag, Line: startLine, Col: startCol})
+				openTok = len(l.tokens)
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: string(buf), Tag: tag, Line: startLine, Col: startCol, Dollars: dollars})
+			}
+			if anyDollars || len(dollars) > 0 {
+				l.tokens[openTok].Source = l.source[openPos:l.pos]
 			}
 			return
 		}
@@ -531,6 +542,7 @@ func (l *lexer) scanString(tag string) {
 				l.illegalString(`invalid escape \`+string(rune(esc)), startLine, startCol)
 				return
 			}
+			prev = 0
 			continue
 		}
 
@@ -542,11 +554,14 @@ func (l *lexer) scanString(tag string) {
 				if tag != "" {
 					kind = token.TAGGED_STRING_START
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: string(buf), Tag: tag, Line: startLine, Col: startCol})
+				openTok = len(l.tokens)
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: string(buf), Tag: tag, Line: startLine, Col: startCol, Dollars: dollars})
 				firstPart = false
 			} else {
-				l.tokens = append(l.tokens, token.Token{Type: token.STRING_PART, Lexeme: string(buf), Line: startLine, Col: startCol})
+				l.tokens = append(l.tokens, token.Token{Type: token.STRING_PART, Lexeme: string(buf), Line: startLine, Col: startCol, Dollars: dollars})
 			}
+			anyDollars = anyDollars || len(dollars) > 0
+			dollars, prev = nil, 0
 			buf = buf[:0]
 			l.advance() // skip '$'
 			l.advance() // skip '{'
@@ -566,13 +581,33 @@ func (l *lexer) scanString(tag string) {
 				l.illegalString(invalidUTF8InString, openLine, openCol)
 				return
 			}
+			prev = 0
 			continue
 		}
+		if ch == '$' && tag == "" {
+			dollars = l.noteDollar(dollars, prev)
+		}
 		buf = append(buf, byte(ch))
+		prev = ch
 		l.advance()
 	}
 
 	l.illegalString(`unterminated string; close it with "`, openLine, openCol)
+}
+
+// noteDollar adds to dollars the `$name` at the cursor, a `$` in a
+// string's text with prev the byte of text before it: the `$` and the
+// identifier after it, when there is one and prev is no `$`, `{` or
+// backslash (token.DollarRef).
+func (l *lexer) noteDollar(dollars []token.DollarRef, prev byte) []token.DollarRef {
+	if prev == '$' || prev == '{' || prev == '\\' || !isIdentStart(l.peekAt(1)) {
+		return dollars
+	}
+	end := l.pos + 2
+	for end < len(l.source) && isIdentPart(l.source[end]) {
+		end++
+	}
+	return append(dollars, token.DollarRef{Name: l.source[l.pos+1 : end], Line: l.line, Col: l.col})
 }
 
 // invalidUTF8InString is the problem a string literal holding a byte that
@@ -661,9 +696,10 @@ func (l *lexer) scanInterpolation() bool {
 
 // tripleStringPart holds either a text segment or a placeholder for interpolated tokens.
 type tripleStringPart struct {
-	isText bool
-	text   string
-	tokens []token.Token // interpolated expression tokens
+	isText  bool
+	text    string
+	dollars []token.DollarRef // the `$name`s of a text segment
+	tokens  []token.Token     // interpolated expression tokens
 }
 
 // scanTripleStringWithMode scans a triple-quoted string body. The
@@ -708,13 +744,17 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 	var parts []tripleStringPart
 	buf := make([]byte, 0, 128)
 	hasInterpolation := false
+	// The `$name`s of the text being read and the byte of text before the
+	// cursor, as scanString keeps them.
+	var dollars []token.DollarRef
+	prev := byte(0)
 
 	for !l.atEnd() {
 		ch := l.peek()
 
 		// Check for closing """
 		if ch == '"' && l.peekAt(1) == '"' && l.peekAt(2) == '"' {
-			parts = append(parts, tripleStringPart{isText: true, text: string(buf)})
+			parts = append(parts, tripleStringPart{isText: true, text: string(buf), dollars: dollars})
 			l.advance()
 			l.advance()
 			l.advance()
@@ -761,7 +801,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 				if tag != "" {
 					kind = token.TAGGED_TRIPLE_STRING_LITERAL
 				}
-				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent)})
+				l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: content, Tag: tag, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent), Dollars: dollars})
 			} else {
 				firstText := true
 				// Track whether the *next* text part begins at a line
@@ -783,10 +823,10 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 							} else {
 								tt = ""
 							}
-							l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: stripped, Tag: tt, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent)})
+							l.tokens = append(l.tokens, token.Token{Type: kind, Lexeme: stripped, Tag: tt, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Indent: len(indent), Dollars: p.dollars})
 							firstText = false
 						} else {
-							l.tokens = append(l.tokens, token.Token{Type: token.TRIPLE_STRING_PART, Lexeme: stripped, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol})
+							l.tokens = append(l.tokens, token.Token{Type: token.TRIPLE_STRING_PART, Lexeme: stripped, Line: startLine, Col: startCol, EndLine: endLine, EndCol: endCol, Dollars: p.dollars})
 						}
 						// Update nextAtLineStart for whatever text part
 						// follows. Subsequent parts after this text are
@@ -830,13 +870,15 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 			l.advance()
 			l.advance()
 			l.advance()
+			prev = 0
 			continue
 		}
 
 		if !raw && ch == '$' && l.peekAt(1) == '{' {
 			// Start interpolation (regular triple only — raw treats
 			// `${` as verbatim text).
-			parts = append(parts, tripleStringPart{isText: true, text: string(buf)})
+			parts = append(parts, tripleStringPart{isText: true, text: string(buf), dollars: dollars})
+			dollars, prev = nil, 0
 			buf = buf[:0]
 			hasInterpolation = true
 			l.advance() // skip '$'
@@ -862,6 +904,7 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 				l.illegalString(invalidUTF8InString, startLine, startCol)
 				return
 			}
+			prev = 0
 			continue
 		}
 		// No escape processing — backslashes are literal in both
@@ -871,7 +914,11 @@ func (l *lexer) scanTripleStringWithMode(raw bool, tag string) {
 			l.advance()
 			continue
 		}
+		if ch == '$' && !raw && tag == "" {
+			dollars = l.noteDollar(dollars, prev)
+		}
 		buf = append(buf, byte(ch))
+		prev = ch
 		l.advance()
 		if stripAttachedPrompts && ch == '\n' {
 			l.skipAttachedTestPromptPrefix()
@@ -1096,53 +1143,89 @@ func (l *lexer) scanNumber() {
 
 // --- Identifiers and keywords ---
 
-var keywords = map[string]token.TokenType{
-	"if":          token.IF,
-	"else":        token.ELSE,
-	"and":         token.AND,
-	"or":          token.OR,
-	"not":         token.NOT,
-	"is":          token.IS,
-	"in":          token.IN,
-	"fn":          token.FN,
-	"return":      token.RETURN,
-	"case":        token.CASE,
-	"when":        token.WHEN,
-	"type":        token.TYPE,
-	"struct":      token.STRUCT,
-	"enum":        token.ENUM,
-	"typealias":   token.TYPEALIAS,
-	"subtype":     token.SUBTYPE,
-	"break":       token.BREAK,
-	"continue":    token.CONTINUE,
-	"interface":   token.INTERFACE,
-	"impl":        token.IMPL,
-	"as":          token.AS,
-	"for":         token.FOR,
-	"import":      token.IMPORT,
-	"extern":      token.EXTERN,
-	"export":      token.EXPORT,
-	"pub":         token.PUB,
-	"once":        token.ONCE,
-	"opaque":      token.OPAQUE,
-	"where":       token.WHERE,
-	"with":        token.WITH,
-	"defer":       token.DEFER,
-	"test":        token.TEST,
-	"assert":      token.ASSERT,
-	"refute":      token.REFUTE,
-	"dbg":         token.DBG,
-	"unreachable": token.UNREACHABLE,
-	"self":        token.SELF,
-	"then":        token.THEN,
-	"tap":         token.TAP,
-	"end":         token.END,
-	"begin":       token.BEGIN,
-	// `open` is a contextual keyword, recognized by lexeme before an
-	// interface default method only (parseInterfaceDef), so `open = ...`
-	// keeps working elsewhere. `field` is an ordinary identifier; the
-	// parser names it only to explain that an interface or a type body
-	// declares no `field` items.
+// reservedWords are the reserved words (spec §2 *Keywords*): each one's
+// token, what it is for in a few words, and a name to write instead of it,
+// which the parser's error at a reserved word written as a name gives.
+// Every other list of them reads this one: the lexer's lookup, IsKeyword,
+// ReservedWords and KeywordPurpose here, and outside Go the test
+// TestKeywordListsMatchTheLexer (internal/docscheck).
+var reservedWords = []struct {
+	word    string
+	tok     token.TokenType
+	purpose string
+	instead string
+}{
+	{"and", token.AND, "logical and", "both"},
+	{"as", token.AS, "renames an import or names a whole pattern match", "alias"},
+	{"assert", token.ASSERT, "a test's assertion", "check"},
+	{"begin", token.BEGIN, "opens a block expression", "start"},
+	{"break", token.BREAK, "stops an iteration", "stop"},
+	{"case", token.CASE, "matches a value against patterns", "kind"},
+	{"continue", token.CONTINUE, "goes on to the next iteration", "next"},
+	{"dbg", token.DBG, "prints a value while debugging", "debug"},
+	{"defer", token.DEFER, "runs a call when its block ends", "later"},
+	{"else", token.ELSE, "the other branch of an `if`", "otherwise"},
+	{"end", token.END, "closes a body", "finish"},
+	{"enum", token.ENUM, "declares an enum", "variant"},
+	{"export", token.EXPORT, "exports a function to the host", "exported"},
+	{"extern", token.EXTERN, "reserved, with no construct", "external"},
+	{"fn", token.FN, "declares a function or a lambda", "f"},
+	{"for", token.FOR, "names the type an `impl` is for", "target"},
+	{"if", token.IF, "a conditional", "condition"},
+	{"impl", token.IMPL, "implements an interface or a type's functions", "implementation"},
+	{"import", token.IMPORT, "imports a file", "imported"},
+	{"in", token.IN, "tests membership, `x in collection`", "input"},
+	{"interface", token.INTERFACE, "declares an interface", "contract"},
+	{"is", token.IS, "tests a value against a pattern", "matches"},
+	{"not", token.NOT, "logical not", "negated"},
+	{"once", token.ONCE, "declares a value computed on first read", "cached"},
+	{"opaque", token.OPAQUE, "hides a type's representation", "hidden"},
+	{"or", token.OR, "logical or", "either"},
+	{"pub", token.PUB, "makes a declaration public", "public"},
+	{"refute", token.REFUTE, "a test's negative assertion", "check"},
+	{"return", token.RETURN, "leaves a function with a value", "result"},
+	{"self", token.SELF, "the implementing type in an interface", "value"},
+	{"struct", token.STRUCT, "declares a struct", "record"},
+	{"subtype", token.SUBTYPE, "declares a subtype, a narrower set of another type's values", "narrowed"},
+	{"tap", token.TAP, "a pipe stage run for its effect", "peek"},
+	{"test", token.TEST, "declares a test", "check"},
+	{"then", token.THEN, "starts an `if`'s branch, or a pipe stage that applies a function", "next"},
+	{"type", token.TYPE, "declares a distinct type", "kind"},
+	{"typealias", token.TYPEALIAS, "declares another name for a type", "alias"},
+	{"unreachable", token.UNREACHABLE, "marks code that cannot run", "never"},
+	{"when", token.WHEN, "an arm's guard, or a type's rule", "condition"},
+	{"where", token.WHERE, "bounds type parameters", "place"},
+	{"with", token.WITH, "replaces an application field for a block", "options"},
+}
+
+// keywords and keywordTokens index reservedWords by word and by token.
+var keywords, keywordTokens = func() (map[string]int, map[token.TokenType]bool) {
+	byWord := make(map[string]int, len(reservedWords))
+	byTok := make(map[token.TokenType]bool, len(reservedWords))
+	for i, r := range reservedWords {
+		byWord[r.word] = i
+		byTok[r.tok] = true
+	}
+	return byWord, byTok
+}()
+
+// IsKeyword reports whether t is a reserved word's token.
+func IsKeyword(t token.TokenType) bool { return keywordTokens[t] }
+
+// IsReservedWord reports whether word is a reserved word.
+func IsReservedWord(word string) bool {
+	_, ok := keywords[word]
+	return ok
+}
+
+// KeywordPurpose is what the reserved word word is for and a name to
+// write instead of it, or false when word is not reserved.
+func KeywordPurpose(word string) (purpose, instead string, ok bool) {
+	i, ok := keywords[word]
+	if !ok {
+		return "", "", false
+	}
+	return reservedWords[i].purpose, reservedWords[i].instead, true
 }
 
 // contextualWords are the words that are keywords only where their
@@ -1159,9 +1242,9 @@ var contextualWords = []string{
 // ReservedWords returns the reserved words, which the lexer turns into
 // keyword tokens and which cannot name anything, sorted.
 func ReservedWords() []string {
-	words := make([]string, 0, len(keywords))
-	for w := range keywords {
-		words = append(words, w)
+	words := make([]string, 0, len(reservedWords))
+	for _, r := range reservedWords {
+		words = append(words, r.word)
 	}
 	sort.Strings(words)
 	return words
@@ -1182,7 +1265,8 @@ func (l *lexer) scanIdentifier() {
 	}
 	lexeme := l.source[start:l.pos]
 
-	if tt, ok := keywords[lexeme]; ok {
+	if i, ok := keywords[lexeme]; ok {
+		tt := reservedWords[i].tok
 		l.tokens = append(l.tokens, token.Token{Type: tt, Lexeme: lexeme, Line: startLine, Col: startCol})
 		return
 	}

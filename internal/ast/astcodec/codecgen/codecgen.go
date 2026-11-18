@@ -85,7 +85,7 @@ func load(dir string) (*types.Package, error) {
 		Error: func(err error) {
 			msg := err.Error()
 			// The walk the package calls is generated and left out.
-			for _, name := range []string{"generatedChildren", "absent"} {
+			for _, name := range []string{"generatedChildren", "absent", "generatedTypes"} {
 				if strings.HasSuffix(msg, "undefined: "+name) {
 					return
 				}

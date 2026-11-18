@@ -18,14 +18,14 @@ func unitPackagesFrom(owner []int) []string {
 }
 
 // componentOwners maps each unit to the lowest unit index it is mutually
-// import-reachable with — a canonical representative per strongly-connected
-// component.
+// import-reachable with: a canonical representative per strongly connected
+// component. Units with one owner share one unit package name, the namespace
+// key their gens compare (package doc, "Unit packages").
 //
-// Mutual reachability over the transitive closure IS the component relation, so
-// this needs no Tarjan: the closure is already computed for the containment
-// argument above, module counts are small, and an equivalence relation makes
-// the first lower-indexed member's own representative the component's minimum
-// by induction.
+// Mutual reachability over the transitive closure is the component relation, so
+// this needs no Tarjan: nomiImportGraph returns the closure, module counts are
+// small, and an equivalence relation makes the first lower-indexed member's
+// own representative the component's minimum by induction.
 func componentOwners(p *Program) []int {
 	reach := nomiImportGraph(p)
 	owner := make([]int, len(reach))
@@ -42,9 +42,9 @@ func componentOwners(p *Program) []int {
 }
 
 // nomiImportGraph includes lexical imports and scoped fields' declared type
-// dependencies. A helper can use a field without naming its schema; its
-// Go-spelled read still names the unit package that declares the field's
-// value type.
+// dependencies. A helper can read a field without importing its schema; the
+// read's kind still names a type another unit declares, so scopedTypeEdges
+// adds an edge to that unit.
 //
 // An import's edge is read two ways: from its path as written, matched
 // against the program's file keys (importTargets), and from what the checker
@@ -80,8 +80,8 @@ func nomiImportGraph(p *Program) [][]bool {
 				for _, target := range importTargets(m) {
 					// A file's own directory-relative key, matched against
 					// the program's module keys. A stdlib or Go import
-					// resolves to nothing here and contributes no edge, which
-					// is right: only user files become unit packages.
+					// resolves to nothing here and contributes no edge: only
+					// a module of the program is a unit.
 					if j, ok := byKey[target]; ok && j != i {
 						g[i][j] = true
 					}

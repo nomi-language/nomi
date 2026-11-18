@@ -122,45 +122,39 @@ func (bl *irScalarBuilder) captureCurrent(t *ast.CurrentValue) (ir.Temp, kind, b
 	return dst, k, true, true
 }
 
-// emptyOf builds the empty collection of kind k: a list, set, map or vector.
+// emptyOf builds the empty collection of kind k: a list, set, map or
+// vector. It is the one constructor of an empty collection: a literal (`[]`,
+// `Set[]`, `{}`) is built at the kind the checker gave it (emptyLiteral), and
+// a value the builder makes for a position (a bare `..` at a missing key, a
+// std field's `[]` default) at the position's kind. The value has its kind
+// from the start; nothing retypes it later.
 func (bl *irScalarBuilder) emptyOf(at ast.Node, k kind) (ir.Temp, kind, bool, bool) {
 	pos := bl.g.irNodePos(at)
-	var v ir.Temp
-	var have kind
+	var dst ir.Temp
+	pure := false
 	switch {
-	case k.tag == tagList:
+	case k.tag == tagList && irRetainedValueKind(k):
 		c := ir.NewEmptyList(pos, bl.f.NewTemp(), nil)
 		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindEmptyList})
-		v, have = c.Dst(), kindEmptyList
-	case k.tag == tagMap:
+		dst = c.Dst()
+	case k.tag == tagMap && irRetainedMapKind(k):
 		c := ir.NewMakeMap(pos, bl.f.NewTemp(), nil)
 		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindEmptyMap, pureMake: true})
-		v, have = c.Dst(), kindEmptyMap
+		dst, pure = c.Dst(), true
+	case irRetainedVectorKind(k) || bl.g.irVectorValueKind(k):
+		c := ir.NewEmptyVector(pos, bl.f.NewTemp(), nil)
+		bl.b.Append(c)
+		dst = c.Dst()
+	case irRetainedSetKind(k):
+		c := ir.NewEmptySet(pos, bl.f.NewTemp(), nil)
+		bl.b.Append(c)
+		dst = c.Dst()
 	default:
-		if _, isVector := vectorElem(k); isVector {
-			c := ir.NewEmptyVector(pos, bl.f.NewTemp(), nil)
-			bl.b.Append(c)
-			bl.side(c.Dst(), irScalarSide{k: kindEmptyVector})
-			v, have = c.Dst(), kindEmptyVector
-			break
-		}
-		if _, isSet := setElem(k); isSet {
-			c := ir.NewEmptySet(pos, bl.f.NewTemp(), nil)
-			bl.b.Append(c)
-			bl.side(c.Dst(), irScalarSide{k: kindEmptySet})
-			v, have = c.Dst(), kindEmptySet
-			break
-		}
-		bl.g.dc.note("a bare `..` at a missing key of kind " + k.nomi())
+		bl.g.dc.note("an empty collection of kind " + k.nomi())
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	v, _, ok := bl.coerceEmpty(at, v, have, k)
-	if !ok {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	return v, k, false, true
+	bl.side(dst, irScalarSide{k: k, pureMake: pure})
+	return dst, k, true, true
 }
 
 // updateBuild lowers the struct update `{.., f: v}` at a position that holds
@@ -205,7 +199,7 @@ func (bl *irScalarBuilder) holdTemp(at ast.Node, v ir.Temp, k kind) ir.Temp {
 // where it is missing with nothing as its `..`. Both edges write the result
 // slot, which is the entry's value.
 func (bl *irScalarBuilder) updateEntry(value ast.Node, key, base ir.Temp, bk kind) (ir.Temp, kind, bool) {
-	if bk.tag != tagMap || bk == kindEmptyMap || bk.comp == nil || len(bk.comp.parts) != 2 {
+	if bk.tag != tagMap || bk.comp == nil || len(bk.comp.parts) != 2 {
 		bl.g.dc.note("a bare `..` at a key of a map whose kind is open")
 		return ir.NoTemp, kindInvalid, false
 	}
@@ -241,11 +235,9 @@ func (bl *irScalarBuilder) updateEntry(value ast.Node, key, base ir.Temp, bk kin
 			c.v = bl.variantPayload(value, found, mk.def, some)
 		}
 		bl.setCurrent(value, c)
-		v, k, _, ok := bl.lowerWant(value, vk)
+		// lowerWant answers vk when ok.
+		v, _, _, ok := bl.lowerWant(value, vk)
 		if !ok {
-			return false
-		}
-		if v, k, ok = bl.coerceEmpty(value, v, k, vk); !ok {
 			return false
 		}
 		bl.b.Append(ir.NewCopy(pos, slot, v))
@@ -281,12 +273,12 @@ func (bl *irScalarBuilder) setUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bool)
 		return no()
 	}
 	// A base that is another Iter (`[..maybe, x]`) is made a Set.
-	p, ok := bl.collectSpread(spreadPart{at: spread, v: base, k: bk}, setSpreadJoin)
+	p, ok := bl.collectSpread(t, spreadPart{at: spread, v: base, k: bk}, setSpreadJoin)
 	if !ok {
 		return no()
 	}
 	base, bk = p.v, p.k
-	if len(t.Items) == 0 && bk != kindEmptySet {
+	if len(t.Items) == 0 {
 		// `[..maybe]`: the Iter made a Set is the literal.
 		return base, bk, false, true
 	}
@@ -294,17 +286,12 @@ func (bl *irScalarBuilder) setUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bool)
 	items.Spreads = nil
 	// kindInvalid: sentinel — an open base gives the elements no kind.
 	elem := kindInvalid
-	if e, isSet := setElem(bk); isSet && bk != kindEmptySet {
+	if e, isSet := setElem(bk); isSet {
 		elem = e
 	}
 	lit, lk, _, ok := bl.setMakeOf(&items, elem)
 	if !ok {
 		return no()
-	}
-	if bk == kindEmptySet {
-		if base, bk, ok = bl.coerceEmpty(spread, base, bk, lk); !ok {
-			return no()
-		}
 	}
 	if bk != lk || !irRetainedSetKind(lk) {
 		return no()
@@ -396,20 +383,20 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bo
 		return no()
 	}
 	// A spread that is another Iter (`[x, ..maybe]`) is made a Vector.
-	p, ok := bl.collectSpread(spreadPart{at: spread, v: base, k: bk}, vectorSpreadJoin)
+	p, ok := bl.collectSpread(t, spreadPart{at: spread, v: base, k: bk}, vectorSpreadJoin)
 	if !ok {
 		return no()
 	}
 	base, bk = p.v, p.k
-	if len(t.Items) == 0 && bk != kindEmptyVector {
+	if len(t.Items) == 0 {
 		// `[..maybe]`: the Iter made a Vector is the literal.
 		return base, bk, false, true
 	}
 	// kindInvalid: sentinel — an open base gives the elements no kind.
 	elem := kindInvalid
-	if e, isVector := vectorElem(bk); isVector && bk != kindEmptyVector {
+	if e, isVector := vectorElem(bk); isVector {
 		elem = e
-	} else if bk != kindEmptyVector {
+	} else {
 		return no()
 	}
 	items := *t
@@ -418,12 +405,7 @@ func (bl *irScalarBuilder) vectorUpdate(t *ast.ListLit) (ir.Temp, kind, bool, bo
 	if !ok {
 		return no()
 	}
-	if bk == kindEmptyVector {
-		if base, bk, ok = bl.coerceEmpty(spread, base, bk, lk); !ok {
-			return no()
-		}
-	}
-	if lit, lk, ok = bl.coerceEmpty(t, lit, lk, bk); !ok {
+	if lit, lk, ok = bl.convertTo(t, lit, lk, bk); !ok {
 		return no()
 	}
 	first, second := base, lit

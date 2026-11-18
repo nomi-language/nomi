@@ -327,12 +327,6 @@ func refinementBaseOf(t Type) Type {
 	return nil
 }
 
-// IsDistinctRefinement reports whether t is a distinct refinement, whose
-// values are its base's at run time.
-func IsDistinctRefinement(t Type) bool {
-	return refinementOf(t) != nil
-}
-
 // eraseRefinements is t with each distinct refinement in it replaced by its
 // base: the type a value of t is at run time, which a comparison compares
 // it as.
@@ -341,56 +335,10 @@ func eraseRefinements(t Type, depth int) Type {
 		return t
 	}
 	t = resolveTypeVar(t)
-	each := func(ts []Type) ([]Type, bool) {
-		var out []Type
-		for i, a := range ts {
-			e := eraseRefinements(a, depth+1)
-			if e != a && out == nil {
-				out = append([]Type(nil), ts...)
-			}
-			if out != nil {
-				out[i] = e
-			}
-		}
-		return out, out != nil
+	if d, ok := t.(*DistinctType); ok && d.Subtype && d.Inner != nil {
+		return eraseRefinements(RefinementBase(d), depth+1)
 	}
-	switch tt := t.(type) {
-	case *DistinctType:
-		if tt.Subtype && tt.Inner != nil {
-			return eraseRefinements(RefinementBase(tt), depth+1)
-		}
-		if args, changed := each(tt.TypeArgs); changed {
-			c := *tt
-			c.TypeArgs = args
-			return &c
-		}
-	case *ListType:
-		if e := eraseRefinements(tt.Elem, depth+1); e != tt.Elem {
-			return &ListType{Elem: e}
-		}
-	case *MapType:
-		k, v := eraseRefinements(tt.Key, depth+1), eraseRefinements(tt.Val, depth+1)
-		if k != tt.Key || v != tt.Val {
-			return &MapType{Key: k, Val: v}
-		}
-	case *TupleType:
-		if elems, changed := each(tt.Elems); changed {
-			return &TupleType{Elems: elems}
-		}
-	case *EnumType:
-		if args, changed := each(tt.TypeArgs); changed {
-			c := *tt
-			c.TypeArgs = args
-			return &c
-		}
-	case *StructType:
-		if args, changed := each(tt.TypeArgs); changed {
-			c := *tt
-			c.TypeArgs = args
-			return &c
-		}
-	}
-	return t
+	return mapType(t, func(p Type) Type { return eraseRefinements(p, depth+1) })
 }
 
 // refinementJoin is the type of a join whose sides have types have and
@@ -422,8 +370,9 @@ func (c *checker) refinementJoin(have, next Type) Type {
 // refinementJoinShape walks a and b in step and answers the type each
 // position joins to: the type itself where the two are equal, the nearest
 // shared ancestor where a refinement is on either side, and the same
-// shape over the joined parts for lists, maps, tuples, functions' results
-// and generic nominals. ok is false where the two differ any other way.
+// shape over the joined parts where the two have the same shape
+// (pairedTypeChildren), a function's parameters excepted, which must be
+// the same. ok is false where the two differ any other way.
 func refinementJoinShape(a, b Type, depth int) (Type, bool) {
 	if depth > 16 || a == nil || b == nil {
 		return nil, false
@@ -450,76 +399,39 @@ func refinementJoinShape(a, b Type, depth int) (Type, bool) {
 		j := nearestSharedAncestor(a, b)
 		return j, j != nil
 	}
-	each := func(as, bs []Type) ([]Type, bool) {
-		if len(as) != len(bs) {
+	if st, ok := a.(*StructType); ok && st.Rule != "" {
+		// A validated struct's instances are checked apart.
+		return nil, false
+	}
+	as, bs, same := pairedTypeChildren(a, b)
+	if !same {
+		return nil, false
+	}
+	params := 0
+	if at, ok := a.(*FuncType); ok {
+		// A function's result joins; its parameters, which a value
+		// enters the other way, must be the same.
+		if at.DefaultCount != b.(*FuncType).DefaultCount {
 			return nil, false
 		}
-		out := make([]Type, len(as))
-		for i := range as {
-			j, ok := refinementJoinShape(as[i], bs[i], depth+1)
-			if !ok {
+		params = len(at.Params)
+	}
+	out := make([]Type, len(as))
+	for i := range as {
+		if i < params {
+			if !TypesIdentical(as[i], bs[i]) {
 				return nil, false
 			}
-			out[i] = j
+			out[i] = as[i]
+			continue
 		}
-		return out, true
-	}
-	switch at := a.(type) {
-	case *ListType:
-		if bt, ok := b.(*ListType); ok {
-			if e, ok := refinementJoinShape(at.Elem, bt.Elem, depth+1); ok {
-				return &ListType{Elem: e}, true
-			}
-		}
-	case *MapType:
-		if bt, ok := b.(*MapType); ok {
-			k, kok := refinementJoinShape(at.Key, bt.Key, depth+1)
-			v, vok := refinementJoinShape(at.Val, bt.Val, depth+1)
-			if kok && vok {
-				return &MapType{Key: k, Val: v}, true
-			}
-		}
-	case *TupleType:
-		if bt, ok := b.(*TupleType); ok {
-			if elems, ok := each(at.Elems, bt.Elems); ok {
-				return &TupleType{Elems: elems}, true
-			}
-		}
-	case *FuncType:
-		bt, ok := b.(*FuncType)
-		if !ok || len(at.Params) != len(bt.Params) || at.DefaultCount != bt.DefaultCount {
+		j, ok := refinementJoinShape(as[i], bs[i], depth+1)
+		if !ok {
 			return nil, false
 		}
-		for i := range at.Params {
-			if !TypesIdentical(at.Params[i], bt.Params[i]) {
-				return nil, false
-			}
-		}
-		if r, ok := refinementJoinShape(at.Return, bt.Return, depth+1); ok {
-			ft := *at
-			ft.Return = r
-			return &ft, true
-		}
-	case *EnumType:
-		if bt, ok := b.(*EnumType); ok && sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) {
-			if args, ok := each(at.TypeArgs, bt.TypeArgs); ok {
-				return instantiateNominal(at, args), true
-			}
-		}
-	case *StructType:
-		if bt, ok := b.(*StructType); ok && at.Rule == "" && sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) {
-			if args, ok := each(at.TypeArgs, bt.TypeArgs); ok {
-				return instantiateNominal(at, args), true
-			}
-		}
-	case *InterfaceType:
-		if bt, ok := b.(*InterfaceType); ok && sameNominalIdentity(at.Origin, at.Name, bt.Origin, bt.Name) {
-			if args, ok := each(at.TypeArgs, bt.TypeArgs); ok {
-				return instantiateNominal(at, args), true
-			}
-		}
+		out[i] = j
 	}
-	return nil, false
+	return withTypeChildren(a, out), true
 }
 
 // nearestSharedAncestor answers the nearest type a value of a and a value

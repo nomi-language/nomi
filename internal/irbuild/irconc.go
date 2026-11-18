@@ -26,13 +26,10 @@ import (
 func (bl *irScalarBuilder) concurrent(t *ast.ConcurrentBlock) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Body == nil {
-		return no()
+		panic("irbuild: concurrent: the parser gives every concurrent block a body")
 	}
 	defer bl.g.enterBlockTypes(t.Body)()
-	lead, body := bl.g.irScalarBlock(t.Body, "")
-	if body == nil {
-		return no()
-	}
+	lead, body := bl.g.irScalarBlock(t.Body)
 	at := bl.g.irNodePos(t)
 	f := ir.NewFunc(at, "concurrent")
 	sh := &irFuncShell{fn: f, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{}, patternOK: true}
@@ -139,15 +136,12 @@ func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, 
 		}
 		fn := args.temps[0]
 		payload := funcResult(fk)
-		handle, built := bl.g.taskHandleKind(payload)
-		if !built {
-			return no()
-		}
+		handle := bl.g.taskHandleKind(payload)
 		return bl.concHostEmit(t, "Task.spawn", handle, fn)
 	}
 	fn, known := taskFuncs[method]
 	if !known || fn.spawn {
-		return no()
+		panic("irbuild: taskCall: taskFuncs lists every std/tasks function, and spawn/spawn_all are dispatched before this point")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok {
@@ -170,7 +164,7 @@ func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, 
 		result = bl.g.listKind(payload)
 		// kindInvalid: lookup — a List over a payload with no interned kind declines.
 		if result == kindInvalid {
-			return no()
+			panic("irbuild: taskCall: listKind of a payload that already has a task handle is always interned")
 		}
 	case "await":
 		result = payload
@@ -188,16 +182,16 @@ func (bl *irScalarBuilder) taskCall(t *ast.Call, method string) (ir.Temp, kind, 
 }
 
 // taskSpawnAll lowers `Task.spawn_all(source, f, max_running: n)` over a
-// sequence source. Arguments are placed by taskPlacement and evaluated in
+// sequence source. Arguments are placed by the call's record and evaluated in
 // its order, forcing every one but the last evaluated.
 func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	plan, planned := taskPlacement(taskFuncs["spawn_all"], t.Args)
+	plan, planned := bl.g.callPlan(t, taskFuncs["spawn_all"].args)
 	if !planned || len(t.Args) != 3 {
 		return no()
 	}
 	if _, contiguous := contiguousSlots(plan); !contiguous {
-		return no()
+		panic("irbuild: taskSpawnAll: all three spawn_all parameters are required, so the slots are always contiguous (reordered named args lowered)")
 	}
 	temps := make([]ir.Temp, len(t.Args))
 	kinds := make([]kind, len(t.Args))
@@ -220,7 +214,9 @@ func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool)
 		temps[0], src = view, seqKindIn(bl.g, elem)
 	}
 	if src.tag != tagSeq || src.comp == nil || kinds[2] != kindInt {
-		return no()
+		// The source is a lowered Iter or the view just built, and the
+		// checker types max_running a PositiveInt, an Int.
+		panic("irbuild: Task.spawn_all over " + src.nomi() + " with max_running of kind " + kinds[2].nomi())
 	}
 	elem := seqElem(src)
 	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 {
@@ -232,14 +228,11 @@ func (bl *irScalarBuilder) taskSpawnAll(t *ast.Call) (ir.Temp, kind, bool, bool)
 		return no()
 	}
 	payload := funcResult(fn)
-	handle, built := bl.g.taskHandleKind(payload)
-	if !built {
-		return no()
-	}
+	handle := bl.g.taskHandleKind(payload)
 	result := bl.g.listKind(handle)
 	// kindInvalid: lookup — a List over a handle with no interned kind declines.
 	if result == kindInvalid {
-		return no()
+		panic("irbuild: taskSpawnAll: listKind of a built task handle is always interned")
 	}
 	return bl.concHostEmit(t, "Task.spawn_all", result, temps...)
 }

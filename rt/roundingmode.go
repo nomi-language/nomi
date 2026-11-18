@@ -5,10 +5,9 @@ import "fmt"
 // RoundingMode is Nomi's `std/decimal.RoundingMode`: which way a decimal
 // operation resolves a value it cannot represent exactly.
 //
-// Here for the reason Ordering and Direction are in rt rather than in a
-// generated package: it is declared in a std module and named from user
-// packages, so no generated package can own it without two packages owning one
-// Nomi type. See internal/irbuild/stdenum.go.
+// Here for the reason Ordering and Direction are in rt: std's Go adapters
+// name it, and internal/irbuild/stdenum.go pairs the std declaration with
+// this Go type.
 //
 // It carries no behaviour of its own. The mode is an argument a rounding
 // operation takes, and the arithmetic that reads it lives with the decimal

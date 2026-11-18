@@ -130,9 +130,9 @@ func BytesSeq(data Bytes) Seq[Byte] {
 // MapEachWhile is `impl Iter for Map<K, V>`'s
 // `host fn each_while(m: Map<K, V>, yield: ((K, V)) -> Bool) -> Bool`.
 //
-// `pair` builds the caller's `(K, V)` tuple, because a Nomi tuple lowers to an
-// anonymous Go struct generated per package and rt cannot name it. The closure
-// is allocated once when the pipeline is built, not per element.
+// `pair` builds the caller's `(K, V)` tuple: the VM passes the constructor
+// of its own tuple value (internal/vm/lend.go). The closure is allocated
+// once when the pipeline is built, not per element.
 //
 // The order is `MapEntries`', which is insertion order and is the single
 // ordered accessor in this package: `FormatMap` and `MapEqual` read it too.
@@ -282,7 +282,7 @@ func DropEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item 
 	})
 }
 
-// SeqDrop is `pub fn drop<T>(source: Iter<T>, n: Int) -> Iter<T>`.
+// SeqDrop is `pub fn drop<T>(source: Iter<T>, n: NonNegativeInt) -> Iter<T>`.
 func SeqDrop[T any](src Seq[T], n int64) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return DropEach(fr, src, n, yield)
@@ -291,8 +291,7 @@ func SeqDrop[T any](src Seq[T], n int64) Seq[T] {
 
 // WithIndexEach is `host fn with_index_each<T>(source: Iter<T>, yield) -> Bool`.
 //
-// `pair` builds the `(Int, T)` tuple for the same reason MapEachWhile takes
-// one: the tuple is an anonymous Go struct rt cannot name.
+// `pair` builds the `(Int, T)` tuple, as MapEachWhile's does.
 //
 // The index is incremented for every element the source produced, whether or
 // not the consumer accepted it — which is the only reading that makes
@@ -596,9 +595,8 @@ func seqPull[U any](fr *Frame, src Seq[U]) (next func() (U, bool), stop func()) 
 // exhausted. Reporting `completed` alone would tell every enclosing adapter that
 // a consumer had refused an element, which is the protocol's other meaning.
 //
-// The pair constructor is emitted by the call site, for the reason every
-// tuple-shaped entry point in this package takes one: a Nomi tuple lowers to a
-// per-package anonymous Go struct rt cannot name.
+// The pair constructor is the caller's, as at every tuple-shaped entry point
+// in this package (MapEachWhile).
 func SeqZip[T, U, P any](left Seq[T], right Seq[U], pair func(T, U) P) Seq[P] {
 	return SeqZipCursor(left, right, nil, pair)
 }

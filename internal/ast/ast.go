@@ -162,8 +162,20 @@ type StringPart interface {
 }
 
 // StringText is a literal text segment inside an interpolated string.
+// Dollars are the `$name`s it writes (DollarRef).
 type StringText struct {
-	Value string
+	Value   string
+	Dollars []DollarRef
+}
+
+// DollarRef is a `$name` written in the text of a quoted or triple-quoted
+// string without a tag, as the lexer recorded it (token.DollarRef): the
+// name and the position of its `$`. The name is text; the checker warns
+// when it names a value in scope.
+type DollarRef struct {
+	Name string
+	Line int
+	Col  int
 }
 
 func (StringText) stringPart() {}
@@ -552,6 +564,11 @@ type StringLit struct {
 	// last line is the source line above EndLine.
 	EndLine int
 	EndCol  int
+	// Dollars are the `$name`s the text writes (DollarRef), and Source the
+	// literal as written, quotes included, when it is a one-line literal
+	// with one: what a warning about them shows rewritten.
+	Dollars []DollarRef
+	Source  string
 }
 
 func (*StringLit) NodeType() string { return "StringLit" }
@@ -570,6 +587,9 @@ type StringInterp struct {
 	// triple-quoted literal, and zero otherwise.
 	EndLine int
 	EndCol  int
+	// Source is StringLit's: a one-line literal as written, when one of
+	// its text parts holds a DollarRef.
+	Source string
 }
 
 func (*StringInterp) NodeType() string { return "StringInterp" }
@@ -730,15 +750,6 @@ func Operands(items []Node, spreads []Spread) []Node {
 	return append(out, items[next:]...)
 }
 
-// SpreadHeads is each spread's head, in the order written.
-func SpreadHeads(spreads []Spread) []Node {
-	out := make([]Node, len(spreads))
-	for i, s := range spreads {
-		out[i] = s.Head
-	}
-	return out
-}
-
 // IsSpreadHead reports whether n is the head of one of spreads.
 func IsSpreadHead(n Node, spreads []Spread) bool {
 	for _, s := range spreads {
@@ -775,7 +786,8 @@ type MapLit struct {
 	// Map's `+` does. Only ever set on the anonymous form.
 	Spreads []Spread
 	// ShapeHead is analyzer-filled: TypeName names std's `Map` itself
-	// (`Map{"a" => 1}`), so the literal is the unnamed one.
+	// (`Map{"a" => 1}`), which the checker reports and then checks as the
+	// unnamed literal.
 	ShapeHead bool
 	// EndTrivia holds trailing comments / blank lines between the last
 	// entry and the closing `}`. Mirrors StructLit.EndTrivia — captured
@@ -1457,10 +1469,6 @@ type StructDef struct {
 	// `struct Range<T> where T: Comparable { ... }`.
 	WhereClauses []WhereConstraint
 	Fields       []StructField
-	// Items holds the non-field body items of the type-body item syntax:
-	// once bindings and named tests, in source order relative to each other.
-	// Fields land in Fields, not here.
-	Items []Node
 	// EndTrivia holds trailing comments / blank lines that sit between the
 	// last field and the closing `}`. The formatter renders these inside
 	// the braces so `nomi fmt -w` doesn't drop or refuse them. Kept distinct
@@ -1606,10 +1614,6 @@ type EnumDef struct {
 	// `enum Box<T> where T: Display { ... }`.
 	WhereClauses []WhereConstraint
 	Variants     []EnumVariant
-	// Items holds the non-variant body items of the type-body item syntax:
-	// once bindings and named tests, in source order relative to each other.
-	// Variants land in Variants, not here.
-	Items []Node
 	// EndTrivia holds trailing comments / blank lines between the last
 	// variant and the closing `}`. Mirrors StructDef.EndTrivia.
 	EndTrivia []Trivia
@@ -1670,20 +1674,9 @@ type TypeDef struct {
 	Rule     Node
 	RuleLine int
 	RuleCol  int
-	// HasBody/Items are retained for compiler-synthesized or legacy internal
-	// nodes. Source `type` declarations do not carry bodies; type-qualified
-	// functions and once bindings live in sibling `impl Type { ... }` blocks.
-	HasBody bool
-	Items   []Node
-	// EndTrivia holds trailing comments / blank lines between the last
-	// body item and the closing `}`. Mirrors StructDef.EndTrivia. Empty
-	// when HasBody is false.
-	EndTrivia []Trivia
-	Doc       string
-	Line      int
-	Col       int
-	EndLine   int // closing `}` when HasBody; zero otherwise
-	EndCol    int
+	Doc      string
+	Line     int
+	Col      int
 }
 
 func (*TypeDef) NodeType() string { return "TypeDef" }
@@ -2114,11 +2107,6 @@ type ImplBlock struct {
 	Generics      []TypeParam
 	WhereClauses  []WhereConstraint
 	Items         []Node // each is a *FuncDef or *ExternFunc
-	// InferInterfaceMethods marks legacy/synthesized blocks whose items are
-	// candidates for the interface instead of direct members of the block.
-	// Source `impl Iface for Type { ... }` blocks leave this false because the
-	// header already names the one interface for every item.
-	InferInterfaceMethods bool
 	// EndTrivia holds trailing comments / blank lines between the last
 	// item and the closing `}`. Mirrors StructDef.EndTrivia / InterfaceDef.EndTrivia.
 	EndTrivia []Trivia
@@ -2755,15 +2743,6 @@ type FuncDef struct {
 	// impl lives in a different file than its declaration doesn't collide with
 	// the auto impl the per-file synthesis pass would otherwise emit.
 	AutoSynth bool
-	// ImplFunction is retained for legacy/synthesized ASTs. Source
-	// implementation functions now live as plain `fn` items inside
-	// `impl Iface for Type { ... }` blocks.
-	ImplFunction bool
-	// ImplLine / ImplCol record the `impl` keyword for ImplFunction nodes.
-	// Line / Col still point at the function name, so editor hover needs this
-	// separate source position to attach to the marker keyword itself.
-	ImplLine int
-	ImplCol  int
 	// Expansion is set on a function a keyword declaration expanded into
 	// (KeywordDecl): its name and parameters are the declaration's, and its
 	// return type and body are positioned in the synthesized band. Nil for
@@ -2772,12 +2751,6 @@ type FuncDef struct {
 	// ImplIface records the interface this function implements, filled by
 	// analysis for items inside `impl Iface for Type { ... }` blocks.
 	ImplIface TypeExpr
-	// ImplIfaceInferred is true when analysis filled ImplIface from a
-	// synthesized/legacy inferred block.
-	ImplIfaceInferred bool
-	// ImplIfaceSourceQualified is retained for legacy ASTs. Source no longer
-	// accepts qualified implementation function headers.
-	ImplIfaceSourceQualified bool
 	// Line is the line of the `fn` keyword and Col the column of the name;
 	// FnCol is the keyword's column, which the editor's hover answers on.
 	Line  int
@@ -2805,30 +2778,21 @@ type ExternFunc struct {
 	ReturnTypeExpr  TypeExpr // structured return type annotation, nil if absent
 	WhereClauses    []WhereConstraint
 	Doc             string
-	// ImplFunction mirrors FuncDef.ImplFunction for legacy/synthesized ASTs.
-	ImplFunction bool
-	// ImplLine / ImplCol mirror FuncDef.ImplLine / ImplCol.
-	ImplLine int
-	ImplCol  int
 	// ImplIface records the interface this extern function implements. Mirrors
 	// FuncDef.ImplIface.
-	ImplIface TypeExpr
-	// ImplIfaceInferred mirrors FuncDef.ImplIfaceInferred.
-	ImplIfaceInferred bool
-	// ImplIfaceSourceQualified mirrors FuncDef.ImplIfaceSourceQualified.
-	ImplIfaceSourceQualified bool
-	Line                     int
-	Col                      int
-	DefinitionFile           string
-	DefinitionLine           int
-	DefinitionCol            int
-	DefinitionSpan           int
-	ForeignAlias             string
-	ForeignName              string
-	ForeignAliasLine         int
-	ForeignAliasCol          int
-	ForeignNameLine          int
-	ForeignNameCol           int
+	ImplIface        TypeExpr
+	Line             int
+	Col              int
+	DefinitionFile   string
+	DefinitionLine   int
+	DefinitionCol    int
+	DefinitionSpan   int
+	ForeignAlias     string
+	ForeignName      string
+	ForeignAliasLine int
+	ForeignAliasCol  int
+	ForeignNameLine  int
+	ForeignNameCol   int
 }
 
 func (*ExternFunc) NodeType() string { return "ExternFunc" }
@@ -2848,42 +2812,21 @@ type ImplMethodDecl interface {
 func (*FuncDef) isImplMethodDecl()    {}
 func (*ExternFunc) isImplMethodDecl() {}
 
-// ExternType declares a primitive type provided by the runtime. It may
-// carry an optional `{ ... }` item body (type-body item syntax):
-//
-//	pub host type List<T> {
-//	  fn map(list: List<T>, f: (T) -> U) -> List<U> { ... }
-//	}
-//
-//	impl Iter for List<T> {
-//	  host fn next(s: List<T>) -> Maybe<(T, List<T>)>
-//	}
-//
-// A bodiless declaration (`pub host type Unit`) is unchanged.
+// ExternType declares a type provided by the runtime: `pub host type
+// List<T>`. It has no body; its functions are in `impl` blocks or beside it.
 type ExternType struct {
 	TriviaCarrier
 	SpanCarrier
-	Name          string
-	Public        bool
-	Opaque        bool
-	TypeParams    []TypeParam
-	WhereClauses  []WhereConstraint
-	AttachedTests []AttachedTest // prompt tests attached to this declaration
-	Decorators    []Decorator    // `derive` decorators the derive lowering adds; nil when none
-	// HasBody/Items are retained for compiler-synthesized or legacy internal
-	// nodes. Source `host type` declarations do not carry bodies;
-	// type-qualified functions and once bindings live in sibling
-	// `impl Type { ... }` blocks.
-	HasBody bool
-	Items   []Node
-	// EndTrivia holds trailing comments / blank lines between the last
-	// body item and the closing `}`. Empty when HasBody is false.
-	EndTrivia        []Trivia
+	Name             string
+	Public           bool
+	Opaque           bool
+	TypeParams       []TypeParam
+	WhereClauses     []WhereConstraint
+	AttachedTests    []AttachedTest // prompt tests attached to this declaration
+	Decorators       []Decorator    // `derive` decorators the derive lowering adds; nil when none
 	Doc              string
 	Line             int
 	Col              int
-	EndLine          int // closing `}` when HasBody; zero otherwise
-	EndCol           int
 	DefinitionFile   string
 	DefinitionLine   int
 	DefinitionCol    int

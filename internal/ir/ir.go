@@ -60,11 +60,9 @@ type Pos struct {
 	endCol  int32
 	// synth marks a position the front end derived rather than read: `derive`
 	// synthesis allocates from a band around 2^30, which is not a real source
-	// line. The builder's `gen.at` IGNORES such a line and leaves the cursor
-	// where it was, which is a second inheritance
-	// path into the same defect class as the `Iter.loop` exit. A synthesized Pos
-	// carries the ORIGIN it was derived from, so a consumer can blame the
-	// `derive` the programmer wrote instead of inheriting.
+	// line. A synthesized Pos carries the ORIGIN it was derived from, so a
+	// consumer can blame the `derive` the programmer wrote. See
+	// AtSynthesized.
 	synth bool
 	// stdlib marks a position in a standard library module's source. A
 	// trap raised there is reported at the program's own call into the
@@ -91,11 +89,6 @@ type Pos struct {
 // here makes the defect unconstructable rather than reportable, and the rule
 // keeps the narrower population every gate in this package leaves it: a Pos
 // built by a composite literal inside this package.
-//
-// Every builder `gen` that lowers anything takes its path from its module
-// (`native.go`'s constructor and `newStdGen`). The one `&gen{}` literal in
-// the builder with no path, `stdinstance.go`'s per-package text assembler,
-// lowers nothing and reaches no position.
 func At(file string, line, col int) Pos {
 	requireAt(file, line, col)
 	return Pos{file: file, line: int32(line), col: int32(col),
@@ -112,10 +105,10 @@ func At(file string, line, col int) Pos {
 // same narrower population every gate here leaves it: a Pos built by a
 // composite literal INSIDE this package.
 //
-// ITS ONE PRODUCER TODAY IS AN INTERPOLATED STRING, and that is stated so
-// nobody prices work off the constructor's generality. `internal/irbuild`'s
-// `irNodeSpan` answers a span for `*ast.StringInterp` and `*ast.TaggedString`
-// — whose `${...}` holes are nodes with their own lines — and a POINT for
+// ITS PRODUCERS TODAY ARE STRING LITERALS, and that is stated so nobody
+// prices work off the constructor's generality. `internal/irbuild`'s
+// `irNodeSpan` answers a span for a triple-quoted `*ast.StringLit`, an
+// `*ast.StringInterp` and an `*ast.TaggedString`, and a POINT for
 // every other node in the language. The second multi-line construct Nomi has,
 // a pipe chain written one stage per line, has no construction site for a span
 // because the desugaring hands each STAGE's own call node to the call path and
@@ -158,8 +151,8 @@ func AtSynthesized(file string, originLine, originCol int) Pos {
 func (p Pos) File() string { return p.file }
 
 // Line is the 1-based Nomi line the construct STARTS on. This is what a
-// consumer blames: a `//line` directive, a diagnostic, a breakpoint's
-// reported location.
+// consumer blames: a diagnostic, a trap's line, a breakpoint's reported
+// location.
 func (p Pos) Line() int { return int(p.line) }
 
 // Col is the 1-based Nomi column the construct starts at.
@@ -521,7 +514,7 @@ type Func struct {
 	//
 	// FIRST WRITE, not the only one: this IR is deliberately not SSA (see the
 	// package header), because two arms of a branch writing one destination
-	// is what `gen.slot` / `gen.fixSlot` already is. So Def answers the
+	// is what `internal/irbuild`'s branch lowering builds. So Def answers the
 	// definition a reader starts from, and Lint's RuleTempDefinedBeforeUse
 	// checks the property multiple definitions actually have to satisfy —
 	// that every path from the entry to a use passes through one of them.

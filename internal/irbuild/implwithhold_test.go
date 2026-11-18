@@ -13,10 +13,10 @@ import (
 //
 // `implDef.mayWithhold` is the safety condition of the whole narrowing: a block
 // may lower without supplying a method only when no route can select that
-// method. If a withheld method's dispatch table were live, `tableCall` would
-// emit `m.table.Get(recv)(…)` for a receiver that binds no entry — a RUN-TIME
-// TRAP on a program the checker accepted, which is strictly worse than
-// refusing the block.
+// method. If a withheld method's dispatch table were live, a call through it
+// would dispatch on a receiver that binds no entry — a RUN-TIME TRAP on a
+// program the checker accepted, which is strictly worse than refusing the
+// block.
 //
 // # THE GRANULARITY THIS IS ASSERTED AT, stated because it is the point
 //
@@ -85,11 +85,10 @@ func TestIRImplWithhold_EveryWithheldMethodIsUndispatchable(t *testing.T) {
 //
 // A withheld method is ABSENT from `d.items` rather than present-and-refused,
 // because most readers of `d.items[name]` consult only `!= nil`, not
-// `lowerable`: `bindImpl`, `interfaceCall`, `typeQualifiedCall`,
-// `foreignIfaceCall`, `equalCall`, `to_string`, `assertable.go`,
-// `genericimpl.go`, `operimpl.go`, `stdenum.go`, `tail.go` and one of
-// `literal.go`'s readers among them. They would take the item's `goName`,
-// naming a function `emitImpl` never wrote.
+// `lowerable`: those in `irinterfacecall.go`, `irqualcall.go`,
+// `irequality.go`, `operimpl.go` and `stdenum.go`, and one of `literal.go`'s
+// readers, among them. They would call the item's function, one `implFunc`
+// never built.
 //
 // So the hook is a trap: writing `false` into it looks like the smaller change
 // and is the larger one. This test is that sentence with a failure mode. It

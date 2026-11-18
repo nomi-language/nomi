@@ -4,6 +4,7 @@ import (
 	"maps"
 	"strconv"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -104,7 +105,7 @@ func (bl *irScalarBuilder) parseFieldTexts(t *ast.Call, k kind) (ir.Temp, kind, 
 		p := ir.NewProjRecordField(pos, bl.f.NewTemp(), subj, k.comp.names[i], irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		text, ok := bl.displayValue(t, p.Dst(), part)
+		text, ok := bl.displayValue(t, p.Dst(), part, nil)
 		if !ok {
 			return ir.NoTemp, kindInvalid, false
 		}
@@ -208,8 +209,13 @@ func (bl *irScalarBuilder) parseCall(t *ast.Call, i int, text ir.Temp, part kind
 		Args: []ast.Node{&ast.Ident{Name: name, Line: line}},
 		Line: line,
 	}
+	defer bl.g.carryCall(call, analysis.PositionalCall(1, 1))()
+	// Which function parses field i is chosen here from the field's kind:
+	// the checker checks `P.parse_fields` once, generically, and never
+	// sees the record P stands for in this instance.
+	bl.g.markUnchecked(call)
 	if irKindDeclared(part) {
-		v, rk, _, ok := bl.kindImplCall(call, part, "parse")
+		v, rk, _, ok := bl.kindImplCall(call, part, nil, "parse")
 		return v, rk, ok
 	}
 	owner := part.nomi()
@@ -233,7 +239,7 @@ func (bl *irScalarBuilder) parseCall(t *ast.Call, i int, text ir.Temp, part kind
 		// The impl is in a std module lowered with the program, as
 		// std/parse's own for Int and String are: the type-qualified call
 		// reaches it as one the program wrote.
-		if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, "parse"); handled {
+		if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, nil, "parse"); handled {
 			return v, rk, ok
 		}
 		v, rk, _, ok := bl.lower(call)
@@ -263,7 +269,7 @@ func (bl *irScalarBuilder) unitParseFields(t *ast.Call) (ir.Temp, kind, bool) {
 	}
 	someV := mk.def.variant("Some")
 	if someV == nil {
-		return ir.NoTemp, kindInvalid, false
+		panic("irbuild: unitParseFields: the prelude Maybe has Some")
 	}
 	u := ir.NewUnit(bl.g.irNodePos(t), bl.f.NewTemp())
 	bl.b.Append(u)

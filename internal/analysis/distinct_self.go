@@ -180,6 +180,7 @@ func (c *checker) checkSelfValue(n *ast.SelfExpr) Type {
 // checkSelfCall checks `self(x)`: x is the wrapped value, and the call
 // builds a `self`.
 func (c *checker) checkSelfCall(n *ast.Call) Type {
+	c.recordPositional(n, false)
 	callee := n.Func.(*ast.SelfExpr)
 	inner, ok := c.selfInner(callee.Line, callee.Col)
 	if !ok {

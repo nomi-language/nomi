@@ -7,46 +7,32 @@ import (
 
 // Module-level `once` bindings.
 //
-// # What has to survive the lowering, and what breaks each cheap answer
+// # What the lowering keeps
 //
-// Spec §6 *`once` Bindings* gives `once` three properties, and the two obvious Go encodings each
-// break a different one:
+// Spec §6 *`once` Bindings* gives `once` three properties:
 //
-//   - LAZY. The RHS runs on first access, so `once a = b + 1` may sit ABOVE
-//     `once b = 5` and definition order is irrelevant. A Go package-level `var`
-//     is eager, and Go's initialization order is its own graph rather than
-//     Nomi's — so an RHS reaching through a function call Go cannot see into is
-//     ordered wrongly, silently.
-//   - EXACTLY ONCE. The RHS's side effects happen once and the first force is
-//     serialized across them. An eager `var` also runs the RHS in a program
-//     that never reads the binding, which is observable whenever the RHS
-//     prints or fails.
-//   - CYCLE-REJECTING. `once a = a`, and the interesting form, a cycle through
-//     an ordinary function call, are a diagnosed Nomi error rather than a hang.
-//     `sync.Once.Do` re-entered on one goroutine DEADLOCKS, so the shape that
-//     covers the first two guarantees breaks the third by itself.
+//   - Lazy. The RHS runs on first access, so `once a = b + 1` may sit above
+//     `once b = 5` and definition order is irrelevant.
+//   - Exactly once. The RHS's side effects happen once and the first force is
+//     serialized across them. A program that never reads the binding never
+//     runs the RHS, which is observable whenever the RHS prints or fails.
+//   - Cycle-rejecting. `once a = a`, and a cycle through an ordinary function
+//     call, are a diagnosed Nomi error rather than a hang.
 //
-// So the value lives in an rt.OnceCell — sync.Once's mutex-plus-atomic shape
-// with the cycle test in front of the lock. See rt/once.go for why the lineage is a cons-list on
-// the frame rather than a flag on the cell, and why a static acyclicity proof
-// was rejected.
+// So the value lives in an rt.OnceCell, which the VM makes one of per cell
+// (internal/vm/once.go): sync.Once's mutex-plus-atomic shape with the cycle
+// test in front of the lock. See rt/once.go for why the lineage is a
+// cons-list on the frame rather than a flag on the cell, and why a static
+// acyclicity proof was rejected.
 //
-// # Three declarations per binding, and why the RHS is its own function
+// # The cell and its initializer
 //
-//	func nomiOnceRHS_x(fr *rt.Frame) int64 { ... }
-//	var nomiOnceCell_x = rt.NewOnceCell[int64]("x")
-//	func NomiOnce_x(fr *rt.Frame) int64 { return nomiOnceCell_x.Get(fr, nomiOnceRHS_x) }
-//
-// The RHS as a named top-level function rather than a closure at the Get site:
-// a closure over nothing still costs a func value at the call, and — the
-// reason that matters — the RHS is an ordinary generated function body, built
-// as IR and read back like a `fn` body (irOnceLower), with the same scope
-// stack, `//line` attribution and refusals. `fr` is the parameter it
-// receives, which is what makes the forcing lineage rt.OnceCell.force
-// installed reach everything the RHS calls.
-//
-// The getter is exported (`NomiOnce_`) for the same reason a lowered function
-// is: another generated package may read a `pub once`.
+// A binding lowers to a lazy cell the module declares under the binding's
+// symbol (`ir.Module.DeclareLazyCell`, irOnceCellLower) and an initializer
+// that is an `ir.Func` of its own. The RHS is built as a `fn` body is, with
+// the same scope stack and refusals. A read is an `ir.RefOnce` naming the
+// cell's symbol, which the VM forces on the reading activation's frame, so
+// the forcing lineage reaches everything the RHS calls.
 //
 // # A once is not a local, and the lookup order says so
 //
@@ -70,7 +56,7 @@ type onceDef struct {
 
 func (o *onceDef) lowerable() bool { return o.why == "" }
 
-// declareOnces types every module-level `once` before any body is emitted.
+// declareOnces types every module-level `once` before any body is lowered.
 //
 // Before, for the same reason function signatures are collected before bodies:
 // a `once` may be read by a function declared above it, and by another `once`
@@ -112,7 +98,7 @@ func (g *gen) declareOnce(ob *ast.OnceBinding, owner string) {
 	if _, dup := g.onces[name]; dup {
 		// Two `once`s with one name is an analyzer error, so this is
 		// unreachable on checked input; keeping the first is the answer
-		// that cannot emit two declarations under one identifier.
+		// that cannot declare two cells under one name.
 		return
 	}
 	d := &onceDef{
@@ -141,7 +127,6 @@ func (g *gen) declareOnce(ob *ast.OnceBinding, owner string) {
 	// to the DECLARATION and not to any spelling of it. The two maps hold
 	// one *onceDef, so they cannot describe the binding differently.
 	g.oncesByDecl[ob] = d
-	g.onceOrder = append(g.onceOrder, d)
 }
 
 // inferredOnceKind is the type the checker solved for an unannotated `once`,
@@ -166,7 +151,7 @@ func (g *gen) inferredOnceKind(ob *ast.OnceBinding) kind {
 	return g.project(sym.Type)
 }
 
-// onceDecl emits one `once` binding's three declarations.
+// onceDecl lowers one `once` binding: its cell and its initializer.
 func (g *gen) onceDecl(ob *ast.OnceBinding) {
 	g.at(ob.Line)
 	d := g.oncesByDecl[ob]
@@ -186,16 +171,14 @@ func (g *gen) onceDecl(ob *ast.OnceBinding) {
 		return
 	}
 
-	// The RHS is a function body, emitted through the machinery a `fn` uses:
-	// its own result kind, its own scope, no enclosing loop boundary and no
-	// enclosing lambda's result inference. They are saved rather than
+	// The RHS is a function body, lowered through the machinery a `fn` uses:
+	// its own result kind, its own scope and no enclosing lambda's result
+	// inference. They are saved rather than
 	// assumed, so a caller's state never leaks in or out.
-	// g.tail alongside g.ctrl, for tail.go's reason: a `once` initializer is
-	// its own Go function, so a tail label from elsewhere does not reach it.
-	prevResult, prevInfer, prevCtrl, prevTail := g.result, g.inferResult, g.ctrl, g.tail
-	g.result, g.inferResult, g.ctrl, g.tail = d.k, nil, nil, nil
+	prevResult, prevInfer := g.result, g.inferResult
+	g.result, g.inferResult = d.k, nil
 	defer func() {
-		g.result, g.inferResult, g.ctrl, g.tail = prevResult, prevInfer, prevCtrl, prevTail
+		g.result, g.inferResult = prevResult, prevInfer
 	}()
 
 	g.pushScope()
@@ -220,8 +203,7 @@ func (g *gen) onceDecl(ob *ast.OnceBinding) {
 // qualified and the bare spelling, because everything past resolution is
 // identical: the same declaration, the same visibility rule, the same cycle
 // question and the same kind translation. Two spellings of one reference must
-// not be able to answer differently — the reason siblingCall routes
-// through callSibling rather than growing a second body.
+// not be able to answer differently.
 func (g *gen) refSiblingOnce(at ast.Node, to int, d *onceDef) (kind, bool) {
 	// Not a `once` at all, or a private one — the latter falls through to the
 	// caller's own refusal rather than getting a key of its own, because `pub`
@@ -237,7 +219,7 @@ func (g *gen) refSiblingOnce(at ast.Node, to int, d *onceDef) (kind, bool) {
 		g.reject(d.why, key, at)
 		return kindInvalid, true
 	}
-	// The kind belongs to the DECLARING package, so it is translated before
+	// The kind belongs to the declaring file's gen, so it is translated before
 	// use: a mirror is a different pointer from the owner's def. A translation
 	// that fails names its own reason.
 	result, ok := g.importKind(d.k)

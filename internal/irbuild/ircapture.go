@@ -16,7 +16,7 @@ import (
 func (bl *irScalarBuilder) runCaptured(t *ast.Call, key string, rest ...kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if namedArgNode(t.Args) != nil || len(t.Args) != 3 {
-		return no()
+		panic("irbuild: runCaptured: runCaptured lowers std/io's private run_captured/run_replayed, called only from io.capture/io.replay bodies with three positional args")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || args.kinds[0] != kindString {
@@ -24,15 +24,15 @@ func (bl *irScalarBuilder) runCaptured(t *ast.Call, key string, rest ...kind) (i
 	}
 	run, finish := args.kinds[1], args.kinds[2]
 	if run.tag != tagFunc || run.comp == nil || len(funcParams(run)) != 0 {
-		return no()
+		panic("irbuild: runCaptured: the run argument in the std bodies is always a zero-parameter function value")
 	}
 	if finish.tag != tagFunc || finish.comp == nil || len(funcParams(finish)) != 1+len(rest) ||
 		funcParams(finish)[0] != funcResult(run) {
-		return no()
+		panic("irbuild: runCaptured: the finish argument in the std bodies always has the matching shape")
 	}
 	for i, k := range rest {
 		if funcParams(finish)[1+i] != k {
-			return no()
+			panic("irbuild: runCaptured: finish's trailing parameter kinds are fixed by the std declarations")
 		}
 	}
 	return bl.concHostEmit(t, key, funcResult(finish), args.temps...)
@@ -48,7 +48,7 @@ func (bl *irScalarBuilder) runCaptured(t *ast.Call, key string, rest ...kind) (i
 func (bl *irScalarBuilder) runOnFiles(t *ast.Call, key string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if namedArgNode(t.Args) != nil || len(t.Args) != 3 {
-		return no()
+		panic("irbuild: runOnFiles: runOnFiles lowers std/fs/host's private run_on, called only from std::fs::host.run_in's body with three positional args")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok {
@@ -56,11 +56,11 @@ func (bl *irScalarBuilder) runOnFiles(t *ast.Call, key string) (ir.Temp, kind, b
 	}
 	body, finish := args.kinds[1], args.kinds[2]
 	if body.tag != tagFunc || body.comp == nil || len(funcParams(body)) != 0 {
-		return no()
+		panic("irbuild: runOnFiles: the body argument in std::fs::host.run_in is always a zero-parameter function value")
 	}
 	if finish.tag != tagFunc || finish.comp == nil || len(funcParams(finish)) != 1 ||
 		funcParams(finish)[0] != funcResult(body) {
-		return no()
+		panic("irbuild: runOnFiles: std::fs::host.run_in's finish is the identity lambda over the body's result")
 	}
 	return bl.concHostEmit(t, key, funcResult(finish), args.temps...)
 }
@@ -73,7 +73,7 @@ func (bl *irScalarBuilder) runOnFiles(t *ast.Call, key string) (ir.Temp, kind, b
 func (bl *irScalarBuilder) answerOn(t *ast.Call, key string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if namedArgNode(t.Args) != nil || len(t.Args) != 3 {
-		return no()
+		panic("irbuild: answerOn: answerOn lowers std/http/host's private answer_on, called only from std::http::host.answered with a request and two lambdas whose kinds lower")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok {
@@ -81,11 +81,11 @@ func (bl *irScalarBuilder) answerOn(t *ast.Call, key string) (ir.Temp, kind, boo
 	}
 	found, missing := args.kinds[1], args.kinds[2]
 	if found.tag != tagFunc || found.comp == nil || len(funcParams(found)) != 1 {
-		return no()
+		panic("irbuild: answerOn: answerOn lowers std/http/host's private answer_on, called only from std::http::host.answered with a request and two lambdas whose kinds lower")
 	}
 	if missing.tag != tagFunc || missing.comp == nil || len(funcParams(missing)) != 0 ||
 		funcResult(missing) != funcResult(found) {
-		return no()
+		panic("irbuild: answerOn: answerOn lowers std/http/host's private answer_on, called only from std::http::host.answered with a request and two lambdas whose kinds lower")
 	}
 	return bl.concHostEmit(t, key, funcResult(found), args.temps...)
 }
@@ -95,7 +95,7 @@ func (bl *irScalarBuilder) answerOn(t *ast.Call, key string) (ir.Temp, kind, boo
 func (bl *irScalarBuilder) recordedOn(t *ast.Call, key string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if namedArgNode(t.Args) != nil || len(t.Args) != 1 {
-		return no()
+		panic("irbuild: recordedOn: recordedOn lowers std/http/host's private recorded_on, called only from std::http::host.answered_requests with one identity lambda")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok {
@@ -103,7 +103,7 @@ func (bl *irScalarBuilder) recordedOn(t *ast.Call, key string) (ir.Temp, kind, b
 	}
 	found := args.kinds[0]
 	if found.tag != tagFunc || found.comp == nil || len(funcParams(found)) != 1 {
-		return no()
+		panic("irbuild: recordedOn: recordedOn lowers std/http/host's private recorded_on, called only from std::http::host.answered_requests with one identity lambda")
 	}
 	return bl.concHostEmit(t, key, funcResult(found), args.temps...)
 }
@@ -116,7 +116,7 @@ func (bl *irScalarBuilder) recordedOn(t *ast.Call, key string) (ir.Temp, kind, b
 func (bl *irScalarBuilder) requestOn(t *ast.Call, key string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if namedArgNode(t.Args) != nil || len(t.Args) != 4 {
-		return no()
+		panic("irbuild: requestOn: requestOn lowers std/http/host's private request_on, called only from std::http::host.run_request with an Incoming, an Int and two lambdas whose kinds lower")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok {
@@ -124,11 +124,11 @@ func (bl *irScalarBuilder) requestOn(t *ast.Call, key string) (ir.Temp, kind, bo
 	}
 	body, finish := args.kinds[2], args.kinds[3]
 	if body.tag != tagFunc || body.comp == nil || len(funcParams(body)) != 1 {
-		return no()
+		panic("irbuild: requestOn: requestOn lowers std/http/host's private request_on, called only from std::http::host.run_request with an Incoming, an Int and two lambdas whose kinds lower")
 	}
 	if finish.tag != tagFunc || finish.comp == nil || len(funcParams(finish)) != 1 ||
 		funcParams(finish)[0] != funcResult(body) {
-		return no()
+		panic("irbuild: requestOn: requestOn lowers std/http/host's private request_on, called only from std::http::host.run_request with an Incoming, an Int and two lambdas whose kinds lower")
 	}
 	return bl.concHostEmit(t, key, funcResult(finish), args.temps...)
 }

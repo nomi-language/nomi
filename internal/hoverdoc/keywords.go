@@ -429,12 +429,7 @@ func keywordWord(w string) bool {
 	if w == "" {
 		return false
 	}
-	for _, r := range lexer.ReservedWords() {
-		if w == r {
-			return true
-		}
-	}
-	return contextualWord(w)
+	return lexer.IsReservedWord(w) || contextualWord(w)
 }
 
 // keywordTokenAt is the index of the reserved or contextual word under
@@ -444,24 +439,12 @@ func keywordTokenAt(toks []token.Token, pos analysis.Pos) int {
 		if t.Line != pos.Line || pos.Col < t.Col || pos.Col >= t.Col+len(t.Lexeme) {
 			continue
 		}
-		if isReservedToken(t) || (t.Type == token.IDENT && contextualWord(t.Lexeme)) {
+		if lexer.IsKeyword(t.Type) || (t.Type == token.IDENT && contextualWord(t.Lexeme)) {
 			return i
 		}
 		return -1
 	}
 	return -1
-}
-
-func isReservedToken(t token.Token) bool {
-	if t.Type == token.IDENT || t.Type == token.TYPE_IDENT {
-		return false
-	}
-	for _, w := range lexer.ReservedWords() {
-		if t.Lexeme == w {
-			return true
-		}
-	}
-	return false
 }
 
 func contextualWord(w string) bool {
@@ -793,7 +776,7 @@ func (k *keywordSite) pubContext() (string, string, bool) {
 		return "import", "", true
 	}
 	name := k.next(j + 1)
-	if kw.Type != token.IDENT && !isReservedToken(kw) || (name.Type != token.IDENT && name.Type != token.TYPE_IDENT) {
+	if kw.Type != token.IDENT && !lexer.IsKeyword(kw.Type) || (name.Type != token.IDENT && name.Type != token.TYPE_IDENT) {
 		return "", "", true
 	}
 	k.form = fmt.Sprintf("pub %s%s %s", modifiers, kw.Lexeme, name.Lexeme)

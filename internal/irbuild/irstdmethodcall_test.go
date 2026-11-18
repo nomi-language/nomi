@@ -85,7 +85,7 @@ end
 }
 
 // A std body that calls another std module's function and leaves a
-// defaulted parameter out calls the arity wrapper the callee's module
+// defaulted parameter out calls the default accessor the callee's module
 // built: std/json's `ToJson` for Instant writes
 // `NaiveDateTime.from_instant(value)`, whose default `Duration.seconds(0)`
 // names what std/json does not import. It declined before ("qualified

@@ -658,6 +658,11 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		return
 	}
 	iface := lookupInterfaceType(fa, reg, ifaceName)
+	if iface == nil && IsSynthesizedLine(n.Line) {
+		// A universal or derived Debug block in a file whose scope does
+		// not bind Debug names std's own (compilerKnownSynthTypeOf).
+		iface, _ = compilerKnownSynthTypeOf(n.Interface, reg, nil, fa).(*InterfaceType)
+	}
 	if iface == nil {
 		return
 	}
@@ -668,11 +673,17 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		receiver = recvResolved
 	}
 	var headerArgs []Type
+	// The interface the header names, which a module-qualified header
+	// (`impl calendar.DateParts for Q`) names beside a file's own of the
+	// name.
+	ifaceOrigin := iface.Origin
 	if ifaceResolved, err := ResolveTypeExpr(n.Interface, reg, blockTP, fa); err == nil {
 		if instantiated, ok := ifaceResolved.(*InterfaceType); ok {
 			headerArgs = instantiated.TypeArgs
+			ifaceOrigin = instantiated.Origin
 		}
 	}
+	fa.recordImplBlock(&ImplTypeArgs{Receiver: receiver, Block: n, Origin: ifaceOrigin, File: declaredOrigin(fa)}, implTypeName, ifaceName)
 	if len(headerArgs) > 0 && len(headerArgs) != len(iface.TypeParamDefs) {
 		fa.TypeErrors = append(fa.TypeErrors, TypeError{
 			Line: n.Line,
@@ -1066,14 +1077,6 @@ func buildAttachedTestTypes(fa *FileAnalysis, reg *TypeRegistry, node ast.Node) 
 	switch n := node.(type) {
 	case *ast.ImplBlock:
 		items = n.Items
-	case *ast.StructDef:
-		items = n.Items
-	case *ast.EnumDef:
-		items = n.Items
-	case *ast.TypeDef:
-		items = n.Items
-	case *ast.ExternType:
-		items = n.Items
 	}
 	for _, item := range items {
 		errs = append(errs, buildAttachedTestTypes(fa, reg, item)...)
@@ -1168,13 +1171,11 @@ func buildTypeParamsWithFA(tps []ast.TypeParam, reg *TypeRegistry, fa *FileAnaly
 				// expands to multiple interfaces in `Bounds`.
 				entry.AsWritten = append(entry.AsWritten, b.TypeString())
 
-				// Bounds are interface references — no anon struct types
-				// expected here, so pass nil refs. The parser does not
-				// populate ast.TypeParam.Bounds today (there is no
-				// `<T: Iface>` surface form; bounds are `where` clauses, and
-				// resolveWhereBounds is the live path), so this loop is
-				// reached only by a constructed AST.
-				resolved, err := ResolveDeclaredType(b, reg, m, nil)
+				// The parser does not populate ast.TypeParam.Bounds today
+				// (there is no `<T: Iface>` surface form; bounds are `where`
+				// clauses, and resolveWhereBounds is the live path), so this
+				// loop is reached only by a constructed AST: a derive's.
+				resolved, err := ResolveDeclaredType(b, reg, m, fa)
 				if err != nil {
 					continue
 				}
@@ -1849,9 +1850,7 @@ func buildTypeAlias(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeAlias) []Typ
 	if len(n.Bounds) > 0 {
 		ifaces := make([]*InterfaceType, 0, len(n.Bounds))
 		for _, b := range n.Bounds {
-			// Interface-bound alias entries are interfaces — no anon struct
-			// types expected, so pass nil refs.
-			resolved, err := ResolveDeclaredType(b, reg, nil, nil)
+			resolved, err := ResolveDeclaredType(b, reg, nil, fa)
 			if err != nil {
 				if te, ok := err.(TypeError); ok {
 					errs = append(errs, te)
@@ -2032,8 +2031,31 @@ func buildImplBlockTypeParams(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBl
 		blockTP = map[string]*TypeParam_{}
 	}
 	mergeReceiverTypeParams(reg, n.Receiver, blockTP)
+	attachReceiverTypeParams(fa, n.Receiver, blockTP)
 	errs := applyWhereBoundsToTypeParams(fa, reg, blockTP, n.WhereClauses, "impl block")
 	return blockTP, errs
+}
+
+// attachReceiverTypeParams gives each type parameter a generic receiver
+// names without a `<T>` clause (`impl FromJson for List<T>`), whose symbol
+// the receiver's argument declares (inferReceiverTypeParams), its type: the
+// block's parameter, as buildTypeParamsWithFA gives a written one's. A name
+// that qualifies a call (`T.from_json(j)`) then resolves to the type
+// parameter (QualifierOfSymbol), as a function's own does.
+func attachReceiverTypeParams(fa *FileAnalysis, receiver ast.TypeExpr, blockTP map[string]*TypeParam_) {
+	if fa == nil {
+		return
+	}
+	for _, arg := range receiverGenericArgs(receiver) {
+		st, ok := arg.(*ast.SimpleType)
+		if !ok || blockTP[st.Name] == nil {
+			continue
+		}
+		pos := Pos{Line: st.Line, Col: st.Col}
+		if sym := fa.Definitions[pos]; sym != nil && sym.Kind == SymbolType && sym.Node == nil && sym.Name == st.Name {
+			fa.attachDeclType(pos, sym, blockTP[st.Name])
+		}
+	}
 }
 
 func mergeReceiverTypeParams(reg *TypeRegistry, receiver ast.TypeExpr, out map[string]*TypeParam_) {
@@ -2200,7 +2222,10 @@ func appendUniqueInterface(items *[]*InterfaceType, value *InterfaceType) {
 
 // compilerKnownSynthType resolves a type name that derive SYNTHESIZED code
 // may write in an item signature without the deriving file having it in
-// scope. Only `Ordering` needs an entry: the other signature types
+// scope, and the `Debug` a synthesized block's header names in a std file,
+// which has no prelude and need not import it
+// (recordImplTypeArgsFromBlock). `Ordering` is the one signature type
+// that needs an entry: the other signature types
 // synthesis emits (String, Int, Bool, the receiver itself) are registry
 // builtins or declared in the deriving file, and `Json` and
 // `Json.ShapeError` are named through the hidden `json$` import
@@ -2208,11 +2233,24 @@ func appendUniqueInterface(items *[]*InterfaceType, value *InterfaceType) {
 // else — the caller then reports the ordinary resolution error, so a
 // synthesizer emitting an unexpected name still fails loudly.
 func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*TypeParam_, fa *FileAnalysis) Type {
+	t := compilerKnownSynthTypeOf(te, reg, tp, fa)
+	if t != nil {
+		fa.recordTypeExprType(te, t)
+	}
+	return t
+}
+
+// compilerKnownSynthTypeOf is compilerKnownSynthType before it records.
+func compilerKnownSynthTypeOf(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*TypeParam_, fa *FileAnalysis) Type {
 	switch t := te.(type) {
 	case *ast.SimpleType:
 		switch t.Name {
 		case "Ordering":
 			return TypeOrdering
+		case "Debug":
+			if stdDebugDecl != nil {
+				return stdDebugDecl
+			}
 		case "Result":
 			if reg != nil {
 				if ty := reg.Lookup("Result"); ty != nil {
@@ -2261,6 +2299,14 @@ func buildImplBlockTypes(fa *FileAnalysis, reg *TypeRegistry, n *ast.ImplBlock) 
 	// inline on the impl header.
 	blockTP, blockErrs := buildImplBlockTypeParams(fa, reg, n)
 	errs = append(errs, blockErrs...)
+
+	// The receiver's type, recorded with the declarations
+	// (TypeExprTypes), so a file built from its interface and never
+	// checked holds it as a checked one does. Its error is the checker's
+	// to report (checkImplReceiverDeclared).
+	if n.Receiver != nil {
+		_, _ = ResolveTypeExpr(n.Receiver, reg, blockTP, fa)
+	}
 
 	for _, item := range n.Items {
 		if once, ok := item.(*ast.OnceBinding); ok {
@@ -2439,15 +2485,6 @@ func attachParamType(fa *FileAnalysis, name string, line, col int, typ Type) {
 	if sym, ok := fa.Definitions[pos]; ok && sym.Kind == SymbolParam && sym.Name == name {
 		fa.attachDeclType(pos, sym, typ)
 	}
-}
-
-// recordLambdaPatternType records the type a lambda's destructuring parameter
-// was checked against, keyed by its pattern node.
-func recordLambdaPatternType(fa *FileAnalysis, pat ast.Node, typ Type) {
-	if fa.LambdaPatternTypes == nil {
-		fa.LambdaPatternTypes = map[ast.Node]Type{}
-	}
-	fa.LambdaPatternTypes[pat] = typ
 }
 
 // attachFieldType finds field symbols in Definitions matching the given name

@@ -64,12 +64,6 @@ func (f *fillRequest) placeholderAt(line, col int, binds string) string {
 	return fillPlaceholder
 }
 
-var (
-	missingFunctionMessage = regexp.MustCompile(`^impl '[^']*' for '[^']*': missing function '[^']+' required by interface '[^']*'$`)
-	missingFieldMessage    = regexp.MustCompile(`^missing field '([^']+)' of `)
-	missingArmsMessage     = regexp.MustCompile("^non-exhaustive case on [^:]+: missing (.+)$")
-)
-
 type fillKind int
 
 const (
@@ -100,7 +94,8 @@ type fillTarget struct {
 	line, col       int
 	endLine, endCol int
 	diags           []protocol.Diagnostic
-	// names are what the messages say is missing, in message order.
+	// names are what the errors say is missing (their Args), in the
+	// diagnostics' order.
 	names []string
 }
 
@@ -111,7 +106,11 @@ func (s *Server) buildFillActions(content string, nodes []ast.Node, fa *analysis
 	var targets []*fillTarget
 	lines := newLineIndex(content)
 	for _, d := range diags {
-		kind, name, ok := classifyFill(diagnosticHeadline(d.Message))
+		e, ok := reportedError(lines, fa.TypeErrors, d)
+		if !ok {
+			continue
+		}
+		kind, names, ok := classifyFill(e)
 		if !ok {
 			continue
 		}
@@ -129,11 +128,7 @@ func (s *Server) buildFillActions(content string, nodes []ast.Node, fa *analysis
 			targets = append(targets, t)
 		}
 		t.diags = append(t.diags, d)
-		if kind == fillArms {
-			t.names = append(t.names, strings.Split(name, ", ")...)
-		} else if name != "" {
-			t.names = append(t.names, name)
-		}
+		t.names = append(t.names, names...)
 	}
 	if len(targets) == 0 {
 		return nil
@@ -175,19 +170,20 @@ func (s *Server) buildFillActions(content string, nodes []ast.Node, fa *analysis
 	return actions
 }
 
-// classifyFill reads which fix a diagnostic message asks for, and the name
-// it says is missing: a field, or the comma-separated variants.
-func classifyFill(msg string) (fillKind, string, bool) {
-	if missingFunctionMessage.MatchString(msg) {
-		return fillFunctions, "", true
+// classifyFill is the fix the error e asks for, and the names it says are
+// missing: a field, or the variants no arm covers. A missing function's
+// fix reads the impl block for every function it lacks, so it takes no
+// name.
+func classifyFill(e analysis.TypeError) (fillKind, []string, bool) {
+	switch e.Code {
+	case analysis.MissingImplFunctionCode:
+		return fillFunctions, nil, true
+	case analysis.MissingFieldCode:
+		return fillFields, e.Args, true
+	case analysis.NonExhaustiveCaseCode:
+		return fillArms, e.Args, len(e.Args) > 0
 	}
-	if m := missingFieldMessage.FindStringSubmatch(msg); m != nil {
-		return fillFields, m[1], true
-	}
-	if m := missingArmsMessage.FindStringSubmatch(msg); m != nil {
-		return fillArms, m[1], true
-	}
-	return 0, "", false
+	return 0, nil, false
 }
 
 // find returns the node keep accepts whose position keep answers is the
@@ -560,12 +556,6 @@ func isTrivia(t token.Token) bool {
 		return true
 	}
 	return false
-}
-
-func (f *fillRequest) nextSignificant(i int) int {
-	for i++; i < len(f.tokens) && isTrivia(f.tokens[i]); i++ {
-	}
-	return i
 }
 
 func (f *fillRequest) prevSignificant(i int) int {

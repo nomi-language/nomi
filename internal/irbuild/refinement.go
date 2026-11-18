@@ -197,8 +197,12 @@ func (g *gen) refinementRules() []RefinementRuleSite {
 		recv := kindInvalid
 		if td, isType := n.(*ast.TypeDef); isStruct(n) || (isType && !td.Subtype) {
 			// A struct with a rule, or a validated type, is a receiver
-			// kind of its own.
-			recv = g.typeOf(&ast.SimpleType{Name: name})
+			// kind of its own: the kind of the checker's type for the
+			// declaration.
+			dl, dc := nodePos(n)
+			if sym := fa.Definitions[analysis.Pos{Line: dl, Col: dc}]; sym != nil {
+				recv = g.project(sym.Type)
+			}
 		}
 		site := RefinementRuleSite{Path: path, Line: line, Col: col, Type: name, Rule: analysis.RuleText(rule), TryFrom: tryFrom(recv)}
 		if site.TryFrom == "" || plantedMissingCheck(name) {
@@ -615,18 +619,6 @@ func refinementLiteralValue(n ast.Node) (any, bool) {
 	return nil, false
 }
 
-// namesRefinement reports whether a pattern's type name, written `Port` or
-// `net.Port` (expr then holds the qualified spelling), is a distinct
-// refinement.
-func (g *gen) namesRefinement(name string, expr ast.TypeExpr) bool {
-	if qt, ok := expr.(*ast.QualifiedType); ok {
-		_, isRefinement := g.qualifiedRefinementKind(qt)
-		return isRefinement
-	}
-	_, isRefinement := g.refinementDecl(name)
-	return isRefinement
-}
-
 // refinementCall lowers a distinct refinement's call form, `Port(8080)` or
 // `net.Port(8080)`, which the checker admits only on a literal or a value
 // already of the type: the argument itself. handled is false for any other
@@ -706,60 +698,6 @@ func (g *gen) refinementDecl(name string) (*analysis.Symbol, bool) {
 	return nil, false
 }
 
-// refinementTypeSym is the symbol name resolves to as a type in this
-// file's scope, or nil.
-func (g *gen) refinementTypeSym(name string) *analysis.Symbol {
-	return resolvedTypeSymbol(g.fa, name)
-}
-
-// genericRefinementKind is the kind of a generic distinct refinement sym
-// names at the type arguments params, `NonEmptyList<Int>`: its base's at
-// those arguments, List<Int>'s. isRefinement is false when sym is no
-// generic refinement.
-func (g *gen) genericRefinementKind(sym *analysis.Symbol, params []ast.TypeExpr) (kind, bool) {
-	if sym == nil {
-		return kindInvalid, false
-	}
-	dt, ok := sym.Type.(*analysis.DistinctType)
-	if !ok || !dt.Subtype || len(dt.TypeParamDefs) == 0 {
-		return kindInvalid, false
-	}
-	if len(params) != len(dt.TypeParamDefs) {
-		return kindInvalid, true
-	}
-	args := make([]kind, len(params))
-	for i, p := range params {
-		args[i] = g.typeOf(p)
-		// kindInvalid: propagates — typeOf reports the argument it refuses, and the refinement's kind passes that kindlessness on.
-		if args[i] == kindInvalid {
-			return kindInvalid, true
-		}
-	}
-	return g.refinementBaseAt(dt, args), true
-}
-
-// refinementBaseAt is the kind of the generic refinement dt's base with its
-// type parameters standing for args.
-func (g *gen) refinementBaseAt(dt *analysis.DistinctType, args []kind) kind {
-	frame := make(map[string]kind, len(args))
-	for i, def := range dt.TypeParamDefs {
-		frame[def.Name_] = args[i]
-	}
-	g.genericSubst = append(g.genericSubst, frame)
-	defer func() { g.genericSubst = g.genericSubst[:len(g.genericSubst)-1] }()
-	return g.project(analysis.RefinementBase(dt))
-}
-
-// refinementKind is the kind an annotation naming a distinct refinement
-// stands for, its base's, reporting whether the name was one.
-func (g *gen) refinementKind(name string) (kind, bool) {
-	sym, ok := g.refinementDecl(name)
-	if !ok {
-		return kindInvalid, false
-	}
-	return g.project(sym.Type), true
-}
-
 // qualifiedRefinementKind is refinementKind for `float.NonNegativeFloat`.
 func (g *gen) qualifiedRefinementKind(t *ast.QualifiedType) (kind, bool) {
 	qualifier, name, ok := qualifiedTypeParts(t)
@@ -774,50 +712,6 @@ func (g *gen) qualifiedRefinementKind(t *ast.QualifiedType) (kind, bool) {
 		return g.project(dt), true
 	}
 	return kindInvalid, false
-}
-
-// refinementBaseKind is the kind of what the refinement name's values are
-// built from (ast.RefinementBaseType): a distinct refinement's base, or the
-// record of a struct refinement's fields.
-func (g *gen) refinementBaseKind(t *ast.RefinementBaseType) kind {
-	if len(t.Params) > 0 {
-		if k, ok := g.genericRefinementKind(g.refinementTypeSym(t.Refinement), t.Params); ok {
-			return k
-		}
-	}
-	if k, ok := g.refinementKind(t.Refinement); ok {
-		return k
-	}
-	sym := resolvedTypeSymbol(g.fa, t.Refinement)
-	if sym == nil {
-		return kindInvalid
-	}
-	if dt, ok := sym.Type.(*analysis.DistinctType); ok && !dt.Subtype && dt.Inner != nil {
-		// A validated type, or a type over a subtype: its `try_from` takes
-		// the base of what it wraps, a generic one's at the parameters
-		// its impl names.
-		if len(dt.TypeParamDefs) == 0 {
-			return g.project(analysis.RefinementBase(analysis.DistinctInner(dt)))
-		}
-		if len(t.Params) != len(dt.TypeParamDefs) {
-			return kindInvalid
-		}
-		frame := make(map[string]kind, len(t.Params))
-		for i, def := range dt.TypeParamDefs {
-			// kindInvalid: propagates — typeOf reports the argument it refuses.
-			if frame[def.Name_] = g.typeOf(t.Params[i]); frame[def.Name_] == kindInvalid {
-				return kindInvalid
-			}
-		}
-		g.genericSubst = append(g.genericSubst, frame)
-		defer func() { g.genericSubst = g.genericSubst[:len(g.genericSubst)-1] }()
-		return g.project(analysis.RefinementBase(analysis.DistinctInner(dt)))
-	}
-	st, ok := sym.Type.(*analysis.StructType)
-	if !ok || st.Rule == "" {
-		return kindInvalid
-	}
-	return g.project(&analysis.AnonStructType{Fields: st.Fields})
 }
 
 // isDistinctRefinementDecl reports whether n declares a distinct

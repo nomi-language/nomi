@@ -42,20 +42,6 @@ func (r *Coercion) Into() Type {
 	return r.Iface
 }
 
-// ImplFor is the impl block by which Value implements member, one of
-// Conj's members, or Impl for a record of one interface.
-func (r *Coercion) ImplFor(member *InterfaceType) *ast.ImplBlock {
-	if r.Conj == nil {
-		return r.Impl
-	}
-	for i, m := range r.Conj.Members {
-		if m == member && i < len(r.Impls) {
-			return r.Impls[i]
-		}
-	}
-	return nil
-}
-
 // coercionInto is the record of a value of type v entering into, an
 // interface or a conjunction.
 func (c *checker) coercionInto(into, v Type) *Coercion {

@@ -109,9 +109,8 @@ func stdSettleLowerUnlowered(t *testing.T, src string, unmark bool) (map[string]
 	// The context is built through stdModuleContext, which is what
 	// buildStdlibIndex does too — lowerStdlibModule stopped building its own
 	// when the index began retaining it for the per-program instance driver.
-	// MarkTailCalls is still stdModuleContext's first line, which is what
-	// TestStdSettling_TailMarksAreNotAssumed is about, so the `unmark` arm
-	// above still exercises the same thing.
+	// MarkTailCalls is still stdModuleContext's first line, so the `unmark`
+	// arm above still exercises the same thing.
 	v := stdModuleContext("stdsettle", "stdsettle.nomi", "nomistdsettle", nodes, fa, empty)
 	funcs, _, _ := lowerStdlibModule(v, empty)
 	byKey := make(map[string]*stdFunc, len(funcs))

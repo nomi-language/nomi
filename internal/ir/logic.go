@@ -4,26 +4,21 @@ package ir
 //
 // This class has no instruction of its own, and that is the finding rather than
 // an omission. `and` and `or` are a CONTROL-FLOW SHAPE — a Branch, a block for
-// the right operand, and a Copy into one destination — and they are the reason
-// this package has basic blocks and terminators at all. Go's `&&` and `||`
-// short-circuit too, but only over EXPRESSIONS, and a Nomi right operand can
-// need statements, so the branch has to be explicit. `native.go`'s `logical`
-// says exactly that in its own comment and then builds the branch form
-// UNCONDITIONALLY: a slot, then `if test { slot = right }`. So the shape below
-// is not an approximation of what the builder does; it is what the builder
-// does.
+// the right operand, and a Copy into one destination — and the VM runs them
+// as the blocks and terminators they are, with no opcode for either.
+// `shortCircuit` (internal/irbuild/ircompare.go) builds `and` and `or`
+// through BeginShortCircuit, so the shape below is what the builder builds.
 //
-// Two things make the right operand a real block rather than an expression,
-// both visible in `logical`:
+// Two things make the right operand a real block rather than one operand,
+// both visible in `shortCircuit`:
 //
-//   - the right operand's own lowering may emit statements;
-//   - inside an assertion, the operand recording emits statements too, and its
-//     rule is asymmetric — `or` records its left operand always, `and` records
-//     its left only when the left DECIDED, because a true left explains nothing
-//     about why a conjunction failed.
+//   - the right operand's own lowering may append several instructions;
+//   - inside an assertion, the operand recording appends instructions too,
+//     and its rule is asymmetric — `or` records its left operand always,
+//     `and` records its left only when the left DECIDED, because a true left
+//     explains nothing about why a conjunction failed.
 //
-// The canonical shape, which producer and consumer must agree on because a divergence
-// here is a divergence in what gets evaluated:
+// The canonical shape, which fixes what gets evaluated:
 //
 //	b_entry:  d = lhs                    ; the answer if the left decides
 //	          branch lhs ? b_rhs : b_join    (`and`)
@@ -36,11 +31,9 @@ package ir
 // `a and b` evaluates to `b` itself rather than to a normalized sentinel, which
 // on a Bool is the same value — so the Copy is the whole of that rule.
 //
-// BeginShortCircuit builds the skeleton and Finish closes it, so neither
-// consumer can forget the Copy or the Jump. That is the only reason a builder
-// exists in a package with no lowering: the shape is shared, and a shape each
-// consumer reconstructs by hand is a shape they will eventually reconstruct
-// differently.
+// BeginShortCircuit builds the skeleton and Finish closes it, so a producer
+// cannot forget the Copy or the Jump. That is the only reason a builder
+// exists in a package with no lowering.
 type LogicOp uint8
 
 const (

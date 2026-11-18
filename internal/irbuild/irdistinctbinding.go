@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -24,7 +25,7 @@ func (bl *irScalarBuilder) distinctBinding(t *ast.DistinctDestructure) bool {
 	if !ok {
 		return false
 	}
-	if bl.g.namesRefinement(t.TypeName, t.TypeNameExpr) {
+	if dt, isDistinct := bl.g.srcFA().PatternTypes[t].(*analysis.DistinctType); isDistinct && dt.Subtype {
 		// `Port(n) = port`: a refinement's value is its parent's
 		// (refinement.go).
 		return bl.destructureBind(t, t.Binding.Name, t.Line, t.Col, k, func() ir.Temp { return src })

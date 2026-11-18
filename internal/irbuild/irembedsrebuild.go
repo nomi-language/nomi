@@ -18,12 +18,12 @@ import (
 // a Circle is the enum's record around the Circle record
 // (ir.NewMakeVariantEmbed), a List<Int> held as a Display is boxed, and a
 // Box<Int>'s descriptor names its type argument. So the value is rebuilt at
-// the wider type, not relabelled, each part converted by coerceEmpty (which
+// the wider type, not relabelled, each part converted by convertTo (which
 // boxes it, widens it into its enum, wraps a function or comes back here for
 // a nested value):
 //
 //   - a tuple, an anonymous record or a user generic struct is made again
-//     from its parts, each converted to the wider part (coerceEmpty, which
+//     from its parts, each converted to the wider part (convertTo, which
 //     widens an embedded value and comes back here for a nested one);
 //   - a generic enum instance (`Maybe`, `Result`, a user `Box<T>`) goes
 //     through an adapter function that matches each variant and makes it
@@ -42,10 +42,11 @@ import (
 
 // rebuildWidened answers v, a value of kind have, as a value of kind want,
 // where the two are the same tuple, record, generic struct, generic enum or
-// collection shape and each part converts. ok is false when the shapes
-// differ or a part does not convert; the parts read before the failure stay
-// in the block, as effect-free reads of v whose results nothing uses.
-func (bl *irScalarBuilder) rebuildWidened(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
+// collection shape and each part converts. rebuilt is false when the shapes
+// differ or a part does not convert, and convertTo then declines; the
+// parts read before the failure stay in the block, as effect-free reads of v
+// whose results nothing uses.
+func (bl *irScalarBuilder) rebuildWidened(at ast.Node, v ir.Temp, have, want kind) (out ir.Temp, rebuilt bool) {
 	if have == want {
 		return v, true
 	}
@@ -60,7 +61,7 @@ func (bl *irScalarBuilder) rebuildWidened(at ast.Node, v ir.Temp, have, want kin
 		return bl.rebuildMap(at, v, have, want)
 	}
 	if he, isSet := setElem(have); isSet {
-		if we, wset := setElem(want); wset && have != kindEmptySet && want != kindEmptySet && irRetainedSetKind(have) && irRetainedSetKind(want) {
+		if we, wset := setElem(want); wset && irRetainedSetKind(have) && irRetainedSetKind(want) {
 			return bl.rebuildMapped(at, v, ir.IterOverSet, ir.IterToSet, he, we, want)
 		}
 		return ir.NoTemp, false
@@ -68,7 +69,7 @@ func (bl *irScalarBuilder) rebuildWidened(at ast.Node, v ir.Temp, have, want kin
 	if he, isVector := vectorElem(have); isVector {
 		// A Vector holds any value a call passes, as its literal does
 		// (vectorMakeOf): an interface's existential among them.
-		if we, wvector := vectorElem(want); wvector && have != kindEmptyVector && want != kindEmptyVector && irCallOperandKind(he) && irCallOperandKind(we) {
+		if we, wvector := vectorElem(want); wvector && irCallOperandKind(he) && irCallOperandKind(we) {
 			return bl.rebuildMapped(at, v, ir.IterOverVector, ir.IterToVector, he, we, want)
 		}
 		return ir.NoTemp, false
@@ -109,7 +110,7 @@ func irSameGeneric(a, b *typeDef) bool {
 // rebuildPart converts one part read off the value being rebuilt into the
 // wider part, as an argument enters its parameter.
 func (bl *irScalarBuilder) rebuildPart(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
-	out, k, ok := bl.coerceEmpty(at, v, have, want)
+	out, k, ok := bl.convertTo(at, v, have, want)
 	return out, ok && k == want
 }
 
@@ -161,8 +162,7 @@ func (bl *irScalarBuilder) rebuildRecord(at ast.Node, v ir.Temp, have, want kind
 // List, rebuilds it, and wraps it at the wider instance.
 func (bl *irScalarBuilder) rebuildDistinct(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
 	hd, wd := have.def, want.def
-	held := func(d *typeDef) bool { return irWrappingDistinct(d) || irCompositeDistinct(d) }
-	if !wd.isDistinct || !held(hd) || !held(wd) {
+	if !wd.isDistinct || !(irWrappingDistinct(hd) || irCompositeDistinct(hd)) || !(irWrappingDistinct(wd) || irCompositeDistinct(wd)) {
 		return ir.NoTemp, false
 	}
 	p := bl.distinctProjection(at, v, have, false, "rebuild")
@@ -205,14 +205,14 @@ func (bl *irScalarBuilder) rebuildStruct(at ast.Node, v ir.Temp, have, want kind
 }
 
 func (bl *irScalarBuilder) rebuildList(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
-	if have == kindEmptyList || want == kindEmptyList || have.comp == nil || want.comp == nil || len(have.comp.parts) != 1 || len(want.comp.parts) != 1 {
+	if have.comp == nil || want.comp == nil || len(have.comp.parts) != 1 || len(want.comp.parts) != 1 {
 		return ir.NoTemp, false
 	}
 	return bl.rebuildMapped(at, v, ir.IterOverList, ir.IterToList, have.comp.parts[0], want.comp.parts[0], want)
 }
 
 func (bl *irScalarBuilder) rebuildMap(at ast.Node, v ir.Temp, have, want kind) (ir.Temp, bool) {
-	if have == kindEmptyMap || want == kindEmptyMap || !irRetainedMapKind(have) || !irRetainedMapKind(want) {
+	if !irRetainedMapKind(have) || !irRetainedMapKind(want) {
 		return ir.NoTemp, false
 	}
 	hp := bl.g.tupleKind([]kind{have.comp.parts[0], have.comp.parts[1]})
@@ -334,7 +334,7 @@ type irRebuildCap struct {
 func (bl *irScalarBuilder) rebuildSelfRef(key [2]kind) (ir.Temp, bool) {
 	self, building := bl.g.rebuilding[key]
 	if !building {
-		return ir.NoTemp, false
+		panic("irbuild: rebuildSelfRef: rebuildSelfRef is called only for a key irRebuildReaches found on the rebuilding stack")
 	}
 	if self.f == bl.f {
 		return self.self, true

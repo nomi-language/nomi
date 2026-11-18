@@ -28,6 +28,13 @@ type TypedLiteral struct {
 	// takes where it stands: the parameter of the std/html function its
 	// context calls.
 	HtmlSlots map[ast.Node]Type
+	// Failure is how the error a literal is refused with renders by
+	// Display (hole_display.go), the record a hole of its type holds: for
+	// a fixed literal whose handler returns `Result<T, E>`, E; for a
+	// checked literal, the error its check returns (LiteralError). The
+	// compiler shows the failure as a compile error at the literal. Nil
+	// for every other literal.
+	Failure *DisplayRender
 }
 
 // recordTypedLiteral records that n's handler is an impl of `Literal`, or
@@ -65,6 +72,39 @@ func (c *checker) recordHtmlLiteral(n *ast.TaggedString, expansion ast.Node) {
 		rec.HtmlSlots[slot.Args[len(slot.Args)-1]] = ft.Params[len(ft.Params)-1]
 	}
 	c.noteTypedLiteral(n, rec)
+}
+
+// checkedLiteralFailure is the error the check of the checked literal n
+// refuses its text with: the E of the `Result<Unit, E>` that the `check`
+// of the CheckedLiteral impl whose `build` is n's handler returns
+// (std/literals' LiteralError). The handler is the one the position chose
+// for an untagged literal (TargetLiteralBuilds), else the tag's. Nil when
+// the impl has no check.
+func (c *checker) checkedLiteralFailure(n *ast.TaggedString) Type {
+	p := c.fa.Program()
+	if p == nil || p.ImplIndex == nil {
+		return nil
+	}
+	build := c.fa.TargetLiteralBuilds[n]
+	if build == nil {
+		build = c.checkedLiteralBuildOf(n.Tag)
+	}
+	if build == nil {
+		return nil
+	}
+	idx := p.ImplIndex
+	recv, q := idx.ReceiverOf(build), idx.QualifiedReceiver[build]
+	for _, fn := range idx.IfaceMethodImpls["CheckedLiteral"]["check"] {
+		if fn == nil || idx.ReceiverOf(fn) != recv || idx.QualifiedReceiver[fn] != q {
+			continue
+		}
+		if ft, ok := idx.ImplFuncTypes[fn].(*FuncType); ok {
+			if _, err := FixedLiteralType(true, ft.Return); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (c *checker) noteTypedLiteral(n *ast.TaggedString, rec *TypedLiteral) {

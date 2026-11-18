@@ -14,33 +14,23 @@ import (
 // NON-LITERAL expression whose inferred type is a matching `AnonStructType`,
 // which is what makes `MyApp(defaults())` legal beside `MyApp({...})`.
 //
-// The literal shape is re-spelled as the literal it already is and handed to
-// `structValue`. The record shape cannot be: there is no field-value NODE to
-// hand anywhere, only a value to read fields off. So it spills the argument
-// to one temporary and projects each declared field by NAME, then joins the
-// literal path at `fillFieldDefaults` and `structFromValues` — which is
-// where every default rule and the declaration-order lowering live. Two ways
-// in, one field matcher and one default fill, because a second copy of the
-// default rules is the shape this package keeps deleting.
+// The literal shape is the brace literal it already is, and structCallForm
+// (irfuncbody.go) hands it to structMakeOf. The record shape has no
+// field-value node to hand anywhere, only a value to read fields off. So
+// structFromRecord evaluates the argument once, binds it to a name no program
+// can spell, and builds a literal whose fields read that name's fields by
+// name, which joins the literal path. Two ways in, one field matcher and one
+// default fill, so the default rules have one copy.
 //
-// ONE Go EVALUATION of the argument. A projection's Go code re-embeds its
-// subject TEXTUALLY (irproj.go), so an impure operand read once per field
-// would be called once per field. The spill in structCallRecord is what
-// makes that impossible. It is a backstop: `g.operand` already hands back a
-// named local for every record shape the front end admits here (a call, a
-// binding, an `if`, a `case`). It stays for the reason coercetuple.go keeps
-// the identical guard where it spreads a tuple: the multi-read is correct by
-// construction instead of by a purity fact about a neighbouring pass.
+// # Field order
 //
-// # Field ORDER is where a plausible wrong implementation lands
-//
-// A record's Go layout is CANONICAL — sorted by Nomi field name (anonstruct.go)
-// — while a nominal struct's is DECLARATION order. The two disagree for any
-// struct whose declaration is not alphabetical, so a positional copy of the
-// record's fields into the struct's is wrong. It is not silently wrong when the
-// field types differ (Go rejects it) and it IS silently wrong when they do not,
-// which is why testdata/struct_forms.nomi builds a `Rev{z: Int, a: String}`
-// from `{a: "s", z: 1}`: the two orders are reversed and the types cross.
+// A record's field order is canonical, sorted by Nomi field name
+// (anonstruct.go), while a nominal struct's is declaration order. The two
+// disagree for any struct whose declaration is not alphabetical, so a
+// positional copy of the record's fields into the struct's is wrong, and
+// silently so when the field types agree. testdata/struct_forms.nomi builds a
+// `Rev{z: Int, a: String}` from `{a: "s", z: 1}`: the two orders are reversed
+// and the types cross.
 //
 // Going through the literal path means no order is computed here at all.
 //
@@ -54,10 +44,10 @@ import (
 
 // anonArgAsLiteral is the call form's single argument as an anonymous struct
 // literal WHEN IT IS ONE, positioned at the CALL's own site. A false answer
-// is the record shape, which structCallRecord takes.
+// is the record shape, which structFromRecord takes.
 //
-// A missing required field is reported against the node handed to
-// `litFieldValues`. A `{}` is a block, never a record: an anonymous struct
+// A missing required field is reported against the literal this answers.
+// A `{}` is a block, never a record: an anonymous struct
 // has at least one field.
 func anonArgAsLiteral(arg ast.Node) (*ast.StructLit, bool) {
 	switch a := arg.(type) {

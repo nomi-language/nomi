@@ -17,17 +17,14 @@ import (
 // catches it, and what happens next depends on what that activation is:
 //
 //   - A TEST body. The case runner reads the failure and prints the report,
-//     so the value never reaches user code. The emitted test function returns
-//     rt.TestFailure and a failing assertion returns the REPORT pointer
-//     (*rt.AssertionFailure) straight out — nothing is converted, because nothing
-//     is observed as a value.
+//     so the value never reaches user code and nothing is converted.
 //
 //   - An ordinary `fn`. The `Result.Err` IS the function's return value, read by
 //     the caller's `case` or pattern assertion and its fields selected by name.
 //     So the report has to become the Nomi value, which is rt's
-//     AssertionFailure.NomiFailure, the SAME conversion `testing.check` already goes through, pinned by
-//     TestPinned_TestingCheck. There is no second renderer here and no second
-//     rule; the only new thing is which variant the value is wrapped in.
+//     AssertionFailure.NomiFailure, the SAME conversion `testing.check` already
+//     goes through. There is no second renderer here and no second rule; the
+//     only new thing is which variant the value is wrapped in.
 //
 // A LAMBDA is the third activation and it is a front-end error: the checker
 // refuses `assert` in a lambda body outright ("becomes the lambda's return value
@@ -54,8 +51,9 @@ import (
 //
 // Both spellings register: `checkAssertionSubject` for `assert expr` at the
 // keyword's own position, `checkPatternDestructure` for `assert pat = expr` at
-// AssertLine/AssertCol. So one reader serves tests.go and patternassert.go, which
-// is what makes them agree about the boundary by construction.
+// AssertLine/AssertCol. So one reader serves both spellings (fnAssertion,
+// irassertsubject.go), which is what makes them agree about the boundary by
+// construction.
 
 // assertionBoundary is the boundary the checker stamped on one assertion
 // keyword, at the position that keyword occupies.
@@ -77,10 +75,9 @@ func (g *gen) assertionBoundary(line, col int) (string, bool) {
 // `attached test for <owner>` (testBoundaryOverride), and a `group`'s
 // setup body is `setup of group %q`: the setup runs inside every case it
 // serves, so a `?` or assertion there ends that case. All three abort a case
-// the same way, so anything reading the field has to admit all three. Matching only the
-// first is a live hazard rather than a hypothetical: it reported an `assert` in
-// every prompt case as a boundary disagreement, caught by TestPinned_AttachedTests
-// the moment this reader replaced the raw `g.inTest` flag.
+// the same way, so anything reading the field has to admit all three. Matching
+// only the first would report an `assert` in every prompt case as a boundary
+// disagreement.
 func isTestBoundary(boundary string) bool {
 	return strings.HasPrefix(boundary, "test \"") ||
 		strings.HasPrefix(boundary, "attached test for ") ||

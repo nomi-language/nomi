@@ -390,6 +390,12 @@ const (
 	TypoLeaf EditKind = "typo, leaf"
 	// TypoEntry does the same in main's body.
 	TypoEntry EditKind = "typo, entry"
+	// SecondImplBlockLeaf adds two type-owned impl blocks of Leaf()'s enum,
+	// each with a function of its own, or takes them away. Each block
+	// checks on its own, but a file holds one such block per type, so the
+	// program then reports the pair: an error about the program's impls,
+	// not about any one body. EditKinds leaves it out.
+	SecondImplBlockLeaf EditKind = "second impl block, leaf"
 )
 
 // EditKinds lists every kind Edit makes, in the order reports list them.
@@ -401,7 +407,7 @@ var EditKinds = []EditKind{BodyLeaf, BodyHub, BodyCallLeaf, InstanceLeaf, Signat
 // the one before left, changes the file every time.
 func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 	switch kind {
-	case BodyLeaf, BodyCallLeaf, InstanceLeaf, SignatureLeaf, ImplLeaf, TypoLeaf:
+	case BodyLeaf, BodyCallLeaf, InstanceLeaf, SignatureLeaf, ImplLeaf, TypoLeaf, SecondImplBlockLeaf:
 		key = p.Leaf()
 	case BodyHub, SignatureHub:
 		key = p.Hub()
@@ -432,6 +438,12 @@ func (p *Project) Edit(kind EditKind, n int) (key, text string) {
 		}
 		u := p.units[key]
 		return key, orig + fmt.Sprintf("\nimpl Display for Kind%d\n    fn to_string(kind: Kind%d) -> String\n        case kind\n            .Plain -> \"plain\"\n            .Sized(n) -> \"sized ${n}\"\n            .Tagged(t) -> t\n        end\n    end\nend\n", u.i, u.i)
+	case SecondImplBlockLeaf:
+		if n%2 == 1 {
+			return key, orig
+		}
+		u := p.units[key]
+		return key, orig + fmt.Sprintf("\nimpl Kind%[1]d\n    pub fn first(kind: Kind%[1]d) -> Bool\n        kind == .Plain\n    end\nend\n\nimpl Kind%[1]d\n    pub fn second(kind: Kind%[1]d) -> Bool\n        kind != .Plain\n    end\nend\n", u.i)
 	case BodyEntry:
 		return key, strings.Replace(orig, "total = 0\n", fmt.Sprintf("total = %d\n", 1+n%2), 1)
 	case TypoLeaf:
@@ -768,9 +780,7 @@ end
 
 /// The item at k, if there is one.
 pub fn pick%[1]d<T>(items: List<T>, k: Int) -> Maybe<T>
-    items
-    |> Iter.drop(k)
-    |> Iter.first()
+    Iter.get(items, k)
 end
 
 `, i)

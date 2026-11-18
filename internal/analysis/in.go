@@ -1,8 +1,6 @@
 package analysis
 
 import (
-	"strings"
-
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -33,21 +31,18 @@ func (c *checker) checkIn(n *ast.Binary) Type {
 		c.memberships = map[*ast.Call]*ast.Binary{}
 	}
 	c.memberships[call] = n
-	// The `in` names std's Contains, as the call's qualifier does.
+	// The `in` names std's Contains, as the call's qualifier does, and its
+	// function `contains`, as the resolver records a written
+	// `Contains.contains`'s field: the call is made after resolution, and
+	// the checker records the instance and the impl it reaches on that
+	// reference.
 	c.fa.References[Pos{Line: n.Line, Col: n.Col}] = contains
+	if fn := resolveRef(contains).Members["contains"]; fn != nil {
+		c.fa.References[Pos{Line: n.Line, Col: n.Col + 1}] = fn
+	}
 	c.fa.recordStandIn(n.Line, n.Col)
 	c.fa.recordStandIn(n.Line, n.Col+1)
-	before := len(c.errors)
 	c.checkNode(call)
-	// The callee is written at the `in`, so an error there about the
-	// callee names the operator: `in` for `String` has impls at ...
-	for i := before; i < len(c.errors); i++ {
-		if e := &c.errors[i]; e.Line == n.Line && e.Col == n.Col {
-			if rest, ok := strings.CutPrefix(e.Message, "`Contains.contains`"); ok {
-				e.Message = "`in`" + rest
-			}
-		}
-	}
 	return TypeBool
 }
 
@@ -83,6 +78,22 @@ func (fa *FileAnalysis) recordStandIn(line, col int) {
 		fa.StandIns = map[Pos]bool{}
 	}
 	fa.StandIns[Pos{Line: line, Col: col}] = true
+}
+
+// implCalleeLabel names the interface function a call's callee is in an
+// error about which impl the call selects: `Contains.contains`, or for a
+// membership test's call the operator, `in`.
+func (c *checker) implCalleeLabel(n *ast.Call, iface, method string) string {
+	if _, ok := c.memberships[n]; ok {
+		return "`in`"
+	}
+	return implFunctionLabel(iface, method)
+}
+
+// implFunctionLabel names an interface function in such an error, as an
+// operator's error does too: `Iface.method`.
+func implFunctionLabel(iface, method string) string {
+	return "`" + iface + "." + method + "`"
 }
 
 // argLabel names the argument at 0-based position i of the call n in a

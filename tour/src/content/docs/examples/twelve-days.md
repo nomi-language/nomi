@@ -46,19 +46,19 @@ once later_gifts = [
 ]
 
 /// The verses for days `start` to `end`, both included, counting from 1.
-pub fn recite(start: Int, stop: Int) -> List<String>
+pub fn recite(start: PositiveInt, stop: Int) -> List<String>
     start..=stop
-    |> Iter.map(verse)
+    |> Iter.map(&verse(&1))
     |> Iter.to_list()
 end
 
-fn verse(day: Int) -> String
+fn verse(day: PositiveInt) -> String
     ordinal = Vector.get(ordinals, day - 1)!
     "On the ${ordinal} day of Christmas my true love gave to me: ${gifts(day)}."
 end
 
 /// Every gift given on `day`, newest first.
-fn gifts(day: Int) -> String
+fn gifts(day: PositiveInt) -> String
     if day == 1 then return first_gift
 
     later =
@@ -74,7 +74,7 @@ end
 import twelve_days
 
 /// Each canonical verse on its own: its description, its number and its text.
-once verses = [
+once verses: List<(String, PositiveInt, String)> = [
     (
         "first day a partridge in a pear tree",
         1,
@@ -144,16 +144,17 @@ test "verse"
 end
 
 test "lyrics"
-    [
+    cases: List<(String, PositiveInt, PositiveInt)> = [
         ("recites first three verses of the song",           1, 3),
         ("recites three verses from the middle of the song", 4, 6),
         ("recites the whole song",                           1, 12),
     ]
-    |> subtests (description, start, stop), description
+
+    subtests cases, (description, start, stop), description
         expected =
             verses
+            |> Iter.take(stop)
             |> Iter.drop(start - 1)
-            |> Iter.take(stop - start + 1)
             |> Iter.map(fn (_description, _number, verse) -> verse)
             |> Iter.to_list()
 

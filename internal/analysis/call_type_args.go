@@ -8,7 +8,7 @@ package analysis
 // its closed type. nil when ref carries no instantiation (CallType).
 //
 // A type argument is read off the instantiated signature, matched against
-// the callee's declared one (elabMatch), or else taken from the
+// the callee's declared one (matchTypeParams), or else taken from the
 // substitution the checker recorded at the call (Symbol.CallTypeArgs),
 // which holds a parameter the signature does not show: `T` of `fn first<T,
 // I>(it: I) -> Int where I: Iter<T>`, which the impl the bound's subject
@@ -27,10 +27,10 @@ func CallTypeArgs(ref *Symbol) map[string]Type {
 			solved := map[*TypeParam_]Type{}
 			for i := range declFT.Params {
 				if i < len(ct.Params) {
-					elabMatch(declFT.Params[i], ct.Params[i], solved, 0)
+					matchTypeParams(declFT.Params[i], ct.Params[i], solved)
 				}
 			}
-			elabMatch(declFT.Return, ct.Return, solved, 0)
+			matchTypeParams(declFT.Return, ct.Return, solved)
 			for p, t := range solved {
 				out[p.Name_] = Elaborate(t)
 			}

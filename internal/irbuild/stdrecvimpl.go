@@ -103,7 +103,7 @@ func (g *gen) stdRecvTemplateOf(ib *ast.ImplBlock) (*stdRecvTemplate, bool) {
 	if !named {
 		return nil, false
 	}
-	g.pushIfaceSubst(probe)
+	g.pushIfaceSubst(substProbe, ib, probe, nil)
 	k := g.typeOf(ib.Receiver)
 	g.popIfaceSubst()
 	head, _, ok := stdRecvParts(k)
@@ -197,7 +197,7 @@ func (t *stdRecvTemplate) match(g *gen, args []kind) (map[string]kind, bool) {
 		if p != "" {
 			continue
 		}
-		g.pushIfaceSubst(frame)
+		g.pushIfaceSubst(substProbe, t, frame, nil)
 		want := g.typeOf(t.args[i])
 		g.popIfaceSubst()
 		if want != args[i] {
@@ -209,13 +209,13 @@ func (t *stdRecvTemplate) match(g *gen, args []kind) (map[string]kind, bool) {
 
 // stdRecvImplsAt answers this gen's blocks over k's container registered at
 // k, registering at k, once, each block that implements iface or holds
-// item.
+// item. kt is the checker's type k was read from, or nil.
 //
 // A block is registered only for the interface or function a call names,
 // because the checker has established that impl at k for that call and no
 // other: a block whose `where` clause k's arguments do not meet would
 // register a body that does not lower.
-func (g *gen) stdRecvImplsAt(k kind, iface string, item *ast.FuncDef) []*implDef {
+func (g *gen) stdRecvImplsAt(k kind, kt analysis.Type, iface string, item *ast.FuncDef) []*implDef {
 	if len(g.stdRecvTemplates) == 0 {
 		return nil
 	}
@@ -228,45 +228,93 @@ func (g *gen) stdRecvImplsAt(k kind, iface string, item *ast.FuncDef) []*implDef
 		if t.head != head {
 			continue
 		}
-		key := stdRecvKey{decl: t.decl, recv: k}
-		if d, done := g.stdRecvDone[key]; done {
-			if d != nil {
-				out = append(out, d)
-			}
+		_, done := g.stdRecvDone[stdRecvKey{decl: t.decl, recv: k}]
+		if !done && (iface == "" || t.iface != iface) && (item == nil || !implBlockHolds(t.decl, item)) {
 			continue
 		}
-		if (iface == "" || t.iface != iface) && (item == nil || !implBlockHolds(t.decl, item)) {
-			continue
+		if d := g.stdRecvImplAt(t, k, kt, args); d != nil {
+			out = append(out, d)
 		}
-		if g.stdRecvDone == nil {
-			g.stdRecvDone = map[stdRecvKey]*implDef{}
-		}
-		frame, ok := t.match(g, args)
-		if !ok {
-			g.stdRecvDone[key] = nil
-			continue
-		}
-		// Recorded before the registration, which resolves the block's
-		// signatures and may ask for k again.
-		g.stdRecvDone[key] = nil
-		g.pushIfaceSubst(frame)
-		d := g.registerImplAt(t.decl, k)
-		g.popIfaceSubst()
-		if !d.lowerable {
-			continue
-		}
-		g.stdRecvDone[key] = d
-		g.genericImplQueue = append(g.genericImplQueue, &genericImplInst{impl: d, subst: frame})
-		out = append(out, d)
 	}
 	return out
 }
 
+// stdRecvImplAt is t's block registered at k, a kind of t's container
+// whose arguments are args, registered once: under the frame that binds
+// the block's parameters to args, its body queued on genericImplQueue.
+// The frame's checker types are what kt, the checker's type k was read
+// from, binds the block's receiver to (analysis.ImplBlockArgsAt); none
+// when kt is nil. Nil when args do not match the block's receiver, or the
+// block does not lower there.
+func (g *gen) stdRecvImplAt(t *stdRecvTemplate, k kind, kt analysis.Type, args []kind) *implDef {
+	key := stdRecvKey{decl: t.decl, recv: k}
+	if d, done := g.stdRecvDone[key]; done {
+		return d
+	}
+	if g.stdRecvDone == nil {
+		g.stdRecvDone = map[stdRecvKey]*implDef{}
+	}
+	// Recorded before the registration, which resolves the block's
+	// signatures and may ask for k again.
+	g.stdRecvDone[key] = nil
+	frame, ok := t.match(g, args)
+	if !ok {
+		return nil
+	}
+	var types map[string]analysis.Type
+	if kt != nil {
+		types, _ = analysis.ImplBlockArgsAt(g.fa, t.decl, kt)
+	}
+	g.pushIfaceSubst(substImpl, t.decl, frame, types)
+	d := g.registerImplAt(t.decl, k)
+	g.popIfaceSubst()
+	if !d.lowerable {
+		return nil
+	}
+	g.stdRecvDone[key] = d
+	g.genericImplQueue = append(g.genericImplQueue, &genericImplInst{impl: d, subst: frame, substTypes: types})
+	return d
+}
+
+// stdRecvRecordedAt registers ib, the block a call's record names, at the
+// std container kind k an operand of the call is, in each program gen
+// that holds ib as a block over that container (stdRecvImplAt), so the
+// record lookup finds its function there (recordedImplItem). kt is the
+// checker's type k was read from, or nil.
+func (g *gen) stdRecvRecordedAt(ib *ast.ImplBlock, k kind, kt analysis.Type) {
+	if g.stdModule != "" {
+		return
+	}
+	if _, _, ok := stdRecvParts(k); !ok {
+		return
+	}
+	for _, og := range g.recordGens() {
+		if og == nil || og.stdModule != "" {
+			continue
+		}
+		for _, t := range og.stdRecvTemplates {
+			if t.decl != ib {
+				continue
+			}
+			there := k
+			if og != g {
+				var ok bool
+				if there, ok = og.importKind(k); !ok {
+					continue
+				}
+			}
+			if _, args, ok := stdRecvParts(there); ok {
+				og.stdRecvImplAt(t, there, kt, args)
+			}
+		}
+	}
+}
+
 // stdRecvDefsAt is every impl this gen has for the container kind k: the
 // blocks over a concrete instance and each block over the container
-// registered at k.
-func (g *gen) stdRecvDefsAt(k kind, iface string, item *ast.FuncDef) []*implDef {
-	out := g.stdRecvImplsAt(k, iface, item)
+// registered at k (kt as stdRecvImplsAt's).
+func (g *gen) stdRecvDefsAt(k kind, kt analysis.Type, iface string, item *ast.FuncDef) []*implDef {
+	out := g.stdRecvImplsAt(k, kt, iface, item)
 	for _, d := range g.implOrder {
 		if d.recv == k && d.lowerable && d.stdRecvTemplate == nil {
 			out = append(out, d)
@@ -287,8 +335,10 @@ type stdRecvCand struct {
 // of the impl block holding item when the checker resolved the call to a
 // function of a block, of iface when it resolved it to that interface's
 // function. A generic interface implemented at several type arguments has
-// one candidate per impl; stdRecvPick chooses among them.
-func (g *gen) stdRecvCandidates(k kind, method, iface string, item *ast.FuncDef) []stdRecvCand {
+// one candidate per impl; stdRecvPick chooses among them. kt is the
+// checker's type k was read from, or nil; the checker's types are the
+// program's, so every file's blocks take it.
+func (g *gen) stdRecvCandidates(k kind, kt analysis.Type, method, iface string, item *ast.FuncDef) []stdRecvCand {
 	if _, ok := undeclaredRecvOwner(k); !ok {
 		return nil
 	}
@@ -310,7 +360,7 @@ func (g *gen) stdRecvCandidates(k kind, method, iface string, item *ast.FuncDef)
 				continue
 			}
 		}
-		for _, d := range gg.stdRecvDefsAt(kk, iface, item) {
+		for _, d := range gg.stdRecvDefsAt(kk, kt, iface, item) {
 			if d.items[method] == nil || (iface != "" && d.ifaceName != iface) ||
 				(item != nil && !implBlockHolds(d.decl, item)) {
 				continue
@@ -386,12 +436,13 @@ func (bl *irScalarBuilder) stdRecvCallee(t *ast.Call) (string, *ast.FuncDef) {
 // container kind k: `List.show(xs)`, `T.zero(n)` with T a `List<Int>`,
 // `Zero.zero<Maybe<Int>>(1)`. Nil when no impl of the program supplies
 // method at k, so std's own function for the container is the call's.
-func (bl *irScalarBuilder) stdRecvCallPlan(t *ast.Call, args irQualArgs, k kind, method string) *irQualPlan {
+// kt is the checker's type k was read from, or nil.
+func (bl *irScalarBuilder) stdRecvCallPlan(t *ast.Call, args irQualArgs, k kind, kt analysis.Type, method string) *irQualPlan {
 	if bl.g.stdModule != "" || !args.ok {
 		return nil
 	}
 	iface, item := bl.stdRecvCallee(t)
-	return bl.stdRecvPick(t, args, bl.g.stdRecvCandidates(k, method, iface, item), method)
+	return bl.stdRecvPick(t, args, bl.g.stdRecvCandidates(k, kt, method, iface, item), method)
 }
 
 // stdRecvOwnerPlan is `List.show(xs)`: a call qualified by a std container
@@ -401,11 +452,15 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 	if bl.g.stdModule != "" || !args.ok {
 		return nil
 	}
+	if p := bl.recordedImplPlan(t, args, owner+"."+method); p != nil {
+		// The program's function the call's record names.
+		return p
+	}
 	iface, item := bl.stdRecvCallee(t)
 	if iface == "" && item == nil {
 		return nil
 	}
-	at := func(k kind) *irQualPlan {
+	at := func(k kind, kt analysis.Type) *irQualPlan {
 		if name, _ := undeclaredRecvOwner(k); name != owner {
 			return nil
 		}
@@ -417,11 +472,15 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 				}
 			}
 		}
-		return bl.stdRecvCallPlan(t, args, k, method)
+		return bl.stdRecvCallPlan(t, args, k, kt, method)
 	}
-	for _, k := range args.kinds {
+	for i, k := range args.kinds {
 		if name, ok := undeclaredRecvOwner(k); ok && name == owner {
-			return at(k)
+			var kt analysis.Type
+			if i < len(t.Args) {
+				kt = bl.g.operandCheckerType(t.Args[i])
+			}
+			return at(k, kt)
 		}
 	}
 	// kindInvalid: lookup — an owner naming no type tries the checked result.
@@ -431,7 +490,7 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 		// that owner's.
 		if name, ok := undeclaredRecvOwner(k); ok && name == owner {
 			if _, _, container := stdRecvParts(k); !container {
-				return at(k)
+				return at(k, nil)
 			}
 		}
 	}
@@ -440,7 +499,7 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 		return nil
 	}
 	result := bl.g.project(ft.Return)
-	if p := at(result); p != nil {
+	if p := at(result, bl.g.checkerTypeArg(ft.Return)); p != nil {
 		return p
 	}
 	// `Maybe.make(1)` typed `Result<Maybe<Int>, String>`, for an impl of
@@ -458,7 +517,7 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 		}
 		for _, part := range parts {
 			if name, ok := undeclaredRecvOwner(part); ok && name == owner && part != foundAt {
-				if p := at(part); p != nil && p.result == result {
+				if p := at(part, nil); p != nil && p.result == result {
 					ambiguous = ambiguous || found != nil
 					found, foundAt = p, part
 				}
@@ -490,7 +549,7 @@ func (bl *irScalarBuilder) ownerKind(t *ast.Call, owner string) kind {
 	if !isType || ti.Name != owner {
 		return kindInvalid
 	}
-	sym := bl.g.checkedTypeRef(ti.Line, ti.Col)
+	sym := bl.g.checkedRef(ti.Line, ti.Col)
 	if sym == nil || sym.Type == nil {
 		return kindInvalid
 	}
@@ -529,21 +588,22 @@ func stdNamedRecv(k kind) (string, bool) {
 }
 
 // stdRecvKindCall lowers the call t of method at the container kind k when
-// a program impl supplies it; handled is false otherwise.
-func (bl *irScalarBuilder) stdRecvKindCall(t *ast.Call, k kind, method string) (ir.Temp, kind, bool, bool, bool) {
+// a program impl supplies it; handled is false otherwise. kt is the
+// checker's type k was read from, or nil.
+func (bl *irScalarBuilder) stdRecvKindCall(t *ast.Call, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool, bool) {
 	unhandled := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
 	if bl.g.stdModule != "" {
 		return unhandled()
 	}
 	// Asked before the operands are lowered, which the call below does once.
-	if iface, item := bl.stdRecvCallee(t); len(bl.g.stdRecvCandidates(k, method, iface, item)) == 0 {
+	if iface, item := bl.stdRecvCallee(t); len(bl.g.stdRecvCandidates(k, kt, method, iface, item)) == 0 {
 		return unhandled()
 	}
 	if bl.qualBare == nil {
 		bl.qualBare = bl.checkedBareOperands(t)
 	}
 	args := bl.irQualLowerArgs(t)
-	plan := bl.stdRecvCallPlan(t, args, k, method)
+	plan := bl.stdRecvCallPlan(t, args, k, kt, method)
 	if plan == nil {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
@@ -561,7 +621,7 @@ func (bl *irScalarBuilder) stdRecvIfacePlan(t *ast.Call, args irQualArgs, d *ifa
 	}
 	_, item := bl.stdRecvCallee(t)
 	var cands []stdRecvCand
-	for _, c := range bl.g.stdRecvCandidates(recv, method, d.nomi, item) {
+	for _, c := range bl.g.stdRecvCandidates(recv, nil, method, d.nomi, item) {
 		if d.decl == nil || (c.d.iface != nil && c.d.iface.decl == d.decl) {
 			cands = append(cands, c)
 		}

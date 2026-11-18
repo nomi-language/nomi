@@ -672,11 +672,6 @@ Fix: %s`, b.name, err, rebuildInstruction)
 				}
 				return
 			}
-			if got.Error != "" && onlyListedBlocked(got.Error) {
-				// The playground reports these cases BLOCKED on the VM, the
-				// set TestTourDoctests pins as tourBlockedOnVM.
-				return
-			}
 			if got.Error != "" && !b.hasTests && b.block.Expected != nil &&
 				doctest.CheckOutput(b.block.Expected, doctest.Shown(got.Output, got.Error)) == nil {
 				// A block that stops on purpose: its expect block ends with
@@ -914,34 +909,6 @@ func TestTourWasmRunsTheSqliteDriversTests(t *testing.T) {
 	if got.Error != "" || !strings.Contains(got.Output, want) {
 		t.Errorf("the sqlite driver's tests in the staged wasm: output\n%s\nerror\n%s\nwant %q. Fix: %s", got.Output, got.Error, want, rebuildInstruction)
 	}
-}
-
-// onlyListedBlocked reports whether a block's error text is a test report
-// whose only non-passing cases are BLOCKED cases tourBlockedOnVM lists.
-func onlyListedBlocked(errText string) bool {
-	blocked := false
-	for _, line := range strings.Split(strings.TrimSpace(errText), "\n") {
-		switch {
-		case strings.HasPrefix(line, "ok "):
-		case strings.HasPrefix(line, "test result: BLOCKED. "):
-		case blocked && strings.HasPrefix(line, "  "):
-			// A blocker's hint, under its BLOCKED line.
-		case strings.HasPrefix(line, "BLOCKED "):
-			listed := false
-			for name := range tourBlockedOnVM {
-				if strings.HasPrefix(line, "BLOCKED "+name+" ") {
-					listed = true
-				}
-			}
-			if !listed {
-				return false
-			}
-			blocked = true
-		default:
-			return false
-		}
-	}
-	return blocked
 }
 
 // tourRunLimits are the longest a tour block's run may take under node, for

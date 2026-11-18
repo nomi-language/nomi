@@ -41,15 +41,8 @@ var beforeBodyBrace = map[token.TokenType]bool{
 	token.IMPORT: true, token.ELSE: true, token.BEGIN: true, token.SELF: true,
 }
 
-// braceBodyError is the error at the first `{` in tokens that ends a header
-// line, or nil when there is none.
-func braceBodyError(tokens []token.Token) *ParseError {
-	e, _ := braceBody(tokens)
-	return e
-}
-
-// braceBody is braceBodyError's error and the column its header line starts
-// at.
+// braceBody is the error at the first `{` in tokens that ends a header
+// line, or nil when there is none, and the column its header line starts at.
 func braceBody(tokens []token.Token) (*ParseError, int) {
 	lineStart := token.Token{}
 	for i, t := range tokens {

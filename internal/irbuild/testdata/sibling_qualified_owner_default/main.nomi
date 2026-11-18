@@ -1,0 +1,22 @@
+// The middle default of a sibling file's impl function, which calls that
+// file's private `say`, filled by its accessor whether the call names the
+// owner after a selective import or through its module.
+import
+    std::io
+    lib
+    lib.Box
+end
+
+fn arg(n: Int) -> Int
+    io.print("arg ${n}")
+    n
+end
+
+fn main()
+    io.print("${Box.eff(Box{v: 100}, arg(1), c: arg(2))}")
+    io.print("${lib.Box.eff(lib.Box{v: 200}, arg(3), c: arg(4))}")
+    io.print("${lib.Box.eff(lib.Box{v: 300}, a: arg(5), c: arg(6))}")
+    io.print("${lib.Box{v: 400} |> lib.Box.eff(arg(7), c: arg(8))}")
+    f = &lib.Box.eff(&1, arg(9), c: 10)
+    io.print("${f(lib.Box{v: 500})}")
+end

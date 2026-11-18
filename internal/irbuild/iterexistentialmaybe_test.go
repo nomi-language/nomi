@@ -64,9 +64,7 @@ end
 }
 
 // The same terminals over a list of functions that name a struct: the
-// element is in the callable domain but not the retained one, so `Iter.get`
-// declined here too (it was pinned in vmhost as
-// gapIterGetOfAFunctionOverAStruct).
+// element is in the callable domain but not the retained one.
 func TestIterMaybeTerminalsOverFunctionElements(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

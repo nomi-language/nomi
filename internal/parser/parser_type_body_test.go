@@ -71,9 +71,6 @@ end`
 	if sd.Fields[1].Default == nil {
 		t.Errorf("expected default on field 'breed', got nil")
 	}
-	if len(sd.Items) != 0 {
-		t.Errorf("expected 0 items, got %d", len(sd.Items))
-	}
 }
 
 func TestParseTypeBody_TestItemsRejected(t *testing.T) {
@@ -116,9 +113,6 @@ end
 	}
 	if len(sd.Fields) != 1 || sd.Fields[0].Name != "name" {
 		t.Fatalf("expected 1 field 'name', got %#v", sd.Fields)
-	}
-	if len(sd.Items) != 0 {
-		t.Fatalf("expected no type-body items, got %d", len(sd.Items))
 	}
 
 	empty, ok := nodes[1].(*ast.ImplBlock)
@@ -210,9 +204,6 @@ impl Speech for Dog end
 	if !strings.Contains(sd.Fields[0].Doc, "The dog's name") {
 		t.Errorf("expected doc on field, got %q", sd.Fields[0].Doc)
 	}
-	if len(sd.Items) != 0 {
-		t.Fatalf("expected no type-body items, got %d", len(sd.Items))
-	}
 	block, ok := nodes[1].(*ast.ImplBlock)
 	if !ok || !strings.Contains(block.Doc, "Speech behavior") {
 		t.Errorf("expected doc on impl block, got %T %q", nodes[1], block.Doc)
@@ -269,8 +260,8 @@ end
 	if !ok {
 		t.Fatalf("node[0]: expected *ast.StructDef, got %T", nodes[0])
 	}
-	if len(sd.Fields) != 1 || len(sd.Items) != 0 {
-		t.Fatalf("expected 1 field + no body items, got %d fields, %d items", len(sd.Fields), len(sd.Items))
+	if len(sd.Fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(sd.Fields))
 	}
 	wantConfs := []struct {
 		iface  string
@@ -305,12 +296,9 @@ end
 
 `
 	nodes := parse(t, src)
-	sd, ok := nodes[0].(*ast.StructDef)
+	_, ok := nodes[0].(*ast.StructDef)
 	if !ok {
 		t.Fatalf("node[0]: expected *ast.StructDef, got %T", nodes[0])
-	}
-	if len(sd.Items) != 0 {
-		t.Fatalf("expected no type-body items, got %d", len(sd.Items))
 	}
 	want := []struct {
 		iface  string
@@ -427,9 +415,6 @@ end
 		t.Errorf("variant 3 = %+v", ed.Variants[3])
 	}
 
-	if len(ed.Items) != 0 {
-		t.Fatalf("expected no enum body items, got %d", len(ed.Items))
-	}
 	block, ok := nodes[1].(*ast.ImplBlock)
 	if !ok || block.Interface.TypeString() != "Display" || len(block.Items) != 1 {
 		t.Fatalf("node[1]: expected Display impl block, got %T %+v", nodes[1], nodes[1])
@@ -537,12 +522,9 @@ impl iter for Box<T> where T: Display end
 
 func TestParseExternType_BodilessUnchanged(t *testing.T) {
 	nodes := parse(t, "pub host type Handle\n")
-	et, ok := nodes[0].(*ast.ExternType)
+	_, ok := nodes[0].(*ast.ExternType)
 	if !ok {
 		t.Fatalf("expected *ast.ExternType, got %T", nodes[0])
-	}
-	if et.HasBody || len(et.Items) != 0 {
-		t.Errorf("expected bodiless host type, got HasBody=%v items=%d", et.HasBody, len(et.Items))
 	}
 }
 
@@ -576,9 +558,6 @@ end
 	if td.InnerTypeExpr == nil || td.InnerTypeExpr.TypeString() != "Int" {
 		t.Errorf("expected inner type Int, got %v", td.InnerTypeExpr)
 	}
-	if td.HasBody || len(td.Items) != 0 {
-		t.Fatalf("expected bodiless type def, got HasBody=%v items=%d", td.HasBody, len(td.Items))
-	}
 	block, ok := nodes[1].(*ast.ImplBlock)
 	if !ok || block.Interface.TypeString() != "Display" || len(block.Items) != 1 {
 		t.Errorf("node[1]: expected Display impl block, got %T %+v", nodes[1], nodes[1])
@@ -603,9 +582,6 @@ end
 	if td.Name != "Sql" || td.InnerTypeExpr != nil {
 		t.Errorf("expected zero-sized Sql, got %+v", td)
 	}
-	if td.HasBody || len(td.Items) != 0 {
-		t.Fatalf("expected bodiless type def, got HasBody=%v items=%d", td.HasBody, len(td.Items))
-	}
 	block, ok := nodes[1].(*ast.ImplBlock)
 	if !ok || block.Interface.TypeString() != "Literal" || len(block.Items) != 1 {
 		t.Errorf("node[1]: expected Literal impl block, got %T %+v", nodes[1], nodes[1])
@@ -614,12 +590,9 @@ end
 
 func TestParseTypeDef_BodilessUnchanged(t *testing.T) {
 	nodes := parse(t, "type Expired\n")
-	td, ok := nodes[0].(*ast.TypeDef)
+	_, ok := nodes[0].(*ast.TypeDef)
 	if !ok {
 		t.Fatalf("expected *ast.TypeDef, got %T", nodes[0])
-	}
-	if td.HasBody || len(td.Items) != 0 {
-		t.Errorf("expected bodiless type def, got HasBody=%v items=%d", td.HasBody, len(td.Items))
 	}
 }
 

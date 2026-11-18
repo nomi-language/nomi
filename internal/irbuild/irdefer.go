@@ -14,9 +14,6 @@ type irDeferScope struct {
 	// outer is the scope that was innermost when this one opened, so an
 	// `Iter.loop` iteration can run every scope it opened (loopJump).
 	outer *irDeferScope
-	// scoped is true when the block holds its own app-field writes: the
-	// running scope was read at its entry and is restored at its exit.
-	scoped bool
 }
 
 // openDeferScope makes block the scope the next `leading` run registers
@@ -68,9 +65,6 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 	case !isCall:
 		bl.g.dc.note("a defer of something other than a call")
 		return false
-	case bl.g.ctrl != nil:
-		bl.g.dc.note("a defer inside a loop")
-		return false
 	}
 	entry := bl.b
 	start := len(entry.Instrs())
@@ -112,11 +106,7 @@ func (bl *irScalarBuilder) deferCall(t *ast.Defer, scope *irDeferScope) bool {
 func (bl *irScalarBuilder) scopedBlock(block *ast.Block) bool {
 	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
-	lead, tail := bl.g.irScalarBlock(block, "")
-	if tail == nil {
-		bl.g.dc.note(bl.g.dc.bodyWhy)
-		return false
-	}
+	lead, tail := bl.g.irScalarBlock(block)
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()

@@ -29,6 +29,14 @@ fn counts(m: Map<String, Int>) -> Int
     Map.size(m)
 end
 
+fn records(xs: List<{n: Int}>) -> Int
+    List.length(xs)
+end
+
+fn vectors(xs: List<Vector<Int>>) -> Int
+    List.length(xs)
+end
+
 fn pick<T>(c: Bool, a: T, b: T) -> T
     if c then a else b
 end
@@ -46,6 +54,10 @@ end
 		{"a map literal's values", "    _ = counts({\"a\" => List.length(xs), \"b\" => -1})"},
 		{"lists in branches", "    _ = ints(if c then [nn] else [-1])"},
 		{"options in branches", "    _ = maybe_ints([if c then Some(nn) else Some(-1)])"},
+		{"anonymous structs in a list literal", "    rs = [{n: nn}, {n: int(-1)}]\n    _ = records(rs)"},
+		{"anonymous structs in branches", "    r = if c then {n: nn} else {n: int(-1)}\n    _ = records([r])"},
+		{"anonymous structs in tuples", "    rs = [({n: nn}, 1), ({n: int(-1)}, 2)]\n    _ = records(Iter.map(rs, .first) |> Iter.to_list())"},
+		{"vectors in a list literal", "    vs = [Vector[nn], Vector[int(-1)]]\n    _ = vectors(vs)"},
 		{"two arguments of one type parameter", "    _ = int(pick(c, List.length(xs), -1))"},
 		{"the ancestor first", "    _ = int(pick(c, -1, List.length(xs)))"},
 		{"lists of one type parameter", "    _ = ints(pick(c, [nn], [-1]))"},

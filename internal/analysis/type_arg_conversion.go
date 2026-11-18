@@ -113,7 +113,7 @@ func convertibleArgs(t Type) bool {
 // interface boxed (a Maybe, a Set, a Decimal), and the rule names none of
 // them one by one.
 func carriesOwnType(t Type) bool {
-	switch t := resolveTV(t).(type) {
+	switch t := resolveTypeVar(t).(type) {
 	case *PrimitiveType:
 		return samePrimitive(t, TypeInt) || samePrimitive(t, TypeFloat) || samePrimitive(t, TypeString)
 	case *StructType:

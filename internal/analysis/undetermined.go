@@ -342,68 +342,6 @@ func typeParamCollected(t Type, tp *TypeParam_, depth int, inColl bool) bool {
 	return false
 }
 
-// typeChildren is the type arguments t is built from, one level down.
-func typeChildren(t Type) []Type {
-	switch tt := t.(type) {
-	case *ListType:
-		return []Type{tt.Elem}
-	case *MapType:
-		return []Type{tt.Key, tt.Val}
-	case *TupleType:
-		return tt.Elems
-	case *EnumType:
-		return tt.TypeArgs
-	case *StructType:
-		return tt.TypeArgs
-	case *InterfaceType:
-		return tt.TypeArgs
-	case *ConjunctionType:
-		out := make([]Type, len(tt.Members))
-		for i, m := range tt.Members {
-			out[i] = m
-		}
-		return out
-	case *DistinctType:
-		return tt.TypeArgs
-	case *PartialType:
-		return []Type{tt.Inner}
-	case *AnonStructType:
-		out := make([]Type, len(tt.Fields))
-		for i, f := range tt.Fields {
-			out[i] = f.Type
-		}
-		return out
-	case *FuncType:
-		return append(append([]Type(nil), tt.Params...), tt.Return)
-	}
-	return nil
-}
-
-// unboundVars is the unsolved inference variables in t.
-func unboundVars(t Type) []*TypeVar {
-	var out []*TypeVar
-	seen := map[*TypeVar]bool{}
-	var walk func(Type, int)
-	walk = func(t Type, depth int) {
-		if t == nil || depth > 32 {
-			return
-		}
-		t = resolveTypeVar(t)
-		if v, ok := t.(*TypeVar); ok {
-			if !seen[v] {
-				seen[v] = true
-				out = append(out, v)
-			}
-			return
-		}
-		for _, a := range typeChildren(t) {
-			walk(a, depth+1)
-		}
-	}
-	walk(t, 0)
-	return out
-}
-
 // undeterminedError is the error for u, whose type parameters bad are
 // unsolved and make values (unsolved is every unsolved one). It goes on the
 // argument that carries the first of bad; an empty collection literal there
@@ -477,15 +415,8 @@ func undeterminedArg(u undeterminedCall, tp *TypeParam_) (ast.Node, int) {
 }
 
 func mentionsTypeParam(t Type, tp *TypeParam_) bool {
-	if p, ok := t.(*TypeParam_); ok {
-		return p == tp
-	}
-	for _, a := range typeChildren(t) {
-		if mentionsTypeParam(a, tp) {
-			return true
-		}
-	}
-	return false
+	// A parameter behind a solved variable is mentionsTypeParamDeep's.
+	return typeHoldsOutsideVars(t, func(p Type) bool { return p == Type(tp) })
 }
 
 // emptyLiteralText is the spelling of an empty, unannotated collection
@@ -503,10 +434,6 @@ func emptyLiteralText(n ast.Node) (string, bool) {
 		if len(v.Entries) == 0 && v.TypeName == nil {
 			return "{}", true
 		}
-	case *ast.StructLit:
-		if v.EmptyMap && v.TypeName != nil && v.TypeName.TypeString() == "Map" {
-			return "Map{}", true
-		}
 	}
 	return "", false
 }
@@ -514,7 +441,7 @@ func emptyLiteralText(n ast.Node) (string, bool) {
 // renderNamingVars is t's spelling with each unsolved variable in names
 // written as that name, and any other unsolved variable as `_`.
 func renderNamingVars(t Type, names map[*TypeVar]string) string {
-	vars := unboundVars(t)
+	vars := openVarsIn(t)
 	for _, v := range vars {
 		name := names[v]
 		if name == "" {

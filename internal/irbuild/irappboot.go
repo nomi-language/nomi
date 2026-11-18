@@ -14,8 +14,7 @@ import (
 // value.
 //
 // irBootRetain builds an entry file's boot as an ordinary `ir.Func` taking
-// a Startup and answering its declared `Result<App, E>`, which only the VM
-// reads: an `Ok` publishes the app, and an `Err` is rendered by the boot's
+// a Startup and answering its declared `Result<App, E>`: an `Ok` publishes the app, and an `Err` is rendered by the boot's
 // `boot failure` function (mainfailure.go) and fails the run or the case;
 // `irbuild.go` records the entry unit's boot on its module with `ir.Module.SetBoot`,
 // retained or not, so a VM can refuse a program whose boot it cannot run.
@@ -44,7 +43,7 @@ import (
 // rebound by a StoreContext with a floor, context entry and deadline release.
 // A field of a local interface's type is
 // read as its existential, written by
-// native erasure, and consumed by an erased dispatch (irinterfacecall.go),
+// erasure (irErases), and consumed by an erased dispatch (irinterfacecall.go),
 // whose bodies `irRecordImpls` lists on the module for the VM.
 
 // irContextKind reports the prelude Context kind.
@@ -105,9 +104,9 @@ func irExistentialKind(k kind) bool {
 }
 
 // irErases reports whether a value of kind have enters a position of
-// existential kind want by native erasure: a declared, non-enum type with a
+// existential kind want by erasure: a declared, non-enum type with a
 // lowered impl of the interface.
-func (g *gen) irErases(want, have kind) bool {
+func (g *gen) irErases(want, have kind) (erases bool) {
 	if irConjKind(have) {
 		// Widening a conjunction to a member or to fewer members.
 		return conjHolds(have, want)
@@ -150,7 +149,7 @@ func (g *gen) irErases(want, have kind) bool {
 		// VM dispatches on the scalar's own type name (vm.runtimeTypeName).
 		return irExistentialKind(want) && g.implements(want.iface, have)
 	}
-	erases := irExistentialKind(want) && have.tag == tagNamed && have.def != nil && (!have.def.isEnum || irDispatchEnum(have.def)) &&
+	erases = irExistentialKind(want) && have.tag == tagNamed && have.def != nil && (!have.def.isEnum || irDispatchEnum(have.def)) &&
 		irRetainedValueKind(have) && g.implements(want.iface, have)
 	if erases && have.def.genericOf != nil {
 		// An instance of a generic struct (`Box<Int>`) is held erased: its
@@ -193,14 +192,11 @@ func irDispatchEnum(d *typeDef) bool {
 }
 
 // irDisplayErasedContainer reports whether have is a list, vector or map
-// whose every element (and key) is empty or enters Display's existential
-// want itself (irErases), so the erased rendering can answer it
-// structurally.
+// whose every element (and key) enters Display's existential want itself
+// (irErases), so the erased rendering can answer it structurally.
 func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 	var parts []kind
 	switch {
-	case have == kindEmptyList || have == kindEmptyMap:
-		return true
 	case have.tag == tagList && have.comp != nil && len(have.comp.parts) == 1:
 		parts = have.comp.parts
 	case have.tag == tagMap && have.comp != nil && len(have.comp.parts) == 2:
@@ -211,7 +207,7 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 		parts = have.comp.parts
 	default:
 		elem, vector := vectorElem(have)
-		if !vector || have == kindEmptyVector {
+		if !vector {
 			return false
 		}
 		parts = []kind{elem}
@@ -220,7 +216,7 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 		// A part that is a Display value already (`(d, 2)` for `d:
 		// Display`) is rendered by the erased rendering as any Display
 		// value is.
-		if p != kindEmptyList && p != kindEmptyMap && p != want && !g.irErases(want, p) {
+		if p != want && !g.irErases(want, p) {
 			return false
 		}
 	}
@@ -303,11 +299,9 @@ func irDisplayErasedScalar(k kind) bool {
 	return k == kindInt || k == kindFloat || k == kindBool || k == kindString || isDecimalKind(k) || irByteValueKind(k)
 }
 
-// irBootRetain builds the program boot's body for the VM. It emits nothing
-// and mints no Go identifier; the parameters are bound for the build under
-// their Nomi names, which no Go reader spells.
+// irBootRetain builds the program boot's body for the VM. The parameters are
+// bound for the build under their Nomi names.
 func (g *gen) irBootRetain(fd *ast.FuncDef) {
-	// VM-only: no Go names what the build resolves.
 	// Every refusal below names its reason: a boot the VM finds unretained
 	// reports the recorded reason for it, and one with none recorded would
 	// read "no decline reason recorded".
@@ -345,14 +339,13 @@ func (g *gen) irBootRetain(fd *ast.FuncDef) {
 	sh := g.irFuncShellWithCallee(fd, sig, params, g.irCalleeSym(fd, fd.Name))
 	if sh == nil {
 		g.irDeclineOpen(fd.Name)
-		g.dc.note("no function shell")
-		return
+		panic("irbuild: irBootRetain: irFuncShell is nil only when the result has no IR type, and the result already passed irBootStructKind/irBootRecordKind just above")
 	}
 	previous, previousResult := g.irBoot, g.result
 	g.irBoot, g.result = true, result
 	defer func() { g.irBoot, g.result = previous, previousResult }()
 	g.irBodyObserve(irBodyModuleFn, true)
-	g.irScalarLower(fd, sig, nil, sh, result)
+	g.irScalarLower(fd, sig, sh, result)
 	g.irBuildBootFailure(fd, errK)
 }
 
@@ -456,6 +449,7 @@ func (g *gen) irRecordImpls() {
 			}
 			if it == nil {
 				g.irMod.ImplementUnretained(method)
+				g.irRecordSlotDispatch(iface, m, nil, g, nil)
 				continue
 			}
 			fn := g.irCalleeSym(it, m.name)
@@ -468,9 +462,13 @@ func (g *gen) irRecordImpls() {
 				// body, which must block the program before it runs
 				// (vm.NoImplementation).
 				g.irMod.ImplementUnretained(method)
+				g.irRecordSlotDispatch(iface, m, nil, g, nil)
 				continue
 			}
 			g.irMod.Implement(method, typ, fn)
+			// Each defaulted parameter's accessor, which a call leaving it
+			// out dispatches to (ifaceslotdispatch.go).
+			g.irRecordSlotDispatch(iface, m, it, g, typ)
 		}
 	}
 	g.stdProgHeldImpls()
@@ -688,38 +686,77 @@ func irKeyImplRecv(k kind) bool {
 }
 
 // irIfaceMethodSym is the symbol a dispatched call to interface method m of d
-// names and an impl of it is recorded under. A local interface's method is
-// this unit's; a sibling file's (d a mirror) is the DECLARING unit's, interned
-// in that unit's table as irSiblingCalleeSym interns a sibling `fn`, so a
-// dispatch in one file finds an impl recorded in another. nil when the
-// declaring unit's gen or its declaration is not available.
+// names and an impl of it is recorded under: the program's for a std
+// interface (stdprogiface.go), else the one its home interns
+// (ifaceMethodHome). nil when the declaring unit's gen or its declaration
+// is not available.
 func (g *gen) irIfaceMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
 	if d.stdOrigin != "" {
-		// A std interface: the program's symbol (stdprogiface.go).
 		return g.stdProgMethodSym(d, m)
 	}
+	owning, token, name := g.ifaceMethodHome(d, m)
+	if owning == nil {
+		return nil
+	}
+	return owning.irCalleeSym(token, name)
+}
+
+// irSlotDispatchToken identifies the dispatched default of one parameter
+// of an interface method: method is the method's own token
+// (ifaceMethodHome), slot the parameter.
+type irSlotDispatchToken struct {
+	method any
+	slot   int
+}
+
+// irIfaceSlotDispatchSym is the symbol a dispatched call that leaves out
+// slot of interface method m of d names for that slot's default, and each
+// impl records its accessor for the slot under (ifaceslotdispatch.go),
+// interned beside the method's own symbol. nil for a std interface, none
+// of whose functions declares a parameter default, and where
+// irIfaceMethodSym is nil.
+func (g *gen) irIfaceSlotDispatchSym(d *ifaceDef, m *ifaceMethod, slot int) *ir.Symbol {
+	if d.stdOrigin != "" {
+		return nil
+	}
+	owning, token, name := g.ifaceMethodHome(d, m)
+	if owning == nil {
+		return nil
+	}
+	return owning.irCalleeSym(irSlotDispatchToken{method: token, slot: slot}, fileSlotName(name, slot))
+}
+
+// ifaceMethodHome is where program interface method m of d is interned:
+// the gen whose table holds it, its token and its name. A generic
+// interface's instance is its template's declaring unit's
+// (instMethodHome); a local interface's method is this unit's; a sibling
+// file's (d a mirror) is the DECLARING unit's, interned in that unit's
+// table as irSiblingCalleeSym interns a sibling `fn`, so a dispatch in one
+// file finds an impl recorded in another. A nil gen when that unit's gen
+// or declaration is not available.
+func (g *gen) ifaceMethodHome(d *ifaceDef, m *ifaceMethod) (*gen, any, string) {
 	if d.instOf != nil {
 		// `Gets<String>.got`: the instance's own table (instimpl.go).
-		return g.instMethodSym(d, m)
+		return g.instMethodHome(d, m)
 	}
 	if d.foreign == "" {
-		return g.irCalleeSym(m, d.nomi+"."+m.name)
+		return g, m, d.nomi + "." + m.name
 	}
 	if g.reg == nil || d.unit < 0 || d.unit >= len(g.reg.gens) {
-		return nil
+		return nil, nil, ""
 	}
 	owning := g.reg.gens[d.unit]
 	if owning == nil {
-		return nil
+		return nil, nil, ""
 	}
 	for _, od := range owning.ifaceOrder {
 		if od.decl == d.decl && od.foreign == "" {
 			if om := od.methods[m.name]; om != nil {
-				return owning.irCalleeSym(om, od.nomi+"."+om.name)
+				return owning, om, od.nomi + "." + om.name
 			}
 		}
 	}
-	return nil
+	return nil, nil, ""
 }
 
 // appFieldStore lowers the value of w and one Store over the read's
@@ -752,7 +789,7 @@ func (bl *irScalarBuilder) appFieldStore(w *ast.With) bool {
 		// field's type, an embedded value widens and a concrete value
 		// enters its interface, as an argument enters its parameter.
 		have := vk
-		if val, vk, ok = bl.coerceEmpty(w.Value, val, vk, k); !ok {
+		if val, vk, ok = bl.convertTo(w.Value, val, vk, k); !ok {
 			bl.g.dc.note("an app-field write of kind " + have.nomi() + " where " + k.nomi() + " is the field's")
 			return false
 		}

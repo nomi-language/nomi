@@ -13,16 +13,9 @@ import (
 //
 // # Why the local route cannot find it
 //
-// implCall's typeQualifiedCall scans `g.implOrder`, which is the impl blocks
-// of the file BEING LOWERED. A sibling's block is not in it, so without this
-// index the call finds no candidate, falls through to variantCall, and
-// lookupVariant reports whichever of its two arms the receiver's shape reaches:
-//
-//   - an ENUM receiver has no variant by that name, so `Status.active`;
-//   - a STRUCT or DISTINCT receiver is not an enum at all, so
-//     `User.inspect: User is a struct`.
-//
-// Both messages would be about the reporting site, not the call.
+// qualImplPlan (irqualcall.go) reads the impl blocks of the file BEING
+// LOWERED. A sibling's block is not among them, so without this index the
+// call finds no candidate.
 //
 // # Resolution is the analyzer's, and the identity is the declaration NODE
 //
@@ -43,7 +36,7 @@ import (
 // MODULE is several FILES: `pub struct Point` in a.nomi and `impl Debug for
 // Point` in b.nomi is legal. So "which impl serves Point.inspect" is a
 // PROGRAM-wide question, and asking it by scanning one gen would answer "none"
-// for a type that has one. foreignNoEquatableImpl answers `==` the same way,
+// for a type that has one. foreignNoImpl answers `==` the same way,
 // and buildImplIndex boxing.
 //
 // It is built once, after every gen's declareFuncs and before any body is
@@ -92,8 +85,8 @@ type implMemberKey struct {
 //
 // There is deliberately NO receiver-position field. An interface-qualified call
 // finds its implementation by matching the WHOLE argument list against the
-// site's declared parameters — foreignIfaceCall's discipline, one file boundary
-// out — so `fn tag(label: String, target: self)` needs no special case: the
+// site's declared parameters, so
+// `fn tag(label: String, target: self)` needs no special case: the
 // String position simply fails to be a named type and the Point position
 // succeeds. A stored position would also have to be DERIVED here, and the only
 // derivation available to an index that cannot see a stdlib interface's
@@ -193,7 +186,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 
 // resolveOwnerMembers indexes every gen's owner functions by the declaration
 // of their owner, so `Box.of(1)` in one file reaches the block of owner
-// functions another file declares for its `Box<T>` (siblingOwnerPlan).
+// functions another file declares for its `Box<T>` (siblingOwnerPlanFor).
 // Owners sorted, so sites keep one order.
 func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 	x.ownerMembers = map[implMemberKey][]implMemberSite{}
@@ -293,10 +286,10 @@ func autoSynthImpl(ib *ast.ImplBlock) bool {
 // implMemberFunc projects one impl function onto what a call in ANOTHER FILE
 // may do with it.
 //
-// A *fileFunc rather than a new shape, because the cross-file call path
-// already reads one: qualSiblingImplPlan translates the declaring package's
-// kinds into the caller's and qualifies the Go name. An impl function's
-// receiver is an ordinary parameter in whatever position the signature put it
+// A *fileFunc and not a new shape, because the cross-file call path already
+// reads one: qualSiblingImplPlan translates the declaring unit's kinds into
+// the caller's before it compares the signature. An impl function's receiver
+// is an ordinary parameter in whatever position the signature put it
 // (implFunc), so nothing is added for it.
 func implMemberFunc(d *implDef, it *implItem) *fileFunc {
 	f := &fileFunc{name: it.name, params: it.params, result: it.result, params0: it.params0}
@@ -309,13 +302,10 @@ func implMemberFunc(d *implDef, it *implItem) *fileFunc {
 	case !d.lowerable:
 		// The DECLARING file rejects the block at its own position
 		// (implDecl), so naming a construct here would count one gap twice
-		// under a name nobody can lower — fileFunc.echo's rule. A SYNTHESIZED
-		// block is the exception: nobody wrote it, implDecl deliberately
-		// reports nothing for it, so the call site is the only position there
-		// is and it reports.
-		f.why, f.echo = d.why, !d.synth
+		// under a name nobody can lower.
+		f.why = d.why
 		if f.why == "" {
-			f.why, f.echo = "call to an unlowered impl", false
+			f.why = "call to an unlowered impl"
 		}
 	case d.ifaceName == "" && !it.public:
 		// An INHERENT impl function without `pub` is file-private, and the

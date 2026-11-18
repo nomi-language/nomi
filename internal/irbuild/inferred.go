@@ -118,7 +118,8 @@ func (g *gen) project(t analysis.Type) kind {
 
 	case *analysis.TypeVar:
 		// An inference variable that got solved is its solution, and one
-		// the checker closed (a type no value is made of, closed_vars.go)
+		// the checker closed (a type no value is made of,
+		// internal/analysis/closed_vars.go)
 		// is its closed type.
 		if ty.Resolved != nil {
 			return g.project(ty.Resolved)
@@ -158,7 +159,7 @@ func (g *gen) project(t analysis.Type) kind {
 		// Keyed by NAME, which is generictype.go's own rule for the frame it
 		// shares with this: the frame is pushed only for the length of one
 		// instance's walk, and a nested generic declaration inside that walk is
-		// refused (nestedfn.go), so no unrelated `T` is live inside the window.
+		// refused, so no unrelated `T` is live inside the window.
 		//
 		// That argument is about the window and says nothing about the
 		// OPERAND. So the rule for a caller: pass a type the ENCLOSING
@@ -171,6 +172,16 @@ func (g *gen) project(t analysis.Type) kind {
 		// position, which satisfies the rule by construction.
 		if k, bound := g.genericSubstKind(ty.Name_); bound {
 			return k
+		}
+		// An interface's `self` (the checker's type for the `self` an
+		// interface signature writes) is the implementor while one of its
+		// defaults is lowered for it (irImplLower, emitIfaceDefault), and
+		// has no kind anywhere else.
+		if ty.Name_ == "self" {
+			if ds := g.defaultSelf; ds != nil {
+				return ds.recv
+			}
+			return kindInvalid
 		}
 		if k, isTypeParam := g.dictTypeParamKind(ty.Name_); isTypeParam {
 			return k
@@ -257,9 +268,9 @@ func (g *gen) project(t analysis.Type) kind {
 		if ty.Origin == boolOrigin && ty.Name == boolName {
 			return kindBool
 		}
-		// The two prelude enums are generic and DO have a representation:
-		// a Go generic type in rt, instantiated per type-argument tuple.
-		// See prelude.go, whose identity rule is this file's own.
+		// The prelude enums are generic and have a representation: a def
+		// interned per type-argument tuple. See prelude.go, whose identity
+		// rule is this file's own.
 		if k, isPrelude := g.projectPreludeEnum(ty); isPrelude {
 			return k
 		}
@@ -402,13 +413,23 @@ func (g *gen) project(t analysis.Type) kind {
 		if k, isSelf := g.projectDefaultSelf(ty); isSelf {
 			return k
 		}
+		// A std instance's own module's interface is its caller's def
+		// (stdProgOwnIface), as another module's is.
+		if d, isOwn := g.solvedIface(ty.Origin, ty.Name); isOwn && len(ty.TypeArgs) == 0 && g.stdModule != "" && ty.Origin == "std/"+g.stdModule {
+			if pd := g.stdProgOwnIface(d); pd != nil {
+				return existential(pd)
+			}
+		}
 		if k, isStd := g.projectStdIface(ty); isStd {
 			return k
 		}
-		// std's `Iter<T>` is the lowered sequence, as typeOf answers the
-		// annotation (structuralTypeOf).
-		if k, isSeq := g.irSeqKindOf(ty); isSeq {
-			return k
+		// std's `Iter<T>` is the lowered sequence over T (seqElemOf).
+		if elem, isSeq := g.seqElemOf(ty); isSeq {
+			// kindInvalid: propagates — an element with no kind is a sequence with none.
+			if elem == kindInvalid {
+				return kindInvalid
+			}
+			return seqKindIn(g, elem)
 		}
 		if len(ty.TypeArgs) > 0 {
 			// A GENERIC interface instantiation, `Gets<String>`: the
@@ -426,8 +447,8 @@ func (g *gen) project(t analysis.Type) kind {
 		return kindInvalid
 	}
 
-	// AnonStructType (structural and UNORDERED in Nomi, ordered in Go),
-	// TypeParam_ and BoundAliasType (generics, which need the dictionary).
+	// PartialType and AliasTemplate, which no recorded type is (projectExempt,
+	// TestProjectNamesEveryTypeKind).
 	return kindInvalid
 }
 
@@ -437,7 +458,7 @@ func (g *gen) project(t analysis.Type) kind {
 // shape cross-checks the declaration against what the analyzer says the type
 // is. It cannot fail while `(Origin, Name)` is a real identity — which is the
 // reason to check it: if it ever fails, the identity rule has broken somewhere
-// upstream, and a refusal is the only answer that does not emit against a
+// upstream, and a refusal is the only answer that does not lower against a
 // layout the analyzer disagrees with.
 //
 // The SIBLING branch keeps a sibling's type reachable by INFERENCE as it is by
@@ -492,7 +513,7 @@ func (g *gen) siblingNamed(origin, name string, shape func(*typeDef) bool) kind 
 	d := g.mirrorOf(o)
 	if !d.lowerable || !shape(d) {
 		// A mirror the declaring file or the import graph refuses.
-		// It records its OWN reason, which nominalRefusal reports; answering
+		// It records its OWN reason, which declRefusal reports; answering
 		// kindInvalid here is what routes it there.
 		return kindInvalid
 	}

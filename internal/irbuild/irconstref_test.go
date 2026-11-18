@@ -18,17 +18,17 @@ import (
 // TestIRConstRef_EveryRoutedSiteHasAPosition measures the premise `ir.At`
 // panics on, over the node types these two classes read a position from.
 //
-// Same instrument as TestIRArith_EveryArithSiteHasAPosition and
-// TestIRLogic_EveryShortCircuitSiteHasAPosition, and here for the same reason:
+// Same instrument as TestIRLogic_EveryShortCircuitSiteHasAPosition, and here
+// for the same reason:
 // `irNodePos` holds the IR's contract rather than falling back, because
 // falling back would silently refuse a construct that otherwise lowers.
 // `ir.At` panics on a line below 1, so the claim is that no node these classes
 // reach carries one.
 //
-// A SUPERSET of the sites the builder reaches, for the reason arithNodesUnder
-// and logicNodesUnder are: the claim is about the trees, and a claim about the
+// A SUPERSET of the sites the builder reaches, for the reason
+// logicNodesUnder is: the claim is about the trees, and a claim about the
 // trees stays true when more of them starts lowering. It does not cover nodes
-// synthesized during lowering, which `arith` and `logic` do not cover either.
+// synthesized during lowering.
 //
 // Over BOTH trees, because they are lowered by different gens: the corpus
 // through `Analyze`, the stdlib through `std.Load`.

@@ -49,3 +49,40 @@ end
 `
 	irRunSource(t, src, "35\n3\ns\n(\"x\", 1)\n(True, 9)\n(True, 2)\n")
 }
+
+// A nested fn's parameter written with a default and no annotation has the
+// type the checker gave it from its default, as a module function's does:
+// in a plain fn, a recursive one, a generic one, one returning Unit, and one
+// whose default reads an earlier parameter.
+func TestIRNestedFnDefaultParam_Runs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std::io
+
+fn main()
+    fn scale(x: Int, by = 3) -> Int
+        x * by
+    end
+    fn count(n: Int, step = 1) -> Int
+        if n <= 0 then 0 else 1 + count(n - step, step:)
+    end
+    fn label<T>(x: T, prefix = "v") -> String where T: Display
+        "${prefix}${x}"
+    end
+    fn shout(s: String, times = 2)
+        io.print("${s}${times}")
+    end
+    fn window(n: Int, offset = n * 2) -> Int
+        offset
+    end
+    io.print(scale(2))
+    io.print(scale(2, by: 5))
+    io.print(count(5))
+    io.print(label(3))
+    shout("a")
+    io.print(window(4))
+end
+`
+	irRunSource(t, src, "6\n10\n5\nv3\na2\n8\n")
+}

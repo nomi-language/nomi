@@ -49,11 +49,11 @@ var stdIndex = sync.OnceValue(func() []stdEntry {
 func entriesOf(module string, n ast.Node) []stdEntry {
 	switch d := n.(type) {
 	case *ast.FuncDef:
-		if d.Public && !d.ImplFunction {
+		if d.Public {
 			return []stdEntry{entry(module, module+"."+d.Name, d.Name, d.TypeParams, d.Params, d.ReturnTypeExpr, d.Doc, "", d.WhereClauses)}
 		}
 	case *ast.ExternFunc:
-		if d.Public && !d.ImplFunction {
+		if d.Public {
 			return []stdEntry{entry(module, module+"."+d.Name, d.Name, d.TypeParams, d.Params, d.ReturnTypeExpr, d.Doc, "", d.WhereClauses)}
 		}
 	case *ast.ImplBlock:

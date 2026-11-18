@@ -79,8 +79,7 @@ func (bl *irScalarBuilder) structDebugPlan(k kind) (*irQualPlan, bool) {
 }
 
 // stdDebugPlan calls std's own retained `Debug.inspect` for a std named type
-// with no local impl, such as calendar's Date, through the inspector
-// debugScalarInspector writes.
+// with no local impl, such as calendar's Date.
 func (bl *irScalarBuilder) stdDebugPlan(k kind) *irQualPlan {
 	if k.tag != tagNamed || k.def == nil || bl.g.std == nil || bl.g.implsByIface["Debug"][k] != nil {
 		return nil

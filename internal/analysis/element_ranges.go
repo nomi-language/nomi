@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"math/big"
+	"slices"
 
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -35,7 +36,9 @@ import (
 // The fact is worked out when the callback is checked, after its source:
 // a callback argument is noted with its source as the call is checked
 // (noteIterCallbacks), and checkLambdaExpecting and checkCapture seed the
-// parameter's range (seedLambdaElems, seedCaptureElems). A source of any
+// parameter's range (seedLambdaElems, seedCaptureElems). A callback whose
+// parameter is a subtype the range proves takes the type the position
+// passes, whichever way it is written (elemProves). A source of any
 // other form, a binding among them, gives no fact.
 
 // elemFact is what the checker knows of each element of an iterable: a
@@ -101,8 +104,9 @@ func callArgs(call *ast.Call, piped ast.Node) []ast.Node {
 	return args
 }
 
-// noteIterCallbacks notes each lambda or capture argument of call, a std
-// Iter function that calls it with its source's elements, with the source.
+// noteIterCallbacks notes each argument after the source of call, a std
+// Iter function that calls its callback with its source's elements, with
+// the source: a lambda, a capture or a function passed by name.
 func (c *checker) noteIterCallbacks(call *ast.Call, piped ast.Node) {
 	owner, name := stdCallee(call)
 	if owner != "Iter" {
@@ -117,14 +121,64 @@ func (c *checker) noteIterCallbacks(call *ast.Call, piped ast.Node) {
 		return
 	}
 	for _, a := range args[1:] {
-		switch cb := ungroupExpr(a).(type) {
-		case *ast.Lambda, *ast.Capture:
-			if c.callbackElems == nil {
-				c.callbackElems = map[ast.Node]callbackElem{}
-			}
-			c.callbackElems[cb] = callbackElem{source: args[0], params: params}
+		if c.callbackElems == nil {
+			c.callbackElems = map[ast.Node]callbackElem{}
 		}
+		c.callbackElems[ungroupExpr(a)] = callbackElem{source: args[0], params: params}
 	}
+}
+
+// elemProves reports whether parameter i of cb, a callback a std Iter
+// function calls with its source's elements (noteIterCallbacks), takes
+// what the position passes: the position passes a have, the parameter is a
+// want, a subtype of it, and the elements' range proves want's rules. It
+// is the one judgement for every way a callback is written: a lambda's
+// annotated parameter (seedLambdaElems), a partial capture's slot
+// (holeProvesSlot) and a function passed by name (callbackAsPassed) each
+// then take the type the position passes.
+func (c *checker) elemProves(cb ast.Node, i int, have, want Type) bool {
+	ce, ok := c.callbackElems[cb]
+	if !ok || !slices.Contains(ce.params, i) {
+		return false
+	}
+	return c.factProves(c.elemFactOf(ce.source, 0), have, want)
+}
+
+// callbackAsPassed is ty, the type of the function node names where a
+// function of type expected is passed, with each parameter that receives
+// its source's elements, and is a subtype their range proves, as the type
+// the position passes: `1..=n |> Iter.map(verse)` with `verse:
+// (PositiveInt) -> String` passes an `(Int) -> String`, as `&verse(&1)` and
+// `fn d -> verse(d)` do. Nil when nothing changes.
+func (c *checker) callbackAsPassed(node ast.Node, ty, expected Type) Type {
+	node = ungroupExpr(node)
+	if _, noted := c.callbackElems[node]; !noted {
+		return nil
+	}
+	ft, ok := resolveTypeVar(ty).(*FuncType)
+	if !ok {
+		return nil
+	}
+	want, ok := resolveTypeVar(expected).(*FuncType)
+	if !ok {
+		return nil
+	}
+	var passed *FuncType
+	for i := range ft.Params {
+		if i >= len(want.Params) || !c.elemProves(node, i, resolveTypeVar(want.Params[i]), ft.Params[i]) {
+			continue
+		}
+		if passed == nil {
+			cp := *ft
+			cp.Params = slices.Clone(ft.Params)
+			passed = &cp
+		}
+		passed.Params[i] = resolveTypeVar(want.Params[i])
+	}
+	if passed == nil {
+		return nil
+	}
+	return passed
 }
 
 // seedLambdaElems gives each parameter of n that receives its source's
@@ -152,7 +206,7 @@ func (c *checker) seedLambdaElems(n *ast.Lambda, params, expected []Type) {
 			continue
 		}
 		c.seedSym(c.fa.Definitions[Pos{Line: p.Line, Col: p.Col}], params[i], f)
-		if p.TypeAnnotation != nil && i < len(expected) && c.factProves(f, resolveTypeVar(expected[i]), params[i]) {
+		if p.TypeAnnotation != nil && i < len(expected) && c.elemProves(n, i, resolveTypeVar(expected[i]), params[i]) {
 			params[i] = resolveTypeVar(expected[i])
 		}
 	}
@@ -506,15 +560,14 @@ func unionFacts(a, b *elemFact) *elemFact {
 
 // holeProvesSlot reports whether arg, a partial capture's `&N` that the
 // position passes a have, converts to want, the slot it fills, by the
-// range of the elements it receives (seedCaptureElems): have is want's
-// base and the range proves want's rules.
+// range of the elements the capture's parameter N receives (elemProves).
 func (c *checker) holeProvesSlot(arg ast.Node, have, want Type) bool {
 	if na, ok := arg.(*ast.NamedArg); ok {
 		arg = na.Value
 	}
-	fr, ok := c.ranges[arg]
-	if !ok {
+	hole, ok := arg.(*ast.Placeholder)
+	if !ok || len(c.captures) == 0 {
 		return false
 	}
-	return c.factProves(&elemFact{fam: fr.fam, r: fr.r}, have, want)
+	return c.elemProves(c.captures[len(c.captures)-1], hole.N-1, have, want)
 }

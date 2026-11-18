@@ -17,19 +17,18 @@ import (
 //  1. The adapters are GENERIC Nomi bodies whose signatures mention `Iter<T>`
 //     and `(T) -> U`, so stdlib.go's scalar boundary refuses every one of them
 //     speculatively and files them under one shared reason. That boundary is
-//     correct and is not relaxed here (see stdlib.go for why it is a
-//     consequence of cross-package type identity).
+//     correct and is not relaxed here (see stdlib.go).
 //  2. The stdlib index holds every `Iter.` key
 //     (`TestIterRoute_TheStdlibIndexIsASecondRoute`), so there IS a second
 //     route from an `Iter.`-qualified call to a lowering, and the only thing
-//     keeping this file's anchor authoritative is ORDER: `iterCall` sits above
-//     `stdlibCall` in implCall and CLAIMS the call either way, lowering it or
-//     refusing it by name, so `stdlibCall` never sees one.
+//     keeping this file's anchor authoritative is ORDER: `iterCall` is asked
+//     before the stdlib index and CLAIMS the call either way, lowering it or
+//     refusing it by name, so the index never sees one.
 //
 //     A rule that says "X is the one place that decides Y" is not checked by
 //     auditing X's callers; it is checked by enumerating the other routes to Y.
 //     Two entry points produce a `rt.Seq` lowering (`iterCall` and
-//     ctrlflow.go's `iterOwnerCall`), both gate on `g.iter`, and the stdlib
+//     irloop.go's `iterLoop`), both gate on `g.iter`, and the stdlib
 //     index is a third that ordering closes. If that order changes, `Iter.map`
 //     in a USER file resolves through `byType["Iter.map"]` and the identity
 //     check below no longer applies.
@@ -40,11 +39,12 @@ import (
 // So this file is maps.go's shape one file over: the extern half lives in rt
 // (rt/seq.go), and a call site resolves to it directly.
 //
-// # The representation is `rt.Seq[T]`, and it is a lowering rather than a choice
+// # The representation is `rt.Seq`
 //
 // rt/seq.go carries that argument in full. In one line: std/iter declares
 // exactly one `Iter` implementor, `opaque struct Seq<T> { run: ((T) -> Bool) ->
-// Bool }`, and `rt.Seq[T]` is that declaration lowered field for field. Under
+// Bool }`, and `rt.Seq` is that declaration field for field. A pipeline is
+// built as `ir.Iter` nodes (iriterbody.go), which the VM runs over it. Under
 // the PUSH protocol `each_while` is the whole interface, so a closure is a
 // total representation of an `Iter<T>` and nothing is erased, which is why
 // tagSeq is not tagIface and no box is recorded for a pipeline.
@@ -71,8 +71,7 @@ import (
 // A Nomi iteration callback may answer with five different control signals,
 // and `break` is not a value a Nomi function can observe. The lambda body is
 // lowered like any other body, so `break` and `continue` in a callback go
-// through the ordinary path for them (see ctrlflow.go);
-// TestIterCallbackControlFlowIsRefused pins what happens when that path refuses.
+// through the ordinary path for them (see ctrlflow.go).
 //
 // `return` needs nothing: a Nomi lambda's `return` is lambda-scoped, so a
 // `return` in a callback produces the same value a tail expression does.
@@ -80,9 +79,8 @@ import (
 // --- the anchor --------------------------------------------------------------
 
 // iterAnchor is std/iter's `Iter` interface as THIS compilation's analysis sees
-// it. The declaration node IS the identity.
+// it.
 type iterAnchor struct {
-	decl *ast.InterfaceDef
 	// ty is the checker's type for that declaration, whose `Origin` and
 	// `Name` identify a use-site `Iter<T>` the checker solved.
 	ty *analysis.InterfaceType
@@ -105,12 +103,8 @@ const iterElemParam = "T"
 //
 //  1. The name is reached through an IMPORT (`sym.Resolved != nil`), or this IS
 //     the declaring module. A locally declared `interface Iter<T>` in any other
-//     file produces no anchor here. It also never arrives: implCall consults
-//     ifaceNamed — this file's declarations, then a MIRROR of a sibling file's —
-//     strictly before this arm, so a user interface is dispatched by impl.go and
-//     iterCall is not reached at all. The check is the belt to that braces,
-//     because "impl.go gets there first" is a claim about call order and this is
-//     a claim about the declaration.
+//     file produces no anchor here. The check is a claim about the
+//     declaration, and holds whatever order the call's resolvers run in.
 //  2. This module declares no `impl` block headed `Iter`, unless this IS the
 //     declaring module. A program that adds its own owner function to std's
 //     interface (`impl Iter<T> { fn map(...) }`) would have `Iter.map` resolve
@@ -192,7 +186,7 @@ func (g *gen) loadIter() {
 	if !isDecl || !iterProtocolMatches(decl) {
 		return
 	}
-	g.iter = &iterAnchor{decl: decl, ty: ty}
+	g.iter = &iterAnchor{ty: ty}
 }
 
 // declaresStdIter reports whether this gen is lowering std/iter itself — the
@@ -216,7 +210,7 @@ func (g *gen) loadIter() {
 //
 // One name and not a table: `Iter` is the only interface whose anchor this
 // builder resolves by provenance. If a second one arrives, the shape to reach
-// for is a parameterised `g.declaresStd(module)` and not a copy of this.
+// for is one predicate that takes the module name, and not a copy of this.
 func (g *gen) declaresStdIter() bool {
 	return g.stdModule == "iter"
 }
@@ -225,14 +219,11 @@ func (g *gen) declaresStdIter() bool {
 // `Iter` — either `impl Iter<T> { … }` (adding owner functions to std's
 // interface) or `impl Iter for MyType { … }`.
 //
-// The second is not a hazard by itself: implementing the protocol for a user
+// The second is not a hazard: implementing the protocol for a user
 // type is the documented extension point, and it does not change what
-// `Iter.map` means. It is included anyway because a module that implements
-// `Iter` is a module whose values can flow into these call sites as SOURCES,
-// and a user source is not something this file can drive — `iterSource` refuses
-// a named receiver by name. Declining here would therefore only replace one
-// refusal with another, so the narrow form is used: only an `Iter`-HEADED owner
-// block declines, and an `impl Iter for T` is left to refuse at the source.
+// `Iter.map` means. iterCall drives a user source through its own impl
+// (iteruser.go). So the narrow form is used: only an `Iter`-HEADED owner
+// block answers true.
 func (g *gen) declaresIterImpl() bool {
 	for _, n := range g.nodes {
 		ib, isImpl := n.(*ast.ImplBlock)
@@ -284,7 +275,7 @@ func iterProtocolMatches(decl *ast.InterfaceDef) bool {
 	}
 	// `known_count(collection: self) -> Maybe<Int>`, still `open` — a source that
 	// stores its own count overrides it, which is the whole basis of the O(1)
-	// answer countCall emits.
+	// answer `Iter.count` gives.
 	if !known.Open || len(known.Params) != 1 || !isSelfType(known.Params[0].TypeAnnotation) {
 		return false
 	}
@@ -312,41 +303,32 @@ func seqElem(k kind) kind { return k.comp.parts[0] }
 // --- call sites --------------------------------------------------------------
 
 // iterOwns reports whether `owner.method(...)` is a call on STD's `Iter`, so
-// implCall can route it to iterCall ahead of an arm that would otherwise claim
-// it.
+// iterCall and iterLoop claim it.
 //
-// # Why iterCall must come first
+// # Why std's `Iter` is claimed whole
 //
 // A module that declares `impl Iter for SomeType` has a non-empty
-// `g.implsByIface["Iter"]`, so without this gate implCall's interface arm would
-// hand EVERY `Iter.<method>` call in that file to `foreignIfaceCall`, which
-// sits above iterCall in the chain:
+// `g.implsByIface["Iter"]`, and an `Iter.<method>` call in that file is still
+// std's owner function:
 //
 //	struct Box { v: Int }
 //	impl Iter for Box { fn each_while(b: Box, yield: (Int) -> Bool) -> Bool { yield(b.v) } }
 //	countdown = Iter.loop(5, fn n -> if n == 0 { break n } else { n - 1 })
 //
-// foreignIfaceCall speculatively lowers the arguments to learn the receiver's
-// kind; the callback's `break` finds no boundary because iterLoop never ran;
-// and then `if !ok { return expr{k: kindInvalid}, true }` CLAIMS the call, so
-// `break` would be refused at its own line.
-//
-// The fix is precedence rather than a `restore()`. Making that exit decline
-// would send every later arm back over arguments it had already lowered and
-// reported. `Iter`'s OWNER FUNCTIONS are std's, not a dispatch on a user
+// `Iter`'s OWNER FUNCTIONS are std's, not a dispatch on a user
 // implementor: `loop`, `map`, `to_list` are declared in `impl Iter<T>` and
-// belong to iterCall. `each_while` is the interface's one genuine requirement,
-// and iterCall drives a user implementor itself (iteruser.go), so the order
-// gives nothing up.
+// belong to iterCall and iterLoop. `each_while` is the interface's one genuine
+// requirement, and iterCall drives a user implementor itself (iteruser.go), so
+// claiming the call gives nothing up.
 //
 // # What the gate excludes, and why the anchor is the right question
 //
 // `g.iter != nil` is loadIter's three-part identity check, so this claims a
 // call ONLY when the qualifier resolves to std's push-protocol `Iter`. A module
 // declaring its own `interface Iter<T>`, or reaching a sibling file's, produces
-// no anchor and is left to implCall's `ifaceNamed` arm above, which is where a
-// user interface is dispatched. The anchor is asked rather than the spelling
-// because a type identity matched by name is silently wrong.
+// no anchor and is left to the resolver that dispatches a user interface. The
+// anchor is asked rather than the spelling because a type identity matched by
+// name is silently wrong.
 func (g *gen) iterOwns(owner string) bool {
 	if owner != "Iter" {
 		return false
@@ -363,30 +345,24 @@ func (g *gen) iterOwns(owner string) bool {
 // the lambda's own closure, so it is a value flowing from the caller's syntax
 // into the terminal, and a function value has nowhere to carry one.
 //
-// The answer is to lift it out HERE, at the call site, and pass it to
-// rt.SeqReduce as an ordinary argument. It is not carried on the lowered
-// `Seq`, for a correctness reason: the seed belongs to the CALLBACK, so the
-// same source may be reduced twice with two different seeds.
+// The seed is lifted out at the call site and is an operand of the
+// terminal's `ir.Iter` node, beside the source and the callback
+// (iterReduceCall, iriterbody.go). It is not carried on the lowered `Seq`,
+// for a correctness reason: the seed belongs to the callback, so the same
+// source may be reduced twice with two different seeds.
 //
 // Three properties of the seed, each pinned by a fixture:
 //
-//  1. The seed is evaluated in the lambda's CLOSURE, not in its parameter
+//  1. The seed is evaluated in the lambda's closure, not in its parameter
 //     scope. `x = 5; Iter.reduce([1, 2, 3], x, fn acc, x -> acc + x)` is 11, so the
-//     `x` in the seed is the OUTER one. Emitting the seed in the enclosing Go
-//     scope — which is what lowering it before the func literal's call does —
-//     is that rule, and emitting it inside the literal would silently answer 6.
-//  2. The seed is evaluated ONCE PER REDUCE CALL, after the source expression
-//     and before the first element. Go evaluates a call's arguments left to
-//     right, so `rt.SeqReduce(fr, src, seed, f)` is that order — and the one
-//     way it could go wrong is already closed one level up. A seed whose
-//     lowering emits STATEMENTS (an `if`, a block) would hoist them ahead of an
-//     inline source expression; `callArgs` forces every non-final impure
-//     argument into a temporary for exactly that reason, and reduce's source is
-//     argument 0 of 2. So it is always an atom by the time this file sees it.
-//     It is not re-forced here: a second guard for a rule the caller already
-//     enforces could never be exercised. `Iter.reduce(source(), |acc = if flag
-//     { note(…) } else { 0 }, x| …)` evaluates the source ahead of the seed on
-//     its own.
+//     `x` in the seed is the outer one. The seed is lowered by the calling
+//     body's builder, where the outer `x` is the one in scope; lowering it
+//     inside the callback's body would answer 6.
+//  2. The seed is evaluated once per reduce call, after the source expression
+//     and before the first element. Its instructions are appended to the
+//     calling block after the source's, so
+//     `Iter.reduce(source(), fn acc = if flag { note(…) } else { 0 }, x -> …)`
+//     evaluates the source ahead of the seed.
 //  3. A DESTRUCTURING first parameter carries a seed too:
 //     `fn (a, b) = (0, 0), x -> …` runs, so the claim is on the parameter's
 //     default and not on it having a plain name.

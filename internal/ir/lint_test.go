@@ -261,9 +261,8 @@ func TestLint_TempDefinedBeforeUseCatchesItsPlants(t *testing.T) {
 		b := f.NewBlock(at(1), "entry")
 		one := NewInt(at(2), f.NewTemp(), 1)
 		b.Append(one)
-		// PLANT: a temporary allocated and never written by an instruction.
-		// This is the shape `irVals` made invisible — a Temp whose only
-		// referent was a Go source string outside the representation.
+		// PLANT: a temporary allocated and never written by an instruction:
+		// a Temp with no referent in the representation.
 		ghost := f.NewTemp()
 		sum := NewArith(at(2), f.NewTemp(), OpAdd, IntArith(OverflowExact), ghost, one.Dst())
 		b.Append(sum)
@@ -336,9 +335,10 @@ func TestLint_TempDefinedBeforeUseCatchesItsPlants(t *testing.T) {
 
 		// AND THE CONTROL FOR THIS ARM, which is the half that would be
 		// missing if the rule were dominance: the SAME graph with BOTH arms
-		// writing one destination passes. That is `gen.slot` / `gen.fixSlot`'s
-		// own shape and this IR is deliberately not SSA, so a rule that
-		// rejected it would reject the builder's commonest branch lowering.
+		// writing one destination passes. That is the shape the builder's
+		// branch lowering makes and this IR is deliberately not SSA, so a
+		// rule that rejected it would reject the builder's commonest branch
+		// lowering.
 		f2 := NewFunc(at(1), "total")
 		e2 := f2.NewBlock(at(1), "entry")
 		c2 := NewBool(at(2), f2.NewTemp(), true)

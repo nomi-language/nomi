@@ -23,7 +23,7 @@ import (
 // irVectorCaseKind is a `case` subject a vector pattern tests.
 func irVectorCaseKind(k kind) bool {
 	_, ok := vectorElem(k)
-	return ok || k == kindEmptyVector
+	return ok
 }
 
 // irDistinctOverVector is a distinct type over a vector, which `Path[...]`
@@ -50,15 +50,6 @@ func (bl *irScalarBuilder) vectorCaseTest(pattern ast.Node, subj ir.Temp, k kind
 		return false
 	}
 	fixed := len(pat.Heads) + len(pat.Tails)
-	if k == kindEmptyVector {
-		// The untyped `[]` as the subject: no element pattern matches it,
-		// so no element is read at the kind it is coerced to.
-		v, vk, ok := bl.coerceEmpty(pattern, subj, k, bl.g.vectorKindOf(kindInt))
-		if !ok {
-			return false
-		}
-		subj, k = v, vk
-	}
 	elem, isVector := vectorElem(k)
 	if !isVector {
 		return false
@@ -122,20 +113,6 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 	if !ok || pat.TypeName != nil || pat.Kind != ast.SeqSet {
 		return false
 	}
-	if k == kindEmptySet {
-		if len(pat.Heads) == 0 {
-			// `[]` against the untyped `[]`, which it matches whatever
-			// the element type.
-			bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pat), arm.ID()))
-			bl.b = arm
-			return true
-		}
-		v, vk, ok := bl.coerceEmpty(pattern, subj, k, bl.g.setKindOf(kindInt))
-		if !ok {
-			return false
-		}
-		subj, k = v, vk
-	}
 	elem, isSet := setElem(k)
 	if !isSet {
 		return false
@@ -157,7 +134,7 @@ func (bl *irScalarBuilder) setCaseTest(pattern ast.Node, subj ir.Temp, k kind, a
 			return false
 		}
 		if vk != elem {
-			if v, vk, ok = bl.coerceEmpty(e, v, vk, elem); !ok {
+			if v, vk, ok = bl.convertTo(e, v, vk, elem); !ok {
 				bl.g.dc.note("a set pattern element of kind " + vk.nomi() + " over " + k.nomi())
 				return false
 			}

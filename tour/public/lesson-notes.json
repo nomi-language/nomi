@@ -10,8 +10,8 @@
       "match": "divides by a NonZeroInt",
       "note": "Nomi won't divide by a number that might be zero, since that has no answer. Name the number, check it first, and divide only when it isn't zero: `if count == 0 then ... else total / count`.",
       "link": {
-        "href": "/learn/decisions/",
-        "label": "The lesson on decisions shows how"
+        "href": "/scalars-and-strings/",
+        "label": "Numbers in the Language Tour has more"
       },
       "example": "fn average(xs: List<Int>) -> Int\n    Iter.sum(xs) / Iter.count(xs)\nend\n"
     },

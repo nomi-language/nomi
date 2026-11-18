@@ -11,34 +11,14 @@ package irbuild
 // from the builder's own accounting (a tail-call cycle, a deferred call before
 // a tail call, a synthesized or boot body).
 
-import (
-	"strconv"
-
-	"github.com/nomi-language/nomi/internal/ast"
-)
-
-// irNotLowered prefixes the construct every such refusal is filed under. The
-// builder's own reason follows it, so the blocker tally ranks reasons.
-const irNotLowered = "not lowered to IR"
-
-// irNotLoweredConstruct is the construct key for one decline reason.
-func irNotLoweredConstruct(reason string) string {
-	if reason == "" {
-		reason = "no reason recorded"
-	}
-	return irNotLowered + ": " + reason
-}
-
-// irDeclined is one decline: the builder's reason and, when the decline was
-// taken at an expression, that expression's position.
+// irDeclined is one decline: the builder's reason.
 type irDeclined struct {
-	why       string
-	line, col int
+	why string
 }
 
 // take answers the open attempt's first decline and clears it.
 func (dc *declineCensus) take() irDeclined {
-	d := irDeclined{why: dc.why, line: dc.line, col: dc.col}
+	d := irDeclined{why: dc.why}
 	dc.why, dc.line, dc.col = "", 0, 0
 	return d
 }
@@ -72,38 +52,4 @@ func (g *gen) stdUnloweredFunc(id, key, reason string) {
 		reason = "no reason recorded"
 	}
 	g.stdUnlowered[id] = key + "|" + reason
-}
-
-// stdUnloweredWrappers records every default-argument wrapper and slot accessor
-// a stdlib module emitted: neither has Go, since filling a default is Nomi the
-// Go reader spells only inside a retained graph (irStdArityRetain builds the
-// VM's).
-func (g *gen) stdUnloweredWrappers(cands []*stdCandidate) {
-	for _, c := range cands {
-		f := c.f
-		if c.fd == nil || !f.body {
-			continue
-		}
-		for arity := f.arityMin; arity < len(f.params); arity++ {
-			g.stdUnloweredFunc(f.key+" arity "+strconv.Itoa(arity), f.key, "a stdlib default-argument wrapper, built for the VM only")
-		}
-		for slot, filled := range f.defaultFill {
-			if filled {
-				g.stdUnloweredFunc(f.key+" default "+strconv.Itoa(slot), f.key, "a stdlib default-argument accessor, built for the VM only")
-			}
-		}
-	}
-}
-
-// refuseTestBody records a test case whose body has no Go. A user case refuses
-// the program; a stdlib prompt case refuses only itself.
-func (g *gen) refuseTestBody(name string, d irDeclined, at ast.Node) {
-	if g.stdModule != "" {
-		if d.why == "" {
-			d = g.dc.take()
-		}
-		g.reject(irNotLoweredConstruct(d.why), "test "+strconv.Quote(name), at)
-		return
-	}
-	g.unloweredBody(d)
 }

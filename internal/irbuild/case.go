@@ -1,14 +1,13 @@
 package irbuild
 
 import (
-	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // Pattern helpers shared by the destructuring prologue and the blocker walk:
-// reading a variant's payload, holding a value the prologue reads twice, a
-// pattern's type head, and naming the pattern kinds outside the subset.
+// reading a variant's payload, holding a value the prologue reads twice, and
+// naming the pattern kinds outside the subset.
 
 // payloadValue is the value a variant's payload is read from.
 //
@@ -80,62 +79,6 @@ func (g *gen) hold(e expr) expr {
 	return expr{t: c.Dst(), k: e.k}
 }
 
-// patternHead splits a pattern's type head into its qualifier and its member.
-//
-// Three spellings reach one answer: `Variant` (bare, resolved against the scrutinee's type),
-// `Enum.Variant` (qualified) and `.Variant` (dotted, the qualifier inferred).
-// A head this builder cannot read at all reports ok=false rather than guessing
-// a member name out of a TypeString.
-//
-// A bare head named through an aliased import (`import shapes.Holder.{Of as
-// O}`, then `O{value}`) is the variant the alias names: the member is the
-// declaration's own name, read from the analyzer's reference as
-// variantRefAt reads it for construction.
-func (g *gen) patternHead(te ast.TypeExpr) (owner, member string, ok bool) {
-	switch t := te.(type) {
-	case *ast.SimpleType:
-		if ref, canonical, isRef := variantRefAt(g.srcFA(), t.Name, t.Line, t.Col); isRef && ref.Resolved != nil && ref.Resolved.Kind == analysis.SymbolEnumVariant {
-			return "", canonical, true
-		}
-		return "", t.Name, true
-	case *ast.SelfType:
-		// `self(p)` in an interface default, which is lowered once per
-		// implementor: the head is that implementor's own name.
-		if d := g.selfDistinct(); d != nil {
-			return "", d.nomi, true
-		}
-		return "", "", false
-	case *ast.QualifiedType:
-		// `Civil.Days(n)`: a namespaced type registered under its whole
-		// dotted name is the head itself, as `Duration(n)` is, not a
-		// variant of `Civil`.
-		if t.Member != nil {
-			whole := t.Module + "." + t.Member.TypeString()
-			if _, found := g.types[whole]; found {
-				return "", whole, true
-			}
-		}
-	}
-	return patternHeadAsWritten(te)
-}
-
-// patternHeadAsWritten is patternHead without the alias resolution, for a
-// head that names a distinct type rather than a variant.
-func patternHeadAsWritten(te ast.TypeExpr) (owner, member string, ok bool) {
-	switch t := te.(type) {
-	case *ast.SimpleType:
-		return "", t.Name, true
-	case *ast.QualifiedType:
-		if t.Member == nil {
-			return "", "", false
-		}
-		return t.Module, t.Member.TypeString(), true
-	case *ast.DotVariantType:
-		return "", t.Name, true
-	}
-	return "", "", false
-}
-
 // probePattern names every pattern kind outside the subset, without needing the
 // scrutinee's kind.
 //
@@ -167,8 +110,9 @@ func (g *gen) probePattern(p ast.Node) {
 		}
 
 	case *ast.StructPattern:
-		// Lowered in both spellings (structArm — nominal and anonymous), so no
-		// refusal of its own, for the reason the TuplePattern arm below gives.
+		// Lowered in both spellings (irstructpattern.go — nominal and anonymous),
+		// so no refusal of its own, for the reason the TuplePattern arm below
+		// gives.
 		g.probeStructFields(pat)
 
 	case *ast.TuplePattern:
@@ -197,15 +141,14 @@ func (g *gen) probePattern(p ast.Node) {
 			// its rest a name, so there is nothing below it to probe.
 
 		default:
-			// Lowered in both spellings (collections.go's listArm — anonymous,
-			// and type-prefixed for a variant or a list-distinct, through
-			// attach.go), so no refusal of its own, for the reason the TuplePattern
-			// arm above gives.
+			// Lowered in both spellings (anonymous in irlistpattern.go, and
+			// type-prefixed for a variant or a list-distinct), so no refusal of
+			// its own, for the reason the TuplePattern arm above gives.
 			g.probeListPattern(pat)
 
 		}
 	case *ast.MapPattern:
-		// Lowered in both spellings (maps.go's mapArm — anonymous, and
+		// Lowered in both spellings (anonymous in irmappattern.go, and
 		// type-prefixed for a variant or a map-distinct), so no refusal of its
 		// own, for the reason the TuplePattern arm above gives.
 		//
@@ -221,8 +164,8 @@ func (g *gen) probePattern(p ast.Node) {
 		g.reject("string prefix pattern", pat.Op, pat)
 
 	case *ast.DecimalLit:
-		// Lowered (decimal.go's decimalArm), so no refusal of its own, for the
-		// reason the TuplePattern arm above gives.
+		// Lowered, so no refusal of its own, for the reason the TuplePattern arm
+		// above gives.
 
 	default:
 		g.reject("case pattern", p.NodeType(), p)
@@ -230,9 +173,7 @@ func (g *gen) probePattern(p ast.Node) {
 }
 
 // probeListPattern names the blockers inside a list pattern — every head,
-// the spread and every tail. Split out because listArm needs it too: when the type
-// prefix fails to resolve, the body has not been walked and the file's blocker
-// set would be short by however much the body holds.
+// the spread and every tail.
 func (g *gen) probeListPattern(pat *ast.ListPattern) {
 	for _, sub := range pat.Heads {
 		g.probePattern(sub)

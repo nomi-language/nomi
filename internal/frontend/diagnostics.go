@@ -51,6 +51,9 @@ type Diagnostic struct {
 	// backtick typed literal that fails its compile-time check. Empty for
 	// the rest.
 	Code string
+	// Args are what the message names that a reader of Code acts on
+	// (analysis.TypeError.Args): the name of an "unknown-type".
+	Args []string
 	// Fix, when set, is the edit that repairs the error (parser.Fix): text
 	// edits an agent or an editor applies as they are.
 	Fix *parser.Fix
@@ -157,7 +160,7 @@ func typeDiagnostics(path, src string, errs []analysis.TypeError) Diagnostics {
 	for i, e := range errs {
 		d := Diagnostic{
 			Path: path, Line: e.Line, Col: e.Col, EndLine: e.EndLine, EndCol: e.EndCol,
-			Message: e.Message, Hints: e.Hints, Code: e.Code, Fix: e.Fix,
+			Message: e.Message, Hints: e.Hints, Code: e.Code, Args: e.Args, Fix: e.Fix,
 		}
 		for _, r := range e.Related {
 			rp := r.File

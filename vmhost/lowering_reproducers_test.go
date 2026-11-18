@@ -878,12 +878,10 @@ end
 
 group "a setup binding whose every arm returns"
     setup begin
-        v = case id(1)
+        _v = case id(1)
             1 -> return 5
             _ -> return 6
         end
-
-        v
     end
 
     test "v", v

@@ -26,24 +26,24 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// spreadJoin is a collection's join, for the literals with spreads.
+// spreadJoin is a collection literal's shape (a List, Vector, Set or Map),
+// which an empty literal (emptyLiteral) and a literal whose items are
+// lowered against its checked type (literalPartsOf) are built as, and the
+// collection's join, for the literals with spreads.
 type spreadJoin struct {
 	// owner and method name the join: `List.concat`.
 	owner, method string
 	// typed reports whether k is a typed collection of the literal's
 	// shape, which fixes the literal's kind.
 	typed func(k kind) bool
-	// of is the shape's tag for literalPartsOf.
-	of tag
 	// kindOf is the collection kind of parts.
 	kindOf func(g *gen, parts []kind) kind
 	// fromRight joins the last two parts first, as a List is joined, so
 	// each element is copied once.
 	fromRight bool
-	// empty is the kind of the shape's empty literal, and collect the
-	// `Iter` function that makes another Iter a collection of the shape:
-	// `to_list`. collect is empty for a map, whose spreads are maps.
-	empty   kind
+	// collect is the `Iter` function that makes another Iter a collection
+	// of the shape: `to_list`. It is empty for a map, whose spreads are
+	// maps.
 	collect string
 }
 
@@ -51,12 +51,10 @@ var (
 	listSpreadJoin = spreadJoin{
 		owner:  "List",
 		method: "concat",
-		typed:  func(k kind) bool { return k.tag == tagList && k != kindEmptyList },
-		of:     tagList,
+		typed:  func(k kind) bool { return k.tag == tagList },
 		kindOf: func(g *gen, parts []kind) kind { return g.listKind(parts[0]) },
 		// A List is cons cells: `List.concat(a, b)` copies a and shares b.
 		fromRight: true,
-		empty:     kindEmptyList,
 		collect:   "to_list",
 	}
 	vectorSpreadJoin = spreadJoin{
@@ -64,11 +62,9 @@ var (
 		method: "concat",
 		typed: func(k kind) bool {
 			_, ok := vectorElem(k)
-			return ok && k != kindEmptyVector
+			return ok
 		},
-		of:      tagEmptyVector,
 		kindOf:  func(g *gen, parts []kind) kind { return g.vectorKindOf(parts[0]) },
-		empty:   kindEmptyVector,
 		collect: "to_vector",
 	}
 	setSpreadJoin = spreadJoin{
@@ -76,22 +72,18 @@ var (
 		method: "union",
 		typed: func(k kind) bool {
 			_, ok := setElem(k)
-			return ok && k != kindEmptySet
+			return ok
 		},
-		of:      tagEmptySet,
 		kindOf:  func(g *gen, parts []kind) kind { return g.setKindOf(parts[0]) },
-		empty:   kindEmptySet,
 		collect: "to_set",
 	}
 	mapSpreadJoin = spreadJoin{
 		owner:  "Map",
 		method: "merge",
 		typed: func(k kind) bool {
-			return k.tag == tagMap && k != kindEmptyMap && k.comp != nil && len(k.comp.parts) == 2
+			return k.tag == tagMap && k.comp != nil && len(k.comp.parts) == 2
 		},
-		of:     tagMap,
 		kindOf: func(g *gen, parts []kind) kind { return g.mapKind(parts[0], parts[1]) },
-		empty:  kindEmptyMap,
 	}
 )
 
@@ -104,92 +96,98 @@ type spreadPart struct {
 	k  kind
 }
 
-// spreadHeads lowers the heads of spreads from left to right, each made a
-// collection of join's shape (collectSpread).
-func (bl *irScalarBuilder) spreadHeads(spreads []ast.Spread, join spreadJoin) ([]spreadPart, bool) {
+// spreadHeads lowers the heads of the spreads of the literal at from left
+// to right, each made a collection of the literal's (collectSpread).
+func (bl *irScalarBuilder) spreadHeads(at ast.Node, spreads []ast.Spread, join spreadJoin) ([]spreadPart, bool) {
 	out := make([]spreadPart, len(spreads))
 	for i, sp := range spreads {
 		v, k, _, ok := bl.lower(sp.Head)
 		if !ok {
 			return nil, false
 		}
-		if out[i], ok = bl.collectSpread(spreadPart{at: sp.Head, v: v, k: k}, join); !ok {
+		if out[i], ok = bl.collectSpread(at, spreadPart{at: sp.Head, v: v, k: k}, join); !ok {
 			return nil, false
 		}
 	}
 	return out, true
 }
 
-// collectSpread answers the spread p of a literal of join's shape as a
-// collection of that shape: a spread of the shape as it is, and any other
-// Iter (a Maybe, a Range, a Set in a list, an Iter chain) materialized with
-// join's `Iter` function, `Iter.to_list(p)`, as the checker allows
-// (spreadElemType). An empty literal of another shape (`[]` in a list)
-// spreads nothing, so it is the shape's empty literal.
-func (bl *irScalarBuilder) collectSpread(p spreadPart, join spreadJoin) (spreadPart, bool) {
-	if join.collect == "" || join.typed(p.k) || p.k == join.empty {
-		return p, true
-	}
-	if p.k == kindEmptyList || p.k == kindEmptyVector || p.k == kindEmptySet || p.k == kindEmptyMap {
-		var dst ir.Temp
-		switch join.empty {
-		case kindEmptyList:
-			n := ir.NewEmptyList(bl.g.irNodePos(p.at), bl.f.NewTemp(), nil)
-			bl.b.Append(n)
-			dst = n.Dst()
-		case kindEmptyVector:
-			n := ir.NewEmptyVector(bl.g.irNodePos(p.at), bl.f.NewTemp(), nil)
-			bl.b.Append(n)
-			dst = n.Dst()
-		default:
-			n := ir.NewEmptySet(bl.g.irNodePos(p.at), bl.f.NewTemp(), nil)
-			bl.b.Append(n)
-			dst = n.Dst()
+// collectSpread answers the spread p of the literal at, of join's shape, as
+// a collection of the literal's: a spread of the shape as it is, and any
+// other Iter (a Maybe, a Range, a Set in a list, an Iter chain)
+// materialized with join's `Iter` function, `Iter.to_list(p)`, as the
+// checker allows (spreadElemType). A typed
+// spread enters the kind the checker gave the literal (checkedSpreadKind)
+// as a value enters any position of that kind: in `ws: List<Display> =
+// [..xs, "a"]` the `List<Int>` is a `List<Display>` before anything is
+// joined to it. Every literal with a spread takes its spreads from here,
+// so none reads its own kind off a spread the checker typed it wider than.
+func (bl *irScalarBuilder) collectSpread(at ast.Node, p spreadPart, join spreadJoin) (spreadPart, bool) {
+	switch {
+	case join.collect == "" || join.typed(p.k):
+	default:
+		line, col := nodePos(p.at)
+		call := &ast.Call{Line: line, Col: col, Args: []ast.Node{p.at}}
+		args := irQualArgs{temps: []ir.Temp{p.v}, kinds: []kind{p.k}, mobile: []bool{true}, ok: true}
+		v, k, _, ok := bl.iterCall(call, args, join.collect, nil)
+		if !ok || !join.typed(k) {
+			bl.g.dc.note("a spread of kind " + p.k.nomi() + " that Iter." + join.collect + " does not make a collection")
+			return spreadPart{}, false
 		}
-		bl.side(dst, irScalarSide{k: join.empty})
-		return spreadPart{at: p.at, v: dst, k: join.empty}, true
+		p = spreadPart{at: p.at, v: v, k: k}
 	}
-	line, col := nodePos(p.at)
-	call := &ast.Call{Line: line, Col: col, Args: []ast.Node{p.at}}
-	args := irQualArgs{temps: []ir.Temp{p.v}, kinds: []kind{p.k}, mobile: []bool{true}, ok: true}
-	v, k, _, ok := bl.iterCall(call, args, join.collect, nil)
-	if !ok || !join.typed(k) {
-		bl.g.dc.note("a spread of kind " + p.k.nomi() + " that Iter." + join.collect + " does not make a collection")
-		return spreadPart{}, false
+	if k, closed := bl.checkedSpreadKind(at, join); closed && join.typed(p.k) && p.k != k {
+		v, _, ok := bl.convertTo(p.at, p.v, p.k, k)
+		if !ok {
+			bl.g.dc.note("a spread of kind " + p.k.nomi() + " in a literal of kind " + k.nomi())
+			return spreadPart{}, false
+		}
+		p.v, p.k = v, k
 	}
-	return spreadPart{at: p.at, v: v, k: k}, true
+	return p, true
 }
 
-// spreadKind is the kind of the literal at, whose spreads lowered to heads:
-// the first typed spread's, else the checker's type of the literal.
-func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spreadJoin) (kind, bool) {
-	for _, h := range heads {
-		if join.typed(h.k) {
-			return h.k, true
-		}
-	}
-	parts := bl.literalPartsOf(bl.g.checkedExprType(at), join.of)
+// checkedSpreadKind is the kind the checker gave the literal at, of join's
+// shape, and whether it closed it: `[..[]]` where nothing says what the
+// list holds is open.
+func (bl *irScalarBuilder) checkedSpreadKind(at ast.Node, join spreadJoin) (kind, bool) {
+	parts := bl.literalPartsOf(bl.g.checkedExprType(at), join)
 	if parts == nil {
-		bl.g.dc.note("a collection literal with spreads whose kind is open")
 		return kindInvalid, false
 	}
 	for _, p := range parts {
 		if !irFullyTyped(p) {
-			bl.g.dc.note("a collection literal with spreads whose kind is open")
 			return kindInvalid, false
 		}
 	}
 	return join.kindOf(bl.g, parts), true
 }
 
+// spreadKind is the kind of the literal at, whose spreads lowered to heads:
+// the checker's type of the literal (checkedSpreadKind), which each typed
+// head already is (collectSpread), and where the checker left it open, the
+// first typed spread's.
+func (bl *irScalarBuilder) spreadKind(at ast.Node, heads []spreadPart, join spreadJoin) (kind, bool) {
+	if k, closed := bl.checkedSpreadKind(at, join); closed {
+		return k, true
+	}
+	for _, h := range heads {
+		if join.typed(h.k) {
+			return h.k, true
+		}
+	}
+	bl.g.dc.note("a collection literal with spreads whose kind is open")
+	return kindInvalid, false
+}
+
 // joinSpreadParts joins two parts of a literal of kind k with join, each
 // coerced to k first (an empty spread, `{}`, takes the literal's kind).
 func (bl *irScalarBuilder) joinSpreadParts(at ast.Node, a, b spreadPart, k kind, join spreadJoin) (spreadPart, bool) {
 	var ok bool
-	if a.v, a.k, ok = bl.coerceEmpty(a.at, a.v, a.k, k); !ok {
+	if a.v, a.k, ok = bl.convertTo(a.at, a.v, a.k, k); !ok {
 		return spreadPart{}, false
 	}
-	if b.v, b.k, ok = bl.coerceEmpty(b.at, b.v, b.k, k); !ok {
+	if b.v, b.k, ok = bl.convertTo(b.at, b.v, b.k, k); !ok {
 		return spreadPart{}, false
 	}
 	line, col := nodePos(at)
@@ -222,7 +220,7 @@ func (bl *irScalarBuilder) joinSpreadParts(at ast.Node, a, b spreadPart, k kind,
 func (bl *irScalarBuilder) joinAll(at ast.Node, parts []spreadPart, k kind, join spreadJoin) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(parts) == 0 {
-		return no()
+		panic("irbuild: joinAll: a literal on this path has at least one spread, so at least one part")
 	}
 	var acc spreadPart
 	var ok bool
@@ -241,7 +239,7 @@ func (bl *irScalarBuilder) joinAll(at ast.Node, parts []spreadPart, k kind, join
 			}
 		}
 	}
-	if acc.v, acc.k, ok = bl.coerceEmpty(at, acc.v, acc.k, k); !ok {
+	if acc.v, acc.k, ok = bl.convertTo(at, acc.v, acc.k, k); !ok {
 		return no()
 	}
 	return acc.v, acc.k, false, true
@@ -253,7 +251,7 @@ func (bl *irScalarBuilder) joinAll(at ast.Node, parts []spreadPart, k kind, join
 func (bl *irScalarBuilder) seqSpreadLit(at ast.Node, items []ast.Node, spreads []ast.Spread, join spreadJoin,
 	run func(items []ast.Node, elem kind) (ir.Temp, kind, bool, bool)) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	heads, ok := bl.spreadHeads(spreads, join)
+	heads, ok := bl.spreadHeads(at, spreads, join)
 	if !ok {
 		return no()
 	}
@@ -334,7 +332,7 @@ func (bl *irScalarBuilder) setSpreadLit(t *ast.ListLit) (ir.Temp, kind, bool, bo
 // the value at its key from the map the parts before it make.
 func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	heads, ok := bl.spreadHeads(t.Spreads, mapSpreadJoin)
+	heads, ok := bl.spreadHeads(t, t.Spreads, mapSpreadJoin)
 	if !ok {
 		return no()
 	}
@@ -365,7 +363,7 @@ func (bl *irScalarBuilder) mapSpreadLit(t *ast.MapLit) (ir.Temp, kind, bool, boo
 		next = end
 		if have && mapHasHole(&run) {
 			var ok bool
-			if acc.v, acc.k, ok = bl.coerceEmpty(acc.at, acc.v, acc.k, k); !ok {
+			if acc.v, acc.k, ok = bl.convertTo(acc.at, acc.v, acc.k, k); !ok {
 				return false
 			}
 			acc.v = bl.holdTemp(acc.at, acc.v, acc.k)

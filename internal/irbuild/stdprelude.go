@@ -26,34 +26,27 @@ import (
 // is conditional rather than automatic, which is the whole content of this
 // file.
 //
-// # What makes an instance shareable, and why it is exactly this predicate
+// # What makes an instance shareable
 //
-// foreign.go rejects sharing a *typeDef across gens, and the reason it gives is
-// specific: "a shared def's field kinds are interned in the OWNER's g.comps, so
-// a field of type `List<Point>` renders as `*rt.List[NomiT_Point]`: correct in
-// the owner, undefined in every other package."
+// A def may be shared process-wide when it reaches no declaration of one
+// program. A shared def outlives the program that first built it and is
+// compared by pointer against every later program's kinds. `Maybe<Int>`
+// reaches a scalar and `Maybe<Duration>` a process-wide def rt declares.
+// `Maybe<Point>` reaches a type one program's file declares, and two files
+// may each declare a `Point`, so it is not shareable and keeps the per-gen
+// path.
 //
-// That objection is about RENDERING, so the exemption is too: a def whose Go
-// spelling contains nothing package-relative is correct in every package by
-// construction. `rt.Maybe[int64]` names rt and a Go builtin; `rt.Maybe[rt.Duration]`
-// names rt twice. `rt.Maybe[NomiT_Point]` names a type declared in one gen, so
-// it is not shareable and keeps the per-gen path.
-//
-// kind.packageNeutral is that predicate, and it is deliberately CLOSED rather
-// than a default-allow with exceptions: a kind whose tag this builder grows
-// later is not neutral until somebody says so.
+// kind.packageNeutral is that predicate. It is closed: a kind whose tag this
+// builder grows later is not neutral until it is listed there.
 //
 // # `List`/`Map`/tuple/func are neutral when their components are
 //
-// `*rt.List[int64]` renders identically in every package, and a structural
-// kind's IDENTITY is its interned `*compKind` (native.go's `kind.comp`).
-// sharedcomp.go interns a structural kind over neutral components
-// process-wide, so two gens' `List<Int>` are one `kind`. The rule is this
-// predicate: neutral means "renders to the same Go type text in every gen",
-// and a structural kind satisfies it exactly when every COMPONENT does, the
-// same recursive shape the prelude arm below has. So `List<Int>` is neutral and
-// `List<Point>` is not, and the second half is the whole safety argument
-// (sharedcomp.go's header).
+// A structural kind's identity is its interned `*compKind` (native.go's
+// `kind.comp`). sharedcomp.go interns a structural kind over neutral
+// components process-wide, so two gens' `List<Int>` are one `kind`. A
+// structural kind is neutral exactly when every component is, the same
+// recursive rule the prelude arm of packageNeutral has. So `List<Int>` is
+// neutral and `List<Point>` is not (sharedcomp.go's header).
 //
 // So `String.split`'s `List<String>` SIGNATURE is inside the subset, and
 // whatever refuses it refuses in the BODY.
@@ -72,15 +65,10 @@ import (
 // `assignSlots` is not called on a prelude instance (preludeInstance assigns
 // slots directly), and every per-gen table that a def participates in — `g.tids`,
 // `g.comps`, `g.implsByIface` — is keyed BY the def and never writes to it.
-//
-// TestSharedPreludeDefsAreImmutableAndNeutral asserts the reachable half of that
-// rather than restating it.
 
-// preludeNames renders one instantiation's Go type and its Nomi spelling.
-//
-// Both are derived from the same walk so they cannot disagree about which
-// arguments an instance has — which matters because the Go name is the INTERN
-// KEY and the Nomi name is what a collision is detected against.
+// preludeNomi is one instantiation's Nomi spelling, arguments included
+// (`Maybe<Int>`). It is the def's name and the key sharedPreludeDefs groups
+// its entries by.
 func preludeNomi(spec *preludeSpec, args []kind) string {
 	var nomi strings.Builder
 	nomi.WriteString(spec.nomi)
@@ -104,13 +92,12 @@ func buildPreludeDef(spec *preludeSpec, args []kind) *typeDef {
 	defer constructingType()()
 	nomi := preludeNomi(spec, args)
 	d := &typeDef{
-		nomi:    nomi,
-		tagName: spec.tagField,
-		isEnum:  true,
+		nomi:   nomi,
+		isEnum: true,
 		// The spec's anchor-independent identity and the arguments, so another
-		// gen can REBUILD this instance at its own spelling of
-		// them: `rt.Maybe` is package-neutral and the `T` inside it need not
-		// be. See foreign.go's importNamed, which is the only reader.
+		// gen can rebuild this instance over its own kinds for the arguments
+		// (foreign.go's importNamed): the prelude enum is the same in every
+		// gen, and an argument may be a type one gen declares.
 		preludeOf:   sharedAnchorFor(spec),
 		preludeArgs: args,
 		lowerable:   true,
@@ -120,7 +107,7 @@ func buildPreludeDef(spec *preludeSpec, args []kind) *typeDef {
 		if pk, carries := vs.payload(args); carries {
 			vd.kind = "positional"
 			vd.payloads = []payload{{k: pk, slot: len(d.slots)}}
-			d.slots = append(d.slots, slotDef{k: pk, users: []string{vs.nomi}})
+			d.slots = append(d.slots, slotDef{k: pk})
 			// The payload graph, so a struct whose field is `Maybe<Bad>`
 			// refuses with it and a `Maybe<Node>` inside a Node is boxed
 			// rather than laid out at infinite size.
@@ -178,8 +165,9 @@ func (k kind) packageNeutral() bool {
 			//
 			// Each argument is checked here rather than trusting where the
 			// instance was interned: genStructInstance also builds per-gen
-			// instances over non-neutral arguments (`rt.Channel[NomiT_Request]`),
-			// and this answers false for those. See stdgenstruct.go.
+			// instances over non-neutral arguments (`Channel<Request>` over a
+			// program's `Request`), and this answers false for those. See
+			// stdgenstruct.go.
 			for _, arg := range k.def.genStructArgs {
 				if !arg.packageNeutral() {
 					return false
@@ -218,19 +206,12 @@ func (k kind) packageNeutral() bool {
 		}
 		return true
 	case tagIface:
-		// An ANCHORED stdlib interface. Neutral for the same three reasons the
-		// rtDeclared arm above is: the *ifaceDef is process-wide
-		// (stdIfaceDefs), the value renders `rt.Dyn` in every generated
-		// package, and the dispatch tables it names are variables in rt rather
-		// than in anybody's output. Pointer identity against the shared set,
-		// never a name — a USER's `pub interface Display` has its own def and
-		// answers false here, which is the half a name check gets wrong.
+		// An anchored stdlib interface. Its *ifaceDef is process-wide
+		// (stdIfaceDefs) and reaches no program's declarations, so it is
+		// neutral. The test is pointer identity against the shared set, never
+		// a name: a user's `pub interface Display` has its own def and answers
+		// false here.
 		//
-		// `rt.Dyn` is the spelling of EVERY existential, so this arm makes a
-		// kind neutral whose Go text is not an identity. That is safe only
-		// because the intern tables key on the components as well as the text;
-		// otherwise `List<Display>` and `List<Comparable>` would collapse into
-		// one entry.
 		// Read as a FIELD rather than through stdIfaceOf's scan, and the reason
 		// is layering rather than speed: this predicate is asked by
 		// shareableParts, which the stdlib TABLES call while building
@@ -253,17 +234,14 @@ func (k kind) packageNeutral() bool {
 		}
 		return k.iface != nil && k.iface.stdShared
 	case tagList, tagMap, tagTuple, tagSeq, tagFunc, tagAnonStruct:
-		// A STRUCTURAL kind. Neutral exactly when every component is, which is
-		// the same recursive shape as the prelude arm and holds for the same
-		// reason: the Go spelling is built out of the components' spellings and
-		// a fixed frame of `rt.` names, `struct`, `func` and `*rt.Frame`. And as
-		// with the prelude arm, by internComp's rule such a kind IS the shared
-		// one, so this arm never reports a per-gen *compKind as neutral.
+		// A structural kind is neutral exactly when every component is, the
+		// prelude arm's recursive rule. By internComp's rule such a kind is
+		// the shared one, so this arm never reports a per-gen *compKind as
+		// neutral.
 		//
-		// The negative half is load-bearing, not conservatism: `List<Point>`
-		// renders `*rt.List[NomiT_Point]`, correct in the package that declares
-		// Point and undefined in every other, and two files may each declare a
-		// Point. See sharedcomp.go.
+		// `List<Point>` over a program's `Point` answers false: two files may
+		// each declare a Point, and a shared entry would make the two lists
+		// one kind. See sharedcomp.go.
 		if k.comp == nil {
 			return false
 		}
@@ -274,12 +252,6 @@ func (k kind) packageNeutral() bool {
 		}
 		return true
 	}
-	// tagEmptyList and tagEmptyMap answer FALSE here even though
-	// each renders to a fixed rt type. They are UNTYPED literals whose type the
-	// checker solves from context and coerce discharges; a signature position is
-	// exactly where a type is declared rather than solved, so admitting one
-	// would let a stdlib signature name `List<Unit>` where the source said
-	// nothing of the kind.
 	return false
 }
 
@@ -357,9 +329,12 @@ func preludeSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 		return kindInvalid, false
 	}
 	if len(gt.Params) != len(a.spec.params) {
-		// The checker rejects the program first; refusing rather than
-		// instantiating at the wrong arity keeps this from emitting Go against
-		// a type nobody wrote.
+		// stdTypeKind is the only caller, and it passes annotations from std
+		// source the checker accepted, which reports a wrong type-argument
+		// count. Without the guard a short argument list would panic in
+		// preludeVariantSpec.payload, which indexes the arguments by the
+		// spec's parameter, and a long one would intern a shared def
+		// (`Maybe<Int, String>`) that equals no call site's kind.
 		return kindInvalid, true
 	}
 	args := make([]kind, len(gt.Params))

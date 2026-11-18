@@ -233,6 +233,18 @@ func (e *phraseExpansion) partialLocale(locale string) bool {
 }
 
 // checkPhraseEntry checks e's entry in cat.
+// MissingTranslationCode tags the error for a `phrase` or a `noun` that a
+// listed locale's catalog has no entry for. Its arguments are the locale
+// and the declaration's name.
+const MissingTranslationCode = "missing-translation"
+
+// missingTranslationError is the error that locale has no translation of
+// kd, at kd's name.
+func missingTranslationError(kd *ast.KeywordDecl, locale string) TypeError {
+	return TypeError{Line: kd.NameLine, Col: kd.NameCol, EndLine: kd.NameLine, EndCol: kd.NameCol + len(kd.Name),
+		Message: fmt.Sprintf("%s: `%s` has no translation", locale, kd.Name)}.coded(MissingTranslationCode, locale, kd.Name)
+}
+
 func (c *checker) checkPhraseEntry(e *phraseExpansion, cat *phraseCatalog, sig mf2.Signature, source string) {
 	kd := e.decl
 	partial := e.partialLocale(cat.locale)
@@ -241,8 +253,7 @@ func (c *checker) checkPhraseEntry(e *phraseExpansion, cat *phraseCatalog, sig m
 		if partial || e.fallsBack(cat.locale, source) {
 			return
 		}
-		e2 := TypeError{Line: kd.NameLine, Col: kd.NameCol, EndLine: kd.NameLine, EndCol: kd.NameCol + len(kd.Name),
-			Message: fmt.Sprintf("%s: `%s` has no translation", cat.locale, kd.Name)}
+		e2 := missingTranslationError(kd, cat.locale)
 		hint := fmt.Sprintf("add `[%s]` with its `source` and `text` to %s", kd.Name, e.relativePath(cat.path))
 		if !cat.found {
 			hint = fmt.Sprintf("write %s, with a `[%s]` entry holding its `source` and `text`", e.relativePath(cat.path), kd.Name)

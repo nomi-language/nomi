@@ -17,7 +17,7 @@ import (
 // possibility.
 //
 // The boundary is decided by where the lowered return lands, which is decided
-// by lexical nesting, the same argument returnStmt makes for `return`:
+// by lexical nesting, as it is for `return`:
 //
 //	f = fn x: Int -> { v = parse(x)?; Ok(v + 1) }
 //	inner = f(n)          // Err(_) here, not an unwind of the caller
@@ -45,13 +45,10 @@ import (
 // assert the FRONT END rejects each, as for `try boundary disagreement`.
 //
 // The boundary a `fn` propagates into is its declared result, known before the
-// body is lowered. A LAMBDA declares nothing: its result is discovered from the
-// first `return` or the body's tail (resultInference), and a `?` is usually
-// the first statement in the body. So the guard is written as a placeholder
-// and filled in once the lambda has settled — patchPoint/patch, which the
-// lambda's own signature line also uses. The placeholder is deliberately not
-// valid (see unpatchedTryGuard): an unresolved guard must be an error, never a
-// value that type-checks and answers wrongly.
+// body is lowered. A LAMBDA declares nothing, and neither does a `concurrent`
+// block: its kind settles after its body. So tryValue keeps each such `?` as
+// an irPendingTry, and settleConcurrentTries checks it against the settled
+// kind (irretainedtry.go).
 //
 // # Four boundaries, and the classification is the CHECKER's
 //
@@ -65,7 +62,7 @@ import (
 // body, and that `?` unwinds the BLOCK, not the test. The test-body arm
 // returns out of the lowered test function, so reading `g.inTest` as "the
 // boundary is the test" would end the case at a `?` that only unwinds the
-// block. See tryBoundaryRefusal.
+// block.
 //
 // The two views are cross-checked, and on both bits rather than one: the
 // `lambda` bit against `g.inferResult != nil`, and the `test` bit against
@@ -75,7 +72,7 @@ import (
 // Three of the four lower; one is refused:
 //
 //   - A `fn`'s declared result and a LAMBDA's inferred one both take the
-//     ordinary guard, which propagates a value — see tryGuard.
+//     ordinary guard, which propagates a value — see tryValue.
 //
 //   - A TEST body takes a DIFFERENT guard, because what it propagates is not a
 //     value at all. The case FAILS, and `nomi test` reports
@@ -90,8 +87,8 @@ import (
 //     expression as the FORMATTER renders it, and the propagated variant as
 //     Debug renders it. No boundary type is involved: a test body
 //     declares no result (gen.testDecl sets g.result to kindInvalid), so
-//     `try boundary mismatch` cannot arise here and tryGuard is not reached.
-//     See tryTestGuard, and rt.TestFailure for the failure shape.
+//     `try boundary mismatch` cannot arise here. See rt.TestFailure for
+//     the failure shape.
 //
 //   - A `concurrent` block. It is refused wholesale elsewhere, so this arm
 //     only ever fires while probing a subtree that is already lost; it exists
@@ -100,8 +97,9 @@ import (
 // # A `?` stage needs no separate lowering, but it does need its own TEXT
 //
 // The PARSER builds `x |> f()?` as the pipe `x |> f()` and then a `?` stage
-// (parser.go's peelQuestions): a `TryOp` with a nil `Expr` whose operand is
-// the pipe's LEFT side, and the only thing pipe.go has to do is say so.
+// (internal/parser/parser.go's peelQuestions): a `TryOp` with a nil `Expr`
+// whose operand is the pipe's LEFT side, and the only thing pipe.go has to do
+// is say so.
 //
 // The two forms differ in their rendered text. A `?` stage renders the whole
 // `*ast.Binary` into its EarlyReturnFailure (`-1 |> parse()?`) where `E?`
@@ -109,8 +107,9 @@ import (
 // that text. So tryOp takes the node to RENDER separately from the node that
 // carries the position: pipe.go passes the binary, native.go passes the
 // TryOp. The formatter writes the `?` stage against its stage, so the pipe
-// renders back as `-1 |> parse()?`; TestPinned_TryInTest is the pin, and it is a pin on literal text rather than
-// on a comparison, because a comparison of two silences passes.
+// renders back as `-1 |> parse()?`; TestIRTestBody_TryEndsTheCaseEarly is the
+// pin, and it is a pin on literal text rather than on a comparison, because a
+// comparison of two silences passes.
 
 // recordedTryBoundary is the boundary the checker stamped on this `?`.
 //

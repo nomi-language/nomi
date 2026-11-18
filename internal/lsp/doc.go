@@ -27,6 +27,29 @@
 // (StdLib.AllBodies in NewServer, about 0.3 s once per process) and no
 // later call writes.
 //
+// # Quick fixes
+//
+// A quick fix answers a diagnostic the client sends back with a code
+// action request. The client's copy arrives without its code, so the
+// server finds the error it was published for (reported, diagnostics.go:
+// the error at that position whose message is the diagnostic's headline)
+// and reads what kind of error it is from the error's Code and what it
+// names from its Args (the analysis package doc, "Diagnostic codes"). No
+// fix reads a message's wording.
+//
+// An error that carries its repair (TypeError.Fix, ParseError.Fix) is
+// offered as it is by buildParseFixActions, under the fix's own title, so
+// a fix the checker can write whole needs no code here: calling a bare
+// pipe stage, `then` before a piped lambda, a `Display.to_string()` stage,
+// `Iter.take` before a terminal that drains an infinite iterator, and the
+// rewrites of what another language writes. The fixes written here are the
+// ones that need the document: the fill fixes, which read the impl block,
+// the literal or the `case` and format the result
+// (code_action_fill.go), "Generate function" (code_action_generate.go),
+// "Remove the `return`", whose edit depends on what else is on the line
+// (code_action_useless_return.go), the import fixes, and a missing
+// translation's catalog entry (catalogs.go).
+//
 // # Annotations a default decides
 //
 // The "Remove type annotation" and "Add type annotation" actions

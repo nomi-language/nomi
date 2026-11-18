@@ -156,9 +156,10 @@ func TestRun_AnImageMissingACalleeFailsLoudly(t *testing.T) {
 // A built image names its source files as `go build -trimpath` does: the
 // entry by its path from the project root, a stdlib module as std/<file>,
 // and no directory of the machine that built it, in a module name or a
-// position.
+// position. The program calls String.pad_start, a std function written in
+// Nomi, so the image holds a std module.
 func TestBuild_TheImageNamesFilesWithoutTheBuildMachinesDirectories(t *testing.T) {
-	img := image(t, prunedProgram)
+	img := image(t, "import std::io\n\nfn main()\n  io.print(String.pad_start(\"7\", 3, \"0\"))\nend\n")
 	_, mods := funcNames(t, img)
 	if len(mods) < 2 || mods[0] != "main.nomi" {
 		t.Fatalf("the image's modules are %v; want main.nomi first, then std modules", mods)

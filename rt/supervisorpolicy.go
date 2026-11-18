@@ -5,11 +5,11 @@ import "time"
 // The policy vocabulary of `std/supervisors`: the four enums a
 // `Supervisor.new` call names. `Restart` is next door in restart.go.
 //
-// # Why these are here rather than in a generated package
+// # Why these are here
 //
-// NormalForm's and RoundingMode's reason, which restart.go states: each is
-// declared in a std module and named from user packages, so no generated
-// package can own the type. internal/irbuild/stdenum.go anchors them.
+// NormalForm's and RoundingMode's reason, which restart.go states: the VM
+// and std's Go adapters both name each type. internal/irbuild/stdenum.go
+// anchors them.
 //
 // # `Backoff`'s shape
 //

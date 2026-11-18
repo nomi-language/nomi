@@ -230,7 +230,7 @@ func (m *Machine) pureCrossing(name string) bool {
 func (m *Machine) Effects(fs ...*ir.Func) []string {
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}, effects: map[string]bool{}}
 	for _, f := range fs {
-		w.push(f)
+		w.push(f, EdgeRoot)
 	}
 	for len(w.queue) > 0 {
 		next := w.queue[len(w.queue)-1]

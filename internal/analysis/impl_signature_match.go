@@ -160,7 +160,7 @@ func (f *implSigFunc) flexible(tp *TypeParam_) bool {
 func (f *implSigFunc) consistent(commit bool) bool {
 	reverse := map[*TypeParam_]*TypeParam_{}
 	for tp, bound := range f.subs {
-		bound = resolveTV(bound)
+		bound = resolveTypeVar(bound)
 		if f.flexible(tp) {
 			if f.m.ifaceParams[tp] {
 				if prev, ok := f.m.ifaceBindings[tp]; ok && !TypesEqual(prev, bound) {
@@ -240,7 +240,7 @@ func (f *implSigFunc) extraWhereBounds(sig *MethodSig, ft *FuncType) []wherePosi
 			}
 			var counterpart *TypeParam_
 			for tp, bound := range f.subs {
-				if b, ok := resolveTV(bound).(*TypeParam_); ok && b == param && f.expectedSide[tp] && !f.flexible(tp) {
+				if b, ok := resolveTypeVar(bound).(*TypeParam_); ok && b == param && f.expectedSide[tp] && !f.flexible(tp) {
 					counterpart = tp
 					break
 				}
@@ -279,7 +279,7 @@ func (f *implSigFunc) rigidBounds(name string, sig *MethodSig) []*InterfaceType 
 		if i >= len(iface.TypeArgs) {
 			break
 		}
-		arg, ok := resolveTV(iface.TypeArgs[i]).(*TypeParam_)
+		arg, ok := resolveTypeVar(iface.TypeArgs[i]).(*TypeParam_)
 		if !ok || arg.Name_ != name || !f.m.rigidExpected[arg] {
 			continue
 		}
@@ -304,44 +304,10 @@ func boundListHas(list []*InterfaceType, b *InterfaceType) bool {
 
 // collectTypeParamPtrs adds every type parameter t mentions to out.
 func collectTypeParamPtrs(t Type, out map[*TypeParam_]bool) {
-	switch tt := resolveTV(t).(type) {
-	case *TypeParam_:
-		out[tt] = true
-	case *ListType:
-		collectTypeParamPtrs(tt.Elem, out)
-	case *MapType:
-		collectTypeParamPtrs(tt.Key, out)
-		collectTypeParamPtrs(tt.Val, out)
-	case *PartialType:
-		collectTypeParamPtrs(tt.Inner, out)
-	case *TupleType:
-		for _, e := range tt.Elems {
-			collectTypeParamPtrs(e, out)
+	walkType(t, func(p Type) bool {
+		if tp, ok := p.(*TypeParam_); ok {
+			out[tp] = true
 		}
-	case *FuncType:
-		for _, p := range tt.Params {
-			collectTypeParamPtrs(p, out)
-		}
-		collectTypeParamPtrs(tt.Return, out)
-	case *StructType:
-		for _, a := range tt.TypeArgs {
-			collectTypeParamPtrs(a, out)
-		}
-	case *EnumType:
-		for _, a := range tt.TypeArgs {
-			collectTypeParamPtrs(a, out)
-		}
-	case *InterfaceType:
-		for _, a := range tt.TypeArgs {
-			collectTypeParamPtrs(a, out)
-		}
-	case *DistinctType:
-		for _, a := range tt.TypeArgs {
-			collectTypeParamPtrs(a, out)
-		}
-	case *AnonStructType:
-		for _, fld := range tt.Fields {
-			collectTypeParamPtrs(fld.Type, out)
-		}
-	}
+		return true
+	})
 }

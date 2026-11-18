@@ -3,8 +3,8 @@ package irbuild
 // A type refused at its declaration must report that reason everywhere it is
 // used, never a second key naming the position the use appeared in.
 //
-// `unloweredReason` and `rejectUnlowered` read a declaration's refusal list
-// rather than synthesizing a placeholder from the type's name. So
+// `unloweredReason` reads a declaration's refusal list rather than
+// synthesizing a placeholder from the type's name. So
 // `struct Config { context: Context, … }` reports
 // `non-scalar field type | Config.context: Context` at its declaration and at
 // every use site, instead of `unlowered type | Config` at each use. The

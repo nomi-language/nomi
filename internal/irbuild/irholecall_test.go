@@ -19,10 +19,10 @@ end
 `
 
 // A type argument inference leaves open under a bound Unit lacks is closed
-// at Int, which meets it (analysis's closed_vars.go): `Maybe.to_string(None)`
-// demands Display of its T through the derived impl, as
-// `Display.to_string(Err("x"))` and an interpolated `Ok(3)` do of the other
-// side. So the instance is built at Int, the Some arm's
+// at Int, which meets it (internal/analysis/closed_vars.go):
+// `Maybe.to_string(None)` demands Display of its T through the derived impl,
+// as `Display.to_string(Err("x"))` and an interpolated `Ok(3)` do of the
+// other side. So the instance is built at Int, the Some arm's
 // `Display.to_string(payload)` dispatches to Int's impl, and the program
 // runs; no instance holds a Unit that a bound would have to answer.
 func TestIRHoleCall_ABoundedOpenTypeIsClosedAtAnImplementingType(t *testing.T) {

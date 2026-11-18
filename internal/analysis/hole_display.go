@@ -55,28 +55,104 @@ type DisplayRender struct {
 	Parts []*DisplayRender
 }
 
-// recordHoleDisplays records how each interpolation hole the file's bodies
-// hold renders, once every body is checked and its variables closed.
-func (c *checker) recordHoleDisplays() {
-	if c.fa == nil || len(c.displayHoles) == 0 {
+// displayUse is a value the program renders by Display, whose rendering
+// the checker records once the file's variables are closed: an
+// interpolation hole (at, of the type the checker gave it), or, with
+// failure set, the error of type t a fixed typed literal's handler or a
+// `!` over a Result shows when it fails (at the *ast.TaggedString or the
+// *ast.Unwrap).
+type displayUse struct {
+	at      ast.Node
+	t       Type
+	failure bool
+}
+
+// recordDisplays records how each value the file's bodies render by
+// Display renders (displayRenderOf): a hole's in HoleDisplays, a typed
+// literal's failure in its TypedLiteral's Failure, a `!`'s in
+// UnwrapFailures.
+func (c *checker) recordDisplays() {
+	if c.fa == nil || len(c.displayUses) == 0 {
 		return
 	}
-	p := c.fa.Program()
-	for _, hole := range c.displayHoles {
-		t, ok := c.fa.ExprTypes[hole]
-		if !ok || t == nil {
+	for _, use := range c.displayUses {
+		if !use.failure {
+			t, ok := c.fa.ExprTypes[use.at]
+			if !ok || t == nil {
+				continue
+			}
+			if c.fa.HoleDisplays == nil {
+				c.fa.HoleDisplays = map[ast.Node]*DisplayRender{}
+			}
+			c.fa.HoleDisplays[use.at] = c.fa.displayRenderOf(t, 0)
 			continue
 		}
-		if c.fa.HoleDisplays == nil {
-			c.fa.HoleDisplays = map[ast.Node]*DisplayRender{}
+		switch at := use.at.(type) {
+		case *ast.TaggedString:
+			if rec := c.fa.TypedLiterals[at]; rec != nil {
+				rec.Failure = c.fa.displayRenderOf(use.t, 0)
+			}
+		case *ast.Unwrap:
+			if c.fa.UnwrapFailures == nil {
+				c.fa.UnwrapFailures = map[*ast.Unwrap]*DisplayRender{}
+			}
+			c.fa.UnwrapFailures[at] = c.fa.displayRenderOf(use.t, 0)
 		}
-		c.fa.HoleDisplays[hole] = displayRenderOf(p, t, 0)
 	}
-	c.displayHoles = nil
+	c.displayUses = nil
+}
+
+// DisplayAt is r, a rendering the checker recorded in a generic body, at
+// an instance of the body: by answers the type each of the body's type
+// parameters stands for there (ReplaceTypeParams' form). The body is
+// checked once, so a value of a type parameter records DisplayTypeParam,
+// alone or as a part. At an instance where its type is known the answer
+// is the rendering a value written at that type records
+// (displayRenderOf), read against fa's program, whose impls the
+// instance's types have. resolved is false, and r itself, for a rendering
+// with no type parameter in it, and where a parameter has no answer.
+func (fa *FileAnalysis) DisplayAt(r *DisplayRender, by func(*TypeParam_) (Type, bool)) (at *DisplayRender, resolved bool) {
+	if fa == nil || r == nil || !r.perInstance() {
+		return r, false
+	}
+	t, all := ReplaceTypeParams(resolveTypeVar(ResolveClosed(r.Type)), by)
+	if !all {
+		return r, false
+	}
+	if ContainsTypeParam(t) {
+		return r, false
+	}
+	return fa.displayRenderOf(t, 0), true
+}
+
+// perInstance reports whether r, or a part of it, is a type parameter's
+// rendering, which each instance of the body resolves.
+func (r *DisplayRender) perInstance() bool {
+	if r.Form == DisplayTypeParam {
+		return r.Type != nil
+	}
+	for _, p := range r.Parts {
+		if p != nil && p.perInstance() {
+			return true
+		}
+	}
+	return false
+}
+
+// DisplayCallee is the callee a call of m, the impl function a rendering
+// names (DisplayRender.Method), reaches: what the checker records for a
+// call written of it, with the block that declares m (Callee.Impl), the
+// file that declares it and its std identity.
+func (fa *FileAnalysis) DisplayCallee(m ast.ImplMethodDecl) Callee {
+	out := Callee{Kind: CalleeImpl, Decl: m}
+	if b := fa.implBlockHolding(m); b != nil {
+		out.Impl = b
+	}
+	return fa.withStd(fa.withDeclaringFile(out))
 }
 
 // displayRenderOf is how a value of type t renders by Display.
-func displayRenderOf(p *Program, t Type, depth int) *DisplayRender {
+func (fa *FileAnalysis) displayRenderOf(t Type, depth int) *DisplayRender {
 	t = ResolveClosed(t)
 	if refinementOf(t) != nil {
 		// A refinement renders as its base (refinement.go).
@@ -127,7 +203,7 @@ func displayRenderOf(p *Program, t Type, depth int) *DisplayRender {
 		}
 		r.Form = DisplayParts
 		for _, e := range tt.Elems {
-			r.Parts = append(r.Parts, displayRenderOf(p, e, depth+1))
+			r.Parts = append(r.Parts, fa.displayRenderOf(e, depth+1))
 		}
 		return r
 	case *AnonStructType:
@@ -137,7 +213,7 @@ func displayRenderOf(p *Program, t Type, depth int) *DisplayRender {
 		}
 		r.Form = DisplayParts
 		for _, f := range tt.Fields {
-			r.Parts = append(r.Parts, displayRenderOf(p, f.Type, depth+1))
+			r.Parts = append(r.Parts, fa.displayRenderOf(f.Type, depth+1))
 		}
 		return r
 	}
@@ -146,11 +222,9 @@ func displayRenderOf(p *Program, t Type, depth int) *DisplayRender {
 		return r
 	}
 	r.Form = DisplayImpl
-	if name := concreteTypeName(resolveTypeVar(t)); name != "" && p != nil {
-		if m := implMethodOf(p, "Display", "to_string", resolveTypeVar(t), name); m != nil {
-			r.Method = m
-			r.File, _ = p.ImplMethodFile(m)
-		}
+	if m := fa.implMethodFor(resolveTypeVar(t), "Display", "to_string"); m != nil {
+		r.Method = m
+		r.File, _ = fa.Program().ImplMethodFile(m)
 	}
 	return r
 }

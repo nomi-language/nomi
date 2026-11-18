@@ -817,7 +817,10 @@ impl Iter<T>
     end
 
     /// Lazy: yields the first `n` elements of `source`, or all of them when
-    /// it has fewer. An `n` of 0 or less yields nothing.
+    /// it has fewer. An `n` of 0 yields nothing. The count is a
+    /// `NonNegativeInt`: a literal is checked when the program is compiled,
+    /// and a computed count needs a check that narrows it (`if n >= 0`) or
+    /// `NonNegativeInt.try_from`.
     ///
     /// It is how an infinite source is limited: the result is never infinite,
     /// and its `known_count` is `n` when `source` never ends, or the lesser
@@ -828,7 +831,7 @@ impl Iter<T>
     //! assert Iter.repeat("x") |> Iter.take(3) |> Iter.known_count() == Some(3)
     //! assert [1, 2] |> Iter.take(5) |> Iter.known_count() == Some(2)
     //
-    pub fn take<T>(source: Iter<T>, n: Int) -> Iter<T>
+    pub fn take<T>(source: Iter<T>, n: NonNegativeInt) -> Iter<T>
         Seq{run: fn yield: (T) -> Bool -> take_each(source, n, yield)}
     end
 
@@ -973,11 +976,14 @@ impl Iter<T>
     end
 
     /// Lazy: skips the first `n` elements of `source` and yields the rest. An
-    /// `n` of 0 or less skips nothing.
+    /// `n` of 0 skips nothing, and one past the end leaves nothing. The count
+    /// is a `NonNegativeInt`, as `Iter.take`'s is.
     //
     //! assert [1, 2, 3, 4] |> Iter.drop(2) |> Iter.to_list() == [3, 4]
+    //! assert [1, 2] |> Iter.drop(0) |> Iter.to_list() == [1, 2]
+    //! assert [1, 2] |> Iter.drop(5) |> Iter.to_list() == []
     //
-    pub fn drop<T>(source: Iter<T>, n: Int) -> Iter<T>
+    pub fn drop<T>(source: Iter<T>, n: NonNegativeInt) -> Iter<T>
         Seq{run: fn yield: (T) -> Bool -> drop_each(source, n, yield)}
     end
 
@@ -1104,8 +1110,9 @@ impl Iter<T>
     /// the order of the source, in lexicographic order of the positions the
     /// elements come from. Elements are told apart by position, not by value.
     /// `n` elements give `n` choose `k` lists; a `k` of 0 gives one, the empty
-    /// list, and a `k` below 0 or above `n` gives none. `items` is read at once
-    /// and must end; each choice is built only when the walk reaches it.
+    /// list, and a `k` above `n` gives none. `k` is a `NonNegativeInt`, as
+    /// `Iter.take`'s count is. `items` is read at once and must end; each
+    /// choice is built only when the walk reaches it.
     //
     //! assert ["a", "b", "c", "d"] |> Iter.combinations(2) |> Iter.to_list() == [
     //!     ["a", "b"],
@@ -1119,7 +1126,7 @@ impl Iter<T>
     //! assert 1..=10 |> Iter.combinations(5) |> Iter.count() == 252
     //! assert [1, 2] |> Iter.combinations(3) |> Iter.to_list() == []
     //
-    pub fn combinations<T>(items: Iter<T>, k: Int) -> Iter<List<T>>
+    pub fn combinations<T>(items: Iter<T>, k: NonNegativeInt) -> Iter<List<T>>
         combinations_of(to_list(items), k)
     end
 
@@ -1599,14 +1606,19 @@ end
 // Each choice of `k` elements of `left`, as `combinations` yields them: each
 // element that leaves enough after it in turn first, before each choice of
 // the rest from the elements after it.
-fn combinations_of<T>(left: List<T>, k: Int) -> Iter<List<T>>
-    if k <= 0 then
+fn combinations_of<T>(left: List<T>, k: NonNegativeInt) -> Iter<List<T>>
+    // How many elements can come first: each must leave `k - 1` after it.
+    firsts = Iter.count(left) - k + 1
+
+    if k == 0 then
         none: List<T> = []
-        Iter.repeat(none) |> Iter.take(if k == 0 then 1 else 0)
+        Iter.repeat(none) |> Iter.take(1)
+    else if firsts <= 0 then
+        []
     else
         left
         |> Iter.with_index()
-        |> Iter.take(Iter.count(left) - k + 1)
+        |> Iter.take(firsts)
         |> Iter.flat_map(fn (index, item) ->
             left
             |> Iter.drop(index + 1)

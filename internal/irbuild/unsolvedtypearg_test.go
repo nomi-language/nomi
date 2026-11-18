@@ -3,7 +3,8 @@ package irbuild
 import "testing"
 
 // A type argument nothing determines (spec, "Determined type arguments")
-// runs at the type the checker closed it as (analysis's closed_vars.go):
+// runs at the type the checker closed it as
+// (internal/analysis/closed_vars.go):
 // `is_some(None)`, a bounded one (`shown(None, ...)` with `T: Display`),
 // and a default in another file that calls a generic with a bare `None`.
 // Instances at Unit run too: an argument that is Unit and a generic

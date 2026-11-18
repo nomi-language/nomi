@@ -82,7 +82,6 @@ func TestStdHostContextAnchorsInStdAndInAnImporter(t *testing.T) {
 		{"a differently named declaration", &ast.ExternType{Name: "Ctx", Public: true}},
 		{"a GENERIC host type", &ast.ExternType{Name: "Context", Public: true,
 			TypeParams: []ast.TypeParam{{Name: "T"}}}},
-		{"a declaration with a body", &ast.ExternType{Name: "Context", Public: true, HasBody: true}},
 		{"a declaration carrying a non-derive decorator", &ast.ExternType{Name: "Context", Public: true,
 			Decorators: []ast.Decorator{{Name: "wrap"}}}},
 	} {

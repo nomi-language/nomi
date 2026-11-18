@@ -516,6 +516,77 @@ named `somelib.nomi`, the import still means the dependency's file.
 A Nomi module is built on a Go module, which is why both use the word
 "module".
 
+## What a project may reach
+
+A project can list what its program may reach outside itself, such as
+files, the network, output and the clock. The list is `allow` in a
+`[capabilities]` table in `nomi.toml`, and each entry is a std module as an
+import names it. `nomi check`, `run`, `test` and `build` refuse a program
+that reaches anything else, before it runs. This program only prints, so
+`std::io` is enough:
+
+```nomi-run
+// FILE: main.nomi
+import std::io
+
+fn main()
+    total = 19.99d * 3d
+    io.print("Total: ${total}")
+end
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[capabilities]
+allow = ["std::io"]
+```
+<!-- expect
+Total: 59.97
+-->
+
+This one also asks a server for an exchange rate. Its `nomi.toml` does not
+allow `std::http`, so it does not run:
+
+```nomi-run error
+// FILE: main.nomi
+import
+    std::http
+    std::io
+    std::url.Url
+end
+
+fn rate() -> String
+    case http.get(Url"https://rates.example.com/today")
+        Ok(response) -> "${response.status}"
+        Err(_)       -> "offline"
+    end
+end
+
+fn main()
+    io.print("Rate: ${rate()}")
+end
+
+// FILE: nomi.toml
+[module]
+name = "shop"
+entry_points = ["main"]
+
+[capabilities]
+allow = ["std::io"]
+```
+<!-- expect
+main.nomi:8:10: this program reaches std::http, and nomi.toml allows only std::io
+main.nomi:8:10: help: reached from `main`; `main` calls `rate`
+main.nomi:8:10: help: add "std::http" to allow under [capabilities] in nomi.toml, or remove the call
+-->
+
+A call counts even in a branch that never runs, and the error says how the
+program reaches it. [Capability lists](/tooling/building/#capability-lists)
+in the tooling reference covers lists for tests and for each dependency, and
+what counts as outside.
+
 ## The orphan rule
 
 Suppose two libraries each wrote `impl Display for Int`. Each would

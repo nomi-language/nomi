@@ -12,7 +12,7 @@ import (
 // # What this file is, and what it deliberately is not
 //
 // It supplies `Generator<T>`'s kind and nothing else. There is no owner-keyed
-// operation arm here — no `generatorCall` beside `setCall`, `rangeCall` and
+// operation arm here — no Generator arm beside `setCallPlan`, `rangeCall` and
 // `channelCall` — and that absence is the design decision this file exists to
 // record, because the shape of the surrounding family invites the opposite.
 //

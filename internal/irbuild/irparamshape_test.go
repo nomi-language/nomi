@@ -54,7 +54,6 @@ func TestIRParamShape_TheDeclinesAndTheirControls(t *testing.T) {
 		{"a record", kind{tag: tagAnonStruct}, ir.ValStruct, ""},
 		{"a function value", kind{tag: tagFunc}, ir.ValFunc, ""},
 		{"a list", kind{tag: tagList}, ir.ValContainer, ""},
-		{"an untyped empty list", kind{tag: tagEmptyList}, ir.ValContainer, ""},
 		{"a declared struct", named(record), ir.ValStruct, ""},
 		{"a declared enum", named(enum), ir.ValVariant, ""},
 		{"a wrapping distinct", named(wrapper), ir.ValDistinct, ""},

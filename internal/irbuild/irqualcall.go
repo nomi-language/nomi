@@ -16,18 +16,18 @@ package irbuild
 // interface's method table. Stdlib file APIs remain separate.
 //
 // Arguments are lowered in evaluation order, forcing every non-final impure
-// value before the next argument can emit statements. Checked kinds then
-// validate the selected signature without coercion or speculative lowering.
+// value before the next argument's instructions are appended. Checked kinds
+// then validate the selected signature without coercion or speculative
+// lowering.
 //
 // A call names its declaring symbol, including across sibling and cached stdlib
-// modules; approved rt bindings carry explicit host crossings. Go spelling and
-// required imports travel beside the instruction; import sets change only when
-// the consumer emits it, so a discarded build cannot leak an unused import.
+// modules; approved rt bindings carry explicit host crossings.
 //
 // Calls inside recorded assertion subjects decline until qualified argument
 // rows can preserve the complete operand history in reports.
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -38,7 +38,7 @@ import (
 )
 
 // irQualPlan is one resolved qualified callee: an identity, a result kind, and
-// the Go realization that travels beside the node.
+// how qualEmit appends the call.
 //
 // A PLAN RATHER THAN AN IMMEDIATE BUILD, because the operands are lowered
 // BEFORE the callee is selected — `stdPick` chooses on the operand kinds — and
@@ -69,6 +69,10 @@ type irQualPlan struct {
 	// implementation is selected by that operand's type at run time.
 	dispatchAt int
 	dispatch   bool
+	// target is the declaration the plan lowers against when its token
+	// does not name it (a std `host fn` bound by name, irExternBinding);
+	// irQualPlanTarget answers it.
+	target ast.Node
 	// args, when set, replaces the call's lowered operands: a callee with
 	// parameter defaults the call omits takes its written operands and then
 	// each omitted default, evaluated at the call (fillCallDefaults).
@@ -151,8 +155,8 @@ func (bl *irScalarBuilder) irQualLowerArgs(t *ast.Call) irQualArgs {
 				src, k, mobile = boxed, want, false
 			}
 		}
-		// Materialize before the next argument can emit statements. Delaying
-		// this copy until qualEmit would reorder effects.
+		// Force the value before the next argument's instructions are
+		// appended. Delaying this copy until qualEmit would reorder effects.
 		if !mobile && i != len(t.Args)-1 {
 			cp := ir.NewCopy(bl.g.irNodePos(arg), bl.f.NewTemp(), src)
 			bl.b.Append(cp)
@@ -171,70 +175,10 @@ func (bl *irScalarBuilder) irQualLowerArgs(t *ast.Call) irQualArgs {
 		a.temps[i], a.kinds[i] = src, k
 		a.mobile[i] = mobile
 	}
-	bl.qualTypeEmptyArgs(t, &a)
 	if bl.qualRecord == t {
 		bl.qualRecordArgs, bl.qualRecordSeen = a, true
 	}
 	return a
-}
-
-// qualTypeEmptyArgs gives an empty collection literal operand (`[]`, `{}`)
-// the element types the checker solved for its parameter, so
-// `String.join([], "-")` selects `join(List<String>, String)` like a
-// non-empty list does. An operand whose checked parameter is not a concrete
-// collection kind keeps its empty kind.
-func (bl *irScalarBuilder) qualTypeEmptyArgs(t *ast.Call, a *irQualArgs) {
-	var ft *analysis.FuncType
-	for i, k := range a.kinds {
-		if k != kindEmptyList && k != kindEmptyMap && k != kindEmptySet && k != kindEmptyVector {
-			continue
-		}
-		if ft == nil {
-			if ft = bl.g.checkedCallSignature(t); ft == nil {
-				ft = bl.g.declaredCallSignature(t)
-			}
-			if ft == nil {
-				return
-			}
-		}
-		if i >= len(ft.Params) {
-			continue
-		}
-		want := bl.g.project(ft.Params[i])
-		// kindInvalid: lookup — a parameter with no kind tries the operand's checked type next.
-		if want == kindInvalid {
-			// `Iter.count({})`: a parameter typed by an interface or a
-			// bound (`Iter<T>`, `I` where `I: Iter<T>`) names no
-			// collection, and the operand's own checked type is the one.
-			want = bl.g.checkedKind(t.Args[i])
-		}
-		// kindInvalid: lookup — a parameter with no representation types nothing; the operand keeps its empty kind.
-		if want == kindInvalid || want == k {
-			continue
-		}
-		if v, got, ok := bl.coerceEmpty(t.Args[i], a.temps[i], k, want); ok {
-			a.temps[i], a.kinds[i] = v, got
-		}
-	}
-}
-
-// typeOpenEmpty gives an empty collection literal that no position types
-// (`io.inspect({})`, `dbg []`) the collection the checker typed it as,
-// its element the type the checker closed it as (analysis.TypeVar.Closed);
-// nothing reads an element, so the value shows as the literal does. Any
-// other value is answered unchanged.
-func (bl *irScalarBuilder) typeOpenEmpty(n ast.Node, src ir.Temp, k kind) (ir.Temp, kind, bool) {
-	switch k {
-	case kindEmptyMap, kindEmptySet, kindEmptyVector:
-	default:
-		return src, k, true
-	}
-	want := bl.g.checkedKind(n)
-	// kindInvalid: lookup — a literal the checker typed nothing declines.
-	if want == kindInvalid {
-		return src, k, false
-	}
-	return bl.coerceEmpty(n, src, k, want)
 }
 
 // ifaceContainerCall lowers `Iface.method(x, ...)` whose receiver x is a std
@@ -253,7 +197,7 @@ func (bl *irScalarBuilder) stdInstRangeReceiver(args irQualArgs) bool {
 	return irContainerBaseName(args.kinds[0]) != ""
 }
 
-func (bl *irScalarBuilder) ifaceContainerCall(t *ast.Call, args irQualArgs, iface, method string) (ir.Temp, kind, bool, bool, bool) {
+func (bl *irScalarBuilder) ifaceContainerCall(t *ast.Call, args irQualArgs, iface, method string, selfType analysis.Type) (ir.Temp, kind, bool, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
 	// Inside a std module only an instance body or a test body instantiates,
 	// as an owner-qualified `Set.f(...)` call in a test body does.
@@ -316,7 +260,7 @@ func (bl *irScalarBuilder) ifaceContainerCall(t *ast.Call, args irQualArgs, ifac
 	prevCall, prevArgs := bl.stdInstPreCall, bl.stdInstPreArgs
 	bl.stdInstPreCall, bl.stdInstPreArgs = t, args
 	defer func() { bl.stdInstPreCall, bl.stdInstPreArgs = prevCall, prevArgs }()
-	return bl.stdInstCallAt(t, f, self)
+	return bl.stdInstCallAt(t, f, self, selfType)
 }
 
 // qualCheckedBareWant is the checked parameter kind for operand i when that
@@ -453,7 +397,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if fa.Field == nil {
 		// A parse artifact; `gen.fieldAccess` reports `field access` for it.
-		return no()
+		panic("irbuild: qualCallLowered: parser always sets FieldAccess.Field")
 	}
 	method := fa.Field.Name
 	obj, isIdent := ast.QualifierIdent(fa.Object)
@@ -468,29 +412,21 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 		}
 	}
 	if isType {
-		if owner, mod, rebound := bl.g.stdOwnerByDecl(ti); rebound {
-			// `Duration.seconds(1)` where the checker bound `Duration` to
-			// std/duration's type and this file's tables bind the name to
-			// another declaration (a local `struct Duration`, under an import
-			// at the top of the block), or an alias of a std type whose own
-			// name this file declares: the call is the one
+		// What the checker resolved the qualifier to, and how this file
+		// reaches it (qualOwner).
+		switch route, name, mod := bl.qualOwner(t, ti); route {
+		case ownerStdModule:
+			// `Duration.seconds(1)` where this file binds `Duration` to
+			// another declaration, or a subtype's refinement check in a
+			// file that binds no name to it: the call
 			// `duration.Duration.seconds(1)` is.
-			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, owner, method, false); handled {
+			if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, name, method, false); handled {
 				return v, rk, mobile, ok
 			}
 			return no()
-		}
-		if name, origin := bl.g.refinementCheckOwner(ti); name != "" {
-			// A generic subtype's literal checked through its `try_from`
-			// (analysis.RefinementStep.Check) in a file that binds no name
-			// to the subtype: the declaration the checker resolved the
-			// owner to.
-			if mod, isStd := strings.CutPrefix(origin, "std/"); isStd {
-				if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, name, method, false); handled {
-					return v, rk, mobile, ok
-				}
-				return no()
-			}
+		case ownerResolved:
+			// A program's type this file does not reach by its name: the
+			// owner function the checker resolved the call to.
 			if bl.qualBare == nil {
 				bl.qualBare = bl.checkedBareOperands(t)
 			}
@@ -499,35 +435,13 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 				return bl.qualEmit(t, args, plan)
 			}
 			return no()
-		}
-		if canon, origin := bl.g.generatedOwnerAlias(ti); canon != "" {
-			// A generated `try_from`'s call of its parent's, a parent its
-			// declaration names through a typealias: the target's, by its
-			// name where this file sees it, and where only the alias is
-			// imported by its std module or by its declaration.
-			if resolvedTypeSymbol(bl.g.fa, canon) == nil {
-				if mod, isStd := strings.CutPrefix(origin, "std/"); isStd {
-					if v, rk, mobile, ok, handled := bl.stdModuleOwnerCall(t, mod, canon, method, false); handled {
-						return v, rk, mobile, ok
-					}
-					return no()
-				}
-				if bl.qualBare == nil {
-					bl.qualBare = bl.checkedBareOperands(t)
-				}
-				args := bl.irQualLowerArgs(t)
-				if plan := bl.resolvedOwnerPlan(t, args, fa); plan != nil {
-					return bl.qualEmit(t, args, plan)
-				}
-				return no()
+		default:
+			if name != ti.Name {
+				// `import std::iter.Iter as It`, then `It.count(xs)`: the
+				// call is std's `Iter.count`, which every arm below names
+				// by its own name.
+				ti = &ast.TypeIdent{Name: name, Line: ti.Line, Col: ti.Col}
 			}
-			ti = &ast.TypeIdent{Name: canon, Line: ti.Line, Col: ti.Col}
-		}
-		if canon := bl.g.stdOwnerAlias(ti); canon != "" {
-			// `import std::iter.Iter as It`, then `It.count(xs)`: the call
-			// is std's `Iter.count`, which every arm below names by its
-			// own name.
-			ti = &ast.TypeIdent{Name: canon, Line: ti.Line, Col: ti.Col}
 		}
 	}
 	if !isIdent && !isType {
@@ -578,7 +492,7 @@ func (bl *irScalarBuilder) qualCallLowered(t *ast.Call, fa *ast.FieldAccess) (ir
 	if v, rk, mobile, ok, handled := bl.variantNameCall(t, obj, method); handled {
 		return v, rk, mobile, ok
 	}
-	if v, rk, mobile, ok, handled := bl.stdGenericFileCall(t, obj, method); handled {
+	if v, rk, mobile, ok, handled := bl.stdGenericFileCall(t); handled {
 		return v, rk, mobile, ok
 	}
 	plan := bl.qualFilePlan(t, args, obj, method)
@@ -618,7 +532,7 @@ func (bl *irScalarBuilder) markSignalCallback(cb ast.Node) (func(), bool) {
 		// `Iter.map(xs, &keep(&1))`: the lambda the capture lowers as.
 		return bl.markCtlCapture(cb), true
 	}
-	return nil, false
+	panic(fmt.Sprintf("irbuild: markSignalCallback: reached with %T, where callbackCarriesSignal answers only for a lambda or a capture", cb))
 }
 
 // typeQualCall lowers `Owner.method(args)` for the type owner ti, which
@@ -627,6 +541,7 @@ func (bl *irScalarBuilder) markSignalCallback(cb ast.Node) (func(), bool) {
 // Every fact it reads about the call is keyed on t, the call as written.
 func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
+	route, routeKey := bl.qualRoute(t, ti, method)
 	signalOwner := len(t.Args) == 2 && bl.signallingOwner(ti.Name, method)
 	if signalOwner {
 		// The operations the VM drives a signalling callback through.
@@ -634,10 +549,10 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			defer bl.markCtlRef(ref)()
 		}
 	}
-	if ti.Name == "Iter" && irSeededIterMethod(method) {
+	switch route {
+	case routeIterSeeded:
 		return bl.iterReduceCall(t, method)
-	}
-	if ti.Name == "Struct" && method == "update" && !bl.g.isBoundTypeParam("Struct") {
+	case routeStructUpdate:
 		return bl.structUpdateCall(t)
 	}
 	if signalOwner && !irSeededIterMethod(method) {
@@ -647,60 +562,57 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 		}
 		defer undo()
 	}
-	if ti.Name == "Iter" && method == "loop" {
+	switch route {
+	case routeIterLoop:
 		// The callback is inlined rather than lowered as a value.
 		return bl.iterLoop(t)
-	}
-	if ti.Name == "Context" && (method == "with_value" || method == "value") {
-		// The name must resolve to std's Context, not a local declaration.
-		if d, found := bl.g.namedType(ti.Name); found && irContextKind(named(d)) {
-			return bl.contextValueCall(t, method)
-		}
+	case routeContextValue:
+		return bl.contextValueCall(t, method)
 	}
 	bl.qualPreResolve(ti, nil, true, method)
-	if method == "equal" && len(t.Args) == 2 && (ti.Name == "List" || ti.Name == "Maybe" || ti.Name == "Result" || ti.Name == "Vector" || ti.Name == "Map") {
-		if _, shadowed := bl.g.namedType(ti.Name); !shadowed {
-			return bl.containerEqualCall(t, ti.Name)
+	switch route {
+	case routeContainerEqual:
+		if len(t.Args) == 2 {
+			bl.g.verifyCallForm(t, "containerEqualCall", analysis.OperatorByImpl)
+			return bl.containerEqualCall(t, routeKey.Owner.Name)
 		}
-	}
-	if ti.Name == "Hashable" && method == "hash" {
-		if _, local := bl.g.types["Hashable"]; !local {
-			if v, rk, mobile, ok, handled := bl.tupleHashCall(t); handled {
-				return v, rk, mobile, ok
-			}
-		}
-	}
-	if ti.Name == "ToJson" && (method == "to_json" || method == "to_json_field") {
-		// Only std's ToJson admits a record (irrecordjson.go).
-		if v, rk, mobile, ok, handled := bl.recordToJsonCall(t, method); handled {
+	case routeHash:
+		if v, rk, mobile, ok, handled := bl.tupleHashCall(t); handled {
+			bl.g.verifyCallForm(t, "tupleHashCall", analysis.OperatorStructural)
 			return v, rk, mobile, ok
 		}
-	}
-	if ti.Name == "Comparable" && method == "compare" {
-		if _, local := bl.g.types["Comparable"]; !local {
-			if v, rk, mobile, ok, handled := bl.tupleCompareCall(t); handled {
-				return v, rk, mobile, ok
+	case routeToJson:
+		// Only std's ToJson admits a record (irrecordjson.go).
+		if v, rk, mobile, ok, handled := bl.recordToJsonCall(t, method); handled {
+			bl.g.verifyCallForm(t, "recordToJsonCall", analysis.OperatorStructural)
+			return v, rk, mobile, ok
+		}
+	case routeCompare:
+		if v, rk, mobile, ok, handled := bl.tupleCompareCall(t); handled {
+			bl.g.verifyCallForm(t, "tupleCompareCall", analysis.OperatorStructural)
+			return v, rk, mobile, ok
+		}
+	case routeEquatableEqual:
+		if len(t.Args) == 2 && bl.g.stdModule != "" {
+			// `Equatable.equal(a.max_age, b.max_age)` in a std body (a
+			// derived impl's field over a `Maybe<Int>`): a std module holds
+			// no generic instance, and the container's equality is the
+			// structural comparison containerEqualCall lowers.
+			if owner := bl.equatableContainerOwner(t); owner != "" {
+				bl.g.verifyCallForm(t, "containerEqualCall", analysis.OperatorByImpl)
+				return bl.containerEqualCall(t, owner)
 			}
 		}
-	}
-	if ti.Name == "Equatable" && method == "equal" && len(t.Args) == 2 && bl.g.stdModule != "" {
-		// `Equatable.equal(a.max_age, b.max_age)` in a std body (a derived
-		// impl's field over a `Maybe<Int>`): a std module holds no generic
-		// instance, and the container's equality is the structural
-		// comparison containerEqualCall lowers.
-		if owner := bl.equatableContainerOwner(t); owner != "" {
-			return bl.containerEqualCall(t, owner)
-		}
-	}
-	if len(t.Args) == 1 && irPreludePredicate(ti.Name, method) != "" {
-		if _, shadowed := bl.g.namedType(ti.Name); !shadowed || bl.stdTestOwnType() {
-			return bl.preludePredicateCall(t, ti.Name, method)
+	case routePreludePredicate:
+		if len(t.Args) == 1 {
+			return bl.preludePredicateCall(t, routeKey)
 		}
 	}
 	if k, bound := bl.g.genericSubstKind(ti.Name); bound {
 		// `T.from_json(item)` inside an instance: T is the instance's
 		// concrete argument, and the call is that type's.
-		if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, method); handled {
+		kt, _ := bl.g.genericSubstType(ti.Name)
+		if v, rk, mobile, ok, handled := bl.stdKindQualCall(t, k, kt, method); handled {
 			return v, rk, mobile, ok
 		}
 		return no()
@@ -714,52 +626,65 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	args := bl.irQualLowerArgs(t)
 	var plan *irQualPlan
 	if v, k, mobile, ok := bl.scalarOperatorCall(t, args, ti.Name, method); ok {
+		bl.g.verifyCallForm(t, "scalarOperatorCall", analysis.OperatorByImpl)
 		return v, k, mobile, true
 	}
 	if v, k, mobile, ok, handled := bl.scalarEqualCall(t, args, ti.Name, method); handled {
+		bl.g.verifyCallForm(t, "scalarEqualCall", analysis.OperatorByImpl)
 		return v, k, mobile, ok
 	}
-	if v, ok, handled := bl.structuralEqualCall(t, args, ti.Name, method); handled {
-		return v, kindBool, false, ok
-	}
-	if v, owned := bl.existentialHashCall(t, args, ti.Name, method); owned {
-		return v, kindInt, false, true
-	}
-	if v, owned := bl.structuralHashCall(t, args, ti.Name, method); owned {
-		return v, kindInt, false, true
-	}
-	if method == "to_string" && (ti.Name == "Int" || ti.Name == "Float" || ti.Name == "Bool" || ti.Name == "String") {
-		return bl.scalarTextCall(t, args, ti.Name)
-	}
-	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && args.mobile[0] && irDisplayScalar(args.kinds[0]) {
-		if _, local := bl.g.types["Display"]; !local && bl.g.stdModule == "" {
+	switch route {
+	case routeEquatableEqual:
+		if v, ok, handled := bl.structuralEqualCall(t, args); handled {
+			if args.ok && len(args.kinds) == 2 && irHeldKind(args.kinds[0]) && irHeldKind(args.kinds[1]) {
+				bl.g.verifyCallForm(t, "structuralEqualCall", analysis.OperatorDispatched)
+			} else {
+				bl.g.verifyCallForm(t, "structuralEqualCall", analysis.OperatorStructural)
+			}
+			return v, kindBool, false, ok
+		}
+	case routeHash:
+		if v, owned := bl.existentialHashCall(t, args); owned {
+			bl.g.verifyCallForm(t, "existentialHashCall", analysis.OperatorDispatched)
+			return v, kindInt, false, true
+		}
+		if v, owned := bl.structuralHashCall(t, args); owned {
+			bl.g.verifyCallForm(t, "structuralHashCall", analysis.OperatorStructural, analysis.OperatorDispatched)
+			return v, kindInt, false, true
+		}
+	case routeScalarText:
+		bl.g.verifyCallForm(t, "scalarTextCall", analysis.OperatorByImpl)
+		return bl.scalarTextCall(t, args, routeKey.Owner.Name)
+	case routeDisplay:
+		if args.ok && len(args.kinds) == 1 && args.mobile[0] && irDisplayScalar(args.kinds[0]) && bl.g.stdModule == "" {
+			bl.g.verifyCallForm(t, "scalarTextCall", analysis.OperatorByImpl, analysis.OperatorDispatched)
 			v, k, mobile, ok := bl.scalarTextCall(t, args, args.kinds[0].nomi())
 			return v, k, mobile, ok
 		}
+		if args.ok && len(args.kinds) == 1 && irStdDisplayExistential(args.kinds[0]) {
+			bl.g.verifyCallForm(t, "RenderDisplayErased", analysis.OperatorDispatched)
+			// `Display.to_string(v)` over std Display's existential: the VM
+			// renders the value it holds through that value's own impl.
+			r := ir.NewRenderDisplayErased(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
+			bl.b.Append(r)
+			bl.side(r.Dst(), irScalarSide{k: kindString})
+			return r.Dst(), kindString, false, true
+		}
 	}
-	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && irStdDisplayExistential(args.kinds[0]) {
-		// `Display.to_string(v)` over std Display's existential: the VM
-		// renders the value it holds through that value's own impl.
-		r := ir.NewRenderDisplayErased(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
-		bl.b.Append(r)
-		bl.side(r.Dst(), irScalarSide{k: kindString})
-		return r.Dst(), kindString, false, true
-	}
-	if ti.Name == "Iter" {
+	if route == routeIter {
 		return bl.iterCall(t, args, method, irIterSourceArg(t))
 	}
-	if _, local := bl.g.types[ti.Name]; !local && method == "each_while" && args.ok && len(args.kinds) == 2 &&
-		((ti.Name == "Bytes" && args.kinds[0] == irBytesKind()) || (ti.Name == "String" && args.kinds[0] == kindString)) {
+	if route == routeEachWhile && args.ok && len(args.kinds) == 2 &&
+		((routeKey.Owner == stdBytesType && args.kinds[0] == irBytesKind()) || (routeKey.Owner == stdStringType && args.kinds[0] == kindString)) {
 		// `Bytes.each_while(b, f)` / `String.each_while(s, f)`: the impl's
 		// host fn is the protocol the VM's byte and grapheme views already
 		// drive, so the type-qualified call is `Iter.each_while` over that
 		// view rather than a crossing no host table answers.
 		return bl.iterCall(t, args, "each_while", nil)
 	}
-	if _, local := bl.g.types[ti.Name]; (!local || bl.g.stdModule != "") && ti.Name == "String" && method == "join" && args.ok && (len(args.kinds) == 1 || len(args.kinds) == 2) {
+	if route == routeStringJoin && args.ok && (len(args.kinds) == 1 || len(args.kinds) == 2) {
 		// `String.join(parts, separator)` drives any Iter<String> once,
-		// so it is an Iter terminal over the source's view. Inside std
-		// the String type is its own module's, which reads as local. The
+		// so it is an Iter terminal over the source's view. The
 		// separator's default is "".
 		if len(args.kinds) == 1 {
 			sep := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), "")
@@ -774,43 +699,51 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 		}
 		return bl.iterCall(t, args, "join", irIterSourceArg(t))
 	}
-	if ti.Name == "Range" {
+	if route == routeRange && !bl.callsProgramFunc(t) {
 		return bl.rangeCall(t, args, method)
 	}
 	if v, k, mobile, ok := bl.synthDebugRender(t, args, ti.Name, method); ok {
 		return v, k, mobile, true
 	}
-	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, ti.Name, method); handled {
+	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, ti.Name, method, bl.g.firstOperandType(t)); handled {
+		if route == routeDisplay && args.ok && len(args.kinds) == 1 && (irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0])) {
+			bl.g.verifyCallForm(t, "ifaceContainerCall", analysis.OperatorStructural)
+		} else {
+			bl.g.verifyCallForm(t, "ifaceContainerCall", analysis.OperatorByImpl)
+		}
 		return v, k, mobile, ok
 	}
-	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 && irStructuralDisplayKind(args.kinds[0]) {
-		// `Display.to_string(x)` over a value with no nominal part, as
-		// std's own instances call it on an element (`List.to_string<Bool>`
-		// renders each Bool this way): the text is structural, which
-		// rt.DisplayText is.
-		if _, local := bl.g.types["Display"]; !local {
+	if route == routeDisplay && args.ok && len(args.kinds) == 1 {
+		// The rest of `Display.to_string`'s cases, after the interface's
+		// container impls (ifaceContainerCall).
+		if irStructuralDisplayKind(args.kinds[0]) {
+			// `Display.to_string(x)` over a value with no nominal part, as
+			// std's own instances call it on an element
+			// (`List.to_string<Bool>` renders each Bool this way): the text
+			// is structural, which rt.DisplayText is.
+			bl.g.verifyCallForm(t, "RenderDisplay", analysis.OperatorStructural, analysis.OperatorByImpl, analysis.OperatorDispatched)
 			r := ir.NewRenderDisplay(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
 			bl.b.Append(r)
 			bl.side(r.Dst(), irScalarSide{k: kindString})
 			return r.Dst(), kindString, false, true
 		}
-	}
-	if method == "to_string" && ti.Name == "Display" && args.ok && len(args.kinds) == 1 &&
-		(irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0])) {
-		// A tuple or record with a nominal part renders as its
-		// interpolation does.
-		if r, ok := bl.displayValue(t.Args[0], args.temps[0], args.kinds[0]); ok {
-			return r, kindString, false, true
+		if irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0]) {
+			// A tuple or record with a nominal part renders as its
+			// interpolation does.
+			if r, ok := bl.displayValue(t.Args[0], args.temps[0], args.kinds[0], nil); ok {
+				bl.g.verifyCallForm(t, "displayValue", analysis.OperatorStructural)
+				return r, kindString, false, true
+			}
 		}
 	}
 	if p := bl.stdRecvOwnerPlan(t, args, ti.Name, method); p != nil {
 		// `List.show(xs)`: the program's impl over a std container.
 		plan = p
-	} else if ti.Name == "Result" && method == "map_err" {
+	} else if route == routeMapErr {
 		plan = bl.resultMapErrPlan(t, args)
-	} else if ti.Name == "Maybe" && method == "to_result" {
+	} else if route == routeToResult {
 		plan = bl.preludeToResultPlan(t, args)
-	} else if (ti.Name == "Maybe" || ti.Name == "Result") && method == "with_default" {
+	} else if route == routeWithDefault {
 		if args.ok && len(args.kinds) == 2 && args.kinds[1] == kindUnit {
 			// `Result.with_default(r, Unit)` over a `Result<Unit, E>`: both
 			// outcomes are the one Unit value, so the call is Unit once its
@@ -820,16 +753,16 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			bl.b.Append(u)
 			return u.Dst(), kindUnit, true, true
 		}
-		plan = bl.preludeWithDefaultPlan(t, args, ti.Name)
-	} else if (ti.Name == "List" || ti.Name == "Vector") && method == "compare" {
-		return bl.containerCompareAny(t, args, ti.Name)
-	} else if ti.Name == "Map" {
+		plan = bl.preludeWithDefaultPlan(t, args, routeKey.Owner.Name)
+	} else if route == routeContainerCompare {
+		return bl.containerCompareAny(t, args, routeKey.Owner.Name)
+	} else if route == routeMap {
 		plan = bl.mapCallPlan(t, args, method)
-	} else if ti.Name == "List" {
+	} else if route == routeList {
 		plan = bl.listCallPlan(t, args, method)
-	} else if ti.Name == "Vector" {
+	} else if route == routeVector {
 		plan = bl.vectorCallPlan(t, args, method)
-	} else if ti.Name == "Set" {
+	} else if route == routeSet {
 		plan = bl.setCallPlan(t, args, method)
 	} else {
 		plan = bl.qualImplPlan(t, args, ti.Name, method)
@@ -845,27 +778,29 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			return v, rk, mobile, ok
 		}
 	}
-	if plan == nil && (ti.Name == "Map" || ti.Name == "Set" || ti.Name == "Vector" || ti.Name == "List") && (bl.g.stdModule == "" || bl.stdTestOwnType()) {
+	container := route == routeMap || route == routeSet || route == routeVector || route == routeList
+	if plan == nil && container && (bl.g.stdModule == "" || bl.stdTestOwnType()) {
 		// A Map, Set or Vector function with no intrinsic is std's Nomi body,
 		// instantiated at the call's types like any generic std member.
 		// kindInvalid: sentinel — no receiver kind selects the member.
 		self := kindInvalid
-		if args.ok && len(args.kinds) > 0 && irContainerBaseName(args.kinds[0]) == ti.Name {
+		var selfType analysis.Type
+		if args.ok && len(args.kinds) > 0 && irContainerBaseName(args.kinds[0]) == routeKey.Owner.Name {
 			// An impl member (`impl Display for Vector<T>`) is solved
 			// from its receiver, which the first operand is.
-			self = args.kinds[0]
+			self, selfType = args.kinds[0], bl.g.operandCheckerType(t.Args[0])
 			// kindInvalid: sentinel — solvedParamKind's nothing-recorded answer; the receiver keeps the operand's kind.
-			if want := bl.g.solvedParamKind(t, method, 0); want != kindInvalid && irContainerBaseName(want) == ti.Name {
+			if want := bl.g.solvedParamKind(t, method, 0); want != kindInvalid && irContainerBaseName(want) == routeKey.Owner.Name {
 				// The receiver at the checker's instantiation, which a
 				// later operand may have widened past the first one's
 				// (`Set.union(circles, shapes)` is a Set<Shape>); the
 				// instance converts the operand as its parameter.
-				self = want
+				self, selfType = want, bl.g.solvedParamType(t, method, 0)
 			}
 		}
 		prevCall, prevArgs := bl.stdInstPreCall, bl.stdInstPreArgs
 		bl.stdInstPreCall, bl.stdInstPreArgs = t, args
-		v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdGenericTemplate(ti.Name, method), self)
+		v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdGenericTemplate(routeKey.Owner.Name, method), self, selfType)
 		bl.stdInstPreCall, bl.stdInstPreArgs = prevCall, prevArgs
 		if handled {
 			return v, rk, mobile, ok
@@ -964,42 +899,37 @@ func irQualIsLocal(bl *irScalarBuilder, name string) bool {
 	return bound
 }
 
-// qualImplPlan resolves `Owner.method(args)`: this module's own impl blocks
-// first, the way `typeQualifiedCall` resolves them, then the stdlib index the
-// way `stdlibCall` does.
+// qualImplPlan resolves `Owner.method(args)`: from the function the call's
+// record names (recordedCallPlan), else, for a call the record leaves to
+// dispatch where it runs on a receiver held as an interface value, from the
+// interface function it names (dispatchedCallPlan), else by the owner's
+// spelling and the operands' kinds, this module's own impl blocks first,
+// then the stdlib index. The later routes serve a call the record leaves
+// to dispatch whose receiver the builder holds as a value of a known type,
+// a call with no record, and a recorded function recordedCallPlan does not
+// reach (irbuild package doc, "Qualified calls from their records").
 //
 // A local receiver's implementation takes precedence over a stdlib type with
 // the same spelling. The stdlib resolver independently rejects local shadows.
 func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	if p := bl.operQualPlan(t, args, owner, method); p != nil {
+	key := owner + "." + method
+	if p := bl.recordedCallPlan(t, args, key); p != nil {
 		return p
 	}
-	key := owner + "." + method
-	if p := bl.ownerImplPlan(t, args, owner, method); p != nil {
-		// `Box.seven()`, `Src.twice(1)`: an owner function, which takes
-		// no receiver. See ownerimpl.go.
+	if p := bl.dispatchedCallPlan(t, args); p != nil {
+		// A receiver held as an interface value: dispatched on its
+		// run-time type through the function the record names.
 		return p
 	}
 	if d, isIface := bl.g.ifaceNamed(owner); isIface && d != nil {
-		if pd := bl.g.stdProgOwnIface(d); pd != nil {
-			// `ToJson.to_json(value)` in a std instance over a value its
-			// caller holds as ToJson: dispatched through the caller's def.
-			if p := bl.stdProgErasedPlanOf(t, args, pd, owner, method); p != nil {
-				return p
-			}
-		}
 		return bl.concreteInterfacePlan(t, args, d, method)
-	}
-	if p := bl.stdProgErasedPlan(t, args, owner, method); p != nil {
-		// A receiver held as a std interface (stdprogiface.go).
-		return p
 	}
 	if p := bl.foreignIfacePlan(t, args, owner, method, nil); p != nil {
 		return p
 	}
 	k := bl.g.qualifierKind(owner)
 	if tpl := bl.g.genericTemplates[owner]; tpl != nil {
-		if inst, ok := bl.g.templateCallInstance(t, tpl, method); ok {
+		if inst, ok := bl.g.templateCallInstance(bl.g, t, tpl, method); ok {
 			// `Span.new(1, 5)`, `Wrapped.describe(boxed)`, `Box.flat(b)`
 			// over a `Box<Maybe<Int>>`: the instance of the block the
 			// checker instantiated the call at, which need not be the
@@ -1054,9 +984,8 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 				continue
 			}
 			if only != nil {
-				// `typeQualifiedCall` reports `ambiguous type-qualified
-				// call` for this, which makes the programmer
-				// disambiguate. Declined, so that report survives.
+				// A second impl declares the method, so the call names
+				// no one function. Declined.
 				return nil
 			}
 			only = item
@@ -1065,15 +994,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 			return bl.implItemPlan(t, args, only, key)
 		}
 	}
-	if tpl := bl.g.genericTemplates[owner]; tpl != nil {
-		if p := bl.hostTemplateImplPlan(t, args, tpl, method); p != nil {
-			return p
-		}
-	}
 	if p := bl.qualSiblingImplPlan(t, args, owner, method); p != nil {
-		return p
-	}
-	if p := bl.foreignTemplateCallPlan(t, args, owner, method); p != nil {
 		return p
 	}
 	if args.ok && len(args.kinds) > 0 {
@@ -1094,7 +1015,7 @@ func (bl *irScalarBuilder) qualImplPlan(t *ast.Call, args irQualArgs, owner, met
 // omitted defaulted operands filled and its embedded operands widened.
 func (bl *irScalarBuilder) implItemPlan(t *ast.Call, args irQualArgs, only *implItem, key string) *irQualPlan {
 	var filled *irQualArgs
-	if args.ok && len(args.temps) < len(only.params) && only.lowerable {
+	if args.ok && only.lowerable && bl.g.leavesDefaults(t, len(only.params)) {
 		// `Box.announce(b)` omitting a defaulted parameter.
 		fd := irImplSource(only)
 		if fd == nil || namedArgNode(t.Args) != nil {
@@ -1139,7 +1060,7 @@ func (bl *irScalarBuilder) siblingReceiverPlan(t *ast.Call, args irQualArgs, own
 		// rule admits through a type argument the program declares
 		// (`impl Contains<Rate> for String`), in whichever file writes it.
 		_, item := bl.stdRecvCallee(t)
-		return bl.stdRecvPick(t, args, bl.g.stdRecvCandidates(args.kinds[0], method, owner, item), method)
+		return bl.stdRecvPick(t, args, bl.g.stdRecvCandidates(args.kinds[0], bl.g.firstOperandType(t), method, owner, item), method)
 	}
 	if args.kinds[0].tag != tagNamed || args.kinds[0].def == nil {
 		return nil
@@ -1150,76 +1071,10 @@ func (bl *irScalarBuilder) siblingReceiverPlan(t *ast.Call, args irQualArgs, own
 	return bl.qualSiblingImplPlanFor(t, args, args.kinds[0].def, method)
 }
 
-// operQualPlan resolves the qualified spellings of an operator impl on a
-// declared receiver: `Add.add(Day(10), Days(4))`, interface-qualified, and
-// `Day.add(Day(10), Weeks(2))`, type-qualified, whose receiver may implement
-// one operator interface at several right-hand types. The impl is the one
-// `Day(10) + Days(4)` selects (operImplFor), so the operator and its two
-// qualified spellings reach one declaration.
-func (bl *irScalarBuilder) operQualPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	if !args.ok || len(args.kinds) != 2 {
-		return nil
-	}
-	lk, rk := args.kinds[0], args.kinds[1]
-	// kindInvalid: lookup — an operand with no kind has no impl to find.
-	if lk == kindInvalid || ((lk.def == nil || isDecimalKind(lk)) && lk == rk) {
-		// A std receiver at its own type (`Decimal.add(a, b)`) is std's
-		// impl, which the stdlib route answers. At another right-hand type
-		// it is the program's (`Decimal.multiply(d, rate)`, which the
-		// orphan rule admits through `Rate`).
-		return nil
-	}
-	var spec *operIfaceSpec
-	if s := operIfaceByName[owner]; s != nil && s.method == method {
-		if _, local := bl.g.types[owner]; local {
-			return nil
-		}
-		spec = s
-	} else if bl.operQualifierNames(owner, lk) {
-		for i := range operIfaceSpecs {
-			if operIfaceSpecs[i].method == method {
-				spec = &operIfaceSpecs[i]
-			}
-		}
-	}
-	if spec == nil {
-		return nil
-	}
-	it, _, rival := bl.g.operImplFor(spec.nomi, lk, spec.method, []kind{lk, rk}, bl.g.checkedKind(t))
-	var og *gen
-	params, result := []kind{lk, rk}, kindInvalid
-	if it != nil {
-		params, result = it.params, it.result
-	} else if !rival && bl.g.stdModule == "" {
-		// An impl another file writes.
-		og, it, params, result, rival = bl.g.siblingOperImpl(spec, lk, rk)
-	}
-	if rival || it == nil || !it.lowerable || len(params) != 2 || len(it.params0) != 2 || params[0] != lk || params[1] != rk || !irCallableValueKind(result) {
-		return nil
-	}
-	p := &irQualPlan{token: it, name: spec.nomi + "." + spec.method, result: result}
-	if og != nil {
-		p.sym = og.irCalleeSym(it, spec.nomi+"."+spec.method)
-	}
-	return p
-}
-
-// operQualifierNames reports whether the type qualifier owner names lk, an
-// operator call's left operand: `Day.add(d, w)`, and `Decimal.multiply(d,
-// rate)` for std's host type Decimal, which qualifierKind does not name.
-func (bl *irScalarBuilder) operQualifierNames(owner string, lk kind) bool {
-	qk := bl.g.qualifierKind(owner)
-	if qk == lk {
-		return true
-	}
-	// kindInvalid: lookup — qualifierKind names no std host type, so Decimal is asked by name.
-	return qk == kindInvalid && isDecimalKind(lk) && owner == "Decimal"
-}
-
 // qualSiblingImplPlan resolves `Owner.method(args)` to an impl function a
 // SIBLING FILE declares for Owner, tried after the local impl route: the one
-// written site outside this unit, no import cycle, and the declaring package's
-// kinds translated into this one before the signature is compared. Anything
+// written site outside this unit, with the declaring file's kinds translated
+// into this one's before the signature is compared. Anything
 // that would need a refusal or a coercion declines.
 func (bl *irScalarBuilder) qualSiblingImplPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
 	g := bl.g
@@ -1231,44 +1086,6 @@ func (bl *irScalarBuilder) qualSiblingImplPlan(t *ast.Call, args irQualArgs, own
 		return nil
 	}
 	return bl.qualSiblingImplPlanFor(t, args, d, method)
-}
-
-// foreignTemplateCallPlan resolves `Box.new(item)` and `Box.get(b)` where
-// another file declares the generic `Box<T>` and the block of inherent
-// functions on it: the instance the call is about is the one the checker's
-// solved signature names in a parameter or the result (`Box<String>`),
-// which this file mirrors, and the call is that instance's impl function,
-// which the declaring file builds (siblingInstanceImplPlan). A call whose
-// receiver is already such an instance reaches it through
-// siblingReceiverPlan; this is the route of an owner function, which has no
-// receiver to read the instance from.
-func (bl *irScalarBuilder) foreignTemplateCallPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	g := bl.g
-	if g.files == nil || g.fileUnit < 0 || g.reg == nil || g.genericTemplates[owner] != nil {
-		return nil
-	}
-	sym := resolvedTypeSymbol(g.fa, owner)
-	if sym == nil || sym.Node == nil {
-		return nil
-	}
-	ft := g.checkedCallSignature(t)
-	if ft == nil {
-		return nil
-	}
-	for _, ty := range append(append([]analysis.Type(nil), ft.Params...), ft.Return) {
-		k := g.project(ty)
-		if k.tag != tagNamed || k.def == nil || k.def.instOrigin == nil {
-			continue
-		}
-		tpl := k.def.instOrigin.genericOf
-		if tpl == nil || tpl.decl != sym.Node {
-			continue
-		}
-		if p := bl.siblingInstanceImplPlan(t, args, k.def, method, ""); p != nil {
-			return p
-		}
-	}
-	return nil
 }
 
 // qualSiblingImplPlanFor is qualSiblingImplPlan for a type already resolved,
@@ -1295,8 +1112,20 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		// registered per instance, not at the template's written sites.
 		return bl.siblingInstanceImplPlan(t, args, d, method, iface)
 	}
-	pick := bl.siblingInstPick(t)
-	if site := g.siblingImplSiteBy(d, method, iface, pick); site != nil && site.withheld != nil {
+	site := g.siblingImplSiteBy(d.decl, method, iface, bl.siblingInstPick(t))
+	if site == nil {
+		return nil
+	}
+	return bl.siblingSitePlan(t, args, site, d.nomi, method)
+}
+
+// siblingSitePlan is the call t of the impl function site, which another
+// file declares for the type named recvName: a generic member that file
+// instantiates for the call, or a monomorphic one called in the declaring
+// unit, its kinds translated into this one.
+func (bl *irScalarBuilder) siblingSitePlan(t *ast.Call, args irQualArgs, site *implMemberSite, recvName, method string) *irQualPlan {
+	g := bl.g
+	if site.withheld != nil {
 		// `leaf.Box.ident(6)`: a generic member, instantiated by its file.
 		if site.fn.why != "generic impl function" {
 			// A private inherent member, which the checker already refuses.
@@ -1304,8 +1133,9 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		}
 		return bl.siblingMethodPlan(t, args, g.reg.gens[site.unit], site.withheld, method)
 	}
-	chosen, params, result, owning := g.siblingImplMemberBy(d, method, iface, pick)
-	if chosen == nil {
+	chosen := site
+	params, result, owning := g.siblingSiteKinds(site)
+	if owning == nil {
 		return nil
 	}
 	f := chosen.fn
@@ -1314,7 +1144,7 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 	}
 	to := chosen.unit
 	var filled *irQualArgs
-	if f.defaults && args.ok && len(args.temps) < len(params) {
+	if f.defaults && args.ok && bl.g.leavesDefaults(t, len(params)) {
 		// `Powered.describe(e)` omitting a parameter the declaring file
 		// defaults: the default is built here, when every name it mentions
 		// resolves to the same declaration from both files. A concrete
@@ -1341,7 +1171,7 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 		return nil
 	}
 	unit := g.files.units[to]
-	p := &irQualPlan{token: f, name: unit.key + "." + d.nomi + "." + method, result: result, args: filled}
+	p := &irQualPlan{token: f, name: unit.key + "." + recvName + "." + method, result: result, args: filled}
 	p.sym = owning.irCalleeSym(chosen.item, chosen.symName)
 	return p
 }
@@ -1350,18 +1180,23 @@ func (bl *irScalarBuilder) qualSiblingIfaceImplPlan(t *ast.Call, args irQualArgs
 // its type d under `method`, narrowed to iface's impls when iface is not
 // empty, or nil when there is none or more than one.
 func (g *gen) siblingImplSite(d *typeDef, method, iface string) *implMemberSite {
-	return g.siblingImplSiteBy(d, method, iface, nil)
+	if d == nil {
+		return nil
+	}
+	return g.siblingImplSiteBy(d.decl, method, iface, nil)
 }
 
-// siblingImplSiteBy is siblingImplSite where several sites of one interface
-// are its impls at several type arguments, and pick, when not nil, chooses
-// the call's (instimpl.go).
-func (g *gen) siblingImplSiteBy(d *typeDef, method, iface string, pick func([]implMemberSite) *implMemberSite) *implMemberSite {
-	if g.files == nil || g.fileUnit < 0 || g.reg == nil || d == nil || d.decl == nil {
+// siblingImplSiteBy is siblingImplSite for the receiver declared by recv,
+// where several sites of one interface are its impls at several type
+// arguments, and pick, when not nil, chooses the call's (instimpl.go). The
+// sites are keyed by the receiver's declaration, so every spelling of the
+// receiver (`Box`, `lib.Box`) finds the same ones.
+func (g *gen) siblingImplSiteBy(recv ast.Node, method, iface string, pick func([]implMemberSite) *implMemberSite) *implMemberSite {
+	if g.files == nil || g.fileUnit < 0 || g.reg == nil || recv == nil {
 		return nil
 	}
 	var sites []implMemberSite
-	for _, site := range writtenImplMembers(g.files.implMembers[implMemberKey{recv: d.decl, method: method}]) {
+	for _, site := range writtenImplMembers(g.files.implMembers[implMemberKey{recv: recv, method: method}]) {
 		if site.unit == g.fileUnit || (iface != "" && site.iface != iface) {
 			continue
 		}
@@ -1392,54 +1227,68 @@ func site0Iface(sites []implMemberSite) bool {
 // that declares it. A nil site is no such function, more than one (native
 // reports `ambiguous type-qualified call`), or one this unit cannot type.
 func (g *gen) siblingImplMember(d *typeDef, method, iface string) (*implMemberSite, []kind, kind, *gen) {
-	return g.siblingImplMemberBy(d, method, iface, nil)
+	if d == nil {
+		return nil, nil, kindInvalid, nil
+	}
+	return g.siblingImplMemberBy(d.decl, method, iface, nil)
 }
 
-// siblingImplMemberBy is siblingImplMember choosing among a receiver's
-// impls of one interface at several type arguments with pick.
-func (g *gen) siblingImplMemberBy(d *typeDef, method, iface string, pick func([]implMemberSite) *implMemberSite) (*implMemberSite, []kind, kind, *gen) {
-	chosen := g.siblingImplSiteBy(d, method, iface, pick)
-	if chosen == nil || chosen.item == nil || !chosen.fn.lowerable() {
+// siblingImplMemberBy is siblingImplMember for the receiver declared by
+// recv, choosing among its impls of one interface at several type
+// arguments with pick.
+func (g *gen) siblingImplMemberBy(recv ast.Node, method, iface string, pick func([]implMemberSite) *implMemberSite) (*implMemberSite, []kind, kind, *gen) {
+	chosen := g.siblingImplSiteBy(recv, method, iface, pick)
+	if chosen == nil {
 		return nil, nil, kindInvalid, nil
 	}
-	f := chosen.fn
-	params := make([]kind, len(f.params))
-	for i, p := range f.params {
-		ip, ok := g.importKind(p)
-		if !ok {
-			return nil, nil, kindInvalid, nil
-		}
-		params[i] = ip
-	}
-	result, ok := g.importKind(f.result)
-	if !ok {
-		return nil, nil, kindInvalid, nil
-	}
-	owning := g.reg.gens[chosen.unit]
+	params, result, owning := g.siblingSiteKinds(chosen)
 	if owning == nil {
 		return nil, nil, kindInvalid, nil
 	}
 	return chosen, params, result, owning
 }
 
+// siblingSiteKinds is the parameter and result kinds of the impl function
+// site, which another file declares, translated into this unit, and the
+// gen that declares it; owning is nil when the site has no item this unit
+// can call or type.
+func (g *gen) siblingSiteKinds(site *implMemberSite) (params []kind, result kind, owning *gen) {
+	if site.item == nil || !site.fn.lowerable() {
+		return nil, kindInvalid, nil
+	}
+	f := site.fn
+	params = make([]kind, len(f.params))
+	for i, p := range f.params {
+		ip, ok := g.importKind(p)
+		if !ok {
+			return nil, kindInvalid, nil
+		}
+		params[i] = ip
+	}
+	result, ok := g.importKind(f.result)
+	if !ok {
+		return nil, kindInvalid, nil
+	}
+	if owning = g.reg.gens[site.unit]; owning == nil {
+		return nil, kindInvalid, nil
+	}
+	return params, result, owning
+}
+
 // slottedOperands places a short call's written operands, already lowered
 // in written order (irQualLowerArgs), at the parameter slots a direct call
-// gives them (argSlotPlan): positionally, except that a trailing callback
+// gives them (callPlan): positionally, except that a trailing callback
 // goes to the last slot past defaulted parameters, as in
 // `Actor.call(actor, fn reply -> .Get{reply:})` skipping `timeout`. A slot no
-// operand fills is ir.NoTemp, for callDefaults; omitted lists those slots.
-// ok is false when an operand's kind is not its slot's.
-func slottedOperands(t *ast.Call, args irQualArgs, params []kind, decl []ast.Param) (temps []ir.Temp, omitted []int, mobile []bool, ok bool) {
+// operand fills is ir.NoTemp, for fillCallDefaults. ok is false when an
+// operand's kind is not its slot's.
+func (g *gen) slottedOperands(t *ast.Call, args irQualArgs, params []kind, decl []ast.Param) (temps []ir.Temp, mobile []bool, ok bool) {
 	if !args.ok || len(args.temps) != len(t.Args) || len(decl) != len(params) {
-		return nil, nil, nil, false
+		return nil, nil, false
 	}
-	names := make([]string, len(decl))
-	for i, p := range decl {
-		names[i] = p.Name
-	}
-	plan, planned := argSlotPlan(t.Args, params, names)
+	plan, planned := g.callPlan(t, len(params))
 	if !planned {
-		return nil, nil, nil, false
+		return nil, nil, false
 	}
 	temps = make([]ir.Temp, len(params))
 	mobile = make([]bool, len(params))
@@ -1448,19 +1297,14 @@ func slottedOperands(t *ast.Call, args irQualArgs, params []kind, decl []ast.Par
 	}
 	for i, slot := range plan.slots {
 		if slot < 0 || args.kinds[i] != params[slot] || !irCallOperandKind(args.kinds[i]) {
-			return nil, nil, nil, false
+			return nil, nil, false
 		}
 		temps[slot] = args.temps[i]
 		if i < len(args.mobile) {
 			mobile[slot] = args.mobile[i]
 		}
 	}
-	for i, tmp := range temps {
-		if tmp == ir.NoTemp {
-			omitted = append(omitted, i)
-		}
-	}
-	return temps, omitted, mobile, true
+	return temps, mobile, true
 }
 
 // qualFilePlan resolves `owner.method(args)` where owner is a FILE: a sibling
@@ -1483,7 +1327,7 @@ func (bl *irScalarBuilder) qualFilePlan(t *ast.Call, args irQualArgs, ownerID *a
 		std, isStd = bl.stdOwnFileQualifier(owner)
 	}
 	if !isStd {
-		return bl.ownSiblingPlan(t, args, owner, method)
+		return bl.ownSiblingPlan(t, args, owner)
 	}
 	return bl.stdFilePlan(t, args, std, method)
 }
@@ -1503,7 +1347,7 @@ func (bl *irScalarBuilder) stdFilePlan(t *ast.Call, args irQualArgs, std, method
 
 // irFrameHost admits an RtFuncs row that takes the caller's frame: the VM's
 // generated adapter passes the call's runtime frame, so a cancellation reaches
-// the rt function as it does in Go.
+// the rt function.
 func irFrameHost(f *stdFunc) bool {
 	_, row := stdlibHostFunc(f.key)
 	return row && f.rtFrame
@@ -1512,11 +1356,6 @@ func irFrameHost(f *stdFunc) bool {
 // qualSiblingPlan resolves a sibling file's top-level `fn` called with every
 // argument written positionally. A call that names an argument or omits a
 // defaulted one is siblingCall's, which bl.call routes it to first.
-//
-// THE CYCLE REFUSAL IS ASKED, and it has to be: `siblingCycle` is FAIL-SAFE
-// rather than live — its own header says the component partition means a real
-// cycle takes a different arm — so a producer that skipped it would emit a
-// call across an edge that closes a Go import cycle.
 func (bl *irScalarBuilder) qualSiblingPlan(t *ast.Call, args irQualArgs, to int, method string) *irQualPlan {
 	unit := bl.g.files.units[to]
 	f := unit.funcs[method]
@@ -1542,8 +1381,7 @@ func (bl *irScalarBuilder) qualSiblingPlan(t *ast.Call, args irQualArgs, to int,
 }
 
 // siblingSignature is a sibling `fn`'s parameter and result kinds, translated
-// from the declaring unit into this one. The translation is also what
-// declares this package's alias for a sibling type the signature names.
+// from the declaring unit into this one (importKind).
 func (g *gen) siblingSignature(f *fileFunc) ([]kind, kind, bool) {
 	params := make([]kind, len(f.params))
 	for i, p := range f.params {
@@ -1574,7 +1412,7 @@ func (g *gen) siblingFuncPlan(to int, f *fileFunc, result kind) *irQualPlan {
 // alias of it), found by its declaration node so an alias resolves, and a
 // qualified one that names an argument or calls a function with defaults
 // (`api.make("Ada", greeting: "Hi")`, siblingQualSite). Arguments are placed
-// and lowered as bl.call places a local callee's (argSlotPlan), and each
+// and lowered as bl.call places a local callee's (callPlan), and each
 // omitted parameter is filled by the declaring unit's accessor for it
 // (fillFromAccessors); the call links to the declaring unit's symbol as
 // qualSiblingPlan's does.
@@ -1609,9 +1447,9 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 	for i, p := range f.decl.Params {
 		names[i] = p.Name
 	}
-	slots, planned := argSlotPlan(t.Args, params, names)
+	slots, planned := bl.g.callPlan(t, len(params))
 	if !planned {
-		return no()
+		panic("irbuild: a sibling call placed for another callee than the one the checker resolved")
 	}
 	temps := make([]ir.Temp, len(params))
 	mobile := make([]bool, len(params))
@@ -1626,7 +1464,7 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 		}
 		// Only the final operand may stay unforced; inside an assertion
 		// subject it is named twice, in its row and in the call.
-		if src, k, ok = bl.coerceEmpty(a, src, k, params[slot]); !ok {
+		if src, k, ok = bl.convertTo(a, src, k, params[slot]); !ok {
 			return no()
 		}
 		temps[slot], mobile[slot] = src, held
@@ -1661,13 +1499,13 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 // caller sets the printed name, so two different strings would have made a
 // retained function's `Name()` depend on whether some other file called it.
 //
-// NIL WHEN THERE IS NO PROGRAM TO LINK, which is `lowerModuleWithStdlib`'s
-// path: no registry, so no sibling gens, so the caller keeps interning in its
-// own table exactly as it did. `qualSiblingPlan` is unreachable there anyway —
-// `g.files` is nil — and the guard is the fence rather than the mechanism.
+// NIL WHEN THERE IS NO PROGRAM TO LINK: no registry, so no sibling gens, so
+// the caller interns in its own table. `qualSiblingPlan` is unreachable there
+// anyway — `g.files` is nil — and the guard is the fence rather than the
+// mechanism.
 //
 // SEQUENTIAL BY CONSTRUCTION. `ir.Table` needs no lock because it is one
-// lowering's, and `Generate` emits units in order on one goroutine; this adds
+// lowering's, and `Generate` lowers units in order on one goroutine; this adds
 // no second writer that a lock would have to cover.
 func (g *gen) irSiblingCalleeSym(to int, f *fileFunc) *ir.Symbol {
 	if f.decl == nil || g.reg == nil || to < 0 || to >= len(g.reg.gens) {
@@ -1708,7 +1546,7 @@ func (bl *irScalarBuilder) qualSignature(t *ast.Call, args irQualArgs, params []
 	return true
 }
 
-// qualEmit appends the call and records what the Go consumer needs.
+// qualEmit appends the call.
 //
 // Arguments are already materialized in evaluation order by irQualLowerArgs.
 func (bl *irScalarBuilder) qualEmit(t *ast.Call, args irQualArgs, p *irQualPlan) (ir.Temp, kind, bool, bool) {
@@ -1720,6 +1558,12 @@ func (bl *irScalarBuilder) qualEmit(t *ast.Call, args irQualArgs, p *irQualPlan)
 	if callee == nil {
 		callee = bl.g.irCalleeSym(p.token, p.name)
 	}
+	if p.dispatch {
+		bl.g.verifyDispatched(t)
+	} else if target, block := irQualPlanTarget(p); target != nil {
+		bl.g.verifyCalleeIn(t, target, block)
+	}
+	bl.g.verifyCalleeAt(t, p)
 	if decl := irQualPlanDecl(p); decl != nil {
 		bl.g.irNoteBootCall(decl, callee)
 		// `fn x -> lib.keep(x)` over another file's iter-sensitive keep.
@@ -1772,10 +1616,41 @@ func irQualPlanDecl(p *irQualPlan) *ast.FuncDef {
 	return nil
 }
 
+// irQualPlanTarget is the declaration a qualified call's plan lowers
+// against, which verifyCallee holds to the call's record: a program's or a
+// std module's function, an impl's function, or for an impl that inherits
+// the interface's default, that interface function with the block that
+// inherits it; a `host fn`; an interface function a plan calls for one
+// receiver. Nil for a plan that dispatches where it runs.
+func irQualPlanTarget(p *irQualPlan) (ast.Node, *ast.ImplBlock) {
+	if p.target != nil {
+		return p.target, nil
+	}
+	var n ast.Node
+	switch tok := p.token.(type) {
+	case *fileFunc:
+		n = tok.decl
+	case *stdFunc:
+		n = tok.node
+	case *fnSig:
+		n = tok.decl
+	case *implItem:
+		return tok.source()
+	case irHostBinding:
+		n = tok.ef
+	case *ifaceMethod:
+		if !p.dispatch {
+			n = tok.decl
+		}
+	}
+	if isNilNode(n) {
+		return nil, nil
+	}
+	return n, nil
+}
+
 // irDisplayScalar is a kind whose `Display.to_string` is the scalar renderer
-// used for `Int.to_string` and its siblings. The Render records a fresh line
-// directive, and its operand must emit no statement so the reset lands at the
-// call.
+// used for `Int.to_string` and its siblings.
 // irStdDisplayExistential is std Display's existential (`List<Display>`'s
 // element, `Fragment<Display>`'s payload). Display is a prelude interface no
 // program may redeclare, so the name is its identity.
@@ -1789,8 +1664,13 @@ func irDisplayScalar(k kind) bool {
 
 // Concrete scalar Display calls consume the same Render node as interpolation.
 func (bl *irScalarBuilder) scalarTextCall(t *ast.Call, args irQualArgs, owner string) (ir.Temp, kind, bool, bool) {
-	if !args.ok || len(args.kinds) != 1 || !irScalarLeafKind(args.kinds[0]) || args.kinds[0] != bl.g.qualifierKind(owner) {
+	if !args.ok {
 		return ir.NoTemp, kindInvalid, false, false
+	}
+	if len(args.kinds) != 1 || !irScalarLeafKind(args.kinds[0]) || args.kinds[0] != bl.g.qualifierKind(owner) {
+		// The checker types the one operand of `Int.to_string` as an Int,
+		// and the Display route names the operand's own kind.
+		panic("irbuild: a scalar's to_string over an operand that is not that scalar: " + owner)
 	}
 	r := ir.NewRenderDisplay(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
 	bl.b.Append(r)
@@ -1822,7 +1702,8 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	}
 	if k.tag == tagFunc && bl.g.implsByIface["Debug"][k] == nil {
 		// `Debug.inspect` of any function value is a name-free constant
-		// (rt/funcname.go's row six). The operand was evaluated.
+		// (rt.FunctionInspectText). The operand was evaluated.
+		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorStructural)
 		c := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), rt.FunctionInspectText())
 		bl.b.Append(c)
 		return c.Dst(), kindString, false, true
@@ -1830,11 +1711,13 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	if k.tag == tagNamed && (irRetainedStructKind(k.def) || irRetainedEnumKind(k.def) || irRetainedMarker(k.def)) && bl.g.implsByIface["Debug"][k] != nil {
 		plan, structural := bl.distinctDebugPlan(k)
 		if plan != nil {
+			bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
 			return bl.qualEmit(t, args, plan)
 		}
 		if !structural {
 			return no()
 		}
+		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
 	} else if irExistentialKind(k) || irConjKind(k) {
 		// A local interface's existential holds its concrete value in the
 		// VM: the renderer is told every implementer's Debug body.
@@ -1842,6 +1725,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 		if !ok {
 			return no()
 		}
+		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorDispatched)
 		r := ir.NewRenderDebugWith(bl.g.irNodePos(t), bl.f.NewTemp(), args.temps[0], impls)
 		bl.b.Append(r)
 		bl.side(r.Dst(), irScalarSide{k: kindString})
@@ -1850,14 +1734,12 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 		return no()
 	} else if !irStructuralDebugKind(k) {
 		// A container of nominal values, such as a std struct's list of
-		// rows: the renderer names each nested type's Debug body. Resolving
-		// those bodies marks their Go packages; the Go reader spells the
-		// render with the native renderer, which marks what it names, so the
-		// resolution's marks are dropped.
+		// rows: the renderer names each nested type's Debug body.
 		impls, ok := bl.nestedDebugImpls(k)
 		if !ok {
 			return no()
 		}
+		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
 		// An `Iter<T>` whose possible sources name no impl renders
 		// structurally, as the plain render below does.
 		var r *ir.Render
@@ -1870,6 +1752,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 		bl.side(r.Dst(), irScalarSide{k: kindString})
 		return r.Dst(), kindString, false, true
 	}
+	bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
 	r := ir.NewRenderDebug(bl.g.irNodePos(t), bl.f.NewTemp(), args.temps[0])
 	bl.b.Append(r)
 	bl.side(r.Dst(), irScalarSide{k: kindString})
@@ -1956,18 +1839,21 @@ func (bl *irScalarBuilder) stdModuleIfaceCall(t *ast.Call, mod, iface, method st
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	decl := stdDeclaringSymbol(bl.g.fa, "std/"+mod, iface)
 	if decl == nil || decl.Kind != analysis.SymbolInterface || decl.Node == nil {
-		return no()
+		panic("irbuild: stdModuleIfaceCall: stdModuleInterface found the same declaration in the same module before the call")
 	}
 	args := bl.irQualLowerArgs(t)
-	if !args.ok || len(args.kinds) == 0 {
+	if !args.ok {
 		return no()
 	}
-	if def := bl.g.stdProgQualifiedIface(mod, iface); def != nil {
-		// A receiver held as the std interface the module names
-		// (stdprogiface.go).
-		if plan := bl.stdProgErasedPlanOf(t, args, def, iface, method); plan != nil {
-			return bl.qualEmit(t, args, plan)
-		}
+	if len(args.kinds) == 0 {
+		// Every function of an interface takes its receiver, and the
+		// checker holds a call to the function's arity.
+		panic("irbuild: a call to a std interface's function with no operand: " + mod + "." + iface + "." + method)
+	}
+	if plan := bl.dispatchedCallPlan(t, args); plan != nil {
+		// A receiver held as the std interface the module names:
+		// dispatched through the function the record names.
+		return bl.qualEmit(t, args, plan)
 	}
 	// This file declares an interface named iface, so a program impl of the
 	// std one is filed under its key (qualifiedStdIface).
@@ -2070,7 +1956,7 @@ func (bl *irScalarBuilder) stdModuleOwnerCall(t *ast.Call, mod, owner, method st
 		// instantiated per program as the two-segment
 		// `Generator.bool()` is (stdGenericQualCall), from the
 		// named module's declaration only.
-		if v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdModuleTypeTemplate(mod, owner, method), kindInvalid); handled {
+		if v, rk, mobile, ok, handled := bl.stdInstCallAt(t, bl.g.stdModuleTypeTemplate(mod, owner, method), kindInvalid, nil); handled {
 			return v, rk, mobile, ok, true
 		}
 	} else if bareReaches {
@@ -2087,7 +1973,7 @@ func (bl *irScalarBuilder) stdModuleOwnerCall(t *ast.Call, mod, owner, method st
 
 // stdModuleTypePlan resolves `mod.Type.method(args)` for a stdlib module
 // `mod`: the overloads of `Type.method` that module declares, picked by the
-// operand kinds as native stdlibCall picks.
+// operand kinds (stdPick).
 func (bl *irScalarBuilder) stdModuleTypePlan(t *ast.Call, args irQualArgs, module, owner, method string) *irQualPlan {
 	if bl.g.std == nil || !args.ok {
 		return nil
@@ -2104,58 +1990,12 @@ func (bl *irScalarBuilder) stdModuleTypePlan(t *ast.Call, args irQualArgs, modul
 	return bl.stdFuncPlan(t, args, stdPick(fs, args.kinds))
 }
 
-// generatedOwnerAlias is the type a generated function's owner names
-// through a typealias, `Tiny` in the `Tiny.try_from(value)` that `type Bit
-// Tiny` checks its parent with (analysis refinement_synthesis.go), and the
-// origin of its declaration, or "".
-// The checker resolved the call to the target's function, which this name
-// reaches.
-func (g *gen) generatedOwnerAlias(ti *ast.TypeIdent) (name, origin string) {
-	if g.fa == nil || ti == nil || !analysis.IsSynthesizedLine(ti.Line) {
-		return "", ""
-	}
-	sym := g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym == nil || sym.Kind != analysis.SymbolTypeAlias {
-		return "", ""
-	}
-	if dt, ok := sym.Type.(*analysis.DistinctType); ok {
-		return dt.Name, dt.Origin
-	}
-	return "", ""
-}
-
-// refinementCheckOwner is the subtype a refinement literal's check call
-// names as its owner (analysis.RefinementStep.Check), by its declaration's
-// name and origin, when this file binds that name to no declaration or to
-// another one; "" otherwise, and for any other owner. The call's nodes
-// stand at columns below zero, where no source token is.
-func (g *gen) refinementCheckOwner(ti *ast.TypeIdent) (name, origin string) {
-	if g.fa == nil || ti == nil || ti.Col >= 0 {
-		return "", ""
-	}
-	sym := g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym == nil {
-		return "", ""
-	}
-	dt, ok := sym.Type.(*analysis.DistinctType)
-	if !ok || !dt.Subtype {
-		return "", ""
-	}
-	if local := resolvedTypeSymbol(g.fa, ti.Name); local == sym {
-		return "", ""
-	}
-	return dt.Name, dt.Origin
-}
-
-// resolvedOwnerPlan calls the owner function the checker resolved fa to
-// (its reference at the field), which another file declares, found by its
-// declaration rather than by a name this file need not see.
+// resolvedOwnerPlan calls the function the checker resolved fa to (its
+// reference at the field), which another file declares in a block of the
+// call's qualifier: an owner function, or an impl block's function at the
+// def of the qualifier's declaration or at its instance the checker
+// instantiated the call at. Each is found by its declaration rather than
+// by a name this file need not see.
 func (bl *irScalarBuilder) resolvedOwnerPlan(t *ast.Call, args irQualArgs, fa *ast.FieldAccess) *irQualPlan {
 	g := bl.g
 	if g.files == nil || fa.Field == nil {
@@ -2179,42 +2019,43 @@ func (bl *irScalarBuilder) resolvedOwnerPlan(t *ast.Call, args irQualArgs, fa *a
 			}
 		}
 	}
+	// A function of an impl block of the qualifier's declaration (a
+	// validated type's `try_from`, which is its TryFrom impl's): that
+	// block's function for this file's def of the type, or of the
+	// instance of it the checker instantiated the call at.
+	q := g.routeCallee(t).Qualifier
+	if q.Kind != analysis.QualType || q.Decl == nil || g.reg == nil {
+		return nil
+	}
+	ti, isType := fa.Object.(*ast.TypeIdent)
+	if !isType {
+		return nil
+	}
+	if len(typeDeclTypeParams(q.Decl)) == 0 {
+		if d := g.importedTypeDef(g.checkedRef(ti.Line, ti.Col)); d != nil && d.decl == q.Decl {
+			return bl.qualSiblingImplPlanFor(t, args, d, fa.Field.Name)
+		}
+		return nil
+	}
+	ref, found := g.foreignTemplateOf(g.reg.byDecl[q.Decl])
+	if !found {
+		return nil
+	}
+	for _, it := range ref.tpl.impls {
+		if !slices.Contains(it.decl.Items, ast.Node(fd)) {
+			continue
+		}
+		targs, ok := g.implRecvTypeArgs(g, t.Func, it.decl, len(ref.tpl.params))
+		if !ok {
+			return nil
+		}
+		k, ok := g.instantiateForeign(ref, targs)
+		if !ok || k.tag != tagNamed || k.def == nil {
+			return nil
+		}
+		return bl.qualSiblingImplPlanFor(t, args, k.def, fa.Field.Name)
+	}
 	return nil
-}
-
-// stdOwnerAlias is the std type an owner qualifier names under an import
-// alias (`import std::iter.Iter as It` makes `It` name `Iter`), or "" when the
-// qualifier is not such an alias. The canonical name must not name a type
-// this file declares, which would make it mean something else here.
-func (g *gen) stdOwnerAlias(ti *ast.TypeIdent) string {
-	if g.fa == nil || ti == nil {
-		return ""
-	}
-	sym := g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
-	for sym != nil && sym.Resolved != nil {
-		sym = sym.Resolved
-	}
-	if sym == nil || sym.Name == "" || sym.Name == ti.Name {
-		return ""
-	}
-	if _, local := g.types[sym.Name]; local {
-		return ""
-	}
-	if _, local := g.ifaces[sym.Name]; local {
-		return ""
-	}
-	for module, scope := range g.fa.Program().StdlibModuleScopes {
-		if isProgramStd(module) {
-			continue
-		}
-		if scope == nil {
-			continue
-		}
-		if real := scope.LookupLocal(sym.Name); real != nil && (real == sym || real.Resolved == sym) {
-			return sym.Name
-		}
-	}
-	return ""
 }
 
 // stdOwnerUnshadowed reports whether the bare name owner, written here, still
@@ -2231,7 +2072,7 @@ func (g *gen) stdOwnerUnshadowed(owner string) bool {
 // qualWidenEmbeds widens each operand of an embedded type whose parameter is
 // the enum that embeds it into its `embeds` variant, and views each source
 // whose parameter is an `Iter<T>` as that sequence (`Statement.join(parts,
-// sep)` over a list), as a direct call's operand is (coerceEmpty). changed
+// sep)` over a list), as a direct call's operand is (convertTo). changed
 // is false when no operand needed it, and args is then unchanged.
 // qualEraseSlotted is args with each operand whose slot is interface-typed,
 // and whose own kind is a concrete one that erases into it, entered at the
@@ -2242,11 +2083,7 @@ func (bl *irScalarBuilder) qualEraseSlotted(t *ast.Call, args irQualArgs, params
 	if !args.ok || len(args.temps) != len(t.Args) || len(decl) != len(params) {
 		return args, false
 	}
-	names := make([]string, len(decl))
-	for i, p := range decl {
-		names[i] = p.Name
-	}
-	plan, planned := argSlotPlan(t.Args, params, names)
+	plan, planned := bl.g.callPlan(t, len(params))
 	if !planned {
 		return args, false
 	}
@@ -2255,7 +2092,7 @@ func (bl *irScalarBuilder) qualEraseSlotted(t *ast.Call, args irQualArgs, params
 		if slot < 0 || args.kinds[i] == params[slot] || !irHeldKind(params[slot]) {
 			continue
 		}
-		v, got, ok := bl.coerceEmpty(argExpr(t.Args[i]), args.temps[i], args.kinds[i], params[slot])
+		v, got, ok := bl.convertTo(argExpr(t.Args[i]), args.temps[i], args.kinds[i], params[slot])
 		if !ok {
 			return args, false
 		}
@@ -2291,7 +2128,7 @@ func (bl *irScalarBuilder) qualWidenEmbeds(t *ast.Call, args irQualArgs, params 
 		if i < len(t.Args) && !isNilNode(t.Args[i]) {
 			at = t.Args[i]
 		}
-		v, got, ok := bl.coerceEmpty(at, args.temps[i], k, params[i])
+		v, got, ok := bl.convertTo(at, args.temps[i], k, params[i])
 		if !ok {
 			return args, false
 		}

@@ -5,103 +5,55 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The type-parameter dispatch seam: `T.method(x)` where `T` is a BOUNDED type
+// Bounded generic functions: `T.method(x)` where `T` is a bounded type
 // parameter of the enclosing function.
 //
-// # The seam has two parts, and conflating them is a bug
+// # What the seam holds
 //
-// Part (a), WHICH INTERFACE. A type parameter's interface bound names decide
-// which interface a `T.method` call goes through. That is a compile-time fact:
-// the bound picks the *ifaceDef, and therefore the dispatch table, before
-// anything runs.
+// A type parameter's interface bound names decide which interface a
+// `T.method` call goes through. That is a compile-time fact: the bound picks
+// the *ifaceDef before anything runs.
 //
-// Part (b), WHICH IMPL. Bound names can never answer this. For
-// `FromJson.from_json(json: Json) -> Result<self, …>`, self occurs only in the
-// RETURN, so a dispatch on the first argument's runtime type probes `Json`
-// and every `impl FromJson for List<T>` is unreachable. The answer needs a
-// SEPARATE binding carrying the concrete type ARGUMENT.
+// Bound names cannot say which impl. For
+// `FromJson.from_json(json: Json) -> Result<self, …>`, self occurs only in
+// the return, so the first argument's runtime type is `Json` and selects no
+// `impl FromJson for List<T>`. The impl follows from the concrete type
+// argument: a call or a function value lowers an instance of the function at
+// that argument (irMonoTemplate, irfuncbody.go), and the body under the
+// seam's own signature has no IR (funcDecl, native.go).
 //
-// That binding is a parameter: one `*rt.TypeID` per bounded type
-// parameter, immediately after `fr`. `rt.Method.At(tid)` is the lookup, beside
-// the receiver-driven `Get(d Dyn)` and delegated to by it, so the runtime has
-// exactly one map probe and one trap message.
+// # A bounded type parameter is an existential over its bound
 //
-// # Why a bounded type parameter is an EXISTENTIAL over its bound
-//
-// `T` lowers to the kind an interface-typed parameter already has —
-// `existential(bound)`, i.e. `rt.Dyn`. Not a new tag, and that is the whole
-// reason: `coerce` already boxes a concrete value into an existential at the
-// position the checker accepted the widening, table dispatch already handles
-// one, and `zeroSized`, `nomi`, `packageNeutral`, inspect and equality all
-// already answer for `tagIface`. A `tagTypeParam` would have to be added to
-// each of those switches correctly, and the failure mode of missing one is a
-// silent wrong answer rather than a refusal.
-//
-// # The dictionary is required at EVERY call, and the fallback is REFUSED
-//
-// There is one route, because the choice can be made statically and the
-// residue is small enough to refuse:
-//
-//   - a turbofish gives the type argument directly (`origin<Meters>()`);
-//   - with no turbofish, `T` is solved from the ARGUMENTS' static kinds, which
-//     is more precise than probing a receiver's runtime type;
-//   - inside another generic, an argument already erased to `T`'s bound
-//     resolves to the ENCLOSING seam's own dictionary, resolving each argument
-//     through the caller's own bindings first, and it is what makes a bounded
-//     generic self-recursive;
-//   - and when none of those answers, the call is REFUSED by name rather than
-//     emitted against a nil dictionary. Such a program checks clean and has no
-//     type argument to dispatch on (`Zero.zero()` with no argument), so a
-//     refusal is the fail-safe direction and not a lost capability.
-//
-// One route means no run-time branch in the lowered body, and — more
-// importantly — no hand-written walk over the body to discover whether the
-// dictionary is needed. A walk that skips a node kind looks finished from every
-// angle except the one it skips.
+// In the seam's signature `T` has the kind an interface-typed parameter has,
+// `existential(bound)`. `zeroSized`, `nomi`, `packageNeutral` and equality
+// already answer for `tagIface`.
 //
 // # Scope
 //
-// Exactly ONE type parameter, with exactly ONE bound that resolves to an
-// interface this gen can see. Two or more type parameters DECLINE — they do not
-// get a refusal of their own — because a turbofish's positional order is by
-// first appearance across the parameter and return types, which is a no-op
-// only for a single parameter. Getting that ordering wrong binds the wrong type
-// to the wrong parameter, in silence. Declining leaves the `generic function`
-// refusal in charge.
+// Exactly one type parameter, whose bounds each resolve to an interface this
+// gen can see. Two or more type parameters decline, and they get no refusal
+// of their own: declining leaves genericSignature (generic.go) to decide the
+// signature.
 //
-// Generic IMPL blocks, generic impl functions, generic interfaces and generic
-// type declarations keep their own refusals. So the impl half of part (b),
-// unifying an impl's receiver type-expression against a call-site type
-// argument, is NOT handled here.
+// Generic impl blocks, generic impl functions, generic interfaces and generic
+// type declarations are not handled here.
 
 // dictTypeParam is one bounded type parameter as the builder carries it.
 type dictTypeParam struct {
 	// nomi is the type parameter's Nomi name, `T`.
 	nomi string
 	// bounds are the interfaces the type parameter's bounds resolved to, in
-	// SOURCE order. Part (a): they decide the dispatch table, at compile time.
-	// Never empty, and every element non-nil.
+	// source order. Never empty, and every element non-nil.
 	//
-	// A LIST rather than one interface because `where T: Display and Greet` is
-	// one type parameter with two contracts. The bounds are scanned for one
-	// whose interface declares the method, so the method decides which table,
-	// per call, and the list is the thing scanned.
+	// A list and not one interface because `where T: Display and Greet` is
+	// one type parameter with two contracts.
 	bounds []*ifaceDef
 }
 
-// repr is the bound a value of this type parameter is BOXED under.
-//
-// The first, and the choice is arbitrary on purpose rather than for want of a
-// better one: `existential(d)` renders `rt.Dyn` for every d — `{TID, V}`, which
-// carries no interface identity at run time — so all of a type parameter's
-// bounds produce the same Go type and the same value. The iface in the KIND is
-// compile-time bookkeeping about which contract a position was accepted under,
-// and every site that compares it is taught below to accept any bound of the
-// same type parameter.
-//
-// What is NOT arbitrary is that there is exactly one of them. Two boxes for one
-// value would be two kinds for one variable, and `coerce` would then have a
-// wanted type that depends on which bound a reader happened to name.
+// repr is the bound the type parameter's kind is an existential over: the
+// first. The iface in the kind records which contract a position was
+// accepted under, and there is exactly one per type parameter, so a variable
+// of type `T` has one kind whichever bound a reader names.
 func (p *dictTypeParam) repr() *ifaceDef { return p.bounds[0] }
 
 // dictSeam is one generic function's type parameters.
@@ -122,7 +74,7 @@ func (s *dictSeam) at(name string) *dictTypeParam {
 	return nil
 }
 
-// --- part (a): collecting the bounds ----------------------------------------
+// --- collecting the bounds ---------------------------------------------------
 
 // typeParamBound is one type parameter's name and the base names of its
 // interface bounds.
@@ -134,12 +86,11 @@ type typeParamBound struct {
 // typeParamBoundsOf merges a function's `<T>` header with its `where` clauses
 // into one bound list per type parameter, deduped, in declaration order.
 //
-// Both are read because the two fields are not interchangeable and neither is the whole answer: `ast.TypeParam.Bounds`
-// carries INTERNAL/SYNTHESIZED constraints only (ast.go's own comment), source
-// constraints live in WhereClauses, and the parser REJECTS the inline spelling
-// outright — `fn f<T: Shout>(x: T)` is a parse error advising `<T>` plus
-// `where T: Shout`. So reading either field alone answers for a population that
-// does not exist.
+// Both are read because neither is the whole answer: `ast.TypeParam.Bounds`
+// carries internal and synthesized constraints only (internal/ast/ast.go's own comment),
+// source constraints live in WhereClauses, and the parser rejects the inline
+// spelling: `fn f<T: Shout>(x: T)` is a parse error advising `<T>` plus
+// `where T: Shout`.
 func typeParamBoundsOf(tps []ast.TypeParam, where []ast.WhereConstraint) []typeParamBound {
 	if len(tps) == 0 {
 		return nil
@@ -249,27 +200,18 @@ func boundedParamAtDepth(fd *ast.FuncDef, name string) bool {
 
 // dictSeamFor builds the seam for a generic function, or declines.
 //
-// Declines rather than refuses, in every arm and on purpose: everything it turns
-// down is already refused as `generic function` at the declaration, and a second
-// key for the same declaration would report one refusal twice. See
-// unsupported.go, and the file comment above for why 2+ type parameters is one
-// of those arms rather than a capability.
+// It declines and never refuses: declaredSignature (native.go) asks
+// genericSignature next, which records the construct funcDecl reports, and a
+// second key for the same declaration would report one refusal twice.
 //
-// ONE type parameter, with ANY NUMBER of bounds each resolving to a lowerable
-// interface. The two limits have different reasons: 2+ type parameters
-// decline because a TURBOFISH's positional order is
-// `orderTypeParamsForTurbofish`'s and re-encoding it here would be a second
-// copy of a rule whose failure mode is silent, whereas a second BOUND on one
-// type parameter adds no position to order — it adds a contract, and
-// `dictTypeParam.declares` picks the table per method exactly as
-// `typeParamDispatchIface` does.
+// One type parameter, with any number of bounds each resolving to a lowerable
+// interface. Two or more type parameters decline.
 func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	bounds := typeParamBoundsOf(fd.TypeParams, fd.WhereClauses)
-	// The bounds nobody WROTE. `Debug` is universal, so a developer inspecting a
+	// The bounds nobody wrote. `Debug` is universal, so a developer inspecting a
 	// value writes `fn f<T>(x: T) { io.inspect(x) }` with no annotation and the
 	// checker rejects nothing. Without the inferred bound this function would
-	// have no bound to resolve, and the body's `Debug.inspect(x)` would refuse
-	// at a `tagTypeParam` receiver that carries no identity to dispatch on.
+	// have no bound to resolve.
 	//
 	// The checker records the bound its own conformance check inferred
 	// (`recordInferredBoundOnTypeParam`), keyed on the DECLARATION NODE. Merged
@@ -284,10 +226,10 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	if len(bounds) != 1 || len(bounds[0].bounds) == 0 {
 		return nil, false
 	}
-	// A BOUNDED TYPE PARAMETER AT DEPTH IN A PARAMETER ANNOTATION — `m: Maybe<T>`
-	// rather than `x: T`. The dictionary cannot serve the shape at all.
+	// A bounded type parameter at depth in a parameter annotation: `m: Maybe<T>`
+	// and not `x: T`. The seam's signature cannot serve the shape at all.
 	//
-	// Part (a) makes a bounded type parameter an existential over its bound
+	// A bounded type parameter is an existential over its bound
 	// (dictTypeParamKind), so `m: Maybe<T>` resolves to `Maybe<Display>` and the
 	// signature demands a container whose PAYLOAD is already erased. For
 	// `fn label<T>(prefix: String, m: Maybe<T>) -> String where T: Display`:
@@ -336,16 +278,14 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 			return nil, false
 		}
 		if d.decl != nil && len(d.decl.Methods) == 0 {
-			// A bound that DECLARES NOTHING TO DISPATCH: no function
-			// requirement. A dictionary exists to carry the identity a
-			// `T.method(x)` inside the body dispatches on, so
-			// such a bound gives it nothing to do: the seam would thread a
-			// `*rt.TypeID` no emitted line reads.
+			// A bound that declares nothing to dispatch: no function
+			// requirement. The seam exists for a `T.method(x)` inside the
+			// body, and such a bound has no method to call.
 			//
-			// Declining leaves the declaration to monomorphization, which is the
-			// right owner for it — `signature()` asks `dictSignature` first and
-			// `monoTemplateFor` on decline, so a decline here is a HANDOFF and
-			// not a refusal.
+			// Declining leaves the declaration to monomorphization:
+			// declaredSignature asks `dictSignature` first and
+			// `genericSignature` and `monoTemplateFor` on decline, so a
+			// decline here is a handoff and not a refusal.
 			//
 			// THE DECLARATION AND NOT `d.order`. `d.order` is filled by
 			// `resolveIfaces`, which runs AFTER `declareFuncs`, and
@@ -358,9 +298,9 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 			// `std/structs.Struct` is the case this arm exists for: a universal
 			// structural marker whose one declared function is not
 			// dispatchable, so structiface.go's canonical declaration carries no
-			// methods. Without this decline `where T: Struct` would move a shape
-			// like `11-interfaces-and-impls/structural_interfaces` off
-			// monomorphization and onto a dictionary with nothing in it.
+			// methods. Without this decline `where T: Struct` would give a shape
+			// like `11-interfaces-and-impls/structural_interfaces` a seam
+			// signature with no method behind it.
 			return nil, false
 		}
 		defs = append(defs, d)
@@ -371,25 +311,22 @@ func (g *gen) dictSeamFor(fd *ast.FuncDef) (*dictSeam, bool) {
 	}}}, true
 }
 
-// dictBoundIface resolves a type parameter's BOUND to the *ifaceDef whose
-// dispatch table part (a) selects: this module's own declaration, a sibling
-// file's mirror, or a stdlib interface's shared def, in that order.
+// dictBoundIface resolves a type parameter's bound to its *ifaceDef: this
+// module's own declaration, a sibling file's mirror, or a stdlib interface's
+// shared def, in that order.
 //
-// The order is `stdIfaceNamed`'s own and is asked for through it rather than
-// re-spelled, so a user declaration wins here for the same reason it wins at
-// every other position — see stdiface.go, which states why the analyzer's
-// module scope is not a shadow oracle for interfaces.
+// The order is `stdIfaceNamed`'s own and is asked for through it, so a user
+// declaration wins here for the same reason it wins at every other position.
+// See stdiface.go, which states why the analyzer's module scope is not a
+// shadow oracle for interfaces.
 //
 // A bound needs the stdlib arm as every other interface position does.
 // `Display` and `Comparable` carry `stdIfaceSpecs` rows and a process-wide
-// `*ifaceDef`, read by an annotation (types.go), an `impl` header (impl.go), an
-// inferred position (`projectStdIface`), a cross-file kind (foreign.go) and a
-// refusal reason (sigreason.go). `ifaceNamed` alone knows nothing about specs,
-// so `where T: Display` would decline the seam while the SAME interface in a
-// PARAMETER position lowered.
-//
-// Source-level tests cannot see that asymmetry, because another spelling of
-// the same question works.
+// `*ifaceDef`, read by an annotation (types.go), an `impl` header (impl.go),
+// a cross-file kind (foreign.go) and a refusal reason (sigreason.go).
+// `ifaceNamed` alone knows nothing about specs, so without it
+// `where T: Display` would decline the seam while the same interface in a
+// parameter position lowered.
 func (g *gen) dictBoundIface(name string) (*ifaceDef, bool) {
 	if d, user := g.ifaceNamed(name); user {
 		return d, true
@@ -436,13 +373,11 @@ func (g *gen) dictSignature(fd *ast.FuncDef) (*fnSig, bool) {
 // dictTypeParamKind is the kind a type-parameter NAME denotes, and reports
 // whether the name is one.
 //
-// Part (a) in one line: a bounded type parameter IS an existential over its
-// bound. typeOf calls this, so every composed spelling — `T`, `List<T>`,
-// `(T) -> Bool` — follows from it rather than needing an arm of its own.
+// A bounded type parameter is an existential over its bound. typeOf calls
+// this, so every composed spelling, `T`, `List<T>` or `(T) -> Bool`, follows
+// from it and needs no arm of its own.
 //
-// With several bounds it is the REPR bound, for the reason `repr` states: every
-// bound renders the same `rt.Dyn` and carries no interface identity at run time,
-// so the choice is bookkeeping and there must be exactly one of it.
+// With several bounds it is the repr bound, for the reason `repr` states.
 func (g *gen) dictTypeParamKind(name string) (kind, bool) {
 	tp := g.dict.at(name)
 	if tp == nil {
@@ -450,9 +385,3 @@ func (g *gen) dictTypeParamKind(name string) (kind, bool) {
 	}
 	return existential(tp.repr()), true
 }
-
-// --- part (b): the emitted dictionary ---------------------------------------
-
-// --- the identity a self position must carry ---------------------------------
-
-// --- call sites -------------------------------------------------------------

@@ -22,7 +22,7 @@ end
 
 /// The greatest total value of `items`, each taken at most once, whose
 /// weights add up to no more than `maximum_weight`.
-pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int
+pub fn maximum_value(items: List<Item>, maximum_weight: NonNegativeInt) -> Int
     nothing =
         Iter.repeat(0)
         |> Iter.take(maximum_weight + 1)
@@ -52,7 +52,7 @@ end
 import knapsack.{self, Item}
 
 test "maximum value"
-    cases: List<(String, Int, List<Item>, Int)> = [
+    cases: List<(String, NonNegativeInt, List<Item>, Int)> = [
         ("no items",            100, [],                        0),
         ("one item, too heavy", 10,  [{weight: 100, value: 1}], 0),
         (

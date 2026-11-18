@@ -188,8 +188,8 @@ func ContextWithValue(c Context, tid *TypeID, v any) Context {
 // context". The first hit wins, so a shadowing derivation is answered by
 // the walk order rather than by anything this function does.
 //
-// The assertion is checked rather than a bare `.(T)`, and the failure is loud
-// for `Method.At`'s reason (dispatch.go): one Nomi type has one `*TypeID` and
+// The assertion is checked rather than a bare `.(T)`, and the failure is
+// loud: one Nomi type has one `*TypeID` and
 // one Go type, so a matching identity carrying a different dynamic type would
 // mean a value was filed under an identity that is not its own — a wrong
 // answer, and a silent `Maybe` of the zero value is the one outcome worse than a

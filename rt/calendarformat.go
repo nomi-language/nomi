@@ -1,8 +1,8 @@
 package rt
 
 // std/calendar's types for text a reader reads, here for Locale's reason
-// (rt/locale.go): nothing in rt operates on them, and a Go type in rt is
-// what lets a std signature name one across generated packages. The
+// (rt/locale.go): nothing in rt operates on them, and internal/irbuild's
+// std type specs pair each std declaration with its Go type here. The
 // formatting is internal/stdformat's.
 
 // DateStyle is `std/calendar.DateStyle` (Full, Long, Medium, Short), a bare

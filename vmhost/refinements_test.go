@@ -286,6 +286,79 @@ func TestRefinement_AGenericSubtypesLiteralNeedsNoNameInScope(t *testing.T) {
 	}
 }
 
+// A literal of another file's type is checked by that type's own rule in a
+// file that declares a type of the same name with another rule: a generic
+// subtype passed to a function, named through an alias, or written in a
+// test block, and a validated type, generic or not, built through an
+// alias. Each main file's own type has a rule the literal breaks where the
+// other file's holds, or holds where the other file's breaks, so a check
+// run through the local type's `try_from` fails the case.
+func TestRefinement_ALiteralKeepsItsTypesRuleBesideALocalTypeOfItsName(t *testing.T) {
+	const many = "pub subtype Many<T> List<T> when fn xs -> List.length(xs) > 1\n\n" +
+		"pub fn first(xs: Many<Int>) -> Int\n    Iter.first(xs)!\nend\n"
+	const code = "pub type Code Int when fn n -> n > 1\n\npub fn f(c: Code) -> Code\n    c\nend\n"
+	const pair = "pub type Pair<T> List<T> when fn xs -> List.length(xs) == 2\n\n" +
+		"pub fn f(p: Pair<Int>) -> Pair<Int>\n    p\nend\n"
+	for _, tc := range []struct{ name, lib, main, out, err string }{
+		{"a generic subtype", many,
+			"import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
+				"fn main()\n    m: Many<Int> = [1, 2, 3, 4, 5, 6]\n    dbg m\n    dbg first([1, 2])\nend\n",
+			"dbg line 7: m = [1, 2, 3, 4, 5, 6]\ndbg line 8: first([1, 2]) = 1\n", ""},
+		{"a generic subtype it breaks", many,
+			"import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 0\n\nfn main()\n    dbg first([1])\nend\n",
+			"", "this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
+		{"a generic subtype under an alias", many,
+			"import lib.Many as M\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 5\n\n" +
+				"fn main()\n    k: M<Int> = [1, 2]\n    dbg k\nend\n",
+			"dbg line 7: k = [1, 2]\n", ""},
+		{"a generic subtype under an alias it breaks", many,
+			"import lib.Many as M\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
+				"fn main()\n    k: M<Int> = [1]\n    dbg k\nend\n",
+			"", "this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
+		{"a generic subtype in a test", many,
+			"import lib.first\n\nsubtype Many<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
+				"test \"first\"\n    assert first([1]) == 1\nend\n",
+			"", "this Many<Int> literal breaks its rule: `fn xs -> List.length(xs) > 1` is false"},
+		{"a validated type", code,
+			"import lib.{Code as C, f}\n\ntype Code Int when fn n -> n > 5\n\nfn main()\n    dbg f(C(2))\nend\n",
+			"dbg line 6: f(C(2)) = Code(2)\n", ""},
+		{"a validated type it breaks", code,
+			"import lib.{Code as C, f}\n\ntype Code Int when fn n -> n > 0\n\nfn main()\n    dbg f(C(1))\nend\n",
+			"", "1 is not a Code: `fn n -> n > 1` is false"},
+		{"a generic validated type", pair,
+			"import lib.{Pair as P, f}\n\ntype Pair<T> List<T> when fn xs -> List.length(xs) == 3\n\n" +
+				"fn main()\n    q: P<Int> = P([1, 2])\n    dbg f(q)\nend\n",
+			"dbg line 7: f(q) = Pair([1, 2])\n", ""},
+		{"a generic validated type it breaks", pair,
+			"import lib.{Pair as P, f}\n\ntype Pair<T> List<T> when fn xs -> List.length(xs) > 0\n\n" +
+				"fn main()\n    q: P<Int> = P([1])\n    dbg f(q)\nend\n",
+			"", "this Pair<Int> literal breaks its rule: `fn xs -> List.length(xs) == 2` is false"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string]string{"lib.nomi": tc.lib, "main.nomi": tc.main}
+			if tc.err == "" {
+				if got := runProject(t, files); got != tc.out {
+					t.Errorf("output = %q, want %q", got, tc.out)
+				}
+				return
+			}
+			dir := t.TempDir()
+			for name, src := range files {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, err := Load(filepath.Join(dir, "main.nomi"))
+			if err == nil {
+				t.Fatalf("the program loads; want %q", tc.err)
+			}
+			if !strings.Contains(err.Error(), tc.err) {
+				t.Errorf("load error = %v, want one reading %q", err, tc.err)
+			}
+		})
+	}
+}
+
 func TestRefinement_ARuleThatCannotBeEvaluated(t *testing.T) {
 	const decls = "import std::io\n\n" +
 		"fn loud(n: Int) -> Bool\n    io.print(\"checking\")\n    n > 0\nend\n\n" +
@@ -629,5 +702,48 @@ func TestRefinement_AValidatedTypesRuleWithEffectsIsAnError(t *testing.T) {
 	const want = "the rule of Email has effects (loud calls io.print): a rule is a pure function of the value it checks"
 	if len(ds) != 1 || ds[0].Message != want || ds[0].Line != 8 || ds[0].Code != InvalidRefinementCode {
 		t.Errorf("diagnostics = %v, want one at line 8 reading %q", ds, want)
+	}
+}
+
+// A rule reaches a program's hand-written Equatable only through a value of
+// its type: Int64's rule, a std subtype's and a program's own subtype of
+// Int compare and pass Ints, so an `equal` that prints does not make their
+// literals uncheckable. A rule that compares values of the type, directly
+// or as a Set's members, reaches it, and the error names it.
+func TestRefinement_ARuleOverIntsReachesNoEquatableOfTheProgram(t *testing.T) {
+	const decls = "import\n    std::int.Int64\n    std::io\nend\n\n" +
+		"struct Score\n    points: Int64\nend\n\n" +
+		"impl Equatable for Score\n    fn equal(a: Score, b: Score) -> Bool\n        io.print(\"compared\")\n        a.points == b.points\n    end\nend\n\n" +
+		"subtype Small Int when fn n -> n < 10\n\n"
+	p, err := LoadSource("main", decls+"fn main()\n"+
+		"    a: Int64 = 7\n"+
+		"    b: PositiveInt = 3\n"+
+		"    c: Small = 9\n"+
+		"    io.inspect(Score{points: a} == Score{points: 8})\n"+
+		"    io.inspect((a, b, c))\n"+
+		"end\n")
+	if err != nil {
+		t.Fatalf("the program does not load: %v", err)
+	}
+	var out strings.Builder
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got, want := out.String(), "compared\nFalse\n(7, 3, 9)\n"; got != want {
+		t.Errorf("output = %q, want %q", got, want)
+	}
+
+	for _, tc := range []struct{ rule, use, want string }{
+		{"subtype Scored Score when fn s -> s != Score{points: 0}\n\n",
+			"    io.inspect(Scored.try_from(Score{points: 1}))\n",
+			"the rule of Scored has effects (Score.equal calls io.print): a rule is a pure function of the value it checks"},
+		{"subtype Unique List<Score> when fn xs -> Iter.count(Iter.to_set(xs)) == List.length(xs)\n\n",
+			"    io.inspect(Unique.try_from([Score{points: 1}]))\n",
+			"the rule of Unique has effects (Score.equal calls io.print): a rule is a pure function of the value it checks"},
+	} {
+		ds := literalDiagnostics(t, decls+tc.rule+"fn main()\n"+tc.use+"end\n")
+		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
+			t.Errorf("%s: diagnostics = %v, want one reading %q", strings.TrimSpace(tc.rule), ds, tc.want)
+		}
 	}
 }

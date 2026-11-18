@@ -44,23 +44,15 @@ func isPendingDefault(t Type) bool {
 
 // containsPendingDefault reports whether t is or holds pendingDefault.
 func containsPendingDefault(t Type) bool {
-	return containsPendingDefaultDepth(t, 0)
-}
-
-func containsPendingDefaultDepth(t Type, depth int) bool {
-	t = resolveTypeVar(t)
-	if t == nil || isNilType(t) || depth > maxTypeRenderDepth {
-		return false
-	}
-	if isPendingDefault(t) {
-		return true
-	}
-	for _, c := range typeChildren(t) {
-		if containsPendingDefaultDepth(c, depth+1) {
-			return true
+	found := false
+	walkType(t, func(p Type) bool {
+		if isNilType(p) {
+			return false
 		}
-	}
-	return false
+		found = found || isPendingDefault(p)
+		return !found
+	})
+	return found
 }
 
 // defaultDetermines reports whether t, the type of a default checked with
@@ -117,14 +109,8 @@ func defaultSitesOf(fa *FileAnalysis, node ast.Node) []*defaultSite {
 	switch n := node.(type) {
 	case *ast.StructDef:
 		out = append(out, structDefaultSites(fa, n)...)
-		out = append(out, itemParamSites(fa, n.Items)...)
 	case *ast.EnumDef:
 		out = append(out, enumDefaultSites(fa, n)...)
-		out = append(out, itemParamSites(fa, n.Items)...)
-	case *ast.TypeDef:
-		out = append(out, itemParamSites(fa, n.Items)...)
-	case *ast.ExternType:
-		out = append(out, itemParamSites(fa, n.Items)...)
 	case *ast.ImplBlock:
 		out = append(out, itemParamSites(fa, n.Items)...)
 	case *ast.FuncDef, *ast.ExternFunc:

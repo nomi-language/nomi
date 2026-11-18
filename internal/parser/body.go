@@ -281,7 +281,7 @@ func (p *Parser) interfaceBodyFollows() bool {
 		switch t.Type {
 		case token.NEWLINE, token.SEMICOLON, token.COMMENT, token.BLANK_LINE:
 			continue
-		case token.END, token.PUB, token.DOC_COMMENT, token.TEST_PROMPT, token.EOF, token.HOST:
+		case token.END, token.PUB, token.DOC_COMMENT, token.TEST_PROMPT, token.EOF:
 			return false
 		case token.FN:
 			// `fn name(` or `fn name<` starts the next member; any other

@@ -36,7 +36,7 @@ import (
 // composite.go's key: the Nomi spelling, INCLUDING the type arguments, plus
 // the component kinds. `List<String>` and `List<Int>` are two keys; a key on
 // the base name would be a silent overwrite that hands one instantiation
-// another's element type. TestStructuralKindIdentityIsProcessWide pins it.
+// another's element type.
 //
 // # Why the shared table is safe
 //
@@ -195,7 +195,7 @@ func sharedListKind(elem kind) (kind, bool) {
 // anywhere — not in std, not in a user file; the front end builds it — so there
 // is no declaration to anchor to and nothing that could shadow it. The builder
 // already resolves it by name for user modules, in collections.go's
-// structuralTypeOf (`t.Name != "List"`), and a second rule here would be a
+// typeOf (`t.Name != "List"`), and a second rule here would be a
 // second convention for one question.
 //
 // The element is resolved by the same restricted stdTypeKind the outer position
@@ -211,9 +211,13 @@ func listSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 		return kindInvalid, false
 	}
 	if len(gt.Params) != 1 {
-		// The checker rejects the program first; refusing rather than
-		// instantiating at the wrong arity keeps this from emitting Go against a
-		// type nobody wrote. Same rule preludeSigKind applies to its arity.
+		// The checker rejects a `List` with any other number of type
+		// arguments ("List expects 1 type argument", analysis's
+		// resolveTypeExpr), so no checked std annotation reaches this. Without
+		// the guard a `List` with no argument would panic on gt.Params[0]
+		// below, and one with two or more would get the kind of `List` over
+		// its first argument and drop the rest. preludeSigKind refuses a wrong
+		// arity the same way.
 		return kindInvalid, true
 	}
 	elem := stdTypeKind(gt.Params[0], anchors)
@@ -260,26 +264,25 @@ func sharedTupleKind(parts []kind) (kind, bool) {
 // A tuple is spelled neither way: the parser gives `(Int, Int)` as an
 // `*ast.FuncType` with a NIL Return, reusing one node for `(Int, Int)` and
 // `(Int) -> String` with the arrow as the only difference (collections.go's
-// structuralTypeOf says so). Without this arm a tuple annotation such as
+// typeOf says so). Without this arm a tuple annotation such as
 // `random.between_state(state: Int, from: Int, to: Int) -> (Int, Int)`'s would match nothing
-// and refuse as `stdlib function outside the scalar subset`, though tuples are
-// an interned `tagTuple` over flat `F0`/`F1` fields.
+// and refuse as `stdlib function outside the scalar subset`, though a tuple
+// has an interned `tagTuple` kind.
 //
-// It is NOT the FFI projection. A Go multiple return projects to a Nomi tuple
-// element-by-element on the adapter side; this is the SIGNATURE side of the
-// same type, asked by a different question, and the two are independent.
+// It is not the FFI projection. A Go multiple return projects to a Nomi tuple
+// element-by-element on the adapter side; this is the signature side of the
+// same type, and the two are independent.
 //
 // Admitted on exactly the List and Map arms' terms and no wider: a structural
-// type over package-neutral components has a process-wide `*compKind` and
-// renders to the same Go text in every module's package, so the boundary the
-// scalar rule protects is not crossed. Parts resolve through the same restricted
-// `stdTypeKind`, so `(Fragment<String>, Int)` refuses on the `Fragment`.
+// type over package-neutral components has a process-wide `*compKind`, so the
+// kind is the same pointer in every module. Parts resolve through the same
+// restricted `stdTypeKind`, so `(Fragment<String>, Int)` refuses on the
+// `Fragment`.
 //
-// ONE-WAY BY CONSTRUCTION, and the asymmetry is not this function's to fix. A
-// tuple in a stdlib PARAMETER position is admitted here as a kind, and it is a
-// perfectly good Go struct to bind — unlike the FFI direction, where a tuple
-// parameter is rejected because Go has no tuple type to receive it. So this arm
-// serves both positions while the FFI projection serves one.
+// A tuple is admitted here in a parameter position as well as a result
+// position. The FFI direction rejects a tuple parameter, because Go has no
+// tuple type to receive it, so this arm serves both positions while the FFI
+// projection serves one.
 func tupleSigKind(te ast.TypeExpr, anchors stdAnchors) (kind, bool) {
 	ft, isFunc := te.(*ast.FuncType)
 	if !isFunc || ft.Return != nil {

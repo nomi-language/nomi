@@ -24,11 +24,25 @@ import (
 // inside `impl Comparable for Vector<T>`'s compare), so each argument is
 // that parameter in the frame.
 func (g *gen) calleeTypeArgs(ref ast.Node, names []string) ([]kind, bool) {
+	ks, _, ok := g.calleeTypeArgsOf(ref, names, false)
+	return ks, ok
+}
+
+// calleeTypedArgs is calleeTypeArgs with each argument as the checker's
+// type too, which an instance the call makes carries (substFrame): the
+// recorded type with the enclosing instances' types put for their type
+// parameters (checkerTypeArg), or the enclosing instance's type for a
+// parameter that is its own; nil where that has none.
+func (g *gen) calleeTypedArgs(ref ast.Node, names []string) ([]kind, []analysis.Type, bool) {
+	return g.calleeTypeArgsOf(ref, names, true)
+}
+
+func (g *gen) calleeTypeArgsOf(ref ast.Node, names []string, typed bool) ([]kind, []analysis.Type, bool) {
 	if len(names) == 0 {
-		return nil, true
+		return nil, nil, true
 	}
 	if g.fa == nil || ref == nil {
-		return nil, false
+		panic("irbuild: calleeTypeArgs: the builder lowers only checked programs, and every caller passes a callee node")
 	}
 	line, col := calleeRefPos(ref)
 	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]
@@ -39,32 +53,41 @@ func (g *gen) calleeTypeArgs(ref ast.Node, names []string) ([]kind, bool) {
 	}
 	types := analysis.CallTypeArgs(sym)
 	out := make([]kind, len(names))
+	var checked []analysis.Type
+	if typed {
+		checked = make([]analysis.Type, len(names))
+	}
 	for i, name := range names {
 		var k kind
 		if t, found := types[name]; found {
 			k = g.project(t)
+			if typed {
+				checked[i] = g.checkerTypeArg(t)
+			}
 		} else if sym.CallType != nil {
-			return nil, false
+			return nil, nil, false
 		} else if k, found = g.genericSubstKind(name); !found {
-			return nil, false
+			return nil, nil, false
+		} else if typed {
+			checked[i], _ = g.genericSubstType(name)
 		}
 		if k != kindUnit && !irCallableValueKind(k) {
-			return nil, false
+			return nil, nil, false
 		}
 		out[i] = k
 	}
-	return out, true
+	return out, checked, true
 }
 
 // monoInstanceAt is the instance of this gen's generic template tpl that ref
 // (a call's callee, or the function used as a value) names: tpl at the type
 // arguments the checker instantiated it at.
 func (g *gen) monoInstanceAt(ref ast.Node, tpl *monoTemplate, name string) (*monoInst, bool) {
-	args, ok := g.calleeTypeArgs(ref, tpl.params)
+	args, types, ok := g.calleeTypedArgs(ref, tpl.params)
 	if !ok {
 		return nil, false
 	}
-	inst, why, _ := g.resolveMonoInstance(tpl, args, name)
+	inst, why, _ := g.resolveMonoInstance(tpl, args, types, name)
 	if why != "" || inst == nil {
 		return nil, false
 	}
@@ -108,6 +131,20 @@ func (g *gen) solvedParamKind(t *ast.Call, method string, i int) kind {
 		return kindInvalid
 	}
 	return g.valueKindOf(ft.Params[i])
+}
+
+// solvedParamType is the checker's type solvedParamKind reads its kind
+// off, at this instance (checkerTypeArg), or nil.
+func (g *gen) solvedParamType(t *ast.Call, method string, i int) analysis.Type {
+	sym := g.calleeRecord(t, method)
+	if sym == nil {
+		return nil
+	}
+	ft, _ := sym.CallType.(*analysis.FuncType)
+	if ft == nil || i >= len(ft.Params) {
+		return nil
+	}
+	return g.checkerTypeArg(ft.Params[i])
 }
 
 // calleeRecord is the checker's reference record at t's callee when t

@@ -33,8 +33,7 @@ import (
 // negation keep a range, since a product or a difference can round to
 // zero or be NaN (inf - inf, 0 * inf).
 //
-// Other code asks two things: exprRange, the range of a checked
-// expression, and provenSubtype, the std numeric subtype it proves.
+// Other code asks one thing: exprRange, the range of a checked expression.
 
 // rbound is one end of a range: infinite, or a value that is or is not
 // itself in the range.
@@ -821,18 +820,6 @@ func (c *checker) onceRangeType(value ast.Node, ty Type) Type {
 	r := c.exprRange(value, fam)
 	r.typed = true
 	return c.typeForRange(fam, r, ty)
-}
-
-// provenSubtype is the std numeric subtype n's range proves, nil when it
-// proves none or n is of no numeric family: the API a check that needs a
-// subtype of a computed value calls.
-func (c *checker) provenSubtype(n ast.Node) Type {
-	t := c.fa.ExprTypes[n]
-	fam := familyOfBase(RefinementBase(t))
-	if fam == nil {
-		return nil
-	}
-	return c.rangeSubtype(fam, c.exprRange(n, fam), t)
 }
 
 // provenRefinement is want when n, checked as have, is of want's family

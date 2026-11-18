@@ -211,7 +211,7 @@ func TestGenHostPerGenInstanceKeepsTheOpaqueLeafShape(t *testing.T) {
 func TestGenStructFieldGuardDeclinesAKindlessField(t *testing.T) {
 	// The FIRING, on a spec whose field has no kind by construction.
 	kindless := &stdGenStructSpec{
-		origin: "test/probe", nomi: "Kindless", rtType: "rt.Kindless",
+		origin: "test/probe", nomi: "Kindless",
 		params: []string{"T"},
 		fields: []stdGenStructField{{
 			nomi: "absent", decl: "T",

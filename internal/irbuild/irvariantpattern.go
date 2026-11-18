@@ -11,10 +11,10 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 	if !ok || k.tag != tagNamed || !irRetainedEnumKind(k.def) {
 		return nil, nil, false
 	}
-	owner, member, ok := g.patternHead(pat.Variant)
-	if !ok || (owner != "" && !g.declaredAs(owner, k.def) && !g.preludeOwns(owner, k.def) && !g.stdEnumOwns(owner, k.def)) {
+	member, ok := g.patternVariant(pat.Variant)
+	if !ok {
 		// The checker types a variant pattern against the subject's enum,
-		// so its head names that enum's variant.
+		// so its head names that enum's variant, which it records.
 		panic("irbuild: a variant pattern whose head does not name the subject's enum " + k.def.nomi)
 	}
 	v := k.def.variant(member)
@@ -96,7 +96,7 @@ func (g *gen) retainedEnumPattern(pattern ast.Node, k kind) (*ast.EnumPattern, *
 		}
 	case *ast.EnumPattern, *ast.StructPattern:
 		// A nested variant pattern, tested against the projected payload in
-		// the outer test's success arm, as matchArm recurses. A distinct's
+		// the outer test's success arm. A distinct's
 		// destructure (`Some(TraceId(id))`) cannot fail and binds its inner
 		// value.
 		if sub, isEnum := pat.Payload.(*ast.EnumPattern); isEnum && pat.Binding == "" && g.distinctSubPattern(sub, pk) {
@@ -184,8 +184,7 @@ func (g *gen) distinctSubPattern(p *ast.EnumPattern, k kind) bool {
 	if k.tag != tagNamed || k.def == nil || !irWrappingDistinct(k.def) || k.def.rtOpaque {
 		return false
 	}
-	owner, member, ok := g.patternHead(p.Variant)
-	if !ok || owner != "" || g.qualifierKind(member) != k {
+	if _, isVariant := g.patternVariant(p.Variant); isVariant {
 		return false
 	}
 	switch p.Payload.(type) {
@@ -213,8 +212,8 @@ func (bl *irScalarBuilder) distinctSubBinding(p *ast.EnumPattern, payload ir.Tem
 // (`.Obj{"k" => v}`, `.Arr[a, b]`) as the variant pattern it means,
 // `.Obj({"k" => v})`: a typed map or list pattern's prefix is the variant's
 // name, and the payload is matched against the anonymous pattern. A tuple
-// pattern that names a distinct type is irPattern's distinct pattern. Any
-// other pattern is returned unchanged.
+// pattern that names a distinct type is that type's pattern. Any other
+// pattern is returned unchanged.
 func irAttachedVariantPattern(pattern ast.Node) ast.Node {
 	switch p := pattern.(type) {
 	case *ast.TuplePattern:
@@ -266,8 +265,8 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		if !ok {
 			return false
 		}
-		owner, member, ok := bl.g.patternHead(pat.Variant)
-		if !ok || (owner != "" && owner != "Bool") || (member != "True" && member != "False") {
+		member, ok := bl.g.patternVariant(pat.Variant)
+		if !ok || (member != "True" && member != "False") {
 			return false
 		}
 		// `Bool.False(x)` binds the embedded singleton: a value of std/bool's
@@ -285,7 +284,7 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 		if binding != "" {
 			// kindInvalid: lookup — std/bool's host marker row; a miss declines.
 			if singleton = stdHostOriginKind("std/bool", member); singleton == kindInvalid {
-				return false
+				panic("irbuild: enumCaseTest: std/bool's host marker rows always exist")
 			}
 		}
 		match := ir.NewMatchVariantInto(bl.g.irNodePos(pat), bl.f.NewTemp(), subj,
@@ -408,7 +407,7 @@ func (bl *irScalarBuilder) enumCaseTest(pattern ast.Node, subj ir.Temp, k kind, 
 	if nested || nestedAs {
 		// The inner test reads the payload inline and branches to the same
 		// arm and the same next arm, so a failed inner test abandons the
-		// whole arm as matchArm's nested block does.
+		// whole arm.
 		return bl.patternValueTest(pat.Payload, value, payloadKind, arm, next)
 	}
 	if literal {
@@ -541,17 +540,18 @@ func (bl *irScalarBuilder) variantRecord(at ast.Node, subj ir.Temp, d *typeDef, 
 	return rec.Dst(), k, true
 }
 
-// structVariantCaseTest matches a struct-shaped variant and binds its fields,
-// as structArm and variantFieldArms do: the tag test, then each field in the
-// pattern's order, projected only in the success arm. A field's literal
-// sub-pattern tests the projected field and opens the next field's block, as
-// variantFieldArms recurses through matchArm.
+// structVariantCaseTest matches a struct-shaped variant and binds its
+// fields: the tag test, then each field in the pattern's order, projected
+// only in the success arm. A field's literal sub-pattern tests the projected
+// field and opens the next field's block.
 func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	if pat.TypeName == nil || k.tag != tagNamed || !irRetainedEnumKind(k.def) {
 		return false
 	}
-	owner, member, ok := bl.g.patternHead(pat.TypeName)
-	if !ok || (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) && !bl.g.stdEnumOwns(owner, k.def)) {
+	member, ok := bl.g.patternVariant(pat.TypeName)
+	if !ok {
+		// The checker types the pattern against the subject's enum and
+		// records the variant its head names.
 		panic("irbuild: a struct variant pattern whose head does not name the subject's enum " + k.def.nomi)
 	}
 	d := k.def
@@ -585,7 +585,7 @@ func (bl *irScalarBuilder) structVariantCaseTest(pat *ast.StructPattern, subj ir
 	tagged.SetTerm(ir.NewBranch(bl.g.irNodePos(pat), match.Dst(), target.ID(), next.ID()))
 	for i, f := range pat.Fields {
 		if _, wild := f.Pattern.(*ast.WildcardPattern); wild {
-			// matchArm binds and tests nothing for `_`, so nothing is read.
+			// A `_` binds and tests nothing, so nothing is read.
 			continue
 		}
 		part := v.payloads[idx[i]]
@@ -673,9 +673,8 @@ func irFieldTests(pat *ast.StructPattern) int {
 
 // irFieldTestTarget is where a passed test continues: a fresh block while a
 // field test remains, and the arm after the last one. So each field test
-// opens one nested Go block in field order, as structFieldArms and
-// variantFieldArms recurse through matchArm, and a later field is projected
-// only inside the tests before it.
+// opens one block in field order, and a later field is projected only
+// inside the tests before it.
 func irFieldTestTarget(bl *irScalarBuilder, at ast.Node, remaining int, arm *ir.Block) *ir.Block {
 	if remaining == 0 {
 		bl.b = arm
@@ -720,7 +719,7 @@ func (bl *irScalarBuilder) fieldSubTest(pat *ast.StructPattern, f ast.StructPatt
 }
 
 // embeddedStructCaseTest matches an `embeds` variant of a struct and binds
-// the embedded struct's fields, as structFieldArms does over payloadValue:
+// the embedded struct's fields:
 // the tag test, then each field in the pattern's order read off the payload,
 // only in the success arm.
 func (bl *irScalarBuilder) embeddedStructCaseTest(pat *ast.StructPattern, subj ir.Temp, d *typeDef, v *variantDef, arm, next *ir.Block) bool {

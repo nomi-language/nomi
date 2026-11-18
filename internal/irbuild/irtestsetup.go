@@ -238,8 +238,7 @@ func (bl *irScalarBuilder) testSetupReturning(s testSetup) (ir.Temp, kind, bool)
 	if k != kindUnit {
 		ty := bl.g.irTypeOf(k)
 		if ty == nil {
-			bl.g.dc.note("a setup whose value has no IR type: " + k.nomi())
-			return ir.NoTemp, kindInvalid, false
+			panic("irbuild: testSetupReturning: a retained or callable kind always has an IR type")
 		}
 		se.slot = bl.f.NewTemp()
 		bl.b.Append(ir.NewSlot(pos, se.slot, ty))
@@ -277,8 +276,7 @@ func (bl *irScalarBuilder) testSetupReturning(s testSetup) (ir.Temp, kind, bool)
 func (bl *irScalarBuilder) setupValue(at, value ast.Node) bool {
 	se := bl.setupExit
 	if bl.recording > 0 {
-		bl.g.dc.note("a setup's value inside an assertion subject")
-		return false
+		panic("irbuild: setupValue: setupValue is only reached through testStmt/testReturn, which never run while an assertion subject is recording")
 	}
 	if !isNilNode(value) {
 		var val ir.Temp

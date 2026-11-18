@@ -99,7 +99,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 	}
 	if !mobile {
 		// An impure left operand is forced into a temporary so a later
-		// operand's statements cannot be hoisted ahead of it. `bl.binary`'s
+		// operand's instructions cannot change the value it holds. `bl.binary`'s
 		// own arithmetic path does the same, with the same node and the same
 		// position.
 		c := ir.NewCopy(bl.g.irNodePos(t.Left), bl.f.NewTemp(), lhs)
@@ -184,9 +184,7 @@ func (bl *irScalarBuilder) embedsWidenedOperand(t *ast.Binary, op ir.CompareOp) 
 }
 
 // bareEqualityOperand reports an equality operand that is a bare payload-free
-// prelude variant (`None`), which has no type of its own. Only a test body
-// built for the VM takes it: the test-body reader does not spell it, and a
-// named function's comparison does not admit it.
+// prelude variant (`None`), which has no type of its own.
 func (bl *irScalarBuilder) bareEqualityOperand(n ast.Node, op ir.CompareOp) bool {
 	if op.Ordering() {
 		return false
@@ -227,96 +225,36 @@ func (bl *irScalarBuilder) bareEqualityOperands(t *ast.Binary, op ir.CompareOp) 
 	}, true
 }
 
-// irEmptyCollectionKind is an empty Map, Set or Vector literal's kind, which
-// has no element types until a consuming position supplies them.
-func irEmptyCollectionKind(k kind) bool {
-	return k == kindEmptyMap || k == kindEmptySet || k == kindEmptyVector
-}
-
-// irEmptyListsAtInt is tuple kind k with each untyped empty list in it, at
-// any depth of tuples, a `List<Int>`, and whether k held one. An element
-// nothing reads is unobservable, so any element type compares the same.
-func (g *gen) irEmptyListsAtInt(k kind) (kind, bool) {
-	if k == kindEmptyList {
-		return listKindIn(g, kindInt), true
-	}
-	if k.tag != tagTuple || k.comp == nil {
-		return k, false
-	}
-	parts := make([]kind, len(k.comp.parts))
-	held := false
-	for i, p := range k.comp.parts {
-		var h bool
-		parts[i], h = g.irEmptyListsAtInt(p)
-		held = held || h
-	}
-	if !held {
-		return k, false
-	}
-	return g.tupleKind(parts), true
-}
-
 // compareOperands is `compare` once both operands are lowered.
 func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
 	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	ok := true
 	if !op.Ordering() {
-		if lk.tag == tagEmptyList && rk.tag == tagEmptyList {
-			// `[] == []`: no element is read, so the element type is
-			// unobservable; see untypedListPair.
-			want := listKindIn(bl.g, kindInt)
-			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
-				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
-			}
-		} else if want, holds := bl.g.irEmptyListsAtInt(lk); holds && lk == rk {
-			// `(1, []) == (1, [])`: the same, as `[] == []` is, for an
-			// empty list inside a tuple whose element type nothing fixed.
-			if lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, want); ok {
-				rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, want)
-			}
-		} else if lk.tag == tagList && rk.tag == tagEmptyList {
-			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
-		} else if rk.tag == tagList && lk.tag == tagEmptyList {
-			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
-		} else if irEmptyCollectionKind(lk) && lk == rk {
-			// `{} == {}`: as `[] == []`, no element is read, so both
-			// take the fill an open element takes (typeOpenEmpty).
-			if lhs, lk, ok = bl.typeOpenEmpty(t.Left, lhs, lk); ok {
-				rhs, rk, ok = bl.typeOpenEmpty(t.Right, rhs, rk)
-			}
-		} else if irEmptyCollectionKind(rk) && !irEmptyCollectionKind(lk) {
-			// `v == []`: the empty Vector, Set or Map takes the other
-			// operand's element types.
-			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
-		} else if irEmptyCollectionKind(lk) && !irEmptyCollectionKind(rk) {
-			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
-		} else if irEmbeddedIn(rk, lk) {
+		if irEmbeddedIn(rk, lk) {
 			// `circle == shape`: the embedded value widens into its
 			// `embeds` variant, as it does entering a Shape position.
-			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
+			lhs, lk, ok = bl.convertTo(t.Left, lhs, lk, rk)
 		} else if irEmbeddedIn(lk, rk) {
-			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
+			rhs, rk, ok = bl.convertTo(t.Right, rhs, rk, lk)
 		} else if irHeldKind(lk) && !irHeldKind(rk) {
 			// `t == (1, "a")` with `t: Equatable`: the concrete value is
 			// boxed as the interface value it is compared with, and the two
 			// compare by their run-time types below (spec §12 *Interface
 			// values*).
-			rhs, rk, ok = bl.coerceEmpty(t.Right, rhs, rk, lk)
+			rhs, rk, ok = bl.convertTo(t.Right, rhs, rk, lk)
 		} else if irHeldKind(rk) && !irHeldKind(lk) {
-			lhs, lk, ok = bl.coerceEmpty(t.Left, lhs, lk, rk)
+			lhs, lk, ok = bl.convertTo(t.Left, lhs, lk, rk)
 		}
 	}
 	if !ok || lk != rk {
 		return no()
 	}
 	if bl.recording > 0 && !rmobile {
-		// Inside a recording subject the right operand is named twice, once
-		// in the record and once in the comparison, so an impure one is
-		// forced into a temporary first. Without it the reader would splice
-		// the expression into both places, and `assert 2 == f(1)` would call
-		// `f` twice and print a row computed by the first call. Outside a
-		// recording subject `bl.record` is a no-op, so no hoist is needed.
+		// Inside a recording subject the right operand is read twice, once
+		// by the record and once by the comparison, so an impure one is
+		// forced into a temporary first. Outside a recording subject
+		// `bl.record` is a no-op, so no copy is needed.
 		c := ir.NewCopy(bl.g.irNodePos(t.Right), bl.f.NewTemp(), rhs)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: rk, copy: irCopyForce})
@@ -430,9 +368,8 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	c := ir.NewCompare(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, shape, lhs, rhs)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	// IMPURE, for `bl.binary`'s reason about every arith shape: the answer is
-	// computed by an instruction rather than named by a local, so a
-	// comparison in a left-operand position hoists.
+	// Not mobile, as `bl.binary`'s arithmetic result is not: a comparison in
+	// a left-operand position is forced into a Copy.
 	return c.Dst(), kindBool, false, true
 }
 
@@ -449,8 +386,8 @@ func (g *gen) irPreludeEqualityKind(k kind) bool {
 	}
 	for _, v := range k.def.variants {
 		for _, p := range v.payloads {
-			// Outcome's Failure carries two String variants, which valueEqual
-			// compares by tag and message as it compares the other payloads.
+			// Outcome's Failure carries two String variants, which compare by
+			// tag and message as the other payloads compare.
 			failure := outcome && p.k.tag == tagNamed && p.k.def == namedPayloadDefs()[outcomeFailure]
 			// A container payload compares structurally under both the
 			// derived impl and rt.Equal: a container's `==` never
@@ -471,8 +408,8 @@ func (g *gen) irPreludeEqualityKind(k kind) bool {
 }
 
 // A local struct with scalar fields and no Equatable impl anywhere in the
-// program, as noEquatableImpl establishes. Such a type compares structurally
-// through valueEqual. An impl, derived or written, keeps the comparison on the
+// program, as noEquatableImpl establishes. Such a type compares
+// structurally. An impl, derived or written, keeps the comparison on the
 // impl route and outside this producer.
 func (g *gen) irStructEqualityKind(k kind) bool {
 	if k.tag != tagNamed || irParamShape(k) != ir.ValStruct || k.def.foreign != "" || !g.noEquatableImpl(k) {
@@ -567,8 +504,8 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 	rightExit := bl.b
 	bl.b = sc.Finish(rightExit, rightPos, rhs)
 	bl.side(dst, irScalarSide{k: kindBool})
-	// MOBILE: the destination is storage two Copies write and a reader reads,
-	// and so pure and safe to read twice.
+	// Mobile: the destination is storage two Copies write, and reading it
+	// has no effect, so it is safe to read twice.
 	return dst, kindBool, true, true
 }
 
@@ -582,8 +519,8 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	ord := stdEnumKind(stdEnumOrdering)
-	impl := bl.g.implsByIface["Comparable"][k]
-	if impl == nil {
+	it, local := bl.localCompareImpl(t, k)
+	if !local {
 		pair := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
 		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
 		if p := bl.callerImplPlan(pair, args, "Comparable", "compare", k); p != nil && p.result == ord {
@@ -610,10 +547,9 @@ func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rh
 		bl.side(c.Dst(), irScalarSide{k: kindBool})
 		return c.Dst(), kindBool, false, true
 	}
-	if !impl.lowerable {
+	if it != nil && !it.impl.lowerable {
 		return no()
 	}
-	it := impl.items["compare"]
 	if it == nil || !it.lowerable || len(it.params) != 2 || it.params[0] != k || it.params[1] != k || it.result != ord {
 		return no()
 	}
@@ -624,6 +560,23 @@ func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rh
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
 	return c.Dst(), kindBool, false, true
+}
+
+// localCompareImpl is the `compare` of this file's `impl Comparable` that
+// the ordering operator t calls: the one the checker recorded for it
+// (recordedOperatorImpl), or for an operator over a type parameter, the
+// one this file registers for the instance's kind k. local is false when
+// the impl is another file's or std's; it is nil for a local block that
+// supplies no `compare`.
+func (bl *irScalarBuilder) localCompareImpl(t *ast.Binary, k kind) (it *implItem, local bool) {
+	og, it, _, recorded := bl.recordedOperatorImpl(t, k)
+	if recorded {
+		return it, it != nil && og == bl.g
+	}
+	if impl := bl.g.implsByIface["Comparable"][k]; impl != nil {
+		return impl.items["compare"], true
+	}
+	return nil, false
 }
 
 // comparableRankedCompare lowers `<`, `<=`, `>` or `>=` on a String, a Bool,
@@ -676,7 +629,7 @@ func (bl *irScalarBuilder) stdRankedCompare(t *ast.Binary, op ir.CompareOp, lhs,
 	}
 	f := bl.g.stdCompareAt(k, ord)
 	if f == nil {
-		return no()
+		panic("irbuild: stdRankedCompare: callers checked stdCompareAt(k) != nil first, or k is Decimal whose std compare always exists")
 	}
 	call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
 	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}

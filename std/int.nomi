@@ -217,7 +217,9 @@ impl Int
     /// remainder, takes the sign of the dividend `x`, and matches `/`
     /// (`-1 % 1440` is `-1`). `Int.modulo(x, y)` is `x - y * Int.floor_div(x, y)`.
     /// `y` is a `NonZeroInt`, so `Int.modulo(x, 0)` is a compile error, and
-    /// a computed `y` goes through `NonZeroInt.try_from`.
+    /// a computed `y` goes through `NonZeroInt.try_from`. With a `y` above
+    /// zero the result is a `NonNegativeInt`, so `Int.modulo(n, 26)` is a
+    /// count `Iter.drop` takes.
     //! assert Int.modulo(7, 3) == 1
     //! assert Int.modulo(-7, 3) == 2
     //! assert Int.modulo(7, -3) == -2

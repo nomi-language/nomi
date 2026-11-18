@@ -11,7 +11,7 @@ import (
 // Covariant conversion without work (spec §5 *Covariant conversion*). The
 // checker admits a value where the same type at wider type arguments is
 // expected when each part converts by its parameter's variance
-// (internal/analysis, type_arg_conversion.go). Where each element of a std
+// (internal/analysis/type_arg_conversion.go). Where each element of a std
 // collection is, unchanged, an element of the wider type (an Int where a
 // Display is, since the VM's existential is the concrete value; a function
 // whose parameters and result convert so; a nested collection, tuple or
@@ -31,7 +31,7 @@ import (
 // relabels reports whether a value of kind have is, unchanged, a value of
 // kind want. A generic struct instance an element erases into its interface
 // is noted erased as an erasure of that element is (irErases).
-func (bl *irScalarBuilder) relabels(have, want kind) bool {
+func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 	if have == want {
 		return true
 	}
@@ -108,11 +108,11 @@ func (bl *irScalarBuilder) relabels(have, want kind) bool {
 // relabelled where the record says it converts with no work, rebuilt where
 // it says it is rebuilt, and by its kinds where the record leaves it to
 // each instance of a generic body, or there is none. The record is what
-// the hover reads (internal/hoverdoc, conversions.go), so what the builder
-// does is what the hover says. agrees is false where the record says no
+// the hover reads (internal/hoverdoc/conversions.go), so what the builder
+// does is what the hover says. ok is false where the record says no
 // work and the kinds cannot relabel: the builder declines rather than
 // rebuild a value the hover says costs nothing.
-func (bl *irScalarBuilder) relabelsAt(at ast.Node, have, want kind) (relabel, agrees bool) {
+func (bl *irScalarBuilder) relabelsAt(at ast.Node, have, want kind) (relabel, ok bool) {
 	rec := bl.g.conversionAt(at)
 	if rec == nil || rec.Cost == analysis.ConversionPerInstance || bl.g.project(rec.From) != have || bl.g.project(rec.To) != want {
 		return bl.relabels(have, want), true

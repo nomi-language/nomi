@@ -22,7 +22,7 @@ impl Box<T>
         List.first(b.items)
     end
 
-    pub fn pad(label: String, width: Int = 3) -> String
+    pub fn pad(label: String, width: NonNegativeInt = 3) -> String
         String.pad_end(label, width) + "|"
     end
 

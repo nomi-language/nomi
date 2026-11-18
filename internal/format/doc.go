@@ -188,9 +188,18 @@
 // greedy (packGreedy), in display columns, with no column alignment, and is
 // decided when the list renders from the indent its elements start at, so
 // it depends only on the syntax tree, the list's position and whether the
-// source breaks after the opening bracket. Derive and impl conformance
-// lists use the same greedy packing, against the fixed conformanceWrapWidth
-// rather than the indent they render at.
+// source breaks after the opening bracket.
+//
+// # Operands and parentheses
+//
+// The formatter keeps the parentheses a source writes around anything but
+// a name, a literal, a call or a field access (emitGroupedExpr). Where an
+// operand has none, emitOperand asks token.OperandNeedsParens whether its
+// operator needs them beside the one it is an operand of. That predicate
+// reads internal/token's precedence table, the one the parser parses
+// with, and TestOperandNeedsParensIsTheParsersAnswer (internal/parser)
+// holds it to the parser for every operator, side and operand. The
+// formatter has no precedence table of its own.
 //
 // # Comparison and boolean operators
 //
@@ -402,8 +411,8 @@ func LocalBroken(d Doc) Doc { return docLocalBroken{d: d} }
 // do not make it break.
 func LocalBrokenBlock(d Doc) Doc { return docLocalBroken{d: d, firstLine: true} }
 
-// Hidden renders d normally but is invisible to ancestor `fits` /
-// `flatWidth` checks (returns true / 0). Used for content that should not
+// Hidden renders d normally but is invisible to ancestor `fits` checks.
+// Used for content that should not
 // influence structural break decisions — e.g. a trailing trivia comment
 // (`x = 1 // explanatory note`) shouldn't force the formatter to break
 // `x = 1` to make room for the comment. The comment can spill past the

@@ -89,7 +89,7 @@ func (g *gen) namespacedType(t *ast.QualifiedType) (*typeDef, bool) {
 //
 // Reports whether it named anything. A false answer means te IS representable
 // and the caller asked the wrong question; callers treat that as a decline
-// rather than emitting a fallback key, because a fallback key would be exactly
+// rather than reporting a fallback key, because a fallback key would be exactly
 // the position-shaped row this file removes.
 func (g *gen) rejectTypeAnnotation(te ast.TypeExpr, subject string, at ast.Node) bool {
 	construct, detail, ok := g.typeRefusal(te)
@@ -211,15 +211,15 @@ func (g *gen) genericRefusal(t *ast.GenericType) (string, string, bool) {
 		return g.genericArgRefusal(t)
 	}
 	if (t.Name == "List" || t.Name == "Iter") && len(t.Params) == 1 {
-		// `Iter<T>` is structuralTypeOf's lowered sequence, so it too fails
+		// `Iter<T>` is typeOf's lowered sequence, so it too fails
 		// only through its element.
 		return g.genericArgRefusal(t)
 	}
 	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.why != "" {
 		// A USER generic struct whose instantiations are WALLED, reporting the
 		// wall's own reason rather than the family's name, so a struct LITERAL
-		// (genericStructLit reads tpl.why) and a SIGNATURE mentioning the same
-		// instantiation report the same reason. See generictype.go.
+		// and a SIGNATURE mentioning the same instantiation report the same
+		// reason. See generictype.go.
 		return tpl.why, tpl.whyDetail, true
 	}
 	if tpl := g.genericTemplates[t.Name]; tpl != nil {
@@ -260,7 +260,7 @@ func (g *gen) genericRefusal(t *ast.GenericType) (string, string, bool) {
 // question asked of two storage shapes. A MIRROR carries one reason and no
 // list, and it may be a
 // reason its declaring file does not have — a type cycle — so its
-// own reason wins; a declaration this package emits carries the list and no
+// own reason wins; a declaration this gen makes carries the list and no
 // `why`. Reading the list is what keeps a use site of a `Config` whose
 // declaration said `non-scalar field type | Config.context: Context` from
 // reporting a vaguer `unlowered type`. See cascadereason_test.go.
@@ -301,7 +301,7 @@ func declRefusal(d *typeDef) (construct, detail string, ok bool) {
 
 // unloweredReason is a declared type's own recorded refusal.
 //
-// Same rule rejectUnlowered applies at a construction site; the two are
+// A construction site applies the same rule; the two are
 // deliberately the same answer, so a type refused at its literal and at a
 // signature reports one key rather than two.
 func unloweredReason(d *typeDef) (string, string, bool) {
@@ -345,9 +345,7 @@ func mirrorWhy(d *typeDef) string {
 // string will. `blockedIface` composes a detail for every mirror, and
 // `declareIfaces` composes none at all, so without this `interface Holder<T>`
 // would report `generic interface` with NO OPERAND. `simpleRefusal` reaches
-// this for the annotation `h: Holder<Int>` and projectRefusal for the
-// inferred position; TestProjectReason_NamesAReasonForExactlyWhatProjectRefuses
-// asserts that a reason names a construct AND an operand.
+// this for the annotation `h: Holder<Int>`.
 //
 // A bare `d.nomi` rather than a qualified name: a mirror's own `whyDetail` is
 // already file-qualified and only a LOCAL declaration reaches the fallback, so
@@ -517,7 +515,7 @@ func collectTypeParamNames(v reflect.Value, out map[string]bool) {
 // declares, which `non-local type` is exactly right for, and a name only a
 // nested declaration declares — and a failed lookup cannot tell them apart. So
 // the declaration is FOUND, in this file's own tree, before its key is
-// borrowed. Same rule foreign.go's foreignNoEquatableImpl states for a mirror.
+// borrowed.
 //
 // # Two spellings, one name
 //
@@ -633,7 +631,7 @@ func (g *gen) unresolvedRefusal(name string) (string, string, bool) {
 		// raised once, by moduleAliasDecl at the declaration, and three
 		// parameters annotated with one bad alias report the target's gap three
 		// times under the target's key rather than the alias's four times under
-		// the alias's. That is the same split blockAliasDecl states for the
+		// the alias's. That is the same split blocklocaltype.go states for the
 		// block-local form: the declaration is the position a programmer acts
 		// on, and a use is a consequence of it.
 		//

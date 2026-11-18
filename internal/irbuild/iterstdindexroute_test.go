@@ -1,12 +1,12 @@
 package irbuild
 
 // The stdlib index is a second route to an `Iter.` lowering, and only the
-// order of implCall's arms closes it.
+// order of typeQualCall's arms closes it.
 //
 // The index files `impl Iter<T>`'s functions under `Iter.<name>`, so
 // `byType["Iter.map"]` resolves to std's own lowered Nomi body. A call never
-// reaches it because `iterCall` sits ABOVE `stdlibCall` in implCall and CLAIMS
-// the call either way: it lowers it, or refuses it as `Iter without the std
+// reaches it because `iterCall` sits ABOVE the index's route in typeQualCall
+// and CLAIMS the call either way: it lowers it, or refuses it as `Iter without the std
 // protocol`.
 //
 // That is a test and not a comment because the check for "X is the one place

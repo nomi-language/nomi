@@ -18,7 +18,7 @@ func (bl *irScalarBuilder) membership(t *ast.Binary) (ir.Temp, kind, bool, bool)
 		return ir.NoTemp, kindInvalid, false, false
 	}
 	if bl.g.fa == nil {
-		return no("an `in` test with no analysis")
+		panic("irbuild: membership: the builder lowers only checked programs, which carry their analysis")
 	}
 	call := bl.g.srcFA().Memberships[t]
 	if call == nil {

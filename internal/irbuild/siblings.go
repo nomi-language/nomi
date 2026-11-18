@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"slices"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -46,21 +45,15 @@ import (
 // *typeDef its declaration produced (types.go), and a *typeDef belongs to
 // exactly one file's gen, so two files cannot exchange a struct, enum or
 // distinct type without a translation between them (foreign.go's mirrors).
-// `Int` is `int64` in every file and needs none. See scalarKind, which states
+// `Int` is the same kind in every file and needs none. See scalarKind, which states
 // the same boundary for the stdlib.
 //
 // # Reference cycles between files
 //
-// Nomi's analyzer resolves names whole-program, so the file import graph MAY
-// be cyclic and order never matters. The builder assigns each file a Go
-// package name in its kind text and tracks which files reference which:
-//
-//   - The cycle is detected on the cross-file REFERENCE graph, not the import
-//     graph. `import` alone adds no edge, so two files that import each other
-//     and reference nothing of each other's lower fine.
-//   - Every member of a reference cycle shares one package (component.go),
-//     and closesGoCycle refuses an edge only when it would still close a
-//     cycle across packages, at the position of the reference that closes it.
+// Nomi's analyzer resolves names whole-program, so the file import graph may
+// be cyclic and order never matters. The builder gives each file a unit
+// package name (package doc, "Unit packages"), and every file of one import
+// cycle shares one (component.go).
 
 // fileFunc is one sibling file's top-level function as a call site sees it.
 type fileFunc struct {
@@ -93,21 +86,6 @@ type fileFunc struct {
 	// reason it was refused for — `private sibling file function` — instead of
 	// under "no such function", which would report a different gap.
 	why string
-	// echo marks a `why` the DECLARING file already reports at the
-	// declaration's own position, so the call site DECLINES instead of naming
-	// a second construct for one gap.
-	//
-	// A decorated sibling `pub fn helper` puts `decorator` at the decorator
-	// node and the `fn` in helpers.nomi; reporting `call to an unlowered
-	// function` at the call in main.nomi as well would count it twice, and a
-	// LOCAL call to a decorated function declines. So the call site does what
-	// a local call would. A non-scalar signature is echoed the same way: every
-	// user file in the import graph is lowered, so that file's own funcDecl
-	// refuses the signature at the declaration's position (see typeFileFunc).
-	// The remaining two `why` values are call-site-only — a private or generic
-	// declaration lowers fine in its own file — so they must still report,
-	// which is why this is a flag and not a blanket rule.
-	echo bool
 	// defaults is true when any parameter carries a default value. A call
 	// that omits one fills it through the declaring unit's accessor
 	// (siblingdefault.go), and a function value of it declines.
@@ -172,11 +150,10 @@ func (g *gen) hasPartnerTest() bool {
 	return false
 }
 
-// fileUnit is one user file, under the Go package name its kind text uses.
+// fileUnit is one user file.
 type fileUnit struct {
 	// key is the analyzer's module-path key, and what a refusal names.
 	key string
-	pkg string
 	// scope is the file's ModuleScope, the identity a qualifier resolves to.
 	// Nil when the file was checked without an analysis library, in which case
 	// nothing can resolve to it and every call into it refuses.
@@ -199,9 +176,7 @@ type fileUnit struct {
 //
 // Exactly one of fn and once is set. Two kinds of declaration share one index
 // because they share the question a bare mention asks — "which file declares
-// the thing this name resolves to?" — and closeReferences needs the answer for
-// both: a bare `once` read emits `nomimodN.NomiOnce_x`, which is a Go import as
-// surely as a bare call is. Discriminating on which field is set, rather than
+// the thing this name resolves to?". Discriminating on which field is set, rather than
 // keeping two maps, is what makes it impossible for a call site to find a
 // `once` and lower it as a function.
 type fileSite struct {
@@ -212,8 +187,7 @@ type fileSite struct {
 	host bool
 }
 
-// fileIndex is every user file in the program, plus the reachability closure
-// of the cross-file reference graph.
+// fileIndex is every user file in the program.
 type fileIndex struct {
 	units   []*fileUnit
 	byScope map[*analysis.Scope]int
@@ -233,32 +207,19 @@ type fileIndex struct {
 	// no receiver, which no instance of the owner holds (ownerimpl.go). Kept
 	// apart from implMembers, which answers for a receiver's impls.
 	ownerMembers map[implMemberKey][]implMemberSite
-	// implUnits is which units declare an impl block for which type
-	// DECLARATION, read as syntax before any type is resolved. closeReferences
-	// needs it to record the Go import edge a type-qualified call emits; see
-	// implUnitsByDecl.
-	implUnits map[ast.Node][]int
-	// reaches[i][j] is true when file i references file j, directly or
-	// transitively. reaches[j][i] at an i→j reference site therefore means
-	// that reference CLOSES a cycle, which is the exact condition Go rejects.
-	reaches [][]bool
 }
 
-// buildFileIndex indexes a program's files and closes the reference graph.
-//
-// Called before any file is lowered, because the answer a call site needs —
-// "does this reference close a cycle?" — is a property of the whole program
-// and cannot be known from inside one file's lowering.
+// buildFileIndex indexes a program's files. It is called before any file
+// is lowered, because a call site in one file asks what another declares.
 func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 	x := &fileIndex{
-		units:     make([]*fileUnit, len(p.Modules)),
-		byScope:   make(map[*analysis.Scope]int, len(p.Modules)),
-		byDecl:    map[ast.Node]fileSite{},
-		implUnits: implUnitsByDecl(p),
+		units:   make([]*fileUnit, len(p.Modules)),
+		byScope: make(map[*analysis.Scope]int, len(p.Modules)),
+		byDecl:  map[ast.Node]fileSite{},
 	}
 	for i := range p.Modules {
 		m := &p.Modules[i]
-		u := &fileUnit{key: m.Name, pkg: reg.pkgOf[i], funcs: map[string]*fileFunc{}}
+		u := &fileUnit{key: m.Name, funcs: map[string]*fileFunc{}}
 		if m.FA != nil {
 			u.scope = m.FA.ModuleScope
 			u.fa = m.FA
@@ -269,9 +230,6 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 			}
 			switch d := n.(type) {
 			case *ast.FuncDef:
-				if d.ImplFunction {
-					continue
-				}
 				shell := fileFuncShell(reg, d, strings.HasPrefix(m.Name, "std/"))
 				u.funcs[d.Name] = shell
 				// One declaration, one entry. A duplicate `fn` name in one
@@ -320,7 +278,6 @@ func buildFileIndex(p *Program, reg *typeRegistry) *fileIndex {
 		}
 	}
 	x.indexEditedStdTwins(p)
-	x.closeReferences(p, reg)
 	return x
 }
 
@@ -358,9 +315,8 @@ func (x *fileIndex) indexEditedStdTwins(p *Program) {
 // type table exists.
 //
 // Split from buildFileIndex because a signature may name a type declared in ANY
-// file, so no signature can be typed until every file's declarations are known
-// — and the cycle refusal a type reference can trigger needs the reference graph
-// this index already closed. The kinds produced belong to the DECLARING gen and
+// file, so no signature can be typed until every file's declarations are known.
+// The kinds produced belong to the DECLARING gen and
 // are translated at the call site through importKind.
 func (x *fileIndex) resolveSignatures(gens []*gen) {
 	for i, u := range x.units {
@@ -377,9 +333,6 @@ func (x *fileIndex) resolveSignatures(gens []*gen) {
 			var fd *ast.FuncDef
 			switch d := n.(type) {
 			case *ast.FuncDef:
-				if d.ImplFunction {
-					continue
-				}
 				fd = d
 			case *ast.ExternFunc:
 				if !hostCallable(d) {
@@ -447,8 +400,8 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 		// Its own file refuses it under `decorator` / `function without a
 		// body`, so the whole program is refused either way and the call site
 		// reports the same thing a local call to it would — which, since the
-		// cascade fix, is nothing. See fileFunc.echo.
-		f.why, f.echo = "call to an unlowered function", true
+		// cascade fix, is nothing.
+		f.why = "call to an unlowered function"
 		return f
 	}
 	return f
@@ -460,7 +413,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 // `EffectsApp` through ITS file's scope, and resolving that name at a caller
 // that never imported it would answer nothing — or, worse, answer with a
 // DIFFERENT `EffectsApp` the caller does import, which is a silent wrong answer
-// rather than a refusal. So the kinds here belong to the declaring package, and
+// rather than a refusal. So the kinds here belong to the declaring gen, and
 // a call site translates them into the caller's through importKind. That
 // translation is what makes the boundary crossable: a *typeDef belongs to
 // exactly one file's gen, which is why the caller gets its own. See
@@ -470,7 +423,7 @@ func fileFuncShell(reg *typeRegistry, fd *ast.FuncDef, inStd bool) *fileFunc {
 // that is a contract rather than a coincidence: paramKind's own doc says it is
 // the ONE implementation of "which parameters resolve", so a second walk here
 // that refused a shape funcDecl lowers would refuse a call the declaring file
-// compiles, for instance a destructuring parameter whose pattern head NAMES a
+// lowers, for instance a destructuring parameter whose pattern head NAMES a
 // type and is its own annotation (`pub fn shift(Point{x, y}) -> Int`).
 //
 // A signature this builder cannot type is ECHOED, not reported. Every user file
@@ -521,198 +474,7 @@ func (g *gen) refuseFileSig(f *fileFunc, te ast.TypeExpr) {
 			return
 		}
 	}
-	f.why, f.echo = "call to an unlowered function", true
-}
-
-// closeReferences records which files reference which, and closes the
-// relation transitively.
-//
-// The edge set is deliberately a SUPERSET of what lowering references: every
-// `owner.member` where owner resolves to another file counts, whether or not
-// the site is a call, whether or not it is inside a subtree that will be
-// refused, and whether or not `owner` happens to be shadowed by a local at
-// that point. Over-counting can only over-refuse a cycle; under-counting
-// would miss one.
-//
-// A BARE name is an edge on the same footing as `owner.member`, and it has to
-// be: `import api.{make}` then `make("Ada")` spells `nomimodN.Nomi_make`, which
-// references the file as surely as `api.make("Ada")` does; once.go's
-// importedOnce depends on this edge. Because a bare Ident is
-// looked up in the file's MODULE scope, a local variable that shadows an
-// imported name contributes an edge it does not really need; that is the same
-// over-counting the shadowed-`owner` case above already accepts, for the same
-// reason, and it can only over-refuse a cycle.
-//
-// A TYPE reference is an edge on the same footing, and it has to be: naming
-// another file's struct spells `nomimodN.NomiT_X`, which references the file as
-// surely as calling its function does. With mirrors, leaving type references
-// out would let file A call into B while B names A's type, a cycle the graph
-// would miss.
-// The names are collected reflectively (foreign.go's typeNamesIn) rather than
-// from the import statements, so an alias, a re-export facade and a selective
-// import all resolve through the front end that already decided them.
-//
-// Scoped field reads also name the field's declared value type in their kind.
-// Their type-origin edges are included in both this graph and nomiImportGraph,
-// so component partitioning accounts for imports absent from the source text.
-func (x *fileIndex) closeReferences(p *Program, reg *typeRegistry) {
-	n := len(x.units)
-	x.reaches = make([][]bool, n)
-	for i := range x.reaches {
-		x.reaches[i] = make([]bool, n)
-	}
-	for i := range p.Modules {
-		// A stopped lowering leaves the index unfinished; GenerateIR asks
-		// again before it reads it.
-		if p.stopped() {
-			return
-		}
-		scopedTypeEdges(p, i, func(j int) { x.reaches[i][j] = true })
-		fa := p.Modules[i].FA
-		if fa == nil {
-			continue
-		}
-		names := map[string]bool{}
-		for _, node := range p.Modules[i].Nodes {
-			x.walkReferences(fa, i, node)
-			typeNamesIn(node, names)
-			typeQualifierNamesIn(node, names)
-		}
-		if reg == nil {
-			continue
-		}
-		for name := range names {
-			sym := resolvedTypeSymbol(fa, name)
-			if sym == nil || sym.Node == nil {
-				continue
-			}
-			if o := reg.byDecl[sym.Node]; o != nil && o.unit != i {
-				x.reaches[i][o.unit] = true
-			}
-		}
-	}
-	// Warshall: n is the number of files in one program's import graph, so
-	// the cubic closure is a few thousand operations at the outside.
-	for k := range n {
-		for i := range n {
-			if !x.reaches[i][k] {
-				continue
-			}
-			for j := range n {
-				if x.reaches[k][j] {
-					x.reaches[i][j] = true
-				}
-			}
-		}
-	}
-}
-
-func (x *fileIndex) walkReferences(fa *analysis.FileAnalysis, from int, n ast.Node) {
-	if isNilNode(n) {
-		return
-	}
-	switch t := n.(type) {
-	case *ast.FieldAccess:
-		if owner, named := ast.QualifierIdent(t.Object); named {
-			if to, ok := x.lookupQualifier(fa, owner); ok && to != from {
-				x.reaches[from][to] = true
-			}
-		}
-		if owner, isType := t.Object.(*ast.TypeIdent); isType {
-			// `T.member` may resolve to an impl block in ANY file of the
-			// module, including one this file neither imports nor mentions
-			// otherwise — the orphan rule admits `impl I for T` in T's module
-			// and a Nomi module is several FILES. So the Go import edge a
-			// type-qualified call emits is not implied by any edge above, and it
-			// can be implied by nothing at all: `thing.nomi` with
-			// a bare `import alpha` that references nothing of alpha, plus
-			// `impl Alpha for Thing` in alpha.nomi, resolves `Thing.go` from a
-			// third file which mentions only `thing`. Every recorded edge
-			// there is to `thing`, and Go would still be handed
-			// main -> alpha. Under-counting is the direction this file refuses
-			// to be wrong in; see the doc comment. See siblingimpl.go.
-			for _, to := range x.implUnitsFor(fa, owner.Name) {
-				if to != from {
-					x.reaches[from][to] = true
-				}
-			}
-		}
-	case *ast.Ident:
-		if site, ok := x.lookupBare(fa, t); ok && site.unit != from {
-			x.reaches[from][site.unit] = true
-		}
-	}
-	for _, child := range childNodes(n) {
-		x.walkReferences(fa, from, child)
-	}
-}
-
-// implUnitsFor is every unit declaring an impl block for the type `name`
-// resolves to, from this file's point of view.
-//
-// Resolved through the analyzer and then keyed on the DECLARATION NODE, so two
-// files each declaring a `Point` do not answer for each other — fileSite's
-// rule, and the same one implMemberKey follows.
-func (x *fileIndex) implUnitsFor(fa *analysis.FileAnalysis, name string) []int {
-	sym := resolvedTypeSymbol(fa, name)
-	if sym == nil || sym.Node == nil {
-		return nil
-	}
-	return x.implUnits[sym.Node]
-}
-
-// implUnitsByDecl indexes which units declare an impl block for which type
-// declaration, before any type is resolved.
-//
-// Before, because closeReferences needs it and closeReferences runs before the
-// first gen exists. So the receiver is read as SYNTAX — the type its head
-// names, resolved through the declaring file's own scope — rather than as a
-// kind. Deliberately a SUPERSET for closeReferences' stated reason: a
-// receiver this builder will refuse still counts, because over-counting can
-// only over-refuse a cycle while under-counting misses one. A type argument
-// does not count: `String.join` reaches no block of `impl Sized for
-// Maybe<String>`, and counting it would add an edge to a file the caller
-// need not import.
-func implUnitsByDecl(p *Program) map[ast.Node][]int {
-	out := map[ast.Node][]int{}
-	for i := range p.Modules {
-		fa := p.Modules[i].FA
-		if fa == nil {
-			continue
-		}
-		for _, node := range p.Modules[i].Nodes {
-			ib, ok := node.(*ast.ImplBlock)
-			if !ok || isNilNode(ib.Receiver) {
-				continue
-			}
-			names := map[string]bool{}
-			typeNamesIn(receiverHead(ib.Receiver), names)
-			for name := range names {
-				sym := resolvedTypeSymbol(fa, name)
-				if sym == nil || sym.Node == nil {
-					continue
-				}
-				if !slices.Contains(out[sym.Node], i) {
-					out[sym.Node] = append(out[sym.Node], i)
-				}
-			}
-		}
-	}
-	return out
-}
-
-// receiverHead is an impl receiver without its type arguments: `Box` for
-// `Box<Point>`, `lib.Box` for `lib.Box<Point>`.
-func receiverHead(te ast.TypeExpr) ast.TypeExpr {
-	switch t := te.(type) {
-	case *ast.GenericType:
-		return &ast.SimpleType{Name: t.Name, Line: t.Line, Col: t.Col}
-	case *ast.QualifiedType:
-		head := *t
-		head.Member = receiverHead(t.Member)
-		return &head
-	}
-	return te
+	f.why = "call to an unlowered function"
 }
 
 // lookupBare resolves a BARE name to the sibling `fn` declaration it names,
@@ -869,8 +631,7 @@ func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (i
 // The CANONICAL name rather than the spelling, because `import std::timer as t`
 // binds `t` and the registry is keyed on the file: reading the local spelling
 // would make an aliased import unresolvable and it would then refuse under a
-// key that says the extern is missing. Same correction canonicalStdFile makes
-// for the permanence classifier.
+// key that says the extern is missing.
 func stdFileQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
 	if fa == nil {
 		return "", false
@@ -895,97 +656,3 @@ func stdFileOfScope(fa *analysis.FileAnalysis, scope *analysis.Scope) (string, b
 }
 
 // --- call sites -------------------------------------------------------------
-
-// typeQualifierNamesIn collects every type name that appears only as the
-// QUALIFIER of a field access, which is the one position `typeNamesIn` cannot
-// see.
-//
-// `typeNamesIn` walks TYPE expressions — annotations, field types, signatures
-// — and a variant reached through its own enum's name appears in none of
-// them. The lowered access's kind names that enum's type, so it is a
-// reference edge with nothing in the type positions behind it.
-//
-// A DOTTED NAME IS ONE NAME SPELLED WITH A DOT, and that is why it has to be
-// reassembled here rather than read off a single node. `Signal.Level.Low` is
-// a `FieldAccess` whose object is a `FieldAccess` whose object is the
-// `*ast.TypeIdent` `Signal`, so the chain has to be joined back up: `Signal`,
-// then `Signal.Level`, then `Signal.Level.Low`. On the entry of
-// `14-modules-and-packaging/dotted_type_names/`, a walk without the join
-// collects exactly the wrong pieces:
-//
-//	typeNamesIn        Level, Signal, Probe, Probe.Local, Probe.Reading, …
-//	resolvedTypeSymbol Signal -> nil   Level -> nil   Signal.Level -> FOUND
-//
-// `Probe.Reading` is in the type set because an annotation spells it; nothing
-// in that file annotates `Signal.Level` at all, and the entry says so in its
-// own words — "No annotation anywhere spells `Signal.Level` — the qualifier
-// is the only mention, and it is a use".
-//
-// The entry's reference to `Signal.Level` would then be missing from the
-// graph. That program would still be right only because `signal.nomi`
-// references nothing of the entry; a missing edge is the under-count
-// `closeReferences`' header says this file must not make.
-//
-// Not restricted to a dotted name: the plain `Json.Null` shape is the same
-// position and the same reference. A plain enum name nearly always also
-// appears in an annotation somewhere in the file, which is the coincidence a
-// dotted one removes.
-//
-// Over-counting is the safe direction — an extra edge can only over-refuse a
-// cycle or over-merge a component — so every prefix of the chain is recorded
-// and resolution is left to `closeReferences`' existing `resolvedTypeSymbol`
-// lookup, which answers nil for a name that is not a type.
-func typeQualifierNamesIn(n ast.Node, out map[string]bool) {
-	if isNilNode(n) {
-		return
-	}
-	if f, isField := n.(*ast.FieldAccess); isField {
-		for _, name := range typeChainNames(f) {
-			out[name] = true
-		}
-	}
-	for _, child := range childNodes(n) {
-		typeQualifierNamesIn(child, out)
-	}
-}
-
-// typeChainNames is every dotted prefix of a field-access chain rooted at a
-// type name, longest last, or nil when the root is not a type name.
-//
-// The outermost access is passed in and the chain is walked INWARD, so the
-// segments come out reversed and are re-reversed here. Called once per
-// `*ast.FieldAccess` the walk meets, including the inner ones, which is
-// redundant work producing prefixes the outer call already produced — and
-// cheaper than threading "am I the top of a chain" through the walk for a set
-// that dedupes anyway.
-func typeChainNames(f *ast.FieldAccess) []string {
-	var fields []string
-	node := f
-	for {
-		if node.Field == nil {
-			return nil
-		}
-		fields = append(fields, node.Field.Name)
-		switch inner := node.Object.(type) {
-		case *ast.FieldAccess:
-			node = inner
-		case *ast.TypeIdent:
-			if inner.Name == "" {
-				return nil
-			}
-			names := make([]string, 0, len(fields)+1)
-			name := inner.Name
-			names = append(names, name)
-			for i := len(fields) - 1; i >= 0; i-- {
-				if fields[i] == "" {
-					return names
-				}
-				name += "." + fields[i]
-				names = append(names, name)
-			}
-			return names
-		default:
-			return nil
-		}
-	}
-}

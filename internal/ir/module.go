@@ -2,49 +2,41 @@ package ir
 
 // THE MODULE CONTAINER.
 //
-// WHAT IT HOLDS, AND THE LIST IS SHORT ON PURPOSE. A module is the functions
-// it declares and the module-scoped storage they share. Nothing else is here,
-// and every absence below is argued rather than deferred, because a container
-// built for a consumer that does not exist yet costs reshaping later.
+// WHAT IT HOLDS. A module is what one lowering of a compilation unit hands
+// the VM: the functions it retained, the module-scoped storage they share,
+// and the names the VM looks up to start a program, run its tests and
+// dispatch a call (the fields of Module below, each with the method that
+// records it). The core two:
 //
-// SO THE TEST APPLIED TO EVERY CANDIDATE FIELD IS "WHICH READER NEEDS IT".
-// The core two:
+//	funcs   the retained ir.Funcs. A consumer finds a declaration's body
+//	        with FuncFor.
+//	cells   module-scoped storage. Every cell `internal/irbuild` declares
+//	        is lazy (DeclareLazyCell): a `once`, a typed literal or a
+//	        checked literal's check site, with the initializer a RefOnce
+//	        forces on its first read.
 //
-//	funcs   the retained ir.Funcs, so "every declaration this module names"
-//	        has a place to ask it.
-//	cells   module-scoped storage. `internal/irbuild`'s `flushAppCells` emits
-//	        one Go `var` per app struct a module declares, EVERY one rather
-//	        than only the ones something reads, so that the emitted text does
-//	        not depend on the order units are rendered in. That list was
-//	        recomputed at the one call that emitted it; it is a property of
-//	        the module and now lives on it.
-//
-// AND WHAT IS DELIBERATELY ABSENT, each with the reader that would have
-// justified it and does not exist:
+// AND WHAT IS DELIBERATELY ABSENT:
 //
 //   - TYPES. `Table` holds them, and its scope is already the same as this
 //     container's — "one per LOWERING, NOT PROCESS-WIDE" — so a second home
 //     for a type would be a second identity for it. See table.go.
-//   - IMPORTS, and the import GRAPH. `internal/irbuild`'s `implUnits` answers
-//     "which units declare an impl for this type" and is read as SYNTAX
-//     before any type is resolved, because `closeReferences` needs the
-//     reference graph before lowering starts and the graph decides cycle
-//     REFUSALS. There is no IR at that point, so a field here could not be
-//     the thing that answers it.
-//   - A `main` OR ENTRY POINT. `internal/irbuild` decides that from the front
-//     end's own rule and its emitted `func main` is Go's, not Nomi's. A
-//     program BOOT is recorded, because it is Nomi semantics rather than a
-//     host choice: the runtime runs it before any entry and publishes its
-//     result as the app fields every app-field read resolves against. A VM
-//     starting a program reads it; see SetBoot.
-//   - AN IMPL MANIFEST for the type table. `irtable.go` records why the table
-//     is lazily populated: mirroring "does this type implement this
-//     interface" eagerly would be a second implementation of a question
-//     `g.bindsImpl` already answers, and the two would have to agree for
-//     byte-identity to hold. What IS recorded is narrower: which retained
-//     function implements an interface method for a declared type, because a
-//     dispatched call has to find a body and the Go consumer's table
-//     registrations are text. See Implement.
+//   - IMPORTS. A function names another module's declaration by its Symbol,
+//     and the VM resolves the Symbol across the modules of one program
+//     (`Machine.link`, internal/vm/vm.go), so a module lists no imports.
+//   - A `main` OR ENTRY POINT. Which function a run enters is the caller's
+//     choice: the VM is asked to run a function by name. A program BOOT is
+//     recorded, because it is Nomi semantics rather than a host choice: the
+//     runtime runs it before any entry and publishes its result as the app
+//     fields every app-field read resolves against. The VM reads it when it
+//     opens a machine; see SetBoot.
+//   - AN IMPL MANIFEST for the type table. `internal/irbuild/irtable.go`
+//     records why the table is lazily populated: mirroring "does this type
+//     implement this interface" eagerly would be a second implementation of
+//     a question `g.bindsImpl` already answers. What IS recorded is narrower:
+//     which retained function implements an interface method for a declared
+//     type, because a dispatched call has to find a body. The VM indexes
+//     those entries by method and type name (`addImpls`,
+//     internal/vm/dispatch.go). See Implement.
 //
 // It is not a `Node` and it carries no position, which follows from the
 // per-node position rule rather than being an exception to it. Every node has
@@ -80,9 +72,8 @@ package ir
 // runtime storage layout remain consumer-specific delivery choices.
 //
 // Its identity is its Symbol's, which is the producer's identity for the
-// declaration. `internal/irbuild` identifies an app cell by the app struct's own
-// declaration, because `flushAppCells` emits exactly one cell per app struct a
-// module declares, so the two are in bijection.
+// declaration: `internal/irbuild` declares one cell per `once`, typed
+// literal or check site, under that declaration's Symbol.
 type Cell struct {
 	owner       *Module
 	sym         *Symbol
@@ -197,10 +188,7 @@ type Impl struct {
 //
 // name is DISPLAY ONLY, exactly as it is on Symbol, Type, Decl and Func: the
 // container's identity is the pointer. `internal/irbuild` passes the declaring
-// file's path, because a Nomi module's name lives in `nomi.toml` and
-// `irbuild.Analyze` does not carry it down to a lowering, while the declaring
-// path is the identity that lowering already stamps into every `//line`
-// directive it emits.
+// file's path for a file's module.
 func NewModule(name string) *Module {
 	if name == "" {
 		panic("ir.NewModule: a module with no name cannot be read back")

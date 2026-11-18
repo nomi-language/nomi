@@ -116,8 +116,8 @@ func (c *checker) checkOperandAgainst(operand ast.Node, other Type) Type {
 
 // differsByEmbeds reports whether a value of type narrow enters type wide
 // by `embeds` alone: wide is narrow with some embedded struct or distinct
-// replaced by an enum that embeds it, at the top or inside a type argument,
-// a tuple element or a collection's element, key or value. No interface or
+// replaced by an enum that embeds it, at the top or inside a part of the
+// two where both have the same shape (pairedTypeChildren). No interface or
 // other conversion counts.
 func differsByEmbeds(wide, narrow Type) bool {
 	wide, narrow = resolveTypeVar(wide), resolveTypeVar(narrow)
@@ -127,50 +127,20 @@ func differsByEmbeds(wide, narrow Type) bool {
 	if TypesIdentical(wide, narrow) {
 		return true
 	}
-	switch w := wide.(type) {
-	case *EnumType:
-		if isEmbeddedTypeOf(narrow, w) {
-			return true
-		}
-		n, ok := narrow.(*EnumType)
-		return ok && sameNominalIdentity(w.Origin, w.Name, n.Origin, n.Name) && allDifferByEmbeds(w.TypeArgs, n.TypeArgs)
-	case *StructType:
-		n, ok := narrow.(*StructType)
-		return ok && sameNominalIdentity(w.Origin, w.Name, n.Origin, n.Name) && allDifferByEmbeds(w.TypeArgs, n.TypeArgs)
-	case *ListType:
-		n, ok := narrow.(*ListType)
-		return ok && differsByEmbeds(w.Elem, n.Elem)
-	case *MapType:
-		n, ok := narrow.(*MapType)
-		return ok && differsByEmbeds(w.Key, n.Key) && differsByEmbeds(w.Val, n.Val)
-	case *DistinctType:
-		// A generic distinct: `Vector<T>`.
-		n, ok := narrow.(*DistinctType)
-		return ok && sameNominalIdentity(w.Origin, w.Name, n.Origin, n.Name) && allDifferByEmbeds(w.TypeArgs, n.TypeArgs)
-	case *TupleType:
-		n, ok := narrow.(*TupleType)
-		return ok && allDifferByEmbeds(w.Elems, n.Elems)
-	case *AnonStructType:
-		n, ok := narrow.(*AnonStructType)
-		if !ok || len(w.Fields) != len(n.Fields) {
-			return false
-		}
-		for i := range w.Fields {
-			if w.Fields[i].Name != n.Fields[i].Name || !differsByEmbeds(w.Fields[i].Type, n.Fields[i].Type) {
-				return false
-			}
-		}
+	if w, ok := wide.(*EnumType); ok && isEmbeddedTypeOf(narrow, w) {
 		return true
 	}
-	return false
-}
-
-func allDifferByEmbeds(wide, narrow []Type) bool {
-	if len(wide) != len(narrow) || len(wide) == 0 {
+	switch wide.(type) {
+	case *FuncType, *InterfaceType, *ConjunctionType, *PartialType:
+		// A value enters these by a conversion other than `embeds`.
 		return false
 	}
-	for i := range wide {
-		if !differsByEmbeds(wide[i], narrow[i]) {
+	ws, ns, same := pairedTypeChildren(wide, narrow)
+	if !same || len(ws) == 0 {
+		return false
+	}
+	for i := range ws {
+		if !differsByEmbeds(ws[i], ns[i]) {
 			return false
 		}
 	}

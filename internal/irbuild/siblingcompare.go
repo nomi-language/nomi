@@ -28,13 +28,6 @@ import (
 // lands under the same key as `impl Comparable for Widget`'s member and both
 // return `Ordering`. A lookup ignoring `iface` would pick one by index order.
 
-// siblingCompareItem is a sibling file's `Comparable.compare` for one receiver:
-// the unit that declares it and the function to call.
-type siblingCompareItem struct {
-	unit int
-	fn   *fileFunc
-}
-
 // siblingCompareAt resolves `Comparable.compare` for receiver kind k in a
 // SIBLING file, reporting whether exactly one file provides it.
 //
@@ -48,12 +41,12 @@ type siblingCompareItem struct {
 // package, so each is translated through `importKind` first: a mirror is a
 // different pointer from the owner's def, so a raw `f.params[i] != k` is true
 // for two spellings of one type.
-func (g *gen) siblingCompareAt(k, ord kind, at ast.Node) (*siblingCompareItem, bool) {
+func (g *gen) siblingCompareAt(k, ord kind, at ast.Node) bool {
 	if g.files == nil || g.fileUnit < 0 {
-		return nil, false
+		return false
 	}
 	if k.tag != tagNamed || k.def == nil || k.def.decl == nil {
-		return nil, false
+		return false
 	}
 	sites := writtenImplMembers(g.files.implMembers[implMemberKey{recv: k.def.decl, method: "compare"}])
 	var chosen *implMemberSite
@@ -69,32 +62,32 @@ func (g *gen) siblingCompareAt(k, ord kind, at ast.Node) (*siblingCompareItem, b
 			// silent choice between two orderings is the one wrong answer this
 			// file exists to prevent, and the consumer's own refusal already
 			// names the operand.
-			return nil, false
+			return false
 		}
 		chosen = s
 	}
 	if chosen == nil {
-		return nil, false
+		return false
 	}
 	if !chosen.fn.lowerable() {
 		// The implementation exists and this builder will not call it. Declining
 		// keeps the consumer's own refusal, which names the OPERAND. That says
 		// more than `chosen.fn.why`, which would name the sibling declaration
 		// for a site the reader reached through a range literal.
-		return nil, false
+		return false
 	}
 	if len(chosen.fn.params) != 2 {
-		return nil, false
+		return false
 	}
 	for _, p := range chosen.fn.params {
 		ip, ok := g.importKind(p)
 		if !ok || ip != k {
-			return nil, false
+			return false
 		}
 	}
 	res, ok := g.importKind(chosen.fn.result)
 	if !ok || res != ord {
-		return nil, false
+		return false
 	}
-	return &siblingCompareItem{unit: chosen.unit, fn: chosen.fn}, true
+	return true
 }

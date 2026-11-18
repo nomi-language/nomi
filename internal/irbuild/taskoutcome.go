@@ -50,7 +50,7 @@ import (
 //     file the token `Failure` cannot resolve to anything else.
 //
 // The co-declaration is therefore the whole licence, and it is ASSERTED rather
-// than assumed — TestOutcomeFailureIsCoDeclaredWithOutcome reads std's own
+// than assumed — TestOutcome_FailurePayloadMatchesStdSource reads std's own
 // source and fails if the two ever stop sharing a module, because this name
 // check is an identity check only while they do.
 type namedPayloadSpec struct {
@@ -144,25 +144,24 @@ var outcomeFailure = &namedPayloadSpec{
 // Process-wide, exactly like opaqueDefs and stdEnumDefs, and for the same
 // pointer-identity reason: a named type's identity in the builder IS its
 // *typeDef, and two gens each minting their own would make one Nomi type two
-// distinct kinds. It is SAFE to share for stdEnumDefs' reason —
-// every payload is a scalar, so nothing about the layout is package-relative,
-// which is the precondition foreign.go's rule against shared defs protects —
-// and `rtDeclared` is what stops any generated package emitting a second Go
-// declaration for a type rt already hand-writes.
+// distinct kinds. It is safe to share for stdEnumDefs' reason: every payload
+// is a scalar, so the def reaches no type owned by one program's gen
+// (kind.packageNeutral). `rtDeclared` marks it as such a shared def, which a
+// file importing the type takes as it is instead of mirroring it (foreign.go).
 //
 // Keyed by SPEC POINTER rather than by index, and built from
 // `namedPayloadSpecs` rather than from each row's own field, because a row
 // naming its own def builder is an initialization cycle Go rejects outright.
 //
 // Tags come from the spec's variant order and nowhere else, so there is one
-// place the numbering exists. TestOutcomeLayoutMatchesRT holds the result
+// place the numbering exists. TestOutcome_LayoutMatchesRT holds the spec
 // against rt.Failure by reflection, so a spec claiming a field rt does not
-// declare fails rather than emitting a selector that does not compile.
+// declare fails there.
 var namedPayloadDefs = sync.OnceValue(func() map[*namedPayloadSpec]*typeDef {
 	defer changingTypes()()
 	defs := make(map[*namedPayloadSpec]*typeDef, len(namedPayloadSpecs))
 	for _, s := range namedPayloadSpecs {
-		d := &typeDef{nomi: s.nomi, tagName: s.tagField, isEnum: true, lowerable: true, rtDeclared: true}
+		d := &typeDef{nomi: s.nomi, isEnum: true, lowerable: true, rtDeclared: true}
 		slotOf := map[string]int{}
 		for i := range s.variants {
 			v := &s.variants[i]
@@ -178,7 +177,6 @@ var namedPayloadDefs = sync.OnceValue(func() map[*namedPayloadSpec]*typeDef {
 				d.slots = append(d.slots, slotDef{k: v.payload})
 				slotOf[v.field] = slot
 			}
-			d.slots[slot].users = append(d.slots[slot].users, v.nomi)
 			d.variants = append(d.variants, variantDef{
 				nomi:     v.nomi,
 				tag:      i + 1,
@@ -241,8 +239,8 @@ func namedPayloadSpecOf(d *typeDef) (*namedPayloadSpec, bool) {
 // everything here decides REPRESENTATION, and the variant list decides the
 // TAGS — so a std edit that reorders `Failure`'s variants must produce NO match
 // rather than lower against a numbering nobody wrote. A permuted tag is a wrong
-// ANSWER and not a compile error, which is the one failure this file's identity
-// machinery cannot otherwise detect.
+// answer at run time that nothing rejects, which is the one failure this
+// file's identity machinery cannot otherwise detect.
 //
 // `Public` because a file-private declaration cannot be the type another module
 // names; `Opaque` is rejected because an opaque enum's `case` is a use-site rule

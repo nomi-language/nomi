@@ -34,30 +34,18 @@ import (
 // # The trace boundary is resolved at build time
 //
 // A callee's comparisons must not leak into the caller's failure report.
-// Recording is emitted only for operators lexically inside an assertion's
+// Recording is lowered only for operators lexically inside an assertion's
 // subject, and a callee's body is a separate declaration that is never
-// lexically inside one — so a callee emits no recording at all and the
-// boundary costs nothing. No frame field, no per-call frame, no flag consulted
-// at run time. See gen.traceVar.
+// lexically inside one, so a callee's body holds no recording at all. No
+// flag is consulted at run time.
 //
 // The one place lexical containment is the WRONG test is a lambda body, which is
 // lexically inside the subject but is a separate ACTIVATION and is therefore
 // excluded. That seam is the only exception — every other construct that
 // is lexically inside a subject is also in the assertion's own activation.
 //
-// The consequence is that the boundary still costs the run nothing while being
-// right about a lambda: suspension is a build-time fact about where the
-// builder is, not a flag the program reads. testdata/tests_lambda_boundary.nomi
-// is the pin, and TestTests_NoFrameIsAllocatedPerCall is the measurement that
-// the cost stayed at zero.
-
-// loweredTest is one `test "name" { ... }` as the builder's test table records it.
-type loweredTest struct {
-	name string
-	// virtual marks a case under `clock Clock.Virtual`, whose table entry
-	// carries a Bubble. See testclock.go.
-	virtual bool
-}
+// Suspension is a build-time fact about where the builder is, not a flag the
+// program reads. testdata/tests_lambda_boundary.nomi is the pin.
 
 // --- collecting the cases --------------------------------------------------
 
@@ -71,9 +59,8 @@ type loweredTest struct {
 // boot rides along even when a group is refused, because a refusal must not
 // hide what is inside it and the boot line's argument is inside it.
 type testSetup struct {
-	// group is the `group` declaration the frame came from, and the identity
-	// probeTestBody dedupes on: a frame is shared by every case in the group,
-	// so probing it per case would report one blocker once per sibling.
+	// group is the `group` declaration the frame came from. A frame is
+	// shared by every case in the group.
 	group ast.Node
 	boot  ast.Node
 	body  ast.Node
@@ -97,8 +84,8 @@ type testCaseDecl struct {
 	// A node is never both — AttachedTestsOf has no TestDecl arm — so the two
 	// build points cannot interleave for one node.
 	attached bool
-	// self is the self type of a prompt inside a type's items (the owning
-	// type's name), or "".
+	// self is the self type of a prompt inside an impl block's items (the
+	// receiver's name), or "".
 	self string
 	// clock is the group's `clock Clock.Virtual` / `clock Clock.System`, or ""
 	// when the group declares none. It mirrors frontend.TestCase's clock
@@ -125,19 +112,6 @@ type testCaseDecl struct {
 	// reportRefusal marks the one case that reports it, so a refused group of
 	// six cases is one blocker rather than six.
 	reportRefusal bool
-	// probeSetups are the frames THIS case is responsible for walking when it
-	// is refused, deduped across the module: a chain is shared by every case
-	// beneath it, so the first case under each group carries it and its
-	// siblings carry none. Only used on the refused path.
-	probeSetups []testSetup
-	// refusalProbe is the refused CLAUSE's own operand — a group's `clock`
-	// expression — walked by the reporting case only. `boot` needs no entry
-	// here because it rides on a setup frame.
-	//
-	// It exists because `clock Clock.Virtual` is an ordinary enum reference
-	// that the builder cannot lower; without the probe its refusal would go
-	// unreported whenever the clock declaration is the only occurrence.
-	refusalProbe ast.Node
 }
 
 // collectTestCases is the builder's half of frontend.CollectTestCases, and it
@@ -149,7 +123,7 @@ type testCaseDecl struct {
 // own declaration and after everything above it, because the front end calls
 // collectAttachedTestCases first and then descends.
 //
-// The recursion into a type's or an impl block's ITEMS is mirrored too, with
+// The recursion into an impl block's items is mirrored too, with
 // the owner's name as the prefix (attachedTestCasesIn). A stdlib module's case
 // gets the owner as its self type (stdtests.go); a user file's case gets none
 // here, so a bare same-owner call in it declines.
@@ -171,10 +145,8 @@ func collectTestCases(nodes []ast.Node, declaresTests bool) []testCaseDecl {
 		}
 	}
 	// One refusal per refused CONSTRUCT rather than per case beneath it, and
-	// the first case carries it so the report is in declaration order. The
-	// inherited setup chain is deduped the same way and for the same reason.
+	// the first case carries it so the report is in declaration order.
 	reported := map[ast.Node]bool{}
-	probed := map[ast.Node]bool{}
 	for i := range out {
 		if out[i].refusedBy == "" {
 			continue
@@ -182,13 +154,6 @@ func collectTestCases(nodes []ast.Node, declaresTests bool) []testCaseDecl {
 		if !reported[out[i].refusalAt] {
 			reported[out[i].refusalAt] = true
 			out[i].reportRefusal = true
-		}
-		for _, s := range out[i].setups {
-			if probed[s.group] {
-				continue
-			}
-			probed[s.group] = true
-			out[i].probeSetups = append(out[i].probeSetups, s)
 		}
 	}
 	return out
@@ -199,9 +164,6 @@ type testRefusal struct {
 	construct string
 	detail    string
 	at        ast.Node
-	// probe is the refused clause's own operand, walked once by the reporting
-	// case so the refusal does not hide what is inside the clause itself.
-	probe ast.Node
 }
 
 // testRow is one row of a group's `subtests` block: the row's pattern
@@ -231,16 +193,14 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 			refusedBy:     ref.construct,
 			refusalDetail: ref.detail,
 			refusalAt:     ref.at,
-			refusalProbe:  ref.probe,
 		}}
 	}
 	if t.Clock != nil {
-		// `clock Clock.Virtual` LOWERS: the case's rt.Test carries
-		// vclock.RunCase as its Bubble, which runs the body inside a
-		// testing/synctest bubble under the four-layer discipline rt/vclock
-		// owns.
-		// `clock Clock.System` lowers by emitting nothing, because the real
-		// clock is already what a case with no clause gets.
+		// `clock Clock.Virtual` lowers: the case's group records the clock
+		// (irtestgroup.go), and the VM runner runs the body inside
+		// `rt/vclock.RunCase`'s virtual-time bubble.
+		// `clock Clock.System` lowers to nothing, because the real clock is
+		// already what a case with no clause gets.
 		//
 		// THE CLAUSE EXPRESSION IS NOT LOWERED, AND THAT IS COMPLETE RATHER
 		// THAN PARTIAL. Nothing evaluates it: the clock has to be known
@@ -249,11 +209,11 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 		// entry for it any more for the same reason — an expression nobody
 		// evaluates has no operands to refuse.
 		//
-		// An unreadable spelling REFUSES rather than guessing a clock or
-		// emitting a failure. The front end marks that case InvalidClock and
+		// An unreadable spelling refuses rather than guessing a clock or
+		// lowering a failure. The front end marks that case InvalidClock and
 		// the runner reports it as failed with its own observable text, and
 		// mirroring the string here would be a second copy of observable text
-		// (trap.go's rule); a refusal is never a wrong answer. Defensive in
+		// (rt/trap.go's rule); a refusal is never a wrong answer. Defensive in
 		// both places — checker.checkTestClock type-checks
 		// the clause against `testing.Clock` first — so it should be
 		// unreachable from legal source. TestClock_UnreadableSpellingRefuses
@@ -265,13 +225,11 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 				construct: "test clock",
 				detail:    "a `clock` clause that does not name a Clock variant",
 				at:        t,
-				probe:     t.Clock,
 			}
 		}
 	}
 	// A `boot` constructs the active App value its descendants see. This walk
-	// does not stage it: a case under a boot or a setup chain is refused
-	// (testCase -> refuseTestBody), and the VM starts the boot
+	// does not stage it: the VM starts the boot
 	// (vm.Machine.BootTest).
 	local := setups
 	if t.Boot != nil || t.Setup != nil {
@@ -332,7 +290,8 @@ func collectTestDecl(t *ast.TestDecl, owner ast.Node, prefix []string, setups []
 // under its names (attachedTestCasesIn). Every case's owner is the file-scope
 // declaration, which is where it is built from.
 //
-// A case inside a type's items has that type as its self type, through which
+// A case inside an impl block's items has the block's receiver as its self
+// type, through which
 // a bare same-owner call resolves. The builder installs it for a stdlib module
 // (stdtests.go) and not for a user file, where such a call declines rather
 // than resolving differently.
@@ -377,29 +336,9 @@ func attachedTestCasesIn(nodes []ast.Node, prefix []string, self string) []testC
 				self:     attachedTestSelf(self),
 			})
 		}
-		switch v := n.(type) {
-		case *ast.StructDef:
-			out = append(out, attachedTestCasesIn(v.Items, appendTestName(prefix, v.Name), v.Name)...)
-		case *ast.EnumDef:
-			out = append(out, attachedTestCasesIn(v.Items, appendTestName(prefix, v.Name), v.Name)...)
-		case *ast.TypeDef:
-			out = append(out, attachedTestCasesIn(v.Items, appendTestName(prefix, v.Name), v.Name)...)
-		case *ast.ExternType:
-			out = append(out, attachedTestCasesIn(v.Items, appendTestName(prefix, v.Name), v.Name)...)
-		case *ast.ImplBlock:
+		if v, isBlock := n.(*ast.ImplBlock); isBlock {
 			inner := appendTestName(prefix, attachedTestOwner(v))
 			recv := analysis.TypeExprBaseName(v.Receiver)
-			if v.InferInterfaceMethods && v.Interface != nil {
-				// The front end collects only the items claiming the block's
-				// interface (testImplItemClaimsInterface).
-				iface := analysis.TypeExprBaseName(v.Interface)
-				for _, item := range v.Items {
-					if implItemClaimsIface(item, iface) {
-						out = append(out, attachedTestCasesIn([]ast.Node{item}, inner, recv)...)
-					}
-				}
-				continue
-			}
 			out = append(out, attachedTestCasesIn(v.Items, inner, recv)...)
 		}
 	}
@@ -424,18 +363,6 @@ func appendTestName(prefix []string, name string) []string {
 	next := make([]string, 0, len(prefix)+1)
 	next = append(next, prefix...)
 	return append(next, name)
-}
-
-// implItemClaimsIface is frontend's testImplItemClaimsInterface.
-func implItemClaimsIface(item ast.Node, iface string) bool {
-	switch it := item.(type) {
-	case *ast.FuncDef:
-		return analysis.TypeExprBaseName(it.ImplIface) == iface
-	case *ast.ExternFunc:
-		return analysis.TypeExprBaseName(it.ImplIface) == iface
-	default:
-		return false
-	}
 }
 
 // importedModuleRefusal is the refusal a case in a module that is not the entry
@@ -525,7 +452,7 @@ func testCasesByOwner(cases []testCaseDecl) map[ast.Node][]testCaseDecl {
 	return byOwner
 }
 
-// attachedTestDecls emits the `//!` prompt cases a declaration carries.
+// attachedTestDecls lowers the `//!` prompt cases a declaration carries.
 func (g *gen) attachedTestDecls(cases []testCaseDecl) {
 	for _, c := range cases {
 		if c.attached {
@@ -534,7 +461,7 @@ func (g *gen) attachedTestDecls(cases []testCaseDecl) {
 	}
 }
 
-// testDecl emits the cases one file-scope `test` or `group` declaration
+// testDecl lowers the cases one file-scope `test` or `group` declaration
 // contributes, in declaration order.
 func (g *gen) testDecl(cases []testCaseDecl) {
 	for _, c := range cases {
@@ -544,8 +471,7 @@ func (g *gen) testDecl(cases []testCaseDecl) {
 	}
 }
 
-// testCase emits one case: the inherited setup chain, the case's own context
-// pattern, then its body.
+// testCase lowers one case, or reports the refusal it carries.
 func (g *gen) testCase(c testCaseDecl) {
 	g.at(c.line)
 	if c.refusedBy != "" {
@@ -554,50 +480,29 @@ func (g *gen) testCase(c testCaseDecl) {
 	}
 
 	name := strings.Join(c.names, " / ")
-	virtual := c.clock == "Virtual"
-	g.tests = append(g.tests, loweredTest{name: name, virtual: virtual})
 
 	prevInTest, prevResult := g.inTest, g.result
 	g.inTest, g.result = true, kindInvalid
 	g.pushScope()
-	// THE RETAINED GRAPH IS BUILT BEFORE THE READ-BACK.
-	// `bl.lower` asks `g.lookup`, so the build must happen before the reader
-	// binds any of this body's names: a name already bound would resolve to
-	// an `ir.Ref` naming a Go local no machine can read. A nil plan means the
-	// builder declined the body and the case is refused below. See
-	// irtestbody.go.
-	plan := g.irTestBody(c, name)
-	testDecline := g.dc.take()
-	// rt.TestFailure, not *rt.AssertionFailure: a test body has two
-	// value-shaped exits, because a `?` that propagates inside one ends the
-	// case as an rt.EarlyReturnFailure (try.go). A failing assertion still
-	// returns its own concrete pointer unchanged — the interface widens what
-	// MAY be returned without changing any existing return site.
-	//
-	// The body is read back from its graph. A case whose body the builder
-	// declines, or that carries a setup chain or a group boot (which the
-	// read-back does not stage), is refused. Inside a
-	// stdlib module the case is refused on its own, so its prompt is dropped
-	// rather than the module (stdtests.go).
+	// The body is built before anything else binds its names: `bl.lower`
+	// asks `g.lookup`, and a name already bound in the gen's scope would
+	// resolve to an `ir.Ref` no machine can read. irTestBody declares a
+	// grouped case's body in the module's test table and queues an
+	// ungrouped one for irRetryWalkOnlyTestBodies. The decline a case it did
+	// not build left in g.dc is cleared here, so it does not leak into the
+	// next attempt. See irtestbody.go.
+	g.irTestBody(c, name)
+	g.dc.take()
 	g.irBodyObserve(irBodyTestBody, true)
-	switch {
-	case len(c.setups) > 0:
-		g.refuseTestBody(name, irBecause("a test's setup chain, built for the VM only"), c.body)
-	case plan == nil:
-		g.refuseTestBody(name, testDecline, c.body)
-	}
 	g.popScope()
 	g.inTest, g.result = prevInTest, prevResult
 }
 
-// rejectTestBody refuses a case and collects the blockers inside it — as a TEST
-// body, for the reason probeTestBody states.
+// rejectTestBody reports the refusal a case carries.
 //
 // The refusal itself is reported by ONE case per refused construct
 // (reportRefusal), at that construct's own position: a `clock` group of six
 // cases is one `test clock` blamed on the group, not six blamed on its bodies.
-// Every case is still probed, because the blocker set must not be truncated by
-// the outermost refusal.
 //
 // The key is a LITERAL at each g.reject, and the switch is what makes it one
 // rather than passing c.refusedBy straight through. That is not style: the
@@ -606,10 +511,7 @@ func (g *gen) testCase(c testCaseDecl) {
 // a variable there is a key the report cannot name.
 //
 // `test boot` has no arm here: collectTestDecl never sets it, because the
-// construct lowers. The key is still in the report's vocabulary, through
-// appfield.go's stageAppValue, which holds two literal reject sites for it,
-// both naming the reason a boot value could not be established as an app
-// struct.
+// construct lowers.
 func (g *gen) rejectTestBody(c testCaseDecl) {
 	if c.reportRefusal {
 		switch c.refusedBy {
@@ -691,12 +593,6 @@ func skipAssertionArg(arg ast.Node, includeLiterals bool) bool {
 	}
 }
 
-// How an operand's VALUE reads is inspect.go's: gen.inspectCode. A `values:`
-// row is rendered structurally and dispatches nowhere, so scalars and
-// composites are rendered in that one file.
-
 // renderNode is how an expression reads in a report. format.RenderNode, not a
 // second renderer, so `assert  x==2 ` normalizes the way the formatter does.
 func renderNode(n ast.Node) string { return format.RenderNode(n) }
-
-// --- the test binary's entry point -----------------------------------------

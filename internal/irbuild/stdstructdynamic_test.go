@@ -21,8 +21,7 @@ import (
 // of them.
 //
 //  1. Point both PathSegment variants at ONE rt field (`field: "Field"` for
-//     Index too). -> TestStdEnumSlotsMatchRT,
-//     TestStdEnumSpecReachesTheRealRtType, TestStdEnumDefsArePackageNeutral,
+//     Index too). -> TestStdEnumSpecReachesTheRealRtType, TestStdEnumDefsArePackageNeutral,
 //     because rt has no second field for the tag to store into.
 //
 //  2. Swap the two variants' ORDER in the spec. -> TestStdEnumShapeMatchesStdSource,

@@ -8,21 +8,20 @@ import (
 // `.Exponential{max_restarts: 2}`, `.Off`, `.Circle(1.0)` — the leading-dot
 // variant shorthand in EXPRESSION position.
 //
-// # The dot means "the qualified spelling", so that is what is emitted
+// # The dot means "the qualified spelling", so that is what is lowered
 //
 // The analyzer resolves the dot against the EXPECTED TYPE at the position and
-// records the answer on the node: `ResolvedEnum` (ast.go's DotVariant and
-// DotVariantType). Every arm below reads that field, synthesizes the qualified
-// node the programmer could have written, and hands it to the existing
-// resolver. So `.Off` in a `Backoff` position becomes exactly `Backoff.Off`,
-// and `bareVariant`, `variantLit` and `variantCall` stay the one implementation
-// of variant construction — with their payload checks, their arity checks,
-// their `embeds`-of-a-wrapping-distinct arm and their refusal keys.
+// records the answer on the node: `ResolvedEnum` (internal/ast/ast.go's
+// DotVariant and DotVariantType). qualifiedDot reads that field, synthesizes
+// the qualified node the programmer could have written, and its caller hands
+// it to the existing resolver. So `.Off` in a `Backoff` position becomes
+// exactly `Backoff.Off`, and `variantBare` and `variantCall` stay the one
+// implementation of variant construction, with their payload checks and their
+// arity checks.
 //
 // Rewriting rather than reimplementing is not merely tidier. A second
 // construction path is where the zero-sized-payload rule and the
-// `embeds`-unwrap rule would drift, and both of those are wrong-answer bugs
-// rather than compile errors.
+// `embeds`-unwrap rule would drift, and both of those are wrong-answer bugs.
 //
 // # IDENTITY: this resolves a NAME
 //
@@ -41,17 +40,15 @@ import (
 // # THE SYNTHESIZED POSITION CARRIES NO REFERENCE, so a POSITIONAL resolver
 // declines for the shorthand while answering for the spelling it abbreviates
 //
-// The rewrite above hands `bareVariant` a node whose Line/Col are the DOT's, and
-// `bareVariant`'s first rung — `preludeBare` — is keyed on `fa.References` at
-// that position. The analyzer records a DotVariant's resolution on the NODE
-// (`ResolvedEnum`) and not in the reference map, so that rung declines and the
-// chain falls through to `lookupVariant`, which reports
-// `type-qualified reference`: `c: Outcome<Unit> = Outcome.Cancelled` lowers
-// while `c: Outcome<Unit> = .Cancelled` would not, though `rt.Outcome[T]`
-// represents both.
+// The rewritten node's Line/Col are the DOT's, and a resolver keyed on
+// `fa.References` at that position finds nothing: the analyzer records a
+// DotVariant's resolution on the NODE (`ResolvedEnum`) and not in the
+// reference map. Resolved that way, `c: Outcome<Unit> = Outcome.Cancelled`
+// would lower while `c: Outcome<Unit> = .Cancelled` would not, though the two
+// are one value.
 //
-// So dotVariantBare asks by NAME before rewriting. variantalias.go's header
-// says a positional resolver "inherits fa.References' coverage exactly" and
+// So `preludeBareValue` asks by NAME before the rewrite. variantalias.go's
+// header says a positional resolver "inherits fa.References' coverage exactly" and
 // that "a caller needing an answer for a synthesized position needs a
 // non-positional route; this is the wrong door and must not be widened into
 // one" — this is that route, and `preludeByName` is the same oracle

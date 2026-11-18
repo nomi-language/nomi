@@ -155,6 +155,13 @@ func TestLibModules(t *testing.T) {
 	})
 	// The postgres driver's tests run on postgres.scratch()'s throwaway
 	// server, which needs initdb and postgres on PATH and a POSIX shell.
+	// The first case of each `nomi test` process starts that server
+	// (initdb, then postgres) inside its own time limit. Alone that case
+	// takes about 4 seconds; under `make check-full`, with other suites
+	// running beside it, starting the server alone passed the default
+	// 10s. scratchTimeout gives those runs room for the start and still
+	// holds every case to a limit.
+	const scratchTimeout = "60s"
 	postgresDir := filepath.Join(root, "lib", "sql", "postgres")
 	t.Run("postgres", func(t *testing.T) {
 		requireScratchPostgres(t)
@@ -163,23 +170,23 @@ func TestLibModules(t *testing.T) {
 		if out, err := download.CombinedOutput(); err != nil {
 			t.Fatalf("go mod download in lib/sql/postgres: %v\n%s", err, out)
 		}
-		passes(t, root, "test", filepath.Join("lib", "sql", "postgres"))
+		passes(t, root, "test", "--timeout", scratchTimeout, filepath.Join("lib", "sql", "postgres"))
 	})
 	// migrate's tests run each case on SQLite and on postgres.scratch()'s
 	// server, and two processes at once on Postgres.
 	t.Run("migrate", func(t *testing.T) {
 		requireScratchPostgres(t)
-		passes(t, root, "test", filepath.Join("lib", "sql", "migrate"))
+		passes(t, root, "test", "--timeout", scratchTimeout, filepath.Join("lib", "sql", "migrate"))
 	})
 	// The jobs queue over Postgres and the example that ports an app's
 	// notifications to it run on the same scratch servers.
 	t.Run("jobs/postgres", func(t *testing.T) {
 		requireScratchPostgres(t)
-		passes(t, root, "test", filepath.Join("lib", "jobs", "postgres"))
+		passes(t, root, "test", "--timeout", scratchTimeout, filepath.Join("lib", "jobs", "postgres"))
 	})
 	t.Run("jobs/examples/notify", func(t *testing.T) {
 		requireScratchPostgres(t)
-		passes(t, root, "test", filepath.Join("lib", "jobs", "examples", "notify"))
+		passes(t, root, "test", "--timeout", scratchTimeout, filepath.Join("lib", "jobs", "examples", "notify"))
 	})
 	// The S3 backend's own tests need no server: they sign AWS's published
 	// examples and answer requests with std/http/testing. The MinIO

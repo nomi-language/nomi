@@ -1993,23 +1993,6 @@ func renderImplHover(sym *analysis.Symbol) string {
 }
 
 func renderImplSignature(sym *analysis.Symbol, info *analysis.ImplInfo) string {
-	if info.FunctionName != "" {
-		name := info.FunctionName
-		if info.SourceQualified && len(info.Interfaces) > 0 && info.Interfaces[0] != "" {
-			name = info.Interfaces[0] + "." + name
-		}
-		switch n := sym.Node.(type) {
-		case *ast.FuncDef:
-			return RenderFuncSigResolvedSelf(name, n.TypeParams, n.Params, n.ReturnTypeExpr, sym.Type, nil, info.Receiver)
-		case *ast.ExternFunc:
-			return "extern " + RenderFuncSigResolvedSelf(name, n.TypeParams, n.Params, n.ReturnTypeExpr, sym.Type, nil, info.Receiver)
-		}
-		if info.Extern {
-			return "host fn " + name
-		}
-		return "fn " + name
-	}
-
 	if info.Inherent {
 		if info.Receiver != "" {
 			return "impl " + info.Receiver + info.WhereClause
@@ -2029,16 +2012,6 @@ func renderImplSignature(sym *analysis.Symbol, info *analysis.ImplInfo) string {
 }
 
 func renderImplProse(info *analysis.ImplInfo) string {
-	if info.FunctionName != "" {
-		if len(info.Interfaces) > 0 && info.Interfaces[0] != "" && info.Receiver != "" {
-			return fmt.Sprintf("Implementation function for %s on `%s`. Callable through the implementing type or interface qualifier; visibility comes from %s.", markdownNameList(info.Interfaces[:1]), info.Receiver, markdownNameList(info.Interfaces[:1]))
-		}
-		if len(info.Interfaces) > 0 && info.Interfaces[0] != "" {
-			return fmt.Sprintf("Implementation function for %s. Its visibility comes from the implemented interface.", markdownNameList(info.Interfaces[:1]))
-		}
-		return "Implementation function. Its visibility comes from the implemented interface."
-	}
-
 	if info.Inherent {
 		if info.Receiver != "" {
 			return fmt.Sprintf("Opens `%s` for type-qualified functions.", info.Receiver)

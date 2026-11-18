@@ -18,9 +18,8 @@ import (
 // panics on, for the three positions a short-circuit needs: the OPERATOR's,
 // the LEFT operand's and the RIGHT operand's.
 //
-// It is a stronger premise than the arith class's, and that is the reason it
-// is measured separately rather than folded into
-// TestIRArith_EveryArithSiteHasAPosition. An `ir.Arith` needs one position,
+// It is a stronger premise than an `ir.Arith`'s, and that is the reason it
+// is measured on its own. An `ir.Arith` needs one position,
 // the operator's, and reads its operands as already-lowered temporaries.
 // `ir.BeginShortCircuit` takes THREE — opPos for the branch test, lhsPos for
 // the copy that makes the left value the answer, and rhsPos for the block the
@@ -107,9 +106,9 @@ func firstInt(line, _ int) int { return line }
 // logicNodesUnder collects every `*ast.Binary` carrying `and` or `or`
 // reachable from root.
 //
-// A SUPERSET of the sites the builder reaches, for the reason arithNodesUnder
-// is: the claim being measured is about the trees, and a claim about the trees
-// stays true when more of them starts lowering.
+// A SUPERSET of the sites the builder reaches: the claim being measured is
+// about the trees, and a claim about the trees stays true when more of them
+// starts lowering.
 func logicNodesUnder(root ast.Node) []*ast.Binary {
 	var out []*ast.Binary
 	seen := map[ast.Node]bool{}

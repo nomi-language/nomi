@@ -10,12 +10,12 @@ import "github.com/nomi-language/nomi/internal/ir"
 // projections per builder site, and a cross-check of `irParamShape(k)` here
 // against `p.Shape()` on the node, two reads of one construction.
 //
-// It is a hook rather than a field, for `irTailObserved`'s reason. It costs
-// one nil check per projection.
+// It is a hook rather than a field, so the gen carries no node-keyed side
+// table for it. It costs one nil check per projection.
 //
-//	`k`     a builder-side value at every site: `r.k` off the owner's
-//	        `projGo`, `f.k` off the `*fieldDef`, `want` off the switch on the
-//	        conversion's type name. `ir.Proj.Shape` is filled from the same
+//	`k`     a builder-side value at every site: the kind irProjExpr's caller
+//	        resolved, `f.k` off the `*fieldDef`, `want` off the distinct's
+//	        inner kind. `ir.Proj.Shape` is filled from the same
 //	        values, so comparing the two catches a producer that records one
 //	        shape and builds another.
 //	`site`  a literal, and the only possible source: which builder

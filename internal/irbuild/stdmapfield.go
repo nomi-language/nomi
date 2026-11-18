@@ -35,9 +35,12 @@ func mapSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 		return kindInvalid, false
 	}
 	if len(gt.Params) != 2 {
-		// The checker rejects the program first; refusing rather than
-		// instantiating at the wrong arity keeps this from emitting Go against
-		// a type nobody wrote. Same rule listSigKind applies to its arity.
+		// stdTypeKind is the only caller, and it passes annotations from std
+		// source the checker accepted, which reports "Map expects 2 type
+		// arguments" for any other count. The guard keeps the two reads below
+		// in range: with fewer arguments Params[1] would panic, and with more
+		// the answer would be a Map of the first two. listSigKind applies the
+		// same rule to its arity.
 		return kindInvalid, true
 	}
 	key := stdTypeKind(gt.Params[0], anchors)

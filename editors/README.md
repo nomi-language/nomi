@@ -37,6 +37,18 @@ otherwise the script points `rev` at the local commit and says so. Do not
 commit that rev: `scripts/sync-zed-grammar.sh --restore` puts the committed
 one back, and a publish overwrites it.
 
+`languages/nomi/highlights.scm` is generated, by `make build-zed-queries`
+(`scripts/sync-zed-highlights.sh`), from the canonical query
+`tree-sitter-nomi/queries/highlights.scm`: the same patterns in reverse
+order, because Zed gives a node the last pattern that captures it and
+tree-sitter's highlighter the first, with five capture names renamed to
+ones Zed's themes style. `attached-test-dim.scm`, beside the extension's
+manifest, is the one part written by hand: the patterns that draw `//!`
+attached tests as comments, which the generator places just under the `//!`
+markers. Edit the canonical query or that file, never the generated one.
+Helix's and Neovim's highlights are generated from Zed's, so `make
+build-helix` and `make build-nvim` run this first.
+
 Then run "zed: install dev extension" and select the `editors/zed/` directory
 itself. Install the language server with `go install ./cmd/nomi-lsp`; Zed
 launches `nomi-lsp` from PATH. `cargo test --manifest-path

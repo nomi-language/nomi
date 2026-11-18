@@ -12,11 +12,10 @@ package ir
 //     representation that carries the operator and not the types cannot hold
 //     the answer. This is the half built here: Decl, its Signature, and
 //     SelectOverload.
-//   - The 31-arm `implCall` chain. The front end has already resolved every
+//   - Qualified calls. The front end has already resolved every
 //     qualified callee to its declaration with an instantiated signature
-//     (`g.fa.References[calleeRefPos(t.Func)]`), and the builder reads exactly
-//     that channel in one place for one field. Replacing 31 ordered arms with
-//     a resolved callee needs the table to be POPULATED FROM THE FRONT END'S
+//     (`g.fa.References[calleeRefPos(t.Func)]`). Routing a qualified call by
+//     its resolved callee needs the table to be POPULATED FROM THE FRONT END'S
 //     RESOLUTION and keyed so a call site can ask for its own callee. That is
 //     a different requirement from selection and it is NOT built here; see
 //     Table.Declare's comment for exactly what is missing.
@@ -33,9 +32,9 @@ package ir
 // make the token a receipt for work done elsewhere. The maps below go the
 // opposite direction, from a PRODUCER IDENTITY to an IR entity, which is what
 // interning is, and which `internal/irbuild`'s own `g.comps` already is one
-// layer up. The difference is behavioural: the builder's `argsFitLevel` is not
-// on the operator path at all, because the scoring rule lives here. A receipt
-// design could not have moved it.
+// layer up. The difference is behavioural: the builder has no fit rule on the
+// operator path. `irSelectOperImpl` collects the candidates and the scoring
+// rule lives here. A receipt design could not have moved it.
 //
 // What the producer supplies and what the table decides: the fault/delivery
 // division of ir.go's package header, applied to types. The producer supplies FACTS: this type
@@ -59,8 +58,8 @@ import "strconv"
 // TypeForm is how a Type participates in the subtyping relation.
 //
 // Two members, not a mirror of the builder's tag set. `internal/irbuild`'s `tag`
-// has nineteen members because it also answers "which Go type renders this",
-// which is a consumer question. The only thing the relation below needs to
+// has many more, because it tells apart the shapes the builder lowers
+// differently. The only thing the relation below needs to
 // know is whether a value of this type carries its own concrete type or has
 // had it erased.
 type TypeForm uint8
@@ -276,8 +275,8 @@ func (t *Table) Symbol(token any, name string) *Symbol {
 // be: the entry exists before its edges are read.
 //
 // The token must be a comparable value the producer uses as an identity. It is
-// held opaquely: nothing in this package inspects it, so a second consumer
-// supplies its own without this file knowing what either looks like.
+// held opaquely: nothing in this package inspects it. `internal/irbuild`
+// passes its whole `kind` value (internal/irbuild/irtable.go).
 func (t *Table) Concrete(token any, name string) (ty *Type, minted bool) {
 	return t.intern(token, name, FormConcrete)
 }
@@ -337,8 +336,8 @@ func (t *Table) Conforms(concrete, iface *Type) {
 // naming the same impl function get the same pointer, which is the property
 // SelectOverload's ambiguity answer rests on.
 //
-// WHAT DEPENDENT 2 NEEDS AND THIS DOES NOT HAVE. `implCall`'s 31 arms would be
-// replaced by asking the table for the declaration the FRONT END resolved a
+// WHAT DEPENDENT 2 NEEDS AND THIS DOES NOT HAVE. A qualified call would ask
+// the table for the declaration the FRONT END resolved its
 // callee to. That needs the token to be something a call site can compute
 // without already knowing the answer — the analyzer's resolved symbol, or its
 // declaration node — and it needs every declaration in the program to be

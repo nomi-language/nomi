@@ -33,7 +33,7 @@ type instImplAccessorReq struct {
 	built bool
 }
 
-// instImplAccessors asks g, the gen that emits impl block d for a generic
+// instImplAccessors asks g, the gen that lowers impl block d for a generic
 // type's instance, for an accessor per defaulted parameter of its function
 // it, named name as the call site names the function. It answers the
 // function's callee symbol, or nil when g does not build d for an instance.
@@ -78,16 +78,11 @@ func (g *gen) flushInstImplAccessors() {
 }
 
 func (g *gen) instImplAccessorsBuild(r *instImplAccessorReq) {
-	if r.inst.subst != nil {
-		g.pushIfaceSubst(r.inst.subst)
-		defer g.popIfaceSubst()
-	} else {
-		g.pushGenericSubst(r.inst.tpl, r.inst.args)
-		defer g.popGenericSubst()
-	}
+	g.pushGenericImplInst(r.inst)
+	defer g.popSubst()
 	defer g.enterTypeScope(r.d.typeScope)()
 	if r.d.ifaceSubst != nil {
-		g.pushIfaceSubst(r.d.ifaceSubst)
+		g.pushIfaceSubst(substIfaceImpl, r.d, r.d.ifaceSubst, r.d.ifaceSubstTypes)
 		defer g.popIfaceSubst()
 	}
 	fd := r.it.decl
@@ -111,7 +106,7 @@ func (g *gen) instImplAccessorsPending() bool {
 }
 
 // instImplHome is where an instance impl function it of block d, which g
-// emits, fills the parameters a call leaves out (fillCallDefaults): g's
+// lowers, fills the parameters a call leaves out (fillCallDefaults): g's
 // accessors for the instance (instImplAccessorsFor), asked for only when a
 // default names what the calling file cannot.
 func (g *gen) instImplHome(d *implDef, it *implItem) defaultHome {

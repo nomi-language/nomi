@@ -6,81 +6,44 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Existentials that cross a FILE boundary, and the census of boxing sites.
+// Existentials that cross a file boundary.
 //
-// # The representation
+// # What must hold
 //
-// The existential representation itself is applied by impl.go: an
-// interface-typed position is `rt.Dyn`, erasure happens at the site the checker
-// accepted the widening, and dispatch goes through `rt.Method` keyed on the
-// ADDRESS of the erased type's `rt.TypeID`
+// An interface-typed position holds the concrete value itself, boxed where
+// its run-time type does not name its impl (irboxed.go), and a dispatch
+// selects the impl recorded under the method's symbol for that type
 // (testdata/impl_field_existential.nomi). Across a file boundary three things
 // must hold:
 //
 //  1. `typeOf` resolves an interface name in `g.ifaces`, which holds this
-//     file's declarations, and falls back to a MIRROR of a sibling file's
+//     file's declarations, and falls back to a mirror of a sibling file's
 //     declaration. Without the mirror, a field annotated with a sibling file's
 //     interface would have no kind and be reported `non-scalar field type`.
-//  2. A dispatch TABLE lives with the interface declaration. A dispatch site
-//     in another package names the owner's table, never a second one: two
-//     tables for one interface are two disjoint sets of implementations and
-//     whichever the site happened to probe would answer.
-//  3. Erasure needs the CONCRETE type's runtime identity, and two files each
-//     minting one for the same type would be two identities for one type.
+//  2. A method's dispatch symbol belongs to the unit that declares the
+//     interface. A dispatch site in another file names the owner's symbol
+//     (irIfaceMethodSym), never a second one: two symbols for one method are
+//     two disjoint sets of recorded impls.
+//  3. A type has one runtime identity, the declaring file's. A mirror answers
+//     hasTID from the owner's table.
 //
-// # Identity: one variable, named from wherever
+// # Identity is recorded eagerly
 //
-// (3) is settled the way (2) is: the identity variable belongs to the package
-// that DECLARES the type, and every other package names it qualified. It
-// cannot be minted on demand. A mirror in module 2 discovers it needs module
-// 1's identity while module 2's body is being built, and modules are built in
-// order, so module 1 may already have been rendered, and a demand arriving
-// after the fact would either dangle or force a second render pass over every
-// package.
+// The declaring file records an identity for every lowered named type it
+// declares, before anything is lowered (mintTypeIDs). It cannot be recorded
+// on demand: a mirror in module 2 asks for module 1's identity while module
+// 2's body is being built, modules are built in order, and module 1 may
+// already have been walked.
 //
-// So the identity is minted EAGERLY, once per lowered named type, in the
-// package that declares it. A Nomi type HAS a runtime identity whether or not
-// this particular program erases it; the variable's existence does not depend
-// on build order. The cost is one `rt.TypeID{Nomi: "mod.Name"}` per declared
-// type in its own package.
+// # Whether an impl exists is a program question
 //
-// # Whether an impl exists is a PROGRAM question
-//
-// `erase` refuses to build a box no `init` binds. This file's impls are the
-// wrong scope once files exchange existentials: `EffectsApp{logger:
-// ProdLogger}` in one file boxes a type declared in a second whose `impl
-// Logger` is written in a third, and all three are the same program. implIndex
-// answers it program-wide, keyed on the two DECLARATION NODES involved rather
-// than on names, as foreign.go explains.
-//
-// # The census
-//
-// A silent fall-through to boxing shows up only as a performance regression,
-// never as a wrong answer. Every differential test in this package compares
-// OBSERVABLE behaviour, so none of them can see it: a program that boxes where
-// it could have called directly prints exactly the same bytes.
-//
-// So the builder counts. Every erasure records the interface and the concrete
-// type boxed; every interface-qualified call records whether it resolved to a
-// direct call or to a table probe. A fixture pins the numbers, so erasing a
-// statically-known receiver and dispatching it through the table moves them.
-// It is a DIAGNOSTIC and changes nothing about what is built.
-
-// erasureSite is one place a concrete value was boxed into an existential.
-type erasureSite struct {
-	iface    string
-	concrete string
-}
-
-// dispatchCensus is what the builder observed about existentials while lowering
-// one program: what it boxed, and which way each interface-qualified call went.
-//
-// Direct and table are counted separately rather than as one total because the
-// RATIO is the diagnostic. A boxing regression does not change how many
-// dispatches happen; it changes which kind they are.
-type dispatchCensus struct {
-	boxes []erasureSite
-}
+// A value becomes an interface value only where the program lowers an impl of
+// the interface for it (bindsImpl). This file's impls are the wrong scope once
+// files exchange existentials: `EffectsApp{logger: ProdLogger}` in one file
+// boxes a type declared in a second whose `impl Logger` is written in a
+// third, and all three are the same program. implIndex answers it
+// program-wide, keyed on the two declaration nodes involved and not on
+// names, as foreign.go explains.
 
 // --- cross-file interfaces ---------------------------------------------------
 
@@ -89,11 +52,11 @@ type dispatchCensus struct {
 // one at all.
 //
 // The mirror is registered in g.ifaces under the name it was reached by, so
-// typeOf, implCall, registerImpl and the dispatch machinery all reach it
-// through the one map an interface name is ever looked up in. Nothing
-// downstream distinguishes a mirror from a local declaration except the two
-// places that must: a dispatch table is the owner's variable, and an interface
-// DEFAULT body cannot be lowered here.
+// typeOf, registerImpl and the dispatch plans all reach it through the one
+// map an interface name is ever looked up in. Nothing downstream
+// distinguishes a mirror from a local declaration except the two places that
+// must: a dispatch names the owner's method symbol, and an interface default
+// body is not lowered here.
 //
 // Every refusal below is the exact analogue of foreignType's, and for the same
 // reason in each case — a refused mirror rather than a miss, so the report says
@@ -109,18 +72,16 @@ func (g *gen) foreignIface(name string) (*ifaceDef, bool) {
 	return d, true
 }
 
-// mirrorIface is this package's def for another file's interface DECLARATION,
+// mirrorIface is this gen's def for another file's interface declaration,
 // built once per declaration node.
 //
-// Split out of foreignIface so the by-NAME and by-ORIGIN questions reach one
-// def per declaration. Those are two different questions — a name is what the
-// program wrote and an origin is what the checker solved — and they must not
+// Split out of foreignIface so the by-name and by-origin questions reach one
+// def per declaration. Those are two different questions (a name is what the
+// program wrote and an origin is what the checker solved) and they must not
 // build two mirrors of one declaration, because `existential(d)` takes its
-// identity from this pointer: two defs for one interface is two dispatch
-// tables, which is what foreign.go's own header refuses a per-package identity
-// for. Registration in
-// g.ifaces stays in the by-name caller, because only a name has a name to be
-// registered under.
+// identity from this pointer: two defs for one interface would be two unequal
+// existential kinds in one gen. Registration in g.ifaces stays in the by-name
+// caller, because only a name has a name to be registered under.
 func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 	if d, ok := g.foreignIfaces[o.decl]; ok {
 		return d
@@ -157,30 +118,28 @@ func (g *gen) mirrorIface(o *typeOwner) *ifaceDef {
 	return d
 }
 
-// solvedIface resolves an interface the ANALYZER solved — a type the program
-// never spelled — to this package's def for it, by `(Origin, Name)`.
+// solvedIface resolves an interface the analyzer solved, a type the program
+// never spelled, to this gen's def for it, by `(Origin, Name)`.
 //
-// # The same three tables typeOf asks
+// # The tables typeOf asks
 //
-// `typeOf` asks THREE tables for an interface name: this file's own `g.ifaces`,
+// `typeOf` asks three tables for an interface name: this file's own `g.ifaces`,
 // a sibling file's declaration through `foreignIface`, and an anchored stdlib
 // interface through `stdIfaceNamed`. `project` asks the same question about a
-// type the checker solved rather than one the programmer wrote, so it must ask
-// all three too: `projectStdIface` answers the third and this answers the other
-// two. Otherwise a USER interface would be reachable by ANNOTATION and
-// unreachable by INFERENCE, and projectRefusal's fall-through would name
-// `unrepresentable inferred type | Speaker` for an interface `typeOf` lowers
-// to `rt.Dyn` in the same gen. The cross-check in projectreason_test.go holds
+// type the checker solved and not one the programmer wrote, and this answers
+// the first two for it. Otherwise a user interface would be reachable by
+// annotation and unreachable by inference, for an interface `typeOf`
+// resolves in the same gen. The cross-check in projectreason_test.go holds
 // the two in agreement.
 //
 // # Identity is (Origin, Name), not the name
 //
-// Resolved by ORIGIN rather than through this file's imports, for the reason
+// Resolved by origin and not through this file's imports, for the reason
 // siblingOwner gives: the positions that reach here never spell the name, so
 // there is no import binding to consult, and two sibling files may each
 // declare a `Renderer`. A name-keyed lookup answers one declaration for both,
-// and the miss is SILENT — a dispatch table is keyed on the interface's
-// declaration, so the wrong one probes a disjoint set of impls.
+// and the miss is silent: impl lookups key on the interface's declaration, so
+// the wrong one finds a disjoint set of impls.
 //
 // A LOCAL answer must be a local DECLARATION: `g.ifaces` also holds mirrors,
 // registered under the name they were reached by, and one of those belongs to
@@ -227,11 +186,14 @@ func (g *gen) siblingIfaceOwner(origin, name string) *typeOwner {
 		if src == nil || src.fa == nil || src.fa.Origin != origin {
 			continue
 		}
-		d := src.ifaces[name]
-		if d == nil || d.decl == nil {
+		// The declaration the name has in the declaring file's scope, as
+		// siblingOwner finds it: that gen's own table holds it only once
+		// the gen has built its interfaces.
+		sym := resolvedTypeSymbol(src.fa, name)
+		if sym == nil || sym.Node == nil {
 			return nil
 		}
-		o := g.reg.byDecl[d.decl]
+		o := g.reg.byDecl[sym.Node]
 		if o == nil || !o.isIface || o.unit != unit {
 			return nil
 		}
@@ -240,31 +202,28 @@ func (g *gen) siblingIfaceOwner(origin, name string) *typeOwner {
 	return nil
 }
 
-// importIfaceKind re-derives an EXISTENTIAL kind relative to this package: the
-// owner's `tagIface` kind, rebuilt over this package's mirror of the same
-// interface DECLARATION.
+// importIfaceKind re-derives an existential kind in this gen: the owner's
+// `tagIface` kind, rebuilt over this gen's mirror of the same interface
+// declaration.
 //
-// A boxed value crossing a file boundary has ONE identity: `hasTID`'s mirror
-// path answers from the OWNER's table, and `mintTypeIDs` records eagerly in the
+// A boxed value crossing a file boundary has one identity: `hasTID`'s mirror
+// path answers from the owner's table, and `mintTypeIDs` records eagerly in the
 // declaring file so a demand arriving after that file was walked can still be
 // served.
 //
 // What this needs is the interface's own def: `k.iface` is interned in the
-// OWNER's gen, and rendering it from here would name a dispatch table this
-// package cannot see. `mirrorIface` is what `foreignIface` builds for the same
-// declaration reached by NAME, so this is the third route onto one def rather
-// than a new mechanism, which keeps `existential(d)` a single identity, since a
-// kind's iface identity IS the pointer.
+// owner's gen, so the kind over it equals no existential this gen builds.
+// `mirrorIface` is what `foreignIface` builds for the same declaration reached
+// by name, so this is the third route onto one def and not a new mechanism,
+// which keeps `existential(d)` a single identity, since a kind's iface
+// identity is the pointer.
 //
 // # The composition hazard
 //
-// A `hasTID` regression here is SILENT. A TypeID is what `rt.Method` keys on,
-// so a second identity for one Nomi type does not fail to compile: the probe
-// misses, `Display` renders the anonymous form, `==` degrades to structural
-// comparison and answers False, and ordering traps. That is why
-// testdata/cotenant_existential/ boxes a THIRD co-tenant's type and then READS
-// the table twice with two implementors whose answers share no character —
-// building the value proves nothing here.
+// A `hasTID` regression here is silent, and building the value proves
+// nothing. testdata/cotenant_existential/ therefore boxes a third co-tenant's
+// type and then dispatches twice, with two implementors whose answers share
+// no character.
 //
 // # The crossing-back arm
 //
@@ -279,8 +238,9 @@ func (g *gen) siblingIfaceOwner(origin, name string) *typeOwner {
 // interface, with the silent symptom described above.
 func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 	if g.reg == nil || src == nil || src.decl == nil {
-		g.importWhy = "existential over a sibling file type"
-		return kindInvalid, false
+		// importKind runs with a registry, and a user interface's kind
+		// carries its def and declaration.
+		panic("irbuild: importIfaceKind: an interface kind with no declaration, or no registry to mirror it through")
 	}
 	if src.stdOrigin != "" {
 		// A std interface held in another file: this file's def of the
@@ -306,8 +266,9 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 	// whichever gen the walk arrived from.
 	o := g.reg.byDecl[src.decl]
 	if o == nil || !o.isIface {
-		g.importWhy = "non-local type"
-		return kindInvalid, false
+		// Every user interface declaration is registered as an interface
+		// owner.
+		panic("irbuild: importIfaceKind: the registry holds no interface owner for " + src.nomi)
 	}
 	if o.unit == g.fileUnit {
 		// The owner's component names an interface declared in THIS file — the
@@ -316,8 +277,9 @@ func (g *gen) importIfaceKind(src *ifaceDef) (kind, bool) {
 		// requires for a type.
 		local := g.ifaces[src.nomi]
 		if local == nil || local.decl != src.decl {
-			g.importWhy = "non-local type"
-			return kindInvalid, false
+			// A file's names are unique, so its def for the name is that
+			// declaration's.
+			panic("irbuild: importIfaceKind: the declaring file's own " + src.nomi + " is not the declaration its mirror carries")
 		}
 		if !local.lowerable {
 			g.importWhy = local.why
@@ -346,7 +308,6 @@ func (g *gen) blockedIface(o *typeOwner, why, detail string) *ifaceDef {
 		decl:      id,
 		methods:   map[string]*ifaceMethod{},
 		foreign:   o.fileKey,
-		pkg:       o.pkg,
 		unit:      o.unit,
 		why:       why,
 		whyDetail: detail,
@@ -354,19 +315,18 @@ func (g *gen) blockedIface(o *typeOwner, why, detail string) *ifaceDef {
 	}
 }
 
-// importIface builds this package's mirror of another package's ifaceDef.
+// importIface builds this gen's mirror of another gen's ifaceDef.
 //
-// The METHOD SHAPE is copied verbatim — names, self positions, the receiver
-// slot, which methods are dispatchable — because those are properties of the
-// declaration the owner read, and this package is naming that same
-// declaration. Only the KINDS are re-derived, through importKind, so every
-// parameter and result renders relative to this package. That is the same
-// split importDef makes for a type mirror, for the same reason: a kind
-// interned in the owner's table renders as a Go name that is correct there and
-// undefined here.
+// The method shape is copied: names, self positions, the receiver slot, which
+// methods are dispatchable. Those are properties of the declaration the owner
+// read, and this gen is naming that same declaration. Only the kinds are
+// re-derived, through importKind, so every parameter and result is interned
+// in this gen. importDef makes the same split for a type mirror, for the same
+// reason: a kind interned in the owner's table equals no kind this gen
+// builds.
 //
-// A method whose signature cannot cross the boundary loses its TABLE rather
-// than its interface: the interface stays usable as a type and as a direct
+// A method whose signature cannot cross the boundary has `table` cleared and
+// the interface stays: it is still usable as a type and as a direct
 // qualifier, and the refusal lands at a dispatch site, which is a position
 // somebody wrote. Refusing the whole interface would make a file unlowerable
 // for a method it may never call.
@@ -387,7 +347,6 @@ func (g *gen) ifaceMirrorShell(src *ifaceDef, o *typeOwner) *ifaceDef {
 		decl:      src.decl,
 		methods:   make(map[string]*ifaceMethod, len(src.order)),
 		foreign:   o.fileKey,
-		pkg:       o.pkg,
 		unit:      o.unit,
 		lowerable: true,
 	}
@@ -445,13 +404,8 @@ func (g *gen) importIfaceMethods(d, src *ifaceDef) {
 		case !sm.table:
 			m.table = false
 		default:
-			// One interface, one table: the OWNER's variable, qualified only
-			// when the owner is a different Go package. Qualifying
-			// unconditionally reads `nomimod0.NomiX_…` from inside nomimod0
-			// itself once a component shares a package, which Go rejects as a
-			// self-import — and if it ever resolved it would be a wrong
-			// ANSWER rather than a compile error, because a table name is only
-			// ever compared and bound. See component.go.
+			// The owner's answer: the method dispatches here exactly when
+			// it does in its own file.
 			m.table = sm.table
 		}
 		d.methods[m.name] = m
@@ -459,7 +413,7 @@ func (g *gen) importIfaceMethods(d, src *ifaceDef) {
 	}
 }
 
-// ifaceNamed resolves an interface NAME to this package's def for it: its own
+// ifaceNamed resolves an interface name to this gen's def for it: its own
 // declaration, or a mirror of a sibling file's.
 //
 // The one place an interface name is looked up, since g.ifaces is not the
@@ -500,9 +454,8 @@ func (g *gen) ifaceNamed(name string) (*ifaceDef, bool) {
 // it as a module-level name is wrong: in `15-app-and-defer/effects` the
 // implementing file is `log.nomi`, whose own file API object is bound under
 // the spelling `log`, so the member `log` would make the two files disagree
-// and refuse a default that is portable. Over-collection is harmless for the
-// reference graph, where it can only over-refuse an import cycle; here it
-// would refuse a correct program.
+// and refuse a default that is portable. Over-collection here would refuse
+// a correct program.
 func pickAnyName(n ast.Node, out map[string]bool) bool {
 	switch t := n.(type) {
 	case *ast.FieldAccess:
@@ -551,7 +504,7 @@ type implKey struct {
 }
 
 // implIndex is every lowerable impl in one program, so a boxing site in one
-// file can ask whether ANY file binds the implementation its box will need.
+// file can ask whether any file lowers the implementation its box will need.
 type implIndex struct {
 	has map[implKey]bool
 }
@@ -586,7 +539,7 @@ func buildImplIndex(gens []*gen) *implIndex {
 	return x
 }
 
-// implKeyFor is the key an interface and a receiver kind share across packages.
+// implKeyFor is the key an interface and a receiver kind share across gens.
 func implKeyFor(d *ifaceDef, recv kind) implKey {
 	k := implKey{iface: d.decl, tag: recv.tag}
 	if d.instOf != nil {
@@ -598,13 +551,13 @@ func implKeyFor(d *ifaceDef, recv kind) implKey {
 	return k
 }
 
-// bindsImpl reports whether this PROGRAM lowers an impl of d for k.
+// bindsImpl reports whether this program lowers an impl of d for k.
 //
-// The program rather than this file, which is the whole point: a value boxed
-// here dispatches through a table any package may have bound into, and asking
-// only about the local file would refuse a box the program does in fact
-// implement. Falls back to the local view when there is no program — the
-// single-module fixture path lowers one file with no registry at all.
+// The program and not this file: a value boxed here dispatches to an impl
+// any file may have written, and asking only about the local file would
+// refuse a box the program does in fact implement. Falls back to the local
+// view when there is no program: the single-module fixture path lowers one
+// file with no registry at all.
 func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	if d == nil {
 		return false
@@ -616,13 +569,10 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 		// would answer no. See structiface.go.
 		return structIfaceSatisfiedBy(k)
 	}
-	// A STDLIB impl of a STDLIB interface is not an `impl` block in any
+	// A stdlib impl of a stdlib interface is not an `impl` block in any
 	// module, so neither index below holds it, and without this every boxing
-	// site would answer `gapNoImplForBound` ("no impl of Display is lowered for
-	// Int") on a program the checker accepted. flushErasedBindings names std's
-	// own function for these, so the
-	// answer here and the binding there are two halves of one claim and are
-	// asked through one function. See debugerased.go.
+	// site would answer that no impl of Display is lowered for Int, on a
+	// program the checker accepted. See debugerased.go.
 	if g.bindsStdScalarImpl(d, k) {
 		return true
 	}

@@ -60,12 +60,7 @@ func (c *checker) checkTypeParamDemand(tp *TypeParam_, ifaceName string, rec Rec
 	}
 	owner, help := c.typeParamBoundOwner(tp, ifaceName)
 	msg := fmt.Sprintf("%s %s %s `%s`, and %s does not require %s of `%s`", subject, verb, article, tp.Name_, owner, ifaceName, tp.Name_)
-	for _, e := range c.errors {
-		if e.Line == pos.Line && e.Col == pos.Col && e.Message == msg {
-			return
-		}
-	}
-	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(help))
+	c.reportOnce(pos.Line, pos.Col, msg, help)
 }
 
 // demandSubject finds the expression, among those a demand raised next may

@@ -64,7 +64,7 @@ fn main()
  io.print(sum(mark(1), c: mark(3)))
  io.print(sum(c: mark(6), a: mark(4), b: mark(5)))
  io.print(sum(c: mark(9), mark(7)))
-end`, "1\n3\n20\n24\n6\n4\n5\n15\n7\n9\n20\n36\n"},
+end`, "1\n3\n20\n24\n6\n4\n5\n15\n9\n7\n20\n36\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { verifyLambdaProgram(t, tc.src, tc.want) })
 	}

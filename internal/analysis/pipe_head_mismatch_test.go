@@ -35,7 +35,7 @@ fn dec(x: Decimal) -> Decimal
   x
 end
 
-fn label(width: Int, text: String) -> String
+fn label(width: NonNegativeInt, text: String) -> String
   String.pad_start(text, width)
 end
 

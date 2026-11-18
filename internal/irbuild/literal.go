@@ -16,8 +16,8 @@ import (
 //	<Type>.from_fragments([Fragment.Static(…), Fragment.Dynamic(…), …])
 //
 // backed by `impl Literal for <Type> { fn from_fragments(fragments:
-// List<Fragment<I>>) -> R }`. So there is no typed-literal MACHINERY to lower —
-// there is a list to build and a type-qualified call to emit, both of which
+// List<Fragment<I>>) -> R }`. So there is no typed-literal machinery to lower:
+// there is a list to build and a type-qualified call to lower, both of which
 // this builder already does for every other spelling.
 //
 // Every `from_fragments` takes `List<Fragment<I>>`: the checker enforces that
@@ -25,8 +25,8 @@ import (
 //
 // # Why the ARGUMENT is what gets named, and not the handler
 //
-// stdlibCall's order, unchanged: it builds the arguments first and returns
-// bad() when they refuse, WITHOUT reporting the callee's own reason. A typed
+// A qualified call's order, unchanged: the arguments are lowered first, and
+// when they refuse, the callee's own reason is NOT reported. A typed
 // literal is a call site, so it follows that order. This is not a preference —
 // reporting the callee instead would give one key to `Date"…"` (whose handler is
 // stdlib: `stdlib function outside the scalar subset`) and another to `Sql"…"`
@@ -35,14 +35,14 @@ import (
 //
 // # The reason is READ, not derived
 //
-// The refusal name comes from the analyzer's own answer, through
-// sigreason.go's projectRefusal — the channel inferred.go exists to be. The tag
-// resolution is checker.go's: `resolveTaggedStringTag` registers a Reference at
+// The refusal name comes from the analyzer's own answer — the channel
+// inferred.go exists to be. The tag resolution is internal/analysis's:
+// `resolveTaggedStringTag` registers a Reference at
 // the tag identifier, and `checkTaggedString` replaces it with a proxy carrying
 // `DispatchImpl` — the `(Literal, Tag)` impl method it resolved. Reading that
 // back is strictly better than re-deriving it here: a second resolution could
-// disagree with the front end about which handler a tag names, and a backend
-// that disagrees with the front end is the failure this whole refusal machinery
+// disagree with the front end about which handler a tag names, and a builder
+// that disagrees with the front end is the failure the refusal machinery
 // exists to prevent.
 //
 // Nothing here spells `Fragment` as a string, because a type identity matched
@@ -104,9 +104,9 @@ var fragmentSpec = preludeSpecFor("std/literals", "Fragment")
 // By payload shape rather than by the names `Static` and `Dynamic`, because
 // that is the distinction the desugaring actually makes: source text goes in
 // the concrete slot and a `${…}` value in the parametric one. At `T = String`
-// the two are the same Go type and a positional or name-only split would be
-// invisible either way; here a spec whose payloads were swapped puts the text
-// where the value belongs and `Fragment<Int>` stops compiling.
+// the two payloads have the same kind and a positional or name-only split
+// would be invisible either way; at `Fragment<Int>` a spec whose payloads were
+// swapped puts the text where the value belongs.
 func fragmentVariants(d *typeDef) (static, dynamic *variantDef, ok bool) {
 	for i := range d.preludeOf.spec.variants {
 		vs := &d.preludeOf.spec.variants[i]
@@ -177,10 +177,7 @@ func lastDynamicPart(parts []ast.StringPart) int {
 // own impl item, a SIBLING FILE's, or a stdlib declaration.
 //
 // One shape for all three so taggedLiteral (irliteral.go) has a single path.
-// They differ only in how the call is written, and the std one goes through
-// stdlibInvoke rather than formatting a call here, because the arity check, the
-// argument coercion and the generated package's import accounting have exactly
-// one implementation there.
+// They differ only in the symbol the call names (literalCallee, irliteral.go).
 type literalTarget struct {
 	params []kind
 	result kind
@@ -188,12 +185,10 @@ type literalTarget struct {
 	label string
 	// std is the stdlib declaration, nil for a handler a user file declares.
 	std *stdFunc
-	// unit is the sibling file's index when the handler is another generated
-	// package's, and -1 for this module's own block and for std.
-	// taggedLiteral declines a handler whose unit is not -1.
+	// unit is the sibling file's index when the handler is another file's,
+	// and -1 for this module's own block and for std. taggedLiteral declines
+	// a sibling handler whose sym is nil.
 	unit int
-	// pkg is that sibling's Go-spelled package, empty when it is this one.
-	pkg string
 	// sym is a sibling handler's retained body, interned in the declaring
 	// unit's table as qualSiblingImplPlan interns it; nil when unknown.
 	sym *ir.Symbol
@@ -244,13 +239,13 @@ type literalTarget struct {
 //
 // A std handler lowers in the stdlib index: `calendar.DateTime.from_fragments`
 // is there, and a hand-written `DateTime.from_fragments([…])` routes through
-// stdlibCall and lowers. So the std route is asked HERE, and the local route's
+// the index and lowers. So the std route is asked HERE, and the local route's
 // failure is a decline rather than a refusal.
 //
 // Node identity is not available across this boundary: `std.Load()` re-parses
 // and hands out FRESH pointers per call, so the stdlib index's `*ast.FuncDef`
 // is never the one the user module's analysis resolved. The identity used
-// instead is the one stdlibCall already relies on, and it is grounded in the
+// instead is the one a stdlib call already relies on, and it is grounded in the
 // analyzer rather than in a name: the TAG must resolve to a type whose Go type
 // rt declares (an anchored std type, established through the analyzer's own
 // (Origin, Name) rule — see stdstruct.go, opaque.go, stdenum.go), and the
@@ -302,24 +297,18 @@ func (g *gen) literalImplFor(t *ast.TaggedString, fd *ast.FuncDef) (literalTarge
 // literalHandlerRivals reports whether MORE THAN ONE written impl block
 // provides `method` for the tag's type, anywhere in the program.
 //
-// PROGRAM-wide, through the sibling impl index (siblingimpl.go), for
-// foreignImplRivals' reason one level in: the orphan rule admits `impl I for
-// T` in T's module, a Nomi module is several files, so "how many blocks
-// provide this" is not a question one file can answer. It is asked of the
-// index rather than of `foreignImplRivals` itself because that predicate is
-// built for a site COMMITTING to a local candidate — it answers true for every
-// sibling handler by construction, which is the case this route exists to
-// serve.
+// PROGRAM-wide, through the sibling impl index (siblingimpl.go): the orphan
+// rule admits `impl I for T` in T's module, a Nomi module is several files,
+// so "how many blocks provide this" is not a question one file can answer.
 //
 // Non-lowerable blocks COUNT. resolveImplMembers indexes them deliberately,
 // and a rival this builder cannot call is still a rival the front end can:
 // what makes the site unresolvable is that two declarations answer to one
-// spelling, not that both are emittable.
+// spelling, not that both lower.
 //
-// The local scan is the fallback for a gen with no file index, and it is the
-// same shape typeQualifiedCall's is. Fail-SAFE either way: a route that could
-// not count would have to answer "no rivals", and that is the answer that
-// emits.
+// The local scan is the fallback for a gen with no file index. Either way a
+// route that could not count would have to answer "no rivals", and that is
+// the answer that lowers the call.
 func (g *gen) literalHandlerRivals(tag, method string) bool {
 	d, isNamed := g.namedType(tag)
 	if !isNamed || d == nil {
@@ -343,12 +332,11 @@ func (g *gen) literalHandlerRivals(tag, method string) bool {
 //
 // # Every miss declines
 //
-// Four things can go wrong past resolution: the block is one the declaring
-// file refuses, the reference closes a Go import cycle, a parameter kind does
-// not translate into this package, or the result does not. Here they all
-// decline rather than report, because each is a property of the callee, not
-// of the spelling that reached it, and a second report would size one gap as
-// two. taggedLiteral declines every sibling handler in any case.
+// Three things can go wrong past resolution: the block is one the declaring
+// file refuses, a parameter kind does not translate into this file's kinds, or
+// the result does not. They all decline rather than report, because each is a
+// property of the callee, not of the spelling that reached it, and a second
+// report would size one gap as two.
 func (g *gen) siblingLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label string) (literalTarget, bool) {
 	if g.files == nil || g.fileUnit < 0 {
 		return literalTarget{}, false
@@ -388,16 +376,11 @@ func (g *gen) siblingLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 		if !ok {
 			return literalTarget{}, false
 		}
-		unit := g.files.units[s.unit]
-		pkg := ""
-		if unit.pkg != g.pkg {
-			pkg = unit.pkg
-		}
 		var sym *ir.Symbol
 		if g.reg != nil && s.item != nil && s.unit < len(g.reg.gens) && g.reg.gens[s.unit] != nil {
 			sym = g.reg.gens[s.unit].irCalleeSym(s.item, s.symName)
 		}
-		return literalTarget{params: params, result: result, label: label, unit: s.unit, pkg: pkg, sym: sym}, true
+		return literalTarget{params: params, result: result, label: label, unit: s.unit, sym: sym}, true
 	}
 	return literalTarget{}, false
 }
@@ -419,9 +402,9 @@ func implBlockDeclares(b *ast.ImplBlock, fd *ast.FuncDef) bool {
 }
 
 // importLiteralSig translates a sibling handler's one parameter and its result
-// into THIS package's kinds.
+// into this file's kinds.
 //
-// The declaring package's kinds are a different pointer for the same type
+// The declaring file's kinds are a different pointer for the same type
 // (typeFileFunc), so `arg.k != h.params[0]` would be true for two spellings of
 // one type and the site would refuse an argument it had just built correctly.
 // importKind does the translation.
@@ -473,10 +456,9 @@ func (g *gen) stdLiteralImpl(tag string, fd *ast.FuncDef, label string) (literal
 		return literalTarget{}, false
 	}
 	if len(f.params) != 1 || f.result.def == nil {
-		// A handler whose shape this builder did not resolve to one parameter
-		// returning a named type is not the desugaring's callee. Declining
-		// keeps the refusal rather than emitting against a guessed signature.
-		return literalTarget{}, false
+		// std's Literal handlers are from_fragments at a named type, which
+		// the interface's conformance holds; std declares no other.
+		panic("irbuild: a std Literal handler that is not one parameter to a named type: " + tag + "." + method)
 	}
 	return literalTarget{params: f.params, result: f.result, label: label, std: f, unit: -1}, true
 }

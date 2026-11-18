@@ -75,7 +75,7 @@ func TestCurrentValue_Diagnostics(t *testing.T) {
 		{"an empty map update", "  m = {\"a\" => {\"b\" => 1}}\n  _a = {..m, \"a\" => {‸..}}", empty},
 		{"a set spread over an Int", `  _a = Set[‸..1, "x"]`, "set spread `..` requires an Iter of the set's elements, got Int"},
 		{"a named set spread with no elements", "  s = Set[1]\n  _a = Set[‸..s]", "a set spread with no elements is its base value; write `s`"},
-		{"a set element of the wrong type", "  s = Set[1]\n  _a = Set[..s, ‸\"x\"]", "set spread element type mismatch: expected Int, got String"},
+		{"a set element of the wrong type", "  s = Set[1]\n  _a = Set[..s, ‸\"x\"]", "set element type mismatch: expected Int, got String"},
 		{"a vector spread over a list of another element", `  _a = Vector[..Vector[1], ‸..ada().tags]`, "vector spread element type mismatch: expected Int, got String"},
 		{"a last vector spread over an Int", "  n = 1\n  _a = Vector[2, ‸..n]", "vector spread `..` requires an Iter of the vector's elements, got Int"},
 		{"a named vector spread with no elements", "  v = Vector[1]\n  _a = Vector[‸..v]", "a vector spread with no elements is its base value; write `v`"},

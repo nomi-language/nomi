@@ -4,13 +4,13 @@ import (
 	"testing"
 )
 
-// THE OWNER NAME IS RESERVED, which is what lets `vectorCall` skip the
-// local-declaration guard `listCall` and `setCall` also skip.
+// THE OWNER NAME IS RESERVED, which is what lets a call on `Vector` skip the
+// local-declaration guard calls on `List` and `Set` also skip.
 //
-// Asserted where it holds rather than fenced inside `vectorCall`: if the front end
-// ever stops reserving `Vector`, a program declaring `struct Vector` would have
-// `g.types["Vector"]` populated and `vectorCall` would silently redirect its
-// methods to `rt.Vector`. This fails NAMING that arm instead.
+// Asserted where it holds rather than fenced inside the builder: if the front
+// end ever stops reserving `Vector`, a program declaring `struct Vector` would
+// have `g.types["Vector"]` populated and the builder would silently redirect
+// its methods to `rt.Vector`. This fails NAMING that arm instead.
 func TestVector_TheOwnerNameIsReserved(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

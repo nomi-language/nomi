@@ -21,25 +21,16 @@ import (
 // irstdbody.go.
 type irFuncRetentionCount struct {
 	retained []string
-	// readBack is the subset the reader read back off the graph, kept apart
-	// from retained because a body can be retained without being read back.
-	readBack []string
-	// notReadBack is the complement, named rather than counted, so a body
-	// retained without read-back is identified.
-	notReadBack []string
-	// unreadSource are bodies left unread whose declaration is not
-	// derive-synthesized. Only synthesized bodies may skip read-back.
-	unreadSource []string
-	walked       []string
-	temps        int
-	instrs       int
-	blocks       int
+	walked   []string
+	temps    int
+	instrs   int
+	blocks   int
 }
 
 func (c *irFuncRetentionCount) observe(t *testing.T, want irFuncOrigin) func() {
 	t.Helper()
 	prev := irFuncObserved
-	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func, readBack bool) {
+	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func) {
 		if origin != want {
 			return
 		}
@@ -48,14 +39,6 @@ func (c *irFuncRetentionCount) observe(t *testing.T, want irFuncOrigin) func() {
 			return
 		}
 		c.retained = append(c.retained, name)
-		if readBack {
-			c.readBack = append(c.readBack, name)
-		} else {
-			c.notReadBack = append(c.notReadBack, name)
-			if blocks := f.Blocks(); len(blocks) == 0 || !blocks[0].Pos().Synthesized() {
-				c.unreadSource = append(c.unreadSource, name)
-			}
-		}
 		c.temps += f.NumTemps()
 		c.blocks += len(f.Blocks())
 		for _, b := range f.Blocks() {
@@ -123,7 +106,7 @@ func TestIRFunc_TheShapeAdmitsAndDeclines(t *testing.T) {
 		{"a call at a leaf", "fn g(n: Int) -> Int\n  n\nend\nfn f(x: Int) -> Int\n  g(x) + 1\nend\n", true,
 			"the same call in an operand position, hoisted by the ir.Copy gen.operand's rule builds"},
 		{"a named argument", "fn g(n: Int) -> Int\n  n\nend\nfn f(x: Int) -> Int\n  g(n: x) + 1\nend\n", true,
-			"argSlotPlan places named operands before constructing the call"},
+			"the call's record places named operands before the call is constructed"},
 		{"an if body", "fn f(a: Int, b: Int) -> Int\n  if a > b then a else b\nend\n", true,
 			"the condition is a comparison, an `ir.Compare`"},
 		{"a tail if over a Bool", "fn f(c: Bool, a: Int, b: Int) -> Int\n  if c then a else b\nend\n", true,
@@ -209,7 +192,7 @@ end
 `
 	var funcs []*ir.Func
 	prev := irFuncObserved
-	irFuncObserved = func(_ irFuncOrigin, _ string, f *ir.Func, _ bool) {
+	irFuncObserved = func(_ irFuncOrigin, _ string, f *ir.Func) {
 		if f != nil {
 			funcs = append(funcs, f)
 		}

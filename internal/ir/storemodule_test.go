@@ -15,11 +15,9 @@ func storeFile() string { return "store.nomi" }
 // `Store` a different node from `Copy` rather than a spelling of it.
 //
 // `internal/irbuild/irbind.go`'s table calls `ir.Copy` the rebind — `n = v`
-// writes a name that exists — and that is true about the Go spelling and false
-// about the representation: the builder reaches it through
-// `irName` -> `irHold(atom(goName, k))`, so the Copy's
-// DESTINATION is a temporary holding the destination's Go NAME. A Store names
-// the declaration.
+// writes a name that exists — and a Copy's DESTINATION is still a temporary
+// of the function's own: `irCopyNode` mints a fresh one. A Store names the
+// declaration.
 func TestStore_WritesADeclarationAndNotATemporary(t *testing.T) {
 	tbl := NewTable()
 	field := tbl.Symbol("ctxField", "EffectsApp.context")

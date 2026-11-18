@@ -129,7 +129,7 @@ func (dm *DocumentManager) StoredLowering(uri, content string) *StoredLowering {
 		defer sp.pi.SetBodies(nil)
 		dm.programCounts.built.Add(1)
 		c := sp.pi.Check(k)
-		if !c.clean() {
+		if !c.Clean() {
 			return nil
 		}
 		return c

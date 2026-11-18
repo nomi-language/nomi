@@ -49,10 +49,10 @@ func irHostFnHasVMBody(_ []kind, result kind) bool {
 	return result.tag != tagFunc
 }
 
-// irHostFnRetain builds the VM body of a Go-bound `host fn` whose native
-// wrapper hostFnDecl just emitted under sig.
+// irHostFnRetain builds the VM body of a Go-bound `host fn` that hostFnDecl
+// declared under sig.
 func (g *gen) irHostFnRetain(ef *ast.ExternFunc, sig *fnSig) {
-	// VM-only: no Go names what the build resolves.
+	// A std module's `host fn` gets no body here.
 	if g.stdModule != "" {
 		return
 	}

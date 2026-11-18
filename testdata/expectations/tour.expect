@@ -323,7 +323,7 @@ T dbg line 6: not 9 in s = True
 T dbg line 7: s + [4, 5] = Set[1, 2, 3, 4, 5]
 T dbg line 8: s - [1] = Set[2, 3]
 T
-C collections.md:L300
+C collections.md:L301
 E 0
 N 0
 H a1be7f941cd64b875d7a473604080e0793afffa3ab21f2aa5828241a24d94609
@@ -333,13 +333,13 @@ T dbg line 9: ["Ada", ..v] = Vector["Ada", "Bo"]
 T dbg line 10: [..s, "blue"] = Set["red", "blue"]
 T dbg line 11: {..m, "port" => "9090", "user" => "ada"} = {"host" => "localhost", "port" => "9090", "user" => "ada"}
 T
-C collections.md:L332
+C collections.md:L333
 E 0
 N 0
 H b82743e0315237f416683a7f78267848de5a16f962872141c741e4dfeefa89c5
 T dbg line 3: {..scores, "ada" => [5, ..], "bob" => [1, ..]} = {"ada" => [5, 3], "bob" => [1]}
 T
-C collections.md:L378
+C collections.md:L379
 E 0
 N 0
 H c8f5ef79c794b5fbe24b98617b4b8789477d23925944b939527b2267f97fc26f
@@ -358,7 +358,7 @@ T squaring 4
 T squaring 5
 T dbg line 14: result = [16, 25]
 T
-C collections.md:L392
+C collections.md:L393
 E 0
 N 0
 H bbbf1aebc5d22a08b3e3cf28439beb79c4a286b179f64c381b2f3049483e95ee
@@ -368,14 +368,14 @@ T   |> Iter.map(Codepoint.to_string)
 T   |> Iter.to_list()
 T   = ["a", "b", "c", "d"]
 T
-C collections.md:L412
+C collections.md:L413
 E 0
 N 0
 H a38009fe2b3a466329c1eb82003fc43f40e3edd7fa2c08340f6f2c0214485fae
 T dbg line 2: Range.contains("a".."m", "h") = True
 T dbg line 3: Range.contains(0.0..=1.0, 1.0) = True
 T
-C collections.md:L428
+C collections.md:L429
 E 0
 N 0
 H 4f0bc3c39691320e70722484e57aa754e382d71d460b84477ce557632ad7943e
@@ -2340,20 +2340,7 @@ T dbg line 10: size(5) = "small"
 T dbg line 11: size(50) = "medium"
 T dbg line 12: size(500) = "large"
 T
-C learn/decisions.md:L74
-E 0
-N 0
-H 28edec859d2acedbe8901634d05fcd454d13b13d9ff88bd04ad107d5123e1747
-T dbg line 6: share(10, 3) = 3
-T dbg line 7: share(10, 0) = 0
-T
-C learn/decisions.md:L9
-E 0
-N 0
-H 9e0daff0129964211741849d85732cb6e83ae96a1c958c48015de96959a68174
-T dbg line 3: if age >= 18 then "adult" else "young" = "young"
-T
-C learn/decisions.md:L99
+C learn/decisions.md:L58
 E 1
 N 1
 H d2aefc45c598dc902f034fc999791c49b78532d846377d22af00c20b206c535f
@@ -2366,6 +2353,12 @@ T     values:
 T       describe(30)
 T         = "mild"
 T test result: FAILED. 2 passed, 1 failed
+T
+C learn/decisions.md:L9
+E 0
+N 0
+H 9e0daff0129964211741849d85732cb6e83ae96a1c958c48015de96959a68174
+T dbg line 3: if age >= 18 then "adult" else "young" = "young"
 T
 C learn/filter.md:L39
 E 1
@@ -2926,7 +2919,13 @@ N 0
 H 902f4d30a6318ad21ab741f67b38666b0049d410161f1b813e69f49ba1e3897a
 T Hello, Ada!
 T
-C modules-and-imports.md:L545
+C modules-and-imports.md:L528
+E 0
+N 0
+H c059e0adf7079f98201b00fe223ea412bdc2030283353a6c4f1c82e862e00534
+T Total: 59.97
+T
+C modules-and-imports.md:L616
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da
@@ -3079,7 +3078,7 @@ T dbg line 24: port(Some("3000")) = Ok(3000)
 T dbg line 25: port(Some("eighty")) = Err("bad port: eighty")
 T dbg line 26: port(None) = Ok(8080)
 T
-C pattern-matching.md:L671
+C pattern-matching.md:L677
 E 0
 N 0
 H e3596a59b53f5fb18454d031e21258aae34c324a6f493a27d3c55ca5488d3e90

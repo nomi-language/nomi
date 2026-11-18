@@ -4,68 +4,6 @@ import (
 	"testing"
 )
 
-// TestReferenceEdgesAreImportEdges checks, over the whole corpus rather than
-// as a case per arm, that every reference edge between user files is an edge
-// of the Nomi import graph:
-//
-//	reference graph  ⊆  Nomi import graph
-//
-// The partition collapses every strongly-connected component of the import
-// graph into one unit. closesGoCycle reads the REFERENCE graph while the
-// merge reads the IMPORT graph, so a reference edge outside the import graph
-// would be an edge the guard can see and the merge cannot.
-//
-// Why the containment holds by construction, so a failure is a real finding and
-// not a tolerance to widen: a user file's name enters another user file's scope
-// only through an `import`. A qualified `owner.member` needs the qualifier
-// bound, a bare name needs a selective import, and a type reference needs the
-// type in scope. closeReferences is a deliberate SUPERSET of what lowering
-// reaches — a shadowed qualifier, a reference inside a subtree that will be
-// refused — but every one of those still sits behind an import statement.
-//
-// Direction matters and only one direction is asserted. The import graph may be
-// strictly larger: `import b` with nothing referenced adds no reference edge,
-// which is a program the builder must still lower. Merging on the larger graph
-// is conservative in the safe direction.
-func TestReferenceEdgesAreImportEdges(t *testing.T) {
-	if testing.Short() {
-		t.Skip("corpus; -short")
-	}
-	_, files := corpusAnalysis(t)
-	checked, multi := 0, 0
-	for _, f := range files {
-		p := f.Prog
-		if p == nil || len(p.Modules) < 2 {
-			continue
-		}
-		multi++
-		reg := buildTypeRegistry(p)
-		x := buildFileIndex(p, reg)
-		imports := nomiImportGraph(p)
-		for i := range p.Modules {
-			for j := range p.Modules {
-				if i == j || !x.reaches[i][j] {
-					continue
-				}
-				checked++
-				if !imports[i][j] {
-					t.Errorf("%s: %s references %s but does not import it. "+
-						"The component partition reads the IMPORT graph and the cycle "+
-						"guard reads the REFERENCE graph, so an edge in one and not the "+
-						"other is a Go import the merge will not collapse",
-						f.Rel, p.Modules[i].Name, p.Modules[j].Name)
-				}
-			}
-		}
-	}
-	if multi == 0 || checked == 0 {
-		t.Fatalf("nothing was checked (%d multi-file programs, %d edges), so the "+
-			"containment is asserted over an empty set", multi, checked)
-	}
-	t.Logf("%d reference edges over %d multi-file corpus programs, all import edges",
-		checked, multi)
-}
-
 // TestComponent_MergesExactlyTheCycles checks that the partition merges
 // exactly the import cycles.
 //

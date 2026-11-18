@@ -86,8 +86,8 @@ test result: ok. 1 passed, 0 failed
 - Collection literals have no symbol. `[1, 2]` is the List, Vector or Set
   its position expects, and a List where nothing fixes it: with `v:
   Vector<Int>`, `v = [1, 2]` is a vector. `Vector[1, 2]` and `Set[1, 2]`
-  name the collection where nothing expects one. Write a list and a map
-  bare, never `List[...]` or `Map{...}`.
+  name the collection where nothing expects one; `List[...]` and
+  `Map{...}` are errors.
 - A `{` always opens data, never code. Its first entry decides: `name:` is
   a struct, `key =>` a map. `{}` is the empty map, since an anonymous struct
   has at least one field.
@@ -193,8 +193,8 @@ test result: ok. 1 passed, 0 failed
   takes a range subtype.
 - With `n` a `NonNegativeInt`, `n + 1` is a `PositiveInt`, `n - 1` an
   Int. After `if d == 0 then return`, `d` is a `NonZeroInt`, as `/`
-  needs. In `1..=n |> Iter.filter(fn d -> n % d == 0)`, `d` is 1 or more,
-  so `%` takes it too.
+  needs. Each `d` in `1..=n` is 1 or more, so `n % d` compiles.
+  A count (`Iter.take(xs, n)`) is a `NonNegativeInt`.
 - A value converts to wider type arguments through every position that
   only holds them: a `List<Maybe<Int>>` passes where a `List<Display>` is
   expected, and a `Box<Int>` where a `Box<Display>` is when Box's fields

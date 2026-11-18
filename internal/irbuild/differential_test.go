@@ -187,8 +187,7 @@ func ffiPrepare(path string) (*ffirun.Result, error) {
 // test files by path alone, and a preparation failure is usually a property
 // of the run rather than of one comparison: an unusable cache root fails every
 // file at once. So it is recorded and read from TestMain, as other violations
-// no test is in scope for are (corpusSharingViolation,
-// stdlibTestSharingViolation). Callers also return an
+// no test is in scope for are (corpusSharingViolation). Callers also return an
 // observation naming the failure, so the comparison that asked for it fails on
 // its own terms instead of waiting for the end of the run.
 var (

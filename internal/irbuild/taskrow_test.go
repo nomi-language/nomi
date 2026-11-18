@@ -1,13 +1,9 @@
 package irbuild
 
-// The checked mirror for `taskFuncs`' parameter names and arity.
+// The checked mirror for `taskFuncs`' arity.
 //
-// `taskPlacement` reads the names off the row rather than off the stdlib index,
-// because inside std/tasks' own gen the index has no entry for
-// `Task.spawn_all`. A row is a copy of the declaration, so this reads
-// std/tasks.nomi through `std.Load()` and fails if any row's names or arity
-// stop matching it. A std rename is then a red test here rather than a named
-// argument that lands on the wrong slot.
+// A row's arity is a copy of the declaration's, so this reads std/tasks.nomi
+// through `std.Load()` and fails if a row's arity stops matching it.
 
 import (
 	"sort"
@@ -80,27 +76,9 @@ func TestTask_RowShapeMatchesStdSource(t *testing.T) {
 				"does not exist can never be reached.", method)
 			continue
 		}
-		if len(fn.names) != len(want) {
-			t.Errorf("Task.%s: row names %v, std declares %v; the arity disagrees, so a "+
-				"named argument would be placed against the wrong parameter list",
-				method, fn.names, want)
-			continue
-		}
-		for i := range want {
-			if fn.names[i] != want[i] {
-				t.Errorf("Task.%s parameter %d: row says %q, std/tasks.nomi says %q. "+
-					"argSlotPlan places a named argument by NAME, so this is a wrong SLOT "+
-					"rather than a compile error.", method, i, fn.names[i], want[i])
-			}
-		}
 		if fn.args != len(want) {
 			t.Errorf("Task.%s: row arity %d, std declares %d parameter(s)",
 				method, fn.args, len(want))
-		}
-		if len(fn.tags) != len(want) {
-			t.Errorf("Task.%s: row has %d placement tag(s) for %d parameter(s); "+
-				"argSlotPlan reads len(params) as the arity, so a short tag slice "+
-				"silently shrinks the slot space", method, len(fn.tags), len(want))
 		}
 	}
 
@@ -120,10 +98,10 @@ func TestTask_RowShapeMatchesStdSource(t *testing.T) {
 	}
 }
 
-// TestTask_NoTaskParameterCarriesADefault checks the ground `taskCallArgs`
-// stands on when it refuses a non-contiguous slot plan: no `Task.` row has a
+// TestTask_NoTaskParameterCarriesADefault checks the ground `taskSpawnAll`
+// stands on when it rules out a non-contiguous slot plan: no `Task.` row has a
 // defaulted parameter, so a hole is a call no arity spells. The mirror above
-// compares names and arity only, so std adding `max_running: Int = 8` would
+// compares arity only, so std adding `max_running: Int = 8` would
 // leave it green. A defaulted parameter would make a call that omits it legal
 // and this builder would refuse it; the cost is a refusal rather than a wrong
 // answer, so this is a test and not a panic.

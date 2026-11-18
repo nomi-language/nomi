@@ -1,10 +1,5 @@
 package analysis
 
-// ReferenceAt returns the symbol referenced at the given position, or nil.
-func (f *FileAnalysis) ReferenceAt(pos Pos) *Symbol {
-	return f.References[pos]
-}
-
 // DefinitionAt returns the symbol defined at the given position, or nil.
 func (f *FileAnalysis) DefinitionAt(pos Pos) *Symbol {
 	return f.Definitions[pos]

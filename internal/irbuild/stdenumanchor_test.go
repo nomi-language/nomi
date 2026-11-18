@@ -20,7 +20,7 @@ import (
 // A bare variant reference resolving to a USER enum is reachable only through
 // a selective import from a SIBLING FILE, which AnalyzeSource cannot express: a
 // local enum's variant must be qualified, and a qualified one resolves through
-// g.types in lookupVariant and never arrives here. So no single-file program
+// g.types and never arrives here. So no single-file program
 // exercises the rejection path, and the Origin and shape checks need a direct
 // test.
 //

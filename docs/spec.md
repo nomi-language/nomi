@@ -197,7 +197,8 @@ word is for and offers another name.
 `` unexpected 'extern'; runtime-provided declarations use `host`, and Go package handles use `gopkg` ``.
 
 These words have a meaning only where their construct stands, and are
-ordinary names elsewhere: `host` (§19), `open` (§12), `embeds` (§4),
+ordinary names elsewhere: `host`, `gopkg` and `go` (§19), `open` and
+`derive` (§12), `embeds` (§4), `on` and `error` (§9),
 `phrase`, `noun` and `embed` (§18), `concurrent` (§16), and `group`,
 `clock`, `boot`, `setup` and `subtests` (§17), and `todo` (§11).
 
@@ -469,6 +470,12 @@ implement `Display` (§12); `"${Unit}"` is
 followed by `{` is text (`$5`, `$$`), and `$${n}` is a `$` followed by an
 interpolation. `#`, `#{` and braces are text.
 
+A `$name` is text too, so a quoted or triple-quoted string that writes one
+where a value named `name` is in scope (a parameter, a binding or a `once`)
+compiles with the warning `` `$name` is text here, not the value of `name`:
+Nomi interpolates with `${...}`, not `$` ``, whose help is the literal with
+`${name}` in its place; `\u{24}name` writes the same text with no warning.
+
 ```nomi
 fn main()
     name = "Ada"
@@ -613,8 +620,12 @@ the struct a brace literal with no name builds does:
   return value, an element of an enclosing literal, and the other operand
   of `==`, `!=`, `+` and `-`.
 - `Vector[...]` and `Set[...]` name the collection where no position fixes
-  it. `List[...]` and `Map{...}` are allowed and never needed (`[...]` and
-  `{...}` are those already).
+  it. A list literal and a map literal have no name in front, since
+  `[...]` and `{...}` are those already: `List[1, 2]` is the error
+  ``a list literal has no name in front``, with the help ``write `[1, 2]` ``,
+  and `Map{"a" => 1}` and `Map{}` are the error
+  ``a map literal has no name in front``, with the help
+  ``write `{"a" => 1}` `` or ``write `{}` ``.
 
 The first entry of a brace literal says which it is: `name:` opens a struct,
 `key =>` a map, and the entries that follow must agree. `{}` is the empty
@@ -698,18 +709,31 @@ elements: a collection, a `Maybe` (zero or one element), a `Range`, a lazy
 `Iter` chain, or a type with an `impl Iter`. Its elements join in the order
 it hands them out. A spread that is no `Iter` is
 ``list spread `..` requires an Iter of the list's elements, got Int`` (or
-`vector`, `set`), and one of other elements is
-`list spread element type mismatch: Int vs String`.
+`vector`, `set`). An error about a spread is reported at its `..`, in every
+kind of literal.
+
+Where the literal's collection of an element type is expected, the literal
+is that collection, and each spread's elements and each element convert to
+the element type as an element of a literal without spreads does. With
+`vs: Vector<Int>`, `f: Vector<Display> = [..vs, "a"]` is a
+`Vector<Display>`, as `[..xs, "a"]` is a `List<Display>` for a list `xs`
+and `[..ss, "a"]` a `Set<Display>` for a set `ss`.
 
 A bracket literal with no expected type is the collection its first spread
 with a type of its own is, when that is a vector or a set (§3 *Literal
-forms*). A list literal with no expected type takes its element type from
-its first spread whose value has a type of its own (not a literal, and not
-a form that takes its type from its position), and its elements are built
-as that type, as they are under an annotation (§5 *Type argument
-conversion*): with `routes: List<(Route, Handler)>`,
-``[(Route`GET /`, home), ..routes]`` is a `List<(Route, Handler)>` though
-`home` is a `(Request) -> Response`.
+forms*). Its spreads decide its element type, wherever they are written:
+the first spread's element type is the literal's, and each element is
+built as that type, as it is under an annotation (§5 *Type argument
+conversion*). With `xs: List<Int>`, `["s", ..xs]` is
+`list element type mismatch: expected Int, got String` at `"s"`, and a later
+spread of other elements, `[..xs, ..words]` with `words: List<String>`, is
+`list spread element type mismatch: expected Int, got String` at its `..`
+(or `vector`, `set`). An element or later spread of an ancestor of that
+type, or of a subtype that shares one with it, joins with it as the
+nearest shared ancestor (§4 *Chains and conversion*): with
+`ps: List<PositiveInt>` and `n: Int`, `[..ps, n]` is a `List<Int>`. With
+`routes: List<(Route, Handler)>`, ``[(Route`GET /`, home), ..routes]`` is a
+`List<(Route, Handler)>` though `home` is a `(Request) -> Response`.
 
 A map spread is a map. Each spread must be a `Map<K, V>`
 (``map spread `..` requires a map, got Point``), all of one type
@@ -721,11 +745,17 @@ an expected type: `map spread key type mismatch: expected String, got Int`
 from the entries. An entry may repeat a key of a spread; two equal constant
 keys among the literal's own entries are the error of *Repeated keys*.
 
-A vector, set or map literal of one spread of its own type and nothing else
-is that spread: `[..s]` with `s` a set is
-`` a set spread with no elements is its base value; write `s` `` (or
-`vector`, `map ... with no entries`). A lone spread of another `Iter`,
-`Set[..maybe]` or `Vector[..iter]`, builds the collection from it.
+A list, vector, set or map literal of one spread of its own type, or of a
+subtype of it, and nothing else is that spread, since values are immutable
+and the copy is the same value: `[..xs]` with `xs` a list is
+`` a list spread with no elements is its base value; write `xs` `` (or
+`vector`, `set`, `map ... with no entries`). A lone spread the literal
+converts is not one. A lone spread of another `Iter`, `Set[..maybe]` or
+`Vector[..xs]` with `xs` a list, builds the collection from it. So does a
+lone spread whose elements convert to the expected element type,
+`shapes: Vector<Shape> = [..circles]` with `circles: Vector<Circle>`, or
+`ns: List<Int> = [..ps]` with `ps: List<PositiveInt>`, and one of a
+distinct type's inner type, which builds the distinct type.
 
 The spreads are evaluated first, from left to right, then the elements from
 left to right. Each expression runs once.
@@ -1333,7 +1363,11 @@ defining file.
 
 Where no struct type is expected, `{...}` is an anonymous struct. It stays
 anonymous where the expected type is an anonymous struct type, an interface,
-a type parameter or an enum, since none names one struct to build. An
+a type parameter or an enum, since none names one struct to build. Against
+an anonymous struct type, each field's value is checked with that field's
+type expected, as a tuple literal's items are: in
+`r: {b: Byte, v: Vector<Int>, p: Point} = {b: 66, v: [3], p: {x: 2}}` the
+fields are a `Byte`, a `Vector<Int>` and a `Point`. An
 interface takes the anonymous struct when the struct implements it:
 `a: Display = {street: "x", city: "y"}` holds an anonymous struct, which
 has `Display` when each field does (§12), and
@@ -1640,7 +1674,9 @@ declaration. The walk passes through:
 
 - `case` and `if` arm results, block tails and `return` values;
 - bracket, tuple and map literal elements, including the heads before a
-  spread;
+  spread, and the field values of an anonymous struct literal where an
+  anonymous struct type with those fields is expected
+  (`a: {c: Color} = {c: .Green}`);
 - an argument of a generic function or constructor whose type parameter the
   call's return type pins against an outer expected type, the head of a pipe
   into such a call included. The constraint is solved before the argument
@@ -1677,7 +1713,8 @@ positions. So `[Color.Red, .Green]` is a `List<Color>`,
 `[Point{x: 0, y: 0}, {x: 1, y: 2}]` a `List<Point>`, and
 `[Set[1], [2]]` a `List<Set<Int>>`. The earlier element's
 whole type is what a later one is checked against, so the rule reaches into
-nested literals: `[Some(Color.Red), Some(.Green)]` resolves. An element whose
+nested literals: `[Some(Color.Red), Some(.Green)]` and
+`[{c: Color.Red}, {c: .Green}]` resolve. An element whose
 type is still open sets nothing and blocks nothing. A tuple's items are separate
 positions, so `(Color.Red, .Green)` gives `.Green` nothing.
 
@@ -2161,7 +2198,10 @@ from converts to it: with `fn apply<T>(f: (T) -> Int, x: T)`, `count` a
 `(NonNegativeInt) -> Int` and `i` an `Int`, `apply(count, i)` is
 `argument 2: expected NonNegativeInt, got Int`. A later argument that is
 a collection literal widens it the same way: with `n` a `NonNegativeInt`,
-`List.concat([n], [i])` is a `List<Int>`.
+`List.concat([n], [i])` is a `List<Int>`. So does a later argument that
+names the ancestor at a type argument that converts nothing: with `p` a
+`PositiveInt`, `Int.clamp(p, -5..=5)` takes a `ClosedRange<Int>`, solves
+`self` to `Int`, and `p` converts to it.
 
 A subtype's value is its base's at run time: converting up
 costs nothing, and `Debug` and `Display` show the base value (`dbg p`
@@ -2308,15 +2348,15 @@ A value enters a subtype three ways:
   literal elements when its shape proves it holds something: it writes
   an element or an entry, or spreads a value of one of those types (or a
   subtype of one). `[a, b]`, `Vector[f(x)]`, `Set[x]`, `{k => v}`,
-  `[..xs, y]` and `[..ys]` with `ys` a `NonEmptyList` are each one, with
+  `[..xs, y]` and `[..xs, ..ys]` with `ys` a `NonEmptyList` are each one, with
   each element checked against the element type as usual. A literal
   made only of spreads of collections that may be empty, `[..xs]` with
   `xs` a `List`, is the error ``` `[..xs]` may be empty, and a NonEmptyList holds something: none of its spreads is of a non-empty type, and it writes no element ```,
   and an empty one, `[]`, breaks the rule. A subtype declared over one
   of them keeps its own rule, so its literal's elements are literals. A
-  literal headed by a collection's name, `List[...]`, `Vector[...]`,
-  `Set[...]` or `Map{...}`, builds a subtype of that collection where
-  one is expected, as the unnamed literal does.
+  literal headed by a collection's name, `Vector[...]` or `Set[...]`,
+  builds a subtype of that collection where one is expected, as the
+  unnamed literal does.
   A range literal whose endpoints are both literals is one where a subtype
   of `Range` is expected: with `subtype Wide Range<Int> when fn r ->
   Range.contains(r, 0) and Range.contains(r, 5)`, `w: Wide = 0..10` is
@@ -2385,9 +2425,12 @@ from -2^63 to 2^63 - 1. A std
 function whose limit is 64 bits takes one, so `Int64.try_from(n)` checks a
 computed value before the call. A std function whose argument
 would otherwise trap or be ignored takes one: `Int.pow`'s exponent,
-`String.repeat`'s count, `Int.bit_count`'s argument and the digit counts
-of `Int.format` and `Float.format_percent` are `NonNegativeInt`s, so
-`Int.pow(2, -1)` is
+`Int.bit_count`'s argument, a count of elements or characters
+(`Iter.take`, `Iter.drop`, `Iter.combinations`, `String.take`,
+`String.drop`, `String.repeat`), the width of `String.pad_start` and
+`String.pad_end`, and the digit counts of `Int.format`,
+`Float.format_percent` and `Duration.clock` are `NonNegativeInt`s, so
+`Int.pow(2, -1)` and `Iter.take(xs, -1)` are
 ``-1 is not a NonNegativeInt: `fn n -> n >= 0` is false``; a size
 that must hold something is a `PositiveInt` (`Channel.buffered`'s
 capacity, `Reader.read`'s `max`, `Iter.chunks` and `Iter.windows`); and
@@ -2459,7 +2502,13 @@ A range comes from:
   between 0 and `a`, so `n / 2` of a non-negative `n` is non-negative;
   by a `b` below zero, between 0 and `-a`. An Int's `a % b`, which takes
   `a`'s sign: between 0 and `a`, and smaller in size than the largest
-  `b` can be when `b` is bounded;
+  `b` can be when `b` is bounded. `Int.modulo(a, b)`, which takes `b`'s
+  sign: from 0 to below the highest `b` can be when `b` is above zero,
+  so `Int.modulo(n, 26)` is 0 to 25 and `Int.modulo(n, p)` with `p` a
+  `PositiveInt` is a `NonNegativeInt`, and from above the lowest `b` can
+  be to 0 when `b` is below zero. `Int.floor_div(a, b)`: as `a / b`, and
+  below zero when `a` and `b` differ in sign. An operator's function has
+  the operator's range: `Int.remainder(a, b)` is `a % b`'s;
 - the branches of an `if` with an `else` or of a `case`, and a block's
   last expression: every value a branch that finishes can have;
 - `Int.abs`, `Decimal.abs` and `Duration.abs`: the absolute values of the
@@ -2467,7 +2516,11 @@ A range comes from:
   is 0, the power when both are one value and it is small enough to work
   out (`Int.pow(2, 63) - 1` is 2^63 - 1), else positive, non-negative or
   off zero as `b` is; `Int.sqrt(n)`: the roots of `n`'s ends;
-  `Int.to_decimal(n)`: `n`'s range; `Duration.as_nanos(d)`: `d`'s range;
+  `Int.sign(n)` and `Decimal.sign(d)`: the signs of the argument's ends,
+  so the sign of a positive value is 1;
+  `Int.to_decimal(n)`: `n`'s range; `Duration.as_nanos(d)`: `d`'s range,
+  and `Duration.as_micros`, `as_millis`, `as_seconds`, `as_minutes` and
+  `as_hours`: its quotient by the unit;
   `Duration.nanoseconds`,
   `microseconds`, `milliseconds`, `seconds`, `minutes` and `hours`: the
   argument's range in nanoseconds, so `Duration.minutes(p)` with `p` a
@@ -2476,7 +2529,11 @@ A range comes from:
   non-empty subtype: positive; `Int.max(a, b)`, `Decimal.max` and
   `Duration.max`: at least the higher of the arguments' lowest values
   and at most the higher of their highest, and `min` the other way
-  round, so `Int.max(1, n)` is a `PositiveInt`;
+  round, so `Int.max(1, n)` is a `PositiveInt`; `Int.clamp(v, a..=b)`,
+  `Decimal.clamp` and `Duration.clamp` of a range written in the call,
+  `a..=b` or `Range.from(a)`: the smaller of `b` and the larger of `v`
+  and `a`, so `Int.clamp(n, 0..=9)` is 0 to 9 and a `NonNegativeInt`. A
+  range bound to a name first gives the result its type's range;
 - an element a std `Iter` function passes to a callback (below).
 
 Anything else, a Decimal's `/` and `%` and the bitwise operators among
@@ -2516,7 +2573,11 @@ that receives one: the element of `Iter.map`, `filter`, `reject`,
 `chunk_by`, `sort_by` and `sort_with`, and the item of `reduce`, `scan`,
 `try_reduce` and `map_reduce`. The parameter keeps its type, an `Int`
 here, and converts where its range proves a subtype, as a binding with
-no type written does. The elements with a range are those of:
+no type written does. A function passed by name is the same callback:
+with `fn verse(day: PositiveInt) -> String`, `1..=n |> Iter.map(verse)`
+is accepted as `Iter.map(&verse(&1))` and `Iter.map(fn d -> verse(d))`
+are, since every element is 1 or more. The elements with a range are
+those of:
 
 - a range literal of Ints: `a..=b` from the lowest value `a`'s range
   holds to the highest `b`'s, and `a..b` below that, so every element of
@@ -4415,7 +4476,10 @@ the nearest function or lambda with `value`, and a bare `return` leaves a
 written in; there is no non-local exit and there are no exceptions (§13). A
 `?` inside a lambda returns from the lambda (§11). A `return` inside a nested
 function, a lambda or a `concurrent` block belongs to that inner boundary.
-A tail `return value` is legal.
+A tail `return value` is legal. A body whose last statement always
+evaluates an operand that returns in every path needs no result after it:
+`defer close(if c then return 1 else return 2)` may end a function that
+returns an `Int`.
 
 A bare `return` the body would reach its end without is an error: one that
 is the last statement of a function, lambda or test body, reached through
@@ -4439,7 +4503,16 @@ is:
 - a block that holds one (`unreachable code: the block above always returns`);
 - an `Iter.loop` statement whose callback holds no `break` of its own
   (``unreachable code after a loop that never breaks``, with the help
-  "remove it, or give the loop a `break` that ends it"; §13).
+  "remove it, or give the loop a `break` that ends it"; §13);
+- any other statement that always evaluates an operand that is one of
+  these: a call's argument, a binding's value, a `defer` call's argument
+  (`unreachable code: the statement above always returns`). After
+  `defer close(if c then return 1 else return 2)` nothing runs, and nothing
+  runs after `x = Iter.loop(0, fn n -> n + 1)` (`unreachable code: the
+  statement above always loops forever`). The right side of `and` or `or`,
+  an arm and a lambda's body are evaluated only sometimes, and are not such
+  operands. Nor is an `unreachable` that is an operand: code after
+  `x: Int = unreachable "..."` stays legal.
 
 A `todo` is `Unit` and does not exit, so code after a stub stays legal, and
 no other call counts as an exit. When the branches of an `if` or `case` all
@@ -4751,8 +4824,8 @@ over 64 bits (a hash, a checksum). `derive Hashable` mixes with them.
 Where a value must fit a machine integer, the boundary says so:
 
 - An index, a count or a size past 64 bits reads as past any collection:
-  `Iter.get(xs, Int.pow(10, 30))` is `None`, `Iter.take(xs, Int.pow(10, 30))`
-  takes all of `xs`, and `Vector.get(v, Int.pow(10, 30))!` traps as any index
+  `Iter.get(xs, Int.pow(10, 30))` is `None`, `Iter.take(xs, n)` with `n`
+  past 64 bits takes all of `xs`, and `Vector.get(v, Int.pow(10, 30))!` traps as any index
   out of range does.
 - A Go function bound with `go` (§19) that takes `int64`, `int` or a narrower
   integer declares a parameter type whose every value it holds: `Int64`, or
@@ -7240,6 +7313,41 @@ end
 - A Nomi-bodied default may give its trailing parameters default values
   (`fn announce(value: self, loud: Bool = False) -> String`). A required
   or host-backed function may not.
+- A call that leaves a defaulted parameter out takes the default of the
+  function that runs: the impl's, when its function declares one for that
+  parameter, otherwise the interface's. That holds however the call is
+  written: on the type, interface-qualified, through a type parameter, or on
+  an interface value, where the impl, and with it the default, is chosen
+  when the call runs. Which parameters a call may leave out is the
+  declaration it names: `Circle.area(c)` needs a default on Circle's
+  function, `Shape.area(s)` one on the interface's.
+
+```nomi
+interface Shape
+    open fn area(_value: self, scale: Int = 1) -> Int
+        scale
+    end
+end
+
+struct Circle
+    r: Int
+end
+
+impl Shape for Circle
+    fn area(c: Circle, scale: Int = c.r * 10) -> Int
+        c.r * scale
+    end
+end
+
+struct Dot end
+
+impl Shape for Dot end
+
+fn main()
+    shapes: List<Shape> = [Circle{r: 2}, Dot{}]
+    dbg shapes |> Iter.map(&Shape.area(&1)) |> Iter.to_list() // [40, 1]
+end
+```
 - An operation with no `self` that belongs with the interface goes in an
   inherent `impl Iface` block beside it and is called owner-qualified
   (`Iter.from(0)`).
@@ -8549,7 +8657,9 @@ end
   `break` inside a nested lambda or `fn` belongs to that callback) never
   finishes: only a trap, its task's cancellation or the end of the process
   stops it. A statement after it is the error `unreachable code after a loop
-  that never breaks`. A binding of it is accepted, and nothing after it runs.
+  that never breaks`, and a statement after one that always evaluates it,
+  such as a binding of it, is unreachable too (§7 *Returning*). As a body's
+  last statement it is legal: a server's main loop.
 - Each round is a safe point (§16), and the loop runs in constant stack space
   (§7 *Tail-call optimization*).
 
@@ -8844,7 +8954,7 @@ A name is in scope only through an import, so a std type or module used without 
 
 #### Unused imports are errors
 
-An imported item that nothing in the file uses is an error. There are no warnings in Nomi. The unit is the item: in `import std::calendar.{Days, Months}` with `Months` unused, the error is at `Months`, `imported name 'Months' is unused — remove it from the import`. An unused file import is `imported module 'io' is unused — remove the import`, and an unused directory import `imported directory 'admin' is unused — remove the import`.
+An imported item that nothing in the file uses is an error, not a warning. Nomi warns only where a program is legal and probably not what its writer meant: an `embed` pattern with a missing base, and `$name` in a string where a value `name` is in scope (§3 *String Literals*). The unit is the item: in `import std::calendar.{Days, Months}` with `Months` unused, the error is at `Months`, `imported name 'Months' is unused — remove it from the import`. An unused file import is `imported module 'io' is unused — remove the import`, and an unused directory import `imported directory 'admin' is unused — remove the import`.
 
 - An aliased item is used through its alias.
 - `self` in a brace list is its own item, used when the name it binds is used.

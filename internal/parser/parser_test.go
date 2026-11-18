@@ -6265,12 +6265,9 @@ end
 	if len(nodes) != 2 {
 		t.Fatalf("expected host type + impl block, got %d nodes", len(nodes))
 	}
-	ext, ok := nodes[0].(*ast.ExternType)
+	_, ok := nodes[0].(*ast.ExternType)
 	if !ok {
 		t.Fatalf("expected ExternType, got %T", nodes[0])
-	}
-	if len(ext.Items) != 0 {
-		t.Fatalf("expected no host type items, got %d", len(ext.Items))
 	}
 	impl, ok := nodes[1].(*ast.ImplBlock)
 	if !ok {
@@ -6692,9 +6689,6 @@ end
 	if len(sd.Fields) != 2 {
 		t.Fatalf("expected 2 fields, got %d", len(sd.Fields))
 	}
-	if len(sd.Items) != 0 {
-		t.Fatalf("expected no struct body items, got %d", len(sd.Items))
-	}
 	nodes := parse(t, src)
 	derive, ok := nodes[1].(*ast.ImplConformance)
 	if !ok || !derive.Derive || derive.Interface.TypeString() != "Equatable" || derive.Receiver.TypeString() != "Point" {
@@ -6722,12 +6716,9 @@ end
 
 `
 	nodes := parse(t, src)
-	et, ok := nodes[0].(*ast.ExternType)
+	_, ok := nodes[0].(*ast.ExternType)
 	if !ok {
 		t.Fatalf("expected *ast.ExternType, got %T", nodes[0])
-	}
-	if len(et.Items) != 0 {
-		t.Fatalf("expected no host type body items, got %d", len(et.Items))
 	}
 	block, ok := nodes[1].(*ast.ImplBlock)
 	if !ok || block.Interface.TypeString() != "iter" || len(block.Items) != 1 {
@@ -7197,7 +7188,7 @@ impl Debug for Point end
 	if !ok {
 		t.Fatalf("expected function item, got %T", block.Items[0])
 	}
-	if fn.Name != "to_string" || fn.ImplFunction || fn.ImplIface != nil || fn.ImplIfaceSourceQualified {
+	if fn.Name != "to_string" || fn.ImplIface != nil {
 		t.Fatalf("expected plain to_string function, got %+v", fn)
 	}
 }

@@ -115,8 +115,8 @@ func CyclicOnceText(name string) string {
 	return "cyclic 'once' binding: '" + name + "' depends on itself"
 }
 
-// OnceCell is one `once` binding's storage. Generated code declares one
-// package-level cell per binding and reads it only through Get.
+// OnceCell is one `once` binding's storage. The VM makes one cell per
+// binding and reads it only through Get.
 type OnceCell[T any] struct {
 	id   onceID
 	mu   sync.Mutex

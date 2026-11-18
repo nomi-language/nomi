@@ -102,10 +102,8 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 		// does not, and this says why.
 		msg += ": values of different types have no order"
 	}
-	for _, e := range c.errors {
-		if e.Line == pos.Line && e.Col == pos.Col && e.Message == msg {
-			return
-		}
+	if c.alreadyReported(pos.Line, pos.Col, msg) {
+		return
 	}
 	help := c.existentialDemandHelp(it, ifaceName, param, rec.Kind == RecordingKindOrderingOperator || rec.Kind == RecordingKindOperator || ifaceName == "Comparable")
 	if rec.Kind == RecordingKindTypedLiteralSlot {
@@ -295,13 +293,25 @@ func (c *checker) checkExistentialSelfCall(fa *ast.FieldAccess, iface *Interface
 	c.reportOnce(line, col, msg, help)
 }
 
+// alreadyReported reports whether the checker holds the error msg at
+// line:col. One site can reach the same demand twice (an operator and the
+// container impl it reaches), and the second report is the first again:
+// the same builder wrote both messages, so this compares an error with
+// itself and names no wording.
+func (c *checker) alreadyReported(line, col int, msg string) bool {
+	for _, e := range c.errors {
+		if e.Line == line && e.Col == col && e.Message == msg {
+			return true
+		}
+	}
+	return false
+}
+
 // reportOnce reports msg with hint at line:col unless the same message is
 // already reported there.
 func (c *checker) reportOnce(line, col int, msg, hint string) {
-	for _, e := range c.errors {
-		if e.Line == line && e.Col == col && e.Message == msg {
-			return
-		}
+	if c.alreadyReported(line, col, msg) {
+		return
 	}
 	c.report(TypeError{Line: line, Col: col, Message: msg}.WithHint(hint))
 }

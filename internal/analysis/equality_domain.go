@@ -226,7 +226,7 @@ func (c *checker) rejectKeyWithoutEquality(node ast.Node, ty Type) Type {
 	default:
 		return ty
 	}
-	coll, key, part, ok := c.keyWithoutEquality(ty, map[Type]bool{})
+	coll, key, part, ok := c.keyWithoutEquality(ty)
 	if !ok {
 		return ty
 	}
@@ -267,45 +267,33 @@ func (c *checker) keyWithoutEqualityMessage(coll, key, part Type) string {
 // keyWithoutEquality answers the first Set or Map within t whose element or
 // key has no equality: the collection, its element or key, and the part of
 // that with no equality.
-func (c *checker) keyWithoutEquality(t Type, seen map[Type]bool) (coll, key, part Type, ok bool) {
-	t = resolveTypeVar(t)
-	if t == nil || seen[t] {
-		return nil, nil, nil, false
-	}
-	seen[t] = true
-	var inner []Type
-	switch ty := t.(type) {
-	case *MapType:
-		if p, bad := c.noEqualityPart(ty.Key, map[Type]bool{}); bad {
-			return ty, resolveTypeVar(ty.Key), p, true
+func (c *checker) keyWithoutEquality(t Type) (coll, key, part Type, ok bool) {
+	walkType(t, func(p Type) bool {
+		if ok {
+			return false
 		}
-		inner = []Type{ty.Key, ty.Val}
-	case *StructType:
-		if isStdSetType(ty) && len(ty.TypeArgs) == 1 {
-			if p, bad := c.noEqualityPart(ty.TypeArgs[0], map[Type]bool{}); bad {
-				return ty, resolveTypeVar(ty.TypeArgs[0]), p, true
+		var k Type
+		switch ty := p.(type) {
+		case *FuncType, *InterfaceType, *ConjunctionType:
+			// A function and a value held as an interface have built no
+			// collection their types name: the node that builds one is
+			// where it is reported (rejectKeyWithoutEquality).
+			return false
+		case *MapType:
+			k = ty.Key
+		case *StructType:
+			if isStdSetType(ty) && len(ty.TypeArgs) == 1 {
+				k = ty.TypeArgs[0]
 			}
 		}
-		inner = ty.TypeArgs
-	case *EnumType:
-		inner = ty.TypeArgs
-	case *DistinctType:
-		inner = ty.TypeArgs
-	case *ListType:
-		inner = []Type{ty.Elem}
-	case *TupleType:
-		inner = ty.Elems
-	case *AnonStructType:
-		for _, f := range ty.Fields {
-			inner = append(inner, f.Type)
+		if k != nil {
+			if without, bad := c.noEqualityPart(k, map[Type]bool{}); bad {
+				coll, key, part, ok = p, resolveTypeVar(k), without, true
+			}
 		}
-	}
-	for _, it := range inner {
-		if coll, key, part, ok := c.keyWithoutEquality(it, seen); ok {
-			return coll, key, part, true
-		}
-	}
-	return nil, nil, nil, false
+		return !ok
+	})
+	return coll, key, part, ok
 }
 
 // isStdSetType reports whether t is std's `Set<T>`. A program may declare its

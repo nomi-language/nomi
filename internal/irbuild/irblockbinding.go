@@ -19,11 +19,7 @@ import (
 func (bl *irScalarBuilder) blockValue(block *ast.Block, want kind) (ir.Temp, kind, bool, bool) {
 	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
-	lead, tail := bl.g.irScalarBlock(block, "")
-	if tail == nil {
-		bl.g.dc.note(bl.g.dc.bodyWhy)
-		return ir.NoTemp, kindInvalid, false, false
-	}
+	lead, tail := bl.g.irScalarBlock(block)
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
@@ -41,11 +37,6 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block, want kind) (ir.Temp, kin
 		val, k, _, ok = bl.lower(tail)
 	} else {
 		val, k, _, ok = bl.lowerTypedOperand(tail, want)
-		if ok && k != want && untypedLiteral(k) {
-			// An empty literal takes the expected type where it sits; it
-			// has no effect, so typing it here moves nothing.
-			val, k, ok = bl.coerceEmpty(tail, val, k, want)
-		}
 	}
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
@@ -63,11 +54,7 @@ func (bl *irScalarBuilder) blockValue(block *ast.Block, want kind) (ir.Temp, kin
 func (bl *irScalarBuilder) blockBinding(block *ast.Block, want kind) (kind, bool) {
 	defer bl.keepOpenDefers()()
 	defer bl.g.enterBlockTypes(block)()
-	lead, tail := bl.g.irScalarBlock(block, "")
-	if tail == nil {
-		bl.g.dc.note(bl.g.dc.bodyWhy)
-		return kindInvalid, false
-	}
+	lead, tail := bl.g.irScalarBlock(block)
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()

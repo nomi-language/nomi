@@ -55,8 +55,8 @@ it gives back a `Maybe`: `Some(age)` or `None`.
 Delete the `None` line. Nomi won't run the program, and says the `case` is
 missing `None`. Every program gets that check, before any of it runs.
 
-The examples on this site run in your browser, and run again as you edit
-them.
+You can edit most examples on this site. Change one and it runs in your
+browser.
 
 </div>
 

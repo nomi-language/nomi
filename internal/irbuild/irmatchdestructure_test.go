@@ -22,9 +22,8 @@ import (
 // EXPRESSION, which the parser always gives a line. A pattern is a different
 // grammar: `*ast.WildcardPattern`, `*ast.IdentPattern`, `*ast.EnumPattern`,
 // `*ast.StructPattern`, `*ast.TuplePattern`, `*ast.ListPattern` and
-// `*ast.MapPattern` all carry their own Line and Col, and `structDestructure`
-// SYNTHESIZES an `*ast.StructPattern` from a statement's fields — so this
-// counts every one of them instead of assuming the parser filled them in.
+// `*ast.MapPattern` all carry their own Line and Col, so this counts every
+// one of them instead of assuming the parser filled them in.
 //
 // A SUPERSET of the sites the builder reaches, for logicNodesUnder's reason:
 // the claim is about the trees, and a claim about the trees stays true when
@@ -94,7 +93,7 @@ func TestIRMatchDestructure_EveryPatternSiteHasAPosition(t *testing.T) {
 
 // patternNodesUnder collects every pattern node reachable from root.
 //
-// The seven are the ones `matchArm` and `destructure` dispatch on. A literal
+// The seven are the ones a `case` arm and `destructure` dispatch on. A literal
 // in pattern position is an `*ast.IntLit` / `*ast.StringLit` /
 // `*ast.FloatLit` / `*ast.DecimalLit` and is not here, because those are
 // expression nodes and a walk cannot tell the two positions apart — their

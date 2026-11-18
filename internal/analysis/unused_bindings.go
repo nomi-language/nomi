@@ -93,12 +93,17 @@ func CheckUnusedBindings(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 		if kind == "parameter" {
 			hint = "read it in the body, or prefix it with '_' if the function does not need it"
 		}
-		errs = append(errs, TypeError{
+		e := TypeError{
 			Line:    sym.Pos.Line,
 			Col:     sym.Pos.Col,
 			Message: fmt.Sprintf("%s '%s' is never read", kind, sym.Name),
 			Code:    UnusedBindingCode,
-		}.WithHint(hint))
+		}
+		if fa.dollarReads[sym] {
+			// The only use is a `$name` in a string, which is text.
+			e = e.WithHint(fmt.Sprintf("`$%s` in a string is text and reads nothing: Nomi interpolates with `${%s}`", sym.Name, sym.Name))
+		}
+		errs = append(errs, e.WithHint(hint))
 	}
 	// Definitions is a map; report in source order so the output is stable.
 	sort.Slice(errs, func(i, j int) bool {

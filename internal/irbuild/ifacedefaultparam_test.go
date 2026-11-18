@@ -158,3 +158,36 @@ end
 		verifyLambdaProgram(t, "import std::io\n\n"+shape+"\n"+impls+"\n"+withShow, want+"shape 1\nshape 0\n")
 	})
 }
+
+// A call of an interface function on an erased receiver whose trailing
+// callback goes past a defaulted parameter: the callback fills the last
+// slot, as it does at every other call (spec §7 *Lambdas at Call Sites*),
+// and the parameter before it takes its default. The erased route used to
+// copy the written operands into the leading slots, so the callback landed
+// in `scale` and the build stopped with an internal error.
+func TestIfaceDefault_ErasedReceiverCallbackPastADefault(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+interface Applier
+    open fn apply(_value: self, x: Int, scale: Int = 1, f: (Int) -> Int) -> Int
+        f(x * scale)
+    end
+end
+
+struct A
+end
+
+impl Applier for A end
+
+fn erased(v: Applier) -> Int
+    Applier.apply(v, 5, fn n -> n + 1)
+end
+
+fn main()
+    v: Applier = A{}
+    io.print("${Applier.apply(v, 5, fn n -> n + 1)}")
+    io.print("${Applier.apply(v, 5, scale: 2, fn n -> n + 1)}")
+    io.print("${erased(A{})}")
+end
+`, "6\n11\n6\n")
+}

@@ -40,7 +40,7 @@ func dumpErrors(b *strings.Builder, prefix string, errs []TypeError, path func(s
 			fmt.Fprintf(b, " (in %s)", path(e.File))
 		}
 		if e.Code != "" {
-			fmt.Fprintf(b, " [%s]", e.Code)
+			fmt.Fprintf(b, " [%s]", strings.Join(append([]string{e.Code}, e.Args...), " "))
 		}
 		b.WriteByte('\n')
 		for _, h := range e.Hints {
@@ -155,9 +155,6 @@ func dumpFile(fa *FileAnalysis, errs []TypeError, root string, unused func(*Impl
 		}
 		file, _ := fa.Program().ImplMethodFile(op.Method)
 		lines = append(lines, fmt.Sprintf("operator %s %s = %s<%s> for %s at %q %d:%d derived %v", at(n), n.Op, op.Interface, strings.Join(args, ", "), typ(op.Receiver), file, l, c, op.Derived()))
-	}
-	for n, t := range fa.LambdaPatternTypes {
-		lines = append(lines, fmt.Sprintf("lambda pattern %s = %s", at(n), typ(t)))
 	}
 	for n, t := range fa.SubtestsRowTypes {
 		lines = append(lines, fmt.Sprintf("subtests %s = %s", at(n), typ(t)))

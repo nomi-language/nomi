@@ -43,7 +43,7 @@ func TestStdModuleView_PopulatesNodes(t *testing.T) {
 			t.Fatalf("std/%s: the gen carries %d nodes, the module has %d — every `g.nodes` reader in "+
 				"this package (declaresIterImpl, appImplNames, declaresBoot, templateWall, the "+
 				"generic-impl template collection, collectHostPkgs, declareOnces, typeParamNames, "+
-				"nestedTypeKeys, tail.go's graph) answers about the wrong tree for this module",
+				"nestedTypeKeys) answers about the wrong tree for this module",
 				name, len(g.nodes), len(nodes))
 		}
 		if len(nodes) > 0 && g.nodes[0] != nodes[0] {

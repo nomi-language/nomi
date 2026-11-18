@@ -16,7 +16,7 @@ import (
 // SameMeaning reports how formatted, the formatter's output for src, means
 // something other than src, or nil when it does not. formatted must parse,
 // and its syntax tree must equal src's once src's is put in the order Format
-// writes it in (imports combined and sorted, type body items ordered, a body
+// writes it in (imports combined and sorted, a body
 // that is one block flattened, a tail `return` dropped, a parameter's
 // self-typing annotation dropped), and an arm's body that is a block of one
 // expression, jump or assertion is that node in both (unwrapArmBodies).
@@ -38,7 +38,7 @@ func SameMeaning(src, formatted string) error {
 	orig = normalizeImportLayout(orig)
 	normalizeBodies(orig)
 	stripSelfTypingAnnotations(orig)
-	orig = canonicalTypeBodies(collapseSingleEntryBlocks(orig))
+	orig = collapseSingleEntryBlocks(orig)
 	out, err := parser.Parse(lexer.Lex(formatted))
 	if err != nil {
 		return fmt.Errorf("the formatted text does not parse: %v", err)
@@ -131,35 +131,6 @@ func comments(src string) []comment {
 	return out
 }
 
-// canonicalTypeBodies orders each top-level type's body items as the
-// formatter writes them.
-func canonicalTypeBodies(nodes []ast.Node) []ast.Node {
-	for _, n := range nodes {
-		canonicalTypeBody(n)
-	}
-	return nodes
-}
-
-func canonicalTypeBody(n ast.Node) {
-	order := func(items []ast.Node) []ast.Node {
-		items = orderTypeBodyItems(items)
-		for _, item := range items {
-			canonicalTypeBody(item)
-		}
-		return items
-	}
-	switch v := n.(type) {
-	case *ast.StructDef:
-		v.Items = order(v.Items)
-	case *ast.EnumDef:
-		v.Items = order(v.Items)
-	case *ast.TypeDef:
-		v.Items = order(v.Items)
-	case *ast.ExternType:
-		v.Items = order(v.Items)
-	}
-}
-
 // astSkipFields are the struct fields SameMeaning does not compare, beside
 // every ast.Trivia and []ast.Trivia field: source positions and doc text (whose text
 // changedComments compares instead).
@@ -176,9 +147,6 @@ var astSkipFields = map[string]bool{
 	"Braced": true,
 	// Doc-comment text attached to declarations.
 	"Doc": true,
-	// An empty `{}` body on an ExternType or TypeDef is no body; the
-	// formatter drops the braces. A body with items compares by its Items.
-	"HasBody": true,
 	// An `if` written inline or across lines with `end`: the same branches.
 	"Inline": true,
 }
@@ -472,6 +440,11 @@ func equalAST(a, b reflect.Value, path string) (string, bool) {
 			// A positional struct literal value's Source is its text as
 			// written, for an error message; its Value holds what it means.
 			if t == reflect.TypeOf(ast.StructFieldVal{}) && name == "Source" {
+				continue
+			}
+			// A string literal's Source is its text as written, for a
+			// warning's help; its Value and Parts hold what it means.
+			if (t == reflect.TypeOf(ast.StringLit{}) || t == reflect.TypeOf(ast.StringInterp{})) && name == "Source" {
 				continue
 			}
 			if t == reflect.TypeOf(ast.Param{}) && name == "Name" &&

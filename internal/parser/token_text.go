@@ -78,7 +78,7 @@ func endsOperand(tt token.TokenType) bool {
 		token.RAW_STRING_LITERAL, token.RAW_TRIPLE_STRING_LITERAL,
 		token.TAGGED_STRING_LITERAL, token.TAGGED_TRIPLE_STRING_LITERAL,
 		token.RAW_TAGGED_STRING_LITERAL, token.RAW_TAGGED_TRIPLE_STRING_LITERAL,
-		token.IDENT, token.TYPE_IDENT, token.PLACEHOLDER, token.IT, token.SELF,
+		token.IDENT, token.TYPE_IDENT, token.PLACEHOLDER, token.SELF,
 		token.RPAREN, token.RBRACKET, token.RBRACE:
 		return true
 	}

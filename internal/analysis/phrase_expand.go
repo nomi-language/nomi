@@ -3,7 +3,6 @@ package analysis
 import (
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -328,11 +327,4 @@ func phraseWrapper(p ast.Param, u *mf2.Use) string {
 		return "variant"
 	}
 	return "localized"
-}
-
-// sortedLocales is ls sorted, for a stable order of diagnostics.
-func sortedLocales(ls []string) []string {
-	out := append([]string(nil), ls...)
-	sort.Strings(out)
-	return out
 }

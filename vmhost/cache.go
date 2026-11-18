@@ -28,7 +28,8 @@ import (
 //
 // Only a program that checks and lowers cleanly is kept: no diagnostic, no
 // warning, no body the builder declined, and nothing its main, boot or test cases reach
-// that a machine could not run. So a hit says the program checks, and a
+// that a machine could not run or its nomi.toml's [capabilities] lists do
+// not allow. So a hit says the program checks, and a
 // program a hit runs reports nothing a fresh load would have reported
 // differently. A program with Go bindings is never kept; its wrapper builds
 // it.
@@ -187,10 +188,11 @@ func WithCache(c *Cache) Option {
 
 // cacheable reports whether a program loaded with c is the program its files
 // on disk make, which is all the cache knows of: no host tables, virtual
-// files, manifest or root, and no REPL session.
+// files, manifest or root, no REPL session, and no host's list of
+// capabilities, which a load holds the program to.
 func (c *config) cacheable() bool {
 	return len(c.hosts) == 0 && c.virtualFiles == nil && c.virtualData == nil && c.manifest == nil &&
-		c.projectRoot == "" && c.session == nil && !c.allowUnusedBindings
+		c.projectRoot == "" && c.session == nil && !c.allowUnusedBindings && !c.held
 }
 
 // keep writes p to its load's cache, when it has one and p is clean.
@@ -205,8 +207,14 @@ func (p *Program) keep(checked bool) {
 	if (!checked && p.Unsupported() != nil) || !p.runsClean() {
 		return
 	}
+	// A kept program is one `nomi check` passes, so a hit reads as one:
+	// one its nomi.toml's [capabilities] lists refuse is not kept. The
+	// record holds nomi.toml, so an edit to the lists misses it.
+	if !checked && p.capabilityError(p.checkedRoots()...) != nil {
+		return
+	}
 	// A program with warnings is not kept, so each run reports them, and
-	// the pattern's base appearing is a change like any other.
+	// an `embed` pattern's base appearing is a change like any other.
 	if len(p.Warnings()) > 0 {
 		return
 	}

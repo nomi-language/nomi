@@ -1,12 +1,9 @@
 package irbuild
 
 import (
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
-
-	"github.com/nomi-language/nomi/rt"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -20,7 +17,8 @@ import (
 //
 // Both are LEAVES. Neither has a field, a variant or an inner type this builder
 // can look inside, so neither needs a layout, a component graph or a projection
-// — the whole of each def is a Go type name in rt. They differ in ARITY and in
+// — the whole of each def is its name and its type arguments. They differ in
+// arity and in
 // the declaration node they are anchored against, and in nothing else: a marker
 // is a zero-parameter leaf and `Sender<T>` is a one-parameter leaf, so the
 // second needs the process-wide instance interning stdgenstruct.go states and
@@ -54,21 +52,13 @@ import (
 // match ANY origin in `sameNominalIdentity`, making two unrelated modules'
 // same-named generic host types one type to the checker.
 //
-// Anchoring on a name plus a shape instead would redirect a user's own
-// `pub host type Sender<T>` to `rt.Sender`: the builder has NO declaration
+// Anchoring on a name plus a shape instead would treat a user's own
+// `pub host type Sender<T>` as std's: the builder has NO declaration
 // path for `*ast.ExternType`, so `g.types["Sender"]` is never populated and
 // nothing downstream would catch it.
 //
 // The non-generic half of that arm is a `*PrimitiveType`, stamped with its
 // Origin unless it is a built-in singleton; see buildExternTypeShell.
-//
-// # The Go types are in rt, for the reason every family above gives
-//
-// A `*typeDef` reached from two generated packages must render to the same Go
-// type text in both, so `Sender<Int>` cannot be a per-package generated type.
-// See rt/channel.go, and note the one thing that file adds beyond a name: the
-// two halves are two GO types over one runtime object, so a wrong-direction
-// lowering is a Go compile error rather than a wrong answer.
 //
 // # SIBLING LOOKUPS: every arm, enumerated
 //
@@ -97,16 +87,12 @@ import (
 // --- a GENERIC stdlib `pub host type` ---------------------------------------
 
 // stdGenHostSpec is one generic stdlib host type: what this builder believes
-// std declares, and how rt spells it.
+// std declares.
 type stdGenHostSpec struct {
 	// origin is the declaring file's build key, the analyzer's own identity
 	// half; nomi is the other half. See analysis.DistinctType.Origin.
 	origin string
 	nomi   string
-	// rtType is the Go generic type in rt, WITHOUT its type arguments —
-	// stdGenStructSpec.rtType's form, and a string for its reason: a
-	// reflect.Type cannot name an uninstantiated generic.
-	rtType string
 	// params are the declared type parameter names, in declaration order.
 	params []string
 	// bounds is the `where` clause the DECLARATION must carry, one entry per
@@ -137,46 +123,40 @@ type stdGenHostSpec struct {
 // three-clause identity every row here does — and unlike the channel halves it has
 // an OPERATION surface, which vectors.go supplies against `rt.Vector[T]`.
 var stdGenHostSpecs = []stdGenHostSpec{
-	{origin: "std/channels", nomi: "Sender", rtType: "rt.Sender", params: []string{"T"}},
-	{origin: "std/channels", nomi: "Receiver", rtType: "rt.Receiver", params: []string{"T"}},
+	{origin: "std/channels", nomi: "Sender", params: []string{"T"}},
+	{origin: "std/channels", nomi: "Receiver", params: []string{"T"}},
 	// `Arm<R>` is one case of `Channel.select` with its handler; R is the
 	// handler's result, the select's own.
-	{origin: "std/channels", nomi: "Arm", rtType: "rt.Arm", params: []string{"R"}},
-	{origin: "std/vectors", nomi: "Vector", rtType: "rt.Vector", params: []string{"T"}},
+	{origin: "std/channels", nomi: "Arm", params: []string{"R"}},
+	{origin: "std/vectors", nomi: "Vector", params: []string{"T"}},
 	// `Task<T>` is the fourth row and the second that is not a channel half.
 	// A `pub host type Task<T>` with no bound, so it satisfies the same
-	// three-clause identity every row here does. Its OPERATION surface is
-	// concurrent.go's, against `rt.Task[T]` — which is a one-field struct over
-	// an unexported pointer for `Sender[T]`'s reason: the value is copyable, so
-	// the Go type this row names needs no `*` at any position, and the state
-	// stays unreachable from a generated package.
-	{origin: "std/tasks", nomi: "Task", rtType: "rt.Task", params: []string{"T"}},
+	// three-clause identity every row here does. Its operation surface is
+	// concurrent.go's, over `rt.Task[T]`.
+	{origin: "std/tasks", nomi: "Task", params: []string{"T"}},
 	// `Type<T>` is the fifth row and the only one whose type parameter is
 	// PHANTOM: `rt.Type[T]` is one `*rt.TypeID` whatever T is, where every row
 	// above stores a T. It satisfies the same three-clause identity — a `pub
 	// host type Type<T>` with no bound, in std/type.nomi, which declares that
-	// line and nothing else — and the phantom parameter is on the Go type
-	// anyway, for rt/channel.go's stated reason: two Go types over one runtime
-	// object make a wrong-direction lowering a Go COMPILE ERROR rather than a
-	// wrong answer, so a `Type<Marker>` cannot arrive where a `Type<TraceId>`
-	// is wanted.
+	// line and nothing else. The parameter still separates instances here:
+	// `Type<Marker>` and `Type<TraceId>` are two defs with different
+	// genHostArgs, so one does not pass where the other is wanted.
 	//
 	// Its OPERATION surface is EMPTY, which no other row here can say: std/type
 	// declares no function, no interface and no constructor, so there is nothing
 	// to lower on the type itself. What consults a witness is `std/context`'s
-	// value store — see contextvalue.go — and the value position is the only way
+	// value store — see ircontextvalue.go — and the value position is the only way
 	// a `Type<T>` is ever produced.
 	//
 	// A test that needs an unrepresentable type must not use `Type<Int>`, which
 	// this row makes representable.
-	{origin: "std/type", nomi: "Type", rtType: "rt.Type", params: []string{"T"}},
+	{origin: "std/type", nomi: "Type", params: []string{"T"}},
 }
 
 // stdGenHostAnchor is one generic std host type as THIS compilation's analysis
-// sees it. decl IS the identity, for prelude.go's reason.
+// sees it.
 type stdGenHostAnchor struct {
 	spec *stdGenHostSpec
-	decl *ast.ExternType
 }
 
 // stdGenHostValidated is, per spec, whether STD ITSELF declares the type in the
@@ -236,18 +216,15 @@ func stdGenHostDeclIn(fa *analysis.FileAnalysis, s *stdGenHostSpec) *ast.ExternT
 //
 //   - `Public`, because a file-private declaration cannot be the type another
 //     module names.
-//   - The type parameter names and their ORDER, because `rt.Sender[T]`'s
-//     argument list is written from them.
+//   - The type parameter names and their order, because an instance's type
+//     arguments are matched to them by position.
 //   - The BOUNDS, against the row's own expectation, so a std edit that adds a
 //     constraint this builder discharges nowhere produces no anchor rather
 //     than lowering past it.
-//   - NO FOREIGN BINDING (`ForeignAlias`, `ForeignName`). A `host type`
+//   - No foreign binding (`ForeignAlias`, `ForeignName`). A `host type`
 //     bound to a Go package is an FFI handle whose representation is the
-//     EMBEDDER's; rt's `Sender[T]` is not that, and redirecting one to the
-//     other would hand a generated package a type somebody else owns.
-//   - NO body item and NO attached test, for stdGenStructSpec.matches' reason:
-//     each is a construct declModifiers refuses on its own terms, and
-//     redirecting the type to rt would silently drop that refusal.
+//     embedder's (hostpkg.go); rt's `Sender[T]` is not that, and the two
+//     stay different types.
 //
 // A DECORATOR other than `derive` is refused for opaqueSpec.matches' reason:
 // declModifiers refuses it on its own terms and redirecting the type to rt
@@ -270,11 +247,7 @@ func (s *stdGenHostSpec) matches(decl *ast.ExternType) bool {
 	if decl.ForeignAlias != "" || decl.ForeignName != "" {
 		return false
 	}
-	// A body or a type body item is layout-relevant. An attached `//!` test is
-	// not, and is deliberately not checked — see stdStructSpec.matches.
-	if decl.HasBody || len(decl.Items) > 0 {
-		return false
-	}
+	// An attached `//!` test is not checked: see stdStructSpec.matches.
 	for _, dec := range decl.Decorators {
 		if dec.Name != "derive" {
 			return false
@@ -296,22 +269,12 @@ func stdGenHostAnchorsOf(fa *analysis.FileAnalysis) map[string]*stdGenHostAnchor
 			continue
 		}
 		spec := &stdGenHostSpecs[i]
-		decl := stdGenHostDeclIn(fa, spec)
-		if decl == nil {
+		if stdGenHostDeclIn(fa, spec) == nil {
 			continue
 		}
-		out[spec.nomi] = &stdGenHostAnchor{spec: spec, decl: decl}
+		out[spec.nomi] = &stdGenHostAnchor{spec: spec}
 	}
 	return out
-}
-
-// loadStdGenHosts resolves the generic std host types against this module's
-// analysis, once.
-func (g *gen) loadStdGenHosts() {
-	if g.genHosts != nil {
-		return
-	}
-	g.genHosts = stdGenHostAnchorsOf(g.fa)
 }
 
 var (
@@ -323,9 +286,9 @@ var (
 	sharedGenHostDefs = map[string][]*typeDef{}
 )
 
-// genHostNames renders one instantiation's Go type and its Nomi spelling from
-// ONE walk, so they cannot disagree about which arguments an instance has.
-// genStructNames' rule and its shape.
+// genHostNomi renders one instantiation's Nomi spelling, `Sender<Int>`: the
+// def's name and the key the intern tables group instances under.
+// genStructNomi's rule and its shape.
 func genHostNomi(spec *stdGenHostSpec, args []kind) string {
 	var nomi strings.Builder
 	nomi.WriteString(spec.nomi)
@@ -346,9 +309,8 @@ func genHostNomi(spec *stdGenHostSpec, args []kind) string {
 // The def is a LEAF: `isDistinct` with `inner: kindInvalid` — the shape
 // typeDef.inner's own comment names — plus `rtOpaque`, because a `Sender<Int>`
 // has CONTENTS this builder may not look inside. stdhost.go records what goes
-// wrong without `rtOpaque` and it is not hypothetical: four arms written for a
-// zero-sized marker answered for a value with a payload, so `a == b` on one
-// emitted `return true`.
+// wrong without `rtOpaque`: the arms written for a zero-sized marker answer
+// for a value with a payload, so `a == b` on one is always true.
 func sharedGenHostInstance(spec *stdGenHostSpec, args []kind) (kind, bool) {
 	for _, arg := range args {
 		// kindInvalid: propagates — a refused type ARGUMENT was named at its own position; the caller reports the false.
@@ -380,46 +342,6 @@ func sharedGenHostInstance(spec *stdGenHostSpec, args []kind) (kind, bool) {
 	}
 	sharedGenHostDefs[nomi] = append(sharedGenHostDefs[nomi], d)
 	return named(d), true
-}
-
-// stdGenHostTypeOf reads the annotation `Sender<Int>`, reporting whether the
-// generic type named a generic std host type at all — so an ordinary
-// unrepresentable `Foo<Bar>` keeps falling through to its own refusal.
-//
-// stdGenStructTypeOf's body over a different anchor table, including its
-// refusal: a type argument no instance can be built over is CLAIMED and refused
-// by naming the argument, because declining would report
-// `generic type (Sender)` and name the container, which lowers. A
-// PACKAGE-RELATIVE argument is not such an argument: it reaches this
-// module's own instance table.
-func (g *gen) stdGenHostTypeOf(t *ast.GenericType) (kind, bool) {
-	g.loadStdGenHosts()
-	a := g.genHosts[t.Name]
-	if a == nil {
-		return kindInvalid, false
-	}
-	if _, declaredHere := g.types[t.Name]; declaredHere {
-		// A module declaring its own `Sender` wins, which is the analyzer's
-		// shadowing rule. Unreachable while this builder has no declaration
-		// path for `*ast.ExternType` and so never populates g.types for a host
-		// type, and honoured rather than asserted, because if it grows one this
-		// must not silently redirect.
-		return kindInvalid, false
-	}
-	if len(t.Params) != len(a.spec.params) {
-		return kindInvalid, false
-	}
-	args := make([]kind, len(t.Params))
-	for i, p := range t.Params {
-		args[i] = g.typeOf(p)
-	}
-	k, ok := g.genHostInstance(a.spec, args...)
-	if !ok {
-		g.reject("generic std host type at a package-relative type argument",
-			typeText(t), t)
-		return kindInvalid, true
-	}
-	return k, true
 }
 
 // genHostOfType is inferred.go's projection: the instance the checker solved for
@@ -487,7 +409,7 @@ func genHostOf(k kind) (*stdGenHostSpec, []kind, bool) {
 // `genHostArgs` and stdprelude.go records that it is written for exactly this
 // eventuality.
 //
-// A per-gen instance has no fields to build — a genHost def is a LEAF,
+// A per-gen instance has no fields to build — a generic host def is a LEAF,
 // `isDistinct` with `inner: kindInvalid` plus `rtOpaque` — so unlike a generic
 // std STRUCT there is nothing here that can fail after the arguments are
 // admitted. That is why this function has no field guard and its neighbour does.
@@ -531,8 +453,8 @@ func (g *gen) genHostInstance(spec *stdGenHostSpec, args ...kind) (kind, bool) {
 		rtOpaque:    true,
 	}
 	// A leaf carries no `mentions`, so settleLowerable would never retract it
-	// on its own account — but its type ARGUMENT can be unlowerable, and an
-	// emitted `rt.Sender[NomiT_Bad]` would name a type nobody declared. Noting
+	// on its own account — but its type argument can be unlowerable, and a
+	// `Sender<Bad>` over an unlowerable `Bad` must not stay lowerable. Noting
 	// the argument is what puts that edge on the graph. The shared door needs
 	// no such note because a package-neutral argument is lowerable by
 	// construction.
@@ -594,10 +516,6 @@ type stdMarkerSpec struct {
 	// would default to one of the two answers and a row added without thinking
 	// about the clause would silently claim it.
 	form declForm
-	// goType is rt's Go type, held as the TYPE rather than as its spelling so a
-	// rename or a deletion in rt is a Go compile error here. opaqueSpec.goType's
-	// reason.
-	goType reflect.Type
 }
 
 // stdMarkerSpecs is the whole set.
@@ -616,8 +534,8 @@ type stdMarkerSpec struct {
 // nil-inner case needs a check of its own (`decl.InnerTypeExpr == nil`) rather
 // than a widened tolerance in a check built for scalars.
 var stdMarkerSpecs = []stdMarkerSpec{
-	{origin: "std/channels", nomi: "ChannelClosed", form: formDistinct, goType: reflect.TypeFor[rt.ChannelClosed]()},
-	{origin: "std/channels", nomi: "TimedOut", form: formDistinct, goType: reflect.TypeFor[rt.TimedOut]()},
+	{origin: "std/channels", nomi: "ChannelClosed", form: formDistinct},
+	{origin: "std/channels", nomi: "TimedOut", form: formDistinct},
 }
 
 // stdMarkerDefs is the process-wide *typeDef per spec, keyed by spec index.
@@ -743,11 +661,7 @@ func (s *stdMarkerSpec) matches(decl *ast.TypeDef) bool {
 	if decl.InnerTypeExpr != nil {
 		return false
 	}
-	// A body or a type body item is layout-relevant. An attached `//!` test is
-	// not, and is deliberately not checked — see stdStructSpec.matches.
-	if decl.HasBody || len(decl.Items) > 0 {
-		return false
-	}
+	// An attached `//!` test is not checked: see stdStructSpec.matches.
 	for _, dec := range decl.Decorators {
 		if dec.Name != "derive" {
 			return false
@@ -767,9 +681,9 @@ func (g *gen) loadStdMarkers() {
 
 // stdMarkerDeclared reports the spec index for a marker declaration this module
 // CARRIES, or -1. Read by buildTypes: an anchored declaration adopts the shared
-// def instead of getting its own shell. opaqueDeclared's counterpart, and the
-// reason it is needed is that std/channels' own generated package declares
-// `ChannelClosed` — without this the module would emit a second Go type for it.
+// def instead of getting its own shell. opaqueDeclared's counterpart: std/channels'
+// own gen declares `ChannelClosed`, and without this it would build a second
+// def for the type.
 func (g *gen) stdMarkerDeclared(decl *ast.TypeDef) int {
 	g.loadStdMarkers()
 	if i, anchored := g.stdMarkerByDecl[decl]; anchored {

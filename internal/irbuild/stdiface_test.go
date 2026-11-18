@@ -137,7 +137,7 @@ func TestStdIfaceTableNamesResolve(t *testing.T) {
 		s := &stdIfaceSpecs[i]
 		for _, m := range d.order {
 			if !m.hasTable() {
-				t.Fatalf("%s.%s has no table: rtMethodName could not name its rt variable", s.nomi, m.name)
+				t.Fatalf("%s.%s has no table", s.nomi, m.name)
 			}
 			// `why` is derived by the SAME function a declared interface's
 			// methods go through, so a spec row cannot claim a dispatch route
@@ -152,9 +152,6 @@ func TestStdIfaceTableNamesResolve(t *testing.T) {
 			}
 		}
 	}
-	if rtMethodName(struct{}{}) != "" || rtMethodName(nil) != "" {
-		t.Fatal("rtMethodName named something that is not an rt table")
-	}
 }
 
 // The precondition for sharing one *ifaceDef across every gen, asserted rather
@@ -163,8 +160,8 @@ func TestStdIfaceTableNamesResolve(t *testing.T) {
 // none.
 func TestStdIfaceDefsArePackageNeutral(t *testing.T) {
 	for _, d := range stdIfaceDefs() {
-		if d.foreign != "" || d.pkg != "" || d.unit != -1 {
-			t.Fatalf("%s carries a package: foreign=%q pkg=%q unit=%d", d.nomi, d.foreign, d.pkg, d.unit)
+		if d.foreign != "" || d.unit != -1 {
+			t.Fatalf("%s carries a declaring file: foreign=%q unit=%d", d.nomi, d.foreign, d.unit)
 		}
 		for _, m := range d.order {
 			for i, k := range m.params {

@@ -81,45 +81,52 @@ func (c *checker) typeForRange(fam *numericFamily, r numRange, ty Type) Type {
 	return cand
 }
 
-// binaryRange is the range of n, an operation of fam: `+`, `-` and `*` on
-// Int and Decimal, exact; `+` and `-` of Durations and a Duration by an
-// Int, exact on nanoseconds; `+` of Floats (floatSum); an Int's `/` and
-// `%` (quotient, remainder); and a pipe into a call (callRange). ok is
-// false for anything else, which is its type's.
+// binaryRange is the range of n, an operation of fam: an operator
+// (opRange), or a pipe into a call (callRange). ok is false for anything
+// else, which is its type's.
 func (c *checker) binaryRange(n *ast.Binary, fam *numericFamily, ty Type) (numRange, bool) {
-	switch n.Op {
-	case "|>":
+	if n.Op == "|>" {
 		call, ok := ungroupExpr(n.Right).(*ast.Call)
 		if !ok {
 			return numRange{}, false
 		}
 		return c.callRange(call, n.Left, fam, ty)
+	}
+	return c.opRange(n.Op, n.Left, n.Right, fam)
+}
+
+// opRange is the range of left op right, an operation of fam: `+`, `-`
+// and `*` on Int and Decimal, exact; `+` and `-` of Durations and a
+// Duration by an Int, exact on nanoseconds; `+` of Floats (floatSum); and
+// an Int's `/` and `%` (quotient, remainder). ok is false for anything
+// else.
+func (c *checker) opRange(op string, left, right ast.Node, fam *numericFamily) (numRange, bool) {
+	lfam, rfam := c.valueFamily(left), c.valueFamily(right)
+	switch op {
 	case "+", "-", "*":
 	case "/", "%":
 		// Int's `/` truncates toward zero and `%` takes the dividend's
 		// sign (spec §8 *Integer division and remainder*).
-		if fam != intFamily || familyOfBase(RefinementBase(c.fa.ExprTypes[n.Left])) != fam || familyOfBase(RefinementBase(c.fa.ExprTypes[n.Right])) != fam {
+		if fam != intFamily || lfam != fam || rfam != fam {
 			return numRange{}, false
 		}
-		l, r := c.exprRange(n.Left, fam), c.exprRange(n.Right, fam)
-		if n.Op == "/" {
-			return quotient(fam, l, r), true
+		l, r := c.exprRange(left, fam), c.exprRange(right, fam)
+		if op == "/" {
+			return quotient(fam, l, r, false), true
 		}
 		return remainder(fam, l, r), true
 	default:
 		return numRange{}, false
 	}
-	lfam := familyOfBase(RefinementBase(c.fa.ExprTypes[n.Left]))
-	rfam := familyOfBase(RefinementBase(c.fa.ExprTypes[n.Right]))
 	switch fam {
 	case floatFamily:
-		if n.Op != "+" || lfam != fam || rfam != fam {
+		if op != "+" || lfam != fam || rfam != fam {
 			return numRange{}, false
 		}
-		return floatSum(c.exprRange(n.Left, fam), c.exprRange(n.Right, fam)), true
+		return floatSum(c.exprRange(left, fam), c.exprRange(right, fam)), true
 	case durationFamily:
-		ok := lfam == fam && rfam == fam && n.Op != "*"
-		ok = ok || (n.Op == "*" && ((lfam == fam && rfam == intFamily) || (lfam == intFamily && rfam == fam)))
+		ok := lfam == fam && rfam == fam && op != "*"
+		ok = ok || (op == "*" && ((lfam == fam && rfam == intFamily) || (lfam == intFamily && rfam == fam)))
 		if !ok {
 			return numRange{}, false
 		}
@@ -128,8 +135,8 @@ func (c *checker) binaryRange(n *ast.Binary, fam *numericFamily, ty Type) (numRa
 			return numRange{}, false
 		}
 	}
-	l, r := c.exprRange(n.Left, lfam), c.exprRange(n.Right, rfam)
-	switch n.Op {
+	l, r := c.exprRange(left, lfam), c.exprRange(right, rfam)
+	switch op {
 	case "+":
 		return add(fam, l, r), true
 	case "-":
@@ -149,7 +156,17 @@ func (c *checker) binaryRange(n *ast.Binary, fam *numericFamily, ty Type) (numRa
 //     (extremeRange);
 //   - `Int.pow(b, e)` and `Decimal.pow(b, e)` (powRange);
 //   - `Int.sqrt`: the roots of the argument's ends (isqrtRange);
+//   - `Int.sign` and `Decimal.sign`: the signs of the argument's ends
+//     (signRange);
+//   - `Int.modulo` (modulo) and `Int.floor_div` (quotient, floored);
+//   - an operator's function, `Int.remainder(a, b)` for `a % b`: the
+//     operator's (opRange);
+//   - `Int.clamp(v, a..=b)` and its Decimal and Duration counterparts, of
+//     a range written there (closedRangeEnds): the smaller of b and the
+//     larger of v and a;
 //   - `Int.to_decimal` and `Duration.as_nanos`: the argument's range;
+//     `Duration.as_micros`, `as_millis`, `as_seconds`, `as_minutes` and
+//     `as_hours`: its quotient by the unit's nanoseconds;
 //   - `Duration.nanoseconds`, `microseconds`, `milliseconds`, `seconds`,
 //     `minutes` and `hours`: the argument's range times the unit's
 //     nanoseconds;
@@ -166,33 +183,78 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 	if !ok || owner == nil {
 		return numRange{}, false
 	}
-	var args []ast.Node
-	if piped != nil {
-		args = append(args, piped)
-	}
-	for _, a := range call.Args {
-		args = append(args, valueOfArg(a))
-	}
-	arg := func(i int, f *numericFamily) (numRange, bool) {
-		if i >= len(args) || args[i] == nil {
+	args := callArgs(call, piped)
+	rangeOf := func(n ast.Node, f *numericFamily) (numRange, bool) {
+		if n == nil {
 			return numRange{}, false
 		}
-		if familyOfBase(RefinementBase(c.fa.ExprTypes[args[i]])) != f {
-			if _, lit := literalRange(args[i], f); !lit {
+		if familyOfBase(RefinementBase(c.fa.ExprTypes[n])) != f {
+			if _, lit := literalRange(n, f); !lit {
 				return numRange{}, false
 			}
 		}
-		return c.exprRange(args[i], f), true
+		return c.exprRange(n, f), true
 	}
+	arg := func(i int, f *numericFamily) (numRange, bool) {
+		if i >= len(args) {
+			return numRange{}, false
+		}
+		return rangeOf(args[i], f)
+	}
+	// ofam is the family of the type the function is called on.
+	ofam := rangeOwners[owner.Name]
 	var r numRange
 	switch name := fa.Field.Name; {
-	case name == "abs" && len(args) == 1 && ((owner.Name == "Int" && fam == intFamily) || (owner.Name == "Decimal" && fam == decimalFamily) || (owner.Name == "Duration" && fam == durationFamily)):
+	case name == "abs" && len(args) == 1 && ofam == fam:
 		a, ok := arg(0, fam)
 		if !ok {
 			return numRange{}, false
 		}
 		r = abs(fam, a)
-	case (name == "max" || name == "min") && len(args) == 2 && ((owner.Name == "Int" && fam == intFamily) || (owner.Name == "Decimal" && fam == decimalFamily) || (owner.Name == "Duration" && fam == durationFamily)):
+	case name == "clamp" && len(args) == 2 && ofam == fam:
+		// `Comparable.clamp` takes a ClosedRange, whose start is at most
+		// its end, so the result is min(max(v, start), end).
+		start, end, ok := closedRangeEnds(args[1])
+		if !ok {
+			return numRange{}, false
+		}
+		v, _ := arg(0, fam)
+		low, ok := rangeOf(start, fam)
+		if !ok {
+			return numRange{}, false
+		}
+		r = extremeRange(true, v, low)
+		if end != nil {
+			high, ok := rangeOf(end, fam)
+			if !ok {
+				return numRange{}, false
+			}
+			r = extremeRange(false, r, high)
+		}
+		r = r.normalize(fam)
+	case name == "sign" && len(args) == 1 && fam == intFamily && (ofam == intFamily || ofam == decimalFamily):
+		a, ok := arg(0, ofam)
+		if !ok {
+			return numRange{}, false
+		}
+		r = signRange(a)
+	case (name == "modulo" || name == "floor_div") && len(args) == 2 && ofam == fam && fam == intFamily:
+		a, _ := arg(0, fam)
+		b, ok := arg(1, fam)
+		if !ok {
+			return numRange{}, false
+		}
+		if name == "modulo" {
+			r = modulo(a, b)
+		} else {
+			r = quotient(fam, a, b, true)
+		}
+	case operatorOfMethod(name) != "" && len(args) == 2 && args[0] != nil && args[1] != nil && ofam != nil && ofam == c.valueFamily(args[0]):
+		var ok bool
+		if r, ok = c.opRange(operatorOfMethod(name), args[0], args[1], fam); !ok {
+			return numRange{}, false
+		}
+	case (name == "max" || name == "min") && len(args) == 2 && ofam == fam:
 		a, _ := arg(0, fam)
 		b, _ := arg(1, fam)
 		if !a.known && !b.known {
@@ -203,7 +265,7 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 		r = extremeRange(name == "max", a, b)
 		r.nonZero = a.known && b.known && a.nonZero && b.nonZero
 		r = r.normalize(fam)
-	case name == "pow" && len(args) == 2 && ((owner.Name == "Int" && fam == intFamily) || (owner.Name == "Decimal" && fam == decimalFamily)):
+	case name == "pow" && len(args) == 2 && ofam == fam && fam != durationFamily:
 		b, ok := arg(0, fam)
 		if !ok {
 			return numRange{}, false
@@ -228,12 +290,16 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 			return numRange{}, false
 		}
 		r = isqrtRange(a)
-	case name == "as_nanos" && len(args) == 1 && owner.Name == "Duration" && fam == intFamily:
+	case ofam == durationFamily && fam == intFamily && len(args) == 1 && durationCounts[name] != nil:
 		a, ok := arg(0, durationFamily)
 		if !ok {
 			return numRange{}, false
 		}
+		// A count of nanoseconds is exact; a larger unit's truncates.
 		r = a
+		if unit := durationCounts[name]; unit.Cmp(big.NewInt(1)) != 0 {
+			r = quotient(fam, a, pointRange(new(big.Rat).SetInt(unit)), false)
+		}
 	case fam == intFamily && len(args) == 1 && nonEmptyCounts[owner.Name] == name:
 		if !c.holdsSomething(c.fa.ExprTypes[args[0]]) {
 			return numRange{}, false
@@ -245,6 +311,45 @@ func (c *checker) callRange(call *ast.Call, piped ast.Node, fam *numericFamily, 
 	r.typed = true
 	declared, _ := typeRange(ty, fam)
 	return meet(fam, r, declared), true
+}
+
+// rangeOwners are the types whose std functions callRange reads, by the
+// name a call is written on. Float is not one: its `max`, `min` and
+// `clamp` pass a NaN on, and its `abs` and `pow` round.
+var rangeOwners = map[string]*numericFamily{
+	"Int":      intFamily,
+	"Decimal":  decimalFamily,
+	"Duration": durationFamily,
+}
+
+// closedRangeEnds is the start and end of n, a ClosedRange written as
+// `a..=b`, or as `Range.from(a)`, which has no end. ok is false for a
+// range of any other form, a binding among them.
+func closedRangeEnds(n ast.Node) (start, end ast.Node, ok bool) {
+	switch v := ungroupExpr(n).(type) {
+	case *ast.RangeLit:
+		if v.Start != nil && v.End != nil && v.Inclusive {
+			return v.Start, v.End, true
+		}
+	case *ast.Call:
+		if owner, name := stdCallee(v); owner == "Range" && name == "from" && len(v.Args) == 1 {
+			if a := valueOfArg(v.Args[0]); a != nil {
+				return a, nil, true
+			}
+		}
+	}
+	return nil, nil, false
+}
+
+// operatorOfMethod is the operator whose interface declares method, "" for
+// a name that is none's: `remainder` is `%`'s.
+func operatorOfMethod(method string) string {
+	for _, oi := range operatorInterfaces {
+		if oi.Method == method {
+			return oi.Op
+		}
+	}
+	return ""
 }
 
 // extremeRange is the range of the larger of a and b, or the smaller when
@@ -287,6 +392,17 @@ var durationUnits = map[string]*big.Int{
 	"seconds":      big.NewInt(1_000_000_000),
 	"minutes":      big.NewInt(60_000_000_000),
 	"hours":        big.NewInt(3_600_000_000_000),
+}
+
+// durationCounts are the nanoseconds of each unit a Duration is counted
+// in, by the function that counts.
+var durationCounts = map[string]*big.Int{
+	"as_nanos":   durationUnits["nanoseconds"],
+	"as_micros":  durationUnits["microseconds"],
+	"as_millis":  durationUnits["milliseconds"],
+	"as_seconds": durationUnits["seconds"],
+	"as_minutes": durationUnits["minutes"],
+	"as_hours":   durationUnits["hours"],
 }
 
 // nonEmptyCounts are the std functions that count a collection's or a
@@ -353,7 +469,9 @@ const maxExactPowBits = 1 << 16
 
 // quotient is the range of a / b on Ints, which truncates toward zero: by
 // a positive b, between 0 and a, and by a negative one, between 0 and -a.
-func quotient(fam *numericFamily, a, b numRange) numRange {
+// With floored set it is `Int.floor_div(a, b)`'s, which rounds toward
+// negative infinity: the same, and below zero when a and b differ in sign.
+func quotient(fam *numericFamily, a, b numRange, floored bool) numRange {
 	if !a.known || !b.known {
 		return numRange{typed: a.typed || b.typed}
 	}
@@ -373,8 +491,72 @@ func quotient(fam *numericFamily, a, b numRange) numRange {
 	}
 	if !src.hi.inf && src.hi.v.Sign() < 0 {
 		out.hi = zero
+		if floored {
+			out.hi = closedBound(big.NewRat(-1, 1))
+		}
 	}
 	return out.normalize(fam)
+}
+
+// modulo is the range of Int.modulo(a, b), which takes b's sign and is
+// smaller in size than b: from 0 to below the highest b can be when that
+// is above zero, and from above the lowest b can be to 0 when that is
+// below zero. It is no further from zero than an a of b's sign. A b
+// unbounded on each side it can lie on bounds nothing.
+func modulo(a, b numRange) numRange {
+	if !b.known {
+		return numRange{}
+	}
+	zero := closedBound(new(big.Rat))
+	out := numRange{known: true, lo: zero, hi: zero}
+	switch {
+	case b.lo.inf:
+		out.lo = infBound()
+	case b.lo.v.Sign() < 0:
+		out.lo = rbound{v: b.lo.v, open: true}
+	}
+	switch {
+	case b.hi.inf:
+		out.hi = infBound()
+	case b.hi.v.Sign() > 0:
+		out.hi = rbound{v: b.hi.v, open: true}
+	}
+	if out.lo.inf && out.hi.inf {
+		return numRange{}
+	}
+	if a.known {
+		if b.positive() && a.nonNegative() {
+			out.hi = minHi(out.hi, a.hi)
+		}
+		if !b.hi.inf && b.hi.v.Sign() < 0 && !a.hi.inf && a.hi.v.Sign() <= 0 {
+			out.lo = maxLo(out.lo, a.lo)
+		}
+	}
+	return out.normalize(intFamily)
+}
+
+// signRange is the range of the sign of a value in r, -1, 0 or 1: the
+// signs of r's ends.
+func signRange(r numRange) numRange {
+	lo, hi := int64(-1), int64(1)
+	if r.known {
+		if !r.lo.inf {
+			if s := r.lo.v.Sign(); s > 0 || (s == 0 && r.lo.open) {
+				lo = 1
+			} else if s == 0 {
+				lo = 0
+			}
+		}
+		if !r.hi.inf {
+			if s := r.hi.v.Sign(); s < 0 || (s == 0 && r.hi.open) {
+				hi = -1
+			} else if s == 0 {
+				hi = 0
+			}
+		}
+	}
+	out := numRange{known: true, lo: closedBound(big.NewRat(lo, 1)), hi: closedBound(big.NewRat(hi, 1)), nonZero: r.known && r.nonZero}
+	return out.normalize(intFamily)
 }
 
 // remainder is the range of a % b on Ints, which takes a's sign and is

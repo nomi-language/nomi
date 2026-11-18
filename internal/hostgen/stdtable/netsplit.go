@@ -31,7 +31,8 @@ type Files map[string][]byte
 
 // GenerateFiles is Generate's source split three ways: adapters_gen.go,
 // every adapter that does not call NetworkPackage plus NetworkNames and
-// Pure (the rows internal/stdlibbindings marks Pure);
+// Pure (the rows internal/stdlibbindings marks Pure) and World (whether
+// each row is an outside call);
 // adapters_net_gen.go, the ones that do, built without NetworkTag; and
 // adapters_nonet_gen.go, an error-answering stub for each of those, built
 // with it. Bind names every adapter in both builds, so the two runners
@@ -91,6 +92,7 @@ func splitNetwork(src []byte) (Files, error) {
 	}
 	main = append(main, networkNamesFunc(names)...)
 	main = append(main, pureFunc(stdlibbindings.Pure())...)
+	main = append(main, worldFunc(stdlibbindings.Worlds())...)
 	if main, err = format.Source(main); err != nil {
 		return nil, fmt.Errorf("stdtable: formatting adapters_gen.go: %w", err)
 	}
@@ -189,6 +191,29 @@ func pureFunc(pure map[string]bool) []byte {
 		"// marked Pure: one that computes its answer from its operands alone and\n" +
 		"// acts on nothing outside the machine (stdlibbindings.Binding.Pure).\n" +
 		"func Pure(name string) bool { return pure[name] }\n")
+	return b.Bytes()
+}
+
+// worldFunc is World, which answers whether a row is an outside call from
+// a table built into the binary, as pureFunc does for Pure.
+func worldFunc(worlds map[string]bool) []byte {
+	names := make([]string, 0, len(worlds))
+	for n := range worlds {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	var b bytes.Buffer
+	b.WriteString("\n// outside is whether each crossing whose row in internal/stdlibbindings\n" +
+		"// is not Pure is an outside call, sorted.\nvar outside = map[string]bool{\n")
+	for _, n := range names {
+		fmt.Fprintf(&b, "\t%q: %v,\n", n, worlds[n])
+	}
+	b.WriteString("}\n\n// World reports whether the crossing name lands on an adapter whose row\n" +
+		"// is an outside call (stdlibbindings.Binding.World), and whether any row\n" +
+		"// answers the name at all; a Pure row is inside.\n" +
+		"func World(name string) (isOutside, known bool) {\n" +
+		"\tif pure[name] {\n\t\treturn false, true\n\t}\n" +
+		"\tisOutside, known = outside[name]\n\treturn isOutside, known\n}\n")
 	return b.Bytes()
 }
 

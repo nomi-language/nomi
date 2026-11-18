@@ -71,8 +71,8 @@ Lua and Python do. Each function becomes bytecode the first time it runs:
 
 - `nomi run`, `nomi test` and the REPL run your program on it.
 - `nomi build` puts it in the executable beside your program.
-- The examples on this site run on it in your browser. Edit one and it runs
-  again as you type.
+- You can edit most examples on this site, and they run on the VM in your
+  browser.
 - A Go application can embed it to load a Nomi program and call its
   functions.
 

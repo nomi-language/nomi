@@ -69,8 +69,8 @@ func TestStdOverloadSetRefusesAnIndistinguishablePair(t *testing.T) {
 // population that motivated instantiation-qualified keys: the eleven
 // `impl Add<X, NaiveDateTime>` rungs must produce eleven distinct keys, and
 // the two that differ only in their type ARGUMENT are the pair a
-// non-injective key would merge. The keys also name the arity wrappers and
-// slot accessors in the IR (stdArityName, stdSlotName).
+// non-injective key would merge. The keys also name the slot accessors in
+// the IR (stdSlotName).
 func TestStdlibKeysCarryTheInstantiation(t *testing.T) {
 	// Injectivity over the population the mangling exists for: eleven rungs,
 	// eleven names. Read from source rather than from the index, because the

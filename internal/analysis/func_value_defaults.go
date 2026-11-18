@@ -157,15 +157,3 @@ func funcValueName(n ast.Node) string {
 	}
 	return ""
 }
-
-// funcArityDiffers reports a function value whose parameter count is not the
-// expected function type's. Unification already refuses it; the generic call
-// path reports it rather than leaving it to a later check that never runs.
-func funcArityDiffers(expected, got Type) bool {
-	ef, ok := expected.(*FuncType)
-	if !ok {
-		return false
-	}
-	gf, ok := got.(*FuncType)
-	return ok && len(ef.Params) != len(gf.Params)
-}

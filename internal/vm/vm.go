@@ -172,9 +172,17 @@ type hostFn func(m *Machine, pos ir.Pos, args []any) (any, error)
 // from its operands alone and acts on nothing outside the machine, so a
 // refinement rule, a typed literal's handler, a `check` or a debugger's
 // evaluation may call it (Effects). Unset, a call to it is an effect.
+//
+// world says whether a call to it is an outside call (outside.go): a pure
+// intrinsic is inside and leaves it unset, and every other one sets it,
+// which TestEveryIntrinsicDecidesItsWorld holds. An outside one names std,
+// the std module that declares it, as an import names it after `std::`
+// (`tasks` for `Task.spawn`), since its key does not always start with it.
 type intrinsic struct {
-	fn   hostFn
-	pure bool
+	fn    hostFn
+	pure  bool
+	world world
+	std   string
 }
 
 // WithHostEnv sets environment entries that override the process
@@ -409,23 +417,23 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 	m.hosts = map[string]intrinsic{
 		"Result.map_err":        {fn: resultMapErrHost, pure: true},
 		"Maybe.to_result":       {fn: maybeToResultHost, pure: true},
-		"concurrent":            {fn: concurrentHost},
-		"Task.spawn":            {fn: taskSpawnHost},
-		"Task.await":            {fn: taskHost("Task.await")},
-		"Task.cancel":           {fn: taskHost("Task.cancel")},
-		"Task.outcome":          {fn: taskHost("Task.outcome")},
-		"Task.spawn_all":        {fn: taskSpawnAllHost},
-		"Task.await_all":        {fn: taskAwaitAllHost},
-		"Supervisor.spawn":      {fn: supervisorSpawnHost},
-		"Supervisor.spawn_all":  {fn: supervisorSpawnAllHost},
+		"concurrent":            {fn: concurrentHost, world: inside},
+		"Task.spawn":            {fn: taskSpawnHost, world: outside, std: "tasks"},
+		"Task.await":            {fn: taskHost("Task.await"), world: inside},
+		"Task.cancel":           {fn: taskHost("Task.cancel"), world: inside},
+		"Task.outcome":          {fn: taskHost("Task.outcome"), world: inside},
+		"Task.spawn_all":        {fn: taskSpawnAllHost, world: outside, std: "tasks"},
+		"Task.await_all":        {fn: taskAwaitAllHost, world: inside},
+		"Supervisor.spawn":      {fn: supervisorSpawnHost, world: outside, std: "supervisors"},
+		"Supervisor.spawn_all":  {fn: supervisorSpawnAllHost, world: outside, std: "supervisors"},
 		"Maybe.with_default":    {fn: withDefaultHost("Some"), pure: true},
 		"Result.with_default":   {fn: withDefaultHost("Ok"), pure: true},
-		"Channel.buffered":      {fn: channelHost("Channel.buffered")},
-		"Channel.unbuffered":    {fn: channelHost("Channel.unbuffered")},
-		"Sender.send":           {fn: channelHost("Sender.send")},
-		"Sender.close":          {fn: channelHost("Sender.close")},
-		"Sender.close_on_drain": {fn: channelHost("Sender.close_on_drain")},
-		"Receiver.receive":      {fn: channelHost("Receiver.receive")},
+		"Channel.buffered":      {fn: channelHost("Channel.buffered"), world: inside},
+		"Channel.unbuffered":    {fn: channelHost("Channel.unbuffered"), world: inside},
+		"Sender.send":           {fn: channelHost("Sender.send"), world: inside},
+		"Sender.close":          {fn: channelHost("Sender.close"), world: inside},
+		"Sender.close_on_drain": {fn: channelHost("Sender.close_on_drain"), world: inside},
+		"Receiver.receive":      {fn: channelHost("Receiver.receive"), world: inside},
 		"List.first":            {fn: listHost("List.first"), pure: true},
 		"List.tail":             {fn: listHost("List.tail"), pure: true},
 		"List.concat":           {fn: listHost("List.concat"), pure: true},
@@ -433,11 +441,11 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"List.remove_at":        {fn: listRemoveAtHost, pure: true},
 
 		// Waiting on several channel operations at once (channelselect).
-		"Channel.select":          {fn: channelSelectHost},
-		"Arm.receive":             {fn: channelHost("Arm.receive")},
-		"Arm.send":                {fn: channelHost("Arm.send")},
-		"Arm.after":               {fn: channelHost("Arm.after")},
-		"Receiver.receive_within": {fn: channelHost("Receiver.receive_within")},
+		"Channel.select":          {fn: channelSelectHost, world: inside},
+		"Arm.receive":             {fn: channelHost("Arm.receive"), world: inside},
+		"Arm.send":                {fn: channelHost("Arm.send"), world: inside},
+		"Arm.after":               {fn: channelHost("Arm.after"), world: outside, std: "channels"},
+		"Receiver.receive_within": {fn: channelHost("Receiver.receive_within"), world: outside, std: "channels"},
 
 		// The two traps of a failed postfix `!` (unwrap.go).
 		"vm.bang_failed":     {fn: bangFailedHost, pure: true},
@@ -478,8 +486,8 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Map.get":             {fn: mapHost("Map.get"), pure: true},
 		"Map.put":             {fn: mapHost("Map.put"), pure: true},
 		"Map.size":            {fn: mapHost("Map.size"), pure: true},
-		"Context.with_value":  {fn: contextWithValueHost},
-		"Context.value":       {fn: contextValueHost},
+		"Context.with_value":  {fn: contextWithValueHost, world: inside},
+		"Context.value":       {fn: contextValueHost, world: inside},
 		"Map.remove":          {fn: mapHost("Map.remove"), pure: true},
 		"Map.contains":        {fn: mapHost("Map.contains"), pure: true},
 		"Map.merge":           {fn: mapHost("Map.merge"), pure: true},
@@ -489,35 +497,35 @@ func NewProgram(entry *ir.Module, rest []*ir.Module, out io.Writer) *Machine {
 		"Map.map_keys":        {fn: mapHost("Map.map_keys"), pure: true},
 		"Map.map_next":        {fn: mapHost("Map.map_next"), pure: true},
 		// Each call receives rendered text; the IR chooses Display or Debug.
-		"io.print":   {fn: outputHost("io.print", "\n")},
-		"io.write":   {fn: outputHost("io.write", "")},
-		"io.inspect": {fn: outputHost("io.inspect", "\n")},
+		"io.print":   {fn: outputHost("io.print", "\n"), world: outside, std: "io"},
+		"io.write":   {fn: outputHost("io.write", ""), world: outside, std: "io"},
+		"io.inspect": {fn: outputHost("io.inspect", "\n"), world: outside, std: "io"},
 		// The stderr pair, `io.eprint` and `io.ewrite`.
-		"io.eprint": {fn: errorOutputHost("io.eprint", "\n")},
-		"io.ewrite": {fn: errorOutputHost("io.ewrite", "")},
+		"io.eprint": {fn: errorOutputHost("io.eprint", "\n"), world: outside, std: "io"},
+		"io.ewrite": {fn: errorOutputHost("io.ewrite", ""), world: outside, std: "io"},
 		// `io.capture` and `io.replay`: the five above and `io.read_line` go to the
 		// capture in force on the calling frame. See capture.go.
-		captureKey: {fn: captureHost},
-		replayKey:  {fn: replayHost},
+		captureKey: {fn: captureHost, world: inside},
+		replayKey:  {fn: replayHost, world: inside},
 		// `Reader.from_chunks`: a reader that pulls its chunks from an
 		// Iter. See readers.go.
-		readerFromChunksKey:     {fn: readerFromChunksHost(readerFromChunksKey)},
-		readerFromTextChunksKey: {fn: readerFromChunksHost(readerFromTextChunksKey)},
+		readerFromChunksKey:     {fn: readerFromChunksHost(readerFromChunksKey), world: inside},
+		readerFromTextChunksKey: {fn: readerFromChunksHost(readerFromTextChunksKey), world: inside},
 		// `std::fs::testing.run`: std/fs calls go to the sandbox on the calling
 		// frame. See sandbox.go.
-		sandboxKey: {fn: sandboxHost},
+		sandboxKey: {fn: sandboxHost, world: inside},
 		// `std::process::testing.run`: std/process calls go to the fake on the
 		// calling frame. See sandbox.go.
-		processFakeKey:     {fn: processFakeHost},
-		networkFakeKey:     {fn: networkFakeHost},
-		networkAnswerKey:   {fn: networkAnswerHost},
-		networkRecordedKey: {fn: networkRecordedHost},
-		networkRequestKey:  {fn: networkRequestHost},
+		processFakeKey:     {fn: processFakeHost, world: inside},
+		networkFakeKey:     {fn: networkFakeHost, world: inside},
+		networkAnswerKey:   {fn: networkAnswerHost, world: inside},
+		networkRecordedKey: {fn: networkRecordedHost, world: inside},
+		networkRequestKey:  {fn: networkRequestHost, world: inside},
 		// `dbg` is `rt.DbgText(w, line, expr, rendered)`: rt's layout and
 		// colour rule, called rather than transcribed. See dbg.go in this
 		// package for the two facts that are this consumer's own: which
 		// writer the colour decision is made about, and the Debug rendering.
-		dbgKey: {fn: dbgHost},
+		dbgKey: {fn: dbgHost, world: outside, std: "io"},
 	}
 	if debugEveryMachine.Load() {
 		m.WithDebugger(NewDebugger())

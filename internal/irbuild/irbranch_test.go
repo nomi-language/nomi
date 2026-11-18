@@ -50,10 +50,9 @@ func TestIRBranch_EveryBranchSiteHasAPosition(t *testing.T) {
 			case v.CondPattern != nil:
 			case isNilNode(v.Cond):
 				// A BARE `if`: `x |> if { … }`, whose condition is the piped
-				// value and which `pipeIfStage` splices before lowering.
-				// COUNTED SEPARATELY rather than excluded, because the
-				// population is the reason `ifInto` fences the shape instead
-				// of trusting the parser — see native.go's isNilNode arm.
+				// value. COUNTED SEPARATELY rather than excluded, because the
+				// population is the reason `ifRegion` fences the shape instead
+				// of trusting the parser.
 				bare++
 			default:
 				note(where, "its condition", firstInt(nodePos(v.Cond)))
@@ -97,7 +96,7 @@ func TestIRBranch_EveryBranchSiteHasAPosition(t *testing.T) {
 			"is broken and the zero below would be a false one", ifs, cases)
 	}
 	// Plant the positive for the bare population too. If it were zero, the
-	// arm above would be dead and `ifInto`'s fence would be untested by any
+	// arm above would be dead and `ifRegion`'s fence would be untested by any
 	// tree.
 	if bare == 0 {
 		t.Error("no bare pipe-stage `if` in either tree, so the claim that such a node " +

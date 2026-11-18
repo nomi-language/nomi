@@ -189,3 +189,32 @@ func TestSiblingDefaults_AGenericMemberOfAPlainTypeFillsItsDefault(t *testing.T)
 			got.exit, got.stdout, got.stderr, want)
 	}
 }
+
+// A sibling file's impl function whose middle default calls that file's
+// private `say`, called leaving the default out by a named later argument
+// (testdata/sibling_qualified_owner_default): the owner written after
+// `import lib.{Box}` and the owner written through its module, `lib.Box`,
+// name one declaration, so each call fills the default from the declaring
+// file's accessor, once, after the written arguments. Piped and in a
+// partial too.
+func TestSiblingDefaults_AModuleQualifiedOwnerFillsAMiddleDefault(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	want := "" +
+		// Box.eff(Box{v: 100}, arg(1), c: arg(2))
+		"arg 1\narg 2\ndefault 30\n133\n" +
+		// lib.Box.eff(lib.Box{v: 200}, arg(3), c: arg(4))
+		"arg 3\narg 4\ndefault 30\n237\n" +
+		// lib.Box.eff(lib.Box{v: 300}, a: arg(5), c: arg(6))
+		"arg 5\narg 6\ndefault 30\n341\n" +
+		// lib.Box{v: 400} |> lib.Box.eff(arg(7), c: arg(8))
+		"arg 7\narg 8\ndefault 30\n445\n" +
+		// &lib.Box.eff(&1, arg(9), c: 10) called once
+		"arg 9\ndefault 30\n549\n"
+	got := vmReference(fixture("sibling_qualified_owner_default/main.nomi"))
+	if got.stdout != want || got.stderr != "" || got.exit != 0 {
+		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
+			got.exit, got.stdout, got.stderr, want)
+	}
+}

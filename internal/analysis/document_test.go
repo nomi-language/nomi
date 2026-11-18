@@ -781,10 +781,6 @@ end
 	var implBlocks int
 	for _, n := range doc.Nodes {
 		switch d := n.(type) {
-		case *ast.StructDef:
-			if len(d.Items) != 0 {
-				t.Errorf("expected no struct body function items on doc.Nodes, got %d", len(d.Items))
-			}
 		case *ast.ImplBlock:
 			implBlocks++
 			if d.Receiver == nil || TypeExprBaseName(d.Receiver) != "Dog" {

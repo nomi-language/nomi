@@ -115,9 +115,6 @@ func hostDecls(module, receiver, iface string, nodes []ast.Node) []hostDecl {
 			}
 		case *ast.ExternType:
 			out = append(out, hostDecl{KindType, Pairing{Kind: KindType, Module: module, Receiver: receiver, Name: v.Name}})
-			if v.HasBody {
-				out = append(out, hostDecls(module, v.Name, "", v.Items)...)
-			}
 		case *ast.ExternFunc:
 			out = append(out, hostDecl{KindFunc, Pairing{Kind: KindFunc, Module: module, Receiver: receiver, Interface: iface, Name: v.Name}})
 		}

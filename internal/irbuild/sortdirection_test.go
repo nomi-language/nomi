@@ -6,37 +6,22 @@ import (
 	"testing"
 )
 
-// `Iter sort direction | Iter.sort wants a Direction, got Direction` — THE
-// DIAGNOSIS, AND WHY THE REFUSAL IS NOW A FENCE.
+// `Iter.sort`'s Direction operand, AND WHY THE BUILDER'S CHECK IS A FENCE.
 //
-// That message refused three example programs and was routed as a suspected
-// identity defect on the strength of its own text: the same printed name on both
-// sides is the signature of comparing types by rendered name. It is neither of
-// the two things the message lets a reader guess, and iterext.go's iterDirection
-// header carries the measurement. In one sentence: there was ONE `Direction`
-// def, the argument held it, and `stdEnumNamed("Direction")` could not FIND it,
-// because a file that imports only `std/comparable.Direction.Descending`
-// — the VARIANT — so the type NAME is never bound in that file's module scope.
+// iterCall (iriterbody.go) admits a sort's Direction operand only when its
+// kind is std's own def, by POINTER IDENTITY against
+// `stdEnumDefs()[stdEnumDirection]`. Every wrong-`Direction` spelling is
+// rejected by the FRONT END first, with a message that discriminates the two
+// declarations:
 //
-// Two things follow, and they need different tests.
+//	argument 2: expected std/comparable.Direction, got main.Direction
 //
-//  1. The three files' spelling must LOWER, and its result must match the
-//     golden output. TestSortDirection_EverySpellingOfStdsDirectionLowers.
-//
-//  2. The refusal is now a FENCE rather than a live tally row, and this file
-//     says so with evidence rather than by assertion. Every wrong-`Direction`
-//     spelling is rejected by the FRONT END, with a message that already
-//     discriminates the two declarations better than the builder's did:
-//
-//     argument 2: expected std/comparable.Direction, got main.Direction
-//
-//     So no user source reaches the builder's arm. It is kept and its detail
-//     made readable anyway, because a front end that stops checking
-//     nominal identity at an argument position must refuse here rather than
-//     lower a wrong sort. TestSortDirection_TheFrontEndRejectsEveryWrongSpelling
-//     is what would fail the moment that happens, and
-//     TestSortDirection_TheFenceNamesTwoDifferentThings is what the message
-//     would then say.
+// So no user source reaches the builder's arm. It is kept because a front end
+// that stops checking nominal identity at an argument position must decline
+// here rather than lower a wrong sort.
+// TestSortDirection_TheFrontEndRejectsEveryWrongSpelling is what would fail
+// the moment that happens. TestIRIterSort_DescendingDirection
+// (iritersort_test.go) runs the spelling that lowers.
 
 // TestSortDirection_TheFrontEndRejectsEveryWrongSpelling is what makes the
 // builder's arm a FENCE rather than dead code.

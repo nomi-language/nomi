@@ -16,30 +16,28 @@ func faWith(syms ...*Symbol) *FileAnalysis {
 }
 
 // TestDeclaringModuleIndex_BuildsExpectedMap verifies the helper folds
-// (project-files map, stdlib names) into a single name→module map.
+// the files of a project and the stdlib into a single name→module map.
 func TestDeclaringModuleIndex_BuildsExpectedMap(t *testing.T) {
 	// entry declares interface greeter + struct Dog. Sibling "foo"
-	// declares struct Tag. Stdlib provides Display + Int.
+	// declares struct Tag. std/display declares Display.
 	entry := faWith(
 		&Symbol{Name: "greeter", Kind: SymbolInterface},
 		&Symbol{Name: "Dog", Kind: SymbolStruct},
 	)
 	foo := faWith(&Symbol{Name: "Tag", Kind: SymbolStruct})
-	files := map[string]*FileAnalysis{"": entry, "foo": foo}
+	display := faWith(&Symbol{Name: "Display", Kind: SymbolInterface})
+	files := map[string]*FileAnalysis{"": entry, "foo": foo, "std/display": display}
 
-	stdlibInterfaces := map[string]bool{"Display": true}
-	stdlibTypes := map[string]bool{"Int": true}
 	entryModuleName := "myapp"
 	crossModuleSegments := map[string]bool{"foo": true}
 
-	idx := declaringModuleIndex(files, entryModuleName, stdlibInterfaces, stdlibTypes, crossModuleSegments)
+	idx := declaringModuleIndex(files, entryModuleName, crossModuleSegments)
 
 	want := map[string]string{
 		"greeter": "myapp",
 		"Dog":     "myapp",
 		"Tag":     "foo",
 		"Display": "std",
-		"Int":     "std",
 	}
 	for name, mod := range want {
 		if got := declaringModuleOfForTest(idx, name); got != mod {
@@ -62,7 +60,7 @@ func TestDeclaringModuleIndex_EntryOnly(t *testing.T) {
 	)
 	files := map[string]*FileAnalysis{"": entry}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	for _, name := range []string{"greeter", "Dog", "Color", "Id", "Alias"} {
 		if got := declaringModuleOfForTest(idx, name); got != "myapp" {
@@ -78,7 +76,7 @@ func TestDeclaringModuleIndex_CrossModuleDep(t *testing.T) {
 	files := map[string]*FileAnalysis{"stringkit/pad": dep}
 	crossModuleSegments := map[string]bool{"stringkit": true}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, crossModuleSegments)
+	idx := declaringModuleIndex(files, "myapp", crossModuleSegments)
 
 	if got := declaringModuleOfForTest(idx, "Padded"); got != "stringkit" {
 		t.Errorf("idx[\"Padded\"] = %q; want %q", got, "stringkit")
@@ -92,7 +90,7 @@ func TestDeclaringModuleIndex_IntraModuleSibling(t *testing.T) {
 	sibling := faWith(&Symbol{Name: "Logger", Kind: SymbolInterface})
 	files := map[string]*FileAnalysis{"sub/log": sibling}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	if got := declaringModuleOfForTest(idx, "Logger"); got != "myapp" {
 		t.Errorf("idx[\"Logger\"] = %q; want %q", got, "myapp")
@@ -100,39 +98,20 @@ func TestDeclaringModuleIndex_IntraModuleSibling(t *testing.T) {
 }
 
 func TestDeclaringModuleIndex_EmptyStdlib(t *testing.T) {
-	// Nil stdlib maps — must not panic and must not synthesize entries.
+	// No stdlib file: no entry is synthesized.
 	entry := faWith(&Symbol{Name: "X", Kind: SymbolStruct})
 	files := map[string]*FileAnalysis{"": entry}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	if len(idx) != 1 || declaringModuleOfForTest(idx, "X") != "myapp" {
 		t.Errorf("idx = %v; want {X:myapp}", idx)
 	}
 }
 
-func TestDeclaringModuleIndex_ProjectWinsOverStdlib(t *testing.T) {
-	// Precedence on collision: project wins. A user's local
-	// `pub struct Date` (or any non-prelude stdlib name) shadows the
-	// stdlib name in normal lookup; the orphan check must mirror that
-	// so `impl Iface for Date` in the user's module doesn't look
-	// orphan when the receiver is the user's own type. See helper's
-	// doc-comment for the full rationale.
-	entry := faWith(&Symbol{Name: "Date", Kind: SymbolStruct})
-	files := map[string]*FileAnalysis{"": entry}
-	stdlibTypes := map[string]bool{"Date": true}
-
-	idx := declaringModuleIndex(files, "myapp", nil, stdlibTypes, nil)
-
-	if got := declaringModuleOfForTest(idx, "Date"); got != "myapp" {
-		t.Errorf("idx[\"Date\"] = %q; want %q (project wins)", got, "myapp")
-	}
-}
-
 // TestDeclaringModuleIndex_ProjectWinsOverStdlibViaFiles pins DETERMINISTIC
 // project-wins when the stdlib declaration arrives through `files` as a
-// "std/…"-keyed FA (the production path post-stdlib-as-package), not via the
-// legacy stdlibTypes param. The bug: a single map-iteration pass over `files`
+// "std/…"-keyed FA. A single map-iteration pass over `files` would
 // let stdlib or project win at RANDOM when both declared a name (e.g. a user
 // `struct Task` vs `std/tasks.Task`), surfacing intermittently as a
 // spurious orphan error. The loop defeats map-order flakiness — every
@@ -143,7 +122,7 @@ func TestDeclaringModuleIndex_ProjectWinsOverStdlibViaFiles(t *testing.T) {
 			"std/tasks": faWith(&Symbol{Name: "Task", Kind: SymbolStruct}),
 			"":          faWith(&Symbol{Name: "Task", Kind: SymbolStruct}),
 		}
-		idx := declaringModuleIndex(files, "todo", nil, nil, nil)
+		idx := declaringModuleIndex(files, "todo", nil)
 		if got := declaringModuleOfForTest(idx, "Task"); got != "todo" {
 			t.Fatalf("iter %d: idx[\"Task\"] = %q; want %q (project must win over stdlib deterministically)", i, got, "todo")
 		}
@@ -161,7 +140,7 @@ func TestDeclaringModuleIndex_EnumVariantsExcluded(t *testing.T) {
 	)
 	files := map[string]*FileAnalysis{"": entry}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	if _, ok := declaringModuleOf(idx, "Red"); ok {
 		t.Errorf("enum variant Red leaked into index: %v", idx)
@@ -186,7 +165,7 @@ func TestDeclaringModuleIndex_ImportsExcluded(t *testing.T) {
 	)
 	files := map[string]*FileAnalysis{"": entry}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	if _, ok := declaringModuleOf(idx, "Display"); ok {
 		t.Errorf("imported symbol Display leaked into index: %v", idx)
@@ -207,7 +186,7 @@ func TestDeclaringModuleIndex_OpaqueTypesIncluded(t *testing.T) {
 	)
 	files := map[string]*FileAnalysis{"": entry}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	for _, name := range []string{"Handle", "State", "Id"} {
 		if got := declaringModuleOfForTest(idx, name); got != "myapp" {
@@ -260,7 +239,7 @@ func TestDeclaringModuleIndex_NonTypeKindsExcluded(t *testing.T) {
 	)
 	files := map[string]*FileAnalysis{"": entry}
 
-	idx := declaringModuleIndex(files, "myapp", nil, nil, nil)
+	idx := declaringModuleIndex(files, "myapp", nil)
 
 	if len(idx) != 1 {
 		t.Errorf("idx has %d entries, want 1: %v", len(idx), idx)

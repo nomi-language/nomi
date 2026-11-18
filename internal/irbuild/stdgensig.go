@@ -10,7 +10,7 @@ import (
 //
 // # Why std's own signatures need this arm
 //
-// `stdGenStructTypeOf` reads these annotations at `types.go`'s user-annotation
+// `typeOf` reads these annotations at `types.go`'s user-annotation
 // path. Without this arm a generic std struct would be admissible in a USER'S
 // annotation and inadmissible in std's own signature for it: `Range.from` and
 // `Range.naturals` both return a CONCRETE `Range<Int>`, which is exactly what
@@ -50,9 +50,12 @@ func genStructSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 		return kindInvalid, false
 	}
 	if len(gt.Params) != len(a.spec.params) {
-		// The checker rejects the program first; refusing rather than
-		// instantiating at the wrong arity keeps this from emitting Go against a
-		// type nobody wrote. `mapSigKind`'s arity rule, and the same reason.
+		// stdTypeKind is the only caller, and it passes annotations from std
+		// source the checker accepted, which reports a wrong type-argument
+		// count. Every spec takes one parameter and its fields read args[0]
+		// (stdGenStructSpecs). Without the guard an annotation with no
+		// argument would panic there, and one with two would intern a shared
+		// instance whose argument list equals no call site's kind.
 		return kindInvalid, true
 	}
 	args := make([]kind, len(gt.Params))
@@ -64,7 +67,7 @@ func genStructSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 		}
 	}
 	// `!shared` is a refusal rather than a decline, exactly as
-	// stdGenStructTypeOf treats it: declining would fall through and report the
+	// typeOf treats it: declining would fall through and report the
 	// CONTAINER — which lowers — instead of the argument, which does not.
 	//
 	// The PROCESS-WIDE door and not the module-local one, and that is the whole
@@ -72,9 +75,9 @@ func genStructSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 	// stdFunc's kinds are built ONCE and compared BY POINTER against a call
 	// site's argument kinds in a different gen (stdprelude.go's header), so a
 	// per-gen instance here would be a kind no call site could ever match. A
-	// std signature mentioning `Channel<T>` at a package-relative argument is
-	// therefore still outside the subset, and `stdlib generic function` keeps
-	// that population.
+	// std signature mentioning `Channel<T>` at an argument that is not neutral
+	// (kind.packageNeutral) is therefore still outside the subset, and
+	// `stdlib generic function` keeps that population.
 	k, shared := sharedGenStructInstance(a.spec, args)
 	if !shared {
 		return kindInvalid, true
@@ -88,7 +91,7 @@ func genStructSigKind(gt *ast.GenericType, anchors stdAnchors) (kind, bool) {
 // stdGenHostSpecs family, on the same terms.
 //
 // Without it the family had a spec and no signature arm, so a generic host type
-// was admissible in a user's annotation (stdGenHostTypeOf) and in an inferred
+// was admissible in a user's annotation (typeOf) and in an inferred
 // position, and every shared std function that named one at a concrete
 // argument refused as `stdlib function outside the scalar subset` with the
 // representation present: a private `fn digits_end(marks: Vector<String>, at:

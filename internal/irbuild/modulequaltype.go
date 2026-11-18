@@ -49,11 +49,11 @@ import (
 // (TestRuntimeImportsOnlyItsAllowlist) and a user cannot extend the
 // compiler's list. A user handle reaches every gen by its own route:
 // hostpkg.go's `hostTypeDefs` interns one `*typeDef` per (import path, Go type)
-// PROCESS-WIDE, with `rtDeclared: true`, so `importNamed`'s `src.rtDeclared`
-// arm hands the same def back to a referencing package with nothing
-// re-derived. The only thing this file adds is the spelling that names the
-// struct holding it. A user handle gets no `Debug`, no `==` and no hash,
-// because hostTypeDef declines all three deliberately (its header says why).
+// process-wide, with `rtDeclared: true`, so `importNamed`'s `src.rtDeclared`
+// arm hands the same def back to a referencing gen with nothing re-derived.
+// The only thing this file adds is the spelling that names the struct holding
+// it. A user handle gets no `Debug`, no `==` and no hash, because hostTypeDef
+// declines all three deliberately (its header says why).
 //
 // # WHAT IS DELIBERATELY NOT REACHED
 //
@@ -62,14 +62,14 @@ import (
 // function over: the member must be an `*ast.SimpleType`, because a generic
 // declaration is refused in its own file too and a mirror inherits that.
 //
-// A qualified INTERFACE (`store.Store` where `Store` is an `interface`) is not
+// A qualified interface (`store.Store` where `Store` is an `interface`) is not
 // a type mirror: `foreignOwner`'s rule is that a type lookup never comes back
-// holding an interface, since the mirror machinery has no alias, layout or tags
+// holding an interface, since a type mirror's layout and tags mean nothing
 // for one. It resolves instead through moduleQualifiedIface, to the interface
 // mirror the bare imported name reaches (foreignIface), so `db: sql.Conn` and
 // `db: Conn` are one existential.
 
-// moduleQualifiedType resolves `<qualifier>.<Name>` to this package's mirror of
+// moduleQualifiedType resolves `<qualifier>.<Name>` to this gen's mirror of
 // the declaration the qualifier's module exports under that name.
 //
 // Resolution is by DECLARATION NODE, through the analyzer's own scope for the
@@ -125,7 +125,7 @@ func (g *gen) typeOwnerIn(scope *analysis.Scope, name string) *typeOwner {
 	return o
 }
 
-// moduleQualifiedIface resolves `<qualifier>.<Name>` to this package's def for
+// moduleQualifiedIface resolves `<qualifier>.<Name>` to this gen's def for
 // the interface the qualifier's module exports under that name, by
 // declaration node, as moduleQualifiedType does for a type. It answers for a
 // program's own modules and for the std modules lowered with the program
@@ -225,15 +225,13 @@ func (g *gen) moduleQualifiedIfaceNamed(qualifier, name string) (*ifaceDef, bool
 // moduleQualifiedBare is the DOTTED spelling for a declaration named BARE,
 // found by asking every whole-file import this file binds.
 //
-// # THE DOT SHORTHAND RECORDS A BARE NAME AND THE QUALIFIER IS NOT IN IT
+// # The dot shorthand records a bare name and the qualifier is not in it
 //
 // `b: shapes.Shape = .Ring{r: 7}` is resolved by the analyzer, which writes
-// `ast.DotVariantType.ResolvedEnum = "Shape"` — the DECLARED name, with no
-// module in it, because that field's job is to tell the evaluator which enum
-// and the evaluator resolves names differently. The builder then looked
-// `Shape` up in THIS file's tables, which bind only the qualifier, and refused
-// `struct literal | Shape.Ring` — the same gap as the three-segment spellings
-// above, arriving with the qualifier already discarded.
+// `ast.DotVariantType.ResolvedEnum = "Shape"`: the declared name, with no
+// module in it. This file's tables bind only the qualifier, so a lookup of
+// `Shape` alone misses and the literal would refuse as
+// `struct literal | Shape.Ring`.
 //
 // # AMBIGUITY DECLINES, IT DOES NOT PICK
 //
@@ -241,11 +239,11 @@ func (g *gen) moduleQualifiedIfaceNamed(qualifier, name string) (*ifaceDef, bool
 // nothing about which. Resolving the first one found would be a WRONG ANSWER
 // with no diagnostic — a variant tag over another type's slot layout — so a
 // second, different declaration makes this answer false and the caller's
-// existing refusal stands. Same disposition as `stdModuleQualifiedCall`'s pin.
+// existing refusal stands.
 //
-// The qualifiers are scanned in sorted order so a program's emitted mirrors do
-// not depend on Go's map iteration; the ANSWER is order-independent already,
-// because every qualifier is asked before one is chosen.
+// The qualifiers are scanned in sorted order so which mirror is registered
+// does not depend on Go's map iteration; the answer is order-independent
+// already, because every qualifier is asked before one is chosen.
 func (g *gen) moduleQualifiedBare(name string) (string, bool) {
 	if g.fa == nil || g.fa.ModuleScope == nil {
 		return "", false
@@ -293,11 +291,11 @@ func (g *gen) moduleQualifiedBare(name string) (string, bool) {
 // every spelling of it failed at the same place — `g.namedType("shapes.Shape")`
 // — because the owner is handed around this package as a dotted STRING:
 //
-//	shapes.Shape.Ring{r: 2}   structLit -> variantLit -> lookupVariant("shapes.Shape")
-//	shapes.Shape.Square(4)    variantCall -> lookupVariant("shapes.Shape")
-//	shapes.Bag.Items[1, 2]    attachLit -> variantCall, through a TypeIdent
+//	shapes.Shape.Ring{r: 2}   a variant's brace literal
+//	shapes.Shape.Square(4)    variantCall
+//	shapes.Bag.Items[1, 2]    a variant's attached literal, through a TypeIdent
 //	                          synthesized with the dotted owner as its Name
-//	shapes.Colour.Red         fieldAccess -> dottedTypeQualifier -> namedType
+//	shapes.Colour.Red         dottedTypeQualifier -> namedType
 //
 // So one arm in namedType serves all four, and the alternative — a
 // module-qualified branch at each of those sites — is the resolver-family
@@ -430,7 +428,7 @@ func (g *gen) qualifiedStdGenericKind(qualifier string, gt *ast.GenericType) (ki
 	case *analysis.EnumType:
 		// `maybe.Maybe<Int>`, `result.Result<Int, String>`: a prelude enum
 		// named through its std file's qualifier is the instance the bare
-		// name gives (preludeTypeOf), found by the declaration it binds.
+		// name gives (typeOf), found by the declaration it binds.
 		return g.qualifiedPreludeKind(sym, gt)
 	default:
 		return kindInvalid, false
@@ -456,7 +454,7 @@ func (g *gen) qualifiedStdGenericKind(qualifier string, gt *ast.GenericType) (ki
 
 // qualifiedPreludeKind is the prelude instance a qualified generic enum names
 // (`maybe.Maybe<Int>`): the declaration the qualifier's scope binds selects
-// the anchor, and the arguments instantiate it as preludeTypeOf's do. A
+// the anchor, and the arguments instantiate it as typeOf's do. A
 // generic enum that is no prelude family is not answered here.
 func (g *gen) qualifiedPreludeKind(sym *analysis.Symbol, gt *ast.GenericType) (kind, bool) {
 	g.loadPreludes()

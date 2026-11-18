@@ -109,19 +109,19 @@ end
 }
 
 func TestIRLoopEndless_ValuePositions(t *testing.T) {
-	// The loop as a function's Int tail, as a binding followed by statements
-	// that never run, as an operand after one evaluated first, as a `case`
+	// The loop as a function's Int tail, as a binding ending a function,
+	// as an operand after one evaluated first, as a `case`
 	// arm and an `if` branch, as the tail of an outer loop's body, and as a
 	// `concurrent` body's tail. Arms that do not loop still answer.
 	for name, call := range map[string]struct{ main, fault, output string }{
-		"tail": {"io.print(arm(4))\n    io.print(branch(True))\n    io.print(count(5) + bound())",
+		"tail": {"io.print(arm(4))\n    io.print(branch(True))\n    io.print(count(5))",
 			"line 6: `NonZeroInt.try_from(limit - n)` found nothing", "40\n7\ncount 0\n2\ncount 1\n2\ncount 2\n3\ncount 3\n5\ncount 4\n10\ncount 5\n"},
-		"bound":      {"io.print(bound())", "line 14: `NonZeroInt.try_from(2 - n)` found nothing", "bound 1\n10\nbound 2\n"},
-		"operand":    {"io.print(operand())", "line 28: `NonZeroInt.try_from(n)` found nothing", "first\n"},
-		"arm":        {"io.print(arm(0))", "line 36: `NonZeroInt.try_from(n)` found nothing", ""},
-		"branch":     {"io.print(branch(False))", "line 48: `NonZeroInt.try_from(n)` found nothing", ""},
-		"nested":     {"nested()", "line 60: `NonZeroInt.try_from(3 - j)` found nothing", "outer 0\nouter 1\ninner 1\n5\ninner 2\n10\ninner 3\n"},
-		"concurrent": {"io.print(conc())", "line 70: `NonZeroInt.try_from(n)` found nothing", "conc\n5\n10\n"},
+		"bound":      {"bound()", "line 14: `NonZeroInt.try_from(2 - n)` found nothing", "bound 1\n10\nbound 2\n"},
+		"operand":    {"io.print(operand())", "line 26: `NonZeroInt.try_from(n)` found nothing", "first\n"},
+		"arm":        {"io.print(arm(0))", "line 34: `NonZeroInt.try_from(n)` found nothing", ""},
+		"branch":     {"io.print(branch(False))", "line 46: `NonZeroInt.try_from(n)` found nothing", ""},
+		"nested":     {"nested()", "line 58: `NonZeroInt.try_from(3 - j)` found nothing", "outer 0\nouter 1\ninner 1\n5\ninner 2\n10\ninner 3\n"},
+		"concurrent": {"io.print(conc())", "line 68: `NonZeroInt.try_from(n)` found nothing", "conc\n5\n10\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			verifyEndlessTrap(t, endlessPositions(call.main), call.fault, call.output)
@@ -142,14 +142,12 @@ fn count(limit: Int) -> Int
     end)
 end
 
-fn bound() -> Int
-    x = Iter.loop(1, fn n ->
+fn bound()
+    _x = Iter.loop(1, fn n ->
         io.print("bound ${n}")
         io.print(10 / NonZeroInt.try_from(2 - n)!)
         n + 1
     end)
-    io.print("never")
-    x + 1
 end
 
 fn noisy(label: String) -> Int
@@ -247,9 +245,9 @@ end
 }
 
 func TestIRLoopEndless_TestBodies(t *testing.T) {
-	// A case ending in the loop, one binding it with statements after, and
-	// one running it in a `case` arm: each fails at its trap after the
-	// output before it, and nothing after the loop runs.
+	// A case ending in the loop, one ending in a binding of it, and one
+	// running it in a `case` arm: each fails at its trap after the output
+	// before it, and nothing after the loop runs.
 	path := filepath.Join(t.TempDir(), "endless_test.nomi")
 	src := `import std::io
 
@@ -265,12 +263,10 @@ end
 
 test "a bound loop"
     assert 2 == 2
-    x = Iter.loop(fn ->
+    _x = Iter.loop(fn ->
         io.print("bound")
         io.print(1 / NonZeroInt.try_from(1 - 1)!)
     end)
-    io.print("never")
-    io.inspect(x)
 end
 
 test "a loop in an arm"
@@ -319,7 +315,7 @@ end
 	for _, want := range []string{
 		"  worker 0\n  worker 1\n  worker 2\n", "line 8: `NonZeroInt.try_from(2 - n)` found nothing",
 		"  bound\n", "line 17: `NonZeroInt.try_from(1 - 1)` found nothing",
-		"  arm\n", "line 28: `NonZeroInt.try_from(1 - 1)` found nothing",
+		"  arm\n", "line 26: `NonZeroInt.try_from(1 - 1)` found nothing",
 	} {
 		if !strings.Contains(report, want) {
 			t.Errorf("the report lacks %q:\n%s", want, report)

@@ -17,18 +17,18 @@ import (
 //   - as a case arm's body (`0 -> return`) or a one-line branch
 //     (`if x then return else ...`), it becomes `Unit`, since an arm and a
 //     branch need a value. (`{}` is an empty map.)
-func buildUselessReturnActions(content, uri string, diags []protocol.Diagnostic) []protocol.CodeAction {
+func buildUselessReturnActions(content, uri string, errs []analysis.TypeError, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction
 	for _, d := range diags {
-		if !strings.HasPrefix(diagnosticHeadline(d.Message), analysis.UselessReturnPrefix+":") {
-			continue
-		}
 		if d.Range.Start.Line != d.Range.End.Line {
 			continue
 		}
 		if lines == nil {
 			lines = newLineIndex(content)
+		}
+		if e, ok := reportedError(lines, errs, d); !ok || e.Code != analysis.UselessReturnCode {
+			continue
 		}
 		text, ok := lines.line(d.Range.Start.Line)
 		if !ok {

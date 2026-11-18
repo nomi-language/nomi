@@ -345,10 +345,10 @@ func TestTypeArgumentVariance_LiteralOperandMismatchIsRefused(t *testing.T) {
 		"an element of another type": {`r = [1] + ["a"]`, "`+` needs two values of one type, and these are List<Int> and List<String>"},
 		"two typed operands": {`mine = [("b", page)]; r = mine + routes()`,
 			"`+` needs two values of one type, and these are List<(String, (Int) -> Page)> and List<(String, (Int) -> Reply)>"},
-		"a spread beside a narrowing element": {`r = [("b", other), ..routes()]`,
-			"list spread element type mismatch: (String, (String) -> Page) vs (String, (Int) -> Reply)"},
+		"a narrowing element beside a spread": {`r = [("b", other), ..routes()]`,
+			"list element type mismatch: expected (String, (Int) -> Reply), got (String, (String) -> Page)"},
 		"two typed spreads": {`mine = [("b", page)]; r = [..mine, ..routes()]`,
-			"list spread element type mismatch: (String, (Int) -> Page) vs (String, (Int) -> Reply)"},
+			"list spread element type mismatch: expected (String, (Int) -> Page), got (String, (Int) -> Reply)"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			src := literalOperandDecls + "\nfn main()\n  " + tc.body + "\n  dbg r\nend\n"

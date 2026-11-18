@@ -16,9 +16,9 @@ package irbuild
 //
 // # The source text is an operand and the line is the position
 //
-//   - THE SOURCE TEXT is an `ir.Const` String operand. No consumer can
-//     re-derive `format.RenderNode(operand)` — the AST is gone by the time
-//     anything reads the graph — so it arrives from the producer.
+//   - The source text is an `ir.Const` String operand. The VM cannot
+//     re-derive `format.RenderNode(operand)`, since the AST is gone by the
+//     time it reads the graph, so the text arrives from the builder.
 //
 //   - THE LINE comes off `Pos()`. It is already there, mandatory, and checked:
 //     `ir.At` panics below line 1 and `ir.Lint`'s RulePositionValid re-asks. A
@@ -30,8 +30,7 @@ package irbuild
 //
 // The operand admits Int, Float, Bool, String and lists of those scalars,
 // including nested lists, and tuples/records recursively composed from these
-// values. Nominal elements are outside this fence because `debugRendering`
-// can REFUSE, and `irScalarRender` PANICS on a refusal rather than routing one.
+// values. Nominal elements are outside this fence.
 //
 // A named operand outside irDebugValueKind renders through a Debug impl
 // instead: distinctDebugPlan names one for a distinct, struct or enum, and
@@ -76,7 +75,7 @@ const dbgKey = "dbg"
 // or declaration metadata. Tuples supply positional order; records sort names.
 // Anchored prelude enums use structural Debug with independently checked payloads.
 func irDebugValueKind(k kind) bool {
-	if k == kindUnit || k == kindNever || irByteValueKind(k) || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) || k == kindEmptySet || k == kindEmptyMap {
+	if k == kindUnit || k == kindNever || irByteValueKind(k) || isDecimalKind(k) || irScalarLeafKind(k) || irRetainedListKind(k) || irRetainedVectorKind(k) {
 		return true
 	}
 	if k.tag == tagSeq {
@@ -145,7 +144,7 @@ func irStructuralDebugKind(k kind) bool {
 	if irDebugValueKind(k) {
 		return true
 	}
-	if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
+	if elem, vector := vectorElem(k); vector {
 		return irStructuralDebugKind(elem)
 	}
 	switch k.tag {
@@ -175,7 +174,7 @@ func irStructuralDebugKind(k kind) bool {
 //
 // ONE TOKEN FOR EVERY `dbg` IN THE PROGRAM, which is correct for the same
 // reason `printKey` is one token for every `io.print`: the crossing names one
-// Go procedure, and a Symbol is "a name plus an identity and NOTHING ELSE".
+// host procedure, and a Symbol is "a name plus an identity and NOTHING ELSE".
 type irDbgCallee struct{}
 
 // dbg lowers `dbg E`: print the operand's source text beside its Debug
@@ -187,11 +186,10 @@ func (bl *irScalarBuilder) dbg(t *ast.Dbg) (ir.Temp, kind, bool, bool) {
 // dbgOf lowers `dbg E` over an EXPLICIT operand, which the pipe form passes
 // as `t.Left`.
 func (bl *irScalarBuilder) dbgOf(t *ast.Dbg, operand ast.Node) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if isNilNode(operand) {
-		// A pipe stage with no operand: `bl.pipe` passes the left side, so
-		// only a stage reached some other way lands here, and it declines.
-		return no()
+		// The parser gives `dbg` its operand, and `bl.pipe` passes a pipe
+		// stage's left side.
+		panic("irbuild: dbgOf: a `dbg` with no operand")
 	}
 	// kindInvalid: sentinel — no position supplies a wanted type.
 	return bl.dbgWant(t, operand, kindInvalid)
@@ -209,9 +207,6 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 		src, k, mobile, ok = bl.lowerTypedOperand(operand, want)
 	} else {
 		src, k, mobile, ok = bl.lower(operand)
-		if ok {
-			src, k, ok = bl.typeOpenEmpty(operand, src, k)
-		}
 	}
 	if !ok {
 		return no()
@@ -248,11 +243,11 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 			viaInspect = true
 		}
 	}
-	// ONCE, and the two consumers need it for two different reasons. `dbg` is
-	// transparent, so the operand is read by the RENDERER and by whatever
-	// consumes the `dbg`. In the graph a temporary is already one evaluation,
-	// so a second consumer needs nothing here. The Copy forces an impure
-	// operand; its condition is `!mobile`.
+	// The operand is evaluated once. `dbg` is transparent, so the operand is
+	// read by the renderer and by whatever reads the `dbg`'s value. In the
+	// graph a temporary is already one evaluation, so the second read needs
+	// nothing here. The Copy forces an impure operand; its condition is
+	// `!mobile`.
 	if !mobile {
 		cp := ir.NewCopy(bl.g.irNodePos(operand), bl.f.NewTemp(), src)
 		bl.b.Append(cp)
@@ -263,7 +258,7 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 	bl.b.Append(txt)
 	var rendered ir.Temp
 	if viaInspect {
-		r, ok := bl.debugOver(operand, src, k)
+		r, ok := bl.debugOver(operand, src, k, bl.g.operandCheckerType(operand))
 		if !ok {
 			return no()
 		}
@@ -472,7 +467,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			}
 			return true
 		}
-		if member, isSet := setElem(k); isSet && k != kindEmptySet {
+		if member, isSet := setElem(k); isSet {
 			// rt's structural Set Debug renders each member through the
 			// same hook.
 			return walk(member)
@@ -536,13 +531,13 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			}
 			return true
 		}
-		if elem, vector := vectorElem(k); vector && k != kindEmptyVector {
+		if elem, vector := vectorElem(k); vector {
 			return walk(elem)
 		}
 		switch {
 		case k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
 			return walk(k.comp.parts[0])
-		case irMapTransportKind(k), k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k):
+		case irMapTransportKind(k), k.tag == tagMap && irRetainedMapKind(k):
 			return walk(k.comp.parts[0]) && walk(k.comp.parts[1])
 		case irRetainedTupleKind(k) || irRetainedRecordKind(k):
 			for _, part := range k.comp.parts {

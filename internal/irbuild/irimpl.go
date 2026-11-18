@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -18,9 +20,11 @@ func irImplSource(it *implItem) *ast.FuncDef {
 	return &ast.FuncDef{Name: it.name, Params: it.params0, Body: it.body, Line: it.line}
 }
 
-// irImplLower offers declared and inherited source bodies to the same builder
-// and Go reader. Unsupported bodies and tail drivers keep native lowering.
-func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kind) (kind, bool) {
+// irImplLower lowers an impl function's body, declared or inherited, through
+// the function builder a file-level function uses (irScalarLower). A Go-bound
+// function gets a crossing instead (irImplHostLower), and a default another
+// file declares gets a call to it (irImplForwardDefault).
+func (g *gen) irImplLower(d *implDef, it *implItem, params []kind) (kind, bool) {
 	fd := irImplSource(it)
 	if fd == nil {
 		return kindInvalid, false
@@ -38,11 +42,11 @@ func (g *gen) irImplLower(d *implDef, it *implItem, plan *tailPlan, params []kin
 	}
 	if it.inherited {
 		prev := g.defaultSelf
-		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
+		g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv, typ: d.recvType}
 		defer func() { g.defaultSelf = prev }()
 	}
 	g.irImplPrologue(fd, sh, params)
-	return g.irScalarLower(fd, sig, plan, sh, it.result)
+	return g.irScalarLower(fd, sig, sh, it.result)
 }
 
 // irImplPrologue reads each destructuring parameter's names off its value at
@@ -74,52 +78,57 @@ func (g *gen) irImplPrologue(fd *ast.FuncDef, sh *irFuncShell, params []kind) {
 	closePrologue(ok)
 }
 
-// hostTemplateImplPlan resolves `Box.origin()` against a generic receiver's
-// Go-bound impl function when no instance of `Box` is selected: its operands
-// name no `Box<T>`, so nothing solves T. The Go function is the same at every
-// instance, so the call crosses to it directly. A signature that names the
-// template's type parameters does not resolve here and declines.
-func (bl *irScalarBuilder) hostTemplateImplPlan(t *ast.Call, args irQualArgs, tpl *genericTemplate, method string) *irQualPlan {
+// hostTemplateImplPlan is the call t of ef, a Go-bound impl function of a
+// block on a generic type this gen declares, when the call selects no
+// instance of the type: `Box.origin()`, whose operands name no `Box<T>`, so
+// nothing solves T. The Go function is the same at every instance, so the
+// call crosses to it directly. A signature that names the template's type
+// parameters declines.
+func (bl *irScalarBuilder) hostTemplateImplPlan(t *ast.Call, args irQualArgs, ef *ast.ExternFunc) *irQualPlan {
 	g := bl.g
-	if g.stdModule != "" {
+	if g.stdModule != "" || !hostBoundImplFn(ef) {
 		return nil
 	}
-	blocks := append([]*ast.ImplBlock(nil), tpl.hostImpls...)
-	for _, it := range tpl.impls {
-		blocks = append(blocks, it.decl)
-	}
-	for _, ib := range blocks {
-		for _, item := range ib.Items {
-			ef, isExt := item.(*ast.ExternFunc)
-			if !isExt || ef.Name != method || !hostBoundImplFn(ef) {
-				continue
+	holds := func(ib *ast.ImplBlock) bool { return slices.Contains(ib.Items, ast.Node(ef)) }
+	var ib *ast.ImplBlock
+	for _, tpl := range g.genericTemplates {
+		for _, b := range tpl.hostImpls {
+			if holds(b) {
+				ib = b
 			}
-			params := make([]kind, len(ef.Params))
-			for i, p := range ef.Params {
-				if p.TypeAnnotation == nil || p.Default != nil {
-					return nil
-				}
-				// kindInvalid: reports — a parameter naming T, or a type outside the domain, declines the plan.
-				if params[i] = g.typeOf(p.TypeAnnotation); params[i] == kindInvalid {
-					return nil
-				}
+		}
+		for _, it := range tpl.impls {
+			if holds(it.decl) {
+				ib = it.decl
 			}
-			result := kindUnit
-			if ef.ReturnTypeExpr != nil {
-				// kindInvalid: reports — as a parameter's does.
-				if result = g.typeOf(ef.ReturnTypeExpr); result == kindInvalid {
-					return nil
-				}
-			}
-			if !irHostFnHasVMBody(params, result) || !bl.qualSignature(t, args, params, result) {
-				return nil
-			}
-			key := hostImplKey(ib, ef.Name)
-			g.irHostKeys = append(g.irHostKeys, key)
-			return &irQualPlan{token: irHostBinding{ef}, name: hostadapt.ProjectName(key), result: result, host: true}
 		}
 	}
-	return nil
+	if ib == nil {
+		return nil
+	}
+	params := make([]kind, len(ef.Params))
+	for i, p := range ef.Params {
+		if p.TypeAnnotation == nil || p.Default != nil {
+			return nil
+		}
+		// kindInvalid: reports — a parameter naming T, or a type outside the domain, declines the plan.
+		if params[i] = g.typeOf(p.TypeAnnotation); params[i] == kindInvalid {
+			return nil
+		}
+	}
+	result := kindUnit
+	if ef.ReturnTypeExpr != nil {
+		// kindInvalid: reports — as a parameter's does.
+		if result = g.typeOf(ef.ReturnTypeExpr); result == kindInvalid {
+			return nil
+		}
+	}
+	if !irHostFnHasVMBody(params, result) || !bl.qualSignature(t, args, params, result) {
+		return nil
+	}
+	key := hostImplKey(ib, ef.Name)
+	g.irHostKeys = append(g.irHostKeys, key)
+	return &irQualPlan{token: irHostBinding{ef}, name: hostadapt.ProjectName(key), result: result, host: true}
 }
 
 // implItemIsHost reports whether an impl item's declaration is the shell of a
@@ -157,6 +166,10 @@ func (g *gen) irImplHostLower(d *implDef, ef *ast.ExternFunc, sh *irFuncShell, r
 type irDefaultSelf struct {
 	iface *ifaceDef
 	recv  kind
+	// typ is the implementor's checker type, nil where the block's record
+	// has none: what the default's `self` type parameter (the interface's
+	// analysis.InterfaceType.SelfParam) stands for (genericSubstType).
+	typ analysis.Type
 }
 
 // projectDefaultSelf answers project for a checked type that is the `self` of

@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -59,7 +60,6 @@ func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 			d.TypeParams = []ast.TypeParam{{Name: "T", Bounds: []ast.TypeExpr{&ast.SimpleType{Name: "Hashable"}}}}
 		}},
 		{"a foreign Go binding", func(d *ast.ExternType) { d.ForeignName = "chan.Sender" }},
-		{"a body item", func(d *ast.ExternType) { d.HasBody = true; d.Items = []ast.Node{&ast.FuncDef{Name: "x"}} }},
 		{"a decorator that is not derive", func(d *ast.ExternType) {
 			d.Decorators = []ast.Decorator{{Name: "inline"}}
 		}},
@@ -113,7 +113,6 @@ func TestChannelSpecShapeChecksAreLoadBearing(t *testing.T) {
 		{"a NON-SCALAR inner", func(d *ast.TypeDef) {
 			d.InnerTypeExpr = &ast.GenericType{Name: "List", Params: []ast.TypeExpr{&ast.SimpleType{Name: "Int"}}}
 		}},
-		{"a body item", func(d *ast.TypeDef) { d.HasBody = true; d.Items = []ast.Node{&ast.FuncDef{Name: "x"}} }},
 		{"a decorator that is not derive", func(d *ast.TypeDef) { d.Decorators = []ast.Decorator{{Name: "inline"}} }},
 	}
 	for _, m := range markerMutations {
@@ -184,9 +183,6 @@ func TestChannelSpecsMatchStdSource(t *testing.T) {
 		s := &stdMarkerSpecs[i]
 		if !markerValidated[i] {
 			t.Errorf("%s.%s: std does not declare it in the shape the spec describes", s.origin, s.nomi)
-		}
-		if !rtNamed(s.goType) {
-			t.Errorf("%s.%s: goType is not a named top-level type in rt", s.origin, s.nomi)
 		}
 	}
 
@@ -354,32 +350,49 @@ func TestChannelDefsArePackageNeutral(t *testing.T) {
 // that shares a guard cannot audit itself, so the audit compares two
 // independent paths that answer the same question.
 //
-// The two paths are the ANNOTATION door (`typeOf` over a written type
-// expression) and the INFERENCE door (`project` over the type the CHECKER
-// solved). They share no code: one walks an `*ast.TypeExpr` through
-// stdGenHostTypeOf / stdMarkerNamed / stdGenStructTypeOf, the other walks an
-// `analysis.Type` through genHostOfType / stdMarkerOfType / genStructOfType. An
-// arm present in one and absent in the other is the defect this catches.
+// The two paths are the ANNOTATION door (`typeOf` over a type expression the
+// program writes, the projection of the type the checker recorded for it)
+// and the INFERENCE door (`project` over an `analysis.Type` built here from
+// the spec row). An arm of `project` that answers the checker's type and not
+// the row's, or the reverse, is the defect this catches.
 //
 // The population is derived from one source of truth, the spec tables, so
-// adding a row cannot pass by not being listed.
+// adding a row cannot pass by not being listed: the program is written from
+// them, one parameter per row, importing each type the prelude does not
+// bind. The annotation is the parsed program's own node, since typeOf
+// answers only a node the checker recorded.
 func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
-	src := "import std::channels.{Arm, Channel, ChannelClosed, Receiver, Sender, TimedOut}\n" +
-		// `Task<T>` is a stdGenHostSpecs row too, and the population below is
-		// derived from that table — so the witness has to name it or the
-		// ANNOTATION door has nothing in scope to resolve and reads as a refusal.
-		"import std::tasks.Task\n\n" +
-		"fn a(_x: Channel<Int>) -> Int\n    1\nend\n" +
-		"fn e(_x: Task<Int>) -> Int\n    1\nend\n" +
-		"fn b(_x: Sender<Int>) -> Int\n    1\nend\n" +
-		"fn c(_x: Receiver<Int>) -> Int\n    1\nend\n" +
-		"fn d(_x: ChannelClosed) -> Int\n    1\nend\n" +
-		"fn f(_x: Arm<Int>) -> Int\n    1\nend\n" +
-		"fn h(_x: TimedOut) -> Int\n    1\nend\n\n" +
-		"test \"t\"\n  assert True\nend\n"
+	lib := std.Load()
+	var imports, fns strings.Builder
+	row := func(name, annotation, origin string) {
+		if lib.Primitives.Lookup(name) == nil {
+			imports.WriteString("  " + strings.ReplaceAll(origin, "/", "::") + "." + name + "\n")
+		}
+		fmt.Fprintf(&fns, "fn witness_%s(_x: %s) -> Int\n    1\nend\n\n", strings.ToLower(name), annotation)
+	}
+	for i := range stdGenHostSpecs {
+		row(stdGenHostSpecs[i].nomi, stdGenHostSpecs[i].nomi+"<Int>", stdGenHostSpecs[i].origin)
+	}
+	for i := range stdMarkerSpecs {
+		row(stdMarkerSpecs[i].nomi, stdMarkerSpecs[i].nomi, stdMarkerSpecs[i].origin)
+	}
+	src := "import\n" + imports.String() + "end\n\n" + fns.String() + "test \"t\"\n  assert True\nend\n"
 	p, err := AnalyzeSource("agree", src)
 	if err != nil {
-		t.Fatalf("analyze: %v", err)
+		t.Fatalf("analyze: %v\n%s", err, src)
+	}
+	annotations := map[string]ast.TypeExpr{}
+	for _, n := range p.Entry().Nodes {
+		if fd, isFunc := n.(*ast.FuncDef); isFunc && len(fd.Params) == 1 {
+			annotations[fd.Name] = fd.Params[0].TypeAnnotation
+		}
+	}
+	annotation := func(name string) ast.TypeExpr {
+		te := annotations["witness_"+strings.ToLower(name)]
+		if te == nil {
+			t.Fatalf("the program declares no witness for %s", name)
+		}
+		return te
 	}
 	g := newGen(p.Entry(), "nomimod0", nil, nil, -1, nil)
 	g.declareTypes()
@@ -389,7 +402,7 @@ func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
 	// The generic host rows, both doors.
 	for i := range stdGenHostSpecs {
 		s := &stdGenHostSpecs[i]
-		ann := g.typeOf(&ast.GenericType{Name: s.nomi, Params: []ast.TypeExpr{&ast.SimpleType{Name: "Int"}}})
+		ann := g.typeOf(annotation(s.nomi))
 		inf := g.project(&analysis.DistinctType{
 			Origin: s.origin, Name: s.nomi, Opaque: true,
 			TypeParams: s.params, TypeArgs: []analysis.Type{analysis.TypeInt},
@@ -406,7 +419,7 @@ func TestChannelKindsAgreeAcrossEveryChannel(t *testing.T) {
 	// The marker rows, both doors.
 	for i := range stdMarkerSpecs {
 		s := &stdMarkerSpecs[i]
-		ann := g.typeOf(&ast.SimpleType{Name: s.nomi})
+		ann := g.typeOf(annotation(s.nomi))
 		inf := g.project(&analysis.DistinctType{Origin: s.origin, Name: s.nomi})
 		if ann == kindInvalid {
 			t.Errorf("%s: the ANNOTATION door refuses", s.nomi)

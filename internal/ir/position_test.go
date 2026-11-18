@@ -182,16 +182,12 @@ func TestPosition_AZeroValuedNodeCannotEnterAFunction(t *testing.T) {
 	}
 }
 
-// TestPosition_ASynthesizedPositionCarriesItsOrigin covers the second
-// inheritance path into the same defect class as the loop exit.
+// TestPosition_ASynthesizedPositionCarriesItsOrigin covers derived code.
 //
-// `gen.at` (native.go:1642) IGNORES a synthesized line — `derive` synthesis
-// allocates from a band around 2^30 and `//line f.nomi:1077657600` is not a
-// legal Go directive — and leaves the cursor wherever the caller last set it.
-// Ignoring is the right call for a `//line` directive and the wrong shape for
-// an IR node, because it means the node has no position of its own. Here a
-// synthesized position is a position: it carries the origin the programmer
-// wrote, and says that it is one.
+// `derive` synthesis allocates lines from a band around 2^30, which name no
+// line the programmer wrote, and an IR node still needs a position of its
+// own. Here a synthesized position is a position: it carries the origin the
+// programmer wrote, and says that it is one.
 func TestPosition_ASynthesizedPositionCarriesItsOrigin(t *testing.T) {
 	read := ir.At("a.nomi", 10, 1)
 	if read.Synthesized() {

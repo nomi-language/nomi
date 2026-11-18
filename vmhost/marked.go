@@ -44,6 +44,13 @@ import (
 // (virtualproject.Project.TestFiles), loaded entered at that file, whose
 // cases the program's Cases answers after the entry's. hasTests reports
 // whether any file declares tests.
+//
+// A block is loaded for its run and its tests at once, so the load holds
+// it to its nomi.toml's [capabilities] lists as `nomi check` does
+// (checkedRoots): main, the boot and the exports to allow, and each test
+// file's cases to allow with allow_in_tests. A block over its lists fails
+// to load, with the diagnostics at the calls, as a block that does not
+// compile does; the tour shows it as a compile error.
 func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err error) {
 	project, err := virtualproject.FromMarkedSource(src)
 	if err != nil {
@@ -78,7 +85,7 @@ func loadMarkedProject(project virtualproject.Project, dir, root string, opts []
 	opts = append([]Option{WithFileSystem(blockFiles(project))}, opts...)
 	if project.Files == nil {
 		opts = append([]Option{WithVirtualFiles(project.VirtualFiles), WithVirtualManifest(project.Manifest), WithVirtualData(project.DataFiles)}, opts...)
-		p, err := LoadSource(project.EntryName, project.EntrySource, opts...)
+		p, err := held(LoadSource(project.EntryName, project.EntrySource, opts...))
 		return p, "", err
 	}
 	if root == "" {
@@ -87,12 +94,24 @@ func loadMarkedProject(project virtualproject.Project, dir, root string, opts []
 			return nil, "", err
 		}
 	}
-	p, err := Load(filepath.Join(root, filepath.FromSlash(project.EntryName)), opts...)
+	p, err := held(Load(filepath.Join(root, filepath.FromSlash(project.EntryName)), opts...))
 	if err != nil {
 		return nil, "", &underRoot{err: err, root: root}
 	}
 	p.fileNames = func(path string) string { return pathFromRoot(path, root) }
 	return p, root, nil
+}
+
+// held is a block's program once its nomi.toml's [capabilities] lists
+// allow what its run and its tests reach (LoadMarked).
+func held(p *Program, err error) (*Program, error) {
+	if err != nil {
+		return nil, err
+	}
+	if err := p.capabilityError(p.checkedRoots()...); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // pathFromRoot is how a run of a project written under root names one of

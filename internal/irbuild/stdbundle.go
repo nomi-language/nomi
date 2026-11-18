@@ -76,7 +76,7 @@ const (
 	stdBundleMagic = "NOMISTDB"
 	// stdBundleVersion versions this file's own layout; ir.FormatVersion
 	// versions the images inside it.
-	stdBundleVersion = 4
+	stdBundleVersion = 5
 	// stdBundleUnused is how long a cached bundle no process has used is
 	// kept: each build of the compiler writes its own.
 	stdBundleUnused = 24 * time.Hour
@@ -346,15 +346,13 @@ type stdCandRecord struct {
 	key     string
 	hasDecl bool
 
-	tailRec           bool
-	arityMin          int
 	defaultFill       []bool
 	rtCall, rtHostPkg string
 	rtFrame           bool
 	body              bool
 	pkg, why          string
 	irBody            *ir.Func
-	irArity, irSlot   map[int]*ir.Func
+	irSlot            map[int]*ir.Func
 }
 
 // stdOnceRecord is the fields of one stdOnce that lowering sets.
@@ -371,10 +369,10 @@ func recordStdModule(name string, v *stdModuleView, irModule *ir.Module) *stdMod
 		f := c.f
 		rec.cands = append(rec.cands, stdCandRecord{
 			key: f.key, hasDecl: c.fd != nil,
-			tailRec: f.tailRec, arityMin: f.arityMin, defaultFill: f.defaultFill,
-			rtCall: f.rtCall, rtHostPkg: f.rtHostPkg, rtFrame: f.rtFrame,
+			defaultFill: f.defaultFill,
+			rtCall:      f.rtCall, rtHostPkg: f.rtHostPkg, rtFrame: f.rtFrame,
 			body: f.body, pkg: f.pkg, why: f.why,
-			irBody: f.irBody, irArity: f.irArity, irSlot: f.irSlot,
+			irBody: f.irBody, irSlot: f.irSlot,
 		})
 	}
 	for _, o := range v.onces {
@@ -399,10 +397,10 @@ func restoreStdModule(v *stdModuleView, rec *stdModuleRecord) ([]*stdFunc, []*st
 		if r.key != f.key || r.hasDecl != (c.fd != nil) {
 			return nil, nil, nil, fmt.Errorf("%s: the bundle's function %d is %s, this stdlib's %s", v.module, i, r.key, f.key)
 		}
-		f.tailRec, f.arityMin, f.defaultFill = r.tailRec, r.arityMin, r.defaultFill
+		f.defaultFill = r.defaultFill
 		f.rtCall, f.rtHostPkg, f.rtFrame = r.rtCall, r.rtHostPkg, r.rtFrame
 		f.body, f.pkg, f.why = r.body, r.pkg, r.why
-		f.irBody, f.irArity, f.irSlot = r.irBody, r.irArity, r.irSlot
+		f.irBody, f.irSlot = r.irBody, r.irSlot
 		funcs[i] = f
 	}
 	for i, o := range v.onces {
@@ -765,8 +763,6 @@ func encodeSharedSection(recs []*stdModuleRecord) ([]byte, error) {
 			c := &rec.cands[i]
 			w.str(c.key)
 			w.bool1(c.hasDecl)
-			w.bool1(c.tailRec)
-			w.uv(uint64(c.arityMin))
 			if c.defaultFill == nil {
 				w.uv(0)
 			} else {
@@ -782,7 +778,6 @@ func encodeSharedSection(recs []*stdModuleRecord) ([]byte, error) {
 			w.str(c.pkg)
 			w.str(c.why)
 			fn(c.irBody, rec.name+" "+c.key)
-			fnMap(c.irArity, rec.name+" "+c.key+" arity")
 			fnMap(c.irSlot, rec.name+" "+c.key+" slot")
 		}
 		w.uv(uint64(len(rec.onces)))
@@ -1009,7 +1004,7 @@ func readSharedSection(data []byte) ([]*stdModuleRecord, error) {
 			}
 		}
 		for n := r.count(); n > 0 && r.err == nil; n-- {
-			c := stdCandRecord{key: r.str(), hasDecl: r.bool1(), tailRec: r.bool1(), arityMin: int(r.uv())}
+			c := stdCandRecord{key: r.str(), hasDecl: r.bool1()}
 			if n := r.uv(); n > 0 {
 				c.defaultFill = make([]bool, 0, min(n-1, uint64(len(r.b))))
 				for ; n > 1 && r.err == nil; n-- {
@@ -1019,7 +1014,6 @@ func readSharedSection(data []byte) ([]*stdModuleRecord, error) {
 			c.rtCall, c.rtHostPkg, c.rtFrame = r.str(), r.str(), r.bool1()
 			c.body, c.pkg, c.why = r.bool1(), r.str(), r.str()
 			c.irBody = fn()
-			c.irArity = fnMap()
 			c.irSlot = fnMap()
 			rec.cands = append(rec.cands, c)
 		}

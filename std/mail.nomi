@@ -165,9 +165,11 @@ impl Address
                         })
 
                     parts ->
+                        // `before` is the name, the last `<` and the email.
                         email = Iter.last(parts) |> Maybe.with_default("")
-                        count = Iter.count(parts)
-                        name_part = parts |> Iter.take(count - 1) |> String.join("<")
+
+                        name_part =
+                            String.strip_suffix(before, "<${email}") |> Maybe.with_default("")
 
                         Address.new(email, name: unquote(String.trim(name_part)))
                         |> Result.map_err(fn _ ->

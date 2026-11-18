@@ -7,9 +7,8 @@ import (
 
 // TestDottedDistinct_BothSpellingsRejectArityAlike.
 //
-// `Meters(5)` and `Day.Hours(48)` are one construct with two syntaxes. Arity
-// was the branch this drove through irbuild's shared distinctCallNamed body, but
-// the checker now rejects a distinct call with the wrong argument count
+// `Meters(5)` and `Day.Hours(48)` are one construct with two syntaxes. The
+// checker rejects a distinct call with the wrong argument count
 // (analysis/distinct_construction.go), so no front-end-legal program reaches
 // irbuild's arity backstop. What stays true is that the two spellings are one
 // rule: both must be rejected, each naming its own constructor. If the front end

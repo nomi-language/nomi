@@ -7,7 +7,7 @@ import "testing"
 // Map and a List of tuples, in Iter.map, Iter.filter, Iter.reduce and
 // Iter.each, and in a generic function. A wildcard binds no name, so the
 // parameter's type comes from the checker's record of the whole pattern
-// (FileAnalysis.LambdaPatternTypes), not from the names it binds.
+// (FileAnalysis.PatternTypes), not from the names it binds.
 func TestPinned_LambdaTupleWildcard(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")

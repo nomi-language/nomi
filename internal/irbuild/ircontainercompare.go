@@ -5,42 +5,6 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// untypedListPair types an untyped `[]` operand of a two-list call in place:
-// beside a typed list it takes that list's type, and beside another `[]`
-// both take `List<Int>`. Two empty lists have no element for a comparator or
-// an equality to read, so the element type chosen there is unobservable; it
-// only gives the temporaries a stored type. False when a `[]` cannot be
-// coerced.
-func (bl *irScalarBuilder) untypedListPair(t *ast.Call, args irQualArgs) bool {
-	lk, rk := args.kinds[0], args.kinds[1]
-	want := kindInvalid
-	switch {
-	case lk.tag == tagEmptyList && rk.tag == tagEmptyList:
-		want = listKindIn(bl.g, kindInt)
-	case lk.tag == tagEmptyList && rk.tag == tagList:
-		want = rk
-	case rk.tag == tagEmptyList && lk.tag == tagList:
-		want = lk
-	default:
-		return true
-	}
-	for i := range args.kinds {
-		if args.kinds[i].tag != tagEmptyList {
-			continue
-		}
-		var at ast.Node = t
-		if i < len(t.Args) {
-			at = t.Args[i]
-		}
-		v, k, ok := bl.coerceEmpty(at, args.temps[i], args.kinds[i], want)
-		if !ok {
-			return false
-		}
-		args.temps[i], args.kinds[i] = v, k
-	}
-	return true
-}
-
 // containerCompareAny lowers `List.compare(a, b)` / `Vector.compare(a, b)`
 // through containerCompare where the element comparator is one it can name,
 // and otherwise through std's `impl Comparable for List<T>` (or Vector's)
@@ -51,7 +15,7 @@ func (bl *irScalarBuilder) containerCompareAny(t *ast.Call, args irQualArgs, own
 	if v, k, mobile, ok := bl.containerCompare(t, args, owner); ok {
 		return v, k, mobile, ok
 	}
-	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, "Comparable", "compare"); handled {
+	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, "Comparable", "compare", bl.g.firstOperandType(t)); handled {
 		return v, k, mobile, ok
 	}
 	return ir.NoTemp, kindInvalid, false, false
@@ -65,9 +29,6 @@ func (bl *irScalarBuilder) containerCompareAny(t *ast.Call, args irQualArgs, own
 func (bl *irScalarBuilder) containerCompare(t *ast.Call, args irQualArgs, owner string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if !args.ok || len(args.kinds) != 2 {
-		return no()
-	}
-	if owner == "List" && !bl.untypedListPair(t, args) {
 		return no()
 	}
 	var elem kind

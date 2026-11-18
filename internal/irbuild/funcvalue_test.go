@@ -20,7 +20,26 @@ func TestLambdaParamNames_BlanksWhatCannotBeNamed(t *testing.T) {
 	want := []string{"x", "", "", "_label"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v: a bare discard or destructuring parameter cannot be "+
-			"named at a call site, and blanking it is what stops two of them from "+
-			"colliding in argSlotPlan's name table", got, want)
+			"named at a call site, so it has no name", got, want)
 	}
+}
+
+// A function passed by name to a std Iter function takes the elements as
+// the position passes them where their range proves its parameter's
+// subtype, as its capture and the lambda calling it do.
+func TestFuncValue_AFunctionByNameTakesElementsItsRangeProves(t *testing.T) {
+	verifyLambdaProgram(t, `import std::io
+
+fn verse(day: PositiveInt) -> String
+    "day ${day}"
+end
+
+fn main()
+    n = 3
+    io.inspect(1..=n |> Iter.map(verse) |> Iter.to_list())
+    io.inspect(Iter.map(1..=n, verse) |> Iter.to_list())
+    io.inspect(1..=n |> Iter.map(&verse(&1)) |> Iter.to_list())
+    io.inspect(1..=n |> Iter.map(fn d -> verse(d)) |> Iter.to_list())
+end
+`, "[\"day 1\", \"day 2\", \"day 3\"]\n[\"day 1\", \"day 2\", \"day 3\"]\n[\"day 1\", \"day 2\", \"day 3\"]\n[\"day 1\", \"day 2\", \"day 3\"]\n")
 }

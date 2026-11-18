@@ -8,13 +8,12 @@ package ir
 // somewhere the join can read it. That place is a frame slot, and it has to be
 // declared so the frame can be sized.
 //
-// WHAT THE NODE DOES NOT MODEL, which the repricing document asks to be
-// decided rather than discovered: the storage itself. The field that would
-// have made it one consumer's is absent. A Slot says a declaration exists, what type it
-// holds and where it was written. It does not say where the storage lives —
-// a Go `var` in the enclosing block, a frame register, a stack offset — and
-// it does not say what the storage holds before it is written. Go's `var`
-// zeroes; a VM register may hold whatever the frame allocator left. NOTHING
+// WHAT THE NODE DOES NOT MODEL: the storage itself. A Slot says a
+// declaration exists, what type it holds and where it was written. It does
+// not say where the storage lives, and it does not say what the storage
+// holds before it is written. The VM compiles a Slot to no bytecode: the
+// frame's register window already holds the storage
+// (internal/vm/bytecode.go). NOTHING
 // IN THIS NODE LETS A CONSUMER DEPEND ON THAT, because `Dst` is NoTemp: the
 // declaration is not a definition, so `Lint`'s must analysis still requires
 // every path to a read to pass through a WRITE. That is the whole of the
@@ -27,17 +26,17 @@ package ir
 // `Instr.Dst` is read by `Func.noteDef` and by `Lint`'s available-definitions
 // analysis, both of which mean "this instruction COMPUTES the value in that
 // temporary". A slot computes nothing. If a Slot counted as a definition then
-// `var s T` followed by a write in ONE arm of two would pass the must
-// analysis, and the shape `gen.slot`/`gen.fixSlot` exists to produce —
+// a declaration followed by a write in ONE arm of two would pass the must
+// analysis, and the shape the builder's branch lowering produces —
 // several writers into one destination — would stop being checkable at
 // exactly the point a VM starts depending on it. Measured in lint_test.go:
 // TestLint_ASlotIsNotADefinition plants that arm.
 //
 // Retained function results, bindings and branch operands use this node. An
 // expected type can determine storage before lowering the arms; an inferred
-// branch constructs and inserts its declaration once the arms agree. The Go
-// consumer may use its slot/fixSlot spelling helpers, but the IR declaration
-// itself is immutable and never patched.
+// branch constructs and inserts its declaration once the arms agree
+// (`internal/irbuild`'s `typedRegionValue` and `inferredRegionValue`). The
+// declaration itself is immutable and never patched.
 
 // Slot declares storage with a type and no value.
 type Slot struct {
@@ -49,8 +48,7 @@ type Slot struct {
 // NewSlot declares storage for a value of type ty, named by temporary slot.
 //
 // pos is the DECLARATION's position, not the position of whatever writes it.
-// A frame's layout is blamed on where the storage was declared, which is the
-// line a debugger stops on for `var rN R`.
+// A frame's layout is blamed on where the storage was declared.
 func NewSlot(pos Pos, slot Temp, ty *Type) *Slot {
 	requirePos(pos, "NewSlot")
 	if slot == NoTemp {

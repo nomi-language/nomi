@@ -53,8 +53,7 @@ func (fr *irFuncFrame) setKind(t ir.Temp, k kind) {
 
 // irFuncObserved is a test-only hook, nil in production, called once per
 // function the builder lowers a body for: with the function's retained
-// `ir.Func` and whether the Go reader read it back off the graph, or with
-// nil when the shape declined.
+// `ir.Func`, or with nil when the shape declined.
 //
 // It has two producers, and the first argument says which. `funcDecl`
 // reports a user program's module-scope `fn`; `emitStdFunc` reports a
@@ -64,11 +63,7 @@ func (fr *irFuncFrame) setKind(t ir.Temp, k kind) {
 // It is a hook rather than a counter field because a caller that needs it runs
 // over the whole corpus through `Generate`, which hands back no gen. It costs
 // one nil check per lowered function.
-//
-// The builder's grammar is wider than the Go reader spells, so "retained" and
-// "read back to Go" are two figures, and the readBack argument reports the
-// second.
-var irFuncObserved func(origin irFuncOrigin, name string, f *ir.Func, readBack bool)
+var irFuncObserved func(origin irFuncOrigin, name string, f *ir.Func)
 
 // --- the lowering pass ------------------------------------------------------
 
@@ -85,10 +80,10 @@ var irFuncObserved func(origin irFuncOrigin, name string, f *ir.Func, readBack b
 // constructs does THIS body need" has to re-enter the builder AFTER it gave
 // up, which only a caller holding the builder's inputs can do.
 //
-// FIRED ONLY ON A DECLINE, and that is load-bearing rather than tidy. The
-// walk calls `bl.lower`, which mints temporaries on `sh.fn` and appends to
-// its blocks. On a decline `sh.fn` is ORPHANED — `irScalarLower` adds it to
-// the module only on the success path below — so the mutation reaches no
+// It fires only on a decline. The walk calls `bl.lower`, which makes
+// temporaries on `sh.fn` and appends to its blocks. On a decline `sh.fn` is
+// orphaned, since `irScalarLower` adds it to the module only on the success
+// path below, so the mutation reaches no
 // retained graph and no `ir.Lint` run. On a RETAINED body the same walk would
 // corrupt the graph the VM is about to read. A retained body's blocker set is
 // empty by definition, so restricting the hook loses nothing.
@@ -96,17 +91,16 @@ var irFuncObserved func(origin irFuncOrigin, name string, f *ir.Func, readBack b
 // FIRED AFTER `irFuncObserved`, so the two hooks are independent: a caller
 // can read the first decline reason inside `irFuncObserved` before the walk
 // drives `bl.lower`, which notes declines many more times.
-var irRetentionDeclined func(g *gen, fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *irFuncShell)
+var irRetentionDeclined func(g *gen, fd *ast.FuncDef, sig irFuncSig, sh *irFuncShell)
 
-// irScalarLower is `funcDecl`'s body lowering for this shape: build, lint,
-// retain, and read back WHEN THE GO READER CAN READ THE GRAPH. It answers
-// whether it took the body.
+// irScalarLower is `funcDecl`'s body lowering for this shape: build, retain
+// and lint. It answers whether it took the body.
 //
-// LINT RUNS BEFORE THE GO READER READS THE FUNCTION, which is the contract, and
-// a violation PANICS. That is `requirePos`'s discipline one level up: a
+// Lint runs when the function is added to the module, before the VM reads it,
+// and a violation panics. That is `requirePos`'s discipline one level up: a
 // malformed `ir.Func` is a producer bug with no user input that reaches it, and
-// the alternative — recording a refusal — would let a wrong graph reach a
-// consumer while the tally reported a missing feature. See internal/ir/lint.go.
+// recording a refusal instead would let a wrong graph reach the VM while the
+// tally reported a missing feature. See internal/ir/lint.go.
 //
 // `ir.LintModuleAdded` RATHER THAN `ir.Lint`, and it is checked at the same point
 // rather than once at the end of the unit, for two reasons. A module-level violation — one declaration recorded
@@ -120,28 +114,22 @@ var irRetentionDeclined func(g *gen, fd *ast.FuncDef, sig irFuncSig, plan *tailP
 // last call, with the declared-once rule kept over the whole set. Re-linting
 // every earlier function at every retention would be quadratic in the number
 // of functions. `irLintFinished` runs the whole
-// `ir.LintModule` once per module before any consumer sees it, which also
+// `ir.LintModule` once per module before the VM reads it, which also
 // covers a function changed after it was recorded.
-//
-// A RETAINED FUNCTION THE GO READER CANNOT SPELL IS STILL RETAINED AND STILL
-// LINTED, because the VM reads the graph. Its Go body is a stub, and
-// `irUnreadableWhy` names the reason.
 //
 // A DISCARDED LOWERING IS NOT OBSERVED AT ALL. A probe run retains nothing and
 // is discarded, and a stdlib module's two fixed points re-lower every
 // unsettled candidate on every round and throw the result away, so counting
 // either would count a lowering that never happened.
-func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *irFuncShell, want kind) (kind, bool) {
-	// A body the reader does not spell leaves no Go naming a package, so the
-	// imports its build recorded are dropped with it.
-	p, ok := g.irScalarBuild(fd, sig, plan, sh)
+func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, sh *irFuncShell, want kind) (kind, bool) {
+	p, ok := g.irScalarBuild(fd, sig, sh)
 	if !ok {
 		g.dc.close()
 		if irFuncObserved != nil {
-			irFuncObserved(sig.origin, sig.name, nil, false)
+			irFuncObserved(sig.origin, sig.name, nil)
 		}
 		if irRetentionDeclined != nil {
-			irRetentionDeclined(g, fd, sig, plan, sh)
+			irRetentionDeclined(g, fd, sig, sh)
 		}
 		return kindInvalid, false
 	}
@@ -156,7 +144,7 @@ func (g *gen) irScalarLower(fd *ast.FuncDef, sig irFuncSig, plan *tailPlan, sh *
 		panic("irbuild: " + irScalarArithShape + ": " + err.Error())
 	}
 	if irFuncObserved != nil {
-		irFuncObserved(sig.origin, sig.name, p.fn, true)
+		irFuncObserved(sig.origin, sig.name, p.fn)
 	}
 	return p.result, true
 }
@@ -200,7 +188,7 @@ func (g *gen) irLintAdded() error {
 	return ir.LintModuleAdded(g.irModule())
 }
 
-// irLintFinished lints a finished module whole, once, before a consumer reads
+// irLintFinished lints a finished module whole, once, before the VM reads
 // it. See irScalarLower for why the per-retention lint covers only what was
 // added. A violation panics, for the same reason it does there.
 func irLintFinished(m *ir.Module) {

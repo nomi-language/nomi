@@ -1,0 +1,16 @@
+import std::io
+
+fn say(n: Int) -> Int
+    io.print("default ${n}")
+    n
+end
+
+pub struct Box
+    v: Int
+end
+
+impl Box
+    pub fn eff(bx: Box, a: Int, b: Int = say(30), c: Int) -> Int
+        bx.v + a + b + c
+    end
+end

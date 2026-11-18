@@ -6,7 +6,7 @@ import (
 
 // Process-wide structural interning has two properties:
 //
-//   - TestStructuralKindIdentityIsProcessWide: a structural kind's identity is
+//   - A structural kind's identity is
 //     its interned *compKind, and a stdFunc's parameter and result kinds are
 //     built once and compared BY POINTER against a call site's argument kinds
 //     in a different gen. Two gens' `List<String>` must be one kind, or no
@@ -18,8 +18,8 @@ import (
 //     wrong Debug impl, a wrong dispatch slot, or a wrong `==`.
 
 // kindProbeGen is a gen with nothing but what a kind constructor touches: the
-// intern table, and the usesRT flag seqKind and funcKind set. Deliberately not
-// newGen, so the pin is about identity and not about a gen's other state.
+// intern table. Deliberately not newGen, so the pin is about identity and not
+// about a gen's other state.
 func kindProbeGen() *gen { return &gen{} }
 
 // TestStructuralInterningDoesNotCollapseNominallyDistinctTypes builds the

@@ -11,21 +11,21 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// A MONOMORPHIC stdlib enum, as a Go type declared in rt:
+// A monomorphic stdlib enum that rt also declares as a Go type:
 // `std/comparable.Ordering` and the rows in stdEnumSpecs beside it.
 //
 // # Not the same population as prelude.go, and not the same as opaque.go
 //
-// prelude.go's subjects are GENERIC (`Maybe<T>`, `Result<T, E>`): a mention
-// carries type arguments, so its *typeDef is INTERNED PER GEN on the rendered
-// Go type unless its arguments are package-neutral (stdprelude.go).
-// opaque.go's subjects are DISTINCT types over a scalar.
+// prelude.go's subjects are generic (`Maybe<T>`, `Result<T, E>`): a mention
+// carries type arguments, so its *typeDef is interned per gen unless its
+// arguments are package-neutral (stdprelude.go). opaque.go's subjects are
+// distinct types over a scalar.
 //
-// These are neither: a monomorphic ENUM. The mechanism is opaque.go's line for
-// line — a PROCESS-WIDE *typeDef, anchored per module by the analyzer's own
-// (Origin, Name) rule with
-// the declaration's SHAPE validated, and `rtDeclared` so nothing emits a second
-// Go declaration for it.
+// These are neither: a monomorphic enum. The mechanism is opaque.go's: a
+// process-wide *typeDef, anchored per module by the analyzer's own
+// (Origin, Name) rule with the declaration's shape validated, and marked
+// `rtDeclared`, so the def is package-neutral and every gen that names the
+// type holds the same pointer.
 //
 // Sharing the def is not an optimization, for the same reason opaque.go's
 // comment gives: a stdFunc's parameter and result kinds are built once in
@@ -42,7 +42,7 @@ import (
 // Ordering match, and Comparable is the STRONG operator demand: `<` on a type
 // with no `Comparable` impl is a compile-time missing-impl error, unlike `==`,
 // which falls back to structural equality. So the type is the whole ordering
-// surface of the language, not one enum — see compareCall in native.go.
+// surface of the language, not one enum.
 
 // stdEnumSpec is one monomorphic stdlib enum: what this builder believes std
 // declares, and which Go type in rt it is.
@@ -56,14 +56,15 @@ type stdEnumSpec struct {
 	// the reason opaqueSpec.goType is: a rename or a deletion in rt is then a
 	// Go compile error in this file, and the pairing is checked by reflection in tests.
 	goType reflect.Type
-	// tagField is the exported Go field holding the variant tag.
+	// tagField is the name of goType's field holding the variant tag.
+	// TestStdEnumSpecReachesTheRealRtType checks that goType has a uint8
+	// field of this name.
 	tagField string
-	// variants are the declared variants in DECLARATION ORDER, which is what
+	// variants are the declared variants in declaration order, which is what
 	// fixes the tags: variant i gets tag i+1, and 0 stays reserved invalid. rt
 	// declares the same tags as named constants so the pairing is checkable by
 	// eye against the std source; TestStdEnumTagsMatchRT asserts the two agree,
-	// because this list is the only thing the Go-spelled composite literals are
-	// derived from.
+	// because this list is the only thing the def's tags are derived from.
 	variants []stdEnumVariantSpec
 }
 
@@ -76,9 +77,8 @@ type stdEnumSpec struct {
 // stdStructSpec's reason. A scalar is the strongest form of package-neutral,
 // not the only one: `kind.packageNeutral` also answers true for a `tagNamed`
 // whose def is `rtDeclared`, and sharedcomp.go gives a structural kind over
-// neutral components PROCESS-WIDE identity. So `*rt.List[rt.Json]` and
-// `rt.Map[string, rt.Json]` are neutral, as they are for stdstruct.go's
-// `kindOf`.
+// neutral components process-wide identity. So `List<Json>` and
+// `Map<String, Json>` are neutral, as they are for stdstruct.go's `kindOf`.
 //
 // What a non-scalar payload costs is BOOTSTRAP ORDER when it is
 // SELF-REFERENTIAL, which `std/json.Json` is: its payload kinds cannot be built
@@ -99,19 +99,17 @@ type stdEnumVariantSpec struct {
 	// ref is the stdEnumSpecs INDEX a container payload's element names, for the
 	// two container forms, and -1 otherwise.
 	//
-	// Positional rather than by name for stdEnumOrdering's reason, and pinned by
-	// TestStdEnumSpecIndicesNameTheirRow so a row inserted above it fails by
-	// name rather than silently repointing the payload at another enum. A row
-	// may name ITSELF, which is the whole point: `Json.Arr` is `List<Json>`.
+	// Positional rather than by name for stdEnumOrdering's reason. A row may
+	// name ITSELF, which is the whole point: `Json.Arr` is `List<Json>`.
 	ref int
-	// field is the exported Go field in rt the payload is stored in, empty for
-	// a bare variant.
+	// field is the name of goType's field for the payload, empty for a bare
+	// variant. stdEnumDefs keys the def's slots by it: each distinct name is
+	// one slot. TestStdEnumSpecReachesTheRealRtType counts the distinct names
+	// against goType's fields.
 	//
-	// Several variants may name the SAME field, and that is the builder's own
-	// dedup rule rather than a shortcut: one slot per distinct underlying Go
-	// type, reused across variants because only one variant is live at a time
-	// (types.go's assignSlots). calendar.Error's five variants all carry a
-	// String, so rt.CalendarError has one `Msg` field for all five.
+	// Several variants may name the same field and so share one slot, since
+	// only one variant is live at a time. calendar.Error's five variants all
+	// carry a String, so rt.CalendarError has one `Msg` field for all five.
 	field string
 	// nomiField is the NOMI field name a payloadStructScalar variant declares,
 	// empty for every other form.
@@ -127,8 +125,8 @@ type stdEnumVariantSpec struct {
 	//
 	// A separate slice rather than a generalisation of `nomiField`/`field`
 	// because the two forms differ in what they OWE, not only in arity: this
-	// one states a per-field type that need not be a scalar and a per-field Go
-	// default, and folding it into the singular pair would put two empty
+	// one states a per-field type that need not be a scalar and a per-field
+	// default value, and folding it into the singular pair would put two empty
 	// strings on every existing row to describe a shape none of them has.
 	fields []stdEnumFieldSpec
 	// declType is the Nomi type NAME a payloadScalar variant's declaration must
@@ -212,8 +210,8 @@ const (
 	//  3. A DEFAULT, which payloadStructScalar rejects outright with a stated
 	//     reason — "a default is Nomi source belonging to the declaring module,
 	//     and a shared def has no gen to lower it in". THAT REASON IS CORRECT
-	//     AND THIS FORM DOES NOT WEAKEN IT: the default here is a GO expression
-	//     stated in the spec (`goDeflt`), lowered nowhere, so no gen is asked to
+	//     AND THIS FORM DOES NOT WEAKEN IT: the default here is an rt constant
+	//     stated in the spec (`deflt`), lowered nowhere, so no gen is asked to
 	//     lower std's Nomi source. What the spec then owes is that the two
 	//     encodings agree, and TestBackoffDefaultsMatchTheStdDeclaration reads
 	//     std's declared default text and rt's constant and holds them equal —
@@ -229,7 +227,8 @@ const (
 // stdEnumFieldSpec is one NAMED field of a payloadStructFields variant.
 //
 // `nomi` is what the declaration spells and what a pattern binds; `field` is
-// rt's exported Go field. Two names rather than one derived from the other, for
+// the name of goType's field for it, which keys the field's slot in
+// stdEnumDefs. Two names rather than one derived from the other, for
 // structScalarVariant's reason: deriving `MaxRestarts` from `max_restarts`
 // would be a naming rule this package would then own, and rt's struct is
 // hand-written.
@@ -246,13 +245,12 @@ type stdEnumFieldSpec struct {
 	// field, checked against the annotation. Empty for a scalar field, whose
 	// annotation is checked by `scalarKind` instead.
 	declType string
-	// goDeflt is the Go expression that fills this field when a literal omits
-	// it, or "" for a field with no default.
-	//
-	// A STRING rather than a kind-tagged value, because it is spelled verbatim
-	// into a composite literal and its only consumer is that spelling. Its
-	// agreement with std's declared default is a TEST's job, not a type's.
-	goDeflt string
+	// deflt is the value that fills this field when a literal omits it, an rt
+	// constant, or nil for a field with no default. An Int, or the Int a
+	// wrapping distinct such as Duration holds. Its agreement with std's
+	// declared default is a test's job
+	// (TestBackoffDefaultsMatchTheStdDeclaration).
+	deflt *int64
 }
 
 // fieldKind is the kind this field holds.
@@ -324,7 +322,7 @@ func structScalarVariant(name, nomiField, goField string, k kind) stdEnumVariant
 // `Exponential {max_restarts: Int = 10, max_elapsed: Duration = …}`.
 //
 // See payloadStructFields for what this admits that structScalarVariant does
-// not, and for why the defaults are Go expressions rather than Nomi ones.
+// not, and for why the defaults are rt constants rather than Nomi source.
 func structFieldsVariant(name string, fields ...stdEnumFieldSpec) stdEnumVariantSpec {
 	return stdEnumVariantSpec{
 		nomi:   name,
@@ -336,19 +334,19 @@ func structFieldsVariant(name string, fields ...stdEnumFieldSpec) stdEnumVariant
 }
 
 // scalarField and opaqueField are the two field shapes structFieldsVariant
-// admits. `goDeflt` is "" for a field with no default.
-func scalarField(nomi, goField string, k kind, goDeflt string) stdEnumFieldSpec {
-	return stdEnumFieldSpec{nomi: nomi, field: goField, scalar: k, opaque: -1, goDeflt: goDeflt}
+// admits. `deflt` is nil for a field with no default.
+func scalarField(nomi, goField string, k kind, deflt *int64) stdEnumFieldSpec {
+	return stdEnumFieldSpec{nomi: nomi, field: goField, scalar: k, opaque: -1, deflt: deflt}
 }
 
 // opaqueField names a std newtype by its opaqueSpecs INDEX and by the Nomi
 // spelling the declaration must use. Both, because the index decides the KIND
 // and the spelling is what the shape check holds std's annotation to — deriving
 // one from the other would make a std rename anchor against a stale name.
-func opaqueField(nomi, goField string, opaqueIdx int, declType, goDeflt string) stdEnumFieldSpec {
+func opaqueField(nomi, goField string, opaqueIdx int, declType string, deflt *int64) stdEnumFieldSpec {
 	return stdEnumFieldSpec{
 		nomi: nomi, field: goField, scalar: kindInvalid,
-		opaque: opaqueIdx, declType: declType, goDeflt: goDeflt,
+		opaque: opaqueIdx, declType: declType, deflt: deflt,
 	}
 }
 
@@ -468,15 +466,15 @@ func (v *stdEnumVariantSpec) declaredStructShapeOK(fields []ast.StructField) boo
 //
 // THE DEFAULT'S PRESENCE IS CHECKED IN BOTH DIRECTIONS, and that asymmetry with
 // declaredStructShapeOK above is the point. That one rejects a default outright
-// because it has nowhere to put it; this one HAS somewhere (the spec's own Go
-// expression), so what it must detect is DISAGREEMENT: a std edit that dropped
-// `= 10` would make `Backoff.Exponential{}` a program the front end rejects
-// while this builder still filled a value, and one that ADDED a default to a
-// field the spec thinks is required would make the two paths accept different
-// programs.
+// because it has nowhere to put it; this one has somewhere (the spec's
+// `deflt` value), so what it must detect is disagreement: a std edit that
+// dropped `= 10` would make `Backoff.Exponential{}` a program the front end
+// rejects while this builder still filled a value, and one that added a
+// default to a field the spec holds as required would make the front end and
+// this builder accept different programs.
 //
-// What it deliberately does NOT check is the default's VALUE, because the
-// annotation is Nomi source and the spec's is Go. That agreement is
+// It does not check the default's value, because the declaration's default is
+// Nomi source and the spec's is an rt constant. That agreement is
 // TestBackoffDefaultsMatchTheStdDeclaration's, which can read both and compare
 // them; here there is only a `!= nil`.
 func (v *stdEnumVariantSpec) declaredStructFieldsOK(fields []ast.StructField) bool {
@@ -488,7 +486,7 @@ func (v *stdEnumVariantSpec) declaredStructFieldsOK(fields []ast.StructField) bo
 		if got.Name != want.nomi {
 			return false
 		}
-		if (got.Default != nil) != (want.goDeflt != "") {
+		if (got.Default != nil) != (want.deflt != nil) {
 			return false
 		}
 		if want.opaque >= 0 {
@@ -621,11 +619,10 @@ var stdEnumSpecs = []stdEnumSpec{{
 	// names something the stdlib signature boundary cannot represent, and it
 	// would refuse as `stdlib function outside the scalar subset`.
 	//
-	// SIX PAYLOAD FIELDS AND NO SHARING, unlike calendar.Error's five variants
-	// over one `Msg`: no two of these have the same Go type, so the dedup rule
-	// allocates one slot each. rt.Json declares exactly those six plus the tag,
-	// and TestStdEnumSlotsMatchRT holds the two lists against each other in both
-	// directions.
+	// Six payload fields and no sharing, unlike calendar.Error's five variants
+	// over one `Msg`: each carrying variant names its own field, so each gets
+	// its own slot. rt.Json declares exactly those six plus the tag, and
+	// TestStdEnumSpecReachesTheRealRtType holds the count against rt's.
 	origin:   "std/json",
 	nomi:     "Json",
 	goType:   reflect.TypeFor[rt.Json](),
@@ -665,12 +662,12 @@ var stdEnumSpecs = []stdEnumSpec{{
 		structScalarVariant("IsADirectory", "path", "Path", kindString),
 		structScalarVariant("DirectoryNotEmpty", "path", "Path", kindString),
 		structFieldsVariant("InvalidPath",
-			scalarField("path", "Path", kindString, ""),
-			scalarField("reason", "Reason", kindString, ""),
+			scalarField("path", "Path", kindString, nil),
+			scalarField("reason", "Reason", kindString, nil),
 		),
 		structFieldsVariant("InvalidText",
-			scalarField("path", "Path", kindString, ""),
-			scalarField("offset", "Offset", kindInt, ""),
+			scalarField("path", "Path", kindString, nil),
+			scalarField("offset", "Offset", kindInt, nil),
 		),
 		structScalarVariant("NoSpace", "path", "Path", kindString),
 		structScalarVariant("ReadOnly", "path", "Path", kindString),
@@ -679,13 +676,13 @@ var stdEnumSpecs = []stdEnumSpec{{
 		bareVariant("BrokenPipe"),
 		bareVariant("TimedOut"),
 		structFieldsVariant("Unsupported",
-			scalarField("operation", "Operation", kindString, ""),
-			scalarField("target", "Target", kindString, ""),
+			scalarField("operation", "Operation", kindString, nil),
+			scalarField("target", "Target", kindString, nil),
 		),
 		structFieldsVariant("Other",
-			scalarField("operation", "Operation", kindString, ""),
-			scalarField("path", "Path", kindString, ""),
-			scalarField("code", "Code", kindString, ""),
+			scalarField("operation", "Operation", kindString, nil),
+			scalarField("path", "Path", kindString, nil),
+			scalarField("code", "Code", kindString, nil),
 		),
 	},
 }, {
@@ -757,7 +754,7 @@ var stdEnumSpecs = []stdEnumSpec{{
 	//
 	// `Exponential` is a struct-shaped variant of TWO named fields carrying
 	// DEFAULTS, represented through payloadStructFields with a non-scalar field
-	// type and a Go-stated default.
+	// type and each default stated as an rt constant.
 	//
 	// `backoff: Backoff = .Exponential{}` is a PARAMETER of `Supervisor.new`, so
 	// without this row that signature refuses for every caller, including one
@@ -768,8 +765,8 @@ var stdEnumSpecs = []stdEnumSpec{{
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{
 		structFieldsVariant("Exponential",
-			scalarField("max_restarts", "MaxRestarts", kindInt, "rt.BackoffDefaultMaxRestarts"),
-			opaqueField("max_elapsed", "MaxElapsed", opaqueDuration, "Duration", "rt.BackoffDefaultMaxElapsed"),
+			scalarField("max_restarts", "MaxRestarts", kindInt, new(int64(rt.BackoffDefaultMaxRestarts))),
+			opaqueField("max_elapsed", "MaxElapsed", opaqueDuration, "Duration", new(int64(rt.BackoffDefaultMaxElapsed))),
 		),
 	},
 }, {
@@ -817,12 +814,12 @@ var stdEnumSpecs = []stdEnumSpec{{
 	tagField: "Tag",
 	variants: []stdEnumVariantSpec{
 		structFieldsVariant("Unreachable",
-			opaqueField("locale", "Locale", opaqueLocale, "Locale", ""),
-			scalarField("reason", "Reason", kindString, ""),
+			opaqueField("locale", "Locale", opaqueLocale, "Locale", nil),
+			scalarField("reason", "Reason", kindString, nil),
 		),
 		structFieldsVariant("Unreadable",
-			opaqueField("locale", "Locale", opaqueLocale, "Locale", ""),
-			scalarField("reason", "Reason", kindString, ""),
+			opaqueField("locale", "Locale", opaqueLocale, "Locale", nil),
+			scalarField("reason", "Reason", kindString, nil),
 		),
 	},
 }, {
@@ -851,15 +848,15 @@ var stdEnumSpecs = []stdEnumSpec{{
 	variants: []stdEnumVariantSpec{
 		bareVariant("Empty"),
 		structFieldsVariant("Unexpected",
-			scalarField("at", "At", kindInt, ""),
-			scalarField("text", "Text", kindString, ""),
+			scalarField("at", "At", kindInt, nil),
+			scalarField("text", "Text", kindString, nil),
 		),
 		structScalarVariant("Grouping", "at", "At", kindInt),
 		bareVariant("OutOfRange"),
 		structScalarVariant("TooManyFractionDigits", "max", "Max", kindInt),
 		structFieldsVariant("WrongCurrency",
-			opaqueField("expected", "Expected", opaqueCurrency, "Currency", ""),
-			scalarField("found", "Found", kindString, ""),
+			opaqueField("expected", "Expected", opaqueCurrency, "Currency", nil),
+			scalarField("found", "Found", kindString, nil),
 		),
 	},
 }, {
@@ -977,10 +974,10 @@ var stdEnumSpecs = []stdEnumSpec{{
 // opaqueDuration indexes the `Duration` row of opaqueSpecs, which two variant
 // payloads above name as their type.
 //
-// An index rather than a name lookup, for stdEnumOrdering's reason, and pinned
-// by TestStdEnumSpecIndicesNameTheirRow so a row inserted above it in
-// opaqueSpecs fails by name rather than silently repointing both payloads at
-// `Instant` — which is the same int64 underneath and would therefore compile.
+// An index rather than a name lookup, for stdEnumOrdering's reason. A row
+// inserted above it in opaqueSpecs repoints both payloads at `Instant`, which
+// the shape check does not catch: it compares the declared type name and not
+// the kind.
 const opaqueDuration = 0
 
 // opaqueLocale indexes the `Locale` row of opaqueSpecs, the type of
@@ -1034,14 +1031,12 @@ const stdEnumDirection = 1
 
 // stdEnumPathSegment indexes the PathSegment spec, which std/dynamic's
 // `Error.path` names as its element type. An index rather than a name
-// lookup for stdEnumOrdering's reason, and pinned by
-// TestStdEnumSpecIndicesNameTheirRow so a row inserted above it fails by name
-// rather than silently repointing the field at another enum.
+// lookup for stdEnumOrdering's reason.
 const stdEnumPathSegment = 4
 
 // stdEnumJson indexes the Json spec, which its OWN `Arr` and `Obj` payloads name
 // as their element type. An index rather than a name lookup for
-// stdEnumOrdering's reason, and pinned by TestStdEnumSpecIndicesNameTheirRow.
+// stdEnumOrdering's reason.
 //
 // A self-reference through a constant rather than through a `self` marker on the
 // constructor, because the mechanism is not special to self-reference: a payload
@@ -1064,20 +1059,17 @@ const stdEnumJson = 7
 // re-derived: the property both need is that a def's IDENTITY is fixed by its
 // shell while its CONTENTS may reference any identity in the table.
 //
-// The shell carries everything the identity depends on — the Nomi name, the Go
-// type, and `rtDeclared`, which is what makes `named(shell)` package-neutral and
-// therefore what makes `listKindIn(nil, …)` intern the payload PROCESS-WIDE
-// rather than declining. So the ordering is load-bearing in a second way: a
-// shell missing `rtDeclared` would not fail here, it would silently produce a
-// payload kind interned in no gen, which no call site could ever match.
+// The shell carries everything the identity depends on: the Nomi name and
+// `rtDeclared`, which is what makes `named(shell)` package-neutral and
+// therefore what makes `listKindIn(nil, …)` intern the payload process-wide
+// rather than declining. A shell missing `rtDeclared` would not fail here. It
+// would produce a payload kind interned in no gen, which no call site could
+// match.
 //
-// Slots are built from the SPEC's own `field` names rather than by assignSlots,
-// which numbers them `P0`, `P1`, … — rt's struct is hand-written and read by
-// people, so its field is `Msg`. The dedup is therefore the spec's to state and
-// this loop's to honour: two variants naming one field share one slot, and
-// TestStdEnumSlotsMatchRT holds the result against the Go type by reflection so
-// a spec that claimed a field rt does not declare fails rather than emitting a
-// selector that does not compile.
+// Slots are built from the spec's own `field` names and not by assignSlots:
+// the spec states which variants share a slot, and two variants naming one
+// field share one. TestStdEnumSpecReachesTheRealRtType holds the number of
+// distinct names against goType's fields by reflection.
 var stdEnumDefs = sync.OnceValue(func() []*typeDef {
 	defer changingTypes()()
 	defs := stdEnumShells()
@@ -1105,8 +1097,7 @@ var stdEnumDefs = sync.OnceValue(func() []*typeDef {
 						d.slots = append(d.slots, slotDef{k: f.fieldKind()})
 						slotOf[f.field] = slot
 					}
-					d.slots[slot].users = append(d.slots[slot].users, v.nomi)
-					ps = append(ps, payload{nomi: f.nomi, k: f.fieldKind(), goDeflt: f.goDeflt, slot: slot})
+					ps = append(ps, payload{nomi: f.nomi, k: f.fieldKind(), stdDeflt: f.deflt, slot: slot})
 				}
 				d.variants = append(d.variants, variantDef{
 					nomi: v.nomi, tag: j + 1, kind: "struct", payloads: ps,
@@ -1122,12 +1113,10 @@ var stdEnumDefs = sync.OnceValue(func() []*typeDef {
 				// containing type at a fixed offset, and the only
 				// self-reference this family admits is through a `List` or a
 				// `Map`, both already indirect. rt/json_test.go asserts that
-				// property on the Go side, where it is what makes the
-				// declaration compile at all.
+				// property of rt's own Go type.
 				d.slots = append(d.slots, slotDef{k: pk})
 				slotOf[v.field] = slot
 			}
-			d.slots[slot].users = append(d.slots[slot].users, v.nomi)
 			// "struct" for a payloadStructScalar row and "positional"
 			// otherwise, taken from the SPEC's form rather than from anything
 			// about the payload kind — the two are independent, and a scalar
@@ -1158,9 +1147,9 @@ var stdEnumShells = sync.OnceValue(func() []*typeDef {
 	defs := make([]*typeDef, len(stdEnumSpecs))
 	for i := range stdEnumSpecs {
 		s := &stdEnumSpecs[i]
-		defs[i] = &typeDef{nomi: s.nomi, tagName: s.tagField, isEnum: true, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
-			// hand-written in rt/ordering.go, rt/calendar.go or rt/json.go, and
-			// a second declaration would be a second Go type for one Nomi type.
+		defs[i] = &typeDef{nomi: s.nomi, isEnum: true, lowerable: true, // rtDeclared: rt declares the type (rt/ordering.go, rt/calendar.go,
+			// rt/json.go and beside them), so the def is process-wide and
+			// package-neutral, and typeDecl replays no refusal for it.
 			rtDeclared: true}
 	}
 	return defs
@@ -1356,11 +1345,7 @@ func (s *stdEnumSpec) matches(decl *ast.EnumDef) bool {
 	if len(decl.TypeParams) > 0 || len(decl.WhereClauses) > 0 {
 		return false
 	}
-	if len(decl.Items) > 0 {
-		// A type body item is layout-relevant. An attached `//!` test is not,
-		// and is deliberately not checked — see stdStructSpec.matches.
-		return false
-	}
+	// An attached `//!` test is not checked: see stdStructSpec.matches.
 	for _, dec := range decl.Decorators {
 		// `derive` is the one decorator that is not a gap: std/comparable
 		// carries `derive Display for Ordering`, which the analyzer also
@@ -1426,8 +1411,8 @@ func (g *gen) loadStdEnums() {
 
 // stdEnumDeclared reports the spec index for an enum declaration this module
 // carries, or -1. Read by buildTypes: an anchored declaration adopts the shared
-// def instead of getting its own shell, which is what keeps std/comparable's
-// own gen from naming a Go type it never declares.
+// def instead of getting its own shell, so std/comparable's own gen and every
+// gen that imports the type hold the same def.
 func (g *gen) stdEnumDeclared(decl *ast.EnumDef) int {
 	g.loadStdEnums()
 	if i, anchored := g.stdEnumByDecl[decl]; anchored {
@@ -1455,8 +1440,8 @@ func (g *gen) stdEnumNamed(name string) (*typeDef, bool) {
 
 // stdEnumDef reports whether d is one of the shared defs, and which spec.
 //
-// Pointer identity, not a name: it is the same question preludeOwns answers for
-// an interned prelude instance, and a name is not an identity.
+// Pointer identity, not a name: a prelude instance answers it the same way,
+// by its spec pointer (preludeOf), and a name is not an identity.
 func stdEnumDef(d *typeDef) (int, bool) {
 	for i, sd := range stdEnumDefs() {
 		if sd == d {
@@ -1464,27 +1449,6 @@ func stdEnumDef(d *typeDef) (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-// stdEnumOwns reports whether `owner` is the type-name spelling of d, for a
-// pattern head written `Ordering.Less`.
-//
-// Not an identity check and does not need to be: d is already fixed by the
-// SCRUTINEE's kind. This only asks whether the qualifier the programmer wrote
-// agrees with the type being matched, which is what case.go's
-// `g.types[owner] != d` asks for a module-declared enum. See preludeOwns.
-func (g *gen) stdEnumOwns(owner string, d *typeDef) bool {
-	i, isStd := stdEnumDef(d)
-	if !isStd {
-		return false
-	}
-	g.loadStdEnums()
-	if j, anchored := g.stdEnumByName[owner]; anchored {
-		return i == j
-	}
-	// `random.Error.OsEntropy{reason:}`: the enum named through its module's
-	// qualifier, which binds no bare name here.
-	return strings.Contains(owner, ".") && g.qualifiedStdDef(owner) == d
 }
 
 // projectStdEnum is inferred.go's projection for a monomorphic stdlib enum:
@@ -1588,12 +1552,11 @@ func (g *gen) stdEnumVariantAt(variant string, line, col int) (*typeDef, *varian
 // established from the analyzer's resolution of the reference rather than from a
 // name lookup — and a resolution cannot be shadowed the way a scope lookup can.
 // A user enum spelling both names the way std does has a different Origin and
-// gets nothing; TestStdEnumVariantAnchorIsIdentityNotName is that case.
+// gets nothing; TestStdEnumSpecOfSymbolChecksBothHalves holds that.
 //
 // Deliberately NOT written into g.stdEnumByDecl. That table is the module's
 // anchor set and other readers ask it whether a type is NAMEABLE here —
-// stdEnumNamed for a bare type name, stdEnumOwns for a pattern qualifier,
-// projectStdEnum for a solved type. A variant-only import does not make the type
+// stdEnumNamed for a bare type name and projectStdEnum for a solved type. A variant-only import does not make the type
 // nameable, so seeding the table from one would answer yes to a question whose
 // answer is no, and `m: RoundingMode` would lower in a file that never imported
 // the name.
@@ -1665,7 +1628,7 @@ func (g *gen) compareResolves(at ast.Node, k, ord kind) bool {
 		it := impl.items["compare"]
 		return it != nil && len(it.params) == 2 && it.params[0] == k && it.params[1] == k && it.result == ord
 	}
-	if _, found := g.siblingCompareAt(k, ord, at); found {
+	if g.siblingCompareAt(k, ord, at) {
 		return true
 	}
 	if g.stdCompareAt(k, ord) != nil {
@@ -1682,7 +1645,7 @@ func (g *gen) compareResolves(at ast.Node, k, ord kind) bool {
 //
 // Deliberately NOT stdlibImplOf, and the difference is one line: stdlibImplOf
 // returns nil for a receiver whose `def` is nil, i.e. every scalar. That guard
-// is load-bearing where it is — `stdlibEquality` shares it, and admitting a
+// is load-bearing where it is — `stdEquality` shares it, and admitting a
 // scalar there would change which function `==` on a String resolves to, which
 // is a decision about a different operator — but the element of a `List<Int>`
 // IS a scalar and its ordering has to come from somewhere. So the ordering

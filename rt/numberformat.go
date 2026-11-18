@@ -3,10 +3,8 @@ package rt
 // NumberParseError is `std/localize.NumberParseError`: why text is not a
 // number in a locale.
 //
-// Here for LocaleError's reason (rt/localeerror.go): declared in a std
-// module and named from user modules, so `Result<Int, NumberParseError>`
-// needs a representation every generated package shares. The parsing itself
-// is internal/stdformat's.
+// Here for LocaleError's reason (rt/localeerror.go), and std's Go adapters
+// (internal/stdformat) build it. The parsing itself is internal/stdformat's.
 type NumberParseError struct {
 	// Tag is 1..6 in std/localize.nomi's declaration order. 0 means never
 	// constructed.

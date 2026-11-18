@@ -26,7 +26,7 @@ import (
 // parameter (`b: Int = a * 2`).
 //
 // A generic `fn`'s instance gets its own accessors: the declaring unit builds
-// them while it emits the instance, with the instance's type arguments in
+// them while it lowers the instance, with the instance's type arguments in
 // scope, so a default whose type mentions `T` has a concrete type.
 
 // irFileSlotDefault identifies one accessor: the function or instance it
@@ -83,7 +83,7 @@ func (g *gen) unitGen(to int) *gen {
 // Called from funcDecl, so an instance of a generic template gets its own
 // with the template's type arguments in scope.
 func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
-	if g.irMod == nil || g.files == nil || sig == nil || (!fd.Public && !g.hasPartnerTest()) || fd.ImplFunction ||
+	if g.irMod == nil || g.files == nil || sig == nil || (!fd.Public && !g.hasPartnerTest()) ||
 		len(sig.params) != len(fd.Params) || sig.dict != nil || sig.tps != nil {
 		return
 	}
@@ -97,8 +97,10 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 
 // irImplSlotDefaults builds the accessors of a `pub` function of an inherent
 // impl block another file may call, `Fake.new()` against `pub fn new(dialect:
-// Dialect = Dialect.Other("fake"))`, for a call whose file cannot name what
-// the defaults name (siblingAccessorArgs). A generic receiver's members, an
+// Dialect = Dialect.Other("fake"))`, or of an owner function, `Box.pad("p")`
+// against `impl Box<T> { pub fn pad(label: String, width: NonNegativeInt =
+// 3) }`: the functions whose sites another file fills from accessors
+// (implMemberSite.accessorDefaults). A generic receiver's members, an
 // interface's impl functions and a Go-bound function build none.
 func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 	fd := it.decl
@@ -113,7 +115,7 @@ func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 	if len(fd.TypeParams) > 0 {
 		return
 	}
-	if def := d.recv.def; d.recv.tag != tagNamed || def == nil || def.instOrigin != nil || def.genericOf != nil {
+	if def := d.recv.def; d.owner == "" && (d.recv.tag != tagNamed || def == nil || def.instOrigin != nil || def.genericOf != nil) {
 		return
 	}
 	if _, host := hostExtOf(fd); host {
@@ -121,8 +123,8 @@ func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 	}
 	// The body's symbol as irImplLower interns it, and the accessors' name as
 	// a call site's defaultHome gives it (implMemberSite.symName).
-	callee := g.irCalleeSym(it, d.ownerName()+"."+it.name)
-	name := d.recv.nomi() + "." + it.name
+	name := d.ownerName() + "." + it.name
+	callee := g.irCalleeSym(it, name)
 	sig := &fnSig{params: it.params, result: it.result, decl: fd, lowerable: true}
 	for slot, p := range fd.Params {
 		if p.Default != nil {
@@ -150,40 +152,46 @@ func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, f
 }
 
 // irSlotAccessorRetain builds sym, named name, as the accessor for slot of
-// fd: irFileSlotRetain's body, for any accessor symbol (ifaceslotdefault.go).
+// fd in a program file (irFileSlotRetain, ifaceslotdefault.go), under a
+// decline record of that name: a default that does not lower leaves no
+// accessor, and a program that reaches it is reported BLOCKED at the default.
 func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, name string, slot int) {
 	g.irDeclineOpen(name)
 	defer g.dc.atNode(fd.Params[slot].Default)
+	g.irSlotAccessor(fd, sig, sym, name, slot, irFromModule)
+}
+
+// irSlotAccessor builds sym, named name, as the accessor for slot of fd:
+// a function of the parameters before slot answering slot's default,
+// lowered as a local call's is (callDefaults) in g's scope with those
+// parameters in hand, destructured ones' names included. g is the
+// declaring scope: a program file's gen, a gen of std's cached lowering,
+// or a std instance's gen at its type arguments. sig.params are the
+// parameter kinds there, and origin is the producer the function counts
+// against. It is the one builder of a default's accessor, program and std
+// alike, and answers the function it added, or nil when the default does
+// not lower or its kinds have no shell.
+func (g *gen) irSlotAccessor(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, name string, slot int, origin irFuncOrigin) *ir.Func {
 	// The accessor's shell holds its parameters and its result, the
 	// defaulted parameter's kind, to the value domain (irFuncShellAt).
-	g.pushScope()
-	defer g.popScope()
 	params := sig.params[:slot]
-	for i, p := range fd.Params[:slot] {
-		if p.Destructure == nil && !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: params[i]})
-		}
-	}
 	short := *fd
 	short.Params = fd.Params[:slot]
-	isig := irFuncSig{result: sig.params[slot], decl: fd, name: name, origin: irFromModule}
+	isig := irFuncSig{result: sig.params[slot], decl: fd, name: name, origin: origin}
 	sh := g.irFuncShellWithCallee(&short, isig, params, sym)
 	if sh == nil {
-		g.dc.note("no function shell")
-		return
+		return nil
 	}
 	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: sig.params[slot], sides: sh.sides,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
 	args := make([]ir.Temp, slot+1)
-	for i, p := range fd.Params[:slot] {
-		args[i] = sh.params[p.Name]
-	}
+	copy(args, sh.paramTemps)
 	args[slot] = ir.NoTemp
 	filled := *fd
 	filled.Params = fd.Params[:slot+1]
-	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], ifaceFrame: sig.ifaceFrame}, args) {
+	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], ifaceFrame: sig.ifaceFrame, ifaceTypes: sig.ifaceTypes}, args) {
 		g.dc.note("a default that does not lower")
-		return
+		return nil
 	}
 	at := g.irNodePos(fd)
 	cp := ir.NewCopy(at, sh.result, args[slot])
@@ -193,18 +201,23 @@ func (g *gen) irSlotAccessorRetain(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, 
 	g.irRequireLint(sh.fn, "a default accessor")
 	g.irModule().AddFunc(sh.fn)
 	if err := g.irLintAdded(); err != nil {
-		panic("irbuild: file default accessor: " + err.Error())
+		panic("irbuild: default accessor: " + err.Error())
 	}
+	return sh.fn
 }
 
 // defaultHome is where a call of site, a sibling file's impl function
 // whose unit's gen is owning, fills the parameters it leaves out
 // (fillCallDefaults): the accessors owning builds for the function
-// (irImplSlotDefaults), or for the instance of a withheld member
-// (methodInstAccessors), and none for any other.
+// (irImplSlotDefaults), for the instance of a withheld member
+// (methodInstAccessors), or, for an interface's impl function, for the
+// parameters its interface function defaults (implSlotHome), and none for
+// any other.
 func (site *implMemberSite) defaultHome(owning *gen) defaultHome {
 	home := defaultHome{owner: owning}
 	switch {
+	case site.iface != "" && site.withheld == nil && site.item != nil && site.item.impl != nil:
+		return owning.implSlotHome(site.item.impl, site.item)
 	case site.accessorDefaults():
 		callee := owning.irCalleeSym(site.item, site.symName)
 		home.accessor = func(slot int) *ir.Symbol { return owning.irFileSlotSym(callee, site.symName, slot) }

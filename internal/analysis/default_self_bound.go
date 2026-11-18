@@ -92,10 +92,8 @@ func (c *checker) checkDefaultSelfDemand(t Type, ifaceName string, rec Recording
 		subject = "`" + sym.Name + "`"
 	}
 	msg := fmt.Sprintf("%s is a `self`, and %s does not require %s of its implementors", subject, c.currentInterface, ifaceName)
-	for _, e := range c.errors {
-		if e.Line == pos.Line && e.Col == pos.Col && e.Message == msg {
-			return
-		}
+	if c.alreadyReported(pos.Line, pos.Col, msg) {
+		return
 	}
 	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(
 		fmt.Sprintf("require it for this default only, so an implementor without %s writes the function itself: `%s`", ifaceName, defaultSignatureWithSelfBound(iface, c.defaultSelfFn, ifaceName))))

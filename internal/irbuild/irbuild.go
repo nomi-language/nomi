@@ -14,7 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// Module is one Nomi module's checked AST, the unit of codegen.
+// Module is one Nomi module's checked AST, the unit of lowering.
 type Module struct {
 	// Path is the .nomi file the module was checked from, absolute. Used to
 	// blame Nomi source in diagnostics.
@@ -212,9 +212,9 @@ func fileProgram(abs string, proj *frontend.Project, hasTests bool) *Program {
 			path = f.Key + ".nomi"
 		}
 		// A sibling's tail calls are marked here, because the entry pipeline
-		// marks only the entry's (frontend.Checker.Analyze). Without it a
-		// sibling's tail-recursive function formed no tail plan. The pass is
-		// idempotent. See siblingtailmark_test.go.
+		// marks only the entry's (frontend.Checker.Analyze). An unmarked tail
+		// call lowers as an ordinary call. The pass is idempotent. See
+		// siblingtailmark_test.go.
 		analysis.MarkTailCalls(f.Nodes)
 		mods = append(mods, Module{Path: path, Name: f.Key, Nodes: f.Nodes, FA: f.FA})
 	}
@@ -271,16 +271,10 @@ type Result struct {
 	// without one runs and exits 0.
 	HasMain bool
 	// IR is the `ir.Module` each compilation unit that retained a function
-	// produced, in unit order. It is the SECOND CONSUMER's input, and it is
-	// on the Result rather than behind a second entry point because the two
-	// consumers must read what ONE lowering built: a `BuildIR` that re-ran
-	// the front end and the producer would be a second lowering, and "the
-	// two backends read the same graph" would then be a claim about two
-	// graphs that happened to agree.
+	// produced, in unit order.
 	//
 	// A unit that retained nothing contributes no entry, because
-	// `gen.irModule` mints the container lazily — `irtable.go`'s reason, "a
-	// container nobody asked for is a map nobody reads".
+	// `gen.irModule` makes the container on first use.
 	// Use IRModules for execution with the compilation's stdlib dependencies.
 	IR []*ir.Module
 	// irLibraries shares immutable graphs with the process-cached stdlib index.
@@ -477,7 +471,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	}
 	files.resolveImplMembers(gens)
 	// Owner functions are registered with their blocks and lowered with
-	// them; a call from another file finds them here (siblingOwnerPlan).
+	// them; a call from another file finds them here (siblingOwnerPlanFor).
 	files.resolveOwnerMembers(gens)
 	// Every file's impls are registered now and no body has been lowered yet,
 	// which is the one window in which "does this PROGRAM implement I for T?"
@@ -529,7 +523,8 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// The IR each unit retained, in unit order. The entry unit's module
 	// records the program boot and its `group` boots, retained or not.
 	// A unit that retained nothing has no module, and nothing to start. The
-	// VM-only test bodies are built last.
+	// test bodies queued during the walk are built last
+	// (irRetryWalkOnlyTestBodies).
 	for _, g := range gens {
 		g.irRetryWalkOnlyTestBodies()
 	}
@@ -658,17 +653,17 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 // definesMain reports whether the module declares a zero-parameter `fn main`.
 func definesMain(m *Module) bool {
 	for _, n := range m.Nodes {
-		if fd, ok := n.(*ast.FuncDef); ok && fd.Name == "main" && !fd.ImplFunction && len(fd.Params) == 0 {
+		if fd, ok := n.(*ast.FuncDef); ok && fd.Name == "main" && len(fd.Params) == 0 {
 			return true
 		}
 	}
 	return false
 }
 
-// unitPackage is the Go package name for the i'th Nomi module. Positional
-// rather than derived from the module name: Nomi module paths contain
-// separators and can collide after sanitizing, and the package name is not a
-// user-visible surface. It still qualifies the builder's Go-spelled names.
+// unitPackage is the unit package name of the i'th Nomi module: a namespace
+// key that names no compiled artifact (package doc, "Unit packages").
+// Positional rather than derived from the module name, since two module
+// names can collide and the key is not a user-visible surface.
 func unitPackage(i int) string { return fmt.Sprintf("nomimod%d", i) }
 
 // rtModulePath is the import path of the runtime library. The builder compares a Go type's reflect PkgPath against

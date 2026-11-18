@@ -9,9 +9,7 @@ import (
 
 // `?` is the one identifier character Nomi admits and Go does not, and the lexer
 // admits it only as a SUFFIX (`isIdentPart` deliberately excludes it
-// mid-identifier). The builder's Go-spelled names route through `goLocal`,
-// `goIdent`, `goFuncName`, `mintInspectorName` or `sanitizeIdent`, which map
-// it to a character Go accepts.
+// mid-identifier).
 
 // TestIRBuild_ThePropertyCatchesAnUnsanitizedName checks the two Go-side
 // checks a sanitized name is held to: a `?` in a declared name must fail BOTH

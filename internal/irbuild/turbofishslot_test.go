@@ -5,9 +5,9 @@ import (
 )
 
 // TestStdSlotFill_TheAccessorNameIsReadThroughTheCanonicalPointer is the
-// snapshot property, the same one arityMin has.
+// snapshot property, the same one defaultFill has.
 //
-// `bindStdSiblings` and `stdInstInvoke` take `view := *f` copies, some BEFORE
+// `bindStdSiblings` and stdinst.go's instances take `view := *f` copies, some BEFORE
 // the lowering pass runs. A frozen copy reports an accessor as absent for one
 // that has since been built, which is a refusal where a lowering was
 // available, the benign direction; but the same field read directly would also

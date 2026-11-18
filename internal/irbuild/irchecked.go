@@ -88,11 +88,8 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 		g.dc.note("a checked literal whose check does not resolve")
 		return false
 	}
-	callee, why := g.literalCallee(h, fd)
-	if callee == nil {
-		if why != "" {
-			g.dc.note("a checked literal's check: " + why)
-		}
+	callee, ok := g.literalCallee(h, fd, "a checked literal's check: ")
+	if !ok {
 		return false
 	}
 	k := h.result
@@ -107,11 +104,9 @@ func (g *gen) declareCheckSite(t *ast.TaggedString) bool {
 	if !irCheckedLiteralKind(k) || len(h.params) != arity || !irRetainedListKind(h.params[0]) || typed && !irRetainedListKind(h.params[1]) {
 		panic("irbuild: a CheckedLiteral check whose signature is not the interface's: " + k.nomi())
 	}
+	// The check's Result has an IR type: irTypeOf answers nil only for
+	// kindInvalid, which irCheckedLiteralKind refuses above.
 	ty := g.irTypeOf(k)
-	if ty == nil {
-		g.dc.note("a checked literal's check Result with no IR type: " + k.nomi())
-		return false
-	}
 	var statics []string
 	var slots []SlotPos
 	for _, part := range fragmentParts(t.Parts) {

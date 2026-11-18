@@ -20,9 +20,10 @@ import "strconv"
 //
 // So `?` decomposes exactly as a pattern does: a pattern is a sequence, not
 // a node, and that holds for a construct that is not a pattern.
-// `internal/irbuild`'s irTry builds the `ir.MatchVariant` through the same
-// constructor a `case` arm uses and takes only the condition from it, because
-// where the false answer goes is the consumer's, as match.go says.
+// `internal/irbuild`'s `tryValue` appends one Try and then the `ir.Proj` of
+// the payload. The Try makes the refutation itself: it leaves when src holds
+// the unwind variant (NewTry), so the producer builds no separate
+// `ir.MatchVariant` for a `?`.
 //
 // # The boundary is not on this node
 //

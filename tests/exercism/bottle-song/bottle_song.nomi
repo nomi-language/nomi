@@ -17,7 +17,7 @@ once numbers = Vector[
 
 /// The lines of `take_down` verses, starting from `start_bottles` bottles,
 /// with an empty line between two verses.
-pub fn recite(start_bottles: Int, take_down: Int) -> List<String>
+pub fn recite(start_bottles: Int, take_down: NonNegativeInt) -> List<String>
     start_bottles
     |> Iter.iterate(&(&1 - 1))
     |> Iter.take(take_down)

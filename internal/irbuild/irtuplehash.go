@@ -4,6 +4,7 @@ import (
 	"maps"
 	"strconv"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -31,10 +32,13 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	ft := bl.g.checkedCallSignature(t)
+	var st analysis.Type
 	if ft == nil {
 		// A call this file synthesized (a slot of an enclosing tuple's mix,
 		// or a box's thunk) has no checker facts: its operand is a name
-		// bound here, whose kind says whether it is a tuple or a record.
+		// bound here, whose kind says whether it is a tuple or a record,
+		// and its record names the slot's type where the enclosing mix
+		// had one (stdIfaceCallRecord).
 		id, isIdent := t.Args[0].(*ast.Ident)
 		if !isIdent {
 			return ir.NoTemp, kindInvalid, false, false, false
@@ -43,10 +47,13 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 		if !bound || !irStructuralBoxes(k) {
 			return ir.NoTemp, kindInvalid, false, false, false
 		}
+		st = bl.g.calleeOf(t).For
 	} else if len(ft.Params) != 1 {
 		return ir.NoTemp, kindInvalid, false, false, false
 	} else if tag := bl.g.project(ft.Params[0]).tag; tag != tagTuple && tag != tagAnonStruct {
 		return ir.NoTemp, kindInvalid, false, false, false
+	} else {
+		st = bl.g.checkerTypeArg(ft.Params[0])
 	}
 	subj, sk, _, sok := bl.lower(t.Args[0])
 	if !sok {
@@ -58,13 +65,37 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 	} else {
 		irLoweredTupleRetained(sk, "Hashable.hash")
 	}
-	v, k, mobile, ok = bl.tupleHashOf(t, subj, sk)
+	v, k, mobile, ok = bl.tupleHashOf(t, subj, sk, st)
 	return v, k, mobile, ok, true
 }
 
+// partCheckerType is the checker type of part i of a value of kind sk, a
+// tuple or an anonymous record, whose checker type is st: a tuple's i-th
+// element, a record's field named as sk's i-th. Nil when st is nil or not
+// that shape.
+func partCheckerType(st analysis.Type, sk kind, i int) analysis.Type {
+	switch t := analysis.ResolveTypeVar(st).(type) {
+	case *analysis.TupleType:
+		if sk.tag == tagTuple && i < len(t.Elems) && len(t.Elems) == len(sk.comp.parts) {
+			return t.Elems[i]
+		}
+	case *analysis.AnonStructType:
+		if sk.tag == tagAnonStruct && i < len(sk.comp.names) {
+			for _, f := range t.Fields {
+				if f.Name == sk.comp.names[i] {
+					return f.Type
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // tupleHashOf is the derive mix over subj, a lowered tuple or record of kind
-// sk, for the call t.
-func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind) (v ir.Temp, k kind, mobile, ok bool) {
+// sk and checker type st (nil where the builder holds it by kind alone),
+// for the call t. Each slot's call carries the record of `Hashable.hash`
+// at the slot's type.
+func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind, st analysis.Type) (v ir.Temp, k kind, mobile, ok bool) {
 	if bl.qualRecord == t {
 		// In an assertion subject the tuple is the call's one row.
 		bl.qualRecordArgs = irQualArgs{temps: []ir.Temp{subj}, kinds: []kind{sk}, mobile: []bool{true}, ok: true}
@@ -97,6 +128,7 @@ func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind) (v ir
 			Args: []ast.Node{&ast.Ident{Name: name, Line: line}},
 			Line: line,
 		}
+		bl.g.carryCall(hash, bl.g.stdIfaceCallRecord(stdHashable, "hash", partCheckerType(st, sk, i)))
 		if mix == nil {
 			mix = hash
 			continue

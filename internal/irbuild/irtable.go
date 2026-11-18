@@ -5,11 +5,11 @@ package irbuild
 // This file is the producer side of `internal/ir`'s Table. It turns this
 // package's `kind` into an `*ir.Type` and this package's `*implItem` into an
 // `*ir.Decl` with a signature, and then lets `internal/ir` do the choosing:
-// overload scoring for the operator family and for `foreignIfaceCall` is
+// overload scoring for the operator family is
 // `ir.Table.SelectOverload` over `ir.Table.Widens`. No subtyping-and-fit rule
-// is implemented in this package. `foreignIfaceCall` and `irSelectOperImpl`
-// collect their own candidate sets, which is the part of the answer this
-// package knows, and ask `irSelectAmong` to choose.
+// is implemented in this package. `irSelectOperImpl`
+// collects its own candidate set, which is the part of the answer this
+// package knows, and asks `irSelectAmong` to choose.
 //
 // The IR says which declaration the arguments select. Which impl body
 // realizes that declaration, what its parameter defaults are, and how an
@@ -164,8 +164,7 @@ func (g *gen) irTypeOf(k kind) *ir.Type {
 // name, by construction.
 //
 // The NAME is `Receiver.method`, a Nomi spelling. It is display only: `ir.Decl`
-// says its identity is the pointer, and the builder's Go-spelled name is
-// deliberately absent because it is not a fact about the program.
+// says its identity is the pointer.
 func (g *gen) irImplDecl(recv kind, it *implItem) *ir.Decl {
 	params := make([]*ir.Type, len(it.params))
 	for i := range it.params {
@@ -214,9 +213,9 @@ func (g *gen) irNoteConformance(it *implItem, args []kind) {
 // the receiver kind its display name is built from.
 //
 // The receiver travels with the item because a candidate SET may span
-// receivers. `foreignIfaceCall` scores `impl Debug for Worker` against
-// `impl Debug for Node` at one call, so the two candidates have different
-// receivers and asking the caller for a single one would be wrong there even
+// receivers. A set that scores `impl Debug for Worker` against
+// `impl Debug for Node` at one call holds candidates of different
+// receivers, and asking the caller for a single one would be wrong there even
 // though it is right on the operator path.
 type irCandidate struct {
 	recv kind

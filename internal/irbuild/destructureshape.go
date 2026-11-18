@@ -15,8 +15,8 @@ import (
 //
 //	.{x, y}: Point       an ANONYMOUS STRUCT pattern over a NAMED struct.
 //	(a, b): (Int, Int) a TUPLE pattern, over an interned tagTuple whose
-//	                    components are addressed by position, as `case`'s
-//	                    tupleArm matches one.
+//	                    components are addressed by position, as `case`
+//	                    matches one.
 //
 // Both are ordinary Nomi rather than corners. Spec §7's self-typing rule is why
 // each carries an annotation and `Point{x:, y:}` does not: a pattern whose head
@@ -31,11 +31,11 @@ import (
 // and names one of two fields — and the match is against a type the pattern does
 // not name. Same node, two field sources, dispatched on src.k.
 //
-// So this reuses destructureFields, which case.go's structFieldArms and the
-// typed `Point{x:, y:}` parameter already share: it walks the PATTERN's fields and
-// looks each one up on the def BY NAME, which is exactly the subset rule.
-// Teaching destructureAnonStruct about named defs instead would make a second
-// field-identity implementation beside the one `case` uses.
+// So this reuses destructureFields, which the typed `Point{x:, y:}` parameter
+// already uses: it walks the PATTERN's fields and looks each one up on the def
+// BY NAME, which is exactly the subset rule. Teaching destructureAnonStruct
+// about named defs instead would make a second field-identity implementation
+// beside that one.
 //
 // # Reading by NAME versus by POSITION
 //
@@ -66,19 +66,16 @@ func (g *gen) destructureNamedFields(p *ast.StructPattern, src expr, at ast.Node
 	return g.destructureFields(d, src, p, at)
 }
 
-// destructureTuple binds `(a, b)` in a destructuring parameter — case.go's
-// tupleArm with the arm-abandoning removed, since an irrefutable pattern has no
-// arm to abandon.
+// destructureTuple binds `(a, b)` in a destructuring parameter. It builds no
+// test, since an irrefutable pattern has no arm to abandon.
 //
-// RULE (arity is fixed by the type), which tupleArm states and this reproduces:
-// a tuple pattern of the right arity always matches structurally, so there is no
-// test to emit. Here the sub-patterns cannot introduce one either — the checker
-// rejects a refutable parameter pattern outright — so nothing this emits opens a
-// block, and the bindings land straight in the enclosing one.
+// Arity is fixed by the type: a tuple pattern of the right arity always
+// matches structurally, so there is no test to build. The sub-patterns cannot
+// introduce one either, since the checker rejects a refutable parameter
+// pattern outright, so the bindings go straight into the current block.
 //
-// The arity check is a REFUSAL rather than an assertion for tupleArm's reason:
-// reaching it means the front end let through a shape this builder would have to
-// guess about.
+// The arity check is a refusal rather than an assertion: reaching it means the
+// front end let through a shape this builder would have to guess about.
 func (g *gen) destructureTuple(p *ast.TuplePattern, src expr, at ast.Node) bool {
 	if src.k.tag != tagTuple {
 		g.reject("pattern type mismatch",
@@ -93,10 +90,10 @@ func (g *gen) destructureTuple(p *ast.TuplePattern, src expr, at ast.Node) bool 
 		g.probePattern(p)
 		return false
 	}
-	// Held for the same reason tupleArm holds: the value is read once per
-	// element. A top-level destructuring parameter's src IS a Go identifier, so
-	// hold is a no-op there and the temporary only appears for a NESTED tuple,
-	// whose src is a field access.
+	// Held because the value is read once per element. A top-level
+	// destructuring parameter's src is the parameter's own temporary, so hold
+	// is a no-op there and a copy only appears for a nested tuple, whose src
+	// is a projection.
 	held := g.hold(src)
 	ok := true
 	for i, sub := range p.Patterns {

@@ -830,13 +830,7 @@ func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift positionMap, n
 	for i := range k.typed {
 		k.typed[i].pos = at(k.typed[i].pos)
 	}
-	for _, byType := range k.manifest {
-		for _, recs := range byType {
-			for i := range recs {
-				shiftRecording(&recs[i], path, at)
-			}
-		}
-	}
+	shiftManifest(k.manifest, path, at, true)
 	shiftErrors(k.errors, path, shift, true)
 	shiftErrors(k.typeErrors, path, shift, true)
 	shiftErrors(fa.BootErrors, path, shift, true)
@@ -880,7 +874,10 @@ func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift positionMap, n
 	}
 
 	// The other files' copies: a checker's per-site copy of one of this
-	// file's symbols, and a diagnostic that points here.
+	// file's symbols, a diagnostic that points here, and a demand recorded
+	// at a place here (a partner test file's derive for a type declared
+	// here records one at each field). Demands and diagnostics are moved in
+	// the file's kept declarations too, which its next rebuild starts from.
 	c := p.checks
 	others = true
 	for key, other := range p.Files {
@@ -891,6 +888,12 @@ func shiftDeclarations(p *CheckedProgram, fa *FileAnalysis, shift positionMap, n
 			for _, sym := range m {
 				symbol(sym, false)
 			}
+		}
+		shiftManifest(other.ImplManifest, path, at, false)
+		if kept := other.keptDecls(); kept != nil {
+			shiftManifest(kept.manifest, path, at, false)
+			shiftErrors(kept.errors, path, shift, false)
+			shiftErrors(kept.typeErrors, path, shift, false)
 		}
 		for _, errs := range [][]TypeError{c.build[key], c.check[key], c.appRoots[key], c.implImports[key]} {
 			shiftErrors(errs, path, shift, false)
@@ -959,20 +962,30 @@ func moveAnonFields(t Type, seen map[Type]bool, move func(*FieldDef)) {
 	}
 }
 
-// shiftRecording moves a demand recorded in the file at path.
-func shiftRecording(r *Recording, path string, at func(Pos) Pos) {
-	if r.Pos.File == path {
-		r.Pos = at(r.Pos)
-	}
-	if d := r.Derive; d != nil {
-		moved := *d
-		if moved.DerivePos.File == path || moved.DerivePos.File == "" {
-			moved.DerivePos = at(moved.DerivePos)
+// shiftManifest moves the positions in the file at path that a manifest's
+// demands hold: a position naming no file is the recording file's own, so
+// it moves only when own (the manifest is that file's).
+func shiftManifest(m map[string]map[string][]Recording, path string, at func(Pos) Pos, own bool) {
+	here := func(p Pos) bool { return p.File == path && path != "" || p.File == "" && own }
+	for _, byType := range m {
+		for _, recs := range byType {
+			for i := range recs {
+				r := &recs[i]
+				if here(r.Pos) {
+					r.Pos = at(r.Pos)
+				}
+				if d := r.Derive; d != nil && (here(d.DerivePos) || here(d.FieldPos)) {
+					moved := *d
+					if here(moved.DerivePos) {
+						moved.DerivePos = at(moved.DerivePos)
+					}
+					if here(moved.FieldPos) {
+						moved.FieldPos = at(moved.FieldPos)
+					}
+					r.Derive = &moved
+				}
+			}
 		}
-		if moved.FieldPos.File == path || moved.FieldPos.File == "" {
-			moved.FieldPos = at(moved.FieldPos)
-		}
-		r.Derive = &moved
 	}
 }
 

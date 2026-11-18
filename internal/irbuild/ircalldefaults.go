@@ -7,8 +7,9 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// callDefaults follows fillParamDefaults: explicit values are already evaluated,
-// then defaults see module functions and earlier parameters, never caller locals.
+// callDefaults fills the parameters a call leaves out: explicit values are
+// already evaluated, then defaults see module functions and earlier
+// parameters, never caller locals.
 // Module value references remain outside this retained path.
 func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 	return bl.callDefaultsThrough(sig, args, len(args))
@@ -19,7 +20,7 @@ func (bl *irScalarBuilder) callDefaults(sig *fnSig, args []ir.Temp) bool {
 // before it, whatever the slots after it hold.
 func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int) bool {
 	if len(sig.decl.Params) != len(args) || n > len(args) {
-		return false
+		panic("irbuild: callDefaultsThrough: every caller builds args at the declaration's parameter count, and a partial's slot is one of them")
 	}
 	bound, kinds, parent, defaults := bl.bound, bl.boundK, bl.parent, bl.defaultScope
 	scopes := bl.g.scopes
@@ -33,7 +34,7 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 	if inst := sig.instance; inst != nil {
 		// A generic callee's default is lowered at the instance's type
 		// arguments: `f: (T) -> T = fn y -> y` takes its parameter type from T.
-		bl.g.pushMonoSubst(inst.tpl, inst.args)
+		bl.g.pushMonoSubst(inst)
 		defer bl.g.popMonoSubst()
 	}
 	for i, p := range sig.decl.Params[:n] {
@@ -52,9 +53,9 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 				case !bound:
 					return false
 				case o.unit != bl.g.fileUnit:
-					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, args, i)
+					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, sig.ifaceTypes, args, i)
 				default:
-					src, _, ok = bl.ifaceDefaultHere(p, frame, sig.params[i])
+					src, _, ok = bl.ifaceDefaultHere(p, frame, sig.ifaceTypes, sig.params[i])
 				}
 			} else {
 				src, _, _, ok = bl.lowerWant(p.Default, sig.params[i])

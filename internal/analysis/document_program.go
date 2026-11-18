@@ -95,11 +95,6 @@ type CheckedProgram struct {
 	factsFrom *CheckedProgram
 }
 
-// Consumed reports whether a Recheck has consumed the program.
-func (p *CheckedProgram) Consumed() bool {
-	return p.consumed
-}
-
 // Keys answers the program's module keys, the entry first and then the
 // others in key order: the order the front end reports files in.
 func (p *CheckedProgram) Keys() []string {

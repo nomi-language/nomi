@@ -18,11 +18,11 @@ func (bl *irScalarBuilder) patternIfRegion(t *ast.If, sig irFuncSig) (kind, bool
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
 	switch {
 	case t.Else == nil && !sig.testArms && !unitElse:
-		bl.g.dc.note("a pattern `if` without `else` whose value is not Unit")
-		return kindInvalid, false
+		// An `if` without `else` is a statement: the checker types it Unit
+		// and rejects one whose value a position reads.
+		panic("irbuild: a pattern `if` without `else` at a position that reads a value of kind " + sig.result.nomi())
 	case isNilNode(t.Cond):
-		bl.g.dc.note("a pattern `if` without a subject")
-		return kindInvalid, false
+		panic("irbuild: patternIfRegion: the parser always sets a pattern if's subject")
 	}
 	subj, sk, _, ok := bl.lower(t.Cond)
 	if !ok {

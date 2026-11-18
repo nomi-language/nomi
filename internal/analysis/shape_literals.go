@@ -110,7 +110,6 @@ func (c *checker) checkShapeElem(t shapeTarget, item ast.Node, elem Type, what s
 
 func isVectorType(t Type) bool { _, ok := vectorElemType(t); return ok }
 func isSetType(t Type) bool    { _, ok := setElemType(t); return ok }
-func isTupleType(t Type) bool  { _, ok := resolveTypeVar(t).(*TupleType); return ok }
 
 // checkNamedVectorLit types `Path[1, 2]` and `.Items[1, 2]`.
 func (c *checker) checkNamedVectorLit(n *ast.ListLit) Type {
@@ -172,12 +171,13 @@ func (c *checker) listPatternKind(n *ast.ListPattern, subject Type) ast.SeqKind 
 	return ast.SeqList
 }
 
-// shapePatternTarget is the type a vector or set pattern takes apart at
-// expectedTy: the vector or set itself, the one a distinct type over it
-// wraps, or a variant's payload when the pattern names the variant. shape
-// is "vector" or "set", and fits reports a type of the shape. It is nil
-// after an error is reported.
-func (c *checker) shapePatternTarget(typeName ast.TypeExpr, line, col int, expectedTy Type, shape string, fits func(Type) bool) Type {
+// shapePatternTarget is the type n, a vector or set pattern, takes apart
+// at expectedTy: the vector or set itself, the one a distinct type over it
+// wraps, or a variant's payload when the pattern names the variant, which
+// it records (PatternVariants). shape is "vector" or "set", and fits
+// reports a type of the shape. It is nil after an error is reported.
+func (c *checker) shapePatternTarget(n *ast.ListPattern, expectedTy Type, shape string, fits func(Type) bool) Type {
+	typeName, line, col := n.TypeName, n.Line, n.Col
 	if fits(expectedTy) && typeName == nil {
 		return expectedTy
 	}
@@ -195,6 +195,7 @@ func (c *checker) shapePatternTarget(typeName ast.TypeExpr, line, col int, expec
 		if pet.Name != et.Name {
 			c.addError(line, col, fmt.Sprintf("variant %s belongs to %s, not scrutinee type %s", vname, pet.Name, et.Name))
 		}
+		c.fa.recordPatternVariant(n.TypeName, vname)
 		payload = substituteScrutineeArgs(payload, et)
 		if !fits(payload) {
 			c.addError(line, col, fmt.Sprintf(
@@ -251,6 +252,9 @@ func (c *checker) checkVectorPattern(n *ast.ListPattern, expectedTy Type) {
 		}
 		if rest := n.Rest(); rest != nil {
 			c.checkPattern(rest, vec)
+		} else if n.BareRest {
+			// A bare `..` matches the elements between, and binds nothing.
+			c.fa.recordPatternType(n.TailSpread, vec)
 		}
 		for _, t := range n.Tails {
 			c.checkPattern(t, elem)
@@ -260,7 +264,7 @@ func (c *checker) checkVectorPattern(n *ast.ListPattern, expectedTy Type) {
 		check(nil, nil)
 		return
 	}
-	vec := c.shapePatternTarget(n.TypeName, n.Line, n.Col, expectedTy, "vector", isVectorType)
+	vec := c.shapePatternTarget(n, expectedTy, "vector", isVectorType)
 	if vec == nil {
 		check(nil, nil)
 		return
@@ -295,7 +299,7 @@ func (c *checker) checkSetPattern(n *ast.ListPattern, expectedTy Type) {
 	}
 	var set, elem Type
 	if expectedTy != nil {
-		set = c.shapePatternTarget(n.TypeName, n.Line, n.Col, expectedTy, "set", isSetType)
+		set = c.shapePatternTarget(n, expectedTy, "set", isSetType)
 		elem, _ = setElemType(set)
 	}
 	for _, e := range n.Heads {
@@ -323,5 +327,8 @@ func (c *checker) checkSetPattern(n *ast.ListPattern, expectedTy Type) {
 	}
 	if rest := n.Rest(); rest != nil {
 		c.checkPattern(rest, set)
+	} else if n.BareRest {
+		// A bare `..` matches the other elements, and binds nothing.
+		c.fa.recordPatternType(n.TailSpread, set)
 	}
 }

@@ -55,9 +55,6 @@ end
 	if !ok {
 		t.Fatalf("node 0: expected *ast.StructDef, got %T", out[0])
 	}
-	if len(sd.Items) != 0 {
-		t.Errorf("expected no decl Items, got %d", len(sd.Items))
-	}
 	if len(sd.Fields) != 1 {
 		t.Errorf("expected Fields untouched, got %d", len(sd.Fields))
 	}
@@ -235,9 +232,6 @@ end
 	if len(ed.Variants) != 2 {
 		t.Errorf("expected Variants untouched, got %d", len(ed.Variants))
 	}
-	if len(ed.Items) != 0 {
-		t.Errorf("expected decl Items consumed, got %d", len(ed.Items))
-	}
 	// Stable source order: Display, then Speech.
 	disp, ok := out[1].(*ast.ImplBlock)
 	if !ok || disp.Interface == nil || TypeExprBaseName(disp.Interface) != "Display" {
@@ -329,9 +323,8 @@ end
 	if len(out) != 4 {
 		t.Fatalf("expected 4 nodes, got %d", len(out))
 	}
-	td, ok := out[0].(*ast.TypeDef)
-	if !ok || len(td.Items) != 0 {
-		t.Fatalf("node 0: expected consumed TypeDef, got %T", out[0])
+	if _, ok := out[0].(*ast.TypeDef); !ok {
+		t.Fatalf("node 0: expected a TypeDef, got %T", out[0])
 	}
 	ib1, ok := out[1].(*ast.ImplBlock)
 	if !ok || TypeExprBaseName(ib1.Interface) != "Display" || TypeExprBaseName(ib1.Receiver) != "NonZeroCount" {

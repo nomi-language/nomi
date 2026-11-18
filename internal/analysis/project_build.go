@@ -1251,10 +1251,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		if share != nil {
 			declModule = share.declaringModules(orphanRuleNames(ifaceImpls, implBlockReceivers), ownModule, crossModuleSegments)
 		} else {
-			declModule = declaringModuleIndex(
-				filesByKey, ownModule,
-				nil, nil, crossModuleSegments,
-			)
+			declModule = declaringModuleIndex(filesByKey, ownModule, crossModuleSegments)
 		}
 		implModuleOf := func(fn *ast.FuncDef) string {
 			return moduleNameFromKey(ifaceImplFiles[fn], ownModule, crossModuleSegments)

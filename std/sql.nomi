@@ -176,8 +176,11 @@ end
 impl Add<Statement, Statement> for Statement
     fn add(lhs: Statement, rhs: Statement) -> Statement
         // `lhs`'s last part and `rhs`'s first are one stretch of SQL.
-        before = lhs.parts |> Iter.take(Iter.count(lhs.parts) - 1) |> Iter.to_list()
-        last = lhs.parts |> Iter.last() |> Maybe.with_default("")
+        (before, last) = case lhs.parts
+            [..before, last] -> (before, last)
+            []               -> ([], "")
+        end
+
         first = rhs.parts |> Iter.first() |> Maybe.with_default("")
         after = rhs.parts |> Iter.drop(1) |> Iter.to_list()
         Statement{parts: before + [last + first] + after, params: lhs.params + rhs.params}

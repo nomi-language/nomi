@@ -50,7 +50,7 @@ func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, k
 		return bl.structSpread(t)
 	}
 	if t.Spread != nil || len(t.Fields) == 0 {
-		return no()
+		panic("irbuild: recordMakeOf: parser builds `{}` as a block, never an empty StructLit; a spread returned above")
 	}
 	names := make([]string, len(t.Fields))
 	parts := make([]kind, len(t.Fields))
@@ -65,9 +65,12 @@ func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, k
 		} else {
 			v, k, mobile, ok = bl.lower(field.Value)
 		}
-		if !ok || !irCompositePartKind(k) {
+		if !ok {
 			return no()
 		}
+		// A lowered value is a call operand, and every call operand is a
+		// part a record holds (irCompositePartKind admits the same kinds).
+		irHeldOperand(k, "a record's field")
 		if !mobile && i != len(t.Fields)-1 {
 			mobile = true
 		}
@@ -76,7 +79,7 @@ func (bl *irScalarBuilder) recordMakeOf(t *ast.StructLit, want kind) (ir.Temp, k
 	}
 	k := bl.g.anonStructKind(names, parts)
 	if !irRetainedRecordKind(k) {
-		return no()
+		panic("irbuild: recordMakeOf: every field passed irCompositePartKind, which is what irRetainedRecordKind checks")
 	}
 	ops := make([]ir.Temp, len(k.comp.names))
 	for i, name := range k.comp.names {
@@ -217,7 +220,7 @@ func (bl *irScalarBuilder) structMergeVals(k kind, base ir.Temp, lit *ast.Struct
 				continue
 			}
 		}
-		v, vk, ok = bl.coerceEmpty(f.Value, v, vk, fk)
+		v, vk, ok = bl.convertTo(f.Value, v, vk, fk)
 		if !ok {
 			return nil, nil, false
 		}
@@ -250,7 +253,7 @@ func (bl *irScalarBuilder) updateBaseField(at ast.Node, k kind, base ir.Temp, na
 // A `Struct` a type parameter or local interface names declines here. Its
 // arguments may be named by `Struct`'s parameters
 // (`Struct.update(updates: {x: 1}, original: p)`); they are evaluated in
-// Nomi's order, positionals first and then named arguments as written.
+// Nomi's order, as written.
 func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Args) != 2 || !bl.g.stdStructUpdateIsStds() {
@@ -259,16 +262,15 @@ func (bl *irScalarBuilder) structUpdateCall(t *ast.Call) (ir.Temp, kind, bool, b
 	if _, local := bl.g.ifaceNamed("Struct"); local {
 		return no()
 	}
-	ops, ok := structUpdateOperands(t.Args)
+	ops, ok := bl.g.structUpdateOperands(t)
 	if !ok {
 		return no()
 	}
 	lit, isLit := argExpr(t.Args[ops.patch]).(*ast.StructLit)
-	if !isLit {
+	if !isLit || lit.TypeName != nil || lit.Spread != nil {
+		// A patch that is a value: a binding, a call, a literal that names
+		// its type or spreads another value.
 		return bl.structUpdateValue(t, ops)
-	}
-	if lit.TypeName != nil || lit.Spread != nil {
-		return no()
 	}
 	recorded := bl.recording > 0 && bl.qualRecord == t
 	if (ops.patchFirst || recorded) && patchHasHole(lit) {
@@ -347,6 +349,15 @@ func (bl *irScalarBuilder) structUpdateValue(t *ast.Call, ops structUpdateArgs) 
 	}
 	base, k := temps[ops.base], kinds[ops.base]
 	rec, rk := temps[ops.patch], kinds[ops.patch]
+	if rk == k && irRetainedUpdateKind(k) && k.tag == tagNamed {
+		// A patch of the base's own struct type names every field, so the
+		// update is the patch.
+		if bl.recording > 0 && bl.qualRecord == t {
+			bl.qualRecordArgs = irQualArgs{temps: temps, kinds: kinds, mobile: []bool{true, true}, ok: true}
+			bl.qualRecordSeen = true
+		}
+		return rec, k, false, true
+	}
 	if !irRetainedUpdateKind(k) || rk.tag != tagAnonStruct || rk.comp == nil {
 		bl.g.dc.note("a Struct.update patch value that is not an anonymous struct: " + rk.nomi())
 		return no()
@@ -377,9 +388,9 @@ type structUpdateArgs struct {
 
 // structUpdateOperands places `Struct.update`'s two written arguments,
 // positional or named by `Struct`'s parameters (`original`, `updates`), as
-// any call places them (argSlotPlan).
-func structUpdateOperands(args []ast.Node) (structUpdateArgs, bool) {
-	plan, planned := argSlotPlan(args, make([]kind, 2), []string{"original", "updates"})
+// the checker placed them (callPlan).
+func (g *gen) structUpdateOperands(t *ast.Call) (structUpdateArgs, bool) {
+	plan, planned := g.callPlan(t, 2)
 	if !planned || len(plan.order) != 2 {
 		return structUpdateArgs{}, false
 	}
@@ -415,7 +426,7 @@ func (bl *irScalarBuilder) recordMerge(at ast.Node, k kind, base, rec ir.Temp, r
 		p := ir.NewProjRecordField(bl.g.irNodePos(from[i]), bl.f.NewTemp(), rec, name, irParamShape(part))
 		bl.b.Append(p)
 		bl.side(p.Dst(), irScalarSide{k: part})
-		v, _, ok := bl.coerceEmpty(from[i], p.Dst(), part, fk)
+		v, _, ok := bl.convertTo(from[i], p.Dst(), part, fk)
 		if !ok {
 			return ir.NoTemp, false
 		}

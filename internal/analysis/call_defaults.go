@@ -1,9 +1,14 @@
 package analysis
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"slices"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // DefaultedCall is what fills the parameters a call leaves out
-// (FileAnalysis.CallDefaults), or a function value's call fills
+// (FileAnalysis.CallDefaults, made with the call's placement,
+// recordPlacement), or a function value's call fills
 // (FileAnalysis.DefaultedRefs): the declaration whose defaults they take,
 // and which slots.
 type DefaultedCall struct {
@@ -21,85 +26,21 @@ type DefaultedCall struct {
 	File string
 	// Slots are the parameters filled from their defaults, ascending.
 	Slots []int
+	// From, parallel to Slots, is the declaration whose default fills
+	// each slot. It is Decl, except in the record of a call that reaches
+	// an impl function the checker resolved (DispatchImpl, Decl that
+	// function) which declares no default at a slot its interface
+	// function defaults: that slot's is the interface function's
+	// (*ast.InterfaceMethod). The default of the function that runs is
+	// used, per parameter, and the interface's where it declares none
+	// (spec §12 *Item kinds*). SlotParams reads it.
+	From []ast.Node
 	// Ref, for a call through a local name that copies a declared
 	// function (`g = parse` then `g("1")`, calleeCopiesADeclaration), is
 	// the expression the copy was made from (`parse`): the call goes
 	// through the function that name is, which fills the slots. Nil for a
 	// call of the declaration by name.
 	Ref ast.Node
-}
-
-// defaultsDecl is the declaration whose defaults a call through funcNode
-// takes, with its symbol, and for a local copy of a declared function the
-// expression the copy was made from (DefaultedCall.Ref). ok is false for a
-// callee with no declaration behind it (a parameter, a field, a lambda or a
-// partial bound to a name, whose parameters the value fills).
-func (c *checker) defaultsDecl(funcNode ast.Node) (sym *Symbol, params []ast.Param, ref ast.Node, ok bool) {
-	for depth := 0; depth < maxPartialChain; depth++ {
-		s, found := c.callFuncSym(funcNode)
-		if !found || s == nil || s.Kind == SymbolParam {
-			return nil, nil, nil, false
-		}
-		switch d := s.Node.(type) {
-		case *ast.FuncDef:
-			return s, d.Params, ref, true
-		case *ast.ExternFunc:
-			return s, d.Params, ref, true
-		case *ast.InterfaceMethod:
-			return s, d.Params, ref, true
-		case *ast.Binding:
-			if _, isIdent := funcNode.(*ast.Ident); !isIdent || s.Kind != SymbolBinding || d.Value == nil {
-				return nil, nil, nil, false
-			}
-			value := ungroupExpr(d.Value)
-			if _, named := c.namedFuncParams(value); !named {
-				// A copy of a copy follows the chain; anything else (a
-				// lambda, a partial) carries its own defaults.
-				if _, chained := value.(*ast.Ident); !chained {
-					return nil, nil, nil, false
-				}
-			} else {
-				ref = value
-			}
-			funcNode = value
-		default:
-			return nil, nil, nil, false
-		}
-	}
-	return nil, nil, nil, false
-}
-
-// recordCallDefaults notes the parameters of call that its arguments leave
-// to their defaults: args are the written arguments, slots their routing
-// (computePositionalSlots or computePipeArgSlots), pipedSlot the slot a
-// pipe's subject fills or -1, and params the callee's parameter types. A
-// callee with no declaration behind it records nothing (defaultsDecl).
-func (c *checker) recordCallDefaults(call *ast.Call, args []ast.Node, slots []int, pipedSlot int, params []Type) {
-	if c.fa == nil || call == nil {
-		return
-	}
-	sym, decl, ref, ok := c.defaultsDecl(call.Func)
-	if !ok || len(decl) != len(params) {
-		return
-	}
-	names := make([]string, len(decl))
-	for i, p := range decl {
-		names[i] = p.Name
-	}
-	filled, _ := filledSlots(args, slots, pipedSlot, params, names)
-	var omitted []int
-	for i, f := range filled {
-		if !f && decl[i].Default != nil {
-			omitted = append(omitted, i)
-		}
-	}
-	if len(omitted) == 0 {
-		return
-	}
-	if c.fa.CallDefaults == nil {
-		c.fa.CallDefaults = map[*ast.Call]*DefaultedCall{}
-	}
-	c.fa.CallDefaults[call] = &DefaultedCall{Decl: sym.Node, Params: decl, File: sym.SourceFile, Slots: omitted, Ref: ref}
 }
 
 // recordDefaultedRef notes that node, a declared function named as a value
@@ -136,15 +77,16 @@ func (c *checker) recordDefaultedRef(node ast.Node, n int) {
 	if c.fa.DefaultedRefs == nil {
 		c.fa.DefaultedRefs = map[ast.Node]*DefaultedCall{}
 	}
-	c.fa.DefaultedRefs[node] = &DefaultedCall{Decl: sym.Node, Params: decl, File: sym.SourceFile, Slots: slots}
+	c.fa.DefaultedRefs[node] = &DefaultedCall{Decl: sym.Node, Params: decl, File: sym.SourceFile, Slots: slots, From: sameFrom(sym.Node, len(slots))}
 }
 
 // settleCallDefaults points each recorded call of an interface function
 // that the checker resolved to an impl (DispatchImpl) at the impl
-// function's parameters, once every body is checked and the dispatch
-// records are final: the call fills its omitted parameters from the
-// function it reaches. An impl function without a default at a recorded
-// slot keeps the interface's.
+// function, once every body is checked and the dispatch records are
+// final: the call fills each omitted parameter from the function it
+// reaches where that function declares a default, and from the
+// interface's where it declares none (From). A call none of whose omitted
+// parameters the impl function defaults keeps the interface's record.
 func (c *checker) settleCallDefaults() {
 	for call, rec := range c.fa.CallDefaults {
 		if _, iface := rec.Decl.(*ast.InterfaceMethod); !iface || rec.Ref != nil {
@@ -162,18 +104,45 @@ func (c *checker) settleCallDefaults() {
 		if !ok || len(fd.Params) != len(rec.Params) {
 			continue
 		}
-		own := true
-		for _, s := range rec.Slots {
-			own = own && fd.Params[s].Default != nil
+		from := make([]ast.Node, len(rec.Slots))
+		own := false
+		for i, s := range rec.Slots {
+			from[i] = rec.Decl
+			if fd.Params[s].Default != nil {
+				from[i], own = fd, true
+			}
 		}
 		if !own {
 			continue
 		}
-		rec.Decl, rec.Params = fd, fd.Params
+		rec.Decl, rec.Params, rec.From = fd, fd.Params, from
 		if p := c.fa.Program(); p != nil {
 			if declaring := p.ScopedFunctionFiles[fd]; declaring != nil {
 				rec.File = declaring.FilePath
 			}
 		}
 	}
+}
+
+// sameFrom is the From of a record whose n slots all take decl's defaults.
+func sameFrom(decl ast.Node, n int) []ast.Node {
+	from := make([]ast.Node, n)
+	for i := range from {
+		from[i] = decl
+	}
+	return from
+}
+
+// SlotSource is the declaration whose default fills slot, one of Slots
+// (From), and the parameter list holding that default: Params, or the
+// interface function's own where From names it and Decl is the impl's.
+func (r *DefaultedCall) SlotSource(slot int) (ast.Node, []ast.Param) {
+	i := slices.Index(r.Slots, slot)
+	if i < 0 || i >= len(r.From) {
+		panic("analysis: SlotSource of a slot its record does not fill")
+	}
+	if im, iface := r.From[i].(*ast.InterfaceMethod); iface && r.From[i] != r.Decl {
+		return im, im.Params
+	}
+	return r.From[i], r.Params
 }

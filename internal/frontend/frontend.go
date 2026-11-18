@@ -719,13 +719,8 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	// copy in its place, an edited `impl Literal for Regex` whose
 	// `from_fragments` returned `Result<Regex, Int>` still typed Regex`(` as
 	// the embedded `Result<Regex, String>`.
-	files := make(map[string]*analysis.FileAnalysis, len(c.lib.Files))
-	for name, sfa := range c.lib.Files {
-		files[name] = sfa
-	}
 	module := strings.TrimPrefix(moduleKey, "std/")
-	files[module] = fa
-	analysis.AttachEditedStdlibImpls(fa, nodes, module, files)
+	analysis.AttachEditedStdlibImpls(fa, nodes, module, c.lib.Files)
 	var errs []analysis.TypeError
 	errs = append(errs, fa.TypeErrors...)
 	// The derive field check a project build runs over its own files
@@ -735,7 +730,7 @@ func (c *Checker) AnalyzeStdlibModule(moduleKey string, nodes []ast.Node) (*anal
 	errs = append(errs, analysis.BuildTypes(fa, nodes)...)
 	// Again, now that BuildTypes has typed this file's impls: the index's
 	// function types and receiver identities are read off typed symbols.
-	analysis.AttachEditedStdlibImpls(fa, nodes, module, files)
+	analysis.AttachEditedStdlibImpls(fa, nodes, module, c.lib.Files)
 	errs = append(errs, analysis.CheckTypes(fa, nodes)...)
 	errs = append(errs, analysis.CheckAppRoots(fa, nodes)...)
 	errs = append(errs, analysis.AnalyzeIterSensitivity(fa, nodes)...)

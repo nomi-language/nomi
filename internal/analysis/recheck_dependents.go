@@ -401,6 +401,16 @@ func holdsFrom(fa *FileAnalysis, keys, paths map[string]bool, impls map[ast.Node
 			return true
 		}
 	}
+	for _, rec := range fa.UnwrapFailures {
+		if rec.displaysThrough(impls) {
+			return true
+		}
+	}
+	for _, lit := range fa.TypedLiterals {
+		if lit.Failure.displaysThrough(impls) {
+			return true
+		}
+	}
 	for _, rec := range fa.CallDefaults {
 		if paths[rec.File] {
 			return true

@@ -9,10 +9,9 @@ import (
 
 // Lambdas and closures.
 //
-// A Nomi lambda lowers to an `ir.FuncValue`, which is the whole of the
-// representation decision — and it is only defensible because of three
-// properties of Nomi's closures that have to be checked one at a time rather
-// than assumed as a family.
+// A Nomi lambda lowers to an `ir.FuncValue` over a body that is an `ir.Func`
+// of its own. Two properties of Nomi's closures make that representation
+// correct.
 //
 // # 1. Capture
 //
@@ -31,29 +30,16 @@ import (
 //
 // # 2. `return` is lambda-scoped
 //
-// A `return` inside a Nomi lambda returns from the
-// LAMBDA, not from the enclosing `fn` — the opposite of what the same word
-// would do inside a Go func literal's enclosing function, and the same as what
-// it does inside a Go func literal itself. That is the one place the target
-// language hands us the Nomi rule for free: a Go `return` in a func literal
-// returns from the func literal, at any nesting depth. So the encoding is
-// literally `return`, and the work is entirely in the TYPE side — a lambda
-// declares no return type, so the builder has to discover one (resultInference
-// below) and make every `return` in the body check against the LAMBDA's answer
-// instead of the enclosing function's declared one.
+// A `return` inside a Nomi lambda returns from the lambda, not from the
+// enclosing `fn`. The lambda's body is its own `ir.Func`, so a return in it
+// ends that function's activation at any nesting depth. The work is on the
+// type side: a lambda declares no return type, so the builder discovers one
+// (resultInference below) and checks every `return` in the body against the
+// lambda's answer instead of the enclosing function's declared one.
 //
-// Getting this wrong produces a plausible answer: hoisting the lambda body
+// Getting this wrong produces a plausible answer: lowering the lambda body
 // into the enclosing function would make `return "positive"` return from
 // `scoped`, which is a well-typed program that prints the wrong thing.
-//
-// # 3. The frame
-//
-// A lambda takes `fr *rt.Frame` exactly as a module function does, so an
-// activation allocates NOTHING. The Go func literal's own `fr` parameter
-// shadows the enclosing one, which is correct: a frame belongs to an
-// activation, and the caller supplies it. The closure allocation Go performs is
-// per CLOSURE CREATION, not per call; TestLambdaCallAllocatesNothing measures
-// the call.
 
 // resultInference is a lambda's result type, discovered rather than declared.
 //
@@ -77,8 +63,8 @@ func (r *resultInference) settle(k kind) (kind, bool) {
 // funcKind is the kind of a Nomi function type.
 //
 // Structural, so its identity is its interned *compKind and not its tag: two
-// function types are the same type exactly when their Go types are identical.
-// See composite.go.
+// function types are the same type exactly when their parameter kinds and
+// result kind are identical. See composite.go.
 func (g *gen) funcKind(params []kind, result kind) kind {
 	return funcKindIn(g, params, result)
 }
@@ -91,12 +77,6 @@ func (g *gen) funcKind(params []kind, result kind) kind {
 // component is package-neutral, and this does the same. A
 // `stdGenStructSpecs` field whose kind is a FUNCTION (`std/random.Generator<T>`'s
 // `run`) reaches it with no gen.
-//
-// A nil gen needs no `usesRT` mark and skipping it loses nothing: the mark says
-// "this generated package must import rt", and there is no package being
-// generated. Any REAL gen that later names this kind marks itself when it reads
-// it, and the rendered text carries `*rt.Frame` regardless, which is what
-// mentionsRT answers from.
 func funcKindIn(g *gen, params []kind, result kind) kind {
 	// kindInvalid: propagates — a kind CONSTRUCTOR; the lambda`s own decline is counted below.
 	if result == kindInvalid {
@@ -124,12 +104,11 @@ func funcResult(k kind) kind   { return k.comp.parts[len(k.comp.parts)-1] }
 
 // --- destructuring parameters -----------------------------------------------
 //
-// A destructuring parameter is one value and several names. Go has no
-// destructuring, so the value arrives in one anonymous parameter and each name
-// the pattern introduces becomes an ordinary local read out of it, with no
-// runtime checks: the pattern is IRREFUTABLE (the checker rejects a refutable one with
-// a "use a `case` in the body" diagnostic), so there is no mismatch to report
-// and no branch to emit.
+// A destructuring parameter is one value and several names. The value arrives
+// in one parameter and each name the pattern introduces becomes an ordinary
+// local projected out of it, with no runtime checks: the pattern is
+// irrefutable (the checker rejects a refutable one with a "use a `case` in the
+// body" diagnostic), so there is no mismatch to report and no branch to build.
 //
 // Written against a `src expr` rather than a parameter so a nested pattern
 // recurses through the same code, and so a `fn` parameter can be routed here
@@ -154,54 +133,27 @@ func (g *gen) patternParamKind(p ast.Param, at ast.Node) (kind, bool) {
 		}
 		return k, true
 	}
-	var head ast.TypeExpr
-	// irPattern reads `Pair(a, b)` as the distinct type's pattern.
-	switch pat := ast.WithoutAs(p.Destructure).(type) {
-	case *ast.StructPattern:
-		head = pat.TypeName
-
-	case *ast.EnumPattern:
-		head = pat.Variant
-	}
-	if head == nil {
-		// No annotation and no head to self-type from — but the CHECKER may
-		// still know, and for a lambda it usually does: the expected type comes
-		// from the call site, exactly as it does for an unannotated plain
-		// parameter. `inferredParamKind` cannot answer here because it matches
-		// on the parameter's NAME and a destructuring parameter has none, so
-		// the checker records the pattern's type separately. See
-		// inferredPatternKind.
-		if k, found := g.inferredPatternKind(p.Destructure); found {
-			return k, true
-		}
+	// The pattern matches the whole parameter, whose type the checker
+	// recorded for it: the one its head names (`E.V(x)` names the enum
+	// through one of its variants, `Duration(x)` and `Point{x:, y:}` the
+	// type), or for a lambda's pattern with no head the one its position
+	// expects, as for an unannotated plain parameter.
+	k, recorded := g.patternKind(p.Destructure)
+	if !recorded {
 		g.reject("parameter without a declared type", patternText(p.Destructure), at)
 		g.probePattern(p.Destructure)
 		return kindInvalid, false
 	}
-	if d := g.selfHeadDef(head); d != nil {
-		return named(d), true
-	}
-	owner, member, ok := g.patternHead(head)
-	if !ok {
-		g.reject("destructuring parameter", "pattern head "+typeText(head), at)
+	// kindInvalid: reports — the parameter's type has no representation.
+	if k == kindInvalid {
+		g.reject("destructuring parameter", patternText(p.Destructure)+", whose type is not a lowered type", at)
 		g.probePattern(p.Destructure)
 		return kindInvalid, false
 	}
-	// `E.V(x)` names the ENUM through one of its variants; `Duration(x)` and
-	// `Point{x:, y:}` name the type directly.
-	name := owner
-	if name == "" {
-		name = member
-	}
-	if d, found := g.types[name]; found && d.lowerable {
-		return named(d), true
-	}
-	g.reject("destructuring parameter", "self-typed by "+name+", which is not a lowered type", at)
-	g.probePattern(p.Destructure)
-	return kindInvalid, false
+	return k, true
 }
 
-// destructure emits the bindings an irrefutable pattern introduces from src,
+// destructure builds the bindings an irrefutable pattern introduces from src,
 // and reports whether the whole pattern was lowered.
 func (g *gen) destructure(pat ast.Node, src expr, at ast.Node) bool {
 	switch p := pat.(type) {
@@ -300,8 +252,10 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 	// over a `Box<Int>`), which names no instance, so it cannot be compared
 	// with src's kind. The checker has already required the head to name
 	// this struct (structPatternNames), as nominalCaseTest relies on for a
-	// `case` arm.
-	if d.genericOf == nil && g.typeOf(p.TypeName) != src.k {
+	// `case` arm. The pattern's type is the one the checker recorded for it
+	// (PatternTypes), which a nested pattern's head has no record of its own
+	// beside.
+	if d.genericOf == nil && g.project(g.srcFA().PatternTypes[p]) != src.k {
 		g.reject("pattern type mismatch",
 			typeText(p.TypeName)+" against "+d.nomi, at)
 		g.probePattern(p)
@@ -314,26 +268,27 @@ func (g *gen) destructureStruct(p *ast.StructPattern, src expr, at ast.Node) boo
 // parameter — the BRACE-shaped counterpart of destructureEnum's tuple shape.
 //
 // This is the third place the same match runs: `case` reaches the shape
-// through case.go's structArm, and destructureStruct routes an enum here rather
-// than refusing it as a pattern type mismatch. The corpus witness is
+// through irvariantpattern.go's structVariantCaseTest, and destructureStruct
+// routes an enum here rather than refusing it as a pattern type mismatch. The
+// corpus witness is
 // 10-generics-and-type-wrappers/embedded_variants_test.nomi:78,
 // `fn int_area(IntShape.IntCircle{r}) -> Int`, two lines below a tuple-shaped
 // `NumericIdentifier.NumericUserId(n)`.
 //
-// NO TAG TEST IS EMITTED, and that is the whole difference from structArm: the
-// pattern is IRREFUTABLE (variantPreamble admits only a single-variant enum, so
+// No tag test is built, and that is the difference from a `case` arm: the
+// pattern is irrefutable (variantPreamble admits only a single-variant enum, so
 // there is no other variant the value could hold) and a destructuring parameter
-// has no next arm to fall through to. structArm's `if subj.tag == v.tag {` opens
-// a block precisely because a `case` arm may fail; here failure is unreachable,
-// so the bindings are emitted straight into the enclosing block.
+// has no next arm to fall through to. A `case` arm tests the tag because it may
+// fail; here failure is unreachable, so the bindings go straight into the
+// current block.
 func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src expr, at ast.Node) bool {
-	owner, member, ok := g.patternHead(p.TypeName)
+	member, ok := g.patternVariant(p.TypeName)
 	if !ok {
-		g.reject("destructuring parameter", "struct head "+typeText(p.TypeName), at)
-		g.probeStructFields(p)
-		return false
+		// The checker types a struct pattern over an enum against one of
+		// the enum's variants, and records which.
+		panic("irbuild: a struct pattern over the enum " + d.nomi + " with no variant recorded")
 	}
-	v, fine := g.variantPreamble(d, owner, member, at, func() { g.probeStructFields(p) })
+	v, fine := g.variantPreamble(d, member, at, func() { g.probeStructFields(p) })
 	if !fine {
 		return false
 	}
@@ -344,8 +299,8 @@ func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src exp
 		// construction spellings arrive here — `Box.Extent{wide: 1}`, which
 		// wraps at the literal, and a bare `Extent{wide: 1}` coerced at the
 		// argument — because coerce() has already wrapped the second by the
-		// time this runs. case.go's structArm says the same thing about the
-		// `case` path.
+		// time this runs. irvariantpattern.go's embeddedStructCaseTest does
+		// the same on the `case` path.
 		if v.embeds.isDistinct {
 			g.reject("pattern type mismatch",
 				d.nomi+"."+v.nomi+" embeds the distinct type "+v.embeds.nomi+", which has no fields", at)
@@ -353,8 +308,8 @@ func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src exp
 			return false
 		}
 		if v.embeds.isEnum {
-			// case.go's structArm carries the reasoning; this is the
-			// irrefutable-pattern half of the same rule. Both arms or neither:
+			// This is the irrefutable-pattern half of the rule the `case`
+			// path follows. Both arms or neither:
 			// one of two spellings guarded is the missing-arm defect, and an
 			// unguarded `destructureFields` over an enum's empty field list
 			// binds nothing and succeeds, which is a wrong answer rather than a
@@ -390,20 +345,14 @@ func (g *gen) destructureVariantBraces(p *ast.StructPattern, d *typeDef, src exp
 // One implementation, shared by the tuple shape and the brace shape, because
 // the three refusals are properties of the ENUM and the HEAD and nothing about
 // them depends on which node spelled the pattern. The probe differs — a payload
-// sub-pattern against a field list — so it arrives as a closure, which is the
-// shape attach.go already uses for the same reason.
+// sub-pattern against a field list — so it arrives as a closure.
 //
 // `len(d.variants) != 1` is a guard the checker also enforces (a refutable
 // parameter pattern gets a "use a `case` in the body" diagnostic), kept here
 // because "the checker rejects it" and "the builder cannot produce a wrong
 // answer for it" are different claims and only the second is enforceable from
 // here. See destructureEnum's header.
-func (g *gen) variantPreamble(d *typeDef, owner, member string, at ast.Node, probe func()) (*variantDef, bool) {
-	if owner != "" && !g.declaredAs(owner, d) {
-		g.reject("pattern type mismatch", owner+"."+member+" against "+d.nomi, at)
-		probe()
-		return nil, false
-	}
+func (g *gen) variantPreamble(d *typeDef, member string, at ast.Node, probe func()) (*variantDef, bool) {
 	if len(d.variants) != 1 {
 		g.reject("refutable parameter pattern",
 			d.nomi+" has "+strconv.Itoa(len(d.variants))+" variants", at)
@@ -419,9 +368,8 @@ func (g *gen) variantPreamble(d *typeDef, owner, member string, at ast.Node, pro
 	return v, true
 }
 
-// destructureFields binds a struct pattern's fields from a struct value —
-// case.go's structFieldArms with the block-opening removed, since an
-// irrefutable pattern has no arm to abandon.
+// destructureFields binds a struct pattern's fields from a struct value. It
+// builds no test, since an irrefutable pattern has no arm to abandon.
 func (g *gen) destructureFields(d *typeDef, src expr, p *ast.StructPattern, at ast.Node) bool {
 	ok := true
 	for _, f := range p.Fields {
@@ -440,8 +388,7 @@ func (g *gen) destructureFields(d *typeDef, src expr, p *ast.StructPattern, at a
 
 // destructureVariantFields is destructureFields for a struct-shaped variant,
 // whose payloads are fields in every respect except that they live on the
-// variant and are read out of the enum's deduped slots — case.go's
-// variantFieldArms, again without the block-opening.
+// variant and are read through payloadValue, again with no test.
 //
 // The slot is found by NAME rather than by the pattern's position, so
 // `Cell.Span{hi:, lo:}` and `Cell.Span{lo:, hi:}` bind the same two values. That is
@@ -511,26 +458,22 @@ func (g *gen) destructureAnonStruct(p *ast.StructPattern, src expr, at ast.Node)
 // "the builder cannot produce a wrong answer for it" are different claims and
 // only the second one is enforceable from here.
 func (g *gen) destructureEnum(p *ast.EnumPattern, src expr, at ast.Node) bool {
-	owner, member, ok := g.patternHead(p.Variant)
-	if !ok {
-		g.reject("destructuring parameter", "variant head "+typeText(p.Variant), at)
-		g.probePattern(p.Payload)
-		return false
-	}
 	d := src.k.def
 	if src.k.tag != tagNamed || d == nil {
-		g.reject("pattern type mismatch", member+" against "+src.k.nomi(), at)
+		g.reject("pattern type mismatch", typeText(p.Variant)+" against "+src.k.nomi(), at)
 		g.probePattern(p.Payload)
 		return false
 	}
+	// The checker types the pattern against the value: its head names the
+	// value's distinct type, or one of its enum's variants, which it
+	// records.
+	member, isVariant := g.patternVariant(p.Variant)
 
 	var inner expr
 	switch {
 	case d.isDistinct:
-		if owner != "" || member != d.nomi {
-			g.reject("pattern type mismatch", member+" against the distinct type "+d.nomi, at)
-			g.probePattern(p.Payload)
-			return false
+		if isVariant {
+			panic("irbuild: a variant pattern over the distinct type " + d.nomi)
 		}
 		// kindInvalid: reports — rejects `marker destructuring`; a bare marker pattern is fine.
 		if d.inner == kindInvalid {
@@ -543,13 +486,12 @@ func (g *gen) destructureEnum(p *ast.EnumPattern, src expr, at ast.Node) bool {
 			g.probePattern(p.Payload)
 			return false
 		}
-		// A wrapping distinct is a Go DEFINED type, so unwrapping is a
-		// conversion and costs nothing. `ir.ProjInner`, and NO `ir.Match`: a
-		// value of that type can only be that type.
+		// Unwrapping a wrapping distinct is an `ir.ProjInner` with no
+		// `ir.Match`: a value of that type can only be that type.
 		inner = g.irProjInner(at, src, d, d.inner)
 
 	case d.isEnum:
-		v, fine := g.variantPreamble(d, owner, member, at, func() { g.probePattern(p.Payload) })
+		v, fine := g.variantPreamble(d, member, at, func() { g.probePattern(p.Payload) })
 		if !fine {
 			return false
 		}

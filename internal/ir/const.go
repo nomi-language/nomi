@@ -18,19 +18,17 @@ import (
 //     scalars through `expr` rather than through a dedicated `const` owner,
 //     but a consumer needs both.
 //
-//   - Three owners build an EMPTY CONTAINER: `emptyList`, `setNewCall` and
-//     `vectorEmptyCall`, all at the Unit instantiation and none at an element
-//     type. The element type is not merely unavailable at those positions:
-//     `[]` names no `T` at all, and the type argument arrives later,
-//     from the context that discharges the sentinel.
+//   - Three owners build an EMPTY CONTAINER: `listMakeOf`, `setMakeOf` and
+//     `vectorMakeOf`, each with no element type. The element type is not
+//     merely unavailable at those positions: `[]` names no `T` at all, and
+//     the type argument arrives later, from the context that discharges the
+//     sentinel.
 //
 //     So the element type is OPTIONAL. A producer that has one supplies it; a
 //     producer at a position where Nomi fixes no type argument passes nil and
-//     Undischarged reports so. A typed empty container has a real producer —
-//     the builder's discharge path — and it is not in this class, which is why
-//     the typed form stays.
+//     Undischarged reports so.
 //
-// `rangeLit` is deliberately NOT modelled here. A range over non-literal
+// A range literal is deliberately NOT modelled here. A range over non-literal
 // bounds reads two operands, which makes it `make`-shaped rather than
 // nullary; it is `MakeRange` in make.go.
 type ConstKind uint8
@@ -53,13 +51,12 @@ const (
 	ConstString
 	// ConstMarker is the sole value of a zero-sized distinct type. Owner: markerValue.
 	ConstMarker
-	// ConstEmptyList is the empty List at an element type. Owners: emptyList,
-	// untypedListAnswer.
+	// ConstEmptyList is the empty List at an element type. Owner: listMakeOf.
 	ConstEmptyList
-	// ConstEmptySet is the empty Set at an element type. Owner: setNewCall.
+	// ConstEmptySet is the empty Set at an element type. Owner: setMakeOf.
 	ConstEmptySet
 	// ConstEmptyVector is the empty Vector at an element type. Owner:
-	// vectorEmptyCall.
+	// vectorMakeOf.
 	ConstEmptyVector
 	// ConstByte is an Int literal written where a Byte is expected: a value
 	// from 0 to 255, which the checker has range-checked.

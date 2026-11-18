@@ -5,55 +5,44 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
 // Interfaces, impl blocks, and the three ways a Nomi call finds its callee.
 //
-// # Three call shapes, and only one of them needs a table
+// # Three call shapes
 //
-// The premise most easily got wrong is that interface dispatch means dynamic
-// dispatch. It mostly does not.
+// Interface dispatch is mostly not dynamic dispatch.
 //
 //   - **Concrete qualifier.** `Dog.speak(rex)`, and also `Speech.speak(rex)`
 //     when `rex` is statically a `Dog`: the qualifier plus the receiver's
-//     static type name exactly one function. Lowered to a DIRECT call. This is
-//     the common case in real Nomi and it is what makes existentials the
-//     exception rather than the rule.
+//     static type name exactly one function. Lowered to a direct call. This is
+//     the common case in real Nomi.
 //   - **Existential.** An interface-typed parameter, field or element has lost
-//     its concrete type, so the callee is a run-time fact. That is the only
-//     shape that reaches rt.Method — see rt/dispatch.go for why identity is a
-//     variable's ADDRESS and not a name.
-//   - **Type-parameter qualifier.** `T.from_json(x)` needs a dictionary
-//     carrying T's concrete type argument, and it has one: the bound picks the
-//     table at compile time and an emitted `*rt.TypeID` picks the
-//     implementation at run time. That pair is the only route that
-//     serves a method with NO self-position parameter — which is why
-//     `methodDispatchGap`'s two receiver rows do not stop a table from
-//     existing. Scoped to a single bounded type parameter on a free function;
-//     see dict.go for what that leaves refused, and by which name.
+//     its concrete type, so the callee is a run-time fact. The call is a
+//     dispatch under the method's symbol (erasedInterfacePlan,
+//     irIfaceMethodSym), and the VM selects the impl by the type name the
+//     value carries (irboxed.go).
+//   - **Type-parameter qualifier.** `T.from_json(x)` in a bounded generic
+//     function. The function is lowered as an instance per type argument, in
+//     which `T` is a concrete type and the call is the first shape. See
+//     dict.go.
 //
-// # Go interfaces with generated methods are not an option
-//
-// Not awkward, impossible, three independent ways: an interface function may
-// have no self-typed parameter at all (`Literal`, `FromJson`, `App`), Go cannot
-// dispatch on a return type, and Nomi's orphan rule admits an impl for a
-// foreign type where Go admits no method. So the encoding is a table plus
-// ordinary functions, and `self` is an ordinary parameter in whatever position
-// the interface declared it — `isSelfPositionParam`'s rule, not "argument
-// zero".
+// `self` is an ordinary parameter in whatever position the interface declared
+// it (selfShapeOf, selfpos.go), not "argument zero", and an interface function
+// may have no self-typed parameter at all (`Literal`, `FromJson`, `App`).
 //
 // # A default is monomorphized, not shared
 //
 // `interface Identity { fn name(v: self) -> String; fn describe(v: self) -> String
 // { "I am " + Identity.name(v) } }` gives every implementor a `describe`. The
-// body
-// is lowered ONCE PER IMPLEMENTING TYPE, with `self` bound to that concrete
-// type — so `Identity.name(v)` inside it is itself a direct call, and the
-// inherited default costs exactly what a hand-written one would. An impl block
-// that supplies the function overrides it by simply already occupying the name.
+// body is lowered once per implementing type, with `self` bound to that
+// concrete type, so `Identity.name(v)` inside it is itself a direct call. An
+// impl block that supplies the function overrides it by already occupying the
+// name.
 //
-// # Derives are not special-cased, deliberately
+// # Derives are not special-cased
 //
 // `analysis.SynthesizeDerives` and `SynthesizeUniversalDebug` have already run
 // by the time this package sees the AST, so `derive Equatable for Dog` arrives
@@ -61,22 +50,21 @@ import (
 // It lowers through exactly the path a hand-written impl takes, so a derive
 // has no separate implementation that could disagree with its Nomi body.
 //
-// The one accommodation they need is not semantic: SynthesizeUniversalDebug
-// appends an `impl Debug for T` for EVERY declared type, at a fabricated
-// position in the synth line band. Refusing one by name would blame a
-// programmer for a construct nobody wrote and would make every struct
-// declaration in the corpus unlowerable. So a SYNTHESIZED block is lowered
-// speculatively: if its body lowers cleanly the functions are emitted, and if
-// it does not, both the output and the refusals are discarded and the impl is
-// marked unlowerable — which makes every site that would dispatch to it refuse
-// at ITS OWN position, which is a position somebody wrote.
+// SynthesizeUniversalDebug appends an `impl Debug for T` for every declared
+// type, at a fabricated position in the synth line band. Refusing one by name
+// would blame a programmer for a construct nobody wrote and would make every
+// struct declaration in the corpus unlowerable. So a synthesized block is
+// lowered speculatively: if its body does not lower cleanly, its refusals are
+// discarded and the impl is marked unlowerable, which makes every site that
+// would dispatch to it refuse at its own position, which is a position
+// somebody wrote.
 
 // ifaceDef is one `interface` declaration.
 //
-// A pointer to one of these IS the interface's identity, exactly as *typeDef is
-// a struct's. It is what distinguishes `Greeter.greet` from `Farewell.greet` on
-// a type implementing both — the two are different tables, and nothing in the
-// path compares the method name alone.
+// A pointer to one of these is the interface's identity, as *typeDef is a
+// struct's. It is what distinguishes `Greeter.greet` from `Farewell.greet` on
+// a type implementing both: nothing in the path compares the method name
+// alone.
 type ifaceDef struct {
 	nomi    string
 	decl    *ast.InterfaceDef
@@ -90,14 +78,13 @@ type ifaceDef struct {
 	// useSiteOnly says the reason in `why` is reported at a USE and never at
 	// the declaration.
 	//
-	// `ifaceDecl`'s own header already states the rule for a non-dispatchable
-	// FUNCTION: it "contributes no table and no refusal here", because "an
-	// interface whose functions cannot be dispatched on an erased value is
-	// still perfectly usable through concrete qualifiers, and refusing the
-	// DECLARATION would make a file unlowerable for a gap it may never
-	// exercise". A GENERIC interface is that case one level up — the whole
-	// declaration rather than one of its functions — and this field is the rule
-	// applied there rather than a new one.
+	// `ifaceDecl`'s own header states the rule for a non-dispatchable
+	// function: it contributes no refusal there, because an interface whose
+	// functions cannot be dispatched on an erased value is still usable
+	// through concrete qualifiers, and refusing the declaration would make a
+	// file unlowerable for a gap it may never exercise. A generic interface
+	// is that case one level up, the whole declaration and not one of its
+	// functions, and this field is the rule applied there.
 	//
 	// It is a SECOND FIELD instead of flipping `lowerable`. `lowerable` is read
 	// by `typeOf`'s interface arms and `inferred.go`'s `solvedIface` arm to
@@ -139,16 +126,14 @@ type ifaceDef struct {
 	// every interface-qualified call on an erased receiver still refuses through
 	// the ordinary chain. See structiface.go.
 	universal bool
-	// foreign is the analyzer's file key of the DECLARING file when this def
-	// is a MIRROR of a sibling file's interface, and pkg that file's generated
-	// Go package. Two packages hold two *ifaceDefs for one Nomi interface, on
-	// exactly the footing types.go's mirrors stand on: pointer equality is the
-	// identity WITHIN a package, which is the only place a kind comparison
-	// ever happens. A mirror's dispatch tables are the OWNER's variables,
-	// qualified — one interface, one table, however many packages name it.
-	// See existential.go.
+	// foreign is the analyzer's file key of the declaring file when this def
+	// is a mirror of a sibling file's interface. Two gens each hold an
+	// *ifaceDef for one Nomi interface, as they hold two mirrors of one type
+	// (foreign.go): pointer equality is the
+	// identity within a gen. A mirror dispatches through the declaring
+	// unit's method symbol (irIfaceMethodSym), so one interface has one set
+	// of recorded impls however many files name it. See existential.go.
 	foreign string
-	pkg     string
 	// unit is the declaring module's index in the program, or -1 for a local
 	// declaration. Read to reach the DECLARING file's analysis, which is what
 	// decides whether one of its defaults means the same thing here.
@@ -185,27 +170,25 @@ type ifaceMethod struct {
 	// argument is the receiver" separately and agree only by coincidence, and
 	// existential.go's mirror cannot copy part of it. See selfpos_test.go.
 	shape selfShape
-	// table is the generated name of this method's rt.Method variable, empty
-	// when the method's SIGNATURE cannot be represented in one.
+	// table reports that the method's signature can be dispatched:
+	// methodSignatureGap names no gap in it.
 	//
-	// Note what this is NOT: a table may exist for a method that cannot be
-	// dispatched on an erased receiver. `Zero.zero() -> self` has no receiver,
-	// so `why` names that gap and every erased-receiver site refuses — but the
-	// table is still the right home for `T.zero()`, which is keyed by the
-	// concrete type argument instead. See methodSignatureGap.
+	// It may be set for a method that cannot be dispatched on an erased
+	// receiver. `Zero.zero() -> self` has no receiver, so `why` names that
+	// gap and every erased-receiver site refuses. See methodSignatureGap.
 	table bool
-	// why names what stops an ERASED-RECEIVER dispatch, reported at a dispatch
-	// site. It may be non-empty while table is non-empty.
+	// why names what stops an erased-receiver dispatch, reported at a dispatch
+	// site. It may be non-empty while table is set.
 	why string
 }
 
-// dispatchable reports whether an ERASED RECEIVER can select an implementation
-// of this function. A dictionary-driven call asks a different question — see
-// hasTable.
+// dispatchable reports whether an erased receiver can select an implementation
+// of this function.
 func (m *ifaceMethod) dispatchable() bool { return m.table && m.why == "" }
 
-// hasTable reports whether this function has a dispatch table at all, which is
-// a property of its SIGNATURE and not of how a call site finds its key.
+// hasTable reports whether this function's signature has no gap
+// (methodSignatureGap), which is a property of its signature and not of its
+// receiver.
 func (m *ifaceMethod) hasTable() bool { return m.table }
 
 // implDef is one `impl Iface for Type` or inherent `impl Type` block.
@@ -217,6 +200,10 @@ type implDef struct {
 	// stands for; it lowers nothing, and each container kind a call needs
 	// registers a def of its own (stdrecvimpl.go).
 	stdRecvTemplate *stdRecvTemplate
+	// recvType is the checker's type of the receiver (the type the checker
+	// recorded for the block's header, at the instance the block is
+	// registered at), nil where the record has none.
+	recvType analysis.Type
 	// ifaceName is the interface as written, "" for an inherent block. It is
 	// recorded even when the interface is NOT declared in this module — an
 	// `impl Debug for Member` still lowers its function, and
@@ -242,18 +229,21 @@ type implDef struct {
 	// registering frame was popped, and a monomorphized default BODY is exactly
 	// where a type parameter still has to resolve. See ifaceinst.go.
 	ifaceSubst map[string]kind
+	// ifaceSubstTypes is ifaceSubst as the checker's types, nil where the
+	// impl block's record has none (substFrame).
+	ifaceSubstTypes map[string]analysis.Type
 	// instArgs is the interface type arguments this block implements, in
 	// the interface's parameter order, or nil for a non-generic interface or
 	// one whose arguments are not known here. A receiver may implement one
 	// generic interface at several, each a block of its own (instimpl.go).
 	instArgs []kind
-	// oper is the stdlib OPERATOR interface this block implements, or nil.
-	// Non-nil marks the one family that is registered in `g.operImpls` instead
-	// of in `g.implsByIface`, because a receiver may carry SEVERAL impls of one
-	// operator interface distinguished by their right-hand type and that map's
-	// key drops it. `iface` stays nil for these: there is no `*ifaceDef` to
-	// instantiate and no table to bind. See operimpl.go, which owns the
-	// mechanism and the argument for the second index.
+	// oper is the stdlib operator interface this block implements, or nil.
+	// Non-nil marks the one family that is registered in `g.operImpls` and
+	// not in `g.implsByIface`, because a receiver may carry several impls of
+	// one operator interface distinguished by their right-hand type and that
+	// map's key drops it. `iface` stays nil for these: there is no
+	// `*ifaceDef` to instantiate. See operimpl.go, which owns the mechanism
+	// and the argument for the second index.
 	oper *operIfaceSpec
 	// operRhs and operOut are the interface's two type arguments as written on
 	// this block's header — `Days` and `Day` for `impl Add<Days, Day> for Day`;
@@ -269,9 +259,9 @@ type implDef struct {
 	// lowerable function for, and why.
 	//
 	// A SECOND MAP RATHER THAN A FALSE `implItem.lowerable`. Most readers of
-	// `d.items[name]` — among them `bindImpl`, `interfaceCall`,
-	// `typeQualifiedCall`, `foreignIfaceCall`, `equalCall`, `operimpl.go` and
-	// `tail.go` — test only `!= nil` and would take a refused item, naming a
+	// `d.items[name]` — among them `bindImpl`, `qualImplPlan`,
+	// `foreignIfacePlan`, `irSelectOperImpl` and `operimpl.go`
+	// — test only `!= nil` and would take a refused item, naming a
 	// body nobody built. An ABSENT item is the state every reader already
 	// handles: it is what a block that simply does not supply the method looks
 	// like.
@@ -283,7 +273,7 @@ type implDef struct {
 	// typeScope is the block whose type declarations the block's receiver
 	// is, for the universal Debug of a block-local type
 	// (registerBlockLocalDebug). Pushed while the block is resolved and
-	// emitted, since the receiver's name is visible only there.
+	// lowered, since the receiver's name is visible only there.
 	typeScope *blockTypeDecls
 
 	// owner is the owner's name when this def holds an inherent block's owner
@@ -332,34 +322,33 @@ func (d *implDef) noteGap(name string, gap implGap) {
 // mayWithhold reports whether this block may lower while supplying NO function
 // for name.
 //
-// # THE GRANULARITY RULE, AND ITS SAFETY CONDITION
+// # The granularity rule, and its safety condition
 //
-// The unit this package decides lowerability about is the ITEM: `emitImpl`
-// walks `d.order` one function at a time and `bindImpl` binds one table entry
-// at a time. Two sites could answer at the whole BLOCK instead — a written
-// item with its own type-parameter binder (`implItemSig`'s `generic impl
-// function`) and an inherited default carrying the interface method's own
-// `why` (`inheritDefaults`). Answering there would let one method's refusal
-// delete every sibling method, and — because `registerInstanceImpls` turns an
-// unlowerable impl into an unlowerable INSTANCE — the receiver TYPE with them:
-// `fn prefer<K>`, a default nobody wrote, would refuse `Holder{item:
-// "ignored"}`.
+// The unit this package decides lowerability about is the item: `emitImpl`
+// lowers `d.order` one function at a time. Two sites could answer at the
+// whole block instead: a written item with its own type-parameter binder
+// (`implItemSig`'s `generic impl function`) and an inherited default carrying
+// the interface method's own `why` (`inheritDefaults`). Answering there would
+// let one method's refusal delete every sibling method and, because
+// `registerInstanceImpls` turns an unlowerable impl into an unlowerable
+// instance, the receiver type with them: `fn prefer<K>`, a default nobody
+// wrote, would refuse `Holder{item: "ignored"}`.
 //
-// # WHY THIS IS A PREDICATE AND NOT A LIST OF ROWS
+// # Why this is a predicate and not a list of rows
 //
-// The condition for withholding is NOT "the gap is small". It is that NOTHING
-// CAN DISPATCH TO THE METHOD. A withheld method whose dispatch table is live is
-// a table this receiver never binds into, and a table dispatch on it would be
-// a run-time trap on a program the checker accepted. `ifaceMethod.dispatchable`
-// is exactly that question, so it is asked here rather than restated as a row
-// list that a new gap row would silently join.
+// The condition for withholding is not that the gap is small. It is that
+// nothing can dispatch to the method. If an erased receiver could dispatch
+// to a withheld method, the dispatch would find no impl for this receiver at
+// run time, on a program the checker accepted. `ifaceMethod.dispatchable` is
+// that question, so it is asked here and not restated as a row list that a
+// new gap row would join unnoticed.
 //
 // An erased-receiver call declines on `!m.dispatchable()`
 // (erasedInterfacePlan), and `bindsImpl` may answer yes for a block with a
 // withheld method only because the method it lacks is an undispatchable one.
 //
-// An inherent block has no interface, no table and no dispatch, so a withheld
-// member is reached only by a call that already handles an absent item.
+// An inherent block has no interface and no dispatch, so a withheld member
+// is reached only by a call that already handles an absent item.
 func (d *implDef) mayWithhold(name string) bool {
 	if d.iface == nil {
 		return true
@@ -405,6 +394,45 @@ type implItem struct {
 	lowerable bool
 }
 
+// addImplItem registers it, a function of block d, under its name in d and
+// under the declaration it lowers (implItemsByDecl, implItem.source): its
+// `fn` or Go-bound `host fn`, or for an inherited default the interface's
+// function.
+func (g *gen) addImplItem(d *implDef, it *implItem) {
+	d.items[it.name] = it
+	d.order = append(d.order, it)
+	src, _ := it.source()
+	if isNilNode(src) {
+		return
+	}
+	if g.implItemsByDecl == nil {
+		g.implItemsByDecl = map[ast.Node][]*implItem{}
+	}
+	g.implItemsByDecl[src] = append(g.implItemsByDecl[src], it)
+}
+
+// source is the declaration it lowers, as a checker record names it: its
+// own `fn`, the `host fn` a Go-bound function's shell stands for
+// (shellSource), or for an inherited default the interface's function with
+// the block that inherits it.
+func (it *implItem) source() (ast.Node, *ast.ImplBlock) {
+	if it.decl != nil {
+		return shellSource(it.decl), nil
+	}
+	if !it.inherited || it.impl == nil {
+		return nil, nil
+	}
+	for _, d := range []*ifaceDef{it.impl.iface, it.impl.stdIface} {
+		if d == nil {
+			continue
+		}
+		if m := d.methods[it.name]; m != nil && m.decl != nil {
+			return m.decl, it.impl.decl
+		}
+	}
+	return nil, nil
+}
+
 // --- building ---------------------------------------------------------------
 
 // declareIfaces registers every interface SHELL, before any type is resolved.
@@ -437,19 +465,17 @@ func (g *gen) declareIfaces(nodes []ast.Node) {
 		}
 		switch {
 		case len(id.TypeParams) > 0 || len(id.WhereClauses) > 0:
-			// A generic interface needs the dictionary the type-parameter
-			// call shape needs, and for the same reason. The template is not
-			// erasable and not dispatchable (an impl block binds its own
-			// instance, ifaceinst.go), and it is NOT refused at the
-			// declaration, which is `ifaceDecl`'s own rule for a gap a file may
-			// never exercise. See ifaceDef.useSiteOnly.
+			// A generic interface's template is not erasable and not
+			// dispatchable (an impl block resolves against its own instance,
+			// ifaceinst.go). It is not refused at the declaration, which is
+			// `ifaceDecl`'s own rule for a gap a file may never exercise.
+			// See ifaceDef.useSiteOnly.
 			d.lowerable, d.why, d.useSiteOnly = false, "generic interface", true
 		}
 		// A `variant` requirement contributes NOTHING here and refuses nothing:
 		// Nomi has no operation that reaches a variant through the interface,
 		// and the conformance obligation is discharged ENTIRELY by the analyzer
-		// at the impl block, including for a non-enum receiver. See
-		// ifacevariant.go.
+		// at the impl block, including for a non-enum receiver.
 		g.ifaces[id.Name] = d
 		g.ifaceOrder = append(g.ifaceOrder, d)
 	}
@@ -471,6 +497,11 @@ func (g *gen) resolveIface(d *ifaceDef) {
 		// A std interface's declaration is std's source: its positions
 		// resolve against std's file (stdprogiface.go).
 		defer g.withStdSrc(strings.TrimPrefix(d.stdOrigin, "std/"))()
+	} else if d.foreign != "" && d.unit >= 0 && d.unit != g.fileUnit {
+		// A sibling file's interface (an instance of its generic
+		// template): its signatures are that file's source, whose records
+		// are in its analysis (srcFA).
+		defer g.lowerNamesFrom(d.unit)()
 	}
 	for i := range d.decl.Methods {
 		im := &d.decl.Methods[i]
@@ -494,24 +525,25 @@ func (g *gen) resolveIface(d *ifaceDef) {
 			// a default body's prologue reads its names off that value.
 			m.params = append(m.params, g.paramKind(im.Params[j]))
 		}
-		// A BARE `self` return is erased to `any` in the table, so it has no
-		// kind here either. A NESTED one (`Maybe<self>`) is neither: typeOf
-		// answers kindInvalid for it and methodSignatureGap names it, which is
-		// why the model distinguishes the two rather than carrying a bool.
+		// A bare `self` return has no kind until an implementing type
+		// supplies one, so it has none here either. A nested one
+		// (`Maybe<self>`) is different: typeOf answers kindInvalid for it and
+		// methodSignatureGap names it, which is why the model distinguishes
+		// the two and does not carry a bool.
 		if im.ReturnTypeExpr != nil && !m.shape.resultBareSelf() {
 			m.result = g.typeOf(im.ReturnTypeExpr)
 		}
 		m.why = g.methodDispatchGap(d, im, m)
-		// The TABLE follows the SIGNATURE, not the receiver. A method with no
-		// self-position parameter, or one returning self, still gets one: an
-		// erased receiver cannot select an implementation in it — which is what
-		// `why` above records and what every erased-receiver site refuses
-		// under — but a call keyed by a concrete type ARGUMENT can, which is
-		// where a bounded `T.zero()` looks. See dict.go.
+		// table follows the signature, not the receiver. A method with no
+		// self-position parameter, or one returning self, still has it set:
+		// an erased receiver cannot select an implementation of it, which is
+		// what `why` above records and what every erased-receiver site
+		// refuses under.
 		//
-		// An INSTANCE of a generic interface has its own: `Gets<String>.got`
-		// and `Gets<Int>.got` are two tables, so a value held as either
-		// dispatches to the impl at its own arguments. See ifaceinst.go.
+		// An instance of a generic interface has its own methods:
+		// `Gets<String>.got` and `Gets<Int>.got` are two, so a value held as
+		// either dispatches to the impl at its own arguments. See
+		// ifaceinst.go.
 		if gap, _ := g.methodSignatureGap(im, m); gap == "" {
 			m.table = true
 		}
@@ -521,21 +553,18 @@ func (g *gen) resolveIface(d *ifaceDef) {
 }
 
 // methodDispatchGap names what stops this function from being dispatched on an
-// ERASED RECEIVER, or "" when nothing does.
+// erased receiver, or "" when nothing does.
 //
-// The interesting rows are the two the design doc names as making Go's own
-// interfaces unusable: `FromJson.from_json` mentions self only inside its
-// RETURN, and `App` declares no functions at all while `Literal` declares one
-// with no self anywhere in its parameters. None of the three has a receiver to
-// dispatch on — and that is a statement about the RECEIVER, not about the
-// signature, which is why they do not stop a table from existing. A call keyed
-// by a concrete type ARGUMENT needs no receiver, so those same two rows are
-// exactly where the dictionary earns its place. See dict.go.
+// Three std interfaces have no receiver to dispatch on: `FromJson.from_json`
+// mentions self only inside its return, `App` declares no functions at all,
+// and `Literal` declares one with no self anywhere in its parameters. That is
+// a statement about the receiver, not about the signature, so it does not
+// clear `table`.
 //
 // Precedence: the rows that make a signature unrepresentable outright outrank
-// the receiver rows, and the
-// per-parameter rows come after them. `hard` is what says which is which, so
-// the order lives here and the rows live in one place each.
+// the receiver rows, and the per-parameter rows come after them. `hard` says
+// which is which, so the order lives here and the rows live in one place
+// each.
 func (g *gen) methodDispatchGap(d *ifaceDef, im *ast.InterfaceMethod, m *ifaceMethod) string {
 	gap, hard := g.methodSignatureGap(im, m)
 	if hard {
@@ -550,25 +579,21 @@ func (g *gen) methodDispatchGap(d *ifaceDef, im *ast.InterfaceMethod, m *ifaceMe
 // gapMultiSelf is the third erased-receiver row, and it is the one a corpus
 // cannot find.
 //
-// `Comparable.compare(a: self, b: self)` selects its implementation from ONE
-// receiver and then needs every OTHER self position to hold that same concrete
-// type — the table entry unwraps them all with a Go type assertion. Nothing
-// makes that true: two `Comparable`-typed values may box two different types,
-// and the checker accepts it.
+// `Comparable.compare(a: self, b: self)` selects its implementation from one
+// receiver, and that implementation takes the receiver's concrete type at
+// every other self position. Nothing makes that true: two
+// `Comparable`-typed values may hold two different types, and the checker
+// accepts it.
 //
-// This is a refusal rather than a trap because the program is legal:
+// This is a refusal and not a trap because the program is legal:
 // `Comparable.compare` over a `shapes.Point` and a same-named `Point` from the
 // entry file checks clean, and an answer would need the second operand's
-// fields read structurally after dispatching on argument zero. The table entry
-// cannot do that without dynamic field access, and its type assertion would
-// fail instead. So the honest lowering is no lowering.
+// fields read structurally after dispatching on argument zero.
 //
-// It is an ERASED-RECEIVER row and only that. A concrete qualifier
+// It is an erased-receiver row and only that. A concrete qualifier
 // (`Comparable.compare(p, q)` on two `Point`s) is a direct call with both
-// operands statically typed and is unaffected; so is a monomorphized interface
-// default; and so is the DICTIONARY route, where the `*rt.TypeID` argument
-// fixes one concrete type for every self position at once — which is why the
-// table still exists. See dict.go and stdiface.go.
+// operands statically typed and is unaffected, and so is a monomorphized
+// interface default. See stdiface.go.
 const gapMultiSelf = "interface function with more than one self-typed parameter"
 
 // gapGenericIfaceFunc is an interface function with a type parameter of its
@@ -589,9 +614,8 @@ func erasedReceiverGap(m *ifaceMethod) string {
 	case m.shape.recvAt() < 0:
 		return "interface function without a self-typed parameter"
 	case m.shape.resultBareSelf():
-		// Go cannot dispatch on a return type, and a table keyed on the
-		// RECEIVER cannot produce one either. A table keyed on a type argument
-		// can, because the key IS the identity the result needs.
+		// A bare `self` result has no kind at an erased call site:
+		// resolveIface resolves none for it.
 		return "interface function returning self"
 	case m.shape.multi():
 		return gapMultiSelf
@@ -599,34 +623,27 @@ func erasedReceiverGap(m *ifaceMethod) string {
 	return ""
 }
 
-// gapNestedSelfResult is the row that says why a self inside a CONTAINER is
+// gapNestedSelfResult is the row that says why a self inside a container is
 // not the same question as a self return.
 //
 // `FromJson.from_json(json: Json) -> Result<self, Json.ShapeError>`,
-// `Discrete.next(v: self) -> Maybe<self>`, `Steppable.step_by(…) -> Maybe<self>` —
-// the three in std. A BARE
-// `self` return erases to `any` in the table and a dictionary-driven call
-// re-boxes it under the TypeID that selected the implementation, which recovers
-// exactly the identity that was lost. A NESTED one cannot: the identity would
-// have to be re-attached INSIDE a container this builder would have to take
-// apart and rebuild, and `Result<self, E>`'s `E` is not self.
+// `Discrete.next(v: self) -> Maybe<self>`, `Steppable.step_by(…) -> Maybe<self>`
+// are the three in std. typeOf answers kindInvalid for a self inside a
+// container, so the method has no result kind.
 //
-// It is a SIGNATURE row and it is `hard`, which keeps the diagnostic accurate.
+// It is a signature row and it is `hard`, which keeps the diagnostic accurate.
 // Without it `Parse.parse(text: String) -> Maybe<self>` would refuse as
-// `interface function without a self-typed parameter` — true of the erased
-// route and irrelevant to the dictionary route, which exists precisely to serve
-// a method with no receiver. Naming the receiver at a call whose problem is the
-// RETURN sends a reader to fix the wrong thing.
+// `interface function without a self-typed parameter`. Naming the receiver at
+// a call whose problem is the return sends a reader to fix the wrong thing.
 const gapNestedSelfResult = "interface function returning a type that contains self"
 
-// methodSignatureGap names what stops a dispatch TABLE from existing for this
-// function at all, or "" when nothing does. hard marks the two rows that make
-// the signature unrepresentable outright rather than merely unrepresentable in
-// one position; methodDispatchGap uses it for precedence.
+// methodSignatureGap names what in this function's signature stops every
+// dispatch of it, or "" when nothing does. hard marks the rows that make the
+// signature unrepresentable outright and not merely unrepresentable in one
+// position; methodDispatchGap uses it for precedence.
 //
-// Nothing about the RECEIVER appears here. That is the whole point of the
-// split: a table is a property of the signature, and how a call site finds its
-// key is a property of the call site.
+// Nothing about the receiver appears here. The receiver rows are
+// erasedReceiverGap's.
 func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (string, bool) {
 	switch {
 	case g.ifaceMethodTypeParamIsOpen(im):
@@ -652,20 +669,14 @@ func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (strin
 			return "non-scalar interface parameter type", false
 		}
 	}
-	// A parameter DEFAULT is deliberately not a gap here, and the distinction
-	// is between dispatch and the call. The Go table entry's signature carries
-	// every parameter whether or not it has a default, so nothing about a
-	// default stops an erased receiver from being dispatched on. What a default
-	// can stop is a call that OMITS it: which declaration supplies the value is
-	// the selected implementation's business (an `impl` may override an
-	// interface default's default, and the override wins, including through an
-	// erased receiver), so a short call on an erased receiver has no
-	// single default to fill, and such a call declines.
+	// A parameter default is not a gap here: a dispatch passes every
+	// parameter whether or not it has a default. A call on an erased
+	// receiver that omits one is filled from the interface's declaration
+	// (erasedInterfacePlan).
 	//
-	// A BARE self-typed return is not a gap here either: it erases to `any` in
-	// the table, so there is a representable signature. What it stops is the
-	// erased-receiver ROUTE, reported by methodDispatchGap above. A NESTED one
-	// is a gap and is handled above, hard.
+	// A bare self-typed return is not a gap here either. What it stops is
+	// the erased-receiver route, reported by methodDispatchGap above. A
+	// nested one is a gap and is handled above, hard.
 	// kindInvalid: reports — returns the refusal name its caller rejects under.
 	if im.ReturnTypeExpr != nil && !m.shape.resultBareSelf() && m.result == kindInvalid {
 		return "non-scalar interface return type", false
@@ -673,14 +684,15 @@ func (g *gen) methodSignatureGap(im *ast.InterfaceMethod, m *ifaceMethod) (strin
 	return "", false
 }
 
-// buildImpls registers every impl block. The SYNTHESIZED ones are lowered
+// buildImpls registers every impl block. The synthesized ones are lowered
 // later, by settleImpls.
 //
-// Registration is complete before any body is emitted because an impl body may
-// call any other impl in the program — a derived `Debug.inspect` on a struct
-// with a struct field calls the field type's own inspect, and that type may be
-// another file's — and because a synthesized block's lowerability has to be
-// settled before an ordinary function body that dispatches to it is emitted.
+// Registration is complete before any body is lowered because an impl body
+// may call any other impl in the program (a derived `Debug.inspect` on a
+// struct with a struct field calls the field type's own inspect, and that
+// type may be another file's), and because a synthesized block's
+// lowerability has to be settled before an ordinary function body that
+// dispatches to it is lowered.
 func (g *gen) buildImpls(nodes []ast.Node) {
 	for _, n := range nodes {
 		ib, ok := n.(*ast.ImplBlock)
@@ -766,7 +778,7 @@ func (g *gen) registerImplAt(ib *ast.ImplBlock, recv kind) *implDef {
 }
 
 // resolveImplDef resolves d's interface, receiver, items and defaults, and
-// registers it in the dispatch table.
+// registers it in g.implsByIface (or g.operImpls for an operator impl).
 //
 // `recv == kindInvalid` means "resolve the receiver from the declaration"; any
 // other value is used verbatim. One body for both entry points, because a second
@@ -806,12 +818,12 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 				d.lowerable, d.why, d.whyDetail = false, why, detail
 				return
 			}
-			d.iface, d.ifaceSubst = inst.def, inst.subst
+			d.iface, d.ifaceSubst, d.ifaceSubstTypes = inst.def, inst.subst, inst.types
 			d.instArgs = ifaceTemplateArgs(tpl, inst.subst)
 			// Live for every item signature AND for inheritDefaults below: an
 			// item's annotation may name `T` and an inherited default's
 			// parameter kinds are the INSTANCE's, already substituted.
-			g.pushIfaceSubst(inst.subst)
+			g.pushIfaceSubst(substIfaceImpl, d, inst.subst, inst.types)
 			defer g.popIfaceSubst()
 		}
 		// TYPE ARGUMENTS WRITTEN AGAINST AN INTERFACE WITH NO TEMPLATE HERE —
@@ -825,11 +837,11 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		// so `stdIfaceNamed` answers nothing for them and there is no
 		// declaration for this builder to instantiate.
 		if d.iface == nil {
-			// THE FOUR OPERATOR INTERFACES, which need no `*ifaceDef` and no
-			// table: dispatch is from a statically-known left operand at all
+			// The four operator interfaces, which need no `*ifaceDef`: the
+			// callee is chosen from a statically known left operand at all
 			// three of their call shapes, each interface declares one method
 			// with no default, and `bindImpl` returns immediately for a nil
-			// iface. Claimed AHEAD of the decline below.
+			// iface. Claimed ahead of the decline below.
 			//
 			// It only decides ROUTE, and then falls through to the SHARED tail
 			// below: the receiver resolution, the item signatures and the
@@ -855,17 +867,16 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			}
 		}
 		if d.iface == nil && !qualified {
-			// A sibling file's interface resolves to a MIRROR, so an impl
-			// written here binds into the OWNER's dispatch table rather than a
-			// second one. See existential.go.
+			// A sibling file's interface resolves to a mirror, so an impl
+			// written here is recorded under the owner's method symbol and
+			// not under a second one. See existential.go.
 			d.iface, _ = g.ifaceNamed(name)
 		}
 		if d.iface == nil {
-			// A STDLIB interface. Asked LAST, so a local declaration and a
-			// sibling's mirror both win — the same precedence typeOf uses, and
+			// A stdlib interface. Asked last, so a local declaration and a
+			// sibling's mirror both win: the same precedence typeOf uses, and
 			// the same the analyzer's own "project wins" shadowing rule uses.
-			// An impl written here binds into rt's variable, which is the one
-			// table for that interface in the whole artifact. See stdiface.go.
+			// See stdiface.go.
 			d.iface, _ = g.stdIfaceNamed(name)
 		}
 		if d.iface == nil && name == "Debug" && d.synth && g.programStd {
@@ -875,8 +886,8 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// A std module has no prelude, and one that never names Debug
 			// (std/url, std/money) imports none, so the block's `Debug`
 			// resolves to nothing in its scope. It is std's Debug by
-			// construction: without this its impls were in no table, and a
-			// program could not hold a `Url` as a `Debug`.
+			// construction: without this its impls are filed under no
+			// interface, and a program cannot hold a `Url` as a `Debug`.
 			d.iface = g.stdDebugDef()
 		}
 		if d.iface == nil && d.oper == nil {
@@ -915,6 +926,11 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		}
 	}
 	d.recv = recv
+	if t, ok := g.recordedTypeExpr(ib.Receiver); ok {
+		// The checker's type of the receiver, at the instance whose frame
+		// is live: what a default lowered for this block binds `self` to.
+		d.recvType = g.checkerTypeArg(t)
+	}
 
 	for _, item := range ib.Items {
 		if _, isOnce := item.(*ast.OnceBinding); isOnce {
@@ -948,8 +964,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			d.noteGap(fd.Name, gap)
 			continue
 		}
-		d.items[it.name] = it
-		d.order = append(d.order, it)
+		g.addImplItem(d, it)
 	}
 	g.inheritDefaults(d)
 
@@ -987,8 +1002,8 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		return
 	} else if dup {
 		// Two impls of one interface for one type is a coherence error the
-		// analyzer rejects. Refusing both rather than picking is the same rule
-		// rt.Method.Bind holds at run time: never let ordering decide.
+		// analyzer rejects. Both are refused and neither is picked, so
+		// ordering never decides.
 		prior.lowerable, prior.why, prior.whyDetail = false, "duplicate impl block", d.label()
 		d.lowerable, d.why, d.whyDetail = false, "duplicate impl block", d.label()
 		return
@@ -1017,8 +1032,7 @@ func mergeInherent(prior, d *implDef) bool {
 // receiverKind resolves the type an impl block is for.
 //
 // A builtin scalar is admitted: `impl Numberish for Int` is legal under the
-// orphan rule as long as the interface is local, and it is precisely the case a
-// Go method could not express.
+// orphan rule as long as the interface is local.
 func (g *gen) receiverKind(ib *ast.ImplBlock) (kind, bool) {
 	te := ib.Receiver
 	switch q := te.(type) {
@@ -1169,11 +1183,11 @@ func (g *gen) inheritDefaults(d *implDef) {
 		switch {
 		case m.why != "" && !monomorphizedDefaultAnswers[m.why]:
 			// The erased-receiver rows and the rows about `self` in the
-			// signature do not apply to a MONOMORPHIZED default: the body is
-			// emitted once per implementing type with every self position,
+			// signature do not apply to a monomorphized default: the body is
+			// lowered once per implementing type with every self position,
 			// bare or inside a composite, bound to that concrete type
 			// (inheritedDefaultSig). Every other reason still refuses the
-			// method, rather than the block.
+			// method, and not the block.
 			gap.why = m.why
 		}
 		params, result, sigOK := g.inheritedDefaultSig(d, m)
@@ -1207,8 +1221,7 @@ func (g *gen) inheritDefaults(d *implDef) {
 			// one an interface of another file declares is filled under
 			// that file's names (ifaceslotdefault.go).
 		}
-		d.items[m.name] = it
-		d.order = append(d.order, it)
+		g.addImplItem(d, it)
 	}
 }
 
@@ -1231,7 +1244,7 @@ var monomorphizedDefaultAnswers = map[string]bool{
 // when a kind is still outside the subset.
 func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, bool) {
 	prev := g.defaultSelf
-	g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv}
+	g.defaultSelf = &irDefaultSelf{iface: d.iface, recv: d.recv, typ: d.recvType}
 	defer func() { g.defaultSelf = prev }()
 	if d.iface.foreign != "" && d.iface.unit >= 0 {
 		// The signature is written in the declaring file, so the checker's
@@ -1271,14 +1284,9 @@ func (g *gen) inheritedDefaultSig(d *implDef, m *ifaceMethod) ([]kind, kind, boo
 // eagerly rather than on demand.
 func (g *gen) hasTID(k kind) bool {
 	if k.tag == tagAnonStruct {
-		// A STRUCTURAL type has no declaring file; rt interns its identity
-		// process-wide. See rt/anontid.go for why tagList/tagTuple/tagMap stay
-		// closed.
-		if k.comp == nil {
-			return false
-		}
-		g.anonTids[k] = true
-		return true
+		// A structural type has no declaring file, so every gen answers for
+		// it.
+		return k.comp != nil
 	}
 	switch k {
 	case kindInt, kindFloat, kindString, kindBool, kindUnit:
@@ -1316,8 +1324,8 @@ func (g *gen) hasTID(k kind) bool {
 // minting could not serve it.
 //
 // A mirror is skipped: its identity belongs to the file that declared it.
-// A PRELUDE instance is skipped too — `rt.Maybe[T]` is declared in rt and its
-// identity is not this package's to mint — and keeps the demand-driven path.
+// A prelude instance is skipped too: no file declares it, and hasTID records
+// it on demand.
 func (g *gen) mintTypeIDs() {
 	for _, d := range g.typeOrder {
 		if d == nil || d.foreign != "" || d.preludeOf != nil || !d.lowerable {
@@ -1328,15 +1336,11 @@ func (g *gen) mintTypeIDs() {
 	}
 }
 
-// qualifiedNomiName is the name a TypeID carries for diagnostics: module plus
-// declared name.
+// qualifiedNomiName is a declared type's name qualified by this file's
+// module, which irTypeSymName uses for a type this gen declares.
 //
-// Qualified rather than short on purpose. Two distinct types whose short names
-// match — `shapes.Point` and `geometry.Point` — would otherwise hold byte-identical
-// contents, and two byte-identical package variables are a merge candidate for
-// a sufficiently aggressive toolchain. Making the contents differ by
-// construction closes that the way the field itself closes zero-size address
-// sharing. It is also the better diagnostic.
+// Qualified and not short: two distinct types whose short names match,
+// `shapes.Point` and `geometry.Point`, would otherwise have one name.
 func (g *gen) qualifiedNomiName(nomi string) string {
 	mod := strings.TrimSuffix(filepath.Base(g.nomiPath), ".nomi")
 	if mod == "" {
@@ -1381,7 +1385,7 @@ func (g *gen) ifaceDecl(id *ast.InterfaceDef) {
 	}
 }
 
-// implDecl lowers one impl block's functions and records its dispatch bindings.
+// implDecl lowers one impl block's functions.
 func (g *gen) implDecl(ib *ast.ImplBlock) {
 	d := g.implFor(ib)
 	if d == nil {
@@ -1476,17 +1480,18 @@ func (g *gen) implFor(ib *ast.ImplBlock) *implDef {
 	return nil
 }
 
-// emitImpl lowers every item in the block and records its dispatch bindings.
+// emitImpl lowers every item in the block, then checks that the receiver has
+// a runtime identity (bindImpl).
 //
-// A GENERIC interface instantiation pushes its frame here, because lowering is
-// where a monomorphized default BODY resolves its type parameters and this runs
+// A generic interface instantiation pushes its frame here, because lowering is
+// where a monomorphized default body resolves its type parameters and this runs
 // long after resolveImplDef's frame was popped. `flushGenericImpls` does the
-// same for a generic RECEIVER's frame, and the two nest rather than conflict:
-// they bind different names and genericSubstKind scans innermost-first.
+// same for a generic receiver's frame, and the two nest: they bind different
+// names and genericSubstKind scans innermost-first.
 func (g *gen) emitImpl(d *implDef) {
 	defer g.enterTypeScope(d.typeScope)()
 	if d.ifaceSubst != nil {
-		g.pushIfaceSubst(d.ifaceSubst)
+		g.pushIfaceSubst(substIfaceImpl, d, d.ifaceSubst, d.ifaceSubstTypes)
 		defer g.popIfaceSubst()
 	}
 	for _, it := range d.order {
@@ -1502,24 +1507,18 @@ func (g *gen) emitImpl(d *implDef) {
 // it, so nothing here needs to know which one it is. Only dispatch does.
 func (g *gen) implFunc(d *implDef, it *implItem) {
 	// A synthesized body has no position a programmer wrote: derive synthesis
-	// allocates from a band around 2^30, which `at` refuses and which is not a
-	// legal `//line` argument. Attribute the whole function to the RECEIVER's
-	// declaration, which is where the `derive` that asked for it sits.
+	// allocates from a band around 2^30, which `at` ignores. Attribute the
+	// whole function to the receiver's declaration, which is where the
+	// `derive` that asked for it sits.
 	if d.synth && d.recv.def != nil {
 		g.at(d.recv.def.line)
 	}
 	g.at(it.line)
-	prevTail := g.tail
-	g.tail = nil
 	prevImpl := g.implEmitting
 	g.implEmitting = d
-	defer func() { g.tail, g.implEmitting = prevTail, prevImpl }()
-	// A bare call in this body may name one of THIS block's own members —
-	// `each_while(left, yield)` inside `impl Iter for Tree`. Set here, AFTER
-	// the multi-member driver above has returned: that driver holds several
-	// members' bodies and they need not all come from one block, so a bare
-	// self-call inside one refuses rather than resolving against a block that
-	// may not own it. See implselfcall.go.
+	defer func() { g.implEmitting = prevImpl }()
+	// A bare call in this body may name one of this block's own members:
+	// `each_while(left, yield)` inside `impl Iter for Tree`.
 	prevSelf := g.implBlock
 	g.implBlock = d
 	defer func() { g.implBlock = prevSelf }()
@@ -1527,6 +1526,9 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	// defaults alone can name calls an accessor for it (siblingdefault.go),
 	// built outside the body's scope.
 	defer g.irImplSlotDefaults(d, it)
+	// A call on an interface value that leaves a defaulted parameter out
+	// dispatches to this function's accessor for it (ifaceslotdispatch.go).
+	defer g.irImplSlotDispatch(d, it)
 
 	g.pushScope()
 	defer g.popScope()
@@ -1542,7 +1544,7 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	g.result = it.result
 	g.irBodyObserve(irBodyImplFn, irImplSource(it) != nil)
 	g.dc.take()
-	produced, retained := g.irImplLower(d, it, nil, it.params)
+	produced, retained := g.irImplLower(d, it, it.params)
 	if !retained {
 		declined := g.dc.take()
 		if irImplSource(it) == nil {
@@ -1563,21 +1565,22 @@ func (g *gen) implFunc(d *implDef, it *implItem) {
 	g.result = prev
 }
 
-// bindImpl registers this impl in each dispatchable interface function's table.
+// bindImpl refuses an impl whose receiver has no runtime identity when the
+// block supplies a function an erased receiver could reach. The dispatch
+// entries themselves are recorded by irRecordImpls (irappboot.go).
+// Asking hasTID also records a local named receiver's identity in g.tids,
+// which another file's hasTID reads for its mirror of the type.
 //
-// Nothing is bound when the interface is not resolved: the impl's FUNCTIONS
-// are still emitted and still reachable through a concrete qualifier.
+// Nothing is checked when the interface is not resolved: the impl's functions
+// are still lowered and still reachable through a concrete qualifier.
 func (g *gen) bindImpl(d *implDef) {
 	if d.iface == nil {
 		return
 	}
 	binds := make([]*ifaceMethod, 0, len(d.iface.order))
 	for _, m := range d.iface.order {
-		// hasTable, not dispatchable: an implementation of a method that no
-		// erased receiver can select is still the answer a DICTIONARY-driven
-		// call needs, and it is the only answer there is for `T.zero()`. An
-		// unbound table would trap at run time on a program the checker
-		// accepted. See dict.go.
+		// hasTable, not dispatchable: a method no erased receiver can
+		// select still counts here.
 		if m.hasTable() && d.items[m.name] != nil && !g.debugDeferred(d.iface, m) {
 			binds = append(binds, m)
 		}
@@ -1591,12 +1594,12 @@ func (g *gen) bindImpl(d *implDef) {
 	}
 }
 
-// speculate runs f, discarding its output AND its refusals if it refused
-// anything. It reports whether f lowered cleanly.
+// speculate runs f, and when f refused anything it restores what snapshot
+// captured, the refusals among them. It reports whether f lowered cleanly.
 //
 // Used for exactly one thing: a front-end-synthesized impl block, whose
 // position is fabricated and whose text nobody wrote. Everywhere else a refusal
-// is the product, not a failure — see unsupported.go.
+// is the product, not a failure. See unsupported.go.
 func (g *gen) speculate(f func()) bool {
 	errs := len(g.errs)
 	restore := g.snapshot()
@@ -1610,38 +1613,19 @@ func (g *gen) speculate(f func()) bool {
 
 // snapshot captures everything a lowering attempt writes, returning the undo.
 //
-// Extracted from speculate because a SECOND caller needs the rollback without
-// the discard-on-refusal rule: stdiface.go's erased-receiver arm has to lower
-// the arguments to learn the receiver's kind, and then hand the call back to
-// the rest of implCall's chain when the kind is not the one it serves. Two
-// hand-written rollbacks would be two places for a later field to be forgotten
-// in one of them.
+// Extracted from speculate because other callers need the rollback under
+// their own rule for when to take it: stdProgIsolated (stdprogiface.go)
+// discards what a failed build left. Two hand-written rollbacks would be two
+// places for a later field to be forgotten in one of them.
 //
 // Each line below is a thing a discarded run must not leave behind, and the
 // reason it must not is on the line.
 func (g *gen) snapshot() func() {
 	errs := len(g.errs)
 	nomiLine := g.nomiLine
-	census := g.census
-	census.boxes = census.boxes[:len(census.boxes):len(census.boxes)]
-	// THE TEST TABLE. `testCase` appends its row to `g.tests` and derives the
-	// case's name from `len(g.tests)` BEFORE it builds the body, so without
-	// this a discarded run would leave a row naming a case whose body had been
-	// rolled back. The only caller that speculates a test case is
-	// stdtests.go's per-prompt loop, and a stdlib module whose prompt cases
-	// lower only in part is where that row would survive.
-	tests := len(g.tests)
 	return func() {
 		g.errs = g.errs[:errs]
 		g.nomiLine = nomiLine
-		// A discarded run's boxes and dispatches did not happen either. The
-		// census is a claim about what was lowered, so leaving them in would
-		// make the diagnostic count work that was thrown away.
-		g.census = census
-		// Discarded output must not leave its std package references behind
-		// either.
-		// The test table, for the reason recorded above the capture.
-		g.tests = g.tests[:tests]
 	}
 }
 
@@ -1649,23 +1633,21 @@ func (g *gen) snapshot() func() {
 
 // qualifierKind is the kind a call qualifier names, or kindInvalid.
 func (g *gen) qualifierKind(owner string) kind {
-	// A TYPE PARAMETER of an enclosing generic TYPE, resolved through the
-	// substitution frame. Asked FIRST, for the reason typeOf's *ast.SimpleType
-	// arm asks genericSubstKind first and dictTypeParamCall is asked ahead of
-	// every declaration lookup in implCall: a type parameter SHADOWS a
-	// same-named type for the length of its activation.
+	// A type parameter of an enclosing generic type, resolved through the
+	// substitution frame. Asked first, for the reason typeOf's
+	// *ast.SimpleType arm asks genericSubstKind first: a type parameter
+	// shadows a same-named type for the length of its activation.
 	//
 	// This is what makes `T.hello(value.value)` inside
 	// `impl Greet for Wrapper<T>` an ordinary concrete call. The body is only
-	// ever emitted inside an instantiation, so `T` HAS a concrete answer here —
-	// and without this arm the same body would reach the end of implCall's
-	// chain and report `qualified call | T.hello`. Declines when no frame is open or the
-	// name is not one of its parameters, so nothing else pays for it.
+	// ever lowered inside an instantiation, so `T` has a concrete answer
+	// here. Declines when no frame is open or the name is not one of its
+	// parameters, so nothing else pays for it.
 	//
-	// ONE insertion point rather than an arm per call form, which is the
-	// property generictype.go claims for genericSubstKind's placement in typeOf:
-	// every qualified-call shape funnels through here for its receiver kind.
-	// See genericimpl.go.
+	// One insertion point and not an arm per call form, which is the
+	// property generictype.go claims for genericSubstKind's placement in
+	// typeOf: every qualified-call shape funnels through here for its
+	// receiver kind. See genericimpl.go.
 	// kindInvalid: lookup — a miss tries the next form.
 	if k, isParam := g.genericSubstKind(owner); isParam && k != kindInvalid {
 		return k
@@ -1703,9 +1685,8 @@ func (g *gen) qualifierKind(owner string) kind {
 }
 
 // The fit tier and the subtyping relation are `ir.Fit` (`FitNone`/
-// `FitWidened`/`FitExact`), `ir.Table.Accepts` and `ir.Table.Widens`; the two
-// callers that score, `operImplFor` and `foreignIfaceCall`, reach them through
-// `irSelectAmong`. See foreignIfaceCall for why the tier exists.
+// `FitWidened`/`FitExact`), `ir.Table.Accepts` and `ir.Table.Widens`; the
+// caller that scores, `operImplFor`, reaches them through `irSelectAmong`.
 //
 // `embedsVariant` (types.go) is not the same question. It answers WHICH
 // VARIANT of the enum embeds the value, which is what `coerce` needs to
@@ -1714,14 +1695,13 @@ func (g *gen) qualifierKind(owner string) kind {
 
 // --- erasure ------------------------------------------------------------------
 
-// implements reports whether the PROGRAM lowers an impl of d for k.
+// implements reports whether the program lowers an impl of d for k.
 //
-// The program rather than this file, and the difference is what makes a
-// cross-file existential possible at all: `MyApp{logger: ProdLogger}` written
-// in one file boxes a type declared in a second whose `impl Logger` is written
-// in a third, and the box dispatches through a table any of them may have
-// bound into. See existential.go's implIndex — the key is a pair of
-// DECLARATION NODES, never a pair of names.
+// The program and not this file, which is what makes a cross-file
+// existential possible: `MyApp{logger: ProdLogger}` written in one file boxes
+// a type declared in a second whose `impl Logger` is written in a third, and
+// the dispatch finds that impl whichever file wrote it. See existential.go's
+// implIndex: the key is a pair of declaration nodes, never a pair of names.
 func (g *gen) implements(d *ifaceDef, k kind) bool {
 	return g.bindsImpl(d, k)
 }
@@ -1732,14 +1712,12 @@ func existential(d *ifaceDef) kind { return kind{tag: tagIface, iface: d} }
 // handWrittenNominalEquatable reports whether k is an ENUM or a DISTINCT
 // carrying a programmer-written `impl Equatable`.
 //
-// equatableDispatches excludes enums and distincts, but `==` on either
-// nominal kind routes through a hand-written impl when one exists, so for
-// those the exclusion is wrong and a comparison that reaches the structural
-// comparator here is a silent wrong answer.
+// `==` on either nominal kind routes through a hand-written impl when one
+// exists, so a comparison of one that reaches the structural comparator is a
+// silent wrong answer.
 //
 // Returning true does not lower anything. It puts the comparison back on the
-// impl route, where equalCall may lower it and the noEquatableImpl fence
-// refuses it under `equality on a named type` otherwise. A refusal is never a
+// impl route, which lowers the impl's call or declines. A refusal is never a
 // wrong answer; a DIFF always is.
 //
 // `synth` is the discriminator, and it must be: a DERIVED impl on either kind
@@ -1773,7 +1751,7 @@ func (g *gen) handWrittenNominalEquatable(k kind) bool {
 // opposite reasons: no impl at all, which is exactly when `==` is structural
 // equality, and an impl this builder cannot lower, which is when `==` CALLS
 // something and a structural answer would be a silent wrong answer.
-// Both `stdlibImplOf` and `equalCall` collapse those two into one nil.
+// `stdlibImplOf` collapses those two into one nil.
 //
 // Three sources. The FOREIGN arm leaves this gen and establishes the answer
 // program-wide off the declaration node the mirror carries; the reasoning, including why the OWNER'S FILE is the wrong scope to

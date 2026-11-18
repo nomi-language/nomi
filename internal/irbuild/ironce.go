@@ -146,9 +146,9 @@ func (g *gen) irOnceLower(d *onceDef) (kind, bool) {
 	return g.irOnceCellLower(d.decl, d.k, g.irTypes().Symbol(d, d.nomi), d.nomi)
 }
 
-// irOnceCellLower builds a `once` initializer as the IR lazy cell sym and
-// emits its Go body, read from that graph, into dst. User and stdlib bindings
-// share it; name is the binding as Nomi spells it.
+// irOnceCellLower builds a `once` initializer and declares it as the IR lazy
+// cell sym. User and stdlib bindings share it; name is the binding as Nomi
+// spells it.
 func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, name string) (got kind, ok bool) {
 	g.irDeclineOpen("once " + name)
 	defer func() {
@@ -164,11 +164,10 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 	var lead []ast.Node
 	if block, ok := body.(*ast.Block); ok {
 		defer g.enterBlockTypes(block)()
-		lead, body = g.irScalarBlock(block, "")
+		lead, body = g.irScalarBlock(block)
 	}
 	if body == nil {
-		g.dc.note(g.dc.bodyWhy)
-		return kindInvalid, false
+		panic("irbuild: a `once` with no value, which the parser does not build: " + decl.Name)
 	}
 	at := g.irNodePos(decl)
 	f := ir.NewFunc(at, "once "+name)
@@ -219,10 +218,10 @@ func (g *gen) irOnceCellLower(decl *ast.OnceBinding, k kind, sym *ir.Symbol, nam
 // `once` whose initializer no module retained, so the VM never meets a RefOnce
 // it cannot force. A read is admitted when the builder reaches it, and in user
 // code that may be before the declaration's own cell is attempted: a function
-// declared above its once, or a sibling unit emitted later. Only the finished
+// declared above its once, or a sibling unit lowered later. Only the finished
 // program knows which cells exist, so the answer is taken here. Withdrawal
-// removes a body from the VM's modules only; its Go was already emitted. A
-// withdrawn cell's readers are withdrawn in turn. The stdlib
+// removes a body from the VM's modules. A withdrawn cell's readers are
+// withdrawn in turn. The stdlib
 // modules are only consulted: their reads already require a retained cell
 // (stdOnceValue's irCell).
 //

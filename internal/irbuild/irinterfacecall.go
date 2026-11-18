@@ -3,9 +3,108 @@ package irbuild
 import (
 	"slices"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
+
+// dispatchedCallPlan is the plan of the qualified call t the checker left
+// to dispatch where it runs (analysis.CalleeInterface with no Impl; inside
+// an instance, the record at the instance's types, calleeAt) when its
+// receiver is held as an interface value: a dispatch on that value's
+// run-time type through the interface function the record names
+// (dispatchedMethod), built by erasedInterfacePlan. A conjunction's
+// receiver enters as the member that declares the function
+// (conjReceiver). Nil for any other call: one whose record names a
+// function, and one whose receiver is a value of a known type, which a
+// later route calls statically (an interface's default lowered for one
+// implementor, a value written `as` an interface, which stays the value it
+// is).
+func (bl *irScalarBuilder) dispatchedCallPlan(t *ast.Call, args irQualArgs) *irQualPlan {
+	d, m, at := bl.dispatchedMethod(t, args)
+	if m == nil {
+		return nil
+	}
+	if irConjKind(args.kinds[at]) {
+		// `Priced.price(item)` for an `item: Priced and Costed`: the
+		// receiver is a Priced value already (conjunction.go).
+		v, k, ok := bl.conjReceiver(t, args.temps[at], args.kinds[at], d)
+		if !ok {
+			return nil
+		}
+		args.temps = slices.Clone(args.temps)
+		args.kinds = slices.Clone(args.kinds)
+		args.temps[at], args.kinds[at] = v, k
+	}
+	return bl.erasedInterfacePlan(t, args, d, m)
+}
+
+// dispatchedMethod is, for the call t the checker left to dispatch where
+// it runs, the interface its receiver is held as (d), the function of d
+// the record names (m: its Decl, found by its declaration), and the
+// operand at the function's receiver (at, from the placement record). A
+// nil m when the record names something else, and when the receiver is
+// not held as an interface value or the interface it is held as declares
+// no such function.
+func (bl *irScalarBuilder) dispatchedMethod(t *ast.Call, args irQualArgs) (d *ifaceDef, m *ifaceMethod, at int) {
+	if !args.ok {
+		return nil, nil, -1
+	}
+	c := bl.g.calleeAt(t)
+	im, ok := c.Decl.(*ast.InterfaceMethod)
+	if c.Kind != analysis.CalleeInterface || c.Impl != nil || !ok {
+		return nil, nil, -1
+	}
+	at = bl.g.receiverArg(t, im)
+	if at < 0 || at >= len(args.kinds) {
+		return nil, nil, -1
+	}
+	for _, k := range conjMembers(args.kinds[at]) {
+		if m := bl.g.recordedMethod(k.iface, c); m != nil {
+			return k.iface, m, at
+		}
+	}
+	return nil, nil, -1
+}
+
+// receiverArg is the index of the operand of t at the receiver of the
+// interface function im, from the checker's placement of t's arguments
+// (callPlan); -1 when im takes no receiver or no operand fills it.
+func (g *gen) receiverArg(t *ast.Call, im *ast.InterfaceMethod) int {
+	recv := selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt()
+	if recv < 0 || g.resolvedCallOf(t) == nil {
+		return -1
+	}
+	plan, ok := g.callPlan(t, len(im.Params))
+	if !ok {
+		return -1
+	}
+	return slices.Index(plan.slots, recv)
+}
+
+// recordedMethod is d's function the record c names: its Decl, the same
+// std function in another parse of its module (sameDecl), or, for a std
+// interface's def (stdOrigin), the function its module declares at the
+// Decl's position, as sameImplBlock matches a block: the def is resolved
+// from the shared stdlib's parse of the module when it is first built, and
+// a later check of the module's bodies parses it again. Nil when d declares
+// no such function.
+func (g *gen) recordedMethod(d *ifaceDef, c analysis.Callee) *ifaceMethod {
+	im, ok := c.Decl.(*ast.InterfaceMethod)
+	if d == nil || !ok {
+		return nil
+	}
+	for _, m := range d.order {
+		switch {
+		case m.decl == nil:
+		case m.decl == im, sameDecl(c.Decl, m.decl, c.Std, g.stdFuncIn(c.Std, m.decl)):
+			return m
+		case d.stdOrigin != "" && d.stdOrigin == c.Std.Module && m.decl.Line == im.Line && m.decl.Col == im.Col:
+			return m
+		}
+	}
+	return nil
+}
 
 // erasedInterfacePlan dispatches on an erased receiver: the table keyed by
 // the receiver's box, every self-typed operand opened with `.V`, and every
@@ -17,31 +116,39 @@ import (
 func (bl *irScalarBuilder) erasedInterfacePlan(t *ast.Call, args irQualArgs, d *ifaceDef, m *ifaceMethod) *irQualPlan {
 	recvAt := m.shape.recvAt()
 	var filled *irQualArgs
-	if args.ok && len(args.kinds) < len(m.params) && m.decl != nil && len(m.decl.Params) == len(m.params) &&
-		namedArgNode(t.Args) == nil && recvAt >= 0 && recvAt < len(args.kinds) {
-		// `Named.greet(n)` omitting a defaulted parameter: the interface
-		// declares the default, so every implementation receives the same
-		// value, evaluated at the call as a direct call's default is.
+	if args.ok && len(args.temps) == len(t.Args) && m.decl != nil && len(m.decl.Params) == len(m.params) &&
+		namedArgNode(t.Args) == nil && bl.g.leavesDefaults(t, len(m.params)) {
+		// `Named.greet(n)` omitting a defaulted parameter: the default of
+		// the function that runs, chosen by dispatch on the receiver as
+		// the function is (ifaceslotdispatch.go). Each written operand
+		// goes to the slot the record gives it, so a trailing callback
+		// skips a defaulted parameter before it.
+		plan, _ := bl.g.callPlan(t, len(m.params))
+		recvArg := slices.Index(plan.slots, recvAt)
+		if recvArg < 0 {
+			return nil
+		}
 		kinds := make([]kind, len(m.params))
 		for i := range kinds {
 			if m.shape.selfTyped(i) {
-				kinds[i] = args.kinds[recvAt]
+				kinds[i] = args.kinds[recvArg]
 				continue
 			}
 			kinds[i] = m.params[i]
 		}
 		temps := make([]ir.Temp, len(kinds))
-		copy(temps, args.temps)
-		for i := len(args.temps); i < len(temps); i++ {
-			temps[i] = ir.NoTemp
+		mobile := make([]bool, len(kinds))
+		for i := range temps {
+			temps[i], mobile[i] = ir.NoTemp, true
 		}
-		if !bl.fillCallDefaults(t, kinds, temps, nil, defaultHome{}) {
+		for i, slot := range plan.slots {
+			temps[slot] = args.temps[i]
+			if i < len(args.mobile) {
+				mobile[slot] = args.mobile[i]
+			}
+		}
+		if !bl.fillCallDefaults(t, kinds, temps, nil, bl.g.slotDispatchHome(d, m, recvAt)) {
 			return nil
-		}
-		mobile := make([]bool, len(temps))
-		copy(mobile, args.mobile)
-		for i := len(args.mobile); i < len(mobile); i++ {
-			mobile[i] = true
 		}
 		full := irQualArgs{temps: temps, kinds: kinds, mobile: mobile, ok: true}
 		filled, args = &full, full
@@ -71,7 +178,7 @@ func (bl *irScalarBuilder) erasedInterfacePlan(t *ast.Call, args irQualArgs, d *
 }
 
 // concreteInterfacePlan uses the method's self position and the local
-// implementation index. An erased receiver takes erasedInterfacePlan.
+// implementation index, for a receiver of a known type.
 func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d *ifaceDef, method string) *irQualPlan {
 	m := d.methods[method]
 	if !args.ok || (m == nil && !d.useSiteOnly) {
@@ -97,31 +204,11 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 	default:
 		recv = args.kinds[recvAt]
 	}
-	if irConjKind(recv) && recvAt >= 0 && recvAt < len(args.temps) {
-		// `Priced.price(item)` for an `item: Priced and Costed`: the
-		// receiver is a Priced value already (conjunction.go).
-		v, k, ok := bl.conjReceiver(t, args.temps[recvAt], recv, d)
-		if !ok {
-			return nil
-		}
-		args.temps = slices.Clone(args.temps)
-		args.kinds = slices.Clone(args.kinds)
-		args.temps[recvAt], args.kinds[recvAt], recv = v, k, k
-	}
 	if recv.tag == tagIface {
-		if inst := recv.iface; inst != nil && inst.instOf != nil && inst.instOf == d.decl {
-			// `Gets.got(h)` for an `h: Gets<String>`: the instance's table.
-			d, m = inst, inst.methods[method]
-		}
-		if m == nil {
-			return nil
-		}
-		return bl.erasedInterfacePlan(t, args, d, m)
-	}
-	if p := bl.defaultInstImplPlan(t, args, d, method, recv); p != nil {
-		// `area(s)` or `Shape.area(s)` in this file's default, lowered for
-		// another file's implementing type: that block's own function.
-		return p
+		// A receiver held as an interface value, or as a conjunction of
+		// them, is dispatched from the call's record (dispatchedCallPlan),
+		// and a call that route declines is planned nowhere here.
+		return nil
 	}
 	impl := bl.g.implsByIface[bl.g.implsKey(d)][recv]
 	if impl == nil {
@@ -160,7 +247,7 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		return nil
 	}
 	var filled *irQualArgs
-	if len(args.temps) < len(it.params) {
+	if bl.g.leavesDefaults(t, len(it.params)) {
 		// `Announcer.announce(b)` omitting a defaulted parameter.
 		if namedArgNode(t.Args) != nil {
 			return nil
@@ -229,8 +316,20 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 	if d == nil || !d.lowerable {
 		return nil
 	}
-	it := d.items[method]
-	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != len(args.kinds) {
+	return bl.callerItemPlan(t, args, og, d.items[method], iface+"."+method)
+}
+
+// callerItemPlan is the call t, inside a std generic instance built for a
+// program, of it, an impl function og, one of the program's gens,
+// registered: named by the symbol og interned for it, over the kinds the
+// calling gen names its parameters and result by, which are the kinds the
+// instance's operands carry. name names the call.
+func (bl *irScalarBuilder) callerItemPlan(t *ast.Call, args irQualArgs, og *gen, it *implItem, name string) *irQualPlan {
+	s := bl.g.stdInsts
+	if s == nil || s.caller == nil || s.caller == bl.g || bl.g.stdModule == "" {
+		return nil
+	}
+	if it == nil || it.impl == nil || !it.impl.lowerable || !it.lowerable || irImplSource(it) == nil || len(it.params) != len(args.kinds) {
 		return nil
 	}
 	params, result := it.params, it.result
@@ -254,7 +353,7 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 	if !bl.qualSignature(t, args, params, result) {
 		return nil
 	}
-	return &irQualPlan{token: it, name: iface + "." + method, result: result, sym: og.irCalleeSym(it, d.recv.nomi()+"."+it.name)}
+	return &irQualPlan{token: it, name: name, result: result, sym: og.irCalleeSym(it, it.impl.recv.nomi()+"."+it.name)}
 }
 
 // implForDecl is the one impl of iface any of gens registers for a
@@ -368,8 +467,6 @@ func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner,
 
 // stdIfacePlan selects a stdlib interface method by its first argument's kind
 // and plans the call to its retained body or approved runtime host.
-//
-// A written std body's call records the call's line as its Go source cursor.
 func (bl *irScalarBuilder) stdIfacePlan(t *ast.Call, args irQualArgs, iface, method string) *irQualPlan {
 	g := bl.g
 	spelling := iface + "." + method

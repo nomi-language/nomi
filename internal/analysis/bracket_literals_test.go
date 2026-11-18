@@ -107,8 +107,7 @@ fn main()
     lit_empty_kvs: Kvs = {}
     lit_named_empty_kvs = Kvs{}
     lit_point = Point{}
-    lit_std_map = Map{"b" => 2}
-    _ = (lit_map, lit_struct, lit_empty, lit_kvs, lit_empty_kvs, lit_named_empty_kvs, lit_point, lit_std_map)
+    _ = (lit_map, lit_struct, lit_empty, lit_kvs, lit_empty_kvs, lit_named_empty_kvs, lit_point)
 end`
 	want := []string{
 		"lit_map map Map<String, Int>",
@@ -118,7 +117,6 @@ end`
 		"lit_empty_kvs map Kvs",
 		"lit_named_empty_kvs struct Kvs",
 		"lit_point struct Point",
-		"lit_std_map map Map<String, Int>",
 	}
 	if got := literalTypes(t, src); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

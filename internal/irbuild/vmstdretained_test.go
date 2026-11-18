@@ -66,12 +66,6 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 		if f.irBody != nil {
 			byBody[f.irBody] = f
 		}
-		// An arity wrapper takes the declaration's leading parameters.
-		for arity, body := range f.irArity {
-			view := *f
-			view.params = f.params[:arity]
-			byBody[body] = &view
-		}
 		// A `_DEFAULT<slot>` accessor takes the parameters before its slot.
 		for slot, body := range f.irSlot {
 			view := *f
@@ -171,8 +165,8 @@ func TestIRRetainedStdPopulationRuns(t *testing.T) {
 // file under std/ and its name. A declaration's own body is named as the
 // index keys it, with its receiver and interface instantiation
 // (`Date.Add<Duration, Date>.add`), since calendar.nomi alone declares
-// dozens of `add`s; an arity wrapper or a defaulted slot's accessor carries
-// its own name (`supervisors.Supervisor.new arity 1`). A key may still repeat.
+// dozens of `add`s; a defaulted slot's accessor carries its own name
+// (`supervisors.Supervisor.new default 2`). A key may still repeat.
 func vmStdDeclKey(fn *ir.Func, mod *ir.Module, f *stdFunc) string {
 	name := fn.Name()
 	if f != nil && f.irBody == fn {
@@ -188,8 +182,9 @@ func vmStdDeclKey(fn *ir.Func, mod *ir.Module, f *stdFunc) string {
 	return file + ":" + name
 }
 
-// vmArgsForKindsIn is vmArgsForKinds for a body of the std module qual, whose
-// own declared types carry that module's qualifier at run time.
+// vmArgsForKindsIn is a sample argument per parameter kind for a body of the
+// std module qual, whose own declared types carry that module's qualifier at
+// run time.
 func vmArgsForKindsIn(params []kind, qual string) ([]any, bool) {
 	args := make([]any, len(params))
 	for i, k := range params {

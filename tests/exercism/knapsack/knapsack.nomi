@@ -9,7 +9,7 @@ end
 
 /// The greatest total value of `items`, each taken at most once, whose
 /// weights add up to no more than `maximum_weight`.
-pub fn maximum_value(items: List<Item>, maximum_weight: Int) -> Int
+pub fn maximum_value(items: List<Item>, maximum_weight: NonNegativeInt) -> Int
     nothing =
         Iter.repeat(0)
         |> Iter.take(maximum_weight + 1)

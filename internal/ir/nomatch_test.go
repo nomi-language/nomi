@@ -166,7 +166,8 @@ func TestNoMatch_ABlockHoldingTheTrapCanFault(t *testing.T) {
 // TestLintNoMatch_TheControlIsClean is what makes the plants below mean anything:
 // the `case` graph the production builder produces passes every rule,
 // including with an UNREACHABLE fallthrough block — which is the shape
-// `caseInto` has always built and which `Arms.Finish` admits by name.
+// `internal/irbuild`'s `caseRegion` builds and which `Arms.Finish` admits by
+// name.
 func TestLintNoMatch_TheControlIsClean(t *testing.T) {
 	f, _ := buildCaseFunc(t, caseDeform{})
 	if err := ir.Lint(f); err != nil {

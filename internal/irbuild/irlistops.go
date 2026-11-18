@@ -32,14 +32,6 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	// first, tail, concat and remove_at are cell operations that never read an
 	// element, so a list of retained structs or enums crosses as a scalar
 	// list does.
-	// kindInvalid: sentinel — no argument supplied a typed list representation.
-	if lk == kindInvalid && irAllEmptyLists(lists) {
-		// `List.first([])`: nothing constrains the element, so no value of it
-		// is built or observed. The list crosses as one of Int, the type
-		// the checker closes such an element as (analysis's closed_vars.go);
-		// a piped operand has no argument node here to read it from.
-		lk = bl.g.listKind(kindInt)
-	}
 	// A list of any other element with a stored type crosses too: none of
 	// them reads an element.
 	// kindInvalid: sentinel — still no typed list representation.
@@ -50,12 +42,11 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	for i, k := range args.kinds {
 		if method == "remove_at" && i == 1 {
 			if k != kindInt {
-				bl.g.dc.note("List.remove_at with an index that is not an Int")
-				return nil
+				panic("irbuild: listCallPlan: List.remove_at declares its index Int, so the checker rejects any other argument")
 			}
 			continue
 		}
-		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], k, lk)
+		v, got, ok := bl.convertTo(t.Args[i], args.temps[i], k, lk)
 		if !ok {
 			return nil
 		}
@@ -73,14 +64,4 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	}
 	name := "List." + method
 	return &irQualPlan{token: name, name: name, result: result, host: true}
-}
-
-// irAllEmptyLists reports whether every operand is an empty list literal.
-func irAllEmptyLists(kinds []kind) bool {
-	for _, k := range kinds {
-		if k != kindEmptyList {
-			return false
-		}
-	}
-	return len(kinds) > 0
 }

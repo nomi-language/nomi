@@ -3,14 +3,23 @@ package vmhost
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/nomi-language/nomi/hostadapt"
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/compilerhosts"
+	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/stdlibadapters"
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/internal/vm"
+	"github.com/nomi-language/nomi/std"
 )
 
 // Capability classes and the targets that lack them.
@@ -31,6 +40,51 @@ import (
 // under Go's Node loader and seeded by `run`'s `files` option in the
 // browser (internal/stdio's default_js.go), so `nomi build --web` notes that
 // a program uses files rather than refusing it (WebFilesNote).
+//
+// Outside calls.
+//
+// OutsideCalls answers a wider question than the classes: every call the
+// program reaches that acts on or reads from anything outside the machine
+// (internal/stdlibbindings package doc, "Outside calls"), output, the clock
+// and tasks included. The same reach walk finds them
+// (vm.ReachedOutsideCalls), from the roots Roots names: main and the boot,
+// the exported functions, or the test cases.
+//
+//   - A call is named by the std module the code outside std called, as an
+//     import spells it: `net.dial(...)` is `std::net`, though the crossing
+//     is http's host function, and a crossing the code makes itself
+//     (`io.print`, `Task.spawn`, a std host function used as a value) by
+//     the module that declares it. A `go` binding is `go:` and the import
+//     path of the `gopkg` its declaration names, read from the declaring
+//     file's syntax (ffirun.BindingImportPath), so no `go` command runs. An
+//     embedder's own `host fn` is `host:` and its key. The entry boot that
+//     takes a Startup reads the environment and the arguments: `std::startup`
+//     at the boot.
+//   - A call is charged to the module whose file holds it (moduleOf): the
+//     program for its own files, a dependency, by its Go module path, for
+//     the files under the nearest nomi.toml above them. A callback the
+//     program passes into std or a dependency is the program's, and the
+//     instance of a dependency's generic function stays in the
+//     dependency's file.
+//   - Each call carries the chain from a root to the function holding it,
+//     and the Edge of each step: a call, a function used as a value, any
+//     implementation a dispatched call may reach, any Display, Debug,
+//     Equatable or Hashable body, a `once`'s initializer, a boot, a root or
+//     a test case. The walk over-approximates as the target check does, and
+//     the edges say why a call counts.
+//
+// OutsideCallsNotAllowed holds those calls to nomi.toml's [capabilities]
+// lists (Capabilities): the program's list holds every call, a module's
+// own list holds the calls its files make, and a call over both is
+// reported once, over the module's. A host's list (WithCapabilities) is a
+// program's list with no module lists, held beside nomi.toml's, and each
+// call over it is reported again, as the host's.
+//
+// CapabilityUses keeps its own report: it lifts each classed crossing to
+// the first call outside std on the path the walk first took, so a std
+// function two sites reach is reported once, where OutsideCalls reports
+// each site. Building one on the other would change the target check's
+// messages.
 
 // ClassFiles is the class of a function that reads or writes files.
 const ClassFiles = stdlibbindings.ClassFiles
@@ -108,7 +162,7 @@ type CapabilityUse struct {
 // set, each exported function: what BuildImage or BuildExportsImage would
 // keep. Call it on a program that builds.
 func (p *Program) CapabilityUses(withExports bool) []CapabilityUse {
-	roots, boots := p.capabilityRoots(withExports)
+	roots, boots, _ := p.reachRoots(Roots{Exports: withExports})
 	return p.capabilityUsesFrom(roots, boots)
 }
 
@@ -117,33 +171,87 @@ func (p *Program) CapabilityUses(withExports bool) []CapabilityUse {
 // those tests, with their group's boot, reach. Call it on a program that
 // loads.
 func (p *Program) TestCapabilityUses(opts TestOptions) []CapabilityUse {
-	if p.entry == nil {
-		return nil
-	}
-	plan, _ := frontend.SelectTests(p.prog.Entry().Nodes, opts)
-	retained := map[string]ir.TestCase{}
-	for _, c := range p.entry.Tests() {
-		retained[c.Name()] = c
-	}
-	var roots []*ir.Func
-	var boots []*ir.Symbol
-	if boot := p.entry.Boot(); boot != nil {
-		boots = append(boots, boot)
-	}
-	for _, tc := range plan {
-		c, ok := retained[tc.FullName()]
-		if !ok {
-			continue
-		}
-		roots = append(roots, c.Fn())
-		if b := c.Group().Boot; b != nil {
-			boots = append(boots, b, c.Group().Startup)
-		}
-	}
+	roots, boots, _ := p.reachRoots(Roots{Tests: &opts})
 	if len(roots) == 0 {
 		return nil
 	}
 	return p.capabilityUsesFrom(roots, boots)
+}
+
+// Roots says which functions a walk over what a program reaches starts
+// from.
+type Roots struct {
+	// Exports adds each exported function to main and the boot: what
+	// BuildExportsImage keeps.
+	Exports bool
+	// Tests, when set, starts from the entry's test cases it selects, with
+	// the entry's boot and each case's group boot, instead of main.
+	Tests *TestOptions
+	// Func, when set, starts from the entry's function of that name and
+	// the boot, instead of main: what Call runs.
+	Func string
+	// Callable adds every function the entry file declares, any of which
+	// Call may call.
+	Callable bool
+}
+
+// reachRoots is the functions and boots r names, and the edge kind its
+// functions are reached by.
+func (p *Program) reachRoots(r Roots) ([]*ir.Func, []*ir.Symbol, vm.EdgeKind) {
+	var roots []*ir.Func
+	var boots []*ir.Symbol
+	if p.entry != nil {
+		if boot := p.entry.Boot(); boot != nil {
+			boots = append(boots, boot)
+		}
+	}
+	if r.Tests != nil {
+		if p.entry == nil {
+			return nil, nil, vm.EdgeTest
+		}
+		plan, _ := frontend.SelectTests(p.prog.Entry().Nodes, *r.Tests)
+		retained := map[string]ir.TestCase{}
+		for _, c := range p.entry.Tests() {
+			retained[c.Name()] = c
+		}
+		for _, tc := range plan {
+			c, ok := retained[tc.FullName()]
+			if !ok {
+				continue
+			}
+			roots = append(roots, c.Fn())
+			if b := c.Group().Boot; b != nil {
+				boots = append(boots, b, c.Group().Startup)
+			}
+		}
+		return roots, boots, vm.EdgeTest
+	}
+	if r.Func != "" {
+		if f, err := p.callable(r.Func); err == nil {
+			roots = append(roots, f)
+		}
+		return roots, boots, vm.EdgeRoot
+	}
+	if p.HasMain() {
+		if mainFn := p.entryFunc("main"); mainFn != nil {
+			roots = vm.MainRoots(p.entry, mainFn)
+		}
+	}
+	if r.Exports {
+		for _, e := range p.res.Exports {
+			if e.Func != nil {
+				roots = append(roots, e.Func)
+			}
+		}
+	}
+	if r.Callable && p.entry != nil {
+		for _, f := range p.entry.Funcs() {
+			if p.declares(f.Name()) {
+				roots = append(roots, f)
+			}
+		}
+	}
+	return roots, boots, vm.EdgeRoot
 }
 
 // capabilityUsesFrom is the classed calls reached from roots and boots.
@@ -171,7 +279,7 @@ func (p *Program) capabilityUsesFrom(roots []*ir.Func, boots []*ir.Symbol) []Cap
 // must append it to the runner with the network rather than the smaller
 // one built with the nomi_nonet tag.
 func (p *Program) UsesNetwork(withExports bool) bool {
-	roots, boots := p.capabilityRoots(withExports)
+	roots, boots, _ := p.reachRoots(Roots{Exports: withExports})
 	network := stdlibadapters.NetworkNames()
 	for _, name := range vm.ReachedCrossings(p.entry, p.res.IRModules(), roots, boots) {
 		if _, found := slices.BinarySearch(network, name); found {
@@ -179,31 +287,6 @@ func (p *Program) UsesNetwork(withExports bool) bool {
 		}
 	}
 	return false
-}
-
-// capabilityRoots is the functions a built image starts from: main, the
-// boot and, when withExports is set, each exported function.
-func (p *Program) capabilityRoots(withExports bool) ([]*ir.Func, []*ir.Symbol) {
-	var roots []*ir.Func
-	if p.HasMain() {
-		if mainFn := p.entryFunc("main"); mainFn != nil {
-			roots = vm.MainRoots(p.entry, mainFn)
-		}
-	}
-	if withExports {
-		for _, e := range p.res.Exports {
-			if e.Func != nil {
-				roots = append(roots, e.Func)
-			}
-		}
-	}
-	var boots []*ir.Symbol
-	if p.entry != nil {
-		if boot := p.entry.Boot(); boot != nil {
-			boots = append(boots, boot)
-		}
-	}
-	return roots, boots
 }
 
 // Unsupported is a build refused because the program reaches calls its
@@ -306,4 +389,219 @@ func ClassDoing(class string) string {
 		return "serves network requests"
 	}
 	return "uses " + class
+}
+
+// Edge is how the reach walk got from one function to the next: a direct
+// call, a function used as a value, any implementation of an interface
+// function, any Display, Debug, Equatable or Hashable body, a `once`'s
+// initializer, a boot, a root or a test case (vm.EdgeKind).
+type Edge = vm.EdgeKind
+
+// ChainStep is one function on the way from a root to an outside call, and
+// the Edge that reached it.
+type ChainStep = vm.ChainStep
+
+// OutsideCall is one outside call a program reaches: a call, in code outside
+// the standard library, that acts on or reads from something outside the
+// machine, through std or itself.
+type OutsideCall struct {
+	// Name is what the call is named by: the std module the code called,
+	// as an import names it (`std::fs`, `std::net` for `net.dial` though it
+	// crosses through http's host functions), or `go:` and the Go import
+	// path for a `go` binding. An embedder's own `host fn` is `host:` and
+	// its key.
+	Name string
+	// Module is the module charged for the call, the one whose file holds
+	// it: a dependency's Go module path, or "" for the program's own files.
+	Module string
+	// Site is the call's position, `file:line:col`, the file named as a
+	// built image names it.
+	Site string
+	// Callee is what the code at Site calls: a std function
+	// (`fs.read_text`), or the crossing itself when the code crosses.
+	Callee string
+	// Crossing is a crossing into Go the call leads to (`fs/host.read`),
+	// or "" for a boot's Startup, which crosses nothing.
+	Crossing string
+	// Edge is how the code at Site reaches Callee.
+	Edge Edge
+	// Chain is the functions from a root to the one holding the call, each
+	// with the Edge that reached it, outermost first.
+	Chain []ChainStep
+	// at is the call's position as the program names its file, where a
+	// diagnostic about it goes.
+	at ir.Pos
+}
+
+// OutsideCalls is every outside call the program reaches from the roots r
+// names, in position order: each crossing of a std host function or VM
+// intrinsic marked outside (internal/stdlibbindings, "Outside calls"), each
+// `go` binding, and the entry boot's Startup, which holds the environment
+// and the arguments. A call is named by the std module the program's or a
+// dependency's own code called, and charged to the module whose file holds
+// that call; a callback passed into std or into a dependency is the code
+// of the module that wrote it. Like the build's walk, it over-approximates
+// (vm.ReachedOutsideCalls), and each Chain says why a call counts. Call it
+// on a program that loads.
+func (p *Program) OutsideCalls(r Roots) []OutsideCall {
+	roots, boots, kind := p.reachRoots(r)
+	if len(roots) == 0 && len(boots) == 0 {
+		return nil
+	}
+	calls := vm.ReachedOutsideCalls(p.entry, p.res.IRModules(), roots, kind, boots, func(key string) (bool, string) {
+		if isOutside, known := compilerhosts.Outside(key); known {
+			return isOutside, "compiler"
+		}
+		return true, ""
+	})
+	out := make([]OutsideCall, len(calls))
+	modules := map[string]string{}
+	for i, c := range calls {
+		file := c.At.File()
+		module, ok := modules[file]
+		if !ok {
+			module = p.moduleOf(file)
+			modules[file] = module
+		}
+		out[i] = OutsideCall{
+			Name:     p.outsideName(c),
+			Module:   module,
+			Site:     fmt.Sprintf("%s:%d:%d", p.imageName(file), c.At.Line(), c.At.Col()),
+			Callee:   hostadapt.DisplayName(c.Callee),
+			Crossing: hostadapt.DisplayName(c.Crossing),
+			Edge:     c.Edge,
+			Chain:    c.Chain,
+			at:       c.At,
+		}
+	}
+	return out
+}
+
+// NotAllowed is an outside call a program reaches that nomi.toml's
+// [capabilities] lists do not allow.
+type NotAllowed struct {
+	OutsideCall
+	// Over is whose list does not allow the call: the module, by its Go
+	// module path, whose own entry under [capabilities.modules] does not
+	// name it, or "" for the program's list.
+	Over string
+	// Allowed is the list Over is held to: a module's entry, or the
+	// program's allow, with allow_in_tests when the roots are tests.
+	Allowed []string
+	// ProgramDenies reports, for a call over a module's list, that the
+	// program's list does not allow it either.
+	ProgramDenies bool
+	// Host reports that the list is the one the host holds the program to
+	// (WithCapabilities), not nomi.toml's.
+	Host bool
+}
+
+// OutsideCallsNotAllowed is every outside call the program reaches from the
+// roots r names (OutsideCalls) that lists does not allow, in the order
+// OutsideCalls answers them. Two rules hold each call:
+//
+//   - the program's: its name is in Allow, with AllowInTests when r names
+//     tests, whichever module's file holds the call;
+//   - a module's: a call in the files of a module with an entry under
+//     Modules is in that entry. A module with none is held by the
+//     program's rule alone.
+//
+// A call over both lists is reported once, over the module's, with
+// ProgramDenies set. Nil lists allow everything.
+func (p *Program) OutsideCallsNotAllowed(r Roots, lists *Capabilities) []NotAllowed {
+	if lists == nil {
+		return nil
+	}
+	return notAllowedBy(p.OutsideCalls(r), r.Tests != nil, lists)
+}
+
+// notAllowedBy is each of calls, reached from tests when tests is set, that
+// lists does not allow, by OutsideCallsNotAllowed's rules.
+func notAllowedBy(calls []OutsideCall, tests bool, lists *Capabilities) []NotAllowed {
+	if lists == nil {
+		return nil
+	}
+	program := lists.Allow
+	if tests {
+		program = append(slices.Clone(lists.Allow), lists.AllowInTests...)
+	}
+	var out []NotAllowed
+	for _, c := range calls {
+		programDenies := !slices.Contains(program, c.Name)
+		if own, held := lists.Modules[c.Module]; held && c.Module != "" && !slices.Contains(own, c.Name) {
+			out = append(out, NotAllowed{OutsideCall: c, Over: c.Module, Allowed: own, ProgramDenies: programDenies})
+			continue
+		}
+		if programDenies {
+			out = append(out, NotAllowed{OutsideCall: c, Allowed: program})
+		}
+	}
+	return out
+}
+
+// outsideName is the name of an outside call: `std::` and its std module,
+// or for a crossing no std module declares, `go:` and the Go import path
+// its declaration's `gopkg` names, read from the declaring file. A crossing
+// whose declaration binds no Go package is an embedder's host function,
+// `host:` and its key.
+func (p *Program) outsideName(c vm.OutsideCall) string {
+	if c.Std != "" {
+		return "std::" + c.Std
+	}
+	if path, ok := ffirun.BindingImportPath(p.fileNodes(c.At.File()), c.At.Line()); ok {
+		return "go:" + path
+	}
+	return "host:" + hostadapt.DisplayName(c.Crossing)
+}
+
+// fileNodes is the parsed file at path: the program's own nodes for it when
+// it holds them, else the file read from disk (a program reopened from the
+// artifact cache holds only its entry), or nil.
+func (p *Program) fileNodes(path string) []ast.Node {
+	for _, m := range p.prog.Modules {
+		if m.Path == path && m.Nodes != nil {
+			return m.Nodes
+		}
+	}
+	if !filepath.IsAbs(path) {
+		return nil
+	}
+	nodes, _ := ffirun.ParseFile(path)
+	return nodes
+}
+
+// moduleOf is the module whose file path is: "" for the program's own
+// files (an in-memory one among them) and the standard library's, else the
+// dependency whose nomi.toml is the nearest one above it, by its Go module
+// path from the project's go.mod (modcache), or by its `[module].name` when
+// go.mod does not list its directory.
+func (p *Program) moduleOf(path string) string {
+	if _, isStd := std.ImageName(path); isStd || !filepath.IsAbs(path) {
+		return ""
+	}
+	root, ok := manifestDirAbove(filepath.Dir(path))
+	if !ok || p.prog.Root == "" || sameDir(root, p.prog.Root) {
+		return ""
+	}
+	if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
+		for _, d := range g.Deps {
+			if d.Dir != "" && sameDir(d.Dir, root) {
+				return d.Path
+			}
+		}
+	}
+	if m, err := analysis.LoadManifest(root); err == nil {
+		return m.Name
+	}
+	return root
+}
+
+// sameDir reports whether a and b are one directory.
+func sameDir(a, b string) bool {
+	if filepath.Clean(a) == filepath.Clean(b) {
+		return true
+	}
+	ai, errA := os.Stat(a)
+	bi, errB := os.Stat(b)
+	return errA == nil && errB == nil && os.SameFile(ai, bi)
 }

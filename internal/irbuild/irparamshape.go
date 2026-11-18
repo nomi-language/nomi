@@ -12,8 +12,8 @@ import "github.com/nomi-language/nomi/internal/ir"
 //
 // # Why the producer can answer it
 //
-// `irFuncShellFor` already holds the parameter's kind — `paramGo[i].k`, which
-// is `sig.params[i]`, which came off the checked AST. So this is a read, not
+// `irFuncShellFor` already holds the parameter's kind, `sig.params[i]`, which
+// came off the checked AST. So this is a read, not
 // an inference, and there is exactly ONE production `AddParam` call site to
 // supply it at.
 //
@@ -100,7 +100,7 @@ func irParamShape(k kind) ir.ValShape {
 		// `ProjField`'s, so the two are one shape here for the same reason
 		// they are one arm there.
 		return ir.ValStruct
-	case tagList, tagMap, tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
+	case tagList, tagMap:
 		return ir.ValContainer
 	case tagNamed:
 		return irNamedParamShape(k)

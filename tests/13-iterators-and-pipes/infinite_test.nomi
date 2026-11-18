@@ -102,7 +102,7 @@ end
 test "take counts what it keeps"
     assert Iter.repeat(1) |> Iter.take(3) |> Iter.known_count() == Some(3)
     assert [1, 2] |> Iter.take(5) |> Iter.known_count() == Some(2)
-    assert Iter.from(0) |> Iter.take(-1) |> Iter.known_count() == Some(0)
+    assert Iter.from(0) |> Iter.take(0) |> Iter.known_count() == Some(0)
     assert Iter.from(0) |> Iter.filter(&(&1 > 2)) |> Iter.take(2) |> Iter.count() == 2
     assert Iter.known_count(Iter.repeat(1)) == None
 end

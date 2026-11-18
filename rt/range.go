@@ -21,26 +21,16 @@ import "math"
 // element type. So there is no interval tree here, no normalization, and no
 // representation decision beyond field-for-field transcription.
 //
-// The Go type has to exist here for set.go's reason, unchanged: a `*typeDef`
-// reached from two generated packages must render to the same Go type text in
-// every one of them (internal/irbuild/stdprelude.go's packageNeutral), so
-// `Range<Int>` cannot be a per-package generated struct.
+// The Go type is here because the VM holds every range as a `Range[any]`
+// (internal/vm/rangehosts.go) and std's Go functions take and return one.
 //
-// # The dictionary is an argument, which is why the `where` clause is not a wall
+// # The element's methods are arguments
 //
 // `Range<T>`'s declaration carries `where T: Comparable`, and
 // `impl Iter for Range<T>` carries `where T: Discrete`. Neither is resolved
 // here. Every function below takes the element's interface methods as plain Go
-// funcs, assembled by the caller at each call site from the element's static
-// kind — exactly as map.go and set.go take `hash, eq`, and for the same reason:
-// the caller knows the element type, so it can build the function rather than
-// look it up at run time.
-//
-// That makes a bound on a std type no harder than a bound on a std function.
-// A `where T: Comparable` on a std function is discharged at the call site by
-// the concrete type argument (internal/irbuild/iterext.go's iterMaxArity
-// header), and nothing about a type changes that. Ranges over Int, Codepoint,
-// Decimal, String and Float all reach here with a concrete element type.
+// funcs, as map.go and set.go take `hash, eq`. The VM's range hosts
+// (internal/vm/rangehosts.go) pass them.
 //
 // The methods each function needs, and no function takes one it does not use:
 //
@@ -49,8 +39,7 @@ import "math"
 //	steps Discrete.steps_between    known_count
 //	step  Steppable.step_by         step_by
 //
-// `is_bounded` takes none, which is the observable half of "a Range value needs no
-// dictionary at all": it is `case r.end` and nothing more.
+// `is_bounded` takes none: it is `case r.end` and nothing more.
 //
 // # Every function here is std's own body with the recursion flattened
 //

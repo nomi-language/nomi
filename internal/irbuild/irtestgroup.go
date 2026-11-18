@@ -1,6 +1,6 @@
 package irbuild
 
-// A TEST CASE UNDER A `group`, RETAINED FOR THE VM.
+// A test case under a `group`.
 //
 // A group contributes three things to each case in it:
 //
@@ -18,10 +18,6 @@ package irbuild
 //   - `setup` and the case's pattern: the setup's statements run in the
 //     case's own activation before the body, and the pattern binds its
 //     value. See irtestsetup.go.
-//
-// A GROUPED CASE IS RETAINED FOR THE VM ONLY. The test-body reader does not
-// stage a setup, and the body may read an app field, which the reader does
-// not spell, so a grouped case is never read back.
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -162,8 +158,7 @@ func (g *gen) irStartupFunc(token any, fd *ast.FuncDef, arg ast.Node, row *testR
 	k := g.irEntryBootStartupKind(fd)
 	// kindInvalid: lookup — the checker typed no Startup parameter for the boot.
 	if k == kindInvalid || !irRetainedValueKind(k) {
-		g.dc.note("a test boot whose Startup parameter has no retained kind")
-		return nil, false
+		panic("irbuild: irStartupFunc: the boot's parameter is std's Startup struct, which is retained")
 	}
 	at := g.irNodePos(arg)
 	f := ir.NewFuncFor(at, sym)
@@ -215,8 +210,9 @@ func (g *gen) irEntryBootStartupKind(fd *ast.FuncDef) kind {
 	return g.project(ft.Params[0])
 }
 
-// irTestGrouped reports whether a case inherits anything from a group, which
-// is what makes it VM-only.
+// irTestGrouped reports whether a case inherits anything from a group. Such a
+// case is built at its declaration; any other waits for
+// irRetryWalkOnlyTestBodies (irTestBodyBuild).
 func irTestGrouped(c testCaseDecl) bool {
 	return len(c.setups) != 0 || c.ctxPat != nil || c.clock != "" || c.row != nil
 }

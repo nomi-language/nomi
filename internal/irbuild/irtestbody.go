@@ -66,11 +66,9 @@ var irTestBodyObserved func(name string, f *ir.Func)
 
 // irTestBody builds a grouped case's body into a retained `ir.Func` and
 // declares it in this module's test table, or queues an ungrouped case for
-// irRetryWalkOnlyTestBodies. It answers nil: the case is built for the VM.
-//
-// It DECLINES rather than refuses, exactly as `irScalarBuild` does: the caller
-// reports the refusal with the decline's reason, and a second refusal here
-// would name the same gap twice.
+// irRetryWalkOnlyTestBodies. A case it does not build retains nothing, and
+// the VM reports it as BLOCKED (vm.Machine.Unretained); testCase (tests.go)
+// clears the decline this leaves in g.dc.
 //
 // It is called with the case's scope freshly pushed, before anything else
 // binds the body's names, and the order is load-bearing. `bl.lower`'s
@@ -79,11 +77,11 @@ var irTestBodyObserved func(name string, f *ir.Func)
 // Building first means a body's own names come from `bl.bound`, the
 // `ir.Bind` destinations this builder created, which is the def-use chain
 // the graph carries.
-func (g *gen) irTestBody(c testCaseDecl, name string) *irScalarPlan {
+func (g *gen) irTestBody(c testCaseDecl, name string) {
 	p, group, st := g.irTestBodyBuild(c, name)
 	if st == irTestBodyDeferred {
 		// Observed, linted and declared by irRetryWalkOnlyTestBodies.
-		return nil
+		return
 	}
 	var fn *ir.Func
 	if st == irTestBodyBuilt {
@@ -92,12 +90,9 @@ func (g *gen) irTestBody(c testCaseDecl, name string) *irScalarPlan {
 	if irTestBodyObserved != nil {
 		irTestBodyObserved(name, fn)
 	}
-	if st != irTestBodyBuilt {
-		return nil
+	if st == irTestBodyBuilt {
+		g.irTestBodyDeclare(len(g.irModule().Tests()), name, fn, group)
 	}
-	g.irTestBodyDeclare(len(g.irModule().Tests()), name, fn, group)
-	g.dc.why = "a grouped test case, built for the VM only"
-	return nil
 }
 
 // irTestBodyDeclare lints a retained body and declares it at position at of
@@ -106,8 +101,7 @@ func (g *gen) irTestBodyDeclare(at int, name string, fn *ir.Func, group ir.TestG
 	if err := g.irLint(fn); err != nil {
 		// `irScalarLower`'s discipline: a malformed `ir.Func` is a producer
 		// bug with no user input that reaches it, and recording a refusal
-		// instead would let a wrong graph reach a consumer while the tally
-		// reported a missing feature.
+		// instead would report a missing feature where the builder is wrong.
 		panic(err)
 	}
 	g.irModule().DeclareTestAt(at, name, fn, group)
@@ -119,12 +113,12 @@ type irTestBodyStatus int
 const (
 	irTestBodyDeclined irTestBodyStatus = iota
 	irTestBodyBuilt
-	// irTestBodyDeferred is a case whose reader-shaped attempt declined and
-	// whose VM-only attempt waits in gen.irTestRetries.
+	// irTestBodyDeferred is an ungrouped case, whose build waits in
+	// gen.irTestRetries.
 	irTestBodyDeferred
 )
 
-// irTestRetry is one ungrouped case waiting for its VM-only attempt. at is
+// irTestRetry is one ungrouped case waiting for its build. at is
 // its position in the module's test table, counted when the walk reached it.
 type irTestRetry struct {
 	c     testCaseDecl
@@ -156,7 +150,7 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 		return nil, ir.TestGroup{}, irTestBodyDeclined
 	}
 	if irTestGrouped(c) {
-		if p, ok := g.irTestBodyAttempt(c, name, group, irTestGrouped(c)); ok {
+		if p, ok := g.irTestBodyAttempt(c, name, group); ok {
 			return p, group, irTestBodyBuilt
 		}
 		g.dc.close()
@@ -165,10 +159,10 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 	// AN UNGROUPED CASE IS BUILT AFTER THE MODULE WALK IS COMPLETE. It resolves
 	// types and calls, and resolving writes generator state: registering the
 	// generic TEMPLATE's mirror of `shapes.Holder` in `g.types`, for one,
-	// would make later lowering find that mirror instead of minting the
+	// would make later lowering find that mirror instead of building the
 	// `Holder<Int>` instance. Built once `Generate` has walked every module,
 	// nothing it writes can change another body's lowering, so there is
-	// nothing to restore. TestIRTestBody_CorpusWalkRetryMovesNoSource is the guard.
+	// nothing to restore.
 	at := 0
 	if g.irMod != nil {
 		at = len(g.irMod.Tests())
@@ -177,15 +171,15 @@ func (g *gen) irTestBodyBuild(c testCaseDecl, name string) (*irScalarPlan, ir.Te
 	return nil, ir.TestGroup{}, irTestBodyDeferred
 }
 
-// irRetryWalkOnlyTestBodies runs the VM-only attempt of every case whose
-// reader-shaped attempt declined, in declaration order, and declares each body
-// it retains at the position the walk reached it.
+// irRetryWalkOnlyTestBodies builds every queued ungrouped case, in declaration
+// order, and declares each body it retains at the position the walk reached
+// it.
 //
 // `Generate` calls it once every module of the program is walked, so the
-// generator state the attempts write — types, instances, package-wide names,
-// used packages, the error list — is read by nothing that emits. What they
-// keep is IR: the module, its symbols, the `ir.Table` of type identities and
-// the host keys, which the retained graph names and the VM links.
+// generator state the builds write (types, instances, the error list) cannot
+// change another body's lowering. What they keep is IR: the module, its
+// symbols, the `ir.Table` of type identities and the host keys, which the
+// retained graph names and the VM links.
 func (g *gen) irRetryWalkOnlyTestBodies() {
 	if g.fromObjects {
 		return
@@ -209,7 +203,7 @@ func (g *gen) irRetryWalkOnlyTestBodiesWith(setup func(testCaseDecl) func()) {
 		prevInTest, prevResult := g.inTest, g.result
 		g.inTest, g.result = true, kindInvalid
 		g.pushScope()
-		p, ok := g.irTestBodyAttempt(r.c, r.name, r.group, true)
+		p, ok := g.irTestBodyAttempt(r.c, r.name, r.group)
 		g.popScope()
 		g.inTest, g.result = prevInTest, prevResult
 		undo()
@@ -314,9 +308,8 @@ func irFlushLateInstances(gens []*gen) {
 	}
 }
 
-// irTestBodyAttempt builds one case's body. walked admits what a body built
-// for the VM only admits.
-func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup, walked bool) (*irScalarPlan, bool) {
+// irTestBodyAttempt builds one case's body.
+func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup) (*irScalarPlan, bool) {
 	at := g.irNodePos(c.body)
 	fn := ir.NewFunc(at, name)
 	sh := &irFuncShell{fn: fn, syms: map[string]*ir.Symbol{}, params: map[string]ir.Temp{},
@@ -330,7 +323,7 @@ func (g *gen) irTestBodyAttempt(c testCaseDecl, name string, group ir.TestGroup,
 	bl := &irScalarBuilder{
 		g: g, sh: sh, f: fn, b: sh.entry,
 		bound: map[string]ir.Temp{}, boundK: map[string]kind{},
-		inTest: true, testApp: group.Boot != nil, testWalked: walked,
+		inTest: true, testApp: group.Boot != nil,
 		root: c.body,
 		// A block lowered as a value (an arm of an `if` or `case` used as a
 		// value, `x = begin ... end`) opens its own defer scope, as it does in a
@@ -427,24 +420,21 @@ func (bl *irScalarBuilder) testStmts(stmts []ast.Node) bool {
 // when it is, whether it lowered. A loop is still bounded by the runner's
 // step budget, which ends a case that never ends.
 func (bl *irScalarBuilder) testLeaving(s ast.Node) (leaves, ok bool) {
-	var e ast.Node
-	switch st := s.(type) {
-	case *ast.ExprStmt:
-		e = st.Expr
-	case *ast.Binding:
-		e = st.Value
-	case *ast.Assertion:
-		// `assert "x" == { io.print("y")  return }`: nothing is judged.
-		e = st.Expr
-	default:
-		return false, false
+	// A statement with a value is searched as a block's is (irScalarBlock):
+	// in `assert "x" == { io.print("y")  return }` nothing is judged, and
+	// in `defer note(if c { return } else { return })` nothing is
+	// registered.
+	e := s
+	stmt, isStmt := s.(*ast.ExprStmt)
+	if isStmt {
+		e = stmt.Expr
 	}
 	prefix, region, found := bl.g.exitingOperand(e)
 	if !found {
 		return false, false
 	}
 	endless := bl.g.neverFinishes(region)
-	if _, isStmt := s.(*ast.ExprStmt); isStmt && region == e && !endless {
+	if region == e && !(isStmt && endless) {
 		return false, false
 	}
 	if bl.recording > 0 {
@@ -537,7 +527,7 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		return true
 	case *ast.ExprStmt:
 		if isNilNode(st.Expr) {
-			return false
+			panic("irbuild: testStmt: the parser never builds an ExprStmt with a nil expression")
 		}
 		switch e := st.Expr.(type) {
 		case *ast.If, *ast.Case:
@@ -634,13 +624,10 @@ func (bl *irScalarBuilder) testVerdict(at ast.Node, val ir.Temp, k kind) bool {
 // an arm may assert, bind and print. The statement's value is discarded, so an
 // `if` may omit its `else` and the arms need not agree on a kind.
 //
-// Only in a body built for the VM only: the test-body reader spells one
-// straight block. A region inside an assertion subject is the subject's own
-// lowering.
+// A region inside an assertion subject is the subject's own lowering.
 func (bl *irScalarBuilder) testRegion(n ast.Node) bool {
 	if bl.recording > 0 {
-		bl.g.dc.note("an `if` or `case` statement in a test body the builder reads back")
-		return false
+		panic("irbuild: testRegion: an `if` or `case` statement while an assertion subject is recording, where testStmt never runs")
 	}
 	sig := irFuncSig{testArms: true}
 	var ok bool
@@ -658,8 +645,7 @@ func (bl *irScalarBuilder) testRegion(n ast.Node) bool {
 // and a `with` in it holds for the block alone.
 func (bl *irScalarBuilder) testBlock(block *ast.Block) bool {
 	if bl.recording > 0 {
-		bl.g.dc.note("a test-body block in a body the builder reads back")
-		return false
+		panic("irbuild: testBlock: a block statement while an assertion subject is recording, where testStmt never runs")
 	}
 	defer bl.g.enterBlockTypes(block)()
 	bound, boundK, syms := bl.bound, bl.boundK, bl.sh.syms
@@ -745,13 +731,11 @@ func lastStmtExpr(stmts []ast.Node) ast.Node {
 
 // testBinding lowers `name = expr` inside a test body.
 //
-// An annotation is a coercion target with its own refusal paths, which a body
-// the Go reader reads back declines and a VM-only body takes as a named
-// function's body does. Repeated names also decline until assertion metadata
-// follows the latest binding.
+// An annotation is a coercion target with its own refusal paths, taken as a
+// named function's body takes it.
 func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 	if bl.inTest && ast.IsDiscardName(b.Name) {
-		// `_ = expr` (or `_x: T = expr`) in a VM-only body: the value and its drop, as a named
+		// `_ = expr` (or `_x: T = expr`): the value and its drop, as a named
 		// function's body lowers it.
 		src, k, ok := bl.bindingExpression(b)
 		if !ok {
@@ -765,10 +749,9 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 		return bl.testAssertionBinding(b, a)
 	}
 	if (b.TypeAnnotation != nil && !bl.inTest) || ast.IsDiscardName(b.Name) {
-		bl.g.dc.note("an annotated or discarded test-body binding")
-		return false
+		panic("irbuild: testBinding: testBinding is only reached from testStmt, whose builders (test body, setup, subtests row) all have inTest set, and a discard is handled above")
 	}
-	// A VM-only body may rebind a name it bound itself, as a named function's
+	// A test body may rebind a name it bound itself, as a named function's
 	// body may: the new binding is a fresh identity, reads in its initializer
 	// see the previous one, and a later assertion's "defined as:" block
 	// follows the latest binding (testDefs is overwritten below). Shadowing a
@@ -779,8 +762,8 @@ func (bl *irScalarBuilder) testBinding(b *ast.Binding) bool {
 		bl.g.dc.note("a test-body binding that shadows or rebinds: " + b.Name)
 		return false
 	}
-	// A VM-only body's annotation is a coercion target exactly as in a named
-	// function's body; bindingExpression is that path. A block-valued
+	// The annotation is a coercion target exactly as in a named function's
+	// body; bindingExpression is that path. A block-valued
 	// binding takes a named function's typed block delivery.
 	var src ir.Temp
 	var k kind
@@ -937,10 +920,10 @@ func (bl *irScalarBuilder) pipeStageValues(prefixes []ast.Node) (ir.Temp, kind, 
 // report will print, then the judgement.
 //
 // THE ROWS ARE BUILT BY THE SUBJECT'S OWN LOWERING, not here. A comparison,
-// a call's arguments and `irLogical`'s two branches each record their own
+// a call's arguments and `shortCircuit`'s two branches each record their own
 // operands, because which operands are worth showing is a property of the OPERATOR and
-// not of the assertion. `bl.recording` is this builder's `g.traceVar`: the
-// flag that says a subject is being lowered and the rows are live.
+// not of the assertion. `bl.recording` is the count that says a subject is
+// being lowered and the rows are live.
 //
 // A BARE BOUND NAME IS DECLINED, and it is the one decline that is about the
 // REPORT rather than about the subject. See the file header.
@@ -953,7 +936,7 @@ func (bl *irScalarBuilder) assertion(t *ast.Assertion) bool {
 // assertion's value: `truth = assert True` binds True.
 func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool) {
 	if t.Check || isNilNode(t.Expr) {
-		return ir.NoTemp, kindInvalid, false
+		panic("irbuild: assertionValue: nothing in the parser or analysis sets Assertion.Check, and the parser requires an expression")
 	}
 	// A bare name this body bound carries the binding's "defined as:" block
 	// in its report (assertDefinedAs). Any other bare name, a parameter or a
@@ -976,7 +959,7 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 	// a tag comparison or the value's own `failure` impl — and
 	// `rt.AssertionSite` has a separate entry point for each. The VM reads
 	// the shape off the value; an Assertable's verdict is its impl's answer,
-	// called below. The test-body reader spells only JudgeBool.
+	// called below.
 	shape := irAssertShapeKind(k)
 	var assertable *assertableImpl
 	if k != kindBool && !shape {
@@ -986,13 +969,13 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 		}
 	}
 	if !mobile {
-		// The subject is named twice in the Go the reader spells: once in
-		// `JudgeBool`'s argument list and once in the statement's own
-		// `_ = <subject>` discard, so an impure one must be in a temporary.
+		// A subject that is not mobile is held in a temporary of its own,
+		// which the `ir.Assert` judges and the caller takes as the
+		// assertion's value.
 		//
-		// AFTER THE ROWS AND BEFORE THE `ir.Assert`: the records are built
-		// inside the subject's own lowering, and the copy holds the value
-		// that lowering answered.
+		// The copy comes after the rows and before the `ir.Assert`: the
+		// records are built inside the subject's own lowering, and the copy
+		// holds the value that lowering answered.
 		c := ir.NewCopy(bl.g.irNodePos(t.Expr), bl.f.NewTemp(), subj)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: k, copy: irCopyForce})
@@ -1017,13 +1000,8 @@ func (bl *irScalarBuilder) assertionValue(t *ast.Assertion) (ir.Temp, kind, bool
 
 // record builds one `values:` row, if a subject is being lowered.
 //
-// `gen.recordOperand`'s counterpart, and the two differ in ONE thing: the
-// builder renders the operand at build time into Go text
-// (`gen.inspectCode`) and holds that text in the Record's temporary, while
-// this holds the OPERAND ITSELF and leaves the rendering to the consumer.
-// `ir.Record.Val`'s doc records both readings; the node's meaning is "the
-// observed value" and a Temp naming its rendering is the Go reader's own
-// realization, the way every entry in `irScalarSide` is.
+// The Record holds the operand itself, the observed value, and the VM renders
+// it when a failing assertion prints the row.
 //
 // THE SUPPRESSION IS A REQUEST AND NOT AN ANSWER, which is `ir.Record`'s own
 // rule: `rt.RecordOperand` applies "an operand that reads exactly like its
@@ -1033,21 +1011,9 @@ func (bl *irScalarBuilder) record(at ast.Node, val ir.Temp, k kind, suppressRedu
 	if bl.recording == 0 || isNilNode(at) || val == ir.NoTemp {
 		return
 	}
-	// THE ROW'S GO RENDERING IS THE READER'S, AND THE KIND DECIDES WHETHER
-	// THE READER CAN SPELL IT WITHOUT MINTING AT BUILD TIME.
+	// The row is recorded for a value of any kind: `internal/vm` renders it
+	// with `rt.RowText`, which is total.
 	//
-	// `bl.g.inspector(k)` is not a pure query: for a NAMED kind it reaches
-	// `namedInspector`, which mints `nomiInspect_X_N` through `gen.uniq` and
-	// registers an inspector for the module to emit. `gen.uniq` is one
-	// counter for every generated identifier, so asking it during the build
-	// would renumber every later identifier in the file, breaking this
-	// type's rule that it mints no Go identifier.
-	//
-	// SO THE CHECK IS A CLOSED PREDICATE OVER THE KIND and touches nothing.
-	// It is narrower than `inspector` — a named type's row IS renderable,
-	// and this declines the reader for it rather than claiming otherwise.
-	// Retention is unaffected either way: `internal/vm` renders with
-	// `rt.RowText`, which is total.
 	// A span, so a triple-quoted operand's row says where its closing
 	// `"""` is: a String diff numbers the literal's lines from it
 	// (internal/vm's literalFirstLine).
@@ -1126,7 +1092,7 @@ func tripleQuoted(n ast.Node) bool {
 }
 
 // recordCallArgs builds the `values:` rows a CALL inside an assertion subject
-// contributes: `gen.recordCallArgs`.
+// contributes.
 //
 // THE LITERAL RULE IS THE WHOLE CONTENT OF IT AND IT IS NOT SYMMETRIC. An
 // ordinary call's literal arguments are noise — `assert double(3) == 7`
@@ -1138,7 +1104,7 @@ func tripleQuoted(n ast.Node) bool {
 // `skipAssertionArg` IS CALLED RATHER THAN RESTATED, so the classification of
 // a lambda, a block and a type name has one home.
 // recordCallSlots is recordCallArgs for a call whose written arguments were
-// placed by argSlotPlan: `recordAssertionCallSlots` exactly. Positional
+// placed by the call's record (callPlan). Positional
 // arguments come first, each against the slot at its own position, except that
 // a last positional lambda or block that moved reads the last slot; then named
 // arguments in written order, each against its parameter's slot. A slot no

@@ -105,7 +105,7 @@ func (s expectedSeed) fillExact(resultTy Type, subs map[*TypeParam_]Type) {
 // expected type does not take. Every other position converts as a value
 // does, and is left to the arguments.
 func exactParams(t Type, exact bool, out map[*TypeParam_]bool) {
-	switch tt := resolveTV(t).(type) {
+	switch tt := resolveTypeVar(t).(type) {
 	case *TypeParam_:
 		if exact {
 			out[tt] = true
@@ -159,13 +159,13 @@ func (c *checker) seedWantedBy(arg ast.Node, param Type, expected Type) map[*Typ
 		return out
 	}
 	a := ungroupExpr(unwrapNamedArg(arg))
-	_, bare := resolveTV(param).(*TypeParam_)
+	_, bare := resolveTypeVar(param).(*TypeParam_)
 	if byteLiteralsTakeExpected([]ast.Node{a}, expected) || refinementLiteralsTakeExpected([]ast.Node{a}, expected) {
 		return all()
 	}
 	switch v := a.(type) {
 	case *ast.Lambda:
-		ft, ok := resolveTV(param).(*FuncType)
+		ft, ok := resolveTypeVar(param).(*FuncType)
 		if !ok {
 			if needsExpectedType(v) || lambdaTailNeedsExpectedType(v) {
 				return all()

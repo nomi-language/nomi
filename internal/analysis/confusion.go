@@ -22,6 +22,12 @@ func (e TypeError) withFix(fix *parser.Fix) TypeError {
 	return e
 }
 
+// coded is e with code as its Code and args as its Args.
+func (e TypeError) coded(code string, args ...string) TypeError {
+	e.Code, e.Args = code, args
+	return e
+}
+
 // nameFix is the Fix replacing the name n with text.
 func nameFix(title string, n *ast.Ident, text string) *parser.Fix {
 	return parser.Replace(title, n.Line, n.Col, n.Line, n.Col+len(n.Name), text)

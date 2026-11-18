@@ -98,7 +98,7 @@ fn total(rolls: List<Int>, frame: Int) -> Int
 end
 
 /// The pins of the next `count` rolls.
-fn bonus(rolls: List<Int>, count: Int) -> Int
+fn bonus(rolls: List<Int>, count: NonNegativeInt) -> Int
     rolls |> Iter.take(count) |> Iter.sum()
 end
 

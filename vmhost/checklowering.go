@@ -205,6 +205,9 @@ func loweringProblems(p *Program, src string) (problems, err error) {
 		}
 		found = append(found, ds...)
 	}
+	// What `nomi check` holds to nomi.toml's [capabilities] lists.
+	held, _ := p.capabilityProblems(p.checkedRoots()...)
+	found = append(found, held...)
 	found = append(found, p.currencyCallHints()...)
 	if len(found) == 0 {
 		return nil, nil

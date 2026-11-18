@@ -1,6 +1,6 @@
 package irbuild
 
-// The try class. irassert.go sits beside it.
+// The try class.
 //
 // `ir.Try.Text` is the `?` as `format.RenderNode` renders it. The two forms
 // of a `?` render differently: a `?` stage renders the whole `*ast.Binary`
@@ -15,10 +15,9 @@ package irbuild
 //	navigate    read the unwrap variant's payload    ir.Proj
 //
 // A pattern is a sequence, not a node, and that holds here for a construct
-// that is not a pattern: irTryCond goes through `ir.NewMatchVariant` and
-// takes the condition off it with irVariantTest. A `case` arm puts the true
-// answer on an opened block and a `?` puts it on a one-line guard: one
-// node, two deliveries.
+// that is not a pattern: tryValue (irretainedtry.go) appends an `ir.Try`
+// over the operand and an `ir.Proj` of the unwrap variant's payload after
+// it.
 //
 // The boundary is not on the node. `?` unwinds to the enclosing
 // activation (a lambda is one, so a `?` inside a lambda leaves the lambda

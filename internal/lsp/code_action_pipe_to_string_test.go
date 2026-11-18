@@ -8,7 +8,7 @@ import (
 )
 
 const pipeToStringDecls = "type Fahrenheit Decimal\n\nimpl Display for Fahrenheit\n    fn to_string(Fahrenheit(n)) -> String\n        \"${n} F\"\n    end\nend\n\n" +
-	"fn label(width: Int, text: String) -> String\n    String.pad_start(text, width)\nend\n\n"
+	"fn label(width: NonNegativeInt, text: String) -> String\n    String.pad_start(text, width)\nend\n\n"
 
 // pipeToStringActions opens src and returns its published diagnostics and
 // the "Add `|> Display.to_string()`" fixes offered over them.

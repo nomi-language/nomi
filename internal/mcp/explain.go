@@ -23,6 +23,18 @@ var explanations = map[string]string{
 		"Or take the subtype as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
 		"`NonZeroInt.try_from(...)`, which answers a `Maybe`. A non-zero literal, and a value whose range rules zero out " +
 		"(`n + 1` with `n` a `NonNegativeInt`), pass as they are.",
+	"capability-not-allowed": "The project's nomi.toml has a `[capabilities]` table, which lists what the program may reach outside " +
+		"itself: files, the network, processes, output and input, the clock, randomness, the environment, tasks, Go bindings. `allow` " +
+		"holds the whole program, `allow_in_tests` adds names for `nomi test`, and `[capabilities.modules]` holds a required module's " +
+		"own files to a list of their own. Each name is a std module as an import writes it (`std::fs`) or `go:` and a Go import path. " +
+		"This call reaches a name its list does not hold. A call counts when anything can reach it from `main`, the boot, an exported " +
+		"function or a test, even if it never runs: a branch never taken, a function passed as a value and never called, any " +
+		"implementation of an interface function, any `Display` body when a value is displayed. The help's chain says why this one " +
+		"counts. Fix it one of three ways: add the name to the list the message names; remove the call; or change how the program " +
+		"reaches it, following the chain: a call in a `Display` body, an interface implementation or a function value nothing needs " +
+		"counts, so move it out of the code the program reaches. Args are the name, the module over its list (empty for the " +
+		"program's), and the names that list allows. A Go program that embeds Nomi can hold it to a list of its own " +
+		"(`vmhost.WithCapabilities`); a call over that list says the host allows it, and the fix is the host's.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
@@ -87,4 +99,34 @@ var explanations = map[string]string{
 		"List it, or use the currency's literal.",
 	"custom-currency-call": "A `Currency.custom` call with a literal code and digits writes a currency " +
 		"a ``Currency`...` `` literal already names; the literal is checked at compile time.",
+	"undefined-variable": "A name is used as a value and nothing in scope binds it. Check the spelling against the help's " +
+		"suggestion, bind the name before the use, or import the file that declares it. The Bool literals are `True` and `False`, " +
+		"and an absent value is `None`.",
+	"unknown-type": "A type name names no type in scope. Check the spelling, declare the type, or import the file or std module " +
+		"that declares it; the help names a std module or a dotted type when one matches.",
+	"undefined-type-or-variant": "A capitalized name is used as a value and names no type and no variant in scope. " +
+		"Check the spelling, import the file or std module that declares the type, or write a variant through its enum (`Color.Red`).",
+	"no-type-member": "`Type.member` names a member the type does not have: no function in its `impl` blocks, no variant and no " +
+		"constant by that name. Check the spelling against the help's suggestion, or declare the function in an `impl Type` block.",
+	"argument-type-mismatch": "A call passes an argument whose type its parameter does not take. The message names the argument, " +
+		"the parameter's type and the argument's. Pass a value of the parameter's type, or convert the value first; the help says " +
+		"how when one conversion is right for the two types.",
+	"missing-field": "A struct or variant literal leaves out a field that has no default. Write the field in the literal, " +
+		"or give it a default in the declaration.",
+	"missing-impl-function": "An `impl Iface for T` block lacks a function the interface requires and gives no default for. " +
+		"Write the function in the block with the signature the interface declares.",
+	"non-exhaustive-case": "A `case` has no arm for some value of its subject. Add an arm for each value the message names, " +
+		"or a `_` arm that takes the rest. A guarded arm does not count toward coverage.",
+	"bare-pipe-stage": "A pipe stage is a name without parentheses (`3 |> double`). A stage is a call that the pipe fills at " +
+		"its first argument, and a bare name is a function reference. Write the call: `3 |> double()`.",
+	"lambda-pipe-stage": "A lambda stands where a pipe stage is expected (`x |> fn v -> v + 1`). A lambda is not a stage; " +
+		"`then` applies one to the piped value: `x |> then fn v -> v + 1`.",
+	"useless-return": "A bare `return` is the last statement of its body, where the body ends anyway. Remove it. " +
+		"If the function is not written yet, write `todo`.",
+	"missing-translation": "A `phrase` or a `noun` has no entry in the catalog of a locale the project lists. " +
+		"Add the entry to that locale's catalog, as the help spells out, or list the locale in `[i18n].partial_locales`.",
+	"named-collection-literal": "A list or map literal is written with std's type name in front (`List[1, 2]`, `Map{\"a\" => 1}`). " +
+		"A list literal is `[1, 2]` and a map literal is `{\"a\" => 1}`; remove the name.",
+	"dollar-interpolation": "A string writes `$name` where a value named `name` is in scope. That is text, not the value: " +
+		"Nomi interpolates with `${name}`. It is a warning, since the text may be meant.",
 }

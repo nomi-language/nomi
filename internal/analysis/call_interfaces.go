@@ -29,36 +29,44 @@ func (c *checker) recordCallInterfaces(nodes []ast.Node) {
 	}
 	for _, top := range nodes {
 		ast.Inspect(top, func(n ast.Node) bool {
-			call, ok := n.(*ast.Call)
-			if !ok {
-				return true
+			if call, ok := n.(*ast.Call); ok {
+				c.recordCallInterface(call)
 			}
-			pos, named := calleeKey(call.Func)
-			if !named {
-				return true
-			}
-			ref := c.fa.References[pos]
-			if ref == nil || ref.DispatchImpl != nil || ref.CallInterface != nil || ref.CallType == nil {
-				return true
-			}
-			base := interfaceMethodBase(ref)
-			if base == nil {
-				return true
-			}
-			it := c.calledInterface(call.Func, base)
-			if it == nil {
-				return true
-			}
-			inst := callInterfaceInstance(it, base.Name, ref.CallType)
-			if inst == nil {
-				return true
-			}
-			cp := *ref
-			cp.CallInterface = inst
-			c.fa.References[pos] = &cp
 			return true
 		})
 	}
+	// A membership test's call is no child of the test (checkIn).
+	for _, call := range c.fa.Memberships {
+		c.recordCallInterface(call)
+	}
+}
+
+// recordCallInterface records the interface instance call goes through,
+// when it calls an interface function without a DispatchImpl.
+func (c *checker) recordCallInterface(call *ast.Call) {
+	pos, named := calleeKey(call.Func)
+	if !named {
+		return
+	}
+	ref := c.fa.References[pos]
+	if ref == nil || ref.DispatchImpl != nil || ref.CallInterface != nil || ref.CallType == nil {
+		return
+	}
+	base := interfaceMethodBase(ref)
+	if base == nil {
+		return
+	}
+	it := c.calledInterface(call.Func, base)
+	if it == nil {
+		return
+	}
+	inst := callInterfaceInstance(it, base.Name, ref.CallType)
+	if inst == nil {
+		return
+	}
+	cp := *ref
+	cp.CallInterface = inst
+	c.fa.References[pos] = &cp
 }
 
 // interfaceMethodBase is the interface function symbol ref resolves to, or
@@ -139,7 +147,7 @@ func (c *checker) calledInterface(callee ast.Node, base *Symbol) *InterfaceType 
 
 // callInterfaceInstance is interface it at the type arguments a call of
 // its function name is instantiated at, ct: its own parameters are read
-// off ct by matching the function's signature against it (elabMatch).
+// off ct by matching the function's signature against it (matchTypeParams).
 // nil when one is not found there.
 func callInterfaceInstance(it *InterfaceType, name string, ct Type) *InterfaceType {
 	if len(it.TypeParamDefs) == 0 {
@@ -153,10 +161,10 @@ func callInterfaceInstance(it *InterfaceType, name string, ct Type) *InterfaceTy
 	solved := map[*TypeParam_]Type{}
 	for i := range decl.Params {
 		if i < len(inst.Params) {
-			elabMatch(decl.Params[i], inst.Params[i], solved, 0)
+			matchTypeParams(decl.Params[i], inst.Params[i], solved)
 		}
 	}
-	elabMatch(decl.Return, inst.Return, solved, 0)
+	matchTypeParams(decl.Return, inst.Return, solved)
 	args := make([]Type, len(it.TypeParamDefs))
 	for i, d := range it.TypeParamDefs {
 		t, found := solved[d]

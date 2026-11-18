@@ -5,7 +5,7 @@ import (
 )
 
 // TestBareCall_ABareNameThatIsNotARequirementIsUnaffected is the control the
-// test above needs: `ifaceSiblingRequirementCall` is asked for EVERY unresolved
+// test above needs: `bareImplCall` is asked for EVERY unresolved
 // bare call in an impl body, so an arm that answered unconditionally would
 // swallow a genuine `call to an unlowered function` and this mechanism would
 // look like a fix for something it never touched.

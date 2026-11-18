@@ -13,7 +13,7 @@ import (
 // # WHAT EACH GUARD HERE CAN AND CANNOT SEE
 //
 // The reflection guards in stdenum_test.go already hold the LAYOUT against
-// rt.Json in both directions (TestStdEnumSlotsMatchRT), the neutrality
+// rt.Json in both directions (TestStdEnumSpecReachesTheRealRtType), the neutrality
 // precondition per slot (TestStdEnumDefsArePackageNeutral) and the spec against
 // std's own declaration order (TestStdEnumShapeMatchesStdSource). None of them
 // builds a value, so none can see whether a `case` arm reads the field its own

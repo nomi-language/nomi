@@ -11,11 +11,10 @@ import (
 // `typealias Handler (String, String) -> Result<String, String>` — a MODULE-LEVEL
 // transparent synonym.
 //
-// # It is nothing to emit, and that is the whole shape of the work
+// # An alias lowers to nothing
 //
-// An alias introduces no type. `Count` IS `Int`, so a parameter annotated
-// `Count` wants `Int`'s kind and there is no def, no Go declaration, no mirror
-// and no import. blocklocaltype.go does the same for a BLOCK-local alias
+// An alias introduces no type. `Count` is `Int`, so a parameter annotated
+// `Count` wants `Int`'s kind and there is no def and no mirror. blocklocaltype.go does the same for a BLOCK-local alias
 // (`typeOf`'s `blockLocalAlias` arm); this file is one lookup one table over,
 // not a representation.
 //
@@ -122,33 +121,13 @@ func (g *gen) importedAliasKind(sym *analysis.Symbol) kind {
 	return g.project(sym.Type)
 }
 
-// qualifiedAliasKind is the kind `shapes.Board` names when `Board` is a
-// module-level `typealias` in the file bound to `shapes`, reporting whether it
-// was one. The same transparency as moduleAliasKind, reached through the
-// qualifier's scope rather than this file's.
-func (g *gen) qualifiedAliasKind(t *ast.QualifiedType) (kind, bool) {
-	qualifier, name, ok := qualifiedTypeParts(t)
-	if !ok {
-		return kindInvalid, false
-	}
-	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
-	if sym == nil {
-		return kindInvalid, false
-	}
-	if alias, isAlias := sym.Node.(*ast.TypeAlias); !isAlias || (alias.TargetTypeExpr == nil && len(alias.Bounds) == 0) {
-		return kindInvalid, false
-	}
-	return g.importedAliasKind(sym), true
-}
-
 // moduleAliasDecl reports a module-level alias whose target the builder cannot
 // represent, and is silent for one it can.
 //
 // The alias itself is nothing to build — it introduces no type — so a
 // representable target produces nothing at all. An unrepresentable one is
 // refused HERE rather than at each use, because the declaration is the position
-// a programmer can act on and the uses are consequences of it. That is
-// blockAliasDecl's rule for the block-local form, applied one table over.
+// a programmer can act on and the uses are consequences of it.
 //
 // A BOUND alias is refused only when one of the interfaces it names is one this
 // builder cannot dispatch through. The conjunction ITSELF needs no
@@ -157,7 +136,7 @@ func (g *gen) qualifiedAliasKind(t *ast.QualifiedType) (kind, bool) {
 func (g *gen) moduleAliasDecl(t *ast.TypeAlias) {
 	if len(t.TypeParams) > 0 {
 		// A generic alias names a type only at a use's type arguments
-		// (genericAliasKind), where an unrepresentable one is refused.
+		// (typeOf), where an unrepresentable one is refused.
 		return
 	}
 	if t.TargetTypeExpr == nil {
@@ -334,57 +313,4 @@ func (g *gen) qualifiedAliasDef(name string) (*typeDef, bool) {
 		return nil, true
 	}
 	return k.def, true
-}
-
-// genericAliasKind is the kind `Pair<Int>` names when `Pair` is a generic
-// typealias, `typealias Pair<T> (T, T)`, reporting whether it was one: its
-// target, or its `A and B`, read with each type parameter standing for the
-// kind of the use's argument, as a generic type's template is read. The
-// target is the type the checker resolved in the alias's own file (its
-// AliasTemplate), so a name in it means what it means where the alias is
-// declared, whichever file uses it.
-func (g *gen) genericAliasKind(name string, params []ast.TypeExpr) (kind, bool) {
-	sym := resolvedTypeSymbol(g.fa, name)
-	if sym == nil {
-		return kindInvalid, false
-	}
-	alias, isAlias := sym.Node.(*ast.TypeAlias)
-	if !isAlias || len(alias.TypeParams) == 0 {
-		return kindInvalid, false
-	}
-	if len(params) != len(alias.TypeParams) {
-		return kindInvalid, true
-	}
-	args := make([]kind, len(params))
-	for i := range alias.TypeParams {
-		args[i] = g.typeOf(params[i])
-		// kindInvalid: propagates — the argument's own refusal is reported where it was resolved.
-		if args[i] == kindInvalid {
-			return kindInvalid, true
-		}
-	}
-	if at, isTemplate := sym.Type.(*analysis.AliasTemplate); isTemplate && at.Target != nil && len(at.Params) == len(args) {
-		frame := make(map[string]kind, len(args))
-		for i, p := range at.Params {
-			frame[p.Name_] = args[i]
-		}
-		g.genericSubst = append(g.genericSubst, frame)
-		defer func() { g.genericSubst = g.genericSubst[:len(g.genericSubst)-1] }()
-		return g.project(at.Target), true
-	}
-	if g.fa.Definitions[sym.Pos] != sym {
-		// Another file's alias with no template: its target's names are
-		// that file's, which this file's scope cannot read.
-		return kindInvalid, true
-	}
-	frame := make(map[string]kind, len(args))
-	for i, tp := range alias.TypeParams {
-		frame[tp.Name] = args[i]
-	}
-	g.genericSubst = append(g.genericSubst, frame)
-	defer func() { g.genericSubst = g.genericSubst[:len(g.genericSubst)-1] }()
-	if alias.TargetTypeExpr != nil {
-		return g.typeOf(alias.TargetTypeExpr), true
-	}
-	return g.typeOf(&ast.ConjunctionType{Members: alias.Bounds, Line: alias.Line, Col: alias.Col}), true
 }

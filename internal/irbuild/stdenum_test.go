@@ -80,7 +80,7 @@ func TestStdEnumShapeMatchesStdSource(t *testing.T) {
 }
 
 // TestStdEnumDefsArePackageNeutral is the guard on the precondition that lets
-// these *typeDefs be process-wide at all.
+// these *typeDef values be process-wide at all.
 //
 // foreign.go's rule is that a shared def is wrong because its component kinds
 // are interned in the OWNER's g.comps, so a component renders correctly in one
@@ -150,9 +150,8 @@ func TestStdEnumSpecReachesTheRealRtType(t *testing.T) {
 		// Nothing beyond the tag and the slots the SPEC declares. An
 		// unaccounted rt field is storage the builder never writes, which is a
 		// silent representation split — preludeGoArgs' check, and the same
-		// reason. TestStdEnumSlotsMatchRT names WHICH field; this one is the
-		// arithmetic, kept because it fails even when a spec and a stray field
-		// happen to share a name.
+		// reason. This one is the arithmetic: it fails even when a spec and
+		// a stray field happen to share a name.
 		slots := map[string]bool{}
 		for _, v := range s.variants {
 			if v.field != "" {

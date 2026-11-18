@@ -313,15 +313,11 @@ func localReplaceDirs(projectRoot string) []string {
 }
 
 func discoverNomiFile(file string, byImportPath map[string]*DiscoveredPackage) error {
-	data, err := os.ReadFile(file)
+	// A syntax error is the analyzer's to report; discovery only decides
+	// whether the wrapper build path is needed.
+	nodes, err := ParseFile(file)
 	if err != nil {
 		return fmt.Errorf("ffirun: reading %s: %w", file, err)
-	}
-	nodes, parseErr := nomiparser.Parse(lexer.Lex(string(data)))
-	if parseErr != nil {
-		// Let the regular runtime/analyzer report syntax errors. Discovery only
-		// controls whether the wrapper build path is needed.
-		nodes, _ = nomiparser.ParseWithRecovery(lexer.Lex(string(data)))
 	}
 	aliases := make(map[string]*nomiast.ExternPackage)
 	collectExternPackages(nodes, aliases)
@@ -395,6 +391,61 @@ func nomiModuleName(dir string) string {
 		return ""
 	}
 	return manifest.Module.Name
+}
+
+// BindingImportPath is the Go import path of the `go`-bound declaration on
+// line of a file whose nodes are nodes: the `gopkg` its alias names. ok is
+// false when no declaration there binds a Go package (an embedder's `host
+// fn` with no `go` selector).
+func BindingImportPath(nodes []nomiast.Node, line int) (path string, ok bool) {
+	aliases := make(map[string]*nomiast.ExternPackage)
+	collectExternPackages(nodes, aliases)
+	var find func(nodes []nomiast.Node) (string, bool)
+	find = func(nodes []nomiast.Node) (string, bool) {
+		for _, n := range nodes {
+			switch v := n.(type) {
+			case *nomiast.ImplBlock:
+				if path, ok := find(v.Items); ok {
+					return path, true
+				}
+			case *nomiast.ExternFunc:
+				if v.Line != line || v.ForeignName == "" {
+					continue
+				}
+				if pkg := aliases[v.ForeignAlias]; pkg != nil {
+					return pkg.ImportPath, true
+				}
+			}
+		}
+		return "", false
+	}
+	return find(nodes)
+}
+
+// ParseFile is the nodes of the Nomi file at path, as discovery reads them:
+// a file with a syntax error is read as far as recovery reaches.
+func ParseFile(path string) ([]nomiast.Node, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	nodes, parseErr := nomiparser.Parse(lexer.Lex(string(data)))
+	if parseErr != nil {
+		nodes, _ = nomiparser.ParseWithRecovery(lexer.Lex(string(data)))
+	}
+	return nodes, nil
+}
+
+// BoundImportPaths is the Go import path of each `gopkg` declaration in a
+// file whose nodes are nodes, as BindingImportPath reads one.
+func BoundImportPaths(nodes []nomiast.Node) []string {
+	aliases := make(map[string]*nomiast.ExternPackage)
+	collectExternPackages(nodes, aliases)
+	out := make([]string, 0, len(aliases))
+	for _, pkg := range aliases {
+		out = append(out, pkg.ImportPath)
+	}
+	return out
 }
 
 func collectExternPackages(nodes []nomiast.Node, aliases map[string]*nomiast.ExternPackage) {

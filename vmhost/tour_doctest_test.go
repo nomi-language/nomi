@@ -37,24 +37,12 @@ import (
 // ```nomi blocks are highlighted-only snippets.
 // Content lives in the Astro Starlight site at tour/src/content/docs/.
 //
-// A test case the VM cannot run fails the block unless tourBlockedOnVM lists
-// it, and a listed case that runs fails too, so the list is exactly the
-// playground's BLOCKED set.
+// A test case the VM cannot run fails the block.
 //
 // A block that imports a tour module (`import sqlite`) runs in a second
 // test binary that links the module's Go (runTourModuleBlocks), held to the
 // same checks and regenerated the same way.
 func TestTourDoctests(t *testing.T) {
-	unblocked := map[string]bool{}
-	for name := range tourBlockedOnVM {
-		unblocked[name] = true
-	}
-	defer func() {
-		for name := range unblocked {
-			t.Errorf("tour case %q is listed in tourBlockedOnVM but was not blocked; "+
-				"the VM runs it now, so remove it from the list", name)
-		}
-	}()
 	root := filepath.Clean("../tour/src/content/docs")
 	var chapters []string
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -142,7 +130,7 @@ func TestTourDoctests(t *testing.T) {
 			}
 			if tools := b.Tools(); len(tools) > 0 {
 				t.Run(name, func(t *testing.T) {
-					if shown, ok := checkTourToolBlock(t, b, tools, unblocked); ok {
+					if shown, ok := checkTourToolBlock(t, b, tools); ok {
 						if regenerate {
 							shownAt[chapter] = append(shownAt[chapter], tourShown{Line: b.Line, Text: shown})
 							return
@@ -177,7 +165,7 @@ func TestTourDoctests(t *testing.T) {
 			}
 			runnable++
 			t.Run(name, func(t *testing.T) {
-				shown, failure := tourBlockShown(t, b, b.Code, "", unblocked)
+				shown, failure := tourBlockShown(t, b, b.Code, "")
 				if regenerate {
 					shownAt[chapter] = append(shownAt[chapter], tourShown{Line: b.Line, Text: shown})
 					return
@@ -281,7 +269,7 @@ func checkTourErrorBlock(t *testing.T, b doctest.Block) {
 // and its tests' report, and the run's failure. It fails the test on what
 // no expect block may hold: a case the VM cannot run, a failed test, or a
 // run that stops.
-func tourBlockShown(t *testing.T, b doctest.Block, code, printed string, unblocked map[string]bool) (shown, failure string) {
+func tourBlockShown(t *testing.T, b doctest.Block, code, printed string) (shown, failure string) {
 	t.Helper()
 	files, data := tourFileSystem(t, b)
 	out := bytes.NewBufferString(printed)
@@ -327,10 +315,6 @@ func tourBlockShown(t *testing.T, b doctest.Block, code, printed string, unblock
 		report = vmhost.CaseReport(cases) + "\n"
 		for _, result := range cases {
 			if result.Blocked != nil {
-				if _, listed := tourBlockedOnVM[result.Name]; listed {
-					delete(unblocked, result.Name)
-					continue
-				}
 				t.Errorf("tour block test %q is blocked on the VM:\n%s\n\n%s", result.Name, b.Code, strings.Join(result.Blocked, "\n"))
 				continue
 			}
@@ -353,7 +337,7 @@ func tourBlockShown(t *testing.T, b doctest.Block, code, printed string, unblock
 // nomiTool), then the block on the files they wrote, and shown is what the
 // page shows, what the tools printed first. The files the tools write must
 // be the ones the block holds, which the page shows before any run.
-func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool, unblocked map[string]bool) (shown string, ok bool) {
+func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool) (shown string, ok bool) {
 	t.Helper()
 	if b.CompilesOnly() {
 		t.Fatalf("a tool runs before the block's run, so a block with a tool: word is run; drop `no-run` or `compile-only`:\n%s", b.Code)
@@ -397,7 +381,7 @@ func checkTourToolBlock(t *testing.T, b doctest.Block, tools []doctest.Tool, unb
 	if code != b.Code {
 		t.Fatalf("the block's tools write other files than the block holds, and the page shows the block's before any run; put the tools' files in the block:\n%s", code)
 	}
-	shown, _ = tourBlockShown(t, b, code, printed.String(), unblocked)
+	shown, _ = tourBlockShown(t, b, code, printed.String())
 	return shown, true
 }
 
@@ -707,9 +691,3 @@ func tourCompileError(t *testing.T, code string) string {
 	}
 	return ""
 }
-
-// tourBlockedOnVM is every tour test case the VM cannot run, by case name,
-// with the reason `nomi test` reports for it. The playground prints each one
-// as BLOCKED. Shrink it as retention grows; never add to it without a named
-// cause. Empty since attached `//!` tests run on the VM.
-var tourBlockedOnVM = map[string]string{}

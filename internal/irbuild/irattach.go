@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -32,7 +33,7 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 		}
 		member, ok := tn.Member.(*ast.SimpleType)
 		if !ok {
-			return no()
+			panic(fmt.Sprintf("irbuild: attachedVariant: a literal-attach prefix whose member is %T, which the parser does not build", tn.Member))
 		}
 		var owner ast.Node = &ast.TypeIdent{Name: tn.Module, Line: line, Col: col}
 		if mod, rest, dotted := strings.Cut(tn.Module, "."); dotted && !ast.IsPublic(mod) {
@@ -70,7 +71,7 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 		}
 		return bl.importedVariantCall(call, ti)
 	default:
-		return no()
+		panic("irbuild: attachedVariant: a literal-attach prefix that is no qualified, dot-variant or simple type name, which the parser does not build")
 	}
 	call.Func = fa
 	return bl.variantCall(call, fa)

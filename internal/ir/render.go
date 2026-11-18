@@ -23,22 +23,20 @@ package ir
 //	                 (Module.ImplementRowDebug)
 //	a derived impl   Row IGNORES it             Debug HONOURS it
 //
-// `internal/irbuild/inspect.go` records the Decimal and Dynamic rows. Getting
+// `internal/irbuild/debuginspect.go` records the Decimal row. Getting
 // any of these wrong produces a silent wrong string: a passing
 // assertion renders no operand, so only a deliberately failing fixture sees
 // one.
 //
 // WHY NOT THREE NODES. They are one operation — read a value, answer a
-// String — in three DISCIPLINES, and the builder says so by having one
-// `applyInspector` that spells all three. The same argument gives one
+// String — in three DISCIPLINES. The same argument gives one
 // `ir.Match` over two positions and one `ir.Record` over two row lists.
 //
 // WHY NOT ZERO NODES, which is the live alternative because the renderer is
 // the consumer's. The rendering is the one operation in this package whose
-// WRONG ANSWER IS A STRING rather than a crash or a type error, and the three
-// disciplines are chosen per call site by which of three builder functions
-// the site happens to call. Nothing else asks the question out loud. A node
-// asks it once.
+// WRONG ANSWER IS A STRING rather than a crash or a type error, and the
+// discipline is chosen per call site by the producer. Nothing else asks the
+// question out loud. A node asks it once.
 //
 // NO NEW FIELD, and the discipline is the only one. Every property a reader
 // would reach for is derivable from the kind — whether a String is quoted,
@@ -54,9 +52,6 @@ package ir
 // convention are below theirs.
 
 // RenderKind is which of Nomi's three renderings of a value this is.
-//
-// Three values, all populated: `internal/irbuild/irrender.go` pins the
-// call-site count of each.
 type RenderKind uint8
 
 const (
@@ -165,10 +160,7 @@ func newRender(pos Pos, dst, src Temp, kind RenderKind, who string) *Render {
 	if dst == NoTemp {
 		// A rendering with no destination is dead: it runs nothing and
 		// answers a String nobody reads. `ir.newRef` refuses the same shape
-		// for the same reason, and this package has one site that would hit
-		// it — `recordComparisonOperands` asks only whether an operand CAN
-		// be rendered and throws the answer away, which is a QUERY over the
-		// renderer table rather than a rendering. See irrender.go.
+		// for the same reason.
 		panic(who + ": a rendering nobody reads is dead; do not build it")
 	}
 	return &Render{pos: pos, dst: dst, src: src, kind: kind}
@@ -194,7 +186,7 @@ func (r *Render) Src() Temp { return r.src }
 // refusal, which can be reported. A structural rendering cannot
 // refuse for that reason and cannot honour a hand-written impl either — so a
 // consumer that substituted one for the other would print a wrong string with
-// nothing to report. `internal/irbuild`'s `debugRendering` header describes
+// nothing to report. `internal/irbuild/debuginspect.go`'s header describes
 // that mistake.
 func (r *Render) Dispatches() bool { return r.kind != RenderRow }
 

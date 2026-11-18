@@ -767,6 +767,7 @@
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:has_diagnostic	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair	ran
 09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:pair	ran
+09-functions-and-control-flow/parameter_types_from_defaults/parameter_types_from_defaults_test.nomi:shout default 2	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Mode.inspect	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.inspect	ran
 09-functions-and-control-flow/parameter_types_from_defaults/search.nomi:Page.window	ran
@@ -1354,6 +1355,7 @@
 11-interfaces-and-impls/interface_defaults/engine.nomi:Engine.inspect	ran
 11-interfaces-and-impls/interface_defaults/engine.nomi:Engine.label	ran
 11-interfaces-and-impls/interface_defaults/engine.nomi:Mode.inspect	ran
+11-interfaces-and-impls/interface_defaults/engine.nomi:describe default 2	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Box.announce	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Box.inspect	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:Box.item	ran
@@ -1377,6 +1379,7 @@
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:User.greeting	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:User.inspect	ran
 11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:User.name	ran
+11-interfaces-and-impls/interface_defaults/interface_defaults_test.nomi:announce default 2	ran
 11-interfaces-and-impls/interface_defaults/priority.nomi:Priority.compare	ran
 11-interfaces-and-impls/interface_defaults/priority.nomi:Priority.inspect	ran
 11-interfaces-and-impls/interface_defaults/priority.nomi:make	ran
@@ -4157,6 +4160,8 @@ std/actors.nomi:Actor.inspect	ran
 std/actors.nomi:Actor.inspect	ran
 std/actors.nomi:Actor.start	ran
 std/actors.nomi:Actor.start	ran
+std/actors.nomi:Actor.start default 3	ran
+std/actors.nomi:Actor.start default 3	ran
 std/actors.nomi:Actor.stop	ran
 std/actors.nomi:Actor.stop	ran
 std/actors.nomi:CallError.equal	ran

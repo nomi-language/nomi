@@ -24,17 +24,25 @@ import (
 //   - An interface function's: lowered at the call under the declaring
 //     file's names, or by the declaring file's accessor
 //     (ifaceslotdefault.go), whichever file the call is in.
+//   - An interface function's, called on an interface value: a call
+//     dispatched on the receiver for each omitted slot, which runs the
+//     accessor of the impl function the call reaches (ifaceslotdispatch.go).
 //   - Another file's: a call of the declaring file's accessor for each
 //     omitted slot, over the slots before it (siblingdefault.go), the
-//     written operands held first so they run before any default. Defaults
-//     that are closed literals, which read the same in any file, and those
-//     of a callee whose file builds no accessors, are lowered at the call
-//     when every name in them means here what it means there
+//     written operands held first so they run before any default. The
+//     defaults of a callee whose file builds no accessors are lowered at
+//     the call when every name in them means here what it means there
 //     (defaultNamesAgree), reading the checker's answers about their nodes
 //     from the declaring file's analysis (lowerNamesFrom).
 //
-// A call into a std module from outside it is not filled here: the module
-// builds its own arity wrappers and slot accessors (stdslotfill.go).
+// A default lowered at the call or in an accessor is outside the impl block
+// or interface that declares it, so a bare call of a sibling in it
+// (`extra: Int = side(q) * 2`) is lowered from the checker's record of the
+// callee's owner (bareImplCall), as the same call in a body of the block is.
+//
+// A call into a std module from outside it does not reach fillCallDefaults:
+// it fills each omitted slot with the module's own accessor
+// (stdslotfill.go), through fillFromAccessors.
 
 // defaultHome is where a call's callee is declared, for fillCallDefaults:
 // the declaring file's gen, nil for this one; the accessor that gen builds
@@ -44,7 +52,14 @@ import (
 type defaultHome struct {
 	owner    *gen
 	accessor func(slot int) *ir.Symbol
-	inst     *monoInst
+	// keyed: the accessor of a slot before operand keyAt, the receiver,
+	// also takes it (keyedSlot). dispatched: accessor names a slot's
+	// dispatch symbol, which a call dispatches on the receiver
+	// (slotDispatchHome); otherwise it names one impl function's accessor
+	// (implSlotHome).
+	keyed, dispatched bool
+	keyAt             int
+	inst              *monoInst
 	// params is the parameter list of the function the builder reached,
 	// when the checker could not name it: a call of an interface function
 	// on a type parameter (DefaultedCall.Decl an *ast.InterfaceMethod)
@@ -85,22 +100,21 @@ func (g *gen) callDefaultsOf(t *ast.Call) *analysis.DefaultedCall {
 }
 
 // fillCallDefaults fills each slot of a call t's operand vector that the
-// call leaves out, as the checker recorded it. kinds holds every
-// parameter's kind and temps every written operand at its slot, ir.NoTemp
-// at each omitted one; mobile marks a written operand that may stay
-// unforced. home is where the callee is declared. ok is false when a
-// default does not lower.
+// call leaves out, as the checker recorded it: the plan's defaulted slots
+// (argPlan.defaulted). kinds holds every parameter's kind and temps every
+// written operand at its slot, ir.NoTemp at each defaulted one; mobile
+// marks a written operand that may stay unforced. home is where the callee
+// is declared. ok is false when a default does not lower.
 func (bl *irScalarBuilder) fillCallDefaults(t *ast.Call, kinds []kind, temps []ir.Temp, mobile []bool, home defaultHome) bool {
-	var omitted []int
-	for i, tmp := range temps {
-		if tmp == ir.NoTemp {
-			omitted = append(omitted, i)
-		}
+	g := bl.g
+	plan, planned := g.callPlan(t, len(temps))
+	if !planned {
+		panic("irbuild: fillCallDefaults: a call whose record places an argument past the callee's parameters")
 	}
+	omitted := plan.defaulted
 	if len(omitted) == 0 {
 		return true
 	}
-	g := bl.g
 	// The checker records what fills the slots a call leaves out, at the
 	// slots it routed the call's arguments to (analysis package doc,
 	// "Elaboration"), and TestElaborationGate holds it.
@@ -113,26 +127,70 @@ func (bl *irScalarBuilder) fillCallDefaults(t *ast.Call, kinds []kind, temps []i
 			panic("irbuild: a call leaving out a slot its CallDefaults record does not name")
 		}
 	}
-	params := defaultParams(rec, home, omitted)
+	if home.dispatched {
+		return bl.fillFromAccessors(t, kinds, temps, mobile, home, len(temps))
+	}
+	for _, run := range defaultRuns(rec, home, omitted) {
+		if !bl.fillDefaultRun(t, run, kinds, temps, mobile, home) {
+			return false
+		}
+	}
+	return true
+}
+
+// defaultRun is omitted slots of a call, ascending and with no other
+// omitted slot between them, whose defaults one parameter list holds
+// (defaultParams). Each run is filled under its own declaration's
+// parameter names, after the runs before it.
+type defaultRun struct {
+	params []ast.Param
+	slots  []int
+}
+
+// defaultRuns splits a call's omitted slots into runs by the parameter
+// list holding each one's default: one run, unless the call reaches an
+// impl function that declares some of them and its interface function the
+// rest (analysis.DefaultedCall.From).
+func defaultRuns(rec *analysis.DefaultedCall, home defaultHome, omitted []int) []defaultRun {
+	var runs []defaultRun
+	for _, s := range omitted {
+		params := defaultParams(rec, home, s)
+		if n := len(runs); n > 0 && &runs[n-1].params[0] == &params[0] {
+			runs[n-1].slots = append(runs[n-1].slots, s)
+			continue
+		}
+		runs = append(runs, defaultRun{params: params, slots: []int{s}})
+	}
+	return runs
+}
+
+// fillDefaultRun fills one run of a call t's omitted slots (defaultRuns),
+// as fillCallDefaults does every omitted slot: where its declaration is,
+// as the comment at the top of this file says.
+func (bl *irScalarBuilder) fillDefaultRun(t *ast.Call, run defaultRun, kinds []kind, temps []ir.Temp, mobile []bool, home defaultHome) bool {
+	g := bl.g
+	params, omitted := run.params, run.slots
+	through := omitted[len(omitted)-1] + 1
 	sig := &fnSig{decl: &ast.FuncDef{Params: params}, params: kinds, instance: home.inst}
-	if o, iface := g.ifaceParamDefault(params[omitted[0]].Default); iface && ifaceDefaultGeneric(o) {
+	o, iface := g.ifaceParamDefault(params[omitted[0]].Default)
+	if iface && ifaceDefaultGeneric(o) {
 		// A record lacking one leaves the frame nil, which callDefaults
 		// declines at the default.
-		sig.ifaceFrame, _ = g.ifaceDefaultFrameAt(t, o)
+		sig.ifaceFrame, sig.ifaceTypes, _ = g.ifaceDefaultFrameAt(t, o)
 	}
 	owner := home.owner
 	if owner == nil || owner == g {
-		return bl.callDefaults(sig, temps)
+		return bl.callDefaultsThrough(sig, temps, through)
 	}
-	if _, iface := g.ifaceParamDefault(params[omitted[0]].Default); iface {
+	if iface {
 		// An interface's defaults, which an impl inherits: each is filled
 		// under its declaring file's names (ifaceslotdefault.go).
-		return bl.callDefaults(sig, temps)
+		return bl.callDefaultsThrough(sig, temps, through)
 	}
-	if byAccessor(params, home, omitted) {
-		return bl.fillFromAccessors(t, kinds, temps, mobile, home.accessor)
+	if byAccessor(home, omitted) {
+		return bl.fillFromAccessors(t, kinds, temps, mobile, home, through)
 	}
-	if !g.defaultsLowerHere(rec, home) {
+	if !g.defaultsLowerHere(params, omitted, home) {
 		g.dc.note("a default naming what only its declaring file can, with no accessor for it")
 		return false
 	}
@@ -142,43 +200,41 @@ func (bl *irScalarBuilder) fillCallDefaults(t *ast.Call, kinds []kind, temps []i
 	if unit := slices.Index(g.reg.gens, owner); unit >= 0 {
 		defer g.lowerNamesFrom(unit)()
 	}
-	return bl.callDefaults(sig, temps)
+	return bl.callDefaultsThrough(sig, temps, through)
 }
 
 // byAccessor reports whether the omitted slots of a call of another file's
 // function are filled by the declaring file's accessors: when it builds
-// them, unless every default is a closed literal (irClosedLiteral).
-func byAccessor(params []ast.Param, home defaultHome, omitted []int) bool {
+// one for each.
+func byAccessor(home defaultHome, omitted []int) bool {
 	if home.accessor == nil {
 		return false
 	}
 	for _, s := range omitted {
-		if !irClosedLiteral(params[s].Default) {
-			return true
+		if home.accessor(s) == nil {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
-// defaultParams is the parameter list whose defaults fill omitted: the
-// record's, or, for an interface function the checker left to dispatch,
-// the reached function's when it writes a default at each omitted slot.
-func defaultParams(rec *analysis.DefaultedCall, home defaultHome, omitted []int) []ast.Param {
-	if _, iface := rec.Decl.(*ast.InterfaceMethod); !iface || len(home.params) != len(rec.Params) {
-		return rec.Params
+// defaultParams is the parameter list holding the default that fills slot:
+// the one the record names for it (analysis.DefaultedCall.SlotSource), or,
+// where that is an interface function's and the builder reached a function
+// that declares a default there (defaultHome.params, a call on a type
+// parameter's instance), that function's.
+func defaultParams(rec *analysis.DefaultedCall, home defaultHome, slot int) []ast.Param {
+	decl, params := rec.SlotSource(slot)
+	if _, iface := decl.(*ast.InterfaceMethod); iface && len(home.params) == len(params) && home.params[slot].Default != nil {
+		return home.params
 	}
-	for _, s := range omitted {
-		if home.params[s].Default == nil {
-			return rec.Params
-		}
-	}
-	return home.params
+	return params
 }
 
-// defaultsLowerHere reports whether every default the record names means
-// in this file what it means in the declaring one (defaultNamesAgree), so
-// it may be lowered at the call.
-func (g *gen) defaultsLowerHere(rec *analysis.DefaultedCall, home defaultHome) bool {
+// defaultsLowerHere reports whether every default of params at omitted
+// means in this file what it means in the declaring one
+// (defaultNamesAgree), so it may be lowered at the call.
+func (g *gen) defaultsLowerHere(params []ast.Param, omitted []int, home defaultHome) bool {
 	owner := home.owner
 	if owner == nil || owner == g {
 		return true
@@ -186,19 +242,21 @@ func (g *gen) defaultsLowerHere(rec *analysis.DefaultedCall, home defaultHome) b
 	if owner.fa == nil || g.fa == nil {
 		return false
 	}
-	for _, s := range rec.Slots {
-		if !defaultNamesAgree(rec.Params[s].Default, owner, g) {
+	for _, s := range omitted {
+		if !defaultNamesAgree(params[s].Default, owner, g) {
 			return false
 		}
 	}
 	return true
 }
 
-// fillFromAccessors fills each omitted slot of temps with a call to the
-// declaring file's accessor for it (irFileSlotRetain), in ascending order,
+// fillFromAccessors fills each omitted slot of temps before through with a
+// call to home's accessor for it (irFileSlotRetain), in ascending order,
 // after every written operand is held, so the written arguments run first
-// and each default runs once.
-func (bl *irScalarBuilder) fillFromAccessors(at ast.Node, params []kind, temps []ir.Temp, mobile []bool, accessor func(int) *ir.Symbol) bool {
+// and each default runs once. A keyed home passes its receiver, operand
+// keyAt, after the slots before an omitted one before it (keyedSlot); a
+// dispatched home's calls dispatch on that receiver (slotDispatchHome).
+func (bl *irScalarBuilder) fillFromAccessors(at ast.Node, params []kind, temps []ir.Temp, mobile []bool, home defaultHome, through int) bool {
 	pos := bl.g.irNodePos(at)
 	for i, t := range temps {
 		if t == ir.NoTemp || (i < len(mobile) && mobile[i]) || irHeldValue(bl.f, t, bl.sides) {
@@ -209,17 +267,39 @@ func (bl *irScalarBuilder) fillFromAccessors(at ast.Node, params []kind, temps [
 		bl.side(cp.Dst(), irScalarSide{k: params[i], copy: irCopyForce})
 		temps[i] = cp.Dst()
 	}
-	for slot := range temps {
+	keyAt := -1
+	if home.keyed {
+		keyAt = home.keyAt
+	}
+	for slot := range temps[:through] {
 		if temps[slot] != ir.NoTemp {
 			continue
 		}
 		// params are the callee's held signature's.
 		irHeldOperand(params[slot], "a defaulted parameter")
-		sym := accessor(slot)
+		sym := home.accessor(slot)
 		if sym == nil {
 			return false
 		}
-		c := ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, temps[:slot]...)
+		var c *ir.Call
+		switch {
+		case keyAt >= slot:
+			// A receiver after the slot follows the operands before it
+			// (keyedSlot).
+			if temps[keyAt] == ir.NoTemp {
+				panic("irbuild: fillFromAccessors: a keyed call's receiver is a written operand (erasedInterfacePlan, dispatchedCallHome, implSlotHome)")
+			}
+			operands := append(slices.Clone(temps[:slot]), temps[keyAt])
+			if home.dispatched {
+				c = ir.NewDispatchCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, slot, operands...)
+			} else {
+				c = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, operands...)
+			}
+		case home.dispatched:
+			c = ir.NewDispatchCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, keyAt, temps[:slot]...)
+		default:
+			c = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sym, temps[:slot]...)
+		}
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: params[slot]})
 		cp := ir.NewCopy(pos, bl.f.NewTemp(), c.Dst())
@@ -236,7 +316,7 @@ func (bl *irScalarBuilder) fillFromAccessors(at ast.Node, params []kind, temps [
 // filled (fillCallDefaults). A call that omits nothing answers its own
 // operands.
 func (bl *irScalarBuilder) filledOperands(t *ast.Call, args irQualArgs, params []kind, decl []ast.Param, home defaultHome) (irQualArgs, bool) {
-	temps, _, mobile, ok := slottedOperands(t, args, params, decl)
+	temps, mobile, ok := bl.g.slottedOperands(t, args, params, decl)
 	home.params = decl
 	if !ok || !bl.fillCallDefaults(t, params, temps, mobile, home) {
 		return args, false

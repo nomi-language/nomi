@@ -7,7 +7,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // A generic interface implemented at several type arguments.
@@ -15,7 +14,7 @@ import (
 // `impl Contains<String> for Text` beside `impl Contains<Regex> for Text` are
 // two blocks for one (interface, receiver) pair, told apart by their
 // interface type arguments (implDef.instArgs). The front end chose one for
-// each call (analysis' impl_selection.go) and recorded the chosen function on
+// each call (internal/analysis/impl_selection.go) and recorded the chosen function on
 // the call's method reference; every call lowers to a direct call of it. So
 // such blocks never enter implsByIface, whose key is the pair: g.instImpls
 // holds them, and each call route that finds no implsByIface entry asks
@@ -114,7 +113,7 @@ func writePortableKind(b *strings.Builder, k kind) {
 
 // writeDeclKey spells a declaration in a key: by its linkage path, the
 // same in every lowering and every process, a std declaration's or one of
-// a program being lowered (programDeclKeys), and any other by its node.
+// a program being lowered (holdDeclKeys), and any other by its node.
 func writeDeclKey(b *strings.Builder, n ast.Node) {
 	if d, ok := stdLinkNames()[n]; ok {
 		b.WriteString("@" + d.String())
@@ -215,49 +214,18 @@ type instMethodToken struct {
 	method string
 }
 
-// instMethodSym is the dispatch symbol of an instance's method m.
-func (g *gen) instMethodSym(d *ifaceDef, m *ifaceMethod) *ir.Symbol {
+// instMethodHome is where an instance's method m is interned: the gen
+// declaring the template, the token and the name (ifaceMethodHome).
+func (g *gen) instMethodHome(d *ifaceDef, m *ifaceMethod) (*gen, any, string) {
 	owning := g
 	if d.foreign != "" {
 		if g.reg == nil || d.unit < 0 || d.unit >= len(g.reg.gens) || g.reg.gens[d.unit] == nil {
-			return nil
+			return nil, nil, ""
 		}
 		owning = g.reg.gens[d.unit]
 	}
 	token := instMethodToken{tpl: d.instOf, args: portableArgsKey(d.instArgs), method: m.name}
-	return owning.irCalleeSym(token, ifaceInstLabel(d)+"."+m.name)
-}
-
-// ifaceInstTypeOf is the existential of a generic interface named at type
-// arguments, `Gets<String>`: the template's instance at them.
-func (g *gen) ifaceInstTypeOf(name string, params []ast.TypeExpr) (kind, bool) {
-	if g.iterOwns(name) {
-		// std's `Iter<T>` is the lowered sequence (structuralTypeOf).
-		return kindInvalid, false
-	}
-	d, _ := g.ifaceNamed(name)
-	if d == nil {
-		// `Contains<Int>`: a std generic interface (stdprogiface.go).
-		d = g.stdProgIfaceNamed(name)
-	}
-	tpl := g.genericTemplateDecl(d)
-	if tpl == nil || len(params) != len(tpl.TypeParams) {
-		return kindInvalid, false
-	}
-	subst := make(map[string]kind, len(params))
-	for i, te := range params {
-		k := g.typeOf(te)
-		// kindInvalid: cascade — the argument's own position reports it.
-		if k == kindInvalid {
-			return kindInvalid, true
-		}
-		subst[tpl.TypeParams[i].Name] = k
-	}
-	inst := g.ifaceInstOf(tpl, subst)
-	if inst == nil || !inst.def.lowerable {
-		return kindInvalid, true
-	}
-	return existential(inst.def), true
+	return owning, token, ifaceInstLabel(d) + "." + m.name
 }
 
 // genericTemplateDecl is the declaration of the generic interface template
@@ -274,15 +242,15 @@ func (g *gen) genericTemplateDecl(d *ifaceDef) *ast.InterfaceDef {
 
 // ifaceInstOf is the template's instance at subst: instantiated here when
 // its signatures mean the same here (ifaceTemplate), else mirrored from the
-// declaring file's.
-func (g *gen) ifaceInstOf(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceInst {
-	if inst := g.stdProgInst(tpl, subst); inst != nil {
+// declaring file's. types is subst as the checker's types, or nil.
+func (g *gen) ifaceInstOf(tpl *ast.InterfaceDef, subst map[string]kind, types map[string]analysis.Type) *ifaceInst {
+	if inst := g.stdProgInst(tpl, subst, types); inst != nil {
 		return inst
 	}
 	if g.ifaceTemplate(tpl.Name) == tpl {
-		return g.ifaceInstAt(tpl, subst)
+		return g.ifaceInstAtTyped(tpl, subst, types)
 	}
-	return g.foreignIfaceInst(tpl, subst)
+	return g.foreignIfaceInst(tpl, subst, types)
 }
 
 // templateOwner is the declaring file of a generic interface another file
@@ -304,8 +272,10 @@ func (g *gen) templateOwner(tpl *ast.InterfaceDef) *typeOwner {
 // file cannot instantiate itself: one it names nowhere, or whose signatures
 // mean something else here. The declaring file instantiates it at the
 // arguments as it sees them, and the mirror's method kinds are imported
-// from that instance, as a mirror of an ordinary interface's are.
-func (g *gen) foreignIfaceInst(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceInst {
+// from that instance, as a mirror of an ordinary interface's are. types is
+// subst as the checker's types, or nil: the checker's types are the
+// program's, so the declaring file's instance carries them too.
+func (g *gen) foreignIfaceInst(tpl *ast.InterfaceDef, subst map[string]kind, types map[string]analysis.Type) *ifaceInst {
 	o := g.templateOwner(tpl)
 	if o == nil || !g.reg.ensureIfaces(o.unit) {
 		return nil
@@ -323,7 +293,7 @@ func (g *gen) foreignIfaceInst(tpl *ast.InterfaceDef, subst map[string]kind) *if
 			return nil
 		}
 	}
-	src := owner.ifaceInstAt(tpl, ownerSubst)
+	src := owner.ifaceInstAtTyped(tpl, ownerSubst, types)
 	if src == nil || !src.def.lowerable {
 		return nil
 	}
@@ -332,7 +302,6 @@ func (g *gen) foreignIfaceInst(tpl *ast.InterfaceDef, subst map[string]kind) *if
 		decl:      tpl,
 		methods:   make(map[string]*ifaceMethod, len(src.def.order)),
 		foreign:   o.fileKey,
-		pkg:       o.pkg,
 		unit:      o.unit,
 		lowerable: true,
 		instOf:    tpl,
@@ -352,8 +321,9 @@ func (g *gen) foreignIfaceInst(tpl *ast.InterfaceDef, subst map[string]kind) *if
 func (g *gen) importIfaceInstKind(src *ifaceDef) (kind, bool) {
 	tpl := src.instOf
 	if len(src.instArgs) != len(tpl.TypeParams) {
-		g.importWhy = "existential over a sibling file type"
-		return kindInvalid, false
+		// An instance's arguments are its template's, in parameter order
+		// (ifaceTemplateArgs).
+		panic("irbuild: importIfaceInstKind: " + src.nomi + " has other arguments than its template has parameters")
 	}
 	subst := make(map[string]kind, len(src.instArgs))
 	for i, a := range src.instArgs {
@@ -367,7 +337,7 @@ func (g *gen) importIfaceInstKind(src *ifaceDef) (kind, bool) {
 	if g.templateOwner(tpl) == nil {
 		inst = g.ifaceInstAt(tpl, subst)
 	} else {
-		inst = g.ifaceInstOf(tpl, subst)
+		inst = g.ifaceInstOf(tpl, subst, nil)
 	}
 	if inst == nil || !inst.def.lowerable {
 		g.importWhy = "existential over a sibling file type"
@@ -392,15 +362,23 @@ func (g *gen) projectIfaceInst(ty *analysis.InterfaceType) kind {
 		return kindInvalid
 	}
 	subst := make(map[string]kind, len(ty.TypeArgs))
+	var types map[string]analysis.Type
 	for i, a := range ty.TypeArgs {
 		k := g.project(a)
 		// kindInvalid: cascade — an argument the builder cannot name.
 		if k == kindInvalid {
 			return kindInvalid
 		}
-		subst[tpl.TypeParams[i].Name] = k
+		name := tpl.TypeParams[i].Name
+		subst[name] = k
+		if ct := g.checkerTypeArg(a); ct != nil {
+			if types == nil {
+				types = make(map[string]analysis.Type, len(ty.TypeArgs))
+			}
+			types[name] = ct
+		}
 	}
-	inst := g.ifaceInstOf(tpl, subst)
+	inst := g.ifaceInstOf(tpl, subst, types)
 	if inst == nil || !inst.def.lowerable {
 		return kindInvalid
 	}

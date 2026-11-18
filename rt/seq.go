@@ -266,7 +266,7 @@ func TakeEach[T any](fr *Frame, src Seq[T], n int64, yield func(fr *Frame, item 
 	return completed || bounded
 }
 
-// SeqTake is `pub fn take<T>(source: Iter<T>, n: Int) -> Iter<T>`.
+// SeqTake is `pub fn take<T>(source: Iter<T>, n: NonNegativeInt) -> Iter<T>`.
 func SeqTake[T any](src Seq[T], n int64) Seq[T] {
 	return Seq[T]{Run: func(fr *Frame, yield func(fr *Frame, item T) bool) bool {
 		return TakeEach(fr, src, n, yield)

@@ -7,72 +7,56 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Named types: a Nomi `struct` or `enum` as a real Go type.
+// Named types: a Nomi `struct`, `enum` or distinct type as a `*typeDef`.
 //
 // # Identity is a pointer, not a string
 //
-// A type's runtime identity as a STRING assembled at construction sites and
+// A type's runtime identity as a string assembled at construction sites and
 // re-parsed at lookup sites fails silently: shortening `json.Json.DecodeError`
 // to `DecodeError` would make it share a dispatch slot with any other file's
-// `DecodeError`. Here a Nomi type's identity IS the
-// `*typeDef` its declaration produced: `kind` carries that pointer, kind
-// equality is Go pointer equality, and two same-named structs declared in two
-// modules are two pointers, two Go type declarations, and two Go packages.
-// There is no string anywhere in the path, so there is nothing to collapse.
-// TestNamedTypeIdentityIsAGoCompileError builds the deliberate mix-up and
-// asserts the Go compiler rejects it.
+// `DecodeError`. Here a Nomi type's identity is the `*typeDef` its declaration
+// produced: `kind` carries that pointer, kind equality is Go pointer equality,
+// and two same-named structs declared in two modules are two pointers. There
+// is no string anywhere in the path, so there is nothing to collapse.
 //
 // # Structs
 //
-// One Go struct, one Go field per Nomi field, in declaration order. Field
-// access is a Go field selector. A field DEFAULT is a Nomi expression
-// evaluated at each construction site that omits it, and evaluated in the
-// DECLARING module's
-// scope, not the constructor's, so it is emitted with the local scopes hidden.
+// The fields, in declaration order. A field default is a Nomi expression
+// evaluated at each construction site that omits it, in the declaring
+// module's scope, not the constructor's, so only the declaring file's gen
+// lowers it (fieldDef.deflt).
 //
-// # Enums: a tagged struct, tag 0 reserved invalid
+// # Enums: variants, tags and payload slots
 //
-// Two properties of this representation are load-bearing enough to be
-// enforced rather than commented:
+// variants[i].tag is i+1, and 0 is reserved. assignSlots gives each payload a
+// slot index, and two rules hold for it:
 //
-// **The payload dedup key is the identical underlying Go type, NOT the
-// layout.** Merging by layout is a silent-wrong-value bug: `Int` and `Float`
-// are both 8 bytes with no pointers, so a layout key merges them into one
-// field and payload recovery either bit-casts or truncates. Here the key is a
-// `kind` VALUE compared with `==`, and `kind` is `{tag, *typeDef}` — so
-// `kindInt == kindFloat` is false by construction and no amount of coincident
-// size or alignment can make the two share a slot. See assignSlots, and
-// TestEnumSlotsDedupByGoTypeNotLayout.
+// **The slot key is the payload's kind, not its layout.** The key is a `kind`
+// value compared with `==`, and `kind` is `{tag, *typeDef}`, so
+// `kindInt == kindFloat` is false and the two never share a slot. See
+// assignSlots, and TestEnumSlotsDedupByGoTypeNotLayout.
 //
-// Dedup is sound because only one variant is live at a time; it is NOT sound
-// WITHIN one variant, because a struct-shaped variant's two `Int` fields are
-// live together. So a slot is reused across variants and never inside one, and
-// the slot count for a Go type is the max over variants of how many payloads
-// of that type the variant carries.
+// A slot is reused across variants, where only one variant is live at a time,
+// and never inside one, because a struct-shaped variant's two `Int` fields are
+// live together. So the slot count for a kind is the max over variants of how
+// many payloads of that kind the variant carries.
 //
-// **Tags start at 1 and 0 means "never constructed".** Go's zero value would
-// otherwise make an uninitialized enum silently equal to the first variant,
-// and `make([]Maybe[T], n)` would produce n copies of it. Nomi has no zero
-// values, so the reservation costs nothing and converts a silent wrong answer
-// into a detectable one.
-//
-// A payload whose Go type is ZERO-SIZED gets no slot at all. That is what
-// makes `embeds`-of-a-zero-sized-type contribute nothing, and it is the
-// mechanism behind `Bool` being a Go `bool` rather than a tagged struct — the
-// same rule, applied to the one enum the compiler special-cases.
+// **A zero-sized payload gets no slot.** Its slot is -1. The builder
+// materializes such a payload from its type where a pattern binds it
+// (irvariantpattern.go, case.go).
 //
 // # Recursion
 //
-// A variant or field referring to its own type, directly or transitively,
-// cannot be a flat inline struct: the size is infinite and Go rejects it. Such
-// an edge is BOXED — the slot holds `*T` and construction allocates. Cycles
-// are found by reachability over the resolved component graph, and every cycle
-// is broken because every edge that can reach its own container is boxed.
+// A field or payload whose type can reach its own container, directly or
+// transitively, is marked boxed (boxFields, assignSlots). Cycles are found by
+// reachability over the resolved component graph. The predicates that decide
+// whether a struct or enum is a retained value read the mark to find a
+// recursive edge (irCyclicNominal; irstruct.go, irvariantvalues.go).
 
 // typeDef is one Nomi struct or enum declaration.
 //
-// A pointer to one of these IS the type's identity: see the package comment
-// above. Nothing keys off the Nomi or Go name.
+// A pointer to one of these is the type's identity: see the comment above.
+// Nothing keys off the Nomi name.
 type typeDef struct {
 	// nomi is the Nomi spelling, for refusal text.
 	nomi string
@@ -87,9 +71,8 @@ type typeDef struct {
 	isEnum bool
 	// isDistinct marks a `type Name Inner` wrapper or a `type Name` marker.
 	// A distinct type is nominally its own type and structurally its inner
-	// one, which is exactly what a Go DEFINED type is, so it lowers to
-	// `type NomiT_X int64` rather than to a wrapper struct — no storage, no
-	// indirection, and the conversion in either direction is free.
+	// one. The VM holds a wrapping distinct as a record over its inner value
+	// (ir.Make's MakeDistinct).
 	isDistinct bool
 	// inner is a wrapping distinct's wrapped kind, kindInvalid for a
 	// zero-sized marker (`type Expired`), which has no inner at all.
@@ -98,22 +81,14 @@ type typeDef struct {
 	fields []fieldDef
 	// variants are an enum's variants; variants[i].tag is i+1.
 	variants []variantDef
-	// slots are an enum's payload storage, deduped by identical Go type.
+	// slots are an enum's payload slots, deduped by identical kind.
 	slots []slotDef
-	// tagName overrides the Go field holding an enum's variant tag. Empty —
-	// meaning `tag` — for every enum this package DECLARES; set for a prelude
-	// enum, whose Go type is hand-written in rt and whose fields therefore
-	// have to be exported for another package to name. See prelude.go.
-	tagName string
 
 	// refusals are the reasons this declaration itself was not lowered.
 	refusals []refusal
-	// blockedBy names the type whose refusal makes this one unlowerable, when
-	// this declaration is fine and a component is not, and blocker is that
-	// type. The pointer is what lets a use site report the ROOT reason rather
-	// than a placeholder naming two types and neither gap; the string stays
-	// because it is what the detail spells. See declRefusal.
-	blockedBy string
+	// blocker is the type whose refusal makes this one unlowerable, when this
+	// declaration is fine and a component is not. The pointer is what lets a
+	// use site report the ROOT reason. See declRefusal.
 	blocker   *typeDef
 	lowerable bool
 	// foreign is the Nomi FILE key of the declaring file when this def is
@@ -128,10 +103,9 @@ type typeDef struct {
 	why       string
 	whyDetail string
 	// preludeOf is the prelude enum this def instantiates and preludeArgs its
-	// type arguments, both nil for an ordinary declaration. Read only when a
-	// mirror has to REBUILD the instance at another package's spelling of the
-	// arguments: `rt.Maybe` is package-neutral and the `T` inside it is not.
-	// See prelude.go and foreign.go's importNamed.
+	// type arguments, both nil for an ordinary declaration. Read when a
+	// mirror has to rebuild the instance over another gen's kinds for the
+	// arguments. See prelude.go and foreign.go's importNamed.
 	preludeOf   *preludeAnchor
 	preludeArgs []kind
 	// genStructOf is the GENERIC STDLIB STRUCT this def instantiates and
@@ -145,8 +119,8 @@ type typeDef struct {
 	//
 	// Read by kind.packageNeutral, so that predicate answers about this def from
 	// the def rather than by trusting that no non-neutral instance was ever
-	// built, and by genStructOf, so an operation arm identifies a Set by SPEC
-	// POINTER instead of by rendered name. See stdgenstruct.go.
+	// built, and by genStructOf, so an operation arm identifies a Set by spec
+	// pointer instead of by name. See stdgenstruct.go.
 	genStructOf   *stdGenStructSpec
 	genStructArgs []kind
 	// genHostOf is the GENERIC STDLIB HOST TYPE this def instantiates and
@@ -160,8 +134,8 @@ type typeDef struct {
 	// be a pointer whose meaning depends on which table built it.
 	//
 	// Read by kind.packageNeutral for genStructOf's reason, and by genHostOf so
-	// an operation arm identifies a `Sender` by SPEC POINTER rather than by
-	// rendered name. See stdgenhost.go.
+	// an operation arm identifies a `Sender` by spec pointer rather than by
+	// name. See stdgenhost.go.
 	genHostOf   *stdGenHostSpec
 	genHostArgs []kind
 	// genericOf is the USER generic struct declaration this def monomorphizes
@@ -178,6 +152,10 @@ type typeDef struct {
 	// re-deriving them. See generictype.go.
 	genericOf   *genericTemplate
 	genericArgs []kind
+	// genericTypes is genericArgs as the checker's types, from the first
+	// construction or projection of the instance that read them (a type
+	// the checker solved), nil until one has (substFrame).
+	genericTypes []analysis.Type
 	// instOrigin is, on a MIRROR of another file's generic instance, the
 	// owner's own def for that instance, and nil everywhere else. It is how
 	// a mirror handed back to the owner (a generic function's argument kind
@@ -189,10 +167,9 @@ type typeDef struct {
 	// carries is that def's, and only its gen can lower it; see
 	// foreignfielddefault.go.
 	ownerDef *typeDef
-	// rtDeclared marks a def whose Go type is hand-written in rt rather than
-	// emitted: a stdlib opaque newtype (`rt.Duration`). typeDecl emits nothing
-	// for one, because a second declaration would be a second Go type for one
-	// Nomi type. See opaque.go.
+	// rtDeclared marks a process-wide def of a type rt declares: a stdlib
+	// opaque newtype (`rt.Duration`). typeDecl replays nothing for one. See
+	// opaque.go.
 	rtDeclared bool
 	// rtOpaque marks a def that is a LEAF this builder may not look inside: a
 	// blessed stdlib primitive whose Go type rt declares (`rt.Bytes`). See
@@ -219,10 +196,9 @@ type typeDef struct {
 	// wrong reason.
 	rtOpaque bool
 
-	// components are the named types stored INLINE inside this one, used for
-	// cycle detection and therefore for boxing. A type reached only through a
-	// pointer — a list's element — is deliberately absent: it cannot make this
-	// type's size infinite, so boxing the field would be pure waste.
+	// components are the named types stored inline inside this one
+	// (appendInlineDefs), used for cycle detection and therefore for the
+	// boxed marks. A type reached only through a list or a map is absent.
 	components []*typeDef
 	// mentions are the named types this one NAMES anywhere in its kind, at any
 	// depth through any composite, used to propagate unlowerability. A
@@ -248,9 +224,6 @@ type typeDef struct {
 type refusal struct {
 	construct string
 	detail    string
-	// probe is the subtree whose own blockers must still be collected, so a
-	// refused declaration does not hide the constructs underneath it.
-	probe []ast.Node
 }
 
 type fieldDef struct {
@@ -268,8 +241,8 @@ type fieldDef struct {
 	// in another file, and its default is a constant that resolves no names.
 	// See stdstruct.go's stdFieldDefault.
 	stdDeflt *stdFieldDefault
-	// boxed is set when the field's type can reach the containing type, so a
-	// flat struct would have infinite size.
+	// boxed is set when the field's type can reach the containing type
+	// (boxFields).
 	boxed bool
 }
 
@@ -296,17 +269,17 @@ type payload struct {
 	k    kind
 	// deflt is a struct-shaped variant field's default, or nil.
 	deflt ast.Node
-	// goDeflt is a GO expression filling this field when a literal omits it, or
-	// "".
+	// stdDeflt is the value filling this field when a literal omits it, or
+	// nil.
 	//
 	// The other half of `deflt`, and the two are exclusive: `deflt` is the
 	// declaring file's Nomi expression, lowered in the gen that constructs the
-	// value, and this is a Go expression emitted verbatim. A SHARED def needs
-	// this one, because a std enum's *typeDef is process-wide and has no gen to
-	// lower Nomi source in — which is precisely the reason stdenum.go's
-	// payloadStructScalar rejects a defaulted std field outright. See
-	// payloadStructFields for why the Go form does not weaken that reason.
-	goDeflt string
+	// value, and this is an rt constant a std enum's spec states
+	// (stdEnumFieldSpec.deflt). A SHARED def needs this one, because a std
+	// enum's *typeDef is process-wide and has no gen to lower Nomi source in,
+	// which is the reason stdenum.go's payloadStructScalar rejects a
+	// defaulted std field outright.
+	stdDeflt *int64
 	// slot indexes typeDef.slots, or -1 for a zero-sized payload, which is
 	// stored nowhere at all.
 	slot int
@@ -315,9 +288,6 @@ type payload struct {
 type slotDef struct {
 	k     kind
 	boxed bool
-	// users names the variants sharing this slot, for the generated comment.
-	// It is the only place the dedup is legible to somebody reading the Go.
-	users []string
 }
 
 func (d *typeDef) variant(name string) *variantDef {
@@ -352,8 +322,8 @@ func (d *typeDef) field(name string) *fieldDef {
 //     and the *typeDefs are interned process-wide, so that home would be
 //     shared by every concurrent `Generate` in the process.
 //
-//   - ONE FIELD WOULD SERVE THREE DIFFERENT WALKS. `zeroSized`, `reaches`
-//     (here) and `firstUninspectable` (inspect.go) each need the guard. The
+//   - ONE FIELD WOULD SERVE TWO DIFFERENT WALKS. `zeroSized` and `reaches`
+//     (here) each need the guard. The
 //     moment one called another, the inner walk's deferred clear would
 //     silently unmark a def the outer walk was still inside and the outer
 //     guard would stop working. That hazard is single-threaded and a lock
@@ -385,15 +355,14 @@ func (p typePath) on(d *typeDef) bool {
 // walk already standing on path. `kind.zeroSized` (native.go) is the entry
 // point; a *typeDef is only ever asked this from within a walk.
 //
-// An enum never is: it carries a tag byte. A struct is when every field is,
-// which bottoms out at rt.Unit (`struct{}`) and at the empty struct. A boxed
-// field is a pointer and never zero-sized, which is also what terminates this
-// walk on a recursive type — every cycle contains a boxed edge.
+// An enum never is: it carries a tag. A struct is when every field is, which
+// bottoms out at Unit and at the empty struct. A boxed field is never
+// zero-sized, which is also what terminates this walk on a recursive type:
+// every cycle contains a boxed edge.
 //
-// A `type Expired` marker has no inner at all and is the purest case: it
-// carries no information, so an enum embedding one gets no slot for it and the
-// `case` arm that binds it has to MATERIALIZE the value from its type. That is
-// the general rule behind `Bool` being a Go `bool`.
+// A `type Expired` marker has no inner at all: it carries no information, so
+// an enum embedding one gets no slot for it and the `case` arm that binds it
+// has to materialize the value from its type.
 //
 // The DISTINCT arm pushes d before descending, so a cycle closing through a
 // distinct is guarded like any other and answers false at the back edge.
@@ -593,8 +562,9 @@ func (g *gen) declaredTypes() []*typeDef {
 
 // boxTypeFields boxes every field that can reach its own container.
 //
-// Boxing before slot assignment: a boxed payload is a pointer, which is never
-// zero-sized, and zero-sizedness decides whether a payload gets a slot at all.
+// Boxing before slot assignment: a boxed field is never zero-sized
+// (zeroSizedOn), and zero-sizedness decides whether a payload gets a slot at
+// all.
 func (g *gen) boxTypeFields() {
 	for _, d := range g.declaredTypes() {
 		d.boxFields()
@@ -625,14 +595,13 @@ func (g *gen) assignTypeSlots() {
 // are laid out.
 //
 // Prelude instances created while resolving these declarations join the
-// relaxation: `struct A { m: Maybe<B> }` must be refused when B is, or the
-// emitted `rt.Maybe[NomiT_B]` would name a type nobody declared. They
+// relaxation: `struct A { m: Maybe<B> }` must be refused when B is. They
 // carry no refusals of their own, so they can only ever be retracted
 // through a payload. See prelude.go.
 //
-// The per-gen GENERIC STD instances join for the identical reason and it is
-// the same sentence one family over: `struct Counter { inbox: Channel<Bad> }`
-// would emit `rt.Channel[NomiT_Bad]`. A shared instance is never in either
+// The per-gen generic std instances join for the same reason:
+// `struct Counter { inbox: Channel<Bad> }` must be refused when Bad is. A
+// shared instance is never in either
 // order slice, because every argument admitted to the shared table is
 // lowerable by construction. See stdgenstruct.go and stdgenhost.go.
 func (g *gen) typeSettleOrder() []*typeDef {
@@ -643,16 +612,16 @@ func (g *gen) typeSettleOrder() []*typeDef {
 }
 
 func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
-	g.declModifiers(d, t.Decorators, t.TypeParams, t.WhereClauses, t.Items, "struct")
+	g.declModifiers(d, t.Decorators, t.TypeParams, t.WhereClauses, "struct")
 	if planted := plantedRefusal(t.Name); planted != "" {
 		// PlantTypeDeclineForTest.
 		d.refusals = append(d.refusals, refusal{construct: planted, detail: d.nomi})
 	}
 	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.decl == t && tpl.why == "" {
-		// An admitted generic TEMPLATE. Its fields are resolved per
-		// INSTANTIATION, under a substitution, and this def is never emitted —
-		// typeDecl returns early for it — so walking the fields here resolves
-		// annotations nothing will use.
+		// An admitted generic template. Its fields are resolved per
+		// instantiation, under a substitution, and no value has this def's
+		// kind (typeDecl returns early for it), so walking the fields here
+		// resolves annotations nothing will use.
 		//
 		// It is a FABRICATED REFUSAL and not merely waste, which is why this is
 		// a guard rather than an optimization. An annotation resolver may
@@ -667,7 +636,7 @@ func (g *gen) resolveStruct(d *typeDef, t *ast.StructDef) {
 		//
 		// The def still carries declModifiers' `generic type`, which is what a
 		// BARE `Box` mention reports through unloweredReason. See
-		// generictype.go and TestGenericTemplateDeclarationFabricatesNoRefusal.
+		// generictype.go.
 		return
 	}
 	g.resolveStructFields(d, t, typeParamNames(t.TypeParams))
@@ -693,14 +662,13 @@ func (g *gen) resolveStructFields(d *typeDef, t *ast.StructDef, tps map[string]b
 				// type this builder cannot represent — it is not a type at
 				// all. Reporting it again under a type-shaped key would file
 				// one obstacle under two names. Keeping one obstacle under
-				// one key is the same rule foreign.go's blockedMirror and
-				// impl.go's implCall are written to.
+				// one key is the same rule foreign.go's blockedMirror is
+				// written to.
 				continue
 			}
 			d.refusals = append(d.refusals, refusal{
 				construct: "non-scalar field type",
 				detail:    d.nomi + "." + f.Name + ": " + g.fieldTypeText(f),
-				probe:     []ast.Node{f.Default},
 			})
 			continue
 		}
@@ -751,12 +719,12 @@ func namesTypeParam(te ast.TypeExpr, tps map[string]bool) bool {
 }
 
 func (g *gen) resolveEnum(d *typeDef, t *ast.EnumDef) {
-	g.declModifiers(d, t.Decorators, t.TypeParams, t.WhereClauses, t.Items, "enum")
+	g.declModifiers(d, t.Decorators, t.TypeParams, t.WhereClauses, "enum")
 	if tpl := g.genericTemplates[t.Name]; tpl != nil && tpl.decl == t && tpl.why == "" {
-		// An admitted generic TEMPLATE. Its variants are resolved per
-		// INSTANTIATION, under a substitution, and this def is never emitted —
-		// typeDecl returns early for it — so walking the variants here resolves
-		// annotations nothing will use.
+		// An admitted generic template. Its variants are resolved per
+		// instantiation, under a substitution, and no value has this def's
+		// kind (typeDecl returns early for it), so walking the variants here
+		// resolves annotations nothing will use.
 		//
 		// It is a FABRICATED REFUSAL and not merely waste, which is the same
 		// reason resolveStruct's identical guard is a guard rather than an
@@ -806,10 +774,10 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 		case "positional":
 			// A TUPLE payload — `Pos (Int, Int)`, spelled `*ast.FuncType` with a
 			// nil Return — needs no arm of its own here: `typeOf` routes exactly
-			// that node shape to `structuralTypeOf`, which answers for a tuple
+			// that node shape to `typeOf`, which answers for a tuple
 			// annotation. What the payload's TYPE cannot say is how the
 			// value is written and how the slot is stored; both live elsewhere —
-			// see enumtuple.go and assignSlots.
+			// see irvariantvalues.go and assignSlots.
 			k := g.typeOf(v.DataTypeExpr)
 			// kindInvalid: reports — records `non-scalar variant payload` on the declaration.
 			if k == kindInvalid {
@@ -850,7 +818,6 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 					d.refusals = append(d.refusals, refusal{
 						construct: "non-scalar variant payload",
 						detail:    d.nomi + "." + v.Name + "." + f.Name + ": " + g.fieldTypeText(f),
-						probe:     []ast.Node{f.Default},
 					})
 					bad = true
 					continue
@@ -864,12 +831,12 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 		case "embedded":
 			// `embeds T`, where T is a struct or a distinct type (the checker
 			// rejects an enum, spec §4 *Enums (Algebraic Data Types)*). T may be declared in a SIBLING FILE, in which case it is reached as
-			// a mirror and its layout is the declaring package's — see
+			// a mirror and its layout is the declaring file's — see
 			// foreign.go. A type from anywhere else has no *typeDef and is
 			// refused by name.
 			//
-			// The payload KIND is not always T, and getting that wrong is a
-			// silent wrong-value bug rather than a compile error:
+			// The payload kind is not always T, and getting that wrong is a
+			// silent wrong-value bug:
 			//
 			//   embeds <struct>            payload is the struct
 			//   embeds <wrapping distinct> payload is the DISTINCT, and a
@@ -881,9 +848,9 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 			//                              zero-sized, so it gets no slot and
 			//                              a binding must materialize it
 			//
-			// The distinct is stored rather than its inner so the enum's Go
-			// field keeps the distinct's nominal identity; the single unwrap
-			// lives at one place, the pattern.
+			// The distinct is stored rather than its inner so the payload
+			// keeps the distinct's nominal identity; the single unwrap lives
+			// at one place, the pattern.
 			st, ok := v.EmbeddedTypeExpr.(*ast.SimpleType)
 			if !ok {
 				d.refusals = append(d.refusals, refusal{
@@ -919,12 +886,9 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 
 // resolveDistinct handles `type Name Inner` and the zero-sized `type Name`.
 //
-// A distinct type is nominally its own type and structurally its inner one,
-// which is precisely a Go DEFINED type: `type NomiT_Meters int64` is not
-// assignable to or from `int64` without a conversion, so the analyzer's
-// nominal rule and Go's are the same rule and there is nothing to enforce
-// twice. The zero-sized marker gets `struct{}` instead, so an enum embedding
-// one pays nothing for it.
+// A distinct type is nominally its own type and structurally its inner one.
+// The zero-sized marker has no inner, so an enum embedding one gives it no
+// slot.
 //
 // An OPAQUE distinct reaches here too: opacity is a use-site rule the front end
 // enforces, so it changes nothing about the layout. The one thing it does
@@ -934,7 +898,7 @@ func (g *gen) resolveEnumVariants(d *typeDef, t *ast.EnumDef, tps map[string]boo
 // A STDLIB opaque distinct never reaches here at all: buildTypes gives it the
 // process-wide def whose Go type rt declares. Only a USER declaration does.
 func (g *gen) resolveDistinct(d *typeDef, t *ast.TypeDef) {
-	g.declModifiers(d, t.Decorators, t.TypeParams, nil, t.Items, "type")
+	g.declModifiers(d, t.Decorators, t.TypeParams, nil, "type")
 	g.resolveDistinctInner(d, t, typeParamNames(t.TypeParams))
 }
 
@@ -974,7 +938,7 @@ const maxEnumTag = 255
 
 // declModifiers records the declaration-level constructs this builder refuses,
 // each under its own name so the tally can size them separately.
-func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypeParam, wcs []ast.WhereConstraint, items []ast.Node, keyword string) {
+func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypeParam, wcs []ast.WhereConstraint, keyword string) {
 	if len(tps) > 0 || len(wcs) > 0 {
 		d.refusals = append(d.refusals, refusal{construct: "generic type", detail: keyword + " " + d.nomi})
 	}
@@ -991,7 +955,7 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 	// Everything else `opaque` means is a USE-SITE rule the front end enforces:
 	// the constructor, the unwrap and the destructuring are private to the
 	// declaring file, so a program that reaches one from outside never gets as
-	// far as codegen. See opaque.go.
+	// far as the builder. See opaque.go.
 	for _, dec := range decs {
 		if dec.Name == "derive" {
 			// `derive Equatable for P` records itself on P as a decorator AND
@@ -1007,13 +971,6 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 		}
 		d.refusals = append(d.refusals, refusal{construct: "decorator", detail: d.nomi + " @" + dec.Name})
 	}
-	if len(items) > 0 {
-		d.refusals = append(d.refusals, refusal{
-			construct: "type body item",
-			detail:    keyword + " " + d.nomi,
-			probe:     items,
-		})
-	}
 	// An attached `//!` test is deliberately NOT refused here. It is the
 	// `derive` argument above applied to the other kind of metadata, and it is
 	// stdStructSpec.matches' argument verbatim: the prompt is a test case of its
@@ -1022,32 +979,26 @@ func (g *gen) declModifiers(d *typeDef, decs []ast.Decorator, tps []ast.TypePara
 	// charge cascades: the def would stop being lowerable and every mention of
 	// it would refuse under a type-shaped key instead.
 	//
-	// A `//!` is a line in a doc comment. It cannot change what the type IS,
-	// which is exactly what separates it from `items` above — a type-body item
-	// is layout-relevant and stays refused.
+	// A `//!` is a line in a doc comment. It cannot change what the type is.
 }
 
 // assignSlots lays out an enum's payload storage.
 //
-// One slot per DISTINCT UNDERLYING GO TYPE, reused across variants because only
-// one variant is live at a time, and never reused within one variant because a
-// struct-shaped variant's payloads are live together. The comparison below —
-// `d.slots[s].k == p.k` — is the whole enforcement of the dedup key: `kind` is
-// `{tag, *typeDef}`, so two payloads share a slot only when they are the same
-// Go type. `Int` and `Float` differ in the tag; two same-named structs from two
-// modules differ in the pointer. Neither can be merged by coincident layout.
+// One slot per distinct payload kind, reused across variants because only one
+// variant is live at a time, and never reused within one variant because a
+// struct-shaped variant's payloads are live together. The comparison below,
+// `d.slots[s].k == p.k`, is the dedup key: `kind` is `{tag, *typeDef}`, so two
+// payloads share a slot only when they are the same kind. `Int` and `Float`
+// differ in the tag; two same-named structs from two modules differ in the
+// pointer.
 //
-// BOXING GOES THROUGH appendInlineDefs, which is the SAME rule buildTypes
-// applies to a struct FIELD, and the two being one rule is the point. A check
-// on `p.k.def` alone would see only a payload whose type is NAMED — `def` is
-// nil for every structural kind — so `enum Node { Leaf Int; Branch (Node,
-// Int, Node) }` would get an inline slot of a struct containing itself, a type
-// of infinite size, rather than a boxed one.
+// Boxing goes through appendInlineDefs, which is the same rule boxFields
+// applies to a struct field. A check on `p.k.def` alone would see only a
+// payload whose type is named (`def` is nil for every structural kind), so
+// `enum Node { Leaf Int; Branch (Node, Int, Node) }` would not be marked.
 //
-// appendInlineDefs is the right rule and not merely a wider one: it follows
-// exactly the kinds that are stored INLINE (tagNamed, tagTuple, tagAnonStruct)
-// and deliberately does NOT follow a list or a map, because those are already
-// indirect and boxing them would add a pointer to a pointer.
+// appendInlineDefs follows the kinds that are stored inline (tagNamed,
+// tagTuple, tagAnonStruct) and does not follow a list or a map.
 func (d *typeDef) assignSlots() {
 	defer changingTypes()()
 	for i := range d.variants {
@@ -1058,8 +1009,7 @@ func (d *typeDef) assignSlots() {
 			if p.k.zeroSized() {
 				// Contributes nothing, so it is stored nowhere: a zero-sized
 				// value carries no information and reconstructs from its type
-				// alone. This is what lets an `embeds` of a zero-sized type
-				// cost zero bytes.
+				// alone.
 				p.slot = -1
 				continue
 			}
@@ -1082,20 +1032,14 @@ func (d *typeDef) assignSlots() {
 				p.slot = len(d.slots) - 1
 			}
 			used[p.slot] = true
-			label := v.nomi
-			if p.nomi != "" {
-				label += "." + p.nomi
-			}
-			d.slots[p.slot].users = append(d.slots[p.slot].users, label)
 		}
 	}
 }
 
 // settleLowerable propagates unlowerability from a component to its container.
 //
-// A struct whose field type was refused cannot be emitted either, and every use
-// of it has to be refused rather than emitted against a type that was never
-// written. Relaxation rather than a topological order because the graph may
+// A struct whose field type was refused is refused too, and so is every use of
+// it. Relaxation rather than a topological order because the graph may
 // contain cycles.
 func (g *gen) settleLowerable(order []*typeDef) {
 	defer changingTypes()()
@@ -1113,7 +1057,7 @@ func (g *gen) settleLowerable(order []*typeDef) {
 			for _, c := range d.mentions {
 				if !c.lowerable {
 					d.lowerable = false
-					d.blockedBy, d.blocker = c.nomi, c
+					d.blocker = c
 					changed = true
 					break
 				}
@@ -1122,400 +1066,16 @@ func (g *gen) settleLowerable(order []*typeDef) {
 	}
 }
 
-// typeOf is the kind a declared type annotation names, or kindInvalid.
-//
-// Four forms name a lowerable type. *ast.SimpleType names a scalar, a declared
-// struct/enum/distinct, or an interface existential. *ast.FuncType names a
-// function type; the SAME node with a nil Return names a TUPLE type, because
-// `(Int, String)` and `(Int) -> String` differ only in the arrow.
-// *ast.GenericType names `List<T>`. All three of the latter are STRUCTURAL —
-// their identity is interned (see composite.go), not declared.
-//
-// A *ast.QualifiedType names a NAMESPACED declaration — `pub enum Probe.Reading`
-// declared beside its owner `Probe` — and resolves through the same table under
-// its whole dotted name. See namespacedType in sigreason.go for why the lookup
-// cannot be confused with an `Enum.Variant` reading.
-//
-// An *ast.AnonStructType names a RECORD — structural like the tuple form, and
-// canonicalized by field name so `{x: Int, y: Int}` and `{y: Int, x: Int}` are
-// one kind. See anonstruct.go.
-//
-// A SelfType or any other GenericType is by construction outside the subset;
-// sigreason.go names WHICH of those it was, so a signature position reports the
-// type's own gap rather than the position's shape.
+// typeOf is the kind a written type annotation names, or kindInvalid: the
+// projection of the type the checker recorded for te (recordedTypeExpr,
+// project). The builder resolves no written type by name; a type with no
+// representation projects to kindInvalid, and sigreason.go names why.
 func (g *gen) typeOf(te ast.TypeExpr) kind {
-	if k, isDefault := g.defaultArgKinds[te]; isDefault {
-		return k
-	}
-	te = g.withDefaultTypeArgs(te)
-	if g.stdSrc != nil {
-		// A std interface's signature (stdprogiface.go): its names are std's,
-		// resolved in the declaring module's scope as a std function's
-		// signature is (stdTypeKind). One that names a type parameter being
-		// substituted is this gen's to resolve, by the arms below.
-		if k, ok := g.stdSrcTypeOf(te); ok {
-			return k
-		}
-		// `Fragment<I>` at a substituted `I` resolves by the position std
-		// wrote it at, in std's file (preludeTypeOf reads srcFA), so this
-		// file's own `Fragment` is not asked.
-		if gt, isGeneric := te.(*ast.GenericType); isGeneric {
-			if k, isPrelude := g.preludeTypeOf(gt); isPrelude {
-				return k
-			}
-		}
-		// The arms below look a head name up in this file's tables, which
-		// would answer with this file's own same-named declaration, not
-		// std's: the function is a signature gap of its own
-		// (methodSignatureGap).
-		if g.stdSrcShadowed(te) {
-			return kindInvalid
-		}
-	}
-	if ct, isConj := te.(*ast.ConjunctionType); isConj {
-		return g.conjTypeOf(ct)
-	}
-	if _, isSelf := te.(*ast.SelfType); isSelf {
-		// `self` names the implementor while an interface default is
-		// lowered for one (irImplLower, emitIfaceDefault); anywhere else
-		// it is outside the subset, as structuralTypeOf would answer.
-		if ds := g.defaultSelf; ds != nil {
-			return ds.recv
-		}
-		return kindInvalid
-	}
-	if ft, isFunc := te.(*ast.FuncType); isFunc {
-		if ft.Return == nil {
-			return g.structuralTypeOf(ft)
-		}
-		params := make([]kind, len(ft.Params))
-		for i, p := range ft.Params {
-			params[i] = g.typeOf(p)
-		}
-		return g.funcKind(params, g.typeOf(ft.Return))
-	}
-	if gt, isGeneric := te.(*ast.GenericType); isGeneric {
-		// `NonEmptyList<Int>`: a generic refinement is its base at the
-		// arguments (refinement.go).
-		if k, isRefinement := g.genericRefinementKind(g.refinementTypeSym(gt.Name), gt.Params); isRefinement {
-			return k
-		}
-		// `Maybe<Int>`, `Result<Int, String>`. Ahead of structuralTypeOf
-		// because a prelude enum is NAMED — its identity is a declaration —
-		// while everything structuralTypeOf answers for is interned. See
-		// prelude.go.
-		if k, isPrelude := g.preludeTypeOf(gt); isPrelude {
-			return k
-		}
-		// `Set<Int>` — a GENERIC std struct, named for the same reason and
-		// resolved the same way. Beside the prelude arm rather than after
-		// structuralTypeOf because it is the same question about a fourth
-		// declaration kind, and structuralTypeOf would answer `List`/`Map` for a
-		// name it does not know rather than declining. See stdgenstruct.go.
-		if k, isGenStruct := g.stdGenStructTypeOf(gt); isGenStruct {
-			return k
-		}
-		// `Sender<Int>` — a GENERIC std HOST type, beside the two arms above
-		// because it is the same question about a FIFTH declaration kind, an
-		// `*ast.ExternType`. See stdgenhost.go.
-		if k, isGenHost := g.stdGenHostTypeOf(gt); isGenHost {
-			return k
-		}
-		// `Regex<(String)>` — a std host type whose type parameter is
-		// phantom: one leaf whatever the argument. See stdhost.go.
-		if k, isPhantom := g.phantomHostTypeOf(gt); isPhantom {
-			return k
-		}
-		// `Box<Inner>` — a USER generic struct, MONOMORPHIZED per
-		// instantiation. LAST of the three named arms, so a program declaring
-		// its own `Set` or `Maybe` cannot shadow the std or prelude family
-		// through this door; the analyzer's own precedence is the reverse only
-		// for names it resolves, and neither of the arms above answers for a
-		// name it has no anchor for. See generictype.go.
-		if k, isUserGeneric := g.userGenericTypeOf(gt.Name, gt.Params); isUserGeneric {
-			return k
-		}
-		// `Pair<Int>` for `typealias Pair<T> (T, T)`. See typealias.go.
-		if k, isAlias := g.genericAliasKind(gt.Name, gt.Params); isAlias {
-			return k
-		}
-		// `Gets<String>`: a value held as a generic interface at type
-		// arguments, the existential of that instantiation. See instimpl.go.
-		if k, isInst := g.ifaceInstTypeOf(gt.Name, gt.Params); isInst {
-			return k
-		}
-		// A generic std type imported under another name: `Set as Bag`. See
-		// importalias.go.
-		if k, isAliased := g.aliasedTypeKind(gt.Name, gt.Params); isAliased {
-			return k
-		}
-	}
-	if qt, isQualified := te.(*ast.QualifiedType); isQualified {
-		// `shapes.Holder<Int>` — a generic template named through an imported
-		// module's qualifier. Ahead of namespacedType, which declines a
-		// generic member outright (qualifiedTypeParts requires a plain name)
-		// and leaves `non-local type`. See foreigngeneric.go.
-		if gt, isGeneric := qt.Member.(*ast.GenericType); isGeneric {
-			if k, isRefinement := g.genericRefinementKind(resolvedScopeSymbol(g.moduleScope(qt.Module), gt.Name), gt.Params); isRefinement {
-				return k
-			}
-			if k, isUserGeneric := g.userGenericTypeOf(qt.Module+"."+gt.Name, gt.Params); isUserGeneric {
-				return k
-			}
-		}
-		// A dotted name is one declaration's whole name, so a MISS refuses
-		// rather than falling through to structuralTypeOf — a structural
-		// answer for `Probe.Reading` would be an answer about a type nobody
-		// declared.
-		// `shapes.Board` — a module-level `typealias` named through its
-		// file's qualifier. Transparent, so no def is involved; see
-		// typealias.go.
-		if k, isAlias := g.qualifiedAliasKind(qt); isAlias {
-			return k
-		}
-		if k, isRefinement := g.qualifiedRefinementKind(qt); isRefinement {
-			return k
-		}
-		d, found := g.namespacedType(qt)
-		if !found {
-			// `shapes.Shape`, `sql.Conn`: an interface named through the
-			// qualifier of the module that declares it, the same existential
-			// the bare imported name gives. Ahead of qualifiedStdKind, which
-			// answers a std module lowered with the program by projecting its
-			// interface type, and that projection has no answer while this
-			// file's struct fields are still being resolved.
-			if id, isIface := g.moduleQualifiedIface(qt); isIface {
-				if id.lowerable {
-					return existential(id)
-				}
-				return kindInvalid
-			}
-			// `random.Error` — a std type named through its module's qualifier.
-			// See modulequaltype.go.
-			if k, isStd := g.qualifiedStdKind(qt); isStd {
-				return k
-			}
-			// `matcher.Matcher`, a std interface named through its module.
-			if qualifier, name, ok := qualifiedTypeParts(qt); ok {
-				if sd := g.stdProgQualifiedIface(qualifier, name); sd != nil {
-					if sd.lowerable {
-						return existential(sd)
-					}
-					return kindInvalid
-				}
-			}
-		}
-		// kindInvalid: reports — an undeclared or refused dotted name is named
-		// by rejectTypeAnnotation, which reaches the same def.
-		if !found || !d.lowerable {
-			return kindInvalid
-		}
-		return named(d)
-	}
-	if at, isAnon := te.(*ast.AnonStructType); isAnon {
-		return g.anonStructTypeOf(at)
-	}
-	if rb, isBase := te.(*ast.RefinementBaseType); isBase {
-		return g.refinementBaseKind(rb)
-	}
-	st, ok := te.(*ast.SimpleType)
+	rec, ok := g.recordedTypeExpr(te)
 	if !ok {
-		return g.structuralTypeOf(te)
-	}
-	switch st.Name {
-	case "Int":
-		return kindInt
-	case "Float":
-		return kindFloat
-	case "String":
-		return kindString
-	case "Bool":
-		return kindBool
-	case "Unit":
-		return kindUnit
-	case "Infallible":
-		// Reserved like Unit, so no declaration can take the name.
-		return kindNever
-	}
-	// A type parameter of the generic STRUCT being monomorphized, substituted
-	// by its argument. Asked FIRST of the three shadowing lookups because an
-	// instance's field walk is the innermost activation there is: `struct
-	// Box<T> { item: T }` instantiated at `Int` inside a generic function that
-	// also declares a `T` must read the STRUCT's argument. See generictype.go.
-	if k, isSubst := g.genericSubstKind(st.Name); isSubst {
-		return k
-	}
-	// A BOUNDED type parameter of the generic function being lowered. Asked
-	// ahead of every declaration lookup because a type parameter SHADOWS a
-	// same-named type for the length of its activation — which is what
-	// installTypeParamConcrete's own shadowing rule says — and asked at all
-	// only while a generic signature or body is open, so nothing else pays for
-	// it. See dict.go: `T` is an existential over its bound, so `List<T>` and
-	// `(T) -> Bool` follow from this one arm rather than needing their own.
-	if k, isTypeParam := g.dictTypeParamKind(st.Name); isTypeParam {
-		return k
-	}
-	// A type declared in an enclosing BLOCK. Ahead of the module table for the
-	// reason blocklocaltype.go states: innermost-first is the analyzer's own
-	// resolution order.
-	if k, isAlias := g.blockLocalAlias(st.Name); isAlias {
-		// A `typealias` is TRANSPARENT: `Count` IS `Int`, so this returns the
-		// target's kind and no def is involved. kindInvalid propagates, and the
-		// alias DECLARATION is what named the unrepresentable target.
-		return k
-	}
-	if d, isBlockLocal := g.blockLocalNamed(st.Name); isBlockLocal {
-		if d.lowerable {
-			return named(d)
-		}
 		return kindInvalid
 	}
-	if d, isImported := g.blockImportedNamed(st.Name); isImported {
-		// A type an enclosing block's import binds. See bindBlockImports.
-		if d.lowerable {
-			return named(d)
-		}
-		return kindInvalid
-	}
-	if d, isImported := g.blockImportedIface(st.Name); isImported {
-		// An interface an enclosing block's import binds, which the module
-		// scope may not bind at all. See bindBlockImports.
-		if d.lowerable {
-			return existential(d)
-		}
-		return kindInvalid
-	}
-	if d, found := g.types[st.Name]; found {
-		if d.lowerable {
-			return named(d)
-		}
-		return kindInvalid
-	}
-	// A distinct refinement is its base, as an alias is its target
-	// (refinement.go).
-	if k, isRefinement := g.refinementKind(st.Name); isRefinement {
-		return k
-	}
-	// A MODULE-LEVEL `typealias`, which is TRANSPARENT exactly as the
-	// block-local arm above is: `Count` IS `Int`, so this returns the target's
-	// kind and no def is involved. Beside the module table because an alias and
-	// a type declaration cannot share a name, and ABOVE every stdlib lookup so
-	// a program's own alias wins. See typealias.go.
-	if k, isAlias := g.moduleAliasKind(st.Name); isAlias {
-		return k
-	}
-	if d, isOpaque := g.opaqueNamed(st.Name); isOpaque {
-		// A stdlib opaque newtype this module MENTIONS without declaring:
-		// `timer.sleep(d: Duration)`, or a user program's `Duration` parameter.
-		// Its Go type is declared in rt, so it needs no mirror and no import.
-		// See opaque.go.
-		return named(d)
-	}
-	if d, isStdEnum := g.stdEnumNamed(st.Name); isStdEnum {
-		// A monomorphic stdlib enum this module MENTIONS without declaring:
-		// `fn compare(a: Priority, b: Priority) -> Ordering`. Its Go type is
-		// declared in rt, so it needs no mirror and no import. Asked beside
-		// the opaque lookup because it is the same question about a different
-		// declaration kind. See stdenum.go.
-		return named(d)
-	}
-	if d, isStdStruct := g.stdStructNamed(st.Name); isStdStruct {
-		// A stdlib opaque STRUCT this module MENTIONS without declaring: a user
-		// program's `DateTime` parameter or binding annotation. Its Go type is
-		// declared in rt, so it needs no mirror and no import. See
-		// stdstruct.go.
-		return named(d)
-	}
-	if d, isStdHost := g.stdHostNamed(st.Name); isStdHost {
-		// A stdlib `pub host type` this module MENTIONS: a `Bytes` parameter or
-		// binding annotation. Its Go type is declared in rt, so it needs no
-		// mirror and no import. Asked beside the three lookups above because it
-		// is the same question about a fourth declaration kind — and unlike
-		// them there is no DECLARED case to ask first, because this builder has
-		// no declaration path for `*ast.ExternType`. See stdhost.go.
-		return named(d)
-	}
-	if d, isMarker := g.stdMarkerNamed(st.Name); isMarker {
-		// A stdlib nil-inner MARKER this module MENTIONS: `ChannelClosed` as
-		// `Sender.send`'s error type. Beside the four lookups above because it
-		// is the same question about a `*ast.TypeDef` with no inner, which
-		// opaqueNamed's table cannot hold. See stdgenhost.go.
-		return named(d)
-	}
-	if d, isHost := g.hostTypeNamed(st.Name); isHost {
-		// A USER `host type` bound to a Go type in a `gopkg` package:
-		// `opaque type RawBox go ffi.Box`. Its Go type is declared in the
-		// user's own Go package, so it needs no mirror: hostTypeDef interns one
-		// def per bound Go type, process-wide.
-		//
-		// BELOW all five stdlib families and above nothing that could shadow
-		// it. The order is free by construction rather than by measurement:
-		// the table this reads is built ONLY from this module's own
-		// `*ast.ExternType` nodes carrying a `go alias.Symbol` binding, and no
-		// std declaration carries one — so the populations are disjoint and
-		// neither order can change an answer. Placed here anyway, because a
-		// FUTURE std `host type` acquiring a Go binding should keep its own
-		// family's representation rather than being adopted by this one. See
-		// hostpkg.go.
-		return named(d)
-	}
-	if d, found := g.ifaces[st.Name]; found {
-		if pd := g.stdProgOwnIface(d); pd != nil {
-			// A std instance's own module's interface held as a value is
-			// its caller's def, as another module's is (stdprogiface.go).
-			return existential(pd)
-		}
-		// An interface-typed position is an EXISTENTIAL: the concrete type is
-		// erased and only the interface survives. See impl.go.
-		if d.lowerable {
-			return existential(d)
-		}
-		return kindInvalid
-	}
-	// A name this file does not declare may still be a sibling file's
-	// INTERFACE, and an existential over one is `rt.Dyn` in every package —
-	// the same Go type, so nothing has to be mirrored except the interface's
-	// own method shape. Asked ahead of the foreign TYPE lookup only because
-	// the two populations are disjoint and this is the cheaper question; the
-	// order carries no meaning. See existential.go.
-	if d, isForeign := g.foreignIface(st.Name); isForeign {
-		if d.lowerable {
-			return existential(d)
-		}
-		return kindInvalid
-	}
-	// A STDLIB interface this module MENTIONS: `fn show(d: Display)`. Its
-	// method shape is a spec row and its dispatch table lives in rt, so —
-	// exactly like the opaque and monomorphic-enum lookups above — it needs no
-	// mirror and no import. Asked AFTER the sibling-file lookup so a user
-	// declaration of the same name always wins, which is the analyzer's own
-	// "project wins" shadowing rule and is what makes a name-keyed collapse
-	// impossible here. See stdiface.go.
-	if d, isStd := g.stdIfaceNamed(st.Name); isStd {
-		return existential(d)
-	}
-	// Any other std interface this module names (`h: Hashable`), built from
-	// std's declaration. See stdprogiface.go.
-	if d := g.stdProgIfaceNamed(st.Name); d != nil {
-		if d.lowerable {
-			return existential(d)
-		}
-		return kindInvalid
-	}
-	// A name this file does not declare may still be another user FILE's type.
-	// Asked LAST, so a local declaration and a local interface both win, and
-	// asked silently: typeOf never rejects — the caller names the position, and
-	// a mirror's own reason is reported by the sites that construct or match a
-	// value of it. See foreign.go.
-	if d, isForeign := g.foreignType(st.Name); isForeign && d.lowerable {
-		return named(d)
-	}
-	// A std type imported under another name: `Error as CurrencyError`. See
-	// importalias.go.
-	if k, isAliased := g.aliasedTypeKind(st.Name, nil); isAliased {
-		return k
-	}
-	return kindInvalid
+	return g.project(rec)
 }
 
 func typeText(te ast.TypeExpr) string {
@@ -1525,10 +1085,9 @@ func typeText(te ast.TypeExpr) string {
 	return te.TypeString()
 }
 
-// --- emitting the declarations ---------------------------------------------
+// --- the declarations ------------------------------------------------------
 
-// typeDecl replays a declaration's recorded refusals at its own position and,
-// if it survived them, emits its Go type declaration.
+// typeDecl replays a declaration's recorded refusals at its own position.
 func (g *gen) typeDecl(n ast.Node) {
 	var name string
 	switch t := n.(type) {
@@ -1540,26 +1099,24 @@ func (g *gen) typeDecl(n ast.Node) {
 		name = t.Name
 	}
 	if d := g.types[name]; d != nil && d.rtDeclared {
-		// A stdlib opaque newtype: its Go type is hand-written in rt, so there
-		// is nothing to emit and no refusal to replay. Ahead of the identity
-		// check below because the shared def carries no declaration node — it
-		// outlives the AST that anchored it. See opaque.go.
+		// A stdlib opaque newtype: the process-wide def records no refusal to
+		// replay. Ahead of the identity check below because the shared def
+		// carries no declaration node; it outlives the AST that anchored it.
+		// See opaque.go.
 		return
 	}
 	if tpl := g.genericTemplates[name]; tpl != nil && tpl.why == "" {
 		// A generic struct declaration whose instantiations lower. There is
-		// nothing to EMIT — a template is not a Go type, only its instances are
-		// — and nothing to REPLAY: the def's `generic type` refusal is exactly
-		// the gap generictype.go closes, and reporting it here would refuse
-		// every file that declares one however well its instances lower.
+		// nothing to replay: the def's `generic type` refusal is the gap
+		// generictype.go closes, and reporting it here would refuse every
+		// file that declares one however well its instances lower.
 		//
 		// The refusal is left ON the def rather than removed, because a bare
 		// `Box` mention (a generic name with no arguments, which is not a type)
 		// resolves through namedType to this def and needs a reason to report.
 		// unloweredReason reads the LIST; removing the entry there would make
 		// it synthesize a placeholder instead, which is the cascade
-		// cascadereason_test.go exists to prevent. See generictype.go and
-		// TestGenericTemplateWithoutArgumentsKeepsItsOwnRefusal.
+		// cascadereason_test.go exists to prevent. See generictype.go.
 		return
 	}
 	d := g.types[name]
@@ -1573,11 +1130,7 @@ func (g *gen) typeDecl(n ast.Node) {
 }
 
 // replayTypeRefusals reports at `at` everything the declaration was refused
-// for while its table entry was built, and probes each refusal's subtree.
-//
-// Split from typeDecl because a BLOCK-LOCAL declaration replays at its
-// statement position (blockTypeDeclStmt) while its Go type is emitted at
-// package level, so the two halves do not happen together.
+// for while its table entry was built.
 func (g *gen) replayTypeRefusals(d *typeDef, at ast.Node) {
 	for _, r := range d.refusals {
 		g.reject(r.construct, r.detail, at)
@@ -1588,34 +1141,11 @@ func (g *gen) replayTypeRefusals(d *typeDef, at ast.Node) {
 
 // --- `embeds` subtype coercion ----------------------------------------------
 
-// --- the untyped literal at an equality -------------------------------------
-
-// untypedLiteral reports whether k is one of the four empty literals whose
-// type the CHECKER solves from context rather than the value carrying it:
-// `[]` as a List, Set or Vector, and `{}`. A bare `None` has no kind of its
-// own: the builder lowers it at the type the checker gave it.
-//
-// The four are one concept and are listed together everywhere they appear
-// (native.go's tag comments, stdprelude.go's signature rule, generic.go's type
-// argument rule), so they are asked about through one predicate rather than
-// repeated switches that can drift apart. `{}` has no corpus site at
-// the equality position, which is exactly the hole a partial list would
-// leave.
-func untypedLiteral(k kind) bool {
-	switch k.tag {
-	case tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
-		return true
-	}
-	return false
-}
-
 // embedsVariant finds the variant of `want` that embeds a value of kind `from`.
 //
-// Split out of coerce so a caller can ASK whether the widening applies without
-// performing it. coerce is not side-effect free — a boxed payload takes the
-// address of a temporary, which emits a statement — so a speculative call would
-// leave stray Go behind. The list-literal element scan (collections.go's
-// elementKind) asks this question once per candidate.
+// It only answers: a caller asks whether the widening applies, and builds
+// the widening itself when it does (irlist.go). The list-literal element scan
+// (collections.go) asks this question once per candidate.
 //
 // An enum names each `embeds` variant after the type it embeds, and variant
 // names are unique, so the match is unambiguous by construction rather than by

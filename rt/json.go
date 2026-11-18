@@ -20,21 +20,12 @@ import (
 //
 // # Json is self-referential
 //
-// `Arr List<Json>` and `Obj Map<String, Json>` name the enclosing type. That
-// does not make `Json` ineligible for stdenum.go's shared-def family.
-//
-// The safety argument for sharing a def is foreign.go's, and it is about rendering: a shared def
-// is only correct if every component kind renders to the same Go text wherever
-// the builder names it, which is `kind.packageNeutral`. `Json` is `rtDeclared`, so
-// `named(jsonDef)` is neutral by that predicate's own `rtDeclared` arm — and
-// therefore so are `*rt.List[rt.Json]` and `rt.Map[string, rt.Json]`, which name
-// rt and nothing else. Neutrality is satisfied, not violated.
-//
-// What the self-reference costs is bootstrap order: the payload kinds cannot
-// be built until the def exists, and the def is what the payload kinds are
-// part of. stdstruct.go and stdenum.go both solve that with a two-pass build,
-// every shell first and every field kind second, so the cost is one level of
-// indirection in a table's constructor, not a property of the type.
+// `Arr List<Json>` and `Obj Map<String, Json>` name the enclosing type. The
+// builder shares one definition of `Json` across every file all the same
+// (internal/irbuild/stdenum.go). What the self-reference costs it is build
+// order: the payload kinds cannot be built until the definition exists, so
+// internal/irbuild/stdstruct.go and stdenum.go build every shell first and
+// every field kind second.
 //
 // # The Go layout is legal because both recursive payloads are indirect
 //
@@ -131,9 +122,7 @@ type JsonDecodeError struct {
 // construct either shape for either function, which is a wrong answer rather
 // than a compile error — the same argument rt.Project and rt.RunFile rest on.
 //
-// `Path` is a `List<String>`, which is why this type needs no new machinery:
-// `*rt.List[string]` names rt and a Go builtin and nothing else, so it is
-// package-neutral and stdstruct.go's stdListField covers it.
+// `Path` is a `List<String>`.
 //
 // It is here for the `Result<..., Json.ShapeError>` in `ToJson`/`FromJson`'s
 // declared signatures. Nothing in rt constructs one: `shape_error_root` and

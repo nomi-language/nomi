@@ -9,15 +9,14 @@ import (
 	"testing"
 )
 
-// THE EXPIRY CONDITION for ifacerecv.go's central citation.
-//
-// That header relies on `ast.Call.InferredDispatchTarget` having no writer.
+// THE EXPIRY CONDITION for a claim about the front end:
+// `ast.Call.InferredDispatchTarget` has no writer.
 // The field's own declaration comment says "analyzer-filled", so the tree
 // actively invites the opposite belief.
 //
 // This names the symbol whose change voids the claim, and asserts it: if the
 // analyzer starts filling the field, a receiver-derived dispatch target
-// exists and ifacerecv.go's header has to be re-read.
+// exists and interface-call lowering has to be re-read.
 //
 // Parsed from source rather than exercised, because the claim IS about the
 // source: "nothing assigns this field" is a property of the program text, and
@@ -47,7 +46,7 @@ func TestIfaceRecv_TheDeadFieldStaysDead(t *testing.T) {
 // this guard — a false hit costs a read, a false miss lets the claim rot.
 //
 // Deliberately not a text scan. A regex over these directories matches this
-// test's own error message and ifacerecv.go's header prose, so it reports
+// test's own error message and comment prose, so it reports
 // several hits and can never reach zero; the field-name token in an assignment
 // position is the thing being counted, so the parser is what counts it.
 func assignmentsTo(field string, dirs ...string) ([]string, error) {

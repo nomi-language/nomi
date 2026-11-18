@@ -34,21 +34,28 @@ type implCandidate struct {
 // implCandidates is every impl of the interface iface (declared by origin)
 // that concrete has, one per distinct list of type arguments.
 func (c *checker) implCandidates(concrete Type, iface, origin string) []implCandidate {
+	if c == nil {
+		return nil
+	}
+	return c.fa.implCandidates(concrete, iface, origin)
+}
+
+func (fa *FileAnalysis) implCandidates(concrete Type, iface, origin string) []implCandidate {
 	if dt := refinementOf(concrete); dt != nil && dt.Inner != nil {
 		// A refinement has its parent's impls (refinement.go).
-		return c.implCandidates(DistinctInner(dt), iface, origin)
+		return fa.implCandidates(DistinctInner(dt), iface, origin)
 	}
 	name := concreteTypeName(concrete)
-	if name == "" || c == nil || c.fa == nil {
+	if name == "" || fa == nil {
 		return nil
 	}
 	cargs := concreteTypeArgs(concrete)
 	var out []implCandidate
-	for _, info := range distinctImpls(lookupImplTypeArgSets(name, iface, c.implTypeArgSetsContext())) {
+	for _, info := range distinctImpls(lookupImplTypeArgSets(name, iface, fa.implTypeArgsContext())) {
 		if !sameNominalIdentity(origin, iface, info.Origin, iface) {
 			continue
 		}
-		if !implReceiverMatches(info, concrete, c.implsContext(), c.implTypeArgsContext()) {
+		if !implReceiverMatches(info, concrete, fa.implsContext(), fa.implTypeArgsContext()) {
 			continue
 		}
 		args := make([]Type, len(info.Args))
@@ -74,11 +81,7 @@ func (c *checker) implCandidates(concrete Type, iface, origin string) []implCand
 // build's own) are one impl. Two blocks of different files at one position
 // with one header for one receiver are a duplicate impl either way.
 func implDeclKey(info *ImplTypeArgs) string {
-	b := info.Block
-	if b == nil || b.Interface == nil || b.Receiver == nil {
-		return ""
-	}
-	return fmt.Sprintf("%d:%d:%s:%s", b.Line, b.Col, b.Interface.TypeString(), b.Receiver.TypeString())
+	return implBlockKey(info.Block)
 }
 
 // distinctImpls is infos with each impl block once.
@@ -216,55 +219,15 @@ func (s typeVarSnapshot) restore() {
 }
 
 func (s typeVarSnapshot) walk(t Type) {
-	switch tt := t.(type) {
-	case nil:
-	case *TypeVar:
-		if _, seen := s[tt]; seen {
-			return
+	walkType(t, func(p Type) bool {
+		if tv, ok := p.(*TypeVar); ok {
+			if _, seen := s[tv]; seen {
+				return false
+			}
+			s[tv] = tv.Resolved
 		}
-		s[tt] = tt.Resolved
-		s.walk(tt.Resolved)
-	case *ListType:
-		s.walk(tt.Elem)
-	case *MapType:
-		s.walk(tt.Key)
-		s.walk(tt.Val)
-	case *FuncType:
-		for _, p := range tt.Params {
-			s.walk(p)
-		}
-		s.walk(tt.Return)
-	case *TupleType:
-		for _, e := range tt.Elems {
-			s.walk(e)
-		}
-	case *AnonStructType:
-		for _, f := range tt.Fields {
-			s.walk(f.Type)
-		}
-	case *StructType:
-		for _, a := range tt.TypeArgs {
-			s.walk(a)
-		}
-	case *EnumType:
-		for _, a := range tt.TypeArgs {
-			s.walk(a)
-		}
-	case *DistinctType:
-		for _, a := range tt.TypeArgs {
-			s.walk(a)
-		}
-	case *InterfaceType:
-		for _, a := range tt.TypeArgs {
-			s.walk(a)
-		}
-	case *ConjunctionType:
-		for _, m := range tt.Members {
-			s.walk(m)
-		}
-	case *PartialType:
-		s.walk(tt.Inner)
-	}
+		return true
+	})
 }
 
 // implChoice is what selectImpl answers.
@@ -343,9 +306,10 @@ func distinguishedByParams(cands []implCandidate, iface *InterfaceType, m *Metho
 }
 
 // ambiguousImplMessage is the error at a call whose arguments and expected
-// type do not choose one of several impls.
-func ambiguousImplMessage(iface *InterfaceType, method string, recv Type, cands []implCandidate, byParams bool) string {
-	head := fmt.Sprintf("`%s.%s` for `%s` has impls at %s", iface.Name, method, recv, candidateList(cands))
+// type do not choose one of several impls. callee names the interface
+// function called (implCalleeLabel).
+func ambiguousImplMessage(callee string, recv Type, cands []implCandidate, byParams bool) string {
+	head := fmt.Sprintf("%s for `%s` has impls at %s", callee, recv, candidateList(cands))
 	if byParams {
 		return head + "; the argument's type does not choose one: annotate it"
 	}
@@ -353,7 +317,7 @@ func ambiguousImplMessage(iface *InterfaceType, method string, recv Type, cands 
 }
 
 // noImplMessage is the error at a call none of several impls takes.
-func noImplMessage(iface *InterfaceType, method string, recv Type, cands []implCandidate, argTys []Type, recvAt int) string {
+func noImplMessage(callee string, recv Type, cands []implCandidate, argTys []Type, recvAt int) string {
 	var got []string
 	for i, at := range argTys {
 		if at == nil || i == recvAt {
@@ -361,7 +325,7 @@ func noImplMessage(iface *InterfaceType, method string, recv Type, cands []implC
 		}
 		got = append(got, "`"+at.String()+"`")
 	}
-	head := fmt.Sprintf("`%s.%s` for `%s` has impls at %s", iface.Name, method, recv, candidateList(cands))
+	head := fmt.Sprintf("%s for `%s` has impls at %s", callee, recv, candidateList(cands))
 	if len(got) == 0 {
 		return head + ", and none takes these arguments"
 	}
@@ -559,20 +523,11 @@ func (c *checker) selectCallImpl(n *ast.Call, expected Type, piped ast.Node, pip
 		argNodes[0] = piped
 		shift = 1
 	}
-	pos := shift
-	for _, arg := range n.Args {
-		if na, named := arg.(*ast.NamedArg); named {
-			for i, pn := range m.ParamNames {
-				if pn == na.Name && i < len(argNodes) {
-					argNodes[i] = arg
-				}
-			}
-			continue
+	// The call's own arguments go where every call's do (placeArgs).
+	for i, slot := range placeArgs(n.Args, shift, m.ParamNames, m.Params) {
+		if slot >= 0 && slot < len(argNodes) {
+			argNodes[slot] = n.Args[i]
 		}
-		if pos < len(argNodes) {
-			argNodes[pos] = arg
-		}
-		pos++
 	}
 	// A partial application (`Holds.holds(b, &1)` where a `(String) ->
 	// Bool` is expected): each placeholder takes the expected function's
@@ -647,9 +602,9 @@ func (c *checker) selectCallImpl(n *ast.Call, expected Type, piped ast.Node, pip
 	if choice.chosen == nil {
 		var msg string
 		if len(choice.fits) == 0 {
-			msg = noImplMessage(iface, m.Name, recv, cands, argTys, recvAt)
+			msg = noImplMessage(c.implCalleeLabel(n, iface.Name, m.Name), recv, cands, argTys, recvAt)
 		} else {
-			msg = ambiguousImplMessage(iface, m.Name, recv, choice.fits, distinguishedByParams(choice.fits, iface, m, recv))
+			msg = ambiguousImplMessage(c.implCalleeLabel(n, iface.Name, m.Name), recv, choice.fits, distinguishedByParams(choice.fits, iface, m, recv))
 		}
 		c.report(errAt(n, msg))
 		// The arguments' own diagnostics, which the selection dropped. An
@@ -704,10 +659,16 @@ func (c *checker) recordSelectedImpl(n *ast.Call, sel *implCallSelection) {
 	}
 	proxy := *existing
 	// An inherited default has no function of the block's to name; the
-	// signature below still says which impl's it is.
+	// signature below still says which impl's it is, and the call's
+	// callee names the block (classifyCallee).
 	if impl := implBlockMethod(sel.chosen.info.Block, sel.method); impl != nil {
 		proxy.DispatchImpl = impl
 		proxy.DispatchReceiver = sel.recv
+	} else if sel.chosen.info.Block != nil {
+		if c.selectedImplBlocks == nil {
+			c.selectedImplBlocks = map[Pos]*ast.ImplBlock{}
+		}
+		c.selectedImplBlocks[pos] = sel.chosen.info.Block
 	}
 	proxy.Type = sel.impl
 	proxy.CallType = sel.impl
@@ -904,31 +865,6 @@ func typesMayOverlap(a, b Type) bool {
 	if TypesEqual(a, b) {
 		return true
 	}
-	switch at := a.(type) {
-	case *ListType:
-		bt, ok := b.(*ListType)
-		return ok && typesMayOverlap(at.Elem, bt.Elem)
-	case *MapType:
-		bt, ok := b.(*MapType)
-		return ok && typesMayOverlap(at.Key, bt.Key) && typesMayOverlap(at.Val, bt.Val)
-	case *TupleType:
-		bt, ok := b.(*TupleType)
-		return ok && argsMayOverlap(at.Elems, bt.Elems)
-	case *FuncType:
-		bt, ok := b.(*FuncType)
-		return ok && argsMayOverlap(at.Params, bt.Params) && typesMayOverlap(at.Return, bt.Return)
-	case *StructType:
-		bt, ok := b.(*StructType)
-		return ok && at.Name == bt.Name && argsMayOverlap(at.TypeArgs, bt.TypeArgs)
-	case *EnumType:
-		bt, ok := b.(*EnumType)
-		return ok && at.Name == bt.Name && argsMayOverlap(at.TypeArgs, bt.TypeArgs)
-	case *DistinctType:
-		bt, ok := b.(*DistinctType)
-		return ok && at.Name == bt.Name && argsMayOverlap(at.TypeArgs, bt.TypeArgs)
-	case *InterfaceType:
-		bt, ok := b.(*InterfaceType)
-		return ok && at.Name == bt.Name && argsMayOverlap(at.TypeArgs, bt.TypeArgs)
-	}
-	return false
+	as, bs, same := pairedTypeChildren(a, b)
+	return same && argsMayOverlap(as, bs)
 }

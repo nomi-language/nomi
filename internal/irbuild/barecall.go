@@ -14,11 +14,12 @@ import (
 //	interface F { fn shout(v: self) { label(v) } }           an interface's own
 //	                                                          sibling requirement
 //
-// Each is the call its resolution means, as ctrlflow.go's iterOwnerCall is
-// for `import std::iter.Iter.loop`. The first is irqualcall.go's
+// Each is the call its resolution means, as a bare `loop` is for
+// `import std::iter.Iter.loop` (bareIterLoop). The first is irqualcall.go's
 // siblingCall; the second is ownerdecl.go's bareStdMethodCall. The third,
-// like a bare call to any function of the enclosing impl block, is the
-// qualified call `F.label(v)` (barecallimpl.go's bareImplCall, and
+// like a bare call to any function of the enclosing impl block, in a body
+// or in a parameter default, is the qualified call `F.label(v)` with the
+// owner the checker recorded (barecallimpl.go's bareImplCall, and
 // stdIfaceOwnCall for a default lowered for std's or another file's
 // implementor).
 //
@@ -32,9 +33,9 @@ import (
 //
 // The owner is then confirmed POSITIVELY against the stdlib index rather than
 // trusted as a string, and the route is declined outright when this module
-// declares a type or an interface of that name. Handing `implCall` a bare
-// qualifier that resolves locally to a DIFFERENT declaration would match a type
-// identity by its name alone, a silent wrong answer rather than a refusal.
+// declares a type or an interface of that name. A bare qualifier that
+// resolves locally to a DIFFERENT declaration would match a type identity by
+// its name alone, a silent wrong answer rather than a refusal.
 
 // resolveSymbol follows a proxy chain to the symbol that really declares a
 // name. Bounded, because a proxy chain is data rather than a bounded shape.
@@ -46,6 +47,39 @@ func resolveSymbol(sym *analysis.Symbol) *analysis.Symbol {
 		sym = sym.Resolved
 	}
 	return sym
+}
+
+// sameDecl reports whether a and b are one declaration: the same node, or
+// one std function in two parses of its module's file, which share its std
+// identity (aStd and bStd, analysis.StdFunc; the zero StdFunc for a
+// declaration no std file makes) wherever the function sits in each. The
+// identity names one declaration of its module, an impl's function by its
+// impl's interface and type arguments too, so two functions of one name
+// on one receiver are never one here.
+//
+// A reference to a generic function holds the checker's instantiated copy
+// of its symbol, so symbols are compared by their declarations here, not by
+// pointer. A std module checked from its text, as an edit or a reference
+// editor writes it, is a second parse of the module beside the shared
+// analysis's. A shared module's cases are lowered against the shared
+// lowering's tables (GenerateStdlibTestIR), so a call's record names the
+// second parse's declaration and the route the shared parse's. A listed
+// module lowered beside an edited one (std/sql/testing beside std/sql) was
+// checked against the shared analysis, so its record names the shared
+// parse's declaration, and the route the edited one's twin
+// (indexEditedStdTwins). Each pair is one function.
+func sameDecl(a, b ast.Node, aStd, bStd analysis.StdFunc) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a == b || !aStd.IsZero() && aStd == bStd
+}
+
+// boundSameDecl reports whether the symbol a scope binds, followed through
+// imports, declares what sym does (sameDecl).
+func boundSameDecl(bound, sym *analysis.Symbol) bool {
+	bound = resolveSymbol(bound)
+	return bound != nil && sym != nil && (bound == sym || sameDecl(bound.Node, sym.Node, analysis.StdFunc{}, analysis.StdFunc{}))
 }
 
 // resolvedBareSymbol follows a bare name in a file's module scope to the symbol

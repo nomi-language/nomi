@@ -12,16 +12,15 @@ end
 // arguments — which is exactly how two ordering mutants survived in an earlier
 // batch. `tick` prints, so the order is a function of what the program DOES.
 //
-// THREE ORDERS ARE IN PLAY AND NO TWO COINCIDE HERE:
+// TWO ORDERS ARE IN PLAY:
 //
-//   written      as the programmer typed it
-//   evaluation   resolveArgs PARTITIONS into positionals-then-named, draining
-//                each partition in written order
+//   written      as the programmer typed it, which is the order the
+//                arguments are evaluated in
 //   SLOT         std's own parameter order: hour, minute, second, nanosecond
 //
 // The builder hoists each argument's statements as it walks, so walking slot
-// order would print these in a different sequence from the rule above. Nothing
-// about the returned Time would change.
+// order would print these in a different sequence. Nothing about the
+// returned Time would change.
 fn tick(n: Int, tag: String) -> Int
     io.print("eval ${tag}")
     n
@@ -42,15 +41,12 @@ fn main()
     // `eval B` before `eval A`, and a slot-order walk prints the reverse.
     render("backwards", Time.new(minute: tick(30, "B"), hour: tick(10, "A")))
 
-    // ONE POSITIONAL, THEN TWO NAMED. The positional partition drains first, so
-    // `eval P` comes before both names even though `second:` is written before
-    // nothing and `nanosecond:` after. Slot order would be P, then second, then
-    // nanosecond — which happens to agree here, so this case is about the
-    // PARTITION rather than about the permutation.
+    // ONE POSITIONAL, THEN TWO NAMED. Written order and slot order agree:
+    // P, then second, then nanosecond.
     render("mixed", Time.new(tick(11, "P"), 45, second: tick(1, "S"), nanosecond: tick(2, "N")))
 
-    // A NAMED ARGUMENT WRITTEN FIRST, BEFORE AN EFFECTFUL POSITIONAL. This is the
-    // shape the partition makes counter-intuitive: the positional is
-    // evaluated FIRST despite being written second.
+    // A NAMED ARGUMENT WRITTEN FIRST, BEFORE AN EFFECTFUL POSITIONAL. The
+    // named argument is evaluated first, where it is written: `eval Y`, then
+    // `eval X`.
     render("named-first", Time.new(minute: tick(59, "Y"), tick(23, "X")))
 end

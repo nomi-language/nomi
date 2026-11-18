@@ -13,7 +13,7 @@ import (
 // TestContextValue_StdDeclaresTheShapeThisArmAssumes is the guard the arm's use
 // of std's DECLARATION rests on.
 //
-// `contextValueFn.ctxResult` and the receiver's position are read from std
+// The result shape and the receiver's position are read from std
 // rather than from the checker, which is channelCtorFromTarget's safe direction
 // — but only because a std edit fails HERE instead of being silently coerced to
 // the wrong kind there. Two things are asserted per row: the parameter list this

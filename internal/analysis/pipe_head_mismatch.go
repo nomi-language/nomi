@@ -5,12 +5,13 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
-// PipeToStringHint ends the help on a pipe stage that takes a String and is
-// piped a value whose type implements Display. The language server's quick
-// fix recognizes it and inserts that stage.
-const PipeToStringHint = "add `|> Display.to_string()` before this stage"
+// pipeToStringHint ends the help on a pipe stage that takes a String and is
+// piped a value whose type implements Display. The error carries the fix
+// that inserts that stage (pipeHeadError).
+const pipeToStringHint = "add `|> Display.to_string()` before this stage"
 
 // pipeHead is the place a pipe stage takes the value piped into it: the
 // slot of `String.pad_start(6)` that `x` fills in `x |> String.pad_start(6)`.
@@ -142,6 +143,12 @@ func (c *checker) pipeHeadError(p *pipeHead, msg string, want, have Type) TypeEr
 	}
 	if want != nil {
 		e = e.WithHint(c.pipeHeadHint(want, have, ungroupExpr(p.pipe.Left)))
+		// The stage to insert goes before a stage that is a call the pipe
+		// fills at its first argument: not before a `&1`, and not inside a
+		// stage prefixed with `?`, `dbg` or `then`.
+		if c.pipeNeedsToString(resolveTypeVar(want), resolveTypeVar(have)) && p.hole == nil && p.call != nil && p.pipe.Right == ast.Node(p.call) && e.Line > 0 && e.EndLine == e.Line {
+			e.Fix = parser.Replace("Add `|> Display.to_string()` before this stage", e.Line, e.Col, e.Line, e.Col, "Display.to_string() |> ")
+		}
 	}
 	return e
 }
@@ -153,17 +160,17 @@ func (c *checker) pipeHeadError(p *pipeHead, msg string, want, have Type) TypeEr
 // stage takes, or convert between Int, Float and Decimal. value is the
 // pipe's head.
 func (c *checker) pipeHeadHint(want, have Type, value ast.Node) string {
-	w, h := resolveTV(want), resolveTV(have)
+	w, h := resolveTypeVar(want), resolveTypeVar(have)
 	if w == nil || h == nil || ContainsTypeParam(w) {
 		return ""
 	}
-	if dt, ok := h.(*DistinctType); ok && dt.Inner != nil && len(dt.TypeParams) == 0 && TypesEqual(resolveTV(dt.Inner), w) {
+	if dt, ok := h.(*DistinctType); ok && dt.Inner != nil && len(dt.TypeParams) == 0 && TypesEqual(resolveTypeVar(dt.Inner), w) {
 		return c.distinctUnwrapHint(dt, value)
 	}
-	if w == TypeString && h != TypeString && c.hasImpl(h, "Display") {
-		return c.typef("%s implements Display; ", h) + PipeToStringHint
+	if c.pipeNeedsToString(w, h) {
+		return c.typef("%s implements Display; ", h) + pipeToStringHint
 	}
-	if et, ok := h.(*EnumType); ok && len(et.TypeArgs) > 0 && TypesEqual(resolveTV(et.TypeArgs[0]), w) {
+	if et, ok := h.(*EnumType); ok && len(et.TypeArgs) > 0 && TypesEqual(resolveTypeVar(et.TypeArgs[0]), w) {
 		switch {
 		case et.Name == "Maybe" && len(et.TypeArgs) == 1:
 			return "a Maybe may be None; handle it before this stage: give a fallback with `|> Maybe.with_default(...)`, match it with `case`, or propagate it with `?` in a function that returns a Maybe"
@@ -180,6 +187,20 @@ func (c *checker) pipeHeadHint(want, have Type, value ast.Node) string {
 		return fmt.Sprintf("convert the %s first with `|> %s()`", h, fn)
 	}
 	return ""
+}
+
+// pipeNeedsToString reports whether a value of the resolved type h, piped
+// into a stage that takes the resolved type w, is one to render first: the
+// stage takes a String and the value's type implements Display. A distinct
+// type over String is destructured instead (pipeHeadHint).
+func (c *checker) pipeNeedsToString(w, h Type) bool {
+	if w == nil || h == nil || w != TypeString || h == TypeString {
+		return false
+	}
+	if dt, ok := h.(*DistinctType); ok && dt.Inner != nil && len(dt.TypeParams) == 0 && TypesEqual(resolveTypeVar(dt.Inner), w) {
+		return false
+	}
+	return c.hasImpl(h, "Display")
 }
 
 // hasImpl reports whether t's type has an impl of the interface iface,

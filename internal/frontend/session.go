@@ -89,7 +89,7 @@ func (c *Checker) CheckSessionFile(pi *analysis.ProgramInterfaces, key, name, sr
 	errs = append(errs, c.kept(check.Check)...)
 	var boot *ast.FuncDef
 	for _, n := range check.FileNodes[bootFile] {
-		if fn, ok := n.(*ast.FuncDef); ok && fn.Name == "boot" && !fn.ImplFunction {
+		if fn, ok := n.(*ast.FuncDef); ok && fn.Name == "boot" {
 			boot = fn
 		}
 	}

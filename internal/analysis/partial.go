@@ -39,6 +39,8 @@ func (t *PartialType) typeTag() {}
 //     full-value replacement; or
 //   - a concrete implementer of an interface-typed `target`, via the shared
 //     `ifaceParamAdmits`; or
+//   - a value that is already a `Partial<target>`: a patch parameter handed
+//     on to another function that takes one; or
 //   - an anon-struct whose every field name exists in `target` (a struct, or
 //     anon struct) and whose every field value is a whole value of the
 //     corresponding `target` field — so `{name:}` and `{address: Address}`
@@ -65,6 +67,9 @@ func (t *PartialType) typeTag() {}
 func (c *checker) deepPartialMatches(arg, target Type, reg *TypeRegistry, recPos Pos) bool {
 	if c.wholeValueMatches(arg, target, recPos) {
 		return true
+	}
+	if patch, ok := resolveTypeVar(arg).(*PartialType); ok {
+		return patch.Inner != nil && Unify(target, patch.Inner) == nil
 	}
 	anon, ok := resolveTypeVar(arg).(*AnonStructType)
 	if !ok {

@@ -430,6 +430,7 @@ func unpackGoldenArchive(archive, dir, root string) (map[string]string, error) {
 // a BLOCKED transcript is never recorded as an answer.
 func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 	regenerate := expectation.RegenerateRequested()
+	census := openSubstCensus()
 	set := goldenSet(t, irbuildGoldenPopulation)
 	if len(set.Cases) == 0 {
 		t.Fatal("irbuild.expect holds no records, so this package's comparisons have no answers")
@@ -507,6 +508,7 @@ func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 	}
 	t.Logf("%d irbuild golden record(s) checked on the VM: %d repository programs, "+
 		"%d temp programs", len(set.Cases), inRepo, temp)
+	checkSubstCensus(t, census())
 }
 
 // corpusGoldenRoot is the worktree root, for putting `<root>` back into a

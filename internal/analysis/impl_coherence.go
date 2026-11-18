@@ -44,6 +44,9 @@ type ProjectImplIndex struct {
 	// last-write-wins-on-collision semantic.
 	ImplTypeArgs    map[string]map[string]*ImplTypeArgs
 	ImplTypeArgSets map[string]map[string][]*ImplTypeArgs
+	// ImplBlocks is every file's FileAnalysis.ImplBlocks, by receiver and
+	// then interface base name.
+	ImplBlocks map[string]map[string][]*ImplTypeArgs
 
 	// ImplFuncTypes maps each impl FuncDef pointer to its resolved
 	// FuncType (param + return types), pulled from the owning file's
@@ -258,6 +261,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 		ImplFiles:             make(map[*ast.FuncDef]string),
 		ImplTypeArgs:          make(map[string]map[string]*ImplTypeArgs),
 		ImplTypeArgSets:       make(map[string]map[string][]*ImplTypeArgs),
+		ImplBlocks:            make(map[string]map[string][]*ImplTypeArgs),
 		ImplFuncTypes:         make(map[*ast.FuncDef]Type),
 		TypeMethods:           make(map[string]map[string]*Symbol),
 		TypeMethodModule:      make(map[string]map[string]string),
@@ -443,6 +447,7 @@ func buildProjectImplIndex(filesByKey map[string]*FileAnalysis, own *implTables,
 				idx.ImplTypeArgSets[typeName][ifaceName] = append(idx.ImplTypeArgSets[typeName][ifaceName], set...)
 			}
 		}
+		addImplBlocks(idx, fa)
 		// Type-promoted exports: only Public impl-block members cross module
 		// boundaries. A non-pub member stays reachable solely via its owning
 		// FA's per-file TypeMethods (in-module-only).
@@ -809,8 +814,11 @@ func AttachStdlibProjectImpls(fa *FileAnalysis, stdlibFAs map[string]*FileAnalys
 }
 
 // AttachEditedStdlibImpls is AttachStdlibProjectImpls for fa, the stdlib
-// module `module` ("sql") checked from edited source, nodes, which stdlibFAs
-// holds under that name in place of the shared analysis's copy. The index
+// module `module` ("sql") checked from edited source, nodes, which the
+// program holds under that name in place of stdlibFAs' (the shared
+// analyses') copy. The shared copy stays among the files the program
+// reaches (Program.reachedFiles): the stdlib's scopes name its
+// declarations, as an attached test's `import std::sql` does. The index
 // holds the impls nodes declare and none of the shared copy's. The shared
 // analyses list every stdlib impl in one set of tables, the shared copy's
 // among them; an impl function of that copy found there would be the
@@ -835,7 +843,15 @@ func AttachEditedStdlibImpls(fa *FileAnalysis, nodes []ast.Node, module string, 
 	IndexImplBlockFuncDefs(nodes, "std/"+module, fa.Definitions, own.IfaceMethodImpls, own.IfaceMethodImplFiles,
 		own.ImplBlockReceiver, own.ImplBlockInterfaceKey, own.IfaceMethodImplExterns, own.IfaceMethodImplExternFiles,
 		own.ImplBlockInterfaceKeyExtern, &inherents)
-	attachStdlibImpls(fa, stdlibFAs, own, map[*FileAnalysis]bool{fa: true})
+	files := make(map[string]*FileAnalysis, len(stdlibFAs))
+	for name, sfa := range stdlibFAs {
+		files[name] = sfa
+	}
+	files[module] = fa
+	attachStdlibImpls(fa, files, own, map[*FileAnalysis]bool{fa: true})
+	if shared := stdlibFAs[module]; shared != nil && shared != fa {
+		fa.program.editedStd = []*FileAnalysis{shared}
+	}
 }
 
 // attachStdlibImpls is AttachStdlibProjectImpls, where own lists the impls
@@ -1467,22 +1483,6 @@ func distinctInterfaceHeaders(group []*ast.FuncDef, interfaceKeys map[*ast.FuncD
 	}
 	sort.Strings(out)
 	return out
-}
-
-// quotedList renders `a`, `b` and `c` for a diagnostic.
-func quotedList(items []string) string {
-	quoted := make([]string, len(items))
-	for i, s := range items {
-		quoted[i] = "`" + s + "`"
-	}
-	switch len(quoted) {
-	case 0:
-		return ""
-	case 1:
-		return quoted[0]
-	default:
-		return strings.Join(quoted[:len(quoted)-1], ", ") + " and " + quoted[len(quoted)-1]
-	}
 }
 
 // detectOrphanImpls reports a TypeError for every impl whose

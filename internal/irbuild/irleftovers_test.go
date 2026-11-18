@@ -223,16 +223,8 @@ func irLeftoversRetained(t *testing.T, src string, names ...string) {
 		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
 	}
 	declined := map[string]string{}
-	readBack := map[string]bool{}
-	prevF := irFuncObserved
 	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
-	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func, read bool) {
-		if origin != irFromStd && f != nil && read {
-			readBack[name] = true
-		}
-	}
 	res, _, err := GenerateIR(p)
-	irFuncObserved = prevF
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,8 +237,6 @@ func irLeftoversRetained(t *testing.T, src string, names ...string) {
 	for _, name := range names {
 		if !have[name] {
 			t.Errorf("%s was not retained (first decline: %q)", name, declined[name])
-		} else if !readBack[name] {
-			t.Errorf("%s was retained but its Go is the walk's, so the Source comparison says nothing about it", name)
 		}
 	}
 }

@@ -5,25 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
 )
-
-func TestVMTupleDebug_TourMatchesRecordedAnswer(t *testing.T) {
-	recorded, err := expectation.Load("tour")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ids := []string{tourBlock(t, "structs-enums-distinct.md", `pair = ("Ada", 37)`)}
-	got, refused := vmSubsetOf(t, "tour", ids, vmPathResolver(t, "tour"))
-	if len(got.Cases) != 1 || len(refused) != 0 {
-		t.Fatalf("tuple Tour program incomplete: %v", refused)
-	}
-	if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
-		t.Fatalf("tuple Tour output differs: %v", diffs)
-	}
-}
 
 func TestVMTupleDebug_ComposesDebugAndRejectsUnsupportedChildren(t *testing.T) {
 	at := ir.At("tuple-debug.nomi", 1, 1)

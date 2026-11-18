@@ -18,10 +18,9 @@
 // `nomi/internal/irbuild`.
 //
 //   - No AST. Nothing here sees a `*ast.Binary` or an `*ast.If`.
-//   - No operand forcing. `gen.operand`/`gen.hold`'s rule (materialize an
-//     impure left operand so a later operand's statements cannot be hoisted
-//     ahead of it) is an `ir.Copy` in the graph, built by the producer. This
-//     package executes the Copy.
+//   - No operand forcing. Materializing an impure left operand, so a later
+//     operand's statements cannot run ahead of it, is an `ir.Copy` in the
+//     graph, built by the producer. This package executes the Copy.
 //   - No temporary naming. Every operand is an `ir.Temp` the producer
 //     allocated out of `ir.Func`'s namespace; the bytecode compiler gives
 //     each one a register in the bank its stored `ir.ValType` names.

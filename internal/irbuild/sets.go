@@ -15,8 +15,8 @@ package irbuild
 // which is exactly the shape generic.go refuses ("the box would be at the wrong
 // DEPTH"). So the index answers with a refusal and this arm answers with an
 // implementation, reading the element type off the LOWERED RECEIVER — information
-// the index does not carry and by design will not. That is mapCall's and
-// listCall's arrangement, reached by the same route.
+// the index does not carry and by design will not. That is mapCallPlan's and
+// listCallPlan's arrangement, reached by the same route.
 //
 // # Every arm here is std's own body with the pipeline removed
 //
@@ -51,15 +51,11 @@ package irbuild
 // and the two are one line of rt each — the ordering rule they share is the thing
 // worth having tested, and the fixture reads both.
 type setFn struct {
-	rtCall string
 	// args is the Nomi arity, and sets is how many of them are Sets.
 	args int
 	sets int
 	// result is how the result kind is derived: "set", "int" or "bool".
 	result string
-	// ops records whether the rt call takes the element's `hash, eq` pair.
-	// `Set.size` is the one row that does not: it reads a stored count.
-	ops bool
 }
 
 // setFuncs is the lowered surface of `impl Set<T>`. The empty set is the
@@ -68,14 +64,14 @@ type setFn struct {
 // Use across tests/: size 12 sites, contains? 11, insert 1, union 1,
 // intersection 1, difference 1, subset? 1, remove 0.
 var setFuncs = map[string]setFn{
-	"size":         {rtCall: "rt.SetSize", args: 1, sets: 1, result: "int"},
-	"contains":     {rtCall: "rt.SetContains", args: 2, sets: 1, result: "bool", ops: true},
-	"insert":       {rtCall: "rt.SetInsert", args: 2, sets: 1, result: "set", ops: true},
-	"remove":       {rtCall: "rt.SetRemove", args: 2, sets: 1, result: "set", ops: true},
-	"union":        {rtCall: "rt.SetUnion", args: 2, sets: 2, result: "set", ops: true},
-	"intersection": {rtCall: "rt.SetIntersection", args: 2, sets: 2, result: "set", ops: true},
-	"difference":   {rtCall: "rt.SetDifference", args: 2, sets: 2, result: "set", ops: true},
-	"is_subset_of": {rtCall: "rt.SetSubset", args: 2, sets: 2, result: "bool", ops: true},
+	"size":         {args: 1, sets: 1, result: "int"},
+	"contains":     {args: 2, sets: 1, result: "bool"},
+	"insert":       {args: 2, sets: 1, result: "set"},
+	"remove":       {args: 2, sets: 1, result: "set"},
+	"union":        {args: 2, sets: 2, result: "set"},
+	"intersection": {args: 2, sets: 2, result: "set"},
+	"difference":   {args: 2, sets: 2, result: "set"},
+	"is_subset_of": {args: 2, sets: 2, result: "bool"},
 }
 
 // setKindOf is the Set kind for element kind elem, or kindInvalid.

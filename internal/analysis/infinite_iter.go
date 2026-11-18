@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -24,8 +25,10 @@ import (
 // every entry, and every `Iter` owner function std declares, both ways and
 // requires this check to report exactly what the runtime traps on.
 
-// InfiniteIterCode tags the error, so the language server can offer to
-// limit the pipeline with `Iter.take`.
+// InfiniteIterCode tags the error. When the terminal is a pipe stage whose
+// source is the piped value, the error carries the fix that puts
+// `Iter.take(todo) |> ` before it, with the count for the author to fill
+// in.
 const InfiniteIterCode = "infinite-iterator"
 
 // iterArg is one argument of a std function: its position counted with the
@@ -210,7 +213,7 @@ func (c *infiniteIterCheck) terminal(call *ast.Call, piped ast.Node) {
 	}
 	line, col, endCol := calleeSpan(call)
 	srcLine, srcCol := positionOfCall(src.at)
-	c.errors = append(c.errors, TypeError{
+	e := TypeError{
 		Line:    line,
 		Col:     col,
 		EndLine: line,
@@ -218,7 +221,14 @@ func (c *infiniteIterCheck) terminal(call *ast.Call, piped ast.Node) {
 		Message: rt.InfiniteIterationText(key, src.name),
 		Related: []RelatedInfo{{Line: srcLine, Col: srcCol, Message: "`" + src.name + "` never ends"}},
 		Code:    InfiniteIterCode,
-	})
+	}
+	// A nested call has no pipe to put a stage in, and a terminal whose
+	// source is not the piped value (`Supervisor.spawn_all`) is not
+	// limited by one.
+	if piped != nil && args.at(drain.source) == piped {
+		e.Fix = parser.Replace("Limit with `Iter.take`", line, col, line, col, "Iter.take(todo) |> ")
+	}
+	c.errors = append(c.errors, e)
 }
 
 // iterArgs is a call's arguments with the piped value first.

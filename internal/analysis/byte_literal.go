@@ -76,38 +76,10 @@ func anyHoldsIntLiteral(items []ast.Node) bool {
 	return false
 }
 
-// byteInType reports whether ty is Byte or has Byte among its element or
-// type arguments, as enumInType looks for an enum.
-func byteInType(ty Type, depth int) bool {
-	if depth > 8 || ty == nil {
-		return false
-	}
-	switch t := resolveTypeVar(ty).(type) {
-	case *PrimitiveType:
-		return t == TypeByte
-	case *ListType:
-		return byteInType(t.Elem, depth+1)
-	case *MapType:
-		return byteInType(t.Key, depth+1) || byteInType(t.Val, depth+1)
-	case *TupleType:
-		return anyByteInTypes(t.Elems, depth)
-	case *EnumType:
-		return anyByteInTypes(t.TypeArgs, depth)
-	case *StructType:
-		return anyByteInTypes(t.TypeArgs, depth)
-	case *DistinctType:
-		return anyByteInTypes(t.TypeArgs, depth)
-	}
-	return false
-}
-
-func anyByteInTypes(ts []Type, depth int) bool {
-	for _, t := range ts {
-		if byteInType(t, depth+1) {
-			return true
-		}
-	}
-	return false
+// byteInType reports whether ty is Byte or holds Byte at any depth, as
+// enumInType looks for an enum.
+func byteInType(ty Type) bool {
+	return typeHolds(ty, func(t Type) bool { return t == Type(TypeByte) })
 }
 
 // byteLiteralsTakeExpected reports whether a call's arguments hold an Int
@@ -116,7 +88,7 @@ func anyByteInTypes(ts []Type, depth int) bool {
 // parameters from the expected type, tentatively, as it does for a
 // dot-leading variant.
 func byteLiteralsTakeExpected(args []ast.Node, expected Type) bool {
-	return byteInType(expected, 0) && anyHoldsIntLiteral(args)
+	return byteInType(expected) && anyHoldsIntLiteral(args)
 }
 
 // unsolvedExpected reports whether expected says nothing yet: none, or an
@@ -209,7 +181,7 @@ func (c *checker) checkByteOperands(n *ast.Binary) (left, right Type, ok bool) {
 // the other operand's type when that type has Byte in it (`b &&& 0x7F`,
 // `bytes == [0x81, 0x00]`), and on its own otherwise.
 func (c *checker) checkLiteralOperand(operand ast.Node, other Type) Type {
-	if byteInType(other, 0) {
+	if byteInType(other) {
 		return c.checkOperandAgainst(operand, other)
 	}
 	return c.checkNode(operand)

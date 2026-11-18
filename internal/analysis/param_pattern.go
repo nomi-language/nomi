@@ -115,6 +115,16 @@ func genericWithoutArgs(t Type) bool {
 // Plain (non-destructure) params are not this function's concern — the caller
 // only invokes it for params with p.Destructure != nil.
 func paramPatternType(p ast.Param, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
+	t, err := paramPatternTypeOf(p, reg, typeParams, fa)
+	if err == nil {
+		// The pattern matches the whole parameter (FileAnalysis.PatternTypes).
+		fa.recordPatternType(p.Destructure, t)
+	}
+	return t, err
+}
+
+// paramPatternTypeOf is paramPatternType without the record.
+func paramPatternTypeOf(p ast.Param, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis) (Type, error) {
 	if p.TypeAnnotation != nil {
 		return ResolveTypeExpr(p.TypeAnnotation, reg, typeParams, fa)
 	}

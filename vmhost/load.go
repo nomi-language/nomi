@@ -34,7 +34,6 @@ type config struct {
 	projectRoot  string
 	out          io.Writer
 	errOut       io.Writer
-	env          map[string]string
 	input        io.Reader
 	files        stdio.Backend
 	stop         context.Context
@@ -60,6 +59,9 @@ type config struct {
 	warnings func(Diagnostics)
 	// hints adds the advice marked Hint to what warnings takes (WithHints).
 	hints bool
+	// held says the host holds the program to allowed (WithCapabilities).
+	held    bool
+	allowed []string
 }
 
 func newConfig(opts []Option) config {
@@ -84,6 +86,47 @@ func WithHosts(tables ...HostTable) Option {
 				c.hosts = append(c.hosts, t)
 			}
 		}
+	}
+}
+
+// WithCapabilities holds the program to names: what it may reach outside
+// the machine (Program.OutsideCalls), named as nomi.toml's [capabilities]
+// lists name it, `std::fs` or `go:<import path>`, and `host:<key>` for a
+// function a table passed with WithHosts answers. With no names the program
+// may reach nothing outside itself.
+//
+// The load refuses the program before anything in it runs, with a
+// *CapabilityError, when an outside call is reachable from any function a
+// host can run: main and the boot, every function the entry file declares
+// (Call may call any of them), and the test cases. A name a nomi.toml
+// entry could not be (a misspelled std module, a Go package no binding
+// imports), a `host:` key no table answers, and a name listed twice fail
+// the load; a valid name nothing reaches does not. Run, Test and Call hold the program again from their own roots, as
+// they hold it to nomi.toml's lists. The project's own [capabilities] table
+// still applies, so the program must satisfy both: neither list widens
+// the other, and a module's own list under [capabilities.modules] still
+// holds that module's calls.
+//
+// It does not confine what it cannot see:
+//
+//   - WithFileSystem decides which files std::fs reaches; the list decides
+//     only whether std::fs is reached at all.
+//   - A host function the host supplies is the host's own Go code, and
+//     acts as that code does once its `host:` name is allowed.
+//   - A `go` binding is Go code the VM cannot look inside: it is named by
+//     its package and refused unless that name is listed.
+//   - Allowing std::compiler lets the program run a nested program, which
+//     no list holds.
+//   - Time and memory are not capabilities: WithStop and Run's context stop
+//     a run, and EvalLimits bounds an Evaluate.
+//
+// The walk over what the program reaches is conservative: a call in a
+// branch that never runs counts, and so does any implementation of an
+// interface function the program calls (OutsideCall.Chain says why).
+func WithCapabilities(names ...string) Option {
+	return func(c *config) {
+		c.held = true
+		c.allowed = append([]string{}, names...)
 	}
 }
 
@@ -152,18 +195,13 @@ func WithStop(ctx context.Context) Option {
 	return func(c *config) { c.stop = ctx }
 }
 
-// WithEnv overrides environment variables in the Startup a program's boot
-// receives (`Startup.env`), on top of the process environment.
-func WithEnv(env map[string]string) Option {
-	return func(c *config) { c.env = env }
-}
-
 // WithWarnings writes what the program compiles with and reports to w,
 // rendered as diagnostics, when Load or Check has checked it: each `embed`
-// pattern whose base does not exist yet (Program.Warnings), and, from Check
-// only, the program's advice (Program.Advice). `nomi run`, `nomi check` and
+// pattern whose base does not exist yet and each string that writes `$name`
+// where a `name` is in scope (Program.Warnings), and, from Check only, the
+// program's advice (Program.Advice). `nomi run`, `nomi check` and
 // `nomi test` pass the standard error. Without it they are written nowhere;
-// a build refuses the warnings and ignores the advice.
+// a build refuses a missing pattern and ignores the advice.
 func WithWarnings(w io.Writer) Option {
 	return WithWarningsTo(func(ds Diagnostics) { ds.Render(w) })
 }
@@ -410,6 +448,9 @@ func checked(p *Program, err error) (*Program, error) {
 	if err := p.checkLiterals(); err != nil {
 		return nil, err
 	}
+	if err := p.holdToHost(); err != nil {
+		return nil, err
+	}
 	p.writeWarnings()
 	return p, nil
 }
@@ -458,6 +499,9 @@ func Check(path string, opts ...Option) error {
 		return err
 	}
 	if err := p.Unsupported(); err != nil {
+		return err
+	}
+	if err := p.capabilityError(p.checkedRoots()...); err != nil {
 		return err
 	}
 	writeAdvice(cfg, p.Advice())
@@ -651,7 +695,7 @@ func Warm() {
 // or a table the host passed, and the analysis already recorded the project
 // root and the virtual files std/compiler's table resolves imports against.
 func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]string, cfg config) *Program {
-	p := &Program{prog: prog, res: res, declines: declines, out: cfg.out, errOut: cfg.errOut, env: cfg.env, cfg: cfg}
+	p := &Program{prog: prog, res: res, declines: declines, out: cfg.out, errOut: cfg.errOut, cfg: cfg}
 	if cfg.input != nil {
 		p.input = rt.NewInput(cfg.input)
 	}
@@ -664,6 +708,9 @@ func newProgram(prog *irbuild.Program, res *irbuild.Result, declines map[string]
 	}
 	m := programManifest(prog.Root, cfg.manifest)
 	p.locales, p.webEmbedded = m.CarriedLocales(), m.WebLocales()
+	if m != nil {
+		p.capabilities = m.Capabilities
+	}
 	if p.locales != nil {
 		p.source = m.Source()
 	}

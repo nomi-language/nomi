@@ -218,22 +218,28 @@ func (e *DebugExpr) failureText(err error) string {
 	return text
 }
 
-var unknownTypePatterns = []*regexp.Regexp{
-	regexp.MustCompile(`unknown type "([A-Z][A-Za-z0-9_]*)"`),
-	regexp.MustCompile(`undefined type or variant '([A-Z][A-Za-z0-9_]*)'`),
-}
-
-// unknownTypes are the type names a failed check could not resolve.
+// unknownTypes are the type names a failed check could not resolve: the
+// name of each error that a type, or a type or variant, is not in scope,
+// when it is one plain name an import could bring in.
 func unknownTypes(err error) []string {
+	var diags frontend.Diagnostics
+	if !errors.As(err, &diags) {
+		return nil
+	}
 	var out []string
-	text := err.Error()
-	for _, re := range unknownTypePatterns {
-		for _, m := range re.FindAllStringSubmatch(text, -1) {
-			out = append(out, m[1])
+	for _, d := range diags {
+		if d.Code != analysis.UnknownTypeCode && d.Code != analysis.UndefinedTypeOrVariantCode {
+			continue
+		}
+		if name := d.Args[0]; plainTypeName.MatchString(name) {
+			out = append(out, name)
 		}
 	}
 	return out
 }
+
+// plainTypeName matches a type's name with no qualifier and no arguments.
+var plainTypeName = regexp.MustCompile(`^[A-Z][A-Za-z0-9_]*$`)
 
 // declaringFile is the import path of the one file of the program, other
 // than file, that declares a `pub` type named name, or "" when none or

@@ -6,9 +6,6 @@ import (
 )
 
 func irRetainedSetKind(k kind) bool {
-	if k == kindEmptySet {
-		return true
-	}
 	elem, ok := setElem(k)
 	return ok && irSetElemKind(elem)
 }
@@ -22,13 +19,13 @@ func irSetElemKind(k kind) bool {
 	if irScalarLeafKind(k) || isDecimalKind(k) || irLeafTupleKind(k) || irMapKeyKind(k) {
 		return true
 	}
-	if k.tag == tagList && irRetainedListKind(k) && k != kindEmptyList {
+	if k.tag == tagList && irRetainedListKind(k) {
 		return true
 	}
-	if elem, isVector := vectorElem(k); isVector && k != kindEmptyVector && irSetElemKind(elem) {
+	if elem, isVector := vectorElem(k); isVector && irSetElemKind(elem) {
 		return true
 	}
-	if elem, isSet := setElem(k); isSet && k != kindEmptySet && irSetElemKind(elem) {
+	if elem, isSet := setElem(k); isSet && irSetElemKind(elem) {
 		return true
 	}
 	if irPreludeElemKind(k) {
@@ -60,16 +57,14 @@ func (bl *irScalarBuilder) setMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kind, 
 		return bl.setSpreadLit(t)
 	}
 	if len(t.Items) == 0 {
-		n := ir.NewEmptySet(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
-		bl.b.Append(n)
-		return n.Dst(), kindEmptySet, true, true
+		return bl.emptyLiteral(t, setSpreadJoin, kindInvalid)
 	}
 	want := elem
 	// kindInvalid: sentinel — the items give the element kind.
-	if parts := bl.literalParts(t, tagEmptySet); want == kindInvalid && parts != nil {
+	if parts := bl.literalParts(t, setSpreadJoin); want == kindInvalid && parts != nil {
 		want = parts[0]
 	}
-	values, elem, ok := bl.lowerSameKindItems(t, tagEmptySet, t.Items, want, irSetElemKind)
+	values, elem, ok := bl.lowerSameKindItems(t, setSpreadJoin, t.Items, want, irSetElemKind)
 	if !ok {
 		return no()
 	}
@@ -108,8 +103,6 @@ func (bl *irScalarBuilder) setCallPlan(t *ast.Call, args irQualArgs, method stri
 		// The set the checker solved T at, which a later operand may
 		// have widened past the first (listCallPlan).
 		k = bl.g.setKindOf(e)
-	} else if k == kindEmptySet && len(args.kinds) == 2 && irScalarLeafKind(args.kinds[1]) {
-		k = bl.g.setKindOf(args.kinds[1])
 	}
 	elem, ok := setElem(k)
 	if !ok || !irSetElemKind(elem) {
@@ -120,7 +113,7 @@ func (bl *irScalarBuilder) setCallPlan(t *ast.Call, args irQualArgs, method stri
 		if i < fn.sets {
 			want = k
 		}
-		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], have, want)
+		v, got, ok := bl.convertTo(t.Args[i], args.temps[i], have, want)
 		if !ok {
 			return nil
 		}

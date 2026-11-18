@@ -115,13 +115,13 @@ func (g *gen) defaultFilledRef(ref ast.Node) bool {
 
 // selfCtorFuncRef lowers `self` named as a value inside an interface default
 // bounded by `where self: Distinct<T>`: the constructor of the implementor
-// this copy of the default is emitted for, a function from what it wraps to
+// this copy of the default is lowered for, a function from what it wraps to
 // it. Its kinds are the implementor's own, which the checker cannot name: it
 // typed the value with the interface's `self`.
 func (bl *irScalarBuilder) selfCtorFuncRef(t *ast.SelfExpr) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	// The checker admits `self` as a value only in a default bounded by
-	// `where self: Distinct<T>`, which is emitted per distinct implementor
+	// `where self: Distinct<T>`, which is lowered per distinct implementor
 	// (defaultSelf), and the implementor's inner is held as its field is.
 	d := bl.g.selfDistinct()
 	if d == nil {
@@ -166,6 +166,13 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 		args[i] = stand
 	}
 	call := &ast.Call{Func: ref, Args: args, Line: line, Col: col}
+	// The function value passes its parameters in order, and rec fills the
+	// rest.
+	total := len(args)
+	if rec != nil {
+		total = len(rec.Params)
+	}
+	defer g.carryCall(call, g.positionalCallOf(ref, len(args), total))()
 	if rec != nil {
 		if g.synthDefaults == nil {
 			g.synthDefaults = map[*ast.Call]*analysis.DefaultedCall{}
@@ -199,7 +206,7 @@ func (bl *irScalarBuilder) callFuncValueOf(ref ast.Node, name string, params []k
 // type the checker closed it as.
 func (g *gen) checkedValueKinds(ref ast.Node) ([]kind, kind, bool) {
 	if g.fa == nil {
-		return nil, kindInvalid, false
+		panic("irbuild: checkedValueKinds: the builder lowers only checked programs, which carry their analysis")
 	}
 	line, col := calleeRefPos(ref)
 	sym := g.srcFA().References[analysis.Pos{Line: line, Col: col}]

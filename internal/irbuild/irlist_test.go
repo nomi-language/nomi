@@ -19,15 +19,15 @@ fn main()
  dbg choose(2)
  Unit
 end`, "dbg line 11: nested() = [[], [1]]\ndbg line 12: choose(0) = []\ndbg line 13: choose(2) = [2]\n"},
-		{"empty-only spread", `import std::io
+		{"empty-only spreads", `import std::io
 fn main()
  empty = fn ->
      io.print("empty")
      []
  end
- dbg [..empty()]
+ dbg [..empty(), ..empty()]
  Unit
-end`, "empty\ndbg line 7: [..empty()] = []\n"},
+end`, "empty\nempty\ndbg line 7: [..empty(), ..empty()] = []\n"},
 		{"empty argument order", `import std::io
 fn pair(xs: List<Int>, n: Int) -> List<Int>
     [n, ..xs]

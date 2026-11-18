@@ -6,34 +6,26 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// Cross-package type identity: a user type declared in one Nomi FILE named
-// from another.
+// Cross-file type identity: a user type declared in one Nomi file named from
+// another.
 //
-// # The boundary this crosses, and the one it does not
+// # Each gen holds its own def for another file's type
 //
-// One Nomi FILE is one package in the builder's Go spellings (see siblings.go),
-// and a type crosses that boundary. `scalarKind` alone answers only for
-// scalars (`Int` is `int64` in every package), and siblings.go states why a
-// named type cannot simply be shared: "a named type's identity IS the
-// *typeDef its declaration produced, and a *typeDef belongs to exactly one
-// generated package".
+// Every file has its own gen, and a gen's kind comparisons are its own:
+// `g.comps`, `g.tids`, `g.implsByIface` and every `k == k` are per gen. A
+// named type's identity is the *typeDef its declaration produced, and that
+// def belongs to the declaring file's gen (see siblings.go). `scalarKind`
+// alone answers only for scalars, which are the same kind in every gen.
 //
-// The answer is to give the referencing package its OWN *typeDef for the same
-// Nomi type —
-// a MIRROR — whose Go name is package-qualified and whose layout is copied
-// verbatim from the owner's. Two packages then hold two pointers naming one Go
-// type, which is exactly what Go's own type checker means by identity across a
-// package boundary. Pointer equality stays the identity WITHIN a package, which
-// is the only place any of this builder's kind comparisons happen: `g.comps`,
-// `g.tids`, `g.implsByIface` and every `k == k` are per-gen.
+// So the referencing gen gets its own *typeDef for the same Nomi type, a
+// mirror, whose layout is copied from the owner's and which points at the
+// owner's def (ownerDef). Pointer equality stays the identity within a gen.
 //
-// One *typeDef shared by every gen looks simpler and does not work. A shared
-// def's field
-// kinds are interned in the OWNER's `g.comps`, so a field of type `List<Point>`
-// renders as `*rt.List[NomiT_Point]`: correct in the owner, undefined in every
-// other package. Making it correct everywhere means rendering a kind relative
-// to the package asking. A mirror re-interns its own components in the asking
-// gen instead.
+// One *typeDef shared by every gen does not work. A shared def's field kinds
+// are interned in the owner's `g.comps`, so its field of type `List<Point>`
+// is a different *compKind from the `List<Point>` the asking gen builds, and
+// the two compare unequal. A mirror re-interns its own components in the
+// asking gen.
 //
 // # Identity is the declaration NODE, never the name
 //
@@ -67,43 +59,32 @@ import (
 // never lowered here: a literal that omits the field calls an accessor the
 // declaring file's gen builds (foreignfielddefault.go).
 //
-// # What is refused, and why each is refused rather than guessed
+// # What is refused
 //
-//   - `sibling file import cycle` — a type reference is a Go IMPORT, so it
-//     joins the reference graph siblings.go closes, and an edge that closes a
-//     cycle is refused at its own position. Nomi permits cyclic file imports
-//     deliberately; Go forbids cyclic package imports outright. component.go's
-//     partition makes this a fail-safe.
-//   - `sibling file type cycle` — file A's type table needs B's while B's needs
-//     A's. Distinct from the import-cycle key because it is detected while
-//     BUILDING the tables rather than at a reference, and the two can be
-//     reached independently. A cycle of type declarations is built as a type
-//     group (typecycle.go), so this is reached only by a demand the group's
-//     edges miss.
-//   - `existential over a sibling file type` — a fail-safe, not a reachable
-//     key. `hasTID`'s mirror path answers from the OWNER's table, and
+//   - `sibling file type cycle`: file A's type table needs B's while B's needs
+//     A's. It is detected while building the tables. A cycle of type
+//     declarations is built as a type group (typecycle.go), so this is reached
+//     only by a demand the group's edges miss.
+//   - `existential over a sibling file type`: a fail-safe, not a reachable
+//     key. `hasTID`'s mirror path answers from the owner's table, and
 //     `mintTypeIDs` records eagerly in the declaring file, so a boxed value
 //     crossing a file boundary has one identity. existential.go's
-//     importIfaceKind mirrors the INTERFACE's def and propagates the mirror's
-//     OWN reason (a type cycle) instead of this key.
-//   - `generic sibling file type` — a generic declaration is refused in its own
-//     file too, and the mirror inherits that.
+//     importIfaceKind mirrors the interface's def and propagates the mirror's
+//     own reason (a type cycle) instead of this key.
 
 // typeOwner is one user file's type declaration as the whole PROGRAM sees it.
 type typeOwner struct {
-	// unit is the declaring module's index, and pkg its generated package.
+	// unit is the declaring module's index.
 	unit int
-	pkg  string
 	// fileKey is the analyzer's module-path key, for refusal text.
 	fileKey string
 	nomi    string
 	decl    ast.Node
-	// isIface marks an `interface` declaration rather than a type. Both live
-	// in one registry because a NAME reference to either is the same thing to
-	// the reference graph — a Go import — and because closeReferences must
-	// see an interface reference for exactly that reason. The two are handed
-	// out through separate accessors (foreignOwner, foreignIfaceOwner) so a
-	// type lookup can never come back holding an interface.
+	// isIface marks an `interface` declaration and not a type. Both live in
+	// one registry because both are found by the node that declares them. The
+	// two are handed out through separate accessors (foreignOwner,
+	// foreignIfaceOwner) so a type lookup can never come back holding an
+	// interface.
 	isIface bool
 	// instSrc is the OWNER's monomorphized instance def when this record
 	// stands for `Holder<Int>` rather than for the declaration `Holder`. It
@@ -130,18 +111,17 @@ type typeRegistry struct {
 	// gens is one generator per module, filled by Generate before any type
 	// table is built. Indexed by unit.
 	gens []*gen
-	// pkgOf is each unit's Go-spelled package and owner its component
-	// representative. Neither is the unit index: a strongly-connected
-	// component of the Nomi import graph becomes ONE Go package, because Go
-	// forbids an import cycle and Nomi deliberately permits one. See
-	// component.go.
+	// pkgOf is each unit's unit package name and owner its component
+	// representative. Neither is the unit index: the files of one strongly
+	// connected component of the Nomi import graph share one name, the
+	// namespace key their gens compare. See component.go.
 	pkgOf []string
 	owner []int
 	// declared is, by interface (std's Equatable or Hashable), every
-	// DECLARATION the program writes an impl of it for, gathered once on
-	// first ask and nil until then — most programs never ask. Keyed on the
-	// declaration NODE because that is the type's identity and the question
-	// is asked from a package that holds only a mirror. See declaresImpl.
+	// declaration the program writes an impl of it for, gathered once on
+	// first ask and nil until then, since most programs never ask. Keyed on
+	// the declaration node because that is the type's identity and the
+	// question is asked from a gen that holds only a mirror. See declaresImpl.
 	declared map[string]map[ast.Node]bool
 	// erasedInsts is every generic instance some file holds erased, by the
 	// owner's def's portable spelling (erasedKey): an impl another file
@@ -164,16 +144,6 @@ type typeRegistry struct {
 	// perFile is what a lowering of one file is given of its program, or
 	// nil (perfile.go).
 	perFile *perFileState
-	// aliasOwner is the Go-spelled PACKAGE plus mirror name of every foreign
-	// alias some gen has already claimed, so exactly one gen declares it.
-	//
-	// A mirror's `type NomiT_X = pkg.NomiT_X` is deduplicated per GEN by
-	// flushForeignAliases, and a gen is one FILE while a generated package is
-	// one COMPONENT. So two co-tenants of a merged package each mirroring the
-	// same sibling type emitted the alias TWICE into one Go package —
-	// `NomiT_ProdLogger redeclared in this block`. Keyed on `(pkg, name)`
-	// because a mirror in a DIFFERENT package must still declare its own.
-	aliasOwner map[string]bool
 	// groupOf is each unit's type group, nil for a unit on no cycle of type
 	// references, found on the first ensureTypes. See typecycle.go.
 	groupOf     []*typeGroup
@@ -219,7 +189,6 @@ func buildTypeRegistry(p *Program) *typeRegistry {
 			}
 			r.byDecl[n] = &typeOwner{
 				unit:    i,
-				pkg:     r.pkgOf[i],
 				fileKey: m.Name,
 				nomi:    name,
 				decl:    n,
@@ -258,11 +227,11 @@ func buildTypeRegistry(p *Program) *typeRegistry {
 // registered; ensureLayout and ensureIfaces ask for more.
 func (r *typeRegistry) ensureTypes(unit int) bool {
 	if unit < 0 || unit >= len(r.gens) {
-		return false
+		panic("irbuild: ensureTypes: unit index always comes from typeOwner.unit, an index into r.gens")
 	}
 	g := r.gens[unit]
 	if g == nil {
-		return false
+		panic("irbuild: ensureTypes: every registry unit has a gen")
 	}
 	if g.typesDone {
 		return true
@@ -332,11 +301,11 @@ func (g *gen) foreignOwner(name string) *typeOwner {
 
 // foreignIfaceOwner is foreignOwner for an `interface` declaration.
 //
-// Separate accessor rather than one that answers for both, because every
-// caller of foreignOwner goes on to build a type MIRROR — a Go alias, a
-// layout, variant tags — and an interface has none of those. A single
-// accessor would make `foreignType("Logger")` answer with an owner and
-// report the interface as `unlowered type`, which is a mis-named refusal.
+// A separate accessor and not one that answers for both, because every
+// caller of foreignOwner goes on to build a type mirror (a layout, variant
+// tags) and an interface has none of those. A single accessor would make
+// `foreignType("Logger")` answer with an owner and report the interface as
+// `unlowered type`, which is a mis-named refusal.
 func (g *gen) foreignIfaceOwner(name string) *typeOwner {
 	o := g.foreignDecl(name)
 	if o == nil || !o.isIface {
@@ -378,8 +347,9 @@ func (g *gen) ownerOfSymbol(sym *analysis.Symbol) *typeOwner {
 // typeOf, the IR builder's construction and variant resolution and the `case`
 // machinery all reach it through the one map a type name is ever looked up in
 // (gen.types' comment). Nothing downstream distinguishes a mirror from a local
-// declaration except the two places that must: a field default cannot be
-// emitted here, and an existential cannot mint a second runtime identity.
+// declaration except the two places that must: a field default is not lowered
+// here (foreignfielddefault.go), and a mirror gets no runtime identity of its
+// own (hasTID answers from the owner's table).
 func (g *gen) foreignType(name string) (*typeDef, bool) {
 	o := g.foreignOwner(name)
 	if o == nil {
@@ -390,16 +360,17 @@ func (g *gen) foreignType(name string) (*typeDef, bool) {
 	return d, true
 }
 
-// mirrorOf is this package's mirror of one owner's declaration, built once per
-// declaration NODE and cached on it.
+// mirrorOf is this gen's mirror of one owner's declaration, built once per
+// declaration node and cached on it.
 //
 // Split out of foreignType because a mirror is reachable by two different
 // questions and only one of them has a name to ask with. foreignType asks
-// "what does THIS FILE's imports bind `Widget` to". project() asks "what did
-// the ANALYZER solve, at origin O" — for positions where the program never
-// writes the name at all, so there is no import to resolve through. Both must
-// reach the same *typeDef, because that pointer IS the type's identity here
-// and two mirrors of one declaration would be two Go types. See siblingOwner.
+// what this file's imports bind `Widget` to. project() asks what the analyzer
+// solved, at origin O, for positions where the program never writes the name
+// at all, so there is no import to resolve through. Both must reach the same
+// *typeDef, because that pointer is the type's identity here and two mirrors
+// of one declaration would be two unequal kinds for one type. See
+// siblingOwner.
 //
 // # A mirror does not ask whether the declaration is `pub`
 //
@@ -467,11 +438,14 @@ func (g *gen) siblingOwner(origin, name string) *typeOwner {
 		if src == nil || src.fa == nil || src.fa.Origin != origin {
 			continue
 		}
-		d := src.types[name]
-		if d == nil || d.decl == nil {
+		// The declaration the name has in the declaring file's scope, which
+		// the checker resolved: the declaring gen's own table holds it only
+		// once that gen has built its types.
+		sym := resolvedTypeSymbol(src.fa, name)
+		if sym == nil || sym.Node == nil {
 			return nil
 		}
-		o := g.reg.byDecl[d.decl]
+		o := g.reg.byDecl[sym.Node]
 		if o == nil || o.isIface || o.unit != unit {
 			// isIface: a type lookup must never come back holding an
 			// interface, which is the invariant foreignOwner keeps for the
@@ -483,7 +457,7 @@ func (g *gen) siblingOwner(origin, name string) *typeOwner {
 	return nil
 }
 
-// namedType resolves a type NAME to this package's def for it: its own
+// namedType resolves a type name to this gen's def for it: its own
 // declaration, or a mirror of another file's.
 //
 // The one place a type name is looked up, which is what gen.types' comment
@@ -611,21 +585,12 @@ func (g *gen) blockedMirror(o *typeOwner, why, detail string) *typeDef {
 	return &typeDef{nomi: o.nomi, decl: o.decl, line: o.decl.LineNum(), foreign: o.fileKey, why: why, whyDetail: detail, lowerable: why == ""}
 }
 
-// foreignAlias is one `type <local> = <target>` declaration.
-type foreignAlias struct {
-	local  string
-	target string
-	// nomi is the Nomi type it names, file-qualified, for the comment.
-	nomi string
-}
-
-// importDef builds this package's mirror of another package's typeDef.
+// importDef builds this gen's mirror of another gen's typeDef.
 //
-// The LAYOUT is copied verbatim — field order, Go field names, variant tags,
-// slot assignment, boxing — because the layout is a property of the Go type the
-// owner declared and this package is naming that same type, not declaring a
-// second one. Only the KINDS are re-derived, through importKind, so every
-// component renders relative to this package.
+// The layout is copied: field order, variant tags, slot assignment and
+// boxing. The mirror names the type the owner declared and does not declare a
+// second one. Only the kinds are re-derived, through importKind, so every
+// component is interned in this gen.
 func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
 	d := g.mirrorShell(src, o)
 	if !src.lowerable {
@@ -646,7 +611,7 @@ func (g *gen) importDef(src *typeDef, o *typeOwner) *typeDef {
 // than recursing forever.
 func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
 	defer constructingType()()
-	d := &typeDef{nomi: src.nomi, decl: src.decl, line: src.line, isEnum: src.isEnum, isDistinct: src.isDistinct, tagName: src.tagName, foreign: o.fileKey, lowerable: src.lowerable, ownerDef: src}
+	d := &typeDef{nomi: src.nomi, decl: src.decl, line: src.line, isEnum: src.isEnum, isDistinct: src.isDistinct, foreign: o.fileKey, lowerable: src.lowerable, ownerDef: src}
 	if o.instSrc != nil {
 		// A MONOMORPHIZED instance, interned by the owner's def rather than
 		// by the declaration node every instance of the template shares. The
@@ -657,8 +622,9 @@ func (g *gen) mirrorShell(src *typeDef, o *typeOwner) *typeDef {
 		}
 		g.foreignInstDefs[o.instSrc] = d
 		// The TEMPLATE travels with the mirror, because a qualifier at a use
-		// site names the template and `declaredAs` has to be able to say the
-		// name and the value agree. It is the OWNER gen's template pointer,
+		// site names the template, and resolving it (genericTemplateNamed)
+		// must reach the template the value was made from. It is the OWNER
+		// gen's template pointer,
 		// which is what `foreignTemplate` resolves the qualifier to here, so
 		// the two sides compare equal.
 		//
@@ -760,17 +726,16 @@ func (g *gen) copyMirrorLayout(d, src *typeDef, o *typeOwner) {
 			d.lowerable, d.why, d.whyDetail = false, g.importWhy, o.fileKey+"."+src.nomi+" stores "+s.k.nomi()
 			return
 		}
-		d.slots = append(d.slots, slotDef{k: k, boxed: s.boxed, users: s.users})
+		d.slots = append(d.slots, slotDef{k: k, boxed: s.boxed})
 	}
 }
 
-// importKind re-derives one of the owner's kinds relative to THIS package.
+// importKind re-derives one of the owner's kinds in this gen.
 //
-// A scalar is the same kind in every package and answers itself. A structural
-// type is rebuilt through the same constructor that made it, so it re-interns
-// in this gen's own table against this gen's rendering of its parts — which is
-// the whole reason mirrors exist rather than shared defs. A named type recurses
-// into another mirror.
+// A scalar is the same kind in every gen and answers itself. A structural
+// type is rebuilt through the same constructor that made it, so it interns in
+// this gen's own table over this gen's parts, which is why mirrors exist and
+// shared defs do not. A named type recurses into another mirror.
 //
 // The reason for a refusal is left in g.importWhy rather than returned, because
 // every caller reports it against a different subject (a field, a payload, a
@@ -781,8 +746,7 @@ func (g *gen) importKind(k kind) (kind, bool) {
 	case tagInvalid:
 		g.importWhy = "unlowered type"
 		return kindInvalid, false
-	case tagUnit, tagInt, tagFloat, tagString, tagBool, tagNever,
-		tagEmptyList, tagEmptyMap, tagEmptySet, tagEmptyVector:
+	case tagUnit, tagInt, tagFloat, tagString, tagBool, tagNever:
 		return k, true
 	case tagSeq:
 		elem, ok := g.importKind(k.comp.parts[0])
@@ -810,12 +774,11 @@ func (g *gen) importKind(k kind) (kind, bool) {
 		return rk, true
 	case tagIface:
 		if _, isStd := stdIfaceOf(k.iface); isStd {
-			// A STDLIB interface's *ifaceDef is PROCESS-WIDE and its dispatch
-			// table is a variable in rt, so `rt.Dyn` over it is literally the
-			// same kind in every package: there is nothing to re-derive, no
-			// second def to intern, and no second table to mint. The refusal
-			// below is about a def interned in the OWNER's gen, which this is
-			// not. See stdiface.go.
+			// A stdlib interface's *ifaceDef is process-wide, so the
+			// existential over it is the same kind in every gen: there is
+			// nothing to re-derive and no second def to intern. The refusal
+			// below is about a def interned in the owner's gen, which this
+			// is not. See stdiface.go.
 			return k, true
 		}
 		return g.importIfaceKind(k.iface)
@@ -861,18 +824,22 @@ func (g *gen) importKind(k kind) (kind, bool) {
 			parts = append(parts, ip)
 		}
 		return g.tupleKind(parts), true
+	case tagTypeParam:
+		// A bound-free type parameter's kind is held only by its own
+		// generic declaration's signature and shell, and is never mirrored.
+		g.importWhy = "unlowered type"
+		return kindInvalid, false
 	}
-	g.importWhy = "unlowered type"
-	return kindInvalid, false
+	// Every tag has an arm above (TestImportKindHasAnArmForEveryTag).
+	panic("irbuild: importKind reached with a kind of no tag: " + k.nomi())
 }
 
 // importNamed mirrors a named type reached as another type's component.
 //
-// A PRELUDE instance is re-instantiated rather than mirrored: its Go type is
-// `rt.Maybe[T]`, declared in rt and therefore already package-neutral, but the
-// `T` inside it is not — so the instance has to be rebuilt at this package's
-// spelling of its type arguments, through the same preludeInstance every other
-// site goes through. See prelude.go.
+// A prelude instance is re-instantiated and not mirrored: any gen builds one
+// from its anchor, and the `T` inside it is one gen's kind, so the instance is
+// rebuilt over this gen's import of its type arguments, through the same
+// preludeInstance every other site goes through. See prelude.go.
 func (g *gen) importNamed(src *typeDef) (kind, bool) {
 	if src.preludeOf != nil {
 		g.loadPreludes()
@@ -884,8 +851,7 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 			// supplies that without a scope. See preludeorigin.go.
 			var anchored bool
 			if a, anchored = preludeSpecAnchor(src.preludeOf.spec); !anchored {
-				g.importWhy = "prelude enum without an anchor"
-				return kindInvalid, false
+				panic("irbuild: importNamed: std's own declaration does not anchor the prelude enum " + src.nomi)
 			}
 		}
 		args := make([]kind, 0, len(src.preludeArgs))
@@ -905,19 +871,17 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		return k, true
 	}
 	if spec, srcArgs, isGenStruct := genStructOf(named(src)); isGenStruct {
-		// A GENERIC STD STRUCT instance — `Set<Int>`, `Channel<Request>`.
-		// Re-instantiated rather than mirrored, for importNamed's prelude
-		// reason and not for a weaker version of it: the Go type `rt.Channel[T]`
-		// is declared in rt and is package-neutral, but the `T` inside it need
-		// not be, so the instance has to be rebuilt at THIS package's spelling
-		// of its type arguments and through the same door every other site
-		// goes through.
+		// A generic std struct instance: `Set<Int>`, `Channel<Request>`.
+		// Re-instantiated and not mirrored, for the prelude arm's reason: any
+		// gen builds one from its spec, and the `T` inside it is one gen's
+		// kind, so the instance is rebuilt over this gen's import of its type
+		// arguments.
 		//
-		// A PROCESS-WIDE instance survives this walk unchanged rather than
-		// bypassing it: every argument is neutral, so importKind hands each
-		// one back identically and genStructInstance finds the same shared
-		// entry. So this arm is correct for both halves of the split and does
-		// not need to ask which half it is looking at.
+		// A process-wide instance comes back unchanged: every argument is
+		// neutral, so importKind hands each one back identically and
+		// genStructInstance finds the same shared entry. So this arm is
+		// correct for both halves of the split and does not ask which half
+		// it is looking at.
 		args := make([]kind, 0, len(srcArgs))
 		for _, arg := range srcArgs {
 			ia, ok := g.importKind(arg)
@@ -952,36 +916,32 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 		return k, true
 	}
 	if src.genericOf != nil {
-		// A USER GENERIC INSTANCE — `Holder<Int>`, declared in the owner's
-		// package. MIRRORED rather than re-instantiated, which is the
-		// opposite of the three arms above and is forced by where the Go type
-		// lives: `rt.Maybe[T]`, `rt.Set[T]` and `rt.DateTime` are declared in
-		// rt and can be rebuilt anywhere, while `NomiT_Holder_Int` is EMITTED
-		// into exactly one generated package. Rebuilding it here would
-		// declare a SECOND Go type with the same layout, and a value of one
-		// is not assignable to the other, so a call across the boundary would
-		// not compile.
+		// A user generic instance: `Holder<Int>`, built in the gen that
+		// declares the template. Mirrored and not re-instantiated, the
+		// opposite of the three arms above: the owner's gen registered the
+		// instance's impls on the def it built, so this gen names that def
+		// through a mirror and builds no second instance
+		// (foreigngeneric.go).
 		//
 		// Ahead of the `reg.byDecl` walk below, which would answer with the
-		// TEMPLATE's owner: every instance of one template shares `decl`, so
-		// that route mirrors the declaration `Holder` — whose def carries
-		// declModifiers' `generic type` — and reports the instantiation under
-		// the family refusal rather than under anything true of the instance.
+		// template's owner: every instance of one template shares `decl`, so
+		// that route mirrors the declaration `Holder`, whose def carries
+		// declModifiers' `generic type`, and reports the instantiation under
+		// the family refusal and not under anything true of the instance.
 		return g.importGenericInstance(src)
 	}
 	if src.rtDeclared {
-		// AN ANCHORED STDLIB TYPE WHOSE GO TYPE RT DECLARES — `Duration`,
-		// `Instant`, `Ordering`, `DateTime`, `Diagnostic`. Its *typeDef is
-		// PROCESS-WIDE and its Go spelling is `rt.X` in every generated
-		// package, so it is literally the same kind here as in the owner:
-		// there is nothing to re-derive and no second def to intern. Exactly
-		// the argument importKind's tagIface arm makes for a stdlib interface,
-		// and `named(src).packageNeutral()` is true for this def by the rule
+		// An anchored stdlib type rt declares: `Duration`, `Instant`,
+		// `Ordering`, `DateTime`, `Diagnostic`. Its *typeDef is process-wide,
+		// so it is the same kind here as in the owner: there is nothing to
+		// re-derive and no second def to intern. importKind's tagIface arm
+		// makes the same argument for a stdlib interface, and
+		// `named(src).packageNeutral()` is true for this def by the rule
 		// stdprelude.go states and TestStdStructDefsArePackageNeutral pins.
 		//
 		// It must come before `g.reg.byDecl[src.decl]` below: a shared def
-		// carries NO declaration node (buildTypes adopts the shared def rather
-		// than minting one), so that lookup would miss and refuse `non-local
+		// carries no declaration node (buildTypes adopts the shared def and
+		// mints none), so that lookup would miss and refuse `non-local
 		// type` for a type that is fully representable and package-neutral
 		// (`helper.format(at: Instant)` in a sibling file, say).
 		return named(src), src.lowerable
@@ -1035,9 +995,6 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 }
 
 // --- what a mirror cannot see for itself ------------------------------------
-
-// foreignNoEquatableImpl is foreignNoImpl for Equatable.
-func (g *gen) foreignNoEquatableImpl(d *typeDef) bool { return g.foreignNoImpl("Equatable", d) }
 
 // declaresEquatable is declaresImpl for Equatable.
 func (r *typeRegistry) declaresEquatable(decl ast.Node) bool {
@@ -1157,54 +1114,16 @@ func markTemplateImpl(set map[ast.Node]bool, tpl *genericTemplate, iface string)
 	}
 }
 
-// --- the reference graph ----------------------------------------------------
-
-// typeNamesIn collects every type name the node mentions, at any depth.
-//
-// Reflective for the reason childNodes is: the AST has no visitor and a
-// hand-written switch over every node kind that can hold a type expression
-// would silently miss the next one added. Deliberately a SUPERSET — it counts a
-// name in a subtree that will be refused, and a name that a local binding
-// shadows — because over-counting can only over-refuse an import cycle, while
-// under-counting would let a cycle between unit packages through unreported.
-//
-// It differs from childNodes in exactly one way, and that way is the point:
-// childNodes drops every ast.TypeExpr (a declared type's representation is
-// typeOf's answer, not a blocker in its own right), and a type reference across
-// a file boundary is precisely a TypeExpr.
-func typeNamesIn(n ast.Node, out map[string]bool) {
-	walkNames(n, out, pickTypeName)
-}
-
-// pickTypeName contributes a node's TYPE names and reports whether the walk
-// should stop there.
-func pickTypeName(n ast.Node, out map[string]bool) bool {
-	switch t := n.(type) {
-	case *ast.SimpleType:
-		out[t.Name] = true
-		return true
-	case *ast.GenericType:
-		out[t.Name] = true
-	case *ast.QualifiedType:
-		out[t.Module] = true
-	case *ast.TypeIdent:
-		out[t.Name] = true
-		return true
-	}
-	return false
-}
-
 // walkNames collects names from a node tree, with `pick` deciding which names
 // each node contributes and whether to descend into it.
 //
-// Generic over `pick` because there are THREE questions with the same shape and
-// one traversal: which TYPES a node mentions (the reference graph), which NAMES
-// OF ANY KIND it mentions (existential.go's portability check for a sibling
+// Generic over `pick` because there are two questions with the same shape and
+// one traversal: which NAMES OF ANY KIND a node mentions (existential.go's portability check for a sibling
 // file's interface default), and which type DECLARATIONS it contains at a
 // nested position (sigreason.go's nestedTypeDeclKey). pick returning true
 // stops the walk below that node.
 //
-// Generic over the ACCUMULATOR too, because the third question's answer is a
+// Generic over the ACCUMULATOR too, because the second question's answer is a
 // name-to-KEY map rather than a set. A concrete `map[string]bool` here would
 // make that caller either smuggle its map through a closure or copy the walk.
 func walkNames[T any](n ast.Node, out T, pick func(ast.Node, T) bool) {

@@ -26,8 +26,10 @@ import (
 // declines ("this call to `skip_odd` is not supported yet, so `fn evens`
 // cannot run"; vmhost.Program.Unsupported). The server reports the same
 // errors (vmhost.CheckLowering), in the background: when a document is
-// opened, when it is saved, and loweringDelay after the last edit of a
-// burst. A stdlib file is not lowered (vmhost.CheckLowering).
+// opened, when it is saved, loweringDelay after the last edit of a burst,
+// and when a nomi.toml changes on disk (manifestChanged), whose
+// [capabilities] lists hold the calls the program reaches. A stdlib file
+// is not lowered (vmhost.CheckLowering).
 //
 // A run lowers the program from the document's installed analysis of the
 // same text when that analysis holds the program `nomi check` would build

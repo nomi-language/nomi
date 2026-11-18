@@ -92,7 +92,7 @@ func (bl *irScalarBuilder) preludePayloadValue(t *ast.Call, k kind, vs preludeVa
 		// of an embedded type (`Some(Wrapped(c))` where a Maybe<Shape> is
 		// expected) widens into its `embeds` variant. The payload is the
 		// call's one operand, so coercing it here reorders nothing.
-		src, actual, ok = bl.coerceEmpty(t.Args[0], src, actual, v.payloads[0].k)
+		src, actual, ok = bl.convertTo(t.Args[0], src, actual, v.payloads[0].k)
 	}
 	if !ok || actual != v.payloads[0].k {
 		return no()

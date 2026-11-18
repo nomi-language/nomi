@@ -11,7 +11,7 @@ import (
 // TestSites_DenominatorDeficitIsReported plants the positive the sweep's own
 // denominator assertion cannot currently see.
 //
-// assertCaseDenominator's third arm fires only for files this package bucketed
+// Its deficit arm (denominatorDeficit) fires only for files this package bucketed
 // as FRONT-END ERRORS, and the corpus has none, so on every real run that arm
 // is silent for a reason that says nothing about whether it works. A zero from
 // a check whose population is empty is not evidence. So: hand it a file
@@ -55,7 +55,8 @@ func TestSites_DenominatorDeficitIsReported(t *testing.T) {
 }
 
 // TestSites_TheDenominatorPopulationIsTheRunnersOwn pins runnerWouldDiscover
-// against main.go's two clauses, in both directions. A predicate that answered
+// against the two clauses of cmd/nomi/main.go's discoverTestFiles, in both
+// directions. A predicate that answered
 // `true` for everything would satisfy the sweep's population check while
 // asserting nothing.
 func TestSites_TheDenominatorPopulationIsTheRunnersOwn(t *testing.T) {

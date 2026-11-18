@@ -37,7 +37,9 @@ type Fields map[string]any
 // Any other argument must already be the VM's Value.
 //
 // The error is a *Blocked when the program reaches something the VM cannot
-// run, and otherwise the program's own failure (a fault or a failed
+// run, a *CapabilityError when the function or the boot reaches an outside
+// call nomi.toml's [capabilities] lists or the host's (WithCapabilities) do
+// not allow, and otherwise the program's own failure (a fault or a failed
 // assertion), which WriteFailure renders. A function that returns a Result
 // answers its Err as a value, not as an error.
 func (p *Program) Call(ctx context.Context, name string, args ...any) (Value, error) {
@@ -57,7 +59,12 @@ func (p *Program) Call(ctx context.Context, name string, args ...any) (Value, er
 		}
 		converted[i] = v
 	}
-	m := p.machine(p.out).WithHostEnv(p.env)
+	// The lists the program is held to, nomi.toml's and the host's
+	// (WithCapabilities), refuse the call before the boot runs.
+	if err := p.capabilityError(Roots{Func: name}); err != nil {
+		return nil, err
+	}
+	m := p.machine(p.out)
 	var boots []*ir.Symbol
 	if boot := p.entry.Boot(); boot != nil {
 		boots = append(boots, boot)

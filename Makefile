@@ -1,6 +1,6 @@
 NODE22_BIN ?= /opt/homebrew/opt/node@22/bin
 
-.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full fuzz publish-main
+.PHONY: test test-go test-std test-programs test-tour fmt build build-tour-grammar-wasm deploy-tour start-tour build-lsp build-cli build-zed build-zed-queries build-helix install-helix build-nvim build-nvim-parser install-nvim test-nvim build-vscode install-vscode test-vscode dev-editors dev-nvim dev-helix dev-zed enable-hooks check-full fuzz publish-main
 
 test: test-std test-programs test-go
 
@@ -100,11 +100,17 @@ build-cli:
 	$(LOCAL_LINK_ENV) go build $(LOCAL_LINK_FLAGS) -o nomi ./cmd/nomi
 	$(LOCAL_LINK_ENV) go install $(LOCAL_LINK_FLAGS) ./cmd/nomi
 
-build-zed:
+# Zed's highlights.scm is generated from tree-sitter-nomi/queries/highlights.scm
+# (reversed, since Zed's last capture wins) and editors/zed/attached-test-dim.scm.
+# Helix's and Neovim's queries are generated from it, so their targets run this first.
+build-zed-queries:
+	./scripts/sync-zed-highlights.sh
+
+build-zed: build-zed-queries
 	./scripts/sync-zed-grammar.sh
 	cargo build --manifest-path editors/zed/Cargo.toml --target wasm32-wasip2
 
-build-helix:
+build-helix: build-zed-queries
 	./scripts/sync-helix-runtime.sh
 
 # Snapshot install for people who use Nomi: copies the queries into the Helix
@@ -118,7 +124,7 @@ install-helix:
 # Helix's other queries (see scripts/sync-nvim-runtime.sh). The parser is
 # rebuilt too, so a plugin loaded straight from this checkout never pairs new
 # queries with an old parser.
-build-nvim: build-nvim-parser
+build-nvim: build-zed-queries build-nvim-parser
 	./scripts/sync-nvim-runtime.sh
 
 # Headless checks of the Neovim plugin's test keys (needs nvim 0.11+ and the

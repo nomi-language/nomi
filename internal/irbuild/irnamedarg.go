@@ -8,8 +8,7 @@ import (
 
 // A qualified call with named arguments, `Time.new(minute: m, hour: h)`.
 //
-// The operands are evaluated in Nomi's order — positionals first,
-// then named arguments, each partition in written order (argSlotPlan) — and
+// The operands are evaluated in Nomi's order, as written (callPlan), and
 // then the call is planned as the same call
 // written positionally in parameter order, each operand a synthetic node
 // that answers the temporary it was already evaluated into (irScalarBuilder.
@@ -28,7 +27,7 @@ type irPlacedArg struct {
 func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if fa.Field == nil || bl.g.fa == nil {
-		return no()
+		panic("irbuild: namedQualCall: defensive: fa is set and the parser sets Field for a qualified call")
 	}
 	sym := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
 	if sym == nil {
@@ -63,18 +62,10 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 	// A destructuring parameter's name is the parser's synthesized one,
 	// which no named argument can spell, so only a positional fills it.
 	names := make([]string, len(params))
-	// argSlotPlan routes a trailing name (`Job.new("k", max_attempts: 3,
-	// send)`) to a last parameter of function type, as the checker does,
-	// so it needs to know which parameters are functions; nothing else of
-	// their kinds is read here.
-	slotKinds := make([]kind, len(params))
 	for i, p := range params {
 		names[i] = p.Name
-		if _, fn := p.TypeAnnotation.(*ast.FuncType); fn {
-			slotKinds[i] = kind{tag: tagFunc}
-		}
 	}
-	plan, planned := argSlotPlan(t.Args, slotKinds, names)
+	plan, planned := bl.g.callPlan(t, len(params))
 	if !planned {
 		return no()
 	}
@@ -83,17 +74,18 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		// The output primitives render their operand from its own node, so
 		// the call keeps the written expression rather than a stand-in.
 		positional := &ast.Call{Func: t.Func, Args: []ast.Node{argExpr(t.Args[0])}, IsTailCall: t.IsTailCall, Line: t.Line, Col: t.Col}
-		if dst, k, mobile, ok := bl.hostOutput(positional, fa); ok {
+		done := bl.g.carryCall(positional, bl.g.rewrittenCallOf(t, 1, 1))
+		dst, k, mobile, ok := bl.hostOutput(positional, fa)
+		done()
+		if ok {
 			return dst, k, mobile, true
 		}
 	}
-	filled := make([]bool, len(names))
 	last := -1
 	for _, s := range plan.slots {
 		if s < 0 || s >= len(names) {
-			return no()
+			panic("irbuild: namedQualCall: callPlan only yields slots inside the parameter list")
 		}
-		filled[s] = true
 		last = max(last, s)
 	}
 	temps := make([]ir.Temp, len(names))
@@ -125,10 +117,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		}
 		temps[plan.slots[i]], kinds[plan.slots[i]] = src, k
 	}
-	gap := false
-	for i := 0; i < last; i++ {
-		gap = gap || !filled[i]
-	}
+	gap := len(plan.defaulted) > 0 && plan.defaulted[0] < last
 	if gap {
 		// `Date.new(2026, day: 5)`: a slot omitted before a supplied one
 		// takes its default before the call is planned, after the written
@@ -142,26 +131,24 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 		if rec == nil || len(rec.Params) != len(temps) {
 			panic("irbuild: a call leaving out parameters with no CallDefaults record over its slots")
 		}
-		if f := bl.stdTemplateDefaults(fa, rec, temps); f != nil {
+		if f := bl.stdTemplateDefaults(fa, rec); f != nil {
 			// A generic function of another std module, whose defaults
 			// that module's accessors answer (stdslotfill.go).
-			if !bl.fillStdTemplateDefaults(t, f, kinds, temps) {
+			if !bl.fillStdTemplateDefaults(t, f, kinds, temps, plan.defaulted) {
 				return no()
 			}
 			return bl.namedPlacedCall(t, fa, plan, names, temps, kinds, len(temps)-1)
 		}
-		home, params := bl.namedCallHome(t, fa, rec, kinds, temps)
+		home, params := bl.namedCallHome(t, rec, kinds, temps)
 		if params != nil && len(params) != len(temps) {
-			return no()
+			panic("irbuild: namedQualCall: namedCallHome's params are the declaration the CallDefaults record names, whose parameter count the record's Params has, and that was just checked against temps")
 		}
 		checked := bl.g.checkedCallSignature(t)
 		if checked != nil && len(checked.Params) != len(temps) {
 			checked = nil
 		}
-		for i := range temps {
-			if temps[i] != ir.NoTemp {
-				continue
-			}
+		omitted := plan.defaulted
+		for _, i := range omitted {
 			switch {
 			case params != nil:
 				kinds[i] = params[i]
@@ -174,13 +161,11 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 				return no()
 			}
 		}
-		var omitted []int
-		for i, tmp := range temps {
-			if tmp == ir.NoTemp {
-				omitted = append(omitted, i)
-			}
+		byAccessors := false
+		for _, run := range defaultRuns(rec, home, omitted) {
+			byAccessors = byAccessors || byAccessor(home, run.slots)
 		}
-		if byAccessor(defaultParams(rec, home, omitted), home, omitted) {
+		if !home.dispatched && byAccessors {
 			// The declaring file's accessors take its parameter kinds: a
 			// written operand of an interface-typed slot enters it by
 			// erasure first, as a positional call's does
@@ -189,7 +174,7 @@ func (bl *irScalarBuilder) namedQualCall(t *ast.Call, fa *ast.FieldAccess) (ir.T
 				switch {
 				case tmp == ir.NoTemp || kinds[i] == params[i]:
 				case irHeldKind(params[i]):
-					v, got, erased := bl.coerceEmpty(t, tmp, kinds[i], params[i])
+					v, got, erased := bl.convertTo(t, tmp, kinds[i], params[i])
 					if !erased {
 						return no()
 					}
@@ -235,7 +220,9 @@ func (bl *irScalarBuilder) namedPlacedCall(t *ast.Call, fa *ast.FieldAccess, pla
 			delete(bl.placed, n)
 		}
 	}()
+	// The stand-ins are written at their slots, in order.
 	positional := &ast.Call{Func: t.Func, Args: args, IsTailCall: t.IsTailCall, Line: t.Line, Col: t.Col}
+	defer bl.g.carryCall(positional, bl.g.rewrittenCallOf(t, len(args), len(names)))()
 	if bl.recording == 0 {
 		return bl.qualCall(positional, fa)
 	}
@@ -268,29 +255,37 @@ func hasNamedArg(args []ast.Node) bool {
 }
 
 // namedCallHome is where the callee of t, a named-argument call
-// `Owner.f(...)` leaving a slot out, is declared, for fillCallDefaults, with
-// its parameter kinds when the builder reaches it as another file's
-// function: a sibling file's inherent impl member, whose file builds
-// accessors for its defaults (irImplSlotDefaults), an impl function of
+// `Owner.f(...)` or `mod.Owner.f(...)` leaving a slot out, is declared,
+// for fillCallDefaults, with its parameter kinds when the builder reaches
+// it as another file's function: a sibling file's impl member, found by
+// its declaration whatever the spelling, whose file builds accessors for
+// its defaults (irImplSlotDefaults, implSlotHome), an impl function of
 // another file's generic type's instance (instImplAccessorsFor), or, for
-// an interface function the call dispatches on a type parameter, the impl
-// function this instance reaches, whose own defaults it takes.
-func (bl *irScalarBuilder) namedCallHome(t *ast.Call, fa *ast.FieldAccess, rec *analysis.DefaultedCall, kinds []kind, temps []ir.Temp) (defaultHome, []kind) {
+// a call of an interface function, the impl function its receiver
+// reaches, this file's or another's, whose own defaults it takes, or the
+// dispatch on an interface value.
+func (bl *irScalarBuilder) namedCallHome(t *ast.Call, rec *analysis.DefaultedCall, kinds []kind, temps []ir.Temp) (defaultHome, []kind) {
 	g := bl.g
-	switch d := rec.Decl.(type) {
-	case *ast.FuncDef:
-		if g.reg != nil && g.files != nil {
-			if params, home, found := bl.siblingMemberHome(fa, d); found {
-				return home, params
-			}
-			if params, home, found := bl.instanceMemberHome(t, d); found {
-				return home, params
-			}
+	if fd, ok := rec.Decl.(*ast.FuncDef); ok && g.reg != nil && g.files != nil {
+		if params, home, found := bl.siblingMemberHome(t, fd); found {
+			return home, params
 		}
-	case *ast.InterfaceMethod:
-		if it := bl.reachedImplItem(d, kinds, temps); it != nil {
+		if params, home, found := bl.instanceMemberHome(t, fd); found {
+			return home, params
+		}
+	}
+	if im, ok := g.calleeDecl(t.Func).(*ast.InterfaceMethod); ok {
+		if it := bl.reachedImplItem(im, kinds, temps); it != nil {
 			fd := irImplSource(it)
 			return defaultHome{params: fd.Params}, it.params
+		}
+		if home, ok := bl.dispatchedCallHome(im, kinds, temps); ok {
+			return home, nil
+		}
+		if home, params, ok := bl.reachedImplHome(im, kinds, temps); ok {
+			// Another file's impl function, whose accessors fill the
+			// slots it defaults.
+			return home, params
 		}
 	}
 	return defaultHome{owner: g.fileGen(rec.File)}, nil
@@ -326,23 +321,27 @@ func (bl *irScalarBuilder) reachedImplItem(im *ast.InterfaceMethod, kinds []kind
 	return nil
 }
 
-// siblingMemberHome is the parameter kinds and default home of fd when it
-// is a sibling file's inherent impl function `Type.f` names through fa.
-func (bl *irScalarBuilder) siblingMemberHome(fa *ast.FieldAccess, fd *ast.FuncDef) ([]kind, defaultHome, bool) {
+// siblingMemberHome is the parameter kinds and default home of fd, the
+// function the call t names, when it is a sibling file's inherent impl
+// function of a monomorphic type. The type is the one the checker recorded
+// fd is declared under (analysis.Callee.Owner), not the owner as t spells
+// it, so `Box.f` after `import lib.{Box}` and `lib.Box.f` find one site.
+func (bl *irScalarBuilder) siblingMemberHome(t *ast.Call, fd *ast.FuncDef) ([]kind, defaultHome, bool) {
 	g := bl.g
-	ti, isType := fa.Object.(*ast.TypeIdent)
-	if !isType || fa.Field == nil {
+	owner := g.routeCallee(t).Owner
+	recv := g.qualifierDecl(owner)
+	if owner.Kind != analysis.QualType || recv == nil || len(typeDeclTypeParams(recv)) > 0 {
 		return nil, defaultHome{}, false
 	}
-	d, found := g.namedType(ti.Name)
-	if !found || d == nil || d.decl == nil || d.instOrigin != nil || d.genericOf != nil {
+	site, params, _, owning := g.siblingImplMemberBy(recv, fd.Name, "", nil)
+	if site == nil || site.item.decl != fd {
 		return nil, defaultHome{}, false
 	}
-	site, params, _, owning := g.siblingImplMemberBy(d, fa.Field.Name, "", nil)
-	if site == nil || site.item.decl != fd || !site.accessorDefaults() {
+	home := site.defaultHome(owning)
+	if home.accessor == nil {
 		return nil, defaultHome{}, false
 	}
-	return params, site.defaultHome(owning), true
+	return params, home, true
 }
 
 // instanceMemberHome is the parameter kinds and default home of fd when it

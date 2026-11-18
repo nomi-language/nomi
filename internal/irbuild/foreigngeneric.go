@@ -1,46 +1,44 @@
 package irbuild
 
-import "strings"
+import (
+	"strings"
 
-// A MONOMORPHIZED instance of ANOTHER package's generic template — `Holder<Int>`
+	"github.com/nomi-language/nomi/internal/analysis"
+)
+
+// A monomorphized instance of another file's generic template: `Holder<Int>`
 // where `pub enum Holder<T>` is declared in a sibling file.
 //
-// # WHY THIS IS A MIRROR AND THE THREE ARMS BESIDE IT ARE NOT
+// # Why this is a mirror and the three arms beside it are not
 //
 // importNamed re-instantiates a prelude instance, a generic std struct and a
-// generic std host type: their Go types are `rt.Maybe[T]`, `rt.Set[T]`,
-// `rt.Vector[T]`, declared in rt and therefore spellable from every generated
-// package, so the honest thing is to rebuild the instance at THIS package's
-// spelling of its arguments.
+// generic std host type: any gen builds one from its spec, so the instance is
+// rebuilt here over this gen's import of its arguments.
 //
-// A user template's instance has no such home. `NomiT_Holder_Int` is EMITTED,
-// into whichever package the gen that built it writes (generictype.go's intern
-// table is per-gen). `Box<Inner>` cannot be rebuilt elsewhere because `Inner`
-// is one package's type, but `Holder<Int>`, whose every field is `int64`, has
-// no such obstacle, and a mirror does not rebuild a type anyway: it NAMES the
-// owner's, through a Go alias, which is the mechanism every ordinary
-// cross-file struct reference uses.
+// A user template's instance is built by the gen that declares the template
+// (generictype.go's intern table is per gen), and that gen registers the
+// instance's impls on the def it built (instanceImpl). So this gen does not
+// build a second instance: it mirrors the owner's def, as every ordinary
+// cross-file struct reference does.
 //
-// So this arm is foreign.go's ordinary mirror applied to a def that happens to
-// have been built under a substitution. `importDef` copies the LAYOUT verbatim
-// and re-derives only the component KINDS, and a component that is one
-// package's own type refuses there, by name, exactly as it does for a
-// non-generic mirror. What refuses is a cross-package instance with a
-// component this package cannot name.
+// This arm is foreign.go's ordinary mirror applied to a def that was built
+// under a substitution. `importDef` copies the layout and re-derives only the
+// component kinds, and a component importKind refuses refuses the mirror, by
+// name, as it does for a non-generic mirror.
 //
-// # IDENTITY IS THE OWNER'S DEF POINTER
+// # Identity is the owner's def pointer
 //
-// `foreignDefs` keys a mirror on the declaration NODE, and that is wrong here
-// because every instance of
-// one template shares `tpl.decl`, so one key would hand `Holder<Int>` and
-// `Holder<String>` the same mirror, and each instantiation would silently read
-// another's field types. `foreignInstDefs` is keyed on the owner's instance def instead, which
-// is that instantiation's identity in the owning gen by genericInstKey's rule.
+// `foreignDefs` keys a mirror on the declaration node, and that is wrong here
+// because every instance of one template shares `tpl.decl`: one key would
+// hand `Holder<Int>` and `Holder<String>` the same mirror, and each
+// instantiation would read another's field types. `foreignInstDefs` is keyed
+// on the owner's instance def, which is that instantiation's identity in the
+// owning gen by genericInstKey's rule.
 //
-// # THE OWNER BUILDS IT, WHENEVER IT IS ASKED
+// # The owner builds it, whenever it is asked
 //
-// Modules are built in `Program.Modules` order — the entry, then
-// `proj.Files`, which is not reverse-topological — so an owner can be asked
+// Modules are built in `Program.Modules` order (the entry, then
+// `proj.Files`, which is not reverse-topological), so an owner can be asked
 // for a new instance after its own module walk. The def is complete when
 // genericInstance returns, and the impls it registers are queued on the
 // owner; irFlushLateInstances builds them once every walk is done.
@@ -109,7 +107,6 @@ func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 	}
 	return &typeOwner{
 		unit:    o.unit,
-		pkg:     o.pkg,
 		fileKey: o.fileKey,
 		nomi:    src.nomi,
 		decl:    o.decl,
@@ -118,41 +115,38 @@ func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 }
 
 // genericTemplateNamed resolves a generic template by the name a use site
-// spells, LOCAL or module-qualified, together with the instantiator that puts
-// the instance's Go type where it belongs.
+// spells, local or module-qualified, together with the function that
+// instantiates it.
 //
-// One resolver and one instantiator handed back together, rather than a
+// One resolver and one instantiator handed back together, in place of a
 // local/foreign branch at each of the four use sites (a type annotation, a
 // struct literal, a variant call, a variant literal). Those four already
 // shared one body per construction shape, and a second copy of each for the
-// qualified spelling would drift from the first — the same argument
-// calleeTypeQualifier makes for the bare and dotted spellings of a call
-// qualifier.
+// qualified spelling would drift from the first.
 //
-// The instantiator differs because WHERE the Go type is declared differs: a
-// local template's instance is emitted into this package, and an imported
-// one's into the owner's and named here through an alias.
-func (g *gen) genericTemplateNamed(name string) (*genericTemplate, func([]kind) (kind, bool), bool) {
+// The instantiator differs because the gen that builds the instance differs:
+// a local template's instance is built in this gen, and an imported one's in
+// the owner's gen and mirrored here (instantiateForeign).
+func (g *gen) genericTemplateNamed(name string) (*genericTemplate, typeInstantiator, bool) {
 	tpl := g.blockLocalTemplate(name)
 	if tpl == nil {
 		tpl = g.genericTemplates[name]
 	}
 	if tpl != nil {
-		return tpl, func(args []kind) (kind, bool) { return g.genericInstance(tpl, args) }, true
+		return tpl, func(args []kind, types []analysis.Type) (kind, bool) { return g.genericInstance(tpl, args, types) }, true
 	}
 	ref, found := g.foreignTemplate(name)
 	if !found {
 		return nil, nil, false
 	}
-	return ref.tpl, func(args []kind) (kind, bool) { return g.instantiateForeign(ref, args) }, true
+	return ref.tpl, func(args []kind, types []analysis.Type) (kind, bool) { return g.instantiateForeignAt(ref, args, types) }, true
 }
 
 // foreignTemplateRef is one imported module's generic template plus everything
 // needed to build an instance of it there and name it here.
 type foreignTemplateRef struct {
-	owner *typeOwner
-	src   *gen
-	tpl   *genericTemplate
+	src *gen
+	tpl *genericTemplate
 }
 
 // foreignTemplate resolves `<qualifier>.<Name>` to the template the qualified
@@ -217,13 +211,13 @@ func (g *gen) foreignTemplateOf(o *typeOwner) (foreignTemplateRef, bool) {
 	}
 	src := g.reg.gens[o.unit]
 	if src == nil {
-		return foreignTemplateRef{}, false
+		panic("irbuild: foreignTemplateOf: every unit has a gen in the registry after ensureTypes succeeds")
 	}
 	tpl := src.genericTemplates[o.nomi]
 	if tpl == nil {
 		return foreignTemplateRef{}, false
 	}
-	return foreignTemplateRef{owner: o, src: src, tpl: tpl}, true
+	return foreignTemplateRef{src: src, tpl: tpl}, true
 }
 
 // instantiateForeign builds `tpl<args>` in the OWNER's gen and mirrors the
@@ -235,6 +229,12 @@ func (g *gen) foreignTemplateOf(o *typeOwner) (foreignTemplateRef, bool) {
 // file's own `Inner` is the owner's mirror of `Inner`, which importKind
 // resolves back to this file's def when the instance's fields come home.
 func (g *gen) instantiateForeign(ref foreignTemplateRef, args []kind) (kind, bool) {
+	return g.instantiateForeignAt(ref, args, nil)
+}
+
+// instantiateForeignAt is instantiateForeign with types, the checker's types
+// for args or nil, which the owner's instance carries.
+func (g *gen) instantiateForeignAt(ref foreignTemplateRef, args []kind, types []analysis.Type) (kind, bool) {
 	there := make([]kind, len(args))
 	for i, a := range args {
 		// kindInvalid: propagates — a refused type ARGUMENT already reported.
@@ -247,7 +247,7 @@ func (g *gen) instantiateForeign(ref foreignTemplateRef, args []kind) (kind, boo
 		}
 		there[i] = k
 	}
-	k, built := ref.src.genericInstance(ref.tpl, there)
+	k, built := ref.src.genericInstance(ref.tpl, there, types)
 	if !built || k.def == nil {
 		return kindInvalid, false
 	}

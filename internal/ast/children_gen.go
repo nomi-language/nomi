@@ -583,6 +583,8 @@ func childrenOfDynamic(v any, fn func(Node)) {
 		if v != nil {
 			childrenOfCaseBranch(v, fn)
 		}
+	case DollarRef:
+	case *DollarRef:
 	case EmbedPattern:
 	case *EmbedPattern:
 	case EmbeddedFile:
@@ -888,11 +890,6 @@ func childrenOfEnumDef(x *EnumDef, fn func(Node)) {
 	for i5 := range x.Variants {
 		childrenOfEnumVariant(&x.Variants[i5], fn)
 	}
-	for _, e6 := range x.Items {
-		if !absent(e6) {
-			fn(e6)
-		}
-	}
 }
 
 func childrenOfEnumPattern(x *EnumPattern, fn func(Node)) {
@@ -967,11 +964,6 @@ func childrenOfExternType(x *ExternType, fn func(Node)) {
 	}
 	for i4 := range x.Decorators {
 		fn(&x.Decorators[i4])
-	}
-	for _, e5 := range x.Items {
-		if !absent(e5) {
-			fn(e5)
-		}
 	}
 }
 
@@ -1469,11 +1461,6 @@ func childrenOfStructDef(x *StructDef, fn func(Node)) {
 	for i5 := range x.Fields {
 		childrenOfStructField(&x.Fields[i5], fn)
 	}
-	for _, e6 := range x.Items {
-		if !absent(e6) {
-			fn(e6)
-		}
-	}
 	if !absent(x.Rule) {
 		fn(x.Rule)
 	}
@@ -1705,11 +1692,6 @@ func childrenOfTypeDef(x *TypeDef, fn func(Node)) {
 	if !absent(x.Rule) {
 		fn(x.Rule)
 	}
-	for _, e6 := range x.Items {
-		if !absent(e6) {
-			fn(e6)
-		}
-	}
 }
 
 func childrenOfTypeParam(x *TypeParam, fn func(Node)) {
@@ -1890,6 +1872,7 @@ var generatedTypes = []any{
 	(*With)(nil),
 	*new(AttachedTestAfter), (*AttachedTestAfter)(nil),
 	*new(CaseBranch), (*CaseBranch)(nil),
+	*new(DollarRef), (*DollarRef)(nil),
 	*new(EmbedPattern), (*EmbedPattern)(nil),
 	*new(EmbeddedFile), (*EmbeddedFile)(nil),
 	*new(EnumVariant), (*EnumVariant)(nil),

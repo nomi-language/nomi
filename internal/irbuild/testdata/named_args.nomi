@@ -1,16 +1,14 @@
 import std::io
 
-// Probe: A NAMED ARGUMENT IS A SLOT ASSIGNMENT, AND ITS EVALUATION ORDER IS NOT
-// ITS WRITTEN ORDER.
+// Probe: A NAMED ARGUMENT IS A SLOT ASSIGNMENT, AND IT IS EVALUATED WHERE IT
+// IS WRITTEN.
 //
-// Argument resolution PARTITIONS a call's written arguments into
-// positionals and named arguments and then drains them in
-// sequence. So every positional is evaluated before any named argument, and a
-// named argument written FIRST is evaluated LAST.
+// A call's arguments are evaluated left to right as written, whatever slots
+// they fill. So a named argument written FIRST is evaluated FIRST.
 //
-// `order` is the load-bearing line and the reason this fixture exists. irbuild's
-// directCall hoists each argument's statements as it walks, so walking the
-// written argument slice emits `eval B` before `eval A`, a wrong order, not a
+// `order` is the load-bearing line and the reason this fixture exists. A
+// lowering that walked the slots, or the positional arguments before the
+// named ones, would emit `eval A` before `eval B`, a wrong order, not a
 // refusal, and one that only appears when an argument has a side effect. Every
 // other line here is caught by the type checker or by an answer if placement is
 // wrong; this one is caught only by the ORDER of two prints.
@@ -29,8 +27,8 @@ fn opts(x: Int, factor: Int = 10, label: String = "L") -> String
 end
 
 fn main()
-    // THE ORDERING WITNESS. `b:` is written first and must be evaluated second.
-    // Expected: `eval A`, then `eval B`, then `A/B`.
+    // THE ORDERING WITNESS. `b:` is written first and is evaluated first.
+    // Expected: `eval B`, then `eval A`, then `A/B`.
     io.print(order(b: p("B"), p("A")))
 
     // A named argument reaching the LAST slot past a defaulted middle one.

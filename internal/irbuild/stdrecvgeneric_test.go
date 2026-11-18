@@ -353,6 +353,14 @@ func parseStdTypeExpr(t *testing.T, src string) ast.TypeExpr {
 // already the exact spelling an import needs.
 func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 	t.Helper()
+	te, _ := parseStdTypeImporting(t, item, src)
+	return te
+}
+
+// parseStdTypeImporting is parseStdTypeExprImporting that also answers the
+// type the checker recorded for the annotation.
+func parseStdTypeImporting(t *testing.T, item, src string) (ast.TypeExpr, analysis.Type) {
+	t.Helper()
 	prog := ""
 	if item != "" {
 		prog = "import\n  " + item + "\nend\n\n"
@@ -367,10 +375,11 @@ func parseStdTypeExprImporting(t *testing.T, item, src string) ast.TypeExpr {
 		if !isFunc || fd.Name != "f" || len(fd.Params) != 3 {
 			continue
 		}
-		return fd.Params[0].TypeAnnotation
+		te := fd.Params[0].TypeAnnotation
+		return te, p.Entry().FA.TypeExprTypes[te]
 	}
 	t.Fatalf("no `fn f` in the analysed program for `x: %s`", src)
-	return nil
+	return nil, nil
 }
 
 // parseStdTypeExprUnchecked is the same node from the same front end with the

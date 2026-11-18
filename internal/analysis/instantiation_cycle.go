@@ -104,52 +104,28 @@ func (c *checker) selfCallAtOwnParams(ft *FuncType, args [][2]Type) bool {
 }
 
 // matchTypeParams binds each type parameter in param to the part of arg at
-// the same position, walking the shapes both sides share. It solves nothing
-// the checker relies on; it only reads what a call passes.
+// the same position, walking the shapes both sides share
+// (pairedTypeChildren). It solves nothing the checker relies on; it only
+// reads what a call passes, or what an instance put where its declaration
+// has a parameter.
 func matchTypeParams(param, arg Type, out map[*TypeParam_]Type) {
-	arg = resolveTypeVar(arg)
-	if param == nil || arg == nil {
+	matchTypeParamsDepth(param, arg, out, 0)
+}
+
+func matchTypeParamsDepth(param, arg Type, out map[*TypeParam_]Type, depth int) {
+	param, arg = resolveTypeVar(param), resolveTypeVar(arg)
+	if param == nil || arg == nil || depth > maxTypeWalkDepth {
 		return
 	}
-	switch p := param.(type) {
-	case *TypeParam_:
+	if p, ok := param.(*TypeParam_); ok {
 		if _, seen := out[p]; !seen {
 			out[p] = arg
 		}
-	case *ListType:
-		if a, ok := arg.(*ListType); ok {
-			matchTypeParams(p.Elem, a.Elem, out)
-		}
-	case *MapType:
-		if a, ok := arg.(*MapType); ok {
-			matchTypeParams(p.Key, a.Key, out)
-			matchTypeParams(p.Val, a.Val, out)
-		}
-	case *TupleType:
-		if a, ok := arg.(*TupleType); ok && len(a.Elems) == len(p.Elems) {
-			for i := range p.Elems {
-				matchTypeParams(p.Elems[i], a.Elems[i], out)
-			}
-		}
-	case *FuncType:
-		if a, ok := arg.(*FuncType); ok && len(a.Params) == len(p.Params) {
-			for i := range p.Params {
-				matchTypeParams(p.Params[i], a.Params[i], out)
-			}
-			matchTypeParams(p.Return, a.Return, out)
-		}
-	case *EnumType:
-		if a, ok := arg.(*EnumType); ok && a.Name == p.Name && len(a.TypeArgs) == len(p.TypeArgs) {
-			for i := range p.TypeArgs {
-				matchTypeParams(p.TypeArgs[i], a.TypeArgs[i], out)
-			}
-		}
-	case *StructType:
-		if a, ok := arg.(*StructType); ok && a.Name == p.Name && len(a.TypeArgs) == len(p.TypeArgs) {
-			for i := range p.TypeArgs {
-				matchTypeParams(p.TypeArgs[i], a.TypeArgs[i], out)
-			}
-		}
+		return
+	}
+	ps, as, _ := pairedTypeChildren(param, arg)
+	for i := range ps {
+		matchTypeParamsDepth(ps[i], as[i], out, depth+1)
 	}
 }
 

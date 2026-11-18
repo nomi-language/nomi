@@ -4,93 +4,57 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// A bound-free generic function lowered as ONE body, value-passing, with no
-// specialization.
+// The signature of a bound-free generic function whose type parameters are
+// mentioned only bare.
+//
+// # What runs
+//
+// Every call and every function value of a generic `fn` lowers an instance of
+// a template (irMonoTemplate, irfuncbody.go), one per type-argument tuple. No
+// call reaches the declaration's own function.
+//
+// declaredSignature (native.go) asks dictSignature, then genericSignature
+// here, then monoTemplateFor. genericSignature claims a declaration with no
+// bound and no `where` clause whose every type-parameter mention is a bare
+// `T`. Its signature holds each type parameter as a kind of its own
+// (tagTypeParam) and `sig.tps` lists them.
+//
+// funcDecl attempts the body of a declaration claimed here, with each type
+// parameter as `ir.AnyType`. The attempt declines with "an ident kind outside
+// the domain: T" when the body reads a value of a type-parameter kind. When
+// the body reads none, the function is retained and nothing references it.
 //
 // # The line it draws
 //
-// Runtime dispatch is the mechanism: a single body operates on the runtime
-// value model, and type parameters are live runtime entities carrying their
-// bounds, which is dictionary-passing in all but name.
+// `T.method(x)` resolves by scanning the type parameter's bounds for one whose
+// interface declares the method. With zero bounds there is nothing to scan,
+// so a bound-free type parameter cannot host a type-parameter-qualified call.
+// A value of a bound-free `T` is only moved: there is no interface to go
+// through and no impl to look up.
 //
-// That splits `generic function` in two, and the split is DERIVED rather than
-// conventional. `T.method(x)` resolves by scanning the type parameter's bounds
-// for one whose interface declares the method; with ZERO bounds there is
-// nothing to scan, so a bound-free type parameter provably cannot host a
-// type-parameter-qualified call. A bound-free `T` is therefore value movement and nothing else — there is no
-// interface to go through and no impl to look up.
-//
-//   - BOUND-FREE, every mention a bare type parameter: lowered here.
-//   - Anything with a bound or a `where` clause: refused as `generic function`,
-//     because it needs the dictionary seam (the bounds naming WHICH interface,
-//     the concrete type argument naming WHICH impl).
+//   - Bound-free, every mention a bare type parameter: claimed here.
+//   - Anything with a bound or a `where` clause: genericSignature answers
+//     `generic function`. dictSignature (dict.go) is asked before it.
 //
 // typeParamsNeedDictionary is that line, written once so the two halves cannot
 // drift apart.
 //
-// # Why the Go function is NOT generic
-//
-// The obvious lowering — `func Nomi_first[T any](fr *rt.Frame, x T) T` — does
-// not work, because monomorphization rejects programs that are valid:
-//
-//	fn tail_grow<T>(x: T, depth: Int) -> Int {
-//	  if depth <= 0 { 0 } else { tail_grow(Box{inner: x}, depth - 1) }
-//	}
-//
-// which `nomi check`s clean and runs, and whose instantiation set is infinite.
-// A Go generic function recursing at a different type argument is a compile-time
-// `instantiation cycle` error, so emitting one would make a valid program fail
-// to build. Go generics ARE monomorphization for this purpose.
-//
-// So the Go signature is monomorphic and the type-parameter positions are `any`:
-//
-//	func Nomi_first(fr *rt.Frame, x any) any { ... }
-//
-// One body, one instantiation, no compile-time explosion — and a tail self-call
-// stays a self-call. `any` and not
-// `rt.Dyn`: `rt.Dyn` carries a `*TypeID` for DISPATCH, and a bound-free type
-// parameter has nothing to dispatch on, so the TID would be a word of dead
-// weight on every call.
-//
-// # The concrete type argument lives at the CALL
-//
-// The CALLER is where the concrete type argument is known, so the call site
-// binds each type parameter from its own arguments —
-// checked against an explicit turbofish when one is written — and asserts the
-// boxed result back to the bound Go type at the one place the concrete type is
-// known. The callee never learns it, and never needs to.
-//
-// # What stays refused here, and why
+// # What genericSignature declines
 //
 //   - A type parameter mentioned anywhere but bare: `List<T>`, `Maybe<T>`,
-//     `Pair<A, B>`, `(T, Int)`, `(A) -> C`. The box would be at the wrong
-//     DEPTH — the body builds a `*rt.List[any]` and the caller wants a
-//     `*rt.List[int64]`, so an assertion would fail at run time rather than
-//     refuse at compile time.
-//   - A type parameter no parameter mentions: nothing can produce a value of
-//     it, so the body could not use it even with a turbofish.
-//   - A tail-cycle member. tailMemberSig already excludes a generic `fn` from a
-//     MULTI-member driver, but decideTailPlan settles a single-member component
-//     `ok` without consulting it — so a self-recursive generic would emit
-//     ordinary Go recursion and grow the stack without bound. It is refused as
-//     `recursive tail call` at the declaration.
-//   - A default parameter value: a default is evaluated at the CALL in the
-//     callee's scope (sugar.go), and argSlots would have to place it against a
-//     signature whose slots are not yet instantiated.
-//   - A type parameter bound to another type parameter, or to one of the three
-//     untyped literal kinds. Both refused at the call site — see
-//     bindableTypeArg.
+//     `Pair<A, B>`, `(T, Int)`, `(A) -> C`.
+//   - A type parameter no parameter mentions.
+//   - A parameter with a default, a destructuring pattern or no annotation.
+//   - A decorator, a missing body, `main`.
 //
-// # NESTED generic functions are deliberately untouched
-//
-// nestedfn.go has its own `generic function` clause and keeps it. A nested `fn`
-// is a Go func literal, MarkTailCalls never enters one, and nestedfn.go's own
-// header records that teaching it to would arm the valueCall trap.
+// For each, declaredSignature asks monoTemplateFor (genericmono.go), and
+// funcDecl reports `generic function` at the declaration when that answers
+// nil too.
 
 // typeParamDef is one type parameter's identity.
 //
-// A DECLARATION, so kind equality is Go pointer equality and two functions'
-// `T` are two kinds however identically they spell and lower — the rule
+// A declaration, so kind equality is Go pointer equality and two functions'
+// `T` are two kinds however identically they spell, which is the rule
 // native.go's `kind` comment states for named types, applied here for the same
 // reason. Interning on the spelling would collapse two functions' `T`s, and a
 // call inside a generic body would then be able to bind one function's `T`
@@ -152,7 +116,7 @@ func (g *gen) genericSignature(fd *ast.FuncDef) (params []kind, result kind, tps
 	// A generic `fn` reaching funcDecl through any of these is refused by
 	// funcDecl's own clause for that reason, at its own position — so it must
 	// not be admitted here and lowered past those clauses.
-	if fd.ImplFunction || len(fd.Decorators) > 0 || fd.Body == nil || fd.Name == "main" {
+	if len(fd.Decorators) > 0 || fd.Body == nil || fd.Name == "main" {
 		return refuse()
 	}
 	byName := make(map[string]*typeParamDef, len(fd.TypeParams))
@@ -197,8 +161,7 @@ func (g *gen) genericSignature(fd *ast.FuncDef) (params []kind, result kind, tps
 		params[i] = k
 	}
 	// Every type parameter must be inferable from a parameter. One that is not
-	// cannot be produced inside the body either, so admitting it would emit a
-	// function with an argument nothing can supply.
+	// cannot be produced inside the body either.
 	for _, d := range tps {
 		if !used[d] {
 			return refuse()
@@ -213,43 +176,4 @@ func (g *gen) genericSignature(fd *ast.FuncDef) (params []kind, result kind, tps
 		}
 	}
 	return params, result, tps, ""
-}
-
-// refuseGenericTailCycles clears lowerability for every generic function that
-// sits on a tail cycle, once the graph exists to say so.
-//
-// Called from declareFuncs AFTER buildTailGraph, because that is the earliest
-// the answer exists: signature() runs before the graph is built. Both sides then
-// agree by construction — directCall reads `lowerable` and funcDecl reports
-// `genericWhy`, and neither re-derives the decision.
-//
-// The obstacle is real and reachable rather than defensive.
-// `fn count<T>(x: T, n: Int) -> Int { if n == 0 { 0 } else { count(x, n - 1) } }`
-// is a tail self-call under Nomi's constant-stack guarantee (spec §7, *Tail-call optimization*), and
-// decideTailPlan marks a single-member component `ok` WITHOUT calling
-// tailMemberSig — so nothing else would stop it becoming unbounded Go
-// recursion. Pinned by testdata/generic_tail_self.nomi.
-//
-// TWO POPULATIONS. The erased population is `sig.tps != nil`; the
-// MONOMORPHIZED one is `sig.mono != nil` and has `tps == nil`. Checking only
-// the first would skip the second, and because funcDecl returns early for a
-// template, a tail-recursive generic at depth would be claimed and emitted and
-// grow the stack without bound with nothing reporting. Clearing `mono` puts funcDecl's `recursive tail call` report in
-// charge, so the refusal stays at the DECLARATION rather than at the call.
-func (g *gen) refuseGenericTailCycles() {
-	for _, sig := range g.funcs {
-		if sig.decl == nil {
-			continue
-		}
-		generic := sig.lowerable && sig.tps != nil
-		template := sig.mono != nil
-		if !generic && !template {
-			continue
-		}
-		if g.tailPlanForFn(sig.decl.Name) != nil {
-			sig.lowerable = false
-			sig.mono = nil
-			sig.genericWhy = "recursive tail call"
-		}
-	}
 }

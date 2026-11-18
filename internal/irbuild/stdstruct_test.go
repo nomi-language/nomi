@@ -78,10 +78,10 @@ func TestStdStructDefsArePackageNeutral(t *testing.T) {
 					s.nomi, f.nomi)
 			}
 			// The two default CHANNELS are mutually exclusive, and that is the
-			// invariant litFieldValues rests on.
+			// invariant fieldDefault rests on.
 			//
-			// `deflt` is std's AST, LOWERED at the construction site under
-			// inDeclScope -- sound only while the declaring and constructing
+			// `deflt` is std's AST, LOWERED at the construction site by
+			// declDefault -- sound only while the declaring and constructing
 			// scopes are the same one, which for a stdlib type they never are.
 			// `stdDeflt` is a value stated in the builder's own vocabulary and
 			// resolves no names. A field carrying BOTH would take the AST path
@@ -308,10 +308,10 @@ func TestStdStructSpecIndicesNameTheirRow(t *testing.T) {
 // stdSpecIndexOffences is every `stdSpec*` constant that does not name its
 // row, as a message each.
 //
-// Extracted so the two guards that DEPEND on these indices can refuse first and
+// Extracted so the guard that DEPENDS on these indices can refuse first and
 // name the real cause. Inserting a row mid-table shifts the constants, and
-// without this check `TestStdStructSpecsMatchStdSource` and
-// `TestStdStructSpecsAreReachable` fail first and blame `std/assertions.nomi`,
+// without this check `TestStdStructSpecsMatchStdSource` fails first and
+// blames `std/assertions.nomi`,
 // a file the change never touched: a shifted index breaks the DEPENDENT rows
 // before the constant that describes them.
 func stdSpecIndexOffences() []string {

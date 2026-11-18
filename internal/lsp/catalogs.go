@@ -460,8 +460,9 @@ func (s *Server) catalogActions(d *catalogDoc, rng protocol.Range, diags []proto
 // locale that lacks its translation: write the entry, with the source text
 // as `source` and as `text`, given every arm the locale needs, for the
 // translator to translate.
-func (s *Server) missingTranslationActions(nodes []ast.Node, fa *analysis.FileAnalysis, rng protocol.Range, diags []protocol.Diagnostic) []protocol.CodeAction {
+func (s *Server) missingTranslationActions(content string, nodes []ast.Node, fa *analysis.FileAnalysis, rng protocol.Range, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var actions []protocol.CodeAction
+	var lines *lineIndex
 	for _, m := range phrasesOf(nodes, fa) {
 		kd := m.info.Decl
 		first, last := uint32(kd.Line-1), uint32(kd.NameLine-1)
@@ -480,7 +481,11 @@ func (s *Server) missingTranslationActions(nodes []ast.Node, fa *analysis.FileAn
 			entry := fmt.Sprintf("[%s]\nsource = %s\ntext = %s\n", kd.Name, catalog.Block(m.info.Source), catalog.Block(fitted))
 			var related []protocol.Diagnostic
 			for _, dg := range diags {
-				if strings.HasPrefix(dg.Message, fmt.Sprintf("%s: `%s` has no translation", l.Locale, kd.Name)) {
+				if lines == nil {
+					lines = newLineIndex(content)
+				}
+				e, ok := reportedError(lines, fa.TypeErrors, dg)
+				if ok && e.Code == analysis.MissingTranslationCode && e.Args[0] == l.Locale && e.Args[1] == kd.Name {
 					related = append(related, dg)
 				}
 			}

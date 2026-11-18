@@ -8,26 +8,13 @@ import (
 // listCaseTest admits flat bindings after a checked length predicate. The
 // success arm alone reads elements and suffixes, preserving persistent cells.
 //
-// k is a list the pattern takes apart (irCaseListKind): the untyped `[]`,
-// or a List whose kind has its element.
+// k is a list the pattern takes apart (irCaseListKind).
 func (bl *irScalarBuilder) listCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	pat, ok := pattern.(*ast.ListPattern)
 	if !ok || pat.TypeName != nil || !irCaseListKind(k) {
 		return false
 	}
 	spread := !isNilNode(pat.TailSpread)
-	if k.tag == tagEmptyList && (spread || len(pat.Heads) != 0) {
-		// The untyped literal `[]` as the subject, whose element type
-		// nothing determines and no value has (spec, "Determined type
-		// arguments"): it enters a list of Int, a retained list kind, and
-		// no head or suffix pattern matches it, so no projection at that
-		// kind runs.
-		v, vk, ok := bl.coerceEmpty(pattern, subj, k, listKindIn(bl.g, kindInt))
-		if !ok {
-			return false
-		}
-		subj, k = v, vk
-	}
 	simple := func(n ast.Node) bool {
 		switch n.(type) {
 		case *ast.IdentPattern, *ast.WildcardPattern:
@@ -138,7 +125,7 @@ func (bl *irScalarBuilder) listCaseTestNested(pat *ast.ListPattern, subj ir.Temp
 		default:
 			// The parser admits a pattern for the rest only at the end.
 			if len(pat.Tails) > 0 {
-				return false
+				panic("irbuild: listCaseTestNested: the parser admits a pattern for the rest only at the end: with elements after the `..` it is \"a list pattern's `..` takes a name or nothing when elements follow it\"")
 			}
 			restPattern = true
 		}

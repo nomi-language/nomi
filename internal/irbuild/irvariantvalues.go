@@ -98,8 +98,9 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 			// a boxed slot. A user struct or enum there is decided
 			// co-inductively (irNominalCoinductive), and the other boxed
 			// payload admitted is a tuple naming the enum itself
-			// (irSelfTuplePayload), which compares kinds without re-entering;
-			// boxing is a Go spelling and the VM holds records by reference.
+			// (irSelfTuplePayload), which compares kinds without re-entering.
+			// The VM holds records by reference, so a boxed slot's value is
+			// built and read as any other's.
 			payload := v.payloads[0].k
 			if irSelfPayload(d, payload) || irSlotlessPayload(payload) {
 				continue
@@ -146,7 +147,7 @@ func irRetainedEnumKindIn(d *typeDef, outer []*typeDef) bool {
 				continue
 			}
 			if !userEnum && !irRetainedLeafKind(payload) && !isDecimalKind(payload) && !irHandleFieldKind(payload) &&
-				!(payload != kindEmptyVector && irRetainedVectorKind(payload)) && !(payload != kindEmptySet && irRetainedSetKind(payload)) &&
+				!irRetainedVectorKind(payload) && !irRetainedSetKind(payload) &&
 				!(d.preludeOf != nil && irRetainedPreludePayload(payload)) && !irSelfContainerPayload(d, payload) && !irSelfTuplePayload(d, payload) && !irEnumContainerPayload(d, payload) && !(d.preludeOf == nil && (irLeafTupleKind(payload) || irStructPayload(payload) || irFlatPayload(payload))) {
 				return false
 			}
@@ -458,7 +459,7 @@ func irEnumContainerPayload(d *typeDef, k kind) bool {
 // co-inductively with the walk, so an element that holds the enum back does
 // not recurse. The VM holds the list in the variant's slot.
 func irNominalListPayload(k kind, deciding []*typeDef) bool {
-	return k.tag == tagList && k != kindEmptyList && irComposedFieldKind(k, deciding)
+	return k.tag == tagList && irComposedFieldKind(k, deciding)
 }
 
 // irRetainedEmbed admits an `embeds` variant of a retained struct, or of a
@@ -496,10 +497,9 @@ func irRetainedEmbedIn(d *typeDef, v *variantDef, outer []*typeDef) bool {
 	return !v.embeds.isEnum && irNominalCoinductive(named(v.embeds), walk)
 }
 
-// embedWiden widens a value of an embedded type into its `embeds` variant, as
-// widenIntoVariant does: the tag and the value in its slot, or the tag alone
-// for a marker. The widened literal is mobile and a marker's source is not
-// spelled at all, so a source with effects (`Wrapped(load())`) is forced
+// embedWiden widens a value of an embedded type into its `embeds` variant:
+// the tag and the value in its slot, or the tag alone for a marker. The widened literal is mobile and a marker's source is not
+// an operand of it, so a source with effects (`Wrapped(load())`) is forced
 // into a temporary first.
 func (bl *irScalarBuilder) embedWiden(at ast.Node, src ir.Temp, d *typeDef, v *variantDef) (ir.Temp, kind, bool) {
 	if !bl.effectFree(src) {
@@ -576,7 +576,7 @@ func irRetainedPreludePayload(k kind) bool {
 		// equality over the payload keep their own checks.
 		return true
 	}
-	if elem, vector := vectorElem(k); vector && k != kindEmptyVector && irCallOperandKind(elem) ||
+	if elem, vector := vectorElem(k); vector && irCallOperandKind(elem) ||
 		k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1 && irCallOperandKind(k.comp.parts[0]) {
 		// A List or Vector of any value the callable domain holds
 		// (`Maybe<Vector<Int>>`, what `Vector.get` answers over a
@@ -584,11 +584,11 @@ func irRetainedPreludePayload(k kind) bool {
 		// containers hold values of every kind.
 		return true
 	}
-	if k.tag == tagMap && k != kindEmptyMap && irRetainedMapKind(k) {
+	if k.tag == tagMap && irRetainedMapKind(k) {
 		// A map (`Result<Map<String, Int>, E>`), held as the map value.
 		return true
 	}
-	if (k != kindEmptySet && irRetainedSetKind(k)) || irRetainedRecordKind(k) {
+	if irRetainedSetKind(k) || irRetainedRecordKind(k) {
 		// A set (`Maybe<Set<Int>>`) or an anonymous record
 		// (`Maybe<{x: Int}>`), held as its record.
 		return true
@@ -670,7 +670,7 @@ func (bl *irScalarBuilder) retainedVariant(field *ast.FieldAccess) (*typeDef, *v
 		// A derived `compare` names `Ordering.Less` in a file that binds
 		// no `Ordering` (std/bool's `derive Comparable for True`): the
 		// checker recorded std/comparable's declaration at the qualifier.
-		if mod, std := stdTypeModule(bl.g.checkedTypeRef(owner.Line, owner.Col)); std && mod == "comparable" {
+		if mod, std := stdTypeModule(bl.g.checkedRef(owner.Line, owner.Col)); std && mod == "comparable" {
 			d, found = stdEnumDefs()[stdEnumOrdering], true
 		}
 	}
@@ -778,7 +778,7 @@ func (bl *irScalarBuilder) embedMarker(at ast.Node, d *typeDef, v *variantDef) (
 // the expected kind a payload-free variant is built at.
 func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call, want kind) (*typeDef, *variantDef, bool) {
 	if field.Field == nil {
-		return nil, nil, false
+		panic("irbuild: genericVariant: the parser always sets a FieldAccess's Field")
 	}
 	var name string
 	if owner, ok := field.Object.(*ast.TypeIdent); ok {
@@ -811,7 +811,7 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 		// payload-free variant. A type argument nothing constrained
 		// (`(Box.Empty, 1)`) projects to no kind and declines.
 		if bl.g.fa == nil {
-			return nil, nil, false
+			panic("irbuild: genericVariant: fa is nil only outside a checked file")
 		}
 		sym := bl.g.srcFA().References[analysis.Pos{Line: field.Field.Line, Col: field.Field.Col}]
 		if sym == nil || sym.VariantType == nil {
@@ -889,8 +889,8 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 		if !isTemplate || tpl.structDecl() == nil || want.def.genericOf != tpl {
 			return no()
 		}
-		if args, ok := bl.g.literalTypeArgs(t, len(tpl.params)); ok {
-			if k, ok := instantiate(args); ok && k == want {
+		if args, types, ok := bl.g.literalTypeArgs(t, len(tpl.params)); ok {
+			if k, ok := instantiate(args, types); ok && k == want {
 				return no()
 			}
 		}
@@ -904,8 +904,8 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 			return no()
 		}
 		variant := tn.Member.TypeString()
-		if args, ok := bl.g.literalTypeArgs(t, len(tpl.params)); ok {
-			if k, ok := instantiate(args); ok && k == want {
+		if args, types, ok := bl.g.literalTypeArgs(t, len(tpl.params)); ok {
+			if k, ok := instantiate(args, types); ok && k == want {
 				return no()
 			}
 		}
@@ -950,7 +950,7 @@ func (bl *irScalarBuilder) variantCallOf(call *ast.Call, d *typeDef, v *variantD
 	if ok && k != v.payloads[0].k {
 		// An empty literal or a concrete implementer takes the payload's
 		// declared type (`Token.Render(Person{...})`).
-		arg, k, ok = bl.coerceEmpty(argNode, arg, k, v.payloads[0].k)
+		arg, k, ok = bl.convertTo(argNode, arg, k, v.payloads[0].k)
 	}
 	if !ok || k != v.payloads[0].k {
 		return ir.NoTemp, kindInvalid, false, false
@@ -993,20 +993,19 @@ func (bl *irScalarBuilder) variantFromLit(at ast.Node, lit *ast.StructLit, d *ty
 	return bl.variantFields(at, lit, d, v)
 }
 
-// variantStructLit builds a struct-shaped variant from a brace literal, as
-// variantFieldValues does: written fields in source order, each forced when
-// impure, then omitted fields' declared defaults in declaration order.
+// variantStructLit builds a struct-shaped variant from a brace literal:
+// written fields in source order, each forced when impure, then omitted fields' declared defaults in declaration order.
 func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, enum, variant string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	d, found := bl.g.namedType(enum)
 	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(enum); isTemplate {
 		// A generic enum's struct variant: the instance its field values
 		// solve (`shapes.Holder.Of{value: 5}` is a `Holder<Int>`).
-		args, ok := bl.g.literalTypeArgs(t, len(tpl.params))
+		args, types, ok := bl.g.literalTypeArgs(t, len(tpl.params))
 		if !ok {
 			return no()
 		}
-		k, ok := instantiate(args)
+		k, ok := instantiate(args, types)
 		if !ok || k.tag != tagNamed || k.def == nil {
 			return no()
 		}
@@ -1069,7 +1068,7 @@ func (bl *irScalarBuilder) variantFields(at ast.Node, t *ast.StructLit, d *typeD
 			bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
 			src = cp.Dst()
 		}
-		src, k, ok = bl.coerceEmpty(f.Value, src, k, target.k)
+		src, k, ok = bl.convertTo(f.Value, src, k, target.k)
 		if !ok {
 			return no()
 		}
@@ -1116,14 +1115,14 @@ func (bl *irScalarBuilder) variantFinish(at ast.Node, t *ast.StructLit, d *typeD
 			args[i] = val
 			continue
 		}
-		if n, stated := irGoDefaults[p.goDeflt]; stated {
-			args[i] = bl.goDefault(t, p.k, n)
+		if p.stdDeflt != nil {
+			args[i] = bl.stdDefault(t, p.k, *p.stdDeflt)
 			if args[i] == ir.NoTemp {
 				return no()
 			}
 			continue
 		}
-		if p.goDeflt == "" && p.deflt != nil && d.foreign != "" {
+		if p.deflt != nil && d.foreign != "" {
 			val, ok := bl.foreignFieldDefault(t, d, v.nomi, p.nomi, p.k)
 			if !ok {
 				return no()
@@ -1131,7 +1130,7 @@ func (bl *irScalarBuilder) variantFinish(at ast.Node, t *ast.StructLit, d *typeD
 			args[i] = val
 			continue
 		}
-		if p.goDeflt != "" || p.deflt == nil || d.foreign != "" {
+		if p.deflt == nil || d.foreign != "" {
 			return no()
 		}
 		val, ok := bl.declDefault(p.deflt, p.k)

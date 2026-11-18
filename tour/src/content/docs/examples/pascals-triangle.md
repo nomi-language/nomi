@@ -14,7 +14,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 //# The first rows of Pascal's triangle.
 
 /// The first `count` rows of Pascal's triangle, starting from `[1]`.
-pub fn rows(count: Int) -> List<List<Int>>
+pub fn rows(count: NonNegativeInt) -> List<List<Int>>
     Iter.iterate([1], next_row)
     |> Iter.take(count)
     |> Iter.to_list()
@@ -32,7 +32,7 @@ end
 import pascals_triangle
 
 test "rows"
-    [
+    cases: List<(String, NonNegativeInt, List<List<Int>>)> = [
         ("zero rows",  0, []),
         ("single row", 1, [[1]]),
         ("two rows",   2, [[1], [1, 1]]),
@@ -61,7 +61,8 @@ test "rows"
             ],
         ),
     ]
-    |> subtests (description, count, expected), description
+
+    subtests cases, (description, count, expected), description
         assert pascals_triangle.rows(count) == expected
     end
 end

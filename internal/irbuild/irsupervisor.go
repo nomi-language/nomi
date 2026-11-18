@@ -5,23 +5,16 @@ package irbuild
 // A Supervisor is a retained value kind: a boot result field, an app-field
 // read, and the parameter of std's Nomi-bodied `Supervisor.new` and
 // `Supervisor.flush`. `Supervisor.spawn(sup, fn -> body)` is a host crossing
-// spelled with the `rt.SupervisorSpawn` target, and
-// `Supervisor.spawn_all(sup, source, f)` one spelled `rt.SupervisorSpawnAll`,
-// answering supervised `Task<Unit>` handles. The two module-private externs
+// to `rt.SupervisorSpawn`, and `Supervisor.spawn_all(sup, source, f)` one to
+// `rt.SupervisorSpawnAll`, answering supervised `Task<Unit>` handles. The two module-private externs
 // the Nomi bodies call, `new_exact` and `flush_bounded`, are frame-taking rt
 // hosts (irFrameHost). The VM runs all of them on the rt supervisor
 // runtime.
 //
-// A call that omits trailing defaulted arguments of a std function names the
-// `_ARITY<n>` wrapper the declaring module emits. irStdArityRetain builds that
-// wrapper a second time as an ordinary `ir.Func` only the VM reads: the
-// written parameters, the omitted defaults lowered in the declaring module's
-// scope as fillParamDefaults does, and a call of the full body. A call whose
-// named arguments skip a defaulted parameter fills that hole with the
-// module's `_DEFAULT<slot>` accessor, which irStdSlotRetain builds the same
-// way. The Go the declaring module emits for a wrapper or accessor is a stub
-// recorded as not lowered (stdUnloweredWrappers), so a native program that
-// reaches one is refused.
+// A call that leaves out defaulted parameters of a std function fills each
+// with the module's `_DEFAULT<slot>` accessor over the slots before it,
+// which irStdSlotRetain builds with the builder every default accessor
+// uses (irSlotAccessor), and calls the full body.
 
 import (
 	"fmt"
@@ -30,8 +23,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
-
-	"github.com/nomi-language/nomi/rt"
 )
 
 // irSupervisorKind reports the std/supervisors Supervisor kind.
@@ -87,128 +78,33 @@ func (bl *irScalarBuilder) supervisorSpawn(t *ast.Call) (ir.Temp, kind, bool, bo
 	if fk.tag != tagFunc || fk.comp == nil || len(funcParams(fk)) != 0 || funcResult(fk) != kindUnit {
 		return no()
 	}
-	handle, built := bl.g.taskHandleKind(kindUnit)
-	if !built {
-		return no()
-	}
+	handle := bl.g.taskHandleKind(kindUnit)
 	return bl.concHostEmit(t, "Supervisor.spawn", handle, args.temps...)
 }
 
-// irStdArity identifies one std function's arity-reduced wrapper, which is its
-// own declaration: a function with two trailing defaults has two wrappers.
-type irStdArity struct {
-	f     *stdFunc
-	arity int
-}
-
-// irGoDefaults is the value of each Go-stated std enum field default, keyed by
-// the constant the builder's `expr` text spells in its place.
-var irGoDefaults = map[string]int64{
-	"rt.BackoffDefaultMaxRestarts": rt.BackoffDefaultMaxRestarts,
-	"rt.BackoffDefaultMaxElapsed":  int64(rt.BackoffDefaultMaxElapsed),
-}
-
-// irStdArityRetain builds the `_ARITY<arity>` wrapper of f for the VM, when
-// the full body is retained in this module and every omitted default lowers.
-func (g *gen) irStdArityRetain(f *stdFunc, fd *ast.FuncDef, arity int) {
-	// VM-only: no Go names what the build resolves.
-	if g.irMod == nil || arity >= len(f.params) {
-		return
-	}
-	// A body the index already records stays: it lives in the module the
-	// index hands to programs. A second build of the same declaration (a
-	// probe replaying a cached module's bodies onto a fresh gen) builds into a
-	// module nothing links, and replacing the record with that body would make
-	// every later caller name a function no program holds.
-	recorded := f
-	if f.canon != nil {
-		recorded = f.canon
-	}
-	if recorded.irArity[arity] != nil {
-		return
-	}
-	full := g.irCalleeSym(fd, f.key)
-	if g.irMod.FuncFor(full) == nil {
-		return
-	}
-	for _, p := range fd.Params[:arity] {
-		if p.Destructure != nil {
-			return
-		}
-	}
-	g.pushScope()
-	defer g.popScope()
-	params := make([]kind, arity)
-	for i, p := range fd.Params[:arity] {
-		params[i] = f.params[i]
-		if !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: f.params[i]})
-		}
-	}
-	short := *fd
-	short.Params = fd.Params[:arity]
-	sig := irFuncSig{result: f.result, decl: fd, name: stdArityName(f, arity), origin: irFromStd}
-	sh := g.irFuncShellWithCallee(&short, sig, params, g.irCalleeSym(irStdArity{f, arity}, stdArityName(f, arity)))
-	if sh == nil {
-		return
-	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: f.result, sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}, vmOnly: true}
-	args := make([]ir.Temp, len(f.params))
-	for i, p := range fd.Params[:arity] {
-		args[i] = sh.params[p.Name]
-	}
-	if !bl.callDefaults(&fnSig{decl: fd, params: f.params}, args) {
-		return
-	}
-	at := g.irNodePos(fd)
-	call := ir.NewCall(at, sh.fn.NewTemp(), ir.OrdinaryCall, full, args...)
-	bl.b.Append(call)
-	bl.side(call.Dst(), irScalarSide{k: f.result})
-	cp := ir.NewCopy(at, sh.result, call.Dst())
-	bl.b.Append(cp)
-	bl.side(sh.result, irScalarSide{k: f.result})
-	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	g.irRequireLint(sh.fn, "a std arity wrapper")
-	g.irModule().AddFunc(sh.fn)
-	if err := g.irLintAdded(); err != nil {
-		panic("irbuild: std arity wrapper: " + err.Error())
-	}
-	if f.canon != nil {
-		f = f.canon
-	}
-	if f.irArity == nil {
-		f.irArity = map[int]*ir.Func{}
-	}
-	f.irArity[arity] = sh.fn
-}
-
 // stdShortCallPlan plans a call writing some of a defaulted std function's
-// parameters, as stdlibInvoke spells it. Arguments are
-// evaluated in the plan's evaluation order, every one but the last forced; a
-// call whose named arguments leave a HOLE forces the last too and fills each
-// hole with the declaring module's `_DEFAULT<slot>` accessor over the slots
-// before it, whose VM body irStdSlotRetain built, forcing every fill but the
-// last so each default runs once. The callee is the arity
-// wrapper for the highest claimed slot, or the full body when that is the last.
+// parameters: the written arguments in the plan's evaluation order at their
+// slots, then each omitted slot filled with the declaring module's
+// `_DEFAULT<slot>` accessor (fillFromAccessors), and a call of the full
+// body.
 func (bl *irScalarBuilder) stdShortCallPlan(t *ast.Call, owner, method, module string) (*irQualPlan, irQualArgs, bool) {
 	var f *stdFunc
 	for _, c := range bl.g.stdShortCandidates(owner, method, module) {
 		if c.lowerable() {
 			if f != nil {
-				return nil, irQualArgs{}, false
+				panic("irbuild: stdShortCallPlan: stdShortCallShape already required exactly one lowerable candidate")
 			}
 			f = c
 		}
 	}
 	if f == nil || f.decl == nil {
-		return nil, irQualArgs{}, false
+		panic("irbuild: stdShortCallPlan: stdShortCallShape already required one lowerable candidate with a declaration")
 	}
 	return bl.stdShortCallPlanFor(t, f)
 }
 
-// stdShortCallPlanFor is stdShortCallPlan's plan against f, whose full body,
-// arity wrappers and default accessors are the ones its canonical function
+// stdShortCallPlanFor is stdShortCallPlan's plan against f, whose full body
+// and default accessors are the ones its canonical function
 // records: the cached lowering's, or a per-program instance's view
 // (stdUnretainedShortCall).
 func (bl *irScalarBuilder) stdShortCallPlanFor(t *ast.Call, f *stdFunc) (*irQualPlan, irQualArgs, bool) {
@@ -216,38 +112,16 @@ func (bl *irScalarBuilder) stdShortCallPlanFor(t *ast.Call, f *stdFunc) (*irQual
 	if f.canon != nil {
 		canon = f.canon
 	}
-	plan, planned := argSlotPlan(t.Args, f.params, stdParamNames(f))
-	if !planned {
+	plan, planned := bl.g.callPlan(t, len(f.params))
+	if !planned || canon.irBody == nil {
 		return nil, irQualArgs{}, false
 	}
-	width := len(t.Args)
-	_, contiguous := contiguousSlots(plan)
-	if !contiguous {
-		width = highestSlot(plan)
-	}
-	claimed := make(map[int]bool, len(plan.slots))
-	for _, slot := range plan.slots {
-		claimed[slot] = true
-	}
-	var holes []int
-	for slot := range width {
-		if claimed[slot] {
-			continue
-		}
+	for _, slot := range plan.defaulted {
 		if !callDefaultFill(f, slot) || canon.irSlot[slot] == nil {
 			return nil, irQualArgs{}, false
 		}
-		holes = append(holes, slot)
 	}
-	var body *ir.Func
-	if width == len(f.params) {
-		body = canon.irBody
-	} else if arity, ok := stdCallArity(f, width); ok && arity == width {
-		body = canon.irArity[width]
-	}
-	if body == nil {
-		return nil, irQualArgs{}, false
-	}
+	width := len(f.params)
 	args := irQualArgs{temps: make([]ir.Temp, width), kinds: make([]kind, width), mobile: make([]bool, width), ok: true}
 	for n, i := range plan.order {
 		val := argExpr(t.Args[i])
@@ -276,30 +150,29 @@ func (bl *irScalarBuilder) stdShortCallPlanFor(t *ast.Call, f *stdFunc) (*irQual
 			mobile: slices.Clone(args.mobile[:len(t.Args)]), ok: true}
 		bl.qualRecordArgs, bl.qualRecordSeen = written, true
 	}
-	// Holes fill in ascending order, each accessor taking every slot below its
-	// own. Every hole but the last is forced, so a later accessor's prefix carries the earlier default's value and
-	// each default runs once.
-	for _, slot := range holes {
-		prefix := irQualArgs{temps: slices.Clone(args.temps[:slot]), kinds: slices.Clone(args.kinds[:slot]),
-			mobile: slices.Clone(args.mobile[:slot]), ok: true}
-		if !irSlotSignature(prefix.kinds, f.params[:slot], f.params[slot]) {
-			return nil, irQualArgs{}, false
-		}
-		p := &irQualPlan{token: irSlotDefault{f, slot}, name: fmt.Sprintf("%s default %d", f.key, slot+1), result: f.params[slot], sym: canon.irSlot[slot].Sym()}
-		v, _, _, ok := bl.qualEmit(t, prefix, p)
-		if !ok {
-			return nil, irQualArgs{}, false
-		}
-		args.temps[slot], args.kinds[slot], args.mobile[slot] = v, f.params[slot], false
+	// Each omitted slot takes its parameter's kind, which its accessor
+	// answers; the written ones must already be theirs, since each accessor
+	// takes the slots before its own.
+	for _, slot := range plan.defaulted {
+		args.kinds[slot] = f.params[slot]
 	}
-	if !irSlotSignature(args.kinds, f.params[:width], f.result) {
+	if !irSlotSignature(args.kinds, f.params, f.result) {
 		return nil, irQualArgs{}, false
 	}
-	return &irQualPlan{token: f, name: stdArityName(f, width), result: f.result, sym: body.Sym()}, args, true
+	// The omitted slots fill as every other call's do (fillFromAccessors):
+	// the written operands held, then each slot's accessor in ascending
+	// order over the slots before it, each held, so a later default reads
+	// the earlier one's value and each runs once.
+	home := defaultHome{accessor: func(slot int) *ir.Symbol { return canon.irSlot[slot].Sym() }}
+	if !bl.fillFromAccessors(t, args.kinds, args.temps, args.mobile, home, width) {
+		return nil, irQualArgs{}, false
+	}
+	return &irQualPlan{token: f, name: f.key, result: f.result, sym: canon.irBody.Sym()}, args, true
 }
 
-// irSlotSignature is irQualSignature over a call's slots rather than its
-// written arguments, which a hole makes differ.
+// irSlotSignature reports whether a call's slots, which a hole makes differ
+// from its written arguments, are params kind for kind, each an operand a
+// call carries, with a result a call answers.
 func irSlotSignature(kinds, params []kind, result kind) bool {
 	if len(kinds) != len(params) || (!irCallableValueKind(result) && result != kindUnit) {
 		return false
@@ -313,16 +186,16 @@ func irSlotSignature(kinds, params []kind, result kind) bool {
 }
 
 // stdShortCall lowers `Owner.method(args)` when it writes a prefix of a
-// defaulted std function's parameters and the declaring module retained the
-// arity wrapper for the VM. handled is false when the call is not that shape,
+// defaulted std function's parameters and the declaring module retained its
+// body and default accessors for the VM. handled is false when the call is not that shape,
 // so the caller's ordinary routes answer it. module is the std module a
 // whole-module qualifier names (`supervisors.Supervisor.new(...)`), or "" for
 // a bare owner, which a local declaration of the same name claims instead.
 func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module string) (ir.Temp, kind, bool, bool, bool) {
 	g := bl.g
 	// A stdlib module's own test body calls the module's types as the std
-	// types they are, against arity wrappers the cached lowering already
-	// built (stdTestOwnType). Another std module's body calls the wrapper
+	// types they are, against default accessors the cached lowering already
+	// built (stdTestOwnType). Another std module's body calls the accessors
 	// the callee's module built, once that module is lowered
 	// (stdShortCalleeLowered): `NaiveDateTime.from_instant(i)` in
 	// std/json, whose default `Duration.seconds(0)` names what std/json
@@ -348,9 +221,9 @@ func (bl *irScalarBuilder) stdShortCall(t *ast.Call, owner, method, module strin
 }
 
 // stdShortCalleeLowered reports whether a std module's short positional
-// call of another module's function names an arity wrapper that module has
-// already lowered. A module lowered later builds its wrappers then, so the
-// call declines through the ordinary routes, as it did before the wrapper
+// call of another module's function names a body and default accessors that
+// module has already lowered. A module lowered later builds them then, so
+// the call declines through the ordinary routes, as it did before they
 // existed.
 func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call, owner, method, module string) bool {
 	if namedArgNode(t.Args) != nil {
@@ -364,22 +237,29 @@ func (bl *irScalarBuilder) stdShortCalleeLowered(t *ast.Call, owner, method, mod
 	if f.canon != nil {
 		canon = f.canon
 	}
-	width := len(t.Args)
-	arity, ok := stdCallArity(f, width)
-	return ok && arity == width && width < len(f.params) && canon.irArity[width] != nil
+	plan, planned := bl.g.callPlan(t, len(f.params))
+	if !planned || len(plan.defaulted) == 0 || canon.irBody == nil {
+		return false
+	}
+	for _, slot := range plan.defaulted {
+		if canon.irSlot[slot] == nil {
+			return false
+		}
+	}
+	return true
 }
 
 // stdUnretainedShortCall lowers a call that writes a prefix of a defaulted
 // std function's parameters, or names some of them, when the cache retained
-// neither the function nor its arity wrappers because its body reaches a
+// neither the function nor its default accessors because its body reaches a
 // call a program builds for itself (stdUnretainedMonoBody: a generic
-// sibling, a std interface default). The program builds the body as an
-// instance, as a full call to it does, and the call passes every
-// parameter: the written arguments in their slots, and each omitted one's
-// default, which must be a literal (irClosedLiteral), as it lowers the same
-// in any file. Arguments are lowered in the order written, so a named one
-// must be written in its slot's order. handled is false when the function
-// is not such a body.
+// sibling, a std interface default): `Decimal.format(d, locale)`, whose
+// `fraction` defaults to `scale_digits(Decimal.scale(d))`. A default is
+// Nomi of f's module, so it is lowered there: the instance's gen builds f's
+// default accessors beside its body, as the cached
+// lowering builds a retained function's (stdInstances.build), and the call
+// is planned against them as stdShortCallPlan plans a retained one. handled
+// is false when the function is not such a body.
 func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, module string) (ir.Temp, kind, bool, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool, bool) { return ir.NoTemp, kindInvalid, false, false, false }
 	s := bl.g.stdInsts
@@ -398,61 +278,7 @@ func (bl *irScalarBuilder) stdUnretainedShortCall(t *ast.Call, owner, method, mo
 	if f == nil || f.decl == nil || len(f.decl.Params) != len(f.params) || !s.stdUnretainedMonoBody(f) {
 		return no()
 	}
-	plan, planned := argSlotPlan(t.Args, f.params, stdParamNames(f))
-	if !planned {
-		return no()
-	}
-	full := make([]ast.Node, len(f.params))
-	last := -1
-	for i, a := range t.Args {
-		slot := plan.slots[i]
-		if slot <= last {
-			return no()
-		}
-		last = slot
-		full[slot] = argExpr(a)
-	}
-	for slot, a := range full {
-		if a != nil {
-			continue
-		}
-		if d := f.decl.Params[slot].Default; d != nil && irClosedLiteral(d) {
-			full[slot] = d
-			continue
-		}
-		return bl.stdUnretainedDefaultedCall(t, f)
-	}
-	call := *t
-	call.Args = full
-	if bl.qualRecord != t {
-		return bl.stdInstCallAt(&call, f, kindInvalid)
-	}
-	// In an assertion subject the rows are the written operands, which are
-	// the call's first slots only when none is named past a gap.
-	if last != len(t.Args)-1 {
-		return no()
-	}
-	bl.qualRecord = &call
-	v, k, mobile, lowered, handled := bl.stdInstCallAt(&call, f, kindInvalid)
-	bl.qualRecord = t
-	if bl.qualRecordSeen {
-		n := len(t.Args)
-		r := bl.qualRecordArgs
-		bl.qualRecordArgs = irQualArgs{temps: r.temps[:n], kinds: r.kinds[:n], mobile: r.mobile[:n], ok: r.ok}
-	}
-	return v, k, mobile, lowered, handled
-}
-
-// stdUnretainedDefaultedCall lowers a short call to f, a body a program
-// builds for itself (stdUnretainedMonoBody), that leaves out a parameter
-// whose default is no literal: `Decimal.format(d, locale)`, whose
-// `fraction` defaults to `scale_digits(Decimal.scale(d))`. Such a
-// default is Nomi of f's module, so it is lowered there: the instance's gen
-// builds f's arity wrappers and default accessors beside its body, as the
-// cached lowering builds a retained function's (stdInstances.build), and the
-// call is planned against them as stdShortCallPlan plans a retained one.
-func (bl *irScalarBuilder) stdUnretainedDefaultedCall(t *ast.Call, f *stdFunc) (ir.Temp, kind, bool, bool, bool) {
-	inst, why := bl.g.stdInsts.instantiate(f, nil, nil, bl.g)
+	inst, why := s.instantiate(f, nil, nil, bl.g)
 	if inst == nil {
 		bl.g.dc.note(why)
 		return ir.NoTemp, kindInvalid, false, false, true
@@ -472,7 +298,7 @@ func (bl *irScalarBuilder) stdShortCallLeavesAHole(t *ast.Call, owner, method, m
 	if len(fs) != 1 || fs[0].decl == nil {
 		return false
 	}
-	plan, planned := argSlotPlan(t.Args, fs[0].params, stdParamNames(fs[0]))
+	plan, planned := bl.g.callPlan(t, len(fs[0].params))
 	if !planned {
 		return false
 	}
@@ -497,7 +323,7 @@ func (bl *irScalarBuilder) stdShortCallShape(t *ast.Call, owner, method, module 
 		}
 	}
 	fs := bl.g.stdShortCandidates(owner, method, module)
-	return len(fs) == 1 && fs[0].lowerable() && len(t.Args) < len(fs[0].params)
+	return len(fs) == 1 && fs[0].lowerable() && bl.g.leavesDefaults(t, len(fs[0].params))
 }
 
 // stdShortCandidates is the std functions `Owner.method` names: every
@@ -523,9 +349,9 @@ func (g *gen) stdShortCandidates(owner, method, module string) []*stdFunc {
 	return out
 }
 
-// goDefault is a std enum field's Go-stated default n at kind k: an Int, or a
-// wrapping distinct over one such as Duration.
-func (bl *irScalarBuilder) goDefault(at ast.Node, k kind, n int64) ir.Temp {
+// stdDefault is a std enum field's default n, an rt constant, at kind k: an
+// Int, or a wrapping distinct over one such as Duration.
+func (bl *irScalarBuilder) stdDefault(at ast.Node, k kind, n int64) ir.Temp {
 	c := ir.NewInt(bl.g.irNodePos(at), bl.f.NewTemp(), n)
 	bl.b.Append(c)
 	if k == kindInt {
@@ -562,71 +388,26 @@ func (bl *irScalarBuilder) supervisorSpawnAll(t *ast.Call) (ir.Temp, kind, bool,
 	if fn.tag != tagFunc || fn.comp == nil || len(funcParams(fn)) != 1 || funcParams(fn)[0] != elem || funcResult(fn) != kindUnit {
 		return no()
 	}
-	handle, built := bl.g.taskHandleKind(kindUnit)
-	if !built {
-		return no()
-	}
+	handle := bl.g.taskHandleKind(kindUnit)
 	result := bl.g.listKind(handle)
 	// kindInvalid: lookup — a List over a handle with no interned kind declines.
 	if result == kindInvalid {
-		return no()
+		panic("irbuild: supervisorSpawnAll: List<Task<Unit>> is always interned")
 	}
 	return bl.concHostEmit(t, "Supervisor.spawn_all", result, args.temps...)
 }
 
-// irStdSlotRetain builds the `_DEFAULT<slot>` accessor of f for the VM: the
-// parameters from the one at from up to slot, and slot's default lowered in
-// the declaring module's scope with those parameters in hand. from is 0,
-// every parameter before slot, or slot, none, for a default that reads no
-// earlier parameter (stdInstances.defaultAccessor).
-func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, from, slot int) {
-	// VM-only: no Go names what the build resolves.
+// irStdSlotRetain builds the `_DEFAULT<slot>` accessor of f for the VM
+// with the one accessor builder (irSlotAccessor), in g, the declaring
+// module's scope, and records it on f's canonical function.
+func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, slot int) {
 	if g.irMod == nil {
 		return
 	}
-	for _, p := range fd.Params[from:slot] {
-		if p.Destructure != nil {
-			return
-		}
-	}
-	g.pushScope()
-	defer g.popScope()
-	params := make([]kind, slot-from)
-	for i, p := range fd.Params[from:slot] {
-		params[i] = f.params[from+i]
-		if !ast.IsDiscardName(p.Name) {
-			g.bind(p.Name, local{k: params[i]})
-		}
-	}
-	short := *fd
-	short.Params = fd.Params[from:slot]
-	name := stdSlotName(f, slot)
-	sig := irFuncSig{result: f.params[slot], decl: fd, name: name, origin: irFromStd}
-	sh := g.irFuncShellWithCallee(&short, sig, params, g.irCalleeSym(irSlotDefault{f, slot}, fmt.Sprintf("%s default %d", f.key, slot+1)))
-	if sh == nil {
+	sym := g.irCalleeSym(irSlotDefault{f, slot}, fmt.Sprintf("%s default %d", f.key, slot+1))
+	fn := g.irSlotAccessor(fd, &fnSig{decl: fd, params: f.params}, sym, stdSlotName(f, slot), slot, irFromStd)
+	if fn == nil {
 		return
-	}
-	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: f.params[slot], sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}, vmOnly: true}
-	args := make([]ir.Temp, slot-from+1)
-	for i, p := range fd.Params[from:slot] {
-		args[i] = sh.params[p.Name]
-	}
-	args[slot-from] = ir.NoTemp
-	filled := *fd
-	filled.Params = fd.Params[from : slot+1]
-	if !bl.callDefaults(&fnSig{decl: &filled, params: f.params[from : slot+1]}, args) {
-		return
-	}
-	at := g.irNodePos(fd)
-	cp := ir.NewCopy(at, sh.result, args[slot-from])
-	bl.b.Append(cp)
-	bl.side(sh.result, irScalarSide{k: f.params[slot]})
-	bl.b.SetTerm(ir.NewReturn(at, sh.result))
-	g.irRequireLint(sh.fn, "a std slot accessor")
-	g.irModule().AddFunc(sh.fn)
-	if err := g.irLintAdded(); err != nil {
-		panic("irbuild: std slot accessor: " + err.Error())
 	}
 	if f.canon != nil {
 		f = f.canon
@@ -634,5 +415,5 @@ func (g *gen) irStdSlotRetain(f *stdFunc, fd *ast.FuncDef, from, slot int) {
 	if f.irSlot == nil {
 		f.irSlot = map[int]*ir.Func{}
 	}
-	f.irSlot[slot] = sh.fn
+	f.irSlot[slot] = fn
 }

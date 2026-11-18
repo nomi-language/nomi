@@ -55,9 +55,9 @@ func TestStdEnum_StructPayloadShapeIsChecked(t *testing.T) {
 // TestIOErrorSlotsMatchRTFieldNames holds the spec's Go field names against
 // rt.IOError by reflection.
 //
-// TestStdEnumSlotsMatchRT already does this for every row; this one adds the half
-// that is specific to a struct-shaped payload and that reflection over slots
-// cannot see: the NOMI field name, which is what a pattern binds. A spec whose
+// This one adds the half that is specific to a struct-shaped payload and that
+// reflection over slots cannot see: the NOMI field name, which is what a
+// pattern binds. A spec whose
 // `nomiField` disagreed with std's declaration produces no anchor (the shape
 // check above), but a spec whose `nomiField` disagreed with the VARIANTDEF's
 // payload would bind nothing and emit a selector for a field the pattern never

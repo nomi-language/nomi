@@ -129,6 +129,7 @@ func embeddedZeroSized(vd *VariantDef) bool {
 // call path: a placeholder (partial application) of a distinct embed, and a
 // distinct embed whose inner type mentions a type parameter.
 func (c *checker) checkVariantCtorCall(n *ast.Call, form variantCtor) (Type, bool) {
+	c.recordPositional(n, false)
 	vd := form.vd
 	if vd.Kind == VariantEmbedded {
 		if embeddedZeroSized(vd) {
@@ -338,6 +339,7 @@ func (c *checker) checkDistinctEmbedArg(at ast.Node, argTy Type, form variantCto
 // checkPipedVariantCtor checks `value |> Enum.V()`: the piped value is the
 // construction's one argument.
 func (c *checker) checkPipedVariantCtor(call *ast.Call, piped ast.Node, pipedTy Type, form variantCtor) Type {
+	c.recordPositional(call, true)
 	vd := form.vd
 	if vd.Kind == VariantEmbedded && embeddedZeroSized(vd) {
 		c.checkArgs(call.Args)

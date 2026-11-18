@@ -1,6 +1,8 @@
 package irbuild
 
 import (
+	"slices"
+
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
@@ -18,63 +20,30 @@ import (
 // callback itself or forwarded to as a callback's whole body
 // (irsignalcall.go). The checker rejects a `break` or `continue` anywhere
 // else, and a use of an iter-sensitive function anywhere else
-// (analysis/iter_sensitive.go), so this file lowers a control statement
-// lexically inside the callback whose boundary it emitted, and a forwarding
+// (analysis/iter_sensitive.go), so this file's predicates cover a control
+// statement lexically inside the callback it belongs to, and a forwarding
 // callback's call.
 //
-// # The encoding: Go's own break, because `loop` has no closure
+// # The two encodings
 //
-// `pub host fn loop<S>(f: (S) -> S) -> S` (std/iter.nomi:120) never mentions
-// `Iter`. It has no source, no `Seq` and no `each_while` — it is a
-// state-threading loop whose `break` is its terminator. So the call is lowered
-// as an INLINE Go `for`, the callback's body is emitted directly into it, and
-// the five signals become ordinary Go statements. No signal value, no second
-// return, no sentinel, and nothing allocated: `loop` is not on the `Seq` hot
-// path at all, so the per-element allocation question does not arise for it.
+// `pub host fn loop<S>(f: (S) -> S) -> S` never mentions `Iter`. It has no
+// source, no `Seq` and no `each_while`: it is a state-threading loop whose
+// `break` is its terminator. The call is lowered inline, as blocks of the
+// enclosing function, and each signal is a write and a jump (irloop.go).
 //
-// The mapping, one line per signal:
-//
-//	ctrlBreakWith(v)  break v      ->  answer = v; break L
-//	ctrlBreak         break        ->  answer = state; break L
-//	ctrlContinue      continue     ->  continue L
-//	ctrlReturnWith(v) return v/tail->  state = v, then loop
-//	ctrlReturn        Unit tail    ->  (no assignment), then loop
-//
-// `continue` in `Iter.loop` retries with the SAME state. Go's `continue` in a
-// `for {}` with no post statement does exactly that, because the state is
-// advanced only by the assignment at the bottom of the body, which `continue`
-// skips.
-//
-// Labeled `break L` / `continue L` rather than bare, so a Nomi `break` inside a
-// `case` arm that lowered to a Go `switch` still targets the loop.
-//
-// # Why the boundary cannot leak into a nested lambda
-//
-// Not a syntactic pre-walk. `gen.ctrl` is saved and cleared at each function
-// boundary, as gen.result and gen.inferResult are, so a `break` inside a
-// lambda nested in the body finds no boundary and falls to the refusal. The default-refuse posture is what makes
-// that sound without whole-program analysis: every control statement in the
-// tree refuses unless a boundary claims it, so an unclaimed one refuses the
-// whole file rather than being silently dropped.
-
-// ctrlBoundary is the innermost control boundary being emitted.
-//
-// One struct rather than a set of gen fields because it is saved and restored
-// as a unit, and because a nested `Iter.loop` inside another's body has to
-// resolve against its OWN boundary — node identity is not needed here the way
-// it is for the reduce seed, since the builder reaches the inner boundary only
-// while it is the innermost one.
-type ctrlBoundary struct {
-}
+// A callback the VM drives (irSignallingCallback) is a function of its own,
+// so its `break` or `continue` cannot be a jump. A callback whose own scope
+// holds one is lowered under a signalling form (irCtlForm, irearlyreturn.go)
+// whose answer tells the driver whether to keep the value, skip or stop.
 
 // --- deciding where a callback shape is widened -------------------------------
 
 // ctrlSignalIn reports whether a node's OWN scope can produce a control signal.
 //
 // This is the specialization rule, and it exists so the general lambda
-// representation does not have to carry one: only a callback whose body really
-// can `break` or `continue` gets the widened `(acc, bool)` Go type, and every
-// other lowered lambda stays a bare func literal Go's inliner sees through.
+// representation does not have to carry one: only a callback whose body
+// can `break` or `continue` is lowered under a signalling form (irCtlForm),
+// and every other lowered lambda answers its plain value.
 //
 // Does NOT descend into a nested `ast.Lambda` or `ast.FuncDef`, and not by
 // analogy with `return`: the answer for a
@@ -145,10 +114,14 @@ func irSignallingCallback(owner, method string) bool {
 	return false
 }
 
+// irSeededIterMethods are the Iter methods that fold from a starting
+// value, their `from` argument.
+var irSeededIterMethods = []string{"reduce", "scan", "map_reduce"}
+
 // irSeededIterMethod reports whether `Iter.method` folds from a starting
-// value, its `from` argument: `reduce`, `scan` and `map_reduce`.
+// value (irSeededIterMethods).
 func irSeededIterMethod(method string) bool {
-	return method == "reduce" || method == "scan" || method == "map_reduce"
+	return slices.Contains(irSeededIterMethods, method)
 }
 
 // namedCtlForm is the signalling form a named function's own body is lowered

@@ -65,11 +65,11 @@ import "strconv"
 //	INDIRECT    the callee is an operand holding a function value.
 //
 // A HOST CALL IS NOT A FORM. Whether a callee's body is Nomi or Go is a fact
-// about the DECLARATION, not about the call: `internal/irbuild`'s own
-// `stdlibInvoke` spells `<callee>(fr, args…)` for both and picks between them
-// on one line, and the host functions are one operation for the same reason.
-// Splitting them
-// would put the callee's implementation language in the opcode.
+// about the DECLARATION, not about the call: both are a direct call to a
+// declaration known statically, with the same operands. Splitting them
+// would put the callee's implementation language in the opcode. What a
+// direct call does carry is whether control leaves the engine (Crosses, set
+// by NewHostCall).
 //
 // TYPE-PARAMETER-QUALIFIED DISPATCH IS REFUSED, not collapsed. `T.method(x)`
 // for a bounded `T` probes the same table, but its key is the enclosing
@@ -201,19 +201,17 @@ func NewCall(pos Pos, dst Temp, site CallSite, callee *Symbol, args ...Temp) *Ca
 // NewHostCall is a direct call whose callee's body is Go: a `host fn`, a
 // stdlib primitive, an FFI extern.
 //
-// THE MARKER IS PRESERVED HERE BECAUSE IT IS CHEAP NOW AND AWKWARD LATER,
-// AND IT IS ONE FIELD RATHER THAN A MECHANISM. The VM debugger on
-// `docs/roadmap.md`, handing off to `dlv` at an FFI boundary, needs THE CROSSES-INTO-GO BOUNDARY TO BE EXPLICIT AT THE CALL: a stepping
-// engine that owns Nomi frames has to know, before it steps, whether the
-// next frame is one it can step or one it must hand to a native debugger.
-// Adding a bit to one opcode is a re-encoding and everything that reads
-// bytecode depends on it, so the field is carried while it costs a bool.
+// THE MARKER IS ONE FIELD RATHER THAN A MECHANISM. The VM reads it when it
+// compiles the calling function: a marked call becomes a host call bound to
+// the adapter or intrinsic its callee's name lands on
+// (internal/vm/hostcall.go), and it is never run as a tail transfer
+// (internal/vm/tail.go).
 //
 // IT IS NOT A `CalleeForm`, AND THE FILE HEADER'S REFUSAL STANDS UNCHANGED.
 // That refusal is about how a callee is DETERMINED — "A HOST CALL IS NOT A
 // FORM. Whether a callee's body is Nomi or Go is a fact about the
-// DECLARATION, not about the call" — and it is right: `stdlibInvoke` spells
-// `<callee>(fr, args…)` for both and picks between them on one line. This
+// DECLARATION, not about the call" — and it is right: both are a direct call
+// to a declaration known statically, with the same operands. This
 // field answers a different question, and it is a question about the CALL
 // rather than about the callee's implementation language: does control leave
 // the engine executing this function. A `*Symbol` is "a name plus an

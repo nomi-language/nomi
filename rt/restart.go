@@ -4,9 +4,9 @@ package rt
 // runs again. A disposition, not a schedule — `Backoff` is the schedule and is
 // deliberately not here; see below.
 //
-// Here for NormalForm's and RoundingMode's reason — declared in a std module,
-// named from user packages, so no generated package can own it. See
-// internal/irbuild/stdenum.go.
+// Here for NormalForm's and RoundingMode's reason: the VM and std's Go
+// adapters both name it. internal/irbuild/stdenum.go pairs the std
+// declaration with this Go type.
 //
 // The supervisor that reads this value is rt/supervisor.go.
 //

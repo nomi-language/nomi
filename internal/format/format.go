@@ -11,8 +11,6 @@ import (
 const (
 	defaultWidth  = 100
 	defaultIndent = 4
-	// Legacy conformance-list rendering keeps an indented content budget.
-	conformanceWrapWidth = defaultWidth - defaultIndent
 	// singleLineValueIfMaxWidth caps the flat width of a plain if/else with
 	// two branches that may render on one line. It is rustfmt's
 	// single_line_if_else_max_width, whose default is 50 at rustfmt's own

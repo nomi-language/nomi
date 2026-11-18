@@ -33,24 +33,20 @@ fn calls(x: Int) -> Int
 end
 
 fn bind(n: Int) -> Int
-    x = begin
+    _x = begin
         io.print("bind")
         case n
             0 -> return 1
             _ -> return 2
         end
     end
-    io.inspect(x)
-    x
 end
 
 fn bare_return(n: Int) -> Int
-    x = begin
+    _x = begin
         io.print("bare return")
         return n + 1
     end
-    io.inspect(x)
-    x
 end
 
 fn operand(n: Int) -> Int
@@ -68,42 +64,36 @@ fn argument(n: Int) -> Int
 end
 
 fn field(n: Int) -> Int
-    p = P{a: 1, b: begin
+    _p = P{a: 1, b: begin
         io.print("field")
         case n
             0 -> return 7
             _ -> return 8
         end
     end}
-    p.a
 end
 
 fn item(n: Int) -> Int
-    xs = [calls(1), begin
+    _xs = [calls(1), begin
         io.print("item")
         case n
             0 -> return 9
             _ -> return 10
         end
     end]
-    io.inspect(xs)
-    0
 end
 
 fn nested(n: Int) -> Int
-    x = begin
+    _x = begin
         io.print("outer")
-        y = begin
+        _y = begin
             io.print("inner")
             case n
                 0 -> return 11
                 _ -> return 12
             end
         end
-        io.inspect(y)
-        y
     end
-    x
 end
 
 fn tail_block(n: Int) -> Int
@@ -120,20 +110,18 @@ fn arms(n: Int) -> Int
     y = case n
         0 ->
             io.print("arm")
-            z = begin
+            _z = begin
                 io.print("arm block")
                 if n == 0 then return 15 else return 16
             end
-            z
         _ -> n
     end
     if y > 100 then
         begin
             io.print("if branch")
-            w = begin
+            _w = begin
                 return y + 1
             end
-            w
         end
     else
         y
@@ -166,7 +154,7 @@ func TestIRLeavingBlock_Defer(t *testing.T) {
 
 fn deferred(n: Int) -> Int
     defer io.print("outer defer")
-    x = begin
+    _x = begin
         defer io.print("inner defer 1")
         defer io.print("inner defer 2")
         io.print("deferred")
@@ -178,8 +166,6 @@ fn deferred(n: Int) -> Int
             end
         end
     end
-    io.print("never")
-    x
 end
 
 fn main()
@@ -199,22 +185,20 @@ func TestIRLeavingBlock_LambdasAndLoops(t *testing.T) {
 
 fn lambda(n: Int) -> Int
     f = fn m: Int ->
-        x = begin
+        _x = begin
             io.print("lambda")
             case m
                 0 -> return 10
                 _ -> return 20
             end
         end
-        io.inspect(x)
-        m
     end
     f(n)
 end
 
 fn mapped(xs: List<Int>) -> List<Int>
     Iter.map(xs, fn x ->
-        y = begin
+        _y = begin
             io.print("map ${x}")
             case x
                 1 -> continue
@@ -222,7 +206,6 @@ fn mapped(xs: List<Int>) -> List<Int>
                 _ -> return x * 10
             end
         end
-        y
     end)
     |> Iter.to_list()
 end
@@ -243,14 +226,13 @@ end
 
 fn looped() -> Int
     Iter.loop(0, fn i ->
-        x = begin
+        _x = begin
             io.print("iteration ${i}")
             case i
                 2 -> break i * 100
                 _ -> return i + 1
             end
         end
-        x
     end)
 end
 
@@ -267,15 +249,15 @@ end
 
 // A test body's block that leaves by `return`, bound, as a statement block's
 // tail binding, and as a call argument, and a bound `case` whose arms all
-// return: each case ends at the `return`, after its deferred calls, and
-// nothing after it runs.
+// return: each case ends at the `return`, after its deferred calls.
 func TestIRLeavingBlock_TestBodies(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "leaving_block_test.nomi")
 	src := `import std::io
 
 test "a bound block that returns"
+    assert 1 == 1
     n = 1
-    x = begin
+    _x = begin
         defer io.print("bound defer")
         io.print("bound block")
         case n
@@ -283,8 +265,6 @@ test "a bound block that returns"
             _ -> return
         end
     end
-    io.inspect(x)
-    assert False
 end
 
 test "a block statement whose binding returns"
@@ -292,35 +272,32 @@ test "a block statement whose binding returns"
     begin
         defer io.print("block defer")
         io.print("block")
-        y = if 1 > 0 then
+        _y = if 1 > 0 then
             io.print("then")
             return
         else
             return
         end
-        io.inspect(y)
     end
-    io.print("never")
 end
 
 test "a call argument block that returns"
+    assert 1 == 1
     io.inspect(begin
         io.print("argument")
         return
     end)
-    assert False
 end
 
 test "a bound case that returns"
+    assert 1 == 1
     n = 0
-    x = case n
+    _x = case n
         0 ->
             io.print("arm")
             return
         _ -> return
     end
-    io.inspect(x)
-    assert False
 end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
@@ -362,6 +339,85 @@ ok PATH :: a call argument block that returns
 ok PATH :: a bound case that returns
   arm
 test result: ok. 4 passed, 0 failed
+`, "PATH", path)
+	if exit != 0 || out.String() != want {
+		t.Fatalf("exit %d, report:\n%s", exit, out.String())
+	}
+}
+
+// A test statement whose value holds an `if` every arm of which returns
+// ends the case there, after the operands before it: `dbg`'s operand, a
+// `defer`'s argument, which registers nothing, and a destructure's value.
+func TestIRLeavingBlock_TestStatementOperands(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "leaving_operand_test.nomi")
+	src := `import std::io
+
+fn mark(n: Int) -> Int
+    io.print("mark ${n}")
+    n
+end
+
+fn note(a: Int, b: Int) -> Unit
+    io.print("note ${a} ${b}")
+end
+
+fn pair(a: Int, b: Int) -> (Int, Int)
+    (a, b)
+end
+
+test "a dbg whose operand leaves"
+    assert 1 == 1
+    c = True
+    io.print("dbg")
+    dbg(if c then return else return)
+end
+
+test "a defer whose argument leaves"
+    assert 1 == 1
+    c = True
+    defer note(mark(1), if c then return else return)
+end
+
+test "a destructure whose value leaves"
+    assert 1 == 1
+    c = True
+    (_a, _b) = pair(mark(2), if c then return else return)
+end
+`
+	if err := os.WriteFile(path, []byte(src), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Analyze(path)
+	if err != nil {
+		t.Fatalf("the front end rejects the fixture, so nothing below is tested: %v", err)
+	}
+	declined := map[string]string{}
+	p.Declines.Observed = func(fn, reason string) { declined[fn] = reason }
+	res, _, err := GenerateIR(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var module *ir.Module
+	for _, m := range res.IR {
+		if m.Name() == path {
+			module = m
+		}
+	}
+	if module == nil || len(module.Tests()) != 3 {
+		t.Fatalf("not every case was retained (declines: %v)", declined)
+	}
+	var out bytes.Buffer
+	exit, reason := vm.NewProgram(module, res.IRModules(), &out).RunTests(path)
+	if reason != "" {
+		t.Fatalf("the VM could not run the cases: %s", reason)
+	}
+	want := strings.ReplaceAll(`ok PATH :: a dbg whose operand leaves
+  dbg
+ok PATH :: a defer whose argument leaves
+  mark 1
+ok PATH :: a destructure whose value leaves
+  mark 2
+test result: ok. 3 passed, 0 failed
 `, "PATH", path)
 	if exit != 0 || out.String() != want {
 		t.Fatalf("exit %d, report:\n%s", exit, out.String())

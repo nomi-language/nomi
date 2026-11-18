@@ -33,7 +33,7 @@ func mismatchHint(want, have Type) string {
 // one at a contravariant parameter converts only the other way, and a
 // collection of functions whose parameter would narrow cannot convert.
 func typeArgumentVarianceHint(want, have Type) string {
-	want, have = resolveTV(want), resolveTV(have)
+	want, have = resolveTypeVar(want), resolveTypeVar(have)
 	if wf, ok := want.(*FuncType); ok {
 		if hf, ok := have.(*FuncType); ok && len(wf.Params) == len(hf.Params) {
 			why := unimplementedPart(normalizeReturn(wf.Return), normalizeReturn(hf.Return))
@@ -50,11 +50,11 @@ func typeArgumentVarianceHint(want, have Type) string {
 		return ""
 	}
 	wantArgs, haveArgs := containerArgs(want), containerArgs(have)
-	if len(wantArgs) == 0 || len(wantArgs) != len(haveArgs) || !sameGenericDecl(want, have) {
+	if len(wantArgs) == 0 || len(wantArgs) != len(haveArgs) || !sameTypeShape(want, have) {
 		return ""
 	}
 	for i := range wantArgs {
-		w, h := resolveTV(wantArgs[i]), resolveTV(haveArgs[i])
+		w, h := resolveTypeVar(wantArgs[i]), resolveTypeVar(haveArgs[i])
 		if containsTypeVar(w) || containsTypeVar(h) || TypesIdentical(w, h) {
 			continue
 		}
@@ -96,7 +96,7 @@ func typeArgumentVarianceHint(want, have Type) string {
 // none is found: `Unit does not implement Display` for a Maybe<Unit> where
 // a Maybe<Display> is expected.
 func unimplementedPart(want, have Type) string {
-	want, have = resolveTV(want), resolveTV(have)
+	want, have = resolveTypeVar(want), resolveTypeVar(have)
 	if containsTypeVar(want) || containsTypeVar(have) || TypesIdentical(want, have) {
 		return ""
 	}
@@ -108,7 +108,7 @@ func unimplementedPart(want, have Type) string {
 		// does not implement Display, though each value it holds may.
 		return fmt.Sprintf("%s does not implement %s", have, it)
 	}
-	if !sameGenericDecl(want, have) {
+	if !sameTypeShape(want, have) {
 		return ""
 	}
 	ws, hs := containerArgs(want), containerArgs(have)
@@ -124,29 +124,6 @@ func unimplementedPart(want, have Type) string {
 		}
 	}
 	return ""
-}
-
-// sameGenericDecl reports whether a and b are instances of one generic
-// type: two Lists, two Maps, or one declaration's.
-func sameGenericDecl(a, b Type) bool {
-	switch a := a.(type) {
-	case *ListType:
-		_, ok := b.(*ListType)
-		return ok
-	case *MapType:
-		_, ok := b.(*MapType)
-		return ok
-	case *StructType:
-		b, ok := b.(*StructType)
-		return ok && sameNominalIdentity(a.Origin, a.Name, b.Origin, b.Name)
-	case *EnumType:
-		b, ok := b.(*EnumType)
-		return ok && sameNominalIdentity(a.Origin, a.Name, b.Origin, b.Name)
-	case *DistinctType:
-		b, ok := b.(*DistinctType)
-		return ok && sameNominalIdentity(a.Origin, a.Name, b.Origin, b.Name)
-	}
-	return false
 }
 
 // genericNames is how a hint names the generic type t and its type
@@ -174,7 +151,7 @@ func genericNames(t Type, i int) (string, string) {
 // passed any value of the interface. Empty for any other difference.
 func funcElementHint(want, have Type, wf, hf *FuncType) string {
 	for i := range wf.Params {
-		wp, hp := resolveTV(wf.Params[i]), resolveTV(hf.Params[i])
+		wp, hp := resolveTypeVar(wf.Params[i]), resolveTypeVar(hf.Params[i])
 		if _, wIface := wp.(*InterfaceType); wIface {
 			if _, hIface := hp.(*InterfaceType); !hIface {
 				return fmt.Sprintf("%s does not convert to %s: each function takes only %s, and one of type %s may be passed any %s",
@@ -186,9 +163,12 @@ func funcElementHint(want, have Type, wf, hf *FuncType) string {
 }
 
 // containerArgs are t's type arguments as a container: a list's element, a
-// map's key and value, a generic struct's or enum's arguments.
+// map's key and value, a generic struct's, enum's or distinct type's
+// arguments, and none for any other type. Two types of the same shape
+// (sameTypeShape) with container arguments are two Lists, two Maps or two
+// instances of one declaration.
 func containerArgs(t Type) []Type {
-	switch t := resolveTV(t).(type) {
+	switch t := resolveTypeVar(t).(type) {
 	case *ListType:
 		return []Type{t.Elem}
 	case *MapType:
@@ -208,8 +188,8 @@ func containerArgs(t Type) []Type {
 // compiler checks every message against, and text read at run time has
 // none of them.
 func runtimeNounHint(want, have Type) string {
-	st, ok := resolveTV(want).(*StructType)
-	if !ok || st.Name != "Noun" || st.Origin != "std/phrase" || !TypesEqual(resolveTV(have), TypeString) {
+	st, ok := resolveTypeVar(want).(*StructType)
+	if !ok || st.Name != "Noun" || st.Origin != "std/phrase" || !TypesEqual(resolveTypeVar(have), TypeString) {
 		return ""
 	}
 	return "a `Noun` is a `noun` declaration, whose gender and forms the compiler holds every phrase to; text known only at run time, such as a product's name from a database, has neither, so pass a declared noun (`shop.book`), or give the phrase a `String` parameter it writes as `{$name}`"
@@ -219,11 +199,11 @@ func runtimeNounHint(want, have Type) string {
 // collection want when have is an Iter. An Iter is lazy and is not a
 // collection, though every collection is an Iter.
 func iterMaterializeHint(want, have Type) string {
-	if !isStdIterType(resolveTV(have)) {
+	if !isStdIterType(resolveTypeVar(have)) {
 		return ""
 	}
 	var fn string
-	switch w := resolveTV(want).(type) {
+	switch w := resolveTypeVar(want).(type) {
 	case *ListType:
 		fn = "Iter.to_list"
 	case *MapType:

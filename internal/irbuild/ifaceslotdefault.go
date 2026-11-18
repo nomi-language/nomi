@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -12,12 +13,14 @@ import (
 // A PARAMETER DEFAULT OF AN INTERFACE FUNCTION, FILLED IN ANOTHER FILE.
 //
 // `fn describe(s: self, prefix: String = default_prefix()) -> String { ... }`
-// in shape.nomi: a call in main.nomi that leaves `prefix` out, whether it
-// reaches an implementing block's function (`Square.describe(sq)`), an
-// erased receiver's dispatch (`Shape.describe(s)`) or a named-argument
-// call, fills the slot from the interface's declaration, which is Nomi
-// written in shape.nomi. `default_prefix` may be that file's private
-// function, and main.nomi may bind the name to something else.
+// in shape.nomi: a call in main.nomi that leaves `prefix` out and reaches
+// an implementing block's function that declares no default of its own
+// (`Square.describe(sq)`, or a named-argument call) fills the slot from the
+// interface's declaration, which is Nomi written in shape.nomi.
+// `default_prefix` may be that file's private function, and main.nomi may
+// bind the name to something else. A call on an interface value dispatches
+// to the impl's accessor (ifaceslotdispatch.go), which for such an impl is
+// the accessor built here at its kinds.
 //
 // So the slot is filled as a sibling file's `fn` default is
 // (siblingdefault.go): when every name the default mentions resolves to the
@@ -50,9 +53,12 @@ type ifaceParamDefault struct {
 // irIfaceSlotDefault identifies one accessor: the interface function, the
 // slot, and the kinds of the parameters before it and of the slot, then the
 // type arguments of the frame it is built in by name, spelled portably.
+// recv is -1, or the receiver after the slot that an accessor a call
+// dispatches to also takes (keyedSlot), whose kinds then run through it.
 type irIfaceSlotDefault struct {
 	im    *ast.InterfaceMethod
 	slot  int
+	recv  int
 	kinds string
 }
 
@@ -64,6 +70,7 @@ type irIfaceSlotReq struct {
 	name   string
 	params []kind
 	frame  map[string]kind
+	types  map[string]analysis.Type
 	built  bool
 }
 
@@ -109,9 +116,9 @@ func ifaceDefaultGeneric(o ifaceParamDefault) bool {
 
 // ifaceDefaultFrameAt binds the type parameters of the interface and the
 // function declaring parameter default o at the type arguments the checker
-// instantiated call t at (calleeTypeArgs), in this gen's kinds. ok is
-// false when the record lacks one.
-func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]kind, bool) {
+// instantiated call t at (calleeTypedArgs), in this gen's kinds and as the
+// checker's types. ok is false when the record lacks one.
+func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]kind, map[string]analysis.Type, bool) {
 	var names []string
 	for _, tp := range o.iface.TypeParams {
 		names = append(names, tp.Name)
@@ -119,22 +126,30 @@ func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]
 	for _, tp := range o.im.TypeParams {
 		names = append(names, tp.Name)
 	}
-	ks, ok := g.calleeTypeArgs(t.Func, names)
+	ks, ts, ok := g.calleeTypedArgs(t.Func, names)
 	if !ok {
-		return nil, false
+		return nil, nil, false
 	}
 	frame := make(map[string]kind, len(names))
+	var types map[string]analysis.Type
 	for i, n := range names {
 		frame[n] = ks[i]
+		if ts[i] != nil {
+			if types == nil {
+				types = make(map[string]analysis.Type, len(names))
+			}
+			types[n] = ts[i]
+		}
 	}
-	return frame, true
+	return frame, types, true
 }
 
 // ifaceDefaultHere lowers parameter default p of an interface function at
-// kind want in frame, under this gen's names.
-func (bl *irScalarBuilder) ifaceDefaultHere(p ast.Param, frame map[string]kind, want kind) (ir.Temp, kind, bool) {
+// kind want in frame, under this gen's names. types is frame as the
+// checker's types, or nil.
+func (bl *irScalarBuilder) ifaceDefaultHere(p ast.Param, frame map[string]kind, types map[string]analysis.Type, want kind) (ir.Temp, kind, bool) {
 	if len(frame) > 0 {
-		bl.g.pushIfaceSubst(frame)
+		bl.g.pushIfaceSubst(substIfaceDefault, p.Default, frame, types)
 		defer bl.g.popIfaceSubst()
 	}
 	src, k, _, ok := bl.lowerWant(p.Default, want)
@@ -146,7 +161,7 @@ func (bl *irScalarBuilder) ifaceDefaultHere(p ast.Param, frame map[string]kind, 
 // and frame binding the type parameters (ifaceDefaultFrameAt): lowered here
 // when its names mean here what they mean there, else a call of the
 // declaring gen's accessor.
-func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, params []kind, frame map[string]kind, args []ir.Temp, i int) (ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, params []kind, frame map[string]kind, types map[string]analysis.Type, args []ir.Temp, i int) (ir.Temp, kind, bool) {
 	g := bl.g
 	owner := g.unitGen(o.unit)
 	if owner == nil {
@@ -154,7 +169,7 @@ func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, pa
 	}
 	if defaultNamesAgree(p.Default, owner, g) {
 		defer g.lowerNamesFrom(o.unit)()
-		return bl.ifaceDefaultHere(p, frame, params[i])
+		return bl.ifaceDefaultHere(p, frame, types, params[i])
 	}
 	if !irCallOperandKind(params[i]) {
 		return ir.NoTemp, kindInvalid, false
@@ -178,7 +193,7 @@ func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, pa
 			theirFrame[name] = ik
 		}
 	}
-	sym := owner.irIfaceSlotSym(o, theirs, theirFrame)
+	sym := owner.irIfaceSlotSym(o, theirs, theirFrame, types, -1)
 	pos := g.irNodePos(p.Default)
 	operands := make([]ir.Temp, i)
 	for j, t := range args[:i] {
@@ -218,14 +233,17 @@ func defaultNamesAgree(d ast.Node, owning, g *gen) bool {
 // irIfaceSlotSym is the accessor symbol for slot o of an interface function
 // this gen's file declares, over params, the kinds of the parameters up to
 // and including the slot, in frame, queued for flushIfaceSlotDefaults the
-// first time any file asks. g is the DECLARING gen.
-func (g *gen) irIfaceSlotSym(o ifaceParamDefault, params []kind, frame map[string]kind) *ir.Symbol {
-	key := irIfaceSlotDefault{im: o.im, slot: o.slot, kinds: portableArgsKey(params) + portableFrameKey(frame)}
+// first time any file asks. g is the DECLARING gen. A recv past the slot
+// makes it the accessor that also takes that receiver (keyedSlot), with
+// params running through it; -1 for none. types is frame as the checker's
+// types (the program's, so one file's serve another's), or nil.
+func (g *gen) irIfaceSlotSym(o ifaceParamDefault, params []kind, frame map[string]kind, types map[string]analysis.Type, recv int) *ir.Symbol {
+	key := irIfaceSlotDefault{im: o.im, slot: o.slot, recv: recv, kinds: portableArgsKey(params) + portableFrameKey(frame)}
 	if r := g.ifaceSlotDefaults[key]; r != nil {
 		return r.sym
 	}
 	name := o.im.Name + " default " + strconv.Itoa(o.slot+1)
-	r := &irIfaceSlotReq{key: key, sym: g.irCalleeSym(key, name), name: name, params: params, frame: frame}
+	r := &irIfaceSlotReq{key: key, sym: g.irCalleeSym(key, name), name: name, params: params, frame: frame, types: types}
 	if g.ifaceSlotDefaults == nil {
 		g.ifaceSlotDefaults = map[irIfaceSlotDefault]*irIfaceSlotReq{}
 	}
@@ -242,11 +260,16 @@ func (g *gen) flushIfaceSlotDefaults() {
 			r.built = true
 			im := r.key.im
 			fd := &ast.FuncDef{Name: im.Name, Params: im.Params, Line: im.Line, Col: im.Col}
-			sig := &fnSig{params: r.params, decl: fd, lowerable: true, ifaceFrame: r.frame}
-			if len(r.frame) > 0 {
-				g.pushIfaceSubst(r.frame)
+			params, slot := r.params, r.key.slot
+			if r.key.recv > slot {
+				fd, params = keyedSlot(fd, params, slot, r.key.recv)
+				slot++
 			}
-			g.irSlotAccessorRetain(fd, sig, r.sym, r.name, r.key.slot)
+			sig := &fnSig{params: params, decl: fd, lowerable: true, ifaceFrame: r.frame, ifaceTypes: r.types}
+			if len(r.frame) > 0 {
+				g.pushIfaceSubst(substIfaceDefault, r.key.im, r.frame, r.types)
+			}
+			g.irSlotAccessorRetain(fd, sig, r.sym, r.name, slot)
 			if len(r.frame) > 0 {
 				g.popIfaceSubst()
 			}

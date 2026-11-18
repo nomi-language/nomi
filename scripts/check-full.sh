@@ -30,12 +30,17 @@
 # Every step runs even when an earlier one fails; each prints its output,
 # its exit status and its time, and the script exits 1 when any step
 # failed.
+# Each `go test` has a time limit (TEST_TIMEOUT) for every test binary it
+# runs: one that passes it is killed, and its output names the test that
+# was running and prints every goroutine's stack. The slowest package,
+# internal/lsp, takes about 11 minutes with every step running.
 #
 # Usage:
 #   scripts/check-full.sh
 #
 #   FUZZ=1            also run the fuzz targets (`make fuzz` runs only them)
 #   FUZZTIME=5m       how long each fuzz target runs (default 5m)
+#   TEST_TIMEOUT=30m  the limit for each test binary (default 30m)
 #   STEPS="a b ..."   run only the named steps: gofmt tourwasm buildvet pkgs
 #                     vmhost rt irbuild lib treesitter, cmdnomi-<part>
 #                     (cmdnomi-1 cmdnomi-2), interfaces-<suite>
@@ -52,6 +57,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FUZZTIME="${FUZZTIME:-5m}"
+TEST_TIMEOUT="${TEST_TIMEOUT:-30m}"
 STEPS="${STEPS:-}"
 FUZZ="${FUZZ:-0}"
 T0=$SECONDS
@@ -132,7 +138,7 @@ pkgs() {
   local list
   list="$(go -C "$ROOT" list ./... | grep -v -e '/internal/irbuild$' -e '/vmhost$' -e '/rt$' -e '/rt/' -e '/cmd/nomi$')" || return
   # shellcheck disable=SC2086 # one package per word
-  go -C "$ROOT" test $list -skip '^(TestExpectation_(Corpus|Stdlib|Tour|Failure)|TestObjectsLinkToTheSameProgram|TestFilesLowerOnTheirOwnAsInTheProgram)$' -count=1 -timeout 0
+  go -C "$ROOT" test $list -skip '^(TestExpectation_(Corpus|Stdlib|Tour|Failure)|TestObjectsLinkToTheSameProgram|TestFilesLowerOnTheirOwnAsInTheProgram)$' -count=1 -timeout "$TEST_TIMEOUT"
 }
 
 # cmdnomi PART: cmd/nomi's tests but TestLibModules (the lib step), in two
@@ -142,16 +148,16 @@ pkgs() {
 cmdnomi() {
   local part='^(Test[A-C]|Fuzz)'
   if [[ $1 == 1 ]]; then
-    go -C "$ROOT" test ./cmd/nomi -run "$part" -count=1 -timeout 0
+    go -C "$ROOT" test ./cmd/nomi -run "$part" -count=1 -timeout "$TEST_TIMEOUT"
   else
-    go -C "$ROOT" test ./cmd/nomi -skip "$part|^TestLibModules\$" -count=1 -timeout 0
+    go -C "$ROOT" test ./cmd/nomi -skip "$part|^TestLibModules\$" -count=1 -timeout "$TEST_TIMEOUT"
   fi
 }
 
 # interfaces SUITE: one expectation suite with every project file checked
 # again against interfaces (NOMI_CHECK_FROM_INTERFACES).
 interfaces() {
-  NOMI_CHECK_FROM_INTERFACES=1 go -C "$ROOT" test ./internal/expectation -run "^TestExpectation_$1\$" -count=1 -timeout 0
+  NOMI_CHECK_FROM_INTERFACES=1 go -C "$ROOT" test ./internal/expectation -run "^TestExpectation_$1\$" -count=1 -timeout "$TEST_TIMEOUT"
 }
 
 treesitter() {
@@ -241,14 +247,14 @@ step tourwasm tourwasm
 pstep pkgs pkgs
 pstep cmdnomi-1 cmdnomi 1
 pstep cmdnomi-2 cmdnomi 2
-pstep vmhost env NOMI_TOUR_RUN_BUDGET=1 go -C "$ROOT" test ./vmhost -count=1 -timeout 0
-pstep rt go -C "$ROOT" test ./rt/... -count=1 -timeout 0
-pstep irbuild go -C "$ROOT" test ./internal/irbuild -count=1 -timeout 0
-pstep lib go -C "$ROOT" test ./cmd/nomi -run '^TestLibModules$' -count=1 -timeout 0
+pstep vmhost env NOMI_TOUR_RUN_BUDGET=1 go -C "$ROOT" test ./vmhost -count=1 -timeout "$TEST_TIMEOUT"
+pstep rt go -C "$ROOT" test ./rt/... -count=1 -timeout "$TEST_TIMEOUT"
+pstep irbuild go -C "$ROOT" test ./internal/irbuild -count=1 -timeout "$TEST_TIMEOUT"
+pstep lib go -C "$ROOT" test ./cmd/nomi -run '^TestLibModules$' -count=1 -timeout "$TEST_TIMEOUT"
 pstep treesitter treesitter
-pstep objects-link env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestObjectsLinkToTheSameProgram$' -count=1 -timeout 0
-pstep objects-perfile env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestFilesLowerOnTheirOwnAsInTheProgram$' -count=1 -timeout 0
-pstep objects-irbuild env NOMI_LINK_OBJECTS=1 go -C "$ROOT" test ./internal/irbuild -run '^TestIRGolden_RecordsMatchTheVM$' -count=1 -timeout 0
+pstep objects-link env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestObjectsLinkToTheSameProgram$' -count=1 -timeout "$TEST_TIMEOUT"
+pstep objects-perfile env NOMI_OBJECTS_LINK=full go -C "$ROOT" test ./internal/expectation -run '^TestFilesLowerOnTheirOwnAsInTheProgram$' -count=1 -timeout "$TEST_TIMEOUT"
+pstep objects-irbuild env NOMI_LINK_OBJECTS=1 go -C "$ROOT" test ./internal/irbuild -run '^TestIRGolden_RecordsMatchTheVM$' -count=1 -timeout "$TEST_TIMEOUT"
 for s in Corpus Stdlib Tour Failure; do
   pstep "interfaces-$(tr '[:upper:]' '[:lower:]' <<<"$s")" interfaces "$s"
 done
@@ -261,10 +267,10 @@ pwait
 # in a phase of their own: several carry wall-clock limits (a `nomi test`
 # case's 10 s, the debugger's pause), which a race-built binary misses on a
 # machine the steps above saturate.
-pstep race-rt go -C "$ROOT" test -race ./rt/... -count=1 -timeout 0
-pstep race-lsp go -C "$ROOT" test -race ./internal/lsp -run '^(TestIncremental_BodyEditsConcurrentWithRequests|TestLoweringFromAnalysis_ConcurrentWithRequests|TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged|TestRPC_ImplImportCheckWhileSiblingIsRead|TestPropagateAsync_.*)$' -count=1 -timeout 0
-pstep race-vm go -C "$ROOT" test -race ./internal/vm -run 'Task|Concurrent|Once|Writer|Debug|Travel|Cancel|Supervisor|Channel' -count=1 -timeout 0
-pstep race-vmhost go -C "$ROOT" test -race ./vmhost -run 'Synctest|StdinCancel|SafePoint|Tasks|Concurrent|TestTimeout|Evaluate_Stops|ReaderSources|Capture_' -count=1 -timeout 0
+pstep race-rt go -C "$ROOT" test -race ./rt/... -count=1 -timeout "$TEST_TIMEOUT"
+pstep race-lsp go -C "$ROOT" test -race ./internal/lsp -run '^(TestIncremental_BodyEditsConcurrentWithRequests|TestLoweringFromAnalysis_ConcurrentWithRequests|TestLoweringFromAnalysis_LeavesTheAnalysisUnchanged|TestRPC_ImplImportCheckWhileSiblingIsRead|TestPropagateAsync_.*)$' -count=1 -timeout "$TEST_TIMEOUT"
+pstep race-vm go -C "$ROOT" test -race ./internal/vm -run 'Task|Concurrent|Once|Writer|Debug|Travel|Cancel|Supervisor|Channel' -count=1 -timeout "$TEST_TIMEOUT"
+pstep race-vmhost go -C "$ROOT" test -race ./vmhost -run 'Synctest|StdinCancel|SafePoint|Tasks|Concurrent|TestTimeout|Evaluate_Stops|ReaderSources|Capture_' -count=1 -timeout "$TEST_TIMEOUT"
 pstep race-corpus racecorpus
 pwait
 

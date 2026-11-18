@@ -1,6 +1,11 @@
 package token
 
-// TokenType represents the type of a lexical token.
+// TokenType represents the type of a lexical token. Its String is the
+// constant's name, written by stringer into tokentype_string.go; run
+// `go generate ./internal/token` after adding, removing or renaming one
+// (TestTokenNamesAreCurrent fails until you do).
+//
+//go:generate go run golang.org/x/tools/cmd/stringer@v0.45.0 -type=TokenType
 type TokenType int
 
 const (
@@ -79,7 +84,6 @@ const (
 	SUBTYPE
 	BREAK
 	CONTINUE
-	IT
 	UNDERSCORE
 	PLACEHOLDER // &1, &2, ...: a parameter of the capture around it
 	CAPTURE     // `&` before a capture's body: `&f(&1)`, `&(&1 > 2)`, `&Point{x: &1}`
@@ -89,7 +93,6 @@ const (
 	FOR         // for
 	IMPORT      // import
 	EXTERN      // extern
-	HOST        // host
 	EXPORT      // export — marks a top-level function a host calls by name
 	PUB         // pub — inline visibility modifier on declarations
 	ONCE        // once — file-level immutable, lazy on first access
@@ -179,133 +182,6 @@ const (
 	CODEPOINT_LITERAL
 )
 
-var tokenNames = [...]string{
-	ILLEGAL:                          "ILLEGAL",
-	EOF:                              "EOF",
-	NEWLINE:                          "NEWLINE",
-	SEMICOLON:                        "SEMICOLON",
-	INT:                              "INT",
-	FLOAT:                            "FLOAT",
-	DECIMAL:                          "DECIMAL",
-	STRING:                           "STRING",
-	IDENT:                            "IDENT",
-	TYPE_IDENT:                       "TYPE_IDENT",
-	PATH:                             "PATH",
-	PLUS:                             "PLUS",
-	MINUS:                            "MINUS",
-	STAR:                             "STAR",
-	SLASH:                            "SLASH",
-	PERCENT:                          "PERCENT",
-	BANG:                             "BANG",
-	QUESTION:                         "QUESTION",
-	EQ:                               "EQ",
-	DOT:                              "DOT",
-	COMMA:                            "COMMA",
-	COLON:                            "COLON",
-	COLONCOLON:                       "COLONCOLON",
-	ARROW:                            "ARROW",
-	PIPE:                             "PIPE",
-	FAT_ARROW:                        "FAT_ARROW",
-	BAR:                              "BAR",
-	DOTDOT:                           "DOTDOT",
-	DOTDOTEQ:                         "DOTDOTEQ",
-	AT:                               "AT",
-	HASH:                             "HASH",
-	CARET:                            "CARET",
-	BIT_AND:                          "BIT_AND",
-	BIT_OR:                           "BIT_OR",
-	BIT_XOR:                          "BIT_XOR",
-	BIT_NOT:                          "BIT_NOT",
-	SHL:                              "SHL",
-	EQEQ:                             "EQEQ",
-	BANGEQ:                           "BANGEQ",
-	LT:                               "LT",
-	GT:                               "GT",
-	LTEQ:                             "LTEQ",
-	GTEQ:                             "GTEQ",
-	AND:                              "AND",
-	OR:                               "OR",
-	NOT:                              "NOT",
-	IS:                               "IS",
-	IN:                               "IN",
-	IF:                               "IF",
-	ELSE:                             "ELSE",
-	FN:                               "FN",
-	RETURN:                           "RETURN",
-	CASE:                             "CASE",
-	WHEN:                             "WHEN",
-	TYPE:                             "TYPE",
-	STRUCT:                           "STRUCT",
-	ENUM:                             "ENUM",
-	TYPEALIAS:                        "TYPEALIAS",
-	SUBTYPE:                          "SUBTYPE",
-	BREAK:                            "BREAK",
-	CONTINUE:                         "CONTINUE",
-	IT:                               "IT",
-	UNDERSCORE:                       "UNDERSCORE",
-	PLACEHOLDER:                      "PLACEHOLDER",
-	CAPTURE:                          "CAPTURE",
-	INTERFACE:                        "INTERFACE",
-	IMPL:                             "IMPL",
-	AS:                               "AS",
-	FOR:                              "FOR",
-	IMPORT:                           "IMPORT",
-	EXTERN:                           "EXTERN",
-	HOST:                             "HOST",
-	EXPORT:                           "EXPORT",
-	PUB:                              "PUB",
-	ONCE:                             "ONCE",
-	OPAQUE:                           "OPAQUE",
-	WHERE:                            "WHERE",
-	WITH:                             "WITH",
-	DEFER:                            "DEFER",
-	TEST:                             "TEST",
-	ASSERT:                           "ASSERT",
-	REFUTE:                           "REFUTE",
-	DBG:                              "DBG",
-	UNREACHABLE:                      "UNREACHABLE",
-	SELF:                             "SELF",
-	THEN:                             "THEN",
-	TAP:                              "TAP",
-	END:                              "END",
-	BEGIN:                            "BEGIN",
-	DOC_COMMENT:                      "DOC_COMMENT",
-	COMMENT:                          "COMMENT",
-	TEST_PROMPT:                      "TEST_PROMPT",
-	BLANK_LINE:                       "BLANK_LINE",
-	LBRACE:                           "LBRACE",
-	RBRACE:                           "RBRACE",
-	LPAREN:                           "LPAREN",
-	RPAREN:                           "RPAREN",
-	LBRACKET:                         "LBRACKET",
-	RBRACKET:                         "RBRACKET",
-	STRING_START:                     "STRING_START",
-	STRING_PART:                      "STRING_PART",
-	STRING_END:                       "STRING_END",
-	STRING_LITERAL:                   "STRING_LITERAL",
-	TRIPLE_STRING_LITERAL:            "TRIPLE_STRING_LITERAL",
-	TRIPLE_STRING_START:              "TRIPLE_STRING_START",
-	TRIPLE_STRING_PART:               "TRIPLE_STRING_PART",
-	TRIPLE_STRING_END:                "TRIPLE_STRING_END",
-	RAW_STRING_LITERAL:               "RAW_STRING_LITERAL",
-	RAW_TRIPLE_STRING_LITERAL:        "RAW_TRIPLE_STRING_LITERAL",
-	TAGGED_STRING_LITERAL:            "TAGGED_STRING_LITERAL",
-	TAGGED_STRING_START:              "TAGGED_STRING_START",
-	TAGGED_TRIPLE_STRING_LITERAL:     "TAGGED_TRIPLE_STRING_LITERAL",
-	TAGGED_TRIPLE_STRING_START:       "TAGGED_TRIPLE_STRING_START",
-	RAW_TAGGED_STRING_LITERAL:        "RAW_TAGGED_STRING_LITERAL",
-	RAW_TAGGED_TRIPLE_STRING_LITERAL: "RAW_TAGGED_TRIPLE_STRING_LITERAL",
-	CODEPOINT_LITERAL:                "CODEPOINT_LITERAL",
-}
-
-// String returns the name of the token type.
-func (t TokenType) String() string {
-	if int(t) >= 0 && int(t) < len(tokenNames) {
-		return tokenNames[t]
-	}
-	return "UNKNOWN"
-}
-
 // Token represents a single lexical token.
 //
 // The single-line vs triple-quoted vs raw distinction for string tokens
@@ -347,6 +223,27 @@ type Token struct {
 	EndLine int
 	EndCol  int
 	Indent  int
+	// Dollars are the `$name`s in the text of a quoted or triple-quoted
+	// string token without a tag, in source order. Nil for every other
+	// token.
+	Dollars []DollarRef
+	// Source is a one-line quoted string as written, quotes included, on
+	// its opening token (the literal, or the START of an interpolated
+	// one), when a text of it holds a DollarRef. Empty otherwise.
+	Source string
+}
+
+// DollarRef is a `$name` written in a string's text: a `$`, at Line and
+// Col, and the identifier right after it. The lexer records one where the
+// `$` follows no `$` and no `{`, nor, in a triple-quoted string, a
+// backslash: `$$name`, MessageFormat's `{$name}` and `\$name` are text
+// their writer meant. A `$` an escape writes (`\u{24}`) is none. Nomi
+// interpolates with `${name}`, so the name is text, which the checker
+// warns about when it names a value in scope.
+type DollarRef struct {
+	Name string
+	Line int
+	Col  int
 }
 
 // CaptureBodyProblem is the error for `&` against something that is no

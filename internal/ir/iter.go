@@ -47,8 +47,8 @@ import "strconv"
 // `Iter.to_list` and `Iter.count` are one form. Both drive the source to
 // exhaustion and both answer one value; that one is a container and the other
 // a scalar is a fact about the RESULT TYPE, which this node does not carry and
-// which is the consumer's answer (see irmake.go for the same conclusion at a
-// container's element type). Splitting them would put a type in the opcode.
+// which is the consumer's answer. Splitting them would put a type in the
+// opcode.
 //
 // # THE SOURCE VIEW IS THE OPERATION THAT ERASES THE DOMAIN
 //
@@ -86,11 +86,11 @@ import "strconv"
 //
 // It passes the three-part test this package applies to a candidate field.
 // NOT DERIVABLE FROM THE KIND: `Iter.map` takes both forms and the op is the
-// same op. NOT DERIVABLE FROM THE TEXT: this consumer's text differs
-// (`rt.SeqMapCtl` against `rt.SeqMap`), but it differs BECAUSE the bit is read
-// — deriving the bit from the text would be reading the answer out of the
-// consequence. VARIES OVER ITS POPULATION, measured over the corpus by
-// TestIRIter_TheSignallingPredicateVaries.
+// same op. NOT DERIVABLE FROM THE OPERANDS: the callback is an operand like
+// any other, and the VM drives a signalling callback differently
+// (internal/vm/iter.go) BECAUSE the bit is read. VARIES OVER ITS POPULATION:
+// an op with a signalling form (`HasSignallingForm`) takes a callback of
+// either kind.
 //
 // AND IT CANNOT LIVE ON THE CALLBACK, which is what makes it earned rather
 // than invented. The obvious home is the closure: a callback that can signal

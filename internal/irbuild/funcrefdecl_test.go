@@ -5,8 +5,9 @@ import (
 	"testing"
 )
 
-// THE INSTRUMENT'S OWN POSITIVE. `refusalKeySet` reads `unsup.Constructs()`, and
-// a reading that could not see `unbound name` would make the assertion above
+// THE INSTRUMENT'S OWN POSITIVE. A refusal's keys are read off
+// `UnsupportedError.Constructs()`, and a reading that could not see `unbound
+// name` would make an assertion that the key is absent
 // hold for any tree at all — the failure mode that killed eighteen witnesses in
 // this package. So the key is planted and the same `contains` call that decides
 // the test is required to find it.

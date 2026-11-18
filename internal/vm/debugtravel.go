@@ -113,6 +113,10 @@ const travelLimit = 1_000_000
 // no fault handler, no deferred call, no exception stop.
 var errAbandon = errors.New("vm: abandoning this pass over the program to replay it")
 
+// ErrStepBackOff is in the error for going back in a session that
+// records no history; the error says why after it.
+var ErrStepBackOff = errors.New("Step back is off")
+
 // ErrNoHistory is StepBack's and ReverseContinue's answer at the first
 // statement the program ran.
 var ErrNoHistory = errors.New("there is no history before this statement: it is the first the program ran")
@@ -759,7 +763,7 @@ func (d *Debugger) ReverseContinue(thread int) error {
 // back from it is not possible.
 func (d *Debugger) travelThreadLocked(id int) (*thread, *Pass, error) {
 	if d.tt.off != "" {
-		return nil, nil, errors.New("Step back is off: " + d.tt.off + ".")
+		return nil, nil, fmt.Errorf("%w: %s.", ErrStepBackOff, d.tt.off)
 	}
 	if d.killed {
 		return nil, nil, errors.New("the program has ended")

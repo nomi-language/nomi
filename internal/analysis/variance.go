@@ -118,7 +118,7 @@ func TypeParamVariances(t Type) []Variance {
 // variantDecl reports whether t is a declared generic type whose parameters
 // have a variance, and its type parameters.
 func variantDecl(t Type) ([]*TypeParam_, bool) {
-	switch t := resolveTV(t).(type) {
+	switch t := resolveTypeVar(t).(type) {
 	case *StructType:
 		if t.unbuilt != nil || len(t.TypeParamDefs) == 0 || isStdOrigin(t.Origin) {
 			return nil, false
@@ -175,10 +175,13 @@ func (s *varianceSolver) collect(t Type) bool {
 	s.table[defs[0]] = make([]Variance, len(defs))
 	ok = true
 	forEachFieldType(t, func(ft Type) {
-		walkTypes(ft, func(inner Type) {
+		// Each type the field names, without entering a declared type's
+		// fields: collect does that for the declarations it adds.
+		walkType(ft, func(inner Type) bool {
 			if !s.collect(inner) {
 				ok = false
 			}
+			return true
 		})
 	})
 	return ok
@@ -186,7 +189,7 @@ func (s *varianceSolver) collect(t Type) bool {
 
 // variantDeclBuilt reports whether every declaration t names is built.
 func variantDeclBuilt(t Type) bool {
-	switch t := resolveTV(t).(type) {
+	switch t := resolveTypeVar(t).(type) {
 	case *StructType:
 		return t.unbuilt == nil
 	case *EnumType:
@@ -213,7 +216,7 @@ func (s *varianceSolver) walk(t Type, pol Variance, defs []*TypeParam_, out []Va
 	if pol == VarianceUnused {
 		return
 	}
-	switch tt := resolveTV(t).(type) {
+	switch tt := resolveTypeVar(t).(type) {
 	case *TypeParam_:
 		for i, d := range defs {
 			if d == tt {
@@ -314,7 +317,7 @@ func (s *varianceSolver) paramVariances(t Type) []Variance {
 // holds: a struct's fields, each variant's payload, struct fields and
 // embedded type, a distinct type's inner type.
 func forEachFieldType(t Type, f func(Type)) {
-	switch t := resolveTV(t).(type) {
+	switch t := resolveTypeVar(t).(type) {
 	case *StructType:
 		for _, fd := range t.Fields {
 			f(fd.Type)
@@ -338,55 +341,6 @@ func forEachFieldType(t Type, f func(Type)) {
 		// A refinement's value is a value of each of its parents.
 		for _, p := range t.MoreParents {
 			f(p)
-		}
-	}
-}
-
-// walkTypes calls f with t and each type nested in it, without entering a
-// declared type's fields.
-func walkTypes(t Type, f func(Type)) {
-	t = resolveTV(t)
-	f(t)
-	switch tt := t.(type) {
-	case *ListType:
-		walkTypes(tt.Elem, f)
-	case *MapType:
-		walkTypes(tt.Key, f)
-		walkTypes(tt.Val, f)
-	case *TupleType:
-		for _, e := range tt.Elems {
-			walkTypes(e, f)
-		}
-	case *AnonStructType:
-		for _, fd := range tt.Fields {
-			walkTypes(fd.Type, f)
-		}
-	case *FuncType:
-		for _, p := range tt.Params {
-			walkTypes(p, f)
-		}
-		walkTypes(tt.Return, f)
-	case *PartialType:
-		walkTypes(tt.Inner, f)
-	case *InterfaceType:
-		for _, a := range tt.TypeArgs {
-			walkTypes(a, f)
-		}
-	case *ConjunctionType:
-		for _, m := range tt.Members {
-			walkTypes(m, f)
-		}
-	case *StructType:
-		for _, a := range tt.TypeArgs {
-			walkTypes(a, f)
-		}
-	case *EnumType:
-		for _, a := range tt.TypeArgs {
-			walkTypes(a, f)
-		}
-	case *DistinctType:
-		for _, a := range tt.TypeArgs {
-			walkTypes(a, f)
 		}
 	}
 }

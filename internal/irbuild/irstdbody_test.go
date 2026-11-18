@@ -9,7 +9,7 @@ import (
 )
 
 // irStdWantRetained is how many stdlib graphs the builder builds and keeps.
-// The cached modules also hold arity wrappers and slot accessors, which
+// The cached modules also hold slot accessors, which
 // vm-std-retained.txt lists by name (TestIRRetainedStdPopulationRuns).
 // Re-derive it when the builder retains more or less of std, and name the
 // bodies that moved in the commit message.
@@ -19,7 +19,7 @@ const irStdWantRetained = 374
 //
 // The same Nomi source retains its sibling call in a user module and in a
 // stdlib module. A std gen's `g.funcs` is empty (`newStdGen` never fills it),
-// so the std side resolves a bare callee through `stdlibSibling` and links to
+// so the std side resolves a bare callee through `stdSiblingDecls` and links to
 // the sibling's retained declaration symbol when that body is already in the
 // module (see irStdSiblingSym). TestIRStdSibling_BareCallsLinkToEarlierBodies checks the
 // symbol, the VM run and the Go read-back.
@@ -37,10 +37,6 @@ func TestIRStdFunc_ASiblingCallIsRetainedOnBothSides(t *testing.T) {
 		if !slicesContain(c.retained, "use_it") {
 			t.Fatalf("`use_it` was not retained in a user module: retained %v, walked %v",
 				c.retained, c.walked)
-		}
-		if !slicesContain(c.readBack, "use_it") {
-			t.Error("`use_it` was not read back; `irfuncform.go` spells an ir.Call, so a " +
-				"user module's sibling call is retained and read back")
 		}
 	})
 

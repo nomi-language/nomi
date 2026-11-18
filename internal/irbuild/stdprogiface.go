@@ -24,11 +24,9 @@ import (
 //     interface, as ifaceInstAt builds a generic interface's instance: the
 //     same resolveIface over the declaration, so its method kinds are this
 //     gen's. The declaration is std's source, so while it resolves srcFA
-//     answers std's file (withStdSrc) and a type expression naming no
-//     substituted parameter resolves in std's scope (stdSrcTypeOf): std's
-//     `Json` stays std's in a file that declares its own. A type the anchors
-//     miss is not resolved through a name this file binds to another
-//     declaration (stdSrcShadowed). A generic
+//     answers std's file (withStdSrc), and a type expression's kind is the
+//     projection of the type std's checker recorded for it (typeOf): std's
+//     `Json` stays std's in a file that declares its own. A generic
 //     interface's def is its template, instantiated per type arguments by
 //     ifaceInstAt.
 //   - THE METHOD SYMBOLS ARE THE PROGRAM'S, not the gen's: no unit declares
@@ -243,36 +241,10 @@ func (g *gen) stdProgIfaceOf(sym *analysis.Symbol) *ifaceDef {
 	return d
 }
 
-// stdSrcTypeOf is te, written in the std file being resolved (stdSrc),
-// resolved in that module's scope (stdTypeKind), when it names no type
-// parameter this gen substitutes and the module's anchors resolve it.
-func (g *gen) stdSrcTypeOf(te ast.TypeExpr) (kind, bool) {
-	names := map[string]bool{}
-	walkNames(te, names, pickAnyName)
-	for name := range names {
-		if _, subst := g.genericSubstKind(name); subst {
-			return kindInvalid, false
-		}
-	}
-	anchors, cached := g.stdSrcAnchors[g.stdSrc]
-	if !cached {
-		anchors = stdAnchorsOf(g.stdSrc)
-		if g.stdSrcAnchors == nil {
-			g.stdSrcAnchors = map[*analysis.FileAnalysis]stdAnchors{}
-		}
-		g.stdSrcAnchors[g.stdSrc] = anchors
-	}
-	// kindInvalid: lookup — a miss answers false, and the caller resolves the type its usual way, which refuses what nothing resolves.
-	if k := stdTypeKind(te, anchors); k != kindInvalid {
-		return k, true
-	}
-	return kindInvalid, false
-}
-
 // withStdSrc makes std module's file the source srcFA answers, for
 // resolving the signatures of an interface it declares (resolveIface), and
 // returns what restores the previous source. `Maybe<String>` in `Matcher.find_in` is
-// resolved by the position std wrote it at (preludeTypeOf), which only std's
+// resolved by the position std wrote it at (typeOf), which only std's
 // file records; this file's maps hold nothing, or something else, there.
 func (g *gen) withStdSrc(module string) func() {
 	prev := g.stdSrc
@@ -280,39 +252,6 @@ func (g *gen) withStdSrc(module string) func() {
 		g.stdSrc = lib.Files[module]
 	}
 	return func() { g.stdSrc = prev }
-}
-
-// stdSrcShadowed reports whether te, written in the std file being
-// resolved (stdSrc) and missed by its anchors (stdSrcTypeOf), is headed by a
-// name this file binds to a different declaration than std's file does.
-// The arms typeOf falls through to look a head name up in this gen's
-// tables, where this file's own `Json` would stand in for std's; nominal
-// identity is the declaring file, so such a name is refused here and its
-// function is a gap of its own, while the interface still lowers. A name
-// this file does not bind is std's alone (`k: ToJson = xs` needs no import
-// of `Json`), and a type parameter being substituted is this gen's.
-// Components are asked on their own as typeOf recurses into them.
-func (g *gen) stdSrcShadowed(te ast.TypeExpr) bool {
-	var name string
-	switch t := te.(type) {
-	case *ast.SimpleType:
-		name = t.Name
-	case *ast.GenericType:
-		name = t.Name
-	case *ast.QualifiedType:
-		name = t.Module
-	default:
-		return false
-	}
-	if _, subst := g.genericSubstKind(name); subst {
-		return false
-	}
-	here := resolvedTypeSymbol(g.fa, name)
-	if here == nil {
-		return false
-	}
-	there := resolvedTypeSymbol(g.stdSrc, name)
-	return there == nil || there.Node != here.Node
 }
 
 // stdProgTemplate is the declaration of a std generic interface's template
@@ -324,12 +263,13 @@ func stdProgTemplate(d *ifaceDef) *ast.InterfaceDef {
 	return d.decl
 }
 
-// stdProgInst is the std generic interface tpl's instance at subst.
-func (g *gen) stdProgInst(tpl *ast.InterfaceDef, subst map[string]kind) *ifaceInst {
+// stdProgInst is the std generic interface tpl's instance at subst, with
+// types the checker's types for them or nil (ifaceInstAtTyped).
+func (g *gen) stdProgInst(tpl *ast.InterfaceDef, subst map[string]kind, types map[string]analysis.Type) *ifaceInst {
 	if d := g.stdProgIfaces[tpl]; d == nil || stdProgTemplate(d) == nil {
 		return nil
 	}
-	return g.ifaceInstAt(tpl, subst)
+	return g.ifaceInstAtTyped(tpl, subst, types)
 }
 
 // stdProgIfaceForImpl is the def an impl block of a std interface binds
@@ -353,11 +293,11 @@ func (g *gen) stdProgIfaceForImpl(ib *ast.ImplBlock) *ifaceDef {
 		return nil
 	}
 	if tpl := stdProgTemplate(d); tpl != nil {
-		subst, why, _ := g.ifaceInstArgs(tpl, ib)
+		subst, types, why, _ := g.ifaceInstArgs(tpl, ib)
 		if why != "" {
 			return nil
 		}
-		if inst := g.stdProgInst(tpl, subst); inst != nil && inst.def.lowerable {
+		if inst := g.stdProgInst(tpl, subst, types); inst != nil && inst.def.lowerable {
 			return inst.def
 		}
 		return nil
@@ -609,24 +549,24 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 		// A tuple or record has no impl to reach: its hash is the derive
 		// mix over its parts, as a direct `Hashable.hash` of it lowers
 		// (irtuplehash.go).
-		v, rk, _, ok = bl.tupleHashOf(at, sh.paramTemps[0], have)
+		v, rk, _, ok = bl.tupleHashOf(at, sh.paramTemps[0], have, nil)
 		handled = true
 	}
 	if irRetainedRecordKind(have) && d.stdOrigin == "std/json" && d.decl.Name == "ToJson" && m.name == "to_json" && len(params) == 1 {
 		// A record's JSON is its fields' (irrecordjson.go).
-		v, rk, ok = bl.recordToJsonOf(at, sh.paramTemps[0], have, m.result, "")
+		v, rk, ok = bl.recordToJsonOf(at, sh.paramTemps[0], have, nil, m.result, "")
 		handled = true
 	}
 	if irRetainedRecordKind(have) && d.stdOrigin == "std/json" && d.decl.Name == "ToJson" && m.name == "to_json_field" && len(params) == 1 {
 		// The default, Some of the record's JSON.
-		v, rk, ok = bl.recordToJsonFieldOf(at, sh.paramTemps[0], have, m.result)
+		v, rk, ok = bl.recordToJsonFieldOf(at, sh.paramTemps[0], have, nil, m.result)
 		handled = true
 	}
 	if !handled && (g.stdProgBareNames(d) || g.stdCases) {
 		// A std container's impl is a template instantiated at the call,
 		// which a std module's cases reach under their module's own name
 		// for its interface (`ToJson` in std/json's cases) too.
-		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, d.decl.Name, m.name)
+		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, d.decl.Name, m.name, nil)
 	}
 	if !handled {
 		var plan *irQualPlan
@@ -728,51 +668,6 @@ func (g *gen) stdProgBoxImpls(d *ifaceDef, have kind, typ *ir.Symbol) ([]irBoxed
 		impls = append(impls, irBoxedImpl{method: method, typ: typ, fn: fn, owner: g})
 	}
 	return impls, true
-}
-
-// stdProgErasedPlan dispatches an interface-qualified call
-// (`Hashable.hash(h)`, `Contains.contains(c, 2)`, `matcher.Matcher.find_in(m,
-// s)`) whose receiver is held as the std interface owner names, or nil. The
-// operand's def is the interface's: owner names it when this file resolves
-// owner to that interface (or its template), or, for a call qualified
-// through the interface's module, when this file names no interface owner
-// at all and the def's declaration is spelled owner.
-func (bl *irScalarBuilder) stdProgErasedPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	if !args.ok {
-		return nil
-	}
-	named := bl.g.stdProgIfaceNamed(owner)
-	if named == nil && bl.g.stdProgBareConflict(owner) {
-		return nil
-	}
-	return bl.stdProgErasedPlanOf(t, args, named, owner, method)
-}
-
-// stdProgErasedPlanOf dispatches a call whose receiver is held as std
-// interface named, the def the call's qualifier resolves to, or nil. A nil
-// named stands for a qualifier this file binds to nothing, which names the
-// held interface whose declaration is spelled owner.
-func (bl *irScalarBuilder) stdProgErasedPlanOf(t *ast.Call, args irQualArgs, named *ifaceDef, owner, method string) *irQualPlan {
-	for _, k := range args.kinds {
-		if k.tag != tagIface || k.iface == nil || k.iface.stdOrigin == "" {
-			continue
-		}
-		held := k.iface
-		switch {
-		case named == nil:
-			if held.decl == nil || held.decl.Name != owner {
-				continue
-			}
-		case held != named && (held.instOf == nil || held.instOf != named.decl):
-			continue
-		}
-		m := held.methods[method]
-		if m == nil {
-			return nil
-		}
-		return bl.erasedInterfacePlan(t, args, held, m)
-	}
-	return nil
 }
 
 // stdProgBareNames reports whether the bare name of std interface d's

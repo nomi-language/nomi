@@ -4,7 +4,7 @@ import "testing"
 
 // A user generic called at a type argument nothing determines, where no
 // value of it is made (spec, "Determined type arguments"), runs at the type
-// the checker closed the argument as (analysis's closed_vars.go); and a
+// the checker closed the argument as (internal/analysis/closed_vars.go); and a
 // value built with such an argument is shown through std's Debug instance.
 func TestIRUndeterminedTypeArgument_Runs(t *testing.T) {
 	if testing.Short() {

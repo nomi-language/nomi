@@ -7,12 +7,12 @@ import (
 
 // irRetainedRangeKind is a Range over any element the checker can make one
 // of (a `Comparable` type, spec §3): every such type is a value of the
-// callable domain other than an untyped empty collection. A Range value
+// callable domain. A Range value
 // holds its two ends and nothing more; what reads it (contains, a walk,
 // Debug) builds the element's operation itself.
 func irRetainedRangeKind(k kind) bool {
 	elem, ok := rangeElem(k)
-	return ok && elem != kindEmptyList && elem != kindEmptyVector && irCallableValueKind(elem)
+	return ok && irCallableValueKind(elem)
 }
 
 // irRangeDistinctElem is a wrapping distinct element, such as Codepoint, whose
@@ -24,7 +24,7 @@ func irRangeDistinctElem(elem kind) bool {
 func (bl *irScalarBuilder) rangeMake(t *ast.RangeLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Start == nil || t.End == nil {
-		return no()
+		panic("irbuild: rangeMake: parser/checker: `3..` gets a Unit end and is rejected (\"range endpoints must have the same type\"); no open-start syntax")
 	}
 	start, elem, _, ok := bl.lower(t.Start)
 	if !ok {
@@ -37,10 +37,9 @@ func (bl *irScalarBuilder) rangeMake(t *ast.RangeLit) (ir.Temp, kind, bool, bool
 	k := bl.g.rangeKindOf(elem)
 	if !irRetainedRangeKind(k) {
 		// elem is a lowered value's kind, in the value domain. The checker
-		// makes a range only of a Comparable type, which no bare `None`,
-		// untyped empty collection or Infallible is ("range endpoint type
-		// List<?1> does not implement Comparable"), so elem is a callable
-		// value's kind.
+		// makes a range only of a Comparable type, which no bare `None`
+		// or Infallible is ("range endpoint type List<?1> does not
+		// implement Comparable"), so elem is a callable value's kind.
 		panic("rangeMake: a Range over " + elem.nomi() + ", which the checker does not make Comparable")
 	}
 	// The Range holds its ends only. Each reader that orders the element
@@ -104,7 +103,7 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		if len(args.kinds) != 1 {
 			return no()
 		}
-		v, ok := bl.debugOver(t.Args[0], args.temps[0], args.kinds[0])
+		v, ok := bl.debugOver(t.Args[0], args.temps[0], args.kinds[0], bl.g.operandCheckerType(t.Args[0]))
 		if !ok {
 			return no()
 		}
@@ -127,14 +126,15 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		}
 		args.temps = append(args.temps, ref)
 	default:
-		return no()
+		// A program's own function over a Range goes to its impl
+		// (callsProgramFunc), and the checker rejects any other name.
+		panic("irbuild: Range." + method + " is no function std declares on a Range")
 	}
 	return bl.qualEmit(t, args, &irQualPlan{token: name, name: name, result: kindBool, host: true})
 }
 
 // rangeFrom builds the unbounded ranges `Range.from(n)`, of any element
-// with an order (an Int, a Float, a String), and `Range.naturals()` with
-// rangeFromCall's Go delivery.
+// with an order (an Int, a Float, a String), and `Range.naturals()`.
 func (bl *irScalarBuilder) rangeFrom(t *ast.Call, args irQualArgs, method string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	want := 0
@@ -175,7 +175,7 @@ func (bl *irScalarBuilder) rangeFrom(t *ast.Call, args irQualArgs, method string
 func (bl *irScalarBuilder) rangeStructLit(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Fields) != 3 {
-		return no()
+		panic("irbuild: rangeStructLit: Range is an opaque struct, its literal lowers only in std/ranges, whose two bodies have three fields")
 	}
 	var start ast.Node
 	for _, f := range t.Fields {
@@ -184,18 +184,18 @@ func (bl *irScalarBuilder) rangeStructLit(t *ast.StructLit) (ir.Temp, kind, bool
 			start = f.Value
 		case "stop":
 			if name, _, _, bare := preludeValueName(f.Value); !bare || name != "None" {
-				return no()
+				panic("irbuild: rangeStructLit: std/ranges' Range.from/naturals write `end: None`")
 			}
 		case "inclusive":
 			if name, _, _, bare := preludeValueName(f.Value); !bare || name != "False" {
-				return no()
+				panic("irbuild: rangeStructLit: std/ranges' bodies write `inclusive: False`")
 			}
 		default:
-			return no()
+			panic("irbuild: rangeStructLit: std/ranges' bodies name only start, stop and inclusive, not " + f.Name)
 		}
 	}
 	if start == nil {
-		return no()
+		panic("irbuild: rangeStructLit: std/ranges' bodies set start")
 	}
 	v, k, _, ok := bl.lower(start)
 	if !ok {
@@ -203,7 +203,7 @@ func (bl *irScalarBuilder) rangeStructLit(t *ast.StructLit) (ir.Temp, kind, bool
 	}
 	rk := bl.g.rangeKindOf(k)
 	if !irRetainedRangeKind(rk) {
-		return no()
+		panic("irbuild: rangeStructLit: Range.from<T> is instantiated only at a Comparable T, whose Range is retained")
 	}
 	n := ir.NewMakeRange(bl.g.irNodePos(t), bl.f.NewTemp(), v, ir.NoTemp, false)
 	bl.b.Append(n)
@@ -282,23 +282,6 @@ func (g *gen) stepperSignature(params []kind, result, elem, by kind) bool {
 	}
 	a, anchored := g.preludeNamed("Maybe")
 	return anchored && result == g.preludeInstance(a, []kind{elem})
-}
-
-// stdFuncOperand is a stdlib function as a value: a reference to its retained
-// body, or a forwarding body around an approved host. The caller records the
-// Go delivery.
-func (bl *irScalarBuilder) stdFuncOperand(at ast.Node, f *stdFunc) (ir.Temp, bool) {
-	if f.irBody != nil {
-		n := ir.NewRefFunc(bl.g.irNodePos(at), bl.f.NewTemp(), f.irBody.Sym())
-		bl.b.Append(n)
-		return n.Dst(), true
-	}
-	if f.rtCall == "" || !irScalarHost(f) {
-		return ir.NoTemp, false
-	}
-	n := ir.NewFuncValue(bl.g.irNodePos(at), bl.f.NewTemp(), bl.irHostForward(at, f))
-	bl.b.Append(n)
-	return n.Dst(), true
 }
 
 // discreteRef is elem's `Discrete.<name>` as a function value, chosen as

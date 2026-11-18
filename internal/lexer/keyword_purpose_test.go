@@ -3,16 +3,17 @@ package lexer
 import "testing"
 
 func TestEveryReservedWordHasAPurpose(t *testing.T) {
-	for w := range keywords {
-		if p, instead, ok := KeywordPurpose(w); !ok || p == "" || instead == "" {
-			t.Errorf("reserved word %q has no entry in keywordPurposes", w)
-		} else if _, reserved := keywords[instead]; reserved {
-			t.Errorf("keywordPurposes suggests %q for %q, which is itself reserved", instead, w)
+	for _, r := range reservedWords {
+		if r.purpose == "" || r.instead == "" {
+			t.Errorf("reserved word %q has no purpose or no name to write instead", r.word)
+		} else if _, reserved := keywords[r.instead]; reserved {
+			t.Errorf("reservedWords suggests %q for %q, which is itself reserved", r.instead, r.word)
+		}
+		if !IsKeyword(r.tok) || r.tok.String() == "" {
+			t.Errorf("reserved word %q has no token", r.word)
 		}
 	}
-	for w := range keywordPurposes {
-		if _, ok := keywords[w]; !ok {
-			t.Errorf("keywordPurposes lists %q, which is not a reserved word", w)
-		}
+	if len(keywords) != len(reservedWords) || len(keywordTokens) != len(reservedWords) {
+		t.Errorf("reservedWords lists a word or a token twice")
 	}
 }

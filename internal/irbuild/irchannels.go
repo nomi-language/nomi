@@ -171,7 +171,7 @@ func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Te
 	}
 	fn, known := channelFuncs[owner+"."+method]
 	if !known {
-		return no()
+		panic("irbuild: channelCall: channelFuncs lists all five std/channels functions (buffered, unbuffered, send, close, receive) and the owner already resolved to std's declaration")
 	}
 	sig, solved := bl.g.channelSignature(t, fn, owner, method)
 	if !solved {
@@ -186,7 +186,7 @@ func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Te
 			// A value entering the solved parameter: an empty literal takes
 			// its type, a concrete value its interface (`Sender.send(tx, 7
 			// as Display)` over a `Sender<Display>`).
-			v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], k, want)
+			v, got, ok := bl.convertTo(t.Args[i], args.temps[i], k, want)
 			if !ok {
 				return no()
 			}
@@ -200,7 +200,7 @@ func (bl *irScalarBuilder) channelCall(t *ast.Call, owner, method string) (ir.Te
 	if fn.explicitTypeArg {
 		_, got, isChannel := channelElem(result)
 		if !isChannel || got != "Channel" {
-			return no()
+			panic("irbuild: channelCall: an explicitTypeArg constructor (buffered/unbuffered) always answers Channel<T> from std's signature")
 		}
 	}
 	return bl.concHostEmit(t, owner+"."+method, result, args.temps...)
@@ -218,7 +218,7 @@ func (bl *irScalarBuilder) channelCtorFromTarget(t *ast.Call, fn channelFn, owne
 	irHeldOperand(want, "a channel constructor's target")
 	_, got, isChannel := channelElem(want)
 	if !isChannel || got != "Channel" {
-		return ir.NoTemp, kindInvalid, false, false
+		panic("irbuild: channelCtorFromTarget: channelWantedInstance answers a Channel instance for a Channel constructor")
 	}
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || len(args.kinds) != fn.args {

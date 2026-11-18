@@ -493,8 +493,8 @@ type's value does. The prelude also has `NonZeroInt`,
 `NonNegativeInt` and `PositiveInt`, their Float and Decimal counterparts, and
 `NonEmptyString`. Std functions take them where a value would trap or be
 ignored, and return them where a result always satisfies one: `Int.pow`'s
-exponent and `String.repeat`'s count are `NonNegativeInt`s, and so is
-`List.length`, so `Int.pow(2, List.length(xs))` needs no `try_from`.
+exponent and the counts of `String.repeat` and `Iter.take` are
+`NonNegativeInt`s, and so is `List.length`, so `Int.pow(2, List.length(xs))` needs no `try_from`.
 `Iter.chunks` takes a `PositiveInt`, so `Iter.chunks(xs, 0)` does not
 compile.
 

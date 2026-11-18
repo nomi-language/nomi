@@ -148,7 +148,7 @@ impl Queue for Inline
                     and Iter.contains(kinds, job.kind)
             end)
             |> Iter.sort_by(&claim_order(&1))
-            |> Iter.take(limit)
+            |> Iter.take(Int.max(limit, 0))
             |> Iter.map(&(&1.id))
             |> Iter.to_set()
 

@@ -9,7 +9,7 @@ import (
 // TestPreludeFn_TheOwnerNamesAreReserved holds the property three
 // call-stealing arms rely on.
 //
-// `preludeFnCall`, `listCall` and `mapCall` claim calls on `Maybe`/`Result`,
+// The builder claims calls on `Maybe`/`Result`,
 // `List` and `Map` without checking whether the module declares its own type
 // of that name. That is sound only because the front end RESERVES these names
 // (`checkReservedTypeName`: "type name '...' is reserved by the language and

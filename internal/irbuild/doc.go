@@ -29,21 +29,17 @@
 // `unitPackage`), shared by every file of one strongly connected component
 // of the Nomi import graph (component.go, `componentOwners`). The name is a
 // namespace key, not a compiled artifact: a gen compares it to tell a
-// declaration of its own unit from another file's (literal.go,
-// irstdmethodcall.go). Nomi permits cyclic file imports, and the analyzer
+// declaration of its own unit from another file's (irstdmethodcall.go). Nomi permits cyclic file imports, and the analyzer
 // resolves names whole-program, so import order never matters.
 //
-// The partition reads the import graph rather than the reference graph
-// (`fileIndex.reaches`), because building the file index needs each unit's
-// name first. It is safe in the direction that matters: every reference
-// edge is an import edge, since a qualified `owner.member`, a bare name
+// The partition reads the import graph. Every reference between files is
+// an import edge, since a qualified `owner.member`, a bare name
 // from a selective import and a type reference all need the name in scope,
 // and a user file's name reaches another file's scope only through an
 // `import`. An import's edge comes from what the checker bound it to
 // (`resolvedImportEdges`) as well as from its path as written, since a path
 // spelled through the module's own name (`import r3::value.Value` in module
-// `r3`) matches no file key. TestReferenceEdgesAreImportEdges holds that
-// containment over the corpus. The type groups of typecycle.go are found
+// `r3`) matches no file key. The type groups of typecycle.go are found
 // within these components, so a cycle the import graph missed would build
 // its files one at a time and refuse the cycle. `pub` is enforced by the front end, so two files sharing a unit
 // change no visibility decision.
@@ -114,7 +110,7 @@
 // types), linked beside it; a body both define is kept once
 // (`dropLinkedDuplicates`). With the listed modules kept, the HTTP chapter's
 // first tour block lowers in about 17 ms instead of about 105 ms; the rest
-// is `closeReferences`, the type and signature waves and the tail graphs.
+// is the type and signature waves.
 // kindmemo.go memoizes the retention predicates, `stdHostOriginKind` is an
 // index, the lint describes an instruction only for a violation, and a
 // generic std instance's module binding clones the earlier modules' index.
@@ -124,24 +120,345 @@
 // its twins (below, "Linkage names"), and a program that reaches a
 // test-only fixture module.
 //
+// # Calls
+//
+// The builder decides nothing about where a call's arguments go, the
+// order they are evaluated in, or which parameters are left to their
+// defaults. The checker records each call (analysis.FileAnalysis.Calls, an
+// analysis.ResolvedCall: what fills each of the callee's parameters, and
+// the written arguments in evaluation order), and every route reads the
+// record through `callPlan` (callplan.go): a direct call, a sibling file's
+// function, a qualified call with named arguments or omitted defaults, a
+// std short call, a call through a function value, a partial application,
+// `Task.spawn_all`, a supervisor's functions and `Struct.update`. A pipe
+// stage is lowered as its call with the head spliced in first, and reads
+// the stage's record, in which the head fills a slot.
+//
+// A copy of a written call (the spliced stage, a call requalified through
+// its module's alias) finds the record by the written call's position,
+// and only while it holds the written call's arguments. A call the
+// builder writes itself carries its record (`carryCall`): a `then` or
+// `tap` stage's call of its function, which the checker records under the
+// stage; a function value's call of the function it stands for and a
+// loop's call of its step, which pass their parameters in order
+// (analysis.PositionalCall); a named call rewritten over stand-ins in
+// slot order; and a partial's body call, whose arguments the builder wrote
+// at their slots. A call with no record, or with other arguments than its
+// record's, is the builder's own error and panics.
+//
+// The record also classifies the callee (analysis.Callee): the
+// declaration the call reaches, by the checker's symbol and node, and
+// whether one of the program's files declares it. Four routes read it: a
+// qualified call is planned from the recorded declaration (below,
+// "Qualified calls from their records"), a partial application over a
+// local function value takes its parameters from the recorded callee
+// (`partialCalleeRecorded`), a call the record gives to a program's own
+// `fn` stays out of the route for std's Range functions
+// (`callsProgramFunc`), and under a test binary every route
+// that ends in a call of a declared function is held to the record's
+// declaration (`verifyCallee`), which fails the build on a difference:
+// a `fn`, a `host fn`, an impl's function (a qualified plan's token
+// answers it, `irQualPlanTarget`: an impl item's own `fn`, or for an
+// inherited default the interface's function with the block, which must
+// be the record's `Callee.Impl`), and a plan that dispatches where it
+// runs only for a record with no impl (`verifyDispatched`). A call of an
+// instance of a generic std function is held by the template the
+// instance is built from (`stdInstCallAt`). An interpolation hole that
+// calls an impl is held the same way to its record (`verifyImplUse`:
+// DisplayRender.Method).
+//
+// # Qualified calls from their records
+//
+// A qualified call `Owner.method(args)` whose record names the function it
+// reaches (analysis.Callee.Decl: a `fn`, a Go-bound `host fn`, or the
+// interface's function the record's block, `Callee.Impl`, inherits) is
+// planned from that declaration first: `recordedCallPlan`, the first route
+// of `qualImplPlan`, which `typeQualCall` reaches after the std calls it
+// lowers by a route of its own (`stdQualRoutes`) and the intrinsics. A
+// program's function, or a std module's lowered with this gen, is the item
+// a gen registered for the declaration it lowers (`implItemsByDecl`, filed
+// by `addImplItem` for every impl and owner function, and for an inherited
+// default under the interface's function), read as that gen's module
+// declares it (`ownDecl`: an edited std module's twin of the shared
+// parse's function). It is found at the receiver an operand is
+// (`recordedImplItem`; another gen's generic instance at that gen's own
+// def of it, `instanceIn`), else, with no operand of its receiver, as the
+// owner function or at the instance the checker instantiated the call at,
+// which the gen that declares the type builds (`recordedOwnerItem`,
+// `templateCallInstance`), or at the instance an owner function's call
+// through a type parameter carries (`instKind`). A function its block
+// withholds for each call, and an inherited generic default, is built for
+// the call by the gen whose block declares or inherits it
+// (`recordedWithheldPlan`), and a Go-bound function of a generic type
+// called with no instance crosses to its Go function
+// (`hostTemplateImplPlan`). A program's block over a std container is
+// registered at the container kind an operand is before the lookup
+// (`stdRecvRecordedAt`, the on-demand registration `stdRecvImplAt`), and
+// `stdRecvOwnerPlan`, which `typeQualCall` tries before the container
+// routes, plans from the record first (`recordedImplPlan`). A std
+// function is the one of its identity
+// (`stdFuncByID`). The plan is built by the code each kind of function
+// already had: `implItemPlan` for this gen's item, `siblingInstanceItemPlan`
+// for another gen's generic instance, `siblingSitePlan` and
+// `siblingOwnerPlanFor` for another file's, `callerItemPlan` for a
+// program's item called from a std instance built for the program (a
+// derived `Maybe<Written>.hash` calling `Written`'s), `siblingMethodPlan` for another
+// gen's withheld function, `stdRecvItemPlan` for another file's impl on a
+// receiver no file declares (`impl Multiply<Shares, Decimal> for
+// Decimal`), `stdFuncPlan` and `stdSiblingShortPlan` for std's.
+//
+// Inside an instance the record is read at the instance's types
+// (`calleeAt`, the one place `recordedCallee` reads it): a call the
+// checker left to dispatch on a type parameter of the generic body
+// (CalleeInterface, For naming the parameter) is answered by the checker
+// at the checker's types the frames carry (analysis.FileAnalysis.CalleeAt
+// over `genericSubstType`; in a std instance through the program file
+// that made it, `instanceFA`), and where that names a function the call
+// is planned from it like any other. An interface's default lowered for
+// one implementor is such an instance (`inInstance`, which `calleeAt`,
+// `operatorUseAt` and `displayAt` ask): a call on the default's `self`,
+// bare or qualified, is for the interface's SelfParam (the type parameter
+// `self`), which a std default's frame binds and a program default binds
+// through `defaultSelf` (`irDefaultSelf.typ`, the implementing block's
+// checker type, `implDef.recvType`). The type of a `self` value, which
+// expressions, call type arguments and renderings record, is the
+// interface marked DefaultSelf; analysis.ReplaceTypeParams answers it as
+// SelfParam, so every record read at an instance (`checkerTypeArg`,
+// CalleeAt, OperatorUseAt, DisplayAt) puts the implementor in for either
+// form. `T.name(x)` respelled by
+// `stdKindQualCall` as the owner's call carries the same record and is
+// answered the same way. Under substVerify, `verifyCalleeAt` holds a call
+// a later route plans to the record at the instance.
+//
+// A call the record leaves to dispatch where it runs (CalleeInterface with
+// no Impl, read through `calleeAt`, so inside an instance whose type
+// argument is an interface type too) whose receiver operand is held as an
+// interface value, one interface's existential or a conjunction, is
+// planned by `dispatchedCallPlan`, `qualImplPlan`'s second route. The
+// function is the record's Decl among the functions of the interface the
+// receiver is held as (`recordedMethod`: by declaration, a std function in
+// another parse by its identity, and a std interface's def, resolved from
+// an earlier parse of its module, by the declaration's position), and the
+// receiver is the operand the placement record puts at the function's
+// `self` (`receiverArg`); a conjunction's receiver enters as the member
+// that declares the function (`conjReceiver`). `erasedInterfacePlan`
+// builds the call, an `ir.NewDispatchCall` on the receiver's run-time
+// type, placing the operands through the record and dispatching an
+// omitted default through the receiver. It is the only route that plans a
+// dispatch, and `stdModuleIfaceCall` (a std interface named through its
+// module where this file declares the name) takes it too.
+// `verifyDispatched` holds a dispatch plan to a record with no Impl.
+//
+// The routes after it choose by the owner's spelling, the receiver's kind
+// or a name-keyed table, and plan a static call. They serve calls the
+// record leaves to dispatch whose receiver the builder holds as a value of
+// a known type: a call in an interface's default whose implementing
+// block has no checker type (the impl index in `concreteInterfacePlan`), a
+// value written `as` an interface, which the builder holds as the value it
+// is although the checker records the interface (`foreignIfacePlan`,
+// `siblingReceiverPlan`), and a type parameter's the instance's types do
+// not resolve (a parameter whose frame has no checker type,
+// `maxSubstWithoutCheckerTypes`, as a std interface default's instance at
+// a std interface value's dispatch entry binds its `self` by kind alone).
+// A receiver that implements a generic interface at several type
+// arguments is resolved by the call's interface instance
+// (Symbol.CallInterface), which the record carries. A call of a std
+// interface's function the builder writes on a value whose checker type
+// it holds (a tuple slot's `Hashable.hash`, a record field's
+// `ToJson.to_json`, `debugOver`'s `Debug.inspect`) carries what the
+// checker records for that call written at the type
+// (`stdIfaceCallRecord`, analysis.FileAnalysis.InterfaceCallee); one on a
+// value held by its kind alone (a std interface value's dispatch entry,
+// `stdProgThunk`; a main's failure) names the interface's function and no
+// type, and is planned by the routes after. They serve calls with no
+// record (an interpolation hole rendered by kind, `Display.to_string`),
+// and one kind of record-named call the declaration lookup does not
+// reach: a function of a program's block over a std container called with
+// no operand of the container (`List.from_sql(value)`), whose instance
+// `stdRecvOwnerPlan` reads from the checked result.
+// `TestQualImplPlanRoutesOnlyGoDown` counts `qualImplPlan`'s routes.
+//
+// # Operators from their records
+//
+// An operator (`a + b`, `a == b`, `a < b`, a prefix `~~~`) calls the
+// function its record names (analysis.OperatorUse.Impl.Method), read once
+// by `recordedOperatorImpl`: a program's impl, a derived one and one of a
+// std module lowered with the program is the item the gens registered for
+// that `fn` (`recordedImplItem`, over each gen's `implItemsByDecl`, which
+// `resolveImplDef` fills for every impl block, a generic receiver's once
+// per instance); std's own is the function of the recorded identity among
+// the std index's functions of its owner and name (`stdFuncByID`). A
+// qualified call reaches its function through the same two lookups
+// (`recordedCallPlan`). The record does not
+// say whether the operands are a kind the machine operates on itself: it
+// names std's `host fn` for `Int + Int` too, so `binary` lowers Int,
+// Float, Decimal and String arithmetic natively, and calls std's impl
+// only where `stdOperatorNative` says the machine has no operation. An
+// operator over a type parameter (OperatorPerInstance) is read inside an
+// instance at the instance's types (`operatorUse` over `operatorUseAt`,
+// analysis.FileAnalysis.OperatorUseAt): an impl, a structural comparison,
+// or no record for a primitive, which the machine operates on as outside
+// an instance. One over interface values, one whose type parameter has no
+// checker type in the frame, and one the builder wrote itself name no
+// impl: it is selected at the instance's kinds (`instanceOperatorImpl`,
+// `stdlibOperatorFor`, `instanceEquatable`, `localCompareImpl`), a
+// selection a recorded operator never reaches. `TestOperatorNameTestsOnlyGoDown` counts the
+// tests of a name left in the operator-lowering files.
+// A std function is one declaration in each parse of its module
+// (`sameDecl`: one analysis.StdFunc, wherever it sits; an impl's
+// function is told from a sibling impl's by its impl's interface and type
+// arguments): a std module
+// checked from its text is a second parse beside the shared analysis's. A
+// shared module's cases are lowered against the shared lowering's tables,
+// and a listed module lowered beside an edited one names the shared
+// parse's functions, which reach the edited twins (`indexEditedStdTwins`).
+//
+// A call whose callee is a bare name is routed by the recorded callee: a
+// function value (a parameter, a binding, a `once`, a `fn` declared inside
+// a body) is called through the value; a module function is found by its
+// declaration (`sigByDecl`, registered beside the name-keyed `funcs` by
+// `declareFunc`), a std module's own sibling by its declaration
+// (`stdSiblingDecls`, a `host fn`'s too), another file's function by its
+// declaration (`fileIndex.byDecl`), and a std function a selective import
+// brought in by the symbol the checker resolved the name to. A function
+// named as a value (`funcRef`) and a partial's callee are found the same
+// way. No local, `once`, function or sibling table is read by the name's
+// spelling there. A call the builder writes over a function the source
+// names carries that function's classification
+// (analysis.FileAnalysis.CalleeOf; `positionalCallOf`, `rewrittenCallOf`).
+//
+// The record also says which std function a call reaches
+// (analysis.Callee.Std: module, owner, the interface an impl's function
+// is declared for, name). That is std's key for its own functions, and a
+// declaration node is a program's: the std bundle keeps no declaration
+// for a `host fn`, and builds the key from names it holds. A std module's call of a generic sibling
+// (`stdGenericSiblingCall`), a file-qualified or selectively imported
+// generic std function (`stdGenericFileCall`, `stdInstFuncOf`), the bare
+// callees `callsGenericSibling` scans for, and `testing.check` are found
+// by the triple, and the std functions the builder lowers by a route of
+// its own are one table keyed by it (`stdRoutes`, stdroutes.go).
+//
+// The record also says what a qualified call is qualified with
+// (analysis.Callee.Qualifier, Method), the type or interface a bare
+// call's function is declared under (Owner; RouteOwner answers the one a
+// call is routed by), and the type an interface's function is called for
+// (For; a type parameter's, which an instance substitutes); TestElaborationGate
+// fails a call whose qualifier or owner is not recorded. A call the
+// builder writes over a written one carries its record (an instance's
+// `Int.from_json` for `T.from_json`), and one it writes of a std
+// interface's function names that interface (`stdIfaceCallRecord`). The
+// head of `qualCallLowered` reaches a type qualifier by the record
+// (`qualOwner`): by the declaration's own name where this file's scope
+// and tables bind that name to it (an alias names the declaration), else
+// through its std module (`stdModuleOwnerCall`) or, for a program's type,
+// the function of its block the checker resolved the call to, an owner
+// function or an impl's, at the instance the call is about
+// (`resolvedOwnerPlan`). A name this file binds to another declaration
+// of the same spelling never reaches it: a literal's check of another
+// file's `Many` in a file that declares its own `Many` calls the other
+// file's `try_from`.
+//
+// The std calls `typeQualCall` lowers by a route of its own (a seeded
+// `Iter.reduce`, `Hashable.hash` over a tuple, `Display.to_string` over a
+// scalar, `Maybe.is_some`) are a second table in stdroutes.go,
+// `stdQualRoutes`, keyed by what the call is qualified with: the record's
+// std type or interface (RouteOwner().Std) and the method, which
+// `qualRoute` reads once per call. An exact key names one function; a key
+// with no method is owner-wide and routes every other function of a std
+// type to one lowering (Iter's to `iterCall`, Range's to `rangeCall`), so
+// `Iter.loop` and a seeded `Iter.reduce` keep their exact routes ahead of
+// Iter's. Its routes are values of the same enum
+// as `stdRoutes`'; `typeQualCall` tests the route at the point each is
+// lowered, since a route may hand the call on (`Hashable.hash` over a
+// tuple first, over an interface value after the operands are lowered),
+// and its order against the routes that are not std's is kept. A
+// program's type or interface of a std name has no std identity, so no
+// route tests that the name is not shadowed. A copy the builder respells
+// with a concrete owner (`stdKindQualCall`'s `Map.contains` for
+// `C.contains`, `Display.to_string` for `T.to_string` at a tuple, a
+// turbofish's type argument) carries the written call's record qualified
+// with that owner (`respelledCallOf`): for a kind, the std type it is an
+// instance of (`kindQualifier`, by the checker's index of std
+// declarations, whatever this file's scope binds), so a std module that
+// imports no Map still routes `Map.contains`. Only code the checker never
+// checked is keyed by the owner the builder wrote, resolved in this
+// file's scope. A route that depends on more than the owner keeps that
+// condition inside it: a program's impl over Range (the record's
+// Callee.InProgram) stays out of Range's. Map, List, Vector and Set are
+// owner-wide routes to their call plans and their std-body instance.
+// TestTypeQualCallNameTestsOnlyGoDown counts the tests of a call's
+// spelling `typeQualCall` still makes.
+//
+// A qualified call of an interface's function is answered by an impl,
+// by dispatch on an interface value, or structurally (a tuple's hash, an
+// anonymous struct's JSON, the equality of a type with no impl of its
+// own), and the checker records which (analysis.Callee.Form, by the rules
+// an operator's OperatorUse.Form follows). Within a route, `typeQualCall`
+// still picks the structural routine by the operand's kind, since the
+// routines also serve calls with no answer recorded: those the builder
+// writes holding a kind alone (a main's failure rendering), a receiver
+// the checker left with an open variable, and a per-instance record a std
+// instance's frame cannot resolve. A call whose record names an impl is
+// never answered structurally (`recordNamesImpl`), even where the impl's
+// function is not in scope yet: an import cycle's first pass lowers a std
+// module before the members whose impls it calls (`lowerStdUnit`), and
+// the answer must not depend on that order. Under test `verifyCallForm`
+// holds each pick to the record where there is one.
+//
+// Two sites lower code the checker never checked, and mark it so
+// (`markUnchecked`; TestNameLookupsOnlyGoDown holds their count): the
+// universal Debug of a type declared inside a body, which
+// blocklocaltype.go synthesizes because an impl cannot name such a type,
+// and parse_fields' per-field `F.parse(text)` over an anonymous struct,
+// whose F irparsefields.go chooses from the field's kind because the
+// checker checks `P.parse_fields` once, generically. A call in marked code
+// has no record and is reached by its spelled owner. Removing the first
+// needs the checker to check a block-local type's synthesized impl in its
+// block's scope; the second, records the checker makes per instance.
+// TestNameLookupsOnlyGoDown counts the functions and table reads that go
+// by name, and the counts only go
+// down. `callPlan` answers false
+// when the record places an argument past the parameters of the callee a
+// route chose, so the route declines.
+//
 // # Defaulted parameters
 //
-// The checker records, for each call that leaves a defaulted parameter out,
-// the declaration whose defaults fill it and which slots
-// (analysis.FileAnalysis.CallDefaults), and for a function named as a value
-// where fewer parameters are expected, the slots its call fills
+// Which parameters a call leaves to their defaults is the checker's: its
+// record of the call marks each such slot analysis.SlotDefault, and
+// `callPlan` hands them on as `argPlan.defaulted`, ascending, the order
+// they run in after the written arguments. A route that fills defaults
+// only once it has chosen a callee asks `leavesDefaults`; none counts the
+// written arguments against the parameters, which assumes they fill the
+// leading slots (TestArgCountDefaultTestsOnlyGoDown). A record the builder
+// writes for a call of its own marks the slots it leaves out the same way
+// (`PositionalCall`, `writtenAtSlots`).
+//
+// The checker also records, for each call that leaves a defaulted
+// parameter out, the declaration whose defaults fill it
+// (analysis.FileAnalysis.CallDefaults), and for a function named as a
+// value where fewer parameters are expected, the slots its call fills
 // (DefaultedRefs). Every call route places the written operands and hands
-// the rest to one function, `fillCallDefaults` (irdefaults.go), which
-// reads only that record; the routes supply where the callee is declared
-// (`defaultHome`). A call through a local copy of a declared function (`g
+// the defaulted slots to one function, `fillCallDefaults` (irdefaults.go),
+// which reads only those records; the routes supply where the callee is
+// declared (`defaultHome`). The record names, per omitted slot, the
+// declaration whose default fills it (`analysis.DefaultedCall.From`): an
+// impl function's slots it does not default are its interface's. The
+// slots are filled in runs of one declaration each (`defaultRuns`), each
+// under that declaration's parameter names. A call through a local copy of a declared function (`g
 // = parse`) goes through the function the record's Ref names. A call of
 // an interface function on a type parameter takes, at each instance, the
-// defaults of the impl function it reaches (`defaultParams`).
+// default of the impl function it reaches where that function declares one
+// (`defaultParams`). A call on an
+// interface value fills each omitted slot by a call dispatched on the
+// receiver to that slot's own dispatch symbol, which each impl's entry
+// answers with its accessor for the slot (`slotDispatchHome`,
+// ifaceslotdispatch.go).
 //
-// A call into another file that omits a defaulted parameter fills it at the
-// call when every name the default mentions means the same there, and
-// otherwise calls an accessor the declaring file builds, one per defaulted
-// parameter, taking the parameters before it (siblingdefault.go). A file
+// A call into another file that omits a defaulted parameter calls an
+// accessor the declaring file builds, one per defaulted parameter, taking
+// the parameters before it (siblingdefault.go). A callee whose file builds
+// none has its defaults lowered at the call when every name they mention
+// means the same there (`defaultNamesAgree`). A file
 // builds them for each `pub fn`, and for a private `fn` when its partner
 // test is in the program. A monomorphic impl's `pub` members get theirs as
 // the impl is emitted, a generic member with its own type parameters per
@@ -154,36 +471,80 @@
 //
 // A call into a std module from outside it fills an omitted parameter
 // through that module, since the default may name what the caller's file
-// does not import. A short call of a function the shared lowering retains
-// is the module's arity wrapper, and a named argument past an omitted
-// default calls the module's accessor for that slot (stdslotfill.go). The
+// does not import. A call of a function the shared lowering retains that
+// leaves parameters out, trailing or skipped by name, calls the module's
+// accessor for each omitted slot and then the full body (stdslotfill.go,
+// which also records what this costs against a wrapper of the shorter
+// arity). The
 // shared lowering retains no generic function, so for one (`Iter.sort_by(xs,
 // key: f)`, past `direction: Direction = Direction.Ascending`) the program
 // builds the accessor, in a gen of the declaring module at the call's type
 // arguments (`stdInstances.defaultAccessor`), whether the function's body
 // is instantiated from std's source or the builder lowers the operation
-// itself. That accessor takes no parameters, so a generic std function's
-// default that reads an earlier parameter declines; a default that is a
-// literal is lowered at the call.
+// itself. A short call of an instance the program builds (`Reader.chunks(r)`)
+// fills its omitted slots with the same accessors at the instance's type
+// arguments (`stdDefaultAccessors`, `fillStdInstDefaults`). A default is
+// never written into the call as an argument, whatever its shape: every
+// one runs through an accessor or the declaring scope's `callDefaults`.
+//
+// Every accessor, a program file's, an interface function's and std's
+// (the shared lowering's, a per-program body's and a generic instance's),
+// is built by one function, `irSlotAccessor` (siblingdefault.go): the
+// parameters before the slot, destructured ones' names bound, then the
+// slot's default lowered as a local call's is (`callDefaults`) in the
+// declaring scope it is given. A caller holds every written operand, then
+// calls the accessors of the omitted slots in ascending order, each over
+// the operands before its slot, so a default may read any earlier
+// parameter whichever file or module the call is in.
+//
+// So a default is evaluated in one of four ways, each by `callDefaults`
+// (`callDefaultsThrough`) or by code the lambda builder owns:
+//
+//  1. At the call, in the callee's scope: a function of this file or a
+//     std module's own function called inside it, a generic instance, an
+//     interface's default whose names agree here, and another file's
+//     function whose file builds no accessors.
+//  2. In an accessor of the declaring file or module, called at the call
+//     (`fillFromAccessors`, `fillStdInstDefaults`) or dispatched on an
+//     interface value's receiver: another file's function, every std
+//     function called from outside its module, and an interface function
+//     whose impl is chosen where it runs.
+//  3. In a supplier closure of a function value (`irLambdaGroup.suppliers`),
+//     called through `indirectCall`: a lambda value and a partial's open
+//     slot, whose callee is a value at run time. A partial's supplier
+//     evaluates the callee's default by 1 or 2.
+//  4. Inside the callee's own body: a lambda called at a shorter type and
+//     an `Iter.loop` step's extra parameters, which no caller passes.
 //
 // # Interpolation
 //
-// The checker records how each interpolation hole's value renders by
-// Display (analysis.FileAnalysis.HoleDisplays). `holeDisplay`
-// (irdisplayhole.go) reads that record and `renderDisplay` lowers it: a
-// String is itself, a scalar or a structural value is an `ir.Render`, an
-// interface value is the erased render, a tuple or record with a nominal
-// part renders each part by its own record and lays the texts out
-// structurally, and a declared type or a std container calls its impl
-// (std's instance for a container, `qualImplPlan` for a declared type).
-// The route is the record's; the builder declines a record its lowered
-// kind does not fit. A hole of a type parameter or of an interface
-// default's `self`, and a value no hole holds
-// (`io.print(x)`, `Display.to_string` over a tuple, ParseFields' texts, the
-// error `main` returns), renders by `kindDisplay`, the checker's rule over
-// the lowered kind. The universal Debug of a block-local type is
-// synthesized here and never checked, so its holes have no record; they
-// are Strings, each its own text.
+// The checker records how each value the program renders by Display
+// renders: an interpolation hole's (analysis.FileAnalysis.HoleDisplays),
+// the error a typed literal is refused with at compile time, a fixed
+// literal's handler's or a checked literal's check's
+// (analysis.TypedLiteral.Failure), and the error a failed `!` shows
+// (FileAnalysis.UnwrapFailures). `holeDisplay` (irdisplayhole.go) reads a
+// hole's record, `irErrorRenderFunc` a failure's (`literalRender`,
+// `bangRender`), and `renderDisplay` lowers one: a String is itself, a
+// scalar or a structural value is an `ir.Render`, an interface value is
+// the erased render, a tuple or record with a nominal part renders each
+// part by its own record and lays the texts out structurally, a std
+// container calls std's instance, and a declared type calls the impl
+// function the record names, reached from its declaration as a recorded
+// call's function is (`displayImpl`, `recordedCallPlan`). The route is the
+// record's; the builder declines a record its lowered kind does not fit.
+// In an instance, the rendering of a type parameter is the checker's at
+// the instance's types (`displayAt`, analysis.FileAnalysis.DisplayAt).
+// A value no record describes (`io.print(x)`, `Display.to_string` over a
+// tuple, ParseFields' texts, the error `main` returns), an interface
+// default's `self`, and a type parameter where a frame has no checker
+// type render by `kindDisplay`, the checker's rule over the lowered kind.
+// Such a rendering names no impl, so `displayImpl` writes
+// `Display.to_string(x)` and finds the impl by the kind's name: the one
+// place the package writes that call (`TestDisplayToStringCallSitesOnlyGoDown`).
+// The universal Debug of a block-local type is synthesized here and never
+// checked, so its holes have no record; they are Strings, each its own
+// text.
 //
 // # Regex
 //
@@ -199,8 +560,27 @@
 // the expression the builder stopped at, worded for the author ("this call
 // to `f` is not supported yet, so `fn g` cannot run"); `nomi test` reports
 // the case BLOCKED with it. NOMI_DEBUG_LOWERING=1 adds the builder's own
-// reason as a hint. The places the builder can decline are listed in
-// testdata/lowering-declines.txt (internal/declinesites).
+// reason as a hint.
+//
+// The places the builder can decline are listed in
+// testdata/lowering-declines.txt, which internal/declinesites reads from
+// this package's source and TestDeclineSitesAreListed holds to it. Each
+// site has a class: reached by a suite (a), dead because no checked
+// program reaches it (b), a gap pinned by a reproducer in vmhost's
+// inventoryLoweringGaps (c), or undecided (d), with the cause it is there
+// for. Three counts only go down: the total, the dead sites, and the
+// undecided ones. A dead site is not left a decline: it becomes a panic,
+// or its check is deleted.
+//
+// A function says in its signature which of its results can decline: one
+// it leaves unnamed or names `ok`. A bool result with another name is an
+// answer, whose false declines nothing: a predicate's (`relabels(have,
+// want) (relabel bool)`), a lookup's (`importedVariantAt(...) (d, v,
+// isVariant bool)`), a route's `handled`, or the first of two results
+// (`endlessLoop(n) (endless, ok bool)`: whether n is such a node, and when
+// it is, whether it lowered). A caller that declines on an answer is the
+// site. A caller that only passes a callee's decline on (`if !ok { return
+// ..., false }`, with or without a note naming it) is none.
 //
 // The shared stdlib lowering records no decline of a std body: the function
 // is marked unlowered and a program's call declines at the call. In a
@@ -216,10 +596,29 @@
 //
 // A decline is for a program the builder does not lower yet. A state no
 // checked program reaches panics instead, naming what was missing, and the
-// host reports it as an internal error: a checker record the elaboration
-// gate guarantees (a callee's reference, a call's CallDefaults, a hole's
-// HoleDisplays; analysis package doc, "Elaboration"), and a graph that
-// does not lint (irRequireLint, irScalarLower's rule).
+// host reports it as an internal error (vmhost.InternalError, "internal
+// compiler error: ..." from `nomi run`, `check`, `test` and `build`, and
+// one diagnostic at the top of the file from the language server): a
+// checker record the elaboration gate guarantees (a callee's reference, a
+// call's CallDefaults, a hole's HoleDisplays; analysis package doc,
+// "Elaboration"), a field the parser always sets, a shape std's own bodies
+// fix (the private functions std/io, std/fs/host and std/http/host call,
+// std/ranges' Range literal), the builder's own tables (a registry unit's
+// gen, an instance over held arguments), and a graph that does not lint
+// (irRequireLint, irScalarLower's rule). A site is made a panic only after
+// programs aimed at it were rejected by the checker or lowered: the note
+// "the checker rules it out" was wrong for a patch literal with a spread,
+// a bare variant written with braces, a nested fn's named call to itself
+// and `Range.method` for a program's own interface, each now a pinned gap.
+//
+// Two hand-written switches are held to the AST's node types, so a node
+// type added later cannot fall out of one: nodeForms (nodeforms.go) gives
+// every node type its forms, TestEveryNodeTypeHasAForm holds lowerNode's
+// arms to the types classed a value and irScalarBlock's to those classed a
+// statement, and what falls out of either panics. importKind's switch over
+// a kind's tag is held to the tags the same way
+// (TestImportKindHasAnArmForEveryTag). irScalarBlock answers a tail for
+// every block, so no caller asks whether it did.
 //
 // The value domain (irValueDomainKind) is the kinds a lowered value may
 // have: a call operand (irCallOperandKind), or the diverged marker of a
@@ -319,7 +718,7 @@
 // from a std bundle (stdbundle.go, stdbundlelisted.go; stdbundle.go's file
 // comment describes the sections and the checks). The shared section is the
 // shared modules' IR as one ir image plus, per module, each `stdFunc`'s and
-// `stdOnce`'s outcome (lowered or not, refusal, arity and default wrappers,
+// `stdOnce`'s outcome (lowered or not, refusal, default accessors,
 // IR body) and the unlowered table, recorded once every module is filed,
 // so each outcome is the whole stdlib's (filing another module's
 // declaration of one spelling may refuse it, `addOverload`).
@@ -535,6 +934,78 @@
 // no exception: the checker records its calls and expressions as it
 // records written ones (the analysis package doc, "Elaboration").
 //
+// While an instance is lowered its type parameters are a frame on
+// `g.genericSubst` (`substFrame`, entered by `pushSubst`), keyed by name,
+// innermost frame first. A frame binds each parameter to a kind
+// (`genericSubstKind`) and, where the entry that made the instance read
+// one, to the checker's type it stands for (`genericSubstType`). The
+// checker's type comes from the same record the kind is projected from:
+// `calleeTypedArgs` for a generic `fn` of this file or another, a generic
+// impl function, a nested generic `fn`, the receiver of a type-qualified
+// call's instance and a std template called by name; `literalTypeArgs`,
+// `projectGenericInstance` and `templateInstanceOf` for a generic type's
+// instance; analysis.ImplBlockTypeArgs for the generic interface an impl
+// block implements (`ifaceInstArgs`), which the std generic interface a
+// program's block binds into (`stdProgInst`) and a generic interface a
+// solved type names (`projectIfaceInst`) carry too; the call's
+// `calleeTypedArgs` for a generic interface's parameter default
+// (`ifaceDefaultFrameAt`, `fnSig.ifaceTypes`). An entry that reads a kind
+// off something the checker typed reads the type at the same place: an
+// operand's type in ExprTypes (`operandCheckerType`) for a std container
+// impl a receiver selects, a std interface default's `self` and the value
+// `io.print` or `dbg` renders; a rendering's Type for a hole; the call's
+// `For` for a default's receiver no operand holds; the enclosing frame's
+// type for `T.method(...)` (`stdKindQualCall`'s `kt`). An instance an
+// annotation spells (`b: Box<Int>`, a field's `Pair<String, Int>`, a
+// generic refinement's `Many<Int>`) reads the types the checker recorded
+// for the annotation's argument type expressions
+// (analysis.FileAnalysis.TypeExprTypes, `typeExprTypes`), and the impls
+// of that instance carry them. Which of an impl
+// block's parameters a receiver's type binds is the checker's match of
+// the block's recorded receiver against it (analysis.ImplBlockArgsAt), for
+// a std container's block (`stdRecvTypes`) and a program's block over one
+// (`stdRecvImplAt`). A recorded type that names an
+// enclosing instance's type parameters has that instance's types put in
+// (`checkerTypeArg`, over analysis.ReplaceTypeParams). An instance is
+// interned by its kinds, so it carries the types of the first construction
+// that had them, and a generic type's instance adopts them from a later
+// one. What has none: a generic typealias's target at a use's arguments,
+// an argument written as a default in the declaring file, and an instance
+// asked for at a kind with no
+// expression behind it (a sort's comparator over an element kind, a
+// runtime Debug renderer's nested parts, a box's or a std interface
+// value's dispatch entry, a part of a checked result), with what those
+// reach. The builder never builds a checker type from a kind. A call's and an operator's record is read at these
+// types inside the instance ("Qualified calls from their records",
+// "Operators from their records"). In a test binary, or
+// with NOMI_SUBST_VERIFY=1, each is held to its kind (`verifySubst`: the
+// type projected, in a std instance's gen through the program gen that
+// asked for it, is the frame's kind, or the same std interface held
+// through its other def, `sameStdIfaceHeld`), and
+// TestIRGolden_RecordsMatchTheVM counts the parameters entered without one
+// by entry (`maxSubstWithoutCheckerTypes`), a count that only goes down.
+// The kind of a written type is the projection of the type the checker
+// recorded for that type expression (`typeOf`, over `recordedTypeExpr`,
+// which reads srcFA's TypeExprTypes, or the types of the universal Debug
+// the builder writes for a block-local declaration, `synthTypeExprs`), and
+// `project` is the builder's one conversion of a checker type to a kind
+// (TestProjectNamesEveryTypeKind holds it to every kind of
+// analysis.Type). A pattern's kind is the projection of its record in
+// PatternTypes (`patternKind`), and the variant a pattern's head names is
+// its record in PatternVariants (`patternVariant`, or `synthPatternVariants`
+// for the block-local universal Debug): a destructuring parameter, a `case`
+// arm, a binding's `else` and a distinct sub-pattern look no head up by
+// name. A sibling's or std module's type the projection reaches is found by
+// its declaration node (`siblingOwner`, `siblingIfaceOwner`, resolving the
+// name in the declaring file's scope), never from that file's tables,
+// which hold it only once its gen has built its types. A sibling's
+// signature is lowered under its file's names (`lowerNamesFrom`) so its
+// records are found. What still resolves a written name: sigreason.go's
+// refusal walk, which names why a type has no kind; the construction sites
+// that find a def by a spelled qualifier (`namedType`, the struct literal's
+// qualified head); and the std signature resolvers (`stdTypeKind`), which
+// read a shared std function's signature in its module's anchors.
+//
 // Interface calls on existentials dispatch at run time. An interface-typed
 // parameter, field or collection element erases its concrete type (spec
 // §4). Values carry their type identity, and the call selects the
@@ -554,13 +1025,9 @@
 // program template is. The signatures are std's source: while they
 // resolve, `srcFA` returns std's file, so a position-keyed lookup
 // (`Maybe<String>` in `Matcher.find_in`) reads what the checker recorded
-// there, and a type expression naming no substituted type parameter
-// resolves in the declaring module's scope (`stdTypeKind`), so `ToJson`'s
-// `Json` needs no import and stays std's in a file that declares its own
-// `Json`. A type expression neither resolves is looked up by name in this
-// file's tables only when its head name means the same declaration here as
-// in std's file (`stdSrcShadowed`); otherwise that function is a signature
-// gap. A file that binds a prelude enum's name to its own type (`struct
+// there, and a type expression's kind is the projection of the type std's
+// checker recorded for it (`typeOf`), so `ToJson`'s `Json` needs no import
+// and stays std's in a file that declares its own `Json`. A file that binds a prelude enum's name to its own type (`struct
 // Fragment`) keeps std's declaration as a by-position anchor
 // (`preludeAnchorsOf`).
 //
@@ -617,9 +1084,9 @@
 //
 // `==` over a declared type reads the checker's record of the operator
 // (analysis.FileAnalysis.Operators) through `equatableVerdict`
-// (irequality.go): the impl it calls, which the builder finds by the
-// operand's kind and holds to the record (a derived impl of an enum or a
-// distinct compares by shape, its body), or a comparison by shape. An
+// (irequality.go): the impl it calls, the block of the recorded function
+// (`recordedImplItem`; a derived impl of an enum or a distinct compares by
+// shape, its body), or a comparison by shape. An
 // operator over a type parameter has only its bound recorded, and
 // `instanceEquatable` resolves it at the instance's kind by the lookups
 // below.
@@ -640,8 +1107,8 @@
 // private function of that file, its imports, its `once` values) are that
 // file's wherever the implementing block is. Each implementing block gets
 // one function per default it does not write (`inheritDefaults`), so a
-// type-qualified call, the dispatch table, a dictionary and a function
-// value all name it as they name a written one. A block in the declaring
+// type-qualified call, the dispatch table and a function value all name it
+// as they name a written one. A block in the declaring
 // file lowers the body as that function. A block in another file makes it
 // one tail call of the declaring file's instance (`irImplForwardDefault`,
 // ifacedefault.go), which the declaring gen queues and builds in its own
@@ -649,9 +1116,12 @@
 //
 // In the instance, a call of the interface's own function at the receiver,
 // bare or qualified (`area(s)`, `Shape.describe(s)`), is the implementing
-// block's function (`defaultInstImplPlan`), so an `open` override the block
-// writes is the one called. A `self(n)` pattern names the receiver directly
-// (`selfHeadDef`), since the declaring file may have no name for it. The
+// block's function: its record is for the default's `self`, which the
+// instance binds to the block's checker type, and is planned from the
+// record there ("Qualified calls from their records"), so an `open`
+// override the block writes is the one called. A `self(n)` pattern matches the checker's `self`,
+// which `project` answers with the receiver (`gen.defaultSelf`), since the
+// declaring file may have no name for it. The
 // instance is keyed by the default's declaration, the receiver and its type
 // arguments (the interface's, and a generic default's own, instantiated per
 // call in the implementing block first, methodinst.go), and links by the
@@ -669,9 +1139,32 @@
 // dispatch entry, and a std type's, is a thunk that makes the direct call
 // (`stdProgThunk`, recorded by `irRecordImpls`).
 //
+// A call that leaves out a parameter default of an interface function
+// takes the default of the function that runs: the impl function's when
+// it declares one for the slot, else the interface's. A call on an
+// interface value chooses it by dispatch (ifaceslotdispatch.go): each
+// defaulted parameter of a dispatchable interface function has a dispatch
+// symbol interned beside the function's (`irIfaceSlotDispatchSym`, linked
+// as the function's linkage name with ` default N`), and as each impl
+// function is lowered (`irImplSlotDispatch`, from `implFunc`, so a generic
+// block's instance is under its frame) its accessor for each such slot is
+// built: its own default's (`irImplOwnSlotRetain`) or the interface's at
+// its kinds (`irIfaceSlotSym`). `irRecordImpls` and `irRecordBoxedImpls`
+// record each as an entry beside the function's own, unretained where the
+// function's is or the accessor did not lower. The call dispatches to the
+// slot's symbol over the slots before it, so the receiver precedes the slot.
+// A call from another file whose receiver's type is known calls the same
+// accessor of the impl function it reaches directly (`implSlotHome`,
+// through `implMemberSite.defaultHome` and `reachedImplHome`), and so does
+// the supplier of a partial's open slot (`partialIfaceDefaults`), which
+// dispatches on an interface value instead. A partial over an interface
+// function carries none of the interface's literal defaults as its own
+// open slots' defaults, since the impl that runs may replace them
+// (`partialCall.literal`).
+//
 // A call in another file that leaves out a parameter default of an
-// interface function (reaching a block's function, an erased receiver's
-// dispatch or a named-argument call) fills it as a sibling file's `fn`
+// interface function (reaching a block's function or a named-argument call)
+// fills it as a sibling file's `fn`
 // default is (ifaceslotdefault.go): at the call under the declaring file's
 // names (`lowerNamesFrom`) when every name it mentions resolves to the same
 // declaration in both files (`defaultNamesAgree`), and otherwise through an
@@ -712,17 +1205,15 @@
 //
 // A std body that calls a default is not retained by the shared lowering,
 // which builds no instances; a program builds it as an instance with no
-// arguments (`stdUnretainedMonoBody`), including a call that leaves out a
-// parameter with a literal default (`stdUnretainedShortCall`). A default
-// that is no literal (`fraction: ClosedRange<NonNegativeInt> =
-// scale_digits(Decimal.scale(d))` in `Decimal.format`) is Nomi of the
-// function's module, so
-// the instance's gen builds the function's arity wrappers and default
-// accessors beside its body and plans the call against them
-// (`stdUnretainedDefaultedCall`). They link by the names the shared
-// lowering would give them (`Decimal.format arity 3`), which it never
-// defines for a body it does not retain: `irStdArityRetain` and
-// `emitStdSlotDefaults` build only beside the body. The shared lowering
+// arguments (`stdUnretainedMonoBody`). A default of such a function
+// (`fraction: ClosedRange<NonNegativeInt> = scale_digits(Decimal.scale(d))`
+// in `Decimal.format`) is Nomi of the function's module, so the instance's
+// gen builds the function's default accessors beside its body, and a call
+// that leaves a parameter out is planned against them
+// (`stdUnretainedShortCall`). They link by the names the shared lowering
+// would give them (`Decimal.format default 3`), which it never defines for
+// a body it does not retain: `emitStdSlotDefaults` builds only beside the
+// body. The shared lowering
 // builds no instance of a default even at a receiver only std declares
 // (`Int.min`), so it never defines a name a program's own `Int.min` call
 // defines too.
@@ -736,6 +1227,37 @@
 // Range's step count) keep their lowering in iter.go and irrange.go: the VM drives them with the impl's functions as values
 // and answers an inherited default statically, and `Iter` is generic, which
 // the template does not cover.
+//
+// # Empty collections and conversions
+//
+// An expression's kind is computed bottom-up as it is lowered, from its
+// operands, its callee's signature and its declarations. An empty
+// collection literal (`[]`, `Set[]`, `Vector[]`, `{}`) has nothing below it
+// to say what it holds, so it takes the kind of the type the checker
+// recorded for it (emptyLiteral, the expression's ExprTypes entry through
+// `project`, under the frame of a generic instance). The checker records
+// every empty literal it accepts and closes an element type nothing
+// determines (internal/analysis's closed_vars.go), so the record always
+// names a collection. `emptyOf` builds the empty value at that kind from the
+// start; nothing retypes it later. A literal the record does not type takes
+// the kind of the position it is lowered for, which lowerTypedOperand
+// passes: a copy the builder made of a literal (`Query[]` over its list,
+// `Kvs{}` over its map, `Json.Obj{}`'s anonymous map), which has no record,
+// and a generic struct's field default (`items: List<T> = []`), recorded in
+// terms of the struct's `T` and built for an instance. A std field's empty
+// default and a bare `..` at a missing key are built at the field's kind.
+//
+// `convertTo` converts a value of one kind to the representation a
+// position of another kind holds: a value of Infallible retyped
+// (irnever.go), an embedded value widened into its `embeds` variant, a value
+// boxed into an interface or a conjunction (irboxed.go, conjunction.go), a
+// record whose fields enter by erasure, a relabel or a rebuild at wider type
+// arguments (below), a function adapter (irfuncwiden.go) and an `Iter` view
+// (iterview.go). Each is a conversion the checker records (Coercions,
+// Conversions, IterViews), so the two kinds differ only where the program
+// converts a value; where they are the same, `convertTo` answers the value
+// unchanged. A caller passes the position's kind and the value's own; it
+// needs none when the two are equal by construction.
 //
 // # Covariant conversion
 //
@@ -762,18 +1284,18 @@
 //   - an embedded type into its enum: a record around it.
 //   - a function that needs its argument or result converted another way:
 //     an adapter closure (`funcWiden`), which converts each argument and
-//     the result as `coerceEmpty` does.
+//     the result as `convertTo` does.
 //   - a collection into an `Iter`: a view.
 //
 // A value whose every element converts with no work is relabelled: the
 // builder returns it with one `ir.Copy` typed at the wider kind
-// (`relabels`, `irCopyRelabel`, irrelabel.go), in `coerceEmpty` before any
+// (`relabels`, `irCopyRelabel`, irrelabel.go), in `convertTo` before any
 // rebuild is tried and in `qualSignature`, so a std or sibling function's
 // argument passes as it is. Where the checker recorded the conversion, its
 // record decides (analysis.Conversion.Cost, `relabelsAt`): relabelled where
 // it says free, rebuilt where it says rebuilt, and by the kinds only where
 // a generic body's instances decide. The hover reads the same record
-// (internal/hoverdoc, conversions.go), so it says what the builder does; a
+// (internal/hoverdoc/conversions.go), so it says what the builder does; a
 // record that says free where the kinds cannot relabel is a decline, never
 // a silent rebuild. [ir.ValType.Accepts] accepts the copy: two
 // instances of Maybe or of Result (`sameCovariantEnum`), and a function
@@ -891,10 +1413,9 @@
 // None; under vm.Machine.Evaluate the trap goes through, and vmhost reports
 // it at the literal. A parent named through a typealias is called by the
 // target's name where the file sees it and otherwise by the declaration
-// the checker resolved the call to (generatedOwnerAlias,
-// resolvedOwnerPlan). A validated type, or a `type` over a subtype, has a
+// the checker resolved the call to (qualOwner, resolvedOwnerPlan). A validated type, or a `type` over a subtype, has a
 // def, and its `try_from` is its TryFrom impl's; a generic one takes the
-// base at its impl's parameters (refinementBaseKind) and is built at the
+// base at its impl's parameters and is built at the
 // type arguments the checker solved for the generated `unchecked` node.
 //
 // `struct Span ... when ... end` is an ordinary struct; only its
@@ -926,9 +1447,9 @@
 // test holds that.
 //
 // A generic subtype is its base at its type arguments: an annotation
-// `NonEmptyList<Int>` is List<Int>'s kind (genericRefinementKind, which
-// projects the base with the declaration's parameters standing for the
-// arguments), and so is a type the checker solved to one. In a std
+// `NonEmptyList<Int>` is List<Int>'s kind (project's subtype arm, over the
+// checker's type for the annotation), and so is a type the checker solved
+// to one. In a std
 // signature, `BoundedRange<Int>` in `Generator.int`, it is the base's
 // signature kind at the written arguments (stdGenericRefinementKind),
 // which the shared lowering retains as it does a body over the base. A
@@ -938,7 +1459,7 @@
 // arguments, the call the checker typed (RefinementSiteStep.Check,
 // refinementCheckBuild), its owner the declaration the checker recorded
 // where the file binds the subtype's name to nothing or to another type
-// (refinementCheckOwner: resolvedOwnerPlan, or its std module); the sites are built before the late instances
+// (qualOwner: resolvedOwnerPlan, or its std module); the sites are built before the late instances
 // other files asked for are flushed, so an instance such a call asks
 // another file for is built. Its declaration's RefinementRuleSite has a
 // function of the base's value calling its `try_from` at each set of type

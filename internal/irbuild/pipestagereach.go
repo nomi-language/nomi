@@ -18,12 +18,12 @@ import "github.com/nomi-language/nomi/internal/ast"
 //
 // # The bound, and why it is exact rather than conservative
 //
-// The stages have exactly one reader: gen.bindingContext, for an assertion
+// The stages have exactly one reader: assertDefinedAs, for an assertion
 // whose subject is the binding's BARE NAME. It reaches the binding through
-// g.lookup, so the reader must be somewhere the binding is still in scope —
+// bl.bound, so the reader must be somewhere the binding is still in scope —
 // which is the remainder of the block that introduced it, nested blocks and
 // lambda bodies included. An assertion outside that extent cannot name this
-// binding at all: g.lookup would answer with a different local or with nothing.
+// binding at all: the name would answer with a different local or with nothing.
 //
 // So "an assertion in the rest of this block names it bare" is not a heuristic
 // approximating the reader; it is the reader's own precondition, read off the
@@ -31,11 +31,11 @@ import "github.com/nomi-language/nomi/internal/ast"
 // the block is — gen.probe re-walking a node with lowering suppressed — the
 // answer is YES, and every stage is recorded.
 //
-// # The three positions, which are bindingContext's callers and not a guess
+// # The three positions, which are assertDefinedAs's callers and not a guess
 //
-//   - an *ast.Assertion's subject (tests.go, assertable.go)
-//   - a `testing.check(x)` argument (stdcheck.go)
-//   - an *ast.PatternDestructure's value (patternassert.go)
+//   - an *ast.Assertion's subject (irtestbody.go)
+//   - a `testing.check(x)` argument (irtestingcheck.go)
+//   - an *ast.PatternDestructure's value (irpatternassert.go)
 //
 // `testing.check` is matched on its SPELLING: the qualifier literally
 // `testing`, or the bare name `check` a selective import binds. The bare

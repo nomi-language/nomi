@@ -95,8 +95,9 @@ const grammarDir = "../tree-sitter-nomi"
 
 // grammarQueryDirs holds every directory in the repository containing
 // committed tree-sitter queries for Nomi. All three sets run against the same
-// grammar — the tour and Helix read tree-sitter-nomi/queries directly, Zed
-// keeps a reverse-priority copy — so one symbol table validates all of them.
+// grammar: the tour reads tree-sitter-nomi/queries directly, Zed's
+// highlights are that query reversed (scripts/sync-zed-highlights.sh), and
+// Helix's are generated from Zed's. One symbol table validates all of them.
 var grammarQueryDirs = []string{
 	"../tree-sitter-nomi/queries",
 	"../editors/zed/languages/nomi",

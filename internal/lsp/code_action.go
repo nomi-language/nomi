@@ -15,9 +15,12 @@ import (
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
-// textDocumentCodeAction answers `textDocument/codeAction`. It emits two
-// quick-fix families, each keyed by a diagnostic the client reports over the
-// requested range:
+// textDocumentCodeAction answers `textDocument/codeAction`. Its quick fixes
+// each answer a diagnostic the client reports over the requested range. A
+// fix finds the error its diagnostic was published for (reported) and
+// reads what kind of error it is from the error's Code, and what it names
+// from its Args; an error that carries its own repair (TypeError.Fix,
+// ParseError.Fix) is offered as it is. No fix reads a message.
 //
 //   - "Remove unused import" for each unused-import diagnostic — a surgical
 //     edit that removes exactly the dead item (and at most one adjacent comma),
@@ -27,16 +30,12 @@ import (
 //     existing selective import of that module or inserting a new statement.
 //   - the fill fixes (code_action_fill.go): missing impl functions, struct
 //     literal fields and case arms.
-//   - "Call `f()`" for a bare name used as a pipe stage
-//     (code_action_pipe_stage.go), and "Add `|> Display.to_string()` before
-//     this stage" for a Display value piped into a stage that takes a String.
 //   - "Remove the `return`" for a bare return that ends a body
 //     (code_action_useless_return.go).
-//   - "Limit with `Iter.take`" for a pipe stage that drains an infinite
-//     iterator (code_action_infinite.go).
-//   - the fix a parse error carries: braces around a body written over
-//     several lines, `//` for a `///` or `//!` inside a body
-//     (code_action_parse_fix.go).
+//   - the fix an error carries (code_action_parse_fix.go): braces around a
+//     body written over several lines, `//` for a `///` or `//!` inside a
+//     body, "Call `f()`" for a bare name used as a pipe stage, "Limit with
+//     `Iter.take`" for a pipe stage that drains an infinite iterator.
 //   - "Add the pl translation of `m`" for a `phrase` a listed locale has
 //     no translation of, and in a catalog, marking a stale translation
 //     current and giving one the arms its locale needs (catalogs.go).
@@ -73,15 +72,12 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildRemoveUnusedActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, s.buildFillActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
-		actions = append(actions, buildBarePipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
-		actions = append(actions, buildLambdaPipeStageActions(snap.Content, uri, params.Context.Diagnostics)...)
-		actions = append(actions, buildPipeToStringActions(snap.Content, uri, params.Context.Diagnostics)...)
-		actions = append(actions, buildUselessReturnActions(snap.Content, uri, params.Context.Diagnostics)...)
-		actions = append(actions, buildLimitInfiniteActions(snap.Content, uri, params.Context.Diagnostics)...)
+		actions = append(actions, buildUselessReturnActions(snap.Content, uri, snap.Analysis.TypeErrors, params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(snapInterfaceValueHints(snap, nil)), params.Context.Diagnostics)...)
 		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(analysis.FileHints(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
-		actions = append(actions, s.missingTranslationActions(snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(analysis.DollarWarnings(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
+		actions = append(actions, s.missingTranslationActions(snap.Content, snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)
 	if kindAllowed(only, protocol.CodeActionKindRefactorRewrite) {

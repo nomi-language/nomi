@@ -133,9 +133,9 @@ contexts:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
         3: variable.other.constant.nomi
-    # `variant`, `open`, and `derive` are CONTEXTUAL keywords in Nomi
-    # — `variant` and `open` only carry meaning inside interface bodies, and
-    # `derive` in `derive Iface for T`.
+    # `open` and `derive` are CONTEXTUAL keywords in Nomi: `open` only
+    # carries meaning inside interface bodies, and `derive` in
+    # `derive Iface for T`.
     # Sublime-syntax is
     # regex-based with no easy body context-stack, so we match them
     # globally as keywords. Bare uses outside those bodies (e.g.
@@ -147,7 +147,7 @@ contexts:
       captures:
         1: keyword.declaration.nomi
         2: keyword.declaration.nomi
-    - match: '\b(pub|opaque|export|once|fn|type|subtype|struct|enum|interface|impl|derive|for|go|gopkg|extends|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|variant|open)\b'
+    - match: '\b(pub|opaque|export|once|fn|type|subtype|struct|enum|interface|impl|derive|for|go|gopkg|embeds|typealias|extern|import|as|where|with|defer|test|setup|self|open)\b'
       scope: keyword.declaration.nomi
     # `clock` and `boot` are keywords only as a test group's lines
     # (`clock Clock.Virtual`, `boot server.boot(startup())`); `MyApp.clock`,

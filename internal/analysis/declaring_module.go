@@ -19,13 +19,6 @@ import (
 //     entry file; non-empty keys are siblings or cross-module deps.
 //   - entryModuleName: the entry module's short name, read from
 //     nomi.toml's [module].name.
-//   - stdlibInterfaces, stdlibTypes: production passes nil but the seeding path remains
-//     for unit-test exercise (the impl_orphan_test.go hand-rolled
-//     callers seed entries here rather than building a project's
-//     worth of files). Now that the stdlib-globals retirement is
-//     complete (production stdlib FAs flow through filesByKey
-//     normally), these params are pure test-shim. Both may be nil —
-//     no panic, no synthesized entries.
 //   - crossModuleSegments: the set of first-segment short names that
 //     identify cross-module dependencies (versus intra-module
 //     siblings). Built by the caller from the project's module index.
@@ -71,23 +64,13 @@ import (
 func declaringModuleIndex(
 	files map[string]*FileAnalysis,
 	entryModuleName string,
-	stdlibInterfaces, stdlibTypes map[string]bool,
 	crossModuleSegments map[string]bool,
 ) map[string][]string {
 	idx := make(map[string][]string)
 
-	// Stdlib first; project files overwrite below to enforce
-	// "project wins on collision".
-	for name := range stdlibInterfaces {
-		idx[name] = appendDeclaringModule(idx[name], "std")
-	}
-	for name := range stdlibTypes {
-		idx[name] = appendDeclaringModule(idx[name], "std")
-	}
-
 	// "Project wins on collision" must be DETERMINISTIC. Stdlib FAs and
-	// project FAs both arrive through `files` (post-stdlib-as-package
-	// cutover), so a single map-order pass would let either side win at
+	// project FAs both arrive through `files`, so a single map-order pass
+	// would let either side win at
 	// random when a name is declared in both (e.g. a user `struct Task`
 	// vs `std/tasks.Task`). Process stdlib keys FIRST, then project
 	// keys, so a project declaration always overwrites a stdlib one.

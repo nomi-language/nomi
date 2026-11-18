@@ -35,7 +35,7 @@ import
     debug.Debug
     display.Display
     equatable.Equatable
-    int.Int
+    int.{Int, NonNegativeInt}
     io.{self, Reader, Writer}
     iter.Iter
     lists.List
@@ -672,7 +672,7 @@ fn element_text(
     element:  Element,
     bindings: Map<String, String>,
     options:  WriteOptions,
-    depth:    Int,
+    depth:    NonNegativeInt,
     inline:   Bool,
 ) -> Result<String, Error>
     check_name(element.name)?
@@ -787,8 +787,8 @@ fn element_text(
     Ok("${open}>${inner}</${element.name}>")
 end
 
-// `depth` copies of the indent; none for a depth below 1.
-fn indentation(options: WriteOptions, depth: Int) -> String
+// `depth` copies of the indent.
+fn indentation(options: WriteOptions, depth: NonNegativeInt) -> String
     Iter.repeat(options.indent) |> Iter.take(depth) |> String.join("")
 end
 
@@ -825,7 +825,7 @@ fn node_text(
     node:     Node,
     bindings: Map<String, String>,
     options:  WriteOptions,
-    depth:    Int,
+    depth:    NonNegativeInt,
     inline:   Bool,
 ) -> Result<String, Error>
     case node

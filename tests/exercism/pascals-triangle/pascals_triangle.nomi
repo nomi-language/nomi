@@ -1,7 +1,7 @@
 //# The first rows of Pascal's triangle.
 
 /// The first `count` rows of Pascal's triangle, starting from `[1]`.
-pub fn rows(count: Int) -> List<List<Int>>
+pub fn rows(count: NonNegativeInt) -> List<List<Int>>
     Iter.iterate([1], next_row)
     |> Iter.take(count)
     |> Iter.to_list()

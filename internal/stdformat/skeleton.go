@@ -394,14 +394,3 @@ func fieldTypeName(t fieldType) string {
 	return [...]string{"era", "year", "quarter", "month", "day", "day of the year", "weekday", "period", "hour",
 		"minute", "second", "fraction of a second", "zone", "field"}[t]
 }
-
-// SkeletonOf is the skeleton a resolution's key names, as std's literal
-// texts write them: what `nomi build` resolves ahead of time.
-func SkeletonOf(text string) (string, bool) {
-	for _, kind := range []int{skeletonDate, skeletonTime, skeletonDateTime} {
-		if CheckSkeleton(kind, text) == "" {
-			return text, true
-		}
-	}
-	return "", false
-}

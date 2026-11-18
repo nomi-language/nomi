@@ -6,6 +6,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/format"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // A pipe stage is a call. `x |> f(a)` calls `f(x, a)`: the pipe inserts the
@@ -55,38 +56,62 @@ func PipeStageName(stage ast.Node) (string, bool) {
 	return "", false
 }
 
-// BarePipeStagePrefix begins every diagnostic reportBarePipeStage
-// reports. The LSP keys its quick fix on it.
-const BarePipeStagePrefix = "a pipe stage is a call"
+// barePipeStagePrefix begins every diagnostic reportBarePipeStage
+// reports.
+const barePipeStagePrefix = "a pipe stage is a call"
 
+// BarePipeStageCode tags the error for a pipe stage that is a name and not
+// a call (`3 |> double`).
+const BarePipeStageCode = "bare-pipe-stage"
+
+// LambdaPipeStageCode tags the error for a lambda piped into
+// (`x |> fn v -> v + 1`).
+const LambdaPipeStageCode = "lambda-pipe-stage"
+
+// reportBarePipeStage reports a stage that is not a call. When the stage is
+// a name written on its own, the error carries the fix that appends `()`.
 func (c *checker) reportBarePipeStage(stage ast.Node) {
 	inner := ungroupExpr(stage)
-	var msg string
+	var msg, call string
 	if name, ok := PipeStageName(inner); ok {
-		msg = fmt.Sprintf("%s: write `%s()`", BarePipeStagePrefix, name)
+		msg = fmt.Sprintf("%s: write `%s()`", barePipeStagePrefix, name)
+		call = name
 	} else if dv, ok := inner.(*ast.DotVariant); ok {
-		msg = fmt.Sprintf("%s: write the variant through its enum, as in `Enum.%s()`", BarePipeStagePrefix, dv.Name)
+		msg = fmt.Sprintf("%s: write the variant through its enum, as in `Enum.%s()`", barePipeStagePrefix, dv.Name)
 	} else {
-		msg = fmt.Sprintf("%s, such as `f()`, or a keyword stage (`dbg`, `if`, `case`, `then`)", BarePipeStagePrefix)
+		msg = fmt.Sprintf("%s, such as `f()`, or a keyword stage (`dbg`, `if`, `case`, `then`)", barePipeStagePrefix)
 	}
 	e := errAt(stage, msg)
+	e.Code = BarePipeStageCode
 	if e.Line == 0 {
 		line, col := exprStartLineCol(stage)
 		e.Line, e.Col = line, col
 	}
+	// The span is the name as written when it is as long as the name: a
+	// stage in parentheses, or a name with spaces in it, gets no fix.
+	if call != "" && e.EndLine == e.Line && e.EndCol-e.Col == len(call) {
+		e.Fix = parser.Replace("Call `"+call+"()`", e.EndLine, e.EndCol, e.EndLine, e.EndCol, "()")
+	}
 	c.report(e.WithHint("the pipe passes its value as the first argument of the call after `|>`; a name without parentheses is a function reference"))
 }
 
-// LambdaPipeStagePrefix begins the diagnostic reportLambdaPipeStage
-// reports. The LSP keys its quick fix, which inserts `then `, on it.
-const LambdaPipeStagePrefix = "a lambda is not a pipe stage"
+// lambdaPipeStagePrefix begins the diagnostic reportLambdaPipeStage
+// reports.
+const lambdaPipeStagePrefix = "a lambda is not a pipe stage"
 
 // reportLambdaPipeStage reports `x |> fn v -> ...`. A lambda's body runs to
 // the end of its expression, so the lambda is not a stage; `then fn v -> ...`
-// is.
-func (c *checker) reportLambdaPipeStage(lam *ast.Lambda) {
-	msg := fmt.Sprintf("%s: write `then %s ...`", LambdaPipeStagePrefix, lambdaHeaderText(lam))
-	c.report(errAt(lam, msg).WithHint("`then` applies a lambda to the piped value; a named function, called as `|> f()`, is the other way to write the step"))
+// is. stage is the lambda as the pipe holds it: when it is the lambda
+// itself, not one in parentheses, the error carries the fix that writes
+// `then ` before it.
+func (c *checker) reportLambdaPipeStage(stage ast.Node, lam *ast.Lambda) {
+	msg := fmt.Sprintf("%s: write `then %s ...`", lambdaPipeStagePrefix, lambdaHeaderText(lam))
+	e := errAt(lam, msg)
+	e.Code = LambdaPipeStageCode
+	if stage == ast.Node(lam) && e.Line > 0 {
+		e.Fix = parser.Replace("Write `then` before the lambda", e.Line, e.Col, e.Line, e.Col, "then ")
+	}
+	c.report(e.WithHint("`then` applies a lambda to the piped value; a named function, called as `|> f()`, is the other way to write the step"))
 }
 
 // reportCapturePipeStage reports `x |> &f(&1)`. A stage is a call the pipe

@@ -11,7 +11,7 @@ import (
 // The checker applies the boundary error type F's `impl From<E>` at a `?`
 // on a `Result<T, E>` whose E does not inhabit F, and records it on the
 // `?`'s hover symbol: TryOpInfo.Convert, with the impl's `from` as the
-// symbol's DispatchImpl (analysis's try_from.go). The `?` lowers as
+// symbol's DispatchImpl (internal/analysis/try_from.go). The `?` lowers as
 //
 //	case x { Ok(v) -> v, Err(e) -> return Err(F.from(e)) }
 //
@@ -26,7 +26,7 @@ import (
 // A `?` whose operand's error type inhabits the boundary's without being it
 // (spec §11 *Propagating with `?`*) lowers the same way, its Err edge
 // widening the error (wideningTry) as any position of the wider type takes a
-// value (coerceEmpty): into an interface the error implements, boxed where
+// value (convertTo): into an interface the error implements, boxed where
 // the value's runtime type does not name its impl (eraseBoxed); into the
 // variant of an enum that `embeds` the error's type (embedWiden); or a
 // structure rebuilt at wider type arguments (rebuildWidened).
@@ -47,13 +47,14 @@ func (g *gen) recordedTryConversion(t *ast.TryOp) *analysis.Symbol {
 // convertingTry lowers a converting `?` whose operand, a Result of kind k,
 // is already in src.
 func (bl *irScalarBuilder) convertingTry(t *ast.TryOp, operand, whole ast.Node, src ir.Temp, k kind, pure bool, conv *analysis.Symbol) (ir.Temp, kind, bool, bool) {
-	return bl.errEdgeTry(t, operand, whole, src, k, pure, func(e ir.Temp, ek, fk kind) (ir.Temp, bool) {
+	edge := func(e ir.Temp, ek, fk kind) (ir.Temp, bool) {
 		f, ok := bl.fromCall(t, conv, e, ek, fk)
 		if !ok {
 			bl.g.dc.note("a converting `?` whose `From` impl does not lower: " + conv.TryOp.Convert.Label())
 		}
 		return f, ok
-	})
+	}
+	return bl.errEdgeTry(t, operand, whole, src, k, pure, edge)
 }
 
 // irTryWidens reports whether an operand of d, whose error payloads are
@@ -74,14 +75,15 @@ func irTryWidens(boundary kind, d *typeDef, carried []kind) bool {
 // wideningTry lowers a `?` whose operand's error widens to the boundary's
 // (irTryWidens), the operand, a Result of kind k, already in src.
 func (bl *irScalarBuilder) wideningTry(t *ast.TryOp, operand, whole ast.Node, src ir.Temp, k kind, pure bool) (ir.Temp, kind, bool, bool) {
-	return bl.errEdgeTry(t, operand, whole, src, k, pure, func(e ir.Temp, ek, fk kind) (ir.Temp, bool) {
-		v, _, ok := bl.coerceEmpty(t, e, ek, fk)
+	edge := func(e ir.Temp, ek, fk kind) (ir.Temp, bool) {
+		v, _, ok := bl.convertTo(t, e, ek, fk)
 		if !ok {
 			bl.g.dc.note("a `?` whose error does not widen to the boundary's: " + ek.nomi() + " as " + fk.nomi())
 			return ir.NoTemp, false
 		}
 		return v, true
-	})
+	}
+	return bl.errEdgeTry(t, operand, whole, src, k, pure, edge)
 }
 
 // errEdgeTry lowers a `?` on src, a Result of kind k, whose Err edge maps
@@ -103,7 +105,7 @@ func (bl *irScalarBuilder) errEdgeTry(t *ast.TryOp, operand, whole ast.Node, src
 	}
 	okV, errV, bErr := &d.variants[0], &d.variants[1], &bd.variants[1]
 	if len(okV.payloads) != 1 || len(errV.payloads) != 1 || len(bErr.payloads) != 1 {
-		return no("a `?` rebuilding its error over a Result of another shape")
+		panic("irbuild: errEdgeTry: Result has two variants of one payload each")
 	}
 	if !pure {
 		cp := ir.NewCopy(bl.g.irNodePos(operand), bl.f.NewTemp(), src)
@@ -153,6 +155,7 @@ func (bl *irScalarBuilder) fromCall(t *ast.TryOp, conv *analysis.Symbol, e ir.Te
 		Line: t.Line,
 		Col:  t.Col,
 	}
+	defer bl.g.carryCall(call, analysis.PositionalCall(1, 1))()
 	args := irQualArgs{temps: []ir.Temp{e}, kinds: []kind{ek}, mobile: []bool{true}, ok: true}
 	var plan *irQualPlan
 	if d := bl.g.implWriting(fk, fd); d != nil {

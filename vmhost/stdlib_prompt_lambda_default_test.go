@@ -11,7 +11,7 @@ import (
 
 // A stdlib module's `//!` prompt calls the module's own Nomi-bodied function
 // with a defaulted argument omitted, inside a lambda. The call reaches the
-// function's arity wrapper only where the builder knows it is building one
+// function's default accessor only where the builder knows it is building one
 // of the module's own test bodies, and a lambda's builder is a child of the
 // test body's, not a test body itself, so the call was BLOCKED with
 // "qualified call, Type.method: String.pad_start" while the same call outside

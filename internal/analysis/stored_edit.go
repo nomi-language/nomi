@@ -265,7 +265,7 @@ func (dm *DocumentManager) advanceStored(sp *storedProgram, changed map[string]s
 			// can see.
 			return key + "'s check reports an error about the program's impls"
 		}
-		if syntax, damaged := sp.syntaxOf(key, parsed[key]); !c.clean() || len(syntax)+len(damaged) > 0 {
+		if syntax, damaged := sp.syntaxOf(key, parsed[key]); !c.Clean() || len(syntax)+len(damaged) > 0 {
 			if appTypes {
 				return key + " has diagnostics, and the program has an application type"
 			}

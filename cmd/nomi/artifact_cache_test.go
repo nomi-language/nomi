@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -33,7 +34,9 @@ import (
 // about 600 lines, whose projectgen edits it runs before the fuzzer's, and
 // every multi-file corpus directory. TestCachedBuildMatchesFreshSample
 // (about 15 seconds) runs each projectgen edit kind and a file added that a
-// leaf imports, each made and undone, and the fuzzer's edits of two corpus
+// leaf imports, each made and undone, nomi.toml's [capabilities] lists
+// added, narrowed and taken away with a body edit under each
+// (capabilityEdits), and the fuzzer's edits of two corpus
 // entries; it fails unless a command relinked from file records after each
 // projectgen edit but the hub's signature edit (relinkingKinds), and prints
 // the cache's reasons when one did not. TestCachedBuildMatchesFreshRotating
@@ -174,16 +177,39 @@ func fuzzCacheEdits(p cacheProject, rel, src string, seed int64) []cacheEdit {
 }
 
 // genCacheEdits are projectgen's edit kinds, each made once and then
-// undone, over p's generated project, and a file added that the leaf
-// imports, then taken away.
+// undone, over p's generated project, with its second impl block, which
+// leaves the program with an error about its impls, and a file added that
+// the leaf imports, then taken away.
 func genCacheEdits(p cacheProject) []cacheEdit {
 	var edits []cacheEdit
-	for _, kind := range projectgen.EditKinds {
+	for _, kind := range append(slices.Clone(projectgen.EditKinds), projectgen.SecondImplBlockLeaf) {
 		key, text := p.gen.Edit(kind, 0)
 		rel := key + ".nomi"
 		edits = append(edits, cacheEdit{what: string(kind), rel: rel, text: text}, cacheEdit{what: string(kind) + ", undone", rel: rel, text: p.files[rel]})
 	}
-	return append(edits, fileAddedEdits(p, 0)...)
+	edits = append(edits, fileAddedEdits(p, 0)...)
+	return append(edits, capabilityEdits(p)...)
+}
+
+// capabilityEdits give p's manifest a [capabilities] table that allows what
+// the generated program reaches (std::io), edit a leaf's body under it and
+// undo that, take std::io out of the list so the program is refused, edit
+// the body again, and take the table away: a kept program must never
+// answer for lists other than the ones it was kept under, and a body edit
+// relinked under the lists is held to them.
+func capabilityEdits(p cacheProject) []cacheEdit {
+	manifest := p.files["nomi.toml"]
+	key, body := p.gen.Edit(projectgen.BodyLeaf, 1)
+	rel := key + ".nomi"
+	return []cacheEdit{
+		{what: "capabilities allowing std::io", rel: "nomi.toml", text: manifest + "\n[capabilities]\nallow = [\"std::io\"]\n"},
+		{what: "body edit under the lists", rel: rel, text: body},
+		{what: "body edit under the lists, undone", rel: rel, text: p.files[rel]},
+		{what: "capabilities allowing nothing", rel: "nomi.toml", text: manifest + "\n[capabilities]\nallow = []\n"},
+		{what: "body edit under an empty list", rel: rel, text: body},
+		{what: "body edit under an empty list, undone", rel: rel, text: p.files[rel]},
+		{what: "capabilities removed", rel: "nomi.toml", text: manifest},
+	}
 }
 
 // fileAdded names the edit fileAddedEdits makes.
@@ -561,6 +587,49 @@ func TestCachedBuildMatchesFreshSample(t *testing.T) {
 	}
 }
 
+// TestCachedBuildReportsASecondImplBlock edits a kept program's library
+// to hold a second type-owned impl block of its struct, which a file may
+// not, first leaving the entry as it was and then calling the new block's
+// function. Each command reports the duplicate block as a fresh one does,
+// where a relink that read each file's own diagnostics alone ran the
+// program.
+func TestCachedBuildReportsASecondImplBlock(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs nomi several times per edit; -short")
+	}
+	lib := "pub struct Box\n    v: Int\nend\n\nimpl Box\n    pub fn one(bx: Box) -> Int\n        bx.v + 1\n    end\nend\n"
+	second := lib + "\nimpl Box\n    pub fn two(bx: Box) -> Int\n        bx.v + 2\n    end\nend\n"
+	main := func(fn string) string {
+		return "import\n    std::io\n    lib\nend\n\nfn main()\n    io.print(\"${lib.Box." + fn + "(lib.Box{v: 0})}\")\nend\n"
+	}
+	dir := t.TempDir()
+	write := func(rel, text string) {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("lib.nomi", lib)
+	write("main.nomi", main("one"))
+	cache := newCacheDir(t)
+	if read, _ := requireCachedMatchesFresh(t, dir, "main.nomi", cache, "writing the project"); read == 0 {
+		t.Fatal("no command read a kept program, so the comparisons say nothing about the cache")
+	}
+	for _, step := range []struct{ what, lib, main string }{
+		{"a second impl block", second, main("one")},
+		{"a call to the second block's function", second, main("two")},
+	} {
+		write("lib.nomi", step.lib)
+		write("main.nomi", step.main)
+		requireCachedMatchesFresh(t, dir, "main.nomi", cache, step.what)
+		for _, args := range commandsFor("main.nomi") {
+			got := runFreshIn(t, dir, cache, args...)
+			if got.exit == 0 || !strings.Contains(got.stderr, "duplicate type-owned impl: `impl Box` appears 2 times") {
+				t.Fatalf("after %s, a fresh `nomi %s` does not report the duplicate impl block:\n%s", step.what, strings.Join(args, " "), got)
+			}
+		}
+	}
+}
+
 // cacheWhy holds runCacheEditsBy's last run's reasons for not relinking, by
 // edit.
 var cacheWhy map[string][]string
@@ -852,6 +921,53 @@ func TestArtifactCacheTwoProcessesRace(t *testing.T) {
 		}
 		if n := len(keptRecords(t, cache)); n != 1 {
 			t.Fatalf("round %d: the cache holds %d records for one program", round, n)
+		}
+	}
+}
+
+// A kept program answers only for the lists it was kept under: an edit to
+// nomi.toml that takes a name out refuses the next command, one that puts
+// it back runs it, and a body edit relinked under the lists is held to
+// them.
+func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
+	dir, entry := capabilityProject(t, capabilityAllowsIO+"allow_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, entry, strings.Replace(capabilityProgram, `    io.print(fs.read_text("notes.txt"))`+"\n", "", 1))
+	cache := newCacheDir(t)
+	for i := 0; i < 2; i++ {
+		run := runNomiIn(t, dir, cache, "run", "main.nomi")
+		if run.exit != 0 || run.stdout != "started\n" {
+			t.Fatalf("nomi run %d under the lists:\n%s", i+1, run)
+		}
+		if i == 1 && !run.read() {
+			t.Fatalf("the second run read no kept program: %v", run.report)
+		}
+	}
+
+	// io taken out of the list.
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nallow = []\nallow_in_tests = [\"std::fs\"]\n")
+	for _, cmd := range []string{"run", "check"} {
+		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
+		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this program reaches std::io, and nomi.toml allows nothing outside the program") {
+			t.Errorf("nomi %s with io taken out of the list:\n%s\ncache: %v", cmd, r, r.report)
+		}
+	}
+
+	// io put back: the program kept under these lists runs.
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), capabilityAllowsIO+"allow_in_tests = [\"std::fs\"]\n")
+	if run := runNomiIn(t, dir, cache, "run", "main.nomi"); run.exit != 0 || run.stdout != "started\n" {
+		t.Errorf("nomi run with io put back:\n%s", run)
+	}
+
+	// A body edit that reads a file, which a relink from the file records
+	// would answer, is refused.
+	mustWrite(t, entry, capabilityProgram)
+	for i, cmd := range []string{"check", "run"} {
+		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
+		if r.exit != 1 || r.stdout != "" || !strings.HasPrefix(r.stderr, capabilityRefusal) {
+			t.Errorf("nomi %s after a body edit reads a file:\n%s\ncache: %v", cmd, r, r.report)
+		}
+		if i == 0 && !strings.Contains(strings.Join(r.report, "\n"), "not relinked: nomi.toml's [capabilities] lists do not allow what the program reaches") {
+			t.Errorf("the edit was not refused a relink for the lists: %v", r.report)
 		}
 	}
 }

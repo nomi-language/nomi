@@ -37,7 +37,10 @@
 //     costs no more than its operands' size gets the row's Pure, so a
 //     refinement rule, a typed literal's handler, a `check` and a
 //     debugger's evaluation may call it (internal/vm package doc,
-//     "Effects"); unset, every call to it is an effect.
+//     "Effects"); unset, every call to it is an effect. A row that is not
+//     Pure says whether it is an outside call, World: Inside or Outside
+//     ("Outside calls" below); TestEveryRowDecidesItsWorld fails for one
+//     that says neither.
 //  3. Run `go generate ./internal/stdlibadapters`.
 //  4. Add recorded cases for the new row
 //     (internal/stdlibadapters/testdata/*.golden).
@@ -59,6 +62,64 @@
 // returning a Nomi struct must build it with the declared type's
 // descriptor, or every impl lookup on it misses.
 //
+// # Outside calls
+//
+// An outside call acts on, or reads from, something outside the machine:
+// files, the network, processes, output and input streams, the clock,
+// entropy, environment variables and arguments, tasks that outlive the call
+// that starts them, a nested program, and any Go binding. Each row says
+// whether it is one (World); a Pure row is inside by being Pure. The VM's
+// intrinsics say the same in their own table (internal/vm's vm.go, held by
+// TestEveryIntrinsicDecidesItsWorld) and std/compiler's hosts in theirs
+// (internal/compilerhosts). Outside is its own fact: every row with a Class
+// is Outside (TestEveryClassedRowIsOutside), and a row that is not Pure may
+// still be Inside.
+//
+// The rules the rows follow:
+//
+//   - Obtaining a handle on something outside is the outside call; using a
+//     handle the code already holds is inside. Opening a file, dialing,
+//     listening, starting a process and asking for the standard streams
+//     (`io.standard_input`, `standard_output`, `standard_error`) are
+//     Outside. Reading, writing, closing or waiting on a Reader, a Writer,
+//     a File, a connection, a server, a request, a WebSocket or a process
+//     is Inside, the time such an operation waits and the Date header a
+//     response carries included: the code that obtained the handle made the
+//     outside call, and code handed one acts on its authority. Most of these
+//     handles also have an in-memory form (a Reader over bytes, a sandbox's
+//     files, `http/host.pipe`, a fake process), which a row cannot tell
+//     apart.
+//   - Reading the clock is Outside when the program gets the reading or
+//     waits on it: `instant.Instant.now`, `timer.sleep`,
+//     `Context.with_timeout` and `deadline_remaining` (both read now),
+//     `Supervisor.flush_bounded` (a bound in real time). A deadline the
+//     program gives as an Instant is Inside (`Context.with_deadline`).
+//     Formatting or parsing a time is Inside.
+//   - Reading the system's entropy is Outside when it is the value the
+//     program gets: `random.os_state` and `secure_bytes`, and generating a
+//     key or a certificate (`signatures/host.generate_*`,
+//     `http/host.test_certificate`). A seeded generator is Inside. A
+//     cryptographic operation that draws a nonce or salt and answers a
+//     result whose meaning does not depend on it is Inside (`sign`,
+//     `http/host.seal`).
+//   - A read of files a row does on its own is Outside without a class
+//     where the target check has none for it: `http/host.tls_config` reads
+//     the PEM files its roots name. `http/host.ws_connect` dials.
+//   - `io.read_line` reads standard input: Outside. Output is the VM's
+//     intrinsics (`io.print` and its kin, `dbg`): Outside.
+//   - Embedded files (`embed/host`) are part of the program: Inside.
+//
+// The environment and the arguments are not a row: the machine hands them
+// to the entry's boot as a Startup, and a boot that takes one is the outside
+// call that reads them (internal/vm's outside.go). An exit status, a trap
+// and a failed assertion end the program and are not outside calls.
+//
+// What a program reaches is answered by vmhost.Program.OutsideCalls: each
+// outside call is named by the std module the program's or a dependency's
+// own code called (`std::net` for `net.dial`, which crosses through
+// http's host functions), or `go:` and the Go import path of a `go`
+// binding, and charged to the module whose file holds that call.
+//
 // # A new Go-backed module
 //
 // A module whose host functions live in a new Go package also needs:
@@ -66,7 +127,7 @@
 //   - its package in `hostPackages` (internal/irbuild/stdlib.go);
 //   - `Pure` on each of its rows that acts on nothing outside the machine,
 //     since a refinement rule or a typed literal's handler may only reach
-//     those (step 2);
+//     those, and World on each of the others (step 2);
 //   - a row in `stdlibInventory` (internal/irbuild/inventory_test.go).
 //
 // # Std types in public signatures

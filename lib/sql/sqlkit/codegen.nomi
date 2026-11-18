@@ -183,11 +183,8 @@ pub fn entry(text: String) -> (String, List<String>)
     segments = String.split(text, "::") |> Iter.to_list()
     last = Iter.last(segments) |> Maybe.with_default("")
 
-    dir =
-        segments
-        |> Iter.take(Iter.count(segments) - 1)
-        |> Iter.map(fn s -> s + "::")
-        |> String.join()
+    // What stands before the last segment, its `::` included.
+    dir = String.strip_suffix(text, last) |> Maybe.with_default("")
 
     case String.split(last, ".") |> Iter.to_list()
         [module] ->
@@ -1762,7 +1759,7 @@ pub fn raw_value(literal: String) -> Maybe<String>
                 |> Iter.min_by(String.length)
                 |> Maybe.with_default("")
 
-            kept = if last == 0 then
+            kept = if last <= 0 then
                 lines
             else
                 Iter.take(lines, last) |> Iter.to_list()

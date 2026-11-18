@@ -131,12 +131,12 @@ test "a literal with an element is non-empty whatever its elements are"
     s: NonEmptySet<Int> = Set[n, n]
     m: NonEmptyMap<String, Int> = {"n" => n}
     spread: NonEmptyList<Int> = [..rest, n]
-    again: NonEmptyList<Int> = [..xs]
+    again: NonEmptyList<Int> = [..rest, ..xs]
 
     assert NonEmptyList.first(xs) == 4
     assert NonEmptyVector.first(v) == 4
     assert NonEmptySet.size(s) == 1
     assert NonEmptyMap.first_entry(m) == ("n", 4)
     assert NonEmptyList.last(spread) == 4
-    assert NonEmptyList.length(again) == 2
+    assert NonEmptyList.length(again) == 3
 end

@@ -3,14 +3,12 @@ package ir
 // The `compare` half of the `arith` class: two operands in, a Bool out.
 //
 // WHY IT IS A SEPARATE NODE FROM `Arith` RATHER THAN SIX MORE `ArithOp`s.
-// `ArithOp.Symbol()` is read by `rt.overflowText` to name the operator in a
-// trap message, `ArithKind` carries a `Faults` set, and `Arith`'s destination
-// holds the operand domain's own type. A comparison shares none of those: it
-// cannot fault, it answers a Bool whatever its operands are, and there is no
-// trap text to name it in. Adding `OpEq` to `ArithOp` would put six members
-// into an enum whose every other member has an overflow question and a fault
-// set, which is the "a field that does not vary over its population" test
-// applied to an operator table.
+// `ArithKind` carries a `Faults` set, and `Arith`'s destination holds the
+// operand domain's own type. A comparison shares neither: it cannot fault,
+// and it answers a Bool whatever its operands are. Adding `OpEq` to `ArithOp`
+// would put six members into an enum whose every other member has an
+// overflow question and a fault set, which is the "a field that does not
+// vary over its population" test applied to an operator table.
 //
 // WHY THE DOMAIN IS A `ValShape` AND NOT A `Domain`. `Domain` is arithmetic's
 // three families — Int, Float, Decimal — and a comparison runs over String and

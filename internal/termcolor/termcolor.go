@@ -149,16 +149,10 @@ func stringTokenSourceEnd(line string, start int) int {
 }
 
 func nomiTokenColor(tok token.Token) string {
-	switch tok.Type {
-	case token.AND, token.OR, token.NOT, token.IS, token.IN, token.IF, token.ELSE, token.FN, token.RETURN,
-		token.CASE, token.WHEN, token.TYPE, token.STRUCT, token.ENUM,
-		token.TYPEALIAS, token.SUBTYPE, token.BREAK, token.CONTINUE, token.IT,
-		token.INTERFACE, token.IMPL, token.AS, token.FOR, token.IMPORT,
-		token.EXTERN, token.EXPORT, token.PUB, token.ONCE,
-		token.OPAQUE, token.WHERE, token.WITH, token.DEFER,
-		token.TEST, token.ASSERT, token.REFUTE, token.DBG,
-		token.UNREACHABLE, token.SELF, token.THEN, token.TAP:
+	if lexer.IsKeyword(tok.Type) {
 		return ansiMagenta
+	}
+	switch tok.Type {
 	case token.TYPE_IDENT:
 		return ansiCyan
 	case token.STRING, token.STRING_LITERAL, token.STRING_START, token.STRING_PART,

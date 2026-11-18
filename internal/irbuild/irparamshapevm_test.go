@@ -387,9 +387,6 @@ func TestIRParamShapeAgreesWithTheVMForStd(t *testing.T) {
 		if f.irBody != nil {
 			kinds[f.irBody] = f.params
 		}
-		for arity, body := range f.irArity {
-			kinds[body] = f.params[:arity]
-		}
 		for slot, body := range f.irSlot {
 			kinds[body] = f.params[:slot]
 		}

@@ -111,7 +111,7 @@ func (g *gen) jsonCrossing(name string, t analysis.Type) *ir.Func {
 	if g.stdInsts == nil {
 		return nil
 	}
-	f := stdModuleGenericTemplate(g.stdInsts.std.views["json"], "", name)
+	f := g.stdInsts.stdTemplateOf(analysis.StdFunc{Module: "std/json", Name: name})
 	if f == nil {
 		return nil
 	}

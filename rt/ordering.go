@@ -47,8 +47,8 @@ const (
 
 // Ordering is Nomi's `std/comparable.Ordering`: `Less`, `Equal` or `Greater`.
 //
-// Tag is exported because generated code is in another Go package and has to
-// write the composite literal and read the tag back in a `case`.
+// Tag is exported because the VM and std's Go adapters, in other packages,
+// build an Ordering and read its tag.
 type Ordering struct {
 	// Tag is 1 for Less, 2 for Equal, 3 for Greater. 0 means never
 	// constructed.

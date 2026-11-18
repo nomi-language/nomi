@@ -63,8 +63,7 @@ import (
 //
 // So this EVALUATES its precondition rather than citing it. A std edit that
 // reorders `Fragment`'s variants, renames a type parameter, or moves `Static`'s
-// payload off `String` produces no anchor and every mention refuses loudly —
-// TestPreludeOrigin_AShapeMismatchProducesNoAnchor drives exactly that.
+// payload off `String` produces no anchor and every mention refuses loudly.
 //
 // # Why the anchor it hands back is SPEC-ONLY
 //

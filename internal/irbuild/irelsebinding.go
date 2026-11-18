@@ -39,7 +39,7 @@ import (
 // the statements after it continue.
 func (bl *irScalarBuilder) patternBindingStmt(t *ast.PatternBinding, lp *irLoopBuild) bool {
 	if isNilNode(t.Value) || isNilNode(t.Pattern) {
-		return false
+		panic("irbuild: patternBindingStmt: the parser always sets a PatternBinding's Value and Pattern")
 	}
 	subj, sk, _, ok := bl.lower(t.Value)
 	if !ok {
@@ -133,8 +133,8 @@ func (bl *irScalarBuilder) elseFallback(pattern ast.Node, k kind) (irElseFallbac
 	default:
 		return irElseFallback{}, false
 	}
-	owner, member, ok := bl.g.patternHead(head)
-	if !ok || (owner != "" && !bl.g.declaredAs(owner, k.def) && !bl.g.preludeOwns(owner, k.def) && !bl.g.stdEnumOwns(owner, k.def)) {
+	member, ok := bl.g.patternVariant(head)
+	if !ok {
 		return irElseFallback{}, false
 	}
 	fb.v = k.def.variant(member)
@@ -217,8 +217,7 @@ func (g *gen) irPatternAlwaysMatches(p ast.Node, k kind) bool {
 		if k.tag != tagNamed || !irDistinctOverValue(k.def) || k.def.rtOpaque || (v.Binding != "" && v.Payload != nil) {
 			return false
 		}
-		owner, member, ok := g.patternHead(v.Variant)
-		if !ok || owner != "" || g.qualifierKind(member) != k {
+		if _, isVariant := g.patternVariant(v.Variant); isVariant {
 			return false
 		}
 		return g.irPatternAlwaysMatches(v.Payload, k.def.inner)
@@ -378,9 +377,7 @@ func (bl *irScalarBuilder) loopElsePath(arm, exit *ir.Block, body ast.Node, sig 
 	lead, tail := []ast.Node(nil), body
 	if block, ok := body.(*ast.Block); ok {
 		defer bl.g.enterBlockTypes(block)()
-		if lead, tail = bl.g.irScalarBlock(block, ""); tail == nil {
-			return false
-		}
+		lead, tail = bl.g.irScalarBlock(block)
 	}
 	// A path that leaves for the head or the exit restores the loop's scope
 	// on the way out, so a `with` in it ends there. A fallback path rejoins

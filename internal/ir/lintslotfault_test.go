@@ -99,8 +99,8 @@ func TestLintSlotFault_AParameterIsDefinedAtEntry(t *testing.T) {
 // RuleTempDefinedBeforeUse. Here ONE arm writes the slot and the other does
 // not, and the Return reads it: the must analysis has to report it. If a Slot
 // counted as a definition this would pass, and the many-writers shape
-// `gen.slot`/`gen.fixSlot` produces would stop being checkable at exactly the
-// point a VM starts depending on it.
+// the builder's branch lowering produces would stop being checkable at
+// exactly the point a VM starts depending on it.
 func TestLint_ASlotIsNotADefinition(t *testing.T) {
 	for _, delayed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("insert_after_region=%t", delayed), func(t *testing.T) {

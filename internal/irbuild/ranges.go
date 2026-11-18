@@ -4,7 +4,7 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// `Range<T>` as `rt.Range[T]` — the `a..b` / `a..=b` literal, the `impl Range<T>`
+// `Range<T>` as rt's Range: the `a..b` / `a..=b` literal, the `impl Range<T>`
 // method surface, the `Iter` source, and the rendering.
 //
 // # Why this is an owner-keyed arm and not the stdlib path
@@ -21,8 +21,9 @@ import (
 // `Range<T>` carries `where T: Comparable` and `impl Iter for Range<T>` carries
 // `where T: Discrete`. Neither is a dictionary at run time. The builder knows the
 // element kind at every site, so it looks the interface method up in the STD
-// INDEX at that concrete kind and passes the resulting Go func as an argument —
-// which is `sortComparator`'s arrangement for `Iter.sort`, one interface wider.
+// INDEX at that concrete kind and passes a reference to that function as an
+// operand, which is `sortComparator`'s arrangement for `Iter.sort`, one
+// interface wider.
 //
 // The implementations are std's own. `Discrete.next` at Codepoint is
 //
@@ -79,9 +80,9 @@ import (
 //     the observable value. See rt.StepByRangeSeq.
 //   - No UNBOUNDED literal. The parser rejects the open-ended forms, so a
 //     RangeLit always has both operands and the unbounded shape is reachable
-//     only through `Range.from` / `Range.naturals`. rangeLit still handles a nil
-//     operand, because ast.RangeLit documents it and checkRangeLit tolerates it,
-//     but no source in this language produces one.
+//     only through `Range.from` / `Range.naturals`. rangeMake panics on a nil
+//     operand: ast.RangeLit documents one and checkRangeLit tolerates it, but
+//     no source in this language produces one.
 //
 // # The refusals this arm can give
 //
@@ -112,7 +113,7 @@ func (g *gen) rangeKindOf(elem kind) kind {
 	if rangeSpec == nil {
 		// Unreachable while the spec table has its `Range` row, and honoured
 		// rather than asserted: a missing row must refuse everything, not panic
-		// the compiler. setKindOf's clause.
+		// the builder. setKindOf's clause.
 		return kindInvalid
 	}
 	k, ok := g.genStructInstance(rangeSpec, elem)

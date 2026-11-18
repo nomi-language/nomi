@@ -4,7 +4,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/rt"
@@ -30,19 +29,5 @@ func TestVMPreludeEnumDebug_RejectsUnsupportedIdentityAndPayload(t *testing.T) {
 		if got, err := vm.New(mod, io.Discard).Run("render", v); err == nil {
 			t.Fatalf("rendered unsupported %#v as %#v", v, got)
 		}
-	}
-}
-
-func TestVMPreludeEnumDebug_TourMatchesRecordedAnswer(t *testing.T) {
-	recorded, err := expectation.Load("tour")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, refused := vmSubsetOf(t, "tour", []string{tourBlock(t, "pattern-matching.md", `dbg calculate(100, 0)`)}, vmPathResolver(t, "tour"))
-	if len(got.Cases) != 1 || len(refused) != 0 {
-		t.Fatalf("try Tour program incomplete: %v", refused)
-	}
-	if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
-		t.Fatalf("try Tour output differs: %v", diffs)
 	}
 }

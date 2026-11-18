@@ -10,7 +10,8 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 )
 
-// runnerWouldDiscover is main.go's discoverTestFiles rule for one file.
+// runnerWouldDiscover is cmd/nomi/main.go's discoverTestFiles rule for one
+// file.
 //
 // Restated rather than called because that logic lives in package main and
 // cannot be imported. The two clauses are its two clauses; a change to either
@@ -25,7 +26,7 @@ func runnerWouldDiscover(path string) bool {
 }
 
 // denominatorDeficit is the cases `nomi test` would run in files this sweep
-// could not analyse. See assertCaseDenominator.
+// could not analyse. TestSites_DenominatorDeficitIsReported holds it.
 func denominatorDeficit(programs []corpusFile) (int, []string) {
 	deficit := 0
 	var names []string
@@ -53,9 +54,9 @@ func denominatorDeficit(programs []corpusFile) (int, []string) {
 // deterministic run to run.
 //
 // Deliberately NOT named for the corpus. It is a plain directory walker that
-// any root may use, and naming it `corpusPrograms` is what made the sharing
-// guard next door count a call to it as evidence of a corpus walk. The corpus
-// chokepoint is corpusRoot(), which is what that guard now censuses.
+// any root may use, so the sharing guard next door does not count a call to
+// it as evidence of a corpus walk. The corpus chokepoint is corpusRoot(),
+// which is what that guard censuses.
 func nomiProgramsUnder(root string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {

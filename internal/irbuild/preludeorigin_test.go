@@ -6,7 +6,7 @@ import (
 	"github.com/nomi-language/nomi/std"
 )
 
-// TestPreludeOrigin_ShapeIsEVALUATEDAgainstStdsOwnDeclaration is the guard on
+// TestPreludeOrigin_ShapeIsEvaluatedAgainstStdsOwnDeclaration is the guard on
 // the difference between citing a precondition and testing it.
 //
 // The anchor's claim is "std really declares this enum, in this shape". A
@@ -64,7 +64,7 @@ func TestPreludeOrigin_ShapeIsEvaluatedAgainstStdsOwnDeclaration(t *testing.T) {
 // A user CAN declare `enum Fragment<T>`; the analyzer gives it that user
 // module's Origin, and `std` is unforgeable as a module name. So the negative
 // cases are the test, and they are asserted at the unit because the positive
-// one already has a program (TestPinned_PreludeOriginSibling).
+// one already has a program.
 func TestPreludeOrigin_IdentityIsTheTypesOwnOriginAndNeverItsName(t *testing.T) {
 	if _, ok := preludeOriginAnchor("std/literals", "Fragment"); !ok {
 		t.Fatal("std/literals.Fragment did not anchor; the denominator is empty")

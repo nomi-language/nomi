@@ -25,67 +25,44 @@ import (
 func distinctCycle(dt *DistinctType, inner Type) []string {
 	seen := map[*DistinctType]bool{}
 	var walk func(t Type, path []string) []string
-	walkAll := func(ts []Type, path []string) []string {
-		for _, t := range ts {
-			if p := walk(t, path); p != nil {
-				return p
-			}
-		}
-		return nil
-	}
 	walk = func(t Type, path []string) []string {
-		switch tt := t.(type) {
-		case *DistinctType:
+		var found []string
+		walkType(t, func(p Type) bool {
+			if found != nil {
+				return false
+			}
+			tt, ok := p.(*DistinctType)
+			if !ok {
+				return true
+			}
 			if tt == dt {
-				return append(append([]string(nil), path...), dt.Name)
+				found = append(append([]string(nil), path...), dt.Name)
+				return false
 			}
 			if seen[tt] {
-				return nil
+				return false
 			}
 			seen[tt] = true
-			if p := walkAll(tt.TypeArgs, path); p != nil {
-				return p
-			}
-			if tt.Inner != nil {
-				if p := walk(tt.Inner, append(path, tt.Name)); p != nil {
-					return p
+			// Its type arguments, then what its declaration holds: the
+			// type it wraps and a subtype's other parents, one step
+			// further along the path.
+			for _, a := range tt.TypeArgs {
+				if found = walk(a, path); found != nil {
+					return false
 				}
+			}
+			through := append(path, tt.Name)
+			if found = walk(tt.Inner, through); found != nil {
+				return false
 			}
 			for _, parent := range tt.MoreParents {
-				if p := walk(parent, append(path, tt.Name)); p != nil {
-					return p
+				if found = walk(parent, through); found != nil {
+					return false
 				}
 			}
-		case *ListType:
-			return walk(tt.Elem, path)
-		case *MapType:
-			if p := walk(tt.Key, path); p != nil {
-				return p
-			}
-			return walk(tt.Val, path)
-		case *TupleType:
-			return walkAll(tt.Elems, path)
-		case *FuncType:
-			if p := walkAll(tt.Params, path); p != nil {
-				return p
-			}
-			return walk(tt.Return, path)
-		case *StructType:
-			return walkAll(tt.TypeArgs, path)
-		case *EnumType:
-			return walkAll(tt.TypeArgs, path)
-		case *InterfaceType:
-			return walkAll(tt.TypeArgs, path)
-		case *AnonStructType:
-			for _, f := range tt.Fields {
-				if p := walk(f.Type, path); p != nil {
-					return p
-				}
-			}
-		case *PartialType:
-			return walk(tt.Inner, path)
-		}
-		return nil
+			return false
+		})
+		return found
 	}
 	return walk(inner, []string{dt.Name})
 }

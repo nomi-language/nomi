@@ -30,7 +30,7 @@ once numbers = Vector[
 
 /// The lines of `take_down` verses, starting from `start_bottles` bottles,
 /// with an empty line between two verses.
-pub fn recite(start_bottles: Int, take_down: Int) -> List<String>
+pub fn recite(start_bottles: Int, take_down: NonNegativeInt) -> List<String>
     start_bottles
     |> Iter.iterate(&(&1 - 1))
     |> Iter.take(take_down)
@@ -68,7 +68,7 @@ end
 import bottle_song
 
 test "single verse"
-    [
+    cases: List<(String, Int, NonNegativeInt, List<String>)> = [
         (
             "first generic verse",
             10,
@@ -114,13 +114,14 @@ test "single verse"
             ],
         ),
     ]
-    |> subtests (description, start_bottles, take_down, expected), description
+
+    subtests cases, (description, start_bottles, take_down, expected), description
         assert bottle_song.recite(start_bottles, take_down) == expected
     end
 end
 
 test "multiple verses"
-    [
+    cases: List<(String, Int, NonNegativeInt, List<String>)> = [
         (
             "first two verses",
             10,
@@ -215,7 +216,8 @@ test "multiple verses"
             ],
         ),
     ]
-    |> subtests (description, start_bottles, take_down, expected), description
+
+    subtests cases, (description, start_bottles, take_down, expected), description
         assert bottle_song.recite(start_bottles, take_down) == expected
     end
 end

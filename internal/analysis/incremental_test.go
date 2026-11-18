@@ -693,6 +693,22 @@ var appTypeEdits = []editStep{
 	restore("boot back", "main"),
 }
 
+// partnerDeriveEdits move the fields of todos.nomi's TodoJson, which its
+// partner test file derives Equatable and FromJson for: the derives record
+// their demands in todos_test at the fields' positions in todos.nomi. Each
+// edit keeps every interface, so todos_test is kept, and its demands, in its
+// bodies and in the declarations a rebuild of its bodies starts from, must
+// move with the fields. Found by TestIncrementalMatchesFullRotating at seed
+// 20776000.
+var partnerDeriveEdits = []editStep{
+	replace("body only: a line above the fields", "todos", "    title: String\n", "\n    title: String\n"),
+	replace("body only: the partner's test edited", "todos_test", `"milk"
+    assert Iter`, `"eggs"
+    assert Iter`),
+	restore("body back", "todos"),
+	restore("body back", "todos_test"),
+}
+
 // anonFieldsProject reads, in main, the fields of an anonymous struct an
 // unannotated `once` of routes builds. A read refers to the label in routes
 // (FieldDef.File and its position), so an edit to routes that moves a
@@ -971,6 +987,15 @@ func TestIncrementalMatchesFull(t *testing.T) {
 				t.Errorf("step %d (%s) went %s (%s), want a full check because the files that read `Settings.tag` are kept", i+1, appTypeEdits[i].kind, o.Path, o.Reason)
 			}
 		}
+	})
+	t.Run("partner test derive", func(t *testing.T) {
+		i := slices.IndexFunc(projects, func(p incrementalProject) bool {
+			return p.name == "14-modules-and-packaging/partner_test_derive"
+		})
+		if i < 0 {
+			t.Fatal("the corpus has no 14-modules-and-packaging/partner_test_derive")
+		}
+		runChecked(t, projects[i], partnerDeriveEdits, recheck)
 	})
 	if len(projects) < 20 {
 		t.Fatalf("found %d multi-file corpus projects, want at least 20", len(projects))

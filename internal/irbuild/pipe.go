@@ -21,11 +21,11 @@ package irbuild
 //
 // A pipe evaluates the LEFT operand first, before the callee is resolved and
 // before any other argument is evaluated. Putting the left operand at argument
-// index 0 gives that order, because directCall evaluates its arguments left to
-// right and forces every non-final one into a temporary (see operand). It has
+// index 0 gives that order, because a call evaluates its arguments left to
+// right and forces every non-final one into a temporary. It has
 // to be checked rather than assumed: a builder that appended instead would
 // produce `f(g(), x)` for `x |> f(g())`, which is a well-typed program that
-// runs g() before x. TestPipeEvaluationOrder and testdata/pipes.nomi both
+// runs g() before x. TestPipe_ArgumentOrderIsPinned and testdata/pipes.nomi
 // observe the order from inside the operands.
 //
 // # What a pipe does NOT do

@@ -2,25 +2,21 @@ package rt
 
 // `Iter.reduce` whose callback carries a control signal.
 //
-// This is the one place in the push protocol where a Nomi `break` really has to
+// This is the one place in the push protocol where a Nomi `break` has to
 // become a value: the callback is driven by the source's own `each_while`, so
-// there is no Go loop for a Go `break` to target. `Iter.loop` is not like this —
-// it has no source at all and its callback is inlined into a real `for` — which
-// is why only these two functions exist rather than a control-carrying variant
-// of every terminal.
+// the caller has no loop of its own to leave. Only these two functions
+// exist, rather than a control-carrying variant of every terminal.
 //
 // The encoding is a second return value, `(acc, keepGoing)`, and it is chosen
 // against two alternatives:
 //
 //   - a sentinel accumulator value, which needs a value no accumulator can be.
 //     Nomi has no zero values, so there is none.
-//   - a control struct, or widening every lowered lambda to return a signal.
-//     internal/irbuild/lambda.go emits a bare Go func literal deliberately, so
-//     Go's inliner and devirtualizer see through it; changing the
-//     representation of every Nomi lambda to serve one caller pays everywhere
-//     and buys in one place. internal/irbuild therefore specializes the callback
-//     shape only where the body can actually produce a signal, decided
-//     lexically, and everything else keeps the plain `func(fr, acc, item) U`.
+//   - a control struct, or widening every callback to return a signal,
+//     which every reduce would pay for and one would use. The VM calls
+//     SeqReduceCtl only for a reduce whose callback can produce a signal
+//     (internal/vm/iter.go), and every other reduce keeps the plain
+//     `func(fr, acc, item) U`.
 //
 // Two register returns cost nothing per element: TestSeqCtlAllocatesNothingPerElement
 // pins the count as independent of the element count, which is the same

@@ -175,6 +175,33 @@ func (s *Server) inputChanged(uri string) {
 	}()
 }
 
+// isManifestURI reports whether uri is a module's nomi.toml.
+func isManifestURI(uri string) bool {
+	return filepath.Base(uriToPath(uri)) == "nomi.toml"
+}
+
+// manifestChanged rechecks after a nomi.toml changed on disk, as after an
+// input changed (InputsChanged), and lowers each open document again, since
+// what the lowering reports reads the manifest too: its [capabilities]
+// lists and its [money] currencies. The memo misses, as it keys a lowering
+// by the manifest's text (analyzedlowering.Memo).
+func (s *Server) manifestChanged(uri string) {
+	if s.notify == nil {
+		return
+	}
+	go func() {
+		defer recoverPanic("rechecking after "+uri+" changed", nil)
+		open, closed := s.docs.InputsChanged(uriToPath(uri))
+		s.queueClosedDiagnostics(closed...)
+		for _, doc := range open {
+			s.publish(s.notify, doc.URI)
+			if snap := s.docs.Snapshot(doc.URI); snap != nil && snap.Open {
+				s.checkLowering(doc.URI, snap.Text)
+			}
+		}
+	}()
+}
+
 // openInputs are the inputs an editor has open, by URI.
 type openInputs struct {
 	mu   sync.Mutex

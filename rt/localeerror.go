@@ -2,10 +2,9 @@ package rt
 
 // LocaleError is `std/locale.Error`: why text is not a locale tag.
 //
-// Here for IOError's reason (internal/irbuild/stdenum.go): declared in a std
-// module and named from user modules, so `Result<Locale, locale.Error>` needs a
-// representation every generated package shares. The classification itself
-// is internal/stdlocale's.
+// Here for Locale's reason (rt/locale.go): internal/irbuild/stdenum.go pairs
+// the std declaration with this Go type. The classification itself is
+// internal/stdlocale's.
 type LocaleError struct {
 	// Tag is 1..4 in std/locale.nomi's declaration order. 0 means never
 	// constructed.

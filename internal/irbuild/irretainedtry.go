@@ -14,12 +14,11 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 	// lambda's own activation; either's kind settles after its body, and
 	// the builder checks each try against it then.
 	concurrent := recorded && bl.concTries != nil && boundary == bl.tryBoundary
-	// A try whose boundary is a VM-only TEST body ends the case with a
-	// report rather than returning a value, so no boundary kind is involved:
-	// the VM's runner builds the rt.EarlyReturnFailure tryTestGuard emits,
-	// from the Try's own line and text. The checker's boundary decides it, for
-	// tryBoundaryRefusal's reason: a try in a `concurrent` block or a lambda
-	// inside a test unwinds that, not the case.
+	// A try whose boundary is a test body ends the case with a report
+	// rather than returning a value, so no boundary kind is involved: the
+	// VM's runner builds the rt.EarlyReturnFailure from the Try's own line
+	// and text. The checker's boundary decides it: a try in a `concurrent`
+	// block or a lambda inside a test unwinds that, not the case.
 	testBoundary := recorded && bl.inTest && bl.parent == nil &&
 		isTestBoundary(boundary)
 	if !recorded || (bl.inTest && !testBoundary) || isNilNode(operand) {
@@ -54,7 +53,7 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 		// failed check itself: the VM's runner reads the propagated failure
 		// back into its report.
 		if _, anchored := assertionFailureKind(); !anchored {
-			return no()
+			panic("irbuild: tryValue: std/assertions' AssertionFailure always anchors")
 		}
 	} else if !concurrent && !irTryFits(bl.returnKind, d, carried) {
 		if irTryWidens(bl.returnKind, d, carried) {
@@ -74,7 +73,7 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 	tr := ir.NewTry(bl.g.irNodePos(t), src, renderNode(whole))
 	bl.b.Append(tr)
 	if concurrent {
-		*bl.concTries = append(*bl.concTries, irPendingTry{try: tr, operand: d, carried: carried})
+		*bl.concTries = append(*bl.concTries, irPendingTry{operand: d, carried: carried})
 	}
 	v := &d.variants[0]
 	part := v.payloads[0]
@@ -87,7 +86,6 @@ func (bl *irScalarBuilder) tryValue(t *ast.TryOp, operand, whole ast.Node) (ir.T
 // irPendingTry is a try in a `concurrent` body, checked against the block's
 // kind once the body settles.
 type irPendingTry struct {
-	try     *ir.Try
 	operand *typeDef
 	carried []kind
 }

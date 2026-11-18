@@ -7,43 +7,41 @@ import (
 
 // A USER type as an `Iter` source: `impl Iter for Tree`.
 //
-// # This is the protocol's documented extension point, and it was the one
-// source the builder could not drive
+// # The protocol's extension point
 //
-// Every other source is built in — a List, a String, a Map, a Set, a Vector, a
-// Range — and each has a hand-written `rt` walk. `impl Iter for MyType` is the
-// case where the walk is the PROGRAMMER'S, and iterSource refused it by name
-// (`Iter over an unlowered source`, detail `Tree`) with the recorded reason
-// that it "needs the protocol method called through dispatch".
+// Every other source is built in (a List, a String, a Map, a Set, a Vector, a
+// Range) and each has a hand-written `rt` walk. `impl Iter for MyType` is the
+// case where the walk is the programmer's.
 //
-// That reason turned out to be one word too strong, and correcting it is what
-// makes this small. Dispatch is what you need when the receiver is ERASED. Here
-// it is not: `Iter.to_list(tree)` has a receiver whose static kind is `Tree`,
-// and `g.implsByIface["Iter"][Tree]` names exactly one impl block. So the
-// `each_while` to call is chosen at COMPILE time and handed to rt.UserSeq as a
-// Go func value. No table, no TypeID, no box — the same single closure a List
-// pays, and nothing per element.
+// The receiver is not erased: `Iter.to_list(tree)` has a receiver whose static
+// kind is `Tree`, and `g.implsByIface["Iter"][Tree]` names exactly one impl
+// block. So the `each_while` to call is chosen at build time, and the view
+// (an `ir.Iter` over `ir.IterOverUserImpl`, userView in iriterbody.go) holds
+// an `ir.RefFunc` to it as an operand. The VM walks the view through
+// rt.UserSeq, calling that function with the source and a yield callback.
 //
-// # What is checked, and why each check is not paranoia
+// # What is checked
 //
-// The block is confirmed to supply the protocol SHAPE rather than merely a
-// member of the right name, because `rt.UserSeq`'s signature is the shape:
+// iterUserEachWhile confirms the block supplies the protocol shape, which is
+// what the VM's call assumes:
 //
 //	each_while(collection: self, yield: (T) -> Bool): Bool
 //
 // The receiver parameter must be the source's own kind, the second parameter a
-// one-argument function answering Bool, and the result Bool. If any of those is
-// otherwise, the impl is not this protocol and lowering it as one would emit Go
-// that does not compile — which the sweep reads as a codegen bug rather than as
-// a refusal. So a mismatch DECLINES, and iterSource then reports its own
-// long-standing refusal at the source position, keeping one gap under one key.
+// one-argument function answering Bool, and the result Bool. The view's
+// element kind is the yield parameter's one parameter, and the VM passes
+// `each_while` exactly a source and a yield callback, so an impl of another
+// shape would give the sequence a wrong element kind or be called with the
+// wrong arguments. A mismatch declines, and the source is refused at its own
+// position, keeping one gap under one key. The checker holds an impl's
+// `each_while` to the interface's signature, so on a checked program the
+// shape tests pass; the reachable decline is u.fn's, an impl that did not
+// lower or whose kinds do not cross into the calling file.
 //
 // The element type is read from the `yield` parameter rather than from the
-// interface declaration's `T`, and that is the load-bearing choice: `Iter<T>`'s
-// type parameter is not solved at this call site, while the impl block has
-// already committed to a concrete element — `yield: (Int) -> Bool` for a Tree
-// of Ints. Reading the impl is reading the answer; reading the interface would
-// be reading the question.
+// interface declaration's `T`: `Iter<T>`'s type parameter is not solved at
+// this call site, while the impl block has already committed to a concrete
+// element, `yield: (Int) -> Bool` for a Tree of Ints.
 //
 // # Where it sits
 //
@@ -70,7 +68,6 @@ type userIterImpl struct {
 // userIterFn is one function of a user source's `impl Iter`: the symbol its
 // owner interns for it, and its kind in the calling file's kinds.
 type userIterFn struct {
-	it  *implItem
 	sym *ir.Symbol
 	k   kind
 	// params and result are the item's, in the calling file's kinds.
@@ -145,7 +142,7 @@ func (g *gen) userIterImplOf(recv kind) (userIterImpl, bool) {
 func (u userIterImpl) fn(g *gen, name string) (userIterFn, bool) {
 	if u.d == nil || !u.d.lowerable {
 		// A refused impl block declines rather than reporting: its own
-		// declaration was refused at its own position, and iterSource's
+		// declaration was refused at its own position, and the caller's
 		// refusal at the SOURCE position is the one a reader can act on.
 		return userIterFn{}, false
 	}
@@ -170,17 +167,23 @@ func (u userIterImpl) fn(g *gen, name string) (userIterFn, bool) {
 		}
 		result = r
 	}
-	return userIterFn{it: it, sym: u.owner.irCalleeSym(it, u.d.recv.nomi()+"."+it.name),
+	return userIterFn{sym: u.owner.irCalleeSym(it, u.d.recv.nomi()+"."+it.name),
 		k: funcKindIn(g, params, result), params: params, result: result}, true
 }
 
 // iterUserEachWhile is the `each_while` u, the `impl Iter` of receiver
 // kind recv, lowers, and the element type it pushes.
 //
-// Split from the lowering so that RECOGNISING a user source and LOWERING one
-// are two readable steps: every check below is a reason `rt.UserSeq` would not
-// be the right lowering, and the caller adds the one reason that is about the
-// call rather than about the shape.
+// Split from the lowering so that recognising a user source and lowering one
+// are two steps. Its one caller is userSource (iriterbody.go), which makes
+// the element kind answered here the view's and adds the reasons that are
+// about the element and the overrides.
+//
+// The arity tests also guard this function's own indexing: without
+// `len(f.params) != 2` the reads of f.params[0] and f.params[1] would panic
+// on a shorter signature, and without the `tagFunc` and `len(yp) != 1` tests
+// funcParams(y) and yp[0] would panic on a yield that is not a one-parameter
+// function. The file comment says which declines a checked program reaches.
 func (g *gen) iterUserEachWhile(u userIterImpl, recv kind) (userIterFn, kind, bool) {
 	f, ok := u.fn(g, "each_while")
 	if !ok || len(f.params) != 2 {

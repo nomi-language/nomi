@@ -69,26 +69,27 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 // stdBareFuncRef lowers a bare name a selective import bound to a top-level
 // std function, named as a value. handled is false for any other name.
 func (bl *irScalarBuilder) stdBareFuncRef(t *ast.Ident) (ir.Temp, kind, bool, bool, bool) {
-	if key, output := stdBareOutputKey(bl.g.srcFA(), t); output {
+	sym := bl.g.checkedRef(t.Line, t.Col)
+	if key, output := stdBareOutputKey(bl.g.srcFA(), sym); output {
 		v, k, mobile, ok := bl.outputRef(t, key)
 		return v, k, mobile, ok, true
 	}
-	if module, name, isStd := stdBareFileFunc(bl.g.srcFA(), t); isStd {
-		return bl.stdFileFuncRef(t, module, name)
+	if id := bl.g.srcFA().CalleeOf(t).Std; !id.IsZero() && id.Owner == "" && !isProgramStd(stdShortModule(id.Module)) {
+		return bl.stdFileFuncRef(t, stdShortModule(id.Module), id.Name)
 	}
 	return ir.NoTemp, kindInvalid, false, false, false
 }
 
 // stdOwnFuncRef lowers a bare name in a stdlib module's body that names one
 // of the module's top-level functions, a sibling of the cached lowering
-// (stdlibSibling), as a value: `encode` in std/hex is the value `hex.encode`
+// (stdSiblingDecls), as a value: `encode` in std/hex is the value `hex.encode`
 // is. In one of the module's own tests (inTest) the sibling resolves before
 // the cases gen's own table, as a call to it does; elsewhere funcRef asks
 // only once its own table has no lowerable function of the name. handled is
 // false for any other name.
-func (bl *irScalarBuilder) stdOwnFuncRef(t *ast.Ident, inTest bool) (ir.Temp, kind, bool, bool, bool) {
-	f := bl.g.stdlibSibling(t.Name)
-	if f == nil || f != bl.g.stdSiblings["."+t.Name] || bl.g.stdModule == "" || inTest != bl.stdTestOwnType() {
+func (bl *irScalarBuilder) stdOwnFuncRef(t *ast.Ident, decl ast.Node, inTest bool) (ir.Temp, kind, bool, bool, bool) {
+	f := bl.g.stdSiblingDecls[decl]
+	if f == nil || f.recv != "" || bl.g.stdModule == "" || inTest != bl.stdTestOwnType() {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	if inTest {
@@ -150,7 +151,7 @@ func (bl *irScalarBuilder) stdFileFuncRef(ref ast.Node, module, name string) (ir
 		// `io.capture`: the instance a call at the checker's instantiation
 		// of the reference builds.
 		v, k, mobile, ok := bl.wrapperRef(ref, generic.key, params, result, func(child *irScalarBuilder, call *ast.Call) (ir.Temp, kind, bool) {
-			dst, k, _, ok, _ := child.stdInstCallAt(call, generic, kindInvalid)
+			dst, k, _, ok, _ := child.stdInstCallAt(call, generic, kindInvalid, nil)
 			return dst, k, ok
 		})
 		return v, k, mobile, ok, true
@@ -238,6 +239,8 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 		child.boundK[p] = pk
 		call.Args = append(call.Args, &ast.Ident{Name: p, Line: line, Col: col})
 	}
+	// The function value passes its parameters in order.
+	defer g.carryCall(call, g.positionalCallOf(ref, len(params), len(params)))()
 	dst, k, ok := body(child, call)
 	if !ok || k != result || len(child.captures) != 0 {
 		return no()
@@ -258,7 +261,8 @@ func (g *gen) checkedRefValueKinds(ref ast.Node) ([]kind, kind, bool) {
 	if ft == nil {
 		return nil, kindInvalid, false
 	}
-	return g.funcTypeKinds(ft, len(ft.Params))
+	params, result := g.funcTypeKinds(ft)
+	return params, result, true
 }
 
 // checkedRefFuncType is the function type the checker gave the reference at
@@ -310,7 +314,7 @@ func (bl *irScalarBuilder) siblingFuncRef(ref ast.Node, to int, f *fileFunc, hos
 		sym = g.irSiblingCalleeSym(to, f)
 	}
 	if sym == nil {
-		return no()
+		panic("irbuild: siblingFuncRef: irSiblingCalleeSym is nil only without a registry, and g.files implies one")
 	}
 	fk := funcKindIn(g, params, result)
 	if !irCallableValueKind(fk) {

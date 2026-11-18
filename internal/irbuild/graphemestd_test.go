@@ -17,8 +17,9 @@ import (
 // `unicode/utf8`, so they are implemented in rt over github.com/rivo/uniseg.
 // `String.length` is an ordinary language primitive that most programs call,
 // and grapheme counting is runtime work, so the dependency belongs to rt
-// rather than to the compiler's module. rt/consumer_test.go asserts that
-// uniseg is rt's only `require`, so a second dependency fails a test.
+// rather than to the compiler's module. rt/imports_test.go asserts that
+// uniseg is the only module outside the standard library that rt imports, so
+// a second dependency fails a test.
 //
 // `String.normalize` needs golang.org/x/text, a much larger dependency, and is
 // an operation over a form the caller names. It lives in nomi/stdstrings

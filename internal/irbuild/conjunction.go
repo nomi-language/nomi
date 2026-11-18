@@ -111,24 +111,6 @@ func (g *gen) projectConjunction(t *analysis.ConjunctionType) kind {
 	return g.conjKind(members)
 }
 
-// conjTypeOf is the kind the annotation `A and B` names. An intersection
-// of subtypes, `NonNegativeInt and NonZeroInt`, is its members' base, the
-// kind each subtype member names; an interface beside them is one the base
-// implements (the checker's checkIntersections), which adds nothing to it.
-func (g *gen) conjTypeOf(ct *ast.ConjunctionType) kind {
-	members := make([]kind, len(ct.Members))
-	for i, m := range ct.Members {
-		members[i] = g.typeOf(m)
-	}
-	for _, m := range members {
-		// kindInvalid: propagates — a member with no kind names no base; conjKind below carries it when no member does.
-		if m != kindInvalid && !irConjKind(m) && !irExistentialKind(m) {
-			return m
-		}
-	}
-	return g.conjKind(members)
-}
-
 // conjValType is the VM type of a conjunction's values: an existential
 // whose elements are its members' types, which accepts a value of any
 // existential holding all of them (ir.ValType.Accepts).

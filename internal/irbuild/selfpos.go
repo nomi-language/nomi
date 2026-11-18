@@ -33,7 +33,7 @@ import "github.com/nomi-language/nomi/internal/ast"
 // A PROTOCOL CONFORMANCE question is a different question and must not be
 // routed here. `iter.go` asks whether a declaration is shaped exactly like
 // `Iter`'s `each_while(collection: self, yield: (T) -> Bool) -> Bool` — a fixed
-// shape it then emits a fixed lowering for — and "self must be at index 0" is
+// shape it has a fixed lowering for — and "self must be at index 0" is
 // part of the SHAPE it requires, not an assumption about where receivers live.
 // Collapsing the two would create a shared helper whose callers need different
 // answers, which no test comparing them could ever catch. It stays separate,
@@ -158,8 +158,8 @@ func (m *ifaceMethod) mentionsSelfAt(i int) bool {
 //
 // EXHAUSTIVE over ast.TypeExpr's nine implementors, with no default arm, and
 // that is deliberate: a walk that skips a node kind looks finished from every
-// angle except the one it skips. `typeExprKindsAreCovered` fails if ast grows
-// a ninth.
+// angle except the one it skips. `TestSelfShape_TypeExprKindsAreCovered`
+// fails if ast grows another.
 func typeExprHasSelf(te ast.TypeExpr) bool {
 	switch t := te.(type) {
 	case nil:
@@ -209,8 +209,8 @@ func typeExprHasSelf(te ast.TypeExpr) bool {
 		return false
 	}
 	// Unreachable while ast.TypeExpr has exactly the nine implementors
-	// typeExprKindsAreCovered enumerates. Reached means ast has a ninth that
-	// the guard missed: answer TRUE, because "might contain self" routes
+	// TestSelfShape_TypeExprKindsAreCovered enumerates. Reached means ast has
+	// another that the guard missed: answer TRUE, because "might contain self" routes
 	// the signature into a refusal and the alternative is a silent wrong
 	// answer.
 	return true

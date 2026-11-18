@@ -12,9 +12,9 @@ import (
 //
 // rt/map.go argues it in full: a Nomi Map key is any keyable VALUE, compared by
 // structural hash and equality (rt.Hash/rt.Equal) with no user hook and no
-// `K: Hashable` bound, so a Go `map` is unavailable — for a
-// `*rt.List[T]` key it is not even a compile error, it is an address-keyed map
-// that silently loses every key. And a Nomi Map is IMMUTABLE, so the compact
+// `K: Hashable` bound, so rt cannot hold one in a Go `map`: for a list key,
+// a `*rt.List[any]`, that is an address-keyed map that silently loses every
+// key. And a Nomi Map is IMMUTABLE, so the compact
 // answer (an ordered slice plus a hash index) makes `put` O(n) and turns the
 // accumulate-into-a-map fold quadratic, which is the mistake rt/list.go
 // declined for `List`. It is a persistent hash trie.
@@ -45,8 +45,9 @@ import (
 //   - `p == q` on a STRUCT with an impl dispatches. The operator's own
 //     lowering does that.
 //   - `p == q` on an ENUM or a DISTINCT dispatches when the impl is
-//     HAND-WRITTEN and not when it is derived. See equatableDispatches for
-//     the struct rule and handWrittenNominalEquatable for the nominal one.
+//     HAND-WRITTEN and not when it is derived. See equatableVerdict
+//     (irequality.go) for the struct rule and handWrittenNominalEquatable
+//     for the nominal one.
 //   - `[p] == [q]`, `(p, 1) == (q, 1)`, a `p` key inside a Map: never, at any
 //     depth, because each is structural equality from the outermost step down
 //     and structural equality does not dispatch. A `derive Equatable` on a
@@ -86,25 +87,14 @@ func (g *gen) mapKind(key, val kind) kind {
 // catch. A nil gen with a non-neutral component panics there rather than
 // yielding a kind interned nowhere.
 //
-// One function rather than two because the Go type NAME is written once. Two
-// places rendering `rt.Map[...]` is a divergence generator of exactly the kind
-// this package keeps finding, and the rendering is what interning keys on.
+// One function rather than two, so the spelling `Map<K, V>` that interning
+// keys on is written once.
 func mapKindIn(g *gen, key, val kind) kind {
-	// kindInvalid: propagates — a kind CONSTRUCTOR; the key/value decline is counted in elementKind.
+	// kindInvalid: propagates — a kind CONSTRUCTOR; the key/value decline is counted where that kind was resolved.
 	if key == kindInvalid || val == kindInvalid {
 		return kindInvalid
 	}
 	return kind{tag: tagMap, comp: internComp(g, "Map<"+key.nomi()+", "+val.nomi()+">", key, val)}
-}
-
-// mapTypeOf reads the annotation `Map<K, V>`, reporting whether the generic
-// type named a Map at all so an unrepresentable `Foo<Bar>` keeps its own
-// refusal.
-func (g *gen) mapTypeOf(t *ast.GenericType) (kind, bool) {
-	if t.Name != "Map" || len(t.Params) != 2 {
-		return kindInvalid, false
-	}
-	return g.mapKind(g.typeOf(t.Params[0]), g.typeOf(t.Params[1])), true
 }
 
 // --- literals ---------------------------------------------------------------
@@ -169,7 +159,7 @@ func (g *gen) valueHashes(k kind) bool {
 		return true
 	}
 	switch k.tag {
-	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagNever, tagEmptyList, tagEmptyVector, tagEmptySet:
+	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagNever:
 		return true
 	case tagIface:
 		// An interface value hashes by its run-time type (vm/keys.go).
@@ -260,7 +250,7 @@ func (g *gen) valueEquates(k kind) bool {
 		return true
 	}
 	switch k.tag {
-	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagNever, tagEmptyList, tagEmptyVector, tagEmptySet:
+	case tagInt, tagFloat, tagString, tagBool, tagUnit, tagNever:
 		return true
 	case tagIface:
 		// Two interface values compare by their run-time types (ir.ValIface).
@@ -336,18 +326,13 @@ func (g *gen) namedEquates(k kind) bool {
 
 // --- call sites -------------------------------------------------------------
 
-// mapFn is one `Map.` function this builder lowers: the rt symbol, the arity,
-// and where the key operations go in the argument list.
+// mapFn is one `Map.` function this builder lowers: the arity and how
+// the result kind is derived.
 type mapFn struct {
-	rtCall string
 	// args is how many Nomi arguments the call takes.
 	args int
-	// opsAfter is the number of leading Nomi arguments that precede the
-	// `hash, eq` pair in the Go-spelled call. It is 1 for every entry except
-	// merge, which takes both maps first.
-	opsAfter int
 	// result names how the result kind is derived from the map's key and value
-	// kinds. See mapCall.
+	// kinds. See mapResultKind.
 	result string
 }
 
@@ -368,7 +353,7 @@ type mapFn struct {
 // the index can NAME these and cannot SUPPLY the type argument, while the CALL
 // SITE can.
 //
-// So they lower in mapProjection below, and they do not become a second
+// So they lower in mapProjectionPlan (irmap.go), and they do not become a second
 // implementation of std's rule: rt.MapKeys/MapValues/MapMapValues are all
 // built on rt.MapEntries, the single ordered accessor that FormatMap and
 // MapEqual already go through, so there is ONE order in rt and the equivalence
@@ -378,13 +363,13 @@ type mapFn struct {
 // answers `Maybe<((K, V), Map<K, V>)>`, the first entry in insertion order and
 // the map without it.
 var mapFuncs = map[string]mapFn{
-	"get":      {rtCall: "rt.MapGet", args: 2, opsAfter: 1, result: "maybe"},
-	"put":      {rtCall: "rt.MapPut", args: 3, opsAfter: 1, result: "map"},
-	"size":     {rtCall: "rt.MapSize", args: 1, opsAfter: 0, result: "int"},
-	"remove":   {rtCall: "rt.MapRemove", args: 2, opsAfter: 1, result: "map"},
-	"merge":    {rtCall: "rt.MapMerge", args: 2, opsAfter: 2, result: "map"},
-	"contains": {rtCall: "rt.MapContains", args: 2, opsAfter: 1, result: "bool"},
-	"map_next": {rtCall: "rt.MapNext", args: 1, opsAfter: 0, result: "next"},
+	"get":      {args: 2, result: "maybe"},
+	"put":      {args: 3, result: "map"},
+	"size":     {args: 1, result: "int"},
+	"remove":   {args: 2, result: "map"},
+	"merge":    {args: 2, result: "map"},
+	"contains": {args: 2, result: "bool"},
+	"map_next": {args: 1, result: "next"},
 }
 
 // mapResultKind turns a mapFn's result tag into a kind.

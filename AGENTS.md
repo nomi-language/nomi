@@ -136,8 +136,11 @@ the same in the background. Details:
   Each runner has a variant built with the `nomi_nonet` tag
   (`nomi-vm-nonet`), with no net/http, crypto/tls or net, which a program
   that reaches no network crossing is appended to; `go generate
-  ./internal/stdlibadapters` writes the split. The REPL links each input
-  into one live VM. Details:
+  ./internal/stdlibadapters` writes the split. The same walk holds a
+  program to the outside calls nomi.toml's `[capabilities]` lists and an
+  embedding host's `vmhost.WithCapabilities` allow, in `check`, `run`,
+  `test`, `build` and every `vmhost` load, run and call (vmhost's
+  capability.go). The REPL links each input into one live VM. Details:
   [`nomi build`](vmrunner/doc.go),
   [REPL](cmd/nomi/doc.go).
 
@@ -219,10 +222,13 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
   `NOMI_TYPE_OPS=full`, `NOMI_TYPE_OPS_ONLY` (`vmhost/type_ops_test.go`).
 - Load order does not change a program: `TestLoadOrderDoesNotChangeAProgram`,
   `NOMI_ORDER_COUNT` (`vmhost/load_order_test.go`).
-- Every place irbuild can decline is listed with a class, and the count
-  of unclassified and undecided sites only goes down:
-  `TestDeclineSitesAreListed`, `testdata/lowering-declines.txt`,
-  `maxUndecidedSites` (`internal/declinesites/sites_test.go`).
+- Every place irbuild can decline is listed with a class, and an undecided
+  one with its cause. The total, the dead sites and the undecided sites
+  only go down: `TestDeclineSitesAreListed`,
+  `testdata/lowering-declines.txt`, `maxSites`, `maxDeadSites`,
+  `maxUndecidedSites` (`internal/declinesites/sites_test.go`). A gap an
+  unreached site turns out to hold is pinned in `inventoryLoweringGaps`
+  (`vmhost/lowering_gaps_inventory_test.go`).
 - Every expression has a type after checking: `TestSeedExprsAreTyped`,
   `knownCheckerGaps` (`vmhost/checker_gaps_test.go`).
 - Modules encoded apart link to the same program, and each file lowered on
@@ -253,7 +259,7 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
 - `nomi fmt` keeps meaning: `FuzzFormatKeepsMeaning`, `knownFormatGaps`
   (`vmhost/format_meaning_test.go`).
 - An incremental check matches a full one: `FuzzIncrementalMatchesFull`
-  (`internal/analysis/incremental_test.go`).
+  (`internal/analysis/incremental_fuzz_test.go`).
 - A file checked against its imports' interfaces matches a full check:
   `FuzzCheckFromInterfacesMatchesFull`, `NOMI_CHECK_FROM_INTERFACES=1`
   (`internal/analysis/interface_fuzz_test.go`).
@@ -297,7 +303,7 @@ with its reason. A file URI goes through `internal/fileuri`, never
 
 **Verification cadence.** Full runs happen once, right before a batch is
 squashed to `main`, not per change. The whole `go test ./internal/irbuild
--count=1 -timeout 0` run takes about 150 seconds and `go test ./...` about
+-count=1 -timeout 30m` run takes about 150 seconds and `go test ./...` about
 five minutes, so neither is a per-change check:
 
 - **Per change, including an agent's change in its own worktree:** `go build`,
@@ -328,6 +334,14 @@ five minutes, so neither is a per-change check:
   under the target's `testdata/fuzz`, for the following batch.
 - When running several suites, capture each exit status separately; a chain
   reports only the last one.
+- Never pass `-timeout 0`. A test that does not end then holds the run
+  until someone looks. `scripts/check-full.sh` gives each test binary
+  `TEST_TIMEOUT` (30m), and a whole package run by hand takes `-timeout
+  30m`: past it `go test` kills the binary, names the test that was running
+  and prints every goroutine's stack.
+- A change to a walk over statements or expressions in `internal/analysis`
+  runs the cost tests with its narrow checks: `go test ./internal/analysis
+  -run 'TestSelfRecursion_VisitsEachNodeOnce|TestLeaves_Cost' -count=1`.
 - For concurrency changes, also run
   `go test -race ./internal/vm ./vmhost ./rt/...`.
 - `rt`'s supervisor and timer tests and `vmhost/synctest_test.go` carry
@@ -345,9 +359,9 @@ Regenerate with:
 
 ```
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/expectation -run 'TestExpectation_(Corpus|Stdlib|Tour|Failure)$' -count=1
-NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -count=1 -timeout 0
+NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/irbuild -count=1 -timeout 30m
 NOMI_REGENERATE_EXPECTATIONS=1 go test ./cmd/nomi-docgen -run TestReferenceInteractiveTestsOnTheVM -count=1
-NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1
+NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run TestIRImage_DecodedProgramsMatchTheCommittedRecords -count=1
 ```
 
 Run the last after the `internal/expectation` command, since it reads
@@ -383,7 +397,10 @@ and `vm-std-retained.txt` (`internal/irbuild/vmretained_test.go`,
   asserts rejection: it must fail if the source starts being admitted, and it
   checks the message.
 - Assert costs by counting, not timing (`rt`'s `TestMeasureMapCosts` counts
-  node visits under `-tags rtmapcount`).
+  node visits under `-tags rtmapcount`), and give the counter a bound it
+  panics past, so that work that grows without limit fails the test at once
+  and never hangs (`TestLeaves_CostGrowsWithTheSquareOfTheDepth`,
+  `internal/analysis/leavescount_on.go`).
 
 ## Format
 
@@ -437,13 +454,41 @@ until you do).
   `go generate ./internal/ast` and `go generate ./internal/ast/astcodec` (the
   interface codec; its package doc, "File interfaces");
   `TestGeneratedChildrenAreCurrent` and `TestGeneratedCodecIsCurrent` fail
-  until you do. After changing a field of any type the stdlib's built
-  analysis holds (a `FileAnalysis`, a symbol, a type, a node), run
+  until you do. A new field that can hold a child node also gets a class in
+  `operandFields` (`internal/ast/operands.go`), which says whether the
+  node always evaluates it; `TestEveryChildFieldHasAnOperandClass` fails
+  until it has one. A new node type gets its forms in `nodeForms`
+  (`internal/irbuild/nodeforms.go`), and an arm in `lowerNode` when it is a
+  value or in `irScalarBlock` when it is a statement;
+  `TestEveryNodeTypeHasAForm` fails until it does. After changing a field
+  of any type the stdlib's built analysis holds (a `FileAnalysis`, a symbol, a type, a node), run
   `go generate ./internal/analysis` (the stdlib's state codec; the
   analysis package doc, "The stdlib's state");
   `TestGeneratedStateCodecIsCurrent` (`internal/analysis/stategen`) fails
   until you do.
+- The reserved and contextual words are the lexer's lists
+  (`lexer.ReservedWords`, `lexer.ContextualWords`, `lexer.IsKeyword`). Go
+  code reads them. After adding or removing a word, update the lists
+  outside Go that `TestKeywordListsMatchTheLexer` (`internal/docscheck`)
+  names: the spec, `grammar.js`, the highlight query and the bat and VS
+  Code grammars. After adding, removing or renaming a token type, run
+  `go generate ./internal/token` (`TestTokenNamesAreCurrent` fails until
+  you do).
+- Operator precedence and associativity are one table,
+  `internal/token/precedence.go`. The parser parses with it and the
+  formatter decides parentheses with `token.OperandNeedsParens`, which
+  `TestOperandNeedsParensIsTheParsersAnswer` (`internal/parser`) holds to
+  the parser. After changing a level, update `grammar.js` and the spec's
+  table, which `TestPrecedenceTablesMatch` (`internal/docscheck`) holds to
+  it.
 - No fake symbols: a new concept gets its own representation at every layer.
+- Nothing recognizes a diagnostic by its message. Code that acts on one
+  kind of error reads its `Code`, and what it names from `Args` or `Fix`
+  (internal/analysis package doc, "Diagnostic codes"); a new code is an
+  exported `<Kind>Code` constant in the file that builds the error, with
+  an explanation in `internal/mcp`. `TestNoCodeRecognizesADiagnosticByItsMessage`
+  (`internal/docscheck`) fails on a strings test, a regexp or `==` over
+  message text outside its listed exceptions.
 - No workarounds for type information the checker should provide; fix the
   checker.
 - Nominal type identity is (declaring file, name). Two files may each declare
@@ -451,6 +496,24 @@ until you do).
 - Prefer one implementation in `rt` that two components call over two
   implementations kept in agreement by a test.
 - Keep it simple: a layer whose only payoff is one reader is ceremony.
+- One piece of code does each job. Before adding a case, find the code that
+  already handles the nearest one and extend it. Do not add a parallel path,
+  a second scanner or table, a special case per syntactic position, or a
+  hand-written switch over a closed set that a shared or generated one could
+  cover. If a change seems to need a second mechanism, stop and raise it.
+- The checker decides and the builder lowers. `internal/irbuild` reads what
+  `internal/analysis` recorded (a call's placement and callee, a type, a
+  conversion) and works out none of it again from names or syntax. A
+  decision the builder needs and the checker does not record is recorded in
+  the checker, held by `TestElaborationGate`, and then read.
+- What the checker records describes what the program means, with nothing
+  about how the VM represents it.
+- A closed set (node types, type kinds, child fields) is enumerated once,
+  with a test that fails for a member a consumer does not handle, as
+  `TestEveryChildFieldHasAnOperandClass` and `TestTypeChildrenNamesEveryKind`
+  do.
+- A refactor that is meant to preserve behavior leaves every golden file
+  byte-identical. One that moves has changed behavior.
 
 ## Adding a stdlib host function
 
@@ -463,10 +526,18 @@ until you do).
    (`vmhost.TargetLacks`, `vmhost.Program.CheckTarget`). A function that
    computes its answer from its operands alone and acts on nothing outside
    the machine gets `Pure`, so a refinement rule or a typed literal's
-   handler may call it; unset, a call to it is an effect.
+   handler may call it; unset, a call to it is an effect. A row that is not
+   `Pure` sets `World: Inside` or `World: Outside`, whether a call to it
+   acts on or reads from anything outside the machine (the
+   `internal/stdlibbindings` package doc, "Outside calls");
+   `TestEveryRowDecidesItsWorld` fails for one that sets neither.
 3. `go generate ./internal/stdlibadapters`.
 4. Add recorded cases for the new row (`internal/stdlibadapters/testdata/*.golden`).
 5. `go test ./internal/hostpair ./internal/stdlibadapters ./internal/hostgen/...`.
+6. A row marked `World: Outside` is a line in the tooling reference's table
+   of outside calls (`docs/tooling.md`, "Capability lists");
+   `TestOutsideCallTableMatchesTheBindings` (`internal/docscheck`) fails
+   until the table holds it, and prints the table to paste.
 
 `TestGeneratedFileIsCurrent` fails until you regenerate, and generation refuses
 a row whose Go signature does not match its declaration. A Go parameter or
@@ -504,14 +575,20 @@ After changing `tree-sitter-nomi/grammar.js`:
    `scripts/tree-sitter.sh test` also checks the `// ^ capture` assertions
    in `tree-sitter-nomi/test/highlight/*.nomi` against this file; their
    rules are in [`tree-sitter-nomi/README.md`](tree-sitter-nomi/README.md#checks-in-the-main-repository).
-3. Update `editors/zed/languages/nomi/highlights.scm` by hand. Its priority
-   order is reversed: catch-alls first, specific patterns last.
+3. `make build-zed-queries` (step 6's targets run it too).
+   `editors/zed/languages/nomi/highlights.scm` is generated from the
+   canonical query by `scripts/sync-zed-highlights.sh`: its patterns in
+   reverse order, since Zed's last capture wins, the capture names Zed
+   styles, and the attached-test dim, written by hand in
+   `editors/zed/attached-test-dim.scm`. Never edit the generated file;
+   `go test ./internal/docscheck -run TestZedHighlightsAreGenerated` fails
+   while it is stale.
 4. `cp tree-sitter-nomi/queries/injections.scm editors/zed/languages/nomi/injections.scm`
    (a byte-identical copy).
 5. Check `editors/zed/languages/nomi/outline.scm` and `runnables.scm`:
    `grep -rn '<node>' editors/zed/languages/nomi/ editors/helix/runtime/queries/nomi/`.
 6. `make build-helix` and `make build-nvim`. Helix's `highlights.scm` and all
-   of Neovim's queries are generated; never edit them by hand. `make
+   of Neovim's queries are generated from Zed's; never edit them by hand. `make
    build-nvim` also recompiles the gitignored `editors/nvim/parser/nomi.so`
    that a Neovim loading the plugin from this checkout uses. Confirm
    `grep -rn '<node>' editors/nvim/queries/nomi/` is empty.

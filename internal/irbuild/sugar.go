@@ -13,8 +13,7 @@ import (
 //
 // # Where a default is evaluated, and why it is not the call site
 //
-// It reads like call-site sugar — Go has no default arguments, so something at
-// the call has to supply the value — but Nomi does not evaluate it there. For
+// It reads like call-site sugar, but Nomi does not evaluate it there. For
 // each parameter the call left out, the default is evaluated in the callee's
 // scope: a fresh environment off the FUNCTION'S OWN CLOSURE, after parameters
 // 0..i-1 have been bound into it. Three consequences, and each one is
@@ -25,9 +24,8 @@ import (
 //     does `c: Int = b * 10` after it.
 //  2. A default may NOT name a caller local, and a default that names a
 //     module-level binding sees the MODULE's, even where the caller shadows
-//     that name. Emitting the expression in the caller's scope would resolve it
-//     the other way round — which is the whole reason fillDefaults swaps the
-//     scope stack instead of pushing onto it.
+//     that name. Lowering the expression in the caller's scope would resolve it
+//     the other way round.
 //  3. It is evaluated once per activation that omits it, and NOT at all when
 //     the argument is supplied — so a default with a side effect fires exactly
 //     as often as the call omits it. testdata/defaults.nomi prints from inside
@@ -37,32 +35,27 @@ import (
 // That scope is also an assertion-trace boundary, so nothing a default computes
 // reaches an enclosing assertion's report. Same seam as a lambda body.
 //
-// # Why no wrapper function per arity
+// # Where a default is lowered
 //
-// The obvious encoding is one function per callable arity, forwarding to the
-// full one. It is correct and it is not needed: this builder already knows every
-// call site, so the arity is a compile-time fact and the expansion can be
-// inlined at the call with the callee's scope reconstructed. A wrapper would add
-// a function and a call per arity for no semantic gain, and the interesting
-// property — that an activation allocates nothing — is preserved either way,
-// which BenchmarkDefaultedCall measures rather than assumes.
+// fillCallDefaults (irdefaults.go) is the one place a call's omitted operands
+// are filled. A default this file declares is lowered at the call, in the
+// callee's scope, after the written operands. Another file's is a call of
+// the declaring file's accessor for the slot (siblingdefault.go).
 //
 // # A destructuring parameter
 //
-// One value, several names. Go has no destructuring, so the value arrives in
-// one anonymous Go parameter and each name the pattern introduces becomes an
-// ordinary local read out of it. lambda.go already does this for a lambda; a
-// `fn` parameter routes through the same destructure(). The pattern is
-// IRREFUTABLE — the checker rejects a
-// refutable one with a "use a `case` in the body" diagnostic — so there is no
-// mismatch branch, and destructureEnum's single-variant guard is the enforceable
-// half of that claim.
+// One value, several names. The value arrives in one parameter and each name
+// the pattern introduces is read out of it in the function's prologue
+// (funcDecl, through destructure()). The pattern is irrefutable: the checker
+// rejects a refutable one with a "use a `case` in the body" diagnostic, so
+// there is no mismatch branch, and destructureEnum's single-variant guard is
+// the enforceable half of that claim.
 
-// paramKind is a parameter's kind, resolved without emitting a refusal.
+// paramKind is a parameter's kind, resolved without reporting a refusal.
 //
 // signature() runs before any body, for every declaration in the module
 // including ones no call reaches, so it must not blame a position — funcDecl
-// names the reason for the parameters it actually emits. The two must agree on
+// names the reason for the parameters it lowers. The two must agree on
 // WHICH parameters resolve, which is why this is the one implementation and
 // patternParamKind is its reporting counterpart.
 func (g *gen) paramKind(p ast.Param) kind {
@@ -79,33 +72,12 @@ func (g *gen) paramKind(p ast.Param) kind {
 		}
 		return kindInvalid
 	}
-	// The self-typing rule: a pattern whose head NAMES a type is its own
-	// annotation. See patternParamKind for the reporting version.
-	var head ast.TypeExpr
-	switch pat := ast.WithoutAs(p.Destructure).(type) {
-	case *ast.StructPattern:
-		head = pat.TypeName
-	case *ast.EnumPattern:
-		head = pat.Variant
-	}
-	if head == nil {
-		return kindInvalid
-	}
-	if d := g.selfHeadDef(head); d != nil {
-		return named(d)
-	}
-	owner, member, ok := g.patternHead(head)
-	if !ok {
-		return kindInvalid
-	}
-	name := owner
-	if name == "" {
-		name = member
-	}
-	if d, found := g.types[name]; found && d.lowerable {
-		return named(d)
-	}
-	return kindInvalid
+	// The pattern matches the whole parameter, so its kind is the one the
+	// checker recorded for the pattern: the type its head names (the
+	// self-typing rule), or the type a lambda's position gives it. See
+	// patternParamKind for the reporting version.
+	k, _ := g.patternKind(p.Destructure)
+	return k
 }
 
 // --- call-site argument placement ------------------------------------------
@@ -122,9 +94,7 @@ func argExpr(a ast.Node) ast.Node {
 // sigParamNames is the callee's parameter names positionally, or nil when the
 // signature has no declaration behind it.
 //
-// nil is the honest answer rather than a placeholder: a synthesized signature
-// records parameter KINDS only, so there is no name to match a named argument
-// against and argSlotPlan must decline rather than guess a slot.
+// A synthesized signature records parameter kinds only.
 func sigParamNames(sig *fnSig) []string {
 	if sig == nil || sig.decl == nil || len(sig.decl.Params) != len(sig.params) {
 		return nil
@@ -134,177 +104,4 @@ func sigParamNames(sig *fnSig) []string {
 		names[i] = p.Name
 	}
 	return names
-}
-
-// argPlan is the resolved placement of a call's written arguments.
-type argPlan struct {
-	// slots maps written-argument index to the parameter slot it fills. A
-	// parameter slot absent from this vector is one no argument claimed, which
-	// is what fillDefaults completes.
-	slots []int
-	// order is the written-argument indices in EVALUATION order, which is NOT written order once a named argument is present. See
-	// the header note below.
-	order []int
-}
-
-// argSlotPlan maps each written argument to the parameter slot it fills, and
-// says in what order they are evaluated.
-//
-// This is one of several implementations of one rule and the requirement is
-// that they agree: the analyzer's own copy (computePositionalSlots), this,
-// and whatever consumes it. A partial application places its arguments by
-// this walk too (partialApplication), as the checker does.
-//
-// `names` is the callee's parameter names, positionally. Pass nil — or a
-// short slice — and named arguments cannot be placed; the caller must refuse
-// them under `named argument` rather than guess. Positional behaviour is
-// unaffected by nil, so a caller with no names available keeps working.
-//
-// Reports false when a named argument names no parameter, or when two arguments
-// claim one slot. Both are errors ("unknown parameter" / "already has a
-// value"), so this DECLINES rather than lowering a diagnostic for them.
-//
-// # EVALUATION ORDER IS NOT WRITTEN ORDER, and this is a DIFF not a refusal
-//
-// Nomi PARTITIONS the written arguments into positionals and named arguments
-// and then drains them in sequence, so every positional is evaluated before
-// any named argument and a named argument written FIRST is evaluated LAST.
-// With an effectful argument:
-//
-//	fn p(tag: String) -> String { io.print("eval " + tag)  tag }
-//	io.print(f(b: p("B"), p("A")))      =>  eval A / eval B / A/B
-//
-// Written order is B-then-A; evaluation order is A-then-B. A caller that
-// lowers each argument in turn over `t.Args` would evaluate them in written
-// order and differ on any call mixing a named argument before an effectful
-// positional. `order` exists for exactly that, and every caller that
-// hoists MUST walk it instead of the argument slice.
-//
-// Two neighbouring positions do not have the hazard:
-// struct-literal field initialisers and list-literal elements both evaluate in
-// WRITTEN order (a struct literal uses written order, NOT declared-field
-// order). The argument list is the odd one out because it is the one
-// position whose written sequence is partitioned before evaluation.
-//
-// # The three placement rules
-//
-//  1. Positionals fill left-to-right, skipping slots a name has claimed — but
-//     ONLY for a positional written AFTER a named argument. That asymmetry is
-//     what makes `each(items, opts: 8, handler)` route `handler` past claimed
-//     slot 1 while keeping `add(1, a: 2)` the duplicate it reads as.
-//  2. The trailing-lambda exception: when a call under-fills
-//     and its last positional is a lambda, a field accessor or a capture — or a
-//     bare name whose own slot does not take a function while the last
-//     parameter does — that
-//     argument MOVES to the last slot and the slot it vacates falls back to its
-//     default. SUPPRESSED when a named argument targets the last parameter
-//     (`namedTargetsLast` below), so
-//     `Task.spawn_all(items, fn x -> f(x), max_running: 8)` does not move the lambda
-//     onto `max_running`.
-//  3. Named arguments fill their own slots last.
-//
-// Rule 2 has to be decided BEFORE the arguments are lowered, because it is the
-// SLOT and not the position whose declared type each argument is checked
-// against. Reading it off the position instead type-checks `fn n -> n + 1` as an Int
-// and reports a mismatch for a call the checker accepted. A block is a value,
-// not a function, and stays in its slot: `fn pick(a: Int = 1, b: Int = 2)`
-// called `pick({ 5 })` fills `a` and answers 52.
-func argSlotPlan(args []ast.Node, params []kind, names []string) (argPlan, bool) {
-	plan := argPlan{
-		slots: make([]int, len(args)),
-		order: make([]int, 0, len(args)),
-	}
-	for i := range plan.slots {
-		plan.slots[i] = -1
-	}
-	// Partition into positionals and named arguments. `afterNamed` records which
-	// positionals may skip a claimed slot; see rule 1.
-	var positional, named []int
-	var afterNamed []bool
-	sawNamed := false
-	for i, a := range args {
-		if _, isNamed := a.(*ast.NamedArg); isNamed {
-			named = append(named, i)
-			sawNamed = true
-			continue
-		}
-		positional = append(positional, i)
-		afterNamed = append(afterNamed, sawNamed)
-	}
-	paramIdx := make(map[string]int, len(names))
-	for i, n := range names {
-		if i >= len(params) {
-			break
-		}
-		paramIdx[n] = i
-	}
-	claimedByName := make([]bool, len(params))
-	for _, i := range named {
-		slot, ok := paramIdx[args[i].(*ast.NamedArg).Name]
-		if !ok {
-			// No name table, or a name no parameter has. Either way this walk
-			// cannot place it and must not pretend to.
-			return argPlan{}, false
-		}
-		if claimedByName[slot] {
-			return argPlan{}, false
-		}
-		claimedByName[slot] = true
-	}
-	filled := make([]bool, len(params))
-	next := 0
-	for n, i := range positional {
-		if afterNamed[n] {
-			for next < len(params) && claimedByName[next] {
-				next++
-			}
-		}
-		if next >= len(params) {
-			// More positionals than slots. The arity check reports this; the
-			// plan just declines to invent a slot.
-			return argPlan{}, false
-		}
-		plan.slots[i] = next
-		filled[next] = true
-		next++
-	}
-	// Rule 2, with its restriction.
-	namedTargetsLast := len(params) > 0 && claimedByName[len(params)-1]
-	if len(positional) > 0 && len(positional) <= len(params) && !namedTargetsLast {
-		lastWritten := positional[len(positional)-1]
-		lastSlot := plan.slots[lastWritten]
-		lastParam := len(params) - 1
-		if lastSlot != lastParam && !filled[lastParam] {
-			routed := false
-			switch args[lastWritten].(type) {
-			case *ast.Lambda, *ast.FieldAccessor, *ast.Capture:
-				routed = true
-			case *ast.Ident:
-				// The SLOT the argument currently occupies decides, not its
-				// written position. Identical while every argument is
-				// positional; different the moment a name claimed an earlier
-				// slot, which is why this reads lastSlot.
-				routed = params[lastParam].tag == tagFunc && params[lastSlot].tag != tagFunc
-			}
-			if routed {
-				plan.slots[lastWritten] = lastParam
-				filled[lastParam] = true
-				filled[lastSlot] = false
-			}
-		}
-	}
-	for _, i := range named {
-		slot := paramIdx[args[i].(*ast.NamedArg).Name]
-		if filled[slot] {
-			// A positional already took the slot this name asks for —
-			// `add(1, a: 2)`, which is the "already has a value" error.
-			return argPlan{}, false
-		}
-		plan.slots[i] = slot
-		filled[slot] = true
-	}
-	// EVALUATION ORDER: every positional, then every named. See the header.
-	plan.order = append(plan.order, positional...)
-	plan.order = append(plan.order, named...)
-	return plan, true
 }

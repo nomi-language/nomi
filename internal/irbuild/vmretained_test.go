@@ -38,8 +38,8 @@ import (
 // one line per retained function, `<declaring file>:<name>\t<outcome>`,
 // where the outcome is `ran` or the failure bucket. A function added,
 // dropped or moved between buckets shows as a diff of that file and names
-// itself; regenerate with vmRetainedRegenerate and name the cause in the
-// commit message. One declaration can retain several bodies (a generic
+// itself; regenerate under NOMI_REGENERATE_EXPECTATIONS=1 and name the cause
+// in the commit message. One declaration can retain several bodies (a generic
 // function's instantiations), so a line may repeat.
 //
 // A function that ran in the committed list and no longer runs is a VM

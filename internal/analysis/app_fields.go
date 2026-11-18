@@ -198,14 +198,6 @@ func testBootCalls(nodes []ast.Node) map[Pos]bool {
 				if v.Body != nil {
 					walk(v.Body)
 				}
-			case *ast.StructDef:
-				visit(v.Items)
-			case *ast.EnumDef:
-				visit(v.Items)
-			case *ast.TypeDef:
-				visit(v.Items)
-			case *ast.ExternType:
-				visit(v.Items)
 			case *ast.ImplBlock:
 				visit(v.Items)
 			}
@@ -463,7 +455,7 @@ func checkAppRootsWith(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, u
 				if fa.Program().BootFunctions[v] && v.Name == "boot" {
 					beforeBoot(v.Body, v.Line, v.Col)
 				}
-				if v.Name == "main" && !v.ImplFunction {
+				if v.Name == "main" {
 					frame := bootFrame{}
 					if boot := findBootFunc(nodes); boot != nil && fa.Program().BootFunctions[boot] {
 						frame = frameOf(boot, boot.Line, boot.Col)
@@ -479,14 +471,6 @@ func checkAppRootsWith(fa *FileAnalysis, nodes []ast.Node, under *ast.FuncDef, u
 				} else {
 					check(w.reachable(fa, v.Body), bootFrame{}, "this test", v.Line, v.Col)
 				}
-			case *ast.StructDef:
-				roots(v.Items)
-			case *ast.EnumDef:
-				roots(v.Items)
-			case *ast.TypeDef:
-				roots(v.Items)
-			case *ast.ExternType:
-				roots(v.Items)
 			case *ast.ImplBlock:
 				roots(v.Items)
 			}

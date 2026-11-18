@@ -14,6 +14,24 @@ func (fa *FileAnalysis) recordExprType(node ast.Node, t Type) {
 	fa.ExprTypes[node] = t
 }
 
+// recordTypeExprType notes the type te resolved to, nil when it did not
+// resolve (FileAnalysis.TypeExprTypes). A type expression resolved twice
+// keeps the later type, and a failure keeps an earlier type.
+func (fa *FileAnalysis) recordTypeExprType(te ast.TypeExpr, t Type) {
+	if fa == nil {
+		return
+	}
+	if fa.TypeExprTypes == nil {
+		fa.TypeExprTypes = map[ast.TypeExpr]Type{}
+	}
+	if t == nil {
+		if _, done := fa.TypeExprTypes[te]; done {
+			return
+		}
+	}
+	fa.TypeExprTypes[te] = t
+}
+
 // recordExpectedType notes the type node was checked against
 // (FileAnalysis.ExpectedTypes).
 func (fa *FileAnalysis) recordExpectedType(node ast.Node, t Type) {
@@ -26,21 +44,29 @@ func (fa *FileAnalysis) recordExpectedType(node ast.Node, t Type) {
 	fa.ExpectedTypes[node] = t
 }
 
-// recordPatternType notes the type of the value a shape pattern or a `_`
-// matches (FileAnalysis.PatternTypes).
+// recordPatternType notes the type of the value a pattern matches
+// (FileAnalysis.PatternTypes).
 func (fa *FileAnalysis) recordPatternType(node ast.Node, t Type) {
 	if fa == nil || node == nil || t == nil {
-		return
-	}
-	switch node.(type) {
-	case *ast.ListPattern, *ast.MapPattern, *ast.StructPattern, *ast.TuplePattern, *ast.WildcardPattern:
-	default:
 		return
 	}
 	if fa.PatternTypes == nil {
 		fa.PatternTypes = map[ast.Node]Type{}
 	}
 	fa.PatternTypes[node] = t
+}
+
+// recordPatternVariant notes the variant head, a pattern's head, names, by
+// its declared name in the enum PatternTypes records for the pattern
+// (FileAnalysis.PatternVariants).
+func (fa *FileAnalysis) recordPatternVariant(head ast.TypeExpr, variant string) {
+	if fa == nil || head == nil || variant == "" {
+		return
+	}
+	if fa.PatternVariants == nil {
+		fa.PatternVariants = map[ast.TypeExpr]string{}
+	}
+	fa.PatternVariants[head] = variant
 }
 
 // ResolveTypeVar follows a type variable to the type it was solved to. Any

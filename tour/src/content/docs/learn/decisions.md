@@ -1,6 +1,6 @@
 ---
 title: "6. Decisions"
-description: "First Steps, lesson 6: choosing between two values with if, between more with case, and checking a number before dividing by it."
+description: "First Steps, lesson 6: choosing between two values with if, and between more with case."
 ---
 
 A program often has to choose. `if`, `then` and `else` choose between two
@@ -48,47 +48,6 @@ dbg line 10: size(5) = "small"
 dbg line 11: size(50) = "medium"
 dbg line 12: size(500) = "large"
 -->
-
-`if` is also how you divide safely. Dividing a whole number by zero has no
-answer, so when the Int you divide by could be zero, Nomi won't run your
-code until you check it. Here `share` splits some sweets between children,
-and nothing stops `children` from being 0:
-
-```nomi-run error
-fn share(sweets: Int, children: Int) -> Int
-    sweets / children
-end
-
-fn main()
-    dbg share(10, 3)
-end
-```
-<!-- expect
-main.nomi:2:14: `/` divides by a NonZeroInt; `children` is an Int
-main.nomi:2:14: help: check it first (`if children == 0 then ...`) or take a NonZeroInt
--->
-
-The message says `/` wants a **NonZeroInt**, a whole number that is never
-zero. Its help says what to do: check it first.
-
-```nomi-run
-fn share(sweets: Int, children: Int) -> Int
-    if children == 0 then 0 else sweets / children
-end
-
-fn main()
-    dbg share(10, 3)
-    dbg share(10, 0)
-end
-```
-<!-- expect
-dbg line 6: share(10, 3) = 3
-dbg line 7: share(10, 0) = 0
--->
-
-In the `else`, `children` can't be zero, and Nomi knows it, so the division
-is allowed there. You choose the answer for when there is no one to share
-with: here, 0 each. Nomi checks a Decimal you divide by in the same way.
 
 ## Your turn
 

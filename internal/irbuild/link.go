@@ -152,8 +152,16 @@ func (g *gen) linkName(token any, name string) string {
 			return ""
 		}
 		return within(g.typeLink(t.def), "."+t.variant+"."+t.field+" default")
+	case irSlotDispatchToken:
+		return within(g.linkName(t.method, name), " default "+strconv.Itoa(t.slot+1))
 	case irIfaceSlotDefault:
-		return within(g.declLink(t.im), "<"+t.kinds+"> default "+strconv.Itoa(t.slot+1))
+		link := within(g.declLink(t.im), "<"+t.kinds+"> default "+strconv.Itoa(t.slot+1))
+		if t.recv >= 0 {
+			return within(link, " by "+strconv.Itoa(t.recv+1))
+		}
+		return link
+	case irKeyedSlotDefault:
+		return within(t.callee.Link(), " default "+strconv.Itoa(t.slot+1)+" by "+strconv.Itoa(t.key+1))
 	case irFileSlotDefault:
 		return within(t.callee.Link(), " default "+strconv.Itoa(t.slot+1))
 	case irSlotDefault:
@@ -165,8 +173,6 @@ func (g *gen) linkName(token any, name string) string {
 		return within(stdFuncLink(g, t.f), " default "+strconv.Itoa(t.slot+1))
 	case irBootDefaultToken:
 		return within(g.declLink(t.boot), " startup default")
-	case irStdArity:
-		return within(stdFuncLink(g, t.f), " arity "+strconv.Itoa(t.arity))
 	case literalCellKey:
 		// A program file's typed literal cell, which a refinement
 		// literal's build reads from outside the file's module
@@ -211,7 +217,8 @@ func stdInstLinkArgs(inst *stdInst) string {
 // declaration. "" outside any.
 func (g *gen) substLinkKey() string {
 	var b strings.Builder
-	for _, frame := range g.genericSubst {
+	for _, f := range g.genericSubst {
+		frame := f.kinds
 		names := make([]string, 0, len(frame))
 		for n := range frame {
 			names = append(names, n)

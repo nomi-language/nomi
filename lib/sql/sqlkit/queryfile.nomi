@@ -438,7 +438,7 @@ end
 // each piece with the index it starts at.
 fn split(chars: Vector<String>, from: Int, to: Int) -> List<(Int, String)>
     (pieces, start, _) = Iter.reduce(Iter.from(from)
-    |> Iter.take(to - from), ([], from, 0), fn acc, i ->
+    |> Iter.take(Int.max(to - from, 0)), ([], from, 0), fn acc, i ->
         (pieces, start, depth) = acc
         c = at(chars, i)
 

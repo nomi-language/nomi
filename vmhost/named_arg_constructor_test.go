@@ -5,8 +5,8 @@ import "testing"
 // Positional construction still checks and runs once a named argument to a
 // positional constructor is an error (internal/analysis
 // named_arg_constructor_test.go), and an interface-qualified call takes the
-// interface method's parameter names, evaluated in Nomi's order: positionals
-// first, then named arguments as written.
+// interface method's parameter names, with its arguments evaluated left to
+// right as written, a named one before a positional one written after it.
 func TestNamedArgConstructor_PositionalFormsAndInterfaceNamesRun(t *testing.T) {
 	got := runSourceOutput(t, `import std::io
 
@@ -69,8 +69,8 @@ end
 say 10
 mk
 10 1
-mk
 say 11
+mk
 1 11
 mk
 say 12

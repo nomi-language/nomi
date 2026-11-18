@@ -26,7 +26,9 @@ package vmhost
 //     reaches more than maxRelowered files and a quarter of the program is
 //     a miss;
 //   - each is checked against the interfaces of the files it reads
-//     (analysis.NewStoredInterfaces), with no diagnostic;
+//     (analysis.NewStoredInterfaces), with no diagnostic, its own or one
+//     its build works out about the program's impls (a duplicate impl
+//     block, the orphan rules: analysis.FileCheck.Clean);
 //   - the program's reductions over bodies (boot-only calls,
 //     application-field roots, whole-file imports, missing impls) run over
 //     the checked files' new facts and the others' stored ones
@@ -518,7 +520,7 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 				continue
 			}
 			check = pi.Check(key)
-			if len(check.Build)+len(check.Check)+len(check.EntryChecks)+len(check.FrontEnd) > 0 {
+			if !check.Clean() {
 				why = key + " has diagnostics"
 				return nil, false
 			}
@@ -637,6 +639,12 @@ func (c *Cache) relink(cfg config) (p *Program, ok bool) {
 	p.advice = &advice
 	if p.entry == nil && (p.HasMain() || rec.HasTests) || !p.runsClean() || p.Unsupported() != nil {
 		why = "the program reaches something a machine cannot run"
+		return nil, false
+	}
+	// An edit to a body can reach what nomi.toml's [capabilities] lists do
+	// not allow; the load that is made instead reports it.
+	if p.capabilityError(p.checkedRoots()...) != nil {
+		why = "nomi.toml's [capabilities] lists do not allow what the program reaches"
 		return nil, false
 	}
 	// Every typed literal the program checks at load, kept or lowered

@@ -14,7 +14,7 @@ package irbuild
 //
 // A MARKER IS NOT A CONSTRUCTION. `type Expired` has no inner at all —
 // `d.inner` is `kindInvalid`, which `zeroSizedOn` reads as "no storage" — so it
-// is an `ir.Const` (`irMarkerValue`, `ir.NewMarker`).
+// is an `ir.Const` (`markerValue`, `ir.NewMarker`).
 //
 // # What the node carries, and the name it carries it under
 //
@@ -80,8 +80,8 @@ func irCompositeDistinctIn(d *typeDef, outer []*typeDef) bool {
 		// stack-less predicates below would re-enter this one without end.
 		return irRecursiveFieldKind(in, deciding)
 	}
-	return irRetainedTupleKind(in) || (in.tag == tagMap && in != kindEmptyMap && irRetainedMapKind(in)) ||
-		(in.tag == tagList && in != kindEmptyList && irRetainedValueKind(in)) ||
+	return irRetainedTupleKind(in) || (in.tag == tagMap && irRetainedMapKind(in)) ||
+		(in.tag == tagList && irRetainedValueKind(in)) ||
 		(in.tag == tagFunc && irCallableValueKind(in)) || irNominalInner(in)
 }
 
@@ -133,10 +133,10 @@ func irNominalInner(in kind) bool {
 		return irConcHandleKind(in)
 	}
 	if _, isSet := setElem(in); isSet {
-		return in != kindEmptySet && irRetainedSetKind(in)
+		return irRetainedSetKind(in)
 	}
 	if _, isVector := vectorElem(in); isVector {
-		return in != kindEmptyVector && irRetainedValueKind(in)
+		return irRetainedValueKind(in)
 	}
 	n := in.def
 	return irRetainedStructKind(n) || irRetainedEnumKind(n) || irWrappingDistinct(n) || irCompositeDistinct(n)
@@ -166,11 +166,10 @@ func irDistinctOverKind(k kind, inner tag) bool {
 // markers.
 //
 // SEPARATE FROM `irScalarLeafKind` RATHER THAN A WIDENING OF IT, because the
-// two answer different questions and three callers want the narrow one.
+// two answer different questions and some callers want the narrow one.
 // `irArithKind` is defined over the arithmetic DOMAINS and `rt` has a shape
 // per operator per domain, so `binary` and `unary` still ask the scalar
-// predicate; an interpolation hole asks it because `displayRendering` has a
-// refusing arm for every other kind; and `bl.call`'s result asks it.
+// predicate, and `bl.call`'s result asks it.
 func irRetainedLeafKind(k kind) bool {
 	if irScalarLeafKind(k) || k == kindNever {
 		return true
@@ -181,12 +180,9 @@ func irRetainedLeafKind(k kind) bool {
 // distinctMake lowers `Meters(5)` — a wrapping distinct's one constructor —
 // as an `ir.Make`.
 //
-// IT RESOLVES THE NAME AND NOT THE NODE'S REFUSAL PATH. `distinctCallNamed`
-// is the lowering's owner for this call and it REPORTS — `marker
-// construction`, `call arity`, `argument type mismatch`, an unlowerable
-// declaration — which this must not do a second time: the builder declines,
-// the caller falls back to `blockInto`, and `gen.call` reaches the same owner
-// and reports there. So every check here is a decline and none is a reject.
+// IT RESOLVES THE NAME AND REPORTS NOTHING. The front end checks the call's
+// arity and its argument's type, so every check here is a decline and none is
+// a reject.
 //
 // THE TUPLE-FLAT ARM IS NOT REPRODUCED. `Coord(3, 4)` writes a tuple inner
 // flat, which is the other legal arity; a tuple inner is not a scalar so
@@ -237,18 +233,6 @@ func (g *gen) selfDistinct() *typeDef {
 	return ds.recv.def
 }
 
-// selfHeadDef is the distinct type a `self` pattern head names in a default
-// being lowered (selfDistinct), or nil for any other head. Read before a
-// head's name is looked up: a default lowered in its declaring file for
-// another file's type may have no name for the type, or one that names a
-// type of its own.
-func (g *gen) selfHeadDef(head ast.TypeExpr) *typeDef {
-	if _, isSelf := head.(*ast.SelfType); isSelf {
-		return g.selfDistinct()
-	}
-	return nil
-}
-
 // distinctMakeOf is distinctMake for the declaration d: `self(x)` in a
 // default names it through the implementor rather than a type name.
 func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kind, bool, bool) {
@@ -262,9 +246,8 @@ func (bl *irScalarBuilder) distinctMakeOf(t *ast.Call, d *typeDef) (ir.Temp, kin
 	}
 	src, k, pure, ok := bl.lower(t.Args[0])
 	if !ok || k != d.inner {
-		// The declared inner is what the constructor takes. A mismatch is
-		// `distinctCallNamed`'s `argument type mismatch` and is reported
-		// there.
+		// The declared inner is what the constructor takes. A mismatch
+		// declines.
 		return no()
 	}
 	m := ir.NewMakeDistinct(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irTypeSym(d), src)
@@ -349,8 +332,7 @@ func (g *gen) irTypeSym(d *typeDef) *ir.Symbol {
 // `duration.Duration` rather than `Duration`. So the name is also the
 // identity as far as runtime values are concerned, and a bare one is a silent
 // wrong answer: a value without it misses every impl and `==` falls back to
-// structural comparison, with no error. Nothing else would catch a bare name:
-// no emitted text reads a symbol's name. irdistinct_identity_test.go holds
+// structural comparison, with no error. irdistinct_identity_test.go holds
 // every identity qualified.
 //
 // THE QUALIFIER IS THE DECLARING MODULE'S AND NOT THIS GEN'S. A MIRROR — a
@@ -387,32 +369,43 @@ func (g *gen) irTypeSymName(d *typeDef) string {
 }
 
 // stdSpecTypeName is the module-qualified spelling of a std type with one
+// process-wide def and no declaration a gen owns (stdSpecOf), and false
+// for any other def.
+func stdSpecTypeName(d *typeDef) (string, bool) {
+	origin, nomi, ok := stdSpecOf(d)
+	if !ok {
+		return "", false
+	}
+	return irModuleQualifier(origin) + "." + nomi, true
+}
+
+// stdSpecOf is the declaring module and name of a std type with one
 // process-wide def and no declaration a gen owns (a row of stdEnumSpecs,
 // stdStructSpecs, opaqueSpecs or stdHostSpecs, a prelude anchor, a std
 // generic struct instance), and false for any other def.
-func stdSpecTypeName(d *typeDef) (string, bool) {
+func stdSpecOf(d *typeDef) (origin, nomi string, ok bool) {
 	if i, ok := stdEnumDef(d); ok {
 		spec := stdEnumSpecs[i]
-		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+		return spec.origin, spec.nomi, true
 	}
 	if i, ok := stdStructIndex(d); ok {
 		spec := stdStructSpecs[i]
-		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+		return spec.origin, spec.nomi, true
 	}
 	if d.preludeOf != nil {
 		spec := d.preludeOf.spec
-		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+		return spec.origin, spec.nomi, true
 	}
 	if spec, ok := namedPayloadSpecOf(d); ok {
 		// `std/tasks.Failure`: one process-wide typeDef, as a stdEnumSpecs
 		// row is, named by its declaring module.
-		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+		return spec.origin, spec.nomi, true
 	}
 	if spec := d.genStructOf; spec != nil {
 		// A std generic struct instance (`Generator<Int>`) is its
 		// declaration: it renders as `Generator{...}`, and d.nomi
 		// spells the arguments only to key the instance.
-		return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+		return spec.origin, spec.nomi, true
 	}
 	// A std opaque or distinct with an rt Go type (`Codepoint`, `Duration`)
 	// is one process-wide typeDef that every gen shares and none declares,
@@ -421,7 +414,7 @@ func stdSpecTypeName(d *typeDef) (string, bool) {
 	for i, od := range opaqueDefs() {
 		if od == d {
 			spec := opaqueSpecs[i]
-			return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+			return spec.origin, spec.nomi, true
 		}
 	}
 	// An origin-identified std `host type` (`Regex`, `Context`) is likewise
@@ -430,10 +423,10 @@ func stdSpecTypeName(d *typeDef) (string, bool) {
 	for i, hd := range stdHostDefs() {
 		if hd == d && stdHostSpecs[i].origin != "" {
 			spec := stdHostSpecs[i]
-			return irModuleQualifier(spec.origin) + "." + spec.nomi, true
+			return spec.origin, spec.nomi, true
 		}
 	}
-	return "", false
+	return "", "", false
 }
 
 // irModuleQualifier is the module name a Nomi file key qualifies with.

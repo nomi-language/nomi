@@ -33,14 +33,18 @@ func (c *checker) explainOwnerTypeParams(fn *ast.FuncDef, from int) {
 	owner := TypeExprBaseName(ib.Receiver)
 	for i := from; i < len(c.errors); i++ {
 		e := &c.errors[i]
-		if !strings.HasPrefix(e.Message, "unknown type ") {
+		if e.Code != UnknownTypeCode {
 			continue
 		}
-		for name := range blockTP {
-			if _, own := c.fnTypeParams[name]; own || e.Message != fmt.Sprintf("unknown type %q", name) {
-				continue
-			}
+		name := e.Args[0]
+		if _, own := c.fnTypeParams[name]; own {
+			continue
+		}
+		if _, ofBlock := blockTP[name]; ofBlock {
+			// The error now says why the name is out of reach, so it is
+			// no longer an unknown type's.
 			e.Message, e.Hints = ownerTypeParamText(name, owner, fn.Name)
+			e.Code, e.Args = "", nil
 		}
 	}
 }

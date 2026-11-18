@@ -59,18 +59,6 @@ func listRemoveAtHost(_ *Machine, _ ir.Pos, args []any) (v any, err error) {
 	return some(rt.ListCellRemoveAt[any, list](xs, index)), nil
 }
 
-// recoverTrap turns rt's trap, raised by an rt kernel a host calls, into
-// this machine's fault, as callAdapter does for an adapter's.
-func recoverTrap(err *error) {
-	if p := recover(); p != nil {
-		if fault, ok := p.(*rt.Error); ok {
-			*err = &Fault{err: fault}
-			return
-		}
-		panic(p)
-	}
-}
-
 // listContainsHost is `List.contains`: rt's cell walk comparing each element
 // with x as `==` does (keys.go), so a List of declared records reaches their
 // own Equatable and every other element is compared in rt, with no Nomi call.

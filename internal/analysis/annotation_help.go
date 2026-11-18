@@ -525,31 +525,31 @@ func (c *checker) operandAnnotationHelpWith(e TypeError, ns []ast.Node, ts []Typ
 	return e
 }
 
-// spreadAnnotationHelp is e, the error that two spreads of the list literal
-// n have element types a and b that do not unify, with the help that
-// annotates the bindings its spreads read as one list type. Every spread
-// must have been checked, and each element must check against the
-// suggested element type.
-func (c *checker) spreadAnnotationHelp(e TypeError, n *ast.ListLit, a, b Type) TypeError {
+// spreadAnnotationHelp is e, the error that two spreads of a list, vector
+// or set literal of shape have element types a and b that do not unify,
+// with the help that annotates the bindings its spreads read as one
+// collection type. Every spread must have been checked, and each of items,
+// the literal's elements, must check against the suggested element type.
+func (c *checker) spreadAnnotationHelp(e TypeError, spreads []ast.Spread, items []ast.Node, shape spreadShape, a, b Type) TypeError {
 	if c.annotationTrial || c.fa == nil {
 		return e
 	}
-	ns := make([]ast.Node, len(n.Spreads))
-	ts := make([]Type, len(n.Spreads))
-	for i, sp := range n.Spreads {
+	ns := make([]ast.Node, len(spreads))
+	ts := make([]Type, len(spreads))
+	for i, sp := range spreads {
 		t, ok := c.fa.ExprTypes[sp.Head]
 		if !ok || t == nil {
 			return e
 		}
 		ns[i], ts[i] = sp.Head, t
 	}
-	return c.operandAnnotationHelpWith(e, ns, ts, a, b, listOf, func(t Type) bool {
-		lt, ok := t.(*ListType)
+	return c.operandAnnotationHelpWith(e, ns, ts, a, b, shape.spell, func(t Type) bool {
+		elem, ok := shape.elemOf(t)
 		if !ok {
 			return false
 		}
-		for _, item := range n.Items {
-			if !c.annotationTrialPasses(item, lt.Elem) {
+		for _, item := range items {
+			if !c.annotationTrialPasses(item, elem) {
 				return false
 			}
 		}

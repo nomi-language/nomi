@@ -451,7 +451,7 @@ module.exports = grammar({
       alias($._import_path_keyword, $.identifier),
     ),
 
-    _import_path_keyword: _ => token(prec(-1, /and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|tap|test|then|todo|type(alias)?|unreachable|where|with/)),
+    _import_path_keyword: _ => token(prec(-1, /and|as|assert|begin|break|case|continue|dbg|defer|else|end|enum|export|extern|fn|for|if|impl|import|in|interface|is|not|once|opaque|or|pub|refute|return|self|setup|struct|subtype|tap|test|then|todo|type(alias)?|unreachable|when|where|with/)),
 
     import_selector: $ => prec.right(seq(
       ':',
@@ -861,7 +861,6 @@ module.exports = grammar({
       'interface',
       field('name', $.type_identifier),
       optional($.type_parameters),
-      optional(seq('extends', $._type)),
       optional($.where_clause),
       typeBody($, $.interface_method),
     ),
@@ -2182,29 +2181,9 @@ module.exports = grammar({
     // `in` is the membership test (`x in xs`), at `==`'s precedence. The
     // compiler rejects a chain with a comparison (`x in a < b`), which this
     // grammar reads by precedence.
-    binary_expression: $ => choice(
-      ...[
-        ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
-        ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
-        ['==', 4], ['!=', 4], ['in', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
-      ].map(([op, p]) =>
-        prec.left(p, seq($._expression, op, $._expression))
-      ),
-      prec.left(3, seq($._expression, 'and', $._expression)),
-      prec.left(2, seq($._expression, 'or', $._expression)),
-    ),
+    binary_expression: $ => binaryExpression($._expression),
 
-    lambda_body_binary_expression: $ => choice(
-      ...[
-        ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
-        ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
-        ['==', 4], ['!=', 4], ['in', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
-      ].map(([op, p]) =>
-        prec.left(p, seq($._lambda_body_expression, op, $._lambda_body_expression))
-      ),
-      prec.left(3, seq($._lambda_body_expression, 'and', $._lambda_body_expression)),
-      prec.left(2, seq($._lambda_body_expression, 'or', $._lambda_body_expression)),
-    ),
+    lambda_body_binary_expression: $ => binaryExpression($._lambda_body_expression),
 
     // `value is Pattern`: whether the value matches the pattern, as a `case`
     // arm's would. It binds like `==` (4), so `not x is P` negates the test
@@ -2439,6 +2418,22 @@ module.exports = grammar({
     ))),
   },
 });
+
+// The operators of a `binary_expression` over operand, each at its level,
+// reading left to right. The levels are the Go parser's
+// (internal/token/precedence.go), as are those of `is`, `as`, the ranges,
+// `|>` and the prefix operators above; TestPrecedenceTablesMatch
+// (internal/docscheck) holds every one of them to that table.
+function binaryExpression(operand) {
+  return choice(
+    ...[
+      ['+', 8], ['-', 8], ['*', 9], ['/', 9], ['%', 9],
+      ['|||', 8], ['^^^', 8], ['&&&', 9], ['<<<', 9], ['>>>', 9],
+      ['==', 4], ['!=', 4], ['in', 4], ['<', 5], ['>', 5], ['<=', 5], ['>=', 5],
+      ['and', 3], ['or', 2],
+    ].map(([op, p]) => prec.left(p, seq(operand, op, operand))),
+  );
+}
 
 function commaSep(rule) {
   return optional(commaSep1(rule));

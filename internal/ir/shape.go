@@ -159,9 +159,8 @@ func (s ValShape) String() string {
 // disagreement rule rather than short-circuited. Nothing in a body writes a
 // parameter's temporary today, so the merge is a one-member set in every graph
 // the producer builds — but a `Copy` into a parameter's temporary is a legal
-// graph (`irtail.go`'s self-recursive hop rebinds parameters), and treating
-// the declaration as authoritative there would describe the entry and report
-// the hop.
+// graph, and treating the declaration as authoritative there would describe
+// the entry and report the copy.
 func shapeOfTemp(f *Func, t Temp, depth int) ValShape {
 	return newShapes(f).ofTemp(t, depth)
 }
@@ -346,9 +345,10 @@ func (s *shapes) written(in Instr, depth int) ValShape {
 //
 // Ten positions: every operand-type check the VM makes except the `io.print`
 // operand. That one is not a position in this graph at all:
-// `vm.go` checks it inside a HOST FUNCTION, reached through the machine's own
-// `m.hosts` binding, and which Go function a `Crosses()` call lands on is the
-// consumer's answer rather than a fact the representation states.
+// `internal/vm/vm.go` checks it inside a HOST FUNCTION (`outputHost`),
+// reached through the machine's own `m.hosts` binding, and which Go function
+// a `Crosses()` call lands on is the consumer's answer rather than a fact the
+// representation states.
 func lintOperandShapes(f *Func, vs *[]Violation) {
 	sh := newShapes(f)
 	report := func(pos Pos, what, position string, got, want ValShape) {

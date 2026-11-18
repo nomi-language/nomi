@@ -11,14 +11,18 @@ import (
 // walks (spec §13 *The Iter protocol*). Which walk the view is (a List's,
 // a String's, a Range's, a type's own `impl Iter`, ...) is the checker's
 // record of the source expression (analysis.FileAnalysis.IterViews), read
-// here. The sources with no expression the checker typed against an Iter
-// are read from their kind (viewSourceOfKind): an instance of a type
-// parameter bounded by Iter (analysis.IterViewBound), whose instances each
-// have their own walk; a value in the body of an adapter the builder
-// makes (a widened function's parameter or result, an element rebuilt at
-// a wider type, a function value forwarding its parameters, each result of
-// a `flat_map` callback); a spread's part; and the receiver of a call its
-// own type names (`Range.each_while`, `String.each_while`).
+// here. The record is what chooses among a type's own `impl Iter` blocks;
+// a source without one is read from its kind (viewSourceOfKind), which
+// names the walk of every built-in source and of a type with one impl: an
+// instance of a type parameter bounded by Iter (analysis.IterViewBound),
+// whose instances each have their own walk; a value in the body of an
+// adapter the builder makes (a widened function's parameter or result, an
+// element rebuilt at a wider type, a function value forwarding its
+// parameters, each result of a `flat_map` callback); a source below the
+// top of the expression's type (a field of a `Box<Vector<Int>>` entering a
+// `Box<Iter<Display>>`, the error of a `?`); a spread's part; and the
+// receiver of a call its own type names (`Range.each_while`,
+// `String.each_while`).
 
 // viewSeq is the domain of a source that is a sequence already: a value
 // of type `Iter<T>`, which has no view of its own.
@@ -62,36 +66,24 @@ func (g *gen) iterViewAt(n ast.Node) *analysis.IterView {
 }
 
 // viewSourceAt is the source expression at, of kind sk, as the checker
-// recorded its view. A sequence has no record and is itself, and so is a
-// value in an adapter's body (unwritten) or a stand-in for a parameter
-// (placed), which have no expression of their own: their kind names their
-// source. A written expression with no record is no source this builder
-// views.
+// recorded its view, and with no record, as its kind names it
+// (viewSourceOfKind). The record chooses among a type's `impl Iter`
+// blocks; every other source's kind names its one walk. No record is
+// written for a sequence, which is itself; for a value in an adapter's body
+// (unwritten), a stand-in for a parameter or the receiver of a call its
+// own type names (`Range.each_while(r, f)`, at nil), which have no
+// expression of their own; or for an expression whose own type is no
+// source and holds one below its top, which the node is only the position
+// of (`open(b)` for a `b: Box<Vector<Int>>` at a `Box<Iter<Display>>`, the
+// `?` of a `Result<Int, Vector<Int>>` whose boundary's error is an
+// `Iter<Display>`).
 func (bl *irScalarBuilder) viewSourceAt(at ast.Node, sk kind) (viewSource, bool) {
-	if sk.tag == tagSeq || bl.unwritten {
-		return bl.viewSourceOfKind(sk)
+	if sk.tag != tagSeq && !bl.unwritten {
+		if rec := bl.g.iterViewAt(at); rec != nil && rec.Domain != analysis.IterViewBound {
+			return bl.viewSourceIn(rec.Domain, rec.Impl, sk)
+		}
 	}
-	rec := bl.g.iterViewAt(at)
-	if _, placed := bl.placed[at]; rec == nil && placed {
-		return bl.viewSourceOfKind(sk)
-	}
-	if rec == nil {
-		return viewSource{}, false
-	}
-	if rec.Domain == analysis.IterViewBound {
-		return bl.viewSourceOfKind(sk)
-	}
-	return bl.viewSourceIn(rec.Domain, rec.Impl, sk)
-}
-
-// viewSourceFor is the source at as viewSourceAt reads it, or, for at nil,
-// as its kind sk names it: a call whose callee's own type names the
-// source (`Range.each_while(r, f)`), or a value with no expression.
-func (bl *irScalarBuilder) viewSourceFor(at ast.Node, sk kind) (viewSource, bool) {
-	if at == nil {
-		return bl.viewSourceOfKind(sk)
-	}
-	return bl.viewSourceAt(at, sk)
+	return bl.viewSourceOfKind(sk)
 }
 
 // viewSourceIn is a value of kind sk in the domain dom the checker
@@ -113,12 +105,10 @@ func (bl *irScalarBuilder) viewSourceIn(dom analysis.IterViewDomain, impl *ast.I
 		vs.elem, ok = irIterRangeElem(sk)
 	case analysis.IterViewVector:
 		vs.elem, ok = vectorElem(sk)
-		ok = ok && sk != kindEmptyVector
 	case analysis.IterViewSet:
 		vs.elem, ok = setElem(sk)
-		ok = ok && sk != kindEmptySet
 	case analysis.IterViewMap:
-		if sk.tag == tagMap && sk != kindEmptyMap && sk.comp != nil && len(sk.comp.parts) == 2 {
+		if sk.tag == tagMap && sk.comp != nil && len(sk.comp.parts) == 2 {
 			vs.elem, ok = bl.g.tupleKind([]kind{sk.comp.parts[0], sk.comp.parts[1]}), true
 		}
 	case analysis.IterViewMaybe:
@@ -141,7 +131,7 @@ func (bl *irScalarBuilder) viewSourceIn(dom analysis.IterViewDomain, impl *ast.I
 func (bl *irScalarBuilder) viewSourceOfKind(sk kind) (viewSource, bool) {
 	if sk.tag == tagSeq {
 		if sk.comp == nil || len(sk.comp.parts) != 1 {
-			return viewSource{}, false
+			panic("irbuild: viewSourceOfKind: a sequence kind is interned with its one element")
 		}
 		return viewSource{dom: viewSeq, elem: seqElem(sk)}, true
 	}
@@ -189,20 +179,6 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 	if sk == seqKindIn(bl.g, elem) {
 		return src, true
 	}
-	if sk == kindEmptyList || sk == kindEmptySet || sk == kindEmptyVector {
-		// `[]`, `[]` or `[]` entering an `Iter<T>` is built at T.
-		target := bl.g.listKind(elem)
-		if sk == kindEmptySet {
-			target = bl.g.setKindOf(elem)
-		} else if sk == kindEmptyVector {
-			target = bl.g.vectorKindOf(elem)
-		}
-		v, k, ok := bl.coerceEmpty(at, src, sk, target)
-		if !ok {
-			return ir.NoTemp, false
-		}
-		src, sk = v, k
-	}
 	vs, ok := bl.viewSourceAt(at, sk)
 	if !ok {
 		return ir.NoTemp, false
@@ -211,82 +187,98 @@ func (bl *irScalarBuilder) seqView(at ast.Node, src ir.Temp, sk, elem kind) (ir.
 }
 
 // viewAs views src, a value of kind sk walked as vs, as an `Iter<elem>`.
-// A source whose element is not elem but becomes it (`it: Iter<Shape> =
-// [circle]` for `enum Shape { embeds Circle }`) is viewed at its own
-// element, and each element converted as it is read (rebuildAdapter: an
-// embedded value widened, a Maybe<Circle> rebuilt as a Maybe<Shape>, a
-// List<Int> viewed as an Iter<Int>, a value that enters an interface
-// boxed boxed).
+// Whether the source's own elements are elem's already is one test for
+// every domain: `it: Iter<Shape> = [circle]` for an interface Shape,
+// `show(1..3)`, `show("ab")`, `show(a_set)` or `count({1 => 2})` into an
+// `Iter<Display>` walk the source as it is, since an existential is the
+// concrete value. A source whose element is not elem but becomes it (`it:
+// Iter<Shape> = [circle]` for `enum Shape { embeds Circle }`) is viewed at
+// its own element, and each element converted as it is read
+// (rebuildAdapter: an embedded value widened, a Maybe<Circle> rebuilt as a
+// Maybe<Shape>, a List<Int> viewed as an Iter<Int>, a value that enters an
+// interface boxed boxed). A domain's own part is only the view over it
+// (viewOwn), so no domain decides what enters an interface.
 func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSource, elem kind) (ir.Temp, bool) {
 	want := seqKindIn(bl.g, elem)
 	if sk == want {
 		return src, true
 	}
-	view := func(over ir.IterDomain, operands ...ir.Temp) ir.Temp {
+	own, from := vs.dom != viewSeq, vs.elem
+	asItIs := from == elem || bl.erasesUnboxed(elem, from)
+	if !asItIs && !irCallableValueKind(from) {
+		// An element no adapter takes is elem's when it is the interface's
+		// or the conjunction's value all the same.
+		if !irHeldKind(elem) || !bl.g.irErases(elem, from) {
+			return ir.NoTemp, false
+		}
+		asItIs = true
+	}
+	if asItIs {
+		if !own {
+			// A sequence of another kind whose elements are elem's: the
+			// caller relabels it (relabels).
+			return ir.NoTemp, false
+		}
+		return bl.viewOwn(at, src, sk, vs, elem)
+	}
+	fn, ok := bl.rebuildAdapter(at, from, elem)
+	if !ok {
+		return ir.NoTemp, false
+	}
+	if own {
+		if src, ok = bl.viewOwn(at, src, sk, vs, from); !ok {
+			return ir.NoTemp, false
+		}
+	}
+	return bl.iterAppend(at, ir.IterMap, ir.IterOverSeq, want, src, fn), true
+}
+
+// viewOwn views src, a collection of kind sk walked as vs, as an
+// `Iter<elem>` over the elements it holds, which viewAs found to be elem's
+// already: the domain's own view and nothing else.
+func (bl *irScalarBuilder) viewOwn(at ast.Node, src ir.Temp, sk kind, vs viewSource, elem kind) (ir.Temp, bool) {
+	want := seqKindIn(bl.g, elem)
+	view := func(over ir.IterDomain, operands ...ir.Temp) (ir.Temp, bool) {
 		n := ir.NewIter(bl.g.irNodePos(at), bl.f.NewTemp(), ir.IterView, over, operands...)
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: want})
-		return n.Dst()
-	}
-	converted := func() (ir.Temp, bool) {
-		from := vs.elem
-		if from == elem || !irCallableValueKind(from) || bl.erasesUnboxed(elem, from) {
-			return ir.NoTemp, false
-		}
-		fn, ok := bl.rebuildAdapter(at, from, elem)
-		if !ok {
-			return ir.NoTemp, false
-		}
-		inner := src
-		if vs.dom != viewSeq {
-			if inner, ok = bl.viewAs(at, src, sk, vs, from); !ok {
-				return ir.NoTemp, false
-			}
-		}
-		return bl.iterAppend(at, ir.IterMap, ir.IterOverSeq, want, inner, fn), true
+		return n.Dst(), true
 	}
 	switch vs.dom {
-	case viewSeq:
-		return converted()
 	case analysis.IterViewList:
-		if vs.elem == elem || bl.erasesUnboxed(elem, vs.elem) {
-			// `it: Iter<Shape> = [circle]` for an interface Shape: an
-			// existential is the concrete value, so each element is
-			// already the interface's value and the list is viewed as it
-			// is.
-			return view(ir.IterOverList, src), true
-		}
-		return converted()
+		return view(ir.IterOverList, src)
 	case analysis.IterViewString:
-		// `show("ab")` for `fn show(xs: Iter<Display>)`: each grapheme is
-		// already the interface's value, as a list's element is; an
-		// element of another kind is converted as it is read.
-		if elem == kindString || bl.erasesUnboxed(elem, kindString) {
-			return view(ir.IterOverString, src), true
-		}
-		return converted()
+		return view(ir.IterOverString, src)
 	case analysis.IterViewBytes:
-		if elem == irByteKind() || bl.erasesUnboxed(elem, irByteKind()) {
-			return view(ir.IterOverBytes, src), true
+		return view(ir.IterOverBytes, src)
+	case analysis.IterViewVector:
+		return view(ir.IterOverVector, src)
+	case analysis.IterViewSet:
+		return view(ir.IterOverSet, src)
+	case analysis.IterViewMaybe:
+		return view(ir.IterOverMaybe, src)
+	case analysis.IterViewMap:
+		if vs.elem == elem {
+			return bl.mapView(at, src, sk, vs.elem), true
 		}
-		return converted()
+		// `count({1 => 2})` into an `Iter<Display>`: each `(K, V)` pair is
+		// already the interface's value.
+		return view(ir.IterOverMap, src)
+	case analysis.IterViewImpl:
+		// The view's operands are the impl's functions, whatever the
+		// element.
+		return bl.userView(at, src, sk, vs.user, elem), true
 	case analysis.IterViewRange:
-		// The range walks its own element; `show(1..3)` into an
-		// `Iter<Display>` reads each Int as the interface's value, and an
-		// element of another kind is converted as it is read.
 		own := vs.elem
-		if own != elem && !bl.erasesUnboxed(elem, own) {
-			return converted()
-		}
 		if own == kindInt {
 			// std's Int `compare`, `next` and `steps_between` are the
 			// consumer's own (rt.IntRangeSeq).
-			return view(ir.IterOverIntRange, src), true
+			return view(ir.IterOverIntRange, src)
 		}
 		if own == codepointKind() {
 			// std's Codepoint impls are the consumer's own
 			// (rt.CodepointRangeSeq).
-			return view(ir.IterOverCodepointRange, src), true
+			return view(ir.IterOverCodepointRange, src)
 		}
 		ops, ok := bl.rangeView(at, src, own)
 		if !ok {
@@ -296,64 +288,19 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 		// element's distance function (rt.Seq's Count). One whose impl
 		// inherits the None default has no count to carry.
 		if bl.inheritsStepsBetween(own) {
-			return view(ir.IterOverRange, ops...), true
+			return view(ir.IterOverRange, ops...)
 		}
 		maybeInt, shared := bl.g.sharedMaybe(kindInt)
 		if !shared {
-			return ir.NoTemp, false
+			panic("irbuild: viewOwn: std's shared Maybe<Int> is always built")
 		}
 		steps, ok := bl.discreteRef(at, own, "steps_between", []kind{own, own}, maybeInt)
 		if !ok {
 			return ir.NoTemp, false
 		}
-		return view(ir.IterOverRange, append(ops, steps)...), true
-	case analysis.IterViewVector:
-		if v, ok := converted(); ok {
-			return v, true
-		}
-		// sk is a lowered value, so its element is in the domain and a
-		// Vector holds it.
-		erased := irHeldKind(elem) && bl.g.irErases(elem, vs.elem)
-		if vs.elem != elem && !erased {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverVector, src), true
-	case analysis.IterViewMap:
-		if vs.elem == elem {
-			return bl.mapView(at, src, sk, vs.elem), true
-		}
-		if bl.erasesUnboxed(elem, vs.elem) {
-			// `count({1 => 2})` into an `Iter<Display>`: each `(K, V)`
-			// pair is already the interface's value, as a list's element
-			// is.
-			return view(ir.IterOverMap, src), true
-		}
-		return converted()
-	case analysis.IterViewSet:
-		if v, ok := converted(); ok {
-			return v, true
-		}
-		if vs.elem != elem {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverSet, src), true
-	case analysis.IterViewMaybe:
-		if v, ok := converted(); ok {
-			return v, true
-		}
-		if vs.elem != elem && !(irHeldKind(elem) && bl.g.irErases(elem, vs.elem)) {
-			return ir.NoTemp, false
-		}
-		return view(ir.IterOverMaybe, src), true
-	case analysis.IterViewImpl:
-		// The view's operands are the impl's functions, whatever the
-		// element: one already the interface's value is viewed as it is.
-		if vs.elem == elem || bl.erasesUnboxed(elem, vs.elem) {
-			return bl.userView(at, src, sk, vs.user, elem), true
-		}
-		return converted()
+		return view(ir.IterOverRange, append(ops, steps)...)
 	}
 	// viewSourceAt resolves a bounded type parameter's view to its
 	// instance's domain, so vs.dom is one of the arms above.
-	panic("viewAs: a view of domain " + strconv.Itoa(int(vs.dom)) + ", which has no arm")
+	panic("viewOwn: a view of domain " + strconv.Itoa(int(vs.dom)) + ", which has no arm")
 }

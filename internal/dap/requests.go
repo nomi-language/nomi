@@ -181,7 +181,7 @@ func (sess *session) travel(req *godap.Request, thread int, goBack func(int) err
 		text := err.Error()
 		if errors.Is(err, vm.ErrNoHistory) {
 			text = "No more history: this is the first statement the program ran."
-		} else if !strings.HasPrefix(text, "Step back is off") {
+		} else if !errors.Is(err, vm.ErrStepBackOff) {
 			text = "Cannot go back: " + text + "."
 		}
 		sess.s.fail(req, "%s", text)

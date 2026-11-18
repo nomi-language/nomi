@@ -11,7 +11,7 @@ import (
 // Every token an error can name has a name: none renders as nothing, and
 // a malformed one is never shown by the lexer's name for it.
 func TestTokenShownNamesEveryToken(t *testing.T) {
-	for tt := token.TokenType(0); tt.String() != "UNKNOWN"; tt++ {
+	for tt := token.TokenType(0); tt <= token.CODEPOINT_LITERAL; tt++ {
 		got := tokenShown(token.Token{Type: tt})
 		if strings.Trim(got, "` ") == "" {
 			t.Errorf("tokenShown(%s with no text) = %q", tt, got)

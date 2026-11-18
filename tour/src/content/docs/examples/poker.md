@@ -113,11 +113,11 @@ end
 /// A card written as its rank and its suit, `"10H"` or `"QS"`.
 fn card(text: String) -> Maybe<Card>
     length = String.length(text)
-    suit = String.drop(text, length - 1)
+    suit = String.slice(text, length - 1, length)
 
     if not suit in ["S", "H", "D", "C"] then return None
 
-    rank = case String.take(text, length - 1)
+    rank = case String.slice(text, 0, length - 1)
         "J"    -> Some(11)
         "Q"    -> Some(12)
         "K"    -> Some(13)

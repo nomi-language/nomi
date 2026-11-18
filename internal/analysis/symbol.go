@@ -159,15 +159,12 @@ type ControlFlowInfo struct {
 // ImplInfo holds the per-site data a SymbolImplKeyword needs to render hover
 // content without making `impl` behave like a regular definition/reference.
 type ImplInfo struct {
-	Interfaces      []string
-	Receiver        string
-	GenericHeader   string
-	WhereClause     string
-	FunctionName    string
-	Extern          bool
-	Inherent        bool
-	SourceBlock     bool
-	SourceQualified bool
+	Interfaces    []string
+	Receiver      string
+	GenericHeader string
+	WhereClause   string
+	Inherent      bool
+	SourceBlock   bool
 }
 
 // Symbol represents a named definition in the source.

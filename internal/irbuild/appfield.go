@@ -19,7 +19,7 @@ func (g *gen) bootDecl() *ast.FuncDef {
 func declaresBoot(nodes []ast.Node) *ast.FuncDef {
 	for _, n := range nodes {
 		fd, isFunc := n.(*ast.FuncDef)
-		if isFunc && fd.Name == "boot" && !fd.ImplFunction && len(fd.Params) <= 1 {
+		if isFunc && fd.Name == "boot" && len(fd.Params) <= 1 {
 			return fd
 		}
 	}
@@ -78,7 +78,7 @@ func (g *gen) isProgramBoot(fd *ast.FuncDef) bool {
 // declaresMain reports whether nodes declare a top-level `fn main`.
 func declaresMain(nodes []ast.Node) bool {
 	for _, n := range nodes {
-		if fd, isFunc := n.(*ast.FuncDef); isFunc && fd.Name == "main" && !fd.ImplFunction {
+		if fd, isFunc := n.(*ast.FuncDef); isFunc && fd.Name == "main" {
 			return true
 		}
 	}

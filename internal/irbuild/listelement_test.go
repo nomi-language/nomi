@@ -24,7 +24,7 @@ func i6FrontEndError(t *testing.T, src string) string {
 
 func TestListElement_GenuineMismatchStillRefuses(t *testing.T) {
 	// THE PAIRED NEGATIVE, and it lands in the FRONT END rather than in the
-	// builder. elementKind waves an untyped literal past widensAll against ANY
+	// builder. widensAll passes an untyped literal against ANY
 	// candidate, so `[None, [1]]` would pick `List<Int>` and rely on the coerce
 	// loop to reject. The checker rejects the program first, so the builder
 	// never sees it. The claim under test is
@@ -54,7 +54,7 @@ func TestDotVariant_AliasThroughTheDotIsAFrontEndError(t *testing.T) {
 	// Half one of the alias pair. The name route cannot canonicalize an alias,
 	// and this is what makes that harmless rather than a hole: the analyzer
 	// resolves the dot against the DECLARATION's variant names, so the program
-	// does not exist. If this ever starts ANALYZING, preludeBareNamed will
+	// does not exist. If this ever starts ANALYZING, the builder will
 	// decline on the local spelling and the site will refuse by name — which is
 	// safe, but somebody should know, hence a red test rather than a comment.
 	const src = `import

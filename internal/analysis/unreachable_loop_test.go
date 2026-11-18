@@ -95,9 +95,8 @@ end
 // A loop that can stop is not one that never breaks: a `break` anywhere in
 // its own callback, however nested in its blocks and arms, ends it. A `break`
 // in a lambda or a nested `fn` inside the callback belongs to that callback,
-// so the outer loop still never breaks. A value position is not a statement:
-// code after a binding of such a loop stays legal, as after a binding of a
-// `case` whose arms all leave.
+// so the outer loop still never breaks. A loop that never breaks is legal
+// as a body's last statement, bound or not, since nothing follows it.
 func TestUnreachable_ALoopThatCanStopIsClean(t *testing.T) {
 	errs := buildErrsWithStdlib(t, `
 fn guarded()
@@ -120,11 +119,16 @@ fn in_an_arm() -> Int
   total
 end
 
-fn bound()
-  x = Iter.loop(fn ->
+fn server()
+  Iter.loop(fn ->
       _ = 1
   end)
-  _ = x
+end
+
+fn bound_last()
+  _x = Iter.loop(fn ->
+      _ = 1
+  end)
 end
 `)
 	if got := unreachableErrors(errs); len(got) != 0 {

@@ -762,8 +762,8 @@ end
 ```
 
 A list and a map need no name anywhere: `[1, 2]` and `{"k" => 1}` are a
-`List` and a `Map` where nothing expects another collection. Never write
-`List[...]` or `Map{...}`.
+`List` and a `Map` where nothing expects another collection. `List[...]` and
+`Map{...}` are errors.
 
 ### 17. Use a tuple for a local pairing and a struct once it travels
 
@@ -1135,8 +1135,9 @@ no answer, pick the first of these that fits (spec §4 *Subtypes*, §11
    one `try_from` where it enters. Two arguments that must agree are one
    value with a rule: a range, or a struct with a `when`.
 2. **Define it.** When an input that looks wrong has the meaning a caller
-   would want, give it that meaning: `String.take(s, -1)` is `""`, and
-   `timer.sleep` with a negative duration returns at once. Define only the
+   would want, give it that meaning: `String.take(s, 99)` is all of a
+   shorter `s`, and `timer.sleep` with a negative duration returns at
+   once. Define only the
    meaning a caller would expect, never a guess that hides a bug: a chunk
    size of 0 has none, so `Iter.chunks` takes a `PositiveInt`.
 3. **Return `Maybe`** when absence is an ordinary outcome that depends on

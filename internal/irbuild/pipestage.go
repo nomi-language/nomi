@@ -9,7 +9,7 @@ import (
 //
 // # There are TWO collectors, and this is the second one
 //
-// gen.recordOperand fills the `values:` rows. The stage list is a SECOND
+// irScalarBuilder.record fills the `values:` rows. The stage list is a SECOND
 // slice, switched on for exactly two shapes and off everywhere else:
 //
 //   - `x = a |> b()` — a binding whose value is a pipe. The stages are

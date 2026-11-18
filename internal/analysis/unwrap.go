@@ -43,6 +43,10 @@ func (c *checker) unwrapBang(n *ast.Unwrap, expr ast.Node, ty Type) Type {
 			}
 		}
 		c.noteUnwrapped(n, "!", et.TypeArgs[0])
+		if et.Name == "Result" && len(et.TypeArgs) == 2 && et.TypeArgs[1] != nil {
+			// An Err traps, showing its error by Display.
+			c.displayUses = append(c.displayUses, displayUse{at: n, t: et.TypeArgs[1], failure: true})
+		}
 		return et.TypeArgs[0]
 	}
 	source := UnwrapSource(expr)

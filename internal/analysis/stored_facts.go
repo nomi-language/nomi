@@ -315,22 +315,6 @@ func (n *FactsNamer) resolve(node ast.Node) {
 					for _, it := range d.Items {
 						n.fileOf[it] = key
 					}
-				case *ast.StructDef:
-					for _, it := range d.Items {
-						n.fileOf[it] = key
-					}
-				case *ast.EnumDef:
-					for _, it := range d.Items {
-						n.fileOf[it] = key
-					}
-				case *ast.TypeDef:
-					for _, it := range d.Items {
-						n.fileOf[it] = key
-					}
-				case *ast.ExternType:
-					for _, it := range d.Items {
-						n.fileOf[it] = key
-					}
 				case *ast.InterfaceDef:
 					for i := range d.Methods {
 						n.fileOf[&d.Methods[i]] = key
@@ -359,29 +343,9 @@ func (n *FactsNamer) add(key string, nodes []ast.Node) {
 		n.byNode[node] = DeclRef{File: key, Name: name}
 	}
 	for _, node := range nodes {
-		var items []ast.Node
-		switch d := node.(type) {
-		case *ast.ImplBlock:
+		if d, ok := node.(*ast.ImplBlock); ok {
 			for _, it := range d.Items {
 				n.implItem[it] = true
-			}
-			continue
-		case *ast.StructDef:
-			items = d.Items
-		case *ast.EnumDef:
-			items = d.Items
-		case *ast.TypeDef:
-			items = d.Items
-		case *ast.ExternType:
-			items = d.Items
-		}
-		for _, it := range items {
-			switch d := it.(type) {
-			case *ast.FuncDef, *ast.OnceBinding:
-				if _, named := n.byNode[d]; !named {
-					p := topLevelPos(d)
-					n.byNode[d] = DeclRef{File: key, Name: fmt.Sprintf("@%d:%d", p.Line, p.Col)}
-				}
 			}
 		}
 	}
@@ -511,14 +475,6 @@ func FileFactsOf(key string, fa *FileAnalysis, nodes []ast.Node, namer *FactsNam
 					v.Test = true
 					f.Boot.Visits = append(f.Boot.Visits, v)
 				}
-			case *ast.StructDef:
-				walk(n.Items)
-			case *ast.EnumDef:
-				walk(n.Items)
-			case *ast.TypeDef:
-				walk(n.Items)
-			case *ast.ExternType:
-				walk(n.Items)
 			case *ast.ImplBlock:
 				walk(n.Items)
 			}

@@ -92,6 +92,49 @@ end
 	irRunSource(t, src, want)
 }
 
+// `==` and `!=` on a type declared in a block compare by its shape, though
+// a std module declares a type of its name with an impl of Equatable of its
+// own: std/calendar's DateTime and std/phrase's Noun write theirs by hand,
+// std/xml's Token and std/log's Level derive theirs. No impl can name a
+// block's type, so none of those is its.
+func TestIRBlockDeclaredTypes_EqualityIsTheirOwn(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std::io
+
+fn main()
+    struct DateTime
+        instant_nanos: Int
+        zone:          String
+    end
+
+    struct Noun
+        name:  String
+        table: String
+    end
+
+    type Token String
+
+    enum Level
+        Debug
+        Info
+    end
+
+    a = DateTime{instant_nanos: 1, zone: "UTC"}
+    b = DateTime{instant_nanos: 1, zone: "CET"}
+    io.inspect((a == b, a != b, a == a, Equatable.equal(a, b)))
+    n = Noun{name: "book", table: "a"}
+    m = Noun{name: "book", table: "b"}
+    io.inspect((n == m, n != m, n == n, Equatable.equal(n, m)))
+    io.inspect((Token("a") == Token("b"), Token("a") != Token("a")))
+    io.inspect((Level.Debug == Level.Info, Level.Info != Level.Info))
+end
+`
+	const want = "(False, True, True, False)\n(False, True, True, False)\n(False, False)\n(False, False)\n"
+	irRunSource(t, src, want)
+}
+
 // The same in a test body: a statement block, a nested one, an `if` arm and
 // a `case` arm, each declaring a type its assertions build.
 func TestIRBlockDeclaredTypes_InATestBody(t *testing.T) {

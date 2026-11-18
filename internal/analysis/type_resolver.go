@@ -23,11 +23,17 @@ type TypeError struct {
 	Message string
 	Hints   []string
 	Related []RelatedInfo
-	// Code is an optional machine-readable tag (e.g. "unused-import") that
-	// lets downstream consumers — notably the LSP code-action handler —
-	// recognize a diagnostic class without sniffing the message text. Empty
-	// for the vast majority of diagnostics.
+	// Code names the error's kind ("unused-import") for whatever acts on
+	// that kind: the language server's quick fixes, the checker's own
+	// later passes, `nomi check --format json`. Nothing recognizes an
+	// error by its Message, which is free to be reworded (the analysis
+	// package doc, "Diagnostic codes"). Each code is an exported
+	// constant in the file that builds its error; most errors have none.
 	Code string
+	// Args are the values Message names that a reader of Code acts on, in
+	// the order the code's constant documents: the field of a
+	// MissingFieldCode, the variants of a NonExhaustiveCaseCode.
+	Args []string
 	// File is the path of the file Line and Col are in, when the error may
 	// be reported with another file's diagnostics: a missing impl a derive
 	// in an imported file demands is reported with the entry's. Empty means
@@ -90,7 +96,18 @@ func ResolveDeclaredType(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 // resolveTypeExpr carries `declared` through the whole recursion, so a nested
 // argument is held to the same standard as its head: `List<Box>` in a
 // parameter type rejects the `Box`.
+//
+// Every resolution, nested ones included, goes through here, and with fa
+// set records its type, or that it has none (FileAnalysis.TypeExprTypes).
 func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis, declared bool) (Type, error) {
+	t, err := resolveTypeExprNode(te, reg, typeParams, fa, declared)
+	fa.recordTypeExprType(te, t)
+	return t, err
+}
+
+// resolveTypeExprNode is resolveTypeExpr for one node, which records
+// nothing for te itself.
+func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*TypeParam_, fa *FileAnalysis, declared bool) (Type, error) {
 	switch n := te.(type) {
 	case *ast.SimpleType:
 		// Check type params first (for generic T).
@@ -219,6 +236,8 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 					return nil, *terr
 				}
 			}
+			// The member names the same type as the whole.
+			fa.recordTypeExprType(n.Member, t)
 			return t, nil
 		}
 		// A qualified name carrying type arguments — `Probe.Reading<Int>` —
@@ -234,9 +253,11 @@ func resolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 				Line:   member.Line,
 				Col:    member.Col,
 			}
-			return resolveTypeExpr(base, reg, typeParams, fa, declared)
+			t, err := resolveTypeExprNode(base, reg, typeParams, fa, declared)
+			fa.recordTypeExprType(member, t)
+			return t, err
 		}
-		e := TypeError{Line: n.ModuleLine, Col: n.ModuleCol, Message: fmt.Sprintf("unknown type %q", qualName)}
+		e := TypeError{Line: n.ModuleLine, Col: n.ModuleCol, Message: fmt.Sprintf("unknown type %q", qualName)}.coded(UnknownTypeCode, qualName)
 		if et, ok := reg.Lookup(n.Module).(*EnumType); ok {
 			if member, ok := n.Member.(*ast.SimpleType); ok {
 				e = e.WithHint(variantTypeHint(et, member.Name))
@@ -385,12 +406,16 @@ func typeFieldFile(fa *FileAnalysis, line int) string {
 	return fa.FilePath
 }
 
+// UnknownTypeCode tags the error for a type name that names no type. Its
+// one argument is the name.
+const UnknownTypeCode = "unknown-type"
+
 // unknownTypeError is the error for a type name written at line:col that
 // names no type. Its hint names a dotted type whose last segment matches,
 // since writing `Reading` for `Probe.Reading` is the predictable mistake: the
 // qualifier looks like a path that could be dropped, and is not.
 func unknownTypeError(reg *TypeRegistry, line, col int, name string) TypeError {
-	e := TypeError{Line: line, Col: col, EndLine: line, EndCol: col + len(name), Message: fmt.Sprintf("unknown type %q", name)}
+	e := TypeError{Line: line, Col: col, EndLine: line, EndCol: col + len(name), Message: fmt.Sprintf("unknown type %q", name)}.coded(UnknownTypeCode, name)
 	if reg != nil && !strings.Contains(name, ".") {
 		if full := reg.SuggestDotted(name); full != "" {
 			return e.WithHint(fmt.Sprintf("did you mean %q? That is one name, not %q inside %q",

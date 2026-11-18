@@ -57,8 +57,8 @@ func TestAssert_TheSourceTEXTIsAFieldAndItIsREQUIRED(t *testing.T) {
 //
 // `assert`, `refute` and `testing.check` are one judgement. The node carries
 // WHICH SPELLING, because the report prints it; it carries nothing about where
-// the verdict goes. irbuild's `assertionExit`, the thing that differs, belongs
-// to the `jump` class.
+// the verdict goes. What differs is the delivery, which irbuild picks from
+// the boundary the checker recorded (`assertionBoundary`).
 //
 // The one asymmetry is `Dst`, and it is the DELIVERY's: `check` answers a
 // `Result` VALUE, so its judgement writes a temporary, while `assert` and
@@ -111,7 +111,7 @@ func TestAssert_ONEJudgementTHREEDeliveries(t *testing.T) {
 // Nothing on an `Assert` is: the subject's SHAPE (Bool, `Maybe`/`Result`,
 // `Assertable`), which is read off the operand's type; a reason
 // string, which rt picks from the polarity; a trace buffer, which is a
-// consumer's local; a boundary, which is `assertionExit`'s; or an
+// consumer's local; a boundary, which irbuild reads from the checker; or an
 // `rt.AssertionSite` field name.
 func TestAssert_NoFieldCarriesAConsumerDecision(t *testing.T) {
 	a := NewAssert(assertPos(), NoTemp, 4, KeywordRefute, "is_ok(x)")

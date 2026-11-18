@@ -7,7 +7,6 @@ import (
 	goruntime "runtime"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,22 +36,17 @@ import (
 // implementation of the Nomi-bodied half; for the extern half it is the only
 // implementation there is.
 //
-// # The scalar boundary, and why it is where it is
+// # The signature boundary
 //
-// A stdlib function is lowered only when every parameter type AND the result
-// type is a scalar (Int/Float/String/Bool/Unit). Not a phasing decision — a
-// consequence of two facts:
-//
-//  1. `kind` identity for a named type IS the *typeDef pointer of its
-//     declaration, never its name, so two generated
-//     packages cannot exchange a struct, enum or distinct type without a shared
-//     type table that does not exist. `Int` is `int64` in every package and needs
-//     no table.
-//  2. It makes every generated stdlib package a LEAF. std/strings and std/iter
-//     import each other; Go forbids import cycles. With the scalar boundary a
-//     lowered stdlib function references only its own module and rt, so the
-//     generated import graph is a star centred on the entry — acyclic by
-//     construction rather than by a sort that would have to fail somewhere.
+// The shared lowering lowers a stdlib function only when every parameter
+// type and the result type is one stdTypeKind answers: a scalar
+// (Int/Float/String/Bool/Unit), a std type with a process-wide def, or a
+// structural type over those. `kind` identity for a named type is the
+// *typeDef pointer of its declaration, never its name, and a stdFunc's kinds
+// are built once and compared by pointer against a call site's argument
+// kinds in another gen. A kind with no process-wide identity would equal no
+// call site's kind. Any other signature is refused as `stdlib function
+// outside the scalar subset`.
 //
 // # Refusals from inside the stdlib are SILENT, and that is deliberate
 //
@@ -85,10 +79,12 @@ import (
 // hostFn is one stdlib `host fn` with a Go implementation, fully derived from
 // the Go function value: nothing here is typed by hand.
 type hostFn struct {
-	// call is the function as it is emitted, read off the symbol.
+	// call is the host package's local name and the function's
+	// (`rt.StringContains`), read off the symbol. A stdFunc keeps it as
+	// rtCall, and stdlibHostRegistry prints it for a key bound twice.
 	call string
-	// pkg is the Go IMPORT PATH the symbol lives in, so a call site can import
-	// exactly what it names. See hostPackages.
+	// pkg is the Go import path the symbol lives in. A stdFunc keeps it as
+	// rtHostPkg, which chooses the crossing a call makes. See hostPackages.
 	pkg string
 	// params and result are the Go signature projected onto kinds. A leading
 	// *rt.Frame is NOT among them — see takesFrame.
@@ -198,9 +194,8 @@ func hostFnFor(fn any) (hostFn, string) {
 	first := 0
 	if ft.NumIn() > 0 && ft.In(0) == reflect.TypeFor[*rt.Frame]() {
 		// The frame is threading, not an argument: it occupies no Nomi
-		// parameter slot and the call site supplies it. Recognized only in
-		// position 0, because that is where every generated call passes it and
-		// a frame anywhere else is a signature nobody writes.
+		// parameter slot. Recognized only in position 0; a frame anywhere
+		// else is a signature nobody writes.
 		h.takesFrame = true
 		first = 1
 	}
@@ -221,7 +216,7 @@ func hostFnFor(fn any) (hostFn, string) {
 }
 
 // hostPackages are the Go packages a stdlib `host fn` implementation may live
-// in, and the local name a host call is spelled under.
+// in, and the local name hostCallName puts before a function's name.
 //
 // # Why most of them are not in rt
 //
@@ -309,7 +304,7 @@ const localeHostPath = "github.com/nomi-language/nomi/internal/stdlocale"
 // project it onto rt's. Calendar's boundary is
 // spelled in `Int`, `String` and the structs rt declares — the same Go types
 // under both projections — so there is nothing to project and the rows in
-// stdlibBindings name `nomi/std/calendar` directly.
+// internal/stdlibbindings name `nomi/std/calendar` directly.
 //
 // The tzdb embed (`time/tzdata`) is this adapter's import rather than rt's, so
 // rt does not carry its binary size.
@@ -389,17 +384,18 @@ const regexHostPath = "github.com/nomi-language/nomi/internal/stdregex"
 // -> same sequence, forever".
 const randomHostPath = "github.com/nomi-language/nomi/internal/stdrandom"
 
-// hostCallName is the emitted spelling of a host implementation, read off the
-// symbol itself so a rename cannot leave a stale string behind, plus the import
-// path it needs.
+// hostCallName is a host implementation's name, the host package's local name
+// plus the function's (`rt.StringContains`), and the import path of the
+// package it lives in. Both are read off the symbol itself, so a rename
+// cannot leave a stale string behind.
 //
 // runtime.FuncForPC gives the fully-qualified Go name
-// ("github.com/nomi-language/nomi/rt.StringContains"); the emitted form is the
-// package's local name plus the function's, because generated code imports a
-// host package under its package name. Guarded rather than trusted: anything
-// that is not a plain top-level func in exactly one of the registered packages
-// is rejected, which keeps a method value or a closure from producing a
-// plausible-looking wrong name.
+// ("github.com/nomi-language/nomi/rt.StringContains"). Anything that is not a
+// plain top-level func in exactly one of the registered packages is rejected,
+// which keeps a method value or a closure from producing a plausible-looking
+// wrong name. A stdFunc keeps the name as rtCall, which marks it bound, and
+// the path as rtHostPkg, which chooses the crossing (irExternHost,
+// irCompilerHost).
 func hostCallName(rv reflect.Value) (call, pkg string) {
 	full := goruntime.FuncForPC(rv.Pointer())
 	if full == nil {
@@ -422,9 +418,10 @@ func hostCallName(rv reflect.Value) (call, pkg string) {
 // kindOfGoType projects a Go type in an rt signature onto the kind it means.
 //
 // The five scalar rows are the representation table's mechanical ones, read in
-// the direction the registry needs. Beyond them three families are admitted, and
-// all three qualify for the SAME reason a scalar does — their Go spelling is the
-// same in every generated package, so they carry no package-relative rendering:
+// the direction the registry needs. Beyond them three families are admitted,
+// and all three qualify for the reason a scalar does: each has one
+// process-wide kind, so a kind projected here equals the same type's kind at
+// a call site in any gen:
 //
 //   - a stdlib OPAQUE newtype whose Go type rt declares (`rt.Duration`).
 //     Admitting it BY THE GO TYPE rather than by width is what keeps
@@ -482,21 +479,15 @@ func kindOfGoType(t reflect.Type) kind {
 	if k := stdEnumKindOfGoType(t); k != kindInvalid {
 		return k
 	}
-	// A NOMI TUPLE, whose Go representation is a flat anonymous struct over
-	// `F0`, `F1`, …: `(Int, Int)` is `struct { F0 int64; F1 int64 }`.
-	//
-	// THIS IS READING THE BUILDER'S OWN CONVENTION BACK, not inventing one: tuples
-	// are an interned tagTuple over flat F0/F1 fields (sharedcomp.go's
+	// A Nomi tuple, which a host function's signature spells as a flat
+	// anonymous struct over `F0`, `F1`, …: `(Int, Int)` is
+	// `struct { F0 int64; F1 int64 }`. The kind is the interned tagTuple a
+	// std signature's tuple annotation resolves to (sharedcomp.go's
 	// `tupleSigKind`).
 	//
-	// WHY A GO FUNCTION RETURNS ONE STRUCT RATHER THAN TWO VALUES. The FFI
-	// projects a Go multiple return element-by-element onto a tuple, and
-	// `hostFnFor` cannot: it requires exactly one result because the builder
-	// treats the call as an EXPRESSION and a multiple return is not one. Go's
-	// structural typing closes that with no new machinery — an anonymous struct
-	// a host package writes IS the type the builder interns — so a shim converts
-	// two results into one value and every call site is unchanged. See
-	// nomi/stdrandom.
+	// The FFI projects a Go multiple return element by element onto a tuple.
+	// `hostFnFor` requires exactly one result, so a host function with two
+	// values returns them as one such struct. See nomi/stdrandom.
 	//
 	// kindInvalid: lookup — "not a tuple-shaped anonymous struct", so fall through.
 	if k := tupleKindOfGoType(t); k != kindInvalid {
@@ -552,7 +543,7 @@ func funcKindOfGoType(t reflect.Type) kind {
 // `reflect.Type` per instantiation would be an unbounded table, and a name-only
 // match would accept an unrelated rt type spelled `List`. So: a pointer, to a
 // struct rt declares, whose name is `List[…]`, with EXACTLY the three fields
-// list.go gives it and the two that constrain the shape checked — `Tail` is the
+// rt.ListCell gives it and the two that constrain the shape checked — `Tail` is the
 // same pointer type and `Len` is an int.
 //
 // The element type comes out of `Head`, which is where reflect exposes it, and
@@ -607,10 +598,6 @@ type stdFunc struct {
 	// template presents as decl, nil for any other function
 	// (stdifacedefault.go).
 	ifaceDefault *ast.InterfaceMethod
-	// tailRec marks a body that makes a tail call into a recursion cycle it
-	// belongs to. Its graph is retained for the VM and its Go is a stub. See
-	// irStdTailCycles.
-	tailRec bool
 	// key is the host key for a `host fn` (the key internal/stdlibbindings
 	// answers), and the same shape for a Nomi body. It is what a refusal names.
 	key    string
@@ -622,21 +609,7 @@ type stdFunc struct {
 	// an inherent block or a top-level declaration. It is what byIface is keyed
 	// on, because that is the qualifier a call site writes.
 	iface string
-	// ifaceKey is the impl block's full interface INSTANTIATION
-	// ("Add<Duration, NaiveDateTime>"), empty when the interface takes no type
-	// arguments. It is what separates several impls of one generic interface
-	// for one receiver, and it is `n.Interface.TypeString()` — the same string,
-	// not a parallel spelling. See stdImplKey.
-	ifaceKey string
-	name     string
-	// pub is the declaration's `pub` bit, for a TOP-LEVEL function only. It is
-	// what makes a file-qualified call (`timer.sleep(d)`) resolvable: `pub`
-	// controls cross-FILE visibility, and a std module's private helper —
-	// `strings.string_compare` — is reachable from inside that module and
-	// nowhere else. Belt and braces against the analyzer, which rejects the
-	// program first; a backend that resolved a private name would be lowering
-	// something Nomi does not permit.
-	pub bool
+	name  string
 	// selfIdx is the parameter position holding the receiver, or -1 when the
 	// function has none. Only 0 is served: the design doc's dispatch table says
 	// the receiver is the Self-TYPED parameter at ANY position, and a stdlib impl
@@ -645,41 +618,13 @@ type stdFunc struct {
 
 	params []kind
 	result kind
-	// paramNames is the declared parameter names, positionally and the same
-	// length as params, so a call site can place a NAMED argument.
-	//
-	// Held HERE rather than read off `decl`, and that is the whole point of the
-	// field: `decl` is a `*ast.FuncDef` and is NIL for a `host fn`, which is an
-	// `*ast.ExternFunc`. `supervisors.Supervisor.new`, the usual target of a
-	// named argument, is an extern, so a names-from-decl route would answer for
-	// exactly the population that does not need it.
-	//
-	// A DESTRUCTURING parameter contributes "" — it has no name a call site
-	// could write, and no NamedArg's name can be empty, so the slot is
-	// unclaimable by name rather than mis-claimable.
-	paramNames []string
-
-	// arityMin is the lowest POSITIONAL arity a call site may use. It is
-	// len(params) for everything except a Nomi body whose TRAILING parameters
-	// carry defaults and for which arity-reduced bodies were built — see
-	// emitStdDefaultWrappers, which is also where the value is lowered.
-	//
-	// It starts at len(params) and drops one step per trailing defaulted
-	// parameter as emitStdDefaultWrappers builds that arity's body
-	// (irStdArityRetain).
-	//
-	// READ THROUGH callArityMin AND NEVER DIRECTLY, for the snapshot reason
-	// below.
-	arityMin int
-
 	// defaultFill is, per parameter slot, whether the declaring module built
-	// an accessor that evaluates that parameter's DEFAULT. It is what lets a NAMED argument skip a
-	// defaulted parameter: the arity wrappers above are indexed by a length and
-	// so can only fill a trailing run, while a skipped parameter is a HOLE.
+	// an accessor that evaluates that parameter's DEFAULT, which is how a
+	// call that leaves the parameter out fills it.
 	//
-	// Same pessimism and same timing as arityMin, and READ THROUGH
-	// callDefaultFill AND NEVER DIRECTLY for the same snapshot reason. See
-	// stdslotfill.go.
+	// It starts nil and is set as emitStdSlotDefaults builds each accessor.
+	// READ THROUGH callDefaultFill AND NEVER DIRECTLY, for the snapshot
+	// reason below. See stdslotfill.go.
 	defaultFill []bool
 
 	// canon is the CANONICAL *stdFunc this one is a snapshot of, and nil when
@@ -687,29 +632,33 @@ type stdFunc struct {
 	//
 	// bindStdSiblings copies each candidate as `view := *f` so it can override
 	// `body` and `pkg`, and that copy is taken BEFORE the lowering pass runs.
-	// arityMin is lowered DURING that pass, on the canonical pointer, so reading
-	// a copy would freeze the pessimistic value and a stdlib body calling a
-	// defaulted SIBLING in its own module would refuse `call arity` however many
-	// wrappers had since been written. std's `//!` prompt cases make exactly that
-	// call, for instance `Response.new(Status.ok())` against three parameters and
+	// defaultFill and irSlot are set DURING that pass, on the canonical
+	// pointer, so reading a copy would freeze them empty and a stdlib body
+	// calling a defaulted SIBLING short would refuse however many accessors
+	// had since been built. std's `//!` prompt cases make exactly that call,
+	// for instance `Response.new(Status.ok())` against three parameters and
 	// `Time.new(h, m)` against four.
 	//
 	// Reading through the pointer is not a relaxation of the pessimism, it is
-	// the pessimism applied at the right TIME. A body lowered before the arity
-	// body exists still sees the full arity and still refuses;
-	// lowerStdlibModule's fixed point re-lowers it afterwards.
+	// the pessimism applied at the right TIME. A body lowered before the
+	// accessor exists still refuses; lowerStdlibModule's fixed point re-lowers
+	// it afterwards.
 	canon *stdFunc
 
-	// rtCall is set for a `host fn` with a registry row.
+	// rtCall is set for a `host fn` the host tables bind: the name
+	// hostCallName read, or `compilerhosts.<name>` for a std/compiler key.
+	// The builder tests only whether it is set.
 	rtCall string
-	// rtHostPkg is the Go import path rtCall lives in, so a call site imports
-	// exactly what it names. Empty until rtCall is set. See hostPackages.
+	// rtHostPkg is the Go import path that function lives in, which chooses
+	// the crossing a call makes (irExternHost, irCompilerHost). Empty until
+	// rtCall is set. See hostPackages.
 	rtHostPkg string
 	// rtFrame is set when that rt function's Go signature takes the frame, so
 	// the call site passes one. Copied off the registry row rather than
 	// re-derived, and false for everything else. See hostFn.takesFrame.
 	rtFrame bool
-	// body and pkg are set for a Nomi body that lowered.
+	// body and pkg are set for a Nomi body that lowered. pkg is the declaring
+	// module's namespace key (stdPackage).
 	body bool
 	pkg  string
 	// why names the refusal when this function is not lowerable, and detail
@@ -717,12 +666,14 @@ type stdFunc struct {
 	why string
 
 	decl *ast.FuncDef
+	// node is the function's declaration as the std module's parse holds
+	// it: its *ast.FuncDef, *ast.ExternFunc or interface's
+	// *ast.InterfaceMethod (stdCandidateFor), what a call's record names
+	// (analysis.Callee.Decl, verifyCallee).
+	node ast.Node
 	// irBody is the final retained declaration, owned by its cached module.
 	irBody *ir.Func
-	// irArity is the VM's body of each arity-reduced wrapper, by arity, set
-	// on the canonical function. See irsupervisor.go's irStdArityRetain.
-	irArity map[int]*ir.Func
-	// irSlot is the VM's body of each `_DEFAULT<slot>` accessor, by slot, set
+	// irSlot is the VM's body of each default accessor (stdSlotName), by slot, set
 	// on the canonical function. See irsupervisor.go's irStdSlotRetain.
 	irSlot map[int]*ir.Func
 }
@@ -759,14 +710,15 @@ type stdlibIndex struct {
 	// have `NaiveDateTime` in the receiver position and differ only in the
 	// operand.
 	byIface map[string]map[kind][]*stdFunc
-	// unlowered names, per generated package, each Go function whose body the IR
-	// did not lower and the reason. A program that reaches one is refused;
-	// see irStdReach.
+	// unlowered names, per module namespace key (modulePkg), each function,
+	// wrapper, accessor and `once` whose body the builder did not retain, and
+	// the reason. A program's call to one declines, and noteStdBodyDeclined
+	// reports the reason.
 	unlowered map[string]map[string]string
-	// irModules holds the graphs built while emitting each cached package.
+	// irModules holds each lowered module's IR, by namespace key.
 	// Callers must link these declaring modules, preserving symbol identity.
 	irModules map[string]*ir.Module
-	// modulePkg maps a stdlib module name to its generated package name.
+	// modulePkg maps a stdlib module name to its namespace key (stdPackage).
 	modulePkg map[string]string
 	// byKey is every declaration the walk saw, under its host key (stdKey),
 	// whether it lowered or not. Nothing in the builder reads it; it is
@@ -782,8 +734,8 @@ type stdlibIndex struct {
 	byOnce map[string]*stdOnce
 	// views is the lowering context each module was lowered THROUGH, keyed by
 	// module name, retained so a per-program instance of a generic stdlib
-	// declaration can be emitted against exactly the candidate set, sibling
-	// scope and AST this module's `mod.go` was built from.
+	// declaration can be lowered against exactly the candidate set, sibling
+	// scope and AST this module's own lowering used.
 	//
 	// RETAINED RATHER THAN RE-DERIVED, and that is a correctness requirement
 	// rather than an optimisation. Calling stdModuleContext again would call
@@ -791,7 +743,7 @@ type stdlibIndex struct {
 	// candidate set must then match the one behind the cached module in the
 	// SAME program or an instance body references a function the program does
 	// not contain. analysis.installCanonicalStdTypes keeps two loads' `Bool`
-	// the same type; see stdinstance.go.
+	// the same type.
 	views map[string]*stdModuleView
 	// earlierMods[module] is the resolution scope module's own lowering had:
 	// every stdlib module of an earlier lowering unit, and the other members
@@ -825,7 +777,7 @@ type stdlibIndex struct {
 
 // stdlibOnce caches the index for the process.
 //
-// The cache owns its source contexts, signatures, generated text and IR graphs.
+// The cache owns its source contexts, signatures and IR graphs.
 // Cached declarations and their IR symbols belong to that same lowering; they
 // must not be reconstructed from another std.Load()'s fresh AST pointers. The
 // lowering reads std.Shared, the process's one stdlib analysis.
@@ -924,10 +876,10 @@ func stdlibFirstLowering() *stdlibIndex {
 	return stdlibCache
 }
 
-// stdPackage is the package name the builder's Go spellings use for the i'th
-// stdlib module. A
-// separate namespace from unitPackage's so a stdlib package and a user module
-// package can never collide.
+// stdPackage is the namespace key of the i'th stdlib module: its gen's pkg,
+// and the key of its IR module and its unlowered table in the index. It
+// names no compiled artifact. The keys are apart from unitPackage's, so a
+// stdlib module's key and a user unit's never collide.
 func stdPackage(i int) string { return fmt.Sprintf("nomistd%d", i) }
 
 // buildStdlibIndex lowers every stdlib module, in dependency order.
@@ -939,8 +891,8 @@ func buildStdlibIndex() *stdlibIndex {
 // lowerStdlibModule does, or what restoreStdModule does from a std bundle.
 type stdModuleLowering func(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module)
 
-// newStdlibIndex is an index holding no module, whose packages are named
-// after names, every module of the stdlib, sorted.
+// newStdlibIndex is an index holding no module, whose namespace keys are
+// numbered over names, every module of the stdlib, sorted.
 func newStdlibIndex(names []string) *stdlibIndex {
 	idx := &stdlibIndex{
 		byType:      map[string][]*stdFunc{},
@@ -972,8 +924,8 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 	for name := range lib.Nodes {
 		names = append(names, name)
 	}
-	// Sorted so a program's generated package numbering — and therefore its
-	// content-addressed output directory — never depends on map iteration order.
+	// Sorted so a module's namespace key (stdPackage) never depends on map
+	// iteration order.
 	sort.Strings(names)
 
 	idx := newStdlibIndex(names)
@@ -982,8 +934,8 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 	// `std/instant`'s `impl Add<Duration, Instant>` is
 	// `Instant(nanos + Duration.as_nanos(rhs))`. A module resolves such a call
 	// against the modules lowered before it, so modules are lowered in
-	// dependency order, imports first (stdLoweringOrder). The package NAME is
-	// `stdPackage(i)` over the SORTED list; only the visiting order follows
+	// dependency order, imports first (stdLoweringOrder). A module's namespace
+	// key is `stdPackage(i)` over the sorted list; only the visiting order follows
 	// dependencies. A name order would refuse bodies on order alone:
 	// `std/calendar` sorts near the front and imports `comparable`,
 	// `duration`, `int` and `strings`, all of which sort later.
@@ -1031,7 +983,7 @@ func buildStdlibIndexBy(lower stdModuleLowering, lowered func(name string, v *st
 			// re-infer or refuse.
 			//
 			// The view is retained on the index rather than built inside
-			// lowerStdlibModule, so that a per-program instance is emitted
+			// lowerStdlibModule, so that a per-program instance is lowered
 			// against this exact context. See stdlibIndex.views for why
 			// re-deriving it is unsound rather than merely wasteful.
 			idx.views[name] = v
@@ -1198,9 +1150,6 @@ func (m *stdUnitModule) keepSymbols(syms map[string]*ir.Symbol) {
 		if f.irBody != nil {
 			keep(f.irBody.Sym())
 		}
-		for _, a := range f.irArity {
-			keep(a.Sym())
-		}
 		for _, s := range f.irSlot {
 			keep(s.Sym())
 		}
@@ -1211,7 +1160,7 @@ func (m *stdUnitModule) keepSymbols(syms map[string]*ir.Symbol) {
 }
 
 // loweredKeys is what m lowered that another module can call or read: each
-// function body, arity-reduced wrapper and default accessor, and each
+// function body and default accessor, and each
 // `once` cell.
 func (m *stdUnitModule) loweredKeys() map[string]bool {
 	out := map[string]bool{}
@@ -1223,9 +1172,6 @@ func (m *stdUnitModule) loweredKeys() map[string]bool {
 		id := fmt.Sprintf("%s@%p", f.key, f.decl)
 		if c.irBody != nil {
 			out[id] = true
-		}
-		for a := range c.irArity {
-			out[fmt.Sprintf("%s/arity%d", id, a)] = true
 		}
 		for s := range c.irSlot {
 			out[fmt.Sprintf("%s/slot%d", id, s)] = true
@@ -1703,8 +1649,7 @@ func sameParamKinds(a, b []kind) bool {
 // exactly `args`.
 //
 // A set of one answers unconditionally, so for a spelling std declares once
-// stdlibInvoke's own `call arity` and
-// `argument type mismatch` refusals stay the report for a bad call, rather than
+// the call site's own checks stay the report for a bad call, rather than
 // being replaced by a silent miss here.
 //
 // A set of several with no exact match answers nil, and the caller reports.
@@ -1718,7 +1663,7 @@ func sameParamKinds(a, b []kind) bool {
 // declares `impl Bytes` above `impl Display for Bytes`) and is exactly the
 // "picking one by map order" add()'s own header rules out. Two matches of the
 // SAME class are still refused by addOverload, so
-// returning either is safe: stdlibInvoke rejects it by its mark.
+// returning either is safe: the caller declines it by its mark.
 func stdPick(fs []*stdFunc, args []kind) *stdFunc {
 	if len(fs) == 1 {
 		return fs[0]
@@ -1851,18 +1796,15 @@ func markAmbiguous(f *stdFunc, why string) {
 // `map[string]bool` of settled functions answers for the GROUP when it is asked
 // about a MEMBER. stdKey carries the type arguments for the same reason. A
 // spelling-keyed map is unsound in the direction that matters: one bound rung
-// (`Add<Duration, NaiveDateTime>`, whose rtCall seeds the least fixed point)
-// would mark the other ten settled, so bindStdSiblings would offer a name for
-// a body that then fails to emit while a SIBLING already references it. See
-// lowerStdlibModule.
+// (`Add<Duration, NaiveDateTime>`, which is bound to an rt function) would
+// mark the other ten settled, so bindStdSiblings would offer siblings a body
+// that does not lower. See lowerStdlibModule.
 type stdCandidate struct {
 	f  *stdFunc
 	fd *ast.FuncDef
-	// sib is the unqualified spelling a sibling in this module calls it by —
-	// `<recv>.<name>`, or `.<name>` for a top-level function. Used ONLY for
-	// gen.stdSiblings, which is the unqualified-name path and is genuinely
-	// keyed on what a caller writes. NEVER an identity: see above.
-	sib string
+	// decl is the declaration, of a `host fn` too: what a call the checker
+	// resolved to it finds it by (gen.stdSiblingDecls).
+	decl ast.Node
 }
 
 // lowerSharedStdModule lowers one of the shared stdlib's modules, asking std
@@ -1874,104 +1816,45 @@ func lowerSharedStdModule(v *stdModuleView, earlier *stdlibIndex) ([]*stdFunc, [
 	return lowerStdlibModule(v, earlier)
 }
 
-// lowerStdlibModule emits one stdlib module's lowerable scalar functions as one
-// Go package, and returns every function it saw — lowered or refused — so call
-// sites can resolve or refuse by name.
+// lowerStdlibModule lowers one stdlib module's bodies into one ir.Module, and
+// returns every function it saw, lowered or refused, so call sites can
+// resolve or refuse by name.
 //
-// # Two fixed points, because one of them cannot express recursion
+// # Which bodies lower
 //
-// The lowering order is settled by a MONOTONE fixed point rather than one pass.
-// A Nomi body may call a sibling (`impl Debug for Float`'s `inspect` calls
-// `to_string`; `Float.is_finite` calls `Float.is_infinite`), so round 1 offers only
-// the host siblings, round 2 adds the bodies that lowered in round 1, and so on.
-// Growing the sibling set can only turn a refusal into a success, never the
-// reverse — which is what makes the loop terminate without having to invalidate
-// anything, and what makes the final lowering pass safe: every function it
-// lowers has already lowered against exactly the sibling set it will see.
+// stdSettle offers every host binding and every Nomi body whose signature is
+// representable (v.settled). A Nomi body may call a sibling declared before
+// it, one declared after it, or itself (`impl Debug for Float`'s `inspect`
+// calls `to_string`; `bytes.join_debug_parts` calls itself), so which bodies
+// build is a greatest fixed point, which irPrebuildStdBodies takes. Every
+// offered body is assumed to build, a round builds them until no more build,
+// a body still unbuilt is withdrawn, and the rounds repeat until one
+// withdraws nothing. A body that needs a withdrawn sibling is withdrawn in
+// the next round. The offered set is finite and only shrinks, so the rounds
+// end.
 //
-// A pass that lowered optimistically instead would call a sibling that a later
-// refusal removed.
-//
-// The property this buys is an INVARIANT with a guard, not a comment:
-// TestStdlibEmittedCallsAreDefined asserts over the emitted TEXT that every
-// NomiStd_ name a generated package references is defined — in that package, or
-// in the package its reference qualifies.
-//
-// That fixed point is a LEAST one, and it is STRATIFIED. The sibling table a
-// round offers is
-// snapshotted by newStdGen at the top of the round, so a body can only reach
-// functions that settled in a strictly EARLIER round. The dependency relation
-// among its members is therefore acyclic by construction, so recursion never
-// arises inside it.
-//
-// The same stratification is why it can never offer a function to its own body:
-// `settled[c]` is false for the whole of the round in which c is tried. So a
-// SELF-RECURSIVE std function cannot settle in phase 1; `bytes.join_debug_parts`,
-// whose body is `head + ", " + join_debug_parts(tail)`, is one. A
-// name-matching call graph would over-report recursion: `Display.to_string(inner)`
-// inside `derive Display for Bool` resolves by the ARGUMENT's kind to a
-// different receiver's method, not to itself.
-//
-// # Phase 2: the recursive closure, and why it terminates
-//
-// stdRecursiveClosure runs a GREATEST fixed point over what phase 1 left. It
-// offers every remaining candidate at once and then REMOVES the ones that do not
-// lower, repeating until a round removes nothing. Written as F(S) = { c in S : c
-// lowers when offered S }:
-//
-//   - F(S) is a subset of S by construction, so the sequence S, F(S), F(F(S)),
-//     … is decreasing over a FINITE candidate set: it terminates in at most
-//     |S|+1 rounds. Termination does not rest on monotonicity at all, which is
-//     the difference between this and "assume it settles".
-//   - The loop stops only at a genuine fixed point F(S*) = S*: every surviving
-//     member has lowered against EXACTLY the sibling set the lowering pass will
-//     offer it. So a lowered body cannot call a sibling that did not lower.
-//   - A member whose body genuinely depends on an UNSETTLEABLE sibling is
-//     removed, not masked. The unsettleable one fails in round 1 (it fails even
-//     with everything offered), so it is gone from S1; anything that needed it
-//     fails against S1 and is gone from S2; and so on. Removal propagates
-//     transitively, which is the property that separates this from relaxing the
-//     criterion.
-//   - Because F is monotone — a wider sibling set can only turn a refusal into a
-//     success — S* is the GREATEST fixed point below the starting set, so the
-//     answer does not depend on the order candidates are visited in. Within one
-//     round the decisions are all taken against the round's snapshot, so it does
-//     not depend on order either.
-//
-// Phase 1's members are emitted against phase 1's sibling set and phase 2's
-// against the enlarged one, rather than both against the enlarged one. Two
-// reasons, and neither is caution for its own sake. Phase 2 cannot change
-// phase 1's output, so no function phase 1 lowers can stop lowering; and it
-// confines every cycle to phase 2's members,
-// because a phase-1 body's emitted text cannot name a phase-2 function. Nothing
-// is lost by it: a phase-1 member already lowered, so there is no refusal inside
-// it for a wider sibling set to fix.
+// The lowering pass that follows lowers each survivor once, under one sibling
+// binding, and finds every callee already in the module.
 //
 // `earlier` is the index of the modules this one may reference: those of
 // earlier lowering units and the other members of its own import cycle
-// (buildStdlibIndexBy). The third return value is the generated stdlib
-// packages this module's emitted text imports.
-// hosts is the same for the HOST packages outside the generated module.
-// Reachable in principle — a stdlib
-// module's Nomi body may call a `host fn` in another module — and empty in
-// practice, which is why it is returned rather than assumed empty: the alternative is a
-// generated import with no require behind it, and Generate cannot see it.
+// (buildStdlibIndexBy). The third result is the module's IR, nil when
+// nothing lowered.
 // The `once` bindings this module declares come back beside the functions, for
-// the reason they go INTO the index at all: a later module's body may read
+// the reason they go into the index at all: a later module's body may read
 // `Int.max_value`. See stdonce.go.
 //
 // `v` is the module's lowering context, built by the caller through
 // stdModuleContext. It is built by the caller because buildStdlibIndex retains
 // it on the index, so a per-program instance of a generic declaration can be
-// emitted against the SAME context this function emitted `mod.go` from.
-// Re-deriving it there would call std.Load() again; see stdlibIndex.views.
+// lowered against the same context this function used. Re-deriving it there
+// would resolve the instance against a second analysis; see
+// stdlibIndex.views.
 //
 // MarkTailCalls is stdModuleContext's first line, and its own header carries why:
 // std.Load() runs the sweeps and CheckTypes but never MarkTailCalls, so
 // `Call.IsTailCall` is FALSE on every stdlib node this builder reads and any
 // tail-position reasoning about a stdlib body is VACUOUS without it.
-// TestStdSettling_TailMarksAreNotAssumed
-// hands the pipeline an unmarked tree on purpose.
 func lowerStdlibModule(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module) {
 	return lowerStdlibModuleIn(v, earlier, nil)
 }
@@ -1980,7 +1863,7 @@ func lowerStdlibModule(v *stdModuleView, earlier *stdlibIndex) (funcs []*stdFunc
 // lowering's census, or in the module gen's own when dc is nil.
 func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCensus) (funcs []*stdFunc, onces []*stdOnce, irModule *ir.Module) {
 	module, pkg := v.module, v.pkg
-	cands, onces, settled, withCycles := v.cands, v.onces, v.settled, v.withCycles
+	cands, onces, emittable := v.cands, v.onces, v.settled
 
 	g := v.gen(earlier)
 	if dc != nil {
@@ -1988,36 +1871,26 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 	}
 	g.skipLint = v.embedded && !lintEmbeddedStdlib
 	emitted := false
-	emittable := make(map[*stdCandidate]bool, len(settled)+len(withCycles))
-	for c := range settled {
-		emittable[c] = true
-	}
-	for c := range withCycles {
-		emittable[c] = true
-	}
 	// The prebuild settles the `once` bindings with the bodies, since an
 	// initializer may call a body and a body may read a binding.
 	g.irPrebuildStdBodies(module, pkg, cands, emittable, onces, earlier)
-	g.irStdTailCycles(cands, emittable)
-	// Every body sees every emitted sibling: the graphs irPrebuildStdBodies
+	// Every body sees every offered sibling: the graphs irPrebuildStdBodies
 	// left in the module may link to a member of a recursive cycle from any
-	// body. The arity-reduced bodies are built inside the same window,
+	// body. The default accessors are built inside the same window,
 	// because a default expression is Nomi written in this module and may
 	// reach a sibling exactly as the body may.
 	//
 	// Bound ONCE for the loop. Lowering a body changes its candidate's
 	// body (to the value the view already holds) and, through the canonical
-	// pointer every reader goes through, arityMin, defaultFill, irArity and
-	// irSlot; the refusal arm below changes body, pkg and why, and a fresh
+	// pointer every reader goes through, defaultFill and irSlot; the refusal arm below changes body, pkg and why, and a fresh
 	// binding would differ from this one only in the view's why, which the
 	// arm writes to the view as well.
 	restoreSiblings, views := g.bindStdSiblingViews(module, pkg, cands, emittable, earlier)
 	// The bindings before the bodies, because a body reads one through its
 	// cell, and inside the sibling window, because an initializer calls a
-	// body as a body does. An emitted binding counts as output on its own: a
-	// module with a lowerable `once` and no lowerable function still has a
-	// package to write, and returning an empty Source for it would leave
-	// every reference naming a symbol nobody emitted.
+	// body as a body does. A lowered binding counts as output on its own: a
+	// module with a lowerable `once` and no lowerable function still returns
+	// its IR module, which holds the cell a reference names.
 	for _, o := range onces {
 		if !o.settled {
 			continue
@@ -2035,14 +1908,12 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 		}
 		if !g.emitStdBody(c.f, c.fd, pkg) {
 			c.f.body, c.f.pkg = false, ""
-			// The fixed points are sound, so this is unreachable — and it is
-			// treated as a refusal rather than trusted because the alternative
-			// is emitting a call to a function that is not there. Note what it
-			// does NOT do: a sibling emitted EARLIER in this loop against the
-			// same settled set may already have written a reference to c, and
-			// setting `why` here cannot retract that text. So this arm is a
-			// last resort and not a safety net; the invariant has to hold
-			// upstream, which is why `settled` is keyed on the candidate.
+			// The prebuild built this body against the same siblings, so the
+			// arm is not expected to run. It refuses all the same, so a call
+			// site reads `why` and declines. A sibling lowered earlier in
+			// this loop may already hold a call to c's symbol, which setting
+			// `why` here does not remove, so the prebuild has to withdraw
+			// such a body first.
 			c.f.why = "unlowered stdlib function"
 			if v := views[c]; v != nil {
 				v.why = c.f.why
@@ -2053,7 +1924,6 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 	}
 	restoreSiblings()
 
-	g.stdUnloweredWrappers(cands)
 	v.unlowered = g.stdUnlowered
 
 	funcs = make([]*stdFunc, 0, len(cands))
@@ -2090,23 +1960,22 @@ func lowerStdlibModuleIn(v *stdModuleView, earlier *stdlibIndex, dc *declineCens
 // (`impl Debug for Probe.Reading`).
 //
 // The resulting key is `lists.List.first`, the documented host-key convention
-// (`int.Int.to_string`, `iter.MapIter.next`) and the key
-// `lookupImplBlockExtern` builds. A generic receiver's methods are generic, so
-// they refuse under their own name at their own call site.
+// (`int.Int.to_string`, `iter.MapIter.next`). A generic receiver's methods are
+// generic, so they refuse under their own name at their own call site.
 func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) []*stdCandidate {
 	var out []*stdCandidate
 	for _, n := range nodes {
 		switch t := n.(type) {
 		case *ast.FuncDef:
-			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr, t.Public,
+			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr,
 				len(t.TypeParams) > 0 || len(t.WhereClauses) > 0, len(t.Decorators) > 0, t, anchors))
 		case *ast.ExternFunc:
 			generic := len(t.TypeParams) > 0 || len(t.WhereClauses) > 0
 			if generic && phantomOnly(typeParamNames(t.TypeParams), anchors, nil, stdSig{t.Params, t.ReturnTypeExpr, t.WhereClauses}) {
 				generic = false
 			}
-			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr, t.Public,
-				generic, false, nil, anchors))
+			out = append(out, stdCandidateFor(module, "", "", "", t.Name, t.Params, t.ReturnTypeExpr,
+				generic, false, t, anchors))
 		case *ast.ImplBlock:
 			recv := analysis.TypeExprBaseName(t.Receiver)
 			iface := analysis.TypeExprBaseName(t.Interface)
@@ -2171,15 +2040,15 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 					// Int)` names no block parameter and is monomorphic.
 					own := (len(it.TypeParams) > 0 || len(it.WhereClauses) > 0) &&
 						!phantomOnly(typeParamNames(it.TypeParams), anchors, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
-					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr, it.Public,
+					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr,
 						implGeneric || own || namesBlockParam(it, recvTP),
 						blocked || len(it.Decorators) > 0, it, at))
 				case *ast.ExternFunc:
 					own := (len(it.TypeParams) > 0 || len(it.WhereClauses) > 0) &&
 						!phantomOnly(typeParamNames(it.TypeParams), anchors, nil, stdSig{it.Params, it.ReturnTypeExpr, it.WhereClauses})
-					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr, it.Public,
+					out = append(out, stdCandidateFor(module, recv, iface, ifaceKey, it.Name, it.Params, it.ReturnTypeExpr,
 						implGeneric || own ||
-							sigNamesTypeParam(it.Params, it.ReturnTypeExpr, recvTP), blocked, nil, at))
+							sigNamesTypeParam(it.Params, it.ReturnTypeExpr, recvTP), blocked, it, at))
 				}
 			}
 		case *ast.InterfaceDef:
@@ -2200,49 +2069,44 @@ func collectStdCandidates(module string, nodes []ast.Node, anchors stdAnchors) [
 			// Externs only, and the exclusion is load-bearing rather than
 			// scoping. A Nomi-bodied default is a FALLBACK an `impl` may
 			// override, so filing it under `byType["Debug.inspect"]` would
-			// claim it is the answer — and stdlibCall consults byType before
-			// byIface, so `Debug.inspect(42)` would stop resolving to
-			// `NomiStd_Int_Debug_inspect` and start refusing because `self` is
-			// not a scalar.
+			// claim it is the answer — and a qualified call consults byType before
+			// byIface, so `Debug.inspect(42)` would stop resolving to Int's
+			// `impl Debug` body and start refusing because `self` is not a
+			// scalar.
 			for i := range t.Methods {
 				m := &t.Methods[i]
 				if !m.Extern {
 					continue
 				}
 				out = append(out, stdCandidateFor(module, t.Name, "", "", m.Name, m.Params, m.ReturnTypeExpr,
-					t.Public, len(t.TypeParams) > 0 || len(t.WhereClauses) > 0 ||
-						len(m.TypeParams) > 0 || len(m.WhereClauses) > 0, false, nil, anchors))
+					len(t.TypeParams) > 0 || len(t.WhereClauses) > 0 ||
+						len(m.TypeParams) > 0 || len(m.WhereClauses) > 0, false, m, anchors))
 			}
 		}
 	}
 	return out
 }
 
-func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, pub, generic, blocked bool, fd *ast.FuncDef, anchors stdAnchors) *stdCandidate {
+// decl is the function's declaration: an *ast.FuncDef for a Nomi body, an
+// *ast.ExternFunc or an interface's *ast.InterfaceMethod for a `host fn`.
+func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Param, ret ast.TypeExpr, generic, blocked bool, decl ast.Node, anchors stdAnchors) *stdCandidate {
+	fd, _ := decl.(*ast.FuncDef)
 	progSig := false
 	f := &stdFunc{
-		key:      stdKey(module, recv, ifaceKey, name),
-		ifaceKey: ifaceKey,
-		module:   module,
-		recv:     recv,
-		iface:    iface,
-		name:     name,
-		pub:      pub,
-		selfIdx:  -1,
-		result:   kindUnit,
-		decl:     fd,
+		key:     stdKey(module, recv, ifaceKey, name),
+		module:  module,
+		recv:    recv,
+		iface:   iface,
+		name:    name,
+		selfIdx: -1,
+		result:  kindUnit,
+		decl:    fd,
+		node:    decl,
 	}
-	defaulted := 0
+	defaulted := false
 	for i, p := range params {
 		k, headName := stdParamKind(p, anchors)
 		f.params = append(f.params, k)
-		// Same loop as params, so the two vectors cannot get out of step: a
-		// call site indexes one by the slot it read from the other.
-		if p.Destructure != nil {
-			f.paramNames = append(f.paramNames, "")
-		} else {
-			f.paramNames = append(f.paramNames, p.Name)
-		}
 		if recv != "" && f.selfIdx < 0 && headName == recv {
 			f.selfIdx = i
 		}
@@ -2254,25 +2118,15 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 				blocked = true
 			}
 		}
-		// A DEFAULT is counted, not folded into `blocked`: a default says
+		// A DEFAULT is noted, not folded into `blocked`: a default says
 		// nothing about the SIGNATURE. `stdcalendar.DateTime.in_zone` projects
 		// the IDENTICAL signature to `in_zone_resolve` beside it —
 		// [NaiveDateTime, String, Disambiguation] -> Result<DateTime, Error> —
 		// which LOWERS through rt.ResolveInZone.
-		//
-		// Only a TRAILING run counts, because that is the only run a
-		// POSITIONAL call can leave empty: with `f(a, b = 1, c)` there is no
-		// arity that omits `b`, and a named argument — the other way to omit
-		// one — is refused outright (`named argument`). So a default in the
-		// middle contributes nothing and must not be counted, or a wrapper
-		// would be emitted for an arity no call site can spell.
 		if p.Default != nil {
-			defaulted++
-		} else {
-			defaulted = 0
+			defaulted = true
 		}
 	}
-	f.arityMin = len(params)
 	if ret != nil {
 		f.result = stdTypeKind(ret, anchors)
 		// kindInvalid: no-position — classifies a stdlib declaration into f.why; no Nomi position.
@@ -2284,7 +2138,7 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 			}
 		}
 	}
-	c := &stdCandidate{f: f, fd: fd, sib: recv + "." + name}
+	c := &stdCandidate{f: f, fd: fd, decl: decl}
 	switch {
 	case generic:
 		// Kept apart from the subset key, and the split is not cosmetic: a
@@ -2300,7 +2154,7 @@ func stdCandidateFor(module, recv, iface, ifaceKey, name string, params []ast.Pa
 		f.why = "stdlib function outside the scalar subset"
 	case progSig:
 		f.why = stdProgSigWhy
-	case fd == nil && defaulted > 0:
+	case fd == nil && defaulted:
 		// A `host fn` whose declared default THIS BUILDER MAY NOT READ, and the
 		// reason is which side owns the value.
 		//
@@ -2538,12 +2392,11 @@ func stdParamKind(p ast.Param, anchors stdAnchors) (kind, string) {
 //
 // Deliberately NOT gen.typeOf. typeOf resolves a module's declared types too,
 // and admitting one here would produce a kind whose identity is a *typeDef
-// belonging to a different generated package — which is the boundary the whole
-// scalar rule exists to hold. The exceptions are not a relaxation of that rule,
-// they are cases where the boundary is not crossed at all: an anchored type's
-// *typeDef is process-wide and its Go type is declared in rt, and a structural
-// type over package-neutral components has a process-wide *compKind and renders
-// to the same Go text everywhere. See opaque.go, stdenum.go and sharedcomp.go.
+// belonging to one gen, which no call site in another gen could match. The
+// admitted non-scalar types have one identity in every gen: an anchored
+// type's *typeDef is process-wide, and a structural type over package-neutral
+// components has a process-wide *compKind. See opaque.go, stdenum.go and
+// sharedcomp.go.
 func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 	// kindInvalid: lookup — scalarKind's "not one of the five", so fall through.
 	if k := scalarKind(te); k != kindInvalid {
@@ -2551,7 +2404,7 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 	}
 	// Infallible's own impls (`impl Display for Infallible` in results.nomi)
 	// take it as their receiver. It is reserved like Unit, so the name can
-	// mean nothing else, and its kind belongs to no package.
+	// mean nothing else, and its kind belongs to no gen.
 	if simpleTypeName(te) == "Infallible" {
 		return kindNever
 	}
@@ -2590,36 +2443,32 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 	if i, anchored := anchors.enums[name]; anchored {
 		// A monomorphic stdlib enum: `Int.compare(a: Int, b: Int) -> Ordering`.
 		// Admitted on the same terms as an opaque newtype and for the same
-		// reason — its *typeDef is process-wide and its Go type is declared in
-		// rt, so it belongs to no generated package and crossing the boundary
-		// costs nothing. See stdenum.go.
+		// reason: its *typeDef is process-wide, so a call site in any gen
+		// holds the same kind. See stdenum.go.
 		return named(stdEnumDefs()[i])
 	}
 	if i, anchored := anchors.structs[name]; anchored {
 		// A stdlib opaque STRUCT: `DateTime.with_zone(d: DateTime, zone:
-		// String): Result<DateTime, Error>`. The same terms once more — a
-		// process-wide *typeDef over a Go struct rt declares, every field a
-		// scalar so nothing about it is package-relative. See stdstruct.go.
+		// String): Result<DateTime, Error>`. The same terms once more: a
+		// process-wide *typeDef over a Go struct rt declares. See
+		// stdstruct.go.
 		return named(stdStructDefs()[i])
 	}
 	if i, anchored := anchors.hosts[name]; anchored {
 		// A stdlib `pub host type`: `Bytes.length(data: Bytes) -> Int`. The same
-		// terms a fourth time — a process-wide *typeDef over a Go type rt
-		// declares, and a LEAF, so it has no components to be
-		// package-relative. See stdhost.go.
+		// terms a fourth time: a process-wide *typeDef over a Go type rt
+		// declares, and a leaf, with no components. See stdhost.go.
 		return stdHostKind(i)
 	}
 	if i, anchored := anchors.ifaces[name]; anchored {
 		// A stdlib INTERFACE in a type position: `Doc.from_fragments(
 		// fragments: List<Fragment<Display>>): Doc`. Admitted on the same
-		// terms as the three families above and for the same reason — the
-		// *ifaceDef is process-wide, the value renders `rt.Dyn` in every
-		// generated package, and the dispatch tables are variables in rt. See
+		// terms as the families above: the *ifaceDef is process-wide. See
 		// stdiface.go.
 		//
-		// It is `rt.Dyn` for EVERY interface, so the intern tables must not key
-		// on that spelling, or two anchored interfaces reaching one structural
-		// constructor would collapse. The identity travels in the components.
+		// A structural kind over an interface carries the interface in its
+		// components, so `List<Display>` and `List<Comparable>` are two
+		// kinds.
 		return stdIfaceKind(i)
 	}
 	// A TUPLE — `random.between_state(...) -> (Int, Int)`. Placed before the
@@ -2649,9 +2498,9 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 	}
 	if gt, generic := te.(*ast.GenericType); generic {
 		// A PRELUDE instance over the types above: `Float.to_int(x: Float):
-		// Maybe<Int>`. The same terms again, one level up — `rt.Maybe[int64]`
-		// is declared in rt too — and admitted only when every type ARGUMENT is
-		// itself package-neutral, which is what stdprelude.go interns on.
+		// Maybe<Int>`. The same terms one level up: admitted only when every
+		// type argument is itself package-neutral, which is what
+		// stdprelude.go interns on.
 		//
 		// Reported as handled even when it refuses, so an unrepresentable type
 		// argument is the answer rather than falling through to a lookup that
@@ -2682,10 +2531,9 @@ func stdTypeKind(te ast.TypeExpr, anchors stdAnchors) kind {
 // builder has a representation for, resolved against one module's analysis.
 //
 // A struct rather than a parameter per family, because there are several
-// families and the reason each is admissible is identical — a process-wide
-// *typeDef whose Go type rt
-// declares, so it is not any generated package's type. A threaded map per
-// family would make each addition a five-signature edit.
+// families and the reason each is admissible is identical: a process-wide
+// def, which belongs to no gen. A threaded map per family would make each
+// addition a five-signature edit.
 type stdAnchors struct {
 	// fa is the module's analysis, which records the type a parameter
 	// written `mode = WriteMode.Replace` takes from its default.
@@ -2909,8 +2757,8 @@ func stdHeadTypeName(te ast.TypeExpr) string {
 	return stdNestedTypeName(te)
 }
 
-// tupleKindOfGoType answers a tuple kind for the flat anonymous struct a Nomi
-// tuple lowers to, or kindInvalid.
+// tupleKindOfGoType answers a tuple kind for the flat anonymous struct a host
+// function's signature spells a Nomi tuple as, or kindInvalid.
 //
 // THREE CONDITIONS, and each excludes a real Go type that must not be read as a
 // tuple:
@@ -2957,40 +2805,6 @@ func tupleKindOfGoType(t reflect.Type) kind {
 	return k
 }
 
-// stdArityName is the symbol name of one std function's arity-reduced wrapper:
-// the function's key, which carries its receiver and instantiation, plus the
-// arity.
-func stdArityName(f *stdFunc, arity int) string {
-	return f.key + " arity " + strconv.Itoa(arity)
-}
-
-// stdCallArity is the arity a call of n POSITIONAL arguments uses, and whether
-// that is a call this function accepts at all.
-//
-// Shared by both call sites (stdlibInvoke and stdlibSiblingCall) so a short call
-// gets one answer. It is the ONLY place that reads callArityMin, which is what
-// keeps "how short may a call be" from being asked twice.
-func stdCallArity(f *stdFunc, n int) (int, bool) {
-	if n == len(f.params) {
-		return n, true
-	}
-	if n < len(f.params) && n >= callArityMin(f) {
-		return n, true
-	}
-	return 0, false
-}
-
-// callArityMin is f.arityMin read on the CANONICAL *stdFunc, which is where the
-// lowering pass lowers it. See stdFunc.canon: a sibling snapshot froze the
-// pessimistic value and refused eleven short intra-module calls whose arity
-// body was already built.
-func callArityMin(f *stdFunc) int {
-	if f.canon != nil {
-		return f.canon.arityMin
-	}
-	return f.arityMin
-}
-
 // --- the stdlib module's gen ----------------------------------------------
 
 // newStdGen builds a gen for one stdlib module: the same builder user code goes
@@ -3017,16 +2831,16 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 		// a non-empty stdModule IS "this is the embedded stdlib module of that
 		// name". loadIter's declaresStdIter is the one reader. See native.go.
 		stdModule: module, fa: fa, // nodes, which every `g.nodes` reader in this package needs for a
-		// stdlib module too: declaresIterImpl (iter.go), appImplNames and
-		// declaresBoot (appfield.go), templateWall (generictype.go), the
+		// stdlib module too: declaresIterImpl (iter.go), declaresBoot
+		// (appfield.go), templateWall (generictype.go), the
 		// generic-impl template collection (genericimpl.go), collectHostPkgs
 		// (hostpkg.go), declareOnces (once.go), typeParamNames and
-		// nestedTypeKeys (sigreason.go), and tail.go's graph. Without it
+		// nestedTypeKeys (sigreason.go). Without it
 		// declaresIterImpl would answer "this module declares no `impl Iter`
 		// block" about std/iter.nomi, whose whole API is one.
 		// TestStdModuleView_PopulatesNodes and
-		// TestIterAnchor_DeclaringModuleFailsProvenanceAndNotShape hold it.
-		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}, anonTids: map[kind]bool{}}
+		// TestIterAnchor_DeclaringModuleIsItsOwnProtocol hold it.
+		nodes: nodes, funcs: map[string]*fnSig{}, types: map[string]*typeDef{}, ifaces: map[string]*ifaceDef{}, implsByIface: map[string]map[kind]*implDef{}, tids: map[kind]bool{}}
 	if earlier != nil {
 		g.stdUnitSyms = earlier.unitSyms
 	}
@@ -3043,15 +2857,13 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 	g.loadPreludes()
 	g.pushScope()
 	// Interface shells and type declarations so typeOf can answer inside a body.
-	// Nothing is EMITTED from either: a stdlib package exposes functions only,
-	// because a type it declared would be a type in the wrong package.
 	g.declareIfaces(nodes)
 	g.buildTypes(nodes)
 	g.resolveIfaces()
 
 	g.bindStdSiblings(module, pkg, cands, settled, earlier)
-	// After bindStdSiblings, and on a field of its own, so the rebind for phase 2
-	// cannot drop it. See stdonce.go's bindStdOnces.
+	// After bindStdSiblings, and on a field of its own, so a later rebind of
+	// the siblings cannot drop it. See stdonce.go's bindStdOnces.
 	g.bindStdOnces(onces)
 	return g
 }
@@ -3059,19 +2871,17 @@ func newStdGenIn(module, path, pkg string, nodes []ast.Node, fa *analysis.FileAn
 // bindStdSiblings installs the sibling table and the stdlib index one stdlib
 // body is lowered against, and returns the undo.
 //
-// Separate from newStdGen because the lowering pass binds TWO scopes over one
-// gen: phase 1's members are lowered against phase 1's sibling set and phase 2's
-// against the enlarged one. See lowerStdlibModule for why that split is what
-// confines a cycle to phase 2 and leaves phase 1's text byte-identical.
+// Separate from newStdGen because more than one scope is bound over one gen:
+// newStdGen binds the gen against v.settled, and the prebuild and the
+// lowering pass each bind it against the bodies they offer.
 //
 // `settled` is asked about the CANDIDATE, not about `c.sib`, which is a
 // spelling several declarations share. Asked about the spelling, the answer
 // would be the group's: `Add<Duration, NaiveDateTime>` is bound to an rt
-// symbol and seeds the least fixed point, so `settled["NaiveDateTime.add"]`
-// would be true and this loop would hand out a name for all ten OTHER rungs,
-// none of which lowers. A sibling resolving `lhs + Hours(-n)` to one of them
-// would then reference a function the pass goes on to refuse.
-// TestStdlibEmittedCallsAreDefined is the guard.
+// function, so `settled["NaiveDateTime.add"]` would be true and this loop
+// would offer all ten other rungs whether or not they lower. A sibling
+// resolving `lhs + Hours(-n)` to one of them would then call a function the
+// pass goes on to refuse.
 func (g *gen) bindStdSiblings(module, pkg string, cands []*stdCandidate, settled map[*stdCandidate]bool, earlier *stdlibIndex) func() {
 	restore, _ := g.bindStdSiblingViews(module, pkg, cands, settled, earlier)
 	return restore
@@ -3090,64 +2900,55 @@ var stdSiblingBinds atomic.Int64
 // changes between its attempts.
 func (g *gen) bindStdSiblingViews(module, pkg string, cands []*stdCandidate, settled map[*stdCandidate]bool, earlier *stdlibIndex) (func(), map[*stdCandidate]*stdFunc) {
 	stdSiblingBinds.Add(1)
-	prevSiblings, prevStd := g.stdSiblings, g.std
+	prevDecls, prevStd := g.stdSiblingDecls, g.std
 	views := make(map[*stdCandidate]*stdFunc, len(cands))
 	local := &stdlibIndex{
 		byType: map[string][]*stdFunc{},
 		// THE FILE-QUALIFIED ROUTE. `stdlibIndex.add` files a `pub` free
 		// function under "<module>.<name>" only when `byFile != nil`; without
-		// the map a module's own `pub host fn`s would not be filed,
-		// `stdFileCall` could only decline, and `stdFreeCall` would report the
-		// QUALIFIER's key. `compiler.check(...)` inside std/compiler and
+		// the map a module's own `pub host fn`s would not be filed and a
+		// file-qualified call to one could only decline.
+		// `compiler.check(...)` inside std/compiler and
 		// `timer.sleep(...)` inside std/timer need it: the implicit file alias
 		// is how a stdlib module names its own free functions.
 		byFile:    map[string]*stdFunc{},
 		byIface:   map[string]map[kind][]*stdFunc{},
 		modulePkg: map[string]string{module: pkg},
 	}
-	g.stdSiblings = map[string]*stdFunc{}
-	// The unqualified-name table is keyed on the spelling, so two lowerable
-	// declarations sharing one spelling would resolve by map arrival order.
-	// Neither is installed instead, and the
-	// unqualified call then refuses through the ordinary path. `local` is NOT
-	// affected: its overload sets select by the full parameter-kind signature,
-	// which is what an operator or a qualified call supplies.
-	ambiguous := map[string]bool{}
+	// A bare call finds its sibling by the declaration the checker resolved
+	// it to, so two declarations of one spelling are two entries.
+	g.stdSiblingDecls = map[ast.Node]*stdFunc{}
 	for _, c := range cands {
 		f := c.f
 		if !settled[c] && f.rtCall == "" {
 			continue
 		}
-		// A settled Nomi body is reachable under the Go-spelled name it will be
-		// lowered with; the sibling table and the lowering use one function to
-		// build it.
+		// A settled Nomi body is offered as a body of this module: its view
+		// carries the module's namespace key, which irStdSiblingSym compares
+		// with the calling gen's.
 		//
-		// `canon` keeps the copy tied to the original for the ONE field the
-		// lowering pass mutates after this point — arityMin. See stdFunc.canon:
-		// without it a short intra-module call to a defaulted sibling reads a
-		// frozen arity and refuses `call arity` for an arity body that exists.
+		// `canon` keeps the copy tied to the original for the fields the
+		// lowering pass mutates after this point, defaultFill and irSlot. See
+		// stdFunc.canon: without it a short intra-module call to a defaulted
+		// sibling reads no accessor and refuses for one that exists.
 		view := *f
 		view.canon = f
 		if view.rtCall == "" {
 			view.body = true
 			view.pkg = pkg
 		}
-		if _, taken := g.stdSiblings[c.sib]; taken {
-			ambiguous[c.sib] = true
+		if c.decl != nil {
+			g.stdSiblingDecls[c.decl] = &view
 		}
-		g.stdSiblings[c.sib] = &view
 		local.add(&view)
 		views[c] = &view
 	}
-	for sib := range ambiguous {
-		delete(g.stdSiblings, sib)
-	}
 	local.underlay(earlier)
 	g.std = local
-	return func() { g.stdSiblings, g.std = prevSiblings, prevStd }, views
+	return func() { g.stdSiblingDecls, g.std = prevDecls, prevStd }, views
 }
 
-// emitStdFunc emits one stdlib function as a top-level Go func.
+// emitStdFunc lowers one stdlib function's body into the module's IR.
 //
 // Not gen.funcDecl: funcDecl reports a refusal for every parameter and return
 // shape it cannot take, and inside the stdlib those reports are exactly what must
@@ -3180,18 +2981,16 @@ func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 	prevResult, prevSelf := g.result, g.implSelf
 	g.result, g.implSelf = f.result, f.recv
 	// `g.stdInstName` when a per-program INSTANCE of a generic declaration is
-	// being emitted, `f.key` otherwise. An instance is the same body at a
+	// being lowered, `f.key` otherwise. An instance is the same body at a
 	// concrete instantiation and differs from the template only in its name, so
-	// this is the one line that has to know. See stdinstance.go, and `monoSig`
+	// this is the one line that has to know. See stdinst.go, and `monoSig`
 	// on the gen for the same arrangement one construct over.
 	name := f.key
 	if g.stdInstName != "" {
 		name = g.stdInstName
 	}
-	// The same seam `funcDecl` opens, in the same place relative to
-	// the `var rN R` line, because the shell describes THAT declaration. See
-	// irstdbody.go for why this caller exists and what it deliberately does
-	// not widen.
+	// The same seam `funcDecl` opens. See irstdbody.go for why this caller
+	// exists and what it deliberately does not widen.
 	stdSig := irStdFuncSig(f, fd)
 	shell := g.irFuncShellFor(fd, stdSig, f.params)
 	destructured := true
@@ -3206,7 +3005,7 @@ func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 		closePrologue(destructured)
 	}
 	g.irBodyObserve(irBodyStdFn, true)
-	produced, retained := g.irScalarLower(fd, stdSig, nil, shell, f.result)
+	produced, retained := g.irScalarLower(fd, stdSig, shell, f.result)
 	if !retained {
 		g.stdUnloweredFunc(name, f.key, g.dc.take().why)
 		produced = f.result
@@ -3228,72 +3027,21 @@ func (g *gen) emitStdFunc(f *stdFunc, fd *ast.FuncDef) {
 	g.popScope()
 }
 
-// emitStdBody lowers one stdlib function plus every arity-reduced body its
-// trailing defaults earn, against whatever sibling scope is bound right now.
+// emitStdBody lowers one stdlib function plus an accessor per defaulted
+// parameter, against whatever sibling scope is bound right now.
 //
-// One function so the two arms of lowerStdlibModule's lowering switch cannot
-// disagree about the order: body has to be set before the wrappers, because a
-// wrapper calls it, and the wrappers have to be inside phase 2's
-// sibling window, because a default expression is ordinary Nomi from this
-// module.
+// The accessors have to be inside the sibling window, because a default
+// expression is ordinary Nomi from this module, and after the body, which
+// emitStdSlotDefaults requires retained.
 func (g *gen) emitStdBody(f *stdFunc, fd *ast.FuncDef, pkg string) bool {
 	if !g.speculate(func() { g.emitStdFunc(f, fd) }) {
 		return false
 	}
 	f.body, f.pkg = true, pkg
-	g.emitStdDefaultWrappers(f, fd)
-	// Beside the arity wrappers and for the same two reasons: body is set, and
-	// this is the declaring module's own sibling window, which is where a
+	// This is the declaring module's own sibling window, which is where a
 	// default expression's names resolve. See stdslotfill.go.
 	g.emitStdSlotDefaults(f, fd)
 	return true
-}
-
-// emitStdDefaultWrappers builds one arity body (irStdArityRetain) per
-// POSITIONAL arity a call site may spell short, lowering f.arityMin as it goes.
-//
-// # Why a wrapper in the STDLIB's package rather than a fill at the call site
-//
-// A parameter default is Nomi source belonging to the module that DECLARED it,
-// and `mode: Disambiguation = Disambiguation.Compatible` is the proof: filling
-// it at the call site means lowering `Disambiguation.Compatible` in the CALLER's
-// gen, where the name resolves through the caller's own type registry. A caller
-// that omits the argument has no reason to have imported `Disambiguation` at
-// all — 05-calendar-and-time/datetime_test.nomi is exactly that file — so the
-// fill would refuse for files that are perfectly legal Nomi. Worse in the other
-// direction: a default naming a module-level binding would resolve against
-// whatever the CALLER happens to have under that spelling, which is a silent
-// wrong answer, which is why a user field default reached from another file is
-// lowered in its declaring file's gen (foreignfielddefault.go).
-//
-// Emitting the fill HERE removes the question rather than answering it. This gen
-// IS the declaring module's, so g.scopes[0] is the scope the programmer wrote
-// the default in and g.types resolves the names they wrote; the caller sees only
-// a function of the shorter arity. Nothing about the caller can change what
-// the default means, which is the property `defaultNamesAgree` has to
-// CHECK for a sibling file's parameter default and this gets for free.
-//
-// The fill itself is fillParamDefaults — the one implementation module `fn`
-// calls and impl-method calls already share — so "what does an omitted argument
-// mean" still has exactly one encoding in this package. It is reached with the
-// std module's own scope stack, so its documented rules (evaluated at each call
-// that omits the argument, in the declaring module's scope) hold here by
-// construction rather than by analogy.
-//
-// Top down and stopping at the first refusal, so the arities that exist are
-// contiguous: a wrapper for arity n-2 calls the full function with TWO defaults
-// filled, and if the last one cannot be lowered neither can any shorter arity.
-func (g *gen) emitStdDefaultWrappers(f *stdFunc, fd *ast.FuncDef) {
-	if len(fd.Params) != len(f.params) {
-		return
-	}
-	for arity := len(f.params) - 1; arity >= 0; arity-- {
-		if fd.Params[arity].Default == nil {
-			return
-		}
-		f.arityMin = arity
-		g.irStdArityRetain(f, fd, arity)
-	}
 }
 
 // --- call sites -----------------------------------------------------------
@@ -3337,8 +3085,8 @@ func (g *gen) stdlibUnaryOperatorFor(k kind) *stdFunc {
 // stdlibImplOf resolves one stdlib interface METHOD at a statically-known
 // receiver kind, checking the PARAMETER shape the call site assumes.
 //
-// The shared half of the three routes below, all of which are the same row of
-// the dispatch table stdlibCall's second bullet describes: an interface method
+// The shared half of the three routes below, all of which are the same
+// rule: an interface method
 // whose receiver kind is known statically names exactly one function, so it
 // lowers to a direct call and needs no table. Reached through an operator or a
 // renderer instead of through a qualifier.
@@ -3366,8 +3114,32 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 	return f
 }
 
-// stdlibOperatorFor is the shared binary-operator selection. Decimal arithmetic
-// belongs to its primitive implementation, ahead of stdlib dispatch.
+// stdOperatorNative reports whether `left op right` is the machine's own
+// operation rather than a call of std's impl, whatever impl the checker
+// recorded for it: Decimal arithmetic, and two operands of one scalar kind
+// except a bitwise operator on a kind other than Int (Byte's `&&&`), which
+// is std's impl.
+func stdOperatorNative(op string, left, right kind) bool {
+	if isDecimalKind(left) && isDecimalKind(right) {
+		return true
+	}
+	return left.def == nil && left == right && (!irArithOps[op].Bitwise() || left == kindInt)
+}
+
+// stdOperatorFits reports whether the std function f is called for `left
+// op right`: the operator is std's to call there (stdOperatorNative), and
+// f lowered and takes the two operands' kinds exactly.
+func stdOperatorFits(op string, f *stdFunc, left, right kind) bool {
+	if _, known := stdOperatorIfaces[op]; !known || f == nil || stdOperatorNative(op, left, right) {
+		return false
+	}
+	return f.why == "" && sameParamKinds(f.params, []kind{left, right})
+}
+
+// stdlibOperatorFor is std's impl of `left op right` at an instance's
+// kinds, for an operator the checker resolved over a type parameter
+// (instanceOperatorImpl); a recorded operator calls the function its
+// record names (recordedOperatorImpl).
 //
 // A scalar left operand (`Int`, `Float`) at its own kind is native
 // arithmetic and answers nil here. At another right-hand kind it is std's
@@ -3375,51 +3147,18 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 // Divide<Int, Duration> for Duration`.
 func (g *gen) stdlibOperatorFor(op string, left, right kind) *stdFunc {
 	key, known := stdOperatorIfaces[op]
-	if !known || (isDecimalKind(left) && isDecimalKind(right)) {
+	if !known || g.std == nil || stdOperatorNative(op, left, right) {
 		return nil
 	}
-	if left.def == nil {
-		// Two operands of one scalar kind are native arithmetic, except a
-		// bitwise operator on a kind other than Int (Byte's `&&&`), which
-		// is std's impl.
-		if g.std == nil || left == right && (!irArithOps[op].Bitwise() || left == kindInt) {
-			return nil
-		}
-		params := []kind{left, right}
-		f := stdPick(g.std.byIface[key][left], params)
-		if f == nil || f.why != "" || !sameParamKinds(f.params, params) {
-			return nil
-		}
-		return f
-	}
-	return g.stdlibImplOf(key, left, left, right)
-}
-
-// stdlibSibling resolves an unqualified call inside a stdlib body.
-//
-// `impl Debug for Float`'s `inspect` calls `to_string(x)`, and `impl Hashable for
-// Float`'s `hash` calls the module-private `float_bits(x)`. The first resolves
-// through the receiver type's methods and the second through module scope, so
-// both are looked up here: receiver-qualified first,
-// then module-level. Nothing else — a name that resolves to neither is refused by
-// the ordinary path, and the function is then simply not lowered.
-func (g *gen) stdlibSibling(name string) *stdFunc {
-	if g.stdSiblings == nil {
+	f := stdPick(g.std.byIface[key][left], []kind{left, right})
+	if !stdOperatorFits(op, f, left, right) {
 		return nil
 	}
-	if g.implSelf != "" {
-		if f, ok := g.stdSiblings[g.implSelf+"."+name]; ok {
-			return f
-		}
-	}
-	if f, ok := g.stdSiblings["."+name]; ok {
-		return f
-	}
-	return nil
+	return f
 }
 
-// irPrebuildStdBodies builds every emittable body's graph before any body is
-// emitted and leaves the graphs in the module.
+// irPrebuildStdBodies builds every offered body's graph before the lowering
+// pass lowers any body, and leaves the graphs in the module.
 //
 // A body's graph may call a sibling only once the sibling's graph is in the
 // module, so building in declaration order left a forward call — `Date.parse`
@@ -3429,21 +3168,20 @@ func (g *gen) stdlibSibling(name string) *stdFunc {
 // them until no more build; a body still unbuilt is withdrawn and the round
 // starts over without it, until a round withdraws nothing. The lowering pass
 // that follows finds every callee already there; each body then rebuilds its
-// own graph (irScalarLower replaces the prebuilt graph). The prebuild's text
-// is discarded.
+// own graph (irScalarLower replaces the prebuilt graph).
 //
 // The module's settled `once` bindings take part in the same fixed point,
 // since an initializer may call a body and a body may read a binding: each
 // is assumed to build, its cell named ahead (stdOnce.irCell) so a body
 // reading it builds, and one whose initializer does not build is withdrawn
 // (settled cleared) with the bodies. The cells the prebuild built are
-// removed, and lowerStdlibModuleIn emits each survivor once.
+// removed, and lowerStdlibModuleIn lowers each survivor once.
 func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emitted map[*stdCandidate]bool, onces []*stdOnce, earlier *stdlibIndex) {
 	var todo []*stdCandidate
 	for _, c := range cands {
 		if c.fd != nil && c.f.why == "" && emitted[c] {
-			// The callee spelling a sibling call names, set ahead of lowering
-			// so a graph built now can link to a body lowered later.
+			// body and pkg are set ahead of lowering, so a graph built now
+			// can link to a body lowered later.
 			c.f.body, c.f.pkg = true, pkg
 			todo = append(todo, c)
 		}
@@ -3467,7 +3205,7 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 	// loop alone writes; setIRBody writes it to the candidate and to the view
 	// the binding installed for it, so every attempt sees exactly the views a
 	// fresh binding would have built. A binding rebuilds the local index, the
-	// underlay of every earlier module and every sibling's Go name, so one per
+	// underlay of every earlier module and every sibling's view, so one per
 	// attempt is most of the prebuild's cost; TestStdSiblingBinds_* holds the
 	// count.
 	restoreSiblings, views := g.bindStdSiblingViews(module, pkg, cands, emitted, earlier)
@@ -3567,82 +3305,6 @@ func (g *gen) irPrebuildStdBodies(module, pkg string, cands []*stdCandidate, emi
 	}
 }
 
-// irStdTailCycles marks every prebuilt body that makes a tail call into a
-// recursion cycle it belongs to.
-//
-// Nomi guarantees constant-stack tail calls with no annotation (spec §7, *Tail-call optimization*).
-// The VM keeps that guarantee by running a tail call in the caller's
-// activation, so such a body keeps its graph. Go eliminates no tail calls, so
-// its Go is a stub named `stdlib tail-recursive function` and a program that
-// reaches it does not build. The cycles are read off the
-// prebuilt graphs, whose callees are the ones the builder resolved by argument
-// kind, so an interface-qualified call names the one impl it reaches rather
-// than every impl of that method.
-func (g *gen) irStdTailCycles(cands []*stdCandidate, emittable map[*stdCandidate]bool) {
-	mod := g.irMod
-	if mod == nil {
-		return
-	}
-	built := map[*stdCandidate]*ir.Func{}
-	for _, c := range cands {
-		if c.fd != nil && emittable[c] {
-			if fn := mod.FuncFor(g.irCalleeSym(c.fd, c.fd.Name)); fn != nil {
-				built[c] = fn
-			}
-		}
-	}
-	calleeOf := func(call *ir.Call) *stdCandidate {
-		for c, fn := range built {
-			if fn.Sym() == call.Callee() {
-				return c
-			}
-		}
-		return nil
-	}
-	type edge struct {
-		to   *stdCandidate
-		tail bool
-	}
-	edges := map[*stdCandidate][]edge{}
-	for c, fn := range built {
-		for _, b := range fn.Blocks() {
-			for _, in := range b.Instrs() {
-				if call, isCall := in.(*ir.Call); isCall {
-					if to := calleeOf(call); to != nil {
-						edges[c] = append(edges[c], edge{to, call.Tail()})
-					}
-				}
-			}
-		}
-	}
-	reaches := func(from, to *stdCandidate) bool {
-		seen := map[*stdCandidate]bool{}
-		stack := []*stdCandidate{from}
-		for len(stack) > 0 {
-			n := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			for _, e := range edges[n] {
-				if e.to == to {
-					return true
-				}
-				if !seen[e.to] {
-					seen[e.to] = true
-					stack = append(stack, e.to)
-				}
-			}
-		}
-		return false
-	}
-	for _, c := range cands {
-		for _, e := range edges[c] {
-			if e.tail && reaches(e.to, c) {
-				c.f.tailRec = true
-				break
-			}
-		}
-	}
-}
-
 // irMuteObservers silences every test observer and answers the restore. The
 // observers are package state that only tests set, and a test that sets one
 // runs one lowering at a time; with none set, as in production, it writes
@@ -3650,17 +3312,17 @@ func (g *gen) irStdTailCycles(cands []*stdCandidate, emittable map[*stdCandidate
 // decline hooks are its census's (declineCensus.suspend), not these.
 func irMuteObservers() func() {
 	fn, declined, body := irFuncObserved, irRetentionDeclined, irBodyObserved
-	effect, iter, proj, tail := irEffectObserved, irIterObserved, irProjKindObserved, irTailObserved
+	iter, proj := irIterObserved, irProjKindObserved
 	testBody := irTestBodyObserved
-	if fn == nil && declined == nil && body == nil && effect == nil && iter == nil && proj == nil && tail == nil && testBody == nil {
+	if fn == nil && declined == nil && body == nil && iter == nil && proj == nil && testBody == nil {
 		return func() {}
 	}
 	irFuncObserved, irRetentionDeclined, irBodyObserved = nil, nil, nil
-	irEffectObserved, irIterObserved, irProjKindObserved, irTailObserved = nil, nil, nil, nil
+	irIterObserved, irProjKindObserved = nil, nil
 	irTestBodyObserved = nil
 	return func() {
 		irFuncObserved, irRetentionDeclined, irBodyObserved = fn, declined, body
-		irEffectObserved, irIterObserved, irProjKindObserved, irTailObserved = effect, iter, proj, tail
+		irIterObserved, irProjKindObserved = iter, proj
 		irTestBodyObserved = testBody
 	}
 }

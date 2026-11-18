@@ -29,7 +29,8 @@ package irbuild
 // result, and a `*ir.Ref` other than a function or a parameter.
 //
 // `*ir.Type` answers no shape question: it is a name plus a `TypeForm`, and
-// table.go forbids reading the name as an identity, so "is this an Int" off
+// internal/ir/table.go forbids reading the name as an identity, so "is this
+// an Int" off
 // an `*ir.Type` would be the forbidden `Name() == "Int"` comparison.
 
 import (
@@ -738,7 +739,7 @@ func axis13Population(t *testing.T) []*ir.Func {
 
 	buildStdlibIndex()
 	prev := irFuncObserved
-	irFuncObserved = func(origin irFuncOrigin, _ string, f *ir.Func, _ bool) {
+	irFuncObserved = func(origin irFuncOrigin, _ string, f *ir.Func) {
 		if origin == irFromStd && f != nil {
 			fns = append(fns, f)
 		}

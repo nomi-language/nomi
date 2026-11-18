@@ -11,10 +11,10 @@ import (
 //
 // std/int.nomi declares `impl Add<Int, Int> for Int { host fn add(lhs: Int, rhs:
 // Int) -> Int }` and eight siblings across int, float and strings. Those nine
-// declarations ARE the definitions of `+ - * /` on the scalars, and native.go's
-// arith() lowers the OPERATOR spelling natively. So nothing here is a new
-// operation; this is the route from the written-out spelling to the same rt
-// call.
+// declarations are the definitions of `+ - * /` on the scalars, and the
+// builder lowers the operator spelling to `ir.Arith`. So nothing here is a
+// new operation; this is the route from the written-out spelling to the same
+// instruction.
 //
 // # Which line a fault names
 //
@@ -27,7 +27,7 @@ import (
 //
 // # Why a builder arm rather than nine registry rows
 //
-// stdlibBindings holds a Go FUNCTION VALUE whose signature is reflected over, so
+// A registry row holds a Go FUNCTION VALUE whose signature is reflected over, so
 // a row for `int.Int.Add<Int, Int>.add` needs a named rt symbol of exactly two
 // int64 parameters. `rt.AddInt` takes three, and hostCallName rejects a closure
 // outright (`strings.ContainsAny(local, ".[(")` catches the `.func1` a literal
@@ -35,36 +35,34 @@ import (
 // one in. The Decimal family goes through this arm for the same reason.
 //
 // scalarEqualCall lowers `Equatable.equal` on a scalar the same way, with no
-// registry row, and textQualifiedCall lowers `Int.to_string`. Three things
-// follow:
+// registry row. Three things follow:
 //
 //   - NO NEW rt SYMBOL. Int arithmetic keeps ONE implementation. rt owns the
 //     operations (IntAdd and its siblings) and the text (DivByZeroError), and
 //     this arm emits the SAME `ir.Arith` the operator emits, differing only in
 //     the position it carries. A second entry point would be a second thing to
 //     keep in agreement.
-//   - The nine keys stay unbound and exempted, so
-//     TestStdlibRefusesUnmappedHostFnsByName keeps holding its line for the
-//     stdlib index. implCall's chain answers these calls before the index is
-//     consulted, as scalarEqualCall and the List/Map/Set arms do.
+//   - The nine keys stay unbound. This arm answers these calls before the
+//     stdlib index is consulted, as scalarEqualCall and the List/Map/Set arms
+//     do.
 //   - The KEYS do not matter on this route. stdKey instantiates whenever the
 //     interface is generic, so the builder's index calls the first three
 //     `int.Int.Add<Int, Int>.add` and friends, while a key that instantiates
 //     only where an interface is implemented twice for Int would spell them
 //     `int.Int.add`, `int.Int.subtract`, `int.Int.multiply` BARE (only `Divide`
 //     is implemented twice). No row exists to be wrong. If a row is ever added
-//     to stdlibBindings for any of the six add/subtract/multiply keys, decide
+//     to the registry for any of the six add/subtract/multiply keys, decide
 //     then which spelling it is keyed on.
 //
 // # WHAT IS DELIBERATELY NOT HERE
 //
 //   - A named LEFT operand. `Score(2) + Score(3)` dispatches to a user
 //     `impl Add<Score, Score> for Score`, which is a different mechanism
-//     entirely; see userarith.go.
+//     entirely; see operimpl.go.
 
 // scalarArithOps pairs an operator interface with its one method, derived from
-// stdOperatorIfaces so the two cannot drift: that map is what native.go's
-// stdlibOperator selects with, and a second hand-written copy of "which
+// stdOperatorIfaces so the two cannot drift: that map is what stdlib.go's
+// stdlibOperatorFor selects with, and a second hand-written copy of "which
 // interface is which operator" is the shape of every identity drift this package
 // guards against.
 //

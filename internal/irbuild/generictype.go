@@ -11,7 +11,7 @@ import (
 //
 // # Five populations under one key
 //
-// `generic type` is emitted from several sites and covers five populations
+// `generic type` is reported from several sites and covers five populations
 // that need five different things:
 //
 //	A  a generic DECLARATION             types.go declModifiers
@@ -29,32 +29,26 @@ import (
 // reached when the enclosing generic FUNCTION is itself monomorphized per call
 // site (genericmono.go).
 //
-// # Why monomorphization and not a Go generic type
+// # One def per instantiation
 //
-// Not a preference. `kind` is `{tag, *typeDef}` and a named type's identity IS
-// its `*typeDef` pointer (types.go's header), so every downstream mechanism —
-// field access, boxing, slot layout, the impl tables keyed on `kind`, the
-// inspector cache — reads a def with CONCRETE field kinds. A single
-// `type NomiT_Box[T any] struct{ F_item T }` would need each of those to carry
-// a substitution alongside the pointer, which is a second identity model beside
-// the one the package is built on. One def per instantiation reuses all of it:
-// `Box<Inner>` is an ordinary struct def whose field kind happens to have been
-// computed under a substitution, and nothing downstream can tell.
+// `kind` is `{tag, *typeDef}` and a named type's identity is its `*typeDef`
+// pointer (types.go's header), so every downstream mechanism (field access,
+// boxing, slot layout, the impl tables keyed on `kind`) reads a def with
+// concrete field kinds. One def per instantiation reuses all of it:
+// `Box<Inner>` is an ordinary struct def whose field kind was computed under a
+// substitution, and nothing downstream can tell.
 //
 // That is also what stdgenstruct.go and prelude.go do for the std and prelude
-// families — `buildGenStructDef` and `buildPreludeDef` each construct one
-// `*typeDef` per argument tuple. This is the same mechanism over the
-// declaration kind neither of those can read: a USER declaration, whose Go
-// type this package must EMIT rather than find in rt.
+// families: `buildGenStructDef` and `buildPreludeDef` each construct one
+// `*typeDef` per argument tuple. This is the same mechanism over a user
+// declaration.
 //
-// # PER-GEN, not process-wide
+// # Per gen, not process-wide
 //
 // stdgenstruct.go interns process-wide because every admitted argument is
-// `packageNeutral` — `rt.Set[int64]` renders identically in every generated
-// package. A user instance cannot be: `Box<Inner>`'s field type is
-// `NomiT_Inner`, a type ONE generated package declares. So the intern table is
-// `g.genericInsts`, per gen, and the Go type is emitted into the package that
-// created it. A cross-package instance is named through foreign.go's mirror
+// `packageNeutral`. A user instance cannot be: `Box<Inner>`'s field kind is
+// this gen's def for `Inner`. So the intern table is `g.genericInsts`, per
+// gen. Another file's instance is named through foreign.go's mirror
 // (foreigngeneric.go).
 //
 // # A declaration-level bound is admitted
@@ -73,15 +67,15 @@ import (
 //
 // # The rendered name is the bare declaration name
 //
-// `nomi` is what the derived inspector emits (`rt.InspectStruct(def.nomi, …)`)
-// and what `qualifiedNomiName` module-qualifies for `rt.TypeID`:
+// `nomi` is the name the derived Debug rendering shows and what
+// `qualifiedNomiName` module-qualifies for the type's run-time name:
 //
 //	b = Box{item: Inner{value: 7}}   ->   Debug.inspect(b) == "Box{item: Inner{value: 7}}"
 //
 // No type arguments. So an instance's `nomi` is "Box" and NOT "Box<Inner>",
-// which is the opposite of genStructNames' choice for the std family — and the
+// which is the opposite of the choice for the std family — and the
 // difference is not an inconsistency. A std generic struct never reaches the
-// derived inspector, because std writes its own `impl Debug`; its `nomi` is a
+// derived Debug rendering, because std writes its own `impl Debug`; its `nomi` is a
 // collision-detection key and a refusal spelling, not a rendering. Here `nomi`
 // IS the rendering.
 //
@@ -116,8 +110,8 @@ type genericTemplate struct {
 	// because a type ARGUMENT list is positional.
 	params []string
 	// why and whyDetail are the reason no instance of this template can be
-	// built — a decorator, a body item, or an impl block naming it that cannot
-	// be instantiated. Empty when instantiation is admitted.
+	// built: a decorator, or an impl block naming it that cannot be
+	// instantiated. Empty when instantiation is admitted.
 	//
 	// Carried on the TEMPLATE rather than recomputed per instantiation so
 	// every use site reports one reason, and so the impl scan is paid once.
@@ -170,9 +164,8 @@ func (tpl *genericTemplate) distinctDecl() *ast.TypeDef {
 // Enums are templates too. `Wrapper.Wrapped(42)`'s payload annotation IS `T`,
 // so the payload-carrying construction recovers its arguments by the same
 // unification a struct literal uses; the PAYLOAD-FREE `Wrapper.Empty` names
-// nothing and is refused BY NAME at the construction (see genericBareVariant)
-// rather than by walling the declaration every other construction of it needs.
-// See genericenum.go.
+// nothing and is built at the instance the checker solved for its site (see
+// genericVariantBare). See genericenum.go.
 func (g *gen) collectGenericTemplates(nodes []ast.Node) {
 	for _, n := range nodes {
 		var name string
@@ -241,17 +234,13 @@ func (g *gen) newGenericTemplate(n ast.Node, name string, tps []ast.TypeParam, n
 // and `keyword` is the only thing that differs.
 func (g *gen) templateWall(tpl *genericTemplate) (string, string) {
 	var decorators []ast.Decorator
-	var items []ast.Node
-	keyword := "struct"
 	switch decl := tpl.decl.(type) {
 	case *ast.StructDef:
-		decorators, items = decl.Decorators, decl.Items
+		decorators = decl.Decorators
 	case *ast.EnumDef:
-		decorators, items = decl.Decorators, decl.Items
-		keyword = "enum"
+		decorators = decl.Decorators
 	case *ast.TypeDef:
-		decorators, items = decl.Decorators, decl.Items
-		keyword = "type"
+		decorators = decl.Decorators
 	}
 	for _, dec := range decorators {
 		if dec.Name == "derive" {
@@ -260,9 +249,6 @@ func (g *gen) templateWall(tpl *genericTemplate) (string, string) {
 			continue
 		}
 		return "decorator", tpl.nomi + " @" + dec.Name
-	}
-	if len(items) > 0 {
-		return "type body item", keyword + " " + tpl.nomi
 	}
 	// An attached `//!` test does not wall a template, for declModifiers'
 	// reason: a line in a doc comment cannot change what the type is, and the
@@ -296,7 +282,7 @@ func implReceiverBaseName(te ast.TypeExpr) string {
 // template (`struct Node<T> { next: Node<T> }`) finds the same def rather than
 // recursing forever, and the boxing pass below then breaks the cycle exactly as
 // buildTypes does for a module declaration.
-func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
+func (g *gen) genericInstance(tpl *genericTemplate, args []kind, types []analysis.Type) (kind, bool) {
 	defer changingTypes()()
 	if tpl.why != "" {
 		return kindInvalid, false
@@ -324,19 +310,27 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 		// Two bodies may each declare a block-local `Box`, so the name in
 		// the key does not decide the template.
 		if d.genericOf == tpl && samePartsSlice(d.genericArgs, args) {
+			if d.genericTypes == nil {
+				d.genericTypes = types
+			}
+			// A second mention gets the first one's answer: a refused
+			// instance stays refused.
+			if !d.lowerable {
+				return kindInvalid, false
+			}
 			return named(d), true
 		}
 	}
-	d := &typeDef{ // The BARE declaration name, because this is what the derived inspector
-		// renders and what qualifiedNomiName module-qualifies. See the header.
-		nomi: tpl.nomi, decl: tpl.decl, line: tpl.decl.LineNum(), isEnum: tpl.enumDecl() != nil, isDistinct: tpl.distinctDecl() != nil, genericOf: tpl, genericArgs: args, lowerable: true}
+	d := &typeDef{ // The bare declaration name, because this is what the derived Debug
+		// rendering shows and what qualifiedNomiName module-qualifies. See the header.
+		nomi: tpl.nomi, decl: tpl.decl, line: tpl.decl.LineNum(), isEnum: tpl.enumDecl() != nil, isDistinct: tpl.distinctDecl() != nil, genericOf: tpl, genericArgs: args, genericTypes: types, lowerable: true}
 	if g.genericInsts == nil {
 		g.genericInsts = map[string][]*typeDef{}
 	}
 	g.genericInsts[key] = append(g.genericInsts[key], d)
 	g.genericInstOrder = append(g.genericInstOrder, d)
 
-	g.pushGenericSubst(tpl, args)
+	g.pushGenericSubst(substType, tpl, args, types)
 	switch decl := tpl.decl.(type) {
 	case *ast.StructDef:
 		g.resolveStructFields(d, decl, nil)
@@ -369,10 +363,9 @@ func (g *gen) genericInstance(tpl *genericTemplate, args []kind) (kind, bool) {
 	// exactly as it is in buildTypes, where the identical loop runs over every
 	// def. Two passes over one list, each doing the half that is its own.
 	d.boxFields()
-	// AFTER the field boxing, which is buildTypes' order and is load-bearing
-	// there for a reason that applies here unchanged: a boxed field is a
-	// pointer, a pointer is never zero-sized, and zero-sizedness decides whether
-	// a payload gets a slot at all.
+	// After the field boxing, which is buildTypes' order, for a reason that
+	// applies here unchanged: a boxed field is never zero-sized, and
+	// zero-sizedness decides whether a payload gets a slot at all.
 	d.assignSlots()
 	g.settleLowerable([]*typeDef{d})
 	if !d.lowerable {
@@ -472,21 +465,112 @@ func genericInstKey(tpl *genericTemplate, args []kind) string {
 // --- the substitution frame --------------------------------------------------
 
 // pushGenericSubst makes the template's parameters resolve to the instance's
-// arguments for the length of one field walk.
+// arguments for the length of one field walk. types is the instance's
+// arguments as the checker's types, nil where the entry read none
+// (substFrame).
 //
 // A STACK, because a nested instantiation resolves its own fields inside this
 // one: `Crate<Inner>`'s field `box: Box<T>` pushes `Box`'s frame over `Crate`'s
 // while `Box<Inner>` is built. Innermost-first, which is the shadowing rule
 // typeOf's dictTypeParamKind arm already states for a function's parameters.
-func (g *gen) pushGenericSubst(tpl *genericTemplate, args []kind) {
-	frame := make(map[string]kind, len(tpl.params))
-	for i, p := range tpl.params {
-		frame[p] = args[i]
-	}
-	g.genericSubst = append(g.genericSubst, frame)
+func (g *gen) pushGenericSubst(entry substEntry, tpl *genericTemplate, args []kind, types []analysis.Type) {
+	g.pushSubst(entry, tpl, newSubstFrame(tpl.params, args, types))
 }
 
-func (g *gen) popGenericSubst() {
+func (g *gen) popGenericSubst() { g.popSubst() }
+
+// substFrame is one frame of g.genericSubst: the type parameters of the
+// instance being lowered, by name, each as the kind the builder lowers it
+// at and, where the entry that made the instance read one, as the checker's
+// type it stands for (genericSubstType). The checker's type comes from what
+// the checker recorded where the instance was asked for: a call's type
+// arguments (analysis.CallTypeArgs), with an enclosing instance's types put
+// for its own type parameters (checkerTypeArg), or the type arguments of a
+// type the checker solved (project). An entry that reads its arguments off
+// annotations or operand kinds has none, and the builder never makes one
+// up from a kind. A call's and an operator's record is read at these types
+// (calleeAt, operatorUseAt); under test pushSubst holds each to its kind
+// (verifySubst).
+type substFrame struct {
+	kinds   map[string]kind
+	checked map[string]analysis.Type
+}
+
+// newSubstFrame is the frame binding params to args and, where types has
+// one, to the checker's type. types is nil or as long as args.
+func newSubstFrame(params []string, args []kind, types []analysis.Type) substFrame {
+	f := substFrame{kinds: make(map[string]kind, len(params))}
+	for i, p := range params {
+		f.kinds[p] = args[i]
+		if i < len(types) && types[i] != nil {
+			if f.checked == nil {
+				f.checked = make(map[string]analysis.Type, len(params))
+			}
+			f.checked[p] = types[i]
+		}
+	}
+	return f
+}
+
+// substEntry is the way an instance's frame is entered: what kind of
+// declaration is instantiated, which says where its checker types come
+// from. The census (substCensus) counts by it.
+type substEntry uint8
+
+const (
+	// substMono is a program generic fn's instance (monoInstanceAt,
+	// siblingGenericInstance).
+	substMono substEntry = iota
+	// substNested is a generic nested fn's instance (genericNestedFunc).
+	substNested
+	// substType is a generic type's instance while its fields resolve
+	// (genericInstance).
+	substType
+	// substImpl is an impl block of a generic type's instance, its
+	// functions and accessors (registerInstanceImpls, flushGenericImpls).
+	substImpl
+	// substMethod is an impl function with type parameters of its own
+	// (methodInstance), under its block's frame.
+	substMethod
+	// substIfaceImpl is the generic interface an impl block implements
+	// (`impl Holds<Int> for Box`), at the block's arguments.
+	substIfaceImpl
+	// substIfaceDefault is an interface default instantiated per receiver.
+	substIfaceDefault
+	// substStd is a std generic function's instance (stdInstances.queue).
+	substStd
+	// substAlias is a generic typealias's target at a use's arguments.
+	substAlias
+	// substRefinement is a generic refinement's base at a use's arguments.
+	substRefinement
+	// substProbe is a frame that binds a std impl block's parameters to
+	// trial kinds to read its receiver's shape: no instance, never counted.
+	substProbe
+	substEntries
+)
+
+var substEntryNames = [substEntries]string{
+	substMono: "program generic fn", substNested: "generic nested fn",
+	substType: "generic type fields", substImpl: "impl of a generic type",
+	substMethod: "generic impl fn", substIfaceImpl: "generic interface of an impl",
+	substIfaceDefault: "interface default", substStd: "std generic fn",
+	substAlias: "generic typealias", substRefinement: "generic refinement",
+	substProbe: "probe",
+}
+
+func (e substEntry) String() string { return substEntryNames[e] }
+
+// pushSubst enters f, the frame of owner's instance (a template, an
+// instance or a declaration: what tells one instance from another in the
+// census).
+func (g *gen) pushSubst(entry substEntry, owner any, f substFrame) {
+	if substVerify {
+		g.verifySubst(entry, owner, f)
+	}
+	g.genericSubst = append(g.genericSubst, f)
+}
+
+func (g *gen) popSubst() {
 	g.genericSubst = g.genericSubst[:len(g.genericSubst)-1]
 }
 
@@ -499,12 +583,89 @@ func (g *gen) popGenericSubst() {
 // arm of their own. That is the same property dict.go claims for its own arm.
 func (g *gen) genericSubstKind(name string) (kind, bool) {
 	for i := len(g.genericSubst) - 1; i >= 0; i-- {
-		if k, found := g.genericSubst[i][name]; found {
+		if k, found := g.genericSubst[i].kinds[name]; found {
 			return k, true
 		}
 	}
 	return kindInvalid, false
 }
+
+// genericSubstType is the checker's type a type parameter stands for inside
+// the instance being built, from the frame genericSubstKind reads the
+// parameter's kind from, and whether that frame's entry had one.
+func (g *gen) genericSubstType(name string) (analysis.Type, bool) {
+	for i := len(g.genericSubst) - 1; i >= 0; i-- {
+		f := g.genericSubst[i]
+		if _, found := f.kinds[name]; found {
+			t, ok := f.checked[name]
+			return t, ok
+		}
+	}
+	if ds := g.defaultSelf; name == stdIfaceDefaultSelfParam && ds != nil && ds.typ != nil {
+		// A program interface's default lowered for one implementor binds
+		// its `self` (the interface's SelfParam) through defaultSelf rather
+		// than a frame.
+		return ds.typ, true
+	}
+	return nil, false
+}
+
+// checkerTypeArg is t, a type argument the checker recorded inside the body
+// being lowered, with each of the enclosing instances' type parameters it
+// names replaced by the checker's type the parameter stands for
+// (genericSubstType), or nil when one has none.
+func (g *gen) checkerTypeArg(t analysis.Type) analysis.Type {
+	if t == nil {
+		return nil
+	}
+	out, all := analysis.ReplaceTypeParams(t, func(p *analysis.TypeParam_) (analysis.Type, bool) {
+		return g.genericSubstType(p.Name_)
+	})
+	if !all {
+		return nil
+	}
+	return out
+}
+
+// operandCheckerType is the checker's type of n, an operand of the body
+// being lowered (ExprTypes), at this instance (checkerTypeArg), or nil
+// when the checker recorded none or it names a parameter with no checker
+// type here. An entry that reads an instance's arguments off an operand's
+// kind reads their checker types off this.
+func (g *gen) operandCheckerType(n ast.Node) analysis.Type {
+	if n == nil {
+		return nil
+	}
+	return g.checkerTypeArg(g.checkedExprType(n))
+}
+
+// firstOperandType is operandCheckerType of t's first operand, nil when it
+// has none.
+func (g *gen) firstOperandType(t *ast.Call) analysis.Type {
+	if len(t.Args) == 0 {
+		return nil
+	}
+	return g.operandCheckerType(t.Args[0])
+}
+
+// checkerTypeArgs is checkerTypeArg over the type arguments of a type the
+// checker solved, nil when none has a checker type.
+func (g *gen) checkerTypeArgs(typeArgs []analysis.Type) []analysis.Type {
+	var out []analysis.Type
+	for i, t := range typeArgs {
+		if c := g.checkerTypeArg(t); c != nil {
+			if out == nil {
+				out = make([]analysis.Type, len(typeArgs))
+			}
+			out[i] = c
+		}
+	}
+	return out
+}
+
+// typeInstantiator builds the instance of a generic type template at args,
+// with types the checker's types for them or nil (genericTemplateNamed).
+type typeInstantiator func(args []kind, types []analysis.Type) (kind, bool)
 
 // isBoundTypeParam reports whether name is a type parameter of the instance
 // being built (`Struct` in `fn bump<Struct>(p: Struct)`), which a qualified
@@ -524,14 +685,15 @@ func (g *gen) isBoundTypeParam(name string) bool {
 // A type ARGUMENT is resolved by the ordinary g.typeOf, so `Box<List<Int>>`
 // works and `Box<SomeUnrepresentableType>` declines on the kindInvalid gate in
 // genericInstance rather than admitting a def with a field this package cannot
-// emit.
+// represent.
 //
 // It takes the NAME and the arguments rather than the node, because the two
 // spellings put the qualifier in different places: `Box<Inner>` is one
 // *ast.GenericType, and `shapes.Holder<Int>` is an *ast.QualifiedType whose
 // MEMBER is one. Passing the joined name is what lets both reach
 // genericTemplateNamed, which is the single resolver for a template named
-// locally or through a module.
+// locally or through a module. The instance's checker types are the types
+// the checker recorded for the arguments (typeExprTypes).
 func (g *gen) userGenericTypeOf(name string, params []ast.TypeExpr) (kind, bool) {
 	_, instantiate, isTemplate := g.genericTemplateNamed(name)
 	if !isTemplate {
@@ -541,7 +703,26 @@ func (g *gen) userGenericTypeOf(name string, params []ast.TypeExpr) (kind, bool)
 	for i, p := range params {
 		args[i] = g.typeOf(p)
 	}
-	return instantiate(args)
+	return instantiate(args, g.typeExprTypes(params))
+}
+
+// typeExprTypes is the checker's types for tes, the type arguments an
+// annotation writes: the type the checker recorded for each
+// (analysis.FileAnalysis.TypeExprTypes), with each enclosing instance's
+// type parameters it names put as that instance's types (checkerTypeArg).
+// Nil when one has none: a default argument written in the declaring
+// file, or a parameter an enclosing frame binds with no checker type.
+func (g *gen) typeExprTypes(tes []ast.TypeExpr) []analysis.Type {
+	if g.fa == nil || len(tes) == 0 {
+		return nil
+	}
+	out := make([]analysis.Type, len(tes))
+	for i, te := range tes {
+		if out[i] = g.checkerTypeArg(g.fa.TypeExprTypes[te]); out[i] == nil {
+			return nil
+		}
+	}
+	return out
 }
 
 // kindParts is a composite kind's component kinds, positionally, or nil.
@@ -595,7 +776,7 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 	if g.fa == nil {
 		return kindInvalid, false
 	}
-	var instantiate func([]kind) (kind, bool)
+	var instantiate typeInstantiator
 	if origin != "" && origin != g.fa.Origin {
 		// Another file's template: the instance is built there and
 		// mirrored here, as a spelled `span.Span<Int>` is.
@@ -603,7 +784,7 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 		if !found {
 			return kindInvalid, false
 		}
-		instantiate = func(args []kind) (kind, bool) { return g.instantiateForeign(ref, args) }
+		instantiate = func(args []kind, types []analysis.Type) (kind, bool) { return g.instantiateForeignAt(ref, args, types) }
 	} else {
 		tpl := g.blockLocalTemplateOf(params)
 		if tpl == nil {
@@ -615,13 +796,13 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 		if tpl == nil {
 			return kindInvalid, false
 		}
-		instantiate = func(args []kind) (kind, bool) { return g.genericInstance(tpl, args) }
+		instantiate = func(args []kind, types []analysis.Type) (kind, bool) { return g.genericInstance(tpl, args, types) }
 	}
 	args := make([]kind, len(typeArgs))
 	for i, a := range typeArgs {
 		args[i] = g.project(a)
 	}
-	return instantiate(args)
+	return instantiate(args, g.checkerTypeArgs(typeArgs))
 }
 
 // templateInstanceOf is the instance of a template already resolved by name
@@ -629,7 +810,7 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 // the checker solved for a construction of it. The template is the caller's
 // resolution, so t's Origin is not consulted: the checker leaves it unset on
 // a variant constructor's instantiated result.
-func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analysis.Type) kind {
+func (g *gen) templateInstanceOf(instantiate typeInstantiator, t analysis.Type) kind {
 	if tv, isVar := t.(*analysis.TypeVar); isVar {
 		if tv.Resolved == nil {
 			return kindInvalid
@@ -654,7 +835,7 @@ func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analys
 		// the type the checker closed it as.
 		args[i] = g.project(a)
 	}
-	k, ok := instantiate(args)
+	k, ok := instantiate(args, g.checkerTypeArgs(typeArgs))
 	if !ok {
 		return kindInvalid
 	}
@@ -668,7 +849,7 @@ func (g *gen) templateInstanceOf(instantiate func([]kind) (kind, bool), t analys
 // literal determines (`Either.L{a: 1}`'s B: spec, "Determined type
 // arguments") is the type the checker closed it as. Nothing is solved from
 // the field values.
-func (g *gen) literalTypeArgs(t ast.Node, n int) ([]kind, bool) {
+func (g *gen) literalTypeArgs(t ast.Node, n int) ([]kind, []analysis.Type, bool) {
 	var typeArgs []analysis.Type
 	switch ty := analysis.ResolveClosed(g.checkedExprType(t)).(type) {
 	case *analysis.EnumType:
@@ -677,7 +858,7 @@ func (g *gen) literalTypeArgs(t ast.Node, n int) ([]kind, bool) {
 		typeArgs = ty.TypeArgs
 	}
 	if n == 0 || len(typeArgs) != n {
-		return nil, false
+		return nil, nil, false
 	}
 	args := make([]kind, n)
 	for i, a := range typeArgs {
@@ -686,11 +867,11 @@ func (g *gen) literalTypeArgs(t ast.Node, n int) ([]kind, bool) {
 		// checked where the literal is built (irRetainedStructKind). Unit is
 		// a field like any other (`Captured<Unit>`'s value).
 		if k != kindUnit && !irRetainedLeafKind(k) && !irCallableValueKind(k) {
-			return nil, false
+			return nil, nil, false
 		}
 		args[i] = k
 	}
-	return args, true
+	return args, g.checkerTypeArgs(typeArgs), true
 }
 
 // instanceArgs is generic instance d's type arguments in this gen's kinds.

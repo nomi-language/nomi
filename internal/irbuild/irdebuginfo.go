@@ -318,7 +318,6 @@ func (bl *irScalarBuilder) stageReached(n ast.Node) {
 
 // pipeVal is one lowered value of a pipeline not yet finished.
 type pipeVal struct {
-	node ast.Node
 	text string
 	t    ir.Temp
 	pos  ir.Pos
@@ -358,7 +357,7 @@ func (bl *irScalarBuilder) pushPipeVal(n ast.Node, text string, t ir.Temp) {
 	if !emittableLine(line) || col < 1 {
 		return
 	}
-	bl.pipeVals = append(bl.pipeVals, pipeVal{node: n, text: text, t: t, pos: bl.g.irPos(line, col)})
+	bl.pipeVals = append(bl.pipeVals, pipeVal{text: text, t: t, pos: bl.g.irPos(line, col)})
 }
 
 // finishPipe records the values of the pipeline root spans as one ir.Pipe.

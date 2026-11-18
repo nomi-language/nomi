@@ -19,7 +19,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 /// and the combinations are in lexicographic order.
 //! assert combinations(10, 2, exclude: [1, 4]) == [[2, 8], [3, 7]]
 //
-pub fn combinations(sum: Int, size: Int, exclude: List<Int> = []) -> List<List<Int>>
+pub fn combinations(sum: Int, size: NonNegativeInt, exclude: List<Int> = []) -> List<List<Int>>
     1..=9
     |> Iter.reject(&(&1 in exclude))
     |> Iter.combinations(size)

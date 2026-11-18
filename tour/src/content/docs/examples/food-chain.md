@@ -45,9 +45,9 @@ once closing = "I don't know why she swallowed the fly. Perhaps she'll die."
 
 /// The lines of verses `start` to `end`, both included, counting from 1, with
 /// an empty line between two verses.
-pub fn recite(start: Int, stop: Int) -> List<String>
+pub fn recite(start: PositiveInt, stop: Int) -> List<String>
     start..=stop
-    |> Iter.map(verse)
+    |> Iter.map(&verse(&1))
     |> Iter.intersperse([""])
     |> Iter.flatten()
     |> Iter.to_list()
@@ -55,7 +55,7 @@ end
 
 /// Verse `number`: the new animal, what she said about it, and every animal
 /// caught back down to the fly.
-fn verse(number: Int) -> List<String>
+fn verse(number: PositiveInt) -> List<String>
     if number > Iter.count(animals) then return horse_verse
 
     swallowed = animals |> Iter.take(number) |> Iter.reverse()
@@ -75,7 +75,7 @@ end
 import food_chain
 
 test "food chain"
-    [
+    cases: List<(String, PositiveInt, Int, List<String>)> = [
         (
             "fly",
             1,
@@ -253,7 +253,8 @@ test "food chain"
             ],
         ),
     ]
-    |> subtests (description, start, stop, expected), description
+
+    subtests cases, (description, start, stop, expected), description
         assert food_chain.recite(start, stop) == expected
     end
 end

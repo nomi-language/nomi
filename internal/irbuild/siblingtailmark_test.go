@@ -3,7 +3,7 @@ package irbuild
 // A SIBLING MODULE'S TAIL CALLS MUST BE MARKED.
 //
 // `analysis.MarkTailCalls` sets `Call.IsTailCall`, and it is the ONLY input to
-// this builder's tail marking: `collectTailEdges` adds an edge only for a
+// this builder's tail marking: `irCallSite` answers `ir.TailCall` only for a
 // call with `IsTailCall == true`, and `ir.Call.Tail()` carries the same flag.
 // So on a tree where that pass never ran, every tail-recursive function lowers
 // to a plain recursive call, and the VM's call depth grows where Nomi

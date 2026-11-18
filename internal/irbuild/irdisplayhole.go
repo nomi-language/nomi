@@ -8,46 +8,70 @@ import (
 
 // RENDERING A VALUE BY DISPLAY.
 //
-// The checker records how each interpolation hole's value renders
-// (analysis.FileAnalysis.HoleDisplays): its own text, the machine's
-// rendering of a scalar or a structural value, each part by its own
-// record, the type's impl, or the impl an interface value holds.
-// holeDisplay reads that record, and renderDisplay lowers one: it decides
-// nothing about the route, and declines where the lowered kind is not the
-// one the record describes.
+// The checker records how each value the program renders by Display
+// renders: an interpolation hole's (analysis.FileAnalysis.HoleDisplays),
+// a fixed typed literal's failure (analysis.TypedLiteral.Failure) and a
+// failed `!`'s error (analysis.FileAnalysis.UnwrapFailures): its own text,
+// the machine's rendering of a scalar or a structural value, each part by
+// its own record, the type's impl, or the impl an interface value holds.
+// renderDisplay lowers one: it decides nothing about the route, and
+// declines where the lowered kind is not the one the record describes. A
+// type's impl is called as a recorded call of its function is: from the
+// declaration the record names (displayImpl).
 //
-// A hole of a type parameter is recorded as such: its rendering is its
-// instance's, so at each instance it is the rendering of the instance's
-// kind (kindDisplay), by the same rule the checker applies to a type. So is
-// a value no hole holds, which the builder renders as a hole would:
-// `io.print(x)`, `Display.to_string` over a tuple, a field's text for
-// ParseFields and the error `main` returns.
+// A value of a type parameter is recorded as such: in an instance its
+// rendering is the checker's at the instance's types (displayAt). Where a
+// frame has no checker type, and for a value no record describes, the
+// builder renders the value by its kind (kindDisplay), as a hole of its
+// type would be: `io.print(x)`, `Display.to_string` over a tuple, a
+// field's text for ParseFields and the error `main` returns. Such a
+// rendering names no impl, so its impl is the one the kind's name
+// selects.
 
 // holeDisplay is the checker's record of how the interpolation hole at
-// renders, at the hole's lowered kind k: for a hole of a type parameter,
-// the rendering of k (kindDisplay). The checker records one for every hole it checks.
+// renders, in the instance being built (displayAt), at the hole's lowered
+// kind k. The checker records one for every hole it checks.
 func (bl *irScalarBuilder) holeDisplay(at ast.Node, k kind) *analysis.DisplayRender {
 	fa := bl.g.srcFA()
 	if fa == nil {
 		return nil
 	}
 	rec := fa.HoleDisplays[at]
-	switch {
-	case rec != nil && rec.Form == analysis.DisplayTypeParam:
-		return kindDisplay(k)
-	case rec == nil && k == kindString:
+	if rec == nil && k == kindString {
 		// A body the checker never checked has no record: the universal
 		// Debug of a block-local type, which the builder synthesizes
 		// (registerBlockLocalDebug). Its holes are Strings, each its own
 		// text.
 		return &analysis.DisplayRender{Form: analysis.DisplayText}
 	}
+	return bl.g.displayAt(rec, k)
+}
+
+// displayAt is rec, a rendering the checker recorded for a value whose
+// lowered kind is k, in the instance being built: a rendering of a type
+// parameter is the checker's at the instance's types
+// (analysis.FileAnalysis.DisplayAt), from the checker's types the frames
+// carry (genericSubstType), as calleeAt asks for a call. Where a frame
+// has no checker type, it is the rendering of k (kindDisplay).
+func (g *gen) displayAt(rec *analysis.DisplayRender, k kind) *analysis.DisplayRender {
+	if rec == nil {
+		return nil
+	}
+	if g.inInstance() {
+		if at, resolved := g.instanceFA().DisplayAt(rec, g.genericSubstType_); resolved {
+			return at
+		}
+	}
+	if rec.Form == analysis.DisplayTypeParam {
+		return kindDisplay(k)
+	}
 	return rec
 }
 
-// kindDisplay is how a value of kind k renders, for a value whose type
-// the checker left to its instance: the checker's rule
-// (analysis.DisplayRender) over the lowered kind.
+// kindDisplay is how a value of kind k renders where no record of the
+// checker's describes it: the checker's rule (analysis.DisplayRender) over
+// the lowered kind. It carries no Type, which every rendering the checker
+// records does (byKind).
 func kindDisplay(k kind) *analysis.DisplayRender {
 	r := &analysis.DisplayRender{Form: analysis.DisplayImpl}
 	switch {
@@ -57,7 +81,7 @@ func kindDisplay(k kind) *analysis.DisplayRender {
 		r.Form = analysis.DisplayScalar
 	case irHeldKind(k):
 		r.Form = analysis.DisplayInterface
-	case irStructuralDisplayKind(k) || irEmptyDisplayKind(k):
+	case irStructuralDisplayKind(k):
 		r.Form = analysis.DisplayStructural
 	case irRetainedRecordKind(k) || irRetainedTupleKind(k):
 		r.Form = analysis.DisplayParts
@@ -68,16 +92,24 @@ func kindDisplay(k kind) *analysis.DisplayRender {
 	return r
 }
 
+// byKind reports whether r is a rendering the builder made from a kind
+// (kindDisplay) rather than one the checker recorded.
+func byKind(r *analysis.DisplayRender) bool {
+	return r.Type == nil
+}
+
 // displayValue renders an already-lowered value of kind k as its
-// interpolation would (kindDisplay).
-func (bl *irScalarBuilder) displayValue(at ast.Node, src ir.Temp, k kind) (ir.Temp, bool) {
-	return bl.renderDisplay(at, src, k, kindDisplay(k))
+// interpolation would (kindDisplay). vt is the value's checker type at
+// this instance, or nil.
+func (bl *irScalarBuilder) displayValue(at ast.Node, src ir.Temp, k kind, vt analysis.Type) (ir.Temp, bool) {
+	return bl.renderDisplay(at, src, k, kindDisplay(k), vt)
 }
 
 // renderDisplay lowers rec, the rendering of src, a value of kind k, into
 // its String. The operand is already lowered, so each route is built over
-// it rather than lowering the expression again.
-func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *analysis.DisplayRender) (ir.Temp, bool) {
+// it rather than lowering the expression again. vt is the value's checker
+// type at this instance where rec, made from k, carries none, or nil.
+func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *analysis.DisplayRender, vt analysis.Type) (ir.Temp, bool) {
 	if rec == nil {
 		panic("irbuild: an interpolation hole with no HoleDisplays record; the checker records one for every hole (analysis package doc, \"Elaboration\")")
 	}
@@ -95,7 +127,7 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 		}
 		return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
 	case analysis.DisplayStructural:
-		if !irStructuralDisplayKind(k) && !irEmptyDisplayKind(k) {
+		if !irStructuralDisplayKind(k) {
 			return ir.NoTemp, false
 		}
 		return render(ir.NewRenderDisplay(bl.g.irNodePos(at), bl.f.NewTemp(), src))
@@ -105,7 +137,7 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 			// holds the same value (conjunction.go).
 			for _, m := range k.comp.parts {
 				if irStdDisplayExistential(m) {
-					return bl.renderDisplay(at, bl.relabel(at, src, m), m, rec)
+					return bl.renderDisplay(at, bl.relabel(at, src, m), m, rec, nil)
 				}
 			}
 			return ir.NoTemp, false
@@ -114,7 +146,7 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 			// `(7 as Display)`: a value std's Display holds unboxed lowers
 			// as itself (irErases), so the value it holds is the operand,
 			// and it renders as that value's own type does.
-			return bl.renderDisplay(at, src, k, kindDisplay(k))
+			return bl.renderDisplay(at, src, k, kindDisplay(k), nil)
 		}
 		if !irStdDisplayExistential(k) {
 			return ir.NoTemp, false
@@ -125,42 +157,57 @@ func (bl *irScalarBuilder) renderDisplay(at ast.Node, src ir.Temp, k kind, rec *
 	case analysis.DisplayParts:
 		return bl.displayParts(at, src, k, rec.Parts)
 	case analysis.DisplayImpl:
-		return bl.displayImpl(at, src, k)
+		return bl.displayImpl(at, src, k, rec, vt)
 	}
 	// holeDisplay and displayParts resolve DisplayTypeParam to the
 	// instance's rendering before it reaches here.
 	panic("irbuild: a hole rendering of an unresolved form")
 }
 
-// irEmptyDisplayKind is an empty collection literal's kind, `[]`, `{}`,
-// `[]` or `[]`: no element is rendered, so its text is structural.
-func irEmptyDisplayKind(k kind) bool {
-	return k == kindEmptyList || k == kindEmptyMap || k == kindEmptySet || k == kindEmptyVector
-}
-
-// displayImpl calls the impl of Display for k: std's instance for a std
-// container (ifaceContainerCall), or a declared type's own or std's impl
-// (qualImplPlan).
-func (bl *irScalarBuilder) displayImpl(at ast.Node, src ir.Temp, k kind) (ir.Temp, bool) {
+// displayImpl calls the impl of Display for a value of kind k: std's
+// instance for a std container (ifaceContainerCall), else want, the impl's
+// function the rendering names (DisplayRender.Method), reached from its
+// declaration as a recorded call reaches its function (recordedCallPlan).
+// A rendering made from k alone (byName, kindDisplay) names none: its impl
+// is the one k's name selects (qualImplPlan). The value's checker type,
+// the rendering's Type or else vt, is what a std container's instance
+// carries.
+func (bl *irScalarBuilder) displayImpl(at ast.Node, src ir.Temp, k kind, rec *analysis.DisplayRender, vt analysis.Type) (ir.Temp, bool) {
+	want, byName := rec.Method, byKind(rec)
+	if !byName {
+		vt = bl.g.checkerTypeArg(rec.Type)
+	}
 	line, col := nodePos(at)
-	call := &ast.Call{
-		Func: &ast.FieldAccess{
+	// The call of the impl's function on the value, its one operand: for a
+	// recorded rendering, of the function the checker answers a call of
+	// want reaches (analysis.FileAnalysis.DisplayCallee).
+	call := &ast.Call{Args: []ast.Node{at}, Line: line, Col: col}
+	carried := analysis.PositionalCall(1, 1)
+	switch {
+	case byName:
+		call.Func = &ast.FieldAccess{
 			Object: &ast.TypeIdent{Name: "Display", Line: line, Col: col},
 			Field:  &ast.Ident{Name: "to_string", Line: line, Col: col},
 			Line:   line, Col: col,
-		},
-		Args: []ast.Node{at},
-		Line: line,
-		Col:  col,
+		}
+	case !isNilNode(want):
+		carried.Callee = bl.g.instanceFA().DisplayCallee(want)
 	}
+	defer bl.g.carryCall(call, carried)()
 	args := irQualArgs{temps: []ir.Temp{src}, kinds: []kind{k}, mobile: []bool{true}, ok: true}
-	if v, rk, _, ok, handled := bl.ifaceContainerCall(call, args, "Display", "to_string"); handled {
+	if v, rk, _, ok, handled := bl.ifaceContainerCall(call, args, "Display", "to_string", vt); handled {
 		return v, ok && rk == kindString
 	}
 	if k.tag != tagNamed || k.def == nil {
 		return ir.NoTemp, false
 	}
-	plan := bl.qualImplPlan(call, args, "Display", "to_string")
+	var plan *irQualPlan
+	switch {
+	case byName:
+		plan = bl.qualImplPlan(call, args, "Display", "to_string")
+	case !isNilNode(want):
+		plan = bl.recordedCallPlan(call, args, "Display.to_string")
+	}
 	if plan == nil || plan.result != kindString {
 		return ir.NoTemp, false
 	}
@@ -209,7 +256,7 @@ func (bl *irScalarBuilder) displayParts(at ast.Node, src ir.Temp, k kind, parts 
 		if rec != nil && rec.Form == analysis.DisplayTypeParam {
 			rec = kindDisplay(part)
 		}
-		text, ok := bl.renderDisplay(at, p.Dst(), part, rec)
+		text, ok := bl.renderDisplay(at, p.Dst(), part, rec, nil)
 		if !ok {
 			return ir.NoTemp, false
 		}
@@ -234,14 +281,12 @@ func (bl *irScalarBuilder) displayParts(at ast.Node, src ir.Temp, k kind, parts 
 
 // irStructuralDisplayKind reports a kind whose Display text is structural all
 // the way down: the four unnamed scalars, and records, tuples, lists and maps
-// composed only of them, including the untyped `[]` and empty Map. No
+// composed only of them. No
 // nominal type is reachable inside one, so no impl can answer for any part
 // and rt.DisplayText is the text for the whole.
 func irStructuralDisplayKind(k kind) bool {
 	switch {
 	case k == kindInt || k == kindFloat || k == kindString || k == kindBool:
-		return true
-	case k == kindEmptyList || k == kindEmptyMap:
 		return true
 	case irRetainedRecordKind(k) || irRetainedTupleKind(k):
 		if k.comp == nil {
@@ -257,7 +302,7 @@ func irStructuralDisplayKind(k kind) bool {
 		return irStructuralDisplayKind(k.comp.parts[0])
 	case k.tag == tagNamed:
 		elem, vector := vectorElem(k)
-		return vector && k != kindEmptyVector && irStructuralDisplayKind(elem)
+		return vector && irStructuralDisplayKind(elem)
 	case k.tag == tagMap && k.comp != nil && len(k.comp.parts) == 2:
 		return irStructuralDisplayKind(k.comp.parts[0]) && irStructuralDisplayKind(k.comp.parts[1])
 	}

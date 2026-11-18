@@ -104,7 +104,7 @@ func (g *gen) dottedTypeQualifier(n ast.Node) (string, bool) {
 			root = o.Spelling()
 		case *ast.FieldAccess:
 			if o.Field == nil {
-				return "", false
+				panic("irbuild: dottedTypeQualifier: parser always sets FieldAccess.Field (parser.go:1803/1817/2734/3450); a nil Field never reaches the builder from an accepted program")
 			}
 			segs = append(segs, o.Field.Name)
 			obj = o.Object

@@ -126,8 +126,8 @@ end
 // `Int.max`) whose parameter default is no literal: `Decimal.format`'s
 // `fraction` defaults to `scale_digits(Decimal.scale(d))`, a private
 // function of std/decimal, and its `mode` to `RoundingMode.HalfEven`. A call that leaves either out
-// reaches the arity wrapper or default accessor the instance's gen built in
-// std/decimal (stdUnretainedDefaultedCall), linked in memory and through
+// reaches the default accessor the instance's gen built in std/decimal
+// (stdUnretainedShortCall), linked in memory and through
 // objects by name.
 func TestStdIfaceDefault_UnretainedBodyFillsADefaultThatIsNoLiteral(t *testing.T) {
 	if testing.Short() {

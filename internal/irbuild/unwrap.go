@@ -119,8 +119,10 @@ func (bl *irScalarBuilder) unwrapValue(t *ast.Unwrap, source string, src ir.Temp
 }
 
 // bangRender is the function that renders a failed `!`'s error of kind
-// errK, built once per kind in this unit, or nil when errK has no rendering.
-func (g *gen) bangRender(at ast.Node, errK kind) *ir.Symbol {
+// errK, built once per kind in this unit from the record of the first `!`
+// at that kind (analysis.FileAnalysis.UnwrapFailures), or nil when errK
+// has no rendering.
+func (g *gen) bangRender(at *ast.Unwrap, errK kind) *ir.Symbol {
 	if sym, built := g.bangRenders[errK]; built {
 		return sym
 	}
@@ -129,9 +131,13 @@ func (g *gen) bangRender(at ast.Node, errK kind) *ir.Symbol {
 		g.dc.aside(func() {
 			name := "`!` failure " + errK.nomi()
 			s := g.irCalleeSym(irBangRenderKey{errK}, name)
-			f, ok := g.irErrorRenderFunc(at, name, s, errK, at, false)
+			shown := g.srcFA().UnwrapFailures[at]
+			if shown == nil {
+				panic("irbuild: a `!` over a Result with no record of how its error renders; the checker records one for each (analysis package doc, \"Elaboration\")")
+			}
+			f, ok := g.irErrorRenderFunc(at, name, s, errK, shown, at, false)
 			if !ok {
-				f, ok = g.irErrorRenderFunc(at, name, s, errK, at, true)
+				f, ok = g.irErrorRenderFunc(at, name, s, errK, shown, at, true)
 			}
 			if !ok {
 				return

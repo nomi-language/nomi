@@ -4,21 +4,21 @@ import (
 	"testing"
 )
 
-// TestPreludeHof_ControlSignalsAreAFrontEndWall pins the reason preludehof.go
-// needs no `rt.*Ctl` twin.
+// TestPreludeHof_ControlSignalsAreAFrontEndWall pins the reason
+// rt/preludehof.go needs no `rt.*Ctl` twin.
 //
-// ctrladapt.go gives a four-state `rt.Ctl` callback signature to every `Iter`
-// family whose callback may carry `break`/`continue`, and names
-// analysis/iter_sensitive.go's `iterCallbackSlots` as the authoritative list of
+// rt/seqctladapt.go gives a four-state `rt.Ctl` callback signature to the
+// `Iter` adapters whose callback may carry `break`/`continue`, and
+// internal/analysis/iter_sensitive.go's `iterCallbackSlots` is the list of
 // positions where the two are legal. A prelude higher-order callback is not in
 // that list, and the spelling does not even PARSE — which is a stronger wall than
 // a checker rule, because it cannot be reached by any program.
 //
 // Pinned rather than reasoned about, because the failure it forecloses is
-// asymmetric. If the parser ever admitted the spelling, preludeHofCall would
-// receive a callback whose kind carries an extra `rt.Ctl` result and would
-// lower a call at the wrong arity. This test fails first and says which
-// file needs the twin.
+// asymmetric. If the parser ever admitted the spelling, a prelude
+// higher-order call would receive a callback whose kind carries an extra
+// `rt.Ctl` result and would lower a call at the wrong arity. This test fails
+// first and says which file needs the twin.
 func TestPreludeHof_ControlSignalsAreAFrontEndWall(t *testing.T) {
 	for _, c := range []struct{ name, src string }{
 		{"break in a Maybe.map callback",

@@ -337,14 +337,6 @@ func AttachedTestLines(nodes []ast.Node) map[int]bool {
 		}
 		var items []ast.Node
 		switch v := n.(type) {
-		case *ast.StructDef:
-			items = v.Items
-		case *ast.EnumDef:
-			items = v.Items
-		case *ast.TypeDef:
-			items = v.Items
-		case *ast.ExternType:
-			items = v.Items
 		case *ast.ImplBlock:
 			items = v.Items
 		}

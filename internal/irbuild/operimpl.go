@@ -21,7 +21,7 @@ import (
 // permits them: `std/calendar` ships TWELVE `Add` impls for `NaiveDateTime`,
 // four for `Date` and four for `OffsetDateTime`.
 //
-// `g.implsByIface` is `map[iface]map[recvKind]*implDef`, keyed by RECEIVER
+// `g.implsByIface` is `map[string]map[kind]*implDef`, keyed by RECEIVER
 // KIND ALONE. There, `byRecv[d.recv] = d` would collapse three `Add` impls for
 // `Day` into one slot, and resolveImplDef's duplicate rule would refuse all
 // three.
@@ -29,9 +29,9 @@ import (
 // # A SECOND INDEX, NOT A WIDER KEY, because of one consultation site
 //
 // Widening `implsByIface`'s key to carry the interface's type arguments changes
-// a map that `foreignIfaceCall`, `interfaceCall`, `bindsImpl`, `noEquatableImpl`,
-// `debugerased.go`, `debuginspect.go`, `assertable.go` and `genericimpl.go` all
-// read. Most of those would merely need a mechanical edit. `noEquatableImpl` is
+// a map that `bindsImpl`, `noEquatableImpl`, `debugerased.go`,
+// `debuginspect.go`, `irinterfacecall.go`, `irqualcall.go` and `genericimpl.go`
+// all read. Most of those would merely need a mechanical edit. `noEquatableImpl` is
 // the one that would not, and it decides the shape of this file:
 //
 //	if g.implsByIface["Equatable"][k] != nil { return false }
@@ -56,9 +56,8 @@ import (
 // # ONE RULE, TWO INDICES
 //
 // `std/calendar`'s twelve `Add` impls never enter `implsByIface`. A stdlib impl
-// is resolved through the stdlib index, and `stdlibOperator` selects on
-// `stdlibImplOf(key, left.k, left.k, right.k)`, which carries the right-hand
-// type. This file is the user-side mirror of `g.std.byIface`, not a new
+// is resolved through the stdlib index, and `stdlibOperatorFor` picks by both
+// operand kinds, which carries the right-hand type. This file is the user-side mirror of `g.std.byIface`, not a new
 // mechanism.
 //
 // # NO `*ifaceDef`, AND NO TABLE
@@ -84,7 +83,7 @@ import (
 //
 // # IDENTITY
 //
-// The interface must be STD's. `operIfaceAnchors` mirrors `stdIfaceAnchors`
+// The interface must be STD's. `operIfaceAnchoredIn` mirrors `stdIfaceAnchors`
 // exactly: `fa.ModuleScope.Lookup(name)` must yield an IMPORT symbol whose
 // module path is the declaring std module (`stdImportModuleOf` reports the
 // ORIGIN module even through the prelude's re-export), and the resolved
@@ -129,9 +128,9 @@ type operIfaceSpec struct {
 // reason `stdOperatorIfaces` omits it — `%` on a named type has nothing to
 // dispatch to and keeps refusing.
 //
-// APPEND-ONLY, on stdEnumSpecs' and opaqueSpecs' footing: `operIfaceIndex`
-// hands out indices into this slice and nothing else keys on position, but an
-// insertion would still renumber every cached index within one run.
+// APPEND-ONLY, on stdEnumSpecs' and opaqueSpecs' footing: `operIfaceByOp` and
+// `operIfaceByName` hold pointers into this slice and nothing keys on
+// position.
 //
 // `Steppable` is here for the same reasons as the four, though no operator
 // spells it: one method with no default, every call shape dispatches on a
@@ -379,7 +378,7 @@ func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string) bool {
 // It returns the refusal, or two empty strings. Every clause is what one of the
 // three call shapes below assumes, so a block that fails any of them must not be
 // selectable: `operImplFor` reads `it.params` to choose between rival impls and
-// `directImplCallAt` reads `it.result` as the operator's type.
+// `userOperatorCall` reads `it.result` as the operator's type.
 //
 // Checked against the HEADER's type arguments rather than against a resolved
 // interface, which is the substitution the missing `*ifaceDef` would have
@@ -473,19 +472,15 @@ func (d *implDef) operLabel() string {
 // candidate FILTER, which is this package's knowledge of which impl blocks are
 // operator impls at all. See irtable.go.
 //
-// The tiering is `foreignIfaceCall`'s: `argsFit` is a
-// boolean and `Duration + Int` versus `Duration + Duration` needs the DEGREE,
+// The selection is tiered. A boolean fit is not enough:
+// `Duration + Int` versus `Duration + Duration` needs the DEGREE,
 // so an EXACT fit beats a WIDENED one and two fits at one tier are ambiguous.
-// It is expressed once, in `ir.Fit`, which is what stops the operator route and
-// the qualified-call route from coming to disagree about which impl `Day + Days`
-// selects.
+// It is expressed once, in `ir.Fit`.
 //
-// THE THIRD RESULT is the chosen declaration as the IR names it. Only
-// `userOperator` reads it, because only the operator SYNTAX is in the `arith`
-// class and therefore only it builds an `ir.Arith`; `operCall` and
-// `operTypeQualifiedCall` are the `call` class reached through a spelling and
-// discard it. Returned from here rather than re-derived there so one selection
-// produces one declaration identity.
+// The `decl` result is the chosen declaration as the IR names it, returned
+// from here so one selection produces one declaration identity.
+// The operator routes over an instance's kinds take the impl item and discard
+// it.
 //
 // Every candidate scanned here is an operator impl, and `g.operImpls` holds
 // nothing else, so this route cannot change the answer of a call site that

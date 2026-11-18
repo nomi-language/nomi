@@ -44,7 +44,7 @@ func TestPreludeShapeMatchesStdSource(t *testing.T) {
 		"Result": {params: []string{"T", "E"}, variants: []string{"Ok", "Err"}, payloads: []string{"T", "E"}},
 		// `Static`'s payload is `String` and NOT `T`. Getting this pair the
 		// wrong way round is invisible at `Fragment<String>`, which is the only
-		// instantiation the corpus contains — see TestFragmentLayoutMatchesRT.
+		// instantiation the corpus contains — see TestPreludeLayoutMatchesRT.
 		"Fragment": {params: []string{"T"}, variants: []string{"Static", "Dynamic"}, payloads: []string{"String", "T"}},
 		// `Failed`'s payload is the NAMED `Failure`, not a scalar and not `T`.
 		// It is the shape that needed a fourth payload encoding; see

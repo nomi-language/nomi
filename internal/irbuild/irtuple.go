@@ -58,7 +58,7 @@ func (bl *irScalarBuilder) tupleMake(t *ast.TupleLit) (ir.Temp, kind, bool, bool
 func (bl *irScalarBuilder) tupleMakeWant(t *ast.TupleLit, want kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if len(t.Items) < 2 {
-		return no()
+		panic("irbuild: tupleMakeWant: the parser builds no tuple of fewer than two items")
 	}
 	typed := want.tag == tagTuple && want.comp != nil && len(want.comp.parts) == len(t.Items)
 	parts := make([]kind, len(t.Items))
@@ -178,8 +178,7 @@ func (bl *irScalarBuilder) structBinding(t *ast.StructDestructure) bool {
 	reads := make([]read, 0, len(t.Fields))
 	for _, fd := range t.Fields {
 		if fd.Pattern != nil {
-			bl.g.dc.atPattern(fd.Pattern, "a struct destructure with a field sub-pattern")
-			return false
+			panic("irbuild: structBinding: the parser builds StructDestructure only for flat name/rename fields; nested fields go to PatternBinding")
 		}
 		name := fd.Binding
 		if name == "" {

@@ -12,6 +12,7 @@ import (
 // body ending in a `dbg` observation returns Unit, as a Unit function body
 // ending in one does.
 func (c *checker) checkTapStage(pipe *ast.Binary, n *ast.Tap, left Type) Type {
+	c.recordStageCall(n)
 	expectedFT := &FuncType{Params: []Type{left}, Return: TypeUnit}
 	errsBefore := len(c.errors)
 	// A body that already failed to check (a `?` with nothing to

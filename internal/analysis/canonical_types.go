@@ -15,6 +15,7 @@ var (
 	installRangeOnce            sync.Once
 	installSetOnce              sync.Once
 	installVectorOnce           sync.Once
+	installDebugOnce            sync.Once
 )
 
 // stdSetDecl and stdVectorDecl are std's `Set` and `Vector` declarations,
@@ -26,6 +27,11 @@ var (
 	stdSetDecl    *StructType
 	stdVectorDecl *DistinctType
 )
+
+// stdDebugDecl is std's `Debug` interface, which the header of a universal
+// or derived Debug block names in a std file that does not import it
+// (compilerKnownSynthTypeOf). Installed with the others below.
+var stdDebugDecl *InterfaceType
 
 // installCanonicalStdTypes points TypeBool, TypeOrdering, TypeAssertionFailure,
 // TypeCodepoint and TypeRange at std's own declarations, using the shells
@@ -80,5 +86,8 @@ func installCanonicalStdTypes(cache map[string]*FileAnalysis) {
 	}
 	if dt, ok := lookup("std/vectors", "Vector").(*DistinctType); ok {
 		installVectorOnce.Do(func() { stdVectorDecl = dt })
+	}
+	if it, ok := lookup("std/debug", "Debug").(*InterfaceType); ok {
+		installDebugOnce.Do(func() { stdDebugDecl = it })
 	}
 }

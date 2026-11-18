@@ -17,8 +17,9 @@ package irbuild
 // module is a leaf: nothing links against it, so a case may call any module.
 //
 // Each case is an ordinary test body (irtestbody.go), so what it admits and
-// what it declines is the user test path's, including the VM-only retry. A
-// case inside a type's items has that type as its self type (`implSelf`), so a
+// what it declines is the user test path's, including the build deferred to
+// the end of the walk (irRetryWalkOnlyTestBodies). A case inside an impl
+// block's items has the block's receiver as its self type (`implSelf`), so a
 // bare same-owner call resolves as the member bodies' does. A bare call to
 // one of the module's own top-level functions, or its bare name as a value,
 // is what the module's own file alias spells (`encode(b)` is `hex.encode(b)`:
@@ -149,15 +150,8 @@ func GenerateStdlibReferenceIR(module string, test *ast.TestDecl, fa *analysis.F
 // lowering's census.
 func generateStdlibTestIR(std *stdlibIndex, v *stdModuleView, nodes, cases []ast.Node, fa *analysis.FileAnalysis, libMods map[string]*ir.Module, extra []*ir.Module, link bool, dc *declineCensus) (*Program, *Result, error) {
 	module := v.module
-	offer := make(map[*stdCandidate]bool, len(v.settled)+len(v.withCycles))
-	for c := range v.settled {
-		offer[c] = true
-	}
-	for c := range v.withCycles {
-		offer[c] = true
-	}
 	newCasesGen := func(in *programBuild) *gen {
-		g := newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, offer, v.onces, std, in)
+		g := newStdGenIn(v.module, v.path, v.pkg, nodes, fa, v.cands, v.settled, v.onces, std, in)
 		g.stdCases = true
 		return g
 	}
@@ -225,7 +219,7 @@ func (g *gen) lowerStdCases(nodes []ast.Node) {
 		g.testCase(c)
 		undo()
 	}
-	// The VM-only retries resolve bare same-owner calls the same way.
+	// The deferred builds resolve bare same-owner calls the same way.
 	g.irRetryWalkOnlyTestBodiesWith(withSelf)
 }
 
@@ -331,7 +325,7 @@ func (bl *irScalarBuilder) stdTestOwnType() bool {
 //     scope binds the name to (`import std::duration.Duration` beside a local
 //     `struct Duration`). The block's overlay answers the name in a type
 //     position (bindBlockImports), and an owner qualifier naming it is
-//     lowered through its module (stdOwnerByDecl).
+//     lowered through its module (qualOwner).
 //   - a function, whatever the module scope binds the name to (`import
 //     std::io.print` beside a local `fn print` or `once print`). A call or value
 //     of the name resolves by the checker's reference at it (blockImported),
@@ -435,7 +429,7 @@ func importPathString(n *ast.ImportStmt) string {
 // generic or not. The copy's callee stands at the field's position, where the checker
 // recorded the reference and its instantiated signature; a piped call stays
 // the piped call. A function the cached std lowering holds as a sibling
-// (stdlibSibling) keeps stdOwnFileQualifier's route.
+// (stdSiblingDecls) keeps stdOwnFileQualifier's route.
 func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast.Call, bool) {
 	g := bl.g
 	obj, isIdent := ast.QualifierIdent(fa.Object)
@@ -447,10 +441,11 @@ func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast
 		return nil, false
 	}
 	method := fa.Field.Name
-	if g.funcs[method] == nil || g.stdlibSibling(method) != nil {
+	if decl := g.funcDeclAt(fa.Field.Line, fa.Field.Col); g.sigByDecl[decl] == nil || g.stdSiblingDecls[decl] != nil {
 		return nil, false
 	}
 	if _, shadowed := g.lookup(method); shadowed {
+		// The bare spelling would name the local: the call stays qualified.
 		return nil, false
 	}
 	bare := *t
@@ -463,7 +458,7 @@ func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast
 
 // ownSiblingCall is ownModuleCall's converse, for a stdlib module the
 // process lowers once: a bare call to a top-level function of the module
-// the lowering holds as a sibling (stdlibSibling, f) is the call through the
+// the lowering holds as a sibling (stdSiblingDecls, f) is the call through the
 // module's own file alias, `encode(b)` in std/hex the call `hex.encode(b)`
 // is, whose route places named arguments and defaults (namedQualCall) and,
 // in an assertion subject, records the call's rows. In one of the module's
@@ -473,9 +468,10 @@ func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast
 // stdFuncPlan's already. The copy's field stands at the callee's position,
 // where the checker recorded the reference; a piped call stays the piped
 // call, and an Iter.loop's named step its step.
-func (bl *irScalarBuilder) ownSiblingCall(t *ast.Call, callee *ast.Ident, f *stdFunc, hasNamed bool) (*ast.Call, bool) {
+func (bl *irScalarBuilder) ownSiblingCall(t *ast.Call, f *stdFunc, hasNamed bool) (*ast.Call, bool) {
 	g := bl.g
-	if f != g.stdSiblings["."+callee.Name] || g.stdModule == "" {
+	callee := t.Func.(*ast.Ident)
+	if f.recv != "" || g.stdModule == "" {
 		return nil, false
 	}
 	alias := path.Base(g.stdModule)
@@ -519,12 +515,16 @@ func (bl *irScalarBuilder) ownModuleAlias(owner string) bool {
 // ownSiblingPlan plans `hex.add3(...)` in a body of std/hex (ownSiblingCall
 // writes it): the module's own top-level function, a sibling of the
 // lowering, as a bare positional call to it plans.
-func (bl *irScalarBuilder) ownSiblingPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
-	if bl.stdTestOwnType() || !bl.ownModuleAlias(owner) || bl.g.stdSiblings == nil {
+func (bl *irScalarBuilder) ownSiblingPlan(t *ast.Call, args irQualArgs, owner string) *irQualPlan {
+	if bl.stdTestOwnType() || !bl.ownModuleAlias(owner) {
 		return nil
 	}
-	f := bl.g.stdSiblings["."+method]
-	if f == nil {
+	fa, _ := t.Func.(*ast.FieldAccess)
+	if fa == nil || fa.Field == nil {
+		return nil
+	}
+	f := bl.g.stdSiblingDecls[bl.g.funcDeclAt(fa.Field.Line, fa.Field.Col)]
+	if f == nil || f.recv != "" {
 		return nil
 	}
 	return bl.stdFuncPlan(t, args, f)

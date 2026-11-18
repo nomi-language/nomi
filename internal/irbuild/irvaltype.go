@@ -7,8 +7,7 @@ package irbuild
 // `project`, and the annotation readers beside it). irValType maps it into
 // `ir.ValType`, whose vocabulary is Nomi's and not Go's: a declared type is its
 // declaration identity (`irTypeSym`), a structural type is its components, and
-// a bound-free type parameter or an untyped literal's missing argument is
-// `ir.AnyType`. See internal/ir/valtype.go.
+// a bound-free type parameter is `ir.AnyType`. See internal/ir/valtype.go.
 
 import "github.com/nomi-language/nomi/internal/ir"
 
@@ -77,14 +76,6 @@ func (g *gen) irValTypeOf(k kind) *ir.ValType {
 			return nil
 		}
 		return ir.NewIfaceType(g.irTypes().Symbol(irIfaceTypeToken{k.iface}, k.iface.nomi))
-	case tagEmptyList:
-		return ir.NewListType(ir.AnyType)
-	case tagEmptySet:
-		return ir.NewSetType(ir.AnyType)
-	case tagEmptyVector:
-		return ir.NewVectorType(ir.AnyType)
-	case tagEmptyMap:
-		return ir.NewMapType(ir.AnyType, ir.AnyType)
 	case tagList, tagSeq, tagMap, tagTuple, tagAnonStruct, tagFunc:
 		return g.irCompValType(k)
 	case tagNamed:

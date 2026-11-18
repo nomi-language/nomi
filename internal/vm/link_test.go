@@ -3,10 +3,9 @@ package vm_test
 // THE LINK'S OWN UNITS: what `NewProgram` resolves, and what it refuses to
 // resolve.
 //
-// `expectation_test.go`'s `TestVMExpectation_TheLinkIsWhatAddedTheThreeRecords`
-// is the control over real programs. These two are the cases no lowering
-// produces, so no population can reach them: a symbol TWO modules declare, and
-// a machine opened by `New` behaving exactly as it did before linking existed.
+// A callee in a sibling module, and the cases no lowering produces, so no
+// population can reach them: a symbol TWO modules declare, and a machine
+// opened by `New` over one module.
 
 import (
 	"io"

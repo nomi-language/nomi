@@ -45,9 +45,8 @@ func (bl *irScalarBuilder) scalarOperatorCall(t *ast.Call, args irQualArgs, owne
 }
 
 // scalarEqualCall lowers `Int.equal(a, b)` and its Float/String/Bool/Equatable
-// spellings over two scalars of one kind to an `ir.Compare`, which the Go
-// reader spells through `scalarEqualCode` (`==`, or `rt.EqFloat`). Without it
-// the call would reach the stdlib index and become a call to the std
+// spellings over two scalars of one kind to an `ir.Compare`. Without it the
+// call would reach the stdlib index and become a call to the std
 // `Equatable.equal` body.
 //
 // `ir.Compare` does not admit a Unit shape, so a Unit pair declines the body.
@@ -98,14 +97,11 @@ func (bl *irScalarBuilder) scalarEqualCall(t *ast.Call, args irQualArgs, owner, 
 // calls equal hash alike.
 const irHashValueHost = "vm.hash_value"
 
-// existentialHashCall lowers `Hashable.hash(x)` over an interface value to
-// the irHashValueHost call. owned is false for any other call.
-func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
-	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || !irHeldKind(args.kinds[0]) {
-		return ir.NoTemp, false
-	}
-	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
-		// A program's own Hashable.
+// existentialHashCall lowers t, a call of std's `Hashable.hash(x)`
+// (routeHash), over an interface value to the irHashValueHost call. owned
+// is false for any other operand.
+func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs) (ir.Temp, bool) {
+	if len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || !irHeldKind(args.kinds[0]) {
 		return ir.NoTemp, false
 	}
 	if held := args.kinds[0].iface; held.stdOrigin == "std/hashable" && held.nomi == "Hashable" {
@@ -122,17 +118,14 @@ func (bl *irScalarBuilder) existentialHashCall(t *ast.Call, args irQualArgs, own
 	return c.Dst(), true
 }
 
-// structuralEqualCall lowers `Equatable.equal(a, b)` over two tuples, two
-// records or two Ranges of one kind as `a == b` lowers them: each is
-// Equatable structurally and has no impl to select, so the call and the
-// operator are one comparison (tupleRecordEquality). handled is false for
-// any other call, which the caller lowers as before.
-func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool, bool) {
-	if owner != "Equatable" || method != "equal" || len(t.Args) != 2 || !args.ok || len(args.kinds) != 2 {
-		return ir.NoTemp, false, false
-	}
-	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
-		// A program's own Equatable.
+// structuralEqualCall lowers t, a call of std's `Equatable.equal(a, b)`
+// (routeEquatableEqual), over two tuples, two records or two Ranges of one
+// kind as `a == b` lowers them: each is Equatable structurally and has no
+// impl to select, so the call and the operator are one comparison
+// (tupleRecordEquality). handled is false for any other operands, which
+// the caller lowers as before.
+func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs) (ir.Temp, bool, bool) {
+	if len(t.Args) != 2 || !args.ok || len(args.kinds) != 2 {
 		return ir.NoTemp, false, false
 	}
 	k := args.kinds[0]
@@ -144,7 +137,7 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs, own
 		bl.side(c.Dst(), irScalarSide{k: kindBool})
 		return c.Dst(), true, true
 	}
-	if k != args.kinds[1] {
+	if k != args.kinds[1] || bl.g.recordNamesImpl(t) {
 		return ir.NoTemp, false, false
 	}
 	at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
@@ -182,16 +175,13 @@ func (g *gen) meetsByEquality(iface string, k kind) bool {
 	return true
 }
 
-// structuralHashCall lowers `Hashable.hash(x)` over a declared type that
-// meets Hashable by its equality, or over std's Range, Regex or `Type<T>`,
-// which declare no Hashable, to the irHashValueHost call: the hash a Map key of the type
-// takes, so it agrees with `==`. owned is false for any other call.
-func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs, owner, method string) (ir.Temp, bool) {
-	if owner != "Hashable" || method != "hash" || len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 {
-		return ir.NoTemp, false
-	}
-	if d, found := bl.g.ifaceNamed(owner); found && !d.stdShared {
-		// A program's own Hashable.
+// structuralHashCall lowers t, a call of std's `Hashable.hash(x)`
+// (routeHash), over a declared type that meets Hashable by its equality,
+// or over std's Range, Regex or `Type<T>`, which declare no Hashable, to
+// the irHashValueHost call: the hash a Map key of the type takes, so it
+// agrees with `==`. owned is false for any other operand.
+func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs) (ir.Temp, bool) {
+	if len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || bl.g.recordNamesImpl(t) {
 		return ir.NoTemp, false
 	}
 	if !irScalarRangeKind(args.kinds[0]) && !irStdHandleKind(args.kinds[0]) && !irTypeWitnessKind(args.kinds[0]) && !bl.g.meetsByEquality("Hashable", args.kinds[0]) {

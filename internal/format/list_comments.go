@@ -54,7 +54,7 @@ func anyComments(comments []*ast.ItemComments) bool {
 // on lines below it, and end, the list's comments before its closing
 // bracket, last. comments is indexed like elems and may be shorter.
 //
-// LocalBroken, as forceBrokenBraced, so the list breaking does not break
+// LocalBroken, as forceBrokenBracedWithEndTrivia, so the list breaking does not break
 // the groups around it.
 func emitCommentedList(open, close string, elems []Doc, comments []*ast.ItemComments, end []ast.Trivia) Doc {
 	return commentedList(open, close, elems, comments, end, true)

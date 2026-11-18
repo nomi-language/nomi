@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
@@ -543,7 +542,6 @@ func htmlArticle(name string) string {
 
 // htmlArgumentMismatch is the argument check's error for a slot value
 // whose type does not implement the slot's interface.
-var htmlArgumentMismatch = regexp.MustCompile("^argument [0-9]+: expected (.+), got (.+)$")
 
 // htmlSlotHelp rewrites each error the checker reported since before that a
 // slot's value has no rendering where it stands. The argument check names
@@ -572,12 +570,14 @@ func (c *checker) htmlSlotHelp(expansion ast.Node, before int) {
 		if !ok || e.File != "" {
 			continue
 		}
-		m := htmlArgumentMismatch.FindStringSubmatch(e.Message)
-		if m == nil {
+		if e.Code != ArgumentMismatchCode {
 			continue
 		}
-		got := fmt.Sprintf("%s `%s`", htmlArticle(m[2]), m[2])
-		e.Message = fmt.Sprintf("this slot takes %s `%s`, and %s is not one", htmlArticle(m[1]), m[1], got)
+		// The error is the slot's from here on, in the slot's words.
+		want, have := e.Args[0], e.Args[1]
+		e.Code, e.Args = "", nil
+		got := fmt.Sprintf("%s `%s`", htmlArticle(have), have)
+		e.Message = fmt.Sprintf("this slot takes %s `%s`, and %s is not one", htmlArticle(want), want, got)
 		e.Hints = []string{htmlSlotHelps[rule.name]}
 		if rule.name != "slot_text" {
 			continue

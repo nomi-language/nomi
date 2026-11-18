@@ -9,15 +9,13 @@ import (
 
 // `std/structs.Struct` as an EXISTENTIAL — the universal structural marker.
 //
-// # Why this is not a stdIfaceSpecs row, which is the whole design
+// # Why this is not a stdIfaceSpecs row
 //
-// stdiface.go's table says what a row IS: "a row is a dispatch table in the
-// runtime library every runner links, so adding one is a decision rather than
-// a mechanical extension". Every row there is `(method shape, rt.Method
-// table)`, and its `matches` deliberately refuses a declaration carrying a
-// FIELD, a VARIANT, an `Extern` method or a self-typed RESULT. `Struct` fails
-// three of those at once, and its own entry on that file's NOT-listed list gives
-// the reason: "`Struct`'s only method is a `host fn`".
+// stdiface.go's table lists the std interfaces whose methods the builder
+// dispatches. Every row is a set of method shapes, and its `matches` refuses
+// a declaration carrying a field, a variant, an `Extern` method or a
+// self-typed result. `Struct` fails three of those at once: its only method
+// is a `host fn`.
 //
 // So `Struct` is not a smaller version of `Display`. It is a different KIND of
 // stdlib interface, and the two differences are what this file is:
@@ -33,20 +31,19 @@ import (
 //     answer no. That is why `universal` exists on `ifaceDef` and why it is
 //     asked in `bindsImpl` rather than worked around at each erasure site.
 //
-//  2. IT DISPATCHES NOTHING. `update` is `host fn update(original: self,
-//     updates: Partial<self>) -> self` — self in the RETURN plus a
-//     compiler-known type OPERATOR in a parameter. `stdIfaceMethodSpec.result`
-//     already states why a self-typed return is not expressible: "it erases to
-//     `any` in the table and only a dictionary-driven call can re-box it, which
-//     is dict.go's surface and not this one." So the def carries ZERO methods,
-//     and that is not a gap being papered — it is the accurate statement that
-//     `Struct.update` on an ERASED receiver needs the dictionary.
+//  2. It dispatches nothing. `update` is `host fn update(original: self,
+//     updates: Partial<self>) -> self`: self in the return plus a
+//     compiler-known type operator in a parameter. A `stdIfaceMethodSpec`
+//     cannot express a self-typed return. So the def carries zero methods,
+//     and `Struct.update` on an erased receiver has no method here to
+//     dispatch.
 //
-// That keeps (2) small: `Struct.update` at a CONCRETE receiver
+// That keeps (2) small: `Struct.update` at a concrete receiver
 // (`Struct.update(Point{x: 1, y: 2}, {x: 9})`) lowers with no `*ifaceDef`,
-// because it resolves through the stdlib FUNCTION index, and
-// `fn echo<T>(v: T) -> T where T: Struct` lowers too. What this file adds is the
-// existential kind, `fn one(s: Struct) -> Int`.
+// because it resolves through the stdlib function index, and
+// `fn echo<T>(v: T) -> T where T: Struct` lowers as an instance per type
+// argument. What this file adds is the existential kind,
+// `fn one(s: Struct) -> Int`.
 //
 // # IDENTITY
 //
@@ -73,9 +70,6 @@ import (
 //
 // That ordering stays as a second defence because the reservation is a checker
 // rule that could be relaxed, and this file must not need editing if it is.
-// TestStructIface_AUserDeclaredStructDoesNotAdoptTheMarker asserts BOTH halves:
-// the front-end rejection as the premise, and, for `App`, that the shadowable
-// side of the line really is shadowable.
 //
 // # The shape check, and what it is FOR
 //
@@ -84,14 +78,12 @@ import (
 // exactly ONE method — `update`, EXTERN, no type parameters, two parameters
 // named `original` (self) and `updates` (`Partial<self>`), returning `self`.
 //
-// That is a check on a method this file does not dispatch, so it is worth being
-// explicit about what it buys. It is NOT protecting a table's Go type, which is
-// what `stdIfaceSpec.matches` protects. It is protecting the CLAIM IN (2): the
-// def carries no methods because std declares exactly one and that one is not
-// dispatchable. A std edit that ADDED a dispatchable method would make the
-// empty def silently wrong — `Struct.foo(erased)` would refuse for want of a
-// method rather than dispatch — and the shape check turns that into no anchor at
-// all, so every mention refuses loudly under `stdlib interface` instead.
+// That is a check on a method this file does not dispatch. It protects the
+// claim in (2): the def carries no methods because std declares exactly one
+// and that one is not dispatchable. A std edit that added a dispatchable
+// method would make the empty def wrong: `Struct.foo(erased)` would refuse
+// for want of a method and never dispatch. The shape check turns that into
+// no anchor at all, so every mention refuses under `stdlib interface`.
 //
 // If `std/structs.nomi`'s `interface Struct` gains a second method,
 // or `update` stops being a `host fn`, or its `self`-typed return becomes
@@ -113,24 +105,24 @@ const structIfaceUpdate = "update"
 
 // structIfaceDef is the process-wide `*ifaceDef` for `Struct`.
 //
-// PROCESS-wide for opaque.go's, stdenum.go's and stdiface.go's reason, which is
-// a requirement rather than an optimization: kinds are compared by POINTER
+// Process-wide for opaque.go's, stdenum.go's and stdiface.go's reason, which is
+// a requirement and not an optimization: kinds are compared by pointer
 // across gens, so two gens' `Struct` existentials must be one kind or a value
 // erased in one file could not be passed to a function declared in another. It
-// is SAFE because nothing about the def is package-relative — no methods, no
-// fields, no tables, so nothing to render in any package. `stdShared` is set for
-// the same reason it is set on stdIfaceDefs' rows: `kind.packageNeutral` asks
-// that question in O(1) and must not reach a spec table.
+// is safe to share because the def holds nothing that belongs to one module:
+// no methods and no fields. `stdShared` is set for the same reason it is set
+// on stdIfaceDefs' rows: `kind.packageNeutral` asks that question in O(1) and
+// must not reach a spec table.
 var structIfaceDef = sync.OnceValue(func() *ifaceDef {
-	// A canonical declaration node no file contains and nothing emits, for
-	// stdIfaceDefs' reason: a declaration node is what an interface identity IS
-	// everywhere else in this package (`implKeyFor` keys on `d.decl`,
-	// `buildImplIndex` skips a def without one), and borrowing std's own node
-	// would make the def per-`std.Load()` rather than process-wide.
+	// A canonical declaration node no file contains, for stdIfaceDefs'
+	// reason: a declaration node is what an interface identity is everywhere
+	// else in this package (`implKeyFor` keys on `d.decl`), and borrowing
+	// std's own node would make the def per-`std.Load()` and not
+	// process-wide.
 	//
-	// It carries NO methods, which is the accurate rendering of (2) above: the
-	// canonical AST and the def agree that nothing dispatches, so no derivation
-	// over either can disagree with the other.
+	// It carries no methods, as (2) above says: the canonical AST and the def
+	// agree that nothing dispatches, so no derivation over either can
+	// disagree with the other.
 	canon := &ast.InterfaceDef{Name: structIfaceName, Public: true}
 	return &ifaceDef{
 		nomi:      structIfaceName,
@@ -139,9 +131,8 @@ var structIfaceDef = sync.OnceValue(func() *ifaceDef {
 		lowerable: true,
 		stdShared: true,
 		universal: true,
-		// No generated module owns it, exactly as stdIfaceDefs' rows say with
-		// the same pair of values — which is what keeps useIfacePkg from
-		// registering an import for a table that does not exist.
+		// No unit of the program declares it. stdIfaceDefs' rows carry the
+		// same value.
 		unit: -1,
 	}
 })
@@ -228,7 +219,7 @@ func structIfaceMatches(decl *ast.InterfaceDef) bool {
 	if m.Params[0].Destructure != nil || m.Params[1].Destructure != nil {
 		return false
 	}
-	// `: self` — the return this file refuses to table.
+	// `: self`, the self-typed return.
 	_, selfResult := m.ReturnTypeExpr.(*ast.SelfType)
 	return selfResult
 }
@@ -253,7 +244,7 @@ func structIfacePartialSelf(te ast.TypeExpr) bool {
 // than being generous.
 //
 // Reads the `*typeDef`, never a name — `d.isEnum`/`d.isDistinct` are fields of
-// the type identity itself, the rule equatableDispatches states at its own site.
+// the type identity itself.
 func structIfaceSatisfiedBy(k kind) bool {
 	switch k.tag {
 	case tagAnonStruct:

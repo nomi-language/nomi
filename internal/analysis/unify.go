@@ -173,7 +173,7 @@ func (m unifyMode) field() unifyMode {
 // strictly: `pick(c, f, g)` with `fn pick<T>(c: Bool, a: T, b: T) -> T` widens
 // neither function's parameters into the other's.
 func (m unifyMode) rebound(existing Type) unifyMode {
-	if _, isFunc := resolveTV(existing).(*FuncType); isFunc {
+	if _, isFunc := resolveTypeVar(existing).(*FuncType); isFunc {
 		return unifyStrict
 	}
 	return m
@@ -184,8 +184,8 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		return nil
 	}
 
-	a = resolveTV(a)
-	b = resolveTV(b)
+	a = resolveTypeVar(a)
+	b = resolveTypeVar(b)
 
 	// `()` and Unit are two spellings of "no value" — the checker infers an
 	// empty tuple for a FuncType return whose body is Unit-typed. Collapse the
@@ -385,14 +385,14 @@ func unifyIn(m unifyMode, a, b Type, subs map[*TypeParam_]Type, impls []ImplTabl
 		if tv2, ok2 := b.(*TypeVar); ok2 && tv.ID == tv2.ID {
 			return nil
 		}
-		if typeVarOccursIn(tv, b, 0) {
+		if typeVarOccursIn(tv, b) {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		tv.Resolved = b
 		return nil
 	}
 	if tv, ok := b.(*TypeVar); ok {
-		if typeVarOccursIn(tv, a, 0) {
+		if typeVarOccursIn(tv, a) {
 			return typeErrorf("cannot unify %s with %s", a, b)
 		}
 		tv.Resolved = a
@@ -1058,85 +1058,16 @@ func substituteTypeParamDefs(typeParamDefs []*TypeParam_, args []Type, template 
 // valid bindings. A true infinite type only arises when the bound TypeParam_
 // literally points back at itself within the structure.
 func occursInIdent(p *TypeParam_, t Type) bool {
-	if t == nil || p == nil {
+	if p == nil {
 		return false
 	}
-	switch t := t.(type) {
-	case *TypeParam_:
-		return t == p
-	case *ListType:
-		return occursInIdent(p, t.Elem)
-	case *MapType:
-		return occursInIdent(p, t.Key) || occursInIdent(p, t.Val)
-	case *FuncType:
-		for _, pp := range t.Params {
-			if occursInIdent(p, pp) {
-				return true
-			}
-		}
-		return occursInIdent(p, t.Return)
-	case *TupleType:
-		for _, e := range t.Elems {
-			if occursInIdent(p, e) {
-				return true
-			}
-		}
-		return false
-	case *EnumType:
-		for _, a := range t.TypeArgs {
-			if occursInIdent(p, a) {
-				return true
-			}
-		}
-		return false
-	case *StructType:
-		for _, a := range t.TypeArgs {
-			if occursInIdent(p, a) {
-				return true
-			}
-		}
-		return false
-	case *InterfaceType:
-		for _, a := range t.TypeArgs {
-			if occursInIdent(p, a) {
-				return true
-			}
-		}
-		return false
-	case *PartialType:
-		return occursInIdent(p, t.Inner)
-	default:
-		return false
-	}
+	return typeHoldsOutsideVars(t, func(part Type) bool { return part == Type(p) })
 }
 
 // typeVarOccursIn reports whether the unsolved variable tv appears inside t,
-// following solved variables. depth bounds the walk as unboundVars does.
-func typeVarOccursIn(tv *TypeVar, t Type, depth int) bool {
-	if t == nil || depth > 32 {
-		return false
-	}
-	t = resolveTypeVar(t)
-	if v, ok := t.(*TypeVar); ok {
-		return v == tv
-	}
-	for _, c := range typeChildren(t) {
-		if typeVarOccursIn(tv, c, depth+1) {
-			return true
-		}
-	}
-	return false
-}
-
-// resolveTV follows the Resolved chain of TypeVars to their terminal type.
-func resolveTV(t Type) Type {
-	for {
-		tv, ok := t.(*TypeVar)
-		if !ok || tv.Resolved == nil {
-			return t
-		}
-		t = tv.Resolved
-	}
+// following solved variables.
+func typeVarOccursIn(tv *TypeVar, t Type) bool {
+	return typeHolds(t, func(p Type) bool { return p == Type(tv) && tv.Resolved == nil })
 }
 
 // Substitute replaces TypeParam_ nodes in a type with their bindings from subs.
@@ -1482,91 +1413,11 @@ func maskBoundParams(subs map[*TypeParam_]Type, defs []*TypeParam_, args []Type)
 
 func anyMentionsParam(args []Type, p *TypeParam_) bool {
 	for _, a := range args {
-		if mentionsParam(a, p, nil) {
+		if mentionsTypeParamDeep(a, p) {
 			return true
 		}
 	}
 	return false
-}
-
-// mentionsParam reports whether p occurs anywhere in t. The `seen` set guards
-// the same recursive-nominal cycles substitution itself has to guard.
-func mentionsParam(t Type, p *TypeParam_, seen map[any]bool) bool {
-	switch t := t.(type) {
-	case nil:
-		return false
-	case *TypeParam_:
-		return t == p
-	case *TypeVar:
-		if t.Resolved == nil {
-			return false
-		}
-		return mentionsParam(t.Resolved, p, seen)
-	case *ListType:
-		return mentionsParam(t.Elem, p, seen)
-	case *MapType:
-		return mentionsParam(t.Key, p, seen) || mentionsParam(t.Val, p, seen)
-	case *PartialType:
-		return mentionsParam(t.Inner, p, seen)
-	case *FuncType:
-		for _, param := range t.Params {
-			if mentionsParam(param, p, seen) {
-				return true
-			}
-		}
-		return mentionsParam(t.Return, p, seen)
-	case *TupleType:
-		for _, e := range t.Elems {
-			if mentionsParam(e, p, seen) {
-				return true
-			}
-		}
-		return false
-	case *EnumType:
-		if seen == nil {
-			seen = map[any]bool{}
-		} else if seen[t] {
-			return false
-		}
-		seen[t] = true
-		defer delete(seen, t)
-		for _, a := range t.TypeArgs {
-			if mentionsParam(a, p, seen) {
-				return true
-			}
-		}
-		return false
-	case *StructType:
-		if seen == nil {
-			seen = map[any]bool{}
-		} else if seen[t] {
-			return false
-		}
-		seen[t] = true
-		defer delete(seen, t)
-		for _, a := range t.TypeArgs {
-			if mentionsParam(a, p, seen) {
-				return true
-			}
-		}
-		return false
-	case *InterfaceType:
-		for _, a := range t.TypeArgs {
-			if mentionsParam(a, p, seen) {
-				return true
-			}
-		}
-		return false
-	case *DistinctType:
-		for _, a := range t.TypeArgs {
-			if mentionsParam(a, p, seen) {
-				return true
-			}
-		}
-		return false
-	default:
-		return false
-	}
 }
 
 // fieldsSamePointers reports whether two field slices have the same types by
@@ -1651,8 +1502,8 @@ func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
 	if m != unifyAssign && m != unifyAssignCo {
 		return nil, false
 	}
-	et, ok := resolveTV(have).(*EnumType)
-	if !ok || !isEmbeddedTypeOf(resolveTV(existing), et) {
+	et, ok := resolveTypeVar(have).(*EnumType)
+	if !ok || !isEmbeddedTypeOf(resolveTypeVar(existing), et) {
 		return nil, false
 	}
 	return et, true
@@ -1665,14 +1516,25 @@ func widenToEnum(m unifyMode, existing, have Type) (Type, bool) {
 // it in this mode. Inside a function type the expected side's parameter
 // widens too, where a function argument's result meets it: with number a
 // PositiveInt and next an `(Int) -> Int`, `Iter.iterate(number, next)`
-// solves T to Int.
+// solves T to Int. At an invariant type argument, which takes no
+// conversion, the parameter widens only to the type met there itself:
+// with p a PositiveInt, `Int.clamp(p, -5..=5)` meets Int inside
+// `ClosedRange<self>` and solves self to Int, which p converts to. The
+// caller holds every earlier argument to the widened type
+// (argSolving.widenedPast).
 func widenToRefinementAncestor(m unifyMode, existing, have Type, impls []ImplTables, implTypeArgs []map[string]map[string][]*ImplTypeArgs, rigid map[string]*TypeParam_) (Type, bool) {
-	if m != unifyAssign && m != unifyAssignCo && m != unifyAssignIn {
+	if m != unifyAssign && m != unifyAssignCo && m != unifyAssignIn && m != unifyAssignExact {
 		return nil, false
 	}
 	joined, ok := refinementJoinShape(existing, have, 0)
 	if !ok || joined == nil || containsTypeVar(joined) || ContainsTypeParam(joined) {
 		return nil, false
+	}
+	if m == unifyAssignExact {
+		if !TypesIdentical(joined, have) || unifyIn(unifyAssign, joined, existing, nil, impls, implTypeArgs, rigid) != nil {
+			return nil, false
+		}
+		return joined, true
 	}
 	if unifyIn(m, joined, existing, nil, impls, implTypeArgs, rigid) != nil || unifyIn(m, joined, have, nil, impls, implTypeArgs, rigid) != nil {
 		return nil, false

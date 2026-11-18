@@ -39,6 +39,7 @@ func distinctCtorLabel(callee ast.Node, dt *DistinctType) string {
 // checkDistinctCtorCall checks `D(args)` for a distinct D called by its type
 // name. Tuple-distincts are routed by the caller.
 func (c *checker) checkDistinctCtorCall(n *ast.Call, dt *DistinctType) Type {
+	c.recordPositional(n, false)
 	dt = c.freshDistinct(dt)
 	label := distinctCtorLabel(n.Func, dt)
 	line, col := nodeLineCol(n.Func)
@@ -102,6 +103,7 @@ func (c *checker) freshDistinct(dt *DistinctType) *DistinctType {
 // checkPipedDistinctCtor checks `value |> D()`: the piped value is the
 // construction's one argument.
 func (c *checker) checkPipedDistinctCtor(call *ast.Call, piped ast.Node, pipedTy Type, dt *DistinctType) Type {
+	c.recordPositional(call, true)
 	dt = c.freshDistinct(dt)
 	label := distinctCtorLabel(call.Func, dt)
 	line, col := nodeLineCol(call.Func)

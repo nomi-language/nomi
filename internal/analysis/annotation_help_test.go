@@ -106,12 +106,12 @@ var annotationHelpCases = map[string]annotationHelpCase{
 	"two typed spreads": {annotationHelpDecls, "_c: Bool",
 		`mine = [("b", page)]
   r = [..mine, ..routes()]`,
-		"list spread element type mismatch: (String, (Int) -> Page) vs (String, (Int) -> Reply)\n" +
+		"list spread element type mismatch: expected (String, (Int) -> Page), got (String, (Int) -> Reply)\n" +
 			"help: annotate the binding: `mine: List<(String, Handler)> = ...`"},
 	"a spread into an expected list": {annotationHelpDecls, "_c: Bool",
 		`mine = [("b", page)]
   r: List<(String, Handler)> = [..mine, ..routes()]`,
-		"list spread element type mismatch: (String, (Int) -> Reply) vs (String, (Int) -> Page)\n" +
+		"list spread element type mismatch: expected (String, (Int) -> Reply), got (String, (Int) -> Page)\n" +
 			"help: annotate the binding: `mine: List<(String, Handler)> = ...`"},
 	"elements of an unannotated list": {annotationHelpDecls, "_c: Bool",
 		`all = [("a", page), ("b", note)]`,

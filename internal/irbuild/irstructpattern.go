@@ -30,7 +30,12 @@ func irNominalCaseKind(k kind) bool {
 // failure.
 func (bl *irScalarBuilder) nominalCaseTest(pattern ast.Node, subj ir.Temp, k kind, arm, next *ir.Block) bool {
 	if p, isStruct := pattern.(*ast.StructPattern); isStruct && irRetainedRecordKind(k) {
-		if p.TypeName != nil || !bl.recordCaseFields(p, subj, k, next) {
+		if p.TypeName != nil {
+			// "struct pattern names T, but the value is the anonymous
+			// struct" is the checker's error.
+			panic("irbuild: a struct pattern that names a type, over an anonymous struct: " + k.nomi())
+		}
+		if !bl.recordCaseFields(p, subj, k, next) {
 			return false
 		}
 		bl.b.SetTerm(ir.NewJump(bl.g.irNodePos(pattern), arm.ID()))

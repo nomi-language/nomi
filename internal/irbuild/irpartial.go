@@ -2,6 +2,7 @@ package irbuild
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -20,7 +21,7 @@ import (
 // function value whose lambda the builder can see, or, through the
 // signature the checker instantiated at the call (partialCalleeByType), a
 // generic function, an owner- or interface-qualified function, or another
-// file's function. Arguments reach slots as a full call's do (argSlotPlan);
+// file's function. Arguments reach the slots the checker recorded (callPlan);
 // a slot given twice declines.
 //
 // Each open argument becomes a parameter named so no Nomi program can spell
@@ -33,13 +34,15 @@ import (
 // takes the callee's default in the body's call, which leaves the slot out.
 // An open slot's computed default is the callee's, evaluated in the callee's
 // scope by the slot's supplier (partialCalleeDefault). When the partial
-// leaves a computed default unmentioned before it (`b` in `&span(&1, c:
-// &2)` over `fn span(a, b = base() + 1, c = base() * 2)`), the partial also
-// gets an entry (irLambdaPlan.entry) that takes those hidden slots after
-// its own: a call that leaves an argument out goes through the entry and
-// evaluates every default it leaves out once, in the callee's order, and a
-// call that passes every argument goes through the partial, whose body's
-// call evaluates the hidden defaults. Each route to the callee's defaults
+// also writes an argument (`say(1)` in `&f(say(1), &1, &2)`), or leaves a
+// computed default unmentioned before that slot (`b` in `&span(&1, c: &2)`
+// over `fn span(a, b = base() + 1, c = base() * 2)`), it also gets an
+// entry (irLambdaPlan.entry) that takes those held and hidden slots after
+// its own: a call that leaves an argument out goes through the entry,
+// evaluates each written argument once, then every default it leaves out
+// once, in the callee's order, reading the written values; a call that
+// passes every argument goes through the partial, whose body's call
+// evaluates the written arguments and the hidden defaults. Each route to the callee's defaults
 // (this file's function, a local function value, another file's or std's)
 // fills a hidden slot as it fills an open one. The body's call names the callee exactly
 // as the partial wrote it and holds the written arguments themselves, so it
@@ -66,7 +69,7 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 	// The arguments reach their slots as a full call's do, so a positional
 	// written after a named argument skips the slot the name claimed
 	// (`&connect(timeout: &1, host: "h", &2)` leaves `port` open).
-	plan, planned := argSlotPlan(t.Args, kinds, names)
+	plan, planned := bl.g.callPlan(t, len(kinds))
 	if !planned {
 		return no()
 	}
@@ -92,17 +95,25 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 	}
 	calleeOrder := bl.partialCalleeOrder(t, len(params))
 	// The slots the partial leaves unmentioned whose computed default an
-	// open slot's computed default comes after (partialHiddenSlots). A
-	// call of the partial that leaves an argument out goes through the
-	// partial's entry, which takes these too, so each default is evaluated
-	// once, at the call, in the callee's order.
-	hidden := partialHiddenSlots(params, filled, open, calleeOrder)
+	// open slot's computed default comes after (partialHiddenSlots), and,
+	// when an open slot's default is computed, the written arguments
+	// (partialHeldSlots). A call of the partial that leaves an argument out
+	// goes through the partial's entry, which takes these too: it evaluates
+	// each written argument once, and then each default it leaves out
+	// once, in the callee's order, reading those values.
+	_, iface := bl.g.calleeDecl(t.Func).(*ast.InterfaceMethod)
+	pc := partialCall{params: params, iface: iface && sig == nil}
+	hidden := partialHiddenSlots(pc, filled, open, calleeOrder)
+	held := partialHeldSlots(pc, open, written, plan)
 	openName := make([]string, len(params))
 	for _, slot := range open {
 		openName[slot] = "%open" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(slot)
 	}
 	for _, slot := range hidden {
 		openName[slot] = "%hidden" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(slot)
+	}
+	for _, slot := range held {
+		openName[slot] = "%held" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(slot)
 	}
 	// The parameters the position expects past the open arguments, which
 	// the function ignores.
@@ -114,36 +125,39 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 			extra = append(extra, k)
 		}
 	}
-	pc := partialCall{t: t, capture: capture, params: params, kinds: kinds, sig: sig, names: names, plan: plan,
+	pc = partialCall{t: t, capture: capture, params: params, kinds: kinds, sig: sig, iface: pc.iface, names: names, plan: plan,
 		written: written, filled: filled, placeholder: placeholder, openName: openName, calleeOrder: calleeOrder, open: open, extra: extra}
-	if len(hidden) == 0 {
-		lam, slots, ok := bl.partialLam(pc, nil, true)
+	if len(hidden) == 0 && len(held) == 0 {
+		lam, slots, ok := bl.partialLam(pc, nil, nil, true)
 		if !ok {
 			return no()
 		}
-		args, ok := bl.partialBodyArgs(pc, filled)
+		args, placed, ok := bl.partialBodyArgs(pc, filled)
 		if !ok {
 			return no()
 		}
-		return bl.partialLambda(capture, lam, t, args, slots)
+		return bl.partialLambda(capture, lam, t, args, placed, slots)
 	}
-	// The entry: the open slots, the ignored ones and the hidden ones, with
-	// every computed default's supplier.
+	// The entry: the open slots, the ignored ones, then the held ones and
+	// the hidden ones, with each written argument's supplier and every
+	// computed default's. Its body's call reads a written argument as the
+	// held slot its supplier filled.
 	withHidden := append([]bool(nil), filled...)
 	for _, slot := range hidden {
 		withHidden[slot] = true
 	}
 	entryPC := pc
 	entryPC.filled = withHidden
-	entryLam, entrySlots, ok := bl.partialLam(entryPC, hidden, true)
+	entryPC.written = make([]ast.Node, len(params))
+	entryLam, entrySlots, ok := bl.partialLam(entryPC, append(held, hidden...), written, true)
 	if !ok {
 		return no()
 	}
-	entryArgs, ok := bl.partialBodyArgs(entryPC, withHidden)
+	entryArgs, entryPlaced, ok := bl.partialBodyArgs(entryPC, withHidden)
 	if !ok {
 		return no()
 	}
-	entry, ek, _, ok := bl.partialEntry(entryLam, t, entryArgs, entrySlots)
+	entry, ek, _, ok := bl.partialEntry(entryLam, t, entryArgs, entryPlaced, entrySlots)
 	if !ok {
 		return no()
 	}
@@ -156,15 +170,15 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 	// hidden defaults in its body's call, as the callee's own call does.
 	// It holds no supplier for a computed default, since a call leaving
 	// one out goes through the entry.
-	lam, slots, ok := bl.partialLam(pc, nil, false)
+	lam, slots, ok := bl.partialLam(pc, nil, nil, false)
 	if !ok {
 		return no()
 	}
-	args, ok := bl.partialBodyArgs(pc, filled)
+	args, placed, ok := bl.partialBodyArgs(pc, filled)
 	if !ok {
 		return no()
 	}
-	v, k, mobile, ok := bl.partialLambda(capture, lam, t, args, slots)
+	v, k, mobile, ok := bl.partialLambda(capture, lam, t, args, placed, slots)
 	if !ok {
 		return no()
 	}
@@ -181,7 +195,9 @@ func (bl *irScalarBuilder) partialApplication(capture *ast.Capture, t *ast.Call)
 // &span(&1, c: &2)`): the partial over g is a partial over g's entry, whose
 // parameters are g's and then g's hidden slots, so g's hidden defaults are
 // this partial's hidden slots in turn, and each runs once a call. The
-// entry is bound under a name no program can spell. t otherwise.
+// entry is bound under a name no program can spell. The call over the
+// entry holds t's arguments at t's position, so it has t's record, which
+// leaves the hidden slots after g's own out. t otherwise.
 func (bl *irScalarBuilder) partialOverEntry(t *ast.Call) *ast.Call {
 	id, direct := t.Func.(*ast.Ident)
 	if !direct || !bl.isLocalCallable(id.Name) {
@@ -204,13 +220,16 @@ func (bl *irScalarBuilder) partialOverEntry(t *ast.Call) *ast.Call {
 // t: the callee's parameters and kinds, its signature when it is a function
 // of this file, the call's slot plan and, per callee slot, the written
 // argument, whether the call fills it, its placeholder and the name its
-// lambda parameter takes.
+// lambda parameter takes. iface is set when the callee is an interface
+// function, whose defaults are the interface's: the function a call of the
+// partial runs may declare its own (spec §12 *Item kinds*).
 type partialCall struct {
 	t           *ast.Call
 	capture     *ast.Capture
 	params      []ast.Param
 	kinds       []kind
 	sig         *fnSig
+	iface       bool
 	names       []string
 	plan        argPlan
 	written     []ast.Node
@@ -222,38 +241,78 @@ type partialCall struct {
 	extra       []kind
 }
 
+// literal reports whether d, the default of the callee's parameter at slot
+// or an argument the partial writes there, reads the same written in the
+// partial: a closed literal (irClosedLiteral) that is not an interface
+// function's default, which the impl a call reaches may replace.
+func (pc partialCall) literal(slot int, d ast.Node) bool {
+	return irClosedLiteral(d) && !(pc.iface && d == pc.params[slot].Default)
+}
+
+// computed reports whether the callee's parameter at slot has a default
+// that is not literal.
+func (pc partialCall) computed(slot int) bool {
+	d := pc.params[slot].Default
+	return d != nil && !pc.literal(slot, d)
+}
+
 // partialHiddenSlots is the slots the partial leaves unmentioned whose
 // default is computed, each before, in the callee's order, an open slot
 // whose default is computed: `b` in `&span(&1, c: &2)` over `fn span(a,
 // b = base() + 1, c = base() * 2)`. A call of the partial that leaves `c`
 // out evaluates b's default and then c's, and the call in the partial's
 // body must not evaluate b's again.
-func partialHiddenSlots(params []ast.Param, filled []bool, open, calleeOrder []int) []int {
-	computed := func(s int) bool { return params[s].Default != nil && !irClosedLiteral(params[s].Default) }
+func partialHiddenSlots(pc partialCall, filled []bool, open, calleeOrder []int) []int {
 	last := -1
 	for at, s := range calleeOrder {
 		for _, o := range open {
-			if o == s && computed(s) {
+			if o == s && pc.computed(s) {
 				last = at
 			}
 		}
 	}
 	var hidden []int
 	for at, s := range calleeOrder {
-		if at < last && !filled[s] && computed(s) {
+		if at < last && !filled[s] && pc.computed(s) {
 			hidden = append(hidden, s)
 		}
 	}
 	return hidden
 }
 
+// partialHeldSlots is the slots of the written arguments, in the order the
+// partial's call evaluates them, when an open slot's default is computed:
+// `a` in `&f(say(1), &1, &2)` over `fn f(a: Int, b: Int, c: Int = a * 2)`.
+// A call of the partial that leaves `c` out evaluates `say(1)` once and
+// then c's default, which reads its value (spec §7 *Default Arguments*).
+// nil otherwise.
+func partialHeldSlots(pc partialCall, open []int, written []ast.Node, plan argPlan) []int {
+	computed := false
+	for _, o := range open {
+		computed = computed || pc.computed(o)
+	}
+	if !computed {
+		return nil
+	}
+	var held []int
+	for _, i := range plan.order {
+		if slot := plan.slots[i]; written[slot] != nil {
+			held = append(held, slot)
+		}
+	}
+	return held
+}
+
 // partialLam builds the lambda a partial stands for: a parameter per open
 // slot in written order, then the ones the expected type adds, which it
-// ignores, then one per hidden slot, which no call can name. With
-// suppliers, an open or hidden slot whose callee default is computed gets
-// the callee's default as its supplier (partialCalleeDefault); without, it
-// has none, and only a literal default carries over.
-func (bl *irScalarBuilder) partialLam(pc partialCall, hidden []int, suppliers bool) (*ast.Lambda, partialSlots, bool) {
+// ignores, then one per hidden slot, which no call can name. A hidden slot
+// with an expression in held holds that written argument: its supplier
+// evaluates it, before every other supplier (partialFillOrder), so each
+// default reads its value and none evaluates it again. With suppliers, an
+// open or hidden slot whose callee default is computed gets the callee's
+// default as its supplier (partialCalleeDefault); without, it has none,
+// and only a literal default carries over.
+func (bl *irScalarBuilder) partialLam(pc partialCall, hidden []int, held []ast.Node, suppliers bool) (*ast.Lambda, partialSlots, bool) {
 	t := pc.t
 	lam := &ast.Lambda{Line: t.Line, Col: t.Col, EndLine: t.Line, EndCol: t.Col}
 	n := len(pc.open) + len(pc.extra) + len(hidden)
@@ -262,11 +321,14 @@ func (bl *irScalarBuilder) partialLam(pc partialCall, hidden []int, suppliers bo
 	lamSlot := make([]int, 0, n)
 	add := func(slot int, name string, dflt, marker ast.Node) bool {
 		p := pc.params[slot]
-		if dflt != nil && !irClosedLiteral(dflt) {
+		if dflt != nil && !pc.literal(slot, dflt) {
 			if !suppliers {
 				dflt = nil
 			} else {
-				fill, ok := bl.partialCalleeDefault(t, pc.params, pc.sig, slot, pc.kinds, pc.written, pc.filled, pc.openName, pc.calleeOrder)
+				fill, ok := partialWrittenArg(held, slot, pc.kinds[slot])
+				if fill == nil {
+					fill, ok = bl.partialCalleeDefault(t, pc.params, pc.sig, slot, pc.kinds, pc.filled, pc.openName, pc.calleeOrder)
+				}
 				if !ok {
 					return false
 				}
@@ -302,32 +364,47 @@ func (bl *irScalarBuilder) partialLam(pc partialCall, hidden []int, suppliers bo
 		lamSlot = append(lamSlot, -1)
 	}
 	for _, slot := range hidden {
-		if !add(slot, "", pc.params[slot].Default, &ast.Placeholder{Line: t.Line, Col: t.Col}) {
+		dflt := pc.params[slot].Default
+		if held != nil && held[slot] != nil {
+			dflt = held[slot]
+		}
+		if !add(slot, "", dflt, &ast.Placeholder{Line: t.Line, Col: t.Col}) {
 			return nil, partialSlots{}, false
 		}
 	}
-	slots.order = partialFillOrder(lamSlot, pc.calleeOrder)
-	if slots.order != nil {
-		// An ignored parameter has no default and is filled last.
-		for j, slot := range lamSlot {
-			if slot < 0 {
-				slots.order = append(slots.order, j)
-			}
-		}
-	}
+	slots.order = partialFillOrder(lamSlot, held, pc.calleeOrder)
 	return lam, slots, true
 }
 
+// partialWrittenArg is the supplier of a held slot (partialLam): the
+// written argument, evaluated in the partial's scope at the slot's kind, as
+// the body's call of the partial evaluates it. nil when slot holds no
+// written argument.
+func partialWrittenArg(held []ast.Node, slot int, k kind) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
+	if held == nil || held[slot] == nil {
+		return nil, false
+	}
+	arg := held[slot]
+	return func(child *irScalarBuilder) (ir.Temp, bool) {
+		v, vk, _, ok := child.lowerTypedOperand(arg, k)
+		if ok && vk != k {
+			v, vk, ok = child.convertTo(arg, v, vk, k)
+		}
+		return v, ok && vk == k
+	}, true
+}
+
 // partialBodyArgs is the arguments of the call in a partial's body, given
-// which callee slots its lambda's parameters fill.
-func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast.Node, bool) {
+// which callee slots its lambda's parameters fill, and the record of that
+// call: the builder writes each argument for a slot, so the record says
+// which.
+func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast.Node, *analysis.ResolvedCall, bool) {
 	t, params, names := pc.t, pc.params, pc.names
 	// A slot the partial does not mention is left out of the body's call,
 	// which fills it from the callee's default in the callee's scope, as any
 	// call omitting it does. A trailing one is simply not written; one
 	// before a written slot is skipped by writing the call's arguments by
-	// name, unless its default is a literal, which reads the same written
-	// in place.
+	// name.
 	last := -1
 	named := false
 	for slot := range params {
@@ -335,14 +412,13 @@ func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast
 			last = slot
 		}
 	}
-	for slot, p := range params[:last+1] {
-		if !filled[slot] && (p.Default == nil || !irClosedLiteral(p.Default)) {
+	for slot := range params[:last+1] {
+		if !filled[slot] {
 			named = true
 		}
 	}
 	// The written arguments are evaluated in the order the partial's call
-	// evaluates them (argSlotPlan's order: positionals, then named
-	// arguments, each in written order), as the equivalent lambda's call
+	// evaluates them (callPlan's order, as written), as the equivalent lambda's call
 	// would. When that is not the order of their slots, the body's call
 	// names every argument, in that order, so it evaluates them so; a
 	// callee with a parameter no call can name takes them in slot order.
@@ -364,8 +440,9 @@ func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast
 			nameable = nameable && names[slot] != "" && names[slot] != "_"
 		}
 	}
+	var args []ast.Node
+	var argSlots []int
 	if !inOrder && nameable {
-		var args []ast.Node
 		for _, i := range pc.plan.order {
 			slot := pc.plan.slots[i]
 			arg := pc.written[slot]
@@ -373,16 +450,17 @@ func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast
 				arg = &ast.Ident{Name: pc.openName[slot], Line: t.Line, Col: t.Col}
 			}
 			args = append(args, &ast.NamedArg{Name: names[slot], Value: arg, Line: t.Line, Col: t.Col})
+			argSlots = append(argSlots, slot)
 		}
 		for slot := range params {
 			if filled[slot] && !planned[slot] {
 				arg := &ast.Ident{Name: pc.openName[slot], Line: t.Line, Col: t.Col}
 				args = append(args, &ast.NamedArg{Name: names[slot], Value: arg, Line: t.Line, Col: t.Col})
+				argSlots = append(argSlots, slot)
 			}
 		}
-		return args, true
+		return args, writtenAtSlots(argSlots, len(params)), true
 	}
-	var args []ast.Node
 	for slot, p := range params[:last+1] {
 		line, col := t.Line, t.Col
 		var arg ast.Node
@@ -393,31 +471,47 @@ func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast
 			arg = &ast.Ident{Name: pc.openName[slot], Line: line, Col: col}
 		case named && p.Default != nil:
 			continue
-		case p.Default != nil && irClosedLiteral(p.Default):
-			arg = p.Default
 		default:
 			bl.g.dc.note("a partial's body call over an unmentioned slot with no default")
-			return nil, false
+			return nil, nil, false
 		}
 		if named {
 			if names[slot] == "" || names[slot] == "_" {
 				bl.g.dc.note("a partial's body call naming a slot whose parameter has no name")
-				return nil, false
+				return nil, nil, false
 			}
 			arg = &ast.NamedArg{Name: names[slot], Value: arg, Line: line, Col: col}
 		}
 		args = append(args, arg)
+		argSlots = append(argSlots, slot)
 	}
-	return args, true
+	return args, writtenAtSlots(argSlots, len(params)), true
+}
+
+// writtenAtSlots is the record of a call the builder writes, whose
+// argument i fills argSlots[i] of the callee's params parameters and which
+// leaves every other parameter to its default: the call in a partial's
+// body, which writes no argument for a slot the partial leaves unmentioned.
+func writtenAtSlots(argSlots []int, params int) *analysis.ResolvedCall {
+	rc := &analysis.ResolvedCall{Slots: make([]analysis.CallSlot, params), Order: make([]int, len(argSlots))}
+	for i := range rc.Slots {
+		rc.Slots[i].Fill = analysis.SlotDefault
+	}
+	for i, slot := range argSlots {
+		rc.Slots[slot] = analysis.CallSlot{Fill: analysis.SlotArg, Arg: i}
+		rc.Order[i] = i
+	}
+	return rc
 }
 
 // partialEntry lowers lam, whose body is the call t with args, as a
 // partial's entry: a plain function value a call of the partial that leaves
 // an argument out goes through (irLambdaPlan.entry).
-func (bl *irScalarBuilder) partialEntry(lam *ast.Lambda, t *ast.Call, args []ast.Node, slots partialSlots) (ir.Temp, kind, bool, bool) {
-	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{
-		&ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col},
-	}}
+func (bl *irScalarBuilder) partialEntry(lam *ast.Lambda, t *ast.Call, args []ast.Node, placed *analysis.ResolvedCall, slots partialSlots) (ir.Temp, kind, bool, bool) {
+	call := &ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col}
+	placed.Callee = bl.g.calleeOf(t)
+	defer bl.g.carryCall(call, placed)()
+	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{call}}
 	if bl.partialOpen == nil {
 		bl.partialOpen = map[*ast.Lambda]partialSlots{}
 	}
@@ -428,10 +522,11 @@ func (bl *irScalarBuilder) partialEntry(lam *ast.Lambda, t *ast.Call, args []ast
 
 // partialLambda lowers lam, whose body is the call t with args, as the
 // function a partial capture stands for, its parameters taking slots.
-func (bl *irScalarBuilder) partialLambda(capture *ast.Capture, lam *ast.Lambda, t *ast.Call, args []ast.Node, slots partialSlots) (ir.Temp, kind, bool, bool) {
-	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{
-		&ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col},
-	}}
+func (bl *irScalarBuilder) partialLambda(capture *ast.Capture, lam *ast.Lambda, t *ast.Call, args []ast.Node, placed *analysis.ResolvedCall, slots partialSlots) (ir.Temp, kind, bool, bool) {
+	call := &ast.Call{Func: t.Func, Args: args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col}
+	placed.Callee = bl.g.calleeOf(t)
+	defer bl.g.carryCall(call, placed)()
+	lam.Body = &ast.Block{Line: t.Line, Col: t.Col, Stmts: []ast.Node{call}}
 	if bl.partialOpen == nil {
 		bl.partialOpen = map[*ast.Lambda]partialSlots{}
 	}
@@ -475,16 +570,30 @@ func (bl *irScalarBuilder) partialCalleeOrder(t *ast.Call, n int) []int {
 	return order
 }
 
-// partialFillOrder is the partial's parameters, its placeholders in written
-// order (open holds each one's callee slot), in the order the callee fills
-// their slots; nil when that is the written order.
-func partialFillOrder(open, calleeOrder []int) []int {
+// partialFillOrder is the order a call fills the partial's parameters
+// (lamSlot holds each one's callee slot, -1 for an ignored one): the held
+// written arguments first, in the order the partial's call evaluates them,
+// then the rest in the order the callee fills their slots, then the
+// ignored ones, which have no default; nil when that is the parameters'
+// own order.
+func partialFillOrder(lamSlot []int, held []ast.Node, calleeOrder []int) []int {
+	isHeld := func(s int) bool { return s >= 0 && held != nil && held[s] != nil }
 	var order []int
+	for j, s := range lamSlot {
+		if isHeld(s) {
+			order = append(order, j)
+		}
+	}
 	for _, slot := range calleeOrder {
-		for j, s := range open {
-			if s == slot {
+		for j, s := range lamSlot {
+			if s == slot && !isHeld(s) {
 				order = append(order, j)
 			}
+		}
+	}
+	for j, s := range lamSlot {
+		if s < 0 {
+			order = append(order, j)
 		}
 	}
 	for j, p := range order {
@@ -510,8 +619,9 @@ func slotsBefore(order []int, slot int) []int {
 // `fn conn(host: String, port: Int = base() + 1)`: as a call omitting the
 // slot does (callDefaults), in the callee's scope and on each call of the
 // partial that omits it, with the callee's earlier parameters bound to the
-// written arguments (which the supplier captures) and the open slots
-// before it (the supplier's own parameters). The callee is a function of
+// supplier's own parameters: the open slots before it and the written
+// arguments, which the partial's entry holds (partialHeldSlots), so the
+// supplier reads their values and evaluates none of them again. The callee is a function of
 // this file (sig, or the generic instance partialMonoSig finds), or a local
 // function value whose default suppliers the builder holds: the supplier
 // captures the value's suppliers as any closure calling it does
@@ -519,7 +629,7 @@ func slotsBefore(order []int, slot int) []int {
 // does (indirectCall). An earlier slot the partial leaves unmentioned has
 // a literal default, or is a hidden slot of the partial's entry, which the
 // supplier reads as it reads an open one.
-func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param, sig *fnSig, slot int, kinds []kind, written []ast.Node, filled []bool, openName []string, calleeOrder []int) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
+func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param, sig *fnSig, slot int, kinds []kind, filled []bool, openName []string, calleeOrder []int) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
 	callee, direct := t.Func.(*ast.Ident)
 	value := direct && bl.isLocalCallable(callee.Name)
 	if sig == nil && !value {
@@ -534,11 +644,15 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 		sig = &fnSig{decl: fd, params: kinds}
 	}
 	var sibling func(child *irScalarBuilder, args []ir.Temp) bool
-	if sig == nil && !value {
+	if im, iface := bl.g.calleeDecl(t.Func).(*ast.InterfaceMethod); iface && sig == nil && !value {
+		// nil for a slot before the receiver, which declines below.
+		sibling = bl.partialIfaceDefaults(t, im, kinds, slot, calleeOrder)
+	}
+	if sig == nil && !value && sibling == nil {
 		sibling = bl.partialSiblingDefaults(t, kinds, slot)
 	}
 	if sig == nil && !value && sibling == nil {
-		if fill, ok := bl.partialStdDefault(t, kinds, slot, written, filled, openName); ok {
+		if fill, ok := bl.partialStdDefault(t, kinds, slot, filled, openName); ok {
 			return fill, true
 		}
 	}
@@ -564,22 +678,10 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 			args[s] = ir.NoTemp
 		}
 		for _, s := range before {
-			var v ir.Temp
-			var k kind
-			var ok bool
-			switch {
-			case written[s] != nil:
-				// A written argument the default reads, evaluated for it
-				// on each call that omits the slot.
-				v, k, _, ok = child.lowerTypedOperand(written[s], kinds[s])
-				if ok && k != kinds[s] {
-					v, k, ok = child.coerceEmpty(written[s], v, k, kinds[s])
-				}
-			case filled[s]:
-				v, k, _, ok = child.lower(&ast.Ident{Name: openName[s], Line: t.Line, Col: t.Col})
-			default:
+			if !filled[s] {
 				continue
 			}
+			v, k, _, ok := child.lower(&ast.Ident{Name: openName[s], Line: t.Line, Col: t.Col})
 			if !ok || k != kinds[s] {
 				return ir.NoTemp, false
 			}
@@ -627,12 +729,19 @@ func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, *fnS
 	callee, direct := t.Func.(*ast.Ident)
 	if direct && bl.isLocalCallable(callee.Name) {
 		v, fk, _, ok := bl.lower(callee)
-		if !ok || fk.tag != tagFunc {
+		if !ok {
 			return nil, nil, nil, false
+		}
+		if fk.tag != tagFunc {
+			// isLocalCallable read the name's kind from the scope the read
+			// answers from.
+			panic("irbuild: a local callable read at the kind " + fk.nomi())
 		}
 		plan := bl.callablePlan(v)
 		if plan == nil || plan.source == nil || len(plan.names) != len(plan.source.Params) {
-			return nil, nil, nil, false
+			// A value with no lambda behind it in view: the checker's
+			// record of the call names the function it is.
+			return bl.partialCalleeRecorded(t, funcParams(fk))
 		}
 		// The names a call of the value writes are the plan's: a partial's
 		// lambda names its own parameters so no program can spell them.
@@ -642,26 +751,55 @@ func (bl *irScalarBuilder) partialCallee(t *ast.Call) ([]ast.Param, []kind, *fnS
 		}
 		return params, funcParams(fk), nil, true
 	}
-	if direct {
-		if _, shadowed := bl.g.lookup(callee.Name); !shadowed && bl.g.stdlibSibling(callee.Name) == nil {
-			if sig := bl.g.funcs[callee.Name]; sig != nil && sig.lowerable && sig.decl != nil && sig.dict == nil && sig.tps == nil {
-				return sig.decl.Params, sig.params, sig, true
-			}
+	if target := bl.g.calleeOf(t); direct && target.Kind != analysis.CalleeValue && bl.g.stdSiblingDecls[target.Decl] == nil {
+		if sig := bl.g.sigByDecl[target.Decl]; sig != nil && sig.lowerable && sig.decl != nil && sig.dict == nil && sig.tps == nil {
+			return sig.decl.Params, sig.params, sig, true
 		}
 	}
 	params, kinds, ok := bl.partialCalleeByType(t)
 	return params, kinds, nil, ok
 }
 
+// partialCalleeRecorded is partialCallee for a local function value the
+// builder holds no lambda for, from the callee the checker recorded for the
+// call (analysis.Callee): a nested `fn` named inside its own body, whose
+// declaration holds the parameters, or a local copy of a declared function
+// (`g = sub`), which is that function's partial. Any other value has only
+// its kind's parameters. kinds are the value's parameter kinds.
+func (bl *irScalarBuilder) partialCalleeRecorded(t *ast.Call, kinds []kind) ([]ast.Param, []kind, *fnSig, bool) {
+	rec := bl.g.resolvedCallOf(t)
+	if rec == nil {
+		panic("irbuild: a partial application with no record of its call")
+	}
+	if rec.Callee.Kind == analysis.CalleeValue {
+		if fd, ok := rec.Callee.Decl.(*ast.FuncDef); ok && rec.Callee.Copy == nil && len(fd.Params) == len(kinds) {
+			return fd.Params, kinds, nil, true
+		}
+	}
+	if rec.Callee.Kind == analysis.CalleeValue && rec.Callee.Copy != nil {
+		// The copy's partial is the copied function's: the same call, at
+		// the same position and over the same arguments, so it has the
+		// same record.
+		over := &ast.Call{Func: rec.Callee.Copy, Args: t.Args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col}
+		if id, stillLocal := over.Func.(*ast.Ident); !stillLocal || !bl.isLocalCallable(id.Name) {
+			return bl.partialCallee(over)
+		}
+	}
+	// A function value with no function in view behind it (a call's
+	// result, a parameter): its parameters have no names and no defaults.
+	return make([]ast.Param, len(kinds)), kinds, nil, true
+}
+
 // partialStdDefault is partialCalleeDefault for a std function's slot
 // (`style` in `&String.join_list(names, locale, style: &1)`): the supplier
 // calls the accessor the declaring module built for the slot's default
 // (emitStdSlotDefaults) with every slot before it, as a call that leaves the
-// slot out by name does (stdShortCallPlan). A slot before it that the
-// partial leaves unmentioned takes its own accessor first, in ascending
-// order, so each default runs once. ok is false when the callee is no std
-// function with such accessors.
-func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int, written []ast.Node, filled []bool, openName []string) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
+// slot out by name does (stdShortCallPlan): an open or held slot before it
+// is the supplier's parameter, as in partialCalleeDefault. A slot before it
+// that the partial leaves unmentioned takes its own accessor first, in
+// ascending order, so each default runs once. ok is false when the callee
+// is no std function with such accessors.
+func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int, filled []bool, openName []string) (func(*irScalarBuilder) (ir.Temp, bool), bool) {
 	fa, qualified := t.Func.(*ast.FieldAccess)
 	if !qualified || bl.g.std == nil {
 		return nil, false
@@ -695,7 +833,7 @@ func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int
 		if s < len(kinds) && kinds[s] != f.params[s] {
 			return nil, false
 		}
-		if written[s] == nil && !filled[s] && (!callDefaultFill(f, s) || canon.irSlot[s] == nil) {
+		if !filled[s] && (!callDefaultFill(f, s) || canon.irSlot[s] == nil) {
 			return nil, false
 		}
 		if !irSlotSignature(f.params[:s], f.params[:s], f.params[s]) {
@@ -715,13 +853,6 @@ func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int
 			var k kind
 			ok := true
 			switch {
-			case written[s] != nil:
-				// A written argument the default may read, evaluated for
-				// it on each call that omits the slot.
-				v, k, _, ok = child.lowerTypedOperand(written[s], kinds[s])
-				if ok && k != kinds[s] {
-					v, k, ok = child.coerceEmpty(written[s], v, k, kinds[s])
-				}
 			case filled[s]:
 				v, k, _, ok = child.lower(&ast.Ident{Name: openName[s], Line: t.Line, Col: t.Col})
 			default:
@@ -788,7 +919,35 @@ func (bl *irScalarBuilder) partialSiblingDefaults(t *ast.Call, kinds []kind, slo
 		return owner.irFileSlotSym(plan.sym, f.decl.Name, s)
 	}
 	return func(child *irScalarBuilder, args []ir.Temp) bool {
-		return child.fillFromAccessors(t, kinds[:slot+1], args, nil, accessor)
+		return child.fillFromAccessors(t, kinds[:slot+1], args, nil, defaultHome{accessor: accessor}, len(args))
+	}
+}
+
+// partialIfaceDefaults is the supplier body for open slot slot of a
+// partial over interface function im (`&Shape.area(&1, &2)`), given the
+// slots before it: the accessor a call leaving the slot out calls, the
+// impl's for a receiver whose type is known (reachedImplHome) and one
+// dispatched on it for an interface value (dispatchedCallHome). The
+// receiver is a slot before this one, which the supplier holds. nil when
+// it comes after the slot, so the supplier has no receiver.
+func (bl *irScalarBuilder) partialIfaceDefaults(t *ast.Call, im *ast.InterfaceMethod, kinds []kind, slot int, calleeOrder []int) func(*irScalarBuilder, []ir.Temp) bool {
+	recvAt := selfShapeOf(im.Params, im.ReturnTypeExpr).recvAt()
+	if recvAt < 0 || !slices.Contains(slotsBefore(calleeOrder, slot), recvAt) || len(kinds) != len(im.Params) {
+		return nil
+	}
+	return func(child *irScalarBuilder, args []ir.Temp) bool {
+		// The call's operands, which hold the receiver: args are those up
+		// to the slot.
+		operands := make([]ir.Temp, len(kinds))
+		for i := range operands {
+			operands[i] = ir.NoTemp
+		}
+		copy(operands, args)
+		home, ok := child.dispatchedCallHome(im, kinds, operands)
+		if !ok {
+			home, _, ok = child.reachedImplHome(im, kinds, operands)
+		}
+		return ok && child.fillFromAccessors(t, kinds[:len(args)], args, nil, home, len(args))
 	}
 }
 
@@ -800,10 +959,11 @@ func (bl *irScalarBuilder) partialMonoSig(t *ast.Call) *fnSig {
 	if !direct {
 		return nil
 	}
-	if _, shadowed := bl.g.lookup(callee.Name); shadowed || bl.g.stdlibSibling(callee.Name) != nil {
+	target := bl.g.calleeOf(t)
+	if target.Kind == analysis.CalleeValue || bl.g.stdSiblingDecls[target.Decl] != nil {
 		return nil
 	}
-	tpl := bl.g.irMonoTemplate(bl.g.funcs[callee.Name])
+	tpl := bl.g.irMonoTemplate(bl.g.sigByDecl[target.Decl])
 	if tpl == nil {
 		return nil
 	}

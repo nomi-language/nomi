@@ -35,6 +35,10 @@ import (
 // project's directory (`rates/`), as a reader runs `nomi tool` there, and
 // the files it may write are that project's; they come back by their
 // paths from the source's root (`rates/tables.nomi`).
+//
+// The tool's program is held to its module's nomi.toml [capabilities]
+// lists when it loads, as LoadMarked holds a block, so a tool over them
+// fails to load (LoadFailed) and runs nothing.
 func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (map[string]string, error) {
 	project, err := virtualproject.FromMarkedSource(src)
 	if err != nil {
@@ -61,7 +65,7 @@ func ToolMarked(src, dir, module, name string, out io.Writer, opts ...Option) (m
 		return nil, err
 	}
 	defer os.Chdir(wd)
-	p, err := Load(path, append(opts, WithFileSystem(files))...)
+	p, err := held(Load(path, append(opts, WithFileSystem(files))...))
 	if err != nil {
 		return nil, &underRoot{err: err, root: root}
 	}

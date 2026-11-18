@@ -18,14 +18,15 @@ import (
 // of `impl List<T>` is generic over T, so its entry carries
 // `why == "stdlib generic function"` and its parameter kinds are kindInvalid.
 // The index answers with a scalar-subset signature or nothing, and
-// `*rt.List[T]` is not in the scalar subset. So stdlib.go can NAME these
+// a list is not in the scalar subset. So stdlib.go can NAME these
 // functions while this arm is what LOWERS them, by reading the receiver's kind
 // off the lowered argument, which is information the index does not carry and
 // by design will not.
 //
-// The ordering that makes both true is implCall's: listCall, mapCall and
-// iterCall are consulted BEFORE stdlibCall, so a `List.` call reaches the rt
-// implementation and never the index's generic refusal. Deleting this arm
+// The ordering that makes both true is typeQualCall's (irqualcall.go):
+// listCallPlan, mapCallPlan and iterCall are consulted BEFORE the stdlib
+// index, so a `List.` call reaches the rt implementation and never the
+// index's generic refusal. Deleting this arm
 // would replace a lowering with a refusal.
 //
 // # The receiver kind is visible here, which narrows the trap
@@ -38,8 +39,8 @@ import (
 // key, unless its own owner-keyed arm (sets.go, vectors.go, ranges.go) claims
 // the call first.
 
-// listFn is one `List.` function this builder lowers: the rt symbol, the arity,
-// and how the result kind is derived.
+// listFn is one `List.` function this builder lowers: the arity and how
+// the result kind is derived.
 //
 // Deliberately not every function std/lists.nomi declares. `List.next_item` is
 // not reached anywhere in the corpus, so it is absent rather than written and
@@ -48,8 +49,7 @@ import (
 // beside `equal` below; its `Ordering` result is an anchored, rt-declared,
 // process-wide type (stdenum.go).
 type listFn struct {
-	rtCall string
-	args   int
+	args int
 	// result names how the result kind is derived from the element kind. See
 	// listResultKind.
 	result string
@@ -58,25 +58,25 @@ type listFn struct {
 // listFuncs is the lowered surface of `impl List<T>`, minus equality.
 //
 // `equal` is absent on purpose and handled separately: its lowering is
-// collections.go's listEqual, shared with the `==` operator, because
+// containerEqualCall (irequality.go), the comparison `==` makes, because
 // std/lists.nomi:125 defines the method AS `a == b`. Giving it a row here would
 // make it a second encoding of one semantics.
 //
 // Use across tests/: equal? 39 sites, first 4, tail 2,
 // concat 1.
 var listFuncs = map[string]listFn{
-	"first":  {rtCall: "rt.ListHead", args: 1, result: "maybe-elem"},
-	"tail":   {rtCall: "rt.ListTail", args: 1, result: "maybe-list"},
-	"concat": {rtCall: "rt.ListConcat", args: 2, result: "list"},
+	"first":  {args: 1, result: "maybe-elem"},
+	"tail":   {args: 1, result: "maybe-list"},
+	"concat": {args: 2, result: "list"},
 	// The second operand of remove_at is the index, an Int.
-	"remove_at": {rtCall: "rt.ListCellRemoveAt", args: 2, result: "maybe-list"},
+	"remove_at": {args: 2, result: "maybe-list"},
 }
 
 // listOrders reports whether a List of kind k has Nomi's list order, shared by
 // `List.compare` and by `<` / `>` / `<=` / `>=` on two Lists, refusing by name
 // when its element has none.
 //
-// Shared rather than agreed-upon, exactly as listEqual is and for the same
+// Shared rather than agreed-upon, exactly as List equality is and for the same
 // reason: `[1, 2] < [1, 3]` and `List.compare([1, 2], [1, 3])` are the SAME
 // operation — the operators desugar to `Comparable.compare` followed by an
 // Ordering match (std/comparable.nomi), and std's `impl Comparable for List<T>`

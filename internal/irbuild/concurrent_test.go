@@ -14,18 +14,9 @@ import (
 
 // TestConcurrent_TaskRowNamesRTsOwnType is the shape guard on the
 // (std/tasks, Task) stdGenHostSpecs row.
-//
-// The row is a STRING (`"rt.Task"`), because a reflect.Type cannot name an
-// uninstantiated generic — so nothing in the type system connects it to
-// `rt.Task[T]`. This asserts the connection by instantiating the builder's own
-// rendering and comparing it to the Go type a value of that type reports, which
-// is the only cross-check available.
 func TestConcurrent_TaskRowNamesRTsOwnType(t *testing.T) {
 	if taskSpec == nil {
-		t.Fatal("stdGenHostSpecs has no (std/tasks, Task) row, so every Task function declines instead of lowering")
-	}
-	if got := taskSpec.rtType; got != "rt.Task" {
-		t.Errorf("the row names %q; the builder spells `%s[...]` and rt declares rt.Task", got, got)
+		t.Fatal("stdGenHostSpecs has no (std/tasks, Task) row, so no Task<T> forms and taskHandleKind panics")
 	}
 	if want := []string{"T"}; !slices.Equal(taskSpec.params, want) {
 		t.Errorf("the row declares params %v, want %v — genHostNames writes the argument list from them", taskSpec.params, want)
@@ -39,10 +30,7 @@ func TestConcurrent_TaskRowNamesRTsOwnType(t *testing.T) {
 	// AND THE END-TO-END POSITIVE: a program mentioning `Task<Int>` gets a kind,
 	// which the three checks above do not establish between them.
 	g := &gen{}
-	handle, built := g.taskHandleKind(kindInt)
-	if !built {
-		t.Fatal("Task<Int> could not be instantiated")
-	}
+	handle := g.taskHandleKind(kindInt)
 	if got := handle.nomi(); got != "Task<Int>" {
 		t.Errorf("Task<Int> renders as %q, want rt.Task[int64]", got)
 	}

@@ -13,8 +13,8 @@ import (
 // A nominal type's `Name` is its short, user-facing name (see
 // nominal_identity.go), so a mismatch between two declarations of `Point`
 // renders as `expected Point, got Point`: true, and unreadable. Every
-// diagnostic that formats types goes through typeSprintf (or the checker's
-// typef), a drop-in for fmt.Sprintf. When two of its Type arguments render to
+// diagnostic that formats types goes through typeErrorf or the checker's
+// typef, drop-ins for fmt.Errorf and fmt.Sprintf. When two of its Type arguments render to
 // the same text but contain a nominal name declared in two different files,
 // both are rendered with that name qualified by its declaring file's import
 // path, the way Nomi source spells it:
@@ -30,19 +30,14 @@ import (
 // differ are left as they are, so every other message is byte-identical to
 // fmt.Sprintf's.
 
-// typeSprintf is fmt.Sprintf with same-name nominal types disambiguated. The
-// checker's typef is the same, and also spells the entry file by its name.
-func typeSprintf(format string, args ...any) string {
-	return sprintTypes("", format, args)
-}
-
-// typeErrorf is fmt.Errorf over typeSprintf.
+// typeErrorf is fmt.Errorf with same-name nominal types disambiguated.
 func typeErrorf(format string, args ...any) error {
 	return errors.New(sprintTypes("", format, args))
 }
 
-// typef is typeSprintf with the entry file spelled by its own name
-// (`main.Ordering`) when the checker knows it.
+// typef is fmt.Sprintf with same-name nominal types disambiguated and the
+// entry file spelled by its own name (`main.Ordering`) when the checker
+// knows it.
 func (c *checker) typef(format string, args ...any) string {
 	return sprintTypes(c.entryName(), format, args)
 }
@@ -138,8 +133,8 @@ func ambiguousNominalNames(a, b Type) map[string]bool {
 		}
 		origins[name][origin] = true
 	}
-	walkNominals(a, visit, 0)
-	walkNominals(b, visit, 0)
+	walkNominals(a, visit)
+	walkNominals(b, visit)
 	var out map[string]bool
 	for name, set := range origins {
 		if len(set) > 1 {
@@ -159,56 +154,27 @@ const maxTypeRenderDepth = 64
 
 // walkNominals visits every nominal type (name, origin) in the parts of t
 // that String renders.
-func walkNominals(t Type, visit func(name, origin string), depth int) {
-	if t == nil || isNilType(t) || depth > maxTypeRenderDepth {
-		return
-	}
-	depth++
-	each := func(ts []Type) {
-		for _, x := range ts {
-			walkNominals(x, visit, depth)
+func walkNominals(t Type, visit func(name, origin string)) {
+	walkType(t, func(p Type) bool {
+		if isNilType(p) {
+			return false
 		}
-	}
-	switch v := t.(type) {
-	case *PrimitiveType:
-		if v.Origin != "" {
-			visit(v.Name_, v.Origin)
+		switch v := p.(type) {
+		case *PrimitiveType:
+			if v.Origin != "" {
+				visit(v.Name_, v.Origin)
+			}
+		case *StructType:
+			visit(v.Name, v.Origin)
+		case *EnumType:
+			visit(v.Name, v.Origin)
+		case *DistinctType:
+			visit(v.Name, v.Origin)
+		case *InterfaceType:
+			visit(v.Name, v.Origin)
 		}
-	case *StructType:
-		visit(v.Name, v.Origin)
-		each(v.TypeArgs)
-	case *EnumType:
-		visit(v.Name, v.Origin)
-		each(v.TypeArgs)
-	case *DistinctType:
-		visit(v.Name, v.Origin)
-		each(v.TypeArgs)
-	case *InterfaceType:
-		visit(v.Name, v.Origin)
-		each(v.TypeArgs)
-	case *ConjunctionType:
-		for _, m := range v.Members {
-			walkNominals(m, visit, depth)
-		}
-	case *FuncType:
-		each(v.Params)
-		walkNominals(v.Return, visit, depth)
-	case *TupleType:
-		each(v.Elems)
-	case *ListType:
-		walkNominals(v.Elem, visit, depth)
-	case *MapType:
-		walkNominals(v.Key, visit, depth)
-		walkNominals(v.Val, visit, depth)
-	case *AnonStructType:
-		for _, f := range v.Fields {
-			walkNominals(f.Type, visit, depth)
-		}
-	case *PartialType:
-		walkNominals(v.Inner, visit, depth)
-	case *TypeVar:
-		walkNominals(v.Resolved, visit, depth)
-	}
+		return true
+	})
 }
 
 // TypeTextQualifying is t as a diagnostic renders it, with each nominal

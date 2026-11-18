@@ -12,7 +12,7 @@ fn has_diagnostic(diagnostics: List<Diagnostic>, text: String) -> Bool
 end
 
 fn greet(name = "world", times = 1) -> String
-    Iter.repeat("hello ${name}") |> Iter.take(times) |> String.join(" ")
+    1..=times |> Iter.map(fn _ -> "hello ${name}") |> String.join(" ")
 end
 
 interface Shout

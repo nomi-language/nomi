@@ -15,13 +15,12 @@ package irbuild
 //     embeds Lo; embeds Hi }` with `derive Comparable` on all three), so the
 //     obstacle is in the stdlib path rather than in the construct. See
 //     opaque_test.go's `unlowered stdlib function` row and its control.
-//   - a `stdlibBindings` row cannot reach it: `stdCandidateFor`'s binding arm is
-//     `case fd == nil`, i.e. a `host fn` whose only route is an rt symbol, and a
-//     derive-synthesized declaration carries a FuncDef.
+//   - an internal/stdlibbindings row cannot reach it: `stdCandidateFor`'s
+//     binding arm is `case fd == nil`, i.e. a `host fn` whose only route is an
+//     rt symbol, and a derive-synthesized declaration carries a FuncDef.
 //
 // So `stdCompareAt(kindBool, …)` answers nil and always will while both doors are
-// shut. rt/scalarorder.go carries the ordering itself and the transcript that
-// fixes it.
+// shut. The VM carries the ordering itself.
 //
 // # String is deliberately NOT here, and that is the discriminator
 //
@@ -37,8 +36,6 @@ package irbuild
 // `bool.Bool.compare` ever lowers, this arm silently stops being reached, which
 // is the correct direction (std is the source of truth for its own semantics)
 // and leaves a stand-in that has outlived its reason.
-// TestScalarOrder_BoolStillHasNoStdRoute states that precondition as an
-// assertion, so the test fails when it changes.
 
 // scalarOrdered is the scalar kinds whose `Comparable.compare` std cannot serve
 // and the VM answers itself.

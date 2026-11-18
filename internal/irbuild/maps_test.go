@@ -7,10 +7,10 @@ import (
 	"github.com/nomi-language/nomi/rt"
 )
 
-// TestMapKeyOpsAgreeOnTheirDomain holds valueHash and valueEqual in step.
+// TestMapKeyOpsAgreeOnTheirDomain holds valueHashes and valueEquates in step.
 //
 // A hash without a matching equality is a bucket nobody can search, and a
-// widening of one without the other is not a clean refusal: mapOps takes both,
+// widening of one without the other is not a clean refusal: mapKeyOK takes both,
 // so the pair still refuses, but under a name that blames the wrong half. The
 // real risk is a change adding a case to one function and not the other, so
 // this walks every kind the builder can build and asserts the two answers
@@ -32,7 +32,6 @@ func TestMapKeyOpsAgreeOnTheirDomain(t *testing.T) {
 		{"String", kindString},
 		{"Bool", kindBool},
 		{"Unit", kindUnit},
-		{"List<_>", kindEmptyList},
 		{"List<Int>", g.listKind(kindInt)},
 		{"List<List<String>>", g.listKind(g.listKind(kindString))},
 		{"(Int, String)", g.tupleKind([]kind{kindInt, kindString})},

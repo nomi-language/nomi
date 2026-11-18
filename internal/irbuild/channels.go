@@ -21,7 +21,7 @@ import (
 //
 // # THE INSTANTIATION COMES FROM THE CHECKER, NOT FROM THIS FILE
 //
-// setCall and rangeCall derive the element type from the RECEIVER's lowered
+// setCallPlan and rangeCall derive the element type from the RECEIVER's lowered
 // kind, because a Set method always takes a Set. That does not work here:
 // `Channel.buffered<Int>(4)` takes an Int and returns a `Channel<Int>`, so no
 // argument carries the element type at all — which is exactly why the turbofish
@@ -65,10 +65,9 @@ import (
 // reachable from the pair would make the split bypassable, and being bypassable
 // is the only way the split could fail to pay.
 //
-// `unlowered Channel function` and its two siblings are how a method std DOES
-// declare and this builder does NOT lower reports — listCall's rule — so a std
-// edit adding a fourth operation is named rather than reported as `qualified
-// call`, which would say "no such thing" when the truth is "std declares that".
+// channelFuncs lists every function std declares, and channelCall panics on
+// one it does not list, so a std edit adding a fourth operation fails loudly
+// there.
 //
 // # No equality, hashing or rendering
 //
@@ -83,48 +82,35 @@ import (
 //
 // No result tag and no element-type source, because both come from the
 // checker's instantiated signature — see the file header. What a row carries is
-// the rt symbol, the arity, and whether Go needs the type argument written out.
+// the owner, the arity, and which rows are the constructors.
 type channelFn struct {
 	// owner is the Nomi type qualifying the call: `Channel`, `Sender` or
 	// `Receiver`. Part of the row rather than implied, because which of the
 	// three owns a function IS the design question this type encodes.
 	owner string
-	// rtCall is the rt function, which takes the same arguments in the same
-	// order as the Nomi declaration.
-	rtCall string
 	// args is the Nomi arity.
 	args int
-	// explicitTypeArg is whether the call's Go-spelled `expr` names the type
-	// argument. True for exactly the two constructors, and for the same reason
-	// the Nomi side needs a turbofish: no parameter mentions T, so Go's own
-	// inference cannot supply it either.
+	// explicitTypeArg is true for exactly the two constructors, where no
+	// parameter mentions T and the Nomi side needs a turbofish or a target
+	// type. channelCall requires such a row's result to be a `Channel<T>`.
 	explicitTypeArg bool
-	// frame is whether the rt function takes `fr` ahead of the Nomi arguments.
-	//
-	// True for exactly the two operations that BLOCK. A blocking wait is where
-	// Nomi observes cancellation — std/channels documents both as ending early
-	// when the enclosing block's context does — and the frame is where the
-	// context travels. `Sender.close` and the two constructors never block, so
-	// they take no frame and could not use one.
-	frame bool
 }
 
 // channelFuncs is the lowered surface, and it is the WHOLE surface std declares:
 // two constructors on the pair and four operations on the halves.
 var channelFuncs = map[string]channelFn{
-	"Channel.buffered":        {owner: "Channel", rtCall: "rt.ChannelBuffered", args: 1, explicitTypeArg: true},
-	"Channel.unbuffered":      {owner: "Channel", rtCall: "rt.ChannelUnbuffered", args: 0, explicitTypeArg: true},
-	"Sender.send":             {owner: "Sender", rtCall: "rt.SenderSend", args: 2, frame: true},
-	"Sender.close":            {owner: "Sender", rtCall: "rt.SenderClose", args: 1},
-	"Sender.close_on_drain":   {owner: "Sender", rtCall: "rt.SenderCloseOnDrain", args: 1},
-	"Receiver.receive":        {owner: "Receiver", rtCall: "rt.ReceiverReceive", args: 1, frame: true},
-	"Receiver.receive_within": {owner: "Receiver", rtCall: "rt.ReceiverReceiveWithin", args: 2, frame: true},
-	// `Channel.select` and its three arm constructors. The select waits, so
-	// it takes the frame; building an arm does not.
-	"Channel.select": {owner: "Channel", rtCall: "rt.Select", args: 1, frame: true},
-	"Arm.receive":    {owner: "Arm", rtCall: "rt.SelectReceive", args: 2},
-	"Arm.send":       {owner: "Arm", rtCall: "rt.SelectSend", args: 3},
-	"Arm.after":      {owner: "Arm", rtCall: "rt.SelectAfter", args: 2},
+	"Channel.buffered":        {owner: "Channel", args: 1, explicitTypeArg: true},
+	"Channel.unbuffered":      {owner: "Channel", args: 0, explicitTypeArg: true},
+	"Sender.send":             {owner: "Sender", args: 2},
+	"Sender.close":            {owner: "Sender", args: 1},
+	"Sender.close_on_drain":   {owner: "Sender", args: 1},
+	"Receiver.receive":        {owner: "Receiver", args: 1},
+	"Receiver.receive_within": {owner: "Receiver", args: 2},
+	// `Channel.select` and its three arm constructors.
+	"Channel.select": {owner: "Channel", args: 1},
+	"Arm.receive":    {owner: "Arm", args: 2},
+	"Arm.send":       {owner: "Arm", args: 3},
+	"Arm.after":      {owner: "Arm", args: 2},
 }
 
 // channelSpec is the `Channel` row of the generic-std-struct table, resolved by

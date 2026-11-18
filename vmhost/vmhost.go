@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/nomi-language/nomi/hostadapt"
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/cldrdata"
 	"github.com/nomi-language/nomi/internal/cldrfull"
@@ -46,9 +47,8 @@ type Program struct {
 	// hosts are the host tables every machine binds beside its own stdlib
 	// adapters: std/compiler's, then the tables WithHosts gave.
 	hosts []HostTable
-	// out is Call's output writer and env the Startup.env overrides.
+	// out is Call's output writer.
 	out io.Writer
-	env map[string]string
 	// errOut is the runtime's diagnostic output, or nil for os.Stderr.
 	errOut io.Writer
 	// fileNames names a source file in a run-time failure's text
@@ -84,6 +84,9 @@ type Program struct {
 	// webEmbedded are the locales a browser build of the program embeds
 	// (analysis.Manifest.WebLocales), nil when it lists no locales.
 	webEmbedded []string
+	// capabilities is the program's nomi.toml [capabilities] table, nil
+	// when it has none (OutsideCallsNotAllowed).
+	capabilities *analysis.Capabilities
 	// currencyModules is what each directory's module allows custom
 	// currency literals to name, by directory (currencyModuleOf).
 	currencyModules map[string]currencyModule
@@ -280,7 +283,7 @@ func (p *Program) SetDebugger(d *vm.Debugger) {
 // The run ends when ctx does (vm.Machine.StopOn), and then a run that did
 // not finish answers ctx.Err().
 func (p *Program) Run(ctx context.Context, out io.Writer, args []string, handleSignals bool) error {
-	return p.run(ctx, out, args, handleSignals, p.env)
+	return p.run(ctx, out, args, handleSignals, nil)
 }
 
 // run is Run with environment overrides for the Startup a boot receives,
@@ -292,6 +295,11 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 	mainFn := p.entryFunc("main")
 	if mainFn == nil {
 		return p.blockedName("main")
+	}
+	// nomi.toml's [capabilities] lists, and the host's (WithCapabilities),
+	// refuse the run before anything in it does anything.
+	if err := p.capabilityError(Roots{Exports: p.HasExports()}); err != nil {
+		return err
 	}
 	m := p.machine(out).WithHostEnv(hostEnv)
 	if ctx.Done() != nil {
@@ -330,6 +338,13 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // file is the absolute path a JSON report locates each case by, with the
 // case's first and last lines.
 func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOptions, label func(string) string) {
+	// nomi.toml's [capabilities] lists, with allow_in_tests, and the
+	// host's (WithCapabilities) refuse the file's cases before any of them
+	// runs.
+	if err := p.capabilityError(Roots{Tests: &opts}); err != nil {
+		rep.FailFile(file, err)
+		return
+	}
 	for _, c := range p.Cases(out, opts) {
 		loc := TestLocation{File: file, Line: c.Line, EndLine: c.EndLine}
 		if p.liveTests != nil && rep.Format() != TestFormatJSON {
@@ -575,7 +590,7 @@ func (p *Program) declares(name string) bool {
 	for _, n := range p.prog.Entry().Nodes {
 		switch d := n.(type) {
 		case *ast.FuncDef:
-			if d.Name == name && !d.ImplFunction {
+			if d.Name == name {
 				return true
 			}
 		case *ast.ExternFunc:

@@ -62,7 +62,7 @@ type LiteralSite struct {
 	Locale bool
 	// Currency is whether the literal is std/currency's “Currency`…` “ or
 	// std/money's “Money`…` “, whose custom currency its module must
-	// list (vmhost's unlistedCurrency).
+	// list (vmhost's UnlistedCurrencyCode).
 	Currency bool
 	// Checked is set for a checked literal (irchecked.go): Cell's initializer
 	// answers its CheckedLiteral.check's Result over the literal's statics,
@@ -271,9 +271,14 @@ func (g *gen) literalRender(t *ast.TaggedString, name string, errK kind) *ir.Fun
 	g.dc.aside(func() {
 		rname := name + " failure"
 		sym := g.irCalleeSym(literalRenderKey{t}, rname)
-		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, t, false)
+		rec := g.srcFA().TypedLiterals[t]
+		if rec == nil || rec.Failure == nil {
+			panic("irbuild: a fixed typed literal whose handler can fail with no record of how its error renders; the checker records one for each (analysis package doc, \"Elaboration\")")
+		}
+		shown := rec.Failure
+		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, shown, t, false)
 		if !ok {
-			f, ok = g.irErrorRenderFunc(t, rname, sym, errK, t, true)
+			f, ok = g.irErrorRenderFunc(t, rname, sym, errK, shown, t, true)
 		}
 		if !ok {
 			return

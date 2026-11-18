@@ -11,7 +11,7 @@ import (
 // that a typed literal whose type has two providers of `from_fragments` is a
 // front-end error (`checkTaggedString`'s ambiguity diagnostic;
 // `analysis.TestTypedLiteral_AmbiguousHandlerIsRejected` pins the wording).
-// That makes `lowerTaggedLiteral`'s `rivalled` arm unreachable through
+// That makes `taggedLiteral`'s `rivalled` arm unreachable through
 // `Analyze`, a fail-safe rather than a live route. Without the diagnostic, the
 // builder would have to pick between the inherent and the interface provider,
 // and the front end's halves disagree on which one wins depending on

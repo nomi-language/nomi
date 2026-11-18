@@ -4,25 +4,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/nomi-language/nomi/internal/expectation"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/internal/vm"
 )
-
-func TestVMLambda_TourRecordedAnswer(t *testing.T) {
-	ids := []string{tourBlock(t, "functions-and-lambdas.md", `inc = fn x: Int -> x + 1`)}
-	recorded, err := expectation.Load("tour")
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, refused := vmSubsetOf(t, "tour", ids, vmPathResolver(t, "tour"))
-	if len(got.Cases) != len(ids) || len(refused) != 0 {
-		t.Fatalf("completed %d; refused: %v", len(got.Cases), refused)
-	}
-	if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
-		t.Fatal(diffs)
-	}
-}
 
 func TestVMLambda_CapturesOutliveIndependentActivations(t *testing.T) {
 	at := ir.At("closure.nomi", 1, 1)

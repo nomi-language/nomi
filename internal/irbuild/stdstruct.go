@@ -11,8 +11,9 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// A stdlib RECORD STRUCT, as a Go struct declared in rt: `calendar.DateTime`,
-// `compiler.Diagnostic` and the other rows of stdStructSpecs.
+// A stdlib record struct that rt also declares as a Go struct:
+// `calendar.DateTime`, `compiler.Diagnostic` and the other rows of
+// stdStructSpecs.
 //
 // # Why this is a fourth family and not a row in one of the three
 //
@@ -24,19 +25,19 @@ import (
 // of the interface, because the type's own impls read them (`impl Equatable for
 // DateTime` is `a.instant_nanos == b.instant_nanos`).
 //
-// opaqueSpec.matches rejects it explicitly and correctly — `decl.HasBody` is a
-// refusal declModifiers owns, and a field set is not an `inner` kind. So this
+// opaqueSpec.matches rejects it: a field set is not an `inner` kind. So this
 // is the same MECHANISM (an (Origin, Name) anchor against a validated
-// declaration shape, a process-wide *typeDef, `rtDeclared` so nothing emits a
-// second Go declaration) over a different declaration kind.
+// declaration shape, a process-wide *typeDef marked `rtDeclared`, which every
+// gen that names the type holds by the same pointer) over a different
+// declaration kind.
 //
 // # Sharing the def, and why the argument carries over unchanged
 //
 // foreign.go rejects sharing a *typeDef across gens because "a shared def's
 // field kinds are interned in the OWNER's g.comps". A row here is admissible
-// exactly when every field kind is PACKAGE-NEUTRAL. `rt.DateTime` renders
-// `rt.DateTime` in every gen and its fields are `int64` and `string`, interned
-// nowhere; see stdStructField.kindOf for the non-scalar fields.
+// exactly when every field kind is package-neutral. `DateTime`'s fields are
+// Int and String, which are interned nowhere; see stdStructField.kindOf for
+// the non-scalar fields.
 //
 // It has to be shared rather than merely may be, for opaque.go's reason: a
 // stdFunc's parameter and result kinds are built once in stdCandidateFor and
@@ -47,8 +48,8 @@ import (
 // # What the shape check is FOR
 //
 // Every field's NAME, ORDER and TYPE is checked against the spec, and the
-// declaration must be `pub opaque struct` with no type parameters, no body
-// items and no decorator but `derive`. That is not defensiveness: the builder
+// declaration must be `pub opaque struct` with no type parameters and no
+// decorator but `derive`. That is not defensiveness: the builder
 // constructs records and reads fields from the SPEC, so a std edit
 // that renamed `zone`, reordered the fields, or changed `instant_nanos: Int` to
 // `Float` would otherwise lower against a layout nobody wrote — and unlike a
@@ -60,7 +61,9 @@ import (
 // against a declaration nothing anchors.
 //
 // stdStructField is one field of a stdlib record struct: the Nomi name, the
-// exported Go field in rt, and the kind it holds.
+// kind it holds and its default. rt's Go field is paired with it by position;
+// TestStdStructGoWidthMatchesTheDeclaredField holds each field's kind against
+// the Go field at the same index.
 type stdStructField struct {
 	// nomi is the field name as std declares it, and what a field selector in
 	// std's own source resolves through.
@@ -78,7 +81,7 @@ type stdStructField struct {
 	// Not restricted to scalars. What the field must be is PACKAGE-NEUTRAL,
 	// which is what makes the shared def correct in every gen (see the
 	// header); sharedcomp.go gives structural kinds process-wide identity.
-	// `*rt.List[rt.NomiAssertionValue]` and `rt.Maybe[string]` name rt and
+	// `List<AssertionValue>` and `Maybe<String>` are built over scalars and
 	// process-wide defs and nothing else, so they are neutral by
 	// construction; `List<Point>` is not. TestStdStructDefsArePackageNeutral
 	// asserts the property.
@@ -247,16 +250,14 @@ var stdHostOriginRows = sync.OnceValue(func() map[[2]string]int {
 // real declaration, and a std edit that changed a default produces NO anchor
 // rather than a construction site quietly built from a stale one.
 //
-// # Why `value` returns an UNTYPED literal where it can
+// # Why an empty List or Map default states no element kind
 //
-// `[]` is returned as kindEmptyList — the same sentinel a user writing `[]`
-// produces — so the field's real kind is
-// reached through the ordinary `coerce` that discharges them. Nothing here
-// renders a Go type argument, so a Maybe or a List default cannot disagree with
-// the field it fills.
+// The builder makes the empty collection at the field's kind (emptyOf,
+// irstdfielddefault.go). The default states no kind of its own, so it cannot
+// disagree with the field it fills.
 type stdFieldDefault struct {
-	// shape reports whether std's declared default is the expression `value`
-	// implements. Structural rather than textual: this package has no
+	// shape reports whether std's declared default is the expression `lit`
+	// states. Structural rather than textual: this package has no
 	// expression printer, and a text compare would bind the spec to std's
 	// formatting.
 	shape func(ast.Node) bool
@@ -303,11 +304,9 @@ func stdEmptyListDefault() *stdFieldDefault {
 
 // stdEmptyMapDefault is `= {}` on a Map field.
 //
-// The value is the untyped `kindEmptyMap` sentinel, the same one `{}`
-// produces at a user site (irmap.go), so the field's real key and value
-// kinds are reached through the ordinary `coerce` that discharges it. Nothing
-// here renders a Go type argument, so this default cannot disagree with the field
-// it fills.
+// The builder makes the empty map at the field's key and value kinds
+// (emptyOf, irstdfielddefault.go). The default states no kinds of its own,
+// so it cannot disagree with the field it fills.
 func stdEmptyMapDefault() *stdFieldDefault {
 	return &stdFieldDefault{shape: func(n ast.Node) bool {
 		m, isMap := n.(*ast.MapLit)
@@ -349,10 +348,8 @@ type stdStructSpec struct {
 
 // stdStructSpecs is the whole set, and every row has to be REACHED by something
 // rather than merely be representable — a registry row for a type nothing can
-// name is scaffolding. TestStdStructSpecsAreReachable asserts it over the
-// corpus, the way TestStdEnumSpecsAreReachable does for the enum family; that
-// guard has already caught one wrong claim about reachability made from a
-// single key's details.
+// name is scaffolding. TestStdEnumSpecsAreReachable asserts the same over
+// the corpus for the enum family.
 var stdStructSpecs = []stdStructSpec{{
 	origin: "std/calendar",
 	nomi:   "NaiveDateTime",
@@ -386,11 +383,8 @@ var stdStructSpecs = []stdStructSpec{{
 	// std/compiler's diagnostic record: the whole payload of `compiler.check`,
 	// and the first row here that std declares TRANSPARENT.
 	//
-	// Its Go type is in rt for the ordinary reason — one Nomi type, one Go
-	// representation, package-neutral in every gen — even though
-	// the FUNCTION that produces it is in nomi/stdcompiler and reaches the
-	// analyzer. Splitting it that way is what keeps a program that merely names
-	// `Diagnostic` in a signature from linking the front end.
+	// Its Go type is in rt, like every other row's, even though the function
+	// that produces it is in internal/stdcompiler and reaches the analyzer.
 	origin: "std/compiler",
 	nomi:   "Diagnostic",
 	goType: reflect.TypeFor[rt.Diagnostic](),
@@ -410,7 +404,8 @@ var stdStructSpecs = []stdStructSpec{{
 	//
 	// Both fields are Strings and BOTH are read by user code — `hover.signature`
 	// in every one of the corpus's `hover_signature` helpers — so the field
-	// order and the Go names are load-bearing exactly as everywhere else here.
+	// names and their order are held to std's declaration as everywhere else
+	// here.
 	origin: "std/compiler",
 	nomi:   "Hover",
 	goType: reflect.TypeFor[rt.Hover](),
@@ -542,10 +537,8 @@ var stdStructSpecs = []stdStructSpec{{
 	//     components are package-neutral, so it is the same entry a call site's
 	//     own `mapKind` produces. That equality is the whole requirement — a
 	//     per-gen kind here would match no call site anywhere.
-	//   - `manifest` is a `Maybe<String>` with a DEFAULT of `None`. The
-	//     default matters because a zero
-	//     `Maybe` has Tag 0, which is neither Some nor None and matches no arm
-	//     of a `case` rather than failing.
+	//   - `manifest` is a `Maybe<String>` with a default of `None`, which a
+	//     literal that omits the field takes.
 	//
 	// NOT transparent: std declares it `pub struct Project` without `opaque`,
 	// but nothing in the corpus reads a field off one — it is constructed and
@@ -572,7 +565,7 @@ var stdStructSpecs = []stdStructSpec{{
 	// because rows in this table name each other POSITIONALLY.
 	//
 	// The `Date"…"` / `Time"…"` typed literal and `calendar.Date.parse` need
-	// these rows: `literal.go` resolves the handler and `stdlibCall` lowers it,
+	// these rows: `literal.go` resolves the handler,
 	// and a signature has to be able to NAME the result type.
 	origin: "std/calendar",
 	nomi:   "Date",
@@ -588,7 +581,7 @@ var stdStructSpecs = []stdStructSpec{{
 	// Equatable`/`Hashable`/`Comparable`, which generate over the fields that
 	// EXIST. One record with both field sets would make `Date"2026-05-04"`
 	// structurally equal to `NaiveDateTime"2026-05-04T00:00:00"` — a wrong
-	// ANSWER, not a wasted field. rt/calendar_civil_test.go pins that.
+	// ANSWER, not a wasted field.
 	origin: "std/calendar",
 	nomi:   "Time",
 	goType: reflect.TypeFor[rt.Time](),
@@ -673,9 +666,9 @@ var stdStructSpecs = []stdStructSpec{{
 	// 11/module_qualified_impl_dispatch, 18/json_container_decode and
 	// 18/json_derive.
 	//
-	// `path: List<String>` needs no new machinery either: `*rt.List[string]`
-	// names rt and a Go builtin and nothing else, so stdListField's nil-gen
-	// process-wide intern covers it, as for `AssertionFailure.values`.
+	// `path: List<String>` needs no new machinery either: its element is a
+	// scalar, so stdStringListField's nil-gen process-wide intern covers it,
+	// as stdListField's does for `AssertionFailure.values`.
 	origin: "std/json",
 	nomi:   "Json.ShapeError",
 	goType: reflect.TypeFor[rt.JsonShapeError](),
@@ -826,8 +819,8 @@ var stdStructSpecs = []stdStructSpec{{
 // insertion shifts these constants, and `TestStdStructSpecIndicesNameTheirRow`
 // names every offence by row ("index 5 is Diagnostic, the constant says
 // AssertionPipelineStage"). It is NOT what fails first:
-// `TestStdStructSpecsMatchStdSource` and `TestStdStructSpecsAreReachable` fall
-// over ahead of it and report missing std/assertions anchors, pointing at a
+// `TestStdStructSpecsMatchStdSource` falls
+// over ahead of it and reports missing std/assertions anchors, pointing at a
 // file the change never touched. A shifted index breaks the DEPENDENT rows
 // before it breaks the constant that describes them. So new rows go at the end
 // of the table.
@@ -873,7 +866,7 @@ var stdStructDefs = sync.OnceValue(func() []*typeDef {
 			//
 			// `stdDeflt` rather than `deflt`, and the two are different
 			// channels on purpose. `deflt` is an ast.Node LOWERED at the
-			// construction site under inDeclScope, which is correct only while
+			// construction site, which is correct only while
 			// the declaring and constructing scopes are the same one.
 			// `stdDeflt` is a value stated in the builder's own vocabulary and
 			// resolves no names, which is what makes it correct across the
@@ -896,9 +889,8 @@ var stdStructShells = sync.OnceValue(func() []*typeDef {
 	defs := make([]*typeDef, len(stdStructSpecs))
 	for i := range stdStructSpecs {
 		s := &stdStructSpecs[i]
-		defs[i] = &typeDef{nomi: s.nomi, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
-			// hand-written in rt, and a second declaration would be a second Go
-			// type for one Nomi type.
+		defs[i] = &typeDef{nomi: s.nomi, lowerable: true, // rtDeclared: rt declares the type, so the def is process-wide and
+			// package-neutral, and typeDecl replays no refusal for it.
 			rtDeclared: true}
 	}
 	return defs
@@ -1145,22 +1137,14 @@ func (s *stdStructSpec) matches(decl *ast.StructDef, anchors stdAnchors) bool {
 		// is prelude.go's problem and not this file's.
 		return false
 	}
-	if len(decl.Items) > 0 {
-		// A type body item is LAYOUT-RELEVANT — it can change what the type is,
-		// so redirecting to an rt type would be a claim about a shape nobody
-		// wrote.
-		//
-		// An attached `//!` test is deliberately NOT checked. The prompt is a
-		// test case of its own, through tests.go's attachedTestCases, so
-		// charging it to the type would double-charge it, and that charge
-		// cascades: the type would lose its representation and every std
-		// function whose signature names it would refuse `stdlib function
-		// outside the scalar subset`. That is the `derive` argument in
-		// declModifiers, applied to the other kind of metadata. In a module
-		// where most data types carry a doc example, nearly every public
-		// function names one of those types.
-		return false
-	}
+	// An attached `//!` test is not checked. The prompt is a test case of its
+	// own, through tests.go's attachedTestCases, so charging it to the type
+	// would charge it twice, and that charge cascades: the type would lose
+	// its representation and every std function whose signature names it
+	// would refuse `stdlib function outside the scalar subset`. That is the
+	// `derive` argument in declModifiers, applied to the other kind of
+	// metadata. In a module where most data types carry a doc example, nearly
+	// every public function names one of those types.
 	for _, dec := range decl.Decorators {
 		// `derive` is the one decorator that is not a gap: it is ALSO
 		// synthesized into an ordinary impl block that lowers through the
@@ -1183,7 +1167,7 @@ func (s *stdStructSpec) matches(decl *ast.StructDef, anchors stdAnchors) bool {
 		// other stdlib signature position uses — so `List<AssertionValue>` in a
 		// field is admitted on exactly the terms it is admitted in a parameter,
 		// and a widened `List<String>` produces no anchor because the kinds are
-		// two interned *compKinds and never equal.
+		// two interned *compKind values and never equal.
 		if f.Name != want.nomi || stdTypeKind(f.TypeAnnotation, anchors) != want.kindOf(defs) {
 			return false
 		}
@@ -1193,12 +1177,10 @@ func (s *stdStructSpec) matches(decl *ast.StructDef, anchors stdAnchors) bool {
 		// directions: a declared default with no spec row for it produces no
 		// anchor, and so does a spec default the declaration stopped carrying.
 		//
-		// Both directions matter and neither is defensiveness. A declared
-		// default the spec does not know would otherwise be silently DROPPED,
-		// leaving Go's zero value at an omitted field -- and for `Maybe` that
-		// is a value with Tag 0, neither Some nor None, which matches no arm of
-		// a `case` rather than failing. A spec default the declaration no
-		// longer carries would invent a value std never wrote.
+		// Both directions matter. A declared default the spec does not know
+		// would be dropped, so a literal that omits the field would not get
+		// the value std declares. A spec default the declaration does not
+		// carry would invent a value std never wrote.
 		switch {
 		case f.Default == nil && want.deflt != nil:
 			return false

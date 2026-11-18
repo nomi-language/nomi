@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 375
+records 379
 declared-cases 0
 failing 85
 C assert_subject_test.nomi@295b6bb031afecb5
@@ -378,6 +378,34 @@ T     returned:
 T       None
 T test result: FAILED. 1 passed, 4 failed
 T
+C control_test.nomi@15890d571c7191cf
+E 0
+N 0
+H 8942642fca1726224acd38340d30fae0c98b37cac55f582aa51a4e98c3d69969
+S -- control_test.nomi 327 --
+S pub struct Sq
+S     s: Int
+S end
+S
+S impl Sq
+S     pub fn side(q: Sq) -> Int
+S         q.s
+S     end
+S
+S     pub fn area(q: Sq, extra: Int = side(q) * 2, tail: Int = 0) -> Int
+S         q.s * q.s + extra + tail
+S     end
+S end
+S
+S test "a default calls a sibling bare"
+S     assert Sq.area(Sq{s: 3}) == 15
+S     assert Sq.area(Sq{s: 3}, tail: 1) == 16
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a default calls a sibling bare
+T test result: ok. 1 passed, 0 failed
+T
 C control_test.nomi@17965da5a95b32ad
 E 1
 N 0
@@ -492,6 +520,82 @@ S
 S
 T ok <dir>/control_test.nomi :: the module-qualified spelling
 T test result: ok. 1 passed, 0 failed
+T
+C control_test.nomi@2bc1f725d06b0884
+E 1
+N 0
+H 44e1c4320c2bf5cf435e403f2b9c20b209d2b40fc6bb6300610d14eeefcbdaa9
+S -- control_test.nomi 709 --
+S import std::io
+S
+S fn get(ok: Bool) -> Result<String, String>
+S   if ok then
+S     Ok("x")
+S   else
+S     Err("no")
+S   end
+S end
+S
+S fn bye()
+S   io.print("deferred")
+S end
+S
+S test "a return arm ends the case"
+S   defer bye()
+S   assert case get(False)
+S     Ok(d) -> d
+S     Err(_) -> return
+S   end == "y"
+S   io.print("not reached")
+S end
+S
+S test "the other arm is the subject"
+S   assert case get(True)
+S     Ok(d) -> d
+S     Err(_) -> return
+S   end == "y"
+S end
+S
+S test "an arm's block that leaves"
+S   assert case get(False)
+S     Ok(d) -> d
+S     Err(e) ->
+S       begin
+S         io.print("left with ${e}")
+S         return
+S       end
+S   end == "y"
+S end
+S
+S test "a subject's operand that leaves"
+S   assert "x" == begin
+S     io.print("operand left")
+S     return
+S   end
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a return arm ends the case
+T   deferred
+T FAIL <dir>/control_test.nomi :: the other arm is the subject
+T   line 25: assertion failed
+T     assert case get(True)
+T         Ok(d)  -> d
+T         Err(_) -> return
+T     end == "y"
+T     values:
+T       get(True)
+T         = Ok("x")
+T       case get(True)
+T           Ok(d)  -> d
+T           Err(_) -> return
+T       end
+T         = "x"
+T ok <dir>/control_test.nomi :: an arm's block that leaves
+T   left with no
+T ok <dir>/control_test.nomi :: a subject's operand that leaves
+T   operand left
+T test result: FAILED. 3 passed, 1 failed
 T
 C control_test.nomi@3762838aab89050c
 E 0
@@ -855,6 +959,52 @@ T       String.pad_start("7", width: w)
 T         = "  7"
 T test result: FAILED. 1 passed, 1 failed
 T
+C control_test.nomi@538b9309d19907a0
+E 0
+N 0
+H 19afc48ebc8324ae0f1f7c7bd1be225ff7e22f8536889758966eabdcd8d79f35
+S -- control_test.nomi 660 --
+S import std::io
+S
+S fn note(label: String, n: Int) -> Int
+S     io.print(label)
+S     n
+S end
+S
+S pub interface Shape
+S     fn side(value: self) -> Int
+S
+S     open fn area(value: self, scale: Int = note("scale", 1), extra: Int = note("extra", scale * 10 + Shape.side(value)), tail: Int = 0) -> Int
+S         Shape.side(value) * scale + extra + tail
+S     end
+S end
+S
+S pub struct Circle
+S     r: Int
+S end
+S
+S impl Shape for Circle
+S     fn side(c: Circle) -> Int
+S         c.r
+S     end
+S end
+S
+S test "an interface default reads an earlier parameter"
+S     c = Circle{r: 3}
+S     assert Shape.area(c, 2) == 29
+S     assert Circle.area(c) == 16
+S     s: Shape = c
+S     assert Shape.area(s, 2, tail: 1) == 30
+S end
+S
+S
+T ok <dir>/control_test.nomi :: an interface default reads an earlier parameter
+T   extra
+T   scale
+T   extra
+T   extra
+T test result: ok. 1 passed, 0 failed
+T
 C control_test.nomi@7970f23ad61cc154
 E 0
 N 0
@@ -1208,6 +1358,40 @@ T ok <dir>/control_test.nomi :: map skips through parentheses
 T ok <dir>/control_test.nomi :: reduce stops through parentheses
 T test result: ok. 2 passed, 0 failed
 T
+C control_test.nomi@aeeaaaf1e6fa366c
+E 0
+N 0
+H 8942642fca1726224acd38340d30fae0c98b37cac55f582aa51a4e98c3d69969
+S -- control_test.nomi 483 --
+S pub interface Shape
+S     fn side(value: self) -> Int
+S
+S     open fn area(value: self, extra: Int = side(value) * 2, tail: Int = 0) -> Int
+S         side(value) * side(value) + extra + tail
+S     end
+S end
+S
+S pub struct Sq
+S     s: Int
+S end
+S
+S impl Shape for Sq
+S     fn side(value: Sq) -> Int
+S         value.s
+S     end
+S end
+S
+S test "a default calls a sibling bare"
+S     assert Shape.area(Sq{s: 3}) == 15
+S     assert Sq.area(Sq{s: 3}, tail: 1) == 16
+S     s: Shape = Sq{s: 3}
+S     assert Shape.area(s) == 15
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a default calls a sibling bare
+T test result: ok. 1 passed, 0 failed
+T
 C control_test.nomi@b28f6e392ee71101
 E 1
 N 0
@@ -1225,83 +1409,6 @@ T FAIL <dir>/control_test.nomi :: a try over a check
 T   line 4: check failed
 T     check 1 == 2
 T test result: FAILED. 0 passed, 1 failed
-T
-C control_test.nomi@b421783c757bced1
-E 1
-N 0
-H 44e1c4320c2bf5cf435e403f2b9c20b209d2b40fc6bb6300610d14eeefcbdaa9
-S -- control_test.nomi 735 --
-S import std::io
-S
-S fn get(ok: Bool) -> Result<String, String>
-S   if ok then
-S     Ok("x")
-S   else
-S     Err("no")
-S   end
-S end
-S
-S fn bye()
-S   io.print("deferred")
-S end
-S
-S test "a return arm ends the case"
-S   defer bye()
-S   assert case get(False)
-S     Ok(d) -> d
-S     Err(_) -> return
-S   end == "y"
-S   io.print("not reached")
-S end
-S
-S test "the other arm is the subject"
-S   assert case get(True)
-S     Ok(d) -> d
-S     Err(_) -> return
-S   end == "y"
-S end
-S
-S test "an arm's block that leaves"
-S   assert case get(False)
-S     Ok(d) -> d
-S     Err(e) ->
-S       begin
-S         io.print("left with ${e}")
-S         return
-S       end
-S   end == "y"
-S end
-S
-S test "a subject's operand that leaves"
-S   assert "x" == begin
-S     io.print("operand left")
-S     return
-S   end
-S   io.print("not reached")
-S end
-S
-S
-T ok <dir>/control_test.nomi :: a return arm ends the case
-T   deferred
-T FAIL <dir>/control_test.nomi :: the other arm is the subject
-T   line 25: assertion failed
-T     assert case get(True)
-T         Ok(d)  -> d
-T         Err(_) -> return
-T     end == "y"
-T     values:
-T       get(True)
-T         = Ok("x")
-T       case get(True)
-T           Ok(d)  -> d
-T           Err(_) -> return
-T       end
-T         = "x"
-T ok <dir>/control_test.nomi :: an arm's block that leaves
-T   left with no
-T ok <dir>/control_test.nomi :: a subject's operand that leaves
-T   operand left
-T test result: FAILED. 3 passed, 1 failed
 T
 C control_test.nomi@c58310b9073b637c
 E 1
@@ -1452,6 +1559,108 @@ T         = Date{day: 4, month: 5, year: 2026}
 T       Date.to_string(d)
 T         = "2026-05-04"
 T test result: FAILED. 1 passed, 1 failed
+T
+C control_test.nomi@ef5a064016279d67
+E 0
+N 0
+H 629e274853fa397fc5d2137ac31ce2a4a05e2d89b0c5e3f53c27b056d5306950
+S -- control_test.nomi 1625 --
+S import std::io
+S
+S fn note(label: String, n: Int) -> Int
+S     io.print(label)
+S     n
+S end
+S
+S pub interface Shape
+S     fn side(value: self) -> Int
+S
+S     open fn area(value: self, scale: Int = note("shape scale", 1), tail: Int = note("shape tail", scale + Shape.side(value))) -> Int
+S         Shape.side(value) * scale + tail
+S     end
+S end
+S
+S fn mark(label: String, n: Int) -> Int
+S     io.print(label)
+S     n
+S end
+S
+S pub struct Circle
+S     r: Int
+S end
+S
+S impl Shape for Circle
+S     fn side(c: Circle) -> Int
+S         c.r
+S     end
+S
+S     fn area(c: Circle, scale: Int = mark("circle scale", c.r * 10), tail: Int = mark("circle tail", scale * 2)) -> Int
+S         c.r * scale + tail
+S     end
+S end
+S
+S pub struct Dot
+S     n: Int
+S end
+S
+S impl Shape for Dot
+S     fn side(d: Dot) -> Int
+S         d.n
+S     end
+S end
+S
+S pub struct Tri
+S     n: Int
+S end
+S
+S impl Shape for Tri
+S     fn side(t: Tri) -> Int
+S         t.n
+S     end
+S
+S     fn area(t: Tri, scale: Int, tail: Int) -> Int
+S         t.n * scale + tail + 1000
+S     end
+S end
+S
+S pub struct Box<T>
+S     v: T
+S     n: Int
+S end
+S
+S impl<T> Shape for Box<T>
+S     fn side(b: Box<T>) -> Int
+S         b.n
+S     end
+S
+S     fn area(b: Box<T>, scale: Int = mark("box scale", b.n + 1), tail: Int = mark("box tail", scale * 3)) -> Int
+S         b.n * scale + tail
+S     end
+S end
+S
+S impl Shape for List<Int>
+S     fn side(xs: List<Int>) -> Int
+S         List.length(xs)
+S     end
+S
+S     fn area(xs: List<Int>, scale: Int = mark("list scale", 7), tail: Int) -> Int
+S         List.length(xs) * scale + tail
+S     end
+S end
+S
+S test "a call on a Shape takes its impl's default"
+S     s: Shape = Circle{r: 2}
+S     assert Shape.area(s) == 80
+S     d: Shape = Dot{n: 3}
+S     assert Shape.area(d, 2) == 11
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a call on a Shape takes its impl's default
+T   circle scale
+T   circle tail
+T   shape tail
+T test result: ok. 1 passed, 0 failed
 T
 C control_test.nomi@f3dda2b03e62e716
 E 1
@@ -4792,10 +5001,10 @@ N 0
 H d9014c4624844aa5bac314773d6b689ad467fa4e1d1a50a1b8a99d5a95f72ff5
 T Hello, world!
 T
-C internal/irbuild/testdata/i6_std_named_arg_order.nomi@acdcdc4202f55f38
+C internal/irbuild/testdata/i6_std_named_arg_order.nomi@678c1fe619b56c2d
 E 0
 N 0
-H f442d4b22ae5384b01854bcca80f38e0bccc0410c2fd63845ad31410d434dd00
+H a51a0bf561e1bae466cb7e8a9ead765bbcf7f917ecb8e5aeff020fd35e213d15
 T eval B
 T eval A
 T backwards=10:30:0
@@ -4803,8 +5012,8 @@ T eval P
 T eval S
 T eval N
 T mixed=11:45:1
-T eval X
 T eval Y
+T eval X
 T named-first=23:59:0
 T
 C internal/irbuild/testdata/identity/identity.nomi@b2640610b487f5aa
@@ -5774,12 +5983,12 @@ T 13
 T 10
 T 130
 T
-C internal/irbuild/testdata/named_args.nomi@13209a609c26abce
+C internal/irbuild/testdata/named_args.nomi@83c2ec5f38b62c6e
 E 0
 N 0
-H cc976cf4b5b22c5543b991de200f69e975506ac590ba802ba16841fddfaf4ae6
-T eval A
+H fc47ea0cfa86a007f4053b6b4aaf6b1d2f9edd16461c710354506c46b6624210
 T eval B
+T eval A
 T A/B
 T z30
 T L0

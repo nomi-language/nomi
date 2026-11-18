@@ -38,10 +38,42 @@ var (
 		{Name: "Err", Shape: rt.VariantPositional, Fields: []rt.FieldSpec{{Type: rt.SlotRef}}}}}
 )
 
+// hosts are the keys Table answers, each with whether a call to it is an
+// outside call (internal/vm's "OUTSIDE CALLS"). `check`, `check_project`
+// and `hover` read the imported files of the project under the root from
+// disk, `run` and `run_file` run a nested program, whose own reach is not
+// the caller's walk's to see, and `format` reads only its operand.
+var hosts = []struct {
+	name    string
+	outside bool
+}{
+	{"compiler.check", true},
+	{"compiler.check_project", true},
+	{"compiler.format", false},
+	{"compiler.hover", true},
+	{"compiler.run", true},
+	{"compiler.run_file", true},
+}
+
 // Names are the keys Table answers, which internal/irbuild's IR builder admits
 // as std/compiler crossings.
 func Names() []string {
-	return []string{"compiler.check", "compiler.check_project", "compiler.format", "compiler.hover", "compiler.run", "compiler.run_file"}
+	out := make([]string, len(hosts))
+	for i, h := range hosts {
+		out[i] = h.name
+	}
+	return out
+}
+
+// Outside reports whether name is a key Table answers, and whether a call to
+// it is an outside call. All of them are std/compiler's.
+func Outside(name string) (isOutside, known bool) {
+	for _, h := range hosts {
+		if h.name == name {
+			return h.outside, true
+		}
+	}
+	return false, false
 }
 
 // descs are the descriptors one binding builds with.

@@ -8,9 +8,6 @@ import (
 )
 
 func irRetainedVectorKind(k kind) bool {
-	if k == kindEmptyVector {
-		return true
-	}
 	elem, ok := vectorElem(k)
 	return ok && irScalarLeafKind(elem)
 }
@@ -39,17 +36,15 @@ func (bl *irScalarBuilder) vectorMakeOf(t *ast.ListLit, elem kind) (ir.Temp, kin
 		return bl.vectorSpreadLit(t)
 	}
 	if len(t.Items) == 0 {
-		n := ir.NewEmptyVector(bl.g.irNodePos(t), bl.f.NewTemp(), nil)
-		bl.b.Append(n)
-		return n.Dst(), kindEmptyVector, true, true
+		return bl.emptyLiteral(t, vectorSpreadJoin, kindInvalid)
 	}
 	// Native vector construction forces every impure element.
 	want := elem
 	// kindInvalid: sentinel — the items give the element kind.
-	if parts := bl.literalParts(t, tagEmptyVector); want == kindInvalid && parts != nil {
+	if parts := bl.literalParts(t, vectorSpreadJoin); want == kindInvalid && parts != nil {
 		want = parts[0]
 	}
-	values, elem, ok := bl.lowerSameKindItems(t, tagEmptyVector, t.Items, want, func(k kind) bool {
+	values, elem, ok := bl.lowerSameKindItems(t, vectorSpreadJoin, t.Items, want, func(k kind) bool {
 		// A Vector holds any value the domain does, as a List does: a
 		// sequence, a function, an interface's existential, a channel
 		// half, Unit.
@@ -87,20 +82,6 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 		// The vector the checker solved T at, which a later operand may
 		// have widened past the first (listCallPlan).
 		k = bl.g.vectorKindOf(e)
-	} else if k == kindEmptyVector && method == "concat" {
-		k = args.kinds[1]
-	}
-	if k == kindEmptyVector {
-		// `Vector.next_item([])`: an element operand types the vector;
-		// with none, nothing constrains the element and no value of it
-		// is built or observed, so it is typed as listCallPlan types
-		// `List.first([])`.
-		k = bl.g.vectorKindOf(kindInt)
-		if method == "push" || method == "set" {
-			if e := args.kinds[len(args.kinds)-1]; irScalarLeafKind(e) {
-				k = bl.g.vectorKindOf(e)
-			}
-		}
 	}
 	elem, ok := vectorElem(k)
 	if !ok {
@@ -119,7 +100,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 				want = kindInt
 			}
 		}
-		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], have, want)
+		v, got, ok := bl.convertTo(t.Args[i], args.temps[i], have, want)
 		if !ok {
 			return nil
 		}
@@ -145,13 +126,13 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 // nothing. Items that differ only by an embedded type join to the enum
 // that embeds it (`[circle, shape]` is a `Vector<Shape>`), as the checker
 // joins them: the embedded ones are widened after every item is lowered.
-// listMakeOf does the same for a list. Items that join no other way
-// (`[[], [1]]`) take literal at's checked element type (of tagEmptySet or
-// tagEmptyVector), each coerced to it (literalItemsCoerced).
+// listMakeOf does the same for a list. Items that join no other way take
+// literal at's checked element type (of shape's collection), each coerced
+// to it (literalItemsCoerced).
 //
 // want, when not kindInvalid, is the element kind (literalParts): every item
 // is lowered against it and must arrive as it.
-func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.Node, want kind, accept func(kind) bool) ([]ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, shape spreadJoin, items []ast.Node, want kind, accept func(kind) bool) ([]ir.Temp, kind, bool) {
 	values := make([]ir.Temp, len(items))
 	// kindInvalid: sentinel — no element kind is given.
 	if want != kindInvalid {
@@ -184,11 +165,10 @@ func (bl *irScalarBuilder) lowerSameKindItems(at ast.Node, of tag, items []ast.N
 		typedItems, typedValues, typedKinds = append(typedItems, item), append(typedValues, v), append(typedKinds, k)
 	}
 	elem, joined := irEmbedsJoin(typedKinds)
-	if !joined || !accept(elem) || untypedLiteral(elem) {
-		// Items that differ by an empty collection (`[[], [1]]`), or are
-		// all empty (`[[]]` inside `[[[]], [[1]]]`), take the checked
-		// element type, as a list's items do.
-		if checked, ok := bl.literalItemsCoerced(at, of, 0, typedItems, typedValues, typedKinds); ok {
+	if !joined || !accept(elem) {
+		// Items that join no other way take the checked element type, as
+		// a list's items do.
+		if checked, ok := bl.literalItemsCoerced(at, shape, 0, typedItems, typedValues, typedKinds); ok {
 			elem, joined = checked, true
 		}
 	}

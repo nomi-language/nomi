@@ -1403,7 +1403,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		}
 		switch p.peek().Type {
 		case token.FN:
-			return p.parseFuncDef(true, false)
+			return p.parseFuncDef(true)
 		case token.STRUCT:
 			return p.parseStructDef(true, false)
 		case token.ENUM:
@@ -1450,7 +1450,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				}
 				return nil, errorAt(pubTok.Line, pubTok.Col, "'pub' is not valid before %s", tokenShown(p.peek()))
 			}
-			return p.parseHost(true, false)
+			return p.parseHost(true)
 		case token.EXTERN:
 			return nil, errorAt(pubTok.Line, pubTok.Col, "runtime-provided declarations use `host`, not `extern`")
 		default:
@@ -1472,12 +1472,12 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// `extern` is reserved for the FFI surface, but runtime-provided
 	// declarations use the clearer `host` spelling.
 	if p.peek().Type == token.EXTERN {
-		return p.parseExtern(false, false)
+		return p.parseExtern()
 	}
 
 	// Host declarations: host fn ... or host type ...
 	if p.startsHostDecl() {
-		return p.parseHost(false, false)
+		return p.parseHost(false)
 	}
 
 	// Function definition: fn name(...) { ... }. A `fn` also starts a
@@ -1486,7 +1486,7 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 	// `fn` whose next tokens can begin nothing but a lambda's parameters is
 	// one, so a declaration missing its `(` keeps the declaration's error.
 	if p.peek().Type == token.FN && (p.blockDepth > 0 && p.startsFuncDecl() || p.blockDepth == 0 && !p.startsLambda()) {
-		return p.parseFuncDef(false, false)
+		return p.parseFuncDef(false)
 	}
 
 	// Interface definition: Interface Name { ... }
@@ -1981,7 +1981,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 	start := p.pos
 	var left ast.Node
 	var err error
-	if !p.atEnd() && p.peek().Type == token.NOT && minPrec <= notOperandPrecedence {
+	if !p.atEnd() && p.peek().Type == token.NOT && minPrec <= token.NotOperandPrecedence {
 		left, err = p.parseNot(stopAtPipe)
 	} else {
 		left, err = p.parsePrefixWithPipeStop(stopAtPipe)
@@ -2170,7 +2170,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 					"open-ended ranges have been removed — "+
 					"use `Range.from(N)` for unbounded ascending from N")
 			}
-			end, err := p.parseExprWithPipeStop(prec+1, stopAtPipe)
+			end, err := p.parseExprWithPipeStop(token.OperandPrecedence(tok.Lexeme, token.RightOperand), stopAtPipe)
 			if err != nil {
 				return nil, err
 			}
@@ -2236,7 +2236,7 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 			// The collection holds what binds more tightly than the ordering
 			// operators, so `x in a < b` is inEnds' error at `<`, not
 			// `x in (a < b)`.
-			right, err := p.parseExprWithPipeStop(infixPrecedence(token.LT)+1, stopAtPipe)
+			right, err := p.parseExprWithPipeStop(token.OperandPrecedence("in", token.RightOperand), stopAtPipe)
 			if err != nil {
 				return nil, err
 			}
@@ -2263,8 +2263,8 @@ func (p *Parser) parseExprWithPipeStop(minPrec int, stopAtPipe bool) (ast.Node, 
 				p.advance()
 				op = ">>>"
 			}
-			// Left-associative: use prec+1 for the right operand.
-			right, err := p.parseExprWithPipeStop(prec+1, stopAtPipe)
+			// Left-associative: the right operand holds the next level.
+			right, err := p.parseExprWithPipeStop(token.OperandPrecedence(op, token.RightOperand), stopAtPipe)
 			if err != nil {
 				return nil, err
 			}
@@ -2312,13 +2312,6 @@ func chainedWithIs(left ast.Node, isTok token.Token) error {
 	return ParseError{Line: isTok.Line, Col: isTok.Col,
 		Message: "`is` does not chain with a comparison",
 		Hints:   []string{"put one side in parentheses: `(a == b) is True`, or `a == (b is P)`"}}
-}
-
-// isMembership reports whether n is an `in` test written without
-// parentheses: `x in xs`.
-func isMembership(n ast.Node) bool {
-	b, ok := n.(*ast.Binary)
-	return ok && b.Op == "in"
 }
 
 // chainedWithIn is the error for an `in` whose left operand is a comparison
@@ -2418,7 +2411,7 @@ func (p *Parser) isPatternEnds() error {
 			Message: fmt.Sprintf("`is` does not chain with `%s`", tok.Lexeme),
 			Hints:   []string{"put the test in parentheses: `(x is P) == b`"}}
 	}
-	if p.infixPrecedenceAt(p.pos) > infixPrecedence(token.IS) {
+	if p.infixPrecedenceAt(p.pos) > token.InfixPrecedence(token.IS) {
 		op := tok.Lexeme
 		if p.shiftRightAt(p.pos) {
 			op = ">>>"
@@ -2508,7 +2501,7 @@ func (p *Parser) parsePipeRight(left ast.Node, pipeTok token.Token, leadingForRi
 	case !p.atEnd() && p.peek().Type == token.NOT:
 		return p.parsePipeNotStage(left, pipeTok, leadingForRight)
 	default:
-		right, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
+		right, err := p.parseExpr(token.OperandPrecedence("|>", token.RightOperand))
 		if err != nil {
 			return nil, err
 		}
@@ -2538,7 +2531,7 @@ func (p *Parser) parsePipeNotStage(left ast.Node, pipeTok token.Token, leadingFo
 		}
 		stage = inner.(*ast.Binary).Right
 	} else {
-		right, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
+		right, err := p.parseExpr(token.OperandPrecedence("|>", token.RightOperand))
 		if err != nil {
 			return nil, err
 		}
@@ -2613,7 +2606,7 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 		// `then &divide(100, &1)`: a capture ends with its body, so the
 		// stages after it stay in the pipeline.
 		capStart := p.pos
-		fn, err := p.parseExpr(tryOperandPrecedence)
+		fn, err := p.parseExpr(token.TryOperandPrecedence)
 		if err != nil {
 			return nil, err
 		}
@@ -2633,7 +2626,7 @@ func (p *Parser) parsePipeLambdaStage(left ast.Node, pipeTok token.Token, leadin
 		// `nomi fmt` writes for a name that ending its line would make a
 		// keyword; the stage holds the name inside them.
 		nameStart := p.pos
-		fn, err := p.parseExpr(tryOperandPrecedence)
+		fn, err := p.parseExpr(token.TryOperandPrecedence)
 		if err != nil {
 			return nil, err
 		}
@@ -2742,7 +2735,7 @@ func (p *Parser) parsePipeValueKeywordStage(left ast.Node, pipeTok token.Token, 
 		}
 	}
 
-	stage, err := p.parseExpr(infixPrecedence(token.PIPE) + 1)
+	stage, err := p.parseExpr(token.OperandPrecedence("|>", token.RightOperand))
 	if err != nil {
 		return nil, err
 	}
@@ -3020,7 +3013,7 @@ func (p *Parser) consumeStandaloneInfixComment(minPrec int) ([]ast.Trivia, bool)
 		}
 		k++
 	}
-	if k >= len(p.tokens) || p.tokens[k].Type != token.PIPE || infixPrecedence(p.tokens[k].Type) < minPrec {
+	if k >= len(p.tokens) || p.tokens[k].Type != token.PIPE || token.InfixPrecedence(p.tokens[k].Type) < minPrec {
 		return nil, false
 	}
 	tk := p.tokens[j]
@@ -3177,11 +3170,11 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.STRING_LITERAL:
 		p.advance()
-		return &ast.StringLit{Value: tok.Lexeme, Line: tok.Line, Col: tok.Col}, nil
+		return &ast.StringLit{Value: tok.Lexeme, Line: tok.Line, Col: tok.Col, Dollars: dollarRefs(tok), Source: tok.Source}, nil
 
 	case token.TRIPLE_STRING_LITERAL:
 		p.advance()
-		return &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col, EndLine: tok.EndLine, EndCol: tok.EndCol}, nil
+		return &ast.StringLit{Value: tok.Lexeme, Triple: true, Line: tok.Line, Col: tok.Col, EndLine: tok.EndLine, EndCol: tok.EndCol, Dollars: dollarRefs(tok)}, nil
 
 	case token.RAW_STRING_LITERAL:
 		p.advance()
@@ -3282,7 +3275,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.MINUS:
 		p.advance()
-		right, err := p.parseExpr(prefixPrecedence)
+		right, err := p.parseExpr(token.PrecPrefix)
 		if err != nil {
 			return nil, err
 		}
@@ -3290,7 +3283,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 
 	case token.BIT_NOT:
 		p.advance()
-		right, err := p.parseExpr(prefixPrecedence)
+		right, err := p.parseExpr(token.PrecPrefix)
 		if err != nil {
 			return nil, err
 		}
@@ -3365,8 +3358,7 @@ func (p *Parser) parsePrefix() (ast.Node, error) {
 		// A MODULE-QUALIFIED LIST-ATTACH HEAD. `shapes.Bag.Items[1, 2]`
 		// names a list-payload variant or a list-distinct type through the
 		// module that exports it, and the bracket body belongs to that name.
-		// Every other shape's literal starts with its symbol (`shapes.Circle{r: 1}`),
-		// which parseLiteralHead reads.
+		// Every other shape's literal starts with its symbol (`shapes.Circle{r: 1}`).
 		//
 		// `shapes.Shape.Square(4)` works at every depth because a call is a
 		// POSTFIX form and the postfix parser already walks a FieldAccess
@@ -3682,40 +3674,6 @@ func (p *Parser) percentOpensLiteral(offset int) bool {
 	return false
 }
 
-// parseLiteralHead reads the type or variant name a literal or pattern
-// writes right after its shape's symbol, which the caller has consumed
-// (sigil): `Point`, `geo.Point`, `Shape.Circle`, `geo.Shape.Circle`, or
-// `.Circle`, a variant of the enum the position expects. ok is false, with
-// nothing consumed, when no name follows the symbol directly.
-//
-// Every segment but the last names the owner, as a dotted type name is one
-// name: `Probe.Reading.Steady` is the variant `Steady` of `Probe.Reading`.
-func (p *Parser) parseLiteralHead(sigil token.Token) (ast.TypeExpr, bool) {
-	first := p.peek()
-	if p.atEnd() || !adjacent(sigil, first) {
-		return nil, false
-	}
-	switch first.Type {
-	case token.DOT:
-		if p.peekAt(1).Type != token.TYPE_IDENT {
-			return nil, false
-		}
-		p.advance() // consume DOT
-		name := p.peek()
-		p.advance() // consume TYPE_IDENT
-		return &ast.DotVariantType{Name: name.Lexeme, Line: first.Line, Col: first.Col}, true
-	case token.IDENT, token.PATH:
-		// A module-qualified name needs at least one type segment.
-		if p.peekAt(1).Type != token.DOT || p.peekAt(2).Type != token.TYPE_IDENT {
-			return nil, false
-		}
-	case token.TYPE_IDENT:
-	default:
-		return nil, false
-	}
-	return p.literalNameSegments(first), true
-}
-
 // literalNameSegments reads a dotted literal name from its first segment,
 // the cursor on it: `Point`, `geo.Point`, `Shape.Circle`.
 func (p *Parser) literalNameSegments(first token.Token) ast.TypeExpr {
@@ -3854,40 +3812,22 @@ func (p *Parser) skipSeparatorsOnly() {
 	}
 }
 
-// Precedence table:
-//
-//	or                    = 2
-//	and                   = 3
-//	== !=                 = 4
-//	< > <= >=             = 5
-//	|>                    = 6
-//	.. ..=                = 7
-//	+ - ||| ^^^           = 8
-//	* / % &&& <<< >>>     = 9
-//	unary - ~~~           = 10
+// The precedence table is internal/token's (token.InfixPrecedence,
+// token.OperandPrecedence).
 //
 // Prefix `not` sits between `and` and `==`, as in Python: its operand is
-// everything that binds at least as tightly as `==` (notOperandPrecedence),
-// so `not a == b` is `not (a == b)`, `not x |> f()` is `not (x |> f())`, and
-// `not a and b` is `(not a) and b`. It stands only where such an operand
-// could: alone, or as an operand of `and`, `or` or another `not`. As an
-// operand of a tighter operator (`a == not b`, `-not x`) it is an error that
-// asks for parentheses.
-//
-// The bitwise operators sit where Go puts them: `&&&` and the shifts with
-// `*`, `|||` and `^^^` with `+`, so `x &&& mask == 0` is `(x &&& mask) == 0`
-// and `hi <<< 8 ||| lo` is `(hi <<< 8) ||| lo`.
-const prefixPrecedence = 10
-
-// notOperandPrecedence is the minimum infix precedence `not`'s operand
-// consumes: `==`'s.
-const notOperandPrecedence = 4
+// everything that binds at least as tightly as `==`
+// (token.NotOperandPrecedence), so `not a == b` is `not (a == b)`, `not x
+// |> f()` is `not (x |> f())`, and `not a and b` is `(not a) and b`. It
+// stands only where such an operand could: alone, or as an operand of
+// `and`, `or` or another `not`. As an operand of a tighter operator
+// (`a == not b`, `-not x`) it is an error that asks for parentheses.
 
 // parseNot parses `not operand`.
 func (p *Parser) parseNot(stopAtPipe bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume NOT
-	right, err := p.parseExprWithPipeStop(notOperandPrecedence, stopAtPipe)
+	right, err := p.parseExprWithPipeStop(token.NotOperandPrecedence, stopAtPipe)
 	if err != nil {
 		return nil, err
 	}
@@ -3922,19 +3862,10 @@ func (p *Parser) adjacentGTs(i int) bool {
 // token i, `>>>` included.
 func (p *Parser) infixPrecedenceAt(i int) int {
 	if p.shiftRightAt(i) {
-		return infixPrecedence(token.STAR)
+		return token.Precedence(">>>")
 	}
-	return infixPrecedence(p.tokens[i].Type)
+	return token.InfixPrecedence(p.tokens[i].Type)
 }
-
-// tryOperandPrecedence is the minimum infix precedence consumed by the
-// operand of a prefix `?`. It sits just above `*`/`/`/`%` (STAR, 9) and
-// at-or-below calls/field access, so `?` grabs exactly one postfix-level
-// operand: field access (DOT, 12) and calls (LPAREN, 11) attach to the
-// operand, while `*`/`/`/`%` (9) and every lower-precedence binary operator
-// (`+`, `|>`, …) stay outside it. Thus `a()? |> b()` is `(a()?) |> b()`
-// and `a.b.c?` is `(a.b.c)?`.
-const tryOperandPrecedence = 10
 
 // canStartRangeOperand reports whether the given token type can begin
 // an expression in range-operand position. Used to distinguish forms
@@ -3978,40 +3909,7 @@ func (p *Parser) currentValueOperandStartsItem() bool {
 	if next == token.MINUS || next == token.DOTDOT || next == token.DOTDOTEQ || !p.currentValueOperandAhead() {
 		return false
 	}
-	return infixPrecedence(next) > 0 || next == token.IS || next == token.IN
-}
-
-func infixPrecedence(tt token.TokenType) int {
-	switch tt {
-	// `as` shares `|>`'s level and its left-to-right reading, so
-	// `xs |> Iter.to_list() as List<Int>` ascribes the whole pipeline, and
-	// a comparison's operand holds it: `a == b as T` is `a == (b as T)`.
-	case token.PIPE, token.AS:
-		return 6
-	case token.OR:
-		return 2
-	case token.AND:
-		return 3
-	case token.EQEQ, token.BANGEQ, token.IS, token.IN:
-		return 4
-	case token.LT, token.GT, token.LTEQ, token.GTEQ:
-		return 5
-	// Range operators sit between comparison and arithmetic so
-	// `1+2..5+6` parses as `(1+2)..(5+6)` and `1..5 == 1..5` as
-	// `(1..5) == (1..5)`.
-	case token.DOTDOT, token.DOTDOTEQ:
-		return 7
-	case token.PLUS, token.MINUS, token.BIT_OR, token.BIT_XOR:
-		return 8
-	case token.STAR, token.SLASH, token.PERCENT, token.BIT_AND, token.SHL:
-		return 9
-	case token.LPAREN:
-		return 11
-	case token.DOT:
-		return 12
-	default:
-		return 0
-	}
+	return token.InfixPrecedence(next) > 0 || next == token.IS || next == token.IN
 }
 
 // parseStringInterp parses an interpolated string. The opening token is
@@ -4033,7 +3931,7 @@ func (p *Parser) parseStringInterp() (ast.Node, error) {
 
 	var parts []ast.StringPart
 	if tok.Lexeme != "" {
-		parts = append(parts, ast.StringText{Value: tok.Lexeme})
+		parts = append(parts, ast.StringText{Value: tok.Lexeme, Dollars: dollarRefs(tok)})
 	}
 
 	// Parse the first interpolated expression
@@ -4052,14 +3950,14 @@ func (p *Parser) parseStringInterp() (ast.Node, error) {
 		if cur.Type == endKind {
 			p.advance()
 			if cur.Lexeme != "" {
-				parts = append(parts, ast.StringText{Value: cur.Lexeme})
+				parts = append(parts, ast.StringText{Value: cur.Lexeme, Dollars: dollarRefs(cur)})
 			}
 			break
 		}
 		if cur.Type == partKind {
 			p.advance()
 			if cur.Lexeme != "" {
-				parts = append(parts, ast.StringText{Value: cur.Lexeme})
+				parts = append(parts, ast.StringText{Value: cur.Lexeme, Dollars: dollarRefs(cur)})
 			}
 			expr, err := p.parseExpr(1)
 			if err != nil {
@@ -4074,11 +3972,24 @@ func (p *Parser) parseStringInterp() (ast.Node, error) {
 		return nil, errorAt(cur.Line, cur.Col, "unexpected %s in interpolated string", tokenShown(cur))
 	}
 
-	interp := &ast.StringInterp{Parts: parts, Triple: triple, Line: tok.Line, Col: tok.Col}
+	interp := &ast.StringInterp{Parts: parts, Triple: triple, Line: tok.Line, Col: tok.Col, Source: tok.Source}
 	if triple {
 		interp.EndLine, interp.EndCol = tok.EndLine, tok.EndCol
 	}
 	return interp, nil
+}
+
+// dollarRefs are the `$name`s the lexer recorded in a string token's text,
+// as the AST holds them.
+func dollarRefs(tok token.Token) []ast.DollarRef {
+	if len(tok.Dollars) == 0 {
+		return nil
+	}
+	out := make([]ast.DollarRef, len(tok.Dollars))
+	for i, d := range tok.Dollars {
+		out[i] = ast.DollarRef{Name: d.Name, Line: d.Line, Col: d.Col}
+	}
+	return out
 }
 
 // parseTaggedStringInterp parses an interpolated tagged-string literal.
@@ -5953,11 +5864,11 @@ func (p *Parser) parseAnonStructLit(openTok token.Token, opening []ast.Trivia) (
 
 // parseFuncDef parses a function definition: fn name(params) [-> ReturnType],
 // its body on the lines below and `end`.
-func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, error) {
+func (p *Parser) parseFuncDef(public bool) (ast.Node, error) {
 	tok := p.peek()
 	p.advance() // consume FN
 
-	name, nameTok, implIface, sourceQualified, err := p.parseFunctionHeaderName(tok, "fn", allowImplQualifier)
+	name, nameTok, err := p.parseFunctionHeaderName(tok, "fn")
 	if err != nil {
 		return nil, err
 	}
@@ -6014,23 +5925,21 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 				return nil, err
 			}
 			return &ast.ExternFunc{
-				Name:                     name,
-				Public:                   public,
-				TypeParams:               typeParams,
-				Params:                   params,
-				ParamsEndTrivia:          paramsEnd,
-				ReturnTypeExpr:           returnTypeExpr,
-				WhereClauses:             whereClauses,
-				ImplIface:                implIface,
-				ImplIfaceSourceQualified: sourceQualified,
-				Line:                     nameTok.Line,
-				Col:                      nameTok.Col,
-				ForeignAlias:             foreignAlias,
-				ForeignName:              foreignName,
-				ForeignAliasLine:         aliasTok.Line,
-				ForeignAliasCol:          aliasTok.Col,
-				ForeignNameLine:          goNameTok.Line,
-				ForeignNameCol:           goNameTok.Col,
+				Name:             name,
+				Public:           public,
+				TypeParams:       typeParams,
+				Params:           params,
+				ParamsEndTrivia:  paramsEnd,
+				ReturnTypeExpr:   returnTypeExpr,
+				WhereClauses:     whereClauses,
+				Line:             nameTok.Line,
+				Col:              nameTok.Col,
+				ForeignAlias:     foreignAlias,
+				ForeignName:      foreignName,
+				ForeignAliasLine: aliasTok.Line,
+				ForeignAliasCol:  aliasTok.Col,
+				ForeignNameLine:  goNameTok.Line,
+				ForeignNameCol:   goNameTok.Col,
 			}, nil
 		}
 	}
@@ -6045,19 +5954,17 @@ func (p *Parser) parseFuncDef(public bool, allowImplQualifier bool) (ast.Node, e
 	}
 
 	return &ast.FuncDef{
-		Name:                     name,
-		Public:                   public,
-		TypeParams:               typeParams,
-		Params:                   params,
-		ParamsEndTrivia:          paramsEnd,
-		ReturnTypeExpr:           returnTypeExpr,
-		WhereClauses:             whereClauses,
-		Body:                     body,
-		ImplIface:                implIface,
-		ImplIfaceSourceQualified: sourceQualified,
-		Line:                     tok.Line,
-		Col:                      nameTok.Col,
-		FnCol:                    tok.Col,
+		Name:            name,
+		Public:          public,
+		TypeParams:      typeParams,
+		Params:          params,
+		ParamsEndTrivia: paramsEnd,
+		ReturnTypeExpr:  returnTypeExpr,
+		WhereClauses:    whereClauses,
+		Body:            body,
+		Line:            tok.Line,
+		Col:             nameTok.Col,
+		FnCol:           tok.Col,
 	}, nil
 }
 
@@ -6131,61 +6038,33 @@ func (p *Parser) parseGoSelectorBinding() (string, string, token.Token, token.To
 	return aliasTok.Lexeme, nameTok.Lexeme, aliasTok, nameTok, nil
 }
 
-func (p *Parser) parseFunctionHeaderName(tok token.Token, keyword string, allowImplQualifier bool) (string, token.Token, ast.TypeExpr, bool, error) {
+// parseFunctionHeaderName parses a function's name after `fn` or `host fn`.
+// A dotted name is an error: a function in an `impl ... for` block is
+// written plain, since the block's header names the interface.
+func (p *Parser) parseFunctionHeaderName(tok token.Token, keyword string) (string, token.Token, error) {
 	if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.TYPE_IDENT) {
 		if !p.atEnd() && p.peekAt(1).Type == token.LPAREN {
 			if err := keywordAsName(p.peek(), "a function"); err != nil {
-				return "", token.Token{}, nil, false, err
+				return "", token.Token{}, err
 			}
 		}
-		return "", token.Token{}, nil, false, errorAt(tok.Line, tok.Col, "expected function name after '%s'", keyword)
+		return "", token.Token{}, errorAt(tok.Line, tok.Col, "expected function name after '%s'", keyword)
 	}
-	segments := []token.Token{p.peek()}
+	nameTok := p.peek()
 	p.advance()
+	qualified := false
 	for p.peek().Type == token.DOT {
 		p.advance() // consume `.`
 		if p.atEnd() || (p.peek().Type != token.IDENT && p.peek().Type != token.TYPE_IDENT) {
-			return "", token.Token{}, nil, false, errorAt(tok.Line, tok.Col, "expected name after '.' in %s header", keyword)
+			return "", token.Token{}, errorAt(tok.Line, tok.Col, "expected name after '.' in %s header", keyword)
 		}
-		segments = append(segments, p.peek())
+		nameTok, qualified = p.peek(), true
 		p.advance()
 	}
-	if len(segments) == 1 {
-		return segments[0].Lexeme, segments[0], nil, false, nil
+	if qualified {
+		return "", token.Token{}, errorAt(nameTok.Line, nameTok.Col, "qualified implementation function names are not used in source; inside an `impl ... for` block, write plain `%s %s` because the block header already names the interface", keyword, nameTok.Lexeme)
 	}
-	methodTok := segments[len(segments)-1]
-	if !allowImplQualifier {
-		return "", token.Token{}, nil, false, errorAt(methodTok.Line, methodTok.Col, "qualified implementation function names are not used in source; inside an `impl ... for` block, write plain `%s %s` because the block header already names the interface", keyword, methodTok.Lexeme)
-	}
-	if len(segments) > 3 {
-		return "", token.Token{}, nil, false, errorAt(segments[0].Line, segments[0].Col, "implementation method qualifier must be an interface type name")
-	}
-	iface, err := functionImplQualifierType(segments[:len(segments)-1])
-	if err != nil {
-		return "", token.Token{}, nil, false, err
-	}
-	return methodTok.Lexeme, methodTok, iface, true, nil
-}
-
-func functionImplQualifierType(parts []token.Token) (ast.TypeExpr, error) {
-	if len(parts) == 0 {
-		return nil, fmt.Errorf("internal: empty implementation method qualifier")
-	}
-	last := parts[len(parts)-1]
-	if last.Type != token.TYPE_IDENT {
-		return nil, errorAt(last.Line, last.Col, "implementation method qualifier must end in an interface type name")
-	}
-	member := &ast.SimpleType{Name: last.Lexeme, Line: last.Line, Col: last.Col}
-	if len(parts) == 1 {
-		return member, nil
-	}
-	module := parts[0]
-	return &ast.QualifiedType{
-		Module:     module.Lexeme,
-		ModuleLine: module.Line,
-		ModuleCol:  module.Col,
-		Member:     member,
-	}, nil
+	return nameTok.Lexeme, nameTok, nil
 }
 
 // parseFuncParamList parses a function's parameter list (between LPAREN and
@@ -7225,7 +7104,6 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 	// the EnumDef captures them as EndTrivia).
 	p.skipSeparatorsOnly()
 	var variants []ast.EnumVariant
-	var items []ast.Node
 	var endTrivia []ast.Trivia
 
 	for !p.atEnd() && p.peek().Type != token.END {
@@ -7254,10 +7132,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 		tk := p.peek()
 		switch {
 		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostDecl() || tk.Type == token.ONCE:
-			if _, err := p.parseTypeBodyItem(); err != nil {
-				return nil, err
-			}
-			return nil, errorAt(tk.Line, tk.Col, "enum bodies hold only variants")
+			return nil, p.typeBodyItemError()
 		case tk.Type == token.IDENT && tk.Lexeme == "embeds" || tk.Type == token.TYPE_IDENT:
 			if err := rejectAttachedTestsOnNonDeclaration(attachedTests, "an enum variant"); err != nil {
 				return nil, err
@@ -7282,10 +7157,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 		case tk.Type == token.IDENT && p.peekAt(1).Type == token.COLON:
 			return nil, errorAt(tk.Line, tk.Col, "fields are not allowed in an enum body — fields belong in a struct body")
 		case tk.Type == token.TEST || p.atGroupStart() || p.startsConformanceLine():
-			if _, err := p.parseTypeBodyItem(); err != nil {
-				return nil, err
-			}
-			return nil, errorAt(tk.Line, tk.Col, "enum bodies hold only variants")
+			return nil, p.typeBodyItemError()
 		default:
 			return nil, errorAt(tk.Line, tk.Col, "expected variant name or 'embeds' in enum `%s` body, got %s", name, tokenShown(tk))
 		}
@@ -7301,7 +7173,7 @@ func (p *Parser) parseEnumBody(public bool, opaque bool, name string, typeParams
 		return nil, p.errorOnLine(line, "enum `%s` must have at least one variant", name)
 	}
 
-	return &ast.EnumDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Variants: variants, Items: items, EndTrivia: endTrivia, Line: line, Col: col}, nil
+	return &ast.EnumDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Variants: variants, EndTrivia: endTrivia, Line: line, Col: col}, nil
 }
 
 // parseEnumVariant parses a single enum variant. enumName is the parent
@@ -8074,10 +7946,6 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		innerTypeExpr = typeExpr
 	}
 
-	var items []ast.Node
-	var endTrivia []ast.Trivia
-	var closeTok token.Token
-	hasBody := false
 	if !p.atEnd() && p.peek().Type == token.LBRACE && p.pos > 0 && p.peek().Line == p.tokens[p.pos-1].Line {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "distinct `type` declarations do not take bodies; put constructors and helpers beside the type")
 	}
@@ -8129,13 +7997,8 @@ func (p *Parser) parseTypeDef(public bool, opaque bool) (ast.Node, error) {
 		InnerTypeExpr: innerTypeExpr,
 		MoreParents:   moreParents,
 		WhereClauses:  whereClauses,
-		HasBody:       hasBody,
-		Items:         items,
-		EndTrivia:     endTrivia,
 		Line:          tok.Line,
 		Col:           nameTok.Col,
-		EndLine:       closeTok.Line,
-		EndCol:        closeTok.Col,
 	}, nil
 }
 
@@ -8264,7 +8127,6 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 	p.skipSeparatorsOnly()
 
 	var fields []ast.StructField
-	var items []ast.Node
 	var endTrivia []ast.Trivia
 	var rule ast.Node
 	var ruleTok token.Token
@@ -8330,15 +8192,9 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		}
 		switch {
 		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostDecl() || tk.Type == token.ONCE:
-			if _, err := p.parseTypeBodyItem(); err != nil {
-				return nil, err
-			}
-			return nil, errorAt(tk.Line, tk.Col, "struct bodies hold only fields")
+			return nil, p.typeBodyItemError()
 		case tk.Type == token.TEST || p.atGroupStart() || p.startsConformanceLine():
-			if _, err := p.parseTypeBodyItem(); err != nil {
-				return nil, err
-			}
-			return nil, errorAt(tk.Line, tk.Col, "struct bodies hold only fields")
+			return nil, p.typeBodyItemError()
 		case tk.Type == token.TYPE_IDENT:
 			return nil, errorAt(tk.Line, tk.Col, "variants are not allowed in a struct body — variants belong in an enum body")
 		case tk.Type == token.IDENT:
@@ -8416,7 +8272,7 @@ func (p *Parser) parseStructBody(public bool, opaque bool, name string, typePara
 		return nil, err
 	}
 
-	return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, Items: items, EndTrivia: endTrivia, Rule: rule, RuleLine: ruleTok.Line, RuleCol: ruleTok.Col, RuleLeading: ruleLeading, RuleTrailing: ruleTrailing, Line: line, Col: col}, nil
+	return &ast.StructDef{Name: name, Public: public, Opaque: opaque, TypeParams: typeParams, WhereClauses: whereClauses, Fields: fields, EndTrivia: endTrivia, Rule: rule, RuleLine: ruleTok.Line, RuleCol: ruleTok.Col, RuleLeading: ruleLeading, RuleTrailing: ruleTrailing, Line: line, Col: col}, nil
 }
 
 // rejectRuleAfterStructEnd refuses a `when` on the line a struct's `end`
@@ -9335,24 +9191,6 @@ func (p *Parser) discardedRest(what string) error {
 	return nil
 }
 
-// parseSpreadRest parses what follows a vector or set pattern's `..`
-// (consumed): a name, or nothing before a comma or close. what names the
-// pattern for the error.
-func (p *Parser) parseSpreadRest(spreadTok token.Token, close token.TokenType, what string) (ast.Node, error) {
-	if p.bareSpreadEnds(close) {
-		return nil, nil
-	}
-	p.skipNewlines()
-	if err := p.discardedRest(what); err != nil {
-		return nil, err
-	}
-	if t := p.peek(); t.Type == token.IDENT {
-		p.advance()
-		return &ast.IdentPattern{Name: t.Lexeme, Line: t.Line, Col: t.Col}, nil
-	}
-	return nil, errorAt(spreadTok.Line, spreadTok.Col, vectorRestMessage, what)
-}
-
 // parseMapPattern parses a map pattern's braces, `{key => pat, ...}`, after
 // `%` (typeName nil) or `%Kvs` (typeName Kvs). The cursor is on the `{`;
 // line and col are the pattern's start, the `%`. The key is an arbitrary expression,
@@ -10030,7 +9868,7 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 		case tk.Type == token.EXPORT:
 			return nil, nil, closeTok, errorAt(tk.Line, tk.Col, "a function in an %s cannot be exported: `export fn` declares a top-level function", blockNoun)
 		case tk.Type == token.FN || tk.Type == token.PUB || p.startsHostFuncDecl():
-			item, err := p.parseImplBlockItem(allowPub, false, blockNoun)
+			item, err := p.parseImplBlockItem(allowPub, blockNoun)
 			if err != nil {
 				return nil, nil, closeTok, err
 			}
@@ -10059,11 +9897,9 @@ func (p *Parser) parseImplBlockBody(blockNoun string, allowPub bool) ([]ast.Node
 	return items, endTrivia, closeTok, nil
 }
 
-// startsConformanceLine reports whether the cursor is at the head of removed
-// body-level conformance syntax or a current `derive` entry. Removed old
-// spellings are still *recognized* here — not to parse them, but so
-// parseTypeBodyItem can route them to a targeted error pointing at the current
-// syntax (rather than the generic body-loop default).
+// startsConformanceLine reports whether the cursor is at a conformance
+// spelling (`impl`, `implements`, `derive`, `derives`) inside a type body,
+// which typeBodyItemError answers with where that declaration is written.
 func (p *Parser) startsConformanceLine() bool {
 	tk := p.peek()
 	switch {
@@ -10079,39 +9915,40 @@ func (p *Parser) startsConformanceLine() bool {
 	return false
 }
 
-// parseTypeBodyItem rejects declaration forms that used to be admitted inside
-// type bodies, with targeted current-syntax diagnostics.
-func (p *Parser) parseTypeBodyItem() ([]ast.Node, error) {
+// typeBodyItemError is the error for a declaration written inside a type
+// body, which holds only the type's shape: it says where that declaration is
+// written.
+func (p *Parser) typeBodyItemError() error {
 	tk := p.peek()
 	// `derives Iface` is a plain IDENT sequence. Give it a targeted error.
 	if tk.Type == token.IDENT && tk.Lexeme == "derives" {
-		return nil, errorAt(tk.Line, tk.Col, "a derived interface conformance is `derive Iface for Type`; `derives` is not a conformance keyword")
+		return errorAt(tk.Line, tk.Col, "a derived interface conformance is `derive Iface for Type`; `derives` is not a conformance keyword")
 	}
 	if tk.Type == token.IDENT && tk.Lexeme == "implements" {
-		return nil, errorAt(tk.Line, tk.Col, "interface conformance uses `impl`, not `implements`")
+		return errorAt(tk.Line, tk.Col, "interface conformance uses `impl`, not `implements`")
 	}
 	if tk.Type == token.IMPL {
-		return nil, errorAt(tk.Line, tk.Col, "interface implementations are written as `impl Iface for Type` blocks outside the type body")
+		return errorAt(tk.Line, tk.Col, "interface implementations are written as `impl Iface for Type` blocks outside the type body")
 	}
 	if tk.Type == token.IDENT && tk.Lexeme == "derive" {
 		if p.peekAt(1).Type == token.IMPL {
-			return nil, errorAt(tk.Line, tk.Col, "a derived interface conformance is `derive Iface for Type`; `derive impl` is not a conformance keyword")
+			return errorAt(tk.Line, tk.Col, "a derived interface conformance is `derive Iface for Type`; `derive impl` is not a conformance keyword")
 		}
-		return nil, errorAt(tk.Line, tk.Col, "derive declarations are written outside the type body as `derive Iface for Type`")
+		return errorAt(tk.Line, tk.Col, "derive declarations are written outside the type body as `derive Iface for Type`")
 	}
 	if tk.Type == token.PUB && p.peekAt(1).Type == token.IMPL {
-		return nil, errorAt(tk.Line, tk.Col, "implementation functions do not take `pub` — visibility comes from the implemented interface")
+		return errorAt(tk.Line, tk.Col, "implementation functions do not take `pub` — visibility comes from the implemented interface")
 	}
 	if tk.Type == token.TEST || p.atGroupStart() {
-		return nil, errorAt(tk.Line, tk.Col, "tests are declarations outside type bodies")
+		return errorAt(tk.Line, tk.Col, "tests are declarations outside type bodies")
 	}
 	if tk.Type == token.ONCE || (tk.Type == token.PUB && p.peekAt(1).Type == token.ONCE) {
-		return nil, errorAt(tk.Line, tk.Col, "once bindings are declarations outside type bodies")
+		return errorAt(tk.Line, tk.Col, "once bindings are declarations outside type bodies")
 	}
 	if tk.Type == token.FN || p.startsHostDecl() || tk.Type == token.PUB {
-		return nil, errorAt(tk.Line, tk.Col, "functions are declarations outside type bodies")
+		return errorAt(tk.Line, tk.Col, "functions are declarations outside type bodies")
 	}
-	return nil, errorAt(tk.Line, tk.Col, "type bodies hold only shape items")
+	return errorAt(tk.Line, tk.Col, "type bodies hold only shape items")
 }
 
 func (p *Parser) parseDeriveDecl() (ast.Node, error) {
@@ -10245,7 +10082,7 @@ func attachTypeBodyItemMeta(item ast.Node, doc string, attachedTests []ast.Attac
 // Type-body inherent functions allow ordinary `pub fn` / `pub host fn` items;
 // `impl Iface for Type { ... }` bodies do not, because their functions inherit
 // visibility from the interface named by the block header.
-func (p *Parser) parseImplBlockItem(allowPub bool, allowImplQualifier bool, blockNoun string) (node ast.Node, err error) {
+func (p *Parser) parseImplBlockItem(allowPub bool, blockNoun string) (node ast.Node, err error) {
 	start := p.pos
 	defer func() {
 		if err == nil {
@@ -10265,7 +10102,7 @@ func (p *Parser) parseImplBlockItem(allowPub bool, allowImplQualifier bool, bloc
 	}
 	switch p.peek().Type {
 	case token.FN:
-		return p.parseFuncDef(public, allowImplQualifier)
+		return p.parseFuncDef(public)
 	case token.IDENT:
 		if p.peek().Lexeme != "host" {
 			if allowPub {
@@ -10278,7 +10115,7 @@ func (p *Parser) parseImplBlockItem(allowPub bool, allowImplQualifier bool, bloc
 		if p.peekAt(1).Type != token.FN {
 			return nil, errorAt(p.peek().Line, p.peek().Col, "impl block body admits only 'host fn' (not 'host type')")
 		}
-		return p.parseHost(public, allowImplQualifier)
+		return p.parseHost(public)
 	case token.EXTERN:
 		return nil, errorAt(p.peek().Line, p.peek().Col, "runtime-provided declarations use `host fn`, not `extern fn`")
 	default:
@@ -10878,7 +10715,7 @@ func (p *Parser) parseKeywordDecl(public bool) (ast.Node, error) {
 // Host and external declarations
 // ---------------------------------------------------------------------------
 
-func (p *Parser) parseExtern(public bool, allowImplQualifier bool) (ast.Node, error) {
+func (p *Parser) parseExtern() (ast.Node, error) {
 	externTok := p.peek()
 	p.advance() // consume "extern"
 
@@ -10892,13 +10729,13 @@ func (p *Parser) parseExtern(public bool, allowImplQualifier bool) (ast.Node, er
 	}
 }
 
-func (p *Parser) parseHost(public bool, allowImplQualifier bool) (ast.Node, error) {
+func (p *Parser) parseHost(public bool) (ast.Node, error) {
 	hostTok := p.peek()
 	p.advance() // consume "host"
 
 	switch p.peek().Type {
 	case token.FN:
-		return p.parseExternFunc(hostTok, public, allowImplQualifier)
+		return p.parseExternFunc(hostTok, public)
 	case token.TYPE:
 		return p.parseExternType(hostTok, public)
 	default:
@@ -10922,10 +10759,10 @@ func (p *Parser) startsHostFuncDecl() bool {
 	return isHostToken(p.peek()) && p.peekAt(1).Type == token.FN
 }
 
-func (p *Parser) parseExternFunc(externTok token.Token, public bool, allowImplQualifier bool) (ast.Node, error) {
+func (p *Parser) parseExternFunc(externTok token.Token, public bool) (ast.Node, error) {
 	p.advance() // consume "fn"
 
-	name, nameTok, implIface, sourceQualified, err := p.parseFunctionHeaderName(externTok, "host fn", allowImplQualifier)
+	name, nameTok, err := p.parseFunctionHeaderName(externTok, "host fn")
 	if err != nil {
 		return nil, err
 	}
@@ -11032,17 +10869,15 @@ func (p *Parser) parseExternFunc(externTok token.Token, public bool, allowImplQu
 	}
 
 	return &ast.ExternFunc{
-		Name:                     name,
-		Public:                   public,
-		TypeParams:               typeParams,
-		Params:                   params,
-		ParamsEndTrivia:          paramsEnd,
-		ReturnTypeExpr:           returnTypeExpr,
-		WhereClauses:             whereClauses,
-		ImplIface:                implIface,
-		ImplIfaceSourceQualified: sourceQualified,
-		Line:                     nameTok.Line,
-		Col:                      nameTok.Col,
+		Name:            name,
+		Public:          public,
+		TypeParams:      typeParams,
+		Params:          params,
+		ParamsEndTrivia: paramsEnd,
+		ReturnTypeExpr:  returnTypeExpr,
+		WhereClauses:    whereClauses,
+		Line:            nameTok.Line,
+		Col:             nameTok.Col,
 	}, nil
 }
 
@@ -11064,10 +10899,6 @@ func (p *Parser) parseExternType(externTok token.Token, public bool) (ast.Node, 
 		return nil, err
 	}
 
-	var items []ast.Node
-	var endTrivia []ast.Trivia
-	var closeTok token.Token
-	hasBody := false
 	if !p.atEnd() && p.peek().Type == token.LBRACE && p.pos > 0 && p.peek().Line == p.tokens[p.pos-1].Line {
 		return nil, errorAt(p.peek().Line, p.peek().Col, "host type declarations do not take bodies; put host functions in impl blocks or beside the type")
 	}
@@ -11077,13 +10908,8 @@ func (p *Parser) parseExternType(externTok token.Token, public bool) (ast.Node, 
 		Public:       public,
 		TypeParams:   typeParams,
 		WhereClauses: whereClauses,
-		HasBody:      hasBody,
-		Items:        items,
-		EndTrivia:    endTrivia,
 		Line:         nameTok.Line,
 		Col:          nameTok.Col,
-		EndLine:      closeTok.Line,
-		EndCol:       closeTok.Col,
 	}, nil
 }
 
@@ -11120,7 +10946,7 @@ func (p *Parser) parseExportFunc() (ast.Node, error) {
 	if p.atEnd() || p.peek().Type != token.FN {
 		return nil, errorAt(exportTok.Line, exportTok.Col, "`export` marks a function: `export fn name(...)`")
 	}
-	node, err := p.parseFuncDef(false, false)
+	node, err := p.parseFuncDef(false)
 	if err != nil {
 		return nil, err
 	}

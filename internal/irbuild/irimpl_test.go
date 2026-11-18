@@ -60,9 +60,9 @@ end
 		t.Fatal(err)
 	}
 	// The three source bodies and the two auto-synthesized Debug bodies are
-	// all read back.
-	if len(c.readBack) != 5 || len(c.unreadSource) != 0 {
-		t.Fatalf("impl bodies retained %v, read back %v; want all five bodies", c.retained, c.readBack)
+	// all retained.
+	if len(c.retained) != 5 {
+		t.Fatalf("impl bodies retained %v; want all five bodies", c.retained)
 	}
 	var entry *ir.Module
 	for _, m := range res.IR {
@@ -109,13 +109,10 @@ end
 `
 	var funcs []*ir.Func
 	prev := irFuncObserved
-	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func, read bool) {
+	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func) {
 		// Read's specializations only: each Box instance also retains its
 		// synthesized Debug.
 		if origin == irFromImpl && f != nil && strings.HasSuffix(name, ".read") {
-			if !read {
-				t.Error("retained specialization did not read back")
-			}
 			funcs = append(funcs, f)
 		}
 	}

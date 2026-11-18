@@ -1053,8 +1053,7 @@ end
 // Trailing-lambda routing (spec §7, *Lambdas at Call Sites*) must apply
 // to GENERIC callees too: a lambda passed as the final positional argument
 // routes into the last param slot, skipping a defaulted middle param. The
-// non-generic path (computePositionalSlots) and the pipe path
-// (computePipeArgSlots) already did this; checkGenericCall mapped arg i →
+// non-generic path and the pipe path already did this; checkGenericCall mapped arg i →
 // param i and mis-checked the lambda against the defaulted middle param
 // (real-world repro: `Iter.sort_by(users, fn u -> u.name)` — sort_by's
 // signature is `(list, direction: Direction = Ascending, key)`).
@@ -5527,7 +5526,8 @@ end
 
 // TestChecker_GenericFn_AnonStructParam_RejectsTypeMismatch pins the
 // negative side: when the anon-struct argument forces T to two different
-// types, inference must fail.
+// types, inference must fail. The field's value is checked against the
+// field's type with T as the first field solved it, as a tuple's item is.
 func TestChecker_GenericFn_AnonStructParam_RejectsTypeMismatch(t *testing.T) {
 	src := `fn first<T>(p: {head: T, tail: List<T>}) -> T
   p.head
@@ -5538,7 +5538,7 @@ fn demo() -> Int
 end
 `
 	_, errs := checkSource(src)
-	expectError(t, errs, "argument 1: expected")
+	expectError(t, errs, "list element type mismatch: expected Int, got String")
 }
 
 // TestChecker_AnonStructParam_GenericPayloadInfersTypeArg pins that a
@@ -5847,6 +5847,37 @@ func TestCheckHostFnParamDefault(t *testing.T) {
 	expectNoErrors(t, errs)
 	_, errs = checkSource("host fn pad(s: String, width: Int = nowhere) -> String\n")
 	expectError(t, errs, "undefined variable 'nowhere'")
+}
+
+// An interface function's parameter default sees the parameters before it,
+// `self`'s included, as a fn's does, and not the parameter itself or one
+// after it.
+func TestCheckInterfaceDefaultParamReadsEarlierParams(t *testing.T) {
+	_, errs := checkSource(`interface Shape
+  fn side(value: self) -> Int
+
+  open fn area(value: self, scale: Int = 1, extra: Int = scale * 2 + Shape.side(value)) -> Int
+    Shape.side(value) * scale + extra
+  end
+end
+`)
+	expectNoErrors(t, errs)
+	_, errs = checkSource(`interface Shape
+  open fn area(_value: self, scale: Int = 1, extra: String = scale * 2) -> String
+    extra
+  end
+end
+`)
+	expectError(t, errs, "default value for parameter 'extra' is Int, expected String")
+	for _, sig := range []struct{ params, undefined string }{
+		{"_value: self, scale: Int = extra, extra: Int = 2", "extra"},
+		{"_value: self, scale: Int = scale, extra: Int = 2", "scale"},
+	} {
+		_, errs = checkSource("interface Shape\n  open fn area(" + sig.params + ") -> Int\n    scale + extra\n  end\nend\n")
+		expectError(t, errs, "undefined variable '"+sig.undefined+"'")
+		_, errs = checkSource("fn area(" + strings.TrimPrefix(sig.params, "_value: self, ") + ") -> Int\n  scale + extra\nend\n")
+		expectError(t, errs, "undefined variable '"+sig.undefined+"'")
+	}
 }
 
 // A file qualifier is not a value: alone as a statement, bound, or in a

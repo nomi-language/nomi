@@ -38,28 +38,20 @@ package irbuild
 // literal reads the field from the base as its `..` (ircurrentvalue.go), and
 // anything else is an assignment.
 //
-// # Why the emitted form is a copy-and-assign
+// # The original is evaluated once
 //
-// A Nomi struct lowers to a Go struct VALUE, so `o := original; o.F = v; return
-// o` is the patch, with Go's own copy doing the "non-overlapping fields are
-// preserved" half for free. It is written as an immediately-applied func
-// literal rather than as statements because a call is an EXPRESSION here and
-// may appear anywhere one may — including inside another update's field list,
-// which is what the nested form emits.
-//
-// The original is evaluated exactly ONCE, as the argument to that literal.
-// Building `T{F: v, G: original.G, …}` instead would repeat it per surviving
-// field, which for `Struct.update(expensive(), {x: 1})` is a call per field and
-// a different program.
+// structUpdateCall (irrecord.go) forces the base into a temporary and merges
+// the patch over it as a spread does (structMerge). Reading the base once per
+// surviving field would make `Struct.update(expensive(), {x: 1})` a call per
+// field, which is a different program.
 
 // stdStructUpdateIsStds reports whether `Struct.update` resolves to
 // std/structs' declaration in the stdlib index.
 //
 // Asked of the INDEX rather than of module scope because the index is what
 // records where a declaration came from, and `structs.Struct.update` is filed
-// under the interface name in the receiver slot — the key
-// `lookupImplBlockExtern` builds for a `host fn` declared inside an
-// `interface`. See stdlib.go's collectStdCandidates.
+// under the interface name in the receiver slot — the key of a `host fn`
+// declared inside an `interface`. See stdlib.go's collectStdCandidates.
 func (g *gen) stdStructUpdateIsStds() bool {
 	if g.std == nil {
 		return false

@@ -89,6 +89,12 @@ type Program struct {
 	// program-wide reductions fold. filesByKey holds them by module key.
 	files      []*FileAnalysis
 	filesByKey map[string]*FileAnalysis
+	// editedStd is the shared stdlib's analysis of the std module the
+	// program checks from edited text (AttachEditedStdlibImpls), which
+	// files holds in its place. The stdlib's scopes still name that
+	// analysis's declarations (an attached test's `import std::hex` in
+	// std/hex), so a call's record may name one (reachedFiles).
+	editedStd []*FileAnalysis
 
 	// unindexedImpls is the union of the Impls of the program's files that
 	// ImplIndex does not fold: a project build's modules a function body's
@@ -276,6 +282,16 @@ func entryOriginOf(filesByKey map[string]*FileAnalysis) string {
 // module-key order.
 func (p *Program) Files() []*FileAnalysis {
 	return p.files
+}
+
+// reachedFiles is every file whose declarations the program's records
+// may name: its files, and the shared analysis of a std module it checks
+// from edited text (editedStd).
+func (p *Program) reachedFiles() []*FileAnalysis {
+	if len(p.editedStd) == 0 {
+		return p.files
+	}
+	return append(slices.Clip(p.files), p.editedStd...)
 }
 
 // implTables are the impl-method tables of a build's own files.

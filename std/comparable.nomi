@@ -154,8 +154,10 @@ pub interface Comparable
     /// `Range.from(n)`, clamps only below. The range is a `ClosedRange`, so a
     /// backwards range (`10..=1`) or one whose end it leaves out (`0..10`) is
     /// an error when the program is compiled, and a range computed when it
-    /// runs goes through `ClosedRange.try_from`. `Float` overrides it so
-    /// that a NaN `value` stays NaN.
+    /// runs goes through `ClosedRange.try_from`. An Int, Decimal or
+    /// Duration held to a range written in the call is in that range to the
+    /// compiler too: `Int.clamp(n, 0..=9)` is a `NonNegativeInt`. `Float`
+    /// overrides it so that a NaN `value` stays NaN.
     open fn clamp(value: self, range: ClosedRange<self>) -> self
         low = Range.start(range)
 

@@ -47,7 +47,7 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	if t.Field == nil {
 		// A parse artifact.
-		return no()
+		panic("irbuild: fieldRead: parser always sets FieldAccess.Field for a parsed `x.f`")
 	}
 	_, appObject := bl.g.appRead(t.Object)
 	switch t.Object.(type) {
@@ -147,6 +147,17 @@ func (bl *irScalarBuilder) fieldProject(at ast.Node, name string, subj ir.Temp, 
 // type it alike (enumFieldAgreed); a value of a variant that does not supply
 // it faults at run time with rt's texts (ir.ProjEnumField's Faults says
 // whether one exists).
+//
+// The three payload shapes one read answers for:
+//
+//	Shape.Rect{radius: 1.5, height: 3}   struct-shaped   one slot per field
+//	Shape.Square{radius: 9.0}            embeds a struct ONE slot, the struct
+//	Shape.Wrap(Circle{radius: 4.0})      positional      ONE slot, the struct
+//
+// Which fault is a fact of the value's variant: `variant 'Rect' has no field
+// 'radius'` when its payload is a struct without the name, `cannot access
+// field 'height' on variant 'Num'` when its payload is not a struct.
+// testdata/enum_field_read_trap.nomi runs each.
 func (bl *irScalarBuilder) enumFieldRead(at ast.Node, name string, subj ir.Temp, d *typeDef, mobile bool) (ir.Temp, kind, bool, bool) {
 	var fk kind
 	found, faults := false, false

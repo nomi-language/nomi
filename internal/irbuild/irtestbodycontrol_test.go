@@ -525,7 +525,6 @@ test "a subject's operand that leaves"
     io.print("operand left")
     return
   end
-  io.print("not reached")
 end
 `, 4)
 	for _, want := range []string{"deferred", "= \"x\"", "left with no", "operand left"} {
@@ -550,7 +549,6 @@ fn f(n: Int) -> Result<Int, AssertionFailure>
     io.print("leaving")
     return Ok(7)
   end
-  Ok(1)
 end
 fn main()
   io.inspect(f(1))

@@ -39,11 +39,11 @@ import (
 //	std/ranges.nomi:24  pub opaque struct Range<T> where T: Comparable { … }
 //
 // A `where T: Comparable` on a std declaration is discharged at the call site
-// by the CONCRETE type argument, for a type as for a function (iterext.go's
-// iterMaxArity makes the same point for functions). `Discrete.next` is never
+// by the CONCRETE type argument, for a type as for a function.
+// `Discrete.next` is never
 // resolved at a type parameter here: the builder knows the element kind
 // statically at every site, so it builds the function a run-time lookup would
-// find and passes it as an ARGUMENT, map.go's `hash, eq` arrangement one
+// find and passes it as an ARGUMENT, rt/map.go's `hash, eq` arrangement one
 // interface up. See rt/range.go, whose functions take `cmp`, `next`, `steps`
 // and `step` as plain Go funcs and resolve nothing.
 //
@@ -60,32 +60,19 @@ import (
 //
 // # What makes an instance shareable is stdprelude.go's predicate, unchanged
 //
-// A def reached from two gens must render to the same Go type text in every
-// module's package, so an instance is admitted only when every type argument is
-// `packageNeutral`. `rt.Set[int64]` names rt and a Go builtin; `rt.Set[NomiT_Point]`
-// names a type declared in one module's package. There is deliberately NO
-// per-gen fallback here — unlike prelude.go, which has one — because a per-gen
-// Set instance would need foreign.go's rebuild path and nothing in the corpus
-// reaches a `Set<UserType>`. A non-neutral argument refuses by name instead, so
-// the absence is a stated scope line rather than a silent miss.
-//
-// # The Go type is in rt, and that is the one thing that could not be avoided
-//
-// rt/set.go's header argues it: a Set is not a data structure, it is a one-field
-// wrapper over the map rt already owns, so nothing new is IMPLEMENTED — but the
-// Go TYPE has to exist in rt, because a per-package `NomiT_Set_Int` would make
-// one Nomi type into N mutually unassignable Go types. Calling `Set<T>` "no new
-// runtime type" is off by a struct declaration and off by nothing else.
+// A def shared process-wide must hold no pointer into one program's gen, so an
+// instance is shared only when every type argument is `packageNeutral`:
+// `Set<Int>` is shared, and `Set<Point>` over a program's `Point` is not. An
+// instance over a non-neutral argument is interned in the gen that names it;
+// see genStructInstance.
 
 // stdGenStructSpec is one generic stdlib struct: what this builder believes std
-// declares, and how rt spells it.
+// declares.
 type stdGenStructSpec struct {
 	// origin is the declaring file's build key, the analyzer's own identity
 	// half; nomi is the other half. See analysis.StructType.Origin.
 	origin string
 	nomi   string
-	// rtType is the Go generic type in rt, without its type arguments.
-	rtType string
 	// params are the declared type parameter names, in declaration order.
 	params []string
 	// opaque is whether std declares this WITH `opaque`, checked in BOTH
@@ -148,7 +135,7 @@ type stdGenStructField struct {
 	// own vocabulary and
 	// resolves no names by construction, so it cannot mention a type
 	// parameter — there is nothing for an instantiation to substitute into.
-	// `fillFieldDefaults` reads `fieldDef.stdDeflt` off the def, and a def
+	// `fieldDefault` reads `fieldDef.stdDeflt` off the def, and a def
 	// this file builds is an ordinary `*typeDef`, so the fill is shared
 	// rather than reimplemented.
 	//
@@ -168,7 +155,7 @@ type stdGenStructField struct {
 // FUNCTION.
 var stdGenStructSpecs = []stdGenStructSpec{
 	{
-		origin: "std/sets", nomi: "Set", rtType: "rt.Set",
+		origin: "std/sets", nomi: "Set",
 		params: []string{"T"},
 		opaque: true,
 		fields: []stdGenStructField{{
@@ -198,7 +185,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 		//     than asserted, exactly as stdMaybeField honours its `!shared`.
 		//   - `inclusive` is a Bool, and it is the only field of either family
 		//     that is a bare scalar.
-		origin: "std/ranges", nomi: "Range", rtType: "rt.Range",
+		origin: "std/ranges", nomi: "Range",
 		params: []string{"T"},
 		opaque: true,
 		bounds: [][]string{{"Comparable"}},
@@ -247,7 +234,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 		// `Receiver.receive`, `Sender.close`) and declares no `Channel.send`,
 		// so nothing may reach the channel through the pair; rt/channel.go
 		// carries that argument in full.
-		origin: "std/channels", nomi: "Channel", rtType: "rt.Channel",
+		origin: "std/channels", nomi: "Channel",
 		params: []string{"T"},
 		fields: []stdGenStructField{{
 			nomi: "sender", decl: "Sender<T>",
@@ -276,7 +263,7 @@ var stdGenStructSpecs = []stdGenStructSpec{
 		// `pub host fn` operations with no Nomi body, and `Generator`'s are
 		// ordinary Nomi source over a seed-threading closure, so an rt
 		// implementation would be a SECOND implementation of one draw sequence.
-		origin: "std/random", nomi: "Generator", rtType: "rt.Generator",
+		origin: "std/random", nomi: "Generator",
 		params: []string{"T"},
 		opaque: true,
 		fields: []stdGenStructField{{
@@ -406,11 +393,7 @@ func (s *stdGenStructSpec) matches(decl *ast.StructDef) bool {
 		// smuggle a bound past the other.
 		return false
 	}
-	if len(decl.Items) > 0 {
-		// A type body item is layout-relevant. An attached `//!` test is not,
-		// and is deliberately not checked — see stdStructSpec.matches.
-		return false
-	}
+	// An attached `//!` test is not checked: see stdStructSpec.matches.
 	for _, dec := range decl.Decorators {
 		// `derive` is metadata about work already done — it is also synthesized
 		// into an ordinary impl block. Any other decorator is a real refusal.
@@ -513,10 +496,9 @@ var (
 	sharedGenStructDefs = map[string][]*typeDef{}
 )
 
-// genStructNames renders one instantiation's Go type and its Nomi spelling, from
-// ONE walk so they cannot disagree about which arguments an instance has — the
-// Go name is the intern key and the Nomi name is what a collision is detected
-// against. preludeNames' rule and its shape.
+// genStructNomi renders one instantiation's Nomi spelling, `Set<Int>`. It is
+// the def's name and the key the intern tables group instances under; the
+// tables then tell instances apart by their type arguments.
 func genStructNomi(spec *stdGenStructSpec, args []kind) string {
 	var nomi strings.Builder
 	nomi.WriteString(spec.nomi)
@@ -534,10 +516,9 @@ func genStructNomi(spec *stdGenStructSpec, args []kind) string {
 // buildGenStructDef constructs one instantiation's typeDef, reporting whether
 // every field had a kind.
 //
-// An ordinary struct typeDef with two differences, both consequences of the Go
-// type living in rt: `rtDeclared` so typeDecl emits nothing for it, and the
-// field's name coming from the spec, because rt
-// has to export it for another package to name.
+// An ordinary struct typeDef with two differences: it is marked `rtDeclared`,
+// as the other std type families' defs are, and its fields' names and kinds
+// come from the spec and not from a declaration node.
 //
 // g is NIL for a process-wide instance and the gen for a per-gen one, and that
 // is the only difference between the two doors below: a field's kind is interned
@@ -575,7 +556,7 @@ func buildGenStructDef(g *gen, spec *stdGenStructSpec, args []kind) (*typeDef, b
 		// the builder's own vocabulary so it resolves no names, and a field
 		// carrying the AST form would take types.go's declaring-scope path
 		// instead. stdstruct_test.go asserts that exclusivity for the
-		// monomorphic family and TestStdGenStructDefaultsAreStdDefaults does
+		// monomorphic family and TestStdGenStructDefaultsReachTheDef does
 		// it here.
 		d.fields = append(d.fields, fieldDef{nomi: f.nomi, k: fk, stdDeflt: f.deflt})
 		// The component graph, so a field kind that cannot be LOWERED (as
@@ -622,18 +603,17 @@ func sharedGenStructInstance(spec *stdGenStructSpec, args []kind) (kind, bool) {
 // # Why the per-gen half exists
 //
 // `16-concurrency/message_loop` writes `Channel<Request>` in a field and in a
-// parameter, and `Request` is a struct ONE module's package declares, so the
-// instance cannot be process-wide.
+// parameter, and `Request` is a struct one module of the program declares, so
+// the instance cannot be process-wide.
 //
 // No new `kind` and no new tag. An instance is the same `*typeDef` shape,
-// carrying `genStructOf` and `genStructArgs`, still `rtDeclared` because rt
-// declares `rt.Channel[T]`. What differs is WHICH TABLE it is interned in,
-// which is exactly prelude.go's split: `rt.Maybe[int64]` process-wide,
-// `rt.Maybe[NomiT_Point]` per gen.
+// carrying `genStructOf` and `genStructArgs`, still `rtDeclared`. What differs
+// is which table it is interned in, which is prelude.go's split: `Maybe<Int>`
+// process-wide, `Maybe<Point>` per gen.
 //
 // `kind.packageNeutral`'s `genStructOf` arm answers by walking
 // `genStructArgs` (see stdprelude.go), so it answers false for
-// `rt.Channel[NomiT_Request]`.
+// `Channel<Request>`.
 func (g *gen) genStructInstance(spec *stdGenStructSpec, args ...kind) (kind, bool) {
 	for _, arg := range args {
 		// kindInvalid: propagates — a refused type ARGUMENT was named at its own position; the caller reports the false.
@@ -679,74 +659,17 @@ func (g *gen) genStructInstance(spec *stdGenStructSpec, args ...kind) (kind, boo
 // against spec origin `std/random`, and likewise for `std/sets` and
 // `std/ranges`.
 //
-// TWO CALLERS, AND THEY ARE ONE RULE. A generic std struct has to mean the same
-// Go type in the declaring module's SIGNATURES (stdGenStructTypeOf) and in its
-// struct LITERALS (stdGenStructLit). Otherwise the signature path would hide
-// the anchor behind a shadowing check the declaring module trips by
-// definition, and the literal path would mint its own instance: one Nomi type,
-// two Go types, and a function refused for disagreeing with itself.
+// Two callers apply the one rule. A generic std struct has to be the same def
+// in the declaring module's signatures (typeOf) and in its struct
+// literals (irstruct.go). Otherwise the signature path would hide the anchor
+// behind a shadowing check the declaring module trips by definition, and the
+// literal path would build its own instance: one Nomi type with two defs, and
+// a function refused for disagreeing with itself.
 func (g *gen) stdGenStructDeclaringModule(a *stdGenStructAnchor) bool {
 	return a != nil && g.fa != nil && g.fa.Origin != "" && g.fa.Origin == a.spec.origin
 }
 
 // --- reading a type annotation and reading a kind back ----------------------
-
-// stdGenStructTypeOf reads the annotation `Set<Int>`, reporting whether the
-// generic type named a generic std struct at all — so an ordinary
-// unrepresentable `Foo<Bar>` keeps falling through to its own refusal.
-//
-// The identity check is the ANCHOR, not the name: `g.genStructs` was built from
-// this module's own scope by stdGenStructAnchorsOf, which requires the analyzer's
-// (Origin, Name) rule AND the declaration's validated shape.
-//
-// A type ARGUMENT is resolved by the ordinary g.typeOf, so `Set<List<Int>>` works
-// and `Set<SomeUserStruct>` reaches this module's own instance table rather than
-// the process-wide one. What still refuses is an argument no instance can be
-// built over at all — one whose own kind is invalid, or one for which a field's
-// kind cannot be built.
-func (g *gen) stdGenStructTypeOf(t *ast.GenericType) (kind, bool) {
-	g.loadStdGenStructs()
-	a := g.genStructs[t.Name]
-	if a == nil {
-		return kindInvalid, false
-	}
-	if _, declaredHere := g.types[t.Name]; declaredHere && !g.stdGenStructDeclaringModule(a) {
-		// A module declaring its own `Set` wins, which is the analyzer's own
-		// shadowing rule. Unreachable while std re-exports `Set` through the
-		// prelude — checkReservedTypeName rejects the redeclaration outright —
-		// and honoured rather than asserted, because the reservation is a
-		// front-end property this file does not own.
-		//
-		// THE DECLARING MODULE IS EXEMPT. `std/random` declares `Generator`,
-		// so `declaredHere` is TRUE throughout the module's own gen, and without
-		// the exemption every `Generator<T>` in its own signatures would resolve
-		// to kindInvalid and each member would refuse for naming its OWN type.
-		//
-		// A module is not shadowing itself: its declaration IS the anchor's
-		// subject, validated as such by stdGenStructAnchorsOf against the
-		// analyzer's (Origin, Name) identity. So the exemption is the same
-		// identity rule the anchor was built from, read one step further.
-		return kindInvalid, false
-	}
-	if len(t.Params) != len(a.spec.params) {
-		return kindInvalid, false
-	}
-	args := make([]kind, len(t.Params))
-	for i, p := range t.Params {
-		args[i] = g.typeOf(p)
-	}
-	k, ok := g.genStructInstance(a.spec, args...)
-	if !ok {
-		// Claimed and refused, rather than declined: declining would report
-		// `generic type (Set)`, naming the container — which lowers — instead of
-		// the argument, which does not. That is the mis-naming prelude.go's
-		// preludeSpecFor exists to correct.
-		g.reject("generic std struct at a package-relative type argument",
-			typeText(t), t)
-		return kindInvalid, true
-	}
-	return k, true
-}
 
 // genStructOf reads a kind back to the spec it instantiates and its type
 // arguments, so an operation arm can ask "is this a Set" by SPEC POINTER rather
@@ -765,7 +688,7 @@ func genStructOf(k kind) (*stdGenStructSpec, []kind, bool) {
 // genStructOfType is inferred.go's projection: the instance the checker solved
 // for a position the program never annotated.
 //
-// `stdGenStructTypeOf` is the ANNOTATION door and this is the INFERENCE door.
+// `typeOf` is the ANNOTATION door and this is the INFERENCE door.
 // These rows have a process-wide `*typeDef` each, so without this arm
 // `Set<Int>` would lower as an annotation and refuse under inference, the
 // asymmetry inferred.go's own Map arm says must not happen.

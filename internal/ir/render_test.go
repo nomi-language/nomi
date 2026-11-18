@@ -123,9 +123,7 @@ func TestRender_TheChecksHavePower(t *testing.T) {
 			make: func() { ir.NewRenderDisplay(pos, 2, ir.NoTemp) },
 		},
 		{
-			// A rendering nobody reads is dead. `recordComparisonOperands`
-			// is the one producer that would hit this, and irrender.go
-			// routes it to a table QUERY instead.
+			// A rendering nobody reads is dead.
 			name: "no destination",
 			want: "nobody reads is dead",
 			make: func() { ir.NewRenderDebug(pos, ir.NoTemp, 1) },

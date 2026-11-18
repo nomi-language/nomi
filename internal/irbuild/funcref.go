@@ -8,56 +8,38 @@ import (
 // A module function's NAME used as a value — `Iter.map(double)`, `f = double`,
 // `apply(double, 7)`, `Token.Computation(double)`.
 //
-// # Why the key is split
+// # What a reference lowers to
 //
-// A function reference covers three different situations, and only one of
-// them is a representation gap this builder can close. The other two are
-// walls, and a wall reported under the same name as a gap is a row nobody can
-// size: clearing the gap empties most of the row and leaves the rest looking
-// like a regression at whatever position happens to survive.
+// A reference to a monomorphic module function is an `ir.RefFunc` naming the
+// function's symbol (filefuncref.go), with no wrapper and no captures. Its kind
+// is the function kind funcKind interns from the declaration's parameter and
+// result kinds, the same kind a lambda of that signature has, so a named
+// function and a lambda are interchangeable in every position:
+// `apply(double, 7)` and `apply(fn x -> x * 2, 7)` pass the same kind at the
+// same slot.
 //
-// So each wall has its own key and states what it is a wall against:
+// Two shapes are not the plain reference:
 //
-//   - `function reference with a defaulted parameter`. The answer is
-//     not what a Go programmer would guess: a Nomi function value carries its DEFAULTS and
-//     its slot-routing rule with it. `g = greet; g()` prints `hello, world` for
-//     `fn greet(name: String = "world")`, and `s = scale; s(5, double)` routes
-//     the trailing named function to the last slot and defaults `factor`,
-//     exactly as the direct call does. A Go func value has neither: its arity is
-//     fixed and it has no slots. So the Nomi type `(String) -> String` is not
-//     the whole of what the value is, and handing out the Go function would be a
-//     value that answers `g()` with a compile error where the program
-//     answers `hello, world`. Closing this needs a representation that carries
-//     the defaults, which is a decision, not an omission.
-//   - A generic function is not a wall. The checker instantiates the
-//     reference against the function type its position expects and records
-//     the instantiated signature on it (analysis/generic_func_ref.go); the
-//     value is that instance, at the type arguments the checker recorded,
-//     as a call's is (monoInstanceAt).
+//   - A function with defaulted parameters, named where the position's type
+//     takes only its first parameters, is a function value that fills the
+//     rest from their defaults (defaultFilledRef, ownerfuncref.go).
+//   - A generic function. The checker instantiates the reference against the
+//     function type its position expects and records the instantiated
+//     signature on it (analysis/generic_func_ref.go); the value is that
+//     instance, at the type arguments the checker recorded, as a call's is
+//     (monoInstanceAt).
 //
-// # What DOES lower, and why it costs nothing
-//
-// A lowered module function is `func <name>(fr *rt.Frame, p0 T0, …) R`, and
-// funcKind renders a Nomi function type as `func(*rt.Frame, T0, …) R`. Those are
-// the SAME Go type, written by two places that derive it from the same kinds. So
-// a reference to a monomorphic module function is its Go name and nothing else —
-// no wrapper, no closure, no allocation. The frame threads through exactly as it
-// does for a lambda, which is what makes a named function and a lambda
-// interchangeable in every position: `apply(double, 7)` and `apply(fn x -> x * 2, 7)`
-// produce the same Go type at the same slot.
-//
-// That equivalence is also the argument that this is not a dispatch. Nomi has no
-// `.method()` postfix form — `x.field` is field access and a qualified call is
-// `Type.method(x)` — so a name in value position never had a receiver to bind,
-// and turning one into a dispatch would be inventing a construct the language
-// does not have. See methodref.go for the qualified spelling, which is the same
-// value through a different resolver.
+// A reference is not a dispatch. Nomi has no `.method()` postfix form: `x.field`
+// is field access and a qualified call is `Type.method(x)`, so a name in value
+// position has no receiver to bind. See methodref.go for the qualified
+// spelling, which is the same value through a different resolver.
 
 // checkedRefKinds is the signature the checker instantiated a generic function
-// REFERENCE at (generic_func_ref.go records it on the reference as a call's is
-// recorded on its callee), in this gen's kinds. ok is false when the checker
-// recorded none or a kind is outside the value domain.
-func (g *gen) checkedRefKinds(ref ast.Node, arity int) ([]kind, kind, bool) {
+// REFERENCE at (internal/analysis/generic_func_ref.go records it on the
+// reference as a call's is recorded on its callee), in this gen's kinds.
+// recorded is false when the checker recorded none of that arity: a reference
+// that is not generic carries no CallType.
+func (g *gen) checkedRefKinds(ref ast.Node, arity int) (params []kind, result kind, recorded bool) {
 	if g.fa == nil {
 		return nil, kindInvalid, false
 	}
@@ -67,16 +49,17 @@ func (g *gen) checkedRefKinds(ref ast.Node, arity int) ([]kind, kind, bool) {
 		return nil, kindInvalid, false
 	}
 	ft, _ := sym.CallType.(*analysis.FuncType)
-	return g.funcTypeKinds(ft, arity)
-}
-
-// funcTypeKinds is a checked function type's parameter and result kinds, ok
-// false unless it has arity parameters and every kind is in the value domain.
-func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, bool) {
 	if ft == nil || len(ft.Params) != arity {
 		return nil, kindInvalid, false
 	}
-	params := make([]kind, arity)
+	params, result = g.funcTypeKinds(ft)
+	return params, result, true
+}
+
+// funcTypeKinds is a checked function type's parameter and result kinds,
+// each held in the value domain.
+func (g *gen) funcTypeKinds(ft *analysis.FuncType) ([]kind, kind) {
+	params := make([]kind, len(ft.Params))
 	for i, pt := range ft.Params {
 		params[i] = g.project(pt)
 		// A Unit parameter (`Iter.each(units, io.inspect)`) is in the
@@ -85,5 +68,5 @@ func (g *gen) funcTypeKinds(ft *analysis.FuncType, arity int) ([]kind, kind, boo
 	}
 	result := g.project(ft.Return)
 	irHeldOperand(result, "a function reference's result")
-	return params, result, true
+	return params, result
 }

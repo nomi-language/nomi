@@ -40,7 +40,7 @@ end
 //     `Chooser<Int>` and `Chooser<String>` would be ONE existential kind and one
 //     dispatch table, because `existential` takes its identity from the pointer;
 //   - `inferred.go`'s `solvedIface` arm, the inference-side twin of that;
-//   - `registerImplDef`, which refuses an impl block of an interface whose
+//   - `resolveImplDef`, which refuses an impl block of an interface whose
 //     requirements nothing has checked;
 //   - `resolveIfaces`, which does not resolve one, so `d.order` is empty and no
 //     table can be minted for any of its methods.

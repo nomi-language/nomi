@@ -168,3 +168,54 @@ func coercionText(n ast.Node) string {
 	}
 	return ""
 }
+
+// TestCoercions_AnAscriptionRecordsWhatTheAnnotationDoes: `value as Show`
+// is checked as `x: Show = value` (spec §5 *Type ascription*). The
+// ascription has the ascribed type, its operand its own type, and the
+// operand the coercion record an annotated binding's value has.
+func TestCoercions_AnAscriptionRecordsWhatTheAnnotationDoes(t *testing.T) {
+	fa, nodes := checkNodes(t, coercionSrc+`
+fn ascribed() -> Int
+    a: Show = [9]
+    b = [9] as Show
+    take(a) + take(b)
+end
+`)
+	var annotated, ascribed ast.Node
+	var asc *ast.Ascription
+	for _, top := range nodes {
+		ast.Inspect(top, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.Binding:
+				if n.TypeAnnotation != nil && coercionText(n.Value) == "[9]" {
+					annotated = n.Value
+				}
+			case *ast.Ascription:
+				asc, ascribed = n, n.Value
+			}
+			return true
+		})
+	}
+	if annotated == nil || asc == nil {
+		t.Fatal("no `a: Show = [9]` or `[9] as Show` in the source")
+	}
+	if got := fa.ExprTypes[asc]; got == nil || got.String() != "Show" {
+		t.Errorf("the ascription's type is %v, want Show", got)
+	}
+	if got := fa.ExprTypes[ascribed]; got == nil || got.String() != "List<Int>" {
+		t.Errorf("the ascribed operand's type is %v, want List<Int>", got)
+	}
+	want, got := fa.Coercions[annotated], fa.Coercions[ascribed]
+	switch {
+	case want == nil:
+		t.Fatal("the annotated binding's value has no coercion record")
+	case got == nil:
+		t.Fatal("the ascribed operand has no coercion record")
+	case got.Iface != want.Iface || got.Value.String() != want.Value.String() || got.Impl != want.Impl:
+		t.Errorf("the ascription recorded %s of %s by %p, the annotation %s of %s by %p",
+			got.Iface.Name, got.Value, got.Impl, want.Iface.Name, want.Value, want.Impl)
+	}
+	if got := VerifyElaboration(fa, nodes); len(got) > 0 {
+		t.Fatalf("want nothing reported, got %v", got)
+	}
+}

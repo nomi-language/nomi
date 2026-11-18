@@ -21,7 +21,7 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 		// `Maybe.with_default(Some(circle), shape)`: the checker solved T
 		// at the default's Shape, past the Maybe<Circle>, which converts
 		// to the Maybe<Shape> as a user function's argument would.
-		v, got, ok := bl.coerceEmpty(t.Args[0], args.temps[0], args.kinds[0], want)
+		v, got, ok := bl.convertTo(t.Args[0], args.temps[0], args.kinds[0], want)
 		if !ok || got != want {
 			return nil
 		}
@@ -41,7 +41,7 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 		// (`(8 as Display)`, which lowers as the Int it holds) is boxed as
 		// that interface value. The operand slots are the caller's, so the
 		// converted temporary is what qualEmit passes.
-		if v, k, ok := bl.coerceEmpty(t.Args[1], args.temps[1], args.kinds[1], payload); ok && k == payload {
+		if v, k, ok := bl.convertTo(t.Args[1], args.temps[1], args.kinds[1], payload); ok && k == payload {
 			args.temps[1], args.kinds[1] = v, k
 		}
 	}
@@ -53,8 +53,8 @@ func (bl *irScalarBuilder) preludeWithDefaultPlan(t *ast.Call, args irQualArgs, 
 
 // preludeToResultPlan plans `Maybe.to_result(m, e)`: a host crossing to
 // `rt.MaybeToResult` whose result is `Result<T, E>`, with T the receiving
-// Maybe's argument and E the error operand's own kind. An error operand whose
-// kind preludeArgUsable rejects, such as an untyped literal, declines.
+// Maybe's argument and E the error operand's own kind. An error operand
+// whose kind is not a retained prelude payload declines.
 func (bl *irScalarBuilder) preludeToResultPlan(t *ast.Call, args irQualArgs) *irQualPlan {
 	const key = "Maybe.to_result"
 	fn := preludeFns[key]
@@ -71,7 +71,7 @@ func (bl *irScalarBuilder) preludeToResultPlan(t *ast.Call, args irQualArgs) *ir
 		return nil
 	}
 	errK := args.kinds[1]
-	if !preludeArgUsable(errK) || !irRetainedPreludePayload(errK) {
+	if !irRetainedPreludePayload(errK) {
 		return nil
 	}
 	res := bl.g.preludeInstanceOf(preludeSpecNamed("Result"), []kind{d.preludeArgs[0], errK})

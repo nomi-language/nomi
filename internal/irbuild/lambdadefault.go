@@ -8,7 +8,7 @@ import (
 //
 // # Absence is a static fact, never a value
 //
-// A default emitted inside the closure behind a ZERO-VALUE TEST cannot
+// A default lowered inside the closure behind a zero-value test cannot
 // distinguish "the argument was omitted" from "the argument was explicitly the
 // type's zero value". Both are reachable in Nomi source and Nomi tells them
 // apart:
@@ -21,11 +21,10 @@ import (
 // and from nothing else. There is no presence flag at run time and no test on
 // the incoming value anywhere in this file.
 //
-// # Why the default is emitted at the DECLARATION and not at the call
+// # Why the default is lowered at the declaration and not at the call
 //
-// The obvious encoding — materialize the default expression at each omitting
-// call site, the way sugar.go does for a module `fn` — is WRONG for a lambda,
-// in two ways:
+// Lowering the default expression at each omitting call site is wrong for a
+// lambda, in two ways:
 //
 //  1. A SHADOW between the declaration and the call.
 //
@@ -33,38 +32,33 @@ import (
 //     f()                       -> 5
 //     if True { x = 7 ; f() }   -> 5, with the inner x observably 7
 //
-//     A default emitted at the call site inside that block resolves Go `x` to
-//     the INNER binding and answers 7.
+//     A default lowered at the call site inside that block resolves `x` to
+//     the inner binding and answers 7.
 //
 //  2. The lambda ESCAPES its declaring function.
 //
 //     fn build() -> () -> Int { n = 41 ; fn a = n + 1 -> a }
 //     h = build() ; h()         -> 42
 //
-//     `n` is a local of `build` and is not in scope at the call site at all, so
-//     call-site materialization is not merely wrong here — there is no `n` to
-//     emit and the encoding is INEXPRESSIBLE.
+//     `n` is a local of `build` and is not in scope at the call site at all,
+//     so there is no `n` for a call-site default to read.
 //
-// `sugar.go`'s header records the rule both of these are instances of: a
-// default is evaluated in a fresh scope off the FUNCTION'S OWN CLOSURE, not
-// the caller's. For a module `fn`
-// that scope is the declaring module and `fillParamDefaults` reconstructs it by
-// swapping the scope stack. A lambda's closure is not reconstructible from a
-// call site — it is a lexical position — so the expression has to be emitted
-// where that position is.
+// Both are instances of one rule: a default is evaluated in a fresh scope off
+// the function's own closure, not the caller's. For a module `fn` that scope
+// is the declaring module. A lambda's closure is a lexical position that a
+// call site cannot rebuild, so the expression is lowered where that position
+// is.
 //
-// # The encoding: a sibling supplier, NOT extra parameters
+// # The encoding: a sibling supplier, not extra parameters
 //
-//	v1    := func(a int64) int64 { return a }   // the lambda
-//	v1_d0 := func() int64 { return x }          // supplier for slot 0
+// Each defaulted slot gets a supplier: a second closure, built beside the
+// lambda's own `ir.FuncValue`, whose body is the default expression
+// (irLambdaGroup.suppliers, irlambda.go). An omitting call calls the supplier
+// and passes its answer to the lambda; a supplying call passes its argument.
 //
-// and an omitting call emits `v1(v1_d0())` while a supplying one emits `v1(0)`.
-//
-// The supplier sits BESIDE the lambda rather than adding a presence parameter
-// to it, and that is the load-bearing property rather than a stylistic one:
-// **the lambda's Go type stays exactly its Nomi type.** A mask in the signature
-// would change `(Int) -> Int` into something no `(Int) -> Int` position accepts
-// and break assignability at every higher-order position in the language.
+// The supplier sits beside the lambda and adds no presence parameter to it, so
+// the lambda's function kind stays its Nomi type. A mask in the signature
+// would change `(Int) -> Int` into a kind no `(Int) -> Int` position accepts.
 // The shape is reachable: `apply2(fn x = 9 -> x)` is 1, a defaulted lambda passed
 // where a plain function is expected, its default unused.
 //
@@ -75,7 +69,7 @@ import (
 //     the call, not read from a variable initialized once.
 //   - A default may name an EARLIER PARAMETER. `p = fn a: Int, b = a + 1 ->` gives
 //     p(3) = 304 and p(3, 9) = 309, so the supplier takes the earlier slots as
-//     its own Go parameters and the call passes the already-emitted arguments.
+//     its own parameters and the call passes the arguments it already lowered.
 //   - An omitted default passed to later suppliers is materialized once per
 //     call. Later defaults and the final call share that value, so a chain of
 //     dependent defaults cannot repeat an earlier default's effects.
@@ -91,11 +85,9 @@ import (
 // therefore has no supplier to call, and is refused by name rather than lowered
 // as an unseeded call.
 //
-// Bundling, wrapping every lowered lambda in a `struct{ Fn; Defaults }` so the
-// supplier rides along, would change the representation of EVERY Nomi lambda
-// to serve the one caller that needs it; `Iter.reduce`'s seed makes the same
-// choice for the same reason. `Iter.reduce callback is not a lambda literal`
-// is the matching key shape there.
+// Bundling, wrapping every lowered lambda in a pair of the function and its
+// suppliers so the supplier rides along, would change the representation of
+// every Nomi lambda to serve the one caller that needs it.
 
 // lambdaParamNames is a lambda literal's parameter names, positionally, for the
 // callable-metadata entry.

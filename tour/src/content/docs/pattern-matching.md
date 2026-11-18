@@ -641,15 +641,20 @@ stage (`"8" |> String.to_int()!`), a field (`user.nickname!`) or a name.
 
 ## What can fail at run time
 
-Nothing in Nomi or its standard library stops a program while it runs unless
-the program asks for it. It asks with a `!`, an
+A Nomi program stops while it runs in two ways: it asks to, or it hits a
+limit.
+
+It asks with a `!`, an
 [`unreachable`](/functions-and-lambdas/#code-that-cannot-be-reached) or a
 [`todo`](/functions-and-lambdas/#unwritten-code), or by awaiting a task that
-[failed](/concurrency/#when-a-task-fails). Beyond those, a program can run
-out of memory, make more than 100,000 nested calls, ask for a `Decimal` with
-more than about two billion digits after the point, or never finish. A
+[failed](/concurrency/#when-a-task-fails).
+
+The limits are few. A program can run out of memory, make more than 100,000
+nested calls, ask for a `Decimal` with more than about two billion digits
+after the point, or ask `String.repeat` for more than 2 GiB of text. A
 pipeline that consumes the whole of an endless iterator stops with a message
-instead of hanging ([Iter](/collections/#iter)).
+instead of hanging ([Iter](/collections/#iter)). A program can also never
+finish.
 
 The checks happen where values enter, so the operations after them cannot
 fail:
@@ -661,7 +666,8 @@ fail:
   compiles.
 - A check narrows a binding: after `if d == 0 then return ...`, `d` is a
   `NonZeroInt`. The compiler also follows ranges, so each `d` in `1..=n` is
-  one too.
+  one too, and `Int.modulo(n, 26)` and `Int.clamp(n, 0..=9)` are
+  `NonNegativeInt`s.
 - `/` and `%` take a `NonZeroInt` divisor
   ([Numbers](/scalars-and-strings/#numbers-booleans-operators)), so a
   division by zero does not compile.

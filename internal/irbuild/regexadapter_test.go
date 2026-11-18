@@ -46,7 +46,7 @@ import (
 func TestAdapterWall_AdapterSignaturesNeedShims(t *testing.T) {
 	// Each row is a REAL symbol from nomi/stdregex's FFI-shaped surface, held
 	// as a func value so a rename is a Go compile error here rather than a
-	// stale string. That is the same trade stdlibBinding makes.
+	// stale string. That is the same trade a stdlibbindings.Binding makes.
 	for _, tc := range []struct {
 		name string
 		fn   any

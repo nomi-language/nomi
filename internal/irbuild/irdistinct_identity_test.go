@@ -193,8 +193,8 @@ func TestIRQualifiedRuntimeName(t *testing.T) {
 // rule, over real source, in both directions.
 //
 // A two-level distinct is not a program at all: `type A Int; type B A;
-// fn f(b: B) -> A { A(b) }` is refused by `distinctCallNamed` (`argument type
-// mismatch (A wraps Int, got B)`), and destructuring reads one level. So
+// fn f(b: B) -> A { A(b) }` is refused (`argument type mismatch (A wraps
+// Int, got B)`), and destructuring reads one level. So
 // that edge is checked in the predicate table of
 // TestIRDistinct_ThePredicateEdges, because no lowerable source reaches it.
 func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
@@ -221,7 +221,7 @@ func TestIRDistinct_WhichShapesAreRetained(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var seen []string
 			prev := irFuncObserved
-			irFuncObserved = func(_ irFuncOrigin, name string, f *ir.Func, _ bool) {
+			irFuncObserved = func(_ irFuncOrigin, name string, f *ir.Func) {
 				if f != nil {
 					seen = append(seen, name)
 				}
@@ -303,7 +303,7 @@ func irDistinctStdFuncs(t *testing.T) []*ir.Func {
 	buildStdlibIndex()
 	var out []*ir.Func
 	prev := irFuncObserved
-	irFuncObserved = func(origin irFuncOrigin, _ string, f *ir.Func, _ bool) {
+	irFuncObserved = func(origin irFuncOrigin, _ string, f *ir.Func) {
 		if origin == irFromStd && f != nil && irDistinctMentions(f) {
 			out = append(out, f)
 		}

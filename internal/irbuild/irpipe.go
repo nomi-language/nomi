@@ -1,7 +1,7 @@
 package irbuild
 
-// The pipe operator in the retained shape. It adds no IR node, no IR field and
-// no Go spelling.
+// The pipe operator in the retained shape. It adds no IR node and no IR
+// field.
 //
 // `pipe.go`'s header states the whole mechanism and this reproduces it rather
 // than re-deciding it: "`x |> f()` is `f(x)` and `xs |> Iter.map(g)` is
@@ -78,7 +78,9 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		// function's position, so it carries the stage's own position rather
 		// than the pipe's.
 		line, col := nodePos(r.Fn())
-		return bl.pipedInto(&ast.Call{Func: r.Fn(), Args: []ast.Node{t.Left}, Line: line, Col: col})
+		call := &ast.Call{Func: r.Fn(), Args: []ast.Node{t.Left}, Line: line, Col: col}
+		defer bl.g.carryCall(call, bl.g.srcFA().Calls[r])()
+		return bl.pipedInto(call)
 
 	case *ast.Tap:
 		return bl.pipeTap(t, r)
@@ -149,9 +151,6 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	src, k, mobile, ok := bl.lower(t.Left)
-	if ok {
-		src, k, ok = bl.typeOpenEmpty(t.Left, src, k)
-	}
 	if !ok {
 		return no()
 	}
@@ -170,6 +169,7 @@ func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bo
 	defer delete(bl.boundK, held.Name)
 	fnLine, fnCol := nodePos(r.Fn())
 	call := &ast.Call{Func: r.Fn(), Args: []ast.Node{held}, Line: fnLine, Col: fnCol}
+	defer bl.g.carryCall(call, bl.g.srcFA().Calls[r])()
 	var res ir.Temp
 	var resK kind
 	if r.Name != nil {

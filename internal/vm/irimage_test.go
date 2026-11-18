@@ -18,8 +18,8 @@ package vm_test
 //   - LINT (ir.LintModule), over the whole decoded stdlib once, and over each
 //     program's own units and each stdlib module's test unit.
 //   - RUNNING. The committed records: the harness of expectation_test.go and
-//     testreport_test.go, run again with vmLink swapped for the round trip,
-//     must compare as it does undecoded, with the same pinned counts. The
+//     testreport_test.go, run with vmLink swapped for the round trip, must
+//     compare with the records, over the required comparable sets. The
 //     stdlib's attached tests: each module whose undecoded run is stable
 //     across two runs must run identically decoded.
 
@@ -257,9 +257,11 @@ func TestIRImage_StdlibTestIRRoundTrips(t *testing.T) {
 }
 
 // TestIRImage_DecodedProgramsMatchTheCommittedRecords runs the whole-program
-// and report harnesses again with every program's linked set round-tripped
-// through the format, and holds them to the same records and the same
-// required comparable sets as the undecoded runs.
+// and report harnesses (expectation_test.go, testreport_test.go) with every
+// program's linked set round-tripped through the format, and holds them to
+// the committed records and the required comparable sets. With
+// NOMI_REGENERATE_EXPECTATIONS=1 it rewrites the corpus lists
+// (vmComparableLists) from what compared.
 func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; lowers every candidate program in four populations; -short")
@@ -295,7 +297,7 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 		if diffs := recorded.CompareSubset(got); len(diffs) != 0 {
 			t.Errorf("%s: decoded programs disagree with the records:\n%s", population, strings.Join(diffs, "\n"))
 		}
-		vmRequireComparable(t, "programs", population, ids, got, refused, false)
+		vmRequireComparable(t, "programs", population, ids, got, refused, true)
 	}
 	for _, population := range []string{"corpus", "failure", "tour"} {
 		set, err := expectation.Load(population)
@@ -307,7 +309,7 @@ func TestIRImage_DecodedProgramsMatchTheCommittedRecords(t *testing.T) {
 		if diffs := set.CompareSubset(got); len(diffs) != 0 {
 			t.Errorf("%s: decoded test files disagree with the records:\n%s", population, strings.Join(diffs, "\n"))
 		}
-		vmRequireComparable(t, "reports", population, ids, got, refused, false)
+		vmRequireComparable(t, "reports", population, ids, got, refused, true)
 	}
 	if len(linkErrs) > 0 {
 		t.Errorf("%d round trips failed:\n%s", len(linkErrs), strings.Join(linkErrs, "\n"))

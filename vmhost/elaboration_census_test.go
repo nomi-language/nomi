@@ -90,10 +90,8 @@ func TestElaborationCensus(t *testing.T) {
 // corpus, the stdlib's modules with their tests, the tour, the spec and
 // irbuild's fixtures) and fails on any violation whose construct is "call"
 // or "expr", with or without "derived", or whose implicit category is one
-// the checker now records (gatedImplicit). A variable inference left open
+// the checker records (gatedImplicit, all ten). A variable inference left open
 // counts as closed once the checker has closed it (analysis.TypeVar.Closed).
-// The other "implicit" categories are reported by TestElaborationCensus and
-// gated nowhere yet.
 func TestElaborationGate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
@@ -119,25 +117,38 @@ func TestElaborationGate(t *testing.T) {
 }
 
 // gatedImplicit are the implicit operations the checker records, which
-// TestElaborationGate holds to zero: a call leaving defaulted parameters
-// out (CallDefaults), an interpolation hole (HoleDisplays), an operator
-// (Operators), a value entering an interface (Coercions), a source
+// TestElaborationGate holds to zero: a call's argument placement and
+// classified callee (Calls),
+// a call leaving defaulted parameters
+// out (CallDefaults), an interpolation hole (HoleDisplays), the error a
+// failed `!` or a fixed typed literal's failing handler shows
+// (UnwrapFailures, TypedLiteral.Failure), an operator (Operators), whose
+// impl is the operand's own type's, a value entering an interface (Coercions), a source
 // entering an `Iter<T>` (IterViews), a value converting below its top
-// (Conversions), an impl block of a generic
-// interface whose header writes no type arguments (ImplTypeArgSets) and a
+// (Conversions), how a call of an interface function is answered
+// on a receiver of a known type (Callee.Impl, Callee.Form), an impl block of a generic
+// interface whose header writes no type arguments (ImplTypeArgSets), a
 // call of an interface function dispatched where it runs
-// (Symbol.CallInterface).
+// (Symbol.CallInterface) and a type expression's type (TypeExprTypes).
 var gatedImplicit = map[string]bool{
-	analysis.ElabDefaultsUnrecorded:      true,
-	analysis.ElabDisplayUnrecorded:       true,
-	analysis.ElabOperatorNominal:         true,
-	analysis.ElabOperatorStructural:      true,
-	analysis.ElabOperatorTypeParam:       true,
-	analysis.ElabBoxingUnrecorded:        true,
-	analysis.ElabIterViewUnrecorded:      true,
-	analysis.ElabConversionUnrecorded:    true,
-	analysis.ElabImplArgsUnrecorded:      true,
-	analysis.ElabCallInterfaceUnrecorded: true,
+	analysis.ElabPlacementUnrecorded:      true,
+	analysis.ElabCalleeUnclassified:       true,
+	analysis.ElabImplUnrecorded:           true,
+	analysis.ElabDefaultsUnrecorded:       true,
+	analysis.ElabDisplayUnrecorded:        true,
+	analysis.ElabFailureDisplayUnrecorded: true,
+	analysis.ElabOperatorNominal:          true,
+	analysis.ElabOperatorStructural:       true,
+	analysis.ElabOperatorTypeParam:        true,
+	analysis.ElabOperatorForeignImpl:      true,
+	analysis.ElabBoxingUnrecorded:         true,
+	analysis.ElabIterViewUnrecorded:       true,
+	analysis.ElabConversionUnrecorded:     true,
+	analysis.ElabImplArgsUnrecorded:       true,
+	analysis.ElabCallInterfaceUnrecorded:  true,
+	analysis.ElabTypeExprUnrecorded:       true,
+	analysis.ElabPatternUnrecorded:        true,
+	analysis.ElabPatternVariantUnrecorded: true,
 }
 
 // elabRepositoryGroups is every group of programs this repository holds,

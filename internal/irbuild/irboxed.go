@@ -38,7 +38,7 @@ import (
 // record (analysis.FileAnalysis.Coercions): the interface, the value's type
 // and the impl block. coerceRecorded makes the value from it, at an
 // annotated binding, a struct or record literal's field, a struct field's
-// default and a qualified call's operand; coerceEmpty, which every other
+// default and a qualified call's operand; convertTo, which every other
 // position converts through, names the record's impl when the expression
 // has one. A value enters an interface inside a conversion the checker
 // records as a whole, with no record of its own: a function's result
@@ -84,6 +84,13 @@ type irBoxPlan struct {
 type irBoxedImpl struct {
 	method, typ, fn *ir.Symbol
 	owner           *gen
+	// iface, m and item are the program interface function the entry
+	// implements and the impl function owner lowers for it, whose
+	// defaulted parameters' entries go with it (irRecordSlotDispatch); nil
+	// for a std interface's entry.
+	iface *ifaceDef
+	m     *ifaceMethod
+	item  *implItem
 }
 
 // irBoxTypeToken identifies the symbol a boxed container's impls are
@@ -193,7 +200,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind, impl *ast.ImplBlock) *irBoxPlan 
 	}
 	for _, m := range d.order {
 		var found *stdRecvCand
-		for _, c := range g.stdRecvCandidates(have, m.name, d.nomi, nil) {
+		for _, c := range g.stdRecvCandidates(have, nil, m.name, d.nomi, nil) {
 			if c.d.iface == nil || !sameIfaceInstance(c.d.iface, d) || (impl != nil && c.d.decl != impl) {
 				continue
 			}
@@ -222,7 +229,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind, impl *ast.ImplBlock) *irBoxPlan 
 			return nil
 		}
 		fn := found.g.irCalleeSym(it, found.d.recv.nomi()+"."+it.name)
-		p.impls = append(p.impls, irBoxedImpl{method: method, typ: p.typ, fn: fn, owner: found.g})
+		p.impls = append(p.impls, irBoxedImpl{method: method, typ: p.typ, fn: fn, owner: found.g, iface: d, m: m, item: it})
 	}
 	return p
 }
@@ -630,6 +637,9 @@ func (g *gen) irRecordBoxedImpls() {
 			if e.method != nil {
 				g.irMod.ImplementUnretained(e.method)
 			}
+			if e.iface != nil {
+				g.irRecordSlotDispatch(e.iface, e.m, nil, nil, nil)
+			}
 			continue
 		}
 		if e.method == nil {
@@ -639,6 +649,9 @@ func (g *gen) irRecordBoxedImpls() {
 			continue
 		}
 		g.irMod.Implement(e.method, e.typ, e.fn)
+		if e.iface != nil {
+			g.irRecordSlotDispatch(e.iface, e.m, e.item, e.owner, e.typ)
+		}
 	}
 }
 

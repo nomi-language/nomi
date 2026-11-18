@@ -17,7 +17,7 @@ package irbuild
 //
 // Which of the two `==` means is the checker's: it records, for each
 // operator, the impl it calls or that it compares by shape
-// (analysis.FileAnalysis.Operators), and equalityVerdict reads that record.
+// (analysis.FileAnalysis.Operators), and equatableVerdict reads that record.
 // Only an operator over a type parameter is resolved here, at its
 // instance's kind, where a structural answer is chosen once the impl's
 // absence is established, because a missed lookup that became a structural
@@ -256,7 +256,7 @@ func (bl *irScalarBuilder) equatableImplCall(t *ast.Binary, op ir.CompareOp, lhs
 	// Inside the impl's own `equal` this is a recursive call: on fields
 	// of the type (a tree's children) it ends with the data, and the
 	// checker rejects comparing the impl's own arguments
-	// (self_recursion.go, protocolErrors).
+	// (internal/analysis/self_recursion.go, protocolErrors).
 	sym := og.irCalleeSym(it, d.recv.nomi()+"."+it.name)
 	call := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, lhs, rhs)
 	bl.b.Append(call)
@@ -339,12 +339,12 @@ func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 // equatableVerdict is how `==` at t compares two values of k, a declared
 // type: through an impl (has), d of og when this program's files declare
 // it and nil for std's own, or by shape. It reads the checker's record of
-// the operator (operatorUse); an operator over a type parameter, and one
-// the builder synthesized, has none, and is resolved at k
-// (instanceEquatable). known is false when the answer cannot be
-// established, or the impl the builder finds for k is not the one the
-// checker recorded.
-func (bl *irScalarBuilder) equatableVerdict(t *ast.Binary, k kind) (og *gen, d *implDef, has, known bool) {
+// the operator (operatorUse): the impl block of the function it names, as
+// the gen that registered it holds it (recordedImplItem). An operator
+// over a type parameter or over interface values, and one the builder
+// synthesized, names none, and is resolved at k (instanceEquatable); ok
+// is false when that answer cannot be established.
+func (bl *irScalarBuilder) equatableVerdict(t *ast.Binary, k kind) (og *gen, d *implDef, has, ok bool) {
 	use := bl.g.operatorUse(t)
 	if use == nil || use.Form == analysis.OperatorPerInstance || use.Form == analysis.OperatorDispatched {
 		return bl.g.instanceEquatable(k)
@@ -352,20 +352,17 @@ func (bl *irScalarBuilder) equatableVerdict(t *ast.Binary, k kind) (og *gen, d *
 	if use.Form != analysis.OperatorByImpl || use.Impl == nil {
 		return nil, nil, false, true
 	}
-	og, d = bl.g.equatableImplOf(k)
-	if d == nil {
-		return nil, nil, true, true
+	if og, it := bl.g.recordedImplItem(use.Impl.Method, nil, k); it != nil {
+		return og, it.impl, true, true
 	}
-	if it := d.items["equal"]; use.Impl.Derived() != d.synth || !d.synth && (it == nil || it.decl == nil || ast.ImplMethodDecl(it.decl) != use.Impl.Method) {
-		return nil, nil, false, false
-	}
-	return og, d, true, true
+	// std's own impl, which stdEquality calls.
+	return nil, nil, true, true
 }
 
 // handWrittenEquatable is equatableVerdict for an enum or a distinct, whose
 // derived impl compares by shape: hand is a hand-written impl, d nil for
 // std's own.
-func (bl *irScalarBuilder) handWrittenEquatable(t *ast.Binary, k kind) (og *gen, d *implDef, hand, known bool) {
+func (bl *irScalarBuilder) handWrittenEquatable(t *ast.Binary, k kind) (og *gen, d *implDef, hand, ok bool) {
 	og, d, has, known := bl.equatableVerdict(t, k)
 	if !has || !known {
 		return nil, nil, false, known
@@ -533,9 +530,7 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 	var shape ir.ValShape
 	switch owner {
 	case "List":
-		ok := bl.untypedListPair(t, args)
-		lk, rk = args.kinds[0], args.kinds[1]
-		if !ok || lk != rk || !irEqualityListKind(lk) {
+		if lk != rk || !irEqualityListKind(lk) {
 			return no()
 		}
 		shape = ir.ValContainer
@@ -568,7 +563,7 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 			}
 			// kindInvalid: sentinel — neither operand is bare.
 			if at == 1 && bare[1] == kindInvalid {
-				return no()
+				panic("irbuild: containerEqualCall: the loop above sets at to the operand that is bare, so at == 1 implies bare[1] is set")
 			}
 			v, k, _, ok := bl.preludeBareValue(t.Args[at], want)
 			if !ok {
@@ -582,7 +577,7 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 		}
 		shape = ir.ValVariant
 	default:
-		return no()
+		panic("irbuild: containerEqualCall: reached for " + owner + ", which equatableContainerOwner does not name")
 	}
 	c := ir.NewCompare(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), ir.OpEq, shape, args.temps[0], args.temps[1])
 	bl.b.Append(c)
@@ -621,16 +616,16 @@ func irEqualityListKind(k kind) bool {
 // `impl Equatable` for Vector and Map is `a == b` itself), and the VM's
 // `ir.Compare` over a container runs rt.Equal.
 func irEqualityContainerKind(k kind) bool {
-	if _, vector := vectorElem(k); vector && k != kindEmptyVector {
+	if _, vector := vectorElem(k); vector {
 		// Any element: std's `impl Equatable for Vector<T>` is `a == b`,
 		// and rt.Equal on a vector never dispatches.
 		return true
 	}
-	return irEqualityListKind(k) || (k != kindEmptyVector && irRetainedVectorKind(k)) ||
-		(k != kindEmptyMap && (irRetainedMapKind(k) || irMapTransportKind(k))) ||
+	return irEqualityListKind(k) || irRetainedVectorKind(k) ||
+		irRetainedMapKind(k) || irMapTransportKind(k) ||
 		// std's Set Equatable is `a.items == b.items`, the membership maps'
 		// structural equality, which rt.Equal over the Set record answers.
-		(k != kindEmptySet && irRetainedSetKind(k))
+		irRetainedSetKind(k)
 }
 
 // existentialDebugImpls names the Debug body of every type implementing k's
@@ -835,10 +830,19 @@ func resolvedEnumType(ty analysis.Type) (*analysis.EnumType, bool) {
 	return et, ok && et != nil
 }
 
-// operatorUse is the checker's record of what the operator t means
-// (analysis.FileAnalysis.Operators), nil for an operator over a primitive
-// and for one the builder synthesized.
-func (g *gen) operatorUse(t *ast.Binary) *analysis.OperatorUse {
+// operatorUse is the checker's record of what the operator t means, nil
+// for an operator over a primitive and for one the builder synthesized:
+// inside an instance, the record at the instance's types where the
+// checker resolves it there (operatorUseAt), so an operator over a type
+// parameter reaches the impl a written one at that type does.
+func (g *gen) operatorUse(t ast.Node) *analysis.OperatorUse {
+	use, _ := g.operatorUseAt(t)
+	return use
+}
+
+// operatorRecord is the record the checker made for the operator t
+// (analysis.FileAnalysis.Operators), as the body was checked.
+func (g *gen) operatorRecord(t ast.Node) *analysis.OperatorUse {
 	fa := g.srcFA()
 	if fa == nil || t == nil {
 		return nil

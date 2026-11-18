@@ -122,7 +122,7 @@ type ivCandidate struct {
 // for the explicit type arguments of calls, which InterfaceValueHints reads
 // once for the file. block is fn's inherent impl block, or nil.
 func interfaceValueCandidates(fa *FileAnalysis, fn *ast.FuncDef, block *ast.ImplBlock) []ivCandidate {
-	if fn.Body == nil || fn.Expansion != nil || fn.AutoSynth || fn.ImplFunction || fn.Export || len(fn.TypeParams) == 0 {
+	if fn.Body == nil || fn.Expansion != nil || fn.AutoSynth || fn.Export || len(fn.TypeParams) == 0 {
 		return nil
 	}
 	sym := fa.Definitions[Pos{Line: fn.Line, Col: fn.Col}]
@@ -362,16 +362,16 @@ func callableOnInterfaceValue(iface *InterfaceType, method string) bool {
 			selves++
 			continue
 		}
-		if mentionsTypeParamDeep(p, self, 0) {
+		if mentionsTypeParamDeep(p, self) {
 			return false
 		}
 	}
-	return selves == 1 && (sig.Return == nil || !mentionsTypeParamDeep(sig.Return, self, 0))
+	return selves == 1 && (sig.Return == nil || !mentionsTypeParamDeep(sig.Return, self))
 }
 
 // holdsTypeParam reports whether t, following solved variables, holds tp.
 func holdsTypeParam(t Type, tp *TypeParam_) bool {
-	return t != nil && mentionsTypeParamDeep(t, tp, 0)
+	return t != nil && mentionsTypeParamDeep(t, tp)
 }
 
 // typeExprMentions counts the names name in the type expression t.

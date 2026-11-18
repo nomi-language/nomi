@@ -167,42 +167,13 @@ func collectTestCases(nodes []ast.Node, namePrefix []string, selfTypeName string
 	for _, n := range nodes {
 		collectAttachedTestCases(n, namePrefix, selfTypeName, setupPrefix, groupLines, clock, out)
 		switch v := n.(type) {
-		case *ast.StructDef:
-			collectTestCases(v.Items, appendName(namePrefix, v.Name), v.Name, setupPrefix, groupLines, clock, out)
-		case *ast.EnumDef:
-			collectTestCases(v.Items, appendName(namePrefix, v.Name), v.Name, setupPrefix, groupLines, clock, out)
-		case *ast.TypeDef:
-			collectTestCases(v.Items, appendName(namePrefix, v.Name), v.Name, setupPrefix, groupLines, clock, out)
-		case *ast.ExternType:
-			collectTestCases(v.Items, appendName(namePrefix, v.Name), v.Name, setupPrefix, groupLines, clock, out)
 		case *ast.ImplBlock:
 			names := appendName(namePrefix, attachedTestOwnerName(v))
 			receiverName := analysis.TypeExprBaseName(v.Receiver)
-			if v.InferInterfaceMethods && v.Interface != nil {
-				ifaceName := analysis.TypeExprBaseName(v.Interface)
-				for _, item := range v.Items {
-					if !testImplItemClaimsInterface(item, ifaceName) {
-						continue
-					}
-					collectTestCases([]ast.Node{item}, names, receiverName, setupPrefix, groupLines, clock, out)
-				}
-			} else {
-				collectTestCases(v.Items, names, receiverName, setupPrefix, groupLines, clock, out)
-			}
+			collectTestCases(v.Items, names, receiverName, setupPrefix, groupLines, clock, out)
 		case *ast.TestDecl:
 			collectTestCasesInBlock(v, namePrefix, setupPrefix, groupLines, clock, nil, out)
 		}
-	}
-}
-
-func testImplItemClaimsInterface(item ast.Node, ifaceName string) bool {
-	switch it := item.(type) {
-	case *ast.FuncDef:
-		return analysis.TypeExprBaseName(it.ImplIface) == ifaceName
-	case *ast.ExternFunc:
-		return analysis.TypeExprBaseName(it.ImplIface) == ifaceName
-	default:
-		return false
 	}
 }
 
@@ -481,16 +452,12 @@ func StripAttachedTests(nodes []ast.Node) {
 			v.AttachedTests = nil
 		case *ast.StructDef:
 			v.AttachedTests = nil
-			StripAttachedTests(v.Items)
 		case *ast.EnumDef:
 			v.AttachedTests = nil
-			StripAttachedTests(v.Items)
 		case *ast.TypeDef:
 			v.AttachedTests = nil
-			StripAttachedTests(v.Items)
 		case *ast.ExternType:
 			v.AttachedTests = nil
-			StripAttachedTests(v.Items)
 		case *ast.TypeAlias:
 			v.AttachedTests = nil
 		case *ast.InterfaceDef:
@@ -516,22 +483,6 @@ func NodesContainTests(nodes []ast.Node) bool {
 		switch v := n.(type) {
 		case *ast.TestDecl:
 			return true
-		case *ast.StructDef:
-			if NodesContainTests(v.Items) {
-				return true
-			}
-		case *ast.EnumDef:
-			if NodesContainTests(v.Items) {
-				return true
-			}
-		case *ast.TypeDef:
-			if NodesContainTests(v.Items) {
-				return true
-			}
-		case *ast.ExternType:
-			if NodesContainTests(v.Items) {
-				return true
-			}
 		case *ast.ImplBlock:
 			if NodesContainTests(v.Items) {
 				return true

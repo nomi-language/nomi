@@ -952,7 +952,7 @@ func (c *checker) checkRefinementImpl(n *ast.ImplBlock) {
 // seeds its type parameters from the expected type, as it does for a Byte
 // literal (byteLiteralsTakeExpected).
 func refinementLiteralsTakeExpected(args []ast.Node, expected Type) bool {
-	if !refinementInType(expected, 0) {
+	if !refinementInType(expected) {
 		return false
 	}
 	for _, a := range args {
@@ -1003,39 +1003,13 @@ func holdsRefinementLiteral(n ast.Node) bool {
 	return false
 }
 
-// refinementInType reports whether ty is a distinct refinement or has one
-// among its element or type arguments.
-func refinementInType(ty Type, depth int) bool {
-	if depth > 8 || ty == nil {
-		return false
-	}
-	switch t := resolveTypeVar(ty).(type) {
-	case *DistinctType:
-		if t.Subtype {
-			return true
-		}
-		return anyRefinementInTypes(t.TypeArgs, depth)
-	case *ListType:
-		return refinementInType(t.Elem, depth+1)
-	case *MapType:
-		return refinementInType(t.Key, depth+1) || refinementInType(t.Val, depth+1)
-	case *TupleType:
-		return anyRefinementInTypes(t.Elems, depth)
-	case *EnumType:
-		return anyRefinementInTypes(t.TypeArgs, depth)
-	case *StructType:
-		return anyRefinementInTypes(t.TypeArgs, depth)
-	}
-	return false
-}
-
-func anyRefinementInTypes(ts []Type, depth int) bool {
-	for _, t := range ts {
-		if refinementInType(t, depth+1) {
-			return true
-		}
-	}
-	return false
+// refinementInType reports whether ty is a distinct refinement or holds one
+// at any depth.
+func refinementInType(ty Type) bool {
+	return typeHolds(ty, func(t Type) bool {
+		d, ok := t.(*DistinctType)
+		return ok && d.Subtype
+	})
 }
 
 // checkCollectionRefinementLit checks n, a list, vector, set, map or range

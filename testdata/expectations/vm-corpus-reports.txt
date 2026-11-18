@@ -1,7 +1,7 @@
 # The corpus records internal/vm's reports harness compares against corpus.expect.
 # A record that leaves this list stopped comparing; name the cause.
 # Regenerate with:
-#   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestVMExpectation_TheVMIsComparedAgainstTheCommittedArtifacts|TestVMReport_TheVMIsComparedAgainstTheReportShapedRecords' -count=1
+#   NOMI_REGENERATE_EXPECTATIONS=1 go test ./internal/vm -run 'TestIRImage_DecodedProgramsMatchTheCommittedRecords' -count=1
 01-foundations/comment_positions_test.nomi
 01-foundations/destructure_rebind_test.nomi
 01-foundations/interpolation_escapes_test.nomi

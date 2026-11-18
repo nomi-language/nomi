@@ -91,7 +91,7 @@ end
 
 /// How many students come before `student` in the class. Every student is
 /// in `Student.variants()`, so the search cannot miss.
-fn position(student: Student) -> Int
+fn position(student: Student) -> NonNegativeInt
     Some(i) = Student.variants() |> Iter.find_index(&(&1 == student)) else
         unreachable "every student is listed"
     end

@@ -88,6 +88,10 @@ func (p *Program) image(withExports bool) (im ir.Image, usesCompiler bool, need 
 	if ds := p.missingEmbeds(); len(ds) > 0 {
 		return ir.Image{}, false, localeNeed{}, ds
 	}
+	// nomi.toml's [capabilities] lists hold what the image's roots reach.
+	if ds, _ := p.capabilityProblems(Roots{Exports: withExports}); len(ds) > 0 {
+		return ir.Image{}, false, localeNeed{}, ds
+	}
 	var roots []*ir.Func
 	if p.HasMain() {
 		mainFn := p.entryFunc("main")

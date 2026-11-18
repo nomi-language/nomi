@@ -663,82 +663,14 @@ func (t *InterfaceType) typeTag() {}
 // ---------------------------------------------------------------------------
 
 // TypesEqual reports whether two types are structurally equal.
-// ContainsTypeParam returns true if the type contains any unresolved type parameters.
+// ContainsTypeParam reports whether t is written with a type parameter. An
+// inference variable is a leaf here, solved or not: a parameter only a
+// solved variable holds is not counted.
 func ContainsTypeParam(t Type) bool {
-	if t == nil {
-		return false
-	}
-	switch t := t.(type) {
-	case *TypeParam_:
-		return true
-	case *ListType:
-		return ContainsTypeParam(t.Elem)
-	case *MapType:
-		return ContainsTypeParam(t.Key) || ContainsTypeParam(t.Val)
-	case *FuncType:
-		for _, p := range t.Params {
-			if ContainsTypeParam(p) {
-				return true
-			}
-		}
-		return ContainsTypeParam(t.Return)
-	case *TupleType:
-		for _, e := range t.Elems {
-			if ContainsTypeParam(e) {
-				return true
-			}
-		}
-		return false
-	case *EnumType:
-		for _, a := range t.TypeArgs {
-			if ContainsTypeParam(a) {
-				return true
-			}
-		}
-		return false
-	case *StructType:
-		for _, a := range t.TypeArgs {
-			if ContainsTypeParam(a) {
-				return true
-			}
-		}
-		return false
-	case *AnonStructType:
-		for _, f := range t.Fields {
-			if ContainsTypeParam(f.Type) {
-				return true
-			}
-		}
-		return false
-	case *InterfaceType:
-		for _, a := range t.TypeArgs {
-			if ContainsTypeParam(a) {
-				return true
-			}
-		}
-		return false
-	case *ConjunctionType:
-		for _, m := range t.Members {
-			if ContainsTypeParam(m) {
-				return true
-			}
-		}
-		return false
-	case *DistinctType:
-		// Generic opaque externs (`host type Task<T>`,
-		// `host type Channel<T>`) carry TypeArgs at use sites — an
-		// unsolved T inside Task<T> means the carrier is still generic.
-		for _, a := range t.TypeArgs {
-			if ContainsTypeParam(a) {
-				return true
-			}
-		}
-		return false
-	case *PartialType:
-		return ContainsTypeParam(t.Inner)
-	default:
-		return false
-	}
+	return typeHoldsOutsideVars(t, func(p Type) bool {
+		_, ok := p.(*TypeParam_)
+		return ok
+	})
 }
 
 func TypesEqual(a, b Type) bool {

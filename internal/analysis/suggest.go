@@ -29,17 +29,24 @@ func didYouMean(name string, candidates []string) string {
 	return ""
 }
 
+// UndefinedVariableCode tags the error for a value name bound nowhere in
+// scope. Its one argument is the name.
+const UndefinedVariableCode = "undefined-variable"
+
 // undefinedVariableError is the error for a value name bound nowhere in
 // scope. `true` and `false` are ordinary unbound names in Nomi; the Bool
 // literals are the variants `True` and `False`, which the hint names and
 // the fix writes (undefinedVariableConfusion, as for `nil`).
 func undefinedVariableError(n *ast.Ident, candidates []string) TypeError {
-	e := errAt(n, "undefined variable '"+n.Name+"'")
+	e := errAt(n, "undefined variable '"+n.Name+"'").coded(UndefinedVariableCode, n.Name)
 	if ce, ok := undefinedVariableConfusion(e, n); ok {
 		return ce
 	}
 	return e.WithHint(didYouMean(n.Name, candidates))
 }
+
+// ClosestName is the one candidate close to name by the rule above, or "".
+func ClosestName(name string, candidates []string) string { return closestName(name, candidates) }
 
 // closestName is the one candidate close to name, or "".
 func closestName(name string, candidates []string) string {

@@ -27,9 +27,9 @@ func TestHoverResultProjectsThroughTheHoverSpec(t *testing.T) {
 		t.Fatalf("rt.Result[rt.Hover, string] projects as %s, want %s", got, want)
 	}
 	// The spec row is what makes it work, and it must be the row for
-	// std/compiler's Hover rather than any struct with two String fields: a
-	// second Go type for one Nomi type is what TestStdStructHasExactlyONEGoRepresentation
-	// exists to prevent, and this is the same claim read from the registry side.
+	// std/compiler's Hover rather than any struct with two String fields: one
+	// Nomi type has one Go type, and this is that claim read from the registry
+	// side.
 	if got := kindOfGoType(reflect.TypeFor[rt.Hover]()); got == kindInvalid {
 		t.Fatal("rt.Hover projects onto nothing")
 	} else if got.nomi() != "Hover" {

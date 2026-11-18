@@ -27,6 +27,8 @@ func TestTypeCycle_RejectedAtTheDeclaration(t *testing.T) {
 		{"distinct over a tuple holding itself", "type P (Int, P)\n", 1, "type 'P' is defined in terms of itself"},
 		{"distinct over a function of itself", "type F (F) -> Int\n", 1, "type 'F' is defined in terms of itself"},
 		{"distinct over an anonymous struct holding itself", "type R (Int, {next: Maybe<R>})\n", 1, "type 'R' is defined in terms of itself"},
+		{"distinct over an interface of itself", "interface Source<T>\n    fn pull(s: self) -> Maybe<T>\nend\n\ntype S Source<S>\n", 5, "type 'S' is defined in terms of itself"},
+		{"distinct over a conjunction holding itself", "interface Source<T>\n    fn pull(s: self) -> Maybe<T>\nend\n\ninterface Named\n    fn name(s: self) -> String\nend\n\ntype S Source<S> and Named\n", 9, "type 'S' is defined in terms of itself"},
 		{"distinct through a typealias", "type A B\n\ntypealias B List<A>\n", 1, "type 'A' is defined in terms of itself"},
 		{"typealias of itself", "typealias X X\n", 1, "typealias 'X' refers to itself"},
 		{"two typealiases", "typealias X Y\n\ntypealias Y X\n", 1, "typealias 'X' refers to itself (X → Y → X)"},

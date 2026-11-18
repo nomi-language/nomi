@@ -14,16 +14,8 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 	if !args.ok || len(args.kinds) != 2 {
 		return nil
 	}
-	seq, elem := args.kinds[0], args.kinds[1]
+	seq := args.kinds[0]
 	g := bl.g
-	empty, of := kindEmptyList, g.listKind
-	if owner == "Vector" {
-		empty, of = kindEmptyVector, g.vectorKindOf
-	}
-	if seq == empty {
-		// `List.contains([], x)`: the element operand types the sequence.
-		seq = of(elem)
-	}
 	var have kind
 	var ok bool
 	if owner == "Vector" {
@@ -44,13 +36,12 @@ func (bl *irScalarBuilder) seqContainsPlan(t *ast.Call, args irQualArgs, owner s
 		g.reject(owner+".contains over an element `==` does not compare", have.nomi(), t)
 		return nil
 	}
-	for i, want := range []kind{seq, have} {
-		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], args.kinds[i], want)
-		if !ok {
-			return nil
-		}
-		args.temps[i], args.kinds[i] = v, got
+	// The sequence is seq, args.kinds[0]; the element enters its element.
+	v, got, ok := bl.convertTo(t.Args[1], args.temps[1], args.kinds[1], have)
+	if !ok {
+		return nil
 	}
+	args.temps[1], args.kinds[1] = v, got
 	name := owner + ".contains"
 	return &irQualPlan{token: name, name: name, result: kindBool, host: true}
 }

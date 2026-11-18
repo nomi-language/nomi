@@ -6,9 +6,12 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// UselessReturnPrefix starts the error for a bare `return` that ends a
-// body; the LSP's "Remove the `return`" fix keys on it.
-const UselessReturnPrefix = "this `return` does nothing"
+// UselessReturnCode tags the error for a bare `return` that ends a body.
+// The language server's "Remove the `return`" fix answers it.
+const UselessReturnCode = "useless-return"
+
+// uselessReturnPrefix starts that error.
+const uselessReturnPrefix = "this `return` does nothing"
 
 // CheckUselessReturns reports each `return` that changes nothing because the
 // body it would leave ends there anyway. The check is syntactic, so it runs
@@ -166,7 +169,8 @@ func (t tailWalk) report(ret *ast.Return, alone bool) {
 		Col:     ret.Col,
 		EndLine: ret.Line,
 		EndCol:  ret.Col + len("return"),
-		Message: fmt.Sprintf("%s: it is the last statement of %s", UselessReturnPrefix, t.owner),
+		Message: fmt.Sprintf("%s: it is the last statement of %s", uselessReturnPrefix, t.owner),
+		Code:    UselessReturnCode,
 	}.WithHint(hint))
 }
 

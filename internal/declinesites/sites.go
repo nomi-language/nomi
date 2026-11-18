@@ -12,9 +12,11 @@
 //   - note: a call that names a decline reason: the census's `note`,
 //     `noteOnce` or `atPattern` (a call through `dc` or `x.dc`), or a function
 //     or closure that forwards its own parameter to one of them, given a
-//     reason that is not itself a forwarded parameter or the census's
-//     `bodyWhy`; or an assignment to `bodyWhy` followed by a return. Notes in
-//     irdecline.go are the census itself, not sites.
+//     reason that is not itself a forwarded parameter. Notes in
+//     irdecline.go are the census itself, not sites. A note in a block
+//     guarded only by lowering functions' failures (`if !ok { note(...) }`)
+//     names a decline that was the callee's, and is no site, as the return
+//     below it is none.
 //   - false: a `return` whose value in a decline position is the literal
 //     `false`, unless every disjunct of the condition that guards it is the
 //     failure of a lowering function's own decline result (`if !ok` with `ok`
@@ -33,8 +35,33 @@
 // return ..., false }`). The callee must be a lowering function: one that
 // reaches `lowerExact`, a note or the census's `close` through the package's
 // own calls; the census's `patternFailed`, which places a callee's decline
-// at the pattern it could not test, marks one too. A guard on anything else (a lookup, a kind predicate, a map
-// read) is itself the site, with the guard as its description.
+// at the pattern it could not test, marks one too. A guard on anything else
+// (a lookup, a kind predicate, a map read) is itself the site, with the
+// guard as its description.
+//
+// Two failures are a lowering function's without being a bool it returns:
+// the `ok` field of a value one answered or a parameter carries (`!args.ok`,
+// irQualLowerArgs's operands, false only when an operand declined), and the
+// result of calling a parameter (`f, ok := edge(...)`), a closure the caller
+// wrote whose own notes and returns are the sites. A guard on either passes
+// a decline on.
+//
+// # Answers
+//
+// A function's signature says which of its results can decline: one it
+// leaves unnamed or names `ok`. A bool result with any other name is an
+// answer, and its false declines nothing: `relabels(have, want) (relabel
+// bool)`, `importedVariantAt(...) (d, v, isVariant bool)`,
+// `checkedRefKinds(...) (params, result, recorded bool)`. No return of such
+// a function is a site through that result, and a caller that declines on
+// the answer is itself the site, as for any other predicate. A result
+// named `handled` after a decline position is the same convention for a
+// route: a return that gives it the literal false declines nothing, since
+// the caller tries its next route. Every caller binding the result
+// `handled` says so too, for a function whose results are unnamed. A
+// function of two results, a named answer and then ok (`endlessLoop(n)
+// (endless, ok bool)`), is read the same way: a return whose answer is the
+// literal false says n is no such node, and declines nothing.
 //
 // The analysis is syntactic: calls resolve by name within the package (a
 // method name defined on several receivers resolves to all of them), a
@@ -121,13 +148,6 @@ func censusMethod(fun ast.Expr) string {
 	return ""
 }
 
-// isBodyWhy reports whether x is the census's bodyWhy, irScalarBody's
-// reason (`g.dc.bodyWhy`).
-func isBodyWhy(x ast.Expr) bool {
-	sel, ok := unparen(x).(*ast.SelectorExpr)
-	return ok && sel.Sel.Name == "bodyWhy" && isCensus(sel.X)
-}
-
 // markers are the calls that make a function a lowering function, besides
 // the notes.
 var markers = map[string]bool{
@@ -163,6 +183,14 @@ type fnInfo struct {
 	returns []*retInfo
 	notes   []noteCall
 	whys    []token.Pos // the census's bodyWhy assignments followed by a return
+	// guarded is each simple statement that holds a note, with the
+	// condition that guards its block.
+	guarded []guardedStmt
+}
+
+type guardedStmt struct {
+	from, to token.Pos
+	guard    ast.Expr
 }
 
 type assign struct {
@@ -172,6 +200,10 @@ type assign struct {
 	// it may also come from something else.
 	src      []pos
 	computed bool
+	// viaParam is set when the value is the result of calling one of the
+	// function's own parameters: a closure its caller wrote, whose own
+	// notes are the sites.
+	viaParam bool
 }
 
 type retInfo struct {
@@ -357,13 +389,6 @@ func (a *analyzer) walkStmts(st *scanState, list []ast.Stmt, guard ast.Expr) {
 			st.fi.returns = append(st.fi.returns, &retInfo{stmt: s, guard: g, noted: noted})
 		case *ast.AssignStmt:
 			a.recordAssign(st, s.Lhs, s.Rhs, s.Pos())
-			for _, l := range s.Lhs {
-				if isBodyWhy(l) && i+1 < len(list) {
-					if _, ret := list[i+1].(*ast.ReturnStmt); ret {
-						st.fi.whys = append(st.fi.whys, s.Pos())
-					}
-				}
-			}
 		case *ast.DeclStmt:
 			if gd, ok := s.Decl.(*ast.GenDecl); ok {
 				for _, sp := range gd.Specs {
@@ -418,6 +443,9 @@ func (a *analyzer) walkStmts(st *scanState, list []ast.Stmt, guard ast.Expr) {
 		}
 		if a.containsNote(st, s) {
 			noted = true
+			if guard != nil {
+				st.fi.guarded = append(st.fi.guarded, guardedStmt{s.Pos(), s.End(), guard})
+			}
 		}
 	}
 }
@@ -602,6 +630,11 @@ func (a *analyzer) recordAssign(st *scanState, lhs, rhs []ast.Expr, at token.Pos
 			}
 			if len(as.src) == 0 {
 				as.computed = true
+				if isCall {
+					if id, ok := call.Fun.(*ast.Ident); ok && a.isParam(st.fi, id.Name) {
+						as.computed, as.viaParam = false, true
+					}
+				}
 			}
 			st.fi.assigns = append(st.fi.assigns, as)
 		}
@@ -728,11 +761,6 @@ func (a *analyzer) collectNotes(fi *fnInfo) {
 			return true
 		}
 		reason := unparen(c.Args[idx])
-		if isBodyWhy(reason) {
-			// Passes on irScalarBlock's decline, whose assignment of the
-			// census's bodyWhy is the site.
-			return true
-		}
 		if r, ok := reason.(*ast.Ident); ok {
 			for _, p := range fi.params {
 				if p == r.Name {
@@ -755,8 +783,8 @@ func (a *analyzer) loweringFuncs() map[string]bool {
 	for k := range a.notes {
 		low[k] = true
 	}
-	for k, fi := range a.funcs {
-		if len(fi.whys) > 0 || strings.HasPrefix(k, "irScalarBuilder.") {
+	for k := range a.funcs {
+		if strings.HasPrefix(k, "irScalarBuilder.") {
 			// A builder method emits into the body being lowered.
 			low[k] = true
 		}
@@ -779,6 +807,18 @@ func (a *analyzer) loweringFuncs() map[string]bool {
 	return low
 }
 
+// declines reports whether result p of a function can carry a decline: the
+// function is a lowering function, and its signature leaves the result
+// unnamed or names it `ok`. A result named anything else (`handled`,
+// `relabel`, `found`) is an answer.
+func (a *analyzer) declines(lowering map[string]bool, p pos) bool {
+	fi, ok := a.funcs[p.fn]
+	if !ok || !lowering[p.fn] {
+		return false
+	}
+	return p.idx >= fi.nres || fi.results[p.idx] == "" || fi.results[p.idx] == "ok"
+}
+
 // lastAssign is the last assignment to name before at.
 func (fi *fnInfo) lastAssign(name string, at token.Pos) *assign {
 	var best *assign
@@ -796,7 +836,7 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 	var work []pos
 	add := func(p pos) {
 		fi, ok := a.funcs[p.fn]
-		if !ok || !lowering[p.fn] || outputs[p] || p.idx >= fi.nres {
+		if !ok || p.idx < 0 || !a.declines(lowering, p) || outputs[p] || p.idx >= fi.nres {
 			return
 		}
 		outputs[p] = true
@@ -838,20 +878,40 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 			}
 		}
 	}
+	// A note in a block guarded only by lowering functions' failures names
+	// a decline that was the callee's, as a guarded return passes one on.
+	passedOn := map[token.Pos]bool{}
+	for _, fi := range a.funcs {
+		for _, n := range fi.notes {
+			for _, g := range fi.guarded {
+				if g.from <= n.call.Pos() && n.call.Pos() < g.to && propagating(fi, g.guard, g.from) {
+					passedOn[n.call.Pos()] = true
+				}
+			}
+		}
+	}
 	for len(work) > 0 {
 		p := work[len(work)-1]
 		work = work[:len(work)-1]
 		fi := a.funcs[p.fn]
 		// handled: the result after the decline position is a `handled`
-		// flag every caller binds by that name, and a return that gives it
-		// the literal false declines nothing: the caller tries its next
-		// route, and that route's failure is the site.
-		handled := false
+		// flag, named so by the signature or by every caller that binds
+		// it, and a return that gives it the literal false declines
+		// nothing: the caller tries its next route, and that route's
+		// failure is the site.
+		handled := p.idx+1 < fi.nres && fi.results[p.idx+1] == "handled"
 		if names := a.bound[pos{p.fn, p.idx + 1}]; len(names) == 1 && names["handled"] {
 			handled = true
 		}
+		// The same for a function of two results, a named answer and then
+		// ok (`endlessLoop(n) (endless, ok bool)`: whether n is such a node,
+		// and when it is, whether it lowered).
+		answered := fi.nres == 2 && p.idx == 1 && fi.results[0] != "" && fi.results[0] != "ok"
 		for _, r := range fi.returns {
 			if handled && a.unhandled(fi, r, p.idx+1) {
+				continue
+			}
+			if answered && a.unhandled(fi, r, 0) {
 				continue
 			}
 			var e ast.Expr
@@ -880,7 +940,7 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 				}
 				any := false
 				for _, k := range ks {
-					if lowering[k] {
+					if a.declines(lowering, pos{k, p.idx}) {
 						add(pos{k, p.idx})
 						any = true
 					}
@@ -916,10 +976,10 @@ func (a *analyzer) sites(lowering map[string]bool) []Site {
 			continue
 		}
 		for _, n := range fi.notes {
+			if passedOn[n.call.Pos()] {
+				continue
+			}
 			out = append(out, found{fi.key, "note", text(a.fset, n.reason), n.call.Pos()})
-		}
-		for _, w := range fi.whys {
-			out = append(out, found{fi.key, "note", "dc.bodyWhy", w})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -1007,9 +1067,12 @@ func (a *analyzer) valueSite(fi *fnInfo, e ast.Expr, r *retInfo, add func(pos), 
 		if as == nil {
 			return "computed", "return " + v.Name
 		}
+		if as.viaParam {
+			return "", ""
+		}
 		low := false
 		for _, s := range as.src {
-			if lowering[s.fn] {
+			if a.declines(lowering, s) {
 				add(s)
 				low = true
 			}
@@ -1021,7 +1084,7 @@ func (a *analyzer) valueSite(fi *fnInfo, e ast.Expr, r *retInfo, add func(pos), 
 	case *ast.CallExpr:
 		any := false
 		for _, k := range a.resolve(st, v) {
-			if lowering[k] {
+			if a.declines(lowering, pos{k, 0}) {
 				add(pos{k, 0})
 				any = true
 			}
@@ -1060,14 +1123,38 @@ func failureSources(a *analyzer, fi *fnInfo, d ast.Expr, at token.Pos, lowering 
 		return nil
 	}
 	switch x := unparen(u.X).(type) {
+	case *ast.SelectorExpr:
+		// `!args.ok`: the ok field of the value a lowering function
+		// answered (irQualLowerArgs's operands), false when something it
+		// lowered declined. A parameter's is its caller's value.
+		id, isID := unparen(x.X).(*ast.Ident)
+		if !isID || x.Sel.Name != "ok" {
+			return nil
+		}
+		as := fi.lastAssign(id.Name, at)
+		if as == nil && a.isParam(fi, id.Name) {
+			return []pos{passedOn}
+		}
+		if as == nil || as.computed || len(as.src) == 0 {
+			return nil
+		}
+		for _, s := range as.src {
+			if !lowering[s.fn] {
+				return nil
+			}
+		}
+		return []pos{passedOn}
 	case *ast.Ident:
 		as := fi.lastAssign(x.Name, at)
 		if as == nil || as.computed {
 			return nil
 		}
+		if as.viaParam {
+			return []pos{passedOn}
+		}
 		var out []pos
 		for _, s := range as.src {
-			if lowering[s.fn] {
+			if a.declines(lowering, s) {
 				out = append(out, s)
 			}
 		}
@@ -1078,13 +1165,38 @@ func failureSources(a *analyzer, fi *fnInfo, d ast.Expr, at token.Pos, lowering 
 	case *ast.CallExpr:
 		var out []pos
 		for _, k := range a.resolve(&scanState{fi: fi, closures: a.closuresOf(fi)}, x) {
-			if lowering[k] {
+			if a.declines(lowering, pos{k, 0}) {
 				out = append(out, pos{k, 0})
 			}
 		}
 		return out
 	}
 	return nil
+}
+
+// passedOn stands for a failure that is a lowering function's and adds no
+// decline position: one read from a struct's ok field, or answered by a
+// closure the caller passed in.
+var passedOn = pos{idx: -1}
+
+// isParam reports whether name is a parameter of fi, or of the function a
+// closure fi is bound in.
+func (a *analyzer) isParam(fi *fnInfo, name string) bool {
+	for _, p := range fi.params {
+		if p == name {
+			return true
+		}
+	}
+	if i := strings.Index(fi.key, "/"); i >= 0 {
+		if outer := a.funcs[fi.key[:i]]; outer != nil {
+			for _, p := range outer.params {
+				if p == name {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func text(fset *token.FileSet, n ast.Node) string {

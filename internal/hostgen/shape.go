@@ -600,10 +600,6 @@ func HostFuncs(mod *Module) []HostFunc {
 					inst = g.TypeString()
 				}
 				walk(recv, inst, d.Items)
-			case *ast.ExternType:
-				if d.HasBody {
-					walk(d.Name, "", d.Items)
-				}
 			case *ast.ExternFunc:
 				out = append(out, HostFunc{Module: mod, Receiver: receiver, Decl: d, Keys: keys(mod.Name, receiver, iface, d.Name)})
 			}

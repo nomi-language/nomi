@@ -2,7 +2,7 @@ package ir
 
 // Merging what one lowering of a module kept into another lowering of it.
 //
-// A file lowered on its own (internal/irbuild's perfile.go) builds what its
+// A file lowered on its own (internal/irbuild/perfile.go) builds what its
 // own bodies ask for. What the program's other files asked of it, an
 // instance of one of its generic functions at their types and that
 // instance's dispatch entries, is in the module the whole program's

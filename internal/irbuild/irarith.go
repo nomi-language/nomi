@@ -74,10 +74,7 @@ func (g *gen) irBind(t ir.Temp, k kind) expr {
 // Declining to the AST path instead would be worse than a panic here: an Int
 // `+` that fell through `arith()` lands on `arithmetic on a non-numeric`,
 // which REFUSES a construct that lowers today. That is a DIFF, and a silent
-// one. So this holds the IR's contract, and
-// TestIRArith_EveryArithSiteHasAPosition measures the premise directly over
-// the corpus and the stdlib instead of inferring it from the absence of a
-// crash.
+// one. So this holds the IR's contract.
 func (g *gen) irPos(line, col int) ir.Pos {
 	if analysis.IsSynthesizedLine(line) {
 		return g.ownPos(ir.AtSynthesized(g.nomiPath, line, col))

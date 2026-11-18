@@ -15,7 +15,7 @@ import (
 // changes nothing about where a write goes: that is decided at each write,
 // which is why `io.capture` still redirects a stream read before it began.
 //
-// # Why the value is emitted, rather than mapped to a Go constant
+// # Why the value is lowered, rather than mapped to a Go constant
 //
 // A registry row pairing a Nomi name with a Go constant would be a SECOND
 // encoding of a value the Nomi source already defines, and the two would agree
@@ -23,18 +23,17 @@ import (
 // instead: the RHS is built as an ordinary function body, so the value the
 // program computes is the value the Nomi source computes.
 //
-// # Semantics come from rt.OnceCell
+// # Semantics come from the IR's lazy cell
 //
-// Spec §6 *`once` Bindings* gives `once` three properties (lazy, exactly-once, cycle-rejecting)
-// and once.go explains why no simpler Go encoding holds all three. Nothing about
-// those properties changes for a stdlib binding, so the emitted shape is
-// onceDecl's, unchanged: an RHS function, an rt.OnceCell, and an exported getter
-// that forces through it.
+// Spec §6 *`once` Bindings* gives `once` three properties (lazy,
+// exactly-once, cycle-rejecting). Nothing about those properties changes for
+// a stdlib binding, so its initializer is lowered into a lazy cell by the
+// call a program's `once` goes through (irOnceCellLower).
 //
-// The cell's name is `Type.name` (`typeName + "." + n.Name`), and it is not a
-// free choice: rt.CyclicOnceText renders that name in the cycle diagnostic, and
-// the golden files record it. A cell named without its type here would print
-// a different diagnostic for the same cycle.
+// The cell's name is `Type.name` (nomiName), and it is not a free choice:
+// rt.CyclicOnceText renders that name in the cycle diagnostic, and the golden
+// files record it. A cell named without its type here would print a
+// different diagnostic for the same cycle.
 //
 // # Ordering: onces settle with the bodies
 //
@@ -45,7 +44,7 @@ import (
 // binding whose RHS does not build is withdrawn with the bodies and refused as
 // `unlowered stdlib once binding`, which its reference sites name rather than
 // falling through to `type-qualified reference`. The settled bindings are
-// then emitted before the bodies, inside the window where every emitted
+// then lowered before the bodies, inside the window where every offered
 // sibling is bound.
 
 // stdOnce is one stdlib `once` binding as a reference site sees it.
@@ -61,15 +60,11 @@ type stdOnce struct {
 	// stdFileOnceValue resolves both through the checker.
 	recv string
 	name string
-	pub  bool
 	k    kind
-
-	// pkg is the stdlib package name that qualifies the three in `expr` text.
-	pkg string
 
 	decl *ast.OnceBinding
 	// settled is set once the RHS has been shown to lower. PESSIMISTIC, for
-	// stdFunc.arityMin's reason: a reference built to an unsettled binding
+	// stdFunc.canon's reason: a reference built to an unsettled binding
 	// would name a cell the module then declined to retain.
 	settled bool
 	// why names the refusal when this binding is not lowerable. Exactly one of
@@ -98,7 +93,7 @@ func (o *stdOnce) nomiName() string {
 // hold only `fn` / `host fn` implementation items", asserted by
 // once_bindings_test.nomi), so the qualification would change nothing on checked
 // input and adding it would be a second place for that rule to live.
-func collectStdOnces(module, pkg string, nodes []ast.Node, fa *analysis.FileAnalysis, anchors stdAnchors) []*stdOnce {
+func collectStdOnces(module string, nodes []ast.Node, fa *analysis.FileAnalysis, anchors stdAnchors) []*stdOnce {
 	var out []*stdOnce
 	add := func(recv string, ob *ast.OnceBinding) {
 		o := &stdOnce{
@@ -106,8 +101,6 @@ func collectStdOnces(module, pkg string, nodes []ast.Node, fa *analysis.FileAnal
 			module: module,
 			recv:   recv,
 			name:   ob.Name,
-			pub:    ob.Public,
-			pkg:    pkg,
 			decl:   ob,
 		}
 		// The keys are once.go's OWN, not a parallel `stdlib once binding …`
@@ -207,8 +200,8 @@ func stdInferredOnceKind(fa *analysis.FileAnalysis, ob *ast.OnceBinding) kind {
 // stdlib once binding` key would be a refusal with a structurally empty
 // population — a name in the report that nothing can ever produce — and this
 // repo has already paid for one guard that could not fire. Keeping the first is
-// declareOnces' own answer for the same unreachable case, and it is the one that
-// cannot emit two Go declarations under one identifier.
+// declareOnces' own answer for the same unreachable case, and it leaves one
+// binding per spelling.
 func (x *stdlibIndex) addOnce(o *stdOnce) {
 	if x.byOnce == nil {
 		return
@@ -231,8 +224,8 @@ func (x *stdlibIndex) addOnce(o *stdOnce) {
 // A field of its own rather than a slot in the local stdlibIndex, because
 // bindStdSiblings REBUILDS that index for phase 2 and a once is not part of the
 // phase split: it settled in the least fixed point or it did not. The lookup
-// order in stdOnceRef is this table then the index, which is the same
-// this-module-then-earlier-modules order stdSiblings and g.std already have.
+// order in stdOnceValue is this table then the index, which is the same
+// this-module-then-earlier-modules order stdSiblingDecls and g.std already have.
 func (g *gen) bindStdOnces(onces []*stdOnce) {
 	if len(onces) == 0 {
 		return
@@ -263,14 +256,14 @@ func closeStdOnces(onces []*stdOnce) {
 // stack and the same refusals any other body gets.
 func (g *gen) emitStdOnce(o *stdOnce) {
 	g.at(o.decl.Line)
-	// The RHS is its own body, so no enclosing result, loop boundary,
-	// lambda result inference or tail label reaches it. Saved rather than
+	// The RHS is its own body, so no enclosing result or lambda result
+	// inference reaches it. Saved rather than
 	// assumed for onceDecl's reason: this also runs under speculate while
 	// something else is being walked.
-	prevResult, prevInfer, prevCtrl, prevTail := g.result, g.inferResult, g.ctrl, g.tail
-	g.result, g.inferResult, g.ctrl, g.tail = o.k, nil, nil, nil
+	prevResult, prevInfer := g.result, g.inferResult
+	g.result, g.inferResult = o.k, nil
 	defer func() {
-		g.result, g.inferResult, g.ctrl, g.tail = prevResult, prevInfer, prevCtrl, prevTail
+		g.result, g.inferResult = prevResult, prevInfer
 	}()
 
 	g.pushScope()
@@ -299,7 +292,7 @@ func (g *gen) emitStdOnce(o *stdOnce) {
 }
 
 // stdOnceValue reads a stdlib `once` whose initializer the declaring module
-// retained as an IR lazy cell. Go delivery is stdOnceRef's getter.
+// retained as an IR lazy cell.
 func (bl *irScalarBuilder) stdOnceValue(t *ast.FieldAccess) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	g := bl.g

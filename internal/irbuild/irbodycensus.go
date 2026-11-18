@@ -2,7 +2,7 @@ package irbuild
 
 // The body census reports, per function body the builder is offered, the
 // body's position class and whether an IR build was attempted for it.
-// Retention and read-back are `irFuncObserved`'s numbers; this hook counts the
+// Retention is `irFuncObserved`'s number; this hook counts the
 // bodies offered, including the ones the builder declines.
 //
 // It is a hook rather than a counter field for `irFuncObserved`'s reason: a
@@ -29,15 +29,15 @@ const (
 	irBodyLambda
 	// irBodyTestBody is `testCase`'s body; see irtestbody.go.
 	irBodyTestBody
-	// irBodyConcurrent is `concurrentBlock`'s body.
+	// irBodyConcurrent is `concurrent`'s body.
 	irBodyConcurrent
 	// irBodyStdFn is `emitStdFunc`'s body: a Nomi-bodied `std/`
 	// declaration. `irScalarLower`'s second caller.
 	irBodyStdFn
 )
 
-// irBodyClassName is the class's reported name, so a probe and a findings
-// table agree on the spelling.
+// String is the class's reported name, so a probe and a findings table agree
+// on the spelling.
 func (c irBodyClass) String() string {
 	switch c {
 	case irBodyModuleFn:

@@ -49,9 +49,11 @@ package irbuild
 // state as it was.
 
 import (
+	"fmt"
 	"maps"
 	"strconv"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -204,6 +206,12 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		line, col := nodePos(cb)
 		callee := irFuncRefNode(cb)
+		stepRec := analysis.PositionalCall(1, 1)
+		if callee != nil {
+			stepRec = bl.g.positionalCallOf(callee, 1, 1)
+		} else {
+			stepRec.Callee = analysis.Callee{Kind: analysis.CalleeValue}
+		}
 		if callee == nil {
 			v, k, _, ok := bl.lower(cb)
 			if !ok {
@@ -215,6 +223,8 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 		}
 		state := &ast.Ident{Name: "$state", Line: line, Col: col}
 		step = &ast.Call{Func: callee, Args: []ast.Node{state}, Line: line, Col: col}
+		// The loop passes the state as the step's first argument.
+		bl.g.carryCall(step, stepRec)
 		lam = &ast.Lambda{
 			Params: []ast.Param{{Name: "$state", Line: line, Col: col}},
 			Body:   &ast.Block{Stmts: []ast.Node{step}, Line: line, Col: col},
@@ -255,33 +265,13 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			return ir.NoTemp, kindInvalid, false, false
 		}
 	}
-	switch sk.tag {
-	case tagEmptyList, tagEmptyMap, tagEmptySet:
-		// An untyped empty seed takes the kind the checker solved for the
-		// parameter and is coerced to it.
-		var ok bool
-		var solved kind
-		// The state type the checker solved for the call's `from`.
-		solved = kindInvalid
-		if checked := bl.g.checkedCallSignature(t); checked != nil && len(checked.Params) == 2 {
-			solved = bl.g.project(checked.Params[0])
-		}
-		// kindInvalid: lookup — asks whether the checker solved the seed's kind; a miss declines retention.
-		if solved == kindInvalid {
-			return no("an Iter.loop seed whose element type the checker did not solve")
-		}
-		if seed, sk, ok = bl.coerceEmpty(from, seed, sk, solved); !ok {
-			return no("an Iter.loop seed outside the retained empty-container coercions")
-		}
-	}
 	// A Unit state (`Iter.loop(Unit, fn u -> ...)`) is a loop run for its effects.
-	if (!irCallableValueKind(sk) && sk != kindUnit) || (p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk) {
-		return no("an Iter.loop state outside the retained value domain: " + sk.nomi())
+	// The seed is a lowered value.
+	irHeldOperand(sk, "an Iter.loop state")
+	if p != nil && p.TypeAnnotation != nil && bl.g.typeOf(p.TypeAnnotation) != sk {
+		return no("an Iter.loop state whose kind is not its parameter's annotation: " + sk.nomi())
 	}
 	ty := bl.g.irTypeOf(sk)
-	if ty == nil {
-		return no("an Iter.loop state without an IR type: " + sk.nomi())
-	}
 	pos := bl.g.irNodePos(t)
 	state := ir.NewBind(pos, bl.f.NewTemp(), seed, ir.NewSymbol(stateName))
 	bl.b.Append(state)
@@ -369,10 +359,7 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 	bl.side(tail, irScalarSide{k: sk})
 
 	defer bl.g.enterBlockTypes(lam.Body)()
-	lead, final := bl.g.irScalarBlock(lam.Body, "")
-	if final == nil {
-		return no("an Iter.loop body outside the statement shape: " + bl.g.dc.bodyWhy)
-	}
+	lead, final := bl.g.irScalarBlock(lam.Body)
 	outerLoop, outerDefers, outerSignal := bl.loop, bl.openDefers, bl.signalCall
 	bl.loop = lp
 	lp.defers = &irDeferScope{block: lam.Body, outer: outerDefers}
@@ -473,16 +460,13 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		if f.Else == nil || f.Then == nil {
 			break
 		}
-		if _, exit := bl.g.irScalarBlock(f.Then, ""); exit == nil {
-			return false
-		} else {
-			switch exit.(type) {
-			case *ast.Break, *ast.Return, *ast.Continue:
-			default:
-				// `if c { a } else { b }` as the next state: a value
-				// region writing the tail slot, as a `case` tail is.
-				return bl.loopIf(f, lp, tail)
-			}
+		_, exit := bl.g.irScalarBlock(f.Then)
+		switch exit.(type) {
+		case *ast.Break, *ast.Return, *ast.Continue:
+		default:
+			// `if c { a } else { b }` as the next state: a value
+			// region writing the tail slot, as a `case` tail is.
+			return bl.loopIf(f, lp, tail)
 		}
 		guard := *f
 		guard.Else = nil
@@ -492,15 +476,12 @@ func (bl *irScalarBuilder) loopBody(lead []ast.Node, final ast.Node, lp *irLoopB
 		switch e := f.Else.(type) {
 		case *ast.Block:
 			defer bl.g.enterBlockTypes(e)()
-			elseLead, elseFinal := bl.g.irScalarBlock(e, "")
-			if elseFinal == nil {
-				return false
-			}
+			elseLead, elseFinal := bl.g.irScalarBlock(e)
 			return bl.loopBody(elseLead, elseFinal, lp, tail)
 		case *ast.If:
 			return bl.loopBody(nil, e, lp, tail)
 		}
-		return false
+		panic(fmt.Sprintf("irbuild: loopBody: an `else` of the form %T, which the parser builds only as a block or an else-if", f.Else))
 	}
 	return bl.loopTail(final, lp, tail)
 }
@@ -575,7 +556,7 @@ func loopGuardShape(g *gen, t *ast.If) bool {
 	if t.Else != nil || t.Then == nil {
 		return false
 	}
-	_, exit := g.irScalarBlock(t.Then, "")
+	_, exit := g.irScalarBlock(t.Then)
 	switch exit.(type) {
 	case *ast.Break, *ast.Return, *ast.Continue:
 		return true
@@ -600,10 +581,7 @@ func (bl *irScalarBuilder) loopGuard(t *ast.If, lp *irLoopBuild) bool {
 		return false
 	}
 	defer bl.g.enterBlockTypes(t.Then)()
-	lead, exit := bl.g.irScalarBlock(t.Then, "")
-	if exit == nil {
-		return false
-	}
+	lead, exit := bl.g.irScalarBlock(t.Then)
 	// The condition may branch (`a and b`, a `case` operand); the guard
 	// tests it at the block where its value is joined.
 	cond, ck, _, ok := bl.lower(t.Cond)

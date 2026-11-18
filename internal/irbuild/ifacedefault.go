@@ -24,10 +24,12 @@ import (
 // dictionary, a function value) names the same symbol as before, and the
 // item's body is one tail call of the declaring file's instance
 // (irImplForwardDefault). The instance's own calls of the interface's
-// functions at the receiver (`area(s)`, `Shape.describe(s)`) are the
-// block's items (defaultInstImplPlan), so an `open` override the block
-// writes is the one called, and a default the block inherits is its
-// forwarding item again.
+// functions at the receiver (`area(s)`, `Shape.describe(s)`) are recorded
+// for the default's `self`, which the instance binds to the block's
+// checker type (irDefaultSelf.typ), so their records at the instance name
+// the block's functions (calleeAt) and they are planned from those: an
+// `open` override the block writes is the one called, and a default the
+// block inherits is its forwarding item again.
 //
 // An instance is keyed by the default's declaration, the receiver and the
 // type arguments the body is lowered at (the interface's, a generic default's
@@ -44,6 +46,8 @@ type ifaceDefaultInst struct {
 	// frame binds the interface's type parameters and the default's own,
 	// in this gen's kinds; nil when there are none.
 	frame map[string]kind
+	// types is the frame's checker types (substFrame).
+	types map[string]analysis.Type
 	// impl is the implementing block, impls the gen that registered it:
 	// what a call of the interface's function at the receiver reaches.
 	impl   *implDef
@@ -52,6 +56,15 @@ type ifaceDefaultInst struct {
 	params []kind
 	result kind
 	built  bool
+}
+
+// recvType is the implementor's checker type, the block's (implDef.recvType),
+// nil where its record has none.
+func (inst *ifaceDefaultInst) recvType() analysis.Type {
+	if inst.impl == nil {
+		return nil
+	}
+	return inst.impl.recvType
 }
 
 // irImplForwardDefault lowers inherited default it of block d, whose
@@ -78,7 +91,7 @@ func (g *gen) irImplForwardDefault(d *implDef, it *implItem, fd *ast.FuncDef, pa
 		return kindInvalid, false
 	}
 	bl := &irScalarBuilder{g: g, sh: sh, f: sh.fn, b: sh.entry, returnKind: it.result, sides: sh.sides,
-		bound: map[string]ir.Temp{}, boundK: map[string]kind{}, vmOnly: true}
+		bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
 	pos := g.irNodePos(at)
 	call := ir.NewCall(pos, sh.fn.NewTemp(), ir.TailCall, callee, sh.paramTemps...)
 	bl.b.Append(call)
@@ -95,7 +108,7 @@ func (g *gen) irImplForwardDefault(d *implDef, it *implItem, fd *ast.FuncDef, pa
 		panic("irbuild: interface default forwarding function: " + err.Error())
 	}
 	if irFuncObserved != nil {
-		irFuncObserved(sig.origin, sig.name, sh.fn, true)
+		irFuncObserved(sig.origin, sig.name, sh.fn)
 	}
 	return it.result, true
 }
@@ -118,6 +131,7 @@ func (g *gen) defaultForwardCallee(d *implDef, it *implItem, params []kind) (*ir
 	// frames the block (emitImpl) and a generic default's instance
 	// (flushMethodInsts) pushed.
 	frame := map[string]kind{}
+	types := map[string]analysis.Type{}
 	var tps []ast.TypeParam
 	if d.iface.decl != nil {
 		tps = append(tps, d.iface.decl.TypeParams...)
@@ -130,8 +144,11 @@ func (g *gen) defaultForwardCallee(d *implDef, it *implItem, params []kind) (*ir
 			return nil, cannot
 		}
 		frame[tp.Name] = ik
+		if t, ok := g.genericSubstType(tp.Name); ok {
+			types[tp.Name] = t
+		}
 	}
-	inst := owner.ifaceDefaultInstance(d.iface, m.decl, recv, frame, d, g)
+	inst := owner.ifaceDefaultInstance(d.iface, m.decl, recv, frame, types, d, g)
 	if inst == nil || len(inst.params) != len(params) {
 		return nil, cannot
 	}
@@ -151,7 +168,7 @@ func (g *gen) defaultForwardCallee(d *implDef, it *implItem, params []kind) (*ir
 // implements through the mirror, at recv and frame, which are this gen's
 // kinds. It is nil when the default's signature is outside the subset
 // there. The body is queued for flushIfaceDefaults.
-func (g *gen) ifaceDefaultInstance(mirror *ifaceDef, im *ast.InterfaceMethod, recv kind, frame map[string]kind, impl *implDef, impls *gen) *ifaceDefaultInst {
+func (g *gen) ifaceDefaultInstance(mirror *ifaceDef, im *ast.InterfaceMethod, recv kind, frame map[string]kind, types map[string]analysis.Type, impl *implDef, impls *gen) *ifaceDefaultInst {
 	iface := g.declaredIface(mirror, frame)
 	if iface == nil {
 		return nil
@@ -170,12 +187,12 @@ func (g *gen) ifaceDefaultInstance(mirror *ifaceDef, im *ast.InterfaceMethod, re
 	}
 	inst := &ifaceDefaultInst{iface: iface, m: m, recv: recv, impl: impl, impls: impls}
 	if len(frame) > 0 {
-		inst.frame = frame
-		g.pushIfaceSubst(frame)
+		inst.frame, inst.types = frame, types
+		g.pushIfaceSubst(substIfaceDefault, im, frame, types)
 		defer g.popIfaceSubst()
 	}
 	prevSelf := g.defaultSelf
-	g.defaultSelf = &irDefaultSelf{iface: iface, recv: recv}
+	g.defaultSelf = &irDefaultSelf{iface: iface, recv: recv, typ: inst.recvType()}
 	defer func() { g.defaultSelf = prevSelf }()
 	inst.params = make([]kind, len(im.Params))
 	for i, p := range im.Params {
@@ -290,18 +307,18 @@ func (g *gen) ifaceDefaultsPending() bool {
 // `self` and the frame bound, as implFunc lowers an impl function.
 func (g *gen) emitIfaceDefault(inst *ifaceDefaultInst) {
 	g.at(inst.fd.Line)
-	prevTail, prevEmitting, prevBlock := g.tail, g.implEmitting, g.implBlock
+	prevEmitting, prevBlock := g.implEmitting, g.implBlock
 	prevSelf, prevInst, prevResult := g.defaultSelf, g.defaultInst, g.result
-	g.tail, g.implEmitting, g.implBlock = nil, nil, nil
-	g.defaultSelf = &irDefaultSelf{iface: inst.iface, recv: inst.recv}
+	g.implEmitting, g.implBlock = nil, nil
+	g.defaultSelf = &irDefaultSelf{iface: inst.iface, recv: inst.recv, typ: inst.recvType()}
 	g.defaultInst = inst
 	g.result = inst.result
 	defer func() {
-		g.tail, g.implEmitting, g.implBlock = prevTail, prevEmitting, prevBlock
+		g.implEmitting, g.implBlock = prevEmitting, prevBlock
 		g.defaultSelf, g.defaultInst, g.result = prevSelf, prevInst, prevResult
 	}()
 	if inst.frame != nil {
-		g.pushIfaceSubst(inst.frame)
+		g.pushIfaceSubst(substIfaceDefault, inst.m.decl, inst.frame, inst.types)
 		defer g.popIfaceSubst()
 	}
 	g.pushScope()
@@ -317,7 +334,7 @@ func (g *gen) emitIfaceDefault(inst *ifaceDefaultInst) {
 	sig := irFuncSig{result: inst.result, decl: inst.fd, name: name, origin: irFromImpl}
 	sh := g.irFuncShellWithCallee(inst.fd, sig, inst.params, g.irCalleeSym(inst, name))
 	g.irImplPrologue(inst.fd, sh, inst.params)
-	produced, retained := g.irScalarLower(inst.fd, sig, nil, sh, inst.result)
+	produced, retained := g.irScalarLower(inst.fd, sig, sh, inst.result)
 	if !retained {
 		g.unloweredBody(g.dc.take())
 		return
@@ -326,34 +343,6 @@ func (g *gen) emitIfaceDefault(inst *ifaceDefaultInst) {
 		g.reject("impl return type mismatch",
 			fmt.Sprintf("%s for %s declares %s and returns %s", name, inst.recv.nomi(), inst.result.nomi(), produced.nomi()), inst.fd.Body)
 	}
-}
-
-// defaultInstImplPlan plans `Iface.method(args)` of the instance being
-// lowered's own interface at its receiver: the implementing block's item,
-// which the block's gen lowers. It is nil for any other call.
-func (bl *irScalarBuilder) defaultInstImplPlan(t *ast.Call, args irQualArgs, d *ifaceDef, method string, recv kind) *irQualPlan {
-	inst := bl.g.defaultInst
-	if inst == nil || d == nil || inst.iface == nil || d.decl != inst.iface.decl || recv != inst.recv || inst.impl == nil {
-		return nil
-	}
-	it := inst.impl.items[method]
-	if it == nil || !it.lowerable || irImplSource(it) == nil {
-		return nil
-	}
-	params := make([]kind, len(it.params))
-	for i, p := range it.params {
-		ip, ok := bl.g.importKind(p)
-		if !ok {
-			return nil
-		}
-		params[i] = ip
-	}
-	result, ok := bl.g.importKind(it.result)
-	if !ok || !bl.qualSignature(t, args, params, result) {
-		return nil
-	}
-	name := inst.impl.ownerName() + "." + it.name
-	return &irQualPlan{token: it, name: d.nomi + "." + method, result: result, sym: inst.impls.irCalleeSym(it, name)}
 }
 
 // ownDefaultCall reports whether the bare callee, in the body of a default

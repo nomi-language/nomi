@@ -32,13 +32,9 @@ func writeTemp(t *testing.T, src string) string {
 // TestDistinctTuple_ArityIsTheFrontEndsJobForADistinctToo pins, as a FRONT-END
 // claim, that the builder's `call arity` arm for a distinct is a BACKSTOP.
 //
-// THIS TEST EXISTS BECAUSE IT REFUTED THE COMMENT IT WAS WRITTEN TO CONFIRM.
-// enumtuple.go's first draft said the checker was LOOSER for a distinct than
-// for a variant, "which is how those fourteen sites arose". Running it says
-// otherwise: `Coord(1, 2, 3)` on a 2-tuple distinct is a front-end error, word
-// for word "Coord takes 2 arguments, got 3". The fourteen sites arose because
-// the BUILDER accepted only one of the two LEGAL counts, not because the
-// checker let a wrong one through.
+// The checker is as strict for a distinct as for a variant: `Coord(1, 2, 3)`
+// on a 2-tuple distinct is a front-end error, "Coord wraps (Int, Int), a
+// tuple of 2 elements; got 3". So a wrong count never reaches the builder.
 //
 // Stated as a claim about the front end rather than skipped past, so the expiry
 // event is visible: if the checker ever relaxes, the builder's arm stops being

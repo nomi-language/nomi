@@ -113,10 +113,9 @@ func astNodeExtent(n ast.Node) (line, col int) {
 // stringPartsExtent is the furthest position an interpolation's parts reach.
 //
 // ONLY THE HOLES CONTRIBUTE. `ast.StringText` has no position of its own — it
-// is one field and it is the string — which `irinterp.go` records as the one
-// enumeration row asking for something the AST cannot supply. So a literal
-// whose text continues below its last hole reports the hole's line, and that
-// is the lower bound `irspan.go`'s header and `ir.Pos`'s both name.
+// is one field and it is the string. So a literal whose text continues below
+// its last hole reports the hole's line, and that is the lower bound
+// `irspan.go`'s header and `ir.Pos`'s both name.
 //
 // A HOLE IS LOWERED RECURSIVELY because a hole's expression can itself be an
 // interpolation: `"""a${ "b${c}" }d"""` is legal and its inner literal's own

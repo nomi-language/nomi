@@ -21,10 +21,6 @@ package irbuild
 // rebind a name the body already bound: it is a fresh identity. A bare-name
 // value bound by a pipe whose `pipeline values:` stages were not recorded
 // declines.
-//
-// NEITHER FORM IS READ BACK. The test-body reader spells one straight block
-// and passes no binding to the site it writes, so a body holding either is
-// retained for the VM only (`testWalkOnly`).
 
 import (
 	"github.com/nomi-language/nomi/internal/ast"
@@ -34,7 +30,7 @@ import (
 // patternAssert lowers one `assert pattern = value` statement.
 func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 	if isNilNode(t.Value) || isNilNode(t.Pattern) {
-		return false
+		panic("irbuild: patternAssert: the parser always sets the assert's Value and Pattern")
 	}
 	subj, sk, _, ok := bl.lower(t.Value)
 	if !ok {
@@ -109,8 +105,8 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		case irSetCaseKind(sk):
 			tested = bl.setCaseTest(p, subj, sk, matched, failed)
 		case irCaseListKind(sk):
-			// Nominal elements too: the body is retained for the VM only,
-			// whose list projections do not depend on the element.
+			// Nominal elements too: the VM's list projections do not depend
+			// on the element.
 			tested = bl.listCaseTest(p, subj, sk, matched, failed)
 		case irRetainedTupleKind(sk):
 			tested = bl.tupleCaseTest(p, subj, sk, matched, failed)

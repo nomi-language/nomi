@@ -124,7 +124,7 @@ end
 // most this many digits converts to a float whose shortest decimal form is
 // that decimal again. SQLite has no decimal type and keeps a `DECIMAL`
 // value, and computes with one, as such a float.
-fn exact_digits() -> Int
+fn exact_digits() -> PositiveInt
     15
 end
 
@@ -138,7 +138,7 @@ end
 fn at_scale(query: String, row: Row, position: Int, scale: Int) -> Result<Row, sql.Error>
     value = Row.value_position(row, position) |> Result.map_err(fn e -> named(query, e))?
     columns = Row.columns(row)
-    column = columns |> Iter.drop(position) |> Iter.first() |> Maybe.with_default("")
+    column = Iter.get(columns, position) |> Maybe.with_default("")
     place = "the column `${column}` of `${query}`, read at scale ${scale},"
 
     scaled = case value

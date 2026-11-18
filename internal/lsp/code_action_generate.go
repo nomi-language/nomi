@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -15,10 +14,11 @@ import (
 // "Generate function" answers the checker's error for a call of a function
 // that does not exist:
 //
-//   - `foo(a, b)`, "undefined variable 'foo'": `fn foo(...)` after the
-//     top-level declaration that makes the call;
-//   - `Type.foo(x)` on a struct or enum the file declares, "type 'Type'
-//     has no member 'foo'": the function at the end of the type's inherent
+//   - `foo(a, b)`, an undefined name (analysis.UndefinedVariableCode):
+//     `fn foo(...)` after the top-level declaration that makes the call;
+//   - `Type.foo(x)` on a struct or enum the file declares, a member the
+//     type lacks (analysis.NoTypeMemberCode): the function at the end of
+//     the type's inherent
 //     `impl Type` block, or in a new block after the declaration that makes
 //     the call when the type has none.
 //
@@ -39,23 +39,21 @@ import (
 // past the name's first character. The request's diagnostic at that point,
 // when it sent one, is the one the fix names.
 
-var (
-	undefinedNameMessage = regexp.MustCompile(`^undefined variable '([a-z_][A-Za-z0-9_]*[?!]?)'`)
-	noTypeMemberMessage  = regexp.MustCompile(`^type '([A-Z][A-Za-z0-9_]*)' has no member '([a-z_][A-Za-z0-9_]*[?!]?)'$`)
-)
-
 // generateFunctions returns a fix for each undefined call under the range,
 // with the diagnostic of diags that reports it.
 func (r *refactorRequest) generateFunctions(diags []protocol.Diagnostic) []offer {
 	var out []offer
 	for _, e := range r.fa.TypeErrors {
-		title, edited, ok := r.generateFunction(e.Line, e.Col, e.Message)
+		if e.File != "" {
+			continue
+		}
+		title, edited, ok := r.generateFunction(e)
 		if !ok {
 			continue
 		}
 		a := offer{title: title, edited: edited}
 		for _, d := range diags {
-			if diagnosticHeadline(d.Message) == e.Message && diagCovers(r.lines, d, e.Line, e.Col) {
+			if reported(r.lines, d, e.Line, e.Col, e.Message) {
 				a.diags = append(a.diags, d)
 			}
 		}
@@ -64,18 +62,29 @@ func (r *refactorRequest) generateFunctions(diags []protocol.Diagnostic) []offer
 	return out
 }
 
-func (r *refactorRequest) generateFunction(line, col int, msg string) (string, string, bool) {
-	if m := undefinedNameMessage.FindStringSubmatch(msg); m != nil {
+// isFunctionName reports whether name is one a function can have: it
+// starts with a lowercase letter or `_`, where `Type.Name(x)` names a
+// variant.
+func isFunctionName(name string) bool {
+	return name != "" && (name[0] == '_' || name[0] >= 'a' && name[0] <= 'z')
+}
+
+// generateFunction is the fix for e, when e is an undefined name or a
+// member a type lacks and the name is called.
+func (r *refactorRequest) generateFunction(e analysis.TypeError) (string, string, bool) {
+	switch e.Code {
+	case analysis.UndefinedVariableCode:
+		name := e.Args[0]
 		for _, n := range r.all {
 			id, ok := n.(*ast.Ident)
-			if !ok || id.Name != m[1] || id.Line != line || id.Col != col {
+			if !ok || id.Name != name || id.Line != e.Line || id.Col != e.Col {
 				continue
 			}
 			call, ok := r.parent[id].(*ast.Call)
 			if !ok || call.Func != id || !r.contains(call) {
 				return "", "", false
 			}
-			sig, ok := r.signature(m[1], call)
+			sig, ok := r.signature(name, call)
 			if !ok {
 				return "", "", false
 			}
@@ -85,29 +94,31 @@ func (r *refactorRequest) generateFunction(line, col int, msg string) (string, s
 			}
 			// The function is declared at the file's top level.
 			text := "\n\n" + sig + "\n" + strings.Repeat(" ", format.IndentWidth) + r.placeholderAt(0, 0, sig) + "\nend"
-			return fmt.Sprintf("Generate function '%s'", m[1]), r.replace(at, at, text), true
+			return fmt.Sprintf("Generate function '%s'", name), r.replace(at, at, text), true
 		}
-		return "", "", false
-	}
-	if m := noTypeMemberMessage.FindStringSubmatch(msg); m != nil {
+	case analysis.NoTypeMemberCode:
+		typeName, member := e.Args[0], e.Args[1]
+		if !isFunctionName(member) {
+			return "", "", false
+		}
 		for _, n := range r.all {
 			fa, ok := n.(*ast.FieldAccess)
-			if !ok || fa.Field == nil || fa.Field.Name != m[2] || fa.Field.Line != line || fa.Field.Col != col {
+			if !ok || fa.Field == nil || fa.Field.Name != member || fa.Field.Line != e.Line || fa.Field.Col != e.Col {
 				continue
 			}
-			if calleeObject(fa.Object) != m[1] || !r.declaresPlainType(m[1]) {
+			if calleeObject(fa.Object) != typeName || !r.declaresPlainType(typeName) {
 				return "", "", false
 			}
 			call, ok := r.parent[fa].(*ast.Call)
 			if !ok || call.Func != fa || !r.contains(call) {
 				return "", "", false
 			}
-			sig, ok := r.signature(m[2], call)
+			sig, ok := r.signature(member, call)
 			if !ok {
 				return "", "", false
 			}
-			title := fmt.Sprintf("Generate function '%s.%s'", m[1], m[2])
-			edited, ok := r.addToInherentImpl(m[1], sig)
+			title := fmt.Sprintf("Generate function '%s.%s'", typeName, member)
+			edited, ok := r.addToInherentImpl(typeName, sig)
 			return title, edited, ok
 		}
 	}

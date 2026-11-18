@@ -12,21 +12,12 @@ package irbuild
 // A hook that fired twice for one attempt, read by an observer that keeps the
 // last observation, would report the wrong reason.
 //
-// # `irScalarBody` reports before any line check
-//
-// The statement-form check in `irScalarBody` runs before the lead loop's
-// `emittableLine` and before the tail's, so a class reported from there is
-// credited with bodies whose real blocker is the synthesized line behind it,
-// most often a derive-synthesized body that can never retain.
-// `irDeclineSynthMask` marks those.
-//
 // # Why a hook and a classifier rather than a call at each decline site
 //
 // `lower` has ten decline arms and `bl.call` eight, and a hand-placed call at
 // each would miss the arms nobody remembered. So the funnel is wrapped once
 // and the reason is RE-DERIVED from the node by `declineReason`, which re-asks
-// the same cheap tests the arms make. The statement-level sites, which `lower`
-// cannot see, set the census's `bodyWhy` and `irScalarBuild` reports it.
+// the same cheap tests the arms make.
 //
 // PRODUCTION READS ONLY the census's `why`, the reason a refused `nomi build`
 // names, and the Declines a host's DeclineHooks are handed. The census is the
@@ -36,6 +27,7 @@ package irbuild
 import (
 	"slices"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -100,9 +92,7 @@ type declineCensus struct {
 	// handed to the hooks for it, whose position `lower` fills.
 	path string
 	cur  *Decline
-	// bodyWhy is `irScalarBody`'s reason, which it cannot report itself
-	// because it answers nil rather than declining.
-	bodyWhy string
+
 	// why is the first decline of the open attempt, recorded whether or not
 	// a hook is installed: it is the reason a refused `nomi build` names for
 	// a body the IR did not lower. See irnative.go.
@@ -203,10 +193,10 @@ func (dc *declineCensus) mute() (unmute func()) {
 // declineAttempt is the open attempt's record, which a nested build sets
 // aside and puts back.
 type declineAttempt struct {
-	fn, path, bodyWhy, why string
-	seen                   bool
-	cur                    *Decline
-	line, col              int
+	fn, path, why string
+	seen          bool
+	cur           *Decline
+	line, col     int
 }
 
 // suspend sets the open attempt's record aside and mutes the hooks and the
@@ -214,11 +204,11 @@ type declineAttempt struct {
 // closure, an isolated program-std body); the function it answers puts both
 // back.
 func (dc *declineCensus) suspend() (resume func()) {
-	a := declineAttempt{dc.fn, dc.path, dc.bodyWhy, dc.why, dc.seen, dc.cur, dc.line, dc.col}
+	a := declineAttempt{dc.fn, dc.path, dc.why, dc.seen, dc.cur, dc.line, dc.col}
 	dc.muted++
 	return func() {
 		dc.muted--
-		dc.fn, dc.path, dc.bodyWhy, dc.why, dc.seen, dc.cur, dc.line, dc.col = a.fn, a.path, a.bodyWhy, a.why, a.seen, a.cur, a.line, a.col
+		dc.fn, dc.path, dc.why, dc.seen, dc.cur, dc.line, dc.col = a.fn, a.path, a.why, a.seen, a.cur, a.line, a.col
 	}
 }
 
@@ -296,26 +286,6 @@ func (dc *declineCensus) close() {
 		irDeclineUnnamed(dc.fn)
 	}
 	dc.note(irDeclineUnnamedReason)
-}
-
-// irDeclineSynthMask marks a reason `irScalarBody` reported for a body whose
-// LINES ARE SYNTHESIZED.
-//
-// THE STATEMENT-FORM CHECK RUNS BEFORE ANY LINE CHECK, so a class reported
-// from `irScalarBody` is credited with bodies whose real blocker is the
-// synthesized line behind it — the lead loop's `emittableLine` and the tail's
-// both run later. Without this mark, derive-synthesized bodies that can never
-// retain would be counted under a statement-form reason.
-func irDeclineSynthMask(fd *ast.FuncDef) string {
-	if fd == nil || fd.Body == nil {
-		return ""
-	}
-	for _, s := range fd.Body.Stmts {
-		if line, _ := nodePos(s); !emittableLine(line) {
-			return " [MASKS a synthesized line]"
-		}
-	}
-	return ""
 }
 
 // lower types the value it lowered and classifies every expression decline,
@@ -570,13 +540,14 @@ func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
 		}
 		return "a callee that is not a name: " + irNodeWord(t.Func)
 	}
-	if _, shadowed := bl.g.lookup(callee.Name); shadowed {
+	target := bl.g.calleeOf(t)
+	if target.Kind == analysis.CalleeValue {
 		return "a call through a value: " + callee.Name
 	}
-	if bl.g.stdlibSibling(callee.Name) != nil {
+	if bl.g.stdSiblingDecls[target.Decl] != nil {
 		return "a direct callee that is also a stdlib sibling: " + callee.Name
 	}
-	sig := bl.g.funcs[callee.Name]
+	sig := bl.g.sigByDecl[target.Decl]
 	switch {
 	case sig == nil:
 		return "a direct callee outside this module's fn table: " + callee.Name

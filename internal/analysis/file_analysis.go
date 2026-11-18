@@ -111,6 +111,13 @@ type FileDecls struct {
 	// interface's type params from a concrete receiver.
 	ImplTypeArgs    map[string]map[string]*ImplTypeArgs
 	ImplTypeArgSets map[string]map[string][]*ImplTypeArgs
+	// ImplBlocks is every interface impl block the file writes, a derive's
+	// synthesized ones included, by its receiver's base name and then its
+	// interface's, each with its resolved receiver and its interface's
+	// origin (Args and TypeParamDefs unset): the blocks a call of an
+	// interface function at a receiver of that name may reach
+	// (Callee.Impl, reachedImpl).
+	ImplBlocks map[string]map[string][]*ImplTypeArgs
 	// BootErrors are this file's boot errors from the project build: a
 	// `fn boot` outside an entry file, or a boot signature or application
 	// struct that is not valid. The checker reports them with the file.
@@ -223,13 +230,6 @@ type FileBodies struct {
 	// types are built, so CheckTypes gives each its member's type then
 	// (refreshReceiverMembers). Nil until the first record.
 	receiverMembers map[*Symbol]*Symbol
-	// LambdaPatternTypes maps a lambda's destructuring parameter, keyed by
-	// its pattern node (`(_, v)` in `fn (_, v) -> v`), to the type the checker
-	// gave the whole parameter. The parameter has no name and so no symbol
-	// in Definitions, and a wildcard part binds nothing, so the names the
-	// pattern introduces cannot always say what the parameter is. Nil until
-	// a pattern is recorded (recordLambdaPatternType).
-	LambdaPatternTypes map[ast.Node]Type
 	// SubtestsRowTypes maps each `subtests` statement the checker accepted
 	// to the type of its rows: the element type of what it iterates, which
 	// its pattern binds. Nil until the first record.
@@ -249,7 +249,7 @@ type FileBodies struct {
 	// type to that expected type: the declared parameter type at an argument,
 	// the annotation at a binding's value, the enclosing function's return
 	// type at its tail, the subject's type at a case arm. Both are keyed by
-	// node, as LambdaPatternTypes is, and hold the checker's types as it left
+	// node, as PatternTypes is, and hold the checker's types as it left
 	// them, so a type variable inside one resolves through TypeVar.Resolved.
 	// The editor's completion reads them to know what a value is and what a
 	// position wants. Writing them changes nothing the checker decides.
@@ -257,6 +257,16 @@ type FileBodies struct {
 	// the first record.
 	ExprTypes     map[ast.Node]Type
 	ExpectedTypes map[ast.Node]Type
+	// TypeExprTypes maps each type expression the checker resolved, a
+	// nested one included (the `Int` of `Box<Int>`), to the type it
+	// resolved to where it is written: inside a generic declaration the
+	// type mentions the declaration's parameters (`List<T>`), never an
+	// instance. A type expression in a declaration is resolved when the
+	// declarations are typed (keptDecls.typeExprs holds that share), and
+	// one in a body when the body is checked. One that failed to resolve
+	// is recorded with a nil type: the check reported why, or, on a
+	// derive-synthesis line, dropped the error. Nil until the first record.
+	TypeExprTypes map[ast.TypeExpr]Type
 	// RedundantAscriptions holds each `value as Type` whose value has that
 	// type without it (ascription.go), which the editor marks as
 	// unnecessary. Nil until the first record.
@@ -272,6 +282,18 @@ type FileBodies struct {
 	// `names` (notePlainCounterpart). The editor shows a hint naming
 	// `NonEmptyList.first`. Nil until the first record.
 	PlainCounterparts map[*ast.Call]*PlainCounterpart
+	// DollarRefs maps each string literal, a StringLit or a StringInterp,
+	// to the `$name`s the lexer recorded in its text (ast.DollarRef) that
+	// name a value in scope there, in source order
+	// (dollar_interpolation.go). Such a `$name` is text its writer likely
+	// meant as `${name}`, which DollarWarnings reports. Nil until the
+	// first record.
+	DollarRefs map[ast.Node][]ast.DollarRef
+	// dollarReads holds each value a string names after a `$`
+	// (noteDollarRefs). A binding or parameter among them that nothing
+	// reads is reported with the help that `$name` is text
+	// (CheckUnusedBindings). Nil until the first record.
+	dollarReads map[*Symbol]bool
 	// CheckedLiterals holds each typed literal whose tag implements
 	// CheckedLiteral (spec §18 *Checked literals*): its type is build's
 	// result in every quote style, and its check runs when the program is
@@ -288,11 +310,29 @@ type FileBodies struct {
 	// (typed_literal_record.go). The editor's hover reads it. Nil until
 	// the first record.
 	TypedLiterals map[*ast.TaggedString]*TypedLiteral
-	// PatternTypes maps each list, vector, set, map, struct and tuple
-	// pattern, and each `_` pattern, the checker checked to the type of the
-	// value it matches. The editor's hover reads it to say what a pattern
-	// matches and what a `_` discards. Nil until the first record.
+	// PatternTypes maps each pattern the checker checked against a known
+	// type, a nested one included, to the type of the value it matches:
+	// a `case` arm's, a binding's, a parameter's, a lambda parameter's,
+	// an `if` or `is` pattern's, a subtests row's, and a distinct
+	// destructure statement (`JobId(n) = job`). A pattern whose head names a
+	// type (`Point{x, y}`, `JobId(n)`, `self(n)`) names the type it matches:
+	// the checker requires the head to name the value's own type. A
+	// parameter's pattern is typed when the declarations are typed
+	// (keptDecls.patternTypes holds that share), its parts when the body is
+	// checked. Inside a generic declaration the type mentions the
+	// declaration's parameters. The editor's hover reads it to say what a
+	// pattern matches and what a `_` discards, and the IR builder reads it
+	// for the kind of the value each pattern takes apart. Nil until the
+	// first record.
 	PatternTypes map[ast.Node]Type
+	// PatternVariants maps the head of each pattern that names a variant
+	// (the `Some` of `Some(x)`, `Shape.Circle(r)`, `.Rect{w:, h:}`,
+	// `Bag.Items[a, b]`, and of a destructure statement over a one-variant
+	// enum) to the variant's declared name in the enum PatternTypes records
+	// for the pattern: an alias an import gave the variant is followed. A
+	// head is the type expression TypeExprTypes leaves out, and this is
+	// what it means. Nil until the first record.
+	PatternVariants map[ast.TypeExpr]string
 	// OperatorImpls maps each binary operator the checker resolved to an
 	// impl (`+ - * /` through `Add` and the others, `== !=` through
 	// `Equatable`, `< <= > >=` through `Comparable`) to that impl
@@ -330,6 +370,13 @@ type FileBodies struct {
 	// call, so it records what a written call records, and the IR builder
 	// lowers it with x evaluated first. Nil until the first record.
 	Memberships map[*ast.Binary]*ast.Call
+	// Calls maps each call to what the checker decided about it
+	// (resolved_call.go): what fills each of the callee's parameters and
+	// the order its arguments are evaluated in. A `then` or `tap` stage,
+	// which calls its function with the piped value, is keyed by the
+	// stage. The IR builder places a call's arguments from this record
+	// alone. Nil until the first record.
+	Calls map[ast.Node]*ResolvedCall
 	// CallDefaults maps each call that leaves a defaulted parameter out to
 	// the declaration whose defaults fill it and the slots it fills
 	// (call_defaults.go). The IR builder fills a call's omitted parameters
@@ -342,12 +389,18 @@ type FileBodies struct {
 	// value holds, or a type parameter's instance. The IR builder renders
 	// a hole from this record. Nil until the first record.
 	HoleDisplays map[ast.Node]*DisplayRender
-	// Operators maps each binary operator over a value that is not a
-	// primitive to what it means (operator_uses.go): an impl's call, a
-	// comparison by shape, a comparison of two interface values by their
-	// run-time types, or, over a type parameter, the bound each instance
-	// resolves. Nil until the first record.
-	Operators map[*ast.Binary]*OperatorUse
+	// UnwrapFailures maps each `!` over a Result to how its error renders
+	// by Display when it traps (hole_display.go): the record a hole of the
+	// error's type holds. The IR builder renders a failed `!`'s error from
+	// this record. Nil until the first record.
+	UnwrapFailures map[*ast.Unwrap]*DisplayRender
+	// Operators maps each operator over a value that is not a primitive,
+	// an *ast.Binary or a prefix `~~~` (*ast.Unary), to what it means
+	// (operator_uses.go): an impl's call, a comparison by shape, a
+	// comparison of two interface values by their run-time types, or,
+	// over a type parameter, the bound each instance resolves. Nil until
+	// the first record.
+	Operators map[ast.Node]*OperatorUse
 	// Coercions maps each expression of a concrete type, or of a type
 	// parameter bounded by the interface, checked against an interface
 	// type to the interface value it becomes: the interface, the value's
@@ -519,6 +572,15 @@ type keptDecls struct {
 	// typeRefs are the references BuildTypes records for the fields of an
 	// anonymous struct type written in a declaration.
 	typeRefs []keptRef
+	// typeExprs are the declarations' share of TypeExprTypes: the type
+	// expressions resolved before the bodies are walked, and those
+	// BuildTypes resolves in declarations. The declaration nodes outlive a
+	// rebuild (a recheck grafts new bodies into them), so the records do.
+	typeExprs map[ast.TypeExpr]Type
+	// patternTypes are the declarations' share of PatternTypes: the type
+	// of each parameter's pattern, which BuildTypes works out from its
+	// annotation or its head.
+	patternTypes map[ast.Node]Type
 	// typed are the types BuildTypes gives symbols the bodies walk defines:
 	// a function's parameters and type parameters, which are defined again,
 	// as new symbols, where the body is walked.
@@ -556,6 +618,8 @@ func (fa *FileAnalysis) keepDecls(b *builder) {
 		imported:            slices.Clone(fa.ImportedModules),
 		errors:              slices.Clone(fa.TypeErrors),
 		blockImports:        maps.Clone(fa.BlockImportScopes),
+		typeExprs:           maps.Clone(fa.TypeExprTypes),
+		patternTypes:        maps.Clone(fa.PatternTypes),
 		symbols:             maps.Clone(fa.ModuleScope.Symbols),
 		scopes:              len(fa.ModuleScope.Children),
 		builder:             b,
@@ -580,9 +644,10 @@ func cloneManifest(m map[string]map[string][]Recording) map[string]map[string][]
 }
 
 // typingDecls runs typeDecls, BuildTypes' work on fa's declarations, and
-// when fa is kept records the references it writes. They go in a map of
-// their own, which is then laid over fa.References: nothing typeDecls does
-// reads References.
+// when fa is kept records the references, the type expressions' types and
+// the parameter patterns' types it writes. They go in maps of their own,
+// which are then laid over fa.References, fa.TypeExprTypes and
+// fa.PatternTypes: nothing typeDecls does reads any of them.
 func (fa *FileAnalysis) typingDecls(typeDecls func()) {
 	k := fa.keptDecls()
 	if k == nil || k.typing {
@@ -592,8 +657,8 @@ func (fa *FileAnalysis) typingDecls(typeDecls func()) {
 		typeDecls()
 		return
 	}
-	refs := fa.References
-	fa.References = map[Pos]*Symbol{}
+	refs, typeExprs, patternTypes := fa.References, fa.TypeExprTypes, fa.PatternTypes
+	fa.References, fa.TypeExprTypes, fa.PatternTypes = map[Pos]*Symbol{}, nil, nil
 	k.typing = true
 	typeDecls()
 	k.typing = false
@@ -602,6 +667,28 @@ func (fa *FileAnalysis) typingDecls(typeDecls func()) {
 		refs[pos] = sym
 	}
 	fa.References = refs
+	fa.TypeExprTypes = keepTyped(&k.typeExprs, typeExprs, fa.TypeExprTypes)
+	fa.PatternTypes = keepTyped(&k.patternTypes, patternTypes, fa.PatternTypes)
+}
+
+// keepTyped lays typed, the records one typingDecls step wrote, over
+// onto, the table as it stood before the step, and adds them to kept, the
+// declarations' share. It answers the table.
+func keepTyped[K comparable](kept *map[K]Type, onto, typed map[K]Type) map[K]Type {
+	if len(typed) == 0 {
+		return onto
+	}
+	if *kept == nil {
+		*kept = make(map[K]Type, len(typed))
+	}
+	if onto == nil {
+		onto = make(map[K]Type, len(typed))
+	}
+	for key, t := range typed {
+		(*kept)[key] = t
+		onto[key] = t
+	}
+	return onto
 }
 
 // attachDeclType gives sym, the symbol at pos in fa.Definitions, the type
@@ -670,6 +757,8 @@ func (fa *FileAnalysis) walkBodies(nodes []ast.Node, resetSymbols bool) bool {
 		ImportedModules:   slices.Clone(k.imported),
 		TypeErrors:        slices.Clone(k.errors),
 		BlockImportScopes: maps.Clone(k.blockImports),
+		TypeExprTypes:     maps.Clone(k.typeExprs),
+		PatternTypes:      maps.Clone(k.patternTypes),
 		generation:        bodyGenerations.Add(1),
 	}
 	if resetSymbols {

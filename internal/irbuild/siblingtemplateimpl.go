@@ -87,13 +87,13 @@ func (g *gen) registerSiblingInstanceImpl(tpl *genericTemplate, ib *ast.ImplBloc
 		}
 		args[i] = k
 	}
-	g.pushGenericSubst(tpl, args)
+	g.pushGenericSubst(substImpl, tpl, args, inst.genericTypes)
 	id := g.registerImplAt(ib, recv)
 	g.popGenericSubst()
 	if !id.lowerable {
 		return
 	}
-	g.genericImplQueue = append(g.genericImplQueue, &genericImplInst{impl: id, tpl: tpl, args: args})
+	g.genericImplQueue = append(g.genericImplQueue, &genericImplInst{impl: id, tpl: tpl, args: args, recv: inst})
 }
 
 // registerSiblingInstances is the owner's half: inst's impls are registered
@@ -119,12 +119,9 @@ func (g *gen) instanceImplAnywhere(src *typeDef, iface, method string) (*gen, *i
 		if gg == nil {
 			continue
 		}
-		at := src
-		if gg.genericInsts == nil || !gg.ownsInstance(src) {
-			at = gg.foreignInstDefs[src]
-			if at == nil {
-				continue
-			}
+		at := gg.instanceDef(src)
+		if at == nil {
+			continue
 		}
 		recv := named(at)
 		for name, byRecv := range gg.implsByIface {
@@ -151,6 +148,16 @@ func instIdentity(d *typeDef) *typeDef {
 		return d.instOrigin
 	}
 	return d
+}
+
+// instanceDef is the def this gen registers impls at for src, an owner's
+// instance: src itself when this gen owns it, else this gen's mirror of
+// it, or nil when it has none.
+func (g *gen) instanceDef(src *typeDef) *typeDef {
+	if g.genericInsts != nil && g.ownsInstance(src) {
+		return src
+	}
+	return g.foreignInstDefs[src]
 }
 
 // ownsInstance reports whether src is one of this gen's own instances.

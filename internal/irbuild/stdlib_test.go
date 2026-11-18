@@ -130,12 +130,9 @@ func TestEveryScalarHostFnIsBoundOrDeclared(t *testing.T) {
 		// are: they lower through scalararith.go's arm, the same operation as
 		// the operator spelling, so a row would be a second path to it.
 		//
-		// The nine Int/Float/String siblings are unbound for the same reason
-		// and are exempted in TestStdlibRefusesUnmappedHostFnsByName. These three
-		// are here because they have scalar signatures and that test does not
-		// see them.
+		// The Int, Float and String siblings are unbound for the same reason.
 		//
-		// EXPIRY: a stdlibBinding shape that can carry a call-site position.
+		// EXPIRY: a registry row shape that can carry a call-site position.
 		// TestScalarArith_TheOperatorKeysStayUnbound is the other half of this
 		// and fires on the same event.
 		"decimal.Decimal.Add<Decimal, Decimal>.add":                    "the row cannot carry the call's line; scalararith.go lowers it",
@@ -613,8 +610,8 @@ func TestCollapsedStdlibKeysCostOnlyCoverage(t *testing.T) {
 		bySig := map[string][]*stdFunc{}
 		order := make([]string, 0, len(fs))
 		for _, f := range fs {
-			// GROUPED BY IDENTITY, not by Nomi spelling. `nomiKinds` renders a
-			// kind's SHORT name, so `calendar.Error` and `random.Error` both
+			// GROUPED BY IDENTITY, not by Nomi spelling. A kind's spelling is
+			// its SHORT name, so `calendar.Error` and `random.Error` both
 			// print `(Error)`. The two kinds are DISTINCT (different `*typeDef`)
 			// and `stdPick`, which compares actual kinds through
 			// `sameParamKinds`, routes each to itself, so grouping by spelling
@@ -786,7 +783,6 @@ func TestStdlibRefusalNamesAreDistinct(t *testing.T) {
 		// produces none TODAY and the shape is not hypothetical: `random.draw_list`,
 		// `random.pick_weighted`, `random.total_weight` and both `each_while` in
 		// std/ranges are tail self-calls masked behind `stdlib generic function`.
-		// See stdRecursiveClosure.
 		"stdlib tail-recursive function",
 		"unlowered stdlib function",
 	}

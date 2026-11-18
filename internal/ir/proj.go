@@ -23,9 +23,9 @@ import "strconv"
 // It does not, because the storage is a function of the KIND and the kind is a
 // function of WHAT IS BEING READ rather than of how the consumer stores it.
 //
-// Element access at a computed position is not in this class. `Vector.get(v, i)` and
-// `Map.get(m, k)` are CALLS — `vectorCall` and `mapCall`, in the `call` class
-// — and they are calls in the consumer too. What is here is exactly the set of
+// Element access at a computed position is not in this class.
+// `Vector.get(v, i)` and `Map.get(m, k)` are CALLS, in the `call` class. What
+// is here is exactly the set of
 // reads whose location is fixed by the subject's STATIC TYPE plus a
 // COMPILE-TIME CONSTANT, so every one of them has a selector or a constant
 // index and none has an index OPERAND.
@@ -63,14 +63,15 @@ const (
 	// ProjField reads a declared field of a struct. `Sym` is the FIELD's
 	// declaration identity, not the struct's: two same-named fields of two
 	// structs are two declarations, and this class exists to read one of them.
-	// Owners: fieldAccess, providerRead.
+	// Owners: irProjField, fieldProject.
 	ProjField = ProjKind(iota + 1)
 	// ProjRecordField reads a field of an anonymous struct BY NAME. A record
 	// has no declaration to carry an identity, so the name is the identity —
 	// which is the same fact MakeRecord records from the construction side.
-	// Owner: anonFieldAccess.
+	// Owners: irProjRecordField, recordRead.
 	ProjRecordField
-	// ProjSlot reads one component of a tuple by INDEX. Owner: tupleIndex.
+	// ProjSlot reads one component of a tuple by INDEX. Owners: irProjSlot,
+	// tupleProjection.
 	ProjSlot
 	// ProjPayload reads one payload of a known enum variant by index. `Sym` is
 	// the enum and `Text` the variant: the subject's tag is already known,
@@ -101,7 +102,7 @@ const (
 	// The position is a constant because the only thing in Nomi that reads a
 	// list element at a fixed position is a LIST PATTERN, whose heads are
 	// counted by the pattern itself. An element read at a computed position is
-	// `List.at`, a call. Owner: listArm.
+	// `List.at`, a call. Owners: listCaseTest, listCaseTestNested.
 	ProjElem
 	// ProjSuffix reads the List of everything from a CONSTANT position on —
 	// the `..rest` of `[a, b, ..rest]`, with `Index` the number of heads
@@ -114,7 +115,7 @@ const (
 	// list, so `[h, ..t]` allocates nothing. That is a property of the
 	// operation rather than of one representation, and it is why this is a
 	// projection and not `MakeList` over a drop.
-	// Owner: listArm.
+	// Owners: listCaseTest, listCaseTestNested.
 	ProjSuffix
 	// ProjStrSuffix reads the String of a String's bytes from a CONSTANT byte
 	// offset on: the `rest` of a string prefix pattern `"/users/" + rest`,

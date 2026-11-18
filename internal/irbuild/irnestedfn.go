@@ -22,7 +22,7 @@ import (
 // A generic one is lowered once per type-argument tuple its calls reach
 // (genericNestedFunc).
 //
-// DECLINED: a plain parameter without an annotation, a name that is already bound
+// DECLINED: a plain parameter without an annotation or a default, a name that is already bound
 // here, and a lambda whose result is not the declared return type.
 func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 	no := func(why string) bool {
@@ -38,8 +38,9 @@ func (bl *irScalarBuilder) nestedFunc(fd *ast.FuncDef) bool {
 	for _, p := range fd.Params {
 		// A destructuring parameter builds as a lambda's does
 		// (irlambdapattern.go), which reads its kind off its head when it
-		// has no annotation.
-		if p.TypeAnnotation == nil && p.Destructure == nil {
+		// has no annotation, and one written `by = 3` has the type the
+		// checker gave it from its default (lambdaParamKind).
+		if p.TypeAnnotation == nil && p.Destructure == nil && p.Default == nil {
 			return no("a parameter without an annotation")
 		}
 	}
@@ -125,11 +126,11 @@ func (bl *irScalarBuilder) nestedInstance(fd *ast.FuncDef, name string) bool {
 func (bl *irScalarBuilder) genericNestedFunc(fd *ast.FuncDef) bool {
 	gn := &irGenericNested{fd: fd, names: map[string]string{}}
 	insts := bl.g.nestedInstanceSet(fd, map[*ast.FuncDef]bool{})
-	for i, args := range insts {
+	for i, inst := range insts {
 		// The instance's name, which no program can spell, so it shadows
 		// nothing. Numbered, because two instances of a generic struct
 		// render alike (`Box`).
-		gn.names[kindsKey(args)] = fmt.Sprintf("%s<%s>#%d", fd.Name, kindsNomi(args), i)
+		gn.names[kindsKey(inst.args)] = fmt.Sprintf("%s<%s>#%d", fd.Name, kindsNomi(inst.args), i)
 	}
 	// Registered before the instances are built, so a body's call to
 	// itself resolves to the instance being built.
@@ -137,10 +138,10 @@ func (bl *irScalarBuilder) genericNestedFunc(fd *ast.FuncDef) bool {
 		bl.genericNested = map[string]*irGenericNested{}
 	}
 	bl.genericNested[fd.Name] = gn
-	for _, args := range insts {
-		bl.g.genericSubst = append(bl.g.genericSubst, nestedFrame(fd, args))
-		ok := bl.nestedInstance(fd, gn.names[kindsKey(args)])
-		bl.g.genericSubst = bl.g.genericSubst[:len(bl.g.genericSubst)-1]
+	for _, inst := range insts {
+		bl.g.pushNestedFrame(fd, inst)
+		ok := bl.nestedInstance(fd, gn.names[kindsKey(inst.args)])
+		bl.g.popSubst()
 		if !ok {
 			return false
 		}
@@ -165,13 +166,20 @@ func kindsKey(args []kind) string {
 	return b.String()
 }
 
-// nestedFrame is the substitution frame of fd's instance at args.
-func nestedFrame(fd *ast.FuncDef, args []kind) map[string]kind {
-	frame := make(map[string]kind, len(args))
+// nestedInst is one tuple of type arguments a generic nested fn is called
+// at, as kinds and as the checker's types (nil where it has none).
+type nestedInst struct {
+	args    []kind
+	checked []analysis.Type
+}
+
+// pushNestedFrame enters the substitution frame of fd's instance inst.
+func (g *gen) pushNestedFrame(fd *ast.FuncDef, inst nestedInst) {
+	names := make([]string, len(fd.TypeParams))
 	for i, tp := range fd.TypeParams {
-		frame[tp.Name] = args[i]
+		names[i] = tp.Name
 	}
-	return frame
+	g.pushSubst(substNested, fd, newSubstFrame(names, inst.args, inst.checked))
 }
 
 // nestedInstanceSet is the type argument tuples the generic nested fn fd is
@@ -180,19 +188,19 @@ func nestedFrame(fd *ast.FuncDef, args []kind) map[string]kind {
 // fn's body once under each of that fn's own tuples. visiting guards the
 // walk; a fn the front end lets call fd is declared after it, so the walk
 // does not cycle, and a recursive fn is declined before it is asked.
-func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool) [][]kind {
+func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool) []nestedInst {
 	if visiting[fd] {
 		return nil
 	}
 	visiting[fd] = true
 	defer delete(visiting, fd)
-	var out [][]kind
+	var out []nestedInst
 	seen := map[string]bool{}
 	add := func(sym *analysis.Symbol) {
-		args, ok := g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
-		if key := kindsKey(args); ok && !seen[key] {
+		inst, ok := g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
+		if key := kindsKey(inst.args); ok && !seen[key] {
 			seen[key] = true
-			out = append(out, args)
+			out = append(out, inst)
 		}
 	}
 	for _, ref := range g.nestedGenericCalls(fd) {
@@ -201,9 +209,9 @@ func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool)
 			continue
 		}
 		for _, outer := range g.nestedInstanceSet(ref.within, visiting) {
-			g.genericSubst = append(g.genericSubst, nestedFrame(ref.within, outer))
+			g.pushNestedFrame(ref.within, outer)
 			add(ref.sym)
-			g.genericSubst = g.genericSubst[:len(g.genericSubst)-1]
+			g.popSubst()
 		}
 	}
 	return out
@@ -215,20 +223,20 @@ func (g *gen) nestedInstanceSet(fd *ast.FuncDef, visiting map[*ast.FuncDef]bool)
 // the error type open and makes no value of it (spec, "Determined type
 // arguments"): it is the type the checker closed it as, as at every other
 // call.
-func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, types map[string]analysis.Type) ([]kind, bool) {
-	args := make([]kind, len(fd.TypeParams))
+func (g *gen) nestedInstanceArgs(fd *ast.FuncDef, types map[string]analysis.Type) (nestedInst, bool) {
+	inst := nestedInst{args: make([]kind, len(fd.TypeParams)), checked: make([]analysis.Type, len(fd.TypeParams))}
 	for i, tp := range fd.TypeParams {
 		t, found := types[tp.Name]
 		if !found {
-			return nil, false
+			return nestedInst{}, false
 		}
 		k := g.project(t)
 		if !(irCallableValueKind(k) || k == kindUnit) {
-			return nil, false
+			return nestedInst{}, false
 		}
-		args[i] = k
+		inst.args[i], inst.checked[i] = k, g.checkerTypeArg(t)
 	}
-	return args, true
+	return inst, true
 }
 
 // nestedCallRef is one reference to a generic fn that the checker
@@ -327,55 +335,61 @@ func (bl *irScalarBuilder) genericNestedFn(id *ast.Ident) *irGenericNested {
 // where the fn was declared. handled is false when id names no generic
 // nested fn.
 func (bl *irScalarBuilder) genericNestedCall(t *ast.Call, id *ast.Ident) (ir.Temp, kind, bool, bool, bool) {
-	inst, isNested := bl.genericNestedRef(id)
-	if !isNested {
+	inst, ok, handled := bl.genericNestedRef(id)
+	if !handled {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	if inst == nil {
+	if !ok {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
+	// The call through the instance is t with another callee, so it takes
+	// t's record: a call the builder made (a partial's, over stand-ins)
+	// carries one that its position does not find.
 	call := *t
 	call.Func = inst
+	defer bl.g.carryCall(&call, bl.g.resolvedCallOf(t))()
 	v, k, mobile, lowered := bl.indirectCall(&call)
 	return v, k, mobile, lowered, true
 }
 
 // genericNestedRef is the instance a name that resolves to a generic nested
 // fn stands for at this reference, read from the checker's instantiated
-// signature there, as a name spelling the instance's binding. isNested is
-// false when id names no generic nested fn; inst is nil, with the decline
+// signature there, as a name spelling the instance's binding. handled is
+// false when id names no generic nested fn; ok is false, with the decline
 // noted, when the reference's instance was not built.
-func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, isNested bool) {
+func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, ok, handled bool) {
 	gn := bl.genericNestedFn(id)
 	if gn == nil {
-		return nil, false
+		return nil, false, false
 	}
 	fd := gn.fd
 	var args []kind
-	ok := false
+	solved := false
 	if bl.g.fa != nil {
 		pos := analysis.Pos{Line: id.Line, Col: id.Col}
 		if sym := bl.g.srcFA().References[pos]; sym != nil {
 			if sym.CallType != nil {
-				args, ok = bl.g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
+				var inst nestedInst
+				inst, solved = bl.g.nestedInstanceArgs(fd, analysis.CallTypeArgs(sym))
+				args = inst.args
 			} else if bl.g.nestedGenericCalls(fd) != nil && bl.g.nestedWithin[pos] == fd {
 				// A call in fd's own body, which the checker does not
 				// instantiate: at fd's own parameters, the instance being
 				// built, whose frame is the innermost.
-				args, ok = bl.g.nestedOwnArgs(fd)
+				args, solved = bl.g.nestedOwnArgs(fd)
 			}
 		}
 	}
-	if !ok {
+	if !solved {
 		bl.g.dc.note("a generic nested fn whose type arguments are unsolved here: " + id.Name)
-		return nil, true
+		return nil, false, true
 	}
 	name, built := gn.names[kindsKey(args)]
 	if !built || !bl.reaches(name) {
 		bl.g.dc.note("a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNomi(args) + ">")
-		return nil, true
+		return nil, false, true
 	}
-	return &ast.Ident{Name: name, Line: id.Line, Col: id.Col}, true
+	return &ast.Ident{Name: name, Line: id.Line, Col: id.Col}, true, true
 }
 
 // nestedOwnArgs is fd's own type parameters in the frame of the instance of
@@ -393,9 +407,9 @@ func (g *gen) nestedOwnArgs(fd *ast.FuncDef) ([]kind, bool) {
 }
 
 // reaches reports whether name is bound in this builder or one enclosing it.
-func (bl *irScalarBuilder) reaches(name string) bool {
+func (bl *irScalarBuilder) reaches(name string) (bound bool) {
 	for scope := bl; scope != nil; scope = scope.parent {
-		if _, bound := scope.bound[name]; bound {
+		if _, has := scope.bound[name]; has {
 			return true
 		}
 	}
@@ -420,7 +434,7 @@ type irRecursiveFn struct {
 func (bl *irScalarBuilder) recursiveNestedFunc(fd *ast.FuncDef, lam *ast.Lambda, name string) bool {
 	params := make([]kind, len(fd.Params))
 	for i, p := range fd.Params {
-		params[i] = bl.g.irParamPatternKind(p)
+		params[i] = bl.g.paramKind(p)
 	}
 	result := kindUnit
 	if fd.ReturnTypeExpr != nil {

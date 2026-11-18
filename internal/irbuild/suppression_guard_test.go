@@ -29,13 +29,13 @@ import (
 //   - marker       kindInvalid as a typeDef's `inner` is how a MARKER type — a
 //     distinct carrying no value — is represented. Domain meaning,
 //     not a refused operand. A distinct whose inner really was
-//     refused has lowerable=false and is caught by rejectUnlowered.
+//     refused has lowerable=false and is refused by name.
 //   - sentinel     kindInvalid in a `want` position means "no expected type".
 //     Nothing was refused; nothing is being judged.
 //   - lookup       `!= kindInvalid` asks whether a NAME resolves to a kind at
 //     all, to choose a lowering path. A miss falls through to a site
 //     that reports.
-//   - mechanical   lowering plumbing — hold, operand, forceExpr, coerce.
+//   - mechanical   lowering plumbing — hold, operand, coerce.
 //     No judgement is pending at the site.
 //   - no-position  outside the builder walk, in registry construction over
 //     stdlib declarations or Go reflect types. There is no Nomi
@@ -73,7 +73,7 @@ var kindInvalidClasses = map[string]bool{
 // exists to expose.
 //
 // So the guarantee is this: **every comparison in this package is either
-// routed through g.suppress()/g.suppressed()/g.suppressedKind() or carries a
+// routed through g.suppress() or carries a
 // `kindInvalid: <class>` marker naming why it is not a suppression.** Add a
 // comparison and this test fails until you do one or the other. A count cannot
 // be bumped to make it pass.
@@ -258,7 +258,7 @@ func isKindInvalidIdent(e ast.Expr) bool {
 
 // bodyRoutes reports whether these statements reach one of the three counted
 // calls. Nested statements count: a routed guard may bind names or emit a probe
-// walk before declining, and caseInto's does both.
+// walk before declining.
 func bodyRoutes(body []ast.Stmt) bool {
 	routed := false
 	for _, s := range body {

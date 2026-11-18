@@ -54,16 +54,15 @@ func TestGenericInstanceKindsAreDistinctMapKeys(t *testing.T) {
 //
 // An instance's `nomi` is the bare declaration name ("Box", never
 // "Box<Inner>") because that is what `Debug.inspect` renders. So two instances
-// of one template produce the same `implGoName` base
-// (`NomiI_<Iface>_<recv.nomi()>_<method>`), and `ifaceGoName`'s `_2` suffix is
-// what keeps the two names distinct.
+// of one template share the name an impl's name would be derived from, and
+// minting is what keeps the two impls' names distinct.
 //
 // This test pins the collision as intended, so that:
 //
 //   - a change making `nomi` carry the arguments fails here, rather than
 //     silently re-rendering every `Debug.inspect` of a generic instance; and
 //   - impl names are disambiguated by minting and never by derivation.
-//     Anything that reconstructs `NomiI_<Iface>_<nomi>_<method>` instead of
+//     Anything that reconstructs an impl's name from `nomi` instead of
 //     reading the minted name picks whichever instance came first.
 func TestGenericInstanceNomiNamesCollideOnPurpose(t *testing.T) {
 	src := "pub struct Box<T>\n  item: T\nend\n\n" +

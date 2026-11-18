@@ -66,7 +66,7 @@ func (c *checker) patternNamesDistinct(te ast.TypeExpr, dt *DistinctType, line, 
 		if terr, ok := err.(TypeError); ok {
 			c.report(terr)
 		} else {
-			c.addError(line, col, fmt.Sprintf("unknown type %q", te.TypeString()))
+			c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf("unknown type %q", te.TypeString())}.coded(UnknownTypeCode, te.TypeString()))
 		}
 		return false
 	}

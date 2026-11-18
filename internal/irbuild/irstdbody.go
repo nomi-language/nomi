@@ -14,8 +14,8 @@ import "github.com/nomi-language/nomi/internal/ast"
 // It exists because the seam has two producers, and a `*fnSig` is not
 // available to both. `funcDecl` has one; `emitStdFunc` has a `*stdFunc`,
 // which is a different record of a different resolution — a sibling table
-// rather than a module function table, a `key` rather than a Go name, and no
-// dictionary seam at all. Fabricating a `*fnSig` for the std side would be
+// rather than a module function table, a `key` rather than the declared name,
+// and no dictionary seam at all. Fabricating a `*fnSig` for the std side would be
 // inventing a call-site view that no call site uses, and the fabricated
 // fields would be the ones a later reader trusts.
 //
@@ -86,7 +86,7 @@ func irFuncSigOf(fd *ast.FuncDef, sig *fnSig) irFuncSig {
 // A candidate reaching `emitStdFunc` has no type parameters:
 // `collectStdCandidates` refuses a generic stdlib declaration by name —
 // `stdlib generic function` — before a body is ever tried. The one exception
-// is a monomorphic INSTANCE (stdinstance.go), whose type arguments are already
+// is a monomorphic INSTANCE, whose type arguments are already
 // substituted to concrete kinds by the time the body is lowered.
 func irStdFuncSig(f *stdFunc, fd *ast.FuncDef) irFuncSig {
 	return irFuncSig{result: f.result, decl: fd, name: f.key, origin: irFromStd}

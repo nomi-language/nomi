@@ -9,12 +9,12 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// Unsupported names one construct the backend cannot lower, at the Nomi source
-// position that construct occupies.
+// Unsupported names one construct the builder does not lower, at the Nomi
+// source position that construct occupies.
 //
-// A named rejection is the whole contract of a partial backend: the alternative
-// is Go that compiles and then behaves differently, which is the failure mode
-// this design exists to avoid.
+// A named rejection is the contract of a builder that lowers part of the
+// language: the alternative is a program that runs and behaves differently,
+// which is the failure mode this design exists to avoid.
 type Unsupported struct {
 	// Construct is the human-readable name of what was rejected. It is the
 	// tally key in the corpus coverage report, so it must be stable and it
@@ -130,25 +130,6 @@ func dedupeSuppressions(masked []Suppression) []Suppression {
 	return kept
 }
 
-// Masked is how many positions declined to name a blocker. Zero means the
-// blocker set below is COMPLETE; anything else means it is a lower bound and no
-// percentage computed from it is a forecast. See suppression.go.
-func (e *UnsupportedError) Masked() int { return len(e.Suppressed) }
-
-// MaskedByFile attributes the count to the file each suppression happened in,
-// because a program is a graph of files and one sibling's refusal masks
-// blockers in the file that calls it.
-func (e *UnsupportedError) MaskedByFile() map[string]int {
-	if len(e.Suppressed) == 0 {
-		return nil
-	}
-	out := make(map[string]int, 4)
-	for _, s := range e.Suppressed {
-		out[s.File]++
-	}
-	return out
-}
-
 // Error names ONLY Items[0], plus a count of the rest.
 //
 // SO A TEST MUST NEVER ASSERT A CONSTRUCT BY SCANNING THIS STRING — assert over
@@ -186,93 +167,6 @@ func (e *UnsupportedError) Constructs() []string {
 	return out
 }
 
-// THE UNIT: A SITE IS ONE REFUSAL ITEM — a distinct
-// (construct, operand, file, line, col) tuple, which is exactly what Items
-// holds after newUnsupportedError's dedupe.
-//
-// A file-level count cannot see site-level progress: clearing 8
-// `argument type mismatch` sites in one file moves nothing when the file still
-// carries two blockers.
-//
-// WHY THE ITEM AND NOT THE POSITION. Collapsing to (file, line, col) merges two
-// DIFFERENT constructs refusing at one node into one reading, and those are two
-// obstacles owned by two pieces of work.
-//
-// The two counts still differ across a POPULATION, because one source position
-// is reported once per UNIT that reaches it: entry programs that share sibling
-// files each carry those siblings' refusals. So both are reported (siteCensus):
-// the ITEM count is the ACCOUNT — how much refusal the population's units
-// carry, and the thing a partial fix moves — and the POSITION count is the
-// closer proxy for WORK. Their difference is the report's DUPLICATIVE mode.
-//
-// WHY THE OPERAND IS IN THE TUPLE. Several files can share one blocker key
-// while carrying different operands under it, and a fix addresses operands,
-// not keys. SitesByConstruct's operand column says "S sites over D distinct
-// operands".
-//
-// SHADOWS, AND WHY THE TOTAL AND THE PER-KEY ROW ARE BOTH REPORTED. A key's row
-// can go to zero without any refusal being lowered, because the positions it
-// named get RE-KEYED to a neighbouring guard. Sites() over the whole
-// population is invariant under re-keying and the per-key row is not, so
-//
-//	shadows = (sites the key's row lost) - (sites the total lost)
-//
-// is computable from two readings and is the discriminator. Neither number
-// alone is.
-//
-// WHAT A SITE COUNT DOES NOT CAPTURE, and none of these is a rounding error:
-//
-//   - MASKED POSITIONS. A blocker the builder declined to name is not an Item,
-//     so Sites() is a LOWER bound in exactly the way Constructs() is, and
-//     Masked() is its error bar. Un-masking ADDS sites, so a real fix can clear
-//     8 sites, reveal 21 that were hidden behind them, and read as +13. Sites
-//     and masked must be quoted together or the sign is not readable.
-//   - WORK. Two sites are not twice one site's work. One fix clears both halves
-//     of a DUPLICATIVE pair, and one operand can carry many positions.
-//   - PAYOFF. A site cleared is not a test case run. Only `matched` says that,
-//     and it says it about a whole file.
-//   - REACHABILITY. An item under an already-refused parent is a site here;
-//     whether generation would reach that position once the parent lowers is
-//     not decided by this count.
-func (e *UnsupportedError) Sites() int { return len(e.Items) }
-
-// SiteCount is one construct's refusal accounting at the two granularities that
-// answer different questions: how many places refuse under this name, and how
-// many DIFFERENT things they refuse.
-type SiteCount struct {
-	// Sites is the number of refusal items carrying this construct.
-	Sites int
-	// Operands is the number of distinct Detail strings among them. A key with
-	// many sites and one operand is one gap repeated; a key with many operands
-	// is a family, and a fix that names two of them finishes two of them.
-	Operands int
-}
-
-// SitesByConstruct is the per-key half of the reading. Read it BESIDE Sites():
-// see the shadow note above for why neither is sound alone.
-func (e *UnsupportedError) SitesByConstruct() map[string]SiteCount {
-	if len(e.Items) == 0 {
-		return nil
-	}
-	operands := make(map[string]map[string]bool, 4)
-	out := make(map[string]SiteCount, 4)
-	for _, it := range e.Items {
-		row := out[it.Construct]
-		row.Sites++
-		seen := operands[it.Construct]
-		if seen == nil {
-			seen = map[string]bool{}
-			operands[it.Construct] = seen
-		}
-		if !seen[it.Detail] {
-			seen[it.Detail] = true
-			row.Operands++
-		}
-		out[it.Construct] = row
-	}
-	return out
-}
-
 // nodePos returns a node's 1-based source position.
 //
 // Reflection rather than a 70-case type switch: every ast.Node carries bare
@@ -287,31 +181,12 @@ func (e *UnsupportedError) SitesByConstruct() map[string]SiteCount {
 // READ (TestIRConstRef_EveryRoutedSiteHasAPosition). The reflection here is
 // two `reflect` calls and a field lookup per call; if this ever shows up in a
 // profile, the fix is a generated accessor and not a 70-case switch.
-func nodePos(n ast.Node) (line, col int) {
-	if n == nil {
-		return 0, 0
-	}
-	line = n.LineNum()
-	v := reflect.Indirect(reflect.ValueOf(n))
-	if v.Kind() != reflect.Struct {
-		return line, 0
-	}
-	if f := v.FieldByName("Col"); f.IsValid() && f.Kind() == reflect.Int {
-		col = int(f.Int())
-	}
-	return line, col
-}
+func nodePos(n ast.Node) (line, col int) { return ast.Position(n) }
 
 // isNilNode reports whether n carries nothing — a nil interface, or a typed nil
 // pointer, which is what an absent optional child (`fd.Body`, `t.Else`) looks
 // like once it is stored in an ast.Node field.
-func isNilNode(n ast.Node) bool {
-	if n == nil {
-		return true
-	}
-	v := reflect.ValueOf(n)
-	return v.Kind() == reflect.Pointer && v.IsNil()
-}
+func isNilNode(n ast.Node) bool { return ast.IsNilNode(n) }
 
 // childNodes returns n's child AST nodes (ast.Children) in field-declaration
 // order, which is source order closely enough for a report. Nodes reached
@@ -382,8 +257,8 @@ var constructNames = map[string]string{
 	// A FuncDef only reaches this map from a nested position: a top-level one
 	// goes to funcDecl, which names its own reasons.
 	"FuncDef": "nested function definition",
-	// `If` is reached only as a bare pipe stage (`x |> if { … }`): ifInto owns
-	// every other position, so an unmapped NodeType would surface only there.
+	// `If` is reached only as a bare pipe stage (`x |> if { … }`): every other
+	// position is lowered, so an unmapped NodeType would surface only there.
 	"If":              "if expression",
 	"ImplBlock":       "impl block",
 	"ImplConformance": "impl conformance",

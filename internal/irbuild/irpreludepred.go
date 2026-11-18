@@ -5,34 +5,24 @@ import (
 	"github.com/nomi-language/nomi/internal/ir"
 )
 
-// irPreludePredicate names the variant a prelude predicate tests
-// (`Maybe.is_some` tests Some), or "" for any other owner and method. std's
-// bodies are each a two-arm `case` answering whether the value is that
-// variant, which is exactly one variant test.
-func irPreludePredicate(owner, method string) string {
-	switch owner + "." + method {
-	case "Maybe.is_some":
-		return "Some"
-	case "Maybe.is_none":
-		return "None"
-	case "Result.is_ok":
-		return "Ok"
-	case "Result.is_err":
-		return "Err"
-	}
-	return ""
+// preludePredicates names the variant each prelude predicate tests
+// (`Maybe.is_some` tests Some). std's bodies are each a two-arm `case`
+// answering whether the value is that variant, which is exactly one
+// variant test. stdQualRoutes routes each to preludePredicateCall.
+var preludePredicates = map[stdQualKey]string{
+	{stdMaybeType, "is_some"}: "Some",
+	{stdMaybeType, "is_none"}: "None",
+	{stdResultType, "is_ok"}:  "Ok",
+	{stdResultType, "is_err"}: "Err",
 }
 
-// preludePredicateCall lowers `Result.is_err(r)` and its three siblings as a
-// variant test on the operand. The operand is lowered through
-// irQualLowerArgs, so an assertion subject records it as any qualified call's
-// operands are recorded.
-func (bl *irScalarBuilder) preludePredicateCall(t *ast.Call, owner, method string) (ir.Temp, kind, bool, bool) {
+// preludePredicateCall lowers `Result.is_err(r)` and its three siblings,
+// the predicate key names, as a variant test on the operand. The operand
+// is lowered through irQualLowerArgs, so an assertion subject records it
+// as any qualified call's operands are recorded.
+func (bl *irScalarBuilder) preludePredicateCall(t *ast.Call, key stdQualKey) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	spec := preludeSpecFor("std/maybe", "Maybe")
-	if owner == "Result" {
-		spec = preludeSpecFor("std/results", "Result")
-	}
+	spec := preludeSpecFor(key.Owner.Module, key.Owner.Name)
 	args := bl.irQualLowerArgs(t)
 	if !args.ok || len(args.kinds) != 1 {
 		return no()
@@ -41,7 +31,7 @@ func (bl *irScalarBuilder) preludePredicateCall(t *ast.Call, owner, method strin
 	if k.tag != tagNamed || k.def == nil || k.def.preludeOf == nil || k.def.preludeOf.spec != spec || !irRetainedEnumKind(k.def) {
 		return no()
 	}
-	v := k.def.variant(irPreludePredicate(owner, method))
+	v := k.def.variant(preludePredicates[key])
 	if v == nil {
 		return no()
 	}

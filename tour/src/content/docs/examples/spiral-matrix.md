@@ -15,7 +15,7 @@ Adapted from Exercism's [problem specification](https://github.com/exercism/prob
 
 /// The `size` by `size` grid holding 1 to `size * size`, starting at the top
 /// left corner and spiralling clockwise inwards.
-pub fn spiral_matrix(size: Int) -> Vector<Vector<Int>>
+pub fn spiral_matrix(size: NonNegativeInt) -> Vector<Vector<Int>>
     empty_row = Iter.repeat(0) |> Iter.take(size) |> Iter.to_vector()
     grid = Iter.repeat(empty_row) |> Iter.take(size) |> Iter.to_vector()
 
@@ -74,7 +74,7 @@ end
 import spiral_matrix.spiral_matrix
 
 test "spiral_matrix"
-    [
+    cases: List<(String, NonNegativeInt, Vector<Vector<Int>>)> = [
         ("empty spiral",     0, Vector[]),
         ("trivial spiral",   1, Vector[Vector[1]]),
         ("spiral of size 2", 2, Vector[Vector[1, 2], Vector[4, 3]]),
@@ -101,7 +101,8 @@ test "spiral_matrix"
             ],
         ),
     ]
-    |> subtests (description, size, expected), description
+
+    subtests cases, (description, size, expected), description
         assert spiral_matrix(size) == expected
     end
 end

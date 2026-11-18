@@ -57,6 +57,33 @@ type Manifest struct {
 	// each as its literal writes it (`PTS:0`), in the manifest's order. Nil
 	// or empty allows none.
 	CustomCurrencies []string
+	// Capabilities is the [capabilities] table: what the program, and each
+	// module it requires, may reach outside the machine. Nil when the
+	// manifest has no such table, which enforces nothing.
+	Capabilities *Capabilities
+}
+
+// Capabilities is nomi.toml's [capabilities] table: the outside calls a
+// program, and each module it requires, may reach (vmhost's
+// OutsideCallsNotAllowed). Each name is `std::` and a std module
+// (`std::fs`) or `go:` and a Go import path. The parser checks each name's
+// form; whether a std module has outside functions, a Go package is one a
+// binding names and a module is one the project requires is the program's
+// to answer (vmhost).
+//
+// Only the project's own manifest is read for these lists. A dependency's
+// own [capabilities] table is parsed and ignored when it is built as a
+// dependency: the program decides what it lets a dependency reach.
+type Capabilities struct {
+	// Allow is what the program may reach, from any module's code.
+	Allow []string
+	// AllowInTests is added to Allow when the roots are test cases.
+	AllowInTests []string
+	// Modules is [capabilities.modules]: for a module the project
+	// requires, by its Go module path as go.mod writes it, what that
+	// module's own files may reach. A module with no entry is held only by
+	// Allow.
+	Modules map[string][]string
 }
 
 // ToolsDir is the directory under a module's root that holds its tools,
@@ -185,6 +212,84 @@ type manifestFile struct {
 	Money struct {
 		CustomCurrencies []string `toml:"custom_currencies"`
 	} `toml:"money"`
+	Capabilities *struct {
+		Allow        []string            `toml:"allow"`
+		AllowInTests []string            `toml:"allow_in_tests"`
+		Modules      map[string][]string `toml:"modules"`
+	} `toml:"capabilities"`
+}
+
+// capabilityLists checks [capabilities]: each name `std::<module>` or
+// `go:<import path>`, listed once in its list, and each module path under
+// [capabilities.modules] non-empty. A `host:` name is a function an
+// embedding Go program supplies, which a manifest cannot allow.
+func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabilities, error) {
+	if raw.Capabilities == nil {
+		return nil, nil
+	}
+	check := func(list string, names []string, path ...string) ([]string, error) {
+		seen := map[string]bool{}
+		out := []string{}
+		for _, name := range names {
+			at := sourceLabel
+			if line := ManifestEntryLine(data, name, path...); line > 0 {
+				at = fmt.Sprintf("%s:%d", sourceLabel, line)
+			}
+			if problem := CapabilityNameProblem(name); problem != "" {
+				return nil, fmt.Errorf("%s: [capabilities] %s: %q %s", at, list, name, problem)
+			}
+			if seen[name] {
+				return nil, fmt.Errorf("%s: [capabilities] %s lists %s twice", at, list, name)
+			}
+			seen[name] = true
+			out = append(out, name)
+		}
+		return out, nil
+	}
+	c := &Capabilities{Modules: map[string][]string{}}
+	var err error
+	if c.Allow, err = check("allow", raw.Capabilities.Allow, "capabilities", "allow"); err != nil {
+		return nil, err
+	}
+	if c.AllowInTests, err = check("allow_in_tests", raw.Capabilities.AllowInTests, "capabilities", "allow_in_tests"); err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(raw.Capabilities.Modules))
+	for path := range raw.Capabilities.Modules {
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	for _, path := range paths {
+		names := raw.Capabilities.Modules[path]
+		if strings.TrimSpace(path) == "" {
+			return nil, fmt.Errorf("%s: [capabilities.modules] has an empty module path; write a module's path as go.mod requires it", sourceLabel)
+		}
+		if c.Modules[path], err = check("modules \""+path+"\"", names, "capabilities", "modules", path); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
+}
+
+// CapabilityNameProblem is what is wrong with the form of name as an entry
+// in a [capabilities] list, or "": `std::` and a module, or `go:` and a Go
+// import path.
+func CapabilityNameProblem(name string) string {
+	switch {
+	case strings.HasPrefix(name, "host:"):
+		return "names a function an embedding Go program supplies, which only that program can allow"
+	case strings.HasPrefix(name, "std::"):
+		if rest := strings.TrimPrefix(name, "std::"); rest == "" || strings.ContainsAny(rest, " /.") {
+			return "is not a std module; write one as an import does, such as \"std::fs\""
+		}
+		return ""
+	case strings.HasPrefix(name, "go:"):
+		if rest := strings.TrimPrefix(name, "go:"); rest == "" || strings.ContainsAny(rest, " \\") {
+			return "is not a Go import path; write one as a `gopkg` declaration does, such as \"go:github.com/jackc/pgx/v5\""
+		}
+		return ""
+	}
+	return "is neither a std module (\"std::fs\") nor a Go package (\"go:<import path>\")"
 }
 
 // customCurrencies checks [money].custom_currencies: each entry a custom
@@ -338,7 +443,7 @@ func LoadManifest(dir string) (*Manifest, error) {
 		}
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return parseManifestData(data, path, isStdlibManifestDir(dir))
+	return parseManifestData(data, path, isStdlibManifestDir(dir), func() []string { return toolTables(dir) })
 }
 
 // ParseManifestData parses nomi.toml content from a byte slice and
@@ -353,14 +458,25 @@ func LoadManifest(dir string) (*Manifest, error) {
 //   - [module].name must not be "std" (reserved for the standard library).
 //   - [module].entry_points entries must be non-empty strings.
 //   - [module].entry_points must not contain duplicates.
+//   - Every table and key is one manifestFile declares (unknownManifestKey),
+//     except a top-level table named for a module the project requires,
+//     which belongs to that module's tools; a manifest given as bytes has
+//     no project, so none.
 func ParseManifestData(data []byte, sourceLabel string) (*Manifest, error) {
-	return parseManifestData(data, sourceLabel, false)
+	return parseManifestData(data, sourceLabel, false, nil)
 }
 
-func parseManifestData(data []byte, sourceLabel string, allowStdName bool) (*Manifest, error) {
+// parseManifestData is ParseManifestData. tools answers the names of the
+// tables that belong to other modules' tools (toolTables), asked only when
+// the manifest has a table it does not know.
+func parseManifestData(data []byte, sourceLabel string, allowStdName bool, tools func() []string) (*Manifest, error) {
 	var raw manifestFile
-	if err := toml.Unmarshal(data, &raw); err != nil {
+	md, err := toml.Decode(string(data), &raw)
+	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", sourceLabel, err)
+	}
+	if err := unknownManifestKey(data, md.Undecoded(), md, sourceLabel, tools); err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(raw.Module.Name) == "" {
 		return nil, fmt.Errorf("%s: [module] name is required (non-empty, non-whitespace)", sourceLabel)
@@ -393,6 +509,9 @@ func parseManifestData(data []byte, sourceLabel string, allowStdName bool) (*Man
 		return nil, err
 	}
 	if m.CustomCurrencies, err = customCurrencies(raw.Money.CustomCurrencies, sourceLabel); err != nil {
+		return nil, err
+	}
+	if m.Capabilities, err = capabilityLists(raw, data, sourceLabel); err != nil {
 		return nil, err
 	}
 	return m, nil

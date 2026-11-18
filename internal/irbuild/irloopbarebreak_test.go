@@ -13,7 +13,7 @@ func TestIRLoop_BareBreakAnswersTheCurrentState(t *testing.T) {
 
 struct Tally
     label: String
-    count: Int
+    count: NonNegativeInt
 end
 
 fn first_even(xs: List<Int>) -> Maybe<Int>

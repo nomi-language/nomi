@@ -64,7 +64,7 @@ func (bl *irScalarBuilder) irStatementDrop(at ast.Node, src ir.Temp, k kind) {
 // this is: a value, and then the discard of it. Hiding it inside a second Copy
 // spelling would add an `irCopyRole` describing a VALUE rather than a
 // delivery, and it would need the `*ast.Binding` carried to the Copy for
-// `g.irUnit`'s position — a node-keyed side list for a position the Copy
+// the Unit's position — a node-keyed side list for a position the Copy
 // already has.
 //
 // The position is the BINDING's.

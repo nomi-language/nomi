@@ -11,7 +11,7 @@ import (
 )
 
 // OnceTable holds a project's module-level `once` bindings: those at the top
-// of a file, in a type's namespace items, and in an impl block. One table is
+// of a file and in an impl block. One table is
 // shared by every file of a project build, so a checker reading a `once`
 // declared in another file can find that file.
 //
@@ -79,21 +79,12 @@ func (t *OnceTable) Index(fa *FileAnalysis, nodes []ast.Node) {
 }
 
 // moduleOnces answers the module-level `once` bindings one top-level node
-// holds: the node itself, or those among a type's namespace items or an impl
-// block's items.
+// holds: the node itself, or those among an impl block's items.
 func moduleOnces(node ast.Node) []*ast.OnceBinding {
 	var items []ast.Node
 	switch n := node.(type) {
 	case *ast.OnceBinding:
 		return []*ast.OnceBinding{n}
-	case *ast.StructDef:
-		items = n.Items
-	case *ast.EnumDef:
-		items = n.Items
-	case *ast.TypeDef:
-		items = n.Items
-	case *ast.ExternType:
-		items = n.Items
 	case *ast.ImplBlock:
 		items = n.Items
 	}

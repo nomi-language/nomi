@@ -65,25 +65,20 @@ import "strconv"
 // below. So the predicate a consumer would ask is constantly true, and a
 // constant field carries no information.
 //
-// What the builder's own `expr.pure` flag carries at a construction site is a
-// different question and it stays there: `internal/irbuild`'s `consChain`,
-// `setLit`, `vectorLit`, `mapLit` and `rangeLit` all say in as many words that
-// re-evaluating a container "builds a second trie" or "copies a second backing
-// slice" and that "the value compares equal, so nothing observes the
-// difference". That is a COST, not an observation, and a cost is the
-// consumer's. See internal/irbuild/irmake.go, which records the two places the
-// producer's own sites disagree about it.
+// Evaluating a construction a second time builds a second value that
+// compares equal to the first, so nothing observes the difference. That is a
+// COST, not an observation, and a cost is the consumer's.
 type MakeKind uint8
 
 const (
 	// MakeStruct builds a value of a declared struct type. `Typ` is the
 	// struct's declaration and the operands are its fields IN DECLARATION
 	// ORDER, which is the order defaults are evaluated in.
-	// Owner: structValue.
+	// Owner: structMakeEmit.
 	MakeStruct MakeKind = iota + 1
 	// MakeRecord builds an anonymous struct. It has no declaration, so its
 	// field NAMES are part of the type and are carried here; `Names` is
-	// parallel to the operands. Owner: anonStructLit.
+	// parallel to the operands. Owner: recordMakeOf.
 	MakeRecord
 	// MakeVariant builds a value of one variant of a declared enum. `Typ` is
 	// the enum and `Text` the variant's name within it.
@@ -91,22 +86,23 @@ const (
 	// THE OPERANDS ARE THE PAYLOAD VALUES THE PRODUCER HAS, which is not
 	// always one per declared payload: a payload whose type has no run-time
 	// representation contributes no value to read, and `AppendUses` must be
-	// truthful about what is read. Owners: variantValue, variantConstruct.
+	// truthful about what is read. Owner: variantValue.
 	MakeVariant
 	// MakeDistinct wraps a value in a distinct type. `Typ` is the distinct's
 	// declaration and there is exactly one operand, its inner value.
-	// Owners: distinctCallNamed, variantConstruct.
+	// Owners: distinctMakeOf, variantCallOf.
 	MakeDistinct
 	// MakeTuple builds a tuple from its components in order. Structural: it
-	// names no declaration. Owners: tupleLit, tupleFlatArg.
+	// names no declaration. Owner: tupleMakeWant.
 	MakeTuple
 	// MakeList builds a List from its elements in order, on `Tail` — which is
 	// NoTemp for a list literal and the spread operand for `[a, ..rest]`.
-	// Owner: consChain.
+	// Owner: listMakeOf.
 	MakeList
-	// MakeSet builds a Set from its elements in order. Owner: setLit.
+	// MakeSet builds a Set from its elements in order. Owner: setMakeOf.
 	MakeSet
-	// MakeVector builds a Vector from its elements in order. Owner: vectorLit.
+	// MakeVector builds a Vector from its elements in order. Owner:
+	// vectorMakeOf.
 	MakeVector
 	// MakeMap builds a Map. THE OPERANDS ALTERNATE KEY, VALUE, in source
 	// order, which is the order they are evaluated in. Owner: mapLit.
@@ -114,7 +110,7 @@ const (
 	// MakeRange builds a Range from a start and an end, either of which may be
 	// NoTemp — `Range.naturals()` has neither and `Range.from(n)` has only a
 	// start. `Inclusive` is the `..=` form and is canonically false when there
-	// is no end. Owners: rangeLit, rangeFromCall.
+	// is no end. Owners: rangeMake, rangeFrom.
 	MakeRange
 	// MakeUpdate copies a struct or record and replaces named fields: `.{..base,
 	// f: v}`. Operand 0 is the base and `Names` is parallel to the remaining

@@ -31,9 +31,10 @@ func (v ElabViolation) String() string {
 // VerifyElaboration checks that the checker finished elaborating the file
 // fa analyzed, whose top-level declarations are nodes, and returns every
 // place it did not. It reads only what the checker recorded (ExprTypes,
-// ExpectedTypes, References and each reference's CallType and
-// DispatchImpl, Operators, CallDefaults, HoleDisplays, Coercions,
-// IterViews, Conversions, the `?` markers) and changes nothing.
+// TypeExprTypes, ExpectedTypes, References and each reference's CallType and
+// DispatchImpl, Calls, Operators, CallDefaults, HoleDisplays,
+// UnwrapFailures, TypedLiterals, Coercions, IterViews, Conversions, the `?`
+// markers) and changes nothing.
 // vmhost's TestElaborationGate fails on its call and expression categories,
 // in derived bodies too (the analysis package doc, "Elaboration").
 //
@@ -46,7 +47,7 @@ func (v ElabViolation) String() string {
 //     enclosing declaration's own, the callee is generic, and the call's
 //     reference carries its instantiated signature (CallType). The type
 //     arguments are read off that signature by matching it against the
-//     declaration (elabMatch); each must be found, and closed. An
+//     declaration (matchTypeParams); each must be found, and closed. An
 //     interface method is generic over its self: the call's reference
 //     names the impl it reaches (DispatchImpl) or carries the signature at
 //     the receiver (CallType), unless the receiver is a type parameter or
@@ -59,11 +60,15 @@ func (v ElabViolation) String() string {
 //     decision are recorded: an operator over a value that is not a
 //     primitive has the record of what it means (Operators: an impl, a
 //     comparison by shape, a dispatch on two interface values, or a type
-//     parameter's bound), each `?` and `!` has its marker, and a call
-//     that leaves defaulted parameters out has the record of what fills
+//     parameter's bound), each `?` and `!` has its marker, each call has
+//     the record of what fills each of its callee's parameters, every
+//     written argument placed and every parameter filled (Calls), and a
+//     call that leaves defaulted parameters out has the record of what fills
 //     them (CallDefaults; a pipe stage's subject fills a slot), each
 //     interpolation hole has the record of how its value renders
-//     (HoleDisplays), and an expression of a concrete type checked against
+//     (HoleDisplays), as does the error of a `!` over a Result
+//     (UnwrapFailures) and of a fixed typed literal whose handler can fail
+//     (TypedLiteral.Failure), and an expression of a concrete type checked against
 //     an interface type has the record of the interface value it becomes
 //     (Coercions), unless it is the receiver of a call of an interface
 //     function. A source checked against an `Iter<T>` position, which the
@@ -77,6 +82,12 @@ func (v ElabViolation) String() string {
 //     interface function the checker selected no impl for, with a
 //     recorded signature, has the record of the interface instance it
 //     goes through (Symbol.CallInterface).
+//   - Every type expression in the file's declarations and bodies has
+//     the record of the type it resolves to, or of none
+//     (TypeExprTypes), apart from the heads checkTypeRecords names.
+//   - Every pattern has the record of the type it matches (PatternTypes),
+//     and every pattern that names a variant has the variant's
+//     (PatternVariants).
 //
 // Closed means: no unsolved inference variable anywhere in the type, at
 // any depth, and no type parameter other than the enclosing declaration's
@@ -143,8 +154,143 @@ func VerifyElaborationCounting(fa *FileAnalysis, nodes []ast.Node) ([]ElabViolat
 			v.checkImplBlockArgs(ib)
 		}
 	}
+	for _, top := range nodes {
+		v.checkTypeRecords(top)
+	}
 	return v.out, v.counts
 }
+
+// checkTypeRecords reports each type expression at or below n with no
+// recorded type (TypeExprTypes), and each pattern with no record of the
+// type it matches or the variant it names (checkPattern). The type
+// expressions exempt are the positions whose meaning is recorded elsewhere
+// or is no type:
+//
+//   - the head of a literal or a pattern (a TypeName, an EnumPattern's
+//     Variant, a DistinctDestructure's TypeNameExpr) and a DotVariantType
+//     anywhere: it names a variant or the type the literal builds, which
+//     the literal's ExprTypes and the pattern's PatternTypes record;
+//   - a decorator's arguments: a derive is lowered to the impl block it
+//     writes, whose header is checked;
+//   - an impl item's ImplIface, which is its block's Interface node.
+//
+// A type expression that did not resolve is recorded with no type, so
+// it passes.
+func (v *elabVerifier) checkTypeRecords(n ast.Node) {
+	switch d := n.(type) {
+	case *ast.Decorator, *ast.DotVariantType:
+		return
+	case ast.TypeExpr:
+		if _, recorded := v.fa.TypeExprTypes[d]; !recorded {
+			v.report(n, "implicit", ElabTypeExprUnrecorded, fmt.Sprintf("%T %s", d, d.TypeString()))
+		}
+	}
+	if cs, isCase := n.(*ast.Case); isCase && cs.Value == nil {
+		// A `case` with no subject tests conditions: its last arm's `_`
+		// matches no value.
+		for _, b := range cs.Branches {
+			if w, isWild := b.Pattern.(*ast.WildcardPattern); isWild {
+				if v.otherwise == nil {
+					v.otherwise = map[*ast.WildcardPattern]bool{}
+				}
+				v.otherwise[w] = true
+			}
+		}
+	}
+	v.checkPattern(n)
+	head := exemptHead(n)
+	ast.Children(n, func(c ast.Node) {
+		if c != head {
+			v.checkTypeRecords(c)
+		}
+	})
+}
+
+// checkPattern reports n, when it is a pattern (or a distinct destructure
+// statement, which is one), that has no record of the type it matches
+// (PatternTypes), or that names a variant of the enum it matches and has
+// no record of which (PatternVariants). A literal pattern is a value of
+// its own type and is not held here; `Unit` and `self(n)`, which name no
+// variant, need only their type.
+func (v *elabVerifier) checkPattern(n ast.Node) {
+	var head ast.TypeExpr
+	switch p := n.(type) {
+	case *ast.WildcardPattern:
+		if v.otherwise[p] {
+			return
+		}
+	case *ast.IdentPattern, *ast.AsPattern, *ast.OrPattern, *ast.TuplePattern:
+	case *ast.EnumPattern:
+		if _, isSelf := p.Variant.(*ast.SelfType); !isSelf && !IsUnitPattern(p) {
+			head = p.Variant
+		}
+	case *ast.StructPattern:
+		head = p.TypeName
+	case *ast.ListPattern:
+		head = p.TypeName
+	case *ast.MapPattern:
+		head = p.TypeName
+	case *ast.DistinctDestructure:
+		head = p.TypeNameExpr
+	default:
+		return
+	}
+	t, typed := v.fa.PatternTypes[n]
+	if !typed {
+		v.report(n, "implicit", ElabPatternUnrecorded, fmt.Sprintf("%T", n))
+		return
+	}
+	if _, isEnum := resolveTypeVar(t).(*EnumType); isEnum && head != nil {
+		if _, named := v.fa.PatternVariants[head]; !named {
+			v.report(n, "implicit", ElabPatternVariantUnrecorded, fmt.Sprintf("%T %s", n, head.TypeString()))
+		}
+	}
+}
+
+// exemptHead is n's head, when n is a literal or a pattern that names
+// one, or an impl item's interface, its block's node; else nil.
+func exemptHead(n ast.Node) ast.Node {
+	var head ast.TypeExpr
+	switch d := n.(type) {
+	case *ast.StructLit:
+		head = d.TypeName
+	case *ast.ListLit:
+		head = d.TypeName
+	case *ast.MapLit:
+		head = d.TypeName
+	case *ast.StructPattern:
+		head = d.TypeName
+	case *ast.ListPattern:
+		head = d.TypeName
+	case *ast.MapPattern:
+		head = d.TypeName
+	case *ast.EnumPattern:
+		head = d.Variant
+	case *ast.DistinctDestructure:
+		head = d.TypeNameExpr
+	case *ast.FuncDef:
+		head = d.ImplIface
+	case *ast.ExternFunc:
+		head = d.ImplIface
+	}
+	if head == nil {
+		return nil
+	}
+	return head
+}
+
+// ElabTypeExprUnrecorded is the category of a type expression with no
+// record of the type it resolves to (FileAnalysis.TypeExprTypes).
+const ElabTypeExprUnrecorded = "implicit: type expression's type not recorded"
+
+// ElabPatternUnrecorded is the category of a pattern with no record of the
+// type it matches (FileAnalysis.PatternTypes), and
+// ElabPatternVariantUnrecorded of a pattern naming a variant with no
+// record of which (FileAnalysis.PatternVariants).
+const (
+	ElabPatternUnrecorded        = "implicit: pattern's type not recorded"
+	ElabPatternVariantUnrecorded = "implicit: pattern's variant not recorded"
+)
 
 // checkImplBlockArgs reports an impl block of a generic interface whose
 // header writes no type arguments when the file has no record of the ones
@@ -167,6 +313,9 @@ const ElabImplArgsUnrecorded = "implicit: impl block's interface type arguments 
 
 type elabVerifier struct {
 	fa *FileAnalysis
+	// otherwise holds the `_` arm of each `case` with no subject, which
+	// matches no value (checkPattern).
+	otherwise map[*ast.WildcardPattern]bool
 	// scopes is the enclosing declarations' own type parameters at each
 	// node, by identity, and names the same by name.
 	scopes map[ast.Node]map[*TypeParam_]bool
@@ -336,10 +485,18 @@ func (v *elabVerifier) visit(n ast.Node, value bool) {
 		v.checkCall(n)
 	case *ast.Binary:
 		v.checkOperator(n)
+		if n.Op == "in" {
+			v.checkMembership(n)
+		}
+	case *ast.Unary:
+		v.checkOperator(n)
 	case *ast.TryOp:
 		v.checkTryMarker(n, n.Line, n.Col, "`?`")
 	case *ast.Unwrap:
 		v.checkTryMarker(n, n.Line, n.Col, "`!`")
+		v.checkUnwrapFailure(n)
+	case *ast.TaggedString:
+		v.checkLiteralFailure(n)
 	case *ast.StringInterp:
 		// One read as a typed literal (TargetLiterals) passes its holes to
 		// the literal's handler, not through Display.
@@ -438,19 +595,17 @@ type openParts struct {
 func (v *elabVerifier) openParts(n ast.Node, t Type) openParts {
 	var o openParts
 	scope, names := v.scopes[n], v.names[n]
-	seen := map[Type]bool{}
-	var walk func(t Type, depth int)
-	walk = func(t Type, depth int) {
-		t = resolveTypeVar(t)
-		if t == nil || depth > 32 || seen[t] {
-			return
-		}
-		switch tt := t.(type) {
+	var visit func(Type) bool
+	visit = func(p Type) bool {
+		switch tt := p.(type) {
 		case *TypeVar:
+			if tt.Resolved != nil {
+				break
+			}
 			// A variable the checker closed (closed_vars.go) is its
 			// closed type.
 			if tt.Closed != nil {
-				walk(tt.Closed, depth+1)
+				walkType(tt.Closed, visit)
 			} else {
 				o.unsolved = true
 			}
@@ -464,51 +619,10 @@ func (v *elabVerifier) openParts(n ast.Node, t Type) openParts {
 					o.foreign = tt.Name_
 				}
 			}
-		case *ListType:
-			walk(tt.Elem, depth+1)
-		case *MapType:
-			walk(tt.Key, depth+1)
-			walk(tt.Val, depth+1)
-		case *TupleType:
-			for _, e := range tt.Elems {
-				walk(e, depth+1)
-			}
-		case *FuncType:
-			seen[t] = true
-			for _, p := range tt.Params {
-				walk(p, depth+1)
-			}
-			walk(tt.Return, depth+1)
-		case *AnonStructType:
-			seen[t] = true
-			for _, f := range tt.Fields {
-				walk(f.Type, depth+1)
-			}
-		case *EnumType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *StructType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *DistinctType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *InterfaceType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *ConjunctionType:
-			for _, m := range tt.Members {
-				walk(m, depth+1)
-			}
-		case *PartialType:
-			walk(tt.Inner, depth+1)
 		}
+		return true
 	}
-	walk(t, 0)
+	walkType(t, visit)
 	return o
 }
 
@@ -562,6 +676,7 @@ func elabCalleeText(f ast.Node) string {
 
 func (v *elabVerifier) checkCall(n *ast.Call) {
 	name := elabCalleeText(n.Func)
+	v.checkPlacement(n, name)
 	pos, named := calleeKey(n.Func)
 	var sym *Symbol
 	if named {
@@ -635,6 +750,11 @@ func (v *elabVerifier) checkCall(n *ast.Call) {
 		v.report(n, "implicit", ElabDefaultsUnrecorded,
 			fmt.Sprintf("%s: %d of %d written", name, written, len(declFT.Params)))
 	}
+	if rec := v.fa.CallDefaults[n]; rec != nil && len(rec.From) != len(rec.Slots) {
+		// The declaration each omitted slot's default comes from.
+		v.report(n, "implicit", ElabDefaultsUnrecorded,
+			fmt.Sprintf("%s: %d slots, %d sources", name, len(rec.Slots), len(rec.From)))
+	}
 	if len(calleeParams) == 0 {
 		return
 	}
@@ -678,6 +798,167 @@ func (v *elabVerifier) checkCall(n *ast.Call) {
 		v.report(n, "call", "call: generic callee, type argument not in the recorded signature",
 			fmt.Sprintf("%s (%s): %s unread from %s", name, kind, strings.Join(missing, ", "), ct))
 	}
+}
+
+// ElabPlacementUnrecorded is the category of a call with no record of what
+// fills each of its callee's parameters, or with a written argument the
+// record places nowhere (FileAnalysis.Calls).
+const ElabPlacementUnrecorded = "implicit: call's argument placement not recorded"
+
+// ElabCalleeUnclassified is the category of a call whose record does not
+// say what its callee is, or names no declaration for a callee that is
+// one (ResolvedCall.Callee).
+const ElabCalleeUnclassified = "implicit: call's callee not classified"
+
+// checkPlacement holds a call to a record that places every written
+// argument and classifies its callee.
+func (v *elabVerifier) checkPlacement(n *ast.Call, name string) {
+	rc := v.fa.Calls[n]
+	if rc == nil {
+		v.report(n, "implicit", ElabPlacementUnrecorded, name)
+		return
+	}
+	for i, slot := range rc.ArgSlots(len(n.Args)) {
+		if slot < 0 {
+			v.report(n, "implicit", ElabPlacementUnrecorded, fmt.Sprintf("%s: argument %d fills no parameter", name, i+1))
+			return
+		}
+	}
+	for slot, s := range rc.Slots {
+		if s.Fill == SlotUnfilled {
+			v.report(n, "implicit", ElabPlacementUnrecorded, fmt.Sprintf("%s: parameter %d is filled by nothing", name, slot+1))
+			return
+		}
+	}
+	if len(rc.Order) != len(n.Args) {
+		v.report(n, "implicit", ElabPlacementUnrecorded, fmt.Sprintf("%s: %d arguments ordered of %d", name, len(rc.Order), len(n.Args)))
+	}
+	switch rc.Callee.Kind {
+	case CalleeUnknown:
+		v.report(n, "implicit", ElabCalleeUnclassified, name)
+	case CalleeFunction, CalleeHost, CalleeImpl, CalleeInterface, CalleeVariant, CalleeConstructor:
+		if _, self := n.Func.(*ast.SelfExpr); rc.Callee.Decl == nil && !self {
+			v.report(n, "implicit", ElabCalleeUnclassified, name+": no declaration")
+		}
+	}
+	switch rc.Callee.Kind {
+	case CalleeFunction, CalleeHost, CalleeImpl, CalleeInterface:
+		if rc.Callee.Decl != nil && !rc.Callee.InProgram && rc.Callee.Std.IsZero() && !v.fa.programDeclares(rc.Callee.Decl) {
+			v.report(n, "implicit", ElabCalleeUnclassified, name+": a std function with no std identity")
+		}
+		// What the call is routed by: the type or interface its function
+		// is declared under.
+		if base := resolveRef(rc.Callee.Ref); rc.Callee.Ref != nil && rc.Callee.Owner.Kind == QualNone &&
+			(base.OwningType != "" || base.Kind == SymbolInterfaceMethod && base.OwningInterface != "") {
+			v.report(n, "implicit", ElabCalleeUnclassified, name+": the owner of its function not recorded")
+		}
+	}
+	if acc, ok := n.Func.(*ast.FieldAccess); ok && acc.Field != nil &&
+		rc.Callee.Qualifier.Kind == QualNone && v.fa.qualifierOf(acc.Object).Kind != QualNone {
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": its qualifier not recorded")
+	}
+	switch q := rc.Callee.Qualifier; {
+	case q.Kind == QualType && q.Decl == nil && q.Std.IsZero():
+		// A type parameter whose symbol has no type reads as a type
+		// with no declaration.
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": its qualifier names no declaration")
+	case q.Kind == QualTypeParam && rc.Callee.Kind == CalleeInterface && rc.Callee.For == nil:
+		// A function's, an impl block's or a generic type's parameter:
+		// an instance substitutes the type the call is for.
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": the type parameter it is for not recorded")
+	}
+	if _, bare := n.Func.(*ast.Ident); bare && rc.Callee.Kind == CalleeInterface &&
+		rc.Callee.Owner.Kind == QualInterface && rc.Callee.For == nil {
+		// `compare(b, a)` in Comparable's default `min`: for the
+		// default's `self`, which an instance binds.
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": the type it is for not recorded")
+	}
+	if rc.Callee.Kind == CalleeInterface && holdsDefaultSelf(rc.Callee.For) {
+		// `Shape.area(s)` on a default's `self`: for the default's
+		// SelfParam, which an instance binds (selfOfDefault), not an
+		// interface value.
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": for a default's self as an interface value")
+	}
+	if pos, named := calleeKey(n.Func); named && rc.Callee.Kind == CalleeInterface && rc.Callee.Ref != nil &&
+		rc.Callee.Ref.CallInterface == nil && v.fa.References[pos] != nil && v.fa.References[pos].CallInterface != nil {
+		// The interface instance selects among a receiver's blocks at
+		// several type arguments (CalleeAt), so the record's reference
+		// carries it.
+		v.report(n, "implicit", ElabCallInterfaceUnrecorded, name+": the record's reference lacks the call's interface instance")
+	}
+	v.checkImplReached(n, rc.Callee, name)
+}
+
+// checkMembership holds a membership test `x in c` to the call it stands
+// for (FileAnalysis.Memberships), which no walk reaches as a child of the
+// test: checked as a written call is, and classified as a call of
+// Contains's function, an impl's where the collection's type is known
+// and the interface's on a type parameter.
+func (v *elabVerifier) checkMembership(n *ast.Binary) {
+	call := v.fa.Memberships[n]
+	if call == nil {
+		v.report(n, "implicit", ElabCalleeUnclassified, "`in`: no call recorded")
+		return
+	}
+	// The call is in the test's scope.
+	v.scopes[call], v.names[call], v.labels[call] = v.scopes[n], v.names[n], v.labels[n]
+	v.checkCall(call)
+	if rc := v.fa.Calls[call]; rc != nil {
+		switch rc.Callee.Kind {
+		case CalleeImpl, CalleeInterface:
+		default:
+			v.report(n, "implicit", ElabCalleeUnclassified, "`in`: not a call of Contains.contains")
+		}
+	}
+}
+
+// ElabImplUnrecorded is the category of a call of an interface function
+// on a receiver whose type is known where the call is checked, with no
+// record of the impl block it reaches (Callee.Impl) or of another answer
+// (Callee.Form).
+const ElabImplUnrecorded = "implicit: call's impl not recorded"
+
+// checkImplReached holds a call of an interface function whose receiver's
+// type the checker knows to a record of how it is answered (Callee.Form):
+// the impl block it reaches, naming the function that runs, or the
+// structural answer, or dispatch on an interface value. A call through a
+// type parameter is answered at each instance (CalleeAt).
+func (v *elabVerifier) checkImplReached(n *ast.Call, ce Callee, name string) {
+	switch ce.Kind {
+	case CalleeImpl:
+		if ce.Impl == nil {
+			v.report(n, "implicit", ElabImplUnrecorded, name+": no impl block")
+		}
+	case CalleeInterface:
+		if ce.Qualifier.Kind == QualTypeParam || ce.Ref == nil || ce.Form != 0 {
+			return
+		}
+		recv := ce.For
+		if ce.Ref.DispatchReceiver != nil {
+			recv = ce.Ref.DispatchReceiver
+		}
+		recv = resolveTypeVar(ResolveClosed(recv))
+		if recv == nil || ContainsTypeParam(recv) || containsTypeVar(recv) {
+			return
+		}
+		v.report(n, "implicit", ElabImplUnrecorded, fmt.Sprintf("%s: receiver %s, neither an impl nor a structural answer", name, recv))
+	}
+}
+
+// programDeclares reports whether one of the program's own files (fa, or
+// another file the program reaches outside std) declares decl, a function.
+func (fa *FileAnalysis) programDeclares(decl ast.Node) bool {
+	if !IsStdlibKey(fa.Origin) && fa.declaresFunc(decl) {
+		return true
+	}
+	if p := fa.Program(); p != nil {
+		for _, f := range p.Files() {
+			if f != nil && !IsStdlibKey(f.Origin) && f.declaresFunc(decl) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ElabCallInterfaceUnrecorded is the category of a call of an interface
@@ -746,113 +1027,20 @@ func (v *elabVerifier) checkInterfaceCall(n *ast.Call, name string, sym *Symbol)
 		fmt.Sprintf("%s on %s", name, resolveTypeVar(at)))
 }
 
-// elabMatch binds each type parameter in param to the part of arg at the
-// same position, as matchTypeParams does, through interface and distinct
-// types too (Iter<T>, Vector<T>).
-func elabMatch(param, arg Type, out map[*TypeParam_]Type, depth int) {
-	arg = resolveTypeVar(arg)
-	if param == nil || arg == nil || depth > 32 {
-		return
-	}
-	args := func(ps, as []Type) {
-		if len(ps) == len(as) {
-			for i := range ps {
-				elabMatch(ps[i], as[i], out, depth+1)
-			}
-		}
-	}
-	switch p := param.(type) {
-	case *TypeParam_:
-		if _, seen := out[p]; !seen {
-			out[p] = arg
-		}
-	case *ListType:
-		if a, ok := arg.(*ListType); ok {
-			elabMatch(p.Elem, a.Elem, out, depth+1)
-		}
-	case *MapType:
-		if a, ok := arg.(*MapType); ok {
-			elabMatch(p.Key, a.Key, out, depth+1)
-			elabMatch(p.Val, a.Val, out, depth+1)
-		}
-	case *TupleType:
-		if a, ok := arg.(*TupleType); ok {
-			args(p.Elems, a.Elems)
-		}
-	case *FuncType:
-		if a, ok := arg.(*FuncType); ok {
-			args(p.Params, a.Params)
-			elabMatch(p.Return, a.Return, out, depth+1)
-		}
-	case *EnumType:
-		if a, ok := arg.(*EnumType); ok && a.Name == p.Name {
-			args(p.TypeArgs, a.TypeArgs)
-		}
-	case *StructType:
-		if a, ok := arg.(*StructType); ok && a.Name == p.Name {
-			args(p.TypeArgs, a.TypeArgs)
-		}
-	case *DistinctType:
-		if a, ok := arg.(*DistinctType); ok && a.Name == p.Name {
-			args(p.TypeArgs, a.TypeArgs)
-		}
-	case *InterfaceType:
-		if a, ok := arg.(*InterfaceType); ok && a.Name == p.Name {
-			args(p.TypeArgs, a.TypeArgs)
-		}
-	case *AnonStructType:
-		if a, ok := arg.(*AnonStructType); ok && len(a.Fields) == len(p.Fields) {
-			for i := range p.Fields {
-				elabMatch(p.Fields[i].Type, a.Fields[i].Type, out, depth+1)
-			}
-		}
-	}
-}
-
 func (v *elabVerifier) closed(n ast.Node, t Type) bool {
 	cat, _ := v.openness(n, t)
 	return cat == ""
 }
 
 func containsTypeParamOutside(t Type, scope map[*TypeParam_]bool) bool {
-	found := false
-	var walk func(t Type, depth int)
-	walk = func(t Type, depth int) {
-		if t == nil || found || depth > 32 {
-			return
-		}
-		switch tt := resolveTypeVar(t).(type) {
-		case *TypeParam_:
-			found = !scope[tt]
-		case *ListType:
-			walk(tt.Elem, depth+1)
-		case *MapType:
-			walk(tt.Key, depth+1)
-			walk(tt.Val, depth+1)
-		case *TupleType:
-			for _, e := range tt.Elems {
-				walk(e, depth+1)
-			}
-		case *EnumType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *StructType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		case *DistinctType:
-			for _, a := range tt.TypeArgs {
-				walk(a, depth+1)
-			}
-		}
-	}
-	walk(t, 0)
-	return found
+	return typeHolds(t, func(p Type) bool {
+		tp, ok := p.(*TypeParam_)
+		return ok && !scope[tp]
+	})
 }
 
-// elabOperatorOps are the operators that go through an interface when
-// an operand is not a primitive.
+// elabOperatorOps are the binary operators that go through an interface
+// when an operand is not a primitive; a prefix `~~~` does too.
 var elabOperatorOps = map[string]bool{
 	"+": true, "-": true, "*": true, "/": true,
 	"==": true, "!=": true, "<": true, "<=": true, ">": true, ">=": true,
@@ -865,20 +1053,28 @@ const (
 	ElabOperatorNominal    = "implicit: operator impl not recorded (nominal type)"
 	ElabOperatorStructural = "implicit: operator over a structural type, no record"
 	ElabOperatorTypeParam  = "implicit: operator over a type parameter, no record"
+	// ElabOperatorForeignImpl is an operator whose record names an impl
+	// whose block is not one of the operand's type's own (implBlocksOf):
+	// another declaration's of its name, such as a std type's for a type
+	// declared inside a body.
+	ElabOperatorForeignImpl = "implicit: operator impl recorded is another type's"
 )
 
-func (v *elabVerifier) checkOperator(n *ast.Binary) {
-	if !elabOperatorOps[n.Op] {
+func (v *elabVerifier) checkOperator(n ast.Node) {
+	if b, binary := n.(*ast.Binary); binary && !elabOperatorOps[b.Op] {
 		return
 	}
-	lt, ok := v.fa.ExprTypes[n.Left]
+	_, _, lt, ok := operatorSubject(v.fa, n)
 	if !ok || lt == nil {
 		return
 	}
 	if _, prim := resolveTypeVar(lt).(*PrimitiveType); prim {
 		return
 	}
-	if v.fa.Operators[n] != nil {
+	if use := v.fa.Operators[n]; use != nil {
+		if use.Form == OperatorByImpl && !v.fa.ownImpl(use.Impl, resolveTypeVar(ResolveClosed(lt))) {
+			v.report(n, "implicit", ElabOperatorForeignImpl, fmt.Sprintf("%s on %s", operatorToken(n), resolveTypeVar(lt)))
+		}
 		return
 	}
 	cat := ElabOperatorNominal
@@ -888,7 +1084,18 @@ func (v *elabVerifier) checkOperator(n *ast.Binary) {
 	case *TypeParam_:
 		cat = ElabOperatorTypeParam
 	}
-	v.report(n, "implicit", cat, fmt.Sprintf("%s on %s", n.Op, resolveTypeVar(lt)))
+	v.report(n, "implicit", cat, fmt.Sprintf("%s on %s", operatorToken(n), resolveTypeVar(lt)))
+}
+
+// operatorToken is the operator a binary or unary node spells.
+func operatorToken(n ast.Node) string {
+	switch n := n.(type) {
+	case *ast.Binary:
+		return n.Op
+	case *ast.Unary:
+		return n.Op
+	}
+	return ""
 }
 
 func (v *elabVerifier) checkTryMarker(n ast.Node, line, col int, what string) {
@@ -917,6 +1124,58 @@ func (v *elabVerifier) checkInterpolation(parts []ast.StringPart) {
 // ElabDisplayUnrecorded is the category of an interpolation hole with no
 // record of how its value renders (FileAnalysis.HoleDisplays).
 const ElabDisplayUnrecorded = "implicit: interpolation's Display call not recorded"
+
+// checkUnwrapFailure holds a `!` over a Result, as its marker records it,
+// to a record of how its error renders (FileAnalysis.UnwrapFailures).
+func (v *elabVerifier) checkUnwrapFailure(n *ast.Unwrap) {
+	sym := v.fa.References[Pos{Line: n.Line, Col: n.Col}]
+	if sym == nil || sym.TryOp == nil {
+		return
+	}
+	if et, ok := resolveTypeVar(sym.TryOp.InputTy).(*EnumType); !ok || et.Name != "Result" {
+		return
+	}
+	if v.fa.UnwrapFailures[n] == nil {
+		v.report(n, "implicit", ElabFailureDisplayUnrecorded, "`!` over "+sym.TryOp.InputTy.String())
+	}
+}
+
+// checkLiteralFailure holds a checked literal (CheckedLiterals), whose
+// check can refuse it, and a fixed typed literal whose `Literal` handler
+// returns a Result, the handler the tag's reference names, to a record of
+// how the error renders (TypedLiteral.Failure).
+func (v *elabVerifier) checkLiteralFailure(n *ast.TaggedString) {
+	rec := v.fa.TypedLiterals[n]
+	if rec != nil && v.fa.CheckedLiterals[n] && rec.Failure == nil {
+		v.report(n, "implicit", ElabFailureDisplayUnrecorded, n.Tag+" checked literal")
+		return
+	}
+	if rec == nil || rec.Interface != "Literal" || !n.Fixed() {
+		return
+	}
+	sym := v.fa.References[Pos{Line: n.Line, Col: max(n.Col-len(n.Tag), 1)}]
+	p := v.fa.Program()
+	if sym == nil || sym.DispatchImpl == nil || p == nil || p.ImplIndex == nil {
+		return
+	}
+	impl, isFn := sym.DispatchImpl.(*ast.FuncDef)
+	if !isFn {
+		return
+	}
+	ft, ok := p.ImplIndex.ImplFuncTypes[impl].(*FuncType)
+	if !ok {
+		return
+	}
+	if _, e := FixedLiteralType(true, ft.Return); e != nil && rec.Failure == nil {
+		v.report(n, "implicit", ElabFailureDisplayUnrecorded, n.Tag+" literal")
+	}
+}
+
+// ElabFailureDisplayUnrecorded is the category of a `!` over a Result, a
+// checked literal, or a fixed typed literal whose handler can fail, with
+// no record of how the error it shows renders
+// (FileAnalysis.UnwrapFailures, TypedLiteral.Failure).
+const ElabFailureDisplayUnrecorded = "implicit: failure's Display call not recorded"
 
 func symbolKindName(k SymbolKind) string {
 	switch k {

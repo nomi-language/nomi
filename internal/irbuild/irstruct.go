@@ -375,15 +375,15 @@ func irComposedFieldKind(k kind, outer []*typeDef) bool {
 			// `xs: Iter<Point>`: a lowered sequence, held as the closure.
 			return p.comp.parts[0] == kindUnit || part(p.comp.parts[0])
 		}
-		if elem, vector := vectorElem(p); vector && p != kindEmptyVector {
+		if elem, vector := vectorElem(p); vector {
 			return part(elem)
 		}
-		if elem, set := setElem(p); set && p != kindEmptySet && irKindReaches(p, outer) {
+		if elem, set := setElem(p); set && irKindReaches(p, outer) {
 			// `kids: Set<Tree>` inside Tree: the element is decided with the
 			// walk's stack; any other set keeps irRetainedSetKind's domain.
 			return part(elem)
 		}
-		if p.tag == tagMap && p != kindEmptyMap && p.comp != nil && len(p.comp.parts) == 2 && irKindReaches(p, outer) {
+		if p.tag == tagMap && p.comp != nil && len(p.comp.parts) == 2 && irKindReaches(p, outer) {
 			// `kids: Map<String, Tree>` inside Tree, as a set above.
 			return part(p.comp.parts[0]) && part(p.comp.parts[1])
 		}
@@ -570,8 +570,7 @@ func irPlainUserEnumKind(k kind) bool {
 // irStdStructFieldKind widens a std struct's field domain past
 // irRetainedFieldKind: a retained scalar list, a list of leaf structs or
 // retained enums, a retained Map, and a retained enum or an anchored prelude
-// enum carried in an unboxed slot. The VM carries each as an rt value and Go
-// keeps the declared field layout for construction and field reads.
+// enum carried in an unboxed slot. The VM carries each as an rt value.
 func irStdStructFieldKind(d *typeDef, k kind) bool {
 	switch {
 	case k.tag == tagList:
@@ -693,8 +692,8 @@ func irRetainedValueKind(k kind) bool {
 //
 // THE FIELD VALUES ARE LOWERED IN SOURCE ORDER AND THE OPERANDS ARE IN
 // DECLARATION ORDER. Field values evaluate in the order the literal writes
-// them, so any Copy a field value needs is placed in source order, and the Go
-// composite literal reads in declaration order.
+// them, so any Copy a field value needs is placed in source order, and the
+// MakeStruct takes its operands in declaration order.
 //
 // A nil TypeName delegates to recordMake. A namespaced struct such as
 // `Json.ShapeError` shares the simple name's construction; struct-shaped
@@ -757,7 +756,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	}
 	tn, isSimple := t.TypeName.(*ast.SimpleType)
 	if !isSimple {
-		return no()
+		panic("irbuild: structMake: parser builds a struct literal's type name only as a simple, qualified or dot-variant name; `Box<Int>{v: 1}` does not parse as one")
 	}
 	if d, v, isVariant := bl.g.importedVariantAt(t, tn.Name, tn.Line, tn.Col); isVariant {
 		// A std enum's struct-shaped variant imported by name
@@ -804,12 +803,12 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 // call form (`Box({v: 1})`, `{v: 2} |> Box()`) t is the record of.
 // instantiate is the one genericTemplateNamed handed back, so an instance of
 // another file's template is built there and mirrored here.
-func (bl *irScalarBuilder) genericStructMake(t *ast.StructLit, typed ast.Node, tpl *genericTemplate, instantiate func([]kind) (kind, bool)) (ir.Temp, kind, bool, bool) {
-	args, ok := bl.g.literalTypeArgs(typed, len(tpl.params))
+func (bl *irScalarBuilder) genericStructMake(t *ast.StructLit, typed ast.Node, tpl *genericTemplate, instantiate typeInstantiator) (ir.Temp, kind, bool, bool) {
+	args, types, ok := bl.g.literalTypeArgs(typed, len(tpl.params))
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	k, ok := instantiate(args)
+	k, ok := instantiate(args, types)
 	if !ok || k.tag != tagNamed {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -847,7 +846,7 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 			// An empty literal takes the field's kind, and a value of an
 			// embedded type widens into its `embeds` variant (embedWiden
 			// forces an impure one into a temporary first).
-			src, k, ok = bl.coerceEmpty(f.Value, src, k, fd.k)
+			src, k, ok = bl.convertTo(f.Value, src, k, fd.k)
 			mobile = mobile || ok
 		}
 		if !ok || (k != fd.k && !erased) {
@@ -855,13 +854,12 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 		}
 		if !mobile {
 			// Every impure field value is forced, with no unforced-tail
-			// exception, into an `ir.Copy`, which `irScalarHoist` spells as
-			// `vN := <src>`.
+			// exception, into an `ir.Copy`.
 			//
-			// THE ORDER IS THE LITERAL'S, which is why the Copy is appended
-			// here and not gathered later: the `vN :=` lines come out in
-			// source order while the composite literal below reads in
-			// DECLARATION order.
+			// The order is the literal's, which is why the Copy is appended
+			// here and not gathered later: the Copies run in source order
+			// while the MakeStruct below takes its operands in declaration
+			// order.
 			cp := ir.NewCopy(bl.g.irNodePos(f.Value), bl.f.NewTemp(), src)
 			bl.b.Append(cp)
 			bl.side(cp.Dst(), irScalarSide{k: k, copy: irCopyForce})
@@ -891,10 +889,9 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 // structMakeEmit builds the struct d from every field's value, in
 // declaration order.
 func (bl *irScalarBuilder) structMakeEmit(t *ast.StructLit, d *typeDef, vals map[string]ir.Temp) (ir.Temp, kind, bool, bool) {
-	// THE NOMI NAMES COME FROM `irStructFieldNames`. Two sites each answering "what are this struct's field
-	// names" is the drift `irparam.go` refuses for a destructuring prologue;
-	// the Go names and the operand order are this function's own, because the
-	// operands are minted out of the retained function's namespace.
+	// The field names come from `irStructFieldNames`, so one site answers
+	// "what are this struct's field names". The operand order is this
+	// function's own: declaration order.
 	names := irStructFieldNames(d)
 	ops := make([]ir.Temp, len(d.fields))
 	for i := range d.fields {
@@ -905,16 +902,9 @@ func (bl *irScalarBuilder) structMakeEmit(t *ast.StructLit, d *typeDef, vals map
 	bl.b.Append(m)
 	out := named(d)
 	bl.side(m.Dst(), irScalarSide{k: out, pureMake: true})
-	// MOBILE UNCONDITIONALLY. Every operand is pure by now: an impure field
+	// Mobile unconditionally. Every operand is pure by now: an impure field
 	// value was forced into a Copy above, and coercion is the identity when
 	// the kinds agree.
-	//
-	// A Go composite literal of pure operands re-evaluates to a value that
-	// compares equal and allocates nothing that is not its operands, for a
-	// flat struct with no pointer in it. `irmake.go` records that two of
-	// the producer's own sites disagree with that rule for a tuple and a
-	// range; this is not one of them, because the boxing arm that clears it
-	// is refused at the DECLARATION by `irRetainedStructKind`.
 	return m.Dst(), out, true, true
 }
 
@@ -964,7 +954,7 @@ func (bl *irScalarBuilder) declDefault(deflt ast.Node, want kind) (ir.Temp, bool
 			return v, true
 		}
 	}
-	v, k, ok = bl.coerceEmpty(deflt, v, k, want)
+	v, k, ok = bl.convertTo(deflt, v, k, want)
 	if !ok {
 		return ir.NoTemp, false
 	}
@@ -997,7 +987,7 @@ func (bl *irScalarBuilder) stdGenStructMake(t *ast.StructLit, a *stdGenStructAnc
 	if len(t.Fields) != len(a.decl.Fields) {
 		return no()
 	}
-	args, ok := bl.g.literalTypeArgs(t, len(a.decl.TypeParams))
+	args, _, ok := bl.g.literalTypeArgs(t, len(a.decl.TypeParams))
 	if !ok {
 		return no()
 	}
@@ -1012,13 +1002,10 @@ func (bl *irScalarBuilder) stdGenStructMake(t *ast.StructLit, a *stdGenStructAnc
 // type name because its position expected one (analysis.FileAnalysis
 // .TargetStructs), or nil for an anonymous struct literal.
 // emptyNamedMap builds `Name{}` where Name is a type over a map
-// (ast.StructLit.EmptyMap): std's empty `Map{}`, a distinct type over the
-// empty map, or a variant whose payload is the empty map.
+// (ast.StructLit.EmptyMap): a distinct type over the empty map, or a
+// variant whose payload is the empty map.
 func (bl *irScalarBuilder) emptyNamedMap(t *ast.StructLit) (ir.Temp, kind, bool, bool) {
 	empty := &ast.MapLit{Line: t.Line, Col: t.Col}
-	if st, ok := t.TypeName.(*ast.SimpleType); ok && st.Name == "Map" && bl.g.literalDistinct(t) == nil && bl.g.checkedKind(t).tag == tagMap {
-		return bl.emptyMapLit(t, nil)
-	}
 	if d := bl.g.literalDistinct(t); d != nil {
 		return bl.compositeDistinctMake(&ast.Call{Args: []ast.Node{empty}, Line: t.Line, Col: t.Col}, d)
 	}

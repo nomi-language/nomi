@@ -4,14 +4,12 @@ package irbuild
 // that need it.
 //
 // lowerStdlibModule's prologue — MarkTailCalls, the anchors, the candidates, the
-// `once` bindings, the two fixed points, newStdGen — is six lines that must run
+// `once` bindings, the settled set, newStdGen — is six lines that must run
 // in one order. It lives in one place because a caller that reassembles a
 // module's context is measuring its own reassembly, and two copies of a staging
 // step do not double the chance of catching a fault in it: they hide it.
 //
-// Every line is lowerStdlibModule's, in lowerStdlibModule's order, and
-// TestStdModuleView_MatchesLowerStdlibModuleOrder pins the one thing that can
-// silently go wrong here: which fixed point the gen is bound against.
+// Every line is lowerStdlibModule's, in lowerStdlibModule's order.
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
@@ -19,7 +17,7 @@ import (
 )
 
 // stdModuleView is one stdlib module's lowering context: the inputs a gen needs
-// plus the two fixed points that decide which of its bodies may be lowered.
+// plus the settled set that decides which of its bodies are attempted.
 type stdModuleView struct {
 	module string
 	path   string
@@ -28,21 +26,16 @@ type stdModuleView struct {
 	fa     *analysis.FileAnalysis
 	cands  []*stdCandidate
 	onces  []*stdOnce
-	// settled is phase 1: the bodies that lower with no recursion at all. This
-	// is the set newStdGen is bound against, so it is what an ordinary body
-	// resolves siblings through.
+	// settled is the declarations that are attempted (stdSettle). It is the
+	// set newStdGen is bound against, so it is what a body resolves siblings
+	// through.
 	settled map[*stdCandidate]bool
-	// withCycles is phase 2: settled plus the members of a recursive cycle.
-	// Bound per BODY by bindStdSiblings inside the lowering loop, never at
-	// construction — which is what confines a cycle to phase 2 and leaves phase
-	// 1's answers unchanged. A caller that binds it at construction is asking
-	// a MORE GENEROUS question than the builder asks, and must say so.
-	withCycles map[*stdCandidate]bool
 	// embedded is set by buildStdlibIndex: this is the binary's own stdlib
 	// module, lowered the same way in every process. See lintEmbeddedStdlib.
 	embedded bool
-	// unlowered names each Go function in this module's package whose body the
-	// IR did not lower, with the reason. See irnative.go.
+	// unlowered names each function and `once` of this
+	// module whose body the builder did not retain, with the reason. See
+	// irnative.go.
 	unlowered map[string]string
 }
 
@@ -62,14 +55,14 @@ func stdModuleContext(module, path, pkg string, nodes []ast.Node, fa *analysis.F
 	anchors := stdAnchorsOf(fa)
 	v := &stdModuleView{module: module, path: path, pkg: pkg, nodes: nodes, fa: fa}
 	v.cands = collectStdCandidates(module, nodes, anchors)
-	v.onces = collectStdOnces(module, pkg, nodes, fa, anchors)
+	v.onces = collectStdOnces(module, nodes, fa, anchors)
 	v.settled = stdSettle(v.cands, v.onces)
 	closeStdOnces(v.onces)
 	return v
 }
 
 // gen builds the gen this module's bodies are lowered through, bound against
-// PHASE 1 exactly as lowerStdlibModule binds it.
+// the settled set exactly as lowerStdlibModule binds it.
 func (v *stdModuleView) gen(earlier *stdlibIndex) *gen {
 	return newStdGen(v.module, v.path, v.pkg, v.nodes, v.fa, v.cands, v.settled, v.onces, earlier)
 }
@@ -78,7 +71,7 @@ func (v *stdModuleView) gen(earlier *stdlibIndex) *gen {
 // binding and every Nomi body and `once` whose signature is representable.
 // Whether a body is retained is the IR builder's answer, taken when it is
 // built (irPrebuildStdBodies); a body the builder declines is recorded as
-// unlowered and a program that reaches it is refused (irreach.go).
+// unlowered and a program that reaches it is refused.
 func stdSettle(cands []*stdCandidate, onces []*stdOnce) map[*stdCandidate]bool {
 	settled := map[*stdCandidate]bool{}
 	for _, c := range cands {

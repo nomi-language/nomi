@@ -3,7 +3,6 @@ package analysis
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/catalogcheck"
@@ -84,8 +83,7 @@ func (c *checker) checkNounEntry(e *nounExpansion, cat *phraseCatalog, sig mf2.S
 		if len(loc.Genders) > 0 {
 			what = "its `source`, its `gender` and its `nominative` form"
 		}
-		err := TypeError{Line: kd.NameLine, Col: kd.NameCol, EndLine: kd.NameLine, EndCol: kd.NameCol + len(kd.Name),
-			Message: fmt.Sprintf("%s: `%s` has no translation", cat.locale, kd.Name)}
+		err := missingTranslationError(kd, cat.locale)
 		hint := fmt.Sprintf("add `[%s]` with %s to %s", kd.Name, what, relativeToRoot(e.root, cat.path))
 		if !cat.found {
 			hint = fmt.Sprintf("write %s, with a `[%s]` entry holding %s", relativeToRoot(e.root, cat.path), kd.Name, what)
@@ -124,15 +122,4 @@ func quoted(xs []string) []string {
 		out[i] = "`" + x + "`"
 	}
 	return out
-}
-
-// joinOr joins items as English does with `or`.
-func joinOr(items []string) string {
-	switch len(items) {
-	case 0:
-		return ""
-	case 1:
-		return items[0]
-	}
-	return strings.Join(items[:len(items)-1], ", ") + " or " + items[len(items)-1]
 }

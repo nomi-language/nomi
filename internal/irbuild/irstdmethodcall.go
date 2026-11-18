@@ -1,7 +1,6 @@
 package irbuild
 
 import (
-	"slices"
 	"strings"
 	"sync"
 
@@ -14,13 +13,13 @@ import (
 func (bl *irScalarBuilder) stdMethodCallPlan(t *ast.Call, args irQualArgs, owner, method string) *irQualPlan {
 	if _, local := bl.g.types[owner]; local && bl.g.stdModule != "" {
 		// Inside a stdlib module its own types are local, which the method
-		// reference resolver reads as a user shadow. Native stdlibCall picks
-		// from this module's sibling index by operand kinds, so this does too.
+		// reference resolver reads as a user shadow. So the call picks from
+		// this module's sibling index by operand kinds.
 		if !args.ok {
 			return nil
 		}
 		f := stdPick(bl.g.std.byType[owner+"."+method], args.kinds)
-		if f != nil && len(args.temps) < len(f.params) {
+		if f != nil && bl.g.leavesDefaults(t, len(f.params)) {
 			return bl.stdSiblingShortPlan(t, args, f)
 		}
 		return bl.stdFuncPlan(t, args, f)
@@ -53,8 +52,8 @@ func (bl *irScalarBuilder) stdMethodCallPlan(t *ast.Call, args irQualArgs, owner
 // declaring module's, so each omitted default is lowered at the call as a
 // module `fn` call's is (callDefaults): the written operands first, then
 // the defaults, in the scope the default was written in. A caller in
-// another module goes through the arity wrapper instead (stdShortCall),
-// which this module builds from the same defaults.
+// another module goes through the module's default accessors instead
+// (stdShortCall), which this module builds from the same defaults.
 func (bl *irScalarBuilder) stdSiblingShortPlan(t *ast.Call, args irQualArgs, f *stdFunc) *irQualPlan {
 	if f.why != "" || f.decl == nil || len(f.decl.Params) != len(f.params) || namedArgNode(t.Args) != nil {
 		return nil
@@ -63,11 +62,18 @@ func (bl *irScalarBuilder) stdSiblingShortPlan(t *ast.Call, args irQualArgs, f *
 	if !ok {
 		return nil
 	}
-	// The plan checks a call as wide as the declaration: the written
-	// operands, then the omitted parameters' default expressions.
-	wide := &ast.Call{Func: t.Func, Args: slices.Clone(t.Args), Line: t.Line, Col: t.Col}
-	for _, p := range f.decl.Params[len(t.Args):] {
-		wide.Args = append(wide.Args, p.Default)
+	// The plan checks a call as wide as the declaration: each written
+	// operand at its slot, and each defaulted slot's default expression.
+	plan, planned := bl.g.callPlan(t, len(f.params))
+	if !planned {
+		return nil
+	}
+	wide := &ast.Call{Func: t.Func, Args: make([]ast.Node, len(f.params)), Line: t.Line, Col: t.Col}
+	for i, slot := range plan.slots {
+		wide.Args[slot] = t.Args[i]
+	}
+	for _, slot := range plan.defaulted {
+		wide.Args[slot] = f.decl.Params[slot].Default
 	}
 	p := bl.stdFuncPlan(wide, full, f)
 	if p == nil {
@@ -86,7 +92,6 @@ func (bl *irScalarBuilder) stdFuncPlan(t *ast.Call, args irQualArgs, f *stdFunc)
 	if f.canon != nil {
 		f = f.canon
 	}
-	bl.coerceEmptyListArgs(t, args, f.params)
 	if !bl.qualSignature(t, args, f.params, f.result) {
 		return nil
 	}
@@ -98,17 +103,17 @@ func (bl *irScalarBuilder) stdFuncPlan(t *ast.Call, args irQualArgs, f *stdFunc)
 			return &irQualPlan{token: f, name: f.key, result: f.result, host: true}
 		}
 		if name, ok := irExternHost(f); ok {
-			return &irQualPlan{token: irExternBinding(name), name: name, result: f.result, host: true}
+			return &irQualPlan{token: irExternBinding(name), name: name, result: f.result, host: true, target: view.node}
 		}
 		if name, ok := irCompilerHost(f); ok {
-			return &irQualPlan{token: irExternBinding(name), name: name, result: f.result, host: true}
+			return &irQualPlan{token: irExternBinding(name), name: name, result: f.result, host: true, target: view.node}
 		}
 		return nil
 	}
 	if f.irBody == nil {
 		// The callee's module is still being lowered, so only this module's
-		// own table can name it. The view carries the Go name and package the
-		// call spells.
+		// own table can name it. The view carries the module's namespace key,
+		// which irStdSiblingSym compares with this gen's.
 		sym := bl.g.irStdSiblingSym(view)
 		if sym == nil {
 			p := bl.stdUnretainedPlan(view)
@@ -250,7 +255,7 @@ var compilerHostNames = sync.OnceValue(func() map[string]bool {
 
 // irExternBinding is the symbol token of an extern crossing, which is the
 // binding and not the std declaration. A token keyed on the *stdFunc would
-// take whichever name the declaration was first interned under, and its Go
+// take whichever name the declaration was first interned under, and its
 // host key (`calendar.Date.to_string`) is a name no extern table holds.
 type irExternBinding string
 
@@ -280,37 +285,4 @@ func (g *gen) stdFullArityTarget(owner, member string, n int) *stdFunc {
 		return nil
 	}
 	return only
-}
-
-// coerceEmptyListArgs types each empty list operand (`String.join([], ", ")`)
-// as the list parameter it is passed to, when every other operand already has
-// its parameter's kind. The operands share args' slices, so the plan and any
-// recorded row read the coerced temporaries.
-func (bl *irScalarBuilder) coerceEmptyListArgs(t *ast.Call, args irQualArgs, params []kind) {
-	if !args.ok || len(args.kinds) != len(params) || len(t.Args) != len(params) {
-		return
-	}
-	empty := false
-	for i, k := range args.kinds {
-		switch {
-		case k == params[i]:
-		case k == kindEmptyList && params[i].tag == tagList:
-			empty = true
-		default:
-			return
-		}
-	}
-	if !empty {
-		return
-	}
-	for i, k := range args.kinds {
-		if k != kindEmptyList {
-			continue
-		}
-		v, got, ok := bl.coerceEmpty(t.Args[i], args.temps[i], k, params[i])
-		if !ok {
-			return
-		}
-		args.temps[i], args.kinds[i] = v, got
-	}
 }

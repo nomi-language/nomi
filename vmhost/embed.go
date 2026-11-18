@@ -53,15 +53,30 @@ func (p *Program) EmbeddedFiles() []string {
 	return out
 }
 
-// Warnings are what the program compiles with and reports: each `embed`
-// pattern whose base does not exist yet, in file and source order. The
-// program runs with an empty directory in its place; a build refuses it
-// (missingEmbeds). Load, Check and the REPL write them where WithWarnings
-// says.
+// Warnings are what the program compiles with and reports, in file and
+// source order: each `embed` pattern whose base does not exist yet, and,
+// in the program's own files, each string that writes `$name` where a
+// value named `name` is in scope (analysis.DollarWarnings). The program
+// runs, with an empty directory in the pattern's place and the text
+// `$name` in the string; a build refuses the pattern (missingEmbeds) and
+// only reports the string. Load, Check and the REPL write them where
+// WithWarnings says.
 func (p *Program) Warnings() Diagnostics {
 	var out Diagnostics
 	for _, m := range p.prog.Modules {
-		out = append(out, frontend.WarningDiagnostics(m.Path, p.sources[m.Path], analysis.EmbedWarnings(m.Nodes))...)
+		warns := analysis.EmbedWarnings(m.Nodes)
+		if p.ownsFile(m.Path) {
+			if dollars := analysis.DollarWarnings(m.FA, m.Nodes); len(dollars) > 0 {
+				warns = append(warns, dollars...)
+				sort.SliceStable(warns, func(i, j int) bool {
+					if warns[i].Line != warns[j].Line {
+						return warns[i].Line < warns[j].Line
+					}
+					return warns[i].Col < warns[j].Col
+				})
+			}
+		}
+		out = append(out, frontend.WarningDiagnostics(m.Path, p.sources[m.Path], warns)...)
 	}
 	return out
 }

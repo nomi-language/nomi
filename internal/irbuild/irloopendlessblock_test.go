@@ -35,8 +35,8 @@ fn main()
 end
 `, "line 12: `NonZeroInt.try_from(zero)` found nothing", "main\nstart\ninner\nagain\n")
 
-	// A block value bound to a name, with code after it that never runs,
-	// and a block ending an Int function.
+	// A block value bound to a name as main's last statement, and a block
+	// ending an Int function.
 	verifyEndlessTrap(t, `import std::io
 
 fn tail_block() -> Int
@@ -50,14 +50,13 @@ fn tail_block() -> Int
 end
 
 fn main()
-    x = begin
+    _x = begin
         io.print("value block")
         _ = tail_block()
         Iter.loop(fn ->
             io.print("never")
         end)
     end
-    io.inspect(x)
 end
 `, "line 7: `NonZeroInt.try_from(n - 1)` found nothing", "value block\ntail block\n")
 
@@ -161,9 +160,9 @@ end
 `, "line 9: `NonZeroInt.try_from(n - 1)` found nothing", "outer 0\ninner block\n")
 }
 
-// A test body's block statement, and a block value it binds, ending in a
-// loop that never finishes: each case fails at its trap after the output
-// before it, and nothing after the block runs.
+// A test body's block statement, and a block value it binds as its last
+// statement, ending in a loop that never finishes: each case fails at its
+// trap after the output before it.
 func TestIRLoopEndless_TestBodyBlocks(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "endless_block_test.nomi")
 	src := `import std::io
@@ -180,7 +179,7 @@ end
 
 test "a bound block"
     assert 2 == 2
-    x = begin
+    _x = begin
         io.print("bound block")
         begin
             Iter.loop(0, fn n ->
@@ -189,8 +188,6 @@ test "a bound block"
             end)
         end
     end
-    io.print("never")
-    io.inspect(x)
 end
 `
 	if err := os.WriteFile(path, []byte(src), 0600); err != nil {

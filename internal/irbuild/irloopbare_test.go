@@ -5,7 +5,7 @@ import "testing"
 // A loop with no `break` called by its selectively imported bare name, or by
 // an alias, is std's `Iter.loop` by the checker's reference at the name, so it
 // lowers as the qualified loop does: a statement ending main, an Int
-// function's tail, and a binding with code after it that never runs.
+// function's tail, and a binding ending a function.
 func TestIRLoopEndless_BareAndAliasedLoop(t *testing.T) {
 	verifyEndlessTrap(t, `import
     std::io
@@ -19,14 +19,17 @@ fn spin() -> Int
     end)
 end
 
-fn main()
-    x = loop(0, fn n ->
+fn bound()
+    _x = loop(0, fn n ->
         if n == 2 then return 10
         if n == 11 then io.print(1 / NonZeroInt.try_from(n - 11)!)
         io.print("bound ${n}")
         n + 1
     end)
-    io.inspect(x)
+end
+
+fn main()
+    bound()
     io.inspect(spin())
 end
 `, "line 16: `NonZeroInt.try_from(n - 11)` found nothing", "bound 0\nbound 1\nbound 10\n")

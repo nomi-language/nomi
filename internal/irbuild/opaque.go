@@ -11,8 +11,9 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The stdlib's scalar newtypes — `pub opaque type Duration Int`,
-// `pub type Days Int` — as Go types declared in rt.
+// The stdlib's scalar newtypes, `pub opaque type Duration Int` and
+// `pub type Days Int` among them, each paired with the Go type rt declares
+// for it.
 //
 // The file is named after the first five rows and the family is not: what a
 // row describes is a std DISTINCT over a scalar, and `opaque` is one of the
@@ -34,16 +35,12 @@ import (
 //
 // # Two populations, two mechanisms
 //
-// A STDLIB newtype's Go type is declared in rt (`rt.Duration`, `rt.Days`). A
-// USER's `opaque type Meters Int` is a type def named `NomiT_Meters` in its own
-// unit package and crosses a file boundary through foreign.go's mirror,
-// exactly like any other distinct type. The asymmetry is not a shortcut: rt
-// IMPLEMENTS the stdlib's externs and so has to be able to name their types,
-// and rt implements nothing of a user's — a user declaration inside rt would
-// put user types in the runtime library.
-//
-// TestOpaqueUserTypeTakesTheMirrorRoute asserts the negative half of that
-// directly, because it is the half a name-keyed registry would get wrong.
+// A stdlib newtype has one process-wide def and a Go type in rt (`rt.Duration`,
+// `rt.Days`): rt implements the stdlib's host functions, and their Go
+// signatures name the type (opaqueKindOfGoType). A user's
+// `opaque type Meters Int` has a def in the gen that declares it and crosses a
+// file boundary through foreign.go's mirror, like any other distinct type. rt
+// implements nothing of a user's, so there is no Go type to pair it with.
 //
 // # Identity: the anchor, and one shared *typeDef
 //
@@ -58,9 +55,9 @@ import (
 // The *typeDef is PROCESS-WIDE, one per spec, and that is a deliberate exception
 // to foreign.go's rule against shared defs. foreign.go's reason is that "a
 // shared def's field kinds are interned in the OWNER's g.comps", so a component
-// renders correctly in one package and nowhere else. An opaque spec has one
-// component and it is a SCALAR — int64 in every package, interned nowhere — and
-// it is declared in rt. Nothing about it is package-relative.
+// is right in the owner's gen and nowhere else. An opaque spec has one
+// component and it is a scalar, which is interned nowhere, so the def is
+// package-neutral.
 //
 // It has to be shared, not merely may be: a stdFunc's parameter and result kinds
 // are built once in stdCandidateFor and compared by POINTER against a call
@@ -103,7 +100,7 @@ type opaqueSpec struct {
 	// TestOpaqueDefsArePackageNeutral enforces it.
 	inner kind
 	// goType is rt's Go type, held as the TYPE rather than as its spelling for
-	// the same reason stdlibBinding holds a func value rather than a name: a
+	// the same reason a stdlibbindings.Binding holds a func value, not a name: a
 	// rename or a deletion in rt is then a Go compile error in this file, and
 	// the pairing is checked by reflection in tests.
 	goType reflect.Type
@@ -120,12 +117,12 @@ type opaqueSpec struct {
 // # The shape this table admits
 //
 // `pub [opaque] type X <scalar>`, with the clause named per row: matches()
-// requires the row's `form`, Public, no body/items, no decorator but `derive`,
-// and an inner type scalarKind admits.
+// requires the row's `form`, Public, no decorator but `derive`, and an inner
+// type scalarKind admits.
 //
-// `opaque` is a USE-SITE rule the front end enforces, not a representation. A
-// distinct over a scalar is a Go defined type over that scalar whether or not
-// callers outside the declaring file may construct and destructure one.
+// `opaque` is a use-site rule the front end enforces, not a representation. A
+// distinct over a scalar has the same representation whether or not callers
+// outside the declaring file may construct and destructure one.
 // Nothing downstream of the shared def reads the clause; `Days(3)` and
 // `Days(n) = d` lower through the same distinct-constructor and
 // distinct-pattern paths a USER's own `type Meters Int` uses.
@@ -201,9 +198,9 @@ var opaqueDefs = sync.OnceValue(func() []*typeDef {
 	defs := make([]*typeDef, len(opaqueSpecs))
 	for i := range opaqueSpecs {
 		s := &opaqueSpecs[i]
-		defs[i] = &typeDef{nomi: s.nomi, isDistinct: true, inner: s.inner, lowerable: true, // rtDeclared, so typeDecl emits nothing for it: the Go type is
-			// hand-written in rt/opaque.go, and a second declaration would be
-			// a second Go type for one Nomi type.
+		defs[i] = &typeDef{nomi: s.nomi, isDistinct: true, inner: s.inner, lowerable: true, // rtDeclared: rt declares the type (rt/opaque.go), so the def is
+			// process-wide and package-neutral, and typeDecl replays no refusal
+			// for it.
 			rtDeclared: true}
 	}
 	return defs
@@ -334,11 +331,7 @@ func (s *opaqueSpec) matches(decl *ast.TypeDef, inner analysis.Type) bool {
 	if decl.Name != s.nomi || s.form != want || !decl.Public {
 		return false
 	}
-	if decl.HasBody || len(decl.Items) > 0 {
-		// A body or a type body item is layout-relevant. An attached `//!` test
-		// is not, and is deliberately not checked — see stdStructSpec.matches.
-		return false
-	}
+	// An attached `//!` test is not checked: see stdStructSpec.matches.
 	for _, dec := range decl.Decorators {
 		// `derive` is the one decorator that is not a gap. std/duration carries
 		// three (`derive Equatable / Hashable / Comparable for Duration`), each

@@ -451,11 +451,10 @@ func TestShape_ARecordedParameterShapeIsReadAtEveryPosition(t *testing.T) {
 // makes it a reading rather than a blanket.
 //
 // A parameter's temporary is written by nothing in any graph the producer
-// builds today, but a `Copy` into one is LEGAL — `irtail.go`'s self-recursive
-// hop rebinds parameters — so the declaration is merged with every writer by
-// the same disagreement rule two branch arms get, rather than treated as
-// authoritative. Treating it as authoritative would describe the entry and
-// report the hop.
+// builds today, but a `Copy` into one is LEGAL, so the declaration is merged
+// with every writer by the same disagreement rule two branch arms get, rather
+// than treated as authoritative. Treating it as authoritative would describe
+// the entry and report the copy.
 func TestShape_AWriterDisagreeingWithTheDeclarationIsNotReported(t *testing.T) {
 	p := shapePos()
 

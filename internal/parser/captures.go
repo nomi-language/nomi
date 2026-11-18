@@ -21,7 +21,7 @@ func (p *Parser) parseCapture() (ast.Node, error) {
 	amp := p.peek()
 	p.advance() // consume CAPTURE
 	start := p.pos
-	body, err := p.parseExpr(tryOperandPrecedence)
+	body, err := p.parseExpr(token.TryOperandPrecedence)
 	if err != nil {
 		return nil, err
 	}

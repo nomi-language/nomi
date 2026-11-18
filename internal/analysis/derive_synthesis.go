@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -923,6 +924,75 @@ func SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 	out = append(out, nodes...)
 	out = append(out, synthesized...)
 	return out
+}
+
+// UniversalDebugTypes is the type each type expression of impls resolves
+// to, where impls is what SynthesizeUniversalDebug writes for the
+// declaration named name and t is the checker's type for that
+// declaration: name is t (at the arguments written, for a generic one),
+// a type parameter of t is its TypeParam_, and a primitive's name is the
+// primitive. variants holds what PatternVariants would for its patterns:
+// each head `name.V` names t's variant V. The builder lowers that impl for
+// a type a block declares, which no impl the checker checks can name, and
+// reads these as it reads TypeExprTypes and PatternVariants.
+func UniversalDebugTypes(impls []ast.Node, name string, t Type) (types map[ast.TypeExpr]Type, variants map[ast.TypeExpr]string) {
+	params := map[string]*TypeParam_{}
+	var defs []*TypeParam_
+	switch d := t.(type) {
+	case *StructType:
+		defs = d.TypeParamDefs
+	case *EnumType:
+		defs = d.TypeParamDefs
+	case *DistinctType:
+		defs = d.TypeParamDefs
+	}
+	for _, p := range defs {
+		params[p.Name_] = p
+	}
+	out := map[ast.TypeExpr]Type{}
+	variants = map[ast.TypeExpr]string{}
+	var resolve func(te ast.TypeExpr) Type
+	resolve = func(te ast.TypeExpr) Type {
+		var r Type
+		switch n := te.(type) {
+		case *ast.QualifiedType:
+			if member, isSimple := n.Member.(*ast.SimpleType); isSimple && n.Module == name {
+				if et, isEnum := t.(*EnumType); isEnum && findVariant(et, member.Name) != nil {
+					variants[te] = member.Name
+				}
+			}
+		case *ast.SimpleType:
+			if p, isParam := params[n.Name]; isParam {
+				r = p
+			} else if n.Name == name && len(defs) == 0 {
+				r = t
+			} else if p, isPrim := primitiveTypes[n.Name]; isPrim {
+				r = p
+			}
+		case *ast.GenericType:
+			args := make([]Type, len(n.Params))
+			for i, a := range n.Params {
+				args[i] = resolve(a)
+			}
+			if n.Name == name && len(args) == len(defs) && !slices.Contains(args, nil) {
+				r = instantiateNominal(t, args)
+			}
+		}
+		if r != nil {
+			out[te] = r
+		}
+		return r
+	}
+	for _, n := range impls {
+		ast.Inspect(n, func(m ast.Node) bool {
+			if te, ok := m.(ast.TypeExpr); ok {
+				resolve(te)
+				return false
+			}
+			return true
+		})
+	}
+	return out, variants
 }
 
 // builderSynthesizeUniversalDebug is the per-builder shim mirroring

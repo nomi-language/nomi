@@ -16,7 +16,7 @@ import (
 //
 // So the rule is general rather than per-site: **a refused statement still
 // binds every name it declares.** kindInvalid is the binding, so nothing
-// downstream emits against it and no later mention is reported (see the Ident
+// downstream lowers against it and no later mention is reported (see the Ident
 // arm of expr()).
 //
 // # Why this is not "hiding a subtree"
@@ -132,10 +132,10 @@ func appendPatternField(out []string, f ast.StructPatternField) []string {
 	return append(out, name)
 }
 
-// bindPatternNamesInvalid is bindDeclaredNamesInvalid for a PARAMETER's
-// pattern, which is not a statement and so has no declaredNames entry.
+// bindPatternNamesInvalid binds the names of a PARAMETER's pattern this
+// builder refused at kindInvalid.
 //
-// Same rule, same reason: a destructuring parameter this builder refused still
+// A destructuring parameter this builder refused still
 // puts its names in the body's scope in the source, so leaving them unbound
 // reports the refusal again at every use: `fn scale_point({x, y}: Point)`
 // would report one refused pattern three times.
@@ -144,7 +144,7 @@ func (g *gen) bindPatternNamesInvalid(pat ast.Node) {
 		if ast.IsDiscardName(name) {
 			continue
 		}
-		// kindInvalid: cascade — same rule for a parameter pattern; see bindDeclaredNamesInvalid.
+		// kindInvalid: cascade — the refused parameter pattern is reported once, at the pattern.
 		if l, bound := g.top()[name]; bound && l.k != kindInvalid {
 			continue
 		}

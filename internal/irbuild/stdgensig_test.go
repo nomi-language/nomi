@@ -14,7 +14,7 @@ import (
 //
 // Two functions answer "what kind is `Range<Int>`":
 //
-//	stdGenStructTypeOf   the ANNOTATION path, in a gen, through g.genStructs and g.typeOf
+//	typeOf   the ANNOTATION path, in a gen, through g.genStructs and g.typeOf
 //	genStructSigKind     the SIGNATURE path, no gen, through anchors.genStructs and stdTypeKind
 //
 // If the two disagree, `Range<Int>` is admissible in a user's annotation and
@@ -72,7 +72,7 @@ func TestGenStructSigAndAnnotationPathsAgree(t *testing.T) {
 		if lib.Primitives.Lookup(s.nomi) != nil {
 			item = ""
 		}
-		te := parseStdTypeExprImporting(t, item, src)
+		te, ty := parseStdTypeImporting(t, item, src)
 		gt, isGeneric := te.(*ast.GenericType)
 		if !isGeneric {
 			t.Fatalf("%s parsed as %T, not a generic type", src, te)
@@ -92,12 +92,12 @@ func TestGenStructSigAndAnnotationPathsAgree(t *testing.T) {
 			continue
 		}
 
-		// The annotation path, in a gen over the SAME module, so `g.genStructs`
-		// and `anchors.genStructs` are resolved against one analysis.
+		// The annotation path: typeOf, the projection of the type the
+		// checker recorded for the annotation, in a gen over the SAME module.
 		g := &gen{fa: fa}
-		annKind, annHandled := g.stdGenStructTypeOf(gt)
+		annKind, annHandled := g.project(ty), ty != nil
 		if !annHandled || annKind == kindInvalid {
-			t.Errorf("stdGenStructTypeOf declined or refused %s (handled=%v) while "+
+			t.Errorf("the annotation's projection declined or refused %s (recorded=%v) while "+
 				"genStructSigKind admitted it. The two paths disagree about which instances "+
 				"exist, which is the drift a shared intern table cannot detect: both would "+
 				"still return a kind, and only one call site would get it", src, annHandled)
@@ -201,8 +201,8 @@ func TestGenStructSigKindRefusesWhatItCannotShare(t *testing.T) {
 // Its signature is admitted by the `Range` row in the spec table, and its
 // body builds `Range{start: 0, end: None, inclusive: False}`. That literal
 // lowers by the rule for every anchored generic std struct: a struct LITERAL of
-// a std-anchored generic struct is built AT THE ANCHOR (stdgenstructlit.go), and
-// the declaring module is exempt from stdGenStructTypeOf's shadowing carve-out,
+// a std-anchored generic struct is built AT THE ANCHOR (stdGenStructMake), and
+// the declaring module is exempt from typeOf's shadowing carve-out,
 // since a module is not shadowing itself. Without that, `Range<Int>` would mean
 // `rt.Range` from an annotation and a freshly minted instance from a literal,
 // and the constructor would be refused for disagreeing with itself.
@@ -233,7 +233,8 @@ func TestStdRangeConstructorsLower(t *testing.T) {
 // TestGenHostSigAndAnnotationPathsAgree is TestGenStructSigAndAnnotationPathsAgree
 // for the generic std host types (`stdGenHostSpecs`): at every row, in the
 // declaring module, the SIGNATURE path (genHostSigKind, through stdTypeKind)
-// and the ANNOTATION path (stdGenHostTypeOf) give the same interned def. It goes
+// and the ANNOTATION path (typeOf, the projection of the checker's type)
+// give the same interned def. It goes
 // through stdTypeKind rather than calling genHostSigKind directly, so it also
 // guards the wiring: before that arm existed, `Vector<String>` in a shared std
 // signature refused as outside the scalar subset.
@@ -256,7 +257,7 @@ func TestGenHostSigAndAnnotationPathsAgree(t *testing.T) {
 		if lib.Primitives.Lookup(s.nomi) != nil {
 			item = ""
 		}
-		te := parseStdTypeExprImporting(t, item, src)
+		te, ty := parseStdTypeImporting(t, item, src)
 		gt, isGeneric := te.(*ast.GenericType)
 		if !isGeneric {
 			t.Fatalf("%s parsed as %T, not a generic type", src, te)
@@ -268,7 +269,7 @@ func TestGenHostSigAndAnnotationPathsAgree(t *testing.T) {
 			continue
 		}
 		g := &gen{fa: fa}
-		annKind, handled := g.stdGenHostTypeOf(gt)
+		annKind, handled := g.project(ty), ty != nil
 		if !handled || annKind != sigKind {
 			t.Errorf("%s: the annotation path gives %s (handled=%v) and the signature path %s",
 				src, annKind.nomi(), handled, sigKind.nomi())

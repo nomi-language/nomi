@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"fmt"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -26,20 +27,20 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 		why = "a rivalled handler"
 	case h.unit >= 0 && h.sym == nil:
 		why = "a sibling file's handler"
-	case h.pkg != "" && h.unit < 0:
-		why = "a Go-package handler"
 	}
 	if why != "" {
 		return no()
 	}
 	fd, _ := bl.g.literalHandlerDecl(t)
-	callee, why := bl.g.literalCallee(h, fd)
-	if callee == nil {
+	callee, ok := bl.g.literalCallee(h, fd, "a typed literal: ")
+	if !ok {
 		return no()
 	}
-	if bl.g.srcFA().CheckedLiterals[t] && !bl.g.checkedLiteralSite(t) {
-		why = "a checked literal whose check does not lower"
-		return no()
+	if bl.g.srcFA().CheckedLiterals[t] {
+		if !bl.g.checkedLiteralSite(t) {
+			why = "a checked literal whose check does not lower"
+			return no()
+		}
 	}
 	// Literal.from_fragments's signature, `(List<Fragment<I>>) -> R`, which
 	// the impl's conformance holds; the impl's kinds are held as any
@@ -92,7 +93,7 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 			if i != last && !mobile {
 				mobile = true
 			}
-			v, k, ok = bl.coerceEmpty(p.Expr, v, k, want)
+			v, k, ok = bl.convertTo(p.Expr, v, k, want)
 			if !ok {
 				return no()
 			}
@@ -102,7 +103,7 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 			}
 			items = append(items, fv)
 		default:
-			return no()
+			panic(fmt.Sprintf("irbuild: taggedLiteral: a literal part of the form %T, which the parser does not build", part))
 		}
 	}
 	list := ir.NewMakeList(bl.g.irNodePos(t), bl.f.NewTemp(), items, ir.NoTemp)
@@ -115,49 +116,42 @@ func (bl *irScalarBuilder) taggedLiteral(t *ast.TaggedString) (ir.Temp, kind, bo
 }
 
 // literalCallee is the symbol a call to the handler h, declared by fd,
-// names, or nil and why it does not lower.
-func (g *gen) literalCallee(h literalTarget, fd *ast.FuncDef) (*ir.Symbol, string) {
+// names. ok is false when the handler has no body to call, which it notes
+// after what, the caller's name for the literal ("a typed literal: ").
+func (g *gen) literalCallee(h literalTarget, fd *ast.FuncDef, what string) (*ir.Symbol, bool) {
 	if h.inst != nil {
-		return h.inst.sym, ""
+		return h.inst.sym, true
 	}
 	if h.item != nil {
-		return g.irCalleeSym(h.item, h.label), ""
+		return g.irCalleeSym(h.item, h.label), true
 	}
 	if h.unit < 0 && h.sym != nil {
 		// Another file's instance impl (genericLiteralImpl).
-		return h.sym, ""
+		return h.sym, true
 	}
 	if h.std != nil {
 		// A stdlib handler, such as Regex's, is a retained std body called
-		// as stdlibInvoke spells it.
+		// by its symbol.
 		f := h.std
 		if f.canon != nil {
 			f = f.canon
 		}
 		if f.irBody == nil || f.rtCall != "" {
-			return nil, "a stdlib handler with no retained body"
+			g.dc.note(what + "a stdlib handler with no retained body")
+			return nil, false
 		}
-		return f.irBody.Sym(), ""
+		return f.irBody.Sym(), true
 	}
 	if h.unit >= 0 {
 		// A sibling file's handler, called by the declaring unit's symbol
 		// for its retained body, as a type-qualified sibling impl call is.
-		return h.sym, ""
+		return h.sym, true
 	}
 	it := g.implItemFor(fd)
 	if it == nil || irImplSource(it) == nil {
-		return nil, ""
+		return nil, false
 	}
-	return g.irCalleeSym(it, h.label), ""
-}
-
-// literalImplItem is the impl item literalImpl's local route resolves.
-func (g *gen) literalImplItem(t *ast.TaggedString) *implItem {
-	fd, found := g.literalHandlerDecl(t)
-	if !found {
-		return nil
-	}
-	return g.implItemFor(fd)
+	return g.irCalleeSym(it, h.label), true
 }
 
 // implItemFor is the lowerable impl item of this module that declares fd, or

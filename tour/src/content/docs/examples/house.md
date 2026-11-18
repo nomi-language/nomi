@@ -31,14 +31,14 @@ once phrases = [
 ]
 
 /// The verses `start` to `end`, both included, counting from 1.
-pub fn recite(start: Int, stop: Int) -> List<String>
+pub fn recite(start: PositiveInt, stop: Int) -> List<String>
     start..=stop
-    |> Iter.map(verse)
+    |> Iter.map(&verse(&1))
     |> Iter.to_list()
 end
 
 /// Verse `number` embeds every earlier phrase, newest first.
-fn verse(number: Int) -> String
+fn verse(number: PositiveInt) -> String
     embedded =
         phrases
         |> Iter.take(number)
@@ -52,7 +52,7 @@ end
 import house
 
 /// Each canonical verse on its own: its description, its number and its text.
-once verses = [
+once verses: List<(String, PositiveInt, String)> = [
     ("verse one - the house that jack built", 1, "This is the house that Jack built."),
     (
         "verse two - the malt that lay",
@@ -118,15 +118,16 @@ test "single verses"
 end
 
 test "several verses"
-    [
+    cases: List<(String, PositiveInt, PositiveInt)> = [
         ("multiple verses", 4, 8),
         ("full rhyme",      1, 12),
     ]
-    |> subtests (description, start, stop), description
+
+    subtests cases, (description, start, stop), description
         expected =
             verses
+            |> Iter.take(stop)
             |> Iter.drop(start - 1)
-            |> Iter.take(stop - start + 1)
             |> Iter.map(.third)
             |> Iter.to_list()
 

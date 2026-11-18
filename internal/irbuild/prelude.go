@@ -7,25 +7,21 @@ import (
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// The two prelude enums, `Maybe<T>` and `Result<T, E>`, as generic Go data.
+// The prelude enums, `Maybe<T>` and `Result<T, E>`, and the other generic std
+// enums rt declares.
 //
 // # The representation needs no new mechanism
 //
-// A prelude enum is represented like any other enum: a tagged struct with tag
-// 0 reserved invalid, one payload field per variant.
-// `Maybe<T>` is `rt.Maybe[T]`. Nothing here is a type-parameter DICTIONARY —
-// that open question is about DISPATCH (calling an interface method on a type
-// parameter) and this file never reaches it. What it does reach, and refuses
-// by name, is a prelude enum whose type ARGUMENT is a type parameter of the
-// enclosing function: `Some(x)` inside `fn f<T>(x: T)` has no Go type to
-// instantiate `rt.Maybe` at without monomorphizing the function, which is the
-// rejected design. See preludeArgs.
+// A prelude enum is represented like any other enum: a typeDef with tags (tag
+// 0 reserved invalid), variants, payload kinds and one slot per carrying
+// variant. rt declares a Go type for each (rt/prelude.go, `rt.Maybe[T]`),
+// which a host function's Go signature names; a spec's rtType, tagField and
+// field pair the two (stdprelude.go).
 //
-// The Go-spelled `kind` text names the types in rt (rt/prelude.go) rather than
-// a per-gen declaration, because a named type's identity here is the *typeDef
-// its declaration produced and two gens have no shared type table. A per-gen
-// `NomiT_Maybe[T]` would turn one Nomi type into N mutually unequal kinds.
-// `rt.List[T]` is the same answer one file over.
+// An instance is a *typeDef built from the spec and its type arguments
+// (preludeInstance). It is interned process-wide when every argument is
+// package-neutral, so every gen holds one pointer for `Maybe<Int>`, and per
+// gen otherwise.
 //
 // # Identity is a declaration POINTER, anchored by (Origin, Name)
 //
@@ -54,7 +50,7 @@ import (
 // # The declaration's SHAPE is validated, not assumed
 //
 // The tags this file assigns (Some=1, None=2, Ok=1, Err=2) and the rt field
-// names it writes (`Some`, `Ok`, `Err`) are a belief about what std/maybe.nomi
+// names it lists (`Some`, `Ok`, `Err`) are a belief about what std/maybe.nomi
 // and std/results.nomi declare. So the anchor is only built when the
 // `*ast.EnumDef` actually has that shape — same type parameters in the same
 // order, same variants in the same order, each payload naming the type
@@ -238,8 +234,7 @@ var preludeSpecs = []preludeSpec{
 		//
 		// `Cancelled` is also the first payload-less variant any spec declares
 		// besides `Maybe.None`, which is what generalized the bare-variant
-		// sentinel — see taskoutcome.go for the wrong answer that would
-		// otherwise have been emitted, and for the guard that predicted it.
+		// sentinel. See taskoutcome.go.
 		origin: "std/tasks", nomi: "Outcome", rtType: "rt.Outcome", tagField: "Tag",
 		params: []string{"T"},
 		variants: []preludeVariantSpec{
@@ -260,8 +255,7 @@ type preludeAnchor struct {
 // loadPreludes resolves the prelude enums against this module's analysis, once.
 //
 // A module analyzed without an analysis library gets no anchors and refuses
-// every prelude construct, which is exactly what it did before this file
-// existed.
+// every prelude construct.
 func (g *gen) loadPreludes() {
 	if g.preludesLoaded {
 		return
@@ -302,8 +296,8 @@ func preludeAnchorsOf(fa *analysis.FileAnalysis) (map[*ast.EnumDef]*preludeAncho
 			// no `Maybe` anywhere in the file. `Iter.get`'s own declaration in
 			// std/iter says the result IS std/maybe's `Maybe`, so the identity
 			// is not in doubt — it simply is not written down in THIS module —
-			// and without an anchor `iterMaybe` would refuse
-			// `Iter terminal without the prelude Maybe | Iter.get`.
+			// and without an anchor an `Iter` terminal that answers a
+			// `Maybe` has no instance to build.
 			//
 			// The fallback is SHAPE-VALIDATED, which is what makes it safe to
 			// authorize a layout. preludeSpecFor exists for the same
@@ -428,21 +422,21 @@ func preludeSpecFor(origin, name string) *preludeSpec {
 
 // matches reports whether decl is the declaration this spec describes.
 //
-// Everything checked here decides LAYOUT: the type parameter order fixes which
-// Go type argument each payload gets, and the variant order fixes the tags. A
-// declaration that disagrees is not lowered at all.
+// Everything checked here decides layout: the type parameter order fixes
+// which type argument each payload gets, and the variant order fixes the tags.
+// A declaration that disagrees is not lowered at all.
 //
-// # Why the payload check reads the DECLARATION and not the rendered field
+// # Why the payload check reads the declaration and not the payload's kind
 //
-// A spec's payload is one of three things — absent, the type parameter at
-// index `param`, or the concrete kind `fixed` — and this is the only place all
+// A spec's payload is one of three things (absent, the type parameter at
+// index `param`, or the concrete kind `fixed`) and this is the only place all
 // three are distinguishable. `Fragment.Static String` and `Fragment.Dynamic T`
-// both render to a `string` field at `T = String`, which is the only
-// instantiation the corpus contains, so a check on the field's kind would
-// accept a spec with the two SWAPPED and every `Fragment<String>` program would
-// keep working. `Fragment<Int>` would then put a `string` where an `int64`
-// belongs. Here the two are different tokens in the source — `String` versus
-// `T` — so the swap cannot pass, whatever the instantiation.
+// both carry a String at `T = String`, which is the only instantiation the
+// corpus contains, so a check on the payload's kind would accept a spec with
+// the two swapped and every `Fragment<String>` program would keep working.
+// `Fragment<Int>` would then give `Static` an Int payload where a String
+// belongs. Here the two are different tokens in the source, `String` versus
+// `T`, so the swap cannot pass, whatever the instantiation.
 func (s *preludeSpec) matches(decl *ast.EnumDef) bool {
 	if decl.Name != s.nomi || decl.Opaque || len(decl.TypeParams) != len(s.params) {
 		return false
@@ -489,8 +483,8 @@ func (s *preludeSpec) matches(decl *ast.EnumDef) bool {
 			// point it is used rather than trusted from the table.
 			//
 			// The payload enum's own SHAPE is validated separately, against
-			// std's source, by TestOutcomeShapeMatchesStdSource — `decl` is
-			// this spec's declaration and does not carry the payload enum's.
+			// std's source: `decl` is this spec's declaration and does not
+			// carry the payload enum's.
 			// See taskoutcome.go.
 			if want.namedPayload.origin != s.origin || st.Name != want.namedPayload.nomi {
 				return false
@@ -551,28 +545,22 @@ func (g *gen) preludeAt(line, col int) (*preludeAnchor, *analysis.Symbol, bool) 
 // Nomi spelling and separated by the argument kinds, so one entry cannot be
 // reached by two Nomi types.
 //
-// The instantiated def is a perfectly ordinary enum typeDef — tags, variants,
-// payload kinds and slots — so `case`, coercion, payload reads and boxing all
-// work through the machinery types.go and case.go already have. Two things
-// differ, and both are consequences of the Go type being declared in rt rather
-// than emitted here:
+// The instantiated def is an ordinary enum typeDef (tags, variants, payload
+// kinds and slots), so `case`, coercion and payload reads all work through the
+// machinery types.go and case.go already have. One thing differs:
 //
-//   - Slots are NOT deduped by identical Go type. `Result<Int, Int>` carries
-//     two int64 fields where a monomorphic enum of the same shape would carry
-//     one, because a Go generic struct cannot know whether T and E coincide.
-//     Dedup is a storage optimization and never a semantic rule, so this is
-//     sound; it is spelled out because assignSlots' comment says the opposite
-//     for every other enum.
-//   - Nothing emits a declaration for it. typeDecl walks the module's own
-//     declarations and these are not among them.
+//   - Slots are not deduped. `Result<Int, Int>` has one slot per carrying
+//     variant where a monomorphic enum of the same shape would share one
+//     (buildPreludeDef). It is spelled out because assignSlots' comment says
+//     the opposite for every other enum.
 //
-// # Where the def LIVES depends on the type arguments, and only on those
+// # Where the def lives depends on the type arguments, and only on those
 //
-// An instance every gen renders identically — `rt.Maybe[int64]`
-// — is interned PROCESS-WIDE, so every gen holds one pointer for it. An
-// instance whose rendering is package-relative — `rt.Maybe[NomiT_Point]` — is
-// interned per gen. See sharedPreludeDef for
-// why the split exists and what makes the shared half safe.
+// An instance over package-neutral arguments, `Maybe<Int>`, is interned
+// process-wide, so every gen holds one pointer for it. An instance over a
+// type one module declares, `Maybe<Point>`, is interned per gen. See
+// sharedPreludeInstance for why the split exists and what makes the shared
+// half safe.
 func (g *gen) preludeInstance(a *preludeAnchor, args []kind) kind {
 	return g.preludeInstanceOf(a.spec, args)
 }
@@ -599,12 +587,11 @@ func (g *gen) preludeInstanceOf(spec *preludeSpec, args []kind) kind {
 	if g.preludeInsts == nil {
 		g.preludeInsts = map[string][]*typeDef{}
 	}
-	// Grouped by Nomi spelling and separated by the type ARGUMENTS, for
+	// Grouped by Nomi spelling and separated by the type arguments, for
 	// composite.go's reason: two same-named argument types from two files
 	// are spelled alike. Keying on the text alone would give `Maybe<Alpha>` and
 	// `Maybe<Beta>` one def, and the second one's payload would then refuse with
-	// a false reason on a correct program. Quieter than composite.go's panic on
-	// the same mistake and therefore worse.
+	// a false reason on a correct program.
 	for _, d := range g.preludeInsts[nomi] {
 		if samePartsSlice(d.preludeArgs, args) {
 			return named(d)
@@ -614,31 +601,6 @@ func (g *gen) preludeInstanceOf(spec *preludeSpec, args []kind) kind {
 	g.preludeInsts[nomi] = append(g.preludeInsts[nomi], d)
 	g.preludeOrder = append(g.preludeOrder, d)
 	return named(d)
-}
-
-// preludeTypeOf reads the annotation `Maybe<Int>` / `Result<Int, String>`.
-//
-// Reports whether the generic type named a prelude enum at all, so an ordinary
-// unrepresentable `Foo<Bar>` keeps falling through to its own refusal.
-func (g *gen) preludeTypeOf(t *ast.GenericType) (kind, bool) {
-	a, _, isPrelude := g.preludeAt(t.Line, t.Col)
-	if !isPrelude {
-		return kindInvalid, false
-	}
-	if len(t.Params) != len(a.spec.params) {
-		// The checker would have rejected this; answering kindInvalid rather
-		// than indexing past the spec keeps a malformed tree from panicking.
-		return kindInvalid, true
-	}
-	args := make([]kind, len(t.Params))
-	for i, p := range t.Params {
-		args[i] = g.typeOf(p)
-		// kindInvalid: propagates — type resolution; typeOf`s caller rejects `non-scalar` by position.
-		if args[i] == kindInvalid {
-			return kindInvalid, true
-		}
-	}
-	return g.preludeInstance(a, args), true
 }
 
 // preludeReturn is the enum type a constructor signature returns, or nil.
@@ -696,17 +658,6 @@ func (g *gen) checkedPreludeArgs(a *preludeAnchor, sym *analysis.Symbol) ([]kind
 	return args, true
 }
 
-// bareNoneCode is what an undischarged `None` would render as, and it exists
-// to be UNREACHABLE in emitted output rather than to be correct.
-//
-// `rt.Maybe[rt.Unit]` is assignable to no other `rt.Maybe[T]`, so a leak past
-// coerce is a Go COMPILE error rather than a value that type-checks and
-// answers wrongly, which is the failure mode a second encoding of one concept
-// invites. The two positions that consume an
-// expression without a coercion target refuse it explicitly instead; see
-// gen.requireDischarged.
-const bareNoneCode = "rt.None[rt.Unit]()"
-
 func (s *preludeSpec) variant(name string) (preludeVariantSpec, bool) {
 	for _, v := range s.variants {
 		if v.nomi == name {
@@ -714,24 +665,6 @@ func (s *preludeSpec) variant(name string) (preludeVariantSpec, bool) {
 		}
 	}
 	return preludeVariantSpec{}, false
-}
-
-// preludeOwns reports whether `owner` is the enum-name spelling of d, for a
-// pattern head written `Maybe.Some(v)`.
-//
-// d is already fixed by the SCRUTINEE's kind, whose identity was established at
-// the annotation or construction site that produced it. This only asks whether
-// the qualifier the programmer wrote agrees with the type being matched, which
-// is what case.go's `g.types[owner] != d` asks for a module-declared enum.
-//
-// It compares the SPEC pointer, which the def already carries. Probing
-// `g.preludeInsts` would miss a neutral instance, which lives in the
-// process-wide table (stdprelude.go), and matching `d.nomi`'s prefix is a
-// name match.
-func (g *gen) preludeOwns(owner string, d *typeDef) bool {
-	g.loadPreludes()
-	a, isPrelude := g.preludeByName[owner]
-	return isPrelude && d != nil && d.preludeOf != nil && d.preludeOf.spec == a.spec
 }
 
 // projectPreludeEnum is inferred.go's projection for an instantiated prelude

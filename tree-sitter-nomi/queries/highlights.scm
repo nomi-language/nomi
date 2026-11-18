@@ -632,7 +632,6 @@
 "typealias" @keyword
 "extern" @keyword
 "embeds" @keyword
-"extends" @keyword
 "where" @keyword
 "with" @keyword
 "defer" @keyword

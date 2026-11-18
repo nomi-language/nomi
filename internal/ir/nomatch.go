@@ -9,7 +9,7 @@ package ir
 // arrives there exactly when every test answered false, and it leaves there
 // for the join. What is IN it — nothing, an else body, or a trap — is its
 // INSTRUCTIONS rather than its shape." This instruction is the trap.
-// `internal/irbuild`'s `caseInto` builds the block and the trap at the same
+// `internal/irbuild`'s `caseRegion` builds the block and the trap at the same
 // call, so the producer never has to read its own graph back.
 //
 // A CONSUMER THAT READS THE GRAPH DOES. A read of a retained `case` walks
@@ -62,7 +62,7 @@ type NoMatch struct {
 // NewNoMatch is the fault a `case` takes when every arm's test answered false.
 //
 // pos is the `case`'s OWN position and not the last arm's, which is what the
-// report prints: `internal/irbuild`'s `caseInto` builds its fallthrough block at
+// report prints: `internal/irbuild`'s `caseRegion` builds its fallthrough block at
 // the `case` node, and the fault blames the `case`. A reader of the retained graph
 // takes the trap's line from here rather than from the block, because the line
 // is the instruction's fact.

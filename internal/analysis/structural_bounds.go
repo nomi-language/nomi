@@ -224,10 +224,10 @@ func (c *checker) structuralBoundHelp(concrete Type, bound *InterfaceType) (help
 // `fn f(h: Hashable)` and `fn f<T>(h: T) where T: Hashable` explain a
 // rejected `(1, q)` alike.
 func (c *checker) mismatchHint(want, have Type) string {
-	if conj, ok := resolveTV(want).(*ConjunctionType); ok {
+	if conj, ok := resolveTypeVar(want).(*ConjunctionType); ok {
 		return c.conjunctionMismatchHint(conj, have)
 	}
-	if iface, ok := resolveTV(want).(*InterfaceType); ok {
+	if iface, ok := resolveTypeVar(want).(*InterfaceType); ok {
 		switch resolveTypeVar(have).(type) {
 		case *TupleType, *AnonStructType, *FuncType:
 			// The value enters an interface value, which holds only an

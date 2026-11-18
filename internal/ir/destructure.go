@@ -5,14 +5,12 @@ package ir
 // This class contributes one node, because `match` and `destructure` are not
 // two operations. They are one pattern vocabulary in two positions.
 //
-// The evidence is the producer's own, and it is written down at four of the
-// class's owners. `internal/irbuild`'s `destructureFields` is "case.go's
-// structFieldArms with the block-opening removed, since an irrefutable
-// pattern has no arm to abandon"; `destructureTuple` is "case.go's tupleArm
-// with the arm-abandoning removed"; `destructureVariantFields` is
-// "variantFieldArms, again without the block-opening"; `mapDestructure`
-// reproduces "the SAME five rules about map patterns" as `mapArm` and differs
-// in exactly two, both of which are WHERE THE MISS GOES.
+// The evidence is the producer's own. `internal/irbuild` lowers a `case`
+// arm's pattern and a destructuring statement with the same nodes: a pattern
+// assertion (`patternAssert`) builds the `ir.Match` a `case` arm's test
+// (`casePatternTest`) builds, and a struct destructure (`structBinding`)
+// reads a field with the `ir.Proj` a struct pattern's test
+// (`nominalCaseTest`) reads it with. They differ in WHERE THE MISS GOES.
 //
 // So the two classes decompose into the same three operations, and only the
 // third is new:
@@ -29,14 +27,14 @@ package ir
 // WHY Bind AND NOT Copy. `ir.Copy` already moves one temporary into another
 // and it carries no name. A binding INTRODUCES A NAME, and the name is what a
 // reader of the graph needs to know which local a value is. The two nodes are
-// therefore both needed: `internal/irbuild`'s `tupleDestructure` treats a fresh
-// name and a name already bound in the same scope at the same type
-// differently. A fresh name is a `Bind` and a rebind is a `Copy`.
+// therefore both needed: `internal/irbuild/irbind.go` builds a `Bind` for a
+// fresh name (`irBindNode`) and a `Copy` for a rebind or a hold
+// (`irCopyNode`).
 //
-// A COPY AND NOT AN ALIAS. The builder says why at `bindPattern`: "the arm
-// body may rebind the name, and a subject expression is re-read by every later
-// arm, so a name that aliased it would make the arm's meaning depend on where
-// the tree happened to put it". So `Bind` writes a destination rather than
+// A COPY AND NOT AN ALIAS. An arm body may rebind the name, and a subject
+// expression is re-read by every later arm, so a name that aliased the
+// subject would make the arm's meaning depend on where the value happened to
+// be held. So `Bind` writes a destination rather than
 // renaming its source, and a consumer that can prove the copy unobservable may
 // elide it.
 //
