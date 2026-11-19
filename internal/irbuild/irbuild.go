@@ -434,7 +434,7 @@ func GenerateIR(p *Program) (res *Result, refusal error, err error) {
 	// One table of generic stdlib instances for the whole program, so a
 	// sibling file's instances are the entry's too. See stdinst.go.
 	insts := newStdInstances(std, declines)
-	insts.program = gens
+	insts.program, insts.stdOwn = gens, p.noLinkStd
 	for _, g := range gens {
 		g.stdInsts = insts
 	}

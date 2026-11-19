@@ -76,7 +76,7 @@ func TestCodegen_NoDeps(t *testing.T) {
 	src := string(got)
 	for _, want := range []string{
 		"checkProgramVM(targetPath)",
-		"nomivmhost.Check(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath)), nomivmhost.WithWarnings(stdos.Stderr))",
+		"nomivmhost.ReportCheck(entryPath, stdos.Stdout, stdos.Stderr, nomivmhost.WithHosts(nomiHostTable(entryPath)))",
 		"runProgramVM(targetPath, extraArgs)",
 		"runTestFileVM(targetPath, extraArgs, testFormat)",
 	} {

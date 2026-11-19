@@ -15,6 +15,7 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/projectgen"
+	"github.com/nomi-language/nomi/internal/rotation"
 	"github.com/nomi-language/nomi/internal/token"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -154,8 +155,9 @@ func writeRecord(p storedProject) bool {
 }
 
 // answers renders every request's answer of s for the open document with
-// key, one line per request and position.
-func answers(t *testing.T, s *Server, p storedProject, key string) []string {
+// key, one line per request and position: every position-free request,
+// and the position requests at every every-th identifier.
+func answers(t *testing.T, s *Server, p storedProject, key string, every int) []string {
 	t.Helper()
 	uri := p.uri(key)
 	release := s.docs.View()
@@ -198,8 +200,12 @@ func answers(t *testing.T, s *Server, p storedProject, key string) []string {
 	add("lens", lenses, err)
 	links, err := s.textDocumentDocumentLink(nil, &protocol.DocumentLinkParams{TextDocument: doc})
 	add("links", links, err)
+	ident := 0
 	for i, tok := range lexer.Lex(content) {
 		if tok.Type != token.IDENT && tok.Type != token.TYPE_IDENT {
+			continue
+		}
+		if ident++; (ident-1)%every != 0 {
 			continue
 		}
 		at := protocol.TextDocumentPositionParams{TextDocument: doc, Position: protocol.Position{Line: uint32(tok.Line - 1), Character: uint32(tokenUTF16Col(content, tok.Line, tok.Col))}}
@@ -255,8 +261,12 @@ func answers(t *testing.T, s *Server, p storedProject, key string) []string {
 	// Last, since an implementation request checks a document opened from
 	// its record whole (CheckWhole), and the requests above should read
 	// the document as it was opened.
+	ident = 0
 	for _, tok := range lexer.Lex(content) {
 		if tok.Type != token.IDENT && tok.Type != token.TYPE_IDENT {
+			continue
+		}
+		if ident++; (ident-1)%every != 0 {
 			continue
 		}
 		at := protocol.TextDocumentPositionParams{TextDocument: doc, Position: protocol.Position{Line: uint32(tok.Line - 1), Character: uint32(tokenUTF16Col(content, tok.Line, tok.Col))}}
@@ -308,14 +318,15 @@ func tokenUTF16Col(text string, line, col int) int {
 
 // compareStored opens p's documents, in order, from its record in one
 // server and with no record in another, and fails at the first answer
-// that differs. It reports whether the record was used.
-func compareStored(t *testing.T, p storedProject) (opened, refs bool) {
+// that differs, asking at every every-th identifier. It reports whether
+// the record was used.
+func compareStored(t *testing.T, p storedProject, every int) (opened, refs bool) {
 	t.Helper()
 	full := openServerWithout(t, p, p.keys)
 	stored := openServer(p, p.keys)
 	n, _ := stored.docs.StoredPrograms()
 	for _, key := range p.keys {
-		want, got := answers(t, full, p, key), answers(t, stored, p, key)
+		want, got := answers(t, full, p, key, every), answers(t, stored, p, key, every)
 		for i := range max(len(want), len(got)) {
 			w, g := "(none)", "(none)"
 			if i < len(want) {
@@ -346,17 +357,46 @@ func openServerWithout(t *testing.T, p storedProject, keys []string) *Server {
 	return s
 }
 
+// storedGenerated is how much of a generated project the stored-record
+// tests ask about: one of 1,500 lines at every identifier for the whole
+// walk, and for the sample the smallest projectgen makes (about 400
+// lines) at every storedIdentStride-th identifier.
+func storedGenerated(walk rotation.Walk) (lines, every int) {
+	if walk.Full {
+		return 1500, 1
+	}
+	return 400, storedIdentStride
+}
+
+// storedIdentStride is the sample of a generated project's identifiers
+// the stored-record tests ask at by default: one in this many.
+const storedIdentStride = 5
+
+// storedStride is the sample of multi-file corpus projects
+// TestOpenFromRecordMatchesAFullCheck opens by default: one in this many.
+const storedStride = 20
+
 // TestOpenFromRecordMatchesAFullCheck holds a program opened from its
 // record to the program checked whole (see the comment at the top), for
 // every multi-file corpus project and a generated one, with its entry
-// open and then with every file open.
+// open and then with every file open. By default it opens one corpus
+// project in storedStride and the sample's generated project
+// (storedGenerated); NOMI_CORPUS_WALKS=full opens every corpus project and
+// asks of the generated one's 1,500 lines at every identifier.
 func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	if testing.Short() {
-		t.Skip("runs every request at every identifier; -short")
+		t.Skip("runs every request over many documents, about 10 seconds; -short")
 	}
 	t.Setenv(artifactcache.RootEnv, t.TempDir())
-	projects := storedCorpusProjects(t)
-	gen := projectgen.Generate(projectgen.Config{Seed: 3, Lines: 1500})
+	walk := rotation.CorpusWalk(t, storedStride)
+	var projects []storedProject
+	for i, p := range storedCorpusProjects(t) {
+		if walk.Takes(i) {
+			projects = append(projects, p)
+		}
+	}
+	lines, every := storedGenerated(walk)
+	gen := projectgen.Generate(projectgen.Config{Seed: 3, Lines: lines})
 	dir := t.TempDir()
 	if err := gen.Write(dir); err != nil {
 		t.Fatal(err)
@@ -365,12 +405,17 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	g.keys = []string{gen.Entry, gen.Hub(), gen.Leaf()}
 	projects = append(projects, g)
 	used, refs := 0, 0
-	for _, p := range projects {
+	for i, p := range projects {
 		t.Run(p.name, func(t *testing.T) {
 			if !writeRecord(p) {
 				t.Skip("no record: the program has something to report or reads what its record does not track")
 			}
-			opened, fromRefs := compareStored(t, p)
+			// Each corpus project is asked at every identifier.
+			ask := 1
+			if i == len(projects)-1 {
+				ask = every
+			}
+			opened, fromRefs := compareStored(t, p, ask)
 			if opened {
 				used++
 			}

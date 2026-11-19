@@ -57,7 +57,6 @@ func stateGlobalValues() []any {
 		durationCounts,
 		durationFamily,
 		durationUnits,
-		elabOperatorOps,
 		embedPathFuncs,
 		floatFamily,
 		foldCallbackArg,
@@ -6701,6 +6700,7 @@ func (e *stateEncoder) stRecording(x *Recording) {
 	e.str(string(x.Op))
 	e.str(string(x.TypeOrigin))
 	e.str(string(x.IfaceOrigin))
+	e.str(string(x.IfaceTypeParams))
 }
 
 func (d *stateDecoder) stRecording(x *Recording) {
@@ -6710,6 +6710,7 @@ func (d *stateDecoder) stRecording(x *Recording) {
 	x.Op = string(d.str())
 	x.TypeOrigin = string(d.str())
 	x.IfaceOrigin = string(d.str())
+	x.IfaceTypeParams = string(d.str())
 }
 
 func (e *stateEncoder) stRefinedLiteral(x *RefinedLiteral) {
@@ -9652,12 +9653,14 @@ func (e *stateEncoder) stparser_Fix(x *parser.Fix) {
 	e.stSparser_Pos(x.Markers)
 	e.stSparser_Edit(x.Edits)
 	e.str(string(x.Title))
+	e.str(string(x.Path))
 }
 
 func (d *stateDecoder) stparser_Fix(x *parser.Fix) {
 	x.Markers = d.stSparser_Pos()
 	x.Edits = d.stSparser_Edit()
 	x.Title = string(d.str())
+	x.Path = string(d.str())
 }
 
 func (e *stateEncoder) stparser_Pos(x *parser.Pos) {
@@ -9788,4 +9791,4 @@ func (d *stateDecoder) stunbuiltDecl(x *unbuiltDecl) {
 }
 
 // stateCodecDigest is a digest of the code above it (StdStateFormat).
-const stateCodecDigest = "7d44b7e69002c5f3"
+const stateCodecDigest = "97110929476023ad"

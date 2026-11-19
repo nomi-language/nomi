@@ -145,16 +145,18 @@ func TestLowering_AStoppedContextStopsTheLowering(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	release := s.docs.View()
-	problems, ok, err := analyzedlowering.Check(ctx, path, multiMain, a)
+	found, ok, err := analyzedlowering.Check(ctx, path, multiMain, a)
+	problems := found.Problems
 	release()
 	if !ok || problems != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("from the analysis: %v, %v, %v; want the context's error", problems, ok, err)
 	}
-	if problems, err := vmhost.CheckLowering(ctx, path, multiMain); problems != nil || !errors.Is(err, context.Canceled) {
-		t.Fatalf("from the text: %v, %v; want the context's error", problems, err)
+	if found, err := vmhost.CheckLowering(ctx, path, multiMain); found.Problems != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("from the text: %v, %v; want the context's error", found.Problems, err)
 	}
 	release = s.docs.View()
-	problems, err = lowerFromAnalysis(ctx, path, multiMain, a, &s.lowering.memo)
+	found, err = lowerFromAnalysis(ctx, path, multiMain, a, &s.lowering.memo)
+	problems = found.Problems
 	release()
 	if problems != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("the server's lowering: %v, %v; want the context's error", problems, err)

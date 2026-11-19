@@ -310,7 +310,8 @@ func (bl *irScalarBuilder) stdIfaceDefaultAtKind(t *ast.Call, args irQualArgs, k
 // (`FromJson.from_missing<Int>()`), or else the `self` the checked result
 // holds when the default returns `self` or `Maybe<self>`. The type is the
 // checker's for it: the one instType carries, else the type the call's
-// record is for (Callee.For), or the checked result's.
+// record is for (Callee.For), the type the checker bound the qualifier
+// to (ownerType), or the checked result's.
 func (bl *irScalarBuilder) stdIfaceDefaultOwnerSelf(t *ast.Call, f *stdFunc, owner, iface string) (kind, analysis.Type, bool) {
 	// kindInvalid: sentinel — kindInvalid marks instKind as unbound; no operand is judged.
 	if bl.instCall == t && bl.instKind != kindInvalid {
@@ -320,6 +321,10 @@ func (bl *irScalarBuilder) stdIfaceDefaultOwnerSelf(t *ast.Call, f *stdFunc, own
 	if owner != iface {
 		// kindInvalid: lookup — asks whether the qualifier names a type; a miss tries the next source, and the caller declines with its own reason.
 		if k := bl.g.qualifierKind(owner); k != kindInvalid {
+			if forType == nil {
+				// The type the checker bound the qualifier to.
+				forType = bl.g.checkerTypeArg(bl.ownerType(t, owner))
+			}
 			return k, forType, true
 		}
 	}

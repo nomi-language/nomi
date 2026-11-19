@@ -8,6 +8,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/suggest"
 )
 
 // importMiss is an import path the loader has no file for.
@@ -60,7 +61,7 @@ func (b *builder) reportMissingModule(n *ast.ImportStmt, segs []ast.Node, miss *
 	case miss.std:
 		rel := strings.Join(miss.path, "/")
 		msg = fmt.Sprintf("no module `%s`: the standard library has no %s.nomi", name, rel)
-		if best := closestName(strings.Join(miss.path, ast.PathSeparator), b.publicStdModules()); best != "" {
+		if best := suggest.Closest(strings.Join(miss.path, ast.PathSeparator), b.publicStdModules()); best != "" {
 			hint = "did you mean 'std::" + best + "'?"
 		}
 	default:
@@ -228,7 +229,7 @@ func missingModuleHint(dir, leaf string, written []string) string {
 		}
 		return fmt.Sprintf("`%s` is a directory, and an import names a .nomi file", spell(leaf))
 	}
-	if best := closestName(leaf, files); best != "" {
+	if best := suggest.Closest(leaf, files); best != "" {
 		return "did you mean '" + spell(best) + "'?"
 	}
 	return ""

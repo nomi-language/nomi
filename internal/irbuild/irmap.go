@@ -413,7 +413,7 @@ func (bl *irScalarBuilder) mapCallPlan(t *ast.Call, args irQualArgs, method stri
 		}
 		args.temps[1], args.kinds[1] = v, got
 	}
-	if method == "put" && args.kinds[2] != val && !(irHeldKind(val) && bl.g.irErases(val, args.kinds[2])) {
+	if method == "put" && args.kinds[2] != val && !(irHeldKind(val) && bl.g.irErases(val, args.kinds[2], nil)) {
 		// A value entering an interface's existential value is the value
 		// itself (`Map.put(m, "b", True)` for a `Map<String, Display>`);
 		// one holding it (`(Display, Int)`) enters as an argument does.
@@ -460,7 +460,7 @@ func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have k
 		return v, have, false
 	}
 	val := solved.comp.parts[1]
-	if !irHeldKind(val) || !bl.g.irErases(val, have.comp.parts[1]) {
+	if !irHeldKind(val) || !bl.g.irErases(val, have.comp.parts[1], nil) {
 		return v, have, false
 	}
 	n := ir.NewCopy(bl.g.irNodePos(t), bl.f.NewTemp(), v)
@@ -477,7 +477,8 @@ func (bl *irScalarBuilder) mapAtSolvedExistential(t *ast.Call, v ir.Temp, have k
 // would. False when a conversion the checker admitted is one convertTo
 // cannot do.
 func (bl *irScalarBuilder) mapOperandsAtSolved(t *ast.Call, args irQualArgs, method string) bool {
-	key, val := bl.g.recordedTypeArg(t, method, "K"), bl.g.recordedTypeArg(t, method, "V")
+	key, _ := bl.g.recordedTypeArg(t, method, "K")
+	val, _ := bl.g.recordedTypeArg(t, method, "V")
 	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the operands keep their own kinds.
 	if key == kindInvalid || val == kindInvalid || !irMapKeyKind(key) || !irMapValueKind(val) {
 		return true

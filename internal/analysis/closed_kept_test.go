@@ -11,6 +11,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/rotation"
 )
 
 // renderClosed renders what a request reads of a closed file's analysis:
@@ -79,6 +80,11 @@ func closedDiff(tb testing.TB, dm *analysis.DocumentManager, dir string, texts m
 	return "", built
 }
 
+// closedStride is the sample of corpus projects
+// TestClosedFilesFromProgramsMatchTheirOwnBuilds walks by default: one in
+// this many.
+const closedStride = 12
+
 // TestClosedFilesFromProgramsMatchTheirOwnBuilds: a closed file of the
 // program kept for an open document is answered from that program
 // (keptClosed), and what a request reads of it is what a build of the
@@ -88,7 +94,8 @@ func closedDiff(tb testing.TB, dm *analysis.DocumentManager, dir string, texts m
 // written to disk as a save does, and then each left unsaved, where a
 // build of a closed file reads the entry's text on disk. After an unsaved
 // body edit of the entry, a closed file the edit cannot reach must be
-// answered from the program.
+// answered from the program. By default it walks every closedStride-th
+// corpus project; NOMI_CORPUS_WALKS=full walks every one.
 func TestClosedFilesFromProgramsMatchTheirOwnBuilds(t *testing.T) {
 	t.Parallel()
 	projects := []incrementalProject{orderIncremental(), layeredProject(), rateProject()}
@@ -96,7 +103,12 @@ func TestClosedFilesFromProgramsMatchTheirOwnBuilds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projects = append(projects, corpus...)
+	walk := rotation.CorpusWalk(t, closedStride)
+	for i, p := range corpus {
+		if walk.Takes(i) {
+			projects = append(projects, p)
+		}
+	}
 	var fromProgram, unsavedFromProgram int
 	for _, p := range projects {
 		for _, saved := range []bool{true, false} {

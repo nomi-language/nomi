@@ -1,6 +1,6 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
-import { catalogDir, catalogFilters } from "../../src/catalogs";
+import { catalogDir, catalogFilters, tomlFilters } from "../../src/catalogs";
 
 test("a module with locales has its catalogs under `locales` unless [i18n] names another directory", () => {
   assert.equal(catalogDir('[module]\nname = "shop"\n\n[i18n]\nlocales = ["en", "pl"]\n'), "locales");
@@ -25,5 +25,12 @@ test("the client attaches to each module's catalogs, and to no other TOML file",
     { scheme: "file", pattern: "/w/shop/locales/**/*.toml" },
     { scheme: "file", pattern: "/w/admin/i18n/**/*.toml" },
     { scheme: "file", pattern: "C:/w/web/locales/**/*.toml" },
+  ]);
+});
+
+test("the client attaches to every nomi.toml and each module's catalogs", () => {
+  assert.deepEqual(tomlFilters([{ dir: "/w/shop", text: '[i18n]\nlocales = ["en"]\n' }]), [
+    { scheme: "file", pattern: "**/nomi.toml" },
+    { scheme: "file", pattern: "/w/shop/locales/**/*.toml" },
   ]);
 });

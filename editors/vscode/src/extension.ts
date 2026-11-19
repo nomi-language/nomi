@@ -4,7 +4,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { AttachedTestDimmer } from "./attachedTestDecorations";
-import { catalogFilters, Manifest } from "./catalogs";
+import { catalogFilters, Manifest, tomlFilters } from "./catalogs";
 import {
   debugMainConfiguration,
   debugTestConfiguration,
@@ -78,14 +78,15 @@ async function startClient(): Promise<void> {
   }
 
   const serverOptions: ServerOptions = { command, args: [], transport: TransportKind.stdio };
-  const catalogs = catalogFilters(await workspaceManifests());
-  clientCatalogs = JSON.stringify(catalogs);
+  const manifests = await workspaceManifests();
+  clientCatalogs = JSON.stringify(catalogFilters(manifests));
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
       { scheme: "file", language: "nomi" },
       { scheme: "untitled", language: "nomi" },
-      // The module's phrase catalogs, and no other TOML file.
-      ...catalogs,
+      // Each nomi.toml and the modules' phrase catalogs, and no other
+      // TOML file.
+      ...tomlFilters(manifests),
     ],
   };
   client = new LanguageClient("nomi", "Nomi Language Server", serverOptions, clientOptions);

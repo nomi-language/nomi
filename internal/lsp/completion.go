@@ -127,6 +127,13 @@ type completionRequest struct {
 
 func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.CompletionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
+	if isManifestURI(uri) {
+		text, _ := s.contentForURI(params.TextDocument.URI)
+		if items := manifestCompletion(uri, text, params.Position); len(items) > 0 {
+			return &protocol.CompletionList{Items: items}, nil
+		}
+		return nil, nil
+	}
 	if isInputURI(uri) {
 		if d := s.catalogAt(uri); d != nil {
 			if items := s.catalogCompletion(d, params.Position); len(items) > 0 {

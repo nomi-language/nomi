@@ -27,10 +27,11 @@ import (
 // The walk is vmhost's (internal/vm's reach walk), over the decoded image,
 // and as conservative: a call in a branch that never runs counts.
 //
-// A name listed twice, a name of no form a list knows, a `go:` name and a
-// `host:` key no table answers fail the load. A `std::` name is checked for
-// its form only: the runner links no list of std modules, so a misspelled
-// module allows nothing rather than failing the load.
+// A name listed twice, a name of no form a list knows, a `std::` name that
+// is no std module, a `go:` name and a `host:` key no table answers fail
+// the load, in the words vmhost.WithCapabilities and nomi.toml's lists use
+// (capability.CheckHostList). The runner links no front end; the std
+// modules are a list generated into internal/capability.
 func WithCapabilities(names ...string) Option {
 	return func(c *config) {
 		c.lists = append(c.lists, heldList{via: "vmrunner.WithCapabilities", names: append([]string{}, names...), std: true, host: true})
@@ -151,7 +152,7 @@ func (cfg *config) hold(im ir.Image, entry *ir.Module, roots []*ir.Func, boots [
 	}
 	for _, l := range cfg.lists {
 		err := capability.CheckHostList(l.via, "vmrunner.WithHosts", "a compiled program records no Go import path and names a Go binding by its key, as host:<key>", l.names,
-			func() (map[string]bool, error) { return hostadapt.TableKeys(hosts...) }, nil)
+			func() (map[string]bool, error) { return hostadapt.TableKeys(hosts...) })
 		if err != nil {
 			return err
 		}

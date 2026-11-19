@@ -122,11 +122,12 @@ func TestElaborationGate(t *testing.T) {
 // a call leaving defaulted parameters
 // out (CallDefaults), an interpolation hole (HoleDisplays), the error a
 // failed `!` or a fixed typed literal's failing handler shows
-// (UnwrapFailures, TypedLiteral.Failure), an operator (Operators), whose
-// impl is the operand's own type's, a value entering an interface (Coercions), a source
+// (UnwrapFailures, TypedLiteral.Failure), every operator that goes
+// through an interface, a primitive's included (Operators), whose impl
+// is the operand's own type's, a value entering an interface (Coercions), a source
 // entering an `Iter<T>` (IterViews), a value converting below its top
-// (Conversions), how a call of an interface function is answered
-// on a receiver of a known type (Callee.Impl, Callee.Form), an impl block of a generic
+// (Conversions), the type every call of an interface's function is for
+// and how it is answered (Callee.For, Callee.Form, Callee.Impl), an impl block of a generic
 // interface whose header writes no type arguments (ImplTypeArgSets), a
 // call of an interface function dispatched where it runs
 // (Symbol.CallInterface) and a type expression's type (TypeExprTypes).

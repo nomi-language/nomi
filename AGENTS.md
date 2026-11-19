@@ -210,13 +210,22 @@ them.
 **Harnesses.** Fuzzers and tests hold the implementation to properties.
 Each harness's doc comment, in the file named here, gives its inputs, its
 known-gaps list, its commands and its environment variables. A fuzz target
-runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
+runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`. A
+harness named with `NOMI_CORPUS_WALKS=full` walks a fixed sample of the
+corpus by default and every input under the variable
+(`internal/rotation`'s `CorpusWalk`).
 
 - A program the front end accepts lowers: `FuzzFrontEndAcceptsSoItLowers`,
   `knownLoweringGaps` (`vmhost/lowering_fuzz_test.go`).
 - A program that lowers runs, the same twice (the second with every update
   copying) and as its built image:
   `FuzzLoweredProgramsRun`, `knownRunGaps` (`vmhost/run_fuzz_test.go`).
+- Every function a run enters is one the reach walk reaches from that run's
+  roots, which is what a built image keeps and a capability list reads:
+  the corpus's and the tour's programs, and each test case of the corpus,
+  the failure fixtures, the tour and std run on its own:
+  `TestReach_EveryEnteredFunctionIsReached`
+  (`internal/vm/reachsound_test.go`).
 - Every feature in every context, a std module's own tests among them, is
   rejected as expected or runs: `TestFeatureContextMatrix`,
   `NOMI_MATRIX=full`, `NOMI_MATRIX_ONLY` (`vmhost/feature_matrix_test.go`).
@@ -277,15 +286,30 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
 - `nomi fmt` keeps meaning: `FuzzFormatKeepsMeaning`, `knownFormatGaps`
   (`vmhost/format_meaning_test.go`).
 - An incremental check matches a full one: `FuzzIncrementalMatchesFull`
-  (`internal/analysis/incremental_fuzz_test.go`).
+  (`internal/analysis/incremental_fuzz_test.go`),
+  `TestIncrementalMatchesFull`, `NOMI_CORPUS_WALKS=full`
+  (`internal/analysis/incremental_test.go`).
 - A file checked against its imports' interfaces matches a full check:
-  `FuzzCheckFromInterfacesMatchesFull`, `NOMI_CHECK_FROM_INTERFACES=1`
+  `FuzzCheckFromInterfacesMatchesFull`, `TestCheckFromInterfacesMatchesFull`,
+  `NOMI_CORPUS_WALKS=full`, `NOMI_CHECK_FROM_INTERFACES=1`
   (`internal/analysis/interface_fuzz_test.go`).
 - A program opened from its record answers as one checked whole:
-  `FuzzOpenFromRecordMatchesFull` (`internal/analysis/stored_program_test.go`).
+  `FuzzOpenFromRecordMatchesFull` (`internal/analysis/stored_program_test.go`),
+  and so does every language server request:
+  `TestOpenFromRecordMatchesAFullCheck`,
+  `TestOpenFromRecordEditsMatchAFullCheck`, `NOMI_CORPUS_WALKS=full`
+  (`internal/lsp/stored_open_test.go`, `stored_edit_test.go`).
 - Stored facts reduce as the program does:
-  `FuzzStoredReductionsMatchTheProgram`
+  `FuzzStoredReductionsMatchTheProgram`,
+  `TestStoredReductionsMatchTheProgram`, `NOMI_CORPUS_WALKS=full`
   (`internal/analysis/stored_facts_test.go`).
+- A document answered through its kept program matches its own build:
+  `TestClosedFilesFromProgramsMatchTheirOwnBuilds`,
+  `TestOpenDocumentEditsMatchFreshBuilds`, `NOMI_CORPUS_WALKS=full`
+  (`internal/analysis/closed_kept_test.go`, `document_programs_test.go`).
+- A build over the stdlib's base matches one that folds every file:
+  `TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile`,
+  `NOMI_CORPUS_WALKS=full` (`internal/analysis/std_base_test.go`).
 - The language server survives typing: `TestLSPSurvivesTyping`,
   `FuzzLSPSurvivesEdits`, `knownTypingGaps`, `NOMI_LSP_TYPING=full`
   (`internal/lsp/typing_test.go`).
@@ -329,8 +353,9 @@ five minutes, so neither is a per-change check:
   change, always with a narrow `-run` filter (for example
   `go test ./internal/irbuild -run 'AppField|Scoped'`), plus any golden-file
   regeneration the change needs and `go test ./rt/...` if `rt` changed. Never
-  run a whole package without `-run` per change: `internal/analysis` takes
-  about 5 minutes, `internal/lsp` about 9, `internal/irbuild` 2 to 3. Never
+  run a whole package without `-run` per change: `internal/analysis` and
+  `internal/lsp` take about 3 minutes each with their corpus walks
+  sampled, `internal/irbuild` 2 to 3. Never
   run `go test ./...`, the fuzzers or their seed corpora, or editor suites you
   did not touch, even for a change to what the front end accepts, and even
   if a brief lists them: the wider checks run after the merge. Say in your
@@ -339,7 +364,9 @@ five minutes, so neither is a per-change check:
   (`scripts/check-full.sh`: gofmt, the tour wasm, build and vet, every package with
   vmhost, rt and the whole irbuild package each on its own, `TestLibModules`,
   the tree-sitter tests, every recorded program linked through objects, the
-  expectation suites with every file checked again against interfaces, and
+  expectation suites with every file checked again against interfaces, the
+  corpus walks whole (a `walk-*` step each, where a plain run of
+  `internal/analysis` and `internal/lsp` takes their samples), and
   the race detector; the fuzz targets' saved inputs replay as ordinary tests;
   `STEPS="pkgs race"` runs only the steps named). It prints each step's exit
   status and fails when any failed. A failure there is attributed to the

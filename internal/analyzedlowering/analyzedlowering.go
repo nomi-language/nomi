@@ -38,8 +38,32 @@ type Analyzed struct {
 	Stored *analysis.StoredLowering
 }
 
+// Found is what a lowering of a file finds for an editor: Problems, what
+// `nomi check` reports beyond the front end (vmhost.CheckLowering), and
+// Reached, each outside call the program reaches from the roots `nomi
+// check` holds to nomi.toml's [capabilities] lists, which a hover on the
+// call shows.
+type Found struct {
+	Problems error
+	Reached  []Reached
+}
+
+// Reached is one outside call a lowering found: the file and the span a
+// diagnostic about it points at, its callee as the author wrote it (1-based
+// lines and byte columns, the end one past the last byte). A site that is
+// no call in source, such as a `go` binding's declaration, is a point: its
+// End is its start. Text is the one line of Markdown a hover on it shows:
+// what it reaches and whether nomi.toml's lists allow it
+// (capability.ReachedLine).
+type Reached struct {
+	Path            string
+	Line, Col       int
+	EndLine, EndCol int
+	Text            string
+}
+
 // CheckFunc is the lowering Check runs.
-type CheckFunc func(ctx context.Context, path, src string, a *Analyzed) (problems error, ok bool, err error)
+type CheckFunc func(ctx context.Context, path, src string, a *Analyzed) (found Found, ok bool, err error)
 
 // OfferedFunc is the test Offered runs.
 type OfferedFunc func(path, src string, a *Analyzed) bool
@@ -56,20 +80,21 @@ func SetCheck(f CheckFunc, o OfferedFunc) { check, offered = f, o }
 
 // Check is vmhost.CheckLowering for a file whose text src the caller has
 // already analyzed as a: the program is lowered from a, with no second
-// front end, and problems and err are what vmhost.CheckLowering answers.
+// front end, and found and err are what vmhost.CheckLowering answers.
 // ok is false, and nothing ran, when a is not the program
 // vmhost.CheckLowering would build: it has errors, which stop the front end
 // before lowering; its root, test mode or host declarations are not the
-// front end's; or a file it read (another project file, nomi.toml, or the
-// entry itself when the program imports it back) does not hold on disk the
-// text the build read, which vmhost.CheckLowering would read now. The
+// front end's; or a file it read (another project file, nomi.toml as
+// analysis.ReadManifest reads it, or the entry itself when the program
+// imports it back) does not hold the text the build read, which
+// vmhost.CheckLowering would read now. The
 // caller then runs vmhost.CheckLowering. When ctx is done the lowering
 // stops at its next step and answers ctx's error as err, as
 // vmhost.CheckLowering does.
 //
 // Lowering only reads a, so a may be shared with concurrent readers. The
 // caller must import nomi/vmhost, which installs the lowering.
-func Check(ctx context.Context, path, src string, a *Analyzed) (problems error, ok bool, err error) {
+func Check(ctx context.Context, path, src string, a *Analyzed) (found Found, ok bool, err error) {
 	return check(ctx, path, src, a)
 }
 

@@ -472,7 +472,12 @@ func (fa *FileAnalysis) calleeAt(funcNode ast.Node) Callee {
 		out.Kind, out.Decl = CalleeHost, d
 		return out
 	case *ast.InterfaceMethod:
-		if chosen != nil {
+		// An impl chosen at a receiver that holds the enclosing
+		// declaration's type parameters (`Equatable.equal(xs, ys)` with
+		// `xs: List<T>`) is each instance's: the call is the interface's
+		// function, answered per instance (interfaceUse, CalleeAt), as an
+		// operator over the same receiver is.
+		if chosen != nil && !ContainsTypeParam(ref.DispatchReceiver) {
 			out.Kind, out.Decl, out.InProgram = CalleeImpl, chosen, fa.inProgram(chosenFn)
 			if p := fa.Program(); p != nil && chosenFn != nil {
 				if declaring := p.ScopedFunctionFiles[chosenFn]; declaring != nil {
@@ -517,6 +522,11 @@ func (fa *FileAnalysis) complete(funcNode ast.Node, out Callee) Callee {
 				out.For = out.Qualifier.Param.Type
 			case out.Owner.Kind == QualInterface || out.Qualifier.Kind == QualInterface:
 				out.For = selfOfDefault(out.Ref.CallTypeArgs["self"])
+				if out.For == nil && out.Qualifier.Kind == QualType {
+					// `Int.from_missing()`: no argument is the receiver,
+					// and the type that qualifies the call is.
+					out.For = fa.qualifierType(funcNode)
+				}
 			}
 		}
 	}
@@ -650,6 +660,36 @@ type Qualifier struct {
 // the checker recorded at it. The one place a qualifier's declaration is
 // worked out.
 func (fa *FileAnalysis) qualifierOf(obj ast.Node) Qualifier {
+	ref := fa.qualifierRef(obj)
+	if ref == nil {
+		return Qualifier{}
+	}
+	return fa.QualifierOfSymbol(resolveRef(ref))
+}
+
+// qualifierType is the type that qualifies funcNode, a call's callee
+// `Q.m`, when Q names a type with no type parameter of its own (`Int`,
+// `Date`): the type a call of an interface's function no argument is the
+// receiver of is for. Nil for any other callee.
+func (fa *FileAnalysis) qualifierType(funcNode ast.Node) Type {
+	acc, ok := funcNode.(*ast.FieldAccess)
+	if !ok {
+		return nil
+	}
+	ref := fa.qualifierRef(acc.Object)
+	if ref == nil {
+		return nil
+	}
+	t := resolveTypeVar(resolveRef(ref).Type)
+	if t == nil || ContainsTypeParam(t) {
+		return nil
+	}
+	return t
+}
+
+// qualifierRef is the reference the checker recorded at obj, a call's
+// qualifier, or nil.
+func (fa *FileAnalysis) qualifierRef(obj ast.Node) *Symbol {
 	var pos Pos
 	switch o := obj.(type) {
 	case *ast.TypeIdent:
@@ -659,17 +699,13 @@ func (fa *FileAnalysis) qualifierOf(obj ast.Node) Qualifier {
 	case *ast.FieldAccess:
 		// `json.Json.from_text`: the type the module names.
 		if o.Field == nil {
-			return Qualifier{}
+			return nil
 		}
 		pos = Pos{Line: o.Field.Line, Col: o.Field.Col}
 	default:
-		return Qualifier{}
+		return nil
 	}
-	ref := fa.References[pos]
-	if ref == nil {
-		return Qualifier{}
-	}
-	return fa.QualifierOfSymbol(resolveRef(ref))
+	return fa.References[pos]
 }
 
 // QualifierOfSymbol is what a qualifier bound to base, a declaration's

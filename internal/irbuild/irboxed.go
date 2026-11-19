@@ -99,15 +99,22 @@ type irBoxedImpl struct {
 type irBoxTypeToken struct{ key string }
 
 // irBoxPlanFor is the plan that boxes have into want, or nil when have
-// enters want unboxed or not at all. impl is the impl block the checker
-// recorded for the coercion (analysis.Coercion.Impl), nil for a value
-// entering an interface inside a conversion the checker records as a whole
-// (a function's result through an adapter, a `?` operand's error, an
-// operand of `==` against an interface value), where the program's one
-// impl of the interface instance for have is the impl.
-func (g *gen) irBoxPlanFor(want, have kind, impl *ast.ImplBlock) *irBoxPlan {
+// enters want unboxed or not at all. haveType is the checker's type have
+// was read from, which the box's dispatch entries are built for, nil where
+// the caller has none. impl is the impl block the checker recorded for the
+// coercion (analysis.Coercion.Impl), nil for a value entering an interface
+// inside a conversion the checker records as a whole (a function's result
+// through an adapter, a `?` operand's error, an operand of `==` against an
+// interface value), where the program's one impl of the interface
+// instance for have is the impl.
+//
+// A plan is made once per interface and kind, and its entries are built
+// for the type of the first coercion that asks: two checker types of one
+// kind reach the same impls, since a subtype has its base's (spec §4
+// *Subtypes*) and an alias is its target.
+func (g *gen) irBoxPlanFor(want, have kind, haveType analysis.Type, impl *ast.ImplBlock) *irBoxPlan {
 	if irConjKind(want) {
-		return g.conjBoxPlan(want, have, nil)
+		return g.conjBoxPlan(want, have, haveType, nil)
 	}
 	if !irExistentialKind(want) {
 		return nil
@@ -134,7 +141,7 @@ func (g *gen) irBoxPlanFor(want, have kind, impl *ast.ImplBlock) *irBoxPlan {
 	}
 	// Recorded before planning, which registers impls and may ask again.
 	g.boxes.plans[key] = nil
-	p := g.irBoxPlan(d, have, impl)
+	p := g.irBoxPlan(d, have, haveType, impl)
 	g.boxes.plans[key] = p
 	if p != nil {
 		g.boxes.order = append(g.boxes.order, key)
@@ -153,12 +160,12 @@ func irStdBoxingIface(d *ifaceDef) bool {
 	return d.stdShared && !d.universal && (d.nomi == "Display" || d.nomi == "Debug")
 }
 
-func (g *gen) irBoxPlan(d *ifaceDef, have kind, impl *ast.ImplBlock) *irBoxPlan {
+func (g *gen) irBoxPlan(d *ifaceDef, have kind, haveType analysis.Type, impl *ast.ImplBlock) *irBoxPlan {
 	if d.stdShared {
-		return g.irStdBoxPlan(d, have)
+		return g.irStdBoxPlan(d, have, haveType)
 	}
 	if irBoxedEnum(have) {
-		if !g.implements(d, have) {
+		if !g.implements(d, have, haveType) {
 			return nil
 		}
 		if have.def.genericOf != nil {
@@ -191,7 +198,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind, impl *ast.ImplBlock) *irBoxPlan 
 		// A std interface over a std type: std's impl, reached as a direct
 		// call reaches it (stdprogiface.go). The orphan rule leaves the
 		// program no impl of its own here.
-		impls, ok := g.stdProgBoxImpls(d, have, p.typ)
+		impls, ok := g.stdProgBoxImpls(d, have, haveType, p.typ)
 		if !ok {
 			return nil
 		}
@@ -200,7 +207,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind, impl *ast.ImplBlock) *irBoxPlan 
 	}
 	for _, m := range d.order {
 		var found *stdRecvCand
-		for _, c := range g.stdRecvCandidates(have, nil, m.name, d.nomi, nil) {
+		for _, c := range g.stdRecvCandidates(have, haveType, m.name, d.nomi, nil) {
 			if c.d.iface == nil || !sameIfaceInstance(c.d.iface, d) || (impl != nil && c.d.decl != impl) {
 				continue
 			}
@@ -263,9 +270,9 @@ func irStructuralBoxes(have kind) bool {
 // (vm.displayErased), and Debug renders the value inside. A container enters
 // Display boxed only where its Display text is structural
 // (irDisplayErasedContainer), as it entered unboxed before.
-func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
+func (g *gen) irStdBoxPlan(d *ifaceDef, have kind, haveType analysis.Type) *irBoxPlan {
 	if irBoxedEnum(have) {
-		if !g.implements(d, have) {
+		if !g.implements(d, have, haveType) {
 			return nil
 		}
 		if have.def.genericOf != nil {
@@ -283,7 +290,7 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 	}
 	if _, std := stdNamedRecv(have); std || irStdGenericInstance(have) {
 		if _, _, container := stdRecvParts(have); !container {
-			return g.irStdNamedBoxPlan(d, have)
+			return g.irStdNamedBoxPlan(d, have, haveType)
 		}
 	}
 	if _, _, container := stdRecvParts(have); !container {
@@ -299,7 +306,7 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 			// structural rendering would select the struct's impl. The box
 			// renders through std's impl instantiated at the container's
 			// own kind, as `"${v}"` does.
-			fn, owner := g.irContainerDisplayInstance(have)
+			fn, owner := g.irContainerDisplayInstance(have, haveType)
 			if fn == nil {
 				return nil
 			}
@@ -329,8 +336,8 @@ func (g *gen) irStdBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 // reaches, and an erased rendering selects it by the box's name. Debug needs
 // no entry: the renderer names the type's Debug body as a container's leaf
 // (existentialDebugImpls over the unit's boxes).
-func (g *gen) irStdNamedBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
-	if g.irErases(existential(d), have) {
+func (g *gen) irStdNamedBoxPlan(d *ifaceDef, have kind, haveType analysis.Type) *irBoxPlan {
+	if g.irErases(existential(d), have, haveType) {
 		return nil
 	}
 	vt := g.irValType(have)
@@ -344,7 +351,7 @@ func (g *gen) irStdNamedBoxPlan(d *ifaceDef, have kind) *irBoxPlan {
 		if m == nil {
 			return nil
 		}
-		fn := g.stdProgThunk(d, m, have, name)
+		fn := g.stdProgThunk(d, m, have, haveType, name)
 		if fn == nil {
 			return nil
 		}
@@ -381,27 +388,20 @@ func (g *gen) irDisplayInstanceContainer(have kind) bool {
 	if _, _, container := stdRecvParts(have); !container || g.stdModule != "" {
 		return false
 	}
-	fn, _ := g.irContainerDisplayInstance(have)
+	fn, _ := g.irContainerDisplayInstance(have, nil)
 	return fn != nil
 }
 
 // irContainerDisplayInstance is std's `Display.to_string` for the container
 // kind have, instantiated at have, and the gen that builds it; nil when std
-// has no such instance.
-func (g *gen) irContainerDisplayInstance(have kind) (*ir.Symbol, *gen) {
+// has no such instance. haveType is the checker's type have was read from,
+// or nil (stdRecvInstance).
+func (g *gen) irContainerDisplayInstance(have kind, haveType analysis.Type) (*ir.Symbol, *gen) {
 	f := g.stdGenericTemplate(irContainerBaseName(have), "to_string")
 	if f == nil {
 		return nil, nil
 	}
-	tps, ib := g.stdInsts.stdTemplateParams(f)
-	if ib == nil || ib.Interface == nil || typeText(ib.Interface) != "Display" {
-		return nil, nil
-	}
-	args, ok := g.stdRecvTypeArgs(tps, ib, have, false)
-	if !ok {
-		return nil, nil
-	}
-	inst, _ := g.stdInsts.instantiate(f, tps, args, g)
+	inst := g.stdRecvInstance(f, "Display", have, haveType, false)
 	if inst == nil {
 		return nil, nil
 	}
@@ -542,7 +542,7 @@ func (bl *irScalarBuilder) coerceRecorded(at ast.Node, v ir.Temp, have, want kin
 	if irConjKind(want) {
 		out, how = bl.intoConjunction(at, v, want, have, rec)
 	} else {
-		out, how = bl.intoExistential(at, v, want, have, rec.Impl)
+		out, how = bl.intoExistential(at, v, want, have, rec)
 	}
 	if how == irNotCoerced {
 		return v, have, irNotCoerced
@@ -552,31 +552,39 @@ func (bl *irScalarBuilder) coerceRecorded(at ast.Node, v ir.Temp, have, want kin
 
 // intoExistential makes v, a value of kind have, a value of the existential
 // want: boxed when have's runtime value names no impl of want's interface
-// (irBoxPlanFor), unchanged when it does (irErases). impl is the impl the
-// checker recorded, or nil (irBoxPlanFor).
-func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have kind, impl *ast.ImplBlock) (ir.Temp, irCoercion) {
-	if p := bl.g.irBoxPlanFor(want, have, impl); p != nil {
+// (irBoxPlanFor), unchanged when it does (irErases). rec is the checker's
+// record of the coercion, nil inside a conversion it records as a whole:
+// the impl it names (irBoxPlanFor) and the value's type.
+func (bl *irScalarBuilder) intoExistential(at ast.Node, v ir.Temp, want, have kind, rec *analysis.Coercion) (ir.Temp, irCoercion) {
+	var impl *ast.ImplBlock
+	var haveType analysis.Type
+	if rec != nil {
+		impl, haveType = rec.Impl, bl.g.checkerTypeArg(rec.Value)
+	}
+	if p := bl.g.irBoxPlanFor(want, have, haveType, impl); p != nil {
 		return bl.eraseBoxed(at, v, want, p), irCoercedBoxed
 	}
-	if bl.g.irErases(want, have) {
+	if bl.g.irErases(want, have, haveType) {
 		return v, irCoercedUnboxed
 	}
 	return v, irNotCoerced
 }
 
-// recordedImpl is the impl the checker recorded for a value of kind have
-// entering want at the expression at: the coercion of the expression
-// itself, or a part of its conversion (analysis.FileAnalysis.Conversions:
-// a `List<Int>` entering Display inside a `Maybe<List<Int>>` converted to a
-// `Maybe<Display>`). Nil when it recorded none there.
-func (g *gen) recordedImpl(at ast.Node, want, have kind) *ast.ImplBlock {
-	if rec := g.coercionAt(at); rec != nil && g.project(rec.Into()) == want {
-		return rec.Impl
+// recordedCoercion is the checker's record of a value of kind have
+// entering want, an interface or a conjunction, at the expression at: the
+// coercion of the expression itself, or a part of its conversion
+// (analysis.FileAnalysis.Conversions: a `List<Int>` entering Display
+// inside a `Maybe<List<Int>>` converted to a `Maybe<Display>`). Nil when
+// it recorded none there. A std interface is want through either of its
+// defs (substKindsAgree): a std instance's body holds its caller's.
+func (g *gen) recordedCoercion(at ast.Node, want, have kind) *analysis.Coercion {
+	if rec := g.coercionAt(at); rec != nil && g.substKindsAgree(g.project(rec.Into()), want) {
+		return rec
 	}
 	if rec := g.conversionAt(at); rec != nil {
 		for _, b := range rec.Boxes {
-			if b.Impl != nil && g.project(b.Into()) == want && g.project(b.Value) == have {
-				return b.Impl
+			if g.substKindsAgree(g.project(b.Into()), want) && g.project(b.Value) == have {
+				return b
 			}
 		}
 	}

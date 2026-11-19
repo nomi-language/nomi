@@ -81,7 +81,9 @@ func TestModules_APureNomiDependencyNeedsNoGo(t *testing.T) {
 		t.Fatalf("nomi add --offline with a cold cache: %v\n%s", err, stderr)
 	}
 
-	if out := must("add", "example.com/strings2"); out != "added example.com/strings2 v1.2.0 (module strings2; import strings2)" {
+	// The program already imports the module, so add also says what its own
+	// code reaches: nothing.
+	if out := must("add", "example.com/strings2"); out != "added example.com/strings2 v1.2.0 (module strings2; import strings2)\n\nmodules\n  example.com/strings2\n    nothing" {
 		t.Fatalf("nomi add printed %q", out)
 	}
 	if out := must("run", "main.nomi"); out != "HEYHEY" {

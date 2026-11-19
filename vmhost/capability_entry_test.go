@@ -14,7 +14,7 @@ import (
 // overListFiles is a project whose nomi.toml allows std::io alone, and
 // whose main, exported function and test each read a file (std::fs).
 var overListFiles = map[string]string{
-	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [\"std::io\"]\n",
+	"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\"]\n",
 	"main.nomi": `import
     std::fs
     std::io
@@ -40,10 +40,10 @@ end
 // overListWant is what each refusal says, with the project's directory
 // cut from it: the call's place, and the list it is over (the program's
 // for a run, its tests' for a test).
-var overListWant = []string{"main.nomi:7:10", "std::fs, and nomi.toml allows"}
+var overListWant = []string{"main.nomi:7:10", "std::fs, and [capabilities.self] allows"}
 
 // Every way vmhost loads, runs, tests, calls or builds a project holds it
-// to its nomi.toml's [capabilities] lists, and refuses this one before
+// to its nomi.toml's [capabilities] tables, and refuses this one before
 // anything in it runs, with the diagnostic at the call. A loader for a
 // run and its tests at once (LoadMarked, which the tour's browser build,
 // its doctests and the examples' pages use) refuses it as a load failure,
@@ -83,6 +83,17 @@ func TestCapabilityLists_EveryEntryPointRefuses(t *testing.T) {
 				t.Fatalf("the test report does not fail:\n%s", report.String())
 			}
 			return errors.New(report.String())
+		}},
+		{"Cases", func(t *testing.T) error {
+			cases := load(t).Cases(&out, vmhost.TestOptions{})
+			if len(cases) != 1 || cases[0].Name != "notes" || cases[0].Err == nil || cases[0].FailedCases != 1 || cases[0].Output != "" {
+				t.Fatalf("Cases answers %+v, not the one case failed by the lists", cases)
+			}
+			var ce *vmhost.CapabilityError
+			if !errors.As(cases[0].Err, &ce) {
+				t.Fatalf("the case fails with %T, not a *CapabilityError: %v", cases[0].Err, cases[0].Err)
+			}
+			return cases[0].Err
 		}},
 		{"BuildImage", func(t *testing.T) error {
 			_, _, err := load(t).BuildImage()

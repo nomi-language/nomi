@@ -17,6 +17,12 @@ installs the VS Code extension when `code` is on PATH. An editor that is not
 installed is skipped; `make dev-nvim`, `make dev-helix` and `make dev-zed` run
 one.
 
+Every editor sends a module's `nomi.toml` to `nomi-lsp` beside the `.nomi`
+files, and keeps its own TOML highlighting for it: Zed sends every TOML
+buffer, VS Code's client and Neovim's `root_dir` select `nomi.toml` by name,
+and Helix's `nomi-catalog` language, over Helix's TOML grammar, globs it.
+The server answers only a `nomi.toml` and a module's phrase catalogs.
+
 The `post-merge` hook (`make enable-hooks`) runs the parts of that a merge
 changed. It acts only on `main`, or on the branches listed in
 `git config nomi.editorBranches` (space-separated, for example `main next`),

@@ -18,22 +18,17 @@ import (
 //   - "written, structural": an `==` the builder writes to reuse compare
 //     (structuralEqualCall, containerEqualCall). Stage 8a: the switch on
 //     the record makes the detour unnecessary.
-//   - "per instance, unresolved": an operator over a type parameter in an
-//     instance whose frame has no checker type for it (a std interface
-//     value's dispatch entry, stdProgThunk, and the std instances it
-//     reaches), lowered at its kinds: Range.contains' comparisons at Int
-//     behind a `Contains<Int>` box (TestStdProgIface_StdTypesHeldAsStdInterfaces).
-//     The stage that enters every instance with its checker types
-//     (maxSubstWithoutCheckerTypes) removes it.
 //
+// An operator over a type parameter resolves at its instance's checker
+// types (checkSubstCensus), so a per-instance record left unresolved is
+// no listed pair and fails the run.
 // Agreed pairs and pairs by design are counted and logged, not held: an
 // impl called as its record names it, an impl the machine computes
 // itself lowered by the route machineImpls gives it (Int's `+` natively,
 // List's `+` as its concatenation, List's and a derived enum's Equatable
 // by shape), and the Int arithmetic of tupleHashOf's hash mix.
 var maxOperatorFormSites = map[string]int{
-	"written, structural":      0,
-	"per instance, unresolved": 5,
+	"written, structural": 0,
 }
 
 // heldOperatorClasses are the classes maxOperatorFormSites holds: every

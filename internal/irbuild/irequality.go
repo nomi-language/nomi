@@ -731,7 +731,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		if !of(implIface(d)) || d.recv.tag != tagNamed || d.recv.def == nil {
 			continue
 		}
-		nested, ok := bl.nestedDebugImpls(named(d.recv.def))
+		nested, ok := bl.nestedDebugImpls(named(d.recv.def), d.recvType)
 		if !ok {
 			// An `embeds` enum enters the interface boxed under its name.
 			nested, ok = bl.boxedEnumDebugImpls(named(d.recv.def))
@@ -751,7 +751,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 		if p := bl.g.boxes.plans[key]; p == nil || !of(key.iface) {
 			continue
 		}
-		nested, ok := bl.nestedDebugImpls(key.have)
+		nested, ok := bl.nestedDebugImpls(key.have, nil)
 		if !ok {
 			nested, ok = bl.boxedEnumDebugImpls(key.have)
 		}
@@ -777,7 +777,7 @@ func (bl *irScalarBuilder) unitExistentialDebugImpls(k kind, same bool) (impls [
 			continue
 		}
 		for _, have := range e.kinds {
-			nested, ok := bl.nestedDebugImpls(have)
+			nested, ok := bl.nestedDebugImpls(have, nil)
 			if !ok {
 				nested, ok = bl.boxedEnumDebugImpls(have)
 			}

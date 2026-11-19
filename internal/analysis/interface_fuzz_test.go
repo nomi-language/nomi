@@ -29,9 +29,10 @@ import (
 // diagnostics from its check, and the program's reductions from the check
 // from source (CheckedProgram.factsFrom).
 //
-// TestCheckFromInterfacesMatchesFull (about 40 seconds) runs over the
-// incremental harness's projects and edit sequences and every multi-file
-// corpus directory. FuzzCheckFromInterfacesMatchesFull mutates and edits as
+// TestCheckFromInterfacesMatchesFull (about 10 seconds) runs over the
+// incremental harness's projects and edit sequences and a sample of the
+// multi-file corpus directories, every one under NOMI_CORPUS_WALKS=full
+// (about a minute). FuzzCheckFromInterfacesMatchesFull mutates and edits as
 // FuzzIncrementalMatchesFull does, and TestCheckFromInterfacesMatchesFullSample
 // and TestCheckFromInterfacesMatchesFullRotating run a fixed and a daily
 // set. TestKnownInterfaceGaps checks knownInterfaceGaps, and the harness
@@ -287,7 +288,9 @@ func interfaceSteps(tb testing.TB, p incrementalProject, steps []editStep) {
 // (dispatch), impls of std interfaces at a local type (rate), another
 // file's functions as iteration callbacks (signal), an application type
 // read by files that do not import the entry's boot (app types), message
-// declarations and their catalogs, and every multi-file corpus project.
+// declarations and their catalogs, and every eighth multi-file corpus
+// project (incrementalStride) with app_field_permission among them;
+// NOMI_CORPUS_WALKS=full checks every one.
 func TestCheckFromInterfacesMatchesFull(t *testing.T) {
 	t.Parallel()
 	t.Run("layered", func(t *testing.T) { interfaceSteps(t, layeredProject(), layeredEdits) })
@@ -311,9 +314,14 @@ func TestCheckFromInterfacesMatchesFull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range projects {
+	walk := rotation.CorpusWalk(t, incrementalStride)
+	for i, p := range projects {
+		app := p.name == "15-app-and-defer/app_field_permission"
+		if !app && !walk.Takes(i) {
+			continue
+		}
 		t.Run(p.name, func(t *testing.T) {
-			if p.name == "15-app-and-defer/app_field_permission" {
+			if app {
 				interfaceSteps(t, p, appTypeEdits)
 			}
 			interfaceSteps(t, p, genericEdits(p.entry, p.texts[p.entry]))

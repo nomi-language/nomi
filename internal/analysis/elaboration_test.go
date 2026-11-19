@@ -26,7 +26,7 @@ end
 fn run() -> Int
     b = wrap(3)
     n = id(b.item)
-    twice(fn k -> k + n, 1)
+    twice(fn k -> id(k), n)
 end
 `
 
@@ -154,6 +154,20 @@ end
 		!hasElabCategory(got, call.Args[0], "expr: open type (nested unsolved variable)") {
 		t.Fatalf("count([])'s open element type is not reported: %v", got)
 	}
+}
+
+// besidesStdlessOperators is vs without the operators over a primitive that
+// have no record because the test checks one file with no stdlib beside it:
+// std's impls for Int and String are what such an operator records, and
+// the tests that use this are about calls and coercions.
+func besidesStdlessOperators(vs []ElabViolation) []ElabViolation {
+	var out []ElabViolation
+	for _, v := range vs {
+		if v.Category != ElabOperatorNominal {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 func hasElabCategory(vs []ElabViolation, n ast.Node, prefix string) bool {

@@ -22,7 +22,9 @@ import (
 // package is reported at its declaration, with the import chain and Go's
 // first error, instead of the compiler's whole output.
 
-// goBuildFailure is a failed `go build` and what it printed.
+// goBuildFailure is a failed `go build` and what it printed: of the
+// wrapper, which holds a program's Go bindings and the adapters generated
+// for them, or of a runner.
 type goBuildFailure struct {
 	err    error
 	output string
@@ -30,6 +32,21 @@ type goBuildFailure struct {
 
 func (e *goBuildFailure) Error() string { return e.err.Error() }
 func (e *goBuildFailure) Unwrap() error { return e.err }
+
+// GoBuildFailedCode is the code `nomi check --format json` gives a failed
+// `go build` of the Go a program binds (GoBuildReport). Its message is the
+// toolchain's report: the Go does not compile, which is no Nomi error.
+const GoBuildFailedCode = "go-build-failed"
+
+// GoBuildReport is the report of the failed `go build` err holds, as its
+// text gives it, and whether err holds one.
+func GoBuildReport(err error) (string, bool) {
+	var failure *goBuildFailure
+	if !errors.As(err, &failure) {
+		return "", false
+	}
+	return failure.Error(), true
+}
 
 // goListPackage is what targetBuildProblem reads of `go list -json`.
 type goListPackage struct {

@@ -1,6 +1,7 @@
 // Command gen writes the adapter files for internal/stdlibadapters
 // (adapters_gen.go, and the network adapters split from it by build tag:
-// adapters_net_gen.go and adapters_nonet_gen.go). It is run by
+// adapters_net_gen.go and adapters_nonet_gen.go), and the std names
+// internal/capability holds (../capability/std_names_gen.go). It is run by
 // `go generate ./internal/stdlibadapters`, from that package's directory.
 package main
 

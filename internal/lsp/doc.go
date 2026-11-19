@@ -50,6 +50,62 @@
 // (code_action_useless_return.go), the import fixes, and a missing
 // translation's catalog entry (catalogs.go).
 //
+// A lowering's error carries its fix the same way (frontend.Diagnostic's
+// Fix): a run keeps the errors of the document that have one
+// (loweringChecks.fixesOf), and the code action offers them. A call
+// nomi.toml's [capabilities] lists do not allow carries the edit to
+// nomi.toml that adds what its help says to add (vmhost's allowFix,
+// analysis.AllowCapabilities), so its edits are in another file
+// (parser.Fix's Path): the action is a WorkspaceEdit of nomi.toml, read as
+// the server reads it (contentForURI), and it is never the preferred fix,
+// since it widens what the program may reach.
+//
+// # nomi.toml as a document
+//
+// An editor that opens a module's nomi.toml sends it to the server, which
+// keeps its text as the module's manifest (analysis.SetEditedManifest):
+// every analysis and lowering reads it as `nomi check` reads the file once
+// it is saved. An edit rechecks and lowers every open document again
+// (manifestChanged) once the edits pause for manifestDelay; closing the
+// document returns the module to the disk's text.
+//
+// The diagnostics in nomi.toml are the errors `nomi check` reports there,
+// published as an input's are (inputs.go) under two kinds of source: the
+// file's own text, parsed as the front end parses it
+// (analysis.ParseManifestIn), with its error at its line
+// (analysis.ManifestErrorAt); and each open document's last lowering,
+// whose errors about the [capabilities] lists are in the file
+// (manifestDiagnostics). The lists' errors therefore follow the programs
+// of the open documents, as `nomi check` of those files reports them.
+// Completion in nomi.toml offers std module names inside a list of std
+// names, and the dependencies' module paths inside [capabilities.deps]'
+// `go` and `go_in_tests` and as keys under [capabilities.deps.modules]
+// (manifestCompletion, capability.StdNames, vmhost.DependencyModules).
+//
+// # What a call reaches
+//
+// A lowering run keeps, beside the document's diagnostics and fixes and
+// under the same key, the outside calls its program reaches
+// (analyzedlowering.Found's Reached) with the text it lowered. They come
+// from the walk `nomi check` holds to nomi.toml's [capabilities] lists,
+// from main, the boot, the exported functions and the tests, which every
+// lowering runs once, lists or not (vmhost's loweringProblems): each call
+// at its callee, where the diagnostics point (shownSpan), with the line
+// hover shows (capability.ReachedLine), refused or allowed as the lists'
+// one rule decides (standingsOf), naming the table of nomi.toml that
+// allows or refuses it, or saying that no table holds it; a site that is no call, a `go`
+// binding's declaration, is a point, which the token starting there
+// shows. The memo keeps them with the problems,
+// and the lowering a program opened from its record keeps after an edit
+// keeps them too. Hover on a callee adds its line (loweringChecks.reachedAt):
+// from the document's own run when it lowered the text shown, else from
+// another open document's run whose program reaches the file, when the
+// file is as on disk, which that lowering read. A run the record answers
+// without lowering (DocumentManager.StoredLoweredClean) keeps none, so a
+// program opened from its record shows no line until an edit lowers it;
+// in such a program a call in a file other than the entry has no line,
+// since the record's lowering holds the syntax of the entry alone.
+//
 // # Annotations a default decides
 //
 // The "Remove type annotation" and "Add type annotation" actions

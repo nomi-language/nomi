@@ -8,6 +8,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/projectgen"
+	"github.com/nomi-language/nomi/internal/rotation"
 )
 
 // answersInRecord makes answers leave out the requests that check a
@@ -37,14 +38,18 @@ func interfaceMethodAt(s *Server, uri string, line, col int) bool {
 // at every identifier of the open documents (the entry, the hub and a
 // leaf) answers alike, references and rename over the closed files among
 // them. Most edits must be taken in the program opened from the record.
+// By default the project has about 400 lines and the requests are made at
+// every fifth identifier (storedGenerated); NOMI_CORPUS_WALKS=full makes
+// it 1,500 lines and asks at every identifier.
 func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 	if testing.Short() {
-		t.Skip("runs every request at every identifier; -short")
+		t.Skip("runs every request over many documents, about 10 seconds; -short")
 	}
 	t.Setenv(artifactcache.RootEnv, t.TempDir())
 	answersInRecord = true
 	defer func() { answersInRecord = false }()
-	gen := projectgen.Generate(projectgen.Config{Seed: 3, Lines: 1500})
+	lines, every := storedGenerated(rotation.CorpusWalk(t, 1))
+	gen := projectgen.Generate(projectgen.Config{Seed: 3, Lines: lines})
 	dir := t.TempDir()
 	if err := gen.Write(dir); err != nil {
 		t.Fatal(err)
@@ -87,7 +92,7 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 				t.Errorf("%s was not taken in the program opened from its record: %v", step.what, stored.docs.FullCheckReasons())
 			}
 			for _, k := range p.keys {
-				want, got := answers(t, full, p, k), answers(t, stored, p, k)
+				want, got := answers(t, full, p, k, every), answers(t, stored, p, k, every)
 				for i := range max(len(want), len(got)) {
 					w, g := "(none)", "(none)"
 					if i < len(want) {

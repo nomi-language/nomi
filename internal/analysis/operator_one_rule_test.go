@@ -144,22 +144,6 @@ var oneRuleShapes = []oneRuleShape{
 	{name: "several Add impls, the second", t: "Day", r: "Weeks", o: "Day", families: []string{"+"}},
 }
 
-// knownOneRuleDifferences are the rows whose three answers differ, each
-// with why. A row listed here that agrees fails, so a fix removes it.
-var knownOneRuleDifferences = map[string]string{
-	"+ on List":   addOnCollection,
-	"+ on Vector": addOnCollection,
-	"+ on Set":    addOnCollection,
-	"+ on Map":    addOnCollection,
-}
-
-// addOnCollection is why `Add.add(a, b)` on a std collection differs: the
-// call records no For (the reference's CallTypeArgs holds no `self` for
-// it), so interfaceImplAt has no receiver to answer at and the call no
-// Form, where the operator is answered by std's Add impl. The stage that
-// records every call's For removes these.
-const addOnCollection = "the call records no For, so it has no Form"
-
 // oneRuleSource is the program a row is asked in: the operator written at
 // the row's types (fn written), inside a generic body (fn generic) that
 // fn instance calls at them, and its interface's function called by name
@@ -240,14 +224,9 @@ func TestOperatorForm_OneRuleWhereverAsked(t *testing.T) {
 			if c := oneRuleCall(oneRuleFunc(nodes, "called")); c != nil && fa.Calls[c] != nil {
 				called = oneRuleDescribeCallee(fa, fa.Calls[c].Callee)
 			}
-			same := written == instance && instance == called
-			reason, known := knownOneRuleDifferences[row]
-			switch {
-			case same && known:
-				t.Errorf("%s: the three answers agree (%s), but knownOneRuleDifferences lists the row (%s): remove it", row, written, reason)
-			case !same && !known:
+			if written != instance || instance != called {
 				t.Errorf("%s: written %s; at an instance %s; called %s", row, written, instance, called)
-			case same:
+			} else {
 				agreed[row] = true
 			}
 			t.Logf("%s: %s", row, written)

@@ -59,10 +59,13 @@ const usage = `usage:
                                         path:line:col: lines, not source snippets
                                         (NOMI_DIAGNOSTICS=short does so for every command);
                                         --hints also reports the editor's hints
-  nomi capabilities [--write] [--why <name>] [--format text|json] [path]
+  nomi capabilities [--write | --check | --why <name>] [--format text|json] [path]
                                         print what the program reaches outside itself,
-                                        module by module; --write writes the tightest
-                                        [capabilities] table that passes into nomi.toml;
+                                        its own code and its dependencies; --write writes
+                                        the tightest [capabilities.self] and
+                                        [capabilities.deps] tables that pass into
+                                        nomi.toml; --check exits 1 when nomi.toml's
+                                        tables are not those, wider or narrower;
                                         --why lists the calls that reach a std module,
                                         or that a module's files make
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
@@ -78,9 +81,12 @@ const usage = `usage:
                                         nomi.toml and go.mod it lacks (the path is go.mod's
                                         when there is one), listing each file with a fn main
                                         as an entry point
-  nomi add <module>[@version]           add a dependency: its latest release when no
+  nomi add [--allow-go] <module>[@version]
+                                        add a dependency: its latest release when no
                                         version is given, downloaded, with its checksums
-                                        recorded in go.sum
+                                        recorded in go.sum; prints what its code reaches,
+                                        and --allow-go lists it in go under
+                                        [capabilities.deps] in nomi.toml when it binds Go
   nomi add <directory>                  add the Nomi module in a directory, such as
                                         nomi add ../shared
   nomi remove <module>                  remove a dependency no file imports any more
@@ -349,8 +355,9 @@ var checkHints bool
 
 // parseCheckArgs reads `nomi check [--format full|short|json] [--hints] <path>`:
 // exactly one path, and the diagnostics format, which it selects for the
-// process (and any FFI wrapper it starts) through NOMI_DIAGNOSTICS, or
-// json, which runCheck writes itself.
+// process (and any FFI wrapper it starts) through NOMI_DIAGNOSTICS. With
+// json, runCheck writes the records, and an FFI wrapper writes its own
+// diagnostics' records for runCheck to pass through.
 func parseCheckArgs(args []string) (string, error) {
 	const checkUsage = "usage: nomi check [--format full|short|json] [--hints] <path>"
 	var paths []string
@@ -370,7 +377,7 @@ func parseCheckArgs(args []string) (string, error) {
 				_ = os.Setenv(frontend.DiagnosticsFormatEnv, value)
 			case "json":
 				checkJSONFormat = true
-				_ = os.Setenv(frontend.DiagnosticsFormatEnv, "short")
+				_ = os.Setenv(frontend.DiagnosticsFormatEnv, "json")
 			default:
 				return "", fmt.Errorf("nomi check: unknown format %q; use full, short or json\n%s", value, checkUsage)
 			}
@@ -403,7 +410,7 @@ func runCheck(path string) error {
 		return fmt.Errorf("nomi check: %w", pathError(path, err))
 	}
 	if singleFile {
-		if err := checkFile(files[0], vmhost.WithWarnings(os.Stderr)); err != nil {
+		if err := checkFile(files[0], vmhost.WithWarnings(os.Stderr), nil); err != nil {
 			if ownLines(err) {
 				// Diagnostics name their own file.
 				vmhost.WriteFailure(os.Stderr, err)
@@ -422,7 +429,7 @@ func runCheck(path string) error {
 	failed := map[string]bool{}
 	reported := map[string]bool{}
 	for _, file := range files {
-		if err := checkFile(file, vmhost.WithWarnings(os.Stderr)); err != nil {
+		if err := checkFile(file, vmhost.WithWarnings(os.Stderr), nil); err != nil {
 			failed[file] = true
 			writeCheckFailure(os.Stderr, file, err, reported)
 			continue
@@ -548,8 +555,10 @@ func ownLines(err error) bool {
 // they were then, so it is not checked again (vmhost.Cache); its advice,
 // kept with it, is written as a fresh check writes it.
 //
-// warn takes the program's warnings (vmhost.WithWarnings).
-func checkFile(absPath string, warn vmhost.Option) error {
+// warn takes the program's warnings (vmhost.WithWarnings). records, under
+// `nomi check --format json`, takes the records an FFI program's wrapper
+// writes of its warnings and errors (ffirun.Check).
+func checkFile(absPath string, warn vmhost.Option, records io.Writer) error {
 	opts := []vmhost.Option{warn}
 	if checkHints {
 		opts = append(opts, vmhost.WithHints())
@@ -563,7 +572,7 @@ func checkFile(absPath string, warn vmhost.Option) error {
 		return err
 	}
 	if !res.FastPath {
-		return ffirun.Check(res, absPath)
+		return ffirun.Check(res, absPath, records)
 	}
 	return vmhost.Check(absPath, append(opts, vmhost.WithCache(cache))...)
 }

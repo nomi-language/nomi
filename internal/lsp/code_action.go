@@ -35,7 +35,9 @@ import (
 //   - the fix an error carries (code_action_parse_fix.go): braces around a
 //     body written over several lines, `//` for a `///` or `//!` inside a
 //     body, "Call `f()`" for a bare name used as a pipe stage, "Limit with
-//     `Iter.take`" for a pipe stage that drains an infinite iterator.
+//     `Iter.take`" for a pipe stage that drains an infinite iterator, and
+//     from the document's last lowering, "Allow std::fs in nomi.toml" for
+//     a call the [capabilities] lists do not allow, an edit to nomi.toml.
 //   - "Add the pl translation of `m`" for a `phrase` a listed locale has
 //     no translation of, and in a catalog, marking a stale translation
 //     current and giving one the arms its locale needs (catalogs.go).
@@ -73,10 +75,11 @@ func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeAc
 		actions = append(actions, buildAddImportActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, s.buildFillActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Context.Diagnostics)...)
 		actions = append(actions, buildUselessReturnActions(snap.Content, uri, snap.Analysis.TypeErrors, params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(snapInterfaceValueHints(snap, nil)), params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(analysis.FileHints(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
-		actions = append(actions, buildParseFixActions(snap.Content, uri, typeErrorFixes(analysis.DollarWarnings(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, append(append([]parser.ParseError(nil), snap.Errors...), typeErrorFixes(snap.Analysis.TypeErrors)...), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(snapInterfaceValueHints(snap, nil)), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(analysis.FileHints(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, nil, typeErrorFixes(analysis.DollarWarnings(snap.Analysis, snap.Nodes)), params.Context.Diagnostics)...)
+		actions = append(actions, buildParseFixActions(snap.Content, uri, s.contentForURI, s.lowering.fixesOf(uri), params.Context.Diagnostics)...)
 		actions = append(actions, s.missingTranslationActions(snap.Content, snap.Nodes, snap.Analysis, params.Range, params.Context.Diagnostics)...)
 	}
 	actions = append(actions, s.buildRefactorActions(snap.Content, snap.Nodes, snap.Analysis, uri, params.Range, params.Context.Diagnostics, only)...)

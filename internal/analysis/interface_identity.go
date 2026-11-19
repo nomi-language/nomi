@@ -237,6 +237,23 @@ func (fa *FileAnalysis) interfaceDeclaredAt(origin, name string) (*InterfaceType
 	return nil, nil
 }
 
+// interfaceTypeParams is the type parameters of the interface named name
+// that origin declares (interfaceDeclaredAt), joined as its declaration
+// writes them (`Rhs, Out`), or "" where it has none or no file of origin
+// declares it. A demand of no recorded origin names an interface the
+// prelude reserves (Recording.IfaceOrigin), the one name reaches in fa's
+// scope.
+func (fa *FileAnalysis) interfaceTypeParams(origin, name string) string {
+	it, _ := fa.interfaceDeclaredAt(origin, name)
+	if it == nil && origin == OriginUnresolved {
+		it = lookupInterfaceType(fa, nil, name)
+	}
+	if it == nil {
+		return ""
+	}
+	return strings.Join(it.TypeParams, ", ")
+}
+
 // interfaceMemberAt is the symbol of the function method that the
 // interface it declares, read in its declaring file (interfaceDeclaredAt),
 // else in fa's scope where it is of no recorded origin. Nil where neither

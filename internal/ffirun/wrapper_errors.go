@@ -31,7 +31,7 @@ func buildWrapperBinary(r *Result, outputPath string) error {
 	cmd.Dir = r.WrapperDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return wrapperCommandError(r, "building wrapper", err, out)
+		return &goBuildFailure{err: wrapperCommandError(r, "building wrapper", err, out), output: string(out)}
 	}
 	return nil
 }

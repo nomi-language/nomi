@@ -19,11 +19,14 @@ func (fa *FileAnalysis) reachedImpl(out Callee) Callee {
 	}
 	switch out.Kind {
 	case CalleeFunction, CalleeHost, CalleeImpl:
-		b := fa.implBlockHolding(out.Decl)
-		if b == nil {
+		info := fa.implBlockInfoHolding(out.Decl)
+		if info == nil {
 			return out
 		}
-		out.Kind, out.Impl, out.Form = CalleeImpl, b, OperatorByImpl
+		out.Kind, out.Impl, out.Form = CalleeImpl, info.Block, OperatorByImpl
+		if out.For == nil {
+			out.For = implReceiverAt(info, out.Ref)
+		}
 		return fa.withDeclaringFile(out)
 	case CalleeInterface:
 		recv := out.For
@@ -55,9 +58,19 @@ func (fa *FileAnalysis) interfaceImplAt(out Callee, recv Type, ifaceArgs []Type)
 	}
 	base := resolveRef(out.Ref)
 	chosen, _ := out.Impl.(*ast.ImplBlock)
+	if recv == nil && chosen != nil {
+		// A block the checker selected for a call no argument types
+		// (`Box.holds_none(b, xs)` at one of Box's Holds impls): the call
+		// is for the block's receiver.
+		recv = implReceiverAt(fa.implBlockInfo(chosen), out.Ref)
+	}
 	use, b := fa.interfaceUse(base.OwningInterface, base.Name, fa.declaringOrigin(im), recv, ifaceArgs, chosen)
 	if use != nil {
 		out.Form = use.Form
+	}
+	if out.Form == OperatorPerInstance {
+		// Each instance selects the block at its types (CalleeAt).
+		out.Impl = nil
 	}
 	if b == nil {
 		return out
@@ -70,6 +83,32 @@ func (fa *FileAnalysis) interfaceImplAt(out Callee, recv Type, ifaceArgs []Type)
 		out.Decl = m
 	}
 	return fa.withDeclaringFile(out)
+}
+
+// implReceiverAt is the receiver of the impl block info records at a call
+// of one of its functions whose reference is ref: the concrete receiver
+// the checker chose the impl at (Symbol.DispatchReceiver), else the
+// block's receiver with each of the block's type parameters the type the
+// call instantiated it at (CallTypeArgs): `List<Int>` for `List.equal(xs,
+// ys)` over two `List<Int>`, `Int` for `Int.to_string(n)`. A parameter
+// the call does not fix is the block's own, since the call is in the
+// block: `Route<P>` for `check(statics)` in `impl CheckedLiteral<String,
+// Route<P>> for Route<P>`.
+func implReceiverAt(info *ImplTypeArgs, ref *Symbol) Type {
+	if ref != nil && ref.DispatchReceiver != nil {
+		return ref.DispatchReceiver
+	}
+	if info == nil || info.Receiver == nil {
+		return nil
+	}
+	args := CallTypeArgs(ref)
+	recv, _ := ReplaceTypeParams(info.Receiver, func(p *TypeParam_) (Type, bool) {
+		if t := args[p.Name_]; t != nil {
+			return t, true
+		}
+		return p, true
+	})
+	return recv
 }
 
 // withDeclaringFile is out with, for a `fn` it reaches, whether the
@@ -127,6 +166,9 @@ func (fa *FileAnalysis) CalleeAt(c Callee, by func(*TypeParam_) (Type, bool)) Ca
 	if !all || !replaced {
 		return c
 	}
+	// A type argument the checker closed (`E` of an `Ok(x)` nothing else
+	// constrains) is its closed type.
+	recv = Elaborate(recv)
 	at := c
 	at.For = recv
 	at = fa.interfaceImplAt(at, recv, callInterfaceArgs(c.Ref, by))

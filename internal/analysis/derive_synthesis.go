@@ -2759,7 +2759,7 @@ func stdDeriveGap(fa *FileAnalysis, impls *ProjectImplIndex, baseName, iface str
 	return []TypeError{TypeError{
 		File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
 		Message: fmt.Sprintf("no impl of `%s` for `%s` (required via %s)", iface, baseName, formatRecordingVia(rec)),
-	}.WithHint(missingImplHelp(iface, rec.IfaceOrigin, baseName, rec.TypeOrigin, []Recording{rec}))}
+	}.WithHint(missingImplHelp(iface, rec.IfaceTypeParams, rec.IfaceOrigin, baseName, rec.TypeOrigin, []Recording{rec}))}
 }
 
 // hasInterfaceImpl reports whether the named type has an Iface impl

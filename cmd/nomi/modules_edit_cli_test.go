@@ -149,7 +149,7 @@ func TestModules_AddALocalModule(t *testing.T) {
 	mustWrite(t, filepath.Join(lib, "nomi.toml"), "[module]\nname = \"csvdata\"\n")
 	mustWrite(t, filepath.Join(lib, "csvdata.nomi"), "pub fn rows() -> Int\n    3\nend\n")
 
-	if out := c.must(app, "add", "./csvdata"); out != "added example.com/csvdata from ./csvdata (module csvdata; import csvdata)" {
+	if out := c.must(app, "add", "./csvdata"); out != "added example.com/csvdata from ./csvdata (module csvdata; import csvdata)\n\nmodules\n  example.com/csvdata\n    not imported yet" {
 		t.Fatalf("nomi add ./csvdata printed %q", out)
 	}
 	goMod := mustRead(t, filepath.Join(app, "go.mod"))
@@ -249,7 +249,7 @@ func TestModules_UpdateWithinAMajorVersion(t *testing.T) {
 		"nomi.toml":  "[module]\nname = \"greet\"\n",
 		"greet.nomi": "pub fn hello() -> String\n    \"v2\"\nend\n",
 	})
-	if out := c.must(app, "update", "greet"); out != "example.com/greet v1.0.0 -> v1.2.0" {
+	if out := c.must(app, "update", "greet"); out != "example.com/greet v1.0.0 -> v1.2.0\n\nmodules\n  example.com/greet\n    not imported yet" {
 		t.Fatalf("nomi update greet printed %q", out)
 	}
 	if goMod := mustRead(t, filepath.Join(app, "go.mod")); !strings.Contains(goMod, "require example.com/greet v1.2.0\n") {

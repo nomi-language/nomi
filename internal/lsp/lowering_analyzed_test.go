@@ -177,7 +177,7 @@ func recordLoweringInput(t *testing.T) func(text string) (*analyzedlowering.Anal
 	var mu sync.Mutex
 	got := map[string]*analyzedlowering.Analyzed{}
 	saved := checkLoweringFn
-	checkLoweringFn = func(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (error, error) {
+	checkLoweringFn = func(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (analyzedlowering.Found, error) {
 		mu.Lock()
 		got[src] = a
 		mu.Unlock()

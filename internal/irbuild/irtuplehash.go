@@ -69,12 +69,28 @@ func (bl *irScalarBuilder) tupleHashCall(t *ast.Call) (v ir.Temp, k kind, mobile
 	return v, k, mobile, ok, true
 }
 
-// partCheckerType is the checker type of part i of a value of kind sk, a
-// tuple or an anonymous record, whose checker type is st: a tuple's i-th
-// element, a record's field named as sk's i-th. Nil when st is nil or not
-// that shape.
+// partCheckerType is the checker type of part i of a value of kind sk,
+// whose checker type is st: a tuple's i-th element, an anonymous record's
+// field named as sk's i-th, and a std generic container's i-th type
+// argument, in the order stdRecvParts lists sk's (a List's element, a
+// Map's key and value, a Maybe's payload). Nil when st is nil or not that
+// shape.
 func partCheckerType(st analysis.Type, sk kind, i int) analysis.Type {
+	containerArg := func(args []analysis.Type) analysis.Type {
+		if _, parts, ok := stdRecvParts(sk); ok && len(parts) == len(args) && i < len(args) {
+			return args[i]
+		}
+		return nil
+	}
 	switch t := analysis.ResolveTypeVar(st).(type) {
+	case *analysis.EnumType:
+		return containerArg(t.TypeArgs)
+	case *analysis.StructType:
+		return containerArg(t.TypeArgs)
+	case *analysis.ListType:
+		return containerArg([]analysis.Type{t.Elem})
+	case *analysis.MapType:
+		return containerArg([]analysis.Type{t.Key, t.Val})
 	case *analysis.TupleType:
 		if sk.tag == tagTuple && i < len(t.Elems) && len(t.Elems) == len(sk.comp.parts) {
 			return t.Elems[i]
@@ -86,6 +102,23 @@ func partCheckerType(st analysis.Type, sk kind, i int) analysis.Type {
 					return f.Type
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// variantPayloadType is the checker type of the payload of the variant
+// named name of st, a non-generic enum's checker type (Json's `Obj` is
+// `Map<String, Json>`). Nil when st is nil, generic or has no such
+// variant with a payload.
+func variantPayloadType(st analysis.Type, name string) analysis.Type {
+	et, ok := analysis.ResolveTypeVar(st).(*analysis.EnumType)
+	if !ok || len(et.TypeParams) > 0 {
+		return nil
+	}
+	for _, v := range et.Variants {
+		if v.Name == name {
+			return v.DataType
 		}
 	}
 	return nil

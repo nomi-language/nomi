@@ -113,7 +113,7 @@ type keptFile struct {
 	Advice Diagnostics
 }
 
-const fileRecordMagic = "NOMIFILES5"
+const fileRecordMagic = "NOMIFILES6"
 
 func (r *fileRecord) encode() []byte {
 	var b bytes.Buffer

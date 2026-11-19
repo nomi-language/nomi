@@ -99,7 +99,7 @@ func (bl *irScalarBuilder) setCallPlan(t *ast.Call, args irQualArgs, method stri
 	}
 	k := args.kinds[0]
 	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the set keeps its operand's kind.
-	if e := bl.g.recordedTypeArg(t, method, "T"); e != kindInvalid && irSetElemKind(e) {
+	if e, _ := bl.g.recordedTypeArg(t, method, "T"); e != kindInvalid && irSetElemKind(e) {
 		// The set the checker solved T at, which a later operand may
 		// have widened past the first (listCallPlan).
 		k = bl.g.setKindOf(e)

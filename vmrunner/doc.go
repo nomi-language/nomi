@@ -152,9 +152,11 @@
 // nomi.toml's lists and its own host list, and the refusal reads in
 // vmhost's words, at the file and line the image records, since a runner
 // has no source. What a runner cannot know it does not guess: an image
-// records no Go import path, so a Go binding is `host:<key>`, and the
-// runner links no list of std modules, so a `std::` name is checked for its
-// form only. Every std/compiler crossing counts as an outside call named
+// records no Go import path, so a Go binding is `host:<key>`. A `std::`
+// name is checked against the std modules as nomi.toml's lists are, by
+// capability.UnknownStdName over the list `go generate
+// ./internal/stdlibadapters` writes into internal/capability, so the
+// runner needs no front end to know them. Every std/compiler crossing counts as an outside call named
 // std::compiler, since the runner cannot read which of them are inside.
 //
 // A load or run is bounded by WithStop's context, and each later call or

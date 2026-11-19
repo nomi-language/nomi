@@ -916,36 +916,38 @@ func (v *elabVerifier) checkMembership(n *ast.Binary) {
 	}
 }
 
-// ElabImplUnrecorded is the category of a call of an interface function
-// on a receiver whose type is known where the call is checked, with no
-// record of the impl block it reaches (Callee.Impl) or of another answer
-// (Callee.Form).
+// ElabImplUnrecorded is the category of a call of an interface's
+// function with no record of the type it is called for (Callee.For), of
+// the impl block it reaches (Callee.Impl) where it reaches one, or of how
+// it is answered (Callee.Form).
 const ElabImplUnrecorded = "implicit: call's impl not recorded"
 
-// checkImplReached holds a call of an interface function whose receiver's
-// type the checker knows to a record of how it is answered (Callee.Form):
-// the impl block it reaches, naming the function that runs, or the
-// structural answer, or dispatch on an interface value. A call through a
-// type parameter is answered at each instance (CalleeAt).
+// checkImplReached holds a call of an interface's function, one the
+// interface declares or an impl's that a block of it declares, to the
+// type the call is for (Callee.For: its `self`, a type parameter's in a
+// generic body) and a record of how it is answered (Callee.Form): the impl
+// block it reaches, naming the function that runs, the structural answer,
+// dispatch on an interface value, or, through a type parameter, each
+// instance's answer (OperatorPerInstance, which CalleeAt resolves).
 func (v *elabVerifier) checkImplReached(n *ast.Call, ce Callee, name string) {
 	switch ce.Kind {
 	case CalleeImpl:
 		if ce.Impl == nil {
 			v.report(n, "implicit", ElabImplUnrecorded, name+": no impl block")
+			return
 		}
 	case CalleeInterface:
-		if ce.Qualifier.Kind == QualTypeParam || ce.Ref == nil || ce.Form != 0 {
+		if ce.Ref == nil {
 			return
 		}
-		recv := ce.For
-		if ce.Ref.DispatchReceiver != nil {
-			recv = ce.Ref.DispatchReceiver
-		}
-		recv = resolveTypeVar(ResolveClosed(recv))
-		if recv == nil || ContainsTypeParam(recv) || containsTypeVar(recv) {
-			return
-		}
-		v.report(n, "implicit", ElabImplUnrecorded, fmt.Sprintf("%s: receiver %s, neither an impl nor a structural answer", name, recv))
+	default:
+		return
+	}
+	switch {
+	case ce.For == nil:
+		v.report(n, "implicit", ElabImplUnrecorded, name+": the type it is called for not recorded")
+	case ce.Form == 0:
+		v.report(n, "implicit", ElabImplUnrecorded, fmt.Sprintf("%s: for %s, neither an impl nor another answer", name, resolveTypeVar(ce.For)))
 	}
 }
 
@@ -1043,16 +1045,9 @@ func containsTypeParamOutside(t Type, scope map[*TypeParam_]bool) bool {
 	})
 }
 
-// elabOperatorOps are the binary operators that go through an interface
-// when an operand is not a primitive; a prefix `~~~` does too.
-var elabOperatorOps = map[string]bool{
-	"+": true, "-": true, "*": true, "/": true,
-	"==": true, "!=": true, "<": true, "<=": true, ">": true, ">=": true,
-}
-
-// The categories of an operator over a value that is not a primitive with
-// no record of what it means (FileAnalysis.Operators), by the left
-// operand's type.
+// The categories of an operator that goes through an interface
+// (operatorSubject) with no record of what it means
+// (FileAnalysis.Operators), by its subject's type.
 const (
 	ElabOperatorNominal    = "implicit: operator impl not recorded (nominal type)"
 	ElabOperatorStructural = "implicit: operator over a structural type, no record"
@@ -1064,31 +1059,32 @@ const (
 	ElabOperatorForeignImpl = "implicit: operator impl recorded is another type's"
 )
 
+// checkOperator holds every operator that goes through an interface (an
+// arithmetic, bitwise or comparison operator, a prefix `~~~`), whatever
+// its operand's type, a primitive's included, to a record of what it
+// means: std's impl for `Int + Int`, an impl of the operand's type, a
+// comparison by shape, a dispatch on two interface values, or a type
+// parameter's bound.
 func (v *elabVerifier) checkOperator(n ast.Node) {
-	if b, binary := n.(*ast.Binary); binary && !elabOperatorOps[b.Op] {
-		return
-	}
 	_, _, lt, ok := operatorSubject(v.fa, n)
-	if !ok || lt == nil {
+	if !ok {
 		return
 	}
-	if _, prim := resolveTypeVar(lt).(*PrimitiveType); prim {
-		return
-	}
+	t := resolveTypeVar(ResolveClosed(lt))
 	if use := v.fa.Operators[n]; use != nil {
-		if use.Form == OperatorByImpl && !v.fa.ownImpl(use.Impl, resolveTypeVar(ResolveClosed(lt))) {
-			v.report(n, "implicit", ElabOperatorForeignImpl, fmt.Sprintf("%s on %s", operatorToken(n), resolveTypeVar(lt)))
+		if use.Form == OperatorByImpl && !v.fa.ownImpl(use.Impl, t) {
+			v.report(n, "implicit", ElabOperatorForeignImpl, fmt.Sprintf("%s on %s", operatorToken(n), t))
 		}
 		return
 	}
 	cat := ElabOperatorNominal
-	switch resolveTypeVar(lt).(type) {
+	switch t.(type) {
 	case *TupleType, *AnonStructType, *ListType, *MapType, *FuncType:
 		cat = ElabOperatorStructural
 	case *TypeParam_:
 		cat = ElabOperatorTypeParam
 	}
-	v.report(n, "implicit", cat, fmt.Sprintf("%s on %s", operatorToken(n), resolveTypeVar(lt)))
+	v.report(n, "implicit", cat, fmt.Sprintf("%s on %s", operatorToken(n), t))
 }
 
 // operatorToken is the operator a binary or unary node spells.

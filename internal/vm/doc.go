@@ -306,6 +306,22 @@
 // tuple projections (`fn sum, (j, uj) -> ...`), takes the stage's Reusing
 // form, which rewrites one tuple per run.
 //
+// # What a program reaches
+//
+// One walk (reach.go) answers what a program can run from its roots: main,
+// test cases or exports, with their boots. It follows calls, every
+// retained impl of a dispatched method, function values, once
+// initializers and the bodies the machine's tables run (keys, Display,
+// row Debug). It queues a table's bodies, a method's impls included, in
+// the order of their type names, so the chain it reports for a function
+// is the same on every walk (TestReach_TheWalkIsTheSameEveryTime). A
+// built image keeps only what it reaches (PruneImage), the
+// pre-run check names a missing body within it (Machine.Unretained), and
+// capability lists and target checks read the calls in it.
+// TestReach_EveryEnteredFunctionIsReached holds it to the machine: every
+// function a run of a corpus, tour, failure or std program or test case
+// enters is in the walk from that run's roots.
+//
 // # Effects
 //
 // [Machine.Effects] answers what stops a function being run where nothing

@@ -10,6 +10,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/internal/rotation"
 )
 
 // writeProject writes p's files under a new directory and answers it.
@@ -85,7 +86,9 @@ func TestOpenDocumentProgramsMatchTheirOwnBuilds(t *testing.T) {
 // for their root, get what a fresh analysis of the same texts on its own
 // gives (build, in a manager that has analyzed nothing). Every file of the
 // project is open and its text on disk too, so the two read the same texts.
-// A body-only step rebuilds bodies alone, and no other step does.
+// A body-only step rebuilds bodies alone, and no other step does. The
+// projects are those declared here and every twelfth multi-file corpus
+// project; NOMI_CORPUS_WALKS=full takes every third.
 func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 	t.Parallel()
 	type run struct {
@@ -104,8 +107,9 @@ func TestOpenDocumentEditsMatchFreshBuilds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	walk := rotation.CorpusWalk(t, 4)
 	for i, p := range corpus {
-		if i%3 == 0 {
+		if i%3 == 0 && walk.Takes(i/3) {
 			runs = append(runs, run{p, genericEdits(p.entry, p.texts[p.entry])})
 		}
 	}

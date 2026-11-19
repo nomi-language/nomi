@@ -99,8 +99,8 @@ func TestLoweringDiagnostics_RelatedInAnotherFileIsUTF16(t *testing.T) {
 	}
 	b := strings.Index(text, "x")
 	saved := checkLoweringFn
-	checkLoweringFn = func(_ context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
-		return frontend.Diagnostics{{Path: other, Line: 1, Col: b + 1, EndLine: 1, EndCol: b + 2, Message: "m"}}, nil
+	checkLoweringFn = func(_ context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (analyzedlowering.Found, error) {
+		return analyzedlowering.Found{Problems: frontend.Diagnostics{{Path: other, Line: 1, Col: b + 1, EndLine: 1, EndCol: b + 2, Message: "m"}}}, nil
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
 	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), "fn main() end\n", nil)

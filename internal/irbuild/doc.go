@@ -301,9 +301,8 @@
 // value written `as` an interface, which the builder holds as the value it
 // is although the checker records the interface (`foreignIfacePlan`,
 // `siblingReceiverPlan`), and a type parameter's the instance's types do
-// not resolve (a parameter whose frame has no checker type,
-// `maxSubstWithoutCheckerTypes`, as a std interface default's instance at
-// a std interface value's dispatch entry binds its `self` by kind alone).
+// not resolve (a parameter whose frame has no checker type, the few
+// `checkSubstCensus` names).
 // A receiver that implements a generic interface at several type
 // arguments is resolved by the call's interface instance
 // (Symbol.CallInterface), which the record carries. A call of a std
@@ -314,8 +313,8 @@
 // `stdProgThunk`) carries what the checker records for that call written
 // at the value's type (`stdIfaceCallRecord`,
 // analysis.FileAnalysis.InterfaceCallee); one on a value held by its kind
-// alone names the interface's function and no type, and is planned by the
-// routes after. Either way the record names the std interface, and the
+// alone (an instance a kind walk asks for, `checkSubstCensus`) names the
+// interface's function and no type, and is planned by the routes after. Either way the record names the std interface, and the
 // routes that would read the interface off the call's spelling read it off
 // the record instead (`recordedStdIface`): where this file declares an
 // interface of the same name, the spelling reaches that declaration, which
@@ -408,9 +407,8 @@
 // operator written at those types has, std's `host fn` for a primitive
 // included, an impl of several of a type's narrowed by the interface's
 // type arguments there, or a structural comparison. One over interface
-// values, one whose type parameter has no checker type in the frame, and
-// one the builder wrote itself name no impl: it is selected at the
-// instance's kinds (`instanceOperatorImpl`, `stdlibOperatorFor`,
+// values and one the builder wrote itself name no impl: it is selected at
+// the instance's kinds (`instanceOperatorImpl`, `stdlibOperatorFor`,
 // `instanceEquatable`, `unrecordedEqualImpl`, `unrecordedCompareCall`),
 // a selection a recorded operator never reaches; there too an impl the kinds select that
 // `machineImpls` lists is not called (`machineComputes`).
@@ -526,14 +524,26 @@
 // an operator's OperatorUse.Form follows). Within a route, `typeQualCall`
 // still picks the structural routine by the operand's kind, since the
 // routines also serve calls with no answer recorded: those the builder
-// writes holding a kind alone (a main's failure rendering), a receiver
-// the checker left with an open variable, and a per-instance record a std
-// instance's frame cannot resolve. A call whose record names an impl is
+// writes holding a kind alone (a main's failure rendering) and a
+// per-instance record an instance entered with no checker type cannot
+// resolve. Every call the checker checked records its receiver and its
+// answer (analysis.Callee.For, Form; TestElaborationGate). A call whose record names an impl is
 // never answered structurally (`recordNamesImpl`), even where the impl's
 // function is not in scope yet: an import cycle's first pass lowers a std
 // module before the members whose impls it calls (`lowerStdUnit`), and
 // the answer must not depend on that order. Under test `verifyCallForm`
-// holds each pick to the record where there is one.
+// holds each pick to the record where there is one. A dispatched record
+// is answered according to how the builder holds the value the checker
+// types as an interface value, which one predicate says (`heldAs`): boxed
+// (an existential or a conjunction), answered only by a routine that
+// dispatches on the held value's run-time type; as an `Iter`'s view of its
+// source, or as a std value held unboxed by its own kind
+// (`stdProgHeldType`), answered by the routine that kind takes, since
+// the kind names what is held. A value held no way an interface value is
+// fails. An ordering over two interface values has no dispatching route:
+// the checker rejects one written (spec §12 *Interface values*), and
+// `compareOperands` declines one in an instance whose type argument is an
+// interface type.
 //
 // Two sites lower bodies the checker never checked, and mark them so
 // (`markUnchecked`; TestNameLookupsOnlyGoDown holds their count, with
@@ -1095,26 +1105,37 @@
 // block's parameters a receiver's type binds is the checker's match of
 // the block's recorded receiver against it (analysis.ImplBlockArgsAt), for
 // a std container's block (`stdRecvTypes`) and a program's block over one
-// (`stdRecvImplAt`). A recorded type that names an
-// enclosing instance's type parameters has that instance's types put in
-// (`checkerTypeArg`, over analysis.ReplaceTypeParams). An instance is
-// interned by its kinds, so it carries the types of the first construction
-// that had them, and a generic type's instance adopts them from a later
-// one. What has none: a generic typealias's target at a use's arguments,
-// an argument written as a default in the declaring file, and an instance
-// asked for at a kind with no
-// expression behind it (a sort's comparator over an element kind, a
-// runtime Debug renderer's nested parts, a box's or a std interface
-// value's dispatch entry, a part of a checked result), with what those
-// reach. The builder never builds a checker type from a kind. A call's and an operator's record is read at these
-// types inside the instance ("Qualified calls from their records",
-// "Operators from their records"). In a test binary, or
-// with NOMI_SUBST_VERIFY=1, each is held to its kind (`verifySubst`: the
-// type projected, in a std instance's gen through the program gen that
-// asked for it, is the frame's kind, or the same std interface held
-// through its other def, `sameStdIfaceHeld`), and
-// TestIRGolden_RecordsMatchTheVM counts the parameters entered without one
-// by entry (`maxSubstWithoutCheckerTypes`), a count that only goes down.
+// (`stdRecvImplAt`), whose kind and type come from the same place: an
+// operand, a box's coercion, the call's record (`firstOperandType`,
+// `concreteInterfacePlan`). An instance the builder names by its receiver
+// rather than at a call (`stdRecvInstance`: a box's Display, a renderer's
+// nested Debug, a sort's comparator) reads the receiver's type where it
+// is asked for: a view's element (analysis.IterView.Elem), a sort key's
+// type argument (`recordedTypeArg`), and a part's type within its whole
+// (`partCheckerType`: a tuple's element, a record's field, a container's
+// type argument), as a record's `from_json` reads each field's. A
+// recorded type that names an enclosing instance's type parameters has
+// that instance's types put in (`checkerTypeArg`, over
+// analysis.ReplaceTypeParams). An instance is interned by its kinds, so it
+// carries the types of the first construction that had them, and a
+// generic type's instance adopts them from a later one. What has none: a
+// generic typealias's target at a use's arguments, an argument written as
+// a default in the declaring file, and the few instances asked for at a
+// kind no expression has (`checkSubstCensus` names them). The builder
+// never builds a checker type from a kind. A call's and an operator's
+// record is read at these types inside the instance ("Qualified calls from
+// their records", "Operators from their records"), through the file whose
+// program holds the impls the types have (`instanceFA`: a std instance's
+// caller, and for a listed std module lowered with the program the
+// program's first file, since its own analysis is std's). In a test
+// binary, or with NOMI_SUBST_VERIFY=1, each is held to its kind
+// (`verifySubst`: the type projected, in a std instance's gen through the
+// program gen that asked for it, is the frame's kind, or the same std
+// interface held through its other def, `sameStdIfaceHeld`), and
+// TestIRGolden_RecordsMatchTheVM fails for any instance a program's
+// lowering requests whose parameters are entered without one
+// (`checkSubstCensus`), counted the same whatever the artifact cache
+// holds, since std's own lowerings are not counted.
 // The kind of a written type is the projection of the type the checker
 // recorded for that type expression (`typeOf`, over `recordedTypeExpr`,
 // which reads srcFA's TypeExprTypes, or the types of the universal Debug
@@ -1184,9 +1205,19 @@
 // and function, whose body is the call `Iface.method(...)`, so std's impl
 // is whatever a direct call with that type reaches (a container family's
 // operation, an instance of std's generic body, a retained body or a host
-// function). Where the file binds the interface's bare name to something
-// else, the thunk calls the std function whose impl header names the
-// interface's declaration. A thunk is built with the gen's refusals and the
+// function). The call carries the record the checker makes for it
+// written at the held value's type (`stdIfaceCallRecord`): the boxed
+// value's coercion's Value (`intoExistential`, `irBoxPlanFor`), or for a
+// std default a program's block does not write, the block's receiver
+// (`implDef.recvType`), so the instances it reaches are entered with that
+// type. A thunk is keyed by the box's type name, so the first value to
+// ask for it gives its type, and two checker types of one kind share it:
+// what projection drops never changes which body a value reaches, since
+// a subtype has its base's impls (spec §4 *Subtypes*), an alias is its
+// target and a host type's phantom argument (`Regex<C>`) has one
+// representation and std's impl is generic over it. Where the file binds
+// the interface's bare name to something else, the thunk calls the std
+// function whose impl header names the interface's declaration. A thunk is built with the gen's refusals and the
 // decline bookkeeping set aside (`stdProgIsolated`), so a failed one leaves
 // the boxing site's refusal. Its nodes sit at line 1, column 1, where no
 // reference is recorded. `Hashable.hash` of a value held as `Hashable`

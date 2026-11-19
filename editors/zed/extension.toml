@@ -7,9 +7,9 @@ description = "Syntax highlighting, language server and debugger support for the
 
 [language_servers.nomi-lsp]
 name = "Nomi LSP"
-# TOML for a module's phrase catalogs. Zed attaches a server by language,
-# not by path, so nomi-lsp sees every TOML buffer and answers only those
-# under a module's `[i18n].catalogs` directory.
+# TOML for a module's nomi.toml and phrase catalogs. Zed attaches a server
+# by language, not by path, so nomi-lsp sees every TOML buffer and answers
+# only a nomi.toml and those under a module's `[i18n].catalogs` directory.
 languages = ["Nomi", "TOML"]
 language_ids = { "Nomi" = "nomi", "TOML" = "toml" }
 

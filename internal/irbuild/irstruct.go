@@ -841,7 +841,7 @@ func (bl *irScalarBuilder) structMakeOf(t *ast.StructLit, d *typeDef) (ir.Temp, 
 				src, k = boxed, want
 			}
 		}
-		erased := bl.g.irErases(fd.k, k)
+		erased := bl.g.irErases(fd.k, k, nil)
 		if ok && k != fd.k && !erased && (mobile || irEmbeddedIn(fd.k, k)) {
 			// An empty literal takes the field's kind, and a value of an
 			// embedded type widens into its `embeds` variant (embedWiden

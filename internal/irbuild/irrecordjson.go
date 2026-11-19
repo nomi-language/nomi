@@ -101,8 +101,9 @@ func (bl *irScalarBuilder) recordToJsonCall(t *ast.Call, method string) (v ir.Te
 }
 
 // recordJsonKindCall lowers `T.to_json(r)` or `T.from_json(json)` with T
-// bound to the record kind k. handled is false for any other call.
-func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, method string) (ir.Temp, kind, bool, bool, bool) {
+// bound to the record kind k, whose checker type is kt (nil where the
+// caller has none). handled is false for any other call.
+func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, kt analysis.Type, method string) (ir.Temp, kind, bool, bool, bool) {
 	if !irRetainedRecordKind(k) || namedArgNode(t.Args) != nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
@@ -153,7 +154,7 @@ func (bl *irScalarBuilder) recordJsonKindCall(t *ast.Call, k kind, method string
 			return ir.NoTemp, kindInvalid, false, false, true
 		}
 		bl.noteQualRecordRow(t, json, jk)
-		v, rk, ok := bl.recordFromJsonOf(t, json, jk, k, resultK, "")
+		v, rk, ok := bl.recordFromJsonOf(t, json, jk, k, kt, resultK, "")
 		return v, rk, false, ok, true
 	}
 	return ir.NoTemp, kindInvalid, false, false, false
@@ -394,10 +395,12 @@ func (bl *irScalarBuilder) lowerJsonFieldCall(t *ast.Call, v ir.Temp, part kind,
 	return r, rk, ok
 }
 
-// recordFromJsonOf is `R.from_json(json)` for R the record kind k, json a
-// lowered value of kind jk. resultK is the call's `Result<R,
+// recordFromJsonOf is `R.from_json(json)` for R the record kind k, of
+// checker type st (nil where the builder holds it by kind alone), json a
+// lowered value of kind jk. Each field's `from_json` and `from_missing`
+// is reached at the field's type. resultK is the call's `Result<R,
 // Json.ShapeError>` kind when the caller knows it, else kindInvalid.
-func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, k kind, resultK kind, path string) (ir.Temp, kind, bool) {
+func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, k kind, st analysis.Type, resultK kind, path string) (ir.Temp, kind, bool) {
 	no := func(why string) (ir.Temp, kind, bool) {
 		bl.g.dc.note("FromJson.from_json at " + k.nomi() + ": " + why)
 		return ir.NoTemp, kindInvalid, false
@@ -423,8 +426,14 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 	mk := objV.payloads[0].k
 
 	// The object's fields, or the error a JSON value that is no object
-	// gets: `Map<String, Json>.from_json`'s own.
-	fields, fk, ok := bl.fromJsonAt(t, json, jk, mk, path+".obj")
+	// gets: `Map<String, Json>.from_json`'s own, at the type of Json's
+	// `Obj` payload. The call's operand is a Json, as every JSON value the
+	// fields are read from is.
+	var objType analysis.Type
+	if len(t.Args) == 1 {
+		objType = variantPayloadType(bl.g.operandCheckerType(t.Args[0]), "Obj")
+	}
+	fields, fk, ok := bl.fromJsonAt(t, json, jk, mk, objType, path+".obj")
 	if !ok {
 		return no("no Map<String, Json>.from_json")
 	}
@@ -498,6 +507,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 	vals := make([]ir.Temp, len(k.comp.parts))
 	for i, part := range k.comp.parts {
 		name := k.comp.names[i]
+		pt := partCheckerType(st, k, i)
 		fpath := path + "." + strconv.Itoa(i)
 		key := bl.stringConst(pos, name)
 		got, gk, ok := bl.mapGetAt(t, m, mk, key)
@@ -551,7 +561,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 			bl.b.Append(ir.NewCopy(pos, val, nv))
 			bl.b.SetTerm(ir.NewJump(pos, next.ID()))
 		default:
-			mv, mk, ok := bl.fromMissingAt(t, part)
+			mv, mk, ok := bl.fromMissingAt(t, part, pt)
 			if !ok || !irMaybeKind(mk) {
 				return no("no " + part.nomi() + ".from_missing")
 			}
@@ -577,7 +587,7 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 		// A present key: the field's type reads it.
 		bl.b = present
 		jv := bl.variantPayload(t, got, md, mSome)
-		r, rk, ok := bl.fromJsonAt(t, jv, jk, part, fpath)
+		r, rk, ok := bl.fromJsonAt(t, jv, jk, part, pt, fpath)
 		if !ok {
 			return no("no " + part.nomi() + ".from_json")
 		}
@@ -620,11 +630,12 @@ func (bl *irScalarBuilder) recordFromJsonOf(t *ast.Call, json ir.Temp, jk kind, 
 	return slot, resultK, true
 }
 
-// fromJsonAt is `F.from_json(json)` for the field kind part: a record's
-// here, and any other type's as the call a derive writes reaches it.
-func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part kind, path string) (ir.Temp, kind, bool) {
+// fromJsonAt is `F.from_json(json)` for the field kind part, of checker
+// type pt or nil: a record's here, and any other type's as the call a
+// derive writes reaches it.
+func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part kind, pt analysis.Type, path string) (ir.Temp, kind, bool) {
 	if irRetainedRecordKind(part) {
-		return bl.recordFromJsonOf(t, json, jk, part, kindInvalid, path)
+		return bl.recordFromJsonOf(t, json, jk, part, pt, kindInvalid, path)
 	}
 	name := "%json" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + path
 	bl.patternBinding(t, name, json, jk)
@@ -633,9 +644,9 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 	if part.tag == tagNamed && part.def != nil {
 		owner = part.def.nomi
 	}
-	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeIdent(name, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, nil))
+	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeIdent(name, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, pt))
 	if irKindDeclared(part) {
-		v, rk, _, ok := bl.kindImplCall(call, part, nil, "from_json")
+		v, rk, _, ok := bl.kindImplCall(call, part, pt, "from_json")
 		return v, rk, ok
 	}
 	if bl.g.std != nil {
@@ -659,17 +670,17 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 			return v, rk, ok
 		}
 	}
-	if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, nil, "from_json"); handled {
+	if v, rk, _, ok, handled := bl.stdKindQualCall(call, part, pt, "from_json"); handled {
 		return v, rk, ok
 	}
 	v, rk, _, ok := bl.lower(call)
 	return v, rk, ok
 }
 
-// fromMissingAt is `F.from_missing()` for the field kind part, a
-// `Maybe<F>`: std/json's missing_value instantiated at part, whose body is
-// that call as the checker resolved it.
-func (bl *irScalarBuilder) fromMissingAt(t *ast.Call, part kind) (ir.Temp, kind, bool) {
+// fromMissingAt is `F.from_missing()` for the field kind part, of checker
+// type pt or nil, a `Maybe<F>`: std/json's missing_value instantiated at
+// part, whose body is that call as the checker resolved it.
+func (bl *irScalarBuilder) fromMissingAt(t *ast.Call, part kind, pt analysis.Type) (ir.Temp, kind, bool) {
 	g := bl.g
 	if g.stdInsts == nil {
 		return ir.NoTemp, kindInvalid, false
@@ -682,7 +693,11 @@ func (bl *irScalarBuilder) fromMissingAt(t *ast.Call, part kind) (ir.Temp, kind,
 	if len(tps) != 1 {
 		return ir.NoTemp, kindInvalid, false
 	}
-	inst, _ := g.stdInsts.instantiate(f, tps, []kind{part}, g)
+	var types []analysis.Type
+	if pt != nil {
+		types = []analysis.Type{pt}
+	}
+	inst, _ := g.stdInsts.instantiateTyped(f, tps, []kind{part}, types, g)
 	if inst == nil {
 		return ir.NoTemp, kindInvalid, false
 	}

@@ -31,10 +31,10 @@ func TestLoweringDiagnostics_CapabilityNotDeclared(t *testing.T) {
 	main := "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n"
 	dir := writeProject(t, map[string]string{
 		"app/go.mod":         "module example.com/app\n\ngo 1.27.0\n\nrequire example.com/pricing v0.0.0\n\nreplace example.com/pricing => ../pricing\n",
-		"app/nomi.toml":      "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [\"std::io\", \"std::fs\"]\n",
+		"app/nomi.toml":      "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.deps]\nstd = [\"std::io\", \"std::fs\"]\n",
 		"app/main.nomi":      main,
 		"pricing/go.mod":     "module example.com/pricing\n\ngo 1.27.0\n",
-		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n\n[capabilities]\nstd = [\"std::io\"]\n",
+		"pricing/nomi.toml":  "[module]\nname = \"pricing\"\n\n[capabilities.self]\nstd = [\"std::io\"]\n",
 		"pricing/rules.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
 	})
 	diags := loweringDiagnostics(filepath.Join(dir, "app", "main.nomi"), main, nil)
@@ -42,7 +42,7 @@ func TestLoweringDiagnostics_CapabilityNotDeclared(t *testing.T) {
 		t.Fatalf("lowering diagnostics %s; want one", renderDiagnostics(diags))
 	}
 	d := diags[0]
-	if !strings.HasPrefix(d.Message, "in rules.nomi:4:5: example.com/pricing reaches std::fs, and its own nomi.toml allows it only std::io\n") {
+	if !strings.HasPrefix(d.Message, "in rules.nomi:4:5: example.com/pricing reaches std::fs, and its own [capabilities.self] allows it only std::io\n") {
 		t.Errorf("message = %q, want the dependency's own list named at its call", d.Message)
 	}
 	if d.Code == nil || d.Code.Value != "capability-not-declared" || len(d.RelatedInformation) != 1 ||
@@ -51,14 +51,14 @@ func TestLoweringDiagnostics_CapabilityNotDeclared(t *testing.T) {
 	}
 }
 
-// A call nomi.toml's [capabilities] lists do not allow is a lowering
+// A call nomi.toml's [capabilities] tables do not allow is a lowering
 // diagnostic at the call, coded capability-not-allowed; saving nomi.toml
 // with the name allowed clears it.
 func TestLoweringDiagnostics_CapabilityNotAllowed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
 	}
-	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [\"std::io\"]\n"
+	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\"]\n"
 	dir := writeProject(t, map[string]string{"main.nomi": capabilityMain, "nomi.toml": manifest})
 	path := filepath.Join(dir, "main.nomi")
 
@@ -67,8 +67,8 @@ func TestLoweringDiagnostics_CapabilityNotAllowed(t *testing.T) {
 		t.Fatalf("lowering diagnostics %s; want one", renderDiagnostics(diags))
 	}
 	d := diags[0]
-	want := "this program reaches std::fs, and nomi.toml allows only std::io\nhelp: reached from `main`\n" +
-		"help: add \"std::fs\" to std under [capabilities] in nomi.toml, or remove the call"
+	want := "this module's own code reaches std::fs, and [capabilities.self] allows it only std::io\nhelp: reached from `main`\n" +
+		"help: add \"std::fs\" to std under [capabilities.self] in nomi.toml, or remove the call"
 	if d.Message != want {
 		t.Errorf("message = %q, want %q", d.Message, want)
 	}
@@ -86,7 +86,7 @@ func TestLoweringDiagnostics_CapabilityNotAllowed(t *testing.T) {
 	s.lowering.delay = 50 * time.Millisecond
 	c := startRPC(t, s, dir)
 	c.open(uri, capabilityMain)
-	c.waitMessage(uri, "this program reaches std::fs, and nomi.toml allows only std::io")
+	c.waitMessage(uri, "this module's own code reaches std::fs, and [capabilities.self] allows it only std::io")
 	before := s.lowering.lowered.Load()
 	if got := s.lowering.diagnostics(uri); len(got) != 1 || got[0].Code == nil || got[0].Code.Value != "capability-not-allowed" {
 		t.Fatalf("the server holds %s; want the capability diagnostic", renderDiagnostics(got))
@@ -117,7 +117,7 @@ func TestLoweringDiagnostics_CapabilityGoBinding(t *testing.T) {
 	main := "import std::io\n\ngopkg \"strings\" as gostrings\n\nfn upper(s: String) -> String go gostrings.ToUpper\n\nfn main()\n    io.print(upper(\"hi\"))\nend\n"
 	dir := writeProject(t, map[string]string{
 		"go.mod":    "module example.com/app\n\ngo 1.27.0\n",
-		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [\"std::io\"]\n",
+		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\"]\n",
 		"main.nomi": main,
 	})
 	diags := loweringDiagnostics(filepath.Join(dir, "main.nomi"), main, nil)
@@ -125,8 +125,8 @@ func TestLoweringDiagnostics_CapabilityGoBinding(t *testing.T) {
 		t.Fatalf("lowering diagnostics %s; want one", renderDiagnostics(diags))
 	}
 	d := diags[0]
-	want := "example.com/app binds Go through go:strings, and nomi.toml lets no module bind Go\nhelp: reached from `main`; `main` calls `upper`\n" +
-		"help: add \"example.com/app\" to go under [capabilities] in nomi.toml, or remove the call"
+	want := "this module's own code binds Go through go:strings, and [capabilities.self] does not let it bind Go\nhelp: reached from `main`; `main` calls `upper`\n" +
+		"help: set go = true under [capabilities.self] in nomi.toml, or remove the call"
 	if d.Message != want || d.Code == nil || d.Code.Value != "capability-not-allowed" {
 		t.Errorf("message %q code %+v, want %q coded capability-not-allowed", d.Message, d.Code, want)
 	}

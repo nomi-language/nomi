@@ -6,7 +6,8 @@
 # build and vet, the tour wasm bundle (vmhost's TestTourWasm* read it).
 # Then, at the same time:
 #   - pkgs: every other package, without the expectation suites and the
-#     object harnesses, which have steps of their own;
+#     object harnesses, which have steps of their own, and with the
+#     corpus walks' samples;
 #   - cmd/nomi in two parts (cmdnomi-1, cmdnomi-2), vmhost, rt and
 #     internal/irbuild, each alone; lib (TestLibModules); the tree-sitter
 #     tests (when npx is on PATH);
@@ -17,7 +18,10 @@
 #     linked through objects (objects-irbuild);
 #   - the expectation suites, corpus, stdlib, tour and failure, each a step
 #     (interfaces-<suite>), with every project file checked again against
-#     interfaces; each compares its golden file as the plain run does.
+#     interfaces; each compares its golden file as the plain run does;
+#   - each corpus-wide walk of internal/analysis and internal/lsp whole
+#     (NOMI_CORPUS_WALKS=full), a step per test (walk-<name>), where pkgs
+#     runs its sample.
 # Then the race detector, its parts at the same time: rt and the language
 # server's concurrent tests whole or filtered, internal/vm's and vmhost's
 # task, channel, cancellation and synctest tests, and a race-built `nomi
@@ -32,8 +36,8 @@
 # failed.
 # Each `go test` has a time limit (TEST_TIMEOUT) for every test binary it
 # runs: one that passes it is killed, and its output names the test that
-# was running and prints every goroutine's stack. The slowest package,
-# internal/lsp, takes about 11 minutes with every step running.
+# was running and prints every goroutine's stack. The longest steps are
+# the language server's walks, walk-record-edits and walk-record-open.
 #
 # Usage:
 #   scripts/check-full.sh
@@ -46,10 +50,14 @@
 #                     (cmdnomi-1 cmdnomi-2), interfaces-<suite>
 #                     (interfaces-corpus interfaces-stdlib interfaces-tour
 #                     interfaces-failure), objects-<part> (objects-link
-#                     objects-perfile objects-irbuild), race-<part> (race-rt
-#                     race-lsp race-vm race-vmhost race-corpus) and
-#                     fuzz-<Target> (fuzz-FuzzFormatKeepsMeaning);
-#                     `cmdnomi`, `interfaces`, `objects`, `race` and `fuzz`
+#                     objects-perfile objects-irbuild), walk-<test>
+#                     (walk-closed-files walk-stored-reductions
+#                     walk-incremental walk-interfaces walk-std-base
+#                     walk-open-documents walk-record-open
+#                     walk-record-edits), race-<part> (race-rt race-lsp
+#                     race-vm race-vmhost race-corpus) and fuzz-<Target>
+#                     (fuzz-FuzzFormatKeepsMeaning); `cmdnomi`,
+#                     `interfaces`, `objects`, `walk`, `race` and `fuzz`
 #                     name every part. Empty runs every step but the fuzz
 #                     targets, which FUZZ=1 adds.
 
@@ -64,7 +72,20 @@ T0=$SECONDS
 failed=()
 
 FUZZ_VMHOST="FuzzFrontEndAcceptsSoItLowers FuzzFormatKeepsMeaning FuzzLoweredProgramsRun"
-KNOWN="gofmt tourwasm buildvet pkgs cmdnomi cmdnomi-1 cmdnomi-2 vmhost rt irbuild lib treesitter interfaces interfaces-corpus interfaces-stdlib interfaces-tour interfaces-failure objects objects-link objects-perfile objects-irbuild race race-rt race-lsp race-vm race-vmhost race-corpus fuzz"
+# WALKS are the corpus walks run whole, a step each: its name, the
+# package and the test.
+WALKS="walk-closed-files ./internal/analysis TestClosedFilesFromProgramsMatchTheirOwnBuilds
+walk-stored-reductions ./internal/analysis TestStoredReductionsMatchTheProgram
+walk-incremental ./internal/analysis TestIncrementalMatchesFull
+walk-interfaces ./internal/analysis TestCheckFromInterfacesMatchesFull
+walk-std-base ./internal/analysis TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile
+walk-open-documents ./internal/analysis TestOpenDocumentEditsMatchFreshBuilds
+walk-record-open ./internal/lsp TestOpenFromRecordMatchesAFullCheck
+walk-record-edits ./internal/lsp TestOpenFromRecordEditsMatchAFullCheck"
+KNOWN="gofmt tourwasm buildvet pkgs cmdnomi cmdnomi-1 cmdnomi-2 vmhost rt irbuild lib treesitter interfaces interfaces-corpus interfaces-stdlib interfaces-tour interfaces-failure objects objects-link objects-perfile objects-irbuild walk race race-rt race-lsp race-vm race-vmhost race-corpus fuzz"
+while read -r name _; do
+  KNOWN="$KNOWN $name"
+done <<<"$WALKS"
 for t in $FUZZ_VMHOST FuzzIncrementalMatchesFull FuzzCheckFromInterfacesMatchesFull FuzzLSPSurvivesEdits; do
   KNOWN="$KNOWN fuzz-$t"
 done
@@ -133,7 +154,8 @@ buildvet() {
 # the four expectation suites are the interfaces-* steps, which compare
 # every record as the plain run does and check each program against
 # interfaces too, and the object harnesses, which here would run a sample,
-# are objects-link and objects-perfile.
+# are objects-link and objects-perfile. The corpus walks run their samples
+# here and whole in the walk-* steps.
 pkgs() {
   local list
   list="$(go -C "$ROOT" list ./... | grep -v -e '/internal/irbuild$' -e '/vmhost$' -e '/rt$' -e '/rt/' -e '/cmd/nomi$')" || return
@@ -158,6 +180,11 @@ cmdnomi() {
 # again against interfaces (NOMI_CHECK_FROM_INTERFACES).
 interfaces() {
   NOMI_CHECK_FROM_INTERFACES=1 go -C "$ROOT" test ./internal/expectation -run "^TestExpectation_$1\$" -count=1 -timeout "$TEST_TIMEOUT"
+}
+
+# walk PACKAGE TEST: one corpus walk whole.
+walk() {
+  NOMI_CORPUS_WALKS=full go -C "$ROOT" test "$1" -run "^$2\$" -count=1 -timeout "$TEST_TIMEOUT"
 }
 
 treesitter() {
@@ -258,6 +285,14 @@ pstep objects-irbuild env NOMI_LINK_OBJECTS=1 go -C "$ROOT" test ./internal/irbu
 for s in Corpus Stdlib Tour Failure; do
   pstep "interfaces-$(tr '[:upper:]' '[:lower:]' <<<"$s")" interfaces "$s"
 done
+pwait
+
+# The corpus walks run whole in a phase of their own. Started beside the
+# steps above they took their share of a machine those steps already
+# saturate, and several test binaries then ran past TEST_TIMEOUT.
+while read -r name pkg test; do
+  pstep "$name" walk "$pkg" "$test"
+done <<<"$WALKS"
 pwait
 
 # The race detector finds a race only where goroutines run, so it runs the

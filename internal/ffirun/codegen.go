@@ -165,10 +165,10 @@ var (
 {{if not .Runner}}
 // checkProgramVM, runProgramVM and runTestFileVM are the wrapper's modes: nomi
 // check's, nomi run's and nomi test's. The VM calls the project's bindings
-// through the adapters generated below (nomiHostTable).
+// through the adapters generated below (nomiHostTable). Check reports as
+// nomi check's format selects (ReportCheck).
 func checkProgramVM(entryPath string) {
-	if err := nomivmhost.Check(entryPath, nomivmhost.WithHosts(nomiHostTable(entryPath)), nomivmhost.WithWarnings(stdos.Stderr)); err != nil {
-		nomivmhost.WriteFailure(stdos.Stderr, err)
+	if !nomivmhost.ReportCheck(entryPath, stdos.Stdout, stdos.Stderr, nomivmhost.WithHosts(nomiHostTable(entryPath))) {
 		stdos.Exit(1)
 	}
 }

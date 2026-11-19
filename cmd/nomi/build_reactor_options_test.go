@@ -110,6 +110,7 @@ func TestBuildCommand_ReactorLoadsAndCallsWithOptions(t *testing.T) {
 		`std not an array: error:nomi_load_with: "std" must be an array of std names, such as ["std::io"]; [] allows nothing`,
 		`a go name: error:nomi_load_with's "std": "go:example.com/pkg" names a Go package; a compiled program records no Go import path`,
 		`a misformed name: error:nomi_load_with's "std": "files" is not a std module`,
+		`a misspelled name: error:nomi_load_with's "std" names std::fss, which is not a std module (did you mean "std::fs"?)`,
 		`a host name in std: error:nomi_load_with: "std" holds std names, and host:lookup is a host function; list its key, "lookup", in "host"`,
 		`a host key no table answers: error:nomi_load_with's "host" names host:lookup, which no table passed with vmrunner.WithHosts answers`,
 		`timeout zero: error:nomi_load_with: "timeout_ms" must be a whole number of milliseconds above 0, such as 500, not 0`,
@@ -239,6 +240,7 @@ say("not an object", loadWith(c, greeter, "[]"));
 say("std not an array", loadWith(c, greeter, JSON.stringify({ std: "std::io" })));
 say("a go name", loadWith(c, greeter, JSON.stringify({ std: ["go:example.com/pkg"] })));
 say("a misformed name", loadWith(c, greeter, JSON.stringify({ std: ["files"] })));
+say("a misspelled name", loadWith(c, greeter, JSON.stringify({ std: ["std::fss"] })));
 say("a host name in std", loadWith(c, greeter, JSON.stringify({ std: ["host:lookup"] })));
 say("a host key no table answers", loadWith(c, greeter, JSON.stringify({ std: ["std::io"], host: ["lookup"] })));
 say("timeout zero", loadWith(c, greeter, JSON.stringify({ timeout_ms: 0 })));

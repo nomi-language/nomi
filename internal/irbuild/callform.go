@@ -8,22 +8,24 @@ import (
 )
 
 // verifyCallForm fails, under substVerify, when the builder lowers t, a
-// qualified call of an interface's function, by routine, which answers it
-// as one of want, and the checker's record of how the call is answered
-// (analysis.Callee.Form, at the instance's types: calleeAt) is none of
-// them. A routine that answers several forms renders a value whose kind
-// the builder holds unboxed (an interface value's operand lowered as the
-// value it holds, which the record calls dispatched) or through an impl
-// the builder writes (a block-local type's Debug, which the record calls
-// structural).
+// qualified call of an interface's function whose receiver it holds as a
+// value of kind recv, by routine, which answers it as one of want, and the
+// checker's record of how the call is answered (analysis.Callee.Form, at
+// the instance's types: calleeAt) is none of them. A dispatched record is
+// answered by a routine that dispatches (want holds OperatorDispatched)
+// on a value held boxed, and by any routine on a value whose kind names
+// what it holds, an Iter's view of its source or a std value held unboxed
+// (heldAs); a value held no way an interface value is fails. A routine
+// that answers several other forms renders through an impl the builder
+// writes (a block-local type's Debug, which the record calls structural).
 //
 // A record with no answer is not compared: a call the builder writes
 // holding a kind alone (a main's failure rendering, a std interface
-// value's dispatch entry), and one whose receiver's type the checker left
-// with an open variable (`Result<Int, ?1>`). Nor is a per-instance record
-// the instance does not resolve (a std instance's frame has no checker
-// type for its parameter).
-func (g *gen) verifyCallForm(t *ast.Call, routine string, want ...analysis.OperatorForm) {
+// value's dispatch entry). Every call the checker checked has one
+// (TestElaborationGate). Nor is a per-instance record the instance does
+// not resolve (an instance entered with no checker type for its
+// parameter, the few checkSubstCensus names).
+func (g *gen) verifyCallForm(t *ast.Call, recv kind, routine string, want ...analysis.OperatorForm) {
 	if !substVerify || t == nil || g.srcFA() == nil {
 		return
 	}
@@ -31,12 +33,31 @@ func (g *gen) verifyCallForm(t *ast.Call, routine string, want ...analysis.Opera
 	if got == 0 || got == analysis.OperatorPerInstance {
 		return
 	}
+	dispatches := false
 	for _, w := range want {
-		if got == w {
+		if w == analysis.OperatorDispatched {
+			dispatches = true
+		}
+		if got == w && w != analysis.OperatorDispatched {
 			return
 		}
 	}
+	if got == analysis.OperatorDispatched {
+		held := g.heldAs(recv)
+		switch {
+		case dispatches && held == heldBoxed:
+			return
+		case !dispatches && (held == heldIterView || held == heldUnboxed):
+			return
+		}
+		g.calleeMismatch(t.Line, t.Col, fmt.Sprintf("%s answers the call as %v over a value held %s, and the record dispatches it", routine, formNames(want), heldNames[held]))
+		return
+	}
 	g.calleeMismatch(t.Line, t.Col, fmt.Sprintf("%s answers the call as %v, the record as %s", routine, formNames(want), formName(got)))
+}
+
+var heldNames = [...]string{
+	heldNot: "as no interface value", heldBoxed: "boxed", heldIterView: "as an Iter's view", heldUnboxed: "unboxed",
 }
 
 func formNames(fs []analysis.OperatorForm) []string {

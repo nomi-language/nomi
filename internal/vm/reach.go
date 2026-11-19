@@ -164,15 +164,37 @@ func (w *reachWalk) keyBodies(from string) {
 	}
 	w.keys = true
 	for _, table := range []map[string]*ir.Symbol{w.m.equates, w.m.hashes} {
-		names := make([]string, 0, len(table))
-		for name := range table {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			w.symbol(table[name], from, NotRetained, EdgeKeys)
+		for _, sym := range byTypeName(table) {
+			w.symbol(sym, from, NotRetained, EdgeKeys)
 		}
 	}
+}
+
+// byTypeName is a table of bodies by type name (an impl of one method, a
+// Display, a row Debug, a key body) in the order of the names, which the
+// walk queues them in, so the walk, and the chain it reports for each
+// function, is the same every time.
+func byTypeName(table map[string]*ir.Symbol) []*ir.Symbol {
+	names := make([]string, 0, len(table))
+	for name := range table {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]*ir.Symbol, len(names))
+	for i, name := range names {
+		out[i] = table[name]
+	}
+	return out
+}
+
+// inOrder is the functions a walk reached, by position and then name.
+func inOrder(reached map[*ir.Func]bool) []*ir.Func {
+	out := make([]*ir.Func, 0, len(reached))
+	for f := range reached {
+		out = append(out, f)
+	}
+	sort.Slice(out, func(i, j int) bool { return funcBefore(out[i], out[j]) })
+	return out
 }
 
 // push queues f, which the walk reached by an edge of kind from the
@@ -267,13 +289,8 @@ func (w *reachWalk) visit(f *ir.Func) {
 			case *ir.Assert, *ir.Record, *ir.Subtests:
 				// A `values:` row renders a value of a type with a
 				// hand-written Debug through it (rowText); each is reachable.
-				names := make([]string, 0, len(w.m.rowDebugs))
-				for name := range w.m.rowDebugs {
-					names = append(names, name)
-				}
-				sort.Strings(names)
-				for _, name := range names {
-					w.symbol(w.m.rowDebugs[name], f.Name(), NotRetained, EdgeDebug)
+				for _, sym := range byTypeName(w.m.rowDebugs) {
+					w.symbol(sym, f.Name(), NotRetained, EdgeDebug)
 				}
 			case *ir.Render:
 				for _, impl := range n.DebugImpls() {
@@ -284,13 +301,8 @@ func (w *reachWalk) visit(f *ir.Func) {
 					// An erased rendering selects one by the value's type,
 					// and a structural one (displayStructural) renders each
 					// nested value of a declared type through its own.
-					names := make([]string, 0, len(w.m.displays))
-					for name := range w.m.displays {
-						names = append(names, name)
-					}
-					sort.Strings(names)
-					for _, name := range names {
-						w.symbol(w.m.displays[name], f.Name(), NotRetained, EdgeDisplay)
+					for _, sym := range byTypeName(w.m.displays) {
+						w.symbol(sym, f.Name(), NotRetained, EdgeDisplay)
 					}
 				}
 			}
@@ -324,7 +336,7 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			}
 			return
 		}
-		for _, impl := range impls {
+		for _, impl := range byTypeName(impls) {
 			w.symbol(impl, from, NotRetained, EdgeDispatch)
 		}
 	}

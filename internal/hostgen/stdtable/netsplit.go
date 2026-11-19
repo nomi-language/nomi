@@ -37,12 +37,21 @@ type Files map[string][]byte
 // adapters_nonet_gen.go, an error-answering stub for each of those, built
 // with it. Bind names every adapter in both builds, so the two runners
 // answer the same crossings and differ only in what the network ones do.
+// The same step writes internal/capability's list of std names
+// (StdNamesFile, stdNamesSource), by its path from internal/stdlibadapters.
 func GenerateFiles() (Files, error) {
 	src, err := Generate()
 	if err != nil {
 		return nil, err
 	}
-	return splitNetwork(src)
+	files, err := splitNetwork(src)
+	if err != nil {
+		return nil, err
+	}
+	if files[StdNamesFile], err = stdNamesSource(); err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 func splitNetwork(src []byte) (Files, error) {

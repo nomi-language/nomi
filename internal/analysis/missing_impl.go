@@ -429,14 +429,14 @@ func (idx *ProjectImplIndex) missingImplError(iface, typeName string, recs []Rec
 		// writes std's interface, and an operator's or the prelude's
 		// interface has one declaration, so the fix is an impl block of
 		// the interface the demand names.
-		return e.WithHint(fmt.Sprintf("write an `impl %s for %s` block", shownIface, shown))
+		return e.WithHint(implBlockHelp(withTypeParams(shownIface, primary.IfaceTypeParams), shown))
 	case IsStdlibKey(primary.TypeOrigin) || (builtinPrimitive(primary.TypeOrigin, typeName) && stdOnlyInterface(iface)):
 		// A std or built-in type missing a std interface: the program
 		// cannot derive or implement it, so the help says what to do
 		// instead.
 		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
 	}
-	return e.WithHint(missingImplHelp(iface, primary.IfaceOrigin, shown, primary.TypeOrigin, recs))
+	return e.WithHint(missingImplHelp(iface, primary.IfaceTypeParams, primary.IfaceOrigin, shown, primary.TypeOrigin, recs))
 }
 
 // throughFile is name, declared by the file of origin, named through that
@@ -509,25 +509,26 @@ func stdTypeHelp(iface, typeName, origin string, implementers []string) string {
 }
 
 // missingImplHelp is the help line for a type of origin that has no impl
-// of iface (declared at ifaceOrigin), for the demands recs: an operator
+// of iface (declared at ifaceOrigin with the type parameters params,
+// Recording.IfaceTypeParams), for the demands recs: an operator
 // interface's block shape, a derive when iface is the std interface derive
 // writes (derivableInterface; a file's own ToJson is not), or an impl
-// block. A type declared inside a body can have neither, so its help
-// is bodyTypeHelp's. boundHelp is the call-site bound check's, which knows
-// the interface's functions.
+// block (implBlockHelp). A type declared inside a body can have neither,
+// so its help is bodyTypeHelp's. boundHelp is the call-site bound check's,
+// which knows the interface's functions.
 //
 // For Equatable or Hashable, a declared type with equality meets either
 // with no impl (structural_bounds.go), so the checker records such a
 // demand only for a type that holds a value with none. A derive's demand
 // says what that is when the derive found it (DeriveCtx.NoEquality); when
 // it did not, the help claims nothing about the type's parts.
-func missingImplHelp(iface, ifaceOrigin, typeName, origin string, recs []Recording) string {
+func missingImplHelp(iface, params, ifaceOrigin, typeName, origin string, recs []Recording) string {
 	if IsBodyOrigin(origin) {
 		return bodyTypeHelp(iface, typeName)
 	}
+	impl := implBlockHelp(withTypeParams(iface, params), typeName)
 	if opIface, ok := operatorInterfaceByName(iface); ok {
-		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s` block with `fn %s(lhs: %s, rhs: Rhs) -> Out`",
-			opIface.Interface, typeName, opIface.Method, typeName)
+		return fmt.Sprintf("%s with `fn %s(lhs: %s, rhs: Rhs) -> Out`", impl, opIface.Method, typeName)
 	}
 	if iface == "Equatable" || iface == "Hashable" {
 		holds, checked := "", false
@@ -540,16 +541,34 @@ func missingImplHelp(iface, ifaceOrigin, typeName, origin string, recs []Recordi
 		}
 		switch {
 		case holds != "":
-			return fmt.Sprintf("`%s` holds %s, which has no equality; write an `impl %s for %s` block that leaves it out", typeName, holds, iface, typeName)
+			return fmt.Sprintf("`%s` holds %s, which has no equality; %s that leaves it out", typeName, holds, impl)
 		case checked:
-			return fmt.Sprintf("`%s` holds a function, an Iter or a handle to running state, which has no equality; write an `impl %s for %s` block that leaves it out", typeName, iface, typeName)
+			return fmt.Sprintf("`%s` holds a function, an Iter or a handle to running state, which has no equality; %s that leaves it out", typeName, impl)
 		}
-		return fmt.Sprintf("write an `impl %s for %s` block", iface, typeName)
+		return impl
 	}
 	if derivableInterface(&InterfaceType{Origin: ifaceOrigin, Name: iface}) {
-		return fmt.Sprintf("add `derive %s` to `%s` or write an `impl %s for %s` block", iface, typeName, iface, typeName)
+		return fmt.Sprintf("add `derive %s` to `%s` or %s", iface, typeName, impl)
 	}
+	return impl
+}
+
+// implBlockHelp is the help that says to write an impl block of the
+// interface iface, shown as a diagnostic names it with its type parameters
+// or arguments (`Scale<N>`, `Scale<Int>`, `b.Show`), for typeName. Every
+// help that offers the block says it through this one.
+func implBlockHelp(iface, typeName string) string {
 	return fmt.Sprintf("write an `impl %s for %s` block", iface, typeName)
+}
+
+// withTypeParams is the interface iface named with params, the type
+// parameters its declaration lists (Recording.IfaceTypeParams): `Scale<N>`,
+// or iface alone when it has none.
+func withTypeParams(iface, params string) string {
+	if params == "" {
+		return iface
+	}
+	return iface + "<" + params + ">"
 }
 
 // bodyInterfaceHelp is the help for typeName, which has no impl of iface,
@@ -557,7 +576,7 @@ func missingImplHelp(iface, ifaceOrigin, typeName, origin string, recs []Recordi
 // level, where no header can name a body's interface (BodyOrigin), so the
 // fix is to declare the interface at module level.
 func bodyInterfaceHelp(iface, typeName string) string {
-	return fmt.Sprintf("`%s` is declared inside a body, where no impl can name it; declare it at module level to write an `impl %s for %s` block", iface, iface, typeName)
+	return fmt.Sprintf("`%s` is declared inside a body, where no impl can name it; declare it at module level to %s", iface, implBlockHelp(iface, typeName))
 }
 
 // bodyTypeHelp is the help for typeName, a type declared inside a body,
@@ -619,9 +638,9 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 		return bodyInterfaceHelp(bound.Name, name)
 	}
 	if _, ok := operatorInterfaceByName(bound.Name); ok || IsBodyOrigin(origin) {
-		return missingImplHelp(bound.Name, bound.Origin, name, origin, nil)
+		return missingImplHelp(bound.Name, strings.Join(bound.TypeParams, ", "), bound.Origin, name, origin, nil)
 	}
-	impl := fmt.Sprintf("write an `impl %s for %s` block", c.shownInterfaceFor(concrete, bound, true), name)
+	impl := implBlockHelp(c.shownInterfaceFor(concrete, bound, true), name)
 	if sigs := c.requiredSignatures(bound, concrete); len(sigs) > 0 {
 		impl += " with `" + strings.Join(sigs, "` and `") + "`"
 	}

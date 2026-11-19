@@ -113,12 +113,8 @@ func ModuleFuncs(mods []*ir.Module) []*ir.Func {
 }
 
 // ReachedFuncs is every function this program's own walk (Reached) reaches
-// from roots and boots, the set a built image carries.
+// from roots and boots, the set a built image carries, by position.
 func ReachedFuncs(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, boots []*ir.Symbol) []*ir.Func {
 	reached, _ := NewProgram(entry, mods, io.Discard).Reached(roots, boots)
-	out := make([]*ir.Func, 0, len(reached))
-	for f := range reached {
-		out = append(out, f)
-	}
-	return out
+	return inOrder(reached)
 }

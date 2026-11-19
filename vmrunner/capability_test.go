@@ -150,6 +150,10 @@ func TestWithCapabilities_BadNames(t *testing.T) {
 		want  string
 	}{
 		{[]string{"files"}, `vmrunner.WithCapabilities: "files" is not a std module; write one as an import does, such as "std::fs"`},
+		// The runner links no front end and knows the std modules all the
+		// same, so a misspelled one fails in vmhost.WithCapabilities' words.
+		{[]string{"std::io", "std::fss"}, `vmrunner.WithCapabilities names std::fss, which is not a std module (did you mean "std::fs"?)`},
+		{[]string{"std::nothing_like_it"}, `vmrunner.WithCapabilities names std::nothing_like_it, which is not a std module (name a std module as an import writes it, such as std::fs)`},
 		{[]string{"std::io", "std::io"}, "vmrunner.WithCapabilities lists std::io twice"},
 		{[]string{"go:example.com/pkg"}, `vmrunner.WithCapabilities: "go:example.com/pkg" names a Go package; a compiled program records no Go import path and names a Go binding by its key, as host:<key>`},
 		{[]string{"host:lookup"}, "vmrunner.WithCapabilities names host:lookup, which no table passed with vmrunner.WithHosts answers (no table is passed with vmrunner.WithHosts)"},
@@ -165,6 +169,16 @@ func TestWithCapabilities_BadNames(t *testing.T) {
 		if err.Error() != c.want {
 			t.Errorf("%q: %v\nwant %s", c.names, err, c.want)
 		}
+	}
+	// The reactor's "std" option is held the same way.
+	var out bytes.Buffer
+	in, err := vmrunner.Boot(pure, &out, &out, nil, nil, vmrunner.WithCapabilitiesFrom(`nomi_load_with's "std"`, []string{"std::fss"}, `nomi_load_with's "host"`, nil))
+	if err == nil {
+		in.Close()
+		t.Fatal("the boot admits the reactor's misspelled std name")
+	}
+	if want := `nomi_load_with's "std" names std::fss, which is not a std module (did you mean "std::fs"?)`; err.Error() != want {
+		t.Errorf("the reactor's misspelled std name: %v\nwant %s", err, want)
 	}
 }
 

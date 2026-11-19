@@ -120,7 +120,8 @@ func (bl *irScalarBuilder) rangeCall(t *ast.Call, args irQualArgs, method string
 		// The comparator is the one `Iter.sort` orders elements by: the
 		// program's impl, std's retained Nomi body, or a forwarding body
 		// around std's host (Decimal's rt.DecimalCompare), as step_by's is.
-		ref, ok := bl.elemComparator(t, elem)
+		_, elemType := bl.g.recordedTypeArg(t, method, "T")
+		ref, ok := bl.elemComparator(t, elem, elemType)
 		if !ok {
 			return no()
 		}
@@ -230,7 +231,8 @@ func (bl *irScalarBuilder) rangeStepBy(t *ast.Call, args irQualArgs) (ir.Temp, k
 		bl.g.reject("Range.step_by over an unsteppable element", elem.nomi()+" by "+by.nomi(), t)
 		return no()
 	}
-	cmpFn, ok := bl.elemComparator(t, elem)
+	_, elemType := bl.g.recordedTypeArg(t, "step_by", "T")
+	cmpFn, ok := bl.elemComparator(t, elem, elemType)
 	if !ok {
 		return no()
 	}

@@ -1184,7 +1184,7 @@ type implPairErr struct {
 	err  TypeError
 }
 
-const factsMagic = "NOMIFACTS2"
+const factsMagic = "NOMIFACTS3"
 
 // Encode writes f.
 func (f *FileFacts) Encode() []byte {

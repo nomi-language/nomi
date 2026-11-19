@@ -54,7 +54,6 @@ import (
 // occurs in exactly that block. The test fails when a pinned input starts
 // parsing, so remove its entry with the fix.
 var treeSitterParityGaps = map[string]string{
-	`tour/src/content/docs/modules-and-imports.md: "lib.example/prices" = []`:      "the block's nomi.toml section has quoted keys under [capabilities.modules]; a nomi.toml section is highlighted with the Nomi grammar, which reads `[module]` and `name = \"app\"` as Nomi and has no reading for a string on the left of `=`; the parser accepts the line as a destructuring-shaped statement it never checks",
 	"tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi": "a struct pattern whose owner has a dotted name (`Probe.Reading.Blip{at}`) reads as nested type_field_access, which the grammar resolves before it sees the `{`; letting a type_field_access name a struct literal adds conflicts that break other files",
 	"internal/irbuild/testdata/dotted_values.nomi":                                 "a struct pattern whose owner has a dotted name (`Probe.Reading.Blip{at}`) reads as nested type_field_access, which the grammar resolves before it sees the `{`; letting a type_field_access name a struct literal adds conflicts that break other files",
 }

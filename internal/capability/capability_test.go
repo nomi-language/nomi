@@ -52,3 +52,31 @@ func TestEntryForms(t *testing.T) {
 		}
 	}
 }
+
+// A hover's line names what the call reaches, or the Go it binds, and with
+// lists whether they allow it, naming a module's entry that allows it too or
+// the dependency whose own nomi.toml refuses it.
+func TestReachedLine(t *testing.T) {
+	self, deps, entry := []string{"`[capabilities.self]`"}, "`[capabilities.deps]`", "the entry for `lib.example/fetch`"
+	for _, c := range []struct {
+		name            string
+		listed, allowed bool
+		in              []string
+		own             string
+		want            string
+	}{
+		{"std::http", false, false, nil, "", "Reaches `std::http`."},
+		{"go:example.com/pg/goside", false, false, nil, "", "Binds Go: `go:example.com/pg/goside`."},
+		{"std::http", true, true, self, "", "Reaches `std::http`, which `nomi.toml` allows in `[capabilities.self]`."},
+		{"std::http", true, true, []string{deps, entry}, "", "Reaches `std::http`, which `nomi.toml` allows in `[capabilities.deps]` and in the entry for `lib.example/fetch`."},
+		{"std::http", true, true, nil, "", "Reaches `std::http`, which no table in `nomi.toml` holds."},
+		{"go:example.com/pg/goside", true, true, []string{deps}, "", "Binds Go: `go:example.com/pg/goside`, which `nomi.toml` allows in `[capabilities.deps]`."},
+		{"std::http", true, false, self, "", "Reaches `std::http`, which `nomi.toml` does not allow in `[capabilities.self]`."},
+		{"std::http", true, false, []string{entry}, "", "Reaches `std::http`, which `nomi.toml` does not allow in the entry for `lib.example/fetch`."},
+		{"std::fs", true, false, nil, "example.com/pricing", "Reaches `std::fs`, which the `nomi.toml` of `example.com/pricing` does not allow."},
+	} {
+		if got := ReachedLine(c.name, c.listed, c.allowed, c.in, c.own); got != c.want {
+			t.Errorf("ReachedLine(%s, listed %v, allowed %v, %q, %q) = %q, want %q", c.name, c.listed, c.allowed, c.in, c.own, got, c.want)
+		}
+	}
+}

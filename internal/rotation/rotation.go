@@ -9,6 +9,11 @@
 // NOMI_GEN_COUNT=1 checks exactly what a failure names. A harness whose one
 // seed builds an input per file (a layout variant of each seed file) also
 // names the input, and NOMI_GEN_INPUT=<name> checks only that one.
+//
+// A corpus-wide walk (a harness over every multi-file corpus project, or
+// every program) runs a fixed sample of its inputs by default and every
+// one under NOMI_CORPUS_WALKS=full (CorpusWalk), which the full check runs
+// as a step per walk.
 package rotation
 
 import (

@@ -126,7 +126,9 @@ func TestReleaseArchive_RunsAGoBindingFromAFetchedModule(t *testing.T) {
 	}
 
 	out, _ := run("add", "example.com/greet@v0.1.0")
-	if want := "added example.com/greet v0.1.0 (module greet; import greet)"; out != want {
+	// The program already imports the module, so add also says what its own
+	// code reaches.
+	if want := "added example.com/greet v0.1.0 (module greet; import greet)\n\nmodules\n  example.com/greet\n    binds Go"; out != want {
 		t.Fatalf("nomi add printed %q, want %q", out, want)
 	}
 	goMod, _ := os.ReadFile(filepath.Join(app, "go.mod"))

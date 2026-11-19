@@ -23,40 +23,41 @@ var explanations = map[string]string{
 		"Or take the subtype as the parameter's type (`fn per(total: Int, d: NonZeroInt)`), or check a computed value with " +
 		"`NonZeroInt.try_from(...)`, which answers a `Maybe`. A non-zero literal, and a value whose range rules zero out " +
 		"(`n + 1` with `n` a `NonNegativeInt`), pass as they are.",
-	"capability-not-allowed": "The project's nomi.toml has a `[capabilities]` table, which lists what the program may reach outside " +
-		"itself: files, the network, processes, output and input, the clock, randomness, the environment, tasks, Go bindings. `std` " +
-		"lists the std modules the whole program may call (`std::fs`, as an import writes it), `std_in_tests` adds names for `nomi test`, " +
-		"and `[capabilities.modules]` holds a required module's own files, or by the project's own module path the project's " +
-		"files outside its tests, to a std list of their own. `go` lists the modules whose " +
-		"Nomi code may bind Go, by module path as go.mod writes it, the project's own included, and `go_in_tests` adds modules for " +
-		"`nomi test`; which Go package a binding names does not matter. " +
-		"A dependency whose own nomi.toml has a `[capabilities]` table is held to its entry for itself under `[capabilities.modules]` too, or to its `std` when it has none, and must list its own path in its " +
-		"`go` when it binds Go; a call over that table is " +
-		"`capability-not-declared`. `require_module_lists = true` makes every module the program's code comes from have a list, " +
-		"an entry under `[capabilities.modules]` or a table of its own; being in `go` is not one. " +
-		"This call reaches a name its list does not hold, or binds Go in a module `go` does not list. A call counts when anything can reach it from `main`, the boot, an exported " +
-		"function or a test, even if it never runs: a branch never taken, a function passed as a value and never called, any " +
-		"implementation of an interface function, any `Display` body when a value is displayed. The help's chain says why this one " +
-		"counts. Fix it one of three ways: add the name, or for a Go binding the module, to the list the message names; remove the call; or change how the program " +
-		"reaches it, following the chain: a call in a `Display` body, an interface implementation or a function value nothing needs " +
-		"counts, so move it out of the code the program reaches. Args are the name, the module over its list (empty for the " +
-		"program's, the project's own module path for its own entry), and the names that list allows. For a Go binding they are its name (`go:` and the Go package, which says which " +
-		"binding it is), the module that binds Go, which is what to add to `go`, and the modules the list names. A Go program that " +
-		"embeds Nomi can hold it to lists of its own (`vmhost.WithCapabilities`, and `vmhost.WithGo` for Go bindings); a call over " +
-		"them says the host allows it, and the fix is the host's. `nomi capabilities` prints what each module reaches, `--why <name>` " +
-		"each call that reaches a name, and `--write` writes the tightest table the program passes.",
-	"capability-not-declared": "A module this project requires has a `[capabilities]` table in its own nomi.toml, and its entry for itself " +
-		"under `[capabilities.modules]`, or its `std` when it has none, is the list of std calls the module declares for its own files; it declares that it binds Go by listing its own module " +
-		"path in its `go`. The project's nomi.toml has a `[capabilities]` table too, so the module is held to what it declares, as " +
-		"well as to the project's `std` and `go` and the project's entry for it under `[capabilities.modules]`. This call, in the " +
-		"module's own files, reaches a name the module's `std` does not hold, or binds Go while its `go` does not list the module: " +
-		"the module declares less than its code reaches. The fix is in that module: add the name to `std`, or its own path to " +
-		"`go`, under `[capabilities]` in its nomi.toml, or remove the call. Nothing in the project's own lists can allow it, and the " +
-		"module's own `go` never allows what the project's `go` does not. When the project's lists do not allow the call either, " +
-		"the help says which. Only the module's `std`, and whether its `go` lists itself, are read; the rest of its table is for " +
-		"its own builds. The call counts by the same rules as `capability-not-allowed`: anything that can reach it, even if it " +
-		"never runs. Args are the name, the module, and the names its own `std` holds, or for a Go binding the modules its own " +
-		"`go` lists.",
+	"capability-not-allowed": "The project's nomi.toml lists what its program may reach outside itself (files, the network, " +
+		"processes, output and input, the clock, randomness, the environment, tasks, Go bindings) in two tables. " +
+		"`[capabilities.self]` holds the calls written in the project's own files: `std` lists the std modules they may call " +
+		"(`std::fs`, as an import writes it), `std_in_tests` adds names for the calls the tests reach, and `go` and `go_in_tests` " +
+		"are true or false, whether its own code, or its tests, may bind Go. `[capabilities.deps]` holds the calls written in the " +
+		"files of every module the project depends on: `std` is the most any dependency may reach, with `std_in_tests` for the " +
+		"tests, `go` and `go_in_tests` list the dependencies whose Go may run, by module path as go.mod writes it, and under " +
+		"`[capabilities.deps.modules]` a dependency's entry lists the std modules its own files may reach. `entries_required = true` " +
+		"makes every dependency have an entry, or a `[capabilities.self]` in its own nomi.toml. A table the project leaves out holds " +
+		"nothing. A dependency whose own nomi.toml has a `[capabilities.self]` is held to it too; a call over it is " +
+		"`capability-not-declared`. This call reaches a name the list the message names does not hold, or binds Go where that table " +
+		"does not let it. A call counts when anything can reach it from `main`, the boot, an exported function or a test, even if " +
+		"it never runs: a branch never taken, a function passed as a value and never called, any implementation of an interface " +
+		"function, any `Display` body when a value is displayed. The help's chain says why this one counts. Fix it one of three " +
+		"ways: add the name, or for a dependency's Go binding the module, to the key the help names, or set `go = true` for the " +
+		"project's own binding; remove the call; or change how the program reaches it, following the chain: a call in a `Display` " +
+		"body, an interface implementation or a function value nothing needs counts, so move it out of the code the program reaches. " +
+		"Args are the name (for a Go binding `go:` and the Go package, which says which binding it is), the list it is over (`self`, " +
+		"`deps`, `deps.modules`, or `host`), the module whose files hold the call, and what that list allows: std names, or for a Go " +
+		"binding the dependencies `[capabilities.deps]` lets bind Go. A Go program that embeds Nomi can hold it to lists of its own " +
+		"(`vmhost.WithCapabilities`, and `vmhost.WithGo` for Go bindings), which hold the whole program; a call over them says the " +
+		"host allows it, and the fix is the host's. `nomi capabilities` prints what the project's own code and each dependency " +
+		"reach, `--why <name>` each call that reaches a name, and `--write` writes the tightest tables the program passes.",
+	"capability-not-declared": "A module this project depends on has a `[capabilities.self]` table in its own nomi.toml: its " +
+		"`std` is the list of std calls the module declares for its own files, and its `go = true` declares that it binds Go. The " +
+		"project's nomi.toml has a `[capabilities.deps]` table, so the module is held to what it declares, as well as to the " +
+		"project's `[capabilities.deps]` and its entry for the module under `[capabilities.deps.modules]`. This call, in the " +
+		"module's own files, reaches a name the module's own `std` does not hold, or binds Go while its own `go` is not true: the " +
+		"module declares less than its code reaches. The fix is in that module: add the name to `std`, or set `go = true`, under " +
+		"`[capabilities.self]` in its nomi.toml, or remove the call. Nothing in the project's own tables can allow it, and the " +
+		"module's own `go` never allows what the project's `[capabilities.deps]` does not. When the project's tables do not allow " +
+		"the call either, the help says which. Only the module's own `std` and `go` are read; its `std_in_tests`, `go_in_tests` " +
+		"and `[capabilities.deps]` are for its own builds. The call counts by the same rules as `capability-not-allowed`: anything " +
+		"that can reach it, even if it never runs. Args are the name, `self`, the module, and the names its own `std` holds, none " +
+		"for a Go binding.",
 	"unused-import": "An import names a module or item nothing in the file uses. " +
 		"Unused imports are errors in Nomi. Remove the import, or the unused names from its `{...}` list.",
 	"path-at-use": "A use names a file by its path (`db::posts.find(1)`) after the file was imported " +
@@ -65,6 +66,10 @@ var explanations = map[string]string{
 	"embed-missing": "An `embed` pattern names a folder or path that does not exist yet, such as a frontend's " +
 		"`web/dist` before its first build. `nomi run`, `check` and `test` embed it as an empty folder and warn; " +
 		"`nomi build` refuses. Create it (run the frontend's build), or fix the pattern if the path is wrong.",
+	"go-build-failed": "The program has Go bindings (`gopkg` and `go` declarations), and the Go toolchain could not build " +
+		"the wrapper that holds them: the Go the program binds, or the adapters generated for its bindings, does not " +
+		"compile. This is no Nomi error, and the record has no Nomi position: its message is the Go compiler's report, " +
+		"whose own positions name the Go files. Fix the Go, or the binding whose Go signature the adapter cannot call.",
 	"interface-value-parameter": "Advice, not an error: a function's type parameter is used only as one parameter's type, " +
 		"under one interface bound, so the parameter can take the interface as its type (`fn label(value: Named)` for " +
 		"`fn label<T>(value: T) where T: Named`). `nomi check` warns and passes the file; the fix writes the interface value " +

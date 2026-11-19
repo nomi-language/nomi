@@ -1,43 +1,72 @@
 package vmhost
 
 import (
+	"cmp"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/vm"
 )
 
 // CapabilityNotAllowedCode is the Code of the diagnostic for an outside
-// call nomi.toml's [capabilities] lists do not allow. Its Args are the
-// call's name (`std::fs`), the module over its list (its Go module path,
-// the project's own for its own entry under [capabilities.modules], or ""
-// for the program's list), and then each name that list allows. For
-// a Go binding they are its name (`go:` and the package it binds), the
-// module that binds Go (NotAllowed.Binder), the one to list under `go`,
-// and then each module the list lets bind Go.
+// call nomi.toml's capability tables, or a host's lists, do not allow. Its
+// Args are the call's name (`std::fs`, or for a Go binding `go:` and the
+// package it binds); the list it is over: `self` for [capabilities.self],
+// `deps` for [capabilities.deps], `deps.modules` for the module's entry
+// under [capabilities.deps.modules], or `host` for the host's lists; the
+// module whose files hold the call, by its path, the project's own for its
+// own files; and then what that list allows: each std name, or for a Go
+// binding each dependency [capabilities.deps] lets bind Go, and nothing
+// for [capabilities.self], whose go is false. Over nomi.toml's tables
+// (not a host's), it carries the fix that adds what its help says to add,
+// an edit to nomi.toml (parser.Fix's Path).
 const CapabilityNotAllowedCode = "capability-not-allowed"
 
 // CapabilityNotDeclaredCode is the Code of the diagnostic for an outside
-// call in a dependency's files that the dependency's own nomi.toml does
-// not allow (NotAllowed.Declared): the module declares less than its code
-// reaches, and the fix is in that module. Its Args are
-// CapabilityNotAllowedCode's: the call's name, the module, and each name
-// the module's own allow holds.
+// call in a dependency's files that the [capabilities.self] in the
+// dependency's own nomi.toml does not allow (OverDeclared): the module
+// declares less than its code reaches, and the fix is in that module. Its
+// Args are CapabilityNotAllowedCode's, with the list `self`: the call's
+// name, `self`, the module, and each std name its own std holds, none for
+// a Go binding.
 const CapabilityNotDeclaredCode = "capability-not-declared"
 
-// capabilityProblems is the program held to its nomi.toml [capabilities]
-// lists, and to the host's list when the host gave one
+// capabilityProblems is the program held to its nomi.toml capability
+// tables, and to the host's list when the host gave one
 // (WithCapabilities), from the roots in rs: a diagnostic for each list
 // entry that names nothing (capabilityListProblems), or, when every entry
 // names something, one for each outside call the roots reach that a list
 // does not allow, each call once per list, in position order, with the
-// calls. Nil when there are no lists.
+// calls. Nil when there are no lists, and then nothing is walked.
 func (p *Program) capabilityProblems(rs ...Roots) (Diagnostics, []NotAllowed) {
+	if p.capabilities == nil && p.hostCapabilities() == nil {
+		return nil, nil
+	}
+	return p.walkedProblems(p.walks(rs))
+}
+
+// walks is the outside calls each of rs reaches, one walk each
+// (OutsideCalls).
+func (p *Program) walks(rs []Roots) []Walk {
+	out := make([]Walk, len(rs))
+	for i, r := range rs {
+		out[i] = Walk{Tests: r.Tests != nil, Calls: p.OutsideCalls(r)}
+	}
+	return out
+}
+
+// walkedProblems is capabilityProblems over walks already walked.
+func (p *Program) walkedProblems(walks []Walk) (Diagnostics, []NotAllowed) {
 	host := p.hostCapabilities()
 	if p.capabilities == nil && host == nil {
 		return nil, nil
@@ -48,6 +77,7 @@ func (p *Program) capabilityProblems(rs ...Roots) (Diagnostics, []NotAllowed) {
 	var ds Diagnostics
 	var calls []NotAllowed
 	seen := map[string]bool{}
+	fixes := map[string]*parser.Fix{}
 	add := func(n NotAllowed, tests bool) {
 		key := fmt.Sprint(n.Site, "\x00", n.Name, "\x00", n.Host)
 		if seen[key] {
@@ -55,26 +85,70 @@ func (p *Program) capabilityProblems(rs ...Roots) (Diagnostics, []NotAllowed) {
 		}
 		seen[key] = true
 		calls = append(calls, n)
-		ds = append(ds, p.notAllowedDiagnostic(n, tests))
+		ds = append(ds, p.notAllowedDiagnostic(n, tests, fixes))
 	}
-	for _, r := range rs {
-		outside := p.OutsideCalls(r)
-		var declared map[string]*Capabilities
+	for _, w := range walks {
+		var declared map[string]*analysis.SelfCapabilities
 		if p.capabilities != nil {
-			declared = p.declaredLists(outside)
+			declared = p.declaredLists(w.Calls)
 		}
-		for _, n := range notAllowedBy(outside, r.Tests != nil, p.capabilities, declared, p.projectModule()) {
-			add(n, r.Tests != nil)
+		for _, n := range notAllowedBy(w.Calls, w.Tests, p.capabilities, declared, p.projectModule()) {
+			add(n, w.Tests)
 		}
-		for _, n := range notAllowedBy(outside, r.Tests != nil, host, nil, p.projectModule()) {
+		for _, n := range notAllowedBy(w.Calls, w.Tests, host, nil, p.projectModule()) {
 			if !p.hostHolds(n) {
 				continue
 			}
 			n.Host = true
-			add(n, r.Tests != nil)
+			add(n, w.Tests)
 		}
 	}
 	return ds, calls
+}
+
+// reachedCalls is each outside call walks reach, once per call and name,
+// in the walks' order, as an editor's hover shows it
+// (analyzedlowering.Reached): where a diagnostic about it points and its
+// callee's span (shownSpan), and the line saying what it reaches and
+// whether nomi.toml's lists allow it (capability.ReachedLine), as
+// standingsOf decides. A call a walk's lists refuse reads as refused,
+// whatever the other walks decide.
+func (p *Program) reachedCalls(walks []Walk) []analyzedlowering.Reached {
+	type key struct {
+		at   ir.Pos
+		name string
+	}
+	index := map[key]int{}
+	var out []analyzedlowering.Reached
+	for _, w := range walks {
+		var standings []standing
+		if p.capabilities != nil {
+			standings = standingsOf(w.Calls, w.Tests, p.capabilities, p.declaredLists(w.Calls), p.projectModule())
+		}
+		for i, c := range w.Calls {
+			allowed, own := true, ""
+			var in []string
+			if standings != nil {
+				s := standings[i]
+				allowed, in = !s.refused, s.in
+				if s.refused && s.List == OverDeclared {
+					own = c.Module
+				}
+			}
+			text := capability.ReachedLine(c.Name, standings != nil, allowed, in, own)
+			k := key{c.at, c.Name}
+			if j, seen := index[k]; seen {
+				if !allowed {
+					out[j].Text = text
+				}
+				continue
+			}
+			index[k] = len(out)
+			path, line, col, endLine, endCol := p.shownSpan(c)
+			out = append(out, analyzedlowering.Reached{Path: path, Line: line, Col: col, EndLine: endLine, EndCol: endCol, Text: text})
+		}
+	}
+	return out
 }
 
 // CapabilityError is a program refused because it reaches outside calls
@@ -105,13 +179,17 @@ func (e *CapabilityError) Unwrap() error { return e.Shown() }
 // Shown is the diagnostics the error's text gives: for each name and the
 // list it is over, the first of its calls in Diagnostics' order, with a
 // help line counting the others; every diagnostic when AllCallsEnv is
-// set. A Go binding's group is its package and the module that binds it.
+// set. A Go binding's group is its package and the module that binds it,
+// and a host's list is one list over the whole program.
 func (e *CapabilityError) Shown() Diagnostics {
 	if os.Getenv(AllCallsEnv) != "" {
 		return e.Diagnostics
 	}
 	key := func(n NotAllowed) string {
-		return fmt.Sprint(n.Name, "\x00", n.Over, "\x00", n.Binder, "\x00", n.Declared, n.Host, n.Tests)
+		if n.Host {
+			return fmt.Sprint(n.Name, "\x00", n.Binder, "\x00", n.Host, n.Tests)
+		}
+		return fmt.Sprint(n.Name, "\x00", n.List, "\x00", n.Module, "\x00", n.Binder, "\x00", n.Tests)
 	}
 	first := map[string]int{}
 	more := map[string]int{}
@@ -194,116 +272,204 @@ func (p *Program) checkedRoots() []Roots {
 // notAllowedDiagnostic is the error for n, reached from tests when tests is
 // set: at the call, in the program's or a dependency's file, saying who
 // reaches what and what the list allows, how the call is reached, and
-// which list to add what to: the call's name, or for a Go binding the
-// module that binds Go.
-func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool) frontend.Diagnostic {
+// which key of which table to add what to (notAllowedHelp). A call over
+// nomi.toml's tables carries the fix that adds it (allowFix), kept in
+// fixes for the calls after it.
+func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[string]*parser.Fix) frontend.Diagnostic {
 	path, line, col := p.shownAt(n.OutsideCall)
-	holder := "nomi.toml"
-	switch {
-	case n.Host:
-		holder = "the host"
-	case n.Declared:
-		holder = "its own nomi.toml"
-	}
-	// item is what a list gains to allow the call, and program the
-	// program's list that holds it.
-	item, program, hostOption := n.Name, "std", "vmhost.WithCapabilities"
+	module := cmp.Or(n.Module, p.projectModule())
 	var message string
-	if n.Binder != "" {
-		item, program, hostOption = n.Binder, "go", "vmhost.WithGo"
-		message = capability.GoMessage(n.Binder, n.Name, holder, n.Allowed)
-	} else {
-		who, them := "this program reaches", ""
-		switch {
-		case n.Host && tests:
-			who = "this program's tests reach"
-		case n.Over != "" && n.Over == p.projectModule():
-			who, holder, them = "this project's own code reaches", "its entry under [capabilities.modules]", " it"
-		case n.Over != "":
-			who, them = n.Over+" reaches", " it"
-		case tests:
-			who, them = "this program's tests reach", " them"
-		}
-		message = capability.Message(who, n.Name, holder, them, n.Allowed)
-	}
-	if tests {
-		program += "_in_tests"
-	}
-	program += " under [capabilities]"
-	args := n.Over
-	if n.Binder != "" {
-		args = n.Binder
+	list, allowed := string(n.List), n.Allowed
+	switch {
+	case n.Host && n.Binder != "":
+		// The host's WithGo is one list over the whole program.
+		list, allowed = "host", p.cfg.goModules
+		message = capability.GoMessage(n.Binder, n.Name, "the host", "module", allowed)
+	case n.Host && tests:
+		list = "host"
+		message = capability.Message("this program's tests reach", n.Name, "the host", " them", n.Allowed)
+	case n.Host:
+		list = "host"
+		message = capability.Message("this program reaches", n.Name, "the host", "", n.Allowed)
+	case n.List == OverSelf && n.Binder != "":
+		message = capability.GoFlagMessage("this module's own code", n.Name, "[capabilities.self]")
+	case n.List == OverSelf && tests:
+		message = capability.Message("this module's tests reach", n.Name, "[capabilities.self]", " them", n.Allowed)
+	case n.List == OverSelf:
+		message = capability.Message("this module's own code reaches", n.Name, "[capabilities.self]", " it", n.Allowed)
+	case n.List == OverDeps && n.Binder != "":
+		message = capability.GoMessage(n.Module, n.Name, "[capabilities.deps]", "dependency", n.Allowed)
+	case n.List == OverDeps:
+		message = capability.Message(n.Module+" reaches", n.Name, "[capabilities.deps]", " dependencies", n.Allowed)
+	case n.List == OverEntry:
+		message = capability.Message(n.Module+" reaches", n.Name, "its entry under [capabilities.deps.modules]", " it", n.Allowed)
+	case n.Binder != "":
+		list = string(OverSelf)
+		message = capability.GoFlagMessage(n.Module, n.Name, "its own [capabilities.self]")
+	default:
+		list = string(OverSelf)
+		message = capability.Message(n.Module+" reaches", n.Name, "its own [capabilities.self]", " it", n.Allowed)
 	}
 	d := frontend.NewDiagnostic(path, p.sources[path], line, col, message)
 	d.Code = CapabilityNotAllowedCode
-	d.Args = append([]string{n.Name, args}, n.Allowed...)
-	d.Hints = append(d.Hints, n.ReachText())
-	if n.Declared {
+	if n.List == OverDeclared && !n.Host {
 		d.Code = CapabilityNotDeclaredCode
-		d.Hints = append(d.Hints, p.notDeclaredHints(n, item, program)...)
-		return d
 	}
-	if n.ProgramDenies {
-		d.Hints = append(d.Hints, fmt.Sprintf("the program's own list, %s, does not allow %s either", program, n.Name))
+	d.Args = append([]string{n.Name, list, module}, allowed...)
+	d.Hints = append(append(d.Hints, n.ReachText()), p.notAllowedHelp(n, tests)...)
+	if !n.Host && n.List != OverDeclared {
+		d.Fix = p.allowFix(n, tests, fixes)
 	}
-	add := fmt.Sprintf("add %q to %s in nomi.toml", item, program)
-	switch {
-	case n.Host:
-		add = capability.HostAddHint(item, hostOption)
-	case n.Over != "":
-		add = fmt.Sprintf("add %q to %q under [capabilities.modules] in nomi.toml", item, n.Over)
-	}
-	if n.ProgramDenies {
-		add += " and to " + program
-	}
-	d.Hints = append(d.Hints, add+", or "+capability.RemoveHint(n.Edge == vm.EdgeBoot))
 	return d
+}
+
+// keys is the keys of a table that hold a call reached from tests when
+// tests is set: its std list and its go, with _in_tests for tests.
+func keys(tests bool) (std, goKey string) {
+	if tests {
+		return "std_in_tests", "go_in_tests"
+	}
+	return "std", "go"
+}
+
+// addition is how a help line says to allow n in the project's tables:
+// what to add (`add "std::fs"`) and the lists to add it to (`to std under
+// [capabilities.deps]`), the list n names first, then [capabilities.deps]
+// when it denies the call too; or for a flag, a key to set, with no list.
+func addition(n NotAllowed, tests bool) (item string, lists []string) {
+	std, goKey := keys(tests)
+	item, key := n.Name, std
+	if n.Binder != "" {
+		item, key = n.Binder, goKey
+	}
+	switch {
+	case n.List == OverSelf && n.Binder != "":
+		return fmt.Sprintf("set %s = true under [capabilities.self]", goKey), nil
+	case n.List == OverSelf:
+		return fmt.Sprintf("add %q", item), []string{fmt.Sprintf("to %s under [capabilities.self]", key)}
+	case n.List == OverEntry || n.List == OverDeclared && n.EntryDenies:
+		lists = append(lists, fmt.Sprintf("to %q under [capabilities.deps.modules]", n.Module))
+	}
+	if n.List == OverDeps || n.DepsDenies {
+		lists = append(lists, fmt.Sprintf("to %s under [capabilities.deps]", key))
+	}
+	return fmt.Sprintf("add %q", item), lists
+}
+
+// notAllowedHelp is the help for n after how it is reached: which key of
+// which table to add what to, or remove the call. For a call over a
+// dependency's own [capabilities.self], what the project's tables say of it
+// when they do not allow it either, and that the fix is in that module's
+// own nomi.toml, named by its path.
+func (p *Program) notAllowedHelp(n NotAllowed, tests bool) []string {
+	remove := ", or " + capability.RemoveHint(n.Edge == vm.EdgeBoot)
+	switch {
+	case n.Host && n.Binder != "":
+		return []string{capability.HostAddHint(n.Binder, "vmhost.WithGo") + remove}
+	case n.Host:
+		return []string{capability.HostAddHint(n.Name, "vmhost.WithCapabilities") + remove}
+	case n.List == OverDeclared:
+		var hints []string
+		if item, lists := addition(n, tests); len(lists) > 0 {
+			hints = append(hints, fmt.Sprintf("the project's nomi.toml does not allow %s to it either; to allow it there, %s %s",
+				n.Name, item, strings.Join(lists, " and ")))
+		}
+		toml := "its nomi.toml"
+		if m := p.moduleAt(n.at.File()); m != nil {
+			toml = p.tomlName(m.root)
+		}
+		own := fmt.Sprintf("add %q to std under [capabilities.self]", n.Name)
+		if n.Binder != "" {
+			own = "set go = true under [capabilities.self]"
+		}
+		return append(hints, fmt.Sprintf("%s declares less than its code reaches, and the fix is in that module: %s in %s%s",
+			n.Module, own, toml, remove))
+	}
+	var hints []string
+	if n.List == OverEntry && n.DepsDenies {
+		std, _ := keys(tests)
+		hints = append(hints, fmt.Sprintf("%s under [capabilities.deps] does not allow %s either", std, n.Name))
+	}
+	item, lists := addition(n, tests)
+	if len(lists) > 0 {
+		item += " " + strings.Join(lists, " and ")
+	}
+	return append(hints, item+" in nomi.toml"+remove)
+}
+
+// allowFix is the fix of n, a call over nomi.toml's tables reached from
+// tests when tests is set: the edit to nomi.toml that adds what the help
+// says to add to each list the call is over (analysis.AllowCapabilities),
+// titled by what it allows. It is nil when the program's nomi.toml is
+// staged in memory, or the edit cannot be written. fixes keeps each fix by
+// what it adds.
+func (p *Program) allowFix(n NotAllowed, tests bool, fixes map[string]*parser.Fix) *parser.Fix {
+	path, data := p.manifestPath()
+	if data == nil || !filepath.IsAbs(path) {
+		return nil
+	}
+	selfStd, selfGo, depsStd, depsGo, inTests := analysis.ListSelfStd, analysis.ListSelfGo, analysis.ListDepsStd, analysis.ListDepsGo, ""
+	if tests {
+		selfStd, selfGo, depsStd, depsGo, inTests = analysis.ListSelfStdInTests, analysis.ListSelfGoInTests, analysis.ListDepsStdInTests, analysis.ListDepsGoInTests, " in tests"
+	}
+	var adds []analysis.CapabilityAdd
+	var title string
+	switch {
+	case n.List == OverSelf && n.Binder != "":
+		adds = []analysis.CapabilityAdd{{List: selfGo}}
+		title = "Allow this module to bind Go in nomi.toml"
+		if tests {
+			title = "Allow this module's tests to bind Go in nomi.toml"
+		}
+	case n.List == OverSelf:
+		adds = []analysis.CapabilityAdd{{List: selfStd, Name: n.Name}}
+		title = fmt.Sprintf("Allow %s for this module in nomi.toml", n.Name)
+		if tests {
+			title = fmt.Sprintf("Allow %s for this module's tests in nomi.toml", n.Name)
+		}
+	case n.Binder != "":
+		adds = []analysis.CapabilityAdd{{List: depsGo, Name: n.Binder}}
+		title = fmt.Sprintf("Allow %s to bind Go%s in nomi.toml", n.Binder, inTests)
+	case n.List == OverEntry:
+		adds = []analysis.CapabilityAdd{{List: analysis.ListDepsModules, Module: n.Module, Name: n.Name}}
+		if n.DepsDenies {
+			adds = append(adds, analysis.CapabilityAdd{List: depsStd, Name: n.Name})
+		}
+		title = fmt.Sprintf("Allow %s for %s in nomi.toml", n.Name, n.Module)
+	default:
+		adds = []analysis.CapabilityAdd{{List: depsStd, Name: n.Name}}
+		title = fmt.Sprintf("Allow %s for dependencies%s in nomi.toml", n.Name, inTests)
+	}
+	key := fmt.Sprint(adds)
+	if fix, done := fixes[key]; done {
+		return fix
+	}
+	fix, _ := analysis.AllowCapabilities(path, data, p.capabilities, title, adds)
+	fixes[key] = fix
+	return fix
 }
 
 // shownAt is where a report about c points: its file as the program names
 // it, and the line and column of the call's callee, where the author
 // reads the call, rather than the call's own position, its parenthesis.
 func (p *Program) shownAt(c OutsideCall) (path string, line, col int) {
-	path, line, col = c.at.File(), c.at.Line(), c.at.Col()
-	if call, ok := nodeAt(p.modulePath(path), line, col).(*ast.Call); ok {
-		if l, c := leftmost(call.Func); l > 0 {
-			line, col = l, c
-		}
-	}
+	path, line, col, _, _ = p.shownSpan(c)
 	return path, line, col
 }
 
-// notDeclaredHints is the help for n, a call over its module's own list,
-// whose fix adds item to a list: what the project's lists say of it when
-// they do not allow it either, program being the project's list, and that
-// the module declares less than its code reaches, so the fix is in the
-// module's own nomi.toml, named by its path: item in its `std`, or for a Go
-// binding its own path in its `go`.
-func (p *Program) notDeclaredHints(n NotAllowed, item, program string) []string {
-	var hints []string
-	if n.EntryDenies || n.ProgramDenies {
-		var lists []string
-		if n.EntryDenies {
-			lists = append(lists, fmt.Sprintf("to %q under [capabilities.modules]", n.Over))
+// shownSpan is shownAt with the end of the call's callee, one past its last
+// byte; the end is the start when the program holds no syntax for the call.
+func (p *Program) shownSpan(c OutsideCall) (path string, line, col, endLine, endCol int) {
+	path, line, col = c.at.File(), c.at.Line(), c.at.Col()
+	endLine, endCol = line, col
+	if call, ok := nodeAt(p.modulePath(path), line, col).(*ast.Call); ok {
+		if l, c := leftmost(call.Func); l > 0 {
+			line, col = l, c
+			endLine, endCol = l, c
+			if s, ok := call.Func.(ast.HasSpan); ok && !s.GetSpan().IsZero() {
+				endLine, endCol = s.GetSpan().EndLine, s.GetSpan().EndCol
+			}
 		}
-		if n.ProgramDenies {
-			lists = append(lists, "to "+program)
-		}
-		hints = append(hints, fmt.Sprintf("the project's nomi.toml does not allow %s to it either; to allow it there, add %q %s",
-			n.Name, item, strings.Join(lists, " and ")))
 	}
-	toml := "its nomi.toml"
-	if m := p.moduleAt(n.at.File()); m != nil {
-		toml = p.tomlName(m.root)
-	}
-	own := "std"
-	if n.Binder != "" {
-		own = "go"
-	}
-	list := own + " under [capabilities]"
-	if n.DeclaredEntry {
-		list = fmt.Sprintf("%q under [capabilities.modules]", n.Over)
-	}
-	return append(hints, fmt.Sprintf("%s declares less than its code reaches, and the fix is in that module: add %q to %s in %s, or remove the call",
-		n.Over, item, list, toml))
+	return path, line, col, endLine, endCol
 }

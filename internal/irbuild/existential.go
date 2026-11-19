@@ -3,6 +3,7 @@ package irbuild
 import (
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -551,14 +552,15 @@ func implKeyFor(d *ifaceDef, recv kind) implKey {
 	return k
 }
 
-// bindsImpl reports whether this program lowers an impl of d for k.
+// bindsImpl reports whether this program lowers an impl of d for k. kt
+// is the checker's type k was read from, or nil (stdProgBinds).
 //
 // The program and not this file: a value boxed here dispatches to an impl
 // any file may have written, and asking only about the local file would
 // refuse a box the program does in fact implement. Falls back to the local
 // view when there is no program: the single-module fixture path lowers one
 // file with no registry at all.
-func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
+func (g *gen) bindsImpl(d *ifaceDef, k kind, kt analysis.Type) bool {
 	if d == nil {
 		return false
 	}
@@ -578,7 +580,7 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	}
 	if d.stdOrigin != "" {
 		// A std interface built from std's declaration (stdprogiface.go).
-		return g.stdProgBinds(d, k)
+		return g.stdProgBinds(d, k, kt)
 	}
 	if g.impls != nil && d.decl != nil && g.impls.has[implKeyFor(d, k)] {
 		return true

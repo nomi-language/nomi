@@ -14,15 +14,25 @@ import (
 
 // DiagnosticsFormatEnv names the environment variable that selects how the
 // command line prints diagnostics: "short" prints the one-line
-// `path:line:col: message` form (Diagnostic.String); anything else prints
-// each diagnostic with its source line (Render). An environment variable
-// rather than a flag alone so an FFI program's wrapper process, which
-// prints its own diagnostics, prints them the same way.
+// `path:line:col: message` form (Diagnostic.String); "json", which `nomi
+// check --format json` sets, has a check write `nomi check --format json`
+// records (vmhost.CheckJSON) and any other text in the short form;
+// anything else prints each diagnostic with its source line (Render). An
+// environment variable rather than a flag alone so an FFI program's
+// wrapper process, which reports its own diagnostics, reports them the
+// same way.
 const DiagnosticsFormatEnv = "NOMI_DIAGNOSTICS"
 
-// ShortDiagnostics reports whether the short form is selected.
+// ShortDiagnostics reports whether the short form is selected, which json
+// selects for text too.
 func ShortDiagnostics() bool {
-	return strings.EqualFold(os.Getenv(DiagnosticsFormatEnv), "short")
+	return strings.EqualFold(os.Getenv(DiagnosticsFormatEnv), "short") || JSONDiagnostics()
+}
+
+// JSONDiagnostics reports whether a check writes its diagnostics as
+// records.
+func JSONDiagnostics() bool {
+	return strings.EqualFold(os.Getenv(DiagnosticsFormatEnv), "json")
 }
 
 // Render writes the diagnostics to w as the command line shows them: each

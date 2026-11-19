@@ -25,9 +25,9 @@ type Memo struct {
 }
 
 type memoEntry struct {
-	key      memoKey
-	problems error
-	err      error
+	key   memoKey
+	found Found
+	err   error
 }
 
 // memoKey is what a lowering of an analysis reads.
@@ -59,22 +59,22 @@ func (k memoKey) equal(o memoKey) bool {
 // kept, when that lowering read the texts a was built from and a is still
 // offered (Offered): its files hold those texts on disk. ok is false
 // otherwise, and for a nil a.
-func (m *Memo) Lookup(path, src string, a *Analyzed) (problems, err error, ok bool) {
+func (m *Memo) Lookup(path, src string, a *Analyzed) (found Found, err error, ok bool) {
 	if m == nil || a == nil || a.Stored != nil {
-		return nil, nil, false
+		return Found{}, nil, false
 	}
 	m.mu.Lock()
-	e, found := m.last[path]
+	e, kept := m.last[path]
 	m.mu.Unlock()
-	if !found || !e.key.equal(keyOf(src, a)) || !Offered(path, src, a) {
-		return nil, nil, false
+	if !kept || !e.key.equal(keyOf(src, a)) || !Offered(path, src, a) {
+		return Found{}, nil, false
 	}
-	return e.problems, e.err, true
+	return e.found, e.err, true
 }
 
-// Store keeps problems and err, what Check answered with ok true for path,
+// Store keeps found and err, what Check answered with ok true for path,
 // src and a, as path's last lowering. A nil Memo keeps nothing.
-func (m *Memo) Store(path, src string, a *Analyzed, problems, err error) {
+func (m *Memo) Store(path, src string, a *Analyzed, found Found, err error) {
 	if m == nil || a.Stored != nil {
 		return
 	}
@@ -83,7 +83,7 @@ func (m *Memo) Store(path, src string, a *Analyzed, problems, err error) {
 	if m.last == nil {
 		m.last = map[string]memoEntry{}
 	}
-	m.last[path] = memoEntry{key: keyOf(src, a), problems: problems, err: err}
+	m.last[path] = memoEntry{key: keyOf(src, a), found: found, err: err}
 }
 
 // Forget drops path's last lowering.

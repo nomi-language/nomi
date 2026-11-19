@@ -8,6 +8,12 @@
 // wrapper; `check` stops after load and analysis; `nomi build` has the
 // wrapper lower the image it appends to a runner built for the project
 // (ProjectRunner). A pure-Nomi program runs in process with no wrapper.
+// The wrapper reports as the `nomi` that starts it does, from the
+// environment: NOMI_DIAGNOSTICS and NOMI_ALL_CALLS. Under `nomi check
+// --format json` its check writes `nomi check`'s records on its stdout
+// (vmhost.ReportCheck), which Check hands to the caller to pass through, and
+// a wrapper whose Go does not compile is GoBuildReport's, which the records
+// give the code GoBuildFailedCode.
 //
 // The path has three stages:
 //

@@ -1278,7 +1278,7 @@ func programOf(nodes []ast.Node, root string, rec *loadRecord, files map[string]
 
 // manifestText is root's nomi.toml, or "" when it has none.
 func manifestText(root string) string {
-	data, err := os.ReadFile(filepath.Join(root, "nomi.toml"))
+	data, err := ReadManifest(root)
 	if err != nil {
 		return ""
 	}

@@ -94,7 +94,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 			// A Range's count protocol is answered with rt.RangeKnownCount
 			// rather than through the view; `count` and `is_empty`
 			// walk the view.
-			return bl.rangeKnownCount(t, src, elem)
+			return bl.rangeKnownCount(t, src, elem, vs.elemType)
 		}
 	case analysis.IterViewMap:
 		// A Map pushes `(K, V)` pairs. sk is a lowered value, in the domain
@@ -121,11 +121,12 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	var siblingCompare *ir.Symbol
 	if method == "sort" {
 		var ok bool
-		if localCompare, siblingCompare, comparator, ok = bl.sortComparator(elem); !ok {
+		if localCompare, siblingCompare, comparator, ok = bl.sortComparator(elem, vs.elemType); !ok {
 			return no()
 		}
 	}
 	var sortKey kind
+	var sortKeyType analysis.Type
 	var sortKeyCmp *stdFunc
 	var sortKeyLocal *implItem
 	var sortKeySibling *ir.Symbol
@@ -136,8 +137,9 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		}
 		// The key's comparator is chosen as `sort` chooses the element's.
 		sortKey = funcResult(fk)
+		_, sortKeyType = bl.g.recordedTypeArg(t, method, "K")
 		var ok bool
-		if sortKeyLocal, sortKeySibling, sortKeyCmp, ok = bl.sortComparator(sortKey); !ok {
+		if sortKeyLocal, sortKeySibling, sortKeyCmp, ok = bl.sortComparator(sortKey, sortKeyType); !ok {
 			return no()
 		}
 	}
@@ -274,7 +276,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 			src = appendOp(t.Args[0], ir.IterView, ir.IterOverCodepointRange, seqKindIn(bl.g, elem), src)
 			break
 		}
-		view, ok := bl.rangeView(t, src, elem)
+		view, ok := bl.rangeView(t, src, elem, vs.elemType)
 		if !ok {
 			return no()
 		}
@@ -361,7 +363,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 			// `Iter.concat(circles, shapes)`: the checker solved T at
 			// the wider of the two (recordedTypeArg), and each sequence
 			// converts to it as an argument would.
-			to := bl.g.recordedTypeArg(t, method, "T")
+			to, _ := bl.g.recordedTypeArg(t, method, "T")
 			// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer, not an operand's kind; the intrinsic is not taken and the caller's std body route lowers or reports the call.
 			if to == kindInvalid {
 				return no()
@@ -379,7 +381,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	case "take":
 		return appendOp(t, ir.IterTake, ir.IterOverSeq, result, src, args.temps[1]), result, false, true
 	case "sort":
-		cmp := bl.comparatorOperand(t, elem, localCompare, siblingCompare, comparator)
+		cmp := bl.comparatorOperand(t, elem, vs.elemType, localCompare, siblingCompare, comparator)
 		return appendOp(t, ir.IterSort, ir.IterOverSeq, result, sortOperands(direction, src, cmp)...), result, false, true
 	case "sort_with":
 		return appendOp(t, ir.IterSortWith, ir.IterOverSeq, result, src, args.temps[1]), result, false, true
@@ -387,7 +389,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		keyFn := ir.NewCopy(bl.g.irNodePos(t.Args[1]), bl.f.NewTemp(), args.temps[1])
 		bl.b.Append(keyFn)
 		bl.side(keyFn.Dst(), irScalarSide{k: args.kinds[1], copy: irCopyProjection})
-		cmp := bl.comparatorOperand(t, sortKey, sortKeyLocal, sortKeySibling, sortKeyCmp)
+		cmp := bl.comparatorOperand(t, sortKey, sortKeyType, sortKeyLocal, sortKeySibling, sortKeyCmp)
 		n := ir.NewIter(bl.g.irNodePos(t), bl.f.NewTemp(), ir.IterSortBy, ir.IterOverSeq, sortOperands(direction, src, keyFn.Dst(), cmp)...)
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: result})
@@ -708,15 +710,15 @@ func irIterRangeElem(k kind) (kind, bool) {
 // rangeView answers a Range view's operands: the range, and references to the
 // element's `Comparable.compare` and `Discrete.next`, std's or the program's
 // own impls (elemComparator, discreteRef).
-func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind) ([]ir.Temp, bool) {
+func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind, elemType analysis.Type) ([]ir.Temp, bool) {
 	if !bl.rangeWalksAt(elem, at) {
 		return nil, false
 	}
-	if _, _, _, ok := bl.sortComparator(elem); !ok {
+	if _, _, _, ok := bl.sortComparator(elem, elemType); !ok {
 		return nil, false
 	}
 	maybeElem, _ := bl.g.sharedMaybe(elem)
-	cmp, _ := bl.elemComparator(at, elem)
+	cmp, _ := bl.elemComparator(at, elem, elemType)
 	next, ok := bl.discreteRef(at, elem, "next", []kind{elem}, maybeElem)
 	if !ok {
 		return nil, false
@@ -728,7 +730,7 @@ func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind) ([]ir.
 // rt.RangeKnownCount whose extra operands reference the element's
 // `Comparable.compare` and `Discrete.steps_between`, std's or the program's
 // own impls; the VM drives the rt function over the linked bodies.
-func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind, elemType analysis.Type) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	mk, ok := bl.iterMaybeKind(kindInt)
 	if !ok {
@@ -739,10 +741,10 @@ func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind) 
 		return no()
 	}
 	maybeInt, shared := bl.g.sharedMaybe(kindInt)
-	if _, _, _, ok := bl.sortComparator(elem); !ok || !shared {
+	if _, _, _, ok := bl.sortComparator(elem, elemType); !ok || !shared {
 		return no()
 	}
-	cmp, _ := bl.elemComparator(at, elem)
+	cmp, _ := bl.elemComparator(at, elem, elemType)
 	steps, ok := bl.discreteRef(at, elem, "steps_between", []kind{elem, elem}, maybeInt)
 	if !ok {
 		return no()
@@ -789,12 +791,14 @@ func (bl *irScalarBuilder) iterGroupBy(t *ast.Call, src ir.Temp, elem kind, fn i
 // `Comparable.compare` at k. A std type that is neither a declared struct or
 // enum nor a container (Duration, Decimal, calendar's Time) takes the third,
 // and a `host fn` compare (Decimal's) is admitted there because the caller
-// forwards it as a function value (irHostForward).
-func (bl *irScalarBuilder) sortComparator(k kind) (*implItem, *ir.Symbol, *stdFunc, bool) {
+// forwards it as a function value (irHostForward). kt is the checker's type
+// k was read from, nil where the caller has none, which a std instance it
+// names is entered with (stdRecvInstance).
+func (bl *irScalarBuilder) sortComparator(k kind, kt analysis.Type) (*implItem, *ir.Symbol, *stdFunc, bool) {
 	if k.tag == tagTuple {
 		// A tuple answers none of the three: comparatorOperand builds its
 		// lexicographic compare (irtuplecompare.go).
-		return nil, nil, nil, bl.tupleComparable(k)
+		return nil, nil, nil, bl.tupleComparable(k, kt)
 	}
 	if irNominalElemKind(k) || irRangeDistinctElem(k) {
 		if local := bl.localCompareItem(k); local != nil {
@@ -804,7 +808,7 @@ func (bl *irScalarBuilder) sortComparator(k kind) (*implItem, *ir.Symbol, *stdFu
 			return nil, sym, nil, true
 		}
 	} else if irContainerBaseName(k) != "" {
-		if sym := bl.stdCompareInstanceSym(k); sym != nil {
+		if sym := bl.stdCompareInstanceSym(k, kt); sym != nil {
 			return nil, sym, nil, true
 		}
 	}
@@ -819,9 +823,9 @@ func (bl *irScalarBuilder) sortComparator(k kind) (*implItem, *ir.Symbol, *stdFu
 // function value: a reference to the program's impl body (this file's or the
 // declaring file's) or to std's retained body, or a forwarding body around
 // std's host.
-func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, local *implItem, sibling *ir.Symbol, std *stdFunc) ir.Temp {
+func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, elemType analysis.Type, local *implItem, sibling *ir.Symbol, std *stdFunc) ir.Temp {
 	if elem.tag == tagTuple && local == nil && sibling == nil && std == nil {
-		return bl.tupleComparator(at, elem)
+		return bl.tupleComparator(at, elem, elemType)
 	}
 	pos := bl.g.irNodePos(at)
 	switch {
@@ -849,13 +853,13 @@ func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, local *impl
 
 // elemComparator is elem's `Comparable.compare` as a function value, chosen
 // as `Iter.sort` chooses it, or false when elem has none the builder can
-// name.
-func (bl *irScalarBuilder) elemComparator(at ast.Node, elem kind) (ir.Temp, bool) {
-	local, sibling, std, ok := bl.sortComparator(elem)
+// name. elemType is the checker's type elem was read from, or nil.
+func (bl *irScalarBuilder) elemComparator(at ast.Node, elem kind, elemType analysis.Type) (ir.Temp, bool) {
+	local, sibling, std, ok := bl.sortComparator(elem, elemType)
 	if !ok {
 		return ir.NoTemp, false
 	}
-	return bl.comparatorOperand(at, elem, local, sibling, std), true
+	return bl.comparatorOperand(at, elem, elemType, local, sibling, std), true
 }
 
 // irRangeKnownCountHost names the VM host for a Range's count protocol.
@@ -889,10 +893,9 @@ func (bl *irScalarBuilder) siblingCompareSym(elem kind) *ir.Symbol {
 // stdCompareInstanceSym is the callee symbol of the instance of a std generic
 // container's `Comparable.compare` at k (`impl Comparable for List<T>` at
 // `List<Int>`), or nil.
-func (bl *irScalarBuilder) stdCompareInstanceSym(k kind) *ir.Symbol {
-	s := bl.g.stdInsts
+func (bl *irScalarBuilder) stdCompareInstanceSym(k kind, kt analysis.Type) *ir.Symbol {
 	base := irContainerBaseName(k)
-	if s == nil || base == "" {
+	if base == "" {
 		return nil
 	}
 	f := bl.g.stdGenericTemplate(base, "compare")
@@ -900,12 +903,7 @@ func (bl *irScalarBuilder) stdCompareInstanceSym(k kind) *ir.Symbol {
 		return nil
 	}
 	ord := stdEnumKind(stdEnumOrdering)
-	tps, ib := s.stdTemplateParams(f)
-	args, ok := bl.g.stdRecvTypeArgs(tps, ib, k, false)
-	if !ok {
-		return nil
-	}
-	inst, _ := s.instantiate(f, tps, args, bl.g)
+	inst := bl.g.stdRecvInstance(f, "", k, kt, false)
 	if inst == nil || len(inst.view.params) != 2 || inst.view.params[0] != k || inst.view.params[1] != k || inst.view.result != ord {
 		return nil
 	}

@@ -639,13 +639,18 @@ func (g *gen) operandCheckerType(n ast.Node) analysis.Type {
 	return g.checkerTypeArg(g.checkedExprType(n))
 }
 
-// firstOperandType is operandCheckerType of t's first operand, nil when it
-// has none.
+// firstOperandType is operandCheckerType of t's first operand, the
+// receiver of each call that asks, or for an operand the builder wrote,
+// which has no type of its own, the type the call's record is for
+// (Callee.For). Nil when it has neither.
 func (g *gen) firstOperandType(t *ast.Call) analysis.Type {
 	if len(t.Args) == 0 {
 		return nil
 	}
-	return g.operandCheckerType(t.Args[0])
+	if ot := g.operandCheckerType(t.Args[0]); ot != nil {
+		return ot
+	}
+	return g.checkerTypeArg(g.calleeOf(t).For)
 }
 
 // checkerTypeArgs is checkerTypeArg over the type arguments of a type the

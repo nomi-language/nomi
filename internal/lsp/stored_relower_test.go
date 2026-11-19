@@ -99,7 +99,8 @@ func TestStoredLoweringMatchesTheText(t *testing.T) {
 		was := vmhost.StoredRelowersForTest()
 		got := lowerAsARun(s, uri, e.text)
 		relowered := vmhost.StoredRelowersForTest() > was
-		problems, err := vmhost.CheckLowering(context.Background(), fileuri.ToPath(uri), e.text)
+		found, err := vmhost.CheckLowering(context.Background(), fileuri.ToPath(uri), e.text)
+		problems := found.Problems
 		want := problemDiagnostics(fileuri.ToPath(uri), e.text, problems, err)
 		if renderDiags(got) != renderDiags(want) {
 			t.Errorf("after %s the lowering reports\n%s\nwhere the text's reports\n%s", e.what, renderDiags(got), renderDiags(want))
@@ -171,7 +172,8 @@ func TestStoredLoweringMatchesTheTextGenerated(t *testing.T) {
 			if doc != entry {
 				writeFile(t, fileuri.ToPath(doc), step.text)
 			}
-			problems, err := vmhost.CheckLowering(context.Background(), fileuri.ToPath(entry), content)
+			found, err := vmhost.CheckLowering(context.Background(), fileuri.ToPath(entry), content)
+			problems := found.Problems
 			if doc != entry {
 				writeFile(t, fileuri.ToPath(doc), gen.Files[key])
 			}

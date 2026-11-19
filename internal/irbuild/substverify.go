@@ -53,21 +53,27 @@ func (g *gen) substKindsAgree(projected, bound kind) bool {
 
 // sameStdIfaceHeld reports whether a and b are existentials over one std
 // interface, one through the process-wide def a spec row describes
-// (stdIfaceOf) and the other through a program's own def of its
-// declaration (stdOrigin, stdprogiface.go), matched as stdIfaceOfDecl
-// matches them. A file that names the interface through the prelude's
-// anchors holds the first, and importKind hands it to another file
-// unchanged; project in a gen that builds program defs answers the second
-// (`build_each<Display, Url>` in std/url's prompts, instantiated in
-// std::literals::testing).
+// (stdIfaceOf), or the def a std module's own cases declare it as, and
+// the other through a program's own def of its declaration (stdOrigin,
+// stdprogiface.go), matched as stdIfaceOfDecl matches them. A file that
+// names the interface through the prelude's anchors holds the first, and
+// importKind hands it to another file unchanged; project in a gen that
+// builds program defs answers the second (`build_each<Display, Url>` in
+// std/url's prompts, instantiated in std::literals::testing), and in
+// std/json's own cases `ToJson` is the module's def and a std instance's
+// parameter the program def.
 func (g *gen) sameStdIfaceHeld(a, b kind) bool {
 	if a.tag != tagIface || b.tag != tagIface {
 		return false
 	}
-	held := func(shared, prog *ifaceDef) bool {
-		_, isShared := stdIfaceOf(shared)
-		return isShared && prog != nil && prog.stdOrigin != "" && prog.decl != nil &&
-			g.stdIfaceOfDecl(prog.stdOrigin, prog.decl) == shared
+	held := func(std, prog *ifaceDef) bool {
+		if prog == nil || prog.stdOrigin == "" || prog.decl == nil {
+			return false
+		}
+		if _, isShared := stdIfaceOf(std); isShared {
+			return g.stdIfaceOfDecl(prog.stdOrigin, prog.decl) == std
+		}
+		return std.stdOrigin == "" && std.decl == prog.decl && portableArgsKey(std.instArgs) == portableArgsKey(prog.instArgs)
 	}
 	return held(a.iface, b.iface) || held(b.iface, a.iface)
 }
@@ -109,22 +115,25 @@ func substFrameKey(f substFrame) string {
 	return b.String()
 }
 
-// substCensus counts, while a test has it open, the type parameters
+// substCensus lists, while a test has it open, the type parameters
 // instances are entered with and no checker type, by entry, each
-// parameter of each instance of one program's lowering once. Only a
-// program's lowering is counted (a gen with a std instance table): the
-// shared std lowering runs once a process, or not at all when its bundle
-// is read back.
+// parameter of each instance of one program's lowering once: the
+// instances a program's lowering requests, its own and the std instances
+// it asks for (a gen with a std instance table). std's own lowerings are
+// not counted, the shared one and the lowering of the listed modules
+// (stdInstances.stdOwn): a process makes each once or reads it back from
+// its std bundle, so counting them would make the count depend on what
+// the artifact cache holds.
 var substCensus struct {
 	sync.Mutex
 	open    bool
 	lowered *stdInstances
 	seen    map[string]bool
-	missing [substEntries]int
+	missing [substEntries][]string
 }
 
 func substCensusNote(g *gen, entry substEntry, owner any, f substFrame, name string) {
-	if g.stdInsts == nil {
+	if g.stdInsts == nil || g.stdInsts.stdOwn {
 		return
 	}
 	c := &substCensus
@@ -143,23 +152,24 @@ func substCensusNote(g *gen, entry substEntry, owner any, f substFrame, name str
 		return
 	}
 	c.seen[key] = true
-	c.missing[entry]++
+	c.missing[entry] = append(c.missing[entry], substOwnerName(owner, f)+"'s "+name)
 }
 
 // openSubstCensus starts counting and answers a function that stops and
-// returns the counts by entry.
-func openSubstCensus() func() map[substEntry]int {
+// returns, by entry, the parameters entered with no checker type, each
+// named with its instance.
+func openSubstCensus() func() map[substEntry][]string {
 	c := &substCensus
 	c.Lock()
-	c.open, c.lowered, c.seen, c.missing = true, nil, nil, [substEntries]int{}
+	c.open, c.lowered, c.seen, c.missing = true, nil, nil, [substEntries][]string{}
 	c.Unlock()
-	return func() map[substEntry]int {
+	return func() map[substEntry][]string {
 		c.Lock()
 		defer c.Unlock()
-		out := map[substEntry]int{}
-		for e, n := range c.missing {
-			if n > 0 {
-				out[substEntry(e)] = n
+		out := map[substEntry][]string{}
+		for e, names := range c.missing {
+			if len(names) > 0 {
+				out[substEntry(e)] = names
 			}
 		}
 		c.open, c.lowered, c.seen = false, nil, nil

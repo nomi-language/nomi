@@ -19,10 +19,10 @@ var reachFixtures = []struct {
 }{
 	{"a dependency that binds Go, reached from main and a test", "app/main.nomi",
 		goProject("[module]\nname = \"app\"\nentry_points = [\"main\"]\n", ""),
-		"std=[std::io] std_in_tests=[] go=[example.com/pg] go_in_tests=[] example.com/app=[std::io] example.com/pg=[]"},
+		"self.std=[std::io] self.std_in_tests=[] self.go=false self.go_in_tests=false deps.std=[] deps.std_in_tests=[] deps.go=[example.com/pg] deps.go_in_tests=[] example.com/pg=[]"},
 	{"a dependency that reads a file for main", "app/main.nomi",
 		dependencyFiles("[module]\nname = \"app\"\nentry_points = [\"main\"]\n", ""),
-		"std=[std::fs std::io] std_in_tests=[] go=[] go_in_tests=[] example.com/app=[std::io] example.com/pricing=[std::fs]"},
+		"self.std=[std::io] self.std_in_tests=[] self.go=false self.go_in_tests=false deps.std=[std::fs] deps.std_in_tests=[] deps.go=[] deps.go_in_tests=[] example.com/pricing=[std::fs]"},
 	{"outside calls only in tests, and a dependency that reaches nothing", "app/main.nomi", map[string]string{
 		"app/go.mod":    "module example.com/app\n\ngo 1.27.0\n\nrequire example.com/pure v0.0.0\n\nreplace example.com/pure => ../pure\n",
 		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
@@ -44,7 +44,7 @@ end
 		"pure/nomi.toml":  "[module]\nname = \"pure\"\n",
 		"pure/calc.nomi":  "pub fn double(n: Int) -> Int\n    n * 2\nend\n",
 		"pure/other.nomi": "import std::io\n\npub fn say()\n    io.print(\"never called\")\nend\n",
-	}, "std=[] std_in_tests=[std::fs] go=[] go_in_tests=[] example.com/app=[] example.com/pure=[]"},
+	}, "self.std=[] self.std_in_tests=[std::fs] self.go=false self.go_in_tests=false deps.std=[] deps.std_in_tests=[] deps.go=[] deps.go_in_tests=[] example.com/pure=[]"},
 	{"the project's own Go, and a dependency reached only from tests", "app/main.nomi", map[string]string{
 		"app/go.mod":    "module example.com/app\n\ngo 1.27.0\n\nrequire example.com/pricing v0.0.0\n\nreplace example.com/pricing => ../pricing\n",
 		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
@@ -73,18 +73,36 @@ pub fn load(path: String) -> String
     fs.read_text(path) |> Result.with_default("")
 end
 `,
-	}, "std=[std::io] std_in_tests=[std::fs] go=[example.com/app] go_in_tests=[] example.com/app=[std::io] example.com/pricing=[std::fs]"},
+	}, "self.std=[std::io] self.std_in_tests=[] self.go=true self.go_in_tests=false deps.std=[] deps.std_in_tests=[std::fs] deps.go=[] deps.go_in_tests=[] example.com/pricing=[std::fs]"},
+	{"the project's own Go only in tests", "main.nomi", map[string]string{
+		"go.mod":    "module example.com/app\n\ngo 1.27.0\n",
+		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"main.nomi": `gopkg "strings" as gostrings
+
+fn upper(s: String) -> String go gostrings.ToUpper
+
+fn main()
+    _ = 1
+end
+
+test "upper"
+    assert upper("hi") == "HI"
+end
+`,
+	}, "self.std=[] self.std_in_tests=[] self.go=false self.go_in_tests=true deps.std=[] deps.std_in_tests=[] deps.go=[] deps.go_in_tests=[]"},
 }
 
-// listsText is c as one line, each list and then each module's entry by
-// path.
+// listsText is c as one line: self's lists, deps' lists, and then each
+// dependency's entry by path.
 func listsText(c *Capabilities) string {
 	parts := []string{
-		fmt.Sprintf("std=%v", c.Std), fmt.Sprintf("std_in_tests=%v", c.StdInTests),
-		fmt.Sprintf("go=%v", c.Go), fmt.Sprintf("go_in_tests=%v", c.GoInTests),
+		fmt.Sprintf("self.std=%v", c.Self.Std), fmt.Sprintf("self.std_in_tests=%v", c.Self.StdInTests),
+		fmt.Sprintf("self.go=%v", c.Self.Go), fmt.Sprintf("self.go_in_tests=%v", c.Self.GoInTests),
+		fmt.Sprintf("deps.std=%v", c.Deps.Std), fmt.Sprintf("deps.std_in_tests=%v", c.Deps.StdInTests),
+		fmt.Sprintf("deps.go=%v", c.Deps.Go), fmt.Sprintf("deps.go_in_tests=%v", c.Deps.GoInTests),
 	}
-	for _, m := range slices.Sorted(maps.Keys(c.Modules)) {
-		parts = append(parts, fmt.Sprintf("%s=%v", m, c.Modules[m]))
+	for _, m := range slices.Sorted(maps.Keys(c.Deps.Modules)) {
+		parts = append(parts, fmt.Sprintf("%s=%v", m, c.Deps.Modules[m]))
 	}
 	return strings.Join(parts, " ")
 }
@@ -99,38 +117,43 @@ func notAllowedByAll(r *Reach, lists *Capabilities) []NotAllowed {
 	return out
 }
 
-// withoutName is c with name taken out of list: std, std_in_tests, go,
-// go_in_tests, or a module's entry under Modules by its path.
+// withoutName is c with name taken out of list, a list's path below
+// [capabilities] (`self.std`, `deps.go`) or a dependency's entry by its
+// path, or with a flag (`self.go`) turned false.
 func withoutName(c *Capabilities, list, name string) *Capabilities {
-	out := &Capabilities{
-		Std: slices.Clone(c.Std), StdInTests: slices.Clone(c.StdInTests),
-		Go: slices.Clone(c.Go), GoInTests: slices.Clone(c.GoInTests),
-		Modules: map[string][]string{},
-	}
-	for m, names := range c.Modules {
-		out.Modules[m] = slices.Clone(names)
-	}
-	drop := func(names []string) []string {
-		return slices.DeleteFunc(names, func(n string) bool { return n == name })
+	out := c.Clone()
+	drop := func(names *[]string) {
+		*names = slices.DeleteFunc(*names, func(n string) bool { return n == name })
 	}
 	switch list {
-	case "std":
-		out.Std = drop(out.Std)
-	case "std_in_tests":
-		out.StdInTests = drop(out.StdInTests)
-	case "go":
-		out.Go = drop(out.Go)
-	case "go_in_tests":
-		out.GoInTests = drop(out.GoInTests)
+	case "self.std":
+		drop(&out.Self.Std)
+	case "self.std_in_tests":
+		drop(&out.Self.StdInTests)
+	case "self.go":
+		out.Self.Go = false
+	case "self.go_in_tests":
+		out.Self.GoInTests = false
+	case "deps.std":
+		drop(&out.Deps.Std)
+	case "deps.std_in_tests":
+		drop(&out.Deps.StdInTests)
+	case "deps.go":
+		drop(&out.Deps.Go)
+	case "deps.go_in_tests":
+		drop(&out.Deps.GoInTests)
 	default:
-		out.Modules[list] = drop(out.Modules[list])
+		entry := out.Deps.Modules[list]
+		drop(&entry)
+		out.Deps.Modules[list] = entry
 	}
 	return out
 }
 
-// The tightest table is the one the check's own rule (notAllowedBy) holds
-// every call to and passes, and every name in it is needed: taken out,
-// some call is refused. Each fixture's table is the one written out.
+// The tightest tables are the ones the check's own rule (notAllowedBy)
+// holds every call to and passes, and every name in them is needed: taken
+// out, some call is refused, and so is a flag that is true, turned false.
+// Each fixture's tables are the ones written out.
 func TestTightestLists_PassAndEveryNameIsNeeded(t *testing.T) {
 	for _, fx := range reachFixtures {
 		t.Run(fx.name, func(t *testing.T) {
@@ -146,8 +169,19 @@ func TestTightestLists_PassAndEveryNameIsNeeded(t *testing.T) {
 			if refused := notAllowedByAll(r, tight); len(refused) > 0 {
 				t.Errorf("the tightest table refuses %d calls, the first %s at %s", len(refused), refused[0].Name, refused[0].Site)
 			}
-			lists := map[string][]string{"std": tight.Std, "std_in_tests": tight.StdInTests, "go": tight.Go, "go_in_tests": tight.GoInTests}
-			maps.Copy(lists, tight.Modules)
+			flag := func(on bool) []string {
+				if on {
+					return []string{"true"}
+				}
+				return nil
+			}
+			lists := map[string][]string{
+				"self.std": tight.Self.Std, "self.std_in_tests": tight.Self.StdInTests,
+				"self.go": flag(tight.Self.Go), "self.go_in_tests": flag(tight.Self.GoInTests),
+				"deps.std": tight.Deps.Std, "deps.std_in_tests": tight.Deps.StdInTests,
+				"deps.go": tight.Deps.Go, "deps.go_in_tests": tight.Deps.GoInTests,
+			}
+			maps.Copy(lists, tight.Deps.Modules)
 			for list, names := range lists {
 				for _, name := range names {
 					if len(notAllowedByAll(r, withoutName(tight, list, name))) == 0 {
@@ -166,7 +200,7 @@ func TestTightestLists_PassAndEveryNameIsNeeded(t *testing.T) {
 // text gives every call.
 func TestCapabilityError_GroupsCallsByNameAndList(t *testing.T) {
 	dir := writeProject(t, map[string]string{
-		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\n",
+		"app/nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\n",
 		"app/main.nomi": `import
     std::fs
     std::io
@@ -201,9 +235,9 @@ end
 		got = append(got, fmt.Sprintf("%d:%d %s | %s", d.Line, d.Col, d.Message, d.Hints[len(d.Hints)-1]))
 	}
 	want := []string{
-		"7:5 this program reaches std::io, and nomi.toml allows nothing outside the program | and 3 more calls reach std::io; --all-calls lists them",
-		"10:14 this program reaches std::fs, and nomi.toml allows nothing outside the program | add \"std::fs\" to std under [capabilities] in nomi.toml, or remove the call",
-		"14:5 this program's tests reach std::io, and nomi.toml allows them nothing outside the program | and 1 more call reaches std::io; --all-calls lists it",
+		"7:5 this module's own code reaches std::io, and [capabilities.self] allows it nothing outside the program | and 3 more calls reach std::io; --all-calls lists them",
+		"10:14 this module's own code reaches std::fs, and [capabilities.self] allows it nothing outside the program | add \"std::fs\" to std under [capabilities.self] in nomi.toml, or remove the call",
+		"14:5 this module's tests reach std::io, and [capabilities.self] allows them nothing outside the program | and 1 more call reaches std::io; --all-calls lists it",
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("shown:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

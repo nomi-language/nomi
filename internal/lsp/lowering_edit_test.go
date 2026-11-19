@@ -98,11 +98,11 @@ func installCountingLowering(t *testing.T) *countingLowering {
 	t.Helper()
 	cl := &countingLowering{block: map[string]chan struct{}{}, finishStopped: map[string]chan struct{}{}}
 	saved := checkLoweringFn
-	checkLoweringFn = func(ctx context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (error, error) {
+	checkLoweringFn = func(ctx context.Context, path, src string, _ *analyzedlowering.Analyzed, _ *analyzedlowering.Memo) (analyzedlowering.Found, error) {
 		cl.mu.Lock()
 		if path != cl.path {
 			cl.mu.Unlock()
-			return nil, nil
+			return analyzedlowering.Found{}, nil
 		}
 		cl.texts = append(cl.texts, src)
 		n := len(cl.texts)
@@ -118,7 +118,7 @@ func installCountingLowering(t *testing.T) *countingLowering {
 			<-finish
 		}
 		first, _, _ := strings.Cut(src, "\n")
-		return frontend.Diagnostics{{Path: path, Line: 1, Col: 1, Message: fmt.Sprintf("%s is not supported yet (run %d)", first, n)}}, nil
+		return analyzedlowering.Found{Problems: frontend.Diagnostics{{Path: path, Line: 1, Col: 1, Message: fmt.Sprintf("%s is not supported yet (run %d)", first, n)}}}, nil
 	}
 	t.Cleanup(func() { checkLoweringFn = saved })
 	return cl

@@ -95,7 +95,8 @@ func (g *gen) monoInstanceAt(ref ast.Node, tpl *monoTemplate, name string) (*mon
 }
 
 // recordedTypeArg is the kind the checker instantiated the type parameter
-// name of t's callee at. A std operation lowered as a host crossing
+// name of t's callee at, and the checker's type it was read from at this
+// instance (checkerTypeArg), nil where it has none. A std operation lowered as a host crossing
 // (listCallPlan, vectorCallPlan, setCallPlan, mapOperandsAtSolved) or by
 // the builder itself (`Iter.concat`) reads its element kind here rather
 // than off its first operand: `List.concat(circles, shapes)` solved T to
@@ -109,12 +110,18 @@ func (g *gen) monoInstanceAt(ref ast.Node, tpl *monoTemplate, name string) (*mon
 // spread, a host call standing for a derived body), which names no callee
 // of its own or names the construct's, or a std body's own type
 // parameter. The caller keeps the operands' kinds.
-func (g *gen) recordedTypeArg(t *ast.Call, method, name string) kind {
+func (g *gen) recordedTypeArg(t *ast.Call, method, name string) (kind, analysis.Type) {
 	sym := g.calleeRecord(t, method)
 	if sym == nil {
-		return kindInvalid
+		return kindInvalid, nil
 	}
-	return g.valueKindOf(analysis.CallTypeArgs(sym)[name])
+	arg := analysis.CallTypeArgs(sym)[name]
+	k := g.valueKindOf(arg)
+	// kindInvalid: sentinel — valueKindOf's nothing-recorded answer, which carries no type either.
+	if k == kindInvalid {
+		return kindInvalid, nil
+	}
+	return k, g.checkerTypeArg(arg)
 }
 
 // solvedParamKind is the kind of t's i-th parameter in the signature the

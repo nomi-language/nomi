@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/suggest"
 )
 
 // A std::embed `Files` call whose path is a string literal, and whose tree
@@ -253,7 +254,7 @@ func keysOf(m map[string]bool) []string {
 	return out
 }
 
-// closestPath is the one candidate close to p by closestName's rule (an
+// closestPath is the one candidate close to p by suggest.Closest's rule (an
 // edit distance of at most a third of p's length), or "".
 func closestPath(p string, candidates []string) string {
 	limit := max(1, len([]rune(p))/3)
@@ -262,7 +263,7 @@ func closestPath(p string, candidates []string) string {
 		if cand == "." || cand == p {
 			continue
 		}
-		switch d := editDistance(p, cand); {
+		switch d := suggest.EditDistance(p, cand); {
 		case d < bestDist:
 			best, bestDist, tied = cand, d, false
 		case d == bestDist:

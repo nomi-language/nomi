@@ -12,7 +12,7 @@ func (bl *irScalarBuilder) listCallPlan(t *ast.Call, args irQualArgs, method str
 	}
 	lk := kindInvalid
 	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the operands' kinds are read instead.
-	if elem := bl.g.recordedTypeArg(t, method, "T"); elem != kindInvalid {
+	if elem, _ := bl.g.recordedTypeArg(t, method, "T"); elem != kindInvalid {
 		// The list the checker solved T at, which a later operand may
 		// have widened past an earlier one's (`List.concat(circles,
 		// shapes)` is a List<Shape>).

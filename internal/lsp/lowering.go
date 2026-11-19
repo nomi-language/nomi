@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -13,6 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/vmhost"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -97,8 +99,13 @@ const loweringDelay = 400 * time.Millisecond
 // runs in progress.
 type loweringChecks struct {
 	mu sync.Mutex
-	// docs holds each document's latest finished run of its latest text.
-	docs map[string][]protocol.Diagnostic
+	// docs holds each document's latest finished run of its latest text,
+	// fixes the errors of that run that carry a fix
+	// (problemDiagnosticsAndFixes), and reached the outside calls its
+	// program reaches, which hover shows (reachedAt).
+	docs    map[string][]protocol.Diagnostic
+	fixes   map[string][]parser.ParseError
+	reached map[string]loweringReach
 	// running holds the run in progress of each document that has one;
 	// queued is the text an open, save or edit during it asked for next.
 	running map[string]*loweringRun
@@ -137,6 +144,14 @@ type loweringRun struct {
 	cancel  context.CancelFunc
 }
 
+// loweringReach is the outside calls a document's run found
+// (analyzedlowering.Found's Reached), with the text it lowered, whose
+// positions they are in.
+type loweringReach struct {
+	content string
+	calls   []analyzedlowering.Reached
+}
+
 // loweringChecksEnabled turns the lowering runs on.
 var loweringChecksEnabled = true
 
@@ -150,13 +165,13 @@ var checkLoweringFn = lowerFromAnalysis
 // (vmhost.CheckLowering). a and memo may be nil. Once ctx is done the
 // lowering stops at its next step and answers ctx's error, which the memo
 // does not keep.
-func lowerFromAnalysis(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (problems, err error) {
+func lowerFromAnalysis(ctx context.Context, path, src string, a *analyzedlowering.Analyzed, memo *analyzedlowering.Memo) (analyzedlowering.Found, error) {
 	if a != nil {
-		if problems, ok, err := analyzedlowering.Check(ctx, path, src, a); ok {
+		if found, ok, err := analyzedlowering.Check(ctx, path, src, a); ok {
 			if ctx.Err() == nil {
-				memo.Store(path, src, a, problems, err)
+				memo.Store(path, src, a, found, err)
 			}
-			return problems, err
+			return found, err
 		}
 	}
 	return vmhost.CheckLowering(ctx, path, src)
@@ -165,10 +180,10 @@ func lowerFromAnalysis(ctx context.Context, path, src string, a *analyzedlowerin
 // lower is what lowering the file at path whose text is src from a finds:
 // the memo's answer when the document's last lowering read the same texts,
 // else checkLoweringFn's.
-func (c *loweringChecks) lower(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (problems, err error) {
-	if problems, err, ok := c.memo.Lookup(path, src, a); ok {
+func (c *loweringChecks) lower(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (analyzedlowering.Found, error) {
+	if found, err, ok := c.memo.Lookup(path, src, a); ok {
 		c.reused.Add(1)
-		return problems, err
+		return found, err
 	}
 	c.lowered.Add(1)
 	return checkLoweringFn(ctx, path, src, a, &c.memo)
@@ -189,6 +204,8 @@ func (c *loweringChecks) editDelay() time.Duration {
 func (c *loweringChecks) init() {
 	if c.running == nil {
 		c.running, c.queued, c.docs = map[string]*loweringRun{}, map[string]string{}, map[string][]protocol.Diagnostic{}
+		c.fixes = map[string][]parser.ParseError{}
+		c.reached = map[string]loweringReach{}
 		c.timers = map[string]*loweringWait{}
 		if c.gen == nil {
 			c.gen = map[string]int{}
@@ -201,6 +218,61 @@ func (c *loweringChecks) diagnostics(uri string) []protocol.Diagnostic {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.docs[uri]
+}
+
+// fixesOf are the errors of uri's latest lowering diagnostics that carry a
+// fix, which a code action offers (buildParseFixActions).
+func (c *loweringChecks) fixesOf(uri string) []parser.ParseError {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.fixes[uri]
+}
+
+// reachedAt is the hover line of each outside call at pos, a 1-based line
+// and byte column in uri, whose text is content, on the token that starts
+// at tok: a call whose callee holds pos, or one with no callee in source
+// (a `go` binding's declaration) that starts where the token does. The
+// lines are from uri's own last run when it lowered content, then from
+// each other document's last run that reached the file, which that
+// lowering read from disk, when content is the file on disk. Each line is
+// given once.
+func (c *loweringChecks) reachedAt(uri, content string, pos, tok analysis.Pos) []string {
+	path := uriToPath(uri)
+	holds := func(r analyzedlowering.Reached) bool {
+		before := func(l1, c1, l2, c2 int) bool { return l1 < l2 || l1 == l2 && c1 < c2 }
+		at := !before(pos.Line, pos.Col, r.Line, r.Col) && before(pos.Line, pos.Col, r.EndLine, r.EndCol) ||
+			r.EndLine == r.Line && r.EndCol == r.Col && tok.Line == r.Line && tok.Col == r.Col
+		return at && (r.Path == path || filepath.Base(r.Path) == filepath.Base(path) && samePath(r.Path, path))
+	}
+	c.mu.Lock()
+	var own, others []string
+	for u, run := range c.reached {
+		if u == uri && run.content != content {
+			continue
+		}
+		for _, r := range run.calls {
+			switch {
+			case !holds(r):
+			case u == uri:
+				own = append(own, r.Text)
+			default:
+				others = append(others, r.Text)
+			}
+		}
+	}
+	c.mu.Unlock()
+	if len(others) > 0 {
+		if disk, ok := diskContent(protocol.DocumentUri(uri)); !ok || disk != content {
+			others = nil
+		}
+	}
+	var out []string
+	for _, text := range append(own, others...) {
+		if !slices.Contains(out, text) {
+			out = append(out, text)
+		}
+	}
+	return out
 }
 
 // stopTimer drops uri's debounced run, if one is waiting. c.mu is held.
@@ -226,6 +298,8 @@ func (c *loweringChecks) forget(uri string) {
 	defer c.mu.Unlock()
 	c.init()
 	delete(c.docs, uri)
+	delete(c.fixes, uri)
+	delete(c.reached, uri)
 	delete(c.queued, uri)
 	c.stopTimer(uri)
 	if r := c.running[uri]; r != nil {
@@ -335,7 +409,7 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 	for {
 		start := time.Now()
 		content := run.content
-		var diags []protocol.Diagnostic
+		var found loweringFound
 		lowered := false
 		if _, latest := s.waitLoweringAnalysis(ctx, uri, content); latest && ctx.Err() == nil {
 			if s.docs.StoredLoweredClean(uri, content) {
@@ -353,7 +427,7 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 					if a == nil && stored != nil {
 						a = &analyzedlowering.Analyzed{Stored: stored}
 					}
-					diags = s.safeLoweringDiagnostics(ctx, uri, content, a)
+					found = s.lowerDocument(ctx, uri, content, a)
 					lowered = true
 				}
 				release()
@@ -362,8 +436,8 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 		if ctx.Err() != nil {
 			c.stopped.Add(1)
 		} else {
-			s.finishLowering(uri, content, gen, diags, time.Since(start))
-			if lowered && len(diags) == 0 {
+			s.finishLowering(uri, content, gen, found, time.Since(start))
+			if lowered && len(found.diags) == 0 {
 				// A record of the program, which a later server opens
 				// from, is written now if it can be.
 				s.docs.NoteLoweredClean(uri, content, analyzedlowering.Kept)
@@ -454,11 +528,12 @@ func analyzedOf(snap *analysis.DocSnapshot) *analyzedlowering.Analyzed {
 }
 
 // finishLowering stores a run's diagnostics and publishes the document's
-// diagnostics with them, when content is still the open document's latest
-// text and the document has not been closed since the run started.
+// diagnostics with them, and what it found in a nomi.toml in that file
+// (publishLoweringManifests), when content is still the open document's
+// latest text and the document has not been closed since the run started.
 // Otherwise it drops them. Holding publishMu across the check, the store
 // and the publish keeps an edit's publish from slipping between them.
-func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.Diagnostic, elapsed time.Duration) {
+func (s *Server) finishLowering(uri, content string, gen int, found loweringFound, elapsed time.Duration) {
 	c := &s.lowering
 	sch := &s.sched
 	sch.publishMu.Lock()
@@ -470,9 +545,14 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 	c.last = elapsed
 	fresh := c.gen[uri] == gen && snap != nil && snap.Open && snap.Text == content
 	if fresh {
-		c.docs[uri] = diags
+		c.docs[uri] = found.diags
+		c.fixes[uri] = found.fixes
+		c.reached[uri] = loweringReach{content: content, calls: found.reached}
 	}
 	c.mu.Unlock()
+	if fresh {
+		s.publishLoweringManifests(uri, found.manifests)
+	}
 	// When the installed analysis is not of the latest text, the analysis
 	// in progress publishes the new diagnostics when it finishes.
 	if !fresh || s.notify == nil || snap.Analysis == nil || !snap.Current() {
@@ -481,18 +561,38 @@ func (s *Server) finishLowering(uri, content string, gen int, diags []protocol.D
 	s.publishViewed(s.notify, snap)
 }
 
-// safeLoweringDiagnostics is the server's loweringDiagnostics, through
-// its memo (loweringChecks.lower), with a panic in the server around the
+// loweringFound is what a run found: the document's diagnostics, those of
+// its errors that carry a fix, the diagnostics in each nomi.toml, by its
+// URI, and the outside calls the program reaches.
+type loweringFound struct {
+	diags     []protocol.Diagnostic
+	fixes     []parser.ParseError
+	manifests map[string][]protocol.Diagnostic
+	reached   []analyzedlowering.Reached
+}
+
+// safeLoweringDiagnostics is the document's diagnostics lowerDocument
+// finds.
+func (s *Server) safeLoweringDiagnostics(ctx context.Context, uri, content string, a *analyzedlowering.Analyzed) []protocol.Diagnostic {
+	return s.lowerDocument(ctx, uri, content, a).diags
+}
+
+// lowerDocument is what the server's loweringDiagnostics finds, through
+// its memo (loweringChecks.lower), with the errors that carry a fix
+// (problemDiagnosticsAndFixes), the diagnostics in a nomi.toml
+// (s.manifestDiagnostics) and the outside calls the program reaches, and
+// with a panic in the server around the
 // lowering (one vmhost does not already answer as an InternalError)
 // answered as one diagnostic at the top of the file (recover.go).
-func (s *Server) safeLoweringDiagnostics(ctx context.Context, uri, content string, a *analyzedlowering.Analyzed) (diags []protocol.Diagnostic) {
+func (s *Server) lowerDocument(ctx context.Context, uri, content string, a *analyzedlowering.Analyzed) (found loweringFound) {
 	defer recoverPanic("lowering "+uri, func(p *serverPanic) {
-		diags = []protocol.Diagnostic{p.diagnostic()}
+		found = loweringFound{diags: []protocol.Diagnostic{p.diagnostic()}}
 	})
 	fault("lowering")
 	path := uriToPath(uri)
-	problems, err := s.lowering.lower(ctx, path, content, a)
-	return problemDiagnostics(path, content, problems, err)
+	got, err := s.lowering.lower(ctx, path, content, a)
+	diags, fixes := problemDiagnosticsAndFixes(path, content, got.Problems, err)
+	return loweringFound{diags: diags, fixes: fixes, manifests: s.manifestDiagnostics(got.Problems, err), reached: got.Reached}
 }
 
 // loweringDiagnostics lowers the file at path whose text is content, from
@@ -500,8 +600,8 @@ func (s *Server) safeLoweringDiagnostics(ctx context.Context, uri, content strin
 // what `nomi check` would report beyond the front end, as protocol
 // diagnostics in content's UTF-16 columns (problemDiagnostics).
 func loweringDiagnostics(path, content string, a *analyzedlowering.Analyzed) []protocol.Diagnostic {
-	problems, err := checkLoweringFn(context.Background(), path, content, a, nil)
-	return problemDiagnostics(path, content, problems, err)
+	found, err := checkLoweringFn(context.Background(), path, content, a, nil)
+	return problemDiagnostics(path, content, found.Problems, err)
 }
 
 // problemDiagnostics are a lowering's problems and err for the file at
@@ -509,14 +609,24 @@ func loweringDiagnostics(path, content string, a *analyzedlowering.Analyzed) []p
 // columns. A blocker in another file of the program is reported at the top
 // of this one, naming where it is.
 func problemDiagnostics(path, content string, problems, err error) []protocol.Diagnostic {
+	diags, _ := problemDiagnosticsAndFixes(path, content, problems, err)
+	return diags
+}
+
+// problemDiagnosticsAndFixes is problemDiagnostics, with the diagnostics
+// whose error carries a fix (frontend.Diagnostic's Fix) as parse errors at
+// the diagnostic's start with its headline, which buildParseFixActions
+// offers: the edit to nomi.toml that allows a call its lists do not.
+func problemDiagnosticsAndFixes(path, content string, problems, err error) ([]protocol.Diagnostic, []parser.ParseError) {
 	var internal *vmhost.InternalError
 	if errors.As(err, &internal) {
-		return []protocol.Diagnostic{internalErrorDiagnostic(internal)}
+		return []protocol.Diagnostic{internalErrorDiagnostic(internal)}, nil
 	}
 	var ds frontend.Diagnostics
 	if err != nil || !errors.As(problems, &ds) {
-		return nil
+		return nil, nil
 	}
+	var fixes []parser.ParseError
 	severity := protocol.DiagnosticSeverityError
 	source := "nomi"
 	lines := newLineIndex(content)
@@ -556,8 +666,14 @@ func problemDiagnostics(path, content string, problems, err error) []protocol.Di
 			diag.Message = msg
 		}
 		out = append(out, diag)
+		if d.Fix != nil {
+			fixes = append(fixes, parser.ParseError{
+				Line: int(diag.Range.Start.Line) + 1, Col: lines.byteCol(diag.Range.Start.Line, diag.Range.Start.Character),
+				Message: diagnosticHeadline(diag.Message), Fix: d.Fix,
+			})
+		}
 	}
-	return out
+	return out, fixes
 }
 
 // samePath reports whether two paths name the same file.

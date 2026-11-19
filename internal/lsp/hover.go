@@ -95,6 +95,11 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	if typed != "" {
 		content += "\n\n" + typed
 	}
+	// What the call under pos reaches outside the machine, as the document's
+	// last lowering found it (loweringChecks.reachedAt).
+	for _, line := range s.lowering.reachedAt(uri, doc.Content, pos, tokPos) {
+		content += "\n\n" + line
+	}
 	if isLiteral {
 		content += "\n\n---\n\n" + literal
 	}

@@ -93,6 +93,30 @@
 // program. What a derive synthesizes is left out of a served file, since a
 // build alone checks less of it and no request reads it.
 //
+// # nomi.toml
+//
+// The language server tells this package the text of each nomi.toml an
+// editor has open (SetEditedManifest), and every reader of a module's
+// nomi.toml reads it through ReadManifest: LoadManifest, so the front end
+// and the document manager, and vmhost's checks of the [capabilities]
+// lists. A program the editor shows is checked and lowered as `nomi check`
+// checks it once the file is saved. Nothing else sets one, so the command
+// line reads the disk.
+//
+// ParseManifestIn answers a problem it can place as a *ManifestError, with
+// its line; ManifestErrorAt places any of its errors, the TOML decoder's
+// among them, as the language server shows them in the file.
+//
+// One writer edits the [capabilities.self], [capabilities.deps] and
+// [capabilities.deps.modules] tables of a nomi.toml's text
+// (WriteCapabilityTables, over ManifestTableLayout): `nomi capabilities
+// --write`, which writes the tightest tables, and the fix of a
+// capability-not-allowed error (AllowCapabilities), which adds one name or
+// sets one flag. Both keep every line outside the three tables, and the
+// comments and layout inside them, by the same rules. Which keys a table
+// holds is manifestFile's, nested tables included, and an unknown key is
+// an error that says what the table's keys hold (unknownManifestKey).
+//
 // # Opening from a record
 //
 // Opening a document checks its program whole. When this server or an
@@ -355,7 +379,13 @@
 // and a call at the types it is checked with or at an instance's
 // (interfaceImplAt, through reachedImpl, CalleeAt and InterfaceCallee)
 // all ask interfaceUse, so `a == b` and `Equatable.equal(a, b)` agree.
-// In order: OperatorByImpl where the use reaches a block, the one the
+// A receiver variable the checker closed is its closed type there, at any
+// depth (`Maybe<?1>` of `Debug.inspect(None)` is Maybe's block). In
+// order: OperatorPerInstance where the receiver is a declared type or a
+// collection whose type arguments hold a type parameter (`List<T>`,
+// `Box<T>` in a generic body), whose impl each instance answers at its
+// types as it answers a type parameter's; OperatorByImpl where the use
+// reaches a block, the one the
 // checker selected at the use or the one block of the interface for the
 // receiver's type, narrowed by the interface's type arguments at the
 // use (implBlockFor), whatever the receiver's shape: an Int, a String, a
@@ -387,7 +417,13 @@
 // `b.Show`) where the type implements another interface of the name, else
 // by its name. The missing-impl, bound and conversion messages and the
 // checker's typef all use it, and a derive is offered only for the std
-// interface derive writes (derivableInterface). The call's dispatch record
+// interface derive writes (derivableInterface). Every help that offers an
+// impl block writes it through implBlockHelp: a bound's with the bound's
+// arguments (`impl Scale<Int> for Other`), and a missing-impl report's
+// with the type parameters the interface's declaration lists, which the
+// demand carries (Recording.IfaceTypeParams, filled by RecordManifest),
+// so the report over stored facts says `impl Scale<N> for Other` with no
+// declaration at hand. The call's dispatch record
 // (attachDispatchImpl) takes only an impl of that declaration. A demand
 // that knows the interface only by a name the prelude reserves (an
 // operator's, an interpolation's Display) asks for any interface of the
@@ -414,10 +450,23 @@
 // interface at module level (bodyTypeHelp, bodyInterfaceHelp), since a
 // body holds no impl or derive. Such a declaration may not take a name
 // the prelude binds, as a module-level one may not
-// (checkReservedTypeName). TestElaborationGate holds a call on a receiver
-// of a known type to a block or a Form (ElabImplUnrecorded), and an
-// operator's recorded impl to one of its operand's type's blocks
-// (ElabOperatorForeignImpl).
+// (checkReservedTypeName). Every call of an interface's function, one an
+// interface declares or an impl's that a block of it declares, records the
+// type it is for (Callee.For): its solved `self`; for an operator
+// interface's function called by name (`Add.add(a, b)`, which its
+// operands type, finishOperatorInterfaceCall) its left operand's type,
+// recorded as its `self` (recordCallSelf); for an impl's function named
+// by its type (`Int.to_string(n)`, `List.equal(xs, ys)`) or a block the
+// checker selected, the block's receiver at the call's type arguments
+// (implReceiverAt); for a call no argument is the receiver of
+// (`Int.from_missing()`) the type that qualifies it (qualifierType). An
+// impl the checker chose at a receiver that holds the body's type
+// parameters (DispatchImpl at `List<T>`) is left to each instance, as an
+// operator over it is. TestElaborationGate holds every such call to a For
+// and a Form (ElabImplUnrecorded), every operator that goes through an
+// interface, a primitive's included, to a record (the ElabOperator
+// categories), and an operator's recorded impl to one of its operand's
+// type's blocks (ElabOperatorForeignImpl).
 // A generic body is checked once, so a call in it through a type
 // parameter (`T.area(x)`, `Shape.area(x)` with `x: T`, `T.from_json(j)`)
 // records the interface's function, For the type parameter, and no
@@ -426,8 +475,9 @@
 // b's Show however this file binds the name; TestElaborationGate fails a
 // call qualified by a type parameter whose callee is not an interface's
 // function. FileAnalysis.CalleeAt answers that record at an instance's type
-// arguments: For substituted and, where it is a known type, the block and
-// function a call written at that type records. It asks the resolver
+// arguments: For substituted, a variable the checker closed in them read
+// as its closed type (Elaborate), and, where it is a known type, the block
+// and function a call written at that type records. It asks the resolver
 // reachedImpl asks (interfaceImplAt), with the receiver's type as an
 // argument. An operator over a type parameter (OperatorPerInstance) is
 // answered at an instance the same way (OperatorUseAt, through
@@ -520,8 +570,9 @@
 // through Shape's Equatable as `shape == circle` does. A declared type whose impls the index
 // cannot narrow to one is left unrecorded, and the verifier reports it.
 //
-// An expression of a concrete type checked against an interface type
-// becomes an interface value, and has a record of it (coercions.go,
+// An expression of a concrete type checked against an interface type (an
+// argument, a binding, a typed literal's slot against its `Fragment<I>`'s
+// I) becomes an interface value, and has a record of it (coercions.go,
 // Coercions): the interface with its type arguments, the value's type and
 // the impl block the checker selects for the pair (implCandidates). A value
 // entering an interface conjunction (`Priced and Costed`, a

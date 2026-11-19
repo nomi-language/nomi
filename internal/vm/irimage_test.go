@@ -204,20 +204,7 @@ func TestIRImage_StdlibTestIRRoundTrips(t *testing.T) {
 	sort.Strings(files)
 	roundTripped, compared, unstable := 0, 0, []string{}
 	for _, path := range files {
-		module := irbuild.StdlibTestModule(path)
-		if module == "" {
-			continue
-		}
-		prog, res, err := irbuild.GenerateStdlibTestIR(module, nil, nil, irbuild.DeclineHooks{})
-		if err != nil {
-			continue
-		}
-		var entry *ir.Module
-		for _, m := range res.IR {
-			if m.Name() == prog.Entry().Path {
-				entry = m
-			}
-		}
+		module, entry, res := stdlibTestUnit(path)
 		if entry == nil {
 			continue
 		}
@@ -254,6 +241,27 @@ func TestIRImage_StdlibTestIRRoundTrips(t *testing.T) {
 	if roundTripped == 0 || compared == 0 {
 		t.Fatal("no stdlib test unit was round-tripped and run, so this checked nothing")
 	}
+}
+
+// stdlibTestUnit is the attached-test lowering of the std module whose
+// source is path (`nomi test <std file>`): the module's name, the module
+// its cases are in and the lowering, or a nil module when path declares no
+// tests or the lowering is refused.
+func stdlibTestUnit(path string) (string, *ir.Module, *irbuild.Result) {
+	module := irbuild.StdlibTestModule(path)
+	if module == "" {
+		return "", nil, nil
+	}
+	prog, res, err := irbuild.GenerateStdlibTestIR(module, nil, nil, irbuild.DeclineHooks{})
+	if err != nil {
+		return module, nil, nil
+	}
+	for _, m := range res.IR {
+		if m.Name() == prog.Entry().Path {
+			return module, m, res
+		}
+	}
+	return module, nil, nil
 }
 
 // TestIRImage_DecodedProgramsMatchTheCommittedRecords runs the whole-program

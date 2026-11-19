@@ -231,9 +231,9 @@ func describeRef(sym *analysis.Symbol, local bool) string {
 
 // localReadCensus counts, while a test has it open, the distinct source
 // sites of each localReadClass verifyLocalRead finds. Only a program's
-// lowering is counted (a gen with a std instance table), as the operator
-// census counts: the shared std lowering runs once a process, or not at
-// all when its bundle is read back.
+// lowering is counted (a gen with a std instance table, not std's own:
+// stdInstances.stdOwn), as the operator census counts: std's lowerings run
+// once a process, or not at all when its bundle is read back.
 var localReadCensus struct {
 	sync.Mutex
 	open  bool
@@ -242,7 +242,7 @@ var localReadCensus struct {
 }
 
 func localReadCensusNote(g *gen, class localReadClass, line, col int) {
-	if g.stdInsts == nil {
+	if g.stdInsts == nil || g.stdInsts.stdOwn {
 		return
 	}
 	c := &localReadCensus

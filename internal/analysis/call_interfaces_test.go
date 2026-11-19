@@ -76,7 +76,7 @@ func TestCallInterfaces_RecordTheInstance(t *testing.T) {
 			t.Errorf("%s: CallInterface %q, want %q", name, got[name], w)
 		}
 	}
-	if vs := VerifyElaboration(fa, nodes); len(vs) > 0 {
+	if vs := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(vs) > 0 {
 		t.Fatalf("violations: %v", vs)
 	}
 }

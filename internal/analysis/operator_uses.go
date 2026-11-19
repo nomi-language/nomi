@@ -179,6 +179,10 @@ func operatorUseOf(fa *FileAnalysis, n ast.Node) *OperatorUse {
 // `a == b` and `Equatable.equal(a, b)` agree wherever they are asked. In
 // order:
 //
+//   - A declared type or collection whose type arguments hold a type
+//     parameter (`List<T>`, `Box<T>` in a generic body): per instance,
+//     as a type parameter is. Each instance answers at its types, where
+//     the type's blocks are narrowed as at any other use.
 //   - The impl block: chosen, the one the checker selected at the use,
 //     else the one block of the interface for recv, at args where recv
 //     implements the interface at several type arguments (implBlockFor).
@@ -193,11 +197,17 @@ func operatorUseOf(fa *FileAnalysis, n ast.Node) *OperatorUse {
 // Nil where none answers: a type with several blocks none of which is
 // selected, an unsolved variable, a primitive with no block.
 func (fa *FileAnalysis) interfaceUse(iface, method, origin string, recv Type, args []Type, chosen *ast.ImplBlock) (*OperatorUse, *ast.ImplBlock) {
+	// A variable the checker closed (`Maybe<?1>` of `Debug.inspect(None)`)
+	// is its closed type, at any depth.
+	recv = Elaborate(recv)
+	t := resolveTypeVar(ResolveClosed(recv))
+	if heldPerInstance(t) {
+		return &OperatorUse{Form: OperatorPerInstance, Bound: iface}, nil
+	}
 	b := chosen
 	if b == nil && fa != nil {
 		b = fa.implBlockFor(recv, iface, origin, args)
 	}
-	t := resolveTypeVar(ResolveClosed(recv))
 	if b != nil {
 		return &OperatorUse{Form: OperatorByImpl, Impl: &OperatorImpl{Interface: iface, Receiver: t, Args: args, Method: implBlockMethod(b, method)}}, b
 	}
@@ -208,6 +218,19 @@ func (fa *FileAnalysis) interfaceUse(iface, method, origin string, recv Type, ar
 		return noImplUse(iface, nominal), nil
 	}
 	return nil, nil
+}
+
+// heldPerInstance reports whether t, a use's receiver type, is a declared
+// type or a collection whose type arguments hold a type parameter, whose
+// impl each instance of the generic body answers (interfaceUse). A type
+// parameter itself, an interface value, a tuple, an anonymous struct and
+// a function value are answered by their shape (shapeUse).
+func heldPerInstance(t Type) bool {
+	switch t.(type) {
+	case nil, *TypeParam_, *TypeVar, *PrimitiveType, *InterfaceType, *ConjunctionType, *TupleType, *AnonStructType, *FuncType:
+		return false
+	}
+	return ContainsTypeParam(t)
 }
 
 // shapeUse is how a use of iface's function on a value of type t, which
@@ -286,7 +309,7 @@ func (fa *FileAnalysis) OperatorUseAt(body *FileAnalysis, n ast.Node, by func(*T
 	if !all {
 		return use, false
 	}
-	t = resolveTypeVar(t)
+	t = resolveTypeVar(Elaborate(t))
 	if _, still := t.(*TypeParam_); still {
 		return use, false
 	}

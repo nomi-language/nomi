@@ -58,6 +58,7 @@ package irbuild
 // they are pinned against each other there rather than here.
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
@@ -239,7 +240,7 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 	viaInspect := false
 	if !irDebugValueKind(k) && !distinctDebug {
 		var ok bool
-		if impls, ok = bl.nestedDebugImpls(k); !ok {
+		if impls, ok = bl.nestedDebugImpls(k, bl.g.operandCheckerType(operand)); !ok {
 			viaInspect = true
 		}
 	}
@@ -375,7 +376,7 @@ func (bl *irScalarBuilder) boxedEnumDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 	return []ir.DebugImpl{{Type: bl.g.irImplTypeSym(k).Name(), Fn: sym}}, true
 }
 
-func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
+func (bl *irScalarBuilder) nestedDebugImpls(k kind, kt analysis.Type) ([]ir.DebugImpl, bool) {
 	var impls []ir.DebugImpl
 	// seen is keyed by runtime type name and instance key: two instances of
 	// one generic type (`Box<Bool>`, `Box<String>`) share the name and each
@@ -399,12 +400,15 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		add(k, sym)
 		return synth, true
 	}
-	var walk func(k kind) bool
+	// walk walks k, and kt, the checker's type k was read from where one
+	// is known (partCheckerType), which a std instance it names is
+	// entered with.
+	var walk func(k kind, kt analysis.Type) bool
 	// attempt walks k and keeps what it registered only if the walk
 	// succeeds, for a source an Iter position may or may not hold.
 	attempt := func(k kind) {
 		n := len(impls)
-		if walk(k) {
+		if walk(k, nil) {
 			return
 		}
 		for _, im := range impls[n:] {
@@ -412,8 +416,8 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		}
 		impls = impls[:n]
 	}
-	walk = func(k kind) bool {
-		if irExistentialKind(k) || irConjKind(k) {
+	walk = func(k kind, kt analysis.Type) bool {
+		if heldAs(k) == heldBoxed {
 			// An interface value inside a tuple, record or list renders as
 			// the value it holds, through every implementer's Debug, as a
 			// top-level one does (existentialDebugImpls).
@@ -453,7 +457,9 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			// refusal is no Range, which irIterRangeElem declines.
 			rk := bl.g.rangeKindOf(elem)
 			if _, walks := irIterRangeElem(rk); walks {
-				if sym := bl.stdInstDebugSym(rk); sym != nil {
+				// The Range is no value the checker typed: its element's
+				// source is.
+				if sym := bl.stdInstDebugSym(rk, nil); sym != nil {
 					add(rk, sym)
 				}
 			}
@@ -470,7 +476,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		if member, isSet := setElem(k); isSet {
 			// rt's structural Set Debug renders each member through the
 			// same hook.
-			return walk(member)
+			return walk(member, partCheckerType(kt, k, 0))
 		}
 		if p := bl.stdDebugPlan(k); p != nil {
 			// A std named type renders through std's own retained impl.
@@ -480,7 +486,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		if _, _, isGen := genStructOf(k); isGen {
 			// An instance of a generic std struct (`Captured<Int>`) renders
 			// through std's Debug template instantiated at it.
-			if sym := bl.stdInstDebugSym(k); sym != nil {
+			if sym := bl.stdInstDebugSym(k, kt); sym != nil {
 				add(k, sym)
 				return true
 			}
@@ -488,7 +494,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		if k.tag == tagNamed && k.def != nil && k.def.preludeOf != nil && irRetainedEnumKind(k.def) {
 			for _, v := range k.def.variants {
 				for _, pl := range v.payloads {
-					if !walk(pl.k) {
+					if !walk(pl.k, nil) {
 						return false
 					}
 				}
@@ -532,16 +538,16 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 			return true
 		}
 		if elem, vector := vectorElem(k); vector {
-			return walk(elem)
+			return walk(elem, partCheckerType(kt, k, 0))
 		}
 		switch {
 		case k.tag == tagList && k.comp != nil && len(k.comp.parts) == 1:
-			return walk(k.comp.parts[0])
+			return walk(k.comp.parts[0], partCheckerType(kt, k, 0))
 		case irMapTransportKind(k), k.tag == tagMap && irRetainedMapKind(k):
-			return walk(k.comp.parts[0]) && walk(k.comp.parts[1])
+			return walk(k.comp.parts[0], partCheckerType(kt, k, 0)) && walk(k.comp.parts[1], partCheckerType(kt, k, 1))
 		case irRetainedTupleKind(k) || irRetainedRecordKind(k):
-			for _, part := range k.comp.parts {
-				if !walk(part) {
+			for i, part := range k.comp.parts {
+				if !walk(part, partCheckerType(kt, k, i)) {
 					return false
 				}
 			}
@@ -549,7 +555,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 		}
 		return irDebugValueKind(k)
 	}
-	if !walk(k) {
+	if !walk(k, kt) {
 		return nil, false
 	}
 	// Every part renders: through the impls named, or structurally (a
@@ -561,32 +567,23 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 // container kind k (`impl Debug for Range<T>` at `Range<Int>`) or the generic
 // std struct instance k (`Captured<Int>`), for a renderer that calls it by
 // runtime type rather than at a call site, or nil when std has no such
-// template or it does not instantiate at k.
-func (bl *irScalarBuilder) stdInstDebugSym(k kind) *ir.Symbol {
-	s := bl.g.stdInsts
+// template or it does not instantiate at k. kt is the checker's type k was
+// read from, or nil (stdRecvInstance).
+func (bl *irScalarBuilder) stdInstDebugSym(k kind, kt analysis.Type) *ir.Symbol {
 	base := irContainerBaseName(k)
 	if spec, _, isGen := genStructOf(k); isGen && base == "" {
 		base = spec.nomi
 	}
-	if s == nil || base == "" {
+	if base == "" {
 		return nil
 	}
 	f := bl.g.stdGenericTemplate(base, "inspect")
 	if !stdGenericTemplateUsable(f) {
 		return nil
 	}
-	tps, ib := s.stdTemplateParams(f)
-	if len(tps) == 0 || ib == nil || ib.Interface == nil || typeText(ib.Interface) != "Debug" {
-		return nil
-	}
-	// kindInvalid: sentinel — no call site supplies a result kind. A Unit
-	// argument is admitted: k is a built instance, so Unit is its argument
-	// (`Captured<Unit>`), not a hole.
-	args, ok := bl.g.stdRecvTypeArgs(tps, ib, k, true)
-	if !ok {
-		return nil
-	}
-	inst, _ := s.instantiate(f, tps, args, bl.g)
+	// A Unit argument is admitted: k is a built instance, so Unit is its
+	// argument (`Captured<Unit>`), not a hole.
+	inst := bl.g.stdRecvInstance(f, "Debug", k, kt, true)
 	if inst == nil || len(inst.view.params) != 1 || inst.view.params[0] != k || inst.view.result != kindString {
 		return nil
 	}

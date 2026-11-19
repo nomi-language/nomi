@@ -1,8 +1,8 @@
-package analysis
+package suggest
 
 import "testing"
 
-func TestClosestName(t *testing.T) {
+func TestClosest(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		candidates []string
@@ -23,8 +23,8 @@ func TestClosestName(t *testing.T) {
 		{"total", []string{"total", "__total", "$total"}, ""},
 		{"", []string{"a"}, ""},
 	} {
-		if got := closestName(tc.name, tc.candidates); got != tc.want {
-			t.Errorf("closestName(%q, %q) = %q, want %q", tc.name, tc.candidates, got, tc.want)
+		if got := Closest(tc.name, tc.candidates); got != tc.want {
+			t.Errorf("Closest(%q, %q) = %q, want %q", tc.name, tc.candidates, got, tc.want)
 		}
 	}
 }
@@ -41,8 +41,8 @@ func TestEditDistance(t *testing.T) {
 		{"abcd", "abdc", 1},
 		{"kitten", "sitting", 3},
 	} {
-		if got := editDistance(tc.a, tc.b); got != tc.want {
-			t.Errorf("editDistance(%q, %q) = %d, want %d", tc.a, tc.b, got, tc.want)
+		if got := EditDistance(tc.a, tc.b); got != tc.want {
+			t.Errorf("EditDistance(%q, %q) = %d, want %d", tc.a, tc.b, got, tc.want)
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/internal/suggest"
 )
 
 // Short names, directory imports and paths at a use (spec §14 *Short names*
@@ -438,7 +439,7 @@ func (b *builder) reachError(dirSym *Symbol, segs, full []string, miss *importMi
 		return TypeError{Message: fmt.Sprintf("`%s` names no file: there is no directory %s", written, strings.ReplaceAll(where, ast.PathSeparator, "/")+"/")}
 	}
 	e := TypeError{Message: fmt.Sprintf("`%s` names no file: %s has no %s.nomi", written, where, leaf)}
-	if best := closestName(leaf, append(slices.Clone(listing.Files), listing.Dirs...)); best != "" {
+	if best := suggest.Closest(leaf, append(slices.Clone(listing.Files), listing.Dirs...)); best != "" {
 		return e.WithHint(fmt.Sprintf("did you mean `%s`?", spell(append(slices.Clone(parent), best)...)))
 	}
 	var held []string

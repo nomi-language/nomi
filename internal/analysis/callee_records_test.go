@@ -81,9 +81,11 @@ end
 	if in.Qualifier.Kind != analysis.QualInterface || in.Method != "contains" {
 		t.Errorf("`3 in xs`: qualifier %+v method %q, want Contains.contains", in.Qualifier, in.Method)
 	}
+	// In a generic body the collection's type holds T, so each instance
+	// answers which impl the call reaches, as `xs == ys` there is.
 	generic := byLine[10]
-	if generic.Kind != analysis.CalleeImpl || generic.Impl != in.Impl || generic.For == nil {
-		t.Fatalf("`x in xs` in a generic body: %+v, want Contains's impl for the collection's type", generic)
+	if generic.Kind != analysis.CalleeInterface || generic.Impl != nil || generic.Form != analysis.OperatorPerInstance || generic.For == nil {
+		t.Fatalf("`x in xs` in a generic body: %+v, want Contains's function, per instance", generic)
 	}
 	if got := generic.For.String(); got != "List<T>" {
 		t.Errorf("`x in xs` in a generic body: For %s, want List<T>", got)

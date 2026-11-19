@@ -161,7 +161,7 @@ end
 func TestWithCapabilities_CallIsHeld(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\n\n[capabilities]\nstd = []\n",
+		"nomi.toml": "[module]\nname = \"app\"\n\n[capabilities.self]\nstd = []\n",
 		"rules.nomi": `import std::io
 
 pub fn quiet(n: Int) -> Int
@@ -209,7 +209,7 @@ end
 	load := func(allow string, opts ...vmhost.Option) error {
 		dir := t.TempDir()
 		writeFiles(t, dir, map[string]string{
-			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [" + allow + "]\n",
+			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [" + allow + "]\n",
 			"main.nomi": main,
 		})
 		_, err := vmhost.Load(filepath.Join(dir, "main.nomi"), opts...)
@@ -226,7 +226,7 @@ end
 		t.Errorf("the host narrows what nomi.toml allows: %v", err)
 	}
 	err = load(`"std::io"`, vmhost.WithCapabilities("std::io", "std::fs"))
-	if err == nil || firstLine(err) != "main.nomi:7:14: this program reaches std::fs, and nomi.toml allows only std::io" {
+	if err == nil || firstLine(err) != "main.nomi:7:14: this module's own code reaches std::fs, and [capabilities.self] allows it only std::io" {
 		t.Errorf("nomi.toml narrows what the host allows: %v", err)
 	}
 }

@@ -375,11 +375,21 @@ func (g *gen) calleeAt(t *ast.Call) analysis.Callee {
 }
 
 // instanceFA is the file whose program's impls an instance's type
-// arguments have: this gen's, or in a std instance, the program file whose
-// call made it (stdProgCaller).
+// arguments have: this gen's; in a std instance, the program file whose
+// call made it (stdProgCaller); in a std module listed in
+// programStdModules and lowered with the program (programStd), whose
+// analysis is std's and holds none of the program's impls, the program's
+// first file.
 func (g *gen) instanceFA() *analysis.FileAnalysis {
 	if g.stdProgCaller != nil {
 		return g.stdProgCaller.srcFA()
+	}
+	if g.programStd && g.stdInsts != nil {
+		for _, og := range g.stdInsts.program {
+			if og != nil && og.stdModule == "" && !og.programStd && og.fa != nil {
+				return og.fa
+			}
+		}
 	}
 	return g.srcFA()
 }

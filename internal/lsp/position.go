@@ -2,9 +2,11 @@ package lsp
 
 import (
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/textpos"
 
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -62,6 +64,12 @@ func utf16ColOnLine(lineText string, byteCol uint32) uint32 {
 func (s *Server) contentForURI(uri protocol.DocumentUri) (string, bool) {
 	if doc := s.docs.Snapshot(string(uri)); doc != nil {
 		return doc.Content, true
+	}
+	if isManifestURI(string(uri)) {
+		// A module's manifest as every analysis reads it: the editor's
+		// text when it is open (analysis.ReadManifest).
+		data, err := analysis.ReadManifest(filepath.Dir(uriToPath(string(uri))))
+		return string(data), err == nil
 	}
 	if s.followsInput(string(uri)) {
 		// An input's text as the analysis read it: the editor's buffer

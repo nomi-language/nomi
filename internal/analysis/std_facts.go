@@ -264,7 +264,7 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 // stdFactsVersion versions Encode's layout.
-const stdFactsVersion = 4
+const stdFactsVersion = 5
 
 // Encode writes f, naming each file a position names by fileName.
 func (f *StdFacts) Encode(fileName func(string) string) []byte {
@@ -320,6 +320,7 @@ func (f *StdFacts) Encode(fileName func(string) string) []byte {
 			e.String(r.rec.Op)
 			e.String(r.rec.TypeOrigin)
 			e.String(r.rec.IfaceOrigin)
+			e.String(r.rec.IfaceTypeParams)
 		}
 	}
 	e.Uint(uint64(len(f.boot)))
@@ -382,6 +383,7 @@ func DecodeStdFacts(data []byte, filePath func(string) string) (*StdFacts, error
 				r.rec.Op = d.String()
 				r.rec.TypeOrigin = d.String()
 				r.rec.IfaceOrigin = d.String()
+				r.rec.IfaceTypeParams = d.String()
 				f.manifests[name] = append(f.manifests[name], r)
 			}
 		}

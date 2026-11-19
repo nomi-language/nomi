@@ -29,12 +29,14 @@ import (
 const viewSeq analysis.IterViewDomain = 0
 
 // viewSource is a source as the view over it walks it: its domain, the
-// element it pushes, and for a type's own `impl Iter` the impl's
-// functions.
+// element it pushes, the checker's type of that element where the view's
+// record gives one (analysis.IterView.Elem), and for a type's own `impl
+// Iter` the impl's functions.
 type viewSource struct {
-	dom  analysis.IterViewDomain
-	elem kind
-	user *userIterSource
+	dom      analysis.IterViewDomain
+	elem     kind
+	elemType analysis.Type
+	user     *userIterSource
 }
 
 // iterViewAt is the checker's record of the view the source expression n
@@ -80,7 +82,9 @@ func (g *gen) iterViewAt(n ast.Node) *analysis.IterView {
 func (bl *irScalarBuilder) viewSourceAt(at ast.Node, sk kind) (viewSource, bool) {
 	if sk.tag != tagSeq && !bl.unwritten {
 		if rec := bl.g.iterViewAt(at); rec != nil && rec.Domain != analysis.IterViewBound {
-			return bl.viewSourceIn(rec.Domain, rec.Impl, sk)
+			vs, ok := bl.viewSourceIn(rec.Domain, rec.Impl, sk)
+			vs.elemType = bl.g.checkerTypeArg(rec.Elem)
+			return vs, ok
 		}
 	}
 	return bl.viewSourceOfKind(sk)
@@ -208,7 +212,7 @@ func (bl *irScalarBuilder) viewAs(at ast.Node, src ir.Temp, sk kind, vs viewSour
 	if !asItIs && !irCallableValueKind(from) {
 		// An element no adapter takes is elem's when it is the interface's
 		// or the conjunction's value all the same.
-		if !irHeldKind(elem) || !bl.g.irErases(elem, from) {
+		if !irHeldKind(elem) || !bl.g.irErases(elem, from, nil) {
 			return ir.NoTemp, false
 		}
 		asItIs = true
@@ -280,7 +284,7 @@ func (bl *irScalarBuilder) viewOwn(at ast.Node, src ir.Temp, sk kind, vs viewSou
 			// (rt.CodepointRangeSeq).
 			return view(ir.IterOverCodepointRange, src)
 		}
-		ops, ok := bl.rangeView(at, src, own)
+		ops, ok := bl.rangeView(at, src, own, vs.elemType)
 		if !ok {
 			return ir.NoTemp, false
 		}

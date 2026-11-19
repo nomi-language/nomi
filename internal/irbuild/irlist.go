@@ -159,7 +159,7 @@ func (bl *irScalarBuilder) listMakeOf(at ast.Node, items []ast.Node, tail ast.No
 		if !ok || (!irRetainedLeafKind(k) && !irRetainedListKind(k) && !irNominalElemKind(k) && !irLeafTupleKind(k) && !irRetainedTupleKind(k) && !irEmbeddedIn(want, k) &&
 			!isDecimalKind(k) && !irPreludeElemKind(k) && !irListMapElemKind(k) && !irByteElemKind(k) && !(irHeldKind(k)) &&
 			// kindInvalid: sentinel — no annotation supplies an element to erase into.
-			!(want != kindInvalid && bl.g.irErases(want, k)) &&
+			!(want != kindInvalid && bl.g.irErases(want, k, nil)) &&
 			// Any other value with a stored type: the VM's list holds values
 			// of every kind (a function, an Iter, a Context, a list of
 			// structs), and each consumer of the list (Debug, equality,
@@ -542,7 +542,7 @@ func (bl *irScalarBuilder) convertTo(at ast.Node, v ir.Temp, have, want kind) (i
 	}
 	if irConjKind(want) {
 		// A value entering an interface conjunction (conjunction.go).
-		if out, how := bl.intoConjunction(at, v, want, have, bl.g.recordedConj(at, want, have)); how != irNotCoerced {
+		if out, how := bl.intoConjunction(at, v, want, have, bl.g.recordedCoercion(at, want, have)); how != irNotCoerced {
 			return out, want, true
 		}
 	}
@@ -553,7 +553,7 @@ func (bl *irScalarBuilder) convertTo(at ast.Node, v ir.Temp, have, want kind) (i
 		// adapter, an element's), by the impl the record names. The VM's
 		// existential is the concrete value itself, boxed where its runtime
 		// type does not name its impl (irboxed.go).
-		if out, how := bl.intoExistential(at, v, want, have, bl.g.recordedImpl(at, want, have)); how != irNotCoerced {
+		if out, how := bl.intoExistential(at, v, want, have, bl.g.recordedCoercion(at, want, have)); how != irNotCoerced {
 			return out, want, true
 		}
 	}
@@ -604,7 +604,7 @@ func (bl *irScalarBuilder) convertTo(at ast.Node, v ir.Temp, have, want kind) (i
 // without a box (irBoxPlanFor), so a source of such values is viewed as a
 // source of want's.
 func (bl *irScalarBuilder) erasesUnboxed(want, have kind) bool {
-	return irExistentialKind(want) && bl.g.irErases(want, have) && bl.g.irBoxPlanFor(want, have, nil) == nil
+	return irExistentialKind(want) && bl.g.irErases(want, have, nil) && bl.g.irBoxPlanFor(want, have, nil, nil) == nil
 }
 
 // lowerWant lowers at as a value of kind want, coercing what it lowers to

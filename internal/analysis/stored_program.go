@@ -61,7 +61,7 @@ import (
 const storedKind = "lsp-program"
 
 // storedMagic heads a record. It changes with storedRecord's layout.
-const storedMagic = "NOMILSP5"
+const storedMagic = "NOMILSP6"
 
 // storedRecord is what a program's record holds.
 type storedRecord struct {

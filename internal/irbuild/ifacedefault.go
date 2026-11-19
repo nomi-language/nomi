@@ -169,7 +169,7 @@ func (g *gen) defaultForwardCallee(d *implDef, it *implItem, params []kind) (*ir
 // kinds. It is nil when the default's signature is outside the subset
 // there. The body is queued for flushIfaceDefaults.
 func (g *gen) ifaceDefaultInstance(mirror *ifaceDef, im *ast.InterfaceMethod, recv kind, frame map[string]kind, types map[string]analysis.Type, impl *implDef, impls *gen) *ifaceDefaultInst {
-	iface := g.declaredIface(mirror, frame)
+	iface := g.declaredIface(mirror, frame, types)
 	if iface == nil {
 		return nil
 	}
@@ -230,8 +230,9 @@ func (g *gen) ifaceDefaultInstance(mirror *ifaceDef, im *ast.InterfaceMethod, re
 
 // declaredIface is this file's own def of the interface another file's
 // mirror stands for: its declaration, or for an instance of a generic
-// interface the instance at the arguments in frame.
-func (g *gen) declaredIface(mirror *ifaceDef, frame map[string]kind) *ifaceDef {
+// interface the instance at the arguments in frame, whose checker types
+// are types (nil where the caller has none).
+func (g *gen) declaredIface(mirror *ifaceDef, frame map[string]kind, types map[string]analysis.Type) *ifaceDef {
 	if mirror == nil {
 		return nil
 	}
@@ -239,7 +240,7 @@ func (g *gen) declaredIface(mirror *ifaceDef, frame map[string]kind) *ifaceDef {
 		if src := g.ifaces[tpl.Name]; src == nil || src.decl != tpl || src.foreign != "" {
 			return nil
 		}
-		return g.ifaceInstAt(tpl, frame).def
+		return g.ifaceInstAtTyped(tpl, frame, types).def
 	}
 	if mirror.decl == nil {
 		return nil

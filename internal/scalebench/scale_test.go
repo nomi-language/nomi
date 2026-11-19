@@ -134,7 +134,8 @@ func ops() []op {
 				tb.Fatal("the entry's analysis is not the program nomi check builds")
 			}
 			return func(tb testing.TB, _ int) {
-				problems, ok, err := analyzedlowering.Check(context.Background(), p.entry, src, a)
+				found, ok, err := analyzedlowering.Check(context.Background(), p.entry, src, a)
+				problems := found.Problems
 				if !ok || problems != nil || err != nil {
 					tb.Fatalf("lowering from the analysis: ok %v, problems %v, err %v", ok, problems, err)
 				}
@@ -153,11 +154,11 @@ func ops() []op {
 				tb.Fatal("the entry's analysis is not the program nomi check builds")
 			}
 			var memo analyzedlowering.Memo
-			problems, ok, err := analyzedlowering.Check(context.Background(), p.entry, src, a)
+			found, ok, err := analyzedlowering.Check(context.Background(), p.entry, src, a)
 			if !ok {
 				tb.Fatal("the entry was not lowered from its analysis")
 			}
-			memo.Store(p.entry, src, a, problems, err)
+			memo.Store(p.entry, src, a, found, err)
 			return func(tb testing.TB, _ int) {
 				if _, _, ok := memo.Lookup(p.entry, src, a); !ok {
 					tb.Fatal("the memo does not answer the same input")
@@ -168,7 +169,8 @@ func ops() []op {
 		op{"lsp lowering, from the text", func(tb testing.TB, p *project) func(testing.TB, int) {
 			src := p.gen.Files[p.gen.Entry]
 			return func(tb testing.TB, _ int) {
-				problems, err := vmhost.CheckLowering(context.Background(), p.entry, src)
+				found, err := vmhost.CheckLowering(context.Background(), p.entry, src)
+				problems := found.Problems
 				if problems != nil || err != nil {
 					tb.Fatalf("lowering: problems %v, err %v", problems, err)
 				}

@@ -108,10 +108,10 @@ func WithHosts(tables ...HostTable) Option {
 // allowed by module with WithGo), a `host:` key no table answers, and a
 // name listed twice fail the load; a valid name nothing reaches does not.
 // Run, Test and Call hold the program again from their own roots, as they
-// hold it to nomi.toml's lists. The project's own [capabilities] table
-// still applies, so the program must satisfy both: neither list widens
-// the other, and a module's own list under [capabilities.modules] still
-// holds that module's calls.
+// hold it to nomi.toml's lists. The project's own [capabilities] tables
+// still apply, so the program must satisfy both: neither list widens the
+// other, and a dependency's entry under [capabilities.deps.modules] still
+// holds that dependency's calls.
 //
 // It does not confine what it cannot see:
 //
@@ -148,7 +148,7 @@ func WithCapabilities(names ...string) Option {
 // module, and with no WithGo none runs. Without WithCapabilities, WithGo
 // holds only Go bindings. A module that is neither the project nor one
 // its go.mod requires, and a module listed twice, fail the load. The
-// project's own [capabilities] table still applies.
+// project's own [capabilities] tables still apply.
 func WithGo(modules ...string) Option {
 	return func(c *config) {
 		c.goHeld = true

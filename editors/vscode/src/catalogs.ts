@@ -1,9 +1,10 @@
 /**
- * Phrase catalogs: the TOML files a module's `phrase` translations live
- * in, under the directory `[i18n].catalogs` names in its nomi.toml
+ * The TOML files the language server reads: each module's nomi.toml, and
+ * its phrase catalogs, the TOML files a module's `phrase` translations
+ * live in, under the directory `[i18n].catalogs` names in its nomi.toml
  * (`locales` unless it says otherwise). The language client attaches to
  * them, and to no other TOML file, through the document filters this
- * builds from each module's manifest.
+ * builds from each module's manifest (tomlFilters).
  */
 
 /** A module's manifest: the directory holding it and its text. */
@@ -56,4 +57,13 @@ export function catalogFilters(manifests: Manifest[]): { scheme: string; pattern
     }
   }
   return out;
+}
+
+/**
+ * The document filters of the TOML files the client sends the server: every
+ * nomi.toml, whose errors and [capabilities] lists the server checks, and
+ * the catalogs of the modules whose manifests are given (catalogFilters).
+ */
+export function tomlFilters(manifests: Manifest[]): { scheme: string; pattern: string }[] {
+  return [{ scheme: "file", pattern: "**/nomi.toml" }, ...catalogFilters(manifests)];
 }

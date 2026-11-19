@@ -42,7 +42,7 @@ func (bl *irScalarBuilder) relabels(have, want kind) (relabel bool) {
 	}
 	if irConjKind(want) {
 		// A value entering a conjunction unboxed.
-		return bl.g.irErases(want, have) && bl.g.irBoxPlanFor(want, have, nil) == nil
+		return bl.g.irErases(want, have, nil) && bl.g.irBoxPlanFor(want, have, nil, nil) == nil
 	}
 	if irExistentialKind(want) {
 		return bl.erasesUnboxed(want, have)

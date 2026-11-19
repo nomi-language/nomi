@@ -180,11 +180,12 @@ func isManifestURI(uri string) bool {
 	return filepath.Base(uriToPath(uri)) == "nomi.toml"
 }
 
-// manifestChanged rechecks after a nomi.toml changed on disk, as after an
-// input changed (InputsChanged), and lowers each open document again, since
-// what the lowering reports reads the manifest too: its [capabilities]
-// lists and its [money] currencies. The memo misses, as it keys a lowering
-// by the manifest's text (analyzedlowering.Memo).
+// manifestChanged rechecks after a nomi.toml changed, on disk or in an
+// editor (manifest.go), as after an input changed (InputsChanged), and
+// lowers each open document again, since what the lowering reports reads
+// the manifest too: its [capabilities] lists and its [money] currencies.
+// The memo misses, as it keys a lowering by the manifest's text
+// (analyzedlowering.Memo).
 func (s *Server) manifestChanged(uri string) {
 	if s.notify == nil {
 		return

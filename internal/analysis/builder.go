@@ -440,6 +440,13 @@ type Recording struct {
 	// knows nothing more than the name; such a demand keeps the bare-name
 	// answer for the interface (missing_impl_identity.go).
 	IfaceOrigin string
+	// IfaceTypeParams is the type parameters the demanded interface's
+	// declaration lists, joined as it writes them (`Rhs, Out` for `Add`),
+	// or "" for an interface with none or of no declaration the demanding
+	// file reaches. RecordManifest fills it, so the missing-impl help names
+	// the impl block to write (`impl Scale<N> for Other`) from the stored
+	// demand alone.
+	IfaceTypeParams string
 }
 
 // LookupTypeMethod returns the impl-block method symbol for (typeName,
@@ -541,6 +548,7 @@ func (fa *FileAnalysis) RecordManifest(typeName, ifaceName string, rec Recording
 	if rec.Pos.Line >= synthLineBase {
 		return
 	}
+	rec.IfaceTypeParams = fa.interfaceTypeParams(rec.IfaceOrigin, ifaceName)
 	if fa.ImplManifest == nil {
 		fa.ImplManifest = make(map[string]map[string][]Recording)
 	}

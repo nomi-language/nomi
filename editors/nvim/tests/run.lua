@@ -815,7 +815,7 @@ test('a module with locales has its catalogs under the directory [i18n] names', 
   eq(catalogs.dir('[i18n]\ncatalogs = "locales"\n'), nil, 'no locales')
 end)
 
-test('nomi-lsp attaches to a module\'s catalogs and to no other TOML file', function()
+test('nomi-lsp attaches to a module\'s nomi.toml and catalogs and to no other TOML file', function()
   local shop = dir .. '/shop'
   vim.fn.mkdir(shop .. '/locales/pl', 'p')
   vim.fn.mkdir(shop .. '/config', 'p')
@@ -838,7 +838,7 @@ test('nomi-lsp attaches to a module\'s catalogs and to no other TOML file', func
   end
   eq(root_of(catalog, 'toml'), shop, 'a catalog\'s root')
   eq(root_of(other, 'toml'), false, 'another TOML file attaches')
-  eq(root_of(shop .. '/nomi.toml', 'toml'), false, 'the manifest attaches')
+  eq(root_of(shop .. '/nomi.toml', 'toml'), shop, 'the manifest\'s root')
   eq(root_of(shop .. '/cart.nomi', 'nomi'), shop, 'a Nomi file\'s root')
 end)
 

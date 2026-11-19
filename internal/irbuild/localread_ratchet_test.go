@@ -17,10 +17,13 @@ import (
 // resolved the read to differ (verifyLocalRead, knownLocalReadClasses) the
 // programs TestIRGolden_RecordsMatchTheVM runs reach. Each count only goes
 // down. Every class's cause is in knownLocalReadClasses; a binding keyed by
-// its declaration, as the checker keys it, removes all four.
+// its declaration, as the checker keys it, removes all four. A refinement
+// rule's literal is read so only in std's own lowerings, which the census
+// does not count, so the count is the same with the artifact cache empty,
+// warm or off.
 var maxLocalReadSites = map[localReadClass]int{
 	localReadCallSiteDefault:       6,
-	localReadRefinementLiteral:     8,
+	localReadRefinementLiteral:     0,
 	localReadDestructuredParameter: 1,
 	localReadNestedSelf:            1,
 }

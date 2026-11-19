@@ -202,7 +202,7 @@ func (g *gen) irNoteConformance(it *implItem, args []kind) {
 			if at == nil {
 				continue
 			}
-			if g.implements(p.iface, a) {
+			if g.implements(p.iface, a, nil) {
 				g.irTypes().Conforms(at, pt)
 			}
 		}

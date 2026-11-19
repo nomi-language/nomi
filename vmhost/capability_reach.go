@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -20,21 +21,27 @@ type Reach struct {
 	// Root is the project's directory, the one holding its nomi.toml, or
 	// "" for a program with none.
 	Root string
-	// Project is the project's own module path (projectModule): what `go`
-	// and its own entry under [capabilities.modules] name it by.
+	// Project is the project's own module path (projectModule), whose own
+	// files [capabilities.self] holds.
 	Project string
-	// Modules is each module an entry under [capabilities.modules] may
-	// name that the programs' code comes from: the project's own path and
-	// each module go.mod requires whose Nomi files the programs hold
-	// (requiredModules), sorted.
+	// Modules is each dependency an entry under [capabilities.deps.modules]
+	// may name that the programs' code comes from: each module go.mod
+	// requires whose Nomi files the programs hold (requiredModules),
+	// sorted.
 	Modules []string
-	// Lists is nomi.toml's [capabilities] table, nil when it has none.
+	// Lists is nomi.toml's capability tables, nil when it has neither.
 	Lists *Capabilities
 	// Walks is each walk's calls, the walks from main before the walks
 	// from the tests for each program.
 	Walks []Walk
-	// declared is each dependency's own table (declaredLists).
-	declared map[string]*Capabilities
+	// ListProblems is what `nomi check` reports about the lists themselves
+	// before it holds any call to them (capabilityListProblems): a name
+	// that is no std module, a dependency go.mod does not require, a
+	// dependency entries_required finds with no entry. Each is given once.
+	ListProblems Diagnostics
+	// declared is each dependency's own [capabilities.self]
+	// (declaredLists).
+	declared map[string]*analysis.SelfCapabilities
 	// sites is where a report shows each call (shownAt), by its position.
 	sites map[ir.Pos]string
 }
@@ -62,19 +69,18 @@ func Reached(path string, opts ...Option) (*Reach, error) {
 // `nomi check` holds to the lists: main, the boot and the exported
 // functions, and the test cases.
 func (p *Program) Reach() *Reach {
-	r := &Reach{Root: p.prog.Root, Project: p.projectModule(), Lists: p.capabilities, declared: map[string]*Capabilities{}, sites: map[ir.Pos]string{}}
-	r.Modules = []string{r.Project}
+	r := &Reach{Root: p.prog.Root, Project: p.projectModule(), Lists: p.capabilities, ListProblems: p.capabilityListProblems(),
+		declared: map[string]*analysis.SelfCapabilities{}, sites: map[ir.Pos]string{}}
 	for _, m := range p.requiredModules() {
-		if problem, _ := p.unknownModule(m.path); problem == "" && !slices.Contains(r.Modules, m.path) {
+		if problem, _ := p.dependencyProblem(m.path); problem == "" && !slices.Contains(r.Modules, m.path) {
 			r.Modules = append(r.Modules, m.path)
 		}
 	}
 	slices.Sort(r.Modules)
-	for _, roots := range p.checkedRoots() {
-		calls := p.OutsideCalls(roots)
-		r.Walks = append(r.Walks, Walk{Tests: roots.Tests != nil, Calls: calls})
-		maps.Copy(r.declared, p.declaredLists(calls))
-		for _, c := range calls {
+	r.Walks = p.walks(p.checkedRoots())
+	for _, w := range r.Walks {
+		maps.Copy(r.declared, p.declaredLists(w.Calls))
+		for _, c := range w.Calls {
 			if _, done := r.sites[c.at]; !done {
 				_, line, col := p.shownAt(c)
 				r.sites[c.at] = fmt.Sprintf("%s:%d:%d", p.imageName(c.at.File()), line, col)
@@ -87,6 +93,11 @@ func (p *Program) Reach() *Reach {
 // Add adds o, the Reach of another program of the same project, to r.
 func (r *Reach) Add(o *Reach) {
 	r.Walks = append(r.Walks, o.Walks...)
+	for _, d := range o.ListProblems {
+		if !slices.ContainsFunc(r.ListProblems, func(e Diagnostic) bool { return e.String() == d.String() }) {
+			r.ListProblems = append(r.ListProblems, d)
+		}
+	}
 	for _, m := range o.Modules {
 		if !slices.Contains(r.Modules, m) {
 			r.Modules = append(r.Modules, m)
@@ -94,7 +105,7 @@ func (r *Reach) Add(o *Reach) {
 	}
 	slices.Sort(r.Modules)
 	if r.declared == nil {
-		r.declared = map[string]*Capabilities{}
+		r.declared = map[string]*analysis.SelfCapabilities{}
 	}
 	maps.Copy(r.declared, o.declared)
 	if r.sites == nil {
@@ -115,11 +126,11 @@ func (r *Reach) ModuleOf(c OutsideCall) string {
 	return cmp.Or(c.Module, r.Project)
 }
 
-// Tightest is the smallest [capabilities] table the walks pass
+// Tightest is the smallest pair of capability tables the walks pass
 // (tightestLists): with it as nomi.toml's, NotAllowed answers only the
 // calls a dependency's own table refuses.
 func (r *Reach) Tightest() *Capabilities {
-	return tightestLists(r.Walks, r.Project, r.Modules)
+	return tightestLists(r.Walks, r.Modules)
 }
 
 // NotAllowed is each call the walks reach that lists, with each

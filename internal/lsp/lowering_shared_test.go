@@ -55,7 +55,8 @@ func sharedLoweringDoc(t *testing.T, s *Server, rel string) (path, uri, text str
 // lowerAnalyzed lowers a, which must be lowered from the analysis, and
 // must report lowering diagnostics.
 func lowerAnalyzed(t *testing.T, path, text string, a *analyzedlowering.Analyzed) {
-	problems, ok, err := analyzedlowering.Check(context.Background(), path, text, a)
+	found, ok, err := analyzedlowering.Check(context.Background(), path, text, a)
+	problems := found.Problems
 	if !ok || err != nil || problems == nil {
 		t.Errorf("%s: lowered from its analysis %v, problems %v, err %v; want problems from the analysis", path, ok, problems, err)
 	}

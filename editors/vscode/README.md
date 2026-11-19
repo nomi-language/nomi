@@ -11,6 +11,11 @@ and its forks:
   semantic tokens.
 - The language server, `nomi-lsp`: diagnostics, hover, completion,
   go-to-definition, formatting and the rest of what it serves.
+- `nomi.toml`: the client attaches `nomi-lsp` to every `nomi.toml`, for
+  the errors `nomi check` reports there, as you type, and completion of std
+  module names and module paths in its `[capabilities]` lists. A quick fix
+  on a call the lists do not allow edits it. The file keeps VS Code's TOML
+  highlighting.
 - Phrase catalogs: the client also attaches `nomi-lsp` to each module's
   catalogs, the TOML files under the directory its `nomi.toml` names in
   `[i18n].catalogs` (`locales/` unless it names another), for their

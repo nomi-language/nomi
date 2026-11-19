@@ -55,7 +55,9 @@ const (
 	answerStructural
 	answerDispatched
 	// answerPerInstance: a per-instance record this instance does not
-	// resolve.
+	// resolve, which no pair lists: every instance is entered with the
+	// checker's types for its type parameters (substFrame), and an
+	// operator over one resolves at them.
 	answerPerInstance
 )
 
@@ -111,17 +113,6 @@ var operatorPairs = map[operatorPair]operatorClass{
 	// `==` the builder writes to reuse compare (structuralEqualCall,
 	// containerEqualCall).
 	{answerWritten, routeStructural}: {name: "written, structural"},
-
-	// An operator over a type parameter in an instance whose frame has no
-	// checker type for it, entered at a kind no expression has (a std
-	// interface value's dispatch entry, stdProgThunk, and the std
-	// instances it reaches; maxSubstWithoutCheckerTypes' substStd): the
-	// record cannot be resolved there, and the route is chosen at the
-	// instance's kinds, whichever of the four that is.
-	{answerPerInstance, routeNative}:     {name: "per instance, unresolved"},
-	{answerPerInstance, routeStructural}: {name: "per instance, unresolved"},
-	{answerPerInstance, routeImpl}:       {name: "per instance, unresolved"},
-	{answerPerInstance, routeDispatched}: {name: "per instance, unresolved"},
 }
 
 // beginOperator starts lowering an operator: it answers the lowering an
@@ -212,7 +203,7 @@ var operatorCensus struct {
 }
 
 func operatorCensusNote(g *gen, class string, line, col int) {
-	if g.stdInsts == nil {
+	if g.stdInsts == nil || g.stdInsts.stdOwn {
 		return
 	}
 	c := &operatorCensus

@@ -1,9 +1,8 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
 	"slices"
 	"strconv"
@@ -12,42 +11,59 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/suggest"
 )
 
 // The keys nomi.toml accepts are manifestFile's: each table is a field with
-// a `toml` tag, and each key a field of that table's struct (a map's keys
-// are free, as `[capabilities.modules]`'s module paths are). A table or key
-// the manifest holds and manifestFile does not is an error at its line, so
-// a misspelled key is never read as nothing. The error names the nearest
-// key when one is close in spelling, except in a table whose field carries
-// a `keys` tag: there it says what each key holds instead, since keys of
-// one table that differ in a word are close in spelling and far in
-// meaning (`std_in_tests` and `go_in_tests`).
+// a `toml` tag, and each key a field of that table's struct. A field whose
+// type is a struct is a table nested in its own (`[capabilities.self]`),
+// and a map's keys are free, as `[capabilities.deps.modules]`'s module
+// paths are. A table or key the manifest holds and manifestFile does not
+// is an error at its line, so a misspelled key is never read as nothing.
+// The error names the nearest key when one is close in spelling, except in
+// a table whose field carries a `keys` tag: there it says what each key
+// holds instead, since keys of one table that differ in a word are close
+// in spelling and far in meaning (`std_in_tests` and `go_in_tests`).
 //
 // A top-level table named for a module the project requires, or for the
 // project's own module, belongs to that module's tools (`nomi tool`), which
 // read it themselves: sqlkit's `[sqlkit]`. The compiler does not check it.
 
-// manifestTables is each table manifestFile declares, with its keys, read
-// from the struct's tags.
-func manifestTables() map[string][]string {
-	out := map[string][]string{}
-	t := reflect.TypeOf(manifestFile{})
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		table := f.Tag.Get("toml")
-		var keys []string
-		ft := f.Type
-		if ft.Kind() == reflect.Pointer {
-			ft = ft.Elem()
-		}
-		if ft.Kind() == reflect.Struct {
-			for j := 0; j < ft.NumField(); j++ {
-				keys = append(keys, ft.Field(j).Tag.Get("toml"))
+// manifestTable is one table manifestFile declares: its keys, and its
+// field's `keys` tag, what each key holds, or "".
+type manifestTable struct {
+	keys  []string
+	about string
+}
+
+// manifestTables is each table manifestFile declares, by its path joined
+// with ".", read from the struct's tags.
+func manifestTables() map[string]manifestTable {
+	out := map[string]manifestTable{}
+	var tables func(prefix string, t reflect.Type)
+	tables = func(prefix string, t reflect.Type) {
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			ft := f.Type
+			if ft.Kind() == reflect.Pointer {
+				ft = ft.Elem()
 			}
+			if ft.Kind() != reflect.Struct {
+				continue
+			}
+			path := f.Tag.Get("toml")
+			if prefix != "" {
+				path = prefix + "." + path
+			}
+			table := manifestTable{about: f.Tag.Get("keys")}
+			for j := 0; j < ft.NumField(); j++ {
+				table.keys = append(table.keys, ft.Field(j).Tag.Get("toml"))
+			}
+			out[path] = table
+			tables(path, ft)
 		}
-		out[table] = keys
 	}
+	tables("", reflect.TypeOf(manifestFile{}))
 	return out
 }
 
@@ -71,58 +87,55 @@ func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sou
 				continue
 			}
 		}
-		at := sourceLabel
-		if line := ManifestKeyLine(data, k...); line > 0 {
-			at = fmt.Sprintf("%s:%d", sourceLabel, line)
-		}
+		at := &ManifestError{Path: sourceLabel, Line: ManifestKeyLine(data, k...)}
 		if _, known := tables[k[0]]; !known {
 			if len(k) == 1 && md.Type(k...) != "Hash" {
-				return fmt.Errorf("%s: nomi.toml has no top-level key `%s`; every key is in a table (%s)", at, k[0], tableList(tables))
+				return at.with("nomi.toml has no top-level key `%s`; every key is in a table (%s)", k[0], tableList(tables))
 			}
-			names := make([]string, 0, len(tables))
-			for name := range tables {
-				names = append(names, name)
+			if near := suggest.Closest(k[0], topTables(tables)); near != "" {
+				return at.with("nomi.toml has no [%s] table; did you mean [%s]?", k[0], near)
 			}
-			if near := ClosestName(k[0], names); near != "" {
-				return fmt.Errorf("%s: nomi.toml has no [%s] table; did you mean [%s]?", at, k[0], near)
+			return at.with("nomi.toml has no [%s] table; its tables are %s", k[0], tableList(tables))
+		}
+		// The innermost known table the key is in; a key past its next
+		// part is in a table nested in that one, which it declares none of.
+		n := 1
+		for n < len(k)-1 {
+			if _, known := tables[strings.Join(k[:n+1], ".")]; !known {
+				break
 			}
-			return fmt.Errorf("%s: nomi.toml has no [%s] table; its tables are %s", at, k[0], tableList(tables))
+			n++
 		}
-		table, key := strings.Join(k[:len(k)-1], "."), k[len(k)-1]
-		keys := tables[k[0]]
-		if len(k) > 2 {
-			// A table nested in a known one that declares none.
-			return fmt.Errorf("%s: [%s] has no key `%s`; its keys are %s", at, k[0], k[1], keyList(keys))
+		path, key := strings.Join(k[:n], "."), k[n]
+		table := tables[path]
+		if table.about != "" {
+			return at.with("[%s] has no key `%s`; %s", path, key, table.about)
 		}
-		if about := tableKeysText(k[0]); about != "" {
-			return fmt.Errorf("%s: [%s] has no key `%s`; %s", at, table, key, about)
+		if near := suggest.Closest(key, table.keys); near != "" && len(k) == n+1 {
+			return at.with("[%s] has no key `%s`; did you mean `%s`?", path, key, near)
 		}
-		if near := ClosestName(key, keys); near != "" {
-			return fmt.Errorf("%s: [%s] has no key `%s`; did you mean `%s`?", at, table, key, near)
-		}
-		return fmt.Errorf("%s: [%s] has no key `%s`; its keys are %s", at, table, key, keyList(keys))
+		return at.with("[%s] has no key `%s`; its keys are %s", path, key, keyList(table.keys))
 	}
 	return nil
 }
 
-// tableKeysText is the `keys` tag of table's field in manifestFile: what
-// each of its keys holds, or "".
-func tableKeysText(table string) string {
-	t := reflect.TypeOf(manifestFile{})
-	for i := 0; i < t.NumField(); i++ {
-		if f := t.Field(i); f.Tag.Get("toml") == table {
-			return f.Tag.Get("keys")
+// topTables is the names of the top-level tables among tables.
+func topTables(tables map[string]manifestTable) []string {
+	var names []string
+	for name := range tables {
+		if !strings.Contains(name, ".") {
+			names = append(names, name)
 		}
 	}
-	return ""
+	slices.Sort(names)
+	return names
 }
 
-func tableList(tables map[string][]string) string {
-	names := make([]string, 0, len(tables))
-	for name := range tables {
-		names = append(names, "["+name+"]")
+func tableList(tables map[string]manifestTable) string {
+	names := topTables(tables)
+	for i, name := range names {
+		names[i] = "[" + name + "]"
 	}
-	slices.Sort(names)
 	return strings.Join(names, ", ")
 }
 
@@ -159,7 +172,7 @@ func toolTables(dir string) []string {
 // manifestName is `[module].name` of the manifest at dir, read without
 // checking the rest, or "".
 func manifestName(dir string) string {
-	data, err := os.ReadFile(filepath.Join(dir, "nomi.toml"))
+	data, err := ReadManifest(dir)
 	if err != nil {
 		return ""
 	}
@@ -212,6 +225,22 @@ func ManifestKeyLine(data []byte, path ...string) int {
 		}
 	}
 	return tableLine
+}
+
+// ManifestTableAt is the path of the table line (1-based) of nomi.toml's
+// text data is in: the last header above it, read as ManifestKeyLine reads
+// one; nil above the first.
+func ManifestTableAt(data []byte, line int) []string {
+	var header []string
+	for i, l := range strings.Split(string(data), "\n") {
+		if i+1 >= line {
+			break
+		}
+		if text := strings.TrimSpace(stripTomlComment(l)); strings.HasPrefix(text, "[") {
+			header = splitTomlKey(strings.Trim(text, "[]"))
+		}
+	}
+	return header
 }
 
 // ManifestTable is how nomi.toml's text writes one table: its header's
@@ -467,4 +496,42 @@ func ManifestEntryLine(data []byte, value string, path ...string) int {
 		}
 	}
 	return start
+}
+
+// ManifestError is a problem in the nomi.toml at Path that the parser
+// places at a line: Line is 1-based, 0 when no line writes what it is
+// about.
+type ManifestError struct {
+	Path    string
+	Line    int
+	Message string
+}
+
+func (e *ManifestError) Error() string {
+	if e.Line > 0 {
+		return fmt.Sprintf("%s:%d: %s", e.Path, e.Line, e.Message)
+	}
+	return e.Path + ": " + e.Message
+}
+
+// with is e with its message formatted from format and args.
+func (e *ManifestError) with(format string, args ...any) error {
+	e.Message = fmt.Sprintf(format, args...)
+	return e
+}
+
+// ManifestErrorAt is where in nomi.toml err, an error ParseManifestIn
+// answers, is: its line, 1-based, or 0 when it has none, and its message
+// without the file's name. A ManifestError's line, or the TOML decoder's
+// for text that is not TOML.
+func ManifestErrorAt(err error) (line int, message string) {
+	var me *ManifestError
+	if errors.As(err, &me) {
+		return me.Line, me.Message
+	}
+	var pe toml.ParseError
+	if errors.As(err, &pe) {
+		return pe.Position.Line, pe.Error()
+	}
+	return 0, err.Error()
 }

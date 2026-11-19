@@ -519,12 +519,12 @@ A Nomi module is built on a Go module, which is why both use the word
 ## What a project may reach
 
 A project can list what its program may reach outside itself, such as
-files, the network, output and the clock. The list is `std` in a
-`[capabilities]` table in `nomi.toml`, and each entry is a std module as an
-import names it. `nomi capabilities --write` writes the tightest table the
-program passes, for you to read and keep. `nomi check`, `run`, `test` and
-`build` refuse a program that reaches anything else, before it runs. This
-program only prints, so `std::io` is enough:
+files, the network, output and the clock. The list for its own code is
+`std` in a `[capabilities.self]` table in `nomi.toml`, and each entry is a
+std module as an import names it. `nomi capabilities --write` writes the
+tightest tables the program passes, for you to read and keep. `nomi
+check`, `run`, `test` and `build` refuse a program that reaches anything
+else, before it runs. This program only prints, so `std::io` is enough:
 
 ```nomi-run
 // FILE: main.nomi
@@ -540,17 +540,19 @@ end
 name = "shop"
 entry_points = ["main"]
 
-[capabilities]
+[capabilities.self]
 std = ["std::io"]
 ```
 <!-- expect
 Total: 59.97
 -->
 
-Under `[capabilities.modules]` a module gets a list of its own, for the
-calls its own files make. Here `app` holds its own code to output and its
-dependency `prices` to nothing, since `prices` only computes. A new version
-of `prices` also reports each use to a server, so the program does not run:
+A `[capabilities.deps]` table holds the code of the modules the project
+depends on, and under `[capabilities.deps.modules]` each dependency gets a
+list of its own, for the calls its own files make. Here `app` holds its
+own code to output and its dependency `prices` to nothing, since `prices`
+only computes. A new version of `prices` also reports each use to a
+server, so the program does not run:
 
 ```nomi-run error
 // FILE: app/main.nomi
@@ -568,11 +570,10 @@ end
 name = "app"
 entry_points = ["main"]
 
-[capabilities]
+[capabilities.self]
 std = ["std::io"]
 
-[capabilities.modules]
-"example.com/app" = ["std::io"]
+[capabilities.deps.modules]
 "lib.example/prices" = []
 
 // FILE: app/go.mod
@@ -606,18 +607,17 @@ module lib.example/prices
 go 1.27.0
 ```
 <!-- expect
-prices/prices.nomi:8:9: lib.example/prices reaches std::http, and nomi.toml allows it nothing outside the program
+prices/prices.nomi:8:9: lib.example/prices reaches std::http, and its entry under [capabilities.deps.modules] allows it nothing outside the program
 prices/prices.nomi:8:9: help: reached from `main`; `main` calls `total`
-prices/prices.nomi:8:9: help: the program's own list, std under [capabilities], does not allow std::http either
-prices/prices.nomi:8:9: help: add "std::http" to "lib.example/prices" under [capabilities.modules] in nomi.toml and to std under [capabilities], or remove the call
+prices/prices.nomi:8:9: help: add "std::http" to "lib.example/prices" under [capabilities.deps.modules] in nomi.toml, or remove the call
 -->
 
 A call counts even in a branch that never runs, and the error says how the
-program reaches it. A dependency can declare its own list in its own
-`nomi.toml`, and a project with a list holds the dependency's code to it too.
-`require_module_lists = true` makes every dependency have one. A module
-whose code binds Go runs it only when the project's `go` list names that
-module.
+program reaches it. A dependency can declare its own list in a
+`[capabilities.self]` of its own, and a project with `[capabilities.deps]`
+holds the dependency's code to it too. `entries_required = true` makes
+every dependency have a list, and a dependency's Go runs only when `go`
+under `[capabilities.deps]` names it.
 [Capability lists](/tooling/projects/#capability-lists)
 in the tooling reference covers lists for tests and for each dependency, and
 what counts as outside.

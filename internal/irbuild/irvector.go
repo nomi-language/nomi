@@ -78,7 +78,7 @@ func (bl *irScalarBuilder) vectorCallPlan(t *ast.Call, args irQualArgs, method s
 	}
 	k := args.kinds[0]
 	// kindInvalid: sentinel — recordedTypeArg's nothing-recorded answer; the vector keeps its operand's kind.
-	if e := bl.g.recordedTypeArg(t, method, "T"); e != kindInvalid {
+	if e, _ := bl.g.recordedTypeArg(t, method, "T"); e != kindInvalid {
 		// The vector the checker solved T at, which a later operand may
 		// have widened past the first (listCallPlan).
 		k = bl.g.vectorKindOf(e)

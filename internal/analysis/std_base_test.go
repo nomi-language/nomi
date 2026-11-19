@@ -13,6 +13,7 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/rotation"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/std"
 )
@@ -141,11 +142,17 @@ func dumpSeed(t *testing.T, seed stdBaseSeed) (string, bool) {
 	return b.String(), analysis.UsesStdBaseForTest(fa)
 }
 
+// stdBaseStride is the sample of programs
+// TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile checks by
+// default: one in this many of each kind.
+const stdBaseStride = 10
+
 // A program built over the stdlib's base (analysis.StdBase) is analyzed
 // exactly as one whose build folds every stdlib file itself: for every
 // corpus file, irbuild fixture, tour block and spec program, every file's
 // analysis, the program's impl index and every diagnostic dump alike both
-// ways. No build writes the base.
+// ways. No build writes the base. By default it checks one program in
+// stdBaseStride of each kind; NOMI_CORPUS_WALKS=full checks every one.
 //
 // It turns the base off for the whole process for each build without it
 // (SetStdBaseEnabled), so it runs before the parallel tests: a test that
@@ -163,9 +170,21 @@ func TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile(t *testing.T) {
 			t.Errorf("building programs wrote the stdlib's base:\n%s", firstDifference(before, after))
 		}
 	}()
-	seeds := stdBaseSeeds(t)
-	if len(seeds) < 300 {
-		t.Fatalf("found %d programs; the corpus, tour and spec should give several hundred", len(seeds))
+	all := stdBaseSeeds(t)
+	if len(all) < 300 {
+		t.Fatalf("found %d programs; the corpus, tour and spec should give several hundred", len(all))
+	}
+	// The sample takes one program in stdBaseStride of each kind: corpus
+	// files, irbuild fixtures, tour blocks and spec programs.
+	walk := rotation.CorpusWalk(t, stdBaseStride)
+	var seeds []stdBaseSeed
+	ofKind := map[string]int{}
+	for _, seed := range all {
+		kind := seed.name[:strings.IndexAny(seed.name, "/:")]
+		if walk.Takes(ofKind[kind]) {
+			seeds = append(seeds, seed)
+		}
+		ofKind[kind]++
 	}
 	overBase := 0
 	for _, seed := range seeds {
@@ -191,6 +210,7 @@ func TestStdBase_ABuildOverTheBaseMatchesOneThatFoldsEveryFile(t *testing.T) {
 	if overBase < len(seeds)*9/10 {
 		t.Errorf("%d of %d programs built over the base", overBase, len(seeds))
 	}
+	t.Logf("%d of %d programs checked, %d of them built over the base", len(seeds), len(all), overBase)
 }
 
 // A program that declares a primitive under a name a stdlib file binds

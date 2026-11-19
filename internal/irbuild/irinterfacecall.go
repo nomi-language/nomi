@@ -192,17 +192,24 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 	// call whose first operand is a concrete implementing type reaches that
 	// type's impl item exactly as a plain interface's does; the item's own
 	// signature is checked against the operands below.
+	// recvType is the checker's type recv was read from: the default's
+	// implementor's, the operand's, else the type the call's record is
+	// for (Callee.For).
 	var recv kind
+	var recvType analysis.Type
 	switch ds := bl.g.defaultSelf; {
 	case recvAt < 0 && m != nil && ds != nil && ds.iface == d:
 		// `I.make(0)` in a default of I: no operand names the implementor,
 		// and the default is being lowered for exactly one, so the call is
 		// that implementor's own.
-		recv = ds.recv
+		recv, recvType = ds.recv, ds.typ
 	case recvAt < 0 || recvAt >= len(args.kinds):
 		return nil
 	default:
-		recv = args.kinds[recvAt]
+		recv, recvType = args.kinds[recvAt], bl.g.operandCheckerType(t.Args[recvAt])
+	}
+	if recvType == nil {
+		recvType = bl.g.checkerTypeArg(bl.g.calleeOf(t).For)
 	}
 	if recv.tag == tagIface {
 		// A receiver held as an interface value, or as a conjunction of
@@ -213,7 +220,7 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 	key := bl.g.implsKey(d)
 	impl := bl.g.implsByIface[key][recv]
 	if impl == nil {
-		if p := bl.stdRecvIfacePlan(t, args, d, method, recv); p != nil {
+		if p := bl.stdRecvIfacePlan(t, args, d, method, recv, recvType); p != nil {
 			// `Show.show([1, 2])`: an impl over a std container.
 			return p
 		}

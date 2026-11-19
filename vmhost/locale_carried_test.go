@@ -50,8 +50,9 @@ func TestLocaleLiteral_NotCarriedIsACompileError(t *testing.T) {
 		t.Errorf("hints %q, want one naming Locale.parse", d.Hints)
 	}
 	// The language server's lowering reports it as nomi check does.
-	problems, err := CheckLowering(context.Background(), "main.nomi", localeLiteral("fr"),
+	found, err := CheckLowering(context.Background(), "main.nomi", localeLiteral("fr"),
 		WithVirtualManifest(mustManifest(t, carriedToml)))
+	problems := found.Problems
 	if err != nil {
 		t.Fatal(err)
 	}

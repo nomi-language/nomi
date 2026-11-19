@@ -58,57 +58,67 @@
 // the test cases), as the build's walk does, and refuses the program with
 // a [*CapabilityError] before anything runs: the diagnostics `nomi check`
 // prints, and each call as data (its name, its site, the chain from a
-// root with the kind of each step). Run, Test and Call hold the program
-// again from their own roots, to the host's list and the project's
-// nomi.toml, which both apply. A program loaded without the option is
-// held to nomi.toml's lists where it runs: Run, Test, Call and the image a
-// build makes. LoadMarked and ToolMarked, which load a block for the
-// tour's runner, hold it at the load from what `nomi check` holds, so a
-// block over its lists fails as one that does not compile
-// (TestCapabilityLists_EveryEntryPointRefuses). Cases holds nothing: Test
-// holds before it, and a block's program was held when it loaded.
-// Evaluate refuses every effect already.
+// root with the kind of each step). Run, Test, Cases and Call hold the
+// program again from their own roots, to the host's list and the
+// project's nomi.toml, which both apply. A program loaded without the
+// option is held to nomi.toml's lists where it runs: Run, Test, Cases,
+// Call and the image a build makes. Test reports a refusal as the file
+// failing; Cases, which answers data, answers each selected case failed
+// with the error and runs none. LoadMarked and ToolMarked, which load a
+// block for the tour's runner, hold it at the load from what `nomi check`
+// holds, so a block over its lists fails as one that does not compile
+// (TestCapabilityLists_EveryEntryPointRefuses). Evaluate refuses every
+// effect already.
 //
-// One rule holds a call to a table of lists (capability.Allows, through
-// notAllowedBy): a `go` binding by the module whose files hold it, which
-// the table's go must list (the project by its own module path,
-// projectModule), and any other call by its name, which the table's std
-// must hold. nomi.toml's lists, when the project has a [capabilities]
-// table, hold each dependency's calls to three tables: the project's, the
-// project's entry for the module (a std list, which says nothing of Go),
-// and the [capabilities] table in the module's own nomi.toml (moduleAt
-// reads it, once per module), whose entry for the module itself, or std
-// when it has none, declares its own code, and whose go declares that the
-// module binds Go
-// by listing its own path and never grants it. The project's own calls are
-// held to two: the project's, and its entry under [capabilities.modules]
-// by its own module path, which notAllowedBy consults as it does a
-// dependency's and which holds no test case (std and std_in_tests hold
-// those). A call over several is reported once, over the module's own list
-// first
-// (CapabilityNotDeclaredCode, whose help puts the fix in that module),
-// then the project's entry, then the project's lists
-// (OutsideCallsNotAllowed). The dependency's own std names are checked by
-// the code that checks the project's, at its own nomi.toml, and
-// require_module_lists is checked there too, over the modules whose files
-// the program holds (requiredModules). A host's lists are never a
-// dependency's: a program held only by WithCapabilities and WithGo reads
-// no dependency's table. With WithGo alone the host holds only Go
-// bindings (hostHolds).
+// One rule holds a call to a list (capability.Allows, through
+// standingsOf, which notAllowedBy filters to the refusals): a `go` binding
+// by the module whose files hold it, which the list of modules that may
+// bind Go must name, and any other call by its name, which the list of std
+// names must hold. nomi.toml has two tables, and each holds the calls
+// written in the files it names. [capabilities.self] holds the project's
+// own files: its std, with std_in_tests for the tests, and its go, a flag
+// that stands for the project by its own module path (projectModule).
+// [capabilities.deps] holds the files of every module the program's code
+// comes from other than the project, by three lists: its std, a ceiling
+// when the table sets one, with std_in_tests for the tests; its go, which
+// names the dependencies that may bind Go; and the project's entry for the
+// module under [capabilities.deps.modules], a std list that says nothing
+// of Go. When the project has [capabilities.deps], a dependency's calls
+// are held too to the [capabilities.self] in its own nomi.toml (moduleAt
+// reads it, once per module), whose std declares its own code and whose go
+// declares that it binds Go and never grants it. A table the project
+// leaves out holds nothing. A call over several lists is reported once,
+// over the module's own list first (CapabilityNotDeclaredCode, whose help
+// puts the fix in that module), then the project's entry, then
+// [capabilities.deps] (OutsideCallsNotAllowed). The dependency's own std
+// names are checked by the code that checks the project's, at its own
+// nomi.toml, and entries_required is checked there too, over the modules
+// whose files the program holds (requiredModules). A host's lists hold the
+// whole program and are never a dependency's: a program held only by
+// WithCapabilities and WithGo reads no dependency's table. With WithGo
+// alone the host holds only Go bindings (hostHolds).
 //
 // A *CapabilityError keeps every call in Calls and Diagnostics; its text
 // (Shown, which Unwrap answers too) gives the first call of each name over
 // each list, with a help line counting the rest, unless AllCallsEnv is
 // set (`--all-calls`). `nomi check --format json` and the language server
-// read every call.
+// read every call. CheckLowering, the language server's lowering, walks
+// from the roots `nomi check` holds once, lists or not, and answers each
+// call it reaches beside the problems (reachedCalls), with the line a
+// hover on it shows (capability.ReachedLine). CheckJSON writes `nomi
+// check --format json`'s records, for `nomi check` and for an FFI
+// program's wrapper (ReportCheck), whose records `nomi check` passes
+// through, so a program with Go bindings is reported as any other is.
 //
 // Reached and Program.Reach answer what a program reaches, from the roots
 // `nomi check` holds (Walk per root set), with the module each call is
-// charged to; `nomi capabilities` prints it. Reach.Tightest is the
-// smallest table the walks pass (tightestLists, beside notAllowedBy and
-// held to it by TestTightestLists_PassAndEveryNameIsNeeded: every call
-// passes, and taking out any one name refuses one), so a table it writes
-// is one the check passes. Reached loads as Check does, a `go` binding
+// charged to, and the problems `nomi check` finds in the lists
+// themselves (ListProblems, capabilityListProblems); `nomi capabilities`
+// prints it. Reach.Tightest is the
+// smallest pair of tables the walks pass (tightestLists, beside
+// notAllowedBy and held to it by TestTightestLists_PassAndEveryNameIsNeeded:
+// every call passes, and taking out any one name, or turning a flag false,
+// refuses one), so the tables it writes are ones the check passes. Reached loads as Check does, a `go` binding
 // taken as provided, so a program with Go bindings is read without its
 // wrapper.
 //

@@ -96,7 +96,7 @@ func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func,
 		site.Chain = chain(holder)
 		out = append(out, site)
 	}
-	for f := range reached {
+	for _, f := range inOrder(reached) {
 		for _, b := range f.Blocks() {
 			for _, in := range b.Instrs() {
 				switch n := in.(type) {
@@ -108,16 +108,12 @@ func ReachedCrossingSites(entry *ir.Module, mods []*ir.Module, roots []*ir.Func,
 			}
 		}
 	}
-	sort.Slice(out, func(i, j int) bool {
+	// Two sites at one call of the program's own code keep the order of
+	// the functions holding them.
+	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i].At, out[j].At
-		if a.File() != b.File() {
-			return a.File() < b.File()
-		}
-		if a.Line() != b.Line() {
-			return a.Line() < b.Line()
-		}
-		if a.Col() != b.Col() {
-			return a.Col() < b.Col()
+		if !posEqual(a, b) {
+			return posBefore(a, b)
 		}
 		return out[i].Name < out[j].Name
 	})

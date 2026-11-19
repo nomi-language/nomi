@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/suggest"
 )
 
 // A `_` read as a value is an error (checkDiscardRead), and it also works
@@ -61,7 +62,7 @@ func (c *checker) holeCandidates(n *ast.Ident, want Type) []string {
 	var cands []cand
 	seen := map[string]bool{}
 	for _, sym := range scope.AllVisible() {
-		if sym == nil || sym.Type == nil || seen[sym.Name] || strings.HasPrefix(sym.Name, "_") || !isSuggestable(sym.Name) {
+		if sym == nil || sym.Type == nil || seen[sym.Name] || strings.HasPrefix(sym.Name, "_") || !suggest.Suggestable(sym.Name) {
 			continue
 		}
 		group := 0

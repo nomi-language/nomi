@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -54,7 +55,7 @@ func (bl *irScalarBuilder) tupleCompareCall(t *ast.Call) (v ir.Temp, k kind, mob
 		bl.qualRecordArgs = args
 		bl.qualRecordSeen = true
 	}
-	v, ok = bl.tupleOrdering(t, args.temps[0], args.temps[1], args.kinds[0])
+	v, ok = bl.tupleOrdering(t, args.temps[0], args.temps[1], args.kinds[0], bl.g.checkerTypeArg(ft.Params[0]))
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false, true
 	}
@@ -64,7 +65,7 @@ func (bl *irScalarBuilder) tupleCompareCall(t *ast.Call) (v ir.Temp, k kind, mob
 // tupleRankedCompare lowers `<`, `<=`, `>` or `>=` on two tuples: their
 // Ordering, then its rank.
 func (bl *irScalarBuilder) tupleRankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (ir.Temp, kind, bool, bool) {
-	ordered, ok := bl.tupleOrdering(t, lhs, rhs, k)
+	ordered, ok := bl.tupleOrdering(t, lhs, rhs, k, bl.g.operandCheckerType(t.Left))
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
@@ -75,22 +76,23 @@ func (bl *irScalarBuilder) tupleRankedCompare(t *ast.Binary, op ir.CompareOp, lh
 }
 
 // tupleComparable reports whether every element of tuple k has a compare
-// the builder can name, at any depth of tuples.
+// the builder can name, at any depth of tuples. kt is the checker's type k
+// was read from, or nil (tupleOrdering).
 //
 // k is a retained tuple at every caller: tupleCompareCall tests it,
 // tupleRankedCompare's and sortComparator's k is a lowered value's or a held
 // container's element, a nested call's is a retained tuple's part, and a
 // tuple in the callable domain is retained (irLoweredTupleRetained).
-func (bl *irScalarBuilder) tupleComparable(k kind) bool {
+func (bl *irScalarBuilder) tupleComparable(k kind, kt analysis.Type) bool {
 	irLoweredTupleRetained(k, "tupleComparable")
-	for _, part := range k.comp.parts {
+	for i, part := range k.comp.parts {
 		if part.tag == tagTuple {
-			if !bl.tupleComparable(part) {
+			if !bl.tupleComparable(part, partCheckerType(kt, k, i)) {
 				return false
 			}
 			continue
 		}
-		if _, _, _, ok := bl.sortComparator(part); !ok {
+		if _, _, _, ok := bl.sortComparator(part, partCheckerType(kt, k, i)); !ok {
 			return false
 		}
 	}
@@ -99,9 +101,10 @@ func (bl *irScalarBuilder) tupleComparable(k kind) bool {
 
 // tupleOrdering answers the Ordering of two tuples of kind k, lhs and rhs,
 // in a temporary the chain's blocks write; the builder continues in the
-// block after it.
-func (bl *irScalarBuilder) tupleOrdering(at ast.Node, lhs, rhs ir.Temp, k kind) (ir.Temp, bool) {
-	if !bl.tupleComparable(k) {
+// block after it. kt is the checker's type k was read from, or nil, whose
+// elements a std instance an element's compare names is entered with.
+func (bl *irScalarBuilder) tupleOrdering(at ast.Node, lhs, rhs ir.Temp, k kind, kt analysis.Type) (ir.Temp, bool) {
+	if !bl.tupleComparable(k, kt) {
 		return ir.NoTemp, false
 	}
 	pos := bl.g.irNodePos(at)
@@ -112,7 +115,7 @@ func (bl *irScalarBuilder) tupleOrdering(at ast.Node, lhs, rhs ir.Temp, k kind) 
 	for i, part := range k.comp.parts {
 		a := bl.tupleProjection(at, lhs, i, part)
 		b := bl.tupleProjection(at, rhs, i, part)
-		c, ok := bl.elemOrdering(at, a, b, part)
+		c, ok := bl.elemOrdering(at, a, b, part, partCheckerType(kt, k, i))
 		if !ok {
 			return ir.NoTemp, false
 		}
@@ -145,11 +148,11 @@ func (bl *irScalarBuilder) tupleOrdering(at ast.Node, lhs, rhs ir.Temp, k kind) 
 // elemOrdering answers the Ordering of two values of one tuple element's
 // kind: a nested tuple's chain, or a direct call to the compare sortComparator
 // chooses for it.
-func (bl *irScalarBuilder) elemOrdering(at ast.Node, a, b ir.Temp, k kind) (ir.Temp, bool) {
+func (bl *irScalarBuilder) elemOrdering(at ast.Node, a, b ir.Temp, k kind, kt analysis.Type) (ir.Temp, bool) {
 	if k.tag == tagTuple {
-		return bl.tupleOrdering(at, a, b, k)
+		return bl.tupleOrdering(at, a, b, k, kt)
 	}
-	local, sibling, std, ok := bl.sortComparator(k)
+	local, sibling, std, ok := bl.sortComparator(k, kt)
 	if !ok {
 		return ir.NoTemp, false
 	}
@@ -172,7 +175,7 @@ func (bl *irScalarBuilder) elemOrdering(at ast.Node, a, b ir.Temp, k kind) (ir.T
 
 // tupleComparator is tuple k's compare as a function value, `(k, k) ->
 // Ordering`, for an operation that takes its comparator as one (`Iter.sort`).
-func (bl *irScalarBuilder) tupleComparator(at ast.Node, k kind) ir.Temp {
+func (bl *irScalarBuilder) tupleComparator(at ast.Node, k kind, kt analysis.Type) ir.Temp {
 	pos := bl.g.irNodePos(at)
 	ord := stdEnumKind(stdEnumOrdering)
 	f := ir.NewFunc(pos, "tuple compare")
@@ -182,7 +185,7 @@ func (bl *irScalarBuilder) tupleComparator(at ast.Node, k kind) ir.Temp {
 	child := &irScalarBuilder{g: bl.g, sh: sh, f: f, b: sh.entry, parent: bl, bound: map[string]ir.Temp{}, boundK: map[string]kind{}}
 	a := bl.g.irAddParam(f, ir.NewSymbol("a"), k)
 	b := bl.g.irAddParam(f, ir.NewSymbol("b"), k)
-	c, ok := child.tupleOrdering(at, a, b, k)
+	c, ok := child.tupleOrdering(at, a, b, k, kt)
 	if !ok {
 		// sortComparator admitted k only when tupleComparable holds, and
 		// tupleOrdering declines for no other reason.

@@ -314,19 +314,23 @@ func (g *gen) stdProgIfaceForImpl(ib *ast.ImplBlock) *ifaceDef {
 // (stdProgHeldType) whose every such function a thunk reaches
 // (stdProgThunk). A std type answered yes is recorded, so its dispatch
 // entries are recorded (stdProgHeldImpls). A std container or leaf type
-// enters boxed instead, and its entries are its box's (irBoxPlan).
-func (g *gen) stdProgBinds(d *ifaceDef, k kind) bool {
+// enters boxed instead, and its entries are its box's (irBoxPlan). The
+// thunks are built for kt, the checker's type k was read from (nil where
+// the caller has none), or for a program type the impl's receiver
+// (implDef.recvType). A thunk is built once per type name, by the first
+// question asked of it.
+func (g *gen) stdProgBinds(d *ifaceDef, k kind, kt analysis.Type) bool {
 	if c := g.stdProgCaller; c != nil {
 		// A std instance records nothing of its own: its caller builds the
 		// thunks and records the entries, as for a value it holds itself.
-		return c.stdProgBinds(d, k)
+		return c.stdProgBinds(d, k, kt)
 	}
 	if typ := g.stdProgHeldType(k); typ != nil {
 		for _, m := range d.order {
 			// A function no erased receiver can dispatch (`Steppable.step_by`'s
 			// `Maybe<self>`) is refused at its call, as a program
 			// interface's is, and asks nothing of the value.
-			if m.dispatchable() && g.stdProgThunk(d, m, k, typ.Name()) == nil {
+			if m.dispatchable() && g.stdProgThunk(d, m, k, kt, typ.Name()) == nil {
 				return false
 			}
 		}
@@ -363,7 +367,7 @@ func (g *gen) stdProgBinds(d *ifaceDef, k kind) bool {
 				if typ == nil && irBoxedEnum(k) {
 					typ = g.irImplTypeSym(k)
 				}
-				if typ == nil || g.stdProgThunk(d, m, k, typ.Name()) == nil {
+				if typ == nil || g.stdProgThunk(d, m, k, impl.recvType, typ.Name()) == nil {
 					return false
 				}
 				continue
@@ -443,7 +447,8 @@ func (g *gen) stdProgHeldImpls() {
 					continue
 				}
 				method := g.stdProgMethodSym(d, m)
-				fn := g.stdProgThunk(d, m, k, typ.Name())
+				// Built by stdProgBinds, for the held value's type.
+				fn := g.stdProgThunk(d, m, k, nil, typ.Name())
 				if method != nil && fn != nil {
 					entries = append(entries, entry{method, typ, fn})
 				}
@@ -474,7 +479,9 @@ type stdProgThunkToken struct {
 // stdProgThunk builds, once per gen, the dispatch entry of std interface d's
 // method m for a value of kind have held as d: a function of the method's
 // operands, each self position at have, whose body is the call
-// `Iface.method(...)` with those operands, planned as a rendering's
+// `Iface.method(...)` with those operands, recorded as a call for
+// haveType, the checker's type have was read from (nil where the caller
+// has none), and planned as a rendering's
 // `Display.to_string(v)` is (irdisplayhole.go): the interface's container
 // family first (ifaceContainerCall), then the qualified-call planner; or,
 // where this file binds the bare name to something else, the call through
@@ -489,7 +496,7 @@ type stdProgThunkToken struct {
 // a keyword or `@`), so a lookup the planner keys by the callee's position
 // finds nothing there. A refusal while building it is discarded with the
 // function (stdProgIsolated): the program's answer is the boxing site's.
-func (g *gen) stdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, typ string) *ir.Symbol {
+func (g *gen) stdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, haveType analysis.Type, typ string) *ir.Symbol {
 	if d.decl == nil {
 		return nil
 	}
@@ -501,7 +508,7 @@ func (g *gen) stdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, typ string) *
 	if g.stdProgThunkFailed[token] {
 		return nil
 	}
-	built := g.stdProgIsolated(func() bool { return g.buildStdProgThunk(d, m, have, sym) })
+	built := g.stdProgIsolated(func() bool { return g.buildStdProgThunk(d, m, have, haveType, sym) })
 	if !built {
 		if g.stdProgThunkFailed == nil {
 			g.stdProgThunkFailed = map[stdProgThunkToken]bool{}
@@ -512,7 +519,7 @@ func (g *gen) stdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, typ string) *
 	return sym
 }
 
-func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.Symbol) bool {
+func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, haveType analysis.Type, sym *ir.Symbol) bool {
 	params := stdProgScalarParams(m, have)
 	declared := make([]ast.Param, len(params))
 	operands := make([]ast.Node, len(params))
@@ -532,8 +539,10 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 		Col:  1,
 	}
 	// The call names std's interface by its record, so whatever this file
-	// binds the name to, it is planned from std's (recordedStdIface).
-	defer g.carryCall(at, g.stdIfaceCallRecord(g.stdIfaceType(d), m.name, len(operands), nil))()
+	// binds the name to, it is planned from std's (recordedStdIface), and
+	// is for the held value's type, so the instances it reaches are
+	// entered with their checker types.
+	defer g.carryCall(at, g.stdIfaceCallRecord(g.stdIfaceType(d), m.name, len(operands), haveType))()
 	sh := g.irFuncShellAt(at, declared, irFuncSig{result: m.result}, params, sym)
 	if sh == nil {
 		return false
@@ -552,24 +561,24 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 		// A tuple or record has no impl to reach: its hash is the derive
 		// mix over its parts, as a direct `Hashable.hash` of it lowers
 		// (irtuplehash.go).
-		v, rk, _, ok = bl.tupleHashOf(at, sh.paramTemps[0], have, nil)
+		v, rk, _, ok = bl.tupleHashOf(at, sh.paramTemps[0], have, haveType)
 		handled = true
 	}
 	if irRetainedRecordKind(have) && d.stdOrigin == "std/json" && d.decl.Name == "ToJson" && m.name == "to_json" && len(params) == 1 {
 		// A record's JSON is its fields' (irrecordjson.go).
-		v, rk, ok = bl.recordToJsonOf(at, sh.paramTemps[0], have, nil, m.result, "")
+		v, rk, ok = bl.recordToJsonOf(at, sh.paramTemps[0], have, haveType, m.result, "")
 		handled = true
 	}
 	if irRetainedRecordKind(have) && d.stdOrigin == "std/json" && d.decl.Name == "ToJson" && m.name == "to_json_field" && len(params) == 1 {
 		// The default, Some of the record's JSON.
-		v, rk, ok = bl.recordToJsonFieldOf(at, sh.paramTemps[0], have, nil, m.result)
+		v, rk, ok = bl.recordToJsonFieldOf(at, sh.paramTemps[0], have, haveType, m.result)
 		handled = true
 	}
 	if !handled && (g.stdProgBareNames(d) || g.stdCases) {
 		// A std container's impl is a template instantiated at the call,
 		// which a std module's cases reach under their module's own name
 		// for its interface (`ToJson` in std/json's cases) too.
-		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, d.decl.Name, m.name, nil)
+		v, rk, _, ok, handled = bl.ifaceContainerCall(at, args, d.decl.Name, m.name, haveType)
 	}
 	if !handled {
 		var plan *irQualPlan
@@ -657,14 +666,14 @@ func (g *gen) stdProgIsolated(build func() bool) bool {
 // stdProgBoxImpls is the dispatch entries a value of the std type have,
 // boxed as typ, needs as std interface d: a thunk per function an erased
 // receiver can dispatch (stdProgThunk). false when one does not build.
-func (g *gen) stdProgBoxImpls(d *ifaceDef, have kind, typ *ir.Symbol) ([]irBoxedImpl, bool) {
+func (g *gen) stdProgBoxImpls(d *ifaceDef, have kind, haveType analysis.Type, typ *ir.Symbol) ([]irBoxedImpl, bool) {
 	var impls []irBoxedImpl
 	for _, m := range d.order {
 		if !m.dispatchable() {
 			continue
 		}
 		method := g.irIfaceMethodSym(d, m)
-		fn := g.stdProgThunk(d, m, have, typ.Name())
+		fn := g.stdProgThunk(d, m, have, haveType, typ.Name())
 		if method == nil || fn == nil {
 			return nil, false
 		}

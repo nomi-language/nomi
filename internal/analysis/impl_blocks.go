@@ -136,6 +136,15 @@ func (fa *FileAnalysis) implOfOwnType(m ast.ImplMethodDecl, iface, origin string
 // implBlockHolding is the interface impl block that declares decl, an
 // impl's `fn` or `host fn`, or nil for any other function.
 func (fa *FileAnalysis) implBlockHolding(decl ast.Node) *ast.ImplBlock {
+	if info := fa.implBlockInfoHolding(decl); info != nil {
+		return info.Block
+	}
+	return nil
+}
+
+// implBlockInfoHolding is the record of the interface impl block that
+// declares decl (implBlockHolding), with its resolved receiver.
+func (fa *FileAnalysis) implBlockInfoHolding(decl ast.Node) *ImplTypeArgs {
 	recv := ""
 	switch d := decl.(type) {
 	case *ast.FuncDef:
@@ -152,13 +161,44 @@ func (fa *FileAnalysis) implBlockHolding(decl ast.Node) *ast.ImplBlock {
 	if recv == "" {
 		return nil
 	}
+	return fa.implBlockInfoWhere(recv, func(b *ast.ImplBlock) bool {
+		for _, item := range b.Items {
+			if item == decl {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// implBlockInfo is the record of b, an interface impl block, with its
+// resolved receiver; nil where no table holds it.
+func (fa *FileAnalysis) implBlockInfo(b *ast.ImplBlock) *ImplTypeArgs {
+	if b == nil {
+		return nil
+	}
+	for _, table := range fa.implBlockTables() {
+		for _, byIface := range table {
+			for _, blocks := range byIface {
+				for _, info := range blocks {
+					if info.Block == b {
+						return info
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// implBlockInfoWhere is the first record, among the impl blocks for a
+// receiver named recv, of a block match accepts.
+func (fa *FileAnalysis) implBlockInfoWhere(recv string, match func(*ast.ImplBlock) bool) *ImplTypeArgs {
 	for _, table := range fa.implBlockTables() {
 		for _, blocks := range table[recv] {
 			for _, b := range blocks {
-				for _, item := range b.Block.Items {
-					if item == decl {
-						return b.Block
-					}
+				if match(b.Block) {
+					return b
 				}
 			}
 		}

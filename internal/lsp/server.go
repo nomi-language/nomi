@@ -35,8 +35,11 @@ type Server struct {
 	stdNav *stdcache.Navigator
 	// inputDiags and openInputs are the diagnostics published in input
 	// files and the inputs an editor has open (inputs.go).
-	inputDiags      inputDiagnostics
-	openInputs      openInputs
+	inputDiags inputDiagnostics
+	openInputs openInputs
+	// manifestEdits debounces the rechecks of an edited nomi.toml
+	// (manifest.go).
+	manifestEdits   manifestEdits
 	notify          glsp.NotifyFunc // captured for background notifications
 	cancelPropagate context.CancelFunc
 	propagateMu     sync.Mutex
@@ -306,6 +309,10 @@ func (s *Server) setTrace(ctx *glsp.Context, params *protocol.SetTraceParams) er
 // document, after loweringDelay for an edit (lowering.go).
 func (s *Server) textDocumentDidOpen(ctx *glsp.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := string(params.TextDocument.URI)
+	if isManifestURI(uri) {
+		s.setManifest(uri, params.TextDocument.Text)
+		return nil
+	}
 	if s.followsInput(uri) {
 		s.setInput(uri, params.TextDocument.Text)
 		return nil
@@ -321,6 +328,11 @@ func (s *Server) textDocumentDidOpen(ctx *glsp.Context, params *protocol.DidOpen
 // instead of after the last edit's delay.
 func (s *Server) textDocumentDidSave(ctx *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
 	uri := string(params.TextDocument.URI)
+	if s.followsInput(uri) {
+		// A TOML file is no program; a saved nomi.toml's watched-file
+		// event rechecks what reads it.
+		return nil
+	}
 	text := ""
 	if params.Text != nil {
 		text = *params.Text
@@ -335,10 +347,14 @@ func (s *Server) textDocumentDidSave(ctx *glsp.Context, params *protocol.DidSave
 
 func (s *Server) textDocumentDidChange(ctx *glsp.Context, params *protocol.DidChangeTextDocumentParams) error {
 	uri := string(params.TextDocument.URI)
-	if s.followsInput(uri) {
+	if isManifestURI(uri) || s.followsInput(uri) {
 		for _, change := range params.ContentChanges {
 			if c, ok := change.(protocol.TextDocumentContentChangeEventWhole); ok {
-				s.setInput(uri, c.Text)
+				if isManifestURI(uri) {
+					s.setManifest(uri, c.Text)
+				} else {
+					s.setInput(uri, c.Text)
+				}
 			}
 		}
 		return nil
@@ -362,6 +378,10 @@ func (s *Server) textDocumentDidChange(ctx *glsp.Context, params *protocol.DidCh
 // text; any other has its diagnostics cleared.
 func (s *Server) textDocumentDidClose(ctx *glsp.Context, params *protocol.DidCloseTextDocumentParams) error {
 	uri := string(params.TextDocument.URI)
+	if isManifestURI(uri) {
+		s.closeManifest(uri)
+		return nil
+	}
 	if s.followsInput(uri) {
 		s.closeInput(uri)
 		return nil
@@ -369,6 +389,7 @@ func (s *Server) textDocumentDidClose(ctx *glsp.Context, params *protocol.DidClo
 	s.cancelAnalysis(uri)
 	s.literals.forget(uri)
 	s.lowering.forget(uri)
+	s.publishLoweringManifests(uri, nil)
 	s.pipeTokens.forget(uri)
 	s.lines.forget(uri)
 	s.occurrences.forget(uri)

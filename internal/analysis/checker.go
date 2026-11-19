@@ -6426,7 +6426,7 @@ func (c *checker) validateImplBlockMethodSignatures(n *ast.ImplBlock, iface *Int
 		// Common slip: the type has an inherent method of the same name. Point
 		// at it instead of reporting the method as absent.
 		if c.hasUntaggedMethod(recvName, m.Name) {
-			c.addError(n.Line, n.Col, fmt.Sprintf("`fn %s` on '%s' is a type function, not an implementation function; move it into an `impl %s for %s` block to satisfy the interface", m.Name, recvName, iface.Name, recvName))
+			c.addError(n.Line, n.Col, fmt.Sprintf("`fn %s` on '%s' is a type function, not an implementation function; move it into an `impl %s for %s` block to satisfy the interface", m.Name, recvName, withTypeParams(iface.Name, strings.Join(iface.TypeParams, ", ")), recvName))
 			continue
 		}
 		e := implHeaderError(n, fmt.Sprintf("impl '%s' for '%s': missing function '%s' required by interface '%s'", iface.Name, recvName, m.Name, iface.Name)).
@@ -9645,6 +9645,14 @@ func (c *checker) finishOperatorInterfaceCall(n *ast.Call, opIface operatorInter
 	if l, r, res := resolveTypeVar(left), resolveTypeVar(rhsExpected), resolveTypeVar(result); l != nil && r != nil && res != nil {
 		c.recordPartialOperatorCallType(n, &FuncType{Params: []Type{l, r}, Return: res})
 	}
+	// The call is for its left operand's type, as the operator is
+	// (operatorSubject): its classification answers it as interfaceUse
+	// answers the operator (Callee.For, Callee.Form).
+	if pos, named := calleeKey(n.Func); named {
+		if sym := c.fa.References[pos]; sym != nil && resolveRef(sym).Kind == SymbolInterfaceMethod {
+			c.recordCallSelf(pos, resolveTypeVar(left))
+		}
+	}
 	return result, true
 }
 
@@ -11804,11 +11812,13 @@ func (c *checker) interfaceSelfUnmet(concrete Type, iface *InterfaceType) bool {
 
 // recordCallSelf records self as the `self` type argument
 // (Symbol.CallTypeArgs) of the call of an interface function whose callee's
-// reference is at pos, where no argument solves it: the type the call is
-// for (Callee.For), which an instance of the body substitutes (CalleeAt).
-// That is, in an interface default, the default's own `self` for a bare
-// call of its interface's function (sameInterfaceDefaultBareCallType).
-// attachCallTypeArgs keeps it.
+// reference is at pos, where no unification of the arguments solves it:
+// the type the call is for (Callee.For), which an instance of the body
+// substitutes (CalleeAt). That is, in an interface default, the default's
+// own `self` for a bare call of its interface's function
+// (sameInterfaceDefaultBareCallType), and an operator interface's
+// function called by name, `Add.add(a, b)`, which its operands type
+// (finishOperatorInterfaceCall). attachCallTypeArgs keeps it.
 func (c *checker) recordCallSelf(pos Pos, self Type) {
 	sym := c.fa.References[pos]
 	if self == nil || sym == nil || sym.CallTypeArgs["self"] != nil {
@@ -21875,6 +21885,10 @@ func (c *checker) checkTaggedStringSlot(n *ast.TaggedString, se ast.StringExpr, 
 		// own error. Skip the conformance check rather than piling on.
 		return
 	}
+	// The slot is checked against I, so a concrete value entering an
+	// interface I has its coercion recorded as an argument's is
+	// (recordCoercions).
+	c.fa.recordExpectedType(se.Expr, interfaceTy)
 	slotLine, slotCol := slotPosition(se)
 	if iface, ok := interfaceTy.(*InterfaceType); ok {
 		// A value of another interface type may hold anything, so it must be

@@ -120,7 +120,7 @@ func TestCoercions_RecordWhatEntersAnInterface(t *testing.T) {
 			t.Errorf("%s: recorded impl %p, want %p", text, rec.Impl, w.impl)
 		}
 	}
-	if got := VerifyElaboration(fa, nodes); len(got) > 0 {
+	if got := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(got) > 0 {
 		t.Fatalf("want nothing reported, got %v", got)
 	}
 }
@@ -215,7 +215,7 @@ end
 		t.Errorf("the ascription recorded %s of %s by %p, the annotation %s of %s by %p",
 			got.Iface.Name, got.Value, got.Impl, want.Iface.Name, want.Value, want.Impl)
 	}
-	if got := VerifyElaboration(fa, nodes); len(got) > 0 {
+	if got := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(got) > 0 {
 		t.Fatalf("want nothing reported, got %v", got)
 	}
 }

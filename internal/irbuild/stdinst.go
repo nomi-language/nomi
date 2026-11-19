@@ -113,6 +113,10 @@ type stdInstances struct {
 	caller *gen
 	// dc is the census of the lowering the table belongs to.
 	dc *declineCensus
+	// stdOwn is set on the table of std's own lowering of the listed
+	// modules (Program.noLinkStd), which a process makes or reads back
+	// from its std bundle.
+	stdOwn bool
 }
 
 // newStdInstances is a lowering's instance table, whose instance gens note
@@ -783,6 +787,38 @@ func (g *gen) stdRecvTypeArgs(tps []string, ib *ast.ImplBlock, self kind, unitOK
 	return out, true
 }
 
+// stdRecvInstance is the instance of f, a function of a std generic impl
+// block of the interface iface ("" for any block), at the receiver kind k,
+// for a function the builder names by its receiver rather than at a call
+// (a box's Display, a renderer's nested Debug, a sort's comparator): the
+// block's parameters read off k (stdRecvTypeArgs, Unit admitted when
+// unitOK) and their checker types off kt, the checker's type k was read
+// from (stdRecvTypes), none where kt is nil. Nil when f is no such
+// function or does not instantiate at k.
+func (g *gen) stdRecvInstance(f *stdFunc, iface string, k kind, kt analysis.Type, unitOK bool) *stdInst {
+	s := g.stdInsts
+	if s == nil || f == nil {
+		return nil
+	}
+	tps, ib := s.stdTemplateParams(f)
+	if len(tps) == 0 || ib == nil || iface != "" && (ib.Interface == nil || typeText(ib.Interface) != iface) {
+		return nil
+	}
+	args, ok := g.stdRecvTypeArgs(tps, ib, k, unitOK)
+	if !ok {
+		return nil
+	}
+	var types []analysis.Type
+	if byName := s.stdRecvTypes(f, ib, kt); byName != nil {
+		types = make([]analysis.Type, len(tps))
+		for i, n := range tps {
+			types[i] = byName[n]
+		}
+	}
+	inst, _ := s.instantiateTyped(f, tps, args, types, g)
+	return inst
+}
+
 // stdRecvTypes is the checker's type each type parameter of f's impl block
 // ib stands for where recv, the receiver's checker type, selects ib: ib's
 // receiver as the checker resolved it matched against recv
@@ -1152,7 +1188,7 @@ func (bl *irScalarBuilder) stdKindQualCall(t *ast.Call, k kind, kt analysis.Type
 		// `P.parse_fields(texts)` at an anonymous struct (irparsefields.go).
 		return v, rk, mobile, ok, true
 	}
-	if v, rk, mobile, ok, handled := bl.recordJsonKindCall(t, k, method); handled {
+	if v, rk, mobile, ok, handled := bl.recordJsonKindCall(t, k, kt, method); handled {
 		// `T.from_json(json)` at an anonymous struct (irrecordjson.go).
 		return v, rk, mobile, ok, true
 	}

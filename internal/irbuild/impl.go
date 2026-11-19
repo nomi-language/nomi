@@ -1707,8 +1707,8 @@ func (g *gen) qualifierKind(owner string) kind {
 // a type declared in a second whose `impl Logger` is written in a third, and
 // the dispatch finds that impl whichever file wrote it. See existential.go's
 // implIndex: the key is a pair of declaration nodes, never a pair of names.
-func (g *gen) implements(d *ifaceDef, k kind) bool {
-	return g.bindsImpl(d, k)
+func (g *gen) implements(d *ifaceDef, k kind, kt analysis.Type) bool {
+	return g.bindsImpl(d, k, kt)
 }
 
 // existential is the kind of values whose static type is the interface d.

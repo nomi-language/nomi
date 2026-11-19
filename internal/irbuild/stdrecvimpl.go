@@ -509,23 +509,24 @@ func (bl *irScalarBuilder) stdRecvOwnerPlan(t *ast.Call, args irQualArgs, owner,
 	var found *irQualPlan
 	var foundAt kind
 	ambiguous := false
-	var walk func(k kind)
-	walk = func(k kind) {
+	var walk func(k kind, kt analysis.Type)
+	walk = func(k kind, kt analysis.Type) {
 		_, parts, container := stdRecvParts(k)
 		if !container && irRetainedTupleKind(k) {
 			parts = k.comp.parts
 		}
-		for _, part := range parts {
+		for i, part := range parts {
+			pt := partCheckerType(kt, k, i)
 			if name, ok := undeclaredRecvOwner(part); ok && name == owner && part != foundAt {
-				if p := at(part, nil); p != nil && p.result == result {
+				if p := at(part, pt); p != nil && p.result == result {
 					ambiguous = ambiguous || found != nil
 					found, foundAt = p, part
 				}
 			}
-			walk(part)
+			walk(part, pt)
 		}
 	}
-	walk(result)
+	walk(result, bl.g.checkerTypeArg(ft.Return))
 	if ambiguous {
 		return nil
 	}
@@ -541,19 +542,24 @@ func (bl *irScalarBuilder) ownerKind(t *ast.Call, owner string) kind {
 	if k := bl.g.qualifierKind(owner); k != kindInvalid {
 		return k
 	}
+	return bl.g.project(bl.ownerType(t, owner))
+}
+
+// ownerType is the type the checker bound t's qualifier, owner, to, or nil
+// when the qualifier names no type.
+func (bl *irScalarBuilder) ownerType(t *ast.Call, owner string) analysis.Type {
 	fa, qualified := t.Func.(*ast.FieldAccess)
 	if !qualified {
-		return kindInvalid
+		return nil
 	}
 	ti, isType := fa.Object.(*ast.TypeIdent)
 	if !isType || ti.Name != owner {
-		return kindInvalid
+		return nil
 	}
-	sym := bl.g.checkedRef(ti.Line, ti.Col)
-	if sym == nil || sym.Type == nil {
-		return kindInvalid
+	if sym := bl.g.checkedRef(ti.Line, ti.Col); sym != nil {
+		return sym.Type
 	}
-	return bl.g.project(sym.Type)
+	return nil
 }
 
 // undeclaredRecvOwner is the owner a call spells for k when k is a receiver
@@ -614,14 +620,15 @@ func (bl *irScalarBuilder) stdRecvKindCall(t *ast.Call, k kind, kt analysis.Type
 // stdRecvIfacePlan is the call of the impl of d's method for recv, a std
 // container kind, that any file of the program writes: `Show.show([1, 2])`
 // and, through the routes that spell it so, `T.show(xs)` in an instance and
-// `List.show(xs)`.
-func (bl *irScalarBuilder) stdRecvIfacePlan(t *ast.Call, args irQualArgs, d *ifaceDef, method string, recv kind) *irQualPlan {
+// `List.show(xs)`. recvType is the checker's type recv was read from, or
+// nil.
+func (bl *irScalarBuilder) stdRecvIfacePlan(t *ast.Call, args irQualArgs, d *ifaceDef, method string, recv kind, recvType analysis.Type) *irQualPlan {
 	if bl.g.stdModule != "" {
 		return nil
 	}
 	_, item := bl.stdRecvCallee(t)
 	var cands []stdRecvCand
-	for _, c := range bl.g.stdRecvCandidates(recv, nil, method, d.nomi, item) {
+	for _, c := range bl.g.stdRecvCandidates(recv, recvType, method, d.nomi, item) {
 		if d.decl == nil || (c.d.iface != nil && c.d.iface.decl == d.decl) {
 			cands = append(cands, c)
 		}

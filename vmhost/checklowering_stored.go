@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -49,6 +50,9 @@ type storedKeptDoc struct {
 	paths                     map[string]string
 	// headers holds each file's impl headers, by module key.
 	headers map[string][]analysis.ImplHeader
+	// reached is the outside calls the kept lowering's program reaches
+	// (reachedCalls), which a lowering of the same texts answers again.
+	reached []analyzedlowering.Reached
 }
 
 // storedRelowers counts the lowerings that lowered only the changed files
@@ -62,15 +66,15 @@ func StoredRelowersForTest() int64 { return storedRelowers.Load() }
 // checkLoweringStored is CheckLowering for the entry at path whose text is
 // src, of a program opened from its record (see above). ok is false when
 // it did not lower.
-func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *analysis.StoredLowering) (problems error, ok bool, err error) {
+func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *analysis.StoredLowering) (found LoweringFound, ok bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			problems, ok, err = nil, false, nil
+			found, ok, err = LoweringFound{}, false, nil
 		}
 	}()
 	nodes, perr := parser.Parse(lexer.Lex(src))
 	if perr != nil {
-		return nil, false, nil
+		return found, false, nil
 	}
 	tests := frontend.DeclaresTests(nodes)
 	storedKept.mu.Lock()
@@ -79,11 +83,11 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	base := st
 	if base == nil || base.tests != tests || len(base.sums) != len(in.Files) {
 		if in.Kept == nil || in.KeptTests != tests {
-			return nil, false, nil
+			return found, false, nil
 		}
 		kept, derr := irbuild.DecodeKeptLowering(in.Kept)
 		if derr != nil {
-			return nil, false, nil
+			return found, false, nil
 		}
 		base = &storedKeptDoc{kept: kept, tests: tests, sums: map[string][32]byte{}, ifaces: map[string][32]byte{}, sigs: map[string][32]byte{}, impls: map[string][32]byte{}, headers: map[string][]analysis.ImplHeader{}}
 		for _, f := range in.Files {
@@ -105,7 +109,7 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		files[f.Key] = true
 		was, known := base.sums[f.Key]
 		if !known {
-			return nil, false, nil
+			return found, false, nil
 		}
 		if was != f.Sum {
 			lower[f.Key] = true
@@ -146,7 +150,7 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		}
 	}
 	if len(lower) > maxRelowered && len(lower)*4 > len(in.Files) {
-		return nil, false, nil
+		return found, false, nil
 	}
 	relowering := map[string]bool{}
 	var changed []analysis.StoredLoweringFile
@@ -164,36 +168,41 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	if len(changed) == 0 {
 		if st == nil {
 			// The record's texts: its answer is the record's.
-			return nil, false, nil
+			return found, false, nil
 		}
 		// The kept lowering found nothing for these texts.
-		return nil, true, nil
+		return LoweringFound{Reached: st.reached}, true, nil
 	}
 	kept := base.kept
 	var res *irbuild.Result
 	for _, f := range changed {
 		if ctx.Err() != nil {
-			return nil, true, ctx.Err()
+			return found, true, ctx.Err()
 		}
 		check := in.Check(f.Key, nil)
 		if check == nil {
-			return nil, false, nil
+			return found, false, nil
 		}
 		key := f.Key
 		recheck := func(bodies map[string]bool) *analysis.FileCheck { return in.Check(key, bodies) }
 		var why string
 		if res, kept, _, _, why = relowerOne(check, f.Key, f.Path, in.Root, tests, kept, f.Iface != base.ifaces[f.Key], relowering, nil, files, nil, recheck, func(string, ...any) {}); why != "" {
-			return nil, false, nil
+			return found, false, nil
 		}
 		relowering[f.Path] = false
 	}
 	p, built := relinkedProgram(res, in.EntryPath, src, in.Root, tests, cfg)
 	if !built || p.entry == nil && (p.HasMain() || tests) || !p.runsClean() || p.Unsupported() != nil {
-		return nil, false, nil
+		return found, false, nil
 	}
-	problems, err = loweringProblems(p, src)
-	if problems == nil && err == nil && cfg.loweringStopped() == nil {
-		next.kept = kept
+	// The entry's syntax, where a report about a call in it points at the
+	// callee, as a whole lowering's does (shownSpan).
+	if entry := &p.prog.Modules[0]; entry.Nodes == nil {
+		entry.Nodes = nodes
+	}
+	found, err = loweringProblems(p, src)
+	if found.Problems == nil && err == nil && cfg.loweringStopped() == nil {
+		next.kept, next.reached = kept, found.Reached
 		storedKept.mu.Lock()
 		if storedKept.docs == nil {
 			storedKept.docs = map[string]*storedKeptDoc{}
@@ -208,7 +217,7 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		storedKept.mu.Unlock()
 		storedRelowers.Add(1)
 	}
-	return problems, true, err
+	return found, true, err
 }
 
 // keptLoweringOf is analysis.KeptLoweringFunc over this process's kept

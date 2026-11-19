@@ -729,7 +729,7 @@ func (bl *irScalarBuilder) indirectCall(t *ast.Call) (ir.Temp, kind, bool, bool)
 // concrete value, so it crosses a call, a lambda and a result as that value
 // does.
 func irCallableValueKind(k kind) bool {
-	if irRetainedValueKind(k) || irRetainedSeqKind(k) || irExistentialKind(k) || irConjKind(k) {
+	if irRetainedValueKind(k) || irRetainedSeqKind(k) || irHeldKind(k) {
 		return true
 	}
 	if k.tag != tagFunc || k.comp == nil || len(k.comp.parts) == 0 {

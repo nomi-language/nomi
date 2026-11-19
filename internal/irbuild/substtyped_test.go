@@ -1,18 +1,21 @@
 package irbuild
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // verifyTypedInstances runs src as verifyLambdaProgram does and fails when
-// an instance of entry is entered with a type parameter that has no
-// checker type beside its kind (substFrame, substCensus). Under test
+// an instance is entered with a type parameter that has no checker type
+// beside its kind (substFrame, substCensus), naming each. Under test
 // pushSubst holds each checker type to its kind (verifySubst), so a type
 // that disagrees fails the run.
-func verifyTypedInstances(t *testing.T, entry substEntry, src, want string, extraFiles ...map[string]string) {
+func verifyTypedInstances(t *testing.T, src, want string, extraFiles ...map[string]string) {
 	t.Helper()
 	census := openSubstCensus()
 	verifyLambdaProgram(t, src, want, extraFiles...)
-	if n := census()[entry]; n != 0 {
-		t.Errorf("%d type parameters of %s instances are entered with no checker type", n, entry)
+	for e, names := range census() {
+		t.Errorf("%d type parameters of %s instances are entered with no checker type: %s", len(names), e, strings.Join(names, ", "))
 	}
 }
 
@@ -21,7 +24,7 @@ func verifyTypedInstances(t *testing.T, entry substEntry, src, want string, extr
 // `io.print`, a std interface default's `self` (`Int.max`), and a
 // container's equality.
 func TestSubstTyped_StdInstancesAtAnOperand(t *testing.T) {
-	verifyTypedInstances(t, substStd, `import std::io
+	verifyTypedInstances(t, `import std::io
 
 fn main()
     xs = [1, 2, 3]
@@ -39,7 +42,7 @@ end
 // Bag`) binds into the interface's instance at the block's recorded type
 // arguments, which carry their checker types (stdProgIfaceForImpl).
 func TestSubstTyped_StdGenericInterfaceOfAnImpl(t *testing.T) {
-	verifyTypedInstances(t, substIfaceImpl, `import std::io
+	verifyTypedInstances(t, `import std::io
 
 struct Bag
     items: List<Int>
@@ -64,7 +67,7 @@ end
 // types for the call (ifaceDefaultFrameAt), here and in the declaring
 // file's accessor.
 func TestSubstTyped_GenericInterfaceDefaultInAnotherFile(t *testing.T) {
-	verifyTypedInstances(t, substIfaceDefault, `import std::io
+	verifyTypedInstances(t, `import std::io
 import pads.{Pads}
 
 struct Row
@@ -95,7 +98,7 @@ end
 // the operand's checker type, matched against the block's receiver
 // (analysis.ImplBlockArgsAt).
 func TestSubstTyped_ProgramImplOverAStdContainer(t *testing.T) {
-	verifyTypedInstances(t, substImpl, `import std::io
+	verifyTypedInstances(t, `import std::io
 
 interface Show
     fn show(s: self) -> String
@@ -162,14 +165,13 @@ fn main()
     io.print(h.pair.left)
 end
 `
-	verifyTypedInstances(t, substType, src, "1\na\n")
-	verifyTypedInstances(t, substImpl, src, "1\na\n")
+	verifyTypedInstances(t, src, "1\na\n")
 }
 
 // A generic subtype spelled in an annotation (`Many<Int>`) is its base at
 // the checker's types for the annotation's arguments.
 func TestSubstTyped_AnnotatedGenericRefinement(t *testing.T) {
-	verifyTypedInstances(t, substRefinement, `import std::io
+	verifyTypedInstances(t, `import std::io
 
 subtype Many<T> List<T> when fn xs -> List.length(xs) > 1
 
@@ -182,4 +184,51 @@ fn main()
     io.print(count(m))
 end
 `, "2\n")
+}
+
+// A std value held as a std interface is boxed with dispatch entries the
+// program builds (stdProgThunk), each a call for the boxed value's type
+// (the coercion's analysis.Coercion.Value), so the std instances the
+// entries reach (Range.contains, List.hash) are entered with it.
+func TestSubstTyped_StdValuesHeldAsStdInterfaces(t *testing.T) {
+	verifyTypedInstances(t, `import std::io
+
+fn holders(x: Int, cs: List<Contains<Int>>) -> Int
+    cs |> Iter.filter(fn c -> x in c) |> Iter.count()
+end
+
+fn main()
+    io.print(Int.to_string(holders(3, [[1, 2], 1..5, Set[3]])))
+    h: Hashable = [1, 2]
+    same: Hashable = [1, 2]
+    io.print(Bool.to_string(Hashable.hash(h) == Hashable.hash(same)))
+end
+`, "2\nTrue\n")
+}
+
+// Instances the builder names by a receiver rather than at a call read
+// the receiver's checker type where it is asked for: a std default an
+// impl block does not write, at the block's receiver (implDef.recvType);
+// a sort's comparator, at the view's element (analysis.IterView.Elem), a
+// tuple's part and the key's type argument; a renderer's nested Debug, at
+// the part's type within its whole (partCheckerType).
+func TestSubstTyped_InstancesNamedByTheirReceiver(t *testing.T) {
+	verifyTypedInstances(t, `import std::io
+import std::json.{Json, ToJson}
+
+struct Away
+    n: Int
+end
+
+derive ToJson for Away
+
+fn main()
+    v: ToJson = Away{n: 1}
+    io.print(Json.encode(ToJson.to_json(v)))
+    io.print("${[[2, 1], [1]] |> Iter.sort()}")
+    io.print("${[(2, [1]), (1, [2])] |> Iter.sort()}")
+    io.print("${[[3], [1, 2]] |> Iter.sort_by(fn xs -> [List.length(xs)])}")
+    io.print(Debug.inspect([1..3]))
+end
+`, "{\"n\":1}\n[[1], [2, 1]]\n[(1, [2]), (2, [1])]\n[[3], [1, 2]]\n[1..3]\n")
 }

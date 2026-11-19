@@ -13,6 +13,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/frontend"
+	"github.com/nomi-language/nomi/internal/rotation"
 	"github.com/nomi-language/nomi/std"
 )
 
@@ -27,10 +28,11 @@ import (
 // TestCheckProgramPrintsWhatTheFrontEndPrints holds that list to the front
 // end. A kept analysis must hold no node a recheck replaced (StaleForTest).
 //
-// TestIncrementalMatchesFull (about 13 seconds) applies fixed edit
+// TestIncrementalMatchesFull (about 10 seconds) applies fixed edit
 // sequences to small projects declared here (layered imports, phrase
-// catalogs, dispatch, application types) and to the multi-file corpus
-// directories. TestIncrementalMatchesFullForATryFromImpl adds and removes
+// catalogs, dispatch, application types) and to a sample of the
+// multi-file corpus directories, every one under NOMI_CORPUS_WALKS=full
+// (about a minute). TestIncrementalMatchesFullForATryFromImpl adds and removes
 // the `From` impl a `?` in another file converts through.
 // TestIncrementalHarnessCatchesAStaleResult proves a stale
 // recheck fails it. FuzzIncrementalMatchesFull (incremental_fuzz_test.go)
@@ -884,6 +886,14 @@ var signalEdits = []editStep{
 	replace("body only, keeping its keywords", "lib", "    n * 2", "    n * 3"),
 }
 
+// incrementalStride is the sample of corpus projects
+// TestIncrementalMatchesFull, TestStoredReductionsMatchTheProgram and
+// TestCheckFromInterfacesMatchesFull edit by default: one in this many.
+const incrementalStride = 8
+
+// TestIncrementalMatchesFull runs the edit sequences of the projects
+// declared here, and edits the entry of every eighth multi-file corpus
+// project (incrementalStride); NOMI_CORPUS_WALKS=full edits every one.
 func TestIncrementalMatchesFull(t *testing.T) {
 	t.Parallel()
 	dm := newManager()
@@ -1000,7 +1010,11 @@ func TestIncrementalMatchesFull(t *testing.T) {
 	if len(projects) < 20 {
 		t.Fatalf("found %d multi-file corpus projects, want at least 20", len(projects))
 	}
+	walk := rotation.CorpusWalk(t, incrementalStride)
 	for i, p := range projects {
+		if !walk.Takes(i) {
+			continue
+		}
 		t.Run(p.name, func(t *testing.T) {
 			// The entry, and in every fourth project the first other file
 			// the entry reaches too. Each check costs a few milliseconds;

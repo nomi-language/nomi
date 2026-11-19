@@ -14,6 +14,7 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/irbuild"
 	"github.com/nomi-language/nomi/internal/stdformat"
+	"github.com/nomi-language/nomi/internal/suggest"
 	"github.com/nomi-language/nomi/rt"
 )
 
@@ -137,36 +138,11 @@ func nearCurrency(currency string, listed []string) string {
 		}
 	}
 	for _, l := range listed {
-		if editDistance(currency, l) == 1 {
+		if suggest.EditDistance(currency, l) == 1 {
 			return l
 		}
 	}
 	return ""
-}
-
-// editDistance is the optimal string alignment distance between a and b.
-func editDistance(a, b string) int {
-	d := make([][]int, len(a)+1)
-	for i := range d {
-		d[i] = make([]int, len(b)+1)
-		d[i][0] = i
-	}
-	for j := range d[0] {
-		d[0][j] = j
-	}
-	for i := 1; i <= len(a); i++ {
-		for j := 1; j <= len(b); j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			d[i][j] = min(d[i-1][j]+1, d[i][j-1]+1, d[i-1][j-1]+cost)
-			if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
-				d[i][j] = min(d[i][j], d[i-2][j-2]+1)
-			}
-		}
-	}
-	return d[len(a)][len(b)]
 }
 
 // literalCurrency is the custom currency a Currency or Money literal's Ok

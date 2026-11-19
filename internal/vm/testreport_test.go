@@ -134,27 +134,9 @@ func vmReportCaptureStderr(fn func() (int, string)) (string, int, string) {
 
 func vmReportRun(population, path string, wantCases int) (transcript string,
 	exit, cases int, reason string) {
-	prog, err := irbuild.Analyze(path)
-	if err != nil {
-		return "", 0, 0, "the front end refuses this program, so the record is a diagnostic"
-	}
-	res, _, err := irbuild.GenerateIR(prog)
-	if err != nil {
-		return "", 0, 0, "Generate refuses this program"
-	}
-	var mod *ir.Module
-	for _, m := range res.IR {
-		// BY THE DECLARING PATH, which is what `ir.NewModule` is handed and
-		// what `nomi test <file>` selects on: the command collects the NAMED
-		// file's cases and no others, and `importedModuleRefusal` keeps the
-		// builder's test table identical to it. A sibling module's tests are not
-		// this record's.
-		if m.Name() == path {
-			mod = m
-		}
-	}
-	if mod == nil {
-		return "", 0, 0, "this file retained nothing at all, so it has no module"
+	prog, res, mod, reason := vmLowerTests(path)
+	if reason != "" {
+		return "", 0, 0, reason
 	}
 	if population == "tour" {
 		// A TOUR RECORD'S N IS A FLAG, NOT A COUNT: `runTourBlock`'s set
@@ -187,11 +169,7 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 	if err != nil {
 		return "", 0, 0, "the link hook refused it: " + err.Error()
 	}
-	m := vm.NewProgram(mod, mods, &out).WithLocaleData(programLocales(prog))
-	// A tour block's tests read its data files as its run does (tourFiles).
-	if files := tourFiles(path); files != nil {
-		m = m.WithFiles(files)
-	}
+	m := vmTestMachine(prog, path, mod, mods, &out)
 	if population != "tour" {
 		var stderr string
 		stderr, exit, reason = vmReportCaptureStderr(func() (int, string) { return m.RunTests(path) })
@@ -235,6 +213,41 @@ func vmReportRun(population, path string, wantCases int) (transcript string,
 		return "", 0, 0, "the machine could not run a case: " + reason
 	}
 	return out.String(), exit, len(mod.Tests()), ""
+}
+
+// vmLowerTests lowers path and answers the module its entry file produced,
+// whose cases `nomi test <path>` runs, or the reason there is none.
+func vmLowerTests(path string) (*irbuild.Program, *irbuild.Result, *ir.Module, string) {
+	prog, err := irbuild.Analyze(path)
+	if err != nil {
+		return nil, nil, nil, "the front end refuses this program, so the record is a diagnostic"
+	}
+	res, _, err := irbuild.GenerateIR(prog)
+	if err != nil {
+		return nil, nil, nil, "Generate refuses this program"
+	}
+	for _, m := range res.IR {
+		// BY THE DECLARING PATH, which is what `ir.NewModule` is handed and
+		// what `nomi test <file>` selects on: the command collects the NAMED
+		// file's cases and no others, and `importedModuleRefusal` keeps the
+		// builder's test table identical to it. A sibling module's tests are not
+		// this record's.
+		if m.Name() == path {
+			return prog, res, m, ""
+		}
+	}
+	return nil, nil, nil, "this file retained nothing at all, so it has no module"
+}
+
+// vmTestMachine is the machine path's cases run on, over mods with mod as
+// the entry, writing to out: with the program's locales, and a tour block's
+// data files, which its tests read as its run does (tourFiles).
+func vmTestMachine(prog *irbuild.Program, path string, mod *ir.Module, mods []*ir.Module, out io.Writer) *vm.Machine {
+	m := vm.NewProgram(mod, mods, out).WithLocaleData(programLocales(prog))
+	if files := tourFiles(path); files != nil {
+		m = m.WithFiles(files)
+	}
+	return m
 }
 
 // reportCases is the number of cases a report's `test result:` line counts,

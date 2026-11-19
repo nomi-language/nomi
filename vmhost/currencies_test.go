@@ -130,7 +130,8 @@ func TestCurrency_RuntimeIsUnrestricted(t *testing.T) {
 	if want := "Ok(Currency\"GEMS:3\")\nOk(Currency\"PST:0\")\n"; out.String() != want {
 		t.Errorf("prints %q, want %q", out.String(), want)
 	}
-	problems, err := CheckLowering(context.Background(), "main.nomi", src, WithVirtualManifest(mustManifest(t, pointsToml)))
+	found, err := CheckLowering(context.Background(), "main.nomi", src, WithVirtualManifest(mustManifest(t, pointsToml)))
+	problems := found.Problems
 	if err != nil || problems != nil {
 		t.Errorf("CheckLowering answers %v, %v; want nothing for calls with values", problems, err)
 	}
@@ -179,7 +180,8 @@ func TestCurrencyCustomCall_LiteralArgumentsListedIsAHint(t *testing.T) {
 		if err := p.Run(context.Background(), io.Discard, nil, false); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
-		problems, err := CheckLowering(context.Background(), "main.nomi", src, c.opts...)
+		found, err := CheckLowering(context.Background(), "main.nomi", src, c.opts...)
+		problems := found.Problems
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -194,8 +196,9 @@ func TestCurrencyCustomCall_LiteralArgumentsListedIsAHint(t *testing.T) {
 	}
 	// A call that does not make a custom currency is no hint.
 	for _, call := range []string{"Currency.custom(\"EUR\", 2)", "Currency.custom(\"POINTS\", 19)"} {
-		problems, err := CheckLowering(context.Background(), "main.nomi", currencyProgram(call),
+		found, err := CheckLowering(context.Background(), "main.nomi", currencyProgram(call),
 			WithVirtualManifest(mustManifest(t, pointsToml)))
+		problems := found.Problems
 		if err != nil || problems != nil {
 			t.Errorf("%s: CheckLowering answers %v, %v; want nothing", call, problems, err)
 		}

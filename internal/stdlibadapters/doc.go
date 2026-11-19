@@ -10,7 +10,10 @@
 // table, which names each Go symbol, and the `host fn` declarations in
 // std/*.nomi, which say what each operand and result is. The table stays the
 // one hand-maintained list; this package adds none. TestGeneratedFileIsCurrent
-// regenerates the file and fails when it differs.
+// regenerates the file and fails when it differs. The same step writes
+// internal/capability/std_names_gen.go, the std modules a program can
+// import, which a runner that links no front end checks a host's
+// capability list against.
 //
 // The VM binds this table on every machine (internal/vm/hostcall.go) and
 // calls a stdlib crossing through it. The adapters are held to recorded

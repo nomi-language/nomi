@@ -56,6 +56,10 @@ type Fix struct {
 	// ("Write `case`").
 	Edits []Edit
 	Title string
+	// Path, when set, is the file Edits apply to, an absolute path, when
+	// it is not the error's own file: the nomi.toml whose list a
+	// capability-not-allowed error's fix adds a name to.
+	Path string
 }
 
 // Edit replaces the text from Start up to End (1-based lines, byte

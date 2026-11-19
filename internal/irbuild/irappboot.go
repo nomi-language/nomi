@@ -105,14 +105,16 @@ func irExistentialKind(k kind) bool {
 
 // irErases reports whether a value of kind have enters a position of
 // existential kind want by erasure: a declared, non-enum type with a
-// lowered impl of the interface.
-func (g *gen) irErases(want, have kind) (erases bool) {
+// lowered impl of the interface. haveType is the checker's type have was
+// read from, nil where the caller has none, which a dispatch entry the
+// answer builds is built for (stdProgBinds).
+func (g *gen) irErases(want, have kind, haveType analysis.Type) (erases bool) {
 	if irConjKind(have) {
 		// Widening a conjunction to a member or to fewer members.
 		return conjHolds(have, want)
 	}
 	if irConjKind(want) {
-		return !irExistentialKind(have) && g.conjErases(want, have)
+		return !irExistentialKind(have) && g.conjErases(want, have, haveType)
 	}
 	if irStdDisplayExistential(want) && (irDisplayErasedScalar(have) || g.irDisplayErasedNamed(want, have)) {
 		// A value held as std Display's existential: the erased rendering
@@ -147,10 +149,10 @@ func (g *gen) irErases(want, have kind) (erases bool) {
 	if _, scalar := irDispatchScalarName(have); scalar {
 		// A builtin scalar with a local impl (`impl Numberish for Int`): the
 		// VM dispatches on the scalar's own type name (vm.runtimeTypeName).
-		return irExistentialKind(want) && g.implements(want.iface, have)
+		return irExistentialKind(want) && g.implements(want.iface, have, haveType)
 	}
 	erases = irExistentialKind(want) && have.tag == tagNamed && have.def != nil && (!have.def.isEnum || irDispatchEnum(have.def)) &&
-		irRetainedValueKind(have) && g.implements(want.iface, have)
+		irRetainedValueKind(have) && g.implements(want.iface, have, haveType)
 	if erases && have.def.genericOf != nil {
 		// An instance of a generic struct (`Box<Int>`) is held erased: its
 		// impls are recorded under its instance key (irInstanceImpls), so
@@ -216,7 +218,7 @@ func (g *gen) irDisplayErasedContainer(want, have kind) bool {
 		// A part that is a Display value already (`(d, 2)` for `d:
 		// Display`) is rendered by the erased rendering as any Display
 		// value is.
-		if p != want && !g.irErases(want, p) {
+		if p != want && !g.irErases(want, p, nil) {
 			return false
 		}
 	}
@@ -241,7 +243,7 @@ func (g *gen) irErasesFields(want, have kind) bool {
 		w, h := want.comp.parts[i], have.comp.parts[i]
 		switch {
 		case w == h:
-		case g.irErases(w, h):
+		case g.irErases(w, h, nil):
 			erased = true
 		default:
 			return false
@@ -280,7 +282,7 @@ func (g *gen) irDisplayErasedNamed(want, have kind) bool {
 	if have.tag != tagNamed || have.def == nil || have.def.genericOf != nil || have.def.preludeOf != nil || !irRetainedValueKind(have) {
 		return false
 	}
-	if g.implements(want.iface, have) {
+	if g.implements(want.iface, have, nil) {
 		return true
 	}
 	if g.std == nil {
@@ -431,7 +433,7 @@ func (g *gen) irRecordImpls() {
 				if method == nil {
 					continue
 				}
-				if fn := g.stdProgThunk(iface, m, d.recv, typ.Name()); fn != nil {
+				if fn := g.stdProgThunk(iface, m, d.recv, d.recvType, typ.Name()); fn != nil {
 					g.irMod.Implement(method, typ, fn)
 				} else {
 					// A dispatch to it must block the program before it
@@ -491,7 +493,7 @@ func (g *gen) irBuildStdDefaultThunks() {
 		}
 		for _, m := range iface.order {
 			if d.items[m.name] == nil && stdProgInheritsDefault(m) {
-				g.stdProgThunk(iface, m, d.recv, typ.Name())
+				g.stdProgThunk(iface, m, d.recv, d.recvType, typ.Name())
 			}
 		}
 	}

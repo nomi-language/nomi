@@ -131,9 +131,9 @@ type irConjTypeToken struct{ c *compKind }
 // want by erasure, as irErases answers for one interface: a value whose
 // run-time type names an impl of each member. Such a value may still enter
 // boxed (conjBoxPlan). An interface value enters by conjHolds instead.
-func (g *gen) conjErases(want, have kind) bool {
+func (g *gen) conjErases(want, have kind, haveType analysis.Type) bool {
 	for _, m := range want.comp.parts {
-		if !g.irErases(m, have) {
+		if !g.irErases(m, have, haveType) {
 			return false
 		}
 	}
@@ -145,14 +145,14 @@ func (g *gen) conjErases(want, have kind) bool {
 // one box, named by the first member plan that boxes it, carrying every
 // member's dispatch entries under that name. It is nil when no member boxes
 // the value.
-func (g *gen) conjBoxPlan(want, have kind, impls []*ast.ImplBlock) *irBoxPlan {
+func (g *gen) conjBoxPlan(want, have kind, haveType analysis.Type, impls []*ast.ImplBlock) *irBoxPlan {
 	var plans []*irBoxPlan
 	for i, m := range want.comp.parts {
 		var impl *ast.ImplBlock
 		if i < len(impls) {
 			impl = impls[i]
 		}
-		plans = append(plans, g.irBoxPlanFor(m, have, impl))
+		plans = append(plans, g.irBoxPlanFor(m, have, haveType, impl))
 	}
 	// A member that takes the value unboxed takes the box too: dispatch,
 	// equality and rendering see through it (rt.Unbox). Each member that
@@ -184,15 +184,16 @@ func (bl *irScalarBuilder) intoConjunction(at ast.Node, v ir.Temp, want, have ki
 		return v, irNotCoerced
 	}
 	var impls []*ast.ImplBlock
+	var haveType analysis.Type
 	if rec != nil && rec.Conj != nil && bl.g.project(rec.Conj) == want {
 		// The record's members project to want's parts in their order:
 		// both are sorted by name.
-		impls = rec.Impls
+		impls, haveType = rec.Impls, bl.g.checkerTypeArg(rec.Value)
 	}
-	if p := bl.g.conjBoxPlan(want, have, impls); p != nil {
+	if p := bl.g.conjBoxPlan(want, have, haveType, impls); p != nil {
 		return bl.eraseBoxed(at, v, want, p), irCoercedBoxed
 	}
-	if bl.g.conjErases(want, have) {
+	if bl.g.conjErases(want, have, haveType) {
 		return v, irCoercedUnboxed
 	}
 	return v, irNotCoerced
@@ -213,27 +214,57 @@ func (bl *irScalarBuilder) conjReceiver(at ast.Node, v ir.Temp, recv kind, d *if
 	return v, recv, false
 }
 
-// recordedConj is the checker's record of a value of kind have entering
-// the conjunction want at the expression at: the coercion of the expression
-// itself, or a part of its conversion. Nil when it recorded none there.
-func (g *gen) recordedConj(at ast.Node, want, have kind) *analysis.Coercion {
-	if rec := g.coercionAt(at); rec != nil && rec.Conj != nil && g.project(rec.Conj) == want {
-		return rec
-	}
-	if rec := g.conversionAt(at); rec != nil {
-		for _, b := range rec.Boxes {
-			if b.Conj != nil && g.project(b.Conj) == want && g.project(b.Value) == have {
-				return b
-			}
-		}
-	}
-	return nil
-}
-
 // irHeldKind reports whether k is the kind of a value held as an interface
 // value: one interface's existential or a conjunction's. Both are the
 // concrete value in the VM, so a position that holds, compares, hashes or
 // renders one holds the other the same way.
 func irHeldKind(k kind) bool {
-	return irExistentialKind(k) || irConjKind(k)
+	return heldAs(k) == heldBoxed
+}
+
+// irHolding is how the builder holds a value the checker types as an
+// interface value, which a dispatched record (analysis.OperatorDispatched)
+// answers through the impl of the value it holds.
+type irHolding uint8
+
+const (
+	// heldNot: k is no interface value's kind; a dispatched record over it
+	// names a holding the builder lacks.
+	heldNot irHolding = iota
+	// heldBoxed: one interface's existential or a conjunction. The value
+	// is the concrete one, whose type the machine selects the impl by
+	// where the call runs.
+	heldBoxed
+	// heldIterView: an `Iter<T>`, which the builder holds as the view of
+	// its source (analysis.FileAnalysis.IterViews), rendered through the
+	// source's Debug.
+	heldIterView
+	// heldUnboxed: a std type's value held as a std interface by its own
+	// kind (stdProgHeldType), whose impl the kind names.
+	heldUnboxed
+)
+
+// heldAs is how a value of kind k is held where the checker types it as an
+// interface value: the one predicate every lowering of a dispatched record
+// reads (verifyCallForm).
+func heldAs(k kind) irHolding {
+	switch {
+	case irExistentialKind(k) || irConjKind(k):
+		return heldBoxed
+	case k.tag == tagSeq:
+		return heldIterView
+	}
+	return heldNot
+}
+
+// heldAs is heldAs with a std value held unboxed, which only a gen's std
+// index can say (stdProgHeldType).
+func (g *gen) heldAs(k kind) irHolding {
+	if h := heldAs(k); h != heldNot {
+		return h
+	}
+	if g.stdProgHeldType(k) != nil {
+		return heldUnboxed
+	}
+	return heldNot
 }

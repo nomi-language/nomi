@@ -527,3 +527,60 @@ end
 		}
 	})
 }
+
+// genericInterfaces declares an interface of one type parameter and one of
+// two.
+const genericInterfaces = `pub interface Scale<N>
+    fn scale(x: self, by: N) -> self
+end
+
+pub interface Pair<A, B>
+    fn pair(x: self, a: A) -> B
+end
+`
+
+// The help for a missing impl of a generic interface names the impl block
+// with the interface's type parameters, as its declaration lists them, for
+// a demand the missing-impl report finds (a call, an operator) in the
+// file that declares the interface or through another. A bound's help names
+// the bound's own arguments, through the same formatter.
+func TestMissingImpl_AGenericInterfaceHelpNamesItsParameters(t *testing.T) {
+	const other = "\nstruct Other\n    x: Int\nend\n"
+	program := func(imports, decls, body string) string {
+		return imports + other + decls + "\nfn main()\n" + body + "end\n"
+	}
+	twice := "\nfn twice<T>(x: T) -> T where T: Scale<Int>\n    Scale.scale(x, 2)\nend\n"
+	sum := "\nfn sum<T>(a: T, b: T) -> T where T: Add<T, T>\n    a + b\nend\n"
+	for _, c := range []struct {
+		name, src string
+		files     map[string]string
+		want      []string
+	}{
+		{"a call of one parameter", program("", genericInterfaces, "    dbg Scale.scale(Other{x: 1}, 2)\n"), nil,
+			[]string{"no impl of `Scale` for `Other` (required via call site) | write an `impl Scale<N> for Other` block"}},
+		{"a call of two parameters", program("", genericInterfaces, "    dbg Pair.pair(Other{x: 1}, 2)\n"), nil,
+			[]string{"no impl of `Pair` for `Other` (required via call site) | write an `impl Pair<A, B> for Other` block"}},
+		{"a call of one parameter through another file", program("import\n    scale\nend\n", "", "    dbg scale.Scale.scale(Other{x: 1}, 2)\n"),
+			map[string]string{"scale.nomi": genericInterfaces},
+			[]string{"no impl of `Scale` for `Other` (required via call site) | write an `impl Scale<N> for Other` block"}},
+		{"a call of two parameters through another file", program("import\n    scale.{Pair}\nend\n", "", "    dbg Pair.pair(Other{x: 1}, 2)\n"),
+			map[string]string{"scale.nomi": genericInterfaces},
+			[]string{"no impl of `Pair` for `Other` (required via call site) | write an `impl Pair<A, B> for Other` block"}},
+		{"a bound", program("", genericInterfaces+twice, "    dbg twice(Other{x: 1})\n"), nil,
+			[]string{"Other does not implement Scale<Int> (required by `where T: Scale<Int>`) | write an `impl Scale<Int> for Other` block with `fn scale(x: Other, by: Int) -> Other`"}},
+		{"a bound through another file", program("import\n    scale.{Scale}\nend\n", twice, "    dbg twice(Other{x: 1})\n"),
+			map[string]string{"scale.nomi": genericInterfaces},
+			[]string{"Other does not implement Scale<Int> (required by `where T: Scale<Int>`) | write an `impl Scale<Int> for Other` block with `fn scale(x: Other, by: Int) -> Other`"}},
+		{"an operator", program("", "", "    dbg Other{x: 1} + Other{x: 2}\n"), nil,
+			[]string{"no impl of `Add` for `Other` (required via add operator `+`) | write an `impl Add<Rhs, Out> for Other` block with `fn add(lhs: Other, rhs: Rhs) -> Out`"}},
+		{"an operator's bound", program("", sum, "    dbg sum(Other{x: 1}, Other{x: 2})\n"), nil,
+			[]string{"Other does not implement Add<Other, Other> (required by `where T: Add<T, T>`) | write an `impl Add<Rhs, Out> for Other` block with `fn add(lhs: Other, rhs: Rhs) -> Out`"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got := identityDiagTexts(identityDiags(t, c.src, c.files))
+			if strings.Join(got, "\n") != strings.Join(c.want, "\n") {
+				t.Errorf("got:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(c.want, "\n"))
+			}
+		})
+	}
+}

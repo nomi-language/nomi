@@ -11,6 +11,7 @@ package vm_test
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -224,13 +225,39 @@ func candidateIDs(s *expectation.Set) (ids []string, reportShaped, empty, stops 
 // transcript compared against a whole one would report a producer's retention
 // boundary as a wrong answer.
 func vmRun(path string) (transcript string, reason string) {
+	var out, errOut bytes.Buffer
+	machine, _, reason := vmOpenProgram(path, &out, &errOut)
+	if reason != "" {
+		return "", reason
+	}
+	booted, err := machine.Boot()
+	if err != nil {
+		return "", "the VM could not boot it: " + err.Error()
+	}
+	result, err := booted.Run("main")
+	if err != nil {
+		return "", "the VM ran part of it: " + err.Error()
+	}
+	if r, isRecord := result.(*rt.Record); isRecord && r.Desc.Name == "results.Result" && r.Desc.Variants[r.Tag].Name == "Err" {
+		// What main's `Err` prints (an Exit's message, an error's text) is
+		// a runner's to print, and this runs main bare.
+		return "", "main returned Err, which only a runner reports"
+	}
+	return expectation.Transcript(out.String(), errOut.String()), ""
+}
+
+// vmOpenProgram lowers path and opens the machine its main runs on, over the
+// module set vmLink hands it, writing to out and errOut. It answers the
+// machine and the linked entry module, or the reason the record is not
+// comparable.
+func vmOpenProgram(path string, out, errOut io.Writer) (*vm.Machine, *ir.Module, string) {
 	prog, err := irbuild.AnalyzeFile(path, frontend.Config{})
 	if err != nil {
-		return "", "the front end refuses this program, so the record is a diagnostic"
+		return nil, nil, "the front end refuses this program, so the record is a diagnostic"
 	}
 	res, _, err := irbuild.GenerateIR(prog)
 	if err != nil {
-		return "", "Generate refuses this program"
+		return nil, nil, "Generate refuses this program"
 	}
 	var (
 		entry *ir.Func
@@ -249,7 +276,7 @@ func vmRun(path string) (transcript string, reason string) {
 		for _, m := range res.IR {
 			retained += len(m.Funcs())
 		}
-		return "", fmt.Sprintf("the entry is not retained (%d function(s) retained for this program)",
+		return nil, nil, fmt.Sprintf("the entry is not retained (%d function(s) retained for this program)",
 			retained)
 	}
 	// THE WHOLE PROGRAM'S MODULE SET, not just the entry's module. A Nomi
@@ -257,32 +284,18 @@ func vmRun(path string) (transcript string, reason string) {
 	// callee may sit in the module next door (two modules-and-imports.md
 	// blocks). Running the entry's module alone would report them as a
 	// retention boundary when nothing is missing but the link.
-	var out, errOut bytes.Buffer
 	mod, mods, err := vmLink(mod, res.IRModules())
 	if err != nil {
-		return "", "the link hook refused it: " + err.Error()
+		return nil, nil, "the link hook refused it: " + err.Error()
 	}
-	machine := vm.NewProgram(mod, mods, &out).WithLocaleData(programLocales(prog)).WithErrorOutput(&errOut)
+	machine := vm.NewProgram(mod, mods, out).WithLocaleData(programLocales(prog)).WithErrorOutput(errOut)
 	if files := tourFiles(path); files != nil {
 		machine = machine.WithFiles(files)
 	}
 	if hosts, ok := tourHosts.Load(path); ok {
 		machine = machine.WithHosts(hosts.(vm.HostTable))
 	}
-	booted, err := machine.Boot()
-	if err != nil {
-		return "", "the VM could not boot it: " + err.Error()
-	}
-	result, err := booted.Run("main")
-	if err != nil {
-		return "", "the VM ran part of it: " + err.Error()
-	}
-	if r, isRecord := result.(*rt.Record); isRecord && r.Desc.Name == "results.Result" && r.Desc.Variants[r.Tag].Name == "Err" {
-		// What main's `Err` prints (an Exit's message, an error's text) is
-		// a runner's to print, and this runs main bare.
-		return "", "main returned Err, which only a runner reports"
-	}
-	return expectation.Transcript(out.String(), errOut.String()), ""
+	return machine, mod, ""
 }
 
 // programLocales is the CLDR data prog runs with, as vmhost gives it: the

@@ -19,6 +19,7 @@ import (
 	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/internal/modfetch"
 	"github.com/nomi-language/nomi/internal/parser"
+	"github.com/nomi-language/nomi/vmhost"
 )
 
 // offlineFlag is `--offline`, which `run`, `test`, `check`, `build`,
@@ -27,7 +28,7 @@ import (
 const offlineFlag = "--offline"
 
 // allCallsFlag is `--all-calls`, which `run`, `test`, `check` and `build`
-// take: a refusal by nomi.toml's [capabilities] lists gives every call,
+// take: a refusal by nomi.toml's [capabilities] tables gives every call,
 // not the first of each name (vmhost.AllCallsEnv).
 const allCallsFlag = "--all-calls"
 
@@ -143,7 +144,7 @@ func runFetch(args []string, offline bool) error {
 	return nil
 }
 
-const addUsage = "usage: nomi add [--offline] <module>[@version] | <directory>"
+const addUsage = "usage: nomi add [--offline] [--allow-go] <module>[@version] | <directory>"
 
 // isLocalPath reports whether `nomi add`'s argument names a directory rather
 // than a module path: a module path never starts with a dot or a slash.
@@ -157,10 +158,17 @@ func isLocalPath(arg string) bool {
 // (its latest release without a version), download it and what the project
 // then needs, and record their checksums in go.sum. `nomi add <directory>`
 // requires the Nomi module in that directory and replaces it with the
-// directory.
+// directory. Then it prints what the module's own files reach, and what
+// nomi.toml's [capabilities.deps] table needs for it (dependencyReach),
+// adding it to that table's go only with --allow-go.
 func runAdd(args []string, offline bool) error {
 	var mods []string
+	allowGo := false
 	for _, arg := range args {
+		if arg == "--allow-go" {
+			allowGo = true
+			continue
+		}
 		if isFlag(arg) {
 			return unknownFlag("nomi add", arg, addUsage)
 		}
@@ -184,9 +192,11 @@ func runAdd(args []string, offline bool) error {
 		return fmt.Errorf("nomi add: %w", err)
 	}
 	what := "a Go module"
+	var nomi []string
 	if added.Dir != "" {
 		if m, err := analysis.LoadManifest(added.Dir); err == nil {
 			what = "module " + m.Name
+			nomi = []string{added.Module.Path}
 			if base := filepath.Join(added.Dir, m.Name+".nomi"); isRegular(base) {
 				what += "; import " + m.Name
 			}
@@ -194,9 +204,14 @@ func runAdd(args []string, offline bool) error {
 	}
 	if added.Replace != "" {
 		fmt.Printf("added %s from %s (%s)\n", added.Module.Path, added.Replace, what)
-		return nil
+	} else {
+		fmt.Printf("added %s %s (%s)\n", added.Module.Path, added.Module.Version, what)
 	}
-	fmt.Printf("added %s %s (%s)\n", added.Module.Path, added.Module.Version, what)
+	if len(nomi) > 0 {
+		d := &dependencyReach{root: root}
+		d.reachAfter()
+		d.write(os.Stdout, nomi, func(r *vmhost.Reach) []string { return addToTable(r, added.Module.Path, allowGo) })
+	}
 	return nil
 }
 
@@ -369,7 +384,9 @@ func moduleUse(root, path string) (string, error) {
 const updateUsage = "usage: nomi update [module]"
 
 // runUpdate is `nomi update [module]`: move one requirement, or every one,
-// to its latest release within its module path, and print each change.
+// to its latest release within its module path, and print each change,
+// then what each changed Nomi module's own files reach and how that
+// changed (dependencyReach).
 func runUpdate(args []string) error {
 	var mods []string
 	for _, arg := range args {
@@ -391,6 +408,10 @@ func runUpdate(args []string) error {
 			return fmt.Errorf("nomi update: %w", err)
 		}
 	}
+	// The reach before is worked out only to compare; an update goes ahead
+	// whether or not the project checks.
+	d := &dependencyReach{root: root}
+	d.before, _ = reachOf(root, nil)
 	changes, err := modfetch.Update(root, only, modfetch.Options{Log: os.Stderr, LibVersion: ffirun.LibVersion})
 	if err != nil {
 		return fmt.Errorf("nomi update: %w", err)
@@ -403,12 +424,18 @@ func runUpdate(args []string) error {
 		}
 		return nil
 	}
-	for _, c := range changes {
+	paths := make([]string, len(changes))
+	for i, c := range changes {
+		paths[i] = c.Path
 		if c.From == "" {
 			fmt.Printf("%s %s (added: an updated module requires it)\n", c.Path, c.To)
 			continue
 		}
 		fmt.Printf("%s %s -> %s\n", c.Path, c.From, c.To)
+	}
+	if nomi := nomiModules(root, paths); len(nomi) > 0 {
+		d.reachAfter()
+		d.write(os.Stdout, nomi, nil)
 	}
 	return nil
 }

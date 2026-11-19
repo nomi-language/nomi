@@ -60,7 +60,7 @@ func TestCallTypeArgs_ReadsEveryParameter(t *testing.T) {
 			}
 		}
 	}
-	if got := VerifyElaboration(fa, nodes); len(got) > 0 {
+	if got := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(got) > 0 {
 		t.Fatalf("want nothing reported, got %v", got)
 	}
 }
@@ -105,7 +105,7 @@ func TestCallTypeArgs_TheArgumentsChooseTheInstance(t *testing.T) {
 	if co == nil || co.Iface.Name != "Shown" || co.Value.String() != "Int" {
 		t.Errorf("the call's coercion = %+v, want Int into Shown", co)
 	}
-	if got := VerifyElaboration(fa, nodes); len(got) > 0 {
+	if got := besidesStdlessOperators(VerifyElaboration(fa, nodes)); len(got) > 0 {
 		t.Fatalf("want nothing reported, got %v", got)
 	}
 }

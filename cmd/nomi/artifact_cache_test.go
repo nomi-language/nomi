@@ -191,7 +191,7 @@ func genCacheEdits(p cacheProject) []cacheEdit {
 	return append(edits, capabilityEdits(p)...)
 }
 
-// capabilityEdits give p's manifest a [capabilities] table that allows what
+// capabilityEdits give p's manifest [capabilities] tables that allow what
 // the generated program reaches (std::io), edit a leaf's body under it and
 // undo that, take std::io out of the list so the program is refused, edit
 // the body again, and take the table away: a kept program must never
@@ -202,10 +202,10 @@ func capabilityEdits(p cacheProject) []cacheEdit {
 	key, body := p.gen.Edit(projectgen.BodyLeaf, 1)
 	rel := key + ".nomi"
 	return []cacheEdit{
-		{what: "capabilities allowing std::io", rel: "nomi.toml", text: manifest + "\n[capabilities]\nstd = [\"std::io\"]\n"},
+		{what: "capabilities allowing std::io", rel: "nomi.toml", text: manifest + "\n[capabilities.self]\nstd = [\"std::io\"]\n\n[capabilities.deps]\nstd = [\"std::io\"]\n"},
 		{what: "body edit under the lists", rel: rel, text: body},
 		{what: "body edit under the lists, undone", rel: rel, text: p.files[rel]},
-		{what: "capabilities allowing nothing", rel: "nomi.toml", text: manifest + "\n[capabilities]\nstd = []\n"},
+		{what: "capabilities allowing nothing", rel: "nomi.toml", text: manifest + "\n[capabilities.self]\nstd = []\n\n[capabilities.deps]\nstd = []\n"},
 		{what: "body edit under an empty list", rel: rel, text: body},
 		{what: "body edit under an empty list, undone", rel: rel, text: p.files[rel]},
 		{what: "capabilities removed", rel: "nomi.toml", text: manifest},
@@ -944,10 +944,10 @@ func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io taken out of the list.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
 	for _, cmd := range []string{"run", "check"} {
 		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
-		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this program reaches std::io, and nomi.toml allows nothing outside the program") {
+		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this module's own code reaches std::io, and [capabilities.self] allows it nothing outside the program") {
 			t.Errorf("nomi %s with io taken out of the list:\n%s\ncache: %v", cmd, r, r.report)
 		}
 	}

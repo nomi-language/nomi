@@ -23,16 +23,16 @@ test "reads"
 end
 `
 
-const capabilityAllowsIO = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [\"std::io\"]\n"
+const capabilityAllowsIO = "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\"]\n"
 
 // The headline and help of the refusal of capabilityProgram's main.
-const capabilityRefusal = "error: this program reaches std::fs, and nomi.toml allows only std::io\n" +
+const capabilityRefusal = "error: this module's own code reaches std::fs, and [capabilities.self] allows it only std::io\n" +
 	" --> main.nomi:8:14\n" +
 	"  |\n" +
 	"8 |     io.print(fs.read_text(\"notes.txt\"))\n" +
 	"  |              ^^\n" +
 	"  = help: reached from `main`\n" +
-	"  = help: add \"std::fs\" to std under [capabilities] in nomi.toml, or remove the call\n"
+	"  = help: add \"std::fs\" to std under [capabilities.self] in nomi.toml, or remove the call\n"
 
 // capabilityProject writes capabilityProgram under manifest and answers its
 // directory and entry.
@@ -60,13 +60,13 @@ func TestCapabilities_EachCommandRefuses(t *testing.T) {
 	}
 	check := runNomiIn(t, dir, cache, "check", "main.nomi")
 	if check.exit != 1 || !strings.HasPrefix(check.stderr, capabilityRefusal) ||
-		!strings.Contains(check.stderr, "error: this program's tests reach std::fs, and nomi.toml allows them only std::io\n") {
+		!strings.Contains(check.stderr, "error: this module's tests reach std::fs, and [capabilities.self] allows them only std::io\n") {
 		t.Errorf("nomi check: want exit 1 and both refusals\n%s", check)
 	}
 	test := runNomiIn(t, dir, cache, "test", "main.nomi")
 	if test.exit != 1 || strings.Contains(test.stdout, "ok ") ||
-		!strings.Contains(test.stdout+test.stderr, "this program's tests reach std::fs, and nomi.toml allows them only std::io") ||
-		!strings.Contains(test.stdout+test.stderr, `add "std::fs" to std_in_tests under [capabilities] in nomi.toml, or remove the call`) {
+		!strings.Contains(test.stdout+test.stderr, "this module's tests reach std::fs, and [capabilities.self] allows them only std::io") ||
+		!strings.Contains(test.stdout+test.stderr, `add "std::fs" to std_in_tests under [capabilities.self] in nomi.toml, or remove the call`) {
 		t.Errorf("nomi test: want exit 1, no case run and the refusal\n%s", test)
 	}
 	out := exe(filepath.Join(t.TempDir(), "app"))
@@ -78,7 +78,7 @@ func TestCapabilities_EachCommandRefuses(t *testing.T) {
 		t.Error("nomi build wrote an executable it refused")
 	}
 	json := runNomiIn(t, dir, cache, "check", "--format", "json", "main.nomi")
-	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"capability-not-allowed","args":["std::fs","","std::io"],"message":"this program reaches std::fs, and nomi.toml allows only std::io"`) {
+	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"capability-not-allowed","args":["std::fs","self","app","std::io"],"message":"this module's own code reaches std::fs, and [capabilities.self] allows it only std::io"`) {
 		t.Errorf("nomi check --format json: want the code and args\n%s", json)
 	}
 	if run.kept() || check.kept() || test.kept() {
@@ -96,7 +96,7 @@ func TestCapabilities_EachCommandRefuses(t *testing.T) {
 	}
 }
 
-// A program with no [capabilities] table is held to nothing.
+// A program with no [capabilities] tables is held to nothing.
 func TestCapabilities_NoTableEnforcesNothing(t *testing.T) {
 	dir, _ := capabilityProject(t, "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
 	mustWrite(t, filepath.Join(dir, "notes.txt"), "hello")
@@ -106,45 +106,44 @@ func TestCapabilities_NoTableEnforcesNothing(t *testing.T) {
 	}
 }
 
-// A project's entry for its own module, by its [module].name when it has
-// no go.mod, holds main's calls: check --format json reports the read over
-// it, with the project's name as the module in the args. The test, which
-// reads a file too, is held by std alone, so `nomi test` passes.
-func TestCapabilities_TheProjectsOwnEntry(t *testing.T) {
-	dir, _ := capabilityProject(t, "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [\"std::io\", \"std::fs\"]\n\n"+
-		"[capabilities.modules]\n\"app\" = [\"std::io\"]\n")
-	json := runNomiIn(t, dir, "off", "check", "--format", "json", "main.nomi")
-	if json.exit != 1 || strings.Count(json.stdout, `"code":"capability-not-allowed"`) != 1 ||
-		!strings.Contains(json.stdout, `"code":"capability-not-allowed","args":["std::fs","app","std::io"],"message":"this project's own code reaches std::fs, and its entry under [capabilities.modules] allows it only std::io"`) {
-		t.Errorf("nomi check --format json: want main's read refused over the project's entry, and nothing else\n%s", json)
-	}
-	if test := runNomiIn(t, dir, "off", "test", "main.nomi"); test.exit != 0 {
-		t.Errorf("nomi test: the entry holds no test, want a pass\n%s", test)
+// The project's own path, by its [module].name when it has no go.mod, is
+// no key under [capabilities.deps.modules]: check refuses it at its line,
+// saying the project's own code is [capabilities.self]'s.
+func TestCapabilities_TheProjectsPathIsNoEntry(t *testing.T) {
+	dir, _ := capabilityProject(t, "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = [\"std::io\", \"std::fs\"]\n\n"+
+		"[capabilities.deps.modules]\n\"app\" = [\"std::io\"]\n")
+	check := runNomiIn(t, dir, "off", "check", "main.nomi")
+	if check.exit != 1 || !strings.Contains(check.stderr, "[capabilities.deps.modules] names app, which is this project") ||
+		!strings.Contains(check.stderr, "help: [capabilities.deps] holds the modules it depends on; its own code is held by [capabilities.self]") {
+		t.Errorf("nomi check: want the project's path refused as an entry\n%s", check)
 	}
 }
 
-// A dependency that reaches more than its own nomi.toml declares is
-// refused by check, with code capability-not-declared and args naming the
-// call, the module and its own list, though the project allows the call;
-// with the project's table gone, nothing is held, the dependency's table
+// A dependency that reaches more than its own [capabilities.self]
+// declares is refused by check, with code capability-not-declared and args
+// naming the call, the list, the module and what its own list allows,
+// though the project allows the call; with the project's
+// [capabilities.deps] gone, nothing is held, the dependency's table
 // included.
 func TestCapabilities_ADependencyOverItsOwnList(t *testing.T) {
 	dir := t.TempDir()
 	app := filepath.Join(dir, "app")
 	mustWrite(t, filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.27.0\n\nrequire example.com/pricing v0.0.0\n\nreplace example.com/pricing => ../pricing\n")
-	mustWrite(t, filepath.Join(app, "nomi.toml"), capabilityAllowsIO+"\n[capabilities.modules]\n\"example.com/pricing\" = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), capabilityAllowsIO+"\n[capabilities.deps]\nstd = [\"std::io\", \"std::fs\"]\n\n[capabilities.deps.modules]\n\"example.com/pricing\" = [\"std::fs\"]\n")
 	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"prices.txt\"))\nend\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "go.mod"), "module example.com/pricing\n\ngo 1.27.0\n")
-	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[module]\nname = \"pricing\"\n\n[capabilities]\nstd = [\"std::io\"]\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[module]\nname = \"pricing\"\n\n[capabilities.self]\nstd = [\"std::io\"]\n")
 	mustWrite(t, filepath.Join(dir, "pricing", "rules.nomi"), "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n")
 
 	json := runNomiIn(t, app, "off", "check", "--format", "json", "main.nomi")
-	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"capability-not-declared","args":["std::fs","example.com/pricing","std::io"],"message":"example.com/pricing reaches std::fs, and its own nomi.toml allows it only std::io"`) {
+	if json.exit != 1 || !strings.Contains(json.stdout, `"code":"capability-not-declared","args":["std::fs","self","example.com/pricing","std::io"],"message":"example.com/pricing reaches std::fs, and its own [capabilities.self] allows it only std::io"`) {
 		t.Errorf("nomi check --format json: want the dependency's own list refused\n%s", json)
 	}
 
-	mustWrite(t, filepath.Join(app, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n")
-	if check := runNomiIn(t, app, "off", "check", "main.nomi"); check.exit != 0 {
-		t.Errorf("nomi check with no project table:\n%s", check)
+	for _, manifest := range []string{"[module]\nname = \"app\"\nentry_points = [\"main\"]\n", capabilityAllowsIO} {
+		mustWrite(t, filepath.Join(app, "nomi.toml"), manifest)
+		if check := runNomiIn(t, app, "off", "check", "main.nomi"); check.exit != 0 {
+			t.Errorf("nomi check with no project [capabilities.deps]:\n%s", check)
+		}
 	}
 }

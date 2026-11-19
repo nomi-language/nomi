@@ -26,10 +26,11 @@ import (
 // the whole-file imports and coherence's missing impls, diagnostic for
 // diagnostic (StoredFactsForTest).
 //
-// TestStoredReductionsMatchTheProgram (about 40 seconds) runs over the
+// TestStoredReductionsMatchTheProgram (about 10 seconds) runs over the
 // incremental harness's projects and edit sequences, a project that draws
-// each reduction's diagnostic (reductionsProject), and every multi-file
-// corpus project with its entry edited, and fails when some reduction
+// each reduction's diagnostic (reductionsProject), and a sample of the
+// multi-file corpus projects with their entry edited, every one under
+// NOMI_CORPUS_WALKS=full (about a minute), and fails when some reduction
 // reported nothing over the whole run.
 // FuzzStoredReductionsMatchTheProgram mutates and edits as
 // FuzzIncrementalMatchesFull does, and ...Sample and ...Rotating run a
@@ -148,8 +149,8 @@ func storedEdits(p incrementalProject, key, src string, seed int64) string {
 
 // TestStoredReductionsMatchTheProgram holds the stored facts and their
 // reductions to the program's over the incremental harness's projects and
-// edit sequences and every multi-file corpus project with its entry
-// edited.
+// edit sequences and every eighth multi-file corpus project with its entry
+// edited (incrementalStride); NOMI_CORPUS_WALKS=full edits every one.
 func TestStoredReductionsMatchTheProgram(t *testing.T) {
 	t.Parallel()
 	steps := func(t *testing.T, p incrementalProject, edits []editStep) {
@@ -192,7 +193,11 @@ func TestStoredReductionsMatchTheProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range projects {
+	walk := rotation.CorpusWalk(t, incrementalStride)
+	for i, p := range projects {
+		if !walk.Takes(i) {
+			continue
+		}
 		t.Run(p.name, func(t *testing.T) {
 			steps(t, p, genericEdits(p.entry, p.texts[p.entry]))
 		})
@@ -308,6 +313,49 @@ func FuzzStoredReductionsMatchTheProgram(f *testing.F) {
 			t.Fatal(diff)
 		}
 	})
+}
+
+// The missing-impl help read from stored facts names a generic interface's
+// type parameters as the program's check does: the demand carries them
+// (Recording.IfaceTypeParams), since the reduction over facts has no
+// declaration of the interface at hand.
+func TestStoredReductions_AGenericInterfaceHelpNamesItsParameters(t *testing.T) {
+	p := incrementalProject{name: "generic-help", entry: "main", texts: map[string]string{
+		"scale": genericInterfaces,
+		"main": `import
+    scale
+end
+
+struct Other
+    x: Int
+end
+
+fn main()
+    dbg scale.Scale.scale(Other{x: 1}, 2)
+    dbg scale.Pair.pair(Other{x: 1}, 2)
+end
+`,
+	}}
+	if diff := storedDiff(p, p.texts); diff != "" {
+		t.Fatal(diff)
+	}
+	dm := newManager()
+	_, _, _, stored := dm.StoredFactsForTest(dm.CheckProgram(p.root(), p.entry, p.texts))
+	if stored == nil {
+		t.Fatal("the program is not reduced over stored facts")
+	}
+	var got []string
+	for _, e := range stored.Coherence {
+		got = append(got, e.Message+" | "+strings.Join(e.Hints, " | "))
+	}
+	sort.Strings(got)
+	want := []string{
+		"no impl of `Pair` for `Other` (required via call site) | write an `impl Pair<A, B> for Other` block",
+		"no impl of `Scale` for `Other` (required via call site) | write an `impl Scale<N> for Other` block",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("the reduction over stored facts reports:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
 }
 
 // reductionsProject draws a diagnostic from each reduction over bodies: a

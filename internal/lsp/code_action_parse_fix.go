@@ -22,7 +22,13 @@ import (
 //
 // The checker builds each of those where it builds the error, so the
 // language server has no code per fix.
-func buildParseFixActions(content, uri string, errs []parser.ParseError, diags []protocol.Diagnostic) []protocol.CodeAction {
+//
+// A fix whose edits are in another file (parser.Fix's Path) edits that
+// file, read with read, which may be nil when no fix of errs has a Path:
+// the edit to nomi.toml that allows a call its [capabilities] lists do not
+// (vmhost's allowFix). It widens what the program may reach, so it is
+// never the preferred fix.
+func buildParseFixActions(content, uri string, read func(protocol.DocumentUri) (string, bool), errs []parser.ParseError, diags []protocol.Diagnostic) []protocol.CodeAction {
 	var lines *lineIndex
 	var actions []protocol.CodeAction
 	for _, d := range diags {
@@ -35,6 +41,8 @@ func buildParseFixActions(content, uri string, errs []parser.ParseError, diags [
 		}
 		var title string
 		var edits []protocol.TextEdit
+		target := protocol.DocumentUri(uri)
+		preferred := true
 		switch {
 		case len(e.Fix.Markers) > 0:
 			for _, m := range e.Fix.Markers {
@@ -52,6 +60,17 @@ func buildParseFixActions(content, uri string, errs []parser.ParseError, diags [
 				continue
 			}
 			title = "Use `//` comments"
+		case len(e.Fix.Edits) > 0 && e.Fix.Path != "":
+			target = protocol.DocumentUri(pathToURI(e.Fix.Path))
+			text, ok := "", false
+			if read != nil {
+				text, ok = read(target)
+			}
+			if !ok {
+				continue
+			}
+			title, preferred = e.Fix.Title, false
+			edits = fixTextEdits(newLineIndex(text), e.Fix.Edits)
 		case len(e.Fix.Edits) > 0:
 			title = e.Fix.Title
 			edits = fixTextEdits(lines, e.Fix.Edits)
@@ -59,7 +78,6 @@ func buildParseFixActions(content, uri string, errs []parser.ParseError, diags [
 			continue
 		}
 		kind := protocol.CodeActionKindQuickFix
-		preferred := true
 		actions = append(actions, protocol.CodeAction{
 			Title:       title,
 			Kind:        &kind,
@@ -67,7 +85,7 @@ func buildParseFixActions(content, uri string, errs []parser.ParseError, diags [
 			IsPreferred: &preferred,
 			Edit: &protocol.WorkspaceEdit{
 				Changes: map[protocol.DocumentUri][]protocol.TextEdit{
-					protocol.DocumentUri(uri): edits,
+					target: edits,
 				},
 			},
 		})

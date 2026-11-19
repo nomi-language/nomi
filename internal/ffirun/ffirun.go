@@ -2,6 +2,7 @@ package ffirun
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -265,11 +266,22 @@ func runCapturedMode(r *Result, mode, entryAbsPath string, stdout, stderr io.Wri
 	return 0, fmt.Errorf("ffirun: launching wrapper: %w", err)
 }
 
+// ErrCheckReported is a failed check whose wrapper wrote its diagnostics
+// to Check's records, and printed nothing else.
+var ErrCheckReported = errors.New("ffirun: the check failed, and the wrapper reported its diagnostics")
+
 // Check runs the generated wrapper in check mode: the front end over the entry
 // (vmhost.Check) with the project's generated host table, and nothing run.
 // Building the wrapper is part of the check: it compiles the generated
-// adapters against the project's Go.
-func Check(r *Result, entryAbsPath string) error {
+// adapters against the project's Go, and a build that fails is
+// GoBuildReport's.
+//
+// The wrapper reports as NOMI_DIAGNOSTICS selects (vmhost.ReportCheck).
+// With records nil, what it printed is the error. Under `nomi check
+// --format json` it writes its warnings and errors as records on its
+// stdout, which go to records; a failed check whose wrapper printed
+// nothing else is ErrCheckReported.
+func Check(r *Result, entryAbsPath string, records io.Writer) error {
 	if r == nil || r.FastPath {
 		return fmt.Errorf("ffirun: Check called on a FastPath result")
 	}
@@ -282,12 +294,18 @@ func Check(r *Result, entryAbsPath string) error {
 	userCwd, _ := os.Getwd()
 	cmd.Env = append(os.Environ(), "NOMI_FFIRUN_USER_CWD="+userCwd)
 	cmd.Stdin = os.Stdin
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if len(out) > 0 {
-			if cleaned := strings.TrimRight(cleanWrapperCommandOutput(r, string(out)), "\r\n"); cleaned != "" {
-				return wrapperReport(cleaned)
-			}
+	var out bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &out
+	if records != nil {
+		cmd.Stdout = records
+	}
+	if err := cmd.Run(); err != nil {
+		if cleaned := strings.TrimRight(cleanWrapperCommandOutput(r, out.String()), "\r\n"); cleaned != "" {
+			return wrapperReport(cleaned)
+		}
+		var exited *exec.ExitError
+		if records != nil && errors.As(err, &exited) {
+			return ErrCheckReported
 		}
 		return fmt.Errorf("ffirun: checking wrapper: %w", err)
 	}

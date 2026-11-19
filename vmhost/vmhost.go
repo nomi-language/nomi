@@ -84,8 +84,9 @@ type Program struct {
 	// webEmbedded are the locales a browser build of the program embeds
 	// (analysis.Manifest.WebLocales), nil when it lists no locales.
 	webEmbedded []string
-	// capabilities is the program's nomi.toml [capabilities] table, nil
-	// when it has none (OutsideCallsNotAllowed).
+	// capabilities is the program's nomi.toml [capabilities.self] and
+	// [capabilities.deps] tables, nil when it has neither
+	// (OutsideCallsNotAllowed).
 	capabilities *analysis.Capabilities
 	// modules is each dependency whose files the program holds, by its
 	// root directory, worked out once (moduleAt).
@@ -346,14 +347,14 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // file is the absolute path a JSON report locates each case by, with the
 // case's first and last lines.
 func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOptions, label func(string) string) {
-	// nomi.toml's [capabilities] lists, with std_in_tests and
+	// nomi.toml's [capabilities] tables, with their std_in_tests and
 	// go_in_tests, and the host's (WithCapabilities, WithGo) refuse the
 	// file's cases before any of them runs.
 	if err := p.capabilityError(Roots{Tests: &opts}); err != nil {
 		rep.FailFile(file, err)
 		return
 	}
-	for _, c := range p.Cases(out, opts) {
+	for _, c := range p.heldCases(out, opts) {
 		loc := TestLocation{File: file, Line: c.Line, EndLine: c.EndLine}
 		if p.liveTests != nil && rep.Format() != TestFormatJSON {
 			// Streamed as the case wrote it (StreamTestOutput).
@@ -439,7 +440,29 @@ func (r *CaseResult) blockedBy(b *Blocked) {
 // A program LoadMarked loads from a block with tests in more than one file
 // answers the entry's cases and then each other test file's, in block
 // order, as `nomi test` runs every test file of a project.
+//
+// The cases are held as Test holds them: when nomi.toml's [capabilities]
+// lists, with std_in_tests and go_in_tests, or the host's
+// (WithCapabilities, WithGo) do not allow what the selected cases reach,
+// Cases runs nothing and answers each selected case failed with the
+// *CapabilityError.
 func (p *Program) Cases(out io.Writer, opts TestOptions) []CaseResult {
+	if err := p.capabilityError(Roots{Tests: &opts}); err != nil {
+		plan, _ := frontend.SelectTests(p.prog.Entry().Nodes, opts)
+		results := make([]CaseResult, len(plan))
+		for i, tc := range plan {
+			results[i] = CaseResult{Name: tc.FullName(), Line: tc.Line, EndLine: tc.LastLine(), Err: err}
+			results[i].counted(0)
+		}
+		return results
+	}
+	return p.heldCases(out, opts)
+}
+
+// heldCases is Cases for a program its lists allow to run the cases opts
+// selects: the entry's, then each other test file's, which Cases holds
+// on its own.
+func (p *Program) heldCases(out io.Writer, opts TestOptions) []CaseResult {
 	results := p.entryCases(out, opts)
 	for _, t := range p.blockTests {
 		results = append(results, t.Cases(out, opts)...)

@@ -94,6 +94,15 @@ type irQualArgs struct {
 	ok bool
 }
 
+// recvKind is the kind of the call's first operand, its receiver for
+// every interface function verifyCallForm asks about, or kindInvalid.
+func (a irQualArgs) recvKind() kind {
+	if !a.ok || len(a.kinds) == 0 {
+		return kindInvalid
+	}
+	return a.kinds[0]
+}
+
 // irQualLowerArgs lowers every operand, answering whether all of them did.
 func (bl *irScalarBuilder) irQualLowerArgs(t *ast.Call) irQualArgs {
 	a := irQualArgs{
@@ -573,23 +582,23 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	switch route {
 	case routeContainerEqual:
 		if len(t.Args) == 2 {
-			bl.g.verifyCallForm(t, "containerEqualCall", analysis.OperatorByImpl)
+			bl.g.verifyCallForm(t, kindInvalid, "containerEqualCall", analysis.OperatorByImpl)
 			return bl.containerEqualCall(t, routeKey.Owner.Name)
 		}
 	case routeHash:
 		if v, rk, mobile, ok, handled := bl.tupleHashCall(t); handled {
-			bl.g.verifyCallForm(t, "tupleHashCall", analysis.OperatorStructural)
+			bl.g.verifyCallForm(t, kindInvalid, "tupleHashCall", analysis.OperatorStructural)
 			return v, rk, mobile, ok
 		}
 	case routeToJson:
 		// Only std's ToJson admits a record (irrecordjson.go).
 		if v, rk, mobile, ok, handled := bl.recordToJsonCall(t, method); handled {
-			bl.g.verifyCallForm(t, "recordToJsonCall", analysis.OperatorStructural)
+			bl.g.verifyCallForm(t, kindInvalid, "recordToJsonCall", analysis.OperatorStructural)
 			return v, rk, mobile, ok
 		}
 	case routeCompare:
 		if v, rk, mobile, ok, handled := bl.tupleCompareCall(t); handled {
-			bl.g.verifyCallForm(t, "tupleCompareCall", analysis.OperatorStructural)
+			bl.g.verifyCallForm(t, kindInvalid, "tupleCompareCall", analysis.OperatorStructural)
 			return v, rk, mobile, ok
 		}
 	case routeEquatableEqual:
@@ -599,7 +608,7 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			// no generic instance, and the container's equality is the
 			// structural comparison containerEqualCall lowers.
 			if owner := bl.equatableContainerOwner(t); owner != "" {
-				bl.g.verifyCallForm(t, "containerEqualCall", analysis.OperatorByImpl)
+				bl.g.verifyCallForm(t, kindInvalid, "containerEqualCall", analysis.OperatorByImpl)
 				return bl.containerEqualCall(t, owner)
 			}
 		}
@@ -626,43 +635,43 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	args := bl.irQualLowerArgs(t)
 	var plan *irQualPlan
 	if v, k, mobile, ok := bl.scalarOperatorCall(t, args, ti.Name, method); ok {
-		bl.g.verifyCallForm(t, "scalarOperatorCall", analysis.OperatorByImpl)
+		bl.g.verifyCallForm(t, args.recvKind(), "scalarOperatorCall", analysis.OperatorByImpl)
 		return v, k, mobile, true
 	}
 	if v, k, mobile, ok, handled := bl.scalarEqualCall(t, args, ti.Name, method); handled {
-		bl.g.verifyCallForm(t, "scalarEqualCall", analysis.OperatorByImpl)
+		bl.g.verifyCallForm(t, args.recvKind(), "scalarEqualCall", analysis.OperatorByImpl)
 		return v, k, mobile, ok
 	}
 	switch route {
 	case routeEquatableEqual:
 		if v, ok, handled := bl.structuralEqualCall(t, args); handled {
 			if args.ok && len(args.kinds) == 2 && irHeldKind(args.kinds[0]) && irHeldKind(args.kinds[1]) {
-				bl.g.verifyCallForm(t, "structuralEqualCall", analysis.OperatorDispatched)
+				bl.g.verifyCallForm(t, args.recvKind(), "structuralEqualCall", analysis.OperatorDispatched)
 			} else {
-				bl.g.verifyCallForm(t, "structuralEqualCall", analysis.OperatorStructural)
+				bl.g.verifyCallForm(t, args.recvKind(), "structuralEqualCall", analysis.OperatorStructural)
 			}
 			return v, kindBool, false, ok
 		}
 	case routeHash:
 		if v, owned := bl.existentialHashCall(t, args); owned {
-			bl.g.verifyCallForm(t, "existentialHashCall", analysis.OperatorDispatched)
+			bl.g.verifyCallForm(t, args.recvKind(), "existentialHashCall", analysis.OperatorDispatched)
 			return v, kindInt, false, true
 		}
 		if v, owned := bl.structuralHashCall(t, args); owned {
-			bl.g.verifyCallForm(t, "structuralHashCall", analysis.OperatorStructural, analysis.OperatorDispatched)
+			bl.g.verifyCallForm(t, args.recvKind(), "structuralHashCall", analysis.OperatorStructural)
 			return v, kindInt, false, true
 		}
 	case routeScalarText:
-		bl.g.verifyCallForm(t, "scalarTextCall", analysis.OperatorByImpl)
+		bl.g.verifyCallForm(t, args.recvKind(), "scalarTextCall", analysis.OperatorByImpl)
 		return bl.scalarTextCall(t, args, routeKey.Owner.Name)
 	case routeDisplay:
 		if args.ok && len(args.kinds) == 1 && args.mobile[0] && irDisplayScalar(args.kinds[0]) && bl.g.stdModule == "" {
-			bl.g.verifyCallForm(t, "scalarTextCall", analysis.OperatorByImpl, analysis.OperatorDispatched)
+			bl.g.verifyCallForm(t, args.recvKind(), "scalarTextCall", analysis.OperatorByImpl)
 			v, k, mobile, ok := bl.scalarTextCall(t, args, args.kinds[0].nomi())
 			return v, k, mobile, ok
 		}
 		if args.ok && len(args.kinds) == 1 && irStdDisplayExistential(args.kinds[0]) {
-			bl.g.verifyCallForm(t, "RenderDisplayErased", analysis.OperatorDispatched)
+			bl.g.verifyCallForm(t, args.recvKind(), "RenderDisplayErased", analysis.OperatorDispatched)
 			// `Display.to_string(v)` over std Display's existential: the VM
 			// renders the value it holds through that value's own impl.
 			r := ir.NewRenderDisplayErased(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
@@ -707,9 +716,9 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 	}
 	if v, k, mobile, ok, handled := bl.ifaceContainerCall(t, args, ti.Name, method, bl.g.firstOperandType(t)); handled {
 		if route == routeDisplay && args.ok && len(args.kinds) == 1 && (irRetainedRecordKind(args.kinds[0]) || irRetainedTupleKind(args.kinds[0])) {
-			bl.g.verifyCallForm(t, "ifaceContainerCall", analysis.OperatorStructural)
+			bl.g.verifyCallForm(t, args.recvKind(), "ifaceContainerCall", analysis.OperatorStructural)
 		} else {
-			bl.g.verifyCallForm(t, "ifaceContainerCall", analysis.OperatorByImpl)
+			bl.g.verifyCallForm(t, args.recvKind(), "ifaceContainerCall", analysis.OperatorByImpl)
 		}
 		return v, k, mobile, ok
 	}
@@ -721,7 +730,7 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			// std's own instances call it on an element
 			// (`List.to_string<Bool>` renders each Bool this way): the text
 			// is structural, which rt.DisplayText is.
-			bl.g.verifyCallForm(t, "RenderDisplay", analysis.OperatorStructural, analysis.OperatorByImpl, analysis.OperatorDispatched)
+			bl.g.verifyCallForm(t, args.recvKind(), "RenderDisplay", analysis.OperatorStructural, analysis.OperatorByImpl)
 			r := ir.NewRenderDisplay(bl.g.irNodePos(t.Args[0]), bl.f.NewTemp(), args.temps[0])
 			bl.b.Append(r)
 			bl.side(r.Dst(), irScalarSide{k: kindString})
@@ -731,7 +740,7 @@ func (bl *irScalarBuilder) typeQualCall(t *ast.Call, ti *ast.TypeIdent, method s
 			// A tuple or record with a nominal part renders as its
 			// interpolation does.
 			if r, ok := bl.displayValue(t.Args[0], args.temps[0], args.kinds[0], nil); ok {
-				bl.g.verifyCallForm(t, "displayValue", analysis.OperatorStructural)
+				bl.g.verifyCallForm(t, args.recvKind(), "displayValue", analysis.OperatorStructural)
 				return r, kindString, false, true
 			}
 		}
@@ -1546,7 +1555,7 @@ func (bl *irScalarBuilder) qualSignature(t *ast.Call, args irQualArgs, params []
 		}
 		// A value at wider type arguments it already has passes as it is
 		// (irrelabel.go), as an erased one does.
-		if k != params[i] && !bl.g.irErases(params[i], k) && (irHeldKind(params[i]) || !bl.passesRelabelled(t.Args[i], k, params[i])) {
+		if k != params[i] && !bl.g.irErases(params[i], k, nil) && (irHeldKind(params[i]) || !bl.passesRelabelled(t.Args[i], k, params[i])) {
 			return false
 		}
 	}
@@ -1710,7 +1719,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	if k.tag == tagFunc && bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] == nil {
 		// `Debug.inspect` of any function value is a name-free constant
 		// (rt.FunctionInspectText). The operand was evaluated.
-		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorStructural)
+		bl.g.verifyCallForm(t, k, "synthDebugRender", analysis.OperatorStructural)
 		c := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), rt.FunctionInspectText())
 		bl.b.Append(c)
 		return c.Dst(), kindString, false, true
@@ -1718,21 +1727,21 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	if k.tag == tagNamed && (irRetainedStructKind(k.def) || irRetainedEnumKind(k.def) || irRetainedMarker(k.def)) && bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] != nil {
 		plan, structural := bl.distinctDebugPlan(k)
 		if plan != nil {
-			bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
+			bl.g.verifyCallForm(t, k, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural)
 			return bl.qualEmit(t, args, plan)
 		}
 		if !structural {
 			return no()
 		}
-		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
-	} else if irExistentialKind(k) || irConjKind(k) {
+		bl.g.verifyCallForm(t, k, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural)
+	} else if heldAs(k) == heldBoxed {
 		// A local interface's existential holds its concrete value in the
 		// VM: the renderer is told every implementer's Debug body.
 		impls, ok := bl.existentialDebugImpls(k)
 		if !ok {
 			return no()
 		}
-		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorDispatched)
+		bl.g.verifyCallForm(t, k, "synthDebugRender", analysis.OperatorDispatched)
 		r := ir.NewRenderDebugWith(bl.g.irNodePos(t), bl.f.NewTemp(), args.temps[0], impls)
 		bl.b.Append(r)
 		bl.side(r.Dst(), irScalarSide{k: kindString})
@@ -1742,11 +1751,11 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	} else if !irStructuralDebugKind(k) {
 		// A container of nominal values, such as a std struct's list of
 		// rows: the renderer names each nested type's Debug body.
-		impls, ok := bl.nestedDebugImpls(k)
+		impls, ok := bl.nestedDebugImpls(k, bl.g.checkerTypeArg(bl.g.calleeOf(t).For))
 		if !ok {
 			return no()
 		}
-		bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
+		bl.g.verifyCallForm(t, k, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural)
 		// An `Iter<T>` whose possible sources name no impl renders
 		// structurally, as the plain render below does.
 		var r *ir.Render
@@ -1759,7 +1768,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 		bl.side(r.Dst(), irScalarSide{k: kindString})
 		return r.Dst(), kindString, false, true
 	}
-	bl.g.verifyCallForm(t, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural, analysis.OperatorDispatched)
+	bl.g.verifyCallForm(t, k, "synthDebugRender", analysis.OperatorByImpl, analysis.OperatorStructural)
 	r := ir.NewRenderDebug(bl.g.irNodePos(t), bl.f.NewTemp(), args.temps[0])
 	bl.b.Append(r)
 	bl.side(r.Dst(), irScalarSide{k: kindString})

@@ -16,36 +16,43 @@ import (
 	"github.com/nomi-language/nomi/internal/irbuild"
 )
 
+// LoweringFound is what CheckLowering finds: its problems, and each outside
+// call the program reaches, as an editor's hover shows it.
+type LoweringFound = analyzedlowering.Found
+
 // CheckLowering is the half of Check past the front end for the file at path
 // whose text is src, as an editor holds it: the program is lowered as `nomi
 // run` lowers it, its typed literals are checked (checkLiterals),
-// and nothing else runs. problems is what Check reports beyond the front
-// end: each literal that fails its check (Code InvalidLiteralCode) and each
-// `Currency.custom` call its module does not list (UnlistedCurrencyCode),
-// then what Program.Unsupported reports, then the entry's hints that
-// `nomi check` does not print, each literal `Currency.custom` call that is
-// no error (CustomCurrencyCallCode); nil when there is none. err is the load's own
-// failure: the front end's errors, which an editor reports from its own
-// analysis, or an *InternalError when the compiler panicked. A stdlib file is
-// not a program and answers nil, nil.
+// and nothing else runs. found.Problems is what Check reports beyond the
+// front end: each literal that fails its check (Code InvalidLiteralCode) and
+// each `Currency.custom` call its module does not list
+// (UnlistedCurrencyCode), then what Program.Unsupported reports, then what
+// nomi.toml's [capabilities] lists refuse, then the entry's hints that `nomi
+// check` does not print, each literal `Currency.custom` call that is no error
+// (CustomCurrencyCallCode); nil when there is none. found.Reached is each
+// outside call the roots `nomi check` holds to the lists reach, whether or
+// not nomi.toml has lists (reachedCalls). err is the load's own failure: the
+// front end's errors, which an editor reports from its own analysis, or an
+// *InternalError when the compiler panicked. A stdlib file is not a program
+// and answers nothing.
 //
 // When ctx is done the check stops at its next step (after the front end,
 // before each file's declarations and bodies are lowered, before the
 // literals are checked and before the unsupported bodies are looked for)
 // and answers ctx's error as err.
-func CheckLowering(ctx context.Context, path, src string, opts ...Option) (problems, err error) {
+func CheckLowering(ctx context.Context, path, src string, opts ...Option) (found LoweringFound, err error) {
 	if _, _, ok := frontend.StdlibFile(path); ok {
-		return nil, nil
+		return found, nil
 	}
 	cfg := newConfig(opts)
 	cfg.lowering = ctx
 	fc, err := cfg.frontendConfig()
 	if err != nil {
-		return nil, err
+		return found, err
 	}
 	p, err := lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFileSource(path, src, fc) })
 	if err != nil {
-		return nil, err
+		return found, err
 	}
 	return loweringProblems(p, src)
 }
@@ -75,15 +82,15 @@ func offeredAnalyzed(path, src string, a *analyzedlowering.Analyzed) bool {
 
 // checkLoweringAnalyzed is analyzedlowering.Check: CheckLowering for a
 // file whose text src the language server has already analyzed as a.
-func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (problems error, ok bool, err error) {
+func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlowering.Analyzed) (found LoweringFound, ok bool, err error) {
 	if _, _, ok := frontend.StdlibFile(path); ok {
-		return nil, true, nil
+		return found, true, nil
 	}
 	cfg := newConfig(nil)
 	cfg.lowering = ctx
 	fc, err := cfg.frontendConfig()
 	if err != nil {
-		return nil, true, err
+		return found, true, err
 	}
 	if a != nil && a.Stored != nil {
 		return checkLoweringStored(ctx, cfg, path, src, a.Stored)
@@ -91,23 +98,23 @@ func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlow
 	fc.SourceBoundProvided = true
 	prog := analyzedProgram(path, src, a, fc)
 	if prog == nil {
-		return nil, false, nil
+		return found, false, nil
 	}
 	abs := prog.Entry().Path
 	if p, ok := relowerAnalyzed(cfg, abs, src, a, prog); ok {
-		problems, err = loweringProblems(p, src)
-		return problems, true, err
+		found, err = loweringProblems(p, src)
+		return found, true, err
 	}
 	p, err := lower(cfg, func() (*irbuild.Program, error) { return prog, nil })
 	if err != nil {
 		analyzedKept.Delete(abs)
-		return nil, true, err
+		return found, true, err
 	}
 	if cfg.loweringStopped() == nil {
 		keepAnalyzed(abs, src, a, prog, p)
 	}
-	problems, err = loweringProblems(p, src)
-	return problems, true, err
+	found, err = loweringProblems(p, src)
+	return found, true, err
 }
 
 // analyzedProgram is the program irbuild.AnalyzeFileSource would answer
@@ -121,7 +128,8 @@ func checkLoweringAnalyzed(ctx context.Context, path, src string, a *analyzedlow
 // it (frontend.Checker.ValidateHosts).
 //
 // Every file the front end would read must hold the text a was built
-// from: nomi.toml, each other project file, and, when a file imports the
+// from: nomi.toml as analysis.ReadManifest reads it (an editor's text when
+// one is open), each other project file, and, when a file imports the
 // entry back, the entry itself, which the front end reads from disk for
 // that import.
 func analyzedProgram(path, src string, a *analyzedlowering.Analyzed, fc frontend.Config) *irbuild.Program {
@@ -139,7 +147,7 @@ func analyzedProgram(path, src string, a *analyzedlowering.Analyzed, fc frontend
 	if a.ReachesEntry && !onDisk(abs, src) {
 		return nil
 	}
-	if !onDisk(filepath.Join(a.Root, "nomi.toml"), a.Manifest) {
+	if data, err := analysis.ReadManifest(a.Root); string(data) != a.Manifest || err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	modules := map[string][]ast.Node{"": a.Nodes}
@@ -171,46 +179,51 @@ func onDisk(path, text string) bool {
 }
 
 // loweringProblems is what CheckLowering reports for the lowered program
-// p, whose entry's text is src.
-func loweringProblems(p *Program, src string) (problems, err error) {
+// p, whose entry's text is src. The walk from the roots `nomi check` holds
+// to nomi.toml's lists runs once, with or without lists: its calls are
+// held to the lists (walkedProblems) and kept for an editor's hover
+// (reachedCalls).
+func loweringProblems(p *Program, src string) (out LoweringFound, err error) {
 	p.sources = map[string]string{p.prog.Entry().Path: src}
 	defer func() {
 		// Locating a blocker walks the IR and the AST; a panic there is a
 		// compiler bug too, and a long-lived host keeps running.
 		if r := recover(); r != nil {
-			problems, err = nil, &InternalError{Panic: r, Stack: debug.Stack()}
+			out, err = LoweringFound{}, &InternalError{Panic: r, Stack: debug.Stack()}
 		}
 	}()
 	if err := p.cfg.loweringStopped(); err != nil {
-		return nil, err
+		return out, err
 	}
 	var found frontend.Diagnostics
 	if lit := p.checkLiterals(); lit != nil {
 		var ds frontend.Diagnostics
 		if !errors.As(lit, &ds) {
-			return nil, lit
+			return out, lit
 		}
 		found = append(found, ds...)
 	}
 	if err := p.cfg.loweringStopped(); err != nil {
-		return nil, err
+		return out, err
 	}
 	if u := p.Unsupported(); u != nil {
 		var ds frontend.Diagnostics
 		if !errors.As(u, &ds) {
 			if len(found) > 0 {
-				return found, nil
+				return LoweringFound{Problems: found}, nil
 			}
-			return u, nil
+			return LoweringFound{Problems: u}, nil
 		}
 		found = append(found, ds...)
 	}
 	// What `nomi check` holds to nomi.toml's [capabilities] lists.
-	held, _ := p.capabilityProblems(p.checkedRoots()...)
+	walks := p.walks(p.checkedRoots())
+	held, _ := p.walkedProblems(walks)
 	found = append(found, held...)
 	found = append(found, p.currencyCallHints()...)
-	if len(found) == 0 {
-		return nil, nil
+	out.Reached = p.reachedCalls(walks)
+	if len(found) > 0 {
+		out.Problems = found
 	}
-	return found, nil
+	return out, nil
 }

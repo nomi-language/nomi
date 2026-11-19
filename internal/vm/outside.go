@@ -200,11 +200,7 @@ func ReachedOutsideCalls(entry *ir.Module, mods []*ir.Module, roots []*ir.Func, 
 	w := reachWalk{m: m, seen: map[*ir.Func]bool{}, found: map[string]Unretained{}, rootKind: rootKind,
 		parent: map[*ir.Func]*ir.Func{}, kinds: map[*ir.Func]EdgeKind{}, edges: map[*ir.Func][]reachEdge{}}
 	reached, _ := w.run(roots, boots)
-	order := make([]*ir.Func, 0, len(reached))
-	for f := range reached {
-		order = append(order, f)
-	}
-	sort.Slice(order, func(i, j int) bool { return funcBefore(order[i], order[j]) })
+	order := inOrder(reached)
 
 	type crossing struct {
 		call *ir.Call

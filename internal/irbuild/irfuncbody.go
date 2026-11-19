@@ -1677,7 +1677,7 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 	var impls []ir.DebugImpl
 	nested := false
 	if ok && debug && !irDebugValueKind(k) {
-		impls, nested = bl.nestedDebugImpls(k)
+		impls, nested = bl.nestedDebugImpls(k, bl.g.operandCheckerType(t.Args[0]))
 	}
 	if ok && !irScalarLeafKind(k) && !isDecimalKind(k) && !(debug && irDebugValueKind(k)) && !nested {
 		// Any other value renders as `Debug.inspect(x)` or `"${x}"` would:
@@ -3101,7 +3101,7 @@ func (bl *irScalarBuilder) annotatedValue(value ast.Node, te ast.TypeExpr) (ir.T
 	want := bl.g.typeOf(te)
 	// A local interface's existential (`widened: Clock = FakeClock{...}`)
 	// holds the concrete value, as an interface-typed field does.
-	existential := irExistentialKind(want) || irConjKind(want)
+	existential := irHeldKind(want)
 	if !irCallableValueKind(want) && want != kindUnit && !existential {
 		bl.g.dc.note("a binding annotation outside the retained value domain: " + want.nomi())
 		return ir.NoTemp, kindInvalid, false
