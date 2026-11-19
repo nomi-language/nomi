@@ -34,7 +34,6 @@ func checkSubtypes(t *testing.T, body string) []analysis.TypeError {
 	src := withStdlibTestImports(subtypeDecls + body)
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
 	nodes, _ = analysis.LowerDerives(nodes)
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 	lib := loadStd()
 	fa := analysis.BuildFileWithStdlib(nodes, lib.Primitives, lib.Modules, "", nil)

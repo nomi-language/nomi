@@ -1,19 +1,3 @@
-// Package artifactcache is where a compiler keeps what it builds once and
-// reads back in later processes: the standard library's interfaces and
-// lowering (std's artifact, internal/irbuild's std bundle), and each
-// program's checked and lowered image (internal/progcache).
-//
-// The cache is os.UserCacheDir()/nomi/artifacts, or $NOMI_ARTIFACT_CACHE.
-// Under `go test` without the variable it is a directory under os.TempDir,
-// and the variable is set to it for the rest of the process, so a test never
-// writes the user's cache and neither does a `nomi` or a Go FFI wrapper a
-// test runs, which inherit it. NOMI_ARTIFACT_CACHE=off turns the cache off.
-//
-// An entry is keyed by the compiler's identity (CompilerID), so a binary
-// never reads another binary's entry. Writes go to a temporary sibling and
-// are renamed into place, so a reader sees no file or a whole one; a reader
-// still checks what it reads, since a file can be truncated or corrupted
-// after it is written.
 package artifactcache
 
 import (
@@ -127,8 +111,9 @@ func ReadBuildID(path string) (string, error) {
 	return string(rest[:j]), nil
 }
 
-// tempPrefix starts the name of a file being written.
-const tempPrefix = ".tmp-"
+// TempPrefix starts the name of an entry being written, which Prune leaves
+// an hour for the process writing it.
+const TempPrefix = ".tmp-"
 
 // WriteFile writes data to path through a temporary sibling renamed into
 // place, so a reader of path sees the old file, no file or all of data.
@@ -137,7 +122,7 @@ func WriteFile(path string, data []byte) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	f, err := os.CreateTemp(dir, tempPrefix+filepath.Base(path)+"-")
+	f, err := os.CreateTemp(dir, TempPrefix+filepath.Base(path)+"-")
 	if err != nil {
 		return err
 	}
@@ -155,16 +140,24 @@ func WriteFile(path string, data []byte) error {
 	return nil
 }
 
-// Touch marks path used now, at most once an hour, so Prune leaves it.
+// Unused is how long an entry nothing has used is kept, where its kind
+// keeps none shorter (the package doc, "Pruning").
+const Unused = 14 * 24 * time.Hour
+
+// Touch marks path, a file or a directory, used now, at most once an hour,
+// so Prune leaves it.
 func Touch(path string, info os.FileInfo) {
 	if now := time.Now(); now.Sub(info.ModTime()) > time.Hour {
 		_ = os.Chtimes(path, now, now)
 	}
 }
 
-// Prune removes the files in dir other than keep that nothing has used for
-// unused, and temporary files left for an hour. Errors are ignored; pruning
-// is housekeeping.
+// Prune removes the entries of dir, files and directories, other than
+// keep, that nothing has used for unused, and temporary ones left for an
+// hour. An entry's last use is its modification time: a file's moves when
+// it is written, and a directory's only when an entry is added to or
+// removed from it, so a cache whose entries are directories touches each
+// as it reads it. Errors are ignored; pruning is housekeeping.
 func Prune(dir, keep string, unused time.Duration) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -173,7 +166,7 @@ func Prune(dir, keep string, unused time.Duration) {
 	now := time.Now()
 	for _, e := range entries {
 		name := e.Name()
-		if name == keep || e.IsDir() {
+		if name == keep || name == dueMarker {
 			continue
 		}
 		info, err := e.Info()
@@ -181,11 +174,27 @@ func Prune(dir, keep string, unused time.Duration) {
 			continue
 		}
 		limit := unused
-		if strings.HasPrefix(name, tempPrefix) {
+		if strings.HasPrefix(name, TempPrefix) {
 			limit = time.Hour
 		}
 		if now.Sub(info.ModTime()) >= limit {
-			os.Remove(filepath.Join(dir, name))
+			os.RemoveAll(filepath.Join(dir, name))
 		}
 	}
+}
+
+// dueMarker is the file in a pruned directory whose modification time is
+// its last prune.
+const dueMarker = ".pruned"
+
+// Due reports whether a prune of dir is due, its last one being every ago
+// or more, and if so marks it done now, so of the processes that ask
+// within every, one prunes. It answers false when the mark cannot be
+// written.
+func Due(dir string, every time.Duration) bool {
+	marker := filepath.Join(dir, dueMarker)
+	if info, err := os.Stat(marker); err == nil && time.Since(info.ModTime()) < every {
+		return false
+	}
+	return WriteFile(marker, nil) == nil
 }

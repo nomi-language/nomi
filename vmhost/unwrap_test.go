@@ -41,12 +41,12 @@ enum Color
     Green
 end
 
-interface Parse
-    fn parse(text: String) -> Maybe<self>
+interface Scan
+    fn scan(text: String) -> Maybe<self>
 end
 
-impl Parse for Int
-    fn parse(text: String) -> Maybe<Int>
+impl Scan for Int
+    fn scan(text: String) -> Maybe<Int>
         String.to_int(text)
     end
 end
@@ -126,7 +126,7 @@ func TestUnwrap_EveryFormAnswersThePayload(t *testing.T) {
 		{`    io.print("${local(5)!}")`, "5\n"},
 		{`    io.print("${f(6)!}")`, "6\n"},
 		{`    io.print("${helper.twice(7)!}")`, "14\n"},
-		{`    io.print("${Int.parse("9")!}")`, "9\n"},
+		{`    io.print("${Int.scan("9")!}")`, "9\n"},
 		{`    io.print("${first([10])!} ${first<Int>([11])!}")`, "10 11\n"},
 		{`    io.print("${Map.get(m, "a")!}")`, "1\n"},
 		{`    io.print("${"12" |> String.to_int()! |> Int.abs()}")`, "12\n"},

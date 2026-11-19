@@ -25,7 +25,10 @@
 //     regenerate when go.mod, go.sum, the discovered set, the wrapper
 //     template or the compiler (identity.go) changes. The compiler is in
 //     the key because the cached binary statically links the front end,
-//     the IR builder and the VM, not just the generated main.go.
+//     the IR builder and the VM, not just the generated main.go. A
+//     directory whose project is gone, or that nothing has used for
+//     artifactcache.Unused, is removed, and the count is bounded
+//     (evict.go).
 //
 // Prepare runs the three stages and returns a Result the CLI acts on.
 // CommandVM is the command that runs the cached wrapper binary.

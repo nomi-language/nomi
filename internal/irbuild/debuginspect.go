@@ -16,14 +16,14 @@ package irbuild
 // debugNamedInspects reports whether this module registered an `impl Debug`
 // for the named receiver kind k whose `inspect` lowers at k.
 //
-// `implsByIface["Debug"][k]` is the same table `Debug.inspect(x)` consults, so
+// `implsByIface[stdIfaceImplKey(stdDebug)][k]` is the same table `Debug.inspect(x)` consults, so
 // a receiver this answers for is exactly a receiver that call already lowers
 // for.
 func (g *gen) debugNamedInspects(k kind) bool {
 	if k.tag != tagNamed || k.def == nil {
 		return false
 	}
-	d := g.implsByIface["Debug"][k]
+	d := g.implsByIface[stdIfaceImplKey(stdDebug)][k]
 	if d == nil || !d.lowerable {
 		return false
 	}

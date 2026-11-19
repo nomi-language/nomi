@@ -10,8 +10,8 @@ import (
 // An operator over a type parameter records OperatorPerInstance and its
 // bound. At an instance's type arguments OperatorUseAt answers the record an
 // operator written at that type has: the impl's function (written or
-// derived), a structural comparison for a type that meets Equatable with no
-// impl, nil for a primitive, and dispatch for an interface value.
+// derived, or std's for a primitive), a structural comparison for a type
+// that meets Equatable with no impl, and dispatch for an interface value.
 func TestOperatorUseAt_AnswersARecordAtAnInstancesTypes(t *testing.T) {
 	fa, errs := checkEntry(t, `interface Named
     fn name(value: self) -> String
@@ -109,8 +109,8 @@ end
 	if fd, ok := byImpl("> at P")(at(biggerLine, 34)).(*ast.FuncDef); !ok || fd.Name != "compare" || analysis.IsSynthesizedLine(fd.Line) {
 		t.Errorf("> at P: the impl's function is %v, want P's written compare", fd)
 	}
-	if use, resolved := at(biggerLine, 38); !resolved || use != nil {
-		t.Errorf("> at Int: %+v (resolved %v), want nil, a primitive's operation", use, resolved)
+	if m := byImpl("> at Int")(at(biggerLine, 38)); fa.StdFuncOf(m).IsZero() {
+		t.Errorf("> at Int: the impl's function is %v, want std's compare for Int", m)
 	}
 	if fd, ok := byImpl("== at W")(at(sameLine, 42)).(*ast.FuncDef); !ok || !analysis.IsSynthesizedLine(fd.Line) {
 		t.Errorf("== at W: the impl's function is %v, want the derived equal", fd)
@@ -123,5 +123,40 @@ end
 	}
 	if use, resolved := fa.OperatorUseAt(fa, ops[sameLine], func(*analysis.TypeParam_) (analysis.Type, bool) { return nil, false }); resolved || use.Form != analysis.OperatorPerInstance {
 		t.Errorf("with no type for T: %+v (resolved %v), want the record unchanged", use, resolved)
+	}
+}
+
+// Inside an interface default, `self` is the implementor, which each
+// instance of the default binds: an operator over it records
+// OperatorPerInstance and its bound, as one over a type parameter does,
+// and OperatorUseAt answers it at the implementor. A value annotated with
+// the interface's name is an interface value, which dispatches.
+func TestOperatorUseAt_ADefaultsSelfIsAnsweredAtTheImplementor(t *testing.T) {
+	fa, errs := checkEntry(t, `interface Scale
+    fn bigger(a: self, b: self) -> Bool where self: Comparable and Equatable
+        a > b and a != b
+    end
+end
+
+fn same(a: Scale, b: Scale) -> Bool
+    a == b
+end
+`)
+	if len(errs) > 0 {
+		t.Fatalf("the checker rejects this source: %v", errs)
+	}
+	forms := map[string]*analysis.OperatorUse{}
+	for n, use := range fa.Operators {
+		if b, ok := n.(*ast.Binary); ok {
+			forms[b.Op] = use
+		}
+	}
+	for op, bound := range map[string]string{">": "Comparable", "!=": "Equatable"} {
+		if use := forms[op]; use == nil || use.Form != analysis.OperatorPerInstance || use.Bound != bound {
+			t.Errorf("%s over a default's self: %+v, want OperatorPerInstance through %s", op, use, bound)
+		}
+	}
+	if use := forms["=="]; use == nil || use.Form != analysis.OperatorDispatched {
+		t.Errorf("== over two interface values: %+v, want OperatorDispatched", use)
 	}
 }

@@ -44,9 +44,11 @@
 //
 // A host that runs code it did not write, such as a pricing rule a user
 // uploads, loads it with [WithCapabilities] and the names of what it may
-// reach outside the machine, the names nomi.toml's [capabilities] lists
-// use (`std::io`, `go:<import path>`) and `host:<key>` for the host's own
-// functions. With no names the program may reach nothing:
+// reach outside the machine, the names nomi.toml's std lists use
+// (`std::io`, `std::startup`) and `host:<key>` for the host's own
+// functions, and with [WithGo] and the modules whose code may bind Go, as
+// nomi.toml's `go` names them. With no names the program may reach
+// nothing:
 //
 //	p, err := vmhost.LoadSource("rule", src, vmhost.WithCapabilities())
 //	rate, err := p.Call(ctx, "discount", vmhost.Fields{"items": 12, "loyal": true})
@@ -66,9 +68,61 @@
 // (TestCapabilityLists_EveryEntryPointRefuses). Cases holds nothing: Test
 // holds before it, and a block's program was held when it loaded.
 // Evaluate refuses every effect already.
+//
+// One rule holds a call to a table of lists (capability.Allows, through
+// notAllowedBy): a `go` binding by the module whose files hold it, which
+// the table's go must list (the project by its own module path,
+// projectModule), and any other call by its name, which the table's std
+// must hold. nomi.toml's lists, when the project has a [capabilities]
+// table, hold each dependency's calls to three tables: the project's, the
+// project's entry for the module (a std list, which says nothing of Go),
+// and the [capabilities] table in the module's own nomi.toml (moduleAt
+// reads it, once per module), whose entry for the module itself, or std
+// when it has none, declares its own code, and whose go declares that the
+// module binds Go
+// by listing its own path and never grants it. The project's own calls are
+// held to two: the project's, and its entry under [capabilities.modules]
+// by its own module path, which notAllowedBy consults as it does a
+// dependency's and which holds no test case (std and std_in_tests hold
+// those). A call over several is reported once, over the module's own list
+// first
+// (CapabilityNotDeclaredCode, whose help puts the fix in that module),
+// then the project's entry, then the project's lists
+// (OutsideCallsNotAllowed). The dependency's own std names are checked by
+// the code that checks the project's, at its own nomi.toml, and
+// require_module_lists is checked there too, over the modules whose files
+// the program holds (requiredModules). A host's lists are never a
+// dependency's: a program held only by WithCapabilities and WithGo reads
+// no dependency's table. With WithGo alone the host holds only Go
+// bindings (hostHolds).
+//
+// A *CapabilityError keeps every call in Calls and Diagnostics; its text
+// (Shown, which Unwrap answers too) gives the first call of each name over
+// each list, with a help line counting the rest, unless AllCallsEnv is
+// set (`--all-calls`). `nomi check --format json` and the language server
+// read every call.
+//
+// Reached and Program.Reach answer what a program reaches, from the roots
+// `nomi check` holds (Walk per root set), with the module each call is
+// charged to; `nomi capabilities` prints it. Reach.Tightest is the
+// smallest table the walks pass (tightestLists, beside notAllowedBy and
+// held to it by TestTightestLists_PassAndEveryNameIsNeeded: every call
+// passes, and taking out any one name refuses one), so a table it writes
+// is one the check passes. Reached loads as Check does, a `go` binding
+// taken as provided, so a program with Go bindings is read without its
+// wrapper.
+//
 // What the list does not confine is in WithCapabilities' doc: the files
 // WithFileSystem hands the program, the host's own functions, what a Go
 // binding does inside, a nested std::compiler run, and time and memory.
+//
+// The rule that names an outside call and the check of a call against a
+// list are internal/capability's, which vmrunner calls too: a host that
+// loads compiled programs (vmrunner.WithCapabilities, the wasip1 reactor's
+// nomi_load_with) holds them with the same names, walk and words, over the
+// decoded image. vmhost adds what only it can read: a `go` binding's
+// package from source, which names the call for a reader, the module its
+// file is in, the std modules a name may be, and nomi.toml's lists.
 //
 // # The engine and nomi check
 //

@@ -1,6 +1,10 @@
 package analysis
 
-import "github.com/nomi-language/nomi/internal/ast"
+import (
+	"maps"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
 
 // A call of an interface function the checker selected no impl for (the
 // reference carries no DispatchImpl) is dispatched where it runs: on a
@@ -14,9 +18,9 @@ import "github.com/nomi-language/nomi/internal/ast"
 //   - `C.holds(c, x)` under `C: Holds<T>` goes through the bound, which
 //     checkTypeParamQualifiedCall records as it types the call;
 //   - `Holds.holds(b, x)` goes through the interface at the type arguments
-//     the call is instantiated at: the interface's function signature, its
-//     self the interface applied to its own parameters, matched against the
-//     call's (CallType), recorded here once every body is checked.
+//     the call is instantiated at: the interface's own parameters as the
+//     call solved them from its `self` (solveInterfaceArgs), read from the
+//     call's record (callInterfaceInstance) once every body is checked.
 //
 // A non-generic interface's instance is the interface itself.
 
@@ -60,13 +64,74 @@ func (c *checker) recordCallInterface(call *ast.Call) {
 	if it == nil {
 		return
 	}
-	inst := callInterfaceInstance(it, base.Name, ref.CallType)
+	inst := callInterfaceInstance(it, base.Name, ref)
 	if inst == nil {
 		return
 	}
 	cp := *ref
 	cp.CallInterface = inst
 	c.fa.References[pos] = &cp
+}
+
+// calleeInterface is the declared interface whose function callee names,
+// however it is spelled: through the interface or its module, through an
+// implementor that inherits the function, or bare. nil for any other
+// callee.
+func (c *checker) calleeInterface(callee ast.Node) *InterfaceType {
+	if c.fa == nil || callee == nil {
+		return nil
+	}
+	pos, named := calleeKey(callee)
+	if !named {
+		return nil
+	}
+	ref := c.fa.References[pos]
+	if ref == nil {
+		return nil
+	}
+	base := interfaceMethodBase(ref)
+	if base == nil {
+		return nil
+	}
+	return c.calledInterface(callee, base)
+}
+
+// solveInterfaceArgs solves a generic interface's own type parameters in
+// subs from the type a call of one of its functions solved `self` to, as a
+// bound `where self: I<T>` projects them (spec §12 *Generic interfaces*):
+// the arguments of that type's impl of iface (`impl Scale<Int> for Money`
+// gives N = Int for a Money; with several impls, the parameters already
+// solved choose), a type parameter's bound, or an interface value's own
+// arguments. `self` stays the type it was solved to. Nothing is solved
+// before `self` is, for a non-generic interface, or when the type does
+// not implement iface, which the call's conformance demand reports.
+func (c *checker) solveInterfaceArgs(iface *InterfaceType, subs map[*TypeParam_]Type) {
+	if iface == nil || iface.SelfParam == nil || len(iface.TypeParamDefs) == 0 {
+		return
+	}
+	self, ok := subs[iface.SelfParam]
+	if !ok || self == nil {
+		return
+	}
+	if _, open := resolveTypeVar(self).(*TypeVar); open {
+		return
+	}
+	trial := maps.Clone(subs)
+	saved := saveTypeVars(self)
+	if c.unifyInto(interfaceAtOwnParams(iface), self, trial) != nil {
+		saved.restore()
+		return
+	}
+	// A default's own `self` (or a value of iface at its own parameters)
+	// gives each parameter itself, which unifying binds to nothing.
+	if at, ok := resolveTypeVar(self).(*InterfaceType); ok && len(at.TypeArgs) == len(iface.TypeParamDefs) {
+		for i, d := range iface.TypeParamDefs {
+			if _, solved := trial[d]; !solved && at.TypeArgs[i] == Type(d) {
+				trial[d] = d
+			}
+		}
+	}
+	maps.Copy(subs, trial)
 }
 
 // interfaceMethodBase is the interface function symbol ref resolves to, or
@@ -146,29 +211,38 @@ func (c *checker) calledInterface(callee ast.Node, base *Symbol) *InterfaceType 
 }
 
 // callInterfaceInstance is interface it at the type arguments a call of
-// its function name is instantiated at, ct: its own parameters are read
-// off ct by matching the function's signature against it (matchTypeParams).
-// nil when one is not found there.
-func callInterfaceInstance(it *InterfaceType, name string, ct Type) *InterfaceType {
+// its function name is instantiated at, as ref, the call's reference,
+// records it: each of its own parameters as the call's substitution solved
+// it (Symbol.CallTypeArgs), or else as the instantiated signature
+// (CallType) shows it against the declared one, which is what a call
+// typed by its selected impl or its operator records. A bare call in one
+// of its defaults is for the default's own `self` (recordCallSelf) and
+// goes through the interface at its own parameters. nil when one is not
+// solved.
+func callInterfaceInstance(it *InterfaceType, name string, ref *Symbol) *InterfaceType {
 	if len(it.TypeParamDefs) == 0 {
 		return it
 	}
+	shown := map[*TypeParam_]Type{}
 	decl := interfaceMethodFuncType(it, name)
-	inst, ok := resolveTypeVar(ct).(*FuncType)
-	if decl == nil || !ok {
-		return nil
-	}
-	solved := map[*TypeParam_]Type{}
-	for i := range decl.Params {
-		if i < len(inst.Params) {
-			matchTypeParams(decl.Params[i], inst.Params[i], solved)
+	if inst, ok := resolveTypeVar(ref.CallType).(*FuncType); ok && decl != nil {
+		for i := range decl.Params {
+			if i < len(inst.Params) {
+				matchTypeParams(decl.Params[i], inst.Params[i], shown)
+			}
 		}
+		matchTypeParams(decl.Return, inst.Return, shown)
 	}
-	matchTypeParams(decl.Return, inst.Return, solved)
 	args := make([]Type, len(it.TypeParamDefs))
 	for i, d := range it.TypeParamDefs {
-		t, found := solved[d]
-		if !found || t == nil {
+		t := ref.CallTypeArgs[d.Name_]
+		if t == nil {
+			t = shown[d]
+		}
+		if t == nil && it.SelfParam != nil && ref.CallTypeArgs["self"] == Type(it.SelfParam) {
+			t = d
+		}
+		if t == nil {
 			return nil
 		}
 		args[i] = t

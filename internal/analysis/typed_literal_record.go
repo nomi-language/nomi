@@ -87,7 +87,7 @@ func (c *checker) checkedLiteralFailure(n *ast.TaggedString) Type {
 	}
 	build := c.fa.TargetLiteralBuilds[n]
 	if build == nil {
-		build = c.checkedLiteralBuildOf(n.Tag)
+		build = c.checkedLiteralBuildOf(c.literalTagType(n.Tag))
 	}
 	if build == nil {
 		return nil
@@ -152,7 +152,7 @@ func (c *checker) typedLiteralHint(expected, got Type, expr ast.Node) string {
 	if c.hasTextFunction(name, origin) {
 		return hint + "; `" + name + ".to_string` gives its text"
 	}
-	if c.typeImplementsInterface(have, "Display", Pos{Line: lit.Line, Col: lit.Col}, RecordingKindCallSite) {
+	if c.typeImplementsInterface(have, "Display", OriginUnresolved, Pos{Line: lit.Line, Col: lit.Col}, RecordingKindCallSite) {
 		return hint + "; `Display.to_string` gives its text"
 	}
 	return hint

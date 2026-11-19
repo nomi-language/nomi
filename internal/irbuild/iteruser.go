@@ -14,7 +14,7 @@ import (
 // case where the walk is the programmer's.
 //
 // The receiver is not erased: `Iter.to_list(tree)` has a receiver whose static
-// kind is `Tree`, and `g.implsByIface["Iter"][Tree]` names exactly one impl
+// kind is `Tree`, and `g.implsByIface[stdIfaceImplKey(stdIter)][Tree]` names exactly one impl
 // block. So the `each_while` to call is chosen at build time, and the view
 // (an `ir.Iter` over `ir.IterOverUserImpl`, userView in iriterbody.go) holds
 // an `ir.RefFunc` to it as an operand. The VM walks the view through
@@ -88,7 +88,7 @@ func (g *gen) userIterImplOf(recv kind) (userIterImpl, bool) {
 		// Set or a Range from being captured here.
 		return userIterImpl{}, false
 	}
-	if d := g.implsByIface["Iter"][recv]; d != nil {
+	if d := g.implsByIface[stdIfaceImplKey(stdIter)][recv]; d != nil {
 		return userIterImpl{owner: g, d: d}, true
 	}
 	if g.files == nil || g.reg == nil || g.fileUnit < 0 {
@@ -99,7 +99,7 @@ func (g *gen) userIterImplOf(recv kind) (userIterImpl, bool) {
 		if src == nil {
 			src = recv.def
 		}
-		owner, d := g.instanceImplAnywhere(src, "Iter", "each_while")
+		owner, d := g.instanceImplAnywhere(src, stdIfaceImplKey(stdIter), "each_while")
 		if d == nil || owner == nil || owner == g {
 			return userIterImpl{}, false
 		}
@@ -110,7 +110,7 @@ func (g *gen) userIterImplOf(recv kind) (userIterImpl, bool) {
 	}
 	var chosen *implMemberSite
 	for _, s := range writtenImplMembers(g.files.implMembers[implMemberKey{recv: recv.def.decl, method: "each_while"}]) {
-		if s.iface != "Iter" || s.unit == g.fileUnit {
+		if s.iface != stdIfaceImplKey(stdIter) || s.unit == g.fileUnit {
 			continue
 		}
 		if chosen != nil && (chosen.unit != s.unit || chosen.block != s.block) {
@@ -129,7 +129,7 @@ func (g *gen) userIterImplOf(recv kind) (userIterImpl, bool) {
 		return userIterImpl{}, false
 	}
 	for _, d := range owner.implOrder {
-		if d.decl == chosen.block && d.ifaceName == "Iter" {
+		if d.decl == chosen.block && d.ifaceKey == stdIfaceImplKey(stdIter) {
 			return userIterImpl{owner: owner, d: d}, true
 		}
 	}
@@ -211,7 +211,7 @@ func (g *gen) userIterImplByBlock(recv kind, block *ast.ImplBlock) (userIterImpl
 	if recv.tag != tagNamed || recv.def == nil || block == nil {
 		return userIterImpl{}, false
 	}
-	if d := g.implsByIface["Iter"][recv]; d != nil && d.decl == block {
+	if d := g.implsByIface[stdIfaceImplKey(stdIter)][recv]; d != nil && d.decl == block {
 		return userIterImpl{owner: g, d: d}, true
 	}
 	if g.reg == nil {
@@ -222,7 +222,7 @@ func (g *gen) userIterImplByBlock(recv kind, block *ast.ImplBlock) (userIterImpl
 		if src == nil {
 			src = recv.def
 		}
-		owner, d := g.instanceImplAnywhere(src, "Iter", "each_while")
+		owner, d := g.instanceImplAnywhere(src, stdIfaceImplKey(stdIter), "each_while")
 		if d == nil || owner == nil || owner == g || d.decl != block {
 			return userIterImpl{}, false
 		}
@@ -233,7 +233,7 @@ func (g *gen) userIterImplByBlock(recv kind, block *ast.ImplBlock) (userIterImpl
 			continue
 		}
 		for _, d := range owner.implOrder {
-			if d.decl == block && d.ifaceName == "Iter" {
+			if d.decl == block && d.ifaceKey == stdIfaceImplKey(stdIter) {
 				return userIterImpl{owner: owner, d: d}, true
 			}
 		}

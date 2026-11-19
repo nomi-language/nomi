@@ -59,6 +59,7 @@ func generated(tb testing.TB, lines int) *project {
 		tb.Fatal(err)
 	}
 	if err := gen.Write(dir); err != nil {
+		os.RemoveAll(dir)
 		tb.Fatal(err)
 	}
 	p := &project{gen: gen, dir: dir, entry: filepath.Join(dir, "main.nomi")}

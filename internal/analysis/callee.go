@@ -104,18 +104,18 @@ type Callee struct {
 	// interface value, and for any function no interface declares
 	// (reachedImpl).
 	Impl ast.Node
-	// Form is how a call of an interface's function is answered, in the
-	// terms an operator through the interface is (OperatorUse.Form, from
-	// the one resolver, interfaceUseFor, so `a == b` and
-	// `Equatable.equal(a, b)` agree): OperatorByImpl where the call
-	// reaches a block (Impl); OperatorStructural where the receiver's
-	// type meets the interface by its shape (a tuple, an anonymous
-	// struct, a collection, a function, a declared type with no
-	// Equatable, Hashable or Debug block of its own); OperatorDispatched
-	// on an interface value; OperatorPerInstance through a type
-	// parameter, which CalleeAt answers at an instance. Zero for a callee
-	// no interface declares, and where the receiver's type is unknown or
-	// nothing answers (callForm).
+	// Form is how a call of an interface's function is answered, by the
+	// rule an operator through the interface is (interfaceUse, so `a ==
+	// b` and `Equatable.equal(a, b)` agree): OperatorByImpl where the call
+	// reaches a block (Impl), and for a function an impl block declares;
+	// OperatorStructural where the receiver's type has no block and meets
+	// the interface by its shape (a tuple, an anonymous struct, a
+	// collection, a function, a declared type with no Equatable,
+	// Hashable or Debug block of its own); OperatorDispatched on an
+	// interface value; OperatorPerInstance through a type parameter,
+	// which CalleeAt answers at an instance. Zero for a callee no
+	// interface declares, and where the receiver's type is unknown or
+	// nothing answers (interfaceImplAt).
 	Form OperatorForm
 }
 
@@ -520,7 +520,7 @@ func (fa *FileAnalysis) complete(funcNode ast.Node, out Callee) Callee {
 			}
 		}
 	}
-	return fa.withStd(fa.callForm(fa.reachedImpl(out)))
+	return fa.withStd(fa.reachedImpl(out))
 }
 
 // ownerOf is the type or interface base, a function's symbol, is declared

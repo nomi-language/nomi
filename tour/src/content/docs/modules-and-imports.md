@@ -519,11 +519,12 @@ A Nomi module is built on a Go module, which is why both use the word
 ## What a project may reach
 
 A project can list what its program may reach outside itself, such as
-files, the network, output and the clock. The list is `allow` in a
+files, the network, output and the clock. The list is `std` in a
 `[capabilities]` table in `nomi.toml`, and each entry is a std module as an
-import names it. `nomi check`, `run`, `test` and `build` refuse a program
-that reaches anything else, before it runs. This program only prints, so
-`std::io` is enough:
+import names it. `nomi capabilities --write` writes the tightest table the
+program passes, for you to read and keep. `nomi check`, `run`, `test` and
+`build` refuse a program that reaches anything else, before it runs. This
+program only prints, so `std::io` is enough:
 
 ```nomi-run
 // FILE: main.nomi
@@ -540,50 +541,84 @@ name = "shop"
 entry_points = ["main"]
 
 [capabilities]
-allow = ["std::io"]
+std = ["std::io"]
 ```
 <!-- expect
 Total: 59.97
 -->
 
-This one also asks a server for an exchange rate. Its `nomi.toml` does not
-allow `std::http`, so it does not run:
+Under `[capabilities.modules]` a module gets a list of its own, for the
+calls its own files make. Here `app` holds its own code to output and its
+dependency `prices` to nothing, since `prices` only computes. A new version
+of `prices` also reports each use to a server, so the program does not run:
 
 ```nomi-run error
-// FILE: main.nomi
+// FILE: app/main.nomi
 import
-    std::http
     std::io
-    std::url.Url
-end
-
-fn rate() -> String
-    case http.get(Url"https://rates.example.com/today")
-        Ok(response) -> "${response.status}"
-        Err(_)       -> "offline"
-    end
+    prices.total
 end
 
 fn main()
-    io.print("Rate: ${rate()}")
+    io.print("Total: ${total(3d)}")
 end
 
-// FILE: nomi.toml
+// FILE: app/nomi.toml
 [module]
-name = "shop"
+name = "app"
 entry_points = ["main"]
 
 [capabilities]
-allow = ["std::io"]
+std = ["std::io"]
+
+[capabilities.modules]
+"example.com/app" = ["std::io"]
+"lib.example/prices" = []
+
+// FILE: app/go.mod
+module example.com/app
+
+go 1.27.0
+
+require lib.example/prices v0.0.0
+
+replace lib.example/prices => ../prices
+
+// FILE: prices/prices.nomi
+import
+    std::http
+    std::url.Url
+end
+
+/// The price of `count` items.
+pub fn total(count: Decimal) -> Decimal
+    _ = http.get(Url"https://stats.example.com/used")
+    19.99d * count
+end
+
+// FILE: prices/nomi.toml
+[module]
+name = "prices"
+
+// FILE: prices/go.mod
+module lib.example/prices
+
+go 1.27.0
 ```
 <!-- expect
-main.nomi:8:10: this program reaches std::http, and nomi.toml allows only std::io
-main.nomi:8:10: help: reached from `main`; `main` calls `rate`
-main.nomi:8:10: help: add "std::http" to allow under [capabilities] in nomi.toml, or remove the call
+prices/prices.nomi:8:9: lib.example/prices reaches std::http, and nomi.toml allows it nothing outside the program
+prices/prices.nomi:8:9: help: reached from `main`; `main` calls `total`
+prices/prices.nomi:8:9: help: the program's own list, std under [capabilities], does not allow std::http either
+prices/prices.nomi:8:9: help: add "std::http" to "lib.example/prices" under [capabilities.modules] in nomi.toml and to std under [capabilities], or remove the call
 -->
 
 A call counts even in a branch that never runs, and the error says how the
-program reaches it. [Capability lists](/tooling/building/#capability-lists)
+program reaches it. A dependency can declare its own list in its own
+`nomi.toml`, and a project with a list holds the dependency's code to it too.
+`require_module_lists = true` makes every dependency have one. A module
+whose code binds Go runs it only when the project's `go` list names that
+module.
+[Capability lists](/tooling/projects/#capability-lists)
 in the tooling reference covers lists for tests and for each dependency, and
 what counts as outside.
 

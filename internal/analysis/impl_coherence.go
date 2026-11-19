@@ -1034,16 +1034,25 @@ func PopulateProjectTypeMethodSymbols(idx *ProjectImplIndex, filesByKey map[stri
 // stdlib impls reach this index via the same per-file walk over
 // stdlib FAs folded into filesByKey.
 //
-// # THE KEY IS THE RECEIVER AND THE WHOLE INTERFACE HEADER
+// # THE KEY IS THE RECEIVER, THE INTERFACE AND ITS TYPE ARGUMENTS
 //
 // A generic interface may be implemented for one receiver at several type
 // arguments (`impl Add<Days, Date> for Date` beside `impl Add<Months, Date>
 // for Date`, `impl Contains<String> for String` beside `impl
 // Contains<Regex> for String`), and a call selects one statically
 // (impl_selection.go). So two impls collide when they name the same
-// receiver and the same header. Two impls at different arguments that could
-// still name one instantiation, a generic one beside a concrete one, are
-// the overlap checkImplInstantiations reports at the impl.
+// receiver, the same interface and the same type arguments, however the
+// header qualifies the interface (collisionGroupKey). Two impls at
+// different arguments that could still name one instantiation, a generic
+// one beside a concrete one, are the overlap checkImplInstantiations
+// reports at the impl.
+//
+// A derive beside a hand-written impl in the same module is such a pair,
+// and its error says so (implCollisionError): the spec's `derive ...
+// conflicts with a hand-written impl` message, whichever spelling each
+// names the interface by. A hand-written impl that collides with another
+// module's derived one, as a program's `impl Equatable for Bool` does with
+// std's, is a duplicate that names both modules.
 func detectImplCollisions(
 	index map[string]map[string][]*ast.FuncDef,
 	files map[*ast.FuncDef]string,
@@ -1120,7 +1129,11 @@ func detectImplCollisions(
 }
 
 // collisionGroupKey is the group detectImplCollisions puts fn, an impl of
-// iface, in: its receiver's base name and its interface header as written.
+// iface, in: its receiver's base name, and the interface with the type
+// arguments its header writes. A module qualifier on the header is left
+// out: `impl json.ToJson for U` and `impl ToJson for U` in a file whose
+// `ToJson` is std's are two impls of one interface, and
+// ifaceOriginBuckets keeps apart the impls of two interfaces of one name.
 // Empty when the receiver is unkeyable.
 func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys map[*ast.FuncDef]string) string {
 	recv := receiverBaseName(fn, receivers)
@@ -1128,8 +1141,10 @@ func collisionGroupKey(iface string, fn *ast.FuncDef, receivers, interfaceKeys m
 		return ""
 	}
 	ifaceKey := iface
-	if interfaceKeys != nil && interfaceKeys[fn] != "" {
-		ifaceKey = interfaceKeys[fn]
+	if interfaceKeys != nil {
+		if _, args, ok := strings.Cut(interfaceKeys[fn], "<"); ok {
+			ifaceKey = iface + "<" + args
+		}
 	}
 	return recv + "\x00" + ifaceKey
 }
@@ -1416,6 +1431,28 @@ func implCollisionError(
 	msg := fmt.Sprintf(
 		"duplicate impl: `%s` is implemented for `%s` by modules %s (function `%s`); a type implements an interface once at each set of type arguments",
 		label, recv, strings.Join(mods, ", "), method)
+	// A derive beside a hand-written impl in its own module (spec §12
+	// *Derive*): the derive sits in the type's file, so the two are one
+	// author's. A derived impl in another module, std's derived Equatable
+	// for Bool among them, is the other half of a duplicate like any impl.
+	derivedIn, writtenIn := map[string]bool{}, map[string]bool{}
+	for _, fn := range group {
+		if !IsSynthesizedLine(fn.Line) {
+			writtenIn[files[fn]] = true
+		} else if deriveSupported[iface] && !fn.AutoSynth {
+			derivedIn[files[fn]] = true
+		}
+	}
+	beside := false
+	for m := range derivedIn {
+		beside = beside || writtenIn[m]
+	}
+	if beside {
+		// The anchor is the hand-written one.
+		msg = fmt.Sprintf(
+			"`derive %s for %s` conflicts with a hand-written `impl %s for %s` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one",
+			iface, recv, iface, recv)
+	}
 	anchor := collisionAnchor(group, files)
 	return TypeError{
 		Line:    anchor.Line,

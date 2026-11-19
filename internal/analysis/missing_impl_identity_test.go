@@ -233,22 +233,20 @@ func TestImplIdentity_TheStdlibErrorsAreSeparateConformances(t *testing.T) {
 	}
 }
 
-// TestImplIdentity_TheFallbackPopulationIsClosed asserts the set of
-// (type, iface) pairs that still fall back to the bare-name answer, EXACTLY.
-//
-// An upper bound would not do. A new name here is either a receiver whose
-// origin genuinely cannot be established — a generic `host type` resolving to
-// a shared PrimitiveType singleton, an inherent-block method with no
-// ImplFiles entry — or a real type that stopped resolving, and only an exact
-// assertion tells those apart. Growth in this set silently shrinks the check.
-func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
+// TestImplIdentity_EveryStdConformanceIsJudgedByIdentity asserts that the
+// identity index judges every (type, iface) pair the stdlib's bare table
+// claims, the impls of generic interfaces included (`impl Add<Days, Date>
+// for Date`, `impl CheckedLiteral<Display, Url> for Url`, Codepoint's
+// synthesized `TryFrom<Int64>`): each is keyed by its receiver's identity
+// and the interface's bare name, the name a lookup asks by. A pair listed
+// here is one some supplier of which has a receiver whose origin did not
+// resolve, so a same-named type of another file would borrow its impl.
+func TestImplIdentity_EveryStdConformanceIsJudgedByIdentity(t *testing.T) {
 	fa, _ := implIdentityFA(t, "fn main() end\n")
 	idx := fa.Program().ImplIndex
 	if idx == nil {
 		t.Fatal("nil ProjectImpls")
 	}
-	// Every (T, Iface) the bare table claims, that the identity index does
-	// not cover.
 	var fellBack []string
 	for ty, ifaces := range idx.Impls {
 		for iface := range ifaces {
@@ -258,49 +256,141 @@ func TestImplIdentity_TheFallbackPopulationIsClosed(t *testing.T) {
 		}
 	}
 	sort.Strings(fellBack)
-	got := strings.Join(fellBack, " ")
-	if got != implIdentityFallbackPopulation {
-		t.Errorf("the fallback population moved.\n got: %s\nwant: %s", got, implIdentityFallbackPopulation)
+	if len(fellBack) != 0 {
+		t.Errorf("std conformances the identity index cannot judge: %s", strings.Join(fellBack, " "))
+	}
+	key := analysis.ImplIdentityKey{Origin: "std/calendar", Type: "Date", Iface: "Add"}
+	if !idx.ImplsByIdentity[key] {
+		t.Errorf("std/calendar's `impl Add<Days, Date> for Date` is not keyed %+v", key)
 	}
 }
 
-// implIdentityFallbackPopulation is every (T, Iface) pair the bare table
-// claims and the identity index cannot judge, measured over the stdlib.
-//
-// They are the impls whose headers write type arguments: the OPERATOR
-// pairs (the arithmetic ones and the bitwise ones on Int and Byte), String's Contains, Url's
-// `CheckedLiteral<String, Url>`, Toml's `CheckedLiteral<ToToml, Toml>` and std/jobs's Cron literal,
-// Codepoint's synthesized `TryFrom<Int64>` (a type over a subtype takes the
-// rule in its chain as a TryFrom of its base), and std/fs's `Lines`, `Chunks` and `Walk`,
-// std/csv's `RecordIter` and `RowIter` and std/xml's `TokenIter` as
-// `Iter<Result<...>>`. One mechanism explains the whole set:
-// `ImplBlockInterfaceKey` spells such an impl with its type arguments
-// (`Add<Days, Date>`, `Contains<Regex>`), while `Impls` and `ImplManifest`
-// both key the bare name (`Add`), so the two spellings never meet and none
-// of those conformances enters the covered set.
-//
-// NOT widened here, deliberately. Every other conformance — the
-// Equatable / Display / Debug / Hashable / Comparable family, which is what
-// the defect was about — is covered. Reaching the operator family means
-// judging std/calendar's `Add`/`Subtract` ladder by identity, and that ladder
-// is measured to be the one place the RUNTIME's qualified/bare tolerance is
-// load-bearing: 13 of its keys ask qualified and are served bare, and a
-// too-wide rule there costs 13 corpus files and 3 std tests. It is a named
-// follow-on with a known mechanism, not an oversight.
-const implIdentityFallbackPopulation = "Byte/BitwiseAnd Byte/BitwiseNot Byte/BitwiseOr Byte/BitwiseXor " +
-	"Bytes/Add Chunks/Iter Codepoint/TryFrom Cron/CheckedLiteral Date/Add Date/Subtract DateTime/Add " +
-	"DateTime/Subtract Decimal/Add Decimal/Averageable Decimal/Divide Decimal/Multiply " +
-	"Decimal/Remainder Decimal/Subtract Duration/Add Duration/Averageable Duration/Divide " +
-	"Duration/Multiply Duration/Remainder Duration/Subtract Float/Add Float/Averageable Float/Divide " +
-	"Float/Multiply Float/Remainder Float/Subtract Instant/Add Instant/Subtract " +
-	"Int/Add Int/Averageable Int/BitwiseAnd Int/BitwiseNot Int/BitwiseOr " +
-	"Int/BitwiseXor Int/Divide Int/Multiply Int/Parse Int/Remainder Int/ShiftLeft " +
-	"Int/ShiftRight Int/Subtract Lines/Iter List/Add Map/Add " +
-	"Money/Multiply NaiveDateTime/Add " +
-	"NaiveDateTime/Subtract OffsetDateTime/Add " +
-	"OffsetDateTime/Subtract RecordIter/Iter Route/CheckedLiteral RowIter/Iter Set/Add Set/Subtract Statement/Add " +
-	"String/Add String/Contains String/Parse Time/Add Time/Subtract TokenIter/Iter Toml/CheckedLiteral Url/CheckedLiteral Uuid/Parse Vector/Add " +
-	"Walk/Iter"
+// An impl of a generic interface is its own receiver's, as any impl is: a
+// type that shares a name with another file's or std's type that has one
+// gets none of it. Each program is rejected, at the use, with the error a
+// type with no such impl draws.
+func TestMissingImpl_AGenericInterfacesImplIsItsReceiversOwn(t *testing.T) {
+	const other = `import
+    std::literals.{CheckedLiteral, Fragment, LiteralError}
+end
+
+pub enum Weekday
+    Monday
+    Tuesday
+end
+
+impl TryFrom<Int> for Weekday
+    fn try_from(value: Int) -> Maybe<Weekday>
+        _ = value
+        Some(Weekday.Monday)
+    end
+end
+
+pub struct Money
+    cents: Int
+end
+
+impl Add<Money, Money> for Money
+    fn add(lhs: Money, rhs: Money) -> Money
+        Money{cents: lhs.cents + rhs.cents}
+    end
+end
+
+impl Multiply<Int, Int> for Money
+    fn multiply(lhs: Money, rhs: Int) -> Int
+        lhs.cents * rhs
+    end
+end
+
+pub struct Tag
+    text: String
+end
+
+impl CheckedLiteral<String, Tag> for Tag
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
+        _ = statics
+        Ok(Unit)
+    end
+
+    fn build(fragments: List<Fragment<String>>) -> Tag
+        _ = fragments
+        Tag{text: "lib"}
+    end
+end
+
+pub interface Scale<F>
+    fn scale(x: self, by: F) -> self
+end
+
+impl Scale<Int> for Money
+    fn scale(x: Money, by: Int) -> Money
+        Money{cents: x.cents * by}
+    end
+end
+`
+	const decls = `enum Weekday
+    Monday
+    Tuesday
+end
+
+struct Money
+    cents: Int
+end
+
+struct Tag
+    text: String
+end
+
+pub struct Duration
+    seconds: Int
+end
+
+fn keep(w: lib.Weekday, m: lib.Money, t: lib.Tag) -> (lib.Weekday, lib.Money, lib.Tag)
+    (w, m, t)
+end
+`
+	for _, c := range []struct{ name, body, want string }{
+		{"a TryFrom call", `_ = Weekday.try_from(2)`, "type 'Weekday' has no member 'try_from'"},
+		{"a TryFrom bound", `day: Maybe<Weekday> = load(2)
+    _ = day`, "Weekday does not implement TryFrom<Int> (required by `where T: TryFrom<Int>`)"},
+		{"an operator", `_ = Money{cents: 1} + Money{cents: 2}`, "no impl of `Add` for `"},
+		{"an operator whose arguments are not the receiver", `_ = Money{cents: 1} * 2`, "`*` needs two values of one type, and these are Money and Int"},
+		{"a checked literal", `_ = Tag"hello"`, "type 'Tag' has no typed-literal handler"},
+		{"a user generic interface's bound", `_ = twice(Money{cents: 3})`, "Money does not implement Scale<Int> (required by `where T: Scale<Int>`)"},
+		{"std's operator", `_ = Duration{seconds: 1} + Duration{seconds: 2}`, "no impl of `Add` for `"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			src := `import
+    lib
+    lib.{Scale}
+end
+
+` + decls + `
+fn load<T>(n: Int) -> Maybe<T> where T: TryFrom<Int>
+    T.try_from(n)
+end
+
+fn twice<T>(x: T) -> T where T: Scale<Int>
+    T.scale(x, 2)
+end
+
+fn main()
+    ` + c.body + `
+end
+`
+			msgs := implIdentityProjectErrs(t, src, map[string]string{"lib.nomi": other})
+			found := false
+			for _, m := range msgs {
+				if strings.Contains(m, c.want) {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("the program was not rejected with %q; diagnostics: %v", c.want, msgs)
+			}
+		})
+	}
+}
 
 // A user type that shares a name with a std type implementing an operator
 // interface keeps its own inherent function of the operator's name:
@@ -326,9 +416,129 @@ end
 	}
 }
 
+// A typed literal's one-handler checks ask about the tag's own type. Another
+// file's `Shout`, with an `impl Literal` or an interface whose function is
+// named `from_fragments`, gives this file's `Shout` neither: its
+// `CheckedLiteral` is not a second handler, and its `Literal` has no rival.
+// Asked by name, the first was "implements both `Literal` and
+// `CheckedLiteral`" and the second "is ambiguous", naming the other file's
+// line. A rival this `Shout` writes is still reported, at its own line,
+// where by name the two files' `Build` impls hid each other and the builder
+// declined the literal.
+func TestImplIdentity_ALiteralHandlerIsJudgedOnItsOwnTag(t *testing.T) {
+	const loud = `import std::literals.{Fragment, Literal}
+
+pub type Shout
+
+impl Literal<Int, String> for Shout
+    fn from_fragments(fragments: List<Fragment<Int>>) -> String
+        "${Iter.count(fragments)}"
+    end
+end
+
+pub interface Build
+    fn from_fragments(fragments: List<Fragment<String>>) -> Int
+end
+
+pub type Quiet
+
+impl Build for Quiet
+    fn from_fragments(fragments: List<Fragment<String>>) -> Int
+        Iter.count(fragments)
+    end
+end
+`
+	const checked = `import
+    std::literals.{CheckedLiteral, Fragment, LiteralError}
+    lib
+end
+
+type Shout
+
+impl CheckedLiteral<Int, String> for Shout
+    fn check(statics: List<String>) -> Result<Unit, LiteralError>
+        _ = statics
+        Ok(Unit)
+    end
+
+    fn build(fragments: List<Fragment<Int>>) -> String
+        "${Iter.count(fragments)}"
+    end
+end
+
+fn main()
+    _ = Shout"a ${1} b"
+    _ = lib.Shout
+end
+`
+	const literal = `import
+    std::literals.{Fragment, Literal}
+    lib
+end
+
+type Quiet
+
+impl Literal<Int, String> for Quiet
+    fn from_fragments(fragments: List<Fragment<Int>>) -> String
+        "${Iter.count(fragments)}"
+    end
+end
+RIVAL
+fn main()
+    _ = Quiet"a ${1} b"
+    _ = lib.Quiet
+end
+`
+	const rival = `
+impl lib.Build for Quiet
+    fn from_fragments(fragments: List<Fragment<String>>) -> Int
+        Iter.count(fragments)
+    end
+end
+`
+	files := map[string]string{"lib.nomi": loud}
+	for name, src := range map[string]string{
+		"a CheckedLiteral beside another file's Literal": checked,
+		"a Literal beside another file's from_fragments": strings.Replace(literal, "RIVAL", "", 1),
+	} {
+		if msgs := implIdentityProjectErrs(t, src, files); len(msgs) != 0 {
+			t.Errorf("%s: the program should check, got %q", name, msgs)
+		}
+	}
+	msgs := implIdentityProjectErrs(t, strings.Replace(literal, "RIVAL", rival, 1), files)
+	want := "typed literal 'Quiet\"...\"' is ambiguous: `impl Build for Quiet` also declares `from_fragments`, at line 15,"
+	found := false
+	for _, m := range msgs {
+		if strings.HasPrefix(m, want) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("the rival this file writes is not reported; want %q in %q", want, msgs)
+	}
+}
+
 // implIdentityProjectErrs is implIdentityErrs over a project whose entry is
 // main.nomi beside files, with each coherence error's hints after it.
 func implIdentityProjectErrs(t *testing.T, src string, files map[string]string) []string {
+	t.Helper()
+	fa, entryNodes := implIdentityProject(t, src, files)
+	var msgs []string
+	for _, e := range fa.TypeErrors {
+		msgs = append(msgs, e.Message)
+	}
+	for _, e := range analysis.CheckTypes(fa, entryNodes) {
+		msgs = append(msgs, e.Message)
+	}
+	for _, e := range analysis.FinalizeCoherence(fa) {
+		msgs = append(msgs, e.Message+" | "+strings.Join(e.Hints, " | "))
+	}
+	return msgs
+}
+
+// implIdentityProject builds a project whose entry is main.nomi beside
+// files, and answers the entry's analysis and nodes, unchecked.
+func implIdentityProject(t *testing.T, src string, files map[string]string) (*analysis.FileAnalysis, []ast.Node) {
 	t.Helper()
 	tmp := t.TempDir()
 	for name, text := range files {
@@ -353,17 +563,7 @@ func implIdentityProjectErrs(t *testing.T, src string, files map[string]string) 
 	if fa == nil {
 		t.Fatal("expected non-nil FileAnalysis")
 	}
-	var msgs []string
-	for _, e := range fa.TypeErrors {
-		msgs = append(msgs, e.Message)
-	}
-	for _, e := range analysis.CheckTypes(fa, entryNodes) {
-		msgs = append(msgs, e.Message)
-	}
-	for _, e := range analysis.FinalizeCoherence(fa) {
-		msgs = append(msgs, e.Message+" | "+strings.Join(e.Hints, " | "))
-	}
-	return msgs
+	return fa, entryNodes
 }
 
 // An impl for another file's type, written through its module

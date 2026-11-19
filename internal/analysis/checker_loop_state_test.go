@@ -27,6 +27,7 @@ func expectErrorContaining(t *testing.T, errs []analysis.TypeError, substr strin
 	t.Helper()
 	for _, e := range errs {
 		if strings.Contains(diagText(e), substr) {
+			requirePosition(t, e)
 			return
 		}
 	}

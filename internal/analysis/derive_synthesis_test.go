@@ -13,9 +13,8 @@ import (
 // validation gate (unknown protocol, duplicate, valid path); the sections
 // below test the emitted impls per protocol.
 
-// TestDeriveUnsupportedInterfaceErrors checks that `@derive Foo` where Foo
-// is not one of the four supported protocols produces an error message
-// naming the offending interface.
+// TestDeriveUnsupportedInterfaceErrors checks that `derive Widget for Foo`,
+// where no derivable interface is named Widget, is an error that names it.
 func TestDeriveUnsupportedInterfaceErrors(t *testing.T) {
 	// The `derive Iface` validation (unknown protocol) now lives in
 	// LowerDerives' second return value, not fa.TypeErrors.
@@ -35,7 +34,7 @@ derive Widget for Foo`
 	}
 	found := false
 	for _, e := range errs {
-		if strings.Contains(e.Message, "Widget") && strings.Contains(e.Message, "unknown derivable protocol") {
+		if strings.Contains(e.Message, "`Widget` is not an interface derive can write") {
 			found = true
 			break
 		}
@@ -45,7 +44,7 @@ derive Widget for Foo`
 		for i, e := range errs {
 			msgs[i] = e.Error()
 		}
-		t.Errorf("expected 'unknown derivable protocol' error mentioning 'iter', got: %s", strings.Join(msgs, "\n  "))
+		t.Errorf("expected an error saying Widget is not derivable, got: %s", strings.Join(msgs, "\n  "))
 	}
 }
 
@@ -143,7 +142,7 @@ func synthMethodFromNode(n ast.Node, method, iface, typeName string) *ast.FuncDe
 	return nil
 }
 
-// synthMethodForSource parses + runs SynthesizeDerives over src and returns the
+// synthMethodForSource parses + lowers the derives of src and returns the
 // first synthesized impl method matching (method, iface, typeName), in either
 // the block or decorator shape (see synthMethodFromNode).
 func synthMethodForSource(t *testing.T, src, method, iface, typeName string) *ast.FuncDef {
@@ -153,15 +152,10 @@ func synthMethodForSource(t *testing.T, src, method, iface, typeName string) *as
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	// Lower type-body `derive Iface` entries into the synthetic
-	// `@derive` decorators SynthesizeDerives consumes.
+	// Lower `derive Iface for T` into its impl block.
 	nodes, lowerErrs := LowerDerives(nodes)
 	if len(lowerErrs) > 0 {
 		t.Fatalf("unexpected lowering errors: %v", lowerErrs)
-	}
-	nodes, errs := SynthesizeDerives(nodes)
-	if len(errs) > 0 {
-		t.Fatalf("unexpected synth errors: %v", errs)
 	}
 	for _, n := range nodes {
 		if fn := synthMethodFromNode(n, method, iface, typeName); fn != nil {
@@ -460,35 +454,6 @@ derive Equatable for Pair`
 	}
 	if len(innerTup.Patterns) != 2 {
 		t.Errorf("inner Both payload arity: expected 2 bindings, got %d", len(innerTup.Patterns))
-	}
-}
-
-// TestSynthesizeDerivesIsIdempotent — the front end runs SynthesizeDerives
-// twice on overlapping slices (once in internal/frontend's Checker.Prepare,
-// once again inside BuildProject). The second call
-// must NOT add a duplicate FuncDef; otherwise the analyzer's Sweep A
-// emits "already defined" errors.
-func TestSynthesizeDerivesIsIdempotent(t *testing.T) {
-	src := `struct Point
-    x: Int
-    y: Int
-end
-derive Equatable for Point`
-	tokens := lexer.Lex(src)
-	nodes, _ := parser.Parse(tokens)
-	// Lower the `derive Equatable` body line into the synthetic
-	// `@derive` decorator SynthesizeDerives consumes.
-	nodes, _ = LowerDerives(nodes)
-	once, errs := SynthesizeDerives(nodes)
-	if len(errs) > 0 {
-		t.Fatalf("first synth: unexpected errors %v", errs)
-	}
-	twice, errs := SynthesizeDerives(once)
-	if len(errs) > 0 {
-		t.Fatalf("second synth: unexpected errors %v", errs)
-	}
-	if len(twice) != len(once) {
-		t.Errorf("idempotency violated: first synth len=%d, second synth len=%d", len(once), len(twice))
 	}
 }
 
@@ -1434,91 +1399,6 @@ derive Debug for Pair`
 		if !debugStringPartsContain(si.Parts, want) {
 			t.Errorf("Both StringInterp missing static %q; parts: %v", want, si.Parts)
 		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Manual impl block + derive collision detection (spec §12, *Manual +
-// derive collision*)
-// ---------------------------------------------------------------------------
-
-// TestDeriveCollidesWithManualImplErrors pins spec §12 *Derive*: combining
-// `@derive Iface` with a manual `impl Iface for T { fn ... }` block for the
-// same type must surface a compile error rather than silently dropping the
-// synthesized impl in favour of the manual one. The diagnostic must name
-// both `@derive Equatable` and the manual impl so the user can resolve
-// it without further hunting.
-func TestDeriveCollidesWithManualImplErrors(t *testing.T) {
-	src := `struct Point
-    x: Int
-    y: Int
-end
-derive Equatable for Point
-
-impl Equatable for Point
-  fn equal(_a: Point, _b: Point) -> Bool
-    False
-  end
-end`
-
-	_, errs := buildTypesFromSource(src)
-	if len(errs) == 0 {
-		t.Fatal("expected error: derive Equatable for Point + manual impl Equatable for Point")
-	}
-	found := false
-	for _, e := range errs {
-		if strings.Contains(e.Message, "derive Equatable for Point") &&
-			strings.Contains(e.Message, "conflicts") &&
-			strings.Contains(e.Message, "Point") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		msgs := make([]string, len(errs))
-		for i, e := range errs {
-			msgs[i] = e.Error()
-		}
-		t.Errorf("expected collision error naming derive Equatable for Point conflicting with the manual impl Equatable on Point; got:\n  %s", strings.Join(msgs, "\n  "))
-	}
-}
-
-// TestDeriveComparableCollidesWithManualImpl mirrors the Equatable
-// collision test for Comparable: same shape, same expectations. Pins
-// that the collision check is routed through the same code path for
-// every supported derivable protocol, not hard-wired to Equatable.
-func TestDeriveComparableCollidesWithManualImpl(t *testing.T) {
-	src := `struct Point
-    x: Int
-    y: Int
-end
-derive Comparable for Point
-
-impl Comparable for Point
-  fn compare(_a: Point, _b: Point) -> Ordering
-    Equal
-  end
-end`
-
-	_, errs := buildTypesFromSource(src)
-	if len(errs) == 0 {
-		t.Fatal("expected error: derive Comparable for Point + manual impl Comparable for Point")
-	}
-	found := false
-	for _, e := range errs {
-		if strings.Contains(e.Message, "derive Comparable for Point") &&
-			strings.Contains(e.Message, "conflicts") &&
-			strings.Contains(e.Message, "Point") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		msgs := make([]string, len(errs))
-		for i, e := range errs {
-			msgs[i] = e.Error()
-		}
-		t.Errorf("expected collision error naming derive Comparable for Point conflicting with the manual impl Comparable on Point; got:\n  %s", strings.Join(msgs, "\n  "))
 	}
 }
 

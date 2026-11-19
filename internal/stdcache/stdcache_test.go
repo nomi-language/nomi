@@ -7,6 +7,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/artifactcache"
 )
 
 func stdFS(maybe string) fstest.MapFS {
@@ -54,7 +56,7 @@ func TestDir_TwoVersionsWriteTwoDirectories(t *testing.T) {
 	}
 	entries, _ := os.ReadDir(root)
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), tempPrefix) {
+		if strings.HasPrefix(e.Name(), artifactcache.TempPrefix) {
 			t.Errorf("temporary directory %s left behind", e.Name())
 		}
 	}
@@ -94,8 +96,8 @@ func TestDir_RewritesARemovedDirectory(t *testing.T) {
 }
 
 // Pruning removes another version and leftovers of the unversioned layout
-// once they are older than staleAfter, a temporary directory older than
-// tempAfter, and nothing recent: a version another server touched within
+// once they are older than staleAfter, a temporary directory older than an
+// hour, and nothing recent: a version another server touched within
 // staleAfter stays.
 func TestDir_PrunesOnlyStaleEntries(t *testing.T) {
 	root := t.TempDir()
@@ -120,8 +122,8 @@ func TestDir_PrunesOnlyStaleEntries(t *testing.T) {
 	staleVersion := mk("0123456789abcdef", true, old)
 	liveVersion := mk("fedcba9876543210", true, time.Now().Add(-time.Hour))
 	legacyFile := mk("maybe.nomi", false, old)
-	staleTemp := mk(tempPrefix+"x", true, time.Now().Add(-2*tempAfter))
-	freshTemp := mk(tempPrefix+"y", true, time.Now())
+	staleTemp := mk(artifactcache.TempPrefix+"x", true, time.Now().Add(-2*time.Hour))
+	freshTemp := mk(artifactcache.TempPrefix+"y", true, time.Now())
 
 	d := New(root, stdFS("a\n"))
 	d.Path("maybe.nomi")

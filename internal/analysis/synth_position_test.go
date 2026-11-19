@@ -43,15 +43,10 @@ func synthSlotsOf(t *testing.T, src string) map[string]int {
 	t.Helper()
 	nodes := parseNodes(t, src)
 	// The whole sequence, in the order every caller runs it: `derive Iface
-	// for T` statements lower first, then `@derive` decorators, then the
-	// universal Debug default.
+	// for T` statements lower, then the universal Debug default.
 	nodes, lowerErrs := LowerDerives(nodes)
 	if len(lowerErrs) > 0 {
 		t.Fatalf("LowerDerives: %v", lowerErrs)
-	}
-	nodes, errs := SynthesizeDerives(nodes)
-	if len(errs) > 0 {
-		t.Fatalf("SynthesizeDerives: %v", errs)
 	}
 	nodes = SynthesizeUniversalDebug(nodes)
 	return synthBlockSlots(nodes)
@@ -141,7 +136,6 @@ func TestSynthPositionsAreAFunctionOfTheDeclaration(t *testing.T) {
 			defer wg.Done()
 			nodes := parseNodes(t, synthPositionSource)
 			nodes, _ = LowerDerives(nodes)
-			nodes, _ = SynthesizeDerives(nodes)
 			results[i] = synthBlockSlots(SynthesizeUniversalDebug(nodes))
 		}()
 	}
@@ -169,7 +163,6 @@ func TestSynthesizedBlocksRecordTheirOrigin(t *testing.T) {
 		}
 	}
 	nodes, _ = LowerDerives(nodes)
-	nodes, _ = SynthesizeDerives(nodes)
 	nodes = SynthesizeUniversalDebug(nodes)
 
 	found := 0

@@ -125,10 +125,10 @@ func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind, st an
 				Field:  &ast.Ident{Name: "hash", Line: line},
 				Line:   line,
 			},
-			Args: []ast.Node{&ast.Ident{Name: name, Line: line}},
+			Args: []ast.Node{bl.g.madeIdent(name, line, 0)},
 			Line: line,
 		}
-		bl.g.carryCall(hash, bl.g.stdIfaceCallRecord(stdHashable, "hash", partCheckerType(st, sk, i)))
+		bl.g.carryCall(hash, bl.g.stdIfaceCallRecord(stdHashable, "hash", 1, partCheckerType(st, sk, i)))
 		if mix == nil {
 			mix = hash
 			continue

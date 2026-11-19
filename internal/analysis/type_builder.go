@@ -657,7 +657,15 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 	if implTypeName == "" {
 		return
 	}
-	iface := lookupInterfaceType(fa, reg, ifaceName)
+	// The interface the header names, through the module a qualified
+	// header (`impl a.Show for User`, `impl calendar.DateParts for Q`)
+	// names it with, beside any interface of the name this file binds.
+	var iface *InterfaceType
+	if module := implBlockInterfaceQualifier(n.Interface); module != "" {
+		iface = interfaceThrough(fa, module, ifaceName)
+	} else {
+		iface = lookupInterfaceType(fa, reg, ifaceName)
+	}
 	if iface == nil && IsSynthesizedLine(n.Line) {
 		// A universal or derived Debug block in a file whose scope does
 		// not bind Debug names std's own (compilerKnownSynthTypeOf).
@@ -673,17 +681,12 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		receiver = recvResolved
 	}
 	var headerArgs []Type
-	// The interface the header names, which a module-qualified header
-	// (`impl calendar.DateParts for Q`) names beside a file's own of the
-	// name.
-	ifaceOrigin := iface.Origin
 	if ifaceResolved, err := ResolveTypeExpr(n.Interface, reg, blockTP, fa); err == nil {
 		if instantiated, ok := ifaceResolved.(*InterfaceType); ok {
 			headerArgs = instantiated.TypeArgs
-			ifaceOrigin = instantiated.Origin
 		}
 	}
-	fa.recordImplBlock(&ImplTypeArgs{Receiver: receiver, Block: n, Origin: ifaceOrigin, File: declaredOrigin(fa)}, implTypeName, ifaceName)
+	fa.recordImplBlock(&ImplTypeArgs{Receiver: receiver, Block: n, Origin: iface.Origin, File: declaredOrigin(fa)}, implTypeName, ifaceName)
 	if len(headerArgs) > 0 && len(headerArgs) != len(iface.TypeParamDefs) {
 		fa.TypeErrors = append(fa.TypeErrors, TypeError{
 			Line: n.Line,
@@ -959,17 +962,19 @@ func blockTypeDeclsBinding(block *ast.Block) map[ast.Node]bool {
 }
 
 // blockTypeShell answers the unbuilt type a block's type declaration n
-// fills in, or nil for an alias, which registers its target when built.
+// fills in, or nil for an alias, which registers its target when built. A
+// struct, enum, distinct type or interface has the origin of its
+// declaration (BodyOrigin), not the file's.
 func blockTypeShell(fa *FileAnalysis, n ast.Node) Type {
 	switch n := n.(type) {
 	case *ast.StructDef:
-		return &StructType{Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
+		return &StructType{Origin: BodyOrigin(declaredOrigin(fa), n.Line, n.Col), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 	case *ast.EnumDef:
-		return &EnumType{Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
+		return &EnumType{Origin: BodyOrigin(declaredOrigin(fa), n.Line, n.Col), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 	case *ast.TypeDef:
-		return &DistinctType{Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
+		return &DistinctType{Origin: BodyOrigin(declaredOrigin(fa), n.Line, n.Col), Name: n.Name, unbuilt: newUnbuilt(n.TypeParams)}
 	case *ast.InterfaceDef:
-		return &InterfaceType{Origin: declaredOrigin(fa), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: newUnbuilt(n.TypeParams)}
+		return &InterfaceType{Origin: BodyOrigin(declaredOrigin(fa), n.Line, n.Col), Name: n.Name, TypeParams: typeParamNames(n.TypeParams), unbuilt: newUnbuilt(n.TypeParams)}
 	}
 	return nil
 }
@@ -2240,24 +2245,31 @@ func compilerKnownSynthType(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*T
 	return t
 }
 
+// compilerKnownSynthNamed is compilerKnownSynthTypeOf for a name written
+// bare, or nil.
+func compilerKnownSynthNamed(name string, reg *TypeRegistry) Type {
+	switch name {
+	case "Ordering":
+		return TypeOrdering
+	case "Debug":
+		if stdDebugDecl != nil {
+			return stdDebugDecl
+		}
+	case "Result":
+		if reg != nil {
+			if ty := reg.Lookup("Result"); ty != nil {
+				return ty
+			}
+		}
+	}
+	return nil
+}
+
 // compilerKnownSynthTypeOf is compilerKnownSynthType before it records.
 func compilerKnownSynthTypeOf(te ast.TypeExpr, reg *TypeRegistry, tp map[string]*TypeParam_, fa *FileAnalysis) Type {
 	switch t := te.(type) {
 	case *ast.SimpleType:
-		switch t.Name {
-		case "Ordering":
-			return TypeOrdering
-		case "Debug":
-			if stdDebugDecl != nil {
-				return stdDebugDecl
-			}
-		case "Result":
-			if reg != nil {
-				if ty := reg.Lookup("Result"); ty != nil {
-					return ty
-				}
-			}
-		}
+		return compilerKnownSynthNamed(t.Name, reg)
 	case *ast.GenericType:
 		if t.Name != "Result" {
 			return nil

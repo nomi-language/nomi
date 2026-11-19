@@ -60,7 +60,6 @@ func (c *Checker) StoredSource(path string, mode Mode, appTypes []analysis.AppTy
 				StripAttachedTests(nodes)
 			}
 			errs = append(errs, analysis.CheckDuplicateTestNames(nodes)...)
-			nodes, _ = analysis.SynthesizeDerives(nodes)
 			return analysis.SynthesizeUniversalDebug(nodes), errs
 		},
 		Loader:       loader,

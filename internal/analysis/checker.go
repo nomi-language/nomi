@@ -1326,13 +1326,13 @@ func (fa *FileAnalysis) implsContext() []ImplTables {
 	}
 	p := fa.Program()
 	if fa.Impls != nil {
-		tables = append(tables, implTablesFor(fa.Impls, p.ImplIndex, p.unindexedOrigins))
+		tables = append(tables, implTablesFor(fa.Impls, p.ImplIndex, p.unindexed()))
 	}
 	if p.ImplIndex != nil {
-		tables = append(tables, implTablesFor(p.ImplIndex.Impls, p.ImplIndex, p.unindexedOrigins))
+		tables = append(tables, implTablesFor(p.ImplIndex.Impls, p.ImplIndex, p.unindexed()))
 	}
 	if p.unindexedImpls != nil {
-		tables = append(tables, implTablesFor(p.unindexedImpls, p.ImplIndex, p.unindexedOrigins))
+		tables = append(tables, implTablesFor(p.unindexedImpls, p.ImplIndex, p.unindexed()))
 	}
 	return tables
 }
@@ -2056,8 +2056,7 @@ func (c *checker) checkPublicTypeOf(t Type, subject string, line, col int) {
 				return
 			}
 			c.addError(line, col, fmt.Sprintf("%s exposes private type %s", subject, name))
-		case origin == "" && c.bodyTypeNames()[name]:
-			// A type declared inside a body has no origin of its own.
+		case IsBodyOrigin(origin):
 			c.addError(line, col, fmt.Sprintf("%s exposes private type %s, which is declared inside a body", subject, name))
 		default:
 			return
@@ -2088,27 +2087,6 @@ func (c *checker) checkPublicTypeOf(t Type, subject string, line, col int) {
 		}
 	}
 	walk(t)
-}
-
-// bodyTypeNames are the names of the types the file declares inside a
-// body: a type declaration the file defines that its module scope does not
-// hold.
-func (c *checker) bodyTypeNames() map[string]bool {
-	names := map[string]bool{}
-	for _, sym := range c.fa.Definitions {
-		if sym == nil || !isTypeSymbolKind(sym.Kind) {
-			continue
-		}
-		switch sym.Node.(type) {
-		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.InterfaceDef:
-		default:
-			continue
-		}
-		if c.fa.ModuleScope.LookupLocal(sym.Name) != sym {
-			names[sym.Name] = true
-		}
-	}
-	return names
 }
 
 // isTypeSymbolKind reports whether k is the kind of a symbol that
@@ -3962,7 +3940,7 @@ func (c *checker) assertionSuccessType(ty Type, refute bool, line, col int) (Typ
 			}
 		}
 	}
-	if c.typeImplementsInterface(ty, "Assertable", c.recPos(line, col), RecordingKindInterfaceTypedParam) {
+	if c.typeImplementsInterface(ty, "Assertable", OriginUnresolved, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
 		return ty, true
 	}
 	return TypeUnit, false
@@ -5247,7 +5225,7 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 				// The demand recurses into type arguments as `io.print`'s
 				// `where T: Display` does: `"${[q]}"` renders q through Display.
 				restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{se.Expr})
-				c.recordBoundConformance(partTy, "Display", c.recPos(line, col), RecordingKindCallSite)
+				c.recordBoundConformance(partTy, "Display", OriginUnresolved, c.recPos(line, col), RecordingKindCallSite)
 				restoreSubjects()
 			}
 		}
@@ -5743,17 +5721,26 @@ func (c *checker) checkTypeIdent(n *ast.TypeIdent) Type {
 // interfaceObjectType returns the interface type referred to by the `Object`
 // of a field access, covering both the case where the checked type is
 // already an *InterfaceType and the case where it's an imported TypeIdent
-// whose proxy sym has Type=nil (requiring a Resolved lookup).
+// whose proxy sym has Type=nil (requiring a Resolved lookup). An interface
+// named through its module (`b.Show` in `b.Show.show(u)`) is the
+// declaration the dotted qualifier names (recordDottedQualifier), so the
+// call is an interface-qualified call of that interface as a bare one is.
 func interfaceObjectType(c *checker, obj ast.Node, objTy Type) (*InterfaceType, bool) {
 	if it, ok := objTy.(*InterfaceType); ok {
 		return it, true
 	}
 	var pos Pos
+	dotted := false
 	switch o := obj.(type) {
 	case *ast.Ident:
 		pos = Pos{Line: o.Line, Col: o.Col}
 	case *ast.TypeIdent:
 		pos = Pos{Line: o.Line, Col: o.Col}
+	case *ast.FieldAccess:
+		if o.Field == nil {
+			return nil, false
+		}
+		pos, dotted = Pos{Line: o.Field.Line, Col: o.Field.Col}, true
 	default:
 		return nil, false
 	}
@@ -5767,6 +5754,10 @@ func interfaceObjectType(c *checker, obj ast.Node, objTy Type) (*InterfaceType, 
 	real := sym
 	if real.Resolved != nil {
 		real = real.Resolved
+	}
+	if dotted && real.Kind != SymbolInterface {
+		// `cfg.handler`: a field, whatever its type.
+		return nil, false
 	}
 	if it, ok := real.Type.(*InterfaceType); ok {
 		return it, true
@@ -6098,6 +6089,9 @@ func (c *checker) checkImplBlock(n *ast.ImplBlock) {
 	iface, ok := ifaceTy.(*InterfaceType)
 	if !ok {
 		return // not an interface (builder already errored)
+	}
+	if c.checkDerivedInterface(n, iface) {
+		return
 	}
 	recvName := TypeExprBaseName(n.Receiver)
 	if recvName == "" {
@@ -6630,7 +6624,7 @@ func (c *checker) recordWhereBoundDemands(ft *FuncType, subs map[*TypeParam_]Typ
 			if c.boundArgsAmbiguous(line, errCol, concrete, bound, subs) {
 				continue
 			}
-			c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
+			c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(line, col), RecordingKindGenericBoundCheck)
 		}
 	}
 }
@@ -6789,8 +6783,12 @@ func (c *checker) enforceStructConformance(ifaceName string, concrete Type, meth
 }
 
 // interfaceMethodFuncType constructs a FuncType for `iface.method` from the
-// interface's stored MethodSig. Returns nil when the method isn't declared on
-// the interface or its return type isn't resolvable.
+// interface's stored MethodSig, as declared: `self` is the interface's
+// SelfParam, a type parameter a call solves to the type the call is for
+// (its receiver, or where its result goes), and a generic interface's own
+// parameters are type parameters the call solves from that type's impl
+// (solveInterfaceArgs). Returns nil when the method isn't declared on the
+// interface.
 func interfaceMethodFuncType(iface *InterfaceType, name string) *FuncType {
 	if iface == nil {
 		return nil
@@ -6805,35 +6803,6 @@ func interfaceMethodFuncType(iface *InterfaceType, name string) *FuncType {
 			ret := m.Return
 			if ret == nil {
 				ret = TypeUnit
-			}
-			// Resolve `self` to the interface applied to its own type params
-			// (e.g. `Iter<T>`) so that unifying a concrete receiver at the
-			// call site binds the interface's type params — the same generic
-			// inference the impl-method path gets. Without it, `self` stays a
-			// bare param: unify binds `self` but never `T`, so a default like
-			// `find(s: self, f: (T) -> Bool)` leaves the lambda param as `T`.
-			// Non-generic interfaces keep the bare `self`; interface default
-			// bodies apply the interface-shaped `self` only while checking
-			// those bodies.
-			if iface.SelfParam != nil && len(iface.TypeParamDefs) > 0 {
-				args := make([]Type, len(iface.TypeParamDefs))
-				for i, d := range iface.TypeParamDefs {
-					args[i] = d
-				}
-				selfTy := &InterfaceType{
-					Origin:        iface.Origin,
-					Name:          iface.Name,
-					Methods:       iface.Methods,
-					TypeParams:    iface.TypeParams,
-					TypeParamDefs: iface.TypeParamDefs,
-					TypeArgs:      args,
-					SelfParam:     iface.SelfParam,
-				}
-				subs := map[*TypeParam_]Type{iface.SelfParam: selfTy}
-				for i := range params {
-					params[i] = Substitute(params[i], subs)
-				}
-				ret = Substitute(ret, subs)
 			}
 			return &FuncType{Params: params, Return: ret, DefaultCount: m.DefaultCount, WhereBounds: m.WhereBounds}
 		}
@@ -6944,7 +6913,7 @@ func (c *checker) checkRangeLit(n *ast.RangeLit, expected Type) Type {
 		if !typeImplementsInterface(c, elemTy, iface, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck) {
 			c.addError(n.Line, n.Col, fmt.Sprintf("range endpoint type %s does not implement Comparable", elemTy))
 		} else {
-			c.recordBoundConformance(elemTy, "Comparable", c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
+			c.recordBoundConformance(elemTy, "Comparable", OriginUnresolved, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
 		}
 	}
 	return c.instantiateRangeType(elemTy)
@@ -7161,13 +7130,15 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		if pipeTry == nil && pipeAssertion == nil && !pipeDbg {
 			if ifExpr, ok := ungroupExpr(rhs).(*ast.If); ok && ifExpr.Cond == nil {
 				pipeIf = ifExpr
-				right = c.checkIfWithConditionType(ifExpr, left, expected)
+				right = c.checkIfWithConditionType(ifExpr, n.Left, left, expected)
+				c.fa.recordExprType(ifExpr, right)
 			}
 		}
 		if pipeTry == nil && pipeAssertion == nil && !pipeDbg && pipeIf == nil {
 			if caseExpr, ok := ungroupExpr(rhs).(*ast.Case); ok && caseExpr.Value == nil {
 				pipeCase = caseExpr
 				right = c.checkCaseWithScrutineeType(caseExpr, left, expected)
+				c.fa.recordExprType(caseExpr, right)
 			}
 		}
 		if pipeTry == nil && pipeAssertion == nil && !pipeDbg && pipeIf == nil && pipeCase == nil {
@@ -7314,9 +7285,10 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 		// type without an `impl Equatable` (e.g. `pub type Id Int`)
 		// doesn't trigger a missing-impl diagnostic; equality
 		// falls back to structural `rt.Equal`.
-		c.recordConformanceRecording(left, "Equatable",
+		_, compared := comparedOperand(n, left, right)
+		c.recordConformanceRecording(compared, "Equatable",
 			Recording{Pos: c.recPos(n.Line, n.Col), Kind: RecordingKindEqualityOperator, Op: n.Op})
-		c.recordComparisonImpl(n, left, "Equatable", "equal")
+		c.recordComparisonImpl(n, compared, "Equatable", "equal")
 		return TypeBool
 
 	case "<", ">", "<=", ">=":
@@ -7355,11 +7327,12 @@ func (c *checker) checkBinary(n *ast.Binary, expected Type) Type {
 			// recorded only the container and faulted at dispatch —
 			// the same shape as the type-qualified call site in
 			// impl_call_demand.go, reached by a different route.
-			restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{n.Left})
-			c.recordBoundConformanceRecording(left, "Comparable",
+			subject, compared := comparedOperand(n, left, right)
+			restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{subject})
+			c.recordBoundConformanceRecording(compared, "Comparable",
 				Recording{Pos: c.recPos(n.Line, n.Col), Kind: RecordingKindOrderingOperator, Op: n.Op})
 			restoreSubjects()
-			c.recordComparisonImpl(n, left, "Comparable", "compare")
+			c.recordComparisonImpl(n, compared, "Comparable", "compare")
 		}
 		return TypeBool
 
@@ -8210,9 +8183,9 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 		slotTypes := map[int]Type{}
 		var solving *argSolving
 		if pipeCall != nil {
-			solving = c.newArgSolving(ft, pipeCall.Args, pipeSlots, c.callDefParams(pipeCall.Func))
+			solving = c.newArgSolving(pipeCall.Func, ft, pipeCall.Args, pipeSlots, c.callDefParams(pipeCall.Func))
 		} else {
-			solving = c.newArgSolving(ft, nil, nil, nil)
+			solving = c.newArgSolving(n.Right, ft, nil, nil, nil)
 		}
 
 		// Unify piped-in arg against each slot it fills.
@@ -8317,7 +8290,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					if concrete, ok := subs[iface.SelfParam]; ok {
 						structConformanceErrored = c.enforceStructConformance(iface.Name, concrete, fa.Field.Name, n.Line, n.Col)
 						restoreSubjects := c.enterSelfDemandSubjects([]ast.Node{n.Left})
-						c.recordBoundConformance(concrete, iface.Name, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+						c.recordBoundConformance(concrete, iface.Name, iface.Origin, c.recPos(n.Line, n.Col), RecordingKindCallSite)
 						restoreSubjects()
 						// The bound `T` is USED at, which nothing recorded
 						// because a Debug bound can reject nothing. This is the
@@ -8326,15 +8299,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 						// over one of them would report success for the other.
 						c.recordInferredBoundOnTypeParam(concrete, iface.Name)
 
-						c.attachDispatchImpl(fa, iface.Name, concrete)
-					} else if genericSelf := genericSelfArg(iface, fa.Field.Name, slotTypes); genericSelf != nil {
-						// `m |> Steppable.step_by(4)`: a generic
-						// interface's receiver, as checkGenericCall
-						// finds it.
-						c.recordCallSelf(Pos{Line: fa.Field.Line, Col: fa.Field.Col}, genericSelf)
-						if recv, _ := knownReceiver(genericSelf); recv != nil {
-							c.attachDispatchImpl(fa, iface.Name, recv)
-						}
+						c.attachDispatchImpl(fa, iface, concrete)
 					}
 					c.checkExistentialSelfCall(fa, iface, subs, append([]ast.Node{n.Left}, pipeCall.Args...), n.Line, n.Col)
 				}
@@ -8389,7 +8354,7 @@ func (c *checker) checkPipe(n *ast.Binary, argTy, fnTy Type, pipeCall *ast.Call,
 					c.callBoundError(c.recPos(n.Line, n.Col), n.Line, pipeBoundCol(n, pipeCall), concrete, bound, tp.Name_)
 					continue
 				}
-				c.recordBoundConformance(concrete, bound.Name, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
+				c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
 			}
 		}
 
@@ -8772,7 +8737,7 @@ func (c *checker) reportTypeParamQualifiedMember(fa *ast.FieldAccess, tp *TypePa
 	case len(providers) > 1:
 		c.addError(fa.Field.Line, fa.Field.Col, fmt.Sprintf(
 			"'%s.%s' is ambiguous: bounds %s all declare '%s' — qualify by the interface instead (e.g. `%s.%s(...)`)",
-			objName, method, interfaceBoundNames(providers), method, providers[0].Name, method))
+			objName, method, interfaceBoundNames(providers), method, shownInterfaces(boundIdentities(providers))[0], method))
 	case len(tp.Bounds) == 0:
 		c.addError(fa.Field.Line, fa.Field.Col, fmt.Sprintf(
 			"type parameter '%s' has no interface bound, so '%s.%s' has nothing to dispatch through; add a `where %s: SomeInterface` bound whose interface declares '%s'",
@@ -8807,12 +8772,13 @@ func (c *checker) typeParamFunctionNotFieldHint(tp *TypeParam_, field string, re
 	if declared, ok := c.fnTypeParams[tp.Name_]; ok && len(bounds) == 0 {
 		bounds = declared.Bounds
 	}
-	var providers []string
+	var declaring []*InterfaceType
 	for _, b := range bounds {
 		if interfaceMethodFuncType(b, field) != nil {
-			providers = append(providers, b.Name)
+			declaring = append(declaring, b)
 		}
 	}
+	providers := shownInterfaces(boundIdentities(declaring))
 	switch len(providers) {
 	case 0:
 		return fmt.Sprintf(
@@ -8831,8 +8797,8 @@ func (c *checker) typeParamFunctionNotFieldHint(tp *TypeParam_, field string, re
 // field `f`. When the struct's type has a function `f`, inherent or from an
 // impl, it names the qualified call; otherwise it suggests a similar field.
 func (c *checker) structFunctionNotFieldHint(st *StructType, field string, receiver ast.Node) string {
-	providers := c.interfacesWritingMethod(st.Name, field)
 	origin, _ := nominalOrigin(st)
+	providers := c.interfacesWritingMethod(st.Name, origin, field)
 	sym, _ := c.resolveTypeMethodSymbol(st.Name, field, origin)
 	if sym == nil && len(providers) == 0 {
 		return didYouMean(field, fieldNames(st.Fields))
@@ -8841,7 +8807,7 @@ func (c *checker) structFunctionNotFieldHint(st *StructType, field string, recei
 	if len(providers) < 2 {
 		owners = append(owners, st.Name)
 	}
-	owners = append(owners, providers...)
+	owners = append(owners, shownInterfaces(providers)...)
 	return fmt.Sprintf("`%s` is a function of `%s`, not a field; call it as %s",
 		field, st.Name, qualifiedCallSpellings(owners, field, receiver))
 }
@@ -8890,11 +8856,17 @@ func typeParamQualifiedMethodFuncType(iface *InterfaceType, name string, self Ty
 
 // interfaceBoundNames joins interface bound names for diagnostics.
 func interfaceBoundNames(bounds []*InterfaceType) string {
-	names := make([]string, len(bounds))
-	for i, b := range bounds {
-		names[i] = b.Name
+	return strings.Join(shownInterfaces(boundIdentities(bounds)), ", ")
+}
+
+// shownInterfaceFor is ProjectImplIndex.shownInterfaceFor over the
+// program's impl index.
+func (c *checker) shownInterfaceFor(recv Type, it *InterfaceType, withArgs bool) string {
+	var idx *ProjectImplIndex
+	if p := c.fa.Program(); p != nil {
+		idx = p.ImplIndex
 	}
-	return strings.Join(names, ", ")
+	return idx.shownInterfaceFor(recv, it, withArgs)
 }
 
 // arityError is msg, a wrong argument count at call, placed where the
@@ -9693,9 +9665,14 @@ func (c *checker) operatorInterfaceForCall(fn ast.Node) (operatorInterface, bool
 		if recvName == "" {
 			return operatorInterface{}, false
 		}
-		for _, provider := range c.interfacesDeclaringMethod(recvName, opIface.Method) {
-			if provider == opIface.Interface {
-				return opIface, c.operatorImplIsThisReceivers(opIface, recvName)
+		// A user's `Money` with an inherent `add` is not std/money's
+		// `impl Add for Money`: the providers are the receiver's own.
+		origin := c.receiverOriginForReceiver(f.Object, recvName)
+		// An operator's interface is a name the prelude reserves, which no
+		// program declares twice, so its name is its identity.
+		for _, provider := range c.interfacesDeclaringMethod(recvName, origin, opIface.Method) {
+			if provider.Name == opIface.Interface {
+				return opIface, true
 			}
 		}
 		return operatorInterface{}, false
@@ -9711,8 +9688,8 @@ func (c *checker) operatorInterfaceForCall(fn ast.Node) (operatorInterface, bool
 			return operatorInterface{}, false
 		}
 		if c.selfTypeName != "" {
-			for _, provider := range c.interfacesDeclaringMethod(c.selfTypeName, f.Name) {
-				if provider == opIface.Interface {
+			for _, provider := range c.interfacesDeclaringMethod(c.selfTypeName, OriginUnresolved, f.Name) {
+				if provider.Name == opIface.Interface {
 					return opIface, true
 				}
 			}
@@ -9721,36 +9698,6 @@ func (c *checker) operatorInterfaceForCall(fn ast.Node) (operatorInterface, bool
 	default:
 		return operatorInterface{}, false
 	}
-}
-
-// operatorImplIsThisReceivers reports whether `Type.add(a, b)` names an
-// operator impl of the type this file means by recvName. The impl index is
-// keyed by bare type name, so a user's `Money` with an inherent `add` would
-// otherwise read as std/money's `impl Add for Money`. When the index holds
-// impls of the operator for that name and none was written for this file's
-// type, the call is not an operator call.
-func (c *checker) operatorImplIsThisReceivers(opIface operatorInterface, recvName string) bool {
-	idx := c.fa.Program().ImplIndex
-	if idx == nil || declaringOriginOfType(c.fa, recvName, nil) == "" {
-		// No declaration of the name in this scope to tell apart.
-		return true
-	}
-	// The index spells a receiver of the program's entry bare, and the
-	// entry may be a std file (a reference page's example runs in its
-	// module's scope), so both spellings of this file's type count.
-	asEntry := qualifyReceiver(c.fa, recvName, nil, c.fa.Program().entryOrigin())
-	asModule := qualifyReceiver(c.fa, recvName, nil, "")
-	named := false
-	for _, fn := range idx.IfaceMethodImpls[opIface.Interface][opIface.Method] {
-		if fn == nil || idx.ReceiverOf(fn) != recvName {
-			continue
-		}
-		named = true
-		if q := idx.QualifiedReceiver[fn]; q == "" || q == asEntry || q == asModule {
-			return true
-		}
-	}
-	return !named
 }
 
 func operatorInterfaceByMethod(method string) (operatorInterface, bool) {
@@ -10255,7 +10202,7 @@ func (c *checker) ifaceParamAdmits(argTy Type, iface *InterfaceType, recPos Pos,
 	// Record (concrete, iface) when a concrete arg flows into an
 	// interface param. Existential args (interface, type param, type
 	// var) are skipped — concrete type isn't statically known.
-	c.recordConformanceIfConcrete(argTy, iface.Name, recPos, recKind)
+	c.recordConformanceIfConcrete(argTy, iface.Name, iface.Origin, recPos, recKind)
 	return true
 }
 
@@ -10354,7 +10301,7 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 		return
 	}
 	if iface, ok := param.(*InterfaceType); ok {
-		if !c.typeImplementsInterface(argTy, iface.Name, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
+		if !c.typeImplementsInterface(argTy, iface.Name, iface.Origin, c.recPos(line, col), RecordingKindInterfaceTypedParam) {
 			if c.implBoundsUnmetByNamedTypes(argTy, iface) {
 				// `List<P>` has Contains only where P is Equatable: the
 				// argument's demand, recorded with the call's, reaches P,
@@ -10364,11 +10311,11 @@ func (c *checker) reportGenericArgMismatch(callee ast.Node, param, argTy Type, s
 				return false
 			}
 			if pipe != nil {
-				c.report(c.pipeHeadNotImplemented(pipe, iface.Name, argTy))
+				c.report(c.pipeHeadNotImplemented(pipe, c.shownInterfaceFor(argTy, iface, false), argTy))
 				return false
 			}
 			c.addError(line, col, fmt.Sprintf(
-				"%s: %s does not implement %s", label, argTy, iface.Name))
+				"%s: %s does not implement %s", label, argTy, c.shownInterfaceFor(argTy, iface, false)))
 			return true
 		}
 	}
@@ -10761,9 +10708,17 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// Turbofish: bind the callee's type params from explicit type args before
 	// solving from arguments. Params are taken in first-appearance order across
 	// the signature (params then return), which equals declaration order for
-	// all but exotic out-of-order signatures (`fn f<B, A>(x: A) -> B`).
+	// all but exotic out-of-order signatures (`fn f<B, A>(x: A) -> B`). A
+	// generic interface's own parameters are not among them: the type its
+	// `self` names determines them (`Parse.parse<Int>(text)`).
 	if n.TypeArgs != nil {
+		iface := c.calleeInterface(n.Func)
 		tps := collectOrderedTypeParams(ft)
+		if iface != nil {
+			tps = slices.DeleteFunc(tps, func(tp *TypeParam_) bool {
+				return slices.Contains(iface.TypeParamDefs, tp)
+			})
+		}
 		if len(n.TypeArgs) != len(tps) {
 			c.report(errAt(n, fmt.Sprintf(
 				"expected %d type argument(s), got %d", len(tps), len(n.TypeArgs))))
@@ -10783,6 +10738,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 				subs[tps[i]] = resolved
 			}
 		}
+		c.solveInterfaceArgs(iface, subs)
 	}
 
 	// Bidirectional seed: when the result type is generic and the call sits in a
@@ -10899,7 +10855,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 	// instArgs pairs each parameter type with its argument's type, for the
 	// polymorphic-recursion check (recordInstantiation).
 	var instArgs [][2]Type
-	solving := c.newArgSolving(ft, n.Args, posSlots, defParams)
+	solving := c.newArgSolving(n.Func, ft, n.Args, posSlots, defParams)
 	var openSlots []int
 	// openArgs is each open slot's `&1`, for its hover.
 	var openArgs []ast.Node
@@ -10998,11 +10954,8 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		// Unify argument type against the (original) parameter type to solve more params.
 		// When the parameter shape constrains the argument (e.g. Iter<(K, V)>
 		// vs a List of non-tuple values), surface the mismatch as a type error.
-		argErrored, lacksImpl := false, false
 		if err := solving.solve(ft.Params[slot], argTy, subs, arg); err != nil {
-			before := len(c.errors)
-			lacksImpl = c.reportGenericArgMismatch(n.Func, ft.Params[slot], argTy, subs, arg, label, errLine, errCol, nil)
-			argErrored = len(c.errors) > before
+			c.reportGenericArgMismatch(n.Func, ft.Params[slot], argTy, subs, arg, label, errLine, errCol, nil)
 		}
 
 		// Conformance recording for concrete-arg-into-interface-param. The
@@ -11013,21 +10966,6 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 		// first param is `Iter<T>` leave (Iter, String) out of the
 		// manifest, and DetectMissingImpls never checks the pair.
 		argLine, argCol := nodeLineCol(arg)
-		if _, member := c.memberships[n]; member {
-			// A membership test's collection: the demand names the `in`.
-			// A collection already reported as lacking the impl is not
-			// demanded again, or the missing impl would be a second error;
-			// the report takes the help that error would have carried.
-			if iface, ok := ft.Params[slot].(*InterfaceType); ok {
-				if !argErrored {
-					c.recordConformanceRecording(argTy, iface.Name, Recording{Pos: c.recPos(argLine, argCol), Kind: RecordingKindOperator, Op: "in"})
-				} else if lacksImpl {
-					last := &c.errors[len(c.errors)-1]
-					*last = last.WithHint(c.boundHelp(argTy, iface))
-				}
-			}
-			continue
-		}
 		c.recordInterfaceConformanceFromParam(argTy, ft.Params[slot], c.recPos(argLine, argCol), RecordingKindInterfaceTypedParam)
 	}
 
@@ -11070,17 +11008,6 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			if ok {
 				structConformanceErrored = c.recordInterfaceSelf(n, fa, iface, concrete)
 			} else {
-				// `Steppable.step_by(m, 4)`: a generic interface's
-				// method takes `self` as the interface applied to its
-				// own parameters (interfaceMethodFuncType), so no
-				// argument binds SelfParam. The argument at a `self`
-				// parameter is the receiver: the impl the call reaches
-				// is a known type's, and the call is for that type.
-				genericSelf := genericSelfArg(iface, fa.Field.Name, slotTypes)
-				c.recordCallSelf(Pos{Line: fa.Field.Line, Col: fa.Field.Col}, genericSelf)
-				if recv, _ := knownReceiver(genericSelf); recv != nil {
-					c.attachDispatchImpl(fa, iface.Name, recv)
-				}
 				returnOnlySelf = iface
 			}
 		} else {
@@ -11129,6 +11056,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			trial[k] = v
 		}
 		if c.unifyInto(expected, ft.Return, trial) == nil {
+			c.solveInterfaceArgs(solving.iface, trial)
 			subs = trial
 			retTy = Substitute(ft.Return, subs)
 		}
@@ -11219,7 +11147,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 				c.callBoundError(c.recPos(n.Line, n.Col), n.Line, callCol(n), concrete, bound, tp.Name_, n.Func)
 				continue
 			}
-			c.recordBoundConformance(concrete, bound.Name, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
+			c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(n.Line, n.Col), RecordingKindGenericBoundCheck)
 		}
 	}
 
@@ -11411,12 +11339,15 @@ type argSolving struct {
 	earlier [][2]Type
 	// lambdaResults is each parameter a lambda argument's result names.
 	lambdaResults map[*TypeParam_]bool
+	// iface is the generic interface whose function is called, whose own
+	// parameters each solved `self` solves (solveInterfaceArgs), or nil.
+	iface *InterfaceType
 }
 
 // newArgSolving starts solving ft's parameters from args, routed to their
 // slots by posSlots (-1 for a named argument) and paramNames.
-func (c *checker) newArgSolving(ft *FuncType, args []ast.Node, posSlots []int, paramNames []string) *argSolving {
-	st := &argSolving{c: c, ft: ft, fromArgs: map[*TypeParam_]bool{}, lambdaResults: map[*TypeParam_]bool{}}
+func (c *checker) newArgSolving(callee ast.Node, ft *FuncType, args []ast.Node, posSlots []int, paramNames []string) *argSolving {
+	st := &argSolving{c: c, ft: ft, fromArgs: map[*TypeParam_]bool{}, lambdaResults: map[*TypeParam_]bool{}, iface: c.calleeInterface(callee)}
 	for i, arg := range args {
 		slot := -1
 		if na, ok := arg.(*ast.NamedArg); ok {
@@ -11609,6 +11540,9 @@ func (st *argSolving) solve(param, argTy Type, subs map[*TypeParam_]Type, arg as
 		maps.Copy(subs, bound)
 		err = typeErrorf("cannot unify %s with %s", param, argTy)
 	}
+	if err == nil {
+		c.solveInterfaceArgs(st.iface, subs)
+	}
 	st.earlier = append(st.earlier, [2]Type{param, argTy})
 	for tp, t := range subs {
 		if was, ok := bound[tp]; ok && was == t {
@@ -11776,21 +11710,36 @@ func isPlaceholderArg(arg ast.Node) bool {
 // implies: the struct-conformance check, the (concrete, interface)
 // conformance demand, the bound it places on a type parameter, and the impl
 // the call dispatches to. It reports whether struct conformance errored.
+//
+// The demand is the call's, at the call. A membership test's `self` is its
+// collection, which the test checks as an operand: a collection with no
+// impl of Contains is the test's error at the collection
+// (reportCollectionWithoutImpl), and the demand of one with an impl names
+// the `in` there, so a bound its impl places on the element (`impl
+// Contains for List<T> where T: Equatable`) is reported as the test's.
 func (c *checker) recordInterfaceSelf(n *ast.Call, fa *ast.FieldAccess, iface *InterfaceType, concrete Type) bool {
 	errored := c.enforceStructConformance(iface.Name, concrete, fa.Field.Name, n.Line, 1)
-	// A derived body's calls are the derive's: CheckDeriveBounds reports
-	// such a component at its field (jsonFieldGap).
-	if !IsSynthesizedLine(n.Line) && c.interfaceSelfUnmet(concrete, iface) {
+	rec := Recording{Pos: c.recPos(n.Line, n.Col), Kind: RecordingKindCallSite, IfaceOrigin: iface.Origin}
+	if _, member := c.memberships[n]; member {
+		if c.reportCollectionWithoutImpl(n, iface, concrete) {
+			return true
+		}
+		line, col := nodeLineCol(n.Args[0])
+		rec = Recording{Pos: c.recPos(line, col), Kind: RecordingKindOperator, Op: "in", IfaceOrigin: iface.Origin}
+	} else if !IsSynthesizedLine(n.Line) && c.interfaceSelfUnmet(concrete, iface) {
+		// A derived body's calls are the derive's: CheckDeriveBounds
+		// reports such a component at its field (jsonFieldGap).
+		shown := c.shownInterfaceFor(concrete, iface, false)
 		c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
-			"%s does not implement %s (required by `%s.%s`)", concrete, iface.Name, iface.Name, fa.Field.Name)}.WithHint(
+			"%s does not implement %s (required by `%s.%s`)", concrete, shown, shown, fa.Field.Name)}.WithHint(
 			c.boundHelp(concrete, iface)))
 		return true
 	}
 	restoreSubjects := c.enterSelfDemandSubjects(n.Args)
-	c.recordBoundConformance(concrete, iface.Name, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+	c.recordBoundConformanceRecording(concrete, iface.Name, rec)
 	restoreSubjects()
 	c.recordInferredBoundOnTypeParam(concrete, iface.Name)
-	c.attachDispatchImpl(fa, iface.Name, concrete)
+	c.attachDispatchImpl(fa, iface, concrete)
 	return errored
 }
 
@@ -11832,7 +11781,7 @@ func (c *checker) interfaceSelfUnmet(concrete Type, iface *InterfaceType) bool {
 		return !implements
 	}
 	name := interfaceImplName(concrete)
-	if name == "" || !c.hasOwnImpl(concrete, iface.Name) {
+	if name == "" || !c.hasOwnImpl(concrete, iface.Origin, iface.Name) {
 		return false
 	}
 	infos := lookupImplTypeArgSets(name, iface.Name, c.implTypeArgsContext())
@@ -11853,36 +11802,13 @@ func (c *checker) interfaceSelfUnmet(concrete Type, iface *InterfaceType) bool {
 	return true
 }
 
-// genericSelfArg is the receiver of an interface-qualified call of a
-// generic interface's method: the type of the argument written at the
-// declared `self` parameter (slotTypes, by slot), a type parameter's or
-// any other. Nil for a non-generic interface, whose `self` the arguments
-// bind, and when no argument sits at a `self` parameter.
-func genericSelfArg(iface *InterfaceType, method string, slotTypes map[int]Type) Type {
-	if len(iface.TypeParamDefs) == 0 || iface.SelfParam == nil {
-		return nil
-	}
-	sig := interfaceMethodSig(iface, method)
-	if sig == nil {
-		return nil
-	}
-	for i, p := range sig.Params {
-		if tp, ok := p.(*TypeParam_); !ok || tp != iface.SelfParam {
-			continue
-		}
-		return slotTypes[i]
-	}
-	return nil
-}
-
 // recordCallSelf records self as the `self` type argument
 // (Symbol.CallTypeArgs) of the call of an interface function whose callee's
 // reference is at pos, where no argument solves it: the type the call is
 // for (Callee.For), which an instance of the body substitutes (CalleeAt).
-// That is the receiver of a generic interface's qualified call
-// (genericSelfArg), a type parameter's included, and in an interface
-// default, the default's own `self` for a bare call of its interface's
-// function (sameInterfaceDefaultBareCallType). attachCallTypeArgs keeps it.
+// That is, in an interface default, the default's own `self` for a bare
+// call of its interface's function (sameInterfaceDefaultBareCallType).
+// attachCallTypeArgs keeps it.
 func (c *checker) recordCallSelf(pos Pos, self Type) {
 	sym := c.fa.References[pos]
 	if self == nil || sym == nil || sym.CallTypeArgs["self"] != nil {
@@ -12092,7 +12018,7 @@ func typeImplementsInterface(c *checker, concrete Type, iface *InterfaceType, re
 	}
 	// A declared type with equality and no Equatable or Hashable of its
 	// own meets either bound structurally (structural_bounds.go).
-	if implements, decided := structuralEqualityConformance(concrete, iface, c.hasOwnImpl, func(p Type) bool {
+	if implements, decided := structuralEqualityConformance(concrete, iface, c.hasOwnEqualityImpl, func(p Type) bool {
 		return typeImplementsInterface(c, p, iface, recPos, recKind)
 	}); decided {
 		return implements
@@ -12116,7 +12042,7 @@ func typeImplementsInterface(c *checker, concrete Type, iface *InterfaceType, re
 			return false
 		}
 		if c != nil && c.fa != nil {
-			c.fa.RecordManifest(concreteName, iface.Name, Recording{Pos: recPos, Kind: recKind})
+			c.fa.RecordManifest(concreteName, iface.Name, Recording{Pos: recPos, Kind: recKind, IfaceOrigin: iface.Origin})
 		}
 		return true
 	}
@@ -14151,7 +14077,7 @@ func (c *checker) checkIf(n *ast.If, expected Type) Type {
 		return c.checkIfBranches(n, condTy, expected, true, narrowSym, narrowTy)
 	}
 	c.settleTodo(n.Cond, TypeBool)
-	return c.checkIfWithConditionType(n, condTy, expected)
+	return c.checkIfWithConditionType(n, n.Cond, condTy, expected)
 }
 
 // reportIrrefutableIfPattern rejects `if Pattern = value` whose pattern
@@ -14200,9 +14126,12 @@ func (c *checker) outerValueNamed(n *ast.If, p *ast.IdentPattern) *Symbol {
 	return nil
 }
 
-func (c *checker) checkIfWithConditionType(n *ast.If, condTy Type, expected Type) Type {
+// checkIfWithConditionType checks n with a condition of type condTy, which
+// cond computes: n.Cond, or a pipe's piped value for a bare `if` stage,
+// which has none of its own. A wrong condition type is reported at cond.
+func (c *checker) checkIfWithConditionType(n *ast.If, cond ast.Node, condTy Type, expected Type) Type {
 	if condTy != nil && !TypesEqual(condTy, TypeBool) {
-		c.addErrorAt(n.Cond, fmt.Sprintf(
+		c.addErrorAt(cond, fmt.Sprintf(
 			"if condition must be Bool, got %s", condTy))
 	}
 	return c.checkIfBranches(n, condTy, expected, false, nil, nil)
@@ -14658,27 +14587,27 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 		// disambiguated by the type qualifier — interface-qualification is
 		// required. (The type's own impl methods collapse into one TypeMethods
 		// slot, so the count must come from the interface set, not the slot.)
-		providers := c.interfacesWritingMethod(tqBaseName, n.Field.Name)
+		// One origin for both spellings: the qualified form and the base form
+		// name the SAME declaration (`calendar.Error` and, under a selective
+		// import, `Error`), and only the registry resolves both.
+		// Each provider is an interface's identity, so impls of two
+		// interfaces of one name from two files (`a.Show`, `b.Show`) are
+		// two providers, named through their files.
+		recvOrigin := c.receiverOriginForReceiver(n.Object, tqTypeName, tqBaseName)
+		providers := c.interfacesWritingMethod(tqBaseName, recvOrigin, n.Field.Name)
 		if len(providers) >= 2 {
-			quoted := make([]string, len(providers))
-			for i, p := range providers {
-				quoted[i] = "'" + p + "'"
-			}
+			shown := shownInterfaces(providers)
 			c.addError(fieldPos.Line, fieldPos.Col, fmt.Sprintf(
 				"type '%s' impl %s, which each declare '%s' — type-qualified '%s.%s(...)' is ambiguous; qualify by interface, e.g. '%s.%s(...)'",
-				tqTypeName, strings.Join(quoted, " and "), n.Field.Name,
-				tqTypeName, n.Field.Name, providers[0], n.Field.Name))
-			if it, _ := c.providerInterface(tqBaseName, providers[0]); it != nil {
+				tqTypeName, quoteNames(shown), n.Field.Name,
+				tqTypeName, n.Field.Name, shown[0], n.Field.Name))
+			if it := c.implementedInterface(tqBaseName, providers[0]); it != nil {
 				if ft := interfaceMethodFuncType(it, n.Field.Name); ft != nil {
 					return ft
 				}
 			}
 			return nil
 		}
-		// One origin for both spellings: the qualified form and the base form
-		// name the SAME declaration (`calendar.Error` and, under a selective
-		// import, `Error`), and only the registry resolves both.
-		recvOrigin := c.receiverOriginForReceiver(n.Object, tqTypeName, tqBaseName)
 		sym = c.lookupTypeMethodSymbol(tqTypeName, n.Field.Name, recvOrigin)
 		if sym == nil && tqBaseName != tqTypeName {
 			sym = c.lookupTypeMethodSymbol(tqBaseName, n.Field.Name, recvOrigin)
@@ -14698,14 +14627,10 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 		// the type's member as a function the impl writes is, so it is read
 		// from the interface's own declaration when this file names none.
 		if len(providers) == 1 {
-			if it, home := c.providerInterface(tqBaseName, providers[0]); it != nil {
+			if it := c.implementedInterface(tqBaseName, providers[0]); it != nil {
 				if ft := interfaceMethodFuncType(it, n.Field.Name); ft != nil {
 					if _, recorded := c.fa.References[fieldPos]; !recorded {
-						msym := c.lookupInterfaceMethodSymbol(providers[0], n.Field.Name)
-						if home != nil {
-							msym = interfaceMemberIn(home, providers[0], n.Field.Name)
-						}
-						if msym != nil {
+						if msym := c.fa.interfaceMemberAt(it, n.Field.Name); msym != nil {
 							c.fa.References[fieldPos] = msym
 						}
 					}
@@ -14874,9 +14799,15 @@ func (c *checker) checkFieldAccess(n *ast.FieldAccess) Type {
 	// at run time on `unknown builtin 'T.member'`. It is resolved here for the
 	// same reason as the concrete guard above: this terminal is the one point
 	// that sees a call callee and a bare value, so one rule covers both and
-	// neither double-reports.
+	// neither double-reports. The member's reference is the bound's function,
+	// read in the bound interface's own file, so `T.show` under `where T:
+	// b.Show` names b's Show however this file binds the name `Show`, and
+	// its callee is that interface's function (Callee.Owner).
 	if tp, providers, ok := c.typeParamQualifiedMember(n); ok {
 		if len(providers) == 1 {
+			if msym := c.fa.interfaceMemberAt(providers[0], n.Field.Name); msym != nil {
+				c.fa.References[fieldPos] = msym
+			}
 			return typeParamQualifiedMethodFuncType(providers[0], n.Field.Name, tp)
 		}
 		c.reportTypeParamQualifiedMember(n, tp, providers)
@@ -20121,14 +20052,14 @@ func anonStructLitOf(node ast.Node) *ast.StructLit {
 //     interface in this file's local Impls or the project-wide union
 //     (c.fa.Program().ImplIndex.Impls, built by buildProjectImplIndex over
 //     filesByKey — covers stdlib + every reachable sibling).
-func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos Pos, recKind RecordingKind) bool {
+func (c *checker) typeImplementsInterface(valTy Type, ifaceName, ifaceOrigin string, recPos Pos, recKind RecordingKind) bool {
 	valTy = resolveTypeVar(valTy)
 	if valTy == nil {
 		return true
 	}
 	if dt := refinementOf(valTy); dt != nil && dt.Inner != nil {
 		// A refinement has its parent's impls (refinement.go).
-		return c.typeImplementsInterface(DistinctInner(dt), ifaceName, recPos, recKind)
+		return c.typeImplementsInterface(DistinctInner(dt), ifaceName, ifaceOrigin, recPos, recKind)
 	}
 	// Universal default Debug — satisfied by every type (see the free
 	// function typeImplementsInterface above and the design doc). No
@@ -20138,7 +20069,7 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	}
 	if !c.closing && containsTypeVar(valTy) {
 		c.openBounds = append(c.openBounds, openBound{t: valTy, meets: func(closed Type) bool {
-			return c.typeImplementsInterface(closed, ifaceName, recPos, recKind)
+			return c.typeImplementsInterface(closed, ifaceName, ifaceOrigin, recPos, recKind)
 		}})
 	}
 	// Interface-typed values, type parameters, and type variables are
@@ -20169,12 +20100,12 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	// A tuple, an anonymous struct or a function has no impls of its own
 	// (structural_bounds.go).
 	if implements, decided := structuralConformance(valTy, &InterfaceType{Name: ifaceName}, func(p Type) bool {
-		return c.typeImplementsInterface(p, ifaceName, recPos, recKind)
+		return c.typeImplementsInterface(p, ifaceName, ifaceOrigin, recPos, recKind)
 	}); decided {
 		return implements
 	}
-	if implements, decided := structuralEqualityConformance(valTy, &InterfaceType{Name: ifaceName}, c.hasOwnImpl, func(p Type) bool {
-		return c.typeImplementsInterface(p, ifaceName, recPos, recKind)
+	if implements, decided := structuralEqualityConformance(valTy, &InterfaceType{Name: ifaceName}, c.hasOwnEqualityImpl, func(p Type) bool {
+		return c.typeImplementsInterface(p, ifaceName, ifaceOrigin, recPos, recKind)
 	}); decided {
 		return implements
 	}
@@ -20191,10 +20122,10 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 	if origin, ok := nominalOrigin(valTy); ok {
 		recOrigin = origin
 	}
-	if !c.hasOwnImpl(valTy, ifaceName) || !c.implReceiverMatches(valTy, ifaceName) {
+	if !c.hasOwnImpl(valTy, ifaceOrigin, ifaceName) || !c.implReceiverMatches(valTy, ifaceName) {
 		return false
 	}
-	c.fa.RecordManifest(name, ifaceName, Recording{Pos: recPos, Kind: recKind, TypeOrigin: recOrigin})
+	c.fa.RecordManifest(name, ifaceName, Recording{Pos: recPos, Kind: recKind, TypeOrigin: recOrigin, IfaceOrigin: ifaceOrigin})
 	c.recordImplReceiverBoundConformances(valTy, ifaceName, Recording{Pos: recPos, Kind: recKind})
 	return true
 }
@@ -20209,8 +20140,8 @@ func (c *checker) typeImplementsInterface(valTy Type, ifaceName string, recPos P
 // concrete type (i.e. the impl-existence check happens elsewhere). Sites
 // that gate recording on a successful impl-table lookup keep their
 // direct RecordManifest calls.
-func (c *checker) recordConformanceIfConcrete(t Type, ifaceName string, recPos Pos, recKind RecordingKind) {
-	c.recordConformanceRecording(t, ifaceName, Recording{Pos: recPos, Kind: recKind})
+func (c *checker) recordConformanceIfConcrete(t Type, ifaceName, ifaceOrigin string, recPos Pos, recKind RecordingKind) {
+	c.recordConformanceRecording(t, ifaceName, Recording{Pos: recPos, Kind: recKind, IfaceOrigin: ifaceOrigin})
 }
 
 // recordConformanceRecording is recordConformanceIfConcrete with a
@@ -20270,7 +20201,7 @@ func (c *checker) recordConformanceRecording(t Type, ifaceName string, rec Recor
 		}
 		// A declared type with equality and no impl of its own meets the
 		// interface structurally: there is no impl to demand.
-		if implements, decided := structuralEqualityConformance(resolved, &InterfaceType{Name: ifaceName}, c.hasOwnImpl, func(Type) bool { return true }); decided && implements {
+		if implements, decided := structuralEqualityConformance(resolved, &InterfaceType{Name: ifaceName}, c.hasOwnEqualityImpl, func(Type) bool { return true }); decided && implements {
 			return
 		}
 	}
@@ -20327,7 +20258,7 @@ func (c *checker) recordImplReceiverBoundConformances(concrete Type, ifaceName s
 	}
 	for tp, boundConcrete := range subs {
 		for _, bound := range tp.Bounds {
-			c.recordBoundConformanceRecording(boundConcrete, bound.Name, Recording{Pos: rec.Pos, Kind: rec.Kind, Op: rec.Op})
+			c.recordBoundConformanceRecording(boundConcrete, bound.Name, Recording{Pos: rec.Pos, Kind: rec.Kind, Op: rec.Op, IfaceOrigin: bound.Origin})
 		}
 	}
 }
@@ -20351,11 +20282,13 @@ func (c *checker) recordInterfaceConformanceFromParam(argTy, paramTy Type, recPo
 		return
 	}
 	if iface, ok := paramTy.(*InterfaceType); ok {
-		c.recordConformanceIfConcrete(argTy, iface.Name, recPos, recKind)
+		c.recordConformanceIfConcrete(argTy, iface.Name, iface.Origin, recPos, recKind)
 	}
 }
 
-// recordBoundConformance records (typeName, ifaceName) for `t` and
+// recordBoundConformance records (typeName, ifaceName) for `t`, a demand
+// for the interface ifaceOrigin declares (Recording.IfaceOrigin;
+// OriginUnresolved where the site knows only the name), and
 // recurses into its TypeArgs (for generic containers like List<E>,
 // Map<K, V>, generic host/opaque types like Vector<E> / Set<E>, and
 // enum types like Result<T, E> / Maybe<T>) so the manifest demands
@@ -20373,8 +20306,8 @@ func (c *checker) recordInterfaceConformanceFromParam(argTy, paramTy Type, recPo
 // not Inner: a newtype's impl delegating to its representation is a
 // different rule, and widening the demand set is how a recorded pair
 // with no impl becomes a false DetectMissingImpls report.
-func (c *checker) recordBoundConformance(t Type, ifaceName string, recPos Pos, recKind RecordingKind) {
-	c.recordBoundConformanceRecording(t, ifaceName, Recording{Pos: recPos, Kind: recKind})
+func (c *checker) recordBoundConformance(t Type, ifaceName, ifaceOrigin string, recPos Pos, recKind RecordingKind) {
+	c.recordBoundConformanceRecording(t, ifaceName, Recording{Pos: recPos, Kind: recKind, IfaceOrigin: ifaceOrigin})
 }
 
 // recordBoundConformanceRecording is recordBoundConformance with a
@@ -20395,7 +20328,7 @@ func (c *checker) recordBoundConformanceRecording(t Type, ifaceName string, rec 
 		// is closed at a type that meets the demand (closed_vars.go): the
 		// impl the demand reaches dispatches on it.
 		c.openBounds = append(c.openBounds, openBound{t: v, meets: func(closed Type) bool {
-			return c.typeImplementsInterface(closed, ifaceName, rec.Pos, rec.Kind)
+			return c.typeImplementsInterface(closed, ifaceName, rec.IfaceOrigin, rec.Pos, rec.Kind)
 		}})
 	}
 	c.recordConformanceRecording(resolved, ifaceName, rec)
@@ -20442,33 +20375,171 @@ func boundConformanceRecurses(ifaceName string) bool {
 	}
 }
 
-// interfacesDeclaringMethod returns the sorted names of interfaces `typeName`
-// impl whose contract declares a method `method` — required methods and
-// defaults (open or final) count; inherent ops do not (they aren't contract
-// methods, so they're absent from InterfaceType.Methods). Backs type-qualified
-// resolution of inherited defaults (spec §12) and the *Function Name
-// Collisions* ambiguity check
+// interfacesDeclaringMethod returns the interfaces `typeName` impl, this
+// file's registry binds and whose contract declares a method `method`:
+// required methods and defaults (open or final) count; inherent ops do not
+// (they aren't contract methods, so they're absent from
+// InterfaceType.Methods). Backs type-qualified resolution of inherited
+// defaults (spec §12) and the *Function Name Collisions* ambiguity check
 // when two implemented interfaces declare the same method name.
-func (c *checker) interfacesDeclaringMethod(typeName, method string) []string {
+//
+// Each interface is its identity (interfacesImplementedBy), and it counts
+// here only where this file's binding of its name is that declaration
+// (visibleInterface): a file's own `Show` is not `a.Show`, which
+// interfacesWritingMethod reads from its own file.
+//
+// origin is the receiver's declaring origin. An interface counts only when
+// the receiver supplies it by its own declaration (suppliesOrigin): a
+// program's `enum Weekday` gets no `try_from` from another file's
+// `impl TryFrom<Int> for Weekday`. OriginUnresolved keeps the bare-name
+// answer.
+func (c *checker) interfacesDeclaringMethod(typeName, origin, method string) []ifaceIdentity {
+	var out []ifaceIdentity
+	for _, id := range c.interfacesImplementedBy(typeName, origin) {
+		if it := c.visibleInterface(id); it != nil && interfaceMethodFuncType(it, method) != nil {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// visibleInterface is the declaration this file's registry binds id's name
+// to, where that is id's declaration, else nil. An id of no recorded origin
+// takes the binding whatever it is.
+func (c *checker) visibleInterface(id ifaceIdentity) *InterfaceType {
+	it, ok := c.reg.Lookup(id.Name).(*InterfaceType)
+	if !ok || it == nil || !sameNominalIdentity(it.Origin, it.Name, id.Origin, id.Name) {
+		return nil
+	}
+	return it
+}
+
+// interfacesWritingMethod is interfacesDeclaringMethod widened to the
+// interfaces this file does not name: an impl in a third file, of an
+// interface this file never imported or binds its name to another
+// declaration of, still gives `Type.method` a second meaning. Such an
+// interface counts when its declaration declares the method, read in its
+// own file (implementedInterface), or, where that cannot be read, when an
+// impl of it for this receiver writes the method, the receiver compared by
+// its declaring module (QualifiedReceiver) so another file's same-named
+// type does not.
+//
+// A declared method counts with a body the impl leaves unwritten: the
+// receiver inherits that default, and spec §12 *Item kinds* makes an
+// inherited default reachable through the type exactly as a function the
+// impl writes is, with no import of the interface (`Square.describe(sq)`
+// beside `Square.area(sq)`).
+func (c *checker) interfacesWritingMethod(typeName, origin, method string) []ifaceIdentity {
+	out := c.interfacesDeclaringMethod(typeName, origin, method)
+	idx := c.fa.Program().ImplIndex
+	if idx == nil {
+		return out
+	}
+	seen := map[ifaceIdentity]bool{}
+	for _, id := range out {
+		seen[id] = true
+	}
+	qualified := qualifyReceiver(c.fa, typeName, nil, c.fa.Program().entryOrigin())
+	for _, id := range c.interfacesImplementedBy(typeName, origin) {
+		if seen[id] || c.visibleInterface(id) != nil {
+			// interfacesDeclaringMethod asked this one's own declaration.
+			continue
+		}
+		writes := false
+		if it := c.implementedInterface(typeName, id); it != nil {
+			writes = interfaceMethodFuncType(it, method) != nil
+		} else {
+			for _, fn := range idx.IfaceMethodImpls[id.Name][method] {
+				if fn == nil || idx.ReceiverOf(fn) != typeName {
+					continue
+				}
+				if !c.fa.sameReceiver(typeName, qualified, idx.QualifiedReceiver[fn]) {
+					continue
+				}
+				writes = true
+				break
+			}
+		}
+		if writes {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	sortIfaceIdentities(out)
+	return out
+}
+
+// implementedInterface is the declaration of id, an interface typeName
+// implements: read in id's declaring file, or, where no impl recorded which
+// declaration id is, the one this file names, else the one the impl's own
+// file names (FileAnalysis.unimportedInterface), else std's, which
+// `String.contains` reaches in a std file that binds no `Contains` and
+// whose impl writes only `host fn`s.
+func (c *checker) implementedInterface(typeName string, id ifaceIdentity) *InterfaceType {
+	if id.Origin != OriginUnresolved {
+		it, _ := c.fa.interfaceDeclaredAt(id.Origin, id.Name)
+		return it
+	}
+	if visible, ok := c.reg.Lookup(id.Name).(*InterfaceType); ok && visible != nil {
+		return visible
+	}
+	if it, _ := c.fa.unimportedInterface(typeName, id.Name, ""); it != nil {
+		return it
+	}
+	for _, info := range lookupImplTypeArgSets(typeName, id.Name, c.implTypeArgSetsContext()) {
+		if info == nil {
+			continue
+		}
+		if mod, isStd := strings.CutPrefix(info.Origin, "std/"); isStd {
+			if scope := c.fa.Program().StdlibModuleScopes[mod]; scope != nil {
+				if sym := scope.Lookup(id.Name); sym != nil {
+					if it, ok := sym.Type.(*InterfaceType); ok {
+						return it
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// interfacesImplementedBy returns every interface `typeName` impl,
+// per-file union project-wide, each by its identity: the impls of a name
+// for a receiver name the declarations IfaceOriginByPair records, so a
+// type with `impl a.Show` and `impl b.Show` implements two interfaces.
+// There is NO requirement that the checking file's type registry can
+// resolve the interface.
+//
+// That is the whole difference from interfacesDeclaringMethod above, which
+// filters this list, and it exists because the registry requirement is a
+// false negative rather than a filter: an interface declared in a sibling
+// file the current file never imported is absent from `c.reg` while its impl
+// IS in the project index. Callers that need the interface's own contract
+// read it by its identity (implementedInterface); fromFragmentsRival needs
+// only the (interface, receiver, method) triple, which resolveConcreteImpl
+// answers off the same index.
+//
+// origin is the receiver's declaring origin. An interface counts only when
+// the receiver supplies it by its own declaration (suppliesOrigin), so a
+// program's `type Shout` does not implement what another file's `Shout`
+// does. OriginUnresolved keeps the bare-name answer.
+func (c *checker) interfacesImplementedBy(typeName, origin string) []ifaceIdentity {
 	if c == nil || c.fa == nil {
 		return nil
 	}
-	seen := map[string]bool{}
-	var out []string
+	p := c.fa.Program()
+	seen := map[ifaceIdentity]bool{}
+	var out []ifaceIdentity
 	consider := func(ifaces map[string]bool) {
 		for iface := range ifaces {
-			if seen[iface] {
-				continue
-			}
-			it, ok := c.reg.Lookup(iface).(*InterfaceType)
-			if !ok || it == nil {
-				continue
-			}
-			for _, m := range it.Methods {
-				if m.Name == method {
-					seen[iface] = true
-					out = append(out, iface)
-					break
+			for _, ifaceOrigin := range p.ImplIndex.implIfaceOrigins(typeName, iface) {
+				id := ifaceIdentity{Origin: ifaceOrigin, Name: iface}
+				if seen[id] {
+					continue
+				}
+				seen[id] = true
+				if p.ImplIndex.suppliesOrigin(origin, typeName, ifaceOrigin, iface, p.unindexed()) {
+					out = append(out, id)
 				}
 			}
 		}
@@ -20476,109 +20547,18 @@ func (c *checker) interfacesDeclaringMethod(typeName, method string) []string {
 	for _, ifaces := range c.fa.implsOf(typeName) {
 		consider(ifaces)
 	}
-	sort.Strings(out)
+	sortIfaceIdentities(out)
 	return out
 }
 
-// interfacesWritingMethod is interfacesDeclaringMethod widened to the
-// interfaces this file cannot name: an impl in a third file, of an
-// interface this file never imported, still gives `Type.method` a second
-// meaning. Such an interface counts when an impl of it for this receiver
-// writes the method, the receiver compared by its declaring module
-// (QualifiedReceiver) so another file's same-named type does not.
-//
-// It counts too when the interface declares the method with a body that the
-// impl leaves unwritten: the receiver inherits that default, and spec §12
-// *Item kinds* makes an inherited default reachable through
-// the type exactly as a function the impl writes is, with no import of the
-// interface (`Square.describe(sq)` beside `Square.area(sq)`). The interface
-// is then read from its own declaration (FileAnalysis.unimportedInterface).
-func (c *checker) interfacesWritingMethod(typeName, method string) []string {
-	out := c.interfacesDeclaringMethod(typeName, method)
-	idx := c.fa.Program().ImplIndex
-	if idx == nil {
-		return out
-	}
-	seen := map[string]bool{}
-	for _, iface := range out {
-		seen[iface] = true
-	}
-	qualified := qualifyReceiver(c.fa, typeName, nil, c.fa.Program().entryOrigin())
-	for _, iface := range c.interfacesImplementedBy(typeName) {
-		if seen[iface] {
-			continue
+// sortIfaceIdentities orders ids by name, then by declaring origin.
+func sortIfaceIdentities(ids []ifaceIdentity) {
+	sort.Slice(ids, func(i, j int) bool {
+		if ids[i].Name != ids[j].Name {
+			return ids[i].Name < ids[j].Name
 		}
-		if _, visible := c.reg.Lookup(iface).(*InterfaceType); visible {
-			// interfacesDeclaringMethod asked this one's own declaration.
-			continue
-		}
-		writes := false
-		for _, fn := range idx.IfaceMethodImpls[iface][method] {
-			if fn == nil || idx.ReceiverOf(fn) != typeName {
-				continue
-			}
-			if !c.fa.sameReceiver(typeName, qualified, idx.QualifiedReceiver[fn]) {
-				continue
-			}
-			writes = true
-			break
-		}
-		if !writes {
-			it, _ := c.fa.unimportedInterface(typeName, iface, method)
-			writes = it != nil
-		}
-		if writes {
-			seen[iface] = true
-			out = append(out, iface)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-// providerInterface is the declaration of iface, an interface typeName
-// implements, that interfacesWritingMethod counted: the one this file names,
-// else the one the impl's own file names (FileAnalysis.unimportedInterface). home is the
-// file whose scope holds the interface's name, nil for this file.
-func (c *checker) providerInterface(typeName, iface string) (it *InterfaceType, home *FileAnalysis) {
-	if visible, ok := c.reg.Lookup(iface).(*InterfaceType); ok && visible != nil {
-		return visible, nil
-	}
-	return c.fa.unimportedInterface(typeName, iface, "")
-}
-
-// interfacesImplementedBy returns the sorted names of every interface
-// `typeName` impl, per-file union project-wide, with NO requirement that the
-// checking file's type registry can resolve the interface.
-//
-// That is the whole difference from interfacesDeclaringMethod above, and it
-// exists because the registry requirement is a false negative rather than a
-// filter: an interface declared in a sibling file the current file never
-// imported is absent from `c.reg` while its impl IS in the project index, so
-// `interfacesDeclaringMethod` answers "no such interface" for an impl that
-// demonstrably exists. Callers that need the interface's own contract must
-// still resolve it; fromFragmentsRival needs only the (interface, receiver,
-// method) triple, which resolveConcreteImpl answers off the same index.
-func (c *checker) interfacesImplementedBy(typeName string) []string {
-	if c == nil || c.fa == nil {
-		return nil
-	}
-	seen := map[string]bool{}
-	var out []string
-	consider := func(ifaces map[string]bool) {
-		for iface := range ifaces {
-			if seen[iface] {
-				continue
-			}
-			seen[iface] = true
-			out = append(out, iface)
-		}
-	}
-	for _, ifaces := range c.fa.implsOf(typeName) {
-		consider(ifaces)
-	}
-	sort.Strings(out)
-	return out
+		return ids[i].Origin < ids[j].Origin
+	})
 }
 
 // lookupTypeMethodSymbol resolves an impl-block method symbol for
@@ -20909,15 +20889,16 @@ func (c *checker) sameOwnerBareCallType(ident *ast.Ident) (Type, bool) {
 	if c.selfTypeName == "" {
 		return nil, false
 	}
-	providers := c.interfacesDeclaringMethod(c.selfTypeName, ident.Name)
+	selfOrigin := c.receiverOriginForReceiver(nil, c.selfTypeName)
+	providers := c.interfacesDeclaringMethod(c.selfTypeName, selfOrigin, ident.Name)
 	if len(providers) >= 2 {
+		shown := shownInterfaces(providers)
 		c.addError(ident.Line, ident.Col, fmt.Sprintf(
 			"bare same-owner call '%s(...)' is ambiguous: type '%s' impl %s, which each declare '%s' — qualify by interface, e.g. '%s.%s(...)'",
-			ident.Name, c.selfTypeName, quoteNames(providers), ident.Name, providers[0], ident.Name))
+			ident.Name, c.selfTypeName, quoteNames(shown), ident.Name, shown[0], ident.Name))
 		return nil, true
 	}
 	pos := Pos{Line: ident.Line, Col: ident.Col}
-	selfOrigin := c.receiverOriginForReceiver(nil, c.selfTypeName)
 	if sym := c.lookupTypeMethodSymbol(c.selfTypeName, ident.Name, selfOrigin); sym != nil {
 		c.fa.References[pos] = sym
 		if sym.Type != nil {
@@ -20925,7 +20906,7 @@ func (c *checker) sameOwnerBareCallType(ident *ast.Ident) (Type, bool) {
 		}
 	}
 	if len(providers) == 1 {
-		if it, ok := c.reg.Lookup(providers[0]).(*InterfaceType); ok {
+		if it := c.visibleInterface(providers[0]); it != nil {
 			if ft := interfaceMethodFuncType(it, ident.Name); ft != nil {
 				return ft, true
 			}
@@ -20962,32 +20943,31 @@ func interfaceDefaultMethodFuncType(iface *InterfaceType, name string) *FuncType
 		return ft
 	}
 	subs := map[*TypeParam_]Type{iface.SelfParam: interfaceSelfType(iface)}
-	// From the declared signature, where `self` is still the bare
-	// parameter: interfaceMethodFuncType has already replaced it in a
-	// generic interface with the interface applied to its own parameters,
-	// which is not marked as a default's `self` value.
-	declParams, declRet := ft.Params, ft.Return
-	if sig := interfaceMethodSig(iface, name); sig != nil && len(sig.Params) == len(ft.Params) {
-		declParams = sig.Params
-		if sig.Return != nil {
-			declRet = sig.Return
-		}
+	params := make([]Type, len(ft.Params))
+	for i := range ft.Params {
+		params[i] = Substitute(ft.Params[i], subs)
 	}
-	params := make([]Type, len(declParams))
-	for i := range declParams {
-		params[i] = Substitute(declParams[i], subs)
-	}
-	ret := Substitute(declRet, subs)
 	cp := *ft
 	cp.Params = params
-	cp.Return = ret
+	cp.Return = Substitute(ft.Return, subs)
 	return &cp
 }
 
+// interfaceSelfType is the type of a `self` value inside one of iface's
+// default bodies: iface at its own parameters, marked DefaultSelf.
 func interfaceSelfType(iface *InterfaceType) Type {
 	if iface == nil {
 		return nil
 	}
+	self := interfaceAtOwnParams(iface)
+	self.DefaultSelf = true
+	return self
+}
+
+// interfaceAtOwnParams is iface applied to its own type parameters
+// (`Iter<T>` in `interface Iter<T>`): the bound a call of one of its
+// functions holds `self` to (solveInterfaceArgs).
+func interfaceAtOwnParams(iface *InterfaceType) *InterfaceType {
 	args := make([]Type, len(iface.TypeParamDefs))
 	for i, d := range iface.TypeParamDefs {
 		args[i] = d
@@ -21000,7 +20980,6 @@ func interfaceSelfType(iface *InterfaceType) Type {
 		TypeParamDefs: iface.TypeParamDefs,
 		TypeArgs:      args,
 		SelfParam:     iface.SelfParam,
-		DefaultSelf:   true,
 	}
 }
 
@@ -21089,18 +21068,19 @@ func (c *checker) recordTypeMethodModuleByIdentity(origin, typeName, method stri
 // target on a per-call-site PROXY copy so the shared interface-method
 // symbol (reused across every call site) never accumulates one site's
 // target. No-op when there is no concrete single impl — go-to-def/hover
-// then fall back to the interface contract.
-func (c *checker) attachDispatchImpl(fa *ast.FieldAccess, ifaceName string, concrete Type) {
-	if c == nil || c.fa == nil || c.fa.Program().ImplIndex == nil || fa.Field == nil {
+// then fall back to the interface contract. The impl is one of iface's
+// declaration, by its origin: `b.Show.show(u)` records no impl of a's Show.
+func (c *checker) attachDispatchImpl(fa *ast.FieldAccess, iface *InterfaceType, concrete Type) {
+	if c == nil || c.fa == nil || c.fa.Program().ImplIndex == nil || fa.Field == nil || iface == nil {
 		return
 	}
 	var impl ast.ImplMethodDecl
-	if fn := resolveConcreteImpl(c.fa.Program(), ifaceName, fa.Field.Name, concrete); fn != nil {
+	if fn := resolveConcreteImpl(c.fa.Program(), iface.Name, iface.Origin, fa.Field.Name, concrete); fn != nil {
 		impl = fn
-	} else if ext := resolveConcreteImplExtern(c.fa.Program().ImplIndex, ifaceName, fa.Field.Name, concrete); ext != nil {
+	} else if ext := resolveConcreteImplExtern(c.fa.Program(), iface.Name, iface.Origin, fa.Field.Name, concrete); ext != nil {
 		impl = ext
 	}
-	if impl == nil || !c.fa.implOfOwnType(impl, ifaceName, concrete) {
+	if impl == nil || !c.fa.implOfOwnType(impl, iface.Name, iface.Origin, concrete) {
 		return
 	}
 	fieldPos := Pos{Line: fa.Field.Line, Col: fa.Field.Col}
@@ -21163,7 +21143,7 @@ func (c *checker) attachBareDispatchImplForInterfaceKey(ident *ast.Ident, ifaceN
 // own declaration's (implOfOwnType).
 func (c *checker) resolveImplForInterfaceKey(ifaceName, ifaceKey, methodName string, concrete Type) ast.ImplMethodDecl {
 	impl := c.resolveImplForInterfaceKeyByName(ifaceName, ifaceKey, methodName, concrete)
-	if impl == nil || !c.fa.implOfOwnType(impl, ifaceName, concrete) {
+	if impl == nil || !c.fa.implOfOwnType(impl, ifaceName, OriginUnresolved, concrete) {
 		return nil
 	}
 	return impl
@@ -21177,7 +21157,7 @@ func (c *checker) resolveImplForInterfaceKeyByName(ifaceName, ifaceKey, methodNa
 		if fn := resolveConcreteImplForInterfaceKey(c.fa.Program(), ifaceName, ifaceKey, methodName, concrete); fn != nil {
 			return fn
 		}
-		if ext := resolveConcreteImplExternForInterfaceKey(c.fa.Program().ImplIndex, ifaceName, ifaceKey, methodName, concrete); ext != nil {
+		if ext := resolveConcreteImplExternForInterfaceKey(c.fa.Program(), ifaceName, ifaceKey, methodName, concrete); ext != nil {
 			return ext
 		}
 	}
@@ -21235,16 +21215,23 @@ func (c *checker) resolveLocalImplForInterfaceKey(ifaceName, ifaceKey, methodNam
 // position to navigate to. Matching is by the impl's first-parameter base
 // type name against the receiver's impl-lookup name — the same name
 // keying the project Impls table and the runtime dispatch — so the
-// resolved target agrees with where the call actually lands.
-func resolveConcreteImpl(p *Program, ifaceName, methodName string, concrete Type) *ast.FuncDef {
-	return resolveConcreteImplMatching(p, ifaceName, "", methodName, concrete)
+// resolved target agrees with where the call actually lands, and by the
+// interface's identity: an impl whose header names another interface of
+// the name than the one ifaceOrigin declares is not a candidate
+// (ImplIfaceOrigin). OriginUnresolved matches an impl of any interface of
+// the name.
+func resolveConcreteImpl(p *Program, ifaceName, ifaceOrigin, methodName string, concrete Type) *ast.FuncDef {
+	return resolveConcreteImplMatching(p, ifaceName, ifaceOrigin, "", methodName, concrete)
 }
 
+// resolveConcreteImplForInterfaceKey is resolveConcreteImpl among the impls
+// whose header is spelled ifaceKey, which names an operator interface's type
+// arguments (`Add<Days, Date>`).
 func resolveConcreteImplForInterfaceKey(p *Program, ifaceName, ifaceKey, methodName string, concrete Type) *ast.FuncDef {
-	return resolveConcreteImplMatching(p, ifaceName, ifaceKey, methodName, concrete)
+	return resolveConcreteImplMatching(p, ifaceName, OriginUnresolved, ifaceKey, methodName, concrete)
 }
 
-func resolveConcreteImplMatching(p *Program, ifaceName, ifaceKey, methodName string, concrete Type) *ast.FuncDef {
+func resolveConcreteImplMatching(p *Program, ifaceName, ifaceOrigin, ifaceKey, methodName string, concrete Type) *ast.FuncDef {
 	idx := p.ImplIndex
 	if idx == nil {
 		return nil
@@ -21264,6 +21251,9 @@ func resolveConcreteImplMatching(p *Program, ifaceName, ifaceKey, methodName str
 		// decorator-form impls). Without this, no block-form interface impl
 		// resolves to its concrete source for go-to-def / hover.
 		if idx.ReceiverOf(fn) != name {
+			continue
+		}
+		if !sameNominalIdentity(ifaceOrigin, ifaceName, idx.ImplIfaceOrigin[fn], ifaceName) {
 			continue
 		}
 		if ifaceKey != "" && idx.ImplBlockInterfaceKey[fn] != ifaceKey {
@@ -21296,19 +21286,21 @@ func resolveConcreteImplMatching(p *Program, ifaceName, ifaceKey, methodName str
 // it resolves an interface-method call to the single EXTERN impl method it
 // dispatches to for a concrete receiver, or nil. Externs are never
 // @derive-synthesized, so there is no synthesized-line skip; matching is by the
-// recorded block-header receiver (ImplBlockReceiverExtern). Callers try this
-// after resolveConcreteImpl returns nil — a given (iface, method, type) is
-// implemented either by a `fn` or an `host fn`, never both (coherence), so
+// recorded block-header receiver (ImplBlockReceiverExtern) and by the
+// interface the impl's home file names (externImplIfaceOrigin). Callers try
+// this after resolveConcreteImpl returns nil — a given (iface, method, type)
+// is implemented either by a `fn` or an `host fn`, never both (coherence), so
 // the order is immaterial to correctness.
-func resolveConcreteImplExtern(idx *ProjectImplIndex, ifaceName, methodName string, concrete Type) *ast.ExternFunc {
-	return resolveConcreteImplExternMatching(idx, ifaceName, "", methodName, concrete)
+func resolveConcreteImplExtern(p *Program, ifaceName, ifaceOrigin, methodName string, concrete Type) *ast.ExternFunc {
+	return resolveConcreteImplExternMatching(p, ifaceName, ifaceOrigin, "", methodName, concrete)
 }
 
-func resolveConcreteImplExternForInterfaceKey(idx *ProjectImplIndex, ifaceName, ifaceKey, methodName string, concrete Type) *ast.ExternFunc {
-	return resolveConcreteImplExternMatching(idx, ifaceName, ifaceKey, methodName, concrete)
+func resolveConcreteImplExternForInterfaceKey(p *Program, ifaceName, ifaceKey, methodName string, concrete Type) *ast.ExternFunc {
+	return resolveConcreteImplExternMatching(p, ifaceName, OriginUnresolved, ifaceKey, methodName, concrete)
 }
 
-func resolveConcreteImplExternMatching(idx *ProjectImplIndex, ifaceName, ifaceKey, methodName string, concrete Type) *ast.ExternFunc {
+func resolveConcreteImplExternMatching(p *Program, ifaceName, ifaceOrigin, ifaceKey, methodName string, concrete Type) *ast.ExternFunc {
+	idx := p.ImplIndex
 	if idx == nil {
 		return nil
 	}
@@ -21322,6 +21314,9 @@ func resolveConcreteImplExternMatching(idx *ProjectImplIndex, ifaceName, ifaceKe
 			continue
 		}
 		if idx.ImplBlockReceiverExtern[ext] != name {
+			continue
+		}
+		if ifaceOrigin != OriginUnresolved && !sameNominalIdentity(ifaceOrigin, ifaceName, externImplIfaceOrigin(p.File(idx.ImplExternFiles[ext]), ifaceName), ifaceName) {
 			continue
 		}
 		if ifaceKey != "" && idx.ImplBlockInterfaceKeyExtern[ext] != ifaceKey {
@@ -21430,13 +21425,26 @@ func (c *checker) handlerImplOf(tag, iface, method string) *ast.FuncDef {
 	return match
 }
 
-// checkedLiteralBuildOf is the `build` of the `impl CheckedLiteral` for the
-// type tag names, or nil.
-func (c *checker) checkedLiteralBuildOf(tag string) *ast.FuncDef {
-	if fd := resolveConcreteImpl(c.fa.Program(), "CheckedLiteral", "build", &DistinctType{Name: tag}); fd != nil {
+// checkedLiteralBuildOf is the `build` of the `impl CheckedLiteral` for
+// tagType, the type a typed literal's tag names (literalTagType), or nil.
+func (c *checker) checkedLiteralBuildOf(tagType Type) *ast.FuncDef {
+	if fd := resolveConcreteImpl(c.fa.Program(), "CheckedLiteral", OriginUnresolved, "build", tagType); fd != nil {
 		return fd
 	}
-	return c.handlerImplOf(tag, "CheckedLiteral", "build")
+	return c.handlerImplOf(concreteTypeName(tagType), "CheckedLiteral", "build")
+}
+
+// literalTagType is the type tag, a typed literal's tag or the receiver of
+// a handler impl, names in this file, so the handler lookup compares each
+// impl's receiver with it by identity (ownReceiverImpls): a program's
+// `struct Tag` does not take another file's `impl CheckedLiteral<String,
+// Tag> for Tag`. A tag that resolved to no type of its own name (an alias)
+// is a placeholder of that name, which matches by name.
+func (c *checker) literalTagType(tag string) Type {
+	if t := c.reg.Lookup(tag); t != nil && concreteTypeName(t) == tag {
+		return t
+	}
+	return &DistinctType{Name: tag}
 }
 
 // checkOneLiteralHandler reports an `impl CheckedLiteral` for a type that
@@ -21454,7 +21462,7 @@ func (c *checker) checkOneLiteralHandler(n *ast.ImplBlock) {
 		return
 	}
 	tag := TypeExprBaseName(n.Receiver)
-	if resolveConcreteImpl(c.fa.Program(), "Literal", "from_fragments", &DistinctType{Name: tag}) == nil && c.literalImplOf(tag) == nil {
+	if resolveConcreteImpl(c.fa.Program(), "Literal", OriginUnresolved, "from_fragments", c.literalTagType(tag)) == nil && c.literalImplOf(tag) == nil {
 		return
 	}
 	c.errors = append(c.errors, TypeError{
@@ -21537,10 +21545,10 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 		// to. Resolve the impl the interface-aware way and read the
 		// receiver-less method's post-BuildTypes signature from the project
 		// ImplFuncTypes index (the TypeMethods table doesn't carry
-		// interface-impl methods cross-module). The receiver type is
-		// matched by name only, so a name-bearing placeholder suffices.
-		tagType := &DistinctType{Name: n.Tag}
-		impl := resolveConcreteImpl(c.fa.Program(), "Literal", "from_fragments", tagType)
+		// interface-impl methods cross-module). The receiver is the type
+		// the tag names, compared with each impl's by identity.
+		tagType := c.literalTagType(n.Tag)
+		impl := resolveConcreteImpl(c.fa.Program(), "Literal", OriginUnresolved, "from_fragments", tagType)
 		if impl == nil {
 			impl = c.literalImplOf(n.Tag)
 		}
@@ -21549,7 +21557,7 @@ func (c *checker) checkTaggedString(n *ast.TaggedString) Type {
 			// A checked literal (spec §18 *Checked literals*): the handler
 			// is CheckedLiteral's build, and the literal is build's result
 			// in every quote style.
-			impl = c.checkedLiteralBuildOf(n.Tag)
+			impl = c.checkedLiteralBuildOf(tagType)
 			if impl != nil {
 				checked = true
 				handlerIface = "CheckedLiteral"
@@ -21819,12 +21827,12 @@ func (c *checker) fromFragmentsRival(tag string, handler *ast.FuncDef) (fromFrag
 	// `handler`, and the comparison excludes it by identity of declaration
 	// rather than by name. One rule for every interface, and no name string to
 	// get wrong.
-	for _, iface := range c.interfacesImplementedBy(tag) {
-		fd := resolveConcreteImpl(c.fa.Program(), iface, "from_fragments", &DistinctType{Name: tag})
+	for _, iface := range c.interfacesImplementedBy(tag, origin) {
+		fd := resolveConcreteImpl(c.fa.Program(), iface.Name, iface.Origin, "from_fragments", c.literalTagType(tag))
 		if fd == nil || (fd.Line == handler.Line && fd.Col == handler.Col) {
 			continue
 		}
-		return fromFragmentsRivalInfo{Line: fd.Line, Interface: iface}, true
+		return fromFragmentsRivalInfo{Line: fd.Line, Interface: iface.Name}, true
 	}
 	return fromFragmentsRivalInfo{}, false
 }
@@ -21881,7 +21889,7 @@ func (c *checker) checkTaggedStringSlot(n *ast.TaggedString, se ast.StringExpr, 
 			c.checkExistentialDemand(conj, iface.Name, Recording{Pos: c.recPos(slotLine, slotCol), Kind: RecordingKindTypedLiteralSlot})
 			return
 		}
-		if !c.typeImplementsInterface(slotTy, iface.Name, c.recPos(slotLine, slotCol), RecordingKindTypedLiteralSlot) {
+		if !c.typeImplementsInterface(slotTy, iface.Name, iface.Origin, c.recPos(slotLine, slotCol), RecordingKindTypedLiteralSlot) {
 			c.errors = append(c.errors, TypeError{
 				Line:    slotLine,
 				Col:     slotCol,

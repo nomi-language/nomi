@@ -592,36 +592,124 @@ func symbolModuleScope(sym *analysis.Symbol) *analysis.Scope {
 	return sym.ModuleScope
 }
 
-// qualifierScope is the file the qualifier written at id names: the
-// checker's reference at id when it is a file import, else moduleScopeOf.
-// The reference answers first because a block `import` binds its name for
-// the rest of its block only (testImport admits it): `import std::io` where
-// the module scope binds no `io`, or `import std::hex as codec` over the
-// file's `import std::base64 as codec`, whose qualifier the module scope
-// would answer with base64.
-func qualifierScope(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Scope {
+// identRef is what the identifier id names where the builder lowers it: the
+// checker's reference at it (analysis.FileAnalysis.References) in the file
+// whose source is lowered (srcFA). It is the one place the builder asks what
+// a written name names, whether it stands as a qualifier (`io.print`), a
+// callee or a read: a module, a parameter, a binding, a function, a `once`.
+//
+// It answers nil for an identifier the builder wrote itself (madeIdent):
+// such an identifier often stands at a written node's position, where
+// References names that node's symbol and not the name the builder wrote,
+// so its record is never read. A nil answer leaves the caller to the
+// name's spelling (moduleScopeOf, boundBySpelling), and nothing else does.
+func (g *gen) identRef(id *ast.Ident) *analysis.Symbol {
+	if g.unchecked[id] {
+		return nil
+	}
+	return refAt(g.srcFA(), id)
+}
+
+// refAt is the checker's reference at the written identifier id in fa.
+func refAt(fa *analysis.FileAnalysis, id *ast.Ident) *analysis.Symbol {
 	if fa == nil {
 		return nil
 	}
-	if scope := symbolModuleScope(fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]); scope != nil {
-		return scope
-	}
-	return moduleScopeOf(fa, id.Name)
+	return fa.References[analysis.Pos{Line: id.Line, Col: id.Col}]
 }
 
-// lookupQualifier resolves a file qualifier to a unit index, using the
-// analyzer's own answer for what the name is bound to.
-func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (int, bool) {
-	scope := qualifierScope(fa, id)
-	if scope == nil {
+// madeIdent is an identifier the builder writes and lowers, marked
+// (markUnchecked) so that identRef never reads the record at its position:
+// a qualifier, a callee or an operand of code the builder respells
+// (`hex.encode` for a std module's own bare `encode`, `%record.x` over a
+// record's fields, a partial application's holes).
+func (g *gen) madeIdent(name string, line, col int) *ast.Ident {
+	id := &ast.Ident{Name: name, Line: line, Col: col}
+	g.markUnchecked(id)
+	return id
+}
+
+// qualifierScope is the file the qualifier id names: the module the
+// checker's reference at it names, a block's `import` (which binds its
+// name for the rest of its block only, testImport admits it) as well as
+// the file's, and nil when the reference names anything else. A local
+// value named like an import is that value: `io = Printer{print: say}`
+// then `io.print(s)` calls the local's field, not std/io's print.
+func (g *gen) qualifierScope(id *ast.Ident) *analysis.Scope {
+	return scopeOfRef(g.srcFA(), g.identRef(id), id.Name)
+}
+
+// scopeOfRef is the file a qualifier spelled name, whose reference is ref,
+// names in fa: the module ref names, else, for a name with no reference,
+// the file its spelling binds in fa's module scope.
+func scopeOfRef(fa *analysis.FileAnalysis, ref *analysis.Symbol, name string) *analysis.Scope {
+	if ref != nil {
+		return symbolModuleScope(ref)
+	}
+	return moduleScopeOf(fa, name)
+}
+
+// namesLocal reports whether id names a value a body binds (bodyBinding):
+// a qualifier that does is a value whose field a call reads, never a file,
+// and a callee that does is called through the value. An identifier the
+// builder wrote goes by the bindings of its spelling (boundBySpelling).
+func (bl *irScalarBuilder) namesLocal(id *ast.Ident) bool {
+	if ref := bl.g.identRef(id); ref != nil {
+		return bodyBinding(bl.g.srcFA(), ref)
+	}
+	return bl.boundBySpelling(id.Name)
+}
+
+// bodyBinding reports whether sym, a reference the checker recorded in fa,
+// is a value a body binds: a parameter (a lambda's and an Iter.loop
+// state's among them), a binding (a pattern's and a test's among them),
+// or a function declared in a body, which the module scope does not hold.
+func bodyBinding(fa *analysis.FileAnalysis, sym *analysis.Symbol) bool {
+	switch sym.Kind {
+	case analysis.SymbolParam, analysis.SymbolBinding:
+		return true
+	case analysis.SymbolFunction:
+		fd, isFunc := sym.Node.(*ast.FuncDef)
+		if !isFunc || sym.Resolved != nil || fa == nil || fa.ModuleScope == nil {
+			return false
+		}
+		top := fa.ModuleScope.Lookup(sym.Name)
+		return top == nil || top.Node != fd
+	}
+	return false
+}
+
+// boundBySpelling reports whether name is bound in this body or one
+// enclosing it, or is a parameter: the answer for an identifier the
+// builder wrote, which has no reference to read (identRef).
+func (bl *irScalarBuilder) boundBySpelling(name string) bool {
+	for scope := bl; scope != nil; scope = scope.parent {
+		if _, bound := scope.boundK[name]; bound {
+			return true
+		}
+		if scope.sh != nil {
+			if _, param := scope.sh.params[name]; param {
+				return true
+			}
+		}
+	}
+	_, bound := bl.g.lookup(name)
+	return bound
+}
+
+// lookupQualifier resolves a file qualifier to a unit index: the file
+// qualifierScope names.
+func (g *gen) lookupQualifier(id *ast.Ident) (int, bool) {
+	scope := g.qualifierScope(id)
+	if scope == nil || g.files == nil {
 		return 0, false
 	}
-	i, ok := x.byScope[scope]
+	i, ok := g.files.byScope[scope]
 	return i, ok
 }
 
-// stdFileQualifier resolves a name bound to a STDLIB file's API object to that
-// file's CANONICAL name, reporting whether it was one at all.
+// stdFileQualifier resolves a qualifier bound to a STDLIB file's API object
+// to that file's CANONICAL name, reporting whether it was one at all.
 //
 // Identified POSITIVELY, against the analyzer's own map of stdlib module
 // scopes, rather than by "not one of ours". The negative test is true for a
@@ -632,11 +720,11 @@ func (x *fileIndex) lookupQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (i
 // binds `t` and the registry is keyed on the file: reading the local spelling
 // would make an aliased import unresolvable and it would then refuse under a
 // key that says the extern is missing.
-func stdFileQualifier(fa *analysis.FileAnalysis, id *ast.Ident) (string, bool) {
-	if fa == nil {
+func (g *gen) stdFileQualifier(id *ast.Ident) (string, bool) {
+	if g.fa == nil {
 		return "", false
 	}
-	return stdFileOfScope(fa, qualifierScope(fa, id))
+	return stdFileOfScope(g.fa, g.qualifierScope(id))
 }
 
 // stdFileOfScope is stdFileQualifier's answer for a file's member scope.

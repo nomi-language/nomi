@@ -269,10 +269,10 @@ func (bl *irScalarBuilder) siblingOwnerSpelling(qual ast.Node, method string) (s
 		return "", false
 	}
 	mod, isIdent := ast.QualifierIdent(inner.Object)
-	if !isIdent || irQualIsLocal(bl, mod.Name) {
+	if !isIdent || bl.namesLocal(mod) {
 		return "", false
 	}
-	scope := bl.g.moduleScope(mod.Name)
+	scope := bl.g.qualifierScope(mod)
 	if scope == nil {
 		panic("irbuild: siblingOwnerSpelling: a module the program imports has a scope")
 	}

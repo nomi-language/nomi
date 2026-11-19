@@ -433,18 +433,17 @@ func importPathString(n *ast.ImportStmt) string {
 func (bl *irScalarBuilder) ownModuleCall(t *ast.Call, fa *ast.FieldAccess) (*ast.Call, bool) {
 	g := bl.g
 	obj, isIdent := ast.QualifierIdent(fa.Object)
-	if !isIdent || fa.Field == nil || irQualIsLocal(bl, obj.Name) {
+	if !isIdent || fa.Field == nil || bl.namesLocal(obj) {
 		return nil, false
 	}
-	src := g.srcFA()
-	if scope := moduleScopeOf(src, obj.Name); scope == nil || scope != src.ModuleScope {
+	if scope := g.qualifierScope(obj); scope == nil || scope != g.srcFA().ModuleScope {
 		return nil, false
 	}
 	method := fa.Field.Name
 	if decl := g.funcDeclAt(fa.Field.Line, fa.Field.Col); g.sigByDecl[decl] == nil || g.stdSiblingDecls[decl] != nil {
 		return nil, false
 	}
-	if _, shadowed := g.lookup(method); shadowed {
+	if bl.boundBySpelling(method) {
 		// The bare spelling would name the local: the call stays qualified.
 		return nil, false
 	}
@@ -474,8 +473,8 @@ func (bl *irScalarBuilder) ownSiblingCall(t *ast.Call, f *stdFunc, hasNamed bool
 	if f.recv != "" || g.stdModule == "" {
 		return nil, false
 	}
-	alias := path.Base(g.stdModule)
-	if irQualIsLocal(bl, alias) {
+	alias := g.madeIdent(path.Base(g.stdModule), callee.Line, callee.Col)
+	if bl.namesLocal(alias) {
 		return nil, false
 	}
 	if bl.stdTestOwnType() {
@@ -487,7 +486,7 @@ func (bl *irScalarBuilder) ownSiblingCall(t *ast.Call, f *stdFunc, hasNamed bool
 	}
 	qualified := *t
 	qualified.Func = &ast.FieldAccess{
-		Object: &ast.Ident{Name: alias, Line: callee.Line, Col: callee.Col},
+		Object: alias,
 		Field:  &ast.Ident{Name: callee.Name, Line: callee.Line, Col: callee.Col},
 		Line:   callee.Line, Col: callee.Col,
 	}
@@ -503,19 +502,19 @@ func (bl *irScalarBuilder) ownSiblingCall(t *ast.Call, f *stdFunc, hasNamed bool
 
 // ownModuleAlias reports whether owner is this stdlib module's own file
 // alias, bound to the module's own scope.
-func (bl *irScalarBuilder) ownModuleAlias(owner string) bool {
+func (bl *irScalarBuilder) ownModuleAlias(owner *ast.Ident) bool {
 	g := bl.g
-	if g.stdModule == "" || g.fa == nil || owner != path.Base(g.stdModule) {
+	if g.stdModule == "" || g.fa == nil || owner.Name != path.Base(g.stdModule) {
 		return false
 	}
-	scope := moduleScopeOf(g.fa, owner)
+	scope := g.qualifierScope(owner)
 	return scope != nil && scope == g.fa.ModuleScope
 }
 
 // ownSiblingPlan plans `hex.add3(...)` in a body of std/hex (ownSiblingCall
 // writes it): the module's own top-level function, a sibling of the
 // lowering, as a bare positional call to it plans.
-func (bl *irScalarBuilder) ownSiblingPlan(t *ast.Call, args irQualArgs, owner string) *irQualPlan {
+func (bl *irScalarBuilder) ownSiblingPlan(t *ast.Call, args irQualArgs, owner *ast.Ident) *irQualPlan {
 	if bl.stdTestOwnType() || !bl.ownModuleAlias(owner) {
 		return nil
 	}
@@ -536,12 +535,12 @@ func (bl *irScalarBuilder) ownSiblingPlan(t *ast.Call, args irQualArgs, owner st
 // what stdFileQualifier matches. A module re-analyzed from edited source (a
 // tour reference editor, vmhost.StdlibReference) binds it to its own
 // new module scope instead, which is the same module.
-func (bl *irScalarBuilder) stdOwnFileQualifier(owner string) (string, bool) {
+func (bl *irScalarBuilder) stdOwnFileQualifier(owner *ast.Ident) (string, bool) {
 	g := bl.g
-	if !bl.stdTestOwnType() || g.fa == nil || owner != path.Base(g.stdModule) {
+	if !bl.stdTestOwnType() || g.fa == nil || owner.Name != path.Base(g.stdModule) {
 		return "", false
 	}
-	if scope := moduleScopeOf(g.fa, owner); scope != nil && scope == g.fa.ModuleScope {
+	if scope := g.qualifierScope(owner); scope != nil && scope == g.fa.ModuleScope {
 		return g.stdModule, true
 	}
 	return "", false

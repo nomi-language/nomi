@@ -820,7 +820,7 @@ type gen struct {
 	//
 	// A second index rather than a wider shared key, and the argument is about
 	// one consultation site rather than about effort: `noEquatableImpl` reads
-	// `implsByIface["Equatable"][k]` to decide whether `==` may take the
+	// `implsByIface[stdIfaceImplKey(stdEquatable)][k]` to decide whether `==` may take the
 	// STRUCTURAL fallback, and under a widened key a lookup that lost its
 	// existential over the rhs axis would answer "no impl" for a type that has
 	// one — a wrong answer on a comparison that lowers, not a refusal.
@@ -1278,7 +1278,7 @@ func (g *gen) emitModule(m *Module) ([]Unsupported, []Suppression) {
 		case *ast.InterfaceDef:
 			g.ifaceDecl(t)
 		case *ast.ImplConformance:
-			// `derive Equatable for Dog`. SynthesizeDerives has already turned
+			// `derive Equatable for Dog`. LowerDerives has already turned
 			// it into an ordinary impl block, lowered above through exactly
 			// the path a hand-written impl takes — so the declaration itself
 			// has nothing left to lower and refusing it would report a gap

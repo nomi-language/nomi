@@ -73,7 +73,7 @@ end
 // being a property of eight consultation sites.
 //
 // The alternative is widening `implsByIface`'s key with the interface's type
-// arguments. `noEquatableImpl` reads `implsByIface["Equatable"][k]` to decide
+// arguments. `noEquatableImpl` reads `implsByIface[stdIfaceImplKey(stdEquatable)][k]` to decide
 // whether `==` may take the STRUCTURAL fallback, and under a widened key a
 // lookup that lost its existential over the rhs axis answers "no impl" for a
 // type that HAS one: a wrong answer on a comparison that lowers, not a
@@ -81,19 +81,21 @@ end
 // values of such a type.
 //
 // The second index cannot produce that failure BY CONSTRUCTION, and this is that
-// construction asserted: no key of `implsByIface` names an operator interface,
-// on a program that registers three of them.
+// construction asserted: no impl in `implsByIface` is an operator impl, on a
+// program that registers three of them.
 func TestOperImpl_OperatorImplsNeverEnterImplsByIface(t *testing.T) {
 	g, errs := operGen(t, operThreeAdds)
 	if len(errs) > 0 {
 		t.Fatalf("the fixture must lower for this assertion to be about anything: %v", errs)
 	}
-	for _, iface := range []string{"Add", "Subtract", "Multiply", "Divide"} {
-		if byRecv, present := g.implsByIface[iface]; present {
-			t.Errorf("implsByIface has a %q row (%d receiver(s)). The whole argument for a "+
-				"second index is that every lookup in this map is unchanged; a row here voids "+
-				"it, and noEquatableImpl fails to a WRONG ANSWER rather than to a build error",
-				iface, len(byRecv))
+	for key, byRecv := range g.implsByIface {
+		for _, d := range byRecv {
+			if d.oper != nil {
+				t.Errorf("implsByIface has an operator impl under %q (%s). The whole argument for a "+
+					"second index is that every lookup in this map is unchanged; a row here voids "+
+					"it, and noEquatableImpl fails to a WRONG ANSWER rather than to a build error",
+					key, d.label())
+			}
 		}
 	}
 	// The POSITIVE control, without which the loop above passes on a program

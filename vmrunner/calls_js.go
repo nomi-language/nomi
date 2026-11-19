@@ -3,6 +3,7 @@
 package vmrunner
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"sync"
@@ -48,7 +49,7 @@ func serveCalls(image *Image, opts []Option) bool {
 			// not: it runs on its own goroutine.
 			go func() {
 				mu.Lock()
-				result, err := in.Call(name, []byte(argsJSON))
+				result, err := in.Call(context.Background(), name, []byte(argsJSON))
 				mu.Unlock()
 				if err != nil {
 					reject.Invoke(js.Global().Get("Error").New(err.Error()))

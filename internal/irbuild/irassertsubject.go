@@ -84,12 +84,13 @@ type assertableImpl struct {
 }
 
 // assertableFailure is the retained `Assertable.failure` impl for subject
-// kind k, or nil.
+// kind k, or nil: an impl of std's interface, which a file's own
+// `interface Assertable` does not take (stdIfaceImplKey).
 func (bl *irScalarBuilder) assertableFailure(k kind) *assertableImpl {
 	if k.tag != tagNamed || k.def == nil {
 		return nil
 	}
-	d := bl.g.implsByIface["Assertable"][k]
+	d := bl.g.implsByIface[stdIfaceImplKey(stdAssertable)][k]
 	if d == nil || !d.lowerable {
 		return bl.stdAssertableFailure(k)
 	}

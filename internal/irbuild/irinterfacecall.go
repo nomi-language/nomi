@@ -210,20 +210,21 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		// and a call that route declines is planned nowhere here.
 		return nil
 	}
-	impl := bl.g.implsByIface[bl.g.implsKey(d)][recv]
+	key := bl.g.implsKey(d)
+	impl := bl.g.implsByIface[key][recv]
 	if impl == nil {
 		if p := bl.stdRecvIfacePlan(t, args, d, method, recv); p != nil {
 			// `Show.show([1, 2])`: an impl over a std container.
 			return p
 		}
-		if defs := bl.g.instImpls[bl.g.implsKey(d)][recv]; len(defs) > 0 {
+		if defs := bl.g.instImpls[key][recv]; len(defs) > 0 {
 			// `Holds.holds(b, 1)` where Box implements Holds at several
 			// type arguments: the call's own.
 			impl, _ = bl.pickInstImpl(t, defs, method)
 		}
 	}
 	if impl == nil {
-		if p := bl.callerImplPlan(t, args, d.nomi, method, recv); p != nil {
+		if p := bl.callerImplPlan(t, args, key, method, recv); p != nil {
 			return p
 		}
 		if p := bl.stdIfacePlan(t, args, d.nomi, method); p != nil {
@@ -232,7 +233,7 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 		if recv.tag == tagNamed && recv.def != nil && d.decl != nil {
 			// A sibling file's impl of this interface for a sibling type:
 			// `Loud.say(things.quiet(3))`.
-			return bl.qualSiblingIfaceImplPlan(t, args, recv.def, method, d.decl.Name)
+			return bl.qualSiblingIfaceImplPlan(t, args, recv.def, method, key)
 		}
 		return nil
 	}
@@ -267,13 +268,16 @@ func (bl *irScalarBuilder) concreteInterfacePlan(t *ast.Call, args irQualArgs, d
 }
 
 // callerImplPlan is, inside a std generic instance built for a program, the
-// program's own impl of iface for a receiver the program declares:
+// program's own impl of the interface whose key is key (ifaceKey) for a
+// receiver the program declares:
 // `Maybe.hash<Written>`'s derived body calls `Hashable.hash(w)`, and the impl
 // is the user's `impl Hashable for Written`. The instance interns the
 // program's kinds in the calling gen's tables, so the receiver is the kind
 // that gen's impl index is keyed by; the call names the impl's body by the
-// symbol its declaring gen interned.
-func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, method string, recv kind) *irQualPlan {
+// symbol its declaring gen interned. Every gen files the interface's impls
+// under that one key, so a program interface of the same name does not
+// take the call.
+func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, key, method string, recv kind) *irQualPlan {
 	s := bl.g.stdInsts
 	if s == nil || s.caller == nil || s.caller == bl.g || bl.g.stdModule == "" ||
 		recv.tag != tagNamed || recv.def == nil || recv.def.decl == nil {
@@ -289,7 +293,7 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 		if g == nil {
 			continue
 		}
-		if impl := g.implsByIface[iface][recv]; impl != nil {
+		if impl := g.implsByIface[key][recv]; impl != nil {
 			og, d = g, impl
 			break
 		}
@@ -299,11 +303,11 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 		// implemented, in another file: the caller holds a MIRROR of Point,
 		// and the impl is registered in the declaring file's gen against the
 		// declaration's own def. The two share the declaration node.
-		og, d = mirroredImpl(gens, iface, recv.def)
+		og, d = mirroredImpl(gens, key, recv.def)
 		if recv.def.instOrigin != nil {
 			// A generic instance: every instantiation shares that node,
 			// so the owner's instance def names the impl.
-			og, d = s.caller.instanceImpl(recv.def, iface, method)
+			og, d = s.caller.instanceImpl(recv.def, key, method)
 		}
 	}
 	if d == nil && recv.def.instOrigin == nil {
@@ -311,12 +315,12 @@ func (bl *irScalarBuilder) callerImplPlan(t *ast.Call, args irQualArgs, iface, m
 		// caller's, registered against that file's mirror of the type: a
 		// REPL input that derives for an earlier input's type, instantiated
 		// at by a later input (callerKindIface found it the same way).
-		og, d = implForDecl(gens, iface, recv.def.decl)
+		og, d = implForDecl(gens, key, recv.def.decl)
 	}
 	if d == nil || !d.lowerable {
 		return nil
 	}
-	return bl.callerItemPlan(t, args, og, d.items[method], iface+"."+method)
+	return bl.callerItemPlan(t, args, og, d.items[method], d.ifaceName+"."+method)
 }
 
 // callerItemPlan is the call t, inside a std generic instance built for a
@@ -356,17 +360,17 @@ func (bl *irScalarBuilder) callerItemPlan(t *ast.Call, args irQualArgs, og *gen,
 	return &irQualPlan{token: it, name: name, result: result, sym: og.irCalleeSym(it, it.impl.recv.nomi()+"."+it.name)}
 }
 
-// implForDecl is the one impl of iface any of gens registers for a
-// non-generic type declaration decl, under whichever def of it, or nil when
-// none or more than one does.
-func implForDecl(gens []*gen, iface string, decl ast.Node) (*gen, *implDef) {
+// implForDecl is the one impl of the interface whose key is key (ifaceKey)
+// any of gens registers for a non-generic type declaration decl, under
+// whichever def of it, or nil when none or more than one does.
+func implForDecl(gens []*gen, key string, decl ast.Node) (*gen, *implDef) {
 	var og *gen
 	var found *implDef
 	for _, g := range gens {
 		if g == nil {
 			continue
 		}
-		for recv, impl := range g.implsByIface[iface] {
+		for recv, impl := range g.implsByIface[key] {
 			if recv.def == nil || recv.def.decl != decl || recv.def.instOrigin != nil || impl == found {
 				continue
 			}
@@ -379,9 +383,10 @@ func implForDecl(gens []*gen, iface string, decl ast.Node) (*gen, *implDef) {
 	return og, found
 }
 
-// mirroredImpl finds the impl of iface registered for the declaration a
-// mirror def names, in the gen that declares it.
-func mirroredImpl(gens []*gen, iface string, mirror *typeDef) (*gen, *implDef) {
+// mirroredImpl finds the impl of the interface whose key is key (ifaceKey)
+// registered for the declaration a mirror def names, in the gen that
+// declares it.
+func mirroredImpl(gens []*gen, key string, mirror *typeDef) (*gen, *implDef) {
 	if mirror.decl == nil {
 		return nil, nil
 	}
@@ -395,7 +400,7 @@ func mirroredImpl(gens []*gen, iface string, mirror *typeDef) (*gen, *implDef) {
 		}
 		var only *implDef
 		matches := 0
-		for recv, impl := range g.implsByIface[iface] {
+		for recv, impl := range g.implsByIface[key] {
 			if recv.def == nil || recv.def.foreign != "" || recv.def.decl != mirror.decl {
 				continue
 			}
@@ -416,18 +421,17 @@ func mirroredImpl(gens []*gen, iface string, mirror *typeDef) (*gen, *implDef) {
 }
 
 // foreignIfacePlan selects this module's impl of an interface declared
-// elsewhere, `ToJson.to_json(user)` for a derived `impl ToJson for User`.
-// Only a single exact fit is planned. A non-nil decl is the interface's
-// declaration, which an impl's header must name (implsInterface).
+// elsewhere, the one whose key is key (ifaceKey): `ToJson.to_json(user)`
+// for a derived `impl ToJson for User`. Only a single exact fit is planned.
 //
 // A call with no arguments has no operand to select an impl by:
 // `FromJson.from_missing<Uuid>()`, as a derived FromJson decodes a missing
 // field, names its type only as a type argument. Any one impl whose method
 // fits would be a guess at a type the call does not name, so none is planned
 // and the caller selects by the type argument (kindImplCall).
-func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner, method string, decl ast.Node) *irQualPlan {
-	byRecv, known := bl.g.implsByIface[owner]
-	if !known || owner == "" || !args.ok || len(args.kinds) == 0 || bl.g.iterOwns(owner) {
+func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, key, method string) *irQualPlan {
+	byRecv, known := bl.g.implsByIface[key]
+	if !known || key == "" || !args.ok || len(args.kinds) == 0 || (key == stdIfaceImplKey(stdIter) && bl.g.iterOwns(stdIter.Name)) {
 		return nil
 	}
 	for _, k := range args.kinds {
@@ -436,6 +440,7 @@ func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner,
 		}
 	}
 	var chosen *implItem
+	name := ""
 	impls := bl.g.implOrder
 	if r := args.kinds[0]; r.tag == tagNamed && r.def != nil && r.def.genericOf != nil {
 		// `Display.to_string(b)` over a `Box<Int>`: an impl on a generic
@@ -444,10 +449,7 @@ func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner,
 		impls = append(bl.g.implsOf(r), impls...)
 	}
 	for _, d := range impls {
-		if d.ifaceName != owner || !d.lowerable || byRecv[d.recv] != d {
-			continue
-		}
-		if decl != nil && !implsInterface(bl.g, d.decl, decl) {
+		if d.ifaceKey != key || !d.lowerable || byRecv[d.recv] != d {
 			continue
 		}
 		it := d.items[method]
@@ -457,12 +459,12 @@ func (bl *irScalarBuilder) foreignIfacePlan(t *ast.Call, args irQualArgs, owner,
 		if chosen != nil {
 			return nil
 		}
-		chosen = it
+		chosen, name = it, d.ifaceName+"."+method
 	}
 	if chosen == nil || !chosen.lowerable || irImplSource(chosen) == nil {
 		return nil
 	}
-	return &irQualPlan{token: chosen, name: owner + "." + method, result: chosen.result}
+	return &irQualPlan{token: chosen, name: name, result: chosen.result}
 }
 
 // stdIfacePlan selects a stdlib interface method by its first argument's kind

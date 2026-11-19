@@ -1,6 +1,26 @@
 package hostadapt
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
+
+// TableKeys binds each table against a plain Env to learn the keys it
+// answers, as its declarations write them. Binding builds adapters and
+// descriptors and calls nothing.
+func TableKeys(tables ...func(*Env) (map[string]Func, error)) (map[string]bool, error) {
+	keys := map[string]bool{}
+	for _, t := range tables {
+		funcs, err := t(&Env{})
+		if err != nil {
+			return nil, fmt.Errorf("binding a host table: %w", err)
+		}
+		for k := range funcs {
+			keys[k] = true
+		}
+	}
+	return keys, nil
+}
 
 // A project's own host functions and std's share no crossing name.
 //

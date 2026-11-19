@@ -17,9 +17,9 @@ func (bl *irScalarBuilder) variantNameCall(t *ast.Call, owner *ast.Ident, method
 	if method != "variant_name" || len(t.Args) != 1 {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	module, isStd := stdFileQualifier(bl.g.fa, owner)
+	module, isStd := bl.g.stdFileQualifier(owner)
 	if !isStd {
-		module, isStd = bl.stdOwnFileQualifier(owner.Name)
+		module, isStd = bl.stdOwnFileQualifier(owner)
 	}
 	if !isStd || module != "phrase/format" && module != "std/phrase/format" {
 		return ir.NoTemp, kindInvalid, false, false, false

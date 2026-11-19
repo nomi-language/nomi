@@ -488,6 +488,10 @@ type irLambdaCapture struct {
 	// src is the enclosing builder's temporary the capture is supplied
 	// from, by which capturedPlan finds the captured value's plan.
 	src ir.Temp
+	// ref is the checker's reference at the read that made the capture,
+	// which the enclosing builder lowered and held to its binding
+	// (verifyLocalRead), or nil for an identifier the builder wrote.
+	ref *analysis.Symbol
 }
 
 // capture makes name a parameter of this closure, supplied by the value the
@@ -515,7 +519,7 @@ func (bl *irScalarBuilder) capture(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 	if bl.captured == nil {
 		bl.captured = map[string]irLambdaCapture{}
 	}
-	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k, src: src}
+	bl.captured[t.Name] = irLambdaCapture{temp: dst, k: k, src: src, ref: bl.g.identRef(t)}
 	bl.bound[t.Name], bl.boundK[t.Name] = dst, k
 	bl.declareCapture(t.Name, dst, k, bl.capturedDecl(t.Name, src))
 	return dst, k, true, true

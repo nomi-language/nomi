@@ -357,7 +357,7 @@ func (r *completionRequest) typeFits(have, want analysis.Type) bool {
 		return true
 	}
 	if iface, ok := want.(*analysis.InterfaceType); ok {
-		return analysis.ImplementsInterface(r.fa, have, iface.Name)
+		return analysis.ImplementsInterface(r.fa, have, iface)
 	}
 	if analysis.ContainsTypeParam(have) || analysis.ContainsTypeParam(want) {
 		name := analysis.TypeOwnerName(want)

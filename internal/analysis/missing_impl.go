@@ -345,7 +345,7 @@ func (idx *ProjectImplIndex) missingImpl(iface, typeName string, recs []Recordin
 		return TypeError{}, false
 	}
 
-	return missingImplError(iface, typeName, recs, typeDecls, borrowed), true
+	return idx.missingImplError(iface, typeName, recs, typeDecls, borrowed), true
 }
 
 // isStdlibRecording reports whether the Recording's Pos.File names a
@@ -365,9 +365,12 @@ func isStdlibRecording(rec Recording) bool {
 // project Recording (stdlib fallback when every Recording is stdlib),
 // attaches the other Recordings outside std as related locations, and
 // appends a help line suggesting either derive or a hand-written impl block.
-// When qualify is set, another type of the same name has the impl, and the
-// message names the type through its declaring module (`users.User`).
-func missingImplError(iface, typeName string, recs []Recording, typeDecls map[string]Pos, qualify bool) TypeError {
+// When borrowed is set, an impl of iface's name matched by bare name is
+// another declaration's, and the message names that half of the pair
+// through its declaring module: the interface (`b.Show`) when the type has
+// an impl of another interface of the name, else the type (`users.User`),
+// which another type of its name lends the impl.
+func (idx *ProjectImplIndex) missingImplError(iface, typeName string, recs []Recording, typeDecls map[string]Pos, borrowed bool) TypeError {
 	// Primary: first user-project Recording, fallback to recs[0].
 	primaryIdx := 0
 	for i, rec := range recs {
@@ -377,14 +380,18 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		}
 	}
 	primary := recs[primaryIdx]
-	shown := typeName
-	if qualify && primary.TypeOrigin != OriginUnresolved && primary.TypeOrigin != OriginEntry {
-		shown = lastSegment(primary.TypeOrigin) + "." + typeName
+	shown, shownIface := typeName, iface
+	otherIface := borrowed && idx.implementsInterfaceNamed(primary.TypeOrigin, typeName, iface)
+	switch {
+	case otherIface:
+		shownIface = idx.shownInterface(primary.TypeOrigin, typeName, primary.IfaceOrigin, iface)
+	case borrowed:
+		shown = throughFile(primary.TypeOrigin, typeName)
 	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "no impl of `%s` for `%s` (required via %s)",
-		iface, shown, formatRecordingVia(primary))
+		shownIface, shown, formatRecordingVia(primary))
 
 	e := TypeError{
 		Line:    primary.Pos.Line,
@@ -414,13 +421,35 @@ func missingImplError(iface, typeName string, recs []Recording, typeDecls map[st
 		}
 	}
 
-	if IsStdlibKey(primary.TypeOrigin) || (builtinPrimitive(primary.TypeOrigin, typeName) && stdOnlyInterface(iface)) {
+	switch {
+	case IsBodyOrigin(primary.IfaceOrigin):
+		return e.WithHint(bodyInterfaceHelp(iface, shown))
+	case otherIface:
+		// The type implements another interface of the name. A derive
+		// writes std's interface, and an operator's or the prelude's
+		// interface has one declaration, so the fix is an impl block of
+		// the interface the demand names.
+		return e.WithHint(fmt.Sprintf("write an `impl %s for %s` block", shownIface, shown))
+	case IsStdlibKey(primary.TypeOrigin) || (builtinPrimitive(primary.TypeOrigin, typeName) && stdOnlyInterface(iface)):
 		// A std or built-in type missing a std interface: the program
 		// cannot derive or implement it, so the help says what to do
 		// instead.
 		return e.WithHint(stdTypeHelp(iface, typeName, primary.TypeOrigin, nil))
 	}
-	return e.WithHint(missingImplHelp(iface, shown, recs))
+	return e.WithHint(missingImplHelp(iface, primary.IfaceOrigin, shown, primary.TypeOrigin, recs))
+}
+
+// throughFile is name, declared by the file of origin, named through that
+// file as a diagnostic names one of two declarations of a name
+// (`users.User`, `b.Show`): a declaration inside a body through the file
+// whose body declares it, and one of the entry or of no known file by its
+// name alone.
+func throughFile(origin, name string) string {
+	file, _ := bodyOriginFile(origin)
+	if file == OriginUnresolved || file == OriginEntry {
+		return name
+	}
+	return lastSegment(file) + "." + name
 }
 
 // builtinPrimitive reports whether a demand for typeName of origin is for
@@ -479,18 +508,23 @@ func stdTypeHelp(iface, typeName, origin string, implementers []string) string {
 	return stdOnlyHelp(typeName, iface, implementers)
 }
 
-// missingImplHelp is the help line for a type that has no impl of iface,
-// from names alone (DetectMissingImpls), for the demands recs: an operator
-// interface's block shape, a derive when iface is derivable, or an impl
-// block. boundHelp is the call-site bound check's, which knows the
-// interface's functions.
+// missingImplHelp is the help line for a type of origin that has no impl
+// of iface (declared at ifaceOrigin), for the demands recs: an operator
+// interface's block shape, a derive when iface is the std interface derive
+// writes (derivableInterface; a file's own ToJson is not), or an impl
+// block. A type declared inside a body can have neither, so its help
+// is bodyTypeHelp's. boundHelp is the call-site bound check's, which knows
+// the interface's functions.
 //
 // For Equatable or Hashable, a declared type with equality meets either
 // with no impl (structural_bounds.go), so the checker records such a
 // demand only for a type that holds a value with none. A derive's demand
 // says what that is when the derive found it (DeriveCtx.NoEquality); when
 // it did not, the help claims nothing about the type's parts.
-func missingImplHelp(iface, typeName string, recs []Recording) string {
+func missingImplHelp(iface, ifaceOrigin, typeName, origin string, recs []Recording) string {
+	if IsBodyOrigin(origin) {
+		return bodyTypeHelp(iface, typeName)
+	}
 	if opIface, ok := operatorInterfaceByName(iface); ok {
 		return fmt.Sprintf("write an `impl %s<Rhs, Out> for %s` block with `fn %s(lhs: %s, rhs: Rhs) -> Out`",
 			opIface.Interface, typeName, opIface.Method, typeName)
@@ -512,10 +546,26 @@ func missingImplHelp(iface, typeName string, recs []Recording) string {
 		}
 		return fmt.Sprintf("write an `impl %s for %s` block", iface, typeName)
 	}
-	if deriveSupported[iface] {
+	if derivableInterface(&InterfaceType{Origin: ifaceOrigin, Name: iface}) {
 		return fmt.Sprintf("add `derive %s` to `%s` or write an `impl %s for %s` block", iface, typeName, iface, typeName)
 	}
 	return fmt.Sprintf("write an `impl %s for %s` block", iface, typeName)
+}
+
+// bodyInterfaceHelp is the help for typeName, which has no impl of iface,
+// an interface declared inside a body. An impl stands only at module
+// level, where no header can name a body's interface (BodyOrigin), so the
+// fix is to declare the interface at module level.
+func bodyInterfaceHelp(iface, typeName string) string {
+	return fmt.Sprintf("`%s` is declared inside a body, where no impl can name it; declare it at module level to write an `impl %s for %s` block", iface, iface, typeName)
+}
+
+// bodyTypeHelp is the help for typeName, a type declared inside a body,
+// that has no impl of iface. An impl and a derive stand only at module
+// level, and no impl can name a body's type (BodyOrigin), so the fix is to
+// declare the type at module level.
+func bodyTypeHelp(iface, typeName string) string {
+	return fmt.Sprintf("`%s` is declared inside a body, where it can have no impl or derive; declare it at module level to give it an impl of `%s`", typeName, iface)
 }
 
 // boundHelp is the help line for concrete, which does not implement bound.
@@ -523,12 +573,14 @@ func missingImplHelp(iface, typeName string, recs []Recording) string {
 // declares one of the two:
 //
 //   - it declares concrete: `derive` when bound is derivable, and an impl
-//     block with bound's own required functions at concrete;
+//     block with bound's own required functions at concrete, unless
+//     concrete is declared inside a body (bodyTypeHelp);
 //   - it declares bound only: the impl block;
 //   - it declares neither (`Unit` where std's `Hashable` is required): that
 //     only std can write the impl, and what the author can do instead
 //     (stdOnlyHelp).
 //
+// A bound declared inside a body has no impl at all (bodyInterfaceHelp).
 // An operator interface keeps missingImplHelp's block shape.
 func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 	name := fmt.Sprint(concrete)
@@ -559,19 +611,22 @@ func (c *checker) boundHelp(concrete Type, bound *InterfaceType) string {
 		return help
 	}
 	ownsType := programDeclares(concrete)
+	origin, _ := nominalOrigin(resolveTypeVar(concrete))
 	if !ownsType && IsStdlibKey(bound.Origin) {
-		origin, _ := nominalOrigin(resolveTypeVar(concrete))
 		return stdTypeHelp(bound.Name, name, origin, c.implementersOf(bound.Name))
 	}
-	if _, ok := operatorInterfaceByName(bound.Name); ok {
-		return missingImplHelp(bound.Name, name, nil)
+	if IsBodyOrigin(bound.Origin) {
+		return bodyInterfaceHelp(bound.Name, name)
 	}
-	impl := fmt.Sprintf("write an `impl %s for %s` block", bound, name)
+	if _, ok := operatorInterfaceByName(bound.Name); ok || IsBodyOrigin(origin) {
+		return missingImplHelp(bound.Name, bound.Origin, name, origin, nil)
+	}
+	impl := fmt.Sprintf("write an `impl %s for %s` block", c.shownInterfaceFor(concrete, bound, true), name)
 	if sigs := c.requiredSignatures(bound, concrete); len(sigs) > 0 {
 		impl += " with `" + strings.Join(sigs, "` and `") + "`"
 	}
-	if ownsType && deriveSupported[bound.Name] {
-		return fmt.Sprintf("add `derive %s` to `%s` or %s", bound.Name, name, impl)
+	if ownsType && derivableInterface(bound) {
+		return fmt.Sprintf("add `derive %s` to `%s` or %s", c.shownInterfaceFor(concrete, bound, false), name, impl)
 	}
 	return impl
 }
@@ -761,7 +816,7 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 	if c.implBoundsUnmetByNamedTypes(concrete, bound) {
 		// `List<Foo>` has Display only where Foo does: the demand is Foo's,
 		// and the missing-impl report names Foo with its own help.
-		c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
+		c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(line, col), RecordingKindGenericBoundCheck)
 		return false
 	}
 	end := TypeError{}
@@ -782,7 +837,7 @@ func (c *checker) boundError(line, col int, concrete Type, bound *InterfaceType,
 	}
 	c.report(TypeError{Line: line, Col: col, EndLine: end.EndLine, EndCol: end.EndCol, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, boundAt(bound, param, concrete), param, bound)}.WithHint(c.boundHelp(concrete, bound)))
+		concrete, c.shownInterfaceFor(concrete, boundAt(bound, param, concrete), true), param, c.shownInterfaceFor(concrete, bound, true))}.WithHint(c.boundHelp(concrete, bound)))
 	return true
 }
 

@@ -887,7 +887,7 @@ func (bl *irScalarBuilder) pipeStageValues(prefixes []ast.Node) (ir.Temp, kind, 
 		} else {
 			pipe := node.(*ast.Binary)
 			line, col := nodePos(pipe.Left)
-			hole := &ast.Ident{Name: fmt.Sprintf("|stage %d", cur), Line: line, Col: col}
+			hole := bl.g.madeIdent(fmt.Sprintf("|stage %d", cur), line, col)
 			bl.bound[hole.Name], bl.boundK[hole.Name] = cur, k
 			if bl.g.holeFor == nil {
 				bl.g.holeFor = map[ast.Node]ast.Node{}

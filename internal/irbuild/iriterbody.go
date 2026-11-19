@@ -872,13 +872,13 @@ func (bl *irScalarBuilder) siblingCompareSym(elem kind) *ir.Symbol {
 	}
 	call := &ast.Call{Args: []ast.Node{nil, nil}}
 	args := irQualArgs{temps: []ir.Temp{ir.NoTemp, ir.NoTemp}, kinds: []kind{elem, elem}, mobile: []bool{true, true}, ok: true}
-	p := bl.qualSiblingIfaceImplPlan(call, args, elem.def, "compare", "Comparable")
+	p := bl.qualSiblingIfaceImplPlan(call, args, elem.def, "compare", stdIfaceImplKey(stdComparable))
 	if p == nil {
 		// A std instance's body at a program's type (a tuple's part in
 		// `List.compare<(Int, P)>`): the impl is the program's, which
 		// callerImplPlan finds as it does for `Comparable.compare(a, b)`
 		// written there.
-		p = bl.callerImplPlan(call, args, "Comparable", "compare", elem)
+		p = bl.callerImplPlan(call, args, stdIfaceImplKey(stdComparable), "compare", elem)
 	}
 	if p == nil || p.sym == nil || p.result != stdEnumKind(stdEnumOrdering) {
 		return nil
@@ -913,7 +913,7 @@ func (bl *irScalarBuilder) stdCompareInstanceSym(k kind) *ir.Symbol {
 }
 
 func (bl *irScalarBuilder) localCompareItem(elem kind) *implItem {
-	impl := bl.g.implsByIface["Comparable"][elem]
+	impl := bl.g.implsByIface[stdIfaceImplKey(stdComparable)][elem]
 	if impl == nil || !impl.lowerable {
 		return nil
 	}

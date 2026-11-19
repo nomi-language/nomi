@@ -263,10 +263,14 @@
 // [IsSynthesizedLine]) so that no position of theirs aliases source, and
 // the checker records them in the same maps as written code: ExprTypes,
 // ExpectedTypes, PatternTypes, References and CallType. Their synthesized
-// code names the protocol interfaces, `Ordering` and the prelude variants
-// whatever the file binds; where the file binds none of them (a std
-// module), the checker records the std declaration as the file's own
-// reference would be (synthSupportType, synthPreludeVariant). The
+// code names the protocol interfaces, `Ordering` and the prelude variants,
+// which a file cannot redeclare, and std/json's names through a hidden
+// import of the module (jsonModuleAlias), so a file's own `ToJson` does
+// not capture them; where the file binds none of them (a std module), the
+// checker records the std declaration as the file's own reference would be
+// (synthSupportType, synthPreludeVariant). A derive's impl block names its
+// interface as the derive writes it, and the checker holds it to the std
+// interface of its name (derive_identity.go). The
 // language server never shows a band record: a request's position is
 // never in the band, and each reader that walks a whole map (references,
 // rename, highlights, the completion index, a served file's stored
@@ -344,47 +348,113 @@
 // Debug is registered under std's own, compilerKnownSynthTypeOf),
 // chosen among several by the receiver's type arguments, or the one the
 // checker selected (impl_selection.go). Every call of an interface's
-// function also records how it is answered (Callee.Form, callForm), in
-// the terms an operator through the interface records it
-// (OperatorUse.Form) and by the same rules: OperatorByImpl where it
-// reaches a block; OperatorStructural where the receiver's shape answers
-// it (a tuple, an anonymous struct, a collection, a function value:
-// shapeUse) or the receiver is a declared type with no block of the
-// interface that meets it all the same (the Equatable and Hashable of a
-// type with no impl of its own, a block-local type's Debug, a struct's
-// Struct: noImplUse); OperatorDispatched on an interface value; and
-// OperatorPerInstance through a type parameter. An operator asks the
-// same two rules with the call's block resolver between them
-// (interfaceUseFor, implMethodFor, implBlockFor), so `a == b` and
-// `Equatable.equal(a, b)` are answered alike. A block is a type's when
-// its receiver is the type's declaration (implBlocksOf): a type declared
-// inside a body, which no impl can name, has none, whatever a std module
-// declares under its name. TestElaborationGate holds a call on a receiver
+// function also records how it is answered (Callee.Form), in the terms
+// an operator through the interface records it (OperatorUse.Form). One
+// rule answers both, wherever it is asked: an operator where it is
+// written (operatorUseOf), an operator at an instance (OperatorUseAt),
+// and a call at the types it is checked with or at an instance's
+// (interfaceImplAt, through reachedImpl, CalleeAt and InterfaceCallee)
+// all ask interfaceUse, so `a == b` and `Equatable.equal(a, b)` agree.
+// In order: OperatorByImpl where the use reaches a block, the one the
+// checker selected at the use or the one block of the interface for the
+// receiver's type, narrowed by the interface's type arguments at the
+// use (implBlockFor), whatever the receiver's shape: an Int, a String, a
+// List and a Map have std's blocks, a derived type its derived one;
+// else OperatorStructural where the receiver's shape answers it (a
+// tuple, an anonymous struct, a collection with no block, a function
+// value: shapeUse) or the receiver is a declared type with no block of
+// the interface that meets it all the same (the Equatable and Hashable
+// of a type with no impl of its own, a block-local type's Debug, a
+// struct's Struct: noImplUse); OperatorDispatched on an interface value;
+// and OperatorPerInstance through a type parameter or the `self` of an
+// interface default, which is the implementor and no interface value
+// (defaultSelfParam). A block is a type's when
+// its receiver is the type's declaration (implBlocksOf). Whether a type
+// supplies an interface is the impl identity index's answer
+// (missing_impl_identity.go), which keys every impl by its receiver's
+// declaring origin and name and by its interface's declaring origin and
+// bare name, an impl of a generic interface (`impl Add<Days, Date> for
+// Date`) as any other. A demand carries both halves (Recording.TypeOrigin,
+// Recording.IfaceOrigin): a call `I.f(x)`, bare or through its module
+// (`b.Show.show(u)`), a bound and a value each ask for an impl of the
+// interface declaration they name, so `impl a.Show for User` supplies no
+// `b.Show`. An impl header names its interface through its qualifier
+// (`impl a.Show`, `impl scale_a.Scale<Int>`) in the module it qualifies
+// it with, and the block is recorded under that declaration
+// (recordImplTypeArgsFromBlock, interfaceThrough). One rule names an
+// interface in a diagnostic about whether a type implements it
+// (ProjectImplIndex.shownInterface): through its file (throughFile,
+// `b.Show`) where the type implements another interface of the name, else
+// by its name. The missing-impl, bound and conversion messages and the
+// checker's typef all use it, and a derive is offered only for the std
+// interface derive writes (derivableInterface). The call's dispatch record
+// (attachDispatchImpl) takes only an impl of that declaration. A demand
+// that knows the interface only by a name the prelude reserves (an
+// operator's, an interpolation's Display) asks for any interface of the
+// name. The bare-name tables answer alone only where the receiver's
+// origin is unknown (a built-in primitive, a type parameter, a file the
+// index did not fold) or an impl's interface did not resolve. So a type
+// takes no operator, conversion, bound, `Type.f`
+// (interfacesImplementedBy) or typed-literal handler (literalTagType) from
+// another file's or std's type of its name, and no call of an interface
+// from an impl of another interface of its name. interfacesImplementedBy
+// answers each interface a type implements by its identity (ifaceIdentity),
+// read in its declaring file (interfaceDeclaredAt), so impls of `a.Show`
+// and `b.Show` are two interfaces and `User.show(u)` is ambiguous (spec
+// §12 *Function Name Collisions*), each named through its file
+// (shownInterfaces). A struct, enum,
+// distinct type or interface declared inside a body has its
+// declaration's origin (BodyOrigin, file and position), which no impl can
+// name, so it has no block, and the index supplies nothing under it
+// (missing_impl_identity.go): `<`, `+`, a
+// Comparable bound, an interpolation or an interface's function on such a
+// type, and any call, bound or value of such an interface, is the
+// missing-impl error, whatever a std or module-level declaration of its
+// name implements, and its help says to declare the type or the
+// interface at module level (bodyTypeHelp, bodyInterfaceHelp), since a
+// body holds no impl or derive. Such a declaration may not take a name
+// the prelude binds, as a module-level one may not
+// (checkReservedTypeName). TestElaborationGate holds a call on a receiver
 // of a known type to a block or a Form (ElabImplUnrecorded), and an
 // operator's recorded impl to one of its operand's type's blocks
 // (ElabOperatorForeignImpl).
 // A generic body is checked once, so a call in it through a type
 // parameter (`T.area(x)`, `Shape.area(x)` with `x: T`, `T.from_json(j)`)
 // records the interface's function, For the type parameter, and no
-// block. FileAnalysis.CalleeAt answers that record at an instance's type
+// block. `T.f` records its bound's function, read in the bound's own file
+// (interfaceMemberAt), so under `where T: b.Show` the callee's Owner is
+// b's Show however this file binds the name; TestElaborationGate fails a
+// call qualified by a type parameter whose callee is not an interface's
+// function. FileAnalysis.CalleeAt answers that record at an instance's type
 // arguments: For substituted and, where it is a known type, the block and
 // function a call written at that type records. It asks the resolver
 // reachedImpl asks (interfaceImplAt), with the receiver's type as an
 // argument. An operator over a type parameter (OperatorPerInstance) is
 // answered at an instance the same way (OperatorUseAt, through
-// interfaceUseFor, the resolver operatorUseOf asks). For is the type
+// interfaceUse), at the interface's type arguments its operands and
+// result have there (operatorTypeArgs): `a + b` over `L: Add<R, O>` at
+// Day, Days and Day reaches Day's `impl Add<Days, Day>` among its Add
+// blocks. For is the type
 // parameter of a function, of an impl block (written `impl<B>`, or named
 // by its receiver alone, `A` in `impl Make for Box<A>`, whose symbol the
 // type builder gives the block's parameter: attachReceiverTypeParams) or of
-// a generic type in its own block. A generic interface's qualified call
-// (`Contains.contains(xs, x)`), whose `self` no argument solves, is for
-// the type of the argument at its `self` parameter, `List<T>` included,
-// and a bare call of an interface's own function in one of its defaults
-// (`compare(b, a)` in Comparable's `min`) is for the default's `self`,
-// which an instance of the default binds: both recorded as the
-// reference's `self` type argument (recordCallSelf). A membership test
+// a generic type in its own block. An interface's function, a generic
+// interface's as any other, is generic in its `self` (interfaceMethodFuncType):
+// a call solves `self` from its arguments, or from where its result goes,
+// to the type the call is for (`List<T>` in `Contains.contains(xs, x)`),
+// which every `self` in the signature then is, and solves a generic
+// interface's own parameters from that type's impl, bound or interface
+// value, as a bound projects them, as soon as `self` is solved
+// (solveInterfaceArgs, from argSolving, the expected result and a function
+// value's expected type). A bare call of an interface's own function in
+// one of its defaults (`compare(b, a)` in Comparable's `min`) is for the
+// default's `self`, which an instance of the default binds, recorded as
+// the reference's `self` type argument (recordCallSelf). A membership test
 // `x in c` is the call `Contains.contains(c, x)` (in.go,
-// FileAnalysis.Memberships), recorded as that written call is.
+// FileAnalysis.Memberships), recorded as that written call is, except
+// that the test checks its collection as an operand: one with no impl of
+// Contains is the test's error at the collection, and the demand of one
+// with an impl names the `in` there (recordInterfaceSelf).
 // A check classifies the calls it recorded (settleCallees), so a test
 // checked against a file afterwards (CheckAddedTest), whose copy shares
 // the file's records, leaves them as the file's check made them: a `fn`
@@ -423,26 +493,32 @@
 // and not an interface value), records only that: at an instance whose
 // types are known, DisplayAt answers the record a value of the
 // substituted type has, and the IR builder renders the `self` of a
-// default by the same rule over the instance's kind. DisplayCallee is
+// default by the same rule over the instance's kind. ImplCallee is
 // what a call of a record's impl function reaches, which the builder
-// calls it by. The error a typed literal is refused with, E of a fixed
+// calls it by, a rendering's and an operator's alike. The error a typed literal is refused with, E of a fixed
 // literal's handler's `Result<T, E>` or a checked literal's check's
 // LiteralError (TypedLiteral.Failure), and the error a `!` over a Result
 // shows when it traps (UnwrapFailures) have the record a hole of that
 // type has, made with the holes' (recordDisplays).
 //
-// Each binary operator over a value that is not a primitive, and each
-// prefix `~~~` over one, has a record of what it means (operator_uses.go,
-// Operators), made once the file's variables are closed: the impl it calls
-// (a binary operator's OperatorImpls record, or for a derive-synthesized
-// body the same record made for it there; `~~~`'s one BitwiseNot impl of
-// its operand's type), a
-// comparison by shape (a tuple, anonymous struct or collection, or a
-// declared type no file writes or derives an Equatable for), a comparison
-// of two interface values by their run-time types, or, over a type
-// parameter, the interface of its bound, which the IR builder resolves at
-// each instance. A declared type whose impls the index cannot narrow to
-// one is left unrecorded, and the verifier reports it.
+// Each binary operator that goes through an interface, and each prefix
+// `~~~`, has a record of what it means (operator_uses.go, Operators),
+// made once the file's variables are closed, by interfaceUse with the
+// impl the checker selected where it is written (a binary operator's
+// OperatorImpls record, else implMethodFor's block) as the block: the
+// impl it calls (std's for a primitive, whose operation the machine may
+// compute itself), a comparison by shape (a tuple or anonymous struct,
+// or a declared type no file writes or derives an Equatable for), a
+// comparison of two interface values by their run-time types, or, over
+// a type parameter, the interface of its bound, which the IR builder
+// resolves at each instance. A comparison is answered at the type of its
+// compared operand (comparedOperand): the left one, or the right one
+// where it is the wider, an interface value beside a concrete value or an
+// enum beside a value it embeds. So `(1, "a") == t` with `t: Equatable`
+// is dispatched as `t == (1, "a")` is, `1 < t` meets the interface
+// value's missing order as `t < 1` does, and `circle == shape` goes
+// through Shape's Equatable as `shape == circle` does. A declared type whose impls the index
+// cannot narrow to one is left unrecorded, and the verifier reports it.
 //
 // An expression of a concrete type checked against an interface type
 // becomes an interface value, and has a record of it (coercions.go,

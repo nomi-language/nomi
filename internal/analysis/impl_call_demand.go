@@ -61,12 +61,15 @@ func (c *checker) recordTypeQualifiedImplDemand(n *ast.Call, fa *ast.FieldAccess
 	// interface contract method, so there is no conformance to demand;
 	// two or more is already reported as an ambiguity at the
 	// type-qualified field-access site (spec 13.3) and picking one here
-	// would demand a conformance the program does not resolve.
-	providers := c.interfacesDeclaringMethod(ownerBase, fa.Field.Name)
+	// would demand a conformance the program does not resolve. The
+	// provider is an interface's identity, which the demand carries, and
+	// the demand is judged by the receiver's identity when it is checked
+	// (unsuppliedRecordings).
+	providers := c.interfacesDeclaringMethod(ownerBase, c.receiverOriginForReceiver(fa.Object, ownerBase), fa.Field.Name)
 	if len(providers) != 1 {
 		return
 	}
-	ifaceName := providers[0]
+	ifaceName, ifaceOrigin := providers[0].Name, providers[0].Origin
 	recv := receiverArgTypeForOwner(ft, subs, ownerBase)
 	if recv == nil {
 		return
@@ -110,10 +113,10 @@ func (c *checker) recordTypeQualifiedImplDemand(n *ast.Call, fa *ast.FieldAccess
 	// and the fix only where the parent had none — which is the case of
 	// `impl Comparable for Vector<T>`,
 	// dispatching Comparable on a `T` that nothing declares.
-	if declaresInterfaceBound(ft, subs, ifaceName) {
+	if declaresInterfaceBound(ft, subs, providers[0]) {
 		return
 	}
-	c.recordBoundConformance(recv, ifaceName, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+	c.recordBoundConformance(recv, ifaceName, ifaceOrigin, c.recPos(n.Line, n.Col), RecordingKindCallSite)
 }
 
 // typeQualifiedOwnerBaseName returns the base name of the TYPE a
@@ -158,8 +161,8 @@ func receiverArgTypeForOwner(ft *FuncType, subs map[*TypeParam_]Type, ownerBase 
 	return nil
 }
 
-// declaresInterfaceBound reports whether the callee declares `ifaceName`
-// as a bound on any type parameter this call solved.
+// declaresInterfaceBound reports whether the callee declares the interface
+// id as a bound on any type parameter this call solved.
 //
 // BOTH populations, because checkGenericCall enforces two and they are
 // not the same list: the `subs`/`tp.Bounds` loop (which is where a
@@ -167,26 +170,26 @@ func receiverArgTypeForOwner(ft *FuncType, subs map[*TypeParam_]Type, ownerBase 
 // recordWhereBoundDemands over `ft.WhereBounds` (a method-level
 // `where`). Reading one and not the other is the mistake this function
 // exists to have stopped making — see the guard's comment.
-func declaresInterfaceBound(ft *FuncType, subs map[*TypeParam_]Type, ifaceName string) bool {
+func declaresInterfaceBound(ft *FuncType, subs map[*TypeParam_]Type, id ifaceIdentity) bool {
 	for tp := range subs {
 		if tp == nil {
 			continue
 		}
-		if boundsName(tp.Bounds, ifaceName) {
+		if boundsName(tp.Bounds, id) {
 			return true
 		}
 	}
 	for _, wb := range ft.WhereBounds {
-		if boundsName(wb.Bounds, ifaceName) {
+		if boundsName(wb.Bounds, id) {
 			return true
 		}
 	}
 	return false
 }
 
-func boundsName(bounds []*InterfaceType, ifaceName string) bool {
+func boundsName(bounds []*InterfaceType, id ifaceIdentity) bool {
 	for _, bound := range bounds {
-		if bound != nil && bound.Name == ifaceName {
+		if bound != nil && sameNominalIdentity(bound.Origin, bound.Name, id.Origin, id.Name) {
 			return true
 		}
 	}

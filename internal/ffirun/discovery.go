@@ -436,18 +436,6 @@ func ParseFile(path string) ([]nomiast.Node, error) {
 	return nodes, nil
 }
 
-// BoundImportPaths is the Go import path of each `gopkg` declaration in a
-// file whose nodes are nodes, as BindingImportPath reads one.
-func BoundImportPaths(nodes []nomiast.Node) []string {
-	aliases := make(map[string]*nomiast.ExternPackage)
-	collectExternPackages(nodes, aliases)
-	out := make([]string, 0, len(aliases))
-	for _, pkg := range aliases {
-		out = append(out, pkg.ImportPath)
-	}
-	return out
-}
-
 func collectExternPackages(nodes []nomiast.Node, aliases map[string]*nomiast.ExternPackage) {
 	for _, n := range nodes {
 		switch v := n.(type) {

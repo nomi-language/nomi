@@ -53,7 +53,8 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	if !isTestingCheckCallee(t.Func) {
 		return false
 	}
-	if std, ok := stdFileOfScope(bl.g.fa, moduleScopeOf(bl.g.fa, "testing")); ok {
+	owner, _ := ast.QualifierIdent(t.Func.(*ast.FieldAccess).Object)
+	if std, ok := bl.g.stdFileQualifier(owner); ok {
 		return std == "testing"
 	}
 	// std/testing naming itself from a source checked on its own (a tour
@@ -61,7 +62,7 @@ func (bl *irScalarBuilder) testingCheckCall(t *ast.Call) bool {
 	// this file's own scope, which the stdlib's module scopes list only as
 	// the cached module's.
 	return bl.g.stdModule == "testing" && bl.g.fa != nil &&
-		moduleScopeOf(bl.g.fa, "testing") == bl.g.fa.ModuleScope
+		bl.g.qualifierScope(owner) == bl.g.fa.ModuleScope
 }
 
 // testingCheck lowers `testing.check(e)`.

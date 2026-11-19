@@ -85,9 +85,7 @@ func ParseDiagnostics(parseErrs []parser.ParseError) []rt.Diagnostic {
 // goes through before analysis, and reports the errors they raise.
 func PrepareNodes(nodes []ast.Node) ([]ast.Node, []analysis.TypeError) {
 	lowered, lowerErrs := analysis.LowerDerives(nodes)
-	extended, deriveErrs := analysis.SynthesizeDerives(lowered)
-	errs := append(lowerErrs, deriveErrs...)
-	return analysis.SynthesizeUniversalDebug(extended), errs
+	return analysis.SynthesizeUniversalDebug(lowered), lowerErrs
 }
 
 // ProjectDiagnostics is the whole analysis pass over one prepared entry tree,

@@ -742,6 +742,47 @@ derive Equatable for Point
 	}
 }
 
+// Go-to-def on the interface of `derive json.ToJson for User` jumps to
+// std's ToJson, though the file declares its own.
+func TestFindDefinition_OnQualifiedDeriveArgResolvesToStdsInterface(t *testing.T) {
+	input := `import std::json
+
+interface ToJson
+  fn to_json(value: self) -> String
+end
+
+pub struct User
+  name: String
+end
+
+derive json.ToJson for User
+`
+	uri := "file:///test.nomi"
+
+	s := NewServer()
+	s.docs.Open(uri, input)
+
+	// `ToJson` on the derive line: 1-based line 11, zero-based line 10;
+	// character 13 is inside `ToJson` after `derive json.`.
+	params := &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 10, Character: 13},
+		},
+	}
+	result, err := s.textDocumentDefinition(nil, params)
+	if err != nil {
+		t.Fatalf("definition request returned error: %v", err)
+	}
+	loc, ok := result.(*protocol.Location)
+	if !ok || loc == nil {
+		t.Fatalf("expected a Location for `ToJson` on the derive line, got %T %v", result, result)
+	}
+	if wantURI := protocol.DocumentUri(s.std.FileURI("json")); loc.URI != wantURI {
+		t.Errorf("expected URI %q (std's json.nomi), got %q at %v", wantURI, loc.URI, loc.Range)
+	}
+}
+
 // Go-to-def on the interface name in an `impl Iface for Type { ... }` block
 // should jump to the interface declaration.
 func TestFindDefinition_OnImplHeaderInterfaceResolvesToInterface(t *testing.T) {

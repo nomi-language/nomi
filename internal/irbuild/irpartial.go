@@ -213,7 +213,7 @@ func (bl *irScalarBuilder) partialOverEntry(t *ast.Call) *ast.Call {
 	}
 	name := "%entry" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + id.Name
 	bl.bound[name], bl.boundK[name] = plan.entry, plan.entryKind
-	return &ast.Call{Func: &ast.Ident{Name: name, Line: id.Line, Col: id.Col}, Args: t.Args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col}
+	return &ast.Call{Func: bl.g.madeIdent(name, id.Line, id.Col), Args: t.Args, TypeArgs: t.TypeArgs, Line: t.Line, Col: t.Col}
 }
 
 // partialCall is what partialApplication knows of a partial capture's call
@@ -447,14 +447,14 @@ func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast
 			slot := pc.plan.slots[i]
 			arg := pc.written[slot]
 			if arg == nil {
-				arg = &ast.Ident{Name: pc.openName[slot], Line: t.Line, Col: t.Col}
+				arg = bl.g.madeIdent(pc.openName[slot], t.Line, t.Col)
 			}
 			args = append(args, &ast.NamedArg{Name: names[slot], Value: arg, Line: t.Line, Col: t.Col})
 			argSlots = append(argSlots, slot)
 		}
 		for slot := range params {
 			if filled[slot] && !planned[slot] {
-				arg := &ast.Ident{Name: pc.openName[slot], Line: t.Line, Col: t.Col}
+				arg := bl.g.madeIdent(pc.openName[slot], t.Line, t.Col)
 				args = append(args, &ast.NamedArg{Name: names[slot], Value: arg, Line: t.Line, Col: t.Col})
 				argSlots = append(argSlots, slot)
 			}
@@ -468,7 +468,7 @@ func (bl *irScalarBuilder) partialBodyArgs(pc partialCall, filled []bool) ([]ast
 		case pc.written[slot] != nil:
 			arg = pc.written[slot]
 		case filled[slot]:
-			arg = &ast.Ident{Name: pc.openName[slot], Line: line, Col: col}
+			arg = bl.g.madeIdent(pc.openName[slot], line, col)
 		case named && p.Default != nil:
 			continue
 		default:
@@ -681,7 +681,7 @@ func (bl *irScalarBuilder) partialCalleeDefault(t *ast.Call, params []ast.Param,
 			if !filled[s] {
 				continue
 			}
-			v, k, _, ok := child.lower(&ast.Ident{Name: openName[s], Line: t.Line, Col: t.Col})
+			v, k, _, ok := child.lower(child.g.madeIdent(openName[s], t.Line, t.Col))
 			if !ok || k != kinds[s] {
 				return ir.NoTemp, false
 			}
@@ -854,7 +854,7 @@ func (bl *irScalarBuilder) partialStdDefault(t *ast.Call, kinds []kind, slot int
 			ok := true
 			switch {
 			case filled[s]:
-				v, k, _, ok = child.lower(&ast.Ident{Name: openName[s], Line: t.Line, Col: t.Col})
+				v, k, _, ok = child.lower(child.g.madeIdent(openName[s], t.Line, t.Col))
 			default:
 				v, ok = accessor(s)
 				k = f.params[s]

@@ -81,7 +81,7 @@ func TestImplementsInterface(t *testing.T) {
 		{&analysis.FuncType{Return: analysis.TypeInt}, "Display", false},
 	}
 	for _, c := range cases {
-		if got := analysis.ImplementsInterface(fa, c.ty, c.iface); got != c.want {
+		if got := analysis.ImplementsInterface(fa, c.ty, &analysis.InterfaceType{Name: c.iface}); got != c.want {
 			t.Errorf("ImplementsInterface(%s, %s) = %v, want %v", c.ty, c.iface, got, c.want)
 		}
 	}

@@ -469,10 +469,10 @@ func (g *gen) itemKinds(og *gen, it *implItem) (params []kind, result kind, ok b
 // operator t (analysis.OperatorUse.Impl.Method), a binary operator or a
 // prefix `~~~`, whose operand implementing it (the left one of two) is of
 // kind lk: a program's impl item and its gen, or a std function. recorded
-// is false when the record names no impl: an operator over a primitive
-// the checker leaves unrecorded, one over a type parameter (resolved at
-// each instance's kind) or over interface values, and one the builder
-// wrote itself.
+// is false when the record names no impl: an operator over a type
+// parameter with no checker type in the frame (resolved at each
+// instance's kind), one over interface values or by shape, and one the
+// builder wrote itself.
 func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, it *implItem, f *stdFunc, recorded bool) {
 	use := bl.g.operatorUse(t)
 	if use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil || isNilNode(use.Impl.Method) {
@@ -482,4 +482,24 @@ func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, i
 		return og, it, nil, true
 	}
 	return nil, nil, bl.g.stdFuncByID(bl.g.srcFA().StdFuncOf(use.Impl.Method)), true
+}
+
+// operatorCall is the call the binary operator t means, `Iface.method(a,
+// b)` over its two operands, for a route that lowers an operator as a
+// call of an impl: a call the builder writes, carrying the record a call
+// of the impl function the operator's record names has
+// (analysis.FileAnalysis.ImplCallee), so the routes that lower a recorded
+// call (recordedCallPlan, a std container's ifaceContainerCall) plan it
+// from that function. recorded is false, and the call carries no record,
+// for an operator whose record names no impl (recordedOperatorImpl).
+// done drops the record.
+func (bl *irScalarBuilder) operatorCall(t *ast.Binary) (call *ast.Call, recorded bool, done func()) {
+	call = &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
+	use := bl.g.operatorUse(t)
+	if use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil || isNilNode(use.Impl.Method) {
+		return call, false, func() {}
+	}
+	rec := analysis.PositionalCall(2, 2)
+	rec.Callee = bl.g.instanceFA().ImplCallee(use.Impl.Method)
+	return call, true, bl.g.carryCall(call, rec)
 }

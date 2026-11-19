@@ -114,6 +114,30 @@ func TestPipeStage_LambdaIsRejected(t *testing.T) {
 	}
 }
 
+// A bare `if` stage's condition is the piped value, and a piped value that
+// is not a Bool is reported where that value is, as an unpiped `if`'s
+// condition is. `|>` binds tighter than `==`, so `0 == 1 |> if` pipes `1`.
+// The error had no line or column.
+func TestPipeStage_IfConditionIsReportedAtThePipedValue(t *testing.T) {
+	for _, tc := range []struct {
+		stmt string
+		col  int
+	}{
+		{"x = 0 == 1 |> if then 1 else 0", 12},
+		{"x = 0 == if 1 then 1 else 0", 15},
+	} {
+		src := pipeStageDecls + "fn main()\n  " + tc.stmt + "\n  _ = x\nend\n"
+		_, errs := checkSourceWithStdlib(src)
+		want := "if condition must be Bool, got Int"
+		if len(errs) != 1 || errs[0].Message != want {
+			t.Fatalf("%s: errors = %v, want exactly %q", tc.stmt, errs, want)
+		}
+		if errs[0].Line != 20 || errs[0].Col != tc.col {
+			t.Errorf("%s: the error is at %d:%d, want 20:%d (the condition `1`)", tc.stmt, errs[0].Line, errs[0].Col, tc.col)
+		}
+	}
+}
+
 // A parenthesized `dbg expr` is the value of expr, not a stage: `5 |> (dbg 1)`
 // would pipe 5 into 1. It passed the checker and stopped at run time with
 // "the pipe operator". The error sits on the group and names `|> dbg`.

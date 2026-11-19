@@ -141,7 +141,6 @@ func checkProgramDump(t *testing.T, root, entry string, order []string) map[stri
 		t.Fatalf("parse %s: %v", entry, perrs)
 	}
 	nodes, _ = analysis.LowerDerives(nodes)
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 	entryFA, siblings, siblingNodes := analysis.BuildProjectFromEntryWithManifest(
 		entryPath, nodes, lib.Primitives, lib.Modules, lib.Files, root, std.MakeLoader(), nil, entry, true)

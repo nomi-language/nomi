@@ -396,15 +396,14 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		entryNodes = prependPreludeImports(entryNodes, preludeStmts)
 	}
 
-	// Run @derive synthesis on every file's nodes before any sweep sees
-	// them. Synthesized impl-block nodes flow through Sweep A's
-	// defineSymbolStub like any hand-written impl block, so the analyzer's
-	// Impls / DispatchNames tables capture them automatically. Errors
-	// surface on each file's FileAnalysis.TypeErrors below.
+	// Lower every file's derives before any sweep sees them. The impl
+	// blocks lowering writes flow through Sweep A's defineSymbolStub like
+	// any hand-written impl block, so the analyzer's Impls / DispatchNames
+	// tables capture them automatically. Errors surface on each file's
+	// FileAnalysis.TypeErrors below.
 	//
-	// IMPORTANT: synthesis also happens in the front end
-	// (internal/frontend's Checker.Prepare calls SynthesizeDerives once
-	// before analysis). This block is the analysis-only entrypoint — when callers go
+	// IMPORTANT: lowering also happens in the front end
+	// (internal/frontend's Checker.Prepare lowers once before analysis). This block is the analysis-only entrypoint — when callers go
 	// straight to BuildProject (e.g. the LSP) we still want the same
 	// synthesis behaviour.
 	deriveErrsByKey := make(map[string][]TypeError, len(proj.Files)+1)
@@ -439,13 +438,12 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 		lowered, lowerErrs := LowerDerivesWith(nodes, imported)
 		lowerErrs = append(partnerErrs, lowerErrs...)
 		loweredLen[key] = len(lowered)
-		extended, errs := SynthesizeDerives(lowered)
-		errs = append(lowerErrs, errs...)
-		// Universal default Debug: after derive synthesis, eagerly synthesize
+		extended, errs := lowered, lowerErrs
+		// Universal default Debug: after derive lowering, eagerly synthesize
 		// an `impl Debug` block for every declared type lacking ANY explicit Debug.
 		// Per-file (so the orphan rule attributes each auto-impl to its
-		// receiver type's home module) and after SynthesizeDerives (so an
-		// explicit `@derive Debug` suppresses the auto one). The synthesized
+		// receiver type's home module) and after lowering (so a `derive
+		// Debug` suppresses the auto one). The synthesized
 		// `impl Debug` blocks flow through Sweep A's defineSymbolStub like
 		// any other impl, landing in the Impls / dispatch tables.
 		extended = SynthesizeUniversalDebug(extended)
@@ -457,8 +455,7 @@ func buildProjectWithCache(entryNodes []ast.Node, primitives *Scope, modules map
 	partnerEntry, entryPartnerErrs := LowerPartnerDerives(entryNodes, entryModRel, projectNodes)
 	loweredEntry, entryLowerErrs := LowerDerives(partnerEntry)
 	entryLowerErrs = append(entryPartnerErrs, entryLowerErrs...)
-	extendedEntry, entryDeriveErrs := SynthesizeDerives(loweredEntry)
-	entryDeriveErrs = append(entryLowerErrs, entryDeriveErrs...)
+	extendedEntry, entryDeriveErrs := loweredEntry, entryLowerErrs
 	extendedEntry = SynthesizeUniversalDebug(extendedEntry)
 	entryNodes = extendedEntry
 

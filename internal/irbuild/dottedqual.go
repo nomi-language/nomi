@@ -71,16 +71,17 @@ import (
 //
 // THE LOCAL-BINDING CHECK IS WHAT KEEPS AN ORDINARY FIELD CHAIN OUT, and it is
 // a decline rather than a lookup so `a.b.c` over a local `a` costs nothing new.
-// It is also the shadowing rule: `moduleScopeOf` reads the FILE's module scope,
-// which a block-local binding of the same name shadows, and resolving through
-// it anyway would read a module where the programmer wrote a value.
+// It is also the shadowing rule: a binding of the qualifier's name, which the
+// checker resolved the root to (namesLocal), shadows the file's import of
+// it, and resolving through the import anyway would read a module where the
+// programmer wrote a value.
 //
 // THE AUTHORITY IS THE ANALYZER, NOT THE PARSER: `parser.
 // parseQualifiedTypeDeclName` ACCEPTS a `token.IDENT` segment, so
 // `pub enum probe.Reading { … }` parses. It is `analysis/checker.go`'s
 // `isPascalCase` loop that refuses it, with `enum "probe.Reading" must use
 // PascalCase segments`.
-func (g *gen) dottedTypeQualifier(n ast.Node) (string, bool) {
+func (bl *irScalarBuilder) dottedTypeQualifier(n ast.Node) (string, bool) {
 	fa, isFA := n.(*ast.FieldAccess)
 	if !isFA || fa.Field == nil {
 		return "", false
@@ -95,7 +96,7 @@ func (g *gen) dottedTypeQualifier(n ast.Node) (string, bool) {
 		case *ast.Ident:
 			// A MODULE QUALIFIER, or the root of an ordinary field chain. A
 			// name this scope binds is a VALUE and never a qualifier.
-			if _, bound := g.lookup(o.Name); bound {
+			if bl.namesLocal(o) {
 				return "", false
 			}
 			root = o.Name
@@ -115,7 +116,7 @@ func (g *gen) dottedTypeQualifier(n ast.Node) (string, bool) {
 		segs = append(segs, root)
 		slices.Reverse(segs)
 		name := strings.Join(segs, ".")
-		if _, known := g.namedType(name); !known {
+		if _, known := bl.g.namedType(name); !known {
 			return "", false
 		}
 		return name, true

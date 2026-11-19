@@ -167,7 +167,7 @@ func (bl *irScalarBuilder) fromCall(t *ast.TryOp, conv *analysis.Symbol, e ir.Te
 			plan = bl.implItemPlan(call, args, item, owner+"."+fd.Name)
 		}
 	} else if fk.def != nil {
-		plan = bl.qualSiblingIfaceImplPlan(call, args, fk.def, fd.Name, "From")
+		plan = bl.qualSiblingIfaceImplPlan(call, args, fk.def, fd.Name, stdIfaceImplKey(stdFrom))
 	}
 	if plan == nil || plan.result != fk {
 		return ir.NoTemp, false

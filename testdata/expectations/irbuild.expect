@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population irbuild
 what one record per program an internal/irbuild test compares the VM against, keyed <entry>@<sha256(its files, .nomi files as tokens)[:16]>, run as the command that owns it would run it. <dir> is the program's directory. A temp program carries its files as source; a repository program's entry is its path from the worktree root.
-records 379
+records 385
 declared-cases 0
 failing 85
 C assert_subject_test.nomi@295b6bb031afecb5
@@ -1155,6 +1155,35 @@ T       do_thing(n, &Int.max(&1, 70))
 T         = 77
 T test result: FAILED. 1 passed, 1 failed
 T
+C control_test.nomi@84045075b8092c73
+E 0
+N 0
+H ee4a90d2df0f3243cda5f128a9fb25414e73c0dbee8ff2c632043df0061e6380
+S -- control_test.nomi 293 --
+S import std::testing
+S
+S struct Checker
+S     check: (Bool) -> Bool
+S end
+S
+S fn yes(_b: Bool) -> Bool
+S     True
+S end
+S
+S test "a local named testing"
+S     testing = Checker{check: yes}
+S     assert testing.check(False)
+S end
+S
+S test "std's testing once the local is out of scope"
+S     assert testing.check(True)
+S end
+S
+S
+T ok <dir>/control_test.nomi :: a local named testing
+T ok <dir>/control_test.nomi :: std's testing once the local is out of scope
+T test result: ok. 2 passed, 0 failed
+T
 C control_test.nomi@8793e47d54f1510e
 E 1
 N 0
@@ -1959,6 +1988,59 @@ T   dbg line 8: dyn = "hi"
 T   "hi"
 T   dbg line 10: Json.to_dynamic(Json.String("four")) = "four"
 T test result: ok. 1 passed, 0 failed
+T
+C entry.nomi@545c4a4519237e7d
+E 0
+N 0
+H 810c5fde28a51f84e7ac3c618d5b15ffe13c7a324c960b28ff29044d13d36dea
+S -- entry.nomi 1066 --
+S import std::io
+S import std::matcher.Matcher
+S import std::regex.Regex
+S
+S struct Bag
+S     n: Int
+S end
+S
+S impl Contains<Int> for Bag
+S     fn contains(c: Bag, x: Int) -> Bool
+S         x <= c.n
+S     end
+S end
+S
+S fn holders(x: Int, cs: List<Contains<Int>>) -> Int
+S     cs |> Iter.filter(fn c -> x in c) |> Iter.count()
+S end
+S
+S fn found(ms: List<Matcher>, text: String) -> List<String>
+S     ms |> Iter.map(&(Matcher.find_in(&1, text) |> Maybe.with_default("-"))) |> Iter.to_list()
+S end
+S
+S fn main()
+S     c: Contains<Int> = [1, 2, 3]
+S     io.print(Bool.to_string(2 in c))
+S     io.print(Bool.to_string(Contains.contains(c, 9)))
+S     io.print(Int.to_string(holders(3, [[1, 2], 1..5, Bag{n: 3}, Set[3]])))
+S     keys: Contains<String> = {"a" => 1}
+S     io.print(Bool.to_string("a" in keys))
+S     re = Regex`a+`
+S     ms: List<Matcher> = ["n", re]
+S     io.print(String.join(found(ms, "banaana"), ","))
+S     m: Matcher = re
+S     io.print(String.join(Matcher.split_in(m, "baaxaay"), "|"))
+S     h: Hashable = [1, 2]
+S     same: Hashable = [1, 2]
+S     io.print(Bool.to_string(Hashable.hash(h) == Hashable.hash(same)))
+S end
+S
+S
+T True
+T False
+T 3
+T True
+T n,a
+T b|x|y
+T True
 T
 C group_test.nomi@05c870498b88d42d
 E 0
@@ -8460,6 +8542,123 @@ T       n
 T         = 3
 T test result: FAILED. 1 passed, 5 failed
 T
+C main.nomi@013700ea98b7ea66
+E 0
+N 0
+H 4248ac9fb32a7ae546953b3312b6e61fc60896f6711efb67c2f4071160004fe8
+S -- main.nomi 485 --
+S import std::io
+S import std::json.{FromJson, Json, ToJson}
+S
+S typealias Key String
+S
+S typealias Counts Map<Key, Int>
+S
+S struct Tally
+S     counts: Counts
+S     by_name: Map<String, Int>
+S     names: List<String>
+S end
+S
+S derive Equatable for Tally
+S derive ToJson for Tally
+S derive FromJson for Tally
+S
+S fn main()
+S     t = Tally{counts: {"a" => 1}, by_name: {"b" => 2}, names: ["c"]}
+S     io.print(Json.to_string(ToJson.to_json(t)))
+S     io.print("${FromJson.from_json<Tally>(ToJson.to_json(t)) == Ok(t)}")
+S end
+S
+S
+T {"counts":{"a":1},"by_name":{"b":2},"names":["c"]}
+T True
+T
+C main.nomi@01f70f41fbe02ef4
+E 0
+N 0
+H 89c4fbb80853ca7efddcfba95e0255130130621d30eadf8f0ee6f30f3f7c92cf
+S -- main.nomi 1036 --
+S interface Shape
+S     fn area(s: self) -> Int
+S end
+S
+S struct Point
+S     x: Int
+S     y: Int
+S end
+S
+S derive Equatable for Point
+S derive Hashable for Point
+S
+S impl Shape for Point
+S     fn area(p: Point) -> Int
+S         p.x * p.y
+S     end
+S end
+S
+S fn two() -> Int
+S     2
+S end
+S
+S fn main()
+S     t: Equatable = (1, "a")
+S     dbg t == (1, "a")
+S     dbg (1, "a") == t
+S     dbg t != (1, "b")
+S     dbg t == (1, "b")
+S     a: Equatable = {name: "n", n: 2}
+S     dbg a == {name: "n", n: 2}
+S     dbg {name: "n", n: 3} != a
+S     p: Equatable = Point{x: 1, y: 2}
+S     dbg p == Point{x: 1, y: two()}
+S     dbg Point{x: 2, y: 2} == p
+S     i: Equatable = 3
+S     dbg i == 3
+S     dbg 4 == i
+S     dbg i != 3
+S     s: Equatable = "s"
+S     dbg s == "s"
+S     dbg "t" == s
+S     dbg s == 3
+S     h: Hashable = (1, "a")
+S     dbg h == (1, "a")
+S     dbg 5 == h
+S     hp: Hashable = Point{x: 1, y: 2}
+S     dbg hp == Point{x: 1, y: 2}
+S     hs: Hashable = "x"
+S     dbg "x" == hs
+S     hi: Hashable = 7
+S     dbg hi != 7
+S     sh: Shape = Point{x: 2, y: 2}
+S     dbg sh == Point{x: two(), y: 2}
+S     d: Display = 4
+S     dbg d == 4
+S end
+S
+S
+T dbg line 25: t == (1, "a") = True
+T dbg line 26: (1, "a") == t = True
+T dbg line 27: t != (1, "b") = True
+T dbg line 28: t == (1, "b") = False
+T dbg line 30: a == {name: "n", n: 2} = True
+T dbg line 31: {name: "n", n: 3} != a = True
+T dbg line 33: p == Point{x: 1, y: two()} = True
+T dbg line 34: Point{x: 2, y: 2} == p = False
+T dbg line 36: i == 3 = True
+T dbg line 37: 4 == i = False
+T dbg line 38: i != 3 = False
+T dbg line 40: s == "s" = True
+T dbg line 41: "t" == s = False
+T dbg line 42: s == 3 = False
+T dbg line 44: h == (1, "a") = True
+T dbg line 45: 5 == h = False
+T dbg line 47: hp == Point{x: 1, y: 2} = True
+T dbg line 49: "x" == hs = True
+T dbg line 51: hi != 7 = False
+T dbg line 53: sh == Point{x: two(), y: 2} = True
+T dbg line 55: d == 4 = True
+T
 C main.nomi@2c6c1ae1cd739c70
 E 1
 N 0
@@ -8747,6 +8946,105 @@ T 1
 T 0
 T --- stderr ---
 T line 5: `NonZeroInt.try_from(n)` found nothing
+T
+C main.nomi@b2effdd841ce139e
+E 0
+N 0
+H 112f29f08558d075af0d2f7833c164a535d5238b5f0777c30307bdb72c926179
+S -- main.nomi 569 --
+S import std::io
+S
+S struct Circle
+S     radius: Float
+S end
+S
+S enum Shape
+S     embeds Circle
+S     Point
+S end
+S
+S derive Equatable for Circle
+S
+S derive Equatable for Shape
+S
+S fn same(value: Shape, other: Shape) -> String
+S     case value
+S         .Circle{radius: _} -> "${value == other} ${other != value}"
+S         .Point -> "point"
+S     end
+S end
+S
+S fn main()
+S     c = Circle{radius: 1.0}
+S     s: Shape = Shape.Point
+S     io.print("${c == s} ${s != c} ${c == Circle{radius: 1.0}}")
+S     io.print(same(Circle{radius: 1.0}, Circle{radius: 1.0}))
+S     io.print(same(Circle{radius: 1.0}, Shape.Point))
+S end
+S
+S
+T False True True
+T True False
+T False True
+T
+C main.nomi@b5b4c32cf20badf4
+E 0
+N 0
+H 04aef79fb985b0dee16d87ba18014ef9b4c6f18bd7fdac0d62c7f1bb1b7a92d1
+S -- main.nomi 892 --
+S import std::io
+S
+S interface Ranked
+S     fn rank(value: self) -> Int
+S
+S     fn beats(a: self, b: self) -> Bool where self: Comparable and Equatable
+S         a > b and a != b
+S     end
+S end
+S
+S struct Card
+S     n: Int
+S end
+S
+S derive Equatable for Card
+S
+S impl Comparable for Card
+S     fn compare(a: Card, b: Card) -> Ordering
+S         Int.compare(a.n, b.n)
+S     end
+S end
+S
+S impl Ranked for Card
+S     fn rank(c: Card) -> Int
+S         c.n
+S     end
+S end
+S
+S struct Pair
+S     a: Int
+S     b: Int
+S end
+S
+S impl Comparable for Pair
+S     fn compare(x: Pair, y: Pair) -> Ordering
+S         Int.compare(x.a + x.b, y.a + y.b)
+S     end
+S end
+S
+S impl Ranked for Pair
+S     fn rank(p: Pair) -> Int
+S         p.a + p.b
+S     end
+S end
+S
+S fn main()
+S     io.print("${Ranked.beats(Card{n: 2}, Card{n: 1})} ${Card.beats(Card{n: 1}, Card{n: 1})}")
+S     io.print("${Pair.beats(Pair{a: 1, b: 3}, Pair{a: 2, b: 1})} ${Ranked.beats(Pair{a: 1, b: 1}, Pair{a: 2, b: 2})}")
+S end
+S
+S
+T True False
+T True False
 T
 C main.nomi@dfe50c0afca81c9f
 E 1

@@ -57,7 +57,7 @@ Parts of a shipped feature that are not built. Each line is open work.
 
 - **Streams.** `io.is_terminal` and `Writer.from_fn`. Deadlines on pollable reads: a file read runs to completion, and only a read of standard input can be cancelled.
 - **Capability classes.** No real target lacks `files` yet; `--web` prints a note when a program uses files. `nomi check --target` and a `[build] targets` list for the language server are not built. A refusal names a call's opening parenthesis as its column.
-- **Capability lists.** The walk is conservative: an impl counts whether or not its type is ever constructed, and every `Display` body counts once any value is rendered. A module is charged only for calls written in its own files. A default-argument accessor is reported as a plain call. A Go binding is named by its package and not looked inside. The editor offers no quick fix that edits `nomi.toml`. A `std::` name is checked against the modules a program can import, not against the modules that reach outside. `Program.Cases`, which the tour's runner calls for a block's tests, is not held to `nomi.toml`'s lists; `Program.Test` and `nomi test` are.
+- **Capability lists.** The walk is conservative: an impl counts whether or not its type is ever constructed, and every `Display` body counts once any value is rendered. A module is charged only for calls written in its own files. A default-argument accessor is reported as a plain call. A Go binding is allowed by its module, whole, and not looked inside. `nomi check --format json` of a program with Go bindings, which the FFI wrapper checks, gives each diagnostic as text with no `code` or `args`. The editor offers no quick fix that edits `nomi.toml`. A `std::` name is checked against the modules a program can import, not against the modules that reach outside. `Program.Cases`, which the tour's runner calls for a block's tests, is not held to `nomi.toml`'s lists; `Program.Test` and `nomi test` are.
 - **Recursion check.** Mutual recursion, calls inside lambdas and interface default bodies are not checked for calling themselves forever.
 - **`io.replay`.** `Replayed` is not generic, so it does not carry `run`'s value.
 - **Numbers and lists.** Compact and scientific notation, and ICU's contextual list words (Spanish `y`/`e`). `String.join_list` takes a `List<String>`, not an `Iter`, because a std function cannot take an `Iter<T>` unless it is generic, and a generic one's defaults cannot be left out.
@@ -181,6 +181,9 @@ Not yet implemented:
 - [ ] Runtime-typed dispatch (`import_impls`) for values whose impls the analyzer cannot record.
 - [ ] `host type` field access and Nomi-side construction.
 - [ ] Opaque handles for Go channels, functions and non-empty interfaces.
+- [ ] A host that embeds Nomi through the wasip1 reactor cannot supply host functions: a `host fn` is answered only by a Go table linked into the runner.
+- [ ] The reactor loads compiled programs (`.nomic`) only; it cannot compile source text.
+- [ ] A host list given to `vmrunner` or the reactor checks a `std::` name's form only, so a misspelled std module allows nothing rather than failing the load.
 
 ## Platforms
 

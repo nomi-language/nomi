@@ -56,7 +56,7 @@ func (c *checker) targetLiteralType(expected Type) (string, *ast.FuncDef) {
 	default:
 		return "", nil
 	}
-	build := resolveConcreteImpl(c.fa.Program(), "CheckedLiteral", "build", resolved)
+	build := resolveConcreteImpl(c.fa.Program(), "CheckedLiteral", OriginUnresolved, "build", resolved)
 	if build == nil {
 		return "", nil
 	}

@@ -55,7 +55,7 @@ func (c *checker) applyTryFrom(want, got Type, line, col int) bool {
 		if impl == nil {
 			return false
 		}
-		c.recordBoundConformance(want, "From", c.recPos(line, col), RecordingKindCallSite)
+		c.recordBoundConformance(want, "From", OriginUnresolved, c.recPos(line, col), RecordingKindCallSite)
 		if sym := c.fa.References[Pos{Line: line, Col: col}]; sym != nil && sym.Kind == SymbolTryOp && sym.TryOp != nil {
 			info := *sym.TryOp
 			info.Convert = &TryConversion{From: got, To: want}

@@ -998,7 +998,7 @@ func (g *gen) importNamed(src *typeDef) (kind, bool) {
 
 // declaresEquatable is declaresImpl for Equatable.
 func (r *typeRegistry) declaresEquatable(decl ast.Node) bool {
-	return r.declaresImpl("Equatable", decl)
+	return r.declaresImpl(stdEquatable, decl)
 }
 
 // foreignNoImpl establishes, for a MIRROR, that no file in the program writes
@@ -1026,7 +1026,7 @@ func (r *typeRegistry) declaresEquatable(decl ast.Node) bool {
 // local arm does too, and the error direction is the safe one: a user who
 // declares their own `interface Equatable` makes this answer false and
 // over-refuse, never the reverse.
-func (g *gen) foreignNoImpl(iface string, d *typeDef) bool {
+func (g *gen) foreignNoImpl(iface analysis.StdType, d *typeDef) bool {
 	if g.reg == nil || d.decl == nil {
 		return false
 	}
@@ -1065,8 +1065,9 @@ func (g *gen) foreignNoImpl(iface string, d *typeDef) bool {
 // Answers false — "no impl" — only once every gen's table is COMPLETE. While
 // any is short of declareFuncs the answer is "declared", which over-refuses,
 // because a half-built table cannot be told apart from an empty one.
-func (r *typeRegistry) declaresImpl(iface string, decl ast.Node) bool {
-	if r.declared[iface] == nil {
+func (r *typeRegistry) declaresImpl(iface analysis.StdType, decl ast.Node) bool {
+	key := stdIfaceImplKey(iface)
+	if r.declared[key] == nil {
 		for _, g := range r.gens {
 			if g == nil || !g.funcsDone {
 				return true
@@ -1078,7 +1079,7 @@ func (r *typeRegistry) declaresImpl(iface string, decl ast.Node) bool {
 		set := map[ast.Node]bool{}
 		for _, g := range r.gens {
 			for _, impl := range g.implOrder {
-				if impl.ifaceName != iface || impl.recv.tag != tagNamed || impl.recv.def == nil {
+				if impl.ifaceKey != key || impl.recv.tag != tagNamed || impl.recv.def == nil {
 					continue
 				}
 				if impl.recv.def.decl != nil {
@@ -1089,15 +1090,15 @@ func (r *typeRegistry) declaresImpl(iface string, decl ast.Node) bool {
 			// against each instance as it is built, never in implOrder; an
 			// instance's decl is its template's.
 			for _, tpl := range g.genericTemplates {
-				markTemplateImpl(set, tpl, iface)
+				markTemplateImpl(set, tpl, iface.Name)
 			}
 			for _, tpl := range g.blockLocalTemplates {
-				markTemplateImpl(set, tpl, iface)
+				markTemplateImpl(set, tpl, iface.Name)
 			}
 		}
-		r.declared[iface] = set
+		r.declared[key] = set
 	}
-	return r.declared[iface][decl]
+	return r.declared[key][decl]
 }
 
 // markTemplateImpl adds tpl's declaration to set when one of its impl blocks

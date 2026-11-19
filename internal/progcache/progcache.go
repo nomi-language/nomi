@@ -784,13 +784,9 @@ func keyOf(id, kind, entryFile string) string {
 }
 
 // prune removes the records under dir nothing has read for unused, at most
-// once per pruneEvery, which a marker file's time keeps.
+// once per pruneEvery (artifactcache.Due).
 func prune(dir string) {
-	marker := filepath.Join(dir, ".pruned")
-	if info, err := os.Stat(marker); err == nil && time.Since(info.ModTime()) < pruneEvery {
-		return
-	}
-	if err := artifactcache.WriteFile(marker, nil); err != nil {
+	if !artifactcache.Due(dir, pruneEvery) {
 		return
 	}
 	subdirs, err := os.ReadDir(dir)

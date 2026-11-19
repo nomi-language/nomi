@@ -544,7 +544,8 @@ func (g *gen) irImplTypeSym(k kind) *ir.Symbol {
 // irInstanceImpls are the impl blocks registered per instance of a generic
 // struct (registerInstanceImpls), which implOrder does not hold, for each
 // instance this unit holds erased (erasedInstances), ordered by interface
-// and instance key so the module's entries do not follow map order. An
+// name, instance key and interface identity so the module's entries do not
+// follow map order. An
 // instance never erased is never dispatched on, and recording its impls
 // would make each one reachable from every erased rendering.
 func (g *gen) irInstanceImpls() []*implDef {
@@ -553,7 +554,7 @@ func (g *gen) irInstanceImpls() []*implDef {
 		d   *implDef
 	}
 	var entries []entry
-	for iface, byRecv := range g.implsByIface {
+	for key, byRecv := range g.implsByIface {
 		for recv, d := range byRecv {
 			if d == nil || recv.def == nil || recv.def.preludeOf != nil {
 				continue
@@ -567,7 +568,7 @@ func (g *gen) irInstanceImpls() []*implDef {
 			if v == nil || v.InstanceKey() == "" {
 				continue
 			}
-			entries = append(entries, entry{iface + "|" + v.InstanceKey(), d})
+			entries = append(entries, entry{d.ifaceName + "|" + v.InstanceKey() + "|" + key, d})
 		}
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].key < entries[j].key })
@@ -584,7 +585,7 @@ func (g *gen) irInstanceImpls() []*implDef {
 // value's runtime type name or instance key (ir.Module.ImplementDisplay).
 func (g *gen) irRecordDisplayImpls() {
 	for _, d := range append(g.implOrder, g.irInstanceImpls()...) {
-		if d.ifaceName != "Display" || !d.lowerable || d.recv.tag != tagNamed || d.recv.def == nil ||
+		if d.ifaceKey != stdIfaceImplKey(stdDisplay) || !d.lowerable || d.recv.tag != tagNamed || d.recv.def == nil ||
 			d.recv.def.preludeOf != nil {
 			continue
 		}
@@ -611,7 +612,7 @@ func (g *gen) irRecordRowDebugImpls() {
 		return
 	}
 	for _, d := range g.implOrder {
-		if d.ifaceName != "Debug" || d.synth || !d.lowerable || d.recv.tag != tagNamed || d.recv.def == nil ||
+		if d.ifaceKey != stdIfaceImplKey(stdDebug) || d.synth || !d.lowerable || d.recv.tag != tagNamed || d.recv.def == nil ||
 			d.recv.def.genericOf != nil || d.recv.def.preludeOf != nil {
 			continue
 		}
@@ -638,16 +639,16 @@ func (g *gen) irRecordRowDebugImpls() {
 // per-instance blocks (registerImplAt) are only there, and sorts by type name
 // so the module's entries do not follow map order.
 func (g *gen) irRecordKeyImpls() {
-	for _, iface := range []string{"Equatable", "Hashable"} {
+	for _, iface := range []analysis.StdType{stdEquatable, stdHashable} {
 		method := "equal"
-		if iface == "Hashable" {
+		if iface == stdHashable {
 			method = "hash"
 		}
 		type entry struct {
 			typ, fn *ir.Symbol
 		}
 		var entries []entry
-		for recv, d := range g.implsByIface[iface] {
+		for recv, d := range g.implsByIface[stdIfaceImplKey(iface)] {
 			if d == nil || d.synth || !d.lowerable || !irKeyImplRecv(recv) {
 				continue
 			}
@@ -663,7 +664,7 @@ func (g *gen) irRecordKeyImpls() {
 		}
 		sort.Slice(entries, func(i, j int) bool { return entries[i].typ.Name() < entries[j].typ.Name() })
 		for _, e := range entries {
-			if iface == "Hashable" {
+			if iface == stdHashable {
 				g.irMod.ImplementHashable(e.typ, e.fn)
 			} else {
 				g.irMod.ImplementEquatable(e.typ, e.fn)

@@ -384,7 +384,7 @@ func (c *checker) htmlSlotWritesInner(inner Type, at Pos) bool {
 	if _, ok := resolveTypeVar(inner).(*TypeVar); ok {
 		return true
 	}
-	return c.typeImplementsInterface(inner, "Display", at, RecordingKindCallSite)
+	return c.typeImplementsInterface(inner, "Display", OriginUnresolved, at, RecordingKindCallSite)
 }
 
 // htmlDisplaySlots is the slot functions that write a `Display` value's
@@ -415,10 +415,10 @@ func (c *checker) htmlTextTakesDisplay(t Type, at Pos) bool {
 			return false
 		}
 	}
-	if c.typeImplementsInterface(t, "ToHtml", at, RecordingKindCallSite) || htmlTextShape(t) != htmlTextScalar {
+	if c.typeImplementsInterface(t, "ToHtml", OriginUnresolved, at, RecordingKindCallSite) || htmlTextShape(t) != htmlTextScalar {
 		return false
 	}
-	return c.typeImplementsInterface(t, "Display", at, RecordingKindCallSite)
+	return c.typeImplementsInterface(t, "Display", OriginUnresolved, at, RecordingKindCallSite)
 }
 
 // retargetHtmlSlot makes slot call std/html's function named name. The

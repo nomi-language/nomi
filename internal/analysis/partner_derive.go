@@ -110,7 +110,6 @@ func LowerPartnerDerives(nodes []ast.Node, key string, fileNodes func(key string
 		return nodes, nil
 	}
 	var errs []TypeError
-	manualImpls := manualImplsInNodeList(nodes)
 	seen := map[string]map[string]bool{}
 	index := sourceIndices(nodes)
 	partnerImpls := implsWritten(partnerNodes)
@@ -123,7 +122,7 @@ func LowerPartnerDerives(nodes []ast.Node, key string, fileNodes func(key string
 				errs = append(errs, partnerDuplicate(conf, stem))
 				continue
 			}
-			blocks := lowerTopLevelDerive(conf, nodes, index[i], decls, manualImpls, seen, &errs)
+			blocks := lowerTopLevelDerive(conf, nodes, index[i], decls, seen, &errs)
 			names.restoreText(blocks)
 			body = append(body, blocks...)
 			continue
@@ -463,11 +462,12 @@ func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *Project
 		if !ok {
 			continue
 		}
-		iface := foreignDeriveInterface(blk)
-		if iface == nil {
+		iface := derivedInterface(blk)
+		if iface == nil || !derivesStdInterface(fa, iface) {
 			continue
 		}
-		derivePos := Pos{File: fa.FilePath, Line: iface.Line, Col: iface.Col}
+		line, col := typeExprPos(iface, 0, 0)
+		derivePos := Pos{File: fa.FilePath, Line: line, Col: col}
 		if seen[derivePos] {
 			continue
 		}
@@ -499,31 +499,38 @@ func CheckForeignDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *Project
 			set[tp.Name] = true
 		}
 		name, _ := typeDeclName(sym.Node)
-		errs = append(errs, checkDeriveComponentTypes(declFA, fa, impls, fileOf, sym.Node, name, iface.Name, derivePos, set)...)
+		errs = append(errs, checkDeriveComponentTypes(declFA, fa, impls, fileOf, sym.Node, name, TypeExprBaseName(iface), derivePos, set)...)
 	}
 	return errs
 }
 
-// foreignDeriveInterface answers the interface as written of blk when blk
-// is an impl derived for a type another file declares, and nil for any
-// other block. Such a block's header names the interface at the derive's
-// own position (lowerTopLevelDerive), where a derive for a type of the
-// file names it in the synthesized band.
-func foreignDeriveInterface(blk *ast.ImplBlock) *ast.SimpleType {
-	if blk == nil || blk.SynthOriginLine <= 0 || !IsSynthesizedLine(blk.Line) {
+// derivedInterface answers the interface as written of blk when blk is an
+// impl a derive lowered to, and nil for any other block. Such a block sits
+// in the synthesized band, and its header names the interface at the
+// derive's own position (lowerTopLevelDerive): `ToJson`, or `json.ToJson`
+// through a module. The universal Debug's header sits in the band too.
+func derivedInterface(blk *ast.ImplBlock) ast.TypeExpr {
+	if blk == nil || blk.Interface == nil || blk.SynthOriginLine <= 0 || !IsSynthesizedLine(blk.Line) {
 		return nil
 	}
-	iface, ok := blk.Interface.(*ast.SimpleType)
-	if !ok || IsSynthesizedLine(iface.Line) || !deriveSupported[iface.Name] {
+	if IsSynthesizedLine(blk.Interface.LineNum()) || !deriveSupported[TypeExprBaseName(blk.Interface)] {
 		return nil
 	}
-	return iface
+	return blk.Interface
 }
 
 // implsWritten answers, by receiver and then interface base name, the
-// interface impls nodes declare: a derive, lowered or not, or an impl
-// block.
+// impls of derivable interfaces nodes declare: a derive, lowered or not,
+// or an impl block. A derive writes only std's interfaces, so an impl
+// block whose bare header names an interface nodes declare (a file's own
+// `interface ToJson`) is of another interface, and is left out.
 func implsWritten(nodes []ast.Node) map[string]map[string]bool {
+	own := map[string]bool{}
+	for _, n := range nodes {
+		if d, ok := n.(*ast.InterfaceDef); ok {
+			own[d.Name] = true
+		}
+	}
 	out := map[string]map[string]bool{}
 	add := func(recv, iface string) {
 		if recv == "" || iface == "" {
@@ -545,7 +552,8 @@ func implsWritten(nodes []ast.Node) map[string]map[string]bool {
 		case *ast.ImplBlock:
 			// A block the compiler synthesized is a lowered derive, which
 			// the declaration's decorator names, or a universal Debug.
-			if d.Interface != nil && d.Receiver != nil && !IsSynthesizedLine(d.Line) {
+			if d.Interface != nil && d.Receiver != nil && !IsSynthesizedLine(d.Line) &&
+				(implBlockInterfaceQualifier(d.Interface) != "" || !own[TypeExprBaseName(d.Interface)]) {
 				add(TypeExprBaseName(d.Receiver), TypeExprBaseName(d.Interface))
 			}
 		default:

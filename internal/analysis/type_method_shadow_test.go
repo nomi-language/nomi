@@ -43,3 +43,34 @@ end
 		})
 	}
 }
+
+// A program's own struct named like a std type (`Html`, which std's
+// `impl ToHtml for Html` gives a `to_html`) implements only what the
+// program writes for it: with its own `impl Render for Html`, `Html.to_html`
+// is Render's, not ambiguous between Render and std's ToHtml. The file is
+// checked on its own against the stdlib's impl index, which holds none of
+// its impls; the index still says std's impl is for std's Html.
+func TestTypeMethod_AProgramStructNamedLikeAStdTypeHasOnlyItsOwnImpls(t *testing.T) {
+	_, errs := checkSourceWithStdlib(`
+interface Render
+    fn to_html(value: self) -> String
+end
+
+struct Html
+    id: Int
+end
+
+impl Render for Html
+    fn to_html(h: Html) -> String
+        "${h.id}"
+    end
+end
+
+fn shown() -> String
+    Html.to_html(Html{id: 1})
+end
+`)
+	if len(errs) != 0 {
+		t.Fatalf("the program's own Html took std's impl: %v", errs)
+	}
+}

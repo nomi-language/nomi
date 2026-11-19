@@ -653,7 +653,7 @@ func (bl *irScalarBuilder) retainedVariant(field *ast.FieldAccess) (*typeDef, *v
 	var name string
 	if owner, ok := field.Object.(*ast.TypeIdent); ok {
 		name = owner.Name
-	} else if dotted, ok := bl.g.dottedTypeQualifier(field.Object); ok {
+	} else if dotted, ok := bl.dottedTypeQualifier(field.Object); ok {
 		// A namespaced enum (`Probe.Reading.Spike`) or one named through a
 		// whole-file import (`shapes.Shape.Circle`).
 		name = dotted
@@ -689,7 +689,7 @@ func (bl *irScalarBuilder) stdQualifiedOwnerDef(n ast.Node) *typeDef {
 		return nil
 	}
 	mod, isIdent := ast.QualifierIdent(q.Object)
-	if !isIdent || irQualIsLocal(bl, mod.Name) {
+	if !isIdent || bl.namesLocal(mod) {
 		return nil
 	}
 	return bl.g.qualifiedStdDef(mod.Name + "." + q.Field.Name)
@@ -783,12 +783,16 @@ func (bl *irScalarBuilder) genericVariant(field *ast.FieldAccess, call *ast.Call
 	var name string
 	if owner, ok := field.Object.(*ast.TypeIdent); ok {
 		name = owner.Name
-	} else if dotted, ok := bl.g.dottedTypeQualifier(field.Object); ok {
+	} else if dotted, ok := bl.dottedTypeQualifier(field.Object); ok {
 		name = dotted
 	} else {
 		return nil, nil, false
 	}
-	tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(name)
+	var typed analysis.Type
+	if call != nil {
+		typed = bl.g.checkedExprType(bl.checkedCallNode(call))
+	}
+	tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(name, typed)
 	if !isTemplate || tpl.enumDecl() == nil {
 		return nil, nil, false
 	}
@@ -885,7 +889,7 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 	}
 	switch tn := t.TypeName.(type) {
 	case *ast.SimpleType:
-		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name)
+		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name, bl.g.checkedExprType(t))
 		if !isTemplate || tpl.structDecl() == nil || want.def.genericOf != tpl {
 			return no()
 		}
@@ -899,7 +903,7 @@ func (bl *irScalarBuilder) genericLitWant(t *ast.StructLit, want kind) (ir.Temp,
 		if tn.Member == nil {
 			return no()
 		}
-		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module)
+		tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module, bl.g.checkedExprType(t))
 		if !isTemplate || tpl.enumDecl() == nil || want.def.genericOf != tpl {
 			return no()
 		}
@@ -998,7 +1002,7 @@ func (bl *irScalarBuilder) variantFromLit(at ast.Node, lit *ast.StructLit, d *ty
 func (bl *irScalarBuilder) variantStructLit(t *ast.StructLit, enum, variant string) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
 	d, found := bl.g.namedType(enum)
-	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(enum); isTemplate {
+	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(enum, bl.g.checkedExprType(t)); isTemplate {
 		// A generic enum's struct variant: the instance its field values
 		// solve (`shapes.Holder.Of{value: 5}` is a `Holder<Int>`).
 		args, types, ok := bl.g.literalTypeArgs(t, len(tpl.params))
@@ -1098,7 +1102,7 @@ func (bl *irScalarBuilder) variantFromRecord(call *ast.Call, d *typeDef, v *vari
 	lit := &ast.StructLit{Line: call.Line, Col: call.Col}
 	for _, f := range k.comp.names {
 		lit.Fields = append(lit.Fields, ast.StructFieldVal{Name: f, Line: line, Col: col,
-			Value: &ast.FieldAccess{Object: &ast.Ident{Name: name, Line: line, Col: col},
+			Value: &ast.FieldAccess{Object: bl.g.madeIdent(name, line, col),
 				Field: &ast.Ident{Name: f, Line: line, Col: col}, Line: line, Col: col}})
 	}
 	return bl.variantFromLit(call, lit, d, v)

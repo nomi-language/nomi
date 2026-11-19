@@ -1,5 +1,10 @@
 package analysis
 
+import (
+	"strconv"
+	"strings"
+)
+
 // Nominal type identity.
 //
 // A struct, enum, distinct type, interface, or non-generic host type is
@@ -12,7 +17,11 @@ package analysis
 //	"shapes"        a sibling file in the entry's module
 //	"stringkit/pad" a file in a cross-module dependency
 //
-// Keys are unique per build, so identity needs no disambiguation pass.
+// Keys are unique per build, so identity needs no disambiguation pass. A
+// struct, enum or distinct type declared inside a body has its
+// declaration's body origin (BodyOrigin), which names the file and the
+// position, so it is neither a module-level type of its name nor another
+// body's.
 //
 // Origin is a separate field rather than a prefix on Name. Prefixing
 // forces every comparison to strip the prefix back off. Keeping Name
@@ -28,6 +37,33 @@ package analysis
 // angle brackets cannot collide with a real key: import path segments
 // are restricted to [_A-Za-z][_A-Za-z0-9]* (parser.isImportPathSegment).
 const OriginEntry = "<entry>"
+
+// BodyOrigin is the Origin of a struct, enum or distinct type declared at
+// line:col inside a body of the file whose origin is file. No impl can
+// name such a type and no derive can be written for it, so the impl
+// identity index never supplies an interface under its origin: a demand
+// on it is met structurally or not at all, never by a module-level or std
+// type of its name (missing_impl_identity.go). The `#` keeps it apart
+// from every build key, whose segments are identifiers.
+func BodyOrigin(file string, line, col int) string {
+	return file + "#" + strconv.Itoa(line) + ":" + strconv.Itoa(col)
+}
+
+// bodyOriginFile is the origin of the file whose body declares the type
+// of origin, and whether origin is a body origin (BodyOrigin).
+func bodyOriginFile(origin string) (string, bool) {
+	i := strings.LastIndexByte(origin, '#')
+	if i < 0 {
+		return origin, false
+	}
+	return origin[:i], true
+}
+
+// IsBodyOrigin reports whether origin is a body origin (BodyOrigin).
+func IsBodyOrigin(origin string) bool {
+	_, body := bodyOriginFile(origin)
+	return body
+}
 
 // OriginUnresolved is the Origin of a type value that did not come from
 // a declaration — a shape placeholder the checker fabricates for a

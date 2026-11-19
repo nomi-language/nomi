@@ -1,9 +1,10 @@
-// Command nomi is the Nomi CLI: run, check, test, build, fmt, the module
-// commands, `nomi tool`, `nomi types`, the debug adapter, the MCP server and,
-// with no arguments, the REPL. docs/tooling.md documents its commands and
-// flags for users. This comment says how `nomi build` and the REPL are put
-// together; build.go, build_web.go, run_web.go, build_vm.go and repl_vm.go
-// open with what each command does.
+// Command nomi is the Nomi CLI: run, check, test, build, fmt, capabilities,
+// the module commands, `nomi tool`, `nomi types`, the debug adapter, the
+// MCP server and, with no arguments, the REPL. docs/tooling.md documents
+// its commands and flags for users. This comment says how `nomi build` and
+// the REPL are put together; build.go, build_web.go, run_web.go,
+// build_vm.go and repl_vm.go open with what each command does, and
+// capabilities_cmd.go with what `nomi capabilities` prints and writes.
 //
 // # nomi build
 //

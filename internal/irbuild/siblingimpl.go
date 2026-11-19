@@ -155,7 +155,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 				k := implMemberKey{recv: d.recv.def.decl, method: it.name}
 				x.implMembers[k] = append(x.implMembers[k],
 					implMemberSite{unit: unit, fn: implMemberFunc(d, it),
-						synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceName, block: d.decl,
+						synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceKey, block: d.decl,
 						item: it, symName: d.recv.nomi() + "." + it.name})
 			}
 			// A member the block withheld for a call to instantiate has no
@@ -177,7 +177,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 				}
 				k := implMemberKey{recv: d.recv.def.decl, method: method}
 				x.implMembers[k] = append(x.implMembers[k],
-					implMemberSite{unit: unit, fn: f, synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceName,
+					implMemberSite{unit: unit, fn: f, synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceKey,
 						block: d.decl, withheld: d})
 			}
 		}

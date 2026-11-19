@@ -44,7 +44,7 @@ import (
 //
 // # Derives are not special-cased
 //
-// `analysis.SynthesizeDerives` and `SynthesizeUniversalDebug` have already run
+// `analysis.LowerDerives` and `SynthesizeUniversalDebug` have already run
 // by the time this package sees the AST, so `derive Equatable for Dog` arrives
 // as an ordinary `impl Equatable for Dog { ... }` whose body is ordinary Nomi.
 // It lowers through exactly the path a hand-written impl takes, so a derive
@@ -210,7 +210,10 @@ type implDef struct {
 	// `Debug.inspect(m)` in the same module still reaches it directly. Only
 	// the existential path needs the declaration.
 	ifaceName string
-	iface     *ifaceDef
+	// ifaceKey is the interface's identity, the key d is filed under in
+	// implsByIface and instImpls (implIfaceKey), "" for an inherent block.
+	ifaceKey string
+	iface    *ifaceDef
 	// stdIface is the def of the std interface (or its instance) this block
 	// implements when iface is nil because std declares it: what a value of
 	// the receiver held as that interface dispatches through. iface stays
@@ -801,10 +804,10 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		// `impl calendar.DateParts for Q`: the qualifier names a shared std
 		// interface.
 		qualified := false
-		if def, key, named := g.qualifiedModuleIface(ib.Interface); named {
-			d.iface, d.ifaceName, qualified = def, key, true
-		} else if std, key, named := g.qualifiedStdIface(ib.Interface); named {
-			d.iface, d.ifaceName, qualified = std, key, true
+		if def, named := g.qualifiedModuleIface(ib.Interface); named {
+			d.iface, qualified = def, true
+		} else if std, named := g.qualifiedStdIface(ib.Interface); named {
+			d.iface, qualified = std, true
 		}
 		// A GENERIC interface, monomorphized at this block's type arguments.
 		// Asked FIRST, and the order is the whole safety argument: the template
@@ -895,6 +898,7 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 			// held as it dispatches through. See stdprogiface.go.
 			d.stdIface = g.stdProgIfaceForImpl(ib)
 		}
+		d.ifaceKey = g.implIfaceKey(d, ib.Interface, name)
 		if d.iface != nil && !d.iface.lowerable {
 			d.lowerable, d.why, d.whyDetail = false, d.iface.why, name
 			return
@@ -987,23 +991,24 @@ func (g *gen) resolveImplDef(d *implDef, ib *ast.ImplBlock, recv kind) {
 		g.registerOperImpl(d)
 		return
 	}
-	byRecv := g.implsByIface[d.ifaceName]
+	byRecv := g.implsByIface[d.ifaceKey]
 	if byRecv == nil {
 		byRecv = map[kind]*implDef{}
-		g.implsByIface[d.ifaceName] = byRecv
+		g.implsByIface[d.ifaceKey] = byRecv
 	}
 	if g.registerInstImpl(byRecv, d) {
 		return
 	}
-	if prior, dup := byRecv[d.recv]; dup && d.ifaceName == "" && d.iface == nil && prior.iface == nil && mergeInherent(prior, d) {
+	if prior, dup := byRecv[d.recv]; dup && d.ifaceKey == "" && d.iface == nil && prior.iface == nil && mergeInherent(prior, d) {
 		// Two inherent blocks for one type, as a `type`'s generated
 		// `try_from` and `unchecked` beside the block its file writes: one
 		// table of the type's functions, each lowered with its own block.
 		return
 	} else if dup {
-		// Two impls of one interface for one type is a coherence error the
-		// analyzer rejects. Both are refused and neither is picked, so
-		// ordering never decides.
+		// Two impls of one interface declaration for one type is a
+		// coherence error the analyzer rejects. Both are refused and
+		// neither is picked, so ordering never decides. Impls of two
+		// interfaces of one name are two keys and never meet here.
 		prior.lowerable, prior.why, prior.whyDetail = false, "duplicate impl block", d.label()
 		d.lowerable, d.why, d.whyDetail = false, "duplicate impl block", d.label()
 		return
@@ -1735,7 +1740,7 @@ func (g *gen) handWrittenNominalEquatable(k kind) bool {
 	if k.def == nil || !(k.def.isEnum || k.def.isDistinct) {
 		return false
 	}
-	d := g.implsByIface["Equatable"][k]
+	d := g.implsByIface[stdIfaceImplKey(stdEquatable)][k]
 	return d != nil && !d.synth
 }
 
@@ -1767,7 +1772,7 @@ func (g *gen) handWrittenNominalEquatable(k kind) bool {
 // that has no impl, which over-refuses; it can never grant a structural
 // lowering to a type that has one. The error direction is the safe one and
 // that is deliberate.
-func (g *gen) noImplOf(iface string, k kind) bool {
+func (g *gen) noImplOf(iface analysis.StdType, k kind) bool {
 	if k.def == nil {
 		return false
 	}
@@ -1777,7 +1782,7 @@ func (g *gen) noImplOf(iface string, k kind) bool {
 		// declaration node the mirror carries verbatim. See foreign.go.
 		return g.foreignNoImpl(iface, k.def)
 	}
-	if g.implsByIface[iface][k] != nil {
+	if g.implsByIface[stdIfaceImplKey(iface)][k] != nil {
 		return false
 	}
 	if reg := g.programReg(); reg != nil && g.reg == nil && k.def.decl != nil && reg.byDecl[k.def.decl] != nil {
@@ -1786,7 +1791,7 @@ func (g *gen) noImplOf(iface string, k kind) bool {
 		// program's impls, derived ones included, are in its own files.
 		return !reg.declaresImpl(iface, k.def.decl)
 	}
-	if g.std != nil && len(g.std.byIface[irStructuralIfaceMethod[iface]][k]) > 0 {
+	if g.std != nil && len(g.std.byIface[irStructuralIfaceMethod[iface.Name]][k]) > 0 {
 		return false
 	}
 	return true
@@ -1816,4 +1821,4 @@ var irStructuralIfaceMethod = map[string]string{
 }
 
 // noEquatableImpl is noImplOf for Equatable.
-func (g *gen) noEquatableImpl(k kind) bool { return g.noImplOf("Equatable", k) }
+func (g *gen) noEquatableImpl(k kind) bool { return g.noImplOf(stdEquatable, k) }

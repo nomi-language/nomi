@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/artifactcache"
 )
 
 // Every test here runs against a t.TempDir() cache root, and every
@@ -99,8 +101,8 @@ func TestEvict_DeadRootIsEvictedAndLiveRootIsNot(t *testing.T) {
 	if err := os.MkdirAll(deadRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	live := plantEntry(t, cacheRoot, liveRoot, liveRoot, 40*24*time.Hour)
-	dead := plantEntry(t, cacheRoot, deadRoot, deadRoot, 40*24*time.Hour)
+	live := plantEntry(t, cacheRoot, liveRoot, liveRoot, 10*24*time.Hour)
+	dead := plantEntry(t, cacheRoot, deadRoot, deadRoot, 10*24*time.Hour)
 	if err := os.RemoveAll(deadRoot); err != nil {
 		t.Fatal(err)
 	}
@@ -127,9 +129,10 @@ func TestEvict_DeadRootIsEvictedAndLiveRootIsNot(t *testing.T) {
 	}
 }
 
-// TestEvict_BoundKeepsNewestDropsOldest exercises rule 2 alone. Every
-// planted root exists, so rule 1 cannot fire and the only thing under
-// test is the ranking.
+// TestEvict_BoundKeepsNewestDropsOldest exercises rule 3 alone. Every
+// planted root exists and every entry was used within
+// artifactcache.Unused, so rules 1 and 2 cannot fire and the only
+// thing under test is the ranking.
 func TestEvict_BoundKeepsNewestDropsOldest(t *testing.T) {
 	cacheRoot := t.TempDir()
 	t.Setenv(cacheRootEnv, cacheRoot)
@@ -137,7 +140,7 @@ func TestEvict_BoundKeepsNewestDropsOldest(t *testing.T) {
 
 	projectRoot := t.TempDir()
 	// ages in days, oldest last
-	ages := []int{2, 5, 9, 14, 21, 40}
+	ages := []int{1, 2, 4, 6, 9, 12}
 	names := make([]string, len(ages))
 	for i, d := range ages {
 		names[i] = plantEntry(t, cacheRoot, projectRoot+"/p"+strconv.Itoa(i), projectRoot,
@@ -283,17 +286,17 @@ func TestEvict_StampMovedAfterThePlanSparesTheEntry(t *testing.T) {
 
 // TestEvict_LegacyEntryWithNoOriginIsReachableByTheBound covers the
 // 2656 pre-existing directories: no marker, so no recorded root, so
-// rule 1 can never touch them. They have to be reachable by rule 2,
+// rule 1 can never touch them. They have to be reachable by rule 3,
 // ranked on the directory's own mtime.
 func TestEvict_LegacyEntryWithNoOriginIsReachableByTheBound(t *testing.T) {
 	cacheRoot := t.TempDir()
 	t.Setenv(cacheRootEnv, cacheRoot)
 	t.Setenv(maxEntriesEnv, "2")
 
-	newer := plantLegacyEntry(t, cacheRoot, "legacy-a", 10*24*time.Hour)
-	middle := plantLegacyEntry(t, cacheRoot, "legacy-b", 20*24*time.Hour)
-	older := plantLegacyEntry(t, cacheRoot, "legacy-c", 30*24*time.Hour)
-	oldest := plantLegacyEntry(t, cacheRoot, "legacy-d", 40*24*time.Hour)
+	newer := plantLegacyEntry(t, cacheRoot, "legacy-a", 3*24*time.Hour)
+	middle := plantLegacyEntry(t, cacheRoot, "legacy-b", 6*24*time.Hour)
+	older := plantLegacyEntry(t, cacheRoot, "legacy-c", 9*24*time.Hour)
+	oldest := plantLegacyEntry(t, cacheRoot, "legacy-d", 12*24*time.Hour)
 
 	entries, err := scanCacheEntries(cacheRoot)
 	if err != nil {
@@ -478,12 +481,12 @@ func TestEvict_MalformedOriginFallsBackToTheBound(t *testing.T) {
 	t.Setenv(cacheRootEnv, cacheRoot)
 
 	projectRoot := t.TempDir()
-	torn := plantEntry(t, cacheRoot, projectRoot+"/torn", projectRoot, 40*24*time.Hour)
+	torn := plantEntry(t, cacheRoot, projectRoot+"/torn", projectRoot, 10*24*time.Hour)
 	if err := os.WriteFile(filepath.Join(cacheRoot, torn, originFile),
 		[]byte(`{"project_root":"/gone`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	backdate(t, filepath.Join(cacheRoot, torn, originFile), 40*24*time.Hour)
+	backdate(t, filepath.Join(cacheRoot, torn, originFile), 10*24*time.Hour)
 	fine := plantEntry(t, cacheRoot, projectRoot+"/fine", projectRoot, 1*time.Second)
 
 	entries, err := scanCacheEntries(cacheRoot)
@@ -530,7 +533,7 @@ func TestEvict_UnreadableRootIsNotProvablyDead(t *testing.T) {
 	if !func() bool { _, err := os.Stat(hidden); return err != nil }() {
 		t.Skip("the filesystem did not enforce the permission bits")
 	}
-	unreadable := plantEntry(t, cacheRoot, hidden, hidden, 40*24*time.Hour)
+	unreadable := plantEntry(t, cacheRoot, hidden, hidden, 10*24*time.Hour)
 
 	deadRoot := filepath.Join(t.TempDir(), "gone")
 	if err := os.MkdirAll(deadRoot, 0o755); err != nil {
@@ -556,11 +559,12 @@ func TestEvict_UnreadableRootIsNotProvablyDead(t *testing.T) {
 }
 
 // TestEvict_DisabledByZeroBound: an operator (or a test) can switch
-// the whole mechanism off, and off means off for both rules — a
+// the whole mechanism off, and off means off for every rule — a
 // provably dead entry stays. The second half is the positive: the
 // same entry goes as soon as the bound is on and the count exceeds
-// it, which also pins the trigger (a cache inside its budget is not
-// scanned at all, so the per-entry cost is not paid per build).
+// it, which also pins the trigger (a cache inside its budget and
+// swept today is not scanned at all, so the per-entry cost is not
+// paid per build).
 func TestEvict_DisabledByZeroBound(t *testing.T) {
 	cacheRoot := t.TempDir()
 	t.Setenv(cacheRootEnv, cacheRoot)
@@ -581,7 +585,9 @@ func TestEvict_DisabledByZeroBound(t *testing.T) {
 		t.Fatal("eviction ran with the bound set to 0")
 	}
 
-	// Bound on, count still inside it: no scan, so nothing goes.
+	// Bound on, count still inside it, and today's sweep done: no
+	// scan, so nothing goes.
+	artifactcache.Due(cacheRoot, sweepEvery)
 	t.Setenv(maxEntriesEnv, "1")
 	if n, err := evictCache(cacheRoot, ""); err != nil || n != 0 {
 		t.Fatalf("one entry at a bound of 1 was swept: removed %d, err %v", n, err)
@@ -632,7 +638,8 @@ func TestEvict_SweepCostOnALargeRoot(t *testing.T) {
 		}
 	}
 
-	// In-budget: readdir only, no per-entry work.
+	// In-budget and swept today: readdir only, no per-entry work.
+	artifactcache.Due(cacheRoot, sweepEvery)
 	t.Setenv(maxEntriesEnv, strconv.Itoa(n))
 	start := time.Now()
 	if removed, err := evictCache(cacheRoot, ""); err != nil || removed != 0 {
@@ -656,5 +663,44 @@ func TestEvict_SweepCostOnALargeRoot(t *testing.T) {
 	}
 	if fullScan > 3*time.Second {
 		t.Fatalf("the full scan costs %v at %d entries", fullScan, n)
+	}
+}
+
+// TestEvict_UnusedEntryIsEvictedUnderTheBound exercises rule 2, end to
+// end through evictCache with the bound far above the count: the first
+// call of the day scans, and removes the live-rooted entry nothing has
+// used for artifactcache.Unused while keeping one used just inside it
+// and the caller's own, however old. A second call the same day does
+// not scan, so an entry that ages past the limit meanwhile waits for
+// the next day's sweep.
+func TestEvict_UnusedEntryIsEvictedUnderTheBound(t *testing.T) {
+	cacheRoot := t.TempDir()
+	t.Setenv(cacheRootEnv, cacheRoot)
+	t.Setenv(maxEntriesEnv, "1000")
+
+	projectRoot := t.TempDir()
+	unused := plantEntry(t, cacheRoot, projectRoot+"/unused", projectRoot, artifactcache.Unused+time.Hour)
+	recent := plantEntry(t, cacheRoot, projectRoot+"/recent", projectRoot, artifactcache.Unused-time.Hour)
+	mine := plantEntry(t, cacheRoot, projectRoot+"/mine", projectRoot, 2*artifactcache.Unused)
+
+	if n, err := evictCache(cacheRoot, mine); err != nil || n != 1 {
+		t.Fatalf("the day's first sweep: removed %d, err %v; want the unused entry", n, err)
+	}
+	if present(t, cacheRoot, unused) {
+		t.Fatal("an entry unused for longer than artifactcache.Unused survived the sweep")
+	}
+	if !present(t, cacheRoot, recent) {
+		t.Fatal("an entry used within artifactcache.Unused was evicted")
+	}
+	if !present(t, cacheRoot, mine) {
+		t.Fatal("the caller's own entry was evicted")
+	}
+
+	later := plantEntry(t, cacheRoot, projectRoot+"/later", projectRoot, artifactcache.Unused+time.Hour)
+	if n, err := evictCache(cacheRoot, mine); err != nil || n != 0 {
+		t.Fatalf("a second sweep the same day: removed %d, err %v; want no scan", n, err)
+	}
+	if !present(t, cacheRoot, later) {
+		t.Fatal("a second sweep the same day scanned a cache inside its bound")
 	}
 }

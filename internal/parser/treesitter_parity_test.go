@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/doctest"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -53,6 +54,7 @@ import (
 // occurs in exactly that block. The test fails when a pinned input starts
 // parsing, so remove its entry with the fix.
 var treeSitterParityGaps = map[string]string{
+	`tour/src/content/docs/modules-and-imports.md: "lib.example/prices" = []`:      "the block's nomi.toml section has quoted keys under [capabilities.modules]; a nomi.toml section is highlighted with the Nomi grammar, which reads `[module]` and `name = \"app\"` as Nomi and has no reading for a string on the left of `=`; the parser accepts the line as a destructuring-shaped statement it never checks",
 	"tests/14-modules-and-packaging/dotted_type_names/dotted_type_names_test.nomi": "a struct pattern whose owner has a dotted name (`Probe.Reading.Blip{at}`) reads as nested type_field_access, which the grammar resolves before it sees the `{`; letting a type_field_access name a struct literal adds conflicts that break other files",
 	"internal/irbuild/testdata/dotted_values.nomi":                                 "a struct pattern whose owner has a dotted name (`Probe.Reading.Blip{at}`) reads as nested type_field_access, which the grammar resolves before it sees the `{`; letting a type_field_access name a struct literal adds conflicts that break other files",
 }
@@ -569,8 +571,19 @@ func treeSitterCLI(t *testing.T) func(args ...string) (string, error) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// One compiled grammar per checkout, kept across runs and dropped
+		// as every cache's entries are, once nothing has used it for
+		// artifactcache.Unused: a removed worktree's goes then.
 		sum := sha256.Sum256([]byte(grammar))
-		libdir = filepath.Join(os.TempDir(), "nomi-tree-sitter-lib", hex.EncodeToString(sum[:8]))
+		parent, key := filepath.Join(os.TempDir(), "nomi-tree-sitter-lib"), hex.EncodeToString(sum[:8])
+		libdir = filepath.Join(parent, key)
+		if err := os.MkdirAll(libdir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if info, err := os.Stat(libdir); err == nil {
+			artifactcache.Touch(libdir, info)
+		}
+		artifactcache.Prune(parent, key, artifactcache.Unused)
 	}
 	if err := os.MkdirAll(libdir, 0o755); err != nil {
 		t.Fatal(err)

@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ffirun"
+	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/modcache"
 	"github.com/nomi-language/nomi/std"
@@ -58,191 +58,186 @@ func (p *Program) manifestPath() (string, []byte) {
 }
 
 // capabilityListProblems is a diagnostic for each entry of the program's
-// [capabilities] lists that names nothing a list can allow: a std module
-// with no outside functions, a Go package no `gopkg` declaration in the
-// program or its dependencies imports, and a module go.mod does not
-// require. A name that is valid and never reached is not a problem.
+// [capabilities] lists, and of the std list each dependency's own
+// nomi.toml declares, that names nothing a list can allow: a std module
+// with no outside functions, and a module, in `go` or under
+// [capabilities.modules], that is neither the project nor one go.mod
+// requires (unknownModule). A name that is valid and never reached is not a problem. With
+// require_module_lists, each dependency with no std list
+// (requiredModules) is one too, at that key; being in `go` is not a std
+// list.
 func (p *Program) capabilityListProblems() Diagnostics {
 	c := p.capabilities
 	if c == nil {
 		return nil
 	}
 	path, data := p.manifestPath()
-	src := string(data)
-	if data == nil {
-		src = "\n"
-	}
 	var ds Diagnostics
-	at := func(line int, message string, hints ...string) {
+	at := func(path string, data []byte, line int, message string, hints ...string) {
+		src := string(data)
+		if data == nil {
+			src = "\n"
+		}
 		d := frontend.NewDiagnostic(path, src, line, 0, message)
 		d.Hints = append(d.Hints, hints...)
 		ds = append(ds, d)
 	}
-	bound := p.boundOnce()
-	checkNames := func(list string, names []string, key ...string) {
+	checkNamesIn := func(path string, data []byte, list string, names []string, key ...string) {
 		for _, name := range names {
-			if problem, hint := unknownCapabilityName(name, bound); problem != "" {
-				at(analysis.ManifestEntryLine(data, name, key...), fmt.Sprintf("[capabilities] %s names %s, %s", list, name, problem), hint)
+			if problem, hint := unknownStdName(name); problem != "" {
+				at(path, data, analysis.ManifestEntryLine(data, name, key...), fmt.Sprintf("[capabilities] %s names %s, %s", list, name, problem), hint)
 			}
 		}
 	}
-	checkNames("allow", c.Allow, "capabilities", "allow")
-	checkNames("allow_in_tests", c.AllowInTests, "capabilities", "allow_in_tests")
+	checkNames := func(list string, names []string, key ...string) {
+		checkNamesIn(path, data, list, names, key...)
+	}
+	checkNames("std", c.Std, "capabilities", "std")
+	checkNames("std_in_tests", c.StdInTests, "capabilities", "std_in_tests")
+	for _, list := range []struct {
+		key     string
+		modules []string
+	}{{"go", c.Go}, {"go_in_tests", c.GoInTests}} {
+		for _, module := range list.modules {
+			if problem, hint := p.unknownModule(module); problem != "" {
+				at(path, data, analysis.ManifestEntryLine(data, module, "capabilities", list.key),
+					fmt.Sprintf("[capabilities] %s names %s, %s", list.key, module, problem), hint)
+			}
+		}
+	}
 	paths := make([]string, 0, len(c.Modules))
 	for module := range c.Modules {
 		paths = append(paths, module)
 	}
 	sort.Strings(paths)
-	var required []string
-	if len(paths) > 0 && p.prog.Root != "" {
-		if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
-			for _, d := range g.Deps {
-				required = append(required, d.Path)
-			}
-		}
-		sort.Strings(required)
-	}
 	for _, module := range paths {
-		if !slices.Contains(required, module) {
-			line := analysis.ManifestKeyLine(data, "capabilities", "modules", module)
-			hint := "go.mod requires no module"
-			if len(required) > 0 {
-				hint = "go.mod requires " + strings.Join(required, ", ")
-			}
-			at(line, fmt.Sprintf("[capabilities.modules] names %s, which go.mod does not require", module), hint)
+		if problem, hint := p.unknownModule(module); problem != "" {
+			at(path, data, analysis.ManifestKeyLine(data, "capabilities", "modules", module),
+				fmt.Sprintf("[capabilities.modules] names %s, %s", module, problem), hint)
 			continue
 		}
 		checkNames(fmt.Sprintf("modules %q", module), c.Modules[module], "capabilities", "modules", module)
 	}
+	for _, m := range p.requiredModules() {
+		if m.declares() {
+			ownPath := filepath.Join(m.root, "nomi.toml")
+			ownData, _ := os.ReadFile(ownPath)
+			checkNamesIn(ownPath, ownData, "std", m.manifest.Capabilities.Std, "capabilities", "std")
+			if entry, ok := m.manifest.Capabilities.Modules[m.path]; ok {
+				checkNamesIn(ownPath, ownData, fmt.Sprintf("modules %q", m.path), entry, "capabilities", "modules", m.path)
+			}
+			continue
+		}
+		if _, listed := c.Modules[m.path]; c.RequireModuleLists && !listed {
+			at(path, data, analysis.ManifestKeyLine(data, "capabilities", "require_module_lists"),
+				fmt.Sprintf("[capabilities] require_module_lists: %s has no list", m.path),
+				fmt.Sprintf("add %q under [capabilities.modules] in nomi.toml, or give %s a [capabilities] table with its own std in its nomi.toml", m.path, m.path))
+		}
+	}
 	return ds
 }
 
-// unknownCapabilityName is what is wrong with name, an entry of the right
-// form (analysis.CapabilityNameProblem), when it names nothing a list can
-// allow, as the end of a message that names it, with a hint: a `std::`
-// name that is no std module a program can import, or a `go:` package no
-// `gopkg` declaration in the program or its dependencies imports. Both are
-// "" when name names something. bound answers those packages.
-func unknownCapabilityName(name string, bound func() []string) (problem, hint string) {
-	if module, ok := strings.CutPrefix(name, "std::"); ok {
-		valid := StdCapabilityNames()
-		if slices.Contains(valid, name) {
-			return "", ""
-		}
-		// The nearest module by its own name, so the shared `std::` does
-		// not make a far one look close.
-		modules := make([]string, len(valid))
-		for i, v := range valid {
-			modules[i] = strings.TrimPrefix(v, "std::")
-		}
-		hint = "name a std module as an import writes it, such as std::fs"
-		if near := analysis.ClosestName(module, modules); near != "" {
-			hint = fmt.Sprintf("did you mean %q?", "std::"+near)
-		}
-		return "which is not a std module", hint
-	}
-	if pkg, ok := strings.CutPrefix(name, "go:"); ok {
-		packages := bound()
-		if slices.Contains(packages, pkg) {
-			return "", ""
-		}
-		hint = "the program and its dependencies bind no Go package"
-		if len(packages) > 0 {
-			names := make([]string, len(packages))
-			for i, b := range packages {
-				names[i] = "go:" + b
-			}
-			hint = "the Go packages they bind are " + strings.Join(names, ", ")
-		}
-		return "which no `gopkg` declaration in the program or its dependencies imports", hint
-	}
-	return "", ""
-}
-
-// boundOnce is boundGoPackages, worked out on the first call.
-func (p *Program) boundOnce() func() []string {
-	var bound []string
-	done := false
-	return func() []string {
-		if !done {
-			bound, done = p.boundGoPackages(), true
-		}
-		return bound
-	}
-}
-
-// hostCapabilities is the list the host holds the program to
-// (WithCapabilities), as a [capabilities] table with no module lists, or
-// nil when the host gave none.
-func (p *Program) hostCapabilities() *Capabilities {
-	if !p.cfg.held {
+// requiredPaths is the path of each module the project's go.mod requires,
+// sorted.
+func (p *Program) requiredPaths() []string {
+	if p.prog.Root == "" {
 		return nil
 	}
-	return &Capabilities{Allow: p.cfg.allowed}
+	var required []string
+	if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
+		for _, d := range g.Deps {
+			required = append(required, d.Path)
+		}
+	}
+	sort.Strings(required)
+	return required
+}
+
+// unknownStdName is what is wrong with name, an entry of the right form
+// (capability.NameProblem), when it names no std module a program can
+// import, as the end of a message that names it, with a hint; both are ""
+// when name names one.
+func unknownStdName(name string) (problem, hint string) {
+	valid := StdCapabilityNames()
+	if slices.Contains(valid, name) {
+		return "", ""
+	}
+	// The nearest module by its own name, so the shared `std::` does not
+	// make a far one look close.
+	modules := make([]string, len(valid))
+	for i, v := range valid {
+		modules[i] = strings.TrimPrefix(v, "std::")
+	}
+	hint = "name a std module as an import writes it, such as std::fs"
+	if near := analysis.ClosestName(strings.TrimPrefix(name, "std::"), modules); near != "" {
+		hint = fmt.Sprintf("did you mean %q?", "std::"+near)
+	}
+	return "which is not a std module", hint
+}
+
+// unknownModule is what is wrong with module, an entry of a list of the
+// modules that may bind Go (nomi.toml's `go` and `go_in_tests`, WithGo) or
+// a key under [capabilities.modules], when it is neither the project
+// (projectModule) nor a module go.mod requires, with a hint naming those;
+// both are "" when it is one.
+func (p *Program) unknownModule(module string) (problem, hint string) {
+	project := p.projectModule()
+	required := p.requiredPaths()
+	if module == project || slices.Contains(required, module) {
+		return "", ""
+	}
+	hint = "this project is " + project
+	if len(required) > 0 {
+		hint += ", and go.mod requires " + strings.Join(required, ", ")
+	}
+	return "which is neither this project nor a module go.mod requires", hint
+}
+
+// hostCapabilities is the lists the host holds the program to
+// (WithCapabilities, WithGo), as a [capabilities] table with no module
+// lists, or nil when the host gave neither. With WithGo alone the table's
+// std holds nothing (hostHolds).
+func (p *Program) hostCapabilities() *Capabilities {
+	if !p.cfg.held && !p.cfg.goHeld {
+		return nil
+	}
+	return &Capabilities{Std: p.cfg.allowed, Go: p.cfg.goModules}
+}
+
+// hostHolds reports whether the host's lists hold n, a call over them: a
+// Go binding always, and any other call when the host passed
+// WithCapabilities, since WithGo alone holds only Go.
+func (p *Program) hostHolds(n NotAllowed) bool {
+	return n.Binder != "" || p.cfg.held
 }
 
 // hostCapabilityProblem is what is wrong with the names the host passed to
-// WithCapabilities, or nil. Each is held to what an entry of nomi.toml's
-// lists is held to, with the same words, except that `host:` and a key a
-// table passed with WithHosts answers is a name too, which only the host
-// can allow.
+// WithCapabilities and WithGo, or nil. WithCapabilities' names are held to
+// what an entry of nomi.toml's std lists is held to, with the same words
+// (capability.CheckHostList), except that `host:` and a key a table passed
+// with WithHosts answers is a name too, which only the host can allow.
+// WithGo's are held to what an entry of nomi.toml's `go` is held to.
 func (p *Program) hostCapabilityProblem() error {
-	var keys []string
-	keysRead := false
-	bound := p.boundOnce()
+	if p.cfg.held {
+		err := capability.CheckHostList("vmhost.WithCapabilities", "vmhost.WithHosts", "Go is allowed by module, not by package: pass the module that binds it to vmhost.WithGo", p.cfg.allowed,
+			func() (map[string]bool, error) { return hostKeys(p.cfg.hosts) },
+			unknownStdName)
+		if err != nil {
+			return err
+		}
+	}
 	seen := map[string]bool{}
-	for _, name := range p.cfg.allowed {
-		if seen[name] {
-			return fmt.Errorf("vmhost.WithCapabilities lists %s twice", name)
+	for _, module := range p.cfg.goModules {
+		if seen[module] {
+			return fmt.Errorf("vmhost.WithGo lists %s twice", module)
 		}
-		seen[name] = true
-		if strings.HasPrefix(name, "host:") {
-			if !keysRead {
-				answered, err := hostKeys(p.cfg.hosts)
-				if err != nil {
-					return err
-				}
-				for k := range answered {
-					keys = append(keys, "host:"+k)
-				}
-				sort.Strings(keys)
-				keysRead = true
-			}
-			if slices.Contains(keys, name) {
-				continue
-			}
-			hint := "no table is passed with vmhost.WithHosts"
-			if len(keys) > 0 {
-				hint = "its tables answer " + strings.Join(keys, ", ")
-			}
-			return fmt.Errorf("vmhost.WithCapabilities names %s, which no table passed with vmhost.WithHosts answers (%s)", name, hint)
+		seen[module] = true
+		if problem := capability.ModuleProblem(module); problem != "" {
+			return fmt.Errorf("vmhost.WithGo: %q %s", module, problem)
 		}
-		if problem := analysis.CapabilityNameProblem(name); problem != "" {
-			return fmt.Errorf("vmhost.WithCapabilities: %q %s", name, problem)
-		}
-		if problem, hint := unknownCapabilityName(name, bound); problem != "" {
-			return fmt.Errorf("vmhost.WithCapabilities names %s, %s (%s)", name, problem, hint)
+		if problem, hint := p.unknownModule(module); problem != "" {
+			return fmt.Errorf("vmhost.WithGo names %s, %s (%s)", module, problem, hint)
 		}
 	}
 	return nil
-}
-
-// boundGoPackages is the Go import path of each `gopkg` declaration in the
-// program's files and its dependencies', sorted.
-func (p *Program) boundGoPackages() []string {
-	set := map[string]bool{}
-	for _, m := range p.prog.Modules {
-		if _, isStd := std.ImageName(m.Path); isStd {
-			continue
-		}
-		for _, path := range ffirun.BoundImportPaths(m.Nodes) {
-			set[path] = true
-		}
-	}
-	out := make([]string, 0, len(set))
-	for path := range set {
-		out = append(out, path)
-	}
-	sort.Strings(out)
-	return out
 }

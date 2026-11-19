@@ -39,18 +39,20 @@ func (bl *irScalarBuilder) enumEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs
 	if k.tag != tagNamed || k.def == nil || !k.def.isEnum || !irRetainedEnumKind(k.def) || irParamShape(k) != ir.ValVariant {
 		return ir.NoTemp, false, false
 	}
-	if og, d, hand, known := bl.handWrittenEquatable(t, k); !known {
+	if og, d, has, known := bl.equatableVerdict(t, k); !known {
 		return ir.NoTemp, false, true
-	} else if hand && d == nil {
+	} else if has && d == nil {
 		// std's own impl: stdEquality's business.
 		return ir.NoTemp, false, false
-	} else if hand {
+	} else if has {
+		bl.op = routeImpl
 		v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, d)
 		return v, ok, true
 	}
 	// An `embeds` variant is an enum record whose one field is the payload;
 	// rt.Equal unwraps it, so the variant-shaped
 	// comparison answers for it too.
+	bl.op = routeStructural
 	return bl.equalityCompare(t, op, ir.ValVariant, lhs, rhs), true, true
 }
 
@@ -58,6 +60,8 @@ func (bl *irScalarBuilder) enumEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs
 // tuple. handled is false for any other kind, and the caller tries its
 // next route.
 func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (v ir.Temp, ok, handled bool) {
+	// Structural, unless an impl's equal is called below.
+	bl.op = routeStructural
 	switch {
 	case irRetainedRecordKind(k) || irRetainedTupleKind(k):
 		v, ok := bl.tupleRecordEquality(t, op, lhs, rhs, k)
@@ -70,11 +74,14 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		// A zero-sized marker has one value, so two of them are equal,
 		// which is rt.Equal's answer; a written Equatable impl still
 		// decides for itself.
-		og, impl, hand, known := bl.handWrittenEquatable(t, k)
+		og, impl, has, known := bl.equatableVerdict(t, k)
 		switch {
 		case !known:
 			return ir.NoTemp, false, true
-		case hand:
+		case has && impl == nil:
+			return ir.NoTemp, false, false
+		case has:
+			bl.op = routeImpl
 			v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, impl)
 			return v, ok, true
 		}
@@ -87,11 +94,14 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		if d.rtOpaque || !irDistinctOverValue(d) {
 			return ir.NoTemp, false, false
 		}
-		og, impl, hand, known := bl.handWrittenEquatable(t, k)
+		og, impl, has, known := bl.equatableVerdict(t, k)
 		switch {
 		case !known:
 			return ir.NoTemp, false, true
-		case hand:
+		case has && impl == nil:
+			return ir.NoTemp, false, false
+		case has:
+			bl.op = routeImpl
 			v, ok := bl.equatableImplCall(t, op, lhs, rhs, k, og, impl)
 			return v, ok, true
 		}
@@ -118,6 +128,7 @@ func (bl *irScalarBuilder) valueEquality(t *ast.Binary, op ir.CompareOp, lhs, rh
 		// or a decline.
 		return ir.NoTemp, false, false
 	}
+	bl.op = routeImpl
 	v, ok = bl.equatableImplCall(t, op, lhs, rhs, k, og, impl)
 	return v, ok, true
 }
@@ -295,7 +306,7 @@ func irGenUnit(g, og *gen) int {
 // equatableImplOf finds the `impl Equatable` for k's declaration in this gen
 // or, for a type the program declares elsewhere, in the gen that holds it.
 func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
-	if d := g.implsByIface["Equatable"][k]; d != nil {
+	if d := g.implsByIface[stdIfaceImplKey(stdEquatable)][k]; d != nil {
 		return g, d
 	}
 	if k.def != nil && k.def.decl != nil && g.stdModule != "" && g.stdInsts != nil {
@@ -305,11 +316,11 @@ func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 			if og == nil {
 				continue
 			}
-			if d := og.implsByIface["Equatable"][k]; d != nil {
+			if d := og.implsByIface[stdIfaceImplKey(stdEquatable)][k]; d != nil {
 				return og, d
 			}
 			for _, d := range og.implOrder {
-				if d.ifaceName == "Equatable" && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
+				if d.ifaceKey == stdIfaceImplKey(stdEquatable) && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
 					return og, d
 				}
 			}
@@ -321,14 +332,14 @@ func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 	if k.def.instOrigin != nil {
 		// A mirror of another file's generic instance: its impls are
 		// registered against the owner's instance, never in implOrder.
-		return g.instanceImpl(k.def, "Equatable", "equal")
+		return g.instanceImpl(k.def, stdIfaceImplKey(stdEquatable), "equal")
 	}
 	for _, og := range g.reg.gens {
 		if og == nil || og == g {
 			continue
 		}
 		for _, d := range og.implOrder {
-			if d.ifaceName == "Equatable" && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
+			if d.ifaceKey == stdIfaceImplKey(stdEquatable) && d.recv.tag == tagNamed && d.recv.def != nil && d.recv.def.decl == k.def.decl {
 				return og, d
 			}
 		}
@@ -339,17 +350,19 @@ func (g *gen) equatableImplOf(k kind) (*gen, *implDef) {
 // equatableVerdict is how `==` at t compares two values of k, a declared
 // type: through an impl (has), d of og when this program's files declare
 // it and nil for std's own, or by shape. It reads the checker's record of
-// the operator (operatorUse): the impl block of the function it names, as
-// the gen that registered it holds it (recordedImplItem). An operator
-// over a type parameter or over interface values, and one the builder
-// synthesized, names none, and is resolved at k (instanceEquatable); ok
-// is false when that answer cannot be established.
+// the operator (operatorUse): by shape where the record names an impl the
+// machine computes so (machineRoute: a derived enum's or distinct's
+// Equatable), else the impl block of the function it names, as the gen
+// that registered it holds it (recordedImplItem). An operator over a type
+// parameter or over interface values, and one the builder synthesized,
+// names none, and is resolved at k (instanceEquatable); ok is false when
+// that answer cannot be established.
 func (bl *irScalarBuilder) equatableVerdict(t *ast.Binary, k kind) (og *gen, d *implDef, has, ok bool) {
 	use := bl.g.operatorUse(t)
 	if use == nil || use.Form == analysis.OperatorPerInstance || use.Form == analysis.OperatorDispatched {
 		return bl.g.instanceEquatable(k)
 	}
-	if use.Form != analysis.OperatorByImpl || use.Impl == nil {
+	if use.Form != analysis.OperatorByImpl || use.Impl == nil || bl.g.machineRouteOf(use) != routeUnset {
 		return nil, nil, false, true
 	}
 	if og, it := bl.g.recordedImplItem(use.Impl.Method, nil, k); it != nil {
@@ -357,21 +370,6 @@ func (bl *irScalarBuilder) equatableVerdict(t *ast.Binary, k kind) (og *gen, d *
 	}
 	// std's own impl, which stdEquality calls.
 	return nil, nil, true, true
-}
-
-// handWrittenEquatable is equatableVerdict for an enum or a distinct, whose
-// derived impl compares by shape: hand is a hand-written impl, d nil for
-// std's own.
-func (bl *irScalarBuilder) handWrittenEquatable(t *ast.Binary, k kind) (og *gen, d *implDef, hand, ok bool) {
-	og, d, has, known := bl.equatableVerdict(t, k)
-	if !has || !known {
-		return nil, nil, false, known
-	}
-	if d == nil {
-		use := bl.g.operatorUse(t)
-		return nil, nil, use != nil && use.Impl != nil && !use.Impl.Derived(), true
-	}
-	return og, d, !d.synth, true
 }
 
 // instanceEquatable is equatableVerdict at an instance's kind k, for an
@@ -572,7 +570,7 @@ func (bl *irScalarBuilder) containerEqualCall(t *ast.Call, owner string) (ir.Tem
 			args.temps[at], args.kinds[at] = v, k
 			lk, rk = args.kinds[0], args.kinds[1]
 		}
-		if !bl.g.irPreludeEqualityKind(rk) || lk != rk {
+		if !bl.g.irPreludeEqualityKind(rk, routeUnset) || lk != rk {
 			return no()
 		}
 		shape = ir.ValVariant
@@ -598,7 +596,7 @@ func (bl *irScalarBuilder) preludeEqualStructural(t *ast.Call) bool {
 		return true
 	}
 	l, r := bl.g.project(tl), bl.g.project(tr)
-	return l == r && bl.g.irPreludeEqualityKind(l)
+	return l == r && bl.g.irPreludeEqualityKind(l, routeUnset)
 }
 
 // irEqualityListKind is a list `==` compares with rt.Equal: equality never
@@ -831,7 +829,7 @@ func resolvedEnumType(ty analysis.Type) (*analysis.EnumType, bool) {
 }
 
 // operatorUse is the checker's record of what the operator t means, nil
-// for an operator over a primitive and for one the builder synthesized:
+// for one the builder synthesized and one nothing answers:
 // inside an instance, the record at the instance's types where the
 // checker resolves it there (operatorUseAt), so an operator over a type
 // parameter reaches the impl a written one at that type does.

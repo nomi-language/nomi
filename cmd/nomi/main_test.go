@@ -45,16 +45,24 @@ func TestMain(m *testing.M) {
 		main()
 		os.Exit(0)
 	}
+	os.Exit(runTests(m))
+}
+
+// runTests builds `nomi` into a temporary directory, runs the tests and
+// removes the directory, answering the exit code. It is apart from TestMain
+// because os.Exit runs no deferred call: the directory holds the binary and
+// every artifact its children cache, hundreds of megabytes a run.
+func runTests(m *testing.M) int {
 	self, err := os.Executable()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	testBin = self
 	tmp, err := os.MkdirTemp("", "nomi-test-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: mkdir: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer os.RemoveAll(tmp)
 	// The package's directory, from this file's path: a fuzzing worker
@@ -67,13 +75,13 @@ func TestMain(m *testing.M) {
 	build.Dir = pkgDir
 	if out, err := build.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: build nomi: %v\n%s", err, out)
-		os.Exit(1)
+		return 1
 	}
 	// The CLI tests name corpus files, fixtures and scripts relative to the
 	// repository root, which is also the module root.
 	if err := os.Chdir(filepath.Join(pkgDir, "..", "..")); err != nil {
 		fmt.Fprintf(os.Stderr, "TestMain: chdir to the repository root: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	nomiBin = binPath
 	// A test that takes Go off PATH must not have `nomi` download the
@@ -84,7 +92,7 @@ func TestMain(m *testing.M) {
 		k, v, _ := strings.Cut(kv, "=")
 		_ = os.Setenv(k, v)
 	}
-	os.Exit(m.Run())
+	return m.Run()
 }
 
 // exe is path with the executable suffix of this system: a test that

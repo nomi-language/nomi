@@ -3046,22 +3046,8 @@ func (g *gen) emitStdBody(f *stdFunc, fd *ast.FuncDef, pkg string) bool {
 
 // --- call sites -----------------------------------------------------------
 
-// stdOperatorIfaces is the operator-to-interface mapping std declares.
-var stdOperatorIfaces = map[string]string{
-	"+":   "Add.add",
-	"-":   "Subtract.subtract",
-	"*":   "Multiply.multiply",
-	"/":   "Divide.divide",
-	"%":   "Remainder.remainder",
-	"&&&": "BitwiseAnd.bitwise_and",
-	"|||": "BitwiseOr.bitwise_or",
-	"^^^": "BitwiseXor.bitwise_xor",
-	"<<<": "ShiftLeft.shift_left",
-	">>>": "ShiftRight.shift_right",
-}
-
-// stdBitwiseNot is `~~~`'s interface method, the unary member of the family
-// stdOperatorIfaces maps.
+// stdBitwiseNot is `~~~`'s interface method, the unary member of
+// operIfaceSpecs.
 const stdBitwiseNot = "BitwiseNot.bitwise_not"
 
 // stdlibUnaryOperatorFor is std's `BitwiseNot` impl for an operand of kind
@@ -3114,44 +3100,31 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 	return f
 }
 
-// stdOperatorNative reports whether `left op right` is the machine's own
-// operation rather than a call of std's impl, whatever impl the checker
-// recorded for it: Decimal arithmetic, and two operands of one scalar kind
-// except a bitwise operator on a kind other than Int (Byte's `&&&`), which
-// is std's impl.
-func stdOperatorNative(op string, left, right kind) bool {
-	if isDecimalKind(left) && isDecimalKind(right) {
-		return true
-	}
-	return left.def == nil && left == right && (!irArithOps[op].Bitwise() || left == kindInt)
-}
-
 // stdOperatorFits reports whether the std function f is called for `left
-// op right`: the operator is std's to call there (stdOperatorNative), and
-// f lowered and takes the two operands' kinds exactly.
-func stdOperatorFits(op string, f *stdFunc, left, right kind) bool {
-	if _, known := stdOperatorIfaces[op]; !known || f == nil || stdOperatorNative(op, left, right) {
+// op right`: f is no impl the machine computes itself (machineImpls), it
+// lowered, and it takes the two operands' kinds exactly.
+func (g *gen) stdOperatorFits(op string, f *stdFunc, left, right kind) bool {
+	if operIfaceByOp[op] == nil || f == nil || g.machineComputes(f) {
 		return false
 	}
 	return f.why == "" && sameParamKinds(f.params, []kind{left, right})
 }
 
 // stdlibOperatorFor is std's impl of `left op right` at an instance's
-// kinds, for an operator the checker resolved over a type parameter
-// (instanceOperatorImpl); a recorded operator calls the function its
-// record names (recordedOperatorImpl).
-//
-// A scalar left operand (`Int`, `Float`) at its own kind is native
-// arithmetic and answers nil here. At another right-hand kind it is std's
-// impl for that pair or nothing: `d / 2` with `d: Duration` is `impl
-// Divide<Int, Duration> for Duration`.
+// kinds, for an operator with no record that names its impl (one over a
+// type parameter whose frame has no checker type); a recorded operator
+// calls the function its record names (recordedOperatorImpl). It is nil
+// where the impl the kinds select is one the machine computes itself
+// (`Int + Int`), and at another right-hand kind it is std's impl for that
+// pair or nothing: `d / 2` with `d: Duration` is `impl Divide<Int,
+// Duration> for Duration`.
 func (g *gen) stdlibOperatorFor(op string, left, right kind) *stdFunc {
-	key, known := stdOperatorIfaces[op]
-	if !known || g.std == nil || stdOperatorNative(op, left, right) {
+	spec := operIfaceByOp[op]
+	if spec == nil || g.std == nil {
 		return nil
 	}
-	f := stdPick(g.std.byIface[key][left], []kind{left, right})
-	if !stdOperatorFits(op, f, left, right) {
+	f := stdPick(g.std.byIface[spec.nomi+"."+spec.method][left], []kind{left, right})
+	if !g.stdOperatorFits(op, f, left, right) {
 		return nil
 	}
 	return f

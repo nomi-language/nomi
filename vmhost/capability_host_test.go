@@ -161,7 +161,7 @@ end
 func TestWithCapabilities_CallIsHeld(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
-		"nomi.toml": "[module]\nname = \"app\"\n\n[capabilities]\nallow = []\n",
+		"nomi.toml": "[module]\nname = \"app\"\n\n[capabilities]\nstd = []\n",
 		"rules.nomi": `import std::io
 
 pub fn quiet(n: Int) -> Int
@@ -209,7 +209,7 @@ end
 	load := func(allow string, opts ...vmhost.Option) error {
 		dir := t.TempDir()
 		writeFiles(t, dir, map[string]string{
-			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nallow = [" + allow + "]\n",
+			"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = [" + allow + "]\n",
 			"main.nomi": main,
 		})
 		_, err := vmhost.Load(filepath.Join(dir, "main.nomi"), opts...)
@@ -256,8 +256,8 @@ func TestWithCapabilities_NamesThatAreNotNames(t *testing.T) {
 		want  string
 	}{
 		{[]string{"std::fss"}, `vmhost.WithCapabilities names std::fss, which is not a std module (did you mean "std::fs"?)`},
-		{[]string{"fs"}, `vmhost.WithCapabilities: "fs" is neither a std module ("std::fs") nor a Go package ("go:<import path>")`},
-		{[]string{"go:example.com/nothing"}, "vmhost.WithCapabilities names go:example.com/nothing, which no `gopkg` declaration in the program or its dependencies imports (the program and its dependencies bind no Go package)"},
+		{[]string{"fs"}, `vmhost.WithCapabilities: "fs" is not a std module; write one as an import does, such as "std::fs"`},
+		{[]string{"go:strings"}, `vmhost.WithCapabilities: "go:strings" names a Go package; Go is allowed by module, not by package: pass the module that binds it to vmhost.WithGo`},
 		{[]string{"host:nothing"}, "vmhost.WithCapabilities names host:nothing, which no table passed with vmhost.WithHosts answers (no table is passed with vmhost.WithHosts)"},
 		{[]string{"std::io", "std::io"}, "vmhost.WithCapabilities lists std::io twice"},
 	}

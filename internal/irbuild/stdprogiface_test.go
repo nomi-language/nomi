@@ -260,7 +260,7 @@ func TestStdProgIface_StdTypesHeldAsStdInterfaces(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration; -short")
 	}
-	irRunSource(t, `import std::io
+	path := irRunSource(t, `import std::io
 import std::matcher.Matcher
 import std::regex.Regex
 
@@ -299,6 +299,12 @@ fn main()
     io.print(Bool.to_string(Hashable.hash(h) == Hashable.hash(same)))
 end
 `, "True\nFalse\n3\nTrue\nn,a\nb|x|y\nTrue\n")
+	// The golden set holds the program, so the operator census sees an
+	// operator in a std body its box's dispatch entry instantiates
+	// (std/ranges.nomi's Range.contains at Int).
+	if golden := goldenReference(t, path); golden.stdout != "True\nFalse\n3\nTrue\nn,a\nb|x|y\nTrue\n" || golden.exit != 0 {
+		t.Errorf("golden record (exit %d):\n%s", golden.exit, golden.stdout)
+	}
 }
 
 // A std struct held as a std interface enters unboxed, its run-time value

@@ -161,7 +161,8 @@ func TestIn_TheCallItStandsFor(t *testing.T) {
 // bound (`impl Contains for List<T> where T: Equatable`) and an element
 // that misses it is one error: the element's missing impl, at the
 // collection, naming the `in`. Not also the collection's missing Contains,
-// which it has.
+// which it has. The call written out is any interface call, whose demand
+// is the call's.
 func TestIn_AnElementMissingTheImplsBoundIsOneError(t *testing.T) {
 	const p = "struct P\n    x: Int\nend\n\n"
 	// An element type with equality meets List's and Vector's bound
@@ -180,7 +181,7 @@ func TestIn_AnElementMissingTheImplsBoundIsOneError(t *testing.T) {
 		"a vector":        {op + "fn f(p: P) -> Bool\n    p in Vector[p]\nend", equatable, 6, 10},
 		"a tuple element": {op + "fn f(p: P) -> Bool\n    (1, p) in [(1, p)]\nend", equatable, 6, 15},
 		"the call it stands for": {op + "fn f(p: P) -> Bool\n    Contains.contains([p], p)\nend",
-			"no impl of `Equatable` for `P` (required via interface-typed param/field) | " + help, 6, 23},
+			"no impl of `Equatable` for `P` (required via call site) | " + help, 6, 22},
 		"a program's impl with a bound": {p + `struct Bag<T>
     items: List<T>
 end

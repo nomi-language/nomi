@@ -110,6 +110,32 @@ func TestPartnerTestDerive_DuplicatingThePartnersImplIsAnError(t *testing.T) {
 	}
 }
 
+// An impl the partner writes of its own interface named like a derivable
+// one is of another interface than the one derive writes, so the test may
+// derive std's beside it.
+func TestPartnerTestDerive_AnImplOfThePartnersOwnInterfaceIsNoDuplicate(t *testing.T) {
+	user := `pub interface ToJson
+    fn to_json(value: self) -> String
+end
+
+pub struct User
+    name: String
+end
+
+impl ToJson for User
+    fn to_json(value: User) -> String
+        "own ${value.name}"
+    end
+end
+`
+	test := "import\n    std::json\n    user.{User, ToJson}\nend\n\nderive json.ToJson for User\n\ntest \"both\"\n" +
+		"    assert json.Json.encode(json.ToJson.to_json(User{name: \"ann\"})) == `{\"name\":\"ann\"}`\n" +
+		"    assert ToJson.to_json(User{name: \"ann\"}) == \"own ann\"\nend\n"
+	if err := apiProject(t, "user_test.nomi", map[string]string{"user.nomi": user, "user_test.nomi": test}); err != nil {
+		t.Fatalf("the derive of std's ToJson is refused beside an impl of the partner's own ToJson: %v", err)
+	}
+}
+
 // Only the partner test derives for another file's type: a test file named
 // after no sibling, and an ordinary file, get the error a derive in another
 // file always got.
@@ -138,6 +164,20 @@ func TestPartnerTestDerive_TheInterfaceMustBeInScope(t *testing.T) {
 	}
 	if want := "`FromJson` is not in scope — import `std::json.FromJson`"; !strings.Contains(err.Error(), want) {
 		t.Fatalf("error does not say %q:\n%v", want, err)
+	}
+}
+
+// The partner test may name the interface through its module, as a derive
+// in the declaring file may, and it is std's even where the test file
+// declares an interface of the name.
+func TestPartnerTestDerive_TheInterfaceThroughItsModule(t *testing.T) {
+	test := strings.Replace(derivesFromJson, "import std::json.{FromJson, Json}\n\nderive FromJson for TodoJson",
+		"import std::json\nimport std::json.Json\n\ninterface FromJson\n    fn from_json(text: String) -> self\nend\n\nderive json.FromJson for TodoJson", 1)
+	if test == derivesFromJson {
+		t.Fatal("the test file's derive was not rewritten")
+	}
+	if err := apiProject(t, "api_test.nomi", map[string]string{"api.nomi": withTagFromJson, "api_test.nomi": test}); err != nil {
+		t.Fatalf("the partner test may not derive std's FromJson through its module: %v", err)
 	}
 }
 

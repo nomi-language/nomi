@@ -1109,7 +1109,7 @@ func (dm *DocumentManager) buildAnalysis(uri string, nodes []ast.Node, root, doc
 	// they are a prefix of prog.
 	fallbackDocPath := fileuri.ToPath(uri)
 	entryModRel := relModuleKey(root, fallbackDocPath)
-	prog, _ := SynthesizeDerives(nodes)
+	prog := nodes
 	prog = SynthesizeUniversalDebug(prog)
 	rec := &loadRecord{}
 	docEntryFA, docSiblings, docSiblingNodes := BuildProjectFromEntryWithManifest(fallbackDocPath, prog, dm.primitives, dm.modules, dm.stdlibFAs, root, dm.makeRecordingLoaderWithOverride(uri, nodes, rec), nil, entryModRel, true)

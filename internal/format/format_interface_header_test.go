@@ -342,6 +342,17 @@ func TestFormat_DeriveOptions(t *testing.T) {
 	roundTrip(t, src)
 }
 
+// A derive may name its interface through its module, and keeps it so.
+func TestFormat_DeriveQualifiedInterface(t *testing.T) {
+	src := `derive json.ToJson for User
+
+derive json.FromJson for Box<T> with json.FromJson.Options{
+    rename_all: json.Json.Case.Camel,
+} where T: json.FromJson
+`
+	roundTrip(t, src)
+}
+
 func TestFormat_DeriveOptionsBeforeWhereClause(t *testing.T) {
 	src := `derive ToJson for Box<T> with ToJson.Options{
     rename_all:        Json.Case.Camel,

@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/ir"
 )
@@ -141,11 +142,11 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs) (ir
 		return ir.NoTemp, false, false
 	}
 	at := &ast.Binary{Op: "==", Left: t.Args[0], Right: t.Args[1], Line: t.Line, Col: t.Col}
-	if irScalarRangeKind(k) || irTypeWitnessKind(k) || bl.g.meetsByEquality("Equatable", k) {
+	if irScalarRangeKind(k) || irTypeWitnessKind(k) || bl.g.meetsByEquality(stdEquatable, k) {
 		// A declared type with no Equatable of its own meets the bound by
 		// its equality, and so do std's Range and `Type<T>`, which declare
 		// none; the call is `a == b` over it.
-		v, _, _, ok := bl.compareOperands(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
+		v, _, _, ok := bl.comparison(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
 		return v, ok, true
 	}
 	if !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {
@@ -160,7 +161,7 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs) (ir
 // program and nothing in std declares an impl of iface for it (spec §5
 // *Equality and Ordering Semantics*). Its `Equatable.equal` is then `==`, and
 // its `Hashable.hash` the hash a Map key of it takes.
-func (g *gen) meetsByEquality(iface string, k kind) bool {
+func (g *gen) meetsByEquality(iface analysis.StdType, k kind) bool {
 	if k.tag != tagNamed || k.def == nil || isDecimalKind(k) || !irKeyImplRecv(k) || !g.noImplOf(iface, k) {
 		// A prelude or std container instance (`Maybe<Int>`, `Set<Int>`)
 		// takes std's generic impl, which byIface does not key by the
@@ -184,7 +185,7 @@ func (bl *irScalarBuilder) structuralHashCall(t *ast.Call, args irQualArgs) (ir.
 	if len(t.Args) != 1 || !args.ok || len(args.kinds) != 1 || bl.g.recordNamesImpl(t) {
 		return ir.NoTemp, false
 	}
-	if !irScalarRangeKind(args.kinds[0]) && !irStdHandleKind(args.kinds[0]) && !irTypeWitnessKind(args.kinds[0]) && !bl.g.meetsByEquality("Hashable", args.kinds[0]) {
+	if !irScalarRangeKind(args.kinds[0]) && !irStdHandleKind(args.kinds[0]) && !irTypeWitnessKind(args.kinds[0]) && !bl.g.meetsByEquality(stdHashable, args.kinds[0]) {
 		return ir.NoTemp, false
 	}
 	pos := bl.g.irNodePos(t)

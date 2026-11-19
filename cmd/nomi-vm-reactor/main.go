@@ -7,8 +7,10 @@
 //
 //	nomi_alloc(len: i32) -> i32
 //	nomi_call(name_ptr, name_len, args_ptr, args_len: i32) -> i64
+//	nomi_call_with(name_ptr, name_len, args_ptr, args_len, opts_ptr, opts_len: i32) -> i64
 //	nomi_free(ptr, len: i32)
 //	nomi_load(ptr, len: i32) -> i64
+//	nomi_load_with(ptr, len, opts_ptr, opts_len: i32) -> i64
 //	nomi_main() -> i32
 //
 // Go fixes a module's export names when it is linked, and this runner is

@@ -407,3 +407,48 @@ func containsErrAbout(msgs []string, name string) bool {
 	}
 	return false
 }
+
+// A type declared inside a body is held to the module-level rule: a prelude
+// name is refused for a struct, an enum, a distinct type, a typealias and
+// an interface alike, with the error and code the same declaration gets at
+// the top of the file. A body type may still take the name of a
+// module-level type of the file, or of a std type the prelude does not
+// bind.
+func TestCheckReservedTypeName_InABody(t *testing.T) {
+	kinds := []struct{ kind, decl string }{
+		{"struct", "struct N\n    x: Int\nend"},
+		{"enum", "enum N\n    A\n    B\nend"},
+		{"distinct type", "type N Int"},
+		{"typealias", "typealias N Int"},
+		{"interface", "interface N\n    fn f(x: self) -> Int\nend"},
+	}
+	indent := func(s string) string { return "    " + strings.ReplaceAll(s, "\n", "\n    ") }
+	for _, k := range kinds {
+		for _, name := range []string{"String", "Range", "Noun", "Decimal", "Display", "Some"} {
+			t.Run(k.kind+"/"+name, func(t *testing.T) {
+				decl := strings.ReplaceAll(k.decl, "N", name)
+				top := analysis.ReservedNameRefusals(reservedNamesCheckAll(t, decl+"\n\nfn main()\n    Unit\nend\n"))
+				body := analysis.ReservedNameRefusals(reservedNamesCheckAll(t, "fn main()\n"+indent(decl)+"\n    Unit\nend\n"))
+				if len(top) != 1 {
+					t.Fatalf("module-level `%s` refusals %v, want one", decl, top)
+				}
+				if len(body) != 1 {
+					t.Fatalf("the checker admits `%s` in a body: refusals %v, want one", decl, body)
+				}
+				if body[0].Message != top[0].Message || body[0].Line != 2 || body[0].Code != analysis.ReservedNameCode {
+					t.Errorf("body refusal %q at line %d (code %q), want %q at line 2", body[0].Message, body[0].Line, body[0].Code, top[0].Message)
+				}
+			})
+		}
+	}
+	for _, k := range kinds {
+		t.Run(k.kind+" sharing a file or non-prelude name", func(t *testing.T) {
+			src := strings.ReplaceAll(k.decl, "N", "Pt") + "\n\nfn main()\n" +
+				indent(strings.ReplaceAll(k.decl, "N", "Pt")) + "\n" +
+				indent(strings.ReplaceAll(k.decl, "N", "Duration")) + "\n    Unit\nend\n"
+			if errs := analysis.ReservedNameRefusals(reservedNamesCheckAll(t, src)); len(errs) != 0 {
+				t.Errorf("refusals %v, want none:\n%s", errs, src)
+			}
+		})
+	}
+}

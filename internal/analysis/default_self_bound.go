@@ -69,7 +69,7 @@ func (c *checker) checkDefaultSelfDemand(t Type, ifaceName string, rec Recording
 	}
 	if sig := interfaceMethodSig(iface, c.defaultSelfFn); sig != nil {
 		for _, b := range sig.SelfBounds {
-			if b != nil && b.Name == ifaceName {
+			if b != nil && sameNominalIdentity(b.Origin, b.Name, rec.IfaceOrigin, ifaceName) {
 				return
 			}
 		}
@@ -91,12 +91,13 @@ func (c *checker) checkDefaultSelfDemand(t Type, ifaceName string, rec Recording
 	if sym := c.fa.References[pos]; subject == "this value" && sym != nil && (sym.Kind == SymbolParam || sym.Kind == SymbolBinding) {
 		subject = "`" + sym.Name + "`"
 	}
-	msg := fmt.Sprintf("%s is a `self`, and %s does not require %s of its implementors", subject, c.currentInterface, ifaceName)
+	shown := shownBeside(ifaceIdentity{Origin: rec.IfaceOrigin, Name: ifaceName}, []*InterfaceType{iface})
+	msg := fmt.Sprintf("%s is a `self`, and %s does not require %s of its implementors", subject, c.currentInterface, shown)
 	if c.alreadyReported(pos.Line, pos.Col, msg) {
 		return
 	}
 	c.report(TypeError{Line: pos.Line, Col: pos.Col, Message: msg}.WithHint(
-		fmt.Sprintf("require it for this default only, so an implementor without %s writes the function itself: `%s`", ifaceName, defaultSignatureWithSelfBound(iface, c.defaultSelfFn, ifaceName))))
+		fmt.Sprintf("require it for this default only, so an implementor without %s writes the function itself: `%s`", shown, defaultSignatureWithSelfBound(iface, c.defaultSelfFn, shown))))
 }
 
 // isDefaultSelfType reports whether t is the `self` of the default body

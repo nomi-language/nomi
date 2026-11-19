@@ -126,7 +126,7 @@ func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 	case *ast.TypeIdent:
 		return bl.g.namedWitnessKind(t, t.Name), true
 	case *ast.Ident:
-		if bl.isBoundName(t.Name) {
+		if bl.namesLocal(t) {
 			return kindInvalid, false
 		}
 		return bl.g.namedWitnessKind(t, t.Name), true
@@ -135,10 +135,10 @@ func (bl *irScalarBuilder) witnessTypeKind(at ast.Node) (kind, bool) {
 		for fa, chained := root.(*ast.FieldAccess); chained; fa, chained = root.(*ast.FieldAccess) {
 			root = fa.Object
 		}
-		if id, isIdent := root.(*ast.Ident); !isIdent || bl.isBoundName(id.Name) {
+		if id, isIdent := root.(*ast.Ident); !isIdent || bl.namesLocal(id) {
 			return kindInvalid, false
 		}
-		name, ok := bl.g.dottedTypeQualifier(t)
+		name, ok := bl.dottedTypeQualifier(t)
 		if !ok {
 			return kindInvalid, false
 		}
@@ -214,7 +214,7 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 		var w ir.Temp
 		var wk, x kind
 		typeName := false
-		if id, isIdent := arg.(*ast.Ident); !isIdent || !bl.isBoundName(id.Name) {
+		if id, isIdent := arg.(*ast.Ident); !isIdent || !bl.namesLocal(id) {
 			x, typeName = bl.witnessTypeKind(arg)
 		}
 		if !typeName {
@@ -257,14 +257,4 @@ func (bl *irScalarBuilder) contextValueCall(t *ast.Call, method string) (ir.Temp
 	bl.b.Append(call)
 	bl.side(call.Dst(), irScalarSide{k: result, deferrable: true})
 	return call.Dst(), result, false, true
-}
-
-// isBoundName reports whether name is a binding this body or its module can
-// read, as opposed to a type name.
-func (bl *irScalarBuilder) isBoundName(name string) bool {
-	if _, local := bl.bound[name]; local {
-		return true
-	}
-	_, bound := bl.g.lookup(name)
-	return bound
 }

@@ -224,7 +224,7 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st
 			jv, jk, ok = bl.jsonNull(t, jsonK)
 		case part.tag == tagNamed && !irMaybeKind(part):
 			mv, mk, mok := bl.lowerJsonFieldCall(t, field, part, path+"."+strconv.Itoa(i), func(arg ast.Node) *ast.Call {
-				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json_field", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json_field", pt))
+				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json_field", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json_field", 1, pt))
 			})
 			if !mok || mk.tag != tagNamed || mk.def == nil || !irMaybeKind(mk) {
 				return no("field " + name + "'s ToJson.to_json_field")
@@ -244,7 +244,7 @@ func (bl *irScalarBuilder) recordToJsonOf(t *ast.Call, subj ir.Temp, sk kind, st
 			continue
 		default:
 			jv, jk, ok = bl.lowerJsonFieldCall(t, field, part, path+"."+strconv.Itoa(i), func(arg ast.Node) *ast.Call {
-				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json", pt))
+				return bl.g.synthIfaceCall(t.Line, "ToJson", "to_json", arg, bl.g.stdIfaceCallRecord(stdToJson, "to_json", 1, pt))
 			})
 		}
 		if !ok {
@@ -390,7 +390,7 @@ func (g *gen) synthIfaceCall(line int, owner, method string, arg ast.Node, rec *
 func (bl *irScalarBuilder) lowerJsonFieldCall(t *ast.Call, v ir.Temp, part kind, path string, call func(ast.Node) *ast.Call) (ir.Temp, kind, bool) {
 	name := "%json" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + path
 	bl.patternBinding(t, name, v, part)
-	r, rk, _, ok := bl.lower(call(&ast.Ident{Name: name, Line: t.Line}))
+	r, rk, _, ok := bl.lower(call(bl.g.madeIdent(name, t.Line, 0)))
 	return r, rk, ok
 }
 
@@ -633,7 +633,7 @@ func (bl *irScalarBuilder) fromJsonAt(t *ast.Call, json ir.Temp, jk kind, part k
 	if part.tag == tagNamed && part.def != nil {
 		owner = part.def.nomi
 	}
-	call := bl.g.synthIfaceCall(line, owner, "from_json", &ast.Ident{Name: name, Line: line}, analysis.PositionalCall(1, 1))
+	call := bl.g.synthIfaceCall(line, owner, "from_json", bl.g.madeIdent(name, line, 0), bl.g.stdIfaceCallRecord(stdFromJson, "from_json", 1, nil))
 	if irKindDeclared(part) {
 		v, rk, _, ok := bl.kindImplCall(call, part, nil, "from_json")
 		return v, rk, ok

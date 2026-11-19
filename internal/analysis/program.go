@@ -103,9 +103,10 @@ type Program struct {
 	// impls, so this is how such a file sees another's.
 	unindexedImpls map[string]map[string]bool
 	// unindexedOrigins is those files' Origins. ImplIndex holds none of
-	// their impls, so its identity entries cannot say whether a type they
-	// declare supplies an impl (suppliesReceiver), and the bare-name
-	// answer stands for it.
+	// their impls, so where they write an impl of an interface's name for
+	// a type of the name, its identity entries cannot say whether a type
+	// they declare supplies it, and the bare-name answer stands
+	// (suppliesReceiver, unindexedFiles).
 	unindexedOrigins map[string]bool
 
 	// results holds what the checks that run once every file is checked

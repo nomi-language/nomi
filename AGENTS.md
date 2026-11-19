@@ -178,7 +178,11 @@ and caches the stdlib's interfaces and facts and its lowering, a std
 bundle, under its build ID in `os.UserCacheDir()/nomi/artifacts/std/`
 (`NOMI_ARTIFACT_CACHE` replaces the directory; `off` keeps none), so each
 new build of `nomi` pays one slower first run (about 0.8 s for hello
-world), and the base modules' state on its second.
+world), and the base modules' state on its second. Every cache Nomi
+keeps, under the user cache and under the system temp directory for
+tests, drops an entry nothing has used for 14 days, and a build's std
+artifacts after a day and a kept program after five
+(internal/artifactcache package doc, "Pruning").
 `scripts/build-tour-wasm.sh` and `scripts/release.sh` embed all three
 instead (the `nomi_stdbundle` tag). Under `go test` the cache is under
 the system temp directory, for the test and every process it starts.
@@ -222,6 +226,15 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
   `NOMI_TYPE_OPS=full`, `NOMI_TYPE_OPS_ONLY` (`vmhost/type_ops_test.go`).
 - Load order does not change a program: `TestLoadOrderDoesNotChangeAProgram`,
   `NOMI_ORDER_COUNT` (`vmhost/load_order_test.go`).
+- Every operator's lowered route pairs with its record as `operatorPairs`
+  lists, and each known disagreement's distinct sites only go down:
+  `verifyOperatorForm`, `NOMI_SUBST_VERIFY=1`, `maxOperatorFormSites`,
+  checked by `TestIRGolden_RecordsMatchTheVM`
+  (`internal/irbuild/operatorform_ratchet_test.go`).
+- Every std operator impl only the machine computes has a row in
+  `machineImpls`, and each row's operators answer as a call of its body:
+  `TestMachineImplsAreComplete`, `TestMachineImplsComputeTheirBodies`
+  (`internal/irbuild/machineimpl_test.go`).
 - Every place irbuild can decline is listed with a class, and an undecided
   one with its cause. The total, the dead sites and the undecided sites
   only go down: `TestDeclineSitesAreListed`,
@@ -231,6 +244,11 @@ runs as `go test ./<pkg> -run '^$' -fuzz '^<Name>$' -fuzztime 5m`.
   (`vmhost/lowering_gaps_inventory_test.go`).
 - Every expression has a type after checking: `TestSeedExprsAreTyped`,
   `knownCheckerGaps` (`vmhost/checker_gaps_test.go`).
+- A local irbuild reads by its name is the declaration the checker resolved
+  the read to, in every test binary: `verifyLocalRead`,
+  `knownLocalReadClasses`, `maxLocalReadSites`, and the places that resolve
+  a name by its spelling only go down: `TestSpellingResolutionsOnlyGoDown`
+  (`internal/irbuild/localread_ratchet_test.go`).
 - Modules encoded apart link to the same program, and each file lowered on
   its own matches the whole lowering: `TestObjectsLinkToTheSameProgram`,
   `TestFilesLowerOnTheirOwnAsInTheProgram`, `NOMI_OBJECTS_LINK=full`,

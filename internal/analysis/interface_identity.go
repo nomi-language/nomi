@@ -65,9 +65,9 @@ type ImplTables struct {
 	// `type Name String` does not take std/xml's `impl Display for Name`
 	// (missing_impl_identity.go). Nil leaves the bare-name answer.
 	Receivers *ProjectImplIndex
-	// Unindexed is the origins of the program's files Receivers does not
-	// fold, whose receivers it cannot judge (Program.unindexedOrigins).
-	Unindexed map[string]bool
+	// Unindexed is the program's files Receivers does not fold, whose
+	// impls it cannot judge (unindexedFiles).
+	Unindexed unindexedFiles
 }
 
 // implTablesFor pairs an impl table with the project-wide interface-origin
@@ -76,7 +76,7 @@ type ImplTables struct {
 // per-file `Impls` is a BROADCAST union of every reachable file's impls
 // anyway, so a per-file origins map would carry identical contents under a
 // second name.
-func implTablesFor(impls map[string]map[string]bool, idx *ProjectImplIndex, unindexed map[string]bool) ImplTables {
+func implTablesFor(impls map[string]map[string]bool, idx *ProjectImplIndex, unindexed unindexedFiles) ImplTables {
 	t := ImplTables{Impls: impls}
 	if idx != nil {
 		t.IfaceOrigins = idx.IfaceOriginByPair
@@ -144,7 +144,10 @@ func PopulateImplIfaceOrigins(idx *ProjectImplIndex, filesByKey map[string]*File
 // block holding fn names, resolved in fa, the file that writes the block:
 // through the module its header qualifies the interface with (`impl
 // calendar.DateParts for Q` beside fa's own `interface DateParts` names
-// std/calendar's), else by name in fa's scope.
+// std/calendar's), else by name in fa's scope. A synthesized impl whose
+// interface fa's scope does not bind (the universal Debug of a std file
+// that imports none) names the declaration its block's header resolves
+// to, compilerKnownSynthNamed's.
 func declaringOriginOfImplInterface(fa *FileAnalysis, fn *ast.FuncDef, name string) string {
 	if fa == nil {
 		return OriginUnresolved
@@ -155,7 +158,13 @@ func declaringOriginOfImplInterface(fa *FileAnalysis, fn *ast.FuncDef, name stri
 		}
 		return OriginUnresolved
 	}
-	return declaringOriginOfInterface(fa, name)
+	origin := declaringOriginOfInterface(fa, name)
+	if origin == OriginUnresolved && IsSynthesizedLine(fn.Line) {
+		if it, ok := compilerKnownSynthNamed(name, nil).(*InterfaceType); ok {
+			return it.Origin
+		}
+	}
+	return origin
 }
 
 // declaringOriginOfInterface finds the Origin of the interface `name` denotes
@@ -182,6 +191,141 @@ func declaringOriginOfInterface(fa *FileAnalysis, name string) string {
 		return it.Origin
 	}
 	return OriginUnresolved
+}
+
+// ifaceIdentity is an interface's identity, the build key of the file that
+// declares it and its name, as the impl identity index keys an impl's
+// interface (ImplIdentityKey.IfaceOrigin and Iface). Origin is
+// OriginUnresolved where no impl of the name for the receiver recorded the
+// declaration its header names.
+type ifaceIdentity struct{ Origin, Name string }
+
+// implIfaceOrigins is the declaring origins of the interfaces named iface
+// that impls for a receiver named recv implement (IfaceOriginByPair), or
+// the bottom alone where none is recorded.
+func (idx *ProjectImplIndex) implIfaceOrigins(recv, iface string) []string {
+	if idx != nil {
+		if origins := idx.IfaceOriginByPair[recv][iface]; len(origins) > 0 {
+			return origins
+		}
+	}
+	return []string{OriginUnresolved}
+}
+
+// interfaceDeclaredAt is the declaration of the interface named name that
+// the file of origin declares, and that file: a program's file, the
+// entry's, or a std module's. Nil where no file of origin declares an
+// interface of the name.
+func (fa *FileAnalysis) interfaceDeclaredAt(origin, name string) (*InterfaceType, *FileAnalysis) {
+	if fa == nil || origin == OriginUnresolved || IsBodyOrigin(origin) {
+		return nil, nil
+	}
+	p := fa.Program()
+	if p == nil {
+		return nil, nil
+	}
+	home := p.File(origin)
+	if home == nil && origin == p.entryOrigin() {
+		home = p.File("")
+	}
+	if home == nil && fa.Origin == origin {
+		home = fa
+	}
+	if it := lookupInterfaceType(home, nil, name); it != nil && it.Origin == origin {
+		return it, home
+	}
+	return nil, nil
+}
+
+// interfaceMemberAt is the symbol of the function method that the
+// interface it declares, read in its declaring file (interfaceDeclaredAt),
+// else in fa's scope where it is of no recorded origin. Nil where neither
+// names it.
+func (fa *FileAnalysis) interfaceMemberAt(it *InterfaceType, method string) *Symbol {
+	if it == nil {
+		return nil
+	}
+	if it.Origin == OriginUnresolved {
+		return interfaceMemberIn(fa, it.Name, method)
+	}
+	if _, home := fa.interfaceDeclaredAt(it.Origin, it.Name); home != nil {
+		return interfaceMemberIn(home, it.Name, method)
+	}
+	return nil
+}
+
+// shownInterfaces names each interface of ids as a diagnostic names it:
+// by its name, or through its file (throughFile) where another
+// declaration among ids has the same name, so `a.Show` and `b.Show` but
+// `Show` and `Speaker`.
+func shownInterfaces(ids []ifaceIdentity) []string {
+	origins := map[string]map[string]bool{}
+	for _, id := range ids {
+		if origins[id.Name] == nil {
+			origins[id.Name] = map[string]bool{}
+		}
+		origins[id.Name][id.Origin] = true
+	}
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.Name
+		if len(origins[id.Name]) > 1 {
+			out[i] = throughFile(id.Origin, id.Name)
+		}
+	}
+	return out
+}
+
+// shownBeside names the interface id as a diagnostic that also names
+// others names it (shownInterfaces): `b.Show` beside a bound `a.Show`.
+func shownBeside(id ifaceIdentity, others []*InterfaceType) string {
+	shown := shownInterfaces(append(boundIdentities(others), id))
+	return shown[len(shown)-1]
+}
+
+// boundIdentities is each interface of bounds by its identity.
+func boundIdentities(bounds []*InterfaceType) []ifaceIdentity {
+	ids := make([]ifaceIdentity, 0, len(bounds))
+	for _, b := range bounds {
+		if b != nil {
+			ids = append(ids, ifaceIdentity{Origin: b.Origin, Name: b.Name})
+		}
+	}
+	return ids
+}
+
+// shownInterfaceFor is it, an interface recv is required to implement, as
+// a diagnostic names it (shownInterface): through its file where recv
+// implements another interface of its name. withArgs writes its type
+// arguments (`b.Scale<Int>`), else its name alone.
+func (idx *ProjectImplIndex) shownInterfaceFor(recv Type, it *InterfaceType, withArgs bool) string {
+	text := it.Name
+	if withArgs {
+		text = it.String()
+	}
+	t, name := nominalReceiver(resolveTypeVar(recv))
+	origin, ok := nominalOrigin(t)
+	if idx == nil || t == nil || !ok {
+		return text
+	}
+	shown := idx.shownInterface(origin, name, it.Origin, it.Name)
+	return strings.TrimSuffix(shown, it.Name) + text
+}
+
+// shownInterface names the interface iface, declared at ifaceOrigin, in a
+// diagnostic about whether the receiver typeName of origin implements it:
+// through its file (throughFile) where the receiver has an impl of another
+// interface of the name and none of this one, so the reader sees which
+// Show is missing (`b.Show`), else by its name. An interface declared
+// inside a body is named by its name.
+func (idx *ProjectImplIndex) shownInterface(origin, typeName, ifaceOrigin, iface string) string {
+	if IsBodyOrigin(ifaceOrigin) || !idx.implementsInterfaceNamed(origin, typeName, iface) {
+		return iface
+	}
+	if supplied, known := idx.implSuppliedByIdentity(origin, typeName, ifaceOrigin, iface); !known || supplied {
+		return iface
+	}
+	return throughFile(ifaceOrigin, iface)
 }
 
 // namesInterface reports whether an impl of the interface spelled

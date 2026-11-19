@@ -94,7 +94,7 @@ end
 
 // `==` and `!=` on a type declared in a block compare by its shape, though
 // a std module declares a type of its name with an impl of Equatable of its
-// own: std/calendar's DateTime and std/phrase's Noun write theirs by hand,
+// own: std/calendar's DateTime and OffsetDateTime write theirs by hand,
 // std/xml's Token and std/log's Level derive theirs. No impl can name a
 // block's type, so none of those is its.
 func TestIRBlockDeclaredTypes_EqualityIsTheirOwn(t *testing.T) {
@@ -109,7 +109,7 @@ fn main()
         zone:          String
     end
 
-    struct Noun
+    struct OffsetDateTime
         name:  String
         table: String
     end
@@ -124,8 +124,8 @@ fn main()
     a = DateTime{instant_nanos: 1, zone: "UTC"}
     b = DateTime{instant_nanos: 1, zone: "CET"}
     io.inspect((a == b, a != b, a == a, Equatable.equal(a, b)))
-    n = Noun{name: "book", table: "a"}
-    m = Noun{name: "book", table: "b"}
+    n = OffsetDateTime{name: "book", table: "a"}
+    m = OffsetDateTime{name: "book", table: "b"}
     io.inspect((n == m, n != m, n == n, Equatable.equal(n, m)))
     io.inspect((Token("a") == Token("b"), Token("a") != Token("a")))
     io.inspect((Level.Debug == Level.Info, Level.Info != Level.Info))
@@ -176,4 +176,106 @@ func TestIRBlockDeclaredTypes_InATestBody(t *testing.T) {
 end
 `
 	irTestBodyVM(t, src, 1)
+}
+
+// A type declared in a body under a std type's name has that type's
+// structural operations and nothing of the std type's: equality, a hash, a
+// Map key, a Set element and Debug, in a function, a nested fn and a
+// lambda, and under one name in two functions, each its own type.
+func TestIRBlockDeclaredTypes_StdNamesAreTheirOwn(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std::io
+
+fn durations() -> (Bool, Int, Int)
+    struct Duration
+        n: Int
+    end
+    a = Duration{n: 1}
+    b = Duration{n: 2}
+    m = {a => 1, b => 2}
+    s = Set[a, b, a]
+    (a == b, Map.get(m, b)!, Set.size(s))
+end
+
+fn dates() -> String
+    fn inner() -> Bool
+        enum Date
+            Today
+            Later Int
+        end
+        Hashable.hash(Date.Later(1)) == Hashable.hash(Date.Later(1))
+    end
+    f = fn x: Int ->
+        type Instant Int
+        Debug.inspect([Instant(x), Instant(x + 1)])
+    end
+    "${inner()} ${f(3)}"
+end
+
+fn other() -> String
+    enum Duration
+        Short
+        Long
+    end
+    Debug.inspect(Duration.Long)
+end
+
+fn main()
+    io.inspect(durations())
+    io.print(dates())
+    io.print(other())
+end
+`
+	const want = "(False, 2, 2)\nTrue [Instant(3), Instant(4)]\nLong\n"
+	irRunSource(t, src, want)
+}
+
+// A generic type a block declares beside a module-level one of its name is
+// the block's where the checker typed a use as the block's: a struct
+// literal, a struct's call form and an enum's variant call inside the
+// block build the block's instance, and the module's generic function
+// called there, and every use after the block, the module's.
+func TestIRBlockDeclaredTypes_AGenericBesideTheModulesOfItsName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration; -short")
+	}
+	const src = `import std::io
+
+struct Box<T>
+    v: T
+end
+
+enum Opt<T>
+    Has T
+    Empty
+end
+
+fn make<T>(x: T) -> Box<T>
+    Box{v: x}
+end
+
+fn main()
+    b = Box{v: 1}
+    if b.v > 0 then
+        struct Box<T>
+            w: T
+        end
+        enum Opt<T>
+            Got T
+            Gone
+        end
+        io.inspect(Box{w: "inner"})
+        io.inspect(Box({w: 4}))
+        io.inspect(Opt.Got(2))
+        io.inspect(make(3))
+    end
+    io.inspect(b)
+    io.inspect(Opt.Has(5))
+    io.inspect(make("outer"))
+end
+`
+	const want = "Box{w: \"inner\"}\nBox{w: 4}\nGot(2)\nBox{v: 3}\nBox{v: 1}\nHas(5)\nBox{v: \"outer\"}\n"
+	irRunSource(t, src, want)
 }

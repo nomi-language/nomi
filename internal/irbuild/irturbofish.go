@@ -16,19 +16,17 @@ func (bl *irScalarBuilder) turbofishOnInterface(t *ast.Call) bool {
 	if !qualified || fa.Field == nil || bl.g.fa == nil {
 		return false
 	}
-	ti, isType := fa.Object.(*ast.TypeIdent)
-	if !isType {
+	// What the checker resolved the qualifier to, however it is spelled:
+	// `FromJson`, or `json.FromJson` through its module, as a derived
+	// FromJson names std's through the hidden `json$` import.
+	c := bl.g.srcFA().CalleeOf(t.Func)
+	if c.Qualifier.Kind != analysis.QualInterface {
 		return false
 	}
-	sym := bl.g.srcFA().References[analysis.Pos{Line: ti.Line, Col: ti.Col}]
-	if sym == nil || sym.Kind != analysis.SymbolInterface {
-		return false
-	}
-	ref := bl.g.srcFA().References[analysis.Pos{Line: fa.Field.Line, Col: fa.Field.Col}]
-	if ref == nil {
+	if c.Ref == nil {
 		return true
 	}
-	_, declared := ref.Node.(*ast.InterfaceMethod)
+	_, declared := c.Ref.Node.(*ast.InterfaceMethod)
 	return declared
 }
 

@@ -405,7 +405,7 @@ func (g *gen) registerInstImpl(byRecv map[kind]*implDef, d *implDef) bool {
 	if d.instArgs == nil {
 		return false
 	}
-	byIface := g.instImpls[d.ifaceName]
+	byIface := g.instImpls[d.ifaceKey]
 	if held := byIface[d.recv]; len(held) > 0 {
 		for _, o := range held {
 			if sameKinds(o.instArgs, d.instArgs) {
@@ -427,7 +427,7 @@ func (g *gen) registerInstImpl(byRecv map[kind]*implDef, d *implDef) bool {
 	}
 	if byIface == nil {
 		byIface = map[kind][]*implDef{}
-		g.instImpls[d.ifaceName] = byIface
+		g.instImpls[d.ifaceKey] = byIface
 	}
 	byIface[d.recv] = []*implDef{prior, d}
 	return true

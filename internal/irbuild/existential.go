@@ -606,7 +606,7 @@ func (g *gen) bindsImpl(d *ifaceDef, k kind) bool {
 	if k.tag == tagNamed && k.def != nil && (k.def.genericOf != nil || k.def.instOrigin != nil) && d.decl != nil {
 		// A generic instance whose impl another file registers for it
 		// (siblingtemplateimpl.go), or the owner does for a mirror here.
-		_, impl := g.instanceImplAnywhere(instIdentity(k.def), d.nomi, "")
+		_, impl := g.instanceImplAnywhere(instIdentity(k.def), g.implsKey(d), "")
 		return impl != nil && impl.lowerable && impl.iface != nil && impl.iface.decl == d.decl
 	}
 	return false

@@ -18,9 +18,9 @@ import (
 // while a hand-written `impl Equatable for Box<T>` sat unused.
 //
 // So this file registers each impl block once per instance, under the
-// template's substitution frame, so `implsByIface["Describe"][Wrapped<Point>]`
-// is a real entry and every consultation that reads the map gets the user's
-// own impl.
+// template's substitution frame, so Describe's entry for `Wrapped<Point>` in
+// `implsByIface` is a real entry and every consultation that reads the map
+// gets the user's own impl.
 //
 // # A third file and not an extension of either neighbour
 //
@@ -47,7 +47,7 @@ import (
 //
 // The front end's synthesized `impl Debug for Box<T>` is registered per
 // instance like any other block. `Debug.inspect(b)`, `io.inspect(b)` and
-// `dbg b` over a `Box<Int>` read `implsByIface["Debug"]` and call its body,
+// `dbg b` over a `Box<Int>` read `implsByIface[stdIfaceImplKey(stdDebug)]` and call its body,
 // as they do for a non-generic struct's.
 //
 // # Type-parameter dispatch falls out

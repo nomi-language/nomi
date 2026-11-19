@@ -36,7 +36,7 @@ func (g *gen) siblingImplTemplate(ib *ast.ImplBlock) (*genericTemplate, bool) {
 	if !generic || len(gt.Params) == 0 || ib.Interface == nil {
 		return nil, false
 	}
-	if g.blockLocalTemplate(gt.Name) != nil || g.genericTemplates[gt.Name] != nil {
+	if g.blockLocalTemplate(gt.Name, nil) != nil || g.genericTemplates[gt.Name] != nil {
 		return nil, false
 	}
 	ref, found := g.foreignTemplate(gt.Name)

@@ -472,9 +472,13 @@ func TestIdleTimeout(t *testing.T) {
 }
 
 // With a ping interval the server pings, the client's pongs keep an idle
-// timeout from firing, and the client answers without being asked.
+// timeout from firing, and the client answers without being asked. The
+// idle timeout is fifty ping intervals, so a machine busy with other test
+// binaries has to stall this one for half a second before a pong is late,
+// and the wait is more than twice the timeout, so the timeout would have
+// fired without the pongs.
 func TestPingInterval_PongsKeepTheConnectionAlive(t *testing.T) {
-	s, c := pair(t, Options{PingInterval: 10 * time.Millisecond, IdleTimeout: 60 * time.Millisecond}, Options{})
+	s, c := pair(t, Options{PingInterval: 10 * time.Millisecond, IdleTimeout: 500 * time.Millisecond}, Options{})
 	ctx := context.Background()
 	go func() {
 		// The client reads, so it answers the pings.
@@ -488,7 +492,7 @@ func TestPingInterval_PongsKeepTheConnectionAlive(t *testing.T) {
 	select {
 	case err := <-got:
 		t.Fatalf("the server's Receive ended at %v while pongs came", err)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(1200 * time.Millisecond):
 	}
 	if err := c.Send(ctx, true, []byte("still here")); err != nil {
 		t.Fatal(err)

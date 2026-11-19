@@ -667,7 +667,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		return typeErrorf("cannot unify %s with %s", iface, concrete)
 	}
 	if !interfaceImplemented(concrete, iface.Name, iface.Origin, impls) {
-		return typeErrorf("%s does not implement %s", concrete, iface)
+		return typeErrorf("%s does not implement %s", concrete, receiversOf(impls).shownInterfaceFor(concrete, iface, true))
 	}
 	// Every impl of the interface the receiver has: a generic interface may
 	// be implemented at several type arguments, and the interface's own
@@ -690,7 +690,7 @@ func unifyInterfaceAgainstConcrete(m unifyMode, iface *InterfaceType, concrete T
 		}
 	}
 	if recorded && len(infos) == 0 {
-		return fmt.Errorf("%s does not implement %s", concrete, iface.Name)
+		return fmt.Errorf("%s does not implement %s", concrete, receiversOf(impls).shownInterfaceFor(concrete, iface, false))
 	}
 	if len(infos) == 1 && containsTypeVar(concrete) {
 		// One impl fits a value whose type is not yet solved: the value is
@@ -949,10 +949,21 @@ func interfaceImplemented(concrete Type, ifaceName, ifaceOrigin string, impls []
 	}
 	for _, table := range impls {
 		if table.Receivers != nil {
-			return table.Receivers.suppliesReceiver(concrete, concreteName, ifaceName, table.Unindexed)
+			return table.Receivers.suppliesReceiver(concrete, concreteName, ifaceOrigin, ifaceName, table.Unindexed)
 		}
 	}
 	return true
+}
+
+// receiversOf is the impl identity index the first of impls that has one
+// carries, nil for none.
+func receiversOf(impls []ImplTables) *ProjectImplIndex {
+	for _, table := range impls {
+		if table.Receivers != nil {
+			return table.Receivers
+		}
+	}
+	return nil
 }
 
 // interfaceImplementedByName is interfaceImplemented for a receiver known

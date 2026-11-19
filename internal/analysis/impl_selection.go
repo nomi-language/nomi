@@ -371,8 +371,8 @@ func (c *checker) multiImplCallee(fn ast.Node) (iface *InterfaceType, m *MethodS
 	}
 	var found *InterfaceType
 	var foundSig *MethodSig
-	for _, name := range c.interfacesImplementedBy(recvName) {
-		it := c.implementedInterface(recvName, name)
+	for _, id := range c.interfacesImplementedBy(recvName, c.receiverOriginForReceiver(fa.Object, recvName)) {
+		it := c.implementedInterface(recvName, id)
 		if pi, pm, picked := pick(it); picked {
 			if found != nil {
 				// Two interfaces declare the method: the type-qualified path
@@ -419,32 +419,6 @@ func typeMentionsParam(t Type, p *TypeParam_) bool {
 	}
 	// Unit where p stood: equal to t only when p stood nowhere.
 	return !TypesEqual(Substitute(t, map[*TypeParam_]Type{p: TypeUnit}), t)
-}
-
-// implementedInterface is the declaration of an interface recvName
-// implements: the one this file names, else std's, which `String.contains`
-// reaches in a std file that never imports `Contains`.
-func (c *checker) implementedInterface(recvName, name string) *InterfaceType {
-	if it, ok := c.reg.Lookup(name).(*InterfaceType); ok && it != nil {
-		return it
-	}
-	for _, info := range lookupImplTypeArgSets(recvName, name, c.implTypeArgSetsContext()) {
-		if info == nil {
-			continue
-		}
-		mod, isStd := strings.CutPrefix(info.Origin, "std/")
-		if !isStd {
-			continue
-		}
-		if scope := c.fa.Program().StdlibModuleScopes[mod]; scope != nil {
-			if sym := scope.Lookup(name); sym != nil {
-				if it, ok := sym.Type.(*InterfaceType); ok {
-					return it
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // isArgUndetermined reports whether an argument's type is decided by the
@@ -616,28 +590,14 @@ func (c *checker) selectCallImpl(n *ast.Call, expected Type, piped ast.Node, pip
 		}
 		return nil, true
 	}
-	var self Type = recv
-	if qualifier == "" && recvAt >= 0 {
-		// `Contains.contains(s, x)`: the receiver flows into the
-		// interface at the chosen arguments, as an interface-qualified
-		// call's receiver always does, so its conformance is recorded.
-		self = &InterfaceType{
-			Origin:        iface.Origin,
-			Name:          iface.Name,
-			Methods:       iface.Methods,
-			TypeParams:    iface.TypeParams,
-			TypeParamDefs: iface.TypeParamDefs,
-			TypeArgs:      choice.chosen.args,
-			SelfParam:     iface.SelfParam,
-		}
-	}
+	sig := candidateSig(iface, m, choice.chosen.args, recv)
 	return &implCallSelection{
 		iface:  iface,
 		method: m.Name,
 		recv:   recv,
 		chosen: choice.chosen,
-		ft:     candidateSig(iface, m, choice.chosen.args, self),
-		impl:   c.solveImplParams(candidateSig(iface, m, choice.chosen.args, recv), argTys),
+		ft:     sig,
+		impl:   c.solveImplParams(sig, argTys),
 		// Read below as the receiver an interface-qualified call's result
 		// names.
 		returnSelf: recvAt < 0 && qualifier == "",
@@ -651,7 +611,7 @@ func (c *checker) recordSelectedImpl(n *ast.Call, sel *implCallSelection) {
 	if !ok || fa.Field == nil || sel == nil || sel.chosen == nil {
 		return
 	}
-	c.recordBoundConformance(sel.recv, sel.iface.Name, c.recPos(n.Line, n.Col), RecordingKindCallSite)
+	c.recordBoundConformance(sel.recv, sel.iface.Name, sel.iface.Origin, c.recPos(n.Line, n.Col), RecordingKindCallSite)
 	pos := Pos{Line: fa.Field.Line, Col: fa.Field.Col}
 	existing := c.fa.References[pos]
 	if existing == nil {

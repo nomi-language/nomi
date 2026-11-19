@@ -479,7 +479,7 @@ func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node, site *Expansio
 		nodes, lowerErrs := LowerDerives(nodes)
 		lowerErrs = append(partnerErrs, lowerErrs...)
 		testNameErrs := CheckDuplicateTestNames(nodes)
-		prog, _ := SynthesizeDerives(nodes)
+		prog := nodes
 		return SynthesizeUniversalDebug(prog), append(lowerErrs, testNameErrs...)
 	}
 	var prelude []ast.Node
@@ -491,7 +491,7 @@ func preparedNodes(nodes []ast.Node, entry bool, kept []ast.Node, site *Expansio
 	}
 	expanded, _ := LowerPartnerDerives(ExpandDeclarations(append(prelude, nodes...), site), key, fileNodes)
 	lowered, _ := LowerDerives(expanded)
-	extended, _ := SynthesizeDerives(lowered)
+	extended := lowered
 	return SynthesizeUniversalDebug(extended), nil
 }
 

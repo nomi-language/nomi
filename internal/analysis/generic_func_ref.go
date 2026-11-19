@@ -162,6 +162,9 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 	want = instantiateUnboundCalleeParams(want, c.fnTypeParams, c).(*FuncType)
 	subs := map[*TypeParam_]Type{}
 	unifyErr := c.unifyInto(want, ft, subs)
+	if unifyErr == nil {
+		c.solveInterfaceArgs(c.calleeInterface(node), subs)
+	}
 	var unsolved []*TypeParam_
 	for _, tp := range own {
 		got, bound := subs[tp]
@@ -186,7 +189,7 @@ func (c *checker) instantiateFuncRef(node ast.Node, ty, expected Type) Type {
 				c.boundError(line, col, concrete, bound, tp.Name_)
 				continue
 			}
-			c.recordBoundConformance(concrete, bound.Name, c.recPos(line, col), RecordingKindGenericBoundCheck)
+			c.recordBoundConformance(concrete, bound.Name, bound.Origin, c.recPos(line, col), RecordingKindGenericBoundCheck)
 		}
 	}
 	c.recordWhereBoundDemands(ft, subs, line, col, col)

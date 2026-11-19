@@ -22,7 +22,8 @@ var maxSubstWithoutCheckerTypes = map[substEntry]int{
 	// runtime Debug renderer's nested parts (stdInstDebugSym), a std
 	// interface value's dispatch entry (stdProgThunk), and the instances
 	// those, and an impl with no checker types, reach.
-	substStd: 9,
+	// TestDerivedJsonContainerFields_RoundTrip's program enters one.
+	substStd: 12,
 }
 
 // checkSubstCensus fails when an entry's count rises past its maximum, and

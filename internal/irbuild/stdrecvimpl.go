@@ -83,7 +83,7 @@ func (g *gen) stdRecvTemplateOf(ib *ast.ImplBlock) (*stdRecvTemplate, bool) {
 	if !generic || len(gt.Params) == 0 || ib.Interface == nil {
 		return nil, false
 	}
-	if g.blockLocalTemplate(gt.Name) != nil || g.genericTemplates[gt.Name] != nil || !g.programIface(ib) {
+	if g.blockLocalTemplate(gt.Name, nil) != nil || g.genericTemplates[gt.Name] != nil || !g.programIface(ib) {
 		return nil, false
 	}
 	params := analysis.ReceiverTypeParamNames(ib.Receiver, g.declaresTypeName)

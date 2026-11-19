@@ -108,4 +108,9 @@ dbg line 55: d == 4 = True
 	if got.stdout+got.stderr != want || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s", got.exit, got.stdout, got.stderr, want)
 	}
+	// The golden set holds the program, so the operator census sees each
+	// order dispatched.
+	if golden := goldenReference(t, path); golden.stdout+golden.stderr != want || golden.exit != 0 {
+		t.Errorf("golden record (exit %d):\n%s%s", golden.exit, golden.stdout, golden.stderr)
+	}
 }

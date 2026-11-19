@@ -308,7 +308,7 @@ func seqElem(k kind) kind { return k.comp.parts[0] }
 // # Why std's `Iter` is claimed whole
 //
 // A module that declares `impl Iter for SomeType` has a non-empty
-// `g.implsByIface["Iter"]`, and an `Iter.<method>` call in that file is still
+// `g.implsByIface[stdIfaceImplKey(stdIter)]`, and an `Iter.<method>` call in that file is still
 // std's owner function:
 //
 //	struct Box { v: Int }

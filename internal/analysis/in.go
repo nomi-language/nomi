@@ -110,3 +110,28 @@ func (c *checker) argLabel(n *ast.Call, i int) string {
 	}
 	return positionalArgLabel(i)
 }
+
+// reportCollectionWithoutImpl reports a membership test n whose collection,
+// of type concrete, has no impl of iface (Contains) that it matches: the
+// test's own error at the collection, named by its place in the test
+// (argLabel), with the help to write the impl. A collection whose impl
+// holds only where its element meets a bound is no error here: its demand
+// reaches the element (recordInterfaceSelf). It reports whether it
+// reported.
+func (c *checker) reportCollectionWithoutImpl(n *ast.Call, iface *InterfaceType, concrete Type) bool {
+	at := interfaceAtOwnParams(iface)
+	saved := saveTypeVars(concrete)
+	err := c.unifyInto(at, concrete, map[*TypeParam_]Type{})
+	saved.restore()
+	if err == nil {
+		return false
+	}
+	collection := n.Args[0]
+	line, col := nodeLineCol(collection)
+	before := len(c.errors)
+	if c.reportGenericArgMismatch(n.Func, at, concrete, nil, collection, c.argLabel(n, 0), line, col, nil) {
+		last := &c.errors[len(c.errors)-1]
+		*last = last.WithHint(c.boundHelp(concrete, at))
+	}
+	return len(c.errors) > before
+}

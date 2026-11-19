@@ -311,6 +311,19 @@ func stdIfaceOf(d *ifaceDef) (int, bool) {
 	return -1, false
 }
 
+// stdIfaceType is the std interface d stands for: a std module's interface
+// a program holds values as (ifaceDef.stdOrigin), or one with an rt table
+// (stdIfaceOf). Zero for a program's interface.
+func (g *gen) stdIfaceType(d *ifaceDef) analysis.StdType {
+	if d.stdOrigin != "" {
+		return analysis.StdType{Module: d.stdOrigin, Name: d.decl.Name}
+	}
+	if i, shared := stdIfaceOf(d); shared {
+		return analysis.StdType{Module: stdIfaceSpecs[i].module, Name: stdIfaceSpecs[i].nomi}
+	}
+	return analysis.StdType{}
+}
+
 // --- anchoring -------------------------------------------------------------
 
 // stdIfaceAnchors resolves the specs against one module's analysis: the
@@ -647,42 +660,29 @@ func (g *gen) loadStdIfaces() {
 // scope as qualifiedStdKind reads a type, so a file's own interface of the
 // same name does not shadow it as it shadows the bare name in
 // stdIfaceNamed. def is the interface's dispatch table, nil for one with
-// none. key is the name its impls are filed under in implsByIface: the bare
-// name, or where this file declares an interface of that name, the std
-// one's stdIfaceKey, so the two interfaces' impls for one type do not
-// collide.
-func (g *gen) qualifiedStdIface(te ast.TypeExpr) (def *ifaceDef, key string, ok bool) {
+// none.
+func (g *gen) qualifiedStdIface(te ast.TypeExpr) (def *ifaceDef, ok bool) {
 	qt, isQualified := te.(*ast.QualifiedType)
 	if !isQualified {
-		return nil, "", false
+		return nil, false
 	}
 	qualifier, name, named := qualifiedTypeParts(qt)
 	if !named {
-		return nil, "", false
+		return nil, false
 	}
 	sym := resolvedScopeSymbol(g.moduleScope(qualifier), name)
 	if sym == nil {
-		return nil, "", false
+		return nil, false
 	}
 	it, isIface := sym.Type.(*analysis.InterfaceType)
 	if !isIface || !strings.HasPrefix(it.Origin, "std/") {
-		return nil, "", false
-	}
-	key = name
-	if _, shadowed := g.ifaceNamed(name); shadowed {
-		key = stdIfaceKey(it.Origin, name)
+		return nil, false
 	}
 	g.loadStdIfaces()
 	if i, anchored := g.stdIfaceByName[name]; anchored {
 		def = stdIfaceDefs()[i]
 	}
-	return def, key, true
-}
-
-// stdIfaceKey files the impls of std module origin's interface name where a
-// program interface of the same name holds the bare name: `std/calendar.DateParts`.
-func stdIfaceKey(origin, name string) string {
-	return origin + "." + name
+	return def, true
 }
 
 func (g *gen) stdIfaceNamed(name string) (*ifaceDef, bool) {

@@ -866,6 +866,10 @@ func (v *elabVerifier) checkPlacement(n *ast.Call, name string) {
 		// A function's, an impl block's or a generic type's parameter:
 		// an instance substitutes the type the call is for.
 		v.report(n, "implicit", ElabCalleeUnclassified, name+": the type parameter it is for not recorded")
+	case q.Kind == QualTypeParam && rc.Callee.Kind != CalleeInterface:
+		// `T.show(x)` is a call of its bound's function, which names the
+		// interface an instance finds T's impl of (Callee.Owner).
+		v.report(n, "implicit", ElabCalleeUnclassified, name+": the bound's function not recorded")
 	}
 	if _, bare := n.Func.(*ast.Ident); bare && rc.Callee.Kind == CalleeInterface &&
 		rc.Callee.Owner.Kind == QualInterface && rc.Callee.For == nil {

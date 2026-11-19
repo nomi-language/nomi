@@ -200,7 +200,7 @@ fn main()
     _d = as_value(Q{n: 1})
 end
 `,
-			want: "expected DateParts, got Q",
+			want: "expected calendar.DateParts, got Q",
 		},
 	}
 	for _, tc := range cases {

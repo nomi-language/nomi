@@ -69,22 +69,40 @@ func (s *stdInstances) stdTemplateOf(id analysis.StdFunc) *stdFunc {
 }
 
 // The std interfaces whose functions the builder calls in code it writes
-// itself: an anonymous struct's or tuple's hash, ToJson and Debug.
+// itself (an anonymous struct's or tuple's hash, ToJson, Debug, and an
+// assertion subject's Assertable), or whose impls it looks up for an
+// operation the language defines over them (`==`, `<`, a range, a `for`
+// over a value, a conversion, a typed literal). Each lookup reads the
+// impls filed under stdIfaceImplKey of one of these.
 var (
-	stdHashable = analysis.StdType{Module: "std/hashable", Name: "Hashable"}
-	stdToJson   = analysis.StdType{Module: "std/json", Name: "ToJson"}
-	stdDebug    = analysis.StdType{Module: "std/debug", Name: "Debug"}
+	stdHashable       = analysis.StdType{Module: "std/hashable", Name: "Hashable"}
+	stdToJson         = analysis.StdType{Module: "std/json", Name: "ToJson"}
+	stdFromJson       = analysis.StdType{Module: "std/json", Name: "FromJson"}
+	stdDebug          = analysis.StdType{Module: "std/debug", Name: "Debug"}
+	stdAssertable     = analysis.StdType{Module: "std/assertions", Name: "Assertable"}
+	stdDisplay        = analysis.StdType{Module: "std/display", Name: "Display"}
+	stdComparable     = analysis.StdType{Module: "std/comparable", Name: "Comparable"}
+	stdEquatable      = analysis.StdType{Module: "std/equatable", Name: "Equatable"}
+	stdIter           = analysis.StdType{Module: "std/iter", Name: "Iter"}
+	stdDiscrete       = analysis.StdType{Module: "std/discrete", Name: "Discrete"}
+	stdSteppable      = analysis.StdType{Module: "std/steppable", Name: "Steppable"}
+	stdFrom           = analysis.StdType{Module: "std/convert", Name: "From"}
+	stdCheckedLiteral = analysis.StdType{Module: "std/literals", Name: "CheckedLiteral"}
+	stdParse          = analysis.StdType{Module: "std/parse", Name: "Parse"}
 )
 
 // stdIfaceCallRecord is the record of a call the builder writes of iface's
-// function method, passing its one argument, a value of the checker type
-// recv: what the checker records for `Iface.method(x)` written with x of
-// that type (analysis.FileAnalysis.InterfaceCallee), the impl block it
-// reaches among it. recv is nil where the builder holds the value by its
-// kind alone (a box's thunk, a main's failure); the record then names the
-// interface's function and no type.
-func (g *gen) stdIfaceCallRecord(iface analysis.StdType, method string, recv analysis.Type) *analysis.ResolvedCall {
-	rc := analysis.PositionalCall(1, 1)
+// function method, passing its args arguments in order, the receiver a
+// value of the checker type recv: what the checker records for
+// `Iface.method(x)` written with x of that type
+// (analysis.FileAnalysis.InterfaceCallee), the impl block it reaches among
+// it. recv is nil where the builder holds the value by its kind alone (a
+// box's thunk, a main's failure); the record then names the interface's
+// function and no type. Either way the record names the std interface, so
+// the call is planned from it and never from what this file binds its
+// name to (recordedStdIface).
+func (g *gen) stdIfaceCallRecord(iface analysis.StdType, method string, args int, recv analysis.Type) *analysis.ResolvedCall {
+	rc := analysis.PositionalCall(args, args)
 	rc.Callee = g.instanceFA().InterfaceCallee(iface, method, recv)
 	if rc.Callee.Kind == analysis.CalleeUnknown {
 		// A program that does not reach iface's module.

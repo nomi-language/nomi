@@ -18,6 +18,8 @@
 //   const app = await loadRuntime("./game.wasm");   // nomi build --target wasip1/wasm
 //   const own = await app.load();                   // the program built into it
 //
+//   const rule = await vm.load("./rule.nomic", { std: [], timeoutMs: 500 });
+//
 // loadRuntime compiles the reactor once. Each load and run instantiates it
 // afresh, since a reactor holds one program for its life, and hands it the
 // .nomic through nomi_load. With no .nomic, nomi_load is handed nothing,
@@ -26,6 +28,17 @@
 // JSON-encoded, its `{"ok": value}` result is decoded, and its
 // `{"error": "..."}` result rejects with an Error carrying the Nomi
 // diagnostic. The program stays usable after a failed call.
+//
+// The `std`, `host` and `timeoutMs` options reach the reactor through
+// nomi_load_with. `std` holds the program to a list of std names, such as
+// ["std::io"], and an empty list allows nothing outside the program: a
+// program that reaches more is refused at the load, before it runs.
+// `host` lists the keys of the host functions linked into the reactor
+// that the program may call; with `std` and no `host`, it may call none,
+// and `host` alone holds only host functions. With
+// `timeoutMs`, the boot and each later call and run of main stop once they
+// have run that long, and answer an error saying so; the program stays
+// loaded and takes more calls.
 //
 // A source is a URL string, URL, Response, ArrayBuffer or typed array (and
 // for loadRuntime, a WebAssembly.Module). Where there is no fetch for it
@@ -55,6 +68,7 @@ const encoder = new TextEncoder();
  *   args?: string[], env?: Record<string, string>,
  *   stdin?: string | Uint8Array,
  *   onStdout?: (text: string) => void, onStderr?: (text: string) => void,
+ *   std?: string[], host?: string[], timeoutMs?: number,
  * }} Options
  */
 
@@ -143,7 +157,7 @@ export class Runtime {
     const out = lineSink(console.log), err = lineSink(console.error);
     const host = await Host.start(this.module, options, options.onStdout ?? out.write, options.onStderr ?? err.write);
     try {
-      const exports = host.load(bytes);
+      const exports = host.load(bytes, options);
       return new Program(host, exports, () => { out.flush(); err.flush(); });
     } catch (e) {
       out.flush(); err.flush();
@@ -165,7 +179,7 @@ export class Runtime {
     const host = await Host.start(this.module, options,
       options.onStdout ?? ((text) => { output += text; stdout += text; }),
       options.onStderr ?? ((text) => { output += text; stderr += text; }));
-    host.load(bytes);
+    host.load(bytes, options);
     const status = host.main();
     return { status, output, stdout, stderr };
   }
@@ -319,16 +333,29 @@ class Host {
 
   /**
    * Boots the program, or with null the one built into the module, and
-   * answers its exports' signatures.
+   * answers its exports' signatures. The options' std, host and timeoutMs go
+   * to nomi_load_with.
    * @param {Uint8Array | null} bytes
+   * @param {Options} options
    * @returns {string[]}
    */
-  load(bytes) {
+  load(bytes, options) {
     const answer = this.enter("loading", () => {
-      if (bytes === null) return this.answer(this.x.nomi_load(0, 0));
-      const [ptr, len] = this.put(bytes);
-      const answer = this.answer(this.x.nomi_load(ptr, len));
-      this.x.nomi_free(ptr, len);
+      const [ptr, len] = bytes === null ? [0, 0] : this.put(bytes);
+      const opts = loadOptions(options);
+      let answer;
+      if (opts === null) {
+        answer = this.answer(this.x.nomi_load(ptr, len));
+      } else {
+        if (typeof this.x.nomi_load_with !== "function") {
+          throw new Error("nomi-wasi: this reactor has no nomi_load_with, so it takes no std, host or timeoutMs; " +
+            "use the reactor `nomi build-vm --reactor` writes beside this file");
+        }
+        const [optsPtr, optsLen] = this.put(encoder.encode(opts));
+        answer = this.answer(this.x.nomi_load_with(ptr, len, optsPtr, optsLen));
+        this.x.nomi_free(optsPtr, optsLen);
+      }
+      if (bytes !== null) this.x.nomi_free(ptr, len);
       return answer;
     });
     if (answer.error !== undefined) {
@@ -368,6 +395,19 @@ class Host {
     this.closed = true;
     this.x = /** @type {any} */ (null);
   }
+}
+
+/**
+ * The JSON options nomi_load_with takes from options, or null for none.
+ * @param {Options} options
+ */
+function loadOptions(options) {
+  /** @type {Record<string, unknown>} */
+  const opts = {};
+  if (options.std !== undefined) opts.std = options.std;
+  if (options.host !== undefined) opts.host = options.host;
+  if (options.timeoutMs !== undefined) opts.timeout_ms = options.timeoutMs;
+  return Object.keys(opts).length === 0 ? null : JSON.stringify(opts);
 }
 
 /** Hands text to write as UTF-8 arrives, across writes that split a character. @param {(text: string) => void} write */

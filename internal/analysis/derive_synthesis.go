@@ -10,39 +10,45 @@ import (
 	"github.com/nomi-language/nomi/internal/format"
 )
 
-// deriveSupportedList lists the interfaces `derive` can synthesize, in the
-// order of spec §12's *Derivable interfaces* table.
-//
-// Use a map for O(1) membership but keep the canonical list as a slice so the
-// "unknown protocol" error message can name the supported set in deterministic
-// order.
-var deriveSupportedList = []string{"Equatable", "Hashable", "Comparable", "Debug", "Display", "ToJson", "FromJson", "Variants"}
+// derivableInterfaces is the set of interfaces `derive` writes, each by its
+// identity: the std module that declares it and its name, in the order of
+// spec §12's *Derivable interfaces* table. A derive names one of them by any
+// spelling that resolves to it (`ToJson`, `json.ToJson`); an interface of
+// the same name that another file declares is not one of them
+// (checkDerivedInterface). deriveSupported and deriveProtocolHomeModule are
+// read from it.
+var derivableInterfaces = []struct{ Name, Module string }{
+	{"Equatable", "std/equatable"},
+	{"Hashable", "std/hashable"},
+	{"Comparable", "std/comparable"},
+	{"Debug", "std/debug"},
+	{"Display", "std/display"},
+	{"ToJson", "std/json"},
+	{"FromJson", "std/json"},
+	{"Variants", "std/variants"},
+}
 
+// deriveSupported holds the names of derivableInterfaces. Lowering reads it
+// to decide what it can synthesize, before names resolve.
 var deriveSupported = func() map[string]bool {
-	m := make(map[string]bool, len(deriveSupportedList))
-	for _, name := range deriveSupportedList {
-		m[name] = true
+	m := make(map[string]bool, len(derivableInterfaces))
+	for _, d := range derivableInterfaces {
+		m[d.Name] = true
 	}
 	return m
 }()
 
-// deriveProtocolHomeModule maps each derivable protocol to its stdlib home
-// module. Used by the derive-arg scope check (walkTypeDeclDecoratorArgs) to
-// suggest the exact import in its diagnostic: a `@derive Comparable` arg
-// names `Comparable` in visible source text, so the file must have it in
-// scope — "`Comparable` is not in scope — import `std::comparable.Comparable`".
-// Debug is exempt (compiler-known universally: every type is Debug-conformant,
-// synthesis is automatic, and the impl headers resolve without the name).
-var deriveProtocolHomeModule = map[string]string{
-	"Equatable":  "std/equatable",
-	"Hashable":   "std/hashable",
-	"Comparable": "std/comparable",
-	"Display":    "std/display",
-	"Debug":      "std/debug",
-	"ToJson":     "std/json",
-	"FromJson":   "std/json",
-	"Variants":   "std/variants",
-}
+// deriveProtocolHomeModule maps each name of derivableInterfaces to the std
+// module that declares it: the identity a derive's interface must resolve
+// to, and the import the scope check's message suggests ("`Comparable` is
+// not in scope — import `std::comparable.Comparable`").
+var deriveProtocolHomeModule = func() map[string]string {
+	m := make(map[string]string, len(derivableInterfaces))
+	for _, d := range derivableInterfaces {
+		m[d.Name] = d.Module
+	}
+	return m
+}()
 
 // synthSupportNames is the closed set of names synthesized derive /
 // universal-Debug code may reference beyond the receiver type's own
@@ -98,22 +104,34 @@ func defaultDeriveOptions() deriveOptions {
 	return deriveOptions{RenameAll: "Snake"}
 }
 
-func validateDeriveOptions(ifaceName string, options ast.Node, line, col int) (deriveOptions, []TypeError) {
+// validateDeriveOptions checks a derive's `with` options against iface, the
+// interface as the derive writes it: the options are `<iface>.Options{...}`,
+// spelled as the interface is (`json.ToJson.Options{...}` for `derive
+// json.ToJson`).
+func validateDeriveOptions(iface ast.TypeExpr, options ast.Node, line, col int) (deriveOptions, []TypeError) {
 	opts := defaultDeriveOptions()
 	if options == nil {
 		return opts, nil
 	}
+	ifaceName, written := TypeExprBaseName(iface), iface.TypeString()
 	if ifaceName != "ToJson" && ifaceName != "FromJson" {
-		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` does not accept options", ifaceName)}}
+		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` does not accept options", written)}}
 	}
 	lit, ok := options.(*ast.StructLit)
 	if !ok || lit.TypeName == nil {
-		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must be `%s.Options{...}`", ifaceName, ifaceName)}}
+		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must be `%s.Options{...}`", written, written)}}
 	}
-	want := ifaceName + ".Options"
+	want := written + ".Options"
 	if lit.TypeName.TypeString() != want {
-		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must use `%s`, got `%s`", ifaceName, want, lit.TypeName.TypeString())}}
+		return opts, []TypeError{{Line: line, Col: col, Message: fmt.Sprintf("`derive %s` options must use `%s`, got `%s`", written, want, lit.TypeName.TypeString())}}
 	}
+	return deriveOptionFields(lit, want)
+}
+
+// deriveOptionFields reads the fields of lit, a JSON derive's options
+// literal of the type spelled want.
+func deriveOptionFields(lit *ast.StructLit, want string) (deriveOptions, []TypeError) {
+	opts := defaultDeriveOptions()
 	seen := map[string]bool{}
 	var errs []TypeError
 	for _, field := range lit.Fields {
@@ -137,8 +155,15 @@ func validateDeriveOptions(ifaceName string, options ast.Node, line, col int) (d
 	return opts, errs
 }
 
+// parseDeriveOptionsForSynthesis is the options a derive of the interface
+// named ifaceName synthesizes with, read from options, which lowering has
+// validated (validateDeriveOptions).
 func parseDeriveOptionsForSynthesis(ifaceName string, options ast.Node) deriveOptions {
-	opts, _ := validateDeriveOptions(ifaceName, options, 0, 0)
+	lit, ok := options.(*ast.StructLit)
+	if !ok || (ifaceName != "ToJson" && ifaceName != "FromJson") {
+		return defaultDeriveOptions()
+	}
+	opts, _ := deriveOptionFields(lit, "")
 	return opts
 }
 
@@ -147,9 +172,10 @@ func jsonCaseOptionName(n ast.Node) (string, bool) {
 	switch len(parts) {
 	case 1:
 		return jsonCaseVariantName(parts[0])
-	case 3:
-		if parts[0] == "Json" && parts[1] == "Case" {
-			return jsonCaseVariantName(parts[2])
+	case 3, 4:
+		// `Json.Case.Camel`, or `json.Json.Case.Camel` through the module.
+		if k := len(parts); parts[k-3] == "Json" && parts[k-2] == "Case" {
+			return jsonCaseVariantName(parts[k-1])
 		}
 	}
 	return "", false
@@ -374,54 +400,6 @@ func IsSynthesizedLine(line int) bool {
 	return line >= synthLineBase
 }
 
-// SynthesizeDerives walks the file's top-level nodes, processes each type
-// decl's `@derive` decorators, and returns a node list with synthesized
-// `impl` blocks appended. The original input slice is not mutated.
-//
-// Validation errors (unknown interface, duplicate interface on one decl,
-// non-derive decorator that slipped past the parser gate) are returned in
-// the second slice; callers attach them to the appropriate FileAnalysis's
-// TypeErrors slice. Each supported interface dispatches to a per-protocol
-// synthesizer (Equatable / Hashable / Comparable / Debug), each of which
-// emits a full structural body.
-//
-// Idempotent: calling SynthesizeDerives twice on the same slice produces
-// the same extended slice the second time around. The front end
-// (internal/frontend's Checker.Prepare) calls SynthesizeDerives once before
-// analysis; BuildProject also runs it on each discovered file's nodes
-// (because the analyzer's LSP callers reach BuildProject directly without
-// going through the front end).
-// The idempotency comes from existingDerivedImpls below, which records
-// (typeName, ifaceName) pairs already synthesized in the input. That
-// scan also distinguishes user-written collisions (manual `impl Iface
-// for T` block alongside `derive Iface`) and surfaces them as compile errors per
-// spec §12 *Derive*.
-func SynthesizeDerives(nodes []ast.Node) ([]ast.Node, []TypeError) {
-	prior := existingDerivedImpls(nodes)
-	wrapping := wrappingDistincts(typeDeclsInNodeList(nodes))
-	var synthesized []ast.Node
-	var errs []TypeError
-	index := sourceIndices(nodes)
-	for i, n := range nodes {
-		site := synthSiteOf(index[i], n)
-		site.wrapping = wrapping
-		decls, decErrs := processTypeDeclDeriveDecorators(n, site, prior)
-		synthesized = append(synthesized, decls...)
-		errs = append(errs, decErrs...)
-	}
-	if len(synthesized) == 0 {
-		return nodes, errs
-	}
-	// APPEND only. SynthesizeUniversalDebug runs on this slice next and
-	// derives its own slots from the same top-level indices, so prepending
-	// here would shift every declaration into a different slot between the
-	// two passes.
-	out := make([]ast.Node, 0, len(nodes)+len(synthesized))
-	out = append(out, nodes...)
-	out = append(out, synthesized...)
-	return out, errs
-}
-
 // sourceIndices answers each node's index among the nodes the file's source
 // wrote. A prelude import a project build prepends to a user file takes no
 // index, so a declaration's synthesized positions are the same whether its
@@ -461,280 +439,6 @@ func declPos(n ast.Node) (int, int) {
 		return d.Line, d.Col
 	}
 	return 0, 0
-}
-
-// priorDeriveImpls partitions in-slice `impl Iface for T` blocks that target
-// `@derive`d types into two buckets: those previously synthesized by this
-// pass (`synth` — distinguished by the disjoint synthLineBase position
-// band stamped by uniquifyPositions) and those the user wrote by hand
-// (`manual`). Idempotency consults `synth`; collision diagnostics consult
-// `manual`. Keying by (typeName, ifaceName) lets the per-decl walker look
-// each pair up in O(1).
-type priorDeriveImpls struct {
-	synth  map[string]map[string]bool         // (typeName, ifaceName) already covered by a synthesized FuncDef
-	manual map[string]map[string]*ast.FuncDef // (typeName, ifaceName) → user-written colliding impl
-}
-
-// existingDerivedImpls scans `nodes` for `impl Iface for T` blocks
-// targeting a `@derive`d type — i.e. name an interface <Iface> that
-// is one of the supported derivable protocols, and whose receiver type
-// names a struct/enum/typedef in the same file that
-// ALSO carries `@derive <Iface>`. Returns a priorDeriveImpls that
-// separates synthesized matches (used for idempotency) from user-written
-// matches (used for spec §12 *Derive* collision errors).
-//
-// Synth-band detection: every synthesized FuncDef's Line lands at
-// `synthLineBase + k*16384` (see nextSynthBase / uniquifyPositions).
-// Real source positions are 1-based and far below 2^30. So `fn.Line >=
-// synthLineBase` is a reliable origin marker; user-written impls land in
-// the `synth` bucket only by collision with that band, which a real
-// source file cannot reach (32k cols × 1<<30/16384 lines worth of
-// header).
-//
-// This shape handles the front-end-then-analyzer call sequence:
-// SynthesizeDerives runs once in internal/frontend's Checker.Prepare,
-// extending the slice; BuildProject's own call then sees the same slice and detects
-// "already done" via `synth`. A user-written `impl Iface for T { fn ... }` for a
-// `@derive`d type — which must collide because both register the same
-// dispatch tuple — lands in `manual` and produces a targeted compile
-// error rather than slipping past the synthesizer's skip and emerging
-// later as "no impl found" or as silent override.
-func existingDerivedImpls(nodes []ast.Node) priorDeriveImpls {
-	// Index type-decl names that carry `@derive <Iface>` so we can match
-	// them against subsequent `impl <Iface> for T` blocks.
-	derived := map[string]map[string]bool{} // typeName → ifaceName → seen
-	for _, n := range nodes {
-		var name string
-		var decs []ast.Decorator
-		switch d := n.(type) {
-		case *ast.StructDef:
-			name, decs = d.Name, d.Decorators
-		case *ast.EnumDef:
-			name, decs = d.Name, d.Decorators
-		case *ast.TypeDef:
-			name, decs = d.Name, d.Decorators
-		case *ast.ExternType:
-			name, decs = d.Name, d.Decorators
-		default:
-			continue
-		}
-		if name == "" {
-			continue
-		}
-		for i := range decs {
-			d := &decs[i]
-			if d.Name != "derive" {
-				continue
-			}
-			for _, arg := range d.Args {
-				if t, ok := arg.(*ast.SimpleType); ok && deriveSupported[t.Name] {
-					if derived[name] == nil {
-						derived[name] = map[string]bool{}
-					}
-					// Marker only — the second pass below decides whether
-					// to skip based on a matching `impl Iface for T` block already
-					// being present.
-					derived[name][t.Name] = true
-				}
-			}
-		}
-	}
-	// Now scan impls that name a derivable protocol and whose receiver matches
-	// one of those `@derive`d type-decl names. Bucket each match by origin
-	// (synth band vs source position). Impls take the block form
-	// `impl Iface for T { fn }` (what synthesis now emits AND what
-	// hand-written stdlib + user code use).
-	out := priorDeriveImpls{
-		synth:  map[string]map[string]bool{},
-		manual: map[string]map[string]*ast.FuncDef{},
-	}
-	// record buckets one (typeName, ifaceName) pair, gated by the derive
-	// index; `line` decides synth vs manual, `manualFn` is the FuncDef the
-	// collision diagnostic points at (the impl block's method item).
-	record := func(typeName, ifaceName string, line int, manualFn *ast.FuncDef) {
-		if !deriveSupported[ifaceName] || !derived[typeName][ifaceName] {
-			return
-		}
-		if line >= synthLineBase {
-			if out.synth[typeName] == nil {
-				out.synth[typeName] = map[string]bool{}
-			}
-			out.synth[typeName][ifaceName] = true
-			return
-		}
-		if out.manual[typeName] == nil {
-			out.manual[typeName] = map[string]*ast.FuncDef{}
-		}
-		// First-wins: if a file lists multiple manual impls for the same
-		// (T, Iface), the duplicate-method check elsewhere catches the
-		// second; we just need one to attach the collision diagnostic to.
-		if _, dupe := out.manual[typeName][ifaceName]; !dupe {
-			out.manual[typeName][ifaceName] = manualFn
-		}
-	}
-	for _, n := range nodes {
-		block, ok := n.(*ast.ImplBlock)
-		if !ok || block.Interface == nil {
-			continue
-		}
-		recvName := TypeExprBaseName(block.Receiver)
-		ifaceName := TypeExprBaseName(block.Interface)
-		if recvName == "" || ifaceName == "" {
-			continue
-		}
-		if _, isDerivedType := derived[recvName]; !isDerivedType {
-			continue
-		}
-		record(recvName, ifaceName, block.Line, firstFuncDefItem(block))
-	}
-	return out
-}
-
-// firstFuncDefItem returns the first `fn` item in an impl block, or nil for an
-// bodyless impl. Used to point a collision diagnostic at a manual
-// impl method when one exists.
-func firstFuncDefItem(ib *ast.ImplBlock) *ast.FuncDef {
-	if ib == nil {
-		return nil
-	}
-	for _, item := range ib.Items {
-		if fn, ok := item.(*ast.FuncDef); ok {
-			return fn
-		}
-	}
-	return nil
-}
-
-// builderSynthesizeDerives is the per-builder shim retained for the
-// BuildFileWithStdlib → buildModule path. The free function above is the
-// canonical entrypoint everywhere else.
-func (b *builder) SynthesizeDerives(nodes []ast.Node) []ast.Node {
-	out, errs := SynthesizeDerives(nodes)
-	b.file.TypeErrors = append(b.file.TypeErrors, errs...)
-	return out
-}
-
-// processTypeDeclDeriveDecorators returns synthesized FuncDef nodes for any
-// `@derive` decorators on the given type-decl, plus any validation errors
-// hit (unknown interface, duplicates, malformed args, manual-impl
-// collisions per spec §12 *Derive*). Returns (nil, nil) for non-type nodes or
-// nodes without decorators. The `prior` info — produced by
-// existingDerivedImpls — short-circuits emission for (typeName,
-// ifaceName) pairs already covered by a previously-synthesized impl, and
-// surfaces collisions where the user wrote a manual `impl Iface for T` block
-// alongside `@derive Iface`. Validation still runs for skipped pairs so
-// duplicate-arg errors fire even on the second call.
-func processTypeDeclDeriveDecorators(n ast.Node, site synthSite, prior priorDeriveImpls) ([]ast.Node, []TypeError) {
-	var typeName string
-	var decorators []ast.Decorator
-
-	switch d := n.(type) {
-	case *ast.StructDef:
-		typeName, decorators = d.Name, d.Decorators
-	case *ast.EnumDef:
-		typeName, decorators = d.Name, d.Decorators
-	case *ast.TypeDef:
-		typeName, decorators = d.Name, d.Decorators
-	case *ast.ExternType:
-		typeName, decorators = d.Name, d.Decorators
-	default:
-		return nil, nil
-	}
-	if len(decorators) == 0 {
-		return nil, nil
-	}
-
-	var out []ast.Node
-	var errs []TypeError
-	// Track interfaces seen across all `@derive` decorators on this decl —
-	// `@derive Eq @derive Eq` (stacked form) and `@derive Eq, Eq` (comma form)
-	// must both surface as duplicates.
-	seenIfaces := map[string]bool{}
-
-	for i := range decorators {
-		dec := &decorators[i]
-		if dec.Name != "derive" {
-			// The parser gates type-decl decorators to `@derive`. Anything else
-			// reaching here would mean the parser gate broke; record an
-			// analyzer-side error rather than silently ignoring so the
-			// regression is visible.
-			errs = append(errs, TypeError{
-				Line:    dec.Line,
-				Col:     dec.Col,
-				Message: fmt.Sprintf("decorator '@%s' on type '%s': only @derive is supported on type declarations", dec.Name, typeName),
-			})
-			continue
-		}
-		if len(dec.Args) == 0 {
-			errs = append(errs, TypeError{
-				Line:    dec.Line,
-				Col:     dec.Col,
-				Message: fmt.Sprintf("@derive on type '%s' requires at least one interface argument", typeName),
-			})
-			continue
-		}
-		for _, arg := range dec.Args {
-			ifaceName, argLine, argCol := deriveArgName(arg, dec)
-			if ifaceName == "" {
-				errs = append(errs, TypeError{
-					Line:    argLine,
-					Col:     argCol,
-					Message: fmt.Sprintf("@derive arg on type '%s' must be an interface name (PascalCase)", typeName),
-				})
-				continue
-			}
-			if !deriveSupported[ifaceName] {
-				errs = append(errs, TypeError{
-					Line:    argLine,
-					Col:     argCol,
-					Message: fmt.Sprintf("@derive %s on type '%s': unknown derivable protocol (v1 supports %s)", ifaceName, typeName, deriveSupportedDescription()),
-				})
-				continue
-			}
-			if seenIfaces[ifaceName] {
-				errs = append(errs, TypeError{
-					Line:    argLine,
-					Col:     argCol,
-					Message: fmt.Sprintf("duplicate @derive %s on type '%s'", ifaceName, typeName),
-				})
-				continue
-			}
-			seenIfaces[ifaceName] = true
-			if _, optErrs := validateDeriveOptions(ifaceName, dec.Options, argLine, argCol); len(optErrs) > 0 {
-				errs = append(errs, optErrs...)
-				continue
-			}
-
-			// Spec §12 *Derive*: a manual `impl Iface for T { fn ... }` alongside
-			// `@derive Iface` on the same type is a compile error.
-			// Surface it here and skip emission so the analyzer's
-			// duplicate-method validation doesn't pile a misleading
-			// "duplicate equals fn" diagnostic on top.
-			if prior.manual != nil {
-				if manualFn, hit := prior.manual[typeName][ifaceName]; hit && manualFn != nil {
-					errs = append(errs, TypeError{
-						Line: argLine,
-						Col:  argCol,
-						Message: fmt.Sprintf(
-							"@derive %s on type '%s' collides with manual impl %s for %s (fn %s at %d:%d) — remove one of the two",
-							ifaceName, typeName, ifaceName, typeName, manualFn.Name, manualFn.Line, manualFn.Col,
-						),
-					})
-					continue
-				}
-			}
-
-			// Skip emission if a previous SynthesizeDerives call already
-			// added the impl block for this (type, iface) pair. The
-			// validation above (duplicates, unknowns) still ran, so users
-			// continue to see those errors on every pass.
-			if prior.synth != nil && prior.synth[typeName][ifaceName] {
-				continue
-			}
-			out = append(out, synthesizeDeriveFor(ifaceName, n, dec.Options, site)...)
-		}
-	}
-	return out, errs
 }
 
 // synthesizeDeriveFor dispatches to the per-protocol synthesizer for a
@@ -856,8 +560,8 @@ func synthImplReceiver(fn *ast.FuncDef, ifaceName string) ast.TypeExpr {
 // ---------------------------------------------------------------------------
 
 // SynthesizeUniversalDebug is the eager universal-Debug pass. After
-// SynthesizeDerives has run (so any explicit `@derive Debug` impls are
-// already in `nodes`), this walks every top-level type declaration and
+// LowerDerives has run (so any `derive Debug` impls are already in
+// `nodes`), this walks every top-level type declaration and
 // appends an auto-synthesized `impl Debug` block for each type that lacks ANY
 // explicit Debug — neither a hand-written `impl Debug for T` block nor an explicit
 // `@derive Debug`. The result is that every declared nominal type is
@@ -870,7 +574,7 @@ func synthImplReceiver(fn *ast.FuncDef, ifaceName string) ast.TypeExpr {
 // second impl for an existing (Debug, T) pair, so detectImplCollisions
 // stays quiet.
 //
-// Run per-file (mirroring SynthesizeDerives' call shape in BuildProject):
+// Run per-file, after LowerDerives in BuildProject:
 // each auto-impl lands in the declaring file's node slice, which gives the
 // orphan rule correct home-module attribution automatically (T is always
 // local to the file that declares it). The original input slice is not
@@ -995,9 +699,8 @@ func UniversalDebugTypes(impls []ast.Node, name string, t Type) (types map[ast.T
 	return out, variants
 }
 
-// builderSynthesizeUniversalDebug is the per-builder shim mirroring
-// builderSynthesizeDerives — kept so the BuildProject call site reads
-// uniformly (`nodes = b.SynthesizeUniversalDebug(nodes)`). The pass itself
+// builderSynthesizeUniversalDebug is the per-builder shim for the
+// buildModule call site (`nodes = b.SynthesizeUniversalDebug(nodes)`). The pass itself
 // produces no errors (it only emits well-formed structural / name-only
 // impls), so there is nothing to fold into b.file.TypeErrors.
 func (b *builder) SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
@@ -1006,14 +709,9 @@ func (b *builder) SynthesizeUniversalDebug(nodes []ast.Node) []ast.Node {
 
 // typesWithExplicitDebug returns the set of type names that already carry an
 // explicit Debug — either a hand-written `impl Debug for T { fn inspect(value: T) }`
-// block, or an explicit `@derive Debug` decorator on the type decl
-// (whose synthesized impl block SynthesizeDerives produced, also captured here via
-// the impl-block scan). Both forms suppress auto-synthesis for that type.
-//
-// The `@derive Debug` decorator is scanned directly (not only via the
-// produced FuncDef) so the guard is robust even if SynthesizeUniversalDebug
-// is somehow run before SynthesizeDerives — the auto path still defers to
-// the explicit derive.
+// block, or the `@derive Debug` decorator derive lowering stamps on the
+// type decl beside the impl block it writes (also captured here via the
+// impl-block scan). Both forms suppress auto-synthesis for that type.
 func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 	out := map[string]bool{}
 	for _, n := range nodes {
@@ -1049,7 +747,7 @@ func typesWithExplicitDebug(nodes []ast.Node) map[string]bool {
 				continue
 			}
 			for _, arg := range d.Args {
-				if st, ok := arg.(*ast.SimpleType); ok && st.Name == "Debug" {
+				if deriveArgName(arg) == "Debug" {
 					out[typeName] = true
 				}
 			}
@@ -2149,12 +1847,14 @@ func CheckDeriveBounds(fa *FileAnalysis, nodes []ast.Node, impls *ProjectImplInd
 				continue
 			}
 			for _, arg := range dec.Args {
-				st, ok := arg.(*ast.SimpleType)
-				if !ok || !deriveSupported[st.Name] {
+				te, ok := arg.(ast.TypeExpr)
+				if !ok || !deriveSupported[TypeExprBaseName(te)] || !derivesStdInterface(fa, te) {
+					// A derive naming an interface derive does not
+					// write is checkDerivedInterface's one error.
 					continue
 				}
-				ifaceName := st.Name
-				ifaceLine, ifaceCol := st.Line, st.Col
+				ifaceName := TypeExprBaseName(te)
+				ifaceLine, ifaceCol := typeExprPos(te, dec.Line, dec.Col)
 				derivePos := Pos{File: fa.FilePath, Line: ifaceLine, Col: ifaceCol}
 				errs = append(errs, checkDeriveComponentTypes(fa, fa, impls, fileOf, n, typeName, ifaceName, derivePos, typeParamSet)...)
 				// Synth bodies for Display/Debug emit StringInterp literals like
@@ -3059,7 +2759,7 @@ func stdDeriveGap(fa *FileAnalysis, impls *ProjectImplIndex, baseName, iface str
 	return []TypeError{TypeError{
 		File: rec.Pos.File, Line: rec.Pos.Line, Col: rec.Pos.Col,
 		Message: fmt.Sprintf("no impl of `%s` for `%s` (required via %s)", iface, baseName, formatRecordingVia(rec)),
-	}.WithHint(missingImplHelp(iface, baseName, []Recording{rec}))}
+	}.WithHint(missingImplHelp(iface, rec.IfaceOrigin, baseName, rec.TypeOrigin, []Recording{rec}))}
 }
 
 // hasInterfaceImpl reports whether the named type has an Iface impl
@@ -3129,9 +2829,15 @@ func boundedTypeParams(typeParams []ast.TypeParam, ifaceName string, line, col i
 	}
 	out := make([]ast.TypeParam, len(typeParams))
 	for i, tp := range typeParams {
+		var bound ast.TypeExpr = &ast.SimpleType{Name: ifaceName, Line: line, Col: col}
+		if ifaceName == "ToJson" || ifaceName == "FromJson" {
+			// std's, through jsonModuleAlias, whatever the file binds
+			// the name to.
+			bound = jsonType(ifaceName, line, col)
+		}
 		out[i] = ast.TypeParam{
 			Name:   tp.Name,
-			Bounds: []ast.TypeExpr{&ast.SimpleType{Name: ifaceName, Line: line, Col: col}},
+			Bounds: []ast.TypeExpr{bound},
 			Line:   line,
 			Col:    col,
 		}
@@ -4728,35 +4434,43 @@ func lowerFirst(s string) string {
 }
 
 func toJsonCall(arg ast.Node, line, col int) ast.Node {
-	return qualifiedCall("ToJson", "to_json", []ast.Node{arg}, line, col)
+	return jsonIfaceCall("ToJson", "to_json", []ast.Node{arg}, line, col)
 }
 
 func toJsonFieldCall(arg ast.Node, line, col int) ast.Node {
-	return qualifiedCall("ToJson", "to_json_field", []ast.Node{arg}, line, col)
+	return jsonIfaceCall("ToJson", "to_json_field", []ast.Node{arg}, line, col)
+}
+
+// jsonIfaceCall is `json$.<iface>.<method>(args)`, a call of a function of
+// std/json's interface iface (`ToJson`, `FromJson`) through
+// jsonModuleAlias: std's interface, whatever the file binds the name to.
+func jsonIfaceCall(iface, method string, args []ast.Node, line, col int) *ast.Call {
+	return &ast.Call{
+		Func: fieldAccess(fieldAccess(identExpr(jsonModuleAlias, line, col), iface, line, col), method, line, col),
+		Args: args,
+		Line: line,
+		Col:  col,
+	}
 }
 
 func fromJsonCallForType(target ast.TypeExpr, arg ast.Node, line, col int) ast.Node {
 	return fromJsonHookForType(target, "from_json", []ast.Node{arg}, line, col)
 }
 
-// fromJsonHookForType is `FromJson.method<Target>(args)`, a call of
-// FromJson's method at the type target, as source writes it. The type
-// argument resolves wherever target is declared: a typealias another file
-// declares (`counts.Counts`), like a type with arguments or an anonymous
-// struct, is no call's owner (`Counts.from_json`), and the checker records
-// this call as it records any other.
+// fromJsonHookForType is `json$.FromJson.method<Target>(args)`, a call of
+// std's FromJson's method at the type target, as source writes it. The
+// type argument resolves wherever target is declared: a typealias another
+// file declares (`counts.Counts`), like a type with arguments or an
+// anonymous struct, is no call's owner (`Counts.from_json`), and the
+// checker records this call as it records any other.
 func fromJsonHookForType(target ast.TypeExpr, method string, args []ast.Node, line, col int) ast.Node {
 	ta, ok := cloneTypeExpr(target, line, col)
 	if !ok {
 		ta = &ast.SimpleType{Name: target.TypeString(), Line: line, Col: col}
 	}
-	return &ast.Call{
-		Func:     fieldAccess(&ast.TypeIdent{Name: "FromJson", Line: line, Col: col}, method, line, col),
-		TypeArgs: []ast.TypeExpr{ta},
-		Args:     args,
-		Line:     line,
-		Col:      col,
-	}
+	call := jsonIfaceCall("FromJson", method, args, line, col)
+	call.TypeArgs = []ast.TypeExpr{ta}
+	return call
 }
 
 // jsonModuleAlias is the name derived ToJson and FromJson code reaches
@@ -4943,38 +4657,21 @@ func cloneTypeExpr(te ast.TypeExpr, line, col int) (ast.TypeExpr, bool) {
 	return nil, false
 }
 
-// deriveArgName extracts the PascalCase interface name from a decorator arg.
-// The derive lowering produces *ast.SimpleType args, the only shape valid for
-// a `derive` decorator. Returns ("", line, col) when the arg shape is wrong
-// (caller records the error). Falls back to the decorator's own line/col when the
-// arg has no positional info.
-func deriveArgName(arg ast.Node, dec *ast.Decorator) (string, int, int) {
-	switch a := arg.(type) {
-	case *ast.SimpleType:
-		return a.Name, a.Line, a.Col
-	case *ast.Ident:
-		// snake_case arg — wrong shape for @derive, but report at its own
-		// position so the squiggle lands on the offending token.
-		return "", a.Line, a.Col
+// deriveArgName is the base name of the interface a `@derive` decorator's
+// argument names: the interface as the derive writes it (`ToJson`,
+// `json.ToJson`), which the derive lowering puts there. "" for anything
+// else.
+func deriveArgName(arg ast.Node) string {
+	if te, ok := arg.(ast.TypeExpr); ok {
+		return TypeExprBaseName(te)
 	}
-	return "", dec.Line, dec.Col
+	return ""
 }
 
-// deriveSupportedDescription joins the canonical supported-protocol names
-// with commas for use in error messages. Computed once per call (cheap) so
-// the canonical list stays the single source of truth.
+// deriveSupportedDescription is the names of derivableInterfaces joined
+// with commas, for a message that lists them.
 func deriveSupportedDescription() string {
-	switch len(deriveSupportedList) {
-	case 0:
-		return ""
-	case 1:
-		return deriveSupportedList[0]
-	}
-	out := deriveSupportedList[0]
-	for _, name := range deriveSupportedList[1:] {
-		out += ", " + name
-	}
-	return out
+	return strings.Join(DerivableInterfaces(), ", ")
 }
 
 // withoutRepeatedNames answers a struct or enum declaration as synthesis

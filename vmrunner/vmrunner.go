@@ -126,6 +126,30 @@ type config struct {
 	hosts    []HostTable
 	forEntry []func(entry string) HostTable
 	compiler func(root string) HostTable
+	// lists are the lists the host holds the program to
+	// (WithCapabilities, WithCapabilitiesFrom).
+	lists []heldList
+	// stop is WithStop's context, or nil.
+	stop context.Context
+}
+
+// WithStop bounds what a load or a run runs by ctx: the boot (Start, Boot,
+// LoadProgram), Start's `main`, and the whole of Run's run. When ctx ends, a
+// computing program stops at its next call, loop iteration or iteration
+// element and a waiting one wakes, and the load or run answers ctx's error,
+// as vmhost.WithStop and a vmhost run's context do. Tasks the boot or the
+// run started stop with it. An Instance's later calls take their own
+// context (Instance.Call, Instance.Main).
+func WithStop(ctx context.Context) Option {
+	return func(c *config) { c.stop = ctx }
+}
+
+// stopCtx is WithStop's context, or the background.
+func (c *config) stopCtx() context.Context {
+	if c.stop == nil {
+		return context.Background()
+	}
+	return c.stop
 }
 
 // WithHosts adds host tables: an FFI project's generated adapters.
@@ -246,21 +270,11 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		return 1
 	}
 	entry := im.EntryModule()
-	var hosts []HostTable
-	if cfg.compiler != nil {
-		hosts = append(hosts, cfg.compiler(im.Root))
-	}
-	hosts = append(hosts, cfg.hosts...)
-	if entry != nil {
-		for _, t := range cfg.forEntry {
-			hosts = append(hosts, t(entry.Name()))
-		}
-	}
-	if err := checkHostKeys(im.HostKeys, hosts); err != nil {
+	hosts, err := cfg.bind(im, entry)
+	if err != nil {
 		fmt.Fprintf(stderr, "nomi: %v\n", err)
 		return 1
 	}
-	hosts = projectHosts(hosts, cfg.compiler != nil)
 	if !im.HasMain {
 		if compiled && len(im.Exports) > 0 {
 			fmt.Fprintf(stderr, "nomi: %v. Load it into the reactor `nomi build-vm --reactor` writes\n", ErrNoMain)
@@ -305,11 +319,20 @@ func run(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string,
 		WriteBlocked(stderr, label, reasons)
 		return 1
 	}
+	ctx := cfg.stopCtx()
+	if ctx.Done() != nil {
+		m = m.StopOn(ctx)
+	}
 	// NOMI_PROFILE samples the run (internal/vm's profile.go) and reports
 	// when it ends.
 	m, finishProfile := vm.StartProfile(m, os.Getenv("NOMI_PROFILE"), stderr)
-	failure, limit := vm.ProgramFailure(m.Main(context.Background(), args, handleSignals))
+	failure, limit := vm.ProgramFailure(m.Main(ctx, args, handleSignals))
 	finishProfile()
+	if err := ctx.Err(); err != nil && failure != nil {
+		// Stopped: whatever the run answered is the stop's doing.
+		fmt.Fprintf(stderr, "nomi: the run was stopped: %v\n", err)
+		return 1
+	}
 	if limit {
 		WriteBlocked(stderr, label, []string{"[vm] machine limit: " + failure.Error()})
 		return 1
@@ -385,6 +408,59 @@ func projectHosts(hosts []HostTable, withCompiler bool) []HostTable {
 	return out
 }
 
+// bind is the tables a machine for im binds, as projectHosts puts them:
+// std/compiler's (WithCompiler), the host's (WithHosts) and the ones built
+// for the entry (WithEntryHosts). It refuses an image whose Go-bound keys
+// no table answers, and holds the program to the host's list
+// (WithCapabilities) from everything a host can run (hostRoots).
+func (cfg *config) bind(im ir.Image, entry *ir.Module) ([]HostTable, error) {
+	var compiler HostTable
+	var hosts []HostTable
+	if cfg.compiler != nil {
+		compiler = cfg.compiler(im.Root)
+		hosts = append(hosts, compiler)
+	}
+	own := append([]HostTable{}, cfg.hosts...)
+	if entry != nil {
+		for _, t := range cfg.forEntry {
+			own = append(own, t(entry.Name()))
+		}
+	}
+	hosts = append(hosts, own...)
+	if err := checkHostKeys(im.HostKeys, hosts); err != nil {
+		return nil, err
+	}
+	roots, boots := hostRoots(im, entry)
+	if err := cfg.hold(im, entry, roots, boots, own, compiler); err != nil {
+		return nil, err
+	}
+	return projectHosts(hosts, compiler != nil), nil
+}
+
+// hostRoots is everything a host can run in im: main and its failure
+// renderer, each exported function with its argument decoders and result
+// encoder, and the entry's boot.
+func hostRoots(im ir.Image, entry *ir.Module) ([]*ir.Func, []*ir.Symbol) {
+	if entry == nil {
+		return nil, nil
+	}
+	var roots []*ir.Func
+	if mainFn := entryMain(entry); im.HasMain && mainFn != nil {
+		roots = vm.MainRoots(entry, mainFn)
+	}
+	for _, x := range im.Exports {
+		roots = append(roots, x.Func, x.Encode)
+		for _, p := range x.Params {
+			roots = append(roots, p.Decode)
+		}
+	}
+	var boots []*ir.Symbol
+	if boot := entry.Boot(); boot != nil {
+		boots = append(boots, boot)
+	}
+	return nonNil(roots), boots
+}
+
 // checkHostKeys requires every Go-bound host key the image names to be
 // answered by one of the runner's tables, so a runner built without the
 // project's bindings says so before the program runs.
@@ -392,15 +468,9 @@ func checkHostKeys(keys []string, tables []HostTable) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	have := map[string]bool{}
-	for _, t := range tables {
-		funcs, err := t(&hostadapt.Env{})
-		if err != nil {
-			return fmt.Errorf("binding a host table: %w", err)
-		}
-		for k := range funcs {
-			have[k] = true
-		}
+	have, err := hostadapt.TableKeys(tables...)
+	if err != nil {
+		return err
 	}
 	for _, k := range keys {
 		if !have[k] {

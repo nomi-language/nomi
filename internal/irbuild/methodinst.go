@@ -365,7 +365,7 @@ func (g *gen) expansiveImplItem(d *implDef, fd *ast.FuncDef) bool {
 	expansive = func(te ast.TypeExpr) bool {
 		switch t := te.(type) {
 		case *ast.GenericType:
-			if named, _, ok := g.genericTemplateNamed(t.Name); ok && named == tpl {
+			if named, _, ok := g.genericTemplateNamed(t.Name, nil); ok && named == tpl {
 				for _, a := range t.Params {
 					if _, bare := a.(*ast.SimpleType); !bare && mentions(a) {
 						return true

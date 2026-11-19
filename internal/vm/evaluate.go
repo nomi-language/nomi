@@ -61,8 +61,14 @@ type fuel struct {
 	// was set: a test case's time limit (caselimit.go), whose timer sets it.
 	// A step then costs one atomic load, which no task contends for. outer
 	// is the fuel of the machine the case runs on, StopOn's, still burned.
-	watch bool
-	outer *fuel
+	// A watching fuel with a bound (an activation's deadline in Unix
+	// nanoseconds, within.go; 0 for none) also reads the clock every 1024
+	// steps and, past it, sets stopped and calls onStop. The bound is
+	// cleared when the activation ends, since a task it started may run on.
+	watch  bool
+	outer  *fuel
+	bound  atomic.Int64
+	onStop func()
 	// prof is the profiler a profiling machine's watching fuel samples for
 	// (profile.go): burn takes its pending ticks at the frame it is given.
 	prof *Profiler
@@ -83,6 +89,15 @@ func newFuel(lim Limits) *fuel {
 func (f *fuel) burn(fr *frame, pc int) error {
 	if f.watch {
 		if f.stopped.Load() {
+			return ErrStopped
+		}
+		if d := f.bound.Load(); d != 0 && f.ticks.Add(1)&1023 == 0 && time.Now().UnixNano() > d {
+			// A bound's own deadline (within.go), read here because the
+			// timer that would set stopped may never run.
+			f.stopped.Store(true)
+			if f.onStop != nil {
+				f.onStop()
+			}
 			return ErrStopped
 		}
 		if f.prof != nil && fr != nil && f.prof.due() {

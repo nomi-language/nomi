@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/nomi-language/nomi/internal/artifactcache"
 )
 
 // Eviction for the build cache.
@@ -34,18 +36,24 @@ import (
 // cacheDirForKey rewrites the marker on every call, warm or cold, so
 // last-use is a real reading rather than last-REGENERATION.
 //
-// TWO RULES, SEPARABLE:
+// THREE RULES, SEPARABLE:
 //
 //  1. Provably dead. The recorded project root no longer exists.
 //     The key is the absolute root path, so a directory whose root is
 //     gone can never be hit again by anything. Unbounded: there is no
 //     working set to protect.
 //
-//  2. Bounded LRU. Everything else, including the legacy entries that
+//  2. Unused. An entry nothing has used for artifactcache.Unused, the
+//     age every cache Nomi keeps drops an entry at (internal/artifactcache
+//     package doc, "Pruning"). This is what empties a cache under its
+//     bound of the wrappers of a compiler build or a project nobody
+//     runs any more.
+//
+//  3. Bounded LRU. Everything else, including the legacy entries that
 //     carry no marker, ranked by last use and cut at maxCacheEntries.
-//     This is the rule that gives the cache a ceiling; rule 1 is what
-//     makes satisfying the ceiling cheap, by spending the removals on
-//     entries that provably cannot be wanted.
+//     This is the rule that gives the cache a ceiling; rules 1 and 2
+//     are what make satisfying the ceiling cheap, by spending the
+//     removals on entries that cannot be wanted or were not.
 //
 // See planEviction for the concurrency argument.
 const (
@@ -94,8 +102,8 @@ const (
 	// bound is deliberately generous rather than tight.
 	maxCacheEntries = 256
 
-	// evictGraceWindow protects any entry used within it, under BOTH
-	// rules. This is the concurrent-build defence — see planEviction.
+	// evictGraceWindow protects any entry used within it, under every
+	// rule. This is the concurrent-build defence — see planEviction.
 	//
 	// The number: the longest thing that runs inside a cache
 	// directory is a cold `go build` of the wrapper, ~2 s, and the
@@ -106,6 +114,11 @@ const (
 	// hour's worth of fresh corpses. That is bounded by the build
 	// rate, which is bounded by 2.1 s per build.
 	evictGraceWindow = time.Hour
+
+	// sweepEvery is how often a cache inside its bound is scanned for
+	// dead and unused entries (artifactcache.Due); over the bound every
+	// call scans.
+	sweepEvery = 24 * time.Hour
 
 	// trashPrefix names a directory that has been renamed out of the
 	// live key space and is being deleted. A leading dot keeps it out
@@ -198,6 +211,7 @@ type evictReason int
 
 const (
 	evictDeadRoot evictReason = iota
+	evictUnused
 	evictOverBound
 )
 
@@ -284,7 +298,7 @@ func rootIsGone(path string) bool {
 //     in cannot be chosen.
 //
 //  2. Every entry used within evictGraceWindow is excluded, under
-//     both rules. cacheDirForKey stamps the marker BEFORE any other
+//     every rule. cacheDirForKey stamps the marker BEFORE any other
 //     work in the directory, so a process that is currently building
 //     has a stamp seconds old, and an hour of grace is three orders
 //     of magnitude more than the ~2 s a cold wrapper build takes.
@@ -309,8 +323,13 @@ func planEviction(entries []cacheEntry, keep string, max int, now time.Time) []v
 	var victims []victim
 	survivors := make([]cacheEntry, 0, len(entries))
 	for _, e := range entries {
-		if !protected(e) && e.hasRoot && rootIsGone(e.root) {
+		switch {
+		case protected(e):
+		case e.hasRoot && rootIsGone(e.root):
 			victims = append(victims, victim{name: e.name, reason: evictDeadRoot, lastUse: e.lastUse})
+			continue
+		case now.Sub(e.lastUse) >= artifactcache.Unused:
+			victims = append(victims, victim{name: e.name, reason: evictUnused, lastUse: e.lastUse})
 			continue
 		}
 		survivors = append(survivors, e)
@@ -390,14 +409,15 @@ func collectTrash(root string, dirents []os.DirEntry) {
 
 // evictCache enforces the budget on root, never touching keep.
 //
-// TRIGGERING. The sweep costs one readdir when the cache is inside
-// its budget and a stat plus a small read per entry when it is not.
-// The readdir is unconditional and cheap; the per-entry work happens
-// only when the directory count exceeds the bound. Because the sweep
-// leaves the count AT the bound, the next build sees count == max and
-// does no per-entry work — so a full sweep runs once per new project
-// root rather than once per build. Measured on this machine at 2656
-// entries: see the eviction overhead figure in
+// TRIGGERING. The sweep costs one readdir and one stat when the cache
+// is inside its budget and a stat plus a small read per entry when it
+// is not, or when a day has passed since the last full sweep
+// (sweepEvery, artifactcache.Due), which is what finds dead and
+// unused entries under the bound. Because the sweep leaves the count
+// AT the bound, the next build sees count == max and does no
+// per-entry work, so a full sweep runs once per new project root and
+// once a day rather than once per build. Measured on this machine at
+// 2656 entries: see the eviction overhead figure in
 // TestEvict_SweepCostOnALargeRoot.
 func evictCache(root, keep string) (int, error) {
 	max := maxCacheEntriesSetting()
@@ -415,7 +435,7 @@ func evictCache(root, keep string) (int, error) {
 			keys++
 		}
 	}
-	if keys <= max {
+	if keys <= max && !artifactcache.Due(root, sweepEvery) {
 		return 0, nil
 	}
 	entries, err := scanCacheEntries(root)

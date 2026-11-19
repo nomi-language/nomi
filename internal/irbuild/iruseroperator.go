@@ -21,6 +21,58 @@ func (bl *irScalarBuilder) userOperatorCall(at *ast.Binary, spec *operIfaceSpec,
 	return n.Dst(), result, false, true
 }
 
+// implOperator lowers the arithmetic operator t over its lowered operands
+// as a call of an impl: the one its record names, else, with no record,
+// the one the operands' kinds select. handled is false for an operator
+// the machine computes itself, which binary lowers.
+func (bl *irScalarBuilder) implOperator(t *ast.Binary, lhs, rhs ir.Temp, lk, rk kind) (ir.Temp, kind, bool, bool, bool) {
+	spec := operIfaceByOp[t.Op]
+	og, it, f, recorded := bl.recordedOperatorImpl(t, lk)
+	if it != nil {
+		params, result, ok := bl.g.itemKinds(og, it)
+		if !ok {
+			return ir.NoTemp, kindInvalid, false, false, true
+		}
+		bl.op = routeImpl
+		v, k, mobile, ok := bl.userOperatorCall(t, spec, og, it, params, result, lhs, rhs, lk, rk)
+		return v, k, mobile, ok, true
+	}
+	if !recorded {
+		f = bl.g.stdlibOperatorFor(t.Op, lk, rk)
+	} else if !bl.g.stdOperatorFits(t.Op, f, lk, rk) {
+		f = nil
+	}
+	if f != nil {
+		bl.op = routeImpl
+		v, k, mobile, ok := bl.stdOperatorCall(t, f, lhs, rhs)
+		return v, k, mobile, ok, true
+	}
+	if v, k, mobile, ok, handled := bl.stdGenericOperatorCall(t, lhs, rhs, lk, rk); handled {
+		bl.op = routeImpl
+		return v, k, mobile, ok, true
+	}
+	if lk.def != nil && !isDecimalKind(lk) {
+		bl.op = routeImpl
+		v, k, mobile, ok := bl.instanceOperatorCall(t, spec, recorded, lhs, rhs, lk, rk)
+		return v, k, mobile, ok, true
+	}
+	if t.Op == "+" && (lk.tag == tagList || rk.tag == tagList) {
+		// The kinds select List's `+`, which the machine computes
+		// (machineImpls) and binary lowers.
+		return ir.NoTemp, kindInvalid, false, false, false
+	}
+	if lk != rk {
+		// A std receiver's operator at a right-hand type the program
+		// declares (`d * rate`, `impl Multiply<Rate, Decimal> for
+		// Decimal`) is the program's impl. Any other mixed-type operator
+		// is declined.
+		bl.op = routeImpl
+		v, k, mobile, ok := bl.instanceOperatorCall(t, spec, recorded, lhs, rhs, lk, rk)
+		return v, k, mobile, ok, true
+	}
+	return ir.NoTemp, kindInvalid, false, false, false
+}
+
 // instanceOperatorImpl selects the impl of an operator the checker
 // resolved over a type parameter, at the kinds its instance gives the
 // operands, through operImplFor.
@@ -52,20 +104,25 @@ func (bl *irScalarBuilder) instanceOperatorImpl(at *ast.Binary, spec *operIfaceS
 	return og, it, params, result, false
 }
 
-// bitwiseNot lowers `~~~operand`: Int's is `ir.OpNot`, and any other type's
-// is a call of its `BitwiseNot` impl, std's (Byte's) or the program's: the
-// one the checker recorded (recordedOperatorImpl), or for an operand of a
-// type parameter or a primitive, which name none, the one the operand's
-// kind selects.
+// bitwiseNot lowers `~~~operand`: Int's is `ir.OpNot`, the impl the
+// machine computes itself (machineImpls), and any other type's is a call
+// of its `BitwiseNot` impl, std's (Byte's) or the program's: the one the
+// checker recorded (recordedOperatorImpl), or for an operand of a type
+// parameter with no checker type in its frame, which names none, the one
+// the operand's kind selects.
 func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	if ak, modelled := bl.g.irArithKind(ir.OpNot, k, false); modelled {
+	og, it, f, recorded := bl.recordedOperatorImpl(t, k)
+	if ak, modelled := bl.g.irArithKind(ir.OpNot, k, false); bl.g.machineRoute(t) != routeUnset || (modelled && !recorded) {
+		if !modelled {
+			panic("irbuild: bitwiseNot: the record names a BitwiseNot impl machineImpls computes natively, over an operand the machine has no `~~~` for")
+		}
+		bl.op = routeNative
 		a := ir.NewUnaryArith(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), ir.OpNot, ak, src)
 		bl.b.Append(a)
 		return a.Dst(), k, false, true
 	}
 	spec := operIfaceByName["BitwiseNot"]
-	og, it, f, recorded := bl.recordedOperatorImpl(t, k)
 	if !recorded {
 		f = bl.g.stdlibUnaryOperatorFor(k)
 	} else if f != nil && (f.why != "" || !sameParamKinds(f.params, []kind{k})) {
@@ -80,6 +137,7 @@ func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Tem
 		}
 		// A lowered body's signature is held.
 		irHeldOperand(f.result, "a BitwiseNot impl's result")
+		bl.op = routeImpl
 		n := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), f.irBody.Sym(), src)
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: f.result, deferrable: true})
@@ -110,6 +168,7 @@ func (bl *irScalarBuilder) bitwiseNot(t *ast.Unary, src ir.Temp, k kind) (ir.Tem
 	if it == nil || !it.impl.lowerable || !it.lowerable || len(params) != 1 || params[0] != k || !irCallableValueKind(result) {
 		return no()
 	}
+	bl.op = routeImpl
 	n := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), og.irCalleeSym(it, spec.nomi+"."+spec.method), src)
 	bl.b.Append(n)
 	bl.side(n.Dst(), irScalarSide{k: result, deferrable: true})

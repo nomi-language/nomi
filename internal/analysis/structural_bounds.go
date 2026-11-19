@@ -134,11 +134,12 @@ func implementedIn(impls []ImplTables) func(Type, string) bool {
 	}
 }
 
-// hasOwnImpl is structuralEqualityConformance's hasImpl for the checker: t
-// has an impl of iface by its own declaration, not one a same-named type of
-// another module has (missing_impl_identity.go). Where the identity index
-// cannot judge the pair, the bare-name answer stands.
-func (c *checker) hasOwnImpl(t Type, iface string) bool {
+// hasOwnImpl reports whether t has an impl of the interface iface declared
+// at ifaceOrigin by its own declaration, not one a same-named type of
+// another module has, nor one of another interface of the name
+// (missing_impl_identity.go). Where the identity index cannot judge the
+// pair, or ifaceOrigin is OriginUnresolved, the bare-name answer stands.
+func (c *checker) hasOwnImpl(t Type, ifaceOrigin, iface string) bool {
 	if c == nil || c.fa == nil {
 		return false
 	}
@@ -147,7 +148,15 @@ func (c *checker) hasOwnImpl(t Type, iface string) bool {
 		return false
 	}
 	p := c.fa.Program()
-	return p.ImplIndex.suppliesReceiver(t, name, iface, p.unindexedOrigins)
+	return p.ImplIndex.suppliesReceiver(t, name, ifaceOrigin, iface, p.unindexed())
+}
+
+// hasOwnEqualityImpl is structuralEqualityConformance's hasImpl for the
+// checker: hasOwnImpl of Equatable or Hashable, which the prelude reserves,
+// so no program declares a second interface of either name and the name is
+// the interface.
+func (c *checker) hasOwnEqualityImpl(t Type, iface string) bool {
+	return c.hasOwnImpl(t, OriginUnresolved, iface)
 }
 
 // isStdInterfaceNamed reports whether iface is std's interface name, declared
@@ -293,7 +302,7 @@ func (c *checker) conjunctionMismatchHint(conj *ConjunctionType, have Type) stri
 		if c.unify(m, have, nil) == nil {
 			continue
 		}
-		msg := fmt.Sprintf("%s does not implement %s", have, m)
+		msg := fmt.Sprintf("%s does not implement %s", have, c.shownInterfaceFor(have, m, true))
 		if h := c.mismatchHint(m, have); h != "" {
 			msg += "; " + h
 		}

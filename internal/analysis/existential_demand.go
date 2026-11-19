@@ -56,7 +56,7 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 	}
 	universal := true
 	for _, m := range members {
-		if m.Name == ifaceName {
+		if sameNominalIdentity(m.Origin, m.Name, rec.IfaceOrigin, ifaceName) {
 			return
 		}
 		universal = universal && c.existentialSatisfiesNamed(m, ifaceName)
@@ -96,7 +96,8 @@ func (c *checker) checkExistentialDemand(it Type, ifaceName string, rec Recordin
 	if verb == "holds" {
 		article = "values of"
 	}
-	msg := fmt.Sprintf("%s %s %s `%s`, and %s does not require %s of its implementors", subject, verb, article, it.String(), it.String(), ifaceName)
+	shown := shownBeside(ifaceIdentity{Origin: rec.IfaceOrigin, Name: ifaceName}, members)
+	msg := fmt.Sprintf("%s %s %s `%s`, and %s does not require %s of its implementors", subject, verb, article, it.String(), it.String(), shown)
 	if ifaceName == "Comparable" {
 		// Equatable and Hashable hold of every interface value; an order
 		// does not, and this says why.
@@ -204,7 +205,7 @@ func (c *checker) sigWithTypeParamFor(it Type, param string, all bool) (string, 
 // iface that no implementor can answer. subs is the call's solved type
 // parameters; subjects are its argument expressions.
 func (c *checker) checkExistentialSelfCall(fa *ast.FieldAccess, iface *InterfaceType, subs map[*TypeParam_]Type, subjects []ast.Node, line, col int) {
-	if fa == nil || fa.Field == nil || iface == nil || iface.SelfParam == nil || len(iface.TypeParamDefs) > 0 {
+	if fa == nil || fa.Field == nil || iface == nil || iface.SelfParam == nil {
 		return
 	}
 	sig := interfaceMethodSig(iface, fa.Field.Name)
@@ -286,7 +287,9 @@ func (c *checker) checkExistentialSelfCall(fa *ast.FieldAccess, iface *Interface
 		why = fmt.Sprintf("its parameter `%s` holds `self` values, which must be the implementor's own type, and %s `%s` value does not say which implementor it holds", nested, a, iface.Name)
 	}
 	msg := fmt.Sprintf("`%s` cannot be called on %s, %s `%s`: %s", callee, subject, a, iface.Name, why)
-	help := fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `where T: %s`", iface.Name, iface.Name)
+	// The bound is the value's interface at its own arguments: `Scale<Int>`
+	// for an `s: Scale<Int>`.
+	help := fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `where T: %s`", iface.Name, concrete)
 	if sigText, ok := c.sigWithTypeParamFor(iface, param, len(selfAt) > 1); ok {
 		help = fmt.Sprintf("take a type parameter bounded by %s instead, so the implementor is known: `%s where T: %s`", iface.Name, sigText, iface.Name)
 	}

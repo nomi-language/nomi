@@ -341,7 +341,6 @@ func (c *Checker) Prepare(src string, mode Mode) ([]ast.Node, error) {
 	if !mode.Tests {
 		StripAttachedTests(nodes)
 	}
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	return analysis.SynthesizeUniversalDebug(nodes), nil
 }
 
@@ -941,7 +940,6 @@ func (c *Checker) CheckStdlibTest(moduleKey, src string, line int) (test *ast.Te
 	if nodes, err = lowerDerives(c.diagPath, src, nodes, "", nil); err != nil {
 		return nil, nil, nil, true, err
 	}
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 	if len(nodes) != 1 {
 		return nil, nil, nil, false, nil
@@ -1014,7 +1012,6 @@ func (c *Checker) prepareStdlib(src string, mode Mode) ([]ast.Node, error) {
 	if !mode.Tests {
 		StripAttachedTests(nodes)
 	}
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	return analysis.SynthesizeUniversalDebug(nodes), nil
 }
 

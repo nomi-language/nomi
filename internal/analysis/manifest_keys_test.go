@@ -44,12 +44,15 @@ func TestManifest_Capabilities(t *testing.T) {
 name = "app"
 
 [capabilities]
-allow = ["std::io", "std::fs"]
-allow_in_tests = ["std::process"]
+std = ["std::io", "std::fs"]
+std_in_tests = ["std::process"]
+go = ["example.com/pg"]
+go_in_tests = ["example.com/minio"]
+require_module_lists = true
 
 [capabilities.modules]
 "example.com/pricing" = []
-"example.com/pg" = ["go:github.com/jackc/pgx/v5"]
+"example.com/pg" = ["std::fs"]
 `), "m.toml")
 	if err != nil {
 		t.Fatal(err)
@@ -58,17 +61,25 @@ allow_in_tests = ["std::process"]
 	if c == nil {
 		t.Fatal("no Capabilities")
 	}
-	if want := []string{"std::io", "std::fs"}; !slices.Equal(c.Allow, want) {
-		t.Errorf("Allow: %v, want %v", c.Allow, want)
+	for _, l := range []struct {
+		name      string
+		got, want []string
+	}{
+		{"Std", c.Std, []string{"std::io", "std::fs"}},
+		{"StdInTests", c.StdInTests, []string{"std::process"}},
+		{"Go", c.Go, []string{"example.com/pg"}},
+		{"GoInTests", c.GoInTests, []string{"example.com/minio"}},
+		{"pg's entry", c.Modules["example.com/pg"], []string{"std::fs"}},
+	} {
+		if !slices.Equal(l.got, l.want) {
+			t.Errorf("%s: %v, want %v", l.name, l.got, l.want)
+		}
 	}
-	if want := []string{"std::process"}; !slices.Equal(c.AllowInTests, want) {
-		t.Errorf("AllowInTests: %v, want %v", c.AllowInTests, want)
+	if !c.RequireModuleLists {
+		t.Error("RequireModuleLists is false; the table sets it")
 	}
 	if got := c.Modules["example.com/pricing"]; got == nil || len(got) != 0 {
 		t.Errorf("pricing's list: %#v, want an empty list", got)
-	}
-	if want := []string{"go:github.com/jackc/pgx/v5"}; !slices.Equal(c.Modules["example.com/pg"], want) {
-		t.Errorf("pg's list: %v, want %v", c.Modules["example.com/pg"], want)
 	}
 
 	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n"), "m.toml")
@@ -76,27 +87,44 @@ allow_in_tests = ["std::process"]
 		t.Errorf("no table: %+v, %v; want no Capabilities", m.Capabilities, err)
 	}
 	m, err = ParseManifestData([]byte("[module]\nname = \"app\"\n[capabilities]\n"), "m.toml")
-	if err != nil || m.Capabilities == nil || len(m.Capabilities.Allow) != 0 {
+	if err != nil || m.Capabilities == nil || len(m.Capabilities.Std) != 0 || len(m.Capabilities.Go) != 0 || m.Capabilities.RequireModuleLists {
 		t.Errorf("an empty table: %+v, %v; want lists that allow nothing", m.Capabilities, err)
 	}
 }
 
-// An entry that is not a std module's or a Go package's name in form, a
-// host name, and a name listed twice are errors at the entry's line.
+// An entry of a std list that is not a std module's name in form, a Go
+// package or a host name there, an entry of a Go list that is not a
+// module path, and an entry listed twice are errors at the entry's line.
+// Any other key is an error that says what each key holds, rather than
+// the nearest in spelling, which for allow_in_tests is go_in_tests.
 func TestManifest_CapabilityEntryForms(t *testing.T) {
 	cases := []struct{ name, table, want string }{
-		{"no prefix", "[capabilities]\nallow = [\n    \"std::io\",\n    \"fs\",\n]\n",
-			"m.toml:7: [capabilities] allow: \"fs\" is neither a std module (\"std::fs\") nor a Go package (\"go:<import path>\")"},
-		{"a host name", "[capabilities]\nallow_in_tests = [\"host:clock\"]\n",
-			"m.toml:5: [capabilities] allow_in_tests: \"host:clock\" names a function an embedding Go program supplies, which only that program can allow"},
-		{"a std path", "[capabilities]\nallow = [\"std::fs/host\"]\n",
-			"m.toml:5: [capabilities] allow: \"std::fs/host\" is not a std module; write one as an import does, such as \"std::fs\""},
-		{"an empty Go path", "[capabilities.modules]\n\"example.com/a\" = [\"go:\"]\n",
-			"m.toml:5: [capabilities] modules \"example.com/a\": \"go:\" is not a Go import path; write one as a `gopkg` declaration does, such as \"go:github.com/jackc/pgx/v5\""},
-		{"twice", "[capabilities]\nallow = [\"std::io\", \"std::io\"]\n",
-			"m.toml:5: [capabilities] allow lists std::io twice"},
-		{"an unknown key", "[capabilities]\nallowed = [\"std::io\"]\n",
-			"m.toml:5: [capabilities] has no key `allowed`; did you mean `allow`?"},
+		{"no prefix", "[capabilities]\nstd = [\n    \"std::io\",\n    \"fs\",\n]\n",
+			"m.toml:7: [capabilities] std: \"fs\" is not a std module; write one as an import does, such as \"std::fs\""},
+		{"a host name", "[capabilities]\nstd_in_tests = [\"host:clock\"]\n",
+			"m.toml:5: [capabilities] std_in_tests: \"host:clock\" names a function an embedding Go program supplies, which only that program can allow"},
+		{"a std path", "[capabilities]\nstd = [\"std::fs/host\"]\n",
+			"m.toml:5: [capabilities] std: \"std::fs/host\" is not a std module; write one as an import does, such as \"std::fs\""},
+		{"a Go package in std", "[capabilities]\nstd = [\"go:github.com/jackc/pgx/v5\"]\n",
+			"m.toml:5: [capabilities] std: \"go:github.com/jackc/pgx/v5\" names a Go package; Go is allowed by module, not by package: list the module that binds it under `go`"},
+		{"a Go package in a module's entry", "[capabilities.modules]\n\"example.com/a\" = [\"go:strings\"]\n",
+			"m.toml:5: [capabilities] modules \"example.com/a\": \"go:strings\" names a Go package; Go is allowed by module, not by package: list the module that binds it under `go`"},
+		{"a Go package in go", "[capabilities]\ngo = [\"go:example.com/pg\"]\n",
+			"m.toml:5: [capabilities] go: \"go:example.com/pg\" names a Go package; name the module that binds it, as go.mod writes it, such as \"example.com/pg\""},
+		{"a std module in go_in_tests", "[capabilities]\ngo_in_tests = [\"std::fs\"]\n",
+			"m.toml:5: [capabilities] go_in_tests: \"std::fs\" is a std module, which a list of std names holds; this list names modules, such as \"example.com/pg\""},
+		{"an empty module path", "[capabilities]\ngo = [\"\"]\n",
+			"m.toml:5: [capabilities] go: \"\" is not a module path; write one as go.mod writes it, such as \"example.com/pg\""},
+		{"twice", "[capabilities]\nstd = [\"std::io\", \"std::io\"]\n",
+			"m.toml:5: [capabilities] std lists std::io twice"},
+		{"a module twice", "[capabilities]\ngo = [\"example.com/pg\", \"example.com/pg\"]\n",
+			"m.toml:5: [capabilities] go lists example.com/pg twice"},
+		{"an unknown key", "[capabilities]\nstds = [\"std::io\"]\n",
+			"m.toml:5: [capabilities] has no key `stds`; `std` and `std_in_tests` list std modules, `go` and `go_in_tests` the modules whose code may bind Go, and `modules` and `require_module_lists` are about the modules the project requires"},
+		{"allow", "[capabilities]\nallow = [\"std::io\"]\n",
+			"m.toml:5: [capabilities] has no key `allow`; `std` and `std_in_tests` list std modules, `go` and `go_in_tests` the modules whose code may bind Go, and `modules` and `require_module_lists` are about the modules the project requires"},
+		{"allow_in_tests", "[capabilities]\nallow_in_tests = [\"std::io\"]\n",
+			"m.toml:5: [capabilities] has no key `allow_in_tests`; `std` and `std_in_tests` list std modules, `go` and `go_in_tests` the modules whose code may bind Go, and `modules` and `require_module_lists` are about the modules the project requires"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

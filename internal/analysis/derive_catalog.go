@@ -1,15 +1,17 @@
 package analysis
 
 import (
-	"slices"
-
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
-// DerivableInterfaces lists the interfaces `derive` synthesizes, in the
-// order the lowering's "unknown derivable protocol" error names them.
+// DerivableInterfaces lists the names of the interfaces `derive` writes,
+// in the order of spec §12's *Derivable interfaces* table.
 func DerivableInterfaces() []string {
-	return slices.Clone(deriveSupportedList)
+	names := make([]string, len(derivableInterfaces))
+	for i, d := range derivableInterfaces {
+		names[i] = d.Name
+	}
+	return names
 }
 
 // DeriveHomeModule is the stdlib module that declares a derivable
@@ -48,7 +50,7 @@ func DerivedJSONKeys(decl ast.Node, iface string) (key func(field string) string
 			continue
 		}
 		for _, arg := range dec.Args {
-			if st, ok := arg.(*ast.SimpleType); ok && st.Name == iface {
+			if deriveArgName(arg) == iface {
 				opts := parseDeriveOptionsForSynthesis(iface, dec.Options)
 				return func(field string) string { return jsonFieldName(field, opts) }, true
 			}

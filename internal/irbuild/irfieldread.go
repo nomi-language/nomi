@@ -59,7 +59,7 @@ func (bl *irScalarBuilder) fieldRead(t *ast.FieldAccess) (ir.Temp, kind, bool, b
 		// A field chain `p.address.city`, or a field of an application
 		// field (`Config.done.sender`). A dotted type qualifier is a bare
 		// variant instead.
-		if _, dotted := bl.g.dottedTypeQualifier(t.Object); dotted && !appObject {
+		if _, dotted := bl.dottedTypeQualifier(t.Object); dotted && !appObject {
 			return no()
 		}
 	case *ast.StructLit, *ast.GroupedExpr, *ast.TupleLit, *ast.If, *ast.Case, *ast.Block, *ast.TaggedString,

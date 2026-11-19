@@ -242,8 +242,8 @@ func TestDeclineSitesAreListed(t *testing.T) {
 // sites and pinned gaps only, with every limit a checker error and every
 // impossible state an assertion.
 const (
-	maxSites             = 639
-	maxDeadSites         = 326
+	maxSites             = 636
+	maxDeadSites         = 325
 	maxUnclassifiedSites = 0
 	maxUndecidedSites    = 157
 )

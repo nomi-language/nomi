@@ -123,35 +123,9 @@ derive Debug for Tok`
 		t.Fatalf("parse: %v", err)
 	}
 	nodes, _ = LowerDerives(nodes)
-	nodes, errs := SynthesizeDerives(nodes)
-	if len(errs) > 0 {
-		t.Fatalf("synth errors: %v", errs)
-	}
 	nodes = SynthesizeUniversalDebug(nodes)
 	if got := countSynthDebugImpls(nodes, "Tok"); got != 1 {
 		t.Errorf("expected exactly 1 synthesized Debug impl for Tok, got %d", got)
-	}
-}
-
-// TestDeriveExternTypeIsIdempotent — the runtime-then-analyzer call shape
-// runs SynthesizeDerives twice over overlapping slices; the second call
-// must not re-emit the host type's impls.
-func TestDeriveExternTypeIsIdempotent(t *testing.T) {
-	nodes, err := parser.Parse(lexer.Lex(externDeriveSrc))
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	nodes, _ = LowerDerives(nodes)
-	once, errs := SynthesizeDerives(nodes)
-	if len(errs) > 0 {
-		t.Fatalf("first synth: unexpected errors %v", errs)
-	}
-	twice, errs := SynthesizeDerives(once)
-	if len(errs) > 0 {
-		t.Fatalf("second synth: unexpected errors %v", errs)
-	}
-	if len(twice) != len(once) {
-		t.Errorf("idempotency violated: first synth len=%d, second synth len=%d", len(once), len(twice))
 	}
 }
 
@@ -170,6 +144,6 @@ derive Widget for Tok`
 	// decorator is stamped — so the diagnostic surfaces in its error return.
 	_, errs := LowerDerives(nodes)
 	if len(errs) == 0 {
-		t.Fatal("expected 'unknown derivable protocol' error for derive Widget on host type")
+		t.Fatal("expected an error for derive Widget on host type")
 	}
 }

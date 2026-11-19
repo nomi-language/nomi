@@ -31,7 +31,7 @@ import (
 // read answers instead.
 func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir.Temp, kind, bool, bool, bool) {
 	g := bl.g
-	if t.Field == nil || irQualIsLocal(bl, owner.Name) {
+	if t.Field == nil || bl.namesLocal(owner) {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
 	if g.defaultFilledRef(t) {
@@ -39,7 +39,7 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 		return v, k, mobile, ok, true
 	}
 	if g.files != nil {
-		if to, isSibling := g.files.lookupQualifier(g.fa, owner); isSibling {
+		if to, isSibling := g.lookupQualifier(owner); isSibling {
 			f := g.files.units[to].funcs[t.Field.Name]
 			if f == nil {
 				return ir.NoTemp, kindInvalid, false, false, false
@@ -48,10 +48,10 @@ func (bl *irScalarBuilder) fileFuncRef(t *ast.FieldAccess, owner *ast.Ident) (ir
 			return v, k, mobile, ok, true
 		}
 	}
-	std, isStd := stdFileQualifier(g.fa, owner)
+	std, isStd := g.stdFileQualifier(owner)
 	if !isStd {
 		// `hex.encode` in std/hex's own tests (stdOwnFileQualifier).
-		std, isStd = bl.stdOwnFileQualifier(owner.Name)
+		std, isStd = bl.stdOwnFileQualifier(owner)
 	}
 	if isStd {
 		key := std + "." + t.Field.Name
@@ -237,7 +237,7 @@ func (bl *irScalarBuilder) wrapperRef(ref ast.Node, name string, params []kind, 
 		}
 		child.bound[p] = g.irAddParam(f, ir.NewSymbol(p), pk)
 		child.boundK[p] = pk
-		call.Args = append(call.Args, &ast.Ident{Name: p, Line: line, Col: col})
+		call.Args = append(call.Args, g.madeIdent(p, line, col))
 	}
 	// The function value passes its parameters in order.
 	defer g.carryCall(call, g.positionalCallOf(ref, len(params), len(params)))()

@@ -1245,11 +1245,12 @@ func (c *checker) checkIntersections(nodes []ast.Node) {
 				}
 				for _, iface := range InterfaceMembers(t) {
 					line, col := typeExprPos(m, conj.Line, conj.Col)
-					if !c.typeImplementsInterface(base, iface.Name, Pos{Line: line, Col: col}, RecordingKindCallSite) {
+					if !c.typeImplementsInterface(base, iface.Name, iface.Origin, Pos{Line: line, Col: col}, RecordingKindCallSite) {
+						shown := c.shownInterfaceFor(base, iface, false)
 						c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 							"no value is both %s and %s: %s is %s %s, and %s does not implement %s",
-							formatTypeForError(first), iface.Name, formatTypeForError(first),
-							ArticleFor(formatTypeForError(base)), formatTypeForError(base), formatTypeForError(base), iface.Name)})
+							formatTypeForError(first), shown, formatTypeForError(first),
+							ArticleFor(formatTypeForError(base)), formatTypeForError(base), formatTypeForError(base), shown)})
 					}
 				}
 			}
@@ -1276,9 +1277,10 @@ func (c *checker) checkAliasBounds(gt *ast.GenericType) {
 		}
 		for _, b := range p.Bounds {
 			line, col := typeExprPos(gt.Params[i], gt.Line, gt.Col)
-			if !c.typeImplementsInterface(arg, b.Name, Pos{Line: line, Col: col}, RecordingKindGenericBoundCheck) {
+			if !c.typeImplementsInterface(arg, b.Name, b.Origin, Pos{Line: line, Col: col}, RecordingKindGenericBoundCheck) {
+				shown := c.shownInterfaceFor(arg, b, false)
 				c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
-					"%s does not implement %s (required by `where %s: %s` on typealias %s)", arg, b.Name, p.Name_, b.Name, at.Name)}.WithHint(
+					"%s does not implement %s (required by `where %s: %s` on typealias %s)", arg, shown, p.Name_, shown, at.Name)}.WithHint(
 					c.boundHelp(arg, b)))
 			}
 		}

@@ -34,7 +34,7 @@ import (
 // all read. Most of those would merely need a mechanical edit. `noEquatableImpl` is
 // the one that would not, and it decides the shape of this file:
 //
-//	if g.implsByIface["Equatable"][k] != nil { return false }
+//	if g.implsByIface[stdIfaceImplKey(stdEquatable)][k] != nil { return false }
 //
 // It answers "this builder has ESTABLISHED that no impl Equatable exists", and a
 // TRUE answer sends `==` to the STRUCTURAL comparator. Under a widened key that
@@ -123,10 +123,6 @@ type operIfaceSpec struct {
 
 // operIfaceSpecs is the whole set: the four arithmetic operators std declares an
 // interface for.
-//
-// `%` is absent because std declares no Modulo interface, which is the same
-// reason `stdOperatorIfaces` omits it — `%` on a named type has nothing to
-// dispatch to and keeps refusing.
 //
 // APPEND-ONLY, on stdEnumSpecs' and opaqueSpecs' footing: `operIfaceByOp` and
 // `operIfaceByName` hold pointers into this slice and nothing keys on

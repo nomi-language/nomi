@@ -55,10 +55,10 @@ func (g *gen) irFileSlotSym(callee *ir.Symbol, fn string, slot int) *ir.Symbol {
 func (bl *irScalarBuilder) siblingQualSite(fa *ast.FieldAccess) (fileSite, bool) {
 	g := bl.g
 	owner, isIdent := ast.QualifierIdent(fa.Object)
-	if !isIdent || fa.Field == nil || g.files == nil || irQualIsLocal(bl, owner.Name) {
+	if !isIdent || fa.Field == nil || g.files == nil || bl.namesLocal(owner) {
 		return fileSite{}, false
 	}
-	to, isSibling := g.files.lookupQualifier(g.fa, owner)
+	to, isSibling := g.lookupQualifier(owner)
 	if !isSibling || to == g.fileUnit {
 		return fileSite{}, false
 	}

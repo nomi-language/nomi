@@ -93,7 +93,7 @@ func (g *gen) stdNameTaken(name string) bool {
 	if _, isBlockLocal := g.blockLocalNamed(name); isBlockLocal {
 		return true
 	}
-	if g.blockLocalTemplate(name) != nil {
+	if g.blockLocalTemplate(name, nil) != nil {
 		return true
 	}
 	if _, local := g.types[name]; local {

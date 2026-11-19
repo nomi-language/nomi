@@ -7,12 +7,12 @@ import (
 )
 
 // reachedImpl is out, a classified callee, with the impl block it reaches
-// (Callee.Impl) when the receiver's type is known at the call: the block
-// that declares the impl function the reference names or the checker
-// chose (DispatchImpl), or, for an interface function, the one block of
-// the interface for the receiver's type (interfaceImplAt). A call through
-// a type parameter or on an interface value reaches no block here; an
-// instance of its body asks CalleeAt.
+// (Callee.Impl) when the receiver's type is known at the call, and how it
+// is answered (Callee.Form): the block that declares the impl function
+// the reference names or the checker chose (DispatchImpl), by that
+// block; for an interface function, what interfaceImplAt answers. A call
+// through a type parameter or on an interface value reaches no block
+// here; an instance of its body asks CalleeAt.
 func (fa *FileAnalysis) reachedImpl(out Callee) Callee {
 	if fa == nil || out.Ref == nil {
 		return out
@@ -23,12 +23,9 @@ func (fa *FileAnalysis) reachedImpl(out Callee) Callee {
 		if b == nil {
 			return out
 		}
-		out.Kind, out.Impl = CalleeImpl, b
+		out.Kind, out.Impl, out.Form = CalleeImpl, b, OperatorByImpl
 		return fa.withDeclaringFile(out)
 	case CalleeInterface:
-		if out.Qualifier.Kind == QualTypeParam {
-			return out
-		}
 		recv := out.For
 		if out.Ref.DispatchReceiver != nil {
 			recv = out.Ref.DispatchReceiver
@@ -39,23 +36,28 @@ func (fa *FileAnalysis) reachedImpl(out Callee) Callee {
 }
 
 // interfaceImplAt is out, a call of an interface function, at recv, its
-// receiver's type: with a block (out's own, the one the checker selected,
-// else the one block of the interface for recv, at ifaceArgs where recv
-// implements the interface at several type arguments), CalleeImpl, Impl
-// that block and Decl the function that runs, the block's own or, where
-// the block inherits it, the interface's. out unchanged when recv is no
-// known type (a type parameter, an interface value) or no single block
-// answers. The one resolver of an interface call's impl: reachedImpl asks
-// it at the types the call is checked with, CalleeAt at an instance's.
+// receiver's type, answered as interfaceUse answers a use of the function
+// at recv (Callee.Form), with out's own block, the one the checker
+// selected, as the block it reaches where out has one, and ifaceArgs the
+// interface's type arguments at the call. Where a block answers, Kind is
+// CalleeImpl, Impl that block and Decl the function that runs, the
+// block's own or, where the block inherits it, the interface's. Form is
+// zero where nothing answers, which TestElaborationGate reports
+// (ElabImplUnrecorded), and for a callee no interface declares. The one
+// resolver of an interface call's impl: reachedImpl asks it at the types
+// the call is checked with, CalleeAt and InterfaceCallee at an instance's
+// or the builder's.
 func (fa *FileAnalysis) interfaceImplAt(out Callee, recv Type, ifaceArgs []Type) Callee {
+	out.Form = 0
 	im, ok := out.Decl.(*ast.InterfaceMethod)
-	if !ok {
+	if !ok || out.Ref == nil {
 		return out
 	}
 	base := resolveRef(out.Ref)
-	b, _ := out.Impl.(*ast.ImplBlock)
-	if b == nil {
-		b = fa.implBlockFor(recv, base.OwningInterface, fa.declaringOrigin(im), ifaceArgs)
+	chosen, _ := out.Impl.(*ast.ImplBlock)
+	use, b := fa.interfaceUse(base.OwningInterface, base.Name, fa.declaringOrigin(im), recv, ifaceArgs, chosen)
+	if use != nil {
+		out.Form = use.Form
 	}
 	if b == nil {
 		return out
@@ -108,9 +110,8 @@ func (fa *FileAnalysis) withStd(out Callee) Callee {
 // (CalleeInterface, For the type parameter). At an instance where For is
 // a known type, the answer is what a call written at that type records:
 // For substituted, and Kind, Decl, Impl, File, InProgram and Std as
-// reachedImpl fills them (interfaceImplAt), and Form as callForm does: a
-// receiver with no block that meets the interface by its shape is
-// answered structurally, an interface type by dispatch. c unchanged for
+// reachedImpl fills them, and Form, all as interfaceImplAt answers them
+// (interfaceUse). c unchanged for
 // any other callee, and where the receiver stays unknown: a type
 // parameter by does not answer for, a type nothing answers for.
 func (fa *FileAnalysis) CalleeAt(c Callee, by func(*TypeParam_) (Type, bool)) Callee {
@@ -128,7 +129,7 @@ func (fa *FileAnalysis) CalleeAt(c Callee, by func(*TypeParam_) (Type, bool)) Ca
 	}
 	at := c
 	at.For = recv
-	at = fa.callForm(fa.interfaceImplAt(at, recv, callInterfaceArgs(c.Ref, by)))
+	at = fa.interfaceImplAt(at, recv, callInterfaceArgs(c.Ref, by))
 	if at.Impl == nil && (at.Form == 0 || at.Form == OperatorPerInstance) {
 		return c
 	}
@@ -141,7 +142,7 @@ func (fa *FileAnalysis) CalleeAt(c Callee, by func(*TypeParam_) (Type, bool)) Ca
 // `ToJson.to_json`, a rendering's `Debug.inspect`): what the checker
 // records for that call written with x of type recv. Kind, Decl, Impl,
 // File, InProgram and Std are as reachedImpl fills them
-// (interfaceImplAt), and Form as callForm answers it; where recv is nil,
+// (interfaceImplAt), and Form as it answers it; where recv is nil,
 // a type parameter, an interface type or a type with no single block of
 // the interface, the record names the interface's function, For recv. The zero Callee when the program
 // does not reach iface.
@@ -163,65 +164,33 @@ func (fa *FileAnalysis) InterfaceCallee(iface StdType, method string, recv Type)
 		Qualifier: q, Owner: q, Method: method, For: recv,
 	}
 	if recv != nil {
-		out = fa.callForm(fa.interfaceImplAt(out, recv, nil))
+		out = fa.interfaceImplAt(out, recv, nil)
 	}
 	return fa.withStd(out)
-}
-
-// callForm is out, a classified callee, with how it is answered
-// (Callee.Form): by the block it reaches (interfaceImplAt), else by the
-// rules an operator through the interface is answered by
-// (interfaceUseFor): the receiver's shape (shapeUse), or, for a declared
-// type with no block of the interface, noImplUse. Zero where none
-// answers, which TestElaborationGate reports (ElabImplUnrecorded).
-func (fa *FileAnalysis) callForm(out Callee) Callee {
-	out.Form = 0
-	switch out.Kind {
-	case CalleeImpl:
-		if out.Impl != nil {
-			out.Form = OperatorByImpl
-		}
-	case CalleeInterface:
-		if _, ok := out.Decl.(*ast.InterfaceMethod); !ok || out.Ref == nil {
-			return out
-		}
-		recv := out.For
-		if out.Ref.DispatchReceiver != nil {
-			recv = out.Ref.DispatchReceiver
-		}
-		if recv == nil {
-			return out
-		}
-		iface := resolveRef(out.Ref).OwningInterface
-		if use, decided := shapeUse(iface, resolveTypeVar(ResolveClosed(recv))); decided {
-			if use != nil {
-				out.Form = use.Form
-			}
-			return out
-		}
-		t, _ := knownReceiver(recv)
-		if t == nil || len(fa.implBlocksOf(t, iface, fa.declaringOrigin(out.Decl))) > 0 {
-			return out
-		}
-		if use := noImplUse(iface, t); use != nil {
-			out.Form = use.Form
-		}
-	}
-	return out
 }
 
 // callInterfaceArgs is the type arguments of the interface instance ref, a
 // call's reference, goes through (Symbol.CallInterface: `Holds<T>` for
 // `Holds.holds(b, x)` with `x: T`), with each type parameter replaced by
-// what by answers for it (by nil: none replaced). Nil when the call names
-// no instance, the interface takes no arguments, or one stays open: no
-// type argument narrows the blocks then.
+// what by answers for it (closedTypeArgs). Nil when the call names no
+// instance.
 func callInterfaceArgs(ref *Symbol, by func(*TypeParam_) (Type, bool)) []Type {
-	if ref == nil || ref.CallInterface == nil || len(ref.CallInterface.TypeArgs) == 0 {
+	if ref == nil || ref.CallInterface == nil {
 		return nil
 	}
-	out := make([]Type, len(ref.CallInterface.TypeArgs))
-	for i, a := range ref.CallInterface.TypeArgs {
+	return closedTypeArgs(ref.CallInterface.TypeArgs, by)
+}
+
+// closedTypeArgs is args, an interface's type arguments at a use, with
+// each type parameter replaced by what by answers for it (by nil: none
+// replaced). Nil when there are none or one stays open: no type argument
+// narrows the blocks then (implBlockFor).
+func closedTypeArgs(args []Type, by func(*TypeParam_) (Type, bool)) []Type {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]Type, len(args))
+	for i, a := range args {
 		if by != nil {
 			r, all := ReplaceTypeParams(resolveTypeVar(a), by)
 			if !all {

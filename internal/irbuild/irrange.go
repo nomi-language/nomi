@@ -250,7 +250,7 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 	g := bl.g
 	if irNominalElemKind(elem) || irRangeDistinctElem(elem) {
 		for _, d := range g.implsOf(elem) {
-			if d.recv != elem || d.ifaceName != "Steppable" || !d.lowerable {
+			if d.recv != elem || d.ifaceKey != stdIfaceImplKey(stdSteppable) || !d.lowerable {
 				continue
 			}
 			it := d.items["step_by"]
@@ -259,7 +259,7 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 			}
 			return g.irCalleeSym(it, elem.nomi()+"."+it.name), it.params, it.result, true
 		}
-		if site, params, result, owning := g.siblingImplMember(elem.def, "step_by", "Steppable"); site != nil && g.stepperSignature(params, result, elem, by) {
+		if site, params, result, owning := g.siblingImplMember(elem.def, "step_by", stdIfaceImplKey(stdSteppable)); site != nil && g.stepperSignature(params, result, elem, by) {
 			return owning.irCalleeSym(site.item, site.symName), params, result, true
 		}
 	}
@@ -315,7 +315,7 @@ func (bl *irScalarBuilder) discreteRef(at ast.Node, elem kind, name string, para
 // localDiscreteItem is this file's `impl Discrete for elem` member name,
 // written or inherited, with a body the builder can retain.
 func (bl *irScalarBuilder) localDiscreteItem(elem kind, name string, params []kind) *implItem {
-	impl := bl.g.implsByIface["Discrete"][elem]
+	impl := bl.g.implsByIface[stdIfaceImplKey(stdDiscrete)][elem]
 	if impl == nil || !impl.lowerable {
 		return nil
 	}
@@ -343,7 +343,7 @@ func (bl *irScalarBuilder) siblingDiscreteSym(elem kind, name string, params []k
 	for i := range args.temps {
 		args.temps[i], args.mobile[i] = ir.NoTemp, true
 	}
-	p := bl.qualSiblingIfaceImplPlan(call, args, elem.def, name, "Discrete")
+	p := bl.qualSiblingIfaceImplPlan(call, args, elem.def, name, stdIfaceImplKey(stdDiscrete))
 	if p == nil || p.sym == nil {
 		return nil, kindInvalid
 	}

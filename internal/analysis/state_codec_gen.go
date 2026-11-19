@@ -606,12 +606,14 @@ func (d *stateDecoder) stFuncType(x *FuncType) {
 func (e *stateEncoder) stImplIdentityKey(x *ImplIdentityKey) {
 	e.str(string(x.Origin))
 	e.str(string(x.Type))
+	e.str(string(x.IfaceOrigin))
 	e.str(string(x.Iface))
 }
 
 func (d *stateDecoder) stImplIdentityKey(x *ImplIdentityKey) {
 	x.Origin = string(d.str())
 	x.Type = string(d.str())
+	x.IfaceOrigin = string(d.str())
 	x.Iface = string(d.str())
 }
 
@@ -6698,6 +6700,7 @@ func (e *stateEncoder) stRecording(x *Recording) {
 	e.stPDeriveCtx(x.Derive)
 	e.str(string(x.Op))
 	e.str(string(x.TypeOrigin))
+	e.str(string(x.IfaceOrigin))
 }
 
 func (d *stateDecoder) stRecording(x *Recording) {
@@ -6706,6 +6709,7 @@ func (d *stateDecoder) stRecording(x *Recording) {
 	x.Derive = d.stPDeriveCtx()
 	x.Op = string(d.str())
 	x.TypeOrigin = string(d.str())
+	x.IfaceOrigin = string(d.str())
 }
 
 func (e *stateEncoder) stRefinedLiteral(x *RefinedLiteral) {
@@ -9784,4 +9788,4 @@ func (d *stateDecoder) stunbuiltDecl(x *unbuiltDecl) {
 }
 
 // stateCodecDigest is a digest of the code above it (StdStateFormat).
-const stateCodecDigest = "431e9a715e2236f7"
+const stateCodecDigest = "7d44b7e69002c5f3"

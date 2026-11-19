@@ -199,9 +199,7 @@ func (g *gen) declareBlockTypes(b *ast.Block, order *[]*typeDef) {
 			// Its impls are the universal Debug the front end gives a
 			// module-level generic: an impl or a derive cannot name a
 			// block-local type.
-			synth := analysis.SynthesizeUniversalDebug([]ast.Node{stmt})
-			g.noteSynthTypeExprs(synth, stmt, name)
-			tpl := g.newGenericTemplate(stmt, name, tps, synth)
+			tpl := g.newGenericTemplate(stmt, name, tps, g.blockLocalDebug(stmt, name))
 			tpl.scope = scope
 			scope.templates[name] = tpl
 		}
@@ -279,21 +277,16 @@ func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 	for _, b := range blocks {
 		scope := g.blockTypes[b]
 		for _, d := range scope.orderedDefs() {
-			if len(typeDeclTypeParams(d.decl)) > 0 || g.implsByIface["Debug"][named(d)] != nil {
+			if len(typeDeclTypeParams(d.decl)) > 0 || g.implsByIface[stdIfaceImplKey(stdDebug)][named(d)] != nil {
 				// A generic declaration's synthesized impl is generic, which
 				// registerImpl refuses at module level too.
 				continue
 			}
-			synth := analysis.SynthesizeUniversalDebug([]ast.Node{d.decl})
-			g.noteSynthTypeExprs(synth, d.decl, d.nomi)
-			for _, n := range synth {
+			for _, n := range g.blockLocalDebug(d.decl, d.nomi) {
 				ib, ok := n.(*ast.ImplBlock)
 				if !ok {
 					continue
 				}
-				// The checker never checks this impl: an impl cannot name a
-				// type declared inside a body.
-				g.markUnchecked(ib)
 				impl := &implDef{decl: ib, synth: true, items: map[string]*implItem{}, lowerable: true, typeScope: scope}
 				g.implOrder = append(g.implOrder, impl)
 				out = append(out, impl)
@@ -304,6 +297,21 @@ func (g *gen) registerBlockLocalDebug(blocks []*ast.Block) []*implDef {
 		}
 	}
 	return out
+}
+
+// blockLocalDebug writes the universal Debug the front end writes for a
+// module-level declaration (analysis.SynthesizeUniversalDebug) for decl, a
+// block-local declaration of name. The checker never checks it, since an
+// impl cannot name a type declared inside a body, so it is marked so
+// (markUnchecked), and the types of its type expressions are kept
+// (noteSynthTypeExprs).
+func (g *gen) blockLocalDebug(decl ast.Node, name string) []ast.Node {
+	synth := analysis.SynthesizeUniversalDebug([]ast.Node{decl})
+	g.noteSynthTypeExprs(synth, decl, name)
+	for _, n := range synth {
+		g.markUnchecked(n)
+	}
+	return synth
 }
 
 // noteSynthTypeExprs keeps the types of the type expressions of synth, the
@@ -640,12 +648,23 @@ func (g *gen) blockImportedNamed(name string) (*typeDef, bool) {
 	return nil, false
 }
 
-// blockLocalTemplate answers a generic type name from the innermost enclosing
-// block that declares it, or nil. A module-level type of the same name wins,
-// as it does for the checker: `Box{v: 1}` beside a module-level `Box<T>`
-// with field `v` and a block-local one with field `w` checks against the
-// module's.
-func (g *gen) blockLocalTemplate(name string) *genericTemplate {
+// blockLocalTemplate answers the block-local generic template a use of the
+// type spelled name means, or nil. The checker's type for the use decides
+// (typed): an instance of a type a body declares (analysis.BodyOrigin) is
+// one of the template its type parameters are (blockLocalTemplateOf), and
+// an instance of any other declaration is none. So inside a block that
+// declares `Box<T>` beside a module-level `Box<T>`, `Box{w: "inner"}` is the
+// block's, as the checker typed it, and the module's `Box{v: 1}` is the
+// module's even while that block is being lowered. A use with no checked
+// type (typed nil) is answered from the innermost enclosing block that
+// declares the name, unless the module declares it too.
+func (g *gen) blockLocalTemplate(name string, typed analysis.Type) *genericTemplate {
+	if origin, params, generic := genericDeclOf(typed); generic {
+		if !analysis.IsBodyOrigin(origin) {
+			return nil
+		}
+		return g.blockLocalTemplateOf(params)
+	}
 	if _, module := g.types[name]; module {
 		return nil
 	}
@@ -655,6 +674,19 @@ func (g *gen) blockLocalTemplate(name string) *genericTemplate {
 		}
 	}
 	return nil
+}
+
+// genericDeclOf is the declaring origin and type parameters of t, an
+// instance of a generic struct or enum the checker solved, and false for
+// any other type.
+func genericDeclOf(t analysis.Type) (origin string, params []*analysis.TypeParam_, generic bool) {
+	switch ty := analysis.ResolveClosed(t).(type) {
+	case *analysis.StructType:
+		origin, params = ty.Origin, ty.TypeParamDefs
+	case *analysis.EnumType:
+		origin, params = ty.Origin, ty.TypeParamDefs
+	}
+	return origin, params, len(params) > 0
 }
 
 // blockLocalAlias answers a `typealias` name from the innermost enclosing block

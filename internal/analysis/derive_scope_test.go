@@ -9,7 +9,7 @@ import (
 )
 
 // checkSourceSynth is checkSource with the front end's pre-analysis passes
-// applied first (LowerDerives + SynthesizeDerives + SynthesizeUniversalDebug),
+// applied first (LowerDerives + SynthesizeUniversalDebug),
 // so BuildTypes/CheckTypes see the synthesized impl blocks — signatures and
 // bodies included — exactly like internal/frontend's Checker.Prepare. checkSource alone hands CheckTypes the pre-synthesis slice, which
 // never exercises synthesized code.
@@ -17,13 +17,11 @@ func checkSourceSynth(src string) (*FileAnalysis, []TypeError) {
 	tokens := lexer.Lex(src)
 	nodes, _ := parser.ParseWithRecovery(tokens)
 	nodes, _ = LowerDerives(nodes)
-	nodes, synthErrs := SynthesizeDerives(nodes)
 	nodes = SynthesizeUniversalDebug(nodes)
 	fa := BuildFile(nodes)
 	typeErrs := BuildTypes(fa, nodes)
 	checkErrs := CheckTypes(fa, nodes)
-	all := append([]TypeError{}, synthErrs...)
-	all = append(all, fa.TypeErrors...)
+	all := append([]TypeError{}, fa.TypeErrors...)
 	all = append(all, typeErrs...)
 	all = append(all, checkErrs...)
 	return fa, all
@@ -97,32 +95,36 @@ derive Debug for Point
 }
 
 // TestDeriveArgScope_EnumBodySupportNamesCompilerKnown: an enum derive
-// produces the richest synthesized bodies — Ordering variants as case
-// results, `Ordering.Less` patterns, True/False in equals branches, and
-// interface-qualified recursion. With the protocols declared in-file (in
-// scope) but Ordering/True/False nowhere, the bodies still check clean:
-// every support name resolves through the compiler-known route.
+// produces the richest synthesized bodies — True/False in equals branches
+// and interface-qualified recursion. In the std module that declares the
+// interface (in scope), with True/False nowhere, the bodies still check
+// clean: every support name resolves through the compiler-known route.
+// The file is std's home of the interface, since a derive writes only
+// std's (derive_identity.go).
 func TestDeriveArgScope_EnumBodySupportNamesCompilerKnown(t *testing.T) {
-	fa, errs := checkSourceSynth(`interface Equatable
-  fn equal(a: self, b: self) -> Bool
-end
-
-interface Hashable
-  fn hash(value: self) -> Int
-end
-
-enum Color
+	for _, c := range []struct{ iface, origin, decl string }{
+		{"Equatable", "std/equatable", "fn equal(a: self, b: self) -> Bool"},
+		{"Hashable", "std/hashable", "fn hash(value: self) -> Int"},
+	} {
+		src := "pub interface " + c.iface + "\n  " + c.decl + "\nend\n\n" + `enum Color
   Red
   Green
   Blue
 end
-derive Equatable for Color
-derive Hashable for Color
-`)
-	expectNoErrors(t, errs)
-	for _, iface := range []string{"Equatable", "Hashable", "Debug"} {
-		if !fa.Impls["Color"][iface] {
-			t.Errorf("Color: (%s) impl not recorded in fa.Impls (got %v)", iface, fa.Impls["Color"])
+derive ` + c.iface + " for Color\n"
+		nodes, _ := parser.ParseWithRecovery(lexer.Lex(src))
+		nodes, _ = LowerDerives(nodes)
+		nodes = SynthesizeUniversalDebug(nodes)
+		fa := BuildFile(nodes)
+		fa.Origin = c.origin
+		errs := append([]TypeError{}, fa.TypeErrors...)
+		errs = append(errs, BuildTypes(fa, nodes)...)
+		errs = append(errs, CheckTypes(fa, nodes)...)
+		expectNoErrors(t, errs)
+		for _, iface := range []string{c.iface, "Debug"} {
+			if !fa.Impls["Color"][iface] {
+				t.Errorf("Color: (%s) impl not recorded in fa.Impls (got %v)", iface, fa.Impls["Color"])
+			}
 		}
 	}
 }

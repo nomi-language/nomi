@@ -1076,7 +1076,7 @@ func (dm *DocumentManager) textSourceProgram(root, entry string, text func(key s
 				*own = len(nodes)
 			}
 			testNameErrs := CheckDuplicateTestNames(nodes)
-			prog, _ := SynthesizeDerives(nodes)
+			prog := nodes
 			return SynthesizeUniversalDebug(prog), append(lowerErrs, testNameErrs...)
 		},
 		Loader:     dm.makeLoader(),

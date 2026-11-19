@@ -97,9 +97,9 @@ func (s *Server) textDocumentReferences(ctx *glsp.Context, params *protocol.Refe
 		return s.textDocumentReferences(ctx, params)
 	}
 	if target.Kind == analysis.SymbolInterfaceMethod {
-		ifaceName := s.findInterfaceForMethod(doc.Analysis, target)
-		if ifaceName != "" {
-			ifaceMethodImplLocations = s.implLocationsForMethod(doc.Analysis, ifaceName, target.Name, uri)
+		owner := s.findInterfaceForMethod(doc.Analysis, target)
+		if owner != nil {
+			ifaceMethodImplLocations = s.implLocationsForMethod(doc.Analysis, owner, target.Name, uri)
 		}
 	}
 

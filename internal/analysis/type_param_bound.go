@@ -33,7 +33,7 @@ func (c *checker) checkTypeParamDemand(tp *TypeParam_, ifaceName string, rec Rec
 		return
 	}
 	for _, b := range tp.Bounds {
-		if b != nil && b.Name == ifaceName {
+		if b != nil && sameNominalIdentity(b.Origin, b.Name, rec.IfaceOrigin, ifaceName) {
 			return
 		}
 	}
@@ -59,7 +59,8 @@ func (c *checker) checkTypeParamDemand(tp *TypeParam_, ifaceName string, rec Rec
 		article = "values of"
 	}
 	owner, help := c.typeParamBoundOwner(tp, ifaceName)
-	msg := fmt.Sprintf("%s %s %s `%s`, and %s does not require %s of `%s`", subject, verb, article, tp.Name_, owner, ifaceName, tp.Name_)
+	shown := shownBeside(ifaceIdentity{Origin: rec.IfaceOrigin, Name: ifaceName}, tp.Bounds)
+	msg := fmt.Sprintf("%s %s %s `%s`, and %s does not require %s of `%s`", subject, verb, article, tp.Name_, owner, shown, tp.Name_)
 	c.reportOnce(pos.Line, pos.Col, msg, help)
 }
 

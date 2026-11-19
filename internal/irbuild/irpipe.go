@@ -21,15 +21,17 @@ package irbuild
 //	*ast.Then                  a call of its lambda or capture with the piped value
 //	*ast.Tap                   a call of its lambda, capture or named function with the held piped value, which it answers
 //	*ast.Dbg with a nil Expr   `bl.dbgOf`, whose operand is the piped value
+//	*ast.If, *ast.Case         the stage itself, the piped value its condition or scrutinee
 //
 // A `then` stage uses the same indirect-call path as a prefix lambda call. A
 // `tap` stage holds the piped value, calls its function with it through that
 // path, drops the result and answers the held value.
 //
-// Try stages use retained propagation. Bare if/case stages splice the piped
-// operand into the condition/scrutinee and use ordinary value-region lowering.
-// The region builder excludes recorded assertion contexts, where a piped
-// scrutinee has different operand-history rules from a prefix case.
+// Try stages use retained propagation. A bare `if` or `case` stage is
+// lowered as the region it is, the written node with the piped value
+// standing for its condition or scrutinee (pipedRegionValue, subjectOf), so
+// it reads the checker's records for the stage. A piped scrutinee records
+// no `values:` row, where a prefix case's does.
 //
 // `x |> assert` reaches nothing: the front end rejects it as "`assert` must be
 // placed at the head of the pipeline".
@@ -105,21 +107,12 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		if r.Cond != nil || r.CondPattern != nil {
 			return no()
 		}
-		spliced := *r
-		spliced.Cond = t.Left
-		return bl.lower(&spliced)
+		return bl.pipedRegionValue(r, t.Left)
 	case *ast.Case:
 		if r.Value != nil {
 			return no()
 		}
-		spliced := *r
-		spliced.Value = t.Left
-		// A piped scrutinee is the piped value, handed to the case without
-		// recording it as a `values:` row.
-		prev := bl.pipedCase
-		bl.pipedCase = &spliced
-		defer func() { bl.pipedCase = prev }()
-		return bl.lower(&spliced)
+		return bl.pipedRegionValue(r, t.Left)
 	case *ast.Dbg:
 		if r.Expr != nil {
 			// `5 |> (dbg 1)`: the checker rejects a parenthesized
@@ -144,6 +137,41 @@ func (bl *irScalarBuilder) pipe(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	return no()
 }
 
+// pipedRegionValue lowers the `if` or `case` stage of `x |> if ...` or
+// `x |> case ...` itself, with the piped value as its condition or
+// scrutinee (subjectOf). The stage is the node the checker checked, so
+// every record it keyed by the stage (its type, whether it always exits)
+// is read as for a written region.
+func (bl *irScalarBuilder) pipedRegionValue(stage, subject ast.Node) (ir.Temp, kind, bool, bool) {
+	prev := bl.pipedRegion
+	bl.pipedRegion = irPipedRegion{stage: stage, subject: subject}
+	defer func() { bl.pipedRegion = prev }()
+	return bl.lower(stage)
+}
+
+// irPipedRegion is the `if` or `case` stage a pipe is lowering and the
+// piped value that stands for its condition or scrutinee.
+type irPipedRegion struct {
+	stage, subject ast.Node
+}
+
+// subjectOf is an `if`'s condition or a `case`'s scrutinee: the written
+// one, or for the stage pipedRegionValue is lowering, the piped value. A
+// piped scrutinee is handed to the case without recording it as a
+// `values:` row (caseRegion).
+func (bl *irScalarBuilder) subjectOf(n ast.Node) ast.Node {
+	if n == bl.pipedRegion.stage {
+		return bl.pipedRegion.subject
+	}
+	switch t := n.(type) {
+	case *ast.If:
+		return t.Cond
+	case *ast.Case:
+		return t.Value
+	}
+	panic(fmt.Sprintf("irbuild: subjectOf: a %T has no condition or scrutinee", n))
+}
+
 // pipeTap lowers `x |> tap fn v -> body`: x is evaluated once and held, the
 // lambda is called with it and its result dropped, and the stage answers the
 // held x. The call reaches the held value through a synthesized name bound to
@@ -163,7 +191,7 @@ func (bl *irScalarBuilder) pipeTap(t *ast.Binary, r *ast.Tap) (ir.Temp, kind, bo
 		src = cp.Dst()
 	}
 	line, col := nodePos(t.Left)
-	held := &ast.Ident{Name: fmt.Sprintf("|tap %d", src), Line: line, Col: col}
+	held := bl.g.madeIdent(fmt.Sprintf("|tap %d", src), line, col)
 	bl.bound[held.Name], bl.boundK[held.Name] = src, k
 	defer delete(bl.bound, held.Name)
 	defer delete(bl.boundK, held.Name)

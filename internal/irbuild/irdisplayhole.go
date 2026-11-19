@@ -180,7 +180,7 @@ func (bl *irScalarBuilder) displayImpl(at ast.Node, src ir.Temp, k kind, rec *an
 	line, col := nodePos(at)
 	// The call of the impl's function on the value, its one operand: for a
 	// recorded rendering, of the function the checker answers a call of
-	// want reaches (analysis.FileAnalysis.DisplayCallee).
+	// want reaches (analysis.FileAnalysis.ImplCallee).
 	call := &ast.Call{Args: []ast.Node{at}, Line: line, Col: col}
 	carried := analysis.PositionalCall(1, 1)
 	switch {
@@ -190,8 +190,9 @@ func (bl *irScalarBuilder) displayImpl(at ast.Node, src ir.Temp, k kind, rec *an
 			Field:  &ast.Ident{Name: "to_string", Line: line, Col: col},
 			Line:   line, Col: col,
 		}
+		carried = bl.g.stdIfaceCallRecord(stdDisplayType, "to_string", 1, vt)
 	case !isNilNode(want):
-		carried.Callee = bl.g.instanceFA().DisplayCallee(want)
+		carried.Callee = bl.g.instanceFA().ImplCallee(want)
 	}
 	defer bl.g.carryCall(call, carried)()
 	args := irQualArgs{temps: []ir.Temp{src}, kinds: []kind{k}, mobile: []bool{true}, ok: true}

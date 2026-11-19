@@ -94,9 +94,24 @@ func startWebServer(t *testing.T, env []string, entry string, flags ...string) *
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
+	// A server still running when the test ends gets Ctrl-C first, so it
+	// removes its build folder from the temp directory, and is killed only
+	// if it does not stop.
 	t.Cleanup(func() {
-		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
+		if runtime.GOOS != "windows" {
+			_ = cmd.Process.Signal(syscall.SIGINT)
+		}
+		done := make(chan struct{})
+		go func() {
+			_ = cmd.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			_ = cmd.Process.Kill()
+			<-done
+		}
 	})
 	urls := make(chan string, 1)
 	go func() {

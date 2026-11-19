@@ -418,7 +418,7 @@ func (dm *DocumentManager) checkProgramFrom(root, entry string, texts map[string
 	lowerErrs = append(partnerErrs, lowerErrs...)
 	p.entryOwn = len(nodes)
 	testNameErrs := CheckDuplicateTestNames(nodes)
-	prog, _ := SynthesizeDerives(nodes)
+	prog := nodes
 	prog = SynthesizeUniversalDebug(prog)
 
 	base := dm.makeLoader()

@@ -401,8 +401,8 @@ func (g *gen) genericSubstType_(p *analysis.TypeParam_) (analysis.Type, bool) {
 // operatorUseAt is the record of the operator t (operatorRecord) in the
 // instance being built: for an operator over a type parameter
 // (OperatorPerInstance), the record at the instance's type arguments as
-// the checker answers it (analysis.FileAnalysis.OperatorUseAt), nil for a
-// primitive the machine operates on. resolved is false, and the record
+// the checker answers it (analysis.FileAnalysis.OperatorUseAt), the
+// record an operator written at those types has. resolved is false, and the record
 // t's own, outside an instance and where a parameter has no checker type.
 func (g *gen) operatorUseAt(t ast.Node) (use *analysis.OperatorUse, resolved bool) {
 	use = g.operatorRecord(t)

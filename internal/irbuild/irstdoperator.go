@@ -23,8 +23,8 @@ func (bl *irScalarBuilder) stdOperatorCall(at *ast.Binary, f *stdFunc, left, rig
 // `impl Add<Vector<T>, Vector<T>> for Vector<T>`): the impl's body is
 // instantiated at the receiver's element type, exactly as the
 // interface-qualified `Add.add(a, b)` is. handled is false when the left
-// operand is not such a container, or is a List, whose `+` is
-// `List.concat`'s intrinsic.
+// operand is not such a container, or is a List, whose `+` the machine
+// computes (machineImpls).
 func (bl *irScalarBuilder) stdGenericOperatorCall(at *ast.Binary, left, right ir.Temp, lk, rk kind) (ir.Temp, kind, bool, bool, bool) {
 	spec, found := operIfaceByOp[at.Op]
 	if !found || lk.tag == tagList {
@@ -34,10 +34,11 @@ func (bl *irScalarBuilder) stdGenericOperatorCall(at *ast.Binary, left, right ir
 	if base == "" || bl.g.stdGenericTemplate(base, spec.method) == nil {
 		return ir.NoTemp, kindInvalid, false, false, false
 	}
-	// The call `Add.add(left, right)` the operator means, over operands
-	// already lowered in order (stdInstPreCall), as the List arm spells
-	// `List.concat`.
-	call := &ast.Call{Line: at.Line, Col: at.Col, Args: []ast.Node{at.Left, at.Right}}
+	// The call `Add.add(left, right)` the operator means, carrying its
+	// record (operatorCall), over operands already lowered in order
+	// (stdInstPreCall).
+	call, _, done := bl.operatorCall(at)
+	defer done()
 	args := irQualArgs{temps: []ir.Temp{left, right}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
 	return bl.ifaceContainerCall(call, args, spec.nomi, spec.method, bl.g.operandCheckerType(at.Left))
 }

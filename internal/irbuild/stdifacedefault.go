@@ -28,8 +28,10 @@ import (
 // What reaches it is a call the checker resolved to the interface's
 // function (a SymbolInterfaceMethod reference) that no impl writes:
 // `Int.min(3, 4)`, `Comparable.min(3, 4)`, `Version.min(a, b)` on a derived
-// impl, and the same calls inside a generic body once its type argument is
-// known. So do calls the builder writes, which carry no reference: a
+// impl, the interface named through its module in a file that declares an
+// interface of its name (`json.ToJson.to_json_field(s)`, by
+// stdModuleIfaceCall), and the same calls inside a generic body once its
+// type argument is known. So do calls the builder writes, which carry no reference: a
 // record field's `ToJson.to_json_field(f)` and a dispatch entry's
 // (`stdProgThunk`), qualified by the interface, and a derived body's
 // `T.from_missing()` at a kind no impl of which writes it
@@ -187,17 +189,6 @@ func stdIfaceDefaultRef(fa *analysis.FileAnalysis, line, col int) (iface string,
 	return sym.OwningInterface, true
 }
 
-// irSynthesizedStdIfaceCall reports whether callee is an interface-qualified
-// callee the builder wrote rather than the source: at column 0
-// (synthIfaceCall) or at line 1, column 1 (stdProgThunk), where the checker
-// never records a reference.
-func irSynthesizedStdIfaceCall(callee *ast.FieldAccess) bool {
-	if _, named := callee.Object.(*ast.TypeIdent); !named {
-		return false
-	}
-	return callee.Field.Col == 0 || (callee.Field.Line == 1 && callee.Field.Col == 1)
-}
-
 // stdIfaceDefaultCall lowers `Owner.method(args)`, whose operands are
 // lowered into args, as the default of a std interface at its receiver:
 // the call no written impl function answered. handled is false when the
@@ -209,15 +200,17 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 		return no()
 	}
 	iface, ok := stdIfaceDefaultRef(bl.g.srcFA(), fa.Field.Line, fa.Field.Col)
+	std, byRecord := bl.g.recordedStdIface(t)
+	byRecord = byRecord && !ok
 	switch {
 	case ok:
-	case irSynthesizedStdIfaceCall(fa):
-		// A call the builder wrote, where the checker recorded nothing: a
-		// record field's `ToJson.to_json_field(f)` (irrecordjson.go), or a
-		// std interface value's dispatch entry (stdProgThunk). The
-		// qualifier is the std interface's own name, as the builder's
-		// other calls of std impls by name are.
-		iface = owner
+	case byRecord:
+		// A call the builder wrote, which no reference names: a record
+		// field's `ToJson.to_json_field(f)` (irrecordjson.go), or a std
+		// interface value's dispatch entry (stdProgThunk). Its record
+		// names the std interface (stdIfaceCallRecord), whatever this
+		// file binds the name to.
+		iface = std.Name
 	// kindInvalid: sentinel — kindInvalid marks defaultRecv and instKind as unbound; no operand is judged.
 	case bl.defaultRecv != kindInvalid || (bl.instCall == t && bl.instKind != kindInvalid):
 		// A call the builder respelled with its owner at a kind
@@ -232,9 +225,10 @@ func (bl *irScalarBuilder) stdIfaceDefaultCall(t *ast.Call, args irQualArgs, own
 	default:
 		return no()
 	}
-	if d, local := bl.g.ifaceNamed(iface); local && d != nil && bl.g.stdModule == "" {
+	if d, local := bl.g.ifaceNamed(iface); local && d != nil && bl.g.stdModule == "" && !bl.g.namesStdIfaceBeside(t, d) {
 		// The program's own interface of the name, which the checker's
-		// reference does not tell from std's by name alone.
+		// reference does not tell from std's by name alone; a record that
+		// names std's tells them apart (namesStdIfaceBeside).
 		return no()
 	}
 	f := bl.g.stdInsts.stdIfaceDefaultTemplate(iface, method)

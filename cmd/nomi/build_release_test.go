@@ -145,11 +145,14 @@ func releaseBuild(t *testing.T) fakeReleaseBuild {
 }
 
 // releaseEnv is an installed machine's environment: no Go on PATH, nothing
-// inherited, an isolated cache.
+// inherited, an isolated cache. A module fetched into the module cache
+// under HOME stays writable (-modcacherw), so the test's temporary
+// directory can be removed.
 func releaseEnv(t *testing.T, cacheRoot string, extra ...string) []string {
 	t.Helper()
 	env := append([]string{"HOME=" + t.TempDir(), "PATH=" + noGoPath(t), "TERM=dumb",
-		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never"}, append(noManagedGoEnv(t.TempDir()), extra...)...)
+		"NOMI_FFIRUN_CACHE_ROOT=" + cacheRoot, "NOMI_COLOR=never", "GOFLAGS=-modcacherw"},
+		append(noManagedGoEnv(t.TempDir()), extra...)...)
 	env = withUserDirs(env)
 	probe := exec.Command("/usr/bin/env", "go", "version")
 	probe.Env = env

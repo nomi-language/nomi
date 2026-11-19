@@ -299,6 +299,7 @@ func expectError(t *testing.T, errs []TypeError, substr string) {
 	t.Helper()
 	for _, e := range errs {
 		if strings.Contains(diagText(e), substr) {
+			requirePosition(t, e)
 			return
 		}
 	}

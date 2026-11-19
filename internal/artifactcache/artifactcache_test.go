@@ -83,7 +83,7 @@ func TestWriteFileReplacesWholeAndPruneKeepsWhatIsUsed(t *testing.T) {
 		}
 	}
 	old := time.Now().Add(-48 * time.Hour)
-	for _, name := range []string{"stale.bundle", tempPrefix + "x"} {
+	for _, name := range []string{"stale.bundle", TempPrefix + "x"} {
 		p := filepath.Join(dir, name)
 		if err := os.WriteFile(p, nil, 0o644); err != nil {
 			t.Fatal(err)
@@ -106,5 +106,73 @@ func TestWriteFileReplacesWholeAndPruneKeepsWhatIsUsed(t *testing.T) {
 	}
 	if len(left) != 2 || left[0] != "a.bundle" || left[1] != "fresh.bundle" {
 		t.Fatalf("after pruning, %v are left; want the kept file and the fresh one", left)
+	}
+}
+
+// TestPruneRemovesDirectoriesNothingUsed holds Prune over a cache whose
+// entries are directories: one nothing has used for the limit goes, with
+// its files; one used within it stays, and so does one Touch marked used
+// though its files are old; the running process's own stays however old;
+// and an entry not yet past the limit stays.
+func TestPruneRemovesDirectoriesNothingUsed(t *testing.T) {
+	dir := t.TempDir()
+	old := time.Now().Add(-Unused - time.Hour)
+	mk := func(name string, mtime time.Time) string {
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(p, "lib.so"), []byte("x"), 0o444); err != nil {
+			t.Fatal(err)
+		}
+		for _, q := range []string{filepath.Join(p, "lib.so"), p} {
+			if err := os.Chtimes(q, mtime, mtime); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return p
+	}
+	stale := mk("stale", old)
+	own := mk("own", old)
+	recent := mk("recent", time.Now().Add(-Unused+time.Hour))
+	touched := mk("touched", old)
+	info, err := os.Stat(touched)
+	if err != nil {
+		t.Fatal(err)
+	}
+	Touch(touched, info)
+
+	Prune(dir, "own", Unused)
+
+	if _, err := os.Stat(stale); err == nil {
+		t.Error("a directory nothing used for Unused was kept")
+	}
+	for _, p := range []string{own, recent, touched} {
+		if _, err := os.Stat(filepath.Join(p, "lib.so")); err != nil {
+			t.Errorf("%s was pruned: %v", filepath.Base(p), err)
+		}
+	}
+}
+
+// TestDueMarksOnePrunePerPeriod holds Due: a directory never pruned is
+// due, and marking it makes it not due again until the period has passed.
+func TestDueMarksOnePrunePerPeriod(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "cache")
+	if !Due(dir, time.Hour) {
+		t.Fatal("a directory never pruned is not due")
+	}
+	if Due(dir, time.Hour) {
+		t.Fatal("a directory pruned just now is due again")
+	}
+	old := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(filepath.Join(dir, dueMarker), old, old); err != nil {
+		t.Fatal(err)
+	}
+	if !Due(dir, time.Hour) {
+		t.Fatal("a directory pruned two hours ago is not due an hourly prune")
+	}
+	Prune(dir, "", 0)
+	if _, err := os.Stat(filepath.Join(dir, dueMarker)); err != nil {
+		t.Fatalf("Prune removed the directory's own mark: %v", err)
 	}
 }

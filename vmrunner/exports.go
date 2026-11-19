@@ -29,11 +29,20 @@ import (
 // an Int result a JSON number cannot hold exactly) answers an error whose
 // text is the Nomi diagnostic, and the next call runs normally. Calls must
 // not overlap.
+//
+// Each call and Main takes a context that bounds it, as a vmhost call's
+// does: when the context ends, a computing call stops at its next call,
+// loop iteration or iteration element, a waiting one wakes, the tasks it
+// started stop with it, and it answers the context's error. The program
+// stays booted and serves the next call: the stop unwinds the call, leaves
+// any `once` it was forcing unforced, and touches nothing boot published.
 type Instance struct {
 	started *vm.Started
 	exports []ir.Export
 	byName  map[string]*ir.Export
 	hasMain bool
+	// stop is WithStop's context, which bounds Start's main too.
+	stop context.Context
 }
 
 // Export describes one exported function to a host.
@@ -73,9 +82,9 @@ func start(image *Image, stdout, stderr io.Writer, args []string, opts []Option)
 		return nil, err
 	}
 	if in.hasMain {
-		if err := in.started.Main(); err != nil {
+		if err := in.Main(in.stop); err != nil {
 			in.started.Stop()
-			return nil, failureError(err)
+			return nil, err
 		}
 	}
 	return in, nil
@@ -117,18 +126,13 @@ func boot(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if !im.HasMain && len(im.Exports) == 0 {
 		return nil, errNothingToRun
 	}
-	var hosts []HostTable
-	if cfg.compiler != nil {
-		hosts = append(hosts, cfg.compiler(im.Root))
+	if im.HasMain && entryMain(entry) == nil {
+		return nil, errors.New("the compiled program's main was not retained")
 	}
-	hosts = append(hosts, cfg.hosts...)
-	for _, t := range cfg.forEntry {
-		hosts = append(hosts, t(entry.Name()))
-	}
-	if err := checkHostKeys(im.HostKeys, hosts); err != nil {
+	hosts, err := cfg.bind(im, entry)
+	if err != nil {
 		return nil, err
 	}
-	hosts = projectHosts(hosts, cfg.compiler != nil)
 	locales, err := localeData(im)
 	if err != nil {
 		return nil, err
@@ -138,25 +142,7 @@ func boot(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string
 	if stdin != nil {
 		m = m.WithInput(rt.NewInput(stdin))
 	}
-	var roots []*ir.Func
-	var mainFn *ir.Func
-	if im.HasMain {
-		if mainFn = entryMain(entry); mainFn == nil {
-			return nil, errors.New("the compiled program's main was not retained")
-		}
-		roots = vm.MainRoots(entry, mainFn)
-	}
-	for _, x := range im.Exports {
-		roots = append(roots, x.Func, x.Encode)
-		for _, p := range x.Params {
-			roots = append(roots, p.Decode)
-		}
-	}
-	roots = nonNil(roots)
-	var boots []*ir.Symbol
-	if boot := entry.Boot(); boot != nil {
-		boots = append(boots, boot)
-	}
+	roots, boots := hostRoots(im, entry)
 	if found := m.Unretained(roots, boots); len(found) > 0 {
 		reasons := make([]string, len(found))
 		for i, u := range found {
@@ -164,11 +150,11 @@ func boot(image *Image, stdout, stderr io.Writer, stdin io.Reader, args []string
 		}
 		return nil, fmt.Errorf("the VM cannot run this program: %s", strings.Join(reasons, "; "))
 	}
-	started, err := m.Start(context.Background(), args)
+	started, err := m.Start(cfg.stopCtx(), args)
 	if err != nil {
 		return nil, failureError(err)
 	}
-	in := &Instance{started: started, exports: im.Exports, byName: map[string]*ir.Export{}, hasMain: mainFn != nil}
+	in := &Instance{started: started, exports: im.Exports, byName: map[string]*ir.Export{}, hasMain: im.HasMain, stop: cfg.stop}
 	for i := range in.exports {
 		in.byName[in.exports[i].Name] = &in.exports[i]
 	}
@@ -200,8 +186,9 @@ func (in *Instance) Exports() []Export {
 
 // Call runs the exported function name with the arguments argsJSON holds,
 // a JSON array with one element per parameter, and answers the result as
-// JSON text (`null` for a Unit result).
-func (in *Instance) Call(name string, argsJSON []byte) ([]byte, error) {
+// JSON text (`null` for a Unit result). ctx bounds the call: one it stops
+// answers ctx's error.
+func (in *Instance) Call(ctx context.Context, name string, argsJSON []byte) ([]byte, error) {
 	x := in.byName[name]
 	if x == nil {
 		return nil, in.unknown(name)
@@ -215,7 +202,7 @@ func (in *Instance) Call(name string, argsJSON []byte) ([]byte, error) {
 	}
 	args := make([]any, len(raw))
 	for i, p := range x.Params {
-		decoded, err := in.started.Call(p.Decode, []any{string(raw[i])})
+		decoded, err := in.started.Call(ctx, p.Decode, []any{string(raw[i])})
 		if err != nil {
 			return nil, failureError(err)
 		}
@@ -225,14 +212,14 @@ func (in *Instance) Call(name string, argsJSON []byte) ([]byte, error) {
 		}
 		args[i] = v
 	}
-	result, err := in.started.Call(x.Func, args)
+	result, err := in.started.Call(ctx, x.Func, args)
 	if err != nil {
 		return nil, failureError(err)
 	}
 	if x.Encode == nil {
 		return []byte("null"), nil
 	}
-	encoded, err := in.started.Call(x.Encode, []any{result})
+	encoded, err := in.started.Call(ctx, x.Encode, []any{result})
 	if err != nil {
 		return nil, failureError(err)
 	}
@@ -253,12 +240,13 @@ var ErrNoMain = errors.New("this program has no `fn main`; it is called through 
 // Main runs the program's `fn main` on the booted program and answers its
 // failure with the text `nomi run` prints, without its final newline. A
 // program with no `fn main` answers ErrNoMain. The program stays booted:
-// calls may follow, and so may another Main.
-func (in *Instance) Main() error {
+// calls may follow, and so may another Main. ctx bounds it as it bounds a
+// call.
+func (in *Instance) Main(ctx context.Context) error {
 	if !in.hasMain {
 		return ErrNoMain
 	}
-	if err := in.started.Main(); err != nil {
+	if err := in.started.Main(ctx); err != nil {
 		return failureError(err)
 	}
 	return nil
@@ -266,9 +254,15 @@ func (in *Instance) Main() error {
 
 // CallResult is Call for a host that reads one JSON answer: `{"ok":
 // <result>}` when the call succeeds, `{"error": "<diagnostic>"}` when it
-// fails. The wasip1 reactor's nomi_call answers it.
-func (in *Instance) CallResult(name string, argsJSON []byte) []byte {
-	result, err := in.Call(name, argsJSON)
+// fails (Result).
+func (in *Instance) CallResult(ctx context.Context, name string, argsJSON []byte) []byte {
+	return Result(in.Call(ctx, name, argsJSON))
+}
+
+// Result is the one JSON answer for a call's result, JSON text, or its
+// failure: `{"ok": <result>}` or `{"error": "<text>"}` (ErrorResult). The
+// wasip1 reactor's nomi_call answers it.
+func Result(result []byte, err error) []byte {
 	if err != nil {
 		return ErrorResult(err)
 	}
@@ -328,8 +322,12 @@ func resultOf(v any) (ok any, why string, isOk bool) {
 }
 
 // failureError is a call's failure as the error a host sees: the text
-// `nomi run` prints for it, without its final newline.
+// `nomi run` prints for it, without its final newline. A stop is its
+// context's error as it is (vm.IsStop).
 func failureError(err error) error {
+	if vm.IsStop(err) {
+		return err
+	}
 	failure, limit := vm.ProgramFailure(err)
 	if limit {
 		return fmt.Errorf("the VM cannot run this program: machine limit: %v", failure)

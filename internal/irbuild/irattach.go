@@ -38,8 +38,10 @@ func (bl *irScalarBuilder) attachedVariant(at ast.Node, prefix ast.TypeExpr, ano
 		var owner ast.Node = &ast.TypeIdent{Name: tn.Module, Line: line, Col: col}
 		if mod, rest, dotted := strings.Cut(tn.Module, "."); dotted && !ast.IsPublic(mod) {
 			// `json.Json.Arr[...]`: the enum named through its module, as
-			// the call `json.Json.Arr([...])` writes it.
-			owner = &ast.Ident{Name: mod, Line: line, Col: col}
+			// the call `json.Json.Arr([...])` writes it. The qualifier
+			// stands where it is written, where the checker recorded the
+			// module it names (identRef).
+			owner = &ast.Ident{Name: mod, Line: tn.ModuleLine, Col: tn.ModuleCol}
 			for _, seg := range strings.Split(rest, ".") {
 				owner = &ast.FieldAccess{Object: owner, Field: &ast.Ident{Name: seg, Line: line, Col: col}, Line: line, Col: col}
 			}

@@ -730,7 +730,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 		if _, isSimple := tn.Member.(*ast.SimpleType); isSimple {
 			// `span.Span{...}`: another file's generic struct, named through
 			// its module, or this file's dotted one (`Tree.Node{v: 1}`).
-			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module + "." + tn.Member.TypeString()); isTemplate && tpl.structDecl() != nil {
+			if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Module+"."+tn.Member.TypeString(), bl.g.checkedExprType(t)); isTemplate && tpl.structDecl() != nil {
 				return bl.genericStructMake(t, t, tpl, instantiate)
 			}
 		}
@@ -772,7 +772,7 @@ func (bl *irScalarBuilder) structMake(t *ast.StructLit) (ir.Temp, kind, bool, bo
 	}
 	// A user generic struct, declared here or selectively imported from
 	// another file (`import span.Span`).
-	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name); isTemplate {
+	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(tn.Name, bl.g.checkedExprType(t)); isTemplate {
 		return bl.genericStructMake(t, t, tpl, instantiate)
 	}
 	d, found := bl.g.namedType(tn.Name)

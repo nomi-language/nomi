@@ -24,9 +24,10 @@ const (
 	maxNameTableReads = 86
 	// maxUncheckedSynthesizedBodies is how many sites lower code the
 	// checker never checked (calls of markUnchecked): the universal Debug
-	// of a type declared inside a body, and parse_fields' per-field parse
-	// over an anonymous struct.
-	maxUncheckedSynthesizedBodies = 2
+	// of a type declared inside a body, parse_fields' per-field parse over
+	// an anonymous struct, and madeIdent, which every identifier the
+	// builder writes goes through.
+	maxUncheckedSynthesizedBodies = 3
 )
 
 // TestNameLookupsOnlyGoDown counts the builder's lookups of a declaration

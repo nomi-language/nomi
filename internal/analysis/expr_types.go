@@ -79,22 +79,24 @@ func ResolveTypeVar(t Type) Type { return resolveTypeVar(t) }
 func TypeOwnerName(t Type) string { return concreteTypeName(resolveTypeVar(t)) }
 
 // ImplementsInterface reports whether a value of type t satisfies the
-// interface named iface according to the file's impl tables and the
-// project's, the tables the checker consults. The universal interfaces
-// answer as the checker does: every type is Debug, every struct is Struct.
-// A type parameter, interface value or unsolved variable answers false here,
-// where the checker defers it to run time: a caller asking "which interfaces
-// does this value have" wants only the ones it can name.
-func ImplementsInterface(fa *FileAnalysis, t Type, iface string) bool {
+// interface iface according to the file's impl tables and the project's,
+// the tables the checker consults, by the interface's identity: an impl of
+// another interface of its name does not count (suppliesReceiver). The
+// universal interfaces, names the prelude reserves, answer as the checker
+// does: every type is Debug, every struct is Struct. A type parameter,
+// interface value or unsolved variable answers false here, where the
+// checker defers it to run time: a caller asking "which interfaces does
+// this value have" wants only the ones it can name.
+func ImplementsInterface(fa *FileAnalysis, t Type, iface *InterfaceType) bool {
 	t = resolveTypeVar(t)
-	if t == nil || fa == nil {
+	if t == nil || fa == nil || iface == nil {
 		return false
 	}
-	if dt := refinementOf(t); dt != nil && dt.Inner != nil && iface != "Debug" {
+	if dt := refinementOf(t); dt != nil && dt.Inner != nil && iface.Name != "Debug" {
 		// A refinement has its parent's impls (refinement.go).
 		return ImplementsInterface(fa, DistinctInner(dt), iface)
 	}
-	switch iface {
+	switch iface.Name {
 	case "Debug":
 		return true
 	case "Struct":
@@ -104,11 +106,34 @@ func ImplementsInterface(fa *FileAnalysis, t Type, iface string) bool {
 		return ok && distinctInnerOf(dt) != nil
 	}
 	if it, ok := t.(*InterfaceType); ok {
-		return it.Name == iface
+		return sameNominalIdentity(it.Origin, it.Name, iface.Origin, iface.Name)
 	}
 	name := concreteTypeName(t)
-	if name == "" {
+	if name == "" || !fa.HasImpl(name, iface.Name) {
 		return false
 	}
-	return fa.HasImpl(name, iface)
+	p := fa.Program()
+	if p == nil {
+		return true
+	}
+	return p.ImplIndex.suppliesReceiver(t, name, iface.Origin, iface.Name, p.unindexed())
+}
+
+// ImplOfInterface reports whether impl, an impl block's `fn` or `host fn`,
+// is of the interface it, by identity: its block's header resolves to that
+// declaration. An impl whose interface the program did not resolve, and an
+// interface of no known origin, answer true.
+func (p *Program) ImplOfInterface(impl ast.Node, it *InterfaceType) bool {
+	if p == nil || p.ImplIndex == nil || it == nil || it.Origin == OriginUnresolved {
+		return true
+	}
+	idx := p.ImplIndex
+	origin := OriginUnresolved
+	switch d := impl.(type) {
+	case *ast.FuncDef:
+		origin = idx.ImplIfaceOrigin[d]
+	case *ast.ExternFunc:
+		origin = externImplIfaceOrigin(p.File(idx.ImplExternFiles[d]), it.Name)
+	}
+	return sameNominalIdentity(origin, it.Name, it.Origin, it.Name)
 }

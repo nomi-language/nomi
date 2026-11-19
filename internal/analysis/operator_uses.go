@@ -2,18 +2,21 @@ package analysis
 
 import "github.com/nomi-language/nomi/internal/ast"
 
-// OperatorForm is what a binary operator over a value that is not a
-// primitive means (OperatorUse).
+// OperatorForm is how a use of an interface's function is answered: an
+// operator through the interface (OperatorUse) or a call of the function
+// by name (Callee.Form), both from interfaceUse.
 type OperatorForm uint8
 
 const (
 	// OperatorByImpl calls an impl of the operator's interface
-	// (OperatorUse.Impl): hand-written, derived or a std `host fn`.
+	// (OperatorUse.Impl), the operand's type's block of it: hand-written,
+	// derived, or std's `fn` or `host fn`, a primitive's, a List's or a
+	// Map's included.
 	OperatorByImpl OperatorForm = iota + 1
-	// OperatorStructural compares by the operands' shape: a tuple, an
-	// anonymous struct, a collection, or a declared type with no impl of
-	// Equatable, which meets `==` by its equality (spec §5 *Equality
-	// bounds*).
+	// OperatorStructural compares by the operands' shape, where their
+	// type has no block of the interface: a tuple, an anonymous struct, a
+	// function value, or a declared type with no impl of Equatable, which
+	// meets `==` by its equality (spec §5 *Equality bounds*).
 	OperatorStructural
 	// OperatorDispatched compares two interface values by their run-time
 	// types, through the impl of the value each holds.
@@ -28,9 +31,9 @@ const (
 // the checker's decision, which the IR builder lowers.
 type OperatorUse struct {
 	Form OperatorForm
-	// Impl is, for OperatorByImpl, the impl: the operator's OperatorImpls
-	// record, or for an operator in a derive-synthesized body, which
-	// OperatorImpls leaves out, the same record made for it here.
+	// Impl is, for OperatorByImpl, the impl: the function of the block
+	// interfaceUse reaches, with the operand's type and the interface's
+	// type arguments at the use.
 	Impl *OperatorImpl
 	// Bound is, for OperatorPerInstance, the interface the operator goes
 	// through: Equatable, Comparable, Add and the others.
@@ -52,11 +55,10 @@ func operatorIface(op string) (string, string, bool) {
 }
 
 // recordOperatorUses records what each operator the file's bodies hold
-// means (a binary operator, a prefix `~~~`), once every body is checked and its variables closed. An
-// operator over a primitive has no record: the machine's operation is the
-// only one. A declared type whose impls the index holds but cannot narrow
-// to one (two files each write one) is left unrecorded, which the
-// verifier reports.
+// means (a binary operator, a prefix `~~~`), once every body is checked
+// and its variables closed (operatorUseOf). An operator nothing answers
+// has no record: a declared type whose impls the index holds but cannot
+// narrow to one (two files each write one), which the verifier reports.
 func (c *checker) recordOperatorUses() {
 	if c.fa == nil || len(c.operatorUses) == 0 {
 		return
@@ -73,24 +75,23 @@ func (c *checker) recordOperatorUses() {
 }
 
 // operatorSubject is the interface and function the operator n goes
-// through, and the type that implements it: a binary operator's left
+// through, and the type that implements it: a comparison's compared
+// operand's (comparedOperand), any other binary operator's left
 // operand's, `~~~`'s operand's (a subtype's value is its base's, as
 // checkBitwiseNot types it). ok is false for any other node, and for an
 // operand with no type.
 func operatorSubject(fa *FileAnalysis, n ast.Node) (iface, method string, t Type, ok bool) {
-	var operand ast.Node
 	switch n := n.(type) {
 	case *ast.Binary:
 		iface, method, ok = operatorIface(n.Op)
-		operand = n.Left
+		t = fa.ExprTypes[n.Left]
+		if iface == "Equatable" || iface == "Comparable" {
+			_, t = comparedOperand(n, t, fa.ExprTypes[n.Right])
+		}
 	case *ast.Unary:
 		iface, method, ok = "BitwiseNot", "bitwise_not", n.Op == "~~~"
-		operand = n.Right
+		t = fa.ExprTypes[n.Right]
 	}
-	if !ok {
-		return "", "", nil, false
-	}
-	t, ok = fa.ExprTypes[operand]
 	if !ok || t == nil {
 		return "", "", nil, false
 	}
@@ -100,55 +101,127 @@ func operatorSubject(fa *FileAnalysis, n ast.Node) (iface, method string, t Type
 	return iface, method, t, true
 }
 
-// operatorUseOf is what the operator n means, nil for an operator over a
-// primitive.
+// comparedOperand is the operand of the comparison n, whose operands have
+// types left and right, whose type answers it: the left one, except where
+// the right one is the wider. The right one is wider where it is an
+// interface value and the left one is not: the concrete value is held as
+// the interface value it is compared with, and `==` and `!=` compare the
+// two by their run-time types (spec §12 *Interface values*), on either
+// side; an ordering is the interface value's, which has none. It is wider
+// too where the left one enters it by `embeds` alone (differsByEmbeds): in
+// `circle == shape` the Circle is the Shape it widens into, as the
+// operands are checked (checkOperandAgainst), and the two compare as
+// Shapes.
+func comparedOperand(n *ast.Binary, left, right Type) (ast.Node, Type) {
+	if isInterfaceValue(right) && !isInterfaceValue(left) {
+		return n.Right, right
+	}
+	if left != nil && right != nil && !TypesIdentical(resolveTypeVar(left), resolveTypeVar(right)) && differsByEmbeds(right, left) {
+		return n.Right, right
+	}
+	return n.Left, left
+}
+
+// isInterfaceValue reports whether t is the type of an interface value:
+// an interface or a conjunction of interfaces. The `self` of an interface
+// default is none: it is the implementor (defaultSelfParam).
+func isInterfaceValue(t Type) bool {
+	switch t := resolveTypeVar(ResolveClosed(t)).(type) {
+	case *InterfaceType:
+		return defaultSelfParam(t) == nil
+	case *ConjunctionType:
+		return true
+	}
+	return false
+}
+
+// defaultSelfParam is the type parameter t stands for when t is the type
+// of a `self` value of an interface default (an InterfaceType marked
+// DefaultSelf): the interface's SelfParam, which each instance of the
+// default binds to its implementor, as ReplaceTypeParams reads it. Nil for
+// any other type.
+func defaultSelfParam(t Type) *TypeParam_ {
+	if it, ok := t.(*InterfaceType); ok && it.DefaultSelf && it.SelfParam != nil {
+		return it.SelfParam
+	}
+	return nil
+}
+
+// operatorUseOf is what the operator n means where it is written: the
+// answer interfaceUse gives at its operand's type, with the impl the
+// checker selected there as the block: a binary operator's OperatorImpls
+// record, at the interface's type arguments it chose, else the block
+// implMethodFor finds, which over the enclosing declaration's type
+// parameters is the type's one block.
 func operatorUseOf(fa *FileAnalysis, n ast.Node) *OperatorUse {
 	iface, method, lt, ok := operatorSubject(fa, n)
 	if !ok {
 		return nil
 	}
+	t := resolveTypeVar(ResolveClosed(lt))
+	args := closedTypeArgs(operatorTypeArgs(fa, n), nil)
+	m := fa.implMethodFor(t, iface, method)
 	if b, binary := n.(*ast.Binary); binary {
 		if impl := fa.OperatorImpls[b]; impl != nil {
-			return &OperatorUse{Form: OperatorByImpl, Impl: impl}
+			m, args = impl.Method, impl.Args
 		}
 	}
-	return fa.interfaceUseFor(iface, method, resolveTypeVar(ResolveClosed(lt)))
+	use, _ := fa.interfaceUse(iface, method, "", t, args, fa.implBlockHolding(m))
+	return use
 }
 
-// interfaceUseFor is what the operator through iface's function method
-// means when the operand implementing it is of type t: the answer its
-// shape decides (shapeUse), else the impl of a declared type, from the
-// block a call of the function reaches (implMethodFor, implBlockFor),
-// else, for a declared type with no block of iface, noImplUse's answer.
-// A declared type with several blocks none of which answers has none.
-// operatorUseOf asks it at the type an operator is checked with and
-// OperatorUseAt at an instance's. A call of the same function asks
-// shapeUse, implBlockFor and noImplUse too (callForm), so `a == b` and
-// `Equatable.equal(a, b)` are answered by one rule.
-func (fa *FileAnalysis) interfaceUseFor(iface, method string, t Type) *OperatorUse {
+// interfaceUse is how a use of the function method of the interface
+// iface (declared by the file of origin) on a value of type recv is
+// answered, and the impl block it reaches. It is the one rule a written
+// operator (operatorUseOf), an operator at an instance (OperatorUseAt)
+// and a call of the interface's function (interfaceImplAt, at the types
+// the call is checked with and at an instance's) are answered by, so
+// `a == b` and `Equatable.equal(a, b)` agree wherever they are asked. In
+// order:
+//
+//   - The impl block: chosen, the one the checker selected at the use,
+//     else the one block of the interface for recv, at args where recv
+//     implements the interface at several type arguments (implBlockFor).
+//     The answer is OperatorByImpl whatever recv's shape: a primitive, a
+//     List or a Map has std's block, a derived type its derived one.
+//   - recv's shape (shapeUse): per instance for a type parameter, by
+//     dispatch for an interface value, structurally for a tuple, an
+//     anonymous struct, a function value and a collection with no block.
+//   - For a declared type with no block of the interface at all, what it
+//     meets the interface by all the same (noImplUse).
+//
+// Nil where none answers: a type with several blocks none of which is
+// selected, an unsolved variable, a primitive with no block.
+func (fa *FileAnalysis) interfaceUse(iface, method, origin string, recv Type, args []Type, chosen *ast.ImplBlock) (*OperatorUse, *ast.ImplBlock) {
+	b := chosen
+	if b == nil && fa != nil {
+		b = fa.implBlockFor(recv, iface, origin, args)
+	}
+	t := resolveTypeVar(ResolveClosed(recv))
+	if b != nil {
+		return &OperatorUse{Form: OperatorByImpl, Impl: &OperatorImpl{Interface: iface, Receiver: t, Args: args, Method: implBlockMethod(b, method)}}, b
+	}
 	if use, decided := shapeUse(iface, t); decided {
-		return use
+		return use, nil
 	}
-	if fa == nil || concreteTypeName(t) == "" {
-		return nil
+	if nominal, _ := nominalReceiver(recv); fa != nil && nominal != nil && len(fa.implBlocksOf(nominal, iface, origin)) == 0 {
+		return noImplUse(iface, nominal), nil
 	}
-	if m := fa.implMethodFor(t, iface, method); m != nil {
-		return &OperatorUse{Form: OperatorByImpl, Impl: &OperatorImpl{Interface: iface, Receiver: t, Method: m}}
-	}
-	if len(fa.implBlocksOf(t, iface, "")) == 0 {
-		return noImplUse(iface, t)
-	}
-	return nil
+	return nil, nil
 }
 
-// shapeUse is how a use of iface's function on a value of type t is
-// answered when t's shape alone decides it: nil for a primitive, which
-// the machine operates on itself; per instance for a type parameter; by
-// dispatch for an interface value; structurally for a tuple, an
-// anonymous struct, a collection and a function value, except
-// BitwiseNot, which none has. decided is false for a declared type, whose
-// impls decide.
+// shapeUse is how a use of iface's function on a value of type t, which
+// has no impl block of iface, is answered when t's shape alone decides
+// it: nil for a primitive and an unsolved variable; per instance for a
+// type parameter, the `self` of an interface default among them; by
+// dispatch for an interface value; structurally for a tuple, an anonymous
+// struct, a collection and a function value, except BitwiseNot, which
+// none has. decided is false for a declared type, whose impls decide
+// (interfaceUse).
 func shapeUse(iface string, t Type) (use *OperatorUse, decided bool) {
+	if p := defaultSelfParam(t); p != nil {
+		t = p
+	}
 	switch t.(type) {
 	case nil, *PrimitiveType, *TypeVar:
 		return nil, true
@@ -192,10 +265,11 @@ func noImplUse(iface string, t Type) *OperatorUse {
 // once, so an operator over a type parameter records only
 // OperatorPerInstance and the bound. At an instance where the operand's
 // type is known the answer is the record an operator written at that type
-// has (interfaceUseFor): an impl, a structural comparison, or nil for a
-// primitive, which the machine operates on itself. resolved is false, and
-// the record n's own, for any other operator and where a type parameter
-// has no answer.
+// has (interfaceUse), at the interface's type arguments there
+// (operatorTypeArgs): `a + b` over `L: Add<R, O>` at Day, Days and Day
+// reaches Day's `impl Add<Days, Day>`. resolved is false, and the record
+// n's own, for any other operator and where a type parameter has no
+// answer.
 func (fa *FileAnalysis) OperatorUseAt(body *FileAnalysis, n ast.Node, by func(*TypeParam_) (Type, bool)) (use *OperatorUse, resolved bool) {
 	if body == nil {
 		return nil, false
@@ -216,5 +290,26 @@ func (fa *FileAnalysis) OperatorUseAt(body *FileAnalysis, n ast.Node, by func(*T
 	if _, still := t.(*TypeParam_); still {
 		return use, false
 	}
-	return fa.interfaceUseFor(use.Bound, method, t), true
+	at, _ := fa.interfaceUse(use.Bound, method, "", t, closedTypeArgs(operatorTypeArgs(body, n), by), nil)
+	return at, true
+}
+
+// operatorTypeArgs is the type arguments of the interface the operator
+// n goes through, as its operands and result are typed: `R, O` of
+// `Add<R, O>` for `a + b` with b of type R and the sum of type O, `O` of
+// `BitwiseNot<O>` for `~~~a`. Nil for `==` and the orderings, whose
+// interfaces take none.
+func operatorTypeArgs(fa *FileAnalysis, n ast.Node) []Type {
+	typeOf := func(e ast.Node) Type { return resolveTypeVar(ResolveClosed(fa.ExprTypes[e])) }
+	switch n := n.(type) {
+	case *ast.Binary:
+		if _, ok := operatorInterfaceForOp(n.Op); ok {
+			return []Type{typeOf(n.Right), typeOf(n)}
+		}
+	case *ast.Unary:
+		if n.Op == "~~~" {
+			return []Type{typeOf(n)}
+		}
+	}
+	return nil
 }

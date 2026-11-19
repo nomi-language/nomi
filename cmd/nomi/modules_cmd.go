@@ -22,27 +22,33 @@ import (
 )
 
 // offlineFlag is `--offline`, which `run`, `test`, `check`, `build`,
-// `fetch` and `add` take: nothing is downloaded, and a module or toolchain
-// the caches lack is an error that names it.
+// `fetch`, `add`, `types` and `capabilities` take: nothing is downloaded,
+// and a module or toolchain the caches lack is an error that names it.
 const offlineFlag = "--offline"
 
-// takeOffline removes --offline from a command's arguments. For `run` only
-// the flags before the program's file are the command's; the rest are the
-// program's own.
-func takeOffline(cmd string, args []string) ([]string, bool) {
-	offline := false
+// allCallsFlag is `--all-calls`, which `run`, `test`, `check` and `build`
+// take: a refusal by nomi.toml's [capabilities] lists gives every call,
+// not the first of each name (vmhost.AllCallsEnv).
+const allCallsFlag = "--all-calls"
+
+// takeFlag removes flag, a flag that takes no value, from a command's
+// arguments, and reports whether it was there. For `run` only the flags
+// before the program's file are the command's; the rest are the program's
+// own.
+func takeFlag(cmd, flag string, args []string) ([]string, bool) {
+	found := false
 	out := make([]string, 0, len(args))
 	for i, arg := range args {
 		if cmd == "run" && !isFlag(arg) {
-			return append(out, args[i:]...), offline
+			return append(out, args[i:]...), found
 		}
-		if arg == offlineFlag {
-			offline = true
+		if arg == flag {
+			found = true
 			continue
 		}
 		out = append(out, arg)
 	}
-	return out, offline
+	return out, found
 }
 
 // enableDownloads lets this command download what a project needs: the Nomi

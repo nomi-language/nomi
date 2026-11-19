@@ -2,6 +2,7 @@ package vmrunner_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -116,7 +117,7 @@ func start(t *testing.T, src string) (*vmrunner.Instance, *bytes.Buffer) {
 
 func call(t *testing.T, in *vmrunner.Instance, name, args string) string {
 	t.Helper()
-	got, err := in.Call(name, []byte(args))
+	got, err := in.Call(context.Background(), name, []byte(args))
 	if err != nil {
 		t.Fatalf("%s(%s): %v", name, args, err)
 	}
@@ -125,7 +126,7 @@ func call(t *testing.T, in *vmrunner.Instance, name, args string) string {
 
 func callFails(t *testing.T, in *vmrunner.Instance, name, args, want string) {
 	t.Helper()
-	got, err := in.Call(name, []byte(args))
+	got, err := in.Call(context.Background(), name, []byte(args))
 	if err == nil {
 		t.Fatalf("%s(%s) answered %s, want the error %q", name, args, got, want)
 	}
@@ -285,7 +286,7 @@ func TestInstance_BootLeavesMainToTheHost(t *testing.T) {
 		t.Fatalf("one answered %s", got)
 	}
 	for range 2 {
-		if err := in.Main(); err != nil {
+		if err := in.Main(context.Background()); err != nil {
 			t.Fatalf("Main: %v", err)
 		}
 	}
@@ -301,7 +302,7 @@ func TestInstance_MainOfAProgramWithNoMain(t *testing.T) {
 		t.Fatalf("Boot: %v", err)
 	}
 	defer in.Close()
-	if err := in.Main(); err != vmrunner.ErrNoMain {
+	if err := in.Main(context.Background()); err != vmrunner.ErrNoMain {
 		t.Fatalf("Main answered %v, want ErrNoMain", err)
 	}
 }
@@ -310,13 +311,13 @@ func TestInstance_MainOfAProgramWithNoMain(t *testing.T) {
 // it.
 func TestInstance_CallResultIsOkOrError(t *testing.T) {
 	in, _ := start(t, hangman)
-	if got := string(in.CallResult("new_game", []byte(`["x"]`))); got != `{"ok":{"word":"x","guesses":[]}}` {
+	if got := string(in.CallResult(context.Background(), "new_game", []byte(`["x"]`))); got != `{"ok":{"word":"x","guesses":[]}}` {
 		t.Fatalf("new_game answered %s", got)
 	}
-	if got := string(in.CallResult("shout", []byte(`["x"]`))); got != `{"ok":null}` {
+	if got := string(in.CallResult(context.Background(), "shout", []byte(`["x"]`))); got != `{"ok":null}` {
 		t.Fatalf("shout answered %s", got)
 	}
-	got := in.CallResult("divide", []byte(`[1, 0]`))
+	got := in.CallResult(context.Background(), "divide", []byte(`[1, 0]`))
 	var answer struct {
 		Ok    *json.RawMessage `json:"ok"`
 		Error *string          `json:"error"`

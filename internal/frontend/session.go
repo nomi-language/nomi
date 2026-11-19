@@ -48,7 +48,6 @@ func (c *Checker) SessionSource(text func(key string) (string, bool)) *analysis.
 			}))
 			StripAttachedTests(nodes)
 			errs = append(errs, analysis.CheckDuplicateTestNames(nodes)...)
-			nodes, _ = analysis.SynthesizeDerives(nodes)
 			return analysis.SynthesizeUniversalDebug(nodes), errs
 		},
 		Loader:     loader,

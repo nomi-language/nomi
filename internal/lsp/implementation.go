@@ -64,20 +64,24 @@ func (s *Server) textDocumentImplementation(ctx *glsp.Context, params *protocol.
 	}
 	switch real.Kind {
 	case analysis.SymbolInterface:
-		return s.toUTF16Locations(s.implLocationsForInterface(doc.Analysis, real.Name, uri)), nil
+		return s.toUTF16Locations(s.implLocationsForInterface(doc.Analysis, real, uri)), nil
 	case analysis.SymbolInterfaceMethod:
-		ifaceName := s.findInterfaceForMethod(doc.Analysis, real)
-		if ifaceName == "" {
+		owner := s.findInterfaceForMethod(doc.Analysis, real)
+		if owner == nil {
 			return nil, nil
 		}
-		return s.toUTF16Locations(s.implLocationsForMethod(doc.Analysis, ifaceName, real.Name, uri)), nil
+		return s.toUTF16Locations(s.implLocationsForMethod(doc.Analysis, owner, real.Name, uri)), nil
 	}
 	return nil, nil
 }
 
 // implLocationsForInterface returns one Location per method of an
 // `impl Iface for T` block, across every method the interface declares.
-func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, ifaceName, openDocURI string) []protocol.Location {
+// iface is the interface's symbol, and an impl of another interface of its
+// name is not one of its (Program.ImplOfInterface).
+func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, iface *analysis.Symbol, openDocURI string) []protocol.Location {
+	ifaceName := iface.Name
+	it, _ := iface.Type.(*analysis.InterfaceType)
 	methodImpls, hasLocalImpls := fa.Program().IfaceMethodImpls[ifaceName]
 	externImpls := map[string][]*ast.ExternFunc(nil)
 	_, hasLocalExternImpls := fa.Program().IfaceMethodImplExterns[ifaceName]
@@ -98,6 +102,9 @@ func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, ifaceName,
 	var locs []protocol.Location
 	for _, fns := range methodImpls {
 		for _, fn := range fns {
+			if !fa.Program().ImplOfInterface(fn, it) {
+				continue
+			}
 			if loc, ok := s.implLocationFor(fa, ifaceName, fn, openDocURI); ok {
 				locs = append(locs, loc)
 			}
@@ -105,6 +112,9 @@ func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, ifaceName,
 	}
 	for _, exts := range externImpls {
 		for _, ext := range exts {
+			if !fa.Program().ImplOfInterface(ext, it) {
+				continue
+			}
 			if loc, ok := s.implExternLocationFor(fa, ext, openDocURI); ok {
 				locs = append(locs, loc)
 			}
@@ -114,8 +124,11 @@ func (s *Server) implLocationsForInterface(fa *analysis.FileAnalysis, ifaceName,
 }
 
 // implLocationsForMethod returns one Location per `impl Iface for T { fn method(...) }`
-// method for the specific (interface, method) pair.
-func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, ifaceName, methodName, openDocURI string) []protocol.Location {
+// method for the specific (interface, method) pair, iface the interface's
+// symbol.
+func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, iface *analysis.Symbol, methodName, openDocURI string) []protocol.Location {
+	ifaceName := iface.Name
+	it, _ := iface.Type.(*analysis.InterfaceType)
 	methodImpls, hasLocalImpls := fa.Program().IfaceMethodImpls[ifaceName]
 	externImpls := map[string][]*ast.ExternFunc(nil)
 	_, hasLocalExternImpls := fa.Program().IfaceMethodImplExterns[ifaceName]
@@ -137,11 +150,17 @@ func (s *Server) implLocationsForMethod(fa *analysis.FileAnalysis, ifaceName, me
 	}
 	var locs []protocol.Location
 	for _, fn := range fns {
+		if !fa.Program().ImplOfInterface(fn, it) {
+			continue
+		}
 		if loc, ok := s.implLocationFor(fa, ifaceName, fn, openDocURI); ok {
 			locs = append(locs, loc)
 		}
 	}
 	for _, ext := range exts {
+		if !fa.Program().ImplOfInterface(ext, it) {
+			continue
+		}
 		if loc, ok := s.implExternLocationFor(fa, ext, openDocURI); ok {
 			locs = append(locs, loc)
 		}
@@ -305,18 +324,34 @@ func sameDeclaration(a, b *analysis.Symbol) bool {
 // its Members hold that method (sameDeclaration). The interface→method
 // relationship isn't stored as a back-pointer on the method symbol (an
 // InterfaceMethod AST node carries no parent reference), so the lookup
-// goes through Members instead. Returns "" when no owner is found.
-func (s *Server) findInterfaceForMethod(fa *analysis.FileAnalysis, method *analysis.Symbol) string {
-	for _, parent := range fa.ModuleScope.Symbols {
-		owner := parent
-		if owner.Resolved != nil {
-			owner = owner.Resolved
+// goes through Members instead. The answer is the owner's symbol, whose
+// declaration is the interface's identity; nil when no owner is found.
+func (s *Server) findInterfaceForMethod(fa *analysis.FileAnalysis, method *analysis.Symbol) *analysis.Symbol {
+	scopes := []*analysis.Scope{fa.ModuleScope}
+	if p := fa.Program(); p != nil {
+		// An interface this file names through its module (`a.Show.show`)
+		// is in the scope of the file that declares it.
+		for _, f := range p.Files() {
+			if f != nil && f != fa {
+				scopes = append(scopes, f.ModuleScope)
+			}
 		}
-		if owner.Kind != analysis.SymbolInterface {
+	}
+	for _, scope := range scopes {
+		if scope == nil {
 			continue
 		}
-		if sameDeclaration(owner.Members[method.Name], method) {
-			return owner.Name
+		for _, parent := range scope.Symbols {
+			owner := parent
+			if owner.Resolved != nil {
+				owner = owner.Resolved
+			}
+			if owner.Kind != analysis.SymbolInterface {
+				continue
+			}
+			if sameDeclaration(owner.Members[method.Name], method) {
+				return owner
+			}
 		}
 	}
 	// Stdlib interfaces aren't in the user file's ModuleScope; check the
@@ -328,12 +363,12 @@ func (s *Server) findInterfaceForMethod(fa *analysis.FileAnalysis, method *analy
 					continue
 				}
 				if sameDeclaration(parent.Members[method.Name], method) {
-					return parent.Name
+					return parent
 				}
 			}
 		}
 	}
-	return ""
+	return nil
 }
 
 // findInterfaceMethodSymbol returns the interface method an impl method

@@ -1,6 +1,7 @@
 package vmhost
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/nomi-language/nomi/hostadapt"
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
@@ -20,6 +22,7 @@ import (
 	"github.com/nomi-language/nomi/internal/stdlibbindings"
 	"github.com/nomi-language/nomi/internal/vm"
 	"github.com/nomi-language/nomi/std"
+	"golang.org/x/mod/modfile"
 )
 
 // Capability classes and the targets that lack them.
@@ -56,7 +59,9 @@ import (
 //     (`io.print`, `Task.spawn`, a std host function used as a value) by
 //     the module that declares it. A `go` binding is `go:` and the import
 //     path of the `gopkg` its declaration names, read from the declaring
-//     file's syntax (ffirun.BindingImportPath), so no `go` command runs. An
+//     file's syntax (ffirun.BindingImportPath), so no `go` command runs;
+//     the name tells a reader which binding it is, and a list holds it by
+//     its module, never by its package. An
 //     embedder's own `host fn` is `host:` and its key. The entry boot that
 //     takes a Startup reads the environment and the arguments: `std::startup`
 //     at the boot.
@@ -74,11 +79,24 @@ import (
 //     the edges say why a call counts.
 //
 // OutsideCallsNotAllowed holds those calls to nomi.toml's [capabilities]
-// lists (Capabilities): the program's list holds every call, a module's
-// own list holds the calls its files make, and a call over both is
-// reported once, over the module's. A host's list (WithCapabilities) is a
-// program's list with no module lists, held beside nomi.toml's, and each
-// call over it is reported again, as the host's.
+// lists (Capabilities), one rule over every call (capability.Allows): a
+// Go binding is allowed when the project's `go` lists the module whose
+// file holds it (the project by its own module path, projectModule), and
+// any other call when the project's `std` holds its name. The calls a
+// module's files make are held as well to the project's entry for that
+// module under [capabilities.modules], a std list: a dependency's by its
+// path, and the project's own by its module path (projectModule), except
+// in calls the tests reach. A dependency's are held too to its own table
+// from its own nomi.toml (moduleAt): its entry for itself under
+// [capabilities.modules], or its `std` when it has none, and for a Go
+// binding its
+// `go` listing its own path, which declares that it binds Go and never
+// grants it. A call over more than one list is reported once, over the
+// first of the module's own list, the project's entry for it and the
+// program's list.
+// A host's lists (WithCapabilities, WithGo) are a program's lists with no
+// module lists, held beside nomi.toml's, and each call over them is
+// reported again, as the host's.
 //
 // CapabilityUses keeps its own report: it lifts each classed crossing to
 // the first call outside std on the path the walk first took, so a std
@@ -408,8 +426,9 @@ type OutsideCall struct {
 	// Name is what the call is named by: the std module the code called,
 	// as an import names it (`std::fs`, `std::net` for `net.dial` though it
 	// crosses through http's host functions), or `go:` and the Go import
-	// path for a `go` binding. An embedder's own `host fn` is `host:` and
-	// its key.
+	// path for a `go` binding, which says which binding it is; a list
+	// holds a binding by its Module. An embedder's own `host fn` is `host:`
+	// and its key.
 	Name string
 	// Module is the module charged for the call, the one whose file holds
 	// it: a dependency's Go module path, or "" for the program's own files.
@@ -431,6 +450,13 @@ type OutsideCall struct {
 	// at is the call's position as the program names its file, where a
 	// diagnostic about it goes.
 	at ir.Pos
+}
+
+// ReachText says how the walk reached c, in the words a refusal's help
+// line uses (vm.ReachText): from the root its chain starts at, each step
+// with the kind of edge that took it.
+func (c OutsideCall) ReachText() string {
+	return vm.ReachText(c.Chain, c.Edge, c.Callee)
 }
 
 // OutsideCalls is every outside call the program reaches from the roots r
@@ -482,76 +508,231 @@ func (p *Program) OutsideCalls(r Roots) []OutsideCall {
 type NotAllowed struct {
 	OutsideCall
 	// Over is whose list does not allow the call: the module, by its Go
-	// module path, whose own entry under [capabilities.modules] does not
-	// name it, or "" for the program's list.
+	// module path, whose own list or entry under the project's
+	// [capabilities.modules] does not name it (the project's own module
+	// path, projectModule, for its own entry), or "" for the program's
+	// list.
 	Over string
-	// Allowed is the list Over is held to: a module's entry, or the
-	// program's allow, with allow_in_tests when the roots are tests.
+	// Declared reports that the list is the module's own: the [capabilities]
+	// table in Over's own nomi.toml, which the module declares for its own
+	// code: the entry keyed by its own path under its
+	// [capabilities.modules], or its `std` when it has no such entry, or
+	// for a Go binding its `go`, which does not list the module itself.
+	Declared bool
+	// DeclaredEntry reports that the list Declared names is the module's
+	// entry for itself, not its `std`.
+	DeclaredEntry bool
+	// Binder is, for a Go binding, the module whose code binds Go, by its
+	// path: the project's own module path for its own files
+	// (projectModule). It is "" for any other call.
+	Binder string
+	// Allowed is the list the call is held to. For a Go binding, the
+	// modules that list lets bind Go: the program's `go`, with
+	// `go_in_tests` when the roots are tests, or the module's own `go`.
+	// Otherwise the std names it holds: the module's own `std`, the
+	// project's entry for it, or the program's `std`, with `std_in_tests`
+	// when the roots are tests.
 	Allowed []string
+	// EntryDenies reports, for a call over a module's own list, that the
+	// project's entry for the module does not allow it either.
+	EntryDenies bool
 	// ProgramDenies reports, for a call over a module's list, that the
 	// program's list does not allow it either.
 	ProgramDenies bool
 	// Host reports that the list is the one the host holds the program to
-	// (WithCapabilities), not nomi.toml's.
+	// (WithCapabilities, WithGo), not nomi.toml's.
 	Host bool
+	// Tests reports that the call is reached from test cases, so the
+	// program's list holds std_in_tests or go_in_tests too.
+	Tests bool
 }
 
 // OutsideCallsNotAllowed is every outside call the program reaches from the
-// roots r names (OutsideCalls) that lists does not allow, in the order
-// OutsideCalls answers them. Two rules hold each call:
+// roots r names (OutsideCalls) that lists, with the program's dependencies'
+// own lists, does not allow, in the order OutsideCalls answers them. Three
+// rules hold each call:
 //
-//   - the program's: its name is in Allow, with AllowInTests when r names
-//     tests, whichever module's file holds the call;
-//   - a module's: a call in the files of a module with an entry under
-//     Modules is in that entry. A module with none is held by the
-//     program's rule alone.
+//   - the program's, whichever module's file holds the call: a Go binding's
+//     module is in Go, with GoInTests when r names tests; any other call's
+//     name is in Std, with StdInTests when r names tests;
+//   - the project's for a module: a call other than a Go binding, in the
+//     files of a module with an entry under Modules, is in that entry. The
+//     project's own files are the module named by its own module path
+//     (projectModule), and only when r names no tests: test cases are
+//     held by Std and StdInTests, since the entry describes the code the
+//     project ships;
+//   - the module's own, for a module whose own nomi.toml has a
+//     [capabilities] table: a call other than a Go binding is in that
+//     table's entry for the module itself, or in its std when it has no
+//     such entry, and a Go binding needs its go to list the module
+//     itself. The rest of the table is for its own builds.
 //
-// A call over both lists is reported once, over the module's, with
-// ProgramDenies set. Nil lists allow everything.
+// A module with neither list is held by the program's rule alone. A call
+// over more than one list is reported once: over the module's own list
+// first, then over the project's entry for it, with EntryDenies and
+// ProgramDenies saying which others it is over. Nil lists allow
+// everything, the dependencies' own included.
 func (p *Program) OutsideCallsNotAllowed(r Roots, lists *Capabilities) []NotAllowed {
 	if lists == nil {
 		return nil
 	}
-	return notAllowedBy(p.OutsideCalls(r), r.Tests != nil, lists)
+	calls := p.OutsideCalls(r)
+	return notAllowedBy(calls, r.Tests != nil, lists, p.declaredLists(calls), p.projectModule())
 }
 
 // notAllowedBy is each of calls, reached from tests when tests is set, that
-// lists does not allow, by OutsideCallsNotAllowed's rules.
-func notAllowedBy(calls []OutsideCall, tests bool, lists *Capabilities) []NotAllowed {
+// lists and declared do not allow, by OutsideCallsNotAllowed's rules: the
+// one rule that holds a call to a list (capability.Allows), for every
+// list. declared is each module's own table, by its Go module path
+// (declaredLists); nil holds no module to a table of its own. project is
+// the project's module path, which the program's own Go bindings are
+// charged to and its own entry under [capabilities.modules] is keyed by.
+func notAllowedBy(calls []OutsideCall, tests bool, lists *Capabilities, declared map[string]*Capabilities, project string) []NotAllowed {
 	if lists == nil {
 		return nil
 	}
-	program := lists.Allow
+	std, goModules := lists.Std, lists.Go
 	if tests {
-		program = append(slices.Clone(lists.Allow), lists.AllowInTests...)
+		std = append(slices.Clone(lists.Std), lists.StdInTests...)
+		goModules = append(slices.Clone(lists.Go), lists.GoInTests...)
 	}
 	var out []NotAllowed
 	for _, c := range calls {
-		programDenies := !slices.Contains(program, c.Name)
-		if own, held := lists.Modules[c.Module]; held && c.Module != "" && !slices.Contains(own, c.Name) {
-			out = append(out, NotAllowed{OutsideCall: c, Over: c.Module, Allowed: own, ProgramDenies: programDenies})
-			continue
+		binder := ""
+		if capability.BindsGo(c.Name) {
+			binder = cmp.Or(c.Module, project)
 		}
-		if programDenies {
-			out = append(out, NotAllowed{OutsideCall: c, Allowed: program})
+		programDenies := !capability.Allows(std, goModules, c.Name, binder)
+		// An entry under [capabilities.modules] holds std names; Go is
+		// held by `go` alone. The project's own files are held by the
+		// entry keyed by its module path, except in calls the tests
+		// reach, which std and std_in_tests alone hold.
+		module := c.Module
+		if module == "" && !tests {
+			module = project
+		}
+		entry, hasEntry := lists.Modules[module]
+		entryDenies := module != "" && hasEntry && binder == "" && !capability.Allows(entry, nil, c.Name, binder)
+		own, hasOwn := declared[c.Module]
+		program := std
+		if binder != "" {
+			program = goModules
+		}
+		// A module's own table declares its own code by the entry keyed
+		// by its own path, as the project's does; with no such entry its
+		// std stands for it, which is the ceiling of its own builds and
+		// so no narrower than its own code.
+		var ownStd []string
+		ownEntry := false
+		if hasOwn {
+			if ownStd, ownEntry = own.Modules[c.Module]; !ownEntry {
+				ownStd = own.Std
+			}
+		}
+		switch {
+		case c.Module != "" && hasOwn && !capability.Allows(ownStd, own.Go, c.Name, binder):
+			allowed := ownStd
+			if binder != "" {
+				allowed = own.Go
+			}
+			out = append(out, NotAllowed{OutsideCall: c, Over: c.Module, Declared: true, DeclaredEntry: ownEntry && binder == "", Binder: binder, Allowed: allowed, EntryDenies: entryDenies, ProgramDenies: programDenies, Tests: tests})
+		case entryDenies:
+			out = append(out, NotAllowed{OutsideCall: c, Over: module, Allowed: entry, ProgramDenies: programDenies, Tests: tests})
+		case programDenies:
+			out = append(out, NotAllowed{OutsideCall: c, Binder: binder, Allowed: program, Tests: tests})
 		}
 	}
 	return out
 }
 
-// outsideName is the name of an outside call: `std::` and its std module,
-// or for a crossing no std module declares, `go:` and the Go import path
-// its declaration's `gopkg` names, read from the declaring file. A crossing
-// whose declaration binds no Go package is an embedder's host function,
-// `host:` and its key.
+// Walk is the outside calls one walk over a program reaches
+// (OutsideCalls): from main, the boot and the exported functions, or, with
+// Tests, from the test cases.
+type Walk struct {
+	Tests bool
+	Calls []OutsideCall
+}
+
+// tightestLists is the smallest [capabilities] table under which
+// notAllowedBy allows every call walks reach, beside no module's own
+// table: removing any one name from it refuses a call. Std holds each
+// name a walk from main reaches, and Go each module whose files bind Go
+// there; StdInTests and GoInTests hold what only the tests reach. Modules
+// has an entry for each of modules, the module paths a key may name (the
+// project's own, project, among them), holding the std names that
+// module's files reach: a dependency's from every walk, and the project's
+// from the walks from main, since std and std_in_tests alone hold its
+// tests. A module not among modules gets no entry.
+func tightestLists(walks []Walk, project string, modules []string) *Capabilities {
+	out := &Capabilities{Modules: map[string][]string{}}
+	for _, m := range modules {
+		out.Modules[m] = []string{}
+	}
+	add := func(list *[]string, name string) {
+		if !slices.Contains(*list, name) {
+			*list = append(*list, name)
+		}
+	}
+	for _, w := range walks {
+		for _, c := range w.Calls {
+			module := cmp.Or(c.Module, project)
+			if capability.BindsGo(c.Name) {
+				if w.Tests {
+					add(&out.GoInTests, module)
+				} else {
+					add(&out.Go, module)
+				}
+				continue
+			}
+			if w.Tests {
+				add(&out.StdInTests, c.Name)
+			} else {
+				add(&out.Std, c.Name)
+			}
+			if entry, ok := out.Modules[module]; ok && (c.Module != "" || !w.Tests) {
+				add(&entry, c.Name)
+				out.Modules[module] = entry
+			}
+		}
+	}
+	out.StdInTests = slices.DeleteFunc(out.StdInTests, func(n string) bool { return slices.Contains(out.Std, n) })
+	out.GoInTests = slices.DeleteFunc(out.GoInTests, func(m string) bool { return slices.Contains(out.Go, m) })
+	for _, list := range [][]string{out.Std, out.StdInTests, out.Go, out.GoInTests} {
+		slices.Sort(list)
+	}
+	for _, entry := range out.Modules {
+		slices.Sort(entry)
+	}
+	return out
+}
+
+// declaredLists is the own [capabilities] table of each module whose files
+// hold one of calls and whose own nomi.toml has one, by its Go module path
+// (moduleAt).
+func (p *Program) declaredLists(calls []OutsideCall) map[string]*Capabilities {
+	out := map[string]*Capabilities{}
+	for _, c := range calls {
+		if _, done := out[c.Module]; done || c.Module == "" {
+			continue
+		}
+		if m := p.moduleAt(c.at.File()); m != nil && m.declares() {
+			out[c.Module] = m.manifest.Capabilities
+		}
+	}
+	return out
+}
+
+// outsideName is the name of an outside call (capability.Name): `std::`
+// and its std module, or for a crossing no std module declares, `go:` and
+// the Go import path its declaration's `gopkg` names, read from the
+// declaring file. A crossing whose declaration binds no Go package is an
+// embedder's host function, `host:` and its key.
 func (p *Program) outsideName(c vm.OutsideCall) string {
-	if c.Std != "" {
-		return "std::" + c.Std
+	goPath := ""
+	if c.Std == "" {
+		goPath, _ = ffirun.BindingImportPath(p.fileNodes(c.At.File()), c.At.Line())
 	}
-	if path, ok := ffirun.BindingImportPath(p.fileNodes(c.At.File()), c.At.Line()); ok {
-		return "go:" + path
-	}
-	return "host:" + hostadapt.DisplayName(c.Crossing)
+	return capability.Name(c.Std, goPath, hostadapt.DisplayName(c.Crossing))
 }
 
 // fileNodes is the parsed file at path: the program's own nodes for it when
@@ -572,28 +753,115 @@ func (p *Program) fileNodes(path string) []ast.Node {
 
 // moduleOf is the module whose file path is: "" for the program's own
 // files (an in-memory one among them) and the standard library's, else the
-// dependency whose nomi.toml is the nearest one above it, by its Go module
-// path from the project's go.mod (modcache), or by its `[module].name` when
-// go.mod does not list its directory.
+// Go module path of the dependency moduleAt finds.
 func (p *Program) moduleOf(path string) string {
+	if m := p.moduleAt(path); m != nil {
+		return m.path
+	}
+	return ""
+}
+
+// projectModule is the module path the project's own files are charged to
+// for a Go binding, the name the project's `go` and WithGo list it by: its
+// go.mod's module path; without one, its nomi.toml's `[module].name`; with
+// neither, its entry's module name, which is the name LoadSource is given
+// (`LoadSource("rule", ...)` is `rule`) and a lone file's name without
+// `.nomi`.
+func (p *Program) projectModule() string {
+	p.projectOnce.Do(func() {
+		if p.prog.Root != "" {
+			if data, err := os.ReadFile(filepath.Join(p.prog.Root, "go.mod")); err == nil {
+				if path := modfile.ModulePath(data); path != "" {
+					p.project = path
+					return
+				}
+			}
+		}
+		if m := programManifest(p.prog.Root, p.cfg.manifest); m != nil && m.Name != "" {
+			p.project = m.Name
+			return
+		}
+		p.project = p.prog.Entry().Name
+	})
+	return p.project
+}
+
+// requiredModule is a module other than the project whose files a program
+// holds: a dependency.
+type requiredModule struct {
+	// path is its Go module path from the project's go.mod (modcache), or
+	// its `[module].name` when go.mod does not list its directory, or its
+	// directory when it has neither.
+	path string
+	// root is its directory, the one holding its nomi.toml.
+	root string
+	// manifest is its nomi.toml, nil when it cannot be read (the front
+	// end reports that).
+	manifest *analysis.Manifest
+}
+
+// declares reports whether m's own nomi.toml has a [capabilities] table,
+// which declares m's own code: by the entry keyed by m's path under its
+// [capabilities.modules], or by its std when it has none, and by its go,
+// which lists m when m binds Go.
+func (m *requiredModule) declares() bool {
+	return m.manifest != nil && m.manifest.Capabilities != nil
+}
+
+// moduleAt is the dependency the file at path is in, the one whose
+// nomi.toml is the nearest above it, or nil for the program's own files (an
+// in-memory one among them) and the standard library's. Each dependency is
+// worked out once.
+func (p *Program) moduleAt(path string) *requiredModule {
 	if _, isStd := std.ImageName(path); isStd || !filepath.IsAbs(path) {
-		return ""
+		return nil
 	}
 	root, ok := manifestDirAbove(filepath.Dir(path))
 	if !ok || p.prog.Root == "" || sameDir(root, p.prog.Root) {
-		return ""
+		return nil
+	}
+	p.modulesMu.Lock()
+	defer p.modulesMu.Unlock()
+	if m, done := p.modules[root]; done {
+		return m
+	}
+	m := &requiredModule{path: root, root: root}
+	m.manifest, _ = analysis.LoadManifest(root)
+	if m.manifest != nil {
+		m.path = m.manifest.Name
 	}
 	if g, err := modcache.Load(p.prog.Root); err == nil && g != nil {
 		for _, d := range g.Deps {
 			if d.Dir != "" && sameDir(d.Dir, root) {
-				return d.Path
+				m.path = d.Path
+				break
 			}
 		}
 	}
-	if m, err := analysis.LoadManifest(root); err == nil {
-		return m.Name
+	if p.modules == nil {
+		p.modules = map[string]*requiredModule{}
 	}
-	return root
+	p.modules[root] = m
+	return m
+}
+
+// requiredModules is each module other than the project whose Nomi files
+// the program holds, by its Go module path: the modules the program's
+// code comes from, whether or not the program reaches their code. A
+// program reopened from the artifact cache holds only its entry, and so
+// none; a program is kept only when its lists pass, and the record names
+// each dependency's tree, its nomi.toml among them.
+func (p *Program) requiredModules() []*requiredModule {
+	seen := map[*requiredModule]bool{}
+	var out []*requiredModule
+	for _, file := range p.prog.Modules {
+		if m := p.moduleAt(file.Path); m != nil && !seen[m] {
+			seen[m] = true
+			out = append(out, m)
+		}
+	}
+	slices.SortFunc(out, func(a, b *requiredModule) int { return strings.Compare(a.path, b.path) })
+	return out
 }
 
 // sameDir reports whether a and b are one directory.

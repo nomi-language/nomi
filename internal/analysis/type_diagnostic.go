@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 )
 
@@ -37,8 +38,31 @@ func typeErrorf(format string, args ...any) error {
 
 // typef is fmt.Sprintf with same-name nominal types disambiguated and the
 // entry file spelled by its own name (`main.Ordering`) when the checker
-// knows it.
+// knows it. An interface beside a type that is required to implement it
+// (`expected Show, got User`) is named as the missing-impl message names
+// it (shownInterfaceFor): `b.Show` where User implements another Show.
 func (c *checker) typef(format string, args ...any) string {
+	var recv Type
+	for _, a := range args {
+		if t, ok := a.(Type); ok && !isNilType(t) {
+			if _, iface := resolveTypeVar(t).(*InterfaceType); !iface {
+				if _, ok := nominalOrigin(resolveTypeVar(t)); ok {
+					recv = t
+					break
+				}
+			}
+		}
+	}
+	if recv != nil {
+		args = slices.Clone(args)
+		for i, a := range args {
+			if it, ok := a.(*InterfaceType); ok && it != nil {
+				if shown := c.shownInterfaceFor(recv, it, true); shown != it.String() {
+					args[i] = shown
+				}
+			}
+		}
+	}
 	return sprintTypes(c.entryName(), format, args)
 }
 

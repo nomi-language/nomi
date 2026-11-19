@@ -131,7 +131,7 @@ func BodySummary(fa *FileAnalysis, nodes []ast.Node) [32]byte {
 		for _, t := range types {
 			kinds := map[string]bool{}
 			for _, r := range fa.ImplManifest[iface][t] {
-				kinds[fmt.Sprintf("%d %s %s %t", r.Kind, r.Op, r.TypeOrigin, r.Derive != nil)] = true
+				kinds[fmt.Sprintf("%d %s %s %s %t", r.Kind, r.Op, r.TypeOrigin, r.IfaceOrigin, r.Derive != nil)] = true
 			}
 			list := make([]string, 0, len(kinds))
 			for k := range kinds {

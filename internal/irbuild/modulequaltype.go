@@ -142,22 +142,17 @@ func (g *gen) moduleQualifiedIface(t *ast.QualifiedType) (*ifaceDef, bool) {
 // qualifiedModuleIface is qualifiedStdIface for a program module's
 // interface an impl header names through its qualifier (`impl other.Shape
 // for Sq`), read through the qualifier's scope so a file's own interface
-// of the same name does not shadow it. key is the name its impls are
-// filed under in implsByIface (implsKey).
-func (g *gen) qualifiedModuleIface(te ast.TypeExpr) (def *ifaceDef, key string, ok bool) {
+// of the same name does not shadow it.
+func (g *gen) qualifiedModuleIface(te ast.TypeExpr) (*ifaceDef, bool) {
 	qt, isQualified := te.(*ast.QualifiedType)
 	if !isQualified {
-		return nil, "", false
+		return nil, false
 	}
 	qualifier, name, named := qualifiedTypeParts(qt)
 	if !named || ast.IsPublic(qualifier) {
-		return nil, "", false
+		return nil, false
 	}
-	def, ok = g.moduleQualifiedIfaceNamed(qualifier, name)
-	if !ok {
-		return nil, "", false
-	}
-	return def, g.implsKey(def), true
+	return g.moduleQualifiedIfaceNamed(qualifier, name)
 }
 
 // moduleQualifiedIfaceOwner reports whether n, the owner of a reference
@@ -172,30 +167,111 @@ func (bl *irScalarBuilder) moduleQualifiedIfaceOwner(n ast.Node) bool {
 	if !isIdent {
 		return false
 	}
-	if _, local := bl.bound[q.Name]; local || irQualIsLocal(bl, q.Name) {
+	if bl.namesLocal(q) {
 		return false
 	}
 	_, ok := bl.g.moduleQualifiedIfaceNamed(q.Name, fa.Field.Name)
 	return ok
 }
 
-// implsKey is the name the impls of d are filed under in implsByIface and
-// instImpls: its bare name, or for a sibling file's interface whose bare
-// name reaches another interface in this file (`other.Shape` beside a
-// `Shape` of this file's own), the declaring file's key and the name, so
-// the two interfaces' impls for one type do not collide, as stdIfaceKey
-// keeps a std interface's apart.
+// ifaceKey is the key the impls of the interface the file whose analyzer
+// origin is origin declares as name are filed under in implsByIface and
+// instImpls, and the one every lookup of them reads: the interface's
+// identity, (declaring file, name). It is the same in every gen, so two
+// interfaces of one name (two files' `Show`, a file's own `ToJson` and
+// std's) are two keys, and a gen reads another gen's impls under the key
+// that gen files them under. Every key comes from here: implsKey for a def
+// this gen holds, stdIfaceImplKey for a std interface the builder names,
+// implIfaceKey for an impl block's header.
+func ifaceKey(origin, name string) string {
+	return origin + "." + name
+}
+
+// implsKey is ifaceKey for d, this gen's def of an interface: a local
+// declaration, a sibling file's mirror, a std module's interface or an
+// instance of any of them, which shares its template's key.
 func (g *gen) implsKey(d *ifaceDef) string {
 	if d == nil {
 		return ""
 	}
-	if d.foreign == "" || d.stdOrigin != "" || d.stdShared {
-		return d.nomi
+	return ifaceKey(g.ifaceOrigin(d), d.nomi)
+}
+
+// ifaceOrigin is the analyzer origin of the file that declares d.
+func (g *gen) ifaceOrigin(d *ifaceDef) string {
+	switch {
+	case d.universal:
+		return structIfaceModule
+	case d.foreign != "":
+		return d.foreign
 	}
-	if bare, found := g.ifaceNamed(d.nomi); found && bare != d {
-		return stdIfaceKey(d.foreign, d.nomi)
+	if std := g.stdIfaceType(d); !std.IsZero() {
+		return std.Module
 	}
-	return d.nomi
+	if g.fa == nil {
+		return analysis.OriginUnresolved
+	}
+	return g.fa.Origin
+}
+
+// stdIfaceImplKey is ifaceKey for std interface iface.
+func stdIfaceImplKey(iface analysis.StdType) string {
+	return ifaceKey(iface.Module, iface.Name)
+}
+
+// implIfaceKey is the key impl block d, whose header is te and names name,
+// is filed under (ifaceKey): its interface's def's, or, for an interface
+// the builder holds no def of (std's generic `Iter` in a std module), the
+// one the checker binds the header to. A derived Debug in a std module
+// that imports no `Debug` is std's by construction, as resolveImplDef says.
+func (g *gen) implIfaceKey(d *implDef, te ast.TypeExpr, name string) string {
+	for _, def := range []*ifaceDef{d.iface, d.stdIface} {
+		if def != nil {
+			return g.implsKey(def)
+		}
+	}
+	if it := g.headerIface(te); it != nil {
+		return ifaceKey(it.Origin, it.Name)
+	}
+	if d.synth && name == "Debug" {
+		return g.implsKey(g.stdDebugDef())
+	}
+	return ifaceKey(analysis.OriginUnresolved, name)
+}
+
+// headerIface is the interface te, an impl header or a call's owner, names
+// in this file, or nil: the declaration the checker resolved it to, or for
+// one the front end or the builder wrote (a `derive`'s header), whose
+// position holds no reference to an interface, the declaration its name
+// has in this file's scope, through its qualifier's when it has one.
+func (g *gen) headerIface(te ast.TypeExpr) *analysis.InterfaceType {
+	if g.fa == nil || te == nil {
+		return nil
+	}
+	scope := g.fa.ModuleScope
+	if q, qualified := te.(*ast.QualifiedType); qualified {
+		scope = scopeOfRef(g.fa, refAt(g.fa, &ast.Ident{Line: q.ModuleLine, Col: q.ModuleCol}), q.Module)
+		te = q.Member
+	}
+	var name string
+	var line, col int
+	switch h := te.(type) {
+	case *ast.SimpleType:
+		name, line, col = h.Name, h.Line, h.Col
+	case *ast.GenericType:
+		name, line, col = h.Name, h.Line, h.Col
+	default:
+		return nil
+	}
+	sym := resolveSymbol(g.fa.References[analysis.Pos{Line: line, Col: col}])
+	if sym == nil || sym.Kind != analysis.SymbolInterface {
+		sym = resolvedScopeSymbol(scope, name)
+	}
+	if sym == nil {
+		return nil
+	}
+	it, _ := sym.Type.(*analysis.InterfaceType)
+	return it
 }
 
 // moduleQualifiedIfaceNamed is moduleQualifiedIface reached from the two

@@ -43,16 +43,7 @@ func expectNoErrorsT(t *testing.T, errs []analysis.TypeError) {
 
 func expectErrorT(t *testing.T, errs []analysis.TypeError, substr string) {
 	t.Helper()
-	for _, e := range errs {
-		if strings.Contains(diagText(e), substr) {
-			return
-		}
-	}
-	msgs := make([]string, len(errs))
-	for i, e := range errs {
-		msgs[i] = e.Error()
-	}
-	t.Fatalf("expected error containing %q, got %d errors:\n  %s", substr, len(errs), strings.Join(msgs, "\n  "))
+	expectErrorContaining(t, errs, substr)
 }
 
 func TestChecker_RejectShadowingPrelude_Typealias(t *testing.T) {

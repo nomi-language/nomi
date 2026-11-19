@@ -49,9 +49,9 @@ func wantImplOf(t *testing.T, what string, c analysis.Callee, recv string) *ast.
 }
 
 // A membership test `x in c` is the call `Contains.contains(c, x)`, and its
-// record is that call's: on a known collection, Contains's impl for it,
-// for the collection's type; in a generic body, the interface's function
-// for the collection's type, which an instance resolves to the impl.
+// record is that call's: Contains's impl for the collection's type, in a
+// generic body too (`List<T>`, as `Display.to_string(xs)` there records
+// List's Display impl), which an instance reads at its own types.
 func TestCallee_MembershipIsACallOfContains(t *testing.T) {
 	fa, errs := checkEntry(t, `fn has(xs: List<Int>) -> Bool
     3 in xs
@@ -74,7 +74,7 @@ end
 	}
 	byLine := callsByLine(fa)
 	in, written := byLine[2], byLine[6]
-	b := wantImplOf(t, "3 in xs", in, "List<T>")
+	wantImplOf(t, "3 in xs", in, "List<T>")
 	if in.Decl != written.Decl || in.Impl != written.Impl || in.For.String() != written.For.String() {
 		t.Errorf("`3 in xs` records %+v, want the record of Contains.contains(xs, 3): %+v", in, written)
 	}
@@ -82,15 +82,14 @@ end
 		t.Errorf("`3 in xs`: qualifier %+v method %q, want Contains.contains", in.Qualifier, in.Method)
 	}
 	generic := byLine[10]
-	if generic.Kind != analysis.CalleeInterface || generic.Impl != nil || generic.For == nil {
-		t.Fatalf("`x in xs` in a generic body: %+v, want Contains's function for the collection's type", generic)
+	if generic.Kind != analysis.CalleeImpl || generic.Impl != in.Impl || generic.For == nil {
+		t.Fatalf("`x in xs` in a generic body: %+v, want Contains's impl for the collection's type", generic)
 	}
 	if got := generic.For.String(); got != "List<T>" {
 		t.Errorf("`x in xs` in a generic body: For %s, want List<T>", got)
 	}
-	at := atTypeArgs(fa, generic, byLine[14])
-	if wantImplOf(t, "`x in xs` at T = Int", at, "List<T>") != b {
-		t.Errorf("`x in xs` at T = Int reaches another block than `3 in xs`")
+	if at := atTypeArgs(fa, generic, byLine[14]); at.Impl != in.Impl {
+		t.Errorf("`x in xs` at T = Int reaches another function than `3 in xs`")
 	}
 }
 

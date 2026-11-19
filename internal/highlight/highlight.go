@@ -61,7 +61,6 @@ func AnalyzeNodes(code string, lib *std.StdLib) (*analysis.FileAnalysis, []ast.N
 	}
 	nodes, _ := parser.ParseWithRecovery(lexer.Lex(code))
 	nodes, _ = analysis.LowerDerives(nodes)
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 	fa, _, _ := analysis.BuildProjectWithCache(nodes, lib.Primitives, lib.Modules, lib.Files, "", nil)
 	if fa == nil {

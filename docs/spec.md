@@ -2960,6 +2960,14 @@ each declare a `Point`, and the two are different types. A struct, an enum
 and a distinct type are each distinct from every other type, their
 representation included.
 
+An interface's identity is its declaring file and its name too. Two files
+may each declare a `Show`, and an impl of one is no impl of the other. With
+only `impl a.Show for User`, the call `b.Show.show(u)` is the error
+``no impl of `b.Show` for `User` (required via call site)``, and a bound
+`where T: b.Show` or a value `s: b.Show = u` is rejected the same way. A
+call, a bound and a value find only impls of the interface they name,
+however the program spells it.
+
 A tuple type and an anonymous struct type are structural: two of the same
 shape are one type (§4 *Built-in Types*). A function type is structural. A
 `typealias` is another spelling of its target and adds no type (§4 *Type
@@ -3858,7 +3866,18 @@ lambda does, and takes no `pub`. A nested type's name is a type in every
 annotation of that block. An `impl` or a `derive` may not stand in a body:
 ``an `impl` block must appear at module top-level, not inside a body``, and
 ``a `derive` declaration must appear at module top-level, not inside a body``.
-Nor may a subtype or a validated type (§4 *Validated types*).
+Nor may a subtype or a validated type (§4 *Validated types*). So a nested
+type has no impl, and a use that needs one (`a + b`, `a < b`, `"${a}"`) is
+an error whose help says to declare the type at module level, even when a
+std type of its name has the impl. In the same way an interface declared
+in a body has no impl, since no impl header can name it: a call of its
+function, a bound of it or a value of it is an error whose help says to
+declare the interface at module level, even when a top-level interface of
+its name has an impl for the type. A nested type may share a top-level
+type's name and is then its own type, but it may not take a name the
+prelude binds (§14 *Prelude*), as a top-level declaration may not:
+``type name 'String' is reserved by the language and cannot be redeclared
+as a struct; pick a different name (e.g. `struct MyString`)``.
 
 ### Parameters
 
@@ -7278,7 +7297,11 @@ contract. Every item is a function.
 `self` in an item's signature stands for the implementing type. It is a type,
 valid only in an interface's signatures: not a value, not an implicit
 parameter, not a qualifier. Every `self` in one signature denotes the same
-type for a given impl.
+type for a given impl. At a call, every `self` in the signature is the type
+the call is for, in a generic interface as in any other: with `impl
+Scale<Int> for Money` and `m: Money`, `Scale.scale(m, 2)` for `fn
+scale(value: self, by: N) -> self` is a `Money`, and `N` is `Int`, the
+impl's argument (*Generic interfaces*).
 
 ```nomi
 interface Display
@@ -7679,7 +7702,10 @@ end
   impls are, a third file included, and for defaults the type inherits as for
   functions its impls write: two interfaces that each give `Dog` a default
   `speak` make `Dog.speak(rex)` ambiguous, whether or not the calling file
-  imports either.
+  imports either. Two interfaces of one name declared by two files are two
+  interfaces, and the error names each through its file: `type 'User' impl
+  'a.Show' and 'b.Show', which each declare 'show'`, qualified by interface as
+  `a.Show.show(u)`.
 - A type's own function may not share a name with a function its interface
   impls write, in any file or order, since Nomi does not overload. Beside `impl
   Multiply<Int, Box> for Box`, an inherent `fn multiply` is the error ``
@@ -8342,12 +8368,57 @@ end
   interface `api.nomi` already implements for the type, `Debug` included,
   is the error `` duplicate impl: `FromJson` for `TodoJson` is derived here
   and implemented in `api` ``.
-- **Scope.** The interface name resolves through ordinary scope: it counts as a
-  use, and a name not in scope is an error with the import to add: ``
-  `ToJson` is not in scope — import `std::json.ToJson` ``. Names in `with`
-  options are uses too. `Debug` needs no import. Names only the synthesized
-  code uses (`Ordering`, `True`, the recursive calls, `Map.get` in `derive
-  FromJson`) need none.
+- **Scope.** The interface name resolves through ordinary scope, as an
+  `impl` header's does: bare (`derive ToJson for User`) or through its
+  module (`derive json.ToJson for User`). It counts as a use, and a name not
+  in scope is an error with the import to add: `` `ToJson` is not in scope —
+  import `std::json.ToJson` ``, or `` `json.ToJson` is not in scope — import
+  `std::json` ``. Names in `with` options are uses too, spelled as the
+  interface is (`json.ToJson.Options{...}`). `Debug` needs no import. Names
+  only the synthesized code uses (`Ordering`, `True`, the recursive calls,
+  `Map.get` in `derive FromJson`) need none, and mean std's whatever the
+  file binds.
+- **Identity.** A derive names its interface by identity: the name must
+  resolve to the std interface of that name in the table below. A file
+  that declares its own `interface ToJson` and writes `derive ToJson for
+  User` names its own interface, which is the error `` `derive ToJson for
+  User`: `ToJson` here is the interface this file declares, and derive
+  writes only std's `ToJson` (`std::json`); to derive std's, write `derive
+  json.ToJson for User` with `import std::json` ``. Through its module, the
+  derive writes std's impl beside the file's own interface, and an impl of
+  that interface for the type is a second interface's impl, not a conflict:
+
+```nomi
+import std::json
+
+interface ToJson
+    fn to_json(value: self) -> String
+end
+
+struct User
+    name: String
+end
+
+impl ToJson for User
+    fn to_json(value: User) -> String
+        "user ${value.name}"
+    end
+end
+
+derive json.ToJson for User
+
+fn main()
+    u = User{name: "ann"}
+    dbg ToJson.to_json(u)      // "user ann"
+    dbg json.Json.encode_as(u) // "{\"name\":\"ann\"}"
+end
+```
+
+A name no derivable interface has is the error `` `derive Assertable for
+User`: `Assertable` is not an interface derive can write; derive writes
+Equatable, Hashable, Comparable, Debug, Display, ToJson, FromJson,
+Variants ``.
+
 - **Fields.** Each field's type must implement the interface, checked at the
   derive: ``no impl of `Display` for `User` (required via `derive Display
   for Wrapper`, field `id`)``, with the help to derive or implement it on
@@ -8369,9 +8440,11 @@ end
   -> Int` (required via `derive Equatable for W`, field `f`)``, with the help
   to write an impl that leaves the field out.
 - **With a hand-written impl.** A derive beside an impl of the same interface
-  for the same type is the error `` `derive Equatable for P` conflicts with a
+  for the same type, whichever spelling each names it by (`ToJson`,
+  `json.ToJson`), is the error `` `derive Equatable for P` conflicts with a
   hand-written `impl Equatable for P` block — a derived impl is
-  synthesized whole, so it cannot coexist with a manual impl; drop one ``.
+  synthesized whole, so it cannot coexist with a manual impl; drop one ``,
+  reported at the hand-written impl.
 - **Options.** Only the per-declaration `with` options. There is no per-field
   exclude or rename, and no user-defined derive.
 - **Visibility.** A derived impl's functions have the interface's visibility,
@@ -8381,16 +8454,16 @@ end
 
 #### Derivable interfaces
 
-| Interface | Synthesized impl |
-|---|---|
-| `Equatable` | Field by field with `==`, stopping at the first difference. Enum values are equal when the variants match and then the payloads. |
-| `Hashable` | `Hashable.hash(f0) * 31 + Hashable.hash(f1)`, folded left over the fields with wrapping arithmetic. An enum mixes its variant's declaration index ahead of the payload. |
-| `Comparable` | Lexicographic in field declaration order. An earlier-declared variant is less than a later one, and ties compare the payloads. |
-| `Debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
-| `Display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
-| `ToJson` | Fields as object keys, each written as its type's `ToJson.to_json_field` answers: `Some(json)` writes the key, `None` leaves it out. The default is `Some(to_json(v))`, so a `None` field is `null`; `Presence<T>`'s leaves an `Absent` field out. A distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
-| `FromJson` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Maybe<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
-| `Variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
+| Interface | Declared in | Synthesized impl |
+|---|---|---|
+| `Equatable` | `std::equatable` | Field by field with `==`, stopping at the first difference. Enum values are equal when the variants match and then the payloads. |
+| `Hashable` | `std::hashable` | `Hashable.hash(f0) * 31 + Hashable.hash(f1)`, folded left over the fields with wrapping arithmetic. An enum mixes its variant's declaration index ahead of the payload. |
+| `Comparable` | `std::comparable` | Lexicographic in field declaration order. An earlier-declared variant is less than a later one, and ties compare the payloads. |
+| `Debug` | `std::debug` | The literal shape: `Point{x: 3, y: 4}`, `Circle(5.0)` (the variant, with no enum prefix). |
+| `Display` | `std::display` | `Debug`'s shape with nested strings unquoted: `C{name: bob}` where `Debug` gives `C{name: "bob"}`. |
+| `ToJson` | `std::json` | Fields as object keys, each written as its type's `ToJson.to_json_field` answers: `Some(json)` writes the key, `None` leaves it out. The default is `Some(to_json(v))`, so a `None` field is `null`; `Presence<T>`'s leaves an `Absent` field out. A distinct type through its inner value; a bare variant as its name, a payload variant as an object keyed by its name. `ToJson.Options{rename_all: ...}` sets the key case. |
+| `FromJson` | `std::json` | The inverse of derived `ToJson`. A missing key reads as its field type's `FromJson.from_missing()`: `Some(v)` is the field's value, as `Maybe<T>`'s `None` and `Presence<T>`'s `Absent` are. The default answers `None`, and then a defaulted field takes its default and any other is the error `title: expected String, got missing`. A mismatch names the variant and field. Every shape error names the Nomi type it expected and the JSON kind it got (`Json.kind`): `title: expected String, got null`, `expected Todo, got array`. `FromJson.Options{rename_all: ...}` sets the key case. |
+| `Variants` | `std::variants` | Only for an enum without type parameters whose variants carry no data. `variants()` lists every variant in declaration order: `Coin.variants() == [Coin.Penny, Coin.Nickel]`. |
 
 - The `Hashable` mix collides easily: `Hashable.hash(Point{x: 0, y: 31}) ==
   Hashable.hash(Point{x: 1, y: 0}) == 31`. It is meant for in-process

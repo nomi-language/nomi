@@ -9,8 +9,8 @@ import (
 
 // A prefix `~~~` over a declared type records the BitwiseNot impl it
 // calls, as a binary operator records its impl; over a type parameter it
-// records the bound each instance resolves, and over an Int (a primitive)
-// nothing.
+// records the bound each instance resolves, and over an Int std's impl,
+// as a binary operator over an Int does.
 func TestOperatorUses_BitwiseNotRecordsItsImpl(t *testing.T) {
 	fa, errs := checkEntry(t, `type Flags Int
 
@@ -49,8 +49,8 @@ end
 	if nots != 3 {
 		t.Fatalf("found %d `~~~` operators, want 3", nots)
 	}
-	if use := got[6]; use != nil {
-		t.Errorf("`~~~x` over an Int has a record (%+v), want none", *use)
+	if use := got[6]; use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil || fa.StdFuncOf(use.Impl.Method).IsZero() {
+		t.Errorf("`~~~x` over an Int records %+v, want std's BitwiseNot impl for Int", use)
 	}
 	use := got[11]
 	var fd *ast.FuncDef

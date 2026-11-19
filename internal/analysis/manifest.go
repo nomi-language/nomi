@@ -10,6 +10,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/cldrfull"
 	"github.com/nomi-language/nomi/internal/stdformat"
 	"github.com/nomi-language/nomi/internal/stdlocale"
@@ -65,25 +66,42 @@ type Manifest struct {
 
 // Capabilities is nomi.toml's [capabilities] table: the outside calls a
 // program, and each module it requires, may reach (vmhost's
-// OutsideCallsNotAllowed). Each name is `std::` and a std module
-// (`std::fs`) or `go:` and a Go import path. The parser checks each name's
-// form; whether a std module has outside functions, a Go package is one a
-// binding names and a module is one the project requires is the program's
-// to answer (vmhost).
+// OutsideCallsNotAllowed). A std list's names are `std::` and a std module
+// as an import writes it (`std::fs`), or `std::startup`; a Go list's are
+// module paths as go.mod writes them, the project's own among them. The
+// parser checks each entry's form; whether a std module has outside
+// functions and a module is the project or one it requires is the
+// program's to answer (vmhost).
 //
-// Only the project's own manifest is read for these lists. A dependency's
-// own [capabilities] table is parsed and ignored when it is built as a
-// dependency: the program decides what it lets a dependency reach.
+// When the project has a [capabilities] table, a dependency's own table
+// holds the dependency too: its entry for itself under Modules, or its
+// Std when it has none, is the list it declares for its own files, beside
+// the project's entry for it, and its Go says whether it
+// binds Go, by listing its own module path. A dependency's Go never
+// grants: the project's Go must list the module. Its StdInTests,
+// GoInTests, Modules, RequireModuleLists and the rest of its Go are for
+// its own builds and are not read when it is a dependency.
 type Capabilities struct {
-	// Allow is what the program may reach, from any module's code.
-	Allow []string
-	// AllowInTests is added to Allow when the roots are test cases.
-	AllowInTests []string
-	// Modules is [capabilities.modules]: for a module the project
-	// requires, by its Go module path as go.mod writes it, what that
-	// module's own files may reach. A module with no entry is held only by
-	// Allow.
+	// Std is what the program may reach, from any module's code, other
+	// than a Go binding. Empty when the table leaves it out.
+	Std []string
+	// StdInTests is added to Std when the roots are test cases.
+	StdInTests []string
+	// Go is the modules whose Nomi code may bind Go, each by its path as
+	// go.mod writes it. Empty when the table leaves it out, which lets no
+	// module bind Go.
+	Go []string
+	// GoInTests is added to Go when the roots are test cases.
+	GoInTests []string
+	// Modules is [capabilities.modules]: for the project itself or a
+	// module it requires, by its Go module path as go.mod writes it, the
+	// std names that module's own files may reach. A module with no entry
+	// is held only by Std and its own table.
 	Modules map[string][]string
+	// RequireModuleLists is require_module_lists: every module the
+	// program's code comes from, other than the project, must have a std
+	// list, an entry under Modules or a [capabilities] table of its own.
+	RequireModuleLists bool
 }
 
 // ToolsDir is the directory under a module's root that holds its tools,
@@ -213,21 +231,30 @@ type manifestFile struct {
 		CustomCurrencies []string `toml:"custom_currencies"`
 	} `toml:"money"`
 	Capabilities *struct {
-		Allow        []string            `toml:"allow"`
-		AllowInTests []string            `toml:"allow_in_tests"`
-		Modules      map[string][]string `toml:"modules"`
-	} `toml:"capabilities"`
+		Std                []string            `toml:"std"`
+		StdInTests         []string            `toml:"std_in_tests"`
+		Go                 []string            `toml:"go"`
+		GoInTests          []string            `toml:"go_in_tests"`
+		Modules            map[string][]string `toml:"modules"`
+		RequireModuleLists bool                `toml:"require_module_lists"`
+	} "toml:\"capabilities\" keys:\"`std` and `std_in_tests` list std modules, `go` and `go_in_tests` the modules whose code may bind Go, and `modules` and `require_module_lists` are about the modules the project requires\""
 }
 
-// capabilityLists checks [capabilities]: each name `std::<module>` or
-// `go:<import path>`, listed once in its list, and each module path under
-// [capabilities.modules] non-empty. A `host:` name is a function an
-// embedding Go program supplies, which a manifest cannot allow.
+// capabilityLists checks [capabilities]: each std list's names
+// `std::<module>` (capability.NameProblem), each Go list's module paths
+// (capability.ModuleProblem), each listed once in its list, and each
+// module path under [capabilities.modules] non-empty. A `go:` name in a
+// std list is an error that says Go is allowed by module, under `go`, and
+// a `host:` name is a function an embedding Go program supplies, which a
+// manifest cannot allow.
 func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabilities, error) {
 	if raw.Capabilities == nil {
 		return nil, nil
 	}
-	check := func(list string, names []string, path ...string) ([]string, error) {
+	stdName := func(name string) string {
+		return capability.NameProblem(name, "Go is allowed by module, not by package: list the module that binds it under `go`")
+	}
+	check := func(problemOf func(string) string, list string, names []string, path ...string) ([]string, error) {
 		seen := map[string]bool{}
 		out := []string{}
 		for _, name := range names {
@@ -235,7 +262,7 @@ func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabi
 			if line := ManifestEntryLine(data, name, path...); line > 0 {
 				at = fmt.Sprintf("%s:%d", sourceLabel, line)
 			}
-			if problem := CapabilityNameProblem(name); problem != "" {
+			if problem := problemOf(name); problem != "" {
 				return nil, fmt.Errorf("%s: [capabilities] %s: %q %s", at, list, name, problem)
 			}
 			if seen[name] {
@@ -246,12 +273,18 @@ func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabi
 		}
 		return out, nil
 	}
-	c := &Capabilities{Modules: map[string][]string{}}
+	c := &Capabilities{Modules: map[string][]string{}, RequireModuleLists: raw.Capabilities.RequireModuleLists}
 	var err error
-	if c.Allow, err = check("allow", raw.Capabilities.Allow, "capabilities", "allow"); err != nil {
+	if c.Std, err = check(stdName, "std", raw.Capabilities.Std, "capabilities", "std"); err != nil {
 		return nil, err
 	}
-	if c.AllowInTests, err = check("allow_in_tests", raw.Capabilities.AllowInTests, "capabilities", "allow_in_tests"); err != nil {
+	if c.StdInTests, err = check(stdName, "std_in_tests", raw.Capabilities.StdInTests, "capabilities", "std_in_tests"); err != nil {
+		return nil, err
+	}
+	if c.Go, err = check(capability.ModuleProblem, "go", raw.Capabilities.Go, "capabilities", "go"); err != nil {
+		return nil, err
+	}
+	if c.GoInTests, err = check(capability.ModuleProblem, "go_in_tests", raw.Capabilities.GoInTests, "capabilities", "go_in_tests"); err != nil {
 		return nil, err
 	}
 	paths := make([]string, 0, len(raw.Capabilities.Modules))
@@ -264,32 +297,11 @@ func capabilityLists(raw manifestFile, data []byte, sourceLabel string) (*Capabi
 		if strings.TrimSpace(path) == "" {
 			return nil, fmt.Errorf("%s: [capabilities.modules] has an empty module path; write a module's path as go.mod requires it", sourceLabel)
 		}
-		if c.Modules[path], err = check("modules \""+path+"\"", names, "capabilities", "modules", path); err != nil {
+		if c.Modules[path], err = check(stdName, "modules \""+path+"\"", names, "capabilities", "modules", path); err != nil {
 			return nil, err
 		}
 	}
 	return c, nil
-}
-
-// CapabilityNameProblem is what is wrong with the form of name as an entry
-// in a [capabilities] list, or "": `std::` and a module, or `go:` and a Go
-// import path.
-func CapabilityNameProblem(name string) string {
-	switch {
-	case strings.HasPrefix(name, "host:"):
-		return "names a function an embedding Go program supplies, which only that program can allow"
-	case strings.HasPrefix(name, "std::"):
-		if rest := strings.TrimPrefix(name, "std::"); rest == "" || strings.ContainsAny(rest, " /.") {
-			return "is not a std module; write one as an import does, such as \"std::fs\""
-		}
-		return ""
-	case strings.HasPrefix(name, "go:"):
-		if rest := strings.TrimPrefix(name, "go:"); rest == "" || strings.ContainsAny(rest, " \\") {
-			return "is not a Go import path; write one as a `gopkg` declaration does, such as \"go:github.com/jackc/pgx/v5\""
-		}
-		return ""
-	}
-	return "is neither a std module (\"std::fs\") nor a Go package (\"go:<import path>\")"
 }
 
 // customCurrencies checks [money].custom_currencies: each entry a custom
@@ -443,7 +455,14 @@ func LoadManifest(dir string) (*Manifest, error) {
 		}
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return parseManifestData(data, path, isStdlibManifestDir(dir), func() []string { return toolTables(dir) })
+	return ParseManifestIn(dir, data)
+}
+
+// ParseManifestIn parses data as the nomi.toml of the directory dir, as
+// LoadManifest parses the file there: a table named for a module the
+// project requires is its tools'.
+func ParseManifestIn(dir string, data []byte) (*Manifest, error) {
+	return parseManifestData(data, filepath.Join(dir, "nomi.toml"), isStdlibManifestDir(dir), func() []string { return toolTables(dir) })
 }
 
 // ParseManifestData parses nomi.toml content from a byte slice and

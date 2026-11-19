@@ -3,17 +3,19 @@ package irbuild
 import "testing"
 
 // irRunSource writes src to a temp entry file, runs it on the VM and fails
-// unless it prints want and exits 0.
-func irRunSource(t *testing.T, src, want string) {
+// unless it prints want and exits 0. It answers the file's path.
+func irRunSource(t *testing.T, src, want string) (path string) {
 	t.Helper()
 	if _, err := AnalyzeSource("entry.nomi", src); err != nil {
 		t.Fatalf("the front end rejects this, so nothing below is tested: %v", err)
 	}
-	got := vmReference(writeTemp(t, src))
+	path = writeTemp(t, src)
+	got := vmReference(path)
 	if got.stdout != want || got.stderr != "" || got.exit != 0 {
 		t.Fatalf("VM run (exit %d):\n--- stdout ---\n%s--- stderr ---\n%s--- want ---\n%s",
 			got.exit, got.stdout, got.stderr, want)
 	}
+	return path
 }
 
 // A generic instantiated at a function type runs: a user generic struct and

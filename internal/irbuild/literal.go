@@ -494,7 +494,7 @@ func (g *gen) genericLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 		if src == nil {
 			src = k.def
 		}
-		if owner, impl := g.instanceImplAnywhere(src, "CheckedLiteral", fd.Name); impl != nil && impl.lowerable && owner != g {
+		if owner, impl := g.instanceImplAnywhere(src, stdIfaceImplKey(stdCheckedLiteral), fd.Name); impl != nil && impl.lowerable && owner != g {
 			it := impl.items[fd.Name]
 			if it == nil || !it.lowerable {
 				return literalTarget{}, false

@@ -1621,7 +1621,7 @@ func (g *gen) compareResolves(at ast.Node, k, ord kind) bool {
 		// serve it; lists.go resolves it from the element kind instead.
 		return g.listOrders(k, at)
 	}
-	if impl := g.implsByIface["Comparable"][k]; impl != nil {
+	if impl := g.implsByIface[stdIfaceImplKey(stdComparable)][k]; impl != nil {
 		if !impl.lowerable {
 			return false
 		}

@@ -111,7 +111,7 @@ type vectorFn struct {
 // how a program spells them: `Vector.equal(a, b)`, `Vector.to_string(v)`,
 // `Vector.inspect(v)`, `Vector.hash(v)`, `Vector.compare(a, b)` — all five appear
 // in `06-collections/vectors_test.nomi`. Reaching them through the impl tables
-// instead would need `implsByIface["Equatable"]` to hold an entry at the
+// instead would need `implsByIface[stdIfaceImplKey(stdEquatable)]` to hold an entry at the
 // Vector's kind, and std's impl is generic so nothing registers one; that is
 // the same split lists.go describes for `List.equal`.
 var vectorFuncs = map[string]vectorFn{

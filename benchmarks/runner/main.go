@@ -132,10 +132,16 @@ func main() {
 		fail(err)
 	}
 	defer os.RemoveAll(work)
+	// fail exits, which skips the deferred removal, so every exit past
+	// this point removes work itself.
+	failAfterWork := func(err error) {
+		os.RemoveAll(work)
+		fail(err)
+	}
 
 	r := &runner{root: root, work: work, runs: *runs, warmup: *warmup, loadBefore: loadAverage()}
 	if err := r.setup(); err != nil {
-		fail(err)
+		failAfterWork(err)
 	}
 
 	var results []result
@@ -162,10 +168,11 @@ func main() {
 		if *out == "-" {
 			fmt.Print(report)
 		} else if err := os.WriteFile(filepath.Join(root, *out), []byte(report), 0o644); err != nil {
-			fail(err)
+			failAfterWork(err)
 		}
 	}
 	if failed {
+		os.RemoveAll(work)
 		os.Exit(1)
 	}
 }

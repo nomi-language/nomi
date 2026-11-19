@@ -476,17 +476,19 @@ func (g *gen) localNamed(t analysis.Type, origin, name string, shape func(*typeD
 		}
 		return named(bd)
 	}
-	if bd, isBlockLocal := g.blockLocalNamed(name); isBlockLocal && (origin == "" || origin == g.fa.Origin) {
+	body := analysis.IsBodyOrigin(origin)
+	if bd, isBlockLocal := g.blockLocalNamed(name); isBlockLocal && (origin == "" || body || origin == g.fa.Origin) {
 		// A type the enclosing block declares, which the checker stamps with
-		// no origin or with this file's. Its identity there is the name, so
-		// a module-level type of the same name would be the same answer to
-		// it: that case declines rather than guess.
+		// its declaration's body origin, or a type this file declares. Its
+		// identity here is the name, so a module-level type of the same
+		// name would be the same answer to it: that case declines rather
+		// than guess.
 		if _, found := g.types[name]; found || !bd.lowerable || !shape(bd) {
 			return kindInvalid
 		}
 		return named(bd)
 	}
-	if origin == "" || g.fa.Origin == "" {
+	if origin == "" || body || g.fa.Origin == "" {
 		return kindInvalid
 	}
 	if origin != g.fa.Origin {

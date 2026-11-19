@@ -46,8 +46,8 @@
 // nomi-vm-reactor-nonet) fails the network crossings with an error, so it
 // links no net/http, crypto/tls, crypto/x509 or net. Leaving the packages
 // out is the only way to drop them, since importing net/http keeps its
-// client transport alive through DefaultTransport; the js/wasm and wasip1
-// runners go from 23.5 to 14.6 MB stripped, darwin's from 12.6 to 7.9 MB.
+// client transport alive through DefaultTransport; the wasip1 reactor
+// goes from 27.9 to 17.9 MB stripped.
 //
 // `go generate ./internal/stdlibadapters` writes the split
 // (internal/hostgen/stdtable/netsplit.go): adapters_gen.go holds every
@@ -119,8 +119,13 @@
 //
 // `nomi build-vm --reactor` copies out nomi-vm-reactor with nothing embedded
 // (image area length zero), so a host compiles it once, instantiates it per
-// script and hands each instance one .nomic through nomi_load. A reactor
-// with an embedded program refuses nomi_load of another. Releases ship the
+// script and hands each instance one .nomic through nomi_load, or
+// nomi_load_with, whose JSON options hold the script to a list of std
+// names and a list of host function keys ("std" and "host",
+// WithCapabilitiesFrom) and bound its boot and calls ("timeout_ms",
+// WithStop and the context Instance.Call takes); nomi_call_with bounds one
+// call. The reactor's package doc lists the options. A reactor with an
+// embedded program refuses nomi_load of another. Releases ship the
 // reactor in the wasip1 archive beside nomi-vm. It also writes nomi-wasi.js
 // and nomi-wasi.d.ts (cmd/nomi/wasi): a dependency-free ES module
 // implementing the WASI preview1 imports the reactor needs (stdio, clocks,
@@ -131,6 +136,33 @@
 // reactor with an embedded program; there load() and run() with no
 // argument call nomi_load with length 0, which boots the embedded program
 // and returns its exports (a reactor with none refuses it).
+//
+// # Holding and bounding a program
+//
+// A host that loads programs it did not write holds each to a list of what
+// it may reach outside the machine (WithCapabilities, capability.go), or
+// to a list of std names and one of host function keys, each holding only
+// its own kind of call (WithCapabilitiesFrom, the reactor's options). The
+// load runs the VM's reach walk (vm.ReachedOutsideCalls) over the decoded
+// image from everything a host can run (hostRoots: main, the boot, each
+// exported function with its converters) and refuses, before the boot, any
+// outside call a list that holds it does not allow. The rule that names a
+// call and the
+// check against the list are internal/capability's, which vmhost calls for
+// nomi.toml's lists and its own host list, and the refusal reads in
+// vmhost's words, at the file and line the image records, since a runner
+// has no source. What a runner cannot know it does not guess: an image
+// records no Go import path, so a Go binding is `host:<key>`, and the
+// runner links no list of std modules, so a `std::` name is checked for its
+// form only. Every std/compiler crossing counts as an outside call named
+// std::compiler, since the runner cannot read which of them are inside.
+//
+// A load or run is bounded by WithStop's context, and each later call or
+// Main by its own (internal/vm's within.go, the mechanism a test case's
+// time limit uses): a stop ends the activation and the tasks it started,
+// and the program stays booted. The bound reads its deadline from the
+// clock as the program runs, because a wasip1 module has one thread and Go
+// never preempts it, so a timer cannot end a loop there.
 //
 // # Compiled programs
 //

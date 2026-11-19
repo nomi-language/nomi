@@ -105,7 +105,7 @@ func (g *gen) substHoles(subst map[ast.Node]string) func() {
 func (g *gen) holeRead(n ast.Node) ast.Node {
 	if name, ok := g.holeSubst[n]; ok {
 		line, col := nodePos(n)
-		return &ast.Ident{Name: name, Line: line, Col: col}
+		return g.madeIdent(name, line, col)
 	}
 	return g.asTodo(n)
 }

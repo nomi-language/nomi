@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -17,7 +18,11 @@ import (
 // a `toml` tag, and each key a field of that table's struct (a map's keys
 // are free, as `[capabilities.modules]`'s module paths are). A table or key
 // the manifest holds and manifestFile does not is an error at its line, so
-// a misspelled key is never read as nothing.
+// a misspelled key is never read as nothing. The error names the nearest
+// key when one is close in spelling, except in a table whose field carries
+// a `keys` tag: there it says what each key holds instead, since keys of
+// one table that differ in a word are close in spelling and far in
+// meaning (`std_in_tests` and `go_in_tests`).
 //
 // A top-level table named for a module the project requires, or for the
 // project's own module, belongs to that module's tools (`nomi tool`), which
@@ -89,12 +94,27 @@ func unknownManifestKey(data []byte, undecoded []toml.Key, md toml.MetaData, sou
 			// A table nested in a known one that declares none.
 			return fmt.Errorf("%s: [%s] has no key `%s`; its keys are %s", at, k[0], k[1], keyList(keys))
 		}
+		if about := tableKeysText(k[0]); about != "" {
+			return fmt.Errorf("%s: [%s] has no key `%s`; %s", at, table, key, about)
+		}
 		if near := ClosestName(key, keys); near != "" {
 			return fmt.Errorf("%s: [%s] has no key `%s`; did you mean `%s`?", at, table, key, near)
 		}
 		return fmt.Errorf("%s: [%s] has no key `%s`; its keys are %s", at, table, key, keyList(keys))
 	}
 	return nil
+}
+
+// tableKeysText is the `keys` tag of table's field in manifestFile: what
+// each of its keys holds, or "".
+func tableKeysText(table string) string {
+	t := reflect.TypeOf(manifestFile{})
+	for i := 0; i < t.NumField(); i++ {
+		if f := t.Field(i); f.Tag.Get("toml") == table {
+			return f.Tag.Get("keys")
+		}
+	}
+	return ""
 }
 
 func tableList(tables map[string][]string) string {
@@ -192,6 +212,195 @@ func ManifestKeyLine(data []byte, path ...string) int {
 		}
 	}
 	return tableLine
+}
+
+// ManifestTable is how nomi.toml's text writes one table: its header's
+// line, its last line, and the runs of lines between them, each line
+// 1-based.
+type ManifestTable struct {
+	// Header is the line of the table's `[header]`, and Last its last line
+	// that holds more than a comment before the next header, so a comment
+	// and the blank lines above the next table are not the table's. Both
+	// are 0 when no header names the table.
+	Header, Last int
+	// Body is the lines after the header to Last, in order: each key with
+	// its comments, and the runs between them.
+	Body []ManifestLines
+}
+
+// ManifestLines is a run of lines in a table's body, or in a list written
+// one element per line: a key or an element with its comments, or a run
+// of blank lines and comments that no key owns.
+type ManifestLines struct {
+	// Key is the key's parts, unquoted, or a list element's string; nil
+	// for a run no key owns.
+	Key []string
+	// First is the run's first line. For a key, it is the first of the
+	// comment lines directly above the key's line, with no blank line
+	// between, which belong to it; Line is the key's own line, and Last
+	// the last line of its value, which ends the run.
+	First, Line, Last int
+	// ValueStart is the byte offset of the value on Line, and ValueEnd
+	// the offset on Last just past it: what follows is blanks and a
+	// comment, or for an element its comma first.
+	ValueStart, ValueEnd int
+	// Elements is the value's runs when it is a list written one element
+	// per line, between a line that ends with its `[` and a line that
+	// holds only its `]`: each element with the comment lines directly
+	// above it, and the runs between them, as Body holds a table's keys.
+	// It is nil for any other value, and empty, not nil, for such a list
+	// with no element.
+	Elements []ManifestLines
+}
+
+// ManifestTableLayout is how nomi.toml's text data writes the table at
+// path (ManifestTable).
+func ManifestTableLayout(data []byte, path ...string) ManifestTable {
+	want := strings.Join(path, "\x00")
+	lines := strings.Split(string(data), "\n")
+	var t ManifestTable
+	for i, line := range lines {
+		text := strings.TrimSpace(stripTomlComment(line))
+		if text == "" {
+			continue
+		}
+		if strings.HasPrefix(text, "[") {
+			if t.Header > 0 {
+				break
+			}
+			if strings.Join(splitTomlKey(strings.Trim(text, "[]")), "\x00") == want {
+				t.Header, t.Last = i+1, i+1
+			}
+			continue
+		}
+		if t.Header > 0 {
+			t.Last = i + 1
+		}
+	}
+	if t.Header > 0 {
+		t.Body = manifestRuns(lines, t.Header+1, t.Last, false)
+	}
+	return t
+}
+
+// manifestRuns is lines from..to (1-based, inclusive) as runs: keys, or
+// with elements the elements of a list written one per line, each with
+// the comment lines directly above it, and the runs of blank lines and
+// comments between them. With elements, it is nil when a line holds
+// anything but one string, its comma and a comment.
+func manifestRuns(lines []string, from, to int, elements bool) []ManifestLines {
+	runs := []ManifestLines{}
+	gap := func(first, last int) {
+		if first <= last {
+			runs = append(runs, ManifestLines{First: first, Last: last})
+		}
+	}
+	free := from  // the first line no run holds yet
+	comments := 0 // the first of the comment lines directly above, or 0
+	for line := from; line <= to; line++ {
+		raw := lines[line-1]
+		text := strings.TrimSpace(stripTomlComment(raw))
+		if strings.TrimSpace(raw) == "" {
+			comments = 0
+			continue
+		}
+		if text == "" {
+			if comments == 0 {
+				comments = line
+			}
+			continue
+		}
+		first := line
+		if comments > 0 {
+			first = comments
+		}
+		gap(free, first-1)
+		run := ManifestLines{First: first, Line: line, Last: line}
+		if elements {
+			value, end, ok := tomlString(raw)
+			if !ok {
+				return nil
+			}
+			run.Key, run.ValueStart, run.ValueEnd = []string{value}, len(raw)-len(strings.TrimLeft(raw, " \t")), end
+		} else {
+			lhs, _, _ := strings.Cut(text, "=")
+			run.Key = splitTomlKey(lhs)
+			if eq := strings.Index(raw, "="); eq >= 0 {
+				rest := raw[eq+1:]
+				run.ValueStart = eq + 1 + len(rest) - len(strings.TrimLeft(rest, " \t"))
+			}
+			for depth := tomlDepth(text); depth > 0 && run.Last < to; {
+				run.Last++
+				depth += tomlDepth(stripTomlComment(lines[run.Last-1]))
+			}
+			last := lines[run.Last-1]
+			run.ValueEnd = len(strings.TrimRight(stripTomlComment(last), " \t\r"))
+			if run.Last > run.Line && strings.HasSuffix(text, "[") && strings.TrimSpace(stripTomlComment(last)) == "]" {
+				run.Elements = manifestRuns(lines, run.Line+1, run.Last-1, true)
+			}
+		}
+		runs = append(runs, run)
+		line, free, comments = run.Last, run.Last+1, 0
+	}
+	gap(free, to)
+	return runs
+}
+
+// tomlDepth is how many more brackets text, a line without its comment,
+// opens than it closes, outside strings.
+func tomlDepth(text string) int {
+	depth := 0
+	quote := byte(0)
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case quote != 0 && c == '\\' && quote == '"':
+			i++
+		case quote != 0 && c == quote:
+			quote = 0
+		case quote != 0:
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '[' || c == '{':
+			depth++
+		case c == ']' || c == '}':
+			depth--
+		}
+	}
+	return depth
+}
+
+// tomlString is the string a list element written on its own line holds
+// (`    "std::fs",`), and the byte offset just past it; ok only when
+// nothing but blanks, one comma and a comment surround it.
+func tomlString(line string) (value string, end int, ok bool) {
+	start := len(line) - len(strings.TrimLeft(line, " \t"))
+	if start == len(line) || line[start] != '"' && line[start] != '\'' {
+		return "", 0, false
+	}
+	quote := line[start]
+	end = -1
+	for i := start + 1; i < len(line); i++ {
+		if quote == '"' && line[i] == '\\' {
+			i++
+			continue
+		}
+		if line[i] == quote {
+			end = i + 1
+			break
+		}
+	}
+	if end < 0 {
+		return "", 0, false
+	}
+	if rest := strings.TrimSpace(stripTomlComment(line[end:])); rest != "" && rest != "," {
+		return "", 0, false
+	}
+	if quote == '\'' {
+		return line[start+1 : end-1], end, true
+	}
+	value, err := strconv.Unquote(line[start:end])
+	return value, end, err == nil
 }
 
 // splitTomlKey is a dotted TOML key's parts, each unquoted.

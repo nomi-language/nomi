@@ -154,7 +154,7 @@ func (c *checker) hasEquatableImpl(t Type) bool {
 	if name == "" {
 		return false
 	}
-	return c.hasOwnImpl(t, "Equatable")
+	return c.hasOwnEqualityImpl(t, "Equatable")
 }
 
 // noEqualityWhat names the kind of value part is, for a diagnostic.

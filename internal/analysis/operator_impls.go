@@ -70,7 +70,9 @@ func (c *checker) recordComparisonImpl(n *ast.Binary, operand Type, iface, metho
 // instance resolves it (CalleeAt), but an operator and a rendering are
 // recorded once. Nil when t has no single block of iface, or the block
 // does not write method. A type declared inside a body has no block,
-// whatever another module declares under its name (implBlocksOf).
+// whatever another module declares under its name (implBlocksOf). iface is
+// an operator's interface or Display, names the prelude reserves, which no
+// program declares twice, so the blocks of the name are the interface's.
 func (fa *FileAnalysis) implMethodFor(t Type, iface, method string) ast.ImplMethodDecl {
 	if fa == nil {
 		return nil

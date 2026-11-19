@@ -431,6 +431,15 @@ type Recording struct {
 	// deduplicates by full Recording equality, so two demands for two
 	// same-named types at one position must not collapse into one entry.
 	TypeOrigin string
+	// IfaceOrigin is the declaring origin of the interface the demand is
+	// OF, the other half of the pair's identity: `b.Show.show(u)` demands
+	// b's Show, which `impl a.Show for User` does not supply. It is
+	// OriginUnresolved where the site knows the interface only by a name
+	// the prelude reserves (`Display` for an interpolation, an operator's
+	// interface), which no program can declare again, and where the site
+	// knows nothing more than the name; such a demand keeps the bare-name
+	// answer for the interface (missing_impl_identity.go).
+	IfaceOrigin string
 }
 
 // LookupTypeMethod returns the impl-block method symbol for (typeName,
@@ -601,17 +610,22 @@ func findContextType(modules map[string]*Scope) Type {
 }
 
 // checkReservedTypeName errors when `name` shadows a language-provided
-// type the program can see — i.e. a name already defined in a parent
-// (prelude) scope. `kind` is the user-facing description of what's
-// being declared ("struct", "enum", "typealias", "distinct type") —
-// surfaced in the error message. The caller should still register the
+// type the program can see — i.e. a name defined in the scope above the
+// file's module scope (the prelude). The rule is the same for a
+// declaration inside a body: the stub of a module-level declaration and
+// the define of a body's (defineStruct, defineEnum, defineTypeDef,
+// defineTypeAlias, defineInterface) both call it, and it looks above the
+// file scope, so a body type may still share a module-level type's name.
+// `kind` is the user-facing description of what's being declared
+// ("struct", "enum", "typealias", "distinct type") — surfaced in the
+// error message. The caller should still register the
 // symbol so downstream analysis produces fewer cascading errors.
 //
 // Pre-stdlib-as-package: this guarded against a curated `reservedTypeNames`
 // set (Int / Float / String / List / Maybe / Result / Display / …).
-// Post-cutover: the parent scope is the auto-prepended prelude, so the
+// Post-cutover: the file scope's parent is the auto-prepended prelude, so the
 // parent-scope check IS the prelude-shadowing check — no curated list
-// needed. Any name in scope.Parent is, by construction, a prelude
+// needed. Any name above the file scope is, by construction, a prelude
 // re-export. The reserved-name diagnostic is now self-derived from
 // whatever prelude.nomi actually re-exports rather than a hand-
 // maintained Go constant the spec had to track.
@@ -686,14 +700,14 @@ func findContextType(modules map[string]*Scope) Type {
 // prelude re-export occupies every user file's scope unasked and Nomi has
 // no syntax that disambiguates a local declaration from it, whereas a name
 // the user must import is a name the user chose and can stop choosing.
-func (b *builder) checkReservedTypeName(scope *Scope, name, kind string, line, col int) {
+func (b *builder) checkReservedTypeName(name, kind string, line, col int) {
 	if strings.Contains(name, ".") {
 		return
 	}
-	if scope == nil || scope.Parent == nil {
+	if b.fileScope == nil || b.fileScope.Parent == nil {
 		return
 	}
-	if existing := scope.Parent.Lookup(name); existing == nil {
+	if existing := b.fileScope.Parent.Lookup(name); existing == nil {
 		return
 	}
 	if b.file.reservedNames == nil {
@@ -1380,28 +1394,23 @@ func (b *builder) buildModule(nodes []ast.Node, scope *Scope) {
 	// where to stop walking up the parent chain (prelude/builtins are
 	// above the file scope and may always be shadowed).
 	b.fileScope = scope
-	// Lowering desugars source derive declarations into top-level impl blocks.
-	// It must run BEFORE SynthesizeDerives / SynthesizeUniversalDebug (both
-	// scan top-level impl blocks).
+	// Lowering desugars source derive declarations into top-level impl
+	// blocks, before symbol registration, so defineSymbolStub and
+	// defineImplBlockStub see them like hand-written impls, and before
+	// SynthesizeUniversalDebug, which scans top-level impl blocks.
 	// Idempotent —
 	// BuildProjectWithCache lowers project files before this path sees
 	// them; lowering consumes the decls' Items, so a second pass no-ops.
 	// Errors are internal parser-regression guards only.
 	nodes, lowerErrs := LowerDerives(nodes)
 	b.file.TypeErrors = append(b.file.TypeErrors, lowerErrs...)
-	// `derive` synthesis runs before symbol registration so the synthesized
-	// impl-block nodes are visible to defineSymbolStub /
-	// defineImplBlockStub like hand-written impls. Validation errors
-	// (unknown protocol, duplicate derive Foo) surface here as TypeErrors;
-	// the per-protocol synthesizers emit the impl bodies.
-	nodes = b.SynthesizeDerives(nodes)
-	// Universal default Debug: after derive synthesis, eagerly synthesize an
+	// Universal default Debug: after derive lowering, eagerly synthesize an
 	// `impl Debug` block for every declared type that lacks ANY explicit Debug
 	// (impl or derive). Opaque types get a name-only `<opaque T>` body;
 	// every other type gets the structural derive body. This makes Debug a
 	// universal interface — `io.inspect(x)` works for any value with no
 	// `@derive`/explicit-impl required — and is what lets `where T: Debug` bounds drop.
-	// Runs per-file (same shape as SynthesizeDerives) so the orphan rule
+	// Runs per-file so the orphan rule
 	// attributes each auto-impl to its receiver type's home module. The
 	// "skip if explicit" guard inside the pass enforces precedence and keeps
 	// detectImplCollisions quiet.
@@ -2173,6 +2182,7 @@ func (b *builder) defineInterfaceMethodSymbols(n *ast.InterfaceDef, iface *Symbo
 func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
+		b.checkReservedTypeName(n.Name, "interface", n.Line, n.Col)
 		sym := &Symbol{
 			Name:    n.Name,
 			Kind:    SymbolInterface,
@@ -2227,6 +2237,7 @@ func (b *builder) defineInterface(n *ast.InterfaceDef, scope *Scope) *Scope {
 func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
+		b.checkReservedTypeName(n.Name, "distinct type", n.Line, n.Col)
 		sym := &Symbol{
 			Name:   n.Name,
 			Kind:   SymbolType,
@@ -2252,6 +2263,7 @@ func (b *builder) defineTypeDef(n *ast.TypeDef, scope *Scope) {
 func (b *builder) defineTypeAlias(n *ast.TypeAlias, scope *Scope) {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
+		b.checkReservedTypeName(n.Name, "typealias", n.Line, n.Col)
 		sym := &Symbol{
 			Name:   n.Name,
 			Kind:   SymbolTypeAlias,
@@ -2287,6 +2299,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	enumSym := b.file.Definitions[pos]
 	if enumSym == nil {
+		b.checkReservedTypeName(n.Name, "enum", n.Line, n.Col)
 		enumSym = &Symbol{
 			Name:    n.Name,
 			Kind:    SymbolEnum,
@@ -2376,6 +2389,7 @@ func (b *builder) defineEnum(n *ast.EnumDef, scope *Scope) {
 func (b *builder) defineStruct(n *ast.StructDef, scope *Scope) {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	if _, alreadyDefined := b.file.Definitions[pos]; !alreadyDefined {
+		b.checkReservedTypeName(n.Name, "struct", n.Line, n.Col)
 		sym := &Symbol{
 			Name:    n.Name,
 			Kind:    SymbolStruct,
@@ -2748,7 +2762,7 @@ func (b *builder) defineStructStub(n *ast.StructDef, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; alreadyDefined {
 		return
 	}
-	b.checkReservedTypeName(scope, n.Name, "struct", n.Line, n.Col)
+	b.checkReservedTypeName(n.Name, "struct", n.Line, n.Col)
 	sourceFile := ""
 	if n.Opaque {
 		sourceFile = b.file.FilePath
@@ -2845,7 +2859,7 @@ func (b *builder) defineEnumStub(n *ast.EnumDef, scope *Scope) {
 	pos := Pos{Line: n.Line, Col: n.Col}
 	enumSym := b.file.Definitions[pos]
 	if enumSym == nil {
-		b.checkReservedTypeName(scope, n.Name, "enum", n.Line, n.Col)
+		b.checkReservedTypeName(n.Name, "enum", n.Line, n.Col)
 		// Opacity propagation: parallel to defineStructStub, mirror n.Opaque
 		// onto the enum symbol so EnumType.Opaque (set by type_builder from
 		// sym.Opaque) and the destructuring boundary check fire.
@@ -2965,7 +2979,7 @@ func (b *builder) defineTypeDefStub(n *ast.TypeDef, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; alreadyDefined {
 		return
 	}
-	b.checkReservedTypeName(scope, n.Name, "distinct type", n.Line, n.Col)
+	b.checkReservedTypeName(n.Name, "distinct type", n.Line, n.Col)
 	sourceFile := ""
 	if n.Opaque {
 		sourceFile = b.file.FilePath
@@ -2996,7 +3010,7 @@ func (b *builder) defineTypeAliasStub(n *ast.TypeAlias, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; alreadyDefined {
 		return
 	}
-	b.checkReservedTypeName(scope, n.Name, "typealias", n.Line, n.Col)
+	b.checkReservedTypeName(n.Name, "typealias", n.Line, n.Col)
 	sym := &Symbol{
 		Name:   n.Name,
 		Kind:   SymbolTypeAlias,
@@ -3030,7 +3044,7 @@ func (b *builder) defineInterfaceStub(n *ast.InterfaceDef, scope *Scope) {
 	if _, alreadyDefined := b.file.Definitions[pos]; alreadyDefined {
 		return
 	}
-	b.checkReservedTypeName(scope, n.Name, "interface", n.Line, n.Col)
+	b.checkReservedTypeName(n.Name, "interface", n.Line, n.Col)
 	sym := &Symbol{
 		Name:    n.Name,
 		Kind:    SymbolInterface,
@@ -3289,11 +3303,10 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	b.walkTypeExpr(n.Receiver, inner)
 	if n.Interface != nil {
 		b.walkTypeExpr(n.Interface, inner)
-		if iface := foreignDeriveInterface(n); iface != nil {
-			// A derive for another file's type: no declaration of this
-			// file carries it, so its interface name is held to scope
-			// here, as a derive in the declaring file is.
-			b.walkTypeDeclDecoratorArgs([]ast.Decorator{{Name: "derive", Args: []ast.Node{iface}}}, scope)
+		if iface := derivedInterface(n); iface != nil {
+			// The block a derive lowered to: its header is the
+			// interface as the derive writes it.
+			b.checkDeriveInScope(iface, scope)
 		}
 		// `Struct` is a compiler-managed structural marker: every struct (named
 		// or anonymous) satisfies it automatically by shape — conformance is a
@@ -3420,28 +3433,29 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		})
 		return
 	}
+	// A qualified header names its interface in the module it qualifies it
+	// with, and nowhere else: `impl a.Show` beside this file's own `Show`,
+	// where a declares none, is undefined, not this file's.
 	ifaceLookupName := ifaceName
 	if n.Interface != nil {
 		if _, ok := n.Interface.(*ast.QualifiedType); ok {
 			ifaceLookupName = n.Interface.TypeString()
 		}
 	}
+	shownName := ifaceName
 	ifaceSym := scope.Lookup(ifaceLookupName)
-	if ifaceSym == nil {
-		if q, ok := n.Interface.(*ast.QualifiedType); ok {
-			if owner := scope.Lookup(q.Module); owner != nil {
-				realOwner := owner
-				if realOwner.Resolved != nil {
-					realOwner = realOwner.Resolved
-				}
-				if realOwner.ModuleScope != nil {
-					ifaceSym = realOwner.ModuleScope.Lookup(q.Member.TypeString())
-				}
+	if q, ok := n.Interface.(*ast.QualifiedType); ok && ifaceSym == nil {
+		shownName = q.Module + "." + ifaceName
+		if owner := scope.Lookup(q.Module); owner != nil {
+			realOwner := owner
+			if realOwner.Resolved != nil {
+				realOwner = realOwner.Resolved
+			}
+			if realOwner.ModuleScope != nil {
+				// The member's name: `scale_a.Scale<Int>` names Scale.
+				ifaceSym = realOwner.ModuleScope.Lookup(ifaceName)
 			}
 		}
-	}
-	if ifaceSym == nil && ifaceLookupName != ifaceName {
-		ifaceSym = scope.Lookup(ifaceName)
 	}
 	// Compiler-known header routes — an impl header resolves without the
 	// interface name being in file scope in exactly two cases:
@@ -3455,12 +3469,11 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 	//     being imported.
 	//   - Any derivable protocol, on a SYNTHESIZED block (position in the
 	//     synth band): derive synthesis is compiler machinery, so its output
-	//     resolves like compiler output. The `@derive` arg that produced the
-	//     block is the visible text — walkTypeDeclDecoratorArgs enforces
-	//     that IT is in scope — so a missing import surfaces once, at the
-	//     arg, not again here at a fabricated position. Hand-written blocks
-	//     (top-level or nested; both keep real source positions) still
-	//     require the interface in scope.
+	//     resolves like compiler output. Its header is the derive's
+	//     interface as written, which checkDeriveInScope holds to scope
+	//     above, so a missing import surfaces once, with the import to add.
+	//     Hand-written blocks (top-level or nested; both keep real source
+	//     positions) still require the interface in scope.
 	//
 	// All five protocols are `pub interface`s; with no scope symbol to read
 	// visibility from, methods are stamped public directly.
@@ -3469,7 +3482,7 @@ func (b *builder) defineImplBlockAnnotations(n *ast.ImplBlock, scope *Scope) {
 		if ifaceName != "Debug" && !(IsSynthesizedLine(n.Line) && deriveSupported[ifaceName]) {
 			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
 				Line: n.Line, Col: n.Col,
-				Message: fmt.Sprintf("impl block: undefined interface '%s'", ifaceName),
+				Message: fmt.Sprintf("impl block: undefined interface '%s'", shownName),
 			})
 			return
 		}
@@ -3635,23 +3648,13 @@ func (b *builder) walkImplBlockBodies(n *ast.ImplBlock, scope *Scope) {
 	}
 }
 
-// walkTypeDeclDecoratorArgs walks `@derive` decorators on a
-// type declaration (struct / enum / type), registers each interface-
-// name argument as a Reference (so editor go-to-def / find-references /
-// hover on the interface name jumps to the interface declaration), and
-// enforces the derive-arg scope rule: a `@derive` arg NAMES its protocol
-// in visible source text, so the protocol must be in scope — an arg
-// whose name isn't errors here, with the exact import to add. Debug is
-// exempt (compiler-known universally; `@derive Debug` works with no
-// import). User files get all five protocols from the prelude, so only
-// prelude-less (stdlib) files ever see this diagnostic.
-// `impl Iface for T` blocks record their own interface-name references
-// during the block walk; this helper covers the type-decl `@derive` side.
-//
-// Other validation (unknown protocol, struct doesn't satisfy the
-// contract, non-interface target) is owned by the synthesizer and
-// checker. Args that aren't TypeExprs are silently skipped — only
-// `@derive` carries interface-name args on a type declaration.
+// walkTypeDeclDecoratorArgs walks `@derive` decorators on a type
+// declaration (struct / enum / type): each interface-name argument, the
+// same node as the derived block's header, is registered as a Reference,
+// and each `with` options literal is walked, so the names in it count as
+// uses. The derive's scope rule is checked once, at the block's header
+// (checkDeriveInScope). Args that aren't TypeExprs are silently skipped:
+// only `@derive` carries interface-name args on a type declaration.
 func (b *builder) walkTypeDeclDecoratorArgs(decorators []ast.Decorator, scope *Scope) {
 	for i := range decorators {
 		d := &decorators[i]
@@ -3659,30 +3662,44 @@ func (b *builder) walkTypeDeclDecoratorArgs(decorators []ast.Decorator, scope *S
 			continue
 		}
 		for _, arg := range d.Args {
-			te, ok := arg.(ast.TypeExpr)
-			if !ok {
-				continue
-			}
-			b.walkTypeExpr(te, scope)
-			name := TypeExprBaseName(te)
-			if !deriveSupported[name] || name == "Debug" {
-				continue // unknown protocols error in the synthesizer; Debug needs no import
-			}
-			if scope.Lookup(name) == nil {
-				line, col := startOf(te)
-				if st, ok := te.(*ast.SimpleType); ok {
-					line, col = st.Line, st.Col
-				}
-				b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
-					Line: line, Col: col,
-					Message: fmt.Sprintf("`%s` is not in scope — import `%s.%s`",
-						name, strings.ReplaceAll(deriveProtocolHomeModule[name], "/", ast.PathSeparator), name),
-				})
+			if te, ok := arg.(ast.TypeExpr); ok {
+				b.walkTypeExpr(te, scope)
 			}
 		}
 		if d.Options != nil {
 			b.walkNode(d.Options, scope)
 		}
+	}
+}
+
+// checkDeriveInScope enforces the derive scope rule (spec §12 *Derive*) on
+// iface, the interface a derive writes as written: it names the interface
+// in visible source text, so the name must be in scope, and one that is not
+// is an error with the import to add. A bare `Debug` is exempt: every type
+// has Debug, and `derive Debug` works with no import. Whether the name means
+// the derivable interface is checkDerivedInterface's question, after types
+// resolve.
+func (b *builder) checkDeriveInScope(iface ast.TypeExpr, scope *Scope) {
+	name := TypeExprBaseName(iface)
+	if !deriveSupported[name] {
+		return // lowering refuses a derive of any other name
+	}
+	module := strings.ReplaceAll(deriveProtocolHomeModule[name], "/", ast.PathSeparator)
+	line, col := typeExprPos(iface, 0, 0)
+	if q, ok := iface.(*ast.QualifiedType); ok {
+		if lookupTypeName(scope, q.TypeString()) == nil {
+			b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+				Line: line, Col: col,
+				Message: fmt.Sprintf("`%s` is not in scope — import `%s`", q.TypeString(), module),
+			})
+		}
+		return
+	}
+	if name != "Debug" && scope.Lookup(name) == nil {
+		b.file.TypeErrors = append(b.file.TypeErrors, TypeError{
+			Line: line, Col: col,
+			Message: fmt.Sprintf("`%s` is not in scope — import `%s.%s`", name, module, name),
+		})
 	}
 }
 
@@ -4896,34 +4913,9 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 				}
 			}
 		}
-		// Type-parameter-qualified method: `T.method` where T is a generic
-		// parameter bounded by an interface. Point the method-field reference
-		// at the bound interface's method symbol — the same target the
-		// interface-qualified form `Iface.method` resolves to — so hover and
-		// go-to-def on the method work. The `T` qualifier itself keeps its own
-		// type-parameter reference (recorded via walkTypeExpr on the bound),
-		// so resolving the method here doesn't disturb hover on `T`. Method-
-		// aware: only a bound that actually declares the method is used; an
-		// ambiguous call across two bounds is a checker error, so recording
-		// the first match here is immaterial.
-		if obj, ok := n.Object.(*ast.TypeIdent); ok {
-			if tpSym := scope.Lookup(obj.Name); tpSym != nil && len(tpSym.TypeParamBounds) > 0 {
-				for _, boundName := range tpSym.TypeParamBounds {
-					ifaceSym := scope.Lookup(boundName)
-					if ifaceSym == nil || ifaceSym.Kind != SymbolInterface {
-						continue
-					}
-					real := ifaceSym
-					if real.Resolved != nil {
-						real = real.Resolved
-					}
-					if methodSym, ok := real.Members[n.Field.Name]; ok {
-						b.file.References[Pos{Line: n.Field.Line, Col: n.Field.Col}] = methodSym
-						break
-					}
-				}
-			}
-		}
+		// A type-parameter-qualified method (`T.method`) is resolved by the
+		// checker, which reads the bound interface by its identity
+		// (checkFieldAccess, typeParamQualifiedMember).
 
 	case *ast.ExprStmt:
 		b.walkNode(n.Expr, scope)

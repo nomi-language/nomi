@@ -20,6 +20,7 @@ in the [standard library reference](/reference/). To install `nomi`, see
 | `nomi run --web <file>` | Serve a browser build on localhost and rebuild it on a change ([A program in the browser](#a-program-in-the-browser)). |
 | `nomi test [path]` | Run tests ([Running tests](#running-tests)). |
 | `nomi check <path>` | Check a program without running it, as text or JSON ([Checking](#checking-nomi-check)). |
+| `nomi capabilities [path]` | Print what a program reaches outside itself, and with `--write` write the `[capabilities]` table that allows it ([What a program reaches](#what-a-program-reaches-nomi-capabilities)). |
 | `nomi fmt [-w\|-l\|-d\|-check] <paths>` | Format source ([Formatting](#formatting)). |
 | `nomi` | The REPL ([The REPL](#the-repl)). |
 | `nomi build <file>` | Write an executable ([Executables](#executables)), a browser folder with `--web` ([A program in the browser](#a-program-in-the-browser)), or a `.nomic` file with `--no-vm` ([Compiled programs and `nomi-vm`](#compiled-programs-and-nomi-vm)). |
@@ -255,6 +256,135 @@ checked, and a summary last.
 
 The exit status is the same as in text mode.
 
+### What a program reaches: `nomi capabilities`
+
+`nomi capabilities [path]` prints what the programs `nomi check path`
+checks reach outside themselves, whether or not `nomi.toml` has a
+`[capabilities]` table ([Capability lists](#capability-lists)). The path is
+a project directory or a file, the current directory by default. It
+counts what the check counts: `main`, the boot and the exported functions,
+then the test cases.
+
+```
+std            std::io
+std_in_tests   std::fs, std::instant
+go             github.com/nomi-language/nomi/lib/sql/sqlite
+go_in_tests    (none)
+
+modules
+  github.com/nomi-language/nomi/lib/sql/examples/shop (this project)
+    std::instant (tests only), std::io
+  github.com/nomi-language/nomi/lib/sql/migrate
+    nothing
+  github.com/nomi-language/nomi/lib/sql/sqlite
+    binds Go
+  github.com/nomi-language/nomi/lib/sql/sqlkit
+    std::fs (tests only)
+
+nomi.toml has no [capabilities] table; nomi capabilities --write writes this one
+```
+
+The four lists are the tightest table the check passes: `std` holds what
+`main`, the boot and the exported functions reach, `std_in_tests` what
+only the tests reach beyond that, and `go` and `go_in_tests` the same for
+the modules whose files bind Go. Under `modules` is each module the
+program's code comes from, the project first, with the std modules its
+own files reach and whether it binds Go; `(tests only)` marks what only
+the tests reach. When `nomi.toml` has a table, the report ends with how it
+differs, one name per line: `missing` for a name the program reaches that
+the list lacks, and `unused` for a name the list holds that nothing there
+needs. An unused name is not an error. The last line says whether `nomi
+check` passes the table.
+
+`--write` writes that table into `nomi.toml`: `std`, then `std_in_tests`,
+`go` and `go_in_tests` when they hold a name, and under
+`[capabilities.modules]` an entry for the project and for each module it
+requires whose Nomi files the program loads, `[]` for one that reaches
+nothing. An entry it writes for a module that binds Go ends with the
+comment `# binds Go`, or `# binds Go in tests` when only the tests reach
+its bindings. In a table the file already has, it changes only
+what differs, and keeps the file's order, comments and blank lines:
+
+- A comment on a key's line, or directly above it with no blank line
+  between, belongs to that key. It stays while the key stays and goes when
+  the key goes: the entry of a module the program no longer loads, or a
+  list other than `std` that no longer holds a name.
+- A list keeps the names it had, in their order, and new names follow. In a
+  list written one name per line, each name keeps its own comments. A list
+  laid out any other way is written again whole, and a comment inside it
+  goes.
+- A comment that belongs to no key stays where it is, and blank lines
+  between keys that both stay are kept.
+- A key the table lacks goes after the keys it has, with no comment but the
+  one above for Go. `require_module_lists` stays as the file has it.
+
+Every line outside the two tables stays as it was, and a table the file
+lacks is added at its end. A file with CRLF line endings gets them on the
+lines it writes. If the edited file would not read back as exactly the
+table, it writes nothing and says to edit the table by hand. It prints the
+tables as written, and when the file had one, each name it added and
+removed, so a wider table never goes unnoticed. A second run with no
+change to the code writes nothing and says the table is current. A
+program a dependency's own `nomi.toml` holds to less than its code
+reaches is still refused, and the report names each such call, since only
+that module's table can allow it.
+
+`--why <name>` prints each call that reaches a std module (`--why
+std::fs`) or a `go:` name, or each call a module's files make (`--why
+github.com/nomi-language/nomi/lib/sql/sqlite`), at the call, with the
+chain a refusal's help gives:
+
+```
+1 call reaches std::fs:
+  rules.nomi:4:5 in lib.example/pricing
+    reached from `main`; `main` calls `load`
+```
+
+A name the program does not reach is an error that lists what it does.
+
+A program that does not check prints the check's errors and exits 1, as
+`nomi check` does. A program with Go bindings is reported without its Go
+built.
+
+`--format json` prints the same facts as one JSON object:
+
+```json
+{
+  "project": "example.com/app",
+  "std": ["std::fs", "std::io"],
+  "std_in_tests": ["std::instant"],
+  "go": [],
+  "go_in_tests": [],
+  "modules": [
+    {"path": "example.com/app", "project": true, "std": ["std::instant", "std::io"], "std_tests_only": ["std::instant"], "binds_go": false},
+    {"path": "lib.example/pricing", "std": ["std::fs"], "std_tests_only": [], "binds_go": false}
+  ],
+  "table": {"changes": [{"change": "add", "list": "std", "name": "std::fs"}], "refused": 1},
+  "written": false,
+  "declared_less": []
+}
+```
+
+- `std`, `std_in_tests`, `go` and `go_in_tests` are the tightest table's
+  lists.
+- Each of `modules` has its `path`, `project` for the project's own,
+  `std` for every std module its files reach and `std_tests_only` for
+  those only the tests reach, `binds_go`, and `go_tests_only` when only
+  the tests reach its bindings.
+- `table` is null when `nomi.toml` has no table. Its `changes` are what
+  `--write` adds to and removes from it: `change` is `add` or `remove`,
+  `list` is `std`, `std_in_tests`, `go`, `go_in_tests` or `modules`, with
+  the entry's `module` for `modules`, and `name` is empty for an entry
+  with no names. `refused` is how many calls `nomi check` refuses under
+  the table.
+- `written` says whether `--write` wrote `nomi.toml`.
+- `declared_less` is each `module` and `name` a dependency's own table
+  does not allow its own code.
+
+With `--why`, the object is the `name` asked about and its `calls`, each
+with its `name`, `module`, `site`, `callee`, `tests` and `reach`, the
+chain in words.
+
 ### Tools: `nomi tool`
 
 `nomi tool <module> <name> [args]` runs a module's tool: the program
@@ -353,8 +483,10 @@ what is kept, so a command with other settings builds again.
 
 `std` holds the standard library's artifacts and `programs` the programs'.
 A program nothing has read for five days is removed by the next command
-that keeps one, which looks at most once an hour. The cache is safe to
-delete. `NOMI_ARTIFACT_CACHE=off` keeps and reads nothing, and
+that keeps one, which looks at most once an hour. A build of `nomi` keeps
+its own standard library artifacts, which go a day after the last command
+of that build read them, when another build writes its own. The cache is
+safe to delete. `NOMI_ARTIFACT_CACHE=off` keeps and reads nothing, and
 `NOMI_DEBUG_ARTIFACT_CACHE=1` says on stderr, for each command, whether it
 read a kept program and why not.
 
@@ -426,11 +558,14 @@ Every key `nomi.toml` accepts:
 | `[i18n]` | `catalogs` | The catalog directory under the module root; `locales` when left out. |
 | `[i18n]` | `web_embedded` | The locales a browser build puts in `app.wasm` ([Locales in the browser](#locales-in-the-browser)). |
 | `[money]` | `custom_currencies` | The custom currencies the module's literals may write ([`[money]`](#money)). |
-| `[capabilities]` | `allow` | What the program may reach outside itself ([Capability lists](#capability-lists)). |
-| `[capabilities]` | `allow_in_tests` | What its tests may reach besides. |
-| `[capabilities.modules]` | a module's path | What a required module's own files may reach. |
+| `[capabilities]` | `std` | The std modules the program may reach ([Capability lists](#capability-lists)). |
+| `[capabilities]` | `std_in_tests` | More std modules that only its tests may reach. |
+| `[capabilities]` | `go` | The modules whose Nomi code may bind Go. |
+| `[capabilities]` | `go_in_tests` | More modules whose code may bind Go, in tests only. |
+| `[capabilities]` | `require_module_lists` | Whether every module the program's code comes from must have a std list. |
+| `[capabilities.modules]` | a module's path | The std modules that module's own files may reach: a module the project requires, or the project itself. |
 
-Any other table or key is an error at its line, naming the nearest key when one is close in spelling. The exception is a top-level table named for the module itself or for a module it requires, which belongs to that module's tools: sqlkit reads `[sqlkit]`.
+Any other table or key is an error at its line, naming the nearest key when one is close in spelling. In `[capabilities]`, whose keys differ by a word, it says what each key holds instead. The exception is a top-level table named for the module itself or for a module it requires, which belongs to that module's tools: sqlkit reads `[sqlkit]`.
 
 The two files are siblings; neither subsumes the other. Cross-module
 dependencies are Go's `require` directives: a required module whose root
@@ -438,6 +573,199 @@ holds a `nomi.toml` is importable under its `[module].name` (spec §14). A
 `replace` that points a requirement at a local directory makes that
 directory the module, as in Go; `nomi add ../shared_kit` writes both lines
 above.
+
+### Capability lists
+
+A project can list what its program may reach outside itself, in a `[capabilities]` table in `nomi.toml`, and `nomi check`, `run`, `test` and `build` refuse a program that reaches more, before it runs. The lists hold the project's own code and every module it depends on. Code in the project that reaches something it was not meant to, such as a helper that starts making network requests, is a compile error at the call. So is a dependency that starts reaching something new on an upgrade, with the module named. A project with no `[capabilities]` table is held to nothing. [Capability classes](#capability-classes) are a different thing: what a build target lacks, where these lists are what a project allows.
+
+**Starting.** Run `nomi capabilities --write` in the project ([What a program reaches](#what-a-program-reaches-nomi-capabilities)). It writes the tightest table the program passes, from what it reaches today. Read what it wrote: each name is something the program does, and a name you did not expect is a call to look at. Later, `nomi capabilities` says how the table and the program differ, and `--why <name>` says which calls reach a name.
+
+This table is for a project whose `go.mod` names it `example.com/app` and requires four modules:
+
+```toml
+[capabilities]
+# std modules the program may call into, from any module's code
+std = ["std::io", "std::fs", "std::http"]
+
+# added to std for test cases: a test may reach these as well
+std_in_tests = ["std::process"]
+
+# modules whose code may bind Go. The compiler does not see into Go.
+go = ["lib.example/pg"]
+
+# every module the program's code comes from must have a list below
+require_module_lists = true
+
+[capabilities.modules]
+# the project being built, example.com/app: its own code may print and
+# use files, but not the network
+"example.com/app" = ["std::io", "std::fs"]
+
+# the four modules it depends on, each held to what its own code reaches:
+
+# computes, and reaches nothing
+"lib.example/pricing" = []
+
+# reads and writes files
+"lib.example/reports" = ["std::fs"]
+
+# the one module that may make HTTP requests
+"lib.example/fetch" = ["std::http"]
+
+# Nomi code over a Go package; its Nomi code also reads files
+"lib.example/pg" = ["std::fs"]
+```
+
+The program as a whole may print, use files and make HTTP requests, and its test cases may also start processes. `pg` is the one module whose Go may run. Each module then gets a list of its own, which narrows `std` for the code in that module's files. The project's own code may print and use files, and its tests may still reach everything in `std` and `std_in_tests`. `pricing` reaches nothing, `reports` uses files, `fetch` is the only module that may use the network, and `pg`'s Nomi code reads files. No code in the program may read the clock or open a socket, since no list names `std::instant` or `std::net`.
+
+Suppose an upgrade of `lib.example/reports` starts sending a request each time it saves a report. `nomi run main.nomi` prints this and exits 1 before `main` starts, and `nomi check` and `nomi build` refuse the program in the same words:
+
+```
+error: lib.example/reports reaches std::http, and nomi.toml allows it only std::fs
+ --> /work/reports/summary.nomi:9:9
+  |
+9 |     _ = http.get(Url"https://stats.example.com/saved")
+  |         ^^^^
+  = help: reached from `main`; `main` calls `save`
+  = help: add "std::http" to "lib.example/reports" under [capabilities.modules] in nomi.toml, or remove the call
+```
+
+**Limits.** A name is a whole std module: `std::fs` allows every path and `std::http` every host, and no list can name a file or a host. Allowing a module's Go is trusting that Go code, and whatever it imports, with files, sockets and the clock, since the check does not see into Go. The check counts every call the program can reach, whether or not a run takes it ([Why a call counts though it may never run](#why-a-call-counts-though-it-may-never-run)). A handle the program opens and passes to a dependency is the program's call, and the dependency's use of it is not counted.
+
+#### The keys
+
+- `std` is the std modules the program may reach, from any module's code.
+- `std_in_tests` is added to `std` for test cases.
+- `go` is the modules whose Nomi code may bind Go, each by its path as `go.mod` writes it. The project's own bindings are the project's module: its `go.mod`'s module path, or its `[module].name` when it has no `go.mod`. A binding in a module's files is allowed only when `go` lists that module, whichever Go package it binds: Go's standard library, the module's own wrapper package or a third-party package. A module that `go` lists and that binds no Go is not an error.
+- `go_in_tests` is added to `go` for test cases.
+- `[capabilities.modules]` gives a module a std list of its own, for the calls written in that module's files. An entry is keyed by the module's path as `go.mod` writes it: a module the project requires, or the project itself. A call in that module's files must be in its entry and in `std`. An empty list allows nothing. The project's own entry does not hold the calls its tests reach, which `std` and `std_in_tests` alone hold. An entry says nothing of Go, which `go` alone holds.
+- `require_module_lists = true` makes every module the program's code comes from have a std list: an entry under `[capabilities.modules]`, or a `[capabilities]` table in the module's own `nomi.toml`. A module with neither is an error at that key, one per module. Being in `go` is not a std list. The modules counted are those whose Nomi files the program loads, whether or not it reaches their code, and not every line of `go.mod`. The project itself needs no entry, and std is not a module here. The key is false when left out.
+
+A table with no `std` allows no std call, and a table with no `go` lets no module bind Go. So adding a `[capabilities]` table to a project whose dependencies bind Go refuses their bindings until `go` lists those modules.
+
+#### A dependency's own list
+
+A module the project requires can declare what its own code reaches, in a `[capabilities]` table in its own `nomi.toml`. It writes the table the way a project does, since it is one when it is built on its own: `std` is the ceiling for that build, and the entry keyed by its own path is its own code. `nomi capabilities --write`, run in the module, writes both.
+
+```toml
+# the nomi.toml of lib.example/pg
+[module]
+name = "pg"
+
+[capabilities]
+std = ["std::fs"]
+go = ["lib.example/pg"]
+
+[capabilities.modules]
+"lib.example/pg" = ["std::fs"]
+```
+
+When the project has a `[capabilities]` table too, it holds the module to what the module declared:
+
+- A call written in the module's files must be in the module's entry for itself, in the project's entry for the module if there is one, and in the project's `std`. The lists intersect, so a project entry longer than the module's own is not an error.
+- A module whose table has no entry for itself is held to its `std`, which is no narrower than its own code. A table with neither declares no std call.
+- A module that binds Go declares it by listing its own path in its own `go`. If it binds Go and does not, it declares less than its code reaches.
+- A module's own `go` never allows anything. The project's `go` must list the module too, so the project's `nomi.toml` alone says everything the program may reach.
+- The rest of the module's table is for its own builds and is not read: the rest of its `go`, its `std_in_tests` and `go_in_tests`, its entries for other modules, and `require_module_lists`.
+
+A module with no table and no entry in the project is held by the project's `std` alone. A project with no `[capabilities]` table is held to nothing, its dependencies' tables included.
+
+#### Names
+
+A std name is a std module as an import writes it (`std::fs`, `std::net`), or `std::startup`. Each of these is an error at its line in `nomi.toml`: a std name of another form, a `go:` name (Go is allowed by module, under `go`, not by package), a `host:` name (which only a Go program that embeds Nomi can allow, below), a name listed twice, a std name that is no std module (naming the nearest, `did you mean "std::fs"?`), and, in `go`, `go_in_tests` or `[capabilities.modules]`, a module that is neither the project nor one `go.mod` requires. A name that is allowed and never reached is not an error, and neither is a std module that has no outside call, which allows nothing. A dependency's own lists are held to the same rules, and an error in one is reported at its line in the dependency's `nomi.toml`.
+
+#### What counts as outside
+
+An outside call acts on, or reads from, something outside the program: files, the network, processes, output and input, the clock, entropy, the environment and the arguments, tasks, a nested program, and every Go binding. Getting a handle is outside (opening a file, dialing, listening, starting a process, the standard streams) and using one already held is not, so a function handed an open file and writing to it reaches nothing. Formatting a time is inside and reading the clock is outside. Entropy a signature or a seal draws as a nonce is inside, and a seeded generator is inside. An exit status, a trap and a failed assertion are not outside calls. `dbg` writes to standard error and is `std::io`. A boot that takes a `Startup` reads the environment and the arguments, and is `std::startup`, reported at the boot.
+
+These std functions cross into Go and are outside calls, by the module that declares them:
+
+| Module | Outside functions |
+|---|---|
+| `std::channels` | `after`, `receive_within` |
+| `std::compiler` | `check`, `check_project`, `hover`, `run`, `run_file` |
+| `std::context` | `deadline_remaining`, `with_timeout` |
+| `std::fs` | `copy`, `create`, `create_dir`, `create_symlink`, `current_dir`, `link_metadata`, `list`, `make_temp_dir`, `metadata`, `open`, `open_file`, `read`, `read_link`, `read_text`, `remove`, `remove_all`, `rename`, `set_mode`, `temp_dir`, `within`, `write` |
+| `std::http` | `certificate_load`, `dial_with`, `listen`, `listen_tls`, `lookup`, `net_listen_with`, `send`, `test_certificate`, `tls_config`, `tls_dial`, `tls_listen`, `ws_connect` |
+| `std::instant` | `now` |
+| `std::io` | `dbg`, `eprint`, `ewrite`, `inspect`, `print`, `read_line`, `standard_error`, `standard_input`, `standard_output`, `write` |
+| `std::process` | `start` |
+| `std::random` | `os_state`, `secure_bytes` |
+| `std::signatures` | `generate_ed25519`, `generate_p256`, `generate_rsa` |
+| `std::supervisors` | `flush_bounded`, `spawn`, `spawn_all` |
+| `std::tasks` | `spawn`, `spawn_all` |
+| `std::timer` | `sleep` |
+
+#### How a call is named
+
+A call is named by the std module the code called, not the one that crosses: std::net, std::tls and std::websocket dial and look up names through std::http's functions, so `net.dial(...)` is `std::net` and `http.get(...)` is `std::http`. A Go binding is shown as `go:` and the import path its `gopkg` names, which says which binding it is; `go` holds it by the module whose file holds it.
+
+#### What a module is charged for
+
+A call is charged to the module whose file holds it, and a module's list holds only those calls. A callback the program passes to a dependency is the program's code, so the dependency is not charged when it calls it.
+
+#### When it is checked
+
+`nomi check` holds `main`, the boot and the exported functions to `std` and `go`, and the test cases to those with `std_in_tests` and `go_in_tests`. `nomi run` holds `main`, the boot and the exported functions, `nomi test` the cases it runs, and `nomi build` what the build keeps. Each refuses before the program does anything, prints the diagnostics and exits 1. They print one diagnostic per name and list: the first call in source order, with its chain and fix, and a help line `and 14 more calls reach std::io; --all-calls lists them` for the rest. `--all-calls` on those four commands prints every call, and `--format json` and the editor always give every call. The artifact cache keeps no program its lists refuse, and an edit to `nomi.toml` is a change like any other. The editor shows each diagnostic at its call and rechecks when `nomi.toml` is saved.
+
+#### Why a call counts though it may never run
+
+The check walks what the program can reach, as `nomi build` does to choose what a build keeps, and counts every call it can reach whether or not a run takes it: a call in a branch that never runs; a function used as a value, whether or not anything calls it; every implementation of an interface function the program calls through the interface; every `Display` or `Debug` body once the program displays or inspects a value; every `Equatable` and `Hashable` body once it compares or hashes values; a `once`'s initializer when the program reads it; and the boot. The diagnostic's help line gives the chain from a root, each step in those words.
+
+```
+error: this program reaches std::http, and nomi.toml allows only std::io, std::fs
+ --> main.nomi:8:10
+  |
+8 |     case http.get(Url"https://rates.example.com/today")
+  |          ^^^^
+  = help: reached from `main`; `main` calls `rates`
+  = help: add "std::http" to std under [capabilities] in nomi.toml, or remove the call
+```
+
+A call that cannot happen still counts. Allow its name, or move the call out of the code the program reaches: out of a `Display` body, an interface implementation or a function value the program does not need.
+
+#### The errors
+
+A refused Go binding is reported at the binding, naming the module and the package:
+
+```
+error: lib.example/pg binds Go through go:lib.example/pg/goside, and nomi.toml lets no module bind Go
+ --> /work/pg/db.nomi:5:8
+  |
+5 | pub fn connect(url: String) -> Conn go goside.Connect
+  |        ^^^^^^^
+  = help: reached from `main`; `main` calls `connect`
+  = help: add "lib.example/pg" to go under [capabilities] in nomi.toml, or remove the call
+```
+
+When only the tests reach it, the help names `go_in_tests`.
+
+`nomi check --format json` gives each such diagnostic the code `capability-not-allowed` and its `args`: the name, the module over its list (empty for the program's own list, and the project's own module path for its entry under `[capabilities.modules]`), then each name that list allows: `"args":["std::http","","std::io","std::fs"]`. For a Go binding they are its name, the module that binds Go, which is what to add to `go`, then each module the list names: `"args":["go:lib.example/pg/goside","lib.example/pg"]`.
+
+A call over the list a dependency declares in its own `nomi.toml` has the code `capability-not-declared`, with the same `args`: the name, the module, then each name its own list holds (its entry for itself, or its `std` when it has none), or for a Go binding each module its own `go` lists. The module declares less than its code reaches, so the help says the fix is in that module, naming its `nomi.toml`, and names the project's lists only when they do not allow the call either. A call over more than one list is reported once: over the module's own list first, then the project's entry for the module, then the project's lists, and the help names the others it is over.
+
+```
+error: lib.example/pricing reaches std::fs, and its own nomi.toml allows it only std::io
+ --> /work/pricing/rules.nomi:4:5
+  |
+4 |     fs.read_text(path) |> Result.with_default("")
+  |     ^^
+  = help: reached from `main`; `main` calls `load`
+  = help: lib.example/pricing declares less than its code reaches, and the fix is in that module: add "std::fs" to "lib.example/pricing" under [capabilities.modules] in /work/pricing/nomi.toml, or remove the call
+```
+
+#### A host's own list
+
+A Go program that loads Nomi with the `vmhost` package holds it to a list with `vmhost.WithCapabilities`, whose names are those of a std list, plus `host:<key>` for a function the Go program's own host tables answer. With no names the program may reach nothing. With it, a Go binding is refused unless `vmhost.WithGo` lists the module that binds it, as `go` does; the program's own module is its `go.mod`'s module path, else its `[module].name`, else its entry's name, which for `vmhost.LoadSource("rule", src)` is `rule`. `vmhost.WithGo` alone holds only Go bindings. A `go:` name passed to `vmhost.WithCapabilities` is an error that points at `vmhost.WithGo`.
+
+```go
+p, err := vmhost.LoadSource("rule", src, vmhost.WithCapabilities())
+rate, err := p.Call(ctx, "discount", vmhost.Fields{"items": 12, "loyal": true})
+```
+
+The load refuses a program that reaches more from anything the Go program can run: `main`, the boot, every function the entry file declares (`Call` may call any of them) and the test cases. The error is a `*vmhost.CapabilityError`, whose text is the diagnostics above, in the words `the host allows nothing outside the program` or `the host lets no module bind Go`, and whose `Calls` hold each call's name, site and chain. `Run`, `Test` and `Call` hold the program again, and the project's own `nomi.toml` lists apply too. The list does not confine what it cannot see: the files `vmhost.WithFileSystem` gives the program, the Go program's own host functions once allowed, what a Go binding does inside, a nested program `std::compiler` runs once that is allowed, and time and memory, which `vmhost.WithStop` and the contexts passed to `Run` and `Call` bound.
+
+A Go program that runs `.nomic` files with the `vmrunner` package, which links no compiler, holds each to a list with `vmrunner.WithCapabilities`, and a JavaScript or other WASI host passes the lists to the reactor in `nomi_load_with`'s `"std"` and `"host"` ([Calling exported functions](#calling-exported-functions)). Both hold the program from `main`, the boot and every exported function, with the names and the walk above, and refuse it at the load in the same words, at the file and line the program was built from. A compiled program records no Go import path, so there a Go binding is named by its key, `host:<key>`, and a `go:` name is an error. Neither knows the std modules, so a misspelled std name allows nothing rather than failing. `vmrunner.WithStop` and the context passed to `Instance.Call` and `Instance.Main` bound the time a load and a call run, and the reactor's `"timeout_ms"` does the same.
 
 ### Project mode
 
@@ -1187,79 +1515,9 @@ The walk counts a call in a branch the program never takes, so `--allow-unsuppor
 
 A project with Go bindings is checked the same way, over the std calls it reaches. A Go binding itself carries no class: what a bound Go function does is opaque to the compiler, and whether its package builds for the target is for Go to decide (above). A bound function that reads a file in a `js/wasm` module reaches Go's in-memory file system there, as std::fs's calls do.
 
+A class is about what a target can do. What a project lets its program reach, on any target, is a [capability list](#capability-lists).
+
 `nomi build --web` of a program that reaches `files` prints one line, `` nomi build --web: this program uses files; in the browser it sees only the files run's "files" option gives it ``.
-
-### Capability lists
-
-A project can list what its program may reach outside itself, in a `[capabilities]` table in `nomi.toml`, and `nomi check`, `run`, `test` and `build` refuse a program that reaches more. Capability classes ([above](#capability-classes)) are what a build target lacks; capability lists are what a project allows. A project with no `[capabilities]` table is not held to anything.
-
-```toml
-# nomi.toml
-[capabilities]
-allow = ["std::io", "std::fs"]
-allow_in_tests = ["std::process"]
-
-[capabilities.modules]
-"example.com/pricing" = []
-"example.com/pg" = ["go:github.com/jackc/pgx/v5"]
-```
-
-- `allow` is what the program may reach, from any module's code.
-- `allow_in_tests` is added to `allow` for test cases.
-- `[capabilities.modules]` holds a module the project requires, by its path as `go.mod` writes it, to a list of its own, for the calls written in that module's files. Such a call must be in both lists. A module with no entry is held by `allow` alone. An empty list allows nothing.
-
-A name is a std module as an import writes it (`std::fs`, `std::net`), or `go:` and the import path a `gopkg` declaration binds. Each of these is an error at its line in `nomi.toml`: a name of neither form, a `host:` name (which only a Go program that embeds Nomi can allow, below), a name listed twice, a std name that is no std module (naming the nearest, `did you mean "std::fs"?`), a `go:` package no `gopkg` declaration in the program or its dependencies imports, and a module path `go.mod` does not require. A name that is allowed and never reached is not an error, and neither is a std module that has no outside call, which allows nothing. Only the project's own `nomi.toml` holds lists: a dependency's `[capabilities]` table is read and ignored.
-
-**What counts as outside.** An outside call acts on, or reads from, something outside the program: files, the network, processes, output and input, the clock, entropy, the environment and the arguments, tasks, a nested program, and every Go binding. Getting a handle is outside (opening a file, dialing, listening, starting a process, the standard streams) and using one already held is not, so a function handed an open file and writing to it reaches nothing. Formatting a time is inside and reading the clock is outside. Entropy a signature or a seal draws as a nonce is inside, and a seeded generator is inside. An exit status, a trap and a failed assertion are not outside calls. `dbg` writes to standard error and is `std::io`. A boot that takes a `Startup` reads the environment and the arguments, and is `std::startup`, reported at the boot.
-
-These std functions cross into Go and are outside calls, by the module that declares them:
-
-| Module | Outside functions |
-|---|---|
-| `std::channels` | `after`, `receive_within` |
-| `std::compiler` | `check`, `check_project`, `hover`, `run`, `run_file` |
-| `std::context` | `deadline_remaining`, `with_timeout` |
-| `std::fs` | `copy`, `create`, `create_dir`, `create_symlink`, `current_dir`, `link_metadata`, `list`, `make_temp_dir`, `metadata`, `open`, `open_file`, `read`, `read_link`, `read_text`, `remove`, `remove_all`, `rename`, `set_mode`, `temp_dir`, `within`, `write` |
-| `std::http` | `certificate_load`, `dial_with`, `listen`, `listen_tls`, `lookup`, `net_listen_with`, `send`, `test_certificate`, `tls_config`, `tls_dial`, `tls_listen`, `ws_connect` |
-| `std::instant` | `now` |
-| `std::io` | `dbg`, `eprint`, `ewrite`, `inspect`, `print`, `read_line`, `standard_error`, `standard_input`, `standard_output`, `write` |
-| `std::process` | `start` |
-| `std::random` | `os_state`, `secure_bytes` |
-| `std::signatures` | `generate_ed25519`, `generate_p256`, `generate_rsa` |
-| `std::supervisors` | `flush_bounded`, `spawn`, `spawn_all` |
-| `std::tasks` | `spawn`, `spawn_all` |
-| `std::timer` | `sleep` |
-
-**How a call is named.** A call is named by the std module the code called, not the one that crosses: std::net, std::tls and std::websocket dial and look up names through std::http's functions, so `net.dial(...)` is `std::net` and `http.get(...)` is `std::http`. A Go binding is `go:` and the import path its `gopkg` names.
-
-**What a module is charged for.** A call is charged to the module whose file holds it, and a module's list holds only those calls. A callback the program passes to a dependency is the program's code, so the dependency is not charged when it calls it. A handle the program opens and passes in is the program's call; the dependency's use of it is inside.
-
-**When it is checked.** `nomi check` holds `main`, the boot and the exported functions to `allow`, and the test cases to `allow` and `allow_in_tests`. `nomi run` holds `main`, the boot and the exported functions, `nomi test` the cases it runs, and `nomi build` what the build keeps. Each refuses before the program does anything, prints the diagnostics and exits 1. The artifact cache keeps no program its lists refuse, and an edit to `nomi.toml` is a change like any other. The editor shows each diagnostic at its call and rechecks when `nomi.toml` is saved.
-
-**Why a call counts though it may never run.** The check walks what the program can reach, as `nomi build` does to choose what a build keeps, and counts every call it can reach whether or not a run takes it: a call in a branch that never runs; a function used as a value, whether or not anything calls it; every implementation of an interface function the program calls through the interface; every `Display` or `Debug` body once the program displays or inspects a value; every `Equatable` and `Hashable` body once it compares or hashes values; a `once`'s initializer when the program reads it; and the boot. The diagnostic's help line gives the chain from a root, each step in those words.
-
-```
-error: this program reaches std::http, and nomi.toml allows only std::io, std::fs
- --> main.nomi:8:10
-  |
-8 |     case http.get(Url"https://rates.example.com/today")
-  |          ^^^^
-  = help: reached from `main`; `main` calls `rates`
-  = help: add "std::http" to allow under [capabilities] in nomi.toml, or remove the call
-```
-
-A call that cannot happen still counts. Allow its name, or move the call out of the code the program reaches: out of a `Display` body, an interface implementation or a function value the program does not need.
-
-`nomi check --format json` gives each such diagnostic the code `capability-not-allowed` and its `args`: the name, the module over its list (empty for the program's own list), then each name that list allows: `"args":["std::http","","std::io","std::fs"]`.
-
-**A Go program that embeds Nomi.** A Go program that loads Nomi with the `vmhost` package holds it to a list with `vmhost.WithCapabilities`, whose names are the same, plus `host:<key>` for a function the Go program's own host tables answer. With no names the program may reach nothing:
-
-```go
-p, err := vmhost.LoadSource("rule", src, vmhost.WithCapabilities())
-rate, err := p.Call(ctx, "discount", vmhost.Fields{"items": 12, "loyal": true})
-```
-
-The load refuses a program that reaches more from anything the Go program can run: `main`, the boot, every function the entry file declares (`Call` may call any of them) and the test cases. The error is a `*vmhost.CapabilityError`, whose text is the diagnostics above, in the words `the host allows nothing outside the program`, and whose `Calls` hold each call's name, site and chain. `Run`, `Test` and `Call` hold the program again, and the project's own `nomi.toml` lists apply too. The list does not confine what it cannot see: the files `vmhost.WithFileSystem` gives the program, the Go program's own host functions once allowed, what a Go binding does inside, a nested program `std::compiler` runs once that is allowed, and time and memory, which `vmhost.WithStop` and the contexts passed to `Run` and `Call` bound.
 
 ### Compiled programs and `nomi-vm`
 
@@ -1439,9 +1697,11 @@ system, or any runner that only calls its exports, runs it.
   |---|---|---|
   | `nomi_alloc` | `(len: i32) -> i32` | reserves `len` bytes and returns a pointer the runner writes into |
   | `nomi_call` | `(name_ptr, name_len, args_ptr, args_len: i32) -> i64` | calls the exported function named by the UTF-8 name with the JSON array of arguments; returns the result's pointer in the high 32 bits and its length in the low 32 bits |
-  | `nomi_free` | `(ptr, len: i32)` | releases a buffer from `nomi_alloc` or a result from `nomi_call` or `nomi_load` |
+  | `nomi_call_with` | `(name_ptr, name_len, args_ptr, args_len, opts_ptr, opts_len: i32) -> i64` | `nomi_call` with options, a JSON object ([below](#calling-exported-functions)) |
+  | `nomi_free` | `(ptr, len: i32)` | releases a buffer from `nomi_alloc` or a result another export returned |
   | `nomi_main` | `() -> i32` | runs `main` over WASI stdin, stdout and stderr and returns the exit status `nomi run` would exit with |
   | `nomi_load` | `(ptr, len: i32) -> i64` | boots the compiled program (`.nomic`) at `ptr` in a reactor that has none, or with `len` 0 the program built into the module; returns its result as `nomi_call` does |
+  | `nomi_load_with` | `(ptr, len, opts_ptr, opts_len: i32) -> i64` | `nomi_load` with options, a JSON object ([below](#calling-exported-functions)) |
 
 The result is UTF-8 JSON: `{"ok": value}` on success, with `null` for a
 `Unit` result, and `{"error": "diagnostic"}` on a trap, a `FromJson` failure
@@ -1530,6 +1790,61 @@ with no program it is the error result `` this reactor has no program built
 in: pass it a compiled program (.nomic) ``, and the reactor stays ready for
 a load.
 
+**Options: what a script may reach, and how long it may run.** A runner
+that loads scripts it did not write passes options to `nomi_load_with` and
+`nomi_call_with` as a JSON object in a buffer from `nomi_alloc`, such as
+`{"std": ["std::io"], "timeout_ms": 500}`. An empty buffer, or `{}`, is no
+options, so `nomi_load_with` with none is `nomi_load`. A key the export does
+not take is an error result naming it: `` nomi_load_with has no option
+"allow"; its options are "std", "host" and "timeout_ms" ``.
+
+- `"std"` (`nomi_load_with`): the std modules the program may reach, named
+  as a [capability list](#capability-lists)'s `std` names them (`std::io`, `std::fs`, `std::startup`). An empty array allows
+  nothing; without the key these calls are not held. The load refuses,
+  before the program runs anything, a program that reaches an outside call
+  the names do not allow from `main`, the boot or any exported function.
+  The error result names each call at the file and line the program was
+  built from, and says how it is reached, in the words `vmhost` uses:
+
+  ```
+  greeter.nomi:4: this program reaches std::io, and the host allows nothing outside the program
+  greeter.nomi:4: help: reached from `hello`
+  greeter.nomi:4: help: add "std::io" to the names the host passes to nomi_load_with's "std", or remove the call
+  ```
+
+  A name listed twice, a name of another form, a `go:` name and a `host:`
+  name are errors: a compiled program records no Go import path, and a
+  host function's key goes in `"host"`. A misspelled std module is not
+  caught: the reactor carries no list of std modules, so `std::fss` allows
+  nothing. A refused load leaves no program, so the runner may load again.
+- `"host"` (`nomi_load_with`): the keys of the host functions linked into
+  the runner that the program may call, each as its table registers it,
+  without `host:` (`["lookup"]`). A runner `nomi build --target wasip1/wasm`
+  generates for a project with Go bindings links them this way, and a
+  refusal names such a call `host:lookup`. With `"std"` given and `"host"`
+  not, no host function is allowed; `"host"` alone holds only host
+  functions. A key no linked table answers is an error.
+- `"timeout_ms"` (both): a whole number of milliseconds above 0. On
+  `nomi_load_with` it bounds the boot, and it is the bound of every later
+  `nomi_call`, `nomi_call_with` and `nomi_main`. On `nomi_call_with` it
+  bounds that call in place of the load's. A call past its bound stops: a
+  computing program stops at its next call, loop iteration or iteration
+  element, a waiting one wakes, and the tasks the call started stop with
+  it. The call returns `` {"error": "the call to `forever` was stopped after
+  500 ms, its timeout_ms"} ``, and `nomi_main` writes `` main was stopped
+  after 500 ms, its timeout_ms `` to stderr and returns 1. A stopped load is
+  `` the load was stopped after 500 ms, its timeout_ms `` and leaves no
+  program.
+
+After a stopped call the program stays loaded and takes more calls. The
+stop unwinds only that call: what the boot built is untouched, a `once`
+value the call was computing is computed again by the next call that reads
+it, and a `once` value an earlier call computed is kept. The module reads
+the clock as the program runs, so a loop that never waits is stopped too,
+though the module has one thread. Options for a program built into the
+module apply only when the call that boots it is an empty `nomi_load_with`;
+after an earlier call has booted it, they are an error result.
+
 `nomi build-vm --reactor` also writes `nomi-wasi.js` beside the reactor,
 with its TypeScript declarations in `nomi-wasi.d.ts`, and `nomi build
 --target wasip1/wasm` writes both beside a reactor it embeds a program in: the toolchain's
@@ -1543,7 +1858,9 @@ to a program whose `exports` are the load's signatures and whose
 `call(name, ...args)` JSON-encodes the arguments, calls `nomi_call`, and
 resolves with `ok` or rejects with an `Error` carrying `error`; and
 `runtime.run(nomic, {stdin:, args:, env:})`, which loads into a fresh instance,
-calls `nomi_main`, and resolves with its exit status and output. Without
+calls `nomi_main`, and resolves with its exit status and output. Both take
+`std`, `host` and `timeoutMs`, which they pass to `nomi_load_with` as
+`"std"`, `"host"` and `"timeout_ms"`: `runtime.load(nomic, {std: [], timeoutMs: 500})`. Without
 `nomic`, `load()` and `run()` call `nomi_load` with length 0, so they use
 the program built into the module, and reject with that error result on a
 reactor that has none; a `.nomic` handed to a reactor with a program built
@@ -1611,7 +1928,7 @@ once.
 A program with `gopkg` bindings needs a Go toolchain, unless every binding is a first-party `lib/` module's (the SQLite and Postgres drivers, sqlkit, markdown, image, the password hashers) and the `nomi` is a release. Pure-Nomi programs and tests need none.
 
 - A release carries the `lib/` modules' Go side prebuilt, at the commit it was cut at: `nomi-lib`, which `nomi run`, `nomi test` and `nomi check` run such a program in, and `nomi-vm-lib`, which `nomi build` appends it to, for each native platform and `js/wasm`. They ship in a lib archive per platform beside the main one, which `nomi` downloads from its release the first time it needs it unless it is unpacked beside `nomi`, and they must come from the same commit as `nomi`. `nomi add` takes a `lib/` module at that commit, and `nomi update` moves every `lib/` module to it. A project that also has a binding of its own, or a `lib/` module at another commit, builds a wrapper with Go as below; with no Go, the error names the binding or the version, and for a version, that `nomi update` aligns it. `wasip1/wasm` has no prebuilt `lib/` runner, since modernc.org/sqlite does not build for it.
-- `nomi run`, `nomi check` and `nomi test` compile the bound packages, with Nomi's own Go module, into a wrapper they cache under the user cache directory (`nomi/builds/`, safe to delete). The first run of a project is slower; later runs reuse the wrapper until the project's Go code, its `go.mod` or `nomi` changes, and editing `.nomi` files never rebuilds it. A released or `go install`ed `nomi` compiles against Nomi's module at its own version, which Go fetches; one built from a clone compiles against the clone ([Installing Nomi](install.md)).
+- `nomi run`, `nomi check` and `nomi test` compile the bound packages, with Nomi's own Go module, into a wrapper they cache under the user cache directory (`nomi/builds/`, safe to delete). A wrapper is removed once its project is gone or nothing has used it for 14 days, which a command looks for at most once a day. The first run of a project is slower; later runs reuse the wrapper until the project's Go code, its `go.mod` or `nomi` changes, and editing `.nomi` files never rebuilds it. A released or `go install`ed `nomi` compiles against Nomi's module at its own version, which Go fetches; one built from a clone compiles against the clone ([Installing Nomi](install.md)).
 - With no `go` on `PATH`, `nomi` downloads the Go release it was built with and uses that ([The Go toolchain](#the-go-toolchain)).
 - A bound package may be in a module from the Go module cache, a dependency's included.
 - Go bindings build with `CGO_ENABLED=0`, so a `gopkg` naming a package that needs cgo, itself or through a package it imports, is a check error at the path: `` gopkg "example.com/app/wrap": needs cgo: it imports example.com/cdriver/internal/csql (...), whose files import "C", and Go bindings build with CGO_ENABLED=0 ``.
@@ -1649,6 +1966,7 @@ and `GOOS` and `GOARCH` pick a build's target as `--target` does.
 | `NOMI_ENV` | `nomi test` sets it to `test` unless it is set ([The test environment](#the-test-environment)). Programs read it from `startup.env`. |
 | `NOMI_COLOR` | `always` (or `1`, `true`, `yes`, `force`) colours diagnostics and test reports even into a pipe; `never` (or `0`, `false`, `no`) never colours them. Otherwise `NO_COLOR` or `TERM=dumb` turns colour off, `CLICOLOR_FORCE` turns it on, and colour goes only to a terminal. |
 | `NOMI_DIAGNOSTICS` | `short` prints each diagnostic as one `path:line:col: message` line, for every command. |
+| `NOMI_ALL_CALLS` | Any value prints every call `[capabilities]` lists refuse, not the first of each name, as `--all-calls` does ([Capability lists](#capability-lists)). |
 | `NOMI_DEBUG_LOWERING` | For work on the compiler. Any value but `0` adds the compiler's own reason to each "not supported yet" error ([When code cannot run yet](#when-code-cannot-run-yet)). |
 | `NOMI_GO` | The `go` command, or a Go root, that builds Go bindings, ahead of the `go` on `PATH` and the downloaded toolchain ([The Go toolchain](#the-go-toolchain)). |
 | `NOMI_GO_DOWNLOAD_URL` | Where the managed Go toolchain is downloaded from, in place of `https://go.dev/dl/`. |

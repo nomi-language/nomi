@@ -116,7 +116,9 @@ func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 
 // genericTemplateNamed resolves a generic template by the name a use site
 // spells, local or module-qualified, together with the function that
-// instantiates it.
+// instantiates it. typed is the type the checker gave the use, nil where
+// the caller has none: it decides between a block's template and the
+// module's of one name (blockLocalTemplate).
 //
 // One resolver and one instantiator handed back together, in place of a
 // local/foreign branch at each of the four use sites (a type annotation, a
@@ -127,8 +129,8 @@ func (g *gen) instanceOwner(src *typeDef) *typeOwner {
 // The instantiator differs because the gen that builds the instance differs:
 // a local template's instance is built in this gen, and an imported one's in
 // the owner's gen and mirrored here (instantiateForeign).
-func (g *gen) genericTemplateNamed(name string) (*genericTemplate, typeInstantiator, bool) {
-	tpl := g.blockLocalTemplate(name)
+func (g *gen) genericTemplateNamed(name string, typed analysis.Type) (*genericTemplate, typeInstantiator, bool) {
+	tpl := g.blockLocalTemplate(name, typed)
 	if tpl == nil {
 		tpl = g.genericTemplates[name]
 	}

@@ -574,7 +574,7 @@ func (s *stdInstances) callsGenericSibling(f *stdFunc, visiting map[*stdFunc]boo
 					return
 				}
 				if id, isIdent := callee.Object.(*ast.Ident); isIdent && callee.Field != nil {
-					if module, isStd := stdFileQualifier(v.fa, id); isStd &&
+					if module, isStd := stdFileOfScope(v.fa, scopeOfRef(v.fa, refAt(v.fa, id), id.Name)); isStd &&
 						s.otherModuleCallee(f.module, s.std.byFile[module+"."+callee.Field.Name], visiting) {
 						found = true
 						return
@@ -1360,7 +1360,12 @@ func (bl *irScalarBuilder) kindImplCall(t *ast.Call, k kind, kt analysis.Type, m
 	args := bl.irQualLowerArgs(t)
 	var plan *irQualPlan
 	if s := bl.g.stdInsts; bl.g.stdModule != "" && s != nil && s.caller != nil {
-		if iface, ok := callerKindIface(s.caller, k, method); ok {
+		if std, named := bl.g.recordedStdIface(t); named {
+			// A call the builder wrote of a std interface's function at
+			// k (a record field's `F.from_json`): that interface's impl,
+			// whatever else of k declares the method.
+			plan = bl.callerImplPlan(t, args, stdIfaceImplKey(std), method, k)
+		} else if iface, ok := callerKindIface(s.caller, k, method); ok {
 			plan = bl.callerImplPlan(t, args, iface, method, k)
 		}
 	} else {

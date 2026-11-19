@@ -1,9 +1,5 @@
 package irbuild
 
-import (
-	"strings"
-)
-
 // The SCALAR OPERATOR IMPLS written out by name: `Subtract.subtract(9, 4)`,
 // `Int.add(a, b)`, `Divide.divide(9.0, 2.0)`.
 //
@@ -61,7 +57,7 @@ import (
 //     entirely; see operimpl.go.
 
 // scalarArithOps pairs an operator interface with its one method, derived from
-// stdOperatorIfaces so the two cannot drift: that map is what stdlib.go's
+// operIfaceSpecs so the two cannot drift: that table is what stdlib.go's
 // stdlibOperatorFor selects with, and a second hand-written copy of "which
 // interface is which operator" is the shape of every identity drift this package
 // guards against.
@@ -71,16 +67,11 @@ import (
 // `Float`, `String`) may spell any of the four, because a type implements
 // several.
 var scalarArithOps = func() map[string]struct{ method, op string } {
-	out := make(map[string]struct{ method, op string }, len(stdOperatorIfaces))
-	for op, key := range stdOperatorIfaces {
-		iface, method, ok := strings.Cut(key, ".")
-		if !ok || iface == "" || method == "" {
-			// Unreachable: every stdOperatorIfaces value is `Iface.method`.
-			// Left as a skip rather than a panic because a malformed row would
-			// otherwise take down every lowering in the package at init.
-			continue
+	out := make(map[string]struct{ method, op string }, len(operIfaceSpecs))
+	for _, s := range operIfaceSpecs {
+		if s.op != "" {
+			out[s.nomi] = struct{ method, op string }{s.method, s.op}
 		}
-		out[iface] = struct{ method, op string }{method, op}
 	}
 	return out
 }()

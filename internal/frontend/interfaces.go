@@ -111,7 +111,6 @@ func (c *Checker) sourceProgram(fa *analysis.FileAnalysis, nodes []ast.Node, sib
 			if !c.entryMode.Tests {
 				StripAttachedTests(nodes)
 			}
-			nodes, _ = analysis.SynthesizeDerives(nodes)
 			return analysis.SynthesizeUniversalDebug(nodes), nil
 		},
 		Loader:     loader,

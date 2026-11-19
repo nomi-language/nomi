@@ -219,9 +219,9 @@ func (bl *irScalarBuilder) iterLoop(t *ast.Call) (ir.Temp, kind, bool, bool) {
 			}
 			name := "$step" + strconv.Itoa(line) + "." + strconv.Itoa(col)
 			bl.bound[name], bl.boundK[name] = v, k
-			callee = &ast.Ident{Name: name, Line: line, Col: col}
+			callee = bl.g.madeIdent(name, line, col)
 		}
-		state := &ast.Ident{Name: "$state", Line: line, Col: col}
+		state := bl.g.madeIdent("$state", line, col)
 		step = &ast.Call{Func: callee, Args: []ast.Node{state}, Line: line, Col: col}
 		// The loop passes the state as the step's first argument.
 		bl.g.carryCall(step, stepRec)

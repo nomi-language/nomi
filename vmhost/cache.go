@@ -192,7 +192,7 @@ func WithCache(c *Cache) Option {
 // capabilities, which a load holds the program to.
 func (c *config) cacheable() bool {
 	return len(c.hosts) == 0 && c.virtualFiles == nil && c.virtualData == nil && c.manifest == nil &&
-		c.projectRoot == "" && c.session == nil && !c.allowUnusedBindings && !c.held
+		c.projectRoot == "" && c.session == nil && !c.allowUnusedBindings && !c.held && !c.goHeld
 }
 
 // keep writes p to its load's cache, when it has one and p is clean.

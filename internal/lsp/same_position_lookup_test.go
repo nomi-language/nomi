@@ -55,6 +55,62 @@ func TestImplementation_MethodOwnerIsExactAcrossSamePositionedInterfaces(t *test
 	}
 }
 
+// Two files each declare an interface named Show, and main.nomi implements
+// both for User. Go-to-implementation from `a.Show` and from its function
+// lists only the impl of a's Show, by the interface's identity.
+func TestImplementation_ListsOnlyTheImplsOfTheInterfaceOfItsIdentity(t *testing.T) {
+	main := "import\n    a\n    b\nend\n" + // lines 0-3
+		"\n" +
+		"struct User\n    name: String\nend\n" + // 5-7
+		"\n" +
+		"impl a.Show for User\n" + // 9
+		"  fn show(value: User) -> String\n      \"a\"\n  end\n" + // 10
+		"end\n" +
+		"\n" +
+		"impl b.Show for User\n" + // 15
+		"  fn show(value: User) -> String\n      \"b\"\n  end\n" + // 16
+		"end\n" +
+		"\n" +
+		"fn main()\n" +
+		"  u = User{name: \"ann\"}\n" +
+		"  _ = a.Show.show(u)\n" +
+		"  _ = b.Show.show(u)\n" +
+		"end\n"
+	show := "pub interface Show\n  fn show(value: self) -> String\nend\n"
+	s, uri := openProject(t, map[string]string{
+		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"a.nomi":    show,
+		"b.nomi":    show,
+		"main.nomi": main,
+	}, "main.nomi")
+	for _, c := range []struct {
+		name string
+		at   int
+		line uint32
+	}{
+		{"a's interface", strings.Index(main, "a.Show.show") + len("a."), 10},
+		{"a's function", strings.Index(main, "a.Show.show") + len("a.Show."), 10},
+		{"b's interface", strings.Index(main, "b.Show.show") + len("b."), 16},
+		{"b's function", strings.Index(main, "b.Show.show") + len("b.Show."), 16},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			result, err := s.textDocumentImplementation(nil, &protocol.ImplementationParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     offsetPosition(main, c.at),
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			locs, _ := result.([]protocol.Location)
+			if len(locs) != 1 || locs[0].Range.Start.Line != c.line {
+				t.Fatalf("want the one impl at line %d, got %+v", c.line, locs)
+			}
+		})
+	}
+}
+
 // withFakeStd gives s a copy of its std whose Modules and Files also hold
 // a module "fake" with the given scope. The name sorts before "json", so a
 // lookup that takes the first module in name order would take it. The

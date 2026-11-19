@@ -83,7 +83,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 		if !ok {
 			return no()
 		}
-		return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
+		return bl.comparison(t, op, lhs, lk, rhs, rk, rmobile)
 	}
 	wantL, widenL, wantR, widenR := bl.embedsWidenedOperand(t, op)
 	var lhs ir.Temp
@@ -135,7 +135,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 	if !ok {
 		return no()
 	}
-	return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
+	return bl.comparison(t, op, lhs, lk, rhs, rk, rmobile)
 }
 
 // lowerComparisonOperand lowers a comparison operand. An unnamed bracket
@@ -221,11 +221,23 @@ func (bl *irScalarBuilder) bareEqualityOperands(t *ast.Binary, op ir.CompareOp) 
 		if !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
-		return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
+		return bl.comparison(t, op, lhs, lk, rhs, rk, rmobile)
 	}, true
 }
 
-// compareOperands is `compare` once both operands are lowered.
+// comparison is `compare` once both operands are lowered
+// (compareOperands), with the route it takes held to the operator's
+// record (endOperator).
+func (bl *irScalarBuilder) comparison(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
+	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
+	outer := bl.beginOperator()
+	v, k, mobile, ok := bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
+	bl.endOperator(t, ok, outer)
+	return v, k, mobile, ok
+}
+
+// compareOperands lowers a comparison over its lowered operands, noting
+// the route it takes; comparison calls it.
 func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
 	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
@@ -269,34 +281,35 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	if irHeldKind(lk) && !op.Ordering() {
 		// Two interface values: the machine compares them by their run-time
 		// types, through a hand-written impl when there is one (ir.ValIface).
+		bl.op = routeDispatched
 		return bl.equalityCompare(t, op, ir.ValIface, lhs, rhs), kindBool, false, true
 	}
-	if op.Ordering() && lk.tag == tagNamed && !isDecimalKind(lk) {
-		if bl.g.implsByIface["Comparable"][lk] == nil && bl.g.stdCompareAt(lk, stdEnumKind(stdEnumOrdering)) != nil {
-			// A std type's own `impl Comparable` (Date, Time, a Vector
-			// is below): its compare answers an Ordering.
-			if _, isVector := vectorElem(lk); !isVector {
-				return bl.stdRankedCompare(t, op, lhs, rhs, lk, rmobile)
-			}
-		}
-		if _, isVector := vectorElem(lk); !isVector || bl.g.implsByIface["Comparable"][lk] != nil {
-			return bl.rankedCompare(t, op, lhs, rhs, lk, rmobile)
-		}
+	// An operator whose record names an impl the machine computes itself
+	// (machineImpls: Int's compare, List's equal, a derived enum's) takes
+	// none of the routes below that call an impl.
+	machine := bl.g.machineRoute(t)
+	if machine == routeUnset && op.Ordering() && (lk.tag == tagNamed || lk == kindString || lk.tag == tagList) {
+		// An `impl Comparable` the machine does not compute: a program's, or
+		// std's for a Decimal, a String, a List, a Vector or a Date. Its
+		// compare answers an Ordering.
+		return bl.rankedCompare(t, op, lhs, rhs, lk, rmobile)
 	}
 	if op.Ordering() && lk.tag == tagTuple {
 		// A tuple compares lexicographically (irtuplecompare.go).
+		bl.op = routeStructural
 		return bl.tupleRankedCompare(t, op, lhs, rhs, lk)
 	}
 	if lk == kindUnit && !op.Ordering() {
 		// Unit has one value, so `==` is True and `!=` False once both
 		// operands have run, as rt.Equal answers.
+		bl.op = routeStructural
 		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op == ir.OpEq)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: kindBool})
 		return c.Dst(), kindBool, false, true
 	}
 	list := irEqualityContainerKind(lk)
-	prelude := bl.g.irPreludeEqualityKind(lk)
+	prelude := bl.g.irPreludeEqualityKind(lk, machine)
 	decimal := isDecimalKind(lk)
 	if !op.Ordering() {
 		// See irequality.go: an enum first, since std's derived enum impls
@@ -308,7 +321,8 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			}
 			return v, kindBool, false, true
 		}
-		if v, ok := bl.stdEquality(t, lhs, rhs, lk, rmobile); ok {
+		if v, ok := bl.stdEquality(t, lhs, rhs, lk, rmobile, machine); ok {
+			bl.op = routeImpl
 			return bl.equalityNegate(t, op, v), kindBool, false, true
 		}
 		if v, ok, handled := bl.valueEquality(t, op, lhs, rhs, lk); handled {
@@ -317,15 +331,6 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 			}
 			return v, kindBool, false, true
 		}
-	}
-	if op.Ordering() && decimal {
-		return bl.stdRankedCompare(t, op, lhs, rhs, lk, rmobile)
-	}
-	if op.Ordering() && (lk == kindString || lk.tag == tagList) {
-		return bl.comparableRankedCompare(t, op, lhs, rhs, lk, rmobile)
-	}
-	if _, isVector := vectorElem(lk); op.Ordering() && isVector {
-		return bl.comparableRankedCompare(t, op, lhs, rhs, lk, rmobile)
 	}
 	structural := bl.structEqualityAt(t, lk)
 	// std's Byte and Bytes are rt leaves rt.Equal compares by content,
@@ -352,6 +357,10 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 		// impl lookup must never silently become structural comparison.
 		return no()
 	}
+	bl.op = routeNative
+	if list || prelude || structural {
+		bl.op = routeStructural
+	}
 	shape := irParamShape(lk)
 	if list && !op.Ordering() {
 		// A Vector is a generic host type, whose parameter shape is unknown;
@@ -373,10 +382,17 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	return c.Dst(), kindBool, false, true
 }
 
-// Only anchored prelude enums with scalar or Decimal payloads use structural comparison
-// here. User nominal types take the program-scoped Equatable selection.
-func (g *gen) irPreludeEqualityKind(k kind) bool {
-	if k.tag != tagNamed || !irRetainedEnumKind(k.def) || k.def.preludeOf == nil || g.handWrittenNominalEquatable(k) {
+// irPreludeEqualityKind reports a prelude enum whose `==` compares by
+// shape here: one whose record says so (machine, from machineRoute), or,
+// for a comparison with no such record, one with no hand-written impl in
+// this file (handWrittenNominalEquatable); and whose payloads are scalars,
+// Decimals and the values rt.Equal compares as the derived impl does.
+// User nominal types take the program-scoped Equatable selection.
+func (g *gen) irPreludeEqualityKind(k kind, machine operatorRoute) bool {
+	if k.tag != tagNamed || !irRetainedEnumKind(k.def) || k.def.preludeOf == nil {
+		return false
+	}
+	if machine == routeUnset && g.handWrittenNominalEquatable(k) {
 		return false
 	}
 	spec := k.def.preludeOf.spec
@@ -509,108 +525,34 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 	return dst, kindBool, true, true
 }
 
-// rankedCompare lowers an ordering operator on a named type through its
-// `impl Comparable`, the first route for an ordering operator: the impl's
-// compare answers an Ordering and the operator tests its rank. The impl is
-// this file's; the program's own when this body is a std generic instance at
-// a program type (`item < m` in `Iter.min<Level>`, which callerImplPlan
-// answers as it answers `Comparable.compare(item, m)` there); or a sibling
-// file's.
+// rankedCompare lowers `<`, `<=`, `>` or `>=` through an `impl
+// Comparable` and tests the rank of the Ordering its compare answers. The
+// impl is the one the operator's record names, called as that record's
+// call (operatorCall): a List's or a Vector's, std's own, through
+// containerCompareAny, the machine's lexicographic intrinsic over the
+// element type's compare, else std's instance, as `List.compare(a, b)`
+// is; any other, a program's in this file or another and std's (a
+// Decimal's host, a String's or a Date's body), planned by
+// recordedCallPlan. An operator whose record names no impl (one over a
+// type parameter whose frame has no checker type) calls the impl the
+// operands' kind selects (unrecordedCompareCall).
 func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	ord := stdEnumKind(stdEnumOrdering)
-	it, local := bl.localCompareImpl(t, k)
-	if !local {
-		pair := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
-		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
-		if p := bl.callerImplPlan(pair, args, "Comparable", "compare", k); p != nil && p.result == ord {
-			v, _, _, ok := bl.qualEmit(pair, args, p)
-			if !ok {
-				return no()
-			}
-			c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, v)
-			bl.b.Append(c)
-			bl.side(c.Dst(), irScalarSide{k: kindBool})
-			return c.Dst(), kindBool, false, true
-		}
-		// The impl is in a sibling file (`impl Comparable for Widget` beside
-		// Widget's declaration): its retained compare, as a sort takes it.
-		sym := bl.siblingCompareSym(k)
-		if sym == nil {
-			return no()
-		}
-		call := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, lhs, rhs)
-		bl.b.Append(call)
-		bl.side(call.Dst(), irScalarSide{k: ord, deferrable: true})
-		c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, call.Dst())
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindBool})
-		return c.Dst(), kindBool, false, true
-	}
-	if it != nil && !it.impl.lowerable {
-		return no()
-	}
-	if it == nil || !it.lowerable || len(it.params) != 2 || it.params[0] != k || it.params[1] != k || it.result != ord {
-		return no()
-	}
-	call := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), bl.g.irCalleeSym(it, "Comparable.compare"), lhs, rhs)
-	bl.b.Append(call)
-	bl.side(call.Dst(), irScalarSide{k: ord, deferrable: true})
-	c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, call.Dst())
-	bl.b.Append(c)
-	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	return c.Dst(), kindBool, false, true
-}
-
-// localCompareImpl is the `compare` of this file's `impl Comparable` that
-// the ordering operator t calls: the one the checker recorded for it
-// (recordedOperatorImpl), or for an operator over a type parameter, the
-// one this file registers for the instance's kind k. local is false when
-// the impl is another file's or std's; it is nil for a local block that
-// supplies no `compare`.
-func (bl *irScalarBuilder) localCompareImpl(t *ast.Binary, k kind) (it *implItem, local bool) {
-	og, it, _, recorded := bl.recordedOperatorImpl(t, k)
-	if recorded {
-		return it, it != nil && og == bl.g
-	}
-	if impl := bl.g.implsByIface["Comparable"][k]; impl != nil {
-		return impl.items["compare"], true
-	}
-	return nil, false
-}
-
-// comparableRankedCompare lowers `<`, `<=`, `>` or `>=` on a String, a Bool,
-// a List or a Vector through the type's `Comparable.compare`:
-// std's retained body for a String or a Bool, and List.compare /
-// Vector.compare with the element comparator for a container. The operator
-// tests the answer's rank.
-func (bl *irScalarBuilder) comparableRankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
+	call, recorded, done := bl.operatorCall(t)
+	defer done()
 	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
+	bl.op = routeImpl
 	var ordered ir.Temp
-	switch {
-	case k.tag == tagList:
-		v, _, _, ok := bl.containerCompareAny(call, args, "List")
-		if !ok {
-			return no()
-		}
-		ordered = v
-	case k.tag == tagNamed:
-		v, _, _, ok := bl.containerCompareAny(call, args, "Vector")
-		if !ok {
-			return no()
-		}
-		ordered = v
-	default:
-		f := bl.g.stdCompareAt(k, stdEnumKind(stdEnumOrdering))
-		if f == nil || f.irBody == nil {
-			return no()
-		}
-		c := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), f.irBody.Sym(), lhs, rhs)
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: stdEnumKind(stdEnumOrdering), deferrable: true})
-		ordered = c.Dst()
+	var ok bool
+	if owner := containerCompareOwner(k); owner != "" {
+		ordered, _, _, ok = bl.containerCompareAny(call, args, owner)
+	} else if recorded {
+		ordered, ok = bl.rankedCall(call, args, bl.recordedCallPlan(call, args, "Comparable.compare"))
+	} else {
+		ordered, ok = bl.unrecordedCompareCall(t, call, args, k)
+	}
+	if !ok {
+		return no()
 	}
 	c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ordered)
 	bl.b.Append(c)
@@ -618,58 +560,119 @@ func (bl *irScalarBuilder) comparableRankedCompare(t *ast.Binary, op ir.CompareO
 	return c.Dst(), kindBool, false, true
 }
 
-// stdRankedCompare lowers an ordering operator on Decimal through std's
-// `impl Comparable for Decimal`: the approved host
-// `rt.DecimalCompare` answers an Ordering and the operator tests its rank.
-func (bl *irScalarBuilder) stdRankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	ord := stdEnumKind(stdEnumOrdering)
-	if bl.g.implsByIface["Comparable"][k] != nil {
-		return no()
+// containerCompareOwner is the std container whose own `impl
+// Comparable` orders values of kind k, List or Vector, which
+// containerCompareAny lowers; "" for any other kind. Neither container
+// takes another impl of Comparable.
+func containerCompareOwner(k kind) string {
+	if k.tag == tagList {
+		return "List"
 	}
-	f := bl.g.stdCompareAt(k, ord)
-	if f == nil {
-		panic("irbuild: stdRankedCompare: callers checked stdCompareAt(k) != nil first, or k is Decimal whose std compare always exists")
+	if _, isVector := vectorElem(k); isVector {
+		return "Vector"
 	}
-	call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
-	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
-	p := bl.stdFuncPlan(call, args, f)
-	if p == nil {
-		return no()
+	return ""
+}
+
+// rankedCall appends the call of compare that p plans for the operator's
+// call, and answers the Ordering it returns; false when p is nil or
+// answers no Ordering.
+func (bl *irScalarBuilder) rankedCall(call *ast.Call, args irQualArgs, p *irQualPlan) (ir.Temp, bool) {
+	if p == nil || p.result != stdEnumKind(stdEnumOrdering) {
+		return ir.NoTemp, false
 	}
 	v, _, _, ok := bl.qualEmit(call, args, p)
-	if !ok {
-		return no()
+	return v, ok
+}
+
+// unrecordedCompareCall calls compare for the ordering operator t, whose
+// record names no impl, over operands of kind k: the impl this file
+// registers for k, std's compare at k (stdCompareAt), the program's
+// impl inside a std instance built for it (callerImplPlan), or another
+// file's retained compare (siblingCompareSym).
+func (bl *irScalarBuilder) unrecordedCompareCall(t *ast.Binary, call *ast.Call, args irQualArgs, k kind) (ir.Temp, bool) {
+	ord := stdEnumKind(stdEnumOrdering)
+	if d := bl.g.implsByIface[stdIfaceImplKey(stdComparable)][k]; d != nil {
+		it := d.items["compare"]
+		if it == nil {
+			return ir.NoTemp, false
+		}
+		return bl.rankedCall(call, args, bl.implItemPlan(call, args, it, "Comparable.compare"))
 	}
-	c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, v)
+	if f := bl.g.stdCompareAt(k, ord); f != nil {
+		return bl.rankedCall(call, args, bl.stdFuncPlan(call, args, f))
+	}
+	if p := bl.callerImplPlan(call, args, stdIfaceImplKey(stdComparable), "compare", k); p != nil {
+		return bl.rankedCall(call, args, p)
+	}
+	sym := bl.siblingCompareSym(k)
+	if sym == nil {
+		return ir.NoTemp, false
+	}
+	c := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, args.temps...)
 	bl.b.Append(c)
-	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	return c.Dst(), kindBool, false, true
+	bl.side(c.Dst(), irScalarSide{k: ord, deferrable: true})
+	return c.Dst(), true
 }
 
 // stdEquality lowers `a == b` over a std named type through std's own
-// `impl Equatable`: a call to its retained `equal` body or approved host.
-// `!=` does not take this route.
-func (bl *irScalarBuilder) stdEquality(t *ast.Binary, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
-	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface["Equatable"][k] != nil || bl.structEqualityAt(t, k) {
+// `impl Equatable`, the one the operator's record names, called as that
+// record's call (operatorCall, recordedCallPlan): its `equal` body or
+// host. `!=` does not take this route, and neither does an operator
+// whose record names an impl the machine computes (machine, from
+// machineRoute), a program's impl, or no impl but an answer by shape or
+// by dispatch. An operator with no record (one over a type parameter
+// whose frame has no checker type) calls std's impl at the operands'
+// kind (stdlibImplOf).
+func (bl *irScalarBuilder) stdEquality(t *ast.Binary, lhs, rhs ir.Temp, k kind, rmobile bool, machine operatorRoute) (ir.Temp, bool) {
+	if machine != routeUnset || k.tag != tagNamed || k.def == nil {
 		return ir.NoTemp, false
+	}
+	call, recorded, done := bl.operatorCall(t)
+	defer done()
+	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
+	var p *irQualPlan
+	switch {
+	case recorded:
+		if _, it, _, _ := bl.recordedOperatorImpl(t, k); it != nil {
+			// A program's impl, which valueEquality calls.
+			return ir.NoTemp, false
+		}
+		p = bl.recordedCallPlan(call, args, "Equatable.equal")
+	default:
+		if use := bl.g.operatorUse(t); use != nil && use.Form != analysis.OperatorPerInstance {
+			// An answer by shape or by dispatch, which calls no impl.
+			return ir.NoTemp, false
+		}
+		f := bl.unrecordedEqualImpl(t, k)
+		if f == nil {
+			return ir.NoTemp, false
+		}
+		p = bl.stdFuncPlan(call, args, f)
+	}
+	if p == nil || p.result != kindBool {
+		return ir.NoTemp, false
+	}
+	v, _, _, ok := bl.qualEmit(call, args, p)
+	return v, ok
+}
+
+// unrecordedEqualImpl is std's `equal` that `==` over k calls for the
+// operator t, whose record names no impl: std's impl at the operands'
+// kind, where the program has none and k does not compare by shape.
+func (bl *irScalarBuilder) unrecordedEqualImpl(t *ast.Binary, k kind) *stdFunc {
+	if bl.g.implsByIface[stdIfaceImplKey(stdEquatable)][k] != nil || bl.structEqualityAt(t, k) {
+		return nil
 	}
 	f := bl.g.stdlibImplOf("Equatable.equal", k, k, k)
 	if f == nil || f.result != kindBool {
-		return ir.NoTemp, false
+		return nil
 	}
 	// Inside that `equal` itself (`impl Equatable for Byte { fn equal(a, b)
 	// { a == b } }`) the operator is the primitive comparison the impl is
 	// defined by, and routing it back to the impl recurses forever.
 	if f.decl != nil && bl.f.Sym() == bl.g.irCalleeSym(f.decl, f.decl.Name) {
-		return ir.NoTemp, false
+		return nil
 	}
-	call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
-	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
-	p := bl.stdFuncPlan(call, args, f)
-	if p == nil {
-		return ir.NoTemp, false
-	}
-	v, _, _, ok := bl.qualEmit(call, args, p)
-	return v, ok
+	return f
 }

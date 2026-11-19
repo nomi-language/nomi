@@ -519,7 +519,7 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 	for i := range declared {
 		name := "%" + strconv.Itoa(i)
 		declared[i] = ast.Param{Name: name, Line: 1, Col: 1}
-		operands[i] = &ast.Ident{Name: name, Line: 1, Col: 1}
+		operands[i] = g.madeIdent(name, 1, 1)
 	}
 	at := &ast.Call{
 		Func: &ast.FieldAccess{
@@ -531,6 +531,9 @@ func (g *gen) buildStdProgThunk(d *ifaceDef, m *ifaceMethod, have kind, sym *ir.
 		Line: 1,
 		Col:  1,
 	}
+	// The call names std's interface by its record, so whatever this file
+	// binds the name to, it is planned from std's (recordedStdIface).
+	defer g.carryCall(at, g.stdIfaceCallRecord(g.stdIfaceType(d), m.name, len(operands), nil))()
 	sh := g.irFuncShellAt(at, declared, irFuncSig{result: m.result}, params, sym)
 	if sh == nil {
 		return false

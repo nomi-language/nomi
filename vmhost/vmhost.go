@@ -87,6 +87,14 @@ type Program struct {
 	// capabilities is the program's nomi.toml [capabilities] table, nil
 	// when it has none (OutsideCallsNotAllowed).
 	capabilities *analysis.Capabilities
+	// modules is each dependency whose files the program holds, by its
+	// root directory, worked out once (moduleAt).
+	modulesMu sync.Mutex
+	modules   map[string]*requiredModule
+	// project is the project's module path, worked out once
+	// (projectModule).
+	projectOnce sync.Once
+	project     string
 	// currencyModules is what each directory's module allows custom
 	// currency literals to name, by directory (currencyModuleOf).
 	currencyModules map[string]currencyModule
@@ -338,9 +346,9 @@ func (p *Program) run(ctx context.Context, out io.Writer, args []string, handleS
 // file is the absolute path a JSON report locates each case by, with the
 // case's first and last lines.
 func (p *Program) Test(out io.Writer, rep *TestReport, file string, opts TestOptions, label func(string) string) {
-	// nomi.toml's [capabilities] lists, with allow_in_tests, and the
-	// host's (WithCapabilities) refuse the file's cases before any of them
-	// runs.
+	// nomi.toml's [capabilities] lists, with std_in_tests and
+	// go_in_tests, and the host's (WithCapabilities, WithGo) refuse the
+	// file's cases before any of them runs.
 	if err := p.capabilityError(Roots{Tests: &opts}); err != nil {
 		rep.FailFile(file, err)
 		return

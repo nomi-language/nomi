@@ -526,7 +526,7 @@ func (bl *irScalarBuilder) declineCallReason(t *ast.Call) string {
 		case *ast.TypeIdent:
 			return "qualified call, Type.method: " + obj.Name + "." + fa.Field.Name
 		case *ast.Ident:
-			if irQualIsLocal(bl, obj.Name) {
+			if bl.namesLocal(obj) {
 				return "qualified call through a local: " + obj.Name + "." + fa.Field.Name
 			}
 			return "qualified call, file.fn: " + obj.Name + "." + fa.Field.Name

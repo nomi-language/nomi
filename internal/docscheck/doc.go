@@ -32,6 +32,10 @@
 // literal); it reads the diagnostic's Code, Args or Fix. The exceptions are
 // listed there, each with its reason.
 //
+// test_main_test.go: no tracked TestMain both defers a call and calls
+// os.Exit, which runs no deferred call, so a temporary directory a TestMain
+// removes is removed on every exit that is not a crash.
+//
 // package_docs_test.go: every citation of a package doc's section
 // (`(internal/irbuild package doc, "Linkage names")`) names a directory with
 // a doc.go that has that `# Heading`, and every relative link in the

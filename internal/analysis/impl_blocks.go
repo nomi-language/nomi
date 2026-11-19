@@ -108,21 +108,24 @@ func (fa *FileAnalysis) implBlocksOf(t Type, iface, origin string) []*ImplTypeAr
 
 // ownImpl reports whether impl, an operator's recorded impl, is one of t's,
 // the operand's type (implOfOwnType). TestElaborationGate holds every
-// operator record to it.
+// operator record to it. An operator's interface is a name the prelude
+// reserves, so any interface of the name is it.
 func (fa *FileAnalysis) ownImpl(impl *OperatorImpl, t Type) bool {
-	return impl != nil && fa.implOfOwnType(impl.Method, impl.Interface, t)
+	return impl != nil && fa.implOfOwnType(impl.Method, impl.Interface, OriginUnresolved, t)
 }
 
 // implOfOwnType reports whether m, an impl's function, is one of t's: the
-// block that declares it is one of the blocks of the interface iface whose
-// receiver is t's declaration (implBlocksOf), so not another module's type
-// of t's name, nor, for a type declared inside a body, any type's.
-func (fa *FileAnalysis) implOfOwnType(m ast.ImplMethodDecl, iface string, t Type) bool {
+// block that declares it is one of the blocks of the interface iface
+// (declared by the file of origin, any of the name for OriginUnresolved)
+// whose receiver is t's declaration (implBlocksOf), so not another
+// module's type of t's name, nor, for a type declared inside a body, any
+// type's.
+func (fa *FileAnalysis) implOfOwnType(m ast.ImplMethodDecl, iface, origin string, t Type) bool {
 	held := fa.implBlockHolding(m)
 	if held == nil {
 		return false
 	}
-	for _, b := range fa.implBlocksOf(t, iface, "") {
+	for _, b := range fa.implBlocksOf(t, iface, origin) {
 		if b.Block == held || implBlockKey(b.Block) == implBlockKey(held) {
 			return true
 		}

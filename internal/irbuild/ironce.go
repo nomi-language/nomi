@@ -21,13 +21,8 @@ func (bl *irScalarBuilder) onceValue(t *ast.Ident) (ir.Temp, kind, bool, bool) {
 		// A block `import` shadows the file's `once` of the name.
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if _, bound := bl.g.lookup(t.Name); bound {
+	if bl.namesLocal(t) {
 		return ir.NoTemp, kindInvalid, false, false
-	}
-	for parent := bl.parent; parent != nil; parent = parent.parent {
-		if _, bound := parent.boundK[t.Name]; bound {
-			return ir.NoTemp, kindInvalid, false, false
-		}
 	}
 	if from := bl.g.namesFromGen(); from != nil {
 		if od := from.onces[t.Name]; od != nil && od.k.tag != tagFunc {
@@ -62,15 +57,10 @@ func (bl *irScalarBuilder) qualifiedOnceValue(t *ast.FieldAccess) (ir.Temp, kind
 	if !ok || t.Field == nil || g.files == nil || g.reg == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if _, bound := g.lookup(owner.Name); bound {
+	if bl.namesLocal(owner) {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	for scope := bl; scope != nil; scope = scope.parent {
-		if _, bound := scope.boundK[owner.Name]; bound {
-			return ir.NoTemp, kindInvalid, false, false
-		}
-	}
-	to, ok := g.files.lookupQualifier(g.fa, owner)
+	to, ok := g.lookupQualifier(owner)
 	if !ok || to >= len(g.reg.gens) || g.reg.gens[to] == nil {
 		return ir.NoTemp, kindInvalid, false, false
 	}

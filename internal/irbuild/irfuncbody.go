@@ -47,6 +47,9 @@ type irScalarSide struct {
 // The builder reads resolved declarations and may intern type and symbol
 // identities.
 type irScalarBuilder struct {
+	// op is the route the operator being lowered committed to, which
+	// endOperator holds to its record (operatorform.go).
+	op operatorRoute
 	// placed holds the operands a named-argument qualified call already
 	// evaluated, by the synthetic node that stands for each (irnamedarg.go).
 	placed      map[ast.Node]irPlacedArg
@@ -218,9 +221,10 @@ type irScalarBuilder struct {
 	// made from, which carries the checker's type (see attachedVariant).
 	attachedCall *ast.Call
 	attachedFrom ast.Node
-	// pipedCase is the spliced `case` a `x |> case { ... }` stage lowered
-	// to, whose scrutinee records no row. See irpipe.go.
-	pipedCase *ast.Case
+	// pipedRegion is the `if` or `case` stage of a pipe being lowered and
+	// the piped value standing for its condition or scrutinee (irpipe.go,
+	// subjectOf).
+	pipedRegion irPipedRegion
 	// testDefs is each ordinary binding a body introduced, by the Bind's
 	// destination: the initializer a later bare-name subject's "defined as:"
 	// block renders. Keyed by the binding rather than its name, a name's
@@ -525,7 +529,10 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			return bl.not(t, src, k)
 		}
 		if t.Op == "~~~" {
-			return bl.bitwiseNot(t, src, k)
+			outer := bl.beginOperator()
+			v, rk, mobile, ok := bl.bitwiseNot(t, src, k)
+			bl.endOperator(t, ok, outer)
+			return v, rk, mobile, ok
 		}
 		ak, modelled := bl.g.irArithKind(ir.OpNeg, k, false)
 		if !modelled {
@@ -536,6 +543,14 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return a.Dst(), k, false, true
 
 	case *ast.Binary:
+		if _, arithmetic := irArithOps[t.Op]; arithmetic {
+			// A comparison's route is held in `comparison`; see
+			// operatorform.go.
+			outer := bl.beginOperator()
+			v, k, mobile, ok := bl.binary(t)
+			bl.endOperator(t, ok, outer)
+			return v, k, mobile, ok
+		}
 		return bl.binary(t)
 
 	case *ast.CurrentValue:
@@ -598,7 +613,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			// function as a value (ownerfuncref.go).
 			return bl.ownerFuncRef(t)
 		}
-		if _, dotted := bl.g.dottedTypeQualifier(t.Object); dotted {
+		if _, dotted := bl.dottedTypeQualifier(t.Object); dotted {
 			// `Probe.Reading.Steady`: a variant of a namespaced enum, or of
 			// one named through a whole-file import.
 			if dst, k, mobile, ok := bl.variantBare(t); ok {
@@ -632,17 +647,16 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		}
 		if owner, isIdent := ast.QualifierIdent(t.Object); isIdent {
 			// `fakes.Quiet`: a marker named through its file's qualifier.
-			// A locally bound name is a value, never a qualifier.
-			if _, local := bl.bound[owner.Name]; !local {
-				if name, dotted := bl.g.dottedTypeQualifier(t); dotted {
-					if dst, k, mobile, ok := bl.markerValue(t, name); ok {
-						return dst, k, mobile, true
-					}
+			// A locally bound name is a value, never a qualifier
+			// (dottedTypeQualifier declines it).
+			if name, dotted := bl.dottedTypeQualifier(t); dotted {
+				if dst, k, mobile, ok := bl.markerValue(t, name); ok {
+					return dst, k, mobile, true
 				}
 			}
 			// `ids.UserId`: another file's distinct type named as its
 			// constructor function (ownerfuncref.go).
-			if !irQualIsLocal(bl, owner.Name) && bl.g.distinctCtorRef(t) {
+			if !bl.namesLocal(owner) && bl.g.distinctCtorRef(t) {
 				return bl.callFuncValue(t, owner.Name+"."+t.Field.Name)
 			}
 			// `span.ident`, `io.print`: another file's function as a value.
@@ -688,7 +702,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			qualifier := ""
 			if owner, isType := fa.Object.(*ast.TypeIdent); isType {
 				qualifier = owner.Name
-			} else if owner, isIdent := ast.QualifierIdent(fa.Object); isIdent && !irQualIsLocal(bl, owner.Name) {
+			} else if owner, isIdent := ast.QualifierIdent(fa.Object); isIdent && !bl.namesLocal(owner) {
 				qualifier = owner.Name
 			}
 			if qualifier != "" {
@@ -781,47 +795,32 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	// The impl the checker recorded is called, unless the operands are of a
-	// kind the machine operates on itself; an operator over a type
-	// parameter is resolved at this instance's kinds.
-	spec := operIfaceByOp[t.Op]
-	og, it, f, recorded := bl.recordedOperatorImpl(t, lk)
-	if it != nil {
-		params, result, ok := bl.g.itemKinds(og, it)
-		if !ok {
-			return ir.NoTemp, kindInvalid, false, false
+	// The impl the checker recorded is called, unless it is one the
+	// machine computes itself (machineImpls: Int's, Float's and Decimal's
+	// arithmetic, String's and List's `+`); an operator over a type
+	// parameter with no checker type in its frame is resolved at this
+	// instance's kinds.
+	machine := bl.g.machineRoute(t)
+	if machine == routeUnset {
+		if v, k, mobile, ok, handled := bl.implOperator(t, lhs, rhs, lk, rk); handled {
+			return v, k, mobile, ok
 		}
-		return bl.userOperatorCall(t, spec, og, it, params, result, lhs, rhs, lk, rk)
-	}
-	if !recorded {
-		f = bl.g.stdlibOperatorFor(t.Op, lk, rk)
-	} else if !stdOperatorFits(t.Op, f, lk, rk) {
-		f = nil
-	}
-	if f != nil {
-		return bl.stdOperatorCall(t, f, lhs, rhs)
-	}
-	if v, k, mobile, ok, handled := bl.stdGenericOperatorCall(t, lhs, rhs, lk, rk); handled {
-		return v, k, mobile, ok
-	}
-	if lk.def != nil && !isDecimalKind(lk) {
-		return bl.instanceOperatorCall(t, spec, recorded, lhs, rhs, lk, rk)
 	}
 	if t.Op == "+" && (lk.tag == tagList || rk.tag == tagList) {
-		// `xs + ys` is List.concat's own `rt.ListConcat(xs, ys)` host call.
+		// `xs + ys` is the machine's List concatenation, the host
+		// operation of `List.concat` that std's impl calls, over operands
+		// made one List kind.
+		bl.op = routeNative
 		call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
 		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
-		if p := bl.listCallPlan(call, args, "concat"); p != nil {
-			return bl.qualEmit(call, args, p)
+		p := bl.listCallPlan(call, args, "concat")
+		if p == nil {
+			return ir.NoTemp, kindInvalid, false, false
 		}
-		return ir.NoTemp, kindInvalid, false, false
+		return bl.qualEmit(call, args, p)
 	}
-	if lk != rk {
-		// A std receiver's operator at a right-hand type the program
-		// declares (`d * rate`, `impl Multiply<Rate, Decimal> for
-		// Decimal`) is the program's impl. Any other mixed-type operator
-		// is declined.
-		return bl.instanceOperatorCall(t, spec, recorded, lhs, rhs, lk, rk)
+	if machine != routeUnset && lk != rk {
+		panic("irbuild: binary: the record names an operator impl machineImpls computes natively, over operands of two kinds")
 	}
 	if lk == kindString {
 		// `"a" + "b"` is concatenation, not arithmetic, and `+` is
@@ -830,6 +829,7 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 		if t.Op != "+" {
 			return ir.NoTemp, kindInvalid, false, false
 		}
+		bl.op = routeNative
 		c := ir.NewConcat(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), lhs, rhs)
 		bl.b.Append(c)
 		bl.side(c.Dst(), irScalarSide{k: kindString})
@@ -839,6 +839,7 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	if !modelled {
 		return ir.NoTemp, kindInvalid, false, false
 	}
+	bl.op = routeNative
 	a := ir.NewArith(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ak, lhs, rhs)
 	bl.b.Append(a)
 	// An arithmetic result is not mobile, so one in a left operand position
@@ -1016,10 +1017,10 @@ func (bl *irScalarBuilder) stdIntrinsicOwner(fa *ast.FieldAccess) string {
 		sym = resolvedTypeSymbol(bl.g.fa, q.Name)
 	case *ast.FieldAccess:
 		mod, isIdent := ast.QualifierIdent(q.Object)
-		if !isIdent || q.Field == nil || irQualIsLocal(bl, mod.Name) {
+		if !isIdent || q.Field == nil || bl.namesLocal(mod) {
 			return ""
 		}
-		sym = resolvedScopeSymbol(qualifierScope(bl.g.fa, mod), q.Field.Name)
+		sym = resolvedScopeSymbol(bl.g.qualifierScope(mod), q.Field.Name)
 	}
 	if sym == nil || sym.Node == nil {
 		return ""
@@ -1050,10 +1051,10 @@ func (bl *irScalarBuilder) stdShortOwner(fa *ast.FieldAccess) (owner, module str
 		// `base64.encode(data)`: a std file's top-level function, which has
 		// no owner type (stdShortCandidates), named from a program or from
 		// one of the module's own test bodies (qualFilePlan's two routes).
-		if std, isStd := stdFileQualifier(bl.g.fa, q); isStd {
+		if std, isStd := bl.g.stdFileQualifier(q); isStd {
 			return "", std, true
 		}
-		if std, isStd := bl.stdOwnFileQualifier(q.Name); isStd {
+		if std, isStd := bl.stdOwnFileQualifier(q); isStd {
 			return "", std, true
 		}
 	}
@@ -1487,7 +1488,7 @@ func (bl *irScalarBuilder) structCallForm(t *ast.Call, ti *ast.TypeIdent) (ir.Te
 	if len(t.Args) != 1 {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(ti.Name); isTemplate && tpl.structDecl() != nil {
+	if tpl, instantiate, isTemplate := bl.g.genericTemplateNamed(ti.Name, bl.g.checkedExprType(bl.checkedCallNode(t))); isTemplate && tpl.structDecl() != nil {
 		if lit, isLit := anonArgAsLiteral(t.Args[0]); isLit {
 			return bl.genericStructMake(lit, bl.checkedCallNode(t), tpl, instantiate)
 		}
@@ -1545,7 +1546,7 @@ func (bl *irScalarBuilder) structFromRecord(t *ast.Call, of func(rec kind) *type
 	lit := &ast.StructLit{Line: t.Line, Col: t.Col}
 	for _, f := range k.comp.names {
 		lit.Fields = append(lit.Fields, ast.StructFieldVal{Name: f, Line: line, Col: col,
-			Value: &ast.FieldAccess{Object: &ast.Ident{Name: name, Line: line, Col: col},
+			Value: &ast.FieldAccess{Object: bl.g.madeIdent(name, line, col),
 				Field: &ast.Ident{Name: f, Line: line, Col: col}, Line: line, Col: col}})
 	}
 	return bl.structMakeOf(lit, d)
@@ -1575,11 +1576,8 @@ func (bl *irScalarBuilder) hostOutput(t *ast.Call, fa *ast.FieldAccess) (ir.Temp
 	if !isIdent || fa.Field == nil || len(t.Args) != 1 {
 		return no()
 	}
-	if _, shadowed := bl.g.lookup(owner.Name); shadowed {
-		return no()
-	}
-	std, isStd := stdFileQualifier(bl.g.fa, owner)
-	if !isStd && bl.inStdIO() && owner.Name == "io" && moduleScopeOf(bl.g.fa, owner.Name) == bl.g.fa.ModuleScope {
+	std, isStd := bl.g.stdFileQualifier(owner)
+	if !isStd && bl.inStdIO() && owner.Name == "io" && bl.g.qualifierScope(owner) == bl.g.fa.ModuleScope {
 		// std/io naming itself, as its own `//!` tests do.
 		std, isStd = "io", true
 	}
@@ -1742,7 +1740,7 @@ func (bl *irScalarBuilder) debugOver(at ast.Node, src ir.Temp, k kind, vt analys
 		Line: line,
 		Col:  col,
 	}
-	defer bl.g.carryCall(call, bl.g.stdIfaceCallRecord(stdDebug, "inspect", vt))()
+	defer bl.g.carryCall(call, bl.g.stdIfaceCallRecord(stdDebug, "inspect", 1, vt))()
 	args := irQualArgs{temps: []ir.Temp{src}, kinds: []kind{k}, mobile: []bool{true}, ok: true}
 	if v, rk, _, ok := bl.synthDebugRender(call, args, "Debug", "inspect"); ok {
 		return v, rk == kindString
@@ -2337,11 +2335,12 @@ func (bl *irScalarBuilder) ifRegion(t *ast.If, sig irFuncSig) (kind, bool) {
 	// An `if` with no `else` is Unit whichever way it goes, so a
 	// Unit-valued region may omit it: the else edge writes Unit.
 	unitElse := t.Else == nil && !sig.testArms && (sig.inferResult || sig.result == kindUnit)
-	if isNilNode(t.Cond) || (t.Else == nil && !sig.testArms && !unitElse) {
+	condition := bl.subjectOf(t)
+	if isNilNode(condition) || (t.Else == nil && !sig.testArms && !unitElse) {
 		bl.g.dc.note("a tail `if` without a condition or `else`")
 		return kindInvalid, false
 	}
-	cond, ck, _, ok := bl.lower(t.Cond)
+	cond, ck, _, ok := bl.lower(condition)
 	if !ok || ck != kindBool {
 		if ok {
 			bl.g.dc.note("a tail `if` condition that is not Bool: " + ck.nomi())
@@ -2686,7 +2685,8 @@ func (bl *irScalarBuilder) tailCase(t *ast.Case, sig irFuncSig) (kind, bool) {
 
 // caseRegion leaves its join open for the caller's continuation.
 func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
-	adHoc := isNilNode(t.Value)
+	scrutinee := bl.subjectOf(t)
+	adHoc := isNilNode(scrutinee)
 	if len(t.Branches) < 1 {
 		// `case e {}` over a type with no values (`Infallible`): the checker
 		// admits it only where no value reaches it, so it diverges as a
@@ -2695,7 +2695,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 			// "non-exhaustive case: add a `_` arm" is the checker's error.
 			panic("irbuild: an ad hoc `case` with no branches")
 		}
-		if _, _, _, ok := bl.lower(t.Value); !ok {
+		if _, _, _, ok := bl.lower(scrutinee); !ok {
 			return kindInvalid, false
 		}
 		pos := bl.g.irNodePos(t)
@@ -2705,7 +2705,7 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		bl.b = exit
 		return irJoinArms(kindDiverged, kindDiverged, sig)
 	}
-	if !adHoc && bl.isNeverOperand(t.Value) {
+	if !adHoc && bl.isNeverOperand(scrutinee) {
 		return bl.neverCaseRegion(t, sig)
 	}
 	var subj ir.Temp
@@ -2716,22 +2716,22 @@ func (bl *irScalarBuilder) caseRegion(t *ast.Case, sig irFuncSig) (kind, bool) {
 		// name or `_` matches it whatever it is (a function, an Iter, an
 		// interface value, a marker), and a refutable pattern declines in
 		// casePatternTest when its test does not lower.
-		subj, sk, _, ok = bl.lower(t.Value)
+		subj, sk, _, ok = bl.lower(scrutinee)
 		if !ok {
 			return kindInvalid, false
 		}
 		if !irHeldValue(bl.f, subj, bl.sides) {
 			// Every non-identifier subject is held in a name once, so repeated
 			// arm comparisons read the same value.
-			c := ir.NewCopy(bl.g.irNodePos(t.Value), bl.f.NewTemp(), subj)
+			c := ir.NewCopy(bl.g.irNodePos(scrutinee), bl.f.NewTemp(), subj)
 			bl.b.Append(c)
 			bl.side(c.Dst(), irScalarSide{k: sk, copy: irCopyHold})
 			subj = c.Dst()
 		}
-		// Inside an assertion subject the scrutinee is a `values:` row,
-		// recorded before any arm runs.
-		if t != bl.pipedCase {
-			bl.record(t.Value, subj, sk, true)
+		// Inside an assertion subject a written scrutinee is a `values:`
+		// row, recorded before any arm runs; a piped one is the pipe's.
+		if t != bl.pipedRegion.stage {
+			bl.record(scrutinee, subj, sk, true)
 		}
 	}
 	if bl.casePrefix == nil {
@@ -3205,64 +3205,68 @@ func (g *gen) lambdaResultWant(lam *ast.Lambda, line, col int) func() {
 	return func() { g.lambdaWantFor, g.lambdaWant = prevFor, prev }
 }
 
-// boundInScope reports whether name is bound in this body or a body
-// enclosing it, rather than naming a module declaration.
-func (bl *irScalarBuilder) boundInScope(name string) bool {
-	for b := bl; b != nil; b = b.parent {
-		if _, ok := b.bound[name]; ok {
-			return true
-		}
+// identRead reads the value t names, at the type its binding holds. Under
+// substVerify the binding it read is held to the declaration the checker
+// resolved t to (verifyLocalRead).
+func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind, bool, bool) {
+	v, k, mobile, ok, route := bl.identReadBy(t, line, col)
+	if ok {
+		bl.verifyLocalRead(t, v, route)
 	}
-	_, ok := bl.g.lookup(name)
-	return ok
+	return v, k, mobile, ok
 }
 
-// identRead reads the value t names, at the type its binding holds.
-func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind, bool, bool) {
+// identReadBy is identRead, with the route that found the value.
+func (bl *irScalarBuilder) identReadBy(t *ast.Ident, line, col int) (ir.Temp, kind, bool, bool, readRoute) {
 	if held, isBound := bl.bound[t.Name]; isBound {
 		// A NAME THIS BODY BOUND. The value is already in the Bind's
 		// destination temporary, so the read is that temporary rather
 		// than a fresh `ir.Ref`. Mobile, which is the answer
 		// `ir.Ref.Stable()` gives for RefLocal.
-		return held, bl.boundK[t.Name], true, true
+		return held, bl.boundK[t.Name], true, true, readBound
 	}
 	if inst, ok, handled := bl.genericNestedRef(t); handled {
 		// A generic nested fn named as a value: the instance the checker
 		// instantiated the reference at.
 		if !ok {
-			return ir.NoTemp, kindInvalid, false, false
+			return ir.NoTemp, kindInvalid, false, false, readRecorded
 		}
-		return bl.lower(inst)
+		v, k, mobile, ok := bl.lower(inst)
+		return v, k, mobile, ok, readRecorded
 	}
 	if bl.defaultScope {
 		if v, k, mobile, ok := bl.onceValue(t); ok {
-			return v, k, mobile, true
+			return v, k, mobile, true, readModule
 		}
-		return bl.funcRef(t)
+		v, k, mobile, ok := bl.funcRef(t)
+		return v, k, mobile, ok, readModule
 	}
 	if v, k, mobile, ok := bl.onceValue(t); ok {
-		return v, k, mobile, true
+		return v, k, mobile, true, readModule
 	}
 	if v, k, mobile, ok := bl.stdFileOnceValue(t, t.Line, t.Col); ok {
-		return v, k, mobile, true
+		return v, k, mobile, true, readModule
 	}
-	if bl.parent != nil && bl.ctlRefs[t] != irCtlNone && !bl.boundInScope(t.Name) {
+	if bl.parent != nil && bl.ctlRefs[t] != irCtlNone && !bl.namesLocal(t) {
 		// An iter-sensitive module function passed as a callback inside a
 		// lambda: a reference of its own, which the enclosing Iter call
 		// drives in the signalling form, not a capture of the parent's.
-		return bl.funcRef(t)
+		v, k, mobile, ok := bl.funcRef(t)
+		return v, k, mobile, ok, readModule
 	}
 	if bl.parent != nil {
-		return bl.capture(t)
+		v, k, mobile, ok := bl.capture(t)
+		return v, k, mobile, ok, readCaptured
 	}
 	l, bound := bl.g.lookup(t.Name)
 	if !bound {
-		return bl.funcRef(t)
+		v, k, mobile, ok := bl.funcRef(t)
+		return v, k, mobile, ok, readModule
 	}
 	if !irCallableValueKind(l.k) && l.k != kindUnit && !(bl.boot && irContextKind(l.k)) {
 		// Bound values need a retained representation, including callable
 		// signatures over the retained value domain.
-		return ir.NoTemp, kindInvalid, false, false
+		return ir.NoTemp, kindInvalid, false, false, readParam
 	}
 	r := ir.NewRefLocal(bl.g.irPos(line, col), bl.f.NewTemp(), bl.sh.localSym(t.Name))
 	bl.b.Append(r)
@@ -3270,5 +3274,5 @@ func (bl *irScalarBuilder) identRead(t *ast.Ident, line, col int) (ir.Temp, kind
 	// `ir.Ref.Stable()` is the mobility answer and for RefLocal it is
 	// true: a local read forces nothing and two reads agree. It is taken
 	// from the node rather than asserted.
-	return r.Dst(), l.k, r.Stable(), true
+	return r.Dst(), l.k, r.Stable(), true, readParam
 }

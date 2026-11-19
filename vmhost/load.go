@@ -62,6 +62,10 @@ type config struct {
 	// held says the host holds the program to allowed (WithCapabilities).
 	held    bool
 	allowed []string
+	// goHeld says the host holds the program's Go bindings to goModules
+	// (WithGo).
+	goHeld    bool
+	goModules []string
 }
 
 func newConfig(opts []Option) config {
@@ -91,18 +95,20 @@ func WithHosts(tables ...HostTable) Option {
 
 // WithCapabilities holds the program to names: what it may reach outside
 // the machine (Program.OutsideCalls), named as nomi.toml's [capabilities]
-// lists name it, `std::fs` or `go:<import path>`, and `host:<key>` for a
+// std lists name it, `std::fs` or `std::startup`, and `host:<key>` for a
 // function a table passed with WithHosts answers. With no names the program
-// may reach nothing outside itself.
+// may reach nothing outside itself, and with it set no `go` binding runs
+// unless WithGo lists the module that binds it.
 //
 // The load refuses the program before anything in it runs, with a
 // *CapabilityError, when an outside call is reachable from any function a
 // host can run: main and the boot, every function the entry file declares
 // (Call may call any of them), and the test cases. A name a nomi.toml
-// entry could not be (a misspelled std module, a Go package no binding
-// imports), a `host:` key no table answers, and a name listed twice fail
-// the load; a valid name nothing reaches does not. Run, Test and Call hold the program again from their own roots, as
-// they hold it to nomi.toml's lists. The project's own [capabilities] table
+// entry could not be (a misspelled std module, a `go:` name, since Go is
+// allowed by module with WithGo), a `host:` key no table answers, and a
+// name listed twice fail the load; a valid name nothing reaches does not.
+// Run, Test and Call hold the program again from their own roots, as they
+// hold it to nomi.toml's lists. The project's own [capabilities] table
 // still applies, so the program must satisfy both: neither list widens
 // the other, and a module's own list under [capabilities.modules] still
 // holds that module's calls.
@@ -113,8 +119,8 @@ func WithHosts(tables ...HostTable) Option {
 //     only whether std::fs is reached at all.
 //   - A host function the host supplies is the host's own Go code, and
 //     acts as that code does once its `host:` name is allowed.
-//   - A `go` binding is Go code the VM cannot look inside: it is named by
-//     its package and refused unless that name is listed.
+//   - A `go` binding is Go code the VM cannot look inside: WithGo allows a
+//     module's bindings whole.
 //   - Allowing std::compiler lets the program run a nested program, which
 //     no list holds.
 //   - Time and memory are not capabilities: WithStop and Run's context stop
@@ -127,6 +133,26 @@ func WithCapabilities(names ...string) Option {
 	return func(c *config) {
 		c.held = true
 		c.allowed = append([]string{}, names...)
+	}
+}
+
+// WithGo lets the modules named bind Go, as nomi.toml's `go` does: a `go`
+// binding reached from anything a host can run is refused, at the load
+// and again by Run, Test and Call, unless modules lists the module whose
+// files hold it, by its path as go.mod writes it. The program's own files
+// are its project's module: its go.mod's module path, else its nomi.toml's
+// `[module].name`, else its entry's module name, which for LoadSource is
+// the name it is given. Which Go package a binding names does not matter.
+//
+// With WithCapabilities, a Go binding is refused unless WithGo lists its
+// module, and with no WithGo none runs. Without WithCapabilities, WithGo
+// holds only Go bindings. A module that is neither the project nor one
+// its go.mod requires, and a module listed twice, fail the load. The
+// project's own [capabilities] table still applies.
+func WithGo(modules ...string) Option {
+	return func(c *config) {
+		c.goHeld = true
+		c.goModules = append([]string{}, modules...)
 	}
 }
 
@@ -249,20 +275,9 @@ func (c *config) frontendConfig() (frontend.Config, error) {
 	}, nil
 }
 
-// hostKeys binds each table against a plain Env to learn the keys it
-// answers. Binding builds adapters and descriptors and calls nothing.
+// hostKeys is the keys tables answer (hostadapt.TableKeys).
 func hostKeys(tables []HostTable) (map[string]bool, error) {
-	keys := map[string]bool{}
-	for _, t := range tables {
-		funcs, err := t(&hostadapt.Env{})
-		if err != nil {
-			return nil, fmt.Errorf("binding a host table: %w", err)
-		}
-		for k := range funcs {
-			keys[k] = true
-		}
-	}
-	return keys, nil
+	return hostadapt.TableKeys(tables...)
 }
 
 // lowering serializes lower, loadStdlib, a Session's CheckFile, whose
@@ -490,15 +505,8 @@ func Check(path string, opts ...Option) error {
 		}
 		return p.Unsupported()
 	}
-	fc.SourceBoundProvided = true
-	// The program is lowered as `nomi run` and `nomi test` lower it, and
-	// nothing runs: a body the compiler accepts and cannot lower is reported
-	// at its source, as the error `nomi run` would stop with.
-	p, err := checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(abs, fc) }))
+	p, err := checkedProgram(cfg, abs)
 	if err != nil {
-		return err
-	}
-	if err := p.Unsupported(); err != nil {
 		return err
 	}
 	if err := p.capabilityError(p.checkedRoots()...); err != nil {
@@ -507,6 +515,28 @@ func Check(path string, opts ...Option) error {
 	writeAdvice(cfg, p.Advice())
 	p.keep(true)
 	return nil
+}
+
+// checkedProgram is the program at abs as Check checks it, before Check
+// holds it to its lists: the front end, with every `go` binding taken as
+// provided, so a program with Go bindings checks without its wrapper, then
+// the lowering, as `nomi run` and `nomi test` lower it, with nothing run.
+// A body the compiler accepts and cannot lower is reported at its source,
+// as the error `nomi run` would stop with.
+func checkedProgram(cfg config, abs string) (*Program, error) {
+	fc, err := cfg.frontendConfig()
+	if err != nil {
+		return nil, err
+	}
+	fc.SourceBoundProvided = true
+	p, err := checked(lower(cfg, func() (*irbuild.Program, error) { return irbuild.AnalyzeFile(abs, fc) }))
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Unsupported(); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 // LoadStdlib lowers the test cases of the stdlib module at path, `nomi test

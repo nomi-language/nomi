@@ -172,10 +172,10 @@ func (c *checker) methodCallOwner(t Type, name string) (owner, fn string, ok boo
 			if sym, _ := c.resolveTypeMethodSymbol(o, cand, ""); sym != nil {
 				return o, cand, true
 			}
-			if provs := c.interfacesWritingMethod(o, cand); len(provs) == 1 {
-				return provs[0], cand, true
+			if provs := c.interfacesWritingMethod(o, OriginUnresolved, cand); len(provs) == 1 {
+				return provs[0].Name, cand, true
 			}
-			if o == "Iter" || len(c.interfacesWritingMethod(o, cand)) > 1 {
+			if o == "Iter" || len(c.interfacesWritingMethod(o, OriginUnresolved, cand)) > 1 {
 				if names := c.typeMemberNames(o); containsString(names, cand) {
 					return o, cand, true
 				}

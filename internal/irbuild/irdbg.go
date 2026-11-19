@@ -211,7 +211,7 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 	if !ok {
 		return no()
 	}
-	if k.tag == tagFunc && bl.g.implsByIface["Debug"][k] == nil {
+	if k.tag == tagFunc && bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] == nil {
 		// A function value's Debug is a name-free constant, as
 		// `Debug.inspect` of one is (synthDebugRender).
 		txt := ir.NewString(bl.g.irNodePos(t), bl.f.NewTemp(), renderNode(operand))
@@ -303,7 +303,7 @@ func (bl *irScalarBuilder) dbgWant(t *ast.Dbg, operand ast.Node, want kind) (ir.
 // stdHostDebugPlan is the host crossing a std type's `impl Debug` declares as
 // a `host fn`, selected as `Debug.inspect(operand)` selects it, or nil.
 func (bl *irScalarBuilder) stdHostDebugPlan(operand ast.Node, src ir.Temp, k kind) *irQualPlan {
-	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface["Debug"][k] != nil {
+	if k.tag != tagNamed || k.def == nil || bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] != nil {
 		return nil
 	}
 	line, col := nodePos(operand)
@@ -329,18 +329,18 @@ func (bl *irScalarBuilder) stdHostDebugPlan(operand ast.Node, src ir.Temp, k kin
 // synthesized; ok is false when no lowerable body renders k.
 func (bl *irScalarBuilder) debugImplSym(k kind) (sym *ir.Symbol, synth, ok bool) {
 	og, self := bl.g, k
-	d := bl.g.implsByIface["Debug"][k]
+	d := bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k]
 	if d == nil && k.def != nil && k.def.instOrigin != nil {
 		// Another file's generic instance: the owner built its impl
 		// against its own instance def.
-		og, d = bl.g.instanceImpl(k.def, "Debug", "inspect")
+		og, d = bl.g.instanceImpl(k.def, stdIfaceImplKey(stdDebug), "inspect")
 		self = named(k.def.instOrigin)
 	}
 	if d == nil && k.tag == tagNamed && k.def != nil && k.def.instOrigin == nil {
 		// Another file's type: the Debug impl its declaring file holds,
 		// written or synthesized, which `Debug.inspect(x)` reaches the
 		// same way (qualSiblingIfaceImplPlan).
-		site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", "Debug")
+		site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", stdIfaceImplKey(stdDebug))
 		if site == nil || len(params) != 1 || params[0] != k || result != kindString {
 			return nil, false, false
 		}
@@ -458,7 +458,7 @@ func (bl *irScalarBuilder) nestedDebugImpls(k kind) ([]ir.DebugImpl, bool) {
 				}
 			}
 			for _, d := range bl.g.implOrder {
-				if d.recv.tag != tagNamed || d.recv.def == nil || bl.g.implsByIface["Iter"][d.recv] != d {
+				if d.recv.tag != tagNamed || d.recv.def == nil || bl.g.implsByIface[stdIfaceImplKey(stdIter)][d.recv] != d {
 					continue
 				}
 				if it, userElem := bl.userSource(d.recv, userIterImpl{owner: bl.g, d: d}); it != nil && userElem == elem {

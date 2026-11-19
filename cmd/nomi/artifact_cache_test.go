@@ -202,10 +202,10 @@ func capabilityEdits(p cacheProject) []cacheEdit {
 	key, body := p.gen.Edit(projectgen.BodyLeaf, 1)
 	rel := key + ".nomi"
 	return []cacheEdit{
-		{what: "capabilities allowing std::io", rel: "nomi.toml", text: manifest + "\n[capabilities]\nallow = [\"std::io\"]\n"},
+		{what: "capabilities allowing std::io", rel: "nomi.toml", text: manifest + "\n[capabilities]\nstd = [\"std::io\"]\n"},
 		{what: "body edit under the lists", rel: rel, text: body},
 		{what: "body edit under the lists, undone", rel: rel, text: p.files[rel]},
-		{what: "capabilities allowing nothing", rel: "nomi.toml", text: manifest + "\n[capabilities]\nallow = []\n"},
+		{what: "capabilities allowing nothing", rel: "nomi.toml", text: manifest + "\n[capabilities]\nstd = []\n"},
 		{what: "body edit under an empty list", rel: rel, text: body},
 		{what: "body edit under an empty list, undone", rel: rel, text: p.files[rel]},
 		{what: "capabilities removed", rel: "nomi.toml", text: manifest},
@@ -930,7 +930,7 @@ func TestArtifactCacheTwoProcessesRace(t *testing.T) {
 // it back runs it, and a body edit relinked under the lists is held to
 // them.
 func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
-	dir, entry := capabilityProject(t, capabilityAllowsIO+"allow_in_tests = [\"std::fs\"]\n")
+	dir, entry := capabilityProject(t, capabilityAllowsIO+"std_in_tests = [\"std::fs\"]\n")
 	mustWrite(t, entry, strings.Replace(capabilityProgram, `    io.print(fs.read_text("notes.txt"))`+"\n", "", 1))
 	cache := newCacheDir(t)
 	for i := 0; i < 2; i++ {
@@ -944,7 +944,7 @@ func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io taken out of the list.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nallow = []\nallow_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities]\nstd = []\nstd_in_tests = [\"std::fs\"]\n")
 	for _, cmd := range []string{"run", "check"} {
 		r := runNomiIn(t, dir, cache, cmd, "main.nomi")
 		if r.exit != 1 || r.stdout != "" || !strings.Contains(r.stderr, "error: this program reaches std::io, and nomi.toml allows nothing outside the program") {
@@ -953,7 +953,7 @@ func TestCapabilities_TheCacheAnswersForTheListsItWasKeptUnder(t *testing.T) {
 	}
 
 	// io put back: the program kept under these lists runs.
-	mustWrite(t, filepath.Join(dir, "nomi.toml"), capabilityAllowsIO+"allow_in_tests = [\"std::fs\"]\n")
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), capabilityAllowsIO+"std_in_tests = [\"std::fs\"]\n")
 	if run := runNomiIn(t, dir, cache, "run", "main.nomi"); run.exit != 0 || run.stdout != "started\n" {
 		t.Errorf("nomi run with io put back:\n%s", run)
 	}

@@ -2,6 +2,7 @@ package vmrunner_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"strings"
 	"testing"
@@ -48,7 +49,7 @@ func TestLoadProgram_BootsAWholeImageFileForCalls(t *testing.T) {
 		t.Fatalf("ExportsResult is %s, want %s", got, want)
 	}
 	for _, name := range []string{"Ada", "Bo"} {
-		if got := string(in.CallResult("greet", []byte(`["`+name+`"]`))); got != `{"ok":"Hello, `+name+`!"}` {
+		if got := string(in.CallResult(context.Background(), "greet", []byte(`["`+name+`"]`))); got != `{"ok":"Hello, `+name+`!"}` {
 			t.Fatalf("greet: %s", got)
 		}
 	}
@@ -73,7 +74,7 @@ func TestLoadProgram_AProgramWithOnlyMainListsNoExports(t *testing.T) {
 	if out.Len() != 0 {
 		t.Fatalf("loading ran main: %q", out.String())
 	}
-	if err := in.Main(); err != nil || out.String() != "main ran\n" {
+	if err := in.Main(context.Background()); err != nil || out.String() != "main ran\n" {
 		t.Fatalf("Main: %v, printed %q", err, out.String())
 	}
 }

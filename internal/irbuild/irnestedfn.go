@@ -389,7 +389,7 @@ func (bl *irScalarBuilder) genericNestedRef(id *ast.Ident) (inst *ast.Ident, ok,
 		bl.g.dc.note("a generic nested fn at a type its declaration did not build: " + fd.Name + "<" + kindsNomi(args) + ">")
 		return nil, false, true
 	}
-	return &ast.Ident{Name: name, Line: id.Line, Col: id.Col}, true, true
+	return bl.g.madeIdent(name, id.Line, id.Col), true, true
 }
 
 // nestedOwnArgs is fd's own type parameters in the frame of the instance of

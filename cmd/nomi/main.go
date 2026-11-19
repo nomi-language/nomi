@@ -59,6 +59,12 @@ const usage = `usage:
                                         path:line:col: lines, not source snippets
                                         (NOMI_DIAGNOSTICS=short does so for every command);
                                         --hints also reports the editor's hints
+  nomi capabilities [--write] [--why <name>] [--format text|json] [path]
+                                        print what the program reaches outside itself,
+                                        module by module; --write writes the tightest
+                                        [capabilities] table that passes into nomi.toml;
+                                        --why lists the calls that reach a std module,
+                                        or that a module's files make
   nomi types <paths> [-o <file>]        write TypeScript declarations of the JSON that
                                         the pub types of the named files and directories
                                         cross as, for a frontend; stdout by default
@@ -85,8 +91,12 @@ const usage = `usage:
                                         modules go.mod requires and, for Go bindings,
                                         Go itself when there is no go on PATH and each
                                         --target's runner, so --offline works later
-  --offline                             on run, test, check, build, fetch and add:
-                                        download nothing, and name what is missing
+  --offline                             on run, test, check, build, fetch, add and
+                                        capabilities: download nothing, and name what
+                                        is missing
+  --all-calls                           on run, test, check and build: print every call
+                                        nomi.toml's [capabilities] lists refuse, not
+                                        the first of each name
   nomi build <file> [-o <out>] [--target <goos>/<goarch>] [--allow-unsupported <class>]
                                         build a single executable: nomi-vm with the
                                         program's IR appended (runs at nomi run speed);
@@ -130,10 +140,18 @@ func main() {
 	}
 	offline := false
 	switch command {
-	case "run", "test", "check", "build", "fetch", "add", "types":
+	case "run", "test", "check", "build", "fetch", "add", "types", "capabilities":
 		var rest []string
-		rest, offline = takeOffline(command, os.Args[2:])
+		rest, offline = takeFlag(command, offlineFlag, os.Args[2:])
 		os.Args = append([]string{os.Args[0], command}, rest...)
+	}
+	switch command {
+	case "run", "test", "check", "build":
+		rest, allCalls := takeFlag(command, allCallsFlag, os.Args[2:])
+		os.Args = append([]string{os.Args[0], command}, rest...)
+		if allCalls {
+			_ = os.Setenv(vmhost.AllCallsEnv, "1")
+		}
 	}
 	switch command {
 	case "dap", "mcp", dap.TerminalCommand, "fmt", "phrases", "version", "help", "--help", "-h", "new", "init", "remove":
@@ -187,6 +205,13 @@ func main() {
 	} else if len(os.Args) > 1 && os.Args[1] == "build" {
 		if err := runBuild(os.Args[2:]); err != nil {
 			if !errors.Is(err, errBuildRefused) {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			os.Exit(1)
+		}
+	} else if command == "capabilities" {
+		if err := runCapabilities(os.Stdout, os.Args[2:]); err != nil {
+			if !errors.Is(err, errCheckFailed) {
 				fmt.Fprintln(os.Stderr, err)
 			}
 			os.Exit(1)

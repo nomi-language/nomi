@@ -18,12 +18,12 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 	if !irWrappingDistinct(k.def) && !irRetainedMarker(k.def) {
 		return nil, false
 	}
-	d := bl.g.implsByIface["Debug"][k]
+	d := bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k]
 	if d == nil && k.def.instOrigin == nil {
 		// Another unit's type (a program file's, or a std module lowered
 		// with the program, `Status`, `Toml`): the Debug impl its declaring
 		// unit holds, written or synthesized, as debugImplSym finds it.
-		site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", "Debug")
+		site, params, result, owning := bl.g.siblingImplMember(k.def, "inspect", stdIfaceImplKey(stdDebug))
 		if site == nil || len(params) != 1 || params[0] != k || result != kindString {
 			return nil, false
 		}
@@ -63,7 +63,7 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 // structDebugPlan calls a retained struct's or enum's Debug impl, derived or written,
 // through the native named inspector.
 func (bl *irScalarBuilder) structDebugPlan(k kind) (*irQualPlan, bool) {
-	d := bl.g.implsByIface["Debug"][k]
+	d := bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k]
 	if d == nil || !d.lowerable {
 		return nil, false
 	}
@@ -81,7 +81,7 @@ func (bl *irScalarBuilder) structDebugPlan(k kind) (*irQualPlan, bool) {
 // stdDebugPlan calls std's own retained `Debug.inspect` for a std named type
 // with no local impl, such as calendar's Date.
 func (bl *irScalarBuilder) stdDebugPlan(k kind) *irQualPlan {
-	if k.tag != tagNamed || k.def == nil || bl.g.std == nil || bl.g.implsByIface["Debug"][k] != nil {
+	if k.tag != tagNamed || k.def == nil || bl.g.std == nil || bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] != nil {
 		return nil
 	}
 	f := stdPick(bl.g.std.byIface["Debug.inspect"][k], []kind{k})

@@ -394,12 +394,12 @@ type FileBodies struct {
 	// error's type holds. The IR builder renders a failed `!`'s error from
 	// this record. Nil until the first record.
 	UnwrapFailures map[*ast.Unwrap]*DisplayRender
-	// Operators maps each operator over a value that is not a primitive,
-	// an *ast.Binary or a prefix `~~~` (*ast.Unary), to what it means
-	// (operator_uses.go): an impl's call, a comparison by shape, a
-	// comparison of two interface values by their run-time types, or,
-	// over a type parameter, the bound each instance resolves. Nil until
-	// the first record.
+	// Operators maps each operator that goes through an interface, an
+	// *ast.Binary or a prefix `~~~` (*ast.Unary), to what it means
+	// (operator_uses.go): an impl's call (std's `host fn` or `fn` for a
+	// primitive), a comparison by shape, a comparison of two interface
+	// values by their run-time types, or, over a type parameter, the
+	// bound each instance resolves. Nil until the first record.
 	Operators map[ast.Node]*OperatorUse
 	// Coercions maps each expression of a concrete type, or of a type
 	// parameter bounded by the interface, checked against an interface

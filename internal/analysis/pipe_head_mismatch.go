@@ -205,13 +205,14 @@ func (c *checker) pipeNeedsToString(w, h Type) bool {
 
 // hasImpl reports whether t's type has an impl of the interface iface,
 // without recording a demand for it as typeImplementsInterface does: help
-// text is not a use.
+// text is not a use. Its callers ask for Display, a name the prelude
+// reserves, so the name is the interface.
 func (c *checker) hasImpl(t Type, iface string) bool {
 	name := concreteTypeName(t)
 	if name == "" || c.fa == nil {
 		return false
 	}
-	return c.hasOwnImpl(t, iface) && c.implReceiverMatches(t, iface)
+	return c.hasOwnImpl(t, OriginUnresolved, iface) && c.implReceiverMatches(t, iface)
 }
 
 // typePair renders two types for one message, qualified as typef qualifies

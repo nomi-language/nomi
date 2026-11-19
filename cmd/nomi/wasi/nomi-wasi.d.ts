@@ -16,6 +16,25 @@ export interface Options {
   onStdout?: (text: string) => void;
   /** Receives stderr as it is written, in place of capturing it. */
   onStderr?: (text: string) => void;
+  /**
+   * The std modules the program may reach outside itself through, such as
+   * ["std::io"]. An empty list allows nothing; without it these calls are
+   * not held. A program that reaches more is refused at the load, before it
+   * runs.
+   */
+  std?: string[];
+  /**
+   * The keys of the host functions linked into the reactor that the
+   * program may call, such as ["lookup"]. With std given and host not, it
+   * may call none; host alone holds only host functions.
+   */
+  host?: string[];
+  /**
+   * Milliseconds the boot, and each later call and run of main, may run
+   * before it is stopped. A stopped call rejects, and the program stays
+   * loaded.
+   */
+  timeoutMs?: number;
 }
 
 export interface RunResult {

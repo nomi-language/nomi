@@ -96,6 +96,46 @@ end
 	labelsBefore(t, items, "mix", "word")
 }
 
+// A value fits an expected interface by the interface's identity: a User
+// that implements std's ToJson does not fit the file's own ToJson.
+func TestCompletion_RanksAnImplOfTheExpectedInterfaceFirst(t *testing.T) {
+	src := `import std::json
+
+interface ToJson
+    fn to_json(value: self) -> String
+end
+
+struct Mine
+    n: Int
+end
+
+impl ToJson for Mine
+    fn to_json(value: Mine) -> String
+        "mine"
+    end
+end
+
+struct User
+    n: Int
+end
+
+impl json.ToJson for User
+    fn to_json(value: User) -> json.Json
+        json.Json.Null
+    end
+end
+
+fn f() -> String
+    a_theirs = User{n: 1}
+    z_mine = Mine{n: 2}
+    v: ToJson = ` + cursorMark + `
+    ToJson.to_json(v)
+end
+`
+	items := complete(t, src)
+	labelsBefore(t, items, "z_mine", "a_theirs")
+}
+
 func TestCompletion_RanksLocalsBeforeFileNamesBeforeImports(t *testing.T) {
 	src := "fn total_file() -> Int\n    1\nend\n\nfn f() -> Int\n    total_local = 2\n    tota" + cursorMark + "\nend\n"
 	items := complete(t, src)

@@ -152,10 +152,13 @@ func TestHeaderLower_DeriveNonDerivableErrors(t *testing.T) {
 end
 derive Speech for Point`
 	_, errs := lowerNewform(t, src)
-	expectLowerErr(t, errs, "unknown derivable protocol")
+	expectLowerErr(t, errs, "`derive Speech for Point`: `Speech` is not an interface derive can write")
 }
 
-func TestHeaderLower_DeriveAndManualImplConflict(t *testing.T) {
+// A derive beside a hand-written impl is lowered like any other: which
+// interface each names is known only after names resolve, so the conflict
+// is coherence's, by identity (derive_identity_test.go).
+func TestHeaderLower_DeriveBesideAManualImplIsLowered(t *testing.T) {
 	src := `struct Point
   x: Int
 
@@ -169,9 +172,9 @@ impl Equatable for Point
 end
 `
 	out, errs := lowerNewform(t, src)
-	expectLowerErr(t, errs, "conflicts with a hand-written `impl Equatable for Point")
-	if len(implBlocks(out)) != 1 {
-		t.Fatalf("expected only the manual impl block after conflict, got %d", len(implBlocks(out)))
+	expectLowerClean(t, errs)
+	if len(implBlocks(out)) != 2 {
+		t.Fatalf("expected the manual impl block and the derived one, got %d", len(implBlocks(out)))
 	}
 }
 

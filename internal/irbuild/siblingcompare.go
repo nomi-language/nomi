@@ -52,7 +52,7 @@ func (g *gen) siblingCompareAt(k, ord kind, at ast.Node) bool {
 	var chosen *implMemberSite
 	for i := range sites {
 		s := &sites[i]
-		if s.iface != "Comparable" || s.unit == g.fileUnit {
+		if s.iface != stdIfaceImplKey(stdComparable) || s.unit == g.fileUnit {
 			continue
 		}
 		if chosen != nil && (chosen.unit != s.unit || chosen.fn != s.fn) {

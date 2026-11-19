@@ -21,17 +21,31 @@ package analysis
 // internal `@derive` marker produces
 // (synthesizeDeriveFor). After lowering, derive entries are consumed, so the
 // impl manifest, dispatch registration, coherence (`detectImplCollisions`),
-// orphan rule, `DetectMissingImpls`, derive/universal-Debug synthesis, and the
-// IR builder all operate on the lowered form unchanged. (`@derive` decorators
-// on the decl remain handled separately by the later SynthesizeDerives pass.)
+// orphan rule, `DetectMissingImpls`, universal-Debug synthesis, and the
+// IR builder all operate on the lowered form unchanged.
 //
-// PLACEMENT: the pass runs immediately BEFORE SynthesizeDerives at every
-// SynthesizeDerives call site (internal/frontend's Checker.Prepare, analysis
-// buildModule, analysis BuildProjectWithCache, internal/highlight) — lowering must come first because derive and
-// universal-Debug synthesis scan top-level impl blocks to decide what to
-// emit (a hand-written `Debug` implementation must suppress the auto Debug impl,
-// and a hand-written `Display` implementation must collide with `derive Display`,
-// exactly like their hand-written top-level equivalents).
+// THE INTERFACE IS NAMED BY IDENTITY. Lowering runs before names resolve,
+// so it reads the interface as written only by its base name, to choose the
+// body to synthesize (deriveSupported). The block's header is the interface
+// as written (`ToJson`, `json.ToJson`), at the derive's own position, and it
+// resolves through the file's scope as a hand-written header does. What a
+// derive means is decided after resolution, by the interface's identity:
+//
+//   - checkDerivedInterface (the checker) holds the header to the one of
+//     derivableInterfaces of its name: a file's own `interface ToJson` is
+//     not std's, and `derive ToJson` meaning it is one error at the derive.
+//   - A derive beside a hand-written impl of the same interface for the same
+//     type is a duplicate impl, which coherence (detectImplCollisions)
+//     reports by identity, whatever spelling either header uses.
+//
+// The synthesized body names what it calls through std's modules
+// (jsonModuleAlias), so a file's own `ToJson` changes nothing in it.
+//
+// PLACEMENT: the pass runs immediately BEFORE SynthesizeUniversalDebug at
+// every call site (internal/frontend's Checker.Prepare, analysis
+// buildModule, analysis BuildProjectWithCache, internal/highlight), which
+// scans top-level impl blocks to decide what to emit: a derived or
+// hand-written `Debug` implementation suppresses the auto Debug impl.
 //
 // CONSUME SEMANTICS: lowering consumes source derive declarations by replacing
 // them with synthesized impl blocks. Two reasons:
@@ -41,7 +55,7 @@ package analysis
 //     analysis reaches BuildProjectWithCache which lowers again; buildModule
 //     lowers slices BuildProject may already have processed). With derived
 //     derive nodes consumed, a second pass finds nothing to lower and returns the
-//     input unchanged — mirroring SynthesizeDerives' idempotency contract.
+//     input unchanged.
 //   - No double-walking. Derived impl blocks are synthesized once; leaving the
 //     source derive declarations reachable would invite a
 //     future pass to synthesize or validate them twice.
@@ -58,8 +72,7 @@ package analysis
 // nothing downstream can see their source shape:
 //
 //   - duplicate derive declarations.
-//   - derive: `derive X for T` for an unknown derivable protocol; conflicting
-//     with a hand-written `impl X for T { ... }` block.
+//   - `derive X for T` where no derivable interface is named X.
 //   - `derive Variants for T` where T is not an enum without type parameters
 //     whose variants all carry no data (variantsDeriveError).
 
@@ -124,14 +137,13 @@ func lowerNodeListDerives(nodes []ast.Node, imported func(name string) ast.Node,
 			}
 		}
 	}
-	manualImpls := manualImplsInNodeList(nodes)
 	seenDerives := map[string]map[string]bool{}
 	var out []ast.Node
 	changed := false
 	index := sourceIndices(nodes)
 	for i, n := range nodes {
 		if conf, ok := n.(*ast.ImplConformance); ok && conf.Derive && conf.Receiver != nil {
-			replacement := lowerTopLevelDerive(conf, nodes, index[i], decls, manualImpls, seenDerives, errs)
+			replacement := lowerTopLevelDerive(conf, nodes, index[i], decls, seenDerives, errs)
 			if !changed {
 				out = append(out, nodes[:i]...)
 				changed = true
@@ -199,26 +211,6 @@ func typeDeclsInNodeList(nodes []ast.Node) map[string]ast.Node {
 	return decls
 }
 
-func manualImplsInNodeList(nodes []ast.Node) map[string]map[string]bool {
-	out := map[string]map[string]bool{}
-	for _, n := range nodes {
-		block, ok := n.(*ast.ImplBlock)
-		if !ok || block.Interface == nil || block.Receiver == nil || block.Line >= synthLineBase {
-			continue
-		}
-		recvName := TypeExprBaseName(block.Receiver)
-		ifaceName := TypeExprBaseName(block.Interface)
-		if recvName == "" || ifaceName == "" {
-			continue
-		}
-		if out[recvName] == nil {
-			out[recvName] = map[string]bool{}
-		}
-		out[recvName][ifaceName] = true
-	}
-	return out
-}
-
 // typeAliasInNodeList is the typealias named name among nodes, or nil.
 func typeAliasInNodeList(nodes []ast.Node, name string) *ast.TypeAlias {
 	for _, n := range nodes {
@@ -239,7 +231,7 @@ func conformanceText(conf *ast.ImplConformance) string {
 	return strings.Join(parts, ", ")
 }
 
-func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int, decls map[string]ast.Node, manualImpls map[string]map[string]bool, seen map[string]map[string]bool, errs *[]TypeError) []ast.Node {
+func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int, decls map[string]ast.Node, seen map[string]map[string]bool, errs *[]TypeError) []ast.Node {
 	addErr := func(line, col int, format string, args ...interface{}) {
 		*errs = append(*errs, TypeError{Line: line, Col: col, Message: fmt.Sprintf(format, args...)})
 	}
@@ -276,15 +268,11 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		}
 		seen[recvName][ifaceName] = true
 		if !deriveSupported[ifaceName] {
-			addErr(line, col, "`derive %s`: unknown derivable protocol (derive supports %s)", ifaceName, deriveSupportedDescription())
+			addErr(line, col, "`derive %s for %s`: `%s` is not an interface derive can write; derive writes %s", iface.TypeString(), recvName, iface.TypeString(), deriveSupportedDescription())
 			continue
 		}
-		if _, optErrs := validateDeriveOptions(ifaceName, conf.Options, conf.Line, conf.Col); len(optErrs) > 0 {
+		if _, optErrs := validateDeriveOptions(iface, conf.Options, conf.Line, conf.Col); len(optErrs) > 0 {
 			*errs = append(*errs, optErrs...)
-			continue
-		}
-		if manualImpls[recvName][ifaceName] {
-			addErr(line, col, "`derive %s for %s` conflicts with a hand-written `impl %s for %s` block — a derived impl is synthesized whole, so it cannot coexist with a manual impl; drop one", ifaceName, recvName, ifaceName, recvName)
 			continue
 		}
 		if ifaceName == "Variants" {
@@ -313,13 +301,10 @@ func lowerTopLevelDerive(conf *ast.ImplConformance, nodes []ast.Node, index int,
 		blocks := synthesizeDeriveFor(ifaceName, decl, one.Options, site)
 		for _, n := range blocks {
 			if block, ok := n.(*ast.ImplBlock); ok {
-				if foreign {
-					// No declaration of this file carries the derive, so
-					// the header names the interface as written: the
-					// name resolves through this file's scope and counts
-					// as its use.
-					block.Interface = iface
-				}
+				// The header names the interface as written, at the
+				// derive's position: it resolves through this file's
+				// scope as a written header does, and counts as a use.
+				block.Interface = iface
 				block.Receiver = appliedDeriveReceiver(conf.Receiver, typeDeclTypeParams(decl), block.Line)
 				block.WhereClauses = conf.WhereClauses
 				if len(conf.Generics) > 0 {
@@ -363,9 +348,9 @@ func typeExprPos(t ast.TypeExpr, fallbackLine, fallbackCol int) (int, int) {
 // exact same downstream machinery as a hand-written derive. NOTE: `@derive`
 // is not a SOURCE form (the parser rejects it); this synthetic
 // `ast.Decorator{Name:"derive"}` is the ONLY producer of derive decorators,
-// created here during lowering. The decorator node + its consumers
-// (walkTypeDeclDecoratorArgs, CheckDeriveBounds, processTypeDeclDeriveDecorators,
-// existingDerivedImpls, SynthesizeDerives) are this desugaring's target.
+// created here during lowering, beside the impl block lowering writes. The
+// decorator node's consumers (walkTypeDeclDecoratorArgs, CheckDeriveBounds,
+// the universal Debug's precedence) are this desugaring's target.
 // Recording the derive demands directly here, without the synthetic
 // decorator, would let the internal-only `@derive` handling be deleted.
 //

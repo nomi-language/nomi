@@ -32,7 +32,6 @@ func buildAndCollectTypeErrors(t *testing.T, src string) []analysis.TypeError {
 	if len(lowerErrs) > 0 {
 		t.Fatalf("LowerDerives: %v", lowerErrs)
 	}
-	entryNodes, _ = analysis.SynthesizeDerives(entryNodes)
 	entryNodes = analysis.SynthesizeUniversalDebug(entryNodes)
 	loader := func(projectRoot string, modulePath []string) ([]ast.Node, error) {
 		filePath := filepath.Join(projectRoot, filepath.Join(modulePath...)) + ".nomi"

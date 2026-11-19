@@ -99,8 +99,16 @@ func (cj *checkJSON) file(path string, err error) {
 		return
 	}
 	cj.failed++
+	// A refusal by the capability lists is a record per call, though its
+	// text gives the first of each name.
 	var ds vmhost.Diagnostics
-	if !errors.As(err, &ds) || len(ds) == 0 {
+	var refused *vmhost.CapabilityError
+	if errors.As(err, &refused) {
+		ds = refused.Diagnostics
+	} else {
+		errors.As(err, &ds)
+	}
+	if len(ds) == 0 {
 		cj.diags++
 		cj.write(checkJSONRecord{Type: "diagnostic", File: path, Severity: "error", Message: err.Error()})
 	} else {

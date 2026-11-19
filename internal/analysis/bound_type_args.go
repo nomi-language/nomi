@@ -112,7 +112,7 @@ func (c *checker) boundArgsAmbiguous(line, col int, concrete Type, bound *Interf
 	}
 	c.addError(line, col, fmt.Sprintf(
 		"`%s` implements `%s` at %s, and the call's arguments do not choose one for this bound: annotate them",
-		concrete, bound.Name, candidateList(cands)))
+		concrete, c.shownInterfaceFor(concrete, bound, false), candidateList(cands)))
 	return true
 }
 
@@ -124,7 +124,7 @@ func (c *checker) boundArgsError(line, col int, concrete Type, bound *InterfaceT
 	for i, a := range bound.TypeArgs {
 		args[i] = resolveTypeVar(Substitute(a, subs))
 	}
-	wanted := &InterfaceType{Name: bound.Name, TypeArgs: args}
+	wanted := &InterfaceType{Origin: bound.Origin, Name: bound.Name, TypeArgs: args}
 	quoted := make([]string, len(have))
 	for i, h := range have {
 		quoted[i] = "`" + h + "`"
@@ -138,5 +138,5 @@ func (c *checker) boundArgsError(line, col int, concrete Type, bound *InterfaceT
 	}
 	c.report(TypeError{Line: line, Col: col, Message: fmt.Sprintf(
 		"%s does not implement %s (required by `where %s: %s`)",
-		concrete, wanted, param, bound)}.WithHint(hint))
+		concrete, c.shownInterfaceFor(concrete, wanted, true), param, c.shownInterfaceFor(concrete, bound, true))}.WithHint(hint))
 }

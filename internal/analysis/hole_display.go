@@ -139,11 +139,12 @@ func (r *DisplayRender) perInstance() bool {
 	return false
 }
 
-// DisplayCallee is the callee a call of m, the impl function a rendering
-// names (DisplayRender.Method), reaches: what the checker records for a
-// call written of it, with the block that declares m (Callee.Impl), the
-// file that declares it and its std identity.
-func (fa *FileAnalysis) DisplayCallee(m ast.ImplMethodDecl) Callee {
+// ImplCallee is the callee a call of m, an impl function a record names
+// (a rendering's DisplayRender.Method, an operator's
+// OperatorImpl.Method), reaches: what the checker records for a call
+// written of it, with the block that declares m (Callee.Impl), the file
+// that declares it and its std identity.
+func (fa *FileAnalysis) ImplCallee(m ast.ImplMethodDecl) Callee {
 	out := Callee{Kind: CalleeImpl, Decl: m}
 	if b := fa.implBlockHolding(m); b != nil {
 		out.Impl = b

@@ -61,7 +61,7 @@ func (bl *irScalarBuilder) neverOperand(n ast.Node) (ir.Temp, kind, bool, bool, 
 			lead, operand = []ast.Node{t.Left}, t.Right
 		}
 	case *ast.Case:
-		operand = t.Value
+		operand = bl.subjectOf(t)
 	}
 	if operand == nil || !bl.isNeverOperand(operand) {
 		return ir.NoTemp, kindInvalid, false, false, false
@@ -102,7 +102,7 @@ func (bl *irScalarBuilder) neverCaseRegion(t *ast.Case, sig irFuncSig) (kind, bo
 		bl.g.dc.note("a `case` on Infallible whose result has no kind")
 		return kindInvalid, false
 	}
-	v, k, _, ok := bl.lowerNever(t.Value)
+	v, k, _, ok := bl.lowerNever(bl.subjectOf(t))
 	if !ok || k != kindNever {
 		return kindInvalid, false
 	}
@@ -191,13 +191,13 @@ func (bl *irScalarBuilder) lowerNever(n ast.Node) (ir.Temp, kind, bool, bool) {
 func (bl *irScalarBuilder) neverCalleeIsName(callee ast.Node) bool {
 	switch c := callee.(type) {
 	case *ast.Ident:
-		return !irQualIsLocal(bl, c.Name)
+		return !bl.namesLocal(c)
 	case *ast.FieldAccess:
 		switch o := c.Object.(type) {
 		case *ast.TypeIdent:
 			return true
 		case *ast.Ident:
-			return !irQualIsLocal(bl, o.Name)
+			return !bl.namesLocal(o)
 		}
 	}
 	return false

@@ -126,7 +126,7 @@ end
 	})
 	// Exactly one diagnostic, and it is this one. Without the field the
 	// program analyzed with ZERO diagnostics and RAN, printing `ascii(1,2)`.
-	const want = "Point does not implement Renderer"
+	const want = "Point does not implement svg.Renderer"
 	if len(errs) != 1 || !strings.Contains(errs[0].Message, want) {
 		t.Fatalf("a bound naming svg's `Renderer` must not be satisfied by an impl of ascii's `Renderer`;\nwant exactly one diagnostic containing %q, got %d:\n  %s",
 			want, len(errs), joinMessages(errs))

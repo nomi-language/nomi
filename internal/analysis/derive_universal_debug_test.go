@@ -178,7 +178,6 @@ end
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)
-	nodes, _ = SynthesizeDerives(nodes)
 	out := SynthesizeUniversalDebug(nodes)
 
 	for _, ty := range []string{"True", "Task"} {
@@ -245,10 +244,8 @@ end
 	nodes := parseNodes(t, src)
 	// Mirror the production pipeline: LowerDerives (turns the
 	// `impl Debug for Qux` reopening block into a top-level impl Debug
-	// block), SynthesizeDerives
-	// (no-op here, no derive present), then SynthesizeUniversalDebug.
+	// block), then SynthesizeUniversalDebug.
 	nodes, _ = LowerDerives(nodes)
-	nodes, _ = SynthesizeDerives(nodes)
 	out := SynthesizeUniversalDebug(nodes)
 
 	// Foo, Bar, Baz each get exactly one auto Debug impl.
@@ -300,8 +297,7 @@ opaque type NonZeroCount Int
 derive Debug for NonZeroCount
 `
 	nodes := parseNodes(t, src)
-	nodes, _ = LowerDerives(nodes)      // stamps the synthetic @derive Debug decorator
-	nodes, _ = SynthesizeDerives(nodes) // produces the structural derived impl
+	nodes, _ = LowerDerives(nodes) // stamps the synthetic @derive Debug decorator
 	out := SynthesizeUniversalDebug(nodes)
 
 	if got := countDebugImpls(out, "NonZeroCount"); got != 1 {
@@ -331,7 +327,6 @@ end
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)
-	nodes, _ = SynthesizeDerives(nodes)
 	out := SynthesizeUniversalDebug(nodes)
 
 	if got := countDebugImpls(out, "Custom"); got != 1 {
@@ -413,7 +408,6 @@ end
 `
 	nodes := parseNodes(t, src)
 	nodes, _ = LowerDerives(nodes)
-	nodes, _ = SynthesizeDerives(nodes)
 	once := SynthesizeUniversalDebug(nodes)
 	twice := SynthesizeUniversalDebug(once)
 

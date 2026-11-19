@@ -30,7 +30,6 @@ func RunFrontEnd(source, root string, virtualFiles map[string]string) ([]ast.Nod
 	if len(lowerErrs) > 0 {
 		return nil, nil, errors.New(JoinTypeErrors(lowerErrs))
 	}
-	nodes, _ = analysis.SynthesizeDerives(nodes)
 	nodes = analysis.SynthesizeUniversalDebug(nodes)
 
 	// Every stdlib module: a checked program's own build reaches the ones

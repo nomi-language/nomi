@@ -695,7 +695,7 @@ func (g *gen) isBoundTypeParam(name string) bool {
 // locally or through a module. The instance's checker types are the types
 // the checker recorded for the arguments (typeExprTypes).
 func (g *gen) userGenericTypeOf(name string, params []ast.TypeExpr) (kind, bool) {
-	_, instantiate, isTemplate := g.genericTemplateNamed(name)
+	_, instantiate, isTemplate := g.genericTemplateNamed(name, nil)
 	if !isTemplate {
 		return kindInvalid, false
 	}
@@ -772,12 +772,13 @@ func kindParts(k kind) []kind {
 func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name string, typeArgs []analysis.Type) (kind, bool) {
 	// An empty Origin is the checker's on a type argument inside a variant
 	// constructor's instantiated result (`Wrapper<Wrapper<Int>>`); the name
-	// resolves among this module's own templates.
+	// resolves among this module's own templates, as a type a body of this
+	// file declares (analysis.BodyOrigin) does.
 	if g.fa == nil {
 		return kindInvalid, false
 	}
 	var instantiate typeInstantiator
-	if origin != "" && origin != g.fa.Origin {
+	if origin != "" && !analysis.IsBodyOrigin(origin) && origin != g.fa.Origin {
 		// Another file's template: the instance is built there and
 		// mirrored here, as a spelled `span.Span<Int>` is.
 		ref, found := g.foreignTemplateAt(origin, name)
@@ -788,7 +789,7 @@ func (g *gen) projectGenericInstance(params []*analysis.TypeParam_, origin, name
 	} else {
 		tpl := g.blockLocalTemplateOf(params)
 		if tpl == nil {
-			tpl = g.blockLocalTemplate(name)
+			tpl = g.blockLocalTemplate(name, nil)
 		}
 		if tpl == nil {
 			tpl = g.genericTemplates[name]
