@@ -243,6 +243,24 @@ func (t *Table) Symbols() int { return len(t.syms) }
 // table. `NewSymbol` stays, for a producer naming something that genuinely has
 // no prior identity — a synthesized binding, a test's subject.
 func (t *Table) Symbol(token any, name string) *Symbol {
+	return t.internSymbol(token, name, nil)
+}
+
+// ImplSymbol interns the function of an impl block the producer identifies
+// by token, named by f (ImplFunc.Name) and carrying it. A function of an
+// impl block is interned only here, so its name is the same whichever call
+// site asks first, and a token this table already holds as a plain Symbol
+// panics. A symbol linked from another module (the table's imports) keeps
+// the ImplFunc that module wrote.
+func (t *Table) ImplSymbol(token any, f ImplFunc) *Symbol {
+	if s := t.syms[token]; s != nil && s.impl == nil {
+		panic("ir: Table.ImplSymbol: " + s.name + " was interned as a plain symbol and is now " +
+			f.Name() + "; one declaration has one name")
+	}
+	return t.internSymbol(token, f.Name(), &f)
+}
+
+func (t *Table) internSymbol(token any, name string, impl *ImplFunc) *Symbol {
 	if token == nil {
 		panic("ir: Table.Symbol: a declaration with no producer identity cannot be " +
 			"interned; identity is the whole reason this table exists")
@@ -260,7 +278,7 @@ func (t *Table) Symbol(token any, name string) *Symbol {
 			return s
 		}
 	}
-	s := &Symbol{name: name, link: link}
+	s := &Symbol{name: name, link: link, impl: impl}
 	t.syms[token] = s
 	return s
 }

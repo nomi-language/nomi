@@ -118,9 +118,6 @@ func CheckUnusedBindings(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 func isUnusedBindingCandidate(node ast.Node) bool {
 	switch node.(type) {
 	case *ast.Binding,
-		*ast.TupleDestructure,
-		*ast.StructDestructure,
-		*ast.DistinctDestructure,
 		*ast.PatternDestructure,
 		*ast.PatternBinding,
 		// A pattern with no statement around it: a `case` arm, an `else`

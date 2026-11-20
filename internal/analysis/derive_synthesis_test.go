@@ -320,13 +320,8 @@ derive Equatable for Id`
 		t.Fatalf("expected 3 stmts (2 destructures + 1 equals), got %d", len(fn.Body.Stmts))
 	}
 	for i := 0; i < 2; i++ {
-		dd, ok := fn.Body.Stmts[i].(*ast.DistinctDestructure)
-		if !ok {
-			t.Errorf("stmt %d: expected DistinctDestructure, got %T", i, fn.Body.Stmts[i])
-			continue
-		}
-		if dd.TypeName != "Id" {
-			t.Errorf("stmt %d: expected destructure of Id, got %s", i, dd.TypeName)
+		if head := distinctUnwrapHead(fn.Body.Stmts[i]); head != "Id" {
+			t.Errorf("stmt %d: expected `Id(...) = ...`, got %#v", i, fn.Body.Stmts[i])
 		}
 	}
 	// Final stmt is ExprStmt wrapping a Call to Equatable.equal.
@@ -612,12 +607,8 @@ derive Hashable for Id`
 	if len(fn.Body.Stmts) != 2 {
 		t.Fatalf("expected 2 stmts (1 destructure + 1 hash), got %d", len(fn.Body.Stmts))
 	}
-	dd, ok := fn.Body.Stmts[0].(*ast.DistinctDestructure)
-	if !ok {
-		t.Fatalf("stmt 0: expected DistinctDestructure, got %T", fn.Body.Stmts[0])
-	}
-	if dd.TypeName != "Id" {
-		t.Errorf("stmt 0: expected destructure of Id, got %s", dd.TypeName)
+	if head := distinctUnwrapHead(fn.Body.Stmts[0]); head != "Id" {
+		t.Fatalf("stmt 0: expected `Id(...) = ...`, got %#v", fn.Body.Stmts[0])
 	}
 	es, ok := fn.Body.Stmts[1].(*ast.ExprStmt)
 	if !ok {
@@ -950,13 +941,8 @@ derive Comparable for Id`
 		t.Fatalf("expected 3 stmts (2 destructures + 1 compare), got %d", len(fn.Body.Stmts))
 	}
 	for i := 0; i < 2; i++ {
-		dd, ok := fn.Body.Stmts[i].(*ast.DistinctDestructure)
-		if !ok {
-			t.Errorf("stmt %d: expected DistinctDestructure, got %T", i, fn.Body.Stmts[i])
-			continue
-		}
-		if dd.TypeName != "Id" {
-			t.Errorf("stmt %d: expected destructure of Id, got %s", i, dd.TypeName)
+		if head := distinctUnwrapHead(fn.Body.Stmts[i]); head != "Id" {
+			t.Errorf("stmt %d: expected `Id(...) = ...`, got %#v", i, fn.Body.Stmts[i])
 		}
 	}
 	es, ok := fn.Body.Stmts[2].(*ast.ExprStmt)
@@ -1257,12 +1243,8 @@ derive Debug for Id`
 	if len(fn.Body.Stmts) != 2 {
 		t.Fatalf("expected 2 stmts (1 destructure + 1 interp), got %d", len(fn.Body.Stmts))
 	}
-	dd, ok := fn.Body.Stmts[0].(*ast.DistinctDestructure)
-	if !ok {
-		t.Fatalf("stmt 0: expected DistinctDestructure, got %T", fn.Body.Stmts[0])
-	}
-	if dd.TypeName != "Id" {
-		t.Errorf("stmt 0: expected destructure of Id, got %s", dd.TypeName)
+	if head := distinctUnwrapHead(fn.Body.Stmts[0]); head != "Id" {
+		t.Fatalf("stmt 0: expected `Id(...) = ...`, got %#v", fn.Body.Stmts[0])
 	}
 	es, ok := fn.Body.Stmts[1].(*ast.ExprStmt)
 	if !ok {
@@ -1580,4 +1562,18 @@ derive Equatable for Point`
 	if _, ok := fn.Params[0].TypeAnnotation.(*ast.SimpleType); !ok {
 		t.Errorf("non-generic param type: expected SimpleType, got %T", fn.Params[0].TypeAnnotation)
 	}
+}
+
+// distinctUnwrapHead is the type a derived body's `T(x) = v` names, or ""
+// when stmt is no such statement.
+func distinctUnwrapHead(stmt ast.Node) string {
+	pb, ok := stmt.(*ast.PatternBinding)
+	if !ok || pb.Else != nil {
+		return ""
+	}
+	ep, ok := pb.Pattern.(*ast.EnumPattern)
+	if !ok || ep.Binding == "" {
+		return ""
+	}
+	return ep.Variant.TypeString()
 }

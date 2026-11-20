@@ -254,8 +254,8 @@ func singleBody(b *ast.Block) ast.Node {
 			}
 		}
 		return n.Expr
-	case *ast.Binding, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternDestructure,
-		*ast.PatternBinding, *ast.DistinctDestructure, *ast.With, *ast.Defer, *ast.Assertion,
+	case *ast.Binding, *ast.PatternDestructure,
+		*ast.PatternBinding, *ast.With, *ast.Defer, *ast.Assertion,
 		*ast.FuncDef, *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias,
 		*ast.InterfaceDef, *ast.ImplBlock, *ast.TestDecl, *ast.Subtests, *ast.ErrorNode:
 		return b

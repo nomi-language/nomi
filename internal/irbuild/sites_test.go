@@ -55,7 +55,7 @@ func TestSites_DenominatorDeficitIsReported(t *testing.T) {
 }
 
 // TestSites_TheDenominatorPopulationIsTheRunnersOwn pins runnerWouldDiscover
-// against the two clauses of cmd/nomi/main.go's discoverTestFiles, in both
+// against the two clauses of internal/frontend's TestFiles, in both
 // directions. A predicate that answered
 // `true` for everything would satisfy the sweep's population check while
 // asserting nothing.

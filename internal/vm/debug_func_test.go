@@ -36,7 +36,9 @@ end
 `
 
 // Each spelling a function breakpoint takes, what it names, and that it
-// stops at every entry: a tail-recursive function stops once per call.
+// stops at every entry: a tail-recursive function stops once per call. An
+// impl block's function is named by its block on the stack, and by its
+// interface's function, as code calls it and as the stack shows it here.
 func TestDebug_FunctionBreakpointsNameFunctionsAsTheStackDoes(t *testing.T) {
 	s := debugProgram(t, funcBreakSrc)
 	got := s.d.SetFunctionBreakpoints([]vm.FunctionBreakpointSpec{
@@ -45,6 +47,9 @@ func TestDebug_FunctionBreakpointsNameFunctionsAsTheStackDoes(t *testing.T) {
 		{Name: "Maybe.map"},
 		{Name: "countdwn"},
 		{Name: "lambda"},
+		{Name: "Card.to_string"},
+		{Name: "Display.to_string for Card"},
+		{Name: "Maybe.map<Int>"},
 	})
 	var report []string
 	for _, fb := range got {
@@ -57,11 +62,14 @@ func TestDebug_FunctionBreakpointsNameFunctionsAsTheStackDoes(t *testing.T) {
 		report = append(report, line)
 	}
 	want := []string{
-		"Display.to_string: stops in Card.to_string at line 9",
+		"Display.to_string: stops in Display.to_string for Card at line 9",
 		"dbg.countdown: stops in countdown at line 14",
-		"Maybe.map: stops in maybe.Maybe.map<Int, Int> at line " + strconv.Itoa(got[2].Pos.Line()),
+		"Maybe.map: stops in Maybe<Int>.map at line " + strconv.Itoa(got[2].Pos.Line()),
 		"countdwn: unverified, similar countdown",
 		"lambda: unverified, similar ",
+		"Card.to_string: stops in Display.to_string for Card at line 9",
+		"Display.to_string for Card: stops in Display.to_string for Card at line 9",
+		"Maybe.map<Int>: stops in Maybe<Int>.map at line " + strconv.Itoa(got[2].Pos.Line()),
 	}
 	if strings.Join(report, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("function breakpoints:\n%s\nwant:\n%s", strings.Join(report, "\n"), strings.Join(want, "\n"))
@@ -70,7 +78,7 @@ func TestDebug_FunctionBreakpointsNameFunctionsAsTheStackDoes(t *testing.T) {
 		t.Fatalf("Maybe.map's first statement is at %s, not in std's maybe.nomi", got[2].Pos)
 	}
 	s.run()
-	s.at(s.stop(), vm.StopBreakpoint, "Card.to_string:9 main:22", "c: Card = Card{n: 1}")
+	s.at(s.stop(), vm.StopBreakpoint, "Display.to_string for Card:9 main:22", "c: Card = Card{n: 1}")
 	for _, n := range []string{"2", "1", "0"} {
 		s.d.Continue()
 		st := s.stop()

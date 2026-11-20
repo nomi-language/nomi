@@ -172,7 +172,7 @@ func (bl *irScalarBuilder) siblingInstanceItemPlan(t *ast.Call, args irQualArgs,
 		return nil
 	}
 	name := impl.recv.nomi() + "." + it.name
-	return &irQualPlan{token: it, name: name, result: result, sym: owner.irCalleeSym(it, name), args: filled}
+	return &irQualPlan{token: it, name: name, result: result, sym: owner.irImplSym(it), args: filled}
 }
 
 // siblingMethodInstance is the instance owner builds of block d's withheld
@@ -233,8 +233,7 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 			return nil
 		}
 		f := &fileFunc{name: method, params0: w.params, defaults: true}
-		name := d.recv.nomi() + "." + it.name
-		site := &implMemberSite{fn: f, symName: name, instAccessors: func() *ir.Symbol { return owner.methodInstAccessors(it, name) }}
+		site := &implMemberSite{fn: f, instAccessors: func() *ir.Symbol { return owner.methodInstAccessors(it) }}
 		full, ok := bl.filledOperands(t, args, params, site.fn.params0, site.defaultHome(owner))
 		if !ok {
 			return nil
@@ -253,5 +252,5 @@ func (bl *irScalarBuilder) siblingMethodPlan(t *ast.Call, args irQualArgs, owner
 		return nil
 	}
 	name := d.recv.nomi() + "." + it.name
-	return &irQualPlan{token: it, name: name, result: res, args: filled, sym: owner.irCalleeSym(it, name)}
+	return &irQualPlan{token: it, name: name, result: res, args: filled, sym: owner.irImplSym(it)}
 }

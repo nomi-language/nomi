@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -145,5 +146,83 @@ func TestCapabilities_ADependencyOverItsOwnList(t *testing.T) {
 		if check := runNomiIn(t, app, "off", "check", "main.nomi"); check.exit != 0 {
 			t.Errorf("nomi check with no project [capabilities.deps]:\n%s", check)
 		}
+	}
+}
+
+// A refused call in a dependency's file is one error at the call, and
+// names the project's own call that leads there: as a note in check's
+// text, with a count of the other places, and as each place under
+// `related` in check --format json, with its file, span and message.
+func TestCapabilities_ADependencysRefusalNamesTheProjectsCall(t *testing.T) {
+	dir := t.TempDir()
+	app := filepath.Join(dir, "app")
+	mustWrite(t, filepath.Join(app, "go.mod"), "module example.com/app\n\ngo 1.27.0\n\nrequire example.com/pricing v0.0.0\n\nreplace example.com/pricing => ../pricing\n")
+	mustWrite(t, filepath.Join(app, "nomi.toml"), capabilityAllowsIO+"\n[capabilities.deps]\n\n[capabilities.deps.modules]\n\"example.com/pricing\" = []\n")
+	mustWrite(t, filepath.Join(app, "main.nomi"), "import\n    std::io\n    pricing::rules\nend\n\nfn main()\n    io.print(rules.load(\"a.txt\"))\n    io.print(rules.load(\"b.txt\"))\nend\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "go.mod"), "module example.com/pricing\n\ngo 1.27.0\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "nomi.toml"), "[module]\nname = \"pricing\"\n")
+	mustWrite(t, filepath.Join(dir, "pricing", "rules.nomi"), "import std::fs\n\npub fn load(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n")
+
+	check := runNomiIn(t, app, "off", "check", "main.nomi")
+	note := "  = note: your code reaches std::fs in example.com/pricing here: `main` calls `load`; and 1 more place in your code; --all-calls lists it: main.nomi:7:14\n"
+	if check.exit != 1 || strings.Count(check.stderr, "error:") != 1 || !strings.HasSuffix(check.stderr, note) {
+		t.Errorf("nomi check: want exit 1 and one error ending with\n%s\ngot:\n%s", note, check)
+	}
+	json := runNomiIn(t, app, "off", "check", "--format", "json", "main.nomi")
+	real, err := filepath.EvalSymlinks(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	main := filepath.Join(real, "main.nomi")
+	for _, line := range []int{7, 8} {
+		related := fmt.Sprintf(`{"file":%q,"line":%d,"col":14,"end_line":%d,"end_col":24,`, main, line, line)
+		if json.exit != 1 || !strings.Contains(json.stdout, `"related":[`) || !strings.Contains(json.stdout, related) ||
+			!strings.Contains(json.stdout, "\"message\":\"your code reaches std::fs in example.com/pricing here: `main` calls `load`\"") {
+			t.Errorf("nomi check --format json: want a related location starting %s\n%s", related, json)
+		}
+	}
+	if n := strings.Count(json.stdout, `"type":"diagnostic"`); n != 1 {
+		t.Errorf("nomi check --format json gives %d diagnostics; want one\n%s", n, json)
+	}
+}
+
+// A Display body counts toward a list only where a value of its type may be
+// rendered: a function that renders a Point in a tuple and a list reaches
+// Point's Display alone, so Job's, which prints, does not make the project
+// reach std::io. Rendering a Job in the same tuple does, and check refuses
+// it at the print.
+func TestCapabilities_ADisplayBodyCountsWhereItsTypeIsRendered(t *testing.T) {
+	const decls = `import std::io
+
+struct Job
+    name: String
+end
+
+impl Display for Job
+    fn to_string(j: Job) -> String
+        io.print("shown")
+        j.name
+    end
+end
+
+struct Point
+    x: Int
+    y: Int
+end
+
+derive Display for Point
+
+`
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.self]\nstd = []\n")
+	mustWrite(t, filepath.Join(dir, "main.nomi"), decls+"fn pair(p: Point) -> String\n    \"${(p, [p])}\"\nend\n\nfn main()\n    _ = pair(Point{x: 1, y: 2})\nend\n")
+	if check := runNomiIn(t, dir, "off", "check", "main.nomi"); check.exit != 0 {
+		t.Errorf("nomi check with Job never rendered: want exit 0\n%s", check)
+	}
+
+	mustWrite(t, filepath.Join(dir, "main.nomi"), decls+"fn pair(p: Point) -> String\n    \"${(p, [Job{name: \"a\"}])}\"\nend\n\nfn main()\n    _ = pair(Point{x: 1, y: 2})\nend\n")
+	check := runNomiIn(t, dir, "off", "check", "main.nomi")
+	if check.exit != 1 || !strings.Contains(check.stderr, "this module's own code reaches std::io, and [capabilities.self] allows it nothing outside the program\n --> main.nomi:9:9\n") {
+		t.Errorf("nomi check with Job rendered: want exit 1 and the refusal at its print\n%s", check)
 	}
 }

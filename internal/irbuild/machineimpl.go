@@ -2,7 +2,22 @@ package irbuild
 
 import (
 	"github.com/nomi-language/nomi/internal/analysis"
-	"github.com/nomi-language/nomi/internal/ast"
+)
+
+// operatorRoute is how an operator whose record names an impl
+// machineImpls lists is lowered instead of as a call of it.
+type operatorRoute uint8
+
+const (
+	routeUnset operatorRoute = iota
+	// routeNative is the machine's own operation: over scalars, ir.Arith,
+	// ir.UnaryArith, ir.Concat, an ir.Compare of a scalar shape; over
+	// Lists, the concatenation `List.concat` is the host operation of.
+	routeNative
+	// routeStructural compares by the operands' shape.
+	routeStructural
+	// routeImpl calls the impl's function.
+	routeImpl
 )
 
 // machineImpl names an operator impl by its identity, as the checker's
@@ -172,19 +187,4 @@ func (g *gen) operatorImplStd(impl *analysis.OperatorImpl) analysis.StdFunc {
 		return fa.StdFuncOf(impl.Method)
 	}
 	return analysis.StdFunc{}
-}
-
-// machineRoute is machineRouteOf for the operator t's record at this
-// instance (operatorUse).
-func (g *gen) machineRoute(t ast.Node) operatorRoute {
-	return g.machineRouteOf(g.operatorUse(t))
-}
-
-// machineComputes reports whether f, a std operator impl the operands'
-// kinds select for an operator with no record of its own, is one the
-// machine computes itself (machineImpls).
-func (g *gen) machineComputes(f *stdFunc) bool {
-	id := g.stdFuncIn(analysis.StdFunc{Module: "std/" + f.module}, f.node)
-	route := machineImpls[machineImpl{std: id}]
-	return route == routeNative || route == routeStructural
 }

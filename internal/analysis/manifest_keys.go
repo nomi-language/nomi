@@ -488,14 +488,25 @@ func ManifestEntryLine(data []byte, value string, path ...string) int {
 	lines := strings.Split(string(data), "\n")
 	for i := start - 1; i < len(lines); i++ {
 		text := strings.TrimSpace(stripTomlComment(lines[i]))
-		if strings.Contains(text, `"`+value+`"`) || strings.Contains(text, `'`+value+`'`) {
-			return i + 1
-		}
 		if i > start-1 && (strings.HasPrefix(text, "[") && !strings.HasPrefix(text, `["`) || strings.Contains(text, "=")) {
 			break
 		}
+		if strings.Contains(text, `"`+value+`"`) || strings.Contains(text, `'`+value+`'`) {
+			return i + 1
+		}
 	}
 	return start
+}
+
+// ManifestListHolds reports whether the list at path in nomi.toml's text
+// data quotes value: whether the line ManifestEntryLine answers does.
+func ManifestListHolds(data []byte, value string, path ...string) bool {
+	line := ManifestEntryLine(data, value, path...)
+	if line == 0 {
+		return false
+	}
+	text := stripTomlComment(strings.Split(string(data), "\n")[line-1])
+	return strings.Contains(text, `"`+value+`"`) || strings.Contains(text, `'`+value+`'`)
 }
 
 // ManifestError is a problem in the nomi.toml at Path that the parser

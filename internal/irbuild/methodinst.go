@@ -42,11 +42,11 @@ type methodInst struct {
 	// types is the frame's checker types (substFrame).
 	types map[string]analysis.Type
 	built bool
-	// accessorName is set when another file's call omits a defaulted
+	// accessorsAsked is set when another file's call omits a defaulted
 	// parameter of this instance whose default it cannot lower itself
 	// (methodInstAccessors): the instance's default accessors are then
-	// built under its frame, named as a call site names them.
-	accessorName   string
+	// built under its frame.
+	accessorsAsked bool
 	accessorsBuilt bool
 }
 
@@ -264,7 +264,7 @@ func (g *gen) flushMethodInsts() {
 			g.implFunc(mi.d, mi.it)
 			g.popIfaceSubst()
 		}
-		if mi.accessorName != "" && !mi.accessorsBuilt {
+		if mi.accessorsAsked && !mi.accessorsBuilt {
 			mi.accessorsBuilt = true
 			g.pushIfaceSubst(substMethod, mi.d, mi.frame, mi.types)
 			g.methodInstSlotDefaults(mi)
@@ -276,11 +276,11 @@ func (g *gen) flushMethodInsts() {
 // methodInstAccessors asks g, the gen that declares the instance it, for an
 // accessor per defaulted parameter of it (irFileSlotRetain), so a call in
 // another file can fill a default that names what only this file can lower
-// (fillFromAccessors). name is the callee name the call site gives the instance.
+// (fillFromAccessors).
 // It answers the instance's callee symbol, or nil when it is no instance of
 // a declared member. A request after the instance was built queues it again,
 // so the next flush builds the accessors.
-func (g *gen) methodInstAccessors(it *implItem, name string) *ir.Symbol {
+func (g *gen) methodInstAccessors(it *implItem) *ir.Symbol {
 	if it == nil || it.decl == nil || it.inherited {
 		return nil
 	}
@@ -288,13 +288,13 @@ func (g *gen) methodInstAccessors(it *implItem, name string) *ir.Symbol {
 		if mi.it != it {
 			continue
 		}
-		if mi.accessorName == "" {
-			mi.accessorName = name
+		if !mi.accessorsAsked {
+			mi.accessorsAsked = true
 			if mi.built {
 				g.methodInstQueue = append(g.methodInstQueue, mi)
 			}
 		}
-		return g.irCalleeSym(it, name)
+		return g.irImplSym(it)
 	}
 	return nil
 }
@@ -306,11 +306,11 @@ func (g *gen) methodInstSlotDefaults(mi *methodInst) {
 	if g.irMod == nil || fd == nil || len(it.params) != len(fd.Params) || !it.lowerable {
 		return
 	}
-	callee := g.irCalleeSym(it, mi.accessorName)
+	callee := g.irImplSym(it)
 	sig := &fnSig{params: it.params, result: it.result, decl: fd, lowerable: true}
 	for slot, p := range fd.Params {
 		if p.Default != nil {
-			g.irFileSlotRetain(fd, sig, callee, mi.accessorName, slot)
+			g.irFileSlotRetain(fd, sig, callee, slot)
 		}
 	}
 }

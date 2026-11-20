@@ -23,12 +23,11 @@ func classifyPatternField(ctx *completionContext) bool {
 	if _, ok := firstOf(h.at(0)).(*ast.StructPatternField); !ok {
 		return false
 	}
-	switch firstOf(h.at(1)).(type) {
-	case *ast.StructPattern, *ast.StructDestructure:
-		ctx.kind = ctxPatternField
-		return true
+	if _, ok := firstOf(h.at(1)).(*ast.StructPattern); !ok {
+		return false
 	}
-	return false
+	ctx.kind = ctxPatternField
+	return true
 }
 
 func firstOf(v any, _ string) any { return v }
@@ -40,10 +39,7 @@ func firstOf(v any, _ string) any { return v }
 func (r *completionRequest) patternFieldCandidates() []candidate {
 	h := r.ctx.hit
 	var written []ast.StructPatternField
-	switch p := firstOf(h.at(1)).(type) {
-	case *ast.StructPattern:
-		written = p.Fields
-	case *ast.StructDestructure:
+	if p, ok := firstOf(h.at(1)).(*ast.StructPattern); ok {
 		written = p.Fields
 	}
 	has := map[string]bool{}
@@ -70,8 +66,6 @@ func (r *completionRequest) patternFieldCandidates() []candidate {
 // `Rect{w:}`), the type its position supplies.
 func (r *completionRequest) patternType(h *sentinelHit, hop int) analysis.Type {
 	switch p := firstOf(h.at(hop)).(type) {
-	case *ast.StructDestructure:
-		return r.exprType(p.Value)
 	case *ast.StructPattern:
 		if p.TypeName != nil {
 			return r.namedPatternType(h, hop, p.TypeName)

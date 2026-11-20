@@ -106,7 +106,7 @@ fn main()
     io.print(use(Harmless{x: 1}))
 end
 `, "main.nomi:26:12: this module's own code reaches std::process, and [capabilities.self] allows it only std::io\n" +
-			"main.nomi:26:12: help: reached from `main`; `main` calls `use`; `use` calls `go` through an interface, and any implementation of it counts, including `Shell.go`\n" +
+			"main.nomi:26:12: help: reached from `main`; `main` calls `use`; `use` calls `go` through an interface, and any implementation of it counts, including `Runner.go for Shell`\n" +
 			"main.nomi:26:12: help: add \"std::process\" to std under [capabilities.self] in nomi.toml, or remove the call"},
 		{"a Display body", `import
     std::io
@@ -124,10 +124,14 @@ impl Display for Job
 end
 
 fn main()
-    io.print([1, 2])
+    io.print(show(Job{program: "ls"}))
+end
+
+fn show(d: Display) -> String
+    "${d}"
 end
 `, "main.nomi:12:12: this module's own code reaches std::process, and [capabilities.self] allows it only std::io\n" +
-			"main.nomi:12:12: help: reached from `main`; `main` displays a value, and any value may be displayed, so `impl Display for Job` counts\n" +
+			"main.nomi:12:12: help: reached from `main`; `main` calls `show`; `show` displays a value that may be or hold a `Job`, so `impl Display for Job` counts\n" +
 			"main.nomi:12:12: help: add \"std::process\" to std under [capabilities.self] in nomi.toml, or remove the call"},
 		{"a once", `import
     std::fs
@@ -188,7 +192,8 @@ func TestCapabilityDiagnostic_ADependencyOverItsEntry(t *testing.T) {
 	want := "pricing/rules.nomi:4:5: example.com/pricing reaches std::fs, and its entry under [capabilities.deps.modules] allows it nothing outside the program\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n" +
 		"pricing/rules.nomi:4:5: help: std under [capabilities.deps] does not allow std::fs either\n" +
-		"pricing/rules.nomi:4:5: help: add \"std::fs\" to \"example.com/pricing\" under [capabilities.deps.modules] and to std under [capabilities.deps] in nomi.toml, or remove the call"
+		"pricing/rules.nomi:4:5: help: add \"std::fs\" to \"example.com/pricing\" under [capabilities.deps.modules] and to std under [capabilities.deps] in nomi.toml, or remove the call" +
+		"\napp/main.nomi:7:14: note: your code reaches std::fs in example.com/pricing here: `main` calls `load`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -204,7 +209,8 @@ func TestCapabilityDiagnostic_ADependencyOverTheCeiling(t *testing.T) {
 	got, ds := capabilityDiagnostics(t, "app/main.nomi", dependencyFiles(capabilityManifest+"\n[capabilities.deps]\nstd = [\"std::io\"]\n", ""))
 	want := "pricing/rules.nomi:4:5: example.com/pricing reaches std::fs, and [capabilities.deps] allows dependencies only std::io\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n" +
-		"pricing/rules.nomi:4:5: help: add \"std::fs\" to std under [capabilities.deps] in nomi.toml, or remove the call"
+		"pricing/rules.nomi:4:5: help: add \"std::fs\" to std under [capabilities.deps] in nomi.toml, or remove the call" +
+		"\napp/main.nomi:7:14: note: your code reaches std::fs in example.com/pricing here: `main` calls `load`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -286,7 +292,8 @@ func TestCapabilityDiagnostic_ADependencyOverItsOwnList(t *testing.T) {
 	deps := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n[capabilities.deps]\nstd = [\"std::io\", \"std::fs\"]\n"
 	own := "pricing/rules.nomi:4:5: example.com/pricing reaches std::fs, and its own [capabilities.self] allows it only std::io\n" +
 		"pricing/rules.nomi:4:5: help: reached from `main`; `main` calls `load`\n"
-	fix := "pricing/rules.nomi:4:5: help: example.com/pricing declares less than its code reaches, and the fix is in that module: add \"std::fs\" to std under [capabilities.self] in pricing/nomi.toml, or remove the call"
+	fix := "pricing/rules.nomi:4:5: help: example.com/pricing declares less than its code reaches, and the fix is in that module: add \"std::fs\" to std under [capabilities.self] in pricing/nomi.toml, or remove the call" +
+		"\napp/main.nomi:7:14: note: your code reaches std::fs in example.com/pricing here: `main` calls `load`"
 	cases := []struct {
 		name, app, want string
 		own             string

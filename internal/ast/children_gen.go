@@ -88,10 +88,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfDefer(n, fn)
 		}
-	case *DistinctDestructure:
-		if n != nil {
-			childrenOfDistinctDestructure(n, fn)
-		}
 	case *DotVariant:
 	case *DotVariantType:
 	case *EmbedDecl:
@@ -268,10 +264,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 		if n != nil {
 			childrenOfStructDef(n, fn)
 		}
-	case *StructDestructure:
-		if n != nil {
-			childrenOfStructDestructure(n, fn)
-		}
 	case *StructLit:
 		if n != nil {
 			childrenOfStructLit(n, fn)
@@ -307,10 +299,6 @@ func generatedChildren(n Node, fn func(Node)) bool {
 	case *TryOp:
 		if n != nil {
 			childrenOfTryOp(n, fn)
-		}
-	case *TupleDestructure:
-		if n != nil {
-			childrenOfTupleDestructure(n, fn)
 		}
 	case *TupleLit:
 		if n != nil {
@@ -405,8 +393,6 @@ func absent(n Node) bool {
 	case *Decorator:
 		return n == nil
 	case *Defer:
-		return n == nil
-	case *DistinctDestructure:
 		return n == nil
 	case *DotVariant:
 		return n == nil
@@ -520,8 +506,6 @@ func absent(n Node) bool {
 		return n == nil
 	case *StructDef:
 		return n == nil
-	case *StructDestructure:
-		return n == nil
 	case *StructLit:
 		return n == nil
 	case *StructPattern:
@@ -539,8 +523,6 @@ func absent(n Node) bool {
 	case *Todo:
 		return n == nil
 	case *TryOp:
-		return n == nil
-	case *TupleDestructure:
 		return n == nil
 	case *TupleLit:
 		return n == nil
@@ -853,18 +835,6 @@ func childrenOfDecorator(x *Decorator, fn func(Node)) {
 func childrenOfDefer(x *Defer, fn func(Node)) {
 	if !absent(x.Call) {
 		fn(x.Call)
-	}
-}
-
-func childrenOfDistinctDestructure(x *DistinctDestructure, fn func(Node)) {
-	if !absent(x.TypeNameExpr) {
-		fn(x.TypeNameExpr)
-	}
-	if x.Binding != nil {
-		fn(x.Binding)
-	}
-	if !absent(x.Value) {
-		fn(x.Value)
 	}
 }
 
@@ -1466,15 +1436,6 @@ func childrenOfStructDef(x *StructDef, fn func(Node)) {
 	}
 }
 
-func childrenOfStructDestructure(x *StructDestructure, fn func(Node)) {
-	for i1 := range x.Fields {
-		childrenOfStructPatternField(&x.Fields[i1], fn)
-	}
-	if !absent(x.Value) {
-		fn(x.Value)
-	}
-}
-
 func childrenOfStructField(x *StructField, fn func(Node)) {
 	if !absent(x.TypeAnnotation) {
 		fn(x.TypeAnnotation)
@@ -1613,22 +1574,6 @@ func childrenOfTodo(x *Todo, fn func(Node)) {
 func childrenOfTryOp(x *TryOp, fn func(Node)) {
 	if !absent(x.Expr) {
 		fn(x.Expr)
-	}
-}
-
-func childrenOfTupleDestructure(x *TupleDestructure, fn func(Node)) {
-	for _, e1 := range x.Bindings {
-		if e1 != nil {
-			fn(e1)
-		}
-	}
-	for _, e2 := range x.Discards {
-		if e2 != nil {
-			fn(e2)
-		}
-	}
-	if !absent(x.Value) {
-		fn(x.Value)
 	}
 }
 
@@ -1791,7 +1736,6 @@ var generatedTypes = []any{
 	(*DecimalLit)(nil),
 	(*Decorator)(nil),
 	(*Defer)(nil),
-	(*DistinctDestructure)(nil),
 	(*DotVariant)(nil),
 	(*DotVariantType)(nil),
 	(*EmbedDecl)(nil),
@@ -1848,7 +1792,6 @@ var generatedTypes = []any{
 	(*StringInterp)(nil),
 	(*StringLit)(nil),
 	(*StructDef)(nil),
-	(*StructDestructure)(nil),
 	(*StructLit)(nil),
 	(*StructPattern)(nil),
 	(*Subtests)(nil),
@@ -1858,7 +1801,6 @@ var generatedTypes = []any{
 	(*Then)(nil),
 	(*Todo)(nil),
 	(*TryOp)(nil),
-	(*TupleDestructure)(nil),
 	(*TupleLit)(nil),
 	(*TuplePattern)(nil),
 	(*TypeAlias)(nil),

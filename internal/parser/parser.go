@@ -1139,12 +1139,6 @@ func firstNestedAssertion(n ast.Node) (line, col int, ok bool) {
 		return v.Line, v.Col, true
 	case *ast.Defer:
 		return firstNestedAssertion(v.Call)
-	case *ast.TupleDestructure:
-		return firstNestedAssertion(v.Value)
-	case *ast.StructDestructure:
-		return firstNestedAssertion(v.Value)
-	case *ast.DistinctDestructure:
-		return firstNestedAssertion(v.Value)
 	case *ast.PatternBinding:
 		if line, col, ok := firstNestedAssertion(v.Value); ok {
 			return line, col, true
@@ -1631,7 +1625,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		return node, err
 	}
 
-	// Struct destructuring: .{ident, ident} = expr  or  .{ident: ident, ...} = expr
+	// Struct destructuring: {ident:, ident: ident} = expr, the PatternBinding
+	// of an anonymous struct pattern of names.
 	if p.braceOpensStruct(0) {
 		savedPos := p.pos
 		line := p.peek().Line
@@ -1713,7 +1708,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				if err != nil {
 					return nil, err
 				}
-				return p.withBindingElse(savedPos, &ast.StructDestructure{Fields: fields, Value: val, Line: line, Col: col}, val, line, col, false)
+				pattern := &ast.StructPattern{Fields: fields, Line: line, Col: col}
+				return p.withBindingElse(savedPos, &ast.PatternBinding{Pattern: pattern, Value: val, Line: line, Col: col}, val, line, col, false)
 			}
 		}
 
@@ -1721,15 +1717,15 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		p.pos = savedPos
 	}
 
-	// Tuple destructuring: (ident, ident, ...) = expr
+	// Tuple destructuring: (ident, ident, ...) = expr, the PatternBinding of
+	// a tuple pattern of names and `_`.
 	if p.peek().Type == token.LPAREN {
 		savedPos := p.pos
 		line := p.peek().Line
 		col := p.peek().Col
 		p.advance() // consume LPAREN
 
-		var bindings []*ast.Ident
-		var discards []*ast.WildcardPattern
+		var parts []ast.Node
 		var lc listComments
 		lc.open(p)
 		valid := true
@@ -1744,18 +1740,17 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 				break
 			}
 			if t.Type == token.IDENT {
-				id := &ast.Ident{Name: t.Lexeme, Line: t.Line, Col: t.Col}
+				id := &ast.IdentPattern{Name: t.Lexeme, Line: t.Line, Col: t.Col}
 				if len(inner) > 0 {
 					nodeComments(id)().Before = inner
 				}
 				lc.item(nodeComments(id))
-				bindings = append(bindings, id)
+				parts = append(parts, id)
 			} else {
-				// A wildcard has no node to keep comments (listComments.item).
+				// A `_` keeps no comments of its own (listComments.item).
 				lc.pending = append(lc.pending, inner...)
 				lc.item(nil)
-				bindings = append(bindings, nil) // nil = wildcard
-				discards = append(discards, &ast.WildcardPattern{Line: t.Line, Col: t.Col})
+				parts = append(parts, &ast.WildcardPattern{Line: t.Line, Col: t.Col})
 			}
 			p.listAfter(&lc)
 
@@ -1776,61 +1771,18 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 			p.listAfter(&lc)
 		}
 
-		if valid && len(bindings) >= 2 && !p.atEnd() && p.peek().Type == token.EQ {
+		if valid && len(parts) >= 2 && !p.atEnd() && p.peek().Type == token.EQ {
 			p.advance() // consume EQ
 			val, err := p.parseExpr(1)
 			if err != nil {
 				return nil, err
 			}
-			return p.withBindingElse(savedPos, &ast.TupleDestructure{Bindings: bindings, Discards: discards, Value: val, Line: line, Col: col}, val, line, col, false)
+			pattern := &ast.TuplePattern{Patterns: parts, Line: line, Col: col}
+			return p.withBindingElse(savedPos, &ast.PatternBinding{Pattern: pattern, Value: val, Line: line, Col: col}, val, line, col, false)
 		}
 
 		// Not a tuple destructure — restore position
 		p.pos = savedPos
-	}
-
-	// Distinct type destructure: TypeName(binding) = expr or
-	// module.TypeName(binding) = expr.
-	if p.peek().Type == token.TYPE_IDENT || (p.peek().Type == token.IDENT && p.peekAt(1).Type == token.DOT) {
-		savedPos := p.pos
-		typeExpr, typeName, typeLine, typeCol, ok := p.parseDistinctDestructureTypePrefix()
-		if !ok || p.atEnd() || p.peek().Type != token.LPAREN {
-			p.pos = savedPos
-		} else {
-			p.advance() // consume LPAREN
-
-			// A comment around the binding has no slot here; it stays
-			// unclaimed, and attachDangling places it, as the variant
-			// pattern this statement would otherwise be read as does.
-			p.listBoundaryComments()
-			var binding *ast.Ident
-			// A comment in the binding's parentheses stays unclaimed, and
-			// attachDangling places it.
-			bt, _, valid := p.parseDestructureName()
-			if valid && bt.Type == token.IDENT {
-				binding = &ast.Ident{Name: bt.Lexeme, Line: bt.Line, Col: bt.Col}
-			}
-			p.listBoundaryComments()
-			if valid && !p.atEnd() && p.peek().Type == token.RPAREN {
-				p.advance() // consume RPAREN
-				if !p.atEnd() && p.peek().Type == token.EQ {
-					p.advance() // consume EQ
-					value, err := p.parseExpr(1)
-					if err != nil {
-						return nil, err
-					}
-					return p.withBindingElse(savedPos, &ast.DistinctDestructure{
-						TypeName:     typeName,
-						TypeNameExpr: typeExpr,
-						Binding:      binding,
-						Value:        value,
-						Line:         typeLine,
-						Col:          typeCol,
-					}, value, typeLine, typeCol, true)
-				}
-			}
-			p.pos = savedPos
-		}
 	}
 
 	// Binding: IDENT EQ expr / _ EQ expr / IDENT COLON TypeExpr EQ expr /
@@ -1871,7 +1823,8 @@ func (p *Parser) parseStmtInner() (ast.Node, error) {
 		}, value, tok.Line, tok.Col, false)
 	}
 
-	// Any other pattern followed by `=`: `Ok((w, h)) = parse(text) else { ... }`.
+	// Any other pattern followed by `=`: `Meters(n) = d`, `Shape.Circle(r) = c`,
+	// `Ok((w, h)) = parse(text) else { ... }`.
 	if p.canStartPattern() {
 		if node, ok, err := p.tryParsePatternBinding(); ok || err != nil {
 			return node, err
@@ -1935,8 +1888,8 @@ func (p *Parser) startsLambda() bool {
 
 // parseDestructureName consumes the name a destructuring binds in one of its
 // slots, `n` or `_`, and returns its token. Parentheses around it change
-// nothing: `{"k" => (n)} = m`, `Meters((n)) = d` and `((a), b) = t` are the
-// destructures without them, as `Some((n))` is the pattern `Some(n)`. On
+// nothing: `{x: (n)} = p` and `((a), b) = t` are the destructures without
+// them, as `Some((n))` is the pattern `Some(n)`. On
 // failure the position is left wherever it stopped; the caller restores it.
 func (p *Parser) parseDestructureName() (token.Token, []ast.Trivia, bool) {
 	// The comments inside the parentheses are returned for the caller to
@@ -5222,9 +5175,9 @@ func (p *Parser) withBindingElse(start int, node, value ast.Node, line, col int,
 }
 
 // tryParsePatternBinding parses `Pattern = value [else { ... }]` for a
-// pattern none of the destructure statements spells (`Ok((w, h)) = ...`,
-// `[first, ..rest] = ...`). It commits only when a pattern is followed by
-// `=`, and otherwise rewinds.
+// pattern that is neither a name nor a flat tuple or struct of names
+// (`Meters(n) = d`, `Ok((w, h)) = ...`, `[first, ..rest] = ...`). It
+// commits only when a pattern is followed by `=`, and otherwise rewinds.
 func (p *Parser) tryParsePatternBinding() (ast.Node, bool, error) {
 	start := p.peek()
 	savedPos, savedRecoveries := p.pos, p.recoveries
@@ -6625,44 +6578,6 @@ func (p *Parser) parseQualifiedTypeDeclName(keyword string) (string, token.Token
 		p.advance()
 	}
 	return strings.Join(parts, "."), nameTok, nil
-}
-
-func (p *Parser) parseDistinctDestructureTypePrefix() (ast.TypeExpr, string, int, int, bool) {
-	if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && !isQualifierHead(p.peek())) {
-		return nil, "", 0, 0, false
-	}
-	if isQualifierHead(p.peek()) && p.peekAt(1).Type != token.DOT {
-		return nil, "", 0, 0, false
-	}
-	first := p.peek()
-	p.advance()
-	parts := []string{first.Lexeme}
-	memberLine := 0
-	memberCol := 0
-	for !p.atEnd() && p.peek().Type == token.DOT {
-		p.advance()
-		if p.atEnd() || (p.peek().Type != token.TYPE_IDENT && p.peek().Type != token.IDENT) {
-			return nil, "", 0, 0, false
-		}
-		if len(parts) == 1 {
-			memberLine = p.peek().Line
-			memberCol = p.peek().Col
-		}
-		parts = append(parts, p.peek().Lexeme)
-		p.advance()
-	}
-	name := strings.Join(parts, ".")
-	if len(parts) == 1 {
-		return &ast.SimpleType{Name: name, Line: first.Line, Col: first.Col}, name, first.Line, first.Col, true
-	}
-	member := &ast.SimpleType{Name: strings.Join(parts[1:], "."), Line: memberLine, Col: memberCol}
-	return &ast.QualifiedType{
-		Module:     parts[0],
-		ModuleLine: first.Line,
-		ModuleCol:  first.Col,
-		Path:       pathSegments(first),
-		Member:     member,
-	}, name, first.Line, first.Col, true
 }
 
 // parseTypeAnnotation consumes a type like "Int", "Mod.Type", "Map<String, List<Int>>",

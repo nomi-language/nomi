@@ -98,11 +98,20 @@
 // WithCapabilities and WithGo reads no dependency's table. With WithGo
 // alone the host holds only Go bindings (hostHolds).
 //
+// A refused call in a dependency's files is reported at the call, and its
+// diagnostic's Related holds each place the project's own code leads
+// there (leadsTo): each edge out of a function in the project's files into
+// one that can reach the call, found by the walk's own backward pass
+// (vm.OutsideWalk.Leads, the pass that answers Reaches), at the callee or
+// value it names, worded from the project's side with the edge's kind as
+// a chain step is ("your code reaches std::http in lib.example/prices
+// here: `main` calls `total`"). A call in the project's files has none.
 // A *CapabilityError keeps every call in Calls and Diagnostics; its text
 // (Shown, which Unwrap answers too) gives the first call of each name over
-// each list, with a help line counting the rest, unless AllCallsEnv is
-// set (`--all-calls`). `nomi check --format json` and the language server
-// read every call. CheckLowering, the language server's lowering, walks
+// each list, with a help line counting the rest, and of each call's
+// related places the first, counting the rest, unless AllCallsEnv is set
+// (`--all-calls`). `nomi check --format json` and the language server
+// read every call and every place. CheckLowering, the language server's lowering, walks
 // from the roots `nomi check` holds once, lists or not, and answers each
 // call it reaches beside the problems (reachedCalls), with the line a
 // hover on it shows (capability.ReachedLine). CheckJSON writes `nomi
@@ -120,7 +129,21 @@
 // every call passes, and taking out any one name, or turning a flag false,
 // refuses one), so the tables it writes are ones the check passes. Reached loads as Check does, a `go` binding
 // taken as provided, so a program with Go bindings is read without its
-// wrapper.
+// wrapper. What `nomi capabilities` and the language server's nomi.toml
+// say is one set of answers on Reach: ReachedAll adds the reach of each
+// program frontend.CheckedFiles names, Why and WriteWhy are `--why`,
+// HeldChanges the differences `--check` holds a table to, and
+// ModuleReaches and WriteModuleReach what each dependency reaches, as
+// `nomi add` prints it. reachedCalls is what an editor's hover says code
+// reaches: each outside call's line, and, from the same walks, the lines of
+// each function that can reach one, at its name and its calls
+// (reachedFuncs, over vm.OutsideWalk.Reaches). ReachedMarked is
+// reachedCalls for a tour block, whose hover in the browser ends with the
+// same lines as the editor's.
+// Program.StdOutsideCalls answers, for a std module LoadEmbeddedStdlib
+// loaded, which of its functions a call to is an outside call and by what
+// name, by the same walk started from each function
+// (vm.StdOutsideCrossings): the stdlib reference marks them.
 //
 // What the list does not confine is in WithCapabilities' doc: the files
 // WithFileSystem hands the program, the host's own functions, what a Go

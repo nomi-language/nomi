@@ -11,6 +11,7 @@ import (
 	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/modcache"
+	"github.com/nomi-language/nomi/internal/parser"
 )
 
 // Capabilities is nomi.toml's capability tables: what a project's own
@@ -44,7 +45,8 @@ func (p *Program) manifestPath() (string, []byte) {
 // go.mod requires (dependencyProblem). A name that is valid and never
 // reached is not a problem. With entries_required, each dependency with
 // neither an entry nor a [capabilities.self] of its own (requiredModules)
-// is one too, at that key. A dependency's own table is read only when the
+// is one too, at that key, with the fix that writes its entry (entryFix).
+// A dependency's own table is read only when the
 // project has a [capabilities.deps] table.
 func (p *Program) capabilityListProblems() Diagnostics {
 	c := p.capabilities
@@ -106,6 +108,7 @@ func (p *Program) capabilityListProblems() Diagnostics {
 		}
 		checkNames("capabilities.deps.modules", fmt.Sprintf("%q", module), d.Modules[module], "capabilities", "deps", "modules", module)
 	}
+	var entries map[string][]string
 	for _, m := range p.requiredModules() {
 		if m.declares() {
 			ownPath := filepath.Join(m.root, "nomi.toml")
@@ -117,20 +120,50 @@ func (p *Program) capabilityListProblems() Diagnostics {
 			at(path, data, analysis.ManifestKeyLine(data, "capabilities", "deps", "entries_required"),
 				fmt.Sprintf("[capabilities.deps] entries_required: %s has no entry", m.path),
 				fmt.Sprintf("add %q under [capabilities.deps.modules] in nomi.toml, or give %s a [capabilities.self] table in its own nomi.toml", m.path, m.path))
+			ds[len(ds)-1].Fix = p.entryFix(m.path, &entries)
 		}
 	}
 	return ds
 }
 
-// requiredPaths is the path of each module the project's go.mod requires,
-// sorted.
-func (p *Program) requiredPaths() []string {
-	return requiredPathsAt(p.prog.Root)
+// entryFix is the fix of a dependency entries_required finds with no entry:
+// the edit to nomi.toml that writes module's entry under
+// [capabilities.deps.modules] with what its own files reach from the roots
+// `nomi check` holds to the lists (tightestLists), as `nomi add` writes it.
+// entries holds each dependency's tightest entry once a fix has walked the
+// program, and is walked once. Nil when the program's nomi.toml is staged in
+// memory, or the edit cannot be written.
+func (p *Program) entryFix(module string, entries *map[string][]string) *parser.Fix {
+	path, data := p.manifestPath()
+	if data == nil || !filepath.IsAbs(path) {
+		return nil
+	}
+	if *entries == nil {
+		var deps []string
+		for _, m := range p.requiredModules() {
+			deps = append(deps, m.path)
+		}
+		*entries = tightestLists(p.walks(p.checkedRoots()), deps).Deps.Modules
+	}
+	entry := (*entries)[module]
+	to := p.capabilities.Clone()
+	to.Deps.Modules[module] = entry
+	quoted := make([]string, len(entry))
+	for i, n := range entry {
+		quoted[i] = fmt.Sprintf("%q", n)
+	}
+	title := fmt.Sprintf("Write %q = [%s] under [capabilities.deps.modules]", module, strings.Join(quoted, ", "))
+	fix, err := analysis.CapabilitiesFix(path, data, title, to)
+	if err != nil {
+		return nil
+	}
+	return fix
 }
 
-// requiredPathsAt is the path of each module the go.mod in root requires,
-// sorted; nil for no root.
-func requiredPathsAt(root string) []string {
+// requiredPaths is the path of each module the project's go.mod requires,
+// sorted; nil for a program with no project root.
+func (p *Program) requiredPaths() []string {
+	root := p.prog.Root
 	if root == "" {
 		return nil
 	}
@@ -142,14 +175,6 @@ func requiredPathsAt(root string) []string {
 	}
 	sort.Strings(required)
 	return required
-}
-
-// DependencyModules is each module path a list of dependencies in the
-// nomi.toml in root may name (dependencyProblem), sorted: each module its
-// go.mod requires. The language server completes [capabilities.deps]' go
-// and go_in_tests and the keys under [capabilities.deps.modules] from it.
-func DependencyModules(root string) []string {
-	return requiredPathsAt(root)
 }
 
 // unknownModule is what is wrong with module, an entry of WithGo's list of

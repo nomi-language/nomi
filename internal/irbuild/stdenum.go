@@ -1475,6 +1475,14 @@ func (g *gen) projectStdEnum(ty *analysis.EnumType) (kind, bool) {
 			return stdEnumKind(i), true
 		}
 	}
+	// A named payload (`std/tasks.Failure`) is the same kind of shared def,
+	// reached by the checker's type of `Outcome.Failed`'s payload whether or
+	// not the program names it.
+	for _, s := range namedPayloadSpecs {
+		if s.origin == ty.Origin && s.nomi == ty.Name {
+			return named(s.def()), true
+		}
+	}
 	return kindInvalid, false
 }
 
@@ -1644,13 +1652,10 @@ func (g *gen) compareResolves(at ast.Node, k, ord kind) bool {
 // the signature the call site assumes.
 //
 // Deliberately NOT stdlibImplOf, and the difference is one line: stdlibImplOf
-// returns nil for a receiver whose `def` is nil, i.e. every scalar. That guard
-// is load-bearing where it is — `stdEquality` shares it, and admitting a
-// scalar there would change which function `==` on a String resolves to, which
-// is a decision about a different operator — but the element of a `List<Int>`
-// IS a scalar and its ordering has to come from somewhere. So the ordering
-// operators get their own lookup, with the same signature verification, and the
-// equality path keeps its guard untouched.
+// returns nil for a receiver whose `def` is nil, i.e. every scalar, but the
+// element of a `List<Int>` IS a scalar and its ordering has to come from
+// somewhere. So the ordering operators get their own lookup, with the same
+// signature verification.
 //
 // One place decides "which function is `Comparable.compare` at kind k" for
 // everything in this file: the `<` operator, `List.compare` and the element
@@ -1660,11 +1665,15 @@ func (g *gen) stdCompareAt(k, ord kind) *stdFunc {
 		return nil
 	}
 	f := stdPick(g.std.byIface["Comparable.compare"][k], []kind{k, k})
-	if f == nil || f.why != "" || len(f.params) != 2 {
-		return nil
-	}
-	if f.params[0] != k || f.params[1] != k || f.result != ord {
+	if f == nil || f.result != ord || !compareSignature(f, k) {
 		return nil
 	}
 	return f
+}
+
+// compareSignature reports whether f, a std `Comparable.compare`, is
+// selected and compares two values of kind k to an Ordering.
+func compareSignature(f *stdFunc, k kind) bool {
+	return f.why == "" && len(f.params) == 2 && f.params[0] == k && f.params[1] == k &&
+		f.result == stdEnumKind(stdEnumOrdering)
 }

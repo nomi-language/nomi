@@ -1189,7 +1189,7 @@ func (bl *irScalarBuilder) siblingSitePlan(t *ast.Call, args irQualArgs, site *i
 	}
 	unit := g.files.units[to]
 	p := &irQualPlan{token: f, name: unit.key + "." + recvName + "." + method, result: result, args: filled}
-	p.sym = owning.irCalleeSym(chosen.item, chosen.symName)
+	p.sym = owning.irImplSym(chosen.item)
 	return p
 }
 
@@ -1491,7 +1491,7 @@ func (bl *irScalarBuilder) siblingCall(t *ast.Call, site fileSite) (ir.Temp, kin
 		plan.sym = sym
 	}
 	owner := bl.g.unitGen(site.unit)
-	accessor := func(slot int) *ir.Symbol { return owner.irFileSlotSym(plan.sym, f.decl.Name, slot) }
+	accessor := func(slot int) *ir.Symbol { return owner.irFileSlotSym(plan.sym, slot) }
 	if !bl.fillCallDefaults(t, params, temps, mobile, defaultHome{owner: owner, accessor: accessor}) {
 		return no()
 	}
@@ -1751,7 +1751,7 @@ func (bl *irScalarBuilder) synthDebugRender(t *ast.Call, args irQualArgs, owner,
 	} else if !irStructuralDebugKind(k) {
 		// A container of nominal values, such as a std struct's list of
 		// rows: the renderer names each nested type's Debug body.
-		impls, ok := bl.nestedDebugImpls(k, bl.g.checkerTypeArg(bl.g.calleeOf(t).For))
+		impls, ok := bl.nestedDebugImpls(t, k, bl.g.checkerTypeArg(bl.g.calleeOf(t).For))
 		if !ok {
 			return no()
 		}

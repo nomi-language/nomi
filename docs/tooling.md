@@ -245,7 +245,9 @@ checked, and a summary last.
   what the message names that a tool acts on, in the order the code's
   explanation gives: an `undefined-variable`'s name.
 - `hints` are the `help:` lines, and `related` the other places the error
-  names, each with its own `file`, span and `message`.
+  names, each with its own `file`, span and `message`: for a call
+  `nomi.toml`'s lists refuse in a dependency's file, each place in the
+  project's own code that leads there ([The errors](#the-errors)).
 - `fix`, when present, is the rewrite the error knows: its `edits` replace
   each span's text with `text` (an empty span inserts), applied together.
   Source written as another language writes it (`let x = 1`, `xs.len()`,
@@ -629,7 +631,7 @@ above.
 
 A project can list what its program may reach outside itself, in two tables in `nomi.toml`, and `nomi check`, `run`, `test` and `build` refuse a program that reaches more, before it runs. `[capabilities.self]` holds the calls written in the project's own files. `[capabilities.deps]` holds the calls written in the files of the modules it depends on, directly or through other modules. Code in the project that reaches something it was not meant to, such as a helper that starts making network requests, is a compile error at the call. So is a dependency that starts reaching something new on an upgrade, with the module named. A table the project leaves out holds nothing, so a project with neither is held to nothing. [Capability classes](#capability-classes) are a different thing: what a build target lacks, where these lists are what a project allows.
 
-**Starting.** Run `nomi capabilities --write` in the project ([What a program reaches](#what-a-program-reaches-nomi-capabilities)). It writes the tightest tables the program passes, from what it reaches today. Read what it wrote: each name is something the program does, and a name you did not expect is a call to look at. Later, `nomi capabilities` says how the tables and the program differ, and `--why <name>` says which calls reach a name. In the editor, a call the tables do not allow has a quick fix that adds its name to the key the help names, in `nomi.toml`, keeping the file's comments.
+**Starting.** Run `nomi capabilities --write` in the project ([What a program reaches](#what-a-program-reaches-nomi-capabilities)). It writes the tightest tables the program passes, from what it reaches today. Read what it wrote: each name is something the program does, and a name you did not expect is a call to look at. Later, `nomi capabilities` says how the tables and the program differ, and `--why <name>` says which calls reach a name. In the editor, a call the tables do not allow has a quick fix that adds its name to the key the help names, in `nomi.toml`, keeping the file's comments, a hover on a name in `nomi.toml` shows the calls that need it, and a name nothing needs is a hint with a fix that takes it out. A hover on a call, or on a function of the program and its calls, says what it reaches and whether the tables allow it ([The language server](#the-language-server)).
 
 These tables are for a project whose `go.mod` names it `example.com/app` and requires four modules:
 
@@ -673,6 +675,7 @@ error: lib.example/reports reaches std::http, and its entry under [capabilities.
   |         ^^^^
   = help: reached from `main`; `main` calls `save`
   = help: add "std::http" to "lib.example/reports" under [capabilities.deps.modules] in nomi.toml, or remove the call
+  = note: your code reaches std::http in lib.example/reports here: `main` calls `save`: main.nomi:14:5
 ```
 
 **Limits.** A name is a whole std module: `std::fs` allows every path and `std::http` every host, and no list can name a file or a host. Allowing a dependency's Go is trusting that Go code, and whatever it imports, with files, sockets and the clock, since the check does not see into Go. The check counts every call the program can reach, whether or not a run takes it ([Why a call counts though it may never run](#why-a-call-counts-though-it-may-never-run)). A handle the program opens and passes to a dependency is the program's call, and the dependency's use of it is not counted.
@@ -692,7 +695,7 @@ error: lib.example/reports reaches std::http, and its entry under [capabilities.
 - `std_in_tests` is added to `std` for the calls the test cases reach. It is set only beside `std`.
 - `go` is the dependencies whose Nomi code may bind Go, each by its path as `go.mod` writes it. Left out, no dependency may bind Go. A dependency that `go` lists and that binds no Go is not an error.
 - `go_in_tests` is added to `go` for bindings only the test cases reach.
-- `entries_required = true` makes every dependency whose Nomi files the program loads have an entry under `[capabilities.deps.modules]`, or a `[capabilities.self]` in its own `nomi.toml`. A dependency with neither is an error at that key, one per module. Being in `go` is not an entry. The modules counted are those whose Nomi files the program loads, whether or not it reaches their code, and not every line of `go.mod`. The key is false when left out.
+- `entries_required = true` makes every dependency whose Nomi files the program loads have an entry under `[capabilities.deps.modules]`, or a `[capabilities.self]` in its own `nomi.toml`. A dependency with neither is an error at that key, one per module, whose `fix` in `nomi check --format json` and quick fix in the editor write the entry with what the module reaches. Being in `go` is not an entry. The modules counted are those whose Nomi files the program loads, whether or not it reaches their code, and not every line of `go.mod`. The key is false when left out.
 
 `[capabilities.deps.modules]` gives a dependency an entry, keyed by its path as `go.mod` writes it, for the calls written in that module's files: a call there must be in its entry, and in `[capabilities.deps]`' `std` when it is set. An empty entry allows nothing. An entry holds the module's calls from every root, tests included, and says nothing of Go, which `go` alone holds. The project's own path is not a key here, since `[capabilities.self]` holds its code.
 
@@ -749,7 +752,7 @@ These std functions cross into Go and are outside calls, by the module that decl
 
 #### How a call is named
 
-A call is named by the std module the code called, not the one that crosses: std::net, std::tls and std::websocket dial and look up names through std::http's functions, so `net.dial(...)` is `std::net` and `http.get(...)` is `std::http`. A Go binding is shown as `go:` and the import path its `gopkg` names, which says which binding it is; a table holds it by the module whose file holds it.
+A call is named by the std module the code called, not the one that crosses: std::net, std::tls and std::websocket dial and look up names through std::http's functions, so `net.dial(...)` is `std::net` and `http.get(...)` is `std::http`. The standard library reference puts that name under the signature of each function a call to which is an outside call, by the same walk. A Go binding is shown as `go:` and the import path its `gopkg` names, which says which binding it is; a table holds it by the module whose file holds it.
 
 #### What a module is charged for
 
@@ -761,7 +764,7 @@ A call is charged to the module whose file holds it, and a module's list holds o
 
 #### Why a call counts though it may never run
 
-The check walks what the program can reach, as `nomi build` does to choose what a build keeps, and counts every call it can reach whether or not a run takes it: a call in a branch that never runs; a function used as a value, whether or not anything calls it; every implementation of an interface function the program calls through the interface; every `Display` or `Debug` body once the program displays or inspects a value; every `Equatable` and `Hashable` body once it compares or hashes values; a `once`'s initializer when the program reads it; and the boot. The diagnostic's help line gives the chain from a root, each step in those words.
+The check walks what the program can reach, as `nomi build` does to choose what a build keeps, and counts every call it can reach whether or not a run takes it: a call in a branch that never runs; a function used as a value, whether or not anything calls it; every implementation of an interface function the program calls through the interface; the `Display`, `Debug`, `Equatable` and `Hashable` bodies of each type a value the program displays, inspects, compares or hashes may be or hold, at any depth, and every such body where the value's type does not say what it holds, as an interface value's does not; every hand-written `Debug` body from a test's assertion, whose failure report shows its values; a `once`'s initializer when the program reads it; and the boot. The diagnostic's help line gives the chain from a root, each step in those words.
 
 ```
 error: this module's own code reaches std::http, and [capabilities.self] allows it only std::io, std::fs
@@ -784,6 +787,8 @@ Each refusal names the module and the table whose list does not allow the call, 
 - A call in a dependency's files over the ceiling: `lib.example/fetch reaches std::net, and [capabilities.deps] allows dependencies only std::fs, std::http`, and `add "std::net" to std under [capabilities.deps] in nomi.toml`, or `std_in_tests` for a test's call.
 - The project's own Go binding: `this module's own code binds Go through go:strings, and [capabilities.self] does not let it bind Go`, and `set go = true under [capabilities.self] in nomi.toml`, or `go_in_tests` when only the tests reach it.
 
+A refused call in a dependency's files is one error, at the call, and it ends with a note at the place in the project's own code that leads there: the last step out of the project's files on the way, a call, a function used as a value, a call through an interface or a value displayed, in the words the help's chain uses. When several places lead there, the note names the first and counts the rest; `--all-calls`, `--format json`'s `related` and the editor give each. The editor marks each place in the project's file with the refusal and offers the same quick fix there, and the mark's related location is the dependency's call.
+
 A dependency's refused Go binding is reported at the binding, naming the module and the package:
 
 ```
@@ -794,6 +799,7 @@ error: lib.example/pg binds Go through go:lib.example/pg/goside, and [capabiliti
   |        ^^^^^^^
   = help: reached from `main`; `main` calls `config`; `config` calls `connect`
   = help: add "lib.example/pg" to go under [capabilities.deps] in nomi.toml, or remove the call
+  = note: your code reaches lib.example/pg's Go binding go:lib.example/pg/goside here: `config` calls `connect`: main.nomi:9:5
 ```
 
 When `go` lists other dependencies, the headline says `[capabilities.deps] lets only lib.example/fetch bind Go`. When only the tests reach the binding, the help names `go_in_tests`.
@@ -811,6 +817,7 @@ error: lib.example/pricing reaches std::fs, and its own [capabilities.self] allo
   = help: reached from `main`; `main` calls `total`
   = help: the project's nomi.toml does not allow std::fs to it either; to allow it there, add "std::fs" to "lib.example/pricing" under [capabilities.deps.modules]
   = help: lib.example/pricing declares less than its code reaches, and the fix is in that module: add "std::fs" to std under [capabilities.self] in /work/pricing/nomi.toml, or remove the call
+  = note: your code reaches std::fs in lib.example/pricing here: `main` calls `total`: main.nomi:11:20
 ```
 
 #### A host's own list
@@ -2110,9 +2117,30 @@ require or the project's own path among the dependencies, and
 the program, such as a dependency with no entry, come from the programs of
 the Nomi files you have open. Inside every std list (`std` and
 `std_in_tests` in either table, and an entry under
-`[capabilities.deps.modules]`), completion offers the std modules; inside
-`[capabilities.deps]`' `go` and `go_in_tests`, and as a key under
-`[capabilities.deps.modules]`, the modules `go.mod` requires. On a call
+`[capabilities.deps.modules]`), completion offers the std modules. Inside
+`[capabilities.deps]`' `go` and `go_in_tests` it offers the dependencies
+whose code binds Go, and as a key under `[capabilities.deps.modules]` each
+dependency with its whole entry, what its own files reach, written as the
+fix for a missing entry writes it: `"lib.example/pg" = ["std::fs"]`. A
+dependency is a module the programs load Nomi files from, as
+`entries_required` counts them, and one the list or table already names is
+not offered. These come from what the project's programs reach, so they
+wait for every program to check. Hover on a
+std name in a list shows the calls that list holds it for, as `nomi
+capabilities --why` prints them, up to ten and a count of the rest: the
+project's own calls under `[capabilities.self]`, the dependencies' under
+`[capabilities.deps]`, and the module's own under its entry. A name none
+of them reaches says so, and find references lists the same calls. A
+std name that `nomi capabilities --check` reports unused is a hint at the
+name, saying why: nothing the list is for reaches it, only the tests
+reach it, or `std` already allows it to the tests. Its quick fix takes the
+name out, or moves it to `std_in_tests` when only the tests reach it.
+Hover on a dependency's path, in `go` and `go_in_tests` or as a key under
+`[capabilities.deps.modules]`, shows what its own files reach, as `nomi
+add` prints it. These come from every program `nomi check` checks in the
+project, as the Nomi files are saved, and wait for each of them to check.
+A dependency `entries_required` finds with no entry has a quick fix that
+writes its entry with what it reaches, as `nomi add` writes it. On a call
 `nomi.toml`'s tables do not allow ([Capability lists](#capability-lists)),
 the quick fix edits the key its help names: "Allow std::http for this
 module in nomi.toml" adds to `[capabilities.self]`' `std`, "Allow std::http
@@ -2123,7 +2151,11 @@ to bind Go in nomi.toml" to its `go`, and "Allow this module to bind Go in
 nomi.toml" sets `[capabilities.self]`' `go = true`; each keeps the file's
 comments as `nomi capabilities --write` does. The diagnostic clears once the edit is in the editor, before it is
 saved. A call over a dependency's own list has no such fix, since the edit
-is in that module.
+is in that module. A refused call in a dependency's file is marked in the
+file being checked at each of its calls that leads there, the places the
+error's note names, with the call in the dependency as the mark's related
+location and the same quick fix; the marks clear together. A file that
+holds none of those places shows the error at its top.
 
 **Hover.** On a keyword, hover shows the construct it starts, what it does
 there and a link to the page that teaches it, following the place it
@@ -2153,10 +2185,25 @@ implicit:
   which `nomi.toml` allows in `[capabilities.deps]` and in the entry for
   `lib.example/pricing`", "Reaches `std::fs`, which no table in
   `nomi.toml` holds", or on a Go binding's declaration "Binds Go:
-  `go:lib.example/pg/goside`". The line comes from the last lowering of an
-  open file whose program reaches the call, so it shows in a dependency's
-  file too; a program the server opened from its record shows it once the
-  file is edited.
+  `go:lib.example/pg/goside`";
+- a function of the program or of a dependency, at its name and at each
+  call of it, ends with what it can reach outside the machine. One std
+  module is said in full, through the functions on the way: "Reaches
+  `std::fs` through `read_settings`, which `nomi.toml` allows in
+  `[capabilities.self]`". Several are kept short: each one the lists
+  refuse is said in full, four at most, and the rest follow in one line
+  by name, "Also reaches `std::fs`, `std::io`"; `nomi capabilities --why`
+  has the way to each. A call through an interface counts every
+  implementation, as the check does. A generic function's name holds what
+  any of its instances reaches, and a call of it what that call's
+  instance reaches. A function that reaches nothing outside has no line.
+
+These lines come from the last lowering of an open file whose program
+reaches the code, so they show in every file of the program and in a
+dependency's file too, once the lowering the server runs in the
+background after an open or an edit has finished. A function that
+lowering never reaches has none. The editors on nomi-lang.org show the
+same lines, from a lowering of the block's program.
 
 **Quick fixes.** They include:
 
@@ -2236,8 +2283,12 @@ test `--line` would select, as `nomi run` and `nomi test` run them.
   on the next statement), each with an optional condition, hit count (`5`,
   `>= 5`, `% 10`) or log message with `{expression}` parts. Function
   breakpoints take a name as the call stack shows it (`transact`,
-  `Account.deposit`, `Display.to_string` for every impl, or file-qualified),
+  `Account.deposit`, `Display.to_string for Card`), as code calls it
+  (`Card.to_string`), `Display.to_string` for every impl, or file-qualified,
   and stop at its first statement in every instance of a generic function.
+  The call stack, profiles, effect messages and capability reports name an
+  impl's function by its interface and the type it is for,
+  `Display.to_string for Card`, and an inherent one as `Card.total`.
 - **Exception stops.** A trap, a failed assertion and an `Err` returned from
   `main` stop by default; an uncaught task failure, where it reaches the
   `Task.await` that awaits it, can be turned on.

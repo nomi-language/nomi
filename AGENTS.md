@@ -240,6 +240,21 @@ corpus by default and every input under the variable
   `verifyOperatorForm`, `NOMI_SUBST_VERIFY=1`, `maxOperatorFormSites`,
   checked by `TestIRGolden_RecordsMatchTheVM`
   (`internal/irbuild/operatorform_ratchet_test.go`).
+- Every comparator a sort, a Range or a tuple orders by is chosen from
+  the checker's record of `Comparable.compare`, and the distinct sites
+  of an element with no checker type, chosen by kind, only go down:
+  `noteComparator`, `NOMI_SUBST_VERIFY=1`, `maxComparatorSites`, checked
+  by `TestIRGolden_RecordsMatchTheVM`
+  (`internal/irbuild/comparatorform_ratchet_test.go`).
+- Every Debug body a rendering names for a nested part is chosen from the
+  checker's record of `Debug.inspect` at the part's type, and the
+  distinct sites of a part with no checker type, of a type declared in a
+  body, held as an interface value or under an Iter, chosen by kind, only
+  go down:
+  `noteDebugImpl`,
+  `NOMI_SUBST_VERIFY=1`, `maxDebugImplSites`, checked by
+  `TestIRGolden_RecordsMatchTheVM`
+  (`internal/irbuild/debugimplform_ratchet_test.go`).
 - Every std operator impl only the machine computes has a row in
   `machineImpls`, and each row's operators answer as a call of its body:
   `TestMachineImplsAreComplete`, `TestMachineImplsComputeTheirBodies`
@@ -258,6 +273,11 @@ corpus by default and every input under the variable
   `knownLocalReadClasses`, `maxLocalReadSites`, and the places that resolve
   a name by its spelling only go down: `TestSpellingResolutionsOnlyGoDown`
   (`internal/irbuild/localread_ratchet_test.go`).
+- The kind irbuild lowers each expression at is the type the checker
+  recorded for it, or the type a Conversion, Coercion or settled
+  Infallible gives it there, in every test binary: `verifyExprKind`,
+  `knownExprKindClasses`, and each class's distinct sites only go down:
+  `maxExprKindSites` (`internal/irbuild/exprkind_ratchet_test.go`).
 - Modules encoded apart link to the same program, and each file lowered on
   its own matches the whole lowering: `TestObjectsLinkToTheSameProgram`,
   `TestFilesLowerOnTheirOwnAsInTheProgram`, `NOMI_OBJECTS_LINK=full`,

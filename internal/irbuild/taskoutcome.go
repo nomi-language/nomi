@@ -233,6 +233,25 @@ func namedPayloadSpecOf(d *typeDef) (*namedPayloadSpec, bool) {
 	return nil, false
 }
 
+// sharedEnumDeclared is the process-wide def of decl when decl declares a
+// monomorphic std enum rt declares (stdEnumDeclared) or a named payload
+// enum (the spec's module declaring it in its shape), nil for any other
+// declaration.
+func (g *gen) sharedEnumDeclared(decl *ast.EnumDef) *typeDef {
+	if i := g.stdEnumDeclared(decl); i >= 0 {
+		return stdEnumDefs()[i]
+	}
+	if g.fa == nil {
+		return nil
+	}
+	for _, s := range namedPayloadSpecs {
+		if s.origin == g.fa.Origin && s.matchesDecl(decl) {
+			return s.def()
+		}
+	}
+	return nil
+}
+
 // matchesDecl reports whether decl is the payload enum this spec describes.
 //
 // The same standard stdEnumSpec.matches applies, and for the same reason:

@@ -119,6 +119,10 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 		b.WriteString("\n\n")
 	}
 	fmt.Fprintf(&b, "Import with `import std::%s`.\n\n", stdImportPath(name))
+	program := stdProgramOf(name)
+	if names := program.outsideNames(entries); len(names) > 0 {
+		b.WriteString(outsideOverview(names) + "\n\n")
+	}
 	if summary := renderExportsSummary(name, entries); summary != "" {
 		b.WriteString(summary)
 	}
@@ -133,7 +137,7 @@ func renderModuleWithLinks(lib *std.StdLib, name string, globalLinks referenceLi
 		}
 	}
 	shared := sharedImplHeadings(name, entries)
-	prompts := newPromptClassifier(name)
+	prompts := newPromptClassifier(program)
 	for _, group := range apiGroups(entries) {
 		fmt.Fprintf(&b, "## %s\n\n", renderGroupHeading(name, group.apiGroupKey))
 		for _, entry := range group.Entries {
@@ -515,6 +519,9 @@ func renderAPIEntry(b *strings.Builder, moduleName string, fa *analysis.FileAnal
 		return
 	}
 	body = linkImplReference(body, s, implLinks)
+	if name := prompts.std.outsideCall(s); name != "" {
+		body = withOutsideLine(body, outsideHTML(name))
+	}
 	// Reference code is highlighted but not runnable (it's signatures, not
 	// programs) — plain nomi fences, which tour-client.mjs highlights statically.
 	fmt.Fprintf(b, "%s\n\n", body)

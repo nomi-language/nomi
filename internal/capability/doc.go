@@ -28,7 +28,8 @@
 //
 // How a refusal reads is shared too: Message, GoMessage and GoFlagMessage
 // are its headline, HostAddHint and RemoveHint its help, ReachedLine the
-// line an editor's hover shows on a call, and vm.ReachText says how
+// line an editor's hover shows on a call, FunctionReach the lines it shows
+// on a function and its calls, and vm.ReachText says how
 // the walk reached the call. vmhost renders them as diagnostics at the
 // call's source; vmrunner, which has no source, renders them at the file
 // and line the image records.

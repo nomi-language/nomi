@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -13,7 +14,7 @@ import (
 // its own diagnostics' records, which pass through to w.
 func runCheckJSON(w io.Writer, path string) error {
 	cj := vmhost.NewCheckJSON(w)
-	files, through, _, err := discoverCheckFiles(path)
+	files, through, _, err := frontend.CheckedFiles(path)
 	if err != nil {
 		abs, _ := filepath.Abs(path)
 		cj.File(abs, pathError(path, err))

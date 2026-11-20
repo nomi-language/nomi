@@ -252,7 +252,7 @@ func (bl *irScalarBuilder) siblingOwnerPlanFor(t *ast.Call, args irQualArgs, dec
 		return nil
 	}
 	p := &irQualPlan{token: f, name: g.files.units[site.unit].key + "." + owner + "." + method, result: result, args: filled}
-	p.sym = owning.irCalleeSym(site.item, site.symName)
+	p.sym = owning.irImplSym(site.item)
 	return p
 }
 

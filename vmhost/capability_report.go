@@ -14,8 +14,10 @@ import (
 	"github.com/nomi-language/nomi/internal/capability"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/lexer"
 	"github.com/nomi-language/nomi/internal/parser"
 	"github.com/nomi-language/nomi/internal/vm"
+	"github.com/nomi-language/nomi/std"
 )
 
 // CapabilityNotAllowedCode is the Code of the diagnostic for an outside
@@ -60,7 +62,7 @@ func (p *Program) capabilityProblems(rs ...Roots) (Diagnostics, []NotAllowed) {
 func (p *Program) walks(rs []Roots) []Walk {
 	out := make([]Walk, len(rs))
 	for i, r := range rs {
-		out[i] = Walk{Tests: r.Tests != nil, Calls: p.OutsideCalls(r)}
+		out[i] = p.walk(r)
 	}
 	return out
 }
@@ -78,14 +80,17 @@ func (p *Program) walkedProblems(walks []Walk) (Diagnostics, []NotAllowed) {
 	var calls []NotAllowed
 	seen := map[string]bool{}
 	fixes := map[string]*parser.Fix{}
-	add := func(n NotAllowed, tests bool) {
+	own := map[string]bool{}
+	add := func(n NotAllowed, w Walk) {
 		key := fmt.Sprint(n.Site, "\x00", n.Name, "\x00", n.Host)
 		if seen[key] {
 			return
 		}
 		seen[key] = true
 		calls = append(calls, n)
-		ds = append(ds, p.notAllowedDiagnostic(n, tests, fixes))
+		d := p.notAllowedDiagnostic(n, w.Tests, fixes)
+		d.Related = p.leadsTo(n, w, own)
+		ds = append(ds, d)
 	}
 	for _, w := range walks {
 		var declared map[string]*analysis.SelfCapabilities
@@ -93,26 +98,28 @@ func (p *Program) walkedProblems(walks []Walk) (Diagnostics, []NotAllowed) {
 			declared = p.declaredLists(w.Calls)
 		}
 		for _, n := range notAllowedBy(w.Calls, w.Tests, p.capabilities, declared, p.projectModule()) {
-			add(n, w.Tests)
+			add(n, w)
 		}
 		for _, n := range notAllowedBy(w.Calls, w.Tests, host, nil, p.projectModule()) {
 			if !p.hostHolds(n) {
 				continue
 			}
 			n.Host = true
-			add(n, w.Tests)
+			add(n, w)
 		}
 	}
 	return ds, calls
 }
 
-// reachedCalls is each outside call walks reach, once per call and name,
-// in the walks' order, as an editor's hover shows it
-// (analyzedlowering.Reached): where a diagnostic about it points and its
-// callee's span (shownSpan), and the line saying what it reaches and
-// whether nomi.toml's lists allow it (capability.ReachedLine), as
-// standingsOf decides. A call a walk's lists refuse reads as refused,
-// whatever the other walks decide.
+// reachedCalls is what an editor's hover says code reaches outside the
+// machine (analyzedlowering.Reached), from walks. First each outside call
+// walks reach, once per call and name, in the walks' order: where a
+// diagnostic about it points and its callee's span (shownSpan), and the
+// line saying what it reaches and whether nomi.toml's lists allow it
+// (capability.ReachedLine), as standingsOf decides. Then the lines of the
+// functions the calls are in, and of those that call them
+// (reachedFuncs). A call a walk's lists refuse reads as refused, whatever
+// the other walks decide.
 func (p *Program) reachedCalls(walks []Walk) []analyzedlowering.Reached {
 	type key struct {
 		at   ir.Pos
@@ -120,33 +127,138 @@ func (p *Program) reachedCalls(walks []Walk) []analyzedlowering.Reached {
 	}
 	index := map[key]int{}
 	var out []analyzedlowering.Reached
-	for _, w := range walks {
-		var standings []standing
-		if p.capabilities != nil {
-			standings = standingsOf(w.Calls, w.Tests, p.capabilities, p.declaredLists(w.Calls), p.projectModule())
+	listed := p.capabilities != nil
+	standings := make([][]standing, len(walks))
+	for wi, w := range walks {
+		if listed {
+			standings[wi] = standingsOf(w.Calls, w.Tests, p.capabilities, p.declaredLists(w.Calls), p.projectModule())
 		}
 		for i, c := range w.Calls {
-			allowed, own := true, ""
-			var in []string
-			if standings != nil {
-				s := standings[i]
-				allowed, in = !s.refused, s.in
-				if s.refused && s.List == OverDeclared {
-					own = c.Module
-				}
-			}
-			text := capability.ReachedLine(c.Name, standings != nil, allowed, in, own)
+			r := reachedOf(c, standings[wi], i)
+			text := capability.ReachedLine(r, listed)
 			k := key{c.at, c.Name}
 			if j, seen := index[k]; seen {
-				if !allowed {
+				if !r.Allowed {
 					out[j].Text = text
 				}
 				continue
 			}
 			index[k] = len(out)
-			path, line, col, endLine, endCol := p.shownSpan(c)
+			path, line, col, endLine, endCol := p.shownSpan(c.at)
 			out = append(out, analyzedlowering.Reached{Path: path, Line: line, Col: col, EndLine: endLine, EndCol: endCol, Text: text})
 		}
+	}
+	return append(out, p.reachedFuncs(walks, standings)...)
+}
+
+// reachedOf is how standings, the standings of a walk's calls, nil when
+// the program has no lists, stand on c, its call at i, as a hover says it.
+func reachedOf(c OutsideCall, standings []standing, i int) capability.Reached {
+	r := capability.Reached{Name: c.Name, Allowed: true}
+	if standings != nil {
+		s := standings[i]
+		r.Allowed, r.In = !s.refused, s.in
+		if s.refused && s.List == OverDeclared {
+			r.Own = c.Module
+		}
+	}
+	return r
+}
+
+// reachedFuncs is the hover lines of the functions of the program and its
+// dependencies that can reach outside the machine: for each function a
+// walk reached whose edges lead to an outside call (vm.OutsideWalk.Reaches),
+// the line saying what it can reach, through which functions, and whether
+// nomi.toml's lists allow it (capability.FunctionReach), on its
+// declaration's name and on each call of it, or use of it as a value, in
+// code outside std. Each name counts once a function: the call of it the
+// fewest edges away, unless a list refuses one, in which case the line
+// says refused and goes through the refused one, as a call's line does;
+// the tables allowing it in one module's files and in another's are named
+// together. A generic function's instances share a declaration, whose line
+// holds what any of them can reach, and a call of several functions (a
+// call through an interface) holds what any of them can. A function with
+// no declaration in source (a lambda, a synthesized body) has none.
+// standings are each walk's standings (reachedCalls).
+func (p *Program) reachedFuncs(walks []Walk, standings [][]standing) []analyzedlowering.Reached {
+	// reach is what one declaration, or one call, can reach: each name's
+	// line, in the order the names were first found.
+	type reach struct {
+		names []string
+		by    map[string]capability.Reached
+	}
+	add := func(to *reach, r capability.Reached) {
+		old, seen := to.by[r.Name]
+		switch {
+		case !seen:
+			to.names = append(to.names, r.Name)
+		case old.Allowed && r.Allowed:
+			for _, in := range r.In {
+				if !slices.Contains(old.In, in) {
+					old.In = append(slices.Clone(old.In), in)
+				}
+			}
+			r = old
+		case !old.Allowed:
+			r = old
+		}
+		to.by[r.Name] = r
+	}
+	type span struct {
+		path                       string
+		line, col, endLine, endCol int
+	}
+	var order []span
+	at := map[span]*reach{}
+	use := func(s span) *reach {
+		if r := at[s]; r != nil {
+			return r
+		}
+		r := &reach{by: map[string]capability.Reached{}}
+		at[s] = r
+		order = append(order, s)
+		return r
+	}
+	for wi, w := range walks {
+		if w.reach == nil {
+			continue
+		}
+		key := func(i int) string { return w.Calls[i].Name + "\x00" + w.Calls[i].Module }
+		for _, f := range w.reach.Reaches(key) {
+			path := f.Func.Pos().File()
+			def := p.funcDefAt(path, f.Func.Pos().Line(), f.Func.Pos().Col())
+			if def == nil {
+				continue
+			}
+			var lines []capability.Reached
+			for _, rc := range f.Reached {
+				r := reachedOf(w.Calls[rc.Call], standings[wi], rc.Call)
+				r.Through = rc.Through
+				lines = append(lines, r)
+			}
+			spans := []span{{path, def.Line, def.Col, def.Line, def.Col + len(def.Name)}}
+			for _, site := range f.Sites {
+				sp, line, col, endLine, endCol := p.shownSpan(site)
+				spans = append(spans, span{sp, line, col, endLine, endCol})
+			}
+			for _, s := range spans {
+				to := use(s)
+				for _, r := range lines {
+					add(to, r)
+				}
+			}
+		}
+	}
+	listed := p.capabilities != nil
+	out := make([]analyzedlowering.Reached, 0, len(order))
+	for _, s := range order {
+		r := at[s]
+		lines := make([]capability.Reached, len(r.names))
+		for i, n := range r.names {
+			lines[i] = r.by[n]
+		}
+		out = append(out, analyzedlowering.Reached{Path: s.path, Line: s.line, Col: s.col, EndLine: s.endLine, EndCol: s.endCol,
+			Text: capability.FunctionReach(lines, listed)})
 	}
 	return out
 }
@@ -178,9 +290,11 @@ func (e *CapabilityError) Unwrap() error { return e.Shown() }
 
 // Shown is the diagnostics the error's text gives: for each name and the
 // list it is over, the first of its calls in Diagnostics' order, with a
-// help line counting the others; every diagnostic when AllCallsEnv is
-// set. A Go binding's group is its package and the module that binds it,
-// and a host's list is one list over the whole program.
+// help line counting the others, and of the places the project's code
+// leads to it (leadsTo) the first, counting the others; every diagnostic,
+// with every place, when AllCallsEnv is set. A Go binding's group is its
+// package and the module that binds it, and a host's list is one list over
+// the whole program.
 func (e *CapabilityError) Shown() Diagnostics {
 	if os.Getenv(AllCallsEnv) != "" {
 		return e.Diagnostics
@@ -203,18 +317,29 @@ func (e *CapabilityError) Shown() Diagnostics {
 		first[k] = i
 		order = append(order, k)
 	}
-	if len(order) == len(e.Calls) {
-		return e.Diagnostics
-	}
 	out := make(Diagnostics, len(order))
 	for i, k := range order {
 		d := e.Diagnostics[first[k]]
 		if n := more[k]; n > 0 {
 			d.Hints = append(slices.Clone(d.Hints), moreCalls(n, e.Calls[first[k]].Name))
 		}
+		if n := len(d.Related) - 1; n > 0 {
+			r := d.Related[0]
+			r.Message += "; " + morePlaces(n)
+			d.Related = []frontend.Related{r}
+		}
 		out[i] = d
 	}
 	return out
+}
+
+// morePlaces is what a refusal's text adds to the first place the
+// project's code leads to the call (leadsTo) when n more do.
+func morePlaces(n int) string {
+	if n == 1 {
+		return "and 1 more place in your code; --all-calls lists it"
+	}
+	return fmt.Sprintf("and %d more places in your code; --all-calls lists them", n)
 }
 
 // moreCalls is the help line of a grouped refusal that stands for n more
@@ -321,6 +446,42 @@ func (p *Program) notAllowedDiagnostic(n NotAllowed, tests bool, fixes map[strin
 		d.Fix = p.allowFix(n, tests, fixes)
 	}
 	return d
+}
+
+// leadsTo is where the project's own code leads to n, a refused call in a
+// dependency's files, by w, the walk that found it: each place a function
+// in the project's files last steps out of them toward the call
+// (vm.OutsideWalk.Leads), at the callee it calls or the value it uses
+// (shownSpan), saying what the project's code reaches there and how. None
+// for a call in the project's own files. own keeps, by file, whether a file
+// is the project's.
+func (p *Program) leadsTo(n NotAllowed, w Walk, own map[string]bool) []frontend.Related {
+	if n.Module == "" || w.reach == nil {
+		return nil
+	}
+	within := func(f *ir.Func) bool {
+		file := f.Pos().File()
+		if file == "" || f.Pos().Stdlib() {
+			return false
+		}
+		is, done := own[file]
+		if !done {
+			is = p.moduleOf(file) == ""
+			own[file] = is
+		}
+		return is
+	}
+	reached := fmt.Sprintf("%s in %s", n.Name, n.Module)
+	if n.Binder != "" {
+		reached = fmt.Sprintf("%s's Go binding %s", n.Module, n.Name)
+	}
+	var out []frontend.Related
+	for _, l := range w.reach.Leads(n.index, within) {
+		path, line, col, endLine, endCol := p.shownSpan(l.At)
+		out = append(out, frontend.Related{Path: path, Line: line, Col: col, EndLine: endLine, EndCol: endCol,
+			Message: fmt.Sprintf("your code reaches %s here: %s", reached, l.Text)})
+	}
+	return out
 }
 
 // keys is the keys of a table that hold a call reached from tests when
@@ -453,16 +614,17 @@ func (p *Program) allowFix(n NotAllowed, tests bool, fixes map[string]*parser.Fi
 // it, and the line and column of the call's callee, where the author
 // reads the call, rather than the call's own position, its parenthesis.
 func (p *Program) shownAt(c OutsideCall) (path string, line, col int) {
-	path, line, col, _, _ = p.shownSpan(c)
+	path, line, col, _, _ = p.shownSpan(c.at)
 	return path, line, col
 }
 
-// shownSpan is shownAt with the end of the call's callee, one past its last
-// byte; the end is the start when the program holds no syntax for the call.
-func (p *Program) shownSpan(c OutsideCall) (path string, line, col, endLine, endCol int) {
-	path, line, col = c.at.File(), c.at.Line(), c.at.Col()
+// shownSpan is where a report shows the call at, as shownAt says, with the
+// end of the call's callee, one past its last byte; the end is the start
+// when there is no syntax for a call there (syntaxOf).
+func (p *Program) shownSpan(at ir.Pos) (path string, line, col, endLine, endCol int) {
+	path, line, col = at.File(), at.Line(), at.Col()
 	endLine, endCol = line, col
-	if call, ok := nodeAt(p.modulePath(path), line, col).(*ast.Call); ok {
+	if call, ok := p.indexOf(path).at[[2]int{line, col}].(*ast.Call); ok {
 		if l, c := leftmost(call.Func); l > 0 {
 			line, col = l, c
 			endLine, endCol = l, c
@@ -472,4 +634,77 @@ func (p *Program) shownSpan(c OutsideCall) (path string, line, col, endLine, end
 		}
 	}
 	return path, line, col, endLine, endCol
+}
+
+// syntaxIndex is where a file's syntax (syntaxOf) has what a report shows:
+// at is the node nodeAtIn answers for each position some node starts at,
+// and funcs each function the file declares, by the position of its name
+// and of its `fn`, either of which its lowered body's position is.
+type syntaxIndex struct {
+	at    map[[2]int]ast.Node
+	funcs map[[2]int]*ast.FuncDef
+}
+
+// indexOf is the syntaxIndex of the program's file at path, built once.
+func (p *Program) indexOf(path string) *syntaxIndex {
+	nodes := p.syntaxOf(path)
+	p.parsedMu.Lock()
+	defer p.parsedMu.Unlock()
+	if ix := p.indexed[path]; ix != nil {
+		return ix
+	}
+	ix := &syntaxIndex{at: map[[2]int]ast.Node{}, funcs: map[[2]int]*ast.FuncDef{}}
+	for _, top := range nodes {
+		analysis.WalkNodes(top, func(n ast.Node) {
+			if l, c := nodeStart(n); l > 0 {
+				if _, seen := ix.at[[2]int{l, c}]; !seen {
+					ix.at[[2]int{l, c}] = n
+				}
+			}
+			if fd, ok := n.(*ast.FuncDef); ok && fd.Line > 0 {
+				ix.funcs[[2]int{fd.Line, fd.Col}] = fd
+				ix.funcs[[2]int{fd.Line, fd.FnCol}] = fd
+			}
+		})
+	}
+	if p.indexed == nil {
+		p.indexed = map[string]*syntaxIndex{}
+	}
+	p.indexed[path] = ix
+	return ix
+}
+
+// funcDefAt is the function the program's file at path declares at line
+// and col (syntaxIndex), or nil.
+func (p *Program) funcDefAt(path string, line, col int) *ast.FuncDef {
+	return p.indexOf(path).funcs[[2]int{line, col}]
+}
+
+// syntaxOf is the syntax of the program's file at path: its module's, or,
+// for a file whose syntax the program does not hold (a program relinked
+// from kept objects holds at most its entry's), its text (sourceOf)
+// parsed, once. Nil for a std file and for a text that does not parse.
+func (p *Program) syntaxOf(path string) []ast.Node {
+	if m := p.modulePath(path); m != nil && m.Nodes != nil {
+		return m.Nodes
+	}
+	if path == "" || std.IsSourcePath(path) {
+		return nil
+	}
+	p.parsedMu.Lock()
+	defer p.parsedMu.Unlock()
+	if nodes, done := p.parsed[path]; done {
+		return nodes
+	}
+	var nodes []ast.Node
+	if text, err := p.sourceOf(path); err == nil {
+		if parsed, err := parser.Parse(lexer.Lex(text)); err == nil {
+			nodes = parsed
+		}
+	}
+	if p.parsed == nil {
+		p.parsed = map[string][]ast.Node{}
+	}
+	p.parsed[path] = nodes
+	return nodes
 }

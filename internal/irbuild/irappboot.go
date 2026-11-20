@@ -454,7 +454,7 @@ func (g *gen) irRecordImpls() {
 				g.irRecordSlotDispatch(iface, m, nil, g, nil)
 				continue
 			}
-			fn := g.irCalleeSym(it, m.name)
+			fn := g.irImplSym(it)
 			if g.linked && g.irMod.FuncFor(fn) == nil {
 				// The kept lowering records it (programstdlink.go).
 				continue
@@ -595,7 +595,7 @@ func (g *gen) irRecordDisplayImpls() {
 		if it == nil {
 			continue
 		}
-		fn := g.irCalleeSym(it, "to_string")
+		fn := g.irImplSym(it)
 		if g.irMod.FuncFor(fn) == nil {
 			continue
 		}
@@ -622,7 +622,7 @@ func (g *gen) irRecordRowDebugImpls() {
 		if it == nil {
 			continue
 		}
-		fn := g.irCalleeSym(it, "inspect")
+		fn := g.irImplSym(it)
 		if g.irMod.FuncFor(fn) == nil {
 			continue
 		}
@@ -658,7 +658,7 @@ func (g *gen) irRecordKeyImpls() {
 			if it == nil {
 				continue
 			}
-			fn := g.irCalleeSym(it, method)
+			fn := g.irImplSym(it)
 			if g.irMod.FuncFor(fn) == nil {
 				continue
 			}

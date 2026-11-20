@@ -290,11 +290,31 @@ func (g *gen) verifyImplUse(at ast.Node, want ast.ImplMethodDecl, got ast.Node) 
 	g.calleeMismatch(line, col, fmt.Sprintf("an impl the checker resolved to %s is lowered as a call of %s", declLabel(want), declLabel(got)))
 }
 
+// sitePos is line:col of the file being lowered, for a verifier's report:
+// the file's path, or its module where it has none (a source loaded by
+// name), and in place of a position no source has, what wrote the node:
+// the front end, on a synthesized line (a derived body), or the checker,
+// at a column below zero (a refinement literal's check call).
+func (g *gen) sitePos(line, col int) string {
+	fa := g.srcFA()
+	path := fa.FilePath
+	if path == "" {
+		path = fa.Origin
+	}
+	switch {
+	case analysis.IsSynthesizedLine(line):
+		return path + ": in code the front end writes"
+	case col < 0:
+		return fmt.Sprintf("%s:%d: in a check the checker writes for that line", path, line)
+	}
+	return fmt.Sprintf("%s:%d:%d", path, line, col)
+}
+
 // calleeMismatch reports a route that lowers the call or operator at
 // line:col against another function than the record's: into
 // NOMI_CALLEE_LOG when it is set, else by panicking.
 func (g *gen) calleeMismatch(line, col int, what string) {
-	msg := fmt.Sprintf("irbuild: %s:%d:%d: %s", g.srcFA().FilePath, line, col, what)
+	msg := fmt.Sprintf("irbuild: %s: %s", g.sitePos(line, col), what)
 	if out := os.Getenv("NOMI_CALLEE_LOG"); out != "" {
 		if f, err := os.OpenFile(out, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
 			fmt.Fprintln(f, msg)

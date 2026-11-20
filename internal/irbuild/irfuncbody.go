@@ -47,9 +47,6 @@ type irScalarSide struct {
 // The builder reads resolved declarations and may intern type and symbol
 // identities.
 type irScalarBuilder struct {
-	// op is the route the operator being lowered committed to, which
-	// endOperator holds to its record (operatorform.go).
-	op operatorRoute
 	// placed holds the operands a named-argument qualified call already
 	// evaluated, by the synthetic node that stands for each (irnamedarg.go).
 	placed      map[ast.Node]irPlacedArg
@@ -529,10 +526,7 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 			return bl.not(t, src, k)
 		}
 		if t.Op == "~~~" {
-			outer := bl.beginOperator()
-			v, rk, mobile, ok := bl.bitwiseNot(t, src, k)
-			bl.endOperator(t, ok, outer)
-			return v, rk, mobile, ok
+			return bl.bitwiseNot(t, src, k)
 		}
 		ak, modelled := bl.g.irArithKind(ir.OpNeg, k, false)
 		if !modelled {
@@ -543,14 +537,6 @@ func (bl *irScalarBuilder) lowerNode(n ast.Node) (ir.Temp, kind, bool, bool) {
 		return a.Dst(), k, false, true
 
 	case *ast.Binary:
-		if _, arithmetic := irArithOps[t.Op]; arithmetic {
-			// A comparison's route is held in `comparison`; see
-			// operatorform.go.
-			outer := bl.beginOperator()
-			v, k, mobile, ok := bl.binary(t)
-			bl.endOperator(t, ok, outer)
-			return v, k, mobile, ok
-		}
 		return bl.binary(t)
 
 	case *ast.CurrentValue:
@@ -795,56 +781,8 @@ func (bl *irScalarBuilder) binary(t *ast.Binary) (ir.Temp, kind, bool, bool) {
 	if !ok {
 		return ir.NoTemp, kindInvalid, false, false
 	}
-	// The impl the checker recorded is called, unless it is one the
-	// machine computes itself (machineImpls: Int's, Float's and Decimal's
-	// arithmetic, String's and List's `+`); an operator over a type
-	// parameter with no checker type in its frame is resolved at this
-	// instance's kinds.
-	machine := bl.g.machineRoute(t)
-	if machine == routeUnset {
-		if v, k, mobile, ok, handled := bl.implOperator(t, lhs, rhs, lk, rk); handled {
-			return v, k, mobile, ok
-		}
-	}
-	if t.Op == "+" && (lk.tag == tagList || rk.tag == tagList) {
-		// `xs + ys` is the machine's List concatenation, the host
-		// operation of `List.concat` that std's impl calls, over operands
-		// made one List kind.
-		bl.op = routeNative
-		call := &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
-		args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
-		p := bl.listCallPlan(call, args, "concat")
-		if p == nil {
-			return ir.NoTemp, kindInvalid, false, false
-		}
-		return bl.qualEmit(call, args, p)
-	}
-	if machine != routeUnset && lk != rk {
-		panic("irbuild: binary: the record names an operator impl machineImpls computes natively, over operands of two kinds")
-	}
-	if lk == kindString {
-		// `"a" + "b"` is concatenation, not arithmetic, and `+` is
-		// the only operator String has. The node is `ir.Concat`, and its
-		// result is not mobile, as an arithmetic result is not.
-		if t.Op != "+" {
-			return ir.NoTemp, kindInvalid, false, false
-		}
-		bl.op = routeNative
-		c := ir.NewConcat(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), lhs, rhs)
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindString})
-		return c.Dst(), kindString, false, true
-	}
-	ak, modelled := bl.g.irArithKind(op, lk, t.Wrapping)
-	if !modelled {
-		return ir.NoTemp, kindInvalid, false, false
-	}
-	bl.op = routeNative
-	a := ir.NewArith(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ak, lhs, rhs)
-	bl.b.Append(a)
-	// An arithmetic result is not mobile, so one in a left operand position
-	// is always forced into a Copy.
-	return a.Dst(), lk, false, true
+	// See iruseroperator.go.
+	return bl.arithmetic(t, op, lhs, rhs, lk, rk)
 }
 
 // interp lowers `"a${x}b"`: the text runs are String constants, each hole is
@@ -1677,7 +1615,7 @@ func (bl *irScalarBuilder) hostOutputKey(t *ast.Call, key string) (ir.Temp, kind
 	var impls []ir.DebugImpl
 	nested := false
 	if ok && debug && !irDebugValueKind(k) {
-		impls, nested = bl.nestedDebugImpls(k, bl.g.operandCheckerType(t.Args[0]))
+		impls, nested = bl.nestedDebugImpls(t, k, bl.g.operandCheckerType(t.Args[0]))
 	}
 	if ok && !irScalarLeafKind(k) && !isDecimalKind(k) && !(debug && irDebugValueKind(k)) && !nested {
 		// Any other value renders as `Debug.inspect(x)` or `"${x}"` would:
@@ -1994,53 +1932,9 @@ func (g *gen) irScalarBlock(block *ast.Block) ([]ast.Node, ast.Node) {
 	last := len(block.Stmts) - 1
 	lead := make([]ast.Node, 0, last)
 	for _, s := range block.Stmts[:last] {
-		switch st := s.(type) {
-		case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef:
-			// A block-local type or interface declaration runs nothing: its values' layout
-			// and identity come from the typeDef blocklocaltype.go resolved,
-			// visible while the block's type scope is pushed.
-			continue
-		case *ast.Block, *ast.FuncDef, *ast.ImportStmt, *ast.Subtests:
-			lead = append(lead, st)
-		case *ast.Binding, *ast.Assertion, *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure,
-			*ast.PatternDestructure, *ast.Defer, *ast.With,
-			// A pattern binding, whose else branches off the block.
-			*ast.PatternBinding:
-			// A statement with a value: a binding (a discard name binds
-			// nothing and never enters scope, irdiscard.go), an assertion
-			// in an ordinary `fn`, whose failure is the function's
-			// `Err(AssertionFailure)` (`leading` checks the checker's
-			// boundary), a destructure, a `defer`'s call or a `with`'s
-			// value.
-			if prefix, region, ok := g.exitingOperand(st); ok {
-				// `y = case x { 0 -> continue  _ -> break 1 }`: every arm
-				// leaves, so nothing after the binding runs. The region is
-				// the block's tail, whose join no path reaches, and the
-				// statements after it are never lowered. The same holds
-				// for `y = calls(case x { ... })`, after the operands
-				// evaluated before the region, for `assert "x" == {
-				// io.print("y")  return }`, where nothing is judged, and
-				// for `defer note(if c { return 1 } else { return 2 })`,
-				// where nothing is registered.
-				return append(lead, prefix...), region
-			}
-			lead = append(lead, st)
-		case *ast.ExprStmt:
-			if isNilNode(st.Expr) {
-				panic("irbuild: irScalarBlock: parser never builds an ExprStmt with a nil expression")
-			}
-			if prefix, region, ok := g.exitingOperand(st.Expr); ok && region != st.Expr {
-				// `calls(case x { 0 -> return 1  _ -> return 2 })` as a
-				// statement: as a binding of it, nothing after it runs.
-				return append(lead, prefix...), region
-			}
-			lead = append(lead, st.Expr)
-		default:
-			// Every node type classed a statement has an arm above
-			// (TestEveryNodeTypeHasAForm). What is left is a declaration
-			// the checker rejects in a body, or a `return`, `break` or
-			// `continue`, after which it rejects any statement.
-			panic(fmt.Sprintf("irbuild: a block holds %T before its last statement, which is no statement (nodeForms)", s))
+		var region ast.Node
+		if lead, region = g.leadStatement(lead, s); region != nil {
+			return lead, region
 		}
 	}
 	n := block.Stmts[last]
@@ -2049,6 +1943,19 @@ func (g *gen) irScalarBlock(block *ast.Block) ([]ast.Node, ast.Node) {
 	}
 	if isNilNode(n) {
 		panic("irbuild: irScalarBlock: parser never builds a nil final statement")
+	}
+	if formsOf(n)&(formValue|formStatement) == formStatement {
+		// A statement that is no value ending a block: a binding, a
+		// destructure, a `defer`, `subtests` or a declaration. It is
+		// lowered as any statement before the last is, and the block
+		// answers Unit, the type the checker gives it (spec §9
+		// *Statements and the Unit rule*).
+		var region ast.Node
+		if lead, region = g.leadStatement(lead, n); region != nil {
+			return lead, region
+		}
+		line, col := nodePos(n)
+		return lead, &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
 	}
 	if prefix, region, ok := g.exitingOperand(n); ok {
 		// A tail that reads an exiting region, `calls(case x { 0 -> return
@@ -2063,32 +1970,60 @@ func (g *gen) irScalarBlock(block *ast.Block) ([]ast.Node, ast.Node) {
 		// which is right after it, and the block answers Unit.
 		return append(lead, w), &ast.TypeIdent{Name: "Unit", Line: w.Line, Col: w.Col}
 	}
-	if d, isDefer := n.(*ast.Defer); isDefer {
-		// A `defer` ending a block: the call is registered and runs at the
-		// block's end, right after it, and the block answers Unit.
-		line, col := nodePos(d)
-		return append(lead, d), &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
-	}
-	if st, isSubtests := n.(*ast.Subtests); isSubtests {
-		// A `subtests` statement ending a block, which answers Unit.
-		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: st.Line, Col: st.Col}
-	}
-	if b, isBinding := n.(*ast.Binding); isBinding && ast.IsDiscardName(b.Name) {
-		// `_ = Sender.send(ch.sender, 1)` or `_n: Int = todo` ending a
-		// block: the value is evaluated, at the annotation's type when it
-		// has one, and dropped, and the block answers Unit, as a block does
-		// after a binding statement.
-		return append(lead, b), &ast.TypeIdent{Name: "Unit", Line: b.Line, Col: b.Col}
-	}
-	switch st := n.(type) {
-	case *ast.DistinctDestructure, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternBinding:
-		// A destructuring binding ending a block, `(_, _) = pair`: the value
-		// is evaluated and matched, and the block answers Unit, as it does
-		// after any binding statement.
-		line, col := nodePos(st)
-		return append(lead, st), &ast.TypeIdent{Name: "Unit", Line: line, Col: col}
-	}
 	return lead, n
+}
+
+// leadStatement appends to lead what lowering the statement s, which is
+// not a block's value, runs. When s holds a region every path of which
+// leaves (exitingOperand), nothing after it runs: region is that region,
+// the block's tail, and lead ends with what runs before it.
+func (g *gen) leadStatement(lead []ast.Node, s ast.Node) (_ []ast.Node, region ast.Node) {
+	switch st := s.(type) {
+	case *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef:
+		// A block-local type or interface declaration runs nothing: its values' layout
+		// and identity come from the typeDef blocklocaltype.go resolved,
+		// visible while the block's type scope is pushed.
+		return lead, nil
+	case *ast.Block, *ast.FuncDef, *ast.ImportStmt, *ast.Subtests:
+		return append(lead, st), nil
+	case *ast.Binding, *ast.Assertion, *ast.PatternDestructure, *ast.Defer, *ast.With,
+		// A pattern binding, whose else branches off the block.
+		*ast.PatternBinding:
+		// A statement with a value: a binding (a discard name binds
+		// nothing and never enters scope, irdiscard.go), an assertion
+		// in an ordinary `fn`, whose failure is the function's
+		// `Err(AssertionFailure)` (`leading` checks the checker's
+		// boundary), a destructure, a `defer`'s call or a `with`'s
+		// value.
+		if prefix, region, ok := g.exitingOperand(st); ok {
+			// `y = case x { 0 -> continue  _ -> break 1 }`: every arm
+			// leaves, so nothing after the binding runs. The region is
+			// the block's tail, whose join no path reaches, and the
+			// statements after it are never lowered. The same holds
+			// for `y = calls(case x { ... })`, after the operands
+			// evaluated before the region, for `assert "x" == {
+			// io.print("y")  return }`, where nothing is judged, and
+			// for `defer note(if c { return 1 } else { return 2 })`,
+			// where nothing is registered.
+			return append(lead, prefix...), region
+		}
+		return append(lead, st), nil
+	case *ast.ExprStmt:
+		if isNilNode(st.Expr) {
+			panic("irbuild: irScalarBlock: parser never builds an ExprStmt with a nil expression")
+		}
+		if prefix, region, ok := g.exitingOperand(st.Expr); ok && region != st.Expr {
+			// `calls(case x { 0 -> return 1  _ -> return 2 })` as a
+			// statement: as a binding of it, nothing after it runs.
+			return append(lead, prefix...), region
+		}
+		return append(lead, st.Expr), nil
+	}
+	// Every node type classed a statement has an arm above
+	// (TestEveryNodeTypeHasAForm). What is left is a declaration the
+	// checker rejects in a body, or a `return`, `break` or `continue`,
+	// after which it rejects any statement.
+	panic(fmt.Sprintf("irbuild: a block holds %T before its last statement, which is no statement (nodeForms)", s))
 }
 
 // irScalarBuild builds one function body into a retained `ir.Func`, or
@@ -2899,24 +2834,6 @@ func (bl *irScalarBuilder) leading(lead []ast.Node) (ok bool) {
 		}
 		if block, ok := s.(*ast.Block); ok {
 			if !bl.scopedBlock(block) {
-				return false
-			}
-			continue
-		}
-		if distinct, ok := s.(*ast.DistinctDestructure); ok {
-			if !bl.distinctBinding(distinct) {
-				return false
-			}
-			continue
-		}
-		if tuple, ok := s.(*ast.TupleDestructure); ok {
-			if !bl.tupleBinding(tuple) {
-				return false
-			}
-			continue
-		}
-		if destructure, ok := s.(*ast.StructDestructure); ok {
-			if !bl.structBinding(destructure) {
 				return false
 			}
 			continue

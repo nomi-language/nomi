@@ -1462,7 +1462,7 @@ func TestCheckPatternTupleNilExpectedTy(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// checkTupleDestructure
+// Tuple destructuring statements
 // ---------------------------------------------------------------------------
 
 func TestCheckTupleDestructureValid(t *testing.T) {
@@ -1508,7 +1508,7 @@ func TestCheckTupleDestructureNotTuple(t *testing.T) {
   (x, y) = 42
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "tuple destructure requires a tuple type")
+	expectError(t, errs, "tuple pattern requires a tuple type, got Int")
 }
 
 func TestCheckTupleDestructureArityMismatch(t *testing.T) {
@@ -1516,7 +1516,7 @@ func TestCheckTupleDestructureArityMismatch(t *testing.T) {
   (x, y, z) = (1, "hello")
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "3 bindings but tuple has 2 elements")
+	expectError(t, errs, "tuple pattern has 3 elements but expected 2")
 }
 
 // ---------------------------------------------------------------------------
@@ -2216,7 +2216,7 @@ func TestCheckPatternMapNilExpectedTy(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// checkStructDestructure
+// Struct destructuring statements
 // ---------------------------------------------------------------------------
 
 func TestCheckStructDestructureValid(t *testing.T) {
@@ -2259,7 +2259,7 @@ func TestCheckStructDestructureNotStruct(t *testing.T) {
   {x:} = 42
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "struct destructure requires a struct type")
+	expectError(t, errs, "struct pattern requires a struct type, got Int")
 }
 
 func TestCheckStructDestructureUnknownField(t *testing.T) {
@@ -2386,7 +2386,7 @@ end`
 }
 
 // ---------------------------------------------------------------------------
-// checkDistinctDestructure
+// Distinct destructuring statements
 // ---------------------------------------------------------------------------
 
 func TestCheckDistinctDestructureValid(t *testing.T) {
@@ -2424,11 +2424,12 @@ end`
 }
 
 func TestCheckDistinctDestructureNotDistinct(t *testing.T) {
-	src := `fn main()
+	src := `type Id Int
+fn main()
   Id(x) = 42
 end`
 	_, errs := checkSource(src)
-	expectError(t, errs, "distinct type destructure requires a distinct type")
+	expectError(t, errs, "pattern names Id, but the value is an Int")
 }
 
 // ---------------------------------------------------------------------------

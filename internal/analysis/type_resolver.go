@@ -82,9 +82,9 @@ func ResolveTypeExpr(te ast.TypeExpr, reg *TypeRegistry, typeParams map[string]*
 //   - An `impl` block's INTERFACE header. `impl Iter for List<T>` names a
 //     one-parameter interface with no arguments, and recordImplTypeArgsFromBlock
 //     solves them by unifying the interface's declared method signatures against
-//     the block's own (type_builder.go). Supplying them explicitly is allowed and
-//     already arity-checked there. Sites across std/, tests/ and the tour
-//     are this shape.
+//     the block's own (type_builder.go). Supplying them explicitly is allowed,
+//     and written arguments are held to the count in every position.
+//     Sites across std/, tests/ and the tour are this shape.
 //   - A struct LITERAL's type name and a pattern's head. `Box{inner: 1}` takes
 //     its argument from the field values, and there is no turbofish on a struct
 //     literal — `Box<Int>{…}` parses as a comparison — so there is no spelling
@@ -128,7 +128,7 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 				if !hasTypeArgs(t) && takesDefaultArgs(t, 0) {
 					return instantiateNominal(t, withDefaultArgs(t, []Type{})), nil
 				}
-				if terr := checkGenericArity(t, n.Line, n.Col); terr != nil {
+				if terr := checkArity(t, n.Name, 0, n.Line, n.Col); terr != nil {
 					return nil, *terr
 				}
 			}
@@ -150,13 +150,13 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 		switch n.Name {
 		case "List":
 			if len(args) != 1 {
-				return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("List expects 1 type argument, got %d", len(args))}
+				return nil, typeArityError(n.Name, 1, 1, len(args), n.Line, n.Col)
 			}
 			return &ListType{Elem: args[0]}, nil
 
 		case "Map":
 			if len(args) != 2 {
-				return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("Map expects 2 type arguments, got %d", len(args))}
+				return nil, typeArityError(n.Name, 2, 2, len(args), n.Line, n.Col)
 			}
 			return &MapType{Key: args[0], Val: args[1]}, nil
 
@@ -169,7 +169,7 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 			// constructor, no methods), exists only in parameter position, and
 			// lowers to the deep-partial matcher. See partial.go.
 			if len(args) != 1 {
-				return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("Partial expects 1 type argument, got %d", len(args))}
+				return nil, typeArityError(n.Name, 1, 1, len(args), n.Line, n.Col)
 			}
 			// Partial patches a struct's fields, so a concrete inner must be a
 			// struct. A type-param inner (Struct.update's own `Partial<T>`, or
@@ -182,19 +182,23 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 			return &PartialType{Inner: args[0]}, nil
 
 		default:
+			// A type parameter takes no type arguments: `T<Int>` is the
+			// arity error, not an unknown type.
+			if tp, ok := typeParams[n.Name]; ok {
+				if terr := checkArity(tp, n.Name, len(args), n.Line, n.Col); terr != nil {
+					return nil, *terr
+				}
+				return tp, nil
+			}
 			// Look up base type in registry and instantiate with type args.
 			if t := reg.Lookup(n.Name); t != nil {
-				if at, isAlias := t.(*AliasTemplate); isAlias {
-					if len(args) != len(at.Params) {
-						return nil, TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
-							"typealias %s takes %d type argument%s, got %d", n.Name, len(at.Params), plural(len(at.Params)), len(args))}
-					}
-					return instantiateAlias(at, args), nil
+				// Written arguments are never inferred, so their count is
+				// held in every position, declared or not.
+				if terr := checkArity(t, n.Name, len(args), n.Line, n.Col); terr != nil {
+					return nil, *terr
 				}
-				if declared {
-					if terr := checkGenericArityArgs(t, len(args), n.Line, n.Col); terr != nil {
-						return nil, *terr
-					}
+				if at, isAlias := t.(*AliasTemplate); isAlias {
+					return instantiateAlias(at, args), nil
 				}
 				// `Pair<Int>` where `Pair<A, B = String>` was declared is
 				// `Pair<Int, String>` (default_type_args.go).
@@ -232,7 +236,7 @@ func resolveTypeExprNode(te ast.TypeExpr, reg *TypeRegistry, typeParams map[stri
 		qualName := n.TypeString()
 		if t := reg.Lookup(qualName); t != nil {
 			if declared {
-				if terr := checkGenericArity(t, n.ModuleLine, n.ModuleCol); terr != nil {
+				if terr := checkArity(t, qualName, 0, n.ModuleLine, n.ModuleCol); terr != nil {
 					return nil, *terr
 				}
 			}

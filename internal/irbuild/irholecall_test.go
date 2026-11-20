@@ -45,7 +45,7 @@ func TestIRHoleCall_ABoundedOpenTypeIsClosedAtAnImplementingType(t *testing.T) {
 		}
 	}
 	all := strings.Join(names, " ")
-	if !strings.Contains(all, "Maybe.to_string<Int>") || strings.Contains(all, "Maybe.to_string<Unit>") {
+	if !strings.Contains(all, "Display.to_string for Maybe<Int>") || strings.Contains(all, "Maybe<Unit>") {
 		t.Fatalf("Maybe.to_string(None) is not instantiated at Int alone: %q", names)
 	}
 	verifyLambdaProgram(t, irHoleDisplaySource, "None\nSome(4)\nErr(x)\nOk(3)\n")
@@ -116,7 +116,7 @@ func TestIRHoleCall_AComparableOpenTypeIsClosedAtInt(t *testing.T) {
 		}
 	}
 	all := strings.Join(names, " ")
-	if !strings.Contains(all, "min<Int>") || !strings.Contains(all, "max<Int>") || strings.Contains(all, "<Unit>") {
+	if !strings.Contains(all, "Iter<Int>.min") || !strings.Contains(all, "Iter<Int>.max") || strings.Contains(all, "<Unit>") {
 		t.Fatalf("Iter.min([]) and Iter.max([]) are not instantiated at Int: %q", names)
 	}
 	verifyLambdaProgram(t, irHoleCompareSource, "None\nNone\nSome(1)\n")

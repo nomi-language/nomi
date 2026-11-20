@@ -184,34 +184,93 @@ func GoFlagMessage(who, name, holder string) string {
 	return fmt.Sprintf("%s binds Go through %s, and %s does not let it bind Go", who, name, holder)
 }
 
-// ReachedLine is the one line of Markdown an editor's hover shows on an
-// outside call named name: what it reaches, or for a Go binding that it
-// binds Go, and, when the program has capability tables (listed), whether
-// they allow it. in is where nomi.toml says so, each as a phrase that
-// follows "in", a table's name in backticks or "the entry for `M`": every
-// place that allows the call, none when no table holds it, or the one
-// list that refuses it. own is the module whose own nomi.toml refuses the
-// call, "" when the refusal is the project's nomi.toml's; the refusal's
-// diagnostic at the call says the rest.
-func ReachedLine(name string, listed, allowed bool, in []string, own string) string {
-	line := fmt.Sprintf("Reaches `%s`", name)
-	if BindsGo(name) {
-		line = fmt.Sprintf("Binds Go: `%s`", name)
+// Reached is one name code reaches outside the machine, as an editor's
+// hover says it (ReachedLine): Name, an outside call's name, and whether
+// nomi.toml's capability tables allow it. In is where nomi.toml says so,
+// each as a phrase that follows "in", a table's name in backticks or "the
+// entry for `M`": every place that allows the call, none when no table
+// holds it, or the one list that refuses it. Own is the module whose own
+// nomi.toml refuses the call, "" when the refusal is the project's
+// nomi.toml's; the refusal's diagnostic at the call says the rest. Through
+// is, for a function that can reach the call, the functions on the way
+// from it to the one whose body makes the call, none when its own body
+// makes it.
+type Reached struct {
+	Name    string
+	Through []string
+	Allowed bool
+	In      []string
+	Own     string
+}
+
+// ReachedLine is the one line of Markdown an editor's hover shows for r:
+// what it reaches, or for a Go binding that it binds Go, through which
+// functions, and, when the program has capability tables (listed), whether
+// they allow it.
+func ReachedLine(r Reached, listed bool) string {
+	line := fmt.Sprintf("Reaches `%s`", r.Name)
+	if BindsGo(r.Name) {
+		line = fmt.Sprintf("Binds Go: `%s`", r.Name)
+	}
+	if len(r.Through) > 0 {
+		line += " through `" + strings.Join(r.Through, "`, `") + "`"
 	}
 	switch {
 	case !listed:
-	case allowed && len(in) == 0:
+	case r.Allowed && len(r.In) == 0:
 		line += ", which no table in `nomi.toml` holds"
-	case allowed:
-		line += ", which `nomi.toml` allows in " + strings.Join(in, " and in ")
-	case own != "":
-		line += fmt.Sprintf(", which the `nomi.toml` of `%s` does not allow", own)
-	case len(in) > 0:
-		line += ", which `nomi.toml` does not allow in " + in[0]
+	case r.Allowed:
+		line += ", which `nomi.toml` allows in " + strings.Join(r.In, " and in ")
+	case r.Own != "":
+		line += fmt.Sprintf(", which the `nomi.toml` of `%s` does not allow", r.Own)
+	case len(r.In) > 0:
+		line += ", which `nomi.toml` does not allow in " + r.In[0]
 	default:
 		line += ", which `nomi.toml` does not allow"
 	}
 	return line + "."
+}
+
+// functionReachShown is how many refused names FunctionReach gives a line
+// of their own.
+const functionReachShown = 4
+
+// FunctionReach is the Markdown a hover on a function, or on a call of
+// one, ends with, for the names in reached, which the function can reach.
+// One name is said as ReachedLine says it. Several are kept short: each
+// name the lists refuse gets ReachedLine's sentence, since it says where
+// the call is and which list refuses it, the first four in name order and
+// then one line naming the rest; the names the lists allow, or no list
+// holds, follow in one line by name alone. `nomi capabilities --why` has
+// the way to each. listed is ReachedLine's.
+func FunctionReach(reached []Reached, listed bool) string {
+	if len(reached) == 1 {
+		return ReachedLine(reached[0], listed)
+	}
+	sorted := slices.Clone(reached)
+	slices.SortStableFunc(sorted, func(a, b Reached) int { return strings.Compare(a.Name, b.Name) })
+	var lines, refusedRest, allowed []string
+	for _, r := range sorted {
+		switch {
+		case r.Allowed || !listed:
+			allowed = append(allowed, "`"+r.Name+"`")
+		case len(lines) < functionReachShown:
+			lines = append(lines, ReachedLine(r, listed))
+		default:
+			refusedRest = append(refusedRest, "`"+r.Name+"`")
+		}
+	}
+	if len(refusedRest) > 0 {
+		lines = append(lines, fmt.Sprintf("And %d more `nomi.toml` does not allow: %s.", len(refusedRest), strings.Join(refusedRest, ", ")))
+	}
+	if len(allowed) > 0 {
+		lead := "Reaches "
+		if len(lines) > 0 {
+			lead = "Also reaches "
+		}
+		lines = append(lines, lead+strings.Join(allowed, ", ")+".")
+	}
+	return strings.Join(lines, "\n\n")
 }
 
 // HostAddHint is the help for a call over a host's list: add name to the
@@ -227,4 +286,36 @@ func RemoveHint(boot bool) string {
 		return "have the boot take no Startup"
 	}
 	return "remove the call"
+}
+
+// ReportWidth is the width `nomi capabilities` wraps a list of names at.
+const ReportWidth = 80
+
+// Wrapped is names after a first line's prefix, joined with ", " and
+// wrapped at ReportWidth, each later line indented to the prefix's width;
+// "(none)" for no names.
+func Wrapped(prefix string, names []string) string {
+	if len(names) == 0 {
+		return prefix + "(none)"
+	}
+	indent := strings.Repeat(" ", len(prefix))
+	var b strings.Builder
+	line := prefix
+	for i, n := range names {
+		item := n
+		if i < len(names)-1 {
+			item += ","
+		}
+		switch {
+		case line == prefix:
+			line += item
+		case len(line)+1+len(item) > ReportWidth:
+			b.WriteString(line + "\n")
+			line = indent + item
+		default:
+			line += " " + item
+		}
+	}
+	b.WriteString(line)
+	return b.String()
 }

@@ -196,6 +196,17 @@ func (bl *irScalarBuilder) patternValueTestNode(pat ast.Node, value ir.Temp, k k
 		if irSingletonPattern(p, k) {
 			return jump()
 		}
+		if ep, isEnum := p.(*ast.EnumPattern); isEnum && bl.g.patternRefines(ep) {
+			// `Port(n)`: a subtype's value is its base's (spec §4
+			// *Subtypes*), so the payload matches the value itself.
+			if ep.Payload != nil {
+				return bl.patternValueTest(ep.Payload, value, k, arm, next)
+			}
+			if ep.Binding != "" {
+				bl.patternBinding(ep, ep.Binding, value, k)
+			}
+			return jump()
+		}
 		if irNominalCaseKind(k) {
 			return bl.nominalCaseTest(p, value, k, arm, next)
 		}

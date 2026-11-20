@@ -229,11 +229,14 @@
 //
 // A document opened from a record offers no EntryProgram, and lowering the
 // entry's text lowers the whole program (stored_lowering.go, and vmhost's
-// checklowering_stored.go). So it takes its result from the record when the
-// record lists the document ([DocumentManager.StoredLoweredClean]), and
-// otherwise lowers from a kept lowering: the one this process made last for
-// the state, else the record's (the server's whole lowering when it wrote
-// the record, analyzedlowering.Kept).
+// checklowering_stored.go). So the entry lowers from a kept lowering: the
+// one this process made last for the state, else the record's (the
+// server's whole lowering when it wrote the record,
+// analyzedlowering.Kept). It does so with the record's texts too, lowering
+// the entry alone, since the program that links is what the walk for the
+// outside calls an editor's hover names reads. Another document takes its
+// result from the record when the record lists it
+// ([DocumentManager.StoredLoweredClean]).
 //
 // Each changed file is lowered alone from its check (irbuild.LowerFileAmong
 // through vmhost's relowerOne, shared with the relink from file records),
@@ -985,8 +988,10 @@
 // A declared type's own structure is not among the parts: a struct's
 // fields, an enum's variants, an interface's functions, a distinct type's
 // Inner and MoreParents. A recursive declaration reaches itself through
-// them, so a walk that needs one reads it by name (containsTypeVar and a
-// distinct type's Inner, distinctCycle).
+// them, so a walk that needs one reads it by name (containsTypeVar, and
+// the two cycle checks, distinctCycle over a distinct type's Inner and
+// valueCycle over what a value must hold, which run the one walk
+// typeCycle).
 //
 // Two types are walked in step through pairedTypeChildren, which answers
 // the parts of each, position by position, when the two have the same
@@ -1050,10 +1055,12 @@
 // checkPattern, which every pattern goes through in every position (a
 // `case` arm, a binding, a parameter, a lambda parameter, `if P = e`, `is`,
 // a subtests row, and each pattern nested in one), records in
-// FileAnalysis.PatternTypes the type of the value the pattern matches,
-// and a distinct destructure statement (`JobId(n) = job`) records its
-// value's. A pattern whose head names a type (`Point{x, y}`, `JobId(n)`,
-// `self(n)`) needs no record of the declaration beside it: the checker
+// FileAnalysis.PatternTypes the type of the value the pattern matches. A
+// destructuring statement (`(a, _) = v`, `{x:, y: b} = v`, `JobId(n) =
+// job`) is a PatternBinding of that pattern, held to the same rules and
+// given the same messages as `case v { (a, _) -> ... }`. A
+// pattern whose head names a type (`Point{x, y}`, `JobId(n)`, `self(n)`)
+// needs no record of the declaration beside it: the checker
 // requires the head to name the value's own type, so the type is the
 // declaration. A head that names a variant (`Some`, `Shape.Circle`,
 // `.Rect`, an aliased `I[x, ..]`) records the variant's declared name in

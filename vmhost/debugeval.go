@@ -160,7 +160,7 @@ func (p *Program) CompileExpr(file string, vars []DebugParam, expr string) (*Deb
 		}
 	}
 	if fn == nil {
-		return nil, errors.New("the debugger cannot run this expression yet: " + lowered.decline(debugEvalName))
+		return nil, errors.New("the debugger cannot run this expression yet: " + lowered.decline(debugEvalName, ir.ImplFunc{}))
 	}
 	out := &DebugExpr{Type: typ, entry: lowered.entry, rest: lowered.res.IRModules(), fn: fn, startLine: startLine}
 	for _, v := range params {

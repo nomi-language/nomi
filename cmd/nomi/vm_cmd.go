@@ -79,7 +79,7 @@ func testVM(stop context.Context, root string, opts vmhost.TestOptions, format v
 		return fmt.Errorf("nomi test: %w", err)
 	}
 	defer restoreEnv()
-	files, err := discoverTestFiles(root)
+	files, err := frontend.TestFiles(root)
 	if err != nil {
 		return fmt.Errorf("nomi test: %w", pathError(root, err))
 	}

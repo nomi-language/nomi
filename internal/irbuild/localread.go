@@ -2,7 +2,6 @@ package irbuild
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
@@ -108,7 +107,7 @@ func (bl *irScalarBuilder) verifyLocalRead(t *ast.Ident, v ir.Temp, route readRo
 			t.Name, describeBinding(builderLocal, line, col), describeRef(sym, checkerLocal)))
 		return
 	}
-	localReadCensusNote(g, class, t.Line, t.Col)
+	localReadCensus.note(g, string(class), t.Line, t.Col)
 }
 
 // declaredAt reports whether (line, col), where the builder's binding is
@@ -227,56 +226,4 @@ func describeRef(sym *analysis.Symbol, local bool) string {
 		return fmt.Sprintf("a declaration that is no body's binding (symbol kind %d at %d:%d)", sym.Kind, sym.Pos.Line, sym.Pos.Col)
 	}
 	return fmt.Sprintf("the binding declared at %d:%d", sym.Pos.Line, sym.Pos.Col)
-}
-
-// localReadCensus counts, while a test has it open, the distinct source
-// sites of each localReadClass verifyLocalRead finds. Only a program's
-// lowering is counted (a gen with a std instance table, not std's own:
-// stdInstances.stdOwn), as the operator census counts: std's lowerings run
-// once a process, or not at all when its bundle is read back.
-var localReadCensus struct {
-	sync.Mutex
-	open  bool
-	seen  map[string]bool
-	sites map[localReadClass][]string
-}
-
-func localReadCensusNote(g *gen, class localReadClass, line, col int) {
-	if g.stdInsts == nil || g.stdInsts.stdOwn {
-		return
-	}
-	c := &localReadCensus
-	c.Lock()
-	defer c.Unlock()
-	if !c.open {
-		return
-	}
-	fa := g.srcFA()
-	path := fa.FilePath
-	if path == "" {
-		path = fa.Origin
-	}
-	site := fmt.Sprintf("%s:%d:%d", path, line, col)
-	key := string(class) + "\x00" + site
-	if c.seen[key] {
-		return
-	}
-	c.seen[key] = true
-	c.sites[class] = append(c.sites[class], site)
-}
-
-// openLocalReadCensus starts counting and answers a function that stops and
-// returns the distinct sites by class.
-func openLocalReadCensus() func() map[localReadClass][]string {
-	c := &localReadCensus
-	c.Lock()
-	c.open, c.seen, c.sites = true, map[string]bool{}, map[localReadClass][]string{}
-	c.Unlock()
-	return func() map[localReadClass][]string {
-		c.Lock()
-		defer c.Unlock()
-		out := c.sites
-		c.open, c.seen, c.sites = false, nil, nil
-		return out
-	}
 }

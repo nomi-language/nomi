@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/frontend"
 )
 
 // `nomi check std` checks std's `_fixtures` tree with the rest of std. Each
@@ -16,7 +17,7 @@ func TestCheckCommand_ChecksTheStdFixtures(t *testing.T) {
 	if err != nil {
 		t.Skipf("no stdlib source tree: %v", err)
 	}
-	files, _, _, err := discoverCheckFiles(stdRoot)
+	files, _, _, err := frontend.CheckedFiles(stdRoot)
 	if err != nil {
 		t.Fatal(err)
 	}

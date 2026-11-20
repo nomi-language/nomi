@@ -39,15 +39,14 @@ func NewLinker() *Linker {
 	return &Linker{syms: map[string]*Symbol{}, defined: map[*Symbol]*Module{}}
 }
 
-// Symbol is the one symbol of a linkage name: the first one this linker saw,
-// decoded or added, else a fresh one.
-func (l *Linker) Symbol(name, link string) *Symbol {
-	if s := l.syms[link]; s != nil {
+// Symbol is the one symbol of written's linkage name: the first one this
+// linker saw, decoded or added, else written.
+func (l *Linker) Symbol(written *Symbol) *Symbol {
+	if s := l.syms[written.link]; s != nil {
 		return s
 	}
-	s := &Symbol{name: name, link: link}
-	l.syms[link] = s
-	return s
+	l.syms[written.link] = written
+	return written
 }
 
 // Add links in-memory modules: their linked symbols become the ones later

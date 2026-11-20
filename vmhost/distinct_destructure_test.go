@@ -53,6 +53,65 @@ end
 	}
 }
 
+// A destructuring statement whose head names a type or a variant is a
+// pattern binding, lowered as the pattern is in a `case` arm: a subtype, a
+// distinct over a subtype's base, `_`, a generic distinct, a distinct of a
+// list, and a one-variant enum's positional, struct and embedded variants.
+func TestDistinctDestructuring_StatementsRunAsPatterns(t *testing.T) {
+	got := runSourceOutput(t, `import std::io
+
+subtype Port Int when fn p -> p >= 1
+
+type Meters Int
+
+derive Comparable for Meters
+
+subtype Short Meters when fn m -> m < Meters(100)
+
+type Items List<Int>
+
+type Wrap<T> T
+
+enum Box
+    Only(Int)
+end
+
+enum Rec
+    Only{a: Int, b: String}
+end
+
+enum Emb
+    embeds Meters
+end
+
+fn main()
+    p: Port = 80
+    Port(n) = p
+    io.inspect(n)
+    Some(s) = Short.try_from(Meters(5)) else return
+    Short(m) = s
+    Meters(mi) = m
+    io.inspect(mi)
+    Meters(_) = m
+    Wrap(w) = Wrap(3)
+    io.inspect(w)
+    Items(xs) = Items([1, 2])
+    io.inspect(xs)
+    Box.Only(b) = Box.Only(4)
+    io.inspect(b)
+    Rec.Only(r) = Rec.Only{a: 1, b: "z"}
+    io.inspect((r.a, r.b))
+    e: Emb = Meters(9)
+    Emb.Meters(ei) = e
+    io.inspect(ei)
+end
+`)
+	want := "80\n5\n3\n[1, 2]\n4\n(1, \"z\")\n9\n"
+	if got != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 // The inner type's name called on a distinct is rejected, prefix and piped,
 // with help naming the destructuring.
 func TestDistinctDestructuring_TheInnerTypesNameDoesNotUnwrap(t *testing.T) {

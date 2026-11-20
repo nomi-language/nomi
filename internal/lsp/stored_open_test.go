@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -25,13 +27,15 @@ import (
 // (analysis/stored_program.go). A server whose document manager wrote the
 // program's record (NoteLoweredClean, after a full check) leaves it in the
 // artifact cache; a second server opens the same documents from it, and a
-// third checks them as a server with no record does. Every request a
-// reader makes of the open documents must answer alike in the two: the
-// published diagnostics, and hover, definition, type definition,
-// implementation, document highlights, references, prepare-rename and
-// rename, completion and signature help at every identifier, and the
-// document's symbols, semantic tokens, inlay hints, code lenses, links
-// and call hierarchy.
+// third checks them as a server with no record does. Each server lowers
+// its open documents as it does in the background (lowerOpen). Every
+// request a reader makes of the open documents must answer alike in the
+// two: the published diagnostics, the lowering's among them, and hover,
+// with what a call or a function reaches outside the machine, definition,
+// type definition, implementation, document highlights, references,
+// prepare-rename and rename, completion and signature help at every
+// identifier, hover at every function's name, and the document's symbols,
+// semantic tokens, inlay hints, code lenses, links and call hierarchy.
 
 // storedProject is a project on disk: its directory and its .nomi files'
 // module keys, the entry first.
@@ -144,12 +148,14 @@ func openServer(p storedProject, keys []string) *Server {
 }
 
 // writeRecord writes p's record as a server does after the entry's
-// lowering finds nothing, and reports whether it was written.
+// lowering finds nothing, with the entry's kept lowering, and reports
+// whether it was written.
 func writeRecord(p storedProject) bool {
 	s := openServer(p, p.keys[:1])
 	text, _ := os.ReadFile(fileuri.ToPath(p.uri(p.keys[0])))
 	_, before := s.docs.StoredPrograms()
-	s.docs.NoteLoweredClean(p.uri(p.keys[0]), string(text), nil)
+	lowerOpen(s, p, p.keys[:1])
+	s.docs.NoteLoweredClean(p.uri(p.keys[0]), string(text), analyzedlowering.Kept)
 	_, after := s.docs.StoredPrograms()
 	return after > before
 }
@@ -201,17 +207,30 @@ func answers(t *testing.T, s *Server, p storedProject, key string, every int) []
 	links, err := s.textDocumentDocumentLink(nil, &protocol.DocumentLinkParams{TextDocument: doc})
 	add("links", links, err)
 	ident := 0
-	for i, tok := range lexer.Lex(content) {
+	lexed := lexer.Lex(content)
+	for i, tok := range lexed {
 		if tok.Type != token.IDENT && tok.Type != token.TYPE_IDENT {
-			continue
-		}
-		if ident++; (ident-1)%every != 0 {
 			continue
 		}
 		at := protocol.TextDocumentPositionParams{TextDocument: doc, Position: protocol.Position{Line: uint32(tok.Line - 1), Character: uint32(tokenUTF16Col(content, tok.Line, tok.Col))}}
 		where := fmt.Sprintf("%d:%d %s", tok.Line, tok.Col, tok.Lexeme)
-		h, err := s.textDocumentHover(nil, &protocol.HoverParams{TextDocumentPositionParams: at})
-		add("hover "+where, h, err)
+		hover := func() {
+			h, err := s.textDocumentHover(nil, &protocol.HoverParams{TextDocumentPositionParams: at})
+			add("hover "+where, h, err)
+			if h != nil && (strings.Contains(out[len(out)-1], "Reaches `") || strings.Contains(out[len(out)-1], "Binds Go: `")) &&
+				(i > 0 && lexed[i-1].Type == token.FN || strings.Contains(out[len(out)-1], " through `")) {
+				functionReachHovers.Add(1)
+			}
+		}
+		if ident++; (ident-1)%every != 0 {
+			// A function's name is always asked about on hover, which
+			// says what the function can reach outside the machine.
+			if i > 0 && lexed[i-1].Type == token.FN {
+				hover()
+			}
+			continue
+		}
+		hover()
 		d, err := s.textDocumentDefinition(nil, &protocol.DefinitionParams{TextDocumentPositionParams: at})
 		add("definition "+where, d, err)
 		td, err := s.textDocumentTypeDefinition(nil, &protocol.TypeDefinitionParams{TextDocumentPositionParams: at})
@@ -279,6 +298,12 @@ func answers(t *testing.T, s *Server, p storedProject, key string, every int) []
 	return out
 }
 
+// functionReachHovers counts the hovers answers asked for that say what a
+// function of the program can reach outside the machine, on its name or
+// through another function (vmhost's reachedFuncs), so a harness can
+// require that it compared some.
+var functionReachHovers atomic.Int64
+
 // sortLocations sorts locations by file and then position, the order a
 // map's iteration does not keep.
 func sortLocations(locs []protocol.Location) {
@@ -323,7 +348,7 @@ func tokenUTF16Col(text string, line, col int) int {
 func compareStored(t *testing.T, p storedProject, every int) (opened, refs bool) {
 	t.Helper()
 	full := openServerWithout(t, p, p.keys)
-	stored := openServer(p, p.keys)
+	stored := openServerFromRecord(p, p.keys)
 	n, _ := stored.docs.StoredPrograms()
 	for _, key := range p.keys {
 		want, got := answers(t, full, p, key, every), answers(t, stored, p, key, every)
@@ -344,7 +369,8 @@ func compareStored(t *testing.T, p storedProject, every int) (opened, refs bool)
 }
 
 // openServerWithout is openServer with the artifact cache off, so nothing
-// is opened from a record.
+// is opened from a record, and its documents lowered with the cache off
+// too, so nothing writes one.
 func openServerWithout(t *testing.T, p storedProject, keys []string) *Server {
 	t.Helper()
 	was := os.Getenv(artifactcache.RootEnv)
@@ -354,7 +380,36 @@ func openServerWithout(t *testing.T, p storedProject, keys []string) *Server {
 	if opened, _ := s.docs.StoredPrograms(); opened > 0 {
 		t.Fatal("a server with the cache off opened a record")
 	}
+	lowerOpen(s, p, keys)
 	return s
+}
+
+// openServerFromRecord is openServer, with its documents lowered.
+func openServerFromRecord(p storedProject, keys []string) *Server {
+	s := openServer(p, keys)
+	lowerOpen(s, p, keys)
+	return s
+}
+
+// lowerOpen runs the lowering of each open document with keys in s, one
+// after another, as the server runs it in the background after an open or
+// an edit (runLoweringChecks), so that the answers read what the runs
+// found: the lowering's diagnostics, and on hover what a call reaches.
+func lowerOpen(s *Server, p storedProject, keys []string) {
+	for _, key := range keys {
+		uri := p.uri(key)
+		snap := s.docs.Snapshot(uri)
+		if snap == nil {
+			continue
+		}
+		c := &s.lowering
+		c.mu.Lock()
+		c.init()
+		ctx, run := c.start(uri, snap.Text)
+		gen := c.gen[uri]
+		c.mu.Unlock()
+		s.runLoweringChecks(ctx, uri, run, gen)
+	}
 }
 
 // storedGenerated is how much of a generated project the stored-record
@@ -395,6 +450,19 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 			projects = append(projects, p)
 		}
 	}
+	// A project whose entry calls a function that reaches outside the
+	// machine through another, so hovers on such calls are compared.
+	reaching := t.TempDir()
+	for name, text := range map[string]string{
+		"nomi.toml":  "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+		"main.nomi":  "import\n    std::io\n    store\nend\n\nfn main()\n    io.print(store.load(\"notes.txt\"))\nend\n",
+		"store.nomi": "import std::fs\n\npub fn load(path: String) -> String\n    read(path) |> String.trim()\nend\n\nfn read(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n",
+	} {
+		if err := os.WriteFile(filepath.Join(reaching, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	projects = append(projects, copyProject(t, reaching, "reaching"))
 	lines, every := storedGenerated(walk)
 	gen := projectgen.Generate(projectgen.Config{Seed: 3, Lines: lines})
 	dir := t.TempDir()
@@ -405,6 +473,7 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	g.keys = []string{gen.Entry, gen.Hub(), gen.Leaf()}
 	projects = append(projects, g)
 	used, refs := 0, 0
+	reachHovers := functionReachHovers.Load()
 	for i, p := range projects {
 		t.Run(p.name, func(t *testing.T) {
 			if !writeRecord(p) {
@@ -431,5 +500,10 @@ func TestOpenFromRecordMatchesAFullCheck(t *testing.T) {
 	// record answers.
 	if refs == 0 {
 		t.Error("no closed file's references were answered from a record")
+	}
+	// The generated project's functions reach outside through others, so
+	// what a function can reach is among the hovers compared.
+	if functionReachHovers.Load() == reachHovers {
+		t.Error("no hover compared said what a function of the program reaches")
 	}
 }

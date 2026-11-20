@@ -105,7 +105,7 @@ func (bl *irScalarBuilder) assertableFailure(k kind) *assertableImpl {
 }
 
 // stdAssertableFailure is a std type's `impl Assertable`, selected by the
-// subject kind as stdEquality selects `impl Equatable`, or nil.
+// subject kind (stdlibImplOf), or nil.
 func (bl *irScalarBuilder) stdAssertableFailure(k kind) *assertableImpl {
 	f := bl.g.stdlibImplOf("Assertable.failure", k, k)
 	if f == nil || !irMaybeKind(f.result) {
@@ -140,7 +140,7 @@ func (bl *irScalarBuilder) assertableAnswer(at ast.Node, a *assertableImpl, subj
 		return v
 	}
 	c := ir.NewCall(bl.g.irNodePos(at), bl.f.NewTemp(), ir.OrdinaryCall,
-		bl.g.irCalleeSym(a.it, "Assertable.failure"), subj)
+		bl.g.irImplSym(a.it), subj)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: a.it.result, deferrable: true})
 	return c.Dst()

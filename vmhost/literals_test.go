@@ -124,7 +124,7 @@ func TestLiteralWithoutSlots_EffectfulHandlerIsACompileError(t *testing.T) {
 		if len(ds) != 1 {
 			t.Fatalf("%s: %d diagnostics, want 1: %v", lit, len(ds), ds)
 		}
-		if want := "typed literal " + lit + " cannot be checked at compile time: its handler has effects (Loud.from_fragments calls io.print)"; ds[0].Message != want {
+		if want := "typed literal " + lit + " cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)"; ds[0].Message != want {
 			t.Errorf("message = %q, want %q", ds[0].Message, want)
 		}
 		if want := "call one of `Loud`'s functions instead"; len(ds[0].Hints) != 1 || !strings.Contains(ds[0].Hints[0], want) {
@@ -219,7 +219,7 @@ func TestLiteralWithoutSlots_InfallibleHandlerRunsAtCompileTime(t *testing.T) {
 	}
 	loud := handler("        io.print(\"building\")\n        Word{text: Int.to_string(Iter.count(fragments))}\n")
 	ds = literalDiagnostics(t, loud+"fn main()\n    io.print(Word`x`.text)\nend\n")
-	if want := "typed literal Word`x` cannot be checked at compile time: its handler has effects (Word.from_fragments calls io.print)"; len(ds) != 1 || ds[0].Message != want {
+	if want := "typed literal Word`x` cannot be checked at compile time: its handler has effects (Literal.from_fragments for Word calls io.print)"; len(ds) != 1 || ds[0].Message != want {
 		t.Errorf("an effectful handler: diagnostics = %v, want %q", ds, want)
 	}
 	if _, err := LoadSource("main", traps+"fn main()\n    s = \"x\"\n    io.print(Word\"${s}\".text)\nend\n"); err != nil {

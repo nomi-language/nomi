@@ -1622,8 +1622,7 @@ func CheckTypes(fa *FileAnalysis, nodes []ast.Node) []TypeError {
 			c.checkTestDecl(n)
 		case *ast.With:
 			c.addError(n.Line, n.Col, "a `with` statement belongs in a block, such as a function body: it replaces the field until that block ends")
-		case *ast.Binding, *ast.TupleDestructure, *ast.StructDestructure,
-			*ast.PatternDestructure, *ast.DistinctDestructure, *ast.PatternBinding,
+		case *ast.Binding, *ast.PatternDestructure, *ast.PatternBinding,
 			*ast.ExprStmt, *ast.Assertion, *ast.Defer, *ast.Return:
 			c.fileLevelStatement(n)
 		case *ast.StructDef:
@@ -5305,20 +5304,11 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 	case *ast.Binding:
 		return c.checkBinding(n)
 
-	case *ast.TupleDestructure:
-		return c.checkTupleDestructure(n)
-
-	case *ast.StructDestructure:
-		return c.checkStructDestructure(n)
-
 	case *ast.PatternDestructure:
 		return c.checkPatternDestructure(n)
 
 	case *ast.PatternBinding:
 		return c.checkPatternBinding(n)
-
-	case *ast.DistinctDestructure:
-		return c.checkDistinctDestructure(n)
 
 	case *ast.Block:
 		return c.checkBlock(n)
@@ -5429,14 +5419,18 @@ func (c *checker) checkNodeType(node ast.Node) Type {
 		// Without this arm `fn f() { struct Cfg { port: Int = "x" } ... }` is
 		// the bypass for the whole check.
 		c.checkStructDefFieldDefaults(n)
-		// nil, not TypeUnit: these arms previously fell to the switch's
-		// `default: return nil`, and a block whose final statement is a type
-		// declaration would otherwise change its inferred result type.
-		return nil
+		return TypeUnit
 
 	case *ast.EnumDef:
 		c.checkEnumDefFieldDefaults(n)
-		return nil
+		return TypeUnit
+
+	case *ast.TypeDef, *ast.TypeAlias, *ast.InterfaceDef, *ast.ImportStmt:
+		// A declaration in a body is a statement, and a statement's value
+		// is Unit: a body that ends in one returns Unit, as one ending in
+		// a binding or a `defer` does (spec §9 *Statements and the Unit
+		// rule*).
+		return TypeUnit
 
 	case *ast.StructLit:
 		return c.checkStructLit(n)
@@ -5965,7 +5959,9 @@ const NoTypeMemberCode = "no-type-member"
 // checkImplReceiverDeclared reports an impl block whose receiver names no
 // type, at the name: `impl Greeter for Peon` with no `Peon` declared. Its
 // functions were otherwise registered for a type nothing can hold, and a
-// same-owner call into them reached the IR builder.
+// same-owner call into them reached the IR builder. A receiver that writes
+// type arguments the type does not take (`impl S<Int>` for `struct S`) is
+// reported the same way.
 func (c *checker) checkImplReceiverDeclared(n *ast.ImplBlock) {
 	if n.Receiver == nil {
 		return
@@ -5977,7 +5973,7 @@ func (c *checker) checkImplReceiverDeclared(n *ast.ImplBlock) {
 		// there; resolving it here records its type.
 		return
 	}
-	if te, isTypeErr := err.(TypeError); isTypeErr && te.Code == UnknownTypeCode {
+	if te, isTypeErr := err.(TypeError); isTypeErr && (te.Code == UnknownTypeCode || te.Code == TypeArgCountCode) {
 		c.report(te)
 		return
 	}
@@ -5990,7 +5986,9 @@ func (c *checker) checkImplReceiverDeclared(n *ast.ImplBlock) {
 // and, when that fails, skips every conformance check, and the builder
 // reports only an interface name that is not declared. So the block was
 // accepted and its functions registered under an interface instantiation no
-// one could name, which a `+` on the receiver then reached.
+// one could name, which a `+` on the receiver then reached. When every
+// argument resolves, a header that writes more or fewer than the interface
+// takes is reported at the interface's name (checkArity).
 func (c *checker) checkImplInterfaceArgsResolve(n *ast.ImplBlock) {
 	te := n.Interface
 	if q, ok := te.(*ast.QualifiedType); ok {
@@ -6001,11 +5999,22 @@ func (c *checker) checkImplInterfaceArgsResolve(n *ast.ImplBlock) {
 		return
 	}
 	blockTP, _ := buildImplBlockTypeParams(c.fa, c.reg, n)
+	argsResolve := true
 	for _, arg := range g.Params {
 		if _, err := ResolveTypeExpr(arg, c.reg, blockTP, nil); err != nil {
+			argsResolve = false
 			if typeErr, isTypeErr := err.(TypeError); isTypeErr {
 				c.report(typeErr)
 			}
+		}
+	}
+	if !argsResolve {
+		return
+	}
+	// The interface takes as many type arguments as the header writes.
+	if _, err := ResolveTypeExpr(n.Interface, c.reg, blockTP, nil); err != nil {
+		if typeErr, isTypeErr := err.(TypeError); isTypeErr && typeErr.Code == TypeArgCountCode {
+			c.report(typeErr)
 		}
 	}
 }
@@ -9749,9 +9758,13 @@ func (c *checker) typeQualifierName(n ast.Node) string {
 	}
 }
 
+// isTestingCheckCall reports whether n is `testing.check(e)` with
+// `testing` a module: a local, parameter or pattern binding of that name
+// shadows the import (isModuleObject), and `testing.check(e)` over it calls
+// the value's field.
 func (c *checker) isTestingCheckCall(n *ast.Call) bool {
 	fa, ok := n.Func.(*ast.FieldAccess)
-	if !ok || fa.Field == nil || fa.Field.Name != "check" {
+	if !ok || fa.Field == nil || fa.Field.Name != "check" || !c.isModuleObject(fa.Object) {
 		return false
 	}
 	switch obj := fa.Object.(type) {
@@ -11024,6 +11037,7 @@ func (c *checker) checkGenericCall(n *ast.Call, ft *FuncType, skipReturnInfer bo
 			// resolves through the type-method symbol, where there is
 			// no SelfParam to read, and recorded nothing at all. See
 			// impl_call_demand.go.
+			c.solveSelfFromTypeQualifier(fa, ft, subs)
 			c.recordTypeQualifiedImplDemand(n, fa, ft, subs)
 		}
 	}
@@ -11808,6 +11822,20 @@ func (c *checker) interfaceSelfUnmet(concrete Type, iface *InterfaceType) bool {
 		}
 	}
 	return true
+}
+
+// solveSelfFromTypeQualifier solves the `self` of an interface function a
+// type's qualifier reaches (an inherited default, `Pot.zero()` with `fn
+// zero() -> self`) at that type, where no argument solved it: the function
+// called through a type is the function at that type.
+func (c *checker) solveSelfFromTypeQualifier(fa *ast.FieldAccess, ft *FuncType, subs map[*TypeParam_]Type) {
+	self := collectTypeParamsByName(ft)["self"]
+	if self == nil || subs[self] != nil {
+		return
+	}
+	if q := c.fa.qualifierType(fa); q != nil {
+		subs[self] = q
+	}
 }
 
 // recordCallSelf records self as the `self` type argument
@@ -13508,160 +13536,47 @@ func (c *checker) partialAppParamNames(call *ast.Call) []string {
 	return names
 }
 
-func (c *checker) checkTupleDestructure(n *ast.TupleDestructure) Type {
-	for _, b := range n.Bindings {
-		if b == nil {
-			continue
-		}
-		c.validateBindingLikeName(b.Name, b.Line, b.Col, "binding name")
-	}
-	valTy := c.checkNode(n.Value)
-
-	if valTy == nil {
-		return TypeUnit
-	}
-
-	tt, ok := valTy.(*TupleType)
-	if !ok {
-		c.addError(n.Line, n.Col, c.typef("tuple destructure requires a tuple type, got %s", valTy))
-		return TypeUnit
-	}
-
-	if len(n.Bindings) != len(tt.Elems) {
-		c.addError(n.Line, n.Col, fmt.Sprintf("tuple destructure has %d bindings but tuple has %d elements", len(n.Bindings), len(tt.Elems)))
-		return TypeUnit
-	}
-
-	discard := 0
-	for i, binding := range n.Bindings {
-		if binding == nil {
-			// wildcard _
-			if discard < len(n.Discards) {
-				c.fa.recordPatternType(n.Discards[discard], tt.Elems[i])
+// checkTuplePattern checks a tuple pattern of n parts written at (line,
+// col) against expectedTy, each part by part: against the tuple's element
+// type, or nil when the value is no tuple of n elements.
+func (c *checker) checkTuplePattern(line, col, n int, expectedTy Type, part func(i int, ty Type)) {
+	each := func(elems []Type) {
+		for i := 0; i < n; i++ {
+			var ty Type
+			if elems != nil {
+				ty = elems[i]
 			}
-			discard++
-			continue
-		}
-		sym := c.fa.Definitions[Pos{Line: binding.Line, Col: binding.Col}]
-		if sym != nil {
-			sym.Type = tt.Elems[i]
+			part(i, ty)
 		}
 	}
-	var sites []patternSite
-	for _, b := range n.Bindings {
-		if b != nil {
-			sites = append(sites, patternSite{b.Name, Pos{Line: b.Line, Col: b.Col}})
-		}
+	if expectedTy == nil {
+		each(nil)
+		return
 	}
-	c.noteDestructureBindings(sites, n.Value)
-
-	return TypeUnit
+	tt, ok := expectedTy.(*TupleType)
+	if !ok {
+		c.addError(line, col, c.typef("tuple pattern requires a tuple type, got %s", expectedTy))
+		each(nil)
+		return
+	}
+	if n != len(tt.Elems) {
+		c.addError(line, col, fmt.Sprintf("tuple pattern has %d elements but expected %d", n, len(tt.Elems)))
+		each(nil)
+		return
+	}
+	each(tt.Elems)
 }
 
-func (c *checker) checkStructDestructure(n *ast.StructDestructure) Type {
-	for _, f := range n.Fields {
-		if f.Binding == "" {
-			continue
-		}
-		line := structPatternFieldBindingLine(f, n.Line)
-		c.validateBindingLikeName(f.Binding, line, f.BindingCol, "binding name")
+// checkPatternName checks the name a pattern binds at (line, col) to a value
+// of type ty.
+func (c *checker) checkPatternName(name string, line, col int, ty Type) {
+	c.validateBindingLikeName(name, line, col, "binding name")
+	if ty == nil {
+		return
 	}
-	valTy := c.checkNode(n.Value)
-
-	if valTy == nil {
-		return TypeUnit
+	if sym := c.fa.Definitions[Pos{Line: line, Col: col}]; sym != nil {
+		sym.Type = ty
 	}
-
-	var fields []FieldDef
-	var structName string
-	var subs map[*TypeParam_]Type
-
-	switch st := valTy.(type) {
-	case *StructType:
-		fields = st.Fields
-		structName = st.Name
-		if len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == len(st.TypeParamDefs) {
-			subs = make(map[*TypeParam_]Type, len(st.TypeParamDefs))
-			for i, def := range st.TypeParamDefs {
-				subs[def] = st.TypeArgs[i]
-			}
-		}
-	case *AnonStructType:
-		fields = st.Fields
-		structName = st.String()
-	default:
-		c.addError(n.Line, n.Col, c.typef("struct destructure requires a struct type, got %s", valTy))
-		return TypeUnit
-	}
-
-	_, anon := valTy.(*AnonStructType)
-	for _, f := range n.Fields {
-		var fieldType Type
-		var field FieldDef
-		found := false
-		for _, sf := range fields {
-			if sf.Name == f.Name {
-				fieldType = sf.Type
-				field = sf
-				found = true
-				break
-			}
-		}
-		if !found {
-			c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("field %s not found in type %s", f.Name, structName)}.WithHint(didYouMean(f.Name, fieldNames(fields))))
-			continue
-		}
-		if fieldType != nil && subs != nil {
-			fieldType = Substitute(fieldType, subs)
-		}
-		if f.Binding != "" {
-			line := structPatternFieldBindingLine(f, n.Line)
-			sym := c.fa.Definitions[Pos{Line: line, Col: f.BindingCol}]
-			if sym != nil {
-				sym.Type = fieldType
-			}
-		}
-		// Hover on the field-name key (`x` in `{x: a} = expr`) shows the
-		// field's type from the struct definition. Skip when the field is
-		// a punning binding (`{x:} = expr`, `Name == Binding` at the same
-		// position) — the SymbolBinding registered by the builder already
-		// occupies that position, and registering a second symbol at the
-		// same position fights the binding for semantic-token coloring.
-		bindingLine := structPatternFieldBindingLine(f, n.Line)
-		punning := f.Binding == f.Name && f.NameLine == bindingLine && f.NameCol == f.BindingCol
-		// An anonymous struct's field read here is a reference to where
-		// its literal or type declares it (anonFieldDeclared): the key, or
-		// for a punned field the label PunnedFieldLabels keeps beside the
-		// binding, as a punned literal label is kept.
-		if anon && f.NameLine > 0 && fieldType != nil && !IsSynthesizedLine(f.NameLine) {
-			if decl := c.anonFieldDeclared(field); decl != nil {
-				pos := Pos{Line: f.NameLine, Col: f.NameCol}
-				if punning {
-					c.fa.setPunnedFieldLabel(pos, decl)
-				} else {
-					c.fa.References[pos] = decl
-				}
-				continue
-			}
-		}
-		if f.NameLine > 0 && fieldType != nil && !punning {
-			c.fa.References[Pos{Line: f.NameLine, Col: f.NameCol}] = &Symbol{
-				Name: f.Name,
-				Kind: SymbolField,
-				Pos:  Pos{Line: f.NameLine, Col: f.NameCol},
-				Type: fieldType,
-			}
-		}
-	}
-	var sites []patternSite
-	for _, f := range n.Fields {
-		if f.Binding != "" {
-			sites = append(sites, patternSite{f.Binding, Pos{Line: structPatternFieldBindingLine(f, n.Line), Col: f.BindingCol}})
-		}
-	}
-	c.noteDestructureBindings(sites, n.Value)
-
-	return TypeUnit
 }
 
 // checkMapPatternEntries type-checks one map pattern's entries: the KEY as an
@@ -13783,15 +13698,6 @@ func tryUnwrapHint(et *EnumType, variant, binding string, value ast.Node) string
 	}
 	return fmt.Sprintf("`%s(%s)` does not match %s. To unwrap the `%s` and return early on %s, %s",
 		variant, binding, missed, et.Name, other, fix)
-}
-
-// variantNameOfDotted is the last segment of a written name:
-// `Maybe.Some` is "Some".
-func variantNameOfDotted(name string) string {
-	if i := strings.LastIndex(name, "."); i >= 0 {
-		return name[i+1:]
-	}
-	return name
 }
 
 // noFallbackPayloadMessage is the error for an `else` path that produces a
@@ -13957,118 +13863,6 @@ func (c *checker) bindingFallbackPayload(pattern ast.Node, t Type) (Type, string
 		return nil, "", false
 	}
 	return payload, name, true
-}
-
-func (c *checker) checkDistinctDestructure(n *ast.DistinctDestructure) Type {
-	if n.Binding != nil {
-		c.validateBindingLikeName(n.Binding.Name, n.Binding.Line, n.Binding.Col, "binding name")
-	}
-	valTy := c.checkNode(n.Value)
-
-	if valTy == nil {
-		return TypeUnit
-	}
-
-	dt, ok := valTy.(*DistinctType)
-	if !ok {
-		if et, isEnum := valTy.(*EnumType); isEnum && len(et.Variants) > 1 {
-			// `Some(x) = maybe`: a variant pattern, which can fail.
-			binding := "_"
-			if n.Binding != nil {
-				binding = n.Binding.Name
-			}
-			e := TypeError{Line: n.Line, Col: n.Col, Message: refutableBindingMessage(valTy)}
-			if hint := tryUnwrapHint(et, variantNameOfDotted(n.TypeName), binding, n.Value); hint != "" {
-				e.Hints = []string{hint}
-			}
-			c.report(e)
-			return TypeUnit
-		}
-		if et, isEnum := valTy.(*EnumType); isEnum && len(et.Variants) == 1 {
-			c.checkSingleVariantDestructure(n, et)
-			return TypeUnit
-		}
-		c.addError(n.Line, n.Col, c.typef("distinct type destructure requires a distinct type, got %s", valTy))
-		return TypeUnit
-	}
-
-	prefix := n.TypeNameExpr
-	if prefix == nil {
-		prefix = &ast.SimpleType{Name: n.TypeName, Line: n.Line, Col: n.Col}
-	}
-	if !c.patternNamesDistinct(prefix, dt, n.Line, n.Col) {
-		return TypeUnit
-	}
-	c.fa.recordPatternType(n, dt)
-
-	if n.Binding != nil {
-		sym := c.fa.Definitions[Pos{Line: n.Binding.Line, Col: n.Binding.Col}]
-		if inner := distinctInnerOf(dt); sym != nil && inner != nil {
-			sym.Type = inner
-		}
-		c.noteDestructureBindings([]patternSite{{n.Binding.Name, Pos{Line: n.Binding.Line, Col: n.Binding.Col}}}, n.Value)
-	}
-
-	return TypeUnit
-}
-
-// checkSingleVariantDestructure checks `E.V(x) = value` over an enum with one
-// variant. The pattern is irrefutable, as it is as a parameter (§7), and x
-// binds the variant's payload as a `case` arm's `E.V(x)` would: the payload
-// value, or the record of a struct-shaped variant's fields.
-func (c *checker) checkSingleVariantDestructure(n *ast.DistinctDestructure, et *EnumType) {
-	if qt, ok := n.TypeNameExpr.(*ast.QualifiedType); ok && !c.checkPatternQualifier(qt, et) {
-		return
-	}
-	if et.Opaque && (c.fa == nil || !c.fa.inside(et.OwningSourceFile)) {
-		c.addError(n.Line, n.Col, fmt.Sprintf(
-			"cannot destructure opaque type '%s' outside its defining module", et.Name))
-		return
-	}
-	v := &et.Variants[0]
-	name := variantNameOfDotted(n.TypeName)
-	if st, ok := n.TypeNameExpr.(*ast.SimpleType); ok {
-		pos := Pos{Line: st.Line, Col: st.Col}
-		if sym := c.fa.References[pos]; sym != nil && sym.Resolved != nil && sym.Resolved.Name != "" {
-			name = sym.Resolved.Name
-		}
-		if name == v.Name && !c.allowsBareVariantPattern(st.Name, pos) {
-			c.addError(st.Line, st.Col, bareVariantPatternMessage(st.Name, et.Name))
-			return
-		}
-	}
-	if name != v.Name {
-		c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("variant %s not found in enum %s", name, et.Name)}.WithHint(didYouMean(name, variantNames(et))))
-		return
-	}
-	c.fa.recordPatternType(n, et)
-	if n.TypeNameExpr != nil {
-		c.fa.recordPatternVariant(n.TypeNameExpr, v.Name)
-	}
-	subs := enumTypeArgSubs(et)
-	var payload Type
-	switch {
-	case v.DataType != nil:
-		payload = v.DataType
-		if subs != nil {
-			payload = Substitute(payload, subs)
-		}
-	case v.Kind == VariantStruct && len(v.Fields) > 0:
-		payload = variantFieldsRecord(v, subs)
-	case v.Kind == VariantEmbedded && v.Embedded != nil:
-		// A zero-sized embed's payload is the marker itself.
-		payload = v.Embedded
-	default:
-		c.addError(n.Line, n.Col, fmt.Sprintf(
-			"variant %s carries no data; use the bare pattern %s", v.Name, v.Name))
-		return
-	}
-	if n.Binding != nil {
-		if sym := c.fa.Definitions[Pos{Line: n.Binding.Line, Col: n.Binding.Col}]; sym != nil {
-			sym.Type = payload
-		}
-		c.noteDestructureBindings([]patternSite{{n.Binding.Name, Pos{Line: n.Binding.Line, Col: n.Binding.Col}}}, n.Value)
-	}
 }
 
 func (c *checker) checkIf(n *ast.If, expected Type) Type {
@@ -16950,8 +16744,10 @@ func (c *checker) checkAsPattern(n *ast.AsPattern, expectedTy Type) {
 	}
 }
 
-// checkPattern assigns expectedTy to the symbols introduced by a pattern.
-// It handles Wildcard, Ident, Tuple, Enum, Struct, List, and Map patterns.
+// checkPattern checks a pattern against expectedTy, the type of the value it
+// matches, records that type for it (PatternTypes) and types the names it
+// binds. It handles Wildcard, Ident, Tuple, Enum, Struct, List, and Map
+// patterns.
 func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 	// A payload type reached through a generic call can be a TypeVar bound
 	// to the concrete type (`pick<T>(...)` returning `Opt<T>`, T bound to a
@@ -16979,13 +16775,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			}
 		}
 	case *ast.IdentPattern:
-		c.validateBindingLikeName(n.Name, n.Line, n.Col, "binding name")
-		if expectedTy != nil {
-			sym := c.fa.Definitions[Pos{Line: n.Line, Col: n.Col}]
-			if sym != nil {
-				sym.Type = expectedTy
-			}
-		}
+		c.checkPatternName(n.Name, n.Line, n.Col, expectedTy)
 	case *ast.AsPattern:
 		c.checkAsPattern(n, expectedTy)
 	case *ast.OrPattern:
@@ -17024,32 +16814,13 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 		c.checkPattern(binding, TypeString)
 	case *ast.TuplePattern:
-		if expectedTy == nil {
-			for _, sub := range n.Patterns {
-				c.checkPattern(sub, nil)
-			}
-			return
-		}
-		tt, ok := expectedTy.(*TupleType)
-		if !ok {
-			c.addError(n.Line, n.Col, c.typef("tuple pattern requires a tuple type, got %s", expectedTy))
-			for _, sub := range n.Patterns {
-				c.checkPattern(sub, nil)
-			}
-			return
-		}
-		if len(n.Patterns) != len(tt.Elems) {
-			c.addError(n.Line, n.Col, fmt.Sprintf("tuple pattern has %d elements but expected %d", len(n.Patterns), len(tt.Elems)))
-			for _, sub := range n.Patterns {
-				c.checkPattern(sub, nil)
-			}
-			return
-		}
-		for i, sub := range n.Patterns {
-			c.checkPattern(sub, tt.Elems[i])
-		}
+		c.checkTuplePattern(n.Line, n.Col, len(n.Patterns), expectedTy, func(i int, ty Type) {
+			c.checkPattern(n.Patterns[i], ty)
+		})
 
 	case *ast.EnumPattern:
+		// The name of `V(name)` is a binding, as an IdentPattern payload is.
+		c.validateBindingLikeName(n.Binding, n.Line, n.BindingCol, "binding name")
 		if _, isSelf := n.Variant.(*ast.SelfType); isSelf {
 			c.checkSelfPattern(n, expectedTy)
 			return
@@ -17144,6 +16915,14 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 		et, ok := expectedTy.(*EnumType)
 		if !ok {
+			if named, err := c.patternPrefixType(n.Variant); err == nil {
+				if _, isDistinct := resolveTypeVar(named).(*DistinctType); isDistinct {
+					// `Meters(n)` over an Int: the head names a distinct
+					// type, which the value is not.
+					c.addError(n.Line, n.Col, c.typef("pattern names %s, but the value is %s", named, withArticle(c.typef("%s", expectedTy))))
+					return
+				}
+			}
 			e := TypeError{Line: n.Line, Col: n.Col, Message: c.typef("enum pattern requires an enum type, got %s", expectedTy)}
 			if lit := c.caseLiteral; lit != nil {
 				e.Hints = []string{fmt.Sprintf("a `%s` literal is a %s, not a Result: it is checked when the program is checked", lit.Tag, expectedTy)}
@@ -17251,213 +17030,7 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 		}
 
 	case *ast.StructPattern:
-		if expectedTy == nil {
-			for _, f := range n.Fields {
-				if f.Pattern != nil {
-					c.checkPattern(f.Pattern, nil)
-				}
-			}
-			return
-		}
-		var fields []FieldDef
-		var structName string
-		var subs map[*TypeParam_]Type
-		// declared is the struct whose declaration names the fields, for a
-		// key's reference to its field.
-		var declared *StructType
-		switch st := expectedTy.(type) {
-		case *StructType:
-			// Opaque-types: destructuring an opaque struct (inline-body
-			// opaque) from outside its owning module exposes the field
-			// representation. Block it; same-module destructuring is the
-			// owner's right.
-			if st.Opaque && (c.fa == nil || !c.fa.inside(st.OwningSourceFile)) {
-				c.addError(n.Line, n.Col, fmt.Sprintf(
-					"cannot destructure opaque type '%s' outside its defining module", st.Name))
-				return
-			}
-			if !c.structPatternNames(n, st) {
-				c.checkPatternFieldsUntyped(n)
-				return
-			}
-			fields = st.Fields
-			structName = st.Name
-			declared = st
-			if len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == len(st.TypeParamDefs) {
-				subs = make(map[*TypeParam_]Type, len(st.TypeParamDefs))
-				for i, def := range st.TypeParamDefs {
-					subs[def] = st.TypeArgs[i]
-				}
-			}
-		case *AnonStructType:
-			if n.TypeName != nil {
-				// `Person{name:} = {name: "Ada"}`: an anonymous struct is no
-				// declared struct's value (no width or nominal subtyping),
-				// so the named pattern never describes it.
-				if c.structPatternTypeKnown(n) {
-					c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
-						"struct pattern names %s, but the value is the anonymous struct %s",
-						n.TypeName.TypeString(), st)}.WithHint(
-						"drop the type name to destructure an anonymous struct"))
-				}
-				c.checkPatternFieldsUntyped(n)
-				return
-			}
-			fields = st.Fields
-			structName = st.String()
-		case *EnumType:
-			// Struct variant pattern: Error.HttpError{status, message}
-			// Look up the variant from the pattern's TypeName.
-			variantName := ""
-			if n.TypeName != nil {
-				switch v := n.TypeName.(type) {
-				case *ast.QualifiedType:
-					if !c.checkPatternQualifier(v, st) {
-						for _, f := range n.Fields {
-							if f.Pattern != nil {
-								c.checkPattern(f.Pattern, nil)
-							}
-						}
-						return
-					}
-					variantName = v.Member.TypeString()
-				case *ast.SimpleType:
-					variantName = v.Name
-					// An aliased drill-through import (`Of as O`) names
-					// the variant by its alias; follow it to the real name,
-					// as the EnumPattern path does.
-					if sym, ok := c.fa.References[Pos{Line: v.Line, Col: v.Col}]; ok && sym.Resolved != nil && sym.Resolved.Name != "" {
-						variantName = sym.Resolved.Name
-					}
-				case *ast.DotVariantType:
-					// Dot-leading struct-variant pattern (`.Rect{w:, h:}`).
-					// The scrutinee's type pins the enum; record a hover/
-					// go-to-def reference at the identifier position so the
-					// LSP can resolve the variant the way it does for the
-					// qualified form.
-					variantName = v.Name
-					v.ResolvedEnum = st.Name
-					c.recordDotVariantReference(v.Name, v.Line, v.Col, st)
-				}
-			}
-			vd := findVariant(st, variantName)
-			if vd == nil {
-				c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("variant %s not found in enum %s", variantName, st.Name)}.WithHint(didYouMean(variantName, variantNames(st))))
-				for _, f := range n.Fields {
-					if f.Pattern != nil {
-						c.checkPattern(f.Pattern, nil)
-					}
-				}
-				return
-			}
-			c.fa.recordPatternVariant(n.TypeName, vd.Name)
-			// Bare-prefix struct-variant pattern (`Rect{w:, h:}` against an
-			// enum scrutinee): the same rule as EnumPattern's above, so a
-			// drill-through import (`import shapes.Holder.{Of}`) is
-			// accepted and a same-file variant is not.
-			if sst, ok := n.TypeName.(*ast.SimpleType); ok && !c.allowsBareVariantPattern(sst.Name, Pos{Line: sst.Line, Col: sst.Col}) {
-				c.addError(sst.Line, sst.Col, bareVariantPatternMessage(sst.Name, st.Name))
-			}
-			fields = vd.Fields
-			structName = vd.Name
-			// Embed variants carry their fields on the underlying struct's
-			// DataType, not on `vd.Fields` (which is empty). Mirror what
-			// `fieldTypeFromObject` does for `*EnumType` field access so
-			// `case s { Shape.Rectangle{width:, height:} -> ... }` can
-			// destructure through to the embedded struct.
-			if len(fields) == 0 && vd.DataType != nil {
-				if est, ok := vd.DataType.(*StructType); ok {
-					fields = est.Fields
-					if structName == "" {
-						structName = est.Name
-					}
-				}
-			}
-			if len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == len(st.TypeParamDefs) {
-				subs = make(map[*TypeParam_]Type, len(st.TypeParamDefs))
-				for i, def := range st.TypeParamDefs {
-					subs[def] = st.TypeArgs[i]
-				}
-			}
-		default:
-			c.addError(n.Line, n.Col, c.typef("struct pattern requires a struct type, got %s", expectedTy))
-			for _, f := range n.Fields {
-				if f.Pattern != nil {
-					c.checkPattern(f.Pattern, nil)
-				}
-			}
-			return
-		}
-		for _, f := range n.Fields {
-			var fieldType Type
-			found := false
-			for _, sf := range fields {
-				if sf.Name == f.Name {
-					fieldType = sf.Type
-					found = true
-					break
-				}
-			}
-			if !found {
-				c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("field %s not found in type %s", f.Name, structName)}.WithHint(didYouMean(f.Name, fieldNames(fields))))
-				if f.Pattern != nil {
-					c.checkPattern(f.Pattern, nil)
-				}
-				continue
-			}
-			if fieldType != nil && subs != nil {
-				fieldType = Substitute(fieldType, subs)
-			}
-			if f.Pattern != nil {
-				c.checkPattern(f.Pattern, fieldType)
-			} else if f.Binding != "" {
-				line := structPatternFieldBindingLine(f, n.Line)
-				sym := c.fa.Definitions[Pos{Line: line, Col: f.BindingCol}]
-				if sym != nil {
-					sym.Type = fieldType
-				}
-			}
-			// The field-name key (`x` in `case p { {x: a} -> ...}`) refers
-			// to the field: its declaration when the struct's is known, so
-			// hover, references and rename reach it, else a symbol at the
-			// key for hover. A punned key (`{x:}`, `Name == Binding` at the
-			// same position) is the binding's definition too: its field
-			// goes beside it in PunnedFieldLabels, as a punned literal
-			// label's does.
-			bindingLine := structPatternFieldBindingLine(f, n.Line)
-			punning := f.Binding == f.Name && f.NameLine == bindingLine && f.NameCol == f.BindingCol
-			if f.NameLine > 0 && fieldType != nil && !IsSynthesizedLine(f.NameLine) {
-				keyPos := Pos{Line: f.NameLine, Col: f.NameCol}
-				var ref *Symbol
-				if declared != nil {
-					if structSym := c.structDeclSymbol(declared); structSym != nil {
-						real := structSym
-						if real.Resolved != nil {
-							real = real.Resolved
-						}
-						if fieldSym, ok := real.Members[f.Name]; ok && fieldSym.Kind == SymbolField {
-							proxy := *fieldSym
-							proxy.Type = fieldType
-							ref = &proxy
-						}
-					}
-				}
-				switch {
-				case punning && ref != nil:
-					c.fa.setPunnedFieldLabel(keyPos, ref)
-				case punning:
-				case ref != nil:
-					c.fa.References[keyPos] = ref
-				default:
-					c.fa.References[keyPos] = &Symbol{
-						Name: f.Name,
-						Kind: SymbolField,
-						Pos:  keyPos,
-						Type: fieldType,
-					}
-				}
-			}
-		}
+		c.checkStructPattern(n, expectedTy)
 
 	case *ast.ListPattern:
 		// A bracket pattern takes apart the collection its subject is.
@@ -17650,6 +17223,224 @@ func (c *checker) checkPattern(pattern ast.Node, expectedTy Type) {
 			return
 		}
 		c.checkMapPatternEntries(n.Entries, mt.Val)
+	}
+}
+
+// checkStructPattern checks the struct pattern n against expectedTy: a
+// struct, an anonymous struct, or an enum whose struct variant n names.
+// checkPattern, its one caller, records n itself.
+func (c *checker) checkStructPattern(n *ast.StructPattern, expectedTy Type) {
+	// A field with no pattern (`{x:}`, `{x: a}`) binds a name, as an
+	// IdentPattern does.
+	for _, f := range n.Fields {
+		if f.Pattern == nil {
+			c.validateBindingLikeName(f.Binding, structPatternFieldBindingLine(f, n.Line), f.BindingCol, "binding name")
+		}
+	}
+	if expectedTy == nil {
+		c.checkPatternFieldsUntyped(n)
+		return
+	}
+	if _, isEnum := expectedTy.(*EnumType); isEnum && n.TypeName == nil {
+		// `{w:}` names no variant, so no value of an enum is one it takes
+		// apart.
+		c.addError(n.Line, n.Col, c.typef("struct pattern requires a struct type, got %s", expectedTy))
+		c.checkPatternFieldsUntyped(n)
+		return
+	}
+	var fields []FieldDef
+	var structName string
+	var subs map[*TypeParam_]Type
+	// declared is the struct whose declaration names the fields, for a
+	// key's reference to its field.
+	var declared *StructType
+	switch st := expectedTy.(type) {
+	case *StructType:
+		// Opaque-types: destructuring an opaque struct (inline-body
+		// opaque) from outside its owning module exposes the field
+		// representation. Block it; same-module destructuring is the
+		// owner's right.
+		if st.Opaque && (c.fa == nil || !c.fa.inside(st.OwningSourceFile)) {
+			c.addError(n.Line, n.Col, fmt.Sprintf(
+				"cannot destructure opaque type '%s' outside its defining module", st.Name))
+			return
+		}
+		if !c.structPatternNames(n, st) {
+			c.checkPatternFieldsUntyped(n)
+			return
+		}
+		fields = st.Fields
+		structName = st.Name
+		declared = st
+		if len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == len(st.TypeParamDefs) {
+			subs = make(map[*TypeParam_]Type, len(st.TypeParamDefs))
+			for i, def := range st.TypeParamDefs {
+				subs[def] = st.TypeArgs[i]
+			}
+		}
+	case *AnonStructType:
+		if n.TypeName != nil {
+			// `Person{name:} = {name: "Ada"}`: an anonymous struct is no
+			// declared struct's value (no width or nominal subtyping),
+			// so the named pattern never describes it.
+			if c.structPatternTypeKnown(n) {
+				c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf(
+					"struct pattern names %s, but the value is the anonymous struct %s",
+					n.TypeName.TypeString(), st)}.WithHint(
+					"drop the type name to destructure an anonymous struct"))
+			}
+			c.checkPatternFieldsUntyped(n)
+			return
+		}
+		fields = st.Fields
+		structName = st.String()
+	case *EnumType:
+		// Struct variant pattern: Error.HttpError{status, message}
+		// Look up the variant from the pattern's TypeName.
+		variantName := ""
+		if n.TypeName != nil {
+			switch v := n.TypeName.(type) {
+			case *ast.QualifiedType:
+				if !c.checkPatternQualifier(v, st) {
+					c.checkPatternFieldsUntyped(n)
+					return
+				}
+				variantName = v.Member.TypeString()
+			case *ast.SimpleType:
+				variantName = v.Name
+				// An aliased drill-through import (`Of as O`) names
+				// the variant by its alias; follow it to the real name,
+				// as the EnumPattern path does.
+				if sym, ok := c.fa.References[Pos{Line: v.Line, Col: v.Col}]; ok && sym.Resolved != nil && sym.Resolved.Name != "" {
+					variantName = sym.Resolved.Name
+				}
+			case *ast.DotVariantType:
+				// Dot-leading struct-variant pattern (`.Rect{w:, h:}`).
+				// The scrutinee's type pins the enum; record a hover/
+				// go-to-def reference at the identifier position so the
+				// LSP can resolve the variant the way it does for the
+				// qualified form.
+				variantName = v.Name
+				v.ResolvedEnum = st.Name
+				c.recordDotVariantReference(v.Name, v.Line, v.Col, st)
+			}
+		}
+		vd := findVariant(st, variantName)
+		if vd == nil {
+			c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("variant %s not found in enum %s", variantName, st.Name)}.WithHint(didYouMean(variantName, variantNames(st))))
+			c.checkPatternFieldsUntyped(n)
+			return
+		}
+		c.fa.recordPatternVariant(n.TypeName, vd.Name)
+		// Bare-prefix struct-variant pattern (`Rect{w:, h:}` against an
+		// enum scrutinee): the same rule as EnumPattern's above, so a
+		// drill-through import (`import shapes.Holder.{Of}`) is
+		// accepted and a same-file variant is not.
+		if sst, ok := n.TypeName.(*ast.SimpleType); ok && !c.allowsBareVariantPattern(sst.Name, Pos{Line: sst.Line, Col: sst.Col}) {
+			c.addError(sst.Line, sst.Col, bareVariantPatternMessage(sst.Name, st.Name))
+		}
+		fields = vd.Fields
+		structName = vd.Name
+		// Embed variants carry their fields on the underlying struct's
+		// DataType, not on `vd.Fields` (which is empty). Mirror what
+		// `fieldTypeFromObject` does for `*EnumType` field access so
+		// `case s { Shape.Rectangle{width:, height:} -> ... }` can
+		// destructure through to the embedded struct.
+		if len(fields) == 0 && vd.DataType != nil {
+			if est, ok := vd.DataType.(*StructType); ok {
+				fields = est.Fields
+				if structName == "" {
+					structName = est.Name
+				}
+			}
+		}
+		if len(st.TypeParamDefs) > 0 && len(st.TypeArgs) == len(st.TypeParamDefs) {
+			subs = make(map[*TypeParam_]Type, len(st.TypeParamDefs))
+			for i, def := range st.TypeParamDefs {
+				subs[def] = st.TypeArgs[i]
+			}
+		}
+	default:
+		c.addError(n.Line, n.Col, c.typef("struct pattern requires a struct type, got %s", expectedTy))
+		c.checkPatternFieldsUntyped(n)
+		return
+	}
+	_, anon := expectedTy.(*AnonStructType)
+	for _, f := range n.Fields {
+		var fieldType Type
+		var field FieldDef
+		found := false
+		for _, sf := range fields {
+			if sf.Name == f.Name {
+				fieldType = sf.Type
+				field = sf
+				found = true
+				break
+			}
+		}
+		if !found {
+			c.report(TypeError{Line: n.Line, Col: n.Col, Message: fmt.Sprintf("field %s not found in type %s", f.Name, structName)}.WithHint(didYouMean(f.Name, fieldNames(fields))))
+			if f.Pattern != nil {
+				c.checkPattern(f.Pattern, nil)
+			}
+			continue
+		}
+		if fieldType != nil && subs != nil {
+			fieldType = Substitute(fieldType, subs)
+		}
+		if f.Pattern != nil {
+			c.checkPattern(f.Pattern, fieldType)
+		} else if f.Binding != "" {
+			line := structPatternFieldBindingLine(f, n.Line)
+			sym := c.fa.Definitions[Pos{Line: line, Col: f.BindingCol}]
+			if sym != nil {
+				sym.Type = fieldType
+			}
+		}
+		// The field-name key (`x` in `case p { {x: a} -> ...}`) refers
+		// to the field: its declaration when the struct's is known, or
+		// for an anonymous struct the label or field that declares it
+		// (anonFieldDeclared), so hover, references and rename reach it,
+		// else a symbol at the key for hover. A punned key (`{x:}`, `Name == Binding` at the
+		// same position) is the binding's definition too: its field
+		// goes beside it in PunnedFieldLabels, as a punned literal
+		// label's does.
+		bindingLine := structPatternFieldBindingLine(f, n.Line)
+		punning := f.Binding == f.Name && f.NameLine == bindingLine && f.NameCol == f.BindingCol
+		if f.NameLine > 0 && fieldType != nil && !IsSynthesizedLine(f.NameLine) {
+			keyPos := Pos{Line: f.NameLine, Col: f.NameCol}
+			var ref *Symbol
+			if declared != nil {
+				if structSym := c.structDeclSymbol(declared); structSym != nil {
+					real := structSym
+					if real.Resolved != nil {
+						real = real.Resolved
+					}
+					if fieldSym, ok := real.Members[f.Name]; ok && fieldSym.Kind == SymbolField {
+						proxy := *fieldSym
+						proxy.Type = fieldType
+						ref = &proxy
+					}
+				}
+			}
+			if anon {
+				ref = c.anonFieldDeclared(field)
+			}
+			switch {
+			case punning && ref != nil:
+				c.fa.setPunnedFieldLabel(keyPos, ref)
+			case punning:
+			case ref != nil:
+				c.fa.References[keyPos] = ref
+			default:
+				c.fa.References[keyPos] = &Symbol{
+					Name: f.Name,
+					Kind: SymbolField,
+					Pos:  keyPos,
+					Type: fieldType,
+				}
+			}
+		}
 	}
 }
 
@@ -18308,22 +18099,36 @@ func (c *checker) settleTodo(body ast.Node, ty Type) {
 			c.fa.recordExpectedType(n, ty)
 		}
 	case *ast.GroupedExpr:
+		c.settleRegion(n, ty)
 		c.settleTodo(n.Expr, ty)
 	case *ast.ExprStmt:
 		c.settleTodo(n.Expr, ty)
 	case *ast.Block:
+		c.settleRegion(n, ty)
 		if len(n.Stmts) > 0 {
 			c.settleTodo(n.Stmts[len(n.Stmts)-1], ty)
 		}
 	case *ast.If:
+		c.settleRegion(n, ty)
 		c.settleTodo(n.Then, ty)
 		if n.Else != nil {
 			c.settleTodo(n.Else, ty)
 		}
 	case *ast.Case:
+		c.settleRegion(n, ty)
 		for _, branch := range n.Branches {
 			c.settleTodo(branch.Body, ty)
 		}
+	}
+}
+
+// settleRegion records ty as the type expected of n, a block, group, `if`
+// or `case` whose value settleTodo settles, when n is of type Infallible
+// (every branch leaves) and nothing recorded an expected type for it: the
+// region's value is used at ty, as its branches' are.
+func (c *checker) settleRegion(n ast.Node, ty Type) {
+	if _, known := c.fa.ExpectedTypes[n]; !known && isInfallibleLike(c.fa.ExprTypes[n]) {
+		c.fa.recordExpectedType(n, ty)
 	}
 }
 

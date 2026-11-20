@@ -31,7 +31,7 @@ func (p *Program) Unsupported() error {
 	}
 	var found []string
 	seen := map[string]bool{}
-	chains := map[string][]string{}
+	reached := map[string]vm.Unretained{}
 	add := func(name string) {
 		if !seen[name] {
 			seen[name] = true
@@ -44,8 +44,8 @@ func (p *Program) Unsupported() error {
 			// check does not have, is not a lowering's to report.
 			if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
 				name := blockerName(u)
-				if _, known := chains[name]; !known {
-					chains[name] = u.Chain
+				if _, known := reached[name]; !known {
+					reached[name] = u
 				}
 				add(name)
 			}
@@ -97,7 +97,7 @@ func (p *Program) Unsupported() error {
 	if len(found) == 0 {
 		return nil
 	}
-	return p.declineDiagnosticsVia(found, chains)
+	return p.declineDiagnosticsVia(found, reached)
 }
 
 // declineDiagnostics are the diagnostics for the declarations names, which
@@ -106,9 +106,11 @@ func (p *Program) declineDiagnostics(names []string) frontend.Diagnostics {
 	return p.declineDiagnosticsVia(names, nil)
 }
 
-// declineDiagnosticsVia is declineDiagnostics with, for each name, the
-// functions from a root that reach it (vm.Unretained.Chain).
-func (p *Program) declineDiagnosticsVia(names []string, chains map[string][]string) frontend.Diagnostics {
+// declineDiagnosticsVia is declineDiagnostics with, for each name, what the
+// reach walk found for it: the functions from a root that reach it
+// (vm.Unretained.Chain) and the impl block a function is declared in
+// (vm.Unretained.Impl).
+func (p *Program) declineDiagnosticsVia(names []string, reached map[string]vm.Unretained) frontend.Diagnostics {
 	var ds frontend.Diagnostics
 	type site struct {
 		path      string
@@ -117,7 +119,7 @@ func (p *Program) declineDiagnosticsVia(names []string, chains map[string][]stri
 	}
 	seen := map[site]bool{}
 	for _, name := range names {
-		d := p.unsupportedDiagnostic(name, chains[name])
+		d := p.unsupportedDiagnostic(name, reached[name])
 		// Two blockers that lead to one std body (stdBlocker) are one
 		// diagnostic.
 		if k := (site{d.Path, d.Line, d.Col, d.Message}); !seen[k] {
@@ -159,20 +161,21 @@ func blockerName(u vm.Unretained) string {
 // the construct, so the author looks where the gap is. One that declined at a
 // call to a function whose signature the lowering refused
 // (irbuild.Decline.Signature) is reported at that signature
-// (signatureDiagnostic). chain is how the program reaches name
-// (vm.Unretained.Chain), named in a hint when it passes through more than
-// the root.
-func (p *Program) unsupportedDiagnostic(name string, chain []string) frontend.Diagnostic {
+// (signatureDiagnostic). u is what the reach walk found for name: how the
+// program reaches it (vm.Unretained.Chain), named in a hint when it passes
+// through more than the root, and the impl block a function is declared in,
+// which finds its decline and its declaration.
+func (p *Program) unsupportedDiagnostic(name string, u vm.Unretained) frontend.Diagnostic {
 	what := blockerSubject(name)
-	d := p.declineOf(name)
-	debugReason := "[" + name + "] " + p.decline(name)
+	d := p.declineOf(name, u.Impl)
+	debugReason := "[" + name + "] " + p.decline(name, u.Impl)
 	once := ""
 	if d != nil && d.Once != "" {
 		once = d.Once
 		// The `once`'s own attempt, when the builder made one: a `once`
 		// with no type the builder can represent is never attempted, and
 		// the read's reason says why.
-		od := p.declineOf(once)
+		od := p.declineOf(once, ir.ImplFunc{})
 		if od != nil {
 			debugReason += "; [" + once + "] " + od.Reason
 		} else {
@@ -187,7 +190,7 @@ func (p *Program) unsupportedDiagnostic(name string, chain []string) frontend.Di
 		debugReason += "; [" + inner.Fn + "] " + inner.Reason
 	}
 	if d != nil && d.Signature != nil && d.Signature.Line > 0 {
-		return p.signatureDiagnostic(what, d.Signature, chain, debugReason)
+		return p.signatureDiagnostic(what, d.Signature, u.Chain, debugReason)
 	}
 	path, line, col := "", 0, 0
 	// derived is a body Nomi wrote for a `derive` or the universal Debug,
@@ -203,12 +206,12 @@ func (p *Program) unsupportedDiagnostic(name string, chain []string) frontend.Di
 	}
 	if line == 0 || analysis.IsSynthesizedLine(line) {
 		if once != "" {
-			path, line, col = p.declarationOf(once)
+			path, line, col = p.declarationOf(once, ir.ImplFunc{})
 		} else {
 			if d != nil {
 				path = d.Path
 			}
-			path, line, col, derived = p.declarationIn(name, path)
+			path, line, col, derived = p.declarationIn(name, u.Impl, path)
 		}
 	}
 	if analysis.IsSynthesizedLine(line) {
@@ -252,7 +255,7 @@ func (p *Program) unsupportedDiagnostic(name string, chain []string) frontend.Di
 			diag.Hints = append(diag.Hints, hint)
 		}
 	}
-	if hint := reachedHint(chain, name); hint != "" {
+	if hint := reachedHint(u.Chain, name); hint != "" {
 		diag.Hints = append(diag.Hints, hint)
 	}
 	diag.Hints = append(diag.Hints, gapHint)
@@ -349,26 +352,26 @@ func DebugLowering() bool {
 func (p *Program) blocked(found []vm.Unretained) *Blocked {
 	b := &Blocked{Reasons: p.reasons(found), rest: []string{}}
 	var names []string
-	chains := map[string][]string{}
+	reached := map[string]vm.Unretained{}
 	for _, u := range found {
 		if u.Kind == vm.NotRetained || u.Kind == vm.OnceNotRetained {
 			name := blockerName(u)
-			if _, known := chains[name]; !known {
-				chains[name] = u.Chain
+			if _, known := reached[name]; !known {
+				reached[name] = u
 			}
 			names = append(names, name)
 			continue
 		}
 		b.rest = append(b.rest, p.reasons([]vm.Unretained{u})...)
 	}
-	b.diags = p.declineDiagnosticsVia(names, chains)
+	b.diags = p.declineDiagnosticsVia(names, reached)
 	return b
 }
 
 // blockedName is the *Blocked for one declaration, name, that the lowering
 // did not retain.
 func (p *Program) blockedName(name string) *Blocked {
-	return &Blocked{Reasons: []string{p.notRetained(name)}, diags: p.declineDiagnostics([]string{name}), rest: []string{}}
+	return &Blocked{Reasons: []string{p.notRetained(name, ir.ImplFunc{})}, diags: p.declineDiagnostics([]string{name}), rest: []string{}}
 }
 
 // blockedMessages are b's blockers for a test report, one entry each: a
@@ -403,13 +406,14 @@ func blockerSubject(name string) string {
 	return "`fn " + name + "`"
 }
 
-// declineOf is the decline the lowering recorded for name: by the attempt's
-// own name, then by a qualified name's last segment, preferring one in a
-// file of this program over a stdlib file.
-func (p *Program) declineOf(name string) *irbuild.Decline {
+// declineOf is the decline the lowering recorded for name, a function of
+// impl block impl when impl names one: by name, then by its attempt name
+// (attemptName), preferring one in a file of this program over a stdlib
+// file.
+func (p *Program) declineOf(name string, impl ir.ImplFunc) *irbuild.Decline {
 	keys := []string{name}
-	if i := strings.LastIndex(name, "."); i >= 0 && !strings.HasPrefix(name, "test body: ") {
-		keys = append(keys, name[i+1:])
+	if short := attemptName(name, impl); short != "" {
+		keys = append(keys, short)
 	}
 	for _, key := range keys {
 		var any *irbuild.Decline
@@ -446,13 +450,14 @@ func (p *Program) modulePath(path string) *irbuild.Module {
 }
 
 // declarationIn locates the declaration name blames, as declarationOf does,
-// except that an impl function (`Rec.equal`) is found in the impl block for
-// its receiver, in the file prefer names first. derived reports a block Nomi
-// synthesized: its function is placed at the `derive` declaration that asked
-// for it, or at the type for the universal Debug, since its own lines are no
-// source.
-func (p *Program) declarationIn(name, prefer string) (path string, line, col int, derived bool) {
-	if owner, method, ok := implFunctionName(name); ok {
+// except that a function of impl block impl (`Equatable.equal for Rec`) is
+// found in the impl block for its receiver, in the file prefer names first.
+// derived reports a block Nomi synthesized: its function is placed at the
+// `derive` declaration that asked for it, or at the type for the universal
+// Debug, since its own lines are no source.
+func (p *Program) declarationIn(name string, impl ir.ImplFunc, prefer string) (path string, line, col int, derived bool) {
+	if impl.Func != "" {
+		owner, method := impl.TypeName(), impl.Func
 		mods := make([]*irbuild.Module, 0, len(p.prog.Modules))
 		if m := p.modulePath(prefer); m != nil {
 			mods = append(mods, m)
@@ -468,25 +473,25 @@ func (p *Program) declarationIn(name, prefer string) (path string, line, col int
 			}
 		}
 	}
-	path, line, col = p.declarationOf(name)
+	path, line, col = p.declarationOf(name, impl)
 	return path, line, col, false
 }
 
-// implFunctionName splits an impl function's attempt name, `Rec.equal` or
-// `Box<Int>.inspect`, into its receiver's base name and the function.
-func implFunctionName(name string) (owner, method string, ok bool) {
-	if strings.HasPrefix(name, "test body: ") || strings.HasPrefix(name, "once ") {
-		return "", "", false
+// attemptName is the name the lowering's census gave its attempt at the
+// declaration the IR names name (irbuild.Decline.Fn), where that is not
+// name: a function of impl block impl by its own name, any other qualified
+// name by its last segment. "" when there is no other.
+func attemptName(name string, impl ir.ImplFunc) string {
+	if impl.Func != "" {
+		return impl.Func
 	}
-	i := strings.LastIndex(name, ".")
-	if i <= 0 {
-		return "", "", false
+	if strings.HasPrefix(name, "test body: ") {
+		return ""
 	}
-	owner, method = name[:i], name[i+1:]
-	if j := strings.Index(owner, "<"); j >= 0 {
-		owner = owner[:j]
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		return name[i+1:]
 	}
-	return owner, method, owner != "" && method != ""
+	return ""
 }
 
 // implFunctionPos is where mod declares owner's impl function method: the
@@ -551,9 +556,10 @@ func deriveLineOf(mod *irbuild.Module, owner, iface string) (int, int) {
 }
 
 // declarationOf locates the declaration name blames: a test case, a `once`
-// binding, or a function (an impl function by its last segment), searched in
-// the entry first. It answers the entry's path at line 0 when none matches.
-func (p *Program) declarationOf(name string) (string, int, int) {
+// binding, or a function (one of impl block impl, or of a qualified name,
+// by its attempt name), searched in the entry first. It answers the entry's
+// path at line 0 when none matches.
+func (p *Program) declarationOf(name string, impl ir.ImplFunc) (string, int, int) {
 	entry := p.prog.Entry()
 	if test, ok := strings.CutPrefix(name, "test body: "); ok {
 		plan, _ := frontend.SelectTests(entry.Nodes, TestOptions{})
@@ -565,9 +571,9 @@ func (p *Program) declarationOf(name string) (string, int, int) {
 		return entry.Path, 0, 0
 	}
 	once, isOnce := strings.CutPrefix(name, "once ")
-	short := name
-	if i := strings.LastIndex(name, "."); i >= 0 {
-		short = name[i+1:]
+	short := attemptName(name, impl)
+	if short == "" {
+		short = name
 	}
 	for i := range p.prog.Modules {
 		mod := &p.prog.Modules[i]

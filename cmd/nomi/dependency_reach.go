@@ -2,7 +2,7 @@ package main
 
 // What `nomi add` and `nomi update` say about a dependency they change:
 // what its own files reach outside the machine, in the words `nomi
-// capabilities` prints under deps' modules (writeModuleReach), and, when
+// capabilities` prints under deps' modules (vmhost.WriteModuleReach), and, when
 // nomi.toml has [capabilities] tables, whether nomi check passes them. The
 // reach is the check's (reachOf, vmhost.Reached), worked out over the
 // project before and after the change, so a module is charged for what it
@@ -71,7 +71,7 @@ func (d *dependencyReach) write(w io.Writer, modules []string, table func(*vmhos
 		return
 	}
 	now := reachesByPath(d.after)
-	var was map[string]moduleReach
+	var was map[string]vmhost.ModuleReach
 	if d.before != nil {
 		was = reachesByPath(d.before)
 	}
@@ -84,7 +84,7 @@ func (d *dependencyReach) write(w io.Writer, modules []string, table func(*vmhos
 			fmt.Fprintln(w, "    not imported yet")
 			continue
 		}
-		writeModuleReach(w, "    ", u)
+		vmhost.WriteModuleReach(w, "    ", u)
 		if old, ok := was[m]; ok {
 			writeReachChange(w, old, u)
 		}
@@ -102,9 +102,9 @@ func (d *dependencyReach) write(w io.Writer, modules []string, table func(*vmhos
 }
 
 // reachesByPath is moduleReaches by module path.
-func reachesByPath(r *vmhost.Reach) map[string]moduleReach {
-	out := map[string]moduleReach{}
-	for _, u := range moduleReaches(r) {
+func reachesByPath(r *vmhost.Reach) map[string]vmhost.ModuleReach {
+	out := map[string]vmhost.ModuleReach{}
+	for _, u := range r.ModuleReaches() {
 		out[u.Path] = u
 	}
 	return out
@@ -113,7 +113,7 @@ func reachesByPath(r *vmhost.Reach) map[string]moduleReach {
 // writeReachChange prints how a module's reach went from old to u: each
 // std name it now also reaches and no longer reaches, and whether it now
 // binds Go or no longer does, or that nothing changed.
-func writeReachChange(w io.Writer, old, u moduleReach) {
+func writeReachChange(w io.Writer, old, u vmhost.ModuleReach) {
 	changed := false
 	for _, n := range u.Std {
 		if !slices.Contains(old.Std, n) {

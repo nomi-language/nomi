@@ -75,6 +75,9 @@ func (g *gen) registerSiblingInstanceImpl(tpl *genericTemplate, ib *ast.ImplBloc
 		g.siblingInstDone = map[siblingInstKey]bool{}
 	}
 	g.siblingInstDone[key] = true
+	if !g.instanceMeetsWhere(ib, tpl, inst) {
+		return
+	}
 	recv, ok := g.importGenericInstance(inst)
 	if !ok {
 		return

@@ -34,9 +34,9 @@ func (g *gen) irImplLower(d *implDef, it *implItem, params []kind) (kind, bool) 
 		// block's function calls it (ifacedefault.go).
 		return g.irImplForwardDefault(d, it, fd, params)
 	}
-	name := d.ownerName() + "." + it.name
-	sig := irFuncSig{result: it.result, decl: fd, name: name, origin: irFromImpl}
-	sh := g.irFuncShellWithCallee(fd, sig, params, g.irCalleeSym(it, name))
+	sym := g.irImplSym(it)
+	sig := irFuncSig{result: it.result, decl: fd, name: sym.Name(), origin: irFromImpl}
+	sh := g.irFuncShellWithCallee(fd, sig, params, sym)
 	if ef, isHost := hostExtOf(fd); isHost {
 		return g.irImplHostLower(d, ef, sh, it.result)
 	}

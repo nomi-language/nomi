@@ -128,7 +128,7 @@ func TestReach_TheWalkIsTheSameEveryTime(t *testing.T) {
 	roots := vm.MainRoots(entry, main)
 	walk := func() string {
 		var b strings.Builder
-		for _, c := range vm.ReachedOutsideCalls(entry, mods, roots, vm.EdgeRoot, nil, nil) {
+		for _, c := range vm.ReachedOutsideCalls(entry, mods, roots, vm.EdgeRoot, nil, nil).Calls {
 			fmt.Fprintf(&b, "call %s %s %v\n", c.At, c.Crossing, c.Chain)
 		}
 		for _, s := range vm.ReachedCrossingSites(entry, mods, roots, nil, func(string) bool { return true }) {

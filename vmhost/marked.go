@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/virtualproject"
 )
 
@@ -61,7 +62,7 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 	if err != nil {
 		return nil, false, err
 	}
-	p, root, err := loadMarkedProject(project, dir, "", opts)
+	p, root, err := loadMarkedProject(project, dir, "", opts, true)
 	if err != nil {
 		return nil, false, err
 	}
@@ -70,7 +71,7 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 		if err != nil {
 			return nil, false, err
 		}
-		t, _, err := loadMarkedProject(tp, dir, root, opts)
+		t, _, err := loadMarkedProject(tp, dir, root, opts, true)
 		if err != nil {
 			return nil, false, err
 		}
@@ -79,14 +80,21 @@ func LoadMarked(src, dir string, opts ...Option) (p *Program, hasTests bool, err
 	return p, hasTests || len(project.TestFiles) > 0, nil
 }
 
-// loadMarkedProject loads a block's project at its entry. A project that
-// names modules is written under dir, unless root is where an earlier load
-// of the same block wrote it, and answers the root it is loaded from.
-func loadMarkedProject(project virtualproject.Project, dir, root string, opts []Option) (*Program, string, error) {
+// loadMarkedProject loads a block's project at its entry, held to its
+// lists when hold is set (held). A project that names modules is written
+// under dir, unless root is where an earlier load of the same block wrote
+// it, and answers the root it is loaded from.
+func loadMarkedProject(project virtualproject.Project, dir, root string, opts []Option, hold bool) (*Program, string, error) {
+	load := func(p *Program, err error) (*Program, error) {
+		if hold {
+			return held(p, err)
+		}
+		return p, err
+	}
 	opts = append([]Option{WithFileSystem(blockFiles(project))}, opts...)
 	if project.Files == nil {
 		opts = append([]Option{WithVirtualFiles(project.VirtualFiles), WithVirtualManifest(project.Manifest), WithVirtualData(project.DataFiles)}, opts...)
-		p, err := held(LoadSource(project.EntryName, project.EntrySource, opts...))
+		p, err := load(LoadSource(project.EntryName, project.EntrySource, opts...))
 		return p, "", err
 	}
 	if root == "" {
@@ -95,12 +103,40 @@ func loadMarkedProject(project virtualproject.Project, dir, root string, opts []
 			return nil, "", err
 		}
 	}
-	p, err := held(Load(filepath.Join(root, filepath.FromSlash(project.EntryName)), opts...))
+	p, err := load(Load(filepath.Join(root, filepath.FromSlash(project.EntryName)), opts...))
 	if err != nil {
 		return nil, "", &underRoot{err: err, root: root}
 	}
 	p.fileNames = func(path string) string { return pathFromRoot(path, root) }
 	return p, root, nil
+}
+
+// ReachedCall is one outside call a program reaches, as an editor's hover
+// shows it (analyzedlowering.Reached).
+type ReachedCall = analyzedlowering.Reached
+
+// ReachedMarked is each outside call the entry of a tour-style source
+// reaches from the roots `nomi check` holds to its nomi.toml's lists, as an
+// editor's hover shows it (reachedCalls, hoverdoc.AppendReach), each with
+// its file named as the block's tabs name it. The block is loaded as
+// LoadMarked loads it, but not held to its lists, so a call they refuse is
+// shown refused; its other test files are not loaded.
+func ReachedMarked(src, dir string, opts ...Option) ([]ReachedCall, error) {
+	project, err := virtualproject.FromMarkedSource(src)
+	if err != nil {
+		return nil, err
+	}
+	p, _, err := loadMarkedProject(project, dir, "", opts, false)
+	if err != nil {
+		return nil, err
+	}
+	calls := p.reachedCalls(p.walks(p.checkedRoots()))
+	for i := range calls {
+		if p.fileNames != nil {
+			calls[i].Path = p.fileNames(calls[i].Path)
+		}
+	}
+	return calls, nil
 }
 
 // held is a block's program once its nomi.toml's [capabilities] lists

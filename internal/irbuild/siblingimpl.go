@@ -110,10 +110,9 @@ type implMemberSite struct {
 	auto  bool
 	iface string
 	block *ast.ImplBlock
-	// item and symName are the declaring unit's identity for the function's
-	// retained body, which irImplLower interns as Symbol(item, symName).
-	item    *implItem
-	symName string
+	// item is the declaring unit's identity for the function's retained
+	// body, which irImplLower interns (irImplSym).
+	item *implItem
 	// withheld is the declaring unit's block when the function is one it
 	// withheld for a call to instantiate (implDef.withheldMember): item is
 	// nil, and the declaring gen builds the instance a call asks for.
@@ -156,7 +155,7 @@ func (x *fileIndex) resolveImplMembers(gens []*gen) {
 				x.implMembers[k] = append(x.implMembers[k],
 					implMemberSite{unit: unit, fn: implMemberFunc(d, it),
 						synth: d.synth, auto: autoSynthImpl(d.decl), iface: d.ifaceKey, block: d.decl,
-						item: it, symName: d.recv.nomi() + "." + it.name})
+						item: it})
 			}
 			// A member the block withheld for a call to instantiate has no
 			// item yet; the declaring gen builds one per call
@@ -209,7 +208,7 @@ func (x *fileIndex) resolveOwnerMembers(gens []*gen) {
 					k := implMemberKey{recv: decl, method: it.name}
 					x.ownerMembers[k] = append(x.ownerMembers[k],
 						implMemberSite{unit: unit, fn: implMemberFunc(d, it), block: d.decl,
-							item: it, symName: owner + "." + it.name})
+							item: it})
 				}
 				withheld := make([]string, 0, len(d.gaps))
 				for method := range d.gaps {

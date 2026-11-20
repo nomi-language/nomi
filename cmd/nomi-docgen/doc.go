@@ -35,6 +35,29 @@
 //
 //	go run ./cmd/nomi-docgen -llms . tour
 //
+// # Outside calls
+//
+// A function a call to which is an outside call (vmhost.OutsideCalls) has a
+// line under its signature naming what a capability list must allow for
+// it, `Reaches outside the program: std::fs`, and a module with any such
+// function says so in its overview, linking the tooling reference's
+// capability lists; llms-full.txt carries both. The name is the one a
+// capability error gives a program's call: the module that declares the
+// function, since a call is named by the std module the program called
+// (`net.dial` is `std::net` though it crosses through std::http's host
+// functions). The decision is
+// vmhost.Program.StdOutsideCalls over the module's lowered tests, which
+// docgen loads once per module for its prompts too (stdProgram, reach.go):
+// a `host fn` that is an outside crossing, and a function written in Nomi
+// whose reach walk, started from it, reaches one without leaving std. The
+// walk over-approximates as the capability check does: a function value a
+// function makes counts though nothing calls it (`std::storage::testing.rules`
+// returns its rules' names), and a call through an interface value
+// reaches every impl (`storage.list_all` reaches the file store's).
+// A generic function is walked from the instances the module's tests and
+// examples make; one they never instantiate (`Actor.start`) has no line.
+// No list in docgen names an outside function.
+//
 // # Stdlib reference examples
 //
 // Each `//!` prompt on a public entry is written as a live editor,

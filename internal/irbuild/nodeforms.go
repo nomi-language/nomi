@@ -1,9 +1,16 @@
 package irbuild
 
+import (
+	"reflect"
+
+	"github.com/nomi-language/nomi/internal/ast"
+)
+
 // Where the builder meets each AST node type.
 //
-// lowerNode switches over the expression nodes and irScalarBlock over a
-// block's leading statements. Both switches are written by hand, and a node
+// lowerNode switches over the expression nodes and leadStatement over a
+// block's statements: those before its last, and a last one that is no
+// value (formsOf), after which the block answers Unit. Both switches are written by hand, and a node
 // type neither names would fall out of one: so every node type of
 // internal/ast is given its forms here, and TestEveryNodeTypeHasAForm holds
 // the table to the AST and each switch to the table. A node type added to
@@ -90,15 +97,12 @@ var nodeForms = map[string]nodeForm{
 	"Unwrap":                formValue,
 	"With":                  formValue | formStatement,
 
-	"Binding":             formStatement,
-	"Defer":               formStatement,
-	"DistinctDestructure": formStatement,
-	"ExprStmt":            formStatement,
-	"PatternBinding":      formStatement,
-	"PatternDestructure":  formStatement,
-	"StructDestructure":   formStatement,
-	"Subtests":            formStatement,
-	"TupleDestructure":    formStatement,
+	"Binding":            formStatement,
+	"Defer":              formStatement,
+	"ExprStmt":           formStatement,
+	"PatternBinding":     formStatement,
+	"PatternDestructure": formStatement,
+	"Subtests":           formStatement,
 
 	// Declared in a body as at file level.
 	"EnumDef":      formStatement | formDecl,
@@ -157,4 +161,9 @@ var nodeForms = map[string]nodeForm{
 
 	"Decorator": formUnchecked,
 	"ErrorNode": formUnchecked,
+}
+
+// formsOf is n's forms, by its Go type's name as nodeForms is keyed.
+func formsOf(n ast.Node) nodeForm {
+	return nodeForms[reflect.TypeOf(n).Elem().Name()]
 }

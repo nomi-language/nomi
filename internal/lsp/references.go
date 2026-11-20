@@ -70,6 +70,9 @@ func matchesIdentity(sym *analysis.Symbol, id symIdentity) bool {
 
 func (s *Server) textDocumentReferences(ctx *glsp.Context, params *protocol.ReferenceParams) ([]protocol.Location, error) {
 	uri := string(params.TextDocument.URI)
+	if isManifestURI(uri) {
+		return s.manifestReferences(uri, params.Position), nil
+	}
 	doc := s.docs.Snapshot(uri)
 	if doc == nil {
 		return nil, nil

@@ -45,9 +45,8 @@ import (
 //   - `p == q` on a STRUCT with an impl dispatches. The operator's own
 //     lowering does that.
 //   - `p == q` on an ENUM or a DISTINCT dispatches when the impl is
-//     HAND-WRITTEN and not when it is derived. See equatableVerdict
-//     (irequality.go) for the struct rule and handWrittenNominalEquatable
-//     for the nominal one.
+//     HAND-WRITTEN and not when it is derived, which compares by shape
+//     (machineImpls). See equality (irequality.go).
 //   - `[p] == [q]`, `(p, 1) == (q, 1)`, a `p` key inside a Map: never, at any
 //     depth, because each is structural equality from the outermost step down
 //     and structural equality does not dispatch. A `derive Equatable` on a

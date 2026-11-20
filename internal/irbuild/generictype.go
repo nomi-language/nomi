@@ -537,6 +537,9 @@ const (
 	substIfaceImpl
 	// substIfaceDefault is an interface default instantiated per receiver.
 	substIfaceDefault
+	// substParamDefault is a generic callee's parameter default lowered at
+	// a call, at the call's type arguments (defaultInFrame).
+	substParamDefault
 	// substStd is a std generic function's instance (stdInstances.queue).
 	substStd
 	// substAlias is a generic typealias's target at a use's arguments.
@@ -553,7 +556,8 @@ var substEntryNames = [substEntries]string{
 	substMono: "program generic fn", substNested: "generic nested fn",
 	substType: "generic type fields", substImpl: "impl of a generic type",
 	substMethod: "generic impl fn", substIfaceImpl: "generic interface of an impl",
-	substIfaceDefault: "interface default", substStd: "std generic fn",
+	substIfaceDefault: "interface default", substParamDefault: "parameter default at a call",
+	substStd:   "std generic fn",
 	substAlias: "generic typealias", substRefinement: "generic refinement",
 	substProbe: "probe",
 }

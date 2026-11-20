@@ -87,6 +87,9 @@ func partCheckerType(st analysis.Type, sk kind, i int) analysis.Type {
 		return containerArg(t.TypeArgs)
 	case *analysis.StructType:
 		return containerArg(t.TypeArgs)
+	case *analysis.DistinctType:
+		// A generic host type: a Vector's element.
+		return containerArg(t.TypeArgs)
 	case *analysis.ListType:
 		return containerArg([]analysis.Type{t.Elem})
 	case *analysis.MapType:
@@ -102,6 +105,40 @@ func partCheckerType(st analysis.Type, sk kind, i int) analysis.Type {
 					return f.Type
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// preludePayloadType is the checker type of a payload of kind pk of a
+// value of sk, a prelude enum instance whose checker type is st: the type
+// argument the payload is (`Some`'s T, `Err`'s E), by partCheckerType. Nil
+// when st is nil or the payload is no type argument of sk.
+func preludePayloadType(st analysis.Type, sk, pk kind) analysis.Type {
+	_, args, ok := stdRecvParts(sk)
+	if !ok {
+		return nil
+	}
+	for i, a := range args {
+		if a == pk {
+			return partCheckerType(st, sk, i)
+		}
+	}
+	return nil
+}
+
+// embeddedVariantType is the declared type of the `embeds` variant named
+// name of st, a non-generic enum's checker type: the struct or distinct
+// itself, where variantPayloadType answers a wrapping distinct's inner
+// type. Nil when st is nil, generic or has no such variant.
+func embeddedVariantType(st analysis.Type, name string) analysis.Type {
+	et, ok := analysis.ResolveTypeVar(st).(*analysis.EnumType)
+	if !ok || len(et.TypeParams) > 0 {
+		return nil
+	}
+	for _, v := range et.Variants {
+		if v.Name == name && v.Kind == analysis.VariantEmbedded {
+			return v.Embedded
 		}
 	}
 	return nil
@@ -127,7 +164,7 @@ func variantPayloadType(st analysis.Type, name string) analysis.Type {
 // tupleHashOf is the derive mix over subj, a lowered tuple or record of kind
 // sk and checker type st (nil where the builder holds it by kind alone),
 // for the call t. Each slot's call carries the record of `Hashable.hash`
-// at the slot's type.
+// at the slot's type, and each operator of the mix Int's.
 func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind, st analysis.Type) (v ir.Temp, k kind, mobile, ok bool) {
 	if bl.qualRecord == t {
 		// In an assertion subject the tuple is the call's one row.
@@ -142,6 +179,9 @@ func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind, st an
 	bl.bound, bl.boundK, bl.sh.syms = maps.Clone(bound), maps.Clone(boundK), maps.Clone(syms)
 	defer func() { bl.bound, bl.boundK, bl.sh.syms = bound, boundK, syms }()
 	line := t.Line
+	intOp := func(iface analysis.StdType, method string) analysis.Callee {
+		return bl.g.instanceFA().InterfaceCallee(iface, method, analysis.TypeInt)
+	}
 	var mix ast.Node
 	for i, part := range sk.comp.parts {
 		name := "%hash" + strconv.Itoa(t.Line) + "." + strconv.Itoa(t.Col) + "." + strconv.Itoa(i)
@@ -166,13 +206,13 @@ func (bl *irScalarBuilder) tupleHashOf(t *ast.Call, subj ir.Temp, sk kind, st an
 			mix = hash
 			continue
 		}
-		mix = &ast.Binary{
-			Left:     &ast.Binary{Left: mix, Op: "*", Right: &ast.IntLit{Value: 31, Line: line}, Wrapping: true, Line: line},
-			Op:       "+",
-			Right:    hash,
-			Wrapping: true,
-			Line:     line,
-		}
+		scaled := &ast.Binary{Left: mix, Op: "*", Right: &ast.IntLit{Value: 31, Line: line}, Wrapping: true, Line: line}
+		sum := &ast.Binary{Left: scaled, Op: "+", Right: hash, Wrapping: true, Line: line}
+		// Int's Multiply and Add, as the checker records them for `a * b`
+		// and `a + b` over Ints, which the machine computes (machineImpls).
+		defer bl.g.carryOperatorUse(scaled, stdMultiply, intOp(stdMultiply, "multiply"), analysis.TypeInt)()
+		defer bl.g.carryOperatorUse(sum, stdAdd, intOp(stdAdd, "add"), analysis.TypeInt)()
+		mix = sum
 	}
 	v, k, mobile, ok = bl.lower(mix)
 	if ok && k != kindInt {

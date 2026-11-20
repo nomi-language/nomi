@@ -133,6 +133,9 @@ var explanations = map[string]string{
 		"that declares it; the help names a std module or a dotted type when one matches.",
 	"undefined-type-or-variant": "A capitalized name is used as a value and names no type and no variant in scope. " +
 		"Check the spelling, import the file or std module that declares the type, or write a variant through its enum (`Color.Red`).",
+	"type-argument-count": "A use of a type writes more or fewer type arguments than the type takes. A type declared without " +
+		"type parameters (a primitive, a type parameter, or a struct, enum, distinct type or interface declared without them) takes none: " +
+		"write `S`, not `S<Int>`. A generic type takes as many as its declaration lists, less any with a default.",
 	"no-type-member": "`Type.member` names a member the type does not have: no function in its `impl` blocks, no variant and no " +
 		"constant by that name. Check the spelling against the help's suggestion, or declare the function in an `impl Type` block.",
 	"argument-type-mismatch": "A call passes an argument whose type its parameter does not take. The message names the argument, " +

@@ -293,9 +293,7 @@ func TestMapDestructureExpressionKey(t *testing.T) {
 
 func TestStructDestructureStaysStruct(t *testing.T) {
 	nodes := parse(t, "{x:, y:} = m")
-	if _, ok := nodes[0].(*ast.StructDestructure); !ok {
-		t.Fatalf("expected StructDestructure, got %T", nodes[0])
-	}
+	structDestructure(t, nodes[0])
 }
 
 // --- Lambda map-destructure param (the 5th map-pattern key site) ---

@@ -82,6 +82,48 @@ func TestLink_ObjectsEncodedApartShareTheirDeclarations(t *testing.T) {
 	}
 }
 
+// An impl block's function keeps its block through an object and through
+// linking, and is named by it, whatever name a later intern offers; a token
+// interned plain and then as an impl function panics.
+func TestLink_AnImplFunctionKeepsItsBlock(t *testing.T) {
+	tbl := ir.NewTable()
+	tbl.SetLinkage(func(any, string) string { return "lib.impl Display for Loud.to_string" }, nil)
+	token := new(int)
+	loud := ir.ImplFunc{Type: "Loud", Interface: "Display", Func: "to_string"}
+	helper := tbl.ImplSymbol(token, loud)
+	if helper.Name() != "Display.to_string for Loud" || tbl.ImplSymbol(token, loud) != helper || tbl.Symbol(token, "Loud.to_string") != helper {
+		t.Fatalf("the impl function is %q, interned again %p and %p; want one symbol named by its block",
+			helper.Name(), tbl.ImplSymbol(token, loud), tbl.Symbol(token, "Loud.to_string"))
+	}
+	lib, app := linkFixture(helper, helper, 7)
+	l := ir.NewLinker()
+	var mods []*ir.Module
+	for _, m := range []*ir.Module{app, lib} {
+		data, err := ir.EncodeObject(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		im, err := l.Decode(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mods = append(mods, im.Modules...)
+	}
+	for _, s := range []*ir.Symbol{calleeOf(t, mods[0]), mods[1].Funcs()[0].Sym()} {
+		if got, ok := s.Impl(); !ok || got != loud || s.Name() != loud.Name() {
+			t.Errorf("decoded %q carries %+v, %v; want %+v", s.Name(), got, ok, loud)
+		}
+	}
+	plain := new(int)
+	tbl.Symbol(plain, "to_string")
+	defer func() {
+		if r := recover(); r == nil || !strings.Contains(r.(string), "to_string was interned as a plain symbol and is now Display.to_string for Loud") {
+			t.Errorf("interning a plain symbol's token as an impl function: recovered %v", r)
+		}
+	}()
+	tbl.ImplSymbol(plain, loud)
+}
+
 func TestLink_ASymbolTwoModulesNameNeedsALinkageName(t *testing.T) {
 	helper := ir.NewSymbol("helper")
 	lib, app := linkFixture(helper, helper, 7)

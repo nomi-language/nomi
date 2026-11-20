@@ -283,13 +283,20 @@ type fnSig struct {
 	// instance identifies the concrete function produced from a mono template.
 	// Its source declaration is shared by every specialization.
 	instance *monoInst
-	// ifaceFrame binds, for a call filling an interface function's
-	// parameter defaults, the interface's and the function's type
-	// parameters at the type arguments the checker instantiated the call
-	// at (ifaceDefaultFrameAt); nil when the call fills none. ifaceTypes
-	// is the same binding as the checker's types, nil where it has none.
-	ifaceFrame map[string]kind
-	ifaceTypes map[string]analysis.Type
+	// defaultFrame binds, for a call filling a generic callee's parameter
+	// defaults, the callee's type parameters (an interface function's and
+	// its interface's) at the type arguments the checker instantiated the
+	// call at (ifaceDefaultFrameAt, callFrameAt); nil when the call fills
+	// none or an instance of the callee binds them (instance).
+	// defaultTypes is the same binding as the checker's types, nil where
+	// it has none.
+	defaultFrame map[string]kind
+	defaultTypes map[string]analysis.Type
+	// defaultSelfType is, for a call filling an interface function's
+	// defaults, the checker's type of the implementor its `self` is (the
+	// call's type argument for the interface's SelfParam), nil where the
+	// call has no record of it (an accessor a dispatch reaches).
+	defaultSelfType analysis.Type
 }
 
 // local is a Nomi name in scope, with its kind.
@@ -585,6 +592,9 @@ type gen struct {
 	// for something the checker recorded under another node, or whose
 	// arguments the builder wrote at their slots (carryCall).
 	carriedCalls map[*ast.Call]*analysis.ResolvedCall
+	// carriedOperators is the record of each operator the builder wrote
+	// for a call the checker recorded (carryOperator).
+	carriedOperators map[*ast.Binary]*analysis.OperatorUse
 	// respelledRecords are the records respelledCallOf wrote, each the
 	// record of a copy the builder respelled with a concrete owner.
 	respelledRecords map[*analysis.ResolvedCall]bool
@@ -620,6 +630,11 @@ type gen struct {
 	// copy of a written expression (conversionAt).
 	conversionsFA *analysis.FileAnalysis
 	conversionsAt map[irCoercionPos]*analysis.Conversion
+	// exprTypesAt indexes the positions of exprTypesFA's ExprTypes, for
+	// the expression kind census to tell a copy of a checked expression
+	// from a node the builder writes (recordedAt).
+	exprTypesFA *analysis.FileAnalysis
+	exprTypesAt map[irCoercionPos]bool
 	// debugImplsVisiting holds the existential kinds whose implementers'
 	// Debug bodies existentialDebugImpls is naming, so a box holding the
 	// existential itself does not walk it again.
@@ -827,13 +842,9 @@ type gen struct {
 	// Nothing operator-shaped is registered in implsByIface at all, so every
 	// lookup in it is unaffected by construction. See operimpl.go.
 	//
-	// Used for the duplicate rule. SELECTION scans operOrder.
+	// Used for the duplicate rule; an operator reaches its impl by its
+	// record (recordedOperatorImpl).
 	operImpls map[operKey]*implDef
-	// operOrder is every registered operator impl in registration order: the
-	// blocks on concrete receivers, which also sit in implOrder, and the
-	// per-instance blocks of a generic receiver (`impl Add<T, Box<T>> for
-	// Box<T>` at Box<Int>), which registerImplAt never puts in implOrder.
-	operOrder []*implDef
 	// implItemsByDecl is every impl function and owner function this gen
 	// registered, by the declaration it lowers (implItem.source): its `fn`,
 	// or for a default a block inherits, the interface's function. What a

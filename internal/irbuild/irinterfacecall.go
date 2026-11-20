@@ -364,7 +364,7 @@ func (bl *irScalarBuilder) callerItemPlan(t *ast.Call, args irQualArgs, og *gen,
 	if !bl.qualSignature(t, args, params, result) {
 		return nil
 	}
-	return &irQualPlan{token: it, name: name, result: result, sym: og.irCalleeSym(it, it.impl.recv.nomi()+"."+it.name)}
+	return &irQualPlan{token: it, name: name, result: result, sym: og.irImplSym(it)}
 }
 
 // implForDecl is the one impl of the interface whose key is key (ifaceKey)

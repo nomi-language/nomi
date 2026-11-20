@@ -62,8 +62,8 @@ func (p *Program) checkRefinements(m *vm.Machine) (frontend.Diagnostics, error) 
 	}
 	slices.Sort(links)
 	for _, link := range links {
-		if iface, ok := irbuild.ImplLinkInterface(link); ok {
-			implsOf[iface] = append(implsOf[iface], funcs[link])
+		if impl, ok := funcs[link].Sym().Impl(); ok && impl.Interface != "" {
+			implsOf[impl.Interface] = append(implsOf[impl.Interface], funcs[link])
 		}
 	}
 	var out frontend.Diagnostics

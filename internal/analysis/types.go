@@ -70,9 +70,11 @@ var (
 	}
 	TypeUnit       = &PrimitiveType{Name_: "Unit"}
 	TypeInfallible = &PrimitiveType{Name_: "Infallible"}
-	TypeTrue       = &PrimitiveType{Name_: "True"}
-	TypeFalse      = &PrimitiveType{Name_: "False"}
-	TypeAny        = &PrimitiveType{Name_: "Any"}
+	// TypeTrue and TypeFalse are std/bool's `host type True` and `host type
+	// False`, the types Bool embeds, by their declaring module.
+	TypeTrue  = &PrimitiveType{Name_: "True", Origin: "std/bool"}
+	TypeFalse = &PrimitiveType{Name_: "False", Origin: "std/bool"}
+	TypeAny   = &PrimitiveType{Name_: "Any"}
 	// TypeOrdering is overwritten by installCanonicalStdTypes with the
 	// canonical definition from comparable.nomi (mirroring TypeBool). It
 	// backs the compiler-known resolution of `Ordering` in SYNTHESIZED

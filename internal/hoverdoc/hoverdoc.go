@@ -2,7 +2,10 @@
 // the editor (via the LSP) and the language tour — signatures, doc comments,
 // instantiated generics, interface bounds. It is glsp-free so non-LSP callers
 // (cmd/nomi-wasm's nomiHover, cmd/nomi-docgen) can use it without pulling the LSP
-// framework into the binary — notably keeping it out of the tour wasm.
+// framework into the binary — notably keeping it out of the tour wasm. A
+// hover on a call that reaches outside the machine ends with what it
+// reaches, from the calls a lowering found, which both callers pass
+// (AppendReach, reach.go).
 package hoverdoc
 
 import (
@@ -11,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/ast"
 	nomiformat "github.com/nomi-language/nomi/internal/format"
 )
@@ -31,6 +35,13 @@ import (
 // does work (ConversionNote), and a typed literal's hover what it is and
 // what its slots take (TypedLiteralNote).
 func At(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysis.Pos) string {
+	return AtReaching(fa, nodes, content, pos, nil, nil)
+}
+
+// AtReaching is At for a file whose program a lowering found the outside
+// calls of, reached: a symbol's hover ends with the line of each call it is
+// on (AppendReach), inFile saying which of the calls' paths is this file.
+func AtReaching(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysis.Pos, reached []analyzedlowering.Reached, inFile func(string) bool) string {
 	if fa == nil {
 		return ""
 	}
@@ -54,6 +65,11 @@ func At(fa *analysis.FileAnalysis, nodes []ast.Node, content string, pos analysi
 	}
 	if literal != "" && content != "" {
 		content += "\n\n" + literal
+	}
+	if content != "" && len(reached) > 0 {
+		if _, tok, _, ok := fa.TokenAt(pos); ok {
+			content = AppendReach(content, reached, inFile, pos, tok)
+		}
 	}
 	return content
 }

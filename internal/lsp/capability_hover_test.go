@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,11 +14,12 @@ import (
 	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/fileuri"
 	"github.com/nomi-language/nomi/vmhost"
+	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 )
 
 // reachLines are the lines of a hover that say what a call reaches
-// outside the machine (loweringChecks.reachedAt).
+// outside the machine (loweringChecks.reachedIn, hoverdoc.AppendReach).
 func reachLines(hover string) []string {
 	var out []string
 	for _, line := range strings.Split(hover, "\n") {
@@ -149,7 +151,9 @@ func TestCapabilityHover_GoBinding(t *testing.T) {
 
 // A call in a dependency's file, opened beside the entry that reaches it,
 // has the line the entry's lowering found, naming [capabilities.deps] and
-// the project's entry for the dependency. The dependency's file has no roots of its own.
+// the project's entry for the dependency, and so do the dependency's
+// function that makes it and the entry's call of that function. The
+// dependency's file has no roots of its own.
 func TestCapabilityHover_InADependencysFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
@@ -170,9 +174,13 @@ func TestCapabilityHover_InADependencysFile(t *testing.T) {
 	rulesURI := fileuri.FromPath(filepath.Join(dir, "pricing", "rules.nomi"))
 	c.open(mainURI, main)
 	c.open(rulesURI, rules)
-	waitReachAt(t, s, c, mainURI, main, "rules.load")
-	waitReachAt(t, s, c, rulesURI, rules, "fs.read_text",
-		"Reaches `std::fs`, which `nomi.toml` allows in `[capabilities.deps]` and in the entry for `example.com/pricing`.")
+	const line = "Reaches `std::fs`, which `nomi.toml` allows in `[capabilities.deps]` and in the entry for `example.com/pricing`."
+	waitReachAt(t, s, c, rulesURI, rules, "fs.read_text", line)
+	// The dependency's function, and the entry's call of it, say what the
+	// function can reach.
+	waitReachAt(t, s, c, rulesURI, rules, "load(path", line)
+	waitReachAt(t, s, c, mainURI, main, "rules.load", line)
+	waitReachAt(t, s, c, mainURI, main, "\"prices.txt\"")
 }
 
 // The line follows the latest lowering: an edit that removes the call
@@ -195,9 +203,9 @@ func TestCapabilityHover_FollowsEdits(t *testing.T) {
 
 // In a program opened from its record, an edit is lowered from the
 // record's kept lowering (vmhost's checklowering_stored.go), and that
-// lowering finds the outside calls at their callees as a whole lowering
-// does; a second run of the same text answers them from the lowering it
-// kept.
+// lowering finds the outside calls at their callees, and what main can
+// reach at its name, as a whole lowering does; a second run of the same
+// text answers them from the lowering it kept.
 func TestCapabilityHover_AProgramOpenedFromItsRecord(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
@@ -223,8 +231,11 @@ func TestCapabilityHover_AProgramOpenedFromItsRecord(t *testing.T) {
 	edited := strings.Replace(text, "Circle(2)", "Circle(3)", 1)
 	s.docs.Update(uri, edited)
 	at := positionOf(t, edited, "io.print", false)
+	mainAt := positionOf(t, edited, "main()", false)
 	want := []analyzedlowering.Reached{{Path: fileuri.ToPath(uri), Line: int(at.Line) + 1, Col: int(at.Character) + 1,
-		EndLine: int(at.Line) + 1, EndCol: int(at.Character) + 1 + len("io.print"), Text: "Reaches `std::io`."}}
+		EndLine: int(at.Line) + 1, EndCol: int(at.Character) + 1 + len("io.print"), Text: "Reaches `std::io`."},
+		{Path: fileuri.ToPath(uri), Line: int(mainAt.Line) + 1, Col: int(mainAt.Character) + 1,
+			EndLine: int(mainAt.Line) + 1, EndCol: int(mainAt.Character) + 1 + len("main"), Text: "Reaches `std::io`."}}
 	for _, run := range []string{"the edit", "the edit again"} {
 		was := vmhost.StoredRelowersForTest()
 		stored := s.docs.StoredLowering(uri, edited)
@@ -241,6 +252,61 @@ func TestCapabilityHover_AProgramOpenedFromItsRecord(t *testing.T) {
 		if !slices.Equal(found.reached, want) {
 			t.Errorf("after %s the lowering reaches %+v; want %+v", run, found.reached, want)
 		}
+	}
+}
+
+// A program opened from its record says what its calls reach as one
+// checked whole does, in every file: once it opens, before any edit, the
+// entry's lowering links the record's kept lowering (vmhost's
+// checklowering_stored.go), and a call in another file than the entry has
+// the line at its callee, before and after an edit of the entry, as do
+// each function's name and its calls.
+func TestCapabilityHover_EveryFileOfAProgramOpenedFromItsRecord(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	t.Setenv(artifactcache.RootEnv, t.TempDir())
+	main := "import\n    std::io\n    files\nend\n\nfn main()\n    io.print(files.load(\"notes.txt\"))\nend\n"
+	files := "import std::fs\n\n/// The text at path, or \"\" when it cannot be read.\npub fn load(path: String) -> String\n    read(path) |> String.trim()\nend\n\nfn read(path: String) -> String\n    fs.read_text(path) |> Result.with_default(\"\")\nend\n"
+	dir := writeProject(t, map[string]string{
+		"main.nomi": main, "files.nomi": files,
+		"nomi.toml": "[module]\nname = \"app\"\nentry_points = [\"main\"]\n",
+	})
+	mainURI := fileuri.FromPath(filepath.Join(dir, "main.nomi"))
+	filesURI := fileuri.FromPath(filepath.Join(dir, "files.nomi"))
+
+	first := NewServer()
+	first.lowering.delay = 10 * time.Millisecond
+	c1 := startRPC(t, first, dir)
+	c1.open(mainURI, main)
+	waitStored(t, first, 1)
+
+	s, c := startCapabilityServer(t, dir, nil)
+	c.open(mainURI, main)
+	c.open(filesURI, files)
+	// What each function can reach, at its name and at its calls.
+	functions := func(main string) {
+		t.Helper()
+		const load = "Reaches `std::fs` through `read`."
+		waitReachAt(t, s, c, mainURI, main, "files.load", load)
+		waitReachAt(t, s, c, mainURI, main, "main()", "Reaches `std::fs`, `std::io`.")
+		waitReachAt(t, s, c, filesURI, files, "load(path", load)
+		waitReachAt(t, s, c, filesURI, files, "read(path) |>", "Reaches `std::fs`.")
+		waitReachAt(t, s, c, filesURI, files, "read(path: String", "Reaches `std::fs`.")
+	}
+	waitReachAt(t, s, c, mainURI, main, "io.print", "Reaches `std::io`.")
+	waitReachAt(t, s, c, filesURI, files, "fs.read_text", "Reaches `std::fs`.")
+	functions(main)
+	if opened, _ := s.docs.StoredPrograms(); opened != 1 {
+		t.Fatalf("the server opened %d programs from records, want 1", opened)
+	}
+	edited := strings.Replace(main, "notes.txt", "other.txt", 1)
+	c.change(mainURI, 2, edited)
+	waitReachAt(t, s, c, mainURI, edited, "io.print", "Reaches `std::io`.")
+	waitReachAt(t, s, c, filesURI, files, "fs.read_text", "Reaches `std::fs`.")
+	functions(edited)
+	if s.docs.StoredEdits() == 0 {
+		t.Fatalf("the edit was not taken in the program opened from its record: %v", s.docs.FullCheckReasons())
 	}
 }
 
@@ -263,4 +329,97 @@ func TestCapabilityHover_FollowsAnUnsavedManifest(t *testing.T) {
 	waitReachAt(t, s, c, uri, capabilityMain, "fs.read_text", "Reaches `std::fs`, which `nomi.toml` allows in `[capabilities.self]`.")
 	c.notify("textDocument/didClose", protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(manifestURI)}})
 	waitReachAt(t, s, c, uri, capabilityMain, "fs.read_text", "Reaches `std::fs`, which `nomi.toml` does not allow in `[capabilities.self]`.")
+}
+
+// manifestAt is the position just inside needle's first character on line
+// (1-based) of text, a nomi.toml.
+func manifestAt(t *testing.T, text string, line int, needle string) protocol.Position {
+	t.Helper()
+	l := strings.Split(text, "\n")[line-1]
+	i := strings.Index(l, needle)
+	if i < 0 {
+		t.Fatalf("line %d %q has no %q", line, l, needle)
+	}
+	return protocol.Position{Line: uint32(line - 1), Character: uint32(i + 1)}
+}
+
+// manifestHoverText is the hover at pos in the nomi.toml at uri, "" for
+// none.
+func manifestHoverText(t *testing.T, s *Server, uri string, pos protocol.Position) string {
+	t.Helper()
+	h, err := s.textDocumentHover(&glsp.Context{}, &protocol.HoverParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}, Position: pos}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h == nil {
+		return ""
+	}
+	return h.Contents.(protocol.MarkupContent).Value
+}
+
+// A hover on a std name in nomi.toml's lists shows the calls that need it
+// in that list, as `nomi capabilities --why` prints them: the project's own
+// calls under [capabilities.self], the dependencies' under
+// [capabilities.deps], and a module's own under its entry. References
+// answer the same calls, at their callees. A name nothing there reaches
+// says so, and has none.
+func TestCapabilityHover_ANameInNomiToml(t *testing.T) {
+	if testing.Short() {
+		t.Skip("lowers the stdlib; -short")
+	}
+	manifest := "[module]\nname = \"app\"\nentry_points = [\"main\"]\n\n" +
+		"[capabilities.self]\nstd = [\"std::io\", \"std::net\"]\n\n" +
+		"[capabilities.deps]\nstd = [\"std::fs\", \"std::io\"]\n\n" +
+		"[capabilities.deps.modules]\n\"example.com/pricing\" = [\"std::fs\", \"std::instant\"]\n"
+	app := manifestProject(t, manifest)
+	uri := fileuri.FromPath(filepath.Join(app, "nomi.toml"))
+	s := NewServer()
+	cases := []struct {
+		name   string
+		line   int
+		needle string
+		want   string
+	}{
+		{"a call the project's own code makes", 6, `"std::io"`, "```text\n1 call reaches std::io:\n  main.nomi:7:5\n    reached from `main`\n```"},
+		{"nothing in the project's own code", 6, `"std::net"`, "Nothing in this module's own code reaches std::net."},
+		{"a dependency's call", 9, `"std::fs"`, "```text\n1 call reaches std::fs:\n  rules.nomi:4:5 in example.com/pricing\n    reached from `main`; `main` calls `load`\n```"},
+		{"no dependency's call", 9, `"std::io"`, "No dependency reaches std::io."},
+		{"in the module's entry", 12, `"std::fs"`, "```text\n1 call reaches std::fs:\n  rules.nomi:4:5 in example.com/pricing\n    reached from `main`; `main` calls `load`\n```"},
+		{"nothing in the module", 12, `"std::instant"`, "Nothing in example.com/pricing reaches std::instant."},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := manifestHoverText(t, s, uri, manifestAt(t, manifest, tc.line, tc.needle)); got != tc.want {
+				t.Errorf("hover on %s at line %d says\n%s\nwant\n%s", tc.needle, tc.line, got, tc.want)
+			}
+		})
+	}
+	if computed := s.reaches.computed.Load(); computed != 1 {
+		t.Errorf("the project's reach was worked out %d times for %d hovers; want once", computed, len(cases))
+	}
+	refs := func(line int, needle string) []protocol.Location {
+		got, err := s.textDocumentReferences(&glsp.Context{}, &protocol.ReferenceParams{TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentUri(uri)}, Position: manifestAt(t, manifest, line, needle)}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	rules := protocol.DocumentUri(fileuri.FromPath(filepath.Join(filepath.Dir(app), "pricing", "rules.nomi")))
+	want := []protocol.Location{{URI: rules, Range: protocol.Range{Start: protocol.Position{Line: 3, Character: 4}, End: protocol.Position{Line: 3, Character: 16}}}}
+	if got := refs(12, `"std::fs"`); !slices.Equal(got, want) {
+		t.Errorf("references of std::fs in the entry are %+v; want %+v", got, want)
+	}
+	if got := refs(6, `"std::net"`); len(got) != 0 {
+		t.Errorf("references of std::net, which nothing reaches, are %+v; want none", got)
+	}
+	// An edit of a Nomi file on disk is seen once the server hears of it.
+	if err := os.WriteFile(filepath.Join(app, "main.nomi"), []byte("import std::net\n\nfn main()\n    _ = net.lookup_host(\"example.com\")\nend\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.reaches.changed()
+	if got, want := manifestHoverText(t, s, uri, manifestAt(t, manifest, 6, `"std::io"`)), "Nothing in this module's own code reaches std::io."; got != want {
+		t.Errorf("after main stops printing, hover on std::io says %q; want %q", got, want)
+	}
 }

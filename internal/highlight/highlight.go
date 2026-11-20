@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/nomi-language/nomi/internal/analysis"
+	"github.com/nomi-language/nomi/internal/analyzedlowering"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/hoverdoc"
@@ -269,8 +270,10 @@ func analyzeAlone(src string, lib *std.StdLib) (fa *analysis.FileAnalysis, nodes
 
 // HoverIn answers the hover markdown at (line, col) in the file name names,
 // both 1-based and col in UTF-16 code units, or "" when there is nothing
-// to show.
-func (p *Program) HoverIn(name string, line, col int) (md string) {
+// to show. reached is the outside calls a lowering of the program found
+// (vmhost.ReachedMarked), each file named as the tabs name it, whose line
+// a hover on the call ends with (hoverdoc.AppendReach); nil for none.
+func (p *Program) HoverIn(name string, line, col int, reached []analyzedlowering.Reached) (md string) {
 	f, ok := p.File(name)
 	if !ok {
 		return ""
@@ -280,7 +283,9 @@ func (p *Program) HoverIn(name string, line, col int) (md string) {
 			md = ""
 		}
 	}()
-	return hoverdoc.At(f.FA, f.Nodes, f.Source, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)})
+	return hoverdoc.AtReaching(f.FA, f.Nodes, f.Source, analysis.Pos{Line: line, Col: ByteCol(f.Source, line, col)}, reached, func(path string) bool {
+		return virtualproject.NormalizeModuleName(path) == virtualproject.NormalizeModuleName(name)
+	})
 }
 
 // SemanticTokensIn answers the semantic tokens of the file name names, as

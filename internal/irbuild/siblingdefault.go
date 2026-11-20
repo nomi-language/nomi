@@ -43,9 +43,10 @@ func fileSlotName(fn string, slot int) string {
 }
 
 // irFileSlotSym is the accessor symbol for slot of callee, interned in g's
-// table. g is the DECLARING unit's gen, whichever unit asks.
-func (g *gen) irFileSlotSym(callee *ir.Symbol, fn string, slot int) *ir.Symbol {
-	return g.irCalleeSym(irFileSlotDefault{callee: callee, slot: slot}, fileSlotName(fn, slot))
+// table and named after callee. g is the DECLARING unit's gen, whichever
+// unit asks.
+func (g *gen) irFileSlotSym(callee *ir.Symbol, slot int) *ir.Symbol {
+	return g.irCalleeSym(irFileSlotDefault{callee: callee, slot: slot}, fileSlotName(callee.Name(), slot))
 }
 
 // siblingQualSite resolves the callee `owner.name` of a qualified call to a
@@ -90,7 +91,7 @@ func (g *gen) irFileSlotDefaults(fd *ast.FuncDef, sig *fnSig) {
 	callee := g.irFunctionCallee(sig)
 	for slot, p := range fd.Params {
 		if p.Default != nil {
-			g.irFileSlotRetain(fd, sig, callee, fd.Name, slot)
+			g.irFileSlotRetain(fd, sig, callee, slot)
 		}
 	}
 }
@@ -121,14 +122,11 @@ func (g *gen) irImplSlotDefaults(d *implDef, it *implItem) {
 	if _, host := hostExtOf(fd); host {
 		return
 	}
-	// The body's symbol as irImplLower interns it, and the accessors' name as
-	// a call site's defaultHome gives it (implMemberSite.symName).
-	name := d.ownerName() + "." + it.name
-	callee := g.irCalleeSym(it, name)
+	callee := g.irImplSym(it)
 	sig := &fnSig{params: it.params, result: it.result, decl: fd, lowerable: true}
 	for slot, p := range fd.Params {
 		if p.Default != nil {
-			g.irFileSlotRetain(fd, sig, callee, name, slot)
+			g.irFileSlotRetain(fd, sig, callee, slot)
 		}
 	}
 }
@@ -147,8 +145,9 @@ func (site *implMemberSite) accessorDefaults() bool {
 // parameters. A default that does not lower leaves no accessor, and a program
 // that reaches one is reported BLOCKED under the accessor's name, at the
 // default.
-func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, fn string, slot int) {
-	g.irSlotAccessorRetain(fd, sig, g.irFileSlotSym(callee, fn, slot), fileSlotName(fn, slot), slot)
+func (g *gen) irFileSlotRetain(fd *ast.FuncDef, sig *fnSig, callee *ir.Symbol, slot int) {
+	sym := g.irFileSlotSym(callee, slot)
+	g.irSlotAccessorRetain(fd, sig, sym, sym.Name(), slot)
 }
 
 // irSlotAccessorRetain builds sym, named name, as the accessor for slot of
@@ -189,7 +188,7 @@ func (g *gen) irSlotAccessor(fd *ast.FuncDef, sig *fnSig, sym *ir.Symbol, name s
 	args[slot] = ir.NoTemp
 	filled := *fd
 	filled.Params = fd.Params[:slot+1]
-	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], ifaceFrame: sig.ifaceFrame, ifaceTypes: sig.ifaceTypes}, args) {
+	if !bl.callDefaults(&fnSig{decl: &filled, params: sig.params[:slot+1], defaultFrame: sig.defaultFrame, defaultTypes: sig.defaultTypes}, args) {
 		g.dc.note("a default that does not lower")
 		return nil
 	}
@@ -219,8 +218,8 @@ func (site *implMemberSite) defaultHome(owning *gen) defaultHome {
 	case site.iface != "" && site.withheld == nil && site.item != nil && site.item.impl != nil:
 		return owning.implSlotHome(site.item.impl, site.item)
 	case site.accessorDefaults():
-		callee := owning.irCalleeSym(site.item, site.symName)
-		home.accessor = func(slot int) *ir.Symbol { return owning.irFileSlotSym(callee, site.symName, slot) }
+		callee := owning.irImplSym(site.item)
+		home.accessor = func(slot int) *ir.Symbol { return owning.irFileSlotSym(callee, slot) }
 	case site.instAccessors != nil:
 		var callee *ir.Symbol
 		asked := false
@@ -231,7 +230,7 @@ func (site *implMemberSite) defaultHome(owning *gen) defaultHome {
 			if callee == nil {
 				return nil
 			}
-			return owning.irFileSlotSym(callee, site.symName, slot)
+			return owning.irFileSlotSym(callee, slot)
 		}
 	}
 	return home

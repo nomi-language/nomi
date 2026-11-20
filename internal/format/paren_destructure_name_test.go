@@ -41,22 +41,22 @@ func TestFormat_ParenthesizedDestructureNameIsTheName(t *testing.T) {
 		{
 			"fn main()\n    {x: (a), y:} = p\nend\n",
 			"fn main()\n    {x: a, y:} = p\nend\n",
-			&ast.StructDestructure{},
+			&ast.PatternBinding{},
 		},
 		{
 			"fn main()\n    ((a), _) = t\nend\n",
 			"fn main()\n    (a, _) = t\nend\n",
-			&ast.TupleDestructure{},
+			&ast.PatternBinding{},
 		},
 		{
 			"fn main()\n    Day((n)) = d\nend\n",
 			"fn main()\n    Day(n) = d\nend\n",
-			&ast.DistinctDestructure{},
+			&ast.PatternBinding{},
 		},
 		{
 			"fn main()\n    Day.Hours((n)) = h\nend\n",
 			"fn main()\n    Day.Hours(n) = h\nend\n",
-			&ast.DistinctDestructure{},
+			&ast.PatternBinding{},
 		},
 	}
 	for _, c := range cases {

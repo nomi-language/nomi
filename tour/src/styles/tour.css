@@ -588,6 +588,14 @@ pre.nomi-tour {
   color: var(--sl-color-gray-3);
   font-size: var(--sl-text-sm);
 }
+/* Under the signature of a stdlib function a call to which reaches
+   outside the program, naming what a capability list must allow
+   (cmd/nomi-docgen outsideHTML). */
+.sl-markdown-content .nomi-ref-reach {
+  margin-top: 0.4rem;
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+}
 .nomi-test-program-nav {
   display: flex;
   flex-wrap: wrap;

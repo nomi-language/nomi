@@ -261,3 +261,54 @@ end
 		t.Errorf("Debug.inspect of a block-local type: Form %d, want OperatorStructural", got[11])
 	}
 }
+
+// A hand-written `impl Debug` outranks the universal one the front end
+// synthesizes, also when another file of the program writes it: the record
+// of `Debug.inspect` at the type, written or asked for by the builder
+// (InterfaceCallee), names the written block.
+func TestCalleeForm_AWrittenDebugOutranksTheSynthesizedOne(t *testing.T) {
+	fa, errs := checkProjectWithFiles(t, `import extra.{self}
+
+fn shown() -> String
+    Debug.inspect(extra.boxed(5))
+end
+`, map[string]string{
+		"parts.nomi": "pub struct Box\n    w: Int\nend\n",
+		"extra.nomi": `import parts.Box
+
+impl Debug for Box
+    fn inspect(x: Box) -> String
+        "written"
+    end
+end
+
+pub fn boxed(w: Int) -> Box
+    Box{w:}
+end
+`,
+	})
+	if len(errs) > 0 {
+		t.Fatalf("the checker rejects this source: %v", errs)
+	}
+	written := func(what string, c analysis.Callee) {
+		t.Helper()
+		line := 0
+		if c.Decl != nil {
+			line = c.Decl.LineNum()
+		}
+		if c.Kind != analysis.CalleeImpl || line != 4 {
+			t.Errorf("%s: Kind %d at line %d, want the written impl's `fn inspect` at line 4", what, c.Kind, line)
+		}
+	}
+	var box analysis.Type
+	for n, rc := range fa.Calls {
+		if call, ok := n.(*ast.Call); ok && call.Line == 4 && rc.Callee.Method == "inspect" {
+			written("the written call", rc.Callee)
+			box = rc.Callee.For
+		}
+	}
+	if box == nil {
+		t.Fatal("no record of `Debug.inspect` on line 4 names the type it is for")
+	}
+	written("InterfaceCallee", fa.InterfaceCallee(analysis.StdType{Module: "std/debug", Name: "Debug"}, "inspect", box))
+}

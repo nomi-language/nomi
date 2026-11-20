@@ -15,14 +15,10 @@ import (
 	"github.com/nomi-language/nomi/internal/fileuri"
 )
 
-// arityDiagnostic matches the generic-arity rule's own diagnostics and nothing
-// else. The BACKTICKED name is the discriminator: the two pre-existing arity
-// messages in the tree are spelled without backticks — `List expects 1 type
-// argument, got 2` from ResolveTypeExpr's compiler-known types, and
-// `Iter expects 1 type argument(s), got 2` from the impl-header check in
-// recordImplTypeArgsFromBlock. TestGenericArity_TreeIsClean plants a positive
-// and requires this pattern to match it, so the pattern and the message cannot
-// drift apart silently.
+// arityDiagnostic matches the arity rule's diagnostics (checkArity) and
+// nothing else: the backticked name followed by the counts.
+// TestGenericArity_TreeIsClean plants a positive and requires this pattern to
+// match it, so the pattern and the message cannot drift apart silently.
 var arityDiagnostic = regexp.MustCompile("^`[^`]+` expects [0-9]+ type arguments?, got [0-9]+$")
 
 // plantedUnderApplication is a program that under-applies a generic in a

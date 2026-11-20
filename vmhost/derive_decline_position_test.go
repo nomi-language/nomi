@@ -3,14 +3,17 @@ package vmhost
 import (
 	"strings"
 	"testing"
+
+	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/internal/vm"
 )
 
 // A body Nomi synthesized has no source line, so a decline inside one is
 // reported at the declaration that asked for it: the `derive` line, in
 // whichever file it is, or the type's declaration for the universal Debug,
 // which no line asks for. No derived body declines today, so each case asks
-// for the diagnostic of a body that did, by name, as Unsupported would for
-// a body the machine finds unretained.
+// for the diagnostic of a body that did, by its name and its impl block, as
+// Unsupported would for a body the machine finds unretained.
 func TestDeclinePosition_ASynthesizedBodyIsReportedAtItsDerive(t *testing.T) {
 	entry, name, files, manifest, err := SplitMultiFile(`// FILE: money.nomi
 pub struct Money
@@ -55,19 +58,26 @@ end
 		t.Fatalf("the front end rejects the program, so it no longer tests a derived body's position: %v", err)
 	}
 	for _, c := range []struct {
-		fn, want string
+		impl ir.ImplFunc
+		want string
 	}{
-		// The `derive` line, not `Money`'s written equal? in the other
-		// file, which the function's last segment also names.
-		{"Rec.equal", "main.nomi:11:1: its body is not supported yet, so `fn Rec.equal` cannot run"},
-		{"Coin.hash", "money.nomi:15:1: its body is not supported yet, so `fn Coin.hash` cannot run"},
+		// The `derive` line, not `Money`'s written equal in the other
+		// file, which the function's own name also names.
+		{ir.ImplFunc{Type: "Rec", Interface: "Equatable", Func: "equal"},
+			"main.nomi:11:1: its body is not supported yet, so `fn Equatable.equal for Rec` cannot run"},
+		{ir.ImplFunc{Type: "Coin", Interface: "Hashable", Func: "hash"},
+			"money.nomi:15:1: its body is not supported yet, so `fn Hashable.hash for Coin` cannot run"},
 		// The universal Debug: no line asks for it, so the type does.
-		{"Rec.inspect", "main.nomi:6:8: its body is not supported yet, so `fn Rec.inspect` cannot run"},
+		{ir.ImplFunc{Type: "Rec", Interface: "Debug", Func: "inspect"},
+			"main.nomi:6:8: its body is not supported yet, so `fn Debug.inspect for Rec` cannot run"},
 		// A written impl function keeps its own line.
-		{"Money.equal", "money.nomi:6:8: the body of `fn equal` is not supported yet, so `fn Money.equal` cannot run"},
+		{ir.ImplFunc{Type: "Money", Interface: "Equatable", Func: "equal"},
+			"money.nomi:6:8: the body of `fn equal` is not supported yet, so `fn Equatable.equal for Money` cannot run"},
 	} {
-		t.Run(c.fn, func(t *testing.T) {
-			ds := p.declineDiagnostics([]string{c.fn})
+		name := c.impl.Name()
+		t.Run(name, func(t *testing.T) {
+			u := vm.Unretained{Kind: vm.NotRetained, Name: name, Impl: c.impl}
+			ds := p.declineDiagnosticsVia([]string{name}, map[string]vm.Unretained{name: u})
 			if len(ds) != 1 {
 				t.Fatalf("want one diagnostic, got %d", len(ds))
 			}

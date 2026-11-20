@@ -24,10 +24,10 @@ import (
 //
 // A recorded operator reaches its function by declaration
 // (recordedImplItem, stdFuncByID), so the count only goes down.
-const maxOperatorNameTests = 12
+const maxOperatorNameTests = 10
 
 // operatorLoweringFiles are the files that lower `a op b`, `a == b`,
-// `a < b` and `~~~a`, and select an operator impl at an instance's kinds.
+// `a < b` and `~~~a` by their records.
 var operatorLoweringFiles = []string{
 	"iruseroperator.go", "irstdoperator.go", "operimpl.go",
 	"irequality.go", "ircompare.go", "recordedimpl.go",

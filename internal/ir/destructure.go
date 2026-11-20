@@ -7,10 +7,11 @@ package ir
 //
 // The evidence is the producer's own. `internal/irbuild` lowers a `case`
 // arm's pattern and a destructuring statement with the same nodes: a pattern
-// assertion (`patternAssert`) builds the `ir.Match` a `case` arm's test
-// (`casePatternTest`) builds, and a struct destructure (`structBinding`)
-// reads a field with the `ir.Proj` a struct pattern's test
-// (`nominalCaseTest`) reads it with. They differ in WHERE THE MISS GOES.
+// assertion (`patternAssert`) and a destructuring statement
+// (`patternBindingStmt`) test their pattern with `patternValueTest`, which
+// builds the `ir.Match` a `case` arm's test builds and reads a struct's
+// fields with the `ir.Proj` the arm reads them with. They differ in WHERE
+// THE MISS GOES.
 //
 // So the two classes decompose into the same three operations, and only the
 // third is new:

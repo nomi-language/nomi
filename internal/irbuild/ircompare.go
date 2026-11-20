@@ -6,11 +6,10 @@ package irbuild
 //
 // `ir.Compare` is the node and internal/ir/compare.go argues its existence.
 // The producer's job is to establish what that node's constructor cannot: that
-// both operands are the SAME shape and that the shape is in the retained
-// scalar, typed primitive-leaf list or anchored prelude enum domain. Mixed kinds and dispatched
-// equality remain outside this producer. Prelude enum equality selects the existing structural
-// comparator, with scalar payloads and no handwritten Equatable impl. Local struct
-// equality selects it only when no Equatable impl exists for the struct.
+// both operands are the SAME shape. Mixed kinds decline. `==` and `!=` then
+// take the arm of their record's form (irequality.go); an ordering compares
+// two Ints, Floats or Bools natively, a tuple part by part, and anything else
+// through its `impl Comparable`.
 //
 // # The short-circuit, and the asymmetric row that is the reason it is here
 //
@@ -83,7 +82,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 		if !ok {
 			return no()
 		}
-		return bl.comparison(t, op, lhs, lk, rhs, rk, rmobile)
+		return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
 	}
 	wantL, widenL, wantR, widenR := bl.embedsWidenedOperand(t, op)
 	var lhs ir.Temp
@@ -135,7 +134,7 @@ func (bl *irScalarBuilder) compare(t *ast.Binary, op ir.CompareOp) (ir.Temp, kin
 	if !ok {
 		return no()
 	}
-	return bl.comparison(t, op, lhs, lk, rhs, rk, rmobile)
+	return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
 }
 
 // lowerComparisonOperand lowers a comparison operand. An unnamed bracket
@@ -221,23 +220,13 @@ func (bl *irScalarBuilder) bareEqualityOperands(t *ast.Binary, op ir.CompareOp) 
 		if !ok {
 			return ir.NoTemp, kindInvalid, false, false
 		}
-		return bl.comparison(t, op, lhs, lk, rhs, rk, rmobile)
+		return bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
 	}, true
 }
 
-// comparison is `compare` once both operands are lowered
-// (compareOperands), with the route it takes held to the operator's
-// record (endOperator).
-func (bl *irScalarBuilder) comparison(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
-	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
-	outer := bl.beginOperator()
-	v, k, mobile, ok := bl.compareOperands(t, op, lhs, lk, rhs, rk, rmobile)
-	bl.endOperator(t, ok, outer)
-	return v, k, mobile, ok
-}
-
-// compareOperands lowers a comparison over its lowered operands, noting
-// the route it takes; comparison calls it.
+// compareOperands is `compare` once both operands are lowered: an
+// equality by its record (equality), an ordering by its record
+// (ordering).
 func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs ir.Temp, lk kind,
 	rhs ir.Temp, rk kind, rmobile bool) (ir.Temp, kind, bool, bool) {
 	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
@@ -278,121 +267,66 @@ func (bl *irScalarBuilder) compareOperands(t *ast.Binary, op ir.CompareOp, lhs i
 	// by an impl call shows its operands too.
 	bl.record(t.Left, lhs, lk, true)
 	bl.record(t.Right, rhs, rk, true)
-	if irHeldKind(lk) && !op.Ordering() {
-		// Two interface values: the machine compares them by their run-time
-		// types, through a hand-written impl when there is one (ir.ValIface).
-		bl.op = routeDispatched
-		return bl.equalityCompare(t, op, ir.ValIface, lhs, rhs), kindBool, false, true
-	}
-	// An operator whose record names an impl the machine computes itself
-	// (machineImpls: Int's compare, List's equal, a derived enum's) takes
-	// none of the routes below that call an impl.
-	machine := bl.g.machineRoute(t)
-	if machine == routeUnset && op.Ordering() && (lk.tag == tagNamed || lk == kindString || lk.tag == tagList) {
-		// An `impl Comparable` the machine does not compute: a program's, or
-		// std's for a Decimal, a String, a List, a Vector or a Date. Its
-		// compare answers an Ordering.
-		return bl.rankedCompare(t, op, lhs, rhs, lk, rmobile)
-	}
-	if op.Ordering() && lk.tag == tagTuple {
-		// A tuple compares lexicographically (irtuplecompare.go).
-		bl.op = routeStructural
-		return bl.tupleRankedCompare(t, op, lhs, rhs, lk)
-	}
-	if lk == kindUnit && !op.Ordering() {
-		// Unit has one value, so `==` is True and `!=` False once both
-		// operands have run, as rt.Equal answers.
-		bl.op = routeStructural
-		c := ir.NewBool(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op == ir.OpEq)
-		bl.b.Append(c)
-		bl.side(c.Dst(), irScalarSide{k: kindBool})
-		return c.Dst(), kindBool, false, true
-	}
-	list := irEqualityContainerKind(lk)
-	prelude := bl.g.irPreludeEqualityKind(lk, machine)
-	decimal := isDecimalKind(lk)
-	if !op.Ordering() {
-		// See irequality.go: an enum first, since std's derived enum impls
-		// compare structurally, then std's own impls, then the
-		// remaining nominal and structural kinds.
-		if v, ok, handled := bl.enumEquality(t, op, lhs, rhs, lk); handled {
-			if !ok {
-				return no()
-			}
-			return v, kindBool, false, true
+	// The result is not mobile, as `bl.binary`'s arithmetic result is
+	// not: a comparison in a left-operand position is forced into a Copy.
+	if op.Ordering() {
+		v, ok := bl.ordering(t, op, lhs, rhs, lk, rmobile)
+		if !ok {
+			return no()
 		}
-		if v, ok := bl.stdEquality(t, lhs, rhs, lk, rmobile, machine); ok {
-			bl.op = routeImpl
-			return bl.equalityNegate(t, op, v), kindBool, false, true
-		}
-		if v, ok, handled := bl.valueEquality(t, op, lhs, rhs, lk); handled {
-			if !ok {
-				return no()
-			}
-			return v, kindBool, false, true
-		}
+		return v, kindBool, false, true
 	}
-	structural := bl.structEqualityAt(t, lk)
-	// std's Byte and Bytes are rt leaves rt.Equal compares by content,
-	// which is also the body of std's own `impl Equatable` for each
-	// (`a == b`); the VM compares them as it does a container.
-	bytes := !op.Ordering() && irByteValueKind(lk)
-	list = list || bytes
-	if !op.Ordering() && (irStdHandleKind(lk) || irDynamicKind(lk) || irTypeWitnessKind(lk)) {
-		// A Regex compares by its pattern, which rt.Equal reads from the
-		// handle (rt.HostKeyed), a Dynamic by its contents
-		// (rt.DynamicEqual), the body of std's `impl Equatable` for it,
-		// and a `Type<T>` witness by the type it names
-		// (rt.TypeWitnessEqual).
-		list = true
-	}
-	if !op.Ordering() && irScalarRangeKind(lk) {
-		// A Range over a scalar: its fields are scalars and a Maybe of one,
-		// so Range's Equatable and rt.Equal answer alike; the VM holds
-		// it as a container rt.Equal compares.
-		list = true
-	}
-	if (!irScalarLeafKind(lk) || lk.def != nil) && !prelude && !decimal && !list && !structural {
-		// Other named types need program-scoped method selection. A missed
-		// impl lookup must never silently become structural comparison.
+	v, ok := bl.equality(t, op, lhs, rhs, lk, rmobile)
+	if !ok {
 		return no()
 	}
-	bl.op = routeNative
-	if list || prelude || structural {
-		bl.op = routeStructural
-	}
-	shape := irParamShape(lk)
-	if list && !op.Ordering() {
-		// A Vector is a generic host type, whose parameter shape is unknown;
-		// as an equality operand it is a container like a List or a Map.
-		shape = ir.ValContainer
-	}
-	if shape == ir.ValUnknown || (op.Ordering() && shape != ir.ValInt && shape != ir.ValFloat && !(shape == ir.ValBool && lk == kindBool)) {
-		// Ordering outside Int and Float declines. Asked here as well as in
-		// `ir.NewCompare` because the constructor panics, as a producer-bug
-		// fence, and a Nomi program that writes `"a" < "b"` must decline
-		// rather than crash.
-		return no()
-	}
-	c := ir.NewCompare(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, shape, lhs, rhs)
-	bl.b.Append(c)
-	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	// Not mobile, as `bl.binary`'s arithmetic result is not: a comparison in
-	// a left-operand position is forced into a Copy.
-	return c.Dst(), kindBool, false, true
+	return v, kindBool, false, true
 }
 
-// irPreludeEqualityKind reports a prelude enum whose `==` compares by
-// shape here: one whose record says so (machine, from machineRoute), or,
-// for a comparison with no such record, one with no hand-written impl in
-// this file (handWrittenNominalEquatable); and whose payloads are scalars,
-// Decimals and the values rt.Equal compares as the derived impl does.
-// User nominal types take the program-scoped Equatable selection.
-func (g *gen) irPreludeEqualityKind(k kind, machine operatorRoute) bool {
+// ordering lowers `<`, `<=`, `>` or `>=` over two lowered operands of
+// kind k by the form the checker recorded for the operator t, a by-impl
+// record split by the route machineImpls gives its impl: an impl the
+// machine computes natively (Int's, Float's and Bool's compare), one
+// ir.Compare of the scalar; by shape, a tuple's lexicographic compare
+// (tupleRankedCompare); any other impl, a call of the compare the record
+// names and a test of the rank of the Ordering it answers
+// (rankedCompare). An ordering over interface values, by dispatch, has
+// no arm. An arm that cannot lower its operands, and an operator with no
+// record an arm reads, decline here.
+func (bl *irScalarBuilder) ordering(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
+	use := bl.g.operatorUse(t)
+	var form analysis.OperatorForm
+	if use != nil {
+		form = use.Form
+	}
+	machine := bl.g.machineRouteOf(use)
+	switch {
+	case machine == routeNative && (k == kindInt || k == kindFloat || k == kindBool):
+		c := ir.NewCompare(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, irParamShape(k), lhs, rhs)
+		bl.b.Append(c)
+		bl.side(c.Dst(), irScalarSide{k: kindBool})
+		return c.Dst(), true
+	case form == analysis.OperatorStructural && k.tag == tagTuple:
+		return bl.tupleRankedCompare(t, op, lhs, rhs, k)
+	case form == analysis.OperatorByImpl && machine == routeUnset && use.Impl != nil:
+		if v, ok := bl.rankedCompare(t, op, lhs, rhs, k, rmobile); ok {
+			return v, true
+		}
+	}
+	bl.g.noteUnreadOperator(t, familyOrdering)
+	return ir.NoTemp, false
+}
+
+// irPreludeEqualityKind reports a prelude enum whose `Maybe.equal(a, b)`
+// containerEqualCall compares by shape: one with no hand-written impl in
+// this file (handWrittenNominalEquatable), and whose payloads are
+// scalars, Decimals and the values rt.Equal compares as the derived impl
+// does.
+func (g *gen) irPreludeEqualityKind(k kind) bool {
 	if k.tag != tagNamed || !irRetainedEnumKind(k.def) || k.def.preludeOf == nil {
 		return false
 	}
-	if machine == routeUnset && g.handWrittenNominalEquatable(k) {
+	if g.handWrittenNominalEquatable(k) {
 		return false
 	}
 	spec := k.def.preludeOf.spec
@@ -429,24 +363,6 @@ func (g *gen) irPreludeEqualityKind(k kind, machine operatorRoute) bool {
 // impl route and outside this producer.
 func (g *gen) irStructEqualityKind(k kind) bool {
 	if k.tag != tagNamed || irParamShape(k) != ir.ValStruct || k.def.foreign != "" || !g.noEquatableImpl(k) {
-		return false
-	}
-	for _, f := range k.def.fields {
-		if !irScalarLeafKind(f.k) || f.k.def != nil {
-			return false
-		}
-	}
-	return true
-}
-
-// structEqualityAt is irStructEqualityKind for the operator t: a struct
-// with scalar fields that `==` compares by shape, as the checker recorded
-// (equatableVerdict).
-func (bl *irScalarBuilder) structEqualityAt(t *ast.Binary, k kind) bool {
-	if k.tag != tagNamed || irParamShape(k) != ir.ValStruct || k.def.foreign != "" {
-		return false
-	}
-	if _, _, has, known := bl.equatableVerdict(t, k); has || !known {
 		return false
 	}
 	for _, f := range k.def.fields {
@@ -533,31 +449,25 @@ func (bl *irScalarBuilder) shortCircuit(t *ast.Binary) (ir.Temp, kind, bool, boo
 // element type's compare, else std's instance, as `List.compare(a, b)`
 // is; any other, a program's in this file or another and std's (a
 // Decimal's host, a String's or a Date's body), planned by
-// recordedCallPlan. An operator whose record names no impl (one over a
-// type parameter whose frame has no checker type) calls the impl the
-// operands' kind selects (unrecordedCompareCall).
-func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, kind, bool, bool) {
-	no := func() (ir.Temp, kind, bool, bool) { return ir.NoTemp, kindInvalid, false, false }
-	call, recorded, done := bl.operatorCall(t)
+// recordedCallPlan.
+func (bl *irScalarBuilder) rankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind, rmobile bool) (ir.Temp, bool) {
+	call, done := bl.operatorCall(t)
 	defer done()
 	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
-	bl.op = routeImpl
 	var ordered ir.Temp
 	var ok bool
 	if owner := containerCompareOwner(k); owner != "" {
 		ordered, _, _, ok = bl.containerCompareAny(call, args, owner)
-	} else if recorded {
-		ordered, ok = bl.rankedCall(call, args, bl.recordedCallPlan(call, args, "Comparable.compare"))
 	} else {
-		ordered, ok = bl.unrecordedCompareCall(t, call, args, k)
+		ordered, ok = bl.rankedCall(call, args, bl.recordedCallPlan(call, args, "Comparable.compare"))
 	}
 	if !ok {
-		return no()
+		return ir.NoTemp, false
 	}
 	c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ordered)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	return c.Dst(), kindBool, false, true
+	return c.Dst(), true
 }
 
 // containerCompareOwner is the std container whose own `impl
@@ -583,96 +493,4 @@ func (bl *irScalarBuilder) rankedCall(call *ast.Call, args irQualArgs, p *irQual
 	}
 	v, _, _, ok := bl.qualEmit(call, args, p)
 	return v, ok
-}
-
-// unrecordedCompareCall calls compare for the ordering operator t, whose
-// record names no impl, over operands of kind k: the impl this file
-// registers for k, std's compare at k (stdCompareAt), the program's
-// impl inside a std instance built for it (callerImplPlan), or another
-// file's retained compare (siblingCompareSym).
-func (bl *irScalarBuilder) unrecordedCompareCall(t *ast.Binary, call *ast.Call, args irQualArgs, k kind) (ir.Temp, bool) {
-	ord := stdEnumKind(stdEnumOrdering)
-	if d := bl.g.implsByIface[stdIfaceImplKey(stdComparable)][k]; d != nil {
-		it := d.items["compare"]
-		if it == nil {
-			return ir.NoTemp, false
-		}
-		return bl.rankedCall(call, args, bl.implItemPlan(call, args, it, "Comparable.compare"))
-	}
-	if f := bl.g.stdCompareAt(k, ord); f != nil {
-		return bl.rankedCall(call, args, bl.stdFuncPlan(call, args, f))
-	}
-	if p := bl.callerImplPlan(call, args, stdIfaceImplKey(stdComparable), "compare", k); p != nil {
-		return bl.rankedCall(call, args, p)
-	}
-	sym := bl.siblingCompareSym(k)
-	if sym == nil {
-		return ir.NoTemp, false
-	}
-	c := ir.NewCall(bl.g.irNodePos(t), bl.f.NewTemp(), irCallSite(t), sym, args.temps...)
-	bl.b.Append(c)
-	bl.side(c.Dst(), irScalarSide{k: ord, deferrable: true})
-	return c.Dst(), true
-}
-
-// stdEquality lowers `a == b` over a std named type through std's own
-// `impl Equatable`, the one the operator's record names, called as that
-// record's call (operatorCall, recordedCallPlan): its `equal` body or
-// host. `!=` does not take this route, and neither does an operator
-// whose record names an impl the machine computes (machine, from
-// machineRoute), a program's impl, or no impl but an answer by shape or
-// by dispatch. An operator with no record (one over a type parameter
-// whose frame has no checker type) calls std's impl at the operands'
-// kind (stdlibImplOf).
-func (bl *irScalarBuilder) stdEquality(t *ast.Binary, lhs, rhs ir.Temp, k kind, rmobile bool, machine operatorRoute) (ir.Temp, bool) {
-	if machine != routeUnset || k.tag != tagNamed || k.def == nil {
-		return ir.NoTemp, false
-	}
-	call, recorded, done := bl.operatorCall(t)
-	defer done()
-	args := irQualArgs{temps: []ir.Temp{lhs, rhs}, kinds: []kind{k, k}, mobile: []bool{true, rmobile}, ok: true}
-	var p *irQualPlan
-	switch {
-	case recorded:
-		if _, it, _, _ := bl.recordedOperatorImpl(t, k); it != nil {
-			// A program's impl, which valueEquality calls.
-			return ir.NoTemp, false
-		}
-		p = bl.recordedCallPlan(call, args, "Equatable.equal")
-	default:
-		if use := bl.g.operatorUse(t); use != nil && use.Form != analysis.OperatorPerInstance {
-			// An answer by shape or by dispatch, which calls no impl.
-			return ir.NoTemp, false
-		}
-		f := bl.unrecordedEqualImpl(t, k)
-		if f == nil {
-			return ir.NoTemp, false
-		}
-		p = bl.stdFuncPlan(call, args, f)
-	}
-	if p == nil || p.result != kindBool {
-		return ir.NoTemp, false
-	}
-	v, _, _, ok := bl.qualEmit(call, args, p)
-	return v, ok
-}
-
-// unrecordedEqualImpl is std's `equal` that `==` over k calls for the
-// operator t, whose record names no impl: std's impl at the operands'
-// kind, where the program has none and k does not compare by shape.
-func (bl *irScalarBuilder) unrecordedEqualImpl(t *ast.Binary, k kind) *stdFunc {
-	if bl.g.implsByIface[stdIfaceImplKey(stdEquatable)][k] != nil || bl.structEqualityAt(t, k) {
-		return nil
-	}
-	f := bl.g.stdlibImplOf("Equatable.equal", k, k, k)
-	if f == nil || f.result != kindBool {
-		return nil
-	}
-	// Inside that `equal` itself (`impl Equatable for Byte { fn equal(a, b)
-	// { a == b } }`) the operator is the primitive comparison the impl is
-	// defined by, and routing it back to the impl recurses forever.
-	if f.decl != nil && bl.f.Sym() == bl.g.irCalleeSym(f.decl, f.decl.Name) {
-		return nil
-	}
-	return f
 }

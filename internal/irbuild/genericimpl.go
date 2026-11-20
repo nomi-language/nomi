@@ -60,8 +60,11 @@ import (
 // No arm here handles it.
 //
 // A DECLARATION-level bound (`struct Range<T> where T: Comparable`) is not
-// checked here: a violating instantiation never reaches the builder, because
-// the front end rejects it. See registerInstanceImpls.
+// checked here: the front end rejects an instance that breaks it. A
+// BLOCK-level bound is a condition on the block alone (`impl FromJson for
+// Presence<T> where T: FromJson`), which a Presence<Point> legitimately
+// fails, so an instance gets only the blocks whose bound it meets, as the
+// checker decides it (instanceMeetsWhere). See registerInstanceImpls.
 //
 // # What stays refused, and why
 //
@@ -219,18 +222,15 @@ func (g *gen) unboundWhereSubjects(wcs []ast.WhereConstraint) bool {
 //
 // # Why admitting it is sound
 //
-// It is registerInstanceImpls' argument for a DECLARATION-level bound: a
-// violating instantiation never reaches the builder, because the front end
-// rejects it. A block-level bound is the same kind of claim about the same
-// parameter, checked by the same front-end rule, and at `T := String` the
-// constraint `T: Display` is decided before the builder is handed the tree.
+// The bound is a condition under which the block applies, and an instance
+// that fails it is legal (`Presence<Point>` with Point no FromJson): no
+// checked program calls the block's functions there. So each instance is
+// registered with exactly the blocks whose bound its type arguments meet,
+// which the checker decides (registerInstanceImpls, instanceMeetsWhere).
 //
 // The SUBJECT check is what stays, and it is the same shape as
 // implBinderNamesTemplateParams above: a constraint on a name the receiver does
-// not use has no argument to be solved from, so it remains declined. If the
-// front end ever stopped checking the bound, the failure here would be a
-// call against a type without the method: a lookup that finds nothing rather
-// than a wrong answer. That is the safe direction and the same one that header relies on.
+// not use has no argument to be solved from, so it remains declined.
 func implWhereNamesTemplateParams(ib *ast.ImplBlock, tpl *genericTemplate) bool {
 	if len(ib.WhereClauses) == 0 {
 		return true
@@ -247,8 +247,9 @@ func implWhereNamesTemplateParams(ib *ast.ImplBlock, tpl *genericTemplate) bool 
 	return true
 }
 
-// registerInstanceImpls registers every one of tpl's impl blocks against the
-// instance def, under the substitution frame, and queues each to be built.
+// registerInstanceImpls registers each of tpl's impl blocks whose `where`
+// bound the instance meets (instanceMeetsWhere) against the instance def,
+// under the substitution frame, and queues each to be built.
 //
 // Reports the reason the instance cannot be admitted, so genericInstance can
 // decline and not build a def only some of whose impls are registered, which
@@ -256,19 +257,12 @@ func implWhereNamesTemplateParams(ib *ast.ImplBlock, tpl *genericTemplate) bool 
 //
 // # The declaration-level bound is not checked here
 //
-// A violating instantiation NEVER REACHES THE BUILDER. The front end rejects it,
-// and type_parameter_dispatch_test.nomi asserts the exact message
-// (`no impl of `Display` for `Plain“) -- from INSIDE a compiler.check string,
-// i.e. the violating program is the test's SUBJECT and is never a program
-// irbuild is asked to lower. So an instantiation-time bound check here would be
-// a second implementation of a front-end rule over an empty reachable
-// population. With no check, the builder cannot disagree with the front end in
-// either direction, because it is never asked.
-//
-// If the front end ever stopped checking it, the failure here would be a
-// `T.hello` call against a type with no `hello`: a lookup that finds nothing,
-// not a wrong answer. That is the safe direction and it is why relying on the
-// front end is acceptable rather than merely convenient.
+// The front end rejects an instance that breaks a bound the type's
+// declaration states, so none reaches the builder. A block's own `where` is
+// another matter: an instance may fail it, and is then not given the block.
+// Whether it meets it is the checker's answer (analysis.ImplBlockServesAt),
+// read at the checker's types of the instance's arguments; an instance
+// whose arguments have no checker types yet is given every block.
 func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kind) (string, string) {
 	if len(tpl.impls) == 0 {
 		tpl.registerSiblingInstances(d)
@@ -283,6 +277,11 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 		}
 		if !implBinderNamesTemplateParams(it.decl, tpl) {
 			return "generic impl block", typeText(it.decl.Receiver)
+		}
+		if !g.instanceMeetsWhere(it.decl, tpl, d) {
+			// No checked program calls a function of a block at an
+			// instance outside its `where` bound.
+			continue
 		}
 		id := g.registerImplAt(it.decl, recv)
 		id.typeScope = tpl.scope
@@ -301,6 +300,27 @@ func (g *gen) registerInstanceImpls(tpl *genericTemplate, d *typeDef, args []kin
 	}
 	tpl.registerSiblingInstances(d)
 	return "", ""
+}
+
+// instanceMeetsWhere reports whether the instance d of tpl meets the
+// `where` bound of tpl's impl block ib, as the checker decides it
+// (analysis.ImplBlockServesAt) at the checker's types of d's arguments,
+// against the impls of the program those types are from (instanceFA). A
+// block with no `where`, and an instance the checker's types do not decide
+// (d has none yet), meet it.
+func (g *gen) instanceMeetsWhere(ib *ast.ImplBlock, tpl *genericTemplate, d *typeDef) bool {
+	if len(ib.WhereClauses) == 0 || len(d.genericTypes) != len(tpl.params) {
+		return true
+	}
+	args := make(map[string]analysis.Type, len(tpl.params))
+	for i, p := range tpl.params {
+		if d.genericTypes[i] == nil {
+			return true
+		}
+		args[p] = d.genericTypes[i]
+	}
+	serves, decided := analysis.ImplBlockServesAt(g.instanceFA(), g.fa, ib, args)
+	return serves || !decided
 }
 
 // genericInstRefusal is the reason the INTERNED instance for this annotation was

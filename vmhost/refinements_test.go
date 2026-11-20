@@ -458,12 +458,12 @@ func TestRefinement_AGenericRuleIsCheckedThroughEveryImplOfItsBounds(t *testing.
 		want      []want
 	}{
 		{"an impl of a type the program declares", decls + loud + rules + main, []want{
-			{42, 43, msg("Shown", "Loud.to_string calls io.print")},
-			{44, 47, msg("Sorted", "Loud.compare calls io.print")},
-			{46, 42, msg("Tagged", "Loud.name calls io.print")},
+			{42, 43, msg("Shown", "Display.to_string for Loud calls io.print")},
+			{44, 47, msg("Sorted", "Comparable.compare for Loud calls io.print")},
+			{46, 42, msg("Tagged", "Named.name for Loud calls io.print")},
 		}},
 		{"an instance of a generic impl", decls + box + rules + "fn main()\n    io.print(Box{v: 1})\nend\n", []want{
-			{28, 43, msg("Shown", "Display.to_string calls io.print")},
+			{28, 43, msg("Shown", "Display.to_string for Box<Int> calls io.print")},
 		}},
 		{"a rule only the program's own type meets the bounds of", decls +
 			"subtype Listed<T> List<T> where T: Named when fn xs ->\n    io.print(\"listing\")\n    Iter.all_match(xs, fn x -> Named.name(x) != \"\")\nend\n\n" + main, []want{
@@ -736,14 +736,48 @@ func TestRefinement_ARuleOverIntsReachesNoEquatableOfTheProgram(t *testing.T) {
 	for _, tc := range []struct{ rule, use, want string }{
 		{"subtype Scored Score when fn s -> s != Score{points: 0}\n\n",
 			"    io.inspect(Scored.try_from(Score{points: 1}))\n",
-			"the rule of Scored has effects (Score.equal calls io.print): a rule is a pure function of the value it checks"},
+			"the rule of Scored has effects (Equatable.equal for Score calls io.print): a rule is a pure function of the value it checks"},
 		{"subtype Unique List<Score> when fn xs -> Iter.count(Iter.to_set(xs)) == List.length(xs)\n\n",
 			"    io.inspect(Unique.try_from([Score{points: 1}]))\n",
-			"the rule of Unique has effects (Score.equal calls io.print): a rule is a pure function of the value it checks"},
+			"the rule of Unique has effects (Equatable.equal for Score calls io.print): a rule is a pure function of the value it checks"},
 	} {
 		ds := literalDiagnostics(t, decls+tc.rule+"fn main()\n"+tc.use+"end\n")
 		if len(ds) != 1 || ds[0].Message != tc.want || ds[0].Code != InvalidRefinementCode {
 			t.Errorf("%s: diagnostics = %v, want one reading %q", strings.TrimSpace(tc.rule), ds, tc.want)
 		}
+	}
+}
+
+// A rule reaches a program's Display only through a value of its type: a
+// rule that interpolates a Point in a tuple renders Point's Display, so a
+// Display of another type that prints does not make the rule effectful. A
+// rule that renders a value of the printing type reaches it, and the error
+// names it.
+func TestRefinement_ARuleReachesOnlyTheDisplayOfTypesItRenders(t *testing.T) {
+	const decls = "import std::io\n\n" +
+		"struct Loud\n    n: Int\nend\n\n" +
+		"impl Display for Loud\n    fn to_string(l: Loud) -> String\n        io.print(\"shown\")\n        \"loud ${l.n}\"\n    end\nend\n\n" +
+		"struct Point\n    x: Int\nend\n\n" +
+		"derive Display for Point\n\n"
+	p, err := LoadSource("main", decls+
+		"subtype Shown Point when fn p -> \"${(p, 1)}\" != \"\"\n\n"+
+		"fn main()\n    io.inspect(Shown.try_from(Point{x: 1}))\nend\n")
+	if err != nil {
+		t.Fatalf("the program does not load: %v", err)
+	}
+	var out strings.Builder
+	if err := p.Run(context.Background(), &out, nil, false); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if got, want := out.String(), "Some(Point{x: 1})\n"; got != want {
+		t.Errorf("output = %q, want %q", got, want)
+	}
+
+	ds := literalDiagnostics(t, decls+
+		"subtype Shown Point when fn p -> \"${(p, Loud{n: p.x})}\" != \"\"\n\n"+
+		"fn main()\n    io.inspect(Shown.try_from(Point{x: 1}))\nend\n")
+	const want = "the rule of Shown has effects (Display.to_string for Loud calls io.print): a rule is a pure function of the value it checks"
+	if len(ds) != 1 || ds[0].Message != want || ds[0].Code != InvalidRefinementCode {
+		t.Errorf("a rule that renders a Loud: diagnostics = %v, want one reading %q", ds, want)
 	}
 }

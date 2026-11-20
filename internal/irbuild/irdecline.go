@@ -342,6 +342,7 @@ func (bl *irScalarBuilder) lowerExact(n ast.Node) (ir.Temp, kind, bool, bool) {
 		bl.g.irTypeTemp(bl.f, t, k)
 		bl.pipeValue(n, t)
 		bl.stageReached(n)
+		bl.verifyExprKind(n, k)
 	}
 	if !ok && bl.g.dc.why == "" {
 		if line, col := nodePos(n); emittableLine(line) {

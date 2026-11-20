@@ -22,8 +22,9 @@ end
 `
 
 // A dependency that reaches more than its own nomi.toml declares is a
-// lowering diagnostic, coded capability-not-declared, in the entry naming
-// the call in the dependency's file and pointing at it.
+// lowering diagnostic, coded capability-not-declared, in the entry at the
+// project's call that leads there, naming the call in the dependency's
+// file and pointing at it.
 func TestLoweringDiagnostics_CapabilityNotDeclared(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
@@ -42,8 +43,12 @@ func TestLoweringDiagnostics_CapabilityNotDeclared(t *testing.T) {
 		t.Fatalf("lowering diagnostics %s; want one", renderDiagnostics(diags))
 	}
 	d := diags[0]
-	if !strings.HasPrefix(d.Message, "in rules.nomi:4:5: example.com/pricing reaches std::fs, and its own [capabilities.self] allows it only std::io\n") {
-		t.Errorf("message = %q, want the dependency's own list named at its call", d.Message)
+	if !strings.HasPrefix(d.Message, "your code reaches std::fs in example.com/pricing here: `main` calls `load`\n"+
+		"example.com/pricing reaches std::fs, and its own [capabilities.self] allows it only std::io\n") {
+		t.Errorf("message = %q, want the project's call, then the dependency's own list named", d.Message)
+	}
+	if d.Range.Start != (protocol.Position{Line: 6, Character: 13}) {
+		t.Errorf("range %+v, want the project's call at 7:14", d.Range)
 	}
 	if d.Code == nil || d.Code.Value != "capability-not-declared" || len(d.RelatedInformation) != 1 ||
 		d.RelatedInformation[0].Location.URI != protocol.DocumentUri(fileuri.FromPath(filepath.Join(dir, "pricing", "rules.nomi"))) {

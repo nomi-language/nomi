@@ -79,6 +79,10 @@ type stdInst struct {
 	gen  *gen
 	view *stdFunc
 	sym  *ir.Symbol
+	// impl is the impl block the function is declared in, its receiver at
+	// this instance's type arguments, or nil for a function of no impl
+	// block (implFuncOf).
+	impl *ir.ImplFunc
 	// depth is the length of the instantiation chain that reached this
 	// instance, for stdInstCap.
 	depth int
@@ -362,6 +366,7 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, types []anal
 	view.pkg = v.pkg
 	g.stdInstName = f.key + "<" + kindsNomi(args) + ">"
 	inst.view = &view
+	inst.impl = g.stdInstImplFunc(inst)
 	if slot >= 0 {
 		inst.sym = g.irCalleeSym(irSlotDefault{inst.view, slot}, fmt.Sprintf("%s default %d", g.stdInstName, slot+1))
 	} else {
@@ -370,6 +375,31 @@ func (s *stdInstances) queue(f *stdFunc, tps []string, args []kind, types []anal
 	s.pending[key] = inst
 	s.pendingOrder = append(s.pendingOrder, key)
 	return inst, ""
+}
+
+// stdInstImplFunc is the impl block inst's function is declared in, with
+// the receiver at the instance's type arguments: a std interface default's
+// is the receiver it is instantiated at, and an impl block's function's is
+// the block's receiver read under the instance's frame, which g has pushed.
+// Nil for a function of no impl block.
+func (g *gen) stdInstImplFunc(inst *stdInst) *ir.ImplFunc {
+	f := inst.f
+	if f.ifaceDefault != nil {
+		if len(inst.args) != 1 {
+			return nil
+		}
+		return &ir.ImplFunc{Type: kindSpelling(inst.args[0]), Interface: f.iface, Func: f.name}
+	}
+	d, ok := g.declNameOf(inst.fd)
+	if !ok || d.impl == nil {
+		return nil
+	}
+	impl := headerImplFunc(d.impl, inst.fd.Name)
+	// kindInvalid: lookup — a receiver this gen cannot name keeps the header's spelling.
+	if recv := g.typeOf(d.impl.Receiver); recv != kindInvalid {
+		impl.Type = kindSpelling(recv)
+	}
+	return &impl
 }
 
 // build lowers one instance's body through its own gen, answering why it

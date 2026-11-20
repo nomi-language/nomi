@@ -612,9 +612,6 @@ func classifyName(ctx *completionContext, leafField string, parent any, parentFi
 			ctx.kind = ctxTestBoot
 			return
 		}
-	case *ast.TupleDestructure:
-		ctx.kind = ctxNone // naming a new binding
-		return
 	}
 	ctx.kind = ctxExpr
 }

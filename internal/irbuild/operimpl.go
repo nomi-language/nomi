@@ -5,7 +5,6 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
-	"github.com/nomi-language/nomi/internal/ir"
 )
 
 // Operator-interface impls: `impl Add<Days, Day> for Day`.
@@ -56,9 +55,9 @@ import (
 // # ONE RULE, TWO INDICES
 //
 // `std/calendar`'s twelve `Add` impls never enter `implsByIface`. A stdlib impl
-// is resolved through the stdlib index, and `stdlibOperatorFor` picks by both
-// operand kinds, which carries the right-hand type. This file is the user-side mirror of `g.std.byIface`, not a new
-// mechanism.
+// is resolved through the stdlib index, which carries the right-hand type.
+// This file is the user-side mirror of `g.std.byIface`, not a new mechanism.
+// An operator reaches the impl its record names (recordedOperatorImpl).
 //
 // # NO `*ifaceDef`, AND NO TABLE
 //
@@ -172,8 +171,8 @@ var operIfaceByName = func() map[string]*operIfaceSpec {
 // and its two type arguments, the right-hand type (the axis `implsByIface`
 // drops) and the output. Two impls of `Add<Days, X>` for one receiver that
 // differ only in their output are two impls; the front end chooses between
-// them by the type the operator's result is expected to have, and the call
-// site reads that choice (operImplFor's want).
+// them by the type the operator's result is expected to have, and the
+// operator's record names the one it chose.
 type operKey struct {
 	iface string
 	recv  kind
@@ -373,8 +372,8 @@ func (g *gen) admitOperImpl(d *implDef, ib *ast.ImplBlock, name string) bool {
 //
 // It returns the refusal, or two empty strings. Every clause is what one of the
 // three call shapes below assumes, so a block that fails any of them must not be
-// selectable: `operImplFor` reads `it.params` to choose between rival impls and
-// `userOperatorCall` reads `it.result` as the operator's type.
+// called: `userOperatorCall` reads `it.params` as the operands' kinds and
+// `it.result` as the operator's type.
 //
 // Checked against the HEADER's type arguments rather than against a resolved
 // interface, which is the substitution the missing `*ifaceDef` would have
@@ -443,7 +442,6 @@ func (g *gen) registerOperImpl(d *implDef) {
 		return
 	}
 	g.operImpls[key] = d
-	g.operOrder = append(g.operOrder, d)
 }
 
 // operLabel names an operator impl the way its source spells it, which is what
@@ -457,38 +455,4 @@ func (d *implDef) operLabel() string {
 	}
 	return fmt.Sprintf("%s<%s, %s> for %s",
 		d.ifaceName, d.operRhs.nomi(), d.operOut.nomi(), d.recv.nomi())
-}
-
-// operImplFor selects the operator impl of `iface` for a receiver whose
-// declared parameters fit `args`, reporting rivals separately from a miss, and
-// hands back the IR declaration the selection chose.
-//
-// The scoring is `internal/ir`'s: the loop is `ir.Table.SelectOverload` and
-// the acceptance relation is `ir.Table.Widens`. What stays here is the
-// candidate FILTER, which is this package's knowledge of which impl blocks are
-// operator impls at all. See irtable.go.
-//
-// The selection is tiered. A boolean fit is not enough:
-// `Duration + Int` versus `Duration + Duration` needs the DEGREE,
-// so an EXACT fit beats a WIDENED one and two fits at one tier are ambiguous.
-// It is expressed once, in `ir.Fit`.
-//
-// The `decl` result is the chosen declaration as the IR names it, returned
-// from here so one selection produces one declaration identity.
-// The operator routes over an instance's kinds take the impl item and discard
-// it.
-//
-// Every candidate scanned here is an operator impl, and `g.operImpls` holds
-// nothing else, so this route cannot change the answer of a call site that
-// resolves through `implsByIface`.
-//
-// want, when given and valid, is the result kind the front end chose the
-// impl by: among rivals that take the operands alike, the one returning it.
-func (g *gen) operImplFor(iface string, recv kind, method string, args []kind, want ...kind) (chosen *implItem, decl *ir.Decl, rival bool) {
-	chosen, decl, rival = g.irSelectOperImpl(iface, recv, method, args, nil)
-	// kindInvalid: lookup — no solved result keeps the rivals rivals.
-	if rival && len(want) == 1 && want[0] != kindInvalid {
-		return g.irSelectOperImpl(iface, recv, method, args, func(it *implItem) bool { return it.result == want[0] })
-	}
-	return chosen, decl, rival
 }

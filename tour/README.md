@@ -112,10 +112,17 @@ an edit can change what the block prints (`readOnlyReason`): Go files,
 `go.mod`, `go.sum`, a `nomi.toml` whose only table is `[module]`, and data
 files a `read-only:` word marks are locked. Highlighting, hovers and runs use
 the same grammar, queries, analyzer and VM the editors use, compiled to wasm.
+Each file is highlighted in its own language (`fileLanguage` in
+`src/lib/highlight.mjs`): Nomi by the grammar, a `nomi.toml` or catalog as
+TOML, JSON as JSON, Go as the build highlighted it, and anything else
+(`go.mod`, data) uncoloured. The build's static rendering of a block, which
+the page shows until the editor opens (`prehighlight.mjs`), colours each file
+the same way (`renderFiles`).
 
 **Tests.** `npm --prefix tour test` loads recorded, manual and unrecorded
 blocks into headless Chrome with a fake worker and holds them to the rules
-above (`test/`; it skips without Chrome or the staged `public/nomi/`).
+above, and holds a multi-file block's files to their languages (`test/`; the
+Chrome tests skip without Chrome or the staged `public/nomi/`).
 
 ## Cloudflare Pages
 

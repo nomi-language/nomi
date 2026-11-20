@@ -130,7 +130,7 @@ func typesFor(paths []string) (string, error) {
 }
 
 // typesRoots is the programs files are checked in, as `nomi check` checks
-// their project (discoverCheckFiles): each program of the project, of the
+// their project (frontend.CheckedFiles): each program of the project, of the
 // project root analysis.ProjectRoot finds for each file, that loads one of
 // files, so a file that reads an application field is checked under the
 // entry whose boot returns the application. A file no program of its
@@ -154,7 +154,7 @@ func typesRoots(files []string) ([]string, error) {
 			continue
 		}
 		projects[dir] = true
-		programs, _, _, err := discoverCheckFiles(dir)
+		programs, _, _, err := frontend.CheckedFiles(dir)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +183,7 @@ func typesRoots(files []string) ([]string, error) {
 		}
 	}
 	if len(rest) > 0 {
-		own, _ := programRoots(rest)
+		own, _ := frontend.ProgramRoots(rest)
 		for _, r := range own {
 			if !seen[r] {
 				seen[r] = true

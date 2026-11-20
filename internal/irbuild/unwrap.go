@@ -135,9 +135,9 @@ func (g *gen) bangRender(at *ast.Unwrap, errK kind) *ir.Symbol {
 			if shown == nil {
 				panic("irbuild: a `!` over a Result with no record of how its error renders; the checker records one for each (analysis package doc, \"Elaboration\")")
 			}
-			f, ok := g.irErrorRenderFunc(at, name, s, errK, shown, at, false)
+			f, ok := g.irErrorRenderFunc(at, name, s, errK, shown.Type, shown, at, false)
 			if !ok {
-				f, ok = g.irErrorRenderFunc(at, name, s, errK, shown, at, true)
+				f, ok = g.irErrorRenderFunc(at, name, s, errK, shown.Type, shown, at, true)
 			}
 			if !ok {
 				return

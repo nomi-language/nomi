@@ -5,14 +5,16 @@ package vm
 //
 // A name matches a function by any of these spellings:
 //
-//   - its name as the stack shows it, without type arguments: `transact`,
-//     `Account.deposit`, `Card.to_string` (an impl's function is named by
-//     the type it is for), `Maybe.map`;
+//   - its name as source code calls it, without type arguments:
+//     `transact`, `Account.deposit`, `Card.to_string` (an impl block's
+//     function is named by the type it is for), `Maybe.map`;
 //   - the same with type arguments, which picks one instance of a generic
-//     function: `ident<Int>`, `Maybe.map<Int, Int>`;
+//     function: `ident<Int>`, and for an impl block's function its
+//     receiver's, `Maybe.map<Int>`;
 //   - either of those qualified by its file's name: `tiny_bank.transact`,
 //     `maybe.Maybe.map`;
-//   - for an impl's function, the interface method it implements:
+//   - for an impl block's function, its name as the stack shows it,
+//     `Display.to_string for Card`, and the interface method it implements:
 //     `Display.to_string` stops in every impl the program has.
 //
 // A name may match several functions: each instance of a generic function,
@@ -99,6 +101,9 @@ func (d *Debugger) addDebugFuncLocked(f *ir.Func, alias string) {
 	if args != "" {
 		names = append(names, unq+args, stem+"."+unq+args)
 	}
+	if _, isImpl := f.Sym().Impl(); isImpl {
+		names = append(names, f.Name())
+	}
 	if alias != "" {
 		names = append(names, alias)
 	}
@@ -110,14 +115,22 @@ func (d *Debugger) addDebugFuncLocked(f *ir.Func, alias string) {
 }
 
 // spellings are the parts of f's name: as source code calls it, without
-// its file's name or type arguments (`Maybe.map`); its file's name
-// (`maybe`); and its type arguments (`<Int, Int>`), or "".
+// its file's name or type arguments (`Maybe.map`, and `Card.to_string` for
+// an impl block's function, from its ir.ImplFunc); its file's name
+// (`maybe`); and its type arguments (`<Int, Int>`, an impl block's
+// function's its receiver's), or "".
 func spellings(f *ir.Func) (name, stem, args string) {
+	stem = strings.TrimSuffix(filepath.Base(f.Pos().File()), ".nomi")
+	if impl, ok := f.Sym().Impl(); ok {
+		if _, typeArgs, generic := strings.Cut(impl.Type, "<"); generic {
+			args = "<" + typeArgs
+		}
+		return impl.TypeName() + "." + impl.Func, stem, args
+	}
 	base, args, _ := strings.Cut(f.Name(), "<")
 	if args != "" {
 		args = "<" + args
 	}
-	stem = strings.TrimSuffix(filepath.Base(f.Pos().File()), ".nomi")
 	return strings.TrimPrefix(base, stem+"."), stem, args
 }
 

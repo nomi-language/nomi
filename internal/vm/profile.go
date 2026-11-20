@@ -261,7 +261,12 @@ func (p *Profiler) funcNode(fn *ir.Func) int {
 	}
 	pos := fn.Pos()
 	id := len(p.nodes)
-	p.nodes = append(p.nodes, profNode{name: profName(frameName(fn)), file: pos.File(), line: pos.Line(), col: pos.Col(), std: pos.Stdlib()})
+	name := frameName(fn)
+	if _, isImpl := fn.Sym().Impl(); !isImpl {
+		// An impl block's function is named by its block already.
+		name = profName(name)
+	}
+	p.nodes = append(p.nodes, profNode{name: name, file: pos.File(), line: pos.Line(), col: pos.Col(), std: pos.Stdlib()})
 	p.ofFunc[fn] = id
 	return id
 }

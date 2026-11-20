@@ -263,7 +263,7 @@ type implDef struct {
 	//
 	// A SECOND MAP RATHER THAN A FALSE `implItem.lowerable`. Most readers of
 	// `d.items[name]` — among them `bindImpl`, `qualImplPlan`,
-	// `foreignIfacePlan`, `irSelectOperImpl` and `operimpl.go`
+	// `foreignIfacePlan` and `operimpl.go`
 	// — test only `!= nil` and would take a refused item, naming a
 	// body nobody built. An ABSENT item is the state every reader already
 	// handles: it is what a block that simply does not supply the method looks
@@ -1689,14 +1689,10 @@ func (g *gen) qualifierKind(owner string) kind {
 	return kindInvalid
 }
 
-// The fit tier and the subtyping relation are `ir.Fit` (`FitNone`/
-// `FitWidened`/`FitExact`), `ir.Table.Accepts` and `ir.Table.Widens`; the
-// caller that scores, `operImplFor`, reaches them through `irSelectAmong`.
-//
-// `embedsVariant` (types.go) is not the same question. It answers WHICH
-// VARIANT of the enum embeds the value, which is what `coerce` needs to
-// construct one; `ir.Table.Embeds` records the edge and `ir.Type` carries no
-// variant structure to name the arm with.
+// `embedsVariant` (types.go) answers WHICH VARIANT of an enum embeds a
+// value, which is what `coerce` needs to construct one; `ir.Table.Embeds`
+// records the edge and `ir.Type` carries no variant structure to name the
+// arm with.
 
 // --- erasure ------------------------------------------------------------------
 

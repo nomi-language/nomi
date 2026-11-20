@@ -505,9 +505,10 @@ func (g *gen) declareTypeShells(nodes []ast.Node) {
 			// A monomorphic stdlib enum, same rule and the same reasons: the
 			// representation is fixed in rt, so there is nothing for
 			// resolveEnum to resolve, and a per-gen shell would be a second def
-			// for one rt type. See stdenum.go.
-			if i := g.stdEnumDeclared(ed); i >= 0 {
-				g.types[name] = stdEnumDefs()[i]
+			// for one rt type. See stdenum.go. A named payload enum
+			// (`std/tasks.Failure`) is the same: see taskoutcome.go.
+			if d := g.sharedEnumDeclared(ed); d != nil {
+				g.types[name] = d
 				continue
 			}
 		}

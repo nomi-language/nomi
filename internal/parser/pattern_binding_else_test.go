@@ -119,12 +119,12 @@ func TestPatternBindingElse_ElseOnNextLine(t *testing.T) {
 	}
 }
 
-// Without else, the destructure statements keep their own nodes.
+// Without else, a destructure is a PatternBinding.
 func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 	for src, want := range map[string]string{
-		"Some(x) = m":           "*ast.DistinctDestructure",
-		"(a, b) = p":            "*ast.TupleDestructure",
-		"{a:, b:} = p":          "*ast.StructDestructure",
+		"Some(x) = m":           "*ast.PatternBinding",
+		"(a, b) = p":            "*ast.PatternBinding",
+		"{a:, b:} = p":          "*ast.PatternBinding",
 		"x = 5":                 "*ast.Binding",
 		"io.print(x)":           "*ast.ExprStmt",
 		"[1, 2] |> f":           "*ast.ExprStmt",
@@ -139,12 +139,6 @@ func TestPatternBindingElse_DestructuresWithoutElseUnchanged(t *testing.T) {
 		}
 		got := ""
 		switch nodes[0].(type) {
-		case *ast.DistinctDestructure:
-			got = "*ast.DistinctDestructure"
-		case *ast.TupleDestructure:
-			got = "*ast.TupleDestructure"
-		case *ast.StructDestructure:
-			got = "*ast.StructDestructure"
 		case *ast.Binding:
 			got = "*ast.Binding"
 		case *ast.ExprStmt:

@@ -29,20 +29,19 @@ type instImplAccessorReq struct {
 	d     *implDef
 	it    *implItem
 	inst  *genericImplInst
-	name  string
 	built bool
 }
 
 // instImplAccessors asks g, the gen that lowers impl block d for a generic
 // type's instance, for an accessor per defaulted parameter of its function
-// it, named name as the call site names the function. It answers the
-// function's callee symbol, or nil when g does not build d for an instance.
-func (g *gen) instImplAccessorsFor(d *implDef, it *implItem, name string) *ir.Symbol {
+// it. It answers the function's callee symbol, or nil when g does not build
+// d for an instance.
+func (g *gen) instImplAccessorsFor(d *implDef, it *implItem) *ir.Symbol {
 	if d == nil || it == nil || it.decl == nil || it.inherited || len(it.params) != len(it.decl.Params) {
 		return nil
 	}
 	if r := g.instImplAccessors[it]; r != nil {
-		return g.irCalleeSym(it, r.name)
+		return g.irImplSym(it)
 	}
 	var inst *genericImplInst
 	for _, e := range g.genericImplQueue {
@@ -54,13 +53,13 @@ func (g *gen) instImplAccessorsFor(d *implDef, it *implItem, name string) *ir.Sy
 	if inst == nil {
 		return nil
 	}
-	r := &instImplAccessorReq{d: d, it: it, inst: inst, name: name}
+	r := &instImplAccessorReq{d: d, it: it, inst: inst}
 	if g.instImplAccessors == nil {
 		g.instImplAccessors = map[*implItem]*instImplAccessorReq{}
 	}
 	g.instImplAccessors[it] = r
 	g.instImplAccessorQueue = append(g.instImplAccessorQueue, r)
-	return g.irCalleeSym(it, name)
+	return g.irImplSym(it)
 }
 
 // flushInstImplAccessors builds every queued request's accessors under its
@@ -86,11 +85,11 @@ func (g *gen) instImplAccessorsBuild(r *instImplAccessorReq) {
 		defer g.popIfaceSubst()
 	}
 	fd := r.it.decl
-	callee := g.irCalleeSym(r.it, r.name)
+	callee := g.irImplSym(r.it)
 	sig := &fnSig{params: r.it.params, result: r.it.result, decl: fd, lowerable: true}
 	for slot, p := range fd.Params {
 		if p.Default != nil {
-			g.irFileSlotRetain(fd, sig, callee, r.name, slot)
+			g.irFileSlotRetain(fd, sig, callee, slot)
 		}
 	}
 }
@@ -110,16 +109,15 @@ func (g *gen) instImplAccessorsPending() bool {
 // accessors for the instance (instImplAccessorsFor), asked for only when a
 // default names what the calling file cannot.
 func (g *gen) instImplHome(d *implDef, it *implItem) defaultHome {
-	name := d.recv.nomi() + "." + it.name
 	var callee *ir.Symbol
 	asked := false
 	return defaultHome{owner: g, accessor: func(slot int) *ir.Symbol {
 		if !asked {
-			callee, asked = g.instImplAccessorsFor(d, it, name), true
+			callee, asked = g.instImplAccessorsFor(d, it), true
 		}
 		if callee == nil {
 			return nil
 		}
-		return g.irFileSlotSym(callee, name, slot)
+		return g.irFileSlotSym(callee, slot)
 	}}
 }

@@ -522,6 +522,44 @@ func TestCapabilities_Why(t *testing.T) {
 	}
 }
 
+// --why names an impl block's function in a chain by its interface and
+// the type it is for, whichever use of it the program lowers first.
+func TestCapabilities_WhyNamesTheTypeOfAnImpl(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "nomi.toml"), capabilitiesModule)
+	mustWrite(t, filepath.Join(dir, "main.nomi"), `import
+    std::fs
+    std::io
+end
+
+struct Loud
+    path: String
+end
+
+impl Display for Loud
+    fn to_string(l: Loud) -> String
+        load(l.path)
+    end
+end
+
+fn load(path: String) -> String
+    fs.read_text(path) |> Result.with_default("")
+end
+
+fn main()
+    io.print("${Loud{path: "a.txt"}}")
+    shown: Display = Loud{path: "b.txt"}
+    io.print(Display.to_string(shown))
+end
+`)
+	why := runNomiIn(t, dir, "off", "capabilities", "--why", "std::fs")
+	want := "1 call reaches std::fs:\n  main.nomi:17:5\n" +
+		"    reached from `main`; `main` calls `Display.to_string for Loud`; `Display.to_string for Loud` calls `load`\n"
+	if why.exit != 0 || why.stdout != want {
+		t.Errorf("--why std::fs:\n%s\nwant stdout:\n%s", why, want)
+	}
+}
+
 // A program with Go bindings is reported without its Go built: a
 // dependency that binds Go is in deps' go, and --why names each binding.
 func TestCapabilities_GoBindings(t *testing.T) {

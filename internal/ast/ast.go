@@ -1754,34 +1754,6 @@ type Binding struct {
 func (*Binding) NodeType() string { return "Binding" }
 func (n *Binding) LineNum() int   { return n.Line }
 
-// TupleDestructure binds tuple elements to names: (x, y) = expr
-type TupleDestructure struct {
-	TriviaCarrier
-	SpanCarrier
-	Bindings []*Ident // binding identifiers, nil for wildcard "_"
-	// Discards holds the `_` of each nil entry of Bindings, in order.
-	Discards []*WildcardPattern
-	Value    Node
-	Line     int
-	Col      int
-}
-
-func (*TupleDestructure) NodeType() string { return "TupleDestructure" }
-func (n *TupleDestructure) LineNum() int   { return n.Line }
-
-// StructDestructure binds struct fields to names: .{x, y} = expr or .{x: a, y: b} = expr
-type StructDestructure struct {
-	TriviaCarrier
-	SpanCarrier
-	Fields []StructPatternField // reuse existing type: Name, Binding, Pattern
-	Value  Node
-	Line   int
-	Col    int
-}
-
-func (*StructDestructure) NodeType() string { return "StructDestructure" }
-func (n *StructDestructure) LineNum() int   { return n.Line }
-
 // PatternDestructure binds a general pattern using assertion semantics:
 //
 //	assert pattern = expr
@@ -1803,18 +1775,19 @@ type PatternDestructure struct {
 func (*PatternDestructure) NodeType() string { return "PatternDestructure" }
 func (n *PatternDestructure) LineNum() int   { return n.Line }
 
-// PatternBinding binds a pattern none of the destructure shapes above
-// spells, optionally followed by an `else` branch that runs when the value
-// does not match:
+// PatternBinding binds a pattern, optionally followed by an `else` branch
+// that runs when the value does not match:
 //
+//	(a, _) = pair
+//	{x:, y: b} = point
+//	Meters(n) = distance
 //	Some(email) = user.email else { return Err("no email") }
 //	Ok(user) = load(id) else {
 //	    Err(e) -> return Err("loading: ${e}")
 //	}
 //
 // The names the pattern binds are in scope for the rest of the enclosing
-// block. A destructure shape followed by `else` (`Some(x) = v else { ... }`,
-// which without `else` is a DistinctDestructure) is a PatternBinding too.
+// block.
 type PatternBinding struct {
 	TriviaCarrier
 	SpanCarrier
@@ -1926,21 +1899,6 @@ type RefinementParentCheck struct {
 
 func (*RefinementParentCheck) NodeType() string { return "RefinementParentCheck" }
 func (n *RefinementParentCheck) LineNum() int   { return n.Line }
-
-// DistinctDestructure unwraps a distinct type: Id(x) = expr
-type DistinctDestructure struct {
-	TriviaCarrier
-	SpanCarrier
-	TypeName     string   // "Id" or "Civil.Days"
-	TypeNameExpr TypeExpr // structured type name when source used a qualified prefix
-	Binding      *Ident   // bound variable, or nil for "_"
-	Value        Node     // RHS expression
-	Line         int
-	Col          int
-}
-
-func (*DistinctDestructure) NodeType() string { return "DistinctDestructure" }
-func (n *DistinctDestructure) LineNum() int   { return n.Line }
 
 type ExprStmt struct {
 	TriviaCarrier

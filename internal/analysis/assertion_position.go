@@ -58,12 +58,6 @@ func (c *checker) rejectValueAssertions(nodes []ast.Node) {
 				allowStmt(v.Value)
 			case *ast.PatternBinding:
 				allowStmt(v.Value)
-			case *ast.TupleDestructure:
-				allowStmt(v.Value)
-			case *ast.StructDestructure:
-				allowStmt(v.Value)
-			case *ast.DistinctDestructure:
-				allowStmt(v.Value)
 			case *ast.PatternDestructure:
 				// `assert P = assert v` is an assertion's subject; a plain
 				// `P = assert v` is a binding's value.

@@ -916,7 +916,7 @@ func (bl *irScalarBuilder) partialSiblingDefaults(t *ast.Call, kinds []kind, slo
 		if f.decl.Params[s].Default == nil {
 			return nil
 		}
-		return owner.irFileSlotSym(plan.sym, f.decl.Name, s)
+		return owner.irFileSlotSym(plan.sym, s)
 	}
 	return func(child *irScalarBuilder, args []ir.Temp) bool {
 		return child.fillFromAccessors(t, kinds[:slot+1], args, nil, defaultHome{accessor: accessor}, len(args))

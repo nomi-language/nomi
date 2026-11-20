@@ -497,8 +497,9 @@ func (c *checker) checkedCtorArg(arg ast.Node, dt *DistinctType, label string) {
 			c.checkNode(arg)
 			return
 		}
-		c.checkNodeExpecting(arg, refinementBaseOf(dt))
-		c.recordRefinedLiteral(arg, dt)
+		// Checked as a literal of dt is, which solves dt's type arguments
+		// from it (`Loud(["a"])` is a Loud<String>).
+		c.checkRefinementLiteral(arg, dt)
 		return
 	}
 	argTy := c.checkNode(arg)

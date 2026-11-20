@@ -40,10 +40,10 @@ import (
 // program whole. A request that
 // needs a closed file's analysis checks that file against interfaces too,
 // once (the closed files' cache). The document gets no EntryProgram, since
-// its program's other files have no analysis to lower from; its lowering
-// reads whether the record's program lowered it with nothing to report
-// (StoredLoweredClean), and otherwise lowers it from a kept lowering
-// (stored_lowering.go).
+// its program's other files have no analysis to lower from. The entry
+// lowers from a kept lowering (stored_lowering.go); another document's
+// lowering reads whether the record's program lowered it with nothing to
+// report (StoredLoweredClean), and otherwise lowers its text.
 //
 // The record is opened only while every file of its program holds on disk
 // the text it was written for. An edit after the open stays in the program

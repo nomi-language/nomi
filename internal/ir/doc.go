@@ -97,7 +97,11 @@
 // cell, a pattern's binding (destructure.go). The [Table] (table.go) interns
 // symbols and types against the producer's own identities, one table per
 // lowering. A [Decl] there adds a signature, which Table.SelectOverload
-// needs to choose between two declarations.
+// needs to choose between two declarations. A function of an impl block
+// carries its block as an [ImplFunc] (Table.ImplSymbol), and its name is
+// the ImplFunc's, `Display.to_string for Loud`; a reader that needs the
+// type or the function's own name reads the ImplFunc and never parses the
+// name.
 //
 // # Lint
 //

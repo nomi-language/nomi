@@ -41,20 +41,22 @@ type Analyzed struct {
 // Found is what a lowering of a file finds for an editor: Problems, what
 // `nomi check` reports beyond the front end (vmhost.CheckLowering), and
 // Reached, each outside call the program reaches from the roots `nomi
-// check` holds to nomi.toml's [capabilities] lists, which a hover on the
-// call shows.
+// check` holds to nomi.toml's [capabilities] lists, and each function
+// that can reach one, which a hover on the call or the function shows.
 type Found struct {
 	Problems error
 	Reached  []Reached
 }
 
-// Reached is one outside call a lowering found: the file and the span a
-// diagnostic about it points at, its callee as the author wrote it (1-based
-// lines and byte columns, the end one past the last byte). A site that is
-// no call in source, such as a `go` binding's declaration, is a point: its
-// End is its start. Text is the one line of Markdown a hover on it shows:
-// what it reaches and whether nomi.toml's lists allow it
-// (capability.ReachedLine).
+// Reached is one place a lowering found that reaches outside the machine:
+// an outside call, or a function of the program and each call of it. Path
+// and the span are where a hover shows it: an outside call's callee as the
+// author wrote it, where a diagnostic about it points, a function's name,
+// or a call's callee (1-based lines and byte columns, the end one past the
+// last byte). A site that is no call in source, such as a `go` binding's
+// declaration, is a point: its End is its start. Text is the Markdown a
+// hover on it shows: what it reaches and whether nomi.toml's lists allow
+// it (capability.ReachedLine, capability.FunctionReach).
 type Reached struct {
 	Path            string
 	Line, Col       int

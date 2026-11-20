@@ -19,6 +19,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/capability"
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/vmhost"
 )
 
@@ -116,7 +117,7 @@ func runCapabilities(w io.Writer, args []string) error {
 	tight := r.Tightest()
 	report := capabilitiesReport{r: r, tight: tight, changes: analysis.CapabilityChanges(r.Lists, tight)}
 	if parsed.check {
-		report.changes = heldChanges(report.changes, r.Lists)
+		report.changes = vmhost.HeldChanges(report.changes, r.Lists)
 	}
 	if parsed.write {
 		if report.written, err = writeTightest(r, tight, report.changes); err != nil {
@@ -147,144 +148,37 @@ func runCapabilities(w io.Writer, args []string) error {
 // report nil nothing is printed, and the answer is the first program's
 // error, naming its file.
 func reachOf(path string, report io.Writer) (*vmhost.Reach, error) {
-	files, _, singleFile, err := discoverCheckFiles(path)
+	files, _, singleFile, err := frontend.CheckedFiles(path)
 	if err != nil {
 		return nil, fmt.Errorf("nomi capabilities: %w", pathError(path, err))
 	}
 	if len(files) == 0 {
 		return nil, fmt.Errorf("nomi capabilities: no Nomi files found in %s", path)
 	}
-	var r *vmhost.Reach
-	failed := false
+	var first error
 	reported := map[string]bool{}
 	warnings := report
 	if report == nil {
 		warnings = io.Discard
 	}
-	for _, file := range files {
-		one, err := vmhost.Reached(file, vmhost.WithWarnings(warnings))
-		if err != nil {
-			if report == nil {
-				return nil, fmt.Errorf("%s does not check: %w", vmhost.DisplayPath(file), err)
-			}
-			failed = true
-			if singleFile && ownLines(err) {
-				vmhost.WriteFailure(report, err)
-			} else {
-				writeCheckFailure(report, file, err, reported)
-			}
-			continue
+	r := vmhost.ReachedAll(files, func(file string, err error) {
+		switch {
+		case report == nil && first == nil:
+			first = fmt.Errorf("%s does not check: %w", vmhost.DisplayPath(file), err)
+		case report == nil:
+		case singleFile && ownLines(err):
+			vmhost.WriteFailure(report, err)
+		default:
+			writeCheckFailure(report, file, err, reported)
 		}
-		if r == nil {
-			r = one
-		} else {
-			r.Add(one)
-		}
-	}
-	if failed {
+	}, vmhost.WithWarnings(warnings))
+	switch {
+	case first != nil:
+		return nil, first
+	case r == nil:
 		return nil, errCheckFailed
 	}
 	return r, nil
-}
-
-// heldChanges is changes without the ones --check does not hold the
-// tables to, since leaving them out is a choice and not a difference: a
-// table the file leaves out, [capabilities.deps]' ceiling when the table
-// leaves out its std, and the entry of a dependency the table gives none,
-// which only the ceiling and the dependency's own table hold, unless
-// entries_required asks every dependency for one. A dependency the table
-// does give an entry is held to the tightest one, like every list.
-func heldChanges(changes []analysis.CapabilityChange, lists *vmhost.Capabilities) []analysis.CapabilityChange {
-	if lists == nil {
-		return changes
-	}
-	var out []analysis.CapabilityChange
-	for _, c := range changes {
-		self := c.List == analysis.ListSelf || strings.HasPrefix(c.List, analysis.ListSelf+".")
-		switch {
-		case self && lists.Self == nil:
-		case !self && lists.Deps == nil:
-		case self:
-			out = append(out, c)
-		case (c.List == analysis.ListDepsStd || c.List == analysis.ListDepsStdInTests) && lists.Deps.Std == nil:
-		case c.List == analysis.ListDepsModules && c.Change == "add" && !lists.Deps.EntriesRequired && !hasEntry(lists, c.Module):
-		default:
-			out = append(out, c)
-		}
-	}
-	return out
-}
-
-// hasEntry reports whether lists give module an entry under
-// [capabilities.deps.modules].
-func hasEntry(lists *vmhost.Capabilities, module string) bool {
-	_, has := lists.Deps.Modules[module]
-	return has
-}
-
-// moduleReach is what one dependency's own files reach, as the report
-// prints it.
-type moduleReach struct {
-	Path string `json:"path"`
-	// Std is each std name the module's files reach; StdTestsOnly those
-	// of them only the tests reach.
-	Std          []string `json:"std"`
-	StdTestsOnly []string `json:"std_tests_only"`
-	// BindsGo reports that the module's files bind Go in calls the walks
-	// reach, and GoTestsOnly that only the tests reach them.
-	BindsGo     bool `json:"binds_go"`
-	GoTestsOnly bool `json:"go_tests_only,omitempty"`
-}
-
-// moduleReaches is what each dependency the programs' code comes from
-// reaches, by path.
-func moduleReaches(r *vmhost.Reach) []moduleReach {
-	byPath := map[string]*moduleReach{}
-	use := func(path string) *moduleReach {
-		if u, ok := byPath[path]; ok {
-			return u
-		}
-		u := &moduleReach{Path: path, Std: []string{}, StdTestsOnly: []string{}}
-		byPath[path] = u
-		return u
-	}
-	for _, m := range r.Modules {
-		use(m)
-	}
-	// fromMain is each module and std name, or "go" for a Go binding,
-	// that a walk from main reaches.
-	type key struct{ module, name string }
-	fromMain := map[key]bool{}
-	for _, w := range r.Walks {
-		for _, c := range w.Calls {
-			if c.Module == "" {
-				continue
-			}
-			u := use(c.Module)
-			name := c.Name
-			if capability.BindsGo(c.Name) {
-				u.BindsGo, name = true, "go"
-			} else if !slices.Contains(u.Std, c.Name) {
-				u.Std = append(u.Std, c.Name)
-			}
-			if !w.Tests {
-				fromMain[key{u.Path, name}] = true
-			}
-		}
-	}
-	out := []moduleReach{}
-	for _, u := range byPath {
-		slices.Sort(u.Std)
-		for _, n := range u.Std {
-			if !fromMain[key{u.Path, n}] {
-				u.StdTestsOnly = append(u.StdTestsOnly, n)
-			}
-		}
-		u.GoTestsOnly = u.BindsGo && !fromMain[key{u.Path, "go"}]
-		out = append(out, *u)
-	}
-	slices.SortFunc(out, func(a, b moduleReach) int { return strings.Compare(a.Path, b.Path) })
-	return out
 }
 
 // capabilitiesReport is one run's report.
@@ -297,38 +191,6 @@ type capabilitiesReport struct {
 	written string
 }
 
-// reportWidth is the width the text report wraps its lists at.
-const reportWidth = 80
-
-// wrapped is names after a first line's prefix, joined with ", " and
-// wrapped at reportWidth, each later line indented to the prefix's width;
-// "(none)" for no names.
-func wrapped(prefix string, names []string) string {
-	if len(names) == 0 {
-		return prefix + "(none)"
-	}
-	indent := strings.Repeat(" ", len(prefix))
-	var b strings.Builder
-	line := prefix
-	for i, n := range names {
-		item := n
-		if i < len(names)-1 {
-			item += ","
-		}
-		switch {
-		case line == prefix:
-			line += item
-		case len(line)+1+len(item) > reportWidth:
-			b.WriteString(line + "\n")
-			line = indent + item
-		default:
-			line += " " + item
-		}
-	}
-	b.WriteString(line)
-	return b.String()
-}
-
 // writeText prints what the programs reach: the tightest tables, self's
 // lists for the project's own files and deps' lists with what each
 // dependency's own files reach, then how nomi.toml's tables differ from
@@ -337,17 +199,17 @@ func (rep capabilitiesReport) writeText(w io.Writer) {
 	t := rep.tight
 	flag := func(on bool) []string { return []string{fmt.Sprint(on)} }
 	fmt.Fprintln(w, "self: "+rep.r.Project)
-	fmt.Fprintln(w, wrapped("  std            ", t.Self.Std))
-	fmt.Fprintln(w, wrapped("  std_in_tests   ", t.Self.StdInTests))
-	fmt.Fprintln(w, wrapped("  go             ", flag(t.Self.Go)))
-	fmt.Fprintln(w, wrapped("  go_in_tests    ", flag(t.Self.GoInTests)))
+	fmt.Fprintln(w, capability.Wrapped("  std            ", t.Self.Std))
+	fmt.Fprintln(w, capability.Wrapped("  std_in_tests   ", t.Self.StdInTests))
+	fmt.Fprintln(w, capability.Wrapped("  go             ", flag(t.Self.Go)))
+	fmt.Fprintln(w, capability.Wrapped("  go_in_tests    ", flag(t.Self.GoInTests)))
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "deps")
-	fmt.Fprintln(w, wrapped("  std            ", t.Deps.Std))
-	fmt.Fprintln(w, wrapped("  std_in_tests   ", t.Deps.StdInTests))
-	fmt.Fprintln(w, wrapped("  go             ", t.Deps.Go))
-	fmt.Fprintln(w, wrapped("  go_in_tests    ", t.Deps.GoInTests))
-	modules := moduleReaches(rep.r)
+	fmt.Fprintln(w, capability.Wrapped("  std            ", t.Deps.Std))
+	fmt.Fprintln(w, capability.Wrapped("  std_in_tests   ", t.Deps.StdInTests))
+	fmt.Fprintln(w, capability.Wrapped("  go             ", t.Deps.Go))
+	fmt.Fprintln(w, capability.Wrapped("  go_in_tests    ", t.Deps.GoInTests))
+	modules := rep.r.ModuleReaches()
 	if len(modules) == 0 {
 		fmt.Fprintln(w, "  modules        (none)")
 	} else {
@@ -355,34 +217,10 @@ func (rep capabilitiesReport) writeText(w io.Writer) {
 	}
 	for _, u := range modules {
 		fmt.Fprintln(w, "    "+u.Path)
-		writeModuleReach(w, "      ", u)
+		vmhost.WriteModuleReach(w, "      ", u)
 	}
 	fmt.Fprintln(w)
 	rep.writeTable(w, false)
-}
-
-// writeModuleReach prints, under a module's path, indented by indent, what
-// its own files reach: its std names, with (tests only) on those only the
-// tests reach, and whether it binds Go, or nothing.
-func writeModuleReach(w io.Writer, indent string, u moduleReach) {
-	var names []string
-	for _, n := range u.Std {
-		if slices.Contains(u.StdTestsOnly, n) {
-			n += " (tests only)"
-		}
-		names = append(names, n)
-	}
-	if len(names) > 0 {
-		fmt.Fprintln(w, wrapped(indent, names))
-	}
-	switch {
-	case u.BindsGo && u.GoTestsOnly:
-		fmt.Fprintln(w, indent+"binds Go (tests only)")
-	case u.BindsGo:
-		fmt.Fprintln(w, indent+"binds Go")
-	case len(names) == 0:
-		fmt.Fprintln(w, indent+"nothing")
-	}
 }
 
 // writeTable prints how nomi.toml's tables differ from the tightest ones:
@@ -529,11 +367,11 @@ type selfJSON struct {
 // reaches, from which its entry under [capabilities.deps.modules] is
 // written.
 type depsJSON struct {
-	Std        []string      `json:"std"`
-	StdInTests []string      `json:"std_in_tests"`
-	Go         []string      `json:"go"`
-	GoInTests  []string      `json:"go_in_tests"`
-	Modules    []moduleReach `json:"modules"`
+	Std        []string             `json:"std"`
+	StdInTests []string             `json:"std_in_tests"`
+	Go         []string             `json:"go"`
+	GoInTests  []string             `json:"go_in_tests"`
+	Modules    []vmhost.ModuleReach `json:"modules"`
 }
 
 type capabilitiesTableJSON struct {
@@ -562,7 +400,7 @@ func (rep capabilitiesReport) writeJSON(w io.Writer) error {
 		Project: rep.r.Project,
 		Self:    selfJSON{Std: orEmpty(t.Self.Std), StdInTests: orEmpty(t.Self.StdInTests), Go: t.Self.Go, GoInTests: t.Self.GoInTests},
 		Deps: depsJSON{Std: orEmpty(t.Deps.Std), StdInTests: orEmpty(t.Deps.StdInTests), Go: orEmpty(t.Deps.Go), GoInTests: orEmpty(t.Deps.GoInTests),
-			Modules: moduleReaches(rep.r)},
+			Modules: rep.r.ModuleReaches()},
 		Written: rep.written != "", DeclaredLess: []declaredLessJSON{},
 	}
 	if rep.r.Lists != nil {
@@ -588,82 +426,26 @@ func (rep capabilitiesReport) writeJSON(w io.Writer) error {
 	return enc.Encode(out)
 }
 
-// whyCall is one call `--why` prints.
-type whyCall struct {
-	Name   string `json:"name"`
-	Module string `json:"module"`
-	Site   string `json:"site"`
-	Callee string `json:"callee"`
-	Tests  bool   `json:"tests"`
-	Reach  string `json:"reach"`
-}
-
 // writeWhy prints each call that reaches name, a std name (`std::fs`) or a
 // `go:` name, or that a module's files make, for a module path, with its
-// site and how it is reached, in the words a refusal uses. A name nothing
-// reaches is an error that lists what the programs reach.
+// site and how it is reached, in the words a refusal uses (Reach.Why,
+// Reach.WriteWhy). A name nothing reaches is an error that lists what the
+// programs reach.
 func writeWhy(w io.Writer, r *vmhost.Reach, name string, asJSON bool) error {
-	byName := strings.HasPrefix(name, "std::") || capability.BindsGo(name)
-	var found []whyCall
-	seen := map[string]bool{}
-	var names []string
-	for _, wk := range r.Walks {
-		for _, c := range wk.Calls {
-			if !slices.Contains(names, c.Name) {
-				names = append(names, c.Name)
-			}
-			module := r.ModuleOf(c)
-			if byName && c.Name != name || !byName && module != name {
-				continue
-			}
-			key := c.Site + "\x00" + c.Name
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			found = append(found, whyCall{Name: c.Name, Module: module, Site: r.SiteOf(c), Callee: c.Callee, Tests: wk.Tests, Reach: c.ReachText()})
-		}
-	}
-	if len(found) == 0 {
-		slices.Sort(names)
-		reaches := "nothing outside the machine"
-		if len(names) > 0 {
-			reaches = strings.Join(names, ", ")
-		}
-		return fmt.Errorf("nomi capabilities: nothing this program reaches is %s; it reaches %s, and its code comes from %s",
-			name, reaches, strings.Join(append([]string{r.Project}, r.Modules...), ", "))
+	found, err := r.Why(name)
+	if err != nil {
+		return fmt.Errorf("nomi capabilities: %w", err)
 	}
 	if asJSON {
 		enc := json.NewEncoder(w)
 		enc.SetEscapeHTML(false)
 		enc.SetIndent("", "  ")
 		return enc.Encode(struct {
-			Name  string    `json:"name"`
-			Calls []whyCall `json:"calls"`
+			Name  string           `json:"name"`
+			Calls []vmhost.WhyCall `json:"calls"`
 		}{name, found})
 	}
-	verb := "reach"
-	if len(found) == 1 {
-		verb = "reaches"
-	}
-	switch {
-	case byName:
-		fmt.Fprintf(w, "%s %s %s:\n", calls(len(found)), verb, name)
-	case name == r.Project:
-		fmt.Fprintf(w, "%s in this project's own files %s outside the machine:\n", calls(len(found)), verb)
-	default:
-		fmt.Fprintf(w, "%s in %s %s outside the machine:\n", calls(len(found)), name, verb)
-	}
-	for _, c := range found {
-		where := c.Site
-		switch {
-		case !byName:
-			where += ": " + c.Name
-		case c.Module != r.Project:
-			where += " in " + c.Module
-		}
-		fmt.Fprintf(w, "  %s\n    %s\n", where, c.Reach)
-	}
+	r.WriteWhy(w, name, found, 0)
 	return nil
 }
 

@@ -42,8 +42,8 @@ bytes.nomi:Bytes.compare	ran
 bytes.nomi:Bytes.empty_sum	ran
 bytes.nomi:Bytes.equal	ran
 bytes.nomi:Bytes.inspect	ran
+bytes.nomi:Display.to_string for Bytes	ran
 bytes.nomi:join_debug_parts	ran
-bytes.nomi:to_string	ran
 calendar.nomi:Date.Add<Days, Date>.add	ran
 calendar.nomi:Date.Add<Months, Date>.add	ran
 calendar.nomi:Date.Add<Weeks, Date>.add	ran

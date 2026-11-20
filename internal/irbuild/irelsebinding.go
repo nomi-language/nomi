@@ -22,7 +22,9 @@ package irbuild
 //
 // A binding with no else has a pattern that always matches (the checker
 // requires it): the success edge alone, its failure edge a NoMatch no value
-// reaches.
+// reaches. A destructuring statement, `(a, _) = v`, `{x:, y: b} = v`,
+// `Meters(n) = d` or `Box.Only(x) = b` over a one-variant enum, is such a
+// binding.
 //
 // Inside an inline `Iter.loop` body (lp non-nil) an else path's `break v`,
 // `return v` and `continue` are the loop's, as a loop guard's are

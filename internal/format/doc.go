@@ -68,9 +68,11 @@
 //     "One-line if and binding else").
 //   - A blank line above a body's first statement goes, as none could
 //     follow a `{`; a `//!` prompt's body keeps its own.
-//   - A blank line right after a comment goes (emitWithTriviaParts): the
-//     lexer keeps none after a comment line, so a comment left on a
-//     header's line, which moves below it, loses the blank line after it
+//   - A blank line right after a comment goes, wherever the comment is
+//     written on a line of its own (withoutBlankAfterComment): the lexer
+//     keeps none after a comment line, so a comment left on a header's
+//     line, which moves below it into the first statement's or member's
+//     comments or the comments before `end`, loses the blank line after it
 //     too.
 //   - A block of several statements puts each on its own line:
 //     `a = 1; b = 2` becomes two lines.

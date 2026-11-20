@@ -217,16 +217,25 @@ end
 	if qt.TypeString() != "Day.Hours" {
 		t.Fatalf("expected parameter type Day.Hours, got %q", qt.TypeString())
 	}
-	dd, ok := fn.Body.Stmts[0].(*ast.DistinctDestructure)
+	dd := distinctDestructure(t, fn.Body.Stmts[0])
+	if _, qualified := dd.Variant.(*ast.QualifiedType); !qualified || dd.Variant.TypeString() != "Day.Hours" {
+		t.Fatalf("expected the destructure's head Day.Hours, got %#v", dd.Variant)
+	}
+}
+
+// distinctDestructure is the variant pattern of n, a distinct destructuring
+// statement: a PatternBinding with no else whose pattern is an EnumPattern.
+func distinctDestructure(t *testing.T, n ast.Node) *ast.EnumPattern {
+	t.Helper()
+	pb, ok := n.(*ast.PatternBinding)
+	if !ok || pb.Else != nil {
+		t.Fatalf("expected a PatternBinding with no else, got %#v", n)
+	}
+	ep, ok := pb.Pattern.(*ast.EnumPattern)
 	if !ok {
-		t.Fatalf("expected qualified distinct destructure, got %T", fn.Body.Stmts[0])
+		t.Fatalf("expected an EnumPattern, got %#v", pb.Pattern)
 	}
-	if dd.TypeName != "Day.Hours" {
-		t.Fatalf("expected destructure type Day.Hours, got %q", dd.TypeName)
-	}
-	if dd.TypeNameExpr == nil || dd.TypeNameExpr.TypeString() != "Day.Hours" {
-		t.Fatalf("expected destructure TypeNameExpr Day.Hours, got %#v", dd.TypeNameExpr)
-	}
+	return ep
 }
 
 func TestBinaryAdd(t *testing.T) {
@@ -2987,15 +2996,27 @@ func TestTryIsAName(t *testing.T) {
 	}
 }
 
+// structDestructure is the struct pattern of n, a struct destructuring
+// statement: a PatternBinding with no else whose pattern names no type.
+func structDestructure(t *testing.T, n ast.Node) *ast.StructPattern {
+	t.Helper()
+	pb, ok := n.(*ast.PatternBinding)
+	if !ok || pb.Else != nil {
+		t.Fatalf("expected a PatternBinding with no else, got %#v", n)
+	}
+	sp, ok := pb.Pattern.(*ast.StructPattern)
+	if !ok || sp.TypeName != nil {
+		t.Fatalf("expected an anonymous StructPattern, got %#v", pb.Pattern)
+	}
+	return sp
+}
+
 func TestStructDestructurePunning(t *testing.T) {
 	nodes := parse(t, "{x:, y:} = point")
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
-	sd, ok := nodes[0].(*ast.StructDestructure)
-	if !ok {
-		t.Fatalf("expected StructDestructure, got %T", nodes[0])
-	}
+	sd := structDestructure(t, nodes[0])
 	if len(sd.Fields) != 2 {
 		t.Fatalf("expected 2 fields, got %d", len(sd.Fields))
 	}
@@ -3012,10 +3033,7 @@ func TestStructDestructureRename(t *testing.T) {
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
-	sd, ok := nodes[0].(*ast.StructDestructure)
-	if !ok {
-		t.Fatalf("expected StructDestructure, got %T", nodes[0])
-	}
+	sd := structDestructure(t, nodes[0])
 	if sd.Fields[0].Name != "x" || sd.Fields[0].Binding != "a" {
 		t.Errorf("field 0: expected x/a, got %s/%s", sd.Fields[0].Name, sd.Fields[0].Binding)
 	}
@@ -5254,15 +5272,12 @@ func TestDistinctDestructure(t *testing.T) {
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
-	dd, ok := nodes[0].(*ast.DistinctDestructure)
-	if !ok {
-		t.Fatalf("expected DistinctDestructure, got %T", nodes[0])
+	dd := distinctDestructure(t, nodes[0])
+	if dd.Variant.TypeString() != "Id" {
+		t.Errorf("expected the head 'Id', got %q", dd.Variant.TypeString())
 	}
-	if dd.TypeName != "Id" {
-		t.Errorf("expected TypeName 'Id', got %q", dd.TypeName)
-	}
-	if dd.Binding == nil || dd.Binding.Name != "x" {
-		t.Errorf("expected binding 'x', got %v", dd.Binding)
+	if dd.Binding != "x" {
+		t.Errorf("expected binding 'x', got %q", dd.Binding)
 	}
 }
 
@@ -5272,12 +5287,9 @@ func TestDistinctDestructureWildcard(t *testing.T) {
 	if len(errs) > 0 {
 		t.Fatalf("unexpected parse errors: %v", errs)
 	}
-	dd, ok := nodes[0].(*ast.DistinctDestructure)
-	if !ok {
-		t.Fatalf("expected DistinctDestructure, got %T", nodes[0])
-	}
-	if dd.Binding != nil {
-		t.Errorf("expected nil binding for wildcard, got %v", dd.Binding)
+	dd := distinctDestructure(t, nodes[0])
+	if _, wild := dd.Payload.(*ast.WildcardPattern); dd.Binding != "" || !wild {
+		t.Errorf("expected a wildcard payload, got binding %q and payload %#v", dd.Binding, dd.Payload)
 	}
 }
 
@@ -5291,8 +5303,8 @@ func TestDistinctDestructureNotBinding(t *testing.T) {
 	if len(nodes) != 1 {
 		t.Fatalf("expected 1 node, got %d", len(nodes))
 	}
-	if _, ok := nodes[0].(*ast.DistinctDestructure); ok {
-		t.Error("Id(42) should not parse as DistinctDestructure")
+	if _, ok := nodes[0].(*ast.ExprStmt); !ok {
+		t.Errorf("Id(42) parses as a %T, want the call's ExprStmt", nodes[0])
 	}
 }
 

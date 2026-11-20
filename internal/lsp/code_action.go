@@ -38,6 +38,9 @@ import (
 //     `Iter.take`" for a pipe stage that drains an infinite iterator, and
 //     from the document's last lowering, "Allow std::fs in nomi.toml" for
 //     a call the [capabilities] lists do not allow, an edit to nomi.toml.
+//   - in nomi.toml, "Remove std::net from std" for a name its lists hold
+//     that nothing reaches, and "Move std::fs to std_in_tests" for one only
+//     the tests reach (manifest_reach.go).
 //   - "Add the pl translation of `m`" for a `phrase` a listed locale has
 //     no translation of, and in a catalog, marking a stale translation
 //     current and giving one the arms its locale needs (catalogs.go).
@@ -48,6 +51,17 @@ import (
 func (s *Server) textDocumentCodeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
 	uri := string(params.TextDocument.URI)
 	only := params.Context.Only
+	if isManifestURI(uri) {
+		if !kindAllowed(only, protocol.CodeActionKindQuickFix) {
+			return nil, nil
+		}
+		text, _ := s.contentForURI(params.TextDocument.URI)
+		actions := buildParseFixActions(text, uri, s.contentForURI, s.manifestFixes(uri), params.Context.Diagnostics)
+		if len(actions) == 0 {
+			return nil, nil
+		}
+		return actions, nil
+	}
 	if isInputURI(uri) {
 		d := s.catalogAt(uri)
 		if d == nil {

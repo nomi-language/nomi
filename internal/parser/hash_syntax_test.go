@@ -26,8 +26,6 @@ func shapeOf(t *testing.T, src string) string {
 				out = append(out, "tuple")
 			case *ast.TuplePattern:
 				out = append(out, "tuple-pattern")
-			case *ast.TupleDestructure:
-				out = append(out, "tuple-destructure")
 			case *ast.MapLit:
 				switch {
 				case len(n.Spreads) > 0:
@@ -71,7 +69,7 @@ func wantParseError(t *testing.T, src, want string) {
 func TestHashTuples(t *testing.T) {
 	wantShape(t, "x = (1, \"a\")", "tuple")
 	wantShape(t, "x = ((1, 2), [(3, 4)])", "tuple tuple tuple")
-	wantShape(t, "(a, b) = pair", "tuple-destructure")
+	wantShape(t, "(a, b) = pair", "tuple-pattern")
 	wantShape(t, "fn f((a, b): (Int, Int)) -> Int\n    a + b\nend", "fn f tuple-pattern")
 	wantShape(t, "x = case p\n    (0, y) -> y\n    _ -> 0\nend", "tuple-pattern")
 	// Parentheses only group.
@@ -308,8 +306,6 @@ func literalKinds(t *testing.T, src string) string {
 				}
 			case *ast.StructPattern:
 				out = append(out, named("struct-pattern", n.TypeName))
-			case *ast.StructDestructure:
-				out = append(out, "struct-destructure")
 			case *ast.AnonStructType:
 				out = append(out, "struct-type")
 			case *ast.EnumPattern:
@@ -412,7 +408,7 @@ func TestStructLiteralsInConditions(t *testing.T) {
 func TestShapePatternsAndTypes(t *testing.T) {
 	wantKinds(t, "x = case p\n    {x:, y:} -> x\n    _ -> 0\nend", "struct-pattern")
 	wantKinds(t, "x = case p\n    {x: 0, y:} -> y\n    _ -> 0\nend", "struct-pattern")
-	wantKinds(t, "{x:, y:} = p", "struct-destructure")
+	wantKinds(t, "{x:, y:} = p", "struct-pattern")
 	wantKinds(t, "Point{x:, y:} = p", "struct-pattern Point")
 	wantKinds(t, "fn f({x:, y:}: Point) -> Int\n    x\nend", "struct-pattern block")
 	wantKinds(t, "fn f(Point{x:, y:}) -> Int\n    x\nend", "struct-pattern Point block")

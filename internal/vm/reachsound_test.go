@@ -137,12 +137,13 @@ func (s *soundness) refuse(reason string) {
 }
 
 // program runs path's main on a counting machine and checks what it
-// entered against the walk from main's roots and the boot.
-func (s *soundness) program(label, path string) {
+// entered against the walk from main's roots and the boot. It answers the
+// machine and what the walk reached, or nils when the program did not run.
+func (s *soundness) program(label, path string) (*vm.Machine, map[*ir.Func]bool) {
 	m, mod, reason := vmOpenProgram(path, io.Discard, io.Discard)
 	if reason != "" {
 		s.refuse(reason)
-		return
+		return nil, nil
 	}
 	m = m.WithEntryCounts()
 	var main *ir.Func
@@ -159,13 +160,14 @@ func (s *soundness) program(label, path string) {
 	reached, blocked := m.Reached(roots, boots)
 	if len(blocked) > 0 {
 		s.blocked++
-		return
+		return nil, nil
 	}
 	s.programs++
 	if booted, err := m.Boot(); err == nil {
 		_, _ = booted.Run("main")
 	}
 	s.check(label, m, nil, reached, roots, boots)
+	return m, reached
 }
 
 // cases runs each of cases on its own on m, a counting machine, and checks

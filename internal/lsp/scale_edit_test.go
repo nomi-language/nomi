@@ -140,10 +140,10 @@ func TestScaleEdits(t *testing.T) {
 				return fmt.Sprintf("%d open documents", len(open))
 			})
 			run("the edited document's lowering", func() string {
-				if s.docs.StoredLoweredClean(doc, text) {
+				stored := s.docs.StoredLowering(doc, text)
+				if stored == nil && s.docs.StoredLoweredClean(doc, text) {
 					return "answered by the record"
 				}
-				stored := s.docs.StoredLowering(doc, text)
 				was := vmhost.StoredRelowersForTest()
 				release := s.docs.View()
 				a, _ := s.installedLoweringAnalysis(doc, text)

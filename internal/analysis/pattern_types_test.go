@@ -151,7 +151,7 @@ end`
 		{patternKey("EnumPattern", 39), patternRecord{"Opt<T>", "Empty"}},           // generic, qualified
 		{patternKey("EnumPattern", 44), patternRecord{"Opt<(Int, String)>", "Has"}}, // binding with else
 		{patternKey("TuplePattern", 44), patternRecord{"(Int, String)", ""}},        // nested tuple
-		{patternKey("DistinctDestructure", 47), patternRecord{"Id", ""}},            // destructure statement
+		{patternKey("EnumPattern", 47), patternRecord{"Id", ""}},                    // destructure statement
 		{patternKey("StructPattern", 49), patternRecord{"Point", ""}},               // lambda parameter
 		{patternKey("WildcardPattern", 49), patternRecord{"Int", ""}},               // lambda field pattern
 		{patternKey("EnumPattern", 50), patternRecord{"Opt<(Int, String)>", "Has"}}, // if pattern

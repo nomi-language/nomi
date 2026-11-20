@@ -57,7 +57,7 @@ func (bl *irScalarBuilder) containerCompare(t *ast.Call, args irQualArgs, owner 
 		if local == nil {
 			return no()
 		}
-		ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irCalleeSym(local, elem.nomi()+"."+local.name))
+		ref = ir.NewRefFunc(bl.g.irNodePos(t), bl.f.NewTemp(), bl.g.irImplSym(local))
 		bl.b.Append(ref)
 		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, local.params, local.result)})
 	} else {

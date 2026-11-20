@@ -1209,6 +1209,14 @@ fn main()
 end
 ```
 
+A struct must have values: a field without a default may not hold the
+struct itself, directly or through other structs, distinct types, tuples
+and anonymous structs, unless something on the way can be built without
+one (a `Maybe`, a list, vector, set or map, a function, or an enum variant
+that does not hold it), so `struct S` with a field `s: S` is
+`` struct 'S' is defined in terms of itself (S.s → S) ``, and an enum every
+variant of which holds itself is the same error.
+
 Two fields on one line with no `;` between them, `x: Int y: Int`, are the
 error `struct fields are newline- or semicolon-separated`, and a comma
 between fields is an error too. The newline rule is for
@@ -2312,7 +2320,7 @@ of their interfaces the program and std have, since any implementor can
 be the argument. With `impl Display for Loud` printing, `subtype
 Shown<T> List<T> where T: Display when fn xs -> Iter.all_match(xs, fn x
 -> Display.to_string(x) != "")` is the error
-``the rule of Shown has effects (Loud.to_string calls io.print): a rule is a pure function of the value it checks``
+``the rule of Shown has effects (Display.to_string for Loud calls io.print): a rule is a pure function of the value it checks``
 at its `when`, with or without a `Shown<Loud>` anywhere.
 
 A generic subtype's type arguments convert as its parents' do (§5
@@ -2826,7 +2834,10 @@ A struct, enum, distinct type, interface or function may take type
 parameters, in angle brackets after its name: `struct Pair<A, B>`,
 `fn first<A>(list: List<A>) -> Maybe<A>`. A use writes type arguments the
 same way (`List<String>`, `Result<User, String>`); a call usually infers
-them (§5). A `where` clause bounds a type parameter by interfaces (§12
+them (§5). A use writes as many type arguments as the type takes, so a type
+declared without type parameters, a primitive or a type parameter takes
+none: `S<Int>` for `struct S` is
+`` `S` expects 0 type arguments, got 1 ``. A `where` clause bounds a type parameter by interfaces (§12
 *Bounds and dispatch in generic code*).
 
 #### Default type arguments
@@ -5810,8 +5821,9 @@ end
 ### Statements and the Unit rule
 
 A block, and a function, lambda or test body, is a sequence of statements: a
-binding (§6), an expression, `defer`, `with`, an assertion, `return`, `break`
-or `continue`. Statements end at a newline (§2).
+binding (§6), an expression, `defer`, `with`, an assertion, a nested
+declaration (§7 *Function declarations*), `return`, `break` or `continue`.
+Statements end at a newline (§2).
 
 - A statement before the last one that is an expression must have type `Unit`,
   unless it is a `dbg` observation. Its value would otherwise be lost: `1 + 2`
@@ -5822,6 +5834,8 @@ or `continue`. Statements end at a newline (§2).
   omitted, may be a `dbg` observation: `dbg expr`, or a pipe whose last stage
   is `|> dbg`. The body returns `Unit`. Any other last statement whose type is
   not `Unit` is the error `return type mismatch: expected Unit, got Int`.
+- A body whose last statement is no expression (a binding, a destructure,
+  `defer`, `with` or a nested declaration) has type `Unit`.
 - A statement after one that always exits is unreachable code and an error
   (§7 *Returning*).
 
@@ -10037,7 +10051,7 @@ A typed literal with no `${...}` slot, written with double quotes, triple quotes
 - `Ok(v)`: the literal is that `T`. `Date"2026-05-04"` is a `Date` and ``Regex`\d+` `` is a `Regex<Unit>`; neither needs a `?`, and ``once letters = Regex`[A-Za-z]+` `` works at the top level of a file.
 - `Err(e)`: the literal is a compile error carrying the handler's message (`e`'s `Display`, or its `Debug` when it has none): ``typed literal Regex`[` is invalid: error parsing regexp: missing closing ]: `[` ``.
 
-A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Loud.from_fragments calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
+A handler that returns `T` itself gives the type `T`, and it runs at compile time too. Any handler that reaches an effect (§19 *Effects*), traps, or does not finish within the compiler's step limit cannot be run at compile time, and the literal is an error that says so: ``typed literal Loud"x" cannot be checked at compile time: its handler has effects (Literal.from_fragments for Loud calls io.print)``, with the help ``a typed literal without `${...}` slots is checked at compile time; to build the value when the program runs, call one of `Loud`'s functions instead, such as its `parse`, and handle its result``. A text known only when the program runs goes through such a function, `Date.parse(text)`, or into a slot.
 
 A `?` on a literal without slots is the ordinary error `` `?` requires a Result or Maybe, got Regex<Unit> ``, whose hint says to remove the `?`.
 

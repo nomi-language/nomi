@@ -1,4 +1,5 @@
 import { codeToHast } from "shiki";
+import { fileLanguage, splitFiles } from "./highlight.mjs";
 
 function textContent(node) {
   if (!node) return "";
@@ -183,31 +184,11 @@ function goModBlock(code) {
 // its editor shows read-only: the tour links that Go ahead of time
 // (internal/tourgo). Shiki highlights each here, at build time, into a hidden
 // span inside the block's <pre> named by the file, which tour-client.mjs
-// moves into the file's tab. The text is the section as the client's
-// splitFiles cuts it: its lines up to the next marker, trailing blank lines
-// dropped.
-const FILE_MARKER = /^\s*\/\/\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$/;
-
-function goSections(source) {
-  const sections = [];
-  let current = null;
-  for (const line of source.split("\n")) {
-    const m = FILE_MARKER.exec(line);
-    if (m) {
-      current = { name: m[1], lines: [] };
-      sections.push(current);
-    } else if (current) {
-      current.lines.push(line);
-    }
-  }
-  return sections
-    .filter((s) => s.name.endsWith(".go"))
-    .map((s) => ({ name: s.name, code: s.lines.join("\n").replace(/\n+$/, "") }));
-}
-
+// moves into the file's tab. The text is the file as its tab holds it
+// (splitFiles).
 async function goFileSpans(source) {
   const spans = [];
-  for (const { name, code } of goSections(source)) {
+  for (const { name, body: code } of (splitFiles(source) ?? []).filter((f) => fileLanguage(f.name) === "go")) {
     const root = await codeToHast(code, {
       lang: "go",
       themes: { light: "one-light", dark: "one-dark-pro" },

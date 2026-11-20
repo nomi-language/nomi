@@ -3,6 +3,7 @@ package ir
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // --- positions -------------------------------------------------------------
@@ -241,9 +242,42 @@ func (p Pos) String() string {
 // the identity. A module encoded as an object writes each linked symbol by
 // its linkage name, and linking resolves every name to one pointer, so
 // objects encoded apart decode into one program.
+//
+// A FUNCTION OF AN IMPL BLOCK carries an ImplFunc, the block it is declared
+// in, and its name is that ImplFunc's (ImplFunc.Name) whichever call site
+// interns it first (Table.ImplSymbol). A reader that needs the type or the
+// function's own name reads the ImplFunc, never the name's text.
 type Symbol struct {
 	name string
 	link string
+	impl *ImplFunc
+}
+
+// ImplFunc says which impl block a function is declared in: the type the
+// block is for, as Nomi writes it (`Loud`, `Box<Int>` for an instance of a
+// generic block), the interface it implements ("" for an inherent block),
+// and the function's own name. A function written in the block, a derived
+// one and an inherited interface default are each one.
+type ImplFunc struct {
+	Type      string
+	Interface string
+	Func      string
+}
+
+// Name is the function's name in effect messages, reach chains, traces and
+// profiles: `Type.func` for an inherent function, `Interface.func for Type`
+// for an impl of an interface (`Display.to_string for Loud`).
+func (f ImplFunc) Name() string {
+	if f.Interface == "" {
+		return f.Type + "." + f.Func
+	}
+	return f.Interface + "." + f.Func + " for " + f.Type
+}
+
+// TypeName is Type without its type arguments: `Box` for `Box<Int>`.
+func (f ImplFunc) TypeName() string {
+	base, _, _ := strings.Cut(f.Type, "<")
+	return base
 }
 
 // NewSymbol mints a fresh declaration identity. Two calls with the same name
@@ -268,6 +302,15 @@ func (s *Symbol) Link() string {
 		return ""
 	}
 	return s.link
+}
+
+// Impl is the impl block the function s names is declared in, and false for
+// a symbol of anything else.
+func (s *Symbol) Impl() (ImplFunc, bool) {
+	if s == nil || s.impl == nil {
+		return ImplFunc{}, false
+	}
+	return *s.impl, true
 }
 
 func (s *Symbol) String() string { return s.Name() }

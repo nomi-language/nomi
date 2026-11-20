@@ -40,6 +40,7 @@ import (
 	"github.com/nomi-language/nomi/internal/hoverdoc"
 	"github.com/nomi-language/nomi/internal/semtokens"
 	"github.com/nomi-language/nomi/internal/tourgo"
+	"github.com/nomi-language/nomi/internal/virtualproject"
 	"github.com/nomi-language/nomi/std"
 	"github.com/nomi-language/nomi/vmhost"
 )
@@ -291,7 +292,9 @@ func semTokensSrc(this js.Value, args []js.Value) (res any) {
 // builds for a single pathless buffer (highlight.Analyze, which builds the
 // project). It does not call lsp.HoverAt — the LSP framework is deliberately
 // out of this binary — and the agreement with Zed holds only for a snippet:
-// there are no sibling files here and no filesystem to read them from.
+// there are no sibling files here and no filesystem to read them from. A
+// call's hover ends with what it reaches outside the machine, as the LSP's
+// does (reachedOf, hoverdoc.AppendReach).
 func hoverSrc(this js.Value, args []js.Value) (res any) {
 	defer func() {
 		if recover() != nil {
@@ -303,14 +306,44 @@ func hoverSrc(this js.Value, args []js.Value) (res any) {
 	}
 	src := args[0].String()
 	if tourgo.Source(src) != src {
-		return programOf(src).HoverIn(attachedEntry, args[1].Int(), args[2].Int())
+		return programOf(src).HoverIn(attachedEntry, args[1].Int(), args[2].Int(), reachedOf(src))
 	}
 	fa, nodes := highlight.AnalyzeNodes(src, std.Shared())
 	if fa == nil {
 		return ""
 	}
 	line := args[1].Int()
-	return hoverdoc.At(fa, nodes, src, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())})
+	inEntry := func(path string) bool {
+		return virtualproject.NormalizeModuleName(path) == virtualproject.NormalizeModuleName(attachedEntry)
+	}
+	return hoverdoc.AtReaching(fa, nodes, src, analysis.Pos{Line: line, Col: highlight.ByteCol(src, line, args[2].Int())}, reachedOf(src), inEntry)
+}
+
+// lastReach is what the program of the last source a hover asked about
+// reaches outside the machine (reachedOf). Every hover after a run asks
+// about the same source, so the source's program is loaded once for them
+// all until the visitor edits a tab.
+var lastReach struct {
+	source string
+	done   bool
+	calls  []vmhost.ReachedCall
+}
+
+// reachedOf is each outside call the program of src, a block, reaches,
+// with the line a hover on the call ends with (vmhost.ReachedMarked,
+// hoverdoc.AppendReach), as the language server shows it; nil when the
+// block does not load.
+func reachedOf(src string) []vmhost.ReachedCall {
+	if lastReach.done && lastReach.source == src {
+		return lastReach.calls
+	}
+	lastReach.source, lastReach.done, lastReach.calls = src, true, nil
+	hosts, err := tourgo.MarkedHosts(src)
+	if err != nil {
+		return nil
+	}
+	lastReach.calls, _ = vmhost.ReachedMarked(src, projectDir, vmhost.WithHosts(hosts))
+	return lastReach.calls
 }
 
 // lastProgram is the analysis of the last multi-file source nomiHoverIn or
@@ -371,7 +404,7 @@ func hoverInSrc(this js.Value, args []js.Value) (res any) {
 	if len(args) < 4 {
 		return ""
 	}
-	return programOf(args[0].String()).HoverIn(args[1].String(), args[2].Int(), args[3].Int())
+	return programOf(args[0].String()).HoverIn(args[1].String(), args[2].Int(), args[3].Int(), reachedOf(args[0].String()))
 }
 
 // semTokensInSrc answers the semantic tokens of every Nomi tab of a

@@ -129,7 +129,7 @@ func (s *Server) textDocumentCompletion(_ *glsp.Context, params *protocol.Comple
 	uri := string(params.TextDocument.URI)
 	if isManifestURI(uri) {
 		text, _ := s.contentForURI(params.TextDocument.URI)
-		if items := manifestCompletion(uri, text, params.Position); len(items) > 0 {
+		if items := s.manifestCompletion(uri, text, params.Position); len(items) > 0 {
 			return &protocol.CompletionList{Items: items}, nil
 		}
 		return nil, nil

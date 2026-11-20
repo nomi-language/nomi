@@ -659,5 +659,5 @@ func (bl *irScalarBuilder) stdRecvItemPlan(t *ast.Call, args irQualArgs, og *gen
 	if !ok || !bl.qualSignature(t, args, params, result) {
 		return nil
 	}
-	return &irQualPlan{token: it, name: key, result: result, sym: og.irCalleeSym(it, impl.recv.nomi()+"."+it.name)}
+	return &irQualPlan{token: it, name: key, result: result, sym: og.irImplSym(it)}
 }

@@ -145,8 +145,10 @@ func (bl *irScalarBuilder) structuralEqualCall(t *ast.Call, args irQualArgs) (ir
 	if irScalarRangeKind(k) || irTypeWitnessKind(k) || bl.g.meetsByEquality(stdEquatable, k) {
 		// A declared type with no Equatable of its own meets the bound by
 		// its equality, and so do std's Range and `Type<T>`, which declare
-		// none; the call is `a == b` over it.
-		v, _, _, ok := bl.comparison(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
+		// none; the call is `a == b` over it, lowered by the call's record
+		// (carryOperator).
+		defer bl.g.carryOperator(at, t)()
+		v, _, _, ok := bl.compareOperands(at, ir.OpEq, args.temps[0], k, args.temps[1], k, args.mobile[1])
 		return v, ok, true
 	}
 	if !irRetainedTupleKind(k) && !irRetainedRecordKind(k) {

@@ -10,7 +10,7 @@ import (
 	"github.com/nomi-language/nomi/internal/frontend"
 )
 
-// runnerWouldDiscover is cmd/nomi/main.go's discoverTestFiles rule for one
+// runnerWouldDiscover is internal/frontend's TestFiles rule for one
 // file.
 //
 // Restated rather than called because that logic lives in package main and

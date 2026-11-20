@@ -687,15 +687,6 @@ func recordImplTypeArgsFromBlock(fa *FileAnalysis, reg *TypeRegistry, n *ast.Imp
 		}
 	}
 	fa.recordImplBlock(&ImplTypeArgs{Receiver: receiver, Block: n, Origin: iface.Origin, File: declaredOrigin(fa)}, implTypeName, ifaceName)
-	if len(headerArgs) > 0 && len(headerArgs) != len(iface.TypeParamDefs) {
-		fa.TypeErrors = append(fa.TypeErrors, TypeError{
-			Line: n.Line,
-			Col:  n.Col,
-			Message: fmt.Sprintf("%s expects %d type argument(s), got %d",
-				ifaceName, len(iface.TypeParamDefs), len(headerArgs)),
-		})
-		return
-	}
 	if len(iface.TypeParamDefs) == 0 && !ContainsTypeParam(receiver) && len(concreteTypeArgs(receiver)) == 0 {
 		// A non-generic interface on a receiver with no type arguments: the
 		// receiver's name is the whole match, so there is nothing to record.
@@ -1277,6 +1268,9 @@ func buildStructType(fa *FileAnalysis, reg *TypeRegistry, n *ast.StructDef) []Ty
 	st.TypeParams = typeParamNames(n.TypeParams)
 	st.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
 	structBuilt(st)
+	if path := valueCycle(st); path != nil {
+		errs = append(errs, valueCycleError("struct", n.Name, n.Line, n.Col, path))
+	}
 	sym.Type = st
 	return errs
 }
@@ -1401,6 +1395,9 @@ func buildEnumType(fa *FileAnalysis, reg *TypeRegistry, n *ast.EnumDef) []TypeEr
 	et.TypeParams = typeParamNames(n.TypeParams)
 	et.TypeParamDefs = typeParamDefsFromMap(n.TypeParams, tp)
 	enumBuilt(et)
+	if path := valueCycle(et); path != nil {
+		errs = append(errs, valueCycleError("enum", n.Name, n.Line, n.Col, path))
+	}
 	sym.Type = et
 
 	// Build the enum's own type expression for variant return types.
@@ -1541,6 +1538,9 @@ func buildTypeDef(fa *FileAnalysis, reg *TypeRegistry, n *ast.TypeDef) []TypeErr
 			errs = append(errs, distinctCycleError(n, path))
 		} else {
 			dt.Inner = resolved
+			if path := valueCycle(dt); path != nil {
+				errs = append(errs, valueCycleError("type", n.Name, n.Line, n.Col, path))
+			}
 		}
 	}
 	// A refinement's parents after the first. One that names a type, or

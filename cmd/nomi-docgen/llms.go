@@ -281,6 +281,10 @@ func plainModule(lib *std.StdLib, name string) string {
 		b.WriteString(demoteHeadings(doc, 2))
 		b.WriteString("\n\n")
 	}
+	program := stdProgramOf(name)
+	if names := program.outsideNames(entries); len(names) > 0 {
+		b.WriteString(outsideOverview(names) + "\n\n")
+	}
 	shared := sharedImplHeadings(name, entries)
 	for _, group := range apiGroups(entries) {
 		fmt.Fprintf(&b, "### %s\n\n", groupHeadingLabel(name, group.apiGroupKey))
@@ -288,7 +292,7 @@ func plainModule(lib *std.StdLib, name string) string {
 			if !entry.RendersAsGroupHeading() {
 				fmt.Fprintf(&b, "#### %s\n\n", plainEntryHeading(name, entry, shared))
 			}
-			plainEntry(&b, entry)
+			plainEntry(&b, entry, program.outsideCall(entry.Sym))
 		}
 	}
 	return b.String()
@@ -316,12 +320,17 @@ func plainEntryHeading(moduleName string, entry apiEntry, shared map[string]bool
 }
 
 // plainEntry is renderAPIEntry's content without HTML: the declaration and
-// its doc, its variants' docs, and its examples as ```nomi fences.
-func plainEntry(b *strings.Builder, entry apiEntry) {
+// its doc, with the line saying a call to it reaches outside the program by
+// outside when that is not "", its variants' docs, and its examples as
+// ```nomi fences.
+func plainEntry(b *strings.Builder, entry apiEntry, outside string) {
 	s := entry.Sym
 	body := hoverdoc.Render(s)
 	if body == "" {
 		return
+	}
+	if outside != "" {
+		body = withOutsideLine(body, outsideText(outside))
 	}
 	b.WriteString(body)
 	b.WriteString("\n\n")

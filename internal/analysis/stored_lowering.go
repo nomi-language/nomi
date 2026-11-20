@@ -21,11 +21,13 @@ import (
 // (storedRecord.Kept, irbuild.KeptLowering encoded), which the server's
 // lowering of the entry made when it wrote the record (NoteLoweredClean's
 // KeptLoweringFunc, answered by vmhost through internal/analyzedlowering).
-// A lowering of the entry after an edit (StoredLowering) lowers the files
-// whose texts changed since a kept lowering, each from its check against
-// the others' interfaces, and links them with the kept objects of the
-// rest, as `nomi check` relinks a kept program (vmhost's
-// checklowering_stored.go). Another document's lowering lowers its text.
+// A lowering of the entry (StoredLowering) lowers the files whose texts
+// changed since a kept lowering, each from its check against the others'
+// interfaces, the entry alone when none did, and links them with the kept
+// objects of the rest, as `nomi check` relinks a kept program (vmhost's
+// checklowering_stored.go). The program it links is what the walk for the
+// outside calls an editor's hover names reads. Another document's
+// lowering lowers its text.
 
 // KeptLoweringFunc answers the kept lowering the server's last lowering of
 // the document at path made, encoded, whether it lowered the document's

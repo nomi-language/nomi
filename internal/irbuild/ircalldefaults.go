@@ -48,17 +48,24 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 				// An interface function's default, in a frame binding its
 				// type parameters; another file's has that file's names
 				// (ifaceslotdefault.go).
-				frame, bound := sig.ifaceFrame, len(sig.ifaceFrame) > 0 || !ifaceDefaultGeneric(o)
+				frame, bound := sig.defaultFrame, len(sig.defaultFrame) > 0 || !ifaceDefaultGeneric(o)
 				switch {
 				case !bound:
 					return false
 				case o.unit != bl.g.fileUnit:
-					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, sig.ifaceTypes, args, i)
+					src, _, ok = bl.ifaceSlotDefault(o, p, sig.params, frame, sig.defaultTypes, args, i)
 				default:
-					src, _, ok = bl.ifaceDefaultHere(p, frame, sig.ifaceTypes, sig.params[i])
+					// Lowered for the call's implementor, as the
+					// interface's default bodies are (gen.defaultSelf).
+					prev := bl.g.defaultSelf
+					if ds := bl.g.paramDefaultSelf(o, sig); ds != nil {
+						bl.g.defaultSelf = ds
+					}
+					src, _, ok = bl.defaultInFrame(p, frame, sig.defaultTypes, sig.params[i])
+					bl.g.defaultSelf = prev
 				}
 			} else {
-				src, _, _, ok = bl.lowerWant(p.Default, sig.params[i])
+				src, _, ok = bl.defaultInFrame(p, sig.defaultFrame, sig.defaultTypes, sig.params[i])
 			}
 			// Each route lowers at the parameter's kind (lowerWant, or the
 			// declaring gen's accessor at it), so k is sig.params[i].
@@ -77,6 +84,23 @@ func (bl *irScalarBuilder) callDefaultsThrough(sig *fnSig, args []ir.Temp, n int
 		}
 	}
 	return true
+}
+
+// paramDefaultSelf is the implementor the defaults of interface function o,
+// which this file declares, are filled for: the kind sig passes at the
+// declaration's receiver (its first `self` parameter) and the call's
+// record of it (fnSig.defaultSelfType). Nil when the declaration has no
+// receiver or this gen has no def of the interface.
+func (g *gen) paramDefaultSelf(o ifaceParamDefault, sig *fnSig) *irDefaultSelf {
+	if g.fa == nil {
+		return nil
+	}
+	d, found := g.solvedIface(g.fa.Origin, o.iface.Name)
+	at := selfShapeOf(sig.decl.Params, nil).recvAt()
+	if !found || d == nil || d.decl != o.iface || at < 0 || at >= len(sig.params) {
+		return nil
+	}
+	return &irDefaultSelf{iface: d, recv: sig.params[at], typ: sig.defaultSelfType}
 }
 
 // bindParamPattern binds the names destructuring parameter pattern pat

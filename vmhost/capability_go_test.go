@@ -107,7 +107,8 @@ func TestCapabilityGo_TheProjectsGoListsTheModule(t *testing.T) {
 	got, ds := heldBy(t, goProject(goApp, ""))
 	want := "pg/db.nomi:3:8: example.com/pg binds Go through go:strings, and [capabilities.deps] lets no dependency bind Go\n" +
 		"pg/db.nomi:3:8: help: reached from `main`; `main` calls `upper`\n" +
-		"pg/db.nomi:3:8: help: add \"example.com/pg\" to go under [capabilities.deps] in nomi.toml, or remove the call"
+		"pg/db.nomi:3:8: help: add \"example.com/pg\" to go under [capabilities.deps] in nomi.toml, or remove the call" +
+		"\napp/main.nomi:7:14: note: your code reaches example.com/pg's Go binding go:strings here: `main` calls `upper`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}
@@ -169,7 +170,8 @@ func TestCapabilityGo_ADependencyThatDoesNotDeclareItsGo(t *testing.T) {
 	got, ds := heldBy(t, goProject(goApp+"go = [\"example.com/pg\"]\n", "\n[capabilities.self]\nstd = []\n"))
 	want := "pg/db.nomi:3:8: example.com/pg binds Go through go:strings, and its own [capabilities.self] does not let it bind Go\n" +
 		"pg/db.nomi:3:8: help: reached from `main`; `main` calls `upper`\n" +
-		"pg/db.nomi:3:8: help: example.com/pg declares less than its code reaches, and the fix is in that module: set go = true under [capabilities.self] in pg/nomi.toml, or remove the call"
+		"pg/db.nomi:3:8: help: example.com/pg declares less than its code reaches, and the fix is in that module: set go = true under [capabilities.self] in pg/nomi.toml, or remove the call" +
+		"\napp/main.nomi:7:14: note: your code reaches example.com/pg's Go binding go:strings here: `main` calls `upper`"
 	if got != want {
 		t.Errorf("diagnostics:\n%s\nwant:\n%s", got, want)
 	}

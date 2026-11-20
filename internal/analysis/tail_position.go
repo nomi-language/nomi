@@ -95,12 +95,6 @@ func mark(n ast.Node, tail, deferred bool) {
 	case *ast.Binding:
 		// Binding evaluates to Unit; its RHS is never tail.
 		mark(x.Value, false, deferred)
-	case *ast.TupleDestructure:
-		mark(x.Value, false, deferred)
-	case *ast.StructDestructure:
-		mark(x.Value, false, deferred)
-	case *ast.DistinctDestructure:
-		mark(x.Value, false, deferred)
 	case *ast.PatternBinding:
 		// The else's value, if any, is bound, never returned; a `return`
 		// inside it marks its own operand.

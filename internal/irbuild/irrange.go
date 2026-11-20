@@ -246,8 +246,8 @@ func (bl *irScalarBuilder) rangeStepBy(t *ast.Call, args irQualArgs) (ir.Temp, k
 // elemStepper is elem's `Steppable.step_by` at step kind by: the callee
 // symbol of its retained body, with its parameter and result kinds. The
 // program's impl comes first, this file's or the file declaring elem, as
-// sortComparator chooses a comparator; std's impl (Int, Decimal, Codepoint)
-// otherwise.
+// sortComparator chooses a comparator by kind; std's impl (Int, Decimal,
+// Codepoint) otherwise.
 func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind, bool) {
 	g := bl.g
 	if irNominalElemKind(elem) || irRangeDistinctElem(elem) {
@@ -259,10 +259,10 @@ func (bl *irScalarBuilder) elemStepper(elem, by kind) (*ir.Symbol, []kind, kind,
 			if it == nil || !it.lowerable || irImplSource(it) == nil || !g.stepperSignature(it.params, it.result, elem, by) {
 				continue
 			}
-			return g.irCalleeSym(it, elem.nomi()+"."+it.name), it.params, it.result, true
+			return g.irImplSym(it), it.params, it.result, true
 		}
 		if site, params, result, owning := g.siblingImplMember(elem.def, "step_by", stdIfaceImplKey(stdSteppable)); site != nil && g.stepperSignature(params, result, elem, by) {
-			return owning.irCalleeSym(site.item, site.symName), params, result, true
+			return owning.irImplSym(site.item), params, result, true
 		}
 	}
 	maybeElem, shared := g.sharedMaybe(elem)
@@ -287,7 +287,7 @@ func (g *gen) stepperSignature(params []kind, result, elem, by kind) bool {
 }
 
 // discreteRef is elem's `Discrete.<name>` as a function value, chosen as
-// `Iter.sort` chooses a comparator (sortComparator): this file's impl, the
+// sortComparator chooses a comparator by kind: this file's impl, the
 // declaring file's, or std's retained body at stdResult. A user distinct
 // (`type Id Int` with `impl Discrete for Id`) walks and counts by its own
 // impl.
@@ -301,7 +301,7 @@ func (bl *irScalarBuilder) discreteRef(at ast.Node, elem kind, name string, para
 	}
 	if irNominalElemKind(elem) || irRangeDistinctElem(elem) {
 		if it := bl.localDiscreteItem(elem, name, params); it != nil {
-			return ref(bl.g.irCalleeSym(it, elem.nomi()+"."+it.name), it.result)
+			return ref(bl.g.irImplSym(it), it.result)
 		}
 		if sym, result := bl.siblingDiscreteSym(elem, name, params); sym != nil {
 			return ref(sym, result)

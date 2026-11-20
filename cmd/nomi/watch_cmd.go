@@ -27,6 +27,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/vmcmd"
 )
 
@@ -115,7 +116,7 @@ func testWatch(ctx context.Context, parsed testArgs, stdout, stderr io.Writer, s
 // testedFiles is every file the tests under root load, and the nomi.toml
 // of each one's project.
 func testedFiles(root string) []string {
-	tests, _ := discoverTestFiles(root)
+	tests, _ := frontend.TestFiles(root)
 	var files []string
 	for _, f := range tests {
 		files = append(files, programFiles(f)...)

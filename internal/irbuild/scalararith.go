@@ -57,8 +57,8 @@ package irbuild
 //     entirely; see operimpl.go.
 
 // scalarArithOps pairs an operator interface with its one method, derived from
-// operIfaceSpecs so the two cannot drift: that table is what stdlib.go's
-// stdlibOperatorFor selects with, and a second hand-written copy of "which
+// operIfaceSpecs so the two cannot drift: that table is what the operator
+// lowering names an impl's interface by, and a second hand-written copy of "which
 // interface is which operator" is the shape of every identity drift this package
 // guards against.
 //

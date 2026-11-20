@@ -24,6 +24,9 @@ type declName struct {
 	// file is the declaring module's source file, whose base name
 	// qualifies the declaration's types at run time (irTypeSymName).
 	file string
+	// impl is the file-level impl block a function is declared in, nil for
+	// any other declaration (implFuncOf).
+	impl *ast.ImplBlock
 }
 
 func (d declName) String() string { return d.module + "." + d.path }
@@ -39,10 +42,26 @@ var stdLinkNames = perStd(func() map[ast.Node]declName {
 	return out
 })
 
-// addLinkNames files every declaration of one module's nodes under module.
+// addLinkNames files every declaration of one module's nodes under module,
+// a function of a file-level impl block with its block.
 func addLinkNames(into map[ast.Node]declName, module, file string, nodes []ast.Node) {
 	for n, path := range analysis.DeclarationNames(nodes) {
-		into[n] = declName{module, path, file}
+		into[n] = declName{module: module, path: path, file: file}
+	}
+	for _, n := range nodes {
+		if ib, isBlock := n.(*ast.ImplBlock); isBlock {
+			for _, item := range ib.Items {
+				switch item.(type) {
+				case *ast.FuncDef, *ast.ExternFunc:
+				default:
+					continue
+				}
+				if d, named := into[item]; named {
+					d.impl = ib
+					into[item] = d
+				}
+			}
+		}
 	}
 }
 
@@ -304,24 +323,6 @@ func (g *gen) implItemLink(it *implItem) string {
 		b.WriteString("<" + it.instKey + ">")
 	}
 	return b.String()
-}
-
-// ImplLinkInterface is the name of the interface whose impl block declares
-// the function of linkage name link (implItemLink): `Display` for
-// `main.impl Display for Box<T>[...].to_string<{T=2}>`, with its type
-// arguments dropped. ok is false for a function of no impl block of an
-// interface.
-func ImplLinkInterface(link string) (iface string, ok bool) {
-	_, rest, found := strings.Cut(link, ".impl ")
-	if !found {
-		return "", false
-	}
-	iface, _, found = strings.Cut(rest, " for ")
-	if !found {
-		return "", false
-	}
-	iface, _, _ = strings.Cut(iface, "<")
-	return iface, iface != ""
 }
 
 // linkImport is the symbol a declaration lowered once for the process

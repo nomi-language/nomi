@@ -3046,28 +3046,6 @@ func (g *gen) emitStdBody(f *stdFunc, fd *ast.FuncDef, pkg string) bool {
 
 // --- call sites -----------------------------------------------------------
 
-// stdBitwiseNot is `~~~`'s interface method, the unary member of
-// operIfaceSpecs.
-const stdBitwiseNot = "BitwiseNot.bitwise_not"
-
-// stdlibUnaryOperatorFor is std's `BitwiseNot` impl for an operand of kind
-// k (`impl BitwiseNot<Byte> for Byte`), or nil.
-func (g *gen) stdlibUnaryOperatorFor(k kind) *stdFunc {
-	// kindInvalid: lookup — an operand with no kind has no impl to find.
-	if g.std == nil || k == kindInvalid {
-		return nil
-	}
-	if k.def != nil {
-		return g.stdlibImplOf(stdBitwiseNot, k, k)
-	}
-	params := []kind{k}
-	f := stdPick(g.std.byIface[stdBitwiseNot][k], params)
-	if f == nil || f.why != "" || !sameParamKinds(f.params, params) {
-		return nil
-	}
-	return f
-}
-
 // stdlibImplOf resolves one stdlib interface METHOD at a statically-known
 // receiver kind, checking the PARAMETER shape the call site assumes.
 //
@@ -3100,34 +3078,11 @@ func (g *gen) stdlibImplOf(key string, recv kind, params ...kind) *stdFunc {
 	return f
 }
 
-// stdOperatorFits reports whether the std function f is called for `left
-// op right`: f is no impl the machine computes itself (machineImpls), it
-// lowered, and it takes the two operands' kinds exactly.
-func (g *gen) stdOperatorFits(op string, f *stdFunc, left, right kind) bool {
-	if operIfaceByOp[op] == nil || f == nil || g.machineComputes(f) {
-		return false
-	}
-	return f.why == "" && sameParamKinds(f.params, []kind{left, right})
-}
-
-// stdlibOperatorFor is std's impl of `left op right` at an instance's
-// kinds, for an operator with no record that names its impl (one over a
-// type parameter whose frame has no checker type); a recorded operator
-// calls the function its record names (recordedOperatorImpl). It is nil
-// where the impl the kinds select is one the machine computes itself
-// (`Int + Int`), and at another right-hand kind it is std's impl for that
-// pair or nothing: `d / 2` with `d: Duration` is `impl Divide<Int,
-// Duration> for Duration`.
-func (g *gen) stdlibOperatorFor(op string, left, right kind) *stdFunc {
-	spec := operIfaceByOp[op]
-	if spec == nil || g.std == nil {
-		return nil
-	}
-	f := stdPick(g.std.byIface[spec.nomi+"."+spec.method][left], []kind{left, right})
-	if !g.stdOperatorFits(op, f, left, right) {
-		return nil
-	}
-	return f
+// stdOperatorFits reports whether the std function f, the impl an
+// operator's record names, is called for `left op right`: it lowered,
+// and it takes the two operands' kinds exactly.
+func stdOperatorFits(f *stdFunc, left, right kind) bool {
+	return f != nil && f.why == "" && sameParamKinds(f.params, []kind{left, right})
 }
 
 // irPrebuildStdBodies builds every offered body's graph before the lowering

@@ -345,9 +345,21 @@ func moduleKeys(c, old *DepsCapabilities) []tableKey {
 	slices.Sort(paths)
 	keys := make([]tableKey, len(paths))
 	for i, p := range paths {
-		keys[i] = tableKey{path: p, key: fmt.Sprintf("%q", p), names: c.Modules[p], was: old.Modules[p]}
+		keys[i] = tableKey{path: p, key: moduleKey(p), names: c.Modules[p], was: old.Modules[p]}
 	}
 	return keys
+}
+
+// moduleKey is module's path as a key under [capabilities.deps.modules]
+// is written new.
+func moduleKey(module string) string { return fmt.Sprintf("%q", module) }
+
+// ModuleEntryText is module's entry under [capabilities.deps.modules]
+// holding names, as the tables write an entry the file lacks
+// (writeCapabilityTable): `"lib.example/pg" = ["std::fs"]`, one name a
+// line when it does not fit on one.
+func ModuleEntryText(module string, names []string) string {
+	return strings.Join(tomlList(moduleKey(module)+" = ", names, ""), "\n")
 }
 
 // writeCapabilityTable is the lines of one table, at in lines, as --write
@@ -613,6 +625,13 @@ func AllowCapabilities(path string, data []byte, c *Capabilities, title string, 
 	if !added {
 		return nil, nil
 	}
+	return CapabilitiesFix(path, data, title, to)
+}
+
+// CapabilitiesFix is the fix titled title that writes to as the capability
+// tables of data, the nomi.toml at path (WriteCapabilityTables), as one
+// edit over the lines that change, applied to path (parser.Fix's Path).
+func CapabilitiesFix(path string, data []byte, title string, to *Capabilities) (*parser.Fix, error) {
 	edited, _, err := WriteCapabilityTables(filepath.Dir(path), data, to)
 	if err != nil {
 		return nil, err

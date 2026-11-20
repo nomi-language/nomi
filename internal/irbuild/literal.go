@@ -378,7 +378,7 @@ func (g *gen) siblingLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 		}
 		var sym *ir.Symbol
 		if g.reg != nil && s.item != nil && s.unit < len(g.reg.gens) && g.reg.gens[s.unit] != nil {
-			sym = g.reg.gens[s.unit].irCalleeSym(s.item, s.symName)
+			sym = g.reg.gens[s.unit].irImplSym(s.item)
 		}
 		return literalTarget{params: params, result: result, label: label, unit: s.unit, sym: sym}, true
 	}
@@ -511,8 +511,7 @@ func (g *gen) genericLiteralImpl(t *ast.TaggedString, fd *ast.FuncDef, label str
 			if !ok {
 				return literalTarget{}, false
 			}
-			name := impl.recv.nomi() + "." + it.name
-			return literalTarget{params: params, result: result, label: label, unit: -1, sym: owner.irCalleeSym(it, name)}, true
+			return literalTarget{params: params, result: result, label: label, unit: -1, sym: owner.irImplSym(it)}, true
 		}
 	}
 	if g.std == nil || g.stdInsts == nil {

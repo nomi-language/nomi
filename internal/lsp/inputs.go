@@ -185,8 +185,10 @@ func isManifestURI(uri string) bool {
 // lowers each open document again, since what the lowering reports reads
 // the manifest too: its [capabilities] lists and its [money] currencies.
 // The memo misses, as it keys a lowering by the manifest's text
-// (analyzedlowering.Memo).
+// (analyzedlowering.Memo). What the projects' programs reach is worked out
+// again when next asked (projectReaches).
 func (s *Server) manifestChanged(uri string) {
+	s.reachChanged()
 	if s.notify == nil {
 		return
 	}

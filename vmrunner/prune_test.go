@@ -82,12 +82,12 @@ end
 func TestBuild_TheImageHoldsOnlyWhatTheProgramReaches(t *testing.T) {
 	img := image(t, prunedProgram)
 	names, mods := funcNames(t, img)
-	for _, want := range []string{"main", "total", "Square.area", "build_table"} {
+	for _, want := range []string{"main", "total", "Shape.area for Square", "build_table"} {
 		if !names[want] {
 			t.Errorf("the image lacks %s, which main reaches; it holds %v", want, names)
 		}
 	}
-	if names["never_called"] || names["Circle.area"] {
+	if names["never_called"] || names["Shape.area for Circle"] {
 		t.Errorf("the image holds a function nothing reaches: %v", names)
 	}
 	for _, m := range mods {

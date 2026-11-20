@@ -155,7 +155,7 @@ func maybeMapLine(t *testing.T) int {
 
 func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 	// Maybe.map's body is a case whose Some arm calls f on the second line.
-	call := "maybe.Maybe.map<Int, Int>:" + strconv.Itoa(maybeMapLine(t)+2)
+	call := "Maybe<Int>.map:" + strconv.Itoa(maybeMapLine(t)+2)
 	s := debugProgram(t, stdStepSrc)
 	s.d.SetSkipFiles(std.IsSourcePath)
 	s.breakAt(5)
@@ -178,7 +178,7 @@ func TestDebug_StepInPassesThroughSkippedFiles(t *testing.T) {
 }
 
 func TestDebug_StepInEntersTheStandardLibraryWhenNothingIsSkipped(t *testing.T) {
-	first := "maybe.Maybe.map<Int, Int>:" + strconv.Itoa(maybeMapLine(t)+1)
+	first := "Maybe<Int>.map:" + strconv.Itoa(maybeMapLine(t)+1)
 	s := debugProgram(t, stdStepSrc)
 	s.breakAt(5)
 	s.run()

@@ -127,9 +127,13 @@ func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK
 	irHeldOperand(errK, "a failure's error type")
 	sym := g.irCalleeSym(key, name)
 	at := ast.Node(decl.ReturnTypeExpr)
-	fn, ok := g.irErrorRenderFunc(decl, name, sym, errK, nil, at, false)
+	// The error's checker type: the second type argument of the Result
+	// decl declares.
+	resultType, _ := g.recordedTypeExpr(decl.ReturnTypeExpr)
+	errType := partCheckerType(resultType, g.typeOf(decl.ReturnTypeExpr), 1)
+	fn, ok := g.irErrorRenderFunc(decl, name, sym, errK, errType, nil, at, false)
 	if !ok {
-		fn, ok = g.irErrorRenderFunc(decl, name, sym, errK, nil, at, true)
+		fn, ok = g.irErrorRenderFunc(decl, name, sym, errK, errType, nil, at, true)
 	}
 	if !ok {
 		g.dc.note("an error type with no rendering: " + errK.nomi())
@@ -145,13 +149,14 @@ func (g *gen) irBuildFailureRender(decl *ast.FuncDef, key any, name string, errK
 // irErrorRenderFunc builds the function name, sym, over one parameter of
 // kind errK, rendering it through Display, or through Debug when debug is
 // set: `main failure`, a typed literal's failure (irliteralcell.go) and a
-// failed `!`'s (unwrap.go). shown is the checker's record of how the
+// failed `!`'s (unwrap.go). errType is the error's checker type, nil where
+// the caller has none. shown is the checker's record of how the
 // error renders by Display (analysis.TypedLiteral.Failure,
 // analysis.FileAnalysis.UnwrapFailures), nil for main's error, which no
 // record describes and which renders by its kind (kindDisplay). ok is
 // false when that rendering does not lower: no Display impl for errK, or a
 // kind this builder cannot render.
-func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK kind, shown *analysis.DisplayRender, at ast.Node, debug bool) (*ir.Func, bool) {
+func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK kind, errType analysis.Type, shown *analysis.DisplayRender, at ast.Node, debug bool) (*ir.Func, bool) {
 	line, col := nodePos(node)
 	param := ast.Param{Name: "error", Line: line, Col: col}
 	sh := g.irFuncShellAt(node, []ast.Param{param}, irFuncSig{result: kindString, name: name, origin: irFromModule},
@@ -172,7 +177,7 @@ func (g *gen) irErrorRenderFunc(node ast.Node, name string, sym *ir.Symbol, errK
 		text = r.Dst()
 	case debug:
 		var rendered bool
-		if text, rendered = bl.debugOver(at, src, errK, nil); !rendered {
+		if text, rendered = bl.debugOver(at, src, errK, errType); !rendered {
 			return nil, false
 		}
 	case errK == kindString:

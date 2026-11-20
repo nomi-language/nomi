@@ -1108,8 +1108,7 @@ func (f *pathFlow) stmts(block *ast.Block, stmts []ast.Node, tail bool) {
 // last statement gives.
 func isValueStmt(s ast.Node) bool {
 	switch s.(type) {
-	case *ast.Binding, *ast.PatternBinding, *ast.TupleDestructure, *ast.StructDestructure,
-		*ast.DistinctDestructure, *ast.PatternDestructure, *ast.Defer, *ast.With, *ast.Assertion:
+	case *ast.Binding, *ast.PatternBinding, *ast.PatternDestructure, *ast.Defer, *ast.With, *ast.Assertion:
 		return false
 	}
 	return true

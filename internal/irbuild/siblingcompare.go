@@ -11,7 +11,7 @@ import (
 // rangeOrders through sortOrders, which decides whether a range literal
 // (`a..b`, `a..=b`) or `Range.step_by` over a named element can order its
 // bounds. `Iter.sort` and `Iter.sort_by` choose their comparator through
-// sortComparator's siblingCompareSym instead, and `<` and
+// sortComparator instead, and `<` and
 // `Comparable.compare(a, b)` do not come here. A list element never reaches
 // this file: listOrders admits only Int and Float elements before
 // compareResolves would ask.

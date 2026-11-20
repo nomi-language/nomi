@@ -39,7 +39,13 @@ type Server struct {
 	openInputs openInputs
 	// manifestEdits debounces the rechecks of an edited nomi.toml
 	// (manifest.go).
-	manifestEdits   manifestEdits
+	manifestEdits manifestEdits
+	// reaches holds what each project's programs reach, which a nomi.toml's
+	// hover, references and hints read (manifest_reach.go).
+	reaches projectReaches
+	// unused holds the open nomi.toml files and their hints' fixes
+	// (manifest_reach.go).
+	unused          unusedNames
 	notify          glsp.NotifyFunc // captured for background notifications
 	cancelPropagate context.CancelFunc
 	propagateMu     sync.Mutex
@@ -333,6 +339,8 @@ func (s *Server) textDocumentDidSave(ctx *glsp.Context, params *protocol.DidSave
 		// event rechecks what reads it.
 		return nil
 	}
+	// What the project's programs reach is read from disk (manifest_reach.go).
+	s.reachChanged()
 	text := ""
 	if params.Text != nil {
 		text = *params.Text
@@ -532,6 +540,7 @@ func (s *Server) workspaceDidChangeWatchedFiles(ctx *glsp.Context, params *proto
 		if !isNomiURI(uri) {
 			continue
 		}
+		s.reachChanged()
 
 		switch event.Type {
 		case protocol.FileChangeTypeCreated:

@@ -273,8 +273,7 @@ func (c *checker) rowTailCannotFail(n ast.Node) bool {
 // isRowStatement is a statement whose value a row's verdict never reads.
 func isRowStatement(n ast.Node) bool {
 	switch n.(type) {
-	case *ast.Binding, *ast.Defer, *ast.With, *ast.TupleDestructure, *ast.StructDestructure,
-		*ast.DistinctDestructure, *ast.PatternBinding:
+	case *ast.Binding, *ast.Defer, *ast.With, *ast.PatternBinding:
 		return true
 	}
 	return false

@@ -123,7 +123,7 @@ func (g *gen) literalCallee(h literalTarget, fd *ast.FuncDef, what string) (*ir.
 		return h.inst.sym, true
 	}
 	if h.item != nil {
-		return g.irCalleeSym(h.item, h.label), true
+		return g.irImplSym(h.item), true
 	}
 	if h.unit < 0 && h.sym != nil {
 		// Another file's instance impl (genericLiteralImpl).
@@ -151,7 +151,7 @@ func (g *gen) literalCallee(h literalTarget, fd *ast.FuncDef, what string) (*ir.
 	if it == nil || irImplSource(it) == nil {
 		return nil, false
 	}
-	return g.irCalleeSym(it, h.label), true
+	return g.irImplSym(it), true
 }
 
 // implItemFor is the lowerable impl item of this module that declares fd, or

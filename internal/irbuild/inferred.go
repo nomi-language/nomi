@@ -377,9 +377,20 @@ func (g *gen) project(t analysis.Type) kind {
 		// or partial bound to a name), whose suppliers the builder finds from
 		// the value (callablePlan), and the checker requires every argument
 		// of any other call through a function value. A function VALUE with
-		// a method-level `where` bound is dispatch, and is refused.
-		if ty.Return == nil || len(ty.WhereBounds) > 0 {
+		// a method-level `where` bound over a parameter no frame binds is
+		// dispatch, and is refused; inside an instance that binds each
+		// bounded parameter (`Bag.add` passed in `Bag<Int>`'s impl), the
+		// instance meets the bound and the value is its plain function.
+		if ty.Return == nil {
 			return kindInvalid
+		}
+		for _, wb := range ty.WhereBounds {
+			if wb.Param == nil {
+				return kindInvalid
+			}
+			if _, bound := g.genericSubstKind(wb.Param.Name_); !bound {
+				return kindInvalid
+			}
 		}
 		params := make([]kind, len(ty.Params))
 		for i, prm := range ty.Params {

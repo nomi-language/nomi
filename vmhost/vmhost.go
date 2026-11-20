@@ -42,6 +42,13 @@ type Program struct {
 	// sources are the texts of the program's in-memory files by module path,
 	// which a diagnostic quotes its source line from (a file on disk is read).
 	sources map[string]string
+	// parsed is the syntax of each file whose module holds none, parsed
+	// from its text when a report first needs it (syntaxOf).
+	parsedMu sync.Mutex
+	parsed   map[string][]ast.Node
+	// indexed is where each file's syntax has what a report shows
+	// (indexOf), under parsedMu.
+	indexed map[string]*syntaxIndex
 	// advice is Advice once computed.
 	advice *Diagnostics
 	// hosts are the host tables every machine binds beside its own stdlib
@@ -574,9 +581,9 @@ func (p *Program) reasons(found []vm.Unretained) []string {
 	for _, u := range found {
 		switch u.Kind {
 		case vm.NotRetained:
-			out = append(out, p.notRetained(u.Name))
+			out = append(out, p.notRetained(u.Name, u.Impl))
 		case vm.OnceNotRetained:
-			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(blockerName(u))))
+			out = append(out, fmt.Sprintf("[%s] once initializer not retained: %s", u.Name, p.decline(blockerName(u), ir.ImplFunc{})))
 		case vm.NoBinding:
 			out = append(out, fmt.Sprintf("[%s] crosses into Go and the VM has no binding for it", hostadapt.DisplayName(u.Name)))
 		case vm.NoImplementation:
@@ -586,8 +593,8 @@ func (p *Program) reasons(found []vm.Unretained) []string {
 	return out
 }
 
-func (p *Program) notRetained(name string) string {
-	return fmt.Sprintf("[%s] not retained: %s", name, p.decline(name))
+func (p *Program) notRetained(name string, impl ir.ImplFunc) string {
+	return fmt.Sprintf("[%s] not retained: %s", name, p.decline(name, impl))
 }
 
 func (p *Program) testNotRetained(name string) string {
@@ -598,19 +605,19 @@ func (p *Program) testNotRetained(name string) string {
 	return "[test body] not retained: " + reason
 }
 
-// decline is the first reason the producer's last attempt at name declined
-// for. The census names an attempt by its declaration's own name, so a
-// qualified IR name falls back to its last segment.
-func (p *Program) decline(name string) string {
+// decline is the first reason the producer's last attempt at name, a
+// function of impl block impl when impl names one, declined for. The census
+// names an attempt by its declaration's own name, so an IR name falls back
+// to its attempt name (attemptName).
+func (p *Program) decline(name string, impl ir.ImplFunc) string {
 	if reason, ok := p.declines[name]; ok {
 		return reason
 	}
-	short := name
-	if i := strings.LastIndex(name, "."); i >= 0 {
-		short = name[i+1:]
-		if reason, ok := p.declines[short]; ok {
-			return reason
-		}
+	short := attemptName(name, impl)
+	if short == "" {
+		short = name
+	} else if reason, ok := p.declines[short]; ok {
+		return reason
 	}
 	return p.undeclined(short)
 }

@@ -130,9 +130,10 @@ type taskBinding struct {
 
 // collectTaskBindings collects the `name = Task.spawn(...)` bindings
 // anywhere in a ConcurrentBlock's body: in nested blocks, if and case
-// branches, and a block on a binding's right-hand side. Tuple, struct and
-// distinct destructures are not tracked; they don't produce a meaningful
-// "is this binding awaited?" question without per-element type tracking.
+// branches, and a block on a binding's right-hand side. A pattern binding
+// (`(a, b) = ...`, `Id(n) = ...`) is not tracked; it does not produce a
+// meaningful "is this binding awaited?" question without per-element type
+// tracking.
 //
 // A nested ConcurrentBlock's bindings are its own checkBlock's
 // responsibility, and a Lambda's or FuncDef's bindings live in their own

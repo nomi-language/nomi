@@ -48,7 +48,7 @@ func TestImplHeader_UnknownInterfaceTypeArgument(t *testing.T) {
 		{"first argument", "Add<Dbys, Day>", "Days", `unknown type "Dbys"`, "did you mean 'Days'?", 10},
 		{"second argument", "Add<Days, Dya>", "Days", `unknown type "Dya"`, "did you mean 'Day'?", 16},
 		{"nested argument", "Add<List<Dbys>, Day>", "Days", `unknown type "Dbys"`, "did you mean 'Days'?", 15},
-		{"argument arity", "Add<Map<Int>, Day>", "Days", "Map expects 2 type arguments, got 1", "", 10},
+		{"argument arity", "Add<Map<Int>, Day>", "Days", "`Map` expects 2 type arguments, got 1", "", 10},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := dayDecls + "impl " + tc.header + " for Day\n    fn add(lhs: Day, rhs: " + tc.rhs + ") -> Day\n        Day(day_number(lhs) + days_number(rhs))\n    end\nend\n\nfn main()\n    day = Day(10) + Days(4)\n    dbg day_number(day)\nend\n"

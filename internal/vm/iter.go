@@ -2,7 +2,6 @@ package vm
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
 	"github.com/nomi-language/nomi/rt"
@@ -870,32 +869,19 @@ func mustReachEnd(n *ir.Iter) bool {
 }
 
 // terminalName is the operation a program called that runs n: the std
-// function whose body holds n when n is in the standard library
-// (`Iter.max` folds with `Iter.reduce`), and otherwise n's own spelling.
+// impl block's function whose body holds n when n is in the standard
+// library, as source code calls it (`Iter.max` folds with `Iter.reduce`),
+// and otherwise n's own spelling.
 func terminalName(fr *frame, n *ir.Iter) string {
 	if n.Pos().Stdlib() && fr.fn != nil {
-		if name := stdFuncName(fr.fn.Name()); name != "" {
-			return name
+		if impl, ok := fr.fn.Sym().Impl(); ok {
+			return impl.TypeName() + "." + impl.Func
 		}
 	}
 	if n.Op() == ir.IterJoin {
 		return "String.join"
 	}
 	return "Iter." + n.Op().Name()
-}
-
-// stdFuncName is a std function's `Owner.name` from its lowered name, which
-// opens with its file and may carry the type arguments it was instantiated
-// at (`iter.Iter.max<Int>`), or "" for a name that is not one.
-func stdFuncName(name string) string {
-	if i := strings.IndexByte(name, '<'); i >= 0 {
-		name = name[:i]
-	}
-	name = rt.ShortTypeName(name)
-	if strings.Count(name, ".") != 1 || strings.HasSuffix(name, ".") {
-		return ""
-	}
-	return name
 }
 
 // iterOrdering reads a callback's Ordering result inside a sequence driver.

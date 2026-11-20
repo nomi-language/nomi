@@ -501,14 +501,8 @@ func (bl *irScalarBuilder) testStmt(s ast.Node) bool {
 		return bl.patternBindingStmt(st, nil)
 	case *ast.Binding:
 		return bl.testBinding(st)
-	case *ast.TupleDestructure:
-		return bl.tupleBinding(st)
-	case *ast.StructDestructure:
-		return bl.structBinding(st)
 	case *ast.With:
 		return bl.withStmt(st, bl.testWithScope)
-	case *ast.DistinctDestructure:
-		return bl.distinctBinding(st)
 	case *ast.FuncDef:
 		return bl.nestedFunc(st)
 	case *ast.If, *ast.Case:

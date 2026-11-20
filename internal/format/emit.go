@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/lexer"
@@ -73,6 +72,7 @@ func emitFile(nodes []ast.Node, fileEndTrivia []ast.Trivia) string {
 // the first trivia entry. With no preceding node (a trivia-only file), the
 // first comment lands on line 1 directly.
 func emitFileEndTrivia(trivia []ast.Trivia, hasPrecedingNode bool) Doc {
+	trivia = withoutBlankAfterComment(trivia)
 	parts := make([]Doc, 0, len(trivia)*2)
 	emittedComment := false
 	for _, t := range trivia {
@@ -444,11 +444,12 @@ func emitWithTriviaParts(body Doc, leading []ast.Trivia, trailing []ast.Trivia) 
 	if len(leading) == 0 && len(trailing) == 0 {
 		return body
 	}
+	leading = withoutBlankAfterComment(leading)
 	parts := make([]Doc, 0, len(leading)*2+2+len(trailing)*2)
 	// A `//#` module comment does not belong to what follows it, so a blank
 	// line always separates a run of them from the next comment or the node.
 	inModuleComment := false
-	for i, t := range leading {
+	for _, t := range leading {
 		switch t.Kind {
 		case ast.TriviaComment:
 			if inModuleComment && !isModuleComment(t.Text) {
@@ -460,14 +461,6 @@ func emitWithTriviaParts(body Doc, leading []ast.Trivia, trailing []ast.Trivia) 
 			// next line.
 			parts = append(parts, Text(t.Text), HardLine())
 		case ast.TriviaBlankLine:
-			// A blank line right after a comment goes. The comment is
-			// written on a line of its own, and the lexer keeps no blank
-			// line after a comment line, so a second pass would drop it.
-			// Only a comment left on a header's line (`impl P for T //
-			// note`) carries one here, and the comment moves below.
-			if i > 0 && leading[i-1].Kind == ast.TriviaComment && !inModuleComment {
-				continue
-			}
 			// A blank line before the node becomes an extra HardLine in
 			// addition to whatever separator the outer emit already has.
 			inModuleComment = false
@@ -492,6 +485,33 @@ func emitWithTriviaParts(body Doc, leading []ast.Trivia, trailing []ast.Trivia) 
 	return Concat(parts...)
 }
 
+// withoutBlankAfterComment is trivia without each blank line that directly
+// follows a comment. Every emitter that writes a comment on a line of its
+// own reads its trivia through it: a statement's leading comments
+// (emitWithTriviaParts), a member's (emitLeadingComments), the comments
+// before a closing `end` (emitEndTrivia) and those at the end of the file
+// (emitFileEndTrivia). The lexer keeps no blank line after a comment line,
+// so a blank line kept there would be dropped by a second pass. Only a
+// comment left on a line that ends in code (a header, `impl P for T //
+// note` or `fn f() // note`) carries one here, and that comment moves to a
+// line of its own.
+func withoutBlankAfterComment(trivia []ast.Trivia) []ast.Trivia {
+	for i := 1; i < len(trivia); i++ {
+		if trivia[i].Kind != ast.TriviaBlankLine || trivia[i-1].Kind != ast.TriviaComment {
+			continue
+		}
+		out := append([]ast.Trivia(nil), trivia[:i]...)
+		for _, t := range trivia[i+1:] {
+			if t.Kind == ast.TriviaBlankLine && out[len(out)-1].Kind == ast.TriviaComment {
+				continue
+			}
+			out = append(out, t)
+		}
+		return out
+	}
+	return trivia
+}
+
 // isModuleComment reports whether a comment is a `//#` module comment.
 func isModuleComment(text string) bool {
 	return strings.HasPrefix(text, "//#")
@@ -513,6 +533,7 @@ func emitEndTrivia(trivia []ast.Trivia) Doc {
 	if len(trivia) == 0 {
 		return Text("")
 	}
+	trivia = withoutBlankAfterComment(trivia)
 	parts := make([]Doc, 0, len(trivia)*2)
 	for _, t := range trivia {
 		switch t.Kind {
@@ -906,38 +927,6 @@ func emitNode(n ast.Node) Doc {
 		return emitImportBlock(v)
 	case *ast.OnceBinding:
 		return emitOnceBinding(v)
-	case *ast.TupleDestructure:
-		// (a, b, _) = expr — bindings are *Ident or nil (wildcard).
-		parts := make([]Doc, 0, len(v.Bindings)*2+3)
-		parts = append(parts, Text("("))
-		for i, b := range v.Bindings {
-			if i > 0 {
-				parts = append(parts, Text(", "))
-			}
-			if b == nil {
-				parts = append(parts, Text("_"))
-			} else {
-				parts = append(parts, Text(b.Name))
-			}
-		}
-		parts = append(parts, Text(")"))
-		if cs := tupleDestructureComments(v); anyComments(cs) {
-			// The bindings have no trailing comma.
-			docs := make([]Doc, len(v.Bindings))
-			for i, b := range v.Bindings {
-				docs[i] = Text("_")
-				if b != nil {
-					docs[i] = Text(b.Name)
-				}
-			}
-			return emitBindingValue(emitCommentedListNoLastComma("(", ")", docs, cs), v.Value)
-		}
-		return emitBindingValue(Concat(parts...), v.Value)
-	case *ast.StructDestructure:
-		// {x:, y:} = expr  or  {x: a, y: b} = expr — anonymous only.
-		// Reuse emitPattern by wrapping in a StructPattern with no TypeName.
-		pat := &ast.StructPattern{Fields: v.Fields}
-		return emitBindingValue(emitPattern(pat), v.Value)
 	case *ast.PatternBinding:
 		return emitPatternBinding(v)
 	case *ast.PatternDestructure:
@@ -947,17 +936,6 @@ func emitNode(n ast.Node) Doc {
 			return withPipeDangling(pipe, emitPrefixedPipeParts(prefix, source, steps, false))
 		}
 		return Concat(Text("assert "), emitPattern(v.Pattern), Text(" = "), emit(v.Value))
-	case *ast.DistinctDestructure:
-		// TypeName(binding) = expr, or TypeName(_) = expr for wildcard.
-		inner := Text("_")
-		if v.Binding != nil {
-			inner = Text(v.Binding.Name)
-		}
-		typeName := Text(v.TypeName)
-		if v.TypeNameExpr != nil {
-			typeName = emitTypeExpr(v.TypeNameExpr)
-		}
-		return emitBindingValue(Concat(typeName, Text("("), inner, Text(")")), v.Value)
 	case *ast.ErrorNode:
 		// A run of source the recovering parser could not read. A file
 		// holding one never reaches the formatter (ParseFile fails), but
@@ -969,8 +947,8 @@ func emitNode(n ast.Node) Doc {
 	panic("unimplemented: " + n.NodeType())
 }
 
-// emitBindingValue renders `target = value` for a binding and every
-// destructuring form. A pipe value breaks after `=` and indents the pipe
+// emitBindingValue renders `target = value` for a binding and a pattern
+// binding. A pipe value breaks after `=` and indents the pipe
 // block so the source and each `|>` align one level in (a multi-stage pipe
 // always breaks; a single pipe that fits stays inline via the Group).
 func emitBindingValue(target Doc, value ast.Node) Doc {
@@ -1004,9 +982,6 @@ func pipeAfterEquals(chain Doc) Doc {
 func emitPatternBinding(v *ast.PatternBinding) Doc {
 	target := emitPattern(v.Pattern)
 	if v.Else == nil {
-		if bareStartsDestructure(v.Pattern) {
-			target = Concat(Text("("), target, Text(")"))
-		}
 		return emitBindingValue(target, v.Value)
 	}
 	head := patternBindingHead(v, target)
@@ -1062,65 +1037,6 @@ func patternBindingHead(v *ast.PatternBinding, target Doc) Doc {
 			Text("else ")))
 	}
 	return Concat(target, Text(" = "), emit(v.Value), Text(" else "))
-}
-
-// bareStartsDestructure reports whether pattern, written bare at the start
-// of a statement `pattern = value` with no `else`, is read as one of the
-// destructuring statements rather than as a pattern binding: a tuple of
-// two or more names (TupleDestructure), a struct pattern without a type
-// whose fields each bind a name (StructDestructure), or a variant named
-// by a type, `T(n)`, `m.T(n)` or `T(_)` (DistinctDestructure). The author
-// parenthesized such a pattern to get the pattern binding, so the
-// formatter keeps one pair of parentheses around it. A name or `_` alone
-// needs none: `(a) = v` is the binding `a = v`. A map pattern needs none
-// either: it is always read as a pattern binding.
-func bareStartsDestructure(pattern ast.Node) bool {
-	isName := func(n ast.Node) bool {
-		switch n.(type) {
-		case *ast.IdentPattern, *ast.WildcardPattern:
-			return true
-		}
-		return false
-	}
-	switch p := pattern.(type) {
-	case *ast.TuplePattern:
-		if len(p.Patterns) < 2 {
-			return false
-		}
-
-		for _, e := range p.Patterns {
-			if !isName(e) {
-				return false
-			}
-		}
-		return true
-	case *ast.StructPattern:
-		if p.TypeName != nil || len(p.Fields) == 0 {
-			return false
-		}
-		for _, f := range p.Fields {
-			if f.Pattern != nil {
-				if _, ok := f.Pattern.(*ast.IdentPattern); !ok {
-					return false
-				}
-			}
-		}
-		return true
-	case *ast.EnumPattern:
-		if p.Binding == "" && (p.Payload == nil || !isName(p.Payload)) {
-			return false
-		}
-		switch t := p.Variant.(type) {
-		case *ast.SimpleType:
-			// `.Some(n)` starts with a dot, and a lower-case single name
-			// is no type the destructure reads.
-			return t.Name != "" && unicode.IsUpper([]rune(t.Name)[0])
-		case *ast.QualifiedType:
-			_, simple := t.Member.(*ast.SimpleType)
-			return simple
-		}
-	}
-	return false
 }
 
 // emitStringInterp renders an interpolated string. The lexer decoded escape
@@ -1968,8 +1884,8 @@ func isInlineBranch(stmt ast.Node) bool {
 		stmt = es.Expr
 	}
 	switch stmt.(type) {
-	case *ast.If, *ast.Binding, *ast.TupleDestructure, *ast.StructDestructure, *ast.PatternDestructure,
-		*ast.PatternBinding, *ast.DistinctDestructure, *ast.With, *ast.Defer, *ast.Assertion,
+	case *ast.If, *ast.Binding, *ast.PatternDestructure,
+		*ast.PatternBinding, *ast.With, *ast.Defer, *ast.Assertion,
 		*ast.FuncDef, *ast.StructDef, *ast.EnumDef, *ast.TypeDef, *ast.TypeAlias,
 		*ast.InterfaceDef, *ast.ImplBlock, *ast.ImportStmt, *ast.ImportBlock, *ast.Subtests, *ast.Block:
 		return false
@@ -4899,6 +4815,7 @@ func emitLeadingComments(trivia []ast.Trivia) []Doc {
 	if len(trivia) == 0 {
 		return nil
 	}
+	trivia = withoutBlankAfterComment(trivia)
 	parts := make([]Doc, 0, len(trivia)*2)
 	for _, t := range trivia {
 		switch t.Kind {

@@ -88,6 +88,14 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		return no()
 	}
 	elem := vs.elem
+	if vs.elemType == nil && (method == "sort" || method == "known_count") {
+		// A source with no view record (a sequence, which is itself, or
+		// one whose own function the call reaches: `Iter.known_count(1..5)`
+		// is the Range's): the element's checker type, which its
+		// comparator is chosen at, is the call's type argument T, as
+		// `sort_by` reads its key's K.
+		_, vs.elemType = bl.g.recordedTypeArg(t, method, "T")
+	}
 	switch vs.dom {
 	case analysis.IterViewRange:
 		if method == "known_count" && !bl.inheritsStepsBetween(elem) {
@@ -110,26 +118,22 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		}
 	}
 	result := listKindIn(bl.g, elem)
-	var comparator *stdFunc
 	if method == "take" {
 		if args.kinds[1] != kindInt {
 			return no()
 		}
 		result = seqKindIn(bl.g, elem)
 	}
-	var localCompare *implItem
-	var siblingCompare *ir.Symbol
+	var comparator comparatorPick
 	if method == "sort" {
 		var ok bool
-		if localCompare, siblingCompare, comparator, ok = bl.sortComparator(elem, vs.elemType); !ok {
+		if comparator, ok = bl.sortComparator(elem, vs.elemType); !ok {
 			return no()
 		}
 	}
 	var sortKey kind
 	var sortKeyType analysis.Type
-	var sortKeyCmp *stdFunc
-	var sortKeyLocal *implItem
-	var sortKeySibling *ir.Symbol
+	var sortKeyCmp comparatorPick
 	if method == "sort_by" {
 		fk := args.kinds[1]
 		if fk.tag != tagFunc || len(funcParams(fk)) != 1 || funcParams(fk)[0] != elem {
@@ -139,7 +143,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		sortKey = funcResult(fk)
 		_, sortKeyType = bl.g.recordedTypeArg(t, method, "K")
 		var ok bool
-		if sortKeyLocal, sortKeySibling, sortKeyCmp, ok = bl.sortComparator(sortKey, sortKeyType); !ok {
+		if sortKeyCmp, ok = bl.sortComparator(sortKey, sortKeyType); !ok {
 			return no()
 		}
 	}
@@ -381,7 +385,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 	case "take":
 		return appendOp(t, ir.IterTake, ir.IterOverSeq, result, src, args.temps[1]), result, false, true
 	case "sort":
-		cmp := bl.comparatorOperand(t, elem, vs.elemType, localCompare, siblingCompare, comparator)
+		cmp := bl.comparatorOperand(t, elem, vs.elemType, comparator)
 		return appendOp(t, ir.IterSort, ir.IterOverSeq, result, sortOperands(direction, src, cmp)...), result, false, true
 	case "sort_with":
 		return appendOp(t, ir.IterSortWith, ir.IterOverSeq, result, src, args.temps[1]), result, false, true
@@ -389,7 +393,7 @@ func (bl *irScalarBuilder) iterCall(t *ast.Call, args irQualArgs, method string,
 		keyFn := ir.NewCopy(bl.g.irNodePos(t.Args[1]), bl.f.NewTemp(), args.temps[1])
 		bl.b.Append(keyFn)
 		bl.side(keyFn.Dst(), irScalarSide{k: args.kinds[1], copy: irCopyProjection})
-		cmp := bl.comparatorOperand(t, sortKey, sortKeyType, sortKeyLocal, sortKeySibling, sortKeyCmp)
+		cmp := bl.comparatorOperand(t, sortKey, sortKeyType, sortKeyCmp)
 		n := ir.NewIter(bl.g.irNodePos(t), bl.f.NewTemp(), ir.IterSortBy, ir.IterOverSeq, sortOperands(direction, src, keyFn.Dst(), cmp)...)
 		bl.b.Append(n)
 		bl.side(n.Dst(), irScalarSide{k: result})
@@ -714,7 +718,7 @@ func (bl *irScalarBuilder) rangeView(at ast.Node, src ir.Temp, elem kind, elemTy
 	if !bl.rangeWalksAt(elem, at) {
 		return nil, false
 	}
-	if _, _, _, ok := bl.sortComparator(elem, elemType); !ok {
+	if _, ok := bl.sortComparator(elem, elemType); !ok {
 		return nil, false
 	}
 	maybeElem, _ := bl.g.sharedMaybe(elem)
@@ -741,7 +745,7 @@ func (bl *irScalarBuilder) rangeKnownCount(t *ast.Call, src ir.Temp, elem kind, 
 		return no()
 	}
 	maybeInt, shared := bl.g.sharedMaybe(kindInt)
-	if _, _, _, ok := bl.sortComparator(elem, elemType); !ok || !shared {
+	if _, ok := bl.sortComparator(elem, elemType); !ok || !shared {
 		return no()
 	}
 	cmp, _ := bl.elemComparator(at, elem, elemType)
@@ -785,69 +789,80 @@ func (bl *irScalarBuilder) iterGroupBy(t *ast.Call, src ir.Temp, elem kind, fn i
 }
 
 // sortComparator chooses the comparator `Iter.sort` orders its elements by,
-// and `Iter.sort_by` its keys by, answering exactly one of three: a declared
-// type's local impl, a callee symbol (a sibling file's impl, or the instance
-// of a std generic container's impl at k), or std's own retained
-// `Comparable.compare` at k. A std type that is neither a declared struct or
-// enum nor a container (Duration, Decimal, calendar's Time) takes the third,
-// and a `host fn` compare (Decimal's) is admitted there because the caller
-// forwards it as a function value (irHostForward). kt is the checker's type
-// k was read from, nil where the caller has none, which a std instance it
-// names is entered with (stdRecvInstance).
-func (bl *irScalarBuilder) sortComparator(k kind, kt analysis.Type) (*implItem, *ir.Symbol, *stdFunc, bool) {
+// and `Iter.sort_by` its keys by (comparatorPick), false for none. kt is
+// the checker's type k was read from, and where it is known the comparator
+// is the one the checker's record of `Comparable.compare` at kt names
+// (recordedComparator); where it is nil, k's (kindComparator). Either way
+// a `host fn` compare (Decimal's) is admitted because the caller forwards
+// it as a function value (irHostForward).
+func (bl *irScalarBuilder) sortComparator(k kind, kt analysis.Type) (comparatorPick, bool) {
+	var p comparatorPick
+	if kt != nil {
+		p = bl.recordedComparator(k, kt)
+	} else {
+		p = bl.kindComparator(k)
+	}
+	return p, p != (comparatorPick{})
+}
+
+// kindComparator is the comparator of an element of kind k with no
+// checker type: a tuple's lexicographic compare, a declared type's local
+// impl, a sibling file's impl, the instance of a std generic container's
+// impl at k, or std's own `Comparable.compare` at k (a std type that is
+// neither a declared struct or enum nor a container: Duration, Decimal,
+// calendar's Time). The zero pick for none.
+func (bl *irScalarBuilder) kindComparator(k kind) comparatorPick {
 	if k.tag == tagTuple {
-		// A tuple answers none of the three: comparatorOperand builds its
-		// lexicographic compare (irtuplecompare.go).
-		return nil, nil, nil, bl.tupleComparable(k, kt)
+		return comparatorPick{tuple: bl.tupleComparable(k, nil)}
 	}
 	if irNominalElemKind(k) || irRangeDistinctElem(k) {
 		if local := bl.localCompareItem(k); local != nil {
-			return local, nil, nil, true
+			return comparatorPick{local: local}
 		}
 		if sym := bl.siblingCompareSym(k); sym != nil {
-			return nil, sym, nil, true
+			return comparatorPick{sibling: sym}
 		}
-	} else if irContainerBaseName(k) != "" {
-		if sym := bl.stdCompareInstanceSym(k, kt); sym != nil {
-			return nil, sym, nil, true
+	} else if base := irContainerBaseName(k); base != "" {
+		if sym := bl.g.comparatorInstance(bl.g.stdGenericTemplate(base, "compare"), k, nil); sym != nil {
+			return comparatorPick{sibling: sym}
 		}
 	}
-	f := bl.g.stdCompareAt(k, stdEnumKind(stdEnumOrdering))
-	if f == nil || (f.irBody == nil && !(f.rtCall != "" && irScalarHost(f))) {
-		return nil, nil, nil, false
+	if f := bl.g.stdCompareAt(k, stdEnumKind(stdEnumOrdering)); comparatorBody(f) {
+		return comparatorPick{std: f}
 	}
-	return nil, nil, f, true
+	return comparatorPick{}
 }
 
-// comparatorOperand builds the comparator sortComparator chose for elem as a
-// function value: a reference to the program's impl body (this file's or the
-// declaring file's) or to std's retained body, or a forwarding body around
-// std's host.
-func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, elemType analysis.Type, local *implItem, sibling *ir.Symbol, std *stdFunc) ir.Temp {
-	if elem.tag == tagTuple && local == nil && sibling == nil && std == nil {
+// comparatorOperand builds the comparator p for elem as a function value: a
+// reference to the program's impl body (this file's or the declaring
+// file's), to a std instance's or std's retained body, a forwarding body
+// around std's host, or for a tuple its lexicographic compare.
+func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, elemType analysis.Type, p comparatorPick) ir.Temp {
+	bl.noteComparator(at, elemType)
+	if p.tuple {
 		return bl.tupleComparator(at, elem, elemType)
 	}
 	pos := bl.g.irNodePos(at)
 	switch {
-	case sibling != nil:
-		ref := ir.NewRefFunc(pos, bl.f.NewTemp(), sibling)
+	case p.sibling != nil:
+		ref := ir.NewRefFunc(pos, bl.f.NewTemp(), p.sibling)
 		bl.b.Append(ref)
 		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, []kind{elem, elem}, stdEnumKind(stdEnumOrdering))})
 		return ref.Dst()
-	case local != nil:
-		ref := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irCalleeSym(local, elem.nomi()+"."+local.name))
+	case p.local != nil:
+		ref := ir.NewRefFunc(pos, bl.f.NewTemp(), bl.g.irImplSym(p.local))
 		bl.b.Append(ref)
-		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, local.params, local.result)})
+		bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, p.local.params, p.local.result)})
 		return ref.Dst()
-	case std.irBody == nil:
-		fv := ir.NewFuncValue(pos, bl.f.NewTemp(), bl.irHostForward(at, std))
+	case p.std.irBody == nil:
+		fv := ir.NewFuncValue(pos, bl.f.NewTemp(), bl.irHostForward(at, p.std))
 		bl.b.Append(fv)
-		bl.side(fv.Dst(), irScalarSide{k: funcKindIn(bl.g, std.params, std.result)})
+		bl.side(fv.Dst(), irScalarSide{k: funcKindIn(bl.g, p.std.params, p.std.result)})
 		return fv.Dst()
 	}
-	ref := ir.NewRefFunc(pos, bl.f.NewTemp(), std.irBody.Sym())
+	ref := ir.NewRefFunc(pos, bl.f.NewTemp(), p.std.irBody.Sym())
 	bl.b.Append(ref)
-	bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, std.params, std.result)})
+	bl.side(ref.Dst(), irScalarSide{k: funcKindIn(bl.g, p.std.params, p.std.result)})
 	return ref.Dst()
 }
 
@@ -855,18 +870,16 @@ func (bl *irScalarBuilder) comparatorOperand(at ast.Node, elem kind, elemType an
 // as `Iter.sort` chooses it, or false when elem has none the builder can
 // name. elemType is the checker's type elem was read from, or nil.
 func (bl *irScalarBuilder) elemComparator(at ast.Node, elem kind, elemType analysis.Type) (ir.Temp, bool) {
-	local, sibling, std, ok := bl.sortComparator(elem, elemType)
+	p, ok := bl.sortComparator(elem, elemType)
 	if !ok {
 		return ir.NoTemp, false
 	}
-	return bl.comparatorOperand(at, elem, elemType, local, sibling, std), true
+	return bl.comparatorOperand(at, elem, elemType, p), true
 }
 
 // irRangeKnownCountHost names the VM host for a Range's count protocol.
 const irRangeKnownCountHost = "Range.known_count"
 
-// localCompareItem is a nominal element's local `Comparable.compare`, the
-// first route sortComparator takes, with a body the builder can retain.
 // siblingCompareSym is the callee symbol of a sibling file's written
 // `impl Comparable for T { fn compare(a: T, b: T) -> Ordering }`, for an element
 // type another file of the program declares, or nil.
@@ -890,37 +903,17 @@ func (bl *irScalarBuilder) siblingCompareSym(elem kind) *ir.Symbol {
 	return p.sym
 }
 
-// stdCompareInstanceSym is the callee symbol of the instance of a std generic
-// container's `Comparable.compare` at k (`impl Comparable for List<T>` at
-// `List<Int>`), or nil.
-func (bl *irScalarBuilder) stdCompareInstanceSym(k kind, kt analysis.Type) *ir.Symbol {
-	base := irContainerBaseName(k)
-	if base == "" {
-		return nil
-	}
-	f := bl.g.stdGenericTemplate(base, "compare")
-	if f == nil || !stdGenericTemplateUsable(f) {
-		return nil
-	}
-	ord := stdEnumKind(stdEnumOrdering)
-	inst := bl.g.stdRecvInstance(f, "", k, kt, false)
-	if inst == nil || len(inst.view.params) != 2 || inst.view.params[0] != k || inst.view.params[1] != k || inst.view.result != ord {
-		return nil
-	}
-	return inst.sym
-}
-
+// localCompareItem is a nominal element's local `Comparable.compare`, with
+// a body the builder can retain (comparesAt), or nil.
 func (bl *irScalarBuilder) localCompareItem(elem kind) *implItem {
 	impl := bl.g.implsByIface[stdIfaceImplKey(stdComparable)][elem]
-	if impl == nil || !impl.lowerable {
+	if impl == nil {
 		return nil
 	}
-	it := impl.items["compare"]
-	if it == nil || !it.lowerable || irImplSource(it) == nil || len(it.params) != 2 ||
-		it.params[0] != elem || it.params[1] != elem || it.result != stdEnumKind(stdEnumOrdering) {
-		return nil
+	if it := impl.items["compare"]; comparesAt(it, elem) {
+		return it
 	}
-	return it
+	return nil
 }
 
 // markCtl widens one callback to a signalling form while its enclosing call's

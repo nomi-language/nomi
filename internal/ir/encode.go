@@ -47,7 +47,7 @@ import (
 
 // FormatVersion is the version the encoder writes and the only one the
 // decoder reads. Bump it with any change to what is written.
-const FormatVersion = 50
+const FormatVersion = 51
 
 // formatMagic opens every encoded image.
 const formatMagic = "NOMIIR\x00"
@@ -399,6 +399,14 @@ func EncodeImage(im Image, opts ...EncodeOption) ([]byte, error) {
 	for _, s := range e.symL {
 		body.uv(e.strs[s.name])
 		body.uv(e.strs[s.link])
+		if s.impl == nil {
+			body.byte1(0)
+			continue
+		}
+		body.byte1(1)
+		body.uv(e.strs[s.impl.Type])
+		body.uv(e.strs[s.impl.Interface])
+		body.uv(e.strs[s.impl.Func])
 	}
 	body.uv(uint64(len(e.tabL)))
 	body.uv(uint64(len(e.vtL) - len(sharedValTypes)))
@@ -504,6 +512,11 @@ func (e *encoder) sym(s *Symbol) uint64 {
 	}
 	e.str(s.name)
 	e.str(s.link)
+	if s.impl != nil {
+		e.str(s.impl.Type)
+		e.str(s.impl.Interface)
+		e.str(s.impl.Func)
+	}
 	i := uint64(len(e.symL) + 1)
 	e.syms[s] = i
 	e.symL = append(e.symL, s)

@@ -235,7 +235,7 @@ func (bl *irScalarBuilder) lambdaFunction(t *ast.Lambda, params []kind, expressi
 		}
 		if p.Destructure != nil {
 			// `fn Dur(n) ->`: the argument's inner value, bound to n, as a
-			// distinct destructure statement binds it.
+			// `Dur(n) = d` statement binds it.
 			name, _ := bl.g.irDistinctParamBinding(p.Destructure, params[i])
 			if !ast.IsDiscardName(name) {
 				inner := child.distinctProjection(p.Destructure, temp, params[i], true, "irlambda.go distinct parameter")

@@ -187,18 +187,6 @@ func (w *unresolvedWalk) visit(n ast.Node) bool {
 		w.skip[n.Pattern] = true
 	case *ast.PatternBinding:
 		w.skip[n.Pattern] = true
-	case *ast.TupleDestructure:
-		for _, b := range n.Bindings {
-			if b != nil {
-				w.skip[b] = true
-			}
-		}
-	case *ast.DistinctDestructure:
-		if n.Binding != nil {
-			w.skip[n.Binding] = true
-		}
-	case *ast.StructDestructure:
-		w.skipPatternFields(n)
 	case *ast.With:
 		w.skip[n.Target] = true
 	case *ast.Lambda:
@@ -243,21 +231,6 @@ func (w *unresolvedWalk) skipParamPatterns(params []ast.Param) {
 			w.skip[p.Destructure] = true
 		}
 	}
-}
-
-// skipPatternFields marks the patterns of a struct destructuring,
-// leaving its value.
-func (w *unresolvedWalk) skipPatternFields(n ast.Node) {
-	var value ast.Node
-	switch d := n.(type) {
-	case *ast.StructDestructure:
-		value = d.Value
-	}
-	ast.Children(n, func(c ast.Node) {
-		if c != value {
-			w.skip[c] = true
-		}
-	})
 }
 
 // isFileQualifier reports whether id names an imported file (`io` in

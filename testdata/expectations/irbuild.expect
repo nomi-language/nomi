@@ -3096,7 +3096,7 @@ T ok <dir>/group_test.nomi :: group / binds the value with a nested pattern
 T   boot [group]
 T test result: ok. 3 passed, 0 failed
 T
-C internal/irbuild/testdata/anon_recursive.nomi@5cc90f4298a41ec4
+C internal/irbuild/testdata/anon_recursive.nomi@08321feaa96ecb04
 E 0
 N 0
 H a23c9e491c7f53f7ce9ea426ce849525c4373091b668c3c8606ad8859a3b4670

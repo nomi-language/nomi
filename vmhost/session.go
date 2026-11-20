@@ -170,7 +170,7 @@ func (s *Session) Run(ctx context.Context, p *Program) error {
 	var mainFn *ir.Func
 	if p.HasMain() {
 		if mainFn = p.entryFunc("main"); mainFn == nil {
-			return &Blocked{Reasons: []string{p.notRetained("main")}}
+			return &Blocked{Reasons: []string{p.notRetained("main", ir.ImplFunc{})}}
 		}
 	}
 	if p.entry == nil {

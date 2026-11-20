@@ -58,7 +58,14 @@
 // analysis.AllowCapabilities), so its edits are in another file
 // (parser.Fix's Path): the action is a WorkspaceEdit of nomi.toml, read as
 // the server reads it (contentForURI), and it is never the preferred fix,
-// since it widens what the program may reach.
+// since it widens what the program may reach. A refused call in a
+// dependency's file is shown in the document at each place the project's
+// code leads there (the diagnostic's Related, vmhost's leadsTo), headed
+// by what the place says, with the dependency's call as its
+// relatedInformation, the refusal's code and args, and its fix
+// (problemDiagnosticsAndFixes): one refusal, so its marks come and go
+// together. An error in another file with no such place stays at the top
+// of the document.
 //
 // # nomi.toml as a document
 //
@@ -78,9 +85,64 @@
 // (manifestDiagnostics). The lists' errors therefore follow the programs
 // of the open documents, as `nomi check` of those files reports them.
 // Completion in nomi.toml offers std module names inside a list of std
-// names, and the dependencies' module paths inside [capabilities.deps]'
-// `go` and `go_in_tests` and as keys under [capabilities.deps.modules]
-// (manifestCompletion, capability.StdNames, vmhost.DependencyModules).
+// names (capability.StdNames). Inside [capabilities.deps]' `go` and
+// `go_in_tests` it offers the dependencies whose code binds Go, and as a
+// key under [capabilities.deps.modules] each dependency with its whole
+// entry, what its own files reach, in the text the fix of a missing entry
+// writes (analysis.ModuleEntryText over vmhost.Reach.Tightest), from what
+// the project's programs reach (projectReaches, below): the modules they
+// load Nomi files from (vmhost.Reach's Modules), less those the list or
+// table already names (manifestCompletion).
+// Completion, hover and references find what the cursor is on the same way
+// (manifestPlaceAt): the table, the key whose value holds it, and the
+// string under it.
+//
+// # What a project reaches, in nomi.toml
+//
+// Hover and references on a std name in a capability list answer from
+// what the project's programs reach, worked out as `nomi capabilities`
+// works it out: the programs `nomi check` checks in the module's root
+// (frontend.CheckedFiles), each reached and added (vmhost.ReachedAll), from
+// the Nomi files on disk and the editor's text of nomi.toml
+// (manifest_reach.go). It is the whole project, not the open documents'
+// programs, since a list holds every program and each one's tests. It is
+// worked out on the first request after a change and kept
+// (projectReaches): a nomi.toml's change (manifestChanged), a saved Nomi
+// document and a watched Nomi file's change drop it. A project with a
+// program that does not check has no answer.
+//
+// A hover on a std name shows the calls that list holds it for, as `nomi
+// capabilities --why` prints them (vmhost.Reach.Why and WriteWhy), at most
+// maxHoverCalls with a count of the rest: the project's own calls under
+// [capabilities.self], the dependencies' under [capabilities.deps], and the
+// module's own under its entry (neededBy). A name none of them reaches says
+// so (nothingReaches). References answer the same calls, at their callees.
+//
+// Each open nomi.toml has a hint, tagged unnecessary, at each std name its
+// lists hold that `nomi capabilities --check` reports unused: the changes
+// from its tables to the tightest ones (analysis.CapabilityChanges) that
+// --check holds them to (vmhost.HeldChanges), each a removal of a name
+// from a list of std names (unusedHints). The message says why: nothing
+// the list holds reaches it, only the tests reach a name std holds, or std
+// already allows a name std_in_tests holds. Its fix, offered from the
+// code actions in nomi.toml (manifestFixes), writes the tables without the
+// name with the writer `nomi capabilities --write` uses
+// (analysis.CapabilitiesFix), moving a name only the tests reach to
+// std_in_tests. The hints are published under their own source
+// (unusedSource) after each change (reachChanged), the newest refresh
+// winning, and cleared when the file closes. A project with a program
+// that does not check has none.
+//
+// A hover on a dependency's path, in [capabilities.deps]' go and
+// go_in_tests and as a key under [capabilities.deps.modules], shows what
+// the module's own files reach as `nomi add` prints it
+// (vmhost.Reach.ModuleReaches, vmhost.WriteModuleReach), or that no program
+// imports it yet. The error entries_required reports for a dependency with
+// no entry carries its fix from where vmhost builds it (entryFix): the
+// entry with what the module reaches in the lowered program, written as
+// `nomi add` writes it. The lowering keeps the fixes of its errors in a
+// nomi.toml beside them (manifestDiagnostics, loweringChecks.manifestFixes),
+// and the code actions in the file offer them with the hints' fixes.
 //
 // # What a call reaches
 //
@@ -93,18 +155,34 @@
 // at its callee, where the diagnostics point (shownSpan), with the line
 // hover shows (capability.ReachedLine), refused or allowed as the lists'
 // one rule decides (standingsOf), naming the table of nomi.toml that
-// allows or refuses it, or saying that no table holds it; a site that is no call, a `go`
-// binding's declaration, is a point, which the token starting there
-// shows. The memo keeps them with the problems,
-// and the lowering a program opened from its record keeps after an edit
-// keeps them too. Hover on a callee adds its line (loweringChecks.reachedAt):
-// from the document's own run when it lowered the text shown, else from
-// another open document's run whose program reaches the file, when the
-// file is as on disk, which that lowering read. A run the record answers
-// without lowering (DocumentManager.StoredLoweredClean) keeps none, so a
-// program opened from its record shows no line until an edit lowers it;
-// in such a program a call in a file other than the entry has no line,
-// since the record's lowering holds the syntax of the entry alone.
+// allows or refuses it, or saying that no table holds it; a site that is
+// no call, a `go` binding's declaration, is a point, which the token
+// starting there shows. The same walk says what each function of the
+// program and its dependencies can reach (vm.OutsideWalk.Reaches, vmhost's
+// reachedFuncs): its name, and each call of it outside std, says the one
+// name it can reach in full, through the functions on the way, or of
+// several each refused one in full, four at most, and the rest in one
+// line by name (capability.FunctionReach); a generic function's
+// name holds what any of its instances can reach, and a function that
+// reaches nothing, or that the walk never reaches, has none. A call in a
+// file whose syntax the lowered program does not hold, as in a lowering
+// relinked from kept objects, is placed at its callee in that file's text
+// (vmhost's Program.syntaxOf). The memo
+// keeps the calls with the problems, and so does the lowering of the entry
+// of a program opened from its record, which lowers from the record's kept
+// lowering as soon as the program opens, and again after each edit
+// (vmhost's checklowering_stored.go). Hover on a callee adds its line
+// through hoverdoc.AppendReach, which the tour's editors use too, from the
+// calls loweringChecks.reachedIn gives: the document's own run's when it
+// lowered the text shown, then another open document's run's in the file,
+// whose program reaches it, when the file is as on disk, which that
+// lowering read.
+// Hover does not wait for a run, as the published diagnostics do not: a
+// hover before the run of the text shown has finished has no line, and
+// the first hover after it has one. Another document of a program opened
+// from its record, whose run the record answers without lowering
+// (DocumentManager.StoredLoweredClean), keeps no calls of its own, and its
+// calls have the lines of the entry's run.
 //
 // # Annotations a default decides
 //

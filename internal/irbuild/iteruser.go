@@ -167,7 +167,7 @@ func (u userIterImpl) fn(g *gen, name string) (userIterFn, bool) {
 		}
 		result = r
 	}
-	return userIterFn{sym: u.owner.irCalleeSym(it, u.d.recv.nomi()+"."+it.name),
+	return userIterFn{sym: u.owner.irImplSym(it),
 		k: funcKindIn(g, params, result), params: params, result: result}, true
 }
 

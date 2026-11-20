@@ -43,7 +43,7 @@ func TestExistentialDebugImplsAreInSourceOrder(t *testing.T) {
 		return out
 	}
 	first := encode()
-	if !bytes.Contains(first, []byte("S7.inspect")) {
+	if !bytes.Contains(first, []byte("Debug.inspect for S7")) {
 		t.Fatalf("the lowering names no implementer's Debug body, so the order compared nothing")
 	}
 	for range 4 {

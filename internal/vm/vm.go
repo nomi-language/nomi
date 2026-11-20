@@ -1392,7 +1392,8 @@ type functionValue struct {
 //
 // Its Display and `values:` row name the function (rt.FunctionRowText for a
 // declared one): a declared function
-// is `<func: double>` whatever binding it was read through, a lambda is
+// is `<func: double>` whatever binding it was read through (an impl block's
+// function by its own name, ir.ImplFunc.Func), a lambda is
 // `<func: <lambda>>`, and a std host reached as a value is
 // `<builtin: strings.String.trim>`, the host key its forwarding body is
 // named after. `Debug.inspect` of a function is the name-free `<function>`,
@@ -1402,6 +1403,9 @@ func (f *functionValue) OpaqueText() string {
 	case f.body == nil:
 		return "<func: <lambda>>"
 	case f.body.Sym() != nil:
+		if impl, ok := f.body.Sym().Impl(); ok {
+			return rt.FunctionRowText(impl.Func)
+		}
 		name := f.body.Sym().Name()
 		if i := strings.LastIndexByte(name, '.'); i >= 0 {
 			name = name[i+1:]

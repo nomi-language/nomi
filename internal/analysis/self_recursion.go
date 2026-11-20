@@ -539,12 +539,6 @@ func (r *selfRecursion) mustRecurse(n ast.Node, tail, clean bool) bool {
 		return false
 	case *ast.Binding:
 		return r.mustRecurse(x.Value, false, clean)
-	case *ast.TupleDestructure:
-		return r.mustRecurse(x.Value, false, clean)
-	case *ast.StructDestructure:
-		return r.mustRecurse(x.Value, false, clean)
-	case *ast.DistinctDestructure:
-		return r.mustRecurse(x.Value, false, clean)
 	case *ast.PatternBinding:
 		return r.mustRecurse(x.Value, false, clean)
 	case *ast.With:
@@ -779,10 +773,6 @@ func (r *selfRecursion) mayExitUncached(n ast.Node) bool {
 	case *ast.GroupedExpr:
 		return r.mayExit(x.Expr)
 	case *ast.Binding:
-		return r.mayExit(x.Value)
-	case *ast.TupleDestructure:
-		return r.mayExit(x.Value)
-	case *ast.StructDestructure:
 		return r.mayExit(x.Value)
 	case *ast.PatternBinding:
 		return x.Else != nil || r.mayExit(x.Value)

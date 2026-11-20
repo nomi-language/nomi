@@ -276,9 +276,15 @@ func (g *gen) literalRender(t *ast.TaggedString, name string, errK kind) *ir.Fun
 			panic("irbuild: a fixed typed literal whose handler can fail with no record of how its error renders; the checker records one for each (analysis package doc, \"Elaboration\")")
 		}
 		shown := rec.Failure
-		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, shown, t, false)
+		// No checker type for the error (shown.Type): in std's own
+		// lowering, the record of Debug.inspect at an error another std
+		// module declares names that module's synthesized impl, which
+		// neither the lowering's gens (recordedImplItem) nor the std index
+		// (stdFuncByID) holds, so its nested Debug bodies are chosen by
+		// kind (debugImplNoType).
+		f, ok := g.irErrorRenderFunc(t, rname, sym, errK, nil, shown, t, false)
 		if !ok {
-			f, ok = g.irErrorRenderFunc(t, rname, sym, errK, shown, t, true)
+			f, ok = g.irErrorRenderFunc(t, rname, sym, errK, nil, shown, t, true)
 		}
 		if !ok {
 			return

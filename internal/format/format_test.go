@@ -4292,6 +4292,18 @@ end
 	}
 }
 
+// A struct destructure whose fields start below its `{` stays broken, as
+// every struct pattern does (brokenAfterOpen); one written on a line stays
+// on it.
+func TestFormat_StructDestructure_KeepsABreakAfterTheBrace(t *testing.T) {
+	formatsKeepingMeaning(t,
+		"fn main()\n    {\n        x:,\n        y: b\n    } = point\nend\n",
+		"fn main()\n    {\n        x:,\n        y: b,\n    } = point\nend\n")
+	formatsKeepingMeaning(t,
+		"fn main()\n    {x:,\n        y: b} = point\nend\n",
+		"fn main()\n    {x:, y: b} = point\nend\n")
+}
+
 func TestFormat_DistinctDestructure(t *testing.T) {
 	// Distinct type unwrap: TypeName(binding) = expr.
 	src := `fn main()

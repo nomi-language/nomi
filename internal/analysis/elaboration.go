@@ -167,7 +167,7 @@ func VerifyElaborationCounting(fa *FileAnalysis, nodes []ast.Node) ([]ElabViolat
 // or is no type:
 //
 //   - the head of a literal or a pattern (a TypeName, an EnumPattern's
-//     Variant, a DistinctDestructure's TypeNameExpr) and a DotVariantType
+//     Variant) and a DotVariantType
 //     anywhere: it names a variant or the type the literal builds, which
 //     the literal's ExprTypes and the pattern's PatternTypes record;
 //   - a decorator's arguments: a derive is lowered to the impl block it
@@ -206,9 +206,8 @@ func (v *elabVerifier) checkTypeRecords(n ast.Node) {
 	})
 }
 
-// checkPattern reports n, when it is a pattern (or a distinct destructure
-// statement, which is one), that has no record of the type it matches
-// (PatternTypes), or that names a variant of the enum it matches and has
+// checkPattern reports n, when it is a pattern, that has no record of the
+// type it matches (PatternTypes), or that names a variant of the enum it matches and has
 // no record of which (PatternVariants). A literal pattern is a value of
 // its own type and is not held here; `Unit` and `self(n)`, which name no
 // variant, need only their type.
@@ -230,8 +229,6 @@ func (v *elabVerifier) checkPattern(n ast.Node) {
 		head = p.TypeName
 	case *ast.MapPattern:
 		head = p.TypeName
-	case *ast.DistinctDestructure:
-		head = p.TypeNameExpr
 	default:
 		return
 	}
@@ -266,8 +263,6 @@ func exemptHead(n ast.Node) ast.Node {
 		head = d.TypeName
 	case *ast.EnumPattern:
 		head = d.Variant
-	case *ast.DistinctDestructure:
-		head = d.TypeNameExpr
 	case *ast.FuncDef:
 		head = d.ImplIface
 	case *ast.ExternFunc:

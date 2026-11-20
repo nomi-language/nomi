@@ -64,8 +64,6 @@ func TestStructFields_CommasAreAccepted(t *testing.T) {
 				switch n := n.(type) {
 				case *ast.StructPattern:
 					got = len(n.Fields)
-				case *ast.StructDestructure:
-					got = len(n.Fields)
 				case *ast.StructLit:
 					got = len(n.Fields)
 				}

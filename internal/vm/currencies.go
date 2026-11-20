@@ -76,31 +76,30 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 	}
 	isos, parses, handlers := map[*ir.Symbol]bool{}, map[*ir.Symbol]bool{}, map[*ir.Symbol]bool{}
 	for _, f := range currency {
-		if f.Name() == "iso" && f.Sym() != nil {
+		if implFunc(f, "Currency", "", "iso") {
 			isos[f.Sym()] = true
 		}
 	}
 	for _, f := range currency {
-		if f.Name() == "parse" && f.Sym() != nil && calls(f, isos) {
+		if implFunc(f, "Currency", "", "parse") && calls(f, isos) {
 			parses[f.Sym()] = true
 		}
 	}
 	for _, f := range currency {
-		if f.Name() == "from_fragments" && f.Sym() != nil && calls(f, parses) {
+		if implFunc(f, "Currency", "Literal", "from_fragments") && calls(f, parses) {
 			handlers[f.Sym()] = true
 		}
 	}
-	// Money's parse and its literal handler, lowered with the program and
-	// so named by their type: the handler's text is the amount, a space and
-	// the currency, which parse reads.
+	// Money's parse and its literal handler: the handler's text is the
+	// amount, a space and the currency, which parse reads.
 	moneyParses, moneyHandlers := map[*ir.Symbol]bool{}, map[*ir.Symbol]bool{}
 	for _, f := range money {
-		if f.Name() == "Money.parse" && f.Sym() != nil && calls(f, parses) {
+		if implFunc(f, "Money", "", "parse") && calls(f, parses) {
 			moneyParses[f.Sym()] = true
 		}
 	}
 	for _, f := range money {
-		if f.Name() == "Money.from_fragments" && f.Sym() != nil && calls(f, moneyParses) {
+		if implFunc(f, "Money", "Literal", "from_fragments") && calls(f, moneyParses) {
 			moneyHandlers[f.Sym()] = true
 		}
 	}
@@ -150,6 +149,14 @@ func CurrencyLiterals(mods []*ir.Module, funcs []*ir.Func) (codes []string, dyna
 	})
 	slices.Sort(codes)
 	return slices.Compact(codes), dynamic
+}
+
+// implFunc reports whether f is function fn of the impl block of interface
+// iface ("" for an inherent block) for the type named typ, or any type for
+// typ "", by the block its symbol carries (ir.Symbol.Impl).
+func implFunc(f *ir.Func, typ, iface, fn string) bool {
+	impl, ok := f.Sym().Impl()
+	return ok && (typ == "" || impl.TypeName() == typ) && impl.Interface == iface && impl.Func == fn
 }
 
 // CurrencyNames reports whether funcs may write a currency's name with

@@ -3,8 +3,10 @@ package vm
 import (
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/nomi-language/nomi/internal/ir"
+	"github.com/nomi-language/nomi/rt"
 )
 
 // WHAT A PROGRAM REACHES THAT THIS MACHINE CANNOT RUN, found before anything
@@ -19,9 +21,14 @@ import (
 // The walk uses this machine's own resolution — `resolveFunc`, the dispatch
 // table, the once cells, the intrinsics and the bound host adapters — so a callee it accepts
 // is one a call will find, and a callee it reports is one a call would fail
-// on. It over-approximates in one place: a dispatched call reaches every
-// retained implementation of its method, because which one runs depends on a
-// value.
+// on. It over-approximates where a value decides: a dispatched call reaches
+// every retained implementation of its method. A body one of the machine's
+// tables selects by a value's type name (a Display, an Equatable, a
+// Hashable) is reached from an instruction that renders, compares or hashes
+// a value of a type that is or holds that type (heldTypes), and from every
+// such instruction whose operand's type does not bound it: an interface
+// value, an erased position, an Iter rendered. An assertion's `values:`
+// row reaches the hand-written Debug bodies the same way.
 //
 // The report is the FRONTIER. A function that was not retained has no IR, so
 // nothing it would call is visible; fixing one blocker can reveal the next.
@@ -49,6 +56,9 @@ type Unretained struct {
 	Kind UnretainedKind
 	// Name is the declaration as the IR names it.
 	Name string
+	// Impl is the impl block a function is declared in, the zero ImplFunc
+	// for any other declaration (ir.Symbol.Impl).
+	Impl ir.ImplFunc
 	// From is the retained function that reaches it.
 	From string
 	// Chain is the functions from a root to From, outermost first
@@ -120,10 +130,13 @@ type reachWalk struct {
 	seen  map[*ir.Func]bool
 	queue []*ir.Func
 	found map[string]Unretained
-	// keys marks the key bodies (keys.go) queued: every hand-written
-	// Equatable and Hashable body is reachable from any instruction that
-	// may hash or compare a value of a declared type (runsKeyBodies).
+	// keys marks every key body (keys.go) queued, which an instruction
+	// that may hash or compare a value whose type does not bound the
+	// declared types it holds reaches (keyOperands, heldTypes).
 	keys bool
+	// held memoizes heldTypes by type and by whether the value is
+	// rendered.
+	held map[heldKey]heldTypes
 	// effects collects what Effects reports; nil for Unretained's walk.
 	effects map[string]bool
 	// parent, when set, records for each function the function whose visit
@@ -155,16 +168,19 @@ type reachEdge struct {
 	at   ir.Instr
 }
 
-// keyBodies queues every recorded Equatable and Hashable body, once; a walk
-// that records edges records them from every instruction that may hash or
-// compare.
-func (w *reachWalk) keyBodies(from string) {
-	if w.keys && w.edges == nil {
-		return
+// keyBodies queues the recorded Equatable and Hashable bodies a value of
+// held may run, from an instruction that may hash or compare it. Every body
+// is queued once when held is unbounded; a walk that records edges records
+// them from every such instruction.
+func (w *reachWalk) keyBodies(held heldTypes, from string) {
+	if held.any {
+		if w.keys && w.edges == nil {
+			return
+		}
+		w.keys = true
 	}
-	w.keys = true
 	for _, table := range []map[string]*ir.Symbol{w.m.equates, w.m.hashes} {
-		for _, sym := range byTypeName(table) {
+		for _, sym := range byTypeName(table, &held) {
 			w.symbol(sym, from, NotRetained, EdgeKeys)
 		}
 	}
@@ -173,11 +189,14 @@ func (w *reachWalk) keyBodies(from string) {
 // byTypeName is a table of bodies by type name (an impl of one method, a
 // Display, a row Debug, a key body) in the order of the names, which the
 // walk queues them in, so the walk, and the chain it reports for each
-// function, is the same every time.
-func byTypeName(table map[string]*ir.Symbol) []*ir.Symbol {
+// function, is the same every time. With held, only the bodies of the types
+// it holds; with nil, every body.
+func byTypeName(table map[string]*ir.Symbol, held *heldTypes) []*ir.Symbol {
 	names := make([]string, 0, len(table))
 	for name := range table {
-		names = append(names, name)
+		if held == nil || held.holds(name) {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	out := make([]*ir.Symbol, len(names))
@@ -185,6 +204,133 @@ func byTypeName(table map[string]*ir.Symbol) []*ir.Symbol {
 		out[i] = table[name]
 	}
 	return out
+}
+
+// heldTypes is the declared types a value of some type may be or hold, at
+// any depth, by the name a table of bodies (Display, Equatable, Hashable)
+// keys a type's body under: the bodies an operation on the value may select
+// by a value's type name (displayErased, displayStructural, keyCaller). any
+// says some part's type does not bound what it holds, so every body may be
+// selected.
+type heldTypes struct {
+	names map[string]bool
+	any   bool
+}
+
+// holds reports whether a table's entry named name is the body of a type h
+// holds: its declaration's name, or a generic instance's key (implOf), which
+// is the declaration's name with its arguments (`main.Box<Int>`).
+func (h *heldTypes) holds(name string) bool {
+	if h.any {
+		return true
+	}
+	if i := strings.IndexByte(name, '<'); i >= 0 {
+		name = name[:i]
+	}
+	return h.names[name]
+}
+
+// heldKey keys reachWalk.held.
+type heldKey struct {
+	t        *ir.ValType
+	rendered bool
+}
+
+// heldBy is the declared types the values of uses, temporaries of f, may be
+// or hold (heldTypes). rendered says the values are rendered by Display,
+// which renders an Iter as its source: a collection, or a value of any type
+// that implements Iter, so an Iter's element type does not bound what a
+// rendered one holds. Hashing and comparing read an Iter's elements only.
+func (w *reachWalk) heldBy(f *ir.Func, uses []ir.Temp, rendered bool) heldTypes {
+	var out heldTypes
+	for _, u := range uses {
+		h := w.heldIn(f.TempType(u), rendered)
+		if h.any {
+			return h
+		}
+		for name := range h.names {
+			if out.names == nil {
+				out.names = map[string]bool{}
+			}
+			out.names[name] = true
+		}
+	}
+	return out
+}
+
+// heldIn is heldTypes for a value of t, memoized.
+func (w *reachWalk) heldIn(t *ir.ValType, rendered bool) heldTypes {
+	key := heldKey{t, rendered}
+	if h, ok := w.held[key]; ok {
+		return h
+	}
+	h := heldTypes{names: map[string]bool{}}
+	h.add(t, rendered, map[*ir.ValType]bool{})
+	if w.held == nil {
+		w.held = map[heldKey]heldTypes{}
+	}
+	w.held[key] = h
+	return h
+}
+
+// add adds the declared types a value of t may be or hold. A struct or an
+// enum holds what its stated layout's fields and variants hold (an `embeds`
+// variant's payload is the value it holds, under its own type's name), a
+// distinct its inner value, and a composite or a function what its
+// components and result hold (a function's result may be hashed, as
+// group_by's key is). A nil type (none stated), an erased position, an
+// interface value, a struct or enum whose layout is not stated, and an Iter
+// rendered do not bound what they hold. seen holds the types entered, since
+// a type may hold itself through a field.
+func (h *heldTypes) add(t *ir.ValType, rendered bool, seen map[*ir.ValType]bool) {
+	if h.any {
+		return
+	}
+	if t == nil {
+		h.any = true
+		return
+	}
+	if seen[t] {
+		return
+	}
+	seen[t] = true
+	switch t.Kind() {
+	case ir.KindAny, ir.KindIface:
+		h.any = true
+		return
+	case ir.KindSeq:
+		if rendered {
+			h.any = true
+			return
+		}
+	case ir.KindBytes:
+		// A Bytes value is no record; its Display is recorded under the
+		// name it always has (displayErased).
+		h.names[rt.BytesTypeName] = true
+	case ir.KindStruct, ir.KindEnum:
+		h.names[t.Sym().Name()] = true
+		l := t.Layout()
+		if l == nil {
+			h.any = true
+			return
+		}
+		for _, f := range l.Fields {
+			h.add(f.Type, rendered, seen)
+		}
+		for _, v := range l.Variants {
+			for _, f := range v.Fields {
+				h.add(f.Type, rendered, seen)
+			}
+		}
+	case ir.KindDistinct, ir.KindHandle:
+		h.names[t.Sym().Name()] = true
+	}
+	for i := range t.NumElems() {
+		h.add(t.Elem(i), rendered, seen)
+	}
+	if r := t.Result(); r != nil {
+		h.add(r, rendered, seen)
+	}
 }
 
 // inOrder is the functions a walk reached, by position and then name.
@@ -222,10 +368,10 @@ func (w *reachWalk) push(f *ir.Func, kind EdgeKind) {
 	w.queue = append(w.queue, f)
 }
 
-func (w *reachWalk) report(kind UnretainedKind, name, from string) {
+func (w *reachWalk) report(kind UnretainedKind, name, from string, impl ir.ImplFunc) {
 	key := name + "\x00" + string(rune('0'+kind))
 	if _, dup := w.found[key]; !dup {
-		w.found[key] = Unretained{Kind: kind, Name: name, From: from, Chain: w.chain(from)}
+		w.found[key] = Unretained{Kind: kind, Name: name, Impl: impl, From: from, Chain: w.chain(from)}
 	}
 }
 
@@ -249,7 +395,8 @@ func (w *reachWalk) chain(from string) []string {
 func (w *reachWalk) symbol(sym *ir.Symbol, from string, kind UnretainedKind, edge EdgeKind) {
 	f, err := w.m.resolveFunc(sym, from)
 	if err != nil {
-		w.report(kind, sym.Name(), from)
+		impl, _ := sym.Impl()
+		w.report(kind, sym.Name(), from, impl)
 		return
 	}
 	w.push(f, edge)
@@ -264,8 +411,8 @@ func (w *reachWalk) visit(f *ir.Func) {
 					w.effects[e] = true
 				}
 			}
-			if runsKeyBodies(f, in) {
-				w.keyBodies(f.Name())
+			if uses := keyOperands(in); len(uses) > 0 {
+				w.keyBodies(w.heldBy(f, uses, false), f.Name())
 			}
 			switch n := in.(type) {
 			case *ir.Call:
@@ -281,27 +428,35 @@ func (w *reachWalk) visit(f *ir.Func) {
 				case ir.RefOnce:
 					cell, found := w.m.onces[n.Sym()]
 					if !found || cell == nil {
-						w.report(OnceNotRetained, n.Sym().Name(), f.Name())
+						w.report(OnceNotRetained, n.Sym().Name(), f.Name(), ir.ImplFunc{})
 						continue
 					}
 					w.push(cell.body, EdgeOnce)
 				}
 			case *ir.Assert, *ir.Record, *ir.Subtests:
-				// A `values:` row renders a value of a type with a
-				// hand-written Debug through it (rowText); each is reachable.
-				for _, sym := range byTypeName(w.m.rowDebugs) {
+				// A `values:` row renders each value the instruction
+				// reports, and every value of a type with a hand-written
+				// Debug it holds through that impl (rowText), as Debug
+				// renders an Iter: as its source.
+				held := w.heldBy(f, in.AppendUses(nil), true)
+				for _, sym := range byTypeName(w.m.rowDebugs, &held) {
 					w.symbol(sym, f.Name(), NotRetained, EdgeDebug)
 				}
 			case *ir.Render:
 				for _, impl := range n.DebugImpls() {
 					w.symbol(impl.Fn, f.Name(), NotRetained, EdgeDebug)
 				}
-				if n.Kind() == ir.RenderDisplay && (n.Erased() || !scalarType(f.TempType(n.Src()))) {
-					// Any retained Display body may run; each is reachable.
-					// An erased rendering selects one by the value's type,
-					// and a structural one (displayStructural) renders each
-					// nested value of a declared type through its own.
-					for _, sym := range byTypeName(w.m.displays) {
+				if n.Kind() == ir.RenderDisplay {
+					// An erased rendering selects a Display body by the
+					// value's type, which may be any; a structural one
+					// (displayStructural) renders each nested value of a
+					// declared type through its own, which its static type
+					// bounds.
+					held := heldTypes{any: true}
+					if !n.Erased() {
+						held = w.heldBy(f, []ir.Temp{n.Src()}, true)
+					}
+					for _, sym := range byTypeName(w.m.displays, &held) {
 						w.symbol(sym, f.Name(), NotRetained, EdgeDisplay)
 					}
 				}
@@ -319,7 +474,7 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 		if n.Crosses() {
 			name := n.Callee().Name()
 			if fn, _ := w.m.adapter(name); fn == nil && w.m.hosts[name].fn == nil {
-				w.report(NoBinding, name, from)
+				w.report(NoBinding, name, from, ir.ImplFunc{})
 			}
 			return
 		}
@@ -332,26 +487,12 @@ func (w *reachWalk) call(n *ir.Call, from string) {
 			// reached over none (a dispatch over an empty list). Were it
 			// reached, it stops with a DispatchMiss.
 			if w.m.unretainedImpls[n.Callee()] {
-				w.report(NoImplementation, n.Callee().Name(), from)
+				w.report(NoImplementation, n.Callee().Name(), from, ir.ImplFunc{})
 			}
 			return
 		}
-		for _, impl := range byTypeName(impls) {
+		for _, impl := range byTypeName(impls, nil) {
 			w.symbol(impl, from, NotRetained, EdgeDispatch)
 		}
 	}
-}
-
-// scalarType reports whether every value of t is a scalar, whose Display no
-// impl answers. A nil type (none stated) is not.
-func scalarType(t *ir.ValType) bool {
-	if t == nil {
-		return false
-	}
-	switch t.Kind() {
-	case ir.KindUnit, ir.KindBool, ir.KindInt, ir.KindFloat, ir.KindDecimal, ir.KindString,
-		ir.KindByte, ir.KindBytes:
-		return true
-	}
-	return false
 }

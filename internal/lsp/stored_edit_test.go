@@ -34,9 +34,10 @@ func interfaceMethodAt(s *Server, uri string, line, col int) bool {
 
 // TestOpenFromRecordEditsMatchAFullCheck: after each of projectgen's edit
 // kinds, made in a server that opened a generated project from its record
-// and in one that checked it whole, and after its undoing, every request
-// at every identifier of the open documents (the entry, the hub and a
-// leaf) answers alike, references and rename over the closed files among
+// and in one that checked it whole, and after its undoing, each lowering
+// the open documents as the server does after an edit (lowerOpen), every
+// request at every identifier of the open documents (the entry, the hub
+// and a leaf) answers alike, references and rename over the closed files among
 // them. Most edits must be taken in the program opened from the record.
 // By default the project has about 400 lines and the requests are made at
 // every fifth identifier (storedGenerated); NOMI_CORPUS_WALKS=full makes
@@ -60,12 +61,13 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 		t.Fatal("no record written")
 	}
 	full := openServerWithout(t, p, p.keys)
-	stored := openServer(p, p.keys)
+	stored := openServerFromRecord(p, p.keys)
 	if opened, _ := stored.docs.StoredPrograms(); opened == 0 {
 		t.Fatal("the record was not opened")
 	}
 	was := os.Getenv(artifactcache.RootEnv)
 	steps := 0
+	reachHovers := functionReachHovers.Load()
 	// The typos leave something to report, which the program opened from
 	// its record must word as the program checked whole does.
 	kinds := append(slices.Clone(projectgen.EditKinds), projectgen.TypoLeaf, projectgen.TypoEntry)
@@ -84,6 +86,7 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 				s.docs.Update(uri, step.text)
 				s.docs.UpdateImportEdges(uri)
 				s.docs.PropagateChange(uri)
+				lowerOpen(s, p, append(slices.Clone(p.keys), key))
 				os.Setenv(artifactcache.RootEnv, was)
 			}
 			steps++
@@ -107,6 +110,9 @@ func TestOpenFromRecordEditsMatchAFullCheck(t *testing.T) {
 				}
 			}
 		}
+	}
+	if functionReachHovers.Load() == reachHovers {
+		t.Error("no hover compared said what a function of the program reaches")
 	}
 	if taken := stored.docs.StoredEdits(); taken < int64(steps)/2 {
 		t.Errorf("%d of %d edits were taken in the program opened from its record: %v", taken, steps, stored.docs.FullCheckReasons())

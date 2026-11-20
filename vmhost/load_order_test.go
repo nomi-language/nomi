@@ -22,8 +22,8 @@ import (
 // load leaves behind and a later load reads shows up as a difference. The
 // two processes also differ in Go's map iteration seeds.
 //
-// It fails when a program's declines, unsupported diagnostic or run
-// transcript differ (about 6 seconds). NOMI_ORDER_COUNT=<n> changes the
+// It fails when a program's declines, function names, unsupported
+// diagnostic or run transcript differ (about 6 seconds). NOMI_ORDER_COUNT=<n> changes the
 // sample's size (default 40); a count past the number of seeds, such as
 // NOMI_ORDER_COUNT=100000, checks every seed (about 90 seconds).
 func TestLoadOrderDoesNotChangeAProgram(t *testing.T) {
@@ -128,8 +128,9 @@ func loadOrderChild(t *testing.T, mode, outPath string) {
 }
 
 // loadOrderFingerprint is what one load decides: every decline the builder
-// took (body and first reason), the program's unsupported diagnostic, and
-// its run's outcome and transcript.
+// took (body and first reason), the name of each of the program's
+// functions, the program's unsupported diagnostic, and its run's outcome
+// and transcript.
 func loadOrderFingerprint(dir, src string) string {
 	entry, err := writeInput(dir, src)
 	if err != nil {
@@ -154,6 +155,18 @@ func loadOrderFingerprint(dir, src string) string {
 		sort.Strings(fns)
 		for _, fn := range fns {
 			fmt.Fprintf(&b, "decline %s: %s\n", fn, p.declines[fn])
+		}
+		// The names of the program's own functions, an impl block's by
+		// its block whichever use lowered it first.
+		var names []string
+		for _, m := range p.res.IR {
+			for _, f := range m.Funcs() {
+				names = append(names, f.Name())
+			}
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			fmt.Fprintf(&b, "func %s\n", name)
 		}
 		if u := p.Unsupported(); u != nil {
 			fmt.Fprintf(&b, "unsupported: %v\n", u)

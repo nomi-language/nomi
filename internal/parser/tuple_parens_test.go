@@ -75,7 +75,9 @@ func TestParenOnTheNextLineIsNotACall(t *testing.T) {
 	if len(body) != 2 {
 		t.Fatalf("got %d statements, want 2", len(body))
 	}
-	if _, ok := body[1].(*ast.TupleDestructure); !ok {
+	if pb, ok := body[1].(*ast.PatternBinding); !ok {
 		t.Errorf("second statement = %T, want a tuple destructure", body[1])
+	} else if _, ok := pb.Pattern.(*ast.TuplePattern); !ok {
+		t.Errorf("second statement binds a %T, want a tuple pattern", pb.Pattern)
 	}
 }

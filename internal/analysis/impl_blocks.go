@@ -20,7 +20,7 @@ func (fa *FileAnalysis) implBlockFor(recv Type, iface, origin string, ifaceArgs 
 	if t == nil || iface == "" {
 		return nil
 	}
-	blocks := fa.implBlocksOf(t, iface, origin)
+	blocks := writtenOverSynthesized(fa.implBlocksOf(t, iface, origin))
 	if len(blocks) == 1 {
 		return blocks[0].Block
 	}
@@ -45,6 +45,27 @@ func (fa *FileAnalysis) implBlockFor(recv Type, iface, origin string, ifaceArgs 
 		}
 	}
 	return found
+}
+
+// writtenOverSynthesized is blocks with the synthesized ones left out when
+// a written one is among them. A hand-written `impl Debug` ranks above a
+// derived or synthesized one (spec §12): the declaring file's universal
+// `impl Debug for Box` yields to the `impl Debug for Box` another file of
+// the program writes.
+func writtenOverSynthesized(blocks []*ImplTypeArgs) []*ImplTypeArgs {
+	if len(blocks) < 2 {
+		return blocks
+	}
+	var written []*ImplTypeArgs
+	for _, b := range blocks {
+		if !IsSynthesizedLine(b.Block.Line) {
+			written = append(written, b)
+		}
+	}
+	if len(written) == 0 {
+		return blocks
+	}
+	return written
 }
 
 // ImplBlockArgsAt is the type each of impl block ib's type parameters
@@ -73,6 +94,29 @@ func ImplBlockArgsAt(fa *FileAnalysis, ib *ast.ImplBlock, recv Type) (map[string
 		out[p.Name_] = Substitute(t, subs)
 	}
 	return out, true
+}
+
+// ImplBlockServesAt reports whether impl block ib applies at the receiver
+// its type parameters stand for at args (by name): whether those types meet
+// the bounds its `where` puts on them, decided as the checker decides
+// whether an impl applies at a receiver (implReceiverMatches). body is the
+// analysis of the file that writes ib, and fa that of a file whose
+// program's impls args' types have (a program file, for a std block at a
+// program's types), as CalleeAt asks. decided is false when body records
+// no receiver for ib or args leave one of its parameters open.
+func ImplBlockServesAt(fa, body *FileAnalysis, ib *ast.ImplBlock, args map[string]Type) (serves, decided bool) {
+	info := ImplBlockTypeArgs(body, ib)
+	if info == nil || info.Receiver == nil {
+		return false, false
+	}
+	recv, all := ReplaceTypeParams(info.Receiver, func(p *TypeParam_) (Type, bool) {
+		t := args[p.Name_]
+		return t, t != nil
+	})
+	if !all || ContainsTypeParam(recv) || containsTypeVar(recv) {
+		return false, false
+	}
+	return implReceiverMatches(info, recv, fa.implsContext(), fa.implTypeArgsContext()), true
 }
 
 // implBlocksOf is every impl block of the interface iface (declared by the

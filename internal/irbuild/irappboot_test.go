@@ -77,7 +77,7 @@ fn greet(name: String)
   Logger.log(App.logger, "hello, ${name}")
 end
 `, "[log] hello, World\n[audit] hello, Alice\n[log] hello, Bob\n",
-			[]string{"boot", "main", "audit_greet", "greet", "Stdout.log", "PrefixedLogger.log"}},
+			[]string{"boot", "main", "audit_greet", "greet", "Logger.log for Stdout", "Logger.log for PrefixedLogger"}},
 		{"field reads in a helper", `import std::io
 
 struct App

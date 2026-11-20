@@ -242,10 +242,10 @@ func TestDeclineSitesAreListed(t *testing.T) {
 // sites and pinned gaps only, with every limit a checker error and every
 // impossible state an assertion.
 const (
-	maxSites             = 636
-	maxDeadSites         = 325
+	maxSites             = 618
+	maxDeadSites         = 317
 	maxUnclassifiedSites = 0
-	maxUndecidedSites    = 157
+	maxUndecidedSites    = 151
 )
 
 // promote runs only the suites named and marks the sites they execute a,

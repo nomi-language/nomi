@@ -89,6 +89,8 @@ var (
 	stdFrom           = analysis.StdType{Module: "std/convert", Name: "From"}
 	stdCheckedLiteral = analysis.StdType{Module: "std/literals", Name: "CheckedLiteral"}
 	stdParse          = analysis.StdType{Module: "std/parse", Name: "Parse"}
+	stdAdd            = analysis.StdType{Module: "std/add", Name: "Add"}
+	stdMultiply       = analysis.StdType{Module: "std/multiply", Name: "Multiply"}
 )
 
 // stdIfaceCallRecord is the record of a call the builder writes of iface's

@@ -51,12 +51,12 @@ func SkeletonLiterals(mods []*ir.Module, funcs []*ir.Func) (texts []string, dyna
 		return false
 	}
 	for _, f := range calendar {
-		if f.Name() == "parse" && f.Sym() != nil && calls(f, func(s *ir.Symbol) bool { return s.Name() == fieldsCheck }) {
+		if implFunc(f, "", "", "parse") && calls(f, func(s *ir.Symbol) bool { return s.Name() == fieldsCheck }) {
 			parses[f.Sym()] = true
 		}
 	}
 	for _, f := range calendar {
-		if f.Name() == "from_fragments" && f.Sym() != nil && calls(f, func(s *ir.Symbol) bool { return parses[s] }) {
+		if implFunc(f, "", "Literal", "from_fragments") && calls(f, func(s *ir.Symbol) bool { return parses[s] }) {
 			handlers[f.Sym()] = true
 		}
 	}

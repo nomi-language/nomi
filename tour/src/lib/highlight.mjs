@@ -216,12 +216,84 @@ function emit(code, cls, options) {
   return out;
 }
 
-// renderToml highlights a TOML file (a multi-file example's `nomi.toml` or
-// message catalog) in the colours the build-time Shiki pass gives a static
-// ```toml block: table names, keys, strings, numbers, booleans and dates,
-// and comments, with punctuation in the default colour. It is a small
-// scanner, not a validating parser: text it does not recognize stays the
-// default colour.
+// A multi-file block's `// FILE: <name>.<ext>` line, as the Go side's
+// SplitMultiFile reads it: a directive on a line of its own.
+const FILE_MARKER = /^\s*\/\/\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$/;
+
+// fileSections cuts a block at its `// FILE:` lines, or answers null when
+// it has none (a single-file block): `head`, the lines before the first
+// marker, which no run reads, and each file's name, marker line and the
+// lines up to the next marker. The block is every line of these, in order,
+// joined by line breaks.
+export function fileSections(source) {
+  const lines = source.split("\n");
+  const head = [];
+  const files = [];
+  for (const line of lines) {
+    const m = FILE_MARKER.exec(line);
+    if (m) files.push({ name: m[1], marker: line, lines: [] });
+    else if (files.length) files[files.length - 1].lines.push(line);
+    else head.push(line);
+  }
+  return files.length ? { head, files } : null;
+}
+
+// fileText is a section's file as its tab holds it and a run reads it:
+// its lines without the blank lines that open or close it.
+export function fileText(file) {
+  return file.lines.join("\n").replace(/^\n+/, "").replace(/\n+$/, "");
+}
+
+// splitFiles is each file of a multi-file block, [{ name, body }], or null
+// for a single-file block.
+export function splitFiles(source) {
+  const sections = fileSections(source);
+  return sections && sections.files.map((f) => ({ name: f.name, body: fileText(f) }));
+}
+
+// fileLanguage names the language a multi-file example's tab holds, by its
+// file name: "nomi" for a Nomi source, "toml" for a manifest or phrase
+// catalog, "json" for JSON data, "go" for a Go file the example binds, and
+// "text" for anything else (`notes.txt`, `go.mod`), shown uncoloured.
+export function fileLanguage(name) {
+  if (name.endsWith(".nomi")) return "nomi";
+  if (name.endsWith(".go")) return "go";
+  if (name.endsWith(".json")) return "json";
+  return name.endsWith(".toml") ? "toml" : "text";
+}
+
+// renderData highlights a file whose language (fileLanguage) is neither
+// Nomi nor Go, both of which need a parse the caller has: TOML and JSON in
+// their colours, anything else uncoloured.
+export function renderData(lang, code, options = {}) {
+  if (lang === "toml") return renderToml(code, options);
+  if (lang === "json") return renderJson(code, options);
+  return emit(code, new Array(code.length).fill(""), options);
+}
+
+// renderFiles highlights a multi-file block whole, as its editor shows each
+// tab: each marker line as a Nomi comment, and each file by `file(name,
+// lang, text)`, given the file as its tab holds it (fileText), with the
+// blank lines around it kept. The lines before the first marker are given
+// to `file` as a Nomi file named "". The page's static rendering of a
+// block uses it, so the block reads before the editor opens as it does
+// after.
+export function renderFiles(sections, file) {
+  const part = (name, lang, lines) => {
+    const text = lines.join("\n");
+    const core = text.replace(/^\n+/, "").replace(/\n+$/, "");
+    const lead = text.length - text.replace(/^\n+/, "").length;
+    return text.slice(0, lead) + file(name, lang, core) + text.slice(lead + core.length);
+  };
+  const out = [];
+  if (sections.head.length) out.push(part("", "nomi", sections.head));
+  for (const f of sections.files) {
+    out.push(`<span class="tok-comment">${escapeHtml(f.marker)}</span>`);
+    if (f.lines.length) out.push(part(f.name, fileLanguage(f.name), f.lines));
+  }
+  return out.join("\n");
+}
+
 // renderJson colours a JSON tab: object keys, strings, and numbers and the
 // literals true, false and null. Text that is not JSON keeps the colours of
 // whatever parts of it read as JSON.
@@ -253,6 +325,12 @@ export function renderJson(code, options = {}) {
   return emit(code, cls, options);
 }
 
+// renderToml highlights a TOML file (a multi-file example's `nomi.toml` or
+// message catalog) in the colours the build-time Shiki pass gives a static
+// ```toml block: table names, keys, strings, numbers, booleans and dates,
+// and comments, with punctuation in the default colour. It is a small
+// scanner, not a validating parser: text it does not recognize stays the
+// default colour.
 export function renderToml(code, options = {}) {
   const n = code.length;
   const cls = new Array(n).fill("");

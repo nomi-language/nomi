@@ -17,6 +17,9 @@ import (
 // reusable by non-LSP callers (the tour wasm, the reference generator).
 func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	uri := string(params.TextDocument.URI)
+	if isManifestURI(uri) {
+		return s.manifestHover(uri, params.Position), nil
+	}
 	if isInputURI(uri) {
 		if d := s.catalogAt(uri); d != nil {
 			return s.catalogHover(d, params.Position), nil
@@ -95,11 +98,10 @@ func (s *Server) textDocumentHover(ctx *glsp.Context, params *protocol.HoverPara
 	if typed != "" {
 		content += "\n\n" + typed
 	}
-	// What the call under pos reaches outside the machine, as the document's
-	// last lowering found it (loweringChecks.reachedAt).
-	for _, line := range s.lowering.reachedAt(uri, doc.Content, pos, tokPos) {
-		content += "\n\n" + line
-	}
+	// What the call under pos reaches outside the machine, as the last
+	// lowerings found it (loweringChecks.reachedIn, hoverdoc.AppendReach).
+	path := uriToPath(uri)
+	content = hoverdoc.AppendReach(content, s.lowering.reachedIn(uri, doc.Content), func(p string) bool { return inFile(p, path) }, pos, tokPos)
 	if isLiteral {
 		content += "\n\n---\n\n" + literal
 	}

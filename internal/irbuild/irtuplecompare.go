@@ -14,7 +14,7 @@ import (
 // earlier one decides.
 //
 // Three routes reach it: `Comparable.compare(a, b)` on two tuples
-// (tupleCompareCall), an ordering operator on them (compareOperands), and a
+// (tupleCompareCall), an ordering operator on them (ordering), and a
 // comparator taken as a function value (`Iter.sort` of tuples, `Iter.sort_by`
 // with a tuple key: sortComparator and comparatorOperand, tupleComparator).
 // Each lowers the same chain, tupleOrdering: per element its compare, then a
@@ -64,15 +64,15 @@ func (bl *irScalarBuilder) tupleCompareCall(t *ast.Call) (v ir.Temp, k kind, mob
 
 // tupleRankedCompare lowers `<`, `<=`, `>` or `>=` on two tuples: their
 // Ordering, then its rank.
-func (bl *irScalarBuilder) tupleRankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (ir.Temp, kind, bool, bool) {
+func (bl *irScalarBuilder) tupleRankedCompare(t *ast.Binary, op ir.CompareOp, lhs, rhs ir.Temp, k kind) (ir.Temp, bool) {
 	ordered, ok := bl.tupleOrdering(t, lhs, rhs, k, bl.g.operandCheckerType(t.Left))
 	if !ok {
-		return ir.NoTemp, kindInvalid, false, false
+		return ir.NoTemp, false
 	}
 	c := ir.NewCompareRank(bl.g.irPos(t.Line, t.Col), bl.f.NewTemp(), op, ordered)
 	bl.b.Append(c)
 	bl.side(c.Dst(), irScalarSide{k: kindBool})
-	return c.Dst(), kindBool, false, true
+	return c.Dst(), true
 }
 
 // tupleComparable reports whether every element of tuple k has a compare
@@ -92,7 +92,7 @@ func (bl *irScalarBuilder) tupleComparable(k kind, kt analysis.Type) bool {
 			}
 			continue
 		}
-		if _, _, _, ok := bl.sortComparator(part, partCheckerType(kt, k, i)); !ok {
+		if _, ok := bl.sortComparator(part, partCheckerType(kt, k, i)); !ok {
 			return false
 		}
 	}
@@ -152,21 +152,22 @@ func (bl *irScalarBuilder) elemOrdering(at ast.Node, a, b ir.Temp, k kind, kt an
 	if k.tag == tagTuple {
 		return bl.tupleOrdering(at, a, b, k, kt)
 	}
-	local, sibling, std, ok := bl.sortComparator(k, kt)
+	p, ok := bl.sortComparator(k, kt)
 	if !ok {
 		return ir.NoTemp, false
 	}
+	bl.noteComparator(at, kt)
 	pos := bl.g.irNodePos(at)
 	var call *ir.Call
 	switch {
-	case sibling != nil:
-		call = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, sibling, a, b)
-	case local != nil:
-		call = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, bl.g.irCalleeSym(local, k.nomi()+"."+local.name), a, b)
-	case std.irBody == nil:
-		call = ir.NewHostCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, bl.g.irCalleeSym(std, std.key), a, b)
+	case p.sibling != nil:
+		call = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, p.sibling, a, b)
+	case p.local != nil:
+		call = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, bl.g.irImplSym(p.local), a, b)
+	case p.std.irBody == nil:
+		call = ir.NewHostCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, bl.g.irCalleeSym(p.std, p.std.key), a, b)
 	default:
-		call = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, std.irBody.Sym(), a, b)
+		call = ir.NewCall(pos, bl.f.NewTemp(), ir.OrdinaryCall, p.std.irBody.Sym(), a, b)
 	}
 	bl.b.Append(call)
 	bl.side(call.Dst(), irScalarSide{k: stdEnumKind(stdEnumOrdering), deferrable: true})

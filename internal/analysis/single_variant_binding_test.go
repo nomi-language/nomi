@@ -79,7 +79,7 @@ end
     Id(x) = 42
     x
 end
-`, "distinct type destructure requires a distinct type"},
+`, "enum pattern requires an enum type, got Int"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

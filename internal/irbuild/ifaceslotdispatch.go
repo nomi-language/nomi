@@ -111,12 +111,11 @@ func (g *gen) implSlotSym(d *implDef, it *implItem, slot int) (sym *ir.Symbol, o
 	m := d.iface.methods[it.name]
 	key := m.shape.recvAt()
 	if fd := it.decl; fd != nil && len(fd.Params) == len(it.params) && fd.Params[slot].Default != nil {
-		callee := g.irCalleeSym(it, d.ownerName()+"."+it.name)
-		name := d.recv.nomi() + "." + it.name
+		callee := g.irImplSym(it)
 		if key < slot {
-			return g.irFileSlotSym(callee, name, slot), g, true
+			return g.irFileSlotSym(callee, slot), g, true
 		}
-		return g.irCalleeSym(irKeyedSlotDefault{callee: callee, slot: slot, key: key}, fileSlotName(name, slot)), g, true
+		return g.irCalleeSym(irKeyedSlotDefault{callee: callee, slot: slot, key: key}, fileSlotName(callee.Name(), slot)), g, true
 	}
 	o, ok := g.ifaceParamDefault(m.decl.Params[slot].Default)
 	if !ok || len(o.im.TypeParams) > 0 {
@@ -160,7 +159,7 @@ func (g *gen) implSlotSym(d *implDef, it *implItem, slot int) (sym *ir.Symbol, o
 // slot, and the receiver too when it comes after the slot (keyedSlot).
 func (g *gen) irImplOwnSlotRetain(d *implDef, it *implItem, slot int, sym *ir.Symbol) {
 	fd := it.decl
-	name := fileSlotName(d.recv.nomi()+"."+it.name, slot)
+	name := sym.Name()
 	if key := d.iface.methods[it.name].shape.recvAt(); key >= slot {
 		kfd, kparams := keyedSlot(fd, it.params, slot, key)
 		g.irSlotAccessorRetain(kfd, &fnSig{params: kparams, decl: kfd, lowerable: true}, sym, name, slot+1)

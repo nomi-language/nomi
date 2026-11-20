@@ -3,8 +3,8 @@ package irbuild
 import "testing"
 
 // An operator impl on a generic receiver lowers at the left operand's
-// instance. A user type's block is registered per instance and selected from
-// operOrder; a std container's is the impl body instantiated at the element
+// instance. A user type's block is registered per instance and reached by
+// the operator's record; a std container's is the impl body instantiated at the element
 // type, as `Add.add(a, b)` is.
 
 func TestIRGenericOperImpl_UserType(t *testing.T) {

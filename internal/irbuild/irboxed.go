@@ -235,7 +235,7 @@ func (g *gen) irBoxPlan(d *ifaceDef, have kind, haveType analysis.Type, impl *as
 		if method == nil {
 			return nil
 		}
-		fn := found.g.irCalleeSym(it, found.d.recv.nomi()+"."+it.name)
+		fn := found.g.irImplSym(it)
 		p.impls = append(p.impls, irBoxedImpl{method: method, typ: p.typ, fn: fn, owner: found.g, iface: d, m: m, item: it})
 	}
 	return p

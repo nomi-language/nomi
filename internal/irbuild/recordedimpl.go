@@ -5,7 +5,60 @@ import (
 
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
+	"github.com/nomi-language/nomi/internal/ir"
 )
+
+// recordedIfaceFn is the function the checker's record of a call the
+// builder writes of a std interface's function names (stdIfaceCallRecord),
+// as the builder reaches it: answered structurally, a program's impl
+// function this gen registered (local), the callee symbol of one another
+// unit registered (sym, planned as a call of it is: recordedItemPlan), a
+// std generic container's template (template), or std's own function by
+// its identity (std). synth says the program's impl function is one the
+// front end synthesized (a derive or the universal Debug). The zero value
+// when the record names none of these.
+type recordedIfaceFn struct {
+	structural bool
+	local      *implItem
+	sym        *ir.Symbol
+	synth      bool
+	template   *stdFunc
+	std        *stdFunc
+}
+
+// recordedIfaceFnAt is the recordedIfaceFn of `Iface.method(x, ...)` for
+// x of kind k and checker type kt, the function taking params and
+// answering result. A sort's comparator (recordedComparator) and a
+// renderer's nested Debug body (recordedDebugSym) read it.
+func (bl *irScalarBuilder) recordedIfaceFnAt(iface analysis.StdType, method string, k kind, kt analysis.Type, params []kind, result kind) recordedIfaceFn {
+	g := bl.g
+	c := g.stdIfaceCallRecord(iface, method, len(params), kt).Callee
+	if c.Form == analysis.OperatorStructural {
+		return recordedIfaceFn{structural: true}
+	}
+	if c.Kind != analysis.CalleeImpl || isNilNode(c.Decl) {
+		return recordedIfaceFn{}
+	}
+	if og, it := g.recordedImplItem(c.Decl, nil, k); it != nil {
+		synth := it.impl != nil && it.impl.synth
+		if og == g {
+			return recordedIfaceFn{local: it, synth: synth}
+		}
+		call := &ast.Call{Args: make([]ast.Node, len(params))}
+		args := irQualArgs{temps: make([]ir.Temp, len(params)), kinds: params, mobile: make([]bool, len(params)), ok: true}
+		for i := range params {
+			args.temps[i], args.mobile[i] = ir.NoTemp, true
+		}
+		if p := bl.recordedItemPlan(call, args, og, it, iface.Name+"."+method); p != nil && p.result == result {
+			return recordedIfaceFn{sym: p.sym, synth: synth}
+		}
+		return recordedIfaceFn{}
+	}
+	if f := g.stdInsts.stdTemplateOf(c.Std); f != nil {
+		return recordedIfaceFn{template: f}
+	}
+	return recordedIfaceFn{std: g.stdFuncByID(c.Std)}
+}
 
 // An impl function the checker recorded (an operator's
 // analysis.OperatorUse.Impl.Method; a call's analysis.Callee.Decl) is
@@ -468,20 +521,17 @@ func (g *gen) itemKinds(og *gen, it *implItem) (params []kind, result kind, ok b
 // recordedOperatorImpl is the function the checker recorded for the
 // operator t (analysis.OperatorUse.Impl.Method), a binary operator or a
 // prefix `~~~`, whose operand implementing it (the left one of two) is of
-// kind lk: a program's impl item and its gen, or a std function. recorded
-// is false when the record names no impl: an operator over a type
-// parameter with no checker type in the frame (resolved at each
-// instance's kind), one over interface values or by shape, and one the
-// builder wrote itself.
-func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, it *implItem, f *stdFunc, recorded bool) {
+// kind lk: a program's impl item and its gen, or a std function. All are
+// nil when the record names no impl.
+func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, it *implItem, f *stdFunc) {
 	use := bl.g.operatorUse(t)
 	if use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil || isNilNode(use.Impl.Method) {
-		return nil, nil, nil, false
+		return nil, nil, nil
 	}
 	if og, it := bl.g.recordedImplItem(use.Impl.Method, nil, lk); it != nil {
-		return og, it, nil, true
+		return og, it, nil
 	}
-	return nil, nil, bl.g.stdFuncByID(bl.g.srcFA().StdFuncOf(use.Impl.Method)), true
+	return nil, nil, bl.g.stdFuncByID(bl.g.srcFA().StdFuncOf(use.Impl.Method))
 }
 
 // operatorCall is the call the binary operator t means, `Iface.method(a,
@@ -490,16 +540,27 @@ func (bl *irScalarBuilder) recordedOperatorImpl(t ast.Node, lk kind) (og *gen, i
 // of the impl function the operator's record names has
 // (analysis.FileAnalysis.ImplCallee), so the routes that lower a recorded
 // call (recordedCallPlan, a std container's ifaceContainerCall) plan it
-// from that function. recorded is false, and the call carries no record,
-// for an operator whose record names no impl (recordedOperatorImpl).
-// done drops the record.
-func (bl *irScalarBuilder) operatorCall(t *ast.Binary) (call *ast.Call, recorded bool, done func()) {
+// from that function. The call carries no record for an operator whose
+// record names no impl (recordedOperatorImpl). done drops the record.
+func (bl *irScalarBuilder) operatorCall(t *ast.Binary) (call *ast.Call, done func()) {
 	call = &ast.Call{Line: t.Line, Col: t.Col, Args: []ast.Node{t.Left, t.Right}}
 	use := bl.g.operatorUse(t)
 	if use == nil || use.Form != analysis.OperatorByImpl || use.Impl == nil || isNilNode(use.Impl.Method) {
-		return call, false, func() {}
+		return call, func() {}
 	}
 	rec := analysis.PositionalCall(2, 2)
 	rec.Callee = bl.g.instanceFA().ImplCallee(use.Impl.Method)
-	return call, true, bl.g.carryCall(call, rec)
+	return call, bl.g.carryCall(call, rec)
+}
+
+// sameOperReceiver reports whether an operator impl's receiver, in its own
+// gen's tables, is lk: the one declaration for a type a file declares, the
+// one kind for a scalar or a std host type such as Decimal, whose kinds are
+// process-wide (`impl Multiply<Rate, Decimal> for Decimal` in another
+// module, which the orphan rule admits through `Rate`).
+func sameOperReceiver(recv, lk kind, named bool) bool {
+	if recv == lk {
+		return true
+	}
+	return named && recv.tag == tagNamed && recv.def != nil && recv.def.decl == lk.def.decl
 }

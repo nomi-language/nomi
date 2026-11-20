@@ -1,6 +1,7 @@
 package irbuild
 
 import (
+	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 )
 
@@ -25,6 +26,18 @@ func (g *gen) patternKind(pat ast.Node) (kind, bool) {
 		return kindInvalid, false
 	}
 	return g.project(t), true
+}
+
+// patternRefines reports whether pat's head names a subtype (spec §4
+// *Subtypes*), `Port(n)`: the checker recorded the subtype as the type pat
+// matches.
+func (g *gen) patternRefines(pat *ast.EnumPattern) bool {
+	fa := g.srcFA()
+	if fa == nil {
+		return false
+	}
+	dt, ok := fa.PatternTypes[pat].(*analysis.DistinctType)
+	return ok && dt.Subtype
 }
 
 // patternVariant is the declared name of the variant head, a pattern's

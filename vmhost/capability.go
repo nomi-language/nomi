@@ -13,7 +13,6 @@ import (
 	"github.com/nomi-language/nomi/internal/analysis"
 	"github.com/nomi-language/nomi/internal/ast"
 	"github.com/nomi-language/nomi/internal/capability"
-	"github.com/nomi-language/nomi/internal/compilerhosts"
 	"github.com/nomi-language/nomi/internal/ffirun"
 	"github.com/nomi-language/nomi/internal/frontend"
 	"github.com/nomi-language/nomi/internal/ir"
@@ -446,8 +445,10 @@ type OutsideCall struct {
 	// with the Edge that reached it, outermost first.
 	Chain []ChainStep
 	// at is the call's position as the program names its file, where a
-	// diagnostic about it goes.
-	at ir.Pos
+	// diagnostic about it goes, and index its place in its walk's calls
+	// (Walk.reach), which answers what leads to it (leadsTo).
+	at    ir.Pos
+	index int
 }
 
 // ReachText says how the walk reached c, in the words a refusal's help
@@ -468,16 +469,19 @@ func (c OutsideCall) ReachText() string {
 // (vm.ReachedOutsideCalls), and each Chain says why a call counts. Call it
 // on a program that loads.
 func (p *Program) OutsideCalls(r Roots) []OutsideCall {
+	return p.walk(r).Calls
+}
+
+// walk is the walk OutsideCalls answers the calls of, with what each
+// function outside std can reach (Walk.reach).
+func (p *Program) walk(r Roots) Walk {
+	w := Walk{Tests: r.Tests != nil}
 	roots, boots, kind := p.reachRoots(r)
 	if len(roots) == 0 && len(boots) == 0 {
-		return nil
+		return w
 	}
-	calls := vm.ReachedOutsideCalls(p.entry, p.res.IRModules(), roots, kind, boots, func(key string) (bool, string) {
-		if isOutside, known := compilerhosts.Outside(key); known {
-			return isOutside, "compiler"
-		}
-		return true, ""
-	})
+	w.reach = vm.ReachedOutsideCalls(p.entry, p.res.IRModules(), roots, kind, boots, compilerCrossing)
+	calls := w.reach.Calls
 	out := make([]OutsideCall, len(calls))
 	modules := map[string]string{}
 	for i, c := range calls {
@@ -496,9 +500,11 @@ func (p *Program) OutsideCalls(r Roots) []OutsideCall {
 			Edge:     c.Edge,
 			Chain:    c.Chain,
 			at:       c.At,
+			index:    i,
 		}
 	}
-	return out
+	w.Calls = out
+	return w
 }
 
 // CapabilityList is a list an outside call can be over (NotAllowed.List).
@@ -702,6 +708,10 @@ func standingsOf(calls []OutsideCall, tests bool, lists *Capabilities, declared 
 type Walk struct {
 	Tests bool
 	Calls []OutsideCall
+	// reach is the walk Calls come from, in the same order, which answers
+	// what each function outside std can reach (reachedFuncs); nil when the
+	// walk had no roots.
+	reach *vm.OutsideWalk
 }
 
 // tightestLists is the smallest pair of capability tables under which

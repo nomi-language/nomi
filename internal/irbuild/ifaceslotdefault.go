@@ -126,6 +126,14 @@ func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]
 	for _, tp := range o.im.TypeParams {
 		names = append(names, tp.Name)
 	}
+	return g.callTypeArgFrame(t, names)
+}
+
+// callTypeArgFrame binds names, type parameters of call t's callee, at the
+// type arguments the checker instantiated t at (calleeTypedArgs), in this
+// gen's kinds and as the checker's types. ok is false when the record lacks
+// one.
+func (g *gen) callTypeArgFrame(t *ast.Call, names []string) (map[string]kind, map[string]analysis.Type, bool) {
 	ks, ts, ok := g.calleeTypedArgs(t.Func, names)
 	if !ok {
 		return nil, nil, false
@@ -144,12 +152,12 @@ func (g *gen) ifaceDefaultFrameAt(t *ast.Call, o ifaceParamDefault) (map[string]
 	return frame, types, true
 }
 
-// ifaceDefaultHere lowers parameter default p of an interface function at
-// kind want in frame, under this gen's names. types is frame as the
-// checker's types, or nil.
-func (bl *irScalarBuilder) ifaceDefaultHere(p ast.Param, frame map[string]kind, types map[string]analysis.Type, want kind) (ir.Temp, kind, bool) {
+// defaultInFrame lowers parameter default p of a function at kind want in
+// frame, the callee's type parameters at the call's type arguments, under
+// this gen's names. types is frame as the checker's types, or nil.
+func (bl *irScalarBuilder) defaultInFrame(p ast.Param, frame map[string]kind, types map[string]analysis.Type, want kind) (ir.Temp, kind, bool) {
 	if len(frame) > 0 {
-		bl.g.pushIfaceSubst(substIfaceDefault, p.Default, frame, types)
+		bl.g.pushIfaceSubst(substParamDefault, p.Default, frame, types)
 		defer bl.g.popIfaceSubst()
 	}
 	src, k, _, ok := bl.lowerWant(p.Default, want)
@@ -169,7 +177,7 @@ func (bl *irScalarBuilder) ifaceSlotDefault(o ifaceParamDefault, p ast.Param, pa
 	}
 	if defaultNamesAgree(p.Default, owner, g) {
 		defer g.lowerNamesFrom(o.unit)()
-		return bl.ifaceDefaultHere(p, frame, types, params[i])
+		return bl.defaultInFrame(p, frame, types, params[i])
 	}
 	if !irCallOperandKind(params[i]) {
 		return ir.NoTemp, kindInvalid, false
@@ -265,7 +273,7 @@ func (g *gen) flushIfaceSlotDefaults() {
 				fd, params = keyedSlot(fd, params, slot, r.key.recv)
 				slot++
 			}
-			sig := &fnSig{params: params, decl: fd, lowerable: true, ifaceFrame: r.frame, ifaceTypes: r.types}
+			sig := &fnSig{params: params, decl: fd, lowerable: true, defaultFrame: r.frame, defaultTypes: r.types}
 			if len(r.frame) > 0 {
 				g.pushIfaceSubst(substIfaceDefault, r.key.im, r.frame, r.types)
 			}

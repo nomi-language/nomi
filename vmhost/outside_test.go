@@ -129,7 +129,7 @@ end
 fn main()
     _ = Seed.from_os()
 end
-`, []string{"std::random | program | main.nomi:4:21 | call random.from_os | main(root)"}},
+`, []string{"std::random | program | main.nomi:4:21 | call Seed.from_os | main(root)"}},
 		{"environment and arguments", `struct App
     greeting: String
 end
@@ -265,7 +265,7 @@ end
 // The walk is conservative, and each chain says why a call counts: a call
 // in a branch never taken, a function passed as a value and never called,
 // an implementation whose type is never built, and a Display body reached
-// because main renders a list. A module imported and never called reaches
+// because main renders a value held as a Display. A module imported and never called reaches
 // nothing.
 func TestOutsideCalls_EdgeKindsSayWhyACallCounts(t *testing.T) {
 	cases := []struct {
@@ -347,7 +347,7 @@ fn main()
     io.print(use(Harmless{x: 1}))
 end
 `, []string{
-			"std::process | program | main.nomi:26:23 | call process.run | main(root) > use(call) > Shell.go(dispatch)",
+			"std::process | program | main.nomi:26:23 | call process.run | main(root) > use(call) > Runner.go for Shell(dispatch)",
 			"std::io | program | main.nomi:35:13 | call io.print | main(root)",
 		}},
 		{"a module never called", `import
@@ -376,10 +376,14 @@ impl Display for Shell
 end
 
 fn main()
-    io.print([1, 2])
+    io.print(show(Shell{program: "ls"}))
+end
+
+fn show(d: Display) -> String
+    "${d}"
 end
 `, []string{
-			"std::process | program | main.nomi:12:23 | call process.run | main(root) > Shell.to_string(display)",
+			"std::process | program | main.nomi:12:23 | call process.run | main(root) > show(call) > Display.to_string for Shell(display)",
 			"std::io | program | main.nomi:17:13 | call io.print | main(root)",
 		}},
 	}
@@ -453,6 +457,10 @@ fn helper()
     io.print("call")
 end
 
+fn show(d: Display) -> String
+    "${d}"
+end
+
 fn greet_all(g: Greeter) -> String
     Greeter.greet(g)
 end
@@ -462,14 +470,14 @@ fn main()
     run = fn -> io.print("value")
     run()
     _ = greet_all(Loud{n: limit})
-    io.print([1, 2])
+    io.print(show(Loud{n: 3}))
     io.inspect(Loud{n: 2})
-    _ = Loud{n: 1} == Loud{n: 2}
+    _ = [Loud{n: 1}] == [Loud{n: 2}]
 end
 
 test "a case"
     io.print("test")
-    assert limit == 3
+    assert [Loud{n: limit}] == [Loud{n: 3}]
 end
 `})
 	seen := map[vmhost.Edge]bool{}

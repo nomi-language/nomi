@@ -119,8 +119,6 @@ func CheckRepeatedFields(nodes []ast.Node) []TypeError {
 				}
 			case *ast.StructPattern:
 				repeatedPatternFields(n.Fields, structSyntaxName(n.TypeName)+" pattern", n.Line, report)
-			case *ast.StructDestructure:
-				repeatedPatternFields(n.Fields, "struct pattern", n.Line, report)
 			}
 			return true
 		})

@@ -157,7 +157,7 @@ func TestLiteralHover_EffectfulHandlerIsSkipped(t *testing.T) {
 	s, snap := openLiteralDoc(t, userLiteral("        _ = fragments\n        io.print(\"evaluated\")\n        Err(\"no\")\n"))
 	lits := staticLiterals(snap.Content, snap.Analysis)
 	r := s.literalResults(snap, lits)[0]
-	if want := "its handler has effects (Probe.from_fragments calls io.print)"; !r.skipped || !strings.Contains(r.why, want) {
+	if want := "its handler has effects (Literal.from_fragments for Probe calls io.print)"; !r.skipped || !strings.Contains(r.why, want) {
 		t.Fatalf("skipped for %q, want it to name %q", r.why, want)
 	}
 }

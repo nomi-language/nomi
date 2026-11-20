@@ -41,7 +41,7 @@ func TestDebug_StepInTargetsOfAStatement(t *testing.T) {
 		}
 		want := "f, Maybe.map(fn x -> ...) callback"
 		if !justMyCode {
-			want = "f, Maybe.map(fn x -> ...) callback, maybe.Maybe.map<Int, Int>"
+			want = "f, Maybe.map(fn x -> ...) callback, Maybe<Int>.map"
 		}
 		if got := strings.Join(labels, ", "); got != want {
 			t.Fatalf("justMyCode %v: targets %s, want %s", justMyCode, got, want)

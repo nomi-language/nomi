@@ -112,7 +112,7 @@ end
 	irFuncObserved = func(origin irFuncOrigin, name string, f *ir.Func) {
 		// Read's specializations only: each Box instance also retains its
 		// synthesized Debug.
-		if origin == irFromImpl && f != nil && strings.HasSuffix(name, ".read") {
+		if origin == irFromImpl && f != nil && strings.HasPrefix(name, "Read.read for ") {
 			funcs = append(funcs, f)
 		}
 	}

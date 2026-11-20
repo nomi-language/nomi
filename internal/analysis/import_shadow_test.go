@@ -174,3 +174,79 @@ func TestModuleScope_SynthesizedPreludeImportIsNotReported(t *testing.T) {
 		t.Errorf("expected exactly one reserved-name diagnostic for `struct Maybe`, got %d in %v", reserved, errs)
 	}
 }
+
+// importShadowPrelude declares a struct with function-valued fields named
+// like std/testing's `check` and std/io's `print`, and reads both modules
+// in a function of their own, where the names are the imports.
+const importShadowPrelude = `import
+  std::io
+  std::testing
+end
+
+struct Checker
+  check: (Bool) -> Bool
+  print: (String) -> Int
+end
+
+fn yes(_b: Bool) -> Bool
+  True
+end
+
+fn size(s: String) -> Int
+  String.length(s)
+end
+
+fn modules()
+  io.print("x")
+  _ = testing.check(True)
+end
+`
+
+// importShadowCases binds `testing` and `io` to a Checker in each way a
+// body binds a name, and calls the fields through them.
+var importShadowCases = []struct{ name, use string }{
+	{"local", `fn use(made: Checker) -> Int
+  testing = made
+  io = made
+  b: Bool = testing.check(False)
+  if b then io.print("ab") else 0
+end`},
+	{"parameter", `fn use(testing: Checker, io: Checker) -> Int
+  b: Bool = testing.check(False)
+  if b then io.print("ab") else 0
+end`},
+	{"pattern", `fn use(made: Checker) -> Int
+  (testing, io) = (made, made)
+  b: Bool = testing.check(False)
+  if b then io.print("ab") else 0
+end`},
+	{"case binding", `fn use(made: Checker) -> Int
+  case (made, made)
+    (testing, io) ->
+      b: Bool = testing.check(False)
+      if b then io.print("ab") else 0
+  end
+end`},
+	{"lambda parameter", `fn use(made: Checker) -> Int
+  f = fn testing: Checker, io: Checker ->
+    b: Bool = testing.check(False)
+    if b then io.print("ab") else 0
+  end
+  f(made, made)
+end`},
+}
+
+// A name a body binds shadows an import of that name: `testing.check(x)` and
+// `io.print(s)` over a local, a parameter, a pattern's name, a case arm's
+// name or a lambda's parameter call the value's field, and are typed as the
+// field's result.
+func TestImportShadow_ABoundNameCallsItsFieldNotTheModule(t *testing.T) {
+	for _, c := range importShadowCases {
+		t.Run(c.name, func(t *testing.T) {
+			_, errs := checkSourceWithStdlib(importShadowPrelude + "\n" + c.use + "\n")
+			for _, e := range errs {
+				t.Errorf("%d:%d: %s", e.Line, e.Col, e.Message)
+			}
+		})
+	}
+}

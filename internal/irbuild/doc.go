@@ -364,9 +364,9 @@
 // qualified call reaches its function through the same two lookups
 // (`recordedCallPlan`).
 //
-// An operator `compareOperands` lowers as a call of an impl (std's
-// `equal` for a std type in `stdEquality`, any `compare` in
-// `rankedCompare`) and a Set's, Map's or Vector's `+`
+// An operator lowered as a call of an impl (an `equal` std's or one the
+// record names in `implEquality`, any `compare` in `rankedCompare`) and
+// a Set's, Map's or Vector's `+`
 // (`stdGenericOperatorCall`) is the call its record means: the builder
 // writes `Iface.method(a, b)` over the operands, carrying the record a
 // call of the impl function the operator's record names has
@@ -386,50 +386,113 @@
 // shape (the Equatable of Unit, Byte, Bytes, Dynamic and the
 // collections), and a derived Equatable by its interface and the form of
 // its type (an enum's or a distinct's, by shape). List's `+` is native
-// too: its impl calls `List.concat`, whose host operation `binary`
-// lowers. `machineRoute` reads it for an operator's record, by the
+// too: its impl calls `List.concat`, whose host operation `arithmetic`
+// lowers. `machineRouteOf` reads it for an operator's record, by the
 // identity of the impl in the parse of std the record was answered in
 // (`operatorImplStd`: a std body's own, or at an instance the program's
-// parse the instance's types are from), and an
-// operator whose record names a row takes the row's route: `binary` and
-// `bitwiseNot` lower the machine's operation, and in `compareOperands`
-// the routes that call an impl (`stdEquality`, `rankedCompare`) are not
-// taken and `equatableVerdict` answers by shape. A by-impl record of any other impl
-// is a call of it. `TestMachineImplsAreComplete` requires a row for every
-// std operator impl only the machine computes (a `host fn` no host table
-// binds, a body that is its own operator), and
+// parse the instance's types are from), and an operator whose record
+// names a row takes the row's route: `arithmetic` and `bitwiseNot` lower
+// the machine's operation, and `equality` and `ordering` compare
+// natively or by shape. A by-impl record of any other impl is a call of
+// it. `TestMachineImplsAreComplete` requires
+// a row for every std operator impl only the machine computes (a `host
+// fn` no host table binds, a body that is its own operator, which a call
+// of the impl from its own body would reach again), and
 // `TestMachineImplsComputeTheirBodies` runs each row's operators beside a
 // call of its body.
+//
+// `==` and `!=` are one switch on the record (`equality`, irequality.go),
+// with one arm for each form: by dispatch, two interface values compared
+// by their run-time types (ir.ValIface); by shape (OperatorStructural,
+// and a by-impl record of an impl `machineImpls` computes by shape), an
+// ir.Compare of the operands' shape or a comparison through their parts
+// (`shapeEquality`); by an impl the machine computes natively, an
+// ir.Compare of the scalar, or by shape over a value held as no scalar
+// (True's or False's marker that `Bool.False(x)` binds); by any other impl, a call of the one the
+// record names (`implEquality`: the program's item, derived or written,
+// else std's function planned as the operator's call). The kind chooses
+// only the IR shape of a comparison by shape. An `==` the builder writes
+// for a call (`Maybe.equal(a, b)`, `Equatable.equal(a, b)` over a type
+// with no impl) carries the call's record (`carryOperator`).
+//
+// `<`, `<=`, `>` and `>=` are one switch on the record too (`ordering`,
+// ircompare.go): by an impl the machine computes natively (Int's,
+// Float's and Bool's compare), an ir.Compare of the scalar; by shape, a
+// tuple's lexicographic chain (`tupleRankedCompare`); by any other impl,
+// a call of the compare the record names (`rankedCompare`) and a test of
+// the rank of the Ordering it answers. An ordering by dispatch, over two
+// interface values, has no arm.
+//
+// The arithmetic, bitwise and shift operators are one switch on the
+// record (`arithmetic`, iruseroperator.go), and so is a prefix `~~~`
+// (`bitwiseNot`): by an impl the machine computes natively, the machine's
+// operation (`nativeArithmetic`: List's concatenation, ir.Concat,
+// ir.Arith; ir.UnaryArith for Int's `~~~`); by any other impl, a call of
+// the one the record names (`implArithmetic`: the program's item, std's
+// function, or std's generic impl of a Set, a Map or a Vector at the
+// receiver's element type; `bitwiseNotImpl`). No such operator is
+// answered by shape or by dispatch. The Int arithmetic the builder writes
+// for a tuple's hash carries Int's records (`carryOperatorUse`).
+//
+// An operator with no record its switch reads declines: under
+// substVerify `noteUnreadOperator` counts it by its family and by why
+// (`unreadAnswers`: written by the builder with no record carried onto
+// it, unanswered, per instance and unresolved, and a form the family has
+// no arm for), and TestIRGolden_RecordsMatchTheVM holds each class to
+// `maxOperatorFormSites`, a count that only goes down. No operator is
+// lowered by an impl its operands' kinds select.
 //
 // An operator over a type parameter (OperatorPerInstance) is read inside
 // an instance at the instance's types (`operatorUse` over
 // `operatorUseAt`, analysis.FileAnalysis.OperatorUseAt): the record an
 // operator written at those types has, std's `host fn` for a primitive
 // included, an impl of several of a type's narrowed by the interface's
-// type arguments there, or a structural comparison. One over interface
-// values and one the builder wrote itself name no impl: it is selected at
-// the instance's kinds (`instanceOperatorImpl`, `stdlibOperatorFor`,
-// `instanceEquatable`, `unrecordedEqualImpl`, `unrecordedCompareCall`),
-// a selection a recorded operator never reaches; there too an impl the kinds select that
-// `machineImpls` lists is not called (`machineComputes`).
+// type arguments there, or a structural comparison.
 // `TestOperatorNameTestsOnlyGoDown` counts the tests of a name left in
 // the operator-lowering files.
 //
-// Each route an operator takes notes itself (`irScalarBuilder.op`) in
-// `compareOperands`, `binary` and `bitwiseNot`: natively, structurally,
-// through an impl or dispatched. Every comparison passes through
-// `comparison` once its operands are lowered, and every arithmetic
-// operator and `~~~` through its arm of `lowerNode`; there, under
-// substVerify, `verifyOperatorForm` holds the route to the record
-// (`operatorUseAt`, a by-impl record split by the route `machineImpls`
-// gives its impl and else by whose impl it names). Each (record, route)
-// pair is listed in `operatorPairs` as agreed (an impl the machine
-// computes lowered by its row's route, any other impl called), by design
-// (the Int arithmetic of a tuple's hash), or a known disagreement. A
-// pair not listed fails the run as `verifyCallForm` does: a row's impl lowered by another
-// route, and a std or derived impl lowered natively or by shape with no
-// row. TestIRGolden_RecordsMatchTheVM counts each known class by
-// distinct source site (`maxOperatorFormSites`), a count that only goes
+// An operation that orders values with no operator written (`Iter.sort`,
+// `Iter.sort_by`'s key, a Range's walk, `contains` and `known_count`, a
+// tuple's element) takes the element's `Comparable.compare` as a function
+// value (`comparatorOperand`) or calls it (`elemOrdering`).
+// `sortComparator` chooses it from the checker's record of
+// `Comparable.compare` at the element's checker type
+// (`recordedComparator`, over `stdIfaceCallRecord`): this file's impl,
+// another unit's (a sibling file's impl, through `recordedItemPlan`; the
+// instance of a std container's impl, `comparatorInstance`), std's own
+// function by its identity (`stdFuncByID`), or for a tuple, answered
+// structurally, the builder's lexicographic compare. A std `host fn`
+// compare (Decimal's) becomes a value through a forwarding body
+// (`irHostForward`). An element with no checker type where the
+// comparator is asked for has no record to read, and its comparator is
+// chosen by its kind; under substVerify `noteComparator` counts those by
+// distinct site, and TestIRGolden_RecordsMatchTheVM holds the count to
+// `maxComparatorSites`, a count that only goes down.
+//
+// A rendering of a container, a tuple or a record (`dbg`, `Debug.inspect`,
+// `io.debug`) names the Debug body of each nested declared part for rt's
+// renderer (`nestedDebugImpls`, ir.Render's DebugImpls): std's own impl of
+// a std type, the instance of std's generic impl, a distinct's or a
+// declared type's impl, and an `embeds` variant's value's. Each part has
+// its checker type within the whole (`partCheckerType`, a prelude enum's
+// payload by `preludePayloadType`, an `embeds` variant's by
+// `embeddedVariantType`), and its body is the one the checker's record of
+// `Debug.inspect` at that type names (`recordedDebugBody`, through
+// `recordedIfaceFnAt`, the resolution the comparator reads too). The
+// part's kind decides only how it renders: a container, a tuple and a
+// prelude enum through their parts, and a distinct or marker whose Debug
+// is synthesized and not opaque as rt's structural `Meters(1)`
+// (`distinctDebugStructural`). The record of a type declared in a body,
+// which no impl can name, answers structurally: the builder writes that
+// type's universal Debug itself, and its kind names it, as it names the
+// body of a part with no checker type. Two arms name a set of bodies no
+// single record answers: a part held as an interface value, which renders
+// through every implementor's body (`existentialDebugImpls`, an index
+// query over the program's impls and boxes), and an `Iter<T>` part, which
+// renders as any source it may view. Under substVerify `noteDebugImpl`
+// counts each choice by distinct site, and TestIRGolden_RecordsMatchTheVM
+// holds those two arms, the parts of a type declared in a body and the
+// parts with no checker type to `maxDebugImplSites`, counts that only go
 // down.
 //
 // A std function is one declaration in each parse of its module
@@ -541,9 +604,9 @@
 // (`stdProgHeldType`), answered by the routine that kind takes, since
 // the kind names what is held. A value held no way an interface value is
 // fails. An ordering over two interface values has no dispatching route:
-// the checker rejects one written (spec §12 *Interface values*), and
-// `compareOperands` declines one in an instance whose type argument is an
-// interface type.
+// the checker rejects one over an interface that does not require
+// Comparable (spec §12 *Interface values*), and `ordering` declines one
+// over values held as `Comparable`, which the checker accepts.
 //
 // Two sites lower bodies the checker never checked, and mark them so
 // (`markUnchecked`; TestNameLookupsOnlyGoDown holds their count, with
@@ -755,11 +818,15 @@
 // Two hand-written switches are held to the AST's node types, so a node
 // type added later cannot fall out of one: nodeForms (nodeforms.go) gives
 // every node type its forms, TestEveryNodeTypeHasAForm holds lowerNode's
-// arms to the types classed a value and irScalarBlock's to those classed a
+// arms to the types classed a value and leadStatement's to those classed a
 // statement, and what falls out of either panics. importKind's switch over
 // a kind's tag is held to the tags the same way
 // (TestImportKindHasAnArmForEveryTag). irScalarBlock answers a tail for
-// every block, so no caller asks whether it did.
+// every block, so no caller asks whether it did. A block's last statement
+// that the table classes a statement and not a value (a binding, a
+// destructure, a `defer`, `subtests`, a declaration) is lowered by
+// leadStatement as any earlier statement is, and the block's tail is Unit,
+// the type the checker gives a body ending in a statement.
 //
 // The value domain (irValueDomainKind) is the kinds a lowered value may
 // have: a call operand (irCallOperandKind), or the diverged marker of a
@@ -802,7 +869,16 @@
 // test builds over the subject's held kind (a variant's head names the
 // subject's enum, a payload or field sub-pattern is one irFieldSubPattern
 // tests, a tuple pattern's components are ones tupleCaseComponents tests, a
-// list pattern over a named type is over a distinct of a list).
+// list pattern over a named type is over a distinct of a list). One
+// function, patternBindingStmt, lowers a PatternBinding, `Pattern = value`
+// with or without an `else` (`(a, _) = v`, `{x:, y: b} = v`, `Meters(n) =
+// d`, `Ok(n) = r else return`). Its pattern is tested by patternValueTest
+// as a `case` arm's pattern is, and binds its names as the arm does;
+// patternAssert tests `assert P = v`'s pattern the same way, with an
+// assertion failure where the binding has a NoMatch. A head that names a
+// subtype (`Port(n)`, spec §4 *Subtypes*), which the checker records as
+// the type the pattern matches, binds the value itself: a subtype's value
+// is its base's.
 //
 // The domain guards that remain ask what the entry did not hold: a kind
 // joined from operands that differ (a map literal's entries), an instance
@@ -934,6 +1010,22 @@
 // spelling) has none. A def's run-time spelling is qualified by its
 // declaring file, so a std instance's gen spells fs's `Entry` as
 // `fs.Entry`.
+//
+// A symbol's name is display only: effect messages, reach chains, traces,
+// profiles and the debugger print it. A function of an impl block is named
+// by its block, `Display.to_string for Loud` for an impl of an interface
+// and `Loud.twice` for an inherent function, with a generic block's
+// instance's receiver at its type arguments (`Display.to_string for
+// Box<Int>`). implFuncOf decides it from the token alone (a program's
+// implItem, an interface default lowered for another file's implementor, a
+// std function by the block its declaration names, an instance's at its
+// receiver), and irCalleeSym
+// interns such a token through [ir.Table.ImplSymbol], which carries the
+// block on the symbol ([ir.ImplFunc]) and reads no name a call site
+// offers, so the name does not depend on which use lowers first. A reader
+// that needs the type or the function's own name reads the ImplFunc. A
+// default accessor is named after its function (`… default 2`). Every
+// other symbol keeps the name its producer gives it.
 //
 // The image codec writes each symbol's linkage name, so a module encoded
 // alone ([ir.EncodeObject]) is an object that an [ir.Linker] links by name
@@ -1089,8 +1181,8 @@
 // block implements (`ifaceInstArgs`), which the std generic interface a
 // program's block binds into (`stdProgInst`) and a generic interface a
 // solved type names (`projectIfaceInst`) carry too; the call's
-// `calleeTypedArgs` for a generic interface's parameter default
-// (`ifaceDefaultFrameAt`, `fnSig.ifaceTypes`). An entry that reads a kind
+// `calleeTypedArgs` for a generic callee's parameter default
+// (`ifaceDefaultFrameAt`, `callFrameAt`, `fnSig.defaultTypes`). An entry that reads a kind
 // off something the checker typed reads the type at the same place: an
 // operand's type in ExprTypes (`operandCheckerType`) for a std container
 // impl a receiver selects, a std interface default's `self` and the value
@@ -1248,15 +1340,13 @@
 // (`deriveComponentHasEquality`), since types are not resolved when derives
 // are checked.
 //
-// `==` over a declared type reads the checker's record of the operator
-// (analysis.FileAnalysis.Operators) through `equatableVerdict`
-// (irequality.go): a comparison by shape where the record says so or
+// `==` over a declared type is lowered by the checker's record of the
+// operator (analysis.FileAnalysis.Operators, `equality` in
+// irequality.go): a comparison by shape where the record says so or
 // names an impl `machineImpls` computes by shape (a derived impl of an
 // enum or a distinct), else the impl it calls, the block of the recorded
-// function (`recordedImplItem`). An
-// operator over a type parameter has only its bound recorded, and
-// `instanceEquatable` resolves it at the instance's kind by the lookups
-// below.
+// function (`recordedImplItem`). An operator over a type parameter is
+// read at its instance's types (`operatorUseAt`).
 //
 // In the builder, `meetsByEquality` establishes that no file and nothing in
 // std writes or derives the impl (`noImplOf`, `declaresImpl`);
@@ -1343,7 +1433,14 @@
 // and the function's type parameters at the type arguments the checker
 // instantiated the call at (`ifaceDefaultFrameAt`, through
 // `calleeTypeArgs`), which the call's signature carries to the accessor
-// (`fnSig.ifaceFrame`). A call whose record lacks one declines.
+// (`fnSig.defaultFrame`). A call whose record lacks one declines. The
+// defaults of any generic callee no instance of which is lowered at the
+// call (an impl function of a generic type's instance) are lowered in the
+// same kind of frame, binding every type parameter the call's record
+// instantiates (`callFrameAt`, `defaultInFrame`), and an interface
+// function's defaults lowered in its own file are lowered for the call's
+// implementor as the interface's default bodies are (`paramDefaultSelf`,
+// `gen.defaultSelf`), so a read of `self` in one is the implementor's.
 //
 // # Std interface defaults
 //
@@ -1425,6 +1522,24 @@
 // converts a value; where they are the same, `convertTo` answers the value
 // unchanged. A caller passes the position's kind and the value's own; it
 // needs none when the two are equal by construction.
+//
+// Under substVerify `verifyExprKind` holds the kind `lowerExact` answers
+// for each expression to what the checker's records say the value is there:
+// the expression's ExprTypes entry through `project` under the current
+// frame (a read the checker narrowed is recorded at the narrowed type), or
+// for an expression of Infallible the type its position settled
+// (ExpectedTypes), or the type its Conversion or Coercion converts it to
+// when the builder lowers it at that type directly (a lambda written where
+// a wider function type is expected). It reads ExprTypes and not
+// `checkedKind`, whose answer for a name is its declaration's type, before
+// narrowing and before defaults are filled. A node with no record (one
+// markUnchecked marks, a pattern's literal, a stand-in for a placed
+// argument, a copy, a node the builder writes) is not compared. A
+// disagreement of a class `knownExprKindClasses` lists, each with its
+// cause, is counted by distinct site in a program's own lowering
+// (`exprKindCensus`, a siteCensus; `maxExprKindSites`, counts that only
+// go down); any other fails the lowering, naming the expression, both
+// kinds and its position.
 //
 // # Covariant conversion
 //
@@ -1635,8 +1750,8 @@
 // effects; each lowers its instance into the unit's module. The site also
 // names the prefix of every instance's linkage name and the interfaces of
 // the bounds, so vmhost checks every instance and every impl of them the
-// linked program has (ImplLinkInterface reads an impl function's interface
-// from its linkage name), which the kept lowering keeps.
+// linked program has (an impl function's symbol carries its interface,
+// ir.Symbol.Impl), which the kept lowering keeps.
 //
 // A std signature that names a subtype, `Int.pow(n: Int, exp:
 // NonNegativeInt)`, has its base's kind (stdRefinementKind), a scalar, a

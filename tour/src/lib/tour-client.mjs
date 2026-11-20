@@ -14,7 +14,7 @@
 //              (cmd/nomi-docgen's promptClassifier).
 // Served statically from /nomi/ (no bundling); web-tree-sitter + the wasm load
 // lazily when the first example scrolls into view.
-import { render, renderJson, renderToml } from "./highlight.mjs";
+import { fileLanguage, render, renderData, splitFiles } from "./highlight.mjs";
 
 const ASSET = (f) => new URL(f, import.meta.url).href;
 const DEBOUNCE_MS = 300;
@@ -280,43 +280,6 @@ function requestHover(source, line, col, cb, file) {
   const msg = { id: hoverReq, op: "hover", source, line, col };
   if (file) msg.file = file;
   worker.postMessage(msg);
-}
-
-// Mirrors the Go-side SplitMultiFile regex: a `// FILE: <name>.<ext>`
-// directive on its own line. Returns the parsed [{ name, body }] when the
-// source has any markers, else null (single-file path).
-const FILE_MARKER = /^\s*\/\/\s*FILE:\s*([A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+)\s*$/;
-function splitFiles(source) {
-  const lines = source.split("\n");
-  let hasMarker = false;
-  const files = [];
-  let current = null;
-  const push = (f) => files.push({ name: f.name, body: f.body.replace(/\n+$/, "") });
-  for (const line of lines) {
-    const m = FILE_MARKER.exec(line);
-    if (m) {
-      if (current) push(current);
-      current = { name: m[1], body: "" };
-      hasMarker = true;
-    } else if (current) {
-      current.body += (current.body ? "\n" : "") + line;
-    }
-  }
-  if (current) push(current);
-  return hasMarker ? files : null;
-}
-
-// fileLanguage names the language a multi-file example's tab holds, by its
-// file name: "nomi" for a Nomi source, "toml" for a manifest or phrase
-// catalog, and "text" for a data file the program reads (`notes.txt`),
-// which the run puts in the program's in-memory file system. "go" is a Go
-// file the example binds, which the tour links ahead of time, so its tab is
-// read-only (rehype-shiki.mjs highlights it at build time).
-function fileLanguage(name) {
-  if (name.endsWith(".nomi")) return "nomi";
-  if (name.endsWith(".go")) return "go";
-  if (name.endsWith(".json")) return "json";
-  return name.endsWith(".toml") ? "toml" : "text";
 }
 
 // tabLabel writes a tab's file name into btn, a file under a directory
@@ -2256,20 +2219,12 @@ async function enhanceMultiFile(pre, files, parser, query, marked, DOMPurify, ex
 
   const paint = (p) => {
     p.code = p.ta.value;
-    if (p.lang === "toml") {
-      p.hl.innerHTML = renderToml(p.code, EDITOR_RENDER);
+    if (p.lang === "go" && goHighlight[p.file.name] !== undefined) {
+      p.hl.innerHTML = goHighlight[p.file.name];
       return;
     }
-    if (p.lang === "json") {
-      p.hl.innerHTML = renderJson(p.code, EDITOR_RENDER);
-      return;
-    }
-    if (p.lang === "text") {
-      p.hl.innerHTML = render([], [], p.code, EDITOR_RENDER);
-      return;
-    }
-    if (p.lang === "go") {
-      p.hl.innerHTML = goHighlight[p.file.name] ?? render([], [], p.code, EDITOR_RENDER);
+    if (p.lang !== "nomi") {
+      p.hl.innerHTML = renderData(p.lang, p.code, EDITOR_RENDER);
       return;
     }
     p.captures = query.captures(parser.parse(p.code).rootNode);

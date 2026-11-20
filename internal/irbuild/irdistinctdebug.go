@@ -27,12 +27,11 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 		if site == nil || len(params) != 1 || params[0] != k || result != kindString {
 			return nil, false
 		}
-		if site.synth {
-			if decl, ok := k.def.decl.(*ast.TypeDef); ok && !decl.Opaque {
-				return nil, true
-			}
+		if site.synth && distinctDebugStructural(k) {
+			return nil, true
 		}
-		return &irQualPlan{token: site.item, name: site.symName, result: kindString, sym: owning.irCalleeSym(site.item, site.symName)}, true
+		sym := owning.irImplSym(site.item)
+		return &irQualPlan{token: site.item, name: sym.Name(), result: kindString, sym: sym}, true
 	}
 	if d == nil || !d.lowerable {
 		return nil, false
@@ -42,11 +41,10 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 		return nil, false
 	}
 	if d.synth {
-		decl, ok := k.def.decl.(*ast.TypeDef)
-		if !ok {
+		if _, ok := k.def.decl.(*ast.TypeDef); !ok {
 			return nil, false
 		}
-		if !decl.Opaque {
+		if distinctDebugStructural(k) {
 			return nil, true
 		}
 		// Opaque auto-Debug is name-only (`<opaque Meters>`): its
@@ -58,6 +56,19 @@ func (bl *irScalarBuilder) distinctDebugPlan(k kind) (*irQualPlan, bool) {
 		return nil, false
 	}
 	return &irQualPlan{token: it, name: k.nomi() + ".inspect", result: kindString}, true
+}
+
+// distinctDebugStructural reports whether a synthesized Debug of k, a
+// distinct wrapping one value or a marker, renders as rt's structural
+// `Meters(1)` does, so the renderer names no body for it: k is declared by
+// a `type` that is not opaque. A struct, an enum and a distinct over a
+// tuple render through their impl (structDebugPlan).
+func distinctDebugStructural(k kind) bool {
+	if irRetainedStructKind(k.def) || irRetainedEnumKind(k.def) || irCompositeDistinct(k.def) {
+		return false
+	}
+	decl, ok := k.def.decl.(*ast.TypeDef)
+	return ok && !decl.Opaque
 }
 
 // structDebugPlan calls a retained struct's or enum's Debug impl, derived or written,
@@ -81,10 +92,21 @@ func (bl *irScalarBuilder) structDebugPlan(k kind) (*irQualPlan, bool) {
 // stdDebugPlan calls std's own retained `Debug.inspect` for a std named type
 // with no local impl, such as calendar's Date.
 func (bl *irScalarBuilder) stdDebugPlan(k kind) *irQualPlan {
+	return bl.stdDebugPlanOf(bl.stdDebugAt(k), k)
+}
+
+// stdDebugAt is std's own `Debug.inspect` at k, a std named type with no
+// impl in this file, or nil.
+func (bl *irScalarBuilder) stdDebugAt(k kind) *stdFunc {
 	if k.tag != tagNamed || k.def == nil || bl.g.std == nil || bl.g.implsByIface[stdIfaceImplKey(stdDebug)][k] != nil {
 		return nil
 	}
-	f := stdPick(bl.g.std.byIface["Debug.inspect"][k], []kind{k})
+	return stdPick(bl.g.std.byIface["Debug.inspect"][k], []kind{k})
+}
+
+// stdDebugPlanOf calls f, std's own `Debug.inspect` at k, or nil when f
+// is nil or has no body the builder can call.
+func (bl *irScalarBuilder) stdDebugPlanOf(f *stdFunc, k kind) *irQualPlan {
 	if f == nil || f.why != "" {
 		return nil
 	}

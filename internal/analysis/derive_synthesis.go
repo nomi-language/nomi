@@ -1199,23 +1199,11 @@ func equatableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 	if t.InnerTypeExpr == nil {
 		return []ast.Node{exprStmt(trueLit(line, col), line, col)}
 	}
-	// Unwrap both sides into `av` / `bv`. DistinctDestructure is a
-	// statement node, not an expression — no ExprStmt wrap.
+	// Unwrap both sides into `av` / `bv`: two statements, `T(av) = a` and
+	// `T(bv) = b`.
 	stmts := []ast.Node{
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "av", Line: line, Col: col},
-			Value:    identExpr("a", line, col),
-			Line:     line,
-			Col:      col,
-		},
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "bv", Line: line, Col: col},
-			Value:    identExpr("b", line, col),
-			Line:     line,
-			Col:      col,
-		},
+		distinctUnwrap(t.Name, "av", identExpr("a", line, col), line, col),
+		distinctUnwrap(t.Name, "bv", identExpr("b", line, col), line, col),
 	}
 	// Tuple inner type → element-wise equality on `.first`, `.second`, ...
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
@@ -1545,11 +1533,16 @@ func (s *uniquifyState) node(n ast.Node) {
 			s.node(entry.Key)
 			s.node(entry.Pattern)
 		}
-	case *ast.DistinctDestructure:
-		e.Line, e.Col = s.bump()
-		if e.Binding != nil {
-			e.Binding.Line, e.Binding.Col = s.bump()
+	case *ast.PatternBinding:
+		// The statement starts where its pattern does, as a parsed one
+		// does: the builder declares a pattern's names at the pattern, and
+		// the checker's symbol for one names the statement.
+		ep, ok := e.Pattern.(*ast.EnumPattern)
+		if !ok {
+			panic(fmt.Sprintf("uniquifyPositions: a synthesized binding of a %T; derive synthesis binds only `T(x) = v` (distinctUnwrap)", e.Pattern))
 		}
+		s.node(ep)
+		e.Line, e.Col = ep.Line, ep.Col
 		s.node(e.Value)
 	case *ast.IntLit:
 		// Leaf node — Hashable synthesizer emits these for the mix
@@ -1620,6 +1613,20 @@ func (s *uniquifyState) node(n ast.Node) {
 // helper needs to emit a value-position name reference.
 func identExpr(name string, line, col int) *ast.Ident {
 	return &ast.Ident{Name: name, Line: line, Col: col}
+}
+
+// distinctUnwrap is `typeName(binding) = value`, the statement that binds
+// the value a distinct type wraps: the PatternBinding the parser builds for
+// it.
+func distinctUnwrap(typeName, binding string, value ast.Node, line, col int) *ast.PatternBinding {
+	pattern := &ast.EnumPattern{
+		Variant:    &ast.SimpleType{Name: typeName, Line: line, Col: col},
+		Binding:    binding,
+		BindingCol: col,
+		Line:       line,
+		Col:        col,
+	}
+	return &ast.PatternBinding{Pattern: pattern, Value: value, Line: line, Col: col}
 }
 
 // exprStmt wraps an expression in *ast.ExprStmt — the parser does this for
@@ -3014,13 +3021,7 @@ func hashableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		return []ast.Node{exprStmt(intLit(0, line, col), line, col)}
 	}
 	stmts := []ast.Node{
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "inner", Line: line, Col: col},
-			Value:    identExpr("value", line, col),
-			Line:     line,
-			Col:      col,
-		},
+		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
 	}
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
 		parts := make([]ast.Node, len(ft.Params))
@@ -3409,20 +3410,8 @@ func comparableDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		return []ast.Node{exprStmt(orderingIdent("Equal", line, col), line, col)}
 	}
 	stmts := []ast.Node{
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "av", Line: line, Col: col},
-			Value:    identExpr("a", line, col),
-			Line:     line,
-			Col:      col,
-		},
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "bv", Line: line, Col: col},
-			Value:    identExpr("b", line, col),
-			Line:     line,
-			Col:      col,
-		},
+		distinctUnwrap(t.Name, "av", identExpr("a", line, col), line, col),
+		distinctUnwrap(t.Name, "bv", identExpr("b", line, col), line, col),
 	}
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
 		pairs := make([]exprPair, len(ft.Params))
@@ -3699,13 +3688,7 @@ func stringifyDistinctStmts(iface string, t *ast.TypeDef, line, col int) []ast.N
 		return []ast.Node{exprStmt(staticString(t.Name, line, col), line, col)}
 	}
 	stmts := []ast.Node{
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "inner", Line: line, Col: col},
-			Value:    identExpr("value", line, col),
-			Line:     line,
-			Col:      col,
-		},
+		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
 	}
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 1 {
 		exprs := make([]ast.Node, len(ft.Params))
@@ -3933,13 +3916,7 @@ func toJsonDistinctStmts(t *ast.TypeDef, line, col int) []ast.Node {
 		return []ast.Node{exprStmt(jsonString(t.Name, line, col), line, col)}
 	}
 	stmts := []ast.Node{
-		&ast.DistinctDestructure{
-			TypeName: t.Name,
-			Binding:  &ast.Ident{Name: "inner", Line: line, Col: col},
-			Value:    identExpr("value", line, col),
-			Line:     line,
-			Col:      col,
-		},
+		distinctUnwrap(t.Name, "inner", identExpr("value", line, col), line, col),
 	}
 	if ft, isTuple := t.InnerTypeExpr.(*ast.FuncType); isTuple && ft.Return == nil && len(ft.Params) >= 2 {
 		items := make([]ast.Node, len(ft.Params))

@@ -85,7 +85,7 @@ const (
 	// in the comparison their consumer runs — `==` for the first three and
 	// `rt.EqDecimal` for the last, which compares scale-insensitively — and
 	// that is a function of the operand's TYPE, which the consumer already
-	// has. Owners include casePatternTest and patternAssert.
+	// has. Owners include casePatternTest and patternValueTest.
 	MatchLit MatchKind = iota + 1
 	// MatchVariant asks whether the subject is one named variant of one enum.
 	// `Sym` is the ENUM's declaration and `Variant` the variant's name within

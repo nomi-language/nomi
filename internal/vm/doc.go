@@ -311,8 +311,17 @@
 // One walk (reach.go) answers what a program can run from its roots: main,
 // test cases or exports, with their boots. It follows calls, every
 // retained impl of a dispatched method, function values, once
-// initializers and the bodies the machine's tables run (keys, Display,
-// row Debug). It queues a table's bodies, a method's impls included, in
+// initializers and the bodies the machine's tables run. A table that
+// selects a body by a value's type name (Display, Equatable, Hashable) is
+// read through the type of the operand that renders, compares or hashes:
+// the walk reaches the bodies of the declared types that type is or holds,
+// through fields, variants, elements and type arguments (heldTypes), and
+// every body only where the type does not bound what it holds (an
+// interface value, an erased position, a layout not stated, an Iter
+// rendered). A rendering's Debug bodies are the list the builder attached
+// to it, and an assertion's row reaches the hand-written Debug bodies of
+// the declared types its values are or hold, as a Display rendering does.
+// It queues a table's bodies, a method's impls included, in
 // the order of their type names, so the chain it reports for a function
 // is the same on every walk (TestReach_TheWalkIsTheSameEveryTime). A
 // built image keeps only what it reaches (PruneImage), the

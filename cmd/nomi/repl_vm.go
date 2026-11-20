@@ -677,20 +677,6 @@ func replBoundNames(n ast.Node) []string {
 	switch s := n.(type) {
 	case *ast.Binding:
 		names = append(names, s.Name)
-	case *ast.TupleDestructure:
-		for _, id := range s.Bindings {
-			if id != nil {
-				names = append(names, id.Name)
-			}
-		}
-	case *ast.StructDestructure:
-		for _, f := range s.Fields {
-			names = append(names, replStructFieldNames(f)...)
-		}
-	case *ast.DistinctDestructure:
-		if s.Binding != nil {
-			names = append(names, s.Binding.Name)
-		}
 	case *ast.PatternDestructure:
 		names = append(names, replPatternNames(s.Pattern)...)
 	case *ast.PatternBinding:

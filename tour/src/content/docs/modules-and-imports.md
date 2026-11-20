@@ -547,22 +547,55 @@ std = ["std::io"]
 Total: 59.97
 -->
 
-A `[capabilities.deps]` table holds the code of the modules the project
-depends on, and under `[capabilities.deps.modules]` each dependency gets a
-list of its own, for the calls its own files make. Here `app` holds its
-own code to output and its dependency `prices` to nothing, since `prices`
-only computes. A new version of `prices` also reports each use to a
-server, so the program does not run:
+Hovering a call that reaches outside the program, here and in your
+editor, says what it reaches and whether `nomi.toml` allows it. Hover over
+`read_text`:
+
+```nomi-run
+// FILE: main.nomi
+import
+    std::fs
+    std::io
+end
+
+fn main()
+    notes = fs.read_text("notes.txt") |> Result.with_default("") |> String.trim()
+    io.print(notes)
+end
+
+// FILE: notes.txt
+Buy milk.
+
+// FILE: nomi.toml
+[module]
+name = "notes"
+entry_points = ["main"]
+
+[capabilities.self]
+std = ["std::io", "std::fs"]
+```
+<!-- expect
+Buy milk.
+-->
+
+A project can limit each dependency too. Under `[capabilities.deps.modules]`
+a dependency's entry lists what that dependency's own files may reach, and
+`entries_required = true` makes every dependency need one. Here `app`
+allows `receipts` to read files and allows `prices` nothing, since a
+module that prices things should only compute. This version of `prices`
+also reports each use to a server, so the program does not compile:
 
 ```nomi-run error
 // FILE: app/main.nomi
 import
     std::io
     prices.total
+    receipts.footer
 end
 
 fn main()
     io.print("Total: ${total(3d)}")
+    io.print(footer())
 end
 
 // FILE: app/nomi.toml
@@ -573,17 +606,26 @@ entry_points = ["main"]
 [capabilities.self]
 std = ["std::io"]
 
+[capabilities.deps]
+entries_required = true
+
 [capabilities.deps.modules]
 "lib.example/prices" = []
+"lib.example/receipts" = ["std::fs"]
 
 // FILE: app/go.mod
 module example.com/app
 
 go 1.27.0
 
-require lib.example/prices v0.0.0
+require (
+	lib.example/prices v0.0.0
+	lib.example/receipts v0.0.0
+)
 
 replace lib.example/prices => ../prices
+
+replace lib.example/receipts => ../receipts
 
 // FILE: prices/prices.nomi
 import
@@ -605,19 +647,39 @@ name = "prices"
 module lib.example/prices
 
 go 1.27.0
+
+// FILE: receipts/receipts.nomi
+import std::fs
+
+/// The line a receipt ends with, from the shop's own file.
+pub fn footer() -> String
+    fs.read_text("footer.txt") |> Result.with_default("Thank you.")
+end
+
+// FILE: receipts/nomi.toml
+[module]
+name = "receipts"
+
+// FILE: receipts/go.mod
+module lib.example/receipts
+
+go 1.27.0
 ```
 <!-- expect
 prices/prices.nomi:8:9: lib.example/prices reaches std::http, and its entry under [capabilities.deps.modules] allows it nothing outside the program
 prices/prices.nomi:8:9: help: reached from `main`; `main` calls `total`
 prices/prices.nomi:8:9: help: add "std::http" to "lib.example/prices" under [capabilities.deps.modules] in nomi.toml, or remove the call
+app/main.nomi:8:24: note: your code reaches std::http in lib.example/prices here: `main` calls `total`
 -->
 
-A call counts even in a branch that never runs, and the error says how the
-program reaches it. A dependency can declare its own list in a
-`[capabilities.self]` of its own, and a project with `[capabilities.deps]`
-holds the dependency's code to it too. `entries_required = true` makes
-every dependency have a list, and a dependency's Go runs only when `go`
-under `[capabilities.deps]` names it.
+The error is at the call in `prices`, and its note points at the call in
+`app` that leads there, where the editor marks it too. A call counts even
+in a branch that never runs, and the error says how the program reaches
+it. A dependency can declare its own list in its own `[capabilities.self]`,
+and a project that limits its dependencies checks the dependency against
+that list too. Also under `[capabilities.deps]`,
+`std` is the most any one dependency may reach, whatever its entry says,
+and `go` names the dependencies whose Go runs.
 [Capability lists](/tooling/projects/#capability-lists)
 in the tooling reference covers lists for tests and for each dependency, and
 what counts as outside.

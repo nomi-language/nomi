@@ -177,7 +177,7 @@ func (cfg *config) hold(im ir.Image, entry *ir.Module, roots []*ir.Func, boots [
 		}
 	}
 	var refused []OutsideCall
-	for _, c := range vm.ReachedOutsideCalls(entry, im.Modules, roots, vm.EdgeRoot, boots, other) {
+	for _, c := range vm.ReachedOutsideCalls(entry, im.Modules, roots, vm.EdgeRoot, boots, other).Calls {
 		name := capability.Name(c.Std, "", hostadapt.DisplayName(c.Crossing))
 		for _, l := range cfg.lists {
 			if !l.holds(name) || capability.Allows(l.names, nil, name, "") {

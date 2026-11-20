@@ -37,7 +37,7 @@ func (bl *irScalarBuilder) stdGenericOperatorCall(at *ast.Binary, left, right ir
 	// The call `Add.add(left, right)` the operator means, carrying its
 	// record (operatorCall), over operands already lowered in order
 	// (stdInstPreCall).
-	call, _, done := bl.operatorCall(at)
+	call, done := bl.operatorCall(at)
 	defer done()
 	args := irQualArgs{temps: []ir.Temp{left, right}, kinds: []kind{lk, rk}, mobile: []bool{true, true}, ok: true}
 	return bl.ifaceContainerCall(call, args, spec.nomi, spec.method, bl.g.operandCheckerType(at.Left))

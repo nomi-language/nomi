@@ -142,17 +142,6 @@ func lambdaParamsNeedList(params []ast.Param, after [][]ast.Trivia) bool {
 	return false
 }
 
-// tupleDestructureComments is each binding's comments; a wildcard has none.
-func tupleDestructureComments(v *ast.TupleDestructure) []*ast.ItemComments {
-	out := make([]*ast.ItemComments, len(v.Bindings))
-	for i, b := range v.Bindings {
-		if b != nil {
-			out[i] = itemComments(b)
-		}
-	}
-	return out
-}
-
 // emitParamList writes a function's parenthesized parameter list from the
 // parameters' documents, broken one per line when a parameter holds a
 // comment, or as keepsBrokenLines says given open, the line of the

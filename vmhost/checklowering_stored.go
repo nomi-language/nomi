@@ -19,16 +19,22 @@ import (
 // record (analysis/stored_lowering.go).
 //
 // The record holds the entry's lowering kept per file, as the server
-// lowered it from the record's texts. A lowering of the entry after an
-// edit starts from the kept lowering this process made last for the entry
-// (storedKept), or else from the record's, and lowers each file whose text
-// changed since on its own from its check against the others' interfaces,
-// linking it with the kept objects of the others (relowerOne), a file after
-// the files among them it imports. The program that links must reach
-// nothing a machine cannot run and have no declined body, as a relink from
-// file records must; its problems are then what CheckLowering would report,
-// and the lowering is kept for the next edit when it found nothing.
-// Anything else answers false, and the server lowers the entry's text.
+// lowered it from the record's texts. A lowering of the entry starts from
+// the kept lowering this process made last for the entry (storedKept), or
+// else from the record's, and lowers each file whose text changed since on
+// its own from its check against the others' interfaces, linking it with
+// the kept objects of the others (relowerOne), a file after the files
+// among them it imports. With the record's texts, the first lowering in a
+// process lowers the entry alone, so the program links and its walk finds
+// the outside calls it reaches, as after an edit. The program that links
+// must reach nothing a machine cannot run and have no declined body, as a
+// relink from file records must; its problems are then what CheckLowering
+// would report, and the lowering is kept for the next run when it found
+// nothing, which a run of the same texts answers with its calls. Anything
+// else answers false, and the server lowers the entry's text. The program
+// holds the syntax of its entry alone; a report about a call in another
+// file finds the call's callee in that file's text, parsed when needed
+// (Program.syntaxOf).
 
 // storedKept holds, by entry path, the last kept lowering of a program
 // opened from its record that found nothing, with the texts and
@@ -152,6 +158,16 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	if len(lower) > maxRelowered && len(lower)*4 > len(in.Files) {
 		return found, false, nil
 	}
+	if len(lower) == 0 && base != st {
+		// The record's texts: the entry is lowered again, which links the
+		// program from the record's kept lowering, whose problems are the
+		// record's answer and whose outside calls the walk finds.
+		for _, f := range in.Files {
+			if f.Path == in.EntryPath {
+				lower[f.Key] = true
+			}
+		}
+	}
 	relowering := map[string]bool{}
 	var changed []analysis.StoredLoweringFile
 	for _, f := range in.Files {
@@ -166,10 +182,6 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 		next.headers[f.Key] = f.Headers
 	}
 	if len(changed) == 0 {
-		if st == nil {
-			// The record's texts: its answer is the record's.
-			return found, false, nil
-		}
 		// The kept lowering found nothing for these texts.
 		return LoweringFound{Reached: st.reached}, true, nil
 	}
@@ -194,11 +206,6 @@ func checkLoweringStored(ctx context.Context, cfg config, path, src string, in *
 	p, built := relinkedProgram(res, in.EntryPath, src, in.Root, tests, cfg)
 	if !built || p.entry == nil && (p.HasMain() || tests) || !p.runsClean() || p.Unsupported() != nil {
 		return found, false, nil
-	}
-	// The entry's syntax, where a report about a call in it points at the
-	// callee, as a whole lowering's does (shownSpan).
-	if entry := &p.prog.Modules[0]; entry.Nodes == nil {
-		entry.Nodes = nodes
 	}
 	found, err = loweringProblems(p, src)
 	if found.Problems == nil && err == nil && cfg.loweringStopped() == nil {

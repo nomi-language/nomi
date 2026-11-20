@@ -292,12 +292,6 @@ func (s *concurrentScope) walkBody(owner *Symbol, n ast.Node, inConcurrent int) 
 		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.Binding:
 		s.walkBody(owner, node.Value, inConcurrent)
-	case *ast.TupleDestructure:
-		s.walkBody(owner, node.Value, inConcurrent)
-	case *ast.StructDestructure:
-		s.walkBody(owner, node.Value, inConcurrent)
-	case *ast.DistinctDestructure:
-		s.walkBody(owner, node.Value, inConcurrent)
 	case *ast.PatternBinding:
 		s.walkBody(owner, node.Value, inConcurrent)
 		for _, e := range node.ElseNodes() {
@@ -597,12 +591,6 @@ func (s *concurrentScope) classifyOwners(nodes []ast.Node) map[*Symbol]bool {
 		case *ast.Ascription:
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.Binding:
-			walk(node.Value, enclosing, inConcurrent)
-		case *ast.TupleDestructure:
-			walk(node.Value, enclosing, inConcurrent)
-		case *ast.StructDestructure:
-			walk(node.Value, enclosing, inConcurrent)
-		case *ast.DistinctDestructure:
 			walk(node.Value, enclosing, inConcurrent)
 		case *ast.PatternBinding:
 			walk(node.Value, enclosing, inConcurrent)

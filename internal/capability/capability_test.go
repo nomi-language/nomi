@@ -75,8 +75,45 @@ func TestReachedLine(t *testing.T) {
 		{"std::http", true, false, []string{entry}, "", "Reaches `std::http`, which `nomi.toml` does not allow in the entry for `lib.example/fetch`."},
 		{"std::fs", true, false, nil, "example.com/pricing", "Reaches `std::fs`, which the `nomi.toml` of `example.com/pricing` does not allow."},
 	} {
-		if got := ReachedLine(c.name, c.listed, c.allowed, c.in, c.own); got != c.want {
+		if got := ReachedLine(Reached{Name: c.name, Allowed: c.allowed, In: c.in, Own: c.own}, c.listed); got != c.want {
 			t.Errorf("ReachedLine(%s, listed %v, allowed %v, %q, %q) = %q, want %q", c.name, c.listed, c.allowed, c.in, c.own, got, c.want)
 		}
+	}
+}
+
+// A hover on a function says each name it can reach, through the functions
+// on the way, the refused first and then in name order, four at most and a
+// line naming the rest; nothing for a function that reaches nothing.
+func TestFunctionReach(t *testing.T) {
+	self := []string{"`[capabilities.self]`"}
+	if got := FunctionReach(nil, true); got != "" {
+		t.Errorf("FunctionReach of nothing = %q, want none", got)
+	}
+	one := []Reached{{Name: "std::fs", Through: []string{"read_settings"}, Allowed: true, In: self}}
+	if got, want := FunctionReach(one, true), "Reaches `std::fs` through `read_settings`, which `nomi.toml` allows in `[capabilities.self]`."; got != want {
+		t.Errorf("FunctionReach = %q, want %q", got, want)
+	}
+	several := []Reached{
+		{Name: "std::time", Allowed: true},
+		{Name: "std::env", Allowed: true},
+		{Name: "std::random", Allowed: true},
+		{Name: "std::fs", Through: []string{"load", "read"}, In: self},
+		{Name: "std::io", Allowed: true},
+		{Name: "std::net", Allowed: true},
+	}
+	want := "Reaches `std::fs` through `load`, `read`, which `nomi.toml` does not allow in `[capabilities.self]`.\n\n" +
+		"Also reaches `std::env`, `std::io`, `std::net`, `std::random`, `std::time`."
+	if got := FunctionReach(several, true); got != want {
+		t.Errorf("FunctionReach of six names =\n%s\nwant\n%s", got, want)
+	}
+	allowed := []Reached{
+		{Name: "std::io", Allowed: true, In: self},
+		{Name: "std::fs", Through: []string{"footer"}, Allowed: true, In: self},
+	}
+	if got, want := FunctionReach(allowed, true), "Reaches `std::fs`, `std::io`."; got != want {
+		t.Errorf("FunctionReach of two allowed names = %q, want %q", got, want)
+	}
+	if got, want := FunctionReach(several, false), "Reaches `std::env`, `std::fs`, `std::io`, `std::net`, `std::random`, `std::time`."; got != want {
+		t.Errorf("FunctionReach with no list = %q, want %q", got, want)
 	}
 }

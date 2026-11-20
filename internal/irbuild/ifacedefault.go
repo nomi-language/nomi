@@ -78,11 +78,11 @@ func (g *gen) irImplForwardDefault(d *implDef, it *implItem, fd *ast.FuncDef, pa
 	if d.decl != nil {
 		at = d.decl
 	}
-	name := d.ownerName() + "." + it.name
-	sig := irFuncSig{result: it.result, decl: fd, name: name, origin: irFromImpl}
+	sym := g.irImplSym(it)
+	sig := irFuncSig{result: it.result, decl: fd, name: sym.Name(), origin: irFromImpl}
 	var sh *irFuncShell
 	if callee != nil {
-		if sh = g.irFuncShellAt(at, fd.Params, sig, params, g.irCalleeSym(it, name)); sh == nil {
+		if sh = g.irFuncShellAt(at, fd.Params, sig, params, sym); sh == nil {
 			why = "an interface default whose result has no IR type: " + it.result.nomi()
 		}
 	}
@@ -160,7 +160,7 @@ func (g *gen) defaultForwardCallee(d *implDef, it *implItem, params []kind) (*ir
 	if r, ok := g.importKind(inst.result); !ok || r != it.result {
 		return nil, cannot
 	}
-	return owner.irCalleeSym(inst, inst.iface.nomi+"."+inst.m.name), ""
+	return owner.irImplSym(inst), ""
 }
 
 // ifaceDefaultInstance is this file's instance of the default declared by
@@ -329,11 +329,11 @@ func (g *gen) emitIfaceDefault(inst *ifaceDefaultInst) {
 			g.bind(p.Name, local{k: inst.params[i]})
 		}
 	}
-	name := inst.iface.nomi + "." + inst.m.name
 	g.irBodyObserve(irBodyImplFn, true)
 	g.dc.take()
-	sig := irFuncSig{result: inst.result, decl: inst.fd, name: name, origin: irFromImpl}
-	sh := g.irFuncShellWithCallee(inst.fd, sig, inst.params, g.irCalleeSym(inst, name))
+	sym := g.irImplSym(inst)
+	sig := irFuncSig{result: inst.result, decl: inst.fd, name: sym.Name(), origin: irFromImpl}
+	sh := g.irFuncShellWithCallee(inst.fd, sig, inst.params, sym)
 	g.irImplPrologue(inst.fd, sh, inst.params)
 	produced, retained := g.irScalarLower(inst.fd, sig, sh, inst.result)
 	if !retained {
@@ -342,7 +342,7 @@ func (g *gen) emitIfaceDefault(inst *ifaceDefaultInst) {
 	}
 	if produced != inst.result {
 		g.reject("impl return type mismatch",
-			fmt.Sprintf("%s for %s declares %s and returns %s", name, inst.recv.nomi(), inst.result.nomi(), produced.nomi()), inst.fd.Body)
+			fmt.Sprintf("%s declares %s and returns %s", sym.Name(), inst.result.nomi(), produced.nomi()), inst.fd.Body)
 	}
 }
 

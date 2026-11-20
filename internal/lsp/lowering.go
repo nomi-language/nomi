@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -53,10 +52,13 @@ import (
 // stdlib, about 120 ms. Hence a longer quiet period than analysisDelay.
 //
 // A document whose program was opened from its record
-// (analysis/stored_program.go) offers no program to lower from. When the
-// record lists the document as one whose lowering found nothing with every
-// file as it is now, the run takes that answer without lowering
-// (DocumentManager.StoredLoweredClean); otherwise it lowers from the text.
+// (analysis/stored_program.go) offers no program to lower from. The entry
+// lowers from the record's kept lowering (DocumentManager.StoredLowering),
+// with the record's texts too, since that lowering also finds the outside
+// calls hover shows. Another document the record lists as one whose
+// lowering found nothing with every file as it is now takes that answer
+// without lowering (DocumentManager.StoredLoweredClean). Any other run, and
+// one the kept lowering cannot answer, lowers from the text.
 // A run that lowers and finds nothing tells the manager
 // (NoteLoweredClean), which writes the program's record when the program
 // is kept with nothing to report and every text on disk.
@@ -101,11 +103,14 @@ type loweringChecks struct {
 	mu sync.Mutex
 	// docs holds each document's latest finished run of its latest text,
 	// fixes the errors of that run that carry a fix
-	// (problemDiagnosticsAndFixes), and reached the outside calls its
-	// program reaches, which hover shows (reachedAt).
-	docs    map[string][]protocol.Diagnostic
-	fixes   map[string][]parser.ParseError
-	reached map[string]loweringReach
+	// (problemDiagnosticsAndFixes), manifestFixes the errors it found in
+	// each nomi.toml that carry a fix, by the nomi.toml's URI
+	// (manifestFixesIn), and reached the outside calls its program
+	// reaches, which hover shows (reachedIn).
+	docs          map[string][]protocol.Diagnostic
+	fixes         map[string][]parser.ParseError
+	manifestFixes map[string]map[string][]parser.ParseError
+	reached       map[string]loweringReach
 	// running holds the run in progress of each document that has one;
 	// queued is the text an open, save or edit during it asked for next.
 	running map[string]*loweringRun
@@ -205,6 +210,7 @@ func (c *loweringChecks) init() {
 	if c.running == nil {
 		c.running, c.queued, c.docs = map[string]*loweringRun{}, map[string]string{}, map[string][]protocol.Diagnostic{}
 		c.fixes = map[string][]parser.ParseError{}
+		c.manifestFixes = map[string]map[string][]parser.ParseError{}
 		c.reached = map[string]loweringReach{}
 		c.timers = map[string]*loweringWait{}
 		if c.gen == nil {
@@ -228,35 +234,36 @@ func (c *loweringChecks) fixesOf(uri string) []parser.ParseError {
 	return c.fixes[uri]
 }
 
-// reachedAt is the hover line of each outside call at pos, a 1-based line
-// and byte column in uri, whose text is content, on the token that starts
-// at tok: a call whose callee holds pos, or one with no callee in source
-// (a `go` binding's declaration) that starts where the token does. The
-// lines are from uri's own last run when it lowered content, then from
-// each other document's last run that reached the file, which that
-// lowering read from disk, when content is the file on disk. Each line is
-// given once.
-func (c *loweringChecks) reachedAt(uri, content string, pos, tok analysis.Pos) []string {
-	path := uriToPath(uri)
-	holds := func(r analyzedlowering.Reached) bool {
-		before := func(l1, c1, l2, c2 int) bool { return l1 < l2 || l1 == l2 && c1 < c2 }
-		at := !before(pos.Line, pos.Col, r.Line, r.Col) && before(pos.Line, pos.Col, r.EndLine, r.EndCol) ||
-			r.EndLine == r.Line && r.EndCol == r.Col && tok.Line == r.Line && tok.Col == r.Col
-		return at && (r.Path == path || filepath.Base(r.Path) == filepath.Base(path) && samePath(r.Path, path))
-	}
+// manifestFixesIn are the errors every document's latest run found in the
+// nomi.toml at uri that carry a fix (manifestDiagnostics).
+func (c *loweringChecks) manifestFixesIn(uri string) []parser.ParseError {
 	c.mu.Lock()
-	var own, others []string
+	defer c.mu.Unlock()
+	var out []parser.ParseError
+	for _, byManifest := range c.manifestFixes {
+		out = append(out, byManifest[uri]...)
+	}
+	return out
+}
+
+// reachedIn is the outside calls a hover in uri, whose text is content,
+// may show (hoverdoc.AppendReach): those uri's own last run found when it
+// lowered content, then those each other document's last run found in the
+// file, which that lowering read from disk, when content is the file on
+// disk.
+func (c *loweringChecks) reachedIn(uri, content string) []analyzedlowering.Reached {
+	path := uriToPath(uri)
+	c.mu.Lock()
+	var own, others []analyzedlowering.Reached
 	for u, run := range c.reached {
-		if u == uri && run.content != content {
-			continue
-		}
-		for _, r := range run.calls {
-			switch {
-			case !holds(r):
-			case u == uri:
-				own = append(own, r.Text)
-			default:
-				others = append(others, r.Text)
+		switch {
+		case u == uri && run.content == content:
+			own = append(own, run.calls...)
+		case u != uri:
+			for _, r := range run.calls {
+				if inFile(r.Path, path) {
+					others = append(others, r)
+				}
 			}
 		}
 	}
@@ -266,13 +273,13 @@ func (c *loweringChecks) reachedAt(uri, content string, pos, tok analysis.Pos) [
 			others = nil
 		}
 	}
-	var out []string
-	for _, text := range append(own, others...) {
-		if !slices.Contains(out, text) {
-			out = append(out, text)
-		}
-	}
-	return out
+	return append(own, others...)
+}
+
+// inFile reports whether a call's path, as a lowering names its file, is
+// the file at path.
+func inFile(callPath, path string) bool {
+	return callPath == path || filepath.Base(callPath) == filepath.Base(path) && samePath(callPath, path)
 }
 
 // stopTimer drops uri's debounced run, if one is waiting. c.mu is held.
@@ -299,6 +306,7 @@ func (c *loweringChecks) forget(uri string) {
 	c.init()
 	delete(c.docs, uri)
 	delete(c.fixes, uri)
+	delete(c.manifestFixes, uri)
 	delete(c.reached, uri)
 	delete(c.queued, uri)
 	c.stopTimer(uri)
@@ -412,14 +420,15 @@ func (s *Server) runLoweringChecks(ctx context.Context, uri string, run *lowerin
 		var found loweringFound
 		lowered := false
 		if _, latest := s.waitLoweringAnalysis(ctx, uri, content); latest && ctx.Err() == nil {
-			if s.docs.StoredLoweredClean(uri, content) {
-				// The program was opened from its record, which says this
-				// text's lowering finds nothing.
+			// The entry of a program opened from its record lowers from the
+			// record's kept lowering (analysis.StoredLowering), the record's
+			// texts too, since its walk finds the calls hover shows.
+			stored := s.docs.StoredLowering(uri, content)
+			if stored == nil && s.docs.StoredLoweredClean(uri, content) {
+				// Another document of a program opened from its record,
+				// which says this text's lowering finds nothing.
 				c.recorded.Add(1)
 			} else {
-				// The entry of a program opened from its record lowers from
-				// the record's kept lowering (analysis.StoredLowering).
-				stored := s.docs.StoredLowering(uri, content)
 				// The analysis is taken again under the view lock, which
 				// keeps a recheck from rewriting it while it is lowered.
 				release := s.docs.View()
@@ -547,6 +556,7 @@ func (s *Server) finishLowering(uri, content string, gen int, found loweringFoun
 	if fresh {
 		c.docs[uri] = found.diags
 		c.fixes[uri] = found.fixes
+		c.manifestFixes[uri] = found.manifestFixes
 		c.reached[uri] = loweringReach{content: content, calls: found.reached}
 	}
 	c.mu.Unlock()
@@ -562,13 +572,15 @@ func (s *Server) finishLowering(uri, content string, gen int, found loweringFoun
 }
 
 // loweringFound is what a run found: the document's diagnostics, those of
-// its errors that carry a fix, the diagnostics in each nomi.toml, by its
-// URI, and the outside calls the program reaches.
+// its errors that carry a fix, the diagnostics in each nomi.toml and those
+// of them that carry a fix, by its URI, and the outside calls the program
+// reaches.
 type loweringFound struct {
-	diags     []protocol.Diagnostic
-	fixes     []parser.ParseError
-	manifests map[string][]protocol.Diagnostic
-	reached   []analyzedlowering.Reached
+	diags         []protocol.Diagnostic
+	fixes         []parser.ParseError
+	manifests     map[string][]protocol.Diagnostic
+	manifestFixes map[string][]parser.ParseError
+	reached       []analyzedlowering.Reached
 }
 
 // safeLoweringDiagnostics is the document's diagnostics lowerDocument
@@ -592,7 +604,8 @@ func (s *Server) lowerDocument(ctx context.Context, uri, content string, a *anal
 	path := uriToPath(uri)
 	got, err := s.lowering.lower(ctx, path, content, a)
 	diags, fixes := problemDiagnosticsAndFixes(path, content, got.Problems, err)
-	return loweringFound{diags: diags, fixes: fixes, manifests: s.manifestDiagnostics(got.Problems, err), reached: got.Reached}
+	manifests, manifestFixes := s.manifestDiagnostics(got.Problems, err)
+	return loweringFound{diags: diags, fixes: fixes, manifests: manifests, manifestFixes: manifestFixes, reached: got.Reached}
 }
 
 // loweringDiagnostics lowers the file at path whose text is content, from
@@ -616,7 +629,15 @@ func problemDiagnostics(path, content string, problems, err error) []protocol.Di
 // problemDiagnosticsAndFixes is problemDiagnostics, with the diagnostics
 // whose error carries a fix (frontend.Diagnostic's Fix) as parse errors at
 // the diagnostic's start with its headline, which buildParseFixActions
-// offers: the edit to nomi.toml that allows a call its lists do not.
+// offers: the edit to nomi.toml that allows a call its lists do not. An
+// error's related locations (frontend.Diagnostic's Related) are its
+// relatedInformation. An error in another file with related locations in
+// this one, a refused call in a dependency's file and the places the
+// project's code leads to it (vmhost's leadsTo), is shown at each of those
+// places, headed by what the location says, with the error's own place as
+// its relatedInformation, instead of at the top of the file: the same
+// error, with its code, its args and its fix, so the marks come and go
+// with it.
 func problemDiagnosticsAndFixes(path, content string, problems, err error) ([]protocol.Diagnostic, []parser.ParseError) {
 	var internal *vmhost.InternalError
 	if errors.As(err, &internal) {
@@ -646,34 +667,72 @@ func problemDiagnosticsAndFixes(path, content string, problems, err error) ([]pr
 			warning := protocol.DiagnosticSeverityWarning
 			diag.Severity = &warning
 		}
-		if samePath(d.Path, path) {
-			diag.Range = lines.utf16Range(errorRange(d.Line, d.Col, d.EndLine, d.EndCol))
-		} else if d.Line > 0 && filepath.IsAbs(d.Path) {
-			diag.Message = fmt.Sprintf("in %s:%d:%d: %s", filepath.Base(d.Path), d.Line, d.Col, msg)
-			uri := protocol.DocumentUri(pathToURI(d.Path))
-			rng := errorRange(d.Line, d.Col, d.EndLine, d.EndCol)
-			// The lowering read the other file from disk; its columns
-			// convert against that text.
-			if text, ok := diskContent(uri); ok {
-				rng = newLineIndex(text).utf16Range(rng)
+		var related []protocol.DiagnosticRelatedInformation
+		var here []frontend.Related
+		for _, r := range d.Related {
+			related = append(related, protocol.DiagnosticRelatedInformation{
+				Location: locationIn(path, lines, r.Path, r.Line, r.Col, r.EndLine, r.EndCol), Message: r.Message})
+			if samePath(r.Path, path) {
+				here = append(here, r)
 			}
-			diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{{
-				Location: protocol.Location{URI: uri, Range: rng},
-				Message:  d.Message,
-			}}
-		} else {
-			// The body has no source position (a derive-synthesized one).
-			diag.Message = msg
 		}
-		out = append(out, diag)
+		var marks []protocol.Diagnostic
+		switch {
+		case samePath(d.Path, path):
+			diag.Range = lines.utf16Range(errorRange(d.Line, d.Col, d.EndLine, d.EndCol))
+			diag.RelatedInformation = related
+			marks = append(marks, diag)
+		case d.Line > 0 && filepath.IsAbs(d.Path) && len(here) > 0:
+			site := protocol.DiagnosticRelatedInformation{
+				Location: locationIn(path, lines, d.Path, d.Line, d.Col, d.EndLine, d.EndCol),
+				Message:  d.Message,
+			}
+			for _, r := range here {
+				mark := diag
+				mark.Range = lines.utf16Range(errorRange(r.Line, r.Col, r.EndLine, r.EndCol))
+				mark.Message = r.Message + "\n" + msg
+				mark.RelatedInformation = []protocol.DiagnosticRelatedInformation{site}
+				marks = append(marks, mark)
+			}
+		case d.Line > 0 && filepath.IsAbs(d.Path):
+			diag.Message = fmt.Sprintf("in %s:%d:%d: %s", filepath.Base(d.Path), d.Line, d.Col, msg)
+			diag.RelatedInformation = append([]protocol.DiagnosticRelatedInformation{{
+				Location: locationIn(path, lines, d.Path, d.Line, d.Col, d.EndLine, d.EndCol),
+				Message:  d.Message,
+			}}, related...)
+			marks = append(marks, diag)
+		default:
+			// The body has no source position (a derive-synthesized one).
+			diag.RelatedInformation = related
+			marks = append(marks, diag)
+		}
+		out = append(out, marks...)
 		if d.Fix != nil {
-			fixes = append(fixes, parser.ParseError{
-				Line: int(diag.Range.Start.Line) + 1, Col: lines.byteCol(diag.Range.Start.Line, diag.Range.Start.Character),
-				Message: diagnosticHeadline(diag.Message), Fix: d.Fix,
-			})
+			for _, mark := range marks {
+				fixes = append(fixes, parser.ParseError{
+					Line: int(mark.Range.Start.Line) + 1, Col: lines.byteCol(mark.Range.Start.Line, mark.Range.Start.Character),
+					Message: diagnosticHeadline(mark.Message), Fix: d.Fix,
+				})
+			}
 		}
 	}
 	return out, fixes
+}
+
+// locationIn is the span from line:col to endLine:endCol (1-based, byte
+// columns) in the file at file, as a protocol location in UTF-16 columns:
+// against lines, this document's text, when file is the document at path,
+// else against the file's text on disk, which the lowering read.
+func locationIn(path string, lines *lineIndex, file string, line, col, endLine, endCol int) protocol.Location {
+	rng := errorRange(line, col, endLine, endCol)
+	uri := protocol.DocumentUri(pathToURI(file))
+	if samePath(file, path) {
+		return protocol.Location{URI: protocol.DocumentUri(pathToURI(path)), Range: lines.utf16Range(rng)}
+	}
+	if text, ok := diskContent(uri); ok {
+		rng = newLineIndex(text).utf16Range(rng)
+	}
+	return protocol.Location{URI: uri, Range: rng}
 }
 
 // samePath reports whether two paths name the same file.

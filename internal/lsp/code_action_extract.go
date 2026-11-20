@@ -168,8 +168,7 @@ func hoistsThrough(parent, child ast.Node) bool {
 	case *ast.Call, *ast.NamedArg, *ast.GroupedExpr, *ast.Unary, *ast.FieldAccess,
 		*ast.ListLit, *ast.TupleLit, *ast.MapLit, *ast.StructLit,
 		*ast.StringInterp, *ast.TaggedString, *ast.RangeLit, *ast.TryOp, *ast.Dbg, *ast.Return,
-		*ast.ExprStmt, *ast.Binding, *ast.Assertion, *ast.TupleDestructure,
-		*ast.StructDestructure, *ast.DistinctDestructure, *ast.With:
+		*ast.ExprStmt, *ast.Binding, *ast.Assertion, *ast.With:
 		return true
 	case *ast.Binary:
 		return !((p.Op == "and" || p.Op == "or") && p.Right == child)

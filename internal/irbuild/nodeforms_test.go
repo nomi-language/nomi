@@ -13,7 +13,7 @@ import (
 
 // Every node type of internal/ast has its forms in nodeForms, the table
 // names no type the AST lacks, lowerNode's switch has an arm for exactly the
-// types classed a value, and irScalarBlock's for exactly those classed a
+// types classed a value, and leadStatement's for exactly those classed a
 // statement. A node type added to the AST fails here until it is classed,
 // and one classed a value or a statement until its switch lowers it, so
 // neither switch can meet a node it has no arm for.
@@ -26,7 +26,7 @@ func TestEveryNodeTypeHasAForm(t *testing.T) {
 			missing = append(missing, node)
 		}
 	})
-	if len(inAST) < 100 {
+	if len(inAST) < 90 {
 		t.Fatalf("ast.NodeTypes lists only %d node types", len(inAST))
 	}
 	if len(missing) > 0 {
@@ -49,7 +49,7 @@ func TestEveryNodeTypeHasAForm(t *testing.T) {
 		class    string
 	}{
 		{"lowerNode", "n", formValue, "formValue"},
-		{"irScalarBlock", "s", formStatement, "formStatement"},
+		{"leadStatement", "s", formStatement, "formStatement"},
 	} {
 		arms := typeSwitchArms(t, "irfuncbody.go", sw.fn, sw.over)
 		var noArm, noForm []string

@@ -7,6 +7,7 @@ import (
 
 	"github.com/nomi-language/nomi/internal/artifactcache"
 	"github.com/nomi-language/nomi/internal/fileuri"
+	"github.com/nomi-language/nomi/vmhost"
 )
 
 // storedProjectFiles is a project of three files the entry reaches.
@@ -34,10 +35,11 @@ func waitStored(t *testing.T, s *Server, n int64) {
 }
 
 // A server whose lowering of the open entry finds nothing writes the
-// program's record; the next server opens the entry from it, takes its
-// lowering's answer from the record without lowering, and publishes no
-// diagnostic. Its first edit is taken in the program opened from the
-// record, with no check of the whole program.
+// program's record; the next server opens the entry from it, lowers the
+// entry from the record's kept lowering, with no check of the program
+// (vmhost's checklowering_stored.go), and publishes no diagnostic. Its
+// first edit is taken in the program opened from the record, with no
+// check of the whole program.
 func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 	if testing.Short() {
 		t.Skip("lowers the stdlib; -short")
@@ -61,6 +63,7 @@ func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 	second := NewServer()
 	second.lowering.delay = 10 * time.Millisecond
 	c2 := startRPC(t, second, dir)
+	relowers := vmhost.StoredRelowersForTest()
 	c2.open(uri, text)
 	if p := c2.waitDiagnostics(uri); len(p.msgs) != 0 {
 		t.Fatalf("opened from its record, the entry publishes %q", p.msgs)
@@ -68,18 +71,18 @@ func TestServerOpensAProgramFromItsRecord(t *testing.T) {
 	if opened, _ := second.docs.StoredPrograms(); opened != 1 {
 		t.Fatalf("the second server opened %d programs from records, want 1", opened)
 	}
+	if built := second.docs.FilesBuilt(); built != 1 {
+		t.Fatalf("opening from the record built %d files, want the entry alone", built)
+	}
 	deadline := time.Now().Add(30 * time.Second)
-	for second.lowering.recorded.Load() == 0 {
+	for vmhost.StoredRelowersForTest() == relowers {
 		if time.Now().After(deadline) {
-			t.Fatal("the record did not answer the entry's lowering")
+			t.Fatal("the entry was not lowered from the record's kept lowering")
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	if n := second.lowering.lowered.Load(); n != 0 {
-		t.Fatalf("the second server lowered %d times", n)
-	}
-	if built := second.docs.FilesBuilt(); built != 1 {
-		t.Fatalf("opening from the record built %d files, want the entry alone", built)
+	if n, r := second.lowering.lowered.Load(), second.lowering.recorded.Load(); n != 1 || r != 0 {
+		t.Fatalf("the second server lowered %d times and took the record's answer %d times, want once and never", n, r)
 	}
 
 	c2.change(uri, 2, text+"\nfn unused_helper() -> Int\n    1\nend\n")

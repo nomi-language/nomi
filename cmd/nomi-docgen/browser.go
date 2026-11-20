@@ -26,19 +26,17 @@ const browserGOOS, browserGOARCH = "js", "wasm"
 // reaches `net.listen`). An HTTP request is not among them: the browser
 // build sends it through fetch.
 type promptClassifier struct {
-	module string
-	prog   *vmhost.Program
-	lacks  []string
+	std   *stdProgram
+	lacks []string
 }
 
-func newPromptClassifier(module string) *promptClassifier {
-	return &promptClassifier{module: module, lacks: vmhost.TargetLacks(browserGOOS, browserGOARCH)}
+func newPromptClassifier(std *stdProgram) *promptClassifier {
+	return &promptClassifier{std: std, lacks: vmhost.TargetLacks(browserGOOS, browserGOARCH)}
 }
 
 // browserLacks is the classes, sorted, that test reaches and the browser
 // lacks, or nil when the browser can run it. body and context are the
-// editor's, as the page writes them. The module is loaded on the first
-// call, so a page with no prompts loads nothing.
+// editor's, as the page writes them.
 //
 // The walk counts what the prompt could reach: a call through an
 // interface reaches every impl, and a crossing a fake answers on the frame
@@ -48,15 +46,8 @@ func newPromptClassifier(module string) *promptClassifier {
 // (osreach). A run that fails, or that cannot listen here, keeps every
 // class the walk found.
 func (c *promptClassifier) browserLacks(test ast.AttachedTest, body, context string) []string {
-	if c.prog == nil {
-		prog, err := vmhost.LoadEmbeddedStdlib(c.module)
-		if err != nil {
-			panic(fmt.Sprintf("nomi-docgen: loading std/%s to classify its prompts: %v", c.module, err))
-		}
-		c.prog = prog
-	}
 	var walked []string
-	for _, u := range c.prog.TestCapabilityUses(vmhost.TestOptions{Line: test.Line, LineSet: true}) {
+	for _, u := range c.std.program().TestCapabilityUses(vmhost.TestOptions{Line: test.Line, LineSet: true}) {
 		if slices.Contains(c.lacks, u.Class) && !slices.Contains(walked, u.Class) {
 			walked = append(walked, u.Class)
 		}
@@ -69,7 +60,7 @@ func (c *promptClassifier) browserLacks(test ast.AttachedTest, body, context str
 	for i, class := range walked {
 		before[i] = osreach.Count(class)
 	}
-	cases, err := vmhost.StdlibReference(c.module, body, context, io.Discard)
+	cases, err := vmhost.StdlibReference(c.std.module, body, context, io.Discard)
 	if err != nil || len(cases) != 1 || cases[0].Err != nil || cases[0].Blocked != nil {
 		return walked
 	}

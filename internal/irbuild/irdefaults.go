@@ -173,10 +173,22 @@ func (bl *irScalarBuilder) fillDefaultRun(t *ast.Call, run defaultRun, kinds []k
 	through := omitted[len(omitted)-1] + 1
 	sig := &fnSig{decl: &ast.FuncDef{Params: params}, params: kinds, instance: home.inst}
 	o, iface := g.ifaceParamDefault(params[omitted[0]].Default)
-	if iface && ifaceDefaultGeneric(o) {
-		// A record lacking one leaves the frame nil, which callDefaults
-		// declines at the default.
-		sig.ifaceFrame, sig.ifaceTypes, _ = g.ifaceDefaultFrameAt(t, o)
+	switch {
+	case iface:
+		if ifaceDefaultGeneric(o) {
+			// A record lacking one leaves the frame nil, which callDefaults
+			// declines at the default.
+			sig.defaultFrame, sig.defaultTypes, _ = g.ifaceDefaultFrameAt(t, o)
+		}
+		if self := g.callTypeArgs(t)[stdIfaceDefaultSelfParam]; self != nil {
+			sig.defaultSelfType = g.checkerTypeArg(self)
+		}
+	case home.inst == nil:
+		// A generic callee no instance of which is lowered here (an impl
+		// function of a generic type's instance): its defaults are lowered
+		// in a frame binding its type parameters at the call's type
+		// arguments, as an instance's are.
+		sig.defaultFrame, sig.defaultTypes = g.callFrameAt(t)
 	}
 	owner := home.owner
 	if owner == nil || owner == g {
@@ -201,6 +213,35 @@ func (bl *irScalarBuilder) fillDefaultRun(t *ast.Call, run defaultRun, kinds []k
 		defer g.lowerNamesFrom(unit)()
 	}
 	return bl.callDefaultsThrough(sig, temps, through)
+}
+
+// callFrameAt binds every type parameter the checker instantiated call t at
+// (analysis.CallTypeArgs of its callee's reference) to that type argument,
+// as callTypeArgFrame binds them. Nil for a callee that is no generic
+// function's reference, and when a type argument has no kind here.
+func (g *gen) callFrameAt(t *ast.Call) (map[string]kind, map[string]analysis.Type) {
+	args := g.callTypeArgs(t)
+	if len(args) == 0 {
+		return nil, nil
+	}
+	names := make([]string, 0, len(args))
+	for n := range args {
+		names = append(names, n)
+	}
+	slices.Sort(names)
+	frame, types, ok := g.callTypeArgFrame(t, names)
+	if !ok {
+		return nil, nil
+	}
+	return frame, types
+}
+
+// callTypeArgs is the type arguments the checker instantiated call t's
+// callee at, by type parameter (analysis.CallTypeArgs of its reference),
+// nil for a callee with no reference.
+func (g *gen) callTypeArgs(t *ast.Call) map[string]analysis.Type {
+	line, col := calleeRefPos(t.Func)
+	return analysis.CallTypeArgs(g.srcFA().References[analysis.Pos{Line: line, Col: col}])
 }
 
 // byAccessor reports whether the omitted slots of a call of another file's

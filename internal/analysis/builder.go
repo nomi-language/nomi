@@ -1567,67 +1567,12 @@ func (b *builder) buildModuleBodies(nodes []ast.Node, scope *Scope) {
 			}
 			b.define(sym.Pos, sym)
 
-		case *ast.StructDestructure:
-			b.walkNode(s.Value, scope)
-			for _, f := range s.Fields {
-				if f.Binding != "" {
-					line := structPatternFieldBindingLine(f, s.Line)
-					sym := &Symbol{
-						Name: f.Binding,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: line, Col: f.BindingCol},
-						Node: s,
-					}
-					if !ast.IsDiscardName(f.Binding) {
-						scope.Define(sym)
-					}
-					b.define(sym.Pos, sym)
-				}
-			}
-
 		case *ast.PatternDestructure:
 			b.walkNode(s.Value, scope)
 			b.defineAssertedPattern(s, scope)
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
-
-		case *ast.TupleDestructure:
-			b.walkNode(s.Value, scope)
-			for _, binding := range s.Bindings {
-				if binding != nil {
-					sym := &Symbol{
-						Name: binding.Name,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: binding.Line, Col: binding.Col},
-						Node: s,
-					}
-					if !ast.IsDiscardName(binding.Name) {
-						scope.Define(sym)
-					}
-					b.define(sym.Pos, sym)
-				}
-			}
-
-		case *ast.DistinctDestructure:
-			// Register a Reference at the type-name position (`Id` in
-			// `Id(unwrapped) = id`) so hover shows the distinct type.
-			if sym := scope.Lookup(s.TypeName); sym != nil {
-				b.file.References[Pos{Line: s.Line, Col: s.Col}] = sym
-			}
-			b.walkNode(s.Value, scope)
-			if s.Binding != nil {
-				sym := &Symbol{
-					Name: s.Binding.Name,
-					Kind: SymbolBinding,
-					Pos:  Pos{Line: s.Binding.Line, Col: s.Binding.Col},
-					Node: s,
-				}
-				if !ast.IsDiscardName(s.Binding.Name) {
-					scope.Define(sym)
-				}
-				b.define(sym.Pos, sym)
-			}
 
 		case *ast.ImportStmt:
 			// Already fully handled by defineTopLevel in pass 1. Skip here so
@@ -4709,22 +4654,6 @@ func (b *builder) walkNode(node ast.Node, scope *Scope) {
 	case *ast.TestDecl:
 		b.walkTestDecl(n, scope)
 
-	case *ast.TupleDestructure:
-		b.walkNode(n.Value, scope)
-
-	case *ast.StructDestructure:
-		b.walkNode(n.Value, scope)
-
-	case *ast.DistinctDestructure:
-		// Register a Reference at the type-name position (`Id` in
-		// `Id(unwrapped) = id`) so hover shows the distinct type.
-		if n.TypeNameExpr != nil {
-			b.walkTypeExpr(n.TypeNameExpr, scope)
-		} else if sym := scope.Lookup(n.TypeName); sym != nil {
-			b.file.References[Pos{Line: n.Line, Col: n.Col}] = sym
-		}
-		b.walkNode(n.Value, scope)
-
 	case *ast.Ident:
 		sym := scope.Lookup(n.Name)
 		if n.Name == "todo" && (sym == nil || sym.Kind == SymbolModule && b.qualifier != n) {
@@ -5293,69 +5222,12 @@ func (b *builder) walkBlockWithEnd(block *ast.Block, scope *Scope, endLine, endC
 		case *ast.TestDecl:
 			b.walkTestDecl(s, scope)
 
-		case *ast.TupleDestructure:
-			b.walkNode(s.Value, scope)
-			for _, binding := range s.Bindings {
-				if binding != nil {
-					sym := &Symbol{
-						Name: binding.Name,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: binding.Line, Col: binding.Col},
-						Node: s,
-					}
-					if !ast.IsDiscardName(binding.Name) {
-						scope.Define(sym)
-					}
-					b.define(sym.Pos, sym)
-				}
-			}
-
-		case *ast.StructDestructure:
-			b.walkNode(s.Value, scope)
-			for _, f := range s.Fields {
-				if f.Binding != "" {
-					line := structPatternFieldBindingLine(f, s.Line)
-					sym := &Symbol{
-						Name: f.Binding,
-						Kind: SymbolBinding,
-						Pos:  Pos{Line: line, Col: f.BindingCol},
-						Node: s,
-					}
-					if !ast.IsDiscardName(f.Binding) {
-						scope.Define(sym)
-					}
-					b.define(sym.Pos, sym)
-				}
-			}
-
 		case *ast.PatternDestructure:
 			b.walkNode(s.Value, scope)
 			b.defineAssertedPattern(s, scope)
 
 		case *ast.PatternBinding:
 			b.walkPatternBinding(s, scope)
-
-		case *ast.DistinctDestructure:
-			// Register a Reference at the type-name position (`Id` in
-			// `Id(unwrapped) = id`) so hover shows the distinct type.
-			if s.TypeNameExpr != nil {
-				b.walkTypeExpr(s.TypeNameExpr, scope)
-			} else if sym := scope.Lookup(s.TypeName); sym != nil {
-				b.file.References[Pos{Line: s.Line, Col: s.Col}] = sym
-			}
-			b.walkNode(s.Value, scope)
-			if s.Binding != nil {
-				sym := &Symbol{
-					Name: s.Binding.Name,
-					Kind: SymbolBinding,
-					Pos:  Pos{Line: s.Binding.Line, Col: s.Binding.Col},
-					Node: s,
-				}
-				if !ast.IsDiscardName(s.Binding.Name) {
-					scope.Define(sym)
-				}
-				b.define(sym.Pos, sym)
-			}
 
 		case *ast.ImplBlock, *ast.ImplConformance:
 			// Behavior is declared at module top level (spec §7): a block

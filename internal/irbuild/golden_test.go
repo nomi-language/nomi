@@ -431,8 +431,12 @@ func unpackGoldenArchive(archive, dir, root string) (map[string]string, error) {
 func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 	regenerate := expectation.RegenerateRequested()
 	census := openSubstCensus()
-	operators := openOperatorCensus()
-	localReads := openLocalReadCensus()
+	operators := operatorCensus.start()
+	localReads := localReadCensus.start()
+	comparators := comparatorCensus.start()
+	debugImpls := debugImplCensus.start()
+	exprKinds := exprKindCensus.start()
+	stdExprKinds := stdExprKindCensus.start()
 	set := goldenSet(t, irbuildGoldenPopulation)
 	if len(set.Cases) == 0 {
 		t.Fatal("irbuild.expect holds no records, so this package's comparisons have no answers")
@@ -511,8 +515,11 @@ func TestIRGolden_RecordsMatchTheVM(t *testing.T) {
 	t.Logf("%d irbuild golden record(s) checked on the VM: %d repository programs, "+
 		"%d temp programs", len(set.Cases), inRepo, temp)
 	checkSubstCensus(t, census())
-	checkOperatorCensus(t, operators())
-	checkLocalReadCensus(t, localReads())
+	checkSiteCensus(t, operatorRatchet(), operators())
+	checkSiteCensus(t, localReadRatchet(), localReads())
+	checkSiteCensus(t, comparatorRatchet(), comparators())
+	checkSiteCensus(t, debugImplRatchet(), debugImpls())
+	checkExprKindCensus(t, exprKinds(), stdExprKinds())
 }
 
 // corpusGoldenRoot is the worktree root, for putting `<root>` back into a

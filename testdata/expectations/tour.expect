@@ -11,7 +11,7 @@
 # T <transcript line>, verbatim
 population tour
 what one record per runnable ```nomi-run block in tour, keyed chapter:L<line>, run the way the tour playground runs it. N is 1 when the block declares tests and 0 otherwise; a block's own tests run and their report is part of the transcript, which the hidden <!-- expect --> block does not cover. A block that stops on purpose (a todo reached, a trap, an Err from main) is recorded with exit 1 and its failure on stderr, as `nomi run` prints it. A block that imports a module whose Go side only the browser links (sqlite) has no record; the staged wasm is held to its expect block.
-records 416
+records 417
 declared-cases 201
 failing 16
 C app-fields.md:L105
@@ -2925,7 +2925,13 @@ N 0
 H c059e0adf7079f98201b00fe223ea412bdc2030283353a6c4f1c82e862e00534
 T Total: 59.97
 T
-C modules-and-imports.md:L651
+C modules-and-imports.md:L554
+E 0
+N 0
+H e0caefe9dbd4bc56e05b379569210b208444c5bea7daadb72ef64641b8df767f
+T Buy milk.
+T
+C modules-and-imports.md:L713
 E 0
 N 0
 H 4407083af216f5bc9252370a3029d7e4c7d86e595014bf4cb3b16dd3c794b4da

@@ -40,8 +40,8 @@ func chainRoot(s ChainStep) string {
 // counts as reached.
 func chainEdge(from string, s ChainStep) string {
 	typ, method := s.Func, s.Func
-	if i := strings.LastIndex(s.Func, "."); i > 0 {
-		typ, method = s.Func[:i], s.Func[i+1:]
+	if s.Impl.Func != "" {
+		typ, method = s.Impl.Type, s.Impl.Func
 	}
 	switch s.Edge {
 	case EdgeCall:
@@ -54,11 +54,11 @@ func chainEdge(from string, s ChainStep) string {
 	case EdgeDispatch:
 		return fmt.Sprintf("`%s` calls `%s` through an interface, and any implementation of it counts, including `%s`", from, method, s.Func)
 	case EdgeDisplay:
-		return fmt.Sprintf("`%s` displays a value, and any value may be displayed, so `impl Display for %s` counts", from, typ)
+		return fmt.Sprintf("`%s` displays a value that may be or hold a `%s`, so `impl Display for %s` counts", from, typ, typ)
 	case EdgeDebug:
-		return fmt.Sprintf("`%s` inspects a value, and any value may be inspected, so `impl Debug for %s` counts", from, typ)
+		return fmt.Sprintf("`%s` inspects a value that may be or hold a `%s`, so `impl Debug for %s` counts", from, typ, typ)
 	case EdgeKeys:
-		return fmt.Sprintf("`%s` compares or hashes values, and any type's may be, so `%s` counts", from, s.Func)
+		return fmt.Sprintf("`%s` compares or hashes a value that may be or hold the type `%s` is for, so it counts", from, s.Func)
 	case EdgeOnce:
 		return fmt.Sprintf("`%s` reads `%s`, so its initializer counts", from, s.Func)
 	case EdgeBoot:

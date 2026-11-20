@@ -4,20 +4,18 @@ package irbuild
 // assertion whose subject is a bare name.
 //
 // The value is evaluated outside any assertion subject, so it records no
-// `values:` rows; the pattern's bindings land in the test's scope; and a pattern that does not match fails the case with the reason
-// "pattern did not match", the unmatched value as `actual`, and, when the
-// value is a bare name an ordinary binding introduced, that binding's
-// "defined as:" block.
+// `values:` rows; the pattern's bindings land in the test's scope; and a
+// pattern that does not match fails the case with the reason "pattern did
+// not match", the unmatched value as `actual`, and, when the value is a bare
+// name an ordinary binding introduced, that binding's "defined as:" block.
 //
-// The graph branches on the pattern's tests. The success edge binds the
-// pattern's names and the rest of the body continues there, so later
-// statements read them. The failure edge is one `ir.NewAssertMismatch`, which
-// always fails, followed by an unreachable Unit return. Identifier and
-// wildcard patterns have no failure edge.
-//
-// The patterns are the ones a retained `case` already tests: a scalar
-// literal, an enum variant with a flat payload (irvariantpattern.go), a list
-// (irlistpattern.go) and a tuple (irtuplepattern.go). A pattern name may
+// The pattern is tested as a `case` arm's pattern is, and as a binding's is
+// (patternValueTest). The success edge binds the pattern's names and the
+// rest of the body continues there, so later statements read them. The
+// failure edge is one `ir.NewAssertMismatch`, which always fails, followed by
+// an unreachable Unit return. A pattern whose test builds no failure edge
+// (a name, `_`, a tuple or struct of names) only binds, and its mismatch
+// block, which nothing reaches, holds the return alone. A pattern name may
 // rebind a name the body already bound: it is a fresh identity. A bare-name
 // value bound by a pipe whose `pipeline values:` stages were not recorded
 // declines.
@@ -41,111 +39,20 @@ func (bl *irScalarBuilder) patternAssert(t *ast.PatternDestructure) bool {
 		return false
 	}
 	pos := bl.g.irPos(t.Line, t.Col)
-	var matched, failed *ir.Block
-	refutable := true
-	// `assert P as name = v`: P is tested, and name binds v on its success
-	// edge.
-	pattern := ast.WithoutAs(t.Pattern)
-	tupleBinds := irRetainedTupleKind(sk) && tupleCaseIrrefutable(pattern, sk)
-	switch pattern.(type) {
-	case *ast.WildcardPattern, *ast.IdentPattern:
-		refutable = false
-	default:
-		if tupleBinds {
-			// A tuple of names and wildcards cannot fail.
-			refutable = false
-			break
-		}
-		if irNominalCaseKind(sk) && irNominalIrrefutable(pattern) {
-			// `Point{x:, y:}`, `{name:, age:}` and `UserId(id)` only bind: the
-			// subject's type is the pattern's, so nothing can fail.
-			refutable = false
-			matched = bl.f.NewBlock(bl.g.irNodePos(pattern), "pattern matched")
-			break
-		}
-		// The two edges exist only for a pattern that can fail.
-		matched = bl.f.NewBlock(bl.g.irNodePos(pattern), "pattern matched")
-		failed = bl.f.NewBlock(pos, "pattern mismatch")
+	matched := bl.f.NewBlock(bl.g.irNodePos(t.Pattern), "pattern matched")
+	failed := bl.f.NewBlock(pos, "pattern mismatch")
+	if !bl.patternValueTest(t.Pattern, subj, sk, matched, failed) {
+		return false
 	}
-	switch p := pattern.(type) {
-	case *ast.WildcardPattern:
-	case *ast.TuplePattern:
-		if !tupleBinds {
-			if !bl.tupleCaseTest(p, subj, sk, matched, failed) {
-				bl.g.dc.patternFailed(p)
-				return false
-			}
-			break
-		}
-		bl.tupleCaseBindings(p, subj, sk)
-	case *ast.IdentPattern:
-		bl.patternBinding(p, p.Name, subj, sk)
-	case *ast.OrPattern:
-		if !bl.orPatternTest(p, subj, sk, matched, failed) {
-			bl.g.dc.patternFailed(p)
-			return false
-		}
-	case *ast.IntLit, *ast.StringLit, *ast.CodepointLit, *ast.FloatLit, *ast.DecimalLit:
-		lit, lk, _, lok := bl.litFor(p, sk)
-		if !lok || lk != sk {
-			bl.g.dc.atPattern(p, "an `assert pattern = value` literal pattern over "+sk.nomi())
-			return false
-		}
-		m := ir.NewMatchLitInto(bl.g.irNodePos(p), bl.f.NewTemp(), subj, lit)
-		bl.b.Append(m)
-		bl.b.SetTerm(ir.NewBranch(bl.g.irNodePos(p), m.Dst(), matched.ID(), failed.ID()))
-		bl.b = matched
-	default:
-		var tested bool
-		switch {
-		case sk == kindBool || (sk.tag == tagNamed && irRetainedEnumKind(sk.def)):
-			tested = bl.enumCaseTest(p, subj, sk, matched, failed)
-		case irVectorCaseKind(sk):
-			tested = bl.vectorCaseTest(p, subj, sk, matched, failed)
-		case irSetCaseKind(sk):
-			tested = bl.setCaseTest(p, subj, sk, matched, failed)
-		case irCaseListKind(sk):
-			// Nominal elements too: the VM's list projections do not depend
-			// on the element.
-			tested = bl.listCaseTest(p, subj, sk, matched, failed)
-		case irRetainedTupleKind(sk):
-			tested = bl.tupleCaseTest(p, subj, sk, matched, failed)
-		case sk.tag == tagMap && irRetainedMapKind(sk):
-			tested = bl.mapCaseTest(p, subj, sk, matched, failed)
-		case irNominalCaseKind(sk):
-			// A struct, record or distinct pattern, as a `case` arm tests it.
-			next := failed
-			if !refutable {
-				next = matched
-			}
-			tested = bl.nominalCaseTest(p, subj, sk, matched, next)
-		default:
-			// A string prefix (`"a" + rest`), tested as a nested pattern
-			// is.
-			tested = bl.patternValueTest(p, subj, sk, matched, failed)
-		}
-		if !tested {
-			bl.g.dc.patternFailed(p)
-			return false
-		}
-	}
-	bl.bindAsNames(t.Pattern, subj, sk)
-	if refutable && !irBlockTargeted(bl.f, failed.ID()) {
-		// The tests built no failure edge: every nested sub-pattern only
-		// binds (`Holder{r: {a:, b:}}`, a record inside a struct). The
-		// mismatch block is unreachable, so it reads nothing.
-		failed.SetTerm(ir.NewReturnUnit(pos))
-		refutable = false
-	}
-	if refutable {
+	if irBlockTargeted(bl.f, failed.ID()) {
 		text := renderNode(&ast.PatternDestructure{Pattern: t.Pattern, Value: t.Value, Line: t.Line, Col: t.Col})
 		a := ir.NewAssertMismatch(pos, subj, text)
 		if def != nil {
 			a.WithBinding(*def)
 		}
 		failed.Append(a)
-		failed.SetTerm(ir.NewReturnUnit(pos))
 	}
+	failed.SetTerm(ir.NewReturnUnit(pos))
 	return true
 }
 
@@ -175,30 +82,6 @@ func (bl *irScalarBuilder) assertDefinedAs(at ast.Node, val ir.Temp) (*ir.Assert
 		def.Stages = stages
 	}
 	return def, true
-}
-
-// irNominalIrrefutable reports whether a struct, record or distinct pattern
-// only binds names: no sub-pattern it holds can fail.
-func irNominalIrrefutable(pattern ast.Node) bool {
-	binds := func(n ast.Node) bool {
-		switch n.(type) {
-		case nil, *ast.IdentPattern, *ast.WildcardPattern:
-			return true
-		}
-		return false
-	}
-	switch p := pattern.(type) {
-	case *ast.StructPattern:
-		for _, f := range p.Fields {
-			if !binds(f.Pattern) {
-				return false
-			}
-		}
-		return true
-	case *ast.EnumPattern:
-		return binds(p.Payload)
-	}
-	return false
 }
 
 // irBlockTargeted reports whether any block of f branches, jumps or faults

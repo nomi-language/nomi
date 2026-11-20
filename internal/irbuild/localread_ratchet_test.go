@@ -7,7 +7,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 )
@@ -28,38 +27,18 @@ var maxLocalReadSites = map[localReadClass]int{
 	localReadNestedSelf:            1,
 }
 
-// checkLocalReadCensus fails when a class's sites rise past its maximum,
-// naming them, and logs one that fell, as checkOperatorCensus does, so the
-// check never depends on what else the process lowered or read from the
-// artifact cache.
-func checkLocalReadCensus(t *testing.T, sites map[localReadClass][]string) {
-	t.Helper()
-	for class := range maxLocalReadSites {
-		if _, known := knownLocalReadClasses[class]; !known {
-			t.Errorf("maxLocalReadSites holds %q, which knownLocalReadClasses does not list: remove it", class)
-		}
-	}
-	var lines []string
-	for class := range sites {
-		lines = append(lines, fmt.Sprintf("%s: %d", class, len(sites[class])))
-	}
+// localReadRatchet holds the local read census to maxLocalReadSites:
+// every class knownLocalReadClasses lists.
+func localReadRatchet() censusRatchet {
+	r := censusRatchet{what: "local reads", held: map[string]bool{}, max: map[string]int{},
+		fix: "read the binding the checker resolved"}
 	for class := range knownLocalReadClasses {
-		n := len(sites[class])
-		max, listed := maxLocalReadSites[class]
-		switch {
-		case !listed:
-			t.Errorf("%q is a known class with no maxLocalReadSites entry: add it at %d", class, n)
-		case n > max:
-			list := append([]string(nil), sites[class]...)
-			sort.Strings(list)
-			t.Errorf("%d reads are %q, and at most %d may be: read the binding the checker resolved:\n  %s",
-				n, class, max, strings.Join(list, "\n  "))
-		case n < max:
-			t.Logf("%d reads are %q: lower its maxLocalReadSites entry to %d", n, class, n)
-		}
+		r.held[string(class)] = true
 	}
-	sort.Strings(lines)
-	t.Logf("local read sites by class: %s", strings.Join(lines, ", "))
+	for class, n := range maxLocalReadSites {
+		r.max[string(class)] = n
+	}
+	return r
 }
 
 // A read whose binding and reference differ in a way no listed class

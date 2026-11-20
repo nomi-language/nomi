@@ -65,9 +65,10 @@ func DecodeImage(data []byte, opts ...DecodeOption) (im Image, err error) {
 type DecodeOption func(*decoder)
 
 // WithLinkedSymbols makes each symbol the image writes with a linkage name
-// the one resolve answers for it, instead of a fresh symbol: what links an
-// object into the program its other objects make (Linker).
-func WithLinkedSymbols(resolve func(name, link string) *Symbol) DecodeOption {
+// the one resolve answers for the symbol as written, instead of that fresh
+// symbol: what links an object into the program its other objects make
+// (Linker).
+func WithLinkedSymbols(resolve func(written *Symbol) *Symbol) DecodeOption {
 	return func(d *decoder) { d.resolve = resolve }
 }
 
@@ -223,7 +224,7 @@ func (r *rbuf) count() int {
 
 type decoder struct {
 	// resolve answers the symbol of a linkage name (WithLinkedSymbols).
-	resolve func(name, link string) *Symbol
+	resolve func(written *Symbol) *Symbol
 	// files renames each file a module name or a position names
 	// (WithDecodedFileNames), memoized in named; nil keeps every name.
 	files func(string) string
@@ -250,12 +251,14 @@ func (d *decoder) image(r *rbuf) Image {
 	}
 	d.syms = make([]*Symbol, r.count())
 	for i := range d.syms {
-		name, link := d.str(r.uv()), d.str(r.uv())
-		if link != "" && d.resolve != nil {
-			d.syms[i] = d.resolve(name, link)
-			continue
+		s := &Symbol{name: d.str(r.uv()), link: d.str(r.uv())}
+		if r.bool1() {
+			s.impl = &ImplFunc{Type: d.str(r.uv()), Interface: d.str(r.uv()), Func: d.str(r.uv())}
 		}
-		d.syms[i] = &Symbol{name: name, link: link}
+		if s.link != "" && d.resolve != nil {
+			s = d.resolve(s)
+		}
+		d.syms[i] = s
 	}
 	d.tabs = make([]*Table, r.count())
 	for i := range d.tabs {
